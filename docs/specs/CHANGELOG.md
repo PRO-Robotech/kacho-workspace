@@ -125,6 +125,54 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.4.0`
 
+## 2026-05-03 — Sub-phase 0.5 (LoadBalancer) завершена
+
+**Что готово:**
+- `kacho-proto/proto/kacho/cloud/loadbalancer/v1/`: NetworkLoadBalancer + TargetGroup + LoadBalancerInternalService с RemoveTarget RPC. 6 .pb.go committed.
+- `kacho-loadbalancer`: 24 теста PASS (19 unit + 5 integration), coverage 63.8%. Clean Architecture с reconciler-ом для NLB lifecycle (CREATING→ACTIVE 5-15s simulated). TG synchronous (READY in tx). Cross-service clients к resource-manager/vpc/compute.
+- `kacho-deploy/helm/umbrella` 0.6.0: loadbalancer + api-gateway deps раскомментированы.
+
+**Smoke (Phase D 0.5):** включён в полный stack-smoke 0.6 ниже.
+
+**Acceptance:** 81 сценарий, 13 групп (A-N); APPROVED round 2 (commit `5e4d5e7`).
+
+**Tag:** `v0.5.0`
+
+## 2026-05-03 — Sub-phase 0.6 (API Gateway) завершена
+
+**Что готово:**
+- `kacho-api-gateway`: cmux + gRPC-proxy (`mwitkow/grpc-proxy`) + REST mux skeleton + allowlist (63 публичных RPC) + middleware (request-id, recovery, slog access log, auth-noop) + health (HTTP /healthz /readyz + gRPC Health). 30 unit-тестов PASS. Persistent gRPC-connection pool с keepalive 30s.
+- Allowlist excludes ALL `*InternalService` методов; defense-in-depth через `HasInternalSuffix(methodPath)` проверку.
+- Helm chart 0.6.0 с Ingress (host: api.kacho.local, backend-protocol: GRPC, proxy-read-timeout: 120s).
+
+**Известное ограничение:** REST мaршруты не активны — proto-файлы Kachō не содержат `google.api.http` аннотаций. Grpc-gateway ServeMux инициализирован, но routes возвращают 404. gRPC через port 8080 полностью работает. REST UX перенесён на phase 1 (требует addition `import "google/api/annotations.proto"` + URL опции в каждый proto RPC).
+
+**FULL STACK SMOKE (Phase D 0.5+0.6):**
+- `make dev-up`: 10 pods (4 Postgres + ingress + 5 services), все Running 1/1
+- HTTP `/healthz` через api-gateway → `{"status":"ok"}`
+- HTTP `/readyz` → `{"status":"ok","backends":{"compute":"SERVING","loadbalancer":"SERVING","resourcemanager":"SERVING","vpc":"SERVING"}}`
+- **gRPC через gateway (с proto-файлами для grpcurl):**
+  - `OrganizationService/List` — возвращает default-org через resource-manager
+  - `ImageService/List` — возвращает seed-каталог (ubuntu-22.04-lts, ubuntu-20.04-lts, debian-11) через compute
+  - **`FolderInternalService/Exists` — заблокирован: `Code: NotFound, Message: unknown method: /...FolderInternalService/Exists`**. Подтверждение CLAUDE.md prohibition #7: Internal.* методы НЕ маршрутизируются наружу через api-gateway.
+- Access log: structured JSON через slog с request-id propagation работает.
+
+**Найденные/исправленные проблемы:**
+- loadbalancer port 9094 → 9090 для consistency с другими backends (gateway конфигурирован на :9090).
+- helm/post-install/ingress.yaml удалён — api-gateway chart теперь владеет ingress.
+
+**Acceptance:** 59 сценариев в 12 группах (A-L); APPROVED round 2 (commit `88db213`).
+
+**Tag:** `v0.6.0`
+
+---
+
+## Sub-phase 0.x (Bootstrap phase) — ИТОГ
+
+7 sub-итераций (0.1-0.6 + 0.7 e2e в составе 0.6) завершены. Полный control plane Kachō (Org/Cloud/Folder/Network/Subnet/SG/RT/Address/Instance/Disk/Image/Snapshot/NLB/TG) работает в kind-кластере с api-gateway фронтендом, allowlist-фильтрацией Internal, Watch-инфраструктурой, reconciler-ами для compute и loadbalancer.
+
+**Tags:** v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.5.0, v0.6.0
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
