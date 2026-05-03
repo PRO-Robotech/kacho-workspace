@@ -143,6 +143,21 @@ func (h *Handler) Upsert(ctx context.Context, req *computev1.InstanceUpsertReque
 - [ ] Defer для cleanup: `defer rows.Close()`, `defer cancel()` — сразу после создания ресурса
 - [ ] Нет magic numbers — используй именованные константы или enum
 
+### 3.10 Переиспользование через `kacho-corelib`
+
+Принцип из workspace-CLAUDE.md: **всё, что может быть нужно 2+ сервисам — выносится в `kacho-corelib/<package>/`.**
+
+- [ ] Утилита, которую сервис пишет «для себя» (helper для UUID, error-mapping, env-config wrapper, gRPC interceptor, transactor) — есть ли уже эквивалент в `kacho-corelib`? Если **да** — должен быть импорт, не дубликат.
+- [ ] Если эквивалента нет, но логика будет нужна другим сервисам (cross-cutting: tracing, logging, metrics, retry-helper, common SQL-builder) — **флагай как Important**: «вынести в `kacho-corelib/<package>/`, использовать здесь как импорт».
+- [ ] Бизнес-логика домена (Compute reconciler, VPC ref-validation, NLB target-deregister finalizer) — остаётся в сервисном репо. Выноси только **горизонтальные** cross-cutting concerns, не вертикальные доменные.
+
+Пример замечания:
+```
+[CORELIB CANDIDATE] internal/repo/uid.go:12 — функция NewUID() локально реализована.
+  Эквивалент уже есть: kacho-corelib/ids.NewUID(). Заменить на импорт
+  github.com/PRO-Robotech/kacho-corelib/ids.
+```
+
 ## 4. Формат ревью
 
 ```markdown
