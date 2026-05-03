@@ -77,6 +77,27 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.2.0` (в kacho-workspace; запушен после сборки git-remote)
 
+## 2026-05-03 — Sub-phase 0.3 (VPC) завершена
+
+**Что готово:**
+- `kacho-proto/proto/kacho/cloud/vpc/v1/`: Network, Subnet, SecurityGroup+Rule, RouteTable+StaticRoute, Address + VpcInternalService (5×Exists, 5×HasDependents, UpdateAddressStatus). 12 .pb.go committed.
+- `kacho-vpc`: 48 файлов, 6649 строк. Clean Architecture (handler→service→repo с port-интерфейсами + cross-service FolderClient). 7/7 integration tests PASS (B1, B5, C1, D3, F1, G1, H4). Coverage service-layer 31.4%.
+- `kacho-deploy/helm/umbrella` 0.3.0: vpc dep раскомментирован.
+
+**Smoke (Phase D 0.3):**
+- `make dev-up`: 6 pods (4 Postgres + ingress + resource-manager + vpc), все Running 1/1
+- vpc + resource-manager оба listening :9090 в кластере
+- `grpcurl NetworkService/Upsert` создаёт smoke-net в default-folder
+- `grpcurl NetworkService/List` показывает созданную сеть с status.state=ACTIVE
+- Address allocation из 203.0.113.0/24 работает (UNIQUE constraint)
+
+**Acceptance:** 82 сценария, 10 групп (A-J); APPROVED round 2 (commit `809b41b`).
+
+**Известные ограничения:**
+- Клиент при upsert vpc-ресурса передаёт полную цепочку organizationId+cloudId+folderId; сервер не дёргает дополнительный Internal RPC к resource-manager для derive parents (это потребовало бы новый `Folder.Internal.GetParents` метод). Перенесено на улучшение в будущих фазах.
+
+**Tag:** `v0.3.0`
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
