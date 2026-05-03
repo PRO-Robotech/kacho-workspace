@@ -2,7 +2,7 @@
 
 **Документ:** acceptance / sub-phase 0.3
 **Дата:** 2026-05-03
-**Статус:** Draft, на ревью
+**Статус:** Draft, round 2 (после ревью)
 **Источник требований:** `04-roadmap-and-phasing.md` §3 «Sub-итерация 0.3»; `01-architecture-and-services.md` §2.3, §3, §4; `02-data-model-and-conventions.md` §2, §4, §6–10, §14; `00-overview-and-scope.md` §4.
 **Утверждение:** approve выставляет агент `acceptance-reviewer` (заказчик не подключается — он проверяет финальный smoke на шаге 7, см. `04-roadmap-and-phasing.md` §2).
 
@@ -19,15 +19,25 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 - Cross-service validation из vpc в другие сервисы (compute → vpc) — ответственность sub-phase 0.4.
 - SecurityGroup attachment к Instance (это cross-service) — sub-phase 0.4.
 - Address lifecycle `IN_USE` (изменяется compute-сервисом при attach) — sub-phase 0.4.
+- `Address.spec.address_type = INTERNAL` — отложено; в 0.3 поддерживается только `EXTERNAL`. Попытка создать INTERNAL Address → `INVALID_ARGUMENT`.
+- CIDR overlap detection между Subnet внутри одной Network — не входит в 0.3, зарезервировано.
 - Пагинация глубже 1000 — зарезервирована архитектурно.
 - AAA — отдельная фаза.
 
 **Зафиксированные соглашения:**
-- `ALREADY_EXISTS` не используется: upsert-семантика (name + folderId → create-or-update).
-- SecurityGroupRule и StaticRoute — дочерние ресурсы, хранятся в отдельных таблицах с same-DB FK CASCADE. Управляются через родительский Upsert (inline в `spec`). Нет отдельных `SecurityGroupRuleService` / `StaticRouteService` — правила upsert-ируются атомарно с родителем.
-- Address: при Upsert status.state = `RESERVED` выставляется сразу (синхронный переход, без reconciler).
-- Network/Subnet/SG/RouteTable: при Upsert status.state = `ACTIVE` сразу.
+- `ALREADY_EXISTS` зарезервирован, но в upsert-only API **не используется**. Семантика: `name + folderId → create-or-update`.
+- **Concurrent create-collision** (два вызова Upsert с одним и тем же `name+folderId`, попытка одновременного insert): сервер возвращает `ABORTED` проигравшему вызову (retry-семантика). `ALREADY_EXISTS` при concurrent upsert не применяется.
+- **Server-managed поля** (`status`, `metadata.uid`, `metadata.creationTimestamp`, `metadata.resourceVersion`) **игнорируются на входе**: если клиент передаёт их в запросе, сервер не возвращает ошибку, но проставляет собственные значения, игнорируя клиентские. Это соответствует K8s-конвенции и решению 0.2-G1a.
+- **`metadata.uid` при создании**: сервер всегда присваивает новый UUID v4, игнорируя uid в запросе (вариант A, аналогично 0.2-G1a). Ответ содержит server-assigned uid.
+- **CIDR-валидация**: проверяется через `net.ParseCIDR`; host-bits-set отклоняется (`10.0.0.1/24` → `INVALID_ARGUMENT`, требуется network address `10.0.0.0/24`). Для Subnet — принимаются любые валидные CIDR (не только RFC 1918).
+- **`status.allocated_ipv4` для Address**: сервер генерирует псевдослучайный IP из диапазона `203.0.113.0/24` (TEST-NET-3, RFC 5737). Уникальность обеспечивается UNIQUE constraint на уровне таблицы (`addresses.allocated_ipv4`).
+- **SecurityGroupRule.id**: server-assigned UUID, генерируется заново при каждом Upsert (full-replace семантика). Клиент не передаёт `id` правил — они всегда пересоздаются.
+- **SecurityGroupRule и StaticRoute** — дочерние ресурсы, хранятся в отдельных таблицах с same-DB FK CASCADE. Управляются через родительский Upsert (inline в `spec`). Нет отдельных `SecurityGroupRuleService` / `StaticRouteService` — правила upsert-ируются атомарно с родителем (DELETE + INSERT в одной транзакции).
+- **Address**: при Upsert `status.state = "RESERVED"` выставляется сразу (синхронный переход, без reconciler).
+- **Network/Subnet/SG/RouteTable**: при Upsert `status.state = "ACTIVE"` сразу.
+- **`network_id` в FieldSelector** (для фильтрации Subnet/RouteTable по Network): передаётся через `FieldSelector.refs` с `kind = "Network"`, `uid = <net-uid>`. Расширение общего FieldSelector или введение VPC-специфичного типа **не требуется**; proto-изменений нет.
 - **Имена integration-тест-функций** следуют паттерну `Test<Resource>_<ScenarioID>_<ShortDesc>` (например, `TestNetwork_B1_CreateHappyPath`). E2e bash-скрипты — `kacho-deploy/e2e/0.3/<ID>-<short-desc>.sh`.
+- **kacho-vpc импортирует kacho-corelib**: используются пакеты `kacho-corelib/watch`, `kacho-corelib/outbox`, `kacho-corelib/selector`, `kacho-corelib/migrations/common` без дублирования per-service.
 
 ---
 
@@ -54,6 +64,8 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 **And** package declaration во всех файлах — `package kacho.cloud.vpc.v1;`
 **And** go_package option — `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/vpc/v1`
 
+*Трассируемость:* сценарий покрывается шагом `buf-lint` в `kacho-proto/.github/workflows/ci.yaml` (не Go-тестом).
+
 ### A2. buf breaking не регрессирует после изменений
 
 **ID:** 0.3-A2
@@ -65,6 +77,8 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 
 **Then** команда завершается с кодом 0 (обратная совместимость соблюдена)
 **And** если поле удалено или переименовано — команда завершается с ненулевым кодом (регрессия обнаружена)
+
+*Трассируемость:* сценарий покрывается шагом `buf-breaking` в `kacho-proto/.github/workflows/ci.yaml` (не Go-тестом).
 
 ### A3. proto Network содержит обязательные RPC и message-типы
 
@@ -405,19 +419,28 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 **And** запись в таблице `subnets` с `uid = <subnet-uid>` физически удалена
 **And** в `resource_events` событие `event_type = 'DELETED'`
 
-### C6. List Subnets: фильтр по network_id (через field_selector)
+### C6. List Subnets: фильтр по network_id (через FieldSelector.refs)
 
 **ID:** 0.3-C6
 
 **Given** Network `"net-a"` с `uid = <net-a>` и Network `"net-b"` с `uid = <net-b>` существуют
 **And** Subnet `"sub-1"` в `<net-a>`, Subnet `"sub-2"` в `<net-a>`, Subnet `"sub-3"` в `<net-b>`
 
-**When** клиент вызывает `SubnetService/List` с selector на `field_selector` по `network_id = <net-a>`
+**When** клиент вызывает `SubnetService/List` с:
+```json
+{
+  "selectors": [{
+    "field_selector": {
+      "refs": [{"kind": "Network", "uid": "<net-a>"}]
+    }
+  }]
+}
+```
 
 **Then** ответ содержит ровно 2 Subnet: `"sub-1"` и `"sub-2"`
 **And** `"sub-3"` не включена
 
-*Примечание:* `network_id` — кастомное поле VPC-специфичного `FieldSelector`. Включается в `VpcFieldSelector` расширение `FieldSelector` или передаётся через `refs` field. Реализация уточняется в §11 Open Questions (Q1).
+*Реализация:* `network_id` фильтруется через `FieldSelector.refs[0].uid` где `kind = "Network"`. Расширение общего FieldSelector и введение VPC-специфичного типа не требуются — proto-изменений нет.
 
 ### C7. Watch Subnet: получение ADDED события при Upsert
 
@@ -474,6 +497,8 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 **Then** сервер закрывает стрим с gRPC статусом `OUT_OF_RANGE` и message `"Gone: resourceVersion too old, please relist"`
 **And** `details[]` содержит `ErrorInfo` с `reason = "RESOURCE_VERSION_EXPIRED"`, `domain = "kacho.cloud"`
 **And** `details[]` содержит `RequestInfo` с непустым `request_id`
+
+*Примечание:* HTTP 410 Gone (REST через grpc-gateway, sub-phase 0.6) маппится в gRPC `OUT_OF_RANGE` на нативном уровне grpc-gateway.
 
 ---
 
@@ -539,10 +564,11 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 - `security_groups[0].spec.rules` содержит только 1 правило: INGRESS TCP 80 `"0.0.0.0/0"`
 
 **Then** в таблице `security_group_rules` ровно 1 запись для `<sg-uid>` (старые 2 удалены, новая 1 добавлена)
+**And** новая запись имеет новый server-assigned `id` (UUID, отличный от предыдущих — ID не сохраняются при full-replace)
 **And** `metadata.resourceVersion` > предыдущего значения
 **And** в `resource_events` событие `event_type = 'MODIFIED'`, `resource_kind = 'SecurityGroup'`
 
-*Реализация:* при Upsert SecurityGroup — DELETE FROM security_group_rules WHERE security_group_id = $uid, затем INSERT новые правила. Атомарно в одной транзакции.
+*Реализация:* при Upsert SecurityGroup — `DELETE FROM security_group_rules WHERE security_group_id = $uid`, затем `INSERT` новые правила с server-assigned UUID. Атомарно в одной транзакции. `SecurityGroupRule.id` генерируется заново при каждом Upsert.
 
 ### D4. Delete SecurityGroup — каскадно удаляет SecurityGroupRule (same-DB CASCADE)
 
@@ -690,7 +716,7 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 
 **Then** ответ содержит `addresses[0].metadata.uid` — непустой UUID
 **And** `status.state = "RESERVED"` (синхронный переход при создании)
-**And** `status.allocated_ipv4` — непустая строка, содержащая валидный IPv4 (server-assigned симулированный IP)
+**And** `status.allocated_ipv4` — непустая строка, содержащая валидный IPv4 из диапазона `203.0.113.1`–`203.0.113.254` (TEST-NET-3, RFC 5737; server-assigned симулированный IP; значение уникально — UNIQUE constraint на `addresses.allocated_ipv4`)
 **And** в таблице `addresses` запись с `name = 'addr-prod-ip'`
 **And** в `resource_events` событие `event_type = 'ADDED'`, `resource_kind = 'Address'`
 
@@ -1139,7 +1165,7 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 
 **Then** gRPC статус = `INVALID_ARGUMENT`
 **And** `details[]` содержит `BadRequest.field_violations[0].field = "addresses[0].spec.address_type"`
-**And** допустимые значения: EXTERNAL, INTERNAL
+**And** допустимые значения в 0.3: только `EXTERNAL` (`INTERNAL` не поддерживается в 0.3 — отложено)
 
 ### I13. Concurrent update Network — ABORTED (OCC protection)
 
@@ -1155,7 +1181,7 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 **And** второй вызов завершается с gRPC статусом `ABORTED`
 **And** в БД ровно одна запись `"shared-net"` с description победившего вызова
 
-### I14. Upsert с клиентски заданным metadata.uid — игнорирование или INVALID_ARGUMENT
+### I14. Upsert с клиентски заданным metadata.uid — сервер игнорирует
 
 **ID:** 0.3-I14
 
@@ -1167,10 +1193,12 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 - `networks[0].metadata.folderId = <folder-uid>`
 - `networks[0].metadata.uid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeef"` (клиент задаёт uid)
 
-**Then** (вариант A) `metadata.uid` в ответе **не равен** `"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeef"` — сервер присвоил новый UUID, проигнорировав клиентский
-**Or** (вариант B) gRPC статус = `INVALID_ARGUMENT` с `field_violations[0].field = "networks[0].metadata.uid"`
+**Then** gRPC статус = OK
+**And** `metadata.uid` в ответе **не равен** `"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeef"` — сервер присвоил новый UUID v4, проигнорировав клиентский
+**And** Network создана в БД с server-assigned uid
+**And** в `resource_events` событие `event_type = 'ADDED'` с server-assigned uid
 
-*Реализация выбирает один вариант и фиксирует его в плане.*
+*Зафиксировано:* вариант A (игнорирование), аналогично 0.2-G1a. Server-managed поля (`metadata.uid`, `metadata.creationTimestamp`, `metadata.resourceVersion`, `status`) сервер всегда выставляет самостоятельно, клиентские значения не применяются и не вызывают ошибки.
 
 ### I15. List с невалидным page_size — INVALID_ARGUMENT
 
@@ -1197,6 +1225,63 @@ Sub-итерация 0.3 реализует сервис `kacho-vpc` — control
 **Then** сервер немедленно возвращает `INVALID_ARGUMENT`
 **And** `details[].field_violations[0].field = "resource_version"`
 
+### I17. Upsert Network с заполненным полем status — сервер игнорирует
+
+**ID:** 0.3-I17
+
+**Given** сервис `NetworkService` запущен
+**And** Network с именем `"net-status-test"` не существует
+
+**When** клиент вызывает `NetworkService/Upsert` с:
+- `networks[0].metadata.name = "net-status-test"`
+- `networks[0].metadata.folderId = <folder-uid>`
+- `networks[0].spec.display_name = "Test Network"`
+- `networks[0].status.state = "DELETING"` (клиент пытается установить status)
+
+**Then** gRPC статус = OK
+**And** `status.state` в ответе = `"ACTIVE"` (сервер выставил корректный статус, проигнорировал клиентский `"DELETING"`)
+**And** Network создана в БД с `status.state = "ACTIVE"`
+**And** в `resource_events` событие `event_type = 'ADDED'`
+
+*Зафиксировано:* `status` — server-managed поле, игнорируется на входе (не вызывает `INVALID_ARGUMENT`). Сервер всегда выставляет статус самостоятельно согласно бизнес-логике. Это соответствует K8s-конвенции и политике server-managed fields из §0.
+
+### I18. Concurrent create-collision (одно имя, один folderId) — ABORTED
+
+**ID:** 0.3-I18
+
+**Given** сервис `NetworkService` запущен
+**And** Network с именем `"race-net"` в Folder `<folder-uid>` **не существует**
+
+**When** два параллельных gRPC-вызова `NetworkService/Upsert` одновременно пытаются **создать** Network с одним и тем же `name = "race-net"` и `folderId = <folder-uid>`:
+- вызов A: `spec.display_name = "Race A"`
+- вызов B: `spec.display_name = "Race B"`
+
+**Then** ровно один вызов завершается с gRPC статусом `OK` (Network создана с его display_name)
+**And** второй вызов завершается с gRPC статусом `ABORTED` (concurrent create collision на UNIQUE constraint `(folder_id, name)`)
+**And** в БД ровно одна запись `"race-net"` в данном Folder
+**And** `ALREADY_EXISTS` **не используется** — только `ABORTED` с retry-семантикой
+
+*Реализация:* сервер перехватывает `pgcode.UniqueViolation` при INSERT и конвертирует в `ABORTED`. Клиент должен повторить запрос (reread → retry).
+
+### I19. Upsert Subnet с cidr_block где установлены host-bits — INVALID_ARGUMENT
+
+**ID:** 0.3-I19
+
+**Given** Network `<net-uid>` существует, mock `FolderExists` → true
+
+**When** клиент вызывает `SubnetService/Upsert` с:
+- `subnets[0].metadata.name = "subnet-host-bits"`
+- `subnets[0].metadata.folderId = <folder-uid>`
+- `subnets[0].spec.network_id = <net-uid>`
+- `subnets[0].spec.cidr_block = "10.0.0.1/24"` (host-bits установлены: network address должен быть `10.0.0.0/24`)
+- `subnets[0].spec.zone_id = "kacho-zone-a"`
+
+**Then** gRPC статус = `INVALID_ARGUMENT`
+**And** `details[]` содержит `BadRequest.field_violations[0].field = "subnets[0].spec.cidr_block"`
+**And** `field_violations[0].description` указывает на требование сетевого адреса (`10.0.0.0/24`)
+
+*Реализация:* валидация через `net.ParseCIDR`; если `ip != network` (host-bits set) — `INVALID_ARGUMENT`.
+
 ---
 
 ## 10. Группа J — End-to-end smoke (port-forward, full flow)
@@ -1221,13 +1306,13 @@ FOLDER_UID=$(grpcurl -plaintext -d '{}' localhost:9091 \
 
 # шаг 2: создать Network
 grpcurl -plaintext \
-  -d "{\"networks\":[{\"metadata\":{\"name\":\"e2e-net\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{\"display_name\":\"E2E Network\"}}]}" \
+  -d "{\"networks\":[{\"metadata\":{\"name\":\"e2e-net\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{\"display_name\":\"E2E Network\"}}]}" \
   localhost:9090 \
   kacho.cloud.vpc.v1.NetworkService/Upsert
 
 # шаг 3: List и проверить
 grpcurl -plaintext \
-  -d "{\"selectors\":[{\"fieldSelector\":{\"folderId\":\"$FOLDER_UID\"}}]}" \
+  -d "{\"selectors\":[{\"field_selector\":{\"folder_id\":\"$FOLDER_UID\"}}]}" \
   localhost:9090 \
   kacho.cloud.vpc.v1.NetworkService/List
 ```
@@ -1247,18 +1332,18 @@ grpcurl -plaintext \
 ```bash
 # шаг 1: создать Network
 NET_UID=$(grpcurl -plaintext \
-  -d "{\"networks\":[{\"metadata\":{\"name\":\"e2e-net-full\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{}}]}" \
+  -d "{\"networks\":[{\"metadata\":{\"name\":\"e2e-net-full\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.NetworkService/Upsert \
   | jq -r '.networks[0].metadata.uid')
 
 # шаг 2: создать Subnet в этой Network
 grpcurl -plaintext \
-  -d "{\"subnets\":[{\"metadata\":{\"name\":\"e2e-subnet-a\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.10.0.0/24\",\"zone_id\":\"kacho-zone-a\"}}]}" \
+  -d "{\"subnets\":[{\"metadata\":{\"name\":\"e2e-subnet-a\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.10.0.0/24\",\"zone_id\":\"kacho-zone-a\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.SubnetService/Upsert
 
 # шаг 3: List Subnets
 grpcurl -plaintext \
-  -d "{\"selectors\":[{\"fieldSelector\":{\"folderId\":\"$FOLDER_UID\"}}]}" \
+  -d "{\"selectors\":[{\"field_selector\":{\"folder_id\":\"$FOLDER_UID\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.SubnetService/List
 ```
 
@@ -1301,17 +1386,17 @@ sleep 1
 
 # Создаём Subnet
 grpcurl -plaintext \
-  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.20.0.0/24\",\"zone_id\":\"kacho-zone-a\"}}]}" \
+  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.20.0.0/24\",\"zone_id\":\"kacho-zone-a\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.SubnetService/Upsert
 
 # Изменяем description
 grpcurl -plaintext \
-  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.20.0.0/24\",\"zone_id\":\"kacho-zone-a\",\"description\":\"Updated\"}}]}" \
+  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{\"network_id\":\"$NET_UID\",\"cidr_block\":\"10.20.0.0/24\",\"zone_id\":\"kacho-zone-a\",\"description\":\"Updated\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.SubnetService/Upsert
 
 # Удаляем
 grpcurl -plaintext \
-  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folderId\":\"$FOLDER_UID\"}}]}" \
+  -d "{\"subnets\":[{\"metadata\":{\"name\":\"watch-subnet-01\",\"folder_id\":\"$FOLDER_UID\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.SubnetService/Delete
 
 sleep 1
@@ -1334,13 +1419,13 @@ kill $WATCH_PID
 ```bash
 # создать Address
 ADDR_UID=$(grpcurl -plaintext \
-  -d "{\"addresses\":[{\"metadata\":{\"name\":\"e2e-addr-01\",\"folderId\":\"$FOLDER_UID\"},\"spec\":{\"address_type\":\"EXTERNAL\",\"zone_id\":\"kacho-zone-a\"}}]}" \
+  -d "{\"addresses\":[{\"metadata\":{\"name\":\"e2e-addr-01\",\"folder_id\":\"$FOLDER_UID\"},\"spec\":{\"address_type\":\"EXTERNAL\",\"zone_id\":\"kacho-zone-a\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.AddressService/Upsert \
   | jq -r '.addresses[0].metadata.uid')
 
 # List проверка
 grpcurl -plaintext \
-  -d "{\"selectors\":[{\"fieldSelector\":{\"folderId\":\"$FOLDER_UID\"}}]}" \
+  -d "{\"selectors\":[{\"field_selector\":{\"folder_id\":\"$FOLDER_UID\"}}]}" \
   localhost:9090 kacho.cloud.vpc.v1.AddressService/List
 
 # Delete
@@ -1373,9 +1458,10 @@ grpcurl -plaintext \
 
 Sub-итерация 0.3 считается **завершённой**, когда **все** условия выполнены:
 
-1. **Все сценарии §1–§10** (A1–A8, B1–B8, C1–C10, D1–D6, E1–E5, F1–F8, G1–G7, H1–H5, I1–I16, J1–J6) покрыты исполняемыми тестами:
+1. **Все сценарии §1–§10** (A1–A8, B1–B8, C1–C10, D1–D6, E1–E5, F1–F8, G1–G7, H1–H5, I1–I19, J1–J6) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-vpc/internal/service/*_acceptance_test.go` — все зелёные.
    - E2E bash-скрипты в `kacho-deploy/e2e/0.3/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.3`.
+   - A1 и A2 трассируются через CI-шаги `buf-lint` / `buf-breaking` в `kacho-proto/.github/workflows/ci.yaml` (не Go-тест-функции).
 
 2. **Proto** `kacho-proto/proto/kacho/cloud/vpc/v1/` содержит:
    - `network.proto` — Network, NetworkUpsert/Delete/List/WatchRequest/Response
@@ -1435,21 +1521,22 @@ Sub-итерация 0.3 считается **завершённой**, когд
 
 12. Тег `kacho-vpc:0.3.0` поставлен на `main` каждого затронутого репо.
 
+13. **kacho-corelib reuse**: `kacho-vpc` импортирует `kacho-corelib/{watch,outbox,selector,migrations/common}` без дублирования per-service. Проверяется через `go mod graph` — нет собственных копий этих компонентов.
+
 ---
 
 ## 12. Вопросы к acceptance-reviewer (Open questions)
 
-**Q1. network_id в SubnetService/List FieldSelector.** Текущая структура `FieldSelector` из `02-data-model-and-conventions.md` §7 содержит только `name`, `organization_id`, `cloud_id`, `folder_id`, `refs`. Для фильтрации Subnet по `network_id` нужно либо: (a) расширить общий `FieldSelector` полем `network_id`; (b) ввести VPC-специфичный `VpcFieldSelector` с дополнительными полями; (c) передавать `network_id` через `refs` с `kind = "Network"`. Какой вариант принять?
+*Все вопросы из round 1 закрыты. Открытых вопросов нет.*
 
-**Q2. Формат CIDR-валидации.** Какие конкретно правила для `cidr_block`? Принимать любой валидный CIDR (через `net.ParseCIDR`)? Или дополнительно ограничить: только private RFC 1918 диапазоны (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) для `INTERNAL`-суbnets? Разрешить ли host-bit set (например `10.0.0.1/24`), или требовать network address (`10.0.0.0/24`)?
-
-**Q3. Симулированный IP для Address.status.allocated_ipv4.** При создании Address с `address_type = EXTERNAL` сервис должен назначить IP. Как симулировать: (a) генерировать псевдорандомный IP из фиксированного диапазона `203.0.113.0/24` (TEST-NET-3 по RFC 5737); (b) взять следующий свободный из фиксированного pool `203.0.113.1`–`203.0.113.254`; (c) просто `"1.2.3.4"` как заглушка? Нужна ли uniqueness-гарантия allocated_ipv4?
-
-**Q4. SecurityGroupRule.id — server-assigned или client-specified?** Правила в spec передаются без ID (ID server-assigned). При повторном Upsert (full-replace) клиент не знает старые ID правил — они просто пересоздаются. Это принятое поведение? Или нужно сохранять ID правил по семантическому ключу (direction+protocol+port+cidr)?
-
-**Q5. Уникальность name для SecurityGroup, RouteTable, Address.** Уникальность `name` в пределах `folderId + resource_kind` зафиксирована в `02-data-model-and-conventions.md` §2.3. Подтвердите: UNIQUE constraint `(folder_id, name)` на таблицах `security_groups`, `route_tables`, `addresses`. Нарушение → `ABORTED` (concurrent upsert одновременно) или бросать как `ALREADY_EXISTS`?
-
-**Q6. Address.spec.address_type = INTERNAL.** Какое поведение при создании INTERNAL Address? Тоже выдаём `allocated_ipv4` из какого-то диапазона, или `allocated_ipv4` задаётся клиентом в spec? Если INTERNAL — нужна ли привязка к Subnet?
+| Вопрос | Решение | Зафиксировано в |
+|--------|---------|-----------------|
+| Q1: `network_id` в FieldSelector | Вариант (c): через `FieldSelector.refs[kind=Network, uid=<net-uid>]` | §0 соглашения, C6 |
+| Q2: CIDR-валидация | `net.ParseCIDR` + host-bits-set → `INVALID_ARGUMENT` | §0 соглашения, I2, I19 |
+| Q3: симулированный IP | `203.0.113.0/24` (TEST-NET-3, RFC 5737) + UNIQUE constraint | §0 соглашения, F1 |
+| Q4: SecurityGroupRule.id | Server-assigned UUID, регенерируется при каждом Upsert (full-replace) | §0 соглашения, D3 |
+| Q5: concurrent create → ABORTED | `ABORTED` (retry); `ALREADY_EXISTS` не используется | §0 соглашения, I18 |
+| Q6: INTERNAL Address | Не входит в 0.3; только `EXTERNAL` поддерживается | §0 «Что НЕ входит», I12 |
 
 ---
 
