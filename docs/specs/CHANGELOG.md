@@ -212,6 +212,70 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.7.0`
 
+## 2026-05-04 — Sub-phase 1.0 (flat API + Operations, verbatim YC) завершена
+
+**Major version bump.** Полностью переделан API-контракт. Теги 0.x остаются как frozen.
+
+**Что выкинуто:**
+- K8s-style envelope (`metadata/spec/status`) — больше нет
+- Watch RPC + WebSocket-streaming + `kacho-corelib/watch/` пакет — удалены
+- Custom `Internal*Service` методы — заменены на Operations
+- Hand-written 1.0 (промежуточная итерация) — заменена на verbatim YC sync
+
+**Что добавлено:**
+
+### Proto (verbatim YC, namespace `kacho.cloud.*`)
+- 71 .proto файл скопирован verbatim из `yandex-cloud/cloudapi`:
+  - `kacho/cloud/resourcemanager/v1/` (cloud, folder + services)
+  - `kacho/cloud/organizationmanager/v1/` (organization + service)
+  - `kacho/cloud/vpc/v1/` (network, subnet, address, route_table, security_group, gateway, privatelink + services)
+  - `kacho/cloud/compute/v1/` (frozen)
+  - `kacho/cloud/loadbalancer/v1/` (frozen)
+  - `kacho/cloud/operation/`, `api/`, `access/`, `validation.proto` — extension stack
+- Rewrites: `yandex.cloud` → `kacho.cloud`, `yandex-cloud/go-genproto` → `PRO-Robotech/kacho-proto`, `Yandex` mentions → `Kachō`. `make verify-no-yandex` clean.
+- 131 сгенерированный .pb / .pb.gw файл
+
+### kacho-corelib (1.0)
+- `operations/` package — Operation Repo + async Worker
+  - **Operation.id с domain prefix** (`rm_<uuid>`, `vpc_<uuid>`) для маршрутизации в api-gateway OpsProxy
+  - Worker использует `context.Background()` (detached от request-ctx — иначе goroutine падает с canceled при возврате handler-а)
+- Удалены: `watch/`
+
+### Backend services (3 active)
+- **kacho-resource-manager** — Get/List/Create/Update/Delete для Organization (organizationmanager.v1) + Cloud + Folder. Hard-delete (verbatim YC, no soft-delete). 75.6% coverage. Default Org/Cloud/Folder bootstrap.
+- **kacho-vpc** — Get/List/Create/Update/Delete для Network/Subnet/Address/RouteTable. Address с oneof External/Internal. Subnet с `v4_cidr_blocks []string`. RouteTable со `static_routes` JSONB. SecurityGroup/Gateway/PrivateLink — UNIMPLEMENTED stubs. 64.4% coverage.
+- **kacho-api-gateway** — REST mux для 6 services + OpsProxy для OperationService.Get/Cancel (no List у YC). Domain prefix routing. wsproxy удалён (Watch ушёл).
+
+### Frozen (не реализованы в 1.0)
+- **kacho-compute** — proto verbatim YC, backend код от 0.x несовместим. Frozen до отдельной фазы.
+- **kacho-loadbalancer** — то же самое.
+
+### kacho-ui — 7 ресурсов
+- Vite + React 19 + TS + Tailwind + shadcn — собран под verbatim YC URLs:
+  - `/organization-manager/v1/organizations`, `/resource-manager/v1/clouds`, `/resource-manager/v1/folders`
+  - `/vpc/v1/{networks,subnets,addresses,route-tables}`
+  - `/operations/{id}` для polling
+- Operation polling вместо Watch
+- Address form: oneof external/internal toggle
+- Subnet form: array v4_cidr_blocks
+- Build: 451 KB / 140 KB gzip
+
+**SMOKE PASSED:**
+- 8 pods Running 1/1 (4 service + UI + ingress + 2 Postgres)
+- `GET /resource-manager/v1/folders` → default folder `{id, name:"default", status:"ACTIVE", labels:{}}`
+- `POST /vpc/v1/networks` → `Operation{id:"vpc_<uuid>", done:false, metadata:CreateNetworkMetadata}`
+- Через 3 сек `GET /operations/vpc_<uuid>` → `done:true, response:Network{...}`
+- `GET /vpc/v1/networks?folder_id=...` → созданная network в списке
+- `verify-no-yandex` — clean во всех репо
+
+**Найденные/исправленные проблемы:**
+- buf STANDARD lint требовал ENUM_VALUE_PREFIX — добавлены в `buf.yaml::lint.except` (YC использует короткие enum values без prefix)
+- DeletedAt soft-delete pattern был у hand-written 1.0 — выкинут (verbatim YC = hard-delete)
+- Operation.id `UUID PRIMARY KEY` в БД блокировал prefix — поменяли на `TEXT`
+- Worker использовал request-ctx → cross-service gRPC падали с canceled — переключили на `context.Background()`
+
+**Tag:** `v1.0.0`
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
