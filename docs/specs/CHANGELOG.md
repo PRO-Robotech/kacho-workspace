@@ -136,3 +136,36 @@ dev-стенд за < 3 минут.
 - `04-roadmap-and-phasing.md §2 шаг 2` и `§5 пункт 3` — review заказчика → review `acceptance-reviewer`. Эскалация заказчику только при scope-конфликте или ≥3 нерезультативных раундах.
 - `03-deployment-and-operations.md §9` — 11 → 12 агентов; `acceptance-reviewer` добавлен в §9.2.
 - `acceptance-author` агент — переориентирован на координацию с `acceptance-reviewer` (а не заказчиком).
+
+## 2026-05-03 — Sub-phase 0.6 (API Gateway) завершена
+
+**Что готово:**
+
+- `kacho-api-gateway`: 26 файлов, ~1900 строк. Единая точка входа платформы Kachō на порту 8080.
+- `cmd/api-gateway/main.go` — composition root: cmux + gRPC-proxy + REST mux + middleware chain + health.
+- `internal/allowlist/list.go` — Go-константа из 63 публичных RPC-путей; `HasInternalSuffix` — эшелонированная защита от Internal-методов (запрет #7 CLAUDE.md).
+- `internal/proxy/` — gRPC-proxy через `mwitkow/grpc-proxy`; директор маршрутизирует по domain (`kacho.cloud.<domain>.v1.*`); один `*grpc.ClientConn` per backend с keepalive 30s.
+- `internal/restmux/` — grpc-gateway ServeMux скелет; REST `/v1/...` недоступен до добавления HTTP-аннотаций в proto (задокументировано, фаза 1).
+- `internal/middleware/` — request_id (preserve/generate UUID v4), recovery (panic → INTERNAL), access_log (slog JSON), auth_noop placeholder (F7).
+- `internal/health/` — /healthz (liveness, всегда 200), /readyz (readiness, grpc Health.Check на каждый backend), gRPC `grpc.health.v1.Health/Check`.
+- `deploy/` — Helm chart 0.6.0 (Deployment + Service + Ingress с `proxy-read-timeout=120`); Dockerfile (parent-context pattern).
+
+**Тесты (30 тестов, `go test ./... -race` OK):**
+- `allowlist`: матрица Internal-методов (E_Exists/E_HasDependents/E_UpdateStatus canonical), все публичные методы
+- `proxy`: A1–A5, E1, J3 — директор, routing, блокировка
+- `middleware`: F1, F2, F3, F6, F7
+- `health`: G1, G3
+- `gateway_test` (интеграция с mock-backends): A1, A5, E1, G1, G5, J5
+
+**Принятые решения:**
+- REST через grpc-gateway: proto-файлы `kacho-proto` не содержат `google.api.http` аннотаций → REST `/v1/...` не работает до фазы 1. Архитектурный скелет готов, 14 `RegisterXxx` вызовов задокументированы в `internal/restmux/mux.go`.
+- cmux matcher: `HTTP2MatchHeaderFieldSendSettings("content-type", "application/grpc")` + `Any()` fallback.
+- Backend domains: `"resourcemanager"` / `"vpc"` / `"compute"` / `"loadbalancer"` — извлекаются из pkgParts[2] пути метода.
+
+**Smoke (helm lint, docker build):**
+- `helm lint deploy/` — 0 chart(s) failed
+- `docker build -f kacho-api-gateway/Dockerfile -t kacho-api-gateway:dev .` — успешно
+
+**Acceptance:** 59 сценариев, 11 групп (A-K); APPROVED commit `88db213`.
+
+**Tag:** `v0.6.0`
