@@ -53,6 +53,30 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.1.0` (`kacho-workspace:0.1.0` отменён — `:` невалиден в git tag)
 
+## 2026-05-03 — Sub-phase 0.2 (Resource Manager + Watch infrastructure) завершена
+
+**Что готово:**
+- `kacho-corelib`: добавлены `migrations/common/`, `outbox/`, `watch/`, `selector/` (purposes per spec §8). Coverage: outbox 100%, selector 87.7%, watch 74.5%.
+- `kacho-proto/proto/kacho/cloud/resourcemanager/v1/`: Organization, Cloud, Folder + Internal services + WatchEvent в common/v1.
+- `kacho-resource-manager`: Clean Architecture (handler → service → repo с port-интерфейсами); migrations 0001/0002 с triggers; sqlc-генерированные stubs; default Org/Cloud/Folder bootstrap (idempotent); helm chart 0.2.0; coverage 63.3%.
+- `kacho-deploy/helm/umbrella` 0.2.0: раскомментирован resource-manager dep.
+- `kacho-corelib/grpcsrv`: добавлен `reflection.Register(s)` (для grpcurl).
+
+**Smoke (Phase D 0.2):**
+- `make dev-up`: 5 pods (4 Postgres + ingress) + resource-manager Pod (1/1 Running)
+- `grpcurl OrganizationService/List`: возвращает default-org с uid + resourceVersion
+- `grpcurl CloudService/Upsert`: создаёт smoke-test-cloud в default-org
+- `grpcurl CloudService/List`: показывает default + smoke-test-cloud
+
+**Найденные/исправленные проблемы:**
+- goose не парсит `$$ ... $$` без явных `-- +goose StatementBegin/End` — добавлены в common migration
+- Bitnami secret имеет ключ `password` (для custom user), не `postgres-password` (admin) — поправлен resource-manager values.yaml
+- gRPC reflection не был зарегистрирован — добавлен в `kacho-corelib/grpcsrv.NewServer()`
+
+**Acceptance:** 71 сценарий, 9 групп (A-I); APPROVED round 2 (commit `1df396b`).
+
+**Tag:** `v0.2.0` (в kacho-workspace; запушен после сборки git-remote)
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
