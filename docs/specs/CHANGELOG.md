@@ -173,6 +173,45 @@ dev-стенд за < 3 минут.
 
 **Tags:** v0.1.0, v0.2.0, v0.3.0, v0.4.0, v0.5.0, v0.6.0
 
+## 2026-05-03 — Sub-phase 0.7 (Web UI) завершена
+
+**Что готово:**
+
+- `kacho-proto` — google.api.http annotations добавлены во все 14 публичных сервисов (3+5+4+2). Регенерированы `*.pb.gw.go` через grpc-gateway plugin. URL convention: `POST /v1/<resource-plural-kebab>/<action>`. Internal services НЕ аннотированы (CLAUDE.md prohibition #7).
+- `kacho-api-gateway` — REST mux активирован: `RegisterXxxServiceHandlerFromEndpoint` для всех 14 public services. Добавлен `tmc/grpc-websocket-proxy/wsproxy` для WebSocket-streaming Watch RPC. middleware/access_log responseWriter wrapper теперь прокидывает Flusher (chunked stream) и Hijacker (WS upgrade).
+- `kacho-ui` — новый репо, single SPA: Vite 6 + React 19 + TypeScript 5.7 + Tailwind 3.4 + shadcn-style components (Radix Dialog/DropdownMenu/Tabs/Slot) + TanStack Query 5.66 + React Router 7. ~1500 строк TS.
+- `kacho-deploy/helm/umbrella` 0.7.0: добавлен ui dep (nginx-served, ingress на console.kacho.local).
+
+**SPA features:**
+- Generic подход через `ResourceSpec` registry — одна реализация покрывает все 14 ресурсов.
+- ResourceListPage — list + filter + Action column (View/Edit/Delete).
+- ResourceDetailPage — Tabs (Overview/Spec/Status/Raw JSON) + Restart action для Instance.
+- Form-based Create/Edit Dialog со schema-driven полями: string/text/int/enum/ref/array/bool. Toggle Form↔JSON для advanced. ref-fields подгружают list через `/v1/<r>/list` (folder-scoped когда нужно).
+- StatusBadge color-coded по lifecycle state.
+- DashboardPage с 10 stat cards.
+- Sidebar группирован: Resource Manager / VPC / Compute / Load Balancer.
+- Folder selector в шапке (LocalStorage-persisted).
+
+**Watch через WebSocket (вместо polling):**
+- `useResourceWatch` hook — initial List + один длинный WebSocket к `/v1/<r>/watch?method=POST`.
+- Flow: client opens WS → sends body как первый frame (wsproxy proxy-ит как POST к grpc-gateway) → server-stream events приходят back каждый отдельным WS text frame.
+- Обработка ADDED/MODIFIED/DELETED → update local cache; OUT_OF_RANGE → relist; server-close → reconnect с exponential backoff 1s..10s.
+- WatchIndicator (live/listing/reconnecting/offline) в UI.
+- nginx UI-pod: `Upgrade: websocket` headers + `proxy_buffering off` + 3600s read timeout.
+
+**Smoke (Phase D 0.7):**
+- 10 pods Running (4 Postgres + ingress + 5 backend + ui)
+- `POST /v1/<r>/list` через UI nginx → 200
+- WS handshake `ws://.../v1/<r>/watch?method=POST` → `101 Switching Protocols`
+- Browser flow проверен: создание ресурсов через формы, edit, delete, live-обновление status через Watch (Disk CREATING→READY за секунды).
+
+**Найденные/исправленные проблемы:**
+- wsproxy после WS upgrade использует оригинальный HTTP method (GET для WebSocket initiation); Watch RPC зарегистрирован как POST в grpc-gateway → Method Not Allowed. Фикс: query-param `?method=POST` в WS URL — wsproxy `MethodOverrideParam`.
+- access_log middleware не прокидывал Flusher → grpc-gateway не мог стримить chunked. Hijacker не реализован → wsproxy не мог делать WS upgrade.
+- httpSrv.WriteTimeout=120s резал long-lived streams. Снят (=0).
+
+**Tag:** `v0.7.0`
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
