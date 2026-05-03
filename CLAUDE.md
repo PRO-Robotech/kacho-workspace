@@ -20,6 +20,21 @@ Kachō — облачная управляющая платформа (control p
 | Postgres database / schema | `kacho_<domain>` (с подчёркиванием) |
 | Env-переменные | `KACHO_<DOMAIN>_<NAME>` |
 
+## Принцип переиспользования через `kacho-corelib`
+
+**Всё, что может быть вынесено в общий компонент для переиспользования в нескольких сервисах — выносится в `kacho-corelib/<package>/`.**
+
+В `kacho-corelib` живут:
+
+- `ids/`, `errors/`, `config/`, `observability/`, `db/` (pgx pool + transactor), `grpcsrv/` (server bootstrap), `grpcclient/` (client factory) — sub-phase 0.1.
+- `watch/`, `outbox/`, `selector/` — sub-phase 0.2.
+- `migrations/common/` — общие миграции (`resource_events`, `resource_version_seq`, cleanup-функция); синхронизируются в каждое сервисное репо через `make sync-migrations`.
+- `audit/` — `AuditLogger` (no-op в текущей фазе, скелет под AAA).
+
+**Перед написанием новой утилиты в сервисном репо** — проверь, есть ли уже подходящий пакет в `kacho-corelib`. Если нет, но логика **будет нужна 2+ сервисам** — оформляй сразу в `kacho-corelib`, не дублируй per-service.
+
+**Исключение:** бизнес-логика конкретного домена (Compute reconciler, VPC ref-validation, NLB target-deregister finalizer) живёт в сервисном репо. В corelib — только горизонтальные cross-cutting concerns.
+
 ## Запреты (обязательно соблюдать)
 
 1. **НЕ начинать кодирование** до утверждения acceptance-документа Given-When-Then в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md`. См. `04-roadmap-and-phasing.md` §2.
