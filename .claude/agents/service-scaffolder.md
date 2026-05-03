@@ -11,6 +11,8 @@ description: Use when creating a new service repository (kacho-<svc>) from scrat
 
 Ты **не реализуешь бизнес-логику** — это задача `rpc-implementer`. Ты создаёшь skeleton: пустые директории, stub-файлы, конфиги сборки, Helm-chart, Dockerfile, CI.
 
+**Важно про proto:** ты НЕ создаёшь `proto/`-директорию внутри сервисного репо. Все `.proto`-определения Kachō лежат в едином центральном репо `kacho-proto/`; сервис импортирует сгенерированные stubs через `github.com/PRO-Robotech/kacho-proto/gen/go/...`. В `go.mod` сервиса должна быть зависимость на `kacho-proto`. Это упрощает breaking-change detection и синхронизацию версий между сервисами.
+
 ## 2. Условия запуска
 
 Запускайся когда:
@@ -146,7 +148,7 @@ module github.com/PRO-Robotech/kacho-<SVC>
 go 1.22
 
 require (
-    github.com/PRO-Robotech/kacho-api v0.0.0
+    github.com/PRO-Robotech/kacho-proto v0.0.0
     github.com/PRO-Robotech/kacho-corelib v0.0.0
     google.golang.org/grpc v1.64.0
     github.com/jackc/pgx/v5 v5.6.0

@@ -17,7 +17,7 @@ cloud-demo/                              (workspace, не git, рабочая д
 │   ├── bootstrap.sh
 │   ├── sync-all.sh
 │   └── go.work.example
-├── kacho-api/                           git: kacho-api
+├── kacho-proto/                           git: kacho-proto
 │   ├── proto/kacho/cloud/<domain>/v1/   ← proto-определения
 │   ├── gen/go/kacho/cloud/<domain>/v1/  ← сгенерированные stubs (committed)
 │   ├── buf.yaml + buf.gen.yaml + buf.lock
@@ -314,7 +314,7 @@ jobs:
       - run: docker push prorobotech/kacho-<svc>:${{ github.sha }}
 ```
 
-`kacho-api`-репо имеет дополнительный CI-step `buf breaking` против предыдущего тега — защита от breaking changes.
+`kacho-proto`-репо имеет дополнительный CI-step `buf breaking` против предыдущего тега — защита от breaking changes.
 
 ## 8. CLAUDE.md иерархия
 

@@ -11,6 +11,8 @@ description: Use after an acceptance document is APPROVED to implement one RPC e
 
 Ты работаешь в рамках уже существующего сервисного репо (scaffold создан `service-scaffolder`). Ты не создаёшь структуру репо — только заполняешь логику.
 
+**Важно про proto:** все `.proto`-файлы Kachō лежат в едином центральном репо `kacho-proto/proto/kacho/cloud/<domain>/v1/`. Сервисное репо ИМПОРТИРУЕТ сгенерированные Go-stubs из `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`. Если нужно добавить/изменить сообщение или RPC — это делает `proto-sync` в `kacho-proto`, не ты в сервисе.
+
 ## 2. Условия запуска
 
 Запускайся когда:
@@ -23,7 +25,7 @@ description: Use after an acceptance document is APPROVED to implement one RPC e
 ## 3. Входные данные
 
 1. Утверждённый acceptance-документ (путь к файлу)
-2. Proto-файлы сервиса в `kacho-api/proto/kacho/cloud/<domain>/v1/`
+2. Proto-файлы сервиса в `kacho-proto/proto/kacho/cloud/<domain>/v1/`
 3. Scaffold сервиса `kacho-<SVC>/`
 4. `kacho-workspace/docs/specs/02-data-model-and-conventions.md` — envelope, схемы БД, конвенции
 5. `kacho-workspace/docs/specs/04-roadmap-and-phasing.md §2` — TDD workflow
@@ -64,10 +66,10 @@ func TestInstance_0401_CreateWithBootDisk(t *testing.T) {
 
 ### Шаг 3. Написать / обновить proto (если нужно)
 
-Если RPC или сообщения ещё не существуют в `kacho-api/proto/`:
+Если RPC или сообщения ещё не существуют в `kacho-proto/proto/`:
 - Добавить сообщения с envelope `metadata`/`spec`/`status`
 - Добавить RPC в service
-- Запустить `cd kacho-api && buf generate`
+- Запустить `cd kacho-proto && buf generate`
 
 ### Шаг 4. Написать goose-миграцию
 

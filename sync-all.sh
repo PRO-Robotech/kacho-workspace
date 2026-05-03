@@ -4,7 +4,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-REPOS=(kacho-workspace kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
+REPOS=(kacho-workspace kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
 
 for r in "${REPOS[@]}"; do
   if [ ! -d "$WS_PARENT/$r/.git" ]; then

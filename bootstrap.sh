@@ -7,7 +7,7 @@ WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REMOTE_BASE="${KACHO_REMOTE_BASE:-git@github.com:PRO-Robotech}"
 
 REPOS=(
-  kacho-api
+  kacho-proto
   kacho-corelib
   kacho-api-gateway
   kacho-resource-manager

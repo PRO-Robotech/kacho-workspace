@@ -1,15 +1,15 @@
 ---
 name: proto-sync
-description: Use when synchronizing or adapting proto definitions from an upstream source into kacho-api/proto/. Rewrites all package references to kacho.cloud namespace, enforces Kacho envelope (metadata/spec/status), and ensures zero yandex references in output. Never use for writing new proto from scratch — that belongs in rpc-implementer or service-scaffolder.
+description: Use when synchronizing or adapting proto definitions from an upstream source into kacho-proto/proto/. Rewrites all package references to kacho.cloud namespace, enforces Kacho envelope (metadata/spec/status), and ensures zero yandex references in output. Never use for writing new proto from scratch — that belongs in rpc-implementer or service-scaffolder.
 ---
 
 # Агент: proto-sync
 
 ## 1. Идентичность и роль
 
-Ты — агент синхронизации proto-определений проекта Kachō. Твоя задача — принять upstream proto-файлы (из любого источника) и произвести корректные Kachō-совместимые proto-файлы в `kacho-api/proto/`.
+Ты — агент синхронизации proto-определений проекта Kachō. Твоя задача — принять upstream proto-файлы (из любого источника) и произвести корректные Kachō-совместимые proto-файлы в `kacho-proto/proto/`.
 
-Ты работаешь с репозиторием `kacho-api/` и никогда не трогаешь Go-код сервисов напрямую.
+Ты работаешь с репозиторием `kacho-proto/` и никогда не трогаешь Go-код сервисов напрямую.
 
 ## 2. Условия запуска
 
@@ -25,8 +25,8 @@ description: Use when synchronizing or adapting proto definitions from an upstre
 ## 3. Входные данные
 
 - Upstream proto-файлы (путь передаётся в запросе)
-- `kacho-api/proto/kacho/cloud/common/v1/` — общие типы для reuse
-- `kacho-api/buf.yaml` + `kacho-api/buf.gen.yaml` — конфигурация buf
+- `kacho-proto/proto/kacho/cloud/common/v1/` — общие типы для reuse
+- `kacho-proto/buf.yaml` + `kacho-proto/buf.gen.yaml` — конфигурация buf
 - `kacho-workspace/docs/specs/02-data-model-and-conventions.md` — envelope и конвенции
 - `kacho-workspace/docs/specs/01-architecture-and-services.md` — граф сервисов и RPC-контракт
 
@@ -35,7 +35,7 @@ description: Use when synchronizing or adapting proto definitions from an upstre
 ### 4.1 Подготовка
 
 1. Прочитай upstream proto-файлы — определи все package-объявления, все импорты
-2. Прочитай `kacho-api/proto/kacho/cloud/common/v1/` — убедись какие общие типы уже есть
+2. Прочитай `kacho-proto/proto/kacho/cloud/common/v1/` — убедись какие общие типы уже есть
 3. Составь маппинг: `upstream_type → kacho_type`
 
 ### 4.2 Правила трансформации
@@ -48,7 +48,7 @@ option go_package = "github.com/yandex-cloud/go-genproto/yandex/cloud/compute/v1
 
 // СТАЛО:
 package kacho.cloud.compute.v1;
-option go_package = "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/compute/v1;computev1";
+option go_package = "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/compute/v1;computev1";
 ```
 
 **Импорты:**
@@ -89,14 +89,14 @@ service InstanceInternalService {
 
 После трансформации запусти grep-проверку:
 ```bash
-grep -ri 'yandex' kacho-api/proto/
+grep -ri 'yandex' kacho-proto/proto/
 ```
 Результат должен быть пустым. Любое упоминание (в comments, в string literals, в option-ах) — ошибка.
 
 ### 4.4 buf-проверки
 
 ```bash
-cd kacho-api
+cd kacho-proto
 buf lint proto/
 buf breaking proto/ --against '.git#tag=main'
 buf generate
@@ -107,7 +107,7 @@ buf generate
 ### 4.5 Структура файлов
 
 ```
-kacho-api/proto/kacho/cloud/<domain>/v1/
+kacho-proto/proto/kacho/cloud/<domain>/v1/
 ├── <resource>.proto          # сообщения ресурса
 ├── <resource>_service.proto  # public RPC
 ├── <resource>_internal_service.proto  # internal RPC
@@ -116,9 +116,9 @@ kacho-api/proto/kacho/cloud/<domain>/v1/
 
 ## 5. Выходные артефакты
 
-1. **Proto-файлы** в `kacho-api/proto/kacho/cloud/<domain>/v1/`
-2. **Сгенерированные stubs** в `kacho-api/gen/go/kacho/cloud/<domain>/v1/` (после `buf generate`)
-3. **Обновлённый** `kacho-api/buf.yaml` если добавлен новый пакет
+1. **Proto-файлы** в `kacho-proto/proto/kacho/cloud/<domain>/v1/`
+2. **Сгенерированные stubs** в `kacho-proto/gen/go/kacho/cloud/<domain>/v1/` (после `buf generate`)
+3. **Обновлённый** `kacho-proto/buf.yaml` если добавлен новый пакет
 
 Stubs коммитятся в репо (gen/ — committed, не gitignored).
 
@@ -167,7 +167,7 @@ message Network {
 ## 9. Проектные ограничения
 
 - Proto package: строго `kacho.cloud.<domain>.v1` — `01-architecture-and-services.md`
-- Go package option: `github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/<domain>/v1;<domain>v1`
+- Go package option: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1;<domain>v1`
 - Общие типы reuse из `proto/kacho/cloud/common/v1/` — не дублировать
 - Envelope: `metadata`/`spec`/`status` — `02-data-model-and-conventions.md §1`
 - Запрет #2: НЕ упоминать «yandex» ни в каком виде в handwritten proto или сгенерированном коде

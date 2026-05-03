@@ -20,6 +20,24 @@ Kachō — облачная управляющая платформа (control p
 | Postgres database / schema | `kacho_<domain>` (с подчёркиванием) |
 | Env-переменные | `KACHO_<DOMAIN>_<NAME>` |
 
+## Структура репозиториев (polyrepo)
+
+Все репо живут как siblings в `cloud-demo/`:
+
+| Репо | Роль |
+|---|---|
+| `kacho-workspace` | этот репо: CLAUDE.md, агенты, спеки, bootstrap-скрипты |
+| **`kacho-proto`** | **единая центральная директория для всех `.proto`-определений Kachō** (от всех бекендов, всех доменов). Структура: `proto/kacho/cloud/<domain>/v1/*.proto`. Сгенерированные Go-stubs commit-ятся в `gen/go/...`. Импорт сервисов: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1` |
+| `kacho-corelib` | переиспользуемые Go-пакеты (см. ниже) |
+| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST (sub-phase 0.6) |
+| `kacho-resource-manager` | Organization / Cloud / Folder (sub-phase 0.2) |
+| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address (sub-phase 0.3) |
+| `kacho-compute` | Instance / Disk / Image / Snapshot (sub-phase 0.4) |
+| `kacho-loadbalancer` | NLB / TargetGroup (sub-phase 0.5) |
+| `kacho-deploy` | kind + Helm + Postgres-charts, e2e-сценарии |
+
+**Куда складывать новый `.proto`:** ВСЕГДА в `kacho-proto/proto/kacho/cloud/<domain>/v1/`. Сервисные репо НЕ содержат `.proto`-файлов — только Go-импорт сгенерированных stubs из `kacho-proto`. Это упрощает breaking-change detection (один `buf breaking` на всё), синхронизацию версий между сервисами и подключение клиентских SDK.
+
 ## Принцип переиспользования через `kacho-corelib`
 
 **Всё, что может быть вынесено в общий компонент для переиспользования в нескольких сервисах — выносится в `kacho-corelib/<package>/`.**

@@ -126,7 +126,7 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 
 **Скоуп:**
 - `kacho-workspace`-репо: CLAUDE.md, .claude/agents/*.md, .claude/settings.json, bootstrap.sh, sync-all.sh, go.work.example, README.md.
-- `kacho-api`-репо: каркас (`buf.yaml`, `buf.gen.yaml`, Makefile, gen/-структура), пока без proto-файлов конкретных сервисов. Только common-типы: ResourceMeta-helper, Selector, FieldSelector, ResourceRef, эвенты Watch.
+- `kacho-proto`-репо: каркас (`buf.yaml`, `buf.gen.yaml`, Makefile, gen/-структура), пока без proto-файлов конкретных сервисов. Только common-типы: ResourceMeta-helper, Selector, FieldSelector, ResourceRef, эвенты Watch.
 - `kacho-corelib`-репо: ids/ (UUID), errors/, db/ (pool, transactor), config/, grpcsrv/, observability/. Без watch/ и outbox/ (это в 0.2).
 - `kacho-deploy`-репо: kind/, helm/umbrella/ скелет, ingress, postgres-charts. Без сервисных deps (добавятся по мере появления).
 - Скрипт `make dev-up` — поднимает kind с пустым кластером + ingress + 4 пустых Postgres-инстанса (БД созданы, схем нет).
@@ -144,7 +144,7 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 - `kacho-corelib/outbox/` — wrapper над transactor для атомарной записи resource + event.
 - `kacho-corelib/selector/` — парсер FieldSelector + LabelSelector, генератор SQL-WHERE.
 - `kacho-corelib/migrations/common/` — `resource_events` table, `resource_version_seq`, cleanup-функция.
-- `kacho-api/proto/kacho/cloud/resourcemanager/v1/` — Organization, Cloud, Folder с RPC: Upsert, Delete, List, Watch.
+- `kacho-proto/proto/kacho/cloud/resourcemanager/v1/` — Organization, Cloud, Folder с RPC: Upsert, Delete, List, Watch.
 - `kacho-resource-manager`-репо: реализация (cmd, internal/service, internal/repo, миграции, deploy/).
 - bootstrap данных: при первом старте создаётся default Org → Cloud → Folder.
 
@@ -158,7 +158,7 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 ### Sub-итерация 0.3 — VPC
 
 **Скоуп:**
-- `kacho-api/proto/kacho/cloud/vpc/v1/` — Network, Subnet, SecurityGroup, SecurityGroupRule, RouteTable, StaticRoute, Address. Все RPC + internal Exists.
+- `kacho-proto/proto/kacho/cloud/vpc/v1/` — Network, Subnet, SecurityGroup, SecurityGroupRule, RouteTable, StaticRoute, Address. Все RPC + internal Exists.
 - `kacho-vpc`-репо: реализация. Без reconciler-а (lifecycle минимальный, переходы синхронные).
 - Cross-service validation: vpc → resource-manager (`Folder.Internal.Exists`).
 
@@ -170,7 +170,7 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 ### Sub-итерация 0.4 — Compute (с reconciler-ом)
 
 **Скоуп:**
-- `kacho-api/proto/kacho/cloud/compute/v1/` — Instance, Disk, Image, Snapshot. Все RPC + Restart + internal.
+- `kacho-proto/proto/kacho/cloud/compute/v1/` — Instance, Disk, Image, Snapshot. Все RPC + Restart + internal.
 - `kacho-compute`-репо: реализация **с reconciler-ом**. Симулированный lifecycle Instance (5–30с задержки). Симулированный disk attach. Симулированный snapshot progress.
 - Seed-таблицы: zones, disk_types, platforms, images_catalog (`0002_seed_catalogs.sql`).
 - Cross-service: compute → resource-manager + compute → vpc (subnet validation).
@@ -185,7 +185,7 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 ### Sub-итерация 0.5 — Load Balancer
 
 **Скоуп:**
-- `kacho-api/proto/kacho/cloud/loadbalancer/v1/` — NetworkLoadBalancer, TargetGroup. Все RPC.
+- `kacho-proto/proto/kacho/cloud/loadbalancer/v1/` — NetworkLoadBalancer, TargetGroup. Все RPC.
 - `kacho-loadbalancer`-репо: реализация с reconciler-ом.
 - Cross-service: loadbalancer → resource-manager + loadbalancer → vpc + loadbalancer → compute.
 - Finalizer на Instance: `loadbalancer.kacho.io/target-deregister`.

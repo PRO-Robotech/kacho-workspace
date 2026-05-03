@@ -31,7 +31,7 @@ description: Use after an acceptance document is APPROVED to convert each Given-
 
 1. Утверждённый acceptance-документ с ID сценариев
 2. `kacho-workspace/docs/specs/04-roadmap-and-phasing.md §2` — TDD workflow, примеры тест-функций
-3. Proto-файлы `kacho-api/gen/go/kacho/cloud/<domain>/v1/` — типы для тестов
+3. Proto-файлы `kacho-proto/gen/go/kacho/cloud/<domain>/v1/` — типы для тестов
 4. Существующие тесты как образец (если есть в репо)
 
 ## 4. Workflow
@@ -65,7 +65,7 @@ import (
 
     "github.com/stretchr/testify/require"
     "github.com/testcontainers/testcontainers-go/modules/postgres"
-    computev1 "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/compute/v1"
+    computev1 "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/compute/v1"
     "github.com/PRO-Robotech/kacho-compute/internal/service"
     "github.com/PRO-Robotech/kacho-compute/internal/testhelpers"
 )

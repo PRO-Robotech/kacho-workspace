@@ -457,7 +457,7 @@ resource_events
 | ASCII-бренд / технические идентификаторы | **`kacho`** |
 | Proto package | **`kacho.cloud.<domain>.v1`** |
 | gRPC method path | **`/kacho.cloud.<domain>.v1.<Service>/<Method>`** |
-| Go-модули, импорты | `github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/<domain>/v1` |
+| Go-модули, импорты | `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1` |
 | Имена репо | **`kacho-<part>`** (с дефисом) |
 | k8s namespace | **`kacho`** |
 | k8s service name | `<domain>` (`compute`, `vpc`, ...) |

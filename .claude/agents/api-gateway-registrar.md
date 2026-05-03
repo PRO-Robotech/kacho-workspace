@@ -25,8 +25,8 @@ description: Use after a new public RPC is implemented to register it in kacho-a
 ## 3. Входные данные
 
 1. Имя нового сервиса и RPC (из запроса или от `rpc-implementer`)
-2. Proto-файлы `kacho-api/proto/kacho/cloud/<domain>/v1/*_service.proto`
-3. Сгенерированные stubs `kacho-api/gen/go/kacho/cloud/<domain>/v1/` — содержат `Register*HandlerFromEndpoint`
+2. Proto-файлы `kacho-proto/proto/kacho/cloud/<domain>/v1/*_service.proto`
+3. Сгенерированные stubs `kacho-proto/gen/go/kacho/cloud/<domain>/v1/` — содержат `Register*HandlerFromEndpoint`
 4. `kacho-api-gateway/` — текущая структура gateway
 
 ## 4. Структура kacho-api-gateway

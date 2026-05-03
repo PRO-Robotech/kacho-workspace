@@ -39,7 +39,7 @@
 - `docs/specs/CHANGELOG.md`
 - `.github/workflows/ci.yaml`
 
-### `kacho-api/` (Phase 4)
+### `kacho-proto/` (Phase 4)
 - `go.mod`, `buf.yaml`, `buf.gen.yaml`, `buf.lock`
 - `proto/kacho/cloud/common/v1/{resource_meta.proto, selector.proto, resource_ref.proto}`
 - `gen/go/kacho/cloud/common/v1/*.pb.go` (committed)
@@ -123,7 +123,7 @@ Expected: `preflight OK`. Если что-то падает — фиксим и 
 
 ```bash
 cd cloud-demo
-for r in kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
+for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
   if [ ! -d "$r/.git" ]; then
     mkdir -p "$r" && (cd "$r" && git init -b main)
     echo "[init] $r"
@@ -341,7 +341,7 @@ description: Первый агент в любой sub-итерации/RPC/фи
 ```markdown
 ---
 name: proto-sync
-description: Синхронизация upstream-источников proto-определений (если подсматриваем в YC). Rewrite yandex.cloud → kacho.cloud. Работает над kacho-api/proto/.
+description: Синхронизация upstream-источников proto-определений (если подсматриваем в YC). Rewrite yandex.cloud → kacho.cloud. Работает над kacho-proto/proto/.
 ---
 
 Ты — синхронизатор proto-определений для Kachō.
@@ -630,7 +630,7 @@ teardown_fake_workspace() {
 setup_fake_remotes() {
   local remotes_dir="$TMP_WS/fake-remotes"
   mkdir -p "$remotes_dir"
-  for r in kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
     git init --bare "$remotes_dir/$r.git" >/dev/null
     # начальный коммит
     local work="$TMP_WS/work-$r"
@@ -679,7 +679,7 @@ teardown() { teardown_fake_workspace; }
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
 
-  for r in kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
     [ -d "$r/.git" ] || { echo "missing $r"; false; }
   done
 }
@@ -709,7 +709,7 @@ WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REMOTE_BASE="${KACHO_REMOTE_BASE:-git@github.com:PRO-Robotech}"
 
 REPOS=(
-  kacho-api
+  kacho-proto
   kacho-corelib
   kacho-api-gateway
   kacho-resource-manager
@@ -787,7 +787,7 @@ Expected: PASS.
   ./kacho-workspace/bootstrap.sh
 
   # Создаём локальный коммит в одном из репо
-  cd kacho-api
+  cd kacho-proto
   echo "local change" > local.txt
   git -c user.email=t@t -c user.name=t add local.txt
   git -c user.email=t@t -c user.name=t commit -m "local-only"
@@ -798,7 +798,7 @@ Expected: PASS.
   [[ "$output" == *"already cloned"* ]] || [[ "$output" == *"skip"* ]]
 
   # Локальный коммит сохранился
-  cd kacho-api
+  cd kacho-proto
   git log --oneline | grep -q "local-only"
 }
 ```
@@ -832,7 +832,7 @@ Expected: оба теста PASS.
   [[ "$output" == *"loadbalancer"* ]]
 
   # Другие репо клонировались
-  [ -d "kacho-api/.git" ]
+  [ -d "kacho-proto/.git" ]
   [ -d "kacho-vpc/.git" ]
 }
 ```
@@ -891,7 +891,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-REPOS=(kacho-workspace kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
+REPOS=(kacho-workspace kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
 
 for r in "${REPOS[@]}"; do
   if [ ! -d "$WS_PARENT/$r/.git" ]; then
@@ -933,7 +933,7 @@ Expected: PASS.
 go 1.22
 
 use (
-	./kacho-api
+	./kacho-proto
 	./kacho-corelib
 	./kacho-api-gateway
 	./kacho-resource-manager
@@ -1035,9 +1035,9 @@ Expected: `9` (включая kacho-workspace).
 
 ---
 
-## Phase 4 — kacho-api skeleton
+## Phase 4 — kacho-proto skeleton
 
-**Repo working dir:** `cloud-demo/kacho-api/`.
+**Repo working dir:** `cloud-demo/kacho-proto/`.
 
 ### Task 4.1: `go.mod` и базовые файлы
 
@@ -1047,7 +1047,7 @@ Expected: `9` (включая kacho-workspace).
 - [ ] **Step 1: `go mod init`**
 
 ```bash
-go mod init github.com/PRO-Robotech/kacho-api
+go mod init github.com/PRO-Robotech/kacho-proto
 ```
 
 - [ ] **Step 2: `.gitignore`**
@@ -1063,7 +1063,7 @@ go mod init github.com/PRO-Robotech/kacho-api
 - [ ] **Step 3: `README.md`**
 
 ```markdown
-# kacho-api
+# kacho-proto
 
 Proto-определения и сгенерированные Go-stubs для Kachō Cloud Control Plane.
 
@@ -1080,7 +1080,7 @@ Proto-определения и сгенерированные Go-stubs для K
 
 ```bash
 git add go.mod .gitignore README.md
-git commit -m "chore: kacho-api go.mod and skeleton"
+git commit -m "chore: kacho-proto go.mod and skeleton"
 ```
 
 ### Task 4.2: `buf.yaml`, `buf.gen.yaml`, `buf.lock` [C1, C3]
@@ -1145,7 +1145,7 @@ syntax = "proto3";
 
 package kacho.cloud.common.v1;
 
-option go_package = "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/common/v1;commonv1";
+option go_package = "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/common/v1;commonv1";
 
 import "google/protobuf/timestamp.proto";
 
@@ -1173,7 +1173,7 @@ message ResourceMeta {
 ```protobuf
 syntax = "proto3";
 package kacho.cloud.common.v1;
-option go_package = "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/common/v1;commonv1";
+option go_package = "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/common/v1;commonv1";
 
 message ResourceRef {
   string name = 1;
@@ -1187,7 +1187,7 @@ message ResourceRef {
 ```protobuf
 syntax = "proto3";
 package kacho.cloud.common.v1;
-option go_package = "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/common/v1;commonv1";
+option go_package = "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/common/v1;commonv1";
 
 import "kacho/cloud/common/v1/resource_ref.proto";
 
@@ -1285,7 +1285,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: bufbuild/buf-setup-action@v1
       - run: buf lint
-      - run: buf breaking --against "https://github.com/PRO-Robotech/kacho-api.git#branch=main"
+      - run: buf breaking --against "https://github.com/PRO-Robotech/kacho-proto.git#branch=main"
         continue-on-error: true  # на первом коммите main ещё нет baseline
       - name: verify gen/ is up-to-date
         run: |
@@ -1323,7 +1323,7 @@ cat > /tmp/test_import.go <<'EOF'
 package main
 import (
     "fmt"
-    commonv1 "github.com/PRO-Robotech/kacho-api/gen/go/kacho/cloud/common/v1"
+    commonv1 "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/common/v1"
 )
 func main() {
     m := &commonv1.ResourceMeta{Name: "x"}
@@ -1354,7 +1354,7 @@ go get google.golang.org/grpc@latest \
        github.com/testcontainers/testcontainers-go/modules/postgres@latest
 ```
 
-- [ ] **Step 2: `.gitignore`** (как в kacho-api)
+- [ ] **Step 2: `.gitignore`** (как в kacho-proto)
 
 ```gitignore
 *.exe
@@ -2146,7 +2146,7 @@ metadata:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: kacho-api
+  name: kacho-proto
   namespace: kacho
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: HTTP
@@ -2492,7 +2492,7 @@ git push
 - [ ] **Step 1**
 
 ```bash
-for r in kacho-workspace kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
+for r in kacho-workspace kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
   gh run list --repo PRO-Robotech/$r --limit 1 --json conclusion --jq '.[0].conclusion' | grep -q success \
     && echo "[OK] $r" || echo "[FAIL] $r"
 done
@@ -2539,7 +2539,7 @@ Expected: всё зелёное, < 5 минут.
 - make dev-up поднимает kind + 4 Postgres + ingress < 5 минут
 - 11 субагентов в .claude/agents/
 - kacho-corelib: ids, errors, db, config, grpcsrv, observability — > 70% coverage
-- kacho-api: common v1 (ResourceMeta, Selector, FieldSelector, ResourceRef)
+- kacho-proto: common v1 (ResourceMeta, Selector, FieldSelector, ResourceRef)
 - e2e/0.1/ — 9 bash-сценариев
 
 Tag: kacho-workspace:0.1.0
