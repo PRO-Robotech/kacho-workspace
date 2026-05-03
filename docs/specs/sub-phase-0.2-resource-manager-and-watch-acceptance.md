@@ -21,6 +21,12 @@ Sub-итерация 0.2 реализует первый работающий б
 - Пагинация глубже 1000 — зарезервирована архитектурно, но не тестируется в 0.2.
 - Finalizers на Organization/Cloud/Folder — у этих ресурсов нет lifecycle и нет finalizers; они удаляются мгновенно при Delete с пустым `finalizers[]` (который всегда пуст — поле не поддерживается для Org/Cloud/Folder согласно `02-data-model-and-conventions.md` §2.1).
 - Helm umbrella chart интеграция через `make dev-up` — resource-manager добавляется в helm umbrella, но e2e smoke через port-forward, не через api-gateway/ingress.
+- Проверка cluster-internal DNS (`resource-manager.kacho.svc.cluster.local:9090`) из другого Pod-а — отложена до sub-phase 0.6 (api-gateway). Все e2e-сценарии §9 используют исключительно `kubectl port-forward`.
+
+**Зафиксированные соглашения (resolved при ревью):**
+- `ALREADY_EXISTS` в данном сервисе **не используется**: upsert-семантика (`name + scope` → create-or-update) всегда выполняет INSERT OR UPDATE. Этот код ошибки зарезервирован для будущих фаз, где может появиться раздельный Create/Update. Сценарий G6 удалён.
+- `Organization.spec`, `Cloud.spec`, `Folder.spec` содержат два опциональных поля: `display_name string` и `description string`. Они не несут бизнес-логики — только UI-friendly отображение.
+- **Имена integration-тест-функций** следуют паттерну `Test<Resource>_<ScenarioID>_<ShortDesc>` (например, `TestOrganization_D2_NoDiffUpsertNoOp`). E2e bash-скрипты — `kacho-deploy/e2e/0.2/<ID>-<short-desc>.sh`.
 
 ---
 
@@ -132,8 +138,9 @@ Sub-итерация 0.2 реализует первый работающий б
 
 **When** Watch-клиент подключается с `resourceVersion = 100` (< минимального в outbox = 5000)
 
-**Then** сервер возвращает gRPC ошибку со статусом `GONE` (HTTP 410, gRPC-код `ResourceExhausted` с message "Gone: resourceVersion too old, please relist")
-**And** `details[]` содержит `RequestInfo` с `request_id`
+**Then** сервер возвращает gRPC ошибку со статусом `OUT_OF_RANGE` с message `"Gone: resourceVersion too old, please relist"`
+**And** `details[]` содержит `ErrorInfo` с `reason = "RESOURCE_VERSION_EXPIRED"` и `domain = "kacho.cloud"`
+**And** `details[]` содержит `RequestInfo` с непустым `request_id`
 **And** клиент должен выполнить `List` для получения текущего `resourceVersion` и начать новый Watch от него
 
 ### A8. Hub ticker fallback при отсутствии NOTIFY
@@ -389,7 +396,8 @@ Sub-итерация 0.2 реализует первый работающий б
 
 **Then** ответ содержит тот же `metadata.uid = <uid>`
 **And** `metadata.creationTimestamp` не изменился
-**And** `metadata.resourceVersion` не изменился (нет изменений spec/labels → нет новой версии, либо сервер может обновить resourceVersion даже при no-diff — конкретное поведение фиксируется в плане)
+**And** `metadata.resourceVersion` **не изменился** (no-op: нет diff в spec/labels → новая версия не выдаётся, событие MODIFIED не эмитируется — соответствует Kubernetes-семантике и снижает шум в Watch)
+**And** в `resource_events` новых событий для данного `uid` не появилось
 **And** в БД ровно одна запись с `name = 'my-org'` (не дублируется)
 
 ### D3. Upsert: изменение labels Organization генерирует MODIFIED событие
@@ -524,6 +532,8 @@ Sub-итерация 0.2 реализует первый работающий б
 **And** `violations[0].description` указывает на наличие зависимых Folder
 **And** Cloud НЕ удалён из БД
 
+*Реализация:* FK `RESTRICT` на уровне БД (`folders.cloud_id → clouds.uid ON DELETE RESTRICT`). Сервис перехватывает `pgcode.ForeignKeyViolation` (pgx) и конвертирует в `FAILED_PRECONDITION` с заполненным `PreconditionFailure`. Это предпочтительнее explicit SELECT-before-delete для консистентности при concurrent delete.
+
 ### D12. Upsert идентификация по name + scope (без uid)
 
 **ID:** 0.2-D12
@@ -552,6 +562,25 @@ Sub-итерация 0.2 реализует первый работающий б
 **Then** gRPC статус = OK
 **And** Organization физически удалена
 **And** В `resource_events` событие `event_type = 'DELETED'`
+
+### D14. Delete Organization с дочерними Cloud — FAILED_PRECONDITION
+
+**ID:** 0.2-D14
+
+**Given** Organization `"parent-org"` с `uid = <org-uid>` существует
+**And** В этой Organization существует Cloud `"child-cloud"` с `organization_id = <org-uid>`
+
+**When** клиент вызывает `OrganizationService/Delete` с:
+- `organizations[0].metadata.uid = <org-uid>`
+
+**Then** gRPC статус = `FAILED_PRECONDITION`
+**And** `details[]` содержит `PreconditionFailure` с:
+  - `violations[0].type = "HAS_DEPENDENT_RESOURCES"`
+  - `violations[0].subject = <org-uid>`
+  - `violations[0].description` содержит указание на наличие дочерних Cloud
+**And** Organization НЕ удалена из БД
+
+*Реализация:* FK `RESTRICT` на уровне БД (`clouds.organization_id → organizations.uid ON DELETE RESTRICT`). Сервис перехватывает `pgcode.ForeignKeyViolation` и конвертирует в `FAILED_PRECONDITION` с заполненным `PreconditionFailure`. Симметрично D11.
 
 ---
 
@@ -671,9 +700,9 @@ Sub-итерация 0.2 реализует первый работающий б
 
 **When** клиент открывает Watch стрим с `resourceVersion = 50`
 
-**Then** сервер закрывает стрим с ошибкой `GONE` (gRPC-код согласно `02-data-model-and-conventions.md` §14)
-**And** ошибка содержит message `"Gone: resourceVersion too old, please relist"`
-**And** `details[].request_info.request_id` заполнен
+**Then** сервер закрывает стрим с gRPC статусом `OUT_OF_RANGE` и message `"Gone: resourceVersion too old, please relist"`
+**And** `details[]` содержит `ErrorInfo` с `reason = "RESOURCE_VERSION_EXPIRED"` и `domain = "kacho.cloud"`
+**And** `details[]` содержит `RequestInfo` с непустым `request_id`
 
 ---
 
@@ -735,10 +764,10 @@ Sub-итерация 0.2 реализует первый работающий б
 
 **When** вызывается `ResourceManagerInternal/FolderExists` с `uid = <folder-uid>`
 
-**Then** ответ: `{exists: false}` (ресурс в процессе удаления не считается существующим для целей cross-service validation)
+**Then** ответ: `{exists: false}`
 **And** gRPC статус = OK
 
-*Примечание: в `resource-manager` у Org/Cloud/Folder нет finalizers → физическое удаление мгновенное. Сценарий F5 фиксирует семантику на случай, если в будущих фазах появятся finalizers.*
+*Обоснование:* ресурс с `deletionTimestamp != NULL` находится в процессе удаления и **не должен использоваться как `parent-ref`** в других сервисах (например, нельзя создать Compute Instance в Folder, которая уже помечена к удалению). Поэтому `Exists` возвращает `false` для мягко-удалённых ресурсов — независимо от того, есть ли у них физическая запись в БД. В `resource-manager` у Org/Cloud/Folder нет finalizers, поэтому удаление мгновенное; сценарий фиксирует семантику для будущих фаз (0.3–0.5), где finalizers присутствуют.
 
 ---
 
@@ -746,19 +775,21 @@ Sub-итерация 0.2 реализует первый работающий б
 
 Сценарии группы G покрывают обработку ошибочных входных данных. Коды ошибок согласно `02-data-model-and-conventions.md` §14.
 
-### G1. Upsert с полем status — INVALID_ARGUMENT
+### G1a. Upsert с клиентски заданным metadata.uid — сервер игнорирует или возвращает INVALID_ARGUMENT
 
-**ID:** 0.2-G1
+**ID:** 0.2-G1a
 
 **Given** Сервис `OrganizationService` запущен
+**And** Organization с именем `"new-org"` не существует
 
-**When** клиент вызывает `OrganizationService/Upsert` с payload, содержащим любые поля в блоке `status` (например, кастомный статус через unknown fields или если proto позволяет — через explicit status field)
+**When** клиент вызывает `OrganizationService/Upsert` с payload:
+- `organizations[0].metadata.name = "new-org"`
+- `organizations[0].metadata.uid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"` (клиент явно задаёт uid)
 
-**Then** gRPC статус = `INVALID_ARGUMENT`
-**And** `details[]` содержит `BadRequest.field_violations[0].field = "status"`
-**And** `details[]` содержит `RequestInfo.request_id` — непустой
+**Then** (вариант A) `metadata.uid` в ответе **не равен** `"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"` — сервер присвоил новый UUID v4, проигнорировав клиентский uid; в БД запись создана с server-assigned uid
+**Or** (вариант B) gRPC статус = `INVALID_ARGUMENT` с `details[].field_violations[0].field = "organizations[0].metadata.uid"`
 
-*Примечание: у Organization/Cloud/Folder нет `status`-блока в proto (нет lifecycle). Данный сценарий применим к proto-уровню; если proto не содержит поле `status`, тест фиксирует, что upsert-handler не принимает server-managed поля (uid, creationTimestamp, resourceVersion при попытке задать их клиентом).*
+*Реализация выбирает один вариант и фиксирует его в плане. Оба варианта допустимы; тест пишется под выбранный. У Organization/Cloud/Folder нет поля `status` в proto (нет lifecycle) — `metadata.uid` является единственным server-managed полем, которое клиент не должен задавать.*
 
 ### G2. Upsert с невалидным name — INVALID_ARGUMENT
 
@@ -811,33 +842,22 @@ Sub-итерация 0.2 реализует первый работающий б
 **Then** gRPC статус = `NOT_FOUND`
 **And** `details[]` содержит `ResourceInfo.resource_type = "Organization"`
 
-### G6. Upsert с дублирующимся name в scope — ALREADY_EXISTS
-
-**ID:** 0.2-G6
-
-**Given** Organization `"my-org"` уже существует
-**And** Клиент пытается создать **другую** Organization с таким же именем (например, передаёт пустой `uid` и имя `"my-org"`, и по логике сервера это считается созданием, не обновлением — то есть `uid` указан чужой или конфликт на уровне БД)
-
-**When** клиент вызывает `OrganizationService/Upsert` так, что триггер UNIQUE-нарушения на `name`
-
-**Then** gRPC статус = `ALREADY_EXISTS`
-**And** `details[]` содержит `ResourceInfo.resource_type = "Organization"`, `resource_name = "my-org"`
-
-*Примечание: стандартная upsert-семантика (create-or-update) не должна возвращать ALREADY_EXISTS при корректной идентификации (name + scope); этот сценарий покрывает случай, когда клиент намеренно пытается создать дубль с тем же именем но другим uid-ом.*
+*G6 удалён:* `ALREADY_EXISTS` не используется в `resource-manager` — upsert-семантика (`name + scope` → create-or-update) всегда выполняет INSERT OR UPDATE и никогда не возвращает `ALREADY_EXISTS`. Этот код зарезервирован для будущих фаз (если появится отдельный `Create` RPC без upsert-семантики).
 
 ### G7. Concurrent update — ABORTED (OCC protection)
 
 **ID:** 0.2-G7
 
-**Given** Organization `"shared-org"` существует
-**And** Две горутины одновременно читают её (SELECT FOR UPDATE)
-**And** Обе пытаются записать конкурентные изменения
+**Given** Organization `"shared-org"` существует с `metadata.resourceVersion = <R>`
 
-**When** обе транзакции выполняются параллельно
+**When** два параллельных gRPC-вызова `OrganizationService/Upsert` для одной и той же Organization отправляются одновременно, каждый с отличными `spec.display_name`:
+- вызов A: `organizations[0].metadata.name = "shared-org"`, `organizations[0].spec.display_name = "Version A"`
+- вызов B: `organizations[0].metadata.name = "shared-org"`, `organizations[0].spec.display_name = "Version B"`
 
-**Then** одна транзакция успешно коммитится
-**And** вторая транзакция возвращает gRPC статус `ABORTED`
-**And** клиент должен retry (семантика OCC согласно `02-data-model-and-conventions.md` §14)
+**Then** ровно один из вызовов завершается с gRPC статусом `OK` (coммит успешен)
+**And** второй вызов завершается с gRPC статусом `ABORTED` с message, указывающим на конфликт concurrent update
+**And** клиент, получивший `ABORTED`, должен повторить запрос (retry-семантика согласно `02-data-model-and-conventions.md` §14)
+**And** в БД ровно одна запись `"shared-org"` с `spec.display_name` победившего вызова
 
 ### G8. List с невалидным page_size — INVALID_ARGUMENT
 
@@ -875,6 +895,36 @@ Sub-итерация 0.2 реализует первый работающий б
 
 **Then** сервер немедленно возвращает ошибку `INVALID_ARGUMENT`
 **And** `details[].field_violations[0].field = "resource_version"`
+
+### G11. Upsert Cloud с пустым organizationId — INVALID_ARGUMENT
+
+**ID:** 0.2-G11
+
+**Given** Сервис `CloudService` запущен
+
+**When** клиент вызывает `CloudService/Upsert` с payload:
+- `clouds[0].metadata.name = "orphan-cloud"`
+- `clouds[0].metadata.organizationId = ""` (пустая строка)
+
+**Then** gRPC статус = `INVALID_ARGUMENT`
+**And** `details[]` содержит `BadRequest` с:
+  - `field_violations[0].field = "clouds[0].metadata.organizationId"`
+  - `field_violations[0].description` указывает, что поле обязательно
+
+### G12. Upsert Folder с пустым cloudId — INVALID_ARGUMENT
+
+**ID:** 0.2-G12
+
+**Given** Сервис `FolderService` запущен
+
+**When** клиент вызывает `FolderService/Upsert` с payload:
+- `folders[0].metadata.name = "orphan-folder"`
+- `folders[0].metadata.cloudId = ""` (пустая строка)
+
+**Then** gRPC статус = `INVALID_ARGUMENT`
+**And** `details[]` содержит `BadRequest` с:
+  - `field_violations[0].field = "folders[0].metadata.cloudId"`
+  - `field_violations[0].description` указывает, что поле обязательно
 
 ---
 
@@ -1025,24 +1075,22 @@ kill $WATCH_PID
 3. `{"type":"DELETED", "organization":{"metadata":{"name":"watch-test-org",...}}}`
 **And** события идут в порядке их создания (resourceVersion возрастает)
 
-### I3. Watch Gone 410 при устаревшем resourceVersion
+### I3. Watch Gone при устаревшем resourceVersion (integration-тест через testcontainers)
 
 **ID:** 0.2-I3
 
-**Given** Port-forward на `localhost:9090` активен
+**Примечание:** сценарий реализован как integration-тест (testcontainers), а не полноценный e2e bash-скрипт, так как достоверно воспроизвести истёкший retention в реальном кластере без искусственного вмешательства затруднительно. Bash-скрипт `kacho-deploy/e2e/0.2/I3-watch-gone.sh` помечается `@manual / @slow` и не включается в автоматический CI.
 
-**When** выполняется:
-```bash
-grpcurl -plaintext \
-  -d '{"resourceVersion":"1"}' \
-  localhost:9090 \
-  kacho.cloud.resourcemanager.v1.OrganizationService/Watch
-```
-с `resourceVersion = "1"` (заведомо устаревший после cleanup)
+**Given** Postgres запущен (testcontainers) с применёнными миграциями
+**And** В `resource_events` минимальная `resource_version` = 5000 (принудительно выставлена через прямой SQL-запрос внутри testcontainers-соединения: `DELETE FROM resource_events WHERE resource_version < 5000`)
+**And** Watch Hub инициализирован после очистки (cursorRV знает о минимальной версии 5000)
 
-**Then** если cleanup уже удалил события с такой версией — gRPC ответ содержит ошибку `Gone`
-**And** exit-код grpcurl ≠ 0
-**And** stderr/stdout содержит `"Gone"` или HTTP 410
+**When** вызывается `OrganizationService/Watch` с:
+- `resourceVersion = "100"` (заведомо < минимального 5000)
+
+**Then** сервер немедленно закрывает стрим с gRPC статусом `OUT_OF_RANGE` и message `"Gone: resourceVersion too old, please relist"`
+**And** `details[]` содержит `ErrorInfo` с `reason = "RESOURCE_VERSION_EXPIRED"` и `domain = "kacho.cloud"`
+**And** `details[]` содержит `RequestInfo` с непустым `request_id`
 
 ### I4. Integration-тест на testcontainers: атомарность outbox
 
@@ -1081,7 +1129,7 @@ grpcurl -plaintext \
 
 Sub-итерация 0.2 считается **завершённой**, когда **все** условия выполнены:
 
-1. **Все сценарии §1–§9** (A1–A8, B1–B10, C1–C6, D1–D13, E1–E8, F1–F5, G1–G10, H1–H4, I1–I5) покрыты исполняемыми тестами:
+1. **Все сценарии §1–§9** (A1–A8, B1–B10, C1–C6, D1–D14, E1–E8, F1–F5, G1a, G2–G5, G7–G12, H1–H4, I1–I5) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-resource-manager/internal/service/*_acceptance_test.go` и `kacho-corelib/**/*_test.go` — все зелёные.
    - E2E bash-скрипты в `kacho-deploy/e2e/0.2/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.2`.
 
@@ -1103,7 +1151,8 @@ Sub-итерация 0.2 считается **завершённой**, когд
    - `internal/domain/` — entity-типы Organization, Cloud, Folder
    - `internal/service/` — OrganizationService, CloudService, FolderService (use-case логика)
    - `internal/repo/` — sqlc-generated queries + handwritten filter-builder
-   - `internal/handler/` — gRPC-хендлеры (thin transport layer)
+   - `internal/handler/handler.go` — gRPC-хендлеры для публичных RPC (thin transport layer)
+   - `internal/handler/internal_handler.go` — gRPC-хендлеры для Internal RPC (`FolderExists`, `CloudExists`, `OrganizationExists`); **не регистрируется** в api-gateway
    - `migrations/` — миграции `kacho_resource_manager` (включая sync из corelib/migrations/common/)
    - `deploy/` — Dockerfile, Helm chart values
 
@@ -1132,23 +1181,9 @@ Sub-итерация 0.2 считается **завершённой**, когд
 
 ## 11. Вопросы к acceptance-reviewer (Open questions)
 
-Этот блок содержит неоднозначности, которые должны быть разрешены до перехода к написанию плана.
+*Все вопросы предыдущего раунда ревью разрешены inline. Блок оставлен для полноты; при следующем раунде сюда добавляются новые неоднозначности.*
 
-1. **D2 / Upsert idempotency resourceVersion:** При повторном Upsert с идентичным payload (нет изменений) — сервер должен обновить `resource_version` или нет? Два варианта: (a) «no-op update» — resourceVersion не меняется, MODIFIED событие не создаётся; (b) «always bump» — resourceVersion обновляется всегда. Предпочтительнее (a) для уменьшения шума в Watch, но требует deep-equal сравнения. Ожидается решение в acceptance.
-
-2. **G6 / ALREADY_EXISTS semantics:** Стандартный upsert (`name + scope` → create-or-update) не должен возвращать `ALREADY_EXISTS`. Этот код может появиться только если клиент **намеренно пытается создать** ресурс с конфликтующим именем в другом способе. Нужно уточнить: есть ли сценарий, когда `ALREADY_EXISTS` реально возникает в resource-manager? Или этот код зарезервирован для будущих фаз где Upsert разделён на Create/Update?
-
-3. **E8 / Gone gRPC code:** В `02-data-model-and-conventions.md` §14 `GONE` указан как отдельный код. В стандартных gRPC-кодах нет GONE (410 — HTTP). Нужно уточнить: используется ли non-standard gRPC code `ResourceExhausted` с описанием `Gone`, или кастомное расширение через `google.rpc.Status.details`? Предлагается: стандартный gRPC код `OUT_OF_RANGE` или `FAILED_PRECONDITION` + custom detail типа `{"@type": "type.googleapis.com/kacho.api.Gone", "minResourceVersion": "5000"}`.
-
-4. **F5 / FolderExists для soft-deleted ресурса:** Сценарий фиксирует `exists: false` для ресурса с `deletionTimestamp != NULL`. Для resource-manager с мгновенным удалением этот сценарий практически невозможен. Тем не менее — правильная семантика: `exists: false` (удаляется) или `exists: true` (ещё физически в БД)? Это влияет на compute/vpc в 0.3–0.4, где finalizers есть.
-
-5. **I3 / Gone в e2e:** Достоверно воспроизвести Gone 410 в e2e сложно без искусственного cleanup. Принять ли вариант: (a) тест принудительно вызывает cleanup-SQL и затем Watch с `resourceVersion=1`; (b) тест использует testcontainers (integration-уровень) вместо настоящего e2e; (c) тест помечается как `@manual` и в CI не запускается?
-
-6. **D11 / Delete Cloud с зависимым Folder:** Проверка зависимостей — через same-DB FK или через дополнительный SELECT? Если FK с `RESTRICT` — Postgres сам вернёт ошибку, которую сервис преобразует в `FAILED_PRECONDITION`. Это предпочтительнее explicit SELECT для консистентности. Нужно решить до написания схемы миграции.
-
-7. **H4 / e2e через port-forward vs cluster-internal DNS:** Все e2e-сценарии раздела I используют `kubectl port-forward`. Нужно ли добавить сценарий, который проверяет cluster-internal DNS (`resource-manager.kacho.svc.cluster.local:9090`) из другого Pod-а (например, `kubectl run test-client --image=...`)? Или это из scope 0.6 (когда появится api-gateway)?
-
-8. **proto / Organization.spec поля:** В `01-architecture-and-services.md` §2.2 сказано, что у Organization нет lifecycle и нет значимого `spec`. Нужно ли вообще поле `spec` в proto для Organization/Cloud/Folder, или только `metadata`? Если `spec` есть — что в нём? Предлагается: минимальный `spec` с `display_name` и `description` (строки) для UI-friendly отображения, без бизнес-логики.
+*(Нет открытых вопросов)*
 
 ---
 
