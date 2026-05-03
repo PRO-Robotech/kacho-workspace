@@ -80,8 +80,10 @@ clients ─┘              │
 В `kacho-corelib` живут:
 
 - `ids/`, `errors/`, `config/`, `observability/`, `db/` (pgx pool + transactor), `grpcsrv/` (server bootstrap), `grpcclient/` (client factory) — sub-phase 0.1.
-- `watch/`, `outbox/`, `selector/` — sub-phase 0.2.
-- `migrations/common/` — общие миграции (`resource_events`, `resource_version_seq`, cleanup-функция); синхронизируются в каждое сервисное репо через `make sync-migrations`.
+- `outbox/`, `selector/` — sub-phase 0.2 (Watch pattern был в `watch/`, удалён в 1.0).
+- `operations/` — sub-phase 1.0: Operations table (long-running async ops) + Worker (перевод done=false→true) + Repo. Используется всеми сервисами для возврата `Operation` из мутаций.
+- `retry/`, `shutdown/`, `backoff/` — gRPC retry + graceful shutdown helpers.
+- `migrations/common/` — общие миграции (`operations` table, `operations_sequence`); синхронизируются в каждое сервисное репо через `make sync-migrations`.
 - `audit/` — `AuditLogger` (no-op в текущей фазе, скелет под AAA).
 
 **Перед написанием новой утилиты в сервисном репо** — проверь, есть ли уже подходящий пакет в `kacho-corelib`. Если нет, но логика **будет нужна 2+ сервисам** — оформляй сразу в `kacho-corelib`, не дублируй per-service.
@@ -95,10 +97,59 @@ clients ─┘              │
 3. **НЕ использовать ORM** (gorm, ent, bun). Только sqlc + handwritten pgx.
 4. **НЕ делать каскадное удаление через границу сервиса** (только same-DB FK cascade).
 5. **НЕ редактировать применённую миграцию.** Только новая миграция.
-6. **НЕ писать в `status` через `/upsert` handler;** только через `/upd-status` (internal).
-7. **НЕ маршрутизировать `Internal.*` методы** через api-gateway наружу.
-8. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process Watch Hub справляется.
-9. **НЕ создавать новые единые БД** — только database-per-service.
+6. **НЕ маршрутизировать `Internal.*` методы** через api-gateway наружу.
+7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
+8. **НЕ создавать новые единые БД** — только database-per-service.
+9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
+
+## API contract — flat resources + Operations (с фазы 1.0)
+
+**Каждый ресурс — плоский message** без envelope `metadata/spec/status`:
+```protobuf
+message Instance {
+  string id = 1;
+  string folder_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+  string name = 4;
+  string description = 5;
+  map<string,string> labels = 6;
+  string zone_id = 7;
+  Status status = 10;       // enum, не nested message
+  // ...domain-specific fields плоско
+}
+```
+
+**Service шаблон:**
+```protobuf
+service InstanceService {
+  rpc Get(GetInstanceRequest) returns (Instance);                  // sync read
+  rpc List(ListInstancesRequest) returns (ListInstancesResponse);  // sync read
+  rpc Create(CreateInstanceRequest) returns (operation.Operation); // async
+  rpc Update(UpdateInstanceRequest) returns (operation.Operation); // async
+  rpc Delete(DeleteInstanceRequest) returns (operation.Operation); // async
+}
+```
+
+**Operation message** в `kacho.cloud.operation.v1`:
+```protobuf
+message Operation {
+  string id = 1;
+  string description = 2;
+  google.protobuf.Timestamp created_at = 3;
+  bool done = 6;
+  google.protobuf.Any metadata = 7;     // {instance_id} для CreateInstanceMetadata
+  oneof result {
+    google.rpc.Status error = 8;
+    google.protobuf.Any response = 9;   // Instance
+  }
+}
+```
+
+**Что выкинуто (deprecated с 1.0):**
+- `metadata/spec/status` envelope
+- Watch RPC — больше не существует. Клиент использует List-polling 2-5 сек или Operations.Get(id) для in-flight задач.
+- `kacho-corelib/watch/` package — удалён.
+- gRPC server-streaming через grpc-gateway / WebSocket для Watch — выкинут.
 
 ## Локальная разработка (быстрые команды)
 
