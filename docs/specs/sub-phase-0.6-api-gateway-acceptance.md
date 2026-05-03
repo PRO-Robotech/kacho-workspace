@@ -2,7 +2,7 @@
 
 **Документ:** acceptance / sub-phase 0.6
 **Дата:** 2026-05-03
-**Статус:** Draft, на ревью
+**Статус:** Draft, на ревью (round 2)
 **Источник требований:** `04-roadmap-and-phasing.md` §3 «Sub-итерация 0.6»; `01-architecture-and-services.md` §2.1, §3; `02-data-model-and-conventions.md` §6.2, §13, §14; `CLAUDE.md` — запреты #7 (Internal.* не маршрутизируются).
 **Утверждение:** approve выставляет агент `acceptance-reviewer` (заказчик не подключается — он проверяет финальный smoke на шаге 7, см. `04-roadmap-and-phasing.md` §2).
 
@@ -14,7 +14,7 @@ Sub-итерация 0.6 реализует `kacho-api-gateway` — единую
 
 **Что НЕ входит в 0.6** (явно отложено):
 
-- AAA (auth, authorization, audit) — placeholder-middleware установлен, но содержит no-op.
+- AAA (auth, authorization, audit) — placeholder-middleware установлен, но содержит no-op; запросы без auth-заголовков проходят насквозь (см. сценарий F7).
 - TLS на edge (termination на Ingress) — фаза 1.
 - mTLS между gateway и backend — фаза 1.
 - Трассировка (OpenTelemetry exporter) — инициализируется условно по env `KACHO_OTEL_EXPORTER_OTLP_ENDPOINT`; в dev по умолчанию выключена.
@@ -28,8 +28,12 @@ Sub-итерация 0.6 реализует `kacho-api-gateway` — единую
 - Port 8080 — единственный TCP listener. cmux инспектирует первые байты соединения: `Content-Type: application/grpc*` → gRPC listener; всё остальное → HTTP/1.1 listener для grpc-gateway.
 - Внутренний gRPC-трафик между сервисами (порт 9090) по-прежнему ходит напрямую по cluster-internal DNS; api-gateway не является транзитом для internal RPC.
 - Backend-адреса конфигурируются через env: `KACHO_RESOURCE_MANAGER_GRPC`, `KACHO_VPC_GRPC`, `KACHO_COMPUTE_GRPC`, `KACHO_LOADBALANCER_GRPC`.
-- Allowlist реализован как Go-map (константа в коде или YAML-конфиг); формат — множество строк `/<package>.<Service>/<Method>` разрешённых методов. Все `*InternalService.*` явно отсутствуют в allowlist.
+- **Allowlist реализован как Go-константа** (`map[string]struct{}`) в `internal/allowlist/list.go`. Формат строк — `/<package>.<Service>/<Method>`. Все `*InternalService.*` явно отсутствуют. Переход на ConfigMap (YAML монтируемый в pod) — отложен до фазы 1.
+- **REST URL-схема:** `/v1/<resource>/<action>` без prefix домена (например, `/v1/organizations/upsert`, `/v1/networks/list`, `/v1/instances/restart`). Пути определяются HTTP-аннотациями в `kacho-proto`; аннотации должны следовать этой схеме.
 - Header `X-Request-ID`: если клиент передал — используется как-есть; если отсутствует — генерируется UUID v4 на gateway. Проваливается downstream как metadata `x-request-id`.
+- **Watch-стриминг через REST (grpc-gateway):** `Content-Type: application/json`, chunked transfer encoding. Каждое сообщение — отдельная JSON-строка формата `{"result": {...}}` (newline-delimited JSON). Клиенты должны читать построчно.
+- **gRPC keepalive** между gateway и backend: keepalive interval = 30 секунд на клиентских соединениях. `nginx` ingress: `proxy_read_timeout = 120s` (переопределяется в аннотациях Ingress-ресурса).
+- **Backend connection pool:** каждый backend получает один постоянный `*grpc.ClientConn`, инициализируемый один раз в `cmd/api-gateway/main.go` (composition root). Никакого per-request dial.
 - slog access log формат: `{"level":"INFO","ts":"...","msg":"access","method":"/kacho.cloud.compute.v1.InstanceService/Upsert","status":0,"duration_ms":12,"request_id":"..."}`.
 - **Имена integration-тест-функций** следуют паттерну `TestGateway_<ScenarioID>_<ShortDesc>` (например, `TestGateway_A1_GrpcProxyForwardsToBackend`). E2e bash-скрипты — `kacho-deploy/e2e/0.6/<ID>-<short-desc>.sh`.
 - Все assertion-ы с ожиданием (Watch streaming, downstream health) используют таймаут 10 секунд в тестах.
@@ -185,9 +189,9 @@ grpcurl -plaintext api.kacho.local:80 \
 
 **Given** gateway слушает на порту 8080
 
-**When** клиент отправляет HTTP/1.1 запрос:
+**When** клиент отправляет HTTP/1.1 запрос непосредственно на порт 8080 (минуя Ingress):
 ```
-curl -s -X POST http://api.kacho.local/v1/instances/list \
+curl -s -X POST http://localhost:8080/v1/instances/list \
   -H 'Content-Type: application/json' \
   -d '{}'
 ```
@@ -203,8 +207,8 @@ curl -s -X POST http://api.kacho.local/v1/instances/list \
 **Given** gateway слушает на порту 8080
 
 **When** два клиента отправляют запросы одновременно:
-  - Клиент A: gRPC `InstanceService/List`
-  - Клиент B: REST `POST /v1/instances/list` с `{}`
+  - Клиент A: gRPC `InstanceService/List` на порт 8080
+  - Клиент B: REST `POST /v1/instances/list` с `{}` на порт 8080
 
 **Then** оба запроса обрабатываются без блокировок
 **And** клиент A получает gRPC-ответ (`InstanceListResponse`)
@@ -349,8 +353,8 @@ curl -s -X POST http://api.kacho.local/v1/target-groups/watch \
 ```
 **And** в течение 5 секунд выполняется Upsert нового TargetGroup
 
-**Then** HTTP response начинает приходить chunked JSON-нотификациями (grpc-gateway server-streaming → `application/json` stream)
-**And** клиент получает как минимум одно событие `{"result": {"type": "ADDED", "targetGroup": {...}}}`
+**Then** HTTP response начинает приходить chunked newline-delimited JSON (`Content-Type: application/json`)
+**And** каждое событие — отдельная JSON-строка формата `{"result": {"type": "ADDED", "targetGroup": {...}}}`
 **And** HTTP статус не 4xx/5xx
 
 ### C7. Malformed JSON в REST-запросе возвращает HTTP 400
@@ -383,6 +387,25 @@ curl -s http://api.kacho.local/v1/nonexistent-resource/list
 
 **Then** HTTP status 404
 **And** body содержит `{"code":5,"message":"Not Found"}`
+
+### C9. REST Restart для InstanceService работает через grpc-gateway
+
+**ID:** 0.6-C9
+
+**Given** gateway запущен
+**And** Instance `<instance-uid>` существует в состоянии `RUNNING`
+
+**When** клиент отправляет:
+```
+curl -s -X POST http://api.kacho.local/v1/instances/restart \
+  -H 'Content-Type: application/json' \
+  -d '{"instances": [{"metadata": {"uid": "<instance-uid>"}}]}'
+```
+
+**Then** HTTP status 200
+**And** grpc-gateway транслирует вызов в `kacho.cloud.compute.v1.InstanceService/Restart`
+**And** compute-backend обрабатывает запрос (устанавливает `metadata.restartedAt`)
+**And** тело ответа содержит обновлённый Instance с заполненным `metadata.restartedAt`
 
 ---
 
@@ -457,11 +480,24 @@ curl -s http://api.kacho.local/v1/nonexistent-resource/list
 
 Сценарии группы E проверяют, что все `*InternalService.*` методы возвращают `NOT_FOUND` (gRPC) или HTTP 404 (REST), не достигая backend.
 
-> **Контекст:** согласно `01-architecture-and-services.md` §3.2 и запрету #7 в CLAUDE.md, internal методы включают:
-> - resource-manager: `OrganizationInternalService`, `CloudInternalService`, `FolderInternalService` (по одному на ресурс: `Exists`, `HasDependents`)
-> - vpc: `NetworkInternalService`, `SubnetInternalService` (и другие VPC-ресурсы) с методами `Exists`
-> - compute: `InstanceInternalService`, `DiskInternalService` (с методами `UpdateStatus`, `Exists`, `HasDependents`)
-> - loadbalancer: `NetworkLoadBalancerInternalService`, `TargetGroupInternalService` (с методами `UpdateStatus`, `Exists`, `RemoveTarget`)
+> **Матрица Internal-методов** (согласно `01-architecture-and-services.md` §3.2):
+>
+> | Domain | Service | Methods |
+> |---|---|---|
+> | resourcemanager | `OrganizationInternalService` | `Exists`, `HasDependents` |
+> | resourcemanager | `CloudInternalService` | `Exists`, `HasDependents` |
+> | resourcemanager | `FolderInternalService` | `Exists`, `HasDependents` |
+> | vpc | `NetworkInternalService` | `Exists`, `HasDependents` |
+> | vpc | `SubnetInternalService` | `Exists`, `HasDependents` |
+> | vpc | `SecurityGroupInternalService` | `Exists`, `HasDependents` |
+> | vpc | `RouteTableInternalService` | `Exists`, `HasDependents` |
+> | vpc | `AddressInternalService` | `Exists`, `HasDependents`, `UpdateStatus` |
+> | compute | `InstanceInternalService` | `Exists`, `HasDependents`, `UpdateStatus` |
+> | compute | `DiskInternalService` | `Exists`, `HasDependents`, `UpdateStatus` |
+> | loadbalancer | `NetworkLoadBalancerInternalService` | `Exists`, `HasDependents`, `UpdateStatus` |
+> | loadbalancer | `TargetGroupInternalService` | `Exists`, `HasDependents`, `UpdateStatus`, `RemoveTarget` |
+>
+> Сценарии E1–E12 покрывают представительные примеры. Сценарии E_Exists_canonical, E_HasDependents_canonical и E_UpdateStatus_canonical обобщают все методы матрицы.
 
 ### E1. FolderInternalService.Exists блокируется gateway
 
@@ -504,6 +540,7 @@ grpcurl -plaintext api.kacho.local:80 \
 **When** клиент вызывает `kacho.cloud.resourcemanager.v1.CloudInternalService/HasDependents` через gateway
 
 **Then** gRPC-статус `NOT_FOUND` (код 5) возвращается клиенту
+**And** backend `resource-manager` НЕ получает запрос
 
 ### E4. SubnetInternalService.Exists (vpc) блокируется gateway
 
@@ -522,11 +559,12 @@ grpcurl -plaintext api.kacho.local:80 \
 **ID:** 0.6-E5
 
 **Given** gateway запущен
+**And** allowlist НЕ содержит `/kacho.cloud.vpc.v1.NetworkInternalService/Exists`
 
 **When** клиент вызывает `kacho.cloud.vpc.v1.NetworkInternalService/Exists` через gateway
 
-**Then** gRPC-статус `NOT_FOUND` (код 5)
-**And** vpc-backend не получает запрос
+**Then** gRPC-статус `NOT_FOUND` (код 5) возвращается клиенту
+**And** vpc-backend НЕ получает запрос (нет записи в его access log)
 
 ### E6. InstanceInternalService.UpdateStatus (compute) блокируется gateway
 
@@ -546,20 +584,24 @@ grpcurl -plaintext api.kacho.local:80 \
 **ID:** 0.6-E7
 
 **Given** gateway запущен
+**And** allowlist НЕ содержит `/kacho.cloud.compute.v1.DiskInternalService/UpdateStatus`
 
 **When** клиент вызывает `kacho.cloud.compute.v1.DiskInternalService/UpdateStatus` через gateway
 
-**Then** gRPC-статус `NOT_FOUND` (код 5)
+**Then** gRPC-статус `NOT_FOUND` (код 5) возвращается клиенту
+**And** compute-backend НЕ получает запрос
 
 ### E8. InstanceInternalService.Exists (compute) блокируется gateway
 
 **ID:** 0.6-E8
 
 **Given** gateway запущен
+**And** allowlist НЕ содержит `/kacho.cloud.compute.v1.InstanceInternalService/Exists`
 
 **When** клиент вызывает `kacho.cloud.compute.v1.InstanceInternalService/Exists` через gateway
 
-**Then** gRPC-статус `NOT_FOUND` (код 5)
+**Then** gRPC-статус `NOT_FOUND` (код 5) возвращается клиенту
+**And** compute-backend НЕ получает запрос
 
 ### E9. TargetGroupInternalService.RemoveTarget (loadbalancer) блокируется gateway
 
@@ -578,10 +620,12 @@ grpcurl -plaintext api.kacho.local:80 \
 **ID:** 0.6-E10
 
 **Given** gateway запущен
+**And** allowlist НЕ содержит `/kacho.cloud.loadbalancer.v1.NetworkLoadBalancerInternalService/UpdateStatus`
 
 **When** клиент вызывает `kacho.cloud.loadbalancer.v1.NetworkLoadBalancerInternalService/UpdateStatus` через gateway
 
-**Then** gRPC-статус `NOT_FOUND` (код 5)
+**Then** gRPC-статус `NOT_FOUND` (код 5) возвращается клиенту
+**And** loadbalancer-backend НЕ получает запрос
 
 ### E11. REST-путь `/v1/instances/upd-status` снаружи возвращает 404
 
@@ -617,9 +661,129 @@ curl -s -X POST http://api.kacho.local/v1/folders/exists \
 **Then** HTTP status 404
 **And** body содержит `{"code":5,"message":"Not Found"}`
 
+### E13. REST-путь `/v1/networks/exists` (vpc internal) снаружи возвращает 404
+
+**ID:** 0.6-E13
+
+**Given** gateway запущен
+**And** grpc-gateway НЕ регистрирует handler для `NetworkInternalService`
+
+**When** клиент отправляет:
+```
+curl -s -X POST http://api.kacho.local/v1/networks/exists \
+  -H 'Content-Type: application/json' \
+  -d '{"uid": "some-uid"}'
+```
+
+**Then** HTTP status 404
+**And** body содержит `{"code":5,"message":"Not Found"}`
+**And** vpc-backend не получает запрос
+
+### E14. REST-путь `/v1/target-groups/remove-target` (loadbalancer internal) снаружи возвращает 404
+
+**ID:** 0.6-E14
+
+**Given** gateway запущен
+**And** grpc-gateway НЕ регистрирует handler для `TargetGroupInternalService`
+
+**When** клиент отправляет:
+```
+curl -s -X POST http://api.kacho.local/v1/target-groups/remove-target \
+  -H 'Content-Type: application/json' \
+  -d '{"uid": "some-uid"}'
+```
+
+**Then** HTTP status 404
+**And** body содержит `{"code":5,"message":"Not Found"}`
+**And** loadbalancer-backend не получает запрос
+
+### E_Exists_canonical. Канонический: все Exists-методы блокируются gateway (матрица)
+
+**ID:** 0.6-E_Exists_canonical
+
+> Этот сценарий обобщает покрытие для всех `Exists`-методов матрицы, не имеющих отдельных сценариев E1–E14.
+
+**Given** gateway запущен
+**And** для каждого метода M из нижеследующей матрицы: allowlist НЕ содержит M
+
+**Матрица методов M (gRPC method path):**
+
+| # | Метод |
+|---|---|
+| 1 | `/kacho.cloud.resourcemanager.v1.OrganizationInternalService/Exists` |
+| 2 | `/kacho.cloud.resourcemanager.v1.CloudInternalService/Exists` |
+| 3 | `/kacho.cloud.resourcemanager.v1.FolderInternalService/Exists` |
+| 4 | `/kacho.cloud.vpc.v1.NetworkInternalService/Exists` |
+| 5 | `/kacho.cloud.vpc.v1.SubnetInternalService/Exists` |
+| 6 | `/kacho.cloud.vpc.v1.SecurityGroupInternalService/Exists` |
+| 7 | `/kacho.cloud.vpc.v1.RouteTableInternalService/Exists` |
+| 8 | `/kacho.cloud.vpc.v1.AddressInternalService/Exists` |
+| 9 | `/kacho.cloud.compute.v1.InstanceInternalService/Exists` |
+| 10 | `/kacho.cloud.compute.v1.DiskInternalService/Exists` |
+| 11 | `/kacho.cloud.loadbalancer.v1.NetworkLoadBalancerInternalService/Exists` |
+| 12 | `/kacho.cloud.loadbalancer.v1.TargetGroupInternalService/Exists` |
+
+**When** для каждого метода M: клиент вызывает M через gateway (gRPC `grpcurl -plaintext`)
+
+**Then** для каждого вызова: клиент получает gRPC-статус `NOT_FOUND` (код 5)
+**And** для каждого вызова: соответствующий backend НЕ получает запрос (нет записи в его access log)
+
+### E_HasDependents_canonical. Канонический: все HasDependents-методы блокируются gateway (матрица)
+
+**ID:** 0.6-E_HasDependents_canonical
+
+> HasDependents-методы не присутствовали в предыдущей редакции — этот сценарий восполняет пробел.
+
+**Given** gateway запущен
+**And** для каждого метода M из нижеследующей матрицы: allowlist НЕ содержит M
+
+**Матрица методов M (gRPC method path):**
+
+| # | Метод |
+|---|---|
+| 1 | `/kacho.cloud.resourcemanager.v1.OrganizationInternalService/HasDependents` |
+| 2 | `/kacho.cloud.resourcemanager.v1.CloudInternalService/HasDependents` |
+| 3 | `/kacho.cloud.resourcemanager.v1.FolderInternalService/HasDependents` |
+| 4 | `/kacho.cloud.vpc.v1.NetworkInternalService/HasDependents` |
+| 5 | `/kacho.cloud.vpc.v1.SubnetInternalService/HasDependents` |
+| 6 | `/kacho.cloud.vpc.v1.SecurityGroupInternalService/HasDependents` |
+| 7 | `/kacho.cloud.vpc.v1.RouteTableInternalService/HasDependents` |
+| 8 | `/kacho.cloud.vpc.v1.AddressInternalService/HasDependents` |
+| 9 | `/kacho.cloud.compute.v1.InstanceInternalService/HasDependents` |
+| 10 | `/kacho.cloud.compute.v1.DiskInternalService/HasDependents` |
+| 11 | `/kacho.cloud.loadbalancer.v1.NetworkLoadBalancerInternalService/HasDependents` |
+| 12 | `/kacho.cloud.loadbalancer.v1.TargetGroupInternalService/HasDependents` |
+
+**When** для каждого метода M: клиент вызывает M через gateway
+
+**Then** для каждого вызова: клиент получает gRPC-статус `NOT_FOUND` (код 5)
+**And** для каждого вызова: соответствующий backend НЕ получает запрос
+
+### E_UpdateStatus_canonical. Канонический: все UpdateStatus-методы блокируются gateway (матрица)
+
+**ID:** 0.6-E_UpdateStatus_canonical
+
+**Given** gateway запущен
+**And** для каждого метода M из нижеследующей матрицы: allowlist НЕ содержит M
+
+**Матрица методов M (gRPC method path):**
+
+| # | Метод |
+|---|---|
+| 1 | `/kacho.cloud.vpc.v1.AddressInternalService/UpdateStatus` |
+| 2 | `/kacho.cloud.compute.v1.InstanceInternalService/UpdateStatus` |
+| 3 | `/kacho.cloud.compute.v1.DiskInternalService/UpdateStatus` |
+| 4 | `/kacho.cloud.loadbalancer.v1.NetworkLoadBalancerInternalService/UpdateStatus` |
+| 5 | `/kacho.cloud.loadbalancer.v1.TargetGroupInternalService/UpdateStatus` |
+
+**When** для каждого метода M: клиент вызывает M через gateway
+
+**Then** для каждого вызова: клиент получает gRPC-статус `NOT_FOUND` (код 5)
+**And** для каждого вызова: соответствующий backend НЕ получает запрос
+
 ---
 
-## 6. Группа F — Middleware (request-id, recovery, slog access log)
+## 6. Группа F — Middleware (request-id, recovery, slog access log, auth placeholder)
 
 ### F1. X-Request-ID от клиента сохраняется и пробрасывается downstream
 
@@ -703,6 +867,21 @@ curl -s -X POST http://api.kacho.local/v1/folders/exists \
   - `"status": 200`
   - `"duration_ms"` — неотрицательное число
   - `"request_id"` — непустая строка
+
+### F7. Запрос без auth-заголовков проходит через gateway (auth no-op)
+
+**ID:** 0.6-F7
+
+**Given** gateway запущен
+**And** auth-middleware установлен как placeholder (no-op)
+**And** клиент НЕ передаёт никаких auth-заголовков (`Authorization`, `X-Auth-Token` и т.п.)
+
+**When** клиент вызывает `kacho.cloud.compute.v1.InstanceService/List` через gateway
+
+**Then** gateway не отклоняет запрос по причине отсутствия auth
+**And** запрос проксируется на compute-backend
+**And** клиент получает ответ с кодом `OK`
+**And** auth-middleware логирует (опционально) `"auth":"no-op"` или аналог без блокировки
 
 ---
 
@@ -852,6 +1031,7 @@ grpcurl -plaintext api.kacho.local:80 grpc.health.v1.Health/Check -d '{}'
 
 **Then** Upsert-ответ содержит `status.state = "PROVISIONING"`
 **And** через Watch-стрим (через gateway proxy) в течение 60 секунд приходит событие `MODIFIED` с `status.state = "RUNNING"`
+**And** события доставляются в реальном времени (не буферизируются до закрытия стрима)
 
 ### I3. gateway → loadbalancer: создание TargetGroup с targets
 
@@ -891,12 +1071,14 @@ grpcurl -plaintext api.kacho.local:80 grpc.health.v1.Health/Check -d '{}'
 
 **Given** gateway и compute запущены
 **And** клиент открыл Watch-стрим через gateway на `InstanceService/Watch` с `resourceVersion: "0"`
+**And** nginx ingress `proxy_read_timeout` установлен ≥ 120s (аннотация на Ingress-ресурсе)
+**And** gRPC keepalive interval на клиентских соединениях gateway→backend = 30 секунд
 
 **When** в течение 30 секунд не происходит никаких изменений
 
 **Then** стрим не закрывается (нет EOF от gateway)
 **And** gateway не генерирует ошибочных событий
-**And** клиент остаётся подключённым (heartbeat / keepalive поддерживается)
+**And** клиент остаётся подключённым (keepalive поддерживается)
 
 ---
 
@@ -938,7 +1120,7 @@ grpcurl -plaintext api.kacho.local:80 grpc.health.v1.Health/Check -d '{}'
 **When** клиент отправляет gRPC-запрос с path `//BadPath` (не соответствует формату `/<pkg>.<Svc>/<Method>`)
 
 **Then** gateway не паникует
-**And** клиент получает gRPC-статус `NOT_FOUND` (код 5) или `UNIMPLEMENTED` (код 12)
+**And** клиент получает gRPC-статус `NOT_FOUND` (код 5) — allowlist-фильтр срабатывает до backend-роутинга
 **And** gateway продолжает работу
 
 ### J4. Таймаут downstream backend → клиент получает DEADLINE_EXCEEDED
@@ -980,6 +1162,19 @@ grpcurl -plaintext api.kacho.local:80 grpc.health.v1.Health/Check -d '{}'
 **And** upstream запрос к compute-backend отменяется (context cancel propagated)
 **And** горутина proxy-обработчика завершается без goroutine leak
 **And** в логах присутствует запись с указанием на завершение стрима (без panic/error)
+
+### J7. Watch-стрим: backend возвращает OUT_OF_RANGE (Gone) — gateway проксирует код без изменений
+
+**ID:** 0.6-J7
+
+**Given** gateway и compute запущены
+**And** клиент открыл Watch-стрим с устаревшим `resourceVersion` (за пределами retention-окна outbox)
+
+**When** compute-backend возвращает gRPC-статус `OUT_OF_RANGE` (код 11) с message `"resourceVersion too old, relist required"`
+
+**Then** gateway прозрачно передаёт статус `OUT_OF_RANGE` клиенту без изменения кода или message
+**And** стрим закрывается с кодом `OUT_OF_RANGE` (не преобразуется в другой код gateway-ом)
+**And** access log gateway содержит `"status":11`
 
 ---
 
@@ -1100,20 +1295,22 @@ kubectl get ingress -n kacho -o jsonpath='{.items[0].spec.rules[0].http.paths[0]
 **Given** реализация sub-phase 0.6 завершена
 
 **Then** репозиторий `kacho-api-gateway` содержит:
-  - `cmd/api-gateway/main.go` — composition root: wiring cmux + gRPC proxy + REST mux + middleware
+  - `cmd/api-gateway/main.go` — composition root: wiring cmux + gRPC proxy + REST mux + middleware; инициализирует один `*grpc.ClientConn` per backend
   - `internal/proxy/` — gRPC-proxy handler с domain-routing и allowlist-фильтром
   - `internal/restmux/` — grpc-gateway регистрация всех 4 сервисов
-  - `internal/middleware/` — request-id, recovery, slog access log
+  - `internal/middleware/` — request-id, recovery, slog access log, auth no-op placeholder
   - `internal/health/` — /healthz, /readyz, gRPC Health handler
-  - `internal/allowlist/` — allowlist конфиг/константа + фильтр-функция
+  - `internal/allowlist/list.go` — Go-константа `map[string]struct{}` со всеми публичными методами; `*InternalService.*` отсутствуют
   - `deploy/` — Helm chart для api-gateway (или интеграция в kacho-deploy umbrella)
 **And** в `kacho-deploy/helm/umbrella/templates/` присутствует Ingress с backend `api-gateway`
+**And** Ingress содержит аннотацию `nginx.ingress.kubernetes.io/proxy-read-timeout: "120"`
 
 ### L2. Тесты
 
 **ID:** 0.6-L2
 
 **Then** каждый acceptance-сценарий группы A–J покрыт unit- или integration-тестом с именем `TestGateway_<ID>_<ShortDesc>`
+**And** для канонических сценариев E_Exists_canonical, E_HasDependents_canonical, E_UpdateStatus_canonical тест итерируется по матрице методов
 **And** integration-тесты используют testcontainers или mock gRPC-серверы (не реальные backends)
 **And** `go test ./... -race` завершается с кодом 0
 **And** coverage acceptance-сценариев: ≥ 90% сценариев группы A–J покрыты тестами
@@ -1141,7 +1338,7 @@ kubectl get ingress -n kacho -o jsonpath='{.items[0].spec.rules[0].http.paths[0]
 **Then** `kacho-api-gateway/README.md` или `CLAUDE.md` содержит:
   - пример `grpcurl` команды через `api.kacho.local:80`
   - пример `curl` REST команды через `api.kacho.local/v1/`
-  - описание allowlist-конфига (как добавить новый публичный метод)
+  - описание allowlist-конфига (как добавить новый публичный метод в `internal/allowlist/list.go`)
   - список env-переменных (`KACHO_*_GRPC`)
 **And** `kacho-workspace/docs/specs/CHANGELOG.md` содержит запись о завершении sub-phase 0.6
 
@@ -1154,13 +1351,15 @@ kubectl get ingress -n kacho -o jsonpath='{.items[0].spec.rules[0].http.paths[0]
 
 ---
 
-## 11. Открытые вопросы
+## 13. Разрешённые вопросы (Resolution table)
 
-| # | Вопрос | Приоритет | Статус |
-|---|---|---|---|
-| OQ-1 | **Формат allowlist-конфига**: Go-константа (map[string]bool в `internal/allowlist/allowlist.go`) vs YAML-файл монтируемый в pod (ConfigMap). Константа проще для начала, YAML гибче при добавлении методов без пересборки. Предлагается: Go-константа для 0.6, с комментарием «заменить на ConfigMap в фазе 1». | High | Открыт |
-| OQ-2 | **Имена REST-путей для resource-manager**: `/v1/organizations/upsert` или `/v1/resourcemanager/organizations/upsert`? grpc-gateway автогенерирует пути из proto HTTP-аннотаций. Нужно убедиться, что аннотации в `kacho-proto` согласуются с ожидаемыми URL в тестах. Если аннотаций нет — используется default grpc-gateway pattern (`/v1/<resource>`). | High | Открыт |
-| OQ-3 | **Request-id header name**: `X-Request-ID` (стандарт de-facto) vs `X-Trace-ID` (OpenTelemetry convention). Принято `X-Request-ID` по аналогии с K8s API; trace-id будет отдельным полем при включении OTel. | Low | Решён (X-Request-ID) |
-| OQ-4 | **grpc-gateway streaming output format**: при `Watch` через REST grpc-gateway пишет `application/json` stream в формате `{"result": {...}}` (каждое сообщение — отдельная JSON-строка). Нужно убедиться, что клиенты (curl, frontend) корректно парсят chunked JSON. Сценарий C6 написан на основе этого предположения. | Medium | Открыт |
-| OQ-5 | **Keepalive / idle timeout для Watch-стримов**: нужно ли настраивать gRPC keepalive параметры на gateway, чтобы Ingress (nginx) не закрывал idle HTTP/2 соединения? Default nginx timeout — 75 секунд. Рекомендуется установить gRPC keepalive interval 30 секунд. Влияет на сценарий I5. | Medium | Открыт |
-| OQ-6 | **Backend connection pooling**: использует ли grpc-proxy постоянные соединения к backends или устанавливает новое на каждый запрос? `mwitkow/grpc-proxy` документирует `Director` функцию. Нужно явно инициализировать pool connection-ов при старте gateway. | Medium | Открыт |
+Все открытые вопросы предыдущей редакции закрыты. Принятые решения зафиксированы в «Зафиксированные соглашения» (§0) и в тексте сценариев.
+
+| OQ | Вопрос | Решение |
+|---|---|---|
+| OQ-1 | Формат allowlist-конфига | **Go-константа** (`map[string]struct{}`) в `internal/allowlist/list.go`. YAML/ConfigMap — фаза 1. |
+| OQ-2 | Имена REST-путей для resource-manager | **`/v1/<resource>/<action>`** без prefix домена (например, `/v1/organizations/upsert`). Определяется HTTP-аннотациями в `kacho-proto`. |
+| OQ-3 | Request-id header name | **`X-Request-ID`** (зафиксировано в предыдущей редакции). |
+| OQ-4 | grpc-gateway streaming output format | **`application/json` chunked, newline-delimited JSON**: каждое сообщение — отдельная строка `{"result": {...}}`. |
+| OQ-5 | Keepalive / idle timeout | **gRPC keepalive interval = 30s** на клиентских соединениях gateway→backend; **nginx `proxy_read_timeout = 120s`** (аннотация на Ingress). |
+| OQ-6 | Backend connection pooling | **Один `*grpc.ClientConn` per backend**, инициализируется один раз в `cmd/api-gateway/main.go`. Никакого per-request dial. |
