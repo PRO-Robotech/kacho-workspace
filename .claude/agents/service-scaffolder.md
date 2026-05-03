@@ -196,3 +196,42 @@ cp kacho-corelib/migrations/common/* kacho-<SVC>/migrations/common/
 - Порты: gRPC=9090, REST=8080, metrics=9091 (константы в config)
 - Логирование: только `log/slog` — запрет на другие логгеры
 - `reconciler/` — только для compute и loadbalancer, остальные сервисы не имеют фоновых воркеров в текущей фазе
+
+## 9. Чистая архитектура (Clean Architecture)
+
+Структура `internal/` каждого сервиса организована по принципам Clean Architecture (Uncle Bob). Когда создаёшь skeleton, **создавай и комментарии в stub-файлах**, объясняющие dependency rule:
+
+**Слои и направление зависимостей:**
+
+```
+handler ─┐
+         ├─→ service ─→ domain
+repo ────┤              ↑
+clients ─┘              │
+                  (только структуры)
+```
+
+**Stub-файлы которые ты создаёшь** (в каждом сервисе):
+
+- `internal/domain/<resource>.go` — entities (структуры Go без зависимостей кроме stdlib и `kacho-proto`-envelope-типов). Stub: одна пустая структура с комментарием `// Domain entity: чистый Go-тип, не должен импортировать pgx/grpc/sqlc.`
+- `internal/service/<resource>.go` — use-cases. Stub: пустой struct + конструктор `New<Resource>Service(repo <Resource>Repo, ...)`. Комментарий: `// Use-case layer: бизнес-логика, оркестрирует domain + ports. Импортирует только domain.`
+- `internal/service/ports.go` — port-интерфейсы (`<Resource>Repo`, `<Peer>Client`). Stub: интерфейс с одним методом-заглушкой. Комментарий: `// Ports: интерфейсы определяются в service, реализуются в repo/ и clients/.`
+- `internal/repo/<resource>_repo.go` — реализация `<Resource>Repo`-порта. Stub: struct с pgxpool. Комментарий: `// Adapter: реализация порта из service. Зависит от pgx, сервис не зависит от pgx напрямую.`
+- `internal/clients/<peer>_client.go` — gRPC-клиент к peer-сервису. Stub: struct с grpc-stub. Комментарий аналогичный.
+- `internal/handler/<resource>_handler.go` — gRPC-handler. Stub: struct с service-зависимостью. Комментарий: `// Transport: тонкий слой parse-request → service.Foo() → format-response. Никакой бизнес-логики.`
+- `cmd/<svc>/main.go` — composition root. Stub содержит `serve` и `migrate` subcommands; в `serve` явный комментарий: `// Composition root: единственное место wiring зависимостей.`
+
+Generate `service/ports.go` даже если пустой — это **анкер** для будущего `rpc-implementer`-агента: он будет добавлять интерфейсы туда.
+
+**Что ТЫ НЕ делаешь** (это работа `rpc-implementer`):
+- Не наполняешь handler логикой
+- Не пишешь SQL-запросы в repo
+- Не реализуешь reconciler-loops
+
+**Чек после создания скелета:**
+- [ ] `domain/` имеет только Go-stdlib и `kacho-proto`-импорты
+- [ ] `service/` импортирует только `domain` (НЕ pgx, НЕ grpc-stubs)
+- [ ] `repo/` импортирует pgx + domain (через ports.go)
+- [ ] `clients/` импортирует grpc-stubs + domain (через ports.go)
+- [ ] `handler/` импортирует service-интерфейс (port) + grpc-stubs
+- [ ] `cmd/main.go` — единственное место с `pgxpool.New`, `grpc.NewServer`, и т. п.

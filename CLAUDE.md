@@ -38,6 +38,41 @@ Kachō — облачная управляющая платформа (control p
 
 **Куда складывать новый `.proto`:** ВСЕГДА в `kacho-proto/proto/kacho/cloud/<domain>/v1/`. Сервисные репо НЕ содержат `.proto`-файлов — только Go-импорт сгенерированных stubs из `kacho-proto`. Это упрощает breaking-change detection (один `buf breaking` на всё), синхронизацию версий между сервисами и подключение клиентских SDK.
 
+## Чистая архитектура (Clean Architecture)
+
+Каждый сервис организован по слоям Clean Architecture (Uncle Bob). **Строгое dependency rule:**
+
+```
+handler ─┐
+         ├─→ service ─→ domain
+repo ────┤              ↑
+clients ─┘              │
+                  (только структуры)
+```
+
+Структура `internal/`:
+- `domain/` — entities (чистый Go-тип, импортирует ТОЛЬКО stdlib и `kacho-proto`)
+- `service/` — use-cases (бизнес-логика); определяет port-интерфейсы (`<Resource>Repo`, `<Peer>Client`); импортирует ТОЛЬКО `domain`
+- `repo/` — adapter: реализует port-интерфейсы из service, импортирует pgx + domain
+- `clients/` — adapter: реализует port-интерфейсы из service, импортирует grpc-stubs + domain
+- `handler/` — тонкий transport-слой: parse-request → service.Foo() → format-response. **Никакой бизнес-логики.**
+- `cmd/<svc>/main.go` — **единственное** место wiring (composition root)
+
+**Запрещено:**
+- `domain/` или `service/` импортируют `pgx`, grpc-stubs, sqlc-types — это утечка adapter в use-case
+- Бизнес-логика в `handler/` (валидация полей, ветвления по domain-state, расчёты)
+- Глобальные синглтоны (`var globalPool`, `init()`-side-effects) вне `cmd/`
+
+Тесты следуют слоям: unit-тесты `service/` через mock port-интерфейсов; integration-тесты через testcontainers; e2e через api-gateway. Если service-тест требует Postgres — это сигнал об утечке adapter в use-case.
+
+## Git / коммиты
+
+- Коммиты — Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`, `ci:`, `refactor:`).
+- Подпись коммитов — git-config-имя (`user.name` / `user.email` репозитория).
+- **НЕ добавлять** `Co-Authored-By: Claude ...` или похожие attribution-trailers — это локальный проект, не open-source с многоавторством.
+- Не использовать `--no-verify` для скипа pre-commit hooks без явной просьбы.
+- Не делать `git push --force` на `main` — только новые коммиты.
+
 ## Принцип переиспользования через `kacho-corelib`
 
 **Всё, что может быть вынесено в общий компонент для переиспользования в нескольких сервисах — выносится в `kacho-corelib/<package>/`.**

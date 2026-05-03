@@ -158,6 +158,51 @@ func (h *Handler) Upsert(ctx context.Context, req *computev1.InstanceUpsertReque
   github.com/PRO-Robotech/kacho-corelib/ids.
 ```
 
+### 3.11 Чистая архитектура (Clean Architecture) — направление зависимостей
+
+Принцип Kachō: каждый сервис организован по слоям Clean Architecture. Dependency rule:
+
+```
+handler ─┐
+         ├─→ service ─→ domain
+repo ────┤              ↑
+clients ─┘              │
+                  (только структуры)
+```
+
+**Чек-лист (импорт-граф):**
+
+- [ ] `internal/domain/` импортирует ТОЛЬКО stdlib и `kacho-proto/gen/go/...` (envelope-типы). НИКОГДА не импортирует `pgx`, `grpc`, `sqlc`-сгенерированные типы, transport-структуры.
+- [ ] `internal/service/` импортирует ТОЛЬКО `internal/domain/` и stdlib. НЕ импортирует `pgx`, `grpc-go`, sqlc-types, transport.
+- [ ] `internal/repo/` реализует port-интерфейсы из `internal/service/`. Импортирует pgx + domain. Сервисный код вызывает repo **через интерфейс**, не через прямой struct-тип.
+- [ ] `internal/clients/` реализует port-интерфейсы из service. Импортирует grpc-stubs из `kacho-proto`. Сервисный код вызывает peer-сервис **через интерфейс**.
+- [ ] `internal/handler/` (или `internal/transport/grpc/`) — тонкий transport-слой. Содержит ТОЛЬКО парсинг запроса, вызов service.Foo(), форматирование ответа. **НЕТ** бизнес-валидации, ветвлений по domain-state, расчётов.
+- [ ] `cmd/<svc>/main.go` — **единственное** место `pgxpool.New(...)`, `grpc.NewServer(...)`, конструкторов repo/clients/service. Это composition root.
+- [ ] Тесты `internal/service/*_test.go` используют **mock-реализации** port-интерфейсов (testify/mock или ручной mock-struct). НЕ запускают Postgres из service-теста.
+- [ ] Acceptance/integration тесты (`*_acceptance_test.go`) живут на уровне `repo+service` или `handler+service+repo` с testcontainers/реальным gRPC-сервером.
+
+**Запрещённые import-паттерны (флагай как Critical):**
+
+- `internal/service/*.go` импортирует `github.com/jackc/pgx/...` или `github.com/PRO-Robotech/<svc>/internal/repo/...` напрямую — это утечка adapter в use-case layer.
+- `internal/domain/*.go` импортирует pgx/grpc/sqlc — domain должен быть «чистым» Go.
+- `internal/handler/*.go` содержит вызов `pool.Query(...)` или прямую SQL-логику — handler должен только дёргать service.
+- `var globalPool *pgxpool.Pool` или подобные глобальные синглтоны вне `cmd/` — wiring должен быть только в composition root.
+
+Пример замечания:
+```
+[CLEAN-ARCH] internal/service/instance.go:24 — service напрямую импортирует
+  github.com/jackc/pgx/v5/pgxpool. Это нарушение dependency rule.
+  Исправить: определить интерфейс InstanceRepo в service/ports.go,
+  реализовать в internal/repo/instance_repo.go, инжектировать через
+  конструктор NewInstanceService(repo InstanceRepo, ...).
+```
+
+```
+[CLEAN-ARCH] internal/handler/instance_handler.go:42 — в handler логика
+  «if state == STOPPED return error». Бизнес-валидация должна быть в
+  service.PowerOn(); handler — только parse → call → respond.
+```
+
 ## 4. Формат ревью
 
 ```markdown

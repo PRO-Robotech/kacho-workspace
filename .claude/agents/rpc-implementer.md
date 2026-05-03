@@ -188,3 +188,49 @@ func (s *Service) Upsert(ctx context.Context, req *...) (*..., error) {
 - Reconciler для compute и loadbalancer берёт `pg_advisory_lock(uid_hash)` перед обработкой ресурса
 - Конвенции naming: `02-data-model-and-conventions.md §13`
 - Коды ошибок: строго из `02-data-model-and-conventions.md §14` через `kacho-corelib/errors/`
+
+## 10. Чистая архитектура (Clean Architecture)
+
+Реализация RPC должна следовать принципам Clean Architecture (Uncle Bob) — это **обязательное** требование Kachō. Слои внутри сервисного репо (`internal/`):
+
+```
+internal/
+├── domain/        ← entities (чистые типы Go, без зависимостей кроме stdlib и kacho-proto)
+├── service/       ← use-cases (бизнес-логика, оркестрирует domain + ports)
+├── repo/          ← Postgres-репозитории (реализуют port-интерфейсы из service/)
+├── clients/       ← gRPC-клиенты к peer-сервисам (реализуют port-интерфейсы из service/)
+├── handler/       ← gRPC-хендлеры (тонкий transport-слой, transport <-> service)
+├── reconciler/    ← фоновые воркеры (для compute, loadbalancer)
+└── config/        ← envconfig-структуры
+```
+
+**Dependency Rule (направление зависимостей):**
+
+```
+handler ─┐
+         ├─→ service ─→ domain
+repo ────┤              ↑
+clients ─┘              │
+                  (только структуры)
+```
+
+- `domain/` — **никогда** не импортирует `pgx`, `grpc`, `sqlc-gen`, transport-типы. Только stdlib и `kacho-proto` (envelope-типы).
+- `service/` — определяет **port-интерфейсы** (например `InstanceRepo`, `VPCClient`) и **импортирует только domain**. НЕ импортирует pgx/grpc/sqlc.
+- `repo/` — реализует port-интерфейсы из service. Импортирует pgx, sqlc-gen-types. НЕ импортируется из service напрямую (только через интерфейс, инжектируется в `cmd/`).
+- `clients/` — реализует port-интерфейсы из service. Импортирует grpc-stubs из `kacho-proto/gen/go/...`. Инжектируется в service из `cmd/`.
+- `handler/` — тонкий слой: parse request → call service.Foo() → format response. НЕ содержит бизнес-логики (валидация полей, ветвление логики, расчёты — всё в service).
+- `cmd/<svc>/main.go` — единственное место **wiring**: создаёт pgxpool, repo-implementations, clients, передаёт их в service-конструктор, регистрирует handler в gRPC server.
+
+**Конкретные правила, которые ты соблюдаешь:**
+
+- [ ] Перед началом работы посмотри, какой port-интерфейс нужен в `service/`. Если нет — определи его сам в `service/ports.go` (или рядом с use-case).
+- [ ] Бизнес-логика — в `service/<resource>.go`, **не** в handler.
+- [ ] Запросы к БД — в `repo/<resource>_repo.go`, реализуют интерфейс из service.
+- [ ] gRPC-вызовы к peer-сервисам — в `clients/<peer>_client.go`, реализуют интерфейс из service.
+- [ ] Никаких **прямых** импортов pgx из handler/ или service/ (только через port).
+- [ ] Никаких **прямых** импортов grpc-stubs из service/ или domain/ (только через port в clients/).
+- [ ] Тесты service/ используют **mock-реализации** port-интерфейсов (testify/mock или ручные mock-структуры). НЕ запускают Postgres из service-теста.
+- [ ] Integration-тесты (`*_acceptance_test.go`) живут на уровне service+repo (с реальной БД через testcontainers) или handler+service+repo (с реальным gRPC server).
+- [ ] Wiring всех зависимостей — только в `cmd/<svc>/main.go`. Никаких `var globalPool` в init().
+
+Если файл `internal/service/<X>.go` импортирует `github.com/jackc/pgx/...` или `*Conn` напрямую — это **нарушение Clean Architecture, останови работу и исправь**.
