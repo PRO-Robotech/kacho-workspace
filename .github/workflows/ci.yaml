@@ -1,0 +1,13 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  bats-and-shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: install bats-core
+        run: sudo apt-get update -qq && sudo apt-get install -y bats
+      - name: shellcheck bash scripts
+        run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
+      - name: run bats tests
+        run: bats tests/bootstrap.bats tests/sync-all.bats
