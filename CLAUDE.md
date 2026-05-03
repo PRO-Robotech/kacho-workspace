@@ -90,7 +90,7 @@ clients ─┘              │
 
 ## Запреты (обязательно соблюдать)
 
-1. **НЕ начинать кодирование** до утверждения acceptance-документа Given-When-Then в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md`. См. `04-roadmap-and-phasing.md` §2.
+1. **НЕ начинать кодирование** до **APPROVED** acceptance-документа Given-When-Then в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md`. Approve выставляет агент `acceptance-reviewer` (а НЕ заказчик — он проверяет только итоговый smoke). См. `04-roadmap-and-phasing.md` §2.
 2. **НЕ упоминать «yandex»** в handwritten-коде, README, комментариях, env-name, именах функций.
 3. **НЕ использовать ORM** (gorm, ent, bun). Только sqlc + handwritten pgx.
 4. **НЕ делать каскадное удаление через границу сервиса** (только same-DB FK cascade).
@@ -123,7 +123,7 @@ Project-level (видны из любой подпапки workspace):
 
 **Task-execution (7):** `acceptance-author`, `proto-sync`, `service-scaffolder`, `rpc-implementer`, `migration-writer`, `api-gateway-registrar`, `integration-tester`.
 
-**Specialist-review (4):** `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`.
+**Specialist-review (5):** `acceptance-reviewer`, `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`.
 
 **Использовать готовые (не создавать заново):** `Explore`, `Plan`, `general-purpose`, `superpowers:code-reviewer`, `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`.
 

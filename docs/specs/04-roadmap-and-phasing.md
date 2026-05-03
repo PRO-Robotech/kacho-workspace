@@ -6,7 +6,7 @@
 
 «Текущая фаза» (Bootstrap) описанная в этой спеке слишком велика для одной волны реализации. Разбиваем на 7 sub-итераций. Каждая sub-итерация:
 
-- Начинается с **acceptance-документа на человеко-читаемом языке** (см. §3 ниже), который **утверждается заказчиком до старта кода**.
+- Начинается с **acceptance-документа на человеко-читаемом языке** (см. §3 ниже), который **проходит approve агента `acceptance-reviewer` до старта кода**. Заказчик подключается только к финальной верификации (smoke / e2e); рутинный approve контракта — между двумя агентами (`acceptance-author` ↔ `acceptance-reviewer`).
 - Получает свой план реализации (`docs/plans/<sub-phase>-<topic>.md`).
 - Реализуется TDD-стилем: тесты пишутся первыми (по acceptance-кейсам), потом код.
 - Завершается работающим e2e-сценарием через `grpcurl`.
@@ -67,9 +67,12 @@
 
 ### Шаг 2. Валидация acceptance-документа
 
-- Pull request с acceptance-документом проходит **review заказчика** (вы) **до** старта кода.
-- Замечания → правки документа → новый раунд review.
-- Approve = «можно начинать код, контракт зафиксирован».
+- `acceptance-author` помечает документ статусом «Draft, на ревью».
+- Документ проходит **review агента `acceptance-reviewer`** (см. `.claude/agents/acceptance-reviewer.md` для критериев) **до** старта кода.
+- Замечания → правки документа автором → новый раунд review. Цикл итеративный, обычно сходится за 1–3 раунда.
+- `✅ APPROVED` от `acceptance-reviewer` = «можно начинать код, контракт зафиксирован».
+- Заказчик **не подключается** к этому шагу. Он проверяет финальный результат на шаге 7 (e2e через `grpcurl` / `make e2e-test`).
+- Эскалация заказчику только если: (a) `acceptance-author` итерирует ≥3 раунда без сходимости — это сигнал об ambiguity в спеке, требующей человеческого решения; (b) `acceptance-reviewer` обнаружил scope-конфликт со спекой, требующий стратегического выбора.
 
 Acceptance-документ — это **источник истины** для тестов. Если кейс изменился — изменения сначала в документе, потом в тестах, потом в коде.
 
@@ -283,8 +286,8 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 
 1. **Brainstorm** для уточнения деталей (`superpowers:brainstorming`), если в этой спеке не хватает конкретики.
 2. **Spec** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>.md`.
-3. **Acceptance-документ** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>-acceptance.md` в формате Given-When-Then (см. §2). **Утверждается заказчиком до старта кода.**
-4. **Plan** в `kacho-workspace/docs/plans/sub-phase-X.Y-<topic>-plan.md` (`superpowers:writing-plans`). План пишется **после approve acceptance-документа** и опирается на него: каждый шаг плана связан с одним или несколькими сценариями.
+3. **Acceptance-документ** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>-acceptance.md` в формате Given-When-Then (см. §2). **Approve выставляет агент `acceptance-reviewer` до старта кода.** Заказчик не участвует — он проверяет финальный smoke (шаг 7).
+4. **Plan** в `kacho-workspace/docs/plans/sub-phase-X.Y-<topic>-plan.md` (`superpowers:writing-plans`). План пишется **после `✅ APPROVED` acceptance-документа** и опирается на него: каждый шаг плана связан с одним или несколькими сценариями.
 5. **Worktree** через `superpowers:using-git-worktrees` для изоляции (особенно если работают несколько потоков).
 6. **TDD** через `superpowers:test-driven-development` — конвертация acceptance-сценариев в исполняемые тесты, потом код. Без сюрпризов: контракт зафиксирован на шаге 3.
 7. **Code review** через `superpowers:requesting-code-review` + кастомные специалист-агенты.
@@ -301,6 +304,6 @@ func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
 
 Когда переходим к sub-итерации 0.1 (Bootstrap):
 - Brainstorm не нужен (в этой спеке всё детализировано).
-- **Шаг 1 — acceptance-документ** `sub-phase-0.1-bootstrap-acceptance.md` в формате Given-When-Then. Утверждается заказчиком.
+- **Шаг 1 — acceptance-документ** `sub-phase-0.1-bootstrap-acceptance.md` в формате Given-When-Then. Approve выставляет `acceptance-reviewer`.
 - **Шаг 2 — `superpowers:writing-plans`** с acceptance-документом + этой спекой как входом. План связывает каждый сценарий со списком конкретных файлов для создания.
 - **Шаг 3 — реализация** через `superpowers:executing-plans` или `superpowers:subagent-driven-development`. TDD-дисциплина: каждый сценарий сначала становится падающим тестом, потом проходящим.

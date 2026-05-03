@@ -51,4 +51,16 @@ dev-стенд за < 3 минут.
 - Сервисные deps в helm/umbrella — sub-phase 0.2+ (commented in Chart.yaml)
 - Push в `github.com/PRO-Robotech/...` — отложено: заказчик создаёт remote-репо вручную, потом push 9 локальных историй
 
-**Tag:** `kacho-workspace:0.1.0`
+**Tag:** `v0.1.0` (`kacho-workspace:0.1.0` отменён — `:` невалиден в git tag)
+
+## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
+
+Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
+
+**Что изменилось:**
+
+- Добавлен 12-й агент `acceptance-reviewer` (specialist-review) — единственный gate между acceptance-документом и кодом. Возвращает `✅ APPROVED` или `❌ CHANGES REQUESTED` с замечаниями. Re-review цикл итеративный.
+- `kacho-workspace/CLAUDE.md` запрет #1 — теперь approve выставляет `acceptance-reviewer`, а не заказчик.
+- `04-roadmap-and-phasing.md §2 шаг 2` и `§5 пункт 3` — review заказчика → review `acceptance-reviewer`. Эскалация заказчику только при scope-конфликте или ≥3 нерезультативных раундах.
+- `03-deployment-and-operations.md §9` — 11 → 12 агентов; `acceptance-reviewer` добавлен в §9.2.
+- `acceptance-author` агент — переориентирован на координацию с `acceptance-reviewer` (а не заказчиком).
