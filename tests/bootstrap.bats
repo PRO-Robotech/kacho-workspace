@@ -16,7 +16,7 @@ teardown() { teardown_fake_workspace; }
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
 
-  for r in kacho-api kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
     [ -d "$r/.git" ] || { echo "missing $r"; false; }
   done
 }
@@ -31,7 +31,7 @@ teardown() { teardown_fake_workspace; }
   ./kacho-workspace/bootstrap.sh
 
   # Создаём локальный коммит в одном из репо
-  cd kacho-api
+  cd kacho-proto
   echo "local change" > local.txt
   git -c user.email=t@t -c user.name=t add local.txt
   git -c user.email=t@t -c user.name=t commit -m "local-only"
@@ -42,7 +42,7 @@ teardown() { teardown_fake_workspace; }
   [[ "$output" == *"already cloned"* ]] || [[ "$output" == *"skip"* ]]
 
   # Локальный коммит сохранился
-  cd kacho-api
+  cd kacho-proto
   git log --oneline | grep -q "local-only"
 }
 
@@ -61,6 +61,6 @@ teardown() { teardown_fake_workspace; }
   [[ "$output" == *"loadbalancer"* ]]
 
   # Другие репо клонировались
-  [ -d "kacho-api/.git" ]
+  [ -d "kacho-proto/.git" ]
   [ -d "kacho-vpc/.git" ]
 }
