@@ -98,6 +98,33 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.3.0`
 
+## 2026-05-03 — Sub-phase 0.4 (Compute) завершена
+
+**Что готово:**
+- `kacho-proto/proto/kacho/cloud/compute/v1/`: Instance, Disk, Image (read-only catalog), Snapshot + ComputeInternalService с RemoveTargetFinalizer. 10 .pb.go committed. Instance enum БЕЗ RESTARTING (per design nit-1).
+- `kacho-compute`: полный сервис с reconciler-ом. Clean Architecture (handler→service→repo + cross-service FolderClient + SubnetClient). 3 миграции (common + initial + seed-каталоги: zones, disk_types, platforms, images_catalog). Coverage service-layer 64.1%.
+- `kacho-deploy/helm/umbrella` 0.4.0: compute dep раскомментирован.
+
+**Reconciler (новое в 0.4):**
+- Lifecycle handlers per kind (Instance, Disk, Snapshot)
+- Симулированные задержки: SimConfig env-driven (`KACHO_COMPUTE_SIM_*_MIN_MS/MAX_MS`); test override до 100-200ms
+- pg_advisory_lock per resource_uid для multi-replica
+- Snapshot progress: 0→25→50→75→100, sleep(total/4) (per OQ-2)
+- Instance disk-attach phase в PROVISIONING (per OQ-3)
+- Restart cycle: STOPPING→STOPPED→STARTING→RUNNING (без RESTARTING enum)
+- Finalizer disk-detach: `compute.kacho.io/disk-detach` cleanup перед физическим DELETE
+
+**Smoke (Phase D 0.4):**
+- `make dev-up`: 7 pods (4 Postgres + ingress + resource-manager + vpc + compute), все Running 1/1
+- compute reconciler started; gRPC :9090
+- `grpcurl ImageService/List` возвращает seed-каталог: ubuntu-22.04-lts, ubuntu-20.04-lts, debian-11
+- `grpcurl DiskService/Upsert` создаёт smoke-disk в state=STATE_CREATING
+- Через 8 секунд reconciler переводит state=STATE_READY (full lifecycle через CREATING→READY validated)
+
+**Acceptance:** 88 сценариев, 16 групп (A-P); APPROVED round 1 (commit `9bc31d0`).
+
+**Tag:** `v0.4.0`
+
 ## 2026-05-03 — Methodology change: acceptance approve gate ушёл к агенту
 
 Заказчик: рутинный approve acceptance-документа уходит от человека к агенту. Заказчик подключается только к финальной верификации (smoke / e2e). TDD-дисциплина сохраняется — её соблюдают сами агенты.
