@@ -37,6 +37,7 @@ Kachō — облачная управляющая платформа (control p
 5. **Generic API surface.** 4 стандартных RPC (`upsert`/`delete`/`list`/`watch`) на каждый ресурс + узкий набор sub-resource (`upd-status`, тонкие imperative-RPC для discrete-триггеров).
 6. **K8s-conventional control signals.** `metadata.deletionTimestamp`, `metadata.finalizers[]`, `metadata.generation`, `metadata.restartedAt` — те же роли, что в Kubernetes.
 7. **Future-proof scaling path.** Architecture даёт линейный рост через replicas; точка перехода на внешний broker и distributed DB чётко определена и не ломает API.
+8. **Test-first / BDD-style разработка.** Каждая итерация (sub-фаза, новый RPC, фича) **начинается с описания приёмочных тест-кейсов на понятном человеку языке** (формат Given-When-Then в markdown). Эти описания проходят **валидацию заказчика/команды до начала кодирования**. Только после approve кейсы конвертируются в исполняемые тесты, и разработка идёт до прохождения этих тестов. Кодинг без утверждённых acceptance — запрещён. Подробности процесса — в `04-roadmap-and-phasing.md` §3.
 
 ## 5. Сервисы текущей фазы (5)
 

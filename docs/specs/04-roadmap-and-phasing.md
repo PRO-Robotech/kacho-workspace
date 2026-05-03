@@ -6,14 +6,121 @@
 
 «Текущая фаза» (Bootstrap) описанная в этой спеке слишком велика для одной волны реализации. Разбиваем на 7 sub-итераций. Каждая sub-итерация:
 
+- Начинается с **acceptance-документа на человеко-читаемом языке** (см. §3 ниже), который **утверждается заказчиком до старта кода**.
 - Получает свой план реализации (`docs/plans/<sub-phase>-<topic>.md`).
+- Реализуется TDD-стилем: тесты пишутся первыми (по acceptance-кейсам), потом код.
 - Завершается работающим e2e-сценарием через `grpcurl`.
 - Проходит code-review через `superpowers:requesting-code-review` или специализированных агентов.
 - Не считается завершённой без integration-тестов и e2e smoke в `kacho-deploy/e2e/`.
 
-Каждая sub-итерация выполняется по дисциплине `superpowers:executing-plans` или `superpowers:subagent-driven-development`.
+Каждая sub-итерация выполняется по дисциплине `superpowers:test-driven-development` + `superpowers:executing-plans` или `superpowers:subagent-driven-development`.
 
-## 2. Sub-итерации текущей фазы
+## 2. TDD / BDD workflow per sub-phase
+
+Это **обязательная** последовательность для каждой sub-итерации, нового RPC, нового ресурса. Без неё работа не считается начатой.
+
+### Шаг 1. Acceptance-документ на человеко-читаемом языке
+
+Перед любой строчкой кода — `docs/specs/sub-phase-<X.Y>-<topic>-acceptance.md` в формате Given-When-Then:
+
+```markdown
+# Sub-phase 0.4 (compute) — Acceptance
+
+## Сценарий: создание VM с bootDisk
+
+**Given** Folder `default` существует в default-cloud
+**And** Image `ubuntu-2204-lts` присутствует в каталоге
+**And** Network `internal-net` создана в этом Folder
+**And** Subnet `internal-net-subnet-a` создана в Network с CIDR `10.0.0.0/24`
+
+**When** клиент дёргает `POST /v1/compute/instances/upsert` с payload:
+  - metadata.name = "test-vm-01"
+  - metadata.folderId = <default-folder-uid>
+  - spec.platformId = "standard-v3"
+  - spec.zoneId = "kacho-zone-a"
+  - spec.resources.cores = 2, memory = "4Gi"
+  - spec.bootDisk.diskId = <newly-created-disk-uid>
+  - spec.networkInterfaces[0].subnetId = <subnet-uid>
+  - spec.desiredPowerState = "RUNNING"
+
+**Then** ответ содержит ресурс с заполненными metadata.uid, creationTimestamp, resourceVersion
+**And** status.state = "PROVISIONING" в первом ответе
+**And** в течение 60 секунд через Watch приходит событие MODIFIED с status.state = "RUNNING"
+**And** status.ips.internal не пустой
+**And** status.lastTransitionAt больше creationTimestamp
+
+## Сценарий: попытка создания VM в несуществующем Folder
+...
+
+## Сценарий: restart VM
+**Given** VM `test-vm-01` в состоянии RUNNING
+**When** клиент дёргает `POST /v1/compute/instances/restart` с metadata.uid = <uid>
+**Then** ответ содержит ресурс с заполненным metadata.restartedAt
+**And** через Watch приходят события: MODIFIED (RESTARTING) → MODIFIED (RUNNING)
+**And** status.lastRestartCompletedAt равен metadata.restartedAt
+
+## Negative-сценарий: writing status через upsert
+**Given** VM `test-vm-01` существует
+**When** клиент дёргает `/upsert` с status.state = "STOPPED" в payload
+**Then** ответ — INVALID_ARGUMENT с RequestInfo и BadRequest.field_violations[0].field = "status"
+```
+
+### Шаг 2. Валидация acceptance-документа
+
+- Pull request с acceptance-документом проходит **review заказчика** (вы) **до** старта кода.
+- Замечания → правки документа → новый раунд review.
+- Approve = «можно начинать код, контракт зафиксирован».
+
+Acceptance-документ — это **источник истины** для тестов. Если кейс изменился — изменения сначала в документе, потом в тестах, потом в коде.
+
+### Шаг 3. Конвертация в исполняемые тесты
+
+Для каждого сценария — соответствующий тест на Go. Тесты мапятся 1-к-1 на сценарии acceptance-документа:
+
+```go
+// internal/service/instance_acceptance_test.go
+func TestInstance_CreateWithBootDisk_TransitionsToRunning(t *testing.T) {
+    // Given (setup из acceptance-сценария)
+    // When (RPC call)
+    // Then (assertions)
+}
+
+func TestInstance_CreateInNonExistentFolder_ReturnsInvalidArgument(t *testing.T) { ... }
+
+func TestInstance_Restart_PropagatesViaWatch(t *testing.T) { ... }
+
+func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
+```
+
+Имена тест-функций соответствуют именам сценариев — это даёт **трассируемость** acceptance ↔ test.
+
+### Шаг 4. Тесты падают (red)
+
+Запускаем — все тесты fail (нет реализации). Это подтверждает, что тесты реально проверяют что-то.
+
+### Шаг 5. Implement minimum to pass (green)
+
+Минимальная реализация, чтобы каждый тест прошёл. По одному тесту за раз — `superpowers:test-driven-development` дисциплина.
+
+### Шаг 6. Refactor
+
+Убираем дублирование, улучшаем структуру кода **при работающих тестах**. Любое регрессивное изменение ловится тестами.
+
+### Шаг 7. e2e через grpcurl
+
+Тот же набор сценариев из acceptance-документа реализуется как bash-скрипты в `kacho-deploy/e2e/<sub-phase>/<scenario>.sh`. Это финальная проверка — реальный gRPC через api-gateway против работающего сервиса в kind.
+
+### Уровни тестов и их назначение
+
+| Уровень | Где живёт | Что проверяет | Длительность |
+|---|---|---|---|
+| Unit | `internal/<pkg>/*_test.go` | чистая логика без БД | мс |
+| Integration | `internal/service/*_acceptance_test.go` + testcontainers-Postgres | RPC handler + repo + outbox в одной транзакции | секунды |
+| E2E (smoke) | `kacho-deploy/e2e/<sub-phase>/*.sh` | реальный gRPC через api-gateway против kind | минуты |
+
+**Acceptance-документ покрывается тестами Integration-уровня и Е2Е-уровня одновременно** (один acceptance-сценарий → один integration-тест + один e2e-bash-сценарий). Это даёт два независимых пути валидации с одной point-of-truth.
+
+## 3. Sub-итерации текущей фазы
 
 ### Sub-итерация 0.1 — Bootstrap (foundation)
 
@@ -117,7 +224,7 @@
 - CI всех репо зелёный.
 - README в `kacho-workspace` содержит «как поднять стенд за 5 минут».
 
-## 3. Будущие фазы (вне scope текущей)
+## 4. Будущие фазы (вне scope текущей)
 
 Каждая получит свой brainstorming → spec → plan → implementation цикл.
 
@@ -172,27 +279,28 @@
 
 Только когда single-region вырастет: multi-region active-active с CockroachDB или sharded Postgres + cross-region replication для metadata.
 
-## 4. Что обязательно делать перед каждой sub-итерацией
+## 5. Что обязательно делать перед каждой sub-итерацией
 
 1. **Brainstorm** для уточнения деталей (`superpowers:brainstorming`), если в этой спеке не хватает конкретики.
 2. **Spec** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>.md`.
-3. **Plan** в `kacho-workspace/docs/plans/sub-phase-X.Y-<topic>-plan.md` (`superpowers:writing-plans`).
-4. **Worktree** через `superpowers:using-git-worktrees` для изоляции (особенно если работают несколько потоков).
-5. **TDD** через `superpowers:test-driven-development` для каждого нового модуля.
-6. **Code review** через `superpowers:requesting-code-review` + кастомные специалист-агенты.
+3. **Acceptance-документ** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>-acceptance.md` в формате Given-When-Then (см. §2). **Утверждается заказчиком до старта кода.**
+4. **Plan** в `kacho-workspace/docs/plans/sub-phase-X.Y-<topic>-plan.md` (`superpowers:writing-plans`). План пишется **после approve acceptance-документа** и опирается на него: каждый шаг плана связан с одним или несколькими сценариями.
+5. **Worktree** через `superpowers:using-git-worktrees` для изоляции (особенно если работают несколько потоков).
+6. **TDD** через `superpowers:test-driven-development` — конвертация acceptance-сценариев в исполняемые тесты, потом код. Без сюрпризов: контракт зафиксирован на шаге 3.
+7. **Code review** через `superpowers:requesting-code-review` + кастомные специалист-агенты.
 
-## 5. Что обязательно делать после каждой sub-итерации
+## 6. Что обязательно делать после каждой sub-итерации
 
-1. Acceptance-тесты на kind зелёные.
+1. **Все сценарии из acceptance-документа** покрыты integration-тестами и e2e-bash-сценариями, оба зелёные.
 2. CI на каждом затронутом репо зелёный.
 3. README/CLAUDE.md обновлены.
 4. `kacho-workspace/docs/specs/CHANGELOG.md` пополнен.
 5. Тег версии: `kacho-<svc>:0.<sub-phase>.0` (например, `kacho-resource-manager:0.2.0`).
 
-## 6. Декомпозиция в подплан
+## 7. Декомпозиция в подплан
 
 Когда переходим к sub-итерации 0.1 (Bootstrap):
 - Brainstorm не нужен (в этой спеке всё детализировано).
-- Сразу — `superpowers:writing-plans` с этой спекой как входом.
-- План будет содержать список конкретных файлов для создания, последовательность, точки проверки.
-- Реализация — `superpowers:executing-plans` или `superpowers:subagent-driven-development`.
+- **Шаг 1 — acceptance-документ** `sub-phase-0.1-bootstrap-acceptance.md` в формате Given-When-Then. Утверждается заказчиком.
+- **Шаг 2 — `superpowers:writing-plans`** с acceptance-документом + этой спекой как входом. План связывает каждый сценарий со списком конкретных файлов для создания.
+- **Шаг 3 — реализация** через `superpowers:executing-plans` или `superpowers:subagent-driven-development`. TDD-дисциплина: каждый сценарий сначала становится падающим тестом, потом проходящим.
