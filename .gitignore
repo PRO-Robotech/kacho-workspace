@@ -1,0 +1,13 @@
+# go.work — локальный артефакт, см. 03-deployment-and-operations.md §2.1
+go.work
+go.work.sum
+
+# Claude Code локальные настройки
+.claude/settings.local.json
+.claude/projects/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
