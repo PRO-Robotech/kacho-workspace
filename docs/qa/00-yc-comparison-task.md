@@ -4,14 +4,16 @@
 
 ## 0. Скоуп
 
-Покрываем 7 ресурсов из `/v1/qa-scope`:
-- `Organization` — `/organization-manager/v1/organizations` ↔ `yc organization-manager organization`
-- `Cloud` — `/resource-manager/v1/clouds` ↔ `yc resource-manager cloud`
+Покрываем 6 ресурсов с **точкой входа Cloud** — Organization не тестируем:
+
+- `Cloud` — `/resource-manager/v1/clouds` ↔ `yc resource-manager cloud` ← **точка входа**
 - `Folder` — `/resource-manager/v1/folders` ↔ `yc resource-manager folder`
 - `Network` — `/vpc/v1/networks` ↔ `yc vpc network`
 - `Subnet` — `/vpc/v1/subnets` ↔ `yc vpc subnet`
 - `Address` — `/vpc/v1/addresses` ↔ `yc vpc address`
 - `RouteTable` — `/vpc/v1/routeTables` ↔ `yc vpc route-table`
+
+**Organization не тестируем:** у YC `OrganizationManagerService` Create/Delete отсутствуют (Org создаётся billing-flow-ом, не API). У Kachō Create/Delete — собственное расширение, поэтому сравнение с YC бессмысленно. Используем default Org из bootstrap-а.
 
 **Не покрываем (frozen в 1.0):** compute (Instance/Disk/Image/Snapshot), loadbalancer (NLB/TargetGroup), SecurityGroup, IAM, Operations API нюансы.
 
@@ -67,25 +69,38 @@ export YC_FORMAT=json    # чтобы yc выдавал JSON для diff-ов
 - Категория: missing-feature / wrong-error-code / wrong-validation / ...
 ```
 
-## 3. Сценарии: Cloud/Folder/Organization
+## 3. Сценарии: Cloud / Folder
 
-### 3.1 Создание
+Точка входа — **Cloud** (Organization берём из bootstrap default). Все validation-сценарии common naming/labels пропускаем для Org, проверяем на Cloud (тот же regex, тот же лимит — реализация общая).
+
+### 3.1 Cloud — Create
 
 | ID | Сценарий | YC ожидание | Kachō проверка |
 |---|---|---|---|
-| O-CR-1 | Create Org с валидным name `my-test-org` | OK, returns Operation | `POST /organization-manager/v1/organizations`, body `{"name":"my-test-org","title":"Test"}` |
-| O-CR-2 | Create Org с пустым name | INVALID_ARGUMENT (3) | проверить тот же code |
-| O-CR-3 | Create Org с дублирующимся name | ALREADY_EXISTS (6) | тот же |
-| O-CR-4 | Name из 64+ символов | INVALID_ARGUMENT, мы должны падать с regex | сверить message |
-| O-CR-5 | Name начинается с цифры (`1abc`) | INVALID_ARGUMENT по regex | сверить |
-| O-CR-6 | Name UPPERCASE (`MyOrg`) | INVALID_ARGUMENT | сверить |
-| O-CR-7 | Description > 256 символов | INVALID_ARGUMENT | сверить (у нас в proto length=<=256) |
-| O-CR-8 | 65 labels (превышение лимита) | INVALID_ARGUMENT | сверить |
-| O-CR-9 | label-value > 63 chars | INVALID_ARGUMENT | сверить |
-| O-CR-10 | label-key с `_UPPERCASE` | INVALID_ARGUMENT (regex `[a-z][-_0-9a-z]*`) | сверить |
-| O-CR-11 | Concurrent create с одинаковым name (2 параллельных POST) | один OK, второй ALREADY_EXISTS | повторить |
+| C-CR-1 | Create Cloud с валидным name `qa-cloud-1` + organization_id default | OK, returns Operation; через poll done=true с response.Cloud | `POST /resource-manager/v1/clouds` |
+| C-CR-2 | Create Cloud с пустым name | INVALID_ARGUMENT (3) | сверить code + field_violation |
+| C-CR-3 | Create Cloud с дублирующимся (organization_id + name) | ALREADY_EXISTS (6) | сверить |
+| C-CR-4 | Name из 64+ символов (макс 63 по RFC 1123) | INVALID_ARGUMENT по regex | сверить message |
+| C-CR-5 | Name начинается с цифры (`1abc`) | INVALID_ARGUMENT по regex | сверить |
+| C-CR-6 | Name UPPERCASE (`MyCloud`) | INVALID_ARGUMENT | сверить |
+| C-CR-7 | Name с пробелом или подчёркиванием (`my_cloud`) | INVALID_ARGUMENT | сверить |
+| C-CR-8 | Description > 256 символов | INVALID_ARGUMENT | сверить (proto `length=<=256`) |
+| C-CR-9 | 65+ labels (превышение лимита 64) | INVALID_ARGUMENT | сверить |
+| C-CR-10 | label-value > 63 chars | INVALID_ARGUMENT | сверить |
+| C-CR-11 | label-key с `_UPPERCASE` | INVALID_ARGUMENT (regex `[a-z][-_0-9a-z]*`) | сверить |
+| C-CR-12 | Concurrent create с одинаковым name (2 параллельных POST) | один OK, второй ALREADY_EXISTS | повторить через `&` |
+| C-CR-13 | Create с несуществующим `organization_id` | NOT_FOUND или INVALID_ARGUMENT | у нас FK к organizations таблице — сверить error |
+| C-CR-14 | Create с пустым `organization_id` | INVALID_ARGUMENT (required) | сверить |
 
-Аналогично для Cloud (плюс validate `organization_id`) и Folder (плюс `cloud_id`).
+Folder-specific (повторять только Folder-уникальные кейсы; общие name-validation покрыты через Cloud):
+
+| ID | Сценарий | YC ожидание | Kachō проверка |
+|---|---|---|---|
+| F-CR-1 | Create Folder в существующем Cloud | OK, returns Operation | `POST /resource-manager/v1/folders` |
+| F-CR-2 | Create Folder с пустым `cloud_id` | INVALID_ARGUMENT (required) | сверить |
+| F-CR-3 | Create Folder в несуществующем Cloud | NOT_FOUND/INVALID_ARGUMENT | сверить |
+| F-CR-4 | Дубликат (cloud_id + name) внутри одного Cloud | ALREADY_EXISTS | сверить |
+| F-CR-5 | Тот же name в разных Cloud — два OK | оба OK (UNIQUE — composite cloud_id+name) | сверить |
 
 ### 3.2 Update
 
@@ -230,15 +245,15 @@ fi
 
 Для начала тестировщику пройти **9 главных сценариев** в указанном порядке (~30 мин):
 
-1. O-CR-3 — Create org duplicate name
-2. C-UP-4 — Update cloud rename to occupied (мы это уже исправили — проверить regression)
-3. C-DL-2 — Delete cloud with folders
-4. N-DEL-1 — Delete network with subnets
-5. SU-CIDR-2 — host-bits CIDR
-6. SU-CIDR-IM-1 — попытка immutable Update Subnet
-7. A-CR-3 — Internal address с несуществующим subnet
-8. OP-3 — Operation Cancel
-9. E-4 — multi field-violation
+1. **C-CR-3** — Create cloud с дублирующимся name (regression: ALREADY_EXISTS должен быть)
+2. **C-UP-4** — Update cloud rename to occupied (мы это уже исправили — проверить что не сломалось)
+3. **C-DL-2** — Delete cloud с зависимыми folders → FAILED_PRECONDITION
+4. **N-DEL-1** — Delete network с зависимыми subnets → FAILED_PRECONDITION
+5. **SU-CIDR-2** — Subnet с host-bits-set CIDR (`10.0.0.5/24`)
+6. **SU-CIDR-IM-1** — попытка immutable Update Subnet.cidr_block
+7. **A-CR-3** — Internal address с несуществующим subnet_id
+8. **OP-3** — Operation Cancel
+9. **E-4** — multi field-violation в одном Cloud Create (empty name + empty org_id + long description)
 
 Это покажет 80% gap-ов между нашей реализацией и YC. Остальные сценарии — по полной программе.
 

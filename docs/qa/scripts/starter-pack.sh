@@ -15,17 +15,25 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPARE="$DIR/compare.sh"
 chmod +x "$COMPARE"
 
-# ────────────── 1. O-CR-3: Create org с дубликатом name ──────────────
+# Получаем дефолтные Org и Cloud (из bootstrap-а Kachō / из YC config-а).
+# Organization не создаём — только используем существующую.
+ORG_ID=$(yc resource-manager cloud list --format json 2>/dev/null | jq -r '.[0].organization_id' || echo "")
+KACHO_ORG_ID=$(curl -s $KACHO/organization-manager/v1/organizations | jq -r '.organizations[0].id')
 
-"$COMPARE" "O-CR-3" \
-  'yc organization-manager organization create --name default --title Test --format json 2>&1' \
-  "curl -s -X POST $KACHO/organization-manager/v1/organizations -H 'Content-Type: application/json' -d '{\"name\":\"default\",\"title\":\"Test\"}'"
+# ────────────── 1. C-CR-3: Create cloud с дубликатом name ──────────────
+
+# Готовим: создаём cloud один раз, потом пытаемся ещё раз с тем же именем.
+yc resource-manager cloud create --name qa-dup-cloud --organization-id $ORG_ID --format json >/dev/null 2>&1
+curl -s -X POST $KACHO/resource-manager/v1/clouds -H 'Content-Type: application/json' \
+  -d "{\"name\":\"qa-dup-cloud\",\"organization_id\":\"$KACHO_ORG_ID\"}" >/dev/null
+
+"$COMPARE" "C-CR-3" \
+  "yc resource-manager cloud create --name qa-dup-cloud --organization-id $ORG_ID --format json 2>&1" \
+  "curl -s -X POST $KACHO/resource-manager/v1/clouds -H 'Content-Type: application/json' -d '{\"name\":\"qa-dup-cloud\",\"organization_id\":\"$KACHO_ORG_ID\"}'"
 
 # ────────────── 2. C-UP-4: Update Cloud rename to occupied ──────────────
 
 # Готовим: создаём 2 cloud-а с разными именами, потом переименовываем второй в имя первого.
-ORG_ID=$(yc resource-manager organization list --format json 2>/dev/null | jq -r '.[0].id' || echo "")
-KACHO_ORG_ID=$(curl -s $KACHO/organization-manager/v1/organizations | jq -r '.organizations[0].id')
 
 yc resource-manager cloud create --name qa-cloud-a --organization-id $ORG_ID --format json >/dev/null 2>&1
 yc resource-manager cloud create --name qa-cloud-b --organization-id $ORG_ID --format json >/dev/null 2>&1
