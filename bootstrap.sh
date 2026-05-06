@@ -2,7 +2,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/project"
+mkdir -p "$PROJECT_DIR"
 
 REMOTE_BASE="${KACHO_REMOTE_BASE:-git@github.com:PRO-Robotech}"
 
@@ -17,14 +18,14 @@ REPOS=(
   kacho-deploy
 )
 
-cd "$WS_PARENT"
+cd "$PROJECT_DIR"
 
 clone_count=0
 skip_count=0
 fail_count=0
 
 for r in "${REPOS[@]}"; do
-  if [ -d "$WS_PARENT/$r/.git" ]; then
+  if [ -d "$PROJECT_DIR/$r/.git" ]; then
     echo "[skip] $r — already cloned"
     skip_count=$((skip_count + 1))
     continue
@@ -35,7 +36,7 @@ for r in "${REPOS[@]}"; do
     file://*) url="${REMOTE_BASE#file://}/$r.git" ;;
   esac
 
-  if git clone "$url" "$WS_PARENT/$r" 2>&1; then
+  if git clone "$url" "$PROJECT_DIR/$r" 2>&1; then
     echo "[clone] $r"
     clone_count=$((clone_count + 1))
   else
@@ -54,5 +55,5 @@ fi
 
 echo
 echo "Next step:"
-echo "  cp $SCRIPT_DIR/go.work.example $WS_PARENT/go.work"
-echo "  cd $WS_PARENT/kacho-deploy && make dev-up"
+echo "  cp $SCRIPT_DIR/go.work.example $PROJECT_DIR/go.work"
+echo "  cd $PROJECT_DIR/kacho-deploy && make dev-up"

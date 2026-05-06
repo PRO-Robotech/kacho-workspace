@@ -1,3 +1,6 @@
+# Sibling-репо склонированы внутрь project/ через bootstrap.sh
+project/
+
 # go.work — локальный артефакт, см. 03-deployment-and-operations.md §2.1
 go.work
 go.work.sum

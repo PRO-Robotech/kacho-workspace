@@ -1,10 +1,12 @@
 # Kachō — Workspace CLAUDE.md
 
-Этот файл загружается Claude Code при работе из любой подпапки `cloud-demo/`.
+Этот файл загружается Claude Code при работе из самого `kacho-workspace/`
+и **из любой подпапки `kacho-workspace/project/<repo>/`** благодаря
+parent-walkup discovery (см. §«Структура репозиториев»).
 
 ## Что это за проект
 
-Kachō — облачная управляющая платформа (control plane) с декларативным API в стиле Kubernetes. Воспроизводит подмножество доменов Yandex Cloud в K8s-style envelope (`metadata`/`spec`/`status`). Только control plane, никакого реального data plane.
+Kachō — облачная управляющая платформа (control plane), реализующая подмножество доменов Yandex Cloud по verbatim YC API контракту (proto-форма, error texts, status codes, regex'ы, behavioural semantics). Только control plane, никакого реального data plane.
 
 Полная спека: `kacho-workspace/docs/specs/00-overview-and-scope.md` и далее.
 
@@ -16,25 +18,49 @@ Kachō — облачная управляющая платформа (control p
 | Технические идентификаторы (ASCII) | `kacho` |
 | Proto package | `kacho.cloud.<domain>.v1` |
 | Имена репо | `kacho-<part>` (с дефисом) |
-| k8s namespace | `kacho` |
 | Postgres database / schema | `kacho_<domain>` (с подчёркиванием) |
 | Env-переменные | `KACHO_<DOMAIN>_<NAME>` |
 
 ## Структура репозиториев (polyrepo)
 
-Все репо живут как siblings в `cloud-demo/`:
+Workspace — корневой репо. Все sibling-репо клонируются в `./project/`
+скриптом `bootstrap.sh`. `project/` под gitignore — каждое sibling-репо
+имеет собственный `.git/` и публикуется отдельно.
+
+```
+kacho-workspace/             ← корневой git-репо (этот файл — здесь)
+├── CLAUDE.md                ← общие правила (видны из project/* через parent-walkup)
+├── .claude/agents/          ← project-level субагенты — видны из всех project/*
+├── docs/                    ← specs, plans, qa
+└── project/                 ← gitignore'd
+    ├── kacho-proto/         ← собственный git
+    ├── kacho-corelib/       ← собственный git
+    ├── kacho-vpc/           ← собственный git
+    └── ...
+```
+
+**Discovery субагентов:** Claude Code при запуске из
+`project/kacho-vpc/` поднимается вверх по дереву и находит
+`kacho-workspace/.claude/agents/` — поэтому общие 13 агентов
+автоматически доступны во всех sibling-репо без дублирования.
+Service-specific агенты живут в `project/<repo>/.claude/agents/`
+рядом с кодом (override workspace-копию при совпадении имён).
 
 | Репо | Роль |
 |---|---|
-| `kacho-workspace` | этот репо: CLAUDE.md, агенты, спеки, bootstrap-скрипты |
+| `kacho-workspace` | корень: CLAUDE.md, общие агенты, спеки, bootstrap-скрипты |
 | **`kacho-proto`** | **единая центральная директория для всех `.proto`-определений Kachō** (от всех бекендов, всех доменов). Структура: `proto/kacho/cloud/<domain>/v1/*.proto`. Сгенерированные Go-stubs commit-ятся в `gen/go/...`. Импорт сервисов: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1` |
 | `kacho-corelib` | переиспользуемые Go-пакеты (см. ниже) |
-| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST (sub-phase 0.6) |
-| `kacho-resource-manager` | Organization / Cloud / Folder (sub-phase 0.2) |
-| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address (sub-phase 0.3) |
-| `kacho-compute` | Instance / Disk / Image / Snapshot (sub-phase 0.4) |
-| `kacho-loadbalancer` | NLB / TargetGroup (sub-phase 0.5) |
-| `kacho-deploy` | kind + Helm + Postgres-charts, e2e-сценарии |
+| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
+| `kacho-resource-manager` | Organization / Cloud / Folder |
+| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / PrivateEndpoint |
+| `kacho-vpc-controllers` | reconciler-loop'ы для VPC (default SG creation, NetBox sync) |
+| `kacho-compute` | Instance / Disk / Image / Snapshot |
+| `kacho-loadbalancer` | NLB / TargetGroup |
+| `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e-сценарии |
+| `kacho-ui` | Vite + React SPA для control plane |
+| `kacho-test` | сводный e2e/regression стенд |
+| `kacho-yc-shim` | adapter-слой (если нужен для миграции данных/совместимости) |
 
 **Куда складывать новый `.proto`:** ВСЕГДА в `kacho-proto/proto/kacho/cloud/<domain>/v1/`. Сервисные репо НЕ содержат `.proto`-файлов — только Go-импорт сгенерированных stubs из `kacho-proto`. Это упрощает breaking-change detection (один `buf breaking` на всё), синхронизацию версий между сервисами и подключение клиентских SDK.
 
@@ -104,7 +130,7 @@ clients ─┘              │
 
 ## API contract — flat resources + Operations (с фазы 1.0)
 
-**Каждый ресурс — плоский message** без envelope `metadata/spec/status`:
+**Каждый ресурс — плоский message** с domain-полями на верхнем уровне:
 ```protobuf
 message Instance {
   string id = 1;
@@ -146,35 +172,47 @@ message Operation {
 ```
 
 **Что выкинуто (deprecated с 1.0):**
-- `metadata/spec/status` envelope
 - Watch RPC — больше не существует. Клиент использует List-polling 2-5 сек или Operations.Get(id) для in-flight задач.
 - `kacho-corelib/watch/` package — удалён.
 - gRPC server-streaming через grpc-gateway / WebSocket для Watch — выкинут.
 
 ## Локальная разработка (быстрые команды)
 
-- Развернуть стенд: `cd kacho-deploy && make dev-up`
-- Снести стенд: `cd kacho-deploy && make dev-down`
-- Перезапустить один сервис: `cd kacho-deploy && make reload-svc SVC=compute`
-- Логи сервиса: `make logs-svc SVC=compute`
-- Открыть psql сервиса: `make psql SVC=compute`
-- Обновить все репо: `./kacho-workspace/sync-all.sh`
+Все команды относительно корня workspace (где этот файл). Сервисы — в `project/`.
+
+- Развернуть стенд: `cd project/kacho-deploy && make dev-up`
+- Снести стенд: `cd project/kacho-deploy && make dev-down`
+- Перезапустить один сервис: `cd project/kacho-deploy && make reload-svc SVC=compute`
+- Логи сервиса: `cd project/kacho-deploy && make logs-svc SVC=compute`
+- Открыть psql сервиса: `cd project/kacho-deploy && make psql SVC=compute`
+- Обновить все репо: `./sync-all.sh` (или `cd <workspace> && ./sync-all.sh`)
 
 ## Спецификация (5 документов)
 
 1. `docs/specs/00-overview-and-scope.md` — обзор и принципы
 2. `docs/specs/01-architecture-and-services.md` — граф сервисов, RPC
-3. `docs/specs/02-data-model-and-conventions.md` — envelope, schemas
-4. `docs/specs/03-deployment-and-operations.md` — kind, helm, CLAUDE.md иерархия
+3. `docs/specs/02-data-model-and-conventions.md` — data model, schemas, naming
+4. `docs/specs/03-deployment-and-operations.md` — deployment, operations, CLAUDE.md иерархия
 5. `docs/specs/04-roadmap-and-phasing.md` — sub-итерации 0.1–0.7, TDD-workflow
 
 ## Subagents (`.claude/agents/`)
 
-Project-level (видны из любой подпапки workspace):
+**Workspace-level (видны из любого `project/<repo>/` через parent-walkup
+discovery — Claude Code поднимается по дереву от cwd до первого `.claude/agents/`):**
 
 **Task-execution (7):** `acceptance-author`, `proto-sync`, `service-scaffolder`, `rpc-implementer`, `migration-writer`, `api-gateway-registrar`, `integration-tester`.
 
-**Specialist-review (5):** `acceptance-reviewer`, `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`.
+**Specialist-review (6):** `acceptance-reviewer`, `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`, `qa-test-engineer`.
+
+**Service-specific (живут в `project/<repo>/.claude/agents/`):**
+
+Если домен требует узкоспециализированной экспертизы (verbatim-parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` (sub-phase 0.3 завершён):
+- `vpc-yc-parity-auditor` — аудит verbatim YC parity (regex, error texts, status codes, timestamp).
+- `vpc-cidr-specialist` — CIDR (host-bits, EXCLUDE constraint, overlap, internal IP).
+- `vpc-outbox-watch-engineer` — outbox + LISTEN/NOTIFY + InternalWatchService.
+- `vpc-newman-author` — Newman regression suites (quota-aware 3-suite split).
+
+При совпадении имён project-level override-ит workspace-level (Claude Code находит ближайший `.claude/agents/` первым).
 
 **Использовать готовые (не создавать заново):** `Explore`, `Plan`, `general-purpose`, `superpowers:code-reviewer`, `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`.
 

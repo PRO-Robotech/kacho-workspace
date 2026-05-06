@@ -2,16 +2,32 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WS_PARENT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PROJECT_DIR="$SCRIPT_DIR/project"
 
-REPOS=(kacho-workspace kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
+# kacho-workspace — сам корень, синкаем отдельно первым.
+if [ -d "$SCRIPT_DIR/.git" ]; then
+  cd "$SCRIPT_DIR"
+  before="$(git rev-parse HEAD 2>/dev/null)"
+  if git fetch --quiet && git pull --ff-only --quiet 2>/dev/null; then
+    after="$(git rev-parse HEAD)"
+    if [ "$before" = "$after" ]; then
+      echo "[kacho-workspace] up-to-date"
+    else
+      echo "[kacho-workspace] updated to $after"
+    fi
+  else
+    echo "[kacho-workspace] skipped: fetch/pull failed"
+  fi
+fi
+
+REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
 
 for r in "${REPOS[@]}"; do
-  if [ ! -d "$WS_PARENT/$r/.git" ]; then
+  if [ ! -d "$PROJECT_DIR/$r/.git" ]; then
     echo "[$r] not cloned, skip"
     continue
   fi
-  cd "$WS_PARENT/$r"
+  cd "$PROJECT_DIR/$r"
   before="$(git rev-parse HEAD 2>/dev/null)"
   git fetch --quiet || { echo "[$r] fetch failed"; continue; }
   if git pull --ff-only --quiet 2>/dev/null; then
