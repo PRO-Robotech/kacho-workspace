@@ -13,6 +13,7 @@ REPOS=(
   kacho-api-gateway
   kacho-resource-manager
   kacho-vpc
+  kacho-vpc-implement
   kacho-compute
   kacho-loadbalancer
   kacho-deploy

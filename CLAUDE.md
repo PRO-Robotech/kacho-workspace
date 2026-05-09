@@ -54,7 +54,8 @@ Service-specific агенты живут в `project/<repo>/.claude/agents/`
 | `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
 | `kacho-resource-manager` | Organization / Cloud / Folder |
 | `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / PrivateEndpoint |
-| `kacho-vpc-controllers` | reconciler-loop'ы для VPC (default SG creation, NetBox sync) |
+| ~~`kacho-vpc-controllers`~~ | **Упразднён в Phase 2.** IPAM (allocate external/internal IP) и default-SG creation встроены в kacho-vpc service-слой inline (request-path); см. address_allocate.go и network.go::doCreate в kacho-vpc. |
+| `kacho-vpc-implement` | data-plane sibling to kacho-vpc: SRv6 + IPv6 underlay + dual-stack overlay + NLB-DSR на гипервизорах. Spec-only до Phase 1.0 — две альтернативные серии в `docs/specs/` (own greenfield) и `docs/specs-oss-stack/` (Cilium-vendored hybrid) |
 | `kacho-compute` | Instance / Disk / Image / Snapshot |
 | `kacho-loadbalancer` | NLB / TargetGroup |
 | `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e-сценарии |
@@ -123,7 +124,9 @@ clients ─┘              │
 3. **НЕ использовать ORM** (gorm, ent, bun). Только sqlc + handwritten pgx.
 4. **НЕ делать каскадное удаление через границу сервиса** (только same-DB FK cascade).
 5. **НЕ редактировать применённую миграцию.** Только новая миграция.
-6. **НЕ маршрутизировать `Internal.*` методы** через api-gateway наружу.
+6. **`Internal.*` методы НЕ публиковать на external endpoint** (TLS-listener `api.kacho.local:443`, advertised endpoint для `yc` CLI / external клиентов). Они могут быть зарегистрированы через api-gateway REST mux и доступны на cluster-internal listener (для UI, admin-tooling, port-forward). Текущие зарегистрированные Internal admin-ресурсы (kacho-only, не verbatim-YC): `Region`, `Zone`, `AddressPool` под `/vpc/v1/regions`, `/vpc/v1/zones`, `/vpc/v1/addressPools`. См. `kacho-vpc/CLAUDE.md` §16.
+
+   **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в verbatim-YC API — добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять публичные сервисы для admin-нужд — это сломает verbatim-parity и засветит admin-функции на external TLS endpoint.
 7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
 8. **НЕ создавать новые единые БД** — только database-per-service.
 9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
