@@ -9,6 +9,9 @@ go.work.sum
 .claude/settings.local.json
 .claude/projects/
 
+# Superpowers brainstorm visual companion (per-session HTML мокапы)
+.superpowers/
+
 # IDE / OS
 .idea/
 .vscode/
