@@ -55,7 +55,7 @@ Service-specific агенты живут в `project/<repo>/.claude/agents/`
 | `kacho-resource-manager` | Organization / Cloud / Folder |
 | `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / PrivateEndpoint |
 | ~~`kacho-vpc-controllers`~~ | **Упразднён в Phase 2.** IPAM (allocate external/internal IP) inline в `kacho-vpc/internal/service/address.go` (request-path); default-SG creation inline в `network.go::doCreate` при `KACHO_VPC_DEFAULT_SG_INLINE=true` (default). |
-| `kacho-vpc-implement` | data-plane sibling to kacho-vpc: SRv6 + IPv6 underlay + dual-stack overlay + NLB-DSR на гипервизорах. Spec-only до Phase 1.0 — две альтернативные серии в `docs/specs/` (own greenfield) и `docs/specs-oss-stack/` (Cilium-vendored hybrid) |
+| `kacho-vpc-implement` | data-plane sibling to kacho-vpc: SRv6 + IPv6 underlay + dual-stack overlay + NLB-DSR на гипервизорах. Spec-only до Phase 1.0. Стратегия реализации **зафиксирована** в `docs/specs/09-implementation-strategy.md`: свой eBPF data-plane, `cilium/ebpf` как loader, `cilium/cilium/pkg/maglev` как библиотека, **GoBGP** (не FRR), kernel-native `seg6local`. Серия `docs/specs-oss-stack/` (vendor Cilium eBPF C) — отвергнута, оставлена как архив. Bootstrap (`sub-phase-1.0`) требует APPROVED acceptance-док перед кодированием. |
 | `kacho-compute` | Instance / Disk / Image / Snapshot |
 | `kacho-loadbalancer` | NLB / TargetGroup |
 | `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e-сценарии |
