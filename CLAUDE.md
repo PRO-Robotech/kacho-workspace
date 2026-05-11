@@ -54,7 +54,7 @@ Service-specific агенты живут в `project/<repo>/.claude/agents/`
 | `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
 | `kacho-resource-manager` | Organization / Cloud / Folder |
 | `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / PrivateEndpoint |
-| ~~`kacho-vpc-controllers`~~ | **Упразднён в Phase 2.** IPAM (allocate external/internal IP) и default-SG creation встроены в kacho-vpc service-слой inline (request-path); см. address_allocate.go и network.go::doCreate в kacho-vpc. |
+| ~~`kacho-vpc-controllers`~~ | **Упразднён в Phase 2.** IPAM (allocate external/internal IP) inline в `kacho-vpc/internal/service/address.go` (request-path); default-SG creation inline в `network.go::doCreate` при `KACHO_VPC_DEFAULT_SG_INLINE=true` (default). |
 | `kacho-vpc-implement` | data-plane sibling to kacho-vpc: SRv6 + IPv6 underlay + dual-stack overlay + NLB-DSR на гипервизорах. Spec-only до Phase 1.0 — две альтернативные серии в `docs/specs/` (own greenfield) и `docs/specs-oss-stack/` (Cilium-vendored hybrid) |
 | `kacho-compute` | Instance / Disk / Image / Snapshot |
 | `kacho-loadbalancer` | NLB / TargetGroup |
@@ -209,11 +209,13 @@ discovery — Claude Code поднимается по дереву от cwd до
 
 **Service-specific (живут в `project/<repo>/.claude/agents/`):**
 
-Если домен требует узкоспециализированной экспертизы (verbatim-parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` (sub-phase 0.3 завершён):
+Если домен требует узкоспециализированной экспертизы (verbatim-parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` + `.claude/skills/`:
 - `vpc-yc-parity-auditor` — аудит verbatim YC parity (regex, error texts, status codes, timestamp).
 - `vpc-cidr-specialist` — CIDR (host-bits, EXCLUDE constraint, overlap, internal IP).
 - `vpc-outbox-watch-engineer` — outbox + LISTEN/NOTIFY + InternalWatchService.
-- `vpc-newman-author` — Newman regression suites (quota-aware 3-suite split).
+- `vpc-newman-author` — newman regression suites (декларативные `cases/*.py` → `gen.py`).
+- `vpc-load-testing` — нагрузочные сценарии VPC (k6 + ghz Jobs).
+- skills: `testing-code-coach`, `testing-product-coach`, `vpc-load-testing` (+ workspace `load-testing-coach`).
 
 При совпадении имён project-level override-ит workspace-level (Claude Code находит ближайший `.claude/agents/` первым).
 
