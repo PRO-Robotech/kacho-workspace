@@ -65,6 +65,56 @@ Service-specific агенты живут в `project/<repo>/.claude/agents/`
 
 **Куда складывать новый `.proto`:** ВСЕГДА в `kacho-proto/proto/kacho/cloud/<domain>/v1/`. Сервисные репо НЕ содержат `.proto`-файлов — только Go-импорт сгенерированных stubs из `kacho-proto`. Это упрощает breaking-change detection (один `buf breaking` на всё), синхронизацию версий между сервисами и подключение клиентских SDK.
 
+## Кросс-репо зависимости и порядок выполнения
+
+Polyrepo связан `replace`-директивами в `go.mod` и `COPY ../kacho-*` в Dockerfile'ах.
+Чтобы понять **кто от кого зависит** и **в каком порядке делать / мёржить** работу,
+размазанную по нескольким репо:
+
+**Граф build-зависимостей** (источник истины — `replace github.com/PRO-Robotech/...` в `*/go.mod`):
+
+```
+kacho-proto              ← ни от чего внутри проекта не зависит (центр всех .proto + gen/)
+  └─ kacho-corelib       ← replace ../kacho-proto
+       ├─ kacho-resource-manager  ┐
+       ├─ kacho-vpc                │ каждый сервис: replace ../kacho-corelib + ../kacho-proto.
+       ├─ kacho-compute            │ Между собой сервисы НЕ зависят (DB-per-service, общение
+       ├─ kacho-loadbalancer       │ только по API) → внутри слоя порядок не важен.
+       └─ kacho-api-gateway       ┘  (+ импортирует proto-stubs всех доменов, что проксирует)
+kacho-deploy             ← не Go-зависимость; Dockerfile'ы сервисов делают COPY ../kacho-* ,
+                            а kacho-deploy/Makefile собирает образы с build-context = parent dir →
+                            зависит от исходников всех сервисов + corelib + proto
+kacho-ui / kacho-test    ← зависят от REST api-gateway в runtime (не build)
+kacho-workspace          ← docs/specs/agents; зависит от всего, от него — ничто
+kacho-vpc-implement      ← spec-only до Phase 1.0; sibling kacho-vpc (data-plane), пока не в build-графе
+```
+
+Проверить актуальность графа:
+`grep -rn "replace github.com/PRO-Robotech" project/*/go.mod` + `grep -rln "COPY \.\./kacho" project/*/Dockerfile`.
+
+> Почему `replace ../` а не versioned-модули: осознанный выбор для polyrepo-dev-в-одном-дереве
+> (`bootstrap.sh` клонирует siblings в `project/`, локальный gitignored `go.work` из
+> `go.work.example`). Переход на versioned modules — workspace-wide migration под релизную фазу,
+> не делается раньше (это `wontfix` пока проект не релизится).
+
+**Порядок выполнения / merge для кросс-репо фичи** — топологическая сортировка графа:
+
+1. `kacho-proto` — новые `.proto` + регенерация `gen/` (commit-ится), `buf lint`/`breaking` зелёные.
+2. `kacho-corelib` — если меняются общие пакеты (`ids`/`operations`/`db`/...).
+3. Сервис(ы) — `kacho-vpc` / `kacho-resource-manager` / ... — в любом порядке между собой.
+4. `kacho-api-gateway` — регистрация новых RPC (public mux / internal mux).
+5. `kacho-deploy` — helm/compose tweaks под новый функционал.
+6. `kacho-workspace` — docs/specs.
+
+Пока вышестоящие изменения не в `main` своих репо, нижестоящий CI **временно пиннит siblings
+к feature-веткам** — `ref:`-строки в `.github/workflows/ci.yaml` (там же комментарий-напоминание).
+После merge'а зависимостей `ref:`-строки убираются (или → `ref: main`). Закрывается граф снизу вверх.
+
+**Tracking кросс-репо эпика:** завести **tracking-issue в `kacho-workspace`** (метка `epic`) с
+task-list'ом ссылок на per-repo issue/PR **в порядке зависимостей**; каждый зависимый issue/PR в
+теле помечает `Blocked by PRO-Robotech/<repo>#<n>`. Так из одного места видно, что чем заблокировано
+и что мёржить дальше.
+
 ## Чистая архитектура (Clean Architecture)
 
 Каждый сервис организован по слоям Clean Architecture (Uncle Bob). **Строгое dependency rule:**
@@ -99,6 +149,29 @@ clients ─┘              │
 - **НЕ добавлять** `Co-Authored-By: Claude ...` или похожие attribution-trailers — это локальный проект, не open-source с многоавторством.
 - Не использовать `--no-verify` для скипа pre-commit hooks без явной просьбы.
 - Не делать `git push --force` на `main` — только новые коммиты.
+- Коммит, закрывающий issue — trailer `Closes #N` (или `Closes PRO-Robotech/<repo>#N` для кросс-репо).
+
+## Баги, задачи, tech-debt — GitHub Issues (не `TODO.md`)
+
+Все найденные баги, доп-задачи, tech-debt, observability-gaps заводятся как **GitHub
+Issues в том репо, где они живут** (баг в kacho-vpc → issue в `PRO-Robotech/kacho-vpc`;
+общий / кросс-репо — в `PRO-Robotech/kacho-workspace`). **`TODO.md` в репо упразднён** —
+где остался, это stub со ссылкой на Issues. Источник истины «что надо сделать» — **открытые
+issues**, не файлы в репо.
+
+- **Метки** (общий набор; создавать в репо `gh label create` по мере надобности):
+  `bug`, `tech-debt`, `enhancement` — тип; `blocked` + `blocked:kacho-dns` / `blocked:kacho-iam`
+  и т.п. — заблокировано ещё-не-реализованным сервисом (в теле issue — «при каких условиях
+  браться»); `epic` — tracking-issue кросс-репо работы; `wontfix` — осознанно не делаем (с обоснованием в теле).
+- **Кросс-репо зависимость** — в теле issue `Blocked by PRO-Robotech/<repo>#<n>` (GitHub рендерит
+  cross-repo ссылку и её статус); порядок — см. «Кросс-репо зависимости и порядок выполнения».
+- **Найдено в тестах** (newman / k6 / integration / unit) — заводится issue (`bug` / `tech-debt`);
+  в тест-кейсе допустима короткая аннотация `# verifies <...>` (можно со ссылкой на issue), но не
+  дублирование описания.
+- **Не баг** (by-design / documented divergence с verbatim YC) → **не issue**, а запись в
+  `docs/architecture/` соответствующего сервиса (раздел/файл «известные расхождения»).
+- **Не путать** с feature-acceptance-флоу: новая фича по-прежнему требует APPROVED Given-When-Then
+  в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md` (см. «Запреты» §1) — Issues для багов/tech-debt/мелких задач.
 
 ## Принцип переиспользования через `kacho-corelib`
 
