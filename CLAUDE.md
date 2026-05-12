@@ -232,7 +232,7 @@ issues**, не файлы в репо.
 3. **НЕ использовать ORM** (gorm, ent, bun). Только sqlc + handwritten pgx.
 4. **НЕ делать каскадное удаление через границу сервиса** (только same-DB FK cascade).
 5. **НЕ редактировать применённую миграцию.** Только новая миграция.
-6. **`Internal.*` методы НЕ публиковать на external endpoint** (TLS-listener `api.kacho.local:443`, advertised endpoint для `yc` CLI / external клиентов). Они могут быть зарегистрированы через api-gateway REST mux и доступны на cluster-internal listener (для UI, admin-tooling, port-forward). Текущие зарегистрированные Internal admin-ресурсы (kacho-only, не verbatim-YC): `Region`, `Zone`, `AddressPool` под `/vpc/v1/regions`, `/vpc/v1/zones`, `/vpc/v1/addressPools`. См. `kacho-vpc/CLAUDE.md` §16.
+6. **`Internal.*` методы НЕ публиковать на external endpoint** (TLS-listener `api.kacho.local:443`, advertised endpoint для `yc` CLI / external клиентов). Они могут быть зарегистрированы через api-gateway REST mux и доступны на cluster-internal listener (для UI, admin-tooling, port-forward). Текущие зарегистрированные Internal admin-ресурсы (kacho-only): `AddressPool` под `/vpc/v1/addressPools` (kacho-vpc); `Region`, `Zone` под `/compute/v1/regions`, `/compute/v1/zones` (kacho-compute — перенесены из kacho-vpc, эпик `KAC-15`; до его merge'а ещё `/vpc/v1/regions`, `/vpc/v1/zones`). См. `kacho-vpc/CLAUDE.md` §16, `kacho-compute/CLAUDE.md` §«Geography».
 
    **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в verbatim-YC API — добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять публичные сервисы для admin-нужд — это засветит admin-функции на external TLS endpoint (verbatim-parity — отложена, см. «Что это за проект», но Internal-vs-external разделение остаётся).
 7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
@@ -304,6 +304,68 @@ message Operation {
 **Следствия для дизайна ресурсов**: ресурс может иметь ДВЕ проекции — публичную (lean, tenant-facing) и internal (full, с инфра-полями). Напр.: `Network` — публично {id,name,folder,…}, internal — +`vpn_id`; `NetworkInterface` — публично {id, instance_id, subnet_id, primary_v4_address, status}, internal — +{`vpn_id`-resolved, `hv_id`(placement!), `sid`/`sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`}; `Hypervisor` — internal целиком. Реализация — поле с пометкой «internal-only, не заполняется в публичных ответах» либо отдельный internal-message; концептуально — недоступно публично. (Это шире и строже, чем «Запреты» #6 про admin-методы — там про *методы*, тут про *данные*.)
 
 > Почему: defense-in-depth — даже если публичный API скомпрометирован (или tenant имеет read к своим ресурсам), он не должен узнать физическую топологию / placement / SID-схему — это разведка для lateral movement и таргетинга; tenant сети A не должен мочь вывести «мой инстанс и инстанс tenant'а B на одном железе».
+
+## Кросс-доменные ссылки на ресурсы (owner-сервис / consumer-сервис) — регламент
+
+Когда сервису нужно сослаться на ресурс, которым он **не владеет** (его домен — другой сервис:
+VPC-подсеть ссылается на `Zone` из Compute; VPC-сеть / Compute-инстанс ссылается на `Folder` из
+resource-manager; NLB ссылается на `Subnet` из VPC) — действует единый базовый флоу:
+
+1. **Один владелец на тип ресурса.** Каждый тип ресурса хранится ровно в одном сервисе-владельце,
+   который экспонирует канонический CRUD/read-API. Другие сервисы **не держат копию строк** (никаких
+   mirror-таблиц «на всякий случай») и **не делают cross-service DB FK** (см. §запрет 4, 8 —
+   целостность по FK только в пределах одной схемы).
+
+2. **Consumer ссылается по id (строка), валидирует через API владельца.** Чужой id (`folder_id`,
+   `zone_id`, `subnet_id`, …) хранится как обычная `TEXT`-колонка без FK. На request-path
+   (`Create`/`Update`, где id принимается/меняется) consumer валидирует существование/состояние
+   вызовом `Get` у владельца — через типизированный gRPC-клиент `internal/clients/<owner>_client.go`
+   (port-интерфейс — в `service/`, реализация — в `clients/`, как любой adapter). Не найдено /
+   неподходящее состояние → `InvalidArgument` / `FailedPrecondition`. Владелец недоступен →
+   `Unavailable` (fail-closed для мутаций; чтение уже сохранённых данных повторно НЕ валидируется —
+   dangling-ref переживается, см. п.4). Кросс-сервисные вызовы идут **сервис→сервис напрямую**
+   (cluster-internal), не через api-gateway.
+
+3. **Денормализованные зеркала — read-only и помечены.** Если consumer-у нужно *показывать* атрибуты
+   чужого ресурса рядом со своим (имя/статус зоны у подсети, имя фолдера у сети) — допустимо
+   денормализовать, но: (a) поле помечено output-only «denormalised mirror, source of truth =
+   `<owner>.<Resource>`»; (b) обновляется на чтении / list-poll'ом владельца; (c) **никогда не
+   источник истины** и не принимается на вход в `Create`/`Update`.
+
+4. **Удаление и ссылочная целостность через границу сервиса.** Владелец **не спрашивает** consumer-ов
+   перед удалением (нет cross-service cascade — §запрет 4). Удаление ещё-используемого чужого ресурса —
+   забота оператора; владелец *может* отдавать best-effort usage-hint (`used_by` / `referenced_by`,
+   как `Address.used_by`), но это не гарантия. Consumer обязан **грациозно переживать dangling-ref**
+   (подсеть, чью зону удалили → деградированный статус, а не паника). Жёсткие гарантии целостности —
+   только внутри одной схемы (same-schema FK).
+
+5. **Карта владельцев доменов** (кто канонический owner):
+   - **Geography** — `Region`, `Zone` → **`kacho-compute`** (раньше было в `kacho-vpc`; перенесено, см. эпик `KAC-15`).
+   - **Organization / Cloud / Folder** → `kacho-resource-manager`.
+   - **Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / PrivateEndpoint / NetworkInterface** → `kacho-vpc`.
+   - **Instance / Disk / Image / Snapshot / DiskType / Hypervisor** → `kacho-compute`.
+   - **NetworkLoadBalancer / TargetGroup** → `kacho-loadbalancer`.
+   - **Operation** — каждый сервис ведёт свои (общая `operations`-таблица per-service из corelib), не кросс-доменно.
+   - Если ресурс инфра-чувствительный — он internal-only у своего владельца (см. §«Инфра-чувствительные данные»).
+
+6. **Где экспонируется API владельца.** Tenant-видимый справочник (`Folder`, `Zone`, `Region`) —
+   публичный read-only `Get`/`List` на сервисе-владельце; admin-мутации справочника — на
+   `Internal*`-сервисе владельца (§запрет 6). Consumer для валидации зовёт у владельца доступный ему
+   метод (обычно `Get`) — для consumer-а неважно, internal это listener или public; важно, что вызов
+   прямой service→service.
+
+7. **Направление зависимости / build-граф.** Кросс-доменный gRPC-вызов — **runtime**-зависимость
+   (consumer импортирует proto-stubs владельца и его клиент), **не build**-зависимость → `replace ../`
+   в `go.mod` не меняются, но **новое ребро фиксируется** в §«Кросс-репо зависимости» как runtime-edge.
+   **Циклы запрещены**: если A зовёт B, B не должен звать A. Пример: было `kacho-compute → kacho-vpc`
+   (proxy зон) — заменяется на `kacho-vpc → kacho-compute` (валидация `zone_id`); `kacho-resource-manager` —
+   leaf-owner (Folder): в него только звонят, он сам — никуда.
+
+> Почему именно так: DB-per-service (§запрет 8) запрещает общую БД и cross-service FK → ссылочная
+> целостность через границу сервиса невозможна на уровне БД, её заменяет «валидация на request-path +
+> грациозный dangling-ref». Mirror-таблицы (как старый compute-`zones` seed) расходятся с источником
+> и порождают split-brain — поэтому запрещены; вместо зеркала — прямой вызов владельца (+ опц.
+> denorm-кэш для UI, но помеченный и не авторитетный).
 
 ## Локальная разработка (быстрые команды)
 
