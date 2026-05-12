@@ -5,7 +5,9 @@ load 'test_helper'
 setup() { setup_fake_workspace; setup_fake_remotes; }
 teardown() { teardown_fake_workspace; }
 
-@test "A1: bootstrap clones all 8 sibling repos" {
+# bootstrap.sh клонирует репо в $SCRIPT_DIR/project/<repo> (layout: kacho-workspace/project/*).
+
+@test "A1: bootstrap clones all 9 sibling repos" {
   cd "$TMP_WS"
   mkdir -p kacho-workspace
   cp "$BATS_TEST_DIRNAME/../bootstrap.sh" kacho-workspace/
@@ -16,8 +18,8 @@ teardown() { teardown_fake_workspace; }
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
 
-  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy; do
-    [ -d "$r/.git" ] || { echo "missing $r"; false; }
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-deploy; do
+    [ -d "kacho-workspace/project/$r/.git" ] || { echo "missing $r"; false; }
   done
 }
 
@@ -31,18 +33,18 @@ teardown() { teardown_fake_workspace; }
   ./kacho-workspace/bootstrap.sh
 
   # Создаём локальный коммит в одном из репо
-  cd kacho-proto
+  cd kacho-workspace/project/kacho-proto
   echo "local change" > local.txt
   git -c user.email=t@t -c user.name=t add local.txt
   git -c user.email=t@t -c user.name=t commit -m "local-only"
-  cd ..
+  cd "$TMP_WS"
 
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
   [[ "$output" == *"already cloned"* ]] || [[ "$output" == *"skip"* ]]
 
   # Локальный коммит сохранился
-  cd kacho-proto
+  cd kacho-workspace/project/kacho-proto
   git log --oneline | grep -q "local-only"
 }
 
@@ -61,6 +63,6 @@ teardown() { teardown_fake_workspace; }
   [[ "$output" == *"loadbalancer"* ]]
 
   # Другие репо клонировались
-  [ -d "kacho-proto/.git" ]
-  [ -d "kacho-vpc/.git" ]
+  [ -d "kacho-workspace/project/kacho-proto/.git" ]
+  [ -d "kacho-workspace/project/kacho-vpc/.git" ]
 }
