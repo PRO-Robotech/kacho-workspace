@@ -6,9 +6,23 @@ parent-walkup discovery (см. §«Структура репозиториев»
 
 ## Что это за проект
 
-Kachō — облачная управляющая платформа (control plane), реализующая подмножество доменов Yandex Cloud по verbatim YC API контракту (proto-форма, error texts, status codes, regex'ы, behavioural semantics). Только control plane, никакого реального data plane.
+Kachō — облачная управляющая платформа: домены Organization/Cloud/Folder, VPC (Network/Subnet/SecurityGroup/RouteTable/Address/Gateway/PrivateEndpoint), Compute (Instance/Disk/Image/…), NLB, плюс **реальный data-plane на гипервизорах** (`kacho-vpc-implement` — SRv6/eBPF; остальные сервисы пока control-plane-only).
 
-Полная спека: `kacho-workspace/docs/specs/00-overview-and-scope.md` и далее.
+> **Verbatim-YC parity — ОТЛОЖЕНА (не текущее требование).** Раньше цель была — побайтовое
+> соответствие Yandex Cloud API (proto-форма, error texts, status codes, regex'ы, behavioural
+> semantics). Сейчас это **снято с приоритета**: API проектируем в **чистой, удобной форме**
+> (можно расходиться с YC — например, NIC как отдельный AWS-ENI-подобный ресурс, `vpn_id` на
+> Network, отдельный ресурс Hypervisor, и т.п.), а YC-совместимость — это **отдельная поздняя
+> фаза** (compat-слой через `kacho-yc-shim` или таргетированный рефакторинг), а не constraint
+> на нынешний дизайн. Следствия: где документы/агенты/правила говорят «verbatim YC / нельзя
+> расходиться с YC / сломает parity» — читать как **«пока неактивно»**; `vpc-yc-parity-auditor`
+> / `proto-api-reviewer` (в части YC-parity) на паузе; «known divergence с verbatim YC» больше
+> не понятие — расхождения это норма. Что остаётся в силе: §«Запреты» #2 («НЕ упоминать
+> «yandex»» — гигиена, тем более когда мы не копируем), Internal-vs-external разделение (#6),
+> flat-resources+Operations контракт, acceptance-workflow (#1).
+
+Полная спека: `kacho-workspace/docs/specs/00-overview-and-scope.md` и далее (раздел про YC-parity
+там тоже надо читать через эту врезку — «отложено»).
 
 ## Naming convention (обязательно)
 
@@ -148,8 +162,29 @@ clients ─┘              │
 - Подпись коммитов — git-config-имя (`user.name` / `user.email` репозитория).
 - **НЕ добавлять** `Co-Authored-By: Claude ...` или похожие attribution-trailers — это локальный проект, не open-source с многоавторством.
 - Не использовать `--no-verify` для скипа pre-commit hooks без явной просьбы.
-- Не делать `git push --force` на `main` — только новые коммиты.
-- Коммит, закрывающий issue — trailer `Closes #N` (или `Closes PRO-Robotech/<repo>#N` для кросс-репо).
+- **НЕ пушить в `main` напрямую и не `--force`.** Работа — через ветку = номер тикета (см. ниже) → PR.
+- **Все sibling-репо имеют свой `git@github.com:PRO-Robotech/<repo>.git`** (включая `kacho-vpc-implement`); `gh` CLI авторизован (push по ssh). `project/` под gitignore в workspace — у каждого sibling собственный `.git/`.
+
+## Документооборот: YouTrack `KAC` + git-флоу (обязательно)
+
+**Трекер задач — YouTrack-проект `KAC`** на `https://prorobotech.youtrack.cloud/` (доска `agiles/183-12`). Доступ — через MCP `mcp__youtrack__*` ИЛИ напрямую REST `…/api/...` с perm-токеном (если MCP смотрит не на тот инстанс — проверь, что проект `KAC` (id `0-5`) виден; в `prorobotech.youtrack.cloud` так).
+
+- **Эпик** (большая задача) — issue с `[EPIC]` в summary (в проекте `KAC` нет поля `Type`, поэтому «Epic» обозначается так + Subtask-иерархией). Эпик подробно описан: цель, решения, декомпозиция, кросс-репо порядок, Definition of Done.
+- **Декомпозиция** — subtasks, залинкованные к эпику через link-type **«Subtask»** (от эпика к ребёнку — `parent for`; от ребёнка к эпику — `subtask of`). Команда: `POST /api/commands {"query":"subtask of KAC-<epic>","issues":[{"idReadable":"KAC-<child>"},…]}`. Каждый subtask **описан** (что сделать, DoD, какой репо, какой артефакт приложить) и блокирующие зависимости перечислены в тексте («Blocked by [CP-RM N]»).
+- **Спринт** — каждый созданный issue (эпик и subtasks) **добавляется в текущий спринт** доски `kacho` (агайл `183-12`): `POST /api/commands {"query":"Board kacho <название-спринта>","issues":[{"idReadable":"KAC-N"},…]}`. Текущий спринт — см. `GET /api/agiles/183-12?fields=currentSprint(id,name),sprints(...)` (на 2026-05: «Первый спринт», id `186-22`). **Не забывать** добавлять новые таски в нужный спринт.
+- **Роль исполнителя** — поле `агент` (enum, bundle `151-9`): значения = имена субагентов проекта (`acceptance-author`, `acceptance-reviewer`, `system-design-reviewer`, `proto-sync`, `rpc-implementer`, `migration-writer`, `db-architect-reviewer`, `go-style-reviewer`, `api-gateway-registrar`, `srv6-encoding-specialist`, `tenant-isolation-auditor`, `network-security-auditor`, `integration-tester`, `qa-test-engineer`, …; добавлять новые в bundle по мере надобности). Дублируется строкой `**Роль:** <agent>` в описании.
+- **Доска / States** (`KAC`): `To do` → `In Progress` → `Test` (готово, ждёт ревью/проверки) → `Done`. Берёшь задачу из беклога (по мере поступления) → переводишь в `In Progress` → работаешь → в `Test` (если нужно ревью) → после ревью/проверки в `Done`. По ходу — комментарии (что сделано, какие решения). **При завершении задачи — таск в `Done` + в комментарий приложить ВСЕ требуемые артефакты** (ссылка на PR, лог прогона тестов, ссылки на сопутствующие изменения в других репо, и т.п.).
+- **Гейт**: кодинг любого таска, затрагивающего сервис вне `kacho-vpc-implement`, начинается только после **APPROVED** acceptance-дока соответствующей под-фазы (acceptance-reviewer; см. «Запреты» #1). Таски-acceptance-доки и таски-APPROVE — отдельные subtasks.
+
+**git-флоу под задачу:**
+- **Ветка = номер тикета**: `git checkout -b KAC-<N>` от `main` (или дефолтной ветки репо). Один тикет может затрагивать несколько репо — ветка `KAC-<N>` создаётся в **каждом** затронутом репо (порядок коммитов/мёржа — по графу зависимостей, см. «Кросс-репо зависимости»).
+- Сделал работу → `git push -u origin KAC-<N>` → `gh pr create --title "[KAC-<N>] <summary>" --body "<что и зачем; Closes/relates KAC-<N>>"` → **ссылку на PR кладёшь комментарием в тикет YouTrack** (по одной на каждый затронутый репо). PR ревьюится ролью-ревьюером из описания таска.
+- Коммиты — Conventional Commits, в теле — `KAC-<N>` (и `Closes KAC-<N>` в PR-теле финального коммита для репо).
+- Текущий крупный эпик — **`KAC-2`** (control-plane resource model: NetworkInterface вариант А + vpn_id на Network internal + Hypervisor в compute + impl reads from upstream); subtasks `KAC-3 … KAC-13`(+).
+
+## Баги, задачи, tech-debt
+
+> **Основной трекер — YouTrack `KAC`** (см. выше): эпики, фичи, доска, декомпозиция, артефакты. Раздел ниже — про мелкие per-repo баги/tech-debt в коде, которые удобнее держать как GitHub Issues рядом с кодом; крупная и кросс-репо работа — в YouTrack.
 
 ## Баги, задачи, tech-debt — GitHub Issues (не `TODO.md`)
 
@@ -168,7 +203,7 @@ issues**, не файлы в репо.
 - **Найдено в тестах** (newman / k6 / integration / unit) — заводится issue (`bug` / `tech-debt`);
   в тест-кейсе допустима короткая аннотация `# verifies <...>` (можно со ссылкой на issue), но не
   дублирование описания.
-- **Не баг** (by-design / documented divergence с verbatim YC) → **не issue**, а запись в
+- **Не баг** (осознанное by-design-поведение; «расхождение с YC» больше не повод заводить issue — verbatim-parity отложена) → **не issue**, а запись в
   `docs/architecture/` соответствующего сервиса (раздел/файл «известные расхождения»).
 - **Не путать** с feature-acceptance-флоу: новая фича по-прежнему требует APPROVED Given-When-Then
   в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md` (см. «Запреты» §1) — Issues для багов/tech-debt/мелких задач.
@@ -199,7 +234,7 @@ issues**, не файлы в репо.
 5. **НЕ редактировать применённую миграцию.** Только новая миграция.
 6. **`Internal.*` методы НЕ публиковать на external endpoint** (TLS-listener `api.kacho.local:443`, advertised endpoint для `yc` CLI / external клиентов). Они могут быть зарегистрированы через api-gateway REST mux и доступны на cluster-internal listener (для UI, admin-tooling, port-forward). Текущие зарегистрированные Internal admin-ресурсы (kacho-only, не verbatim-YC): `Region`, `Zone`, `AddressPool` под `/vpc/v1/regions`, `/vpc/v1/zones`, `/vpc/v1/addressPools`. См. `kacho-vpc/CLAUDE.md` §16.
 
-   **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в verbatim-YC API — добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять публичные сервисы для admin-нужд — это сломает verbatim-parity и засветит admin-функции на external TLS endpoint.
+   **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в verbatim-YC API — добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять публичные сервисы для admin-нужд — это засветит admin-функции на external TLS endpoint (verbatim-parity — отложена, см. «Что это за проект», но Internal-vs-external разделение остаётся).
 7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
 8. **НЕ создавать новые единые БД** — только database-per-service.
 9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
@@ -252,6 +287,24 @@ message Operation {
 - `kacho-corelib/watch/` package — удалён.
 - gRPC server-streaming через grpc-gateway / WebSocket для Watch — выкинут.
 
+## Инфра-чувствительные данные — ТОЛЬКО во внутреннем API (обязательно)
+
+**Любая информация, раскрытие которой компрометирует инфраструктурный слой (помогает
+картировать/таргетировать/атаковать физику и data-plane), живёт ИСКЛЮЧИТЕЛЬНО в `Internal*`-API
+(internal-port 9091 / cluster-internal listener) — НИКОГДА не на публичной gRPC/REST-поверхности.**
+
+К «инфра-чувствительному» относится (не исчерпывающе):
+- **placement / физика**: на каком гипервизоре (HV) лежит NI/инстанс; инвентарь и состояние/ёмкость HV; ресурс `Hypervisor` целиком — internal-only.
+- **underlay / транспорт**: SID-локаторы HV, per-NI SID'ы, underlay/carrier-адреса, GRE/FOU/туннельные эндпоинты, BGP-детали, id routing-таблиц/VRF.
+- **data-plane-wiring**: имена host-интерфейсов (`kh-…`), netns'ов, gateway-anchor'ы (`169.254.x.y`), id контейнеров на хостах, содержимое eBPF-/conntrack-map'ов, статусы программирования ядра.
+- **числовой data-plane-идентификатор** ресурса (напр. `vpn_id` у Network) — это инфра-инфа, она на **internal-вью** ресурса, не на публичном.
+
+**Публичная поверхность** ресурса показывает только tenant-facing «намерение + результат»: id ресурса, name/labels, привязки (folder/network/subnet/instance), выделенный tenant-адрес(а), `status`. Всё «как это разложено по железу» — только через `Internal*`-методы, которыми пользуются control-plane-компоненты (impl-controller/impl-agent), admin-UI, тулинг.
+
+**Следствия для дизайна ресурсов**: ресурс может иметь ДВЕ проекции — публичную (lean, tenant-facing) и internal (full, с инфра-полями). Напр.: `Network` — публично {id,name,folder,…}, internal — +`vpn_id`; `NetworkInterface` — публично {id, instance_id, subnet_id, primary_v4_address, status}, internal — +{`vpn_id`-resolved, `hv_id`(placement!), `sid`/`sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`}; `Hypervisor` — internal целиком. Реализация — поле с пометкой «internal-only, не заполняется в публичных ответах» либо отдельный internal-message; концептуально — недоступно публично. (Это шире и строже, чем «Запреты» #6 про admin-методы — там про *методы*, тут про *данные*.)
+
+> Почему: defense-in-depth — даже если публичный API скомпрометирован (или tenant имеет read к своим ресурсам), он не должен узнать физическую топологию / placement / SID-схему — это разведка для lateral movement и таргетинга; tenant сети A не должен мочь вывести «мой инстанс и инстанс tenant'а B на одном железе».
+
 ## Локальная разработка (быстрые команды)
 
 Все команды относительно корня workspace (где этот файл). Сервисы — в `project/`.
@@ -283,7 +336,7 @@ discovery — Claude Code поднимается по дереву от cwd до
 **Service-specific (живут в `project/<repo>/.claude/agents/`):**
 
 Если домен требует узкоспециализированной экспертизы (verbatim-parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` + `.claude/skills/`:
-- `vpc-yc-parity-auditor` — аудит verbatim YC parity (regex, error texts, status codes, timestamp).
+- `vpc-yc-parity-auditor` — аудит verbatim YC parity (regex, error texts, status codes, timestamp). **На паузе** — verbatim-parity отложена (см. «Что это за проект»).
 - `vpc-cidr-specialist` — CIDR (host-bits, EXCLUDE constraint, overlap, internal IP).
 - `vpc-outbox-watch-engineer` — outbox + LISTEN/NOTIFY + InternalWatchService.
 - `vpc-newman-author` — newman regression suites (декларативные `cases/*.py` → `gen.py`).
