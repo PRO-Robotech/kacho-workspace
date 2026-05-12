@@ -20,7 +20,7 @@ if [ -d "$SCRIPT_DIR/.git" ]; then
   fi
 fi
 
-REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-compute kacho-loadbalancer kacho-deploy)
+REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-deploy)
 
 for r in "${REPOS[@]}"; do
   if [ ! -d "$PROJECT_DIR/$r/.git" ]; then

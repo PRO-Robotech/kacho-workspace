@@ -22,5 +22,5 @@ teardown() { teardown_fake_workspace; }
   [ "$status" -eq 0 ]
   [[ "$output" == *"updated"* ]] || [[ "$output" == *"up-to-date"* ]]
 
-  [ -f "kacho-vpc/upstream.txt" ]
+  [ -f "kacho-workspace/project/kacho-vpc/upstream.txt" ]
 }
