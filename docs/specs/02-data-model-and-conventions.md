@@ -406,6 +406,12 @@ resource_events
 
 ### `kacho_compute`
 
+> **Geography (Region/Zone) — домен kacho-compute** (перенесено из kacho-vpc, эпик `KAC-15`).
+> Таблицы `regions` / `zones` живут в схеме `kacho_compute`; в `kacho_vpc` их **нет** —
+> `subnets.zone_id`, `address_pools.zone_id` и т.п. хранят zone-id как обычную строку без FK и
+> валидируют существование вызовом `compute.v1.ZoneService.Get` на request-path (см. CLAUDE.md
+> §«Кросс-доменные ссылки на ресурсы»).
+
 ```
 instances     (uid PK, folder_id, cloud_id, organization_id, name,
                labels, annotations, creation_timestamp, resource_version,
@@ -415,7 +421,9 @@ instances     (uid PK, folder_id, cloud_id, organization_id, name,
 disks         (...)
 images        (...)        -- read-only seed
 snapshots     (...)
-zones         (...)        -- seed: kacho-zone-a, kacho-zone-b
+regions       (id PK, name, created_at)               -- seed: ru-central1
+zones         (id PK, region_id FK→regions RESTRICT,  -- seed: ru-central1-{a,b,d}
+               name, status, created_at)
 disk_types    (...)        -- seed: network-hdd, network-ssd, network-ssd-nonreplicated
 platforms     (...)        -- seed: standard-v1, standard-v2, standard-v3
 images_catalog(...)        -- seed: ubuntu-2204-lts, debian-12, и т.д.
@@ -427,7 +435,6 @@ resource_events
 ```
 network_load_balancers (uid PK, folder_id, ..., spec JSONB, status JSONB)
 target_groups          (uid PK, folder_id, ..., spec JSONB, status JSONB)
-regions                (...)         -- seed: kacho-region-a
 resource_events
 ```
 
