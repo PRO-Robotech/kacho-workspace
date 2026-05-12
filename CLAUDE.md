@@ -106,6 +106,16 @@ kacho-vpc-implement      ← spec-only до Phase 1.0; sibling kacho-vpc (data-p
 Проверить актуальность графа:
 `grep -rn "replace github.com/PRO-Robotech" project/*/go.mod` + `grep -rln "COPY \.\./kacho" project/*/Dockerfile`.
 
+**Runtime cross-domain edges** (gRPC service→service вызовы — НЕ build-зависимости, `replace ../` от
+них не меняется; см. §«Кросс-доменные ссылки на ресурсы»):
+- `kacho-vpc → kacho-compute` — валидация `zone_id` (`compute.v1.ZoneService.Get`), т.к. Geography
+  (Region/Zone) — домен kacho-compute (эпик `KAC-15`; раньше было наоборот: `kacho-compute → kacho-vpc`
+  proxy зон — **это ребро удалено**).
+- `kacho-vpc-implement → kacho-vpc` — write-back `InternalNetworkInterfaceService.ReportNiDataplane` (эпик `KAC-2`).
+- `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup), IPAM-аллокация эфемерных Address (`AddressService` / `InternalAddressService`).
+- `* → kacho-resource-manager` — `FolderService.Get` (folder existence + cloud lookup); leaf-owner, обратно не зовёт.
+Циклы запрещены (см. регламент): A↔B быть не должно.
+
 > Почему `replace ../` а не versioned-модули: осознанный выбор для polyrepo-dev-в-одном-дереве
 > (`bootstrap.sh` клонирует siblings в `project/`, локальный gitignored `go.work` из
 > `go.work.example`). Переход на versioned modules — workspace-wide migration под релизную фазу,
