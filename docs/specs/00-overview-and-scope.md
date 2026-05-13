@@ -23,7 +23,7 @@ Kachō — облачная управляющая платформа (control p
 - **Реальный data plane**: гипервизоры, VXLAN, eBPF, BGP, dataplane-агенты.
 - **AAA**: IAM, federation, RBAC, mTLS, audit-сервис.
 - **TLS на edge**: сейчас HTTP-only. TLS добавляется одной фазой с AAA.
-- **Совместимость с Yandex Cloud Terraform-провайдером и Yandex Cloud Go SDK**: полностью отброшено. K8s-style envelope (`metadata`/`spec`) несовместим с YC-flat-структурой proto. Будем использовать собственные клиентские инструменты.
+- **Verbatim-совместимость с Yandex Cloud (proto-форма, error texts, status codes, behavioural semantics) — ОТЛОЖЕНА** (не текущее требование, см. `00`/CLAUDE.md врезку). API проектируется в чистой, удобной форме — допустимы расхождения с YC: NIC (`NetworkInterface`) как отдельный AWS-ENI-подобный first-class ресурс домена kacho-vpc, `vpn_id` на Network (internal-only), отдельный internal-ресурс `Hypervisor` в kacho-compute, плоские ресурсы + Operations вместо YC-flat+sync. YC-compat — отдельная поздняя фаза (compat-слой), а не constraint на нынешний дизайн. **Control-plane resource model реализована** (эпик `KAC-2`): NIC, `vpn_id`, `Hypervisor`, impl-controller читает upstream-аллокации (`vpn_id`/`node_index`) и пишет data-plane-state обратно в kacho-vpc.
 - **Биллинг, квоты, monitoring, console UI, DNS, Object Storage, Managed Databases, Functions, Container Registry** — отдельные домены, отдельные фазы.
 - **Multi-region active-active, multi-cluster federation** — single region в текущей фазе.
 - **Message broker (Kafka/NATS)** — заменён локальной outbox+in-process-hub архитектурой.
@@ -45,8 +45,8 @@ Kachō — облачная управляющая платформа (control p
 |---|---|---|
 | `kacho-api-gateway` | — (edge proxy) | — |
 | `kacho-resource-manager` | Organization, Cloud, Folder | `kacho_resource_manager` |
-| `kacho-vpc` | Network, Subnet, SecurityGroup, RouteTable, Address | `kacho_vpc` |
-| `kacho-compute` | Instance, Disk, Image (read-only catalog), Snapshot | `kacho_compute` |
+| `kacho-vpc` | Network (+ internal `vpn_id`), Subnet, SecurityGroup, RouteTable, Address, NetworkInterface | `kacho_vpc` |
+| `kacho-compute` | Instance, Disk, Image (read-only catalog), Snapshot, `Hypervisor` (internal-only) | `kacho_compute` |
 | `kacho-loadbalancer` | NetworkLoadBalancer, TargetGroup | `kacho_loadbalancer` |
 
 ## 6. Бренд и naming

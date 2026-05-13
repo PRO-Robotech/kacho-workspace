@@ -148,6 +148,8 @@ Lifecycle-state enum (`status.state`) per resource:
 | NLB | `CREATING`, `ACTIVE`, `UPDATING`, `ERROR`, `DELETING` |
 | TargetGroup | `CREATING`, `READY`, `UPDATING`, `DELETING` |
 | Address | `RESERVED`, `IN_USE`, `RELEASED` |
+| NetworkInterface | `PROVISIONING`, `ACTIVE`, `AVAILABLE`, `FAILED`, `DELETING` |
+| Hypervisor (internal-only) | `READY`, `CORDONED`, `DRAINING`, `DOWN` (поле `State`, не lifecycle-status) |
 | Network/Subnet/SG/RouteTable | `ACTIVE`, `DELETING` (минимальный) |
 
 ## 5. Refs (обратные ссылки)
@@ -395,14 +397,30 @@ networks      (uid PK, folder_id, cloud_id, organization_id, name,
 subnets       (uid PK, network_id FK→networks, folder_id, cloud_id, organization_id,
                name, ..., spec JSONB, status JSONB,
                UNIQUE (folder_id, name))
-security_groups (...)
+security_groups (...)               -- network_id NULLABLE: SG может быть folder-level / не привязан к сети
 security_group_rules (uid PK, security_group_id FK→security_groups CASCADE,
                       ..., spec JSONB)
 route_tables  (...)
 static_routes (uid PK, route_table_id FK→route_tables CASCADE, ..., spec JSONB)
-addresses     (...)
+addresses     (..., internal_ipv4 / internal_ipv6 NULLABLE, subnet_id для internal-адресов,
+               used BOOL, used_by JSONB (kacho.cloud.reference.Reference))
+address_references (...)             -- enforce «один Address максимум на одном NIC» на service-слое
+network_interfaces (id PK, subnet_id FK→subnets RESTRICT, network_id, folder_id, ...,
+               v4_address_ids[] / v6_address_ids[] (→ addresses, RESTRICT через address_references),
+               security_group_ids[] (default = network.default_security_group_id),
+               used_by JSONB, status,
+               -- инфра/data-plane-поля (hv_id, sid, sid_seq, host_iface, netns, gateway_ip,
+               -- container_id, resolved vpn_id) живут на InternalNetworkInterface, НЕ в публичной проекции)
+vpn_id_sequence  (...)              -- 24-битный data-plane VPN id + free-list; networks.vpn_id аллоцируется отсюда
 resource_events
 ```
+
+**FK / dependency-цепочка `kacho_vpc` — всё RESTRICT:** `network_interfaces → addresses → subnets → networks`.
+- `Address.Delete` блокируется, пока на него ссылается NIC (через `address_references`).
+- `Subnet.Delete` блокируется, пока есть internal-Address-ы (v4 ИЛИ v6) или хоть один NetworkInterface.
+- `Network.Delete` блокируется, пока есть subnets / route_tables / non-default SG (default SG авто-удаляется).
+- Net-effect: удалять снизу-вверх — NIC → Address → Subnet → Network, на каждом уровне — понятный `FAILED_PRECONDITION` с blockers.
+- `operations` (история операций) **не** каскад-удаляется с ресурсом — `ListOperations(resource_id)` работает после удаления ресурса.
 
 ### `kacho_compute`
 
@@ -427,6 +445,11 @@ zones         (id PK, region_id FK→regions RESTRICT,  -- seed: ru-central1-{a,
 disk_types    (...)        -- seed: network-hdd, network-ssd, network-ssd-nonreplicated
 platforms     (...)        -- seed: standard-v1, standard-v2, standard-v3
 images_catalog(...)        -- seed: ubuntu-2204-lts, debian-12, и т.д.
+hypervisors   (id PK, zone_id FK→zones RESTRICT, node_index INT (0-based), fqdn,
+               state TEXT (READY|CORDONED|DRAINING|DOWN),
+               capacity JSONB {vcpus, memory_bytes, instances}, created_at, updated_at)
+               -- internal-only ресурс (placement / HW-inventory): только InternalHypervisorService,
+               -- не на external TLS-endpoint, нет tenant-facing пути
 resource_events
 ```
 
