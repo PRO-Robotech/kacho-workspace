@@ -258,6 +258,13 @@ issues**, не файлы в репо.
 8. **НЕ создавать новые единые БД** — только database-per-service.
 9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
 10. **НЕ полагаться на софтварные refcheck / mutex / check-then-act для within-service ссылок и инвариантов** (TOCTOU-баги, как NIC-attach race 2026-05-14). Внутри одной БД сервиса каждая ссылочная зависимость и каждый инвариант **обязан** быть зафиксирован на DB-уровне: FK (`REFERENCES`), `UNIQUE` / partial `UNIQUE WHERE …`, `EXCLUDE`, `CHECK`, либо conditional `UPDATE … WHERE <invariant>` (CAS) + проверка `RETURNING`-кардинальности. Service-слой только маппит SQLSTATE на gRPC code (`23503`→FailedPrecondition, `23505`→AlreadyExists/FailedPrecondition, `23514`→InvalidArgument). Cross-service ссылки (через границу сервиса / DB) — это **исключение** (database-per-service запрещает cross-DB FK): для них остаётся software-validation через peer-API в worker'е по регламенту §«Кросс-доменные ссылки на ресурсы». См. §«Within-service refs — DB-уровень обязателен» ниже.
+11. **НЕ мёрджить новый RPC / новое proto-поле / новый ресурс без тестов в том же PR.** Каждый PR с новым RPC, новым полем в существующем сообщении, новым oneof case или новой публичной функцией сервиса обязан содержать **в том же PR**:
+    - **Integration-тест** (`internal/repo/*integration_test.go`) — testcontainers Postgres, покрывает SQL-сторону (включая concurrent-race-сценарии для CAS/UNIQUE/EXCLUDE инвариантов).
+    - **Newman-кейс** (`tests/newman/cases/*.py` → `gen.py`) — black-box проверка через api-gateway, минимум 1 happy-path + 1 negative (NotFound / FailedPrecondition / InvalidArgument в зависимости от семантики).
+
+    Формулировки `«newman/integration-tests — out of scope этого PR»`, `«follow-up»`, `«TBD»` **запрещены** как обоснование отсутствия тестов в PR-описании или commit-message. Единственно допустимое исключение: PR явно ссылается на **уже открытый** KAC-тикет под эти конкретные тесты (`Tests-followup: KAC-N`), и тикет создан и привязан к тому же эпику ДО merge. Чек-лист в DoD каждого acceptance-документа уже содержит «integration tests + newman cases зелёные» — при review подтверждать наличие.
+
+    Reviewer/agent при ревью PR обязан reject'нуть PR без тестов (или без явной ссылки на trakable follow-up) и попросить дополнить — раньше merge. Оставлять «`Out of scope: newman cases — оставляю для follow-up`» в commit-message как было в KAC-60 — больше не приемлемо. Закрытие эпика без полного test-покрытия — нарушение DoD.
 
 ## API contract — flat resources + Operations (с фазы 1.0)
 
