@@ -257,6 +257,7 @@ issues**, не файлы в репо.
 7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
 8. **НЕ создавать новые единые БД** — только database-per-service.
 9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
+10. **НЕ полагаться на софтварные refcheck / mutex / check-then-act для within-service ссылок и инвариантов** (TOCTOU-баги, как NIC-attach race 2026-05-14). Внутри одной БД сервиса каждая ссылочная зависимость и каждый инвариант **обязан** быть зафиксирован на DB-уровне: FK (`REFERENCES`), `UNIQUE` / partial `UNIQUE WHERE …`, `EXCLUDE`, `CHECK`, либо conditional `UPDATE … WHERE <invariant>` (CAS) + проверка `RETURNING`-кардинальности. Service-слой только маппит SQLSTATE на gRPC code (`23503`→FailedPrecondition, `23505`→AlreadyExists/FailedPrecondition, `23514`→InvalidArgument). Cross-service ссылки (через границу сервиса / DB) — это **исключение** (database-per-service запрещает cross-DB FK): для них остаётся software-validation через peer-API в worker'е по регламенту §«Кросс-доменные ссылки на ресурсы». См. §«Within-service refs — DB-уровень обязателен» ниже.
 
 ## API contract — flat resources + Operations (с фазы 1.0)
 
@@ -324,7 +325,65 @@ message Operation {
 
 > Почему: defense-in-depth — даже если публичный API скомпрометирован (или tenant имеет read к своим ресурсам), он не должен узнать физическую топологию / placement / SID-схему — это разведка для lateral movement и таргетинга; tenant сети A не должен мочь вывести «мой инстанс и инстанс tenant'а B на одном железе».
 
+## Within-service refs — DB-уровень обязателен (parity с запретом #10)
+
+Все ссылочные зависимости и инварианты **внутри одной БД сервиса** должны быть выражены DB-конструкциями. Software-side `Get → check → Update` (TOCTOU) запрещён — это race-prone и привёл к реальному инциденту (NIC-attach 2026-05-14: две Compute.Instance.Create указали один `existing_network_interface_id`, обе прошли software-guard `if cur.UsedByID != ""`, обе вызвали безусловный `UPDATE network_interfaces SET used_by_id = ...`, second writer wins).
+
+### Инструменты на DB-уровне (выбор по типу инварианта)
+
+| Инвариант | DB-механизм | Пример |
+|---|---|---|
+| «Этот id обязан существовать в той же БД» | `FK REFERENCES <table>(id) ON DELETE {RESTRICT\|CASCADE\|SET NULL}` | `subnets.network_id → networks(id) ON DELETE RESTRICT` |
+| «Поле уникально» | `UNIQUE` или `CREATE UNIQUE INDEX … (...)` | `networks_folder_id_name_key` |
+| «Уникально только если поле не пусто» (partial) | partial `UNIQUE … WHERE <cond>` | `addresses_external_pool_ip_uniq … WHERE (external_ipv4 ->> 'address') <> ''` |
+| «Этот NIC может быть attached максимум к одному инстансу» | partial `UNIQUE (used_by_id) WHERE used_by_id <> ''` | (новый — `network_interfaces_used_by_uniq`) |
+| «Range не пересекается с другим range» | `EXCLUDE USING gist (… WITH &&)` | `subnets_no_overlap_v4` |
+| «Простой предикат на поле/строке» | `CHECK (…)` | `addresses CHECK (external_ipv4 IS NOT NULL OR internal_ipv4 IS NOT NULL OR internal_ipv6 IS NOT NULL)` |
+| «Атомарный compare-and-swap при изменении» | conditional `UPDATE … WHERE <expected-state> RETURNING …` + проверка кардинальности | `UPDATE … SET used_by_id=$new WHERE id=$id AND (used_by_id='' OR used_by_id=$new) RETURNING …` |
+| «Read-modify-write с OCC, без отдельной колонки версии» | `xmin::text` snapshot + `UPDATE … WHERE xmin::text = $expected` | `security_group_occ_integration_test` (см. kacho-vpc) |
+| «Уникальная аллокация из пула под concurrency» | `FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING` | `address_pool_free_ips` (kacho-vpc, миграция 0015) |
+
+### Шаблон: ссылочная безопасность attach-операций (один-к-одному)
+
+❌ **НЕЛЬЗЯ** (TOCTOU):
+```go
+cur, _ := repo.Get(ctx, id)                           // (1) SELECT
+if cur.UsedByID != "" && cur.UsedByID != instanceID { // (2) check
+    return FailedPrecondition
+}
+repo.SetUsedBy(ctx, id, instanceID, ...)              // (3) unconditional UPDATE — race!
+```
+
+✅ **МОЖНО** (атомарный CAS + DB-safety-net):
+```sql
+-- 1) Миграция: partial UNIQUE как защита последнего рубежа
+CREATE UNIQUE INDEX <table>_<ref>_uniq ON <table>(<ref-col>) WHERE <ref-col> <> '';
+
+-- 2) Repo: conditional UPDATE, читаем RETURNING-кардинальность
+UPDATE <table>
+   SET <ref-col> = $new, ...
+ WHERE id = $id
+   AND (<ref-col> = '' OR <ref-col> = $new)   -- CAS: либо свободно, либо уже наш
+RETURNING ...;
+```
+0 rows → `pgx.ErrNoRows` → sentinel `Err<…>AlreadyOccupied` → gRPC `FailedPrecondition`.
+Параллельный второй запрос на тот же id либо пройдёт guard (если совпадает `$new`), либо упрётся в UNIQUE → SQLSTATE `23505` → тот же `FailedPrecondition`.
+
+### Что это **НЕ** покрывает
+
+Cross-service ссылки (`Address.folder_id → folders.id`, `Subnet.zone_id → zones.id` после KAC-15, `Instance.network_interfaces[].subnet_id → subnets.id` и т.п.) — это **через границу сервиса**: разные БД, FK невозможны (запрет #8). Для них остаётся software-validation в worker'е через peer-API + грациозный dangling-ref на чтении. Регламент — следующий раздел.
+
+### Чек-лист при добавлении нового ссылочного поля или инварианта
+
+1. Поле ссылается на ресурс **в той же БД**? → FK + при необходимости partial UNIQUE/EXCLUDE. **Никогда** software-only.
+2. Уникальность включается условно (например, только пока ресурс «занят») → partial UNIQUE с `WHERE …`.
+3. Состояние ресурса может меняться по конкурирующим путям (attach/detach, allocate/free) → атомарный conditional UPDATE с CAS-условием **плюс** partial UNIQUE как safety-net.
+4. SQLSTATE → gRPC mapping должен быть в `mapRepoErr` (или сервис-специфичном maperr): 23503→FailedPrecondition, 23505→AlreadyExists/FailedPrecondition (по контексту), 23514→InvalidArgument, 23P01→FailedPrecondition. Никогда не leak `pgx`-текст наружу.
+5. Integration-тест (testcontainers): concurrent goroutines на спорный путь → проверить, что **ровно одна** транзакция прошла, остальные получили ожидаемый sentinel. Без этого теста не мерж'им — race не отлавливается unit-тестом.
+
 ## Кросс-доменные ссылки на ресурсы (owner-сервис / consumer-сервис) — регламент
+
+> **Парный раздел к §«Within-service refs — DB-уровень обязателен» выше.** Within-service ссылки/инварианты (Network ↔ Subnet ↔ Address ↔ NIC внутри одной БД `kacho_vpc`; Instance ↔ Disk внутри `kacho_compute` и т.п.) — **только DB-уровень** (FK/UNIQUE/EXCLUDE/CAS), software-side TOCTOU запрещён (запрет #10). Этот раздел — про **другую** часть графа ссылок: между разными БД сервисов, где FK физически невозможен (запрет #8).
 
 Когда сервису нужно сослаться на ресурс, которым он **не владеет** (его домен — другой сервис:
 VPC-подсеть ссылается на `Zone` из Compute; VPC-сеть / Compute-инстанс ссылается на `Folder` из
