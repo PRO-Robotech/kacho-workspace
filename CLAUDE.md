@@ -336,38 +336,50 @@ message Operation {
 | «Этот id обязан существовать в той же БД» | `FK REFERENCES <table>(id) ON DELETE {RESTRICT\|CASCADE\|SET NULL}` | `subnets.network_id → networks(id) ON DELETE RESTRICT` |
 | «Поле уникально» | `UNIQUE` или `CREATE UNIQUE INDEX … (...)` | `networks_folder_id_name_key` |
 | «Уникально только если поле не пусто» (partial) | partial `UNIQUE … WHERE <cond>` | `addresses_external_pool_ip_uniq … WHERE (external_ipv4 ->> 'address') <> ''` |
-| «Этот NIC может быть attached максимум к одному инстансу» | partial `UNIQUE (used_by_id) WHERE used_by_id <> ''` | (новый — `network_interfaces_used_by_uniq`) |
 | «Range не пересекается с другим range» | `EXCLUDE USING gist (… WITH &&)` | `subnets_no_overlap_v4` |
 | «Простой предикат на поле/строке» | `CHECK (…)` | `addresses CHECK (external_ipv4 IS NOT NULL OR internal_ipv4 IS NOT NULL OR internal_ipv6 IS NOT NULL)` |
 | «Атомарный compare-and-swap при изменении» | conditional `UPDATE … WHERE <expected-state> RETURNING …` + проверка кардинальности | `UPDATE … SET used_by_id=$new WHERE id=$id AND (used_by_id='' OR used_by_id=$new) RETURNING …` |
 | «Read-modify-write с OCC, без отдельной колонки версии» | `xmin::text` snapshot + `UPDATE … WHERE xmin::text = $expected` | `security_group_occ_integration_test` (см. kacho-vpc) |
 | «Уникальная аллокация из пула под concurrency» | `FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING` | `address_pool_free_ips` (kacho-vpc, миграция 0015) |
 
-### Шаблон: ссылочная безопасность attach-операций (один-к-одному)
+### Шаблон: ссылочная безопасность attach-операций / смены ownership
 
 ❌ **НЕЛЬЗЯ** (TOCTOU):
 ```go
 cur, _ := repo.Get(ctx, id)                           // (1) SELECT
-if cur.UsedByID != "" && cur.UsedByID != instanceID { // (2) check
+if cur.OwnerID != "" && cur.OwnerID != newOwner {     // (2) check
     return FailedPrecondition
 }
-repo.SetUsedBy(ctx, id, instanceID, ...)              // (3) unconditional UPDATE — race!
+repo.SetOwner(ctx, id, newOwner, ...)                 // (3) unconditional UPDATE — race!
 ```
+Между (2) и (3) другая транзакция меняет `OwnerID`; третий шаг безусловно
+перезаписывает уже изменённое значение → second-writer-wins, потеря ownership.
+Точно эта схема привела к инциденту 2026-05-14 (KAC-52, NIC attach race).
 
-✅ **МОЖНО** (атомарный CAS + DB-safety-net):
+✅ **МОЖНО** (атомарный single-statement CAS на одной row):
 ```sql
--- 1) Миграция: partial UNIQUE как защита последнего рубежа
-CREATE UNIQUE INDEX <table>_<ref>_uniq ON <table>(<ref-col>) WHERE <ref-col> <> '';
-
--- 2) Repo: conditional UPDATE, читаем RETURNING-кардинальность
 UPDATE <table>
-   SET <ref-col> = $new, ...
+   SET <owner-col> = $new, <other-fields…>
  WHERE id = $id
-   AND (<ref-col> = '' OR <ref-col> = $new)   -- CAS: либо свободно, либо уже наш
-RETURNING ...;
+   AND (<owner-col> = '' OR <owner-col> = $new)   -- CAS: либо свободно, либо уже наш
+RETURNING …;
 ```
-0 rows → `pgx.ErrNoRows` → sentinel `Err<…>AlreadyOccupied` → gRPC `FailedPrecondition`.
-Параллельный второй запрос на тот же id либо пройдёт guard (если совпадает `$new`), либо упрётся в UNIQUE → SQLSTATE `23505` → тот же `FailedPrecondition`.
+- 0 rows из RETURNING → `pgx.ErrNoRows` → `service.ErrFailedPrecondition` → gRPC `FailedPrecondition`.
+- Идемпотентный re-attach к тому же owner проходит (вторая часть условия).
+- Single-statement UPDATE на одной row защищён row-level lock-ом Postgres: параллельный writer **ждёт commit-а первого**, после чего видит уже обновлённый row, CAS не matches → 0 rows. Никакого extra UNIQUE-индекса не нужно.
+
+⚠️ **Не пытайтесь добавить `UNIQUE (<owner-col>) WHERE <owner-col> <> ''` как «backstop»** — это семантически другой инвариант: «значение owner-col уникально среди всех row». Для one-owner-per-resource это правильно (например, `addresses_external_pool_ip_uniq` — один IP может принадлежать одному Address). Но для **one-resource-per-owner-or-many-resources** (один Compute.Instance имеет N NetworkInterface — multi-NIC AWS-ENI) такой UNIQUE будет ложно ловить нормальные multi-attach state. Атомарный CAS выше уже race-proof и достаточен. (KAC-52 миграция 0016 наступила на эти грабли — откачена в 0017.)
+
+Когда **partial UNIQUE действительно нужен** — отдельный паттерн ниже:
+
+```sql
+-- «один IP назначен максимум одному Address» — правильное применение partial UNIQUE.
+CREATE UNIQUE INDEX addresses_external_pool_ip_uniq
+    ON addresses ((external_ipv4 ->> 'address_pool_id'),
+                  (external_ipv4 ->> 'address'))
+    WHERE (external_ipv4 ->> 'address') <> '';
+```
+Тут уникальность — на свойстве самого ресурса, а не на ссылке от него.
 
 ### Что это **НЕ** покрывает
 
