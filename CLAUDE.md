@@ -8,21 +8,44 @@ parent-walkup discovery (см. §«Структура репозиториев»
 
 Kachō — облачная управляющая платформа: домены Organization/Cloud/Folder, VPC (Network/Subnet/SecurityGroup/RouteTable/Address/Gateway/PrivateEndpoint), Compute (Instance/Disk/Image/…), NLB, плюс **реальный data-plane на гипервизорах** (`kacho-vpc-implement` — SRv6/eBPF; остальные сервисы пока control-plane-only).
 
-> **Verbatim-YC parity — ОТЛОЖЕНА (не текущее требование).** Раньше цель была — побайтовое
-> соответствие Yandex Cloud API (proto-форма, error texts, status codes, regex'ы, behavioural
-> semantics). Сейчас это **снято с приоритета**: API проектируем в **чистой, удобной форме**
-> (можно расходиться с YC — например, NIC как отдельный AWS-ENI-подобный ресурс, `vpn_id` на
-> Network, отдельный ресурс Hypervisor, и т.п.), а YC-совместимость — это **отдельная поздняя
-> фаза** (compat-слой через `kacho-yc-shim` или таргетированный рефакторинг), а не constraint
-> на нынешний дизайн. Следствия: где документы/агенты/правила говорят «verbatim YC / нельзя
-> расходиться с YC / сломает parity» — читать как **«пока неактивно»**; `vpc-yc-parity-auditor`
-> / `proto-api-reviewer` (в части YC-parity) на паузе; «known divergence с verbatim YC» больше
-> не понятие — расхождения это норма. Что остаётся в силе: §«Запреты» #2 («НЕ упоминать
-> «yandex»» — гигиена, тем более когда мы не копируем), Internal-vs-external разделение (#6),
-> flat-resources+Operations контракт, acceptance-workflow (#1).
+> **YC-стилистика — да, структура методов 1-в-1 — нет.** Раньше цель была — *побайтовое*
+> соответствие Yandex Cloud API (структура RPC, состав полей, текст ошибок до запятой, regex'ы,
+> behavioural quirks). Сейчас правило мягче:
+>
+> - **Стилистика остаётся YC-подобной** — это база, выработанная годами и удобная пользователю
+>   YC-CLI / тех, кто привык к YC. Сохраняем:
+>     - именование (camelCase JSON, `<resource>Id`/`folderId`/`labels`/`createdAt`, async
+>       `Operation` envelope на каждой мутации, REST-paths `/<service>/v1/<resource>` и
+>       suffix-actions через `:verb`),
+>     - error-format (`{code, message, details:[]}` + google.rpc.Status, gRPC-коды
+>       INVALID_ARGUMENT / NOT_FOUND / FAILED_PRECONDITION / ALREADY_EXISTS),
+>     - тон сообщений (`"<Resource> %s not found"`, `"<field> is immutable after <Resource>.Create"`,
+>       `"Illegal argument <thing>"`, `"network is not empty"` и т.п. — YC-style формулировки),
+>     - timestamp truncate до секунд, `update_mask` discipline (известные поля → mutate,
+>       незнакомые → InvalidArgument, immutable → InvalidArgument, отсутствие mask → full-PATCH
+>       с silent-ignore immutable).
+> - **Структура методов / состав ресурсов — НЕ копируем 1-в-1.** API проектируем в чистой,
+>   удобной форме, где можем расходиться с YC по делу:
+>     - NetworkInterface как отдельный first-class ресурс AWS-ENI-стиля (в YC NIC встроена в
+>       Instance), `vpn_id` как internal-поле Network, AddressPool как kacho-only
+>       admin-ресурс, и т.п.;
+>     - Internal-проекции ресурсов с инфра-полями отдельно от публичных (в YC такого нет);
+>     - oneof-семантика и replace-флаги, которые удобнее (KAC-71 AddressPool split v4/v6).
+> - **`kacho-yc-shim`** — отдельный поздний слой, если потребуется CLI-compat. Не constraint на
+>   нынешний дизайн.
+> - **Следствия для агентов и доков**:
+>     - где написано «verbatim YC / нельзя расходиться с YC / сломает parity» —
+>       читать как «следуй YC по тону и форме сообщений, но *структурное* расхождение —
+>       норма, если оно осознанное и задокументировано»;
+>     - `vpc-yc-parity-auditor` / `proto-api-reviewer` в части parity-структуры — на паузе;
+>     - parity по форме (regex/error-text/timestamp/update_mask) — **остаётся** и
+>       проверяется как часть стиля.
+> - **Остаётся в силе** (запреты): §«Запреты» #2 («НЕ упоминать `yandex`» — гигиена),
+>   Internal-vs-external разделение (#6), flat-resources+Operations контракт,
+>   acceptance-workflow (#1).
 
 Полная спека: `kacho-workspace/docs/specs/00-overview-and-scope.md` и далее (раздел про YC-parity
-там тоже надо читать через эту врезку — «отложено»).
+там тоже читать через эту врезку — «стиль остаётся, структура — по делу»).
 
 ## Naming convention (обязательно)
 
@@ -222,8 +245,11 @@ issues**, не файлы в репо.
 - **Найдено в тестах** (newman / k6 / integration / unit) — заводится issue (`bug` / `tech-debt`);
   в тест-кейсе допустима короткая аннотация `# verifies <...>` (можно со ссылкой на issue), но не
   дублирование описания.
-- **Не баг** (осознанное by-design-поведение; «расхождение с YC» больше не повод заводить issue — verbatim-parity отложена) → **не issue**, а запись в
-  `docs/architecture/` соответствующего сервиса (раздел/файл «известные расхождения»).
+- **Не баг** (осознанное by-design-поведение): структурное расхождение с YC — не повод
+  заводить issue (структура методов 1-в-1 не цель); расхождение со **стилем** YC (text,
+  regex, error-format, timestamp-precision, update_mask discipline) — повод обсудить.
+  Документировать осознанные by-design отклонения — в `docs/architecture/` соответствующего
+  сервиса (раздел/файл «известные расхождения»).
 - **Не путать** с feature-acceptance-флоу: новая фича по-прежнему требует APPROVED Given-When-Then
   в `docs/specs/sub-phase-X.Y-<topic>-acceptance.md` (см. «Запреты» §1) — Issues для багов/tech-debt/мелких задач.
 
@@ -253,7 +279,12 @@ issues**, не файлы в репо.
 5. **НЕ редактировать применённую миграцию.** Только новая миграция.
 6. **`Internal.*` методы НЕ публиковать на external endpoint** (TLS-listener `api.kacho.local:443`, advertised endpoint для `yc` CLI / external клиентов). Они могут быть зарегистрированы через api-gateway REST mux и доступны на cluster-internal listener (для UI, admin-tooling, port-forward). Текущие зарегистрированные Internal admin-ресурсы (kacho-only): `AddressPool` под `/vpc/v1/addressPools` (kacho-vpc); `Region`, `Zone` под `/compute/v1/regions`, `/compute/v1/zones` (kacho-compute — перенесены из kacho-vpc, эпик `KAC-15`; до его merge'а ещё `/vpc/v1/regions`, `/vpc/v1/zones`). См. `kacho-vpc/CLAUDE.md` §16, `kacho-compute/CLAUDE.md` §«Geography».
 
-   **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в verbatim-YC API — добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять публичные сервисы для admin-нужд — это засветит admin-функции на external TLS endpoint (verbatim-parity — отложена, см. «Что это за проект», но Internal-vs-external разделение остаётся).
+   **Admin-UI правило**: любой новый RPC, нужный admin-UI и не существующий в YC API —
+   добавлять **только в `Internal*` сервис** на internal-port (9091), регистрировать через
+   тот же `vpcInternalAddr` блок в `kacho-api-gateway/internal/restmux/mux.go`. Не расширять
+   публичные сервисы для admin-нужд — это засветит admin-функции на external TLS endpoint.
+   (Структурное расхождение с YC — норма, но Internal-vs-external разделение остаётся
+   неприкосновенным, см. «Что это за проект» — YC-стилистика остаётся, структура — по делу.)
 7. **НЕ вводить broker** (Kafka/NATS) до тех пор, пока in-process реализация справляется.
 8. **НЕ создавать новые единые БД** — только database-per-service.
 9. **НЕ возвращать ресурс синхронно из мутирующих RPC.** Все мутации (`Create/Update/Delete/Start/Stop/Restart`) возвращают `Operation` (long-running async). Клиент поллит `OperationService.Get(id)` до `done=true`. См. ниже «API contract — flat resources + Operations».
@@ -494,8 +525,10 @@ discovery — Claude Code поднимается по дереву от cwd до
 
 **Service-specific (живут в `project/<repo>/.claude/agents/`):**
 
-Если домен требует узкоспециализированной экспертизы (verbatim-parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` + `.claude/skills/`:
-- `vpc-yc-parity-auditor` — аудит verbatim YC parity (regex, error texts, status codes, timestamp). **На паузе** — verbatim-parity отложена (см. «Что это за проект»).
+Если домен требует узкоспециализированной экспертизы (YC-style parity, специфические инварианты, regression-tooling) — создавай агентов **в самом сервисном репо**, не в workspace. Эталонный пример — `kacho-vpc/.claude/agents/` + `.claude/skills/`:
+- `vpc-yc-parity-auditor` — аудит YC-стиля (regex, error texts, status codes, timestamp,
+  update_mask discipline). Проверяет **форму** (не структуру); структурные расхождения — норма
+  (см. «Что это за проект»). Активен в режиме «стиль да, структура — по делу».
 - `vpc-cidr-specialist` — CIDR (host-bits, EXCLUDE constraint, overlap, internal IP).
 - `vpc-outbox-watch-engineer` — outbox + LISTEN/NOTIFY + InternalWatchService.
 - `vpc-newman-author` — newman regression suites (декларативные `cases/*.py` → `gen.py`).
