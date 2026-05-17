@@ -297,6 +297,120 @@ issues**, не файлы в репо.
 
     Reviewer/agent при ревью PR обязан reject'нуть PR без тестов (или без явной ссылки на trakable follow-up) и попросить дополнить — раньше merge. Оставлять «`Out of scope: newman cases — оставляю для follow-up`» в commit-message как было в KAC-60 — больше не приемлемо. Закрытие эпика без полного test-покрытия — нарушение DoD.
 
+## Obsidian vault — обязательный context-источник и trail (НЕ упускать)
+
+> **Hooks enforcement**: `.claude/hooks/vault-reminder.sh` (UserPromptSubmit) выводит правила перед каждым prompt'ом; `.claude/hooks/vault-stop-check.sh` (Stop) проверяет активные KAC-тикеты + соотношение code-changes vs vault-changes за последний час + open PR'ы с KAC-номерами. Hooks определены в `.claude/settings.json` workspace-scope.
+
+
+**Vault**: `kacho-workspace/obsidian/kacho/` (127+ файлов: README + INDEX + `resources/` + `rpc/` + `packages/` + `edges/` + per-repo README + architecture). Самодостаточные узкие записки 1-3KB. **Источник истины** для cross-repo связей, ресурсной модели, RPC-контрактов и runtime-graph'а.
+
+**Как читать (MCP-сервер `obsidian` уже подключён в `~/.claude.json`):**
+- В разговоре доступны tools `mcp__obsidian_list_files_in_vault`, `mcp__obsidian_get_note`, `mcp__obsidian_search_notes`.
+- Fallback (если MCP недоступен): прямой `Read` от файлов в `obsidian/kacho/`.
+
+### Когда ОБЯЗАТЕЛЬНО читать vault — **до** написания кода
+
+| Триггер | Что прочитать |
+|---|---|
+| Работа над любым ресурсом `<X>` (Network / Subnet / Address / RT / SG / Gateway / PE / NIC / AddressPool / Organization / Cloud / Folder) | `resources/<repo>-<X>.md` — FK contract, lifecycle, gotchas, ID prefix |
+| Добавляем / меняем RPC | `rpc/<repo>-<service>.md` — список методов, REST mapping, sync/async |
+| Меняем пакет `<repo>/<pkg>` | `packages/<repo>-<pkg>.md` — exported API, imports, imported-by |
+| Cross-service interaction (vpc↔rm, vpc↔compute, api-gw↔backend) | `edges/<caller>-to-<callee>-<purpose>.md` — protocol, sync/async, error handling, history |
+| Не уверен с чего начать | `INDEX.md` (алфавитный) либо `README.md` (категориальный) |
+
+> **Цель — minimum context**: загрузить ОДИН-ДВА узких файла (1-3KB), а не 50KB per-repo README. Если требуется > 3 vault-файлов, остановись и переосмысли scope задачи.
+
+### Когда ОБЯЗАТЕЛЬНО обновлять vault — **после** работы
+
+| Триггер | Что обновить / создать |
+|---|---|
+| Изменилась структура ресурса (новое поле / status enum / FK / immutable rules) | `resources/<repo>-<X>.md` — обновить таблицу полей, FK contract, lifecycle |
+| Добавлен / изменён / удалён RPC | `rpc/<repo>-<service>.md` — обновить method table, REST mapping |
+| Изменился exported API пакета (новый тип, новая функция, новый интерфейс) | `packages/<repo>-<pkg>.md` — обновить exported types/functions, imports, imported-by |
+| Изменилось cross-service runtime поведение (новый peer-вызов, изменение sync→async, removal) | `edges/<caller>-to-<callee>-<purpose>.md` — обновить + добавить запись в "History" с KAC-номером |
+| Новая миграция, схема rename, новый CHECK constraint | соответствующий `resources/<X>.md` + `packages/<repo>-<pkg>.md` |
+| Известная gotcha / расхождение от skill evgeniy / known-divergence от YC | соответствующий `resources/<X>.md` § "Gotchas" |
+| Работа по KAC-тикету затронула architecture | `KAC/KAC-<N>.md` (см. ниже) + ссылка на изменённый `resources/` / `rpc/` / `packages/` / `edges/` |
+
+> **Если затрагиваешь поведение, которого нет в vault** — НЕ молчи. **Создай новую узкую запись** в соответствующей категории (1-3KB) либо допиши в существующую. Vault должен оставаться **полным** trail'ом изменений.
+
+### KAC-тикеты — обязательный trail в vault
+
+Каждый KAC-тикет (фича / batch fix / эпик) обязан иметь заметку в vault:
+
+**Path**: `obsidian/kacho/KAC/KAC-<N>.md` (создай папку `KAC/` если её нет).
+
+**Формат** (≤ 3KB):
+
+```markdown
+# KAC-<N>: <summary>
+
+**Status**: in-progress | test | done | wontfix
+**Type**: feature | fix | refactor | docs | epic
+**Repos**: kacho-vpc, kacho-deploy   (или один)
+**PRs**: PRO-Robotech/kacho-vpc#74, ...   (по мере merge)
+**YT**: https://prorobotech.youtrack.cloud/issue/KAC-<N>
+
+## Что и зачем
+
+1-2 абзаца: проблема + решение.
+
+## Затронутые сущности vault
+
+- [[../resources/vpc-network]] — добавлен default-SG inline
+- [[../packages/vpc-apps-kacho-api-network]] — CreateDefaultSGUseCase
+- [[../edges/vpc-to-rm-folder-exists]] — removed sync precheck
+- [[../rpc/vpc-network-service]] — sync `NotFound` → async
+
+## Acceptance / Definition of Done
+
+- [ ] integration tests зелёные
+- [ ] newman E2E зелёный
+- [ ] vault записи обновлены (resources / rpc / packages / edges)
+- [ ] PR merged в main
+
+## Связанные тикеты
+
+- [[KAC-93]] (предусловие)
+- [[KAC-95]] (follow-up)
+
+#kac #epic|fix|feature
+```
+
+**Когда создавать `KAC-<N>.md`**:
+- При **первом** упоминании тикета в работе (даже если только обсуждаем).
+- При создании ветки `git checkout -b KAC-<N>`.
+- Если работа без тикета (тривия) — заметка НЕ нужна.
+
+**Когда обновлять**:
+- После каждого merge'а PR — добавить PR-URL и обновить acceptance чек-лист.
+- После перевода тикета в `Test`/`Done` в YT — синхронизировать `Status:` в заметке.
+- При changes scope / новые блокеры / cross-repo ссылки — обновить body.
+
+### Чек-лист на каждое начало работы (НЕ упускать)
+
+1. Прочитать релевантный `resources/<X>.md` или `rpc/<service>.md` (1 файл, 1-3KB).
+2. Если KAC-тикет известен — открыть `KAC/KAC-<N>.md` (создать если нет).
+3. Прочитать связанные `edges/` если работа cross-service.
+4. Прочитать связанные `packages/` если меняешь internal API.
+
+### Чек-лист на каждое окончание работы (НЕ упускать)
+
+1. Обновить vault-записи которых коснулись изменения (resources/rpc/packages/edges).
+2. Создать новые узкие записи если появились **новые** сущности/связи.
+3. Обновить `KAC/KAC-<N>.md` — добавить PR-URL, отметить пункты в acceptance чек-листе.
+4. Если затронут architecture-level (cross-repo) — обновить `architecture.md`.
+
+### Запреты
+
+- **НЕ** загружать `kacho-vpc/CLAUDE.md` (большой контекст) если хватает 1-2 файлов из vault.
+- **НЕ** оставлять stale-данные в vault (если факт устарел — fix entry сразу же).
+- **НЕ** дублировать содержимое vault в коде / комментариях / commit-messages.
+- **НЕ** забывать `KAC/KAC-<N>.md` для каждого тикета — это primary trail работы.
+- **НЕ** записывать секреты (токены, пароли) в vault — он git-committed.
+
+---
+
 ## API contract — flat resources + Operations (с фазы 1.0)
 
 **Каждый ресурс — плоский message** с domain-полями на верхнем уровне:
