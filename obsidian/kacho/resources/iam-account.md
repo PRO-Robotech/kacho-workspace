@@ -46,6 +46,13 @@ lazy-upsert worker auto-создаёт personal Account:
 existing user не получает дубликаты (UNIQUE на accounts.name +
 accounts_owner_fk; повторный INSERT молча игнорится — non-fatal).
 
+## Tenant isolation (KAC-118)
+
+`AccountService.List` фильтрует через `WHERE owner_user_id = principal.id`,
+если в ctx principal с type=`user`. System/service_account — видят всё.
+`AccountService.Get` возвращает NotFound для чужого Account (не leak'ает
+существование).
+
 ## Fields
 
 | Field | Type | Validation | Note |
