@@ -200,6 +200,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[KAC/KAC-111]] — Squash kacho-vpc migrations 0001..0034 → 0001 (done)
 - [[KAC/KAC-112]] — E0 follow-up: backend для Project/User/SA/Group/Role/AccessBinding (done)
 - [[KAC/KAC-113]] — E0 follow-up: sync principal_* в kacho-vpc/compute/rm/loadbalancer (done)
-- [[KAC/KAC-115]] — refactor: migrate Zitadel+OpenFGA → Ory Kratos+Hydra+Keto (test, 6/6 Playwright)
+- [[KAC/KAC-115]] — refactor: migrate Zitadel+OpenFGA → Ory Kratos+Hydra+Keto (done, 6/6 Playwright)
+- [[KAC/KAC-116]] — refactor: Keto AuthZ + Kratos session + DoD#3/4/5 closeout (done, 9/9 Playwright)
 
 #index
