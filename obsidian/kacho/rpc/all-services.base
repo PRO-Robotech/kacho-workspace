@@ -1,0 +1,66 @@
+filters:
+  and:
+    - file.hasTag("rpc")
+    - file.ext == "md"
+formulas:
+  ratio: if(methods_count, async_methods + "/" + methods_count, "-")
+properties:
+  backend:
+    displayName: Backend
+  backend_port:
+    displayName: Port
+  visibility:
+    displayName: Visibility
+  domain:
+    displayName: Domain
+  methods_count:
+    displayName: "# methods"
+  async_methods:
+    displayName: "# async"
+  formula.ratio:
+    displayName: async/total
+  status:
+    displayName: Status
+views:
+  - type: table
+    name: All services
+    groupBy:
+      property: backend
+      direction: ASC
+    order:
+      - file.name
+      - backend
+      - backend_port
+      - visibility
+      - domain
+      - formula.ratio
+      - status
+  - type: table
+    name: Public
+    filters:
+      and:
+        - visibility == "public"
+    order:
+      - file.name
+      - backend
+      - domain
+      - formula.ratio
+  - type: table
+    name: Internal
+    filters:
+      and:
+        - visibility == "internal"
+    order:
+      - file.name
+      - backend
+      - domain
+      - formula.ratio
+  - type: table
+    name: Deprecated
+    filters:
+      and:
+        - status == "deprecated"
+    order:
+      - file.name
+      - backend
+      - visibility

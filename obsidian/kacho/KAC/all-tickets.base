@@ -1,0 +1,68 @@
+filters:
+  and:
+    - file.hasTag("kac")
+    - 'file.ext == "md"'
+
+formulas:
+  status_icon: 'if(status == "done", "[done]", if(status == "in-progress", "[wip]", if(status == "test", "[test]", if(status == "wontfix", "[wontfix]", "[?]"))))'
+  repo_count: 'if(repos, repos.length, 0)'
+
+properties:
+  ticket_id:
+    displayName: ID
+  formula.status_icon:
+    displayName: Status
+  type:
+    displayName: Type
+  formula.repo_count:
+    displayName: "# repos"
+  yt_url:
+    displayName: YouTrack
+  file.mtime:
+    displayName: Updated
+
+views:
+  - type: table
+    name: All tickets
+    filters:
+      not:
+        - 'file.name == "_TEMPLATE"'
+        - 'file.name == "README"'
+    order:
+      - ticket_id
+      - file.name
+      - formula.status_icon
+      - type
+      - formula.repo_count
+      - file.mtime
+    groupBy:
+      property: status
+      direction: ASC
+
+  - type: table
+    name: Active
+    filters:
+      and:
+        - 'status != "done"'
+        - 'status != "wontfix"'
+      not:
+        - 'file.name == "_TEMPLATE"'
+        - 'file.name == "README"'
+    order:
+      - ticket_id
+      - file.name
+      - type
+      - formula.repo_count
+      - file.mtime
+
+  - type: table
+    name: Epics
+    filters:
+      and:
+        - 'type == "epic"'
+    order:
+      - ticket_id
+      - file.name
+      - status
+      - formula.repo_count
+      - file.mtime

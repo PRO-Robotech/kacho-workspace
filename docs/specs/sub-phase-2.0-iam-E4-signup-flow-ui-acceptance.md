@@ -1,6 +1,6 @@
 # Sub-phase 2.0 — IAM E4: signup-flow + UI IAM-блок + Operation.principal — Acceptance
 
-> **Status**: APPROVED v2 — UI-block-only (E0-compatible)
+> **Status**: DRAFT v2 — awaiting acceptance-reviewer
 > **Date**: 2026-05-17
 > **YouTrack**: [KAC-109](https://prorobotech.youtrack.cloud/issue/KAC-109) — child of epic [KAC-104](https://prorobotech.youtrack.cloud/issue/KAC-104)
 >
@@ -43,6 +43,23 @@ E4 поставляет:
 9. **Concurrent signup race-safety** — два signup'а одной OIDC `external_id` одновременно — ровно один winner (atomic CAS на UNIQUE `users.external_id`); второй получает existing mirror (overview-уровень GWT-02).
 
 После E4 платформа функционально-полная по AAA: signup → auto-bootstrap → CRUD IAM из UI → реактивные права → principal trail во всех Operation. Остаётся только убрать legacy `kacho-resource-manager` (E5).
+
+### 0.1 Mapping: overview-GWT ↔ doc-GWT (N10)
+
+Overview-acceptance ([[sub-phase-2.0-iam-overview-acceptance]]) определяет 9 высокоуровневых E4-сценариев (`OV.E4.GWT-01..09`). Этот документ детализирует их в 26 GWT-сценариев. Таблица — для трассировки reviewer'у.
+
+| Overview GWT      | Doc GWT(s)                  | Тема                                           |
+|-------------------|------------------------------|------------------------------------------------|
+| `OV.E4.GWT-01`    | `2.0-E4-GWT-01`              | First-user signup happy path                   |
+| `OV.E4.GWT-02`    | `2.0-E4-GWT-02`              | Subsequent-user signup без bindings            |
+| `OV.E4.GWT-03`    | `2.0-E4-GWT-03a`, `2.0-E4-GWT-03b` | Concurrent signup race (split per I7 — code-reuse + same-external-id) |
+| `OV.E4.GWT-04`    | `2.0-E4-GWT-04`, `2.0-E4-GWT-05`, `2.0-E4-GWT-06` | Atomic bootstrap; rollback; idempotency       |
+| `OV.E4.GWT-05`    | `2.0-E4-GWT-07`, `2.0-E4-GWT-08` | Sidebar visibility owner / no-perm              |
+| `OV.E4.GWT-06`    | `2.0-E4-GWT-09..15`          | CRUD per 7 IAM resources                       |
+| `OV.E4.GWT-07`    | `2.0-E4-GWT-16..18`          | AccessBinding grant / revoke                   |
+| `OV.E4.GWT-08`    | `2.0-E4-GWT-19..20`          | Operations principal column                    |
+| `OV.E4.GWT-09`    | `2.0-E4-GWT-21..23`          | Реактивность UI ≤10s                           |
+| (нет в overview)  | `2.0-E4-GWT-24..25`          | Custom role MVP (D-3, D-14) — детализация overview-GWT-06 |
 
 **E4 НЕ включает** (явные out-of-scope, §9):
 - MFA / WebAuthn — Zitadel feature, Phase 2.1.
@@ -100,6 +117,13 @@ E4 поставляет:
 | D-13 | **Permission-heuristic in UI fails-open на error**: если `ListBySubject` returns error (e.g. iam-down) → UI assumes admin-default, не показывает stale `disabled` | UX-priority: не блокировать UI на iam-down; user всё равно получит PermissionDenied на real request если нет прав. Альтернатива (fail-closed) превращает iam-down в полный UI-blackout | (a) Fail-closed (всё disabled на iam-error) — UX-broken на transient iam-down; (b) Block UI до retry — пользователь не понимает что происходит                     |
 | D-14 | **Custom-role permissions validation — strict reject на E4** (`InvalidArgument` если permission не в supported-list)                  | Self-validating domain (evgeniy §4); permission-list whitelisted, иначе FGA-tuple writer не знает как раскладывать; permissive accept = silent failure       | (a) Permissive — silent failure при granty (создан role, но не работает permissions); (b) Skip unsupported с warning — UI должен показывать warning, complexity   |
 | D-15 | **«Created by» в Operations показывает иконку типа subject** (Lucide-icon `User` или `Bot` для SA; `Settings` для system)         | Visual differentiation (3 типа) — UX-clarity; icons из существующего Lucide-set, без extra assets                                                              | (a) Только text — accessibility OK, но визуально однообразно; (b) Custom icons — extra asset maintenance                                                          |
+| D-16 | **Bootstrap-binding sync FGA write** (B4): для signup first-user-binding'а kacho-iam выполняет FGA `Write` _inline_ в `SignupCompleteUseCase` _после_ COMMIT bootstrap-TX, _до_ `MarkDone` Operation. Outbox-event тоже пишется (idempotent для worker'а). Обычные binding-create/delete остаются на outbox+worker pattern (E3 D-5, SLA ≤2s). | Bootstrap UI page-bootstrap делает Check(user, viewer, iam.*) сразу же; transient PermissionDenied вернул бы sidebar=hidden → деградированный UX «sign up succeeded but I can't access anything». Sync write устраняет race-window. Same pattern как E3 D-11 (Creator-tuple sync write для свежесозданных ресурсов). | (a) Только outbox — race-window ≤2s, UI sidebar flicker; (b) UI retry-loop (3×1s) — увеличивает latency бутстрапа, плохо для UX; (c) sync write для **всех** binding-операций — выкидывает E3 reactivity guarantees |
+| D-17 | **Cookie scope**: dev environment — `Domain=.kacho.local` (включает `api.kacho.local`, `login.kacho.local`, `ui.kacho.local`); prod — **per-origin** cookie (`Domain` не выставлен → host-only `api.kacho.local`; передача сессии через explicit callback POST к `api.<prod-domain>`). | Dev — единая `.kacho.local` parent-domain под полным контролем разработчика; prod — minimize attack surface на чужие sub-domains. Pattern из YC / GCP / AWS console.  | (a) `.kacho.local` в prod — leak'ит cookie на любой `*.kacho.local` (риск если third-party subdomain); (b) explicit callback в dev — overkill |
+| D-18 | **Welcome page для first-user** — minimal `/welcome` с congratulations + 3-link quick-start tour: "Create your first VPC Network" + "Invite team members (Phase 2.1)" + "Create Service Account for CI"; full onboarding wizard — Phase 2.1. | First-user без context'а — нужен entry-point; 3 link'а — minimum viable; full wizard — отдельная фаза. | (a) No /welcome (просто `/`) — UX confusion; (b) Full wizard — раздувание E4 |
+| D-19 | **`/no-access` page для subsequent-user (bob)**: explicit `/no-access` route, не `/` с empty-state; redirect from `/` если `me.bindings.length === 0` (subsequent-user без grants). Page text: "Your account `<email>` is registered, но у вас пока нет доступа к ресурсам. Обратитесь к администратору." + admin email link (если можем resolve через `accounts.owner_user_id` → user.email). | Cleaner UX для subsequent-user state; `/` dashboard с empty resources смотрелся бы как «нет ресурсов в проекте» (misleading). Explicit page = explicit context. | (a) `/` dashboard + ErrorBanner — misleading (resources empty != no permission); (b) auto-logout — пользователь не понимает что вышло не так |
+| D-20 | **Permission cache TTL для UI = 5min + invalidation on focus**: RTK Query `keepUnusedDataFor: 300s` + `refetchOnFocus: true`. Active user (frequent focus events) typically refetch'ит каждые ~1min; idle tab — до 5min stale. | Balance latency vs backend load; 5min — порядок «время до coffee break», focus-refetch — порядок «между window-switches». | (a) TTL 30s — 4-кратный backend load при том же UX в active session; (b) TTL 24h — admin revoke не propagate'ится до next login |
+| D-21 | **Playwright in CI**: PR — smoke subset (`signup` + 1 CRUD per resource = ~3min); nightly — full suite (~15min). | Speed на PR + comprehensive на main; standard pattern в e2e. | (a) Full suite per PR — slow CI; (b) Manual nightly — забыл = не отловили |
+| D-22 | **«Last admin» safeguard — backend + UI**: backend `kacho-iam.AccessBindingService.Delete` валидирует «хотя бы 1 admin@account binding должен остаться» → иначе `FailedPrecondition`. UI confirm dialog с warning text. | Backend = catches grpcurl + admin-CLI bypass; UI = UX-приятный warning before action; defence-in-depth. | (a) Только UI — bypass через direct API; (b) Только backend — UX-surprise («не могу удалить, не объяснили почему») |
 
 ---
 
@@ -249,13 +273,13 @@ kacho-ui/src/
 | Repo                 | Что добавляется                                                                                                                                                            |
 |----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kacho-proto`        | `kacho.cloud.iam.v1.internal_auth_service.proto`: `rpc SignupComplete(SignupCompleteRequest) returns (operation.Operation)`; request `{external_id, email, display_name}`; response (через Operation.Any) `{user_id, account_id, project_id, is_first_user bool}`. `kacho.cloud.iam.v1.auth_service.proto`: `rpc Me(MeRequest) returns (MeResponse)` — публичный, для UI «who am I»; response `{principal: Principal, effective_account_id, effective_project_ids}`. Расширение `operations_service.proto`: filter `?principal.id=<id>` (request field `principal_filter`) |
-| `kacho-corelib`      | НЕ меняется в E4 (operations.Principal уже из E2; UI не импортирует corelib)                                                                                              |
-| `kacho-iam`          | `internal/apps/kacho/api/auth/signup_complete.go` (use-case: atomic bootstrap); `internal/apps/kacho/api/auth/me.go` (use-case: return Principal + denormalized effective scope); `internal/apps/kacho/api/access_binding/list_by_subject.go` (new use-case для UI permission heuristic); `internal/repo/kacho/pg/auth_writer.go` (TX bootstrap method); миграция `0008_signup_bootstrap_lock.sql` (advisory-lock для first-user CAS, см. §4.2); миграция `0009_operations_principal_filter_idx.sql` (index для filter `?principal.id=$1`) |
+| `kacho-corelib`      | **B2 / B3**: новая общая миграция `migrations/common/0003_operations_principal_filter_idx.sql` (partial index `operations(principal_id) WHERE principal_id <> ''`) — нужна в _каждом_ сервисе, потому что UI делает **per-service** filter call (`/iam/v1/operations?principal.id=$me` + `/vpc/v1/operations?...` + `/compute/...` + `/loadbalancer/...` + `/rm/...`). Дренится в каждый сервис через `make sync-migrations` (см. §4.2.1). Integration-тест для filter — отдельно в каждом сервисе (B3) |
+| `kacho-iam`          | `internal/apps/kacho/api/auth/signup_complete.go` (use-case: atomic bootstrap, с `ops.Create` _ДО_ bootstrap-TX и `MarkDone`/`MarkError` после — B1/D-16); `internal/apps/kacho/api/auth/me.go` (use-case: return Principal + denormalized effective scope); `internal/apps/kacho/api/access_binding/list_by_subject.go` (new use-case для UI permission heuristic); `internal/repo/kacho/pg/auth_writer.go` (TX bootstrap method); миграция `0008_signup_bootstrap_lock.sql` (advisory-lock для first-user CAS, см. §4.2); миграция `migrations/common/0003_operations_principal_filter_idx.sql` синхронизируется из corelib (НЕ per-service-specific); integration test `auth/operation_filter_integration_test.go` (B3) |
 | `kacho-api-gateway`  | `/iam/v1/auth/callback` handler в E2 уже создан; **расширяется** на E4: после `oidc.exchange` зовёт `InternalAuthService.SignupComplete` (gRPC-direct, port 9091), на success Set-Cookie + 302. Новый endpoint `/iam/v1/auth/me` (REST → gRPC `AuthService.Me`); `/iam/v1/auth/logout` (clear cookies + Zitadel revoke). Регистрация в restmux `iamPublicAddr`. **НЕ регистрируется** `InternalAuthService` (loop-prevention, запрет #6) |
 | `kacho-ui`           | См. §3.2 — full new SPA structure: 5 auth-pages, 7×3=21+ IAM pages, 7 components, 7 api-slices. Также: header rework (UserMenu в правом углу), sidebar update (IAM section добавляется наравне с VPC/Compute/Load Balancer), route guards (redirect to /login если не залогинен), error boundary для signup-failures |
 | `kacho-deploy`       | helm `kacho-ui` chart — обновление static-files-build (Vite production build); helm `kacho-api-gateway` chart — env `KACHO_API_GATEWAY_AUTH__SIGNUP_REDIRECT=/` (default redirect after signup); helm `zitadel-bootstrap-job` — enable signup-flow в Zitadel project config (`signupAllowed=true`, `passwordResetAllowed=true`); helm `kacho-iam` — env `KACHO_IAM_BOOTSTRAP__FIRST_USER_ADMIN=true` (default; toggle для testing scenarios) |
 | `kacho-test`         | Playwright e2e tests (D-12): `e2e/signup.spec.ts`, `e2e/iam-crud.spec.ts`, `e2e/permission-reactivity.spec.ts`; npm scripts `make e2e-ui` через docker-compose с headless Chromium; CI integration в `kacho-test/.github/workflows/e2e-ui.yaml` |
-| `kacho-workspace`    | этот acceptance; vault entries: `obsidian/kacho/edges/api-gateway-to-iam-signup-complete.md`, `edges/ui-to-api-gateway-iam.md`, `edges/ui-to-api-gateway-auth.md`, `resources/iam-user.md` (signup section update), `packages/ui-pages-iam.md`, `packages/ui-api-iam.md`, `packages/iam-internal-apps-auth.md`; KAC-tracker `obsidian/kacho/KAC/KAC-109.md` (in-progress → done) |
+| `kacho-workspace`    | этот acceptance; vault entries: `obsidian/kacho/edges/api-gateway-to-iam-signup-complete.md`, `edges/ui-to-api-gateway-iam.md`, `edges/ui-to-api-gateway-auth.md`, **`edges/ui-to-zitadel-redirect.md` (N15 — описывает browser-direct redirect к `${ZITADEL_ISSUER}/signup` с client_id+redirect_uri+state, не gRPC-edge; включает cookie scope D-17)**, `resources/iam-user.md` (signup section update), `packages/ui-pages-iam.md`, `packages/ui-api-iam.md`, `packages/iam-internal-apps-auth.md`; KAC-tracker `obsidian/kacho/KAC/KAC-109.md` (in-progress → done) |
 
 ### 3.4 Cross-repo runtime edges (новые на E4)
 
@@ -304,18 +328,31 @@ type SignupCompleteOutput struct {
 
 func (uc *SignupCompleteUseCase) Execute(ctx context.Context, in SignupCompleteInput) (SignupCompleteOutput, error) {
     // 1. Validate input (newtypes already validated; here — additional cross-field checks)
-    // 2. Open TX
-    // 3. UPSERT users (race-safe via ON CONFLICT external_id DO UPDATE … RETURNING …)
-    //    if existing row returned with same external_id → not-first-user path
-    // 4. IF is_new_user AND bootstrap.FirstUserAdmin enabled:
-    //    a. Acquire advisory lock (pg_try_advisory_xact_lock(BOOTSTRAP_LOCK_ID))
-    //       — single-writer guarantee for first-user race; if lock-acquired-elsewhere
-    //         (concurrent signup), wait (BLOCKING) — fast (other signup completes in <500ms),
-    //         then re-check `accounts.owner_user_id IS NOT NULL` → take subsequent-user path
+    //
+    // 2. Pre-create Operation row in a SEPARATE TX (B1 — atomic LRO semantics, see Decision Log
+    //    D-16):
+    //    op := ops.Create(ctx, OperationInput{
+    //        Kind:          "iam.signup.complete",
+    //        PrincipalType: "user", // tentative; final principal set after UPSERT step
+    //        PrincipalID:   "",     // unknown until bootstrap-TX returns user_id
+    //        Done:          false,
+    //    })
+    //    — INSERT into kacho_iam.operations(done=false) committed мгновенно.
+    //    Если bootstrap-TX ниже roll-back-нётся — Operation row остаётся как failure-trail
+    //    (corelib LRO стандарт; caller получает её через OperationService.Get с error в result.error).
+    //
+    // 3. Open bootstrap-TX (atomic: users + accounts + access_bindings + outbox + subject_change_outbox).
+    // 4. UPSERT users (race-safe via ON CONFLICT external_id DO UPDATE …
+    //                  RETURNING id, (xmax = 0) AS is_new) — см. §4.1 «xmax semantics», I9.
+    //    is_new=true → новая строка (winner); is_new=false → существующая (loser/returning login).
+    // 5. IF is_new AND bootstrap.FirstUserAdmin enabled:
+    //    a. Acquire advisory lock (pg_advisory_xact_lock(BOOTSTRAP_LOCK_ID))
+    //       — single-writer guarantee for first-user race; конкурент ждёт COMMIT'а первого,
+    //         затем acquires и видит `accounts.owner_user_id IS NOT NULL` → CAS не сработает.
     //    b. SELECT … FROM accounts WHERE id='acc_default' AND owner_user_id IS NULL
     //    c. IF row found (CAS-style):
     //       - UPDATE accounts SET owner_user_id=$user_id WHERE id='acc_default' AND owner_user_id IS NULL
-    //         (RETURNING — must return 1 row, else race lost)
+    //         RETURNING id (должен вернуть 1 row, иначе race lost — defensive)
     //       - INSERT access_bindings (subject_type='user', subject_id=$user_id,
     //                                role_id='rol_default_admin', scope_type='account', scope_id='acc_default')
     //       - INSERT access_bindings (subject_type='user', subject_id=$user_id,
@@ -325,29 +362,82 @@ func (uc *SignupCompleteUseCase) Execute(ctx context.Context, in SignupCompleteI
     //       - INSERT subject_change_outbox (subject_id=$user_id, op='binding_upsert')
     //       - is_first_user=true
     //    d. ELSE (CAS lost): is_first_user=false (subsequent user; no binding)
-    // 5. INSERT operations row (done=true, response.Any={SignupResult}, principal_type='user', principal_id=user_id)
-    // 6. COMMIT TX
-    // 7. Return SignupCompleteOutput
+    // 6. COMMIT bootstrap-TX.
+    //
+    // 7. Sync FGA-write inline для bootstrap-binding'а (B4 / D-16):
+    //    IF is_first_user:
+    //        err := fga.Write(ctx, bootstrapTuples)
+    //        IF err != nil:
+    //            ops.MarkError(ctx, op.ID, &status.Status{Code: codes.Unavailable,
+    //                                                     Message: "fga bootstrap write failed"})
+    //            return err — UI получит Operation.error и покажет retry-prompt;
+    //                          binding-row уже в БД, но без FGA-tuple'а;
+    //                          fga_tuple_writer асинхронно дренит outbox и догонит позже (eventually consistent).
+    //    Rationale (D-16): обычные binding-mutations используют outbox+worker (E3 SLA ≤2s),
+    //    но для bootstrap-binding'а UI должен сразу же увидеть sidebar — race-condition'а
+    //    «sidebar visible до FGA propagation» здесь недопустим. См. E3 D-11 (Creator-tuple sync write inline)
+    //    — same pattern, но применён для bootstrap-binding'а.
+    //
+    // 8. Mark Operation done:
+    //    IF bootstrap-TX succeeded AND sync-FGA-write succeeded:
+    //        ops.MarkDone(ctx, op.ID, response_anypb={SignupResult{user_id, account_id, project_id, is_first_user}})
+    //    ELSE:
+    //        ops.MarkError(ctx, op.ID, &status.Status{Code: codes.Internal | codes.FailedPrecondition | codes.Unavailable,
+    //                                                Message: "<failure reason>"})
+    //    В обоих случаях Operation row уже существует (созданa в шаге 2), MarkDone/MarkError —
+    //    это `UPDATE operations SET done=true, result_response=$1 / result_error=$1, updated_at=now() WHERE id=$2`.
+    //
+    // 9. Return SignupCompleteOutput (с Operation done=true для happy-path; либо ошибкой для failure).
 }
 ```
+
+**Operation lifecycle / atomicity (B1, D-16):**
+
+`SignupComplete` следует corelib LRO стандарту с явно отделёнными фазами:
+
+1. **`ops.Create` — отдельная TX, до bootstrap-TX.** Operation row INSERT-ится в `kacho_iam.operations`
+   c `done=false` _ДО_ открытия bootstrap-TX. Это гарантирует, что caller (api-gateway) сможет
+   получить operation_id даже если bootstrap-TX упадёт.
+2. **Bootstrap-TX — атомарна сама по себе** (users + accounts + access_bindings + outbox);
+   но **НЕ** включает Operation row. Rollback bootstrap-TX → Operation row остаётся с
+   `done=false` (до шага 8), затем `MarkError` (тоже отдельная TX) переводит её в
+   `done=true, result.error=<status>`.
+3. **Шаг 7 — sync FGA-write** для bootstrap-binding'а (B4 / D-16) — _вне_ bootstrap-TX,
+   _до_ MarkDone. Если падает — `MarkError` с `Unavailable`. binding-row остаётся в БД,
+   `fga_tuple_writer` асинхронно дренит outbox-event позже (eventually consistent;
+   UI пользователю показывает retry-prompt в течение этой сессии).
+4. **Шаг 8 — `MarkDone` / `MarkError`** — отдельная TX, `UPDATE operations SET done=true, …
+   WHERE id=$1`. Идемпотентна (повтор `MarkDone` no-op).
+
+**Что НЕ так в наивном варианте «Operation внутри bootstrap-TX»**: если bootstrap-TX
+rollback → Operation row тоже отсутствует → caller получает gRPC error без operation_id →
+не может poll `OperationService.Get(id)` для diagnosis → UX опасный и не соответствует
+corelib pattern'у (все остальные сервисы создают Operation _до_ start'а work).
 
 **Race-safety (D-6, §4.2 §4.3):**
 
 Два concurrent signup'а с одной `external_id`:
-- Оба входят в TX;
-- Один (winner) выполняет `INSERT … ON CONFLICT (external_id) DO UPDATE … RETURNING …`, видит `xmax = txid_current()` → новая row;
-- Второй (loser) выполняет тот же INSERT, видит existing row (xmax=0) → таким же ON CONFLICT возвращает existing row;
-- Оба попадают в если is_new (но **только один** — winner — имеет `is_new=true` через `RETURNING (xmax = 0) AS is_new`);
-- Loser идёт в subsequent-user path → возвращает существующий user без binding-creation;
-- Net result: ровно один new mirror, ровно одно (если first) account.owner_user_id update.
+- Оба `ops.Create` свои Operation rows (две разные op_id, обе done=false).
+- Оба входят в bootstrap-TX;
+- Один (winner) выполняет `INSERT … ON CONFLICT (external_id) DO UPDATE SET email=EXCLUDED.email RETURNING id, (xmax = 0) AS is_new` →
+  `is_new=true` (новая строка). Postgres берёт row-level lock на conflict-row на время этой TX (I9).
+- Второй (loser) попадает в тот же `INSERT … ON CONFLICT` → Postgres ждёт COMMIT'а winner'а (row-lock).
+  После release loser выполняет `DO UPDATE … RETURNING id, (xmax = 0) AS is_new` → `xmax != 0`
+  (winner оставил xmax = его txid) → `is_new=false`.
+- **Только winner** имеет `is_new=true` → попадает в bootstrap-path (CAS на accounts.owner_user_id).
+- Loser идёт в subsequent-user path → no admin-binding-creation.
+- Оба commit'ят bootstrap-TX, оба `MarkDone` свои Operations.
+- Net result: ровно один new mirror, ровно одно (если first) account.owner_user_id update;
+  две Operation rows (одна с `is_first_user=true`, другая с `is_first_user=false`).
 
 Два concurrent signup'а с **разными** `external_id` оба-первые-в-systeme:
-- Оба входят в TX;
-- Каждый UPSERT-ит свою row;
-- Оба пытаются acquire advisory lock `pg_try_advisory_xact_lock(BOOTSTRAP_LOCK_ID)`;
+- Оба `ops.Create` (две op_id);
+- Оба входят в bootstrap-TX;
+- Каждый UPSERT-ит свою row (no conflict — разные external_id);
+- Оба пытаются acquire advisory lock `pg_advisory_xact_lock(BOOTSTRAP_LOCK_ID)` (блокирующий — TX-scoped);
 - Один acquires → выполняет CAS на `accounts.owner_user_id IS NULL` → succeeds → admin-binding создан;
-- Второй ждёт lock (lock — TX-scoped, освобождается на COMMIT первого);
-- Первый COMMIT → второй acquires lock → CAS на `accounts.owner_user_id IS NULL` → **fails** (уже NOT NULL) → no admin-binding для второго.
+- Второй ждёт lock; первый COMMIT → lock released → второй acquires → CAS на `accounts.owner_user_id IS NULL` → **fails** (уже NOT NULL) → no admin-binding для второго → is_first_user=false.
+- Оба `MarkDone` свои Operations.
 
 **Result:** exactly-one-first-user invariant сохранён независимо от race timing.
 
@@ -377,20 +467,46 @@ CREATE INDEX accounts_owner_user_id_null_idx
 -- COMMENT: bootstrap signup-flow uses pg_try_advisory_xact_lock(4096) before CAS on accounts.owner_user_id IS NULL.
 ```
 
-**Файл:** `kacho-iam/migrations/0009_operations_principal_filter_idx.sql`
+**Defensive backstop note (N14):** partial UNIQUE `accounts_owner_user_id_uniq WHERE owner_user_id IS NOT NULL` —
+это backstop; primary race-safety механизм — **atomic CAS** в шаге 5.c
+(`UPDATE accounts SET owner_user_id=$user_id WHERE id='acc_default' AND owner_user_id IS NULL RETURNING id`).
+Postgres серриализует concurrent UPDATE'ы на одну row через row-level lock; loser получит 0 rows
+RETURNING → код примет это как «race lost». UNIQUE-индекс защищает от bugs в use-case
+(ошибочное UPDATE без CAS-условия) и от прямого admin-SQL (`UPDATE accounts SET owner_user_id='usr_bob'`
+поверх существующего owner). См. workspace `CLAUDE.md` §«Within-service refs — DB-уровень обязателен».
+
+### 4.2.1 Миграция `operations_principal_filter_idx` — corelib common (B2)
+
+**Решение по scope**: UI выполняет per-service фильтрацию Operations (5 запросов на page-load:
+`/iam/v1/operations`, `/vpc/v1/operations`, `/compute/v1/operations`, `/loadbalancer/v1/operations`,
+`/rm/v1/operations` — каждый со своим `?principal.id=$me`). Каждый сервис должен индексировать
+`operations.principal_id` для адекватного query plan'а.
+
+→ Миграция — **в `kacho-corelib/migrations/common/`**, не per-service.
+
+**Файл:** `kacho-corelib/migrations/common/0003_operations_principal_filter_idx.sql`
 
 ```sql
--- Index for OperationsService.List filter by principal_id (UI «My operations» tab).
--- principal_id column already exists from E2 (corelib operations migration).
-CREATE INDEX operations_principal_id_idx
-    ON kacho_iam.operations (principal_id)
+-- Partial index for OperationsService.List filter by principal_id
+-- (UI "My operations" tab; per-service filter, applied identically в каждом сервисе).
+-- principal_id column already exists from common 0001 migration (E2 corelib).
+CREATE INDEX IF NOT EXISTS operations_principal_id_idx
+    ON operations (principal_id)
     WHERE principal_id <> '';
-
--- Same in each per-service DB (kacho-vpc, kacho-compute, kacho-loadbalancer)
--- — distributed as common corelib migration (kacho-corelib/migrations/common/0006_operations_principal_id_idx.sql,
--- synced into each service via `make sync-migrations`).
--- Note: this migration in kacho-iam already covers iam's own operations table.
 ```
+
+**Schema-agnostic** (без `kacho_iam.` префикса) — common-миграции применяются к схеме каждого сервиса
+через стандартный `corelib/migrations/embed.go` (ровно как `0001_operations.sql`,
+`0002_operations_sequence.sql` из 1.0).
+
+**Rollout порядок** (см. §7 PR-chain):
+1. PR в `kacho-corelib`: добавить migration файл; commit.
+2. В **каждом** из 5 сервисов (`kacho-iam`, `kacho-vpc`, `kacho-compute`, `kacho-loadbalancer`, `kacho-resource-manager`):
+   `make sync-migrations` (копирует common-migrations в `migrations/`); commit; deploy.
+3. Integration-test для filter (B3) — отдельный PR в каждом сервисе (см. §6 DoD-11).
+
+**Не path-зависим от kacho-iam миграций** — corelib migration номер `0003` (в `common/`)
+независим от kacho-iam-локального `0008` / `0009`.
 
 ### 4.3 kacho-iam — AuthService.Me (use-case)
 
@@ -689,9 +805,9 @@ export function SignupPage() {
 
 ---
 
-## 5. GWT-сценарии (25)
+## 5. GWT-сценарии (26 после v2 — I7 split GWT-03 → 03a + 03b)
 
-### 5.1 Signup happy paths (3 сценария)
+### 5.1 Signup happy paths (4 сценария после I7 split — GWT-01, 02, 03a, 03b)
 
 #### Scenario E4.GWT-01: First-user signup — fresh cluster, atomic bootstrap (DoD #1)
 
@@ -700,7 +816,7 @@ export function SignupPage() {
 
 **Given** свежий `make dev-up` cluster, `kacho_iam.users` пустой, `accounts.owner_user_id IS NULL` для `acc_default`
 **And** Zitadel up, OpenFGA up, `kacho-iam` healthy
-**And** seed-миграции applied: `acc_default`, `prj_default`, `rol_default_admin` существуют
+**And** seed-миграции applied: `acc_default` (E0 `0002_seed_default_account.sql`), `prj_default` (E0 `0002_seed_default_account.sql`), `rol_default_admin` (E0 `0003_seed_default_roles.sql` — см. E0 §4.2; миграция seed-ит **12 system-roles**: `rol_default_admin`, `rol_default_viewer`, `rol_default_editor`, `rol_default_vpc_viewer`, `rol_default_vpc_editor`, `rol_default_compute_viewer`, `rol_default_compute_editor`, `rol_default_lb_viewer`, `rol_default_lb_editor`, `rol_default_iam_viewer`, `rol_default_iam_editor`, `rol_default_billing_viewer`)
 
 **When** browser opens `https://api.kacho.local/signup`
 **And** UI renders SignupPage; user clicks "Sign up with Zitadel"
@@ -711,13 +827,22 @@ export function SignupPage() {
 **And** api-gateway calls `kacho-iam:9091 InternalAuthService.SignupComplete({external_id, email, display_name})`
 **And** kacho-iam executes atomic TX (see §4.1)
 
-**Then** TX succeeds: `users` has 1 row for alice; `accounts.owner_user_id='usr_alice'`; `access_bindings` has 2 rows (admin@acc_default, admin@prj_default); `outbox` has 2 rows (FGA-write events); `subject_change_outbox` has 1 row
-**And** `operations` table has row with `principal_type='user', principal_id='usr_alice', done=true, response.SignupResult{user_id, account_id, project_id, is_first_user=true}`
+**Then** Sequence of TX steps observable в БД (B1 / D-16):
+
+1. `operations` table уже имеет row с `done=false, principal_id=''` (`ops.Create` отработал _ДО_ bootstrap-TX)
+2. Bootstrap-TX commit: `users` has 1 row for alice; `accounts.owner_user_id='usr_alice'`; `access_bindings` has 2 rows (admin@acc_default, admin@prj_default); `outbox` has 2 rows (FGA-write events); `subject_change_outbox` has 1 row
+3. **Sync FGA write (B4 / D-16)**: kacho-iam inline вызывает FGA `Write([{user:usr_alice, owner, account:acc_default}, {user:usr_alice, admin, project:prj_default}])` _до_ MarkDone; OpenFGA confirms within 200ms
+4. `ops.MarkDone(op_id, response={SignupResult})`: row обновлена → `done=true, principal_type='user', principal_id='usr_alice', response.SignupResult{user_id, account_id, project_id, is_first_user=true}`
+
 **And** api-gateway sets cookies (`kacho_session=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=900`)
 **And** api-gateway 302 redirects to `/welcome?first=true`
 **And** WelcomePage renders, shows email in header
 **And** within ≤5s (NFR-3): user is fully bootstrapped, IAM sidebar visible, can navigate `/iam/users` and see alice listed
-**And** within ≤2s (E3 outbox SLA): OpenFGA contains tuples `user:usr_alice admin account:acc_default`, `user:usr_alice admin project:prj_default`
+**And** **B4 invariant — НЕТ race-window'а «sidebar visible до FGA propagation»**: FGA-tuples
+для bootstrap-binding'а уже видны _до_ MarkDone и _до_ 302 redirect (sync inline write в шаге 3 выше);
+UI первый же `Check(user:usr_alice, viewer, iam.users)` (выполняется на page-bootstrap UI'ём)
+вернёт `allowed=true` без retry.
+**And** Сравни с обычным binding-create flow (GWT-15, GWT-16): там outbox+worker, SLA ≤2s, UI может видеть transient PermissionDenied — это **не** применимо для bootstrap (D-16 явно отступает от D-5 для bootstrap-binding'а)
 **And** `GET /iam/v1/auth/me` returns `{principal: {type: USER, id: usr_alice, displayName: alice@example.com}, isAdmin: true, effectiveAccountId: acc_default}`
 
 #### Scenario E4.GWT-02: Subsequent-user signup — existing first-admin, new user joins без binding
@@ -740,29 +865,48 @@ export function SignupPage() {
 **And** bob может видеть только public/no-permission pages (e.g. `/` dashboard with empty resources)
 **And** alice (через UI as admin) видит bob в `/iam/users` list, может grant bob role через `/iam/access-bindings/new`
 
-#### Scenario E4.GWT-03: OIDC callback race — concurrent signup of same external_id
+#### Scenario E4.GWT-03a: OIDC code-reuse fail — Zitadel rejects second exchange (I7)
 
-**ID:** 2.0-E4-GWT-03
-**REQ:** REQ-IAM-SIGNUP-RACE-01
+**ID:** 2.0-E4-GWT-03a
+**REQ:** REQ-IAM-SIGNUP-RACE-CODE-REUSE-01
 
 **Given** свежий cluster, никаких users
-**And** test environment: same browser is opened in two tabs simultaneously (or two requests via grpcurl/curl)
-**And** оба окна одновременно нажимают "Sign up", одновременно завершают Zitadel signup (same email, same external_id)
-**And** Zitadel issues two callbacks with same `code` (idempotent code exchange)
+**And** Browser opens `/signup`, completes Zitadel flow, Zitadel issues redirect к `/iam/v1/auth/callback?code=ABC`
+**And** Test environment replay'ит этот же URL **дважды** (например, user accidentally double-clicks browser refresh button, OR test использует `curl` для repeat)
 
-**When** обе callbacks одновременно POSTed to `/iam/v1/auth/callback`
-**And** api-gateway exchanges both codes (one succeeds, second fails — Zitadel code reuse error) ИЛИ оба succeed (Zitadel returns same access_token)
-**And** оба handler'а одновременно вызывают `SignupComplete` с одинаковыми `{external_id, email}`
+**When** обе callbacks одновременно POSTed to `/iam/v1/auth/callback?code=ABC`
+**And** api-gateway tries `oidc.Exchange(code=ABC)` для обоих
+**And** Zitadel — per OAuth2 RFC 6749 §10.5 — `authorization_code` is single-use; первый exchange succeeds (returns access_token), второй returns `invalid_grant: "authorization code already used"`
 
-**Then** kacho-iam two concurrent TX:
-- Один TX UPSERT-ит users (winner); RETURNING xmax=0 → is_new=true
-- Второй TX UPSERT-ит users (loser); RETURNING (xmax = previous_txid) → is_new=false; finds existing row
-**And** оба пытаются acquire advisory lock 4096
-**And** winner acquires, выполняет CAS на accounts.owner_user_id → UPDATE returns 1 row → admin-binding создан → is_first_user=true → COMMIT → lock released
-**And** loser ждёт lock (TX-scoped); после release acquires → CAS UPDATE returns **0 rows** (already NOT NULL) → is_first_user=false → COMMIT
-**And** Результат: ровно 1 mirror в users, ровно 1 admin-binding в access_bindings (никаких duplicates)
-**And** Оба клиента получают success-redirect; для winner — `/welcome?first=true`, для loser — `/` (но фактически это **тот же** user, оба клиента указывают на одну сессию)
-**And** Test assertion: `SELECT COUNT(*) FROM users WHERE external_id=$1` = 1; `SELECT COUNT(*) FROM access_bindings WHERE subject_id=$1 AND role_id='rol_default_admin'` = 2 (one per scope: account + project, but exactly one each, not 4)
+**Then** Winner-exchange (первый) → продолжает normal SignupComplete flow → GWT-01 path → cookies set, redirect to `/welcome?first=true`
+**And** Loser-exchange (второй) → api-gateway catches Zitadel error → redirects browser to `/signup?error=code_reuse`
+**And** UI SignupErrorBanner на `/signup` shows "Sign-up link already used — please log in" + Login CTA
+**And** No effect на DB (loser never reached SignupComplete): `users` count = 1, `operations` count = 1 (winner's), `access_bindings` count = 2 (winner's bootstrap)
+**And** Метрика `kacho_api_gateway_oidc_code_reuse_total` инкрементируется
+
+#### Scenario E4.GWT-03b: SignupComplete race — same external_id, both reach iam (I7)
+
+**ID:** 2.0-E4-GWT-03b
+**REQ:** REQ-IAM-SIGNUP-RACE-SAME-EXTERNAL-ID-01
+
+**Given** свежий cluster, никаких users
+**And** Test environment **обходит** Zitadel code-reuse protection (e.g. integration test calls `InternalAuthService.SignupComplete` напрямую gRPC-clientom, симулирует случай когда api-gateway имеет валидный access_token для одного user'а но из двух concurrent processes — теоретический edge-case, но проверяемый race-safety inv.)
+**And** Two goroutines в test одновременно вызывают `SignupComplete({external_id: "zid_alice", email: "alice@example.com", display_name: "Alice"})`
+
+**When** оба handler'а одновременно execute SignupComplete UseCase
+
+**Then** kacho-iam two concurrent flows:
+- Оба выполняют `ops.Create` (две op_id, обе done=false) — отдельные TX, no conflict (B1)
+- Оба входят в bootstrap-TX
+- Оба выполняют `INSERT … ON CONFLICT (external_id) DO UPDATE SET email=EXCLUDED.email RETURNING id, (xmax = 0) AS is_new` (I9)
+- Postgres row-level lock: первый writer проходит без блокировки (`xmax=0, is_new=true`); второй ждёт COMMIT'а первого; после release выполняет `DO UPDATE` → `xmax != 0, is_new=false`
+- Winner: is_new=true → advisory lock → CAS UPDATE → admin-binding → bootstrap-TX commits → sync FGA write → `MarkDone`
+- Loser: is_new=false → skip bootstrap path (subsequent-user) → no admin-binding → bootstrap-TX commits → `MarkDone` (Operation с is_first_user=false, user_id=usr_alice — same as winner!)
+
+**And** Результат: ровно 1 row в users (alice), ровно 2 access_bindings (admin@acc_default, admin@prj_default — winner created), 2 Operations (winner + loser, обе done=true, response.SignupResult — winner `is_first_user=true`, loser `is_first_user=false`, но `user_id` совпадает у обоих)
+**And** Test assertion: `SELECT COUNT(*) FROM users WHERE external_id='zid_alice'` = 1; `SELECT COUNT(*) FROM access_bindings WHERE subject_id='usr_alice' AND role_id LIKE 'rol_default_admin%'` = 2 (one per scope: account + project, no duplicates)
+**And** Test assertion: `SELECT COUNT(*) FROM operations WHERE response_data @> '{"user_id":"usr_alice"}'` = 2 (две Operation rows — обе success, но only one is_first_user=true)
+**And** Negative variant: запуск 10 goroutines одновременно → `COUNT(users) = 1`, `COUNT(access_bindings admin) = 2`, `COUNT(operations) = 10` (все complete successfully; exactly 1 с is_first_user=true)
 
 ### 5.2 OnFirstLogin atomic (3 сценария)
 
@@ -773,7 +917,7 @@ export function SignupPage() {
 
 **Given** свежий cluster, no users
 **And** Test setup: integration test in `kacho-iam/internal/apps/kacho/api/auth/signup_complete_integration_test.go`
-**And** mock-disabled FGA worker (manually controlled drain в тесте)
+**And** **Mock-disabled FGA worker mechanism (N13)**: testcontainers spawn'ит kacho-iam с env `KACHO_IAM_FGA__SYNC_BOOTSTRAP_MOCK_MODE=manual` (NEW флаг, читается в `cmd/kacho-iam/main.go`) — в этом режиме `fga_tuple_writer` worker НЕ стартует автоматически (loop не запускается), а sync FGA-write step (§4.1 шаг 7, D-16) заменяется на in-memory mock с явным `mockFGA.Drain()` вызовом из теста. По умолчанию (production) — флаг `auto` (worker startups normal); test-fixture explicitly sets `manual`. Альтернатива через build-tag (`//go:build integration_manual_fga`) rejected: env-flag совместим с standard binary, не требует отдельной build.
 
 **When** test calls `SignupComplete({external_id=zid_alice, email, name})` через mock-gRPC
 
@@ -792,23 +936,29 @@ export function SignupPage() {
 - `outbox` empty
 - `operations` empty (Operation row тоже roll-back)
 
-#### Scenario E4.GWT-05: Rollback при failure — частичный success не сохраняется
+#### Scenario E4.GWT-05: Rollback при failure — частичный success не сохраняется (corelib LRO atomic, B1/D-16)
 
 **ID:** 2.0-E4-GWT-05
 **REQ:** REQ-IAM-BOOTSTRAP-ROLLBACK-01
 
-**Given** Mid-TX failure simulated через test-hook (e.g. inject `pgx error` after 3rd INSERT)
-**And** kacho-iam SignupComplete in-progress
+**Given** Mid-bootstrap-TX failure simulated через test-hook (например, inject `pgx error` after 3-го INSERT inside bootstrap-TX — см. §4.1 шаг 5.c)
+**And** kacho-iam SignupComplete in-progress; шаг 2 уже создал Operation row (`done=false`) в _отдельной_ TX
 
 **When** failure injected
-**And** TX rolls back
+**And** bootstrap-TX rolls back полностью (users / accounts / access_bindings / outbox / subject_change_outbox — empty)
+**And** use-case ловит error → выполняет `ops.MarkError(ctx, op.ID, &status.Status{Code: codes.Internal, Message: "signup bootstrap failed"})` (отдельная TX)
 
-**Then** No data persisted; clean state как до signup
-**And** Operation row тоже не вставлена (если она внутри TX — иначе orphan); тест проверяет `SELECT COUNT(*) FROM operations WHERE principal_id=usr_alice` = 0
-**And** Caller (api-gateway) получает gRPC `Internal: "signup bootstrap failed"` error
-**And** api-gateway redirects browser to `/signup?error=signup_failed`
-**And** Метрика `kacho_iam_signup_failures_total` инкрементируется
-**And** Retry: user clicks "Sign up" again — flow proceeds successfully (idempotent на retry — нет half-state, который мешает)
+**Then** Bootstrap data НЕ persisted (clean state):
+- `users` — empty
+- `accounts.owner_user_id` — NULL
+- `access_bindings` — empty (для usr_alice)
+- `outbox` — empty (для signup-event'ов)
+**And** Operation row **сохраняется** (B1/D-16): `SELECT id, done, result_error FROM operations WHERE id=$op_id` → `done=true, result_error.code=Internal, result_error.message="signup bootstrap failed"` (rollback bootstrap-TX не затрагивает operations table — она в отдельной TX).
+**And** Caller (api-gateway) получает Operation handle (gRPC success); caller poll'ит `OperationService.Get(op_id)` → видит `done=true, error=<Internal>` → принимает решение «show error to user»
+**And** api-gateway redirects browser to `/signup?error=signup_failed` (либо `?error=<op_id>` для diagnosis)
+**And** Метрика `kacho_iam_signup_failures_total` инкрементируется (хук в `MarkError`)
+**And** Retry: user clicks "Sign up" again — flow proceeds successfully (idempotent на retry — нет half-state в users/bindings, который мешает); создаётся новая Operation row (новый op_id) с happy-path result
+**And** Failed Operation row остаётся в БД как failure-trail (доступна через OperationService.List / OperationService.Get для admin diagnostics; `principal_id` может быть пустым если failure случился до UPSERT users — это OK)
 
 #### Scenario E4.GWT-06: Idempotency on retry — повторный signup того же external_id не дублирует
 
@@ -934,6 +1084,13 @@ export function SignupPage() {
 **And** Test: SA with private_key_pem authenticates via OIDC `private_key_jwt` flow → gets Zitadel access_token → calls `/vpc/v1/networks` → 200 OK (если SA has binding)
 **And** "Revoke Key" button → POST `/iam/v1/serviceAccounts/sva_ci/keys/{key_id}/revoke` → SA loses access within ≤30s (Zitadel introspection cache)
 **And** Negative: create SA without permission → PermissionDenied; UI shows error
+
+> **I8 — SA-key generation coverage**: на E0 (`KAC-105`) был реализован только `sa_keys` table + CRUD over `kacho-iam.ServiceAccountKeyService`; **Zitadel management-API client** (создание Zitadel-side `machine_user` + key registration) — **НЕ был покрыт в E0/E2**. E4 _обязан_ это закрыть в рамках GWT-12; добавляются:
+>
+> - **`kacho-iam/internal/clients/zitadel/management.go`** — gRPC/REST client к Zitadel management-API: `CreateMachineUser(name, account_id)`, `AddMachineKey(user_id, public_key_pem)`, `RemoveMachineKey(user_id, key_id)`; auth — admin-PAT token из `KACHO_IAM_ZITADEL__MGMT_TOKEN` env (helm secret).
+> - **`kacho-iam/internal/apps/kacho/api/service_account/create_key.go`** — UseCase: (1) генерирует RSA-2048 keypair; (2) сохраняет public_key_pem в `sa_keys` table; (3) вызывает Zitadel management `AddMachineKey`; (4) возвращает private_key_pem caller'у **один раз** (никогда не сохраняется в БД).
+> - **`kacho-iam/internal/apps/kacho/api/service_account/revoke_key.go`** — UseCase: (1) обновляет `sa_keys.revoked_at=now()`; (2) вызывает Zitadel `RemoveMachineKey`; (3) Zitadel introspection cache TTL ≤30s.
+> - Integration test `service_account_key_integration_test.go` — testcontainers с mock Zitadel management API (httptest); assert: create_key returns private_key_pem _один раз_, revoke_key invokes Zitadel client с правильными аргументами.
 
 #### Scenario E4.GWT-13: Groups CRUD — create, add/remove members, list
 
@@ -1114,12 +1271,13 @@ export function SignupPage() {
 **And** UI confirms creation (Operation done=true)
 **And** Time T0 recorded; E3 outbox propagates tuple to FGA in ≤2s; subject_change_outbox notifies api-gateway cache invalidate
 
-**Then** В tab-bob: пользователь видит изменение в течение ≤10s. Механизм:
-- bob's RTK Query subscription для `listNetworks` (если active) выполняет refetch через subscription invalidation (RTK Query auto-refetches when tab gets focus OR на keepUnusedDataFor timeout)
-- ИЛИ user clicks "Refresh" button → page reloads, ListBySubject(bob) returns binding → permission heuristic updates → networks query fires → returns net-a
-- ИЛИ полностью reload tab (worst-case if user не делает explicit action)
+**Then** В tab-bob: пользователь видит изменение в течение ≤10s **через единый механизм реактивности** (N11):
+- **Primary**: `@tanstack/react-query` `useQuery({queryKey: ["vpc","networks"], refetchOnWindowFocus: true})` + ручной `queryClient.invalidateQueries({queryKey: ["vpc","networks"]})` вызываемый из mutation success callback (даже cross-user — через локальный `BroadcastChannel("kacho-iam-invalidate")` если same browser; но cross-browser — N/A).
+- **Fallback на tab-passive** (worst-case): tab bob — не focused, не получает focus event. Тогда срабатывает `refetchInterval: 15000` (15s polling), активный только когда `!document.hidden`. Если tab background — `refetchInterval` paused; пользователь увидит изменение когда вернёт focus (refetchOnWindowFocus сразу даст refresh).
+- **НЕ используем**: WebSocket / SSE (выкинуто из Phase 1.0 — see workspace `CLAUDE.md`); RTK Query (это `@tanstack/react-query`, см. v2 preamble Blocker B-2).
 **And** Playwright assertion: within 15s (slight buffer над NFR-5 для UI render time) — tab-bob shows net-a in list
 **And** Test measures Δ = first_visible_at - T0; Δ ≤ 15s (NFR: 10s backend + 5s UI render budget)
+**And** Test specific scenario — tab focused active: Δ ≤ 5s (focus → refetchOnWindowFocus immediate); tab background → user must return focus → Δ ≤ tab-passive-poll (15s)
 
 #### Scenario E4.GWT-22: Revoke role → bob теряет доступ в UI через ≤10s
 
@@ -1192,9 +1350,15 @@ export function SignupPage() {
 **And** Submits
 
 **Then** Backend validates new permissions list (still all in supported); accepts
-**And** Backend updates role; **also** re-generates FGA tuples for all bindings using this role:
-- For each binding (subject, role=rol_custom_xxx, scope) → recompute tuples → outbox writes (delete-old, write-new — OR diff-based for efficiency)
-- Race-safety: backend uses idempotent FGA writes; no missing-tuple window
+**And** Backend updates role; **also** re-generates FGA tuples for all bindings using this role (I6 mechanism — write-new-then-delete-old):
+- For each affected binding `(subject, role=rol_custom_xxx, scope)`:
+  1. Compute new tuple-set `T_new` from updated `role.permissions[]`
+  2. Compute old tuple-set `T_old` from previous-version permissions (from `role_versions` history table OR derived from outbox audit log — implementation-detail)
+  3. Diff: `to_write = T_new - T_old`, `to_delete = T_old - T_new`
+  4. Outbox events: `INSERT outbox(event='fga.tuple.write', payload=to_write)` _ДО_ `INSERT outbox(event='fga.tuple.delete', payload=to_delete)` — ensures grant-side wins при concurrent observer (если worker процессит в порядке INSERT'а)
+  5. `INSERT subject_change_outbox(subject_id=binding.subject_id)` для cache invalidation
+- Race-safety: FGA writes идempotent (повторное `Write(same tuple)` — no-op); FGA deletes idempotent (повторное `Delete(non-existent)` — no-op); no missing-tuple window если worker processes write-events before delete-events
+- Reuse-of-E3-pattern: тот же `fga_tuple_writer` worker (E3) дренит outbox, без новой инфраструктуры. См. E3 §«Re-tuple flow» (если описано там) или этот acceptance — primary source.
 **And** UI confirms; within ≤10s bob can GET subnets in prj_dev (additional permission applied reactively)
 **And** Test: bob's GET /vpc/v1/subnets returns 200 after delay; previously returned PermissionDenied
 **And** Negative: alice tries to remove permission → bob's access shrinks via same mechanism (≤10s revoke)
@@ -1216,6 +1380,7 @@ export function SignupPage() {
 | 8 | Concurrent signup race: 2 параллельных signup с одинаковым external_id → ровно 1 Account/user created; second получает existing | Integration test `signup_race_integration_test.go::TestConcurrentSameExternalID`; goroutines race + assertion `COUNT == 1`                                              |
 | 9 | Custom role: create via JSON-paste, validate permissions, use in binding, edit propagates tuples            | Playwright `custom-role.spec.ts` (covers GWT-24, GWT-25); integration test `role_custom_permissions_integration_test.go`                                                |
 | 10 | Permission heuristic UI cached в session-storage 5min, fail-open on error (D-13)                          | UI unit-test `usePermissionCheck.test.ts`; integration test mocks iam-down → assert UI not blocked, render mode permissive                                              |
+| 11 | `OperationsService.List` `principal_filter` integration tests **в каждом** из 5 сервисов (B3, per workspace `CLAUDE.md` запрет #11) | integration test `operation_filter_integration_test.go` в `kacho-iam`, `kacho-vpc`, `kacho-compute`, `kacho-loadbalancer`, `kacho-resource-manager`. Каждый: testcontainers Postgres, seed 3 operations (один с principal_id=usr_alice, один с principal_id=sva_bot, один с principal_id=''), assert: `List(principal_filter={id:'usr_alice'})` returns 1 row; `List(principal_filter={type:'USER'})` returns rows с user-principals; `List({})` returns все. Также newman case `e4-operations-filter` (через api-gateway, на одном из 5 сервисов — kacho-iam достаточно для black-box check) |
 
 **Артефакты:**
 - Все integration tests зелёные в `kacho-iam`, `kacho-api-gateway`, `kacho-corelib` (operations principal — already from E2).
@@ -1231,21 +1396,28 @@ export function SignupPage() {
 
 Топологический порядок (по `replace ../` graph из workspace `CLAUDE.md`):
 
-| # | Repo                | Branch        | PR scope                                                                                                  | Зависит от  |
-|---|---------------------|---------------|------------------------------------------------------------------------------------------------------------|-------------|
-| 1 | `kacho-proto`       | KAC-109       | `iam.v1.internal_auth_service.proto` (SignupComplete); `iam.v1.auth_service.proto` (Me, Logout); расширение `iam.v1.access_binding_service.proto` (ListBySubject RPC); `operation_service.proto` filter `principal_filter` | (none)      |
-| 2 | `kacho-iam`         | KAC-109       | миграции 0008-0009; `internal/apps/kacho/api/auth/{signup_complete,me}.go`; `internal/apps/kacho/api/access_binding/list_by_subject.go`; integration + unit tests | PR #1       |
-| 3 | `kacho-api-gateway` | KAC-109       | `/auth/callback` handler extension (call SignupComplete); `/auth/me` REST endpoint; `/auth/logout`; restmux register | PR #1, #2 (gRPC stubs) |
-| 4 | `kacho-deploy`      | KAC-109       | helm `kacho-ui` update (new build); helm `kacho-api-gateway` env update; helm `zitadel-bootstrap` enable signup-flow; helm `kacho-iam` env `KACHO_IAM_BOOTSTRAP__FIRST_USER_ADMIN=true` | PR #3 (image-tag of api-gateway) |
-| 5 | `kacho-ui`          | KAC-109       | full IAM UI: 5 auth pages + 7×3=21 IAM pages + 7 RTK Query slices + 7 components; sidebar update; permission heuristic; Operations CreatedBy column; tests | PR #3 (REST contracts via api-gateway) |
-| 6 | `kacho-test`        | KAC-109       | Playwright e2e suite (`signup.spec.ts`, `iam-crud.spec.ts`, `permission-reactivity.spec.ts`, `e2e-smoke.spec.ts`); docker-compose with headless Chromium; CI workflow | PR #5 (UI deployed) |
-| 7 | `kacho-workspace`   | KAC-109       | этот acceptance APPROVED → DRAFT→APPROVED; vault entries; KAC-109.md → done; KAC-104 epic → 4/6 DoD checked | After all |
+| #  | Repo                       | Branch        | PR scope                                                                                                  | Зависит от  |
+|----|-----------------------------|---------------|------------------------------------------------------------------------------------------------------------|-------------|
+| 0  | `kacho-corelib`             | KAC-109       | **(B2)** common migration `migrations/common/0003_operations_principal_filter_idx.sql` (partial index `operations(principal_id) WHERE principal_id <> ''`) | (none)      |
+| 1  | `kacho-proto`               | KAC-109       | `iam.v1.internal_auth_service.proto` (SignupComplete); `iam.v1.auth_service.proto` (Me, Logout); расширение `iam.v1.access_binding_service.proto` (ListBySubject RPC); `operation_service.proto` filter `principal_filter` | (none)      |
+| 2a | `kacho-iam`                 | KAC-109       | миграция 0008 (signup bootstrap lock + accounts.owner_user_id); sync corelib migration `common/0003`; `internal/apps/kacho/api/auth/{signup_complete,me}.go`; `internal/apps/kacho/api/access_binding/list_by_subject.go`; integration tests **включая** `auth/operation_filter_integration_test.go` (B3) | PR #0, #1   |
+| 2b | `kacho-vpc`                 | KAC-109-tests | **(B3)** sync corelib migration `common/0003`; `internal/apps/kacho/api/operations/operation_filter_integration_test.go` | PR #0       |
+| 2c | `kacho-compute`             | KAC-109-tests | **(B3)** sync corelib migration `common/0003`; `internal/apps/kacho/api/operations/operation_filter_integration_test.go` | PR #0       |
+| 2d | `kacho-loadbalancer`        | KAC-109-tests | **(B3)** sync corelib migration `common/0003`; `internal/apps/kacho/api/operations/operation_filter_integration_test.go` | PR #0       |
+| 2e | `kacho-resource-manager`    | KAC-109-tests | **(B3)** sync corelib migration `common/0003`; `internal/apps/kacho/api/operations/operation_filter_integration_test.go` | PR #0       |
+| 3  | `kacho-api-gateway`         | KAC-109       | `/auth/callback` handler extension (call SignupComplete); `/auth/me` REST endpoint; `/auth/logout`; restmux register; OperationsService filter pass-through (proto уже из PR #1) | PR #1, #2a (gRPC stubs) |
+| 4  | `kacho-deploy`              | KAC-109       | helm `kacho-ui` update (new build); helm `kacho-api-gateway` env update; helm `zitadel-bootstrap` enable signup-flow; helm `kacho-iam` env `KACHO_IAM_BOOTSTRAP__FIRST_USER_ADMIN=true` | PR #3 (image-tag of api-gateway) |
+| 5  | `kacho-ui`                  | KAC-109       | full IAM UI: 5 auth pages + 7×3=21 IAM pages + 7 @tanstack/react-query slices + 7 components; sidebar update; permission heuristic; Operations CreatedBy column; tests | PR #3 (REST contracts via api-gateway) |
+| 6  | `kacho-test`                | KAC-109       | Playwright e2e suite (`signup.spec.ts`, `iam-crud.spec.ts`, `permission-reactivity.spec.ts`, `e2e-smoke.spec.ts`); docker-compose with headless Chromium; CI workflow | PR #5 (UI deployed) |
+| 7  | `kacho-workspace`           | KAC-109       | этот acceptance APPROVED → DRAFT→APPROVED; vault entries; KAC-109.md → done; KAC-104 epic → 4/6 DoD checked | After all |
 
 **Параллельность:**
-- PR #1 → blocks #2, #3
-- PR #2, #3 — параллельны после #1
+- PR #0 (corelib migration) → blocks #2a-#2e (тесты + sync)
+- PR #1 (proto) → blocks #2a, #3
+- PR #2a, #2b, #2c, #2d, #2e — параллельны после #0 (independent рассылка corelib-миграции по сервисам с per-service тестом)
+- PR #3 — после #1, #2a
 - PR #4 — после #3 (image-tags)
-- PR #5 — может start параллельно с #2/#3 (mock backend in UI dev-mode), но full integration требует #3
+- PR #5 — может start параллельно с #2*/#3 (mock backend in UI dev-mode), но full integration требует #3
 - PR #6 — последний (требует deployed UI)
 
 **CI pinning:**
@@ -1307,6 +1479,8 @@ export function SignupPage() {
 **evgeniy regulation:**
 - §2 (use-case pattern): `internal/apps/kacho/api/auth/{signup_complete,me}.go`; `internal/apps/kacho/api/access_binding/list_by_subject.go` — каждый use-case в отдельном файле.
 - §4 (self-validating domain): `Email`, `ExternalID`, `DisplayName` newtypes уже из E0; добавляется `PermissionStr` newtype для custom-role validation.
+
+**Permission format unification (N12)**: на E4 в JSON payload UI/proto уровне permissions передаются как **JSON-объекты** `{"resource": "<domain>.<type>", "action": "<verb>"}` (для дружелюбной валидации в RoleCreatePage textarea и понятного error-message). На domain-layer внутри kacho-iam используется **string-newtype `PermissionStr` формата `"vpc.network/viewer"`** (для outbox payload-а / FGA-tuple generation / log readability). Conversion: `PermissionStr.Parse("vpc.network/viewer") → {Resource: "vpc.network", Action: "viewer"}`; `PermissionStr.From({Resource, Action}) → "vpc.network/viewer"`. JSON-объект — для validation surface, slash-string — для storage/wire-format с FGA. Это явно зафиксировано в `kacho-iam/internal/domain/permission.go` newtype + tests.
 - §5 (DB-level invariants): см. §10 запрет #10 выше.
 - §6 (CQRS Reader/Writer): `auth_writer.go` (TX bootstrap) vs `access_binding_reader.go::ListBySubject` (read query).
 - §16 (outbox + LISTEN): backend NOTIFY уже из E3 (subject_change_outbox + fga_tuple_writer outbox); UI consumes results via RTK Query refetch on focus.
@@ -1315,28 +1489,53 @@ export function SignupPage() {
 
 ## 11. Open Questions (для acceptance-reviewer)
 
-1. **Cookie scope cross-domain**: UI на `api.kacho.local`, Zitadel на `login.kacho.local`. Cookie scope `Domain=.kacho.local`? Это включает оба sub-domain. Безопасно ли (зависит от какие ещё sub-domains есть). **Предложение**: на dev — ок (полный контроль); на prod — separate cookie per origin, exchange через explicit callback. Уточнить в reviewer.
+> **v2 OQ resolution**: OQ-2..10 from v1 — resolved as Decisions D-17..D-22 (см. §2 Decision Log) либо OOS (out-of-scope). Только OQ-1 остаётся pending — требует явного reviewer-input'а по prod cookie scope.
 
-2. **Welcome page для first-user — что показывать**: tour, quick-start, или просто landing с link на docs? **Предложение**: minimal `/welcome` с congratulations + 3-link tour: "Create your first VPC Network" + "Invite team members" + "Create Service Account for CI"; full onboarding — Phase 2.1.
+1. **Cookie scope cross-domain** (pending reviewer decision): UI на `api.kacho.local`, Zitadel на `login.kacho.local`. Cookie scope `Domain=.kacho.local`? Это включает оба sub-domain. **Текущее предложение (D-17 default)**: на dev — `.kacho.local` (полный контроль); на prod — per-origin cookie (`Domain=` не выставлен → host-only; передача через explicit callback POST). Reviewer: подтвердить prod-behaviour либо предложить альтернативу (например, `SameSite=Lax` + первичный domain + cross-domain CORS).
 
-3. **Bob (subsequent user без bindings) — что показывать на /**: empty dashboard + ErrorBanner "Contact admin to get access" или explicit `/no-access` page? **Предложение**: explicit `/no-access` page; cleaner UX для subsequent-user state.
+---
 
-4. **Permission cache TTL для UI**: 5min достаточно? Если admin grants role, user должен явно reload (5min stale-window). Альтернатива — TTL 30s (более responsive, но больше backend load). **Предложение**: TTL 5min + invalidation on focus (RTK Query default) — net result типично <1min между refetch'ами при active использовании.
+### 11.1 Resolved OQ → Decisions (was OQ-2..10 in v1)
 
-5. **Custom-role permission validation — strict vs permissive**: D-14 strict reject. Альтернатива — accept role, skip unsupported permissions при FGA-expansion (с warning в response). **Предложение**: strict (D-14) на E4; permissive — Phase 2.1 с UI warning UX. Уточнить.
-
-6. **Playwright in CI vs manual**: e2e tests slow (минуты), run on every PR vs только nightly? **Предложение**: PR — smoke subset (signup + 1 CRUD per resource = ~3min); nightly — full suite (~15min). CI pipeline split в `kacho-test/.github/workflows/`.
-
-7. **«Last admin» safeguard backend OR UI-only?** Risks-table mentions: «admin может accidentally revoke self». Backend safeguard надёжнее (catches API-direct via grpcurl), UI-only — UX-only. **Предложение**: оба — UI confirm + backend `FailedPrecondition` если delete-binding оставит acc_default без admin@account.
-
-8. **Operations principal filter — UI или backend default?** UI «My operations» tab applies `?principal.id=me`. Также «All operations» tab (admin sees все). Backend должен принимать filter — это уже в proto (E4 PR #1). **Предложение**: backend supports filter; UI выбор tab.
-
-9. **Что показывать в Header для SA-issued requests?** Operations created by SA — clear; но SA не logs into UI (SA — programmatic). Header показывает только UI-logged-in user. **Решение**: clear — header — user only; SA visible only в Operations table «Created by».
-
-10. **`kacho-yc-shim` для signup-CLI**: будущий `yc init` / `yc auth login` flow? Out-of-scope (overview §9: «yc-shim» = Phase 2.1+); E4 focus только на UI signup.
+| v1 OQ | Resolution | Decision ID |
+|-------|-------------|-------------|
+| OQ-2 (Welcome page contents) | accepted default: minimal `/welcome` с 3-link tour | D-18 |
+| OQ-3 (No-access page для bob) | accepted default: explicit `/no-access` page | D-19 |
+| OQ-4 (Permission cache TTL) | accepted default: 5min + invalidation on focus | D-20 |
+| OQ-5 (Custom-role validation) | accepted default: strict reject (re-affirm D-14) | D-14 (already) |
+| OQ-6 (Playwright CI) | accepted default: smoke on PR + full on nightly | D-21 |
+| OQ-7 (Last admin safeguard) | accepted default: оба — backend + UI | D-22 |
+| OQ-8 (Operations principal filter) | resolved: backend supports filter; UI выбирает tab. Без новой decision — это уже в proto (PR #1) и DoD-11 (B3). | (proto contract) |
+| OQ-9 (Header for SA requests) | resolved: header = UI-logged-in user only; SA — только Operations CreatedBy column. | (implicit, D-15) |
+| OQ-10 (yc-shim для signup-CLI) | OOS: overview §9, Phase 2.1+. | (out of scope) |
 
 ---
 
 ## 12. Changelog
 
 - **2026-05-17 — DRAFT v1**: первая полноразмерная версия (`acceptance-author` agent). Расширение STUB-предшественника (170 lines) в полный GWT-разбор: 25 сценариев (3+3+2+7+3+2+3+2 = 25), 10 DoD пунктов, Decision Log из 15 пунктов, Cross-repo PR-chain (7 репо), Risks/Mitigations, Out-of-Scope (15+ items), Open Questions (10). Awaiting `acceptance-reviewer`.
+
+- **2026-05-17 — DRAFT v2**: фикс по reviewer feedback (4 blocker + 5 important + 6 nit). Awaiting повторного `acceptance-reviewer` cycle. Major изменения:
+
+  **Blockers**:
+  - **B1 — Operation atomic semantics**: Operation row создаётся `ops.Create`-ом _ДО_ bootstrap-TX (отдельная TX), bootstrap-TX содержит только domain rows, `MarkDone`/`MarkError` отдельной TX после COMMIT/rollback. Failure теперь оставляет Operation row с `result.error` (corelib LRO стандарт). §4.1 шаги 2/3/8 переписаны; GWT-05 переформулирован под этот flow.
+  - **B2 — Migration scope**: миграция `operations_principal_id_idx` перенесена из `kacho-iam/migrations/0009` в `kacho-corelib/migrations/common/0003` — раздаётся в **каждый** из 5 сервисов через `make sync-migrations` (UI делает per-service фильтрацию). Новый §4.2.1; PR-chain (§7) расширен — добавлен PR #0 corelib + параллельные PR #2b-2e в kacho-vpc/compute/loadbalancer/rm.
+  - **B3 — `principal_filter` testing scope**: DoD-11 добавлен (integration-test в каждом из 5 сервисов + 1 newman case). PR-chain отражает test rollout.
+  - **B4 — FGA bootstrap window**: sync FGA-write inline в `SignupCompleteUseCase` шаг 7 для bootstrap-binding'а (отступление от E3 D-5 specifically для bootstrap; обычные binding-mutations остаются на outbox+worker). Новый Decision **D-16**. GWT-01 **Then** дополнен invariant'ом «нет race-window'а sidebar visible до FGA propagation».
+
+  **Important**:
+  - **I5**: GWT-01 **Given** ссылка на E0 §4.2 миграция `0003_seed_default_roles.sql` + перечислено 12 system-roles.
+  - **I6**: GWT-25 (custom-role edit) — добавлен detailed mechanism «write-new-then-delete-old» с diff-based outbox writes и idempotent FGA semantics.
+  - **I7**: GWT-03 разделён на GWT-03a (Zitadel code-reuse fail на api-gateway) + GWT-03b (concurrent SignupComplete с same external_id — race-test 2/10 goroutines).
+  - **I8**: GWT-12 (SA-key) — добавлен раздел про Zitadel management-API client (`zitadel/management.go`) + UseCase'ы `create_key`/`revoke_key` + integration test. Закрывает coverage gap из E0/E2.
+  - **I9**: race-safety секция переписана под правильный xmax pattern: `INSERT … ON CONFLICT DO UPDATE … RETURNING id, (xmax = 0) AS is_new` + row-level lock семантика. Старая формулировка «winner xmax=txid_current()» удалена.
+
+  **Nits**:
+  - **N10**: §0.1 — mapping table overview-GWT ↔ doc-GWT (9 → 26 строк).
+  - **N11**: GWT-21 — единый механизм реактивности (`@tanstack/react-query refetchOnWindowFocus` primary + `refetchInterval: 15000` tab-passive worst-case).
+  - **N12**: §10 evgeniy — добавлено объяснение «JSON-объект на surface + `PermissionStr` newtype slash-format на storage» с conversion-helpers.
+  - **N13**: GWT-04 mock-disabled FGA worker — explicit mechanism `KACHO_IAM_FGA__SYNC_BOOTSTRAP_MOCK_MODE=manual` env-flag.
+  - **N14**: §4.2 — defensive backstop comment про partial UNIQUE `accounts_owner_user_id_uniq` (primary — CAS в UPDATE; UNIQUE — backstop против bug/direct-SQL).
+  - **N15**: vault entries (§3.3) — добавлен `edges/ui-to-zitadel-redirect.md` (browser-direct redirect к Zitadel signup, не gRPC-edge; включает D-17 cookie scope).
+
+  **OQ resolutions**: OQ-2..7 → Decisions **D-17..D-22** (cookie scope в dev/prod, welcome page contents, no-access page, permission TTL, Playwright CI, last admin safeguard). OQ-8/9/10 → resolved as already-in-proto / implicit / OOS. OQ-1 (prod cookie scope) — остаётся pending, явный reviewer-input нужен.

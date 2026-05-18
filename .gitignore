@@ -17,3 +17,15 @@ go.work.sum
 .vscode/
 .DS_Store
 *.swp
+
+# Local-only — auto-managed by Claude Code / harness
+.claude/scheduled_tasks.lock
+# Externally-installed skills (not part of project's intentional skill set)
+.claude/skills/defuddle/
+.claude/skills/godzila/
+.claude/skills/json-canvas/
+.claude/skills/obsidian-bases/
+.claude/skills/obsidian-cli/
+.claude/skills/obsidian-markdown/
+# Obsidian vault internal state
+obsidian/kacho/.obsidian/

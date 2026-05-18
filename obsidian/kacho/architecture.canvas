@@ -1,0 +1,387 @@
+{
+  "nodes": [
+    {
+      "id": "0f65ba3b578141f3",
+      "type": "group",
+      "x": -700,
+      "y": 60,
+      "width": 1400,
+      "height": 560,
+      "color": "5",
+      "label": "Runtime cross-service edges (gRPC)"
+    },
+    {
+      "id": "dea7bdaf4a52d9ce",
+      "type": "group",
+      "x": -700,
+      "y": -560,
+      "width": 1400,
+      "height": 540,
+      "color": "4",
+      "label": "Build dependencies (Go replace + Dockerfile COPY)"
+    },
+    {
+      "id": "f2dc9c7795f5e153",
+      "type": "group",
+      "x": -700,
+      "y": 660,
+      "width": 1400,
+      "height": 240,
+      "color": "3",
+      "label": "Hub documents"
+    },
+    {
+      "id": "89deb807b575684f",
+      "type": "text",
+      "text": "**kacho-proto**\n\n.proto + gen/go\n[[kacho-proto/README]]",
+      "x": -640,
+      "y": -480,
+      "width": 280,
+      "height": 120,
+      "color": "6"
+    },
+    {
+      "id": "21fc72ee897e3bb0",
+      "type": "text",
+      "text": "**kacho-corelib**\n\nids/operations/db/outbox/...\n[[kacho-corelib/README]]",
+      "x": -640,
+      "y": -300,
+      "width": 280,
+      "height": 120,
+      "color": "6"
+    },
+    {
+      "id": "8aa5307765f471e7",
+      "type": "text",
+      "text": "**kacho-vpc**\nNetwork / Subnet / Address / ...\n[[kacho-vpc/README]]",
+      "x": -260,
+      "y": -480,
+      "width": 280,
+      "height": 110,
+      "color": "1"
+    },
+    {
+      "id": "1e6ceee28b4c3e7c",
+      "type": "text",
+      "text": "**kacho-compute**\nInstance / Disk / Image\n(geography owner after KAC-15)",
+      "x": 60,
+      "y": -480,
+      "width": 280,
+      "height": 110,
+      "color": "1"
+    },
+    {
+      "id": "ac917e31339cb69c",
+      "type": "text",
+      "text": "**kacho-loadbalancer**\nNLB / TargetGroup\n(frozen в 1.0)",
+      "x": -260,
+      "y": -350,
+      "width": 280,
+      "height": 100,
+      "color": "2"
+    },
+    {
+      "id": "5d2a1284c2f500b1",
+      "type": "text",
+      "text": "**kacho-api-gateway**\nedge: gRPC-proxy + REST mux\n[[kacho-api-gateway/README]]",
+      "x": 60,
+      "y": -350,
+      "width": 280,
+      "height": 110,
+      "color": "1"
+    },
+    {
+      "id": "fca2884f705eb5fd",
+      "type": "text",
+      "text": "**client**\n`yc` CLI / curl / UI",
+      "x": -640,
+      "y": 140,
+      "width": 240,
+      "height": 110,
+      "color": "3"
+    },
+    {
+      "id": "f350c2a76ea8df5c",
+      "type": "text",
+      "text": "**vpc-implement**\n(deprecated edge)\n[[edges/vpc-implement-to-vpc]]",
+      "x": 420,
+      "y": 100,
+      "width": 240,
+      "height": 100,
+      "color": "2"
+    },
+    {
+      "id": "467bf76985e55950",
+      "type": "text",
+      "text": "**kacho-resource-manager**\nOrganization / Cloud / Folder\n[[kacho-resource-manager/README]]",
+      "x": 380,
+      "y": -480,
+      "width": 280,
+      "height": 110,
+      "color": "1"
+    },
+    {
+      "id": "2b5e7c90b20a7e41",
+      "type": "text",
+      "text": "**kacho-deploy**\nHelm umbrella + docker-compose\n[[kacho-deploy/README]]",
+      "x": 380,
+      "y": -350,
+      "width": 280,
+      "height": 100,
+      "color": "3"
+    },
+    {
+      "id": "7a088d7548fefd18",
+      "type": "text",
+      "text": "**kacho-ui**\nVite + React SPA",
+      "x": -260,
+      "y": -220,
+      "width": 280,
+      "height": 80,
+      "color": "3"
+    },
+    {
+      "id": "8b7d979946835600",
+      "type": "text",
+      "text": "**kacho-test**\ne2e / regression стенд",
+      "x": 60,
+      "y": -220,
+      "width": 280,
+      "height": 80,
+      "color": "3"
+    },
+    {
+      "id": "26638bebad24ed9a",
+      "type": "text",
+      "text": "**api-gateway**\n:8080 / :443\n[[edges/apigw-internal-vs-tls]]",
+      "x": -300,
+      "y": 140,
+      "width": 280,
+      "height": 110,
+      "color": "5"
+    },
+    {
+      "id": "70ceb90e0ace44b3",
+      "type": "text",
+      "text": "**vpc**\n:9090 / :9091",
+      "x": 100,
+      "y": 100,
+      "width": 240,
+      "height": 90,
+      "color": "1"
+    },
+    {
+      "id": "1315f12bec320615",
+      "type": "file",
+      "file": "architecture.md",
+      "x": -640,
+      "y": 720,
+      "width": 400,
+      "height": 160
+    },
+    {
+      "id": "b15d3670e7033490",
+      "type": "file",
+      "file": "README.md",
+      "x": -200,
+      "y": 720,
+      "width": 400,
+      "height": 160
+    },
+    {
+      "id": "309578f25c2769dd",
+      "type": "file",
+      "file": "INDEX.md",
+      "x": 240,
+      "y": 720,
+      "width": 400,
+      "height": 160
+    },
+    {
+      "id": "fcb655df01a65dd7",
+      "type": "text",
+      "text": "**resource-manager**\n:9090 (leaf-owner)",
+      "x": 100,
+      "y": 420,
+      "width": 240,
+      "height": 90,
+      "color": "1"
+    },
+    {
+      "id": "84028e1b778de4ea",
+      "type": "text",
+      "text": "**compute**\n:9090 / :9091",
+      "x": 100,
+      "y": 280,
+      "width": 240,
+      "height": 90,
+      "color": "1"
+    }
+  ],
+  "edges": [
+    {
+      "id": "b325dca7661bd5f8",
+      "fromNode": "89deb807b575684f",
+      "fromSide": "bottom",
+      "toNode": "21fc72ee897e3bb0",
+      "toSide": "top",
+      "label": "import gen/go"
+    },
+    {
+      "id": "2cf369faa4524f5a",
+      "fromNode": "89deb807b575684f",
+      "fromSide": "right",
+      "toNode": "8aa5307765f471e7",
+      "toSide": "left",
+      "label": "proto"
+    },
+    {
+      "id": "0b686d40a211ce79",
+      "fromNode": "89deb807b575684f",
+      "fromSide": "right",
+      "toNode": "1e6ceee28b4c3e7c",
+      "toSide": "left",
+      "label": "proto"
+    },
+    {
+      "id": "597374b242fef2aa",
+      "fromNode": "89deb807b575684f",
+      "fromSide": "right",
+      "toNode": "467bf76985e55950",
+      "toSide": "left",
+      "label": "proto"
+    },
+    {
+      "id": "9b24d9ca53cb76dd",
+      "fromNode": "21fc72ee897e3bb0",
+      "fromSide": "right",
+      "toNode": "8aa5307765f471e7",
+      "toSide": "left",
+      "label": "ids/db/ops"
+    },
+    {
+      "id": "00dc3c57878d3367",
+      "fromNode": "21fc72ee897e3bb0",
+      "fromSide": "right",
+      "toNode": "1e6ceee28b4c3e7c",
+      "toSide": "left"
+    },
+    {
+      "id": "634c4efa69e36010",
+      "fromNode": "21fc72ee897e3bb0",
+      "fromSide": "right",
+      "toNode": "467bf76985e55950",
+      "toSide": "left"
+    },
+    {
+      "id": "90ecbf9d19352262",
+      "fromNode": "21fc72ee897e3bb0",
+      "fromSide": "right",
+      "toNode": "5d2a1284c2f500b1",
+      "toSide": "left"
+    },
+    {
+      "id": "a02a70d03d83648a",
+      "fromNode": "8aa5307765f471e7",
+      "fromSide": "bottom",
+      "toNode": "2b5e7c90b20a7e41",
+      "toSide": "top",
+      "label": "COPY"
+    },
+    {
+      "id": "dfae7d398b2fc304",
+      "fromNode": "1e6ceee28b4c3e7c",
+      "fromSide": "bottom",
+      "toNode": "2b5e7c90b20a7e41",
+      "toSide": "top",
+      "label": "COPY"
+    },
+    {
+      "id": "40ae6185f35ab45b",
+      "fromNode": "467bf76985e55950",
+      "fromSide": "bottom",
+      "toNode": "2b5e7c90b20a7e41",
+      "toSide": "top",
+      "label": "COPY"
+    },
+    {
+      "id": "fa8f5bfb067aa218",
+      "fromNode": "5d2a1284c2f500b1",
+      "fromSide": "bottom",
+      "toNode": "2b5e7c90b20a7e41",
+      "toSide": "left"
+    },
+    {
+      "id": "233249144065cabb",
+      "fromNode": "fca2884f705eb5fd",
+      "fromSide": "right",
+      "toNode": "26638bebad24ed9a",
+      "toSide": "left",
+      "label": "REST / gRPC"
+    },
+    {
+      "id": "707b6ef9ffa8448b",
+      "fromNode": "26638bebad24ed9a",
+      "fromSide": "right",
+      "toNode": "70ceb90e0ace44b3",
+      "toSide": "left",
+      "label": "proxy"
+    },
+    {
+      "id": "1e4a62879dda39ce",
+      "fromNode": "26638bebad24ed9a",
+      "fromSide": "right",
+      "toNode": "84028e1b778de4ea",
+      "toSide": "left",
+      "label": "proxy"
+    },
+    {
+      "id": "a00183b0e65d378c",
+      "fromNode": "26638bebad24ed9a",
+      "fromSide": "right",
+      "toNode": "fcb655df01a65dd7",
+      "toSide": "left",
+      "label": "proxy"
+    },
+    {
+      "id": "c0a5d853070e109f",
+      "fromNode": "70ceb90e0ace44b3",
+      "fromSide": "bottom",
+      "toNode": "84028e1b778de4ea",
+      "toSide": "top",
+      "label": "zone validate (KAC-15)"
+    },
+    {
+      "id": "465cc62c38535905",
+      "fromNode": "84028e1b778de4ea",
+      "fromSide": "top",
+      "toNode": "70ceb90e0ace44b3",
+      "toSide": "bottom",
+      "label": "NIC validate + IPAM"
+    },
+    {
+      "id": "5a7221dae1c9821e",
+      "fromNode": "70ceb90e0ace44b3",
+      "fromSide": "right",
+      "toNode": "fcb655df01a65dd7",
+      "toSide": "top",
+      "label": "folder check"
+    },
+    {
+      "id": "e23693cb0d55c35f",
+      "fromNode": "84028e1b778de4ea",
+      "fromSide": "right",
+      "toNode": "fcb655df01a65dd7",
+      "toSide": "right",
+      "label": "folder check"
+    },
+    {
+      "id": "21a1498a6e9af266",
+      "fromNode": "f350c2a76ea8df5c",
+      "fromSide": "left",
+      "toNode": "70ceb90e0ace44b3",
+      "toSide": "right",
+      "label": "ReportNiDataplane (deprecated)"
+    }
+  ]
+}

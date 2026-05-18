@@ -1,0 +1,67 @@
+filters:
+  and:
+    - file.hasTag("resource")
+    - 'file.ext == "md"'
+
+formulas:
+  folder_label: 'if(folder_level, "folder-level", "global")'
+
+properties:
+  domain:
+    displayName: Domain
+  id_prefix:
+    displayName: ID prefix
+  owner_table:
+    displayName: Owner table
+  formula.folder_label:
+    displayName: Scope
+  visibility:
+    displayName: Visibility
+  status:
+    displayName: Status
+
+views:
+  - type: table
+    name: All resources
+    order:
+      - file.name
+      - domain
+      - id_prefix
+      - owner_table
+      - formula.folder_label
+      - visibility
+      - status
+    groupBy:
+      property: domain
+      direction: ASC
+
+  - type: table
+    name: VPC
+    filters:
+      and:
+        - 'domain == "vpc"'
+    order:
+      - file.name
+      - id_prefix
+      - owner_table
+      - formula.folder_label
+      - visibility
+
+  - type: table
+    name: ResourceManager
+    filters:
+      or:
+        - 'domain == "resourcemanager"'
+        - 'domain == "organizationmanager"'
+    order:
+      - file.name
+      - id_prefix
+      - owner_table
+
+  - type: cards
+    name: Cards
+    order:
+      - file.name
+      - domain
+      - id_prefix
+      - formula.folder_label

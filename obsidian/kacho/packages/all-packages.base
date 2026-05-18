@@ -1,0 +1,77 @@
+filters:
+  and:
+    - file.hasTag("packages")
+    - 'file.ext == "md"'
+
+properties:
+  repo:
+    displayName: Repo
+  layer:
+    displayName: Layer
+
+views:
+  - type: table
+    name: All packages
+    order:
+      - file.name
+      - repo
+      - layer
+      - file.mtime
+    groupBy:
+      property: repo
+      direction: ASC
+
+  - type: table
+    name: By layer
+    order:
+      - file.name
+      - repo
+      - layer
+    groupBy:
+      property: layer
+      direction: ASC
+
+  - type: table
+    name: kacho-vpc
+    filters:
+      and:
+        - 'repo == "kacho-vpc"'
+    order:
+      - file.name
+      - layer
+
+  - type: table
+    name: kacho-corelib
+    filters:
+      and:
+        - 'repo == "kacho-corelib"'
+    order:
+      - file.name
+      - layer
+
+  - type: table
+    name: kacho-proto
+    filters:
+      and:
+        - 'repo == "kacho-proto"'
+    order:
+      - file.name
+      - layer
+
+  - type: table
+    name: kacho-api-gateway
+    filters:
+      and:
+        - 'repo == "kacho-api-gateway"'
+    order:
+      - file.name
+      - layer
+
+  - type: table
+    name: kacho-resource-manager
+    filters:
+      and:
+        - 'repo == "kacho-resource-manager"'
+    order:
+      - file.name
+      - layer
