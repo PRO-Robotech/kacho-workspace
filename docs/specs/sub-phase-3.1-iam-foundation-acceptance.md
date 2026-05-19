@@ -95,6 +95,14 @@ Phase 1 — это **DB foundation + permission registry generator + bootstrap**
 
 ### 2.1 Сущности, добавляемые в Phase 1
 
+> **No-change note**: `users` table — **no schema changes in Phase 1**. Baseline KAC-125
+> schema retained as-is (per-Account row, `invite_status` enum, `external_id UNIQUE`,
+> `email`, `display_name`, и т.д.). Bootstrap admin lookup (см. §2.8 / Scenario 6.10.1)
+> читает existing rows; никакие ALTER TABLE на `users` в миграциях `0011..0014` не выполняются.
+> Любые расширения `users` (например, MFA columns) — отдельные миграции в последующих phase'ах
+> (Phase 2 для WebAuthn credentials — отдельная child-table `user_webauthn_credentials`,
+> не ALTER на `users`).
+
 - **Cluster** — singleton (`id='cluster_kacho_root'`). Корень иерархии:
   cluster → organization (optional) → account → project → resource. Используется как
   OpenFGA-объект для `cluster:cluster_kacho_root#system_admin@user:usr_xxx`.
@@ -124,6 +132,11 @@ Phase 1 — это **DB foundation + permission registry generator + bootstrap**
   `device_compliant`). Хранится как `expression TEXT` (имя предиката из whitelisted set
   + параметры в `params JSONB`). CEL-validation — Phase 3 на write через protoc-validate
   embed; Phase 1 — schema-level whitelist через CHECK + JSONB shape.
+- **ServiceAccountOAuthClient** — Static Hydra client mapping (Class A workload identity,
+  RFC 6749 client_credentials). Один SA → один OAuth-client (1:1) на Phase 1; future N:1 —
+  отдельной миграцией. `hydra_client_id` UNIQUE; `sva_id` UNIQUE; `expires_at TIMESTAMPTZ NULL`
+  (optional rotation reminder); `last_used_at TIMESTAMPTZ NULL` (audit). RPC появятся в Phase 5
+  (`ServiceAccountService.IssueKey` / `RevokeKey`), Phase 1 — только schema.
 - **FederationTrustPolicy** — OIDC trust для Token Exchange (RFC 8693). `issuer` +
   `subject_pattern` (regex-validated, **no wildcard `*`** — must be anchored constant or
   controlled regex; CHECK constraint), `audience`, `additional_claims_filter` JSONB,
@@ -170,6 +183,7 @@ Phase 1 — это **DB foundation + permission registry generator + bootstrap**
 | Organization                     | `ids.PrefixOrganization`           | `org`    | 20       |
 | ClusterAdminGrant                | `ids.PrefixClusterAdminGrant`     | `cag`    | 20       |
 | ClusterBreakGlassGrant           | `ids.PrefixBreakGlass`             | `bgg`    | 20       |
+| ServiceAccountOAuthClient        | `ids.PrefixSAOAuthClient`          | `soc`    | 20       |
 | FederationTrustPolicy            | `ids.PrefixFedTrustPolicy`         | `ftp`    | 20       |
 | AccessBindingCondition           | `ids.PrefixCondition`              | `cond`   | 20       |
 | AccessBindingJITEligibility      | `ids.PrefixJITEligibility`         | `jite`   | 20       |
@@ -258,6 +272,8 @@ AND length(subject_pattern) <= 512
 
 ### 2.6 OIDC JWKS rotation invariant (нормативно)
 
+**Partial UNIQUE INDEX (immediate, как все INDEX'ы в Postgres):**
+
 ```
 CREATE UNIQUE INDEX oidc_jwks_keys_current_unique
     ON oidc_jwks_keys(alg)
@@ -266,13 +282,40 @@ CREATE UNIQUE INDEX oidc_jwks_keys_current_unique
 
 Plus CHECK `(current = false OR rotated_at IS NULL)` — current key не имеет `rotated_at`.
 
-Rotation flow (Phase 2 use-case) использует atomic two-statement TX:
+> **Note** (production-correctness): Postgres допускает `DEFERRABLE INITIALLY DEFERRED` только
+> для `UNIQUE` constraint / `PRIMARY KEY` / `REFERENCES` / `EXCLUDE`. **Partial UNIQUE INDEX
+> deferrable быть не может** — он always immediate. Поэтому rotation flow реализован через
+> **single-statement CTE** (option B), не через `INITIALLY DEFERRED` constraint (option A).
+
+**Rotation flow (Phase 2 use-case)** — atomic single-statement CTE-DML (constraint validation at
+statement end; no intermediate violation, поскольку UPDATE и INSERT logically happen as one
+statement):
+
+```sql
+WITH old AS (
+    UPDATE oidc_jwks_keys
+       SET current = false,
+           rotated_at = now()
+     WHERE alg = $1
+       AND current = true
+    RETURNING kid
+)
+INSERT INTO oidc_jwks_keys (
+    kid, alg, public_key_pem, private_key_pem_encrypted,
+    current, created_at, expires_at
+) VALUES (
+    $2, $1, $3, $4,
+    true, now(), now() + INTERVAL '90 days'
+);
 ```
-UPDATE oidc_jwks_keys SET current=false, rotated_at=now() WHERE alg=$1 AND current=true;
-INSERT INTO oidc_jwks_keys (kid, alg, ..., current=true) VALUES (...);
-```
-Postgres deferrable constraint ставится `INITIALLY DEFERRED`, чтобы TX commit'ил оба
-statement'а без промежуточного нарушения уникальности.
+
+Семантика: CTE-DML — single statement; Postgres материализует CTE `old` (применяет UPDATE
+до завершения внешнего INSERT), затем выполняет outer INSERT. Partial UNIQUE проверяется в
+конце statement'а — к этому моменту старая row уже `current=false`, новая `current=true`,
+инвариант выполнен. Никакого intermediate state, наблюдаемого внешним наблюдателем.
+
+Bootstrap (первая row) — простой `INSERT … current=true VALUES (…)`; partial UNIQUE
+автоматически разрешает первую `current=true` row при отсутствии other rows.
 
 ### 2.7 Permission registry (нормативно)
 
@@ -291,12 +334,40 @@ service NetworkService {
 }
 ```
 
+**`permission_catalog.json` — JSON-schema (нормативно):**
+
+Каждая row catalog'а — один JSON-object со следующими fields:
+
+```json
+{
+  "fqn": "kacho.cloud.vpc.v1.NetworkService/Create",
+  "permission": "vpc.networks.create",
+  "required_relation": "editor",
+  "scope_extractor": {
+    "object_type": "project",
+    "from_request_field": "project_id"
+  },
+  "required_acr_min": "2"
+}
+```
+
+**Required fields** (plugin emits error if missing):
+- `fqn` — fully-qualified RPC name `<proto-package>.<service>/<method>` (e.g. `kacho.cloud.vpc.v1.NetworkService/Create`).
+- `permission` — string from `(kacho.iam.authz.permission)` option, формат `<domain>.<resource>.<verb>` либо `<exempt>` для no-auth RPC.
+- `required_relation` — OpenFGA relation name (`viewer`/`editor`/`owner`/`admin`/...).
+- `scope_extractor.object_type` — OpenFGA object type (`project`/`account`/`organization`/`cluster`).
+- `scope_extractor.from_request_field` — proto request field name из которого извлекается scope id; **must be non-empty string**.
+
+**Optional fields**:
+- `required_acr_min` — minimum ACR claim value для аутентификации (default `"2"` если не указано в proto).
+
 **Plugin pipeline:**
 1. `protoc-gen-kacho-permissions` (новый Go-binary в `kacho-proto/cmd/protoc-gen-kacho-permissions/`)
    парсит все `.proto` под `proto/kacho/cloud/*/v1/*.proto`.
-2. Для каждой RPC извлекает 4 опции; собирает в `permission_catalog.json` (deterministic
-   ordering: domain → resource → verb).
-3. Файл commit-ится в `kacho-proto/gen/permission_catalog.json`; в CI воркфлоу
+2. Для каждой RPC извлекает 4 опции; валидирует schema выше (required-fields, non-empty-strings).
+3. Собирает в `permission_catalog.json` — **deterministic ordering by `fqn` ascending** (golden-diff stability;
+   sort comparator — простой `strings.Compare(a.fqn, b.fqn)`).
+4. Файл commit-ится в `kacho-proto/gen/permission_catalog.json`; в CI воркфлоу
    `regen-catalog` запускает plugin и `git diff --exit-code` падает, если catalog stale.
 4. `kacho-iam` на старте загружает catalog (embed.FS), идемпотентно UPSERT-ит в
    `system_role_permissions` (`(role_id, permission_id)` pairs), назначает permissions
@@ -340,25 +411,28 @@ Phase 1 миграция **не** делает INSERT в `users` (Phase 2 OIDC c
 
 ## 3. Decision Log (Phase 1 specific)
 
-| # | Decision | Rationale |
-|---|---|---|
-| P1-D1 | **Четыре отдельных миграционных файла** (`0011..0014`), а не один squashed | Tematic separation (identity / federation+JIT+conditions / audit+CAEP / SCIM+GDPR+reviews+JWKS); проще ревью / роллбэк; ни один файл не превышает ~400 строк |
-| P1-D2 | **Cluster singleton enforced TWO ways**: `CHECK (id = 'cluster_kacho_root')` + `BEFORE INSERT` triggеr | CHECK ловит wrong id (PUTкомт сам); trigger ловит попытку INSERT при `count>=1` (для случая, если кто-то всё же подаст правильный id вручную) — defense-in-depth |
-| P1-D3 | **Multi-scope Role: ровно один non-NULL scope** via composite CHECK | Альтернатива (отдельные таблицы `system_roles`/`org_roles`/`account_roles`/`project_roles`) — фрагментация identity; UNION ALL VIEW проще через one-table + CHECK; partial-UNIQUE покрывает name-uniqueness per scope |
-| P1-D4 | **AccessBinding.condition_id — FK (1:1), не inline expression** | Outliner reuse: один Condition row может реиспользоваться многими bindings (`mfa_fresh-15min` — стандартный); проще CEL pre-validation на одном месте; trade-off — extra JOIN (acceptable, кешируется Phase 3) |
-| P1-D5 | **AccessBinding.status DEFAULT 'ACTIVE' + backfill UPDATE для existing rows** | Backward compat: legacy bindings (KAC-105) до Phase 1 не имеют status — backfill миграцией ALTER `ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'` атомарен |
-| P1-D6 | **`expires_at NOT NULL` для federation_trust_policies (max 1y)** | Forced rotation hygiene — невозможно создать "вечную" trust policy; alerts (Phase 11) предупреждают ≤14d до expiry |
-| P1-D7 | **`subject_pattern` regex-validated **без** wildcard `*`** | Subject pattern matching должна быть детерминирована и безопасна; wildcard `*` open для confused-deputy / pattern-collision атак — CHECK rejects |
-| P1-D8 | **`session_revocations.token_jti` — PRIMARY KEY (не surrogate id)** | Lookup pattern на api-gateway — `WHERE token_jti = $1`; нет других consumer'ов; surrogate id только overhead |
-| P1-D9 | **CAEP / Audit ID = ULID (26-char base32)** | Sortable by time, append-only event log natural fit; deterministic ordering для S3 cold-write |
-| P1-D10 | **`current=true` invariant на oidc_jwks_keys — partial UNIQUE + deferred constraint** | Phase 2 rotation flow требует "atomic swap": old.current → false и new.current → true в одном TX. Deferred constraint позволяет промежуточно нарушать invariant, проверяя в COMMIT |
-| P1-D11 | **Permission catalog plugin — отдельный binary в kacho-proto/cmd/, не go:generate** | Plugin переиспользуется CI freshness-check'ом + kacho-iam embed; standalone binary проще тестировать; `buf generate` config wire'ит как обычный protoc plugin |
-| P1-D12 | **Catalog format — JSON, не sqlc-generated table** | Catalog static на момент билда; kacho-iam loads + idempotent UPSERT; альтернатива (Postgres-only seed via migration) требует migration на каждый proto change — не масштабируется |
-| P1-D13 | **Bootstrap admin grant — через outbox row, не direct OpenFGA write** | Phase 1 не подключает OpenFGA (Phase 3); fga_outbox существует с Phase E3 (KAC-108); idempotent enqueue, Phase 3 drainer применит к OpenFGA |
-| P1-D14 | **CAEPSubscriber.account_id — ON DELETE CASCADE (исключение из default RESTRICT)** | Subscriber — child of Account aggregate (как `group_members`); cleanup на удаление Account естественен; не нарушает запрет #4 — обе таблицы в `kacho_iam` |
-| P1-D15 | **AccessReviewItem.access_review_id — ON DELETE CASCADE** | Items — composition of AccessReview (child within aggregate); cleanup при удалении review корректен |
-| P1-D16 | **JIT max_duration ≤ 8h CHECK на DB-уровне** | OPA Phase 3 enforces 2h для break-glass; для обычного JIT 8h hard cap на DB-уровне — defense-in-depth (даже если service-слой compromised, нельзя самовыдать > 8h admin) |
-| P1-D17 | **Все TEXT id-колонки имеют CHECK на `^[a-z]+_[0-9a-z]+$` либо точное pattern на префиксе** | Phase 1 валидирует id format на DB-уровне через CHECK (corelib `ids.IsValid` дублируется DB constraint'ом — defense-in-depth, запрет #10 чек-лист п.5) |
+> Колонка «Maps to global D-N» — трассировка на design doc decision-log (`2026-05-19-iam-prod-ready-next-gen-design.md` §1, D-1..D-28). `—` означает Phase-1-specific решение без прямого соответствия в global log'е.
+
+| # | Decision | Rationale | Maps to global D-N |
+|---|---|---|---|
+| P1-D1 | **Четыре отдельных миграционных файла** (`0011..0014`), а не один squashed | Tematic separation (identity / federation+JIT+conditions / audit+CAEP / SCIM+GDPR+reviews+JWKS); проще ревью / роллбэк; ни один файл не превышает ~400 строк | — |
+| P1-D2 | **Cluster singleton enforced TWO ways**: `CHECK (id = 'cluster_kacho_root')` + `BEFORE INSERT` triggеr | CHECK ловит wrong id (PUTкомт сам); trigger ловит попытку INSERT при `count>=1` (для случая, если кто-то всё же подаст правильный id вручную) — defense-in-depth | D-3 (Cluster top-level) |
+| P1-D3 | **Multi-scope Role: ровно один non-NULL scope** via composite CHECK | Альтернатива (отдельные таблицы `system_roles`/`org_roles`/`account_roles`/`project_roles`) — фрагментация identity; UNION ALL VIEW проще через one-table + CHECK; partial-UNIQUE покрывает name-uniqueness per scope | D-5 (multi-scope Role) |
+| P1-D4 | **AccessBinding.condition_id — FK (1:1), не inline expression** | Outliner reuse: один Condition row может реиспользоваться многими bindings (`mfa_fresh-15min` — стандартный); проще CEL pre-validation на одном месте; trade-off — extra JOIN (acceptable, кешируется Phase 3) | D-7 (Conditions overlay) |
+| P1-D5 | **AccessBinding.status DEFAULT 'ACTIVE' + backfill UPDATE для existing rows** | Backward compat: legacy bindings (KAC-105) до Phase 1 не имеют status — backfill миграцией ALTER `ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'` атомарен | D-6 (binding lifecycle) |
+| P1-D6 | **`expires_at NOT NULL` для federation_trust_policies (max 1y)** | Forced rotation hygiene — невозможно создать "вечную" trust policy; alerts (Phase 11) предупреждают ≤14d до expiry | D-10 (workload identity hygiene) |
+| P1-D7 | **`subject_pattern` regex-validated **без** wildcard `*`** | Subject pattern matching должна быть детерминирована и безопасна; wildcard `*` open для confused-deputy / pattern-collision атак — CHECK rejects | D-10 |
+| P1-D8 | **`session_revocations.token_jti` — PRIMARY KEY (не surrogate id)** | Lookup pattern на api-gateway — `WHERE token_jti = $1`; нет других consumer'ов; surrogate id только overhead | D-19 (CAEP storage) |
+| P1-D9 | **CAEP / Audit ID = ULID (26-char base32)** | Sortable by time, append-only event log natural fit; deterministic ordering для S3 cold-write | D-20 (audit pipeline) |
+| P1-D10 | **`current=true` invariant на oidc_jwks_keys — partial UNIQUE INDEX (immediate) + single-statement CTE rotation** | Postgres не позволяет `DEFERRABLE` для partial UNIQUE INDEX (только UNIQUE constraint / PK / REFERENCES / EXCLUDE поддерживают DEFERRABLE). Поэтому Phase 2 rotation реализуется через CTE-DML single statement (`WITH old AS (UPDATE … current=false …) INSERT … current=true …`): UPDATE и INSERT — один statement, constraint проверяется в конце, intermediate violation не возникает | D-2 (DPoP+JWKS rotation) |
+| P1-D11 | **Permission catalog plugin — отдельный binary в kacho-proto/cmd/, не go:generate** | Plugin переиспользуется CI freshness-check'ом + kacho-iam embed; standalone binary проще тестировать; `buf generate` config wire'ит как обычный protoc plugin | D-13 (permissions from proto) |
+| P1-D12 | **Catalog format — JSON, не sqlc-generated table** | Catalog static на момент билда; kacho-iam loads + idempotent UPSERT; альтернатива (Postgres-only seed via migration) требует migration на каждый proto change — не масштабируется | D-13 |
+| P1-D13 | **Bootstrap admin grant — через outbox row, не direct OpenFGA write** | Phase 1 не подключает OpenFGA (Phase 3); fga_outbox существует с Phase E3 (KAC-108); idempotent enqueue, Phase 3 drainer применит к OpenFGA | D-4 (OpenFGA model v2) |
+| P1-D14 | **CAEPSubscriber.account_id — ON DELETE CASCADE (исключение из default RESTRICT)** | Subscriber — child of Account aggregate (как `group_members`); cleanup на удаление Account естественен; не нарушает запрет #4 — обе таблицы в `kacho_iam` | D-19 |
+| P1-D15 | **AccessReviewItem.access_review_id — ON DELETE CASCADE** | Items — composition of AccessReview (child within aggregate); cleanup при удалении review корректен | D-15 (access reviews) |
+| P1-D16 | **JIT max_duration ≤ 8h CHECK на DB-уровне** | OPA Phase 3 enforces 2h для break-glass; для обычного JIT 8h hard cap на DB-уровне — defense-in-depth (даже если service-слой compromised, нельзя самовыдать > 8h admin) | D-12 (JIT/PIM) |
+| P1-D17 | **Все TEXT id-колонки имеют CHECK на `^[a-z]+_[0-9a-z]+$` либо точное pattern на префиксе** | Phase 1 валидирует id format на DB-уровне через CHECK (corelib `ids.IsValid` дублируется DB constraint'ом — defense-in-depth: даже если service-слой compromised, нельзя записать malformed id) | — |
+| P1-D18 | **ServiceAccountOAuthClient — отдельная таблица с UNIQUE(sva_id) (1:1 SA→client на Phase 1)** | Class A workload identity (Hydra client_credentials) хранит client_id+hydra metadata отдельно от core `service_accounts` (lifecycle различается: SA persistent, OAuth-client rotatable); UNIQUE(sva_id) фиксирует 1:1 — будущее ослабление до N:1 — отдельной миграцией без break'а existing rows | D-10 (workload identity) |
 
 ---
 
@@ -396,12 +470,13 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
                                                                             ↑
                                                                             FK users (approver_user_id)
 
-  federation_trust_policies ─── FK service_accounts (target SA)
+  federation_trust_policies ─── FK service_accounts (target SA) [Class B Token Exchange]
+  service_account_oauth_clients ─── FK service_accounts UNIQUE [Class A Hydra static client]
   audit_outbox ─── append-only event log (ULID id)
   caep_outbox ─── real-time revoke events (ULID id)
   session_revocations ─── PK = token_jti (UUIDv7)
   audit_signing_batches ─── Merkle-chain (previous_batch_hash → batch_hash)
-  oidc_jwks_keys ─── partial UNIQUE current=true per alg
+  oidc_jwks_keys ─── partial UNIQUE current=true per alg (CTE rotation)
 
   system_role_permissions (idempotent seed from permission_catalog.json)
 ```
@@ -435,7 +510,8 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
   AccessBinding extension, ServiceAccount +project_id+enabled, system role seed,
   bootstrap admin outbox row.
 - **`internal/migrations/0012_kac127_federation_jit_conditions.sql`** — federation_trust_policies,
-  access_binding_conditions, access_bindings_jit_eligibility.
+  service_account_oauth_clients (Class A Hydra static-client mapping), access_binding_conditions,
+  access_bindings_jit_eligibility.
 - **`internal/migrations/0013_kac127_audit_caep_pipeline.sql`** — audit_outbox, caep_outbox,
   caep_subscribers, session_revocations, audit_signing_batches.
 - **`internal/migrations/0014_kac127_scim_gdpr_reviews_jwks.sql`** — scim_user_mappings,
@@ -445,6 +521,7 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
   `ClusterAdminGrant`, `ClusterBreakGlassGrant` (state machine), `Role` (с multi-scope
   invariant), `AccessBinding` (с state machine), `AccessBindingCondition` (+ `CELExpression`),
   `FederationTrustPolicy` (+ `OIDCIssuer`, `SubjectPattern`, `MaxTokenTTL`),
+  `ServiceAccountOAuthClient` (+ `HydraClientID` newtype),
   `AccessBindingJITEligibility`, `AuditEvent`, `CAEPEvent`, `CAEPSubscriber`,
   `SessionRevocation`, `AuditSigningBatch`, `OIDCJwksKey`, `SCIMUserMapping`,
   `GDPRErasureRequest`, `AccessReview`, `AccessReviewItem`.
@@ -465,7 +542,11 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 
 - ConfigMap `kacho-iam-bootstrap`: `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL=...` (опционально per-env;
   prod-defaults в Phase 11).
-- Helm chart обновляется (вкл. `permission_catalog.json` mount, либо embed — embed предпочтителен).
+- `permission_catalog.json` доставка — **primary path: embed** via `//go:embed gen/permission_catalog.json`
+  в `kacho-iam` (binary self-contained; rebuild на каждом proto-change через CI). **Fallback path: ConfigMap mount**
+  (`/etc/kacho-iam/permission_catalog.json` overrides embed via env `KACHO_IAM_PERMISSION_CATALOG_PATH`) —
+  для ad-hoc rollouts permission-fixes без rebuild'а binary (rare, e.g. emergency missing-annotation hotfix
+  для уже задеплоенного билда). Helm chart по дефолту embed-only; ConfigMap mount опциональный.
 
 ### 5.5 kacho-workspace
 
@@ -605,6 +686,41 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 
 ### 6.4 Multi-scope custom Role CHECK invariant
 
+#### Scenario 6.4.0 — Backward-compat: existing legacy custom-роли (account_id NOT NULL) переживают migration 0011
+
+**Given** До применения миграции `0011` в `kacho_iam.roles` существует row из KAC-105 baseline:
+- `id='rol00000000000000lg01'`, `is_system=false`, `account_id='acc_legacy01'`, `name='legacy-billing'`,
+  `description='legacy custom role pre-KAC-127'`, `permissions='["billing.invoices.read"]'::jsonb`,
+  `created_at=...` (старая схема: только колонки `id`, `account_id`, `is_system`, `name`, `description`,
+  `permissions`, `created_at`).
+
+**When** применяется migration `0011_kac127_identity_extension.sql`, которая:
+1. `ALTER TABLE roles ADD COLUMN cluster_id TEXT NULL REFERENCES clusters(id) ON DELETE RESTRICT`.
+2. `ALTER TABLE roles ADD COLUMN organization_id TEXT NULL REFERENCES organizations(id) ON DELETE RESTRICT`.
+3. `ALTER TABLE roles ADD COLUMN project_id TEXT NULL REFERENCES projects(id) ON DELETE RESTRICT`.
+4. `ALTER TABLE roles ADD CONSTRAINT roles_scope_xor CHECK (<formula из §2.3>)`.
+5. `CREATE UNIQUE INDEX roles_acc_custom_unique ON roles(account_id, name) WHERE is_system=false AND account_id IS NOT NULL`.
+
+**Then** существующая legacy row остаётся:
+- `cluster_id`, `organization_id`, `project_id` — все NULL (default для new columns).
+- CHECK `roles_scope_xor` validate'ит row как **"account-scoped custom"** branch
+  (`is_system=false AND cluster_id IS NULL AND organization_id IS NULL AND account_id NOT NULL AND project_id IS NULL`)
+  — passes.
+- partial UNIQUE `roles_acc_custom_unique` включает legacy row (matches `is_system=false AND account_id IS NOT NULL`)
+  — UNIQUE на (account_id='acc_legacy01', name='legacy-billing') активен.
+
+**And** UPDATE на name/description/permissions для legacy row не нарушает CHECK:
+- `UPDATE roles SET description='updated' WHERE id='rol00000000000000lg01'` → success.
+
+**And** новые custom-роли (post-0011) могут использовать любой из 4 scopes (включая новый `project_id`):
+- `INSERT INTO roles (id, project_id, is_system, name, ...) VALUES ('rol00000000000000pj99', 'prj_xxx', false, 'new-project-role', ...)` → success.
+- Legacy (account-scoped) и new (project/organization/cluster-scoped) coexist без конфликта,
+  partial UNIQUE индексы независимы.
+
+> **Pattern**: Phase 1 НЕ migrate'ит existing custom-роли с `account_id` на новый scope.
+> Они остаются on legacy `account_id` path. Future migration (Phase 7 или отдельная) может
+> конвертировать legacy → project scope если потребуется; Phase 1 — backward-compat preservation.
+
 #### Scenario 6.4.1 — Valid custom role с project_id scope создаётся
 
 **Given** Project `prj_xxx` существует.
@@ -646,6 +762,31 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 
 ### 6.5 AccessBinding state machine
 
+#### Scenario 6.5.0 — Backward-compat: existing access_bindings (no status column) переживают migration 0011 с DEFAULT 'ACTIVE'
+
+**Given** До применения migration `0011` в `kacho_iam.access_bindings` существует ≥ 1 row из KAC-105
+baseline (схема без колонки `status`):
+- `id='acb_legacy0001'`, `subject_type='user'`, `subject_id='usr_xxx'`, `role_id='rol_yyy'`,
+  `resource_type='project'`, `resource_id='prj_zzz'`, `created_at=...`.
+
+**When** применяется migration `0011_kac127_identity_extension.sql` с
+`ALTER TABLE access_bindings ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`.
+
+**Then** Postgres 11+ выполняет ALTER в metadata-only режиме (DEFAULT не nullable → storage
+оптимизирован; на e2c825 dev стенде < 1M rows допустим даже full rewrite — минуты).
+
+**And** SELECT по existing legacy rows показывает `status='ACTIVE'` (default applied):
+- `SELECT id, status FROM access_bindings WHERE id='acb_legacy0001'` → `('acb_legacy0001', 'ACTIVE')`.
+
+**And** `SELECT count(*) FROM access_bindings WHERE status IS NULL` = 0
+(NOT NULL constraint + DEFAULT гарантируют ни одной NULL row).
+
+**And** CHECK constraint `access_bindings_status_ck` (status ∈ {`PENDING`,`ACTIVE`,`REVOKED`})
+validate'ит legacy rows — `ACTIVE` in whitelist.
+
+**And** subsequent ALTER на other новые колонки (`condition_id`, `expires_at`, `granted_by`,
+`revoked_at`, `revoked_by`) — все NULL по дефолту для legacy rows, никаких violations.
+
 #### Scenario 6.5.1 — INSERT с status='ACTIVE' успешен (default flow)
 
 **Given** Role `rol_xxx` (system или custom), User `usr_xxx`, target resource type/id указаны.
@@ -674,28 +815,28 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 **Then** RETURNING кардинальность = 1.
 **And** `status='REVOKED'`, `revoked_at IS NOT NULL`, `revoked_by='usr_admin'`.
 
-#### Scenario 6.5.4 — Illegal transition REVOKED → ACTIVE: 0 rows из CAS
+#### Scenario 6.5.4 — Illegal transition REVOKED → ACTIVE denied via correct CAS pattern (terminal state enforcement)
 
-**Given** AccessBinding `acb_xxx` со `status='REVOKED'`.
+**Given** AccessBinding `acb_xxx` со `status='REVOKED'` (terminal state per §2.4 state machine).
 
-**When** raw SQL: `UPDATE access_bindings SET status='ACTIVE' WHERE id='acb_xxx' AND status='REVOKED' RETURNING id;`
+**When** Phase 3 service-слой (или integration test) выполняет CAS-pattern'ный UPDATE, который
+явно требует non-terminal source-state:
+`UPDATE access_bindings SET status='ACTIVE', revoked_at=NULL, revoked_by=NULL WHERE id='acb_xxx' AND status IN ('PENDING','ACTIVE') RETURNING id;`
 
-**Then** RETURNING кардинальность = 1 (transition formally возможен на raw SQL!).
+**Then** RETURNING кардинальность = **0** (CAS source-state не matches — row имеет
+`status='REVOKED'`, который не входит в whitelist `('PENDING','ACTIVE')`).
 
-> **Важно**: Phase 1 CHECK ограничивает только enum-membership (`status IN ('PENDING','ACTIVE','REVOKED')`).
-> Запрет на REVOKED → ACTIVE — **service-слой** (Phase 3) через дополнительное WHERE condition:
-> `WHERE id=$1 AND status='ACTIVE' RETURNING ...` (т.е. service конструирует CAS, который явно
-> требует source state). Phase 1 интеграционный тест **проверяет**, что использование такого
-> CAS-pattern'а (`UPDATE … WHERE id=$1 AND status='ACTIVE' RETURNING …`) возвращает 0 rows для
-> source-state REVOKED.
+**And** row остаётся неизменной: `SELECT status FROM access_bindings WHERE id='acb_xxx'` → `'REVOKED'`.
 
-#### Scenario 6.5.4-bis — Illegal transition denied via correct CAS pattern
+**And** service-слой маппит `0 rows из RETURNING` (pgx `ErrNoRows`) → `service.ErrFailedPrecondition` →
+gRPC `FAILED_PRECONDITION` "AccessBinding %s is REVOKED and cannot be transitioned" (per §2.4 + workspace
+CLAUDE.md §«Within-service refs — DB-уровень обязателен»).
 
-**Given** AccessBinding `acb_xxx` со `status='REVOKED'`.
-
-**When** raw SQL: `UPDATE access_bindings SET status='ACTIVE' WHERE id='acb_xxx' AND status IN ('PENDING','ACTIVE') RETURNING id;`
-
-**Then** RETURNING кардинальность = 0 (CAS source-state не matches).
+> **Pattern enforcement**: Phase 1 CHECK constraint `access_bindings_status_ck` ограничивает только
+> enum-membership (`status IN ('PENDING','ACTIVE','REVOKED')`). Запрет на REVOKED → ANY и на illegal
+> backward transitions (ACTIVE → PENDING) — **исключительно через CAS WHERE-clause** в service-слое
+> (см. §2.4 state machine table). Этот integration test подтверждает, что использование такого CAS-pattern'а
+> возвращает 0 rows для terminal source-state — то есть DB-level invariant соблюдается без software-side check.
 
 #### Scenario 6.5.5 — INSERT с invalid status → CHECK fails
 
@@ -764,6 +905,68 @@ INSERT INTO federation_trust_policies (
 
 **Then** Postgres возвращает SQLSTATE `23505`, UNIQUE
 `federation_trust_policies_issuer_subject_unique` violation.
+
+#### Scenario 6.6.6 — ServiceAccountOAuthClient: создание Hydra static client mapping (Class A)
+
+**Given** ServiceAccount `sva_ci_builder` существует (создан Phase 2.0 IAM baseline); User
+`usr_admin0001` существует (`granted_by` audit ref).
+
+**When** raw SQL:
+```sql
+INSERT INTO service_account_oauth_clients (
+    id, sva_id, hydra_client_id, description,
+    created_by, expires_at, created_at
+) VALUES (
+    'soc_ci_builder0001', 'sva_ci_builder',
+    'hydra-client-ci-builder-001',
+    'CI builder Hydra client (Class A workload identity)',
+    'usr_admin0001', now() + INTERVAL '180 days', now()
+);
+```
+
+**Then** INSERT успешен; row создана.
+
+**And** `SELECT sva_id, hydra_client_id, last_used_at FROM service_account_oauth_clients WHERE id='soc_ci_builder0001'`
+→ `('sva_ci_builder', 'hydra-client-ci-builder-001', NULL)`.
+
+**And** FK `service_account_oauth_clients_sva_fk` REFERENCES `service_accounts(id) ON DELETE RESTRICT`
+активен (см. 6.6.7-b ниже).
+
+**And** UNIQUE `service_account_oauth_clients_sva_unique` на `sva_id` гарантирует 1:1
+SA→OAuth-client (попытка второй row с тем же `sva_id='sva_ci_builder'` → `23505`).
+
+#### Scenario 6.6.7 — ServiceAccountOAuthClient: duplicate hydra_client_id → AlreadyExists
+
+**Given** OAuth-client `soc_ci_builder0001` с `hydra_client_id='hydra-client-ci-builder-001'`
+существует (Scenario 6.6.6 прошёл).
+
+**When** raw SQL — попытка зарегистрировать второй OAuth-client с тем же hydra-client-id для
+другого SA:
+```sql
+INSERT INTO service_account_oauth_clients (
+    id, sva_id, hydra_client_id, description,
+    created_by, created_at
+) VALUES (
+    'soc_other0002', 'sva_other_xyz',
+    'hydra-client-ci-builder-001',  -- duplicate hydra_client_id
+    'attempt to reuse hydra client id',
+    'usr_admin0001', now()
+);
+```
+
+**Then** Postgres возвращает SQLSTATE `23505` (UNIQUE violation на
+`service_account_oauth_clients_hydra_client_id_unique`).
+
+**And** Phase 5 service-слой (`ServiceAccountService.IssueKey`) обернёт это в
+gRPC `ALREADY_EXISTS` "OAuth client %s already registered" per workspace CLAUDE.md
+SQLSTATE→gRPC mapping (`23505`→AlreadyExists/FailedPrecondition).
+
+**6.6.7-b** (validation FK): попытка INSERT с `sva_id='sva_does_not_exist'` →
+SQLSTATE `23503` (FK violation на `service_account_oauth_clients_sva_fk`).
+
+**6.6.7-c** (validation RESTRICT on SA delete): попытка `DELETE FROM service_accounts WHERE id='sva_ci_builder'`
+пока row в `service_account_oauth_clients` ссылается → SQLSTATE `23503`, FK ON DELETE RESTRICT
+(удаление SA блокируется до явного DELETE oauth-client'а — корректное поведение для Class A audit trail).
 
 ---
 
@@ -886,6 +1089,78 @@ permissions в catalog.
 > internal-port), используется явный opt-out `option (kacho.iam.authz.permission) = "<exempt>"` —
 > валидатор пропускает.
 
+#### Scenario 6.9.4 — Plugin emits deterministic catalog ordering (sort by fqn ascending)
+
+**Given** kacho-proto репо содержит несколько `.proto`-файлов, например:
+- `proto/kacho/cloud/vpc/v1/network_service.proto` (RPC `Create`, `Get`, `List`, `Delete`).
+- `proto/kacho/cloud/compute/v1/instance_service.proto` (RPC `Create`, `Start`, `Stop`).
+- `proto/kacho/cloud/iam/v1/role_service.proto` (RPC `Create`, `Get`).
+
+Каждая RPC аннотирована `(kacho.iam.authz.permission)`.
+
+**When** запускается `protoc-gen-kacho-permissions` (через `buf generate`).
+
+**Then** в `gen/permission_catalog.json` row'и отсортированы по `fqn` в ASCII ascending порядке:
+```json
+[
+  {"fqn": "kacho.cloud.compute.v1.InstanceService/Create", ...},
+  {"fqn": "kacho.cloud.compute.v1.InstanceService/Start", ...},
+  {"fqn": "kacho.cloud.compute.v1.InstanceService/Stop", ...},
+  {"fqn": "kacho.cloud.iam.v1.RoleService/Create", ...},
+  {"fqn": "kacho.cloud.iam.v1.RoleService/Get", ...},
+  {"fqn": "kacho.cloud.vpc.v1.NetworkService/Create", ...},
+  {"fqn": "kacho.cloud.vpc.v1.NetworkService/Delete", ...},
+  {"fqn": "kacho.cloud.vpc.v1.NetworkService/Get", ...},
+  {"fqn": "kacho.cloud.vpc.v1.NetworkService/List", ...}
+]
+```
+
+**And** повторный запуск plugin'а на тех же proto-файлах производит **bit-identical** output
+(stability requirement для CI `git diff --exit-code` check).
+
+**And** golden-test `plugin_test.go` сравнивает output против `testdata/golden_catalog.json` —
+diff пустой при unchanged inputs (regression guard).
+
+> **Pattern**: `sort.SliceStable(rows, func(i,j int) bool { return rows[i].FQN < rows[j].FQN })`
+> в plugin'е перед JSON encode. Stable sort + ASCII-comparable FQN guarantee'ит deterministic order.
+
+#### Scenario 6.9.5 — Plugin fails at build-time if scope_extractor.from_request_field is empty
+
+**Given** PR в kacho-proto добавляет RPC с malformed `(kacho.iam.authz.scope_extractor)`:
+```protobuf
+service VpcService {
+  rpc UpdateNetwork(UpdateNetworkRequest) returns (operation.Operation) {
+    option (kacho.iam.authz.permission)        = "vpc.networks.update";
+    option (kacho.iam.authz.required_relation) = "editor";
+    option (kacho.iam.authz.scope_extractor)   = {
+      object_type: "project",
+      from_request_field: ""                    // <-- empty!
+    };
+  }
+}
+```
+
+**When** запускается `buf generate` (CI workflow).
+
+**Then** plugin валидирует schema и emit'ит ошибку:
+```
+ERROR: kacho.cloud.vpc.v1.VpcService/UpdateNetwork:
+  scope_extractor.from_request_field cannot be empty
+  (required field per permission_catalog.json schema §2.7)
+```
+
+**And** plugin exit code = **1**; `buf generate` fails; CI build падает; PR не мерж'ится
+до тех пор, пока `from_request_field` не заполнено валидным non-empty proto-field-name.
+
+**And** аналогичная валидация для `scope_extractor.object_type` (если пусто — same exit 1).
+
+**And** аналогично — отсутствие required field `required_relation` (пустая строка) →
+exit 1 с сообщением `required_relation cannot be empty`.
+
+> **Pattern**: plugin validation phase запускается **после** parse, **до** sort+emit. Все
+> required-fields проверяются разом, errors аккумулируются и emit'ятся batch'ем (не fail-fast
+> per одну RPC — developer-friendliness: видит сразу все нарушения).
+
 ---
 
 ### 6.10 Bootstrap seed
@@ -918,21 +1193,128 @@ permissions в catalog.
 - НЕ enqueue'ит дубликат fga_outbox row.
 **And** `count(*) FROM cluster_admin_grants WHERE subject_id='usr_root_admin_0001' = 1`.
 
+#### Scenario 6.10.3 — Bootstrap admin: user not found → graceful skip, kacho-iam продолжает startup (not fail-closed)
+
+**Given** ConfigMap задаёт `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL='root@kacho.cloud'`; таблица
+`users` **не содержит** row с `email='root@kacho.cloud'` (Phase 2 OIDC ещё не подключён, либо
+admin ещё не залогинился впервые — common cold-start scenario).
+
+**When** `kacho-iam serve` запускается (после migration + seed).
+
+**Then** `bootstrap.RootAdmin`:
+- Выполняет `SELECT id FROM users WHERE email='root@kacho.cloud' LIMIT 1` → 0 rows.
+- Логирует `INFO "bootstrap admin user not registered yet, skipping cluster admin grant" email=root@kacho.cloud`.
+- **НЕ** возвращает error из bootstrap-job.
+- **НЕ** INSERT'ит row в `cluster_admin_grants`.
+- **НЕ** INSERT'ит row в `fga_outbox`.
+
+**And** kacho-iam process **продолжает startup**: запускает gRPC listener на 9090 + internal на 9091.
+
+**And** `kacho-iam` process exit-code = **0** при последующем graceful shutdown (not fail-closed; idempotent retry на следующий boot).
+
+**And** `count(*) FROM cluster_admin_grants WHERE granted_by='bootstrap'` = 0.
+
+**And** `count(*) FROM fga_outbox WHERE event_type='fga.tuple.write'` = 0 (assuming pristine state без legacy rows).
+
+> **Rationale**: bootstrap admin grant — convenience, not security-critical. Если admin ещё
+> не зарегистрирован — кластер должен подняться (operators пользуются break-glass или
+> manual SQL для emergency access). Fail-closed на отсутствие admin'а сломал бы cold-start
+> deployments — anti-pattern.
+
+#### Scenario 6.10.4 — Bootstrap admin: happy retry on next startup после INSERT user'а
+
+**Given** Scenario 6.10.3 прошёл (initial boot skipped grant — user не существовал);
+впоследствии Phase 2 OIDC создал row в `users` с `email='root@kacho.cloud'`,
+`id='usr_root_admin_0001'`, либо ручной INSERT в setup integration-test'а.
+
+**When** `kacho-iam` рестартует (например, deployment rolling update либо pod restart).
+
+**Then** `bootstrap.RootAdmin` повторно выполняет `SELECT id FROM users WHERE email='root@kacho.cloud'`
+→ 1 row (`usr_root_admin_0001`).
+
+**And** этот retry-boot успешно создаёт:
+- `cluster_admin_grants` row `(id='cag_xxx', subject_type='user', subject_id='usr_root_admin_0001', granted_by='bootstrap')`.
+- `fga_outbox` row `(event_type='fga.tuple.write', payload={"object":"cluster:cluster_kacho_root","relation":"system_admin","user":"user:usr_root_admin_0001"})`.
+- `audit_outbox` row `(event_type='iam.cluster_admin.granted', ...)`.
+
+**And** kacho-iam continues startup normally; `count(*) FROM cluster_admin_grants WHERE subject_id='usr_root_admin_0001'` = 1.
+
+#### Scenario 6.10.5 — Bootstrap admin: concurrent-race при HA cold-start (2 pods одновременно)
+
+**Given** Production HA deployment: 2 kacho-iam pods запускаются одновременно (cold-start
+всего deployment'а, e.g. `kubectl rollout restart deployment/kacho-iam`).
+User `usr_root_admin_0001` с `email='root@kacho.cloud'` существует в `users`.
+
+**When** оба pod'а параллельно:
+1. Читают `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL='root@kacho.cloud'` из ConfigMap.
+2. SELECT user by email → оба получают `usr_root_admin_0001`.
+3. Пытаются INSERT в `cluster_admin_grants` с unique `(subject_type='user', subject_id='usr_root_admin_0001')`.
+
+**Then** ровно **один** pod успешно выполняет INSERT (Postgres serial commit ordering на UNIQUE INDEX).
+
+**And** другой pod получает SQLSTATE `23505` (UNIQUE violation на
+`cluster_admin_grants_subject_unique`); `bootstrap.RootAdmin` маппит `23505` → **graceful skip**:
+- Логирует `WARN "concurrent bootstrap detected, cluster admin grant already created by another instance" email=root@kacho.cloud`.
+- **НЕ** fail'ит startup; **НЕ** retry; продолжает к next initialization step.
+
+**And** в `cluster_admin_grants` ровно **одна** row с `subject_id='usr_root_admin_0001'`
+(UNIQUE INDEX enforce'ит инвариант).
+
+**And** в `fga_outbox` ровно **одна** row для cluster-admin grant (оба pod'а в рамках своих
+TX вкладывают audit+fga writes; loser pod'а TX rollback'ается целиком на 23505 — atomicity
+гарантирует, что fga_outbox row не enqueued duplicate'ом).
+
+**And** оба pod successfully завершают startup (exit-code 0; обе gRPC-listener'а живые).
+
+> **UNIQUE constraint** (уточнение к §2.1): `cluster_admin_grants` имеет
+> `CREATE UNIQUE INDEX cluster_admin_grants_subject_unique ON cluster_admin_grants (subject_type, subject_id) WHERE granted_until IS NULL` —
+> partial UNIQUE на permanent grants only (`granted_until IS NULL`). Break-glass / temporary grants
+> хранятся в отдельной таблице `cluster_break_glass_grants` (см. §2.1), у которой свой state machine
+> и `expires_at NOT NULL` — поэтому partial WHERE на permanent grants корректно ограничивает scope
+> uniqueness без конфликта с emergency-grant lifecycle.
+
 ---
 
 ### 6.11 Audit / CAEP outbox atomicity
 
-#### Scenario 6.11.1 — atomic INSERT в audit_outbox в той же TX, что и domain mutation
+#### Scenario 6.11.1a — atomic COMMIT: оба INSERT (domain + audit_outbox) видны после COMMIT
 
-**Given** Phase 1 integration test: запускается transaction, делающий INSERT в `roles` (custom
-role) + INSERT в `audit_outbox` (event_type='iam.role.created').
+**Given** Phase 1 integration test: открывается `pgx.Tx` (BEGIN); выполняются 2 statement'а:
+1. `INSERT INTO roles (id, account_id, is_system, name, ...) VALUES ('rol00000000000000at01', 'acc_xxx', false, 'audited-role', ...)`.
+2. `INSERT INTO audit_outbox (id, event_type, tenant_account_id, tenant_org_id, event_payload, status, created_at) VALUES ('evt_audit_01_<ulid>', 'iam.role.created', 'acc_xxx', NULL, '{"role_id":"rol00000000000000at01"}'::jsonb, 'pending', now())`.
 
-**When** TX COMMIT.
+**When** TX `COMMIT`.
 
-**Then** обе row'и созданы. Если симулировать ROLLBACK (`pgx.Begin` → `tx.Rollback`) — обе row
-отсутствуют.
-**And** в `audit_outbox` payload содержит правильные tenant_account_id / tenant_org_id (NULL,
-если scope=project — наследуется через JOIN'ы в Phase 9 drainer).
+**Then** обе row'и присутствуют в БД:
+- `SELECT id FROM roles WHERE id='rol00000000000000at01'` → 1 row.
+- `SELECT id FROM audit_outbox WHERE id='evt_audit_01_<ulid>'` → 1 row, `status='pending'`.
+
+**And** в `audit_outbox` payload содержит правильные tenant_account_id / tenant_org_id
+(`tenant_account_id='acc_xxx'`, `tenant_org_id=NULL` — scope account-level; для scope=project
+оба остаются NULL и наследуются через JOIN'ы в Phase 9 drainer).
+
+#### Scenario 6.11.1b — atomic ROLLBACK: ни одной из row не видно после ROLLBACK
+
+**Given** Phase 1 integration test: открывается `pgx.Tx` (BEGIN); выполняются те же 2 statement'а,
+что в 6.11.1a:
+1. `INSERT INTO roles (id='rol00000000000000rb01', ...)`.
+2. `INSERT INTO audit_outbox (id='evt_audit_rb_<ulid>', ...)`.
+
+Затем — симулируется failure (например, `tx.Rollback()` или ошибка в третьем statement
+заставляет defer-rollback).
+
+**When** `tx.Rollback()`.
+
+**Then** **обе** row отсутствуют:
+- `SELECT id FROM roles WHERE id='rol00000000000000rb01'` → 0 rows.
+- `SELECT id FROM audit_outbox WHERE id='evt_audit_rb_<ulid>'` → 0 rows.
+
+**And** никакой phantom-state: domain mutation без соответствующего audit row, либо audit row без
+domain mutation — невозможны (Postgres TX atomicity гарантирует all-or-nothing).
+
+> **Pattern**: domain-layer use-case Phase 3+ обернёт both INSERT в одну `pgx.Tx`; loss-of-audit
+> implies loss-of-mutation — required для compliance evidence (SOC2 / GDPR Article 30 audit log
+> integrity).
 
 #### Scenario 6.11.2 — NOTIFY 'audit_event' срабатывает после COMMIT
 
@@ -948,7 +1330,129 @@ role) + INSERT в `audit_outbox` (event_type='iam.role.created').
 
 ---
 
+### 6.12 OIDC JWKS rotation atomic swap (partial UNIQUE + CTE pattern)
+
+#### Scenario 6.12.1 — Atomic key rotation via single-statement CTE: old.current→false, new.current→true в одном statement
+
+**Given** `oidc_jwks_keys` содержит ровно 1 row с `alg='ES256', current=true`:
+- `(kid='jwk_es256_v1_xxx', alg='ES256', public_key_pem='...', private_key_pem_encrypted='...', current=true, rotated_at=NULL, created_at=t0, expires_at=t0+90d)`.
+
+**When** выполняется single-statement CTE rotation (per §2.6):
+```sql
+WITH old AS (
+    UPDATE oidc_jwks_keys
+       SET current = false,
+           rotated_at = now()
+     WHERE alg = 'ES256'
+       AND current = true
+    RETURNING kid
+)
+INSERT INTO oidc_jwks_keys (
+    kid, alg, public_key_pem, private_key_pem_encrypted,
+    current, created_at, expires_at
+) VALUES (
+    'jwk_es256_v2_yyy', 'ES256', '<new-pub-pem>', '<new-priv-encrypted>',
+    true, now(), now() + INTERVAL '90 days'
+);
+```
+
+**Then** statement succeeds without partial UNIQUE violation (CTE — single statement,
+constraint validation at statement end — к этому моменту old.current=false, new.current=true,
+инвариант "ровно одна current=true per alg" соблюдён).
+
+**And** после COMMIT:
+- `SELECT count(*) FROM oidc_jwks_keys WHERE alg='ES256'` = **2** (старая + новая).
+- `SELECT kid, current, rotated_at FROM oidc_jwks_keys WHERE alg='ES256' ORDER BY created_at`
+  → `[('jwk_es256_v1_xxx', false, <t-now>), ('jwk_es256_v2_yyy', true, NULL)]`.
+- `SELECT count(*) FROM oidc_jwks_keys WHERE alg='ES256' AND current=true` = **1**.
+
+**And** CHECK `oidc_jwks_keys_current_no_rotated_ck` (`current = false OR rotated_at IS NULL`)
+не нарушен: новая row `(current=true, rotated_at=NULL)` matches; старая row `(current=false, rotated_at=<set>)` matches.
+
+#### Scenario 6.12.2 — Negative: raw INSERT второй row с current=true (без UPDATE) → partial UNIQUE violation
+
+**Given** `oidc_jwks_keys` содержит 1 row с `alg='ES256', current=true` (например, после
+6.12.1 — `'jwk_es256_v2_yyy'`).
+
+**When** выполняется raw INSERT без предварительного UPDATE'а старой row'и:
+```sql
+INSERT INTO oidc_jwks_keys (
+    kid, alg, public_key_pem, private_key_pem_encrypted,
+    current, created_at, expires_at
+) VALUES (
+    'jwk_es256_v3_zzz', 'ES256', '<another-pub>', '<another-priv>',
+    true,                                  -- duplicate current=true
+    now(), now() + INTERVAL '90 days'
+);
+```
+
+**Then** Postgres возвращает SQLSTATE `23505` (UNIQUE violation на partial INDEX
+`oidc_jwks_keys_current_unique` `WHERE current=true`).
+
+**And** новая row **НЕ** создана.
+
+**And** state БД остаётся неизменным: ровно 1 row с `alg='ES256' AND current=true`.
+
+**And** Phase 2 service-слой (`JwksRotationUseCase`) маппит `23505` → gRPC `FailedPrecondition`
+"current key for alg %s already exists; use rotation flow" (защита от случайного двойного INSERT
+вместо CTE swap'а).
+
+#### Scenario 6.12.3 — Bootstrap: первая row с current=true проходит partial UNIQUE (пустой index)
+
+**Given** `oidc_jwks_keys` пустая (свежая БД после migration `0014`).
+
+**When** Phase 2 bootstrap выполняет первичный INSERT:
+```sql
+INSERT INTO oidc_jwks_keys (
+    kid, alg, public_key_pem, private_key_pem_encrypted,
+    current, created_at, expires_at
+) VALUES (
+    'jwk_es256_bootstrap_001', 'ES256', '<pub>', '<priv>',
+    true, now(), now() + INTERVAL '90 days'
+);
+```
+
+**Then** INSERT успешен (partial UNIQUE INDEX не содержит ни одной row → no violation).
+
+**And** `SELECT count(*) FROM oidc_jwks_keys WHERE alg='ES256' AND current=true` = 1.
+
+**And** subsequent rotation использует CTE pattern из 6.12.1.
+
+#### Scenario 6.12.4 — Different alg keys coexist: ES256 current + RS256 current — both `current=true` simultaneously
+
+**Given** `oidc_jwks_keys` содержит 1 row `alg='ES256', current=true`.
+
+**When** добавляется row для другого алгоритма:
+```sql
+INSERT INTO oidc_jwks_keys (
+    kid, alg, public_key_pem, private_key_pem_encrypted,
+    current, created_at, expires_at
+) VALUES (
+    'jwk_rs256_001', 'RS256', '<rsa-pub>', '<rsa-priv>',
+    true, now(), now() + INTERVAL '90 days'
+);
+```
+
+**Then** INSERT успешен — partial UNIQUE `ON (alg) WHERE current=true` не препятствует
+(`(alg='ES256', current=true)` и `(alg='RS256', current=true)` — different tuples, UNIQUE на
+`(alg)`-tuple matches лишь within same alg).
+
+**And** `SELECT alg, count(*) FROM oidc_jwks_keys WHERE current=true GROUP BY alg` →
+`[('ES256', 1), ('RS256', 1)]`.
+
+> **Invariant restated**: "ровно одна `current=true` row **per alg**" — не "ровно одна row глобально".
+> Hydra/Kratos поддерживают multi-alg JWKS (RFC 7517) — current ES256 и current RS256 могут
+> существовать одновременно для разных downstream consumers.
+
+---
+
 ## 7. Definition of Done (Phase 1 closure)
+
+> **Scope note**: полный production DoD для всего KAC-127 — design doc §17 (13 Phases combined,
+> включая OWASP ASVS L3, chaos, pentest, runbooks, multi-region, и т.д.). Phase 1 DoD ниже —
+> **subset** этого full-DoD: он измеряет **только foundation deliverables** (schema migrations,
+> permission catalog generator, bootstrap seed, repo unit/integration tests). Per-Phase DoD checklists
+> для Phase 2-13 — в их соответствующих acceptance-документах sub-phase 3.2..3.14.
 
 ### 7.1 Code / migrations
 
@@ -958,15 +1462,19 @@ role) + INSERT в `audit_outbox` (event_type='iam.role.created').
 - [ ] Все integration-тесты зелёные:
     - `internal/repo/kacho/pg/cluster_repo_test.go` (Scenarios 6.2.x).
     - `internal/repo/kacho/pg/organization_repo_test.go` (6.3.x).
-    - `internal/repo/kacho/pg/role_repo_test.go` (6.4.x).
-    - `internal/repo/kacho/pg/access_binding_repo_test.go` (6.5.x, 6.7.x).
-    - `internal/repo/kacho/pg/federation_trust_policy_repo_test.go` (6.6.x).
+    - `internal/repo/kacho/pg/role_repo_test.go` (6.4.0, 6.4.1-6.4.4 — incl. legacy backward-compat).
+    - `internal/repo/kacho/pg/access_binding_repo_test.go` (6.5.0 backward-compat + 6.5.1-6.5.5 + 6.7.x).
+    - `internal/repo/kacho/pg/federation_trust_policy_repo_test.go` (6.6.1-6.6.5).
+    - `internal/repo/kacho/pg/service_account_oauth_client_repo_test.go` (6.6.6 + 6.6.7-a/b/c).
     - `internal/repo/kacho/pg/jit_eligibility_repo_test.go` (6.8.x).
-    - `internal/repo/kacho/pg/audit_caep_outbox_repo_test.go` (6.11.x).
+    - `internal/repo/kacho/pg/audit_caep_outbox_repo_test.go` (6.11.1a/b + 6.11.2).
+    - `internal/repo/kacho/pg/oidc_jwks_keys_repo_test.go` (6.12.1-6.12.4 — CTE rotation, partial UNIQUE, multi-alg).
     - `internal/apps/kacho/seed/seed_test.go` (6.9.2).
-    - `internal/apps/kacho/bootstrap/bootstrap_test.go` (6.10.x).
-    - Concurrent race tests для `oidc_jwks_keys.current` swap и multi-scope Role UNIQUE
-      (`go test -race`, 100 goroutines).
+    - `internal/apps/kacho/bootstrap/bootstrap_test.go` (6.10.1-6.10.5 — happy/idempotent/user-missing/retry/concurrent-HA).
+    - Concurrent race tests для `oidc_jwks_keys.current` swap (`go test -race`, 100 goroutines —
+      verify ровно 1 winner per rotation race) и multi-scope Role UNIQUE.
+    - Concurrent race test для bootstrap admin (6.10.5 — 2 parallel goroutines, verify ровно 1 INSERT
+      succeeds, другая получает 23505 и graceful-skip'ает).
 - [ ] kacho-proto plugin tests: `protoc-gen-kacho-permissions_test.go` golden-test против
       `testdata/sample.proto` (6.9.1).
 - [ ] `permission_catalog.json` commited в `kacho-proto/gen/`; CI step `verify-catalog` зелёный
@@ -995,6 +1503,7 @@ role) + INSERT в `audit_outbox` (event_type='iam.role.created').
       granted_by / revoked_by).
 - [ ] `obsidian/kacho/resources/iam-service-account.md` — updated (project_id + enabled).
 - [ ] `obsidian/kacho/resources/iam-federation-trust-policy.md` (новый).
+- [ ] `obsidian/kacho/resources/iam-service-account-oauth-client.md` (новый — Class A Hydra static client mapping).
 - [ ] `obsidian/kacho/resources/iam-jit-eligibility.md` (новый).
 - [ ] `obsidian/kacho/resources/iam-audit-outbox.md` (новый).
 - [ ] `obsidian/kacho/resources/iam-caep-outbox.md` (новый).
@@ -1065,9 +1574,13 @@ role) + INSERT в `audit_outbox` (event_type='iam.role.created').
 запрет на "TBD"):
 
 1. **Q**: Что делать, если `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL` указан, но Phase 2 OIDC ещё не
-   подключён (user не создан)? — **A**: см. §2.8 / Scenario 6.10.1: bootstrap логирует "user not
-   registered yet" и retry на каждый boot; идемпотентность гарантируется UNIQUE(subject_type,
-   subject_id) в `cluster_admin_grants`. По merge'у Phase 2, при следующем boot — grant создаётся.
+   подключён (user не создан)? — **A**: см. §2.8 / §6.10.3: bootstrap логирует "bootstrap admin
+   user not registered yet, skipping cluster admin grant", **не fail'ит startup** (exit 0), retry
+   на следующем boot. Идемпотентность гарантируется partial UNIQUE `(subject_type, subject_id) WHERE granted_until IS NULL`
+   в `cluster_admin_grants` (см. §6.10.5). По merge'у Phase 2 + впервые INSERT'нутого admin'а —
+   grant создаётся при ближайшем restart (§6.10.4 — happy retry).
+   Concurrent-HA cold-start (2 pods одновременно) — winner-pod INSERT'ит, loser-pod получает
+   23505 и graceful-skip'ает (§6.10.5).
 
 2. **Q**: Multi-scope Role: что произойдёт с существующими (KAC-105 baseline) custom-ролями,
    которые имеют `account_id NOT NULL` под старой схемой? — **A**: backward compatible — старая
@@ -1076,15 +1589,22 @@ role) + INSERT в `audit_outbox` (event_type='iam.role.created').
    просто `ALTER TABLE roles ADD COLUMN cluster_id ..., ADD COLUMN organization_id ...,
    ADD COLUMN project_id ...` (все NULL по дефолту), затем `ALTER TABLE … ADD CONSTRAINT
    roles_scope_xor CHECK (...)`. Existing rows проходят CHECK (custom + account_id NOT NULL).
+   **Verified by**: §6.4.0 (legacy role survives migration + UPDATE preserves CHECK + new
+   project-scoped role coexists с legacy account-scoped).
 
 3. **Q**: AccessBinding status backfill: existing rows (KAC-105) не имеют `status` колонки. — **A**:
    `ALTER TABLE access_bindings ADD COLUMN status TEXT NOT NULL DEFAULT 'ACTIVE'`. Postgres 11+
    делает это в metadata-only без table rewrite (default не nullable, но storage оптимизирован).
    Если на e2c825 dev стенде < 1M rows — допустим даже rewrite (минуты).
+   **Verified by**: §6.5.0 (legacy access_binding row gets default 'ACTIVE' applied; count WHERE status IS NULL = 0).
 
 4. **Q**: `oidc_jwks_keys` создаётся пустой; кто INSERT'ит первую row? — **A**: Phase 2 первая
-   операция — `JwksRotationUseCase.Bootstrap` на старте Hydra service. Phase 1 оставляет таблицу
-   пустой; integration test для invariant — INSERT/UPDATE с симуляцией rotation flow.
+   операция — `JwksRotationUseCase.Bootstrap` на старте Hydra service (§6.12.3). Phase 1
+   оставляет таблицу пустой; integration test для invariant — INSERT/CTE-rotation/UPDATE с
+   симуляцией rotation flow (§6.12.1 — CTE atomic swap, §6.12.2 — negative raw-duplicate
+   `current=true`, §6.12.4 — multi-alg coexistence).
+   **Important**: rotation реализуется **CTE single-statement pattern** (см. §2.6 + §6.12.1),
+   не `DEFERRABLE INITIALLY DEFERRED` — partial UNIQUE INDEX в Postgres не может быть DEFERRABLE.
 
 5. **Q**: Conditions whitelist (`expression IN (...)`) — что если нужно добавить нового predicate
    позже? — **A**: новая миграция (например `0015_add_condition_X.sql`) ALTER'ит CHECK constraint
