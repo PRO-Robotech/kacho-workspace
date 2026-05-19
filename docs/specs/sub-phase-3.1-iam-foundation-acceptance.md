@@ -369,7 +369,7 @@ service NetworkService {
    sort comparator — простой `strings.Compare(a.fqn, b.fqn)`).
 4. Файл commit-ится в `kacho-proto/gen/permission_catalog.json`; в CI воркфлоу
    `regen-catalog` запускает plugin и `git diff --exit-code` падает, если catalog stale.
-4. `kacho-iam` на старте загружает catalog (embed.FS), идемпотентно UPSERT-ит в
+5. `kacho-iam` на старте загружает catalog (embed.FS), идемпотентно UPSERT-ит в
    `system_role_permissions` (`(role_id, permission_id)` pairs), назначает permissions
    двум seed-ролям (`kacho-system.admin` ← все verbs; `kacho-system.viewer` ← только `*.read`,
    `*.list`, `*.get`).
@@ -1040,17 +1040,16 @@ RPC которых аннотированы `(kacho.iam.authz.permission)` и т
 **When** запускается `cd kacho-proto && buf generate`.
 
 **Then** генерируется `gen/permission_catalog.json` с deterministic ordering.
-**And** для каждой RPC присутствует запись:
+**And** для каждой RPC присутствует запись (формат — нормативная JSON-schema из §2.7):
 ```json
 {
-  "domain": "vpc",
-  "resource": "networks",
-  "verb": "create",
+  "fqn": "kacho.cloud.vpc.v1.NetworkService/Create",
   "permission": "vpc.networks.create",
-  "rpc": "kacho.cloud.vpc.v1.NetworkService/Create",
   "required_relation": "editor",
-  "scope_object_type": "project",
-  "scope_from_request_field": "project_id",
+  "scope_extractor": {
+    "object_type": "project",
+    "from_request_field": "project_id"
+  },
   "required_acr_min": "2"
 }
 ```
