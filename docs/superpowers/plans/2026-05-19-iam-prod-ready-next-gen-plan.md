@@ -2,11 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Полная перестройка Kachō IAM в production-ready состоянии — ORY Kratos+Hydra (WebAuthn/Passkey + DPoP), OpenFGA v2 + Conditions + OPA guardrails, Workload Identity Federation (GitHub/AWS/GCP), SCIM 2.0 + SAML bridge, PIM/JIT elevation + break-glass, CAEP push pipeline, SPIFFE/SPIRE in-cluster mesh.
+**Goal:** Полная перестройка Kachō IAM в production-ready состоянии — ORY Kratos+Hydra (WebAuthn/Passkey + DPoP), OpenFGA v2 + Conditions + OPA guardrails, Workload Identity Federation (GitHub/AWS/GCP) для external M2M, SCIM 2.0 + SAML bridge, PIM/JIT elevation + break-glass, CAEP push pipeline.
 
-**Architecture:** 8 phases поверх KAC-108/125 baseline; audit-infra (Kafka/ClickHouse/S3/HSM/SIEM/Merkle) **исключена** — отдельный future эпик. Identity hierarchy `cluster → organization (optional) → account → project → resource`. Custom Role multi-scope.
+**Architecture:** 8 phases поверх KAC-108/125 baseline. Identity hierarchy `cluster → organization (optional) → account → project → resource`. Custom Role multi-scope.
 
-**Tech Stack:** Go 1.22 + sqlc/pgx; PostgreSQL 16 + LISTEN/NOTIFY; ORY Kratos v1.4 (WebAuthn) + Hydra v2.4 (OIDC + DPoP); OpenFGA v1.6 (Conditions + ListObjects); OPA v1.0 (Rego); SPIRE v1.10 + Linkerd/Cilium service mesh; Jackson (SAML bridge); SCIM 2.0 endpoint; CAEP/SSF SET signing.
+**Out of scope (отдельные future эпики, не в этом плане):**
+- Audit-infra (Kafka/ClickHouse/S3/HSM/SIEM/Merkle).
+- **In-cluster workload identity + service mesh mTLS** (SPIFFE/SPIRE + Cilium/Linkerd) — на MVP service-to-service auth = K8s NetworkPolicy + Internal listener + end-user principal forwarding в gRPC metadata.
+
+**Tech Stack:** Go 1.22 + sqlc/pgx; PostgreSQL 16 + LISTEN/NOTIFY; ORY Kratos v1.4 (WebAuthn) + Hydra v2.4 (OIDC + DPoP); OpenFGA v1.6 (Conditions + ListObjects); OPA v1.0 (Rego); Jackson (SAML bridge); SCIM 2.0 endpoint; CAEP/SSF SET signing.
 
 **Reference docs:**
 - Design: `docs/superpowers/specs/2026-05-19-iam-prod-ready-next-gen-design.md`
@@ -46,7 +50,7 @@ for phase in \
   "Phase5-Workload-Identity:[Phase 5] IAM SA-keys (Hydra Class A) + Federation Trust (Class B GitHub/AWS/GCP)" \
   "Phase6-Enterprise-SSO:[Phase 6] IAM SCIM 2.0 + SAML bridge (Jackson) + Organization tier" \
   "Phase7-JIT-PIM-Breakglass:[Phase 7] IAM JIT/PIM elevation + Break-glass 2-person approve" \
-  "Phase8-CAEP-SPIFFE-mesh:[Phase 8] IAM CAEP push pipeline + SPIFFE/SPIRE + service mesh mTLS"; do
+  "Phase8-CAEP:[Phase 8] IAM CAEP push pipeline (real-time revoke ≤10s; webhook subscribers)"; do
   SUMMARY="${phase#*:}"
   curl -sS -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -X POST \
     "$YT/issues?fields=id,idReadable" \
@@ -421,57 +425,61 @@ cd ../kacho-iam-KAC-124
 
 ---
 
-## Phase 8: CAEP push + SPIFFE mesh
+## Phase 8: CAEP push pipeline
+
+> **SPIFFE/SPIRE + service mesh mTLS — OUT OF SCOPE этого эпика** (см. §0 "Out of scope" в Goal). Будущий отдельный эпик. На MVP service-to-service auth = K8s NetworkPolicy + Internal listener + end-user principal forwarding в gRPC metadata (как сейчас в KAC-108).
 
 ### Task 8.1: Acceptance doc
 
-**Files:** `docs/specs/sub-phase-3.8-iam-caep-spiffe-mesh-acceptance.md`
+**Files:** `docs/specs/sub-phase-3.8-iam-caep-push-acceptance.md`
 
-- [ ] `acceptance-author` (design §10 + skill `references/security-2026.md` §2): 20-25 GWT — CAEP subscriber CRUD, SET signing, webhook delivery, retry/backoff/failed_terminal, signature verification by subscriber, SPIRE pod SVID issuance, mesh mTLS enforcement, end-user principal still required in metadata, defense-in-depth.
+- [ ] `acceptance-author` (design §10 + skill `references/security-2026.md` §2): 15-20 GWT — CAEP subscriber CRUD, SET signing/verification, webhook delivery happy/retry/failed_terminal, signature verification by subscriber, internal CAEP receiver in api-gateway (session_revocations + cache invalidation), revoke latency ≤10s SLA, subscriber-side replay protection (jti cache).
 
 ### Task 8.2: kacho-iam — CAEP outbox + drainer + SET signing
 
 **Files:**
 - `apps/kacho/jobs/caep_drainer.go` — pulls caep_outbox, signs SET, POSTs to subscribers.
 - `apps/kacho/api/caep_subscriber/{create,update,delete,list}.go`.
-- `apps/kacho/api/caep_subscriber/test_delivery.go` — admin tool.
+- `apps/kacho/api/caep_subscriber/test_delivery.go` — admin tool для verification subscriber.
 
-- [ ] SET = signed JWT (kacho-iam's signing key share or dedicated key); aud per-subscriber.
+- [ ] SET = signed JWT (kacho-iam's signing key share или dedicated key); aud per-subscriber.
 - [ ] Retry exponential: 1s, 5s, 30s, 5min, 1h, 6h, 24h; max 8 attempts; status=failed_terminal after.
+- [ ] Per-subscriber rate-limit (max 100 events/min) — защита от cascade attack.
 
 ### Task 8.3: kacho-api-gateway — CAEP internal receiver
 
 **Files:** `kacho-api-gateway/internal/caep/receiver.go`
 
-- [ ] On internal CAEP event (from kacho-iam direct call, not webhook to self): INSERT session_revocations + invalidate principal cache.
+- [ ] On internal CAEP event (kacho-iam direct call, not webhook): INSERT session_revocations + invalidate principal cache + emit metric.
 
-### Task 8.4: SPIRE deploy
+### Task 8.4: Subscriber registry UI
 
-**Files:**
-- `kacho-deploy/helm/umbrella/templates/spire-server-statefulset.yaml`
-- `kacho-deploy/helm/umbrella/templates/spire-agent-daemonset.yaml`
-- `kacho-deploy/helm/umbrella/templates/spire-rbac.yaml`
-- `kacho-deploy/helm/umbrella/values.dev.yaml` — spire block.
+**Files:** `kacho-ui/src/pages/iam/caep-subscribers/`
 
-- [ ] SPIRE Server HA pair; SPIRE Agent on every node; trust-domain = kacho.cloud.
-- [ ] Selectors per kacho-* service.
+- [ ] Admin UI: list/create/delete subscriber endpoints; per-subscriber test-delivery button.
+- [ ] Display per-subscriber: success rate, last delivery, current backoff status.
 
-### Task 8.5: Service mesh deploy (Linkerd recommended; Cilium alt)
+### Task 8.5: K6 load test (revoke latency SLA)
 
-**Files:** `kacho-deploy/helm/umbrella/Chart.yaml` (add linkerd dep), `templates/linkerd-config.yaml`
+**Files:** `kacho-test/tests/k6/caep_revoke_latency_kac127.js`
 
-- [ ] Linkerd CRDs + control plane.
-- [ ] AuthorizationPolicy resources: per-service mTLS rules.
-- [ ] Re-deploy kacho-* services with mesh annotations (auto-injection).
+- [ ] Сценарий: 10 subscribers, 100 revoke events/min, sustained 10 min.
+- [ ] Assert: p95 webhook delivery ≤ 2s; p99 ≤ 5s; total revoke→effect ≤ 10s.
 
-### Task 8.6: Verify defense-in-depth
+### Task 8.6: PR-chain + YT
 
-- [ ] Test: forge end-user principal in gRPC metadata (with valid mesh-mTLS from kacho-vpc service) → kacho-iam Check still based on end-user ctx → if forged user has no permission → 403.
+- [ ] e2c825 smoke: revoke binding → внутренний receiver invalidates ≤ 1s; webhook delivered to test-SP within 10s; subscriber rejects replay (same jti) → 409.
+- [ ] YT subtask → Done.
 
-### Task 8.7: PR-chain + YT
+---
 
-- [ ] e2c825 smoke: revoke binding → CAEP webhook to test-SP within 10s; mesh mTLS verified via Linkerd dashboard; SPIRE SVID issuance verified per pod.
-- [ ] YT KAC-131 → Done.
+## NOT in this epic: Workload Identity (SPIFFE/SPIRE) + Service Mesh mTLS
+
+> **OUT OF SCOPE** — отдельный future эпик. Why deferred:
+> - SPIRE deploy + selectors per kacho-* service + integration с каждым pod = недели работы.
+> - Service mesh (Linkerd / Cilium) добавляет cluster-wide infra (control plane, sidecars/eBPF) — operational complexity без явной выгоды на MVP-стенде.
+> - Текущий defense-in-depth от KAC-108 (end-user principal в gRPC metadata + K8s NetworkPolicy на internal listener) — **уже достаточен** для production-MVP single-tenant и small-tenant deployments.
+> - Когда трафик и compliance требования вырастут — SPIFFE+mesh добавляется как extra layer, не меняя текущую модель.
 
 ---
 
@@ -509,7 +517,7 @@ See KAC-127 vault stub «Затронутые сущности vault» (8 кат
 | 5 Workload Identity | 7 | 2-3w |
 | 6 Enterprise SSO | 6 | 3-4w |
 | 7 JIT/PIM | 5 | 1.5-2w |
-| 8 CAEP + SPIFFE | 7 | 3-4w |
+| 8 CAEP push | 6 | 2w |
 | 10 Vault closeout | 2 | 0.5w |
 | **Total** | **53** | **~18-23 weeks** (4.5-5.5 months single eng); ~3-4 months 2 eng parallel |
 
@@ -525,7 +533,7 @@ See KAC-127 vault stub «Затронутые сущности vault» (8 кат
 | SCIM 2.0 spec interpretation | RFC 7644 compliance tests; Okta/Azure sandbox testing |
 | SAML bridge (Jackson) operational | Monitor + fallback to manual SAML setup option |
 | Workload Identity Federation auth bypass | Strict subject_pattern validation; deny `*`; integration tests with malicious tokens |
-| SPIFFE/SPIRE complexity | Phase 8 buffer time; pre-MVP with Linkerd auto-mTLS as fallback |
+| ~~SPIFFE/SPIRE complexity~~ | OUT OF SCOPE этого эпика — future epic |
 | CAEP delivery failures | Retry exponential + dead-letter queue; admin UI to retry manually |
 | Break-glass abuse | 2-person mandatory; PagerDuty alert; quarterly review of usage |
 | Audit gap (Phase 9 not done) | slog-stdout sufficient for non-prod; document path to full pipeline |

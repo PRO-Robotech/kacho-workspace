@@ -22,9 +22,11 @@
 5. **Workload Identity** — SA tokens (Hydra Class A) + Federation Trust Policies (Class B: GitHub/AWS/GCP).
 6. **Enterprise SSO** — SCIM 2.0 inbound + SAML bridge (Jackson/WorkOS).
 7. **JIT / PIM** — Just-in-Time elevation + Break-glass с 2-person approve.
-8. **CAEP push + SPIFFE mesh** — real-time revoke propagation ≤ 10s + in-cluster mTLS.
+8. **CAEP push** — real-time revoke propagation ≤ 10s через push-based webhooks для SP-subscribers.
 
-**Excluded (Phase 9, отложено)**: audit pipeline hardening.
+**Excluded (отложено в будущие эпики)**:
+- Audit pipeline hardening (Kafka audit-topic, ClickHouse OLAP, S3+Glacier cold, HSM batch signing, SIEM webhooks, Merkle-chain tamper-evidence).
+- **Workload Identity & in-cluster mTLS** (SPIFFE/SPIRE + service mesh Cilium/Linkerd) — отдельный эпик после первой production-итерации. На MVP service-to-service auth = cluster network policies + Internal listener + end-user principal forwarding в gRPC metadata (как сейчас в KAC-108).
 
 ---
 
@@ -47,7 +49,7 @@
 | D-13 | **PIM/JIT elevation** для admin-роль; standing admin = exception | Standing admin | Reduce insider attack surface |
 | D-14 | **Break-glass** = 2-person approve + PagerDuty alert + 2h auto-expire | Single-admin emergency | NIST best practice |
 | D-15 | **CAEP push pipeline** для revoke ≤ 10s глобально | TTL-only invalidation | Real-time security signal propagation |
-| D-16 | **SPIFFE/SPIRE** + service mesh (Cilium или Linkerd) для in-cluster mTLS | Plain TLS / shared CA | Workload identity primitive |
+| D-16 | **Workload Identity (SPIFFE/SPIRE) и service mesh mTLS — out of scope MVP**; отдельный future эпик. На MVP service-to-service auth = K8s NetworkPolicy + Internal listener + end-user principal forwarding | Полная mesh-инфра с deploy дня 1 | Pragmatic — mesh deploy + integration в каждом сервисе = недели работы; KAC-108 уже даёт защиту через end-user principal в gRPC metadata; defense-in-depth уровень "достаточно" для production-MVP |
 | D-17 | **Cluster:singleton** OpenFGA-объект для kacho-system:* roles | Static env-list / Domain-suffix | Гомогенно с моделью; audit-trail |
 | D-18 | **Audit pipeline = MINIMUM** (slog → stdout + `audit_outbox` skeleton); полноценная Kafka+ClickHouse+S3 — отложено | Full pipeline | User explicit out-of-scope для production-ready MVP |
 | D-19 | **Migration strategy** = greenfield wipe `kacho_iam` schema; no prod tenants | Dual-write migration | dev-стенд e2c825 only |
@@ -59,9 +61,11 @@
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                              EDGE                                        │
-│ Cloudflare WAF → kacho-api-gateway → service mesh (Linkerd/Cilium mTLS)  │
+│ Cloudflare WAF → kacho-api-gateway (TLS edge)                            │
 │                       │ JWT(DPoP) validate via Hydra JWKS                │
 │                       │ Principal in ctx (gRPC metadata)                 │
+│                       │ Service-to-service: cluster-internal listener +  │
+│                       │   K8s NetworkPolicy (mesh/SPIFFE — future epic)  │
 └──────────────────────────────────────────────────────────────────────────┘
                         │
                         ▼
@@ -104,14 +108,12 @@
 │ │                      │  │ to subscribed SPs)    │                       │
 │ └──────────────────────┘  └──────────────────────┘                       │
 └──────────────────────────────────────────────────────────────────────────┘
-                        │
-                        ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                       WORKLOAD IDENTITY                                  │
-│ SPIFFE/SPIRE Server + Agent + service mesh (mTLS via SVID)               │
-│ Every kacho-* pod has SPIFFE ID: spiffe://kacho.cloud/ns/<env>/sa/<svc>  │
-└──────────────────────────────────────────────────────────────────────────┘
 ```
+
+> **Workload Identity (SPIFFE/SPIRE) и in-cluster service mesh mTLS — out of scope** этого эпика;
+> отдельный future эпик. На MVP service-to-service auth = K8s NetworkPolicy + Internal listener
+> + end-user principal forwarding в gRPC metadata. Это **сохраняет** существующий defense-in-depth
+> уровень KAC-108 без новых тяжёлых инфра-компонентов.
 
 ### Component versions (target 2026-Q2)
 
@@ -121,10 +123,10 @@
 | ORY Hydra | v2.4+ | DPoP support, JWT introspect |
 | OpenFGA | v1.6+ | Conditions stable; ListObjects optimized |
 | OPA | v1.0+ | Rego v1; bundle pull mode |
-| SPIRE | v1.10+ | OIDC federation; K8s PSAT attestor |
-| Linkerd / Cilium | latest stable | Auto-mTLS sidecar/eBPF |
 | Postgres | 16+ | LISTEN/NOTIFY; partial UNIQUE; CHECK |
 | Go | 1.22+ (already) | slog stdlib |
+| ~~SPIRE~~ | — | out of scope MVP (future epic) |
+| ~~Linkerd / Cilium~~ | — | out of scope MVP (future epic) |
 
 ---
 
@@ -529,30 +531,39 @@ External CI requests:
          - Issue Kachō JWT (sub=sva_ci_deployer, TTL=15min).
 ```
 
-### 6.3 In-cluster SPIFFE (kacho-* services)
+### 6.3 In-cluster service-to-service auth (MVP, без mesh)
+
+> **SPIFFE/SPIRE + service mesh — out of scope MVP**; см. D-16 и §0 «Excluded». Этот раздел описывает то, что **остаётся** на этой итерации.
 
 ```
-SPIRE Server (cluster-internal, HA pair) → distributes trust-domain CA.
-SPIRE Agent (DaemonSet per node) → attests pods via k8s_psat:
-    selectors:
-      - k8s:ns:prod
-      - k8s:sa:kacho-vpc
-    → issues SVID with SPIFFE ID: spiffe://kacho.cloud/ns/prod/sa/kacho-vpc
-    → valid 1h, auto-rotated
+В кластере kacho-* сервисы общаются через cluster-internal listener (порт 9091, без TLS).
+Защита идёт через два слоя, оба уже на месте после KAC-108:
 
-Service mesh (Cilium or Linkerd):
-    - Sidecar/eBPF injects SVID into outbound mTLS.
-    - Inbound mTLS validates peer SPIFFE ID against AuthorizationPolicy.
+1. K8s NetworkPolicy:
+     - Internal listener (9091) принимает соединения только из kacho-* ServiceAccounts.
+     - Внешние pods (или скомпрометированный customer-workload pod) не могут открыть TCP.
+     - Селекторы по namespace + serviceAccount.
 
-kacho-iam mTLS policy:
-    from: ["spiffe://kacho.cloud/ns/prod/sa/kacho-*"]
-    to:   ["service:kacho-iam", path: "/v1/internal/*"]
-    action: allow
+2. End-user principal forwarding:
+     - api-gateway валидирует JWT (DPoP) → ставит principal в gRPC metadata
+       `x-kacho-end-user-principal=usr_alice_acc_a1b2`.
+     - Backend services (vpc/compute/lb/iam) при internal-call'е тоже **forward**
+       тот же principal дальше (whitelist-fields propagation).
+     - Authz всегда основан на этом principal, НЕ на caller-service identity.
+     - Это значит: компромисс одного pod-а не даёт права end-user'а Bob'а
+       (нужно, чтобы JWT Bob'а реально прошёл api-gateway).
 
-kacho-iam authz pipeline:
-    1. mTLS peer SPIFFE ID → caller-service identity.
-    2. gRPC metadata `x-kacho-end-user-principal` → end-user (forwarded from api-gateway).
-    3. Defense-in-depth: both checked.
+3. TLS edge (snippet):
+     - Между cluster-external (Cloudflare → kacho-api-gateway:443) — TLS.
+     - Между kacho-api-gateway → backend сервисами — plaintext gRPC внутри cluster
+       (K8s NetworkPolicy + cluster-internal сеть).
+
+Будущий эпик (после MVP):
+     - SPIFFE/SPIRE deploy → каждый pod получает SVID.
+     - Service mesh (Cilium или Linkerd) → автоматический mTLS sidecar/eBPF.
+     - AuthorizationPolicy с SPIFFE-ID-based allowlist.
+     - Defense-in-depth: mesh-identity + end-user principal оба проверяются.
+     - Это **расширяет** существующий defense, не заменяет.
 ```
 
 ---
@@ -843,7 +854,7 @@ Signed by kacho-iam private key (Hydra-issuer key share).
 | Compromised admin → mass-grant | OPA rate-limit deny; SIEM detection rule (>10 grants/5min) — Phase 9 |
 | Insider rouge admin | JIT/PIM + 2-person approve break-glass; audit append-only |
 | Stale cache after revoke | LISTEN-NOTIFY + 5s TTL + DPoP-jti CAEP push |
-| Lateral movement after pod compromise | SPIFFE SVID + service mesh mTLS; service-level authz |
+| Lateral movement after pod compromise | K8s NetworkPolicy на internal listener; end-user principal в gRPC metadata (компромет pod-а ≠ компромет end-user токена); CAEP push для быстрого revoke. **(Future:** SPIFFE/SPIRE + mesh mTLS как extra layer — отдельный эпик.) |
 | Mass extraction via SA | Rate-limits per-SA; CAEP push on token-claims-change |
 | Audit gap (no log) | audit_outbox in same TX as mutation; slog-emit for MVP; future Kafka |
 | Cross-tenant leak | Account = identity boundary; ListObjects filters per principal; OPA cross-tenant deny |
@@ -929,7 +940,8 @@ Signed by kacho-iam private key (Hydra-issuer key share).
 | **5 Workload Identity** | SA-keys via Hydra (Class A); FederationExchangeService (Class B); GitHub/AWS/GCP integration docs | 2-3 weeks | `sub-phase-3.5-iam-workload-identity-federation-acceptance.md` |
 | **6 Enterprise SSO** | SCIM 2.0 endpoint; SAML bridge (Jackson) deploy; Organization tier full integration | 3-4 weeks | `sub-phase-3.6-iam-scim-saml-organization-acceptance.md` |
 | **7 JIT/PIM** | access_bindings_jit_eligibility; ActivateJIT RPC; break_glass with 2-person approve; alerting | 2 weeks | `sub-phase-3.7-iam-jit-breakglass-acceptance.md` |
-| **8 CAEP + SPIFFE** | caep_outbox + drainer; SET signing; subscriber registry; SPIFFE/SPIRE deploy + service mesh; in-cluster mTLS | 3-4 weeks | `sub-phase-3.8-iam-caep-spiffe-mesh-acceptance.md` |
+| **8 CAEP push** | caep_outbox + drainer; SET signing; subscriber registry; webhook delivery retry/backoff; internal CAEP receiver in api-gateway | 2-3 weeks | `sub-phase-3.8-iam-caep-push-acceptance.md` |
+| ~~Workload Identity (SPIFFE/SPIRE) + service mesh~~ | ~~SVID-based mTLS in-cluster~~ | OUT OF SCOPE — отдельный future эпик | — |
 | ~~9 Audit infra~~ | ~~Kafka audit-topic, ClickHouse, S3+Glacier, HSM, SIEM, Merkle~~ | **OUT OF SCOPE** | — |
 
 **Total effort estimate**: 18-23 weeks (~4.5-5.5 months) at single-engineer cadence; parallelizable to ~3-4 months with 2 engineers.
@@ -1008,7 +1020,7 @@ Integration tests (testcontainers Postgres) + newman cases (gen.py → Postman c
 
 ### Phase 8
 - Q8.1: CAEP subscriber signing — sign our SET with kacho-iam private key (same as Hydra) или separate signer?
-- Q8.2: SPIFFE federation across regions для DR — Phase 8 или follow-up?
+- Q8.2: ~~SPIFFE federation across regions~~ — N/A на MVP (SPIFFE/SPIRE out of scope).
 
 ---
 
