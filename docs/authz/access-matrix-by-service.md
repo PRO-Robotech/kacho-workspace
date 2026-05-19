@@ -123,6 +123,11 @@ Catalog ресурсы (`ZoneService`, `RegionService`, `DiskTypeService`) — r
 | `Get` (system role) | DENY | ALLOW | ALLOW | ALLOW | ALLOW | ALLOW |
 | `Create`/`Update`/`Delete` | DENY | DENY | DENY | DENY | DENY | DENY |
 
+> [!warning] Полный security-audit findings + fix-plan
+> См. [`security-findings-and-fix-plan.md`](security-findings-and-fix-plan.md) — **7 CRITICAL + 3 HIGH + 4 MEDIUM + 1 LOW** finding с конкретными probes (curl выводы), root causes (kacho-iam НЕ имеет authz-interceptor; vpc Check RPC Unimplemented; AddressPool exposed на public listener), fix-plan по фазам и расширения test scope.
+>
+> **Подтверждено фактическим прогоном**: anonymous может создать Account / Project / AccessBinding (privilege escalation) / Role / Network / Disk / Instance в любом scope. List users без accountId возвращает ВСЕХ users системы.
+
 ## 4. Реальные результаты прогона (snapshot 2026-05-19)
 
 ### Условия
