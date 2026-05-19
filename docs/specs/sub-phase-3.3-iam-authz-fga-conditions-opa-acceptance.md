@@ -1127,13 +1127,14 @@ condition device_compliant(device_attestation: string, allowed_attestations: lis
 
 #### Scenario P3.GWT-34: Missing detached signature rejected
 
-**Given** Misconfigured kacho-iam (signing key not provisioned) — `BundleResponse.signature_jws=nil`.
+**Given** Misconfigured kacho-iam (`oidc_jwks_keys` has no row with `current=true`, OR JWK decryption failed at startup, OR signing key not provisioned via Helm secret). kacho-iam serves `GET /opa/v1/bundle.tar.gz` (200, valid Rego payload) but returns `404 Not Found` для `GET /opa/v1/bundle.tar.gz.sig` (separate detached-signature endpoint per §5.4 `GetBundleSignature` RPC).
 
-**When** OPA polls.
+**When** OPA polls bundle, then fetches `.sig` companion per `bundles[].signing.keyid` + `verification.required=true` config.
 
-**Then** OPA refuses to load (config `bundles[].signing.keyid` set + `verification.required` enforced).
-**And** Bundle activation: stays last-known-good.
-**And** Metric `opa_bundle_loading_failures_total{reason="signature_missing"}` incremented.
+**Then** OPA refuses to load bundle (signature endpoint returned 404 — bundle activation blocked).
+**And** Bundle activation: stays last-known-good в memory.
+**And** Metric `opa_bundle_loading_failures_total{reason="signature_unavailable"}` incremented.
+**And** kacho-iam logs `WARN "OPA bundle signature endpoint hit without provisioned signing key"` (cardinality bounded — admin alert via Phase 9 SIEM rule).
 
 #### Scenario P3.GWT-35: Bundle revision endpoint returns git-sha
 
