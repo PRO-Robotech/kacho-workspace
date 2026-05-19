@@ -53,6 +53,6 @@ tags:
 
 ## See also
 
-[[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[../resources/iam-access-binding]] [[../KAC/KAC-104]] [[../KAC/KAC-108|KAC-108 (E3)]]
+[[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[../resources/iam-access-binding]] [[../KAC/KAC-104]] [[../KAC/KAC-108|KAC-108 (E3)]] [[../KAC/KAC-122]] (authz-deny matrix newman suite)
 
 #edge #kacho-iam #cross-service #planned #rebac

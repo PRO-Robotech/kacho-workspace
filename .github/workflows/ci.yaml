@@ -11,3 +11,30 @@ jobs:
         run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
       - name: run bats tests
         run: bats tests/bootstrap.bats tests/sync-all.bats
+
+  authz-fixtures-lint:
+    name: authz-fixtures bootstrap — lint (KAC-122)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - name: smoke JWT minter
+        run: |
+          python3 tests/authz-fixtures/setup-jwt.py --secret test-secret --sub user@example.com --exp-hours 1 \
+            | python3 -c "import sys; t=sys.stdin.read(); parts=t.split('.'); assert len(parts)==3, f'jwt parts={len(parts)}'"
+          python3 tests/authz-fixtures/setup-jwt.py --secret test-secret --bulk --exp-hours 1 \
+            | python3 -c "import sys,json; d=json.loads(sys.stdin.read()); assert set(d.keys())>={'jwtBootstrap','jwtNoBindings','jwtInvitee'}, list(d.keys())"
+      - name: smoke patch-env
+        run: |
+          # Создать dummy fixtures + env, патчнуть, проверить что ключи добавились
+          cat > /tmp/fixtures.json <<JSON
+          {"foo":"bar","baz":42}
+          JSON
+          cat > /tmp/env.json <<JSON
+          {"id":"x","name":"y","values":[{"key":"existing","value":"v1","type":"default","enabled":true}]}
+          JSON
+          python3 tests/authz-fixtures/patch-env.py /tmp/fixtures.json /tmp/env.json
+          python3 -c "import json; d=json.load(open('/tmp/env.json')); keys={v['key'] for v in d['values']}; assert keys=={'existing','foo','baz'}, keys"
+      - name: shellcheck setup.sh
+        run: shellcheck tests/authz-fixtures/setup.sh || true   # informational
