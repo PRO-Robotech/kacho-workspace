@@ -45,7 +45,12 @@ def main() -> int:
             print(f"[patch-env] SKIP (missing): {env_path}", file=sys.stderr)
             continue
         n = patch_env(env_path, fixtures)
-        print(f"[patch-env] {env_path.relative_to(env_path.cwd()) if env_path.is_absolute() else env_path}: {n} keys", file=sys.stderr)
+        # display friendly path without crashing on /tmp/ paths outside cwd
+        try:
+            disp = env_path.relative_to(env_path.cwd()) if env_path.is_absolute() else env_path
+        except ValueError:
+            disp = env_path
+        print(f"[patch-env] {disp}: {n} keys", file=sys.stderr)
     return 0
 
 
