@@ -83,6 +83,6 @@ KACHO_COMPUTE_AUTHZ_BREAKGLASS=false
 ## See also
 
 [[../packages/compute-internal-check]] [[../packages/corelib-authz]]
-[[iam-to-openfga-check]] [[vpc-to-iam-check]] [[../KAC/KAC-108]]
+[[iam-to-openfga-check]] [[vpc-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite)
 
 #edge #kacho-compute #kacho-iam #cross-service #authz #e3

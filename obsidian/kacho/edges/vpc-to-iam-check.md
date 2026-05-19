@@ -90,6 +90,6 @@ authz:
 
 ## See also
 
-[[../packages/vpc-apps-kacho-check]] [[../packages/corelib-authz]] [[iam-to-openfga-check]] [[compute-to-iam-check]] [[../KAC/KAC-108]]
+[[../packages/vpc-apps-kacho-check]] [[../packages/corelib-authz]] [[iam-to-openfga-check]] [[compute-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite)
 
 #edge #kacho-vpc #kacho-iam #cross-service #authz #e3
