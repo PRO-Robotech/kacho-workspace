@@ -1,7 +1,7 @@
 # Sub-phase 3.4 — IAM AuthZ: List filtering via OpenFGA ListObjects (KAC-127 / YT KAC-123) — Acceptance
 
-> **Status**: DRAFT — awaiting `acceptance-reviewer` APPROVED.
-> **Date**: 2026-05-19
+> **Status**: DRAFT v2 — round 1 reviewer feedback applied (C1-C5 + I1-I9 + selected M); awaiting `acceptance-reviewer` round 2 APPROVED.
+> **Date**: 2026-05-19 (v2 same-day apply)
 > **YouTrack**: [KAC-123](https://prorobotech.youtrack.cloud/issue/KAC-123) — production-ready next-gen IAM (vault-label `KAC-127`).
 > **Author agent**: `acceptance-author`
 > **Reviewer agent**: `acceptance-reviewer` (gate per запрет #1, workspace `CLAUDE.md`).
@@ -14,14 +14,15 @@
 > - **Phase 3 — AuthZ core** (`sub-phase-3.3-iam-authz-fga-conditions-opa-acceptance.md`): OpenFGA Authorization Model v2 (full DSL design §4 — `cluster`, `organization`, `account`, `project`, `vpc_*`, `compute_*`, `lb_*` types + 7 Conditions), Conditional `corelib/authz` Check, OPA sidecar pipeline, `corelib/authz/listobjects.go` **skeleton** (interface + package — Phase 4 fills implementation), `kacho_iam_subjects` LISTEN/NOTIFY contract.
 > - **KAC-108 / E3 baseline** (`sub-phase-2.0-iam-E3-openfga-rebac-acceptance.md`): single-Check parent pattern для List-RPC — **superseded в Phase 4** (см. §3 Decision Log P4-D1; user feedback round 2 2026-05-19 «придерживаться старой конвенции не надо»).
 > **Target repos / merge order (топологическая сортировка graph'а)**:
-> 1. `PRO-Robotech/kacho-corelib` — `authz/listobjects.go` (full implementation), `authz/listobjects_lru.go` (LRU cache), `authz/listobjects_invalidate.go` (LISTEN goroutine), `authz/listusers.go` (separate API для subject→resources обращений), `authz/metrics.go` (`corelib_authz_listobjects_*`), integration tests с testcontainers openfga + Postgres.
-> 2. `PRO-Robotech/kacho-vpc` — переписать 9 List-RPC handlers (`network`, `subnet`, `security_group`, `route_table`, `address`, `gateway`, `private_endpoint`, `network_interface`, `address_pool`); add `repo.ListByIDs(ctx, ids []string, pageSize int32, pageToken string)` per-domain.
-> 3. `PRO-Robotech/kacho-compute` — переписать 4 List-RPC handlers (`instance`, `disk`, `image`, `snapshot`).
+> 1. `PRO-Robotech/kacho-corelib` — `authz/listobjects.go` (full implementation), `authz/listobjects_lru.go` (LRU cache), `authz/listobjects_invalidate.go` (LISTEN goroutine), `authz/listusers.go` (separate API для subject→resources обращений — used only by Phase 5+ AccessBindingService.List), `authz/metrics.go` (`corelib_authz_listobjects_*`), integration tests с testcontainers openfga + Postgres.
+> 2. `PRO-Robotech/kacho-vpc` — переписать **8 public** List-RPC handlers (`network`, `subnet`, `security_group`, `route_table`, `address`, `gateway`, `private_endpoint`, `network_interface`); add `repo.ListByIDs(ctx, ids []string, pageSize int32, pageToken string)` per-domain. **`address_pool` (InternalAddressPoolService.List) — out-of-scope** (см. §«Что добавляется» / §10).
+> 3. `PRO-Robotech/kacho-compute` — переписать **4 public** List-RPC handlers (`instance`, `disk`, `image`, `snapshot`). **`Region` / `Zone` Internal admin List-RPC — out-of-scope** (см. §10).
 > 4. `PRO-Robotech/kacho-loadbalancer` — переписать 2 List-RPC handlers (`network_load_balancer`, `target_group`).
-> 5. `PRO-Robotech/kacho-iam` — переписать 9 List-RPC handlers (`account`, `project`, `user`, `service_account`, `group`, `role`, `access_binding`, `jit_eligibility`, `federation_trust_policy`); `AccessBindingService.List` уникален — использует **ListUsers** API когда фильтрация идёт по resource, **ListObjects** когда по subject (см. §6.5 / P4-D8).
-> 6. `PRO-Robotech/kacho-test` — `k6/list_filter_kac127_phase4.js`, `newman/cases/list_filter_*.py` (per-service), `k6/results/KAC-127-phase4-list-filter.md` artifact.
-> 7. `PRO-Robotech/kacho-deploy` — Helm values для `KACHO_AUTHZ_LISTOBJECTS_CACHE_TTL=5s`, `KACHO_AUTHZ_LISTOBJECTS_MAX_PAGE=10000`, `KACHO_AUTHZ_LISTOBJECTS_FAIL_OPEN=false`; dashboards и alert rules (Grafana panels: cache-hit-ratio, listobjects-duration-p95, listobjects-errors-total, listen-invalidate-latency).
-> 8. `PRO-Robotech/kacho-workspace` — vault обновления (`obsidian/kacho/KAC/KAC-127.md`, `obsidian/kacho/architecture/list-filtering-pipeline.md`, `obsidian/kacho/edges/all-services-to-openfga-listobjects.md`, `obsidian/kacho/rpc/*-list-service.md` для каждого изменённого List-RPC).
+> 5. `PRO-Robotech/kacho-test` — `k6/list_filter_kac127_phase4.js`, `newman/cases/list_filter_*.py` (per service, 3 services), `k6/results/KAC-127-phase4-list-filter.md` artifact.
+> 6. `PRO-Robotech/kacho-deploy` — Helm values для `KACHO_AUTHZ_LISTOBJECTS_CACHE_TTL=5s`, `KACHO_AUTHZ_LISTOBJECTS_MAX_PAGE=10000`, `KACHO_AUTHZ_LISTOBJECTS_FAIL_OPEN=false`; dashboards и alert rules (Grafana panels: cache-hit-ratio, listobjects-duration-p95, listobjects-errors-total, listen-invalidate-latency).
+> 7. `PRO-Robotech/kacho-workspace` — vault обновления (`obsidian/kacho/KAC/KAC-127.md`, `obsidian/kacho/architecture/list-filtering-pipeline.md`, `obsidian/kacho/edges/all-services-to-openfga-listobjects.md`, `obsidian/kacho/rpc/*-list-service.md` для каждого изменённого List-RPC).
+>
+> **kacho-iam — List-handlers refactor OUT-of-SCOPE для Phase 4.** Plan §4.3 + Design §7 fix Phase 4 scope as **3 services × 14 public handlers** (vpc 8 + compute 4 + lb 2) **+ corelib-foundation + kacho-iam migration only**. Per-subject ACL для IAM-собственных ресурсов (`account`, `project`, `user`, `service_account`, `group`, `role`, `access_binding`, `jit_eligibility`, `federation_trust_policy`) — **отдельная Phase / plan revision**. Acceptance-документ под IAM list-filtering — отдельный sub-phase (см. §10 Out of Scope, line «IAM List-RPC handler refactor»).
 
 ---
 
@@ -45,12 +46,13 @@ Phase 4 — **четвёртая code-emitting Phase** под KAC-127. К мом
   - cross-project listing для `cluster_admin` / `org_admin` / `account_admin` (надо вернуть
     networks из всех project'ов внутри cascade-scope без enum'а project'ов на стороне клиента);
   - shared resources (network shared via project-share — Phase 6+).
-- **Замена**: каждый List-RPC во **всех 4 сервисах** (vpc / compute / loadbalancer / iam)
+- **Замена**: каждый **public** List-RPC в **3 сервисах** (kacho-vpc / kacho-compute / kacho-loadbalancer — 8+4+2 = 14 handlers; +corelib foundation как Step 1 PR-chain)
   спрашивает у `corelib/authz`: «список **id** объектов типа `<type>`, на которые у этого
   Principal есть relation `<viewer|editor|admin>`», получает `[]string` от
   **OpenFGA ListObjects API** (`POST /stores/{id}/list-objects`), и фильтрует SQL запросом
   `WHERE id = ANY($1::text[])`. Это устраняет дыру и приводит фильтрацию list-результатов в
-  full ReBAC-consistency с per-RPC Check'ом из Phase 3.
+  full ReBAC-consistency с per-RPC Check'ом из Phase 3. **kacho-iam List-RPC handlers — out-of-scope Phase 4**; их per-subject ACL — отдельная Phase / plan revision (см. §10).
+  **Internal admin List-RPC** (InternalAddressPoolService.List в kacho-vpc; Internal Region/Zone List в kacho-compute) — также out-of-scope: admin-only, no per-subject ACL semantics required в Phase 4 (admin всегда видит всё; см. §10).
 - **Cache 5s LRU + LISTEN-invalidate**: чтобы повторные List'ы из того же principal'а не
   делали FGA round-trip каждый раз, `corelib/authz/listobjects.go` поддерживает LRU
   с TTL=5s и **per-subject invalidate** через `LISTEN kacho_iam_subjects` (channel создан
@@ -101,8 +103,8 @@ Phase 4 — **четвёртая code-emitting Phase** под KAC-127. К мом
 | **Запрет #2** — НЕ упоминать "yandex" | в коде / proto / Go-имена / env-name / commit-messages / k6-scenarios не упоминается; YC-стилистика error-text (`Permission denied`, `Resource '<X>' not found`) — остаётся для error-mapping FGA-`NotFound`. |
 | **Запрет #3** — НЕ ORM | `openfga-go-sdk` — это HTTP/gRPC-клиент к FGA (не ORM); `repo.ListByIDs` — handwritten pgx + sqlc (как и весь остальной repo-layer); cache — go-native LRU `hashicorp/golang-lru/v2` (не ORM-cache). |
 | **Запрет #4** — НЕ каскад через границу сервиса | ListObjects — read-only call; никаких cascade-delete'ов. AccessBinding deletion (в `kacho-iam`) и вытекающий outbox event → FGA Write + NOTIFY — это **в пределах одного сервиса** (`kacho-iam`); cross-service эффекты — только реактивный LISTEN на пер-pod cache (это не cascade-delete, это invalidate). |
-| **Запрет #5** — НЕ редактировать применённую миграцию | Phase 4 НЕ имеет новых миграций; вся schema-foundation в Phase 1. Если в ходе implementation выявится missing column / index — открывается **новая** миграция `0016_kac127_phase4_audit_outbox_listobjects.sql` per affected сервис (per-service migration, не правка Phase 1). Конкретно: `audit_outbox` (минимальный skeleton — `id`, `event_type`, `principal_id`, `resource_type`, `relation`, `result_count`, `created_at`) добавляется в kacho-iam DB как Phase 4 row-insert side; drainer / consumer — Phase 9 (forward-compat). |
-| **Запрет #6** — `Internal.*` НЕ на external TLS endpoint | InternalAddressPoolService.List (`kacho-vpc`) и Internal Region/Zone List (`kacho-compute`) — остаются Internal-only; их List-handler переписывается на ListAllowedIDs **с тем же internal-only визитом** (api-gateway регистрирует через `restmux.RegisterInternal()`, не `RegisterPublic()`). Sentinel filter: для Internal admin RPC ListAllowedIDs зовётся с `objectType=vpc_address_pool` (DSL type — admin-managed) + relation=`viewer` где relation определена ТОЛЬКО для cluster-admin/system-viewer (см. DSL §4 design); таким образом regular tenant получает empty list даже если случайно нашёл internal endpoint. |
+| **Запрет #5** — НЕ редактировать применённую миграцию | Phase 4 имеет **одну новую миграцию** в kacho-iam — `0016_kac127_phase4_audit_outbox.sql` (см. §2.2 полная schema), создающая таблицу `audit_outbox` skeleton. Phase 1 миграции **не модифицируются**. Drainer / consumer — Phase 9 (forward-compat row-insert side). corelib/vpc/compute/lb — без новых миграций (только Go code + integration tests). |
+| **Запрет #6** — `Internal.*` НЕ на external TLS endpoint | Internal admin RPC (InternalAddressPoolService.List в kacho-vpc; Internal Region/Zone List в kacho-compute) **OUT-of-SCOPE Phase 4** — их visibility-rule = «admin всегда видит всё», per-subject ACL не требуется; existing behavior preserved (admin tooling continues to call them; api-gateway routing unchanged); refactor на ListAllowedIDs возможен в более поздней Phase, если потребуется fine-grained admin ACL. Phase 4 covers только **public** List-RPC. |
 | **Запрет #7** — НЕ broker | LISTEN/NOTIFY (Postgres native) + in-memory LRU — никакого Kafka/NATS в Phase 4. Phase 9 vводит Kafka; Phase 4 forward-compatible (`audit_outbox` row insert — drainer Phase 9). |
 | **Запрет #8** — DB-per-service | Каждый сервис sохраняет свою БД. ListAllowedIDs возвращает только **id-string**; SQL `WHERE id = ANY($1::text[])` — внутри одной DB сервиса. Cross-service refs (`account_id`, `project_id` в vpc/compute) — software-validation на request-path осталась с Phase 1 (не изменяется здесь). |
 | **Запрет #9** — async-only мутации | Phase 4 НЕ добавляет мутирующих RPC; только переписывает существующие **read-only** `List` RPC (они и были sync). `AccessBindingService.List` остаётся sync (read), хотя `AccessBindingService.Upsert/Delete` — async (Phase 1). |
@@ -115,11 +117,12 @@ Phase 4 — **четвёртая code-emitting Phase** под KAC-127. К мом
 
 ### 2.1 Сущности и API, **используемые** в Phase 4 (от Phase 1/2/3 — read-only здесь)
 
-- **OpenFGA Authorization Model v2** (Phase 3 deployed): типы `cluster`, `organization`,
+- **OpenFGA Authorization Model v2** (Phase 3 deployed; DSL frozen): типы `cluster`, `organization`,
   `account`, `project`, `vpc_network`, `vpc_subnet`, `vpc_security_group`, `vpc_route_table`,
   `vpc_address`, `vpc_gateway`, `vpc_private_endpoint`, `vpc_network_interface`,
   `vpc_address_pool`, `compute_instance`, `compute_disk`, `compute_image`, `compute_snapshot`,
   `lb_network_load_balancer`, `lb_target_group`. Pinned `authorization_model_id` per request.
+  **Phase 4 ListObjects calls используются ТОЛЬКО** для types, имеющих публичный per-subject ACL и публичный List-RPC: `vpc_network`, `vpc_subnet`, `vpc_security_group`, `vpc_route_table`, `vpc_address`, `vpc_gateway`, `vpc_private_endpoint`, `vpc_network_interface`, `compute_instance`, `compute_disk`, `compute_image`, `compute_snapshot`, `lb_network_load_balancer`, `lb_target_group` (14 types). Type `vpc_address_pool` присутствует в DSL (Phase 3 design), но его List-RPC — Internal-only / out-of-scope Phase 4 (см. §10). IAM-собственные resource-types (account/project/user/service_account/group/role/access_binding/jit_eligibility/federation_trust_policy) — out-of-scope Phase 4 (see §10).
 - **Conditions** (Phase 3 loaded): `mfa_fresh`, `non_expired`, `source_ip_in_range`,
   `break_glass_window`, `jit_window`, `business_hours`, `device_compliant`. Evaluated by
   FGA-engine при ListObjects вызове в той же манере, что и при Check.
@@ -153,7 +156,7 @@ Phase 4 — **четвёртая code-emitting Phase** под KAC-127. К мом
   ```
   Response — `{ "users": [{ "object": { "type": "user", "id": "usr_alice" } }, ...] }`.
   **Используется только в `AccessBindingService.List` когда фильтрация по ресурсу** (см. §6.5).
-- **`audit_outbox` table** (kacho-iam; Phase 4 row-insert side): новая таблица skeleton.
+- **`audit_outbox` table** (kacho-iam; Phase 4 row-insert side): новая таблица, schema fixed в §2.2 ниже. Migration `0016_kac127_phase4_audit_outbox.sql` в kacho-iam (Phase 4 PR-chain Step 1.5).
   Drainer / consumer — Phase 9 forward-compatible. Phase 4 row-inserts являются best-effort
   side effect (failure to insert не блокирует ListAllowedIDs).
 
@@ -206,6 +209,24 @@ Phase 4 — **четвёртая code-emitting Phase** под KAC-127. К мом
   - `corelib_authz_listen_notify_invalidates_total{service}` — counter.
   - `corelib_authz_listen_connection_status{service}` — gauge (1 = healthy, 0 = reconnecting).
 - **`audit_outbox` table** — kacho-iam side; minimal schema `(id uuid pk, event_type text, principal_id text, principal_type text, object_type text, relation text, result_count int, source_service text, created_at timestamptz default now())`. Inserted on every ListAllowedIDs call from any backend (sent via Internal RPC `kacho.iam.audit.v1.AuditOutboxService.Emit` — fire-and-forget с 100ms-deadline; failure → metric increment, NO request-blocking).
+  - **Migration**: `kacho-iam/migrations/0016_kac127_phase4_audit_outbox.sql` — new file in **Phase 4 kacho-iam PR** (PR-chain Step 1.5 — landing в kacho-iam BEFORE backend PR-chain Step 2 — covered by I5 in reviewer round 1).
+  - **Schema** (форма-фиксации):
+    ```sql
+    CREATE TABLE IF NOT EXISTS audit_outbox (
+        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        event_type      TEXT        NOT NULL,            -- 'listobjects_called' и т.п.
+        principal_id    TEXT        NOT NULL,
+        principal_type  TEXT        NOT NULL,            -- 'user' | 'service_account'
+        object_type     TEXT        NOT NULL,            -- 'vpc_network' и т.п.
+        relation        TEXT        NOT NULL,            -- 'viewer' | 'editor' | 'admin'
+        result_count    INT         NOT NULL DEFAULT 0,
+        source_service  TEXT        NOT NULL,            -- 'kacho-vpc' и т.п.
+        created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+        CHECK (event_type <> '')
+    );
+    CREATE INDEX audit_outbox_created_at_idx ON audit_outbox (created_at);
+    ```
+  - **Drainer / consumer / external delivery — Phase 9** (forward-compatible row insert side; не Phase 4 concern).
 
 ### 2.3 Phase 4 pipeline (нормативно)
 
@@ -303,7 +324,8 @@ Failure of any SLA → CI / k6 gate red, не merge.
 | **P4-D10**: SQL filter form | **`WHERE id = ANY($1::text[])`** parameterized; binary-protocol typed array `text[]`. NO `IN ('a','b','c')` string-concat. | Parameterized → no SQL injection (id with `'; DROP TABLE` rejected at parameter level; verified UC `P4.GWT-36`). Postgres pg_protocol array — efficient single-statement binding. |
 | **P4-D11**: Cluster-admin / org-admin / account-admin cascade | **Native через FGA DSL v2** (`vpc_network#viewer = ... or viewer from project`, recursively). NO client-side short-circuit ("if principal.ClusterAdmin → return all"). | Single source of truth; FGA already handles cascade; bypass would skip Condition evaluation (break-glass duration check etc.). |
 | **P4-D12**: Pinned `authorization_model_id` | Always pinned (read from `KACHO_OPENFGA_MODEL_ID` env / k8s Secret). NO implicit "latest". | Model v2 → v3 transitions during Phase 6+ require consistent behavior; pinned model_id ensures atomic cutover (rolling restart on Secret change, ordered post-bootstrap-job). Phase 3 baseline. |
-| **P4-D13**: AccessBindingService.List specific — ListUsers vs ListObjects | Filter by **subject (who-has-what)** → `ListObjects` (object_type=relevant resource type, user=specified subject). Filter by **resource (who-has-access-to-X)** → `ListUsers` (separate FGA API). When **both filters** present → ListObjects + post-filter by resource_id (rare case). When **neither** filter → ListObjects with `objectType=access_binding` would be meaningless; this is a different path — falls back to per-scope viewer check (e.g., must have `viewer@project:<project_id>` to list bindings within that project). | FGA has separate APIs for two directions; using wrong one returns wrong direction of relation graph. |
+| **P4-D13**: AccessBindingService.List — direction-aware (ListObjects vs ListUsers) | **Out-of-scope Phase 4** — kacho-iam List-handlers (включая AccessBindingService.List) переносятся в отдельную Phase / plan revision (см. §10). When IAM list-filtering ре-introduces — filter by **subject** → `ListObjects`; filter by **resource** → `ListUsers`. Phase 4 corelib **публикует** `ListAllowedUsers` API в interface (готово для Phase 5+ consumer), но `corelib/authz/listusers.go` имеет own integration test без consumer-сайд использования в Phase 4. | Decision сохранён для будущей Phase; Phase 4 не реализует IAM-сторону, чтобы оставаться в рамках design §7 / plan §4.3 (3 services × 14 public handlers). |
+| **P4-D14**: Phase 4 НЕ вводит новые FGA types / relations | Phase 4 — **read-only consumer** of Authorization Model v2 (Phase 3 frozen DSL). НЕТ новых types (`access_binding` как FGA type **не вводится**); НЕТ новых relations. Все ListObjects calls используют types из §2.1 «Phase 4 ListObjects calls» list (14 types). IAM domain types (account/project/user/sa/group/role/access_binding/jit_eligibility/federation_trust_policy) — Phase 5+ если вообще они получат per-subject ACL semantics через FGA (открытый design question, не Phase 4). | Закрывает C2 reviewer round 1: handler references к types вне DSL невозможны если scope = только 14 types в DSL; запрет на новые FGA types гарантирует backward-compat и stable cache key shape. |
 
 ---
 
@@ -361,21 +383,27 @@ Failure of any SLA → CI / k6 gate red, не merge.
 - `authz/listobjects_integration_test.go` — testcontainers openfga (1.6.x) + Postgres 16, includes LISTEN race-test.
 - `authz/metrics.go` — extension с listobjects_* metrics.
 
-**kacho-vpc** (9 handlers; clean-architecture layer split per репо's CLAUDE.md):
+**kacho-vpc** (8 public handlers; clean-architecture layer split per репо's CLAUDE.md):
 - `internal/apps/kacho/api/network/list.go` — new file (handler delegates to use-case).
 - `internal/apps/kacho/api/network/list_usecase.go` — use-case: ListAllowedIDs → repo.ListByIDs.
-- Same pattern для subnet, security_group, route_table, address, gateway, private_endpoint, network_interface, address_pool.
+- Same pattern для subnet, security_group, route_table, address, gateway, private_endpoint, network_interface.
 - `internal/repo/kacho/pg/<resource>_repo.go` — add `ListByIDs(ctx, ids, pageSize, pageToken)` method per resource.
 - `internal/repo/kacho/pg/*_list_integration_test.go` — testcontainers Postgres per resource.
+- **NOT touched**: `internal/apps/kacho/api/address_pool/list.go` (Internal admin RPC — out-of-scope Phase 4).
 
-**kacho-compute** (4 handlers): instance, disk, image, snapshot (same pattern).
+**kacho-compute** (4 public handlers): instance, disk, image, snapshot (same pattern).
+- **NOT touched**: Internal Region/Zone List RPC (out-of-scope Phase 4 — admin-only, no per-subject ACL).
+
 **kacho-loadbalancer** (2 handlers): network_load_balancer, target_group (same pattern).
-**kacho-iam** (9 handlers): account, project, user, service_account, group, role, access_binding (special-case per P4-D13), jit_eligibility, federation_trust_policy.
+
+**kacho-iam** (Phase 4 scope = **migration ONLY**, no handler changes):
+- `migrations/0016_kac127_phase4_audit_outbox.sql` — new migration (see §2.2 schema).
+- NO List-handler refactor; existing handlers remain on Phase 1/3 baseline.
 
 **kacho-test**:
-- `tests/k6/list_filter_kac127_phase4.js` — SLA validation.
+- `tests/k6/list_filter_kac127_phase4.js` — SLA validation (3 services × handlers covered).
 - `tests/k6/results/KAC-127-phase4-list-filter.md` — artifact (committed after run on dev).
-- `tests/newman/cases/list_filter_*.py` per-service variants (mirror UC-L01..L06, UC-Z02, UC-A02, UC-A07, UC-P03, UC-U05, UC-SA02, UC-AB03, UC-G03).
+- `tests/newman/cases/list_filter_*.py` per-service variants (vpc / compute / lb only — IAM not covered Phase 4).
 
 **kacho-deploy**:
 - `helm/umbrella/values.yaml` — add `authz.listobjects.cacheTtl=5s`, `authz.listobjects.maxResults=10000`, `authz.listobjects.failOpen=false`, env-injection в всех 4 backend deployments.
@@ -587,9 +615,14 @@ case *ListAccessBindingsRequest_Resource:
 
 ---
 
-## 6. GWT-сценарии (42 scenarios — exceeds ≥40 mandated)
+## 6. GWT-сценарии (38 active scenarios — exceeds ≥30 mandated после Phase 4 scope tightening)
 
 > **Convention**: каждый сценарий имеет ID `P4.GWT-NN`. UC backreferences (`UC-X` from §3-4 of test migration matrix) указаны inline для traceability.
+>
+> **Scenario count clarification (per I1 reviewer round 1)**:
+> - Active scenario IDs: 38 — P4.GWT-01, 02, 03, **04a**, **04b**, 05, 06, 07..17, 19, 20, 21, 26..42.
+> - Removed (out-of-scope Phase 4): GWT-18 (scope-NOTIFY contract extension), GWT-22 (iam), GWT-23 (iam), GWT-24 (iam), GWT-25 (Internal AddressPool).
+> - Test-function mapping: ~42-48 Go test functions total (multi-scenario IDs like 04a/04b и 39/40/41/42 каждый имеет two sub-scenarios A/B → +4 functions; race-tests и k6 — separate suites). См. §7 DoD «GWT → test file mapping table».
 
 ### 6.1 corelib ListAllowedIDs — core (6 scenarios)
 
@@ -647,25 +680,51 @@ case *ListAccessBindingsRequest_Resource:
 **And** Cache NOT polluted with empty entry (failed eval does not store).
 **And** Metric `corelib_authz_listobjects_called_total{...outcome="error"} += 1`.
 
-#### Scenario P4.GWT-04: principal ContextualTuples передаются (acr=2 vs acr=3 → different Conditions results)
-**UC**: UC-L01 + UC-C03 (mfa_fresh condition)
+#### Scenario P4.GWT-04a: principal ContextualTuples передаются на cache-miss path (production behavior)
+**UC**: UC-L01 + UC-C03 (mfa_fresh condition) — production behavior with cache enabled
 
 **Given** OpenFGA store has tuple:
 `vpc_network:net-secret#admin@user:usr_alice[mfa_fresh]`
 where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && current_time - mfa_at < 15m`.
 
-**And** Two principals:
+**And** Cache configured at production default TTL=5s (NOT zero).
+
+**And** Cache initially empty for `(user, usr_alice, vpc_network, admin)` key.
+
+**And** Two principals (same Principal.ID, different ACR — modeling step-up between calls):
 - `P1 = {ID: usr_alice, ACR: "2", AMR: ["pwd"], MFAAt: <30m ago>}` (no recent step-up).
 - `P2 = {ID: usr_alice, ACR: "3", AMR: ["pwd", "webauthn"], MFAAt: <5m ago>}` (recent step-up).
 
-**When** `ListAllowedIDs(P1, vpc_network, admin)` called.
+**When** `ListAllowedIDs(P1, vpc_network, admin)` called as first call (cache miss).
 
-**Then** Result `ids = []` (net-secret excluded — Conditions failed because acr != 3).
+**Then** FGA call made with `context.acr="2"`, `context.amr=["pwd"]`, `context.mfa_at=<30m ago>`.
+**And** Condition `mfa_fresh` evaluates false → net-secret excluded.
+**And** Result `ids = []`.
+**And** Cache populated for key `(user, usr_alice, vpc_network, admin, "", <modelID>)` → value=`[]`.
 
-**When** `ListAllowedIDs(P2, vpc_network, admin)` called.
+**When** Within 5s TTL, `ListAllowedIDs(P2, vpc_network, admin)` called (same Principal.ID, different ACR via step-up — but cache key includes only `Principal.ID`, NOT `acr`/`amr`/`mfa_at`).
 
-**Then** Result `ids = ["net-secret"]` (Conditions evaluated true).
-**And** Each call hit FGA separately (cache key differs only by Principal.ID, which is same, but actually the cache stores results per `cacheKey = (P.Type, P.ID, type, relation, scope, modelID)` — same key — so the SECOND call within 5s WOULD hit cache; this scenario tests that **fresh** invocation gives different results when contexts differ. Test setup: each invocation comes from different request lifecycle with stale-cache eviction между ними OR cache disabled in this test (`cacheTtl=0`).)
+**Then** Cache **HIT** — returns same cached `ids = []` (P2 sees stale result for ≤5s).
+**And** This is **acceptable bounded staleness** per Q-cache-key-include-acr (§11): ACR not in cache key; max staleness window = TTL = 5s.
+**And** Metric `outcome="hit"` increment; no FGA round-trip.
+**And** Production-edition rationale: avoiding ACR in cache key keeps cache hit ratio ≥80% (steady state). Phase 8 CAEP session-revoked push will tighten if needed.
+
+#### Scenario P4.GWT-04b: после TTL expiry — Conditions re-evaluated с новым ContextualTuples (correctness eventually)
+**UC**: UC-L01 + UC-C03 (mfa_fresh condition) — correctness after TTL window
+
+**Given** Same OpenFGA tuple `vpc_network:net-secret#admin@user:usr_alice[mfa_fresh]` as P4.GWT-04a.
+
+**And** Cache populated с `(user, usr_alice, vpc_network, admin, "", <modelID>) → []` from P1 request, populated at `t=0`.
+
+**When** `ListAllowedIDs(P2, vpc_network, admin)` called at `t=5.5s` (> TTL=5s).
+
+**Then** Cache **MISS** (entry expired).
+**And** FGA call made с `context.acr="3"`, `context.amr=["pwd","webauthn"]`, `context.mfa_at=<5m ago>`.
+**And** Condition `mfa_fresh` evaluates true → net-secret included.
+**And** Result `ids = ["net-secret"]`.
+**And** Cache repopulated с new value `["net-secret"]`.
+**And** Metric `outcome="miss"` increment.
+**And** Eventually-correct semantics confirmed: latest Conditions snapshot determines result after TTL boundary.
 
 #### Scenario P4.GWT-05: deterministic ordering — sorted ids in result для stable pagination
 **UC**: UC-L02 + UC-L06
@@ -863,23 +922,19 @@ where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && cur
 
 **And** Result includes prj_x networks + net_y; excludes other prj_z networks.
 
-#### Scenario P4.GWT-18: Project moved to another Account → ListAllowedIDs cache invalidate via subject_change_outbox
-**UC**: UC-A06 + UC-Z03
+#### Scenario P4.GWT-18 (REMOVED — out-of-scope Phase 4 cache-invalidate contract)
+**Removed**: Project.Move → cross-subject cache invalidate с scope-broad NOTIFY payload `"scope:account:<id>"` — это **extension** Phase 3 NOTIFY contract (Phase 3 §2.5 / §6.2.5 fixes payload как JSON `{"subject_id": "<id>"}`). Введение нового `scope:` prefix payload format требует:
+- co-ordinated contract update в Phase 3 NOTIFY spec;
+- changes outbox-worker (kacho-iam) для emission;
+- changes corelib LISTEN handler для parsing.
 
-**Given** Project `prj_finance` lives in `acc_aurora`; binding `account:acc_aurora#viewer@user:usr_auditor` → cascade gives usr_auditor access to all networks in prj_finance.
+Phase 4 НЕ модифицирует Phase 3 contract. **Accepted behavior**: после `ProjectService.Move(prj_x, target_account=acc_new)`, существующие cache entries в backend pods continue serving stale results до их TTL=5s expiry (документировано в §«Risks» как acceptable bounded-staleness window). Project.Move — rare admin op (≤1/day per tenant typical) → 5s stale tolerable.
 
-**And** Cache hit (usr_auditor → list of N networks).
+If future Phase needs hard <1s revoke на Project.Move — открыть отдельную Phase ticket для contract extension. Per acceptance-reviewer round 1 C4.
 
-**When** `ProjectService.Move(prj_finance, target_account=acc_horizon)` (Phase 1 atomic CAS).
+### 6.5 Per-service integration (3 scenarios — covering vpc / compute / lb)
 
-**Then** outbox row inserted → outbox-worker emits FGA Write `project:prj_finance#account@account:acc_horizon` (replacing prior) + NOTIFY for every subject in old account who had inherited access.
-
-**Implementation detail**: outbox-worker doesn't enumerate all subjects (could be 10k); instead, it emits **scope-broad NOTIFY** with payload `"scope:account:acc_aurora"` (a special payload format). corelib LISTEN handler treats `scope:` prefix as "invalidate any cache entry whose ResourceScopeHint or recursive cascade includes acc_aurora". For Phase 4 simplicity: cache.InvalidateAll() when prefix is `scope:` (conservative — better some over-invalidation than missing subject).
-
-**And** Subsequent `NetworkService.List(usr_auditor)` returns empty (binding removed via cascade-break).
-**And** Trade-off documented (open question Q-scope-invalidate resolved in §10).
-
-### 6.5 Per-service integration (7 scenarios)
+> **Out of scope этого блока — Phase 4**: kacho-iam List-RPC handlers (ProjectService.List, AccessBindingService.List, etc.) — отдельная Phase / plan revision (см. §10). Internal admin RPC (InternalAddressPoolService.List, Internal Region/Zone.List) — out-of-scope Phase 4 (admin always sees all; no per-subject ACL).
 
 #### Scenario P4.GWT-19: kacho-vpc NetworkService.List uses ListAllowedIDs
 **UC**: UC-L01 + UC-A07
@@ -913,66 +968,20 @@ where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && cur
 **When** Client `GET /loadbalancer/v1/networkLoadBalancers?folder_id=...` (note: YC-style still `folder_id` в proto-path, но internally `project_id` per Phase 1 KAC-124 rename).
 
 **Then** Same ListAllowedIDs pattern with type=`lb_network_load_balancer`.
+**And** SQL `SELECT ... WHERE id = ANY($ids) AND project_id = $1 ORDER BY id`.
+**And** Response shape `{networkLoadBalancers: [...], nextPageToken: ""}`.
 
-#### Scenario P4.GWT-22: kacho-iam ProjectService.List uses ListAllowedIDs
-**UC**: UC-P03 + UC-L01
+#### Scenario P4.GWT-22 (REMOVED — out-of-scope Phase 4)
+**Removed**: kacho-iam ProjectService.List → отдельная Phase. Per acceptance-reviewer round 1 C1.
 
-**Given** iam service deployed Phase 4.
+#### Scenario P4.GWT-23 (REMOVED — out-of-scope Phase 4)
+**Removed**: kacho-iam AccessBindingService.List by subject_id → отдельная Phase. Per acceptance-reviewer round 1 C1.
 
-**When** Client `GET /iam/v1/projects?account_id=acc_aurora`.
+#### Scenario P4.GWT-24 (REMOVED — out-of-scope Phase 4)
+**Removed**: kacho-iam AccessBindingService.List by resource (ListUsers path) → отдельная Phase. ListUsers API остаётся в `corelib/authz/listusers.go` готовой для Phase 5+; integration test покрывает API в corelib без caller-сайд. Per acceptance-reviewer round 1 C1.
 
-**Then** Handler does `ListAllowedIDs(p, "project", "viewer", opts={ResourceScopeHint: "acc_aurora"})`.
-**And** Returns projects within acc_aurora visible к principal.
-
-#### Scenario P4.GWT-23: kacho-iam AccessBindingService.List by subject_id — uses ListObjects
-**UC**: UC-AB03 (ListBySubject)
-
-**Given** Tuples:
-- `vpc_network:net-1#viewer@user:usr_alice`
-- `project:prj_x#admin@user:usr_alice`
-
-**And** AccessBinding rows in `access_bindings` table mirror these.
-
-**When** Client calls `AccessBindingService.List(filter={subject_id: "usr_alice"})`.
-
-**Then** Handler determines direction: filter is by subject → use **ListObjects** strategy.
-**And** For each of the recognized FGA object types (vpc_network, project, ...) handler iterates and calls `ListAllowedIDs(usr_alice, <type>, <relation>)` per type — costly but correct. Alternative implementation note: a single call with `objectType="access_binding"` would require introducing the `access_binding` type в FGA DSL; **NOT** introduced в Phase 4 (P4-D13 decision). The iteration is bounded — N <= number of FGA object types in DSL (~19); each call ≤50ms p95 → total p95 ≤1s — acceptable for AccessBindings List (admin-facing endpoint).
-**And** Result: list of bindings matching usr_alice as subject (after SQL join filter).
-
-#### Scenario P4.GWT-24: AccessBindingService.List by resource — uses ListUsers (P4-D13)
-**UC**: UC-AB03 (ListByResource)
-
-**Given** Tuples:
-- `vpc_network:net-1#viewer@user:usr_alice`
-- `vpc_network:net-1#editor@user:usr_bob`
-- `vpc_network:net-1#admin@user:usr_carol`
-
-**When** Client `AccessBindingService.List(filter={resource: {type: vpc_network, id: net-1}})`.
-
-**Then** Handler invokes for relation in [admin, editor, viewer]:
-`uc.authz.ListAllowedUsers(ctx, "vpc_network", "net-1", relation, user_filters=[user, service_account, group])`.
-
-**And** Aggregates users from 3 calls → unique subject set {usr_alice, usr_bob, usr_carol}.
-
-**And** Authorize check: requester (the caller) must have viewer@vpc_network:net-1 themselves — `Check(principal, "viewer", "vpc_network", "net-1")` before listing other subjects (a fine-grained "you must see the resource yourself to enumerate its grantees").
-
-**And** SQL `SELECT * FROM access_bindings WHERE resource_type='vpc_network' AND resource_id='net-1' AND subject_id IN ($subjects)` (joined with subject-allowance).
-
-#### Scenario P4.GWT-25: Internal-only resource (AddressPool) — list-filtered same way
-**UC**: запрет #6 + UC-L01
-
-**Given** AddressPool — Internal admin resource (kacho-vpc, см. workspace `CLAUDE.md` §«Запреты» #6).
-**And** Tuple `vpc_address_pool:pool-1#viewer@user:usr_admin` (admin user with cluster-admin).
-
-**When** Client tries `InternalAddressPoolService.List` через internal-port 9091 (admin-UI).
-
-**Then** Handler invokes `ListAllowedIDs(p, "vpc_address_pool", "viewer")`.
-**And** Cluster-admin cascade applies → list all pools.
-
-**When** Same call comes through external TLS endpoint (port 443) (запрет #6 violation attempt).
-
-**Then** api-gateway DOES NOT register `InternalAddressPoolService` on public mux → request returns 404.
-**And** Phase 4 does NOT change this — verified by `kacho-api-gateway` integration test `internal_only_routing_test.go`.
+#### Scenario P4.GWT-25 (REMOVED — out-of-scope Phase 4)
+**Removed**: InternalAddressPoolService.List refactor на ListAllowedIDs — Internal admin RPC, admin всегда видит всё, no per-subject ACL needed. Existing handler unchanged. Per acceptance-reviewer round 1 C3.
 
 ### 6.6 LISTEN invalidate (3 scenarios)
 
@@ -1247,44 +1256,74 @@ where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && cur
 
 ## 7. Definition of Done (Phase 4 closure)
 
-### Functional
-- [ ] `corelib/authz/listobjects.go` — full implementation (LRU + LISTEN-invalidate + FGA SDK adapter) merged; replaces Phase 3 skeleton.
-- [ ] `corelib/authz/listusers.go` — separate ListUsers implementation for AccessBindingService.List by-resource path.
-- [ ] All 4 services (kacho-vpc, kacho-compute, kacho-loadbalancer, kacho-iam) переписали свои List-RPC handlers:
-  - kacho-vpc: 9 handlers (network, subnet, security_group, route_table, address, gateway, private_endpoint, network_interface, **address_pool — Internal-only path preserved**).
-  - kacho-compute: 4 handlers (instance, disk, image, snapshot).
-  - kacho-loadbalancer: 2 handlers (network_load_balancer, target_group).
-  - kacho-iam: 9 handlers (account, project, user, service_account, group, role, access_binding (special-case P4-D13), jit_eligibility, federation_trust_policy).
-- [ ] All `repo.ListByIDs(ctx, ids, pageSize, pageToken)` methods implemented per resource.
-- [ ] Empty grant returns 200 empty (not 403); zero PermissionDenied confusion.
-- [ ] Cluster-admin / org-admin / account-admin / project-admin cascade works natively through FGA DSL v2 (no client-side short-circuit).
-- [ ] Conditions evaluated at ListObjects (mfa_fresh, source_ip_in_range, jit_window, break_glass_window, etc.) — verified per GWT-39..GWT-42.
-- [ ] FGA Consistency default = MINIMIZE_LATENCY; HIGHER_CONSISTENCY available via request flag.
-- [ ] Pagination — internal MaxResults=10000; > → continuation_token follow-up internal call (transparent to handler).
-- [ ] LISTEN-invalidate latency ≤1s p95 (k6 GWT-32 verifies).
-- [ ] Fail-closed default; `KACHO_AUTHZ_LISTOBJECTS_FAIL_OPEN` flag default OFF.
+### Functional (P0 — must close before merge)
+- [ ] **P0** `corelib/authz/listobjects.go` — full implementation (LRU + LISTEN-invalidate + FGA SDK adapter) merged; replaces Phase 3 skeleton.
+- [ ] **P0** `corelib/authz/listusers.go` — separate ListUsers implementation (API ready для Phase 5+ AccessBindingService.List consumer; Phase 4 не имеет caller-side, только corelib API + integration test).
+- [ ] **P0** **3 services** (kacho-vpc, kacho-compute, kacho-loadbalancer) переписали свои public List-RPC handlers:
+  - kacho-vpc: **8 public** handlers (network, subnet, security_group, route_table, address, gateway, private_endpoint, network_interface). `InternalAddressPoolService.List` — **OUT-of-SCOPE Phase 4** (Internal admin, no per-subject ACL needed; existing handler unchanged).
+  - kacho-compute: **4 public** handlers (instance, disk, image, snapshot). Internal Region/Zone List RPC — OUT-of-SCOPE.
+  - kacho-loadbalancer: **2 handlers** (network_load_balancer, target_group).
+  - **Total Phase 4 = 14 public handlers across 3 services** (+ corelib foundation, см. Step 1 PR-chain).
+- [ ] **P0** **kacho-iam** — single migration `0016_kac127_phase4_audit_outbox.sql` landed (см. §2.2 schema). NO handler changes Phase 4.
+- [ ] **kacho-iam List-RPC handler refactor** — **OUT-of-SCOPE Phase 4**; отдельная Phase / plan revision (см. §10).
+- [ ] **P0** All `repo.ListByIDs(ctx, ids, pageSize, pageToken)` methods implemented per resource (14 resources).
+- [ ] **P0** Empty grant returns 200 empty (not 403); zero PermissionDenied confusion.
+- [ ] **P0** Cluster-admin / org-admin / account-admin / project-admin cascade works natively through FGA DSL v2 (no client-side short-circuit).
+- [ ] **P0** Conditions evaluated at ListObjects (mfa_fresh, source_ip_in_range, jit_window, break_glass_window, etc.) — verified per GWT-39..GWT-42.
+- [ ] **P0** FGA Consistency default = MINIMIZE_LATENCY; HIGHER_CONSISTENCY available via request flag.
+- [ ] **P0** Pagination — internal MaxResults=10000; > → continuation_token follow-up internal call (transparent to handler). **Cache TTL during pagination**: each page-fetch is fresh ListObjects call (5s TTL not extended); если client опаздывает ≥5s между pages, get-page-2 будет cache-miss и swap snapshot — semantically acceptable (each page is consistent within itself; cross-page ordering preserved via DB keyset on immutable id). Bounded к 60s max session for full pagination via `KACHO_AUTHZ_LISTOBJECTS_PAGINATION_SESSION_MAX=60s` env (alert if exceeded).
+- [ ] **P0** LISTEN-invalidate latency ≤1s p95 (k6 GWT-32 verifies). NOTIFY payload format = JSON `{"subject_id": "<id>"}` consistent с Phase 3 §6.2.5 normative contract (no `scope:`-prefix raw-string format introduced; см. resolved GWT-18).
+- [ ] **P0** Fail-closed default; `KACHO_AUTHZ_LISTOBJECTS_FAIL_OPEN` flag default OFF.
 
-### Tests / CI
-- [ ] **Integration tests** (testcontainers Postgres + openfga 1.6.x; per запрет #11):
+### GWT → test file mapping (P1 — must close — добавлено per I2 reviewer round 1)
+
+| GWT IDs | Test file | Functions |
+|---|---|---|
+| 01, 02, 03, 04a, 04b, 05, 06 | `kacho-corelib/authz/listobjects_test.go` + `listobjects_integration_test.go` | TestListAllowedIDs_CacheMissHit, TestListAllowedIDs_CacheHit, TestListAllowedIDs_FailClosed, TestListAllowedIDs_CacheStaleAcceptable_04a, TestListAllowedIDs_TTLExpiryReeval_04b, TestListAllowedIDs_SortedDeterministic, TestListAllowedIDs_PaginationContinuationToken |
+| 07, 08, 09 | `kacho-corelib/authz/listobjects_emptygrant_test.go` | TestEmptyGrant_User, TestEmptyGrant_ClusterAdmin, TestEmptyGrant_SA |
+| 10, 11, 12 | `kacho-corelib/authz/listobjects_grants_test.go` | Test2IDGrant, Test100IDGrant, TestDanglingTupleGraceful |
+| 13, 14, 15, 16, 17 | `kacho-corelib/authz/listobjects_cascade_test.go` | TestClusterAdminAllNetworks, TestClusterAdminRevoke, TestBreakGlassWindow, TestProjectAdminCascade, TestEditorMixed |
+| 19 | `kacho-vpc/internal/apps/kacho/api/network/list_integration_test.go` | TestNetworkServiceList_PhaseFour |
+| 20 | `kacho-compute/internal/apps/kacho/api/instance/list_integration_test.go` | TestInstanceServiceList_PhaseFour |
+| 21 | `kacho-loadbalancer/internal/apps/kacho/api/network_load_balancer/list_integration_test.go` | TestNLBServiceList_PhaseFour |
+| 26, 27, 28 | `kacho-corelib/authz/listobjects_listen_test.go` + race-test | TestListenInvalidate_Upsert, TestListenInvalidate_Revoke, TestListenInvalidate_GroupMemberRemove |
+| 29, 30, 31, 32, 33 | `kacho-test/tests/k6/list_filter_kac127_phase4.js` + `kacho-test/tests/k6/results/KAC-127-phase4-list-filter.md` | k6 scenarios: smoke_100rps, 100_bindings, 1000rps_30min, listen_stress, fga_downtime |
+| 34, 35 | `kacho-corelib/authz/listobjects_model_pinning_test.go` | TestPinnedModelID_V2, TestModelRotation |
+| 36, 37, 38 | `kacho-vpc/internal/repo/kacho/pg/network_list_sqli_test.go` + per-resource | TestSQLI_Safe, TestEmptyIDsShortCircuit, TestLargeIDArray |
+| 39, 40, 41, 42 | `kacho-corelib/authz/listobjects_conditions_test.go` | TestCondition_MfaFresh, TestCondition_SourceIPInRange, TestCondition_JitWindow, TestCondition_BreakGlass
+
+### Tests / CI (P0)
+- [ ] **P0** **Integration tests** (testcontainers Postgres + openfga 1.6.x; per запрет #11):
   - `kacho-corelib/authz/listobjects_integration_test.go` — cache hit/miss, LISTEN race, Conditions, pagination > 10000.
-  - `kacho-corelib/authz/listusers_integration_test.go` — ListUsers happy-path + Conditions.
-  - `kacho-vpc/internal/repo/kacho/pg/<resource>_list_integration_test.go` — для каждого of 9 resources: ListByIDs happy + empty + sqli + 10k-array.
-  - Same для kacho-compute (4 files), kacho-loadbalancer (2), kacho-iam (9).
-- [ ] **Newman cases** (per запрет #11; 1+ happy + 1+ negative per RPC):
+  - `kacho-corelib/authz/listusers_integration_test.go` — ListUsers happy-path + Conditions (API готов; consumer-side в Phase 5+).
+  - `kacho-corelib/authz/audit_outbox_integration_test.go` — **новое (per I5)** — audit_outbox emit happy / failure path / 100ms deadline enforced.
+  - `kacho-vpc/internal/repo/kacho/pg/<resource>_list_integration_test.go` — для каждого of **8 public** resources (network, subnet, security_group, route_table, address, gateway, private_endpoint, network_interface): ListByIDs happy + empty + sqli + 10k-array.
+  - Same для kacho-compute (4 files), kacho-loadbalancer (2 files).
+  - **kacho-iam**: НЕТ list-integration tests Phase 4 (handler refactor out-of-scope); ONLY migration test для `audit_outbox` schema.
+- [ ] **P0** **Newman cases** (per запрет #11; 1+ happy + 1+ negative per public List-RPC):
   - `kacho-test/tests/newman/cases/list_filter_vpc_networks.py` — covers UC-L01, L02, L05; GWT-07, GWT-10, GWT-13.
-  - Same per-service variants for compute / loadbalancer / iam.
+  - Same per-service variants for **compute / loadbalancer** (kacho-iam — NOT covered Phase 4; out-of-scope).
   - `kacho-test/tests/newman/cases/list_filter_listen_invalidate.py` — GWT-26..GWT-28.
   - `kacho-test/tests/newman/cases/list_filter_conditions.py` — GWT-39..GWT-42 (requires real DPoP JWT с varying ACR; uses Kratos+Hydra dev fixture from Phase 2).
-- [ ] **k6 load test** `kacho-test/tests/k6/list_filter_kac127_phase4.js`:
+- [ ] **P0** **k6 load test** `kacho-test/tests/k6/list_filter_kac127_phase4.js`:
   - Three scenarios: GWT-29 (smoke 100 RPS), GWT-30 (100-binding), GWT-31 (1000 RPS 30min sustained).
   - Asserts SLA inline (`check()` calls для p95 / p99 / cache_hit_ratio).
-  - Run on dev стенд `e2c825` (k6 Job manifest in kacho-deploy `helm/umbrella/templates/k6-job-kac127-phase4.yaml`).
+  - Run on dev стенд (env: `kacho-deploy/helm/umbrella/values-dev.yaml` — see I8 reference below).
   - Result artifact: `kacho-test/tests/k6/results/KAC-127-phase4-list-filter.md` committed.
-- [ ] CI green:
+- [ ] **P1** CI green:
   - kacho-corelib: `go test ./authz/... -race`.
-  - kacho-vpc / kacho-compute / kacho-loadbalancer / kacho-iam: `go test ./...`.
+  - kacho-vpc / kacho-compute / kacho-loadbalancer: `go test ./...`.
+  - kacho-iam: migration test only.
   - kacho-test: `bash tests/newman/run.sh && bash tests/k6/run-smoke.sh`.
   - kacho-deploy: `helm lint && helm template` + `promtool check rules`.
+
+### Dev-environment reference (per I8)
+- **k6 dev environment**: `kacho-deploy/helm/umbrella/values-dev.yaml` (NOT `e2c825` magic identifier — replaced per reviewer round 1 I8). Specifies: 3 backend replicas per service (vpc/compute/lb), OpenFGA 3-replica HA cluster, Postgres-per-service 1-master configuration, 1000-network seed corpus, k6 Job manifest in `helm/umbrella/templates/k6-job-kac127-phase4.yaml`.
+- **k6 runtime requirements**:
+  - cluster ≥6 nodes (3× backend, 3× OpenFGA replicas);
+  - allocated cluster RAM ≥48Gi total during sustained 30-min run;
+  - dev cluster does NOT serve customer traffic concurrently;
+  - Grafana dashboards pre-deployed для observation.
 
 ### Operational
 - [ ] Helm values exposed: `authz.listobjects.cacheTtl` (default 5s), `authz.listobjects.maxResults` (default 10000), `authz.listobjects.failOpen` (default false), `authz.listobjects.consistency` (default MINIMIZE_LATENCY).
@@ -1319,8 +1358,8 @@ where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && cur
 - [ ] New: `obsidian/kacho/edges/all-services-to-openfga-listobjects.md` (new runtime edge от vpc / compute / lb / iam → OpenFGA `/list-objects`).
 - [ ] New (per service): `obsidian/kacho/rpc/vpc-list-handlers-phase4.md`, `obsidian/kacho/rpc/compute-list-handlers-phase4.md`, `obsidian/kacho/rpc/lb-list-handlers-phase4.md`, `obsidian/kacho/rpc/iam-list-handlers-phase4.md` — каждая 1-3KB, описывает: какие RPC, какие relation/type pairs, любые service-specific edges.
 - [ ] Updated: `obsidian/kacho/architecture/authz-pipeline.md` (Phase 3 created) — добавить раздел "List-filtering layer (Phase 4)".
-- [ ] `kacho-iam/README.md` мини-секция "List filtering pipeline" (Phase 4 reference).
-- [ ] `kacho-iam/CLAUDE.md` — добавить раздел "ListObjects vs ListUsers — when to use which" (P4-D13 reference).
+- [ ] `kacho-iam/README.md` мини-секция "List filtering pipeline (Phase 4: only audit_outbox migration; handler refactor — future Phase)".
+- [ ] `kacho-iam/CLAUDE.md` — добавить short stub "ListObjects vs ListUsers — out-of-scope Phase 4; future Phase will document concrete API choice per direction" (P4-D13 reference for future).
 - [ ] `docs/specs/01-architecture-and-services.md` дополнено разделом "Phase 4 — ListObjects per List-RPC" (delta from Phase 3).
 
 ### Code quality
@@ -1335,19 +1374,20 @@ where `mfa_fresh` evaluates `acr_value == "3" && "webauthn" in amr_claims && cur
 
 | # | Репо | PR title | Что включает |
 |---|---|---|---|
-| **1** | `kacho-corelib` | `[KAC-127][Phase 4] authz/listobjects.go full impl + listusers + LISTEN-invalidate` | `authz/listobjects.go`, `listobjects_lru.go`, `listobjects_invalidate.go`, `listusers.go`, `principal_to_context.go`, `metrics.go` extension; unit + integration tests с testcontainers (openfga 1.6.x + Postgres 16); race-test for LISTEN reconnect |
-| **2a** | `kacho-vpc` | `[KAC-127][Phase 4] List-RPC rewrite to ListAllowedIDs (9 handlers + ListByIDs repos)` | Per-resource list_usecase.go + list.go handler; repo.ListByIDs methods; integration tests per resource; newman case `list_filter_vpc_networks.py` etc. |
-| **2b** | `kacho-compute` | `[KAC-127][Phase 4] List-RPC rewrite — 4 handlers` | Same pattern, 4 resources. |
-| **2c** | `kacho-loadbalancer` | `[KAC-127][Phase 4] List-RPC rewrite — 2 handlers` | Same pattern, 2 resources. |
-| **2d** | `kacho-iam` | `[KAC-127][Phase 4] List-RPC rewrite — 9 handlers; AccessBindingService.List special-case (ListUsers)` | All 9 handlers; AccessBindingService.List special-case logic; integration; newman. |
-| **3** | `kacho-test` | `[KAC-127][Phase 4] k6 + newman list-filter tests` | k6 scenario file + results .md placeholder; newman cases для cross-service coverage; smoke run script. |
-| **4** | `kacho-deploy` | `[KAC-127][Phase 4] Helm values + Grafana dashboard + Alerts` | values.yaml extension; dashboard JSON; alertmanager rules; per-chart env injection |
+| **1** | `kacho-corelib` | `[KAC-127][Phase 4] authz/listobjects.go full impl + listusers + LISTEN-invalidate` | `authz/listobjects.go`, `listobjects_lru.go`, `listobjects_invalidate.go`, `listusers.go`, `principal_to_context.go`, `metrics.go` extension; unit + integration tests с testcontainers (openfga 1.6.x + Postgres 16); race-test for LISTEN reconnect; audit_outbox emit integration test (per I5) |
+| **1.5** | `kacho-iam` | `[KAC-127][Phase 4] migration 0016 audit_outbox table (NO handler changes)` | Single migration file `0016_kac127_phase4_audit_outbox.sql`; migration up/down tested; no handler / service changes. Pre-requisite Step 2 (backend services start emitting audit on their handlers). |
+| **2a** | `kacho-vpc` | `[KAC-127][Phase 4] List-RPC rewrite to ListAllowedIDs (8 public handlers + ListByIDs repos)` | Per-resource list_usecase.go + list.go handler для 8 public resources (network, subnet, security_group, route_table, address, gateway, private_endpoint, network_interface). InternalAddressPoolService.List — NOT touched (out-of-scope Phase 4). repo.ListByIDs methods; integration tests per resource; newman case `list_filter_vpc_networks.py` etc. |
+| **2b** | `kacho-compute` | `[KAC-127][Phase 4] List-RPC rewrite — 4 public handlers` | Public handler rewrite (instance, disk, image, snapshot). Internal Region/Zone List — NOT touched (out-of-scope Phase 4). |
+| **2c** | `kacho-loadbalancer` | `[KAC-127][Phase 4] List-RPC rewrite — 2 handlers` | Same pattern, 2 resources (network_load_balancer, target_group). |
+| **3** | `kacho-test` | `[KAC-127][Phase 4] k6 + newman list-filter tests (vpc/compute/lb)` | k6 scenario file + results .md placeholder; newman cases для cross-service coverage (vpc / compute / lb — kacho-iam NOT covered Phase 4); smoke run script. |
+| **4** | `kacho-deploy` | `[KAC-127][Phase 4] Helm values + Grafana dashboard + Alerts` | values.yaml extension; dashboard JSON; alertmanager rules; per-chart env injection. NOTE: env injection covers 3 backend deployments (vpc/compute/lb) — kacho-iam backend гет env vars but doesn't yet use them (Phase 5+ when its handlers refactor). |
 | **5** | `kacho-workspace` | `[KAC-127][Phase 4] vault: list-filtering pipeline + edges + per-service RPC docs` | Files в obsidian/kacho per §7 Documentation block. |
 
-Branch policy: branch `KAC-127` в каждом из 7 затронутых репо; после merge — `gh pr merge --delete-branch`.
+Branch policy: branch `KAC-127` в каждом из 7 затронутых репо (corelib + iam + vpc + compute + lb + test + deploy + workspace); после merge — `gh pr merge --delete-branch`.
 
 CI ref-pins (temporary, removed после merge):
-- Steps 2a/2b/2c/2d: pin `kacho-corelib-ref: KAC-127`.
+- Step 1.5 (kacho-iam migration): pin `kacho-corelib-ref: KAC-127` если migration test использует corelib helpers.
+- Steps 2a/2b/2c: pin `kacho-corelib-ref: KAC-127`, `kacho-iam-ref: KAC-127`.
 - Step 3: pin all of `kacho-corelib`/`kacho-vpc`/`kacho-compute`/`kacho-loadbalancer`/`kacho-iam` к `KAC-127`.
 - Step 4: pin all to KAC-127 во время build.
 - After all merged: revert refs к `main` в next batch-commit.
@@ -1362,19 +1402,26 @@ CI ref-pins (temporary, removed после merge):
 | Cache stampede на cold start (1000 RPS hitting cold cache) | Medium | LRU cache supports concurrent access (no global lock — `sync.RWMutex` per shard, hashicorp/golang-lru/v2 internally); FGA can handle 1000 concurrent ListObjects (pre-Phase-4 load-test on dev cluster of 3 replicas) |
 | LISTEN goroutine deadlock / blocked invalidation | Medium | Goroutine uses dedicated pgx.Conn (separate from main pool); `WaitForNotification` with context cancellation; reconnect loop logged + metric'd; integration test `listobjects_listen_race_test.go` exercises 1000 concurrent updates + reads |
 | FGA Conditions evaluation overhead at scale | Low | Conditions are CEL with simple predicates (time comparison, ip range); FGA-engine evaluates fast (~1μs per Condition); k6 test confirms p95 within budget |
-| Cache memory pressure — 1000s of users × 19 object types × per-pod | Medium | `MaxEntries=10000` per cache (configurable via Helm); LRU evicts oldest; eviction metric monitored; pod memory limits set (256Mi default) |
+| Cache memory pressure — 1000s of users × 14 object types × per-pod | Medium | `MaxEntries=10000` per cache (configurable via Helm); LRU evicts oldest; eviction metric monitored; pod memory limits set (256Mi default) |
+| LISTEN-invalidate linear scan на NOTIFY → O(N) per-NOTIFY cost (per I6 reviewer round 1) | Medium | Phase 4 accepts O(N) linear-scan invalidate path: at design ceiling `MaxEntries=10000` × `1000 revokes/min sustained = 10000 × 16.7/s = 167k scans/s` → ~16.7ms CPU per pod per second of scan → tolerable. Verified via GWT-32 stress test (1000 revokes/min × 10min, no SLA breach). Phase 5+ may optimize via per-subject `map[subject_id][]cacheKey` reverse-index for O(1) invalidate. SLI thresholds: max 10000 entries × max 5000 revokes/min sustained = upper-bound design envelope; alert if either exceeded. |
 | LISTEN-NOTIFY connection-instability в multi-AZ Postgres cluster | Medium | Exponential backoff reconnect (200ms..5s); during reconnect window cache stale-by-≤5s (TTL bounded); alert `ListenConnectionDown ≥60s` |
 | ListObjects API returns inconsistent results under MINIMIZE_LATENCY (eventually-consistent read replica) | Low | For read-your-own-writes (e.g., post-Upsert read), client passes `Consistency: CONSISTENCY_HIGHER` flag → ListObjects uses HIGHER_CONSISTENCY → strict read. Default MINIMIZE_LATENCY acceptable for periodic UI polling. |
-| Scope-invalidate (Project.Move case GWT-18) — cache.InvalidateAll() too coarse | Low | Phase 4 accepts cache.InvalidateAll() as best-effort; Phase 5+ может optimize. Documented in vault `architecture/list-filtering-pipeline.md`. Project.Move is rare admin op (≤1/day per tenant typical). |
+| Project.Move cache invalidation lag — stale entries for ≤5s post-Move (per C4 resolved removal of GWT-18) | Low | Phase 4 НЕ модифицирует Phase 3 NOTIFY payload contract; Project.Move-induced stale entries continue serving до TTL=5s expiry. Acceptable bounded window; Project.Move ≤1/day per tenant typical. Documented in vault `architecture/list-filtering-pipeline.md`. |
+| FGA scale — 100k+ tuples per Authorization Model | Medium (per M6 reviewer round 1) | OpenFGA 1.6.x handles 1M+ tuples per benchmarks (upstream). k6 GWT-31 verifies at 1000 networks × 1000 users × 500 bindings = 500k tuple scale. Larger scale (1M+) requires Phase 11 multi-cluster sharding (см. §10). |
 | Fail-open default off — operator forgets to flip during incident | Medium | Runbook in vault `obsidian/kacho/architecture/list-filtering-pipeline.md` § "Fail-open procedure"; on-call playbook update; tested via tabletop exercise (Phase 12). |
 | Cross-pod cache divergence — pod A invalidates faster than pod B → User sees different list per pod | Low | LISTEN is broadcast — all pods receive NOTIFY simultaneously (Postgres semantics); divergence window ≤1s p99; UI is fault-tolerant (re-fetch on visible inconsistency). |
+| Pagination spanning multiple FGA fetches — page-2 sees different ACR snapshot than page-1 if step-up между pages | Low (per I9 reviewer round 1) | Each page-fetch = fresh ListAllowedIDs call (cache lookup); page tokens encode `(fga_continuation_token, db_last_id)`. If client takes >5s between pages, page-2 may see different snapshot. Cross-page ordering preserved via stable DB keyset (immutable id PK). Bounded к 60s session max via `KACHO_AUTHZ_LISTOBJECTS_PAGINATION_SESSION_MAX=60s`. No TTL extension escape hatch (per acceptance-reviewer I9). |
 
 ---
 
 ## 10. Out of Scope (явно отложено в Phases 5-13)
 
-| Feature | Phase |
+| Feature | Phase / Resolution |
 |---|---|
+| **IAM List-RPC handler refactor (kacho-iam)** — ProjectService.List, AccessBindingService.List, AccountService.List, UserService.List, ServiceAccountService.List, GroupService.List, RoleService.List, JitEligibilityService.List, FederationTrustPolicyService.List на ListAllowedIDs | **Отдельная Phase / plan revision (post-Phase 4)** — per acceptance-reviewer round 1 C1. Reason: Phase 4 design + plan §4.3 fix scope as 3 services × 14 public handlers. IAM-собственные ресурсы (account/project/user/etc.) требуют отдельной DSL design discussion (some types like `access_binding` могут не получить FGA type at all — they're authorization-data, not authorization-subjects), отдельного acceptance-документа, отдельного PR-chain. |
+| **InternalAddressPoolService.List refactor (kacho-vpc)** | **OUT-of-SCOPE Phase 4** — per acceptance-reviewer round 1 C3. Reason: Internal admin RPC; admin always sees all (no per-subject ACL). Existing handler unchanged. Refactor possible in future Phase if fine-grained admin ACL ever required. |
+| **Internal Region/Zone List refactor (kacho-compute)** | **OUT-of-SCOPE Phase 4** — per acceptance-reviewer round 1 C3. Reason: same as InternalAddressPool — Internal admin, admin always sees all, no per-subject ACL semantics. |
+| Project.Move cache invalidation (cross-subject scope-broad NOTIFY format) — was GWT-18 | **OUT-of-SCOPE Phase 4** — per acceptance-reviewer round 1 C4. Reason: requires extension Phase 3 NOTIFY payload contract (new `scope:`-prefix format), outbox-worker changes, contract spec update. Phase 4 accepts TTL=5s stale window post-Move (rare admin op). Future Phase may introduce contract extension. |
 | Federation Exchange RPC (RFC 8693) + SA Hydra-clients + Federation Trust Policy validation | Phase 5 |
 | SCIM 2.0 endpoint + SAML bridge + Organization-UI cascader | Phase 6 |
 | JIT activation RPC + Break-glass workflow + 2-person approval + Access Reviews + GDPR erasure | Phase 7 (Phase 4 only HONORS `jit_window` / `break_glass_window` Conditions; workflows themselves — Phase 7) |
@@ -1384,7 +1431,7 @@ CI ref-pins (temporary, removed после merge):
 | Multi-region active-active + `api.kacho.cloud` TLS + Argo CD | Phase 11 |
 | OWASP ASVS L3 + fuzzing + chaos + pentest + bug bounty | Phase 12 |
 | Vault closeout (30+ files; final architecture) | Phase 13 |
-| Optimized scope-invalidate replacing `cache.InvalidateAll()` for Project.Move (GWT-18) | Phase 5+ (Phase 4 accepts conservative invalidate) |
+| Per-subject reverse-index for O(1) LISTEN-invalidate (replacing O(N) linear scan, per I6) | Phase 5+ optimization (Phase 4 accepts O(N) within design envelope: 10000 entries × 5000 revokes/min). |
 | Cross-cluster cache coherence (если многорегиональный deploy в Phase 11) | Phase 11 (Phase 4 — single-cluster) |
 | Pre-fetch cache warming (hint API) | Phase 12+ (Phase 4 starts cold) |
 
@@ -1396,11 +1443,11 @@ CI ref-pins (temporary, removed после merge):
 
 | Q | Resolution |
 |---|---|
-| **Q-list-vs-list-users**: ListObjects vs ListUsers — что использовать в AccessBindingService.List? | **P4-D13 resolved**. ListUsers — для "who has access to resource X" (filter by resource). ListObjects — для "what resources can X access" (filter by subject). AccessBindingService.List has two-direction filter — switch on `req.Filter` oneof. Filter by subject → ListObjects (call per-FGA-type loop, accept N round-trips up to 19 types). Filter by resource → ListUsers (single call, multi-relation aggregate). When **both** present → ListObjects (subject path is more selective in practice) + SQL `AND resource_id = $resource`. When **neither** → falls back к standard scope-Check (must have viewer@project:<...> to list within project). |
-| **Q-pagination-semantics**: Pagination с MINIMIZE_LATENCY — sequential follow-up calls могут видеть разные snapshot'ы. | Page tokens encode `(fga_continuation_token, db_last_id)` базе64. Each follow-up call uses pinned continuation_token from FIRST call — FGA-side cursor пиннится. DB-side keyset uses last_id (immutable). Cache TTL extended до session-end if continuation_token open (LRU TTL doesn't expire mid-pagination — implementation detail in `listobjects.go`). After last page, cursor cleared. |
-| **Q-cache-key-include-acr**: должен ли ACR / AMR быть частью cache key? | **Нет**. Cache key = (principal_id, principal_type, object_type, relation, scope, model_id). Conditions evaluated per request с context.now() / context.client_ip / context.mfa_at — FGA re-runs eval each Check (cache stores **result** of evaluation для given current Conditions snapshot). Edge case: if usr_alice's ACR changes (step-up) between two requests within 5s TTL, second request gets stale cached result. Acceptable — 5s window; verified by GWT-39 setup with cacheTtl=0. Future Phase 5+ может introduce key extension under feature-flag. |
+| **Q-list-vs-list-users**: ListObjects vs ListUsers — что использовать в AccessBindingService.List? | **Phase 4 — N/A** (AccessBindingService.List handler refactor out-of-scope; см. §10). corelib publishes both APIs (`ListAllowedIDs` и `ListAllowedUsers`); Phase 5+ AccessBindingService.List handler implementation chooses appropriate API based on filter direction: filter by subject → ListObjects (iterate per relevant FGA type); filter by resource → ListUsers (single call, multi-relation aggregate). Phase 5+ acceptance-doc will resolve concrete authorization-check semantics для AccessBindingService.List access control. |
+| **Q-pagination-semantics**: Pagination с MINIMIZE_LATENCY — sequential follow-up calls могут видеть разные snapshot'ы. | Page tokens encode `(fga_continuation_token, db_last_id)` base64. Each follow-up page-fetch = **fresh** ListAllowedIDs call (no TTL extension escape hatch per I9 reviewer round 1). FGA-side continuation_token preserved across calls. DB-side keyset uses last_id (immutable PK). Bounded к 60s max session via `KACHO_AUTHZ_LISTOBJECTS_PAGINATION_SESSION_MAX=60s` env. If client gap >5s между page-1 and page-2, page-2 sees fresh FGA snapshot — cross-page item-set может slightly differ (acceptable: each page is internally consistent; cross-page ordering preserved via stable id keyset). After last page, cursor cleared. |
+| **Q-cache-key-include-acr**: должен ли ACR / AMR быть частью cache key? | **Нет**. Cache key = (principal_id, principal_type, object_type, relation, scope, model_id). Conditions evaluated per request с context.now() / context.client_ip / context.mfa_at — FGA re-runs eval each Check (cache stores **result** of evaluation для given current Conditions snapshot). Edge case: if usr_alice's ACR changes (step-up) between two requests within 5s TTL, second request gets stale cached result. **Acceptable — 5s window**; explicitly verified в GWT-04a (production cache enabled, stale-within-TTL accepted) + GWT-04b (TTL expiry → fresh re-evaluation correctness). Future Phase 5+ может introduce key extension under feature-flag if business decides 5s window unacceptable. |
 | **Q-group-fanout**: Group member removal — should NOTIFY fanout к other members? | **No.** Removing usr_x from group doesn't affect other members' access. Only usr_x's cache needs invalidation. Documented in GWT-28. |
-| **Q-scope-invalidate**: Project.Move — too coarse to enumerate all subjects who had cascade access; use scope-broad payload? | Yes, payload format `scope:account:<old_account_id>` triggers `cache.InvalidateAll()` per-pod. Conservative — better some over-invalidation than missing subject. Phase 5+ может optimize via materialized subject-graph. |
+| **Q-scope-invalidate**: Project.Move — too coarse to enumerate all subjects who had cascade access; use scope-broad payload? | **Phase 4 — N/A**. Per acceptance-reviewer round 1 C4: Phase 4 НЕ модифицирует Phase 3 NOTIFY payload contract (JSON `{"subject_id": "<id>"}` only). Project.Move cache invalidation across cross-subject scope — out-of-scope; accepted bounded staleness up к 5s TTL post-Move (Project.Move ≤1/day per tenant typical). Future Phase may extend Phase 3 contract under separate ticket. |
 | **Q-paginate-keyed-by-fga-vs-db**: Pagination cursor — FGA или DB? | **Both**, hierarchically. Outer loop: FGA pagination (continuation_token from FGA, used only когда `len(ids) > MaxResults`). Inner loop: DB pagination (keyset on id). Page token combines both base64-encoded (`<fga_token>:<db_last_id>`). Most realistic case: FGA returns ≤10000 ids in single call → outer loop trivial; DB pagination used to slice. |
 | **Q-audit-emit-required-or-best-effort**: должен ли List request fail если audit_outbox emit fails? | **Best-effort, NOT required**. audit_outbox emit (Internal RPC к kacho-iam) с 100ms deadline; failure → metric increment, NO request blocking. Rationale: list is read; missing audit row не critical (eventually-emitted via retry если success — но Phase 4 doesn't add retry; Phase 9 will). Trade-off acceptable. |
 | **Q-empty-grant-vs-permission-denied**: empty list vs PermissionDenied — какая user-facing semantics? | **Empty list always**. P4-D4 — consistent с YC List behavior. Tenant doesn't learn that "resources exist somewhere but you can't see them" — defense-in-depth + UX-consistency. PermissionDenied только при absent auth (anonymous) — handled by api-gateway pre-handler interceptor, not corelib. |
@@ -1430,6 +1477,25 @@ CI ref-pins (temporary, removed после merge):
 ## 13. Phase 4 changelog
 
 - **2026-05-19** — DRAFT v1 создан (`acceptance-author`). Decision Log P4-D1..P4-D13 закрыт inline. 42 GWT scenarios (target ≥40 met — exceeded by 2). Out-of-scope = Phases 5-13 (no intra-Phase deferred items). User feedback round 2 (no backward-compat KAC-108 single-Check) inline-resolved в P4-D1.
+- **2026-05-19** — DRAFT v2 (round 1 `acceptance-reviewer` feedback applied):
+  - **Critical fixes (C1-C5)**:
+    - **C1 scope tightening**: kacho-iam List-handler refactor (9 handlers) — removed from Phase 4 scope. Phase 4 = 3 services × 14 public handlers (vpc 8 + compute 4 + lb 2) + corelib foundation + kacho-iam migration only. IAM list-filtering — separate Phase / plan revision. Updated §«Что добавляется», §4.2, §6.5, §7 DoD, §8 PR-chain, §10 Out of Scope.
+    - **C2 DSL types alignment**: Added P4-D14 fixing Phase 4 reads-only-from frozen DSL v2 (14 types listed §2.1); no new FGA types/relations introduced.
+    - **C3 Internal admin out-of-scope**: vpc_address_pool (InternalAddressPoolService.List) и compute Region/Zone Internal admin List explicit out-of-scope — admin always sees all, no per-subject ACL Phase 4.
+    - **C4 GWT-18 removed**: Project.Move scope-broad NOTIFY payload extension out-of-scope; existing TTL=5s stale window accepted post-Move.
+    - **C5 GWT-04 split**: 04a (production cache enabled, ACR stale-within-TTL accepted) + 04b (TTL expiry → fresh FGA re-eval correctness).
+  - **Important fixes (I1-I9)**:
+    - I1 scenario count: 38 active scenarios documented (was 42; some split, some removed); §6 header + counter explicit.
+    - I2 test-file mapping table: new §7 sub-section.
+    - I3 GWT-23 latency claim: GWT-23 itself removed; reference removed from §«Что добавляется».
+    - I4 GWT-24 auth-check: removed (out-of-scope).
+    - I5 audit_outbox migration: §2.2 enhanced with full schema; PR-chain new Step 1.5 для migration-only PR; integration test required for audit_outbox emit path.
+    - I6 LISTEN linear scan: §«Risks» entry + §10 forward-pointer to Phase 5+ optimization.
+    - I7 NOTIFY payload format: §«Functional» enforces JSON format consistent with Phase 3 §6.2.5; no `scope:`-prefix raw-string.
+    - I8 e2c825 reference: replaced with `kacho-deploy/helm/umbrella/values-dev.yaml` reference + dev runtime requirements.
+    - I9 pagination TTL escape: removed; each page = fresh ListAllowedIDs call; bounded к 60s session via env.
+  - **Minor (M1-M6)**: applied where load-bearing (M5 P0/P1 priorities applied to Functional/Tests sections; M6 FGA scale risk added).
+- Status update: **DRAFT v2 — pending acceptance-reviewer round 2 APPROVED gate**.
 
 ---
 
