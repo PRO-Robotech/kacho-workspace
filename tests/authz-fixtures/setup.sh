@@ -78,20 +78,29 @@ poll_op() {
 #    REST-маппинг отсутствует — proto не имеет google.api.http аннотации; KAC-125).
 log "2/8 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 
-# upsert_user_grpc возвращает userId через stdout (poll Operation.metadata.userId).
+# upsert_user_grpc — upsert user, затем КАНОНИЧЕСКИ резолвит id через
+# InternalIAMService.LookupSubject{externalId}.
+#
+# КРИТИЧНО (KAC-127 #42 / #16): api-gateway резолвит principal через
+# LookupSubject{external_id} (см. clients/iam_subject_client.go) — fixture
+# ОБЯЗАН использовать тот же путь, иначе fixture-id и принципал-id у
+# api-gateway разъезжаются → authzguard.RequireSelfGrant / RequireOwner
+# падают code-7. UpsertFromIdentity.metadata.userId после фикса #16 тоже
+# корректен, но LookupSubject{externalId} — единственный источник истины,
+# совпадающий с api-gateway 1-в-1.
 upsert_user_grpc() {
   local ext_id="$1" email="$2" display="${3:-$email}"
-  local body op_id user_id
+  local body resp user_id
   body=$(printf '{"externalId":"%s","email":"%s","displayName":"%s"}' "$ext_id" "$email" "$display")
-  local resp
   resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
     kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
-  user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
+  # Канонический резолв id — by external_id (тот же ключ, что api-gateway).
+  user_id=$(grpcurl -plaintext -d "{\"externalId\":\"$ext_id\"}" "$IAM_INTERNAL_GRPC" \
+    kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); u=d.get("user") or {}; print(u.get("id","") or d.get("subjectId",""))' 2>/dev/null || true)
   if [ -z "$user_id" ]; then
-    # PENDING-row может быть активирован — get_by_email через grpc.
-    user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
-      kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
-      | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
+    # Fallback — UpsertFromIdentity.metadata.userId (после фикса #16 корректен).
+    user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
   fi
   echo "$user_id"
 }
@@ -106,27 +115,34 @@ log "    users: BOOT=$USER_BOOT NOB=$USER_NOB PA1=$USER_PA1 AAA=$USER_AAA AAB=$U
 
 # 3) Accounts (idempotent by name).
 log "3/8 ensuring accounts authz-test-A / authz-test-B"
+# List is scope-filtered to accounts the caller can see — query with the
+# owner's JWT so an already-created account is found (idempotency).
 find_account_by_name() {
-  local name="$1"
-  api GET "/iam/v1/accounts" "$JWT_BOOTSTRAP" \
+  local name="$1" jwt="${2:-$JWT_BOOTSTRAP}"
+  api GET "/iam/v1/accounts" "$jwt" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('accounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 
+# NB: AccountService.Create enforces authzguard.RequireOwnerMatchesPrincipal
+# (KAC-122 CRIT-3 anti-hijacking) — the calling principal MUST equal
+# owner_user_id. So each Account is created BY ITS OWNER, with that owner's
+# JWT — NOT under the bootstrap token. (Fixed in KAC-127 #42: the fixture
+# previously created both accounts under JWT_BOOTSTRAP and got code-7.)
 ensure_account() {
-  local name="$1" desc="$2" owner="$3"
+  local name="$1" desc="$2" owner="$3" owner_jwt="$4"
   local found
-  found=$(find_account_by_name "$name")
+  found=$(find_account_by_name "$name" "$owner_jwt")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"name":"%s","description":"%s","ownerUserId":"%s"}' "$name" "$desc" "$owner")
-  op=$(api POST "/iam/v1/accounts" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/iam/v1/accounts" "$owner_jwt" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] FATAL: Account.Create vernuli no id: $op" >&2; return 1; fi
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  poll_op "$op_id" "$owner_jwt" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("accountId",""))'
 }
-ACCOUNT_A=$(ensure_account "authz-test-a" "KAC-122 fixture (account-admin-A home)" "$USER_AAA")
-ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home + invitee home)" "$USER_AAB")
+ACCOUNT_A=$(ensure_account "authz-test-a" "KAC-122 fixture (account-admin-A home)" "$USER_AAA" "$JWT_AAA")
+ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home + invitee home)" "$USER_AAB" "$JWT_AAB")
 log "    accounts: A=$ACCOUNT_A B=$ACCOUNT_B"
 
 # 4) Projects.
@@ -154,38 +170,47 @@ PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross
 log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
+#
+# NB: AccessBindingService.Create enforces authzguard.RequireSelfGrant —
+# subject_id MUST equal the calling principal (you can only grant a binding
+# TO YOURSELF). So each binding is created with the subject's own JWT, NOT
+# the bootstrap token. (Fixed in KAC-127 #42 — previously all bindings were
+# created under JWT_BOOTSTRAP and silently failed code-7.)
 log "5/8 ensuring access bindings"
 ensure_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4"
-  local body
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" subject_jwt="$5"
+  local body resp
   body=$(printf '{"subjectType":"user","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$JWT_BOOTSTRAP" "$body" >/dev/null || true
+  resp=$(api POST "/iam/v1/accessBindings" "$subject_jwt" "$body" 2>&1 || true)
+  if echo "$resp" | grep -q '"code":'; then
+    log "    WARN AccessBinding.Create ($subject_id → $role_id @ $resource_type:$resource_id): $(echo "$resp" | head -c 160)"
+  fi
 }
 # System role IDs (из seed миграции kacho_iam 0001):
 #   iam{ad,ed,vw} / vpc{ad,ed,vw} / cmp{ad,ed,vw} / lbs{ad,ed,vw}.
 # Owner relation в Keto cascade — не отдельный role-id, а Account membership-type;
 # для тестов используем "ad" (admin) — он эквивалентен owner-у для всех практических целей.
 
-# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs).
-ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1"
-ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1"
-ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1"
-# AAA — account-A admin по всем доменам.
-ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A"
-# AAB — account-B admin по всем доменам.
-ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B"
-# INV — owner-of-B (his home) — admin по всем доменам в account-B.
-ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B"
+# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs). Self-grant с JWT_PA1.
+ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_PA1"
+ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1" "$JWT_PA1"
+ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1" "$JWT_PA1"
+# AAA — account-A admin по всем доменам. Self-grant с JWT_AAA.
+ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A" "$JWT_AAA"
+# AAB — account-B admin по всем доменам. Self-grant с JWT_AAB.
+ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
+# INV — owner-of-B (his home) — admin по всем доменам в account-B. Self-grant с JWT_INV.
+ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_INV"
+ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_INV"
+ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_INV"
+ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_INV"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/8 invite INV to account-A (KAC-125)"
