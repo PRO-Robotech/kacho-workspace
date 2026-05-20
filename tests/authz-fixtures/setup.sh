@@ -164,6 +164,20 @@ USER_AAB=$(upsert_user_grpc "auth-test-account-admin-b@example.com" "auth-test-a
 USER_INV=$(upsert_user_grpc "auth-test-invitee@example.com"         "auth-test-invitee@example.com"         "AuthZ Invitee")
 log "    users: BOOT=$USER_BOOT NOB=$USER_NOB PA1=$USER_PA1 AAA=$USER_AAA AAB=$USER_AAB INV=$USER_INV"
 
+# Fail-fast — a missing user id (grpcurl could not reach kacho-iam-internal, or
+# UpsertFromIdentity/LookupSubject errored) silently cascades into empty
+# subjectId on every AccessBinding and a stack that "passes" with the wrong
+# authz state. Surface it here with an actionable message instead of producing
+# a misleading newman run.
+for _pair in "BOOT:$USER_BOOT" "NOB:$USER_NOB" "PA1:$USER_PA1" \
+             "AAA:$USER_AAA" "AAB:$USER_AAB" "INV:$USER_INV"; do
+  if [ -z "${_pair#*:}" ]; then
+    echo "[setup] FATAL: user ${_pair%%:*} resolved to an empty id — UpsertFromIdentity/LookupSubject failed." >&2
+    echo "[setup]        Check IAM_INTERNAL_GRPC=$IAM_INTERNAL_GRPC is reachable via grpcurl and kacho-iam is up." >&2
+    exit 1
+  fi
+done
+
 # 3) Accounts (idempotent by name).
 log "3/10 ensuring accounts authz-test-A / authz-test-B"
 find_account_by_name() {
