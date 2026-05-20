@@ -194,87 +194,111 @@ for _pair in "BOOT:$USER_BOOT" "NOB:$USER_NOB" "PA1:$USER_PA1" \
 done
 
 # 3) Accounts (idempotent by name).
+#
+# KAC-127 Phase 3 authz contract: `AccountService.Create` enforces
+# `RequireOwnerMatchesPrincipal` (KAC-122 CRIT-3 anti-hijacking) — the
+# authenticated principal MUST equal `owner_user_id`. A user can only create
+# an Account owned by themselves. Therefore each account is created using the
+# *owner's* own JWT, not the bootstrap-admin token. (Previously the fixture
+# created every account as BOOT → `code 7 permission denied` on the first
+# Account.Create, which aborted the whole fixture run.)
 log "3/10 ensuring accounts authz-test-A / authz-test-B"
 find_account_by_name() {
-  local name="$1"
-  api GET "/iam/v1/accounts" "$JWT_BOOTSTRAP" \
+  local name="$1" token="$2"
+  api GET "/iam/v1/accounts" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('accounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 
+# ensure_account — create (idempotent) an Account owned by `owner`, acting as
+# `owner_token` (the owner's own JWT). owner_token's principal == owner so the
+# anti-hijacking guard passes.
 ensure_account() {
-  local name="$1" desc="$2" owner="$3"
+  local name="$1" desc="$2" owner="$3" owner_token="$4"
   local found
-  found=$(find_account_by_name "$name")
+  found=$(find_account_by_name "$name" "$owner_token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"name":"%s","description":"%s","ownerUserId":"%s"}' "$name" "$desc" "$owner")
-  op=$(api POST "/iam/v1/accounts" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/iam/v1/accounts" "$owner_token" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] FATAL: Account.Create vernuli no id: $op" >&2; return 1; fi
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  poll_op "$op_id" "$owner_token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("accountId",""))'
 }
-ACCOUNT_A=$(ensure_account "authz-test-a" "KAC-122 fixture (account-admin-A home)" "$USER_AAA")
-ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home + invitee home)" "$USER_AAB")
+ACCOUNT_A=$(ensure_account "authz-test-a" "KAC-122 fixture (account-admin-A home)" "$USER_AAA" "$JWT_AAA")
+ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home + invitee home)" "$USER_AAB" "$JWT_AAB")
 log "    accounts: A=$ACCOUNT_A B=$ACCOUNT_B"
 
 # 4) Projects.
+#
+# `ProjectService.Create` is gated by the api-gateway authz-mw with
+# `required_relation: editor` on `account:<account_id>`. The account owner
+# holds `owner` (⊇ `editor`) on their account via the FGA owner-tuple written
+# by Account.Create — so projects are created acting as the owning account's
+# owner JWT.
 log "4/10 ensuring projects A1 / A2 / B1"
 find_project_by_name_account() {
-  local name="$1" acct="$2"
-  api GET "/iam/v1/projects?accountId=$acct" "$JWT_BOOTSTRAP" \
+  local name="$1" acct="$2" token="$3"
+  api GET "/iam/v1/projects?accountId=$acct" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('projects') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 ensure_project() {
-  local name="$1" acct="$2" desc="$3"
+  local name="$1" acct="$2" desc="$3" owner_token="$4"
   local found
-  found=$(find_project_by_name_account "$name" "$acct")
+  found=$(find_project_by_name_account "$name" "$acct" "$owner_token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"accountId":"%s","name":"%s","description":"%s"}' "$acct" "$name" "$desc")
-  op=$(api POST "/iam/v1/projects" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/iam/v1/projects" "$owner_token" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  if [ -z "$op_id" ]; then echo "[setup] FATAL: Project.Create returned no id: $op" >&2; return 1; fi
+  poll_op "$op_id" "$owner_token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("projectId",""))'
 }
-PROJECT_A1=$(ensure_project "authz-test-a1" "$ACCOUNT_A" "KAC-122 fixture (project-admin-A1 home)")
-PROJECT_A2=$(ensure_project "authz-test-a2" "$ACCOUNT_A" "KAC-122 fixture (cross-project in same account)")
-PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross-account)")
+PROJECT_A1=$(ensure_project "authz-test-a1" "$ACCOUNT_A" "KAC-122 fixture (project-admin-A1 home)" "$JWT_AAA")
+PROJECT_A2=$(ensure_project "authz-test-a2" "$ACCOUNT_A" "KAC-122 fixture (cross-project in same account)" "$JWT_AAA")
+PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross-account)" "$JWT_AAB")
 log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
+#
+# `AccessBindingService.Create` enforces `requireGrantAuthority`: the caller
+# must own the owning Account of the grant scope (or hold FGA `admin` on it).
+# Bindings are therefore created acting as the owning account's owner JWT:
+#   - scope account/project under account A → JWT_AAA (owner of A)
+#   - scope account/project under account B → JWT_AAB (owner of B)
 log "5/10 ensuring access bindings"
 ensure_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4"
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
   local body
   body=$(printf '{"subjectType":"user","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$JWT_BOOTSTRAP" "$body" >/dev/null || true
+  api POST "/iam/v1/accessBindings" "$grantor_token" "$body" >/dev/null || true
 }
 # System role IDs (из seed миграции kacho_iam 0001):
 #   iam{ad,ed,vw} / vpc{ad,ed,vw} / cmp{ad,ed,vw} / lbs{ad,ed,vw}.
 # Owner relation в Keto cascade — не отдельный role-id, а Account membership-type;
 # для тестов используем "ad" (admin) — он эквивалентен owner-у для всех практических целей.
 
-# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs).
-ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1"
-ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1"
-ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1"
-# AAA — account-A admin по всем доменам.
-ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A"
-ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A"
-# AAB — account-B admin по всем доменам.
-ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B"
-# INV — owner-of-B (his home) — admin по всем доменам в account-B.
-ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B"
-ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B"
+# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs). Grantor = AAA (owns A → A1).
+ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_AAA"
+ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1" "$JWT_AAA"
+ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1" "$JWT_AAA"
+# AAA — account-A admin по всем доменам. Grantor = AAA (owner of A — self-grant on own account).
+ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A" "$JWT_AAA"
+ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A" "$JWT_AAA"
+# AAB — account-B admin по всем доменам. Grantor = AAB (owner of B).
+ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
+# INV — owner-of-B (his home) — admin по всем доменам в account-B. Grantor = AAB (owner of B).
+ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
+ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/10 invite INV to account-A (KAC-125)"
@@ -290,78 +314,92 @@ fi
 # Re-upsert INV by external-id to activate PENDING-row (KAC-125 D-7).
 upsert_user_grpc "auth-test-invitee@example.com" "auth-test-invitee@example.com" "AuthZ Invitee" >/dev/null
 
-# 7) Seed VPC networks in A1 + B1 (admin token).
+# 7) Seed VPC networks in A1 + B1.
+#
+# `vpc.NetworkService.Create` is gated by the api-gateway authz-mw with
+# `required_relation: editor` on `project:<project_id>`. The owning account's
+# owner cascades to `editor` on every project of the account (FGA hierarchy
+# project→account + account#owner). Networks are therefore seeded acting as
+# the owning account's owner JWT (A1 → AAA, B1 → AAB).
 log "7/10 ensuring seed VPC networks"
 ensure_network() {
-  local proj="$1" name="$2"
+  local proj="$1" name="$2" token="$3"
   local found
-  found=$(api GET "/vpc/v1/networks?projectId=$proj" "$JWT_BOOTSTRAP" \
+  found=$(api GET "/vpc/v1/networks?projectId=$proj" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('networks') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true)
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op op_id
   body=$(printf '{"projectId":"%s","name":"%s","description":"KAC-122 seed for GET probes"}' "$proj" "$name")
-  op=$(api POST "/vpc/v1/networks" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/vpc/v1/networks" "$token" "$body")
   op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] WARN Network.Create failed: $op" >&2; echo ""; return; fi
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  poll_op "$op_id" "$token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("networkId",""))'
 }
-SEED_NET_A1=$(ensure_network "$PROJECT_A1" "authz-seed-net-a1")
-SEED_NET_B1=$(ensure_network "$PROJECT_B1" "authz-seed-net-b1")
+SEED_NET_A1=$(ensure_network "$PROJECT_A1" "authz-seed-net-a1" "$JWT_AAA")
+SEED_NET_B1=$(ensure_network "$PROJECT_B1" "authz-seed-net-b1" "$JWT_AAB")
 log "    seed networks: A1=$SEED_NET_A1 B1=$SEED_NET_B1"
 
 # 9) KAC-127 model 5-6 — ServiceAccounts + SA-keys (Hydra OAuth clients).
+#
+# ServiceAccounts/SA-keys live under account A → created acting as AAA
+# (`ServiceAccountService.Create` needs `editor` on `account:A`; `SAKeyService`
+# needs `editor` on `iam_service_account:<sva>`, which cascades from the
+# owning account's owner).
 log "9/10 ensuring ServiceAccounts + SA-keys (KAC-127 models 5-6)"
 
 # SA-A — granted SA (vpc-editor on project-A1). SANG — no-grant SA.
 find_sa_by_name() {
-  local name="$1" acct="$2"
-  api GET "/iam/v1/serviceAccounts?accountId=$acct" "$JWT_BOOTSTRAP" \
+  local name="$1" acct="$2" token="$3"
+  api GET "/iam/v1/serviceAccounts?accountId=$acct" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('serviceAccounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 ensure_sa() {
-  local name="$1" acct="$2"
+  local name="$1" acct="$2" token="$3"
   local found
-  found=$(find_sa_by_name "$name" "$acct")
+  found=$(find_sa_by_name "$name" "$acct" "$token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op op_id
   body=$(printf '{"accountId":"%s","name":"%s","description":"KAC-127 authz fixture"}' "$acct" "$name")
-  op=$(api POST "/iam/v1/serviceAccounts" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/iam/v1/serviceAccounts" "$token" "$body")
   op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] WARN ServiceAccount.Create failed: $op" >&2; echo ""; return; fi
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  poll_op "$op_id" "$token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("serviceAccountId",""))'
 }
-SVA_A=$(ensure_sa "authz-sa-a" "$ACCOUNT_A")
-SVA_NOGRANT=$(ensure_sa "authz-sa-nogrant" "$ACCOUNT_A")
+SVA_A=$(ensure_sa "authz-sa-a" "$ACCOUNT_A" "$JWT_AAA")
+SVA_NOGRANT=$(ensure_sa "authz-sa-nogrant" "$ACCOUNT_A" "$JWT_AAA")
 log "    service accounts: A=$SVA_A NOGRANT=$SVA_NOGRANT"
 
 # Grant SA-A vpc-editor on project-A1 (subject_type=service_account).
+# Grantor = AAA (owner of account A → A1).
 ensure_sa_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4"
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
   local body
   body=$(printf '{"subjectType":"service_account","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$JWT_BOOTSTRAP" "$body" >/dev/null || true
+  api POST "/iam/v1/accessBindings" "$grantor_token" "$body" >/dev/null || true
 }
-ensure_sa_binding "$SVA_A" "rol00000000000000vpced" "project" "$PROJECT_A1"
+ensure_sa_binding "$SVA_A" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_AAA"
 # SVA_NOGRANT — intentionally NO bindings (model 5 negative).
 
 # Issue SA-key (Hydra OAuth client) for SA-A via SAKeyService.Issue.
 # `client_secret` returned ONCE; не персистится, в env не кладётся.
+# Acting as AAA — `editor` on `iam_service_account:SVA_A` cascades from
+# AAA's ownership of account A.
 issue_sa_key() {
   local sva_id="$1"
   local body op op_id
   body=$(printf '{"serviceAccountId":"%s","description":"KAC-127 authz fixture key","createdByUserId":"%s"}' \
-    "$sva_id" "$USER_BOOT")
-  op=$(api POST "/iam/v1/serviceAccounts/${sva_id}/keys" "$JWT_BOOTSTRAP" "$body")
+    "$sva_id" "$USER_AAA")
+  op=$(api POST "/iam/v1/serviceAccounts/${sva_id}/keys" "$JWT_AAA" "$body")
   op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
   if [ -z "$op_id" ]; then
     log "    WARN SAKeyService.Issue вернул не Operation (proto может быть не зарегистрирован): $(echo "$op" | head -c 160)"
     echo ""
     return
   fi
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  poll_op "$op_id" "$JWT_AAA" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("keyId",""))' 2>/dev/null || true
 }
 SA_KEY_A=$(issue_sa_key "$SVA_A")
@@ -385,7 +423,9 @@ API_TOKEN_EXPIRED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --
 API_TOKEN_REVOKED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
   --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
 if [ -n "$SA_KEY_A" ]; then
-  api DELETE "/iam/v1/serviceAccounts/${SVA_A}/keys/${SA_KEY_A}" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+  # Revoke acts as AAA — `editor` on `iam_service_account:SVA_A` (cascade
+  # from account A ownership), same authority as Issue.
+  api DELETE "/iam/v1/serviceAccounts/${SVA_A}/keys/${SA_KEY_A}" "$JWT_AAA" >/dev/null 2>&1 || true
   log "    SA-key $SA_KEY_A revoked (apiTokenRevoked → expect 401)"
 fi
 # Malformed token — синтаксически битый JWS (2 сегмента вместо 3).
