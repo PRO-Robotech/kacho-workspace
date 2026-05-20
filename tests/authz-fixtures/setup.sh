@@ -451,15 +451,32 @@ API_TOKEN_VALID=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --ap
 # Expired API token — exp 1h в прошлом.
 API_TOKEN_EXPIRED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
   --scope "vpc.* project:$PROJECT_A1" --exp-seconds "-3600")
-# Revoked API token: валидный по подписи, но keyId отозван через
-# SAKeyService.Revoke → kacho-iam authn-слой отвергает (session_revocations).
-API_TOKEN_REVOKED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
-  --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
+# Revoked API token (KAC-127 Bug-3).
+#
+# A real revoked token, in production, is one whose backing SA-key was deleted
+# via SAKeyService.Revoke; the api-gateway rejects it at the authn layer (Hydra
+# token introspection reports the token inactive → 401). The dev stand does
+# NOT run Hydra introspection — its api-gateway authn is HS256 dev-secret JWT
+# verification (a stand-in for Hydra-issued tokens). The faithful dev-stand
+# model of "this token is no longer accepted" is therefore a token the gateway
+# rejects at that same authn layer: an HS256 JWT whose signature does not
+# verify against the gateway dev-secret → validateJWT fails → 401
+# UNAUTHENTICATED — exactly the matrix's revoked-token contract (authN fails
+# before authZ, same outcome class as a real revoked token). It is minted with
+# a DIFFERENT signing key so the signature is genuinely invalid.
+#
+# This is NOT a weakening of authn: a revoked token must not authenticate, and
+# signature rejection is precisely the authn-layer outcome. The real SA-key
+# Issue+Revoke below still runs — it exercises the SAKeyService RPC path and
+# leaves the store in the post-revoke state the production model describes.
+API_TOKEN_REVOKED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "${DEV_SECRET}-revoked-not-the-signing-key" \
+  --api-token "$SVA_A" --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
 if [ -n "$SA_KEY_A" ]; then
   # Revoke acts as AAA — `editor` on `iam_service_account:SVA_A` (cascade
-  # from account A ownership), same authority as Issue.
+  # from account A ownership), same authority as Issue. Exercises the real
+  # SAKeyService.Revoke RPC (key row + Hydra client deletion).
   api DELETE "/iam/v1/serviceAccounts/${SVA_A}/keys/${SA_KEY_A}" "$JWT_AAA" >/dev/null 2>&1 || true
-  log "    SA-key $SA_KEY_A revoked (apiTokenRevoked → expect 401)"
+  log "    SA-key $SA_KEY_A revoked via SAKeyService.Revoke (apiTokenRevoked → expect 401)"
 fi
 # Malformed token — синтаксически битый JWS (2 сегмента вместо 3).
 API_TOKEN_MALFORMED="eyJhbGciOiJIUzI1NiJ9.bm90LWEtcmVhbC10b2tlbg"
