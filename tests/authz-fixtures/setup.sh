@@ -287,10 +287,18 @@ ensure_binding() {
     echo "[setup] WARN AccessBinding.Create ($subject_id $role_id $resource_type:$resource_id) no Operation: $(echo "$resp" | head -c 200)" >&2
     return 0
   fi
-  local done_op
+  local done_op err_msg
   done_op=$(poll_op "$op_id" "$grantor_token" 2>/dev/null || true)
-  if echo "$done_op" | grep -q '"error"'; then
-    echo "[setup] WARN AccessBinding.Create op $op_id finished with error ($subject_id $role_id $resource_type:$resource_id): $(echo "$done_op" | head -c 240)" >&2
+  err_msg=$(echo "$done_op" | python3 -c 'import sys,json
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+e=d.get("error") or (d.get("result") or {}).get("error") or {}
+if e:
+    print("code=%s message=%s" % (e.get("code"), e.get("message")))' 2>/dev/null || true)
+  if [ -n "$err_msg" ]; then
+    echo "[setup] WARN AccessBinding.Create op $op_id error ($subject_id $role_id $resource_type:$resource_id): $err_msg" >&2
   fi
 }
 # System role IDs (из seed миграции kacho_iam 0001):
