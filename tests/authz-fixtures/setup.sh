@@ -13,6 +13,14 @@
 #   PATCH_ENV        — если true, патчит environments/*.json во всех 3 newman-suites
 #                     (default true)
 #   VERBOSE          — true → echo каждый curl
+#   RESET_FGA        — KAC-127 RC-1b: если true, удаляет stale OpenFGA-tuples,
+#                      указывающие на test-объекты (account:authz-* / project:* /
+#                      iam_*:* субъектов матрицы) ПЕРЕД повторным seed'ом, чтобы
+#                      прогоны не накапливали дубликаты от прошлых моделей. По
+#                      умолчанию false — Write-тuples и так идемпотентны (409 =
+#                      success), reset нужен только при смене FGA-модели.
+#                      Требует OPENFGA_HTTP (default http://localhost:18081) +
+#                      OPENFGA_STORE_ID.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +33,9 @@ EXP_HOURS="${EXP_HOURS:-24}"
 OUT_DIR="${OUT_DIR:-$SCRIPT_DIR/out}"
 PATCH_ENV="${PATCH_ENV:-true}"
 VERBOSE="${VERBOSE:-false}"
+RESET_FGA="${RESET_FGA:-false}"
+OPENFGA_HTTP="${OPENFGA_HTTP:-http://localhost:18081}"
+OPENFGA_STORE_ID="${OPENFGA_STORE_ID:-}"
 
 # require grpcurl for InternalUserService.UpsertFromIdentity (нет REST маппинга — KAC-125)
 if ! command -v grpcurl >/dev/null 2>&1; then
@@ -37,8 +48,57 @@ mkdir -p "$OUT_DIR"
 log() { echo "[setup] $*" >&2; }
 vrun() { if [ "$VERBOSE" = "true" ]; then echo "+ $*" >&2; fi; "$@"; }
 
+# 0) Optional OpenFGA store-tuple reset (KAC-127 RC-1b).
+#
+# Across repeated `dev-up` / `make authz-test-setup` runs the OpenFGA store
+# retains every tuple ever written. Tuple writes are idempotent (409 ==
+# success), so a re-seed never duplicates a tuple — but if the FGA *model*
+# changed between runs, stale tuples that reference removed relations linger.
+# When RESET_FGA=true we delete the tuples the matrix subjects/objects own
+# before re-seeding, guaranteeing a clean slate. Default off (safe; the model
+# is stable). Requires OPENFGA_HTTP + OPENFGA_STORE_ID.
+reset_fga_tuples() {
+  if [ "$RESET_FGA" != "true" ]; then
+    log "0/8 OpenFGA store-reset skipped (RESET_FGA != true)"
+    return 0
+  fi
+  if [ -z "$OPENFGA_STORE_ID" ]; then
+    log "0/8 RESET_FGA=true but OPENFGA_STORE_ID is empty — skipping reset"
+    return 0
+  fi
+  log "0/8 resetting stale OpenFGA tuples for test objects (store=$OPENFGA_STORE_ID)"
+  # Read every tuple in the store, then delete the ones that point at
+  # authz-test objects. OpenFGA Read with an empty tuple_key returns all.
+  local page tuples
+  page=$(curl -sS -X POST "$OPENFGA_HTTP/stores/$OPENFGA_STORE_ID/read" \
+    -H "Content-Type: application/json" --data '{"page_size":100}' 2>/dev/null || echo '{}')
+  tuples=$(echo "$page" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for t in d.get("tuples", []):
+    k = t.get("key", {})
+    obj, user = k.get("object", ""), k.get("user", "")
+    # only delete tuples that touch the matrix fixture objects/subjects.
+    if "authz-test" in obj or "authz-test" in user or obj.startswith(("iam_", "account:", "project:")):
+        print(json.dumps({"user": user, "relation": k.get("relation", ""), "object": obj}))
+' 2>/dev/null || true)
+  local n=0
+  while IFS= read -r tk; do
+    [ -z "$tk" ] && continue
+    curl -sS -X POST "$OPENFGA_HTTP/stores/$OPENFGA_STORE_ID/write" \
+      -H "Content-Type: application/json" \
+      --data "{\"deletes\":{\"tuple_keys\":[$tk]}}" >/dev/null 2>&1 || true
+    n=$((n + 1))
+  done <<< "$tuples"
+  log "    deleted $n stale fixture tuple(s)"
+}
+reset_fga_tuples
+
 # 1) Mint all 6 JWTs.
-log "1/8 minting JWTs (exp=${EXP_HOURS}h)"
+log "1/10 minting JWTs (exp=${EXP_HOURS}h)"
 JWTS=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --exp-hours "$EXP_HOURS" --bulk)
 echo "$JWTS" > "$OUT_DIR/jwts.json"
 
@@ -76,31 +136,37 @@ poll_op() {
 
 # 2) Upsert test users via InternalUserService.UpsertFromIdentity (gRPC-direct;
 #    REST-маппинг отсутствует — proto не имеет google.api.http аннотации; KAC-125).
-log "2/8 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
+log "2/10 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 
-# upsert_user_grpc — upsert user, затем КАНОНИЧЕСКИ резолвит id через
-# InternalIAMService.LookupSubject{externalId}.
+# upsert_user_grpc возвращает userId через stdout.
 #
-# КРИТИЧНО (KAC-127 #42 / #16): api-gateway резолвит principal через
-# LookupSubject{external_id} (см. clients/iam_subject_client.go) — fixture
-# ОБЯЗАН использовать тот же путь, иначе fixture-id и принципал-id у
-# api-gateway разъезжаются → authzguard.RequireSelfGrant / RequireOwner
-# падают code-7. UpsertFromIdentity.metadata.userId после фикса #16 тоже
-# корректен, но LookupSubject{externalId} — единственный источник истины,
-# совпадающий с api-gateway 1-в-1.
+# КРИТИЧНО (KAC-127): UpsertFromIdentity возвращает Operation-envelope —
+# `metadata.userId` выставлен сразу, НО bootstrap-Account + per-Account
+# AccessBinding + FGA grant/hierarchy-tuples этого юзера пишутся в
+# Operation-worker'е АСИНХРОННО. Если фикстура двинется к шагу 3
+# (Account.Create) до того, как эти tuple'ы закоммичены, api-gateway authz
+# Check ещё не видит принципала в OpenFGA → `code 7 permission denied`
+# (наблюдалось в newman-e2e: FGA-tuple для AAA записан в .04, Account.Create
+# в .21 → race). Поэтому здесь ОБЯЗАТЕЛЬНО дожидаемся Operation.done — после
+# чего bootstrap-state юзера (и его FGA-tuple'ы) гарантированно есть.
 upsert_user_grpc() {
   local ext_id="$1" email="$2" display="${3:-$email}"
-  local body resp user_id
+  local body resp op_id user_id
   body=$(printf '{"externalId":"%s","email":"%s","displayName":"%s"}' "$ext_id" "$email" "$display")
   resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
     kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
-  # Канонический резолв id — by external_id (тот же ключ, что api-gateway).
-  user_id=$(grpcurl -plaintext -d "{\"externalId\":\"$ext_id\"}" "$IAM_INTERNAL_GRPC" \
-    kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
-    | python3 -c 'import sys,json; d=json.load(sys.stdin); u=d.get("user") or {}; print(u.get("id","") or d.get("subjectId",""))' 2>/dev/null || true)
+  # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
+  # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -n "$op_id" ]; then
+    poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+  fi
+  user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
   if [ -z "$user_id" ]; then
-    # Fallback — UpsertFromIdentity.metadata.userId (после фикса #16 корректен).
-    user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
+    # PENDING-row может быть активирован — get_by_email через grpc.
+    user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
+      kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
+      | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
   fi
   echo "$user_id"
 }
@@ -113,32 +179,50 @@ USER_AAB=$(upsert_user_grpc "auth-test-account-admin-b@example.com" "auth-test-a
 USER_INV=$(upsert_user_grpc "auth-test-invitee@example.com"         "auth-test-invitee@example.com"         "AuthZ Invitee")
 log "    users: BOOT=$USER_BOOT NOB=$USER_NOB PA1=$USER_PA1 AAA=$USER_AAA AAB=$USER_AAB INV=$USER_INV"
 
+# Fail-fast — a missing user id (grpcurl could not reach kacho-iam-internal, or
+# UpsertFromIdentity/LookupSubject errored) silently cascades into empty
+# subjectId on every AccessBinding and a stack that "passes" with the wrong
+# authz state. Surface it here with an actionable message instead of producing
+# a misleading newman run.
+for _pair in "BOOT:$USER_BOOT" "NOB:$USER_NOB" "PA1:$USER_PA1" \
+             "AAA:$USER_AAA" "AAB:$USER_AAB" "INV:$USER_INV"; do
+  if [ -z "${_pair#*:}" ]; then
+    echo "[setup] FATAL: user ${_pair%%:*} resolved to an empty id — UpsertFromIdentity/LookupSubject failed." >&2
+    echo "[setup]        Check IAM_INTERNAL_GRPC=$IAM_INTERNAL_GRPC is reachable via grpcurl and kacho-iam is up." >&2
+    exit 1
+  fi
+done
+
 # 3) Accounts (idempotent by name).
-log "3/8 ensuring accounts authz-test-A / authz-test-B"
-# List is scope-filtered to accounts the caller can see — query with the
-# owner's JWT so an already-created account is found (idempotency).
+#
+# KAC-127 Phase 3 authz contract: `AccountService.Create` enforces
+# `RequireOwnerMatchesPrincipal` (KAC-122 CRIT-3 anti-hijacking) — the
+# authenticated principal MUST equal `owner_user_id`. A user can only create
+# an Account owned by themselves. Therefore each account is created using the
+# *owner's* own JWT, not the bootstrap-admin token. (Previously the fixture
+# created every account as BOOT → `code 7 permission denied` on the first
+# Account.Create, which aborted the whole fixture run.)
+log "3/10 ensuring accounts authz-test-A / authz-test-B"
 find_account_by_name() {
-  local name="$1" jwt="${2:-$JWT_BOOTSTRAP}"
-  api GET "/iam/v1/accounts" "$jwt" \
+  local name="$1" token="$2"
+  api GET "/iam/v1/accounts" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('accounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 
-# NB: AccountService.Create enforces authzguard.RequireOwnerMatchesPrincipal
-# (KAC-122 CRIT-3 anti-hijacking) — the calling principal MUST equal
-# owner_user_id. So each Account is created BY ITS OWNER, with that owner's
-# JWT — NOT under the bootstrap token. (Fixed in KAC-127 #42: the fixture
-# previously created both accounts under JWT_BOOTSTRAP and got code-7.)
+# ensure_account — create (idempotent) an Account owned by `owner`, acting as
+# `owner_token` (the owner's own JWT). owner_token's principal == owner so the
+# anti-hijacking guard passes.
 ensure_account() {
-  local name="$1" desc="$2" owner="$3" owner_jwt="$4"
+  local name="$1" desc="$2" owner="$3" owner_token="$4"
   local found
-  found=$(find_account_by_name "$name" "$owner_jwt")
+  found=$(find_account_by_name "$name" "$owner_token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"name":"%s","description":"%s","ownerUserId":"%s"}' "$name" "$desc" "$owner")
-  op=$(api POST "/iam/v1/accounts" "$owner_jwt" "$body")
+  op=$(api POST "/iam/v1/accounts" "$owner_token" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] FATAL: Account.Create vernuli no id: $op" >&2; return 1; fi
-  poll_op "$op_id" "$owner_jwt" \
+  poll_op "$op_id" "$owner_token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("accountId",""))'
 }
 ACCOUNT_A=$(ensure_account "authz-test-a" "KAC-122 fixture (account-admin-A home)" "$USER_AAA" "$JWT_AAA")
@@ -146,26 +230,29 @@ ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home
 log "    accounts: A=$ACCOUNT_A B=$ACCOUNT_B"
 
 # 4) Projects.
-log "4/8 ensuring projects A1 / A2 / B1"
+#
+# `ProjectService.Create` is gated by the api-gateway authz-mw with
+# `required_relation: editor` on `account:<account_id>`. The account owner
+# holds `owner` (⊇ `editor`) on their account via the FGA owner-tuple written
+# by Account.Create — so projects are created acting as the owning account's
+# owner JWT.
+log "4/10 ensuring projects A1 / A2 / B1"
 find_project_by_name_account() {
-  local name="$1" acct="$2" jwt="$3"
-  api GET "/iam/v1/projects?accountId=$acct" "$jwt" \
+  local name="$1" acct="$2" token="$3"
+  api GET "/iam/v1/projects?accountId=$acct" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('projects') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
-# KAC-127: with per-RPC authz enabled, Project.Create is scoped at the owning
-# Account (editor relation). The bootstrap admin holds no binding on the test
-# Accounts, so each project is created BY ITS ACCOUNT OWNER (AAA / AAB).
 ensure_project() {
-  local name="$1" acct="$2" desc="$3" owner_jwt="$4"
+  local name="$1" acct="$2" desc="$3" owner_token="$4"
   local found
-  found=$(find_project_by_name_account "$name" "$acct" "$owner_jwt")
+  found=$(find_project_by_name_account "$name" "$acct" "$owner_token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"accountId":"%s","name":"%s","description":"%s"}' "$acct" "$name" "$desc")
-  op=$(api POST "/iam/v1/projects" "$owner_jwt" "$body")
+  op=$(api POST "/iam/v1/projects" "$owner_token" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
   if [ -z "$op_id" ]; then echo "[setup] FATAL: Project.Create returned no id: $op" >&2; return 1; fi
-  poll_op "$op_id" "$owner_jwt" \
+  poll_op "$op_id" "$owner_token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("projectId",""))'
 }
 PROJECT_A1=$(ensure_project "authz-test-a1" "$ACCOUNT_A" "KAC-122 fixture (project-admin-A1 home)" "$JWT_AAA")
@@ -175,54 +262,74 @@ log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
 #
-# KAC-127 Problem 3: AccessBindingService.Create no longer enforces the
-# identity-equality `RequireSelfGrant`. Grant-authority now follows from the
-# grant SCOPE — the caller must own the owning Account OR hold FGA `admin` on
-# the scope. So every binding is created BY THE ACCOUNT OWNER:
-#   * account-A / project-A1 bindings  -> JWT_AAA (owner of account-A)
-#   * account-B bindings               -> JWT_AAB (owner of account-B)
-# The owner has authority to grant a role to ANY user in their scope (this is
-# the peer-access use-case the matrix exercises — model 4).
-log "5/8 ensuring access bindings"
+# `AccessBindingService.Create` enforces `requireGrantAuthority`: the caller
+# must own the owning Account of the grant scope (or hold FGA `admin` on it).
+# Bindings are therefore created acting as the owning account's owner JWT:
+#   - scope account/project under account A → JWT_AAA (owner of A)
+#   - scope account/project under account B → JWT_AAB (owner of B)
+log "5/10 ensuring access bindings"
+# ensure_binding — create an AccessBinding and **wait for its Operation to
+# finish**. AccessBinding.Create is async (returns an Operation); the FGA
+# relation tuple (`<scope>#<relation>@<subject>`) that the api-gateway authz
+# Check resolves against is written inside the Operation worker. Without
+# polling, the newman matrix could race the tuple-write. We also surface a
+# non-Operation response (e.g. a 403 from requireGrantAuthority) instead of
+# silently dropping it — a missing binding makes the granted subject look
+# unauthorised (`no path`).
 ensure_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_jwt="$5"
-  local body resp
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
+  local body resp op_id
   body=$(printf '{"subjectType":"user","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  resp=$(api POST "/iam/v1/accessBindings" "$grantor_jwt" "$body" 2>&1 || true)
-  if echo "$resp" | grep -q '"code":'; then
-    log "    WARN AccessBinding.Create ($subject_id → $role_id @ $resource_type:$resource_id): $(echo "$resp" | head -c 160)"
+  resp=$(api POST "/iam/v1/accessBindings" "$grantor_token" "$body")
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    echo "[setup] WARN AccessBinding.Create ($subject_id $role_id $resource_type:$resource_id) no Operation: $(echo "$resp" | head -c 200)" >&2
+    return 0
+  fi
+  local done_op err_msg
+  done_op=$(poll_op "$op_id" "$grantor_token" 2>/dev/null || true)
+  err_msg=$(echo "$done_op" | python3 -c 'import sys,json
+try:
+    d=json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+e=d.get("error") or (d.get("result") or {}).get("error") or {}
+if e:
+    print("code=%s message=%s" % (e.get("code"), e.get("message")))' 2>/dev/null || true)
+  if [ -n "$err_msg" ]; then
+    echo "[setup] WARN AccessBinding.Create op $op_id error ($subject_id $role_id $resource_type:$resource_id): $err_msg" >&2
   fi
 }
-# KAC-127: the kacho_iam seed migration assigns OPAQUE HASH role ids
-# (`rol<hash>`), not the legacy deterministic `rol00000000000000<svc><rel>`
-# scheme. Role NAMES are stable, so the fixture resolves ids by name. The
-# generic `admin` / `edit` / `view` system roles span all domains — the FGA
-# relation is derived from the role name by kacho-iam (roleNameToRelation).
-find_role_by_name() {
-  local rname="$1"
-  api GET "/iam/v1/roles" "$JWT_BOOTSTRAP" \
-    | python3 -c "import sys,json; d=json.load(sys.stdin); r=[x for x in (d.get('roles') or []) if x.get('name')=='$rname']; print(r[0].get('id','') if r else '')" 2>/dev/null || true
-}
-ROLE_ADMIN=$(find_role_by_name "admin")
-ROLE_EDIT=$(find_role_by_name "edit")
-ROLE_VIEW=$(find_role_by_name "view")
-log "    roles: admin=$ROLE_ADMIN edit=$ROLE_EDIT view=$ROLE_VIEW"
+# System role IDs — source of truth = migration kacho_iam `0008_role_catalog_kac122.sql`.
+# That migration DELETEs the legacy `rol00000000000000<tail>` roles seeded by 0001
+# and re-seeds the catalog with deterministic ids `rol` + substr(md5(<name>),1,17).
+# An AccessBinding.Create with a non-existent role_id fails the worker with
+# `FAILED_PRECONDITION Role <id> not found` (FK access_bindings_role_fk), so the
+# fixture MUST use the post-0008 ids — see KAC-127.
+#
+# The fixture grants are domain-wide "account admin" / "project editor"; the
+# post-0008 catalog has no domain-wide roles, so we map to the 3 global
+# wildcard roles (acceptance-equivalent — admin ⊇ editor ⊇ viewer cascade):
+#   admin = rol+md5('admin')[:17]  → FGA relation `admin`
+#   edit  = rol+md5('edit')[:17]   → FGA relation `editor`
+#   view  = rol+md5('view')[:17]   → FGA relation `viewer`
+ROLE_ADMIN="rol21232f297a57a5a74"   # md5('admin')[:17]  — global super-admin
+ROLE_EDIT="rolde95b43bceeb4b998"    # md5('edit')[:17]   — global edit-only
+ROLE_VIEW="rol1bda80f2be4d3658e"    # md5('view')[:17]   — global read-only
 
-# AAA — account-A admin. Granted by AAA (account-A owner).
-ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
-# AAB — account-B admin. Granted by AAB (account-B owner).
-ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
-# PA1 — project-A1 editor. Granted by AAA (account-A owner) — peer-access:
-# owner grants a role to ANOTHER user in their scope.
+# PA1 — project-A1 editor. Grantor = AAA (owns A → A1).
 ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
-# INV — account-B admin. Granted by AAB (account-B owner) — peer-access into
-# AAB's account (matrix expects INV ALLOW on account-B).
+# AAA — account-A admin. Grantor = AAA (owner of A — self-grant on own account).
+ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
+# AAB — account-B admin. Grantor = AAB (owner of B).
+ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
+# INV — owner-of-B (his home) — admin in account-B. Grantor = AAB (owner of B).
 ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
-log "6/8 invite INV to account-A (KAC-125)"
-invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"rol00000000000000vpced","projectId":"%s"}' "$ACCOUNT_A" "$PROJECT_A1")
+log "6/10 invite INV to account-A (KAC-125)"
+invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"%s","projectId":"%s"}' "$ACCOUNT_A" "$ROLE_EDIT" "$PROJECT_A1")
 invite_resp=$(api POST "/iam/v1/users:invite" "$JWT_AAA" "$invite_body" 2>&1 || true)
 if echo "$invite_resp" | grep -q '"id":'; then
   invite_op_id=$(echo "$invite_resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
@@ -236,95 +343,146 @@ upsert_user_grpc "auth-test-invitee@example.com" "auth-test-invitee@example.com"
 
 # 7) Seed VPC networks in A1 + B1.
 #
-# KAC-127: with per-RPC authz enforced end-to-end (vpc service authz
-# interceptor), Network.Create is scoped at the project — the bootstrap admin
-# holds no grant on the test projects. Each seed network is therefore created
-# BY THE ACCOUNT OWNER (AAA owns project-A1 via account-A, AAB owns B1).
-log "7/8 ensuring seed VPC networks"
+# `vpc.NetworkService.Create` is gated by the api-gateway authz-mw with
+# `required_relation: editor` on `project:<project_id>`. The owning account's
+# owner cascades to `editor` on every project of the account (FGA hierarchy
+# project→account + account#owner). Networks are therefore seeded acting as
+# the owning account's owner JWT (A1 → AAA, B1 → AAB).
+log "7/10 ensuring seed VPC networks"
 ensure_network() {
-  local proj="$1" name="$2" owner_jwt="$3"
+  local proj="$1" name="$2" token="$3"
   local found
-  found=$(api GET "/vpc/v1/networks?projectId=$proj" "$owner_jwt" \
+  found=$(api GET "/vpc/v1/networks?projectId=$proj" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('networks') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true)
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op op_id
   body=$(printf '{"projectId":"%s","name":"%s","description":"KAC-122 seed for GET probes"}' "$proj" "$name")
-  op=$(api POST "/vpc/v1/networks" "$owner_jwt" "$body")
+  op=$(api POST "/vpc/v1/networks" "$token" "$body")
   op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] WARN Network.Create failed: $op" >&2; echo ""; return; fi
-  poll_op "$op_id" "$owner_jwt" \
+  poll_op "$op_id" "$token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("networkId",""))'
 }
 SEED_NET_A1=$(ensure_network "$PROJECT_A1" "authz-seed-net-a1" "$JWT_AAA")
 SEED_NET_B1=$(ensure_network "$PROJECT_B1" "authz-seed-net-b1" "$JWT_AAB")
 log "    seed networks: A1=$SEED_NET_A1 B1=$SEED_NET_B1"
 
-# 9) KAC-127 models 5-6 — ServiceAccounts + SA-keys.
+# 9) KAC-127 model 5-6 — ServiceAccounts + SA-keys (Hydra OAuth clients).
 #
-# SA-A — granted SA (account-A editor). SANG — no-grant SA. Both created BY
-# the account-A owner (AAA holds the owning-Account scope; KAC-127 #42 — the
-# same authority that lets the owner create projects/groups/bindings).
-log "9/10 ensuring ServiceAccounts (KAC-127 models 5-6)"
+# ServiceAccounts/SA-keys live under account A → created acting as AAA
+# (`ServiceAccountService.Create` needs `editor` on `account:A`; `SAKeyService`
+# needs `editor` on `iam_service_account:<sva>`, which cascades from the
+# owning account's owner).
+log "9/10 ensuring ServiceAccounts + SA-keys (KAC-127 models 5-6)"
+
+# SA-A — granted SA (vpc-editor on project-A1). SANG — no-grant SA.
 find_sa_by_name() {
-  local name="$1" acct="$2" jwt="$3"
-  api GET "/iam/v1/serviceAccounts?accountId=$acct" "$jwt" \
+  local name="$1" acct="$2" token="$3"
+  api GET "/iam/v1/serviceAccounts?accountId=$acct" "$token" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('serviceAccounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
 ensure_sa() {
-  local name="$1" acct="$2" owner_jwt="$3"
+  local name="$1" acct="$2" token="$3"
   local found
-  found=$(find_sa_by_name "$name" "$acct" "$owner_jwt")
+  found=$(find_sa_by_name "$name" "$acct" "$token")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op op_id
   body=$(printf '{"accountId":"%s","name":"%s","description":"KAC-127 authz fixture"}' "$acct" "$name")
-  op=$(api POST "/iam/v1/serviceAccounts" "$owner_jwt" "$body")
+  op=$(api POST "/iam/v1/serviceAccounts" "$token" "$body")
   op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
   if [ -z "$op_id" ]; then echo "[setup] WARN ServiceAccount.Create failed: $op" >&2; echo ""; return; fi
-  poll_op "$op_id" "$owner_jwt" \
+  poll_op "$op_id" "$token" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("serviceAccountId",""))'
 }
 SVA_A=$(ensure_sa "authz-sa-a" "$ACCOUNT_A" "$JWT_AAA")
 SVA_NOGRANT=$(ensure_sa "authz-sa-nogrant" "$ACCOUNT_A" "$JWT_AAA")
 log "    service accounts: A=$SVA_A NOGRANT=$SVA_NOGRANT"
 
-# Grant SA-A editor on project-A1 (subject_type=service_account), granted by
-# the account-A owner. SVA_NOGRANT intentionally gets NO binding.
+# Grant SA-A vpc-editor on project-A1 (subject_type=service_account).
+# Grantor = AAA (owner of account A → A1).
 ensure_sa_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_jwt="$5"
-  local body
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
+  local body resp op_id
   body=$(printf '{"subjectType":"service_account","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$grantor_jwt" "$body" >/dev/null 2>&1 || true
+  resp=$(api POST "/iam/v1/accessBindings" "$grantor_token" "$body")
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    echo "[setup] WARN SA AccessBinding.Create no Operation: $(echo "$resp" | head -c 200)" >&2
+    return 0
+  fi
+  poll_op "$op_id" "$grantor_token" >/dev/null 2>&1 || true
 }
-if [ -n "$SVA_A" ]; then
-  ensure_sa_binding "$SVA_A" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
-fi
+ensure_sa_binding "$SVA_A" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
+# SVA_NOGRANT — intentionally NO bindings (model 5 negative).
 
-# 10) Mint SA + API tokens (dev-mode HS256 equivalents of Hydra-issued JWTs;
-#     api-gateway authn dev-mode accepts HS256 dev-secret JWT).
+# Issue SA-key (Hydra OAuth client) for SA-A via SAKeyService.Issue.
+# `client_secret` returned ONCE; не персистится, в env не кладётся.
+# Acting as AAA — `editor` on `iam_service_account:SVA_A` cascades from
+# AAA's ownership of account A.
+issue_sa_key() {
+  local sva_id="$1"
+  local body op op_id
+  body=$(printf '{"serviceAccountId":"%s","description":"KAC-127 authz fixture key","createdByUserId":"%s"}' \
+    "$sva_id" "$USER_AAA")
+  op=$(api POST "/iam/v1/serviceAccounts/${sva_id}/keys" "$JWT_AAA" "$body")
+  op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    log "    WARN SAKeyService.Issue вернул не Operation (proto может быть не зарегистрирован): $(echo "$op" | head -c 160)"
+    echo ""
+    return
+  fi
+  poll_op "$op_id" "$JWT_AAA" \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("keyId",""))' 2>/dev/null || true
+}
+SA_KEY_A=$(issue_sa_key "$SVA_A")
+log "    SA-key for SA-A: keyId=$SA_KEY_A (client_secret returned once — НЕ персистится)"
+
+# 10) Mint SA + API tokens (dev-mode HS256 equivalents of Hydra-issued JWTs).
+#     Реальный client_credentials grant — Hydra /oauth2/token; на стенде
+#     api-gateway authn dev-mode принимает HS256 dev-secret JWT, поэтому
+#     SA-токен моделируется minter'ом с kacho_principal_type=service_account.
 log "10/10 minting SA + API tokens (KAC-127 models 5-6)"
 EXP_SECONDS=$((EXP_HOURS * 3600))
 JWT_SAA=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --sa "$SVA_A" --exp-seconds "$EXP_SECONDS")
 JWT_SANG=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --sa "$SVA_NOGRANT" --exp-seconds "$EXP_SECONDS")
 API_TOKEN_VALID=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
   --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
-# Expired API token — exp 1h in the past.
+# Expired API token — exp 1h в прошлом.
 API_TOKEN_EXPIRED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
   --scope "vpc.* project:$PROJECT_A1" --exp-seconds "-3600")
-# Revoked API token. Real revocation is a SAKeyService.Revoke + session-
-# revocations check that the dev stand does not wire into the gateway authn
-# layer. The faithful dev-stand model of "this token is no longer accepted"
-# is a token the gateway rejects at the authn layer (→ 401, authN precedes
-# authZ — same outcome class as a real revoked token). We mint it signed with
-# a DIFFERENT secret: signature-invalid → validateJWT fails → 401
-# Unauthenticated, exactly the revoked-token contract the matrix asserts.
+# Revoked API token (KAC-127 Bug-3).
+#
+# A real revoked token, in production, is one whose backing SA-key was deleted
+# via SAKeyService.Revoke; the api-gateway rejects it at the authn layer (Hydra
+# token introspection reports the token inactive → 401). The dev stand does
+# NOT run Hydra introspection — its api-gateway authn is HS256 dev-secret JWT
+# verification (a stand-in for Hydra-issued tokens). The faithful dev-stand
+# model of "this token is no longer accepted" is therefore a token the gateway
+# rejects at that same authn layer: an HS256 JWT whose signature does not
+# verify against the gateway dev-secret → validateJWT fails → 401
+# UNAUTHENTICATED — exactly the matrix's revoked-token contract (authN fails
+# before authZ, same outcome class as a real revoked token). It is minted with
+# a DIFFERENT signing key so the signature is genuinely invalid.
+#
+# This is NOT a weakening of authn: a revoked token must not authenticate, and
+# signature rejection is precisely the authn-layer outcome. The real SA-key
+# Issue+Revoke below still runs — it exercises the SAKeyService RPC path and
+# leaves the store in the post-revoke state the production model describes.
 API_TOKEN_REVOKED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "${DEV_SECRET}-revoked-not-the-signing-key" \
   --api-token "$SVA_A" --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
-# Malformed token — syntactically broken JWS (2 segments instead of 3).
+if [ -n "$SA_KEY_A" ]; then
+  # Revoke acts as AAA — `editor` on `iam_service_account:SVA_A` (cascade
+  # from account A ownership), same authority as Issue. Exercises the real
+  # SAKeyService.Revoke RPC (key row + Hydra client deletion).
+  api DELETE "/iam/v1/serviceAccounts/${SVA_A}/keys/${SA_KEY_A}" "$JWT_AAA" >/dev/null 2>&1 || true
+  log "    SA-key $SA_KEY_A revoked via SAKeyService.Revoke (apiTokenRevoked → expect 401)"
+fi
+# Malformed token — синтаксически битый JWS (2 сегмента вместо 3).
 API_TOKEN_MALFORMED="eyJhbGciOiJIUzI1NiJ9.bm90LWEtcmVhbC10b2tlbg"
 
-# 11) Write authz-fixtures.json + patch env-files.
-log "11/11 writing $OUT_DIR/authz-fixtures.json"
+# Write authz-fixtures.json + patch env-files.
+log "writing $OUT_DIR/authz-fixtures.json"
 cat > "$OUT_DIR/authz-fixtures.json" <<EOF
 {
   "baseUrl": "$BASE_URL",
