@@ -268,12 +268,30 @@ log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 #   - scope account/project under account A → JWT_AAA (owner of A)
 #   - scope account/project under account B → JWT_AAB (owner of B)
 log "5/10 ensuring access bindings"
+# ensure_binding — create an AccessBinding and **wait for its Operation to
+# finish**. AccessBinding.Create is async (returns an Operation); the FGA
+# relation tuple (`<scope>#<relation>@<subject>`) that the api-gateway authz
+# Check resolves against is written inside the Operation worker. Without
+# polling, the newman matrix could race the tuple-write. We also surface a
+# non-Operation response (e.g. a 403 from requireGrantAuthority) instead of
+# silently dropping it — a missing binding makes the granted subject look
+# unauthorised (`no path`).
 ensure_binding() {
   local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
-  local body
+  local body resp op_id
   body=$(printf '{"subjectType":"user","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$grantor_token" "$body" >/dev/null || true
+  resp=$(api POST "/iam/v1/accessBindings" "$grantor_token" "$body")
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    echo "[setup] WARN AccessBinding.Create ($subject_id $role_id $resource_type:$resource_id) no Operation: $(echo "$resp" | head -c 200)" >&2
+    return 0
+  fi
+  local done_op
+  done_op=$(poll_op "$op_id" "$grantor_token" 2>/dev/null || true)
+  if echo "$done_op" | grep -q '"error"'; then
+    echo "[setup] WARN AccessBinding.Create op $op_id finished with error ($subject_id $role_id $resource_type:$resource_id): $(echo "$done_op" | head -c 240)" >&2
+  fi
 }
 # System role IDs (из seed миграции kacho_iam 0001):
 #   iam{ad,ed,vw} / vpc{ad,ed,vw} / cmp{ad,ed,vw} / lbs{ad,ed,vw}.
@@ -375,10 +393,16 @@ log "    service accounts: A=$SVA_A NOGRANT=$SVA_NOGRANT"
 # Grantor = AAA (owner of account A → A1).
 ensure_sa_binding() {
   local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_token="$5"
-  local body
+  local body resp op_id
   body=$(printf '{"subjectType":"service_account","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  api POST "/iam/v1/accessBindings" "$grantor_token" "$body" >/dev/null || true
+  resp=$(api POST "/iam/v1/accessBindings" "$grantor_token" "$body")
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    echo "[setup] WARN SA AccessBinding.Create no Operation: $(echo "$resp" | head -c 200)" >&2
+    return 0
+  fi
+  poll_op "$op_id" "$grantor_token" >/dev/null 2>&1 || true
 }
 ensure_sa_binding "$SVA_A" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_AAA"
 # SVA_NOGRANT — intentionally NO bindings (model 5 negative).
