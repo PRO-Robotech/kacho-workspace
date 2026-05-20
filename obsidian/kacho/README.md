@@ -34,11 +34,16 @@ tags:
 
 ## Recent KAC
 
-- [[KAC/KAC-113]] — IAM E0 follow-up: sync `principal_*` в legacy сервисах (in-progress)
-- [[KAC/KAC-112]] — IAM E0 follow-up: backend для Project/User/SA/Group/Role/AccessBinding (in-progress)
+- [[KAC/KAC-127]] — **Production-Ready Next-Gen IAM** (epic, 13 phases): Kratos+Hydra+OpenFGA+OPA+Conditions+Federation+SCIM+SAML+CAEP+SPIFFE+Audit pipeline+Chaos+Pentest+Bug bounty (in-progress: Phase 1-12 implementation complete, Phase 13 docs closeout)
+- [[KAC/KAC-125]] — User per-Account + Invite (done)
+- [[KAC/KAC-124]] — kacho-resource-manager deprecated → kacho-iam (done)
+- [[KAC/KAC-116]] — Keto AuthZ + Kratos session + DoD #3/4/5 closeout (done)
+- [[KAC/KAC-115]] — refactor: Zitadel+OpenFGA → Ory Kratos+Hydra+Keto (done)
+- [[KAC/KAC-113]] — IAM E0 follow-up: sync `principal_*` (done)
+- [[KAC/KAC-112]] — IAM E0 follow-up: backend для Project/User/SA/Group/Role/AccessBinding (done)
 - [[KAC/KAC-111]] — Squash kacho-vpc migrations 0001..0034 → 0001 (done)
 - [[KAC/KAC-105]] — IAM E0: kacho-iam skeleton + Account end-to-end (merged)
-- [[KAC/KAC-104]] — Kachō IAM epic: Account/Project + Zitadel + OpenFGA REBAC (in-progress)
+- [[KAC/KAC-104]] — Kachō IAM epic: Account/Project + Zitadel + OpenFGA REBAC (parent of KAC-127)
 - [[KAC/KAC-94]] — Skill `evgeniy` 100% эталон в kacho-vpc (done)
 - [[KAC/KAC-71]] — AddressPool v4/v6 split (done)
 - [[KAC/KAC-56]] — RouteTable ↔ Subnet auto-association (done)
@@ -47,6 +52,17 @@ tags:
 - [[KAC/KAC-50]] — api-gateway listener split (done)
 - [[KAC/KAC-15]] — Geography moved kacho-vpc → kacho-compute (done)
 - [[KAC/KAC-2]] — NetworkInterface first-class ресурс (done)
+
+## KAC-127 — Production IAM (Phase 1-13)
+
+Production-ready IAM в 13 фазах. Key vault entries:
+
+- **Resources**: [[resources/iam-cluster]], [[resources/iam-organization]], [[resources/iam-federation-trust-policy]], [[resources/iam-condition]], [[resources/iam-jit-eligibility]], [[resources/iam-cluster-break-glass-grant]], [[resources/iam-caep-subscriber]], [[resources/iam-audit-signing-batch]], [[resources/iam-scim-user-mapping]], [[resources/iam-gdpr-erasure-request]], [[resources/iam-access-review]], [[resources/iam-session-revocation]], [[resources/iam-oidc-jwks-key]] + extended [[resources/iam-account|account]] / [[resources/iam-role|role]] / [[resources/iam-access-binding|access-binding]]
+- **RPC**: [[rpc/iam-authorize-service]], [[rpc/iam-internal-authorize-service]], [[rpc/iam-conditions-service]], [[rpc/iam-federation-exchange-service]], [[rpc/iam-trust-policy-service]], [[rpc/iam-sa-key-service]], [[rpc/iam-scim-v2]], [[rpc/iam-saml-sp]], [[rpc/iam-caep-subscriber-service]], [[rpc/iam-opa-bundle-service]]
+- **Edges**: [[edges/iam-to-hydra-admin]], [[edges/iam-to-kratos-admin]], [[edges/iam-to-opa]], [[edges/iam-to-jackson-saml]], [[edges/iam-to-scim-okta]] / [[edges/iam-to-scim-azure]] / [[edges/iam-to-scim-google]], [[edges/iam-to-spire]], [[edges/iam-to-cilium-mesh]], [[edges/iam-to-kafka-audit]] / [[edges/iam-to-clickhouse-audit]] / [[edges/iam-to-s3-audit]], [[edges/iam-to-hsm]], [[edges/iam-to-siem-datadog]] / [[edges/iam-to-siem-splunk]], [[edges/iam-caep-to-subscriber]], [[edges/api-gateway-to-iam-authorize]], [[edges/vpc-to-iam-listobjects]] / [[edges/compute-to-iam-listobjects]]
+- **Packages**: [[packages/iam-handler-iamhooks]], [[packages/iam-service-federation]], [[packages/iam-service-scim]], [[packages/iam-service-caep]], [[packages/iam-service-jit]], [[packages/iam-service-breakglass]], [[packages/iam-service-access-review]], [[packages/iam-service-gdpr]], [[packages/iam-clients-jackson]], [[packages/iam-clients-hsm-pkcs11]], [[packages/iam-clients-idp-jwks-cache]], [[packages/corelib-authz-listobjects]], [[packages/api-gateway-middleware-authz]], [[packages/api-gateway-middleware-dpop]]
+- **Operational**: [[runbooks/README|runbooks index]]
+- **Public docs**: [[docs/user-iam-guide]], [[docs/admin-iam-guide]], [[docs/dev-iam-integration]]
 
 ## Проекты
 
