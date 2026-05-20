@@ -138,14 +138,29 @@ poll_op() {
 #    REST-маппинг отсутствует — proto не имеет google.api.http аннотации; KAC-125).
 log "2/10 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 
-# upsert_user_grpc возвращает userId через stdout (poll Operation.metadata.userId).
+# upsert_user_grpc возвращает userId через stdout.
+#
+# КРИТИЧНО (KAC-127): UpsertFromIdentity возвращает Operation-envelope —
+# `metadata.userId` выставлен сразу, НО bootstrap-Account + per-Account
+# AccessBinding + FGA grant/hierarchy-tuples этого юзера пишутся в
+# Operation-worker'е АСИНХРОННО. Если фикстура двинется к шагу 3
+# (Account.Create) до того, как эти tuple'ы закоммичены, api-gateway authz
+# Check ещё не видит принципала в OpenFGA → `code 7 permission denied`
+# (наблюдалось в newman-e2e: FGA-tuple для AAA записан в .04, Account.Create
+# в .21 → race). Поэтому здесь ОБЯЗАТЕЛЬНО дожидаемся Operation.done — после
+# чего bootstrap-state юзера (и его FGA-tuple'ы) гарантированно есть.
 upsert_user_grpc() {
   local ext_id="$1" email="$2" display="${3:-$email}"
-  local body op_id user_id
+  local body resp op_id user_id
   body=$(printf '{"externalId":"%s","email":"%s","displayName":"%s"}' "$ext_id" "$email" "$display")
-  local resp
   resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
     kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
+  # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
+  # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
+  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -n "$op_id" ]; then
+    poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+  fi
   user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
   if [ -z "$user_id" ]; then
     # PENDING-row может быть активирован — get_by_email через grpc.
