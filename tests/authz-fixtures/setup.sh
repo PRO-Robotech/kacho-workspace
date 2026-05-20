@@ -148,69 +148,77 @@ log "    accounts: A=$ACCOUNT_A B=$ACCOUNT_B"
 # 4) Projects.
 log "4/8 ensuring projects A1 / A2 / B1"
 find_project_by_name_account() {
-  local name="$1" acct="$2"
-  api GET "/iam/v1/projects?accountId=$acct" "$JWT_BOOTSTRAP" \
+  local name="$1" acct="$2" jwt="$3"
+  api GET "/iam/v1/projects?accountId=$acct" "$jwt" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('projects') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
 }
+# KAC-127: with per-RPC authz enabled, Project.Create is scoped at the owning
+# Account (editor relation). The bootstrap admin holds no binding on the test
+# Accounts, so each project is created BY ITS ACCOUNT OWNER (AAA / AAB).
 ensure_project() {
-  local name="$1" acct="$2" desc="$3"
+  local name="$1" acct="$2" desc="$3" owner_jwt="$4"
   local found
-  found=$(find_project_by_name_account "$name" "$acct")
+  found=$(find_project_by_name_account "$name" "$acct" "$owner_jwt")
   if [ -n "$found" ]; then echo "$found"; return; fi
   local body op
   body=$(printf '{"accountId":"%s","name":"%s","description":"%s"}' "$acct" "$name" "$desc")
-  op=$(api POST "/iam/v1/projects" "$JWT_BOOTSTRAP" "$body")
+  op=$(api POST "/iam/v1/projects" "$owner_jwt" "$body")
   local op_id; op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))')
-  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+  if [ -z "$op_id" ]; then echo "[setup] FATAL: Project.Create returned no id: $op" >&2; return 1; fi
+  poll_op "$op_id" "$owner_jwt" \
     | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("projectId",""))'
 }
-PROJECT_A1=$(ensure_project "authz-test-a1" "$ACCOUNT_A" "KAC-122 fixture (project-admin-A1 home)")
-PROJECT_A2=$(ensure_project "authz-test-a2" "$ACCOUNT_A" "KAC-122 fixture (cross-project in same account)")
-PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross-account)")
+PROJECT_A1=$(ensure_project "authz-test-a1" "$ACCOUNT_A" "KAC-122 fixture (project-admin-A1 home)" "$JWT_AAA")
+PROJECT_A2=$(ensure_project "authz-test-a2" "$ACCOUNT_A" "KAC-122 fixture (cross-project in same account)" "$JWT_AAA")
+PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross-account)" "$JWT_AAB")
 log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
 #
-# NB: AccessBindingService.Create enforces authzguard.RequireSelfGrant —
-# subject_id MUST equal the calling principal (you can only grant a binding
-# TO YOURSELF). So each binding is created with the subject's own JWT, NOT
-# the bootstrap token. (Fixed in KAC-127 #42 — previously all bindings were
-# created under JWT_BOOTSTRAP and silently failed code-7.)
+# KAC-127 Problem 3: AccessBindingService.Create no longer enforces the
+# identity-equality `RequireSelfGrant`. Grant-authority now follows from the
+# grant SCOPE — the caller must own the owning Account OR hold FGA `admin` on
+# the scope. So every binding is created BY THE ACCOUNT OWNER:
+#   * account-A / project-A1 bindings  -> JWT_AAA (owner of account-A)
+#   * account-B bindings               -> JWT_AAB (owner of account-B)
+# The owner has authority to grant a role to ANY user in their scope (this is
+# the peer-access use-case the matrix exercises — model 4).
 log "5/8 ensuring access bindings"
 ensure_binding() {
-  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" subject_jwt="$5"
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4" grantor_jwt="$5"
   local body resp
   body=$(printf '{"subjectType":"user","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
     "$subject_id" "$role_id" "$resource_type" "$resource_id")
-  resp=$(api POST "/iam/v1/accessBindings" "$subject_jwt" "$body" 2>&1 || true)
+  resp=$(api POST "/iam/v1/accessBindings" "$grantor_jwt" "$body" 2>&1 || true)
   if echo "$resp" | grep -q '"code":'; then
     log "    WARN AccessBinding.Create ($subject_id → $role_id @ $resource_type:$resource_id): $(echo "$resp" | head -c 160)"
   fi
 }
-# System role IDs (из seed миграции kacho_iam 0001):
-#   iam{ad,ed,vw} / vpc{ad,ed,vw} / cmp{ad,ed,vw} / lbs{ad,ed,vw}.
-# Owner relation в Keto cascade — не отдельный role-id, а Account membership-type;
-# для тестов используем "ad" (admin) — он эквивалентен owner-у для всех практических целей.
+# KAC-127: the kacho_iam seed migration assigns OPAQUE HASH role ids
+# (`rol<hash>`), not the legacy deterministic `rol00000000000000<svc><rel>`
+# scheme. Role NAMES are stable, so the fixture resolves ids by name. The
+# generic `admin` / `edit` / `view` system roles span all domains — the FGA
+# relation is derived from the role name by kacho-iam (roleNameToRelation).
+find_role_by_name() {
+  local rname="$1"
+  api GET "/iam/v1/roles" "$JWT_BOOTSTRAP" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); r=[x for x in (d.get('roles') or []) if x.get('name')=='$rname']; print(r[0].get('id','') if r else '')" 2>/dev/null || true
+}
+ROLE_ADMIN=$(find_role_by_name "admin")
+ROLE_EDIT=$(find_role_by_name "edit")
+ROLE_VIEW=$(find_role_by_name "view")
+log "    roles: admin=$ROLE_ADMIN edit=$ROLE_EDIT view=$ROLE_VIEW"
 
-# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs). Self-grant с JWT_PA1.
-ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_PA1"
-ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1" "$JWT_PA1"
-ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1" "$JWT_PA1"
-# AAA — account-A admin по всем доменам. Self-grant с JWT_AAA.
-ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A" "$JWT_AAA"
-# AAB — account-B admin по всем доменам. Self-grant с JWT_AAB.
-ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
-# INV — owner-of-B (his home) — admin по всем доменам в account-B. Self-grant с JWT_INV.
-ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_INV"
-ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_INV"
-ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_INV"
-ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_INV"
+# AAA — account-A admin. Granted by AAA (account-A owner).
+ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
+# AAB — account-B admin. Granted by AAB (account-B owner).
+ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
+# PA1 — project-A1 editor. Granted by AAA (account-A owner) — peer-access:
+# owner grants a role to ANOTHER user in their scope.
+ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
+# INV — account-B admin. Granted by AAB (account-B owner) — peer-access into
+# AAB's account (matrix expects INV ALLOW on account-B).
+ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/8 invite INV to account-A (KAC-125)"
