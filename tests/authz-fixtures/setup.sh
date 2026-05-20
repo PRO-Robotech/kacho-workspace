@@ -38,7 +38,7 @@ log() { echo "[setup] $*" >&2; }
 vrun() { if [ "$VERBOSE" = "true" ]; then echo "+ $*" >&2; fi; "$@"; }
 
 # 1) Mint all 6 JWTs.
-log "1/8 minting JWTs (exp=${EXP_HOURS}h)"
+log "1/10 minting JWTs (exp=${EXP_HOURS}h)"
 JWTS=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --exp-hours "$EXP_HOURS" --bulk)
 echo "$JWTS" > "$OUT_DIR/jwts.json"
 
@@ -76,7 +76,7 @@ poll_op() {
 
 # 2) Upsert test users via InternalUserService.UpsertFromIdentity (gRPC-direct;
 #    REST-маппинг отсутствует — proto не имеет google.api.http аннотации; KAC-125).
-log "2/8 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
+log "2/10 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 
 # upsert_user_grpc возвращает userId через stdout (poll Operation.metadata.userId).
 upsert_user_grpc() {
@@ -105,7 +105,7 @@ USER_INV=$(upsert_user_grpc "auth-test-invitee@example.com"         "auth-test-i
 log "    users: BOOT=$USER_BOOT NOB=$USER_NOB PA1=$USER_PA1 AAA=$USER_AAA AAB=$USER_AAB INV=$USER_INV"
 
 # 3) Accounts (idempotent by name).
-log "3/8 ensuring accounts authz-test-A / authz-test-B"
+log "3/10 ensuring accounts authz-test-A / authz-test-B"
 find_account_by_name() {
   local name="$1"
   api GET "/iam/v1/accounts" "$JWT_BOOTSTRAP" \
@@ -130,7 +130,7 @@ ACCOUNT_B=$(ensure_account "authz-test-b" "KAC-122 fixture (account-admin-B home
 log "    accounts: A=$ACCOUNT_A B=$ACCOUNT_B"
 
 # 4) Projects.
-log "4/8 ensuring projects A1 / A2 / B1"
+log "4/10 ensuring projects A1 / A2 / B1"
 find_project_by_name_account() {
   local name="$1" acct="$2"
   api GET "/iam/v1/projects?accountId=$acct" "$JWT_BOOTSTRAP" \
@@ -154,7 +154,7 @@ PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross
 log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
-log "5/8 ensuring access bindings"
+log "5/10 ensuring access bindings"
 ensure_binding() {
   local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4"
   local body
@@ -188,7 +188,7 @@ ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B"
 ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
-log "6/8 invite INV to account-A (KAC-125)"
+log "6/10 invite INV to account-A (KAC-125)"
 invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"rol00000000000000vpced","projectId":"%s"}' "$ACCOUNT_A" "$PROJECT_A1")
 invite_resp=$(api POST "/iam/v1/users:invite" "$JWT_AAA" "$invite_body" 2>&1 || true)
 if echo "$invite_resp" | grep -q '"id":'; then
@@ -202,7 +202,7 @@ fi
 upsert_user_grpc "auth-test-invitee@example.com" "auth-test-invitee@example.com" "AuthZ Invitee" >/dev/null
 
 # 7) Seed VPC networks in A1 + B1 (admin token).
-log "7/8 ensuring seed VPC networks"
+log "7/10 ensuring seed VPC networks"
 ensure_network() {
   local proj="$1" name="$2"
   local found
@@ -221,8 +221,89 @@ SEED_NET_A1=$(ensure_network "$PROJECT_A1" "authz-seed-net-a1")
 SEED_NET_B1=$(ensure_network "$PROJECT_B1" "authz-seed-net-b1")
 log "    seed networks: A1=$SEED_NET_A1 B1=$SEED_NET_B1"
 
-# 8) Write authz-fixtures.json + patch env-files.
-log "8/8 writing $OUT_DIR/authz-fixtures.json"
+# 9) KAC-127 model 5-6 — ServiceAccounts + SA-keys (Hydra OAuth clients).
+log "9/10 ensuring ServiceAccounts + SA-keys (KAC-127 models 5-6)"
+
+# SA-A — granted SA (vpc-editor on project-A1). SANG — no-grant SA.
+find_sa_by_name() {
+  local name="$1" acct="$2"
+  api GET "/iam/v1/serviceAccounts?accountId=$acct" "$JWT_BOOTSTRAP" \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); n=[x for x in (d.get('serviceAccounts') or []) if x.get('name')=='$name']; print(n[0].get('id','') if n else '')" 2>/dev/null || true
+}
+ensure_sa() {
+  local name="$1" acct="$2"
+  local found
+  found=$(find_sa_by_name "$name" "$acct")
+  if [ -n "$found" ]; then echo "$found"; return; fi
+  local body op op_id
+  body=$(printf '{"accountId":"%s","name":"%s","description":"KAC-127 authz fixture"}' "$acct" "$name")
+  op=$(api POST "/iam/v1/serviceAccounts" "$JWT_BOOTSTRAP" "$body")
+  op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null)
+  if [ -z "$op_id" ]; then echo "[setup] WARN ServiceAccount.Create failed: $op" >&2; echo ""; return; fi
+  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("serviceAccountId",""))'
+}
+SVA_A=$(ensure_sa "authz-sa-a" "$ACCOUNT_A")
+SVA_NOGRANT=$(ensure_sa "authz-sa-nogrant" "$ACCOUNT_A")
+log "    service accounts: A=$SVA_A NOGRANT=$SVA_NOGRANT"
+
+# Grant SA-A vpc-editor on project-A1 (subject_type=service_account).
+ensure_sa_binding() {
+  local subject_id="$1" role_id="$2" resource_type="$3" resource_id="$4"
+  local body
+  body=$(printf '{"subjectType":"service_account","subjectId":"%s","roleId":"%s","resourceType":"%s","resourceId":"%s"}' \
+    "$subject_id" "$role_id" "$resource_type" "$resource_id")
+  api POST "/iam/v1/accessBindings" "$JWT_BOOTSTRAP" "$body" >/dev/null || true
+}
+ensure_sa_binding "$SVA_A" "rol00000000000000vpced" "project" "$PROJECT_A1"
+# SVA_NOGRANT — intentionally NO bindings (model 5 negative).
+
+# Issue SA-key (Hydra OAuth client) for SA-A via SAKeyService.Issue.
+# `client_secret` returned ONCE; не персистится, в env не кладётся.
+issue_sa_key() {
+  local sva_id="$1"
+  local body op op_id
+  body=$(printf '{"serviceAccountId":"%s","description":"KAC-127 authz fixture key","createdByUserId":"%s"}' \
+    "$sva_id" "$USER_BOOT")
+  op=$(api POST "/iam/v1/serviceAccounts/${sva_id}/keys" "$JWT_BOOTSTRAP" "$body")
+  op_id=$(echo "$op" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+  if [ -z "$op_id" ]; then
+    log "    WARN SAKeyService.Issue вернул не Operation (proto может быть не зарегистрирован): $(echo "$op" | head -c 160)"
+    echo ""
+    return
+  fi
+  poll_op "$op_id" "$JWT_BOOTSTRAP" \
+    | python3 -c 'import sys,json; d=json.load(sys.stdin); print((d.get("metadata") or {}).get("keyId",""))' 2>/dev/null || true
+}
+SA_KEY_A=$(issue_sa_key "$SVA_A")
+log "    SA-key for SA-A: keyId=$SA_KEY_A (client_secret returned once — НЕ персистится)"
+
+# 10) Mint SA + API tokens (dev-mode HS256 equivalents of Hydra-issued JWTs).
+#     Реальный client_credentials grant — Hydra /oauth2/token; на стенде
+#     api-gateway authn dev-mode принимает HS256 dev-secret JWT, поэтому
+#     SA-токен моделируется minter'ом с kacho_principal_type=service_account.
+log "10/10 minting SA + API tokens (KAC-127 models 5-6)"
+EXP_SECONDS=$((EXP_HOURS * 3600))
+JWT_SAA=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --sa "$SVA_A" --exp-seconds "$EXP_SECONDS")
+JWT_SANG=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --sa "$SVA_NOGRANT" --exp-seconds "$EXP_SECONDS")
+API_TOKEN_VALID=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
+  --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
+# Expired API token — exp 1h в прошлом.
+API_TOKEN_EXPIRED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
+  --scope "vpc.* project:$PROJECT_A1" --exp-seconds "-3600")
+# Revoked API token: валидный по подписи, но keyId отозван через
+# SAKeyService.Revoke → kacho-iam authn-слой отвергает (session_revocations).
+API_TOKEN_REVOKED=$(python3 "$SCRIPT_DIR/setup-jwt.py" --secret "$DEV_SECRET" --api-token "$SVA_A" \
+  --scope "vpc.* project:$PROJECT_A1" --exp-seconds "$EXP_SECONDS")
+if [ -n "$SA_KEY_A" ]; then
+  api DELETE "/iam/v1/serviceAccounts/${SVA_A}/keys/${SA_KEY_A}" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+  log "    SA-key $SA_KEY_A revoked (apiTokenRevoked → expect 401)"
+fi
+# Malformed token — синтаксически битый JWS (2 сегмента вместо 3).
+API_TOKEN_MALFORMED="eyJhbGciOiJIUzI1NiJ9.bm90LWEtcmVhbC10b2tlbg"
+
+# Write authz-fixtures.json + patch env-files.
+log "writing $OUT_DIR/authz-fixtures.json"
 cat > "$OUT_DIR/authz-fixtures.json" <<EOF
 {
   "baseUrl": "$BASE_URL",
@@ -243,7 +324,15 @@ cat > "$OUT_DIR/authz-fixtures.json" <<EOF
   "userPA1Id": "$USER_PA1",
   "userAAAId": "$USER_AAA",
   "userAABId": "$USER_AAB",
-  "userINVId": "$USER_INV"
+  "userINVId": "$USER_INV",
+  "svaAId": "$SVA_A",
+  "svaNoGrantId": "$SVA_NOGRANT",
+  "jwtSAA": "$JWT_SAA",
+  "jwtSANoGrant": "$JWT_SANG",
+  "apiTokenValid": "$API_TOKEN_VALID",
+  "apiTokenRevoked": "$API_TOKEN_REVOKED",
+  "apiTokenExpired": "$API_TOKEN_EXPIRED",
+  "apiTokenMalformed": "$API_TOKEN_MALFORMED"
 }
 EOF
 

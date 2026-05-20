@@ -67,12 +67,52 @@ def bulk(secret: str, exp_hours: int) -> dict:
     return {name: mint(secret, sub, exp) for name, sub in subjects.items()}
 
 
+def mint_sa(secret: str, sva_id: str, exp_seconds: int) -> str:
+    """KAC-127 модель 5 — Service Account токен.
+
+    На стенде dev-mode моделирует Kachō-JWT, который Hydra-token_hook
+    выдаёт после client_credentials grant: `sub=<svaId>` +
+    `kacho_principal_type=service_account`. Реальный Hydra-flow живёт в
+    setup.sh (SAKeyService.Issue + /oauth2/token); здесь — dev-эквивалент,
+    т.к. api-gateway authn в dev-mode принимает HS256 dev-secret JWT.
+    """
+    return mint(secret, sva_id, exp_seconds, extra_claims={
+        "kacho_principal_type": "service_account",
+        "kacho_sa_id": sva_id,
+    })
+
+
+def mint_api_token(secret: str, sva_id: str, exp_seconds: int, scope: str) -> str:
+    """KAC-127 модель 6 — статический API-token.
+
+    Привязан к principal (SA) + scope. exp_seconds может быть отрицательным
+    (для expired-варианта). `scope` — space-separated (например
+    "vpc.* project:<projectId>").
+    """
+    return mint(secret, sva_id, exp_seconds, extra_claims={
+        "kacho_principal_type": "service_account",
+        "kacho_sa_id": sva_id,
+        "kacho_token_kind": "api_token",
+        "scope": scope,
+    })
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="HS256 JWT minter for authz-deny suite")
     parser.add_argument("--secret", required=True, help="HMAC secret (KACHO_API_GATEWAY_AUTHN_DEV_SECRET)")
     parser.add_argument("--sub", help="sub claim (single-mint mode)")
     parser.add_argument("--exp-hours", type=int, default=24, help="exp = iat + exp-hours*3600")
     parser.add_argument("--bulk", action="store_true", help="Mint all 6 subjects, print JSON")
+    # KAC-127 models 5-6.
+    parser.add_argument("--sa", metavar="SVA_ID",
+                        help="mint Service Account token (kacho_principal_type=service_account)")
+    parser.add_argument("--api-token", metavar="SVA_ID",
+                        help="mint static API token bound to principal SVA_ID")
+    parser.add_argument("--scope", default="vpc.*",
+                        help="API-token scope (space-separated; used with --api-token)")
+    parser.add_argument("--exp-seconds", type=int,
+                        help="explicit exp offset in seconds (may be negative → expired); "
+                             "overrides --exp-hours for --sa / --api-token")
     args = parser.parse_args()
 
     if args.bulk:
@@ -80,8 +120,17 @@ def main() -> int:
         json.dump(result, sys.stdout, indent=2)
         sys.stdout.write("\n")
         return 0
+
+    exp_seconds = args.exp_seconds if args.exp_seconds is not None else args.exp_hours * 3600
+
+    if args.sa:
+        sys.stdout.write(mint_sa(args.secret, args.sa, exp_seconds))
+        return 0
+    if args.api_token:
+        sys.stdout.write(mint_api_token(args.secret, args.api_token, exp_seconds, args.scope))
+        return 0
     if not args.sub:
-        parser.error("--sub required when --bulk not set")
+        parser.error("--sub required when --bulk / --sa / --api-token not set")
     token = mint(args.secret, args.sub, args.exp_hours * 3600)
     sys.stdout.write(token)
     return 0
