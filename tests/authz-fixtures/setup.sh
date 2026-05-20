@@ -13,6 +13,14 @@
 #   PATCH_ENV        — если true, патчит environments/*.json во всех 3 newman-suites
 #                     (default true)
 #   VERBOSE          — true → echo каждый curl
+#   RESET_FGA        — KAC-127 RC-1b: если true, удаляет stale OpenFGA-tuples,
+#                      указывающие на test-объекты (account:authz-* / project:* /
+#                      iam_*:* субъектов матрицы) ПЕРЕД повторным seed'ом, чтобы
+#                      прогоны не накапливали дубликаты от прошлых моделей. По
+#                      умолчанию false — Write-тuples и так идемпотентны (409 =
+#                      success), reset нужен только при смене FGA-модели.
+#                      Требует OPENFGA_HTTP (default http://localhost:18081) +
+#                      OPENFGA_STORE_ID.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,6 +33,9 @@ EXP_HOURS="${EXP_HOURS:-24}"
 OUT_DIR="${OUT_DIR:-$SCRIPT_DIR/out}"
 PATCH_ENV="${PATCH_ENV:-true}"
 VERBOSE="${VERBOSE:-false}"
+RESET_FGA="${RESET_FGA:-false}"
+OPENFGA_HTTP="${OPENFGA_HTTP:-http://localhost:18081}"
+OPENFGA_STORE_ID="${OPENFGA_STORE_ID:-}"
 
 # require grpcurl for InternalUserService.UpsertFromIdentity (нет REST маппинга — KAC-125)
 if ! command -v grpcurl >/dev/null 2>&1; then
@@ -36,6 +47,55 @@ mkdir -p "$OUT_DIR"
 
 log() { echo "[setup] $*" >&2; }
 vrun() { if [ "$VERBOSE" = "true" ]; then echo "+ $*" >&2; fi; "$@"; }
+
+# 0) Optional OpenFGA store-tuple reset (KAC-127 RC-1b).
+#
+# Across repeated `dev-up` / `make authz-test-setup` runs the OpenFGA store
+# retains every tuple ever written. Tuple writes are idempotent (409 ==
+# success), so a re-seed never duplicates a tuple — but if the FGA *model*
+# changed between runs, stale tuples that reference removed relations linger.
+# When RESET_FGA=true we delete the tuples the matrix subjects/objects own
+# before re-seeding, guaranteeing a clean slate. Default off (safe; the model
+# is stable). Requires OPENFGA_HTTP + OPENFGA_STORE_ID.
+reset_fga_tuples() {
+  if [ "$RESET_FGA" != "true" ]; then
+    log "0/8 OpenFGA store-reset skipped (RESET_FGA != true)"
+    return 0
+  fi
+  if [ -z "$OPENFGA_STORE_ID" ]; then
+    log "0/8 RESET_FGA=true but OPENFGA_STORE_ID is empty — skipping reset"
+    return 0
+  fi
+  log "0/8 resetting stale OpenFGA tuples for test objects (store=$OPENFGA_STORE_ID)"
+  # Read every tuple in the store, then delete the ones that point at
+  # authz-test objects. OpenFGA Read with an empty tuple_key returns all.
+  local page tuples
+  page=$(curl -sS -X POST "$OPENFGA_HTTP/stores/$OPENFGA_STORE_ID/read" \
+    -H "Content-Type: application/json" --data '{"page_size":100}' 2>/dev/null || echo '{}')
+  tuples=$(echo "$page" | python3 -c '
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for t in d.get("tuples", []):
+    k = t.get("key", {})
+    obj, user = k.get("object", ""), k.get("user", "")
+    # only delete tuples that touch the matrix fixture objects/subjects.
+    if "authz-test" in obj or "authz-test" in user or obj.startswith(("iam_", "account:", "project:")):
+        print(json.dumps({"user": user, "relation": k.get("relation", ""), "object": obj}))
+' 2>/dev/null || true)
+  local n=0
+  while IFS= read -r tk; do
+    [ -z "$tk" ] && continue
+    curl -sS -X POST "$OPENFGA_HTTP/stores/$OPENFGA_STORE_ID/write" \
+      -H "Content-Type: application/json" \
+      --data "{\"deletes\":{\"tuple_keys\":[$tk]}}" >/dev/null 2>&1 || true
+    n=$((n + 1))
+  done <<< "$tuples"
+  log "    deleted $n stale fixture tuple(s)"
+}
+reset_fga_tuples
 
 # 1) Mint all 6 JWTs.
 log "1/10 minting JWTs (exp=${EXP_HOURS}h)"
