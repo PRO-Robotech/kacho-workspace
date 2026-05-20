@@ -301,34 +301,35 @@ if e:
     echo "[setup] WARN AccessBinding.Create op $op_id error ($subject_id $role_id $resource_type:$resource_id): $err_msg" >&2
   fi
 }
-# System role IDs (из seed миграции kacho_iam 0001):
-#   iam{ad,ed,vw} / vpc{ad,ed,vw} / cmp{ad,ed,vw} / lbs{ad,ed,vw}.
-# Owner relation в Keto cascade — не отдельный role-id, а Account membership-type;
-# для тестов используем "ad" (admin) — он эквивалентен owner-у для всех практических целей.
+# System role IDs — source of truth = migration kacho_iam `0008_role_catalog_kac122.sql`.
+# That migration DELETEs the legacy `rol00000000000000<tail>` roles seeded by 0001
+# and re-seeds the catalog with deterministic ids `rol` + substr(md5(<name>),1,17).
+# An AccessBinding.Create with a non-existent role_id fails the worker with
+# `FAILED_PRECONDITION Role <id> not found` (FK access_bindings_role_fk), so the
+# fixture MUST use the post-0008 ids — see KAC-127.
+#
+# The fixture grants are domain-wide "account admin" / "project editor"; the
+# post-0008 catalog has no domain-wide roles, so we map to the 3 global
+# wildcard roles (acceptance-equivalent — admin ⊇ editor ⊇ viewer cascade):
+#   admin = rol+md5('admin')[:17]  → FGA relation `admin`
+#   edit  = rol+md5('edit')[:17]   → FGA relation `editor`
+#   view  = rol+md5('view')[:17]   → FGA relation `viewer`
+ROLE_ADMIN="rol21232f297a57a5a74"   # md5('admin')[:17]  — global super-admin
+ROLE_EDIT="rolde95b43bceeb4b998"    # md5('edit')[:17]   — global edit-only
+ROLE_VIEW="rol1bda80f2be4d3658e"    # md5('view')[:17]   — global read-only
 
-# PA1 — project-A1 editor по всем доменам (vpc/compute/lbs). Grantor = AAA (owns A → A1).
-ensure_binding "$USER_PA1" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_AAA"
-ensure_binding "$USER_PA1" "rol00000000000000cmped" "project" "$PROJECT_A1" "$JWT_AAA"
-ensure_binding "$USER_PA1" "rol00000000000000lbsed" "project" "$PROJECT_A1" "$JWT_AAA"
-# AAA — account-A admin по всем доменам. Grantor = AAA (owner of A — self-grant on own account).
-ensure_binding "$USER_AAA" "rol00000000000000iamad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000vpcad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000cmpad" "account" "$ACCOUNT_A" "$JWT_AAA"
-ensure_binding "$USER_AAA" "rol00000000000000lbsad" "account" "$ACCOUNT_A" "$JWT_AAA"
-# AAB — account-B admin по всем доменам. Grantor = AAB (owner of B).
-ensure_binding "$USER_AAB" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_AAB" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
-# INV — owner-of-B (his home) — admin по всем доменам в account-B. Grantor = AAB (owner of B).
-ensure_binding "$USER_INV" "rol00000000000000iamad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_INV" "rol00000000000000vpcad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_INV" "rol00000000000000cmpad" "account" "$ACCOUNT_B" "$JWT_AAB"
-ensure_binding "$USER_INV" "rol00000000000000lbsad" "account" "$ACCOUNT_B" "$JWT_AAB"
+# PA1 — project-A1 editor. Grantor = AAA (owns A → A1).
+ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
+# AAA — account-A admin. Grantor = AAA (owner of A — self-grant on own account).
+ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
+# AAB — account-B admin. Grantor = AAB (owner of B).
+ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
+# INV — owner-of-B (his home) — admin in account-B. Grantor = AAB (owner of B).
+ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/10 invite INV to account-A (KAC-125)"
-invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"rol00000000000000vpced","projectId":"%s"}' "$ACCOUNT_A" "$PROJECT_A1")
+invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"%s","projectId":"%s"}' "$ACCOUNT_A" "$ROLE_EDIT" "$PROJECT_A1")
 invite_resp=$(api POST "/iam/v1/users:invite" "$JWT_AAA" "$invite_body" 2>&1 || true)
 if echo "$invite_resp" | grep -q '"id":'; then
   invite_op_id=$(echo "$invite_resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
@@ -412,7 +413,7 @@ ensure_sa_binding() {
   fi
   poll_op "$op_id" "$grantor_token" >/dev/null 2>&1 || true
 }
-ensure_sa_binding "$SVA_A" "rol00000000000000vpced" "project" "$PROJECT_A1" "$JWT_AAA"
+ensure_sa_binding "$SVA_A" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
 # SVA_NOGRANT — intentionally NO bindings (model 5 negative).
 
 # Issue SA-key (Hydra OAuth client) for SA-A via SAKeyService.Issue.
