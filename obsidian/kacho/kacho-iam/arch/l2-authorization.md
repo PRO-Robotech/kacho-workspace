@@ -74,3 +74,11 @@ JWT-идентичности в principal (oneof key: external_id / id / email);
 - `Internal*` — только internal-listener; светить на external TLS запрещено
   (§Запрет #6).
 - Model/Rego write/reload — только cluster-system-admin.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-authorization]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

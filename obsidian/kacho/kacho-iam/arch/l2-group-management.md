@@ -52,3 +52,11 @@ binding на группу даёт доступ всем её членам.
   Create — `admin` на `req.account_id`; read — `viewer`; mutate/member-ops —
   `admin` на ассоциированном account; `List` без `account_id` → пустой ответ
   для не-system-admin.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-group-management]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

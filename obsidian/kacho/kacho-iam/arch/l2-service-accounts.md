@@ -54,3 +54,11 @@ federation-exchange (динамические внешние токены).
   держит лишь метаданные.
 - Rotation — soft: новый secret валиден сразу, старый доживает grace-период
   (для безшовного CI/CD).
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-service-accounts]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

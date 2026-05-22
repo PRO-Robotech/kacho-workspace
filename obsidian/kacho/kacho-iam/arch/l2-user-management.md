@@ -53,3 +53,11 @@ account-owner / group-member / access-binding. Локальный edit `email` /
   блокируется sentinel'ом в service-слое, не БД.
 - `InternalUserService` не должен светиться на external TLS (newman-кейс
   `iam-internal-only-check` это проверяет).
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-user-management]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

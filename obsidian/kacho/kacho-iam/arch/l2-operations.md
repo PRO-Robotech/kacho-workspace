@@ -45,3 +45,11 @@ source_sha: ""
   пакет `kacho.cloud.operation` (не `iam.v1`).
 - Per-resource истории (`AccountService.ListOperations` и т.п.) — отдельные
   RPC своих L2-кластеров; здесь только generic `Get` / `Cancel`.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-operations]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

@@ -54,3 +54,11 @@ State machine grant'а (6 состояний): запрос → одобрени
 - Все операции — internal-listener; на external TLS не публикуются.
 - `RequestBreakGlass` / `Get` / `List` помечены authz-exempt — break-glass
   работает, когда обычный authz-путь недоступен.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-break-glass]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

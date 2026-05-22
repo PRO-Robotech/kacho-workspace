@@ -93,3 +93,27 @@ InternalIAM/InternalBreakGlass/TrustPolicy/OpaBundle.
 **Внешние зависимости kacho-iam** (не kacho-сервисы): внешний IdP (OIDC) —
 источник истины для `User`; OpenFGA — store relation-tuple'ов; OPA — cluster-deny
 policy-engine. Эти рёбра — runtime, не build-зависимости.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Проект: [[_l0-kacho]]
+- ↓ Функциональность: [[l2-access-bindings]]
+- ↓ Функциональность: [[l2-access-reviews]]
+- ↓ Функциональность: [[l2-account-lifecycle]]
+- ↓ Функциональность: [[l2-authorization]]
+- ↓ Функциональность: [[l2-break-glass]]
+- ↓ Функциональность: [[l2-compliance-reporting]]
+- ↓ Функциональность: [[l2-gdpr-erasure]]
+- ↓ Функциональность: [[l2-group-management]]
+- ↓ Функциональность: [[l2-iam-conditions]]
+- ↓ Функциональность: [[l2-jit-elevation]]
+- ↓ Функциональность: [[l2-opa-bundles]]
+- ↓ Функциональность: [[l2-operations]]
+- ↓ Функциональность: [[l2-project-lifecycle]]
+- ↓ Функциональность: [[l2-role-model]]
+- ↓ Функциональность: [[l2-service-accounts]]
+- ↓ Функциональность: [[l2-user-management]]
+- ↓ Функциональность: [[l2-workload-federation]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

@@ -53,3 +53,11 @@ access-bindings ещё нужны (compliance: SOC 2 CC6.2, ISO 27001 A.9.2.5).
   чувствительная к compliance.
 - Кампания и её материализованные циклы — разные сущности: отмена кампании не
   отменяет уже идущий review.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-access-reviews]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

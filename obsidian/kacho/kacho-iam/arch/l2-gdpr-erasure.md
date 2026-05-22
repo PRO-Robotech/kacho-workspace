@@ -50,3 +50,11 @@ State machine: `cool_off → in_progress → completed` (или `cancelled`).
 - Стирание затрагивает данные только в пределах БД kacho-iam; cross-service
   персональные данные — отдельная забота владельцев тех данных (нет cross-service
   cascade).
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-gdpr-erasure]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

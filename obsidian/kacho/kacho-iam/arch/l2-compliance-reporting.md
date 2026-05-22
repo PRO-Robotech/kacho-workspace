@@ -45,3 +45,11 @@ source_sha: ""
   `GetReportDownloadUrl`.
 - Артефакт — снимок на момент генерации, не live-вью: для актуального состояния
   нужен новый отчёт.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-compliance-reporting]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

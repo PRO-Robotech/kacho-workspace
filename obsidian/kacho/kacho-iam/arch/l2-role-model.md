@@ -45,3 +45,11 @@ Permission-каталог фиксирован платформой; роль г
   `is_system`-rows).
 - Wildcard-permission'ы хранятся as-is, не разворачиваются на уровне Role —
   expansion происходит в REBAC Check (см. `l2-authorization`).
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-role-model]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

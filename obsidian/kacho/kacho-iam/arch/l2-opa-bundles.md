@@ -51,3 +51,11 @@ org-wide и policy-driven: cluster-deny, регуляторные огранич
   применяется не мгновенно.
 - ETag-кэш снижает трафик; артефакт также может зеркалироваться в object-store
   для multi-region replay.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-opa-bundles]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

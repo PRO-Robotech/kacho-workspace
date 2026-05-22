@@ -48,3 +48,11 @@ Create/Delete синхронизирует соответствующий relati
 - Authority: и Create, и Delete авторизуются через общий `requireGrantAuthority`
   — caller обязан быть owner владеющего Account/Project либо держать FGA `admin`
   на scope. Delete — **не** self-only: account-owner может отзывать чужие grants.
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-access-bindings]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->

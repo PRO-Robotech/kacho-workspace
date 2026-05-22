@@ -51,3 +51,11 @@ runtime-ребро в графе.
   аккаунте → `AlreadyExists`.
 - Project-deletion не каскадит в vpc/compute — оставшиеся там ресурсы становятся
   dangling, это by-design (database-per-service).
+
+## Связанные заметки
+
+<!-- archgraph:links -->
+- ↑ Приклад: [[_l1-kacho-iam]]
+- ↓ Функции (call-дерево, RPC contract): [[l3-l2-project-lifecycle]]
+- Переменные: [[l4-kacho-iam]]
+<!-- /archgraph:links -->
