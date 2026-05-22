@@ -81,9 +81,9 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 
 ## Lifecycle
 
-- **Create** — async; UNIQUE → идемпотентный (повторный Create на тот же (subject, role, resource) → возвращает existing). KAC-108: в той же writer-TX enqueue'ит `fga_outbox` row (`event_type='fga.tuple.write'`) + `subject_change_outbox` row → atomic с AccessBinding INSERT.
+- **Create** — async; UNIQUE → идемпотентный (повторный Create на тот же (subject, role, resource) → возвращает existing). **WS-2.3 ([[KAC-WS23]])**: в той же writer-TX пишет `subject_change_outbox` row (`op='binding_upsert'`) → atomic с AccessBinding INSERT (драйвит инвалидацию authz-кэша gateway, см. [[../edges/api-gateway-to-iam-subject-change]]). FGA-tuple grant — отдельным путём (sync `WriteTuples`).
 - **Activate (KAC-127 Phase 7)**: PENDING → ACTIVE через CAS UPDATE (conditions met / JIT activate / approver-grant).
-- **Revoke (KAC-127)**: idempotent CAS UPDATE (`WHERE status IN ('PENDING','ACTIVE')` → REVOKED). KAC-108: enqueue'ит `fga_outbox` (`fga.tuple.delete`) + `subject_change_outbox` + audit + CAEP push.
+- **Delete / Revoke**: `Delete` физически удаляет row. **WS-2.3 ([[KAC-WS23]])**: в той же writer-TX пишет `subject_change_outbox` row (`op='binding_delete'`) → atomic с удалением. FGA-tuple revoke — отдельным путём (sync `DeleteTuples`, review #8).
 - **Expire (KAC-127 Phase 7 worker)**: scan `WHERE status='ACTIVE' AND expires_at < now()` → CAS UPDATE → REVOKED.
 - **ListByResource** / **ListBySubject** — sync read.
 
@@ -96,6 +96,6 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/KAC-127]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]]
 
 #resource #kacho-iam #iam
