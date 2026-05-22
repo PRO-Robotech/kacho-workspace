@@ -863,3 +863,26 @@ anchors:
 - Конвертация сценариев в Go integration-тесты на фикстурах — `integration-tester`.
 - Реализация `archgraph` — `rpc-implementer` (несмотря на имя — тут это CLI, не RPC; роль ближайшая по «реализация Go по acceptance»).
 - Трекинг эпика — через design-док (`docs/superpowers/specs/2026-05-22-kacho-architecture-vault-design.md`) и этот acceptance-док; ветка `arch-vault-rebuild` в `kacho-corelib`. YouTrack `KAC` для этого эпика временно не используется — до разбора рассинхрона YT-индексации.
+
+---
+
+## 13. Implementation closeout (2026-05-22)
+
+Sub-phase 4.0 реализована полностью на ветке `arch-vault-rebuild` в `kacho-corelib`
+(коммиты `ed6aabf..0929172` — 12 задач плана + рефактор фикстур). Все 53 сценария
+A1–J1 покрыты Go integration-тестами (test-first RED→GREEN), `go test ./... -race`
+зелёный, `golangci-lint` 0 issues, покрытие пакета `archgraph` 86.1% (≥70%).
+Каждая задача отревьюена `go-style-reviewer`; финальное сквозное ревью — APPROVED.
+
+**Known limitations (by-design, зафиксированы в doc-комментах кода и
+`obsidian/kacho/packages/corelib-archgraph.md`):**
+
+- **C2** проверяет только exported **функции и методы**, не типы/var/const →
+  мёртвый exported-тип без методов и конструктора C2 не ловит. Точный
+  value-flow-анализ типов признан несоразмерным цели (ловить забытые функции/RPC).
+- **L4** генерит таблицы типов/полей/констант; DB-колонки и config-ключи не
+  извлекаются (требует domain-знания sqlc/pgx/viper-диалектов).
+- **C3** — пофайловый хеш (§12.4): over-trigger принят.
+- **E5** hint нераспознанного воркера — грубая корреляция (`entrypoints.Hint`
+  несёт `file:line`, не имя типа) — кандидат на tech-debt issue при раскатке.
+- **RTA** не видит reflection-вызовы → ложный C2, лечится `// archgraph:keep`.
