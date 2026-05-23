@@ -64,6 +64,11 @@ tags:
 - **KAC-131 authz catalog (2026-05-23)**: `Get`, `Delete`, `ListByResource`, `ListBySubject` переведены в `<exempt>` в permission_catalog.json. Причина: (a) account-scoped AB не получал FGA иерархический тупл (только `project`-тип — BUG-6); (b) ListByResource/ListBySubject имели неверный `scope_extractor` → FGA всегда "no path" (BUG-8). Authz теперь — handler-level scope-filter: `Get` — subject/owner check; `Delete` — `requireGrantAuthority`; List* — `RequireAuthenticated`. `Create` остаётся FGA-gated.
 - **KAC-131 existence-leak prevention**: `Get` и `Delete` для несуществующего ID возвращают `PermissionDenied` (не `NotFound`) — предотвращает ID-enumeration. `garbage-perresource` authz-deny тест проходит для всех субъектов (403+code 7).
 
+- **KAC-133 partial-UNIQUE scope fix (2026-05-23)**: `FindExisting` добавлен `AND status = 'ACTIVE'` — без этого возвращалась REVOKED-row с другим id, ломая idempotent re-create (IAM-ACB-CR-IDEM-13.4). Соответствует migration 0022 (partial UNIQUE WHERE status='ACTIVE').
+- **KAC-133 ListBySubject self-check**: enforced в use-case — `user` principal может запрашивать ТОЛЬКО свои bindings; cross-user → 403 (KAC-123 requirement).
+- **KAC-133 ListByResource scope-gate**: use-case добавил `requireGrantAuthority` check — non-member не может перечислить bindings на ресурсе. FGA-wired в main.go. Catalog остаётся `<exempt>`, authz — handler-level.
+- **REST HTTP verbs (KAC-133 fix)**: `ListByResource` и `ListBySubject` — `GET` с query params (НЕ POST + body). Тесты ошибочно использовали POST, что давало catalog-miss → 403.
+
 ## See also
 
 [[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]]
