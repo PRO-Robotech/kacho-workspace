@@ -16,6 +16,7 @@ REPOS=(
   kacho-vpc-implement
   kacho-compute
   kacho-loadbalancer
+  kacho-nlb
   kacho-deploy
 )
 
