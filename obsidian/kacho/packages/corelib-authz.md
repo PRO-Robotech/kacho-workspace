@@ -48,6 +48,11 @@ type ObjectExtractor func(req any) (objectType, objectID string, err error)
 func StaticExtractor(objectType string, extractID func(req any) (string, error)) ObjectExtractor
 type RPCMap map[string]RPCEntry
 type RPCEntry struct { Relation string; Extract ObjectExtractor; Public bool }
+
+// Sentinel errors (KAC-133):
+var ErrUnmapped   = errors.New("authz: RPC not mapped in PermissionMap")
+var ErrUnavailable = errors.New("authz: check service unavailable")
+var ErrNoPath     = errors.New("authz: no FGA path to resource")  // → DecisionNoPath passthrough
 ```
 
 ## Decision pipeline (interceptor.authorize)
@@ -60,7 +65,11 @@ type RPCEntry struct { Relation string; Extract ObjectExtractor; Public bool }
 4. Object extract; ошибка → `Denied`.
 5. Cache lookup (positive-only); hit → `Allowed`/`Denied`.
 6. Rate-limit per-principal (denied-storm).
-7. `Client.Check(subject, relation, object)`; err → `Unavailable` (fail-closed).
+7. `Client.Check(subject, relation, object)`; err →
+   - `errors.Is(err, ErrNoPath)` → **DecisionNoPath**: pass-through к handler'у,
+     который вернёт `NOT_FOUND` из БД (вместо masking как 403). Используется
+     когда FGA hierarchy-tuple для объекта ещё не записан — KAC-133.
+   - иначе → `Unavailable` (fail-closed).
 8. allowed → cache positive + `Allowed`; иначе `Denied`.
 
 ## Fail modes (acceptance D-6)
