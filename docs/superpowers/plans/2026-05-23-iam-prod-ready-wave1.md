@@ -152,8 +152,8 @@ anti-anonymous interceptor (#43).
 | W1.2 subject_change_outbox + cache | [[../../obsidian/kacho/KAC/KAC-138\|KAC-138]] | 🟡 proto merged; iam+gateway CI re-running | sub-phase-W1.2-subject-change-cache-invalidation-acceptance.md | KAC-138 |
 | W1.3 gateway fail-closed | (TBD) | ⏳ pending | sub-phase-W1.3-*.md | KAC-136 |
 | W1.4 principal propagation | [[../../obsidian/kacho/KAC/KAC-140\|KAC-140]] | ✅ DONE (corelib#14 + vpc#106 + compute#28 merged) | sub-phase-W1.4-principal-propagation-acceptance.md | KAC-140 |
-| W1.5 Remediation Chunk 1 (7 findings) | (TBD) | ⏳ pending | sub-phase-W1.5-*.md | KAC-136 |
-| W1.6 Remediation Chunk 2 (10 findings) | (TBD) | ⏳ pending | sub-phase-W1.6-*.md | KAC-136 |
+| W1.5 Remediation Chunk 1 (7 findings) | [[../../obsidian/kacho/KAC/KAC-163\|KAC-163]] | 🟡 PR open ([kacho-iam#35](https://github.com/PRO-Robotech/kacho-iam/pull/35)) — awaiting CI/merge | sub-phase-W1.5-remediation-chunk1-fga-grant-write-acceptance.md | KAC-163 |
+| W1.6 Remediation Chunk 2 (10 findings) | [[../../obsidian/kacho/KAC/KAC-164\|KAC-164]] | 🟡 acceptance-doc in progress | sub-phase-W1.6-remediation-chunk2-in-service-authz-acceptance.md | KAC-164 |
 
 ## Open decisions (before start of relevant chunk)
 

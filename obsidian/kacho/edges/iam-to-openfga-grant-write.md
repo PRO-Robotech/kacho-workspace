@@ -10,6 +10,7 @@ related_tickets:
   - KAC-134
   - KAC-135
   - KAC-137
+  - KAC-163
 tags:
   - edge
   - kacho-iam
@@ -32,15 +33,15 @@ Store + AuthorizationModel поднимаются **умbrellой** (не kacho-
 
 KAC-135 W0.4: `values.dev.yaml` → `openfga.replicaCount: 2` (HA-mini для kind). Prod уже имел 3.
 
-## Текущее runtime-поведение (после W1.1 [[../KAC/KAC-137]])
+## Текущее runtime-поведение (после W1.5 [[../KAC/KAC-163]])
 
 | Путь | Поведение |
 |---|---|
 | `bootstrap_admin` | ✅ INSERT в `fga_outbox` → **drainer** ([[../packages/corelib-outbox-drainer]]) применяет к OpenFGA. End-to-end verified. |
-| `AccessBindingService.Create` | **STILL** sync `WriteTuples`; finding #16 split-brain DB/FGA остаётся. **Заменяется в W1.5.** |
-| `AccessBindingService.Delete` ([[../KAC/KAC-128]]/[[../KAC/KAC-131]]/[[../KAC/KAC-133]]) | sync `DeleteTuples` — частично исправлен. **Заменяется в W1.5.** |
-| JIT auto/pending-approve | НЕ пишет в FGA ([[../KAC/KAC-127]] findings #50/#51). **Fix в W1.5.** |
-| BreakGlass.ApproveB | НЕ пишет в FGA (#52). **Fix в W1.5.** |
+| `AccessBindingService.Create` | ✅ atomic via `fga_outbox` (KAC-163 W1.5) — emit-in-tx с domain INSERT. |
+| `AccessBindingService.Delete` ([[../KAC/KAC-128]]/[[../KAC/KAC-131]]/[[../KAC/KAC-133]]) | ✅ atomic via `fga_outbox` (KAC-163 W1.5) — emit-in-tx с domain DELETE. |
+| JIT auto-grant / pending-approve / expiry | ✅ atomic via `fga_outbox` (KAC-163 W1.5) — был wrong `EmitSubjectErasure` (CAEP-deletion!), заменён на правильный FGA grant/revoke. |
+| BreakGlass.ApproveB | ✅ atomic via `fga_outbox` (KAC-163 W1.5) — `cluster_admin_grants` INSERT + FGA emit в одной tx (mirror bootstrap_admin). |
 | ComplianceReport foreign-deny ([[../KAC/KAC-133]]) | 4 intentional RED #37 — починим в W1.6 (Chunk 2). |
 
 ## ✅ W1.1 ([[../KAC/KAC-137]]) — drainer foundation done
@@ -56,6 +57,6 @@ corelib generic `Drainer[T]` + concrete `FGAApplier` в kacho-iam + wiring в ma
 
 - 2026-05-23 (W0): bootstrap-job верифицирован (Secret `openfga-model-id`, sha256 annotation, HA-mini 2 replicas).
 - 2026-05-23 (W1.1, [[../KAC/KAC-137]]): **drainer foundation done** — bootstrap-admin grants реально применяются. corelib `outbox/drainer/` (3 commits) + kacho-iam wiring (2 commits). 17/17 tests GREEN.
-- Планируется W1.5: replace sync writes из AccessBinding/JIT/BreakGlass.
+- 2026-05-24 (W1.5, [[../KAC/KAC-163]]): ALL grant/revoke routed через fga_outbox в same writer-tx (AB Create/Delete + JIT activate/approve/expire + BG.ApproveB). PermissionsToRelations supersedes name-based mapping. Closes 7 findings.
 
 #edge #kacho-iam #kacho-deploy
