@@ -88,8 +88,15 @@ authz:
 Если `iam-endpoint` пуст и `breakglass=false` → interceptor НЕ навешивается
 (graceful start без kacho-iam в dev). В production это ошибка — fail на старте.
 
+## History
+
+- **2026-05-24** (W1.4, [[../KAC/KAC-140]]): principal propagated через
+  `auth.PropagateOutgoing` — iam Check теперь видит caller Principal, не
+  `user:bootstrap`. Closes round-3 finding из [[../KAC/KAC-127]].
+- 2026-05-17 (E3, [[../KAC/KAC-108]]): edge initial, kacho-vpc PR#101.
+
 ## See also
 
-[[../packages/vpc-apps-kacho-check]] [[../packages/corelib-authz]] [[iam-to-openfga-check]] [[compute-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite)
+[[../packages/vpc-apps-kacho-check]] [[../packages/corelib-authz]] [[../packages/corelib-auth]] [[iam-to-openfga-check]] [[compute-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite) [[../KAC/KAC-140]]
 
 #edge #kacho-vpc #kacho-iam #cross-service #authz #e3

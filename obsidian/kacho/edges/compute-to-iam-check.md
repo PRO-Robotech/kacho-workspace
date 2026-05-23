@@ -80,9 +80,18 @@ KACHO_COMPUTE_AUTHZ_BREAKGLASS=false
 
 Если адрес пуст и breakglass=false → interceptor НЕ навешивается (dev mode).
 
+## History
+
+- **2026-05-24** (W1.4, [[../KAC/KAC-140]]): principal propagated через
+  `auth.PropagateOutgoing` — iam Check теперь видит caller Principal, не
+  `user:bootstrap`. Closes round-3 finding из [[../KAC/KAC-127]]. Bonus:
+  14 peer-call sites в `vpc_client.go` тоже обернуты (Subnet/SG/NIC/Address
+  lookups).
+- 2026-05-17 (E3, [[../KAC/KAC-108]]): edge initial, kacho-compute PR#23.
+
 ## See also
 
-[[../packages/compute-internal-check]] [[../packages/corelib-authz]]
-[[iam-to-openfga-check]] [[vpc-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite)
+[[../packages/compute-internal-check]] [[../packages/corelib-authz]] [[../packages/corelib-auth]]
+[[iam-to-openfga-check]] [[vpc-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-122]] (authz-deny newman suite) [[../KAC/KAC-140]]
 
 #edge #kacho-compute #kacho-iam #cross-service #authz #e3
