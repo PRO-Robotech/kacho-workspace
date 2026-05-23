@@ -101,7 +101,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="HS256 JWT minter for authz-deny suite")
     parser.add_argument("--secret", required=True, help="HMAC secret (KACHO_API_GATEWAY_AUTHN_DEV_SECRET)")
     parser.add_argument("--sub", help="sub claim (single-mint mode)")
-    parser.add_argument("--exp-hours", type=int, default=24, help="exp = iat + exp-hours*3600")
+    parser.add_argument("--exp-hours", type=int, default=168, help="exp = iat + exp-hours*3600 (default 168h = 7 days)")
     parser.add_argument("--bulk", action="store_true", help="Mint all 6 subjects, print JSON")
     # KAC-127 models 5-6.
     parser.add_argument("--sa", metavar="SVA_ID",

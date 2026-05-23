@@ -260,6 +260,66 @@ PROJECT_A2=$(ensure_project "authz-test-a2" "$ACCOUNT_A" "KAC-122 fixture (cross
 PROJECT_B1=$(ensure_project "authz-test-b1" "$ACCOUNT_B" "KAC-122 fixture (cross-account)" "$JWT_AAB")
 log "    projects: A1=$PROJECT_A1 A2=$PROJECT_A2 B1=$PROJECT_B1"
 
+# 4b) KAC-132: Clean up stale NOB viewer bindings on account-A and account-B.
+#
+# The authz-deny newman suite's AB-CR ALLOW cases (AB-CR-A-AAA, AB-CR-B-AAB,
+# AB-CR-B-INV) grant userNOB a `viewer` role on account-A and account-B to
+# test AccessBinding.Create authorization.  Those bindings are written to
+# OpenFGA as tuples; since OpenFGA is backed by PostgreSQL they persist across
+# runs. On the next run the matrix still expects NOB → DENY on those accounts,
+# but OpenFGA sees the lingering tuple and returns ALLOW → 24 assertion
+# failures (ACCT-GT, PRJ-GT, PRJ-LS, GRP-LS sub-cases for NOB).
+#
+# Fix: delete any AccessBindings for NOB on account-A and account-B before
+# re-seeding so each run starts with a clean NOB state. The delete is
+# best-effort (if binding doesn't exist, the DELETE will 404 via
+# ListBySubject → no bindings found → nothing to delete; harmless).
+#
+# We use ListBySubject to discover any existing NOB bindings on those two
+# accounts, then DELETE each (wait for ops to complete so FGA tuples are
+# removed before the newman run starts).
+log "4b/10 cleaning up stale NOB viewer bindings on account-A / account-B (KAC-132)"
+
+delete_binding_if_exists() {
+  local subject_id="$1" resource_type="$2" resource_id="$3" grantor_token="$4"
+  # Use ListByResource to find bindings for this resource, then filter by subject.
+  # (AccessBindingService has no flat GET /accessBindings — only ListByResource
+  #  and ListBySubject actions. ListByResource returns all bindings for the
+  #  account; we filter client-side by subjectId.)
+  local resp ab_ids
+  resp=$(api GET "/iam/v1/accessBindings:listByResource?resourceType=${resource_type}&resourceId=${resource_id}" "$grantor_token" 2>/dev/null || true)
+  ab_ids=$(echo "$resp" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for ab in d.get('accessBindings', []):
+    if ab.get('subjectId', '') == '$subject_id':
+        abid = ab.get('id', '')
+        if abid:
+            print(abid)
+" 2>/dev/null || true)
+  if [ -z "$ab_ids" ]; then
+    return 0  # nothing to delete
+  fi
+  while IFS= read -r ab_id; do
+    [ -z "$ab_id" ] && continue
+    local del_resp del_op_id
+    del_resp=$(api DELETE "/iam/v1/accessBindings/${ab_id}" "$grantor_token" 2>/dev/null || true)
+    del_op_id=$(echo "$del_resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+    if [ -n "$del_op_id" ]; then
+      poll_op "$del_op_id" "$grantor_token" >/dev/null 2>&1 || true
+      log "    deleted stale NOB binding $ab_id on ${resource_type}:${resource_id}"
+    fi
+  done <<< "$ab_ids"
+}
+
+# Delete any NOB viewer bindings on account-A (grantor = AAA, who owns A).
+delete_binding_if_exists "$USER_NOB" "account" "$ACCOUNT_A" "$JWT_AAA"
+# Delete any NOB viewer bindings on account-B (grantor = AAB, who owns B).
+delete_binding_if_exists "$USER_NOB" "account" "$ACCOUNT_B" "$JWT_AAB"
+
 # 5) AccessBindings (idempotent via 5-tuple per KAC-112 §13.4).
 #
 # `AccessBindingService.Create` enforces `requireGrantAuthority`: the caller
