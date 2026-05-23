@@ -9,10 +9,12 @@ status: experimental
 related_tickets:
   - KAC-134
   - KAC-135
+  - KAC-137
 tags:
   - edge
   - kacho-iam
   - kacho-deploy
+  - kacho-corelib
 ---
 
 # kacho-iam → OpenFGA (grant/revoke write)
@@ -30,25 +32,30 @@ Store + AuthorizationModel поднимаются **умbrellой** (не kacho-
 
 KAC-135 W0.4: `values.dev.yaml` → `openfga.replicaCount: 2` (HA-mini для kind). Prod уже имел 3.
 
-## Текущее runtime-поведение (после W0 закрытия)
+## Текущее runtime-поведение (после W1.1 [[../KAC/KAC-137]])
 
 | Путь | Поведение |
 |---|---|
-| `AccessBindingService.Create` | sync `WriteTuples` (relation + project-hierarchy); KAC-127 — `non-fatal Warn` на FGA error → split-brain DB/FGA (finding #16). |
-| `AccessBindingService.Delete` ([[../KAC/KAC-128]]/[[../KAC/KAC-131]]/[[../KAC/KAC-133]]) | sync `DeleteTuples` — частично исправлен (account+project scope, account-scoped binding bug fixed). |
-| JIT auto/pending-approve | НЕ пишет в FGA ([[../KAC/KAC-127]] findings #50/#51) — pure DB INSERT, no tuple. |
-| BreakGlass.ApproveB | НЕ пишет в FGA (finding #52). |
-| ComplianceReport foreign-deny ([[../KAC/KAC-133]]) | 4 intentional RED #37 — починим в W1 Chunk 2 root-cause. |
+| `bootstrap_admin` | ✅ INSERT в `fga_outbox` → **drainer** ([[../packages/corelib-outbox-drainer]]) применяет к OpenFGA. End-to-end verified. |
+| `AccessBindingService.Create` | **STILL** sync `WriteTuples`; finding #16 split-brain DB/FGA остаётся. **Заменяется в W1.5.** |
+| `AccessBindingService.Delete` ([[../KAC/KAC-128]]/[[../KAC/KAC-131]]/[[../KAC/KAC-133]]) | sync `DeleteTuples` — частично исправлен. **Заменяется в W1.5.** |
+| JIT auto/pending-approve | НЕ пишет в FGA ([[../KAC/KAC-127]] findings #50/#51). **Fix в W1.5.** |
+| BreakGlass.ApproveB | НЕ пишет в FGA (#52). **Fix в W1.5.** |
+| ComplianceReport foreign-deny ([[../KAC/KAC-133]]) | 4 intentional RED #37 — починим в W1.6 (Chunk 2). |
 
-## Цель W1 (next Wave)
+## ✅ W1.1 ([[../KAC/KAC-137]]) — drainer foundation done
 
-Заменить прямой sync HTTP-write на запись через `fga_outbox` (in-process drainer на corelib outbox-pattern). Атомарно с DB-row в одной tx; drainer применяет к OpenFGA с retry + идемпотенцией. Закрывает findings #8/#16/#47/#48/#50/#51/#52.
+corelib generic `Drainer[T]` + concrete `FGAApplier` в kacho-iam + wiring в main.go.
+**Bootstrap-admin tuple реально применяется к OpenFGA** — root cause 87 newman failures (без drainer ВСЕ authz Check fails-because-no-tuple на свежем стенде).
 
-> [!important] Outbox-таблица `fga_outbox` существует (migration 0002) с NOTIFY-триггером, но **drainer'а, который её читает, НЕТ** — только `bootstrap_admin` пишет в неё, никто не дренит. W1 задача — построить drainer (corelib outbox-pattern + LISTEN `kacho_iam_fga_outbox`).
+## Цель W1.5 (next chunk)
+
+Заменить sync `WriteTuples` в AccessBinding/JIT/BreakGlass → atomic `outbox.Emit` в той же tx + drainer применяет с retry + идемпотенцией. Закрывает findings #8/#16/#47/#48/#50/#51/#52 (DB/FGA grant-write desync).
 
 ## История
 
 - 2026-05-23 (W0): bootstrap-job верифицирован (Secret `openfga-model-id`, sha256 annotation, HA-mini 2 replicas).
-- Планируется W1: sync writes → `fga_outbox` + drainer; cache invalidation на revoke.
+- 2026-05-23 (W1.1, [[../KAC/KAC-137]]): **drainer foundation done** — bootstrap-admin grants реально применяются. corelib `outbox/drainer/` (3 commits) + kacho-iam wiring (2 commits). 17/17 tests GREEN.
+- Планируется W1.5: replace sync writes из AccessBinding/JIT/BreakGlass.
 
 #edge #kacho-iam #kacho-deploy
