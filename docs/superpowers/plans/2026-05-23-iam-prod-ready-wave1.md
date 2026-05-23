@@ -151,7 +151,7 @@ anti-anonymous interceptor (#43).
 | W1.1 fga_outbox drainer | [[../../obsidian/kacho/KAC/KAC-137\|KAC-137]] | ✅ DONE (3 PRs merged 2026-05-23) | sub-phase-W1.1-fga-outbox-drainer-acceptance.md | KAC-136 + KAC-137 |
 | W1.2 subject_change_outbox + cache | [[../../obsidian/kacho/KAC/KAC-138\|KAC-138]] | 🟡 proto merged; iam+gateway CI re-running | sub-phase-W1.2-subject-change-cache-invalidation-acceptance.md | KAC-138 |
 | W1.3 gateway fail-closed | (TBD) | ⏳ pending | sub-phase-W1.3-*.md | KAC-136 |
-| W1.4 principal propagation | (TBD) | ⏳ pending | sub-phase-W1.4-*.md | KAC-136 |
+| W1.4 principal propagation | [[../../obsidian/kacho/KAC/KAC-140\|KAC-140]] | ✅ DONE (corelib#14 + vpc#106 + compute#28 merged) | sub-phase-W1.4-principal-propagation-acceptance.md | KAC-140 |
 | W1.5 Remediation Chunk 1 (7 findings) | (TBD) | ⏳ pending | sub-phase-W1.5-*.md | KAC-136 |
 | W1.6 Remediation Chunk 2 (10 findings) | (TBD) | ⏳ pending | sub-phase-W1.6-*.md | KAC-136 |
 
