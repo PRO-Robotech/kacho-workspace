@@ -303,6 +303,15 @@ issues**, не файлы в репо.
 
     Reviewer/agent при ревью PR обязан reject'нуть PR без тестов (или без явной ссылки на trakable follow-up) и попросить дополнить — раньше merge. Оставлять «`Out of scope: newman cases — оставляю для follow-up`» в commit-message как было в KAC-60 — больше не приемлемо. Закрытие эпика без полного test-покрытия — нарушение DoD.
 
+13. **Test-only PR'ы — НЕ ЧИНИМ ПРИКЛАД и НИ ОДНОГО TODO/SKIP/FIXME (даже в комментарии теста).** Когда задача — «дописать тесты под уже существующий функционал / выявить пробелы» (Newman regression coverage, integration backfill), правила:
+    - **Прикладной код НЕ трогаем.** PR содержит только изменения `tests/`, `docs/`, обновление `cases/*.py` / `gen.py` output и сопутствующие doc-обновления (`CASES-INDEX.md`/`TEST-PLAN.md`/`PRODUCT-REQUIREMENTS.md`/`RESULTS.md`). Любой `internal/`/`cmd/`/`migrations/`/`*.go`-фикс выносится в **отдельный** PR с собственным KAC.
+    - **TODO / FIXME / `pm.test.skip` / закомментированный assertion / «работает до фикса бага X» — запрещены в тестах** так же строго, как в проде (пункт #11). Тест с открытым TODO — это техдолг ⇒ нарушение.
+    - **TDD-red против реального бага продукта (тест корректен, но GREEN потребует фикса прода)** — это **finding**, не tech debt: (a) **сразу** заводим GitHub Issue в репо продукта (метка `bug` + `verified-by:test`); (b) в кейсе ставим `# verifies <issue-url>` (но **без** «TODO/skip-until»); (c) кейс ОСТАЁТСЯ красным до фикса прода — это допустимое исключение из «100% pass rate» с явной декларацией в `RESULTS.md` под заголовком «Known failing tests — product bugs» + KAC-trail. После фикса прода — кейс зеленеет, finding закрывается. Прецедент — `SG-DEL-NEG-NIC-ATTACHED` (TDD-red blocked by `KAC-52`).
+    - **Если в процессе test-only работы появляется соблазн «правильный кейс невозможен без правки прода»** — STOP, читаем правила: или сужаем кейс (формулируем то, что Newman может проверить уже сейчас), или открываем finding-issue и оставляем TDD-red, или откладываем кейс **с записью в `kacho-vpc/CLAUDE.md` §«Test backlog» + ссылкой на acceptance-доку**. Не «забудем», не «вернёмся позже» в комменте теста.
+    - **Reviewer обязан reject'нуть test-only PR с:** изменениями в product-коде (выносить отдельным PR с своим KAC); любыми TODO/FIXME/skip в diff; кейсом без `verifies` / `index:` тега если он наследует существующий паттерн.
+
+    (Написано 2026-05-24, KAC «VPC Newman 100% coverage» эпик; уточнение к §11 + §12 в контексте test-coverage спринтов.)
+
 ## Obsidian vault — обязательный context-источник и trail (НЕ упускать)
 
 > **Hooks enforcement**: `.claude/hooks/vault-reminder.sh` (UserPromptSubmit) выводит правила перед каждым prompt'ом; `.claude/hooks/vault-stop-check.sh` (Stop) проверяет активные KAC-тикеты + соотношение code-changes vs vault-changes за последний час + open PR'ы с KAC-номерами. Hooks определены в `.claude/settings.json` workspace-scope.
