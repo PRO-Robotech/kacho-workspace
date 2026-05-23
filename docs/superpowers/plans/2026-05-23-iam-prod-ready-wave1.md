@@ -148,8 +148,8 @@ anti-anonymous interceptor (#43).
 
 | Chunk | Subtask (YT) | Status | Acceptance-doc | Branch |
 |---|---|---|---|---|
-| W1.1 fga_outbox drainer | KAC-137 | 🟢 acceptance ✅ APPROVED, RED phase next | sub-phase-W1.1-fga-outbox-drainer-acceptance.md | KAC-136 in kacho-corelib + kacho-iam |
-| W1.2 subject_change_outbox + cache | (TBD) | ⏳ pending | sub-phase-W1.2-*.md | KAC-136 |
+| W1.1 fga_outbox drainer | [[../../obsidian/kacho/KAC/KAC-137\|KAC-137]] | ✅ DONE (3 PRs merged 2026-05-23) | sub-phase-W1.1-fga-outbox-drainer-acceptance.md | KAC-136 + KAC-137 |
+| W1.2 subject_change_outbox + cache | [[../../obsidian/kacho/KAC/KAC-138\|KAC-138]] | 🟡 proto merged; iam+gateway CI re-running | sub-phase-W1.2-subject-change-cache-invalidation-acceptance.md | KAC-138 |
 | W1.3 gateway fail-closed | (TBD) | ⏳ pending | sub-phase-W1.3-*.md | KAC-136 |
 | W1.4 principal propagation | (TBD) | ⏳ pending | sub-phase-W1.4-*.md | KAC-136 |
 | W1.5 Remediation Chunk 1 (7 findings) | (TBD) | ⏳ pending | sub-phase-W1.5-*.md | KAC-136 |
