@@ -15,7 +15,7 @@ teardown_fake_workspace() {
 setup_fake_remotes() {
   local remotes_dir="$TMP_WS/fake-remotes"
   mkdir -p "$remotes_dir"
-  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-nlb kacho-deploy; do
     git init --bare "$remotes_dir/$r.git" >/dev/null
     local work="$TMP_WS/work-$r"
     git clone "$remotes_dir/$r.git" "$work" >/dev/null 2>&1
