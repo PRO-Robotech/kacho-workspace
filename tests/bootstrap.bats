@@ -7,7 +7,7 @@ teardown() { teardown_fake_workspace; }
 
 # bootstrap.sh клонирует репо в $SCRIPT_DIR/project/<repo> (layout: kacho-workspace/project/*).
 
-@test "A1: bootstrap clones all 9 sibling repos" {
+@test "A1: bootstrap clones all 10 sibling repos" {
   cd "$TMP_WS"
   mkdir -p kacho-workspace
   cp "$BATS_TEST_DIRNAME/../bootstrap.sh" kacho-workspace/
@@ -18,7 +18,7 @@ teardown() { teardown_fake_workspace; }
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
 
-  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-nlb kacho-deploy; do
     [ -d "kacho-workspace/project/$r/.git" ] || { echo "missing $r"; false; }
   done
 }

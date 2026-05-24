@@ -5,12 +5,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: install bats-core
-        run: sudo apt-get update -qq && sudo apt-get install -y bats
-      - name: shellcheck bash scripts
+      - name: install bats-core + shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y bats shellcheck
+      - name: shellcheck core bash scripts
         run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
+      - name: shellcheck freeze-gate scripts (strict)
+        working-directory: scripts/freeze-gate
+        run: shellcheck -x -- *.sh
       - name: run bats tests
-        run: bats tests/bootstrap.bats tests/sync-all.bats
+        run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats
 
   authz-fixtures-lint:
     name: authz-fixtures bootstrap — lint (KAC-122)
