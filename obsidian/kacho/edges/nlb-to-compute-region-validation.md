@@ -1,0 +1,54 @@
+---
+title: "nlb → compute: Region validation"
+aliases:
+  - nlb region validate
+category: edge
+caller_repo: kacho-nlb
+callee_repo: kacho-compute
+sync_async: sync
+protocol: grpc-cluster-internal
+status: active
+related_tickets:
+  - "[[KAC-141]]"
+  - "[[KAC-151]]"
+tags:
+  - edge
+  - kacho-nlb
+  - kacho-compute
+  - cross-service
+  - region
+---
+
+> [!success] Active since 2026-05-24 (KAC-141, kacho-nlb PR#9)
+> Edge активен; nlb валидирует `region_id` для LoadBalancer / TargetGroup через `compute.RegionService.Get`.
+
+# nlb → compute: Region validation
+
+**Caller**: `kacho-nlb` (`internal/clients/compute/region_client.go`; LoadBalancer.Create + TargetGroup.Create handlers)
+**Callee**: `kacho-compute.RegionService.Get` (Geography domain — KAC-15)
+**Protocol**: gRPC cluster-internal
+**Sync/Async**: **sync** на request-path (soft precheck до `ops.Insert`)
+
+## When invoked
+
+- `LoadBalancer.Create` handler: проверка `region_id` существует. Mismatch → `InvalidArgument "region_id <id> not found"`.
+- `TargetGroup.Create` handler: то же.
+- `NLB.AttachTargetGroup` handler: same-region check (LB.region_id == TG.region_id — DB CHECK, но sync precheck даёт UX-friendly error до DB-fail).
+
+## Cache
+
+TTL+LRU 60s (regions редко меняются), реализован в `regions_cache.go` (pattern из kacho-vpc/clients/compute_client.go).
+
+## Error handling
+
+| Result | gRPC code | Note |
+|---|---|---|
+| region OK | (continue) | cache positive 60s |
+| region not found | `InvalidArgument "region_id ..."` | NotFound маппинг на InvalidArgument (kacho ConvU YC parity) |
+| compute недоступен | `Unavailable` | fail-closed на request-path |
+
+## See also
+
+[[../rpc/compute-region-service]] [[../resources/nlb-load-balancer]] [[../resources/nlb-target-group]] [[../packages/nlb-clients-compute]]
+
+#edge #kacho-nlb #kacho-compute #cross-service #region
