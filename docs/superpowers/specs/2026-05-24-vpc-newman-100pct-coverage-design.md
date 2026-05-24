@@ -557,174 +557,234 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 ---
 
-## 5. Gap list — новые case-id (summary table)
+## 5. Gap list — новые case-id (summary table) + статус реализации
 
-Полный список новых cases, сгруппированный по тому, в какой файл `cases/*.py` пойдёт:
+Полный список новых cases, сгруппированный по тому, в какой файл `cases/*.py` пойдёт. **Каждый case-id имеет колонку Status**:
+- ✅ **done** — реализовано и merged в PR [#107](https://github.com/PRO-Robotech/kacho-vpc/pull/107) (точный commit указан)
+- ⏳ **pending** — запланировано на следующий PR (T8/T9/T10 — outbox/obs/internal-ni)
+- ⚠ **deferred** — отложено с причиной (REQ-clarification / ObjectStorage seed / etc.)
+- ❌ **rejected** — НЕ будет реализовано (с обоснованием)
+- 🔁 **superseded** — заменено другим case-id (с указанием куда смотреть)
+- 🚫 **blocked** — заблокировано другим эпиком (W1.*, kacho-deploy seed)
 
-### 5.1 `cases/network.py` — добавить
+### 5.1 `cases/network.py` — добавить (9 cases — все T8/T13)
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `NET-CR-OUTBOX-EMIT` | OUTBOX | P1 | После Create → событие `Network.CREATED` приходит на InternalWatchService stream (short-window) |
-| `NET-CR-FGA-TUPLE-WRITTEN` | AUTHZ | P0 | Post-W1.*: после Create — `iam.Check(owner, "read", network)` → allowed |
-| `NET-MV-AUTHZ-FGA-RETUPLE` | AUTHZ | P0 | Post-W1.*: Move к другому project → caller теряет access |
-| `NET-GET-AUTHZ-FOREIGN-NF` | AUTHZ | P0 | Post-W1.*: Get чужого Network → 404 (no info-leak) |
-| `NET-LST-AUTHZ-FOREIGN-EMPTY` | AUTHZ | P0 | Post-W1.*: List с фильтром project_id=foreign → empty (no info-leak) |
-| `NET-UPD-AUTHZ-FOREIGN-403` | AUTHZ | P0 | Post-W1.*: Update чужого Network → PermissionDenied/NotFound |
-| `NET-DEL-AUTHZ-FOREIGN-403` | AUTHZ | P0 | Post-W1.*: Delete чужого Network → PermissionDenied/NotFound |
-| `NET-CR-AUTHZ-NO-TOKEN-401` | AUTHZ | P0 | Post-W1.*: Create без Authorization header → 401 |
-| `NET-CR-AUTHZ-INVALID-TOKEN-401` | AUTHZ | P0 | Post-W1.*: Create с invalid token → 401 |
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `NET-CR-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | После Create → событие `Network.CREATED` приходит на InternalWatchService stream (short-window) |
+| `NET-CR-FGA-TUPLE-WRITTEN` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: после Create — `iam.Check(owner, "read", network)` → allowed |
+| `NET-MV-AUTHZ-FGA-RETUPLE` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Move к другому project → caller теряет access |
+| `NET-GET-AUTHZ-FOREIGN-NF` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Get чужого Network → 404 (no info-leak) |
+| `NET-LST-AUTHZ-FOREIGN-EMPTY` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: List с фильтром project_id=foreign → empty (no info-leak) |
+| `NET-UPD-AUTHZ-FOREIGN-403` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Update чужого Network → PermissionDenied/NotFound |
+| `NET-DEL-AUTHZ-FOREIGN-403` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Delete чужого Network → PermissionDenied/NotFound |
+| `NET-CR-AUTHZ-NO-TOKEN-401` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Create без Authorization header → 401 |
+| `NET-CR-AUTHZ-INVALID-TOKEN-401` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Create с invalid token → 401 |
 
-### 5.2 `cases/subnet.py` — добавить
+**Срез 5.1**: 0/9 в этом PR; 1/9 — T8 (next); 8/9 — T13 (blocked W1.*).
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `SUB-CR-NEG-DUP-CIDR-EXACT` | NEG | P1 | Create Subnet с CIDR, совпадающим с существующей подсетью → FailedPrecondition (overlap) |
-| `SUB-CR-NEG-V6-OVERLAP` | NEG | P0 | Две v6-subnet с overlapping v6-CIDR → 2nd FailedPrecondition |
-| `SUB-CR-CONC-OVERLAP-BURST` | CONC | P1 | Burst-3 parallel Create same CIDR → ровно 1 succeeds (EXCLUDE race-defense; Newman best-effort) |
-| `SUB-LUA-CRUD-COUNT` | CRUD | P2 | Allocate 3 internal addresses → `ListUsedAddresses` returns 3 |
-| `SUB-LUA-STATE-FRAGMENT` | STATE | P2 | Allocate 5 → delete middle 3 → list shows correct set |
-| `SUB-MV-CRUD-OK` | CRUD | P1 | Subnet.Move к другому project → success (если REQ позволяет) |
-| `SUB-CR-NEG-ZONE-NF-ASYNC` | NEG | P1 | Зона удалена в compute между sync-check и worker → Operation Failed |
-| `SUB-CR-NEG-ROLLBACK-NO-RESOURCE-IN-GET` | NEG | P1 | Failed Subnet.Create → `Get(<id>)` → 404 (rollback verified) |
+### 5.2 `cases/subnet.py` — добавить (8 cases — 5 done, 1 deferred, 1 rejected, 1 в concurrency.py)
 
-### 5.3 `cases/address.py` — добавить
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `SUB-CR-NEG-DUP-CIDR-EXACT` | NEG | P1 | ✅ done T4 `acd0e78` | Create Subnet с CIDR, совпадающим с существующей подсетью → FailedPrecondition (overlap) |
+| `SUB-CR-NEG-V6-OVERLAP` | NEG | P0 | ✅ done T4 `acd0e78` | Две v6-subnet с overlapping v6-CIDR → 2nd FailedPrecondition |
+| `SUB-CR-CONC-OVERLAP-BURST` | CONC | P1 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-3 parallel Create same CIDR → ровно 1 succeeds (EXCLUDE race-defense; Newman best-effort) |
+| `SUB-LUA-CRUD-COUNT` | CRUD | P2 | ✅ done T4 `acd0e78` | Allocate 3 internal addresses → `ListUsedAddresses` returns 3 |
+| `SUB-LUA-STATE-FRAGMENT` | STATE | P2 | ✅ done T4 `acd0e78` | Allocate 5 → delete middle 3 → list shows correct set |
+| `SUB-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | Subnet.Move к другому project → требует REQ-MOVE-* clarification (есть ли в Subnet domain Move?) |
+| `SUB-CR-NEG-ZONE-NF-ASYNC` | NEG | P1 | ❌ rejected — Newman boundary | Зона удалена в compute между sync-check и worker — requires chaos injection; integration test territory (§3 boundary) |
+| `SUB-CR-NEG-ROLLBACK-NO-RESOURCE-IN-GET` | NEG | P1 | ✅ done T4 `acd0e78` | Failed Subnet.Create → `Get(<id>)` → 404 (rollback verified) |
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `ADR-CR-CONC-POOL-EXHAUSTION` | CONC,NEG | P1 | Pool /30 (2 usable IPs) → allocate 2 ok → 3rd FailedPrecondition |
-| `ADR-CR-CONC-BURST-ALLOC` | CONC | P1 | Burst-5 Address.Create → 5 distinct IPs (UNIQUE invariant; Newman best-effort) |
-| `ADR-DEL-EXT-V4-RELEASE-REUSE` | STATE | P1 | v4: Delete external Address → next Allocate reuses (free-list) |
-| `ADR-DEL-IDM-DOUBLE` | IDM | P2 | Delete → ok → Delete same id → 404 (idempotency-safe) |
-| `ADR-MV-CRUD-OK` | CRUD | P1 | Address.Move к другому project (если REQ позволяет) |
+**Срез 5.2**: 6/8 ✅ (включая 1 в concurrency.py); 1/8 ⚠ deferred (T2); 1/8 ❌ rejected (boundary).
 
-### 5.4 `cases/network-interface.py` — добавить
+### 5.3 `cases/address.py` — добавить (5 cases — 3 done, 1 renamed, 1 deferred)
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `NIC-ATTACH-CONC-BURST` | CONC | P0 | Burst-5 Attach same NIC → 1 success + 4 FailedPrecondition (CAS) |
-| `NIC-ATTACH-NEG-ALREADY-USED` | NEG | P0 | Attach к instanceA → Attach к instanceB того же NIC → FailedPrecondition |
-| `NIC-CR-CONC-MAC-UNIQUE` | CONC | P1 | Burst-10 Create NIC в одном subnet → 10 distinct MAC (UNIQUE invariant) |
-| `NIC-CR-NEG-MULTI-V4-ADDR` | NEG | P0 | Create NIC с 2× `v4_address_ids` → InvalidArgument (cardinality CHECK) |
-| `NIC-CR-NEG-MULTI-V6-ADDR` | NEG | P0 | Same for v6 |
-| `NIC-DETACH-STATE-EPHEMERAL-IP-RELEASE` | STATE | P1 | Attach with auto-IP → Detach → IP returns to pool |
-| `NIC-DETACH-IDM-REATTACH-OK` | IDM | P1 | Detach → Attach to another instance → ok |
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `ADR-CR-CONC-POOL-EXHAUSTION` | CONC,NEG | P1 | 🔁 superseded by `IPL-ALLOC-POOL-EXHAUSTED` (T11 `c7dba6b`) | Pool /30 (2 usable IPs) → allocate 2 ok → 3rd FailedPrecondition — moved to internal-pool.py (admin-bind API нужен) |
+| `ADR-CR-CONC-BURST-ALLOC` | CONC | P1 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-5 Address.Create → 5 distinct IPs (UNIQUE invariant; Newman best-effort) |
+| `ADR-DEL-EXT-V4-RELEASE-REUSE` | STATE | P1 | ✅ done T5 `4837d35` | v4: Delete external Address → next Allocate reuses (free-list) |
+| `ADR-DEL-IDM-DOUBLE` | IDM | P2 | ✅ done T5 `4837d35` | Delete → ok → Delete same id → 404 (idempotency-safe) |
+| `ADR-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | Address.Move к другому project — требует REQ-MOVE-* clarification |
 
-### 5.5 `cases/security-group.py` — добавить
+**Срез 5.3**: 3/5 ✅; 1/5 🔁 renamed; 1/5 ⚠ deferred.
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `SG-URL-CONC-OCC-CONFLICT` | CONC,STATE | P0 | Burst-2 UpdateRules same SG → 2nd Aborted (xmin OCC) |
-| `SG-URL-NEG-DUP-RULE` | NEG | P2 | UpdateRules с 2 identical rule entries → behavior verified |
-| `SG-URL-VAL-CROSS-NET-SG-REF` | VAL | P2 | UpdateRule.predefined_target = SG из другой сети — uncomment after REQ clarification |
-| `SG-MV-CRUD-OK` | CRUD | P1 | SG.Move к другому project |
+### 5.4 `cases/network-interface.py` — добавить (7 cases — все done)
 
-### 5.6 `cases/route-table.py` — добавить
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `NIC-ATTACH-CONC-BURST` | CONC | P0 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-5 Attach same NIC → 1 success + 4 FailedPrecondition (CAS) |
+| `NIC-ATTACH-NEG-ALREADY-USED` | NEG | P0 | ✅ done T3 `d9a2cb2` | Attach к instanceA → Attach к instanceB того же NIC → FailedPrecondition |
+| `NIC-CR-CONC-MAC-UNIQUE` | CONC | P1 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-10 Create NIC в одном subnet → 10 distinct MAC (UNIQUE invariant) |
+| `NIC-CR-NEG-MULTI-V4-ADDR` | NEG | P0 | ✅ done T3 `d9a2cb2` | Create NIC с 2× `v4_address_ids` → InvalidArgument (cardinality CHECK) |
+| `NIC-CR-NEG-MULTI-V6-ADDR` | NEG | P0 | ✅ done T3 `d9a2cb2` | Same for v6 |
+| `NIC-DETACH-STATE-EPHEMERAL-IP-RELEASE` | STATE | P1 | ✅ done T3 `d9a2cb2` | Attach with auto-IP → Detach → IP returns to pool |
+| `NIC-DETACH-IDM-REATTACH-OK` | IDM | P1 | ✅ done T3 `d9a2cb2` | Detach → Attach to another instance → ok |
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `RT-DEL-NEG-ASSOCIATED` | NEG | P1 | Delete RT с привязанными Subnet → behavior (FailedPrecondition или CASCADE SET NULL) — REQ clarification |
-| `RT-CR-STATE-ROUTE-NORM` | STATE,VAL | P2 | Create с CIDR host-bits в `destination_prefix` → 400 (or normalize) |
-| `RT-MV-CRUD-OK` | CRUD | P1 | RT.Move к другому project |
+**Срез 5.4**: **7/7 ✅** (100% — раздел полностью закрыт).
 
-### 5.7 `cases/private-endpoint.py` — добавить
+### 5.5 `cases/security-group.py` — добавить (4 cases — 1 done, 2 pending, 1 deferred)
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `PE-CR-CRUD-OK` | CRUD | P0 | **BIG GAP**: PE happy-path Create + Get (требует ObjectStorage seed в env) |
-| `PE-LIFECYCLE-CONF` | CRUD,CONF | P1 | Full lifecycle (after CRUD-OK landed) |
-| `PE-CR-NEG-DUP` | NEG | P2 | Duplicate PE — uniqueness axis TBD |
-| `PE-LST-PAGE-ROUNDTRIP` | PAGE | P2 | Pagination roundtrip |
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `SG-URL-CONC-OCC-CONFLICT` | CONC,STATE | P0 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-2 UpdateRules same SG → 2nd Aborted (xmin OCC) |
+| `SG-URL-NEG-DUP-RULE` | NEG | P2 | ⏳ pending — backlog | UpdateRules с 2 identical rule entries → behavior verified — отложено, низкая P, требует уточнить product behavior (dedupe vs 400) |
+| `SG-URL-VAL-CROSS-NET-SG-REF` | VAL | P2 | ⏳ pending — REQ clarification | UpdateRule.predefined_target = SG из другой сети — uncomment after REQ clarification |
+| `SG-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | SG.Move к другому project — REQ-MOVE-* clarification |
 
-### 5.8 `cases/gateway.py` — добавить (мало gaps; Gateway hottest-coverage)
+**Срез 5.5**: 1/4 ✅; 2/4 ⏳ pending; 1/4 ⚠ deferred.
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `GW-CR-VAL-TYPE-UNKNOWN` | VAL | P2 | Gateway type enum unknown value → InvalidArgument (if not already covered) |
-| `GW-MV-CRUD-OK` | CRUD | P1 | (might already exist; verify) |
+### 5.6 `cases/route-table.py` — добавить (3 planned → 1 superseded, 1 rejected, 1 deferred, + 1 substitute)
 
-### 5.9 `cases/operation.py` — добавить
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `RT-DEL-NEG-ASSOCIATED` | NEG | P1 | 🔁 superseded by `RT-DEL-WITH-ASSOC-OK` (T7 `04725c1`) | После изучения REQ: FK `subnets.route_table_id` имеет `ON DELETE SET NULL`, а не RESTRICT (KAC-56). То есть Delete RT с привязанной Subnet — **успешен**, не fails. Реализовано как `RT-DEL-WITH-ASSOC-OK`: verify Delete=200 + subnet.route_table_id=null. |
+| `RT-CR-STATE-ROUTE-NORM` | STATE,VAL | P2 | ❌ rejected | Host-bits в `destination_prefix` маршрута — verbatim YC принимает любые префиксы без host-bit constraint (route entries это not subnets). REQ-CIDR-01 host-bits=0 касается только Subnet CIDR, не route prefix. |
+| `RT-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | RT.Move к другому project — REQ-MOVE-* clarification |
+| **substitute** `RT-DEL-WITH-ASSOC-OK` | CRUD,STATE | P1 | ✅ done T7 `04725c1` | Delete RT с auto-assoc'нутой Subnet → 200 + Subnet.routeTableId = "" (FK ON DELETE SET NULL, KAC-56) |
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `OP-LST-FILTER-FAILED` | FILTER | P2 | ListOperations с filter='failed' → только failed ops |
-| `OP-LST-FILTER-DONE` | FILTER | P2 | Filter='done=true' |
-| `OP-GET-ASYNC-FAILURE-RESPONSE` | STATE | P1 | Failed Operation → `error.code/message` populated, `response` empty |
+**Срез 5.6**: 1/4 ✅ (substitute); 1/4 🔁 (transformed → substitute); 1/4 ❌ rejected; 1/4 ⚠ deferred.
 
-### 5.10 `cases/internal-cloud.py` — добавить
+### 5.7 `cases/private-endpoint.py` — добавить (4 cases — все blocked seed)
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `CLD-RESOLVE-CASCADE-CHAIN` | CRUD,STATE | P1 | Cloud poolSelector set → Network in cloud → Address.Create resolves via Cloud selector |
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `PE-CR-CRUD-OK` | CRUD | P0 | 🚫 T6 blocked-seed | **BIG GAP**: PE happy-path Create + Get (требует ObjectStorage seed в env; kacho-deploy task для ObjectStorage backend deployment) |
+| `PE-LIFECYCLE-CONF` | CRUD,CONF | P1 | 🚫 T6 blocked-seed | Full lifecycle (after CRUD-OK landed) |
+| `PE-CR-NEG-DUP` | NEG | P2 | 🚫 T6 blocked-seed | Duplicate PE — uniqueness axis TBD |
+| `PE-LST-PAGE-ROUNDTRIP` | PAGE | P2 | 🚫 T6 blocked-seed | Pagination roundtrip |
 
-### 5.11 `cases/internal-pool.py` — добавить
+**Срез 5.7**: 0/4 ✅; 4/4 🚫 blocked (ObjectStorage seed в kacho-deploy).
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `IPL-ALLOC-POOL-EXHAUSTED` | NEG | P0 | Pool /32 (1 IP) → 1st allocate ok, 2nd FailedPrecondition |
-| `IPL-EXPLAIN-AMBIGUOUS-WARN` | CONF | P1 | Two pools same priority+selector → Check returns warnings (already exists?) |
+### 5.8 `cases/gateway.py` — добавить (2 cases — pending verify)
 
-### 5.12 `cases/internal-network-interface.py` — НОВЫЙ ФАЙЛ
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `GW-CR-VAL-TYPE-UNKNOWN` | VAL | P2 | ⏳ pending verify | Gateway type enum unknown value → InvalidArgument — нужна проверка, нет ли уже existing case. Если нет — добавить в следующем chunk. |
+| `GW-MV-CRUD-OK` | CRUD | P1 | ⏳ pending verify (возможно existing) | Существующий `GW-MV-CRUD-OK` уже зарегистрирован в `CASES-INDEX.md` (`*-MV-CRUD-OK` × 6 apps включая `gat`), проверить полноту покрытия |
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `INI-REPORT-DATAPLANE-CRUD` | CRUD | P1 | `ReportNiDataplane` от kacho-vpc-implement perspective: set hv_id/sid → Get InternalNetworkInterface verify |
-| `INI-LIST-BY-HV-CRUD` | CRUD | P1 | `ListByHypervisor(hv_id)` → returns set of NICs on that HV |
-| `INI-REPORT-IDM` | IDM | P2 | Same revision write twice — idempotent |
+**Срез 5.8**: 0/2 ✅ (не приоритет — pending verify).
 
-### 5.13 `cases/outbox.py` — НОВЫЙ ФАЙЛ (новый класс `OUTBOX`)
+### 5.9 `cases/operation.py` — добавить (3 cases — 1 done, 2 rejected)
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `IWS-STREAM-SHORT-WINDOW` | OUTBOX | P1 | Start `internalWatch:stream?from=N` with timeout=5s → in another window Create Network → first chunk contains `Network.CREATED` event |
-| `NET-OUTBOX-EMIT` | OUTBOX | P1 | Create Network → stream observes event |
-| `SUB-OUTBOX-EMIT` | OUTBOX | P1 | Same for Subnet |
-| `ADR-OUTBOX-EMIT` | OUTBOX | P1 | Same for Address |
-| `NIC-OUTBOX-EMIT` | OUTBOX | P1 | Same for NIC |
-| `SG-OUTBOX-EMIT` | OUTBOX | P1 | Same for SG |
-| `RT-OUTBOX-EMIT` | OUTBOX | P1 | Same for RT |
-| `GW-OUTBOX-EMIT` | OUTBOX | P1 | Same for Gateway |
-| `PE-OUTBOX-EMIT` | OUTBOX | P1 | Same for PE (after PE CRUD-OK lands) |
-| `OUTBOX-ORDER-PRESERVED` | OUTBOX | P1 | 3 sequential Create → events arrive в порядке sequence_no |
-| `OUTBOX-SCHEMA-CONTRACT` | OUTBOX,CONF | P1 | Event payload contains `{sequence_no, kind, resource_type, resource_id, action, timestamp}` |
-| `OUTBOX-NO-EMIT-ON-FAIL` | OUTBOX,NEG | P1 | Create that fails → no event with that resource_id in stream |
-| `OUTBOX-CRUD-DELETE` | OUTBOX | P1 | Delete resource → `<X>.DELETED` event |
-| `OUTBOX-CRUD-UPDATE` | OUTBOX | P1 | Update resource → `<X>.UPDATED` event |
-| `OUTBOX-RT-AUTO-ASSOC-MARKER` | OUTBOX,CONF | P1 | RouteTable auto-assoc emits `Subnet.UPDATED` with `auto_association: true` marker (per CLAUDE.md §2.1) |
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `OP-LST-FILTER-FAILED` | FILTER | P2 | ❌ rejected — нет публичного RPC | `OperationService.List` НЕ существует в публичном API — только `Get(id)` + per-resource `<Resource>.ListOperations(<id>)`. Filter по failed/done — невозможен на уровне публичного API. |
+| `OP-LST-FILTER-DONE` | FILTER | P2 | ❌ rejected — нет публичного RPC | См. выше |
+| `OP-GET-ASYNC-FAILURE-RESPONSE` | STATE | P1 | ✅ done T7 `04725c1` | Failed Operation → `error.code/message` populated, `response` empty, `metadata` preserved |
 
-### 5.14 `cases/observability.py` — НОВЫЙ ФАЙЛ (новый класс `OBS`)
+**Срез 5.9**: 1/3 ✅; 2/3 ❌ rejected (no API surface).
 
-| case-id | Class | P | Описание |
-|---|---|---|---|
-| `OBS-REQID-HEADER-ECHO` | OBS | P2 | Send `x-request-id: <uuid>` → response header echoes same |
-| `OBS-METRICS-EXPOSED` | OBS | P1 | `pm.sendRequest('http://kacho-vpc:9090/metrics')` → 200 + body contains `vpc_operations_total` |
-| `OBS-METRICS-OPS-TOTAL` | OBS | P2 | After Create → `vpc_operations_total{kind="Create",resource="Network"}` increments |
-| `OBS-METRICS-OPS-FAILED` | OBS | P2 | After failed Create → `vpc_operations_failed_total` increments |
-| `OBS-METRICS-IPAM-ALLOC` | OBS | P2 | After Address.Create → `vpc_ipam_allocations_total` increments |
-| `OBS-METRICS-IPAM-CONFLICTS` | OBS | P2 | After overlap-Create → `vpc_ipam_conflicts_total` increments (если такой метрики ещё нет — заводим backlog REQ-OBS-*) |
-| `OBS-METRICS-OUTBOX-EVENTS` | OBS | P2 | After Create → `vpc_outbox_events_total` increments |
-| `OBS-METRICS-GRPC-REQUESTS` | OBS | P2 | After any RPC → `grpc_requests_total{method="..."}` increments |
-| `OBS-METRICS-GRPC-DURATION-HIST` | OBS | P2 | After RPC → `grpc_request_duration_seconds_bucket{...}` has counts > 0 |
+### 5.10 `cases/internal-cloud.py` — добавить (1 case — pending)
 
-### 5.15 `cases/authz-deny.py` — расширить (после KAC-W1.*)
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `CLD-RESOLVE-CASCADE-CHAIN` | CRUD,STATE | P1 | ⏳ pending — backlog | Cloud poolSelector set → Network in cloud → Address.Create resolves via Cloud selector — отложено, low-P, верифицирует cascade Step 3 косвенно (уже частично покрыт через `IPL-RESOLVE-SELECTOR-FAMILY-SKIP`) |
+
+**Срез 5.10**: 0/1 ✅; 1/1 ⏳ pending.
+
+### 5.11 `cases/internal-pool.py` — добавить (2 cases — 1 done, 1 already-exists)
+
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `IPL-ALLOC-POOL-EXHAUSTED` | NEG | P0 | ✅ done T11 `c7dba6b` | Pool /30 (2 usable) bound to fresh Network → 2 alloc OK + 3rd FailedPrecondition (pool exhausted) |
+| `IPL-EXPLAIN-AMBIGUOUS-WARN` | CONF | P1 | ❌ no-op — already exists pre-KAC-165 | Существующий `IPL-CHK-AMBIGUOUS-WARN` в `internal-pool.py` уже покрывает (два pool same priority+selector → warnings). Не нужно add. |
+
+**Срез 5.11**: 1/2 ✅; 1/2 ❌ (already covered).
+
+### 5.12 `cases/internal-network-interface.py` — НОВЫЙ ФАЙЛ (3 cases — все T10 next)
+
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `INI-REPORT-DATAPLANE-CRUD` | CRUD | P1 | ⏳ T10 next PR | `ReportNiDataplane` от kacho-vpc-implement perspective: set hv_id/sid → Get InternalNetworkInterface verify |
+| `INI-LIST-BY-HV-CRUD` | CRUD | P1 | ⏳ T10 next PR | `ListByHypervisor(hv_id)` → returns set of NICs on that HV |
+| `INI-REPORT-IDM` | IDM | P2 | ⏳ T10 next PR | Same revision write twice — idempotent |
+
+**Срез 5.12**: 0/3 ✅; 3/3 ⏳ pending (T10).
+
+### 5.13 `cases/outbox.py` — НОВЫЙ ФАЙЛ (новый класс `OUTBOX`, 15 cases — все T8 next)
+
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `IWS-STREAM-SHORT-WINDOW` | OUTBOX | P1 | ⏳ T8 next PR | Start `internalWatch:stream?from=N` with timeout=5s → in another window Create Network → first chunk contains `Network.CREATED` event |
+| `NET-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Create Network → stream observes event |
+| `SUB-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Subnet |
+| `ADR-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Address |
+| `NIC-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for NIC |
+| `SG-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for SG |
+| `RT-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for RT |
+| `GW-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Gateway |
+| `PE-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 + T6 blocked-seed | Зависит от PE CRUD-OK (T6 blocked seed); ландит вместе с T6 unblock |
+| `OUTBOX-ORDER-PRESERVED` | OUTBOX | P1 | ⏳ T8 next PR | 3 sequential Create → events arrive в порядке sequence_no |
+| `OUTBOX-SCHEMA-CONTRACT` | OUTBOX,CONF | P1 | ⏳ T8 next PR | Event payload contains `{sequence_no, kind, resource_type, resource_id, action, timestamp}` |
+| `OUTBOX-NO-EMIT-ON-FAIL` | OUTBOX,NEG | P1 | ⏳ T8 next PR | Create that fails → no event with that resource_id in stream |
+| `OUTBOX-CRUD-DELETE` | OUTBOX | P1 | ⏳ T8 next PR | Delete resource → `<X>.DELETED` event |
+| `OUTBOX-CRUD-UPDATE` | OUTBOX | P1 | ⏳ T8 next PR | Update resource → `<X>.UPDATED` event |
+| `OUTBOX-RT-AUTO-ASSOC-MARKER` | OUTBOX,CONF | P1 | ⏳ T8 next PR | RouteTable auto-assoc emits `Subnet.UPDATED` with `auto_association: true` marker (per CLAUDE.md §2.1) |
+
+**Срез 5.13**: 0/15 ✅; 14/15 ⏳ pending T8; 1/15 🚫 blocked (T6).
+
+### 5.14 `cases/observability.py` — НОВЫЙ ФАЙЛ (новый класс `OBS`, 9 cases — все T9 next)
+
+| case-id | Class | P | Status | Описание |
+|---|---|---|---|---|
+| `OBS-REQID-HEADER-ECHO` | OBS | P2 | ⏳ T9 next PR | Send `x-request-id: <uuid>` → response header echoes same |
+| `OBS-METRICS-EXPOSED` | OBS | P1 | ⏳ T9 next PR | `pm.sendRequest('http://kacho-vpc:9090/metrics')` → 200 + body contains `vpc_operations_total` |
+| `OBS-METRICS-OPS-TOTAL` | OBS | P2 | ⏳ T9 next PR | After Create → `vpc_operations_total{kind="Create",resource="Network"}` increments |
+| `OBS-METRICS-OPS-FAILED` | OBS | P2 | ⏳ T9 next PR | After failed Create → `vpc_operations_failed_total` increments |
+| `OBS-METRICS-IPAM-ALLOC` | OBS | P2 | ⏳ T9 next PR | After Address.Create → `vpc_ipam_allocations_total` increments |
+| `OBS-METRICS-IPAM-CONFLICTS` | OBS | P2 | ⏳ T9 next PR | After overlap-Create → `vpc_ipam_conflicts_total` increments (если такой метрики ещё нет — заводим backlog REQ-OBS-*) |
+| `OBS-METRICS-OUTBOX-EVENTS` | OBS | P2 | ⏳ T9 next PR | After Create → `vpc_outbox_events_total` increments |
+| `OBS-METRICS-GRPC-REQUESTS` | OBS | P2 | ⏳ T9 next PR | After any RPC → `grpc_requests_total{method="..."}` increments |
+| `OBS-METRICS-GRPC-DURATION-HIST` | OBS | P2 | ⏳ T9 next PR | After RPC → `grpc_request_duration_seconds_bucket{...}` has counts > 0 |
+
+**Срез 5.14**: 0/9 ✅; 9/9 ⏳ pending T9.
+
+### 5.15 `cases/authz-deny.py` — расширить (после KAC-W1.*, 13 patterns — все T13 blocked)
 
 Файл существует — после IAM-VPC merge добавить полную matrix:
 
-| case-id pattern | Coverage |
-|---|---|
-| `*-AUTHZ-NO-TOKEN-401` | × все 7 ресурсов × all RPC |
-| `*-AUTHZ-INVALID-TOKEN-401` | × all |
-| `*-AUTHZ-CROSS-TENANT-403` | × all RPC × all ресурсов (target = foreign tenant resource) |
-| `*-AUTHZ-FGA-CHECK-DENY` | post-Bind FGA tuple removed → Check denies |
-| `*-AUTHZ-FGA-TUPLE-AFTER-CREATE` | post-Create → tuple visible in iam.Check |
-| `*-AUTHZ-FGA-TUPLE-AFTER-DELETE` | post-Delete → tuple removed |
-| `*-MV-AUTHZ-FGA-RETUPLE` | Move retuple-s both endpoints |
-| `*-AUTHZ-FGA-INHERITED-PROJECT` | Role on project → access на ресурсы project'а |
-| `*-AUTHZ-PRIVESC-DENY` | reader role tries Update → denied |
-| `*-AUTHZ-JWT-MALFORMED` | Authorization: <garbage> → 401 |
-| `*-AUTHZ-METADATA-SPOOFING-IGNORED` | spoofed `x-iam-account-id` ignored |
-| `*-IDM-REPLAY-SAFE` | Same body twice → idempotent |
-| `*-EXTERNAL-NO-INTERNAL-PATHS` | TLS endpoint :443 — internal paths → 404 (gated by TLS listener) |
+| case-id pattern | Status | Coverage |
+|---|---|---|
+| `*-AUTHZ-NO-TOKEN-401` | 🚫 T13 (W1.*) | × все 7 ресурсов × all RPC |
+| `*-AUTHZ-INVALID-TOKEN-401` | 🚫 T13 (W1.*) | × all |
+| `*-AUTHZ-CROSS-TENANT-403` | 🚫 T13 (W1.*) | × all RPC × all ресурсов (target = foreign tenant resource) |
+| `*-AUTHZ-FGA-CHECK-DENY` | 🚫 T13 (W1.*) | post-Bind FGA tuple removed → Check denies |
+| `*-AUTHZ-FGA-TUPLE-AFTER-CREATE` | 🚫 T13 (W1.*) | post-Create → tuple visible in iam.Check |
+| `*-AUTHZ-FGA-TUPLE-AFTER-DELETE` | 🚫 T13 (W1.*) | post-Delete → tuple removed |
+| `*-MV-AUTHZ-FGA-RETUPLE` | 🚫 T13 (W1.*) | Move retuple-s both endpoints |
+| `*-AUTHZ-FGA-INHERITED-PROJECT` | 🚫 T13 (W1.*) | Role on project → access на ресурсы project'а |
+| `*-AUTHZ-PRIVESC-DENY` | 🚫 T13 (W1.*) | reader role tries Update → denied |
+| `*-AUTHZ-JWT-MALFORMED` | 🚫 T13 (W1.*) | Authorization: <garbage> → 401 |
+| `*-AUTHZ-METADATA-SPOOFING-IGNORED` | 🚫 T13 (W1.*) | spoofed `x-iam-account-id` ignored |
+| `*-IDM-REPLAY-SAFE` | 🚫 T13 (W1.*) | Same body twice → idempotent |
+| `*-EXTERNAL-NO-INTERNAL-PATHS` | 🚫 T13 (TLS listener gate) | TLS endpoint :443 — internal paths → 404 (требует TLS listener поднят в стенде) |
+
+**Срез 5.15**: 0/13 ✅; 13/13 🚫 blocked T13 (W1.*).
+
+### 5.X Итоговый аудит реализации (рекап)
+
+| Категория | Total | ✅ done | ⏳ pending | ⚠ deferred | 🔁 superseded | ❌ rejected | 🚫 blocked |
+|---|---|---|---|---|---|---|---|
+| 5.1 network.py | 9 | 0 | 1 (T8) | 0 | 0 | 0 | 8 (T13) |
+| 5.2 subnet.py | 8 | 6 | 0 | 1 (T2) | 0 | 1 (boundary) | 0 |
+| 5.3 address.py | 5 | 3 | 0 | 1 (T2) | 1 → IPL-* | 0 | 0 |
+| 5.4 nic.py | 7 | **7** | 0 | 0 | 0 | 0 | 0 |
+| 5.5 sg.py | 4 | 1 | 2 | 1 (T2) | 0 | 0 | 0 |
+| 5.6 rt.py | 3 (+1 substitute) | 1 | 0 | 1 (T2) | 1 → `*-WITH-ASSOC-OK` | 1 (route-norm) | 0 |
+| 5.7 pe.py | 4 | 0 | 0 | 0 | 0 | 0 | 4 (T6) |
+| 5.8 gw.py | 2 | 0 | 2 | 0 | 0 | 0 | 0 |
+| 5.9 op.py | 3 | 1 | 0 | 0 | 0 | 2 (no API) | 0 |
+| 5.10 internal-cloud.py | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
+| 5.11 internal-pool.py | 2 | 1 | 0 | 0 | 0 | 1 (existed) | 0 |
+| 5.12 internal-ni.py NEW | 3 | 0 | 3 (T10) | 0 | 0 | 0 | 0 |
+| 5.13 outbox.py NEW | 15 | 0 | 14 (T8) | 0 | 0 | 0 | 1 (T6) |
+| 5.14 observability.py NEW | 9 | 0 | 9 (T9) | 0 | 0 | 0 | 0 |
+| 5.15 authz-deny.py | 13 | 0 | 0 | 0 | 0 | 0 | 13 (T13) |
+| **Total** | **88 + 1 substitute = 89** | **20** | **32** | **4** | **2** | **5** | **26** |
+
+**Итог в %**: 20/89 ✅ done (22%) этим PR; 32 pending (T8/T9/T10/misc), 26 blocked (T13 W1.* + T6 seed), 4 deferred (T2 Move REQ-clarify), 5 rejected (boundary/no-API/already-exists).
 
 ### 5.16 Pure boundary (НЕ Newman) — для honest tracking
 
