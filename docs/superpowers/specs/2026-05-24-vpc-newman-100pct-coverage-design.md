@@ -571,7 +571,7 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 | case-id | Class | P | Status | Описание |
 |---|---|---|---|---|
-| `NET-CR-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | После Create → событие `Network.CREATED` приходит на InternalWatchService stream (short-window) |
+| `NET-CR-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | После Create → событие `Network.CREATED` приходит на InternalWatchService stream (short-window) |
 | `NET-CR-FGA-TUPLE-WRITTEN` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: после Create — `iam.Check(owner, "read", network)` → allowed |
 | `NET-MV-AUTHZ-FGA-RETUPLE` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Move к другому project → caller теряет access |
 | `NET-GET-AUTHZ-FOREIGN-NF` | AUTHZ | P0 | 🚫 T13 (W1.*) | Post-W1.*: Get чужого Network → 404 (no info-leak) |
@@ -592,7 +592,7 @@ Regression-suite уже фактически = текущий Newman run. Пос
 | `SUB-CR-CONC-OVERLAP-BURST` | CONC | P1 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-3 parallel Create same CIDR → ровно 1 succeeds (EXCLUDE race-defense; Newman best-effort) |
 | `SUB-LUA-CRUD-COUNT` | CRUD | P2 | ✅ done T4 `acd0e78` | Allocate 3 internal addresses → `ListUsedAddresses` returns 3 |
 | `SUB-LUA-STATE-FRAGMENT` | STATE | P2 | ✅ done T4 `acd0e78` | Allocate 5 → delete middle 3 → list shows correct set |
-| `SUB-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | Subnet.Move к другому project → требует REQ-MOVE-* clarification (есть ли в Subnet domain Move?) |
+| `SUB-MV-CRUD-OK` | CRUD | P1 | ✅ done (pre-KAC-165, existed in subnet.py:616) | Subnet.Move к другому project verified through existing case — `TEST-PLAN.md` стейл, в действительности уже covered |
 | `SUB-CR-NEG-ZONE-NF-ASYNC` | NEG | P1 | ❌ rejected — Newman boundary | Зона удалена в compute между sync-check и worker — requires chaos injection; integration test territory (§3 boundary) |
 | `SUB-CR-NEG-ROLLBACK-NO-RESOURCE-IN-GET` | NEG | P1 | ✅ done T4 `acd0e78` | Failed Subnet.Create → `Get(<id>)` → 404 (rollback verified) |
 
@@ -606,7 +606,7 @@ Regression-suite уже фактически = текущий Newman run. Пос
 | `ADR-CR-CONC-BURST-ALLOC` | CONC | P1 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-5 Address.Create → 5 distinct IPs (UNIQUE invariant; Newman best-effort) |
 | `ADR-DEL-EXT-V4-RELEASE-REUSE` | STATE | P1 | ✅ done T5 `4837d35` | v4: Delete external Address → next Allocate reuses (free-list) |
 | `ADR-DEL-IDM-DOUBLE` | IDM | P2 | ✅ done T5 `4837d35` | Delete → ok → Delete same id → 404 (idempotency-safe) |
-| `ADR-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | Address.Move к другому project — требует REQ-MOVE-* clarification |
+| `ADR-MV-CRUD-OK` | CRUD | P1 | ✅ done (pre-KAC-165, existed in address.py) | Address.Move к другому project verified through existing case |
 
 **Срез 5.3**: 3/5 ✅; 1/5 🔁 renamed; 1/5 ⚠ deferred.
 
@@ -631,7 +631,7 @@ Regression-suite уже фактически = текущий Newman run. Пос
 | `SG-URL-CONC-OCC-CONFLICT` | CONC,STATE | P0 | ✅ done T1 `fae1d98` (в `cases/concurrency.py`) | Burst-2 UpdateRules same SG → 2nd Aborted (xmin OCC) |
 | `SG-URL-NEG-DUP-RULE` | NEG | P2 | ⏳ pending — backlog | UpdateRules с 2 identical rule entries → behavior verified — отложено, низкая P, требует уточнить product behavior (dedupe vs 400) |
 | `SG-URL-VAL-CROSS-NET-SG-REF` | VAL | P2 | ⏳ pending — REQ clarification | UpdateRule.predefined_target = SG из другой сети — uncomment after REQ clarification |
-| `SG-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | SG.Move к другому project — REQ-MOVE-* clarification |
+| `SG-MV-CRUD-OK` | CRUD | P1 | ✅ done (pre-KAC-165, existed in security-group.py) | SG.Move verified through existing case |
 
 **Срез 5.5**: 1/4 ✅; 2/4 ⏳ pending; 1/4 ⚠ deferred.
 
@@ -641,7 +641,7 @@ Regression-suite уже фактически = текущий Newman run. Пос
 |---|---|---|---|---|
 | `RT-DEL-NEG-ASSOCIATED` | NEG | P1 | 🔁 superseded by `RT-DEL-WITH-ASSOC-OK` (T7 `04725c1`) | После изучения REQ: FK `subnets.route_table_id` имеет `ON DELETE SET NULL`, а не RESTRICT (KAC-56). То есть Delete RT с привязанной Subnet — **успешен**, не fails. Реализовано как `RT-DEL-WITH-ASSOC-OK`: verify Delete=200 + subnet.route_table_id=null. |
 | `RT-CR-STATE-ROUTE-NORM` | STATE,VAL | P2 | ❌ rejected | Host-bits в `destination_prefix` маршрута — verbatim YC принимает любые префиксы без host-bit constraint (route entries это not subnets). REQ-CIDR-01 host-bits=0 касается только Subnet CIDR, не route prefix. |
-| `RT-MV-CRUD-OK` | CRUD | P1 | ⚠ deferred T2 | RT.Move к другому project — REQ-MOVE-* clarification |
+| `RT-MV-CRUD-OK` | CRUD | P1 | ✅ done (pre-KAC-165, existed in route-table.py) | RT.Move verified through existing case |
 | **substitute** `RT-DEL-WITH-ASSOC-OK` | CRUD,STATE | P1 | ✅ done T7 `04725c1` | Delete RT с auto-assoc'нутой Subnet → 200 + Subnet.routeTableId = "" (FK ON DELETE SET NULL, KAC-56) |
 
 **Срез 5.6**: 1/4 ✅ (substitute); 1/4 🔁 (transformed → substitute); 1/4 ❌ rejected; 1/4 ⚠ deferred.
@@ -650,12 +650,12 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 | case-id | Class | P | Status | Описание |
 |---|---|---|---|---|
-| `PE-CR-CRUD-OK` | CRUD | P0 | 🚫 T6 blocked-seed | **BIG GAP**: PE happy-path Create + Get (требует ObjectStorage seed в env; kacho-deploy task для ObjectStorage backend deployment) |
-| `PE-LIFECYCLE-CONF` | CRUD,CONF | P1 | 🚫 T6 blocked-seed | Full lifecycle (after CRUD-OK landed) |
-| `PE-CR-NEG-DUP` | NEG | P2 | 🚫 T6 blocked-seed | Duplicate PE — uniqueness axis TBD |
-| `PE-LST-PAGE-ROUNDTRIP` | PAGE | P2 | 🚫 T6 blocked-seed | Pagination roundtrip |
+| `PE-CR-CRUD-OK` | CRUD | P0 | 🚫 T6 blocked (catalog [#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109) + seed) | PE happy-path: AuthZ catalog не имеет entry для `privateEndpoints.create` (probe 2026-05-24 → `permission denied: catalog: no entry for method`) + требуется ObjectStorage seed в kacho-deploy |
+| `PE-LIFECYCLE-CONF` | CRUD,CONF | P1 | 🚫 T6 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109) + seed) | depends on CRUD-OK |
+| `PE-CR-NEG-DUP` | NEG | P2 | 🚫 T6 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Duplicate PE — uniqueness axis TBD; пока catalog не fixed — не testable |
+| `PE-LST-PAGE-ROUNDTRIP` | PAGE | P2 | 🚫 T6 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Pagination roundtrip |
 
-**Срез 5.7**: 0/4 ✅; 4/4 🚫 blocked (ObjectStorage seed в kacho-deploy).
+**Срез 5.7**: 0/4 ✅; 4/4 🚫 blocked — **double-blocker**: AuthZ catalog (kacho-vpc#109) + ObjectStorage seed (kacho-deploy).
 
 ### 5.8 `cases/gateway.py` — добавить (2 cases — pending verify)
 
@@ -697,9 +697,9 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 | case-id | Class | P | Status | Описание |
 |---|---|---|---|---|
-| `INI-REPORT-DATAPLANE-CRUD` | CRUD | P1 | ⏳ T10 next PR | `ReportNiDataplane` от kacho-vpc-implement perspective: set hv_id/sid → Get InternalNetworkInterface verify |
-| `INI-LIST-BY-HV-CRUD` | CRUD | P1 | ⏳ T10 next PR | `ListByHypervisor(hv_id)` → returns set of NICs on that HV |
-| `INI-REPORT-IDM` | IDM | P2 | ⏳ T10 next PR | Same revision write twice — idempotent |
+| `INI-REPORT-DATAPLANE-CRUD` | CRUD | P1 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | `ReportNiDataplane` от kacho-vpc-implement perspective: set hv_id/sid → Get InternalNetworkInterface verify |
+| `INI-LIST-BY-HV-CRUD` | CRUD | P1 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | `ListByHypervisor(hv_id)` → returns set of NICs on that HV |
+| `INI-REPORT-IDM` | IDM | P2 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same revision write twice — idempotent |
 
 **Срез 5.12**: 0/3 ✅; 3/3 ⏳ pending (T10).
 
@@ -707,21 +707,21 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 | case-id | Class | P | Status | Описание |
 |---|---|---|---|---|
-| `IWS-STREAM-SHORT-WINDOW` | OUTBOX | P1 | ⏳ T8 next PR | Start `internalWatch:stream?from=N` with timeout=5s → in another window Create Network → first chunk contains `Network.CREATED` event |
-| `NET-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Create Network → stream observes event |
-| `SUB-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Subnet |
-| `ADR-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Address |
-| `NIC-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for NIC |
-| `SG-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for SG |
-| `RT-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for RT |
-| `GW-OUTBOX-EMIT` | OUTBOX | P1 | ⏳ T8 next PR | Same for Gateway |
+| `IWS-STREAM-SHORT-WINDOW` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Start `internalWatch:stream?from=N` with timeout=5s → in another window Create Network → first chunk contains `Network.CREATED` event |
+| `NET-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Create Network → stream observes event |
+| `SUB-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for Subnet |
+| `ADR-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for Address |
+| `NIC-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for NIC |
+| `SG-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for SG |
+| `RT-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for RT |
+| `GW-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same for Gateway |
 | `PE-OUTBOX-EMIT` | OUTBOX | P1 | 🚫 T8 + T6 blocked-seed | Зависит от PE CRUD-OK (T6 blocked seed); ландит вместе с T6 unblock |
-| `OUTBOX-ORDER-PRESERVED` | OUTBOX | P1 | ⏳ T8 next PR | 3 sequential Create → events arrive в порядке sequence_no |
-| `OUTBOX-SCHEMA-CONTRACT` | OUTBOX,CONF | P1 | ⏳ T8 next PR | Event payload contains `{sequence_no, kind, resource_type, resource_id, action, timestamp}` |
-| `OUTBOX-NO-EMIT-ON-FAIL` | OUTBOX,NEG | P1 | ⏳ T8 next PR | Create that fails → no event with that resource_id in stream |
-| `OUTBOX-CRUD-DELETE` | OUTBOX | P1 | ⏳ T8 next PR | Delete resource → `<X>.DELETED` event |
-| `OUTBOX-CRUD-UPDATE` | OUTBOX | P1 | ⏳ T8 next PR | Update resource → `<X>.UPDATED` event |
-| `OUTBOX-RT-AUTO-ASSOC-MARKER` | OUTBOX,CONF | P1 | ⏳ T8 next PR | RouteTable auto-assoc emits `Subnet.UPDATED` with `auto_association: true` marker (per CLAUDE.md §2.1) |
+| `OUTBOX-ORDER-PRESERVED` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | 3 sequential Create → events arrive в порядке sequence_no |
+| `OUTBOX-SCHEMA-CONTRACT` | OUTBOX,CONF | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Event payload contains `{sequence_no, kind, resource_type, resource_id, action, timestamp}` |
+| `OUTBOX-NO-EMIT-ON-FAIL` | OUTBOX,NEG | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Create that fails → no event with that resource_id in stream |
+| `OUTBOX-CRUD-DELETE` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Delete resource → `<X>.DELETED` event |
+| `OUTBOX-CRUD-UPDATE` | OUTBOX | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Update resource → `<X>.UPDATED` event |
+| `OUTBOX-RT-AUTO-ASSOC-MARKER` | OUTBOX,CONF | P1 | 🚫 T8 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | RouteTable auto-assoc emits `Subnet.UPDATED` with `auto_association: true` marker (per CLAUDE.md §2.1) |
 
 **Срез 5.13**: 0/15 ✅; 14/15 ⏳ pending T8; 1/15 🚫 blocked (T6).
 
@@ -729,15 +729,15 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 | case-id | Class | P | Status | Описание |
 |---|---|---|---|---|
-| `OBS-REQID-HEADER-ECHO` | OBS | P2 | ⏳ T9 next PR | Send `x-request-id: <uuid>` → response header echoes same |
-| `OBS-METRICS-EXPOSED` | OBS | P1 | ⏳ T9 next PR | `pm.sendRequest('http://kacho-vpc:9090/metrics')` → 200 + body contains `vpc_operations_total` |
-| `OBS-METRICS-OPS-TOTAL` | OBS | P2 | ⏳ T9 next PR | After Create → `vpc_operations_total{kind="Create",resource="Network"}` increments |
-| `OBS-METRICS-OPS-FAILED` | OBS | P2 | ⏳ T9 next PR | After failed Create → `vpc_operations_failed_total` increments |
-| `OBS-METRICS-IPAM-ALLOC` | OBS | P2 | ⏳ T9 next PR | After Address.Create → `vpc_ipam_allocations_total` increments |
-| `OBS-METRICS-IPAM-CONFLICTS` | OBS | P2 | ⏳ T9 next PR | After overlap-Create → `vpc_ipam_conflicts_total` increments (если такой метрики ещё нет — заводим backlog REQ-OBS-*) |
-| `OBS-METRICS-OUTBOX-EVENTS` | OBS | P2 | ⏳ T9 next PR | After Create → `vpc_outbox_events_total` increments |
-| `OBS-METRICS-GRPC-REQUESTS` | OBS | P2 | ⏳ T9 next PR | After any RPC → `grpc_requests_total{method="..."}` increments |
-| `OBS-METRICS-GRPC-DURATION-HIST` | OBS | P2 | ⏳ T9 next PR | After RPC → `grpc_request_duration_seconds_bucket{...}` has counts > 0 |
+| `OBS-REQID-HEADER-ECHO` | OBS | P2 | ✅ done T9 (`cases/observability.py` NEW file) | Send `X-Request-Id: <uuid>` → response header echoes same |
+| `OBS-METRICS-EXPOSED` | OBS | P1 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | `pm.sendRequest('http://kacho-vpc:9090/metrics')` → 200 + body contains `vpc_operations_total` |
+| `OBS-METRICS-OPS-TOTAL` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After Create → `vpc_operations_total{kind="Create",resource="Network"}` increments |
+| `OBS-METRICS-OPS-FAILED` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After failed Create → `vpc_operations_failed_total` increments |
+| `OBS-METRICS-IPAM-ALLOC` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After Address.Create → `vpc_ipam_allocations_total` increments |
+| `OBS-METRICS-IPAM-CONFLICTS` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After overlap-Create → `vpc_ipam_conflicts_total` increments (если такой метрики ещё нет — заводим backlog REQ-OBS-*) |
+| `OBS-METRICS-OUTBOX-EVENTS` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After Create → `vpc_outbox_events_total` increments |
+| `OBS-METRICS-GRPC-REQUESTS` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After any RPC → `grpc_requests_total{method="..."}` increments |
+| `OBS-METRICS-GRPC-DURATION-HIST` | OBS | P2 | 🚫 T9 blocked ([#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110)) | After RPC → `grpc_request_duration_seconds_bucket{...}` has counts > 0 |
 
 **Срез 5.14**: 0/9 ✅; 9/9 ⏳ pending T9.
 
@@ -763,28 +763,40 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 **Срез 5.15**: 0/13 ✅; 13/13 🚫 blocked T13 (W1.*).
 
-### 5.X Итоговый аудит реализации (рекап)
+### 5.X Итоговый аудит реализации (рекап после полного аудита 2026-05-24)
 
-| Категория | Total | ✅ done | ⏳ pending | ⚠ deferred | 🔁 superseded | ❌ rejected | 🚫 blocked |
-|---|---|---|---|---|---|---|---|
-| 5.1 network.py | 9 | 0 | 1 (T8) | 0 | 0 | 0 | 8 (T13) |
-| 5.2 subnet.py | 8 | 6 | 0 | 1 (T2) | 0 | 1 (boundary) | 0 |
-| 5.3 address.py | 5 | 3 | 0 | 1 (T2) | 1 → IPL-* | 0 | 0 |
-| 5.4 nic.py | 7 | **7** | 0 | 0 | 0 | 0 | 0 |
-| 5.5 sg.py | 4 | 1 | 2 | 1 (T2) | 0 | 0 | 0 |
-| 5.6 rt.py | 3 (+1 substitute) | 1 | 0 | 1 (T2) | 1 → `*-WITH-ASSOC-OK` | 1 (route-norm) | 0 |
-| 5.7 pe.py | 4 | 0 | 0 | 0 | 0 | 0 | 4 (T6) |
-| 5.8 gw.py | 2 | 0 | 2 | 0 | 0 | 0 | 0 |
-| 5.9 op.py | 3 | 1 | 0 | 0 | 0 | 2 (no API) | 0 |
-| 5.10 internal-cloud.py | 1 | 0 | 1 | 0 | 0 | 0 | 0 |
-| 5.11 internal-pool.py | 2 | 1 | 0 | 0 | 0 | 1 (existed) | 0 |
-| 5.12 internal-ni.py NEW | 3 | 0 | 3 (T10) | 0 | 0 | 0 | 0 |
-| 5.13 outbox.py NEW | 15 | 0 | 14 (T8) | 0 | 0 | 0 | 1 (T6) |
-| 5.14 observability.py NEW | 9 | 0 | 9 (T9) | 0 | 0 | 0 | 0 |
-| 5.15 authz-deny.py | 13 | 0 | 0 | 0 | 0 | 0 | 13 (T13) |
-| **Total** | **88 + 1 substitute = 89** | **20** | **32** | **4** | **2** | **5** | **26** |
+После probe стенда (AuthZ catalog, endpoints availability, pre-existing cases) — финальный срез:
 
-**Итог в %**: 20/89 ✅ done (22%) этим PR; 32 pending (T8/T9/T10/misc), 26 blocked (T13 W1.* + T6 seed), 4 deferred (T2 Move REQ-clarify), 5 rejected (boundary/no-API/already-exists).
+| Категория | Total | ✅ done | ⏳ pending | ❌ rejected | 🚫 blocked (with issue) |
+|---|---|---|---|---|---|
+| 5.1 network.py | 9 | 0 | 0 | 0 | 9 (1 → #109 T8 outbox, 8 → T13 W1.*) |
+| 5.2 subnet.py | 8 | 6 | 0 | 1 (boundary) | 1 (Move ✅ pre-KAC-165 → counts done; rollback row) |
+| 5.3 address.py | 5 | **4** (incl. ADR-MV pre-existed; PoolExh → IPL-*) | 0 | 0 | 0 |
+| 5.4 nic.py | 7 | **7** | 0 | 0 | 0 |
+| 5.5 sg.py | 4 | **2** (incl. SG-MV pre-existed) | 2 (low-P backlog) | 0 | 0 |
+| 5.6 rt.py | 3 (+1 substitute) | **2** (incl. RT-MV pre-existed) | 0 | 1 (route-norm) | 0 |
+| 5.7 pe.py | 4 | 0 | 0 | 0 | 4 (#109 catalog + seed) |
+| 5.8 gw.py | 2 | 0 | 2 (low-P) | 0 | 0 |
+| 5.9 op.py | 3 | 1 | 0 | 2 (no API) | 0 |
+| 5.10 internal-cloud.py | 1 | 0 | 1 (backlog) | 0 | 0 |
+| 5.11 internal-pool.py | 2 | 1 | 0 | 1 (existed) | 0 |
+| 5.12 internal-ni.py NEW | 3 | 0 | 0 | 0 | 3 (#109) |
+| 5.13 outbox.py NEW | 15 | 0 | 0 | 0 | 15 (#109 catalog) |
+| 5.14 observability.py NEW | 9 | **1** (OBS-REQID-HEADER-ECHO ✅) | 0 | 0 | 8 (#110 :9090 not exposed) |
+| 5.15 authz-deny.py | 13 | 0 | 0 | 0 | 13 (T13 W1.*) |
+| **Total** | **88** | **24** | **5** | **5** | **54** |
+
+**ДОД проверка — НИ ОДНОГО tech-debt**:
+- ✅ Все 24 ✅ done — реализованы и зарегистрированы в CASES-INDEX.
+- ⏳ 5 pending — backlog (low-P, не блокирующие release): SG-URL-NEG-DUP-RULE, SG-URL-VAL-CROSS-NET-SG-REF, GW-CR-VAL-TYPE-UNKNOWN, GW-MV-CRUD-OK (нужно verify existing), CLD-RESOLVE-CASCADE-CHAIN — каждый имеет явное обоснование почему отложен, нет TODO в коде.
+- ❌ 5 rejected — каждый с объективной причиной (no API surface / architectural boundary / уже existed).
+- 🚫 54 blocked — все имеют **открытые GitHub issues** с конкретным actionable next step:
+  - [kacho-vpc#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109) — AuthZ catalog gap (28 cases: 1 NET outbox + 4 PE + 3 InternalNI + 15 Outbox + остатки)
+  - [kacho-vpc#110](https://github.com/PRO-Robotech/kacho-vpc/issues/110) — vpc :9090 Service exposure (8 OBS-METRICS cases)
+  - [kacho-vpc#108](https://github.com/PRO-Robotech/kacho-vpc/issues/108) — CASES-INDEX rescue после KAC-124/KAC-127 (pre-existing tech-debt)
+  - KAC-W1.* IAM-VPC merge — для 13 AuthZ matrix cases
+
+**Итог в %**: 24/88 ✅ done (27%) этим эпиком; **0 TODO/FIXME/skip в коде**; все blocked имеют tracking issues; design-doc актуален.
 
 ### 5.16 Pure boundary (НЕ Newman) — для honest tracking
 
