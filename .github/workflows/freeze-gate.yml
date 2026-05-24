@@ -54,6 +54,18 @@ jobs:
             freeze-report.json
             obsidian/kacho/freeze-gate-status.md
 
+      - name: ensure freeze-gate label exists
+        if: steps.gate.outputs.rc != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Idempotent: label may already exist.
+          gh label create freeze-gate \
+            --color d93f0b \
+            --description "Freeze gate (W3.4 / KAC-178) tracking issue" \
+            || true
+
       - name: open / update tracking issue on failure
         if: steps.gate.outputs.rc != '0'
         env:
