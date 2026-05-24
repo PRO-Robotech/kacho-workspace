@@ -1,86 +1,94 @@
 # Sub-phase W3.1 — Remediation Chunk 5: Federation / SSO internals — Acceptance
 
-> **Status**: DRAFT (awaiting `acceptance-reviewer` per workspace `CLAUDE.md` §Запреты #1).
+> **Status**: DRAFT v2 (revised per KAC-173 against acceptance-reviewer findings on v1; awaiting re-review per workspace `CLAUDE.md` §Запреты #1).
 > **Date**: 2026-05-24
-> **YouTrack**: KAC-W3.1 (subtask of `KAC-iam-prod-ready` master epic, sibling of W3.2 observability / W3.3 SPIRE+Cilium / W3.4 freeze).
+> **YouTrack**: KAC-W3.1 (subtask of `KAC-iam-prod-ready` master epic; revision tracked by KAC-173, sibling of W3.2 observability / W3.3 SPIRE+Cilium / W3.4 freeze).
 > **Author agent**: `acceptance-author`
 > **Reviewer agent**: `acceptance-reviewer`
+> **Revision note**: v1 (`2026-05-24` original) was returned `❌ CHANGES REQUESTED`; key findings — (a) #42 direction misread (egress sign vs ingress verify), (b) duplicate `jwks_keys` vs existing `oidc_jwks_keys` from migration `0014`, (c) #40/#41 scope overlap with W2.B. **Resolution** (per `KAC-170-acceptance-review-report.md` Option Y, ratified by master plan §W3 row source-of-truth): W2.B = scaffolding for SSO/SAML/CAEP-egress; W3.1 = full verify/sign of remaining surface; **#41 drops from W3.1 entirely** (lives in W2.B B.2 next to SCIM endpoints — master plan §W3 row excludes #41); **#42 is INGRESS verify** of inbound SETs against trusted external IdP's JWKS (egress signing lives in W2.B B.8); no `jwks_keys`-table duplication — W3.1 references existing `oidc_jwks_keys` (if needed for OUR signing keys) and adds new `iam_trusted_idp_jwks_cache` (cache of external IdP public keys). Final W3.1 scope: **6 findings** (#21, #23, #25, #26, #40, #42).
 > **Target repos**:
 >   - **Primary**: `PRO-Robotech/kacho-iam` —
 >     - `internal/apps/kacho/api/internal_authorize/handler.go` (`ReloadModel` #25, `RunRegoTest` #26)
 >     - `internal/service/authorize_service.go` (`CheckRelation` context plumbing #23)
->     - `internal/apps/kacho/api/saml/sp_handler.go` (SAML AuthnResponse verify #40)
->     - `internal/apps/kacho/api/scim/auth.go` + `cmd/kacho-iam/phase6_listeners.go` (SCIM Basic-auth #41)
->     - `internal/handler/iamhooks/caep_egress_handler.go` (new) + `internal/service/caep/set_signer.go` (new) (CAEP SET signing #42)
->     - `internal/service/jwks/store.go` (new) + `internal/apps/kacho/api/internal_iam/handler.go::GetJWKSStatus` (extension) + REST `/.well-known/jwks.json` handler in `cmd/kacho-iam/main.go` (#42)
->     - `internal/service/opa_scope/allowlist.go` (new) + handler hooks in `opa_bundle_service` / `authorize_service` (#21)
->     - `migrations/0025_opa_scope_allowlist.sql` (new) — `kacho_iam.opa_scope_allowlist` table
->     - `migrations/0026_jwks_keys.sql` (new) — `kacho_iam.jwks_keys` table (signing keys, **internal-only on storage**)
->     - `migrations/0027_scim_basic_credentials.sql` (new) — `kacho_iam.scim_basic_credentials` table (per-tenant SCIM creds — bcrypt-hashed)
->     - `migrations/0028_saml_response_replay.sql` (new) — `kacho_iam.saml_response_replay` table (InResponseTo dedup)
->   - **Touched (kacho-proto)**: `kacho/cloud/iam/v1/internal_authorize_service.proto` (`RunRegoTest` request gets `module_imports[]` allow-list field + `cpu_timeout_ms` field; response gets `denied_reason` for sandbox rejections); `internal_iam_service.proto` (`GetJWKSStatus` extends to include `active_keys[]` count + `next_rotation_at`).
->   - **Touched (kacho-api-gateway)**: route table for `GET /.well-known/jwks.json` (public, anonymous-read; standard practice per RFC 7517) — added to existing `iam` block in `internal/restmux/mux.go`. SCIM endpoints already wired in W2.B.2; no change to gateway.
->   - **NOT touched**: `kacho-corelib` (no new horizontal cross-cutting needed — JWKS store + SET signer live in iam since only iam owns IdP signing identity). `kacho-vpc`, `kacho-compute` — no edges added.
+>     - `internal/apps/kacho/api/saml/sp_handler.go` (SAML AuthnResponse verify #40 — replaces W2.B B.1 501-guard with real XML-DSig verification)
+>     - `internal/handler/iamhooks/caep_ingress_handler.go::parseSETBody` (CAEP SET ingress signature verify #42 — replaces «base64-decode without verify» with JWS verification against trusted IdP's JWKS)
+>     - `internal/service/jwks_verifier/` (new package — fetch + cache trusted IdP JWKS, verify inbound SET JWS)
+>     - `internal/service/opa_scope/allowlist.go` (new) + handler hooks in `internal_authorize_service` (#21)
+>     - `migrations/00XX_opa_scope_allowlist.sql` — `kacho_iam.opa_scope_allowlist` table (per-tenant whitelist of legitimate OPA scope-strings)
+>     - `migrations/00XX_saml_request_state.sql` — `kacho_iam.saml_request_state` table (per-RequestID single-use replay protection; moved from W2.B per scope split — now meaningful with signature verify present in W3.1)
+>     - `migrations/00XX_iam_trusted_idp_jwks_cache.sql` — `kacho_iam.iam_trusted_idp_jwks_cache` (cached external JWKS per trusted IdP, refresh-on-demand)
+>     - **Migration numbers**: not hard-coded here — assigned at impl-start to next-available index per `KAC-170-acceptance-review-report.md` coordination sketch (last applied = `0025_nlb_operator_target_manager_roles.sql`; W2.A/W2.B/W2.C merge before W3.1, so W3.1 numbers land after their assignments).
+>   - **Touched (kacho-proto)**: `kacho/cloud/iam/v1/internal_authorize_service.proto` (`RunRegoTest` request gets `module_imports[]` allow-list field + `cpu_timeout_ms` field; response gets `denied_reason` for sandbox rejections). No new RPC or service.
+>   - **Touched (kacho-api-gateway)**: nothing (W3.1 only modifies behaviour behind existing routes; SAML ACS / CAEP ingress webhook / SCIM endpoints / `/.well-known/jwks.json` for OUR keys (if exposed) — all wired in W2.B).
+>   - **NOT touched**: `kacho-corelib`, `kacho-vpc`, `kacho-compute` — no horizontal cross-cutting needed; no new edges added beyond kacho-iam ↔ external IdP (HTTP JWKS fetch from per-tenant configured URL).
 > **Branch (all repos)**: `KAC-W3.1` (off `main`).
-> **Parent epic plan**: `docs/superpowers/plans/2026-05-23-iam-prod-ready-master.md` Wave 3.
+> **Parent epic plan**: `docs/superpowers/plans/2026-05-23-iam-prod-ready-master.md` Wave 3 (§W3 row: «Chunk 5 (federation/SSO internals: #21/#23/#25/#26/#40/#42)» — **#41 not listed**).
 > **Wave plan**: `docs/superpowers/plans/2026-05-23-iam-prod-ready-wave3.md` §W3.1 (TBD — детальный план пишется при старте Wave 3).
-> **Source of finding-level requirements**: `docs/superpowers/plans/2026-05-21-iam-authz-review-remediation-plan.md` §1.3 Chunk 5 (findings #21, #23, #25, #26, #40, #41, #42).
-> **Predecessors (must be `main`-merged before impl starts)**:
-> - **W2.B.1** (SAML ACS endpoint wired with explicit-disabled guard returning 501 per remediation-plan OQ-5). W3.1 #40 replaces the 501 guard with the **actual** signature verification path.
-> - **W2.B.2** (SCIM v2 REST endpoints wired). W3.1 #41 closes the auth gap (currently anonymous-accessible per remediation-plan finding #41).
-> - **W2.B.8** (CAEP push pipeline scaffolded — `caep_egress_handler.go` exists with a stub-sign that produces a JWT with `alg: none` for local testing). W3.1 #42 replaces stub-sign with JWS RS256 signing using JWKS.
-> - **W2.A** (catalog/permissions unification, Chunk 3). W3.1 #21 OPA-scope-allowlist is per-tenant; the catalog defines the **set of catalogued scopes** that the allowlist references. W2.A must merge first so the allowlist enum-table can be populated by bootstrap from the catalog (or admin-UI surface lists catalogued scopes).
+> **Source of finding-level requirements**: `docs/superpowers/plans/2026-05-21-iam-authz-review-remediation-plan.md` §1.3 Chunk 5 (items 5.1, 5.2, 5.3, 5.4, 5.5, 5.8). **#41 SCIM Basic-auth** — per master plan §W3 row scoped to W2.B B.2 (where SCIM endpoints live); **#42 direction** per remediation plan lines 90 + 186: file `caep_ingress_handler.go::parseSETBody`, fix «проверять подпись SET-JWT по JWKS доверенного IdP» → **INGRESS verify**, not egress sign.
+> **Predecessors (must be `main`-merged before W3.1 impl starts)**:
+> - **W2.B B.1** (SAML ACS endpoint wired with explicit-disabled guard returning 501 per remediation-plan OQ-5). W3.1 #40 replaces the 501 guard with the **actual** signature verification path.
+> - **W2.B B.2** (SCIM v2 REST endpoints wired with Basic-auth per-tenant via `scim_basic_credentials` — **#41 closed there**, not in W3.1).
+> - **W2.B B.8** (CAEP **egress** push pipeline + EGRESS signing — kacho-iam emits SETs signed by OUR private key from `oidc_jwks_keys`, exposes `/.well-known/jwks.json` for subscribers). W3.1 #42 closes the **inverse** gap — INGRESS verify of SETs we receive from external CAEP-emitting IdPs.
+> - **W2.A** (catalog/permissions unification, Chunk 3). W3.1 #21 OPA-scope-allowlist is per-tenant; the catalog defines the **set of catalogued scopes** that the allowlist references. W2.A must merge first so the allowlist enum-table can be populated by bootstrap from the catalog.
 > - **W1.6** (Remediation Chunk 2). W1.6 §4.11 introduced the **explicit read-only allowlist** anti-anon interceptor — by default `Internal*` mutating RPCs (`ReloadModel`, `RunRegoTest`) are already anonymous-denied. W3.1 #25 is an explicit **reaffirm + cluster-admin gate** on top of anti-anon; without W1.6, anonymous bypass was possible via missing suffix match. W1.6 closes the anonymous bypass; W3.1 closes the *authenticated-non-admin* bypass.
 >
-> **Why W3.1 is the last hardening chunk before freeze**: per remediation plan §Часть 3 «5 чанков», Chunk 5 deals with federation / SSO internals — the surface most exposed to **external** principals (IdP-driven, SCIM-driven, vendor CAEP receiver). These findings are the **only** remaining P0/P1 holes that survive Wave 1+2; closing them brings the IAM prod-ready DoD (per master plan §Definition of Done) to «0 stub on surface, 0 latent-P0». W3.2 (observability) + W3.3 (SPIRE+Cilium) + W3.4 (freeze checklist) are non-correctness chunks layered on top.
+> **Why W3.1 is the last correctness-hardening chunk before freeze**: per remediation plan §Часть 3 «5 чанков», Chunk 5 deals with federation / SSO internals — the surface most exposed to **external** principals (IdP-driven, SCIM-driven, vendor CAEP receiver). With #41 reassigned to W2.B B.2, W3.1 closes the **six remaining** Chunk-5 findings — bringing the IAM prod-ready DoD (per master plan §Definition of Done) to «0 stub on surface, 0 latent-P0». W3.2 (observability) + W3.3 (SPIRE+Cilium) + W3.4 (freeze checklist) are non-correctness chunks layered on top.
 
 ---
 
 ## 0. Преамбула — что эта sub-итерация (précis)
 
-W3.1 закрывает **семь** findings из remediation plan §1.3 Chunk 5, разбитых на три тематических группы:
+W3.1 закрывает **шесть** findings из remediation plan §1.3 Chunk 5 (per master plan §W3 row), разбитых на три тематических группы:
 
-1. **OPA / Rego authz internals** (#21, #25, #26) — control-plane endpoints для admin-UI и oncall, через которые сейчас можно (a) сослаться на любую произвольную scope-строку и обойти каталогизированный набор (#21), (b) перезагрузить FGA-модель без аутентификации (#25), (c) выполнить arbitrary Rego-программу без sandbox ограничений (#26). #25 — частично уже закрыт W1.6 anti-anon allowlist (anonymous → 401); W3.1 **дополнительно** гейтит на cluster-admin role и расширяет ту же логику на #26.
-2. **Federation conditional binding context** (#23) — `IAMService.CheckRelation` сейчас игнорирует `request_context` jsonb-поле (ABAC attributes: MFA-freshness, source-IP, device-trust, time-of-day). Поле существует в proto (KAC-127 frozen), но handler не пробрасывает его в OpenFGA `Check(... ContextualTuples)`. Эффект: conditional bindings (e.g. «admin only with MFA fresh») всегда deny на internal-gate; admin-UI tests show «MFA required» as static deny.
-3. **External-IdP-facing auth/signature hardening** (#40, #41, #42) — три endpoint'а, через которые external systems взаимодействуют с iam как с **первоклассным IdP / Receiver**:
-   - #40 SAML AuthnResponse — XML-signature verification + replay protection + recipient/audience binding. W2.B.1 поставила только защиту-guard (501) против JIT-provisioning без verify; W3.1 — реальная реализация.
-   - #41 SCIM v2 endpoints — Basic-auth header верификация (W2.B.2 поставил endpoints, без auth gap = anonymous может POST/GET/DELETE SCIM users).
-   - #42 CAEP SET signature — Security Event Tokens (RFC 8417) сейчас отправляются с `alg: none`-стаб-подписью; W3.1 поставляет JWS RS256 + JWKS publishing endpoint.
+1. **OPA / Rego authz internals** (#21, #25, #26) — control-plane endpoints для admin-UI и oncall, через которые сейчас можно (a) сослаться на любую произвольную scope-строку и обойти каталогизированный набор (#21), (b) перезагрузить FGA-модель без аутентификации/cluster-admin-проверки (#25), (c) выполнить arbitrary Rego-программу без sandbox-ограничений (#26). #25/#26 уже частично закрыты W1.6 anti-anon allowlist (anonymous → 401); W3.1 **дополнительно** гейтит на cluster-admin grant и расширяет ту же логику на #26.
+2. **Federation conditional binding context** (#23) — `IAMService.CheckRelation` сейчас игнорирует `request_context` jsonb-поле (ABAC attributes: MFA-freshness, source-IP, device-trust, time-of-day). Поле существует в proto (KAC-127 frozen), но handler не пробрасывает его в OpenFGA через `Conditions` evaluation feature. Эффект: conditional bindings (e.g. «admin only with MFA fresh») всегда deny на internal-gate; admin-UI tests show «MFA required» as static deny.
+3. **External-IdP-facing verify hardening** (#40, #42) — два endpoint'а, через которые external systems взаимодействуют с iam:
+   - #40 SAML AuthnResponse — XML-signature verification + replay protection + recipient/audience binding. W2.B B.1 поставила только защиту-guard (501) против JIT-provisioning без verify; W3.1 — реальная реализация (плюс перенос новой `saml_request_state` миграции из W2.B в W3.1 — она бессмысленна без signature verify, поэтому логически принадлежит W3.1).
+   - #42 CAEP SET signature INGRESS verify — `caep_ingress_handler.go::parseSETBody` сейчас base64-декодит JWT без verification. W3.1 поставляет JWS verify против JWKS **доверенного IdP** (внешнего эмиттера). Защищает control-plane от подделанных session-revocation от любого in-cluster actor'а, получившего `X-Kacho-Hook-Token`. **Не путать с W2.B B.8** (egress sign — kacho-iam подписывает SETs, исходящие к нашим subscribers, и публикует свои public keys через `/.well-known/jwks.json`). #42 = INGRESS; B.8 = EGRESS — orthogonal code paths.
 
-Каждый из семи findings закрывается одной парой `RED (failing integration/newman test) → GREEN (impl)`. См. §5 для распределения; §6 — GWT сценарии; §7 — test plan; §8 — DoD; §9 — vault updates.
+**#41 SCIM Basic-auth — DROPPED from W3.1 scope.** Per master plan §W3 row («Chunk 5 (federation/SSO internals: #21/#23/#25/#26/#40/#42)») — #41 не listed. Логически: SCIM Basic-auth — это authn для SCIM endpoints; те wired в W2.B B.2; auth-credential storage (`scim_basic_credentials`-table + Basic-auth middleware) — естественная часть B.2 пакета. См. §0.1 ниже.
 
-W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA evaluator) — это W1.3/W1.5/W2.A. W3.1 **не** добавляет новые RPC в *публичные* сервисы (FederationExchangeService / SAKeyService / AccessBindingService — без изменений). W3.1 расширяет **только** Internal-admin RPCs и REST IdP-facing endpoints (SAML ACS, SCIM v2, JWKS, CAEP push).
+Каждый из шести findings закрывается одной парой `RED (failing integration/newman test) → GREEN (impl)`. См. §5 для распределения; §6 — GWT сценарии; §7 — test plan; §8 — DoD; §9 — vault updates.
+
+W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA evaluator) — это W1.3/W1.5/W2.A. W3.1 **не** добавляет новые RPC в *публичные* сервисы (FederationExchangeService / SAKeyService / AccessBindingService — без изменений). W3.1 расширяет **только** Internal-admin RPCs (`ReloadModel` / `RunRegoTest`) и behaviour-of-existing-endpoints (SAML ACS verify; CAEP ingress verify).
 
 ### 0.1 W3.1 НЕ включает
 
-- **Observability customisation** — VictoriaMetrics dashboards, alert rules, anti-anon-deny / SAML-reject / SCIM-401 / SET-badsig metrics → **W3.2** (`sub-phase-W3.2-observability-customisation-acceptance.md`, TBD). W3.1 emits **structured logs** with `event:` tags (`saml_signature_invalid`, `scim_auth_failed`, `caep_jwks_lookup_failed`, `rego_sandbox_blocked`, `opa_scope_not_allowlisted`) — dashboard wiring is W3.2.
-- **SPIRE + Cilium wiring** — kacho-iam за SVID mTLS identity → **W3.3** (TBD). W3.1 assumes existing K8s NetworkPolicy + token-based authn between iam and gateway; SPIRE-based identity for SAML/SCIM/CAEP клиентов — out of scope (those are external systems, не in-cluster workloads).
+- **#41 SCIM Basic-auth** — implemented in **W2.B B.2** (per master plan §W3 row exclusion + logical co-location with SCIM endpoints, which W2.B B.2 wires). W3.1 does not touch SCIM auth code, `scim_basic_credentials`-table, or per-tenant SCIM credential RPCs. **Note**: previous v1 of this doc included #41 — those §5.41 / §6.41 / OQ-W3.1 / DEC-W3.1-5 (bcrypt cost) sections moved to W2.B B.2 revision (KAC-172).
+- **CAEP egress signing + `/.well-known/jwks.json` for OUR keys** — W2.B B.8 territory. W3.1 #42 covers the **inverse** direction: verifying signatures of SETs we **receive** from external CAEP-emitting IdPs. If W2.B B.8 elects to expose OUR `/.well-known/jwks.json` for subscribers, the JWKS publication path is B.8's; W3.1 introduces **no new** publication endpoint for our keys.
+- **Observability customisation** — VictoriaMetrics dashboards, alert rules, anti-anon-deny / SAML-reject / SET-badsig / rego-sandbox-block / opa-scope-deny metrics → **W3.2** (`sub-phase-W3.2-observability-customisation-acceptance.md`, TBD). W3.1 emits **structured logs** with `event:` tags (`saml_signature_invalid`, `caep_ingress_signature_invalid`, `caep_jwks_lookup_failed`, `rego_sandbox_blocked`, `opa_scope_not_allowlisted`) — dashboard wiring is W3.2.
+- **SPIRE + Cilium wiring** — kacho-iam за SVID mTLS identity → **W3.3** (TBD). W3.1 assumes existing K8s NetworkPolicy + token-based authn between iam and gateway; SPIRE-based identity for SAML/CAEP-IdP-side клиентов — out of scope (those are external systems, не in-cluster workloads).
 - **Freeze checklist** — final gate before Wave 4 freeze (security review, pentest readiness, runbook completeness) → **W3.4** (TBD).
 - **OPA bundle resilience** — bundle fetch / signature verify on the OPA-sidecar side (referenced in W1.3 §0.1 as out-of-scope of gateway). The Rego sandbox in #26 is for `InternalAuthorize.RunRegoTest` admin-diagnostic path only — **not** the runtime evaluator. Runtime OPA-sidecar bundle path is hardened separately (KAC-127 Phase 3 already requires bundle-signing JWS; verified by sidecar config `bundle-signing-key` in `helm/umbrella/values.yaml`).
-- **CheckRelation в публичном `AuthorizeService.Check`** — #23 затрагивает только `InternalIAMService.CheckRelation` (admin-UI checker / gateway-internal). Public `AuthorizeService.Check` уже плюмит `request_context` через `Check(... ContextualTuples)` (verified in W1.3 cross-check `authorize_service.go::Check`). W3.1 закрывает **только** internal-side рассинхрон.
-- **Federation Exchange scope-allowlist (#21 federation-side)** — disambiguation: remediation plan §1.3 Chunk 5 item 5.1 «#21 federation scope-allowlist» — это про `FederationExchangeService.Exchange` `RequestedScope`-intersection с `FederationTrustPolicy.allowed_scopes[]`. Та часть **уже** закрыта в **W2.B.6** (`FederationTrustPolicy.allowed_scopes` field + migration + Exchange intersection). W3.1 #21 — **другая** scope-allowlist: OPA-endpoint-level «какие scope-строки legitimate для `/opa/compile/v1` + `/opa/data/v1/iam/*` request». Эти две allowlist'ы орто́гональны (Federation = OAuth scope; OPA = policy-package scope). См. §3 Decision DEC-W3.1-1 для номенклатуры.
+- **OPA-VERIFY follow-up (#24)** — verifying that fail-closed-для-мутаций при недоступном OPA реально enforced на gateway interceptor (remediation plan §1.3 Chunk 5 item 5.9). **Deferred** — not in master plan §W3 row, lives in a future «W3.1.1 follow-up» chunk (separate KAC), classified as gateway-side bundle-signature hardening, not iam-side.
+- **#20 Port segregation NetworkPolicy** — restricting `grpc-internal` (9091) to cluster-internal sources via NetworkPolicy (remediation plan §1.3 Chunk 5 item 5.7). **Deferred** — not in master plan §W3 row; lives in W3.3 (SPIRE+Cilium) where the broader NetworkPolicy story is told.
+- **CheckRelation в публичном `AuthorizeService.Check`** — #23 затрагивает только `InternalIAMService.CheckRelation` (admin-UI checker / gateway-internal). Public `AuthorizeService.Check` уже плюмит `request_context` через OpenFGA Conditions feature (verified in W1.3 cross-check `authorize_service.go::Check`). W3.1 закрывает **только** internal-side рассинхрон.
+- **Federation Exchange scope-allowlist (#21 federation-side)** — disambiguation: remediation plan §1.3 Chunk 5 item 5.1 «#21 federation scope-allowlist» — это про `FederationExchangeService.Exchange` `RequestedScope`-intersection с `FederationTrustPolicy.allowed_scopes[]`. Та часть **уже** закрыта в **W2.B B.6** (`FederationTrustPolicy.allowed_scopes` field + migration + Exchange intersection). W3.1 #21 — **другая** scope-allowlist: OPA-endpoint-level «какие scope-строки legitimate для `RunRegoTest` `module_imports[]` field». Эти две allowlist'ы орто́гональны (Federation = OAuth scope; OPA = policy-package scope). См. §3 Decision DEC-W3.1-1 для номенклатуры.
 - **Rego unit-test runner for production rules** — `RunRegoTest` остаётся admin-diagnostic RPC; production OPA evaluation идёт через OPA-sidecar, не через iam-RPC. W3.1 sandbox защищает админ-инструмент от RCE-style abuse, не reimplements OPA.
 
-| # | Sev | File:line (target / verified 2026-05-24) | Симптом | Fix |
+### 0.2 Findings table (W3.1 scope = 6 findings)
+
+> **Source-line precision note**: line numbers below reflect `main`-branch state as of 2026-05-24 (last verified commit `9b36fa1` per workspace git log). Impl-author SHOULD re-verify line numbers at branch-creation time — refactors between this acceptance approval and impl start may shift them by ±5.
+
+| # | Sev | File (target — main 2026-05-24) | Симптом | Fix |
 |---|---|---|---|---|
-| **#21** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest`, future `OpaService` endpoints (`/opa/compile/v1`, `/opa/data/v1/iam/*` — REST mapped from `InternalAuthorizeService` admin paths) | OPA-endpoint принимает arbitrary `scope`-строку (e.g. `data.iam.users`, но также `data.attacker_controlled.malicious_rule`) без проверки, что эта scope каталогизирована. Permits enumeration of internal policy packages и потенциально trigger'ит eval против неполной/тестовой policy. | Добавить per-tenant allowlist `kacho_iam.opa_scope_allowlist (tenant_id text, scope text, created_at timestamptz, PRIMARY KEY (tenant_id, scope))`. На handler-уровне: до eval — `SELECT 1 FROM opa_scope_allowlist WHERE tenant_id=$caller_tenant AND scope=$req_scope` — если 0 rows → `codes.PermissionDenied` с текстом `"Illegal argument scope: scope %q is not in tenant allowlist"`. Bootstrap-seed для well-known scopes: `data.iam.users`, `data.iam.roles`, `data.iam.bindings`, `data.iam.projects`. Empty allowlist (mis-bootstrap) → **fail-closed all** (`PermissionDenied`), не «empty = allow-all». |
-| **#23** | P1 | `internal/service/authorize_service.go::CheckRelation` (внутренний путь, отличный от public `Check`); `internal/apps/kacho/api/internal_iam/handler.go::Check` (proxy в `authorize_service.CheckRelation`) | `request_context` поле (jsonb из proto `CheckRelationRequest`, ABAC attributes — `mfa_fresh`, `source_ip`, `device_trust_level`, `time_of_day`) **не пробрасывается** в OpenFGA `Check(... ContextualTuples)`. ABAC-aware conditional bindings (e.g. `permit admin only if mfa_fresh==true`) всегда возвращают deny на internal path. | `CheckRelation` строит `[]openfgav1.TupleKey` из `request_context` map'а (key→value pairs as ContextualTuples с relation `attr_<key>`), передаёт в `client.Check(...)` SDK-параметром `ContextualTuples`. Существующий path уже plumbит `current_time` — расширяем общий механизм. Malformed `request_context` (не-jsonb / nested-too-deep) → `codes.InvalidArgument`. |
-| **#25** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::ReloadModel` (`:127-135` — мутирует `h.currentModelID` без auth-check) | До W1.6: anonymous мог вызвать `InternalAuthorizeService.ReloadModel` — внутренний listener-level trust ассумировал, что cluster-mTLS уже фильтрует, но в dev/test без mTLS — anonymous bypass. После W1.6: anti-anon allowlist denies anonymous, но **authenticated non-admin** всё ещё может вызвать (anti-anon только anti-anon, не authz). | На handler-уровне: `principal := authzguard.PrincipalUserID(ctx); if principal == "" { return PermissionDenied }` (defensive reaffirm anti-anon); затем `if !s.fga.HasClusterAdminGrant(ctx, principal) { return PermissionDenied("ReloadModel requires cluster-admin grant") }`. Cluster-admin = `cluster_admin_grants`-row (W1.5 break-glass approve) OR bootstrap-principal. Symmetric для `RunRegoTest`. Audit log: `event: iam_admin_reload_model, principal:, model_id:, outcome:`. |
-| **#26** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` (`:111-124` — текущая impl возвращает `Unimplemented`; W3.1 включает реализацию для admin-diagnostic + sandbox) | Если включить реализацию без sandbox: arbitrary Rego program execution в process-pamяти iam → DOS (infinite loop, memory exhaustion), exfiltration via `http.send`, side-channel via `time.now_ns` non-determinism. | Sandbox layered: (a) **parser-time deny-list** — отказ при наличии `http.send`, `net.lookup_ip_addr`, `opa.runtime`, `io.*` builtins (parse Rego AST, walk function-call nodes, reject); (b) **CPU budget** — `ctx, cancel := context.WithTimeout(ctx, req.GetCpuTimeoutMs() * time.Millisecond); defer cancel()`, hard cap 5000ms via Go config; (c) **memory budget** — `rego.Module*Limit(8MB)` (OPA Go SDK config); (d) **import allowlist** — request-field `module_imports[]` ⊆ {`data.iam.users`, `data.iam.roles`, `data.iam.bindings`, `data.iam.projects`} (parity с #21 allowlist); unknown import → reject. Combined with #25 (cluster-admin gate) — only trusted operators can even reach the sandboxed eval. |
-| **#40** | P0 | `internal/apps/kacho/api/saml/sp_handler.go:180` (W2.B.1 reads `subject` / `email` from raw form values; signature verify path is `OnSAMLAssertion: nil` → ACS returns 501; W3.1 fills it in) | Without verify: a malicious POST to `/saml/v2/acs` could JIT-provision arbitrary user (`email=admin@victim.com`). W2.B.1 prevented it by returning 501 — defensive but blocks legitimate SAML SSO. W3.1 enables actual verify so SSO works. | Full XML-DSig verification path (use `crewjam/saml` library or `russellhaering/gosaml2` — see DEC-W3.1-3): (1) load IdP cert (per-tenant from `federation_trust_policies.idp_cert_pem`); (2) verify XML signature on `<samlp:Response>` AND on `<saml:Assertion>` — fail if either invalid; (3) signature algorithm allowlist: `rsa-sha256`, `rsa-sha384`, `rsa-sha512` — reject `rsa-sha1` and `dsa-*`; (4) `InResponseTo` binding — must match a previously-issued `<samlp:AuthnRequest>` ID (stored in `saml_response_replay` table with TTL 5min, deleted on first match → replay-proof); (5) `NotBefore` / `NotOnOrAfter` window check (clock skew tolerance ±60s); (6) `Recipient` = `https://<our-acs-url>` (constant from config); (7) `Audience` = our SP entity-ID. All seven checks → JIT-provision user; any fail → reject + structured audit log. Wire `OnSAMLAssertion: h.handleVerifiedAssertion`. |
-| **#41** | P0 | `internal/apps/kacho/api/scim/auth.go:42-78` (`BasicAuthOrgID:""` per W2.B.2 — Basic-auth path disabled); `cmd/kacho-iam/phase6_listeners.go` (Basic creds not loaded from config) | SCIM v2 POST/GET/PUT/DELETE endpoints publicly accessible: anonymous CRUD over `/scim/v2/Users`, `/scim/v2/Groups`. External attacker can provision arbitrary users into any tenant. | New table `kacho_iam.scim_basic_credentials (tenant_id text, username text, password_bcrypt text NOT NULL, created_at timestamptz NOT NULL, last_used_at timestamptz, PRIMARY KEY (tenant_id, username))`. Admin-UI provisions per-tenant SCIM credential (POST `/iam/v1/scim_credentials` — new Internal RPC). Middleware reads `Authorization: Basic <base64(user:pass)>` header; `bcrypt.CompareHashAndPassword` (constant-time); missing header → 401 with `WWW-Authenticate: Basic realm="SCIM"`; wrong creds → 401 (same shape, same latency via `subtle.ConstantTimeCompare` after bcrypt). Successful auth → set `tenant_id` context; SCIM CRUD operates within that tenant only. |
-| **#42** | P0 | `internal/handler/iamhooks/caep_egress_handler.go` (W2.B.8 produces SET JWT with `alg: none`); subscriber currently accepts without verify (test-stub) — production subscribers per RFC 8417 §7.2 REQUIRE signed SETs. | Stub-sign means: any in-cluster actor can craft `iam.session.revoked` SET claiming arbitrary subject — subscribers acting on it would revoke wrong user's session. Outside cluster: stub-sign means subscribers either reject (no verify against JWKS) or accept-without-verify (insecure). | (1) Generate RS256 key pair on first iam-startup; store private key in `kacho_iam.jwks_keys (kid text PRIMARY KEY, alg text NOT NULL CHECK (alg='RS256'), public_key_pem text NOT NULL, private_key_pem_encrypted text NOT NULL, active boolean NOT NULL, created_at timestamptz NOT NULL, rotated_at timestamptz, expires_at timestamptz NOT NULL)`. `private_key_pem_encrypted` = AES-GCM via `KACHO_IAM_JWKS_MASTER_KEY` env (SealedSecret in prod) — **internal-only on storage**, NEVER returned via any RPC. (2) `SetSigner.Sign(claims)` — produce JWS RS256 with `kid` header = current `active=true` row. (3) REST endpoint `GET /.well-known/jwks.json` (public, anonymous-read, RFC 7517 standard) — returns `{keys: [...]}` with **only public-key half** (`n`, `e` JWK fields) — never private key material. (4) Rotation: monthly cron job creates new `active=true` key, marks old as `active=false` (still served in JWKS for 60-day overlap to absorb in-flight verification, then row deleted after `expires_at`). (5) Subscribers fetch `/.well-known/jwks.json`, verify SET signature against `kid`-matched key — invalid signature / unknown `kid` / `kid` not in JWKS → subscriber rejects (proves the JWKS lookup is the source of truth). |
+| **#21** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` (plus any future OPA scope-accepting handler in the same package) | Handler принимает arbitrary `module_imports[]` (after #26 sandbox adds the field) или эквивалент в существующем surface — без проверки, что строки каталогизированы. Permits enumeration of internal policy packages и потенциально eval против неполной/тестовой policy. | Добавить per-tenant allowlist `kacho_iam.opa_scope_allowlist (tenant_id text, scope text, created_at timestamptz, PRIMARY KEY (tenant_id, scope))`. На handler-уровне: до eval — `SELECT 1 FROM opa_scope_allowlist WHERE tenant_id IN ($caller_tenant, '*system') AND scope=$req_scope` — если 0 rows → `codes.PermissionDenied` с текстом `"Illegal argument scope: scope %q is not in tenant allowlist"`. Bootstrap-seed для well-known scopes: `data.iam.users`, `data.iam.roles`, `data.iam.bindings`, `data.iam.projects`. Empty allowlist (mis-bootstrap) → **fail-closed all** (`PermissionDenied`), не «empty = allow-all». Scope covers `RunRegoTest.module_imports[]` only in current surface; any future OPA REST endpoint that accepts scope strings adds its gate at registration time (out of W3.1 scope). |
+| **#23** | P1 | `internal/service/authorize_service.go::CheckRelation` (внутренний путь, отличный от public `Check`); `internal/apps/kacho/api/internal_iam/handler.go::Check` (proxy в `authorize_service.CheckRelation`) | `request_context` поле (jsonb из proto `CheckRelationRequest`, ABAC attributes — `mfa_fresh`, `source_ip`, `device_trust_level`, `time_of_day`) **не пробрасывается** в OpenFGA Conditions evaluation. ABAC-aware conditional bindings (e.g. `permit admin only if mfa_fresh==true`) всегда возвращают deny на internal path. | `CheckRelation` строит OpenFGA `Context` map (string→`structpb.Value`) из `request_context.AsMap()`, передаёт в `client.Check(...)` SDK-параметром `Context` (per OpenFGA Conditions feature, https://openfga.dev/docs/modeling/conditions). Conditions defined в FGA model evaluate against this context map. Существующий path public `Check` уже plumbит то же (verified). Malformed `request_context` (не-jsonb / nested-too-deep / > 32 keys / > 1KB per value) → `codes.InvalidArgument`. |
+| **#25** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::ReloadModel` (мутирует `h.currentModelID` без auth-check beyond W1.6 anti-anon) | До W1.6: anonymous мог вызвать `InternalAuthorizeService.ReloadModel` — внутренний listener-level trust ассумировал, что cluster-mTLS уже фильтрует, но в dev/test без mTLS — anonymous bypass. После W1.6: anti-anon allowlist denies anonymous, но **authenticated non-admin** всё ещё может вызвать. | На handler-уровне: `principal := authzguard.PrincipalUserID(ctx); if principal == "" { return PermissionDenied("authentication required") }` (defensive reaffirm anti-anon); затем `if !s.iam.IsClusterAdmin(ctx, principal) { return PermissionDenied("ReloadModel requires cluster-admin grant") }`. Cluster-admin = `cluster_admin_grants`-row (W1.5 break-glass approve) OR bootstrap-principal. Symmetric для `RunRegoTest`. Audit log: `event: iam_admin_reload_model_ok/denied, principal:, model_id:, outcome:`. |
+| **#26** | P0 | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` (current impl returns `Unimplemented`; W3.1 implements admin-diagnostic + sandbox) | Если включить реализацию без sandbox: arbitrary Rego program execution в process-памяти iam → DOS (infinite loop, memory exhaustion via large data ingest), exfiltration via `http.send`, side-channel via non-deterministic builtins (`time.now_ns`, `rand.*`). | Sandbox layered: (a) **parser-time deny-list** — отказ при наличии truly unsafe builtins (network/non-determinism only — see §5.26 for full list with per-builtin rationale); (b) **CPU budget** — `ctx, cancel := context.WithTimeout(ctx, req.GetCpuTimeoutMs() * time.Millisecond); defer cancel()`, hard cap 5000ms via Go config; (c) **iteration / size proxy for memory** — `rego.RuntimeOpts(rego.RegoMaxIterations(100_000))` (true memory cap unavailable in upstream OPA Go SDK; iteration + CPU together bound the worst-case memory growth — see DEC-W3.1-2 honest framing); (d) **import allowlist** — request-field `module_imports[]` ⊆ catalogued scopes via #21 allowlist; unknown import → reject. Combined with #25 (cluster-admin gate) — only trusted operators can even reach the sandboxed eval. |
+| **#40** | P0 | `internal/apps/kacho/api/saml/sp_handler.go` (W2.B B.1 reads `subject` / `email` from raw form values; signature verify path is `OnSAMLAssertion: nil` → ACS returns 501; W3.1 fills it in) | Without verify: a malicious POST to `/saml/v2/acs` could JIT-provision arbitrary user (`email=admin@victim.com`). W2.B B.1 prevented it by returning 501 — defensive but blocks legitimate SAML SSO. W3.1 enables actual verify so SSO works. | Full XML-DSig verification path (use `crewjam/saml` library — see DEC-W3.1-3 with POC-verify caveat): (1) load IdP cert (per-tenant from `federation_trust_policies.idp_cert_pem`); (2) verify XML signature on `<samlp:Response>` AND on `<saml:Assertion>` — fail if either invalid; (3) signature algorithm allowlist: `rsa-sha256`, `rsa-sha384`, `rsa-sha512` — reject `rsa-sha1` and `dsa-*`; (4) `InResponseTo` binding — must match a previously-issued `<samlp:AuthnRequest>` ID (stored in `saml_request_state` table with TTL 5min, deleted on first match → replay-proof); (5) `NotBefore` (must be ≤ now+skew) and `NotOnOrAfter` (must be > now-skew) window check (clock skew tolerance ±60s); (6) `Recipient` = `https://<our-acs-url>` (constant from config); (7) `Audience` = our SP entity-ID. All seven checks → JIT-provision user; any fail → reject + structured audit log. Wire `OnSAMLAssertion: h.handleVerifiedAssertion`. |
+| **#42** | P1 | `internal/handler/iamhooks/caep_ingress_handler.go::parseSETBody` (`:166` — comment says «Phase 2: декодируем payload без verification; production (Phase 8) — JWKS-based verify»; single auth border = `X-Kacho-Hook-Token` shared secret) | Без signature verify: обладатель shared `X-Kacho-Hook-Token` секрета (любой in-cluster компонент с доступом к secret-store) подделывает session-revocation для любого user — submitter SET sets `sub_id` arbitrary, ingest handler emits `subject_change_outbox` row → real revocation effect. Outside-cluster threat (если CAEP ingress webhook когда-нибудь exposed external): любой external actor с обладанием shared token. | (1) New table `kacho_iam.iam_trusted_idp_jwks_cache (idp_id text, kid text, alg text, public_key_pem text, fetched_at timestamptz, expires_at timestamptz, PRIMARY KEY (idp_id, kid))`. (2) New package `internal/service/jwks_verifier/`: `FetchAndCache(ctx, idpID, jwksURL) error` (HTTP GET, parse JWK set, upsert rows with cache-control-derived `expires_at`); `Verify(ctx, idpID, token string) (claims, error)` — extract `kid` + `alg` from JWS header, look up `(idpID, kid)` in cache (if miss: refresh once; if still miss → reject), assert `alg` is in asymmetric allowlist (`RS256`, `RS384`, `RS512`, `ES256`, `ES384`, `ES512`) — reject `none`/`HS*` (symmetric), then verify signature. (3) `parseSETBody` integration: load `idp_id` per request (from `X-Kacho-Hook-Source` header или per-tenant config), call `jwksVerifier.Verify(...)`, on error → 400 + audit log `caep_ingress_signature_invalid`. (4) Trusted IdP registration: out of W3.1 impl scope (admin RPC for managing trusted IdPs is W4-admin-UI sprint); for W3.1 — seed `iam_trusted_idp_jwks_cache` via SQL fixture for known test IdP in tests/dev. |
 
-### 0.2 Зависимости и cross-chunk сцепления
+### 0.3 Зависимости и cross-chunk сцепления
 
-- **W2.B.1 + W2.B.2 + W2.B.8 must be `main`-merged before W3.1 impl.** Without W2.B.1: no SAML ACS endpoint to verify. Without W2.B.2: no SCIM endpoints to auth-gate. Without W2.B.8: no CAEP push pipeline to sign.
+- **W2.B B.1 + W2.B B.2 + W2.B B.8 must be `main`-merged before W3.1 impl.** Without W2.B B.1: no SAML ACS endpoint to verify. Without W2.B B.8: no CAEP egress sign + JWKS publication infrastructure для symmetric understanding. (B.2 SCIM is parallel — W3.1 doesn't touch it; just listed for completeness of W2.B closure.)
 - **W2.A (catalog/permissions unification)**: bootstrap-seed для `opa_scope_allowlist` (#21) пулит scope-список из единого каталога; без W2.A — захардкоженный список из 4 scopes (`data.iam.users/roles/bindings/projects`).
 - **W1.6 (Chunk 2 anti-anon allowlist)**: предусловие для #25 + #26 — anti-anon уже отсекает anonymous; W3.1 поверх добавляет cluster-admin requirement.
 - **W1.5 (FGA grant outbox)**: `cluster_admin_grants` table populated through `bootstrap_admin` path + W1.5 BreakGlass.ApproveB path. W3.1 #25 reads from this table for cluster-admin check.
 
-### 0.3 Финальный gate W3.1 vs freeze
+### 0.4 Финальный gate W3.1 vs freeze
 
-После W3.1 merge: ноль stub'ов на surface (включая SCIM Basic-auth dead-code от W2.B.2; включая SAML 501-guard от W2.B.1; включая CAEP `alg: none`-стаб от W2.B.8). Все 7 findings closed. Master plan §«Definition of Done» pkt 1-2 («0 stub / 0 disabled-by-config», «44 findings closed») в этой части — выполнен.
+После W3.1 merge: ноль stub'ов на surface (включая SAML 501-guard от W2.B B.1; включая CAEP ingress «декодит payload без verification» comment от current main). Все 6 findings closed. Master plan §«Definition of Done» pkt 1-2 («0 stub / 0 disabled-by-config», «44 findings closed») — на 6 closer to total.
 
 ---
 
@@ -90,35 +98,35 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
 |---|---|
 | **Запрет #1** (acceptance-gate) | этот документ — gate; impl стартует только после ✅ APPROVED от `acceptance-reviewer`. |
 | **Запрет #2** (no «yandex») | ни в коде, ни в комментариях, ни в тестах, ни в audit-event names. |
-| **Запрет #3** (no ORM) | handwritten pgx + sqlc для всех новых таблиц (`opa_scope_allowlist`, `jwks_keys`, `scim_basic_credentials`, `saml_response_replay`). |
-| **Запрет #4** (no cross-service cascade) | within-iam-DB only. JWKS rotation cascade — same-schema. SCIM tenant-id ссылка на `accounts.id` — same-DB FK. |
-| **Запрет #5** (no edit applied migration) | 4 новые migration файла (0025/0026/0027/0028); 0001-0024 не трогаем. |
-| **Запрет #6** (`Internal.*` separation) | `ReloadModel`, `RunRegoTest`, новые SCIM-credential admin RPCs — **строго на internal-listener (port 9091)**. SAML ACS / SCIM v2 / `/.well-known/jwks.json` — public (vendor-callable, как должно быть). См. CLAUDE.md §«Запреты» #6 + §«Admin-UI правило» — SCIM-credential admin RPC = `InternalScimCredentialService` на internal-port. |
-| **Запрет #7** (no broker) | CAEP push — direct HTTP POST к subscriber URL; in-process queue (corelib `outbox`-pattern для retry); no Kafka/NATS. |
-| **Запрет #8** (DB-per-service) | Все 4 новые таблицы — в `kacho_iam`-схеме. Никаких cross-DB FK. |
-| **Запрет #9** (mutation = async) | `ReloadModel`, `RunRegoTest` — admin-diagnostic, sync (как уже было); не требуют `Operation`-envelope. SAML JIT-provisioning user — генерирует `Operation` через существующий `UserService.Create` use-case. SCIM CRUD — wrapped в Operations через существующий SCIM-handler convention. SET signing — sync (subscriber-blocking-call вне scope). |
-| **Запрет #10** (within-service refs DB-level) | `jwks_keys` — `partial UNIQUE` на `(active) WHERE active=true` гарантирует **ровно одну** active key (CAS на rotation: `BEGIN; UPDATE jwks_keys SET active=false WHERE active=true; INSERT new active=true; COMMIT;` — atomic via partial UNIQUE). `saml_response_replay (response_id text PRIMARY KEY, ...)` — PRIMARY KEY ловит replay (insert конфликт = 23505 → 401). `opa_scope_allowlist (tenant_id, scope) PRIMARY KEY` — composite uniqueness. `scim_basic_credentials (tenant_id, username) PRIMARY KEY` — same. Никакого software refcheck — все инварианты на DB-уровне. |
-| **Запрет #11** (no TODO / no tech debt) | Все 7 findings закрываются полностью в W3.1; никаких `TODO(KAC-N): implement later`. Если acceptance-reviewer считает SAML/SCIM/CAEP scope слишком большим — split на W3.1a/W3.1b (отдельные acceptance docs), не TODO. |
-| **Запрет #12** (test-first STRICT) | RED phase commit ПЕРВЫМ: integration tests + newman cases на каждый из 7 findings; GREEN phase — по одному finding'у с per-fix evidence «RED→GREEN» в PR описании. См. §5 + §7. |
-| **CLAUDE.md §«Инфра-чувствительные данные»** | SAML IdP private key (если iam — SP, not IdP, то частный case: private key — *подписной ключ нашего AuthnRequest*; в любом случае — internal-only на storage, NEVER в RPC response). JWKS signing key (private половина `jwks_keys.private_key_pem_encrypted`) — internal-only, encrypted-at-rest via master key. Public половина — single-purpose endpoint `/.well-known/jwks.json` (стандарт RFC 7517 — публично-читаемый JSON Web Key Set, это и есть его function). SCIM bcrypt-hashes — internal-only (никогда не возвращаются в Get-RPC, только presence-bool). |
-| **CLAUDE.md §«Within-service refs DB-уровень обязателен»** | См. Запрет #10 выше — partial UNIQUE, composite PK, atomic rotation; никаких TOCTOU patterns. |
-| **Vault discipline** | KAC-W3.1 trail; NEW `resources/iam-opa-scope-allowlist.md`, NEW `resources/iam-jwks.md` (с public-key-only emphasis), UPDATE 4 RPC notes + 3 NEW edges. См. §9. |
+| **Запрет #3** (no ORM) | handwritten pgx + sqlc для всех новых таблиц (`opa_scope_allowlist`, `saml_request_state`, `iam_trusted_idp_jwks_cache`). |
+| **Запрет #4** (no cross-service cascade) | within-iam-DB only. SAML state cascade — same-schema. JWKS cache cascade — same-schema. |
+| **Запрет #5** (no edit applied migration) | 3 новые migration файла (numbers assigned at impl-start per coordination doc — не editing prior 0001-0025). |
+| **Запрет #6** (`Internal.*` separation) | `ReloadModel`, `RunRegoTest` — **строго на internal-listener (port 9091)**. SAML ACS (`/saml/v2/acs`) и CAEP ingress webhook (`/iam/v1/hooks/caep`) — public (vendor-callable, как должно быть). См. CLAUDE.md §«Запреты» #6. |
+| **Запрет #7** (no broker) | Inbound SET verify — sync request-response; downstream subject-change emit — through existing `subject_change_outbox` (W1.2 path); no Kafka/NATS. |
+| **Запрет #8** (DB-per-service) | Все 3 новые таблицы — в `kacho_iam`-схеме. Никаких cross-DB FK. |
+| **Запрет #9** (mutation = async) | `ReloadModel`, `RunRegoTest` — admin-diagnostic, sync (как уже было); не требуют `Operation`-envelope (per §0 of `02-data-model-and-conventions.md`, internal-admin RPCs могут быть sync). SAML JIT-provisioning user — генерирует `Operation` через существующий `UserService.Create` use-case. CAEP ingress — emits `subject_change_outbox`-row (async path), 200 OK returned synchronously to caller. |
+| **Запрет #10** (within-service refs DB-level) | `saml_request_state.request_id PRIMARY KEY` — PK conflict (23505) ловит replay (deterministic). `iam_trusted_idp_jwks_cache (idp_id, kid) PRIMARY KEY` — composite uniqueness; UPSERT on JWKS refresh. `opa_scope_allowlist (tenant_id, scope) PRIMARY KEY` — composite uniqueness. Никакого software refcheck — все инварианты на DB-уровне. |
+| **Запрет #11** (no TODO / no tech debt) | Все 6 findings закрываются полностью в W3.1; никаких `TODO(KAC-N): implement later`. Если acceptance-reviewer считает SAML/CAEP scope слишком большим — split на W3.1a/W3.1b (отдельные acceptance docs), не TODO. |
+| **Запрет #12** (test-first STRICT) | RED phase commit ПЕРВЫМ: integration tests + newman cases на каждый из 6 findings; GREEN phase — по одному finding'у с per-fix evidence «RED→GREEN» в PR описании. См. §5 + §7. |
+| **Запрет #13** (test-only PR ≠ product fix) | W3.1 — feature/fix PR, не test-only — так что #13 не директивно применим; но фиксы тестов от W2.B B.1/B.8 (если W2.B revisions выявили pre-existing test gaps) — отдельный PR, не миксуем с W3.1. |
+| **CLAUDE.md §«Инфра-чувствительные данные»** | **External IdP public keys (cached in `iam_trusted_idp_jwks_cache`)** — public-key material; non-sensitive in cryptographic sense, но не выставляются user-facing через RPC (только internal cache for verify path use). **SAML IdP cert PEM** (in `federation_trust_policies`) — already established as internal-only storage. **W3.1 does NOT introduce any new private-key storage** (egress signing lives in W2.B B.8 with existing `oidc_jwks_keys`). |
+| **CLAUDE.md §«Within-service refs DB-уровень обязателен»** | См. Запрет #10 выше — composite PK, PK conflict semantics, atomic UPSERT for cache refresh; никаких TOCTOU patterns. |
+| **Vault discipline** | KAC-W3.1 trail; NEW `resources/iam-opa-scope-allowlist.md`, NEW `resources/iam-saml-request-state.md`, NEW `resources/iam-trusted-idp-jwks-cache.md`, NEW `packages/iam-service-opa-scope.md`, NEW `packages/iam-service-jwks-verifier.md`, UPDATE 3 RPC notes + NEW edges `edges/iam-to-saml-idp.md`, `edges/iam-to-external-idp-jwks.md`, `edges/iam-to-caep-ingress.md`. См. §9. |
 
 ---
 
 ## 2. Глоссарий
 
 - **SET** (Security Event Token) — RFC 8417 формат JWT-based event token для CAEP / RISC / SSE стандартов. Тело — set of JWT claims включая `iss`, `aud`, `iat`, `jti`, `sub_id`, `events`-map (e.g. `{"https://schemas.openid.net/secevent/caep/event-type/session-revoked": {...}}`). Подписывается JWS (RFC 7515).
-- **JWS** (JSON Web Signature) — RFC 7515 формат подписи. `alg=RS256` — RSA-SHA256, стандарт для SSE/CAEP. Структура: `header.payload.signature` (base64url-encoded).
+- **JWS** (JSON Web Signature) — RFC 7515 формат подписи. `alg=RS256` — RSA-SHA256, стандарт для SSE/CAEP.
 - **JWKS** (JSON Web Key Set) — RFC 7517 формат для публикации публичных ключей. Endpoint convention: `/.well-known/jwks.json`. Subscribers fetch JWKS, match `kid` header из JWT к ключу в set'е, verify signature.
-- **Rego sandbox** — set of restrictions на arbitrary Rego execution: (a) AST-level deny-list для opasive built-ins (`http.send`, `time.now_ns`, etc), (b) CPU timeout (`context.WithTimeout`), (c) memory limit (OPA SDK `RuntimeOpts`), (d) import allowlist (только catalogued data sources).
-- **ContextualTuples** — OpenFGA SDK concept: tuples которые **не** записаны в FGA store, но **прибавляются** на момент `Check` call для ABAC-style decisioning. Typical use: pass `mfa_fresh=true` как tuple `(user:U, attr_mfa_fresh, value:true)` для conditional binding evaluation.
-- **Scope-allowlist (OPA)** — per-tenant whitelist of legitimate OPA scope-strings (e.g. `data.iam.users`). Disambiguation от Federation scope-allowlist (W2.B.6, `FederationTrustPolicy.allowed_scopes` — OAuth scope intersection): OPA scope = policy package address; OAuth scope = OAuth2 access-token grant. См. DEC-W3.1-1.
-- **Replay protection (SAML)** — once-only consumption: `<samlp:Response>.ID` + `<samlp:Response>.InResponseTo` записываются в `saml_response_replay` table при первом ACS-приёме; повторный POST с тем же `ID` → 401 на основе PK-conflict.
-- **SCIM v2** — RFC 7644 «System for Cross-domain Identity Management» — REST CRUD over `/scim/v2/Users`, `/scim/v2/Groups`. Auth — Basic или Bearer; W3.1 implements Basic per finding #41 scope.
-- **CAEP** (Continuous Access Evaluation Profile) — OpenID spec для real-time event push: «user X token revoked», «user Y device-trust changed». Receiver subscribes; sender pushes SET via webhook. RFC 8417 SET format.
-- **kid** (JSON Web Key ID) — `kid` header field in JWT/JWS, points to specific key in JWKS by ID. Allows rotation: subscribers can verify both old and new during overlap.
+- **JWKS verify (ingress, W3.1 #42 sense)** — kacho-iam как **получатель** SET'ов от внешнего CAEP-эмитирующего IdP: fetch IdP's JWKS endpoint (URL configured per trusted IdP), cache public keys, verify inbound SET signature. *Не путать с egress sign (W2.B B.8 sense)*: kacho-iam как **отправитель** signed SETs к нашим subscribers — public keys нашей подписной пары exposed в OUR `/.well-known/jwks.json`.
+- **Rego sandbox** — set of restrictions на arbitrary Rego execution: (a) AST-level deny-list для unsafe built-ins (network + non-determinism only — see §5.26 honest rationale), (b) CPU timeout (`context.WithTimeout`), (c) iteration cap as memory-pressure proxy (OPA Go SDK does not expose hard memory cap; iteration + timeout together bound worst-case), (d) import allowlist (только catalogued data sources).
+- **OpenFGA Conditions** — feature in OpenFGA model для conditional tuples (https://openfga.dev/docs/modeling/conditions). Synth `condition` keyword в model definition; `Check`-call receives `Context map[string]interface{}` which condition evaluates against. W3.1 #23 uses this in place of pre-condition workarounds (e.g. raw contextual-tuple injection).
+- **Scope-allowlist (OPA)** — per-tenant whitelist of legitimate OPA scope-strings (e.g. `data.iam.users`). Disambiguation от Federation scope-allowlist (W2.B B.6, `FederationTrustPolicy.allowed_scopes` — OAuth scope intersection): OPA scope = policy package address; OAuth scope = OAuth2 access-token grant. См. DEC-W3.1-1.
+- **Replay protection (SAML)** — once-only consumption: `<samlp:Response>.InResponseTo` записывается в `saml_request_state` table при выпуске `<samlp:AuthnRequest>`; на ACS-receipt — atomic delete of matching row; вторичный POST с тем же `InResponseTo` → 0 rows deleted → 401.
 - **Cluster-admin grant** — `cluster_admin_grants`-row (KAC-122 §5; W1.5 BreakGlass.ApproveB writes). FGA-relation `cluster:default#system_admin@user:X`. Used for high-priv admin RPCs (ReloadModel, RunRegoTest).
+- **Trusted IdP** — external SSO/CAEP-emitting IdP whose signed events we accept (e.g. Okta-prod, Azure-AD-tenant-xxx). Identified by `idp_id` string (typically `<vendor>-<tenant>` or org-chosen alias). JWKS URL per trusted IdP — out-of-band registered.
 
 ---
 
@@ -126,12 +134,12 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
 
 | ID | Решение |
 |---|---|
-| **DEC-W3.1-1** (#21 storage) | **OPA scope-allowlist хранится в DB как table `kacho_iam.opa_scope_allowlist (tenant_id text, scope text, ...)`, не как proto enum.** Reasoning: (a) per-tenant extensibility — different tenants могут добавить own custom OPA data sources (W3+ когда tenant-specific Rego packages поддерживаются); (b) admin-UI editable без proto-regenerate cycle; (c) bootstrap-seed populated from W2.A catalog, но modifiable runtime. **Не** proto enum: hardcoded list требует proto-change для добавления scope (high-friction). Allowlist в Federation для `FederationTrustPolicy.allowed_scopes` — `repeated string` proto field (т.к. там это уже tenant-specific config — `FederationTrustPolicy`-row); для OPA scope-allowlist та же логика — extracted в отдельную таблицу для admin-UI extensibility. |
-| **DEC-W3.1-2** (#26 sandbox enforcement) | **Sandbox bound по 4 dimensions одновременно: (a) parser-time AST walk + built-in deny-list (compile-time reject); (b) `context.WithTimeout(req.cpu_timeout_ms || default 5000)` для CPU cap; (c) `rego.RuntimeOpts(...)` memory cap 8MB hard; (d) `module_imports[]` request-field — explicit allowlist ⊆ catalogued scopes (#21 parity).** Если any dimension fails → `codes.PermissionDenied` с `denied_reason` field в response (new proto field per §0 table). Не используем seccomp/cgroups — слишком тяжело для in-process RPC; pure-Go SDK-level enforcement достаточен для diagnostic use-case (cluster-admin only path per #25). |
-| **DEC-W3.1-3** (#40 SAML library choice) | **`crewjam/saml` (BSD-2)** — single, well-maintained Go SAML library с поддержкой XML-DSig verify + replay store hook (custom `RequestTracker`). Альтернативы: `russellhaering/gosaml2` (более-low-level, требует ручной XML-DSig wiring). Решение: `crewjam/saml` + кастомный `RequestTracker` который пишет/читает из `saml_response_replay` (PostgreSQL-backed, не in-memory как dev-default). Algorithm-allowlist (RS256+) — встроен (отказать `rsa-sha1` явным конфиг-флагом `crewjam/saml.ServiceProvider.AcceptedResponseSigningAlgorithms = ["rsa-sha256", "rsa-sha384", "rsa-sha512"]`). |
-| **DEC-W3.1-4** (#42 JWKS rotation policy) | **30-day rolling rotation, 60-day overlap window.** Cron job (in-iam, использует corelib `outbox`-pattern для idempotency): every 30 days — `INSERT new active=true; UPDATE old active=false`. Old key remains in JWKS (RFC 7517 set) для 60 дней (subscribers могут иметь cached JWTs in-flight). После 60 дней — old key row deleted, не появляется в `/.well-known/jwks.json`. **Manual rotation override** — admin RPC `InternalJWKSService.Rotate` (cluster-admin gated) для compromise-recovery (immediate new-key + old-key invalidate within minutes — distribute via `Cache-Control: max-age=60` header на JWKS endpoint). Storage: `jwks_keys.expires_at = created_at + INTERVAL '90 days'`; periodic cleanup. |
-| **DEC-W3.1-5** (#41 bcrypt cost) | **bcrypt cost 12** (industry-standard 2024+). Hash check on every SCIM request (no caching of hash-results) — vendor SCIM clients typically issue 1-2 requests/sec per tenant, 12-cost bcrypt = ~250ms — acceptable. Constant-time comparison via `bcrypt.CompareHashAndPassword` (standard library, internally constant-time over equal-length inputs); plus `subtle.ConstantTimeCompare` для username field. |
-| **DEC-W3.1-6** (#42 stub-sign removal — backward compat) | **Drop stub-sign in same PR as JWKS impl.** Per CLAUDE.md memory `feedback-no-strict-backward-compat-on-major-rewrite` — W3.1 — production hardening, не major rewrite; но stub-sign не used in prod (W2.B.8 explicitly scaffolded with stub for in-cluster test only). Dropping stub-sign in W3.1 PR: subscribers must obtain JWKS-verified path or reject. No backward-compat for stub-sign — never was a contract. |
+| **DEC-W3.1-1** (#21 storage) | **OPA scope-allowlist хранится в DB как table `kacho_iam.opa_scope_allowlist (tenant_id text, scope text, ...)`, не как proto enum.** Reasoning: (a) per-tenant extensibility — different tenants могут добавить own custom OPA data sources (W3+ когда tenant-specific Rego packages поддерживаются); (b) admin-UI editable без proto-regenerate cycle; (c) bootstrap-seed populated from W2.A catalog, но modifiable runtime. **Не** proto enum: hardcoded list требует proto-change для добавления scope (high-friction). **Scope of #21 enforcement is limited to existing surface**: `RunRegoTest.module_imports[]` field — the only handler in current `internal_authorize` package that accepts a scope-string. Future OPA REST endpoints (`/opa/compile/v1`, `/opa/data/v1/iam/*` if added in some later sub-phase) add their gate at registration time, separately scoped (not W3.1's responsibility). |
+| **DEC-W3.1-2** (#26 sandbox enforcement — **honest framing**) | **Sandbox bound по 4 dimensions одновременно, with explicit honesty about memory cap**: (a) parser-time AST walk + built-in deny-list (compile-time reject); (b) `context.WithTimeout(req.cpu_timeout_ms || default 5000)` для CPU cap; (c) **iteration cap via `rego.RuntimeOpts(rego.RegoMaxIterations(100_000))`** — **OPA Go SDK does NOT expose a hard `RegoMaxMemoryBytes`-style memory cap** (verified against `open-policy-agent/opa@v0.x` source); iteration limit + CPU timeout **together** bound worst-case memory growth (Rego allocs scale with iterations × rule cardinality). True memory cap would require cgroup-level enforcement on the iam pod (out of OPA-SDK layer — separate Helm chart tweak, not W3.1 scope). For diagnostic use-case behind cluster-admin gate (#25 parity), 100k iterations + 5s CPU + 4 forbidden-builtin list = acceptable; (d) `module_imports[]` request-field — explicit allowlist ⊆ catalogued scopes (#21 parity). Если any dimension fails → `codes.PermissionDenied` с `denied_reason` field в response (new proto field per §0 table). Не используем seccomp/cgroups — слишком тяжело для in-process RPC; pure-Go SDK-level enforcement достаточен для diagnostic use-case (cluster-admin only path per #25). |
+| **DEC-W3.1-3** (#40 SAML library choice — **with POC verification**) | **`crewjam/saml` (BSD-2)** — single, well-maintained Go SAML library с поддержкой XML-DSig verify + replay store hook (custom `RequestTracker`). Альтернативы: `russellhaering/gosaml2` (более-low-level, требует ручной XML-DSig wiring). Решение: `crewjam/saml` + кастомный `RequestTracker` который пишет/читает из `saml_request_state` (PostgreSQL-backed, не in-memory как dev-default). Algorithm-allowlist (RS256+) — встроен (отказать `rsa-sha1` явным конфиг-флагом `ServiceProvider.AcceptedResponseSigningAlgorithms = ["rsa-sha256", "rsa-sha384", "rsa-sha512"]`). **POC-verification REQUIRED before locking**: reviewer Important #13 noted that `AcceptedResponseSigningAlgorithms` field name (or equivalent) needs verification in `crewjam/saml@v0.4.x` upstream API. **Impl-action**: 5-line throwaway POC branch (`git checkout -b kac-w3-1-saml-poc` → import library → instantiate `ServiceProvider` → set field → `go build`) confirms API surface before main impl-PR — if field name differs, update plan + (if structural mismatch) raise as Critical against this DEC. |
+| **DEC-W3.1-4** (#42 JWKS cache refresh policy) | **Refresh on demand + respect cache-control TTL.** On `Verify` call: if `(idpID, kid)` in cache AND `expires_at > now()` → use cached. Else: fetch JWKS URL → upsert all keys from response with `expires_at = now() + parsed-cache-control-max-age (default 1h)`. Background refresh ticker: every 6h, scan trusted IdPs, refresh JWKS proactively (avoid first-request-after-rotation latency spike). Manual refresh — admin RPC out of W3.1 scope (admin-UI surface is W4); for W3.1 — automatic refresh-on-miss handles compromise scenario (operator deletes cache row via SQL → next verify forces refresh). |
+| **DEC-W3.1-5** (REMOVED — was bcrypt cost for #41) | **Removed.** #41 moved to W2.B B.2 per scope split (Option Y); bcrypt cost decision lives in that doc. |
+| **DEC-W3.1-6** (#42 ingress — backward compat for unsigned SETs) | **No backward-compat for unsigned/none-alg SETs.** Per CLAUDE.md memory `feedback-no-strict-backward-compat-on-major-rewrite` — W3.1 — production hardening. Current `parseSETBody` accepts `alg: none` (it doesn't verify at all). Once #42 ships: all inbound SETs MUST be signed by a registered trusted IdP. **In-cluster test stubs only** — for local testing, test fixture seeds `iam_trusted_idp_jwks_cache` with a test-IdP's public key paired to a known test-private-key the integration test uses to sign test SETs. Production CAEP subscribers don't exist as inbound clients yet (CAEP ingress is a new feature receiver — there are no «legacy clients» sending us SETs to maintain compatibility with). |
 | **DEC-W3.1-7** (#25 cluster-admin source) | **`cluster_admin_grants`-row via existing FGA-grant path (`bootstrap_admin` + W1.5 BreakGlass.ApproveB).** Helper `iam.IsClusterAdmin(ctx, principal_id) bool` — lazy FGA `Check(cluster:default, system_admin, user:<id>)`; cached via gateway authz cache (W1.2 path) с TTL 60s. Не reinvent — переиспользуем W1.5/W1.2/W1.6 infrastructure. |
 
 ---
@@ -141,25 +149,25 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
 | ID | Вопрос | Рекомендация автора |
 |---|---|---|
 | **OQ-W3.1-1** | #40 SAML: support multiple IdPs per tenant (e.g. one tenant federates from Okta + Azure AD одновременно)? Текущий `federation_trust_policies`-table — один row per (tenant_id, idp_id). | **Да, multi-IdP supported уже сейчас** — `federation_trust_policies` PK = `(tenant_id, idp_id)`. W3.1 SAML verify читает IdP cert по `<saml:Issuer>` field из AuthnResponse → выбор правильной row по `(tenant_id, issuer_uri)`. Audit log включает `idp_id` для traceability. |
-| **OQ-W3.1-2** | #41 SCIM: deletion vs deprovision — DELETE на `/scim/v2/Users/<id>` ставит user в `inviteStatus=DISABLED` или физически удаляет row? | **DISABLED, not physical delete.** RFC 7644 §3.6 allows DELETE to be a soft-delete по implementation choice; KAC-127 user lifecycle requires audit trail → soft-delete. DELETE → `UserService.Block` (existing). 410 Gone on subsequent GET. |
-| **OQ-W3.1-3** | #42 CAEP: subscriber list — где хранится? Per-tenant `caep_subscribers (tenant_id, endpoint_url, public_jwks_url, events[])` table? | **Да, new table `kacho_iam.caep_subscribers`** — но **out of scope W3.1** (scaffolding в W2.B.8). W3.1 focuses on **signing** (sender-side); subscriber-discovery + push-retry — W2.B.8 territory. W3.1 verifies subscribers can verify signed SETs (newman test posts SET to test-subscriber stub which validates against `/.well-known/jwks.json`). |
+| **OQ-W3.1-2** | #42: where does `idp_id` come from in the ingress request? Header `X-Kacho-Hook-Source: <idp_id>`? URL path `/iam/v1/hooks/caep/<idp_id>`? JWT `iss` claim cross-referenced to trusted-IdP table? | **JWT `iss` claim cross-referenced** — most secure: extract `iss` claim (post-decode, pre-verify), look up trusted IdP row by `iss` URI, use that row's `jwks_url` + `idp_id`. Avoids spoofable URL/header. If multiple trusted IdPs share `iss` (rare; shouldn't happen with proper IdP setup) — reject as ambiguous. |
+| **OQ-W3.1-3** | #42 CAEP: subscriber list (egress side) — out of scope W3.1 (lives in W2.B B.8). Confirmed? | **Confirmed — W2.B B.8 territory.** W3.1 #42 is ingress-only verify (kacho-iam receives SETs from external IdP); subscriber-discovery + push-retry + JWKS publication для нашего ключа — W2.B B.8. |
 | **OQ-W3.1-4** | #25 #26: cluster-admin gated на BOTH `ReloadModel` + `RunRegoTest`. Не сужает ли это admin-UI use case (oncall-engineer без cluster-admin grant не может trigger RunRegoTest для diagnostics)? | **Acceptable — diagnostic админ-ops require cluster-admin per KAC-122 §5.** Oncall workflow per runbook: BreakGlass-flow (2-person approve) → temporary cluster-admin grant → diagnostic ops. Если W3.4 (freeze) reveals friction → дополнительный `diagnostic_operator` relation (separate from `system_admin`) — это W4+. W3.1 ставит правильную fail-closed baseline. |
-| **OQ-W3.1-5** | #21: bootstrap-seed для `opa_scope_allowlist` — кто populated? Static-seed in migration vs runtime-bootstrap-job? | **Static-seed в `0025_opa_scope_allowlist.sql`** — INSERT INTO opa_scope_allowlist (tenant_id, scope) VALUES (tenant_id='*system', 'data.iam.users'), (...), ...). Tenant-specific scopes — admin-UI via new `InternalOpaScopeAllowlistService.Add/Remove` RPCs (out of W3.1 impl scope; W3.1 just provides the table + handler-side check; admin-UI добавляется в W2.A или W4). For W3.1 DoD: well-known scopes seeded + handler enforces — sufficient. |
-| **OQ-W3.1-6** | #42: JWKS endpoint caching — `Cache-Control: max-age=60` ok для prod? Or `max-age=3600` для меньшей нагрузки на iam-pod? | **`max-age=300` (5min) default**, override via config. Trade-off: shorter → faster rotation propagation; longer → less load. 5min — industry common для JWKS (Auth0/Okta defaults). Manual rotation (DEC-W3.1-4) emits `Cache-Control: max-age=60` для emergency. |
-| **OQ-W3.1-7** | #40 SAML replay store: TTL для `saml_response_replay` rows? Indefinite (anti-replay forever) or cleanup after `NotOnOrAfter`+max-clock-skew? | **TTL = NotOnOrAfter + 24h**, cleanup via daily cron in iam. Reasoning: после NotOnOrAfter assertion заведомо invalid (signature verify reject step 5 catches it); хранить row дольше — unnecessary growth. 24h buffer absorbs clock-skew edge cases. |
-| **OQ-W3.1-8** | #41: SCIM Bearer-token support — оставлять (W2.B.2 default path) или заменить на Basic-only? | **Сохраняем оба.** Bearer для machine-to-machine integrations (OAuth2-style); Basic для legacy IdPs (Okta SCIM 2.0 supports Basic). Per-tenant конфиг `scim_basic_credentials`-row implies Basic enabled; absence implies Basic-disabled (Bearer-only). |
-| **OQ-W3.1-9** | #23 ContextualTuples format: pass `request_context` as map-of-strings (1-level deep) или nested-jsonb? | **Map-of-strings (1-level)** — OpenFGA ContextualTuples API ожидает primitive values, не nested. Nested jsonb в `request_context` → flatten via `jq`-style path: `{"device": {"trust": "high"}}` → `attr_device_trust=high`. Document в proto comment. |
+| **OQ-W3.1-5** | #21: bootstrap-seed для `opa_scope_allowlist` — кто populated? Static-seed in migration vs runtime-bootstrap-job? | **Static-seed в migration** — `INSERT INTO opa_scope_allowlist (tenant_id, scope) VALUES (tenant_id='*system', 'data.iam.users'), (...), ...);`. Tenant-specific scopes — admin-UI via future `InternalOpaScopeAllowlistService.Add/Remove` RPCs (out of W3.1 impl scope; W3.1 just provides the table + handler-side check; admin-UI добавляется в W2.A or W4). For W3.1 DoD: well-known scopes seeded + handler enforces — sufficient. |
+| **OQ-W3.1-6** | #42: JWKS cache TTL default — 1h, 6h, 24h? Trade-off: shorter → faster IdP rotation propagation; longer → less iam→IdP HTTP load. | **1h default (use cache-control max-age if upstream sends it).** Most IdPs (Okta/Azure/Auth0) send `Cache-Control: max-age=86400` on JWKS endpoints; we respect that ceiling. Background refresh every 6h ensures absolute staleness ≤6h even if upstream sends no cache-control. |
+| **OQ-W3.1-7** | #40 SAML replay store: TTL для `saml_request_state` rows? Indefinite (anti-replay forever) or cleanup after `NotOnOrAfter`+max-clock-skew? | **TTL = AuthnRequest issued_at + 10min** (SAML AuthnRequest typically expected to consume within seconds; 10min absorbs slow user / network). Cleanup via daily cron in iam. Reasoning: after row deleted on first successful consume; uncomsumed rows expire after window — no infinite growth. |
+| **OQ-W3.1-8** | #42: how is initial trusted-IdP set populated for testing? Seed in migration, or test fixture? | **Test fixture** — `tests/newman/fixtures/caep/seed_trusted_idp.sql` (or equivalent) seeds `iam_trusted_idp_jwks_cache` for test-IdP `idp_test_caep_emitter` whose private key is checked-in under `tests/newman/fixtures/caep/private_key.pem` (test-only key, NEVER deployed to prod). Production: trusted IdPs registered via future admin RPC (out of W3.1 scope) or operator SQL. |
+| **OQ-W3.1-9** | #23 OpenFGA Conditions: pass `request_context` as `Context` map (string→`structpb.Value`) directly? | **Yes** — per OpenFGA Conditions SDK reference; `request_context.AsMap()` (from `*structpb.Struct` proto field) is already the right shape; wrap in `Context` arg of `Check`-call. Conditions in FGA model use this map directly: `condition mfa_fresh_required(mfa_fresh: bool) { mfa_fresh == true }` — invoked at Check time against the map. |
 | **OQ-W3.1-10** | #26: integration-test для CPU timeout — как deterministically trigger? `while true {}` Rego loop? | **Yes** — fixture Rego module с infinite loop (`x { x }` — recursive eval): in test, `RunRegoTest(module=<loop>, cpu_timeout_ms=100)` — expected `DeadlineExceeded` within 100±50ms. OPA SDK respects `context.Done()` between rule evaluations. |
 
 ---
 
 ## 5. Implementation steps per finding (impl order)
 
-> Recommended impl order: **independent finds first, glue last.** #21 + #23 — small, isolated. #25 — small, depends on `IsClusterAdmin` helper (existing). #26 — medium, depends on #21 (import allowlist шарит storage). #40/#41/#42 — independent of each other, parallel.
+> Recommended impl order: **independent finds first, glue last.** #21 + #23 — small, isolated. #25 — small, depends on `IsClusterAdmin` helper (existing). #26 — medium, depends on #21 (import allowlist шарит storage). #40 / #42 — independent of each other, parallel.
 
 ### 5.21 OPA scope-allowlist (#21)
 
-1. **Migration** `0025_opa_scope_allowlist.sql`:
+1. **Migration** `00XX_opa_scope_allowlist.sql` (number next-available at impl-start):
    ```sql
    CREATE TABLE IF NOT EXISTS kacho_iam.opa_scope_allowlist (
      tenant_id  text NOT NULL,
@@ -176,31 +184,44 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
    ON CONFLICT DO NOTHING;
    ```
 2. **Repo** `internal/repo/opa_scope_repo.go`: `IsAllowed(ctx, tenantID, scope) (bool, error)` — `SELECT EXISTS(SELECT 1 FROM opa_scope_allowlist WHERE tenant_id IN ($1, '*system') AND scope=$2)`.
-3. **Handler gate** в `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` AND future `OpaService`-endpoints (REST mapped `/opa/compile/v1`, `/opa/data/v1/iam/*` — registered в `kacho-api-gateway/internal/restmux/mux.go`): для каждой scope-string в request — `if !repo.IsAllowed(ctx, callerTenant, scope) { return PermissionDenied("Illegal argument scope: %q not in tenant allowlist") }`.
-4. **Empty-allowlist fail-closed**: separate test — drop seed rows, call `RunRegoTest(scope='data.iam.users')` → `PermissionDenied`. Doc в handler comment.
+3. **Handler gate** в `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest`: для каждой scope-string в `req.GetModuleImports()` — `if !repo.IsAllowed(ctx, callerTenant, scope) { return PermissionDenied("Illegal argument scope: %q not in tenant allowlist", scope) }`. Scope of enforcement is limited to current surface — see DEC-W3.1-1 («Future OPA REST endpoints (`/opa/compile/v1`, `/opa/data/v1/iam/*` if added in some later sub-phase) add their gate at registration time, separately scoped — not W3.1's responsibility»). No forward-reference to hypothetical endpoints in this PR.
+4. **Empty-allowlist fail-closed**: separate test — drop seed rows, call `RunRegoTest(module_imports=['data.iam.users'])` → `PermissionDenied`. Doc в handler comment.
 
-### 5.23 CheckRelation ContextualTuples (#23)
+### 5.23 CheckRelation OpenFGA Conditions plumbing (#23)
 
 1. **Service** `internal/service/authorize_service.go::CheckRelation`:
    ```go
-   var ctxTuples []*openfgav1.TupleKey
-   for k, v := range req.GetRequestContext().AsMap() { // jsonb → map[string]any
-       // flatten 1-level
-       sv, ok := v.(string)
-       if !ok { sv = fmt.Sprint(v) }
-       ctxTuples = append(ctxTuples, &openfgav1.TupleKey{
-           User:     fmt.Sprintf("attr:%s", k),
-           Relation: "value",
-           Object:   fmt.Sprintf("string:%s", sv),
-       })
+   var contextMap map[string]interface{}
+   if rc := req.GetRequestContext(); rc != nil {
+       contextMap = rc.AsMap() // *structpb.Struct → map[string]interface{}
+       if len(contextMap) > 32 {
+           return nil, status.Error(codes.InvalidArgument,
+               "Illegal argument request_context: too many keys (max 32)")
+       }
+       for k, v := range contextMap {
+           if sv, ok := v.(string); ok && len(sv) > 1024 {
+               return nil, status.Error(codes.InvalidArgument,
+                   "Illegal argument request_context: value for %q exceeds 1KB", k)
+           }
+       }
    }
+   ctxStruct, _ := structpb.NewStruct(contextMap)
    resp, err := s.fga.Check(ctx, &openfgav1.CheckRequest{
        // ... existing fields ...
-       ContextualTuples: &openfgav1.ContextualTupleKeys{TupleKeys: ctxTuples},
+       Context: ctxStruct, // OpenFGA Conditions feature
    })
    ```
-2. **Validation**: `request_context` size cap 32 keys + 1KB per value (anti-DOS); malformed jsonb → `InvalidArgument` w/ text `"Illegal argument request_context: %s"`.
-3. **No proto change** — `request_context` field already exists per KAC-127 frozen proto.
+2. **FGA model** (`bootstrap-model.fga` fragment, updated as part of W3.1 PR): add `condition` definitions for known ABAC predicates:
+   ```fga
+   condition mfa_fresh_required(mfa_fresh: bool) {
+       mfa_fresh == true
+   }
+   condition source_ip_in_corp_range(source_ip: ipaddress) {
+       source_ip in CIDR("10.0.0.0/8")
+   }
+   ```
+   And reference them in relation definitions: `define admin: [user with mfa_fresh_required]`.
+3. **No proto change** — `request_context` field already exists per KAC-127 frozen proto (`*structpb.Struct` type).
 
 ### 5.25 ReloadModel cluster-admin gate (#25)
 
@@ -249,7 +270,7 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
    cpuMs := req.GetCpuTimeoutMs(); if cpuMs == 0 || cpuMs > 5000 { cpuMs = 5000 }
    evalCtx, cancel := context.WithTimeout(ctx, time.Duration(cpuMs) * time.Millisecond)
    defer cancel()
-   // (d) Memory limit + run.
+   // (d) Iteration cap (proxy for memory pressure — see DEC-W3.1-2).
    r := rego.New(rego.Module("user-test.rego", req.GetRego()),
        rego.Query("data.user.test.allow"),
        rego.PrintHook(nil),
@@ -262,22 +283,43 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
    }
    // ... normal result handling ...
    ```
-4. **`walkForForbiddenBuiltins`** helper: traverse Rego AST via `ast.WalkExprs`, check `Expr.Operator()` name against deny-list set: `http.send`, `net.lookup_ip_addr`, `opa.runtime`, `io.jwt.decode`, `crypto.hmac.*`, `time.now_ns`, `rand.*`. Return name of first match.
+4. **`walkForForbiddenBuiltins`** helper: traverse Rego AST via `ast.WalkExprs`, check `Expr.Operator()` name against deny-list set. Return name of first match.
 
-### 5.40 SAML AuthnResponse verify (#40)
+   **Forbidden builtins (W3.1 — tightened list, with per-builtin rationale per reviewer Important #7)**:
 
-1. **Migration** `0028_saml_response_replay.sql`:
+   | Builtin | Why forbidden |
+   |---|---|
+   | `http.send` | Network egress — allows exfiltration to arbitrary URLs |
+   | `net.lookup_ip_addr` | DNS resolution — leaks hostname to external resolver, fingerprints internal network |
+   | `opa.runtime` | Reflects OPA runtime configuration / env vars — information disclosure |
+   | `time.now_ns` | Non-deterministic — different result on each call breaks test reproducibility and admin diagnostics |
+   | `rand.*` (all `rand.intn`, `rand.bytes`, etc) | Non-deterministic — same reason as `time.now_ns` |
+   | File-system builtins (`opa.io.file_read`, `opa.io.file_write` if present in SDK) | Local I/O — escape sandbox to host FS |
+
+   **Explicitly ALLOWED (NOT forbidden — pure computation, no I/O, deterministic)**:
+   - `io.jwt.decode` — pure JWT base64-decode + JSON-parse, no network, no I/O. Useful for token-inspection diagnostics.
+   - `io.jwt.verify_*` — pure cryptographic verification of supplied key (key passed as data input, not fetched). Deterministic.
+   - `crypto.hmac.*` (sha256, sha512, etc) — pure HMAC computation. No I/O.
+   - `crypto.x509.parse_*` — pure parsing of supplied certificate bytes. No I/O.
+   - `base64.encode/decode`, `urlquery.*`, `json.marshal/unmarshal` — pure transforms.
+
+   Rationale doc-block in `walkForForbiddenBuiltins` source code documents this list.
+
+### 5.40 SAML AuthnResponse verify + replay state (#40)
+
+1. **Migration** `00XX_saml_request_state.sql` (number next-available; **moved from W2.B per scope split — now meaningful in W3.1 with signature verify present**):
    ```sql
-   CREATE TABLE IF NOT EXISTS kacho_iam.saml_response_replay (
-     response_id  text PRIMARY KEY,  -- <samlp:Response>.ID
-     tenant_id    text NOT NULL REFERENCES kacho_iam.accounts(id) ON DELETE CASCADE,
-     idp_id       text NOT NULL,
-     not_on_or_after timestamptz NOT NULL,
-     consumed_at  timestamptz NOT NULL DEFAULT now()
+   CREATE TABLE IF NOT EXISTS kacho_iam.saml_request_state (
+     request_id    text PRIMARY KEY,           -- <samlp:AuthnRequest>.ID issued by us
+     tenant_id     text NOT NULL REFERENCES kacho_iam.accounts(id) ON DELETE CASCADE,
+     idp_id        text NOT NULL,
+     issued_at     timestamptz NOT NULL DEFAULT now(),
+     expires_at    timestamptz NOT NULL,       -- issued_at + 10min per OQ-W3.1-7
+     relay_state   text                        -- opaque app-state passed through
    );
-   CREATE INDEX saml_response_replay_cleanup_idx ON kacho_iam.saml_response_replay (not_on_or_after);
+   CREATE INDEX saml_request_state_cleanup_idx ON kacho_iam.saml_request_state (expires_at);
    ```
-2. **Handler** `internal/apps/kacho/api/saml/sp_handler.go` — заменить `OnSAMLAssertion: nil` (W2.B.1 501) на:
+2. **Handler** `internal/apps/kacho/api/saml/sp_handler.go` — заменить `OnSAMLAssertion: nil` (W2.B B.1 501) на:
    ```go
    sp := &saml.ServiceProvider{
        EntityID:    cfg.AcsURL,
@@ -300,112 +342,71 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
    }
    // JIT-provision via UserService.Create (existing path, returns Operation)
    ```
-3. **`postgresReplayTracker`** implements `crewjam/saml.RequestTracker` interface; `TrackRequest` → INSERT replay-row at AuthnRequest issuance; `GetTrackedRequests` checks `WHERE response_id = $1 AND not_on_or_after > now()`; PK conflict on second consume = 23505 → reject.
-4. **Audit**: events `saml_signature_invalid`, `saml_replay_rejected`, `saml_recipient_mismatch`, `saml_audience_mismatch`, `saml_not_on_or_after_expired`, `saml_jit_provisioned_ok` — все с `tenant`+`idp`+`subject` (subject only on success — on fail just hashed-form fingerprint to avoid logging arbitrary attacker input).
+   **POC verification before locking on `AcceptedResponseSigningAlgorithms` field name** (per DEC-W3.1-3) — confirms upstream API surface.
+3. **`postgresReplayTracker`** implements `crewjam/saml.RequestTracker` interface; `TrackRequest` → INSERT replay-row at AuthnRequest issuance; `GetTrackedRequests` checks `WHERE request_id = $1 AND expires_at > now()`; `StopTrackingRequest` → DELETE row (atomic single-use).
+4. **Audit**: events `saml_signature_invalid`, `saml_replay_rejected`, `saml_recipient_mismatch`, `saml_audience_mismatch`, `saml_not_on_or_after_expired`, `saml_not_before_future`, `saml_assertion_not_signed`, `saml_jit_provisioned_ok` — все с `tenant`+`idp`+`subject` (subject only on success — on fail just hashed-form fingerprint to avoid logging arbitrary attacker input).
 
-### 5.41 SCIM Basic-auth (#41)
+### 5.42 CAEP SET ingress verify (#42)
 
-1. **Migration** `0027_scim_basic_credentials.sql`:
+1. **Migration** `00XX_iam_trusted_idp_jwks_cache.sql` (number next-available):
    ```sql
-   CREATE TABLE IF NOT EXISTS kacho_iam.scim_basic_credentials (
-     tenant_id        text NOT NULL REFERENCES kacho_iam.accounts(id) ON DELETE CASCADE,
-     username         text NOT NULL,
-     password_bcrypt  text NOT NULL,
-     created_at       timestamptz NOT NULL DEFAULT now(),
-     last_used_at     timestamptz,
-     PRIMARY KEY (tenant_id, username)
+   CREATE TABLE IF NOT EXISTS kacho_iam.iam_trusted_idp_jwks_cache (
+     idp_id         text NOT NULL,             -- e.g. 'okta-prod', 'azure-tenant-xxx'
+     kid            text NOT NULL,             -- key ID from upstream JWKS
+     alg            text NOT NULL,             -- e.g. 'RS256', 'ES256'
+     public_key_pem text NOT NULL,
+     fetched_at     timestamptz NOT NULL DEFAULT now(),
+     expires_at     timestamptz NOT NULL,      -- per upstream Cache-Control max-age or default 1h
+     PRIMARY KEY (idp_id, kid)
+   );
+   CREATE INDEX iam_trusted_idp_jwks_cache_expires_idx
+     ON kacho_iam.iam_trusted_idp_jwks_cache (expires_at);
+   -- iss_uri → idp_id lookup helper table (per OQ-W3.1-2 «JWT iss claim cross-referenced»):
+   CREATE TABLE IF NOT EXISTS kacho_iam.iam_trusted_idp_registry (
+     idp_id     text PRIMARY KEY,
+     iss_uri    text NOT NULL UNIQUE,
+     jwks_url   text NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
    );
    ```
-2. **Middleware** `internal/apps/kacho/api/scim/auth.go::BasicAuthMiddleware`:
-   ```go
-   user, pass, ok := r.BasicAuth()
-   if !ok {
-       w.Header().Set("WWW-Authenticate", `Basic realm="SCIM"`)
-       http.Error(w, "Unauthorized", http.StatusUnauthorized)
-       return
-   }
-   tenantID := extractTenantFromPath(r.URL.Path) // /scim/v2/<tenant>/Users
-   row, err := h.repo.GetSCIMCredential(r.Context(), tenantID, user)
-   if errors.Is(err, pgx.ErrNoRows) {
-       // anti-timing: do dummy bcrypt compare to equalize latency
-       _ = bcrypt.CompareHashAndPassword([]byte(dummyHash), []byte(pass))
-       http.Error(w, "Unauthorized", http.StatusUnauthorized)
-       return
-   }
-   if err := bcrypt.CompareHashAndPassword([]byte(row.PasswordBcrypt), []byte(pass)); err != nil {
-       http.Error(w, "Unauthorized", http.StatusUnauthorized)
-       return
-   }
-   _ = h.repo.TouchSCIMCredentialLastUsed(r.Context(), tenantID, user) // best-effort
-   ctx := withSCIMTenant(r.Context(), tenantID)
-   next.ServeHTTP(w, r.WithContext(ctx))
-   ```
-3. **Admin RPC** `InternalScimCredentialService.{Create,Delete,List}` on internal-port — admin-UI provisioning. Out of W3.1 impl scope (W2.A admin-UI integration); stub-impl in W3.1 returns `Unimplemented` IF admin-UI not yet wired. Manual seed via SQL fixture acceptable для test-stand.
-   > **Per Запрет #11**: stub `Unimplemented` IS tech debt → resolve by either implementing fully OR explicitly marking «no admin RPC until W4-admin-UI sprint; SCIM creds seed via SQL» as out-of-scope boundary. **Recommendation**: implement minimal `Create/Delete/List` RPCs (~50 lines each, standard CRUD) in W3.1 — no TODO.
-4. **Newman fixture**: setup script POSTs SCIM credential via admin path; positive test uses correct Basic header; negative — wrong creds / missing header.
-
-### 5.42 CAEP SET signing + JWKS endpoint (#42)
-
-1. **Migration** `0026_jwks_keys.sql`:
-   ```sql
-   CREATE TABLE IF NOT EXISTS kacho_iam.jwks_keys (
-     kid                         text PRIMARY KEY,
-     alg                         text NOT NULL CHECK (alg='RS256'),
-     public_key_pem              text NOT NULL,
-     private_key_pem_encrypted   bytea NOT NULL,  -- AES-GCM via master key
-     active                      boolean NOT NULL,
-     created_at                  timestamptz NOT NULL DEFAULT now(),
-     rotated_at                  timestamptz,
-     expires_at                  timestamptz NOT NULL
-   );
-   -- Только одна active row одновременно — partial UNIQUE.
-   CREATE UNIQUE INDEX jwks_keys_one_active_uniq
-       ON kacho_iam.jwks_keys ((1)) WHERE active = true;
-   ```
-2. **Service** `internal/service/jwks/store.go`:
-   - `Initialize(ctx)` — on iam-startup: если 0 active rows, generate RSA 2048-bit, encrypt private via `KACHO_IAM_JWKS_MASTER_KEY` (AES-GCM), INSERT row.
-   - `GetActiveKey(ctx)` — `SELECT ... WHERE active=true LIMIT 1`; cache 30s.
-   - `GetAllPublicKeys(ctx)` — `SELECT kid, alg, public_key_pem FROM jwks_keys WHERE expires_at > now()` — for JWKS endpoint.
-   - `Rotate(ctx)` — atomic transaction: `UPDATE jwks_keys SET active=false, rotated_at=now() WHERE active=true; INSERT new active=true`. Partial UNIQUE constraint ensures no race.
-3. **SET signer** `internal/service/caep/set_signer.go::Sign(claims jwt.Claims) (string, error)`:
-   ```go
-   key, err := s.store.GetActiveKey(ctx)
-   if err != nil { return "", err }
-   token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-   token.Header["kid"] = key.Kid
-   priv, err := decryptAndParseRSAPrivateKey(key.PrivateKeyPemEncrypted, masterKey)
-   if err != nil { return "", err }
-   return token.SignedString(priv)
-   ```
-4. **JWKS REST endpoint** in `cmd/kacho-iam/main.go` — public mux:
-   ```go
-   mux.HandleFunc("/.well-known/jwks.json", func(w http.ResponseWriter, r *http.Request) {
-       keys, _ := jwksStore.GetAllPublicKeys(r.Context())
-       resp := jwksResponse{Keys: make([]jwk, 0, len(keys))}
-       for _, k := range keys {
-           pub, _ := pem.Decode([]byte(k.PublicKeyPem))
-           rsaPub, _ := x509.ParsePKIXPublicKey(pub.Bytes)
-           pk := rsaPub.(*rsa.PublicKey)
-           resp.Keys = append(resp.Keys, jwk{
-               Kty: "RSA", Use: "sig", Alg: k.Alg, Kid: k.Kid,
-               N:   base64.RawURLEncoding.EncodeToString(pk.N.Bytes()),
-               E:   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pk.E)).Bytes()),
-           })
-       }
-       w.Header().Set("Cache-Control", "max-age=300, public")
-       w.Header().Set("Content-Type", "application/jwk-set+json")
-       json.NewEncoder(w).Encode(resp)
-   })
-   ```
-   **Note (CLAUDE.md §«Инфра-чувствительные»)**: response NEVER contains `private_key_pem_encrypted` or master key. Only `kid`, `n`, `e` public-key half. RFC 7517 standard format.
-5. **Rotation cron** — `internal/service/jwks/rotation_cron.go`: ticker every 24h; if `now() - active_key.created_at > 30 days` → `Rotate()`.
-6. **Caep egress handler** `internal/handler/iamhooks/caep_egress_handler.go` — replace stub-sign with `setSigner.Sign(claims)` call. Subscriber-side verify is **subscriber's** responsibility per RFC 8417 §7.2; W3.1 newman test instantiates a stub subscriber that fetches `/.well-known/jwks.json` and verifies.
+2. **New package** `internal/service/jwks_verifier/`:
+   - `FetchAndCache(ctx, idpID, jwksURL) error` — HTTP GET against `jwksURL`, parse JWK set per RFC 7517, UPSERT each key into `iam_trusted_idp_jwks_cache` with `expires_at = now() + parsed-Cache-Control max-age (default 1h per DEC-W3.1-4)`.
+   - `Verify(ctx, idpID string, tokenStr string) (jwt.MapClaims, error)`:
+     1. Parse JWS header without verifying (extract `kid`, `alg`).
+     2. Assert `alg` in asymmetric allowlist: `RS256`, `RS384`, `RS512`, `ES256`, `ES384`, `ES512`. Reject `none`, `HS256`/`HS384`/`HS512` (symmetric — would require sharing private key with upstream, never our model).
+     3. Look up `(idpID, kid)` in cache. If miss → call `FetchAndCache(ctx, idpID, lookupJwksURL(idpID))` once → retry lookup. If still miss → reject with `caep_ingress_unknown_kid`.
+     4. Verify JWS signature against retrieved public key. On failure → reject with `caep_ingress_signature_invalid`.
+     5. Return parsed claims.
+3. **Integration into `parseSETBody`** (`internal/handler/iamhooks/caep_ingress_handler.go`):
+   - Replace current «base64-декодим payload без verification» logic with:
+     ```go
+     // Pre-verify peek to extract iss for IdP lookup (per OQ-W3.1-2).
+     unverifiedClaims, err := jwt.Parse(tokenStr, nil, jwt.WithoutClaimsValidation())
+     if err != nil { return nil, "", fmt.Errorf("malformed SET: %w", err) }
+     iss, _ := unverifiedClaims.Claims.(jwt.MapClaims)["iss"].(string)
+     idp, err := h.idpRegistry.GetByIssUri(ctx, iss)
+     if err != nil {
+         h.audit.Emit(ctx, "caep_ingress_unknown_issuer", "iss", iss)
+         return nil, "", fmt.Errorf("unknown SET issuer: %s", iss)
+     }
+     // Now verify.
+     claims, err := h.jwksVerifier.Verify(ctx, idp.IdpID, tokenStr)
+     if err != nil {
+         h.audit.Emit(ctx, "caep_ingress_signature_invalid",
+             "idp_id", idp.IdpID, "iss", iss, "err", err.Error())
+         return nil, "", err
+     }
+     // Continue with verified claims — extract events, sub_id, emit subject_change_outbox row.
+     ```
+4. **Audit events**: `caep_ingress_signature_invalid`, `caep_ingress_unknown_issuer`, `caep_ingress_unknown_kid`, `caep_ingress_weak_alg`, `caep_ingress_jwks_fetch_failed`, `caep_ingress_verified_ok` — all with `idp_id`, `iss`, `err` (no raw token body — avoid log injection).
+5. **Trusted IdP test fixture**: `tests/newman/fixtures/caep/seed_trusted_idp.sql` (and corresponding integration test fixture) seeds `iam_trusted_idp_registry` + `iam_trusted_idp_jwks_cache` rows for a synthetic test IdP `idp_test_caep_emitter`; test private key in `tests/newman/fixtures/caep/test_idp_private_key.pem` (test-only, never deployed; readme.md warns).
+6. **No new publication of OUR keys.** W2.B B.8 owns `/.well-known/jwks.json` exposure for OUR egress signing keys; W3.1 does not touch that endpoint. If reviewer flags concern about hypothetical cross-use of our private key against the wrong path — `jwks_verifier.Verify` never accesses `oidc_jwks_keys` table; the two paths are physically separated (different packages, different DB tables).
 
 ---
 
 ## 6. Сценарии (Given-When-Then) — основа интеграционных тестов
 
-> All scenarios assume: Postgres testcontainer with migrations 0001-0028 applied; OpenFGA testcontainer with bootstrap-model loaded; iam-server stood up via bufconn with all middlewares (anti-anon W1.6, authz-guard, audit-outbox) mounted. SAML scenarios use `crewjam/saml` test-fixtures; SCIM scenarios use HTTP client with custom headers; CAEP scenarios use real RSA keypair generation.
+> All scenarios assume: Postgres testcontainer with migrations 0001-current applied; OpenFGA testcontainer with bootstrap-model (extended with Conditions for #23) loaded; iam-server stood up via bufconn with all middlewares (anti-anon W1.6, authz-guard, audit-outbox) mounted. SAML scenarios use `crewjam/saml` test-fixtures; CAEP scenarios use synthetic test IdP keypair (test fixture).
 
 ### 6.21 OPA scope-allowlist (#21)
 
@@ -452,44 +453,55 @@ W3.1 **не** меняет authz-decision pipeline (gateway middleware / FGA eva
 
 ---
 
-### 6.23 CheckRelation ContextualTuples (#23)
+### 6.23 CheckRelation OpenFGA Conditions (#23)
 
 #### Scenario W3.1-23-HAPPY-MFA — conditional binding with MFA context → allow
 
 **ID**: W3.1-23-HAPPY
 
-**Given** AccessBinding `acb_x` granting user `usr_admin` admin on `project:prj_y` with condition `mfa_fresh=true` (writes ABAC predicate to FGA condition)
-**And** OpenFGA model includes conditional relation `admin` requiring `attr_mfa_fresh=true`
+**Given** FGA model contains `condition mfa_fresh_required(mfa_fresh: bool) { mfa_fresh == true }`
+**And** AccessBinding `acb_x` granting user `usr_admin` admin on `project:prj_y` via relation `admin: [user with mfa_fresh_required]`
+**And** ctx contains principal `usr_admin`
 
-**When** `InternalIAMService.CheckRelation(subject="user:usr_admin", relation="admin", object="project:prj_y", request_context={"mfa_fresh":"true","source_ip":"10.0.0.5"})`
+**When** `InternalIAMService.CheckRelation(subject="user:usr_admin", relation="admin", object="project:prj_y", request_context={"mfa_fresh":true,"source_ip":"10.0.0.5"})`
 
 **Then** response `Allowed=true`
-**And** FGA Check was called with `ContextualTuples` containing `[(attr:mfa_fresh, value, string:true), (attr:source_ip, value, string:10.0.0.5)]`
+**And** FGA Check was called with `Context` containing `{mfa_fresh: true, source_ip: "10.0.0.5"}` (verified via mock OpenFGA SDK capture)
 
 ---
 
-#### Scenario W3.1-23-CONTEXT-DENY — same binding, no MFA in context → deny
+#### Scenario W3.1-23-CONTEXT-DENY — same binding, mfa_fresh=false in context → deny
 
 **ID**: W3.1-23-CONTEXT-DENY
 
-Same setup; call without `mfa_fresh` in `request_context`:
+Same setup as W3.1-23-HAPPY:
 
-**When** `CheckRelation(..., request_context={"source_ip":"10.0.0.5"})`
+**When** `CheckRelation(..., request_context={"mfa_fresh":false,"source_ip":"10.0.0.5"})`
 
 **Then** response `Allowed=false`
-**And** ABAC condition unsatisfied — proves ContextualTuples plumbed correctly (pre-W3.1: always deny because field ignored; post-W3.1: deny only when condition not met)
+**And** condition `mfa_fresh_required` evaluated to false (proves Context plumbed correctly — pre-W3.1: always deny because field ignored; post-W3.1: deny only when condition not met)
 
 ---
 
-#### Scenario W3.1-23-MALFORMED — invalid request_context → InvalidArgument
+#### Scenario W3.1-23-MALFORMED-OVERSIZE — oversized request_context → InvalidArgument
 
-**ID**: W3.1-23-MALFORMED
+**ID**: W3.1-23-MALFORMED-SIZE
 
 **Given** principal authenticated
 
 **When** `CheckRelation(..., request_context=<33-key map>)` (exceeds 32-key cap per §5.23)
 
 **Then** returns `codes.InvalidArgument` with text containing `"Illegal argument request_context"`
+
+---
+
+#### Scenario W3.1-23-MALFORMED-VALUE — oversized value → InvalidArgument
+
+**ID**: W3.1-23-MALFORMED-VALUE
+
+**When** `CheckRelation(..., request_context={"big": <1025-byte string>})` (exceeds 1KB cap)
+
+**Then** returns `codes.InvalidArgument` with text containing `"value for \"big\" exceeds 1KB"`
 
 ---
 
@@ -555,7 +567,7 @@ Same setup; call without `mfa_fresh` in `request_context`:
 
 ---
 
-#### Scenario W3.1-26-FORBIDDEN-BUILTIN — http.send → reject at parse-time
+#### Scenario W3.1-26-FORBIDDEN-HTTP — http.send → reject at parse-time
 
 **ID**: W3.1-26-FORBIDDEN-HTTP
 
@@ -567,6 +579,44 @@ Same setup; call without `mfa_fresh` in `request_context`:
 **Then** response `Allowed=false, DeniedReason="forbidden builtin: http.send"`
 **And** structured log `event: rego_sandbox_blocked, builtin: http.send`
 **And** no outbound HTTP request to `attacker.local` was made (verified via test-stub network monitor)
+
+---
+
+#### Scenario W3.1-26-FORBIDDEN-BUILTINS-TABLE — all forbidden builtins rejected
+
+**ID**: W3.1-26-FORBIDDEN-TABLE
+
+**Given** cluster-admin principal
+
+Table test, one Rego module per row:
+
+| Module fragment | Expected DeniedReason |
+|---|---|
+| `allow { http.send({...}) }` | `forbidden builtin: http.send` |
+| `allow { net.lookup_ip_addr("x") }` | `forbidden builtin: net.lookup_ip_addr` |
+| `allow { opa.runtime() }` | `forbidden builtin: opa.runtime` |
+| `allow { time.now_ns() > 0 }` | `forbidden builtin: time.now_ns` |
+| `allow { rand.intn("seed", 100) > 0 }` | `forbidden builtin: rand.intn` |
+
+**Then** each row returns `Allowed=false, DeniedReason=<expected>`
+
+---
+
+#### Scenario W3.1-26-ALLOWED-PURE-BUILTINS — pure-computation builtins allowed
+
+**ID**: W3.1-26-ALLOWED-PURE
+
+**Given** cluster-admin principal; allowlist seeded with `data.iam.users`
+
+Table test:
+
+| Module fragment | Expected outcome |
+|---|---|
+| `allow { io.jwt.decode(input.token)[0].alg == "RS256" }` | eval proceeds (no `DeniedReason`); result depends on input |
+| `allow { crypto.hmac.sha256("k", "m") != "" }` | `Allowed=true` (pure HMAC computation) |
+| `allow { base64.encode("x") == "eA==" }` | `Allowed=true` |
+
+**Then** none rejected at parse-time; eval proceeds; explicit confirmation that allow-list change in §5.26 didn't accidentally forbid them
 
 ---
 
@@ -611,15 +661,16 @@ Symmetric to W3.1-25-NON-ADMIN. Authenticated non-admin → `PermissionDenied("R
 **ID**: W3.1-40-HAPPY
 
 **Given** Tenant `acc_t40` has `federation_trust_policies` row for IdP `idp_okta_test` with cert `<test-cert.pem>`
-**And** Test fixture generates valid AuthnRequest, signs Response with corresponding private key, sets `InResponseTo` = AuthnRequest.ID, `NotOnOrAfter` = now+5min, `Recipient` = our ACS URL, `Audience` = our SP entity-ID
-**And** Signature algorithm = `rsa-sha256`
+**And** AuthnRequest issued earlier (row in `saml_request_state` with `request_id=req_42`, `expires_at=now+10min`)
+**And** Test fixture signs Response with corresponding private key, sets `InResponseTo=req_42`, `NotBefore=now-1m`, `NotOnOrAfter=now+5min`, `Recipient=<our ACS URL>`, `Audience=<our SP entity ID>`
+**And** Signature algorithm = `rsa-sha256`; both `<samlp:Response>` and `<saml:Assertion>` signed
 
 **When** POST `/saml/v2/acs?tenant=acc_t40&idp=idp_okta_test` with the signed Response
 
 **Then** HTTP 302 redirect to post-login URL
 **And** new user row created in `kacho_iam.users` with `email` from assertion `<saml:Subject>` and `account_id=acc_t40`
 **And** `Operation` returned (async via UserService.Create) — eventual `done=true`
-**And** `saml_response_replay` table has row with `response_id` = Response.ID
+**And** `saml_request_state` row for `req_42` deleted (consumed)
 **And** audit log: `event: saml_jit_provisioned_ok, tenant: acc_t40, idp: idp_okta_test, subject: <email>`
 
 ---
@@ -636,7 +687,21 @@ Symmetric to W3.1-25-NON-ADMIN. Authenticated non-admin → `PermissionDenied("R
 **Then** HTTP 401 Unauthorized
 **And** audit log: `event: saml_signature_invalid, tenant: acc_t40, idp: idp_okta_test`
 **And** no row in `kacho_iam.users` for the (would-be) subject
-**And** `saml_response_replay` does NOT contain this Response.ID (rejected before consume)
+**And** `saml_request_state` row for `req_42` NOT deleted (rejected before consume)
+
+---
+
+#### Scenario W3.1-40-NO-ASSERTION-SIG — Response signed but Assertion not signed → 401
+
+**ID**: W3.1-40-NO-ASSERTION-SIG
+
+**Given** Response is signed correctly at `<samlp:Response>` level but `<saml:Assertion>` has no `<ds:Signature>` element (XML-wrapping attack precursor)
+
+**When** POST `/saml/v2/acs`
+
+**Then** HTTP 401
+**And** audit log: `event: saml_assertion_not_signed`
+**And** rationale: per §5.40 step 2 «verify XML signature on `<samlp:Response>` AND on `<saml:Assertion>` — fail if either invalid»
 
 ---
 
@@ -653,17 +718,30 @@ Symmetric to W3.1-25-NON-ADMIN. Authenticated non-admin → `PermissionDenied("R
 
 ---
 
-#### Scenario W3.1-40-REPLAY — same Response.ID twice → 401 on second
+#### Scenario W3.1-40-NOTBEFORE-FUTURE — premature assertion → 401
+
+**ID**: W3.1-40-NOTBEFORE-FUTURE
+
+**Given** Response signed correctly but `NotBefore` = now+5min (clock skew beyond ±60s tolerance)
+
+**When** POST `/saml/v2/acs`
+
+**Then** HTTP 401
+**And** audit log: `event: saml_not_before_future`
+
+---
+
+#### Scenario W3.1-40-REPLAY — same Response.InResponseTo twice → 401 on second
 
 **ID**: W3.1-40-REPLAY
 
-**Given** Valid signed Response posted once successfully (W3.1-40-HAPPY)
+**Given** Valid signed Response posted once successfully (W3.1-40-HAPPY) → `saml_request_state` row deleted
 
 **When** POST the same Response (identical bytes) a second time
 
 **Then** HTTP 401
-**And** audit log: `event: saml_replay_rejected, response_id: <id>`
-**And** Postgres logged `23505` PK conflict on `saml_response_replay` INSERT (verified via test log capture)
+**And** audit log: `event: saml_replay_rejected, request_id: req_42`
+**And** the row is already absent → `crewjam/saml.RequestTracker.GetTrackedRequests` returns empty → library rejects as no matching request
 
 ---
 
@@ -693,136 +771,112 @@ Symmetric to W3.1-25-NON-ADMIN. Authenticated non-admin → `PermissionDenied("R
 
 ---
 
-### 6.41 SCIM Basic-auth (#41)
+#### Scenario W3.1-40-WRONG-AUDIENCE — Audience ≠ our SP entity-ID → 401
 
-#### Scenario W3.1-41-HAPPY-BASIC — correct Basic creds → SCIM CRUD works
+**ID**: W3.1-40-WRONG-AUDIENCE
 
-**ID**: W3.1-41-HAPPY
+**Given** Response signed correctly but `<saml:AudienceRestriction><saml:Audience>https://other-sp.example.com</saml:Audience></saml:AudienceRestriction>` (not our SP entity-ID)
 
-**Given** `scim_basic_credentials` row `(tenant_id=acc_t41, username=okta-scim, password_bcrypt=bcrypt("supersecret"))`
-
-**When** POST `/scim/v2/acc_t41/Users` with header `Authorization: Basic <base64("okta-scim:supersecret")>` and SCIM-formatted user body
-
-**Then** HTTP 201 Created
-**And** new user row in `kacho_iam.users` with `account_id=acc_t41`
-**And** `scim_basic_credentials.last_used_at` updated
-
----
-
-#### Scenario W3.1-41-MISSING-HEADER — no Authorization → 401
-
-**ID**: W3.1-41-MISSING
-
-**When** POST `/scim/v2/acc_t41/Users` with no `Authorization` header
+**When** POST `/saml/v2/acs`
 
 **Then** HTTP 401
-**And** response header `WWW-Authenticate: Basic realm="SCIM"`
-**And** no user row created
+**And** audit log: `event: saml_audience_mismatch, expected: <ours>, got: https://other-sp.example.com`
 
 ---
 
-#### Scenario W3.1-41-WRONG-CREDS — wrong password → 401, constant-time
+### 6.42 CAEP SET ingress verify (#42)
 
-**ID**: W3.1-41-WRONG-CREDS
+#### Scenario W3.1-42-VERIFY-OK — SET signed by trusted IdP → emit subject_change_outbox row
 
-**Given** correct credential exists for `(acc_t41, okta-scim)`
+**ID**: W3.1-42-VERIFY-OK
 
-**When** POST with `Authorization: Basic <base64("okta-scim:WRONG")>`
+**Given** `iam_trusted_idp_registry` row `(idp_id='idp_test_caep_emitter', iss_uri='https://test-emitter.example.com', jwks_url='https://test-emitter.example.com/.well-known/jwks.json')`
+**And** `iam_trusted_idp_jwks_cache` seeded with `(idp_id='idp_test_caep_emitter', kid='test-key-1', alg='RS256', public_key_pem='<pem>')` matching test-only private key in fixture
+**And** ctx has valid `X-Kacho-Hook-Token` (existing W2.B B.8 auth path — orthogonal to verify)
+**And** SET JWS signed with `kid='test-key-1'`, payload contains `iss=https://test-emitter.example.com`, `events={https://schemas.openid.net/secevent/caep/event-type/session-revoked: {subject: {sub_id: usr_t42}}}`
 
-**Then** HTTP 401
-**And** response time within ±20ms of W3.1-41-HAPPY response time (constant-time bcrypt + dummy-compare for missing-row case ensures no timing oracle)
-**And** audit log: `event: scim_auth_failed, tenant: acc_t41, username: okta-scim`
+**When** POST `/iam/v1/hooks/caep` with header `Content-Type: application/secevent+jwt`, body = `<JWS>`
 
----
-
-#### Scenario W3.1-41-UNKNOWN-USER — username not in table → 401 (no enumeration)
-
-**ID**: W3.1-41-UNKNOWN-USER
-
-**When** POST with `Authorization: Basic <base64("nonexistent:anything")>`
-
-**Then** HTTP 401
-**And** response time matches W3.1-41-WRONG-CREDS within ±20ms (dummy bcrypt compare equalizes latency)
-**And** no audit log entry (avoids log-flooding by enumeration attacks; correct creds shape only)
+**Then** HTTP 200 OK
+**And** new row in `subject_change_outbox` for `usr_t42` with `change_type='session_revoked'`, `source='caep_ingress'`, `source_idp='idp_test_caep_emitter'`
+**And** audit log: `event: caep_ingress_verified_ok, idp_id: idp_test_caep_emitter, sub_id: usr_t42`
 
 ---
 
-### 6.42 CAEP SET signing + JWKS (#42)
+#### Scenario W3.1-42-VERIFY-BADSIG — tampered SET → 400 + audit
 
-#### Scenario W3.1-42-HAPPY-SIGN-VERIFY — subscriber verifies SET via JWKS
+**ID**: W3.1-42-VERIFY-BADSIG
 
-**ID**: W3.1-42-HAPPY
+**Given** same setup as W3.1-42-VERIFY-OK
+**And** SET JWS payload modified after signing (e.g. `sub_id` changed) → signature no longer matches
 
-**Given** iam-server bootstrap generated active RSA keypair stored in `jwks_keys` (kid=`k1`)
-**And** test-subscriber HTTP stub starts, fetches `GET /.well-known/jwks.json`, parses keys
-**And** iam triggers CAEP push for event `iam.session.revoked` (sub_id=`usr_t42`)
+**When** POST `/iam/v1/hooks/caep` with tampered body
 
-**When** iam sends `POST <subscriber_url>` with SET in body, header `Content-Type: application/secevent+jwt`
-
-**Then** subscriber decodes JWT header, extracts `kid=k1`
-**And** subscriber looks up `k1` in fetched JWKS → finds public key (n, e)
-**And** subscriber verifies signature → valid → accepts SET → revokes session
+**Then** HTTP 400
+**And** audit log: `event: caep_ingress_signature_invalid, idp_id: idp_test_caep_emitter`
+**And** no row in `subject_change_outbox`
+**And** no revocation effect — defends against forged session-revocation
 
 ---
 
-#### Scenario W3.1-42-REVOKED-KEY-REJECT — SET signed by rotated-out key → subscriber rejects
+#### Scenario W3.1-42-UNKNOWN-KID — SET signed by unregistered kid → refresh cache once → still unknown → reject
 
-**ID**: W3.1-42-REVOKED-KEY
+**ID**: W3.1-42-UNKNOWN-KID
 
-**Given** iam rotated keypair: old `k1` marked `active=false, rotated_at=now()`, new `k2` active
-**And** **time advances past `k1.expires_at`** (test simulates via clock-skew injection — `k1` removed from JWKS)
-**And** subscriber fetches fresh JWKS — sees only `k2`
+**Given** Cache contains only `(idp_test_caep_emitter, test-key-1)`
+**And** SET signed with `kid='unknown-key-99'` (different key, never registered)
+**And** Test stub for `https://test-emitter.example.com/.well-known/jwks.json` returns only `test-key-1` (refresh doesn't help — key is genuinely unknown upstream)
 
-**When** iam (test-injected to use stale `k1`) sends SET signed with `k1`
+**When** POST `/iam/v1/hooks/caep`
 
-**Then** subscriber decodes header, sees `kid=k1`, looks up `k1` in JWKS → not found → rejects
-**And** subscriber returns HTTP 400 to iam with reason `"unknown_kid"`
-**And** verifies the JWKS lookup IS the source of truth (not the signature itself — which is still mathematically valid, just from an expired key)
-
----
-
-#### Scenario W3.1-42-ROTATION-OVERLAP — both old and new keys served for 60-day window
-
-**ID**: W3.1-42-ROTATION-OVERLAP
-
-**Given** iam rotated keypair 1 day ago — `k1` `active=false, rotated_at=now()-24h, expires_at=now()+59d`; `k2` `active=true`
-**And** subscriber holds in-flight SET signed by `k1` (before rotation)
-
-**When** subscriber fetches `GET /.well-known/jwks.json`
-
-**Then** response contains BOTH `k1` AND `k2` (since `k1.expires_at` not yet reached)
-**And** subscriber can verify the in-flight SET successfully
-**And** new SETs are signed with `k2` (verified by inspecting outbound SET header)
+**Then** HTTP 400
+**And** verify path called `jwksVerifier.FetchAndCache(...)` exactly once (refresh attempt), then rejected
+**And** audit log: `event: caep_ingress_unknown_kid, idp_id: idp_test_caep_emitter, kid: unknown-key-99`
 
 ---
 
-#### Scenario W3.1-42-JWKS-NO-PRIVATE-LEAK — endpoint never returns private key
+#### Scenario W3.1-42-WEAK-ALG — symmetric alg rejected
+
+**ID**: W3.1-42-WEAK-ALG
+
+**Given** SET JWS with header `alg='HS256'` (symmetric — implies shared secret with upstream, never our trust model) OR `alg='none'`
+
+**When** POST `/iam/v1/hooks/caep`
+
+**Then** HTTP 400
+**And** audit log: `event: caep_ingress_weak_alg, alg: HS256` (or `none`)
+**And** signature verification never attempted (early reject in `Verify` step 2)
+
+---
+
+#### Scenario W3.1-42-EXPIRED-CACHE — cache TTL expired → refresh on demand → continue
+
+**ID**: W3.1-42-EXPIRED-CACHE
+
+**Given** Cache row `(idp_test_caep_emitter, test-key-1)` has `expires_at < now()`
+**And** Upstream JWKS endpoint still returns the same key (no upstream rotation)
+**And** SET signed with `kid='test-key-1'` (valid)
+
+**When** POST `/iam/v1/hooks/caep`
+
+**Then** verify path detected expired cache → called `FetchAndCache(...)` → updated `expires_at` → re-tried lookup → success
+**And** HTTP 200 OK
+**And** `iam_trusted_idp_jwks_cache.fetched_at` for that row updated (verified)
+
+---
+
+#### Scenario W3.1-42-NO-LEAK — verify path never accesses egress private keys
 
 **ID**: W3.1-42-NO-LEAK
 
-**Given** `jwks_keys` row contains `private_key_pem_encrypted` (bytea, AES-GCM ciphertext)
+**Given** `oidc_jwks_keys` (W2.B B.8 egress signing private keys) contains active row
+**And** `iam_trusted_idp_jwks_cache` contains cached external IdP public keys (W3.1 ingress side)
 
-**When** `GET /.well-known/jwks.json`
+**When** Multiple SETs verified through `parseSETBody` over 100 requests
 
-**Then** response body parsed as JSON — for each key, field set is exactly `{kty, use, alg, kid, n, e}`
-**And** NO field named `d`, `p`, `q`, `dp`, `dq`, `qi` (RSA private components per RFC 7518)
-**And** NO field named `private_key_pem_encrypted`, `private_key`, `master_key`, or similar
-**And** response body size < 2KB (sanity check — full keypair would be much larger)
-
----
-
-#### Scenario W3.1-42-ROTATION-ATOMIC — concurrent rotation calls → only one active
-
-**ID**: W3.1-42-ROTATION-ATOMIC
-
-**Given** initial state: `k1` active
-
-**When** 5 concurrent goroutines call `jwksStore.Rotate(ctx)` simultaneously
-
-**Then** post-condition: exactly 1 row has `active=true` (verified via `SELECT count(*) WHERE active=true`)
-**And** 4 of 5 goroutines returned `pgx.ErrIntegrityViolation` (23505 on `jwks_keys_one_active_uniq` partial UNIQUE during INSERT race) → service maps to `FailedPrecondition`
-**And** 1 goroutine succeeded
-**And** no two rows have `active=true` (race-proof per Запрет #10)
+**Then** Sql-trace assertion: `Verify(...)` never SELECTs from `oidc_jwks_keys` (only `iam_trusted_idp_jwks_cache`)
+**And** Test asserts that even if `oidc_jwks_keys` contained an entry with the same `kid` as an external IdP, ingress verify would NOT pick it up (physical-table separation enforced)
+**And** No log line contains substring `BEGIN RSA PRIVATE` / `private_key_pem` / `master_key`
 
 ---
 
@@ -833,27 +887,25 @@ Symmetric to W3.1-25-NON-ADMIN. Authenticated non-admin → `PermissionDenied("R
 | Finding | Test file (kacho-iam) | Tests |
 |---|---|---|
 | #21 | `internal/service/opa_scope/allowlist_integration_test.go` | `Test_OpaScope_Allowed_Happy`, `Test_OpaScope_UnknownScope_Denied`, `Test_OpaScope_EmptyAllowlist_FailsClosed` |
-| #23 | `internal/service/authorize_service_checkrelation_test.go` | `Test_CheckRelation_ContextualTuples_Plumbed`, `Test_CheckRelation_MalformedContext_InvalidArgument`, `Test_CheckRelation_OversizedContext_InvalidArgument` |
+| #23 | `internal/service/authorize_service_checkrelation_test.go` | `Test_CheckRelation_Context_HappyMfa`, `Test_CheckRelation_Context_DenyOnFalse`, `Test_CheckRelation_OversizedKeys_InvalidArgument`, `Test_CheckRelation_OversizedValue_InvalidArgument` |
 | #25 | `internal/apps/kacho/api/internal_authorize/handler_reloadmodel_test.go` | `Test_ReloadModel_ClusterAdmin_HappyPath`, `Test_ReloadModel_Anonymous_PermissionDenied`, `Test_ReloadModel_NonAdmin_PermissionDenied` |
-| #26 | `internal/apps/kacho/api/internal_authorize/handler_runregotest_test.go` | `Test_RunRegoTest_Happy_Bounded`, `Test_RunRegoTest_ForbiddenBuiltinHttpSend_Rejected`, `Test_RunRegoTest_CpuTimeout_Exceeded`, `Test_RunRegoTest_UnknownImport_Denied`, `Test_RunRegoTest_NonAdmin_PermissionDenied`, `Test_RunRegoTest_AllForbiddenBuiltins_TableTest` (table of `time.now_ns`, `net.lookup_ip_addr`, `opa.runtime`, `io.jwt.decode`, `crypto.hmac.*`, `rand.*`) |
-| #40 | `internal/apps/kacho/api/saml/sp_handler_integration_test.go` | `Test_SAML_HappyVerifyAndJIT`, `Test_SAML_TamperedSignature_Rejected`, `Test_SAML_ExpiredNotOnOrAfter_Rejected`, `Test_SAML_Replay_Rejected`, `Test_SAML_WeakAlgRsaSha1_Rejected`, `Test_SAML_WrongRecipient_Rejected`, `Test_SAML_WrongAudience_Rejected`, `Test_SAML_MultiIdpRoutingByIssuer` |
-| #41 | `internal/apps/kacho/api/scim/auth_integration_test.go` | `Test_SCIM_BasicAuth_HappyCRUD`, `Test_SCIM_MissingHeader_401`, `Test_SCIM_WrongCreds_401_ConstantTime`, `Test_SCIM_UnknownUser_401_NoEnumeration`, `Test_SCIM_LastUsedAtTouched` |
-| #42 | `internal/service/jwks/store_integration_test.go` + `internal/service/caep/set_signer_integration_test.go` | `Test_JWKS_BootstrapGeneratesKey`, `Test_JWKS_RotationAtomic_ConcurrentCallers`, `Test_JWKS_OverlapWindow_BothKeysServed`, `Test_JWKS_EndpointReturnsPublicOnly`, `Test_SetSigner_RS256_VerifyableExternally`, `Test_CAEP_StubSubscriber_VerifiesViaJwks`, `Test_CAEP_RevokedKid_SubscriberRejects` |
+| #26 | `internal/apps/kacho/api/internal_authorize/handler_runregotest_test.go` | `Test_RunRegoTest_Happy_Bounded`, `Test_RunRegoTest_ForbiddenBuiltinHttpSend_Rejected`, `Test_RunRegoTest_AllForbiddenBuiltins_TableTest`, `Test_RunRegoTest_AllowedPureBuiltins_TableTest`, `Test_RunRegoTest_CpuTimeout_Exceeded`, `Test_RunRegoTest_UnknownImport_Denied`, `Test_RunRegoTest_NonAdmin_PermissionDenied` |
+| #40 | `internal/apps/kacho/api/saml/sp_handler_integration_test.go` | `Test_SAML_HappyVerifyAndJIT`, `Test_SAML_TamperedSignature_Rejected`, `Test_SAML_NoAssertionSignature_Rejected`, `Test_SAML_ExpiredNotOnOrAfter_Rejected`, `Test_SAML_NotBeforeFuture_Rejected`, `Test_SAML_Replay_Rejected`, `Test_SAML_WeakAlgRsaSha1_Rejected`, `Test_SAML_WrongRecipient_Rejected`, `Test_SAML_WrongAudience_Rejected`, `Test_SAML_MultiIdpRoutingByIssuer` |
+| #42 | `internal/service/jwks_verifier/verifier_integration_test.go` + `internal/handler/iamhooks/caep_ingress_handler_integration_test.go` | `Test_JwksVerifier_FetchAndCache_Happy`, `Test_JwksVerifier_Verify_HappyRS256`, `Test_JwksVerifier_TamperedSig_Rejected`, `Test_JwksVerifier_WeakAlg_Rejected`, `Test_JwksVerifier_UnknownKid_RefreshAndReject`, `Test_JwksVerifier_ExpiredCache_RefreshAndPass`, `Test_CAEP_Ingress_VerifyOk_EmitsOutbox`, `Test_CAEP_Ingress_BadSig_Rejects_NoOutbox`, `Test_CAEP_Ingress_UnknownIssuer_Rejects`, `Test_CAEP_Ingress_NoLeakFromEgressKeys` |
 
-All tests testcontainers Postgres (migrations 0001-0028); OpenFGA testcontainer for #23 / #25 / #26 (cluster-admin check uses real FGA). #40 SAML fixture: pre-generated test cert + assertion fixtures committed under `internal/apps/kacho/api/saml/testdata/`. #41 SCIM: bcrypt hashes pre-computed (cost 12) in test fixture. #42 JWKS: RSA 2048 keygen on test setup (~50ms), real signed JWTs, real `crewjam/saml` or `golang-jwt/jwt/v5` verify.
+All tests testcontainers Postgres (current migrations); OpenFGA testcontainer for #23 / #25 / #26 (cluster-admin check uses real FGA; #23 uses Conditions feature). #40 SAML fixture: pre-generated test cert + assertion fixtures committed under `internal/apps/kacho/api/saml/testdata/`. #42 CAEP: RSA 2048 keygen on test setup (~50ms), real signed JWTs, real JWS verify via `golang-jwt/jwt/v5`; HTTP JWKS endpoint via test stub server (in-process).
 
 ### 7.2 Newman E2E cases
 
 Fixture requirements:
 - **#21 (OPA scope-allowlist)**: standard fixture (auth-fixtures setup.sh) + admin-authenticated user with cluster-admin grant. Newman cases: `OPA-SCOPE-ALLOWLISTED-OK`, `OPA-SCOPE-UNKNOWN-403`, `OPA-SCOPE-EMPTY-ALLOWLIST-FAILCLOSED` (uses fixture that DROPs seed before run).
-- **#23 (CheckRelation context)**: requires conditional binding fixture — extend `authz-fixtures/setup.sh` to seed a conditional binding (FGA model add condition `mfa_fresh_required`). Newman cases: `CHECKRELATION-WITH-MFA-CONTEXT-ALLOW`, `CHECKRELATION-NO-CONTEXT-DENY`, `CHECKRELATION-MALFORMED-CONTEXT-400`.
+- **#23 (CheckRelation context)**: requires conditional binding fixture — extend `authz-fixtures/setup.sh` to seed FGA model with `mfa_fresh_required` Condition and a binding using it. Newman cases: `CHECKRELATION-CTX-MFA-ALLOW`, `CHECKRELATION-CTX-MFA-DENY`, `CHECKRELATION-CTX-OVERSIZE-400`.
 - **#25 (ReloadModel)**: cases `RELOAD-MODEL-CLUSTER-ADMIN-OK`, `RELOAD-MODEL-ANON-401`, `RELOAD-MODEL-NON-ADMIN-403`.
-- **#26 (RunRegoTest)**: cases `RUNREGOTEST-HAPPY`, `RUNREGOTEST-HTTP-SEND-BLOCKED`, `RUNREGOTEST-CPU-TIMEOUT`, `RUNREGOTEST-UNKNOWN-IMPORT-DENIED`, `RUNREGOTEST-NON-ADMIN-403`.
+- **#26 (RunRegoTest)**: cases `RUNREGOTEST-HAPPY`, `RUNREGOTEST-HTTP-SEND-BLOCKED`, `RUNREGOTEST-CPU-TIMEOUT`, `RUNREGOTEST-UNKNOWN-IMPORT-DENIED`, `RUNREGOTEST-NON-ADMIN-403`, `RUNREGOTEST-PURE-BUILTIN-ALLOWED` (e.g. `crypto.hmac.sha256` proof).
 - **#40 SAML**: **needs fixture IdP** — DEC-W3.1-3 + OQ context. Recommend either:
-  - **Option A**: pre-generated test cert + raw XML AuthnResponse fixtures committed under `tests/newman/fixtures/saml/`. Newman script POSTs raw XML to ACS endpoint; no live IdP needed. Simplest, used by `crewjam/saml`'s own test suite. **Recommended.**
-  - **Option B**: Kratos OIDC stub container in newman test-stack — orchestration complexity outweighs benefit for W3.1 (which already has SAML setup elsewhere via crewjam test fixtures). Defer to W3.4 freeze if e2e-live SSO needed.
-- **#41 SCIM**: extend `auth-fixtures/setup.sh` to insert `scim_basic_credentials` row via psql. Newman cases: `SCIM-BASIC-HAPPY-CRUD`, `SCIM-MISSING-AUTH-401`, `SCIM-WRONG-CREDS-401`.
-- **#42 CAEP**: **needs stub subscriber** — run small HTTP server alongside newman that listens for SET POSTs and validates against `/.well-known/jwks.json`. Implementable as Node.js stub in `tests/newman/stub_subscriber.js` (~50 lines using `jose` library). Newman cases: `CAEP-SET-SIGNED-SUBSCRIBER-ACCEPTS`, `CAEP-SET-REVOKED-KID-SUBSCRIBER-REJECTS`, `CAEP-JWKS-NO-PRIVATE-LEAK`, `JWKS-ENDPOINT-PUBLIC-CACHEABLE`.
+  - **Option A (recommended)**: pre-generated test cert + raw XML AuthnResponse fixtures committed under `tests/newman/fixtures/saml/`. Newman script POSTs raw XML to ACS endpoint; no live IdP needed. Simplest, used by `crewjam/saml`'s own test suite.
+  - **Option B**: Kratos OIDC stub container in newman test-stack — orchestration complexity outweighs benefit for W3.1. Defer to W3.4 freeze if e2e-live SSO needed.
+- **#42 CAEP ingress**: needs **synthetic IdP** stub (in-process HTTP server) serving a JWKS endpoint with test public key + helper that signs test SETs with paired private key. Newman cases: `CAEP-INGRESS-VERIFIED-OK`, `CAEP-INGRESS-BADSIG-400`, `CAEP-INGRESS-UNKNOWN-KID-400`, `CAEP-INGRESS-WEAK-ALG-400`, `CAEP-INGRESS-UNKNOWN-ISSUER-400`.
 
 ### 7.3 RED→GREEN evidence per finding
 
@@ -861,23 +913,22 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 
 | Finding | RED commit | GREEN commit | RED test output | GREEN test output |
 |---|---|---|---|---|
-| #21 | `red(#21): opa-scope-allowlist tests` | `green(#21): impl + migration 0025` | `Test_OpaScope_UnknownScope_Denied: handler does not check allowlist (200 instead of 403)` | `... PASS` |
-| #23 | `red(#23): checkrelation context tests` | `green(#23): plumb ContextualTuples` | `Test_CheckRelation_ContextualTuples_Plumbed: assertion failed: ContextualTuples nil` | `... PASS` |
+| #21 | `red(#21): opa-scope-allowlist tests` | `green(#21): impl + migration` | `Test_OpaScope_UnknownScope_Denied: handler does not check allowlist (200 instead of 403)` | `... PASS` |
+| #23 | `red(#23): checkrelation conditions tests` | `green(#23): plumb Context map` | `Test_CheckRelation_Context_HappyMfa: assertion failed: Context nil` | `... PASS` |
 | #25 | `red(#25): reloadmodel auth tests` | `green(#25): cluster-admin gate` | `Test_ReloadModel_NonAdmin_PermissionDenied: got OK, want PermissionDenied` | `... PASS` |
 | #26 | `red(#26): runregotest sandbox tests` | `green(#26): sandbox + cpu/import allowlist` | `Test_RunRegoTest_ForbiddenBuiltinHttpSend_Rejected: got Allowed=true, want forbidden builtin` | `... PASS` |
 | #40 | `red(#40): saml verify tests` | `green(#40): impl crewjam wiring + replay store` | `Test_SAML_TamperedSignature_Rejected: got 302, want 401` | `... PASS` |
-| #41 | `red(#41): scim basic auth tests` | `green(#41): middleware + migration 0027` | `Test_SCIM_MissingHeader_401: got 201, want 401` | `... PASS` |
-| #42 | `red(#42): jwks + caep sign tests` | `green(#42): jwks store + set signer + endpoint + migration 0026` | `Test_CAEP_StubSubscriber_VerifiesViaJwks: subscriber rejected (alg=none not accepted)` | `... PASS` |
+| #42 | `red(#42): caep ingress verify tests` | `green(#42): jwks_verifier package + parseSETBody integration` | `Test_CAEP_Ingress_BadSig_Rejects_NoOutbox: got 200 + outbox row, want 400 + no outbox` | `... PASS` |
 
 ### 7.4 Anti-leak property tests (always-on regression)
 
-- `Test_JWKS_Endpoint_NeverReturnsPrivateMaterial` — fuzz-style: spin up iam-server, hit `/.well-known/jwks.json` 100 times with various headers (`Accept`, `User-Agent`), assert response body never contains substrings `BEGIN PRIVATE KEY`, `BEGIN RSA PRIVATE KEY`, `"d":`, `master_key`, `private_key_pem`. Runs on every CI.
-- `Test_SCIM_AuthFailureTimingConstant` — measures p50/p95/p99 of failure-path response time across 1000 requests, asserts p99 within 2× of p50 (constant-time bcrypt).
+- `Test_CAEP_Ingress_NeverAccessesEgressPrivateKeys` — SQL-trace assertion: throughout 100 ingress-verify requests, no SELECT against `oidc_jwks_keys`; only `iam_trusted_idp_jwks_cache` and `iam_trusted_idp_registry`. Runs on every CI.
 - `Test_SAML_AuditLogContainsNoRawAttackerInput` — for each `saml_signature_invalid` case, assert audit log fields contain only `tenant`, `idp`, hash-fingerprint of response — never raw email/subject from attacker-controlled body (prevent log injection).
+- `Test_CAEP_AuditLogContainsNoRawTokenBody` — for each `caep_ingress_signature_invalid` case, assert audit log does not contain the verbatim JWS body (could include attacker-supplied JSON payload). Only `err`, `idp_id`, `iss` (extracted post-decode, pre-verify — `iss` is also attacker-controlled but bounded-length URL).
 
 ### 7.5 Cross-suite coverage check
 
-`tests/newman/coverage.py --min 100` (W0.1 gate) — new RPCs added в W3.1 (`InternalScimCredentialService.*`, plus `RunRegoTest` extension) must have ≥1 happy + ≥1 negative newman case each. Coverage gate fails CI if not.
+`tests/newman/coverage.py --min 100` (W0.1 gate) — extension of `RunRegoTest` proto (new fields) must add ≥1 happy + ≥1 negative newman case; modifications to existing handlers (ReloadModel, CheckRelation, SAML ACS, CAEP ingress) must each have RED→GREEN newman pair. Coverage gate fails CI if not.
 
 ---
 
@@ -885,43 +936,40 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 
 ### Per-finding DoD
 
-- [ ] **#21**: `opa_scope_allowlist` table created (migration 0025); bootstrap-seed for `data.iam.{users,roles,bindings,projects}` present; handler enforces in `RunRegoTest` + future OPA REST paths; empty-allowlist fails-closed; integration tests + newman cases GREEN; structured log emits `opa_scope_not_allowlisted` on denies.
-- [ ] **#23**: `CheckRelation` plumbs `request_context` to OpenFGA `ContextualTuples`; size-cap (32 keys, 1KB/value) enforced with `InvalidArgument`; conditional binding ABAC scenario allow/deny depending on context; integration test confirms FGA Check called with non-nil ContextualTuples.
+- [ ] **#21**: `opa_scope_allowlist` table created (migration assigned at impl-start); bootstrap-seed for `data.iam.{users,roles,bindings,projects}` present; handler enforces in `RunRegoTest.module_imports[]`; empty-allowlist fails-closed; integration tests + newman cases GREEN; structured log emits `opa_scope_not_allowlisted` on denies.
+- [ ] **#23**: `CheckRelation` plumbs `request_context` to OpenFGA `Context` map (Conditions feature); size-cap (32 keys, 1KB/value) enforced with `InvalidArgument`; FGA model extended with sample condition (`mfa_fresh_required`); conditional binding ABAC scenario allow/deny depending on context; integration test confirms FGA Check called with non-nil `Context`.
 - [ ] **#25**: `ReloadModel` requires cluster-admin grant; anonymous → `PermissionDenied("authentication required")`; non-admin authenticated → `PermissionDenied("ReloadModel requires cluster-admin grant")`; cluster-admin → succeeds + audit log; same applied to `RunRegoTest` (#26 parity).
-- [ ] **#26**: Sandbox enforces 4 dimensions (parser deny-list / CPU timeout / memory cap / import allowlist); table-test covers all forbidden built-ins (`http.send`, `time.now_ns`, `net.lookup_ip_addr`, `opa.runtime`, `io.jwt.decode`, `crypto.hmac.*`, `rand.*`); CPU timeout test asserts deadline fires within ±50ms of configured.
-- [ ] **#40**: SAML AuthnResponse verification implements all 7 checks (signature / algo allowlist / InResponseTo / NotBefore / NotOnOrAfter / Recipient / Audience); replay store (`saml_response_replay`) prevents double-consume via PK conflict; rsa-sha1 explicitly rejected; tampered signature → 401; JIT-provisioning generates `Operation` (async via `UserService.Create`); audit events emit for all 7 fail-modes.
-- [ ] **#41**: SCIM endpoints require Basic-auth header verification; per-tenant `scim_basic_credentials`-table populated; bcrypt cost 12; missing/wrong → 401 with constant-time response latency (±20ms tolerance); `last_used_at` updated on success; W2.B.2 dead-code (`BasicAuthOrgID=""`) removed.
-- [ ] **#42**: JWKS table (`jwks_keys`) created with `partial UNIQUE WHERE active=true` enforcing single active key; bootstrap generates RSA 2048 keypair on first startup; private key AES-GCM encrypted at rest; `/.well-known/jwks.json` endpoint serves public-key-half only (no `d/p/q/dp/dq/qi` fields ever); CAEP SET signing uses RS256 with `kid` header; subscriber-side verify path tested via stub subscriber; rotation cron implemented (monthly); concurrent-rotation test asserts atomic single-active invariant.
+- [ ] **#26**: Sandbox enforces 4 dimensions (parser deny-list / CPU timeout / iteration-cap-as-memory-proxy / import allowlist); table-test covers all forbidden built-ins (`http.send`, `time.now_ns`, `net.lookup_ip_addr`, `opa.runtime`, `rand.*`); separate table-test covers allowed pure-computation builtins (`io.jwt.decode`, `crypto.hmac.*`, `base64.*`); CPU timeout test asserts deadline fires within ±50ms of configured; doc-comment in `walkForForbiddenBuiltins` explains per-builtin rationale honestly (incl. DEC-W3.1-2 framing about absent hard-memory-cap).
+- [ ] **#40**: SAML AuthnResponse verification implements all 8 checks (signature on Response / signature on Assertion / algo allowlist / InResponseTo / NotBefore / NotOnOrAfter / Recipient / Audience); replay store (`saml_request_state`) prevents double-consume via PK delete-on-consume; rsa-sha1 explicitly rejected; tampered signature → 401; JIT-provisioning generates `Operation` (async via `UserService.Create`); audit events emit for all fail-modes (incl. `saml_assertion_not_signed`, `saml_not_before_future`, `saml_audience_mismatch`); POC-verification of `crewjam/saml.ServiceProvider.AcceptedResponseSigningAlgorithms` field-name done before main impl commit.
+- [ ] **#42**: `iam_trusted_idp_jwks_cache` + `iam_trusted_idp_registry` tables created; `internal/service/jwks_verifier/` package implemented (FetchAndCache + Verify); `parseSETBody` integrated with verify path (replaces «base64-decode without verify»); asymmetric alg allowlist enforced (RS*, ES*); symmetric and `none` algs rejected; unknown kid triggers single refresh attempt then rejection; expired cache triggers automatic refresh; physical-table separation verified (verify path never touches `oidc_jwks_keys`); test fixture for synthetic test-IdP committed under `tests/newman/fixtures/caep/` with readme warning «test-only key, never deploy».
 
 ### Global DoD
 
 - [ ] `acceptance-reviewer` ✅ APPROVED данного doc; all OQs (W3.1-1..10) resolved
-- [ ] Branch `KAC-W3.1` создан в `kacho-iam`, `kacho-proto`, `kacho-api-gateway`, `kacho-deploy` (per-repo branches in dep-order)
+- [ ] Branch `KAC-W3.1` создан в `kacho-iam`, `kacho-proto` (per-repo branches in dep-order)
 - [ ] **RED phase commit** (per finding, ordered): all §7.1 integration tests + §7.2 newman cases written, CI red — RED evidence in PR description per finding per §7.3
 - [ ] **GREEN phase commits** (one logical commit per finding, ordered for review):
   - [ ] #21 — opa_scope_allowlist (RED W3.1-21-* → GREEN)
-  - [ ] #23 — CheckRelation ContextualTuples (RED W3.1-23-* → GREEN)
+  - [ ] #23 — CheckRelation OpenFGA Conditions (RED W3.1-23-* → GREEN)
   - [ ] #25 — ReloadModel cluster-admin gate (RED W3.1-25-* → GREEN)
   - [ ] #26 — RunRegoTest sandbox (RED W3.1-26-* → GREEN)
-  - [ ] #40 — SAML verify (RED W3.1-40-* → GREEN)
-  - [ ] #41 — SCIM Basic-auth (RED W3.1-41-* → GREEN)
-  - [ ] #42 — JWKS + CAEP SET signing (RED W3.1-42-* → GREEN)
+  - [ ] #40 — SAML verify + replay state (RED W3.1-40-* → GREEN)
+  - [ ] #42 — CAEP SET ingress verify (RED W3.1-42-* → GREEN)
 - [ ] Anti-leak property tests (§7.4) GREEN
 - [ ] Cross-suite coverage check (§7.5) `coverage.py --min 100` GREEN
-- [ ] All 7 findings closed per remediation plan §1.3 Chunk 5
-- [ ] `make e2e` smoke on dev-kind shows: cluster-admin can ReloadModel; non-admin cannot; SAML SSO works against `crewjam/saml` test fixture; SCIM creds enforced; CAEP push verifies via published JWKS
+- [ ] All 6 findings closed per remediation plan §1.3 Chunk 5 (items 5.1, 5.2, 5.3, 5.4, 5.5, 5.8 — items 5.6 [#41 → W2.B] / 5.7 [#20 → W3.3] / 5.9 [#24 → future OPA-VERIFY chunk] excluded per §0.1)
+- [ ] `make e2e` smoke on dev-kind shows: cluster-admin can ReloadModel; non-admin cannot; SAML SSO works against test fixture; CAEP ingress correctly verifies via trusted IdP JWKS and rejects forged SETs
 - [ ] kacho-iam CI green (unit + integration + race + newman e2e)
-- [ ] kacho-proto CI green (`buf lint`, `buf breaking` — additive only)
-- [ ] kacho-api-gateway CI green (REST mux registration of `/.well-known/jwks.json`)
+- [ ] kacho-proto CI green (`buf lint`, `buf breaking` — additive only on `RunRegoTest` request/response)
 - [ ] No new TODO / FIXME in diff (per Запрет #11; reviewer rejects on any)
-- [ ] PRs merged (kacho-proto first, then kacho-iam, then kacho-api-gateway)
+- [ ] PRs merged (kacho-proto first, then kacho-iam)
 - [ ] Vault обновлён (per §9 below)
 - [ ] YouTrack KAC-W3.1:
   - [ ] In Progress on impl start
-  - [ ] PR links commented (per-repo: proto, iam, gateway)
+  - [ ] PR links commented (per-repo: proto, iam)
   - [ ] Done on merge + smoke + newman GREEN
 - [ ] W3 tracker `2026-05-23-iam-prod-ready-wave3.md` updated: W3.1 row → ✅ done + date; remaining W3.2/W3.3/W3.4 unblocked
-- [ ] Master plan §«Definition of Done» updated: «44 findings closed» → 7 closer to total; «0 stub on surface» — SCIM auth stub gone, SAML 501 guard gone, CAEP stub-sign gone
+- [ ] Master plan §«Definition of Done» updated: «44 findings closed» → 6 closer to total; «0 stub on surface» — SAML 501 guard gone, CAEP ingress «verify-stub» comment gone
 
 ---
 
@@ -930,69 +978,94 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 ### NEW notes
 
 - **`obsidian/kacho/resources/iam-opa-scope-allowlist.md`** (NEW, 1-3KB):
-  - Concept: per-tenant whitelist of legitimate OPA scope-strings for `RunRegoTest` + future OPA REST endpoints.
+  - Concept: per-tenant whitelist of legitimate OPA scope-strings for `RunRegoTest.module_imports[]` (and any future OPA-scope-accepting handler — added at registration-time per DEC-W3.1-1).
   - Storage: `kacho_iam.opa_scope_allowlist (tenant_id, scope) PK`.
   - Disambiguation from Federation `FederationTrustPolicy.allowed_scopes` (OAuth scope) per DEC-W3.1-1.
   - Bootstrap-seed: `data.iam.users/roles/bindings/projects` for `*system` tenant.
   - Gotchas: empty allowlist = fail-closed all (NOT allow-all).
-  - Links: `[[../packages/iam-service-opa-scope]]`, `[[../rpc/iam-opa-service]]`, `[[../rpc/iam-internal-authorize-service]]`.
+  - Links: `[[../packages/iam-service-opa-scope]]`, `[[../rpc/iam-internal-authorize-service]]`.
 
-- **`obsidian/kacho/resources/iam-jwks.md`** (NEW, 1-3KB, **critical security note**):
-  - Concept: RSA keypair store for CAEP SET signing + future OIDC ID-token signing.
-  - Storage: `kacho_iam.jwks_keys (kid PK, alg, public_key_pem, private_key_pem_encrypted bytea, active, created_at, rotated_at, expires_at)`.
-  - **§«Инфра-чувствительные данные» emphasis**: private key (encrypted at rest via `KACHO_IAM_JWKS_MASTER_KEY` AES-GCM SealedSecret) NEVER returned via any RPC. Public half exposed via standard `/.well-known/jwks.json` (RFC 7517) — anonymous-readable by design (standard for JWKS).
-  - Invariants (Запрет #10): `partial UNIQUE (active) WHERE active=true` — exactly one active key at a time. Rotation atomic via single-tx UPDATE+INSERT, concurrent rotations resolved by PK/partial-UNIQUE conflict → only one winner.
-  - Rotation policy (DEC-W3.1-4): 30-day rolling, 60-day overlap. Manual rotation for compromise-recovery.
-  - Gotchas: never log `private_key_pem_encrypted` even encrypted; never include in audit-log body; CAEP egress signed with `kid`-headered JWS.
-  - Links: `[[../packages/iam-service-jwks]]`, `[[../edges/iam-jwks-endpoint]]`, `[[../edges/iam-to-caep-subscribers]]`.
+- **`obsidian/kacho/resources/iam-saml-request-state.md`** (NEW, 1-3KB):
+  - Concept: per-RequestID single-use replay protection for SAML AuthnResponses.
+  - Storage: `kacho_iam.saml_request_state (request_id PK, tenant_id FK accounts, idp_id, issued_at, expires_at, relay_state)`.
+  - Lifecycle: INSERT on AuthnRequest issuance (TrackRequest); DELETE on ACS successful consume; row absence on second ACS attempt → 401.
+  - TTL: issued_at + 10min (OQ-W3.1-7); daily cleanup cron.
+  - Links: `[[../edges/iam-to-saml-idp]]`, `[[../rpc/iam-federation-service]]`.
+
+- **`obsidian/kacho/resources/iam-trusted-idp-jwks-cache.md`** (NEW, 1-3KB, security note):
+  - Concept: cached public keys from external trusted IdPs (CAEP-emitting IdPs), used to verify INGRESS SET signatures.
+  - Storage: `kacho_iam.iam_trusted_idp_jwks_cache (idp_id, kid) PK + (alg, public_key_pem, fetched_at, expires_at)` + sibling `iam_trusted_idp_registry (idp_id PK, iss_uri UNIQUE, jwks_url)`.
+  - Refresh policy (DEC-W3.1-4): respect upstream Cache-Control max-age (default 1h); background refresh every 6h; refresh-on-miss handles compromise scenario.
+  - Gotcha: this table is **physically separate** from `oidc_jwks_keys` (W2.B B.8 — OUR egress signing private keys). INGRESS verify (`internal/service/jwks_verifier/`) never reads `oidc_jwks_keys`; EGRESS sign (`internal/service/oidc_signer/` or equivalent in W2.B) never reads this table. Assertion enforced by Test_CAEP_Ingress_NeverAccessesEgressPrivateKeys (§7.4).
+  - Links: `[[../packages/iam-service-jwks-verifier]]`, `[[../edges/iam-to-external-idp-jwks]]`, `[[../edges/iam-to-caep-ingress]]`.
+
+- **`obsidian/kacho/packages/iam-service-opa-scope.md`** (NEW):
+  - Package: `internal/service/opa_scope/`.
+  - Exported: `Repo` interface (`IsAllowed(ctx, tenantID, scope) (bool, error)`); impl in `internal/repo/opa_scope_repo.go`.
+  - Used by: `internal_authorize.handler` (RunRegoTest module_imports gate).
+  - Links: `[[../resources/iam-opa-scope-allowlist]]`.
+
+- **`obsidian/kacho/packages/iam-service-jwks-verifier.md`** (NEW):
+  - Package: `internal/service/jwks_verifier/`.
+  - Exported: `Verifier` interface (`FetchAndCache(ctx, idpID, jwksURL) error`; `Verify(ctx, idpID, token string) (jwt.MapClaims, error)`).
+  - Used by: `iamhooks.CAEPIngressHandler` (parseSETBody).
+  - Imports: `golang-jwt/jwt/v5`, `pgx`.
+  - Internal-only — no public RPC exposure.
+  - Links: `[[../resources/iam-trusted-idp-jwks-cache]]`, `[[../edges/iam-to-external-idp-jwks]]`, `[[../edges/iam-to-caep-ingress]]`.
 
 - **`obsidian/kacho/edges/iam-to-saml-idp.md`** (NEW, 1-3KB):
   - Edge: kacho-iam (as SP) ← SAML IdP (Okta/Azure AD/etc, external).
   - Protocol: SAML 2.0 AuthnResponse POST to `/saml/v2/acs?tenant=<>&idp=<>`.
   - Sync (request-response): IdP-initiated POST → iam verifies signature → JIT-provisions user → 302 redirect.
-  - Verify-stack: 7 checks (signature / algo allowlist / InResponseTo / NotBefore / NotOnOrAfter / Recipient / Audience).
-  - Library: `crewjam/saml` (DEC-W3.1-3).
-  - Replay protection: `saml_response_replay`-table PK on `response_id`; PK conflict = 23505 = 401.
+  - Verify-stack: 8 checks (signature on Response / signature on Assertion / algo allowlist / InResponseTo / NotBefore / NotOnOrAfter / Recipient / Audience).
+  - Library: `crewjam/saml` (DEC-W3.1-3 with POC-verify caveat).
+  - Replay protection: `saml_request_state`-table PK on `request_id`; delete-on-consume; row absence on second attempt → 401.
   - Error handling: any verify-fail → 401 + structured audit log (`saml_signature_invalid`/`saml_replay_rejected`/etc); no JIT-provisioning attempted; no row written.
-  - History: KAC-W3.1 — initial verify impl (replaces W2.B.1 501-guard).
-  - Links: `[[../resources/iam-federation-trust-policy]]`, `[[../rpc/iam-federation-service]]`.
+  - History: KAC-W3.1 — initial verify impl (replaces W2.B B.1 501-guard).
+  - Links: `[[../resources/iam-federation-trust-policy]]`, `[[../resources/iam-saml-request-state]]`, `[[../rpc/iam-federation-service]]`.
 
-- **`obsidian/kacho/edges/iam-to-scim-clients-authn.md`** (NEW, 1-3KB):
-  - Edge: external SCIM v2 client (HR system / Okta SCIM provisioner) → kacho-iam SCIM endpoints.
-  - Protocol: SCIM v2 (RFC 7644) over HTTPS; Basic-auth header (W3.1) or Bearer (W2.B.2 default).
-  - Sync (request-response): vendor POST/GET/PUT/DELETE to `/scim/v2/<tenant>/Users` or `/scim/v2/<tenant>/Groups`.
-  - Authn-stack: Basic-auth → `scim_basic_credentials` lookup → bcrypt cost-12 compare (constant-time + dummy compare on unknown user).
-  - Error handling: missing/wrong header → 401 with `WWW-Authenticate: Basic realm="SCIM"`; no enumeration possible (constant-time response).
-  - History: KAC-W3.1 — Basic-auth enabled (replaces W2.B.2 dead-code).
-  - Links: `[[../resources/iam-scim-credential]]` (if created), `[[../rpc/iam-scim-service]]`.
+- **`obsidian/kacho/edges/iam-to-external-idp-jwks.md`** (NEW, 1-3KB):
+  - Edge: kacho-iam → external trusted IdP's `/.well-known/jwks.json` endpoint.
+  - Protocol: HTTPS GET (read-only); anonymous (JWKS endpoints are public per RFC 7517).
+  - Sync: HTTP request initiated by `jwks_verifier.FetchAndCache(...)` either on first miss or background refresh ticker (every 6h per DEC-W3.1-4).
+  - Cache: `iam_trusted_idp_jwks_cache` table, TTL per upstream Cache-Control max-age (default 1h).
+  - Failure modes: HTTP fetch error → audit log `caep_ingress_jwks_fetch_failed`; if no fallback cached key → verify fails (next ingress request retries cache fetch).
+  - History: KAC-W3.1 — initial cache impl (paired with CAEP SET ingress verify #42).
+  - Links: `[[../resources/iam-trusted-idp-jwks-cache]]`, `[[../edges/iam-to-caep-ingress]]`, `[[../packages/iam-service-jwks-verifier]]`.
 
-- **`obsidian/kacho/edges/iam-jwks-endpoint.md`** (NEW, 1-3KB):
-  - Edge: external SET subscribers / OIDC clients → kacho-iam `/.well-known/jwks.json`.
-  - Protocol: HTTPS GET; anonymous read (no auth — standard for JWKS per RFC 7517).
-  - Sync (request-response): client fetches, caches per `Cache-Control: max-age=300`.
-  - Payload: JWK Set per RFC 7517: `{keys: [{kty:"RSA", use:"sig", alg:"RS256", kid:..., n:..., e:...}]}` — public-key half only, NEVER private material.
-  - Rotation handling: during 60-day overlap window, both old and new keys served — subscribers verify in-flight SETs against either.
-  - History: KAC-W3.1 — initial endpoint (paired with CAEP SET signing impl).
-  - Links: `[[../resources/iam-jwks]]`, `[[../edges/iam-to-caep-subscribers]]`.
+- **`obsidian/kacho/edges/iam-to-caep-ingress.md`** (NEW, 1-3KB):
+  - Edge: external CAEP-emitting IdP → kacho-iam `/iam/v1/hooks/caep` (ingress webhook).
+  - Protocol: HTTPS POST with body `<JWS>`, header `Content-Type: application/secevent+jwt`; auth: `X-Kacho-Hook-Token` (existing W2.B B.8 path — orthogonal to signature verify) + JWS signature verified per W3.1 #42.
+  - Sync (request-response): vendor POST → iam verifies signature via JWKS → emits `subject_change_outbox` row → 200 OK.
+  - Verify-stack: (a) parse JWS header for kid+alg; (b) assert alg in asymmetric allowlist; (c) extract iss claim → lookup `iam_trusted_idp_registry`; (d) FetchAndCache JWKS if cache miss; (e) verify signature.
+  - History: KAC-W3.1 — added signature verify (replaces «base64-decode without verify» from Phase 2 stub).
+  - **Differs from `edges/iam-to-caep-subscribers.md`** (W2.B B.8 territory): that edge is iam→external subscribers (egress sign); this edge is external IdP→iam (ingress verify). Orthogonal directions.
+  - Links: `[[../resources/iam-trusted-idp-jwks-cache]]`, `[[../packages/iam-service-jwks-verifier]]`, `[[../edges/iam-to-external-idp-jwks]]`.
 
 ### UPDATE existing notes
 
 - **`obsidian/kacho/rpc/iam-federation-service.md`** — update §«Methods» to note SAML ACS endpoint now does full verify (drop 501-guard mention); add §«Verify-stack» summary linking to `[[../edges/iam-to-saml-idp]]`; update «History» with KAC-W3.1.
-- **`obsidian/kacho/rpc/iam-opa-service.md`** (create if missing — currently bundled in `iam-internal-authorize-service.md`?) — note `RunRegoTest` now sandbox-bounded (parser deny-list + CPU timeout + memory cap + import allowlist) and cluster-admin gated; note `ReloadModel` cluster-admin gated; note scope-allowlist enforced for all OPA endpoints; link to `[[../resources/iam-opa-scope-allowlist]]`.
-- **`obsidian/kacho/rpc/iam-scim-service.md`** — update §«Authn» to specify Basic-auth (per W3.1) + Bearer (per W2.B.2); link to `[[../edges/iam-to-scim-clients-authn]]`; note per-tenant credential model (`scim_basic_credentials`-table).
-- **`obsidian/kacho/rpc/iam-caep-service.md`** — update §«Push signature» to specify JWS RS256 with `kid` header from JWKS (drop stub-sign mention); link to `[[../resources/iam-jwks]]` and `[[../edges/iam-jwks-endpoint]]`.
+- **`obsidian/kacho/rpc/iam-internal-authorize-service.md`** — note `RunRegoTest` now sandbox-bounded (parser deny-list + CPU timeout + iteration cap + import allowlist) and cluster-admin gated; note `ReloadModel` cluster-admin gated; note scope-allowlist enforced for `module_imports[]`; link to `[[../resources/iam-opa-scope-allowlist]]`.
+- **`obsidian/kacho/rpc/iam-caep-service.md`** (or `iam-caep-ingress.md` if separate) — update §«Inbound SET verification» to specify JWS verify against trusted IdP JWKS (drop «Phase 2 base64-only» mention); link to `[[../resources/iam-trusted-idp-jwks-cache]]` and `[[../edges/iam-to-caep-ingress]]`.
+
+### NOT modified (intentional — out of W3.1 scope)
+
+- **`obsidian/kacho/resources/iam-scim-credential.md`** (if exists) — #41 moved to W2.B B.2 (per scope split); any vault entries for SCIM Basic-auth are W2.B B.2's responsibility.
+- **`obsidian/kacho/edges/iam-to-scim-clients-authn.md`** (if exists) — same: W2.B B.2 territory.
+- **`obsidian/kacho/edges/iam-to-caep-subscribers.md`** (egress side, W2.B B.8) — not modified by W3.1.
+- **`obsidian/kacho/resources/iam-oidc-jwks-keys.md`** (W2.B B.8 territory — OUR signing keys) — not modified by W3.1; physical-table separation maintained.
 
 ### KAC trail note
 
 - **`obsidian/kacho/KAC/KAC-W3.1.md`** (NEW, ≤3KB, per CLAUDE.md «KAC-тикеты — обязательный trail»):
   - `Status: in-progress` (until merge → `done`)
   - `Type: epic-subtask` (subtask of master `KAC-iam-prod-ready`)
-  - `Repos: kacho-iam, kacho-proto, kacho-api-gateway`
+  - `Repos: kacho-iam, kacho-proto`
   - `PRs: <fill in as opened>`
-  - `## Что и зачем`: 1-2 abzaca — closes 7 findings from remediation plan Chunk 5 (federation/SSO internals: OPA scope-allowlist, CheckRelation context, ReloadModel cluster-admin gate, RunRegoTest sandbox, SAML verify, SCIM Basic-auth, CAEP SET signing).
+  - `## Что и зачем`: 1-2 abzaca — closes 6 findings from remediation plan Chunk 5 (federation/SSO internals: OPA scope-allowlist, CheckRelation context, ReloadModel cluster-admin gate, RunRegoTest sandbox, SAML verify, CAEP SET ingress verify). #41 SCIM Basic-auth not included — lives in W2.B B.2 (per scope split Option Y, ratified per KAC-170 review report).
   - `## Затронутые сущности vault`: list of NEW + UPDATE entries above.
   - `## Acceptance / Definition of Done`: checklist from §8 above.
-  - `## Связанные тикеты`: predecessors (W1.6, W2.B.1, W2.B.2, W2.B.8, W2.A); siblings (W3.2 observability, W3.3 SPIRE+Cilium, W3.4 freeze).
+  - `## Связанные тикеты`: predecessors (W1.6, W2.B B.1, W2.B B.2, W2.B B.8, W2.A); siblings (W3.2 observability, W3.3 SPIRE+Cilium, W3.4 freeze); revision trail (KAC-173 — v1→v2 revision per KAC-170 review findings).
   - `#kac #epic #security`
 
 ---
@@ -1001,31 +1074,33 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 
 | Что | Куда |
 |---|---|
-| Observability customisation (dashboards/alerts/metrics for anti-anon, SAML-reject, SCIM-401, SET-badsig, JWKS-fetch-fail, rego-sandbox-block, opa-scope-deny) | **W3.2** |
+| **#41 SCIM Basic-auth** (per-tenant credentials + middleware + Basic-auth verify) | **W2.B B.2** (per Option Y scope split — master plan §W3 row excludes #41; logical co-location with SCIM endpoints lives in W2.B) |
+| **#20 Port segregation NetworkPolicy** (restrict grpc-internal 9091 to cluster-internal sources) | **W3.3** (SPIRE+Cilium chunk — broader NetworkPolicy story) |
+| **#24 OPA bundle resilience (gateway interceptor fail-closed verification)** | **Future «W3.1.1 follow-up» chunk** (separate KAC if needed — not in master plan §W3 row) |
+| **CAEP egress signing + `/.well-known/jwks.json` publication for OUR keys** | **W2.B B.8** (egress signing — kacho-iam emits signed SETs to subscribers; W3.1 covers only inverse ingress verify) |
+| Observability customisation (dashboards/alerts/metrics for anti-anon, SAML-reject, CAEP-badsig, JWKS-fetch-fail, rego-sandbox-block, opa-scope-deny) | **W3.2** |
 | SPIRE + Cilium ServiceMesh wiring (kacho-iam за SVID) | **W3.3** |
 | Freeze checklist (security review, pentest readiness, runbook completeness, secret rotation playbook) | **W3.4** |
-| Admin-UI surfaces for `InternalScimCredentialService.{Create,Delete,List}` (W3.1 implements minimal Create/Delete/List RPCs; UI wiring) | W4-admin-UI sprint |
 | Admin-UI surfaces for `InternalOpaScopeAllowlistService.{Add,Remove,List}` | W4-admin-UI sprint |
+| Admin-UI surfaces for `InternalTrustedIdpRegistryService.{Add,Remove,List}` (for #42 trusted-IdP registration) | W4-admin-UI sprint |
 | Live IdP integration testing (Kratos OIDC stub container) — beyond crewjam/saml fixture-based newman tests | W3.4 freeze if needed; else deferred |
-| OIDC ID-token signing (uses same JWKS keypair from #42 — infrastructure ready, signing handler not implemented) | future OIDC sub-phase |
-| CAEP subscriber discovery + push-retry queue beyond W2.B.8 scaffolding | W2.B.8 follow-up if gaps |
-| OPA bundle runtime fail-closed (sidecar config; W1.3 §0.1 explicit out-of-scope) | dedicated `kacho-iam OpaBundleService` resilience chunk |
-| Per-resource authz cache invalidation on tenant SCIM-provisioned user deactivate | already in W1.2 |
-| SAML SP-initiated (we issue AuthnRequest); W3.1 implements IdP-initiated ACS only | future SAML sub-phase if SP-initiated needed |
+| OIDC ID-token signing (OUR token issuance — separate from CAEP egress sign; would use W2.B B.8 signing infrastructure) | future OIDC sub-phase |
+| SAML SP-initiated (we issue AuthnRequest); W3.1 implements IdP-initiated ACS only (with AuthnRequest tracking for replay-protection — IDP-initiated flow with later validation) | future SAML sub-phase if SP-initiated needed |
 
 ---
 
 ## 11. Traceability — finding-id ↔ scenario-id ↔ source-line
 
+> **Source-line precision note**: line numbers verified against `main`-branch state as of 2026-05-24 (commit `9b36fa1`). Impl-author SHOULD re-verify at branch-creation time — refactors may shift them by ±5.
+
 | Finding (rem. plan §1.3) | GWT Scenarios | Code-target (kacho-iam, post-W3.1) | Test-name |
 |---|---|---|---|
-| **#21** (P0 OPA scope-allowlist) | W3.1-21-HAPPY, W3.1-21-UNKNOWN, W3.1-21-EMPTY-FAIL-CLOSED | `internal/service/opa_scope/allowlist.go`, `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest`, `migrations/0025_opa_scope_allowlist.sql` | `Test_OpaScope_*`, newman `OPA-SCOPE-*` |
-| **#23** (P1 CheckRelation context) | W3.1-23-HAPPY, W3.1-23-CONTEXT-DENY, W3.1-23-MALFORMED | `internal/service/authorize_service.go::CheckRelation`, `internal/apps/kacho/api/internal_iam/handler.go::Check` | `Test_CheckRelation_*`, newman `CHECKRELATION-*` |
+| **#21** (P0 OPA scope-allowlist) | W3.1-21-HAPPY, W3.1-21-UNKNOWN, W3.1-21-EMPTY-FAIL-CLOSED | `internal/service/opa_scope/allowlist.go`, `internal/repo/opa_scope_repo.go`, `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest`, `migrations/00XX_opa_scope_allowlist.sql` | `Test_OpaScope_*`, newman `OPA-SCOPE-*` |
+| **#23** (P1 CheckRelation context) | W3.1-23-HAPPY, W3.1-23-CONTEXT-DENY, W3.1-23-MALFORMED-SIZE, W3.1-23-MALFORMED-VALUE | `internal/service/authorize_service.go::CheckRelation`, `internal/apps/kacho/api/internal_iam/handler.go::Check`, FGA model `bootstrap-model.fga` (Condition definitions) | `Test_CheckRelation_Context_*`, newman `CHECKRELATION-CTX-*` |
 | **#25** (P0 ReloadModel auth) | W3.1-25-HAPPY, W3.1-25-ANON-DENY, W3.1-25-NON-ADMIN | `internal/apps/kacho/api/internal_authorize/handler.go::ReloadModel` (cluster-admin gate via `iam.IsClusterAdmin`) | `Test_ReloadModel_*`, newman `RELOAD-MODEL-*` |
-| **#26** (P0 RunRegoTest sandbox) | W3.1-26-HAPPY, W3.1-26-FORBIDDEN-HTTP, W3.1-26-CPU-TIMEOUT, W3.1-26-UNKNOWN-IMPORT, W3.1-26-NON-ADMIN | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` (sandbox + cluster-admin + import-allowlist) | `Test_RunRegoTest_*`, newman `RUNREGOTEST-*` |
-| **#40** (P0 SAML verify) | W3.1-40-HAPPY, W3.1-40-TAMPERED, W3.1-40-EXPIRED, W3.1-40-REPLAY, W3.1-40-WEAK-ALG, W3.1-40-WRONG-RECIPIENT | `internal/apps/kacho/api/saml/sp_handler.go` (crewjam/saml wiring + `postgresReplayTracker`), `migrations/0028_saml_response_replay.sql` | `Test_SAML_*`, newman `SAML-*` (with fixture-based assertions per §7.2) |
-| **#41** (P0 SCIM Basic-auth) | W3.1-41-HAPPY, W3.1-41-MISSING, W3.1-41-WRONG-CREDS, W3.1-41-UNKNOWN-USER | `internal/apps/kacho/api/scim/auth.go::BasicAuthMiddleware`, `cmd/kacho-iam/phase6_listeners.go` (cred loading), `migrations/0027_scim_basic_credentials.sql` | `Test_SCIM_*`, newman `SCIM-*` |
-| **#42** (P0 CAEP SET signature) | W3.1-42-HAPPY, W3.1-42-REVOKED-KEY, W3.1-42-ROTATION-OVERLAP, W3.1-42-NO-LEAK, W3.1-42-ROTATION-ATOMIC | `internal/service/jwks/store.go`, `internal/service/caep/set_signer.go`, `cmd/kacho-iam/main.go` (`/.well-known/jwks.json`), `internal/handler/iamhooks/caep_egress_handler.go` (replace stub-sign), `migrations/0026_jwks_keys.sql` | `Test_JWKS_*`, `Test_SetSigner_*`, `Test_CAEP_*`, newman `CAEP-*`, `JWKS-*` |
+| **#26** (P0 RunRegoTest sandbox) | W3.1-26-HAPPY, W3.1-26-FORBIDDEN-HTTP, W3.1-26-FORBIDDEN-TABLE, W3.1-26-ALLOWED-PURE, W3.1-26-CPU-TIMEOUT, W3.1-26-UNKNOWN-IMPORT, W3.1-26-NON-ADMIN | `internal/apps/kacho/api/internal_authorize/handler.go::RunRegoTest` (sandbox + cluster-admin + import-allowlist), `kacho/cloud/iam/v1/internal_authorize_service.proto` (additive fields) | `Test_RunRegoTest_*`, newman `RUNREGOTEST-*` |
+| **#40** (P0 SAML verify) | W3.1-40-HAPPY, W3.1-40-TAMPERED, W3.1-40-NO-ASSERTION-SIG, W3.1-40-EXPIRED, W3.1-40-NOTBEFORE-FUTURE, W3.1-40-REPLAY, W3.1-40-WEAK-ALG, W3.1-40-WRONG-RECIPIENT, W3.1-40-WRONG-AUDIENCE | `internal/apps/kacho/api/saml/sp_handler.go` (crewjam/saml wiring + `postgresReplayTracker`), `migrations/00XX_saml_request_state.sql` | `Test_SAML_*`, newman `SAML-*` (with fixture-based assertions per §7.2) |
+| **#42** (P1 CAEP SET ingress verify) | W3.1-42-VERIFY-OK, W3.1-42-VERIFY-BADSIG, W3.1-42-UNKNOWN-KID, W3.1-42-WEAK-ALG, W3.1-42-EXPIRED-CACHE, W3.1-42-NO-LEAK | `internal/service/jwks_verifier/verifier.go`, `internal/handler/iamhooks/caep_ingress_handler.go::parseSETBody` (replace «base64-decode without verify»), `migrations/00XX_iam_trusted_idp_jwks_cache.sql` | `Test_JwksVerifier_*`, `Test_CAEP_Ingress_*`, newman `CAEP-INGRESS-*` |
 
 ---
 
@@ -1033,14 +1108,15 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 
 - Workspace правила: `../../CLAUDE.md` (запреты #1/#2/#6/#10/#11/#12; §«Инфра-чувствительные данные»; vault discipline)
 - IAM-specific: `../../project/kacho-iam/CLAUDE.md`
-- Source of findings: `../superpowers/plans/2026-05-21-iam-authz-review-remediation-plan.md` §1.3 Chunk 5 (items 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.8)
-- Master plan: `../superpowers/plans/2026-05-23-iam-prod-ready-master.md` (Waves overview; W3 = finalize)
+- Source of findings: `../superpowers/plans/2026-05-21-iam-authz-review-remediation-plan.md` §1.3 Chunk 5 (items 5.1 #21, 5.2 #42, 5.3 #23, 5.4 #25, 5.5 #40, 5.8 #26 — items 5.6 [#41], 5.7 [#20], 5.9 [#24-follow-up] excluded per §0.1)
+- Master plan: `../superpowers/plans/2026-05-23-iam-prod-ready-master.md` §W3 row (source-of-truth for W3.1 scope: «#21/#23/#25/#26/#40/#42» — note: #41 NOT in row)
 - Predecessor acceptance docs:
   - `sub-phase-W1.6-remediation-chunk2-in-service-authz-acceptance.md` (anti-anon allowlist primitive used for #25 #26 baseline)
-  - W2.B.1 SAML ACS guard (501) — predecessor; W3.1 replaces guard with real verify
-  - W2.B.2 SCIM endpoints wired — predecessor; W3.1 closes auth gap
-  - W2.B.8 CAEP scaffolding with stub-sign — predecessor; W3.1 replaces with JWS RS256 + JWKS
+  - W2.B B.1 SAML ACS guard (501) — predecessor; W3.1 replaces guard with real verify
+  - W2.B B.2 SCIM endpoints + Basic-auth (#41 closed there per scope split) — predecessor
+  - W2.B B.8 CAEP egress sign + JWKS publication for OUR keys — predecessor (provides infrastructure parity context for W3.1 #42 ingress verify direction)
   - W2.A catalog/permissions unification — predecessor; W3.1 #21 references catalogued scopes
+- Revision context: `KAC-170-acceptance-review-report.md` (v1 review findings; Option Y ratified)
 - Specs:
   - `00-overview-and-scope.md`
   - `01-architecture-and-services.md` (Internal vs public listener separation per §«Запреты» #6)
@@ -1050,15 +1126,13 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 - External standards referenced:
   - **RFC 7517** — JSON Web Key (JWK) and Key Set (JWKS) — JWKS endpoint format
   - **RFC 7515** — JSON Web Signature (JWS) — SET signing format
-  - **RFC 7518** — JSON Web Algorithms (JWA) — RSA private/public field names (`n/e` public; `d/p/q/dp/dq/qi` private)
-  - **RFC 7644** — SCIM v2 — REST CRUD semantics
+  - **RFC 7518** — JSON Web Algorithms (JWA) — RSA/ECDSA alg identifiers; private/public field separation
   - **RFC 8417** — Security Event Token (SET) — CAEP payload format
   - **OASIS SAML 2.0 Core** — AuthnResponse / Assertion verification rules
-  - **OpenFGA SDK** — ContextualTuples API
+  - **OpenFGA Conditions** — https://openfga.dev/docs/modeling/conditions (Conditions feature for ABAC-style policy)
 - Libraries planned:
-  - **`crewjam/saml`** v0.4.x — SAML 2.0 SP impl with replay-tracker hook
-  - **`golang-jwt/jwt/v5`** — JWS signing for SET / JWKS
-  - **`open-policy-agent/opa`** (Go SDK) — Rego AST walk + sandboxed eval
-  - **`golang.org/x/crypto/bcrypt`** — SCIM Basic-auth password hashing
+  - **`crewjam/saml`** v0.4.x — SAML 2.0 SP impl with replay-tracker hook (DEC-W3.1-3 with POC-verify caveat for `AcceptedResponseSigningAlgorithms` API)
+  - **`golang-jwt/jwt/v5`** — JWS verify for CAEP SET ingress
+  - **`open-policy-agent/opa`** (Go SDK) — Rego AST walk + sandboxed eval (no `RegoMaxMemoryBytes` available — DEC-W3.1-2 honest framing)
 - Reference impl (parity для cluster-admin gate): `internal/service/cluster_admin/check.go` (existing `IsClusterAdmin` helper from W1.5 BG.ApproveB path)
-- Reference impl (parity для outbox-pattern, rotation cron): `kacho-corelib/outbox/` + `kacho-iam/internal/service/fga_outbox/drainer.go` (W1.1)
+- Reference impl (parity для existing `oidc_jwks_keys` rotation — W2.B B.8 territory, NOT modified by W3.1): `kacho-iam/internal/migrations/0014_kac127_scim_gdpr_reviews_jwks.sql` (defines existing `oidc_jwks_keys` table with `partial UNIQUE WHERE current=true` — verified 2026-05-24; W3.1 references this only to confirm no duplication)
