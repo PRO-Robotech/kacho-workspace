@@ -10,15 +10,18 @@ id_prefix: cag
 owner_table: kacho_iam.cluster_admin_grants
 owner_db: kacho_iam
 folder_level: false
-status: planned
+status: done
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_packages:
   - "[[packages/iam-domain]]"
   - "[[packages/iam-repo-kacho-pg]]"
   - "[[packages/iam-seed]]"
+  - "[[packages/iam-handler-internal-cluster]]"
+  - "[[packages/iam-apps-cluster-usecases]]"
 related_tickets:
   - "[[KAC-127]]"
+  - "[[KAC-196]]"
 tags:
   - resource
   - kacho-iam
@@ -55,9 +58,16 @@ tags:
 ## Lifecycle
 
 - **Bootstrap** ([[iam-seed]] `bootstrap_admin.go`): startup-time `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL` → lookup user → atomic TX: INSERT cluster_admin_grant + INSERT fga_outbox (`fga.tuple.write`) + INSERT audit_outbox.
+- **Grant** (KAC-196, [[../KAC/KAC-196]]) — `GrantAdminUseCase`: ON CONFLICT ON CONSTRAINT cluster_admin_grants_cluster_subject_uniq DO NOTHING → если revoked-row → Reactivate (UPDATE granted_until=NULL, granted_by=$principal, granted_at=now) → emit fga_outbox + audit_outbox (D-4 idempotent retry-safe).
+- **Revoke** (KAC-196) — `RevokeAdminUseCase`: атомарный CAS UPDATE granted_until=now() с тремя WHERE условиями: `granted_until IS NULL` (D-12 NOT idempotent), `subject_id != $principal` (D-5 self), `(SELECT count(*) WHERE granted_until IS NULL) > 1` (D-6 last). 0 rows → diagnostic SELECTs → sentinel (`ErrSelfRevoke`/`ErrLastAdmin`/`ErrNotFound`).
 - **Idempotent**: 23505 (partial UNIQUE) → graceful WARN — concurrent HA cold-start race (acceptance §6.10.5).
-- **Revoke**: Phase 7+ — Update `granted_until` к now() (turns into expired).
 - **OpenFGA sync**: атомарно с INSERT через [[../packages/iam-jobs]] FGAOutboxDrainer.
+
+## RPC operations (KAC-196)
+
+- `Get` / `ListAdmins` — sync, см. [[../rpc/iam-internal-cluster-service]].
+- `GrantAdmin` / `RevokeAdmin` — async (Operation), single TX insert/update + fga_outbox + audit_outbox.
+- Atomic guards: idempotent ON CONFLICT (D-4), CAS WHERE `count(*) WHERE granted_until IS NULL > 1` last-admin (D-6), CAS WHERE `subject_id != $principal` self-revoke (D-5), CAS WHERE `granted_until IS NULL` revoke-only-active (D-12).
 
 ## Gotchas
 
