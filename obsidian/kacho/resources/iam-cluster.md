@@ -9,7 +9,7 @@ id_prefix: cluster_
 owner_table: kacho_iam.clusters
 owner_db: kacho_iam
 folder_level: false
-status: planned
+status: done
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_packages:
@@ -18,6 +18,7 @@ related_packages:
   - "[[packages/iam-seed]]"
 related_tickets:
   - "[[KAC-127]]"
+  - "[[KAC-196]]"
 tags:
   - resource
   - kacho-iam
@@ -63,6 +64,8 @@ tags:
 Singleton, seed-only через миграцию 0011 (одна row). Immutable после создания.
 Phase 2 OpenFGA model: tuple `cluster:cluster_kacho_root#system_admin@user:usr_xxx` —
 объект authz-проверки cluster-admin.
+
+**KAC-196**: `Get` RPC доступен через [[../rpc/iam-internal-cluster-service]] (internal mux `/iam/v1/internal/cluster`).
 
 ## Gotchas
 

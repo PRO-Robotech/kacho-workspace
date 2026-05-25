@@ -2,18 +2,19 @@
 title: InternalClusterService
 aliases:
   - InternalClusterService (iam)
-proto_file: kacho/cloud/iam/v1/internal_cluster_service.proto (planned)
+proto_file: kacho/cloud/iam/v1/internal_cluster_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9091
 visibility: internal
 domain: iam
 related_resource: "[[resources/iam-cluster]]"
-methods_count: 0
-async_methods: 0
-status: planned
+methods_count: 4
+async_methods: 2
+status: done
 related_tickets:
   - "[[KAC-127]]"
+  - "[[KAC-196]]"
 tags:
   - rpc
   - kacho-iam
@@ -23,19 +24,19 @@ tags:
 
 # InternalClusterService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (Phase 2+).
+**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
 **Backend**: `kacho-iam:9091` (**internal-only**; workspace §запрет #6 — НЕ публиковать на external TLS endpoint).
-**Visibility**: **internal** — будет зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/cluster/...`.
-**Status**: **Phase 1 — schema only** ([[../resources/iam-cluster]] + [[../resources/iam-cluster-admin-grant]] + [[../resources/iam-cluster-break-glass-grant]] table-rows + bootstrap-seed). RPC handlers — Phase 2 (cluster-admin enforcement) + Phase 7 (break-glass flow).
+**Visibility**: **internal** — зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/cluster/...` (KAC-196 PR #44).
+**Status**: **Phase 2 — DONE** (cluster-admin enforcement, [[../KAC/KAC-196]]). Phase 7 (break-glass `RequestBreakGlass` / `Approve/Deny/RevokeBreakGlass`) — planned.
 
-## Planned methods (Phase 2 + Phase 7)
+## Methods (Phase 2 DONE + Phase 7 planned)
 
-| Method | Phase | Sync/Async | Note |
-|---|---|---|---|
-| Get | 2 | sync | get cluster singleton |
-| GrantAdmin | 2 | async | INSERT cluster_admin_grant + fga_outbox |
-| RevokeAdmin | 2 | async | UPDATE granted_until=now + fga_outbox |
-| ListAdmins | 2 | sync | active permanent admins |
+| Method | Phase | Sync/Async | Status | Note |
+|---|---|---|---|---|
+| Get | 2 | sync | **done** | get cluster singleton |
+| GrantAdmin | 2 | async (Operation) | **done** | INSERT/Reactivate cluster_admin_grants + fga_outbox + audit_outbox (D-4 idempotent) |
+| RevokeAdmin | 2 | async (Operation) | **done** | atomic CAS UPDATE granted_until=now (D-5 self / D-6 last / D-12 not-active) |
+| ListAdmins | 2 | sync | **done** | active permanent admins (JOIN users for denormalised email/display_name) |
 | RequestBreakGlass | 7 | async | INSERT cluster_break_glass_grant (state=AWAITING_APPROVAL_A) |
 | ApproveBreakGlass | 7 | async | CAS UPDATE state-transitions |
 | DenyBreakGlass | 7 | async | CAS UPDATE → DENIED |
