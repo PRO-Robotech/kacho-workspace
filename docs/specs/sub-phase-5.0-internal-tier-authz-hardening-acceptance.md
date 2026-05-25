@@ -1,6 +1,6 @@
 # Sub-phase 5.0 — Internal-tier authz hardening (44 unguarded Internal.* methods) — Acceptance
 
-> **Status**: DRAFT (awaiting `acceptance-reviewer` per `kacho-workspace/CLAUDE.md` §Запреты #1).
+> **Status**: ✅ **APPROVED** (acceptance-reviewer iteration 2, 2026-05-25; commit `7d69839` after M-02/M-04/M-05 fixes; original draft `4c26766`). Coding gate passed per `kacho-workspace/CLAUDE.md` §Запреты #1.
 > **Date**: 2026-05-25
 > **YouTrack epic**: KAC-201 (`[EPIC] Internal-tier authz hardening`). Subtasks materialised by the controller after this doc reaches APPROVED (see §13 «Decomposition map»). All issues + subtasks added to current sprint (`agiles/183-12`).
 > **Author agent**: `acceptance-author`
