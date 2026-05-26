@@ -401,3 +401,61 @@ User direction 2026-05-26: grants must be **explicit per-role** — admin grant 
 **ВСЕ 4 категории закрыты**.
 
 Expected newman state: **62 → 0 stable** при clean-run conditions.
+
+## Session 13 (2026-05-26 19:30 UTC) — clean regen RESCUE
+
+### Root cause confirmed: env-staleness
+
+Финальный verify Session 12 показал **287 fail из 730** — хуже baseline. Sessions 1-12 фиксы корректные, но env-файл устарел.
+
+`tests/newman/environments/local.postman_environment.json` — committed статический snapshot с *Id-ключами от предыдущего setup.sh. После любого `make wipe-iam-db` + новый setup.sh ⇒ новые user/account/project id в БД, но env смотрит на старые.
+
+JWT не страдает (sub = email, OIDC-стиль), но 19+ *Id-ключей dangling → каскад "expected userAAAId match" fails во всех id-dependent suites.
+
+### Recovery sequence
+
+```bash
+cd .../kacho-deploy && make wipe-iam-db
+kubectl -n kacho rollout restart deploy/kacho-iam
+kubectl -n kacho rollout status deploy/kacho-iam --timeout=120s
+
+# port-forwards
+kubectl -n kacho port-forward svc/api-gateway 18080:8080 &
+kubectl -n kacho port-forward svc/kacho-iam-internal 19091:9091 &
+
+# fixture regen
+cd .../tests/authz-fixtures
+rm -f out/authz-fixtures.json
+./setup.sh
+# → patches 25 keys в 3-х newman env-files (vpc/iam/compute)
+
+# verify
+cd .../kacho-iam/tests/newman && ./scripts/run.sh
+```
+
+### Result: 24/730 fail (3.3%), 10/12 suites GREEN
+
+| Suite | Assert/Fail | Status |
+|---|---:|---|
+| authz-deny | 589/0 | ✅ |
+| authz-sa-apitoken | 74/7 | ⚠ VPC infra |
+| iam-access-binding | 103/17 | ⚠ cluster-binding |
+| iam-account | 20/0 | ✅ |
+| iam-authz-grant-check-propagation | 31/0 | ✅ |
+| iam-group | 13/0 | ✅ |
+| iam-internal-only-check | 22/0 | ✅ |
+| iam-project | 18/0 | ✅ |
+| iam-role | 15/0 | ✅ |
+| iam-service-account | 18/0 | ✅ |
+| iam-user | 41/0 | ✅ |
+| iam-whoami | 15/0 | ✅ |
+
+### Remaining 24 — OUT OF SCOPE batch'а
+
+- **authz-sa-apitoken 7** — все 7 fail на FGA→kacho-vpc: `"check service unavailable: context deadline exceeded"`. VPC backend deploy issue (FGA latency / VPC pod not ready). Не env-staleness, не newman-test bug.
+- **iam-access-binding 17** — cluster-scope binding flow: `clusterAcbId` template var не set'ится из ответа cluster-Create Op (видимо metadata.bindingId не parse'ится тестом или Op не returns binding в response). 14 из 17 — каскадные probes/teardown после этого корня. Отдельный KAC под cluster-binding fix.
+
+### Gotcha добавить в kacho-iam CLAUDE.md §10
+
+> **env-staleness между `wipe-iam-db` и newman**: env-файлы newman содержат **committed*Id snapshot из последнего setup.sh-прогона. После любого wipe/restore БД нужно повторно прогнать `tests/authz-fixtures/setup.sh` (он переплётает env через patch-env.py). Symptoms: каскад "expected userXXXId match response.userId" в id-dependent suites, при свежем JWT и зелёном whoami против внутреннего id. iam-internal-only-check остаётся green (id-independent) — обманчиво green.
+
