@@ -163,3 +163,35 @@ Remaining 9 are:
 Net stable on clean DB: **62 → 9 → 5** (92% reduction) after Session 4 lands.
 
 But test-runs from polluted state will show variance — full clean baseline requires per-run `make wipe-iam-db`.
+
+## Session 5 — confirmed final stable baseline (clean DB)
+
+After wipe-iam-db + reseed + bootstrap-admin grant + full newman:
+
+**62 → 7 failed (89% reduction)** — best stable state.
+
+| Suite | Failed |
+|---|---|
+| authz-deny | 3 |
+| authz-sa-apitoken | 0 |
+| iam-access-binding | 0 |
+| iam-account | 0 |
+| iam-authz-grant-check-propagation | 4 |
+| iam-group | 0 |
+| iam-internal-only-check | 0 |
+| iam-project | 0 |
+| iam-role | 0 |
+| iam-service-account | 0 |
+| iam-user | 0 |
+| iam-whoami | 0 |
+
+**Final remaining 7** (all categorized as separate KAC follow-ups):
+
+| # | Failure | Category | Root cause |
+|---|---|---|---|
+| 1 | INV sees account-A 200 (cache warm) | FGA model design | `viewer from project` cascade not defined → INV editor@project doesn't reach account viewer |
+| 2-3 | FAIL-CLOSED gateway 503 (×2) | env-specific | Tests require FGA fault-injection mode, not active in stand |
+| 4-5 | op completed / client_id (SAKey) | op-poll race | drainer/op-worker latency exceeds 10×250ms poll budget |
+| 6-7 | foreign-subject delete / delete-binding | env-var chain | Prev test case env-var stale, downstream DELETE hits revoked binding |
+
+**Recommend separate KAC** for each category — invite-flow FGA model decision, FAIL-CLOSED infra mode, op-worker tuning, test case env-var management.
