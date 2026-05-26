@@ -217,3 +217,28 @@ Remaining categories (all are KAC follow-up):
 - **1 INV cache-warm**: FGA model design (no viewer-from-project cascade up to account).
 
 Net: **62 → 7-9 stable** (88% reduction). Local stand validates the batch direction.
+
+## Session 7 commits — Hydra admin URL fix
+
+Two coordinated commits addressing SAKey op-poll race root cause:
+
+- **kacho-iam `023b30e`**: `fix(authn): support explicit HydraAdminURL override via config`
+  Adds `AuthNConfig.HydraAdminURL` field; `ResolveHydraAdminURL()` honors
+  explicit override before derive-from-issuer. Default registered in
+  defaults.go so viper AutomaticEnv binds
+  `KACHO_IAM_AUTHN__HYDRA_ADMIN_URL`.
+
+- **kacho-deploy `cb888a8`**: `chore(helm): set KACHO_IAM_AUTHN__HYDRA_ADMIN_URL to cluster-internal Service`
+  Sets env to `http://kacho-umbrella-hydra-admin:4445` for dev stand.
+  Without this, IssueSAKey hangs forever (public DNS not resolvable from pod).
+
+## Final batch summary (14 commits)
+
+- kacho-proto: 1 commit (FGA model)
+- kacho-iam: 8 commits (FGA emit + Get delegated + tests + User.List + Invite + Check path + probe shape + role-collision + HydraAdmin)
+- kacho-api-gateway: 2 commits (/iam/v1/me + catalog exempts)
+- kacho-deploy: 2 commits (openfga + hydra admin env)
+- kacho-workspace: docs (KAC vault trail Sessions 1-7)
+
+Local stand: kind apiserver overloaded после multiple rapid restarts — verify
+deferred. Code-level fix landed; will validate after cluster recovery / CI.
