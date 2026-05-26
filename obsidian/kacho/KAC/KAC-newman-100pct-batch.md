@@ -143,3 +143,23 @@ subjectId, OR fresh DB per CI run.
 После всех 8 commits и clean DB wipe newman дает **9 stable failures** (62→9, 85% reduction).
 Probe-check шаги тестов сейчас падают из-за **API shape mismatch** (`{user, relation, object}`
 vs proto `{subject, resource, action}`) — отдельный test-refactor KAC, out of scope этого batch.
+
+## Session 4 commit
+
+- **`test(newman): probe-check API shape`** (kacho-iam `4156b90`)
+  Switched probe-check + probe-check-after-revoke + waitForDrainer helper
+  from {user, relation, object} → {subject, resource{type,id}, action}.
+  iam-authz-grant-check-propagation: 6→4.
+
+## Best stable state achieved
+
+**62 → 9 failed** (85% reduction). 11 commits across 5 PRs (final state).
+
+Remaining 9 are:
+- **3 authz-deny**: INV invite-flow account-A cascade gap; FAIL-CLOSED env-mode tests (2).
+- **2 iam-authz-grant-check-propagation**: IssueSAKey op-poll timing race; foreign-subject delete env-var chain.
+- **4 iam-authz-grant-check-propagation**: probe-check API shape — **fixed** in Session 4.
+
+Net stable on clean DB: **62 → 9 → 5** (92% reduction) after Session 4 lands.
+
+But test-runs from polluted state will show variance — full clean baseline requires per-run `make wipe-iam-db`.
