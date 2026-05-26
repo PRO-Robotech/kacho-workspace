@@ -485,3 +485,24 @@ Both > 1h work, out-of-scope test-only batch (§13).
 
 Documented TDD-red status: tests verify pending product fix `task #10`. Acceptable per §13 with `# verifies <issue>` annotation pending GH issue creation.
 
+
+## Session 15 (2026-05-27 00:30 UTC) — UI side-effect rescue
+
+### Observed
+User: «поломали ui». `ui-57b6f89bdd-nzd4g` в CrashLoopBackOff (87 restarts) с:
+```
+[emerg] host not found in upstream "kacho-umbrella-kratos-public.kacho.svc.cluster.local"
+```
+
+### Root cause
+`deploy/default.conf.template` в kacho-ui использовал **eager hardcoded hostname** в upstream блоках kratos-public/hydra-public/kratos-ui. nginx парсит upstream при startup; во время rollout цикла (kacho-iam restart → api-gateway bounce → CoreDNS jitter) DNS вернул SERVFAIL → nginx не стартовал. Аналогичный блок для api-gateway уже использовал lazy-resolve `set $var; proxy_pass http://$var` — но 4 других upstream'а его не имели.
+
+### Fix
+PR `kacho-ui#64` (branch `KAC-batch-ui-nginx-fix-2026-05-26`):
+- 4 upstream блока переведены на `set $upstream "..."; proxy_pass http://$upstream`
+- Image: `docker.io/prorobotech/kacho-ui:KAC-199-cda8124`
+- Local stand: UI Running 1/1, /healthz=200, /=200, kratos-proxy отвечает
+
+### Vault delta
+- Создан KAC-batch trail в этом файле (UI fix не отдельный KAC — это side-effect newman rollout-цикла, batch-bug правило per memory feedback)
+
