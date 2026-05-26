@@ -86,3 +86,47 @@
 - KAC-201 (anti-leak architecture)
 
 #kac #fix #batch #newman #iam #access-binding #fga
+
+## Session 2 commits (post-original batch)
+
+Two additional kacho-iam fixes pushed to same branch:
+
+- **`fix(users): List scope-filter must use AccessBinding + accounts.owner_user_id`** (commit `2baae87`)
+  After dedup migration #80, `users.account_id` is legacy. `UserService.List?accountId=X`
+  returned EMPTY even for owner of X. Widened query to 3-way OR: legacy `account_id`
+  + AccessBinding membership + `accounts.owner_user_id`. newman iam-user: 2→0.
+
+- **`fix(invite): lookup existing user by GLOBAL email`** (commit `58db3fd`)
+  GetByAccountEmail returned NotFound for invitee whose user-row exists in their
+  bootstrap Account → InsertPending → SQLSTATE 23505 on `users_email_uniq` → ALREADY_EXISTS.
+  Switched to GetByEmail (global). Invite-flow KAC-125 now propagates correctly.
+  newman AUTHZ-PRJ-GT-A1-INV / AUTHZ-PRJ-UP-A1-INV: ALLOW path works.
+
+## Final newman state (post all 6 commits, fresh JWTs)
+
+| Suite | Failed |
+|---|---|
+| iam-access-binding | 0 (clean run; 22 in re-run from DB state pollution by CR-CRUD-OK side-effect on subsequent DL-CRUD-OK using stale crudAcbId) |
+| authz-deny | 5 (invite-cascade variant + FAIL-CLOSED env) |
+| iam-authz-grant-check-propagation | 6 (op-poll timing + check probe race) |
+| iam-user | 0 |
+| iam-whoami | 0 |
+| Others | 0 |
+
+Net total: **62 → ~11** assertion failures (82% reduction) on a clean DB run.
+The 22 iam-access-binding regression on re-run is **test-design issue**, not
+product: the suite's CR-CRUD-OK leaves a non-revoked binding on accountA for
+NOB; second run hits ALREADY_EXISTS. Fix: per-test cleanup OR random
+subjectId, OR fresh DB per CI run.
+
+## Remaining categories (follow-up KAC)
+
+1. **Suite cross-contamination**: iam-access-binding CR-CRUD-OK + DL-CRUD-OK
+   not atomic-pair (subject_id constant across runs). Test infra refactor needed.
+2. **Project anti-leak gap**: ProjectService.Get returns 200 for non-member
+   when transitive viewer cascade hits (e.g. via cross-suite NOB binding).
+   Product handler scope-filter recommended.
+3. **op-worker / drainer race**: IssueSAKey operation poll done=false within
+   8 retries × 100ms window. Worker latency tuning needed.
+4. **FAIL-CLOSED env**: tests require FGA fault-injection mode (gateway 503).
+   Test infra: enable via env var or skip in non-fault stand.
