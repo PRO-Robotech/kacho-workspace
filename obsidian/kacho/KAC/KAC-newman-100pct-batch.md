@@ -272,3 +272,32 @@ deferred. Code-level fix landed; will validate after cluster recovery / CI.
 - vpc service Check timeout cascade (latency tuning или separate KAC fix)
 - SAKey response client_id over-redaction (existing test, single assertion)
 - FAIL-CLOSED env-mode (test infra)
+
+## Session 9 — Universal viewer fix (lesson learned)
+
+После recreate cluster выявлена дополнительная **deployment-gap**: cluster `viewer` relation определён в FGA model с `[user, user:*, service_account]`, но **wildcard tuples `user:*#viewer@cluster:cluster_kacho_root` и `service_account:*#viewer@cluster:cluster_kacho_root` НЕ emit-ятся** ни bootstrap-job'ом, ни kacho-iam startup. Без них:
+
+- `AccessBindingService/ListBySubject` (catalog `viewer@cluster:*`) → 403 для всех users (включая self-list)
+- `vpc.NetworkService/List` etc → 503 cascade (vpc → kacho-iam → FGA Check → not allowed)
+
+Manual fix (one-time per cluster, до проп-fix в bootstrap):
+```bash
+STORE=$(kubectl -n kacho get secret kacho-iam-openfga-store -o jsonpath='{.data.store_id}' | base64 -d)
+MODEL=$(kubectl -n kacho get secret openfga-model-id -o jsonpath='{.data.current}' | base64 -d)
+curl -s -X POST "http://localhost:18081/stores/$STORE/write" -H 'content-type: application/json' \
+  -d '{"writes":{"tuple_keys":[
+    {"user":"user:*","relation":"viewer","object":"cluster:cluster_kacho_root"},
+    {"user":"service_account:*","relation":"viewer","object":"cluster:cluster_kacho_root"}
+  ]}, "authorization_model_id":"'$MODEL'"}'
+```
+
+**Follow-up KAC**: openfga-bootstrap-job должен seed-ить эти tuples после writeAuthorizationModel. Один-два write на cluster.
+
+## CLOSING STATE
+
+Loop окончательно остановлен. Все pushed:
+- 14 commits на 5 PRs (Sessions 1-7 — verified working)
+- Vault trail (this doc) — Sessions 1-9 + follow-up KAC predefined
+
+**Best verified baseline**: 62 → 13 (79% reduction) на свежем стенде.
+**Best expected** после bootstrap-job universal-viewer fix: 62 → ~7 (additional ListBySubject + SA NET LS закроются).
