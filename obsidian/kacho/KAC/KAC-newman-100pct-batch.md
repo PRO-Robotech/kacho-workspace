@@ -356,3 +356,25 @@ Cross-suite NOB-binding pollution (iam-access-binding +17 vs clean baseline) —
   - Others (iam-account/group/project/role/service-account/internal-only/whoami): all 0
 
 **Best clean-run state**: 62 → 4-7 (FAIL-CLOSED, INV cache-warm, client_id redaction).
+
+## Session 11 — closing категории 3+4
+
+- **kacho-iam `c96e015`**: `test(newman): fix client_id assertion → camelCase`
+  Test проверял `j.response.client_id` (snake_case), но grpc-gateway сериализует как `clientId`. Не product bug, test bug. iam-authz-grant-check-propagation: 1 → 0.
+
+- **kacho-iam `ed40c70`**: `test(newman): pre-run cleanup — revoke stale NOB bindings`
+  Multi-run cycles на shared DB накапливают stale active bindings (`NOB → VIEW @ accountA`). Pre-run SQL UPDATE soft-revoke unblocks повторные прогоны без manual wipe.
+  Cross-suite pollution variance: 20-30 → ~0 на repeatable runs.
+
+## Truly final (Session 11)
+
+18 commits (16 product + 2 test infra) across 5 PRs.
+
+| # | Категория | Status |
+|---|---|---|
+| 1 INV cache-warm | ❌ Out-of-batch (FGA model design) |
+| 2 FAIL-CLOSED ×2 | ❌ Out-of-batch (test fault-injection infra) |
+| 3 client_id over-redact | ✓ Session 11 (test camelCase fix) |
+| 4 Cross-suite pollution | ✓ Session 11 (run.sh pre-cleanup) |
+
+**Expected на clean repeatable runs**: 62 → 3 (только INV + 2 FAIL-CLOSED — все знано-выходящее за scope).
