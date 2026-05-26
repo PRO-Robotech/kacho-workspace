@@ -459,3 +459,29 @@ cd .../kacho-iam/tests/newman && ./scripts/run.sh
 
 > **env-staleness между `wipe-iam-db` и newman**: env-файлы newman содержат **committed*Id snapshot из последнего setup.sh-прогона. После любого wipe/restore БД нужно повторно прогнать `tests/authz-fixtures/setup.sh` (он переплётает env через patch-env.py). Symptoms: каскад "expected userXXXId match response.userId" в id-dependent suites, при свежем JWT и зелёном whoami против внутреннего id. iam-internal-only-check остаётся green (id-independent) — обманчиво green.
 
+
+## Session 14 (2026-05-26 19:55 UTC) — cluster-admin partial fixture seed
+
+### Attempted: SQL-seed BOOT cluster-admin in setup.sh
+
+Added `5b/10 SQL-seeding BOOT cluster-admin binding (RunBootstrapAdmin backdoor)` step in setup.sh — direct INSERT into `kacho_iam.access_bindings` granting BOOT `admin@cluster:cluster_kacho_root`. WHERE NOT EXISTS guard (no ON CONFLICT — no UNIQUE-без-WHERE matching all 5 cols, есть active_grant_uniq с WHERE revoked_at IS NULL).
+
+### Result: still 17 fail
+
+api-gateway authz path checks **FGA tuples**, not DB. DB-side binding exists but FGA tuple `cluster:cluster_kacho_root#system_admin@user:usr4xq01r2bxwc7ftchf` missing → 403 PermissionDenied.
+
+### Two paths to fully unblock IAM-ACB-CR-CLUSTER-OK
+
+1. **Product fix (task #10)**: wire `seed.RunBootstrapAdmin` call in `cmd/kacho-iam/serve.go` startup. Pre-condition `KACHO_IAM_BOOTSTRAP_ROOT_EMAIL=admin@prorobotech.ru` ConfigMap key. Worker creates both DB binding + FGA outbox tuple.
+2. **Fixture extension**: extend openfga-bootstrap-job (`H.2` step) OR setup.sh to write FGA tuple directly via openfga write API. Requires store_id/model_id known to setup.sh.
+
+Both > 1h work, out-of-scope test-only batch (§13).
+
+### Final state: 24 fail batch-stop
+
+- 10/12 suites GREEN
+- 14/17 iam-access-binding fail = cascade from missing cluster-admin FGA tuple (1 root cause)
+- 7 authz-sa-apitoken fail = VPC FGA timeout (separate infra issue)
+
+Documented TDD-red status: tests verify pending product fix `task #10`. Acceptable per §13 with `# verifies <issue>` annotation pending GH issue creation.
+
