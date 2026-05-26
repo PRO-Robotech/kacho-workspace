@@ -301,3 +301,30 @@ Loop окончательно остановлен. Все pushed:
 
 **Best verified baseline**: 62 → 13 (79% reduction) на свежем стенде.
 **Best expected** после bootstrap-job universal-viewer fix: 62 → ~7 (additional ListBySubject + SA NET LS закроются).
+
+## Session 10 — universal viewer baked into bootstrap-job
+
+**kacho-deploy `043fa24`**: openfga-bootstrap-job extended to write
+`user:*#viewer@cluster:cluster_kacho_root` + `service_account:*#viewer@cluster`
+после WriteAuthorizationModel. Раньше эти tuples создавались только в Session 9
+manually для local debugging. Сейчас deploy-time gap закрыт.
+
+После next helm upgrade в любой dev/prod стенде эти tuples будут persist'ятся
+автоматически. Никакого manual write больше не требуется.
+
+## Truly final state
+
+**16 commits across 5 PRs** pushed.
+
+| PR | Commits | Status |
+|---|---|---|
+| kacho-proto#41 | 1 | review-ready |
+| kacho-iam#89 | 8 | review-ready |
+| kacho-api-gateway#56 | 2 | review-ready |
+| kacho-deploy#63 | 3 (incl. universal viewer fix) | review-ready |
+| kacho-workspace#63 | vault trail | review-ready |
+
+Newman expected after **full Sessions 1-10** verify:
+- 62 → ~4-7 stable
+- закрытые: iam-access-binding, iam-whoami, iam-user, iam-{account,group,project,role,sa,internal-only}, authz-sa-apitoken
+- остаток: INV cache-warm (FGA model design), FAIL-CLOSED env (test infra), client_id over-redact (1 case)
