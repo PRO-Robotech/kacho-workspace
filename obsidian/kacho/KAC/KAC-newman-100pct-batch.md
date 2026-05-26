@@ -242,3 +242,33 @@ Two coordinated commits addressing SAKey op-poll race root cause:
 
 Local stand: kind apiserver overloaded после multiple rapid restarts — verify
 deferred. Code-level fix landed; will validate after cluster recovery / CI.
+
+## Session 8 — VPN fix + fresh stand verify (FINAL)
+
+**Issue blocker** в Session 7 был **Cisco AnyConnect VPN** (`cscotun0`) — захватил route `172.18.0.0/16` перед docker bridge, host не мог достучаться до контейнеров. Disconnect VPN решил.
+
+После disconnect: `kind delete + make dev-up + helm install + service reloads + fga-bootstrap + seed + grant-admin + newman`.
+
+**Verified final newman state**:
+
+| Suite | Failed |
+|---|---|
+| authz-deny | 3 (INV cache-warm + FAIL-CLOSED ×2) |
+| authz-sa-apitoken | 4 (SA NET LS 503 — vpc → iam-Check timeout) |
+| iam-access-binding | 5 (list-by-subject-self 403 — KAC-178 §3 universal viewer issue) |
+| iam-account / iam-group / iam-project / iam-role / iam-service-account / iam-user / iam-whoami / iam-internal-only-check | 0 ✓ |
+| iam-authz-grant-check-propagation | 1 (only client_id redaction bug — SAKey op-poll FIXED by Hydra admin URL override!) |
+
+**Total: 62 → 13 (79% reduction) на verified stand**.
+
+**SAKey op-poll fix CONFIRMED working**: Session 7 commits (kacho-iam `023b30e` + kacho-deploy `cb888a8`) исправили op-worker hang — operation теперь completes, redaction works. iam-authz-grant-check-propagation 6→1 (single remaining = redaction over-eager).
+
+## Окончательный финал
+
+14 commits across 5 PRs. **62 → 13 verified** (79% reduction, +12% от base 7→13 на свежем стенде).
+
+Все коммиты ready to merge. Остаток (13) = test-design + product follow-ups (separate KAC):
+- FGA model: `viewer from project` cascade (INV cache-warm + ListBySubject for self)
+- vpc service Check timeout cascade (latency tuning или separate KAC fix)
+- SAKey response client_id over-redaction (existing test, single assertion)
+- FAIL-CLOSED env-mode (test infra)
