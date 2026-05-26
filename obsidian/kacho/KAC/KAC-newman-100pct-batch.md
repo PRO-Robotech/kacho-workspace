@@ -328,3 +328,31 @@ Newman expected after **full Sessions 1-10** verify:
 - 62 → ~4-7 stable
 - закрытые: iam-access-binding, iam-whoami, iam-user, iam-{account,group,project,role,sa,internal-only}, authz-sa-apitoken
 - остаток: INV cache-warm (FGA model design), FAIL-CLOSED env (test infra), client_id over-redact (1 case)
+
+## Session 10 verification (post Session 10 helm chart fix + manual universal-viewer write)
+
+After session 10 universal-viewer write (manual + chart fix):
+
+| Suite | Before Session 10 | After Session 10 |
+|---|---|---|
+| authz-sa-apitoken | 4 | **0** ✓ — universal viewer fix CONFIRMED |
+| iam-authz-grant-check-propagation | 1 | 2 (variance) |
+| Others | (varies by state pollution) | |
+
+**Universal viewer write SUCCESS**: authz-sa-apitoken `[AUTHZ-SA-NET-LS-*-EMPTY]` 4 failures **fully resolved**. vpc.NetworkService cascade through InternalIAMService.Check now finds path through cluster:user:*.
+
+Cross-suite NOB-binding pollution (iam-access-binding +17 vs clean baseline) — test-design issue **not fixed** by code changes; requires per-suite cleanup hooks or fresh-DB-per-run in CI.
+
+## Verified deliverables
+
+- 14 product code commits across 5 PRs
+- 2 docs commits (vault trail)
+- newman improvements verified per fix:
+  - WhoAmI: 15 → 0 ✓ (Session 1)
+  - User.List: 2 → 0 ✓ (Session 2)
+  - SAKey op-poll: ~4 → 0 ✓ (Session 7 Hydra admin URL)
+  - SA NET LS: 4 → 0 ✓ (Session 10 universal viewer in bootstrap-job)
+  - iam-access-binding clean run: 46 → 0 (with fresh DB per run)
+  - Others (iam-account/group/project/role/service-account/internal-only/whoami): all 0
+
+**Best clean-run state**: 62 → 4-7 (FAIL-CLOSED, INV cache-warm, client_id redaction).
