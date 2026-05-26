@@ -195,3 +195,25 @@ After wipe-iam-db + reseed + bootstrap-admin grant + full newman:
 | 6-7 | foreign-subject delete / delete-binding | env-var chain | Prev test case env-var stale, downstream DELETE hits revoked binding |
 
 **Recommend separate KAC** for each category — invite-flow FGA model decision, FAIL-CLOSED infra mode, op-worker tuning, test case env-var management.
+
+## Session 6 commit
+
+- **`test(newman): role-collision avoidance + bump op-poll budget`** (kacho-iam `b086f7d`)
+  - BIND-DELETE-BY-ADMIN-ALLOW: ROLE_VIEW → ROLE_ADMIN
+  - AB-DELETE-CHECK-INVISIBLE seed-binding: ROLE_VIEW → role 'edit'
+  - All op-poll counters: 8/10 → 30 (bumps budget from ~2s to ~7.5s)
+  - **iam-authz-grant-check-propagation: 4 → 2** (foreign-subject DELETE chain fixed)
+
+## Final-final state
+
+12 commits across 5 PRs, 7 → 11 cross-suite (NOB binding pollution from
+iam-authz-grant-check-propagation suite contaminates state for next-run authz-deny;
+single-run isolation gives ~7-9 stable failures).
+
+Remaining categories (all are KAC follow-up):
+- **2 SAKey op-poll**: operation done=false even at 30 retries — op-worker latency / not draining (product issue).
+- **3 authz-deny (NOB sees PRJ/GRP)**: cross-suite state contamination (test infra: per-suite cleanup or fresh-DB).
+- **2 FAIL-CLOSED env**: fault-injection mode required.
+- **1 INV cache-warm**: FGA model design (no viewer-from-project cascade up to account).
+
+Net: **62 → 7-9 stable** (88% reduction). Local stand validates the batch direction.
