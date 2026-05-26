@@ -130,3 +130,16 @@ subjectId, OR fresh DB per CI run.
    8 retries × 100ms window. Worker latency tuning needed.
 4. **FAIL-CLOSED env**: tests require FGA fault-injection mode (gateway 503).
    Test infra: enable via env var or skip in non-fault stand.
+
+## Session 3 commits
+
+- **`test(newman): fix Check probe path /iam/v1/check → /iam/v1/authorize:check`** (kacho-iam `c4d2d27`)
+  Probe-check шаги слали POST `/iam/v1/check`, но proto annotation = `/iam/v1/authorize:check`
+  (suffix-action verb). Catalog возвращал «no entry for method» → `response.allowed=undefined`.
+- **`fix(authz): make AuthorizeService.Check catalog <exempt>`** (kacho-api-gateway `7439f6e`)
+  Catalog требовал viewer@project:<extracted-from-subject> — это gate-on-the-gate.
+  Сейчас exempt; handler сам делает RequireAuthenticated (legitimate self-introspection).
+
+После всех 8 commits и clean DB wipe newman дает **9 stable failures** (62→9, 85% reduction).
+Probe-check шаги тестов сейчас падают из-за **API shape mismatch** (`{user, relation, object}`
+vs proto `{subject, resource, action}`) — отдельный test-refactor KAC, out of scope этого batch.
