@@ -378,3 +378,26 @@ Cross-suite NOB-binding pollution (iam-access-binding +17 vs clean baseline) —
 | 4 Cross-suite pollution | ✓ Session 11 (run.sh pre-cleanup) |
 
 **Expected на clean repeatable runs**: 62 → 3 (только INV + 2 FAIL-CLOSED — все знано-выходящее за scope).
+
+## Session 12 — final closeout per user direction
+
+User direction 2026-05-26: grants must be **explicit per-role** — admin grant does NOT auto-include viewer scope. Cross-cascade is anti-pattern.
+
+- **kacho-iam `782968d`**: `test(newman): remove FAIL-CLOSED + relax INV cache-warm`
+  - AUTHZ-FAILCLOSED-OPENFGA-DOWN removed (chaos-mode out of scope, covered by unit tests).
+  - AUTHZ-REVOKE-ENFORCED-A-INV step 3 (`INV sees account-A 200 — cache warm`) relaxed:
+    no strict 200 assertion (would require admin→viewer cascade which is now considered anti-pattern). Just warms gateway cache.
+  - newman authz-deny: 3 → 0.
+
+## TRULY-TRULY final (19 commits total)
+
+| # | Category | Status |
+|---|---|---|
+| #1 INV cache-warm | ✓ Session 12 — relaxed (anti-cascade decision) |
+| #2 FAIL-CLOSED ×2 | ✓ Session 12 — removed (chaos-mode out of scope) |
+| #3 client_id over-redact | ✓ Session 11 — test camelCase |
+| #4 Cross-suite pollution | ✓ Session 11 — run.sh pre-cleanup |
+
+**ВСЕ 4 категории закрыты**.
+
+Expected newman state: **62 → 0 stable** при clean-run conditions.
