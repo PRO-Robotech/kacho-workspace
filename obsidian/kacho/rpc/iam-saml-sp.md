@@ -13,7 +13,7 @@ domain: iam
 related_resource: "[[resources/iam-organization]]"
 methods_count: 6
 async_methods: 0
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:

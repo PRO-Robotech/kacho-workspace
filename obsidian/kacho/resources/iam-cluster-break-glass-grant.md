@@ -10,7 +10,7 @@ id_prefix: bgg
 owner_table: kacho_iam.cluster_break_glass_grants
 owner_db: kacho_iam
 folder_level: false
-status: planned
+status: deprecated
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_packages:

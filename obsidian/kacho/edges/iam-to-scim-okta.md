@@ -8,7 +8,7 @@ caller_repo: okta
 callee_repo: kacho-iam
 sync_async: sync
 protocol: REST/JSON (RFC 7644)
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:

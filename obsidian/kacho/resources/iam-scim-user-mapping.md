@@ -9,7 +9,7 @@ id_prefix: scim
 owner_table: kacho_iam.scim_user_mappings
 owner_db: kacho_iam
 folder_level: false
-status: planned
+status: deprecated
 related_rpc:
   - "[[rpc/iam-organization-service]]"
 related_packages:

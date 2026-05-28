@@ -8,7 +8,7 @@ caller_repo: kacho-iam
 callee_repo: boxyhq-jackson
 sync_async: sync
 protocol: REST/JSON + browser-redirect XML
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:

@@ -21,6 +21,8 @@ related_tickets:
   - "[[KAC-112]]"
   - "[[KAC-108]]"
   - "[[KAC-127]]"
+  - "[[KAC-214]]"
+  - "[[KAC-217]]"
 tags:
   - resource
   - kacho-iam
@@ -46,6 +48,7 @@ tags:
 | `resource_id` | TEXT | **soft-ref** — cross-DB (запрет #8) | opaque id (любой prefix) |
 | `status` | TEXT | CHECK enum (KAC-127) | `PENDING` (initial) / `ACTIVE` / `REVOKED` |
 | `condition_id` | TEXT NULL | FK → access_binding_conditions(id) RESTRICT (KAC-127) | 1:1 overlay condition |
+| `scope` | SMALLINT NOT NULL | CHECK `scope IN (1,2,3)` (KAC-216 migration 0005) | RBAC v2 anchor tier — 1=CLUSTER / 2=ACCOUNT / 3=PROJECT |
 | `expires_at` | TIMESTAMPTZ NULL | CHECK `IS NULL OR > created_at` (KAC-127) | TTL — JIT-bindings expire |
 | `granted_by_user_id` | TEXT | length <=64 (KAC-127) | audit — кто выдал |
 | `revoked_at` | TIMESTAMPTZ NULL | (KAC-127) | set когда status → REVOKED |
@@ -94,8 +97,23 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 - Удаление User/SA/Group **не cascades** в AccessBinding (полиморфно, без FK) — оператор должен почистить через AccessReview либо ждать Phase 3 cascade-cleanup через OpenFGA.
 - Phase 1 НЕ читает / НЕ enforce'ит binding'и в interceptor-ах — это Phase 3 (KAC-108). На E0 любой запрос проходит без auth (`principal=system`).
 
+## RBAC v2 (KAC-214 / KAC-216 / KAC-217)
+
+- `scope` derived from `resource_type` at INSERT via the
+  `access_bindings_scope_default_trg` BEFORE INSERT trigger (migration 0005)
+  if the writer omits it. Explicit values rejected when they contradict
+  `(resource_type, resource_id)` — domain `Scope.ValidateAgainst` enforces
+  CLUSTER ⇒ ('cluster','cluster_kacho_root'); ACCOUNT ⇒ ('account', starts
+  'acc'); PROJECT ⇒ ('project', starts 'prj').
+- `roles.permissions` JSONB strings promoted to strict 4-segment
+  `module.resource.resourceName.verb` (validator `iam_permissions_valid()`).
+  3-segment legacy entries are auto-promoted to `M.R.*.V` by migration 0005.
+- fga_outbox emission shifted from single tier-tuple to the §3.5 matrix —
+  wildcard resourceName → tier tuple at the scope anchor; concrete
+  resourceName → direct per-object tuple at `fga_type(M,R):<name>`.
+
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]]
 
 #resource #kacho-iam #iam

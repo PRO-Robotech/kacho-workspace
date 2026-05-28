@@ -36,7 +36,7 @@ tags:
 |---|---|
 | Check | single-tuple boolean: `(user, relation, object) → allowed=bool`. SLO p95 ≤20ms (Phase 3 DoD). |
 | BatchCheck | до 100 tuples в одном RPC (api-gateway batches per-request). Returns `[]CheckResult`. |
-| ListObjects | "which `object_type:*` does `user` have `relation` to?" Возвращает strict-permission-ID set (Phase 4 List filtering). p95 ≤100ms. |
+| ListObjects | "which `object_type:*` does `user` have `relation` to?" Возвращает strict-permission-ID set. Since KAC-215 (RBAC v2 / W2) response carries explicit `bool wildcard_grant` field — when true the caller MUST skip the WHERE-IN filter and return all rows; `resource_ids` empty in that case. p95 ≤100ms. |
 | ListSubjects | "which users have `relation` to `object`?" — admin/UI permission diff. |
 | ExpandRelations | Zanzibar-tree expand для debug/UI — рекурсивно разворачивает usersets. |
 
