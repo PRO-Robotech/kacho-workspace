@@ -2,7 +2,7 @@
 
 **Tracking**: [[KAC-215]] (parent: [[KAC-214]])
 **Repo**: `kacho-proto`
-**Design**: `docs/superpowers/specs/2026-05-28-rbac-redesign-and-iam-cleanup-design.md`
+**Design**: `docs/superpowers/specs/2026-05-28-rbac-redesign-and-iam-cleanup-design.md` §3.2 (Scope), §3.3 (list-filter contract / `wildcard_grant`), §3.6 (removal scope), §4 (component map)
 **Plan**: `docs/superpowers/plans/2026-05-28-rbac-redesign-and-iam-cleanup-plan.md` Wave 2
 **Status**: DRAFT — awaiting acceptance-reviewer
 
@@ -86,5 +86,6 @@
 - [ ] Branch `KAC-215-rbac-v2-proto` exists; commits per Plan §Wave 2 tasks 2.1..2.4.
 - [ ] All scenarios S2.1..S2.7 verified manually.
 - [ ] PR `PRO-Robotech/kacho-proto#<N>` open with body listing each scenario + the buf-breaking expected output (intentional deletions).
+- [ ] PR body shows the RED→GREEN baseline evidence required by workspace CLAUDE.md §«Запреты» #12: clean `buf breaking --against '.git#branch=main'` BEFORE any change on the branch, then the expected intentional-deletions output AFTER all changes.
 - [ ] PR URL added to [[KAC-215]] frontmatter `prs:`.
 - [ ] [[KAC-215]] → `In Progress` in YouTrack at PR-open; → `Test` when PR is review-ready; → `Done` after merge.
