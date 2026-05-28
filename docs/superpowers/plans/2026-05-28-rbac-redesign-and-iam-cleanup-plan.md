@@ -29,8 +29,8 @@ Reference §4 of the design doc. The matrix below pins exact paths used by the t
 - **Regen**: `gen/go/kacho/cloud/iam/v1/**` via `make gen`.
 
 ### kacho-iam (`project/kacho-iam/`)
-- **Create migration**: `internal/migrations/0025_rbac_v2_grammar_and_scope.sql`.
-- **Create migration**: `internal/migrations/0026_drop_scim_saml_break_glass.sql`.
+- **Create migration**: `internal/migrations/0005_rbac_v2_grammar_and_scope.sql`.
+- **Create migration**: `internal/migrations/0006_drop_scim_saml_break_glass.sql`.
 - **Create**: `internal/authzmap/fga_types.go` — `(module,resource) → fga_object_type` table.
 - **Rewrite**: `internal/authzmap/permissions_to_relations.go` — 4-segment grammar parser; per-resourceName direct-tuple emission.
 - **Rewrite**: `internal/service/fga_tuple_writer.go` — emit per §3.5 of design.
@@ -226,14 +226,14 @@ In `message ListObjectsResponse`:
 
 Branch: `KAC-<W3>-rbac-v2-migrations` from `kacho-iam/main`, with `replace ../kacho-proto` pointing at the W2 branch.
 
-### Task 3.1: Migration `0025_rbac_v2_grammar_and_scope.sql` — backup tables
+### Task 3.1: Migration `0005_rbac_v2_grammar_and_scope.sql` — backup tables
 
 **Files:**
-- Create: `internal/migrations/0025_rbac_v2_grammar_and_scope.sql`
+- Create: `internal/migrations/0005_rbac_v2_grammar_and_scope.sql`
 
 - [ ] **Step 1: Write integration test FIRST**
 
-Create `internal/repo/kacho/pg/migration_0025_integration_test.go`:
+Create `internal/repo/kacho/pg/migration_0005_integration_test.go`:
 
 ```go
 package pg
@@ -246,9 +246,9 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-func TestMigration0025_AddsScopeColumnAndPromotes3SegToWildcard(t *testing.T) {
+func TestMigration0005_AddsScopeColumnAndPromotes3SegToWildcard(t *testing.T) {
 	ctx := context.Background()
-	pool := startPostgresUpTo(t, "0024")
+	pool := startPostgresUpTo(t, "0004")
 	// seed: one 3-segment role + one access_binding per scope-class
 	mustExec(t, pool, `INSERT INTO kacho_iam.roles(id, name, is_system, permissions) VALUES
 	  ('rol00000000000000test01', 'test.viewer', false, '["compute.instance.read","vpc.network.create"]'::jsonb);`)
@@ -257,7 +257,7 @@ func TestMigration0025_AddsScopeColumnAndPromotes3SegToWildcard(t *testing.T) {
 	  ('acb00000000000000acc01','user','usr00000000000000test1','rol00000000000000test01','account','acc00000000000000test1','ACTIVE','usr00000000000000test1');`)
 
 	// Run migration 0025.
-	migrations.UpTo(t, pool, "0025")
+	migrations.UpTo(t, pool, "0005")
 
 	// Assertions: 3-segment permissions promoted to 4-segment.
 	var perms []string
@@ -275,14 +275,14 @@ func TestMigration0025_AddsScopeColumnAndPromotes3SegToWildcard(t *testing.T) {
 - [ ] **Step 2: Run test — expect compile or migration-not-found failure**
 
 ```bash
-go test ./internal/repo/kacho/pg/ -run TestMigration0025 -v
+go test ./internal/repo/kacho/pg/ -run TestMigration0005 -v
 ```
-Expected: FAIL (migration `0025` doesn't exist).
+Expected: FAIL (migration `0005` doesn't exist).
 
 - [ ] **Step 3: Write the migration**
 
 ```sql
--- 0025_rbac_v2_grammar_and_scope.sql
+-- 0005_rbac_v2_grammar_and_scope.sql
 BEGIN;
 
 -- 1. Backup tables.
@@ -351,7 +351,7 @@ CREATE INDEX IF NOT EXISTS access_bindings_scope_idx
 COMMIT;
 ```
 
-- [ ] **Step 4: Register migration in `internal/migrations/migrations.go`** (the `embed.FS` typically picks up `*.sql` automatically — verify by reading existing migration registration; if there's an explicit list, append `0025_rbac_v2_grammar_and_scope.sql`).
+- [ ] **Step 4: Register migration in `internal/migrations/migrations.go`** (the `embed.FS` typically picks up `*.sql` automatically — verify by reading existing migration registration; if there's an explicit list, append `0005_rbac_v2_grammar_and_scope.sql`).
 
 - [ ] **Step 5: Re-run test** — expect PASS.
 
@@ -362,7 +362,7 @@ COMMIT;
 - [ ] **Step 1: Add test**
 
 ```go
-func TestMigration0025_RejectsMalformedPermissionsOnInsert(t *testing.T) {
+func TestMigration0005_RejectsMalformedPermissionsOnInsert(t *testing.T) {
 	pool := startPostgresUpTo(t, "0025")
 	_, err := pool.Exec(ctx, `INSERT INTO kacho_iam.roles(id, name, is_system, permissions)
 	  VALUES ('rol00000000000000bad01','bad',false,'["compute.instance.bad..verb"]'::jsonb)`)
@@ -375,12 +375,12 @@ func TestMigration0025_RejectsMalformedPermissionsOnInsert(t *testing.T) {
 
 - [ ] **Step 3: Commit** — `test(iam/migrations): assert v2 validator rejects malformed 4-segment perms (KAC-<W3>)`
 
-### Task 3.3: Migration `0026_drop_scim_saml_break_glass.sql`
+### Task 3.3: Migration `0006_drop_scim_saml_break_glass.sql`
 
 - [ ] **Step 1: Write integration test asserting tables removed**
 
 ```go
-func TestMigration0026_DropsScimSamlBreakGlassTables(t *testing.T) {
+func TestMigration0006_DropsScimSamlBreakGlassTables(t *testing.T) {
 	pool := startPostgresUpTo(t, "0026")
 	tables := []string{"scim_user_mappings","scim_gdpr_reviews","organization_saml_configs","cluster_break_glass_grants"}
 	for _, tbl := range tables {
@@ -396,7 +396,7 @@ func TestMigration0026_DropsScimSamlBreakGlassTables(t *testing.T) {
 - [ ] **Step 3: Write migration**
 
 ```sql
--- 0026_drop_scim_saml_break_glass.sql
+-- 0006_drop_scim_saml_break_glass.sql
 BEGIN;
 DROP TABLE IF EXISTS kacho_iam.scim_user_mappings CASCADE;
 DROP TABLE IF EXISTS kacho_iam.scim_gdpr_reviews CASCADE;

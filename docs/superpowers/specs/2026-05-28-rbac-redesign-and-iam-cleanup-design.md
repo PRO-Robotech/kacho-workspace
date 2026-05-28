@@ -169,7 +169,7 @@ Removed in one coordinated drop (single workspace-wide PR-set):
 - STRIP from `cmd/kacho-iam/serve.go`, `wiring.go`, `governance_wiring.go`, `grpc_register.go`, `listeners.go`: SCIM listener, SAML SP routes, break-glass wiring, jackson client wiring.
 
 **Migrations (kacho-iam):**
-- ADD migration `0025_drop_scim_saml_break_glass.sql` — DROP TABLE `scim_user_mappings`, `scim_gdpr_reviews`, `organization_saml_configs`, `cluster_break_glass_grants`. (Existing applied migrations stay per workspace rule #5.)
+- ADD migration `0006_drop_scim_saml_break_glass.sql` — DROP TABLE `scim_user_mappings`, `scim_gdpr_reviews`, `organization_saml_configs`, `cluster_break_glass_grants`. (Existing applied migrations stay per workspace rule #5.)
 
 **kacho-api-gateway:**
 - Remove SCIM-callback REST routes (e.g. `/scim/v2/Users`, `/scim/v2/Groups`).
@@ -189,7 +189,7 @@ Removed in one coordinated drop (single workspace-wide PR-set):
 
 ### 3.7 Data migration plan
 
-Single new IAM migration `0025_rbac_v2_grammar_and_scope.sql` (separately from the SCIM/SAML/BG drop) executes in this order:
+Single new IAM migration `0005_rbac_v2_grammar_and_scope.sql` (separately from the SCIM/SAML/BG drop) executes in this order:
 
 1. **Backup** `roles.permissions` and `access_bindings` snapshots to `_pre_rbac_v2` audit tables.
 2. **Promote permissions to 4-segment**:
@@ -226,7 +226,7 @@ Single new IAM migration `0025_rbac_v2_grammar_and_scope.sql` (separately from t
 5. **Validate**: re-CHECK roles.permissions against the new validator; any row failing → audit-log + abort migration (no silent data loss).
 6. **Rebuild fga_outbox**: enqueue re-emit jobs for every active AccessBinding so the FGA store gets the new tuple shape. The drainer is idempotent (UNIQUE on tuple), so re-enqueue is safe.
 
-`0026_drop_scim_saml_break_glass.sql` runs separately to drop the dead tables.
+`0006_drop_scim_saml_break_glass.sql` runs separately to drop the dead tables.
 
 ### 3.8 Test strategy
 
@@ -268,8 +268,8 @@ Strict TDD per workspace §12 + memory:
 | `kacho-proto/proto/kacho/cloud/iam/v1/cluster_break_glass_grant.proto` | DELETE | breaking — coordinated drop |
 | `kacho-proto/proto/kacho/cloud/iam/v1/scim_user_mapping.proto` | DELETE | breaking — coordinated drop |
 | `kacho-proto/proto/kacho/cloud/iam/v1/fga_model.fga` | edit: drop `emergency_admin`, `break_glass_window` | breaking |
-| `kacho-iam/internal/migrations/0025_rbac_v2_grammar_and_scope.sql` | new | 4-seg promote + scope add |
-| `kacho-iam/internal/migrations/0026_drop_scim_saml_break_glass.sql` | new | DROP TABLEs |
+| `kacho-iam/internal/migrations/0005_rbac_v2_grammar_and_scope.sql` | new | 4-seg promote + scope add |
+| `kacho-iam/internal/migrations/0006_drop_scim_saml_break_glass.sql` | new | DROP TABLEs |
 | `kacho-iam/internal/authzmap/permissions_to_relations.go` | rewrite | 4-segment grammar |
 | `kacho-iam/internal/authzmap/fga_types.go` | new | (module,resource)→fga_type table |
 | `kacho-iam/internal/service/fga_tuple_writer.go` | rewrite emit-logic | per §3.5 |
@@ -298,7 +298,7 @@ Waves run in topological order (see workspace CLAUDE.md §«Кросс-репо 
 
 1. **W1 — workspace docs**: this design doc + acceptance docs per wave + YouTrack epic + per-wave KAC subtasks. Vault notes.
 2. **W2 — kacho-proto**: add `Scope` enum + `wildcard_grant`, DELETE BG/SCIM/SAML protos, edit `fga_model.fga`. Regen go-stubs. `buf breaking` allowed (coordinated).
-3. **W3 — kacho-iam migrations**: `0025_rbac_v2_grammar_and_scope.sql`, `0026_drop_scim_saml_break_glass.sql`. Migration integration tests.
+3. **W3 — kacho-iam migrations**: `0005_rbac_v2_grammar_and_scope.sql`, `0006_drop_scim_saml_break_glass.sql`. Migration integration tests.
 4. **W4 — kacho-iam code**: authzmap rewrite, fga_tuple_writer rewrite, AccessBinding scope plumbing, permission-catalog regen, SCIM/SAML/BG package deletion. All wired via integration tests.
 5. **W5 — kacho-api-gateway**: route removals, catalog regen, allowlist update.
 6. **W6 — kacho-vpc + kacho-compute**: audit + wire `listauthz` in every List handler; tests.
