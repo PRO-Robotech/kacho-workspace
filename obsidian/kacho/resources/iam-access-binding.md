@@ -111,9 +111,18 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 - fga_outbox emission shifted from single tier-tuple to the §3.5 matrix —
   wildcard resourceName → tier tuple at the scope anchor; concrete
   resourceName → direct per-object tuple at `fga_type(M,R):<name>`.
+- **UI consumer (KAC-224)**: kacho-ui `AccessBindingsPage` показывает `scope`
+  read-only колонкой (output-only, не отправляется в Create). UI-селектор
+  `resource_type` ограничен `account`/`project`/`cluster` — legacy
+  resource-manager типы `folder`/`organization`/`cloud` удалены (backend их
+  reject'ит `INVALID_ARGUMENT "Illegal argument resource_type"`).
+- **Backend gotcha (kacho-iam#97)**: domain Go `permissionElementRe` остался
+  3-сегментным, тогда как DB CHECK `iam_permissions_valid` (mig0005) — строго
+  4-сегментный → create custom Role сломан на RPC-пути (4-seg рубит domain,
+  3-seg рубит DB). Open finding; UI RolesPage regex ждёт backend-фикса.
 
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]] [[../KAC/KAC-224]]
 
 #resource #kacho-iam #iam
