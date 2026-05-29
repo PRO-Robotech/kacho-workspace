@@ -38,32 +38,32 @@ tags:
 |---|---|---|---|
 | `id` | TEXT PK | `ids.IsValid("rol")` | |
 | `cluster_id` | TEXT NULL | FK → clusters(id) RESTRICT | set ⇔ `is_system=true` (system-role) |
-| `organization_id` | TEXT NULL | FK → organizations(id) RESTRICT | org-scoped custom (KAC-127) |
-| `account_id` | TEXT NULL | FK → accounts(id) RESTRICT | account-scoped custom (legacy KAC-105) |
-| `project_id` | TEXT NULL | FK → projects(id) RESTRICT | project-scoped custom (KAC-127) |
+| `account_id` | TEXT NULL | FK → accounts(id) RESTRICT | account-scoped custom |
+| `project_id` | TEXT NULL | FK → projects(id) RESTRICT | project-scoped custom |
+| ~~`organization_id`~~ | — | — | **removed in KAC-223** (migration 0008 — Organization domain dropped) |
 | `name` | TEXT | regex (см. ниже) | UNIQUE per scope (см. partial UNIQUEs) |
 | `description` | TEXT | <=256 chars | |
 | `permissions` | JSONB | `iam_permissions_valid` v2 (regex per item + cardinality 1-256) | array of strings `<module>.<resource>.<resourceName>.<verb>` — strict 4-segment grammar since KAC-216 (migration 0005 promoted 3-seg legacy to `M.R.*.V`) |
 | `is_system` | BOOL | | seed-only, immutable |
 | `created_at` | TIMESTAMPTZ | server-set | |
 
-## Multi-scope XOR (KAC-127 acceptance §2.3)
+## Multi-scope XOR (CHECK `roles_scope_xor`)
 
-Ровно **один** из 4 scope-полей non-NULL, по формуле (CHECK `roles_scope_xor` в migration 0011):
+Ровно **один** scope-поле non-NULL. Org-scope удалён в KAC-223 (migration 0008
+переписала `roles_scope_xor` без org-ветки):
 
-| `is_system` | `cluster_id` | `organization_id` | `account_id` | `project_id` |
-|---|---|---|---|---|
-| `true` | **set** | NULL | NULL | NULL |
-| `false` | NULL | **set** | NULL | NULL |
-| `false` | NULL | NULL | **set** | NULL |
-| `false` | NULL | NULL | NULL | **set** |
+| `is_system` | `cluster_id` | `account_id` | `project_id` |
+|---|---|---|---|
+| `true` | **set** | NULL | NULL |
+| `false` | NULL | **set** | NULL |
+| `false` | NULL | NULL | **set** |
 
 `domain.Role.Validate` (`role.go`) дублирует CHECK для дружелюбных ошибок до БД.
 
 ## Constraints / indexes (KAC-127)
 
 - `roles_pkey` PRIMARY KEY (id)
-- 4× FK на (clusters, organizations, accounts, projects) — все RESTRICT
+- 3× FK на (clusters, accounts, projects) — все RESTRICT (organizations FK dropped, KAC-223)
 - `roles_scope_xor` **CHECK** — multi-scope формула выше
 - `roles_system_unique` partial UNIQUE (`cluster_id`, `name`) WHERE `is_system=true`
 - `roles_org_custom_unique` partial UNIQUE (`organization_id`, `name`) WHERE `organization_id IS NOT NULL`
