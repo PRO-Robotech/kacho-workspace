@@ -387,6 +387,41 @@ ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 # INV — owner-of-B (his home) — admin in account-B. Grantor = AAB (owner of B).
 ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
+# 5b) BOOT — cluster-admin via SQL backdoor (fixture-only).
+#
+# AccessBindingService.Create requires the caller to already hold `system_admin`
+# on the cluster scope (CLAUDE.md §«Запреты» #10 — atomic CAS). Bootstrap
+# (the very first cluster-admin) is therefore chicken-and-egg via the public
+# API; the production path is `seed.RunBootstrapAdmin` which is NOT yet wired
+# from `cmd/kacho-iam/serve.go` (task #10 in batch backlog — auto-call
+# RunBootstrapAdmin on kacho-iam startup).
+#
+# Until that product fix lands, the IAM-ACB-CR-CLUSTER-OK newman case (which
+# exercises `Create cluster-scope AccessBinding as bootstrap admin`) fails 17×
+# because BOOT lacks `system_admin@cluster_kacho_root`. We grant it here via
+# direct INSERT — same as the cluster_admin_grant_backfill_integration_test.go
+# pattern. This is fixture-side (setup.sh is not product code).
+log "5b/10 SQL-seeding BOOT cluster-admin binding (RunBootstrapAdmin backdoor)"
+PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+NS="${SETUP_NS:-kacho}"
+PG_PW=$(kubectl -n "$NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  CLUSTER_ACB_ID="acbboot$(date +%s | sha256sum | head -c 13)"
+  kubectl -n "$NS" exec "$PG_POD" -- env PGPASSWORD="$PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.access_bindings
+      (id, subject_type, subject_id, role_id, resource_type, resource_id, created_at, granted_by_user_id)
+    SELECT '$CLUSTER_ACB_ID', 'user', '$USER_BOOT', '$ROLE_ADMIN', 'cluster', 'cluster_kacho_root', now(), '$USER_BOOT'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM kacho_iam.access_bindings
+       WHERE subject_id='$USER_BOOT' AND subject_type='user' AND role_id='$ROLE_ADMIN'
+         AND resource_type='cluster' AND resource_id='cluster_kacho_root' AND revoked_at IS NULL
+    );
+  " >/dev/null 2>&1 || log "    WARN: SQL seed cluster-admin failed (idempotent or schema mismatch)"
+  log "    BOOT($USER_BOOT) → admin@cluster:cluster_kacho_root (acb=$CLUSTER_ACB_ID, SQL-seed)"
+else
+  log "    WARN: skipping cluster-admin SQL-seed (PG_PW or USER_BOOT empty)"
+fi
+
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/10 invite INV to account-A (KAC-125)"
 invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"%s","projectId":"%s"}' "$ACCOUNT_A" "$ROLE_EDIT" "$PROJECT_A1")

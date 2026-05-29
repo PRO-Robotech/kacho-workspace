@@ -43,7 +43,7 @@ tags:
 | `project_id` | TEXT NULL | FK → projects(id) RESTRICT | project-scoped custom (KAC-127) |
 | `name` | TEXT | regex (см. ниже) | UNIQUE per scope (см. partial UNIQUEs) |
 | `description` | TEXT | <=256 chars | |
-| `permissions` | JSONB | `iam_permissions_valid` (regex per item + cardinality 1-256) | array of strings `<module>.<resource>.<verb>` |
+| `permissions` | JSONB | `iam_permissions_valid` v2 (regex per item + cardinality 1-256) | array of strings `<module>.<resource>.<resourceName>.<verb>` — strict 4-segment grammar since KAC-216 (migration 0005 promoted 3-seg legacy to `M.R.*.V`) |
 | `is_system` | BOOL | | seed-only, immutable |
 | `created_at` | TIMESTAMPTZ | server-set | |
 
@@ -84,6 +84,18 @@ KAC-105 (12 system-roles) + KAC-121/KAC-122 (YC-style catalog) + KAC-127 (refact
 
 Format: `<module>.<resource>.<verb>` (`*` wildcard на отдельных позициях). Examples: `vpc.networks.*`, `iam.*.read`, `*.*.*` (admin).
 Wildcards в permissions **не разворачиваются** при INSERT — хранятся as-is; expansion — в OpenFGA Check на Phase 3.
+
+## RBAC v2 (KAC-214 / KAC-216)
+
+- Strict 4-segment grammar: `module.resource.resourceName.verb`. Each segment is
+  `[a-zA-Z][a-zA-Z0-9_-]*` (module lowercase, resource camelCase, verb lowercase
+  camelCase) or literal `*`. `resourceName` may be `*` (wildcard — covers all
+  instances) or a concrete id (`inst-abc`, `prj-prod`).
+- Migration 0005 (W3) auto-promotes legacy 3-segment perms (`M.R.V` → `M.R.*.V`).
+- Concrete-resourceName grants emit a direct per-object FGA tuple at
+  `fga_type(M,R):<resourceName>`; wildcard-resourceName grants emit a tier tuple
+  at the binding's scope anchor (see [[iam-access-binding]] §RBAC v2).
+- See [[../KAC/KAC-214]] for the design + emission matrix.
 
 ## Lifecycle
 

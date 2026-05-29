@@ -13,7 +13,7 @@ domain: iam
 related_resource: "[[resources/iam-scim-user-mapping]]"
 methods_count: 8
 async_methods: 0
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
