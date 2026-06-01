@@ -29,12 +29,12 @@ tags:
 |---|---|---|---|---|
 | Get | GetSecurityGroupRequest | SecurityGroup | sync | |
 | List | ListSecurityGroupsRequest | ListSecurityGroupsResponse | sync | |
-| Create | CreateSecurityGroupRequest | operation.Operation | **async** | network_id required |
-| Update | UpdateSecurityGroupRequest | operation.Operation | **async** | OCC (xmin) |
-| UpdateRules | UpdateSecurityGroupRulesRequest | operation.Operation | **async** | bulk add/remove (KAC-71 partial) |
-| UpdateRule | UpdateSecurityGroupRuleRequest | operation.Operation | **async** | mutate single rule |
+| Create | CreateSecurityGroupRequest | operation.Operation | **async** | network_id **required** (KAC-243); rule_specs SG-target → same-network |
+| Update | UpdateSecurityGroupRequest | operation.Operation | **async** | mask {name,description,labels,rule_specs}; network_id **НЕ** в маске (immutable); без OCC |
+| UpdateRules | UpdateSecurityGroupRulesRequest | operation.Operation | **async** | bulk add/remove (KAC-71 partial); SG-target → same-network (KAC-243); xmin-OCC |
+| UpdateRule | UpdateSecurityGroupRuleRequest | operation.Operation | **async** | mutate single rule (description/labels); xmin-OCC |
 | Delete | DeleteSecurityGroupRequest | operation.Operation | **async** | FailedPrecondition если в use на NI |
-| Move | MoveSecurityGroupRequest | operation.Operation | **async** | cross-folder |
+| Move | MoveSecurityGroupRequest | operation.Operation | **async** | cross-project; network-bound SG → **FAILED_PRECONDITION** (KAC-243) |
 | ListOperations | ListSecurityGroupOperationsRequest | ListSecurityGroupOperationsResponse | sync | |
 
 ## REST mapping
@@ -51,9 +51,13 @@ tags:
 | `POST /vpc/v1/securityGroups/{security_group_id}:move` | Move |
 | `GET /vpc/v1/securityGroups/{security_group_id}/operations` | ListOperations |
 
-## OCC
+## OCC (только UpdateRules/UpdateRule)
 
-Update'ы используют `xmin::text` snapshot из `Get` → `UPDATE ... WHERE xmin::text = $expected`. Concurrent writers — второй получает `Aborted` (см. integration_test `security_group_occ_integration_test.go`).
+`UpdateRules`/`UpdateRule` используют `xmin::text` snapshot из `Get` → `UPDATE ... WHERE xmin::text = $expected`; concurrent writer (0 rows) → `FAILED_PRECONDITION` (НЕ `Aborted` — маппится через `helpers.ErrFailedPrecondition`; см. `security_group_occ_integration_test.go`). Общий `Update` — **без OCC** (bare `WHERE id=$1`).
+
+## SG↔Network инвариант (KAC-243)
+
+`network_id` обязателен при Create + immutable (нет в Update mask; Move network-bound → FailedPrecondition). SG→SG-правило (`rule.security_group_id`) валидно только если target-SG в той же Network — иначе `INVALID_ARGUMENT`+`field_violations` (Create/UpdateRules, service-layer). Миграция `0004` backfill'ит orphan-SG. См. [[../resources/vpc-securitygroup]].
 
 ## See also
 

@@ -42,13 +42,17 @@ tags:
 
 CHECK (0029): name + rules format.
 
-## Default-SG flow (0010 optional SG network)
+## Default-SG flow
 
 При Network Create — inline создаётся default SG (если `KACHO_VPC_DEFAULT_SG_INLINE=true`, по дефолту true). См. `kacho-vpc/internal/apps/kacho/api/network/doCreate`.
 
-## OCC (xmin)
+## network_id — обязателен + immutable (KAC-243)
 
-`Update` берёт `Get`-snapshot, передаёт `xmin::text`, `UPDATE ... WHERE xmin::text = $expected RETURNING ...`. 0 rows → `Aborted "security group was modified concurrently"`. Тест: `security_group_occ_integration_test.go`.
+`network_id` **обязателен** при Create (`INVALID_ARGUMENT "network_id required"`) и **неизменяем** после: его нет в Update known-mask {name,description,labels,rule_specs} (в маске → `INVALID_ARGUMENT`); `Move` network-bound SG между проектами → `FAILED_PRECONDITION`. Причина: SG→SG-правила валидны только в пределах одной Network (SG в разных сетях физически не видят друг друга). Откат «optional network_id» (kacho-proto#8). Миграция `0004` (Go goose, transactional) backfill'ит orphan-SG в сеть `default` проекта перед `ALTER ... SET NOT NULL`.
+
+## OCC (xmin) — только UpdateRules/UpdateRule
+
+Общий `Update` (name/description/labels/rule_specs) — **без OCC** (bare `UPDATE ... WHERE id=$1`). xmin-OCC есть ТОЛЬКО в `UpdateRules`/`UpdateRule`: `UPDATE ... WHERE xmin::text=$expected`, 0 rows → `FAILED_PRECONDITION` (НЕ `Aborted` — маппится через `helpers.ErrFailedPrecondition`). Тест: `security_group_occ_integration_test.go`.
 
 ## FK
 
@@ -56,7 +60,7 @@ CHECK (0029): name + rules format.
 
 ## Gotchas
 
-- Cross-SG references (`rule.sg_id` ссылается на другой SG в той же Network) — валидируется на Update в пределах same DB.
+- SG→SG-правило (`rule.security_group_id` → другая SG) валидно ТОЛЬКО если target-SG в той же Network (KAC-243): cross-network/несуществующая target → `INVALID_ARGUMENT` + `BadRequest.field_violations`. Проверяется на Create(rule_specs)/UpdateRules (service-layer; network_id immutable → не TOCTOU). До KAC-243 НЕ валидировалось (был stale-claim в этой заметке).
 - NIC → SG[] (many-to-many) — массив `network_interfaces.security_group_ids` JSONB.
 
 ## See also
