@@ -45,7 +45,11 @@ Compute `/compute/<route>/create`, NLB `/nlb/<route>/create`, System
 - **SecurityGroup** — нет кастомного Create (fallback на generic, может светить edit-only поля).
 
 ### 1.4 Мёртвый/дублирующий код
-- `src/components/ui/{button,dialog,input,tabs}.tsx` (Radix/shadcn-слой) — **0 импортов** → мёртв.
+- `src/components/ui/` (shadcn-слой) — **используется**, НЕ мёртв (исправление от 2026-06-01 после
+  ревью KAC-241): `button.tsx` (3), `input.tsx` (4 — `Input`/`Textarea`/`Label` в `FormField` array-items),
+  `dialog.tsx` (2) имеют реальных потребителей; это осознанный компактный слой для array-items/диалогов
+  (CLAUDE.md §6/§15.5 — «shadcn Input/Label в array-items компактнее»). Мёртв **только** `tabs.tsx`
+  (0 импортов) → удаляется. (Ранний драфт ошибочно называл весь `ui/*` мёртвым — баг grep'а.)
 - Tailwind HSL-токены (`--background`/`--foreground`/…) — **используются** (110+ мест) и осознанно
   зеркалят AntD-токены (`--background: #1c1d22 ← colorBgBase`). Это **good single-source bridge** для
   не-AntD кастом-компонентов → **сохранить**, не трогать.
@@ -161,7 +165,7 @@ tooltip «Неизменяемо после создания». Заменяет
 | `InlineSecurityGroupEditForm` + **новый** `InlineSecurityGroupCreateForm` | Кастом Create (только metadata; rules — edit-only); общие примитивы. |
 | `InlineNetworkInterfaceCreate/EditForm` | `Button loading` → `FormFooter`(DopplerButton); локальный `labelWithInfo` → `FieldLabel`. |
 | `InlineAddressPoolCreate/EditForm` | Добавить info-tooltips (`FieldLabel`); Edit CIDR → `CidrEditor` (rpc). |
-| `src/components/ui/{button,dialog,input,tabs}.tsx` | **Удалить** (0 импортов). |
+| `src/components/ui/tabs.tsx` | **Удалить** (0 импортов). `button/input/dialog` — used, НЕ трогать. |
 | `CLAUDE.md §3/§15` (kacho-ui) | Синхронизировать с реальностью (см. §6). |
 
 > **Резерв сужения scope**: если объём великоват для одного PR — режем по доменам/ресурсам, но
@@ -191,8 +195,9 @@ tooltip «Неизменяемо после создания». Заменяет
 - AntD `ConfigProvider` (App.tsx) + CSS-vars (index.css) остаются **источником истины палитры**
   (они синхронны, §4.6). Не меняем.
 - Tailwind HSL-токены — оставить (используются не-AntD компонентами).
-- Удалить только мёртвый Radix `components/ui/*`. Решение «возвращать ли shadcn-слой» — **нет**
-  (YAGNI; формы на AntD, контракт §15.5).
+- shadcn-слой `components/ui/{button,input,dialog}` — **остаётся** (используется в array-items/диалогах,
+  CLAUDE.md §15.5). Удаляется только мёртвый `components/ui/tabs.tsx`. Полная миграция custom-форм
+  off-shadcn (если вообще) — потенциальный Plan 2, не этот PR.
 
 ---
 
@@ -220,6 +225,6 @@ tooltip «Неизменяемо после создания». Заменяет
 - [ ] Примитивы §3 реализованы + unit-покрыты.
 - [ ] generic modal + page рендерят `ResourceFormBody`; create==edit==modal==page визуально.
 - [ ] 4 кастом-формы (+новый SG Create) на общих примитивах; дивергенции §1.3 устранены.
-- [ ] Мёртвый `components/ui/*` удалён; `CLAUDE.md §3/§15` синхронизирован.
+- [ ] Мёртвый `components/ui/tabs.tsx` удалён (button/input/dialog — used, kept); `CLAUDE.md §3/§15` синхронизирован.
 - [ ] tsc clean; playwright e2e зелёные (RED→GREEN показан); смоук на стенде.
 - [ ] vault: `KAC/KAC-<N>.md` + затронутые `packages/` записи обновлены; PR-ссылки.

@@ -31,7 +31,7 @@
 - `src/components/ResourceEditPage.tsx`
 
 **Delete (dead, 0 imports):**
-- `src/components/ui/button.tsx`, `dialog.tsx`, `input.tsx`, `tabs.tsx`
+- `src/components/ui/tabs.tsx` ONLY. (CORRECTION 2026-06-01: `button.tsx`/`input.tsx`/`dialog.tsx` ARE used — shadcn layer for array-items/dialogs per CLAUDE.md §15.5 — do NOT delete. Earlier draft mis-grepped.)
 
 **Docs:** `project/kacho-ui/CLAUDE.md` §3/§15 sync; vault `obsidian/kacho/KAC/KAC-241.md` + `packages/`.
 
@@ -948,32 +948,33 @@ git commit -m "refactor(KAC-241): ResourceEditPage renders ResourceFormBody (pag
 
 ---
 
-## Task 11: Delete dead Radix `components/ui/*`
+## Task 11: Delete dead `components/ui/tabs.tsx` (ONLY)
+
+> **CORRECTION (2026-06-01):** the original plan said delete all of `components/ui/*` — that was wrong (mis-grep). Verified consumers: `button.tsx` (3), `input.tsx` (4 — `Input`/`Textarea`/`Label` used by `FormField` array-items), `dialog.tsx` (2). These STAY (shadcn layer, CLAUDE.md §15.5). Only `tabs.tsx` has 0 consumers.
 
 **Files:**
-- Delete: `src/components/ui/button.tsx`, `src/components/ui/dialog.tsx`, `src/components/ui/input.tsx`, `src/components/ui/tabs.tsx`
+- Delete: `src/components/ui/tabs.tsx` (only)
 
-- [ ] **Step 1: Confirm zero imports**
+- [ ] **Step 1: Confirm zero imports of tabs**
 
-Run: `grep -rn "components/ui/" src --include=*.tsx --include=*.ts | grep -v "src/components/ui/"`
-Expected: NO output (no consumers).
+Run: `grep -rn "components/ui/tabs" src --include=*.tsx --include=*.ts | grep -v "src/components/ui/tabs.tsx"`
+Expected: NO output. (If any consumer prints → STOP, do not delete.)
 
-- [ ] **Step 2: Delete the files**
+- [ ] **Step 2: Delete the file**
 
 ```bash
-git rm src/components/ui/button.tsx src/components/ui/dialog.tsx src/components/ui/input.tsx src/components/ui/tabs.tsx
-rmdir src/components/ui 2>/dev/null || true
+git rm src/components/ui/tabs.tsx
 ```
 
-- [ ] **Step 3: typecheck**
+- [ ] **Step 3: typecheck + tests**
 
-Run: `npm run typecheck`
-Expected: PASS (nothing referenced them).
+Run: `npm run typecheck && npm test`
+Expected: PASS (nothing referenced tabs; 138 tests pass).
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git commit -m "chore(KAC-241): delete dead Radix components/ui/* (0 imports)"
+git commit -m "chore(KAC-241): delete dead components/ui/tabs.tsx (0 imports; button/input/dialog kept)"
 ```
 
 ---
