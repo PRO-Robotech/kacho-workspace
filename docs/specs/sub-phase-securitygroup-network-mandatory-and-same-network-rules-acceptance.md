@@ -1,8 +1,8 @@
 # Sub-phase securitygroup-network-mandatory-and-same-network-rules — Acceptance
 
-> Статус: APPROVED
+> Статус: APPROVED (правка 2026-06-01 — группа E переписана: self-healing backfill миграция вместо fail-fast, по требованию владельца; см. §«История правок» + D6)
 > Дата: 2026-06-01
-> Ревьюер: acceptance-reviewer (✅ APPROVED — 7 решений + 1 новый сценарий folded as FIXED defaults)
+> Ревьюер: acceptance-reviewer (✅ APPROVED — 7 решений + 1 новый сценарий folded as FIXED defaults; правка группы E на backfill — owner-mandated, требует повторного APPROVE группы E + D6)
 > Тикет: [KAC-243](https://prorobotech.youtrack.cloud/issue/KAC-243)
 > Backend: `kacho-vpc` · Proto: `kacho-proto` (re-add `required` на `network_id`, см. §«Proto») · Frontend: `kacho-ui`
 > Источники: `02-data-model-and-conventions.md` §14 (коды ошибок), workspace `CLAUDE.md`
@@ -34,6 +34,23 @@
 >
 > Старый файл `sub-phase-securitygroup-attach-to-network-acceptance.md` подлежит удалению/архивации в
 > том же PR, что и APPROVE этого документа (см. DoD п.8).
+
+> [!important] Правка группы E (2026-06-01): миграция стала self-healing backfill (owner-mandated)
+> Предыдущая версия группы E (сценарии 15/16) фиксировала **fail-fast + dev recreate**: миграция
+> `ALTER … SET NOT NULL` падает при наличии NULL-строк, оператор пересоздаёт dev-стенд. **Это заменено.**
+> Новое требование владельца («добавь везде дефолт нетворки для аккаунтов и создай связь несвязных СГ с
+> созданной сетью, чтобы миграция не падала»):
+>
+> - Миграция **не падает**. Перед `SET NOT NULL` выполняется **backfill**: для каждого проекта
+>   (`project_id`), у которого есть orphan-SG (с `network_id IS NULL` или пустым), миграция
+>   **обеспечивает наличие default-Network** в этом проекте (переиспользует подходящую существующую сеть,
+>   иначе создаёт новую) и проставляет orphan-SG этот `network_id`. После backfill `SET NOT NULL`
+>   проходит чисто (ноль NULL).
+> - **Scope = ОДНОРАЗОВЫЙ migration-backfill**, НЕ постоянная фича «авто-создание default-network на
+>   проект» (см. флаг в конце §«Out of scope» + D6). Если владелец имел в виду постоянную фичу — это
+>   отдельный эпик, не KAC-243.
+> - Затронуты: группа E (сценарии 15/16 переписаны + добавлены 16b/16c/16d), D6, DoD п.5/6, §«Proto»
+>   sequence. Группы A–D, F, G — **без изменений**.
 
 ---
 
@@ -109,6 +126,15 @@ immutability `network_id` (см. §«Design decisions», п. D3), а **не** о
   Нормализация SG-target-ссылок в `security_group_rule_targets(rule_id, target_sg_id)` с FK +
   `network_id`-CHECK/триггером — это **редизайн-эпик** (`2026-05-30-vpc-network-sg-routetable-redesign.md`),
   не KAC-243. `db-architect-reviewer` сохраняет PR-time veto на миграцию (см. п. D3).
+- **Постоянная фича «авто-создание default-Network на проект»** — KAC-243 **НЕ** вводит runtime-поведение
+  «у каждого нового проекта автоматически появляется default-Network». Default-Network создаётся **только
+  один раз, в миграции-backfill** (группа E), исключительно чтобы не оставить orphan-SG при `SET NOT NULL`.
+  После миграции никакой автоматики «default-network per project» нет: новые SG требуют явный
+  существующий `network_id` (§A, сценарий 01); новые проекты не получают сеть автоматически.
+  > **Флаг для ревьюера/владельца:** формулировка владельца «добавь **везде** дефолт нетворки для
+  > аккаунтов» допускает прочтение «постоянная фича». **Default-предположение этого документа —
+  > migration-only backfill** (одноразово, по orphan-SG). Если требуется постоянная фича — это отдельный
+  > эпик (новое runtime-поведение + acceptance), вне KAC-243; вынести в issue и подтвердить с владельцем.
 
 ---
 
@@ -420,41 +446,151 @@ enp11111111111111111`
 
 ---
 
-## Группа E — Существующие данные (dev) и миграция схемы
+## Группа E — Self-healing миграция (backfill orphan-SG → default-Network + `SET NOT NULL`)
 
-### Сценарий 15: Схема — `network_id` становится NOT NULL (новая миграция)
+> **Контракт миграции (owner-mandated, заменяет fail-fast).** Перед `ALTER COLUMN network_id SET NOT
+> NULL` миграция **backfill-ит** все orphan-SG (с `network_id IS NULL` или пустым), чтобы NULL-строк не
+> осталось и `SET NOT NULL` прошёл чисто. Backfill — **одноразовый**, в одной миграции, идемпотентный,
+> FK-упорядоченный (default-Network вставляются **до** `UPDATE` SG.network_id; `SET NOT NULL` —
+> последним).
+>
+> **Реализация миграции = Go-миграция goose (решение D6, см. §«Design decisions»).** Причина: id сети
+> = crockford-base32 `enp`+17 (`kacho-corelib/ids.NewID(ids.PrefixNetwork)`) — это **не** генерируется
+> тривиально в чистом SQL/PLpgSQL (`kacho-vpc/CLAUDE.md` §2 прямо отмечает «id-generation crockford-base32
+> не реализуется в PL/pgSQL без портирования `kacho-corelib/ids`»). Проверено по коду: migrator
+> (`cmd/migrator` + `internal/apps/migrator`) использует **goose v3.27.1** через `goose.SetBaseFS(FS)` +
+> `goose.UpContext`, а `cmd/migrator/main.go` и `internal/repo/integration_test.go` оба **импортируют**
+> пакет `internal/migrations`. goose v3 поддерживает Go-миграции через `goose.AddMigrationContext(up,
+> down)`: достаточно положить `.go`-файл в `package migrations` (рядом с `0001_initial.sql`), который в
+> `init()` регистрирует up/down с версией `0004`; импорт пакета уже есть в обоих местах → миграция
+> подхватится и в проде, и в integration-тестах, и сольётся с SQL-миграциями по номеру версии. Внутри
+> `up(ctx, tx)` доступен полноценный Go: `ids.NewID(ids.PrefixNetwork)` + `tx.ExecContext` INSERT
+> Network + `UPDATE security_groups`. Чистый-SQL вариант (PLpgSQL-энкодер crockford-base32 над
+> `gen_random_uuid()`) **отвергнут** как уродливый и дублирующий `ids` (D6).
 
-**ID:** SG-NET-15-SCHEMA-NOT-NULL
+### Сценарий 15: Backfill — orphan-SG в проекте P → default-Network создаётся + SG привязаны + `SET NOT NULL` проходит
+
+**ID:** SG-NET-15-MIGRATION-BACKFILL-OK (integration / testcontainers)
 
 **Given** baseline `0001_initial.sql` объявляет `security_groups.network_id text REFERENCES
-       kacho_vpc.networks(id) ON DELETE RESTRICT` (**nullable**, с комментарием «unbound / folder-level
-       SG, kacho-proto#8»)
+       kacho_vpc.networks(id) ON DELETE RESTRICT` (**nullable**, комментарий «unbound / folder-level SG,
+       kacho-proto#8»)
+**And** в проекте `P` (`project_id = "P"`) есть **orphan-SG** `sg-orphan-1` и `sg-orphan-2` с
+       `network_id IS NULL` (или пустым), и **ни одной** сети
+**And** (опционально для ветки reuse) в другом проекте `Q` уже есть подходящая существующая default-Network
 
-**When** применяется **новая** миграция (запрет #5 — применённую миграцию не редактируем; только новая)
+**When** применяется **новая** миграция `0004` (goose Go-миграция, D6; запрет #5 — `0001_initial.sql`
+       не редактируем) — в integration-тесте это `goose.Up(db, ".")` после seed orphan-SG
 
-**Then** **новый** файл миграции (НЕ редактирование `0001_initial.sql` — запрет #5) делает
-       `ALTER TABLE kacho_vpc.security_groups ALTER COLUMN network_id SET NOT NULL`; FK
-       `→ networks(id) ON DELETE RESTRICT` сохраняется (теперь работает как mandatory+immutable backstop
-       существования сети)
-**And** миграция **fail-fast**: при наличии строк с `network_id IS NULL` `ALTER … SET NOT NULL`
-       завершится ошибкой и миграция упадёт (оператор обязан разобраться). Это **зафиксированная**
-       политика (D6) — НЕ backfill, НЕ silent-drop
-**And** комментарий-источник на колонке/в миграции обновлён: «network_id — mandatory + immutable (KAC-243)».
+**Then** для проекта `P` миграция **обеспечивает default-Network**: переиспользует подходящую
+       существующую сеть проекта (если такая есть — см. §«критерий reuse» ниже), иначе **создаёт** новую
+       Network с `id = ids.NewID(ids.PrefixNetwork)` (валидный `enp…`), `project_id = "P"`,
+       `name = "default"` (валидно по `networks_name_check`; уникально по `networks_project_id_name_key`
+       — см. сценарий 16d про коллизию), `created_at = now()`, прочие колонки — defaults
+       (`description=''`, `labels='{}'`, `default_security_group_id=''`, `route_distinguisher=''`)
+**And** обе orphan-SG проекта `P` получают `network_id` = id этой default-Network
+       (`UPDATE security_groups SET network_id = <netDefaultP> WHERE project_id='P' AND (network_id IS
+       NULL OR network_id='')`)
+**And** **порядок FK-безопасен**: INSERT Network выполняется **до** `UPDATE` SG.network_id (иначе FK
+       `security_groups.network_id → networks(id)` отвергнет привязку); `ALTER COLUMN network_id SET NOT
+       NULL` — **последним** стейтментом миграции, когда NULL-строк уже нет
+**And** после миграции `SELECT count(*) FROM kacho_vpc.security_groups WHERE network_id IS NULL OR
+       network_id = ''` = `0`
+**And** FK `→ networks(id) ON DELETE RESTRICT` сохранён; колонка теперь `NOT NULL`
+**And** комментарий-источник на колонке/в миграции обновлён: «network_id — mandatory + immutable
+       (KAC-243); legacy orphan-SG backfilled to per-project default-Network».
 
-### Сценарий 16: Существующие бессетевые SG (dev) — очистка / реакрит
+> **Критерий reuse существующей сети (FIXED, D6):** «подходящая существующая default-Network проекта» =
+> сеть проекта `P` с `name = 'default'` (если есть — взять её id, **не** создавать вторую). Если такой
+> сети нет — создать новую `name='default'`. Это даёт идемпотентность (сценарий 16c) и избегает
+> коллизии по `networks_project_id_name_key`. Если в проекте уже есть сеть с именем `default`, но НЕ
+> создававшаяся backfill-ом — она всё равно валидный таргет привязки orphan-SG (сеть проекта; принадлежит
+> тому же `project_id`), переиспользуется без вопросов.
 
-**ID:** SG-NET-16-EXISTING-NULL-NETWORK-CLEANUP
+> **No-recursive-default-SG (FIXED, D6):** backfill вставляет Network **напрямую SQL/Go в миграции, в
+> обход service-layer** — поэтому inline default-SG creation (`network.go::doCreate`, §9 vpc-CLAUDE.md)
+> **НЕ** триггерится (это путь сервиса, не миграции). default-Network, созданная backfill-ом, **остаётся
+> с `default_security_group_id = ''`** и **без** собственной свежесозданной default-SG. Это намеренно:
+> привязываемые к ней orphan-SG и становятся её security-group'ами; рекурсивно создавать ещё одну
+> default-SG **запрещено** — это породило бы новую orphan-SG (которой ещё нет network_id на момент
+> вставки) и/или лишнюю SG. Проверено по схеме: `networks.default_security_group_id text NOT NULL DEFAULT
+> ''` — допускает пустую строку, FK на SG — `ON DELETE SET NULL` (см. §2 vpc-CLAUDE.md), поэтому пустой
+> `default_security_group_id` валиден.
+
+### Сценарий 16: Backfill-инварианты (scope / идемпотентность / коллизия имени)
+
+**ID:** SG-NET-16-MIGRATION-BACKFILL-INVARIANTS (integration / testcontainers)
+
+**16a — Проект без orphan-SG → НИ ОДНОЙ лишней сети не создаётся (negative):**
+**Given** проект `R` со всеми SG, у которых `network_id` уже непустой (и/или вообще без SG)
+**When** применяется миграция `0004`
+**Then** для проекта `R` **никакая** default-Network не создаётся (backfill итерирует только по
+       `DISTINCT project_id` среди orphan-SG — `WHERE network_id IS NULL OR network_id=''`); число сетей
+       проекта `R` после миграции = до миграции
+**And** существующие сети/привязки проекта `R` не изменены.
+
+**16b — `SET NOT NULL` без orphan-SG вообще (чистый стенд) → миграция проходит, сетей не создано:**
+**Given** стенд, где `security_groups` пуст или у всех SG `network_id` непустой (greenfield / уже
+       мигрировано)
+**When** применяется миграция `0004`
+**Then** backfill — **no-op** (нет orphan-SG → цикл по проектам пуст → INSERT Network не выполняется),
+       `SET NOT NULL` проходит, миграция зелёная; ни одной «спонтанной» default-Network не появилось.
+
+**16c — Идемпотентность / повторный прогон (re-runnable-safe):**
+**Given** миграция `0004` уже применена (goose записал версию в `goose_db_version` → повторно goose её
+       не запустит) **И** гипотетический повторный прогон тела `up` (например, ручной replay в тесте)
+**When** тело backfill выполняется второй раз на уже мигрированных данных
+**Then** оно **идемпотентно**: для проекта `P` сеть `name='default'` уже существует → reuse (не вторая
+       сеть; INSERT защищён через «найти `name='default'` → reuse, иначе INSERT», напр. `INSERT … ON
+       CONFLICT (project_id, name) DO NOTHING` + повторный SELECT id, либо upsert-RETURNING); orphan-SG
+       уже нет (все привязаны) → `UPDATE … WHERE network_id IS NULL` затрагивает 0 строк
+**And** повторный прогон не падает и не плодит дубликаты сетей/привязок.
+
+**16d — Коллизия имени default-Network:**
+**Given** в проекте `P` с orphan-SG **уже существует** сеть `name='default'`, созданная пользователем
+       (не backfill-ом)
+**When** применяется миграция `0004`
+**Then** backfill **переиспользует** существующую `default`-сеть проекта (по `networks_project_id_name_key`
+       (project_id, name) — она одна) как таргет привязки orphan-SG; **второй** `default` не создаётся
+       (иначе `23505` от UNIQUE-индекса). Имя `default` совпадает с `networks_name_check` regex →
+       коллизий формата нет
+**And** orphan-SG проекта `P` привязываются к этой существующей сети.
+
+### Сценарий 16e: Созданная backfill-ом default-Network — валидный, listable Network
+
+**ID:** SG-NET-16E-BACKFILL-NETWORK-LISTABLE (integration / e2e)
+
+**Given** миграция `0004` отработала и создала default-Network `<netDefaultP>` в проекте `P` (ветка
+       «не было подходящей сети»)
+**And** сервис `kacho-vpc` поднят на этой БД
+
+**When** клиент вызывает `GET /vpc/v1/networks/<netDefaultP>` и
+       `GET /vpc/v1/networks?projectId=P` (`NetworkService.Get` / `List`)
+
+**Then** `Get` возвращает корректную Network: `id == "<netDefaultP>"` (валидный `enp…`),
+       `projectId == "P"`, `name == "default"`, `createdAt` непустой (truncated to seconds, §11)
+**And** `List(projectId=P)` содержит эту сеть в результатах (она — обычный, полноценный Network-ресурс,
+       не «битый» backfill-артефакт)
+**And** `GET /vpc/v1/networks/<netDefaultP>/security_groups` (`NetworkService.ListSecurityGroups`)
+       содержит привязанные backfill-ом orphan-SG (`sg-orphan-1` / `sg-orphan-2`) — теперь это нормальные
+       SG этой сети
+**And** default-Network не имеет «фантомной» свежесозданной default-SG помимо привязанных orphan-SG
+       (`default_security_group_id == ''`, no-recursive-default-SG, сценарий 15).
+
+### Сценарий 16f: Существующие бессетевые SG (dev) — раскатка KAC-243
+
+**ID:** SG-NET-16F-DEV-ROLLOUT
 
 **Given** в dev-стенде в окне «optional network_id» могли быть созданы SG с `network_id` пустым/NULL
 
-**When** раскатывается KAC-243
+**When** раскатывается KAC-243 (миграция `0004` применяется на существующей dev-БД **без** пересоздания)
 
-**Then** ожидание зафиксировано: **dev greenfield — пересоздать стенд** (`make dev-down && make dev-up`,
-       `emptyDir` Postgres, данные не персистятся — `03-deployment-and-operations.md` §5), новые SG
-       создаются уже с обязательным `network_id`
-**And** **prod-раскатки нет** (no prod rollout yet). Решение D6: KAC-243 — **dev-only, recreate** +
-       **fail-fast** миграция (сценарий 15). Будущий prod-backfill (когда появится prod) — **отдельный
-       issue/тикет**, не часть KAC-243 и не tech-debt в нём.
+**Then** миграция **не падает** (это и есть цель owner-правки): orphan-SG backfill-ятся к per-project
+       default-Network (сценарий 15), `SET NOT NULL` проходит. Пересоздавать стенд **не требуется**
+       (хотя greenfield-recreate тоже валиден — `emptyDir` Postgres, `03-deployment-and-operations.md` §5)
+**And** **prod-раскатки нет** (no prod rollout yet); тот же self-healing backfill будет работать и на
+       prod, когда он появится (миграция data-safe by design — не fail-fast). Отдельного prod-backfill
+       issue **больше не требуется** (backfill встроен в миграцию, D6).
 
 ---
 
@@ -561,8 +697,9 @@ enp11111111111111111`
    breaking). Поведенческое следствие: клиенты, славшие пустой `network_id`, теперь получат отказ
    (`network_id required`, сценарий 01) — это и есть цель фичи.
 2. `kacho-vpc` — Create требует `network_id` + same-network rule-валидация (Create/UpdateRules/UpdateRule,
-   service-layer D3, sync D4) + Move guard под network-bound SG (D5) + новая миграция NOT NULL (D6);
-   `network_id` остаётся вне Update-mask.
+   service-layer D3, sync D4) + Move guard под network-bound SG (D5) + **новая self-healing
+   backfill-миграция `0004` (Go-миграция goose: backfill orphan-SG → per-project default-Network, затем
+   `SET NOT NULL`; D6)**; `network_id` остаётся вне Update-mask.
 3. `kacho-ui` — форма-required + rule-picker фильтр + удаление «Привязать» стаба.
 
 ---
@@ -596,18 +733,30 @@ Sub-фича считается завершённой, когда **все** п
    затронуты (13). **`UpdateRulesUseCase`/`UpdateRuleUseCase` сейчас БЕЗ reader'а** — доинжектировать
    read-port (network_id редактируемой + target-SG) = net-new composition-root wiring (сценарии 09/10).
    Same-network — **service-layer-валидация (D3)**, без нормализованной rule-target-таблицы (это редизайн-эпик).
-5. **Backend — миграция (D6):** **новый** файл миграции `ALTER … network_id SET NOT NULL` (запрет #5 —
-   `0001_initial.sql` не редактируем); FK сохранён; **fail-fast** при NULL-строках (сценарии 15/16);
-   dev greenfield recreate, prod-backfill = будущий отдельный issue. DB-level same-network backstop в
-   KAC-243 **не** делается (D3 — service-layer достаточно); `db-architect-reviewer` сохраняет PR-time veto
-   на миграцию.
+5. **Backend — self-healing миграция backfill (D6):** **новый** файл миграции `0004` (запрет #5 —
+   `0001_initial.sql` не редактируем) — **Go-миграция goose** (`package migrations`,
+   `goose.AddMigrationContext`, D6.1): backfill orphan-SG → per-project default-Network
+   (`ids.NewID(ids.PrefixNetwork)`, `name='default'`, reuse существующей `default`-сети проекта; D6.2/D6.4),
+   FK-порядок INSERT Network → UPDATE SG.network_id → `ALTER … SET NOT NULL` последним (D6.5),
+   идемпотентно/re-runnable-safe (16c/16d), no-recursive-default-SG (D6.3 — `default_security_group_id=''`),
+   FK `→ networks(id) ON DELETE RESTRICT` сохранён, после миграции ноль NULL/empty `network_id`
+   (сценарии 15/16/16e). Миграция **не падает** на существующих данных (dev — без recreate, 16f);
+   prod-backfill встроен (отдельный issue **не нужен**). DB-level same-network backstop в KAC-243 **не**
+   делается (D3 — service-layer достаточно); `db-architect-reviewer` сохраняет PR-time veto на миграцию
+   (Go-vs-SQL, idempotency, FK-порядок, reuse-критерий).
 6. **Integration-тесты (`internal/repo/*integration_test.go`, testcontainers):** create-without-network
    reject (01), create-OK (02), network-notfound sync (03), update-mask-network reject (04), full-patch-ignore
    (05), same-network rule OK (08) + **cross-network rule reject RED→GREEN** на Create/UpdateRules/UpdateRule
    (07/09/10), rule-target-notfound `INVALID_ARGUMENT` (11), **concurrent target-delete (12, RED→GREEN,
-   D3 dangling-ref/negative-исход)**, default-SG (14), schema NOT NULL (15), **Move guard под network-bound
+   D3 dangling-ref/negative-исход)**, default-SG (14), **миграция-backfill (15/16, RED→GREEN): seed
+   orphan-SG (network_id NULL) в проекте → прогнать `goose.Up` (миграция `0004`) → assert (a) все
+   orphan-SG привязаны к default-Network проекта, (b) `SET NOT NULL` прошёл (ноль NULL), (c) default-Network
+   создана, valid и `default_security_group_id=''` (no-recursive-SG), (d) проект без orphan-SG → лишней
+   сети нет (16a/16b negative), (e) повторный backfill идемпотентен (16c), (f) коллизия `name='default'`
+   → reuse (16d); до миграции тест RED («`SET NOT NULL` падает на NULL-строках» / orphan не привязаны),
+   после — GREEN)**, **backfill-Network listable/valid через сервис (16e)**, **Move guard под network-bound
    SG → `FAILED_PRECONDITION` (19, RED→GREEN)**. Все зелёные; пара RED→GREEN показана в PR (cross-network
-   reject + create-without-network reject + Move-forbidden).
+   reject + create-without-network reject + **migration-backfill** + Move-forbidden).
 7. **Newman-кейсы (`tests/newman/cases/security-group.py` → `gen.py`):** минимум
    `SG-NET-02-CREATE-OK` (happy), `SG-NET-01-NEG-CREATE-NO-NETWORK` (sync InvalidArgument `network_id
    required`), `SG-NET-03-NEG-NETWORK-NOTFOUND` (sync NotFound), `SG-NET-04-NEG-UPDATE-MASK-NETWORK`
@@ -635,8 +784,11 @@ Sub-фича считается завершённой, когда **все** п
    `[[rpc/vpc-securitygroup-service]]` (Create `network_id` required; Update known-mask без `network_id`;
    same-network rule-валидация на Create/UpdateRules/UpdateRule; Move guarded под network-bound SG →
    `FAILED_PRECONDITION`), `KAC/KAC-243.md` (создать; PR-ссылки, acceptance чек-лист, changelog
-   attach→mandatory). Same-network-инвариант + Move-guard — отметить в
-   `kacho-vpc/docs/architecture/07-known-divergences.md` как осознанное ограничение.
+   attach→mandatory + **migration backfill (orphan-SG → per-project default-Network, Go-миграция goose)**).
+   Same-network-инвариант + Move-guard + **self-healing backfill-миграция (D6, no-recursive-default-SG)** —
+   отметить в `kacho-vpc/docs/architecture/07-known-divergences.md` как осознанное ограничение.
+   Обновить `[[resources/vpc-network]]` — упомянуть, что миграция `0004` может создать `name='default'`
+   Network в проектах с legacy orphan-SG (одноразово, не runtime-фича).
 10. **CI** затронутых репо зелёный; никаких TODO/FIXME/skip в diff; никакого tech-debt (запреты #11/#12/#13).
 
 ---
@@ -679,9 +831,49 @@ backstop на гонки. Формат-/id-валидация (`corevalidate.Res
 Требует guard в `MoveSecurityGroupUseCase` (sync, до Operation; SG-reader уже есть в `move.go`) +
 integration-тест + 1 newman negative. Более широкий «должна ли SG вообще быть movable» — **отдельный issue**.
 
-**D6. Миграция = fail-fast `ALTER … SET NOT NULL`** в **новом** файле миграции (НЕ редактирование
-`0001_initial.sql`, запрет #5). Dev — greenfield recreate; prod-backfill (когда появится prod) = **будущий
-отдельный issue**, не tech-debt в KAC-243 (сценарии 15/16).
+**D6. Миграция = self-healing backfill + `ALTER … SET NOT NULL`** (owner-mandated, **заменяет** прежний
+fail-fast). В **новом** файле миграции `0004` (НЕ редактирование `0001_initial.sql`, запрет #5). Перед
+`SET NOT NULL` миграция backfill-ит orphan-SG, чтобы не упасть (сценарии 15/16).
+
+- **D6.1 — id-gen: Go-миграция goose (а НЕ pure-SQL/PLpgSQL).** Проверено по коду: migrator
+  (`cmd/migrator/main.go` → `internal/apps/migrator/{runner,postgres,dialect}.go`) гоняет **goose
+  v3.27.1** через `goose.SetBaseFS(migrations.FS)` + `goose.UpContext(ctx, db, ".")`; `internal/
+  repo/integration_test.go` — то же (`goose.SetBaseFS(migrations.FS)` + `goose.Up(db, ".")`). Оба
+  **импортируют** пакет `internal/migrations`. goose v3 поддерживает Go-миграции через
+  `goose.AddMigrationContext(up, down)`, регистрируемые из `.go`-файла в `package migrations` (версия
+  выводится из имени файла, напр. `0004_backfill_sg_default_network.go`); регистрация сливается с
+  FS-обнаруженными SQL-миграциями по номеру. `ids.NewID` — pure-Go (`crypto/rand` + `encoding/binary`),
+  импортируется из миграции без проблем. **Выбор (a) Go-миграция** — чисто: `up(ctx, tx *sql.Tx)`
+  использует `ids.NewID(ids.PrefixNetwork)` + `tx.ExecContext` (INSERT Network → UPDATE SG → ALTER SET
+  NOT NULL в одной транзакции goose). Вариант (b) PLpgSQL-энкодер crockford-base32 над
+  `gen_random_uuid()` — **отвергнут**: дублирует `kacho-corelib/ids`, уродлив, расходится с
+  `kacho-vpc/CLAUDE.md` §2 («id-generation crockford-base32 не реализуется в PL/pgSQL без портирования
+  ids»). **Подтвердить с `db-architect-reviewer`**, что Go-миграция в `package migrations` — приемлемый
+  паттерн (прецедента Go-миграций в репо пока нет — все 3 файла `.sql`); если ревьюер настаивает на
+  pure-SQL, fallback = (b), но это явный downgrade.
+- **D6.2 — что нужно default-Network.** Обязательные колонки: `id` (`enp…` через `ids.NewID`),
+  `project_id`, `name` (`'default'`). Остальные — DB-defaults (`created_at=now()`, `description=''`,
+  `labels='{}'`, `default_security_group_id=''`, `route_distinguisher=''`). Проверено по
+  `0001_initial.sql:183-199`: ни одной NOT-NULL-без-default колонки сверх этих трёх.
+- **D6.3 — no-recursive-default-SG.** Backfill вставляет Network в обход service-layer → inline
+  default-SG creation (`network.go::doCreate`) НЕ срабатывает. default-Network остаётся с
+  `default_security_group_id=''` без свежей default-SG; её SG = привязываемые orphan-SG. Рекурсивно
+  создавать ещё одну default-SG **запрещено** (породит новую orphan-SG). `networks.default_security_
+  group_id NOT NULL DEFAULT ''` допускает пустую строку (схема подтверждает).
+- **D6.4 — scope = ОДНОРАЗОВЫЙ migration-backfill, НЕ постоянная фича.** «для аккаунтов» = backfill
+  итерирует `DISTINCT project_id` среди orphan-SG **в пределах `kacho_vpc`** (запрет #8 — kacho-vpc не
+  перечисляет IAM-аккаунты cross-DB; `project_id` orphan-SG берётся из самой таблицы `security_groups`).
+  НЕ авто-создание default-network на каждый новый проект (флаг в §«Out of scope»; если владелец хочет
+  постоянную фичу — отдельный эпик).
+- **D6.5 — FK-порядок + идемпотентность + транзакция.** INSERT Network до UPDATE SG.network_id; SET NOT
+  NULL последним. Идемпотентно: reuse `name='default'`-сети проекта (`ON CONFLICT (project_id, name) DO
+  NOTHING` + re-SELECT id, либо upsert-RETURNING), `UPDATE … WHERE network_id IS NULL` повторно
+  затрагивает 0 строк (сценарии 16c/16d). goose выполняет up в одной транзакции (Postgres dialect).
+- **D6.6 — dev/prod.** Dev: миграция применяется на существующей БД **без** recreate и не падает
+  (сценарий 16f). Prod: тот же self-healing backfill сработает, когда появится prod — **отдельный
+  prod-backfill issue больше НЕ нужен** (backfill встроен).
+- `db-architect-reviewer` сохраняет **PR-time veto** на миграцию (Go-vs-SQL подход, idempotency,
+  FK-порядок, reuse-критерий — на ревью).
 
 **D7. `buf breaking` на возврат `(required)` = НЕ breaking → прогон зелёный.** `(required)` — кастомная
 field-option `#101501` (buf.validate), не часть proto-wire и не proto3-`optional`. Зелёный вывод
