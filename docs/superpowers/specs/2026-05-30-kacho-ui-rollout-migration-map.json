@@ -1,0 +1,1038 @@
+{
+  "vpc": {
+    "module": "vpc",
+    "notes": "Общий риск: 4 из 7 ресурсов имеют богатый доменный контент в кастомных detail-страницах (Subnet CIDR-manager + IP-адреса; SG ingress/egress rules editor; NIC linked addresses+SG; RouteTable static_routes), который сейчас живёт вне ResourceShell. Главная трудность унификации — Subnet и SG имеют кастомные inline EDIT-формы (InlineSubnetEditForm с SubnetCidrManager через verbs :add/:remove-cidr-blocks; InlineSecurityGroupEditForm через split-endpoint UpdateRules) — ResourceShell сейчас диспетчит только subnets для child-create и generic InlineResourceEditForm для edit; нужно расширить mainOverride-диспетчер на subnets/security-groups/network-interfaces edit-режим (по аналогии с тем как ResourceFormModal.tsx это делает). Второй риск — вложенность URL: subnets/route-tables/security-groups/addresses сейчас имеют ДВА набора маршрутов (flat /vpc/<route>/:uid И nested /vpc/networks/:nid/<route>/:uid через *DetailPage с useNestedBreadcrumb); ResourceShell строит detailBase жёстко как /projects/:projectId/vpc/:route/:uid (flat, без nested-варианта) — чтобы не потерять YC-style nested-навигацию (back в Network), detailBase нужно сделать параметризуемым (как в эталоне Network related-табы навигируют в childBase=detailBase/<child>/<id>, т.е. ребёнок уже открывается nested под родителем). Третий риск — addresses используют под-вложенность под subnet (/subnets/:sid/addresses/:uid), а не под network; address-create из Subnet IP-адреса таба идёт через ?modal с preset internal_ipv*_address_spec.subnet_id — при переходе на form-panel нужен child-create-режим Subnet→addresses с этим preset (аналог networks→subnets InlineSubnetCreateForm-ветки). RELATED/DOCS/EMPTY_STATE карты сейчас захардкожены в ResourceShell.tsx и заполнены только для networks — нужно дополнить для subnets/security-groups (как родителей) либо вынести в spec.related (план финала). Все мутации async через Operation — OperationsTab уже generic. JSON-таб generic. internalGetPath есть только у networks и network-interfaces (jsonint-таб).",
+    "resources": [
+      {
+        "id": "networks",
+        "route": "networks",
+        "currentDetail": "ResourceShell (эталон, уже мигрирован)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase=/projects/:projectId/vpc/networks/:uid)",
+        "hasCustomForm": "нет",
+        "internalGetPath": "/vpc/v1/networks/{id}/internal",
+        "related": [
+          {
+            "childRoute": "subnets",
+            "filterField": "network_id",
+            "label": "Подсети"
+          },
+          {
+            "childRoute": "route-tables",
+            "filterField": "network_id",
+            "label": "Таблицы маршрутизации"
+          },
+          {
+            "childRoute": "security-groups",
+            "filterField": "network_id",
+            "label": "Группы безопасности"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "default_security_group_id — ссылка на default-SG сети (RefNameLink), управляется через InternalNetworkService (admin), read-only для tenant",
+            "preserveAs": "в Обзор"
+          }
+        ],
+        "docs": [
+          "Облачные сети и подсети",
+          "Таблицы маршрутизации",
+          "Группы безопасности",
+          "Адреса облачных ресурсов"
+        ],
+        "emptyState": {
+          "title": "Создайте вашу первую облачную сеть",
+          "body": "Облачная сеть Kachō объединяет подсети, таблицы маршрутизации и группы безопасности в единое изолированное адресное пространство. Внутри сети ресурсы общаются напрямую, а наружу — через шлюзы и публичные адреса.",
+          "docs": [
+            "Облачные сети и подсети"
+          ]
+        }
+      },
+      {
+        "id": "subnets",
+        "route": "subnets",
+        "currentDetail": "SubnetDetailPage (кастом: tab «IP-адреса» с Address-ресурсами по internal subnet_id + utilization, кастом-edit InlineSubnetEditForm с SubnetCidrManager)",
+        "projectScoped": "project",
+        "nesting": "nested under networks (URL-паттерн /projects/:projectId/vpc/networks/:networkId/subnets/:uid; detailBase должен поддержать nested-вариант, при заходе с flat /vpc/subnets/:uid — top-level). Сам Subnet — ребёнок Network (filterField network_id).",
+        "hasCustomForm": "InlineSubnetEditForm (edit) + InlineSubnetCreateForm (create, уже диспетчится в ResourceShell child-create для networks→subnets)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "addresses",
+            "filterField": "internal_ipv4_address.subnet_id",
+            "label": "IP-адреса"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "v4_cidr_blocks / v6_cidr_blocks — управление CIDR-блоками через SubnetCidrManager (verbs :add-cidr-blocks / :remove-cidr-blocks, т.к. CIDR immutable в обычном PATCH). Сейчас живёт внутри InlineSubnetEditForm.",
+            "preserveAs": "в Обзор (показать CIDR-блоки read-only как chip-list в Descriptions) + редактирование CIDR оставить внутри кастом-edit-формы InlineSubnetEditForm, которую mainOverride должен диспетчить в edit-режиме"
+          },
+          {
+            "what": "Таб «IP-адреса» — Address-ресурсы привязанные к подсети (filter по internal_ipv4_address.subnet_id ∪ internal_ipv6_address.subnet_id), с «Зарезервировать IP-адрес»",
+            "preserveAs": "покрыто related-табом (childRoute=addresses, filterField=internal_ipv4_address.subnet_id; нужен второй фильтр по internal_ipv6_address.subnet_id — RelatedTable сейчас фильтрует по одному filterField, потребуется поддержка OR-фильтра либо кастом-предикат)"
+          },
+          {
+            "what": "zone_id (immutable), network_id (immutable, RefNameLink на Network), route_table_id (RefNameLink, опц.) — табличные/ссылочные поля",
+            "preserveAs": "в Обзор"
+          },
+          {
+            "what": "Резервирование IP в контексте подсети — preset internal_ipv4/v6_address_spec.subnet_id + _address_kind=internal/internal_v6",
+            "preserveAs": "extra-tab:IP-адреса (через child-create режим subnets→addresses с presetFields внутри ResourceShell, аналог InlineSubnetCreateForm-ветки)"
+          }
+        ],
+        "docs": [
+          "Облачные сети и подсети",
+          "CIDR-блоки подсети",
+          "Резервирование внутренних IP-адресов"
+        ],
+        "emptyState": {
+          "title": "Создайте вашу первую подсеть",
+          "body": "Подсеть — диапазон IP-адресов внутри облачной сети Kachō, привязанный к зоне доступности. Ресурсы (виртуальные машины, балансировщики, сетевые интерфейсы) размещаются в подсетях и получают адреса из их CIDR-блоков.",
+          "docs": [
+            "Облачные сети и подсети"
+          ]
+        }
+      },
+      {
+        "id": "route-tables",
+        "route": "route-tables",
+        "currentDetail": "RouteTableDetailPage (тонкая обёртка над ResourceDetailPage + useNestedBreadcrumb; своего доменного UI нет — static_routes показываются generic-колонкой)",
+        "projectScoped": "project",
+        "nesting": "nested under networks (URL /projects/:projectId/vpc/networks/:networkId/route-tables/:uid; flat-вариант /vpc/route-tables/:uid тоже есть). Сам RT — ребёнок Network (filterField network_id).",
+        "hasCustomForm": "нет (generic InlineResourceCreateForm/EditForm; static_routes редактируются generic array-field, см. registry fields)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "static_routes — массив {destination_prefix → next_hop_address} (gateway_id режим не поддержан backend'ом). Редактируется generic array-field в форме; на detail показывается как список «CIDR → next-hop».",
+            "preserveAs": "extra-tab:Статические маршруты (компактная таблица destination_prefix → next_hop_address; либо в Обзор если маршрутов мало — но отдельный таб чище, т.к. список может быть объёмным)"
+          },
+          {
+            "what": "network_id (immutable, RefNameLink на Network)",
+            "preserveAs": "в Обзор"
+          }
+        ],
+        "docs": [
+          "Таблицы маршрутизации",
+          "Статическая маршрутизация",
+          "Маршрутизация через NAT-инстанс"
+        ],
+        "emptyState": {
+          "title": "Создайте вашу первую таблицу маршрутизации",
+          "body": "С помощью таблиц маршрутизации вы можете построить маршруты между облачной сетью Kachō и другими виртуальными или локальными сетями, либо настроить отказоустойчивую схему передачи данных с маршрутами в нескольких зонах доступности.",
+          "docs": [
+            "Статическая маршрутизация",
+            "Маршрутизация через NAT-инстанс"
+          ]
+        }
+      },
+      {
+        "id": "security-groups",
+        "route": "security-groups",
+        "currentDetail": "SecurityGroupDetailPage (кастом: табы «Входящий трафик»/«Исходящий трафик» с RulesTable по direction, кастом-edit InlineSecurityGroupEditForm через split-endpoint UpdateRules)",
+        "projectScoped": "project",
+        "nesting": "nested under networks (URL /projects/:projectId/vpc/networks/:networkId/security-groups/:uid; flat /vpc/security-groups/:uid тоже). Сам SG — ребёнок Network (filterField network_id), но network_id опционален (SG может быть без сети).",
+        "hasCustomForm": "InlineSecurityGroupEditForm (edit, split-endpoint: метаданные через PATCH, rules через UpdateRules RPC). Create — generic InlineResourceCreateForm с sg-rules field.",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "rules editor — правила фильтруются по direction на два таба INGRESS/EGRESS; колонки Протокол | Диапазон портов | Тип источника | Источник | Описание; target = CIDR | другая SG | predefined",
+            "preserveAs": "extra-tab:Входящий трафик + extra-tab:Исходящий трафик (две отдельные вкладки RulesTable, как сейчас; редактирование правил — внутри кастом-edit InlineSecurityGroupEditForm, которую mainOverride диспетчит в edit-режиме)"
+          },
+          {
+            "what": "network_id (опц., RefNameLink asTag), default_for_network (BOOL — авто-присвоен default-SG на Network), status",
+            "preserveAs": "в Обзор"
+          }
+        ],
+        "docs": [
+          "Группы безопасности",
+          "Правила групп безопасности",
+          "Группа безопасности по умолчанию"
+        ],
+        "emptyState": {
+          "title": "Создайте вашу первую группу безопасности",
+          "body": "Группа безопасности — набор правил, определяющих разрешённый входящий и исходящий трафик для ресурсов облачной сети Kachō. Без правил трафик блокируется по принципу default-deny.",
+          "docs": [
+            "Группы безопасности"
+          ]
+        }
+      },
+      {
+        "id": "addresses",
+        "route": "addresses",
+        "currentDetail": "AddressDetailPage (тонкая обёртка над ResourceDetailPage + useNestedBreadcrumb для nested-под-subnet; своего доменного UI нет)",
+        "projectScoped": "project",
+        "nesting": "nested under subnets (URL /projects/:projectId/vpc/subnets/:subnetId/addresses/:uid и /projects/:projectId/vpc/networks/:networkId/subnets/:subnetId/addresses/:uid). На project-level (external IP) — flat /vpc/addresses/:uid. Сам Address — ребёнок Subnet (filterField internal_ipv4_address.subnet_id). detailBase зависит от точки входа: flat при заходе со списка адресов, nested при заходе из таба «IP-адреса» подсети.",
+        "hasCustomForm": "нет для самого Address detail. Create — generic InlineResourceCreateForm с oneof-дискриминатором _address_kind (external IPv4/IPv6, internal IPv4/IPv6) + sanitize. В контексте подсети preset internal_ipv*_address_spec.subnet_id.",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "external_ipv4/external_ipv6/internal_ipv4/internal_ipv6 (JSONB {address, ...}), ip_version, type (Публичный/Внутренний), used (Да/Нет), used_by (output-only references — кто использует, напр. compute_instance), deletion_protection, ddos_protection_provider",
+            "preserveAs": "в Обзор (IP-адрес, версия, вид, используется, ресурс-потребитель, защита от удаления/DDoS — расширенный набор полей сверх 5 обязательных)"
+          }
+        ],
+        "docs": [
+          "Публичные IP-адреса",
+          "Внутренние IP-адреса",
+          "Защита от DDoS-атак",
+          "Защита от удаления"
+        ],
+        "emptyState": {
+          "title": "Зарезервируйте ваш первый IP-адрес",
+          "body": "IP-адрес Kachō можно зарезервировать заранее и привязать к ресурсу позже. Внутренние адреса выделяются из CIDR-блока подсети, публичные — из IP-пула зоны доступности.",
+          "docs": [
+            "Публичные IP-адреса",
+            "Внутренние IP-адреса"
+          ]
+        }
+      },
+      {
+        "id": "gateways",
+        "route": "gateways",
+        "currentDetail": "нет (используется generic VpcDetailShell spec={gateways})",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase=/projects/:projectId/vpc/gateways/:uid)",
+        "hasCustomForm": "нет (generic InlineResourceCreateForm; create-template содержит shared_egress_gateway_spec:{} — единственный валидный gateway_type oneof, backend отбивает пустой oneof InvalidArgument 'Illegal argument gateway')",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "type (SHARED_EGRESS_GATEWAY — единственный tier-1), shared_egress_gateway (nested config). Gateway референсится из RouteTable.static_routes[].gateway_id (in-bound FK, валидируется на Update).",
+            "preserveAs": "в Обзор (тип шлюза + конфигурация shared-egress)"
+          }
+        ],
+        "docs": [
+          "Сетевые шлюзы",
+          "Шлюз исходящего трафика (shared egress)",
+          "Использование шлюза в таблице маршрутизации"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый шлюз",
+          "body": "Шлюз Kachō обеспечивает выход ресурсов облачной сети во внешние сети. Шлюз исходящего трафика (shared egress) предоставляет общий доступ в интернет для подсетей, привязанных к нему через таблицу маршрутизации.",
+          "docs": [
+            "Сетевые шлюзы",
+            "Шлюз исходящего трафика (shared egress)"
+          ]
+        }
+      },
+      {
+        "id": "network-interfaces",
+        "route": "network-interfaces",
+        "currentDetail": "NetworkInterfaceDetailPage (кастом: overviewExtras с двумя таблицами — «Подключенные адреса» по v4/v6_address_ids и «Группы безопасности» по security_group_ids; кастом create/edit формы)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase=/projects/:projectId/vpc/network-interfaces/:uid). NIC сам не вложен; ссылается на Subnet (subnet_id) и Address[]/SG[]; consumer — compute Instance (used_by).",
+        "hasCustomForm": "InlineNetworkInterfaceCreateForm (create) + InlineNetworkInterfaceEditForm (edit) — кастом, оба уже в ResourceFormModal-диспетчере; нужно завести аналогичный диспетч в mainOverride ResourceShell",
+        "internalGetPath": "/vpc/v1/networkInterfaces/{id}/internal",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "«Подключенные адреса» — Address-ресурсы по v4_address_ids ∪ v6_address_ids (resolved by id; имя/семейство IPv4|IPv6/IP/ID), кликабельны на Address detail",
+            "preserveAs": "extra-tab:Подключенные адреса (таблица; либо в Обзор — у NIC ≤2 адреса, текущая страница кладёт это в overviewExtras именно из-за компактности; рекомендую в Обзор как доп-секцию)"
+          },
+          {
+            "what": "«Группы безопасности» — SG по security_group_ids (имя/default/ID), кликабельны на SG detail",
+            "preserveAs": "в Обзор (доп-секция; обычно несколько SG — компактно)"
+          },
+          {
+            "what": "mac_address (output-only, auto-generated), subnet_id (RefNameLink, immutable), status, used_by (output-only reference — компьют-инстанс, который присоединил NIC, RefNameLink asTag на compute-instances)",
+            "preserveAs": "в Обзор"
+          }
+        ],
+        "docs": [
+          "Сетевые интерфейсы",
+          "Привязка адресов к интерфейсу",
+          "Группы безопасности интерфейса"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый сетевой интерфейс",
+          "body": "Сетевой интерфейс Kachō — самостоятельный ресурс, который размещается в подсети, получает IP-адреса и группы безопасности, а затем присоединяется к виртуальной машине. Один интерфейс — один набор адресов; для нескольких адресов на машине используйте несколько интерфейсов.",
+          "docs": [
+            "Сетевые интерфейсы"
+          ]
+        }
+      }
+    ]
+  },
+  "compute": {
+    "module": "compute",
+    "resources": [
+      {
+        "id": "compute-instances",
+        "route": "instances",
+        "currentDetail": "InstanceDetailPage (обёртка над ResourceDetailPage + attach/detach-диск модалки + Start/Stop/Restart из spec.ops + secondaryActions с boot-disk-тегом)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase = /projects/:projectId/compute/instances/:uid). Под Instance НЕ вкладываются дочерние ресурсы в URL — диски/NIC живут самостоятельно и привязка показывается табами/Обзором, но их detail остаётся в собственных top-level маршрутах.",
+        "hasCustomForm": "нет (generic InlineResourceCreateForm/EditForm; create-форма богатая за счёт network_interface_specs + NicSpecFields custom-render + sanitizeInstanceCreate, но всё внутри generic-формы по registry.fields)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "compute-disks",
+            "filterField": "instance_ids",
+            "label": "Диски"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "Сетевые интерфейсы: Instance.network_interfaces[] — read-only mirror (index, mac_address, subnet_id, primary_v4_address.address, primary_v6_address, security_group_ids, nic_id→vpc NIC). Это embedded-массив внутри инстанса, nic_id ссылается на vpc NetworkInterface (источник истины). В generic ResourceDetailPage показывался сыро (в JSON) — нужен человекочитаемый блок со ссылками на subnet/NIC/SG и внутренним+внешним IP.",
+            "preserveAs": "extra-tab:Сетевые интерфейсы — таб с таблицей по data.network_interfaces (RefNameLink на subnets / network-interfaces / security-groups; колонки index, внутренний IPv4, внешний IPv4 из one_to_one_nat.address, MAC). Это embedded-данные мастера, related-таб по filterField сюда не подходит (нет отдельного списочного ресурса NIC-mirror с filter=instance_id)."
+          },
+          {
+            "what": "Загрузочный диск (boot_disk.disk_id) + вторичные диски (secondary_disks[].disk_id, device_name, mode, auto_delete) + локальные диски (local_disks[]). Сейчас boot_disk тег в secondaryActions, secondary видны только в JSON.",
+            "preserveAs": "покрыто related-табом Диски — related-таб «Диски» (filterField instance_ids на compute-disks) показывает все диски ВМ (boot+secondary), т.к. Disk.instance_ids содержит id инстанса. Boot-vs-secondary различие + device_name/auto_delete вынести строкой «Загрузочный диск: RefNameLink» в Обзор. Локальные диски (без отдельного ресурса) — в Обзор при наличии."
+          },
+          {
+            "what": "Кнопки управления питанием Start / Stop / Restart (spec.ops.start/stop/restart → POST :start|:stop|:restart). Рендерятся ResourceDetailPage в overviewActions.",
+            "preserveAs": "в Обзор — добавить в SectionHeader Обзор-таба ResourceShell ряд power-кнопок рядом с «Редактировать», управляемых spec.ops + OperationDialog. ResourceShell сейчас рендерит только «Редактировать» — нужно расширить header-actions для ops.start/stop/restart (Instance — первый ресурс с power-verbs в Shell)."
+          },
+          {
+            "what": "Подключить диск / Отключить диск (:attachDisk / :detachDisk) — модалки с RefSelect compute-disks + auto_delete чекбокс. Уникальная доменная логика InstanceDetailPage.",
+            "preserveAs": "extra-tab:Диски — кнопки «Подключить диск»/«Отключить диск» поместить в SectionHeader related-таба «Диски» рядом с «Создать диск»; модалки + OperationDialog-поллинг + auto_delete сохранить."
+          },
+          {
+            "what": "vCPU/RAM/доля (resources: cores/memory/core_fraction/gpus), platform_id, status, zone_id, fqdn, service_account_id, scheduling_policy (preemptible), serial_port_settings, metadata (map SSH-ключи и т.п.).",
+            "preserveAs": "в Обзор — расширить overviewItems Shell доменными строками: Платформа, vCPU/RAM, FQDN, Service Account, Зона, Статус (бейдж). Metadata вынести extra-tab:Метаданные, не пихать в 5 обязательных полей."
+          },
+          {
+            "what": "Серийная консоль / serial port output (GetSerialPortOutput RPC) — в текущем UI не реализовано, но это доменная фича Instance.",
+            "preserveAs": "drop(не реализовано в текущей custom-странице — out-of-scope миграции; при появлении — extra-tab:Консоль)."
+          }
+        ],
+        "docs": [
+          "Виртуальные машины Kachō — обзор (#)",
+          "Платформы и конфигурации vCPU/RAM (#)",
+          "Подключение и отключение дисков (#)",
+          "Сетевые интерфейсы и публичные IP ВМ (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте вашу первую виртуальную машину",
+          "body": "Виртуальная машина Kachō — вычислительный ресурс с заданными vCPU, объёмом памяти и платформой. К ВМ подключаются загрузочный и дополнительные диски, а сетевые интерфейсы дают доступ во внутренние подсети и, при необходимости, во внешнюю сеть.",
+          "docs": [
+            "Виртуальные машины — обзор",
+            "Создание ВМ из образа"
+          ]
+        }
+      },
+      {
+        "id": "compute-disks",
+        "route": "disks",
+        "currentDetail": "ResourceDetailPage (generic — через App.tsx ветку для compute-*)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase = /projects/:projectId/compute/disks/:uid). Не вложен.",
+        "hasCustomForm": "нет (generic; create использует _disk_source enum blank/image/snapshot + gibToBytes sanitize)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "compute-snapshots",
+            "filterField": "source_disk_id",
+            "label": "Снимки"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "size (байты→ГиБ, fmtBytesGiB), block_size, type_id→DiskType, zone_id→Zone, status, источник: source_image_id (oneof) / source_snapshot_id (oneof) с RefNameLink, product_ids[].",
+            "preserveAs": "в Обзор — доменные строки overviewItems: Размер (ГиБ), Тип диска, Зона, Статус (бейдж), Источник (RefNameLink на compute-images ИЛИ compute-snapshots по тому, что заполнено в oneof). Block size/product_ids — опционально в Обзор."
+          },
+          {
+            "what": "instance_ids[] — к каким ВМ привязан диск (один диск может быть в нескольких ВМ при READ_ONLY). В list-колонке показывается instance_ids[0] как RefNameLink.",
+            "preserveAs": "в Обзор — строка «Привязан к ВМ» с RefNameLink на compute-instances (все элементы instance_ids[]). Отдельный related-таб не нужен — это обратная ссылка, не дочерний список (instances не фильтруются по disk_id)."
+          }
+        ],
+        "docs": [
+          "Диски — обзор (#)",
+          "Типы дисков (#)",
+          "Снимки дисков (#)",
+          "Создание диска из образа или снимка (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый диск",
+          "body": "Диск — блочное хранилище, которое подключается к виртуальной машине. Диск можно создать пустым, из образа или из снимка; размер задаётся в гигабайтах и может быть увеличен позже.",
+          "docs": [
+            "Диски — обзор",
+            "Типы дисков"
+          ]
+        }
+      },
+      {
+        "id": "compute-images",
+        "route": "images",
+        "currentDetail": "ResourceDetailPage (generic)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase = /projects/:projectId/compute/images/:uid). Не вложен.",
+        "hasCustomForm": "нет (generic; create использует _image_source enum disk/snapshot/image/uri + gibToBytes sanitize)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "compute-disks",
+            "filterField": "source_image_id",
+            "label": "Диски из образа"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "family (семейство), status, min_disk_size (байты→ГиБ), storage_size, os.type (тип ОС), pooled, product_ids[]. Источник создания (disk/snapshot/image/uri) — только create-only поля, в ресурсе не хранится читаемым полем.",
+            "preserveAs": "в Обзор — доменные строки overviewItems: Семейство, Статус (бейдж), Минимальный размер диска (ГиБ), ОС (os.type), Размер хранилища. Лучше generic Descriptions, который их не знает."
+          }
+        ],
+        "docs": [
+          "Образы — обзор (#)",
+          "Семейства образов (#)",
+          "Создание образа из диска или снимка (#)",
+          "Создание диска из образа (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый образ",
+          "body": "Образ — шаблон загрузочного диска с предустановленной операционной системой. Из образа можно быстро создавать диски и виртуальные машины. Образ создаётся из диска, снимка, другого образа или по pre-signed URL.",
+          "docs": [
+            "Образы — обзор",
+            "Создание образа из диска"
+          ]
+        }
+      },
+      {
+        "id": "compute-snapshots",
+        "route": "snapshots",
+        "currentDetail": "ResourceDetailPage (generic)",
+        "projectScoped": "project",
+        "nesting": "top-level (detailBase = /projects/:projectId/compute/snapshots/:uid). Не вложен.",
+        "hasCustomForm": "нет (generic)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "compute-disks",
+            "filterField": "source_snapshot_id",
+            "label": "Диски из снимка"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "source_disk_id→Disk (RefNameLink, исходный диск), disk_size (размер диска на момент снимка, байты→ГиБ), storage_size (дельта), status, product_ids[].",
+            "preserveAs": "в Обзор — доменные строки overviewItems: Исходный диск (RefNameLink на compute-disks), Размер диска (ГиБ), Размер хранилища (ГиБ), Статус (бейдж)."
+          }
+        ],
+        "docs": [
+          "Снимки дисков — обзор (#)",
+          "Создание снимка диска (#)",
+          "Создание диска из снимка (#)",
+          "Расписания снимков (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый снимок диска",
+          "body": "Снимок — копия состояния диска на определённый момент времени. Из снимка можно восстановить диск или создать новый. Снимки хранятся инкрементально: каждый следующий содержит только изменения относительно предыдущего.",
+          "docs": [
+            "Снимки дисков — обзор",
+            "Создание диска из снимка"
+          ]
+        }
+      },
+      {
+        "id": "disk-types",
+        "route": "disk-types",
+        "currentDetail": "нет (только ResourceListPage; detail-роут не зарегистрирован в App.tsx — disk-types НЕ входят в COMPUTE_SCOPED и не имеют отдельного :uid route)",
+        "projectScoped": "global",
+        "nesting": "top-level / нет detail-страницы сейчас. Если давать Shell — потребуется новый global-роут (вне /projects/), как у regions/zones под /system или /compute-catalog. Read-only справочник, ops.create/update/delete=false. Низкий приоритет — используется в основном как refResource в дропдаунах.",
+        "hasCustomForm": "нет",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "id (network-ssd / network-hdd / ...), description, zone_ids[] (в каких зонах доступен). Read-only catalog, нет name/created_at/labels — 5 обязательных полей Обзора частично пустые (Имя/Дата/Метки отсутствуют в proto DiskType).",
+            "preserveAs": "в Обзор — заменить отсутствующие обязательные поля: вместо Имени показать ID (моноширинный) + Описание; добавить доменную строку «Доступен в зонах» (zone_ids[] как список/теги). Дату создания и Метки — «—» или скрыть (у DiskType их нет в proto)."
+          }
+        ],
+        "docs": [
+          "Типы дисков Kachō (#)",
+          "Производительность и квоты дисков (#)"
+        ],
+        "emptyState": {
+          "title": "Типы дисков пока недоступны",
+          "body": "Типы дисков — это предопределённый каталог Kachō (например, network-ssd, network-hdd), задающий характеристики производительности. Они создаются администраторами платформы и доступны во всех проектах региона.",
+          "docs": [
+            "Типы дисков Kachō"
+          ]
+        }
+      },
+      {
+        "id": "regions",
+        "route": "regions",
+        "currentDetail": "ResourceDetailPage (generic) под /system/regions/:uid; вне AdminLayout (App.tsx стр. 497)",
+        "projectScoped": "global",
+        "nesting": "top-level admin (detailBase = /system/regions/:uid). Не под /projects/. Если мигрировать на Shell — Shell сейчас жёстко строит detailBase = /projects/:projectId/vpc/:route/:uid; его нужно параметризовать (service-segment + admin /system base) ИЛИ оставить regions на ResourceDetailPage. Admin-ресурсы — низкий приоритет миграции.",
+        "hasCustomForm": "нет (generic; id immutable PK)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "zones",
+            "filterField": "region_id",
+            "label": "Зоны"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "id (immutable PK, region display id типа ru-central1), name. Нет labels/description/status/created_at в proto Region. Sync RPC (без Operation envelope) — таб «Операции» неприменим.",
+            "preserveAs": "в Обзор — ID (моноширинный) + Название. Метки/Описание/Дата создания — «—» (нет в proto). Таб «Операции» НЕ добавлять (Region sync, нет LRO); это отличие от VPC-эталона надо учесть в Shell (аналог hideOperationsTab)."
+          }
+        ],
+        "docs": [
+          "Регионы и зоны доступности Kachō (#)",
+          "География платформы (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте первый регион",
+          "body": "Регион — географическая область, объединяющая несколько зон доступности. Регионы — административный ресурс платформы Kachō: они задают географию размещения сетей, дисков и виртуальных машин.",
+          "docs": [
+            "Регионы и зоны доступности Kachō"
+          ]
+        }
+      },
+      {
+        "id": "zones",
+        "route": "zones",
+        "currentDetail": "ResourceDetailPage (generic) под /system/zones/:uid (вне AdminLayout, App.tsx стр. 500)",
+        "projectScoped": "global",
+        "nesting": "top-level admin (detailBase = /system/zones/:uid). Не под /projects/. Нужна та же параметризация Shell-detailBase, что и для regions; иначе оставить на ResourceDetailPage.",
+        "hasCustomForm": "нет (generic; id immutable PK, region_id ref→regions immutable)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "id (immutable PK типа ru-central1-a), region_id→Region (FK), status (enum), name. Sync RPC (нет Operation). Обратные ссылки: Subnet/Disk/Instance.zone_id указывают на зону, но это cross-service/много-ресурсные обратные ссылки — не дочерний список.",
+            "preserveAs": "в Обзор — ID (моноширинный), Регион (RefNameLink на regions), Статус (бейдж), Название. Таб «Операции» НЕ добавлять (sync). Связанные ресурсы по zone_id (подсети/диски/ВМ) НЕ делать related-табами (filterField zone_id увёл бы в чужие домены и не один список)."
+          }
+        ],
+        "docs": [
+          "Зоны доступности Kachō (#)",
+          "Регионы и зоны (#)"
+        ],
+        "emptyState": {
+          "title": "Создайте первую зону",
+          "body": "Зона доступности — изолированный сегмент региона с собственной инфраструктурой. Зоны — административный ресурс Kachō: ресурсы (подсети, диски, ВМ) размещаются в конкретной зоне и не могут пересекать её границу.",
+          "docs": [
+            "Зоны доступности Kachō"
+          ]
+        }
+      }
+    ],
+    "notes": "ОБЩИЙ РИСК / что сложно унифицировать в модуле compute:\n\n1. ResourceShell сегодня жёстко привязан к VPC: detailBase = `/projects/${projectId}/vpc/${spec.route}/${uid}` (ResourceShell.tsx:310), а child-create форсит presetFields={network_id: uid} и InlineSubnetCreateForm. Для compute нужно: (а) параметризовать service-segment (vpc|compute|nlb) — взять из resourceServicePrefix(spec.id); (б) убрать VPC-специфичный network_id-preset из child-create. Отличие от VPC: для Instance→Disks дочерний фильтр — instance_ids, но Disk создаётся БЕЗ привязки к инстансу (связь через :attachDisk, а не через source-поле). Поэтому «Создать диск» из таба ВМ не должен пресетить instance_id; после создания диск нужно attach'ить — это не VPC-модель «child несёт parent FK».\n\n2. RELATED-таблицы Shell фильтруются client-side: RelatedTable.ownRows = all.filter(r => getByPath(r, filterField) === parentId) (ResourceShell.tsx:139). Для Instance→Disks filterField = instance_ids — это МАССИВ, сравнение массива со строкой не сматчит. Критично доработать RelatedTable: для array-полей использовать Array.includes(parentId). Снимки/диски (source_disk_id/source_snapshot_id/source_image_id) — скаляры, там ок.\n\n3. Power-verbs (Start/Stop/Restart) и attach/detach-disk — Instance уникален: ResourceShell сейчас рендерит в header Обзора только «Редактировать». Нужно расширить Shell (header-actions по spec.ops.start/stop/restart + OperationDialog) и пробросить в related-таб «Диски» action-кнопки attach/detach с модалками. Сегодня это InstanceDetailPage поверх ResourceDetailPage.secondaryActions+модалки.\n\n4. Admin Region/Zone/DiskType — global-scoped (вне /projects/), sync RPC (нет таба «Операции»), частично без name/labels/created_at (5 обязательных полей Обзора неполны). ResourceShell в текущем виде их не обслуживает (жёсткий detailBase, обязательный Обзор, авто-таб Операции). Рекомендация: оставить на ResourceDetailPage до отдельной admin-фазы ЛИБО параметризовать Shell (admin /system base + флаг скрытия Операций + лояльный Обзор). disk-types вообще не имеет detail-роута сейчас.\n\n5. Instance.network_interfaces[] — embedded mirror, НЕ списочный ресурс: для него нет route с filter=instance_id, поэтому это extra-tab по data.network_interfaces, а не related-таб. nic_id внутри даёт cross-domain ссылку на vpc network-interfaces detail.\n\n6. Поле проекта в proto называется project_id (унаследованные комменты proto говорят folder — игнорировать). useResourceList(childSpec, 'project_id', projectId) для compute-disks/snapshots корректно.\n\n7. internalGetPath отсутствует у всех compute-ресурсов (Hypervisor дропнут KAC-36/82) → jsonint-таба нет ни у кого; набор табов = Обзор / связанные / Операции / JSON (у admin Region/Zone — без Операций; у DiskType — Обзор/JSON).\n\n8. Vault: в obsidian/kacho/resources/ НЕТ заметок про compute-ресурсы (есть только vpc-*/iam-*/nlb-*/rm-*/operation). FK/lifecycle брал напрямую из kacho-proto compute/v1/*.proto. При работе стоит завести resources/compute-instance.md, compute-disk.md, compute-image.md, compute-snapshot.md, compute-zone.md, compute-region.md."
+  },
+  "nlb": {
+    "module": "nlb",
+    "resources": [
+      {
+        "id": "load-balancers",
+        "route": "load-balancers",
+        "currentDetail": "ResourceDetailPage (generic; spec.id load-balancers)",
+        "projectScoped": "project",
+        "related": [
+          {
+            "childRoute": "listeners",
+            "filterField": "load_balancer_id",
+            "label": "Listeners"
+          },
+          {
+            "childRoute": "target-groups",
+            "filterField": "load_balancer_id",
+            "label": "Target Groups"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "Поля type (EXTERNAL/INTERNAL, immutable), session_affinity (FIVE_TUPLE/CLIENT_IP_ONLY), cross_zone_enabled (bool), deletion_protection (bool), region_id, status — domain-специфика LB сверх 5 обязательных полей Обзора",
+            "preserveAs": "в Обзор (расширить overviewItems: Регион/Тип/Session affinity/Cross-zone/Deletion protection/Статус после 5 обязательных)"
+          },
+          {
+            "what": "Привязанные Target Groups: many-to-many через JOIN-таблицу attached_target_groups (verb-RPC Attach/DetachTargetGroup). У TargetGroup НЕТ поля load_balancer_id -> generic RelatedTable по filterField НЕ сработает на общем списке target-groups",
+            "preserveAs": "extra-tab:Target Groups — кастомный attach/detach editor через verb-RPC :attachTargetGroup/:detachTargetGroup (аналог Targets editor у TG). related-запись ниже оставлена условно: если LB-GET payload отдаёт attached_target_group_ids, related-таб можно строить из payload, иначе мигрировать в этот extra-tab"
+          },
+          {
+            "what": "Listeners этого LB (FK listeners.load_balancer_id — поле есть на самом listener)",
+            "preserveAs": "покрыто related-табом (childRoute listeners, filterField load_balancer_id) — generic RelatedTable работает штатно"
+          }
+        ],
+        "docs": [
+          "Сетевой балансировщик нагрузки Kachō — обзор",
+          "Создание и настройка балансировщика",
+          "Внешние и внутренние балансировщики (тип VIP)",
+          "Защита от удаления и session affinity"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый балансировщик нагрузки",
+          "body": "Сетевой балансировщик Kachō распределяет входящий L4-трафик (TCP/UDP) между группами целей в одном регионе. Создайте балансировщик, добавьте слушатели на нужных портах и привяжите группы целей — трафик будет автоматически распределяться между здоровыми бэкендами.",
+          "docs": [
+            "Сетевой балансировщик нагрузки Kachō — обзор",
+            "Создание и настройка балансировщика"
+          ]
+        },
+        "hasCustomForm": "нет",
+        "internalGetPath": "нет",
+        "nesting": "top-level (URL /projects/:projectId/nlb/load-balancers/:uid; detailBase = /projects/:projectId/nlb/load-balancers/:uid — segment nlb, НЕ vpc; ResourceShell.detailBase сейчас хардкодит vpc — обязательная правка перед подключением nlb)"
+      },
+      {
+        "id": "listeners",
+        "route": "listeners",
+        "currentDetail": "ResourceDetailPage (generic; spec.id listeners)",
+        "projectScoped": "project",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "Поля protocol (TCP/UDP, immutable), port + target_port, ip_version (IPV4/IPV6, immutable), allocated_address (резолвленный VIP-string, output-only), proxy_protocol_v2 (bool, mutable), default_target_group_id (within-service soft-ref, mutable), load_balancer_id (FK, immutable), subnet_id (для INTERNAL LB), address_id (BYO, immutable)",
+            "preserveAs": "в Обзор (доп. строки: Балансировщик[RefNameLink на load-balancers]/Протокол/Порт/Порт на target/IP-версия/Выделенный адрес VIP[monospace]/Default target group[ref]/Proxy protocol v2/Подсеть/BYO-адрес)"
+          },
+          {
+            "what": "VIP allocation: auto (vpc.InternalAddressService.Allocate) vs BYO (address_id); allocated_address — output-only VIP",
+            "preserveAs": "в Обзор (строка Выделенный адрес = allocated_address). Сам flow аллокации backend-only, в UI не редактируется"
+          }
+        ],
+        "docs": [
+          "Слушатели балансировщика (Listener)",
+          "Протоколы и порты слушателя",
+          "Внешние и внутренние VIP-адреса (BYO Address)"
+        ],
+        "emptyState": {
+          "title": "Добавьте слушатель",
+          "body": "Слушатель принимает трафик на заданном протоколе (TCP/UDP) и порту балансировщика и направляет его в группу целей по умолчанию. Для каждого порта балансировщика создайте отдельный слушатель — комбинация порт+протокол уникальна в пределах балансировщика.",
+          "docs": [
+            "Слушатели балансировщика (Listener)",
+            "Протоколы и порты слушателя"
+          ]
+        },
+        "hasCustomForm": "нет",
+        "internalGetPath": "нет",
+        "nesting": "top-level (URL /projects/:projectId/nlb/listeners/:uid; detailBase = /projects/:projectId/nlb/listeners/:uid — segment nlb). НЕ вложен под load-balancers в URL несмотря на FK load_balancer_id; связь с LB показывается ref-ссылкой в Обзоре + related-табом со стороны LB"
+      },
+      {
+        "id": "target-groups",
+        "route": "target-groups",
+        "currentDetail": "TargetGroupDetailPage (кастомная: ResourceDetailPage + secondaryActions Targets-секция)",
+        "projectScoped": "project",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "Targets — embedded composite-дети TG (4-way oneof identity: instance_id / nic_id / ip_ref{subnet_id,address} / external_ip{address,zone_id} + weight 0..1000). Управляются verb-RPC :addTargets / :removeTargets (Operation envelope), приходят в TG-GET в поле targets. НЕ отдельный ресурс реестра (нет route/ID-prefix/list-page). Кастомный редактор уже в TargetGroupDetailPage: Add-target Modal с RefSelect (compute-instances/network-interfaces/subnets/zones), таблица targets с remove по identity-only, OperationDialog polling, backend 2-phase drain DRAINING->delete",
+            "preserveAs": "extra-tab:Targets — перенести существующий Targets-editor (Add-target Modal + таблица + verb-RPC :addTargets/:removeTargets + OperationDialog) как кастомный таб в ResourceShell. Главный domain-content модуля; generic related-таб НЕ может покрыть (targets — не ресурс реестра)"
+          },
+          {
+            "what": "health_check (JSONB embedded: name, interval, timeout, unhealthy/healthy_threshold, exactly-one tcp/http/https/grpc options) + deregistration_delay_seconds (0..3600) + slow_start_seconds (0..900) + region_id (immutable)",
+            "preserveAs": "в Обзор (доп. строки: Регион/Drain timeout/Slow start + под-блок Health check: имя/протокол+порт/интервал/таймаут/thresholds). Поля уже в spec.fields для формы; на Обзоре read-only"
+          },
+          {
+            "what": "Привязанные Load Balancers (симметрия attached_target_groups; Move blocked если есть attached LB)",
+            "preserveAs": "drop(симметричная связь LB<->TG; управление привязкой живёт на стороне LB через attach/detach-editor. Опц. read-only список привязанных LB на TG-Обзоре, если backend отдаёт в payload; отдельный related-таб не нужен)"
+          }
+        ],
+        "docs": [
+          "Группы целей (Target Group)",
+          "Типы целей: инстанс, NIC, IP в облаке, внешний IP",
+          "Проверки состояния (Health checks)",
+          "Дренаж и снятие целей (deregistration delay)"
+        ],
+        "emptyState": {
+          "title": "Создайте группу целей",
+          "body": "Группа целей объединяет бэкенды (виртуальные машины, сетевые интерфейсы, IP-адреса в облаке или внешние IP), между которыми балансировщик распределяет трафик. Настройте проверку состояния — балансировщик будет направлять трафик только на здоровые цели.",
+          "docs": [
+            "Группы целей (Target Group)",
+            "Проверки состояния (Health checks)"
+          ]
+        },
+        "hasCustomForm": "нет (Create/Edit самой TG — generic InlineResourceCreateForm/EditForm; кастомен только Targets-editor — verb-RPC секция, не форма ресурса)",
+        "internalGetPath": "нет",
+        "nesting": "top-level (URL /projects/:projectId/nlb/target-groups/:uid; detailBase = /projects/:projectId/nlb/target-groups/:uid — segment nlb)"
+      }
+    ],
+    "notes": "Общий риск модуля nlb — связи внутри домена НЕ выражаются простым filterField одного поля, как у VPC Network->Subnet:\n\n1) load-balancers -> target-groups: связь many-to-many через JOIN attached_target_groups (FK load_balancer_id + target_group_id, оба RESTRICT). У ресурса TargetGroup НЕТ поля load_balancer_id, поэтому текущая generic-механика RelatedTable (фильтр all-list по getByPath(row, filterField)===parentId) ТУТ НЕ РАБОТАЕТ. Варианты: (a) если backend NetworkLoadBalancer-GET отдаёт attached_target_group_ids/attached_target_groups в payload — related-таб строить из payload (НЕ из общего списка); надо проверить proto, vault это не подтверждает; (b) иначе — отдельный AttachTargetGroup/DetachTargetGroup verb-RPC editor как extra-tab (аналог Targets editor у TG). В resources[load-balancers].related я оставил target-groups+load_balancer_id УСЛОВНО — это требует backend-проверки; если поля привязки в payload LB нет, мигрировать на extra-tab :attachTargetGroup/:detachTargetGroup.\n\n2) target-groups -> targets: targets — embedded composite-дети (без своего route/ID-prefix/list-page), управляются verb-RPC :addTargets/:removeTargets (Operation envelope), приходят в TG-GET в поле targets. НЕ ресурс реестра -> generic related-таб невозможен. Существующий кастомный редактор (TargetGroupDetailPage: Add-target Modal с 4-way oneof identity instance/nic/ip_ref/external_ip + weight, remove по identity-only, OperationDialog) ОБЯЗАН сохраниться как extra-tab Targets. Главный domain-content модуля.\n\n3) listeners: ребёнок LB по FK load_balancer_id (поле ЕСТЬ на listener) -> generic related-таб LB->listeners c filterField=load_balancer_id РАБОТАЕТ. Но в URL listeners — top-level (/nlb/listeners/:uid), НЕ вложены под load-balancers (в отличие от subnet под /networks/:nid/). Nested-детали listener под LB НЕ делаем; related-таб на LB ведёт на top-level listener detailBase. Расхождение с VPC-эталоном допустимо — детям nlb достаточно flat-роутинга (так в App.tsx).\n\n4) detailBase в ResourceShell сейчас захардкожен /projects/${projectId}/vpc/${spec.route}/${uid}. Для nlb нужен сегмент nlb. ОБЯЗАТЕЛЬНАЯ правка ResourceShell перед подключением nlb (строить detailBase из resourceServicePrefix(spec.id)->\"nlb\" либо нести URL-сегмент в spec). Иначе все nested-URL/крошки сломаются. Также RELATED/DOCS/EMPTY_STATE-карты в ResourceShell.tsx сейчас содержат только networks — дополнить записями nlb (или вынести в spec.related/spec.docs/spec.emptyState как планируется в финале).\n\n5) Ни один из 3 ресурсов не имеет internalGetPath (jsonint-таб не нужен). Ни у одного нет кастомной inline-формы в ResourceFormModal — все Create/Edit через generic InlineResourceCreateForm/EditForm. Кастомен только Targets-editor у TG (verb-RPC секция, не форма ресурса).\n\n6) target-groups — единственный с кастомной detail-страницей (TargetGroupDetailPage поверх ResourceDetailPage через secondaryActions). load-balancers и listeners — на generic ResourceDetailPage. health_check у TG — JSONB embedded (~8 полей формы) уже в spec.fields; на Обзоре отображать read-only под-блоком.\n\nФайлы: src/lib/resource-registry.tsx (строки 2068-2343 — 3 nlb-spec'а); src/App.tsx (строки 326-371 — NLB_SCOPED flat-роуты /projects/:projectId/nlb/<route>/...); src/pages/TargetGroupDetailPage.tsx (кастомный Targets-editor — переносить в extra-tab); src/components/ResourceShell.tsx (эталон, detailBase хардкод vpc + RELATED/DOCS/EMPTY_STATE только networks); vault: obsidian/kacho/resources/nlb-load-balancer.md, nlb-listener.md, nlb-target-group.md, nlb-target.md."
+  },
+  "iamAdmin": {
+    "module": "iam-admin",
+    "notes": "ОБЩИЙ РИСК / что сложно унифицировать (cross-cutting для всего модуля):\n\n1) detailBase hardcoded в ResourceShell.tsx:310 = `/projects/${projectId}/vpc/${spec.route}/${uid}` — для МОЕГО модуля это неверно: IAM-ресурсы живут под `/iam/<route>/:uid` (НЕ project-scoped, projectId отсутствует), admin — под `/system/<route>/:uid`. Перед миграцией ОБЯЗАТЕЛЬНО параметризовать detailBase по scope/serviceTitle (вычислять из spec.id: iam → `/iam/<route>/<uid>`, admin → `/system/<route>/<uid>`). Иначе крошки/edit/related-навигация уедут на несуществующий `/projects//vpc/...`. resourceProjectPath() для iam-ресурсов возвращает null (registry-2537) — listHref для крошек тоже надо строить отдельно (`/iam/<route>` или `/system/<route>`).\n\n2) ResourceShell строит Обзор из 5 фикс-полей (ID/Имя/Описание/Дата/Метки) + invalidate(spec.id) + useResourceList. Большинство моих ресурсов (users/groups/roles/access-bindings/projects) сегодня — ПОЛНОСТЬЮ кастомные list-страницы БЕЗ detail-страницы и БЕЗ generic-spec в REGISTRY. Их миграция на ResourceShell — это не «перенос detail», а СОЗДАНИЕ detail с нуля + добавление spec в REGISTRY (route/apiPath/payloadKey/columns/fields). Это крупная работа, не косметика.\n\n3) Create/Edit конфликт парадигм: ResourceShell делает inline edit/child-create form-panel в зоне 3 (InlineResourceEditForm). Но kacho-ui §3 (CLAUDE.md) требует Create/Edit через МОДАЛКУ (?modal=…). VPC Network-эталон уже отошёл от §3 в пользу form-panel. Для IAM это особенно болезненно: roles/groups/users/access-bindings имеют богатые кастомные МОДАЛКИ (PermissionsEditor, GroupMembersPanel, AccessBindingCreateModal с 409-инлайн-алертом, InviteUserModal с magic-link). Унификация в generic InlineResourceEditForm потеряет эту логику — нужны кастомные inline-формы (диспетч в ResourceFormModal.tsx — но он модальный; потребуется параллельный inline-диспетчер) ИЛИ оставить эти формы модалками поверх ResourceShell.\n\n4) ResourceShell.useQuery дергает `${spec.apiPath}/${uid}` (sync GET by id) + refetchInterval 5s + OperationsTab. Admin-ресурсы (Region/Zone/AddressPool) — SYNC RPC без Operation envelope (registry-1829), у них НЕТ LRO → таб «Операции» будет пустой/бессмысленный. Нужен флаг hideOperationsTab (как в ResourceDetailPage:50) — ResourceShell его сейчас НЕ поддерживает, надо добавить. Аналогично IAM accounts/projects/etc — мутации async через Operation (есть смысл в табе «Операции»), но backend per-resource ListOperations для IAM надо проверить (OperationsTab фильтрует по resourceId).\n\n5) related-табы у ВСЕХ моих ресурсов фильтруются client-side (RelatedTable грузит весь список ребёнка и .filter по filterField). Но IAM-list-RPC требуют параметр (ListProjects требует account_id, ListServiceAccounts требует account_id, ListGroups требует account_id) — useResourceList(childSpec,\"project_id\",projectId) в RelatedTable передаёт project_id, что для IAM неверно. RelatedTable надо учить scope-параметру (account_id) — ещё одна доработка ResourceShell.\n\n6) RELATED/DOCS/EMPTY_STATE карты в ResourceShell сейчас только для networks (hardcoded). Для моих ресурсов их надо добавить (в идеале — в spec.related в registry, как написано в TODO ResourceShell:14).\n\nВЫВОД: эталон ResourceShell заточен под project-scoped VPC-ресурс с generic-spec. Для iam-admin его надо сначала обобщить (scope-aware detailBase, scope-aware RelatedTable, hideOperationsTab, custom inline-form dispatch), и только потом — миграция per-resource. Низковисящие плоды: regions, zones (простой generic spec, нет детей, нет custom detail) и accounts/service-accounts (уже на ResourceDetailPage). Самые тяжёлые: users/groups/roles/access-bindings (custom pages без spec, богатые модалки).",
+    "resources": [
+      {
+        "id": "accounts",
+        "route": "accounts",
+        "currentDetail": "ResourceDetailPage (generic, App.tsx:515 /iam/accounts/:uid)",
+        "projectScoped": "iam(не project-scoped)",
+        "nesting": "top-level (URL /iam/accounts/:uid; detailBase должен быть /iam/accounts/<uid>, НЕ /projects/.../vpc/...)",
+        "hasCustomForm": "нет (Create/Edit через ResourceListPage + ?modal=accounts-create|edit; generic InlineResourceCreateForm/EditForm по spec.fields: name, owner_user_id[ref users, immutable], labels, description)",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "projects",
+            "filterField": "account_id",
+            "label": "Projects"
+          },
+          {
+            "childRoute": "service-accounts",
+            "filterField": "account_id",
+            "label": "Service Accounts"
+          },
+          {
+            "childRoute": "groups",
+            "filterField": "account_id",
+            "label": "Groups"
+          },
+          {
+            "childRoute": "roles",
+            "filterField": "account_id",
+            "label": "Roles (custom)"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "Поле «Владелец» (owner_user_id) — ref на User, immutable; сейчас показывается колонкой и в spec.fields",
+            "preserveAs": "в Обзор (добавить строку «Владелец» в overviewItems как RefNameLink на users; ResourceShell сейчас рендерит только 5 фикс-полей — нужна доменная extra-строка)"
+          },
+          {
+            "what": "AccessBindings на этот account (resource_type=account, resource_id=acc-id) — управляются на AccessBindingsPage byResource/byAccount",
+            "preserveAs": "extra-tab:Права доступа (встроить байндинги account-scope; childRoute access-bindings фильтрует по resource_id=account.id — НЕ обычный filterField, related-таб не подходит → отдельный extra-tab с byResource-таблицей)"
+          }
+        ],
+        "docs": [
+          "Аккаунты и иерархия ресурсов Kachō",
+          "Управление доступом (IAM)",
+          "Биллинг-аккаунт и проекты"
+        ],
+        "emptyState": {
+          "title": "В этом аккаунте ещё нет проектов",
+          "body": "Проект — изолированное пространство ресурсов Kachō (сети, виртуальные машины, балансировщики) внутри аккаунта. Создайте первый проект, чтобы начать размещать инфраструктуру и выдавать доступы команде.",
+          "docs": [
+            "Аккаунты и проекты",
+            "Создание проекта"
+          ]
+        }
+      },
+      {
+        "id": "projects",
+        "route": "projects",
+        "currentDetail": "нет (только list через IamScopedListShell, App.tsx:516; detail-роута /iam/projects/:uid НЕТ — drill-down ведёт на /projects/:id → dashboard через childRoute '/projects/:id'). Edit — ResourceEditPage full-page (App.tsx:471 /projects/:projectId/edit)",
+        "projectScoped": "account (ListProjects требует account_id; scope:'account' в spec)",
+        "nesting": "top-level в IAM (detailBase /iam/projects/<uid>). ВНИМАНИЕ: spec.childRoute='/projects/:id' сейчас уводит drill-down на project-dashboard, а НЕ на IAM-detail — конфликт с ResourceShell-detail; надо решить, остаётся ли у Project отдельная IAM-detail или drill-down по-прежнему в dashboard",
+        "hasCustomForm": "нет (generic; Create через IamScopedListShell+?modal=projects-create с account_id из IAM-контекста; Edit — ResourceEditPage)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "account_id (FK→accounts, immutable, меняется только через Move) — показывается колонкой",
+            "preserveAs": "в Обзор (строка «Account» как RefNameLink на accounts)"
+          },
+          {
+            "what": "Move в другой Account (атомарный CAS UPDATE account_id) — спец-операция (vault iam-project Lifecycle)",
+            "preserveAs": "drop(MoveStubDialog уже есть в ResourceDetailPage kebab; для Project move реально не реализован на UI как отдельная форма — оставить как kebab-stub «Переместить», в ResourceShell пока нет kebab → отложить до обобщения ResourceShell)"
+          },
+          {
+            "what": "Project как корень project-scoped ресурсов (VPC/Compute/NLB живут под /projects/:id/...)",
+            "preserveAs": "drop(это НЕ дети Project в IAM-смысле; навигация в ресурсы проекта идёт через project-dashboard/сайдбар, не через related-таб IAM-detail)"
+          }
+        ],
+        "docs": [
+          "Проекты Kachō",
+          "Перемещение проекта между аккаунтами",
+          "Доступы и роли в проекте"
+        ],
+        "emptyState": {
+          "title": "Создайте ваш первый проект",
+          "body": "Проект объединяет облачные ресурсы Kachō — сети, виртуальные машины, диски и балансировщики — в изолированном пространстве с собственными квотами и доступами. Выберите аккаунт и создайте проект, чтобы начать.",
+          "docs": [
+            "Проекты Kachō",
+            "Создание проекта"
+          ]
+        }
+      },
+      {
+        "id": "service-accounts",
+        "route": "service-accounts",
+        "currentDetail": "ResourceDetailPage (generic, App.tsx:518 /iam/service-accounts/:uid)",
+        "projectScoped": "account (ListServiceAccounts требует account_id; scope:'account')",
+        "nesting": "top-level в IAM (detailBase /iam/service-accounts/<uid>)",
+        "hasCustomForm": "нет (generic; Create через IamScopedListShell+?modal=service-accounts-create с account_id; spec.fields: name, account_id[hidden], description)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "account_id (FK, immutable) + optional project_id (KAC-127, preferred scope) + enabled flag (KAC-127: false→не authenticate). Поля enabled/project_id есть в backend, но НЕ в текущем spec.fields",
+            "preserveAs": "в Обзор (строки «Account», «Project» (если задан), «Включён» enabled bool — добавить доменные extra-строки; при миграции расширить spec.fields под project_id/enabled)"
+          },
+          {
+            "what": "OAuth-client / federation trust policy (KAC-127 Phase5 — workload identity); группы, в которых состоит SA (group_members member_type=service_account); access-bindings на SA как subject",
+            "preserveAs": "extra-tab:Права доступа (access-bindings bySubject subject_type=service_account, subject_id=sva-id — отдельный extra-tab, не related). OAuth/federation — drop (не реализованы на UI, out-of-scope MVP)"
+          }
+        ],
+        "docs": [
+          "Сервисные аккаунты Kachō",
+          "Аутентификация сервисного аккаунта",
+          "Назначение ролей сервисному аккаунту"
+        ],
+        "emptyState": {
+          "title": "Создайте сервисный аккаунт",
+          "body": "Сервисный аккаунт — это машинная учётная запись для приложений и автоматизаций, обращающихся к API Kachō от своего имени. Назначайте ему роли так же, как обычному пользователю, и управляйте ключами доступа.",
+          "docs": [
+            "Сервисные аккаунты Kachō",
+            "Создание сервисного аккаунта"
+          ]
+        }
+      },
+      {
+        "id": "users",
+        "route": "users",
+        "currentDetail": "нет detail (UsersPage — кастомный list-only: таблица User-mirror'ов + InviteUserModal с magic-link, App.tsx:519). spec.ops={create:false,update:false,delete:true}",
+        "projectScoped": "global (ListUsers без обязательных параметров; scope:'global')",
+        "nesting": "top-level в IAM (detailBase /iam/users/<uid>; detail-роута сейчас НЕТ — создаётся с нуля при миграции)",
+        "hasCustomForm": "InviteUserModal (custom, НЕ Create — POST /iam/v1/users:invite, account_id из IAM-контекста, опц. project_id+role_id, на успех показывает magic_link_url). Прямого Create/Edit нет (User создаётся через OIDC/signup)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "Колонки email / display_name / invite_status (InviteStatusTag ACTIVE|PENDING|REVOKED) / external_id (Zitadel sub) / created_at. У User НЕТ поля name — есть display_name (Обзор-шаблон ResourceShell ожидает name!)",
+            "preserveAs": "в Обзор (доменный Обзор: Email/Отображаемое имя/Статус приглашения/External ID/ID/Дата. ResourceShell-фикс-поля name+labels+description не подходят User'у → нужен резко кастомный Обзор, не 5 стандартных полей)"
+          },
+          {
+            "what": "InviteUserModal — приглашение по email с magic-link (КЛЮЧЕВАЯ фича UsersPage)",
+            "preserveAs": "extra-tab:Приглашение | либо оставить модалкой (кнопка «Пригласить пользователя» в SectionHeader Обзора → модалка). Это не Create/Edit ресурса — отдельный flow, нельзя терять"
+          },
+          {
+            "what": "AccessBindings пользователя (bySubject user) + членство в группах",
+            "preserveAs": "extra-tab:Права доступа (access-bindings bySubject subject_type=user, subject_id=usr-id) + extra-tab:Группы (group memberships — но нет прямого RPC list-groups-by-user; пока drop группы или вычислять клиентски)"
+          }
+        ],
+        "docs": [
+          "Пользователи и приглашения Kachō",
+          "Вход через внешнего провайдера (OIDC)",
+          "Назначение ролей пользователю"
+        ],
+        "emptyState": {
+          "title": "Пригласите первого пользователя",
+          "body": "Пользователи входят в Kachō через внешнего провайдера идентификации или по magic-ссылке из приглашения. Пригласите коллегу по email — он получит ссылку для активации и появится в этом списке.",
+          "docs": [
+            "Пользователи и приглашения Kachō",
+            "Приглашение пользователя"
+          ]
+        }
+      },
+      {
+        "id": "groups",
+        "route": "groups",
+        "currentDetail": "нет detail (GroupsPage — кастомный list-only: per-Account таблица + expandedRowRender GroupMembersPanel с Add/Remove member, App.tsx:520). spec в REGISTRY ОТСУТСТВУЕТ — нужно создать",
+        "projectScoped": "account (ListGroups требует account_id)",
+        "nesting": "top-level в IAM (detailBase /iam/groups/<uid>; detail с нуля)",
+        "hasCustomForm": "GroupCreateModal + GroupEditModal (custom модалки: account_id из контекста, name regex ^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$, description). Сейчас модалки — при миграции либо custom inline-форма, либо оставить модалками",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "GroupMembersPanel — список членов (member_type user|service_account + member_id + added_at) с Add (picker User/SA) / Remove (RPC :addMember/:removeMember). КЛЮЧЕВАЯ доменная фича — сейчас в expandedRowRender",
+            "preserveAs": "extra-tab:Участники (перенести GroupMembersPanel в отдельный таб detail; Add/Remove member через :addMember/:removeMember — это не дочерний ресурс registry, а custom-панель → extra-tab с собственной таблицей+пикером, не RelatedTable)"
+          },
+          {
+            "what": "account_id (FK, immutable)",
+            "preserveAs": "в Обзор (строка «Account»)"
+          },
+          {
+            "what": "AccessBindings на группу как subject (subject_type=group)",
+            "preserveAs": "extra-tab:Права доступа (access-bindings bySubject subject_type=group, subject_id=grp-id)"
+          }
+        ],
+        "docs": [
+          "Группы пользователей Kachō",
+          "Добавление участников в группу",
+          "Назначение ролей группе"
+        ],
+        "emptyState": {
+          "title": "Создайте первую группу",
+          "body": "Группа объединяет пользователей и сервисные аккаунты, чтобы выдавать им доступы пакетно. Назначьте роль группе один раз — и все её участники получат соответствующие права в Kachō.",
+          "docs": [
+            "Группы пользователей Kachō",
+            "Создание группы"
+          ]
+        }
+      },
+      {
+        "id": "roles",
+        "route": "roles",
+        "currentDetail": "нет detail (RolesPage — кастомный list-only: табы Системные/Кастомные + RoleCreateModal/RoleEditModal с PermissionsEditor, App.tsx:521). spec в REGISTRY ОТСУТСТВУЕТ — нужно создать",
+        "projectScoped": "global для list (ListRoles без обязательных параметров возвращает system+custom; но custom role scoped к account/project/cluster XOR через roles_scope_xor)",
+        "nesting": "top-level в IAM (detailBase /iam/roles/<uid>; detail с нуля)",
+        "hasCustomForm": "RoleCreateModal + RoleEditModal (custom: account селектор, name regex ^[a-z][a-z0-9_]{0,40}$, PermissionsEditor — textarea с regex-валидацией module.resource.verb). System-роли read-only (edit/delete disabled). Сохранить кастом-форму обязательно (PermissionsEditor)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "PermissionsEditor — редактор списка permission-строк (textarea + per-line regex PERM_RE /^[a-z_]+(\\.[a-z_*]+){2}$/ + live-валидация). КЛЮЧЕВАЯ фича",
+            "preserveAs": "в Обзор для просмотра (список permissions как теги/моноширинный список) + extra-tab:Разрешения с PermissionsEditor для редактирования custom-роли (system — read-only). Либо сохранить в кастомной inline-edit форме"
+          },
+          {
+            "what": "is_system (read-only system vs editable custom) + scope (cluster_id/account_id/project_id XOR)",
+            "preserveAs": "в Обзор (строки «Тип» SystemTag, «Account/Scope», «Описание»). Edit/Delete заблокировать для is_system=true"
+          },
+          {
+            "what": "Список AccessBinding'ов, использующих эту роль (role_id FK)",
+            "preserveAs": "extra-tab:Привязки (access-bindings, фильтр по role_id — нет прямого list-by-role RPC; пока drop или клиентский фильтр byAccount)"
+          }
+        ],
+        "docs": [
+          "Роли и разрешения Kachō",
+          "Системные и пользовательские роли",
+          "Синтаксис разрешений (permissions)"
+        ],
+        "emptyState": {
+          "title": "Создайте пользовательскую роль",
+          "body": "Роль — это набор разрешений, который вы назначаете пользователям, группам и сервисным аккаунтам через привязки доступа. Системные роли заданы платформой Kachō, а пользовательские вы описываете сами в формате module.resource.verb.",
+          "docs": [
+            "Роли и разрешения Kachō",
+            "Создание пользовательской роли"
+          ]
+        }
+      },
+      {
+        "id": "access-bindings",
+        "route": "access-bindings",
+        "currentDetail": "нет detail (AccessBindingsPage — кастомный list-only с режимами byResource/bySubject/byAccount(admin) + AccessBindingCreateModal с inline-409-Alert, App.tsx:522). spec в REGISTRY ОТСУТСТВУЕТ. Сильно нестандартный ресурс — фактически НЕ имеет одиночной detail-страницы по id (всегда list-в-контексте)",
+        "projectScoped": "iam(не project-scoped; list всегда требует контекст: resource_type+resource_id ИЛИ subject_type+subject_id ИЛИ account_id)",
+        "nesting": "top-level в IAM. ВНИМАНИЕ: AccessBinding нетипичен для ResourceShell — у него НЕТ name/labels/description (Обзор-шаблон неприменим), нет осмысленной одиночной detail-страницы. Кандидат остаться кастомной list-страницей, НЕ мигрировать на ResourceShell",
+        "hasCustomForm": "AccessBindingCreateModal (custom: subject_type/id, role, resource_type[account|project|cluster], resource_id, cluster auto-fill cluster_kacho_root, inline-Alert на 409 ALREADY_EXISTS с verbatim message). Delete — Popconfirm. Update НЕ поддерживается (binding пересоздаётся)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "Три режима списка byResource/bySubject/byAccount(admin) + Segmented-переключатель + фильтры subject_type/includeRevoked",
+            "preserveAs": "drop в контексте ResourceShell-detail (это list-логика, не detail). Оставить как кастомную list-страницу. Если эпик требует унификации — встроить эти таблицы как extra-tabs аккаунта/пользователя/роли (см. их domainContent), а отдельную сущность 'access-bindings' НЕ давать ResourceShell"
+          },
+          {
+            "what": "«Мои AccessBinding'и» карточка (listBySubject текущего user) сверху",
+            "preserveAs": "drop(остаётся на кастомной list-странице / в профиле user'а)"
+          },
+          {
+            "what": "scope (output-only CLUSTER/ACCOUNT/PROJECT тег, RBAC v2 KAC-224), статус PENDING/ACTIVE/REVOKED, expires_at, granted_by/revoked_by (audit)",
+            "preserveAs": "в Обзор (если всё же делать detail: Subject/Role/Resource/Scope/Status/Expires/Granted by — доменный Обзор без name)"
+          }
+        ],
+        "docs": [
+          "Привязки доступа (AccessBinding) Kachō",
+          "Модель доступа RBAC v2",
+          "Назначение и отзыв ролей"
+        ],
+        "emptyState": {
+          "title": "Доступы ещё не назначены",
+          "body": "Привязка доступа связывает субъекта (пользователя, сервисный аккаунт или группу) с ролью на конкретном ресурсе — кластере, аккаунте или проекте. Создайте первую привязку, чтобы выдать права в Kachō.",
+          "docs": [
+            "Привязки доступа Kachō",
+            "Назначение роли"
+          ]
+        }
+      },
+      {
+        "id": "regions",
+        "route": "regions",
+        "currentDetail": "ResourceDetailPage (generic, App.tsx:497 /system/regions/:uid)",
+        "projectScoped": "global (admin-only, kacho-only; под AdminLayout /system/)",
+        "nesting": "top-level admin (detailBase /system/regions/<uid>, НЕ /projects/...)",
+        "hasCustomForm": "нет (generic ResourceCreatePage/ResourceEditPage; spec.fields: id[immutable PK, pattern ^[a-z][a-z0-9-]*$], name). ВНИМАНИЕ: PK — это поле id (вводится вручную), не name — Обзор-шаблон ResourceShell использует name для заголовка, у Region name опционален",
+        "internalGetPath": "нет",
+        "related": [
+          {
+            "childRoute": "zones",
+            "filterField": "region_id",
+            "label": "Зоны"
+          }
+        ],
+        "domainContent": [
+          {
+            "what": "id — это вводимый immutable PK (lower-snake-kebab), не сгенерированный; name — display-имя (может быть пустым)",
+            "preserveAs": "в Обзор (Идентификатор=id уже первая строка; заголовок shell брать name||id — у ResourceShell сейчас name||uid, для Region ок). Sync RPC без Operation"
+          },
+          {
+            "what": "Sync RPC без Operation envelope (registry-1829) — LRO нет",
+            "preserveAs": "drop таб «Операции» (нужен флаг hideOperationsTab в ResourceShell — сейчас не поддерживается)"
+          }
+        ],
+        "docs": [
+          "Регионы и зоны доступности Kachō",
+          "География платформы"
+        ],
+        "emptyState": {
+          "title": "Регионы ещё не заданы",
+          "body": "Регион — это географическая область платформы Kachō, объединяющая зоны доступности. Создайте регион, чтобы затем добавить в него зоны для размещения ресурсов.",
+          "docs": [
+            "Регионы и зоны доступности Kachō"
+          ]
+        }
+      },
+      {
+        "id": "zones",
+        "route": "zones",
+        "currentDetail": "ResourceDetailPage (generic, App.tsx:500 /system/zones/:uid)",
+        "projectScoped": "global (admin-only, kacho-only; /system/)",
+        "nesting": "top-level admin (detailBase /system/zones/<uid>)",
+        "hasCustomForm": "нет (generic; spec.fields: id[immutable PK, pattern], region_id[ref regions, immutable], name)",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "region_id (FK→regions, immutable) — показывается колонкой",
+            "preserveAs": "в Обзор (строка «Регион» как RefNameLink/CopyableId на regions)"
+          },
+          {
+            "what": "id вводимый immutable PK; Zone — consumer для VPC Subnet (subnet.zone_id ссылается cross-service), AddressPool.zone_id; адреса/подсети в зоне",
+            "preserveAs": "drop(подсети/пулы — ресурсы других сервисов/scope, не дети Zone в admin-UI; cross-service ref, не related-таб)"
+          },
+          {
+            "what": "Sync RPC без Operation",
+            "preserveAs": "drop таб «Операции» (hideOperationsTab)"
+          }
+        ],
+        "docs": [
+          "Зоны доступности Kachō",
+          "Регионы и зоны",
+          "Размещение ресурсов по зонам"
+        ],
+        "emptyState": {
+          "title": "В этом регионе ещё нет зон",
+          "body": "Зона доступности — изолированный сегмент инфраструктуры внутри региона Kachō. Ресурсы (подсети, виртуальные машины, пулы адресов) привязываются к зоне. Создайте зону, чтобы размещать в ней ресурсы.",
+          "docs": [
+            "Зоны доступности Kachō"
+          ]
+        }
+      },
+      {
+        "id": "address-pools",
+        "route": "address-pools",
+        "currentDetail": "AddressPoolDetailPage (кастомная, App.tsx:503 /system/address-pools/:uid; обёртка над ResourceDetailPage с extraTabs)",
+        "projectScoped": "global (admin-only, kacho-only, internal-listener; /system/)",
+        "nesting": "top-level admin (detailBase /system/address-pools/<uid>)",
+        "hasCustomForm": "InlineAddressPoolCreateForm / InlineAddressPoolEditForm (custom, диспетч в ResourceFormModal.tsx; используют SubnetCidrChips для v4/v6 CIDR-блоков, LabelsEditor). spec.fields — только fallback",
+        "internalGetPath": "нет",
+        "related": [],
+        "domainContent": [
+          {
+            "what": "Таб «Использование» (IpamUtilizationBar — total/used/free/percent + CIDRBreakdown по CIDR из /vpc/v1/addressPools/{id}/utilization)",
+            "preserveAs": "extra-tab:Использование (перенести как есть — кастомный таб с IpamUtilizationBar+CIDRBreakdown; ResourceShell должен принимать extraTabs — сейчас НЕ принимает, надо добавить)"
+          },
+          {
+            "what": "Таб «Адреса» (cross-project таблица выделенных адресов из /vpc/v1/addressPools/{id}/addresses с reverse-lookup project/account имён через /iam/v1/projects+accounts; ссылки на /projects/:pid/vpc/addresses/:id)",
+            "preserveAs": "extra-tab:Адреса (перенести кастомную таблицу; это НЕ registry-дочерний ресурс — cross-project allocated addresses с denorm project/account, оставить кастомным extra-tab)"
+          },
+          {
+            "what": "kind (split family external_v4/external_v6/internal_v4 — нельзя mix; в UI скрыт, default EXTERNAL_PUBLIC), zone_id (nullable — cross-zone pool), is_default (UNIQUE per zone+kind), selector_labels/selector_priority, v4/v6_cidr_blocks",
+            "preserveAs": "в Обзор (доменные строки: Тип kind, Зона, Default, IPv4/IPv6 CIDR, Метки селектора, Selector priority — у AddressPool name часто пустой, заголовок shell брать name||id; добавить доменные extra-строки в Обзор)"
+          },
+          {
+            "what": "Sync RPC без Operation envelope",
+            "preserveAs": "drop таб «Операции» (hideOperationsTab)"
+          }
+        ],
+        "docs": [
+          "Пулы адресов Kachō (admin)",
+          "Аллокация внешних IP-адресов",
+          "Цепочка разрешения пула (resolution chain)"
+        ],
+        "emptyState": {
+          "title": "Из этого пула адреса ещё не выделены",
+          "body": "Пул адресов — административный диапазон IP-адресов Kachō, из которого проектам выделяются внешние и внутренние адреса. Здесь появятся адреса по мере их резервирования ресурсами в проектах.",
+          "docs": [
+            "Пулы адресов Kachō",
+            "Аллокация IP-адресов"
+          ]
+        }
+      }
+    ]
+  }
+}
