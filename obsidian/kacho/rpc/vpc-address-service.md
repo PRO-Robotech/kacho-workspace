@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-address]]"
-methods_count: 9
-async_methods: 4
+methods_count: 8
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
@@ -35,7 +35,6 @@ tags:
 | Create | CreateAddressRequest | operation.Operation | **async** | external/internal v4/v6 |
 | Update | UpdateAddressRequest | operation.Operation | **async** | name/labels/desc/reserved-flag |
 | Delete | DeleteAddressRequest | operation.Operation | **async** | FailedPrecondition если `used_by` |
-| Move | MoveAddressRequest | operation.Operation | **async** | cross-folder |
 | ListOperations | ListAddressOperationsRequest | ListAddressOperationsResponse | sync | |
 
 ## REST mapping
@@ -49,8 +48,10 @@ tags:
 | `POST /vpc/v1/addresses`                        | Create         |
 | `PATCH /vpc/v1/addresses/{address_id}`          | Update         |
 | `DELETE /vpc/v1/addresses/{address_id}`         | Delete         |
-| `POST /vpc/v1/addresses/{address_id}:move`      | Move           |
 | `GET /vpc/v1/addresses/{address_id}/operations` | ListOperations |
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/addresses/{address_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
 
 ## Related (internal)
 

@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-securitygroup]]"
-methods_count: 9
-async_methods: 6
+methods_count: 8
+async_methods: 5
 tags:
   - rpc
   - kacho-vpc
@@ -30,11 +30,10 @@ tags:
 | Get | GetSecurityGroupRequest | SecurityGroup | sync | |
 | List | ListSecurityGroupsRequest | ListSecurityGroupsResponse | sync | |
 | Create | CreateSecurityGroupRequest | operation.Operation | **async** | network_id **required** (KAC-243); rule_specs SG-target → same-network |
-| Update | UpdateSecurityGroupRequest | operation.Operation | **async** | mask {name,description,labels,rule_specs}; network_id **НЕ** в маске (immutable); без OCC |
+| Update | UpdateSecurityGroupRequest | operation.Operation | **async** | mask {name,description,labels,rule_specs}; network_id **НЕ** в маске (immutable, [[KAC-243]]); без OCC |
 | UpdateRules | UpdateSecurityGroupRulesRequest | operation.Operation | **async** | bulk add/remove (KAC-71 partial); SG-target → same-network (KAC-243); xmin-OCC |
 | UpdateRule | UpdateSecurityGroupRuleRequest | operation.Operation | **async** | mutate single rule (description/labels); xmin-OCC |
 | Delete | DeleteSecurityGroupRequest | operation.Operation | **async** | FailedPrecondition если в use на NI |
-| Move | MoveSecurityGroupRequest | operation.Operation | **async** | cross-project; network-bound SG → **FAILED_PRECONDITION** (KAC-243) |
 | ListOperations | ListSecurityGroupOperationsRequest | ListSecurityGroupOperationsResponse | sync | |
 
 ## REST mapping
@@ -48,7 +47,6 @@ tags:
 | `PATCH /vpc/v1/securityGroups/{security_group_id}/rules` | UpdateRules |
 | `PATCH /vpc/v1/securityGroups/{security_group_id}/rules/{rule_id}` | UpdateRule |
 | `DELETE /vpc/v1/securityGroups/{security_group_id}` | Delete |
-| `POST /vpc/v1/securityGroups/{security_group_id}:move` | Move |
 | `GET /vpc/v1/securityGroups/{security_group_id}/operations` | ListOperations |
 
 ## OCC (только UpdateRules/UpdateRule)
@@ -57,7 +55,11 @@ tags:
 
 ## SG↔Network инвариант (KAC-243)
 
-`network_id` обязателен при Create + immutable (нет в Update mask; Move network-bound → FailedPrecondition). SG→SG-правило (`rule.security_group_id`) валидно только если target-SG в той же Network — иначе `INVALID_ARGUMENT`+`field_violations` (Create/UpdateRules, service-layer). Миграция `0004` backfill'ит orphan-SG. См. [[../resources/vpc-securitygroup]].
+`network_id` обязателен при Create + immutable (нет в Update mask). SG→SG-правило (`rule.security_group_id`) валидно только если target-SG в той же Network — иначе `INVALID_ARGUMENT`+`field_violations` (Create/UpdateRules, service-layer). Миграция `0004` backfill'ит orphan-SG. См. [[../resources/vpc-securitygroup]].
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/securityGroups/{security_group_id}:move` сняты (contract-removal).
+> Раньше Move network-bound SG отбивался `FAILED_PRECONDITION` (KAC-243); теперь сам RPC отсутствует. См. [[../KAC/KAC-266]].
 
 ## See also
 

@@ -35,7 +35,7 @@ tags:
 | `private_endpoint.go` | `PrivateEndpoint` |
 | `network_interface.go` | `NetworkInterface` |
 | `address_pool.go` | `AddressPool` |
-| `cloud_pool_selector.go` | `CloudPoolSelector` |
+| ~~`cloud_pool_selector.go`~~ | `CloudPoolSelector` — удалён в [[../KAC/KAC-266]] (InternalCloudService removed) |
 | `geography.go` | helpers (после KAC-15 — read-only mirror types) |
 | `persistence.go` | shared persistence-side types (created_at truncate, jsonb wrappers) |
 | `equal_test.go` | unit-тесты `.Equal` для всех entity |

@@ -40,9 +40,10 @@ tags:
 
 См. [[apigw-internal-vs-tls]].
 
-- `InternalAddressPoolService` — `/vpc/v1/addressPools*`
-- `InternalCloudService` — `/vpc/v1/clouds/{id}/poolSelector`
+- `InternalAddressPoolService` — `/vpc/v1/addressPools*` + `/vpc/v1/networks/{id}/addressPoolBinding`
 - `InternalNetworkService` — internal Network admin
+
+(`InternalCloudService` + `/vpc/v1/clouds/{id}/poolSelector` удалены в [[../KAC/KAC-266]].)
 
 Director (`internal/proxy/director.go`) роутит requests на internal-port (`vpcInternalAddr`) или public-port (`vpcAddr`) в зависимости от пути.
 

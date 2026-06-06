@@ -48,8 +48,7 @@ func (h *Handler) Update(ctx context.Context, req *vpcv1.UpdateNetworkRequest) (
 // Delete — sync repo.Get для AuthZ, затем use-case
 func (h *Handler) Delete(ctx context.Context, req *vpcv1.DeleteNetworkRequest) (*operationpb.Operation, error)
 
-// Move — AuthZ на source и dest folder, затем use-case
-func (h *Handler) Move(ctx context.Context, req *vpcv1.MoveNetworkRequest) (*operationpb.Operation, error)
+// (Move — удалён в KAC-266; ниже §5 сохранён как historical пример dual-AuthZ паттерна)
 ```
 
 ### Паттерны в handler.go
@@ -117,7 +116,12 @@ func (h *Handler) Create(ctx context.Context, req *vpcv1.CreateNetworkRequest) (
 
 **Паттерн:** Handler отвечает за proto↔domain конверсию. Use-case работает с domain-моделями. Proto string → domain newtype (RcNameVPC, RcDescription) прямо в handler, валидация потом в use-case/domain.
 
-#### 5. Move semantics — двойная AuthZ
+#### 5. Move semantics — двойная AuthZ (historical — RPC удалён в KAC-266)
+
+> [!warning] `Move` удалён в [[../../KAC/KAC-266]]
+> RPC `NetworkService.Move` (и Move у других vpc-ресурсов) снят (contract-removal). Пример ниже
+> оставлен как archeology dual-AuthZ паттерна — он больше **не** соответствует живому коду.
+
 ```go
 func (h *Handler) Move(ctx context.Context, req *vpcv1.MoveNetworkRequest) (*operationpb.Operation, error) {
 	if req.NetworkId == "" {

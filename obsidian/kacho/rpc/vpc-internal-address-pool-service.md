@@ -9,7 +9,7 @@ backend_port: 9091
 visibility: internal
 domain: vpc
 related_resource: "[[resources/vpc-addresspool]]"
-methods_count: 13
+methods_count: 9
 async_methods: 0
 tags:
   - rpc
@@ -33,12 +33,8 @@ tags:
 | List | ListAddressPoolsRequest | ListAddressPoolsResponse | sync | |
 | Update | UpdateAddressPoolRequest | AddressPool | sync | replace_cidrs семантика |
 | Delete | DeleteAddressPoolRequest | DeleteAddressPoolResponse | sync | RESTRICT если связан |
-| BindAsNetworkDefault | BindAsNetworkDefaultRequest | BindResponse | sync | per-Network pool override |
+| BindAsNetworkDefault | BindAsNetworkDefaultRequest | BindResponse | sync | per-Network pool default |
 | UnbindNetworkDefault | UnbindNetworkDefaultRequest | BindResponse | sync | |
-| BindAsAddressOverride | BindAsAddressOverrideRequest | BindResponse | sync | per-Address pool override |
-| UnbindAddressOverride | UnbindAddressOverrideRequest | BindResponse | sync | |
-| Check | CheckRequest | CheckResponse | sync | проверить, есть ли pool под IP-family |
-| ExplainResolution | ExplainResolutionRequest | ExplainResolutionResponse | sync | trace pool-resolution chain |
 | ListAddresses | ListAddressPoolAddressesRequest | ListAddressPoolAddressesResponse | sync | какие Address выделены |
 | GetUtilization | GetAddressPoolUtilizationRequest | AddressPoolUtilization | sync | free/used per-CIDR |
 
@@ -53,15 +49,18 @@ tags:
 | `DELETE /vpc/v1/addressPools/{pool_id}` | Delete |
 | `POST /vpc/v1/networks/{network_id}/addressPoolBinding` | BindAsNetworkDefault |
 | `DELETE /vpc/v1/networks/{network_id}/addressPoolBinding` | UnbindNetworkDefault |
-| `POST /vpc/v1/addresses/{address_id}/addressPoolOverride` | BindAsAddressOverride |
-| `DELETE /vpc/v1/addresses/{address_id}/addressPoolOverride` | UnbindAddressOverride |
-| `GET /vpc/v1/addressPools:check` | Check |
-| `GET /vpc/v1/addressPools:explainResolution` | ExplainResolution |
 | `GET /vpc/v1/addressPools/{pool_id}/addresses` | ListAddresses |
 | `GET /vpc/v1/addressPools/{pool_id}/utilization` | GetUtilization |
 
 > [!warning] Internal-only
 > Маршруты `/vpc/v1/addressPools/*` зарегистрированы **только** на internal-listener api-gateway (см. [[apigw-restmux]] vpcInternalAddr блок).
+
+> [!note] Упрощено в KAC-266
+> Удалены RPC `BindAsAddressOverride` / `UnbindAddressOverride` (per-Address override),
+> `Check`, `ExplainResolution` + соответствующие REST-маршруты. IPAM-cascade сведён к трём шагам
+> (`network_default` → `zone_default` → `global_default`; override/selector сняты). `InternalCloudService`
+> (Set/Get/UnsetPoolSelector) удалён целиком — см. [[vpc-internal-cloud-service]]. **KEEP**:
+> `BindAsNetworkDefault` / `UnbindNetworkDefault`. См. [[../KAC/KAC-266]].
 
 ## See also
 

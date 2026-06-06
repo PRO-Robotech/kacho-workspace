@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-gateway]]"
-methods_count: 7
-async_methods: 4
+methods_count: 6
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
@@ -32,7 +32,6 @@ tags:
 | Create | CreateGatewayRequest | operation.Operation | **async** | shared_egress_gateway type |
 | Update | UpdateGatewayRequest | operation.Operation | **async** | name/labels/desc |
 | Delete | DeleteGatewayRequest | operation.Operation | **async** | FailedPrecondition если в use в RouteTable |
-| Move | MoveGatewayRequest | operation.Operation | **async** | cross-folder |
 | ListOperations | ListGatewayOperationsRequest | ListGatewayOperationsResponse | sync | |
 
 ## REST mapping
@@ -44,8 +43,10 @@ tags:
 | `POST /vpc/v1/gateways` | Create |
 | `PATCH /vpc/v1/gateways/{gateway_id}` | Update |
 | `DELETE /vpc/v1/gateways/{gateway_id}` | Delete |
-| `POST /vpc/v1/gateways/{gateway_id}:move` | Move |
 | `GET /vpc/v1/gateways/{gateway_id}/operations` | ListOperations |
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/gateways/{gateway_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
 
 ## See also
 

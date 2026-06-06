@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-routetable]]"
-methods_count: 7
-async_methods: 4
+methods_count: 6
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
@@ -32,7 +32,6 @@ tags:
 | Create | CreateRouteTableRequest | operation.Operation | **async** | static_routes inline |
 | Update | UpdateRouteTableRequest | operation.Operation | **async** | replace или add/remove routes via update_mask |
 | Delete | DeleteRouteTableRequest | operation.Operation | **async** | FailedPrecondition если ассоциирован с Subnet |
-| Move | MoveRouteTableRequest | operation.Operation | **async** | cross-folder |
 | ListOperations | ListRouteTableOperationsRequest | ListRouteTableOperationsResponse | sync | |
 
 ## REST mapping
@@ -44,8 +43,10 @@ tags:
 | `POST /vpc/v1/routeTables` | Create |
 | `PATCH /vpc/v1/routeTables/{route_table_id}` | Update |
 | `DELETE /vpc/v1/routeTables/{route_table_id}` | Delete |
-| `POST /vpc/v1/routeTables/{route_table_id}:move` | Move |
 | `GET /vpc/v1/routeTables/{route_table_id}/operations` | ListOperations |
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/routeTables/{route_table_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
 
 ## See also
 
