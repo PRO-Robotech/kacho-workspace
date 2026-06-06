@@ -93,7 +93,7 @@ Production-ready IAM в 13 фазах. Key vault entries:
 
 - `kacho-compute` (Instance/Disk/Image/…) — отдельный сервис, не индексируется в этой версии.
 - `kacho-loadbalancer` — frozen в 1.0 (proto verbatim YC, backend ещё не переписан).
-- `kacho-vpc-implement` — sibling kacho-vpc для data-plane (SRv6/eBPF).
+- `kacho-vpc-implement` — data-plane sibling kacho-vpc; spec-only, вне build-графа, control-plane его не касается.
 - `kacho-ui` — Vite + React SPA.
 - `kacho-test` — сводный e2e/regression стенд.
 

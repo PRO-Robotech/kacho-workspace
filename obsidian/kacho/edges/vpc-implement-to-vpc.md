@@ -25,16 +25,16 @@ tags:
 
 ## History
 
-KAC-2 эпик (control-plane resource model) ввёл writeback из vpc-implement: после программирования SRv6 data-plane (`hv_id`, `sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `status`) agent сообщал vpc через `ReportNiDataplane`.
+KAC-2 эпик (control-plane resource model) ввёл writeback из vpc-implement: после программирования инфра-слоя agent сообщал vpc инфра-состояние NI через `ReportNiDataplane`.
 
-После **KAC-36/79/80 (purge kube-ovn-эпохи data-plane control-plane-слоя)**:
-- Миграция **0023** удалила все data-plane колонки из `network_interfaces` (см. [[../resources/vpc-networkinterface]]).
+После **KAC-36/79/80 (purge инфра-control-plane-слоя)**:
+- Миграция **0023** удалила все инфра-колонки из `network_interfaces` (см. [[../resources/vpc-networkinterface]]).
 - RPC `ReportNiDataplane` исчез вместе с ними.
 - Сервис `InternalNetworkInterfaceService` в proto не commit'нут (см. [[../rpc/vpc-internal-network-interface-service]]).
 
 ## Current state
 
-Это ребро **удалено**. Будущий SRv6 data-plane (`kacho-vpc-implement`) — spec-only: networking-дизайн остаётся в `docs/specs/09-implementation-strategy.md` (зафиксированный план), но прежняя control-plane-привязка к kacho-vpc (writeback NI-состояния) не действует.
+Это ребро **удалено**. `kacho-vpc-implement` — spec-only data-plane sibling вне build-графа; прежняя control-plane-привязка к kacho-vpc (writeback NI-состояния) не действует. Control-plane его не касается.
 
 ## See also
 

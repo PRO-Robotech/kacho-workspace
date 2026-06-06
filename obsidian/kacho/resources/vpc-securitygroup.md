@@ -42,6 +42,10 @@ tags:
 
 CHECK (0029): name + rules format.
 
+> [!note] Нет `status`-поля (KAC-268)
+> Поле `status` удалено из контракта SecurityGroup в [[KAC-268]] — у SG нет провизионинг-стадии
+> (control-plane only, сразу активна после `Create`). На публичной поверхности `status` не возвращается.
+
 ## Default-SG flow
 
 При Network Create — inline создаётся default SG (если `KACHO_VPC_DEFAULT_SG_INLINE=true`, по дефолту true). См. `kacho-vpc/internal/apps/kacho/api/network/doCreate`.
