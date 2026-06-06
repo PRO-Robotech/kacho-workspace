@@ -13,13 +13,31 @@ import pathlib
 import sys
 
 
+# Newman-env ключи, которых нет verbatim в fixtures.json, но которые ОБЯЗАНЫ
+# зеркалить canonical fixture-ключ. KAC-263: иначе newman гоняет CRUD по stale
+# `existingProjectId`, где у тест-юзера (PA1) нет editor-binding → 403, и
+# приходится доделывать вручную. projectA1 — home-проект CRUD-юзера PA1
+# (там setup.sh выдал editor); projectA2 — cross-проект для Move/cross-сценариев.
+ENV_ALIASES = {
+    "existingProjectId": "projectA1Id",
+    "existingProjectCrossId": "projectA2Id",
+    "_suiteFolderId": "projectA1Id",
+    "_suiteFolderCrossId": "projectA2Id",
+}
+
+
 def patch_env(env_path: pathlib.Path, fixtures: dict) -> int:
     """Return number of keys added/updated."""
     data = json.loads(env_path.read_text())
     values = data.setdefault("values", [])
     existing = {v["key"]: v for v in values}
+    # Прямые ключи fixtures + newman-env алиасы (existingProjectId ← projectA1Id …).
+    merged = dict(fixtures)
+    for env_key, fx_key in ENV_ALIASES.items():
+        if fixtures.get(fx_key):
+            merged[env_key] = fixtures[fx_key]
     changes = 0
-    for key, val in fixtures.items():
+    for key, val in merged.items():
         sval = "" if val is None else str(val)
         if key in existing:
             if existing[key].get("value") != sval:

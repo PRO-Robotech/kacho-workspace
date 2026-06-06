@@ -378,8 +378,12 @@ ROLE_ADMIN="rol21232f297a57a5a74"   # md5('admin')[:17]  — global super-admin
 ROLE_EDIT="rolde95b43bceeb4b998"    # md5('edit')[:17]   — global edit-only
 ROLE_VIEW="rol1bda80f2be4d3658e"    # md5('view')[:17]   — global read-only
 
-# PA1 — project-A1 editor. Grantor = AAA (owns A → A1).
+# PA1 — project-A1 editor (home project). Grantor = AAA (owns A → A1).
 ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
+# PA1 — project-A2 editor (cross-project в том же account A). KAC-263 zero-manual:
+# vpc/compute newman гоняют Move/cross-сценарии на existingProjectCrossId=projectA2;
+# без editor там Move-кейсы → 403. Окружение должно быть достаточным из-под фикстуры.
+ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A2" "$JWT_AAA"
 # AAA — account-A admin. Grantor = AAA (owner of A — self-grant on own account).
 ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
 # AAB — account-B admin. Grantor = AAB (owner of B).
