@@ -82,8 +82,8 @@ docs/                          — deploy-specific documentation.
 ```yaml
 dependencies:
   - ingress-nginx (community)
-  - postgresql (bitnami) × 3 (pg-resource-manager, pg-vpc, pg-compute)
-  - resource-manager  (file://../../../kacho-resource-manager/deploy)
+  - postgresql (bitnami) × N (pg-iam, pg-vpc, pg-compute)   # pg-resource-manager удалён в KAC-124
+  - iam               (file://../../../kacho-iam/deploy)          # заменил resource-manager (KAC-124)
   - vpc               (file://../../../kacho-vpc/deploy)
   - compute           (file://../../../kacho-compute/deploy)
   - api-gateway       (file://../../../kacho-api-gateway/deploy)

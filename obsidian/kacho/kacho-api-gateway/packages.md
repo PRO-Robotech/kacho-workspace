@@ -91,8 +91,7 @@ vpcv1.RegisterInternalNetworkServiceHandler(...)
 `opsproxy/` — кастомный handler для `OperationService.Get(id)`. По первым 3 chars `id`'а (prefix-based) маршрутизирует в правильный backend:
 - `enp...` → vpc (Network/RT/SG/Gateway/PE + Operations of VPC)
 - `e9b...` → vpc (Subnet/Address/NIC)
-- `bpf...` → resource-manager (Organization)
-- `b1g...` → resource-manager (Cloud/Folder)
+- ~~`bpf...` / `b1g...` → resource-manager (Organization/Cloud/Folder)~~ — removed в KAC-124 (resource-manager retire; Account/Project → iam)
 - `fd8...` → compute (Instance)
 - `epd...` → compute (Disk)
 - ... (см. `kacho-corelib/ids` для полного prefix map).
@@ -104,7 +103,7 @@ client → api-gateway:8080
   → vpc:9090 (public)
   → vpc:9091 (internal — only via cluster-internal listener)
   → compute:9090 / 9091
-  → resource-manager:9090
+  → iam:9090 / 9091     (Account/Project; resource-manager removed в KAC-124)
 ```
 
 См. [[../architecture]] для полного графа.

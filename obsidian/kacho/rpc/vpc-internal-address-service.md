@@ -24,7 +24,7 @@ tags:
 **Backend**: `kacho-vpc:9091` (internal-port)
 **Public/Internal**: **cluster-internal-only** (не на TLS edge, см. CLAUDE.md «Запреты» #6)
 
-IPAM allocate-API для **эфемерных** адресов + reference-management. Вызывается compute (NIC primary IP), NLB (target-binding), api-gateway-restmux только на internal-listener.
+IPAM allocate-API для **эфемерных** адресов + reference-management. Сама логика аллокации IP — **in-process в kacho-vpc** (request-path, `internal/service/address.go`; нет отдельного data-plane/IPAM-сервиса). Этот gRPC `InternalAddressService`-endpoint — лишь cluster-internal-фасад над той же in-process логикой, **потребляется compute** (NIC primary IP, см. [[../edges/compute-to-vpc-nic-validate]]), NLB (target-binding), api-gateway-restmux только на internal-listener.
 
 ## Methods
 

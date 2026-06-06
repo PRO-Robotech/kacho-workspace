@@ -208,7 +208,7 @@ Alphabetical index всех узких файлов. Использовать д
 
 - [[edges/apigw-internal-vs-tls]] — api-gateway: TLS edge vs cluster-internal listener (KAC-50)
 - [[edges/apigw-to-compute]] — api-gateway → compute proxy
-- [[edges/apigw-to-rm]] — api-gateway → rm proxy (deprecated)
+- [[edges/apigw-to-rm]] — api-gateway → rm proxy (removed, KAC-124)
 - [[edges/apigw-to-vpc]] — api-gateway → vpc proxy
 
 ### kacho-iam (KAC-127)
@@ -241,7 +241,7 @@ Alphabetical index всех узких файлов. Использовать д
 ### Cross-service runtime (other)
 
 - [[edges/ui-to-zitadel-redirect]] — ui → zitadel: OIDC redirect (deprecated)
-- [[edges/compute-to-rm-folder-check]] — compute → rm: folder check (deprecated)
+- [[edges/compute-to-rm-folder-check]] — compute → rm: folder check (removed, KAC-124; → iam project check)
 - [[edges/compute-to-vpc-nic-validate]] — compute → vpc: NIC validate + attach (CAS)
 - [[edges/vpc-implement-to-vpc]] — vpc-implement → vpc: NI dataplane writeback (removed, KAC-36/79/80)
 - [[edges/vpc-to-compute-zone-validate]] — vpc → compute: zone_id validation (KAC-15)

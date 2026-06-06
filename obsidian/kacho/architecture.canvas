@@ -113,12 +113,12 @@
     {
       "id": "467bf76985e55950",
       "type": "text",
-      "text": "**kacho-resource-manager**\nOrganization / Cloud / Folder\n[[kacho-resource-manager/README]]",
+      "text": "**kacho-resource-manager**\n(REMOVED — KAC-124)\nOrganization / Cloud / Folder → Account / Project в kacho-iam\n[[kacho-resource-manager/README]]",
       "x": 380,
       "y": -480,
       "width": 280,
       "height": 110,
-      "color": "1"
+      "color": "2"
     },
     {
       "id": "2b5e7c90b20a7e41",
@@ -200,12 +200,12 @@
     {
       "id": "fcb655df01a65dd7",
       "type": "text",
-      "text": "**resource-manager**\n:9090 (leaf-owner)",
+      "text": "**resource-manager**\n(REMOVED — KAC-124)\n→ iam :9090 (leaf-owner: Account/Project)",
       "x": 100,
       "y": 420,
       "width": 240,
       "height": 90,
-      "color": "1"
+      "color": "2"
     },
     {
       "id": "84028e1b778de4ea",
@@ -365,7 +365,7 @@
       "fromSide": "right",
       "toNode": "fcb655df01a65dd7",
       "toSide": "top",
-      "label": "folder check"
+      "label": "project check (was rm folder check → iam, KAC-106/124)"
     },
     {
       "id": "e23693cb0d55c35f",
@@ -373,7 +373,7 @@
       "fromSide": "right",
       "toNode": "fcb655df01a65dd7",
       "toSide": "right",
-      "label": "folder check"
+      "label": "project check (was rm folder check → iam, KAC-124)"
     },
     {
       "id": "21a1498a6e9af266",

@@ -69,7 +69,7 @@ Production-ready IAM в 13 фазах. Key vault entries:
 - [[kacho-proto/README|kacho-proto]] — центральная директория `.proto` + сгенерированные Go-stubs
 - [[kacho-corelib/README|kacho-corelib]] — общая Go-библиотека (ids, operations, db, outbox, …)
 - [[kacho-vpc/README|kacho-vpc]] — VPC control-plane (Network/Subnet/Address/RT/SG/Gateway/PE/NIC + admin AddressPool)
-- [[kacho-resource-manager/README|kacho-resource-manager]] — Organization / Cloud / Folder
+- [[kacho-resource-manager/README|kacho-resource-manager]] — **removed (KAC-124)**: Organization / Cloud / Folder → Account / Project в `kacho-iam`
 - [[kacho-api-gateway/README|kacho-api-gateway]] — edge (gRPC-proxy + grpc-gateway REST)
 - [[kacho-deploy/README|kacho-deploy]] — Helm charts + docker-compose dev/CI стенды
 
@@ -93,7 +93,7 @@ Production-ready IAM в 13 фазах. Key vault entries:
 
 - `kacho-compute` (Instance/Disk/Image/…) — отдельный сервис, не индексируется в этой версии.
 - `kacho-loadbalancer` — frozen в 1.0 (proto verbatim YC, backend ещё не переписан).
-- `kacho-vpc-implement` — sibling kacho-vpc для data-plane (SRv6/eBPF).
+- `kacho-vpc-implement` — data-plane sibling kacho-vpc; spec-only, вне build-графа, control-plane его не касается.
 - `kacho-ui` — Vite + React SPA.
 - `kacho-test` — сводный e2e/regression стенд.
 

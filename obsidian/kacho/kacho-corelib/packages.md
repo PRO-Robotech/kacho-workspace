@@ -51,7 +51,7 @@ graph LR
 | Consumer | Used packages |
 |---|---|
 | [[../kacho-vpc/README\|kacho-vpc]] | `ids`, `operations`, `db`, `validate`, `filter`, `outbox`, `baggage`, `grpcsrv`, `observability`, `errors`, `retry`, `shutdown`, `migrations/common` |
-| [[../kacho-resource-manager/README\|kacho-resource-manager]] | `ids`, `operations`, `db`, `validate`, `grpcsrv`, `observability`, `errors` |
+| `kacho-iam` (заменил `kacho-resource-manager`, удалённый KAC-124) | `ids`, `operations`, `db`, `validate`, `grpcsrv`, `observability`, `errors` |
 | [[../kacho-api-gateway/README\|kacho-api-gateway]] | `grpcsrv`, `observability`, `errors`, `retry`, `shutdown` |
 | kacho-compute | (аналогично vpc — все 15) |
 | kacho-loadbalancer | (frozen — минимум `ids`, `db`, `grpcsrv`) |
