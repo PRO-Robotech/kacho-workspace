@@ -1,5 +1,13 @@
 # kacho-docs Backbone (apisurface + OpenAPI) Implementation Plan
 
+> **KAC-265 NOTE:** инфра-токены прежней kube-ovn-эпохи data-plane-модели (`vpn_id`, per-NI `sid`,
+> `sid_seq`, `hv_id`, `node_index`, `host_iface`, `netns`, `container_id`, internal NIC-проекция,
+> `InternalNetworkInterfaceService`, `Hypervisor`) **удалены из proto в KAC-36/79/80**. Поэтому
+> исторический рассказ ниже про «dropped `NetworkInterfaceService` несёт `vpn_id`/`sid` в prose →
+> ломает §9 tripwire» — теперь moot (схемы с этими полями в proto отсутствуют). Сами токены
+> **сохранены в `FORBIDDEN`-blocklist** как defense-in-depth guard — чтобы их случайное возвращение
+> не утекло на публичную поверхность.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (- [ ]) syntax for tracking.
 
 **Goal:** Сделать `kacho-proto` единственным источником истины публичной API-поверхности: (1) перенести allowlist (`AllowedMethods` + `IsAllowed` + `HasInternalSuffix`) из `kacho-api-gateway/internal/allowlist` в `kacho-proto` как пакет `apisurface` (KAC-251), устранив split-brain; (2) добавить генерацию публичного OpenAPI 3.1 из публичных proto через `protoc-gen-connect-openapi` + standalone `cmd/openapi-filter`, который выкидывает каждую операцию, чья gRPC-FQN ∉ allowlist ИЛИ Internal-suffixed (авто-исключает все `Internal*Service` + admin-`AddressPool`, оставляет публичный `AddressService`), мерджит curated-examples overlay, инжектит `x-operation` из расширения 87334, и коммитит `gen/openapi/<domain>.openapi.json` + `gen/openapi/_surface-snapshot.json`; (3) повесить drift-gate `verify-openapi` (`git diff --exit-code gen/openapi/`) в Makefile+CI по образцу `verify-catalog`; (4) переключить импорт allowlist в `kacho-api-gateway` на `apisurface`, сохранив зелёными все существующие allowlist/director/server тесты (KAC-253).

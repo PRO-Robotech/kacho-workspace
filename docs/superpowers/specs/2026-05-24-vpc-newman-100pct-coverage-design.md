@@ -323,8 +323,6 @@ Newman — это HTTP-клиент с JS-skript'ами в Postman-runtime. Ег
 
 **InternalNetworkService.GetPoolSelector** — есть на uri через internal mux? — **уточнить**.
 
-**InternalNetworkInterfaceService** (`ReportNiDataplane`, `ListByHypervisor`) — это data-plane write-back от `kacho-vpc-implement`. Newman может тестировать как обычный RPC через internal mux. **NEW**: `INI-REPORT-DATAPLANE-CRUD`, `INI-LIST-BY-HV-CRUD`.
-
 **InternalWatchService** — server-streaming через grpc-gateway (chunked transfer). **NEW** (см. §3 boundary workaround): `IWS-STREAM-SHORT-WINDOW` (Create Network → start `pm.sendRequest` на `/vpc/v1/internalWatch:stream?from_sequence_no=N` с timeout=5s → assert ≥ 1 event chunk с правильным payload schema).
 
 ### 4.11 § 13 Async Operations (LRO)
@@ -693,15 +691,9 @@ Regression-suite уже фактически = текущий Newman run. Пос
 
 **Срез 5.11**: 1/2 ✅; 1/2 ❌ (already covered).
 
-### 5.12 `cases/internal-network-interface.py` — НОВЫЙ ФАЙЛ (3 cases — все T10 next)
-
-| case-id | Class | P | Status | Описание |
-|---|---|---|---|---|
-| `INI-REPORT-DATAPLANE-CRUD` | CRUD | P1 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | `ReportNiDataplane` от kacho-vpc-implement perspective: set hv_id/sid → Get InternalNetworkInterface verify |
-| `INI-LIST-BY-HV-CRUD` | CRUD | P1 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | `ListByHypervisor(hv_id)` → returns set of NICs on that HV |
-| `INI-REPORT-IDM` | IDM | P2 | 🚫 T10 blocked ([#109](https://github.com/PRO-Robotech/kacho-vpc/issues/109)) | Same revision write twice — idempotent |
-
-**Срез 5.12**: 0/3 ✅; 3/3 ⏳ pending (T10).
+> **KAC-265**: прежняя подсекция 5.12 (`cases/internal-network-interface.py` — кейсы
+> `INI-REPORT-DATAPLANE-CRUD`/`INI-LIST-BY-HV-CRUD`/`INI-REPORT-IDM` поверх kube-ovn-эпохи
+> NIC-dataplane-проекции) удалена: сам сервис вырезан из продукта в KAC-36/79/80.
 
 ### 5.13 `cases/outbox.py` — НОВЫЙ ФАЙЛ (новый класс `OUTBOX`, 15 cases — все T8 next)
 
@@ -883,7 +875,7 @@ Implementation discipline (отличается от шаблонного flow �
 | T7 | RouteTable + Operation rollback | rt/operation | 5 | **2** (scope reduced — `OP-LST-FILTER-*` removed: нет `OperationService.List` RPC; `RT-CR-STATE-ROUTE-NORM` removed: YC route destination_prefix без host-bit constraint; см. commit body) | ✅ **merged** | `04725c1` |
 | T8 | Outbox / events suite (новый класс `OUTBOX`) | `cases/outbox.py` (NEW) | ~15 | 0 | ⏳ **next PR** — InternalWatchService chunked-stream wiring требует verify api-gateway support + NEW file (~300 lines) | — |
 | T9 | Observability suite (новый класс `OBS`) | `cases/observability.py` (NEW) | ~9 | 0 | ⏳ **next PR** — `:9090/metrics` Service exposure через kind ingress required | — |
-| T10 | InternalNetworkInterface RPC suite | `cases/internal-network-interface.py` (NEW) | 3 | 0 | ⏳ **next PR** — api-gateway internal mux for `/vpc/v1/internalNetworkInterfaces:*` requires verify-exposed | — |
+| ~~T10~~ | ~~Internal NIC-dataplane RPC suite~~ | — | 0 | 0 | 🗑 **removed (KAC-265)** — сервис вырезан из продукта в KAC-36/79/80 | — |
 | T11 | Internal-pool exhaustion + ambiguous | `cases/internal-pool.py` | 2 | **1** (`IPL-ALLOC-POOL-EXHAUSTED`; `IPL-EXPLAIN-AMBIGUOUS-WARN` — уже existed pre-KAC-165, не нужно add) | ✅ **merged** | `c7dba6b` |
 | T12 | CASES-INDEX обновление | `tests/newman/docs/CASES-INDEX.md` | n/a | 20 patterns registered | ✅ **merged** | `60fe192` |
 | **T13 (blocked)** | Full AuthZ matrix post-W1.* | `authz-deny.py` | все cases в §5.15 | 0 | ❌ **blocked KAC-W1.* IAM-VPC merge** | — |

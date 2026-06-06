@@ -2,8 +2,9 @@
 # Freeze gate check #05 — Compute Internal admin Lists ready.
 #
 # Verifies the compute domain exposes its admin Internal services with
-# List RPC for at least: Hypervisor, InternalInstance, InternalDisk.
-# (kacho-loadbalancer is out-of-scope per master plan.)
+# List RPC for at least: InternalInstance, InternalDisk.
+# (kacho-loadbalancer is out-of-scope per master plan; the former Hypervisor
+#  internal-admin service was removed in KAC-36/79/80.)
 #
 # Exit 0 = present, 1 = missing services, 2 = sibling repo missing.
 
@@ -29,7 +30,6 @@ if [ ! -d "$PROTO_DIR" ]; then
 fi
 
 required_services=(
-    "Hypervisor"
     "InternalInstance"
     "InternalDisk"
 )
@@ -54,5 +54,5 @@ if [ "$missing" -gt 0 ]; then
     exit 1
 fi
 
-freeze_gate_pass "$NAME" "Compute Internal admin services ready (Hypervisor / InternalInstance / InternalDisk)"
+freeze_gate_pass "$NAME" "Compute Internal admin services ready (InternalInstance / InternalDisk)"
 exit 0

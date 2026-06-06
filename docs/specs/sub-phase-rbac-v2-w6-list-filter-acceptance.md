@@ -38,7 +38,6 @@
 - `ImageService.List`
 - `SnapshotService.List`
 - `DiskTypeService.List` (cluster-scoped reference)
-- `HypervisorService.List` (Internal; cluster-scoped)
 
 Inventory commit (Task 6.1) produces the authoritative final list — `docs/audit/2026-05-28-list-handlers-{vpc,compute}.md`.
 

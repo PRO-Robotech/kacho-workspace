@@ -442,6 +442,11 @@ export const collections = {
 
 ### 8.2. VPC-раздел в деталях
 
+> **KAC-265 NOTE:** инфра-токены прежней kube-ovn-эпохи data-plane-модели (`vpn_id`, per-NI `sid`/`sid_seq`,
+> `hv_id`, `node_index`, `host_iface`, `netns`, `gateway_ip`, `container_id`, internal NIC-проекция,
+> `Hypervisor`) **удалены из proto в KAC-36/79/80**. Ниже `EXCLUDE`-правила и `FORBIDDEN`-blocklist
+> сохранены как defense-in-depth guard (чтобы случайное возвращение токенов не утекло в публичный docs).
+
 Публичная tenant-поверхность VPC = **8 first-class ресурсов**. Концепт-страница = tenant-поля/lifecycle/limits **БЕЗ инфры**; API/SDK-track = сервис + ключевые RPC + Operation-примеры. **AddressPool — admin/internal-only, ИСКЛЮЧён** из публичных концептов и сгенерированного reference (его `InternalAddressPoolService` не в allowlist → дропается фильтром §6.2). Каждая мутация по всем 8 возвращает `operation.Operation`; клиент поллит `OperationService.Get` (`GET /operations/{id}`) до `done=true`, либо per-resource ListOperations (`GET /vpc/v1/networks/{id}/operations`) для истории.
 
 1. **Network** (id-prefix `enp`) — name (unique per project), description, labels; единственный `ACTIVE`-state; delete-precondition `"network is not empty"`. NetworkService: Get/List/ListSubnets/ListSecurityGroups/ListRouteTables sync; Create/Update/Delete/Move async→Operation. **EXCLUDE** `vpn_id` / kube-ovn-underlay.

@@ -58,7 +58,7 @@
 ### Блок C — Недостающие домены / RPC
 
 - **C.1 `kacho-loadbalancer`** — ❌ **вне скоупа продукта** (DECISION-LB 2026-05-21). Домен NLB/TargetGroup НЕ строится. Ссылки убраны из `CLAUDE.md`; в vault/спеках/roadmap пометить «out of product scope». Это не пробел — осознанное решение.
-- **C.2 Compute Internal admin** — `Hypervisor` / `InternalInstance` / `InternalDisk` Lists — proto не существует, дописать.
+- **C.2 Compute Internal admin** — `InternalInstance` / `InternalDisk` Lists — proto не существует, дописать. (`Hypervisor` из этого блока удалён в KAC-36/79/80 вместе с kube-ovn-эпохи data-plane-моделью.)
 
 ### Блок D — Инфраструктура authz
 

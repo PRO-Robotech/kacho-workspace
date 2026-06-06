@@ -91,7 +91,6 @@ Each service-chart содержит:
 | `0.1/F1-port80-busy.sh` | Negative: если порт 80 занят, dev-up должен fail с понятным error. |
 | `0.1/F2-missing-tools.sh` | Negative: preflight ловит отсутствие docker/kind/kubectl/helm. |
 | `geography-move.sh` | Cross-service: kacho-vpc validates zone_id через kacho-compute. |
-| `cp-resource-model.sh` | Control-plane model: NIC + vpn_id + Hypervisor. |
 
 ## CI workflows (.github/workflows/ci.yaml)
 

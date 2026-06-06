@@ -67,7 +67,6 @@ graph LR
     compute -.NIC validate + IPAM.-> vpc
     vpc -.project exists.-> iam
     compute -.project exists.-> iam
-    vpcimpl[vpc-implement] -.ReportNiDataplane.-> vpc
 ```
 
 ### Phase 2 added (AuthN core, KAC-127 Phase 2 implemented)

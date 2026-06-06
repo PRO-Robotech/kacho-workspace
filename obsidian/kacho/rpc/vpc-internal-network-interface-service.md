@@ -1,9 +1,9 @@
 ---
-title: InternalNetworkInterfaceService
+title: InternalNetworkInterfaceService (removed)
 aliases:
   - InternalNetworkInterfaceService (vpc)
   - Internal NIS
-proto_file: kacho/cloud/vpc/v1/internal_network_interface_service.proto
+proto_file: ""
 category: rpc
 backend: kacho-vpc
 backend_port: 9091
@@ -20,23 +20,20 @@ tags:
   - deprecated
 ---
 
-# InternalNetworkInterfaceService (vpc)
+# InternalNetworkInterfaceService (vpc) — REMOVED
 
-**Proto**: **deprecated / removed** — больше не нужен.
-**Backend**: `kacho-vpc:9091` (если бы был)
+> [!warning] Удалён в KAC-36/79/80
+> Этот сервис — часть kube-ovn-эпохи data-plane control-plane-модели. Удалён вместе с
+> internal data-plane-проекцией NetworkInterface и writeback-RPC `ReportNiDataplane`.
+> Никогда не был commit'нут в proto. Заметка оставлена как tombstone, чтобы wikilinks не ломались.
 
-Раньше (KAC-2) — internal-projection NetworkInterface с data-plane полями (`sid`, `sid_seq`, `hv_id`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `dataplane_revision`) + writeback-RPC `ReportNiDataplane` из vpc-implement.
-
-## Status (после KAC-79/KAC-36)
-
-Underlay управляется **kube-ovn**, не vpc-implement. Миграция **0023** (`drop_network_vpn_id_and_ni_dataplane`) убрала data-plane колонки из `network_interfaces`. Сервис `ReportNiDataplane` исчез вместе с ними. NIC в публичном API остаётся, но инфра-проекции больше нет.
-
-## See also
-
-[[vpc-networkinterface-service]] [[../resources/vpc-networkinterface]] [[../edges/vpc-implement-to-vpc]]
+Прежде планировался как internal-projection NetworkInterface с инфра/data-plane-полями +
+writeback-RPC из `kacho-vpc-implement`. Миграция **0023** (`drop_network_vpn_id_and_ni_dataplane`)
+убрала соответствующие колонки из `network_interfaces`. **Публичный** `NetworkInterfaceService`
+([[vpc-networkinterface-service]]) — живой и не затронут.
 
 ## See also
 
 [[vpc-networkinterface-service]] [[../resources/vpc-networkinterface]] [[../edges/vpc-implement-to-vpc]]
 
-#rpc #kacho-vpc #internal #planned
+#rpc #kacho-vpc #internal #deprecated

@@ -24,7 +24,7 @@ tags:
 **Backend**: `kacho-vpc:9091`
 **Public/Internal**: **cluster-internal-only**
 
-Internal-projection Network — раньше нёс инфра-поле `vpn_id` (24-bit data-plane id, KAC-2). **Удалено миграцией 0023** (KAC-79/KAC-36 post-kube-ovn) — underlay теперь управляется kube-ovn, в `networks` нет `vpn_id`.
+Internal-projection Network — раньше нёс инфра-поле data-plane id (kube-ovn-эпоха). **Удалено миграцией 0023** (эпики KAC-36/79/80) — в `networks` этого поля больше нет.
 
 ## Methods
 
@@ -33,7 +33,7 @@ Internal-projection Network — раньше нёс инфра-поле `vpn_id`
 | SetDefaultSecurityGroupId | SetDefaultSecurityGroupIdRequest | SetDefaultSecurityGroupIdResponse | sync | связать default-SG с Network |
 
 > [!note] Internal-only RPC
-> Сохраняется для admin-операций над Network, недоступных tenant'у (default-SG management). Поверх `vpn_id`-related RPC'ов больше нет.
+> Сохраняется для admin-операций над Network, недоступных tenant'у (default-SG management). Прежних data-plane-id-related RPC'ов больше нет.
 
 ## See also
 

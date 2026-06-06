@@ -170,7 +170,7 @@ REST mapping: `POST /iam/v1/jitPending/{request_id}:approve`, `POST /iam/v1/jitP
   - `break_glass_usages` — 1 строка: `grant_id, subject_user_id, incident_id, requested_by, approved_by_a, approved_by_b, status, requested_at, expires_at`;
   - `access_review_outcomes` — 9 строк: `review_id, item_id, binding_id, reviewer_id, decision, decided_at`;
   - `gdpr_erasure_requests` — 2 строки: `request_id, requested_for, requested_by, status, requested_at, cool_off_until`.
-**And** в отчёте отсутствуют инфра-чувствительные поля (нет `hv_id` / `sid` / `vpn_id` — раздел «Инфра-чувствительные данные» workspace `CLAUDE.md`)
+**And** в отчёте отсутствуют инфра-чувствительные поля (placement / underlay / SID-схема — раздел «Инфра-чувствительные данные» workspace `CLAUDE.md`)
 **And** SHA-256 скачанного файла == `cmr_xxx.report_sha256`
 **And** manifest-signature валидируется публичным ключом `compliance-signer-v1`
 
@@ -563,7 +563,7 @@ REST mapping: `POST /iam/v1/jitPending/{request_id}:approve`, `POST /iam/v1/jitP
 | `7b-01…7b-04` (report sections: AccessBindings / JIT / Break-glass / Reviews / GDPR) | Phase 7 base §0 п.1-6 — источники governance-данных; `3.7b` агрегирует все 5 |
 | `7b-01`, `7b-02` (HSM-signed manifest, ECDSA P-384, Merkle-style) | `sub-phase-3.9-…` §P9-D9 (HSM PKCS#11 ECDSA P-384), §2.7 (S3 bucket layout + `.manifest.signed` format) — `3.7b` переиспользует подход для `kacho-compliance-reports` bucket |
 | `7b-12` (S3 fail → FAILED) | `sub-phase-3.9-…` §2.5 failure-modes (HSM/S3 unavailable → graceful degrade) — `3.7b` применяет fail-with-status, не stuck |
-| `7b-02` (отчёт без инфра-полей) | workspace `CLAUDE.md` §«Инфра-чувствительные данные» — `hv_id`/`sid`/`vpn_id` не попадают в публичный compliance-отчёт |
+| `7b-02` (отчёт без инфра-полей) | workspace `CLAUDE.md` §«Инфра-чувствительные данные» — placement / underlay / SID-поля не попадают в публичный compliance-отчёт |
 | Compliance report как артефакт для аудита | `sub-phase-3.12-…` §2.2 — SOC 2 Type II / ISO 27001:2022 Annex A / GDPR Art. 17/32/33 control mappings; access-report — evidence для control «periodic access review & attestation» |
 | `7b-08`, `7b-29` (step-up acr=3) | Phase 7 base §1 запрет #6-row — step-up acr=3 на ActivateJIT и privileged-mutations; `sub-phase-3.2-…` step-up flow |
 
@@ -621,7 +621,7 @@ REST mapping: `POST /iam/v1/jitPending/{request_id}:approve`, `POST /iam/v1/jitP
 - [ ] **Step-up acr=3 enforced** на `GenerateAccessReport`, `GetReportDownloadUrl`, `ApproveJITActivation`, `DenyJITActivation`; sync read (`Get*`/`List*`) — acr=2 OK.
 - [ ] **FGA-permission gate** — `GenerateAccessReport` требует `iam.complianceReports.create` на scope; `ApproveJITActivation` требует caller == designated `approver_user_id`.
 - [ ] **DB CHECK** — `compliance_reports` (range / completed-has-uri / failed-has-reason); `access_bindings_jit_pending` (`decided_by <> requested_by`, denied-has-reason, approved-has-binding, PENDING ⟺ no-decision).
-- [ ] **No infra-sensitive data в отчёте** — `hv_id` / `sid` / `vpn_id` отсутствуют (workspace `CLAUDE.md` §«Инфра-чувствительные данные»).
+- [ ] **No infra-sensitive data в отчёте** — placement / underlay / SID-поля отсутствуют (workspace `CLAUDE.md` §«Инфра-чувствительные данные»).
 - [ ] **Report artifact integrity** — SHA-256 + HSM-signed manifest; presigned URL TTL ≤ 15 min.
 - [ ] **No secrets in code / Helm** — S3 credentials, HSM PKCS#11 PIN — через Sealed Secrets / External Secrets.
 - [ ] **Audit** — `iam.compliance.report_{requested,completed,failed,downloaded,denied}`, `iam.jit.activation_{requested,approved,denied,timeout,self_approve_denied,approve_denied}` rows в `audit_outbox`; `audit_retention_until` ≥ 7 лет.

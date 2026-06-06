@@ -51,7 +51,7 @@ NIC — first-class ресурс в Kachō (расходимся со YC, где
 | `used_by_id` | TEXT | `'' \| instance-id` — CAS-protected attach/detach |
 | `used_by_kind` | TEXT | `instance` (на момент индексации) |
 
-(Бывшие data-plane поля `hv_id`, `sid`, `sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `dataplane_revision`, `status_error`, `dataplane_updated_at` — **удалены до squash** (historical migration 0023, теперь baseline просто без этих полей) post-kube-ovn.)
+(Бывшие data-plane поля `hv_id`, `sid`, `sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `dataplane_revision`, `status_error`, `dataplane_updated_at` — часть kube-ovn-эпохи data-plane-модели — **удалены до squash** (historical migration 0023, теперь baseline просто без этих полей), эпики KAC-36/79/80.)
 
 ## Attach race (CAS, KAC-52)
 

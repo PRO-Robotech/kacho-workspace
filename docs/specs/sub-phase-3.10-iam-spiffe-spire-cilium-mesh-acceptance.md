@@ -236,11 +236,11 @@ Phase 10 закладывает **in-cluster workload identity plane** во ве
 | Service | Ingress allowed from (SPIFFE-IDs) | Egress allowed to (SPIFFE-IDs) | L7 path-specific |
 |---|---|---|---|
 | **kacho-iam** | kacho-vpc, kacho-compute, kacho-loadbalancer, kacho-api-gateway, kacho-ui-admin | None (leaf-owner) | `/v1/internal/*` from {vpc, compute, loadbalancer} only; `/v1/internal/breakglass/*` from api-gateway only; `/v1/admin/*` requires `Authorization` header non-empty |
-| **kacho-vpc** | kacho-compute (NIC validation), kacho-loadbalancer (subnet refs), kacho-api-gateway (public RPC proxy), kacho-vpc-implement (write-back ReportNiDataplane) | kacho-iam (ProjectService.Get + InternalIAMService.Check), kacho-compute (zone validation) | `/v1/internal/networkInterfaces/*/reportDataplane` from kacho-vpc-implement only |
-| **kacho-compute** | kacho-vpc (zone fetch), kacho-loadbalancer (instance refs), kacho-api-gateway | kacho-iam (Project + Check), kacho-vpc (Subnet/SecurityGroup validation + ephemeral address IPAM) | `/v1/internal/hypervisors/*` from kacho-vpc-implement only |
+| **kacho-vpc** | kacho-compute (NIC validation), kacho-loadbalancer (subnet refs), kacho-api-gateway (public RPC proxy) | kacho-iam (ProjectService.Get + InternalIAMService.Check), kacho-compute (zone validation) | — |
+| **kacho-compute** | kacho-vpc (zone fetch), kacho-loadbalancer (instance refs), kacho-api-gateway | kacho-iam (Project + Check), kacho-vpc (Subnet/SecurityGroup validation + ephemeral address IPAM) | — |
 | **kacho-loadbalancer** | kacho-api-gateway | kacho-iam (Project + Check), kacho-vpc (Subnet refs), kacho-compute (Instance health-check) | — |
 | **kacho-api-gateway** | external (Ingress via Cloudflare in Phase 11; в Phase 10 — k8s Ingress with Let's Encrypt), kacho-ui (browser → CDN → api-gateway) | All kacho-* backend services | external-mux only: public RPCs; internal-mux only: Internal* RPCs (port 9091) |
-| **kacho-vpc-implement** | spire-agent (Workload API socket file-level) | kacho-vpc (InternalNetworkInterfaceService.ReportNiDataplane), kacho-compute (InternalHypervisorService) | — |
+| **kacho-vpc-implement** (future SRv6 data-plane, spec-only) | spire-agent (Workload API socket file-level) | TBD — прежняя kube-ovn-эпохи control-plane-привязка к kacho-vpc/kacho-compute удалена в KAC-36/79/80 | — |
 | **All kacho-***  | spire-agent socket (hostPath; not network) | otel-collector (telemetry); kube-dns | — |
 
 ---

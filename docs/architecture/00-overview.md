@@ -6,7 +6,7 @@ Kachō — облачная управляющая платформа (control p
 доменов Yandex Cloud, реализованная по контракту **verbatim YC API**:
 тот же proto, те же ошибки, те же status-коды, те же regex/тексты,
 те же behavioural-семантики. Реального data-plane (compute, storage, сеть
-поверх hypervisor) **нет** — это управляющая часть, которая принимает API,
+поверх физических хостов) **нет** — это управляющая часть, которая принимает API,
 валидирует, хранит state и возвращает Operations.
 
 Spec для отдельного data-plane проекта — `project/kacho-vpc-implement/`

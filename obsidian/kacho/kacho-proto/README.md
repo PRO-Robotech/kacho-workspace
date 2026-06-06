@@ -26,8 +26,8 @@ tags:
 
 | Domain | Proto-файлов | Назначение |
 |---|---|---|
-| `vpc` | 22 | Network, Subnet, Address, RouteTable, SecurityGroup, Gateway, PrivateEndpoint, NetworkInterface + Internal* (AddressPool, Region, Zone, Network, Watch, Cloud, NetworkInterface) |
-| `compute` | 41 | Instance, Disk, Image, Snapshot, DiskType, Hypervisor, Region, Zone (Geography — owner после KAC-15) |
+| `vpc` | 22 | Network, Subnet, Address, RouteTable, SecurityGroup, Gateway, PrivateEndpoint, NetworkInterface + Internal* (AddressPool, Region, Zone, Network, Watch, Cloud) |
+| `compute` | 41 | Instance, Disk, Image, Snapshot, DiskType, Region, Zone (Geography — owner после KAC-15) |
 | `loadbalancer` | 6 | NetworkLoadBalancer, TargetGroup (frozen в 1.0) |
 | `resourcemanager` | 5 | Cloud, Folder |
 | `organizationmanager` | 3 | Organization (top-level) |

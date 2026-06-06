@@ -37,7 +37,6 @@ tags:
 | `compute.disk_type` | catalog (no per-resource ACL — public read) | no, bypass |
 | `compute.zone` | catalog | no, bypass |
 | `compute.region` | catalog | no, bypass |
-| `compute.hypervisor` | internal — admin-only | Phase 4 internal admin RPCs **DEFERRED** (see KAC-127 "Out of scope") |
 
 ## Flow per-request
 
@@ -56,7 +55,7 @@ Identical to [[vpc-to-iam-listobjects]] — see that document for full pattern.
 ## Notes
 
 - Phase 4 covers 4 public lists (Instance, Disk, Image, Snapshot). Catalogs (DiskType/Zone/Region) — public read no authz.
-- Internal admin Lists (Hypervisor, InternalInstance, InternalDisk) — **DEFERRED** (Phase 4 acceptance §"Out of scope") — proto types ещё не существуют в kacho-proto. Follow-up tracked in KAC-127 trail.
+- Internal admin Lists (InternalInstance, InternalDisk) — **DEFERRED** (Phase 4 acceptance §"Out of scope") — proto types ещё не существуют в kacho-proto. Follow-up tracked in KAC-127 trail. (Прежний Hypervisor из этого списка удалён в KAC-36/79/80.)
 
 ## See also
 
