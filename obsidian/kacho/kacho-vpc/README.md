@@ -114,7 +114,7 @@ internal/
 
 ## Cross-repo runtime edges
 
-- → `kacho-resource-manager`: `FolderService.Get` для folder existence на async-path Create.
+- → `kacho-iam`: `ProjectService.Get` для project existence на async-path Create (через `ProjectClient`, `internal/clients/iam_client.go`; было `kacho-resource-manager.FolderService.Get` до KAC-106/124). DB-колонка `folder_id` = id владельца-проекта (legacy-имя, source of truth = ProjectService).
 - → `kacho-compute`: `ZoneService.Get` для zone validation в Subnet/Address spec (после KAC-15 Geography moved).
 - ← `kacho-compute`: `NetworkInterface` validation, IPAM-allocate ephemeral Address.
   (Прежнее ребро ← `kacho-vpc-implement` NI dataplane writeback удалено в KAC-36/79/80.)

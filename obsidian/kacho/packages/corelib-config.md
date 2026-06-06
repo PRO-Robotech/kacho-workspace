@@ -13,7 +13,7 @@ tags:
 
 **Path**: `kacho-corelib/config/`
 **Imports**: `github.com/kelseyhightower/envconfig`
-**Imported by**: `kacho-vpc/internal/config`, `kacho-resource-manager/internal/config`, `kacho-api-gateway/internal/config`
+**Imported by**: `kacho-vpc/internal/config`, `kacho-iam/internal/config`, `kacho-api-gateway/internal/config` (`kacho-resource-manager` удалён в KAC-124)
 
 Загрузка config struct из env-переменных через `envconfig` (KACHO_<DOMAIN>_<NAME> формат).
 

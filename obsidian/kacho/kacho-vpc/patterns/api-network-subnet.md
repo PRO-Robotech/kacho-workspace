@@ -55,7 +55,7 @@ func (h *Handler) Delete(ctx context.Context, req *vpcv1.DeleteNetworkRequest) (
 
 #### 1. Composition-root инъекция всех use-case'ов
 Handler не создаёт use-case'ы — они injected в конструктор. Это позволяет:
-- Composition root в `cmd/vpc/main.go` создаёт all use-case'ы с одинаковыми зависимостями (repo/folderClient/opsRepo)
+- Composition root в `cmd/vpc/main.go` создаёт all use-case'ы с одинаковыми зависимостями (repo/projectClient/opsRepo)
 - Unit-тесты легко мокировать каждый use-case
 
 #### 2. AuthZ через AssertFolderOwnership
@@ -177,13 +177,13 @@ func (h *Handler) ListSubnets(ctx context.Context, req *vpcv1.ListNetworkSubnets
 ### Что делает
 CreateNetworkUseCase инициирует создание Network:
 - SYNC-часть: валидация, folder-name-uniqueness-check (в Reader-TX), создание Operation
-- ASYNC-часть (worker): folder existence check, Network Insert, inline default-SG creation (опционально), outbox emit
+- ASYNC-часть (worker): project existence check (`projectClient.Exists`, peer = kacho-iam), Network Insert, inline default-SG creation (опционально), outbox emit
 
 ### Сигнатуры
 
 ```go
 // NewCreateNetworkUseCase создаёт CreateNetworkUseCase
-func NewCreateNetworkUseCase(r Repo, folderClient FolderClient, opsRepo operations.Repo, defaultSGInline bool) *CreateNetworkUseCase
+func NewCreateNetworkUseCase(r Repo, projectClient ProjectClient, opsRepo operations.Repo, defaultSGInline bool) *CreateNetworkUseCase
 
 // Execute — sync-валидация + Operation + запуск worker'а
 func (u *CreateNetworkUseCase) Execute(ctx context.Context, n domain.Network) (*operations.Operation, error)
@@ -231,7 +231,7 @@ if name != "" {
 ```
 
 **Паттерн:**
-- **Sync folder.Exists check УДАЛЁН** (KAC-94 I.4): race-prone между check и async. Folder может быть удалён peer-сервисом. Проверка теперь только в async `doCreate` → `folderClient.Exists` → если не существует → `NotFound` в operation.error.
+- **Sync project.Exists check УДАЛЁН** (KAC-94 I.4): race-prone между check и async. Project может быть удалён peer-сервисом (kacho-iam). Проверка теперь только в async `doCreate` → `projectClient.Exists` → если не существует → `NotFound` в operation.error. (Peer переехал rm→iam в KAC-106; колонка `folder_id` = id владельца-проекта, legacy-имя.)
 - **Sync name-uniqueness остаётся** (в Reader-TX): это race-free против peer-сервиса (уникальность в нашей БД). После uniqueness-check → тут же создаём Operation.
 - Читаем в Reader-TX, закрываем перед Operation.Create (not holding transaction).
 
@@ -268,12 +268,14 @@ return &op, nil  // Возвращаем Operation (указатель)
 #### 4. Атомарная Writer-TX: Insert Network + inline SG + Commit/Abort
 ```go
 func (u *CreateNetworkUseCase) doCreate(ctx context.Context, netID string, n domain.Network) (*anypb.Any, error) {
-	exists, err := u.folderClient.Exists(ctx, n.FolderID)
+	// projectClient → kacho-iam.ProjectService.Get (peer переехал rm→iam, KAC-106).
+	// n.ProjectID хранится в DB-колонке folder_id (legacy-имя). Текст ошибки "Folder..." оставлен для YC parity.
+	exists, err := u.projectClient.Exists(ctx, n.ProjectID)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "folder check: %v", err)
 	}
 	if !exists {
-		return nil, status.Errorf(codes.NotFound, "Folder with id %s not found", n.FolderID)
+		return nil, status.Errorf(codes.NotFound, "Folder with id %s not found", n.ProjectID)
 	}
 
 	n.ID = netID
@@ -657,7 +659,7 @@ func (u *ListNetworksUseCase) Execute(ctx context.Context, f NetworkFilter, p Pa
 }
 ```
 
-**Паттерн:** Folder-owned lists требуют explicit folder_id (R10 #C1 — закрыто cross-folder enumeration).
+**Паттерн:** Project-owned lists требуют explicit owner-id (DB-колонка `folder_id` = id владельца-проекта, legacy-имя; публичный API — `projectId`). R10 #C1 — закрыто cross-project enumeration.
 
 #### 2. Child-list с parent-existence-check
 ```go
@@ -740,26 +742,26 @@ func (u *MoveNetworkUseCase) Execute(ctx context.Context, id, destFolderID strin
 		return nil, mapRepoErr(err)
 	}
 	
-	// Проверяем: не в тот же folder
-	if err := checkMoveDestination(ctx, u.folderClient, cur.FolderID, destFolderID); err != nil {
+	// Проверяем: не в тот же project (DB-колонка folder_id = id владельца-проекта, legacy-имя)
+	if err := checkMoveDestination(ctx, u.projectClient, cur.ProjectID, destProjectID); err != nil {
 		return nil, err  // InvalidArgument: "Destination folder is the same as the source"
 	}
 	// ...
 }
 
-func checkMoveDestination(ctx context.Context, fc FolderClient, srcID, destID string) error {
-	if srcID == destID {
+func checkMoveDestination(_ context.Context, _ ProjectClient, currentProjectID, destProjectID string) error {
+	if currentProjectID == destProjectID {
 		return invalidArg("destination_folder_id", "Destination folder is the same as the source")
 	}
 	return nil
 }
 ```
 
-#### 2. Async: двойная folder-existence-check
+#### 2. Async: двойная project-existence-check
 ```go
-func (u *MoveNetworkUseCase) doMove(ctx context.Context, id, destFolderID string) (*anypb.Any, error) {
-	// Повторная folder-existence-check (backstop)
-	exists, err := u.folderClient.Exists(ctx, destFolderID)
+func (u *MoveNetworkUseCase) doMove(ctx context.Context, id, destProjectID string) (*anypb.Any, error) {
+	// Повторная project-existence-check (backstop) — peer = kacho-iam (KAC-106)
+	exists, err := u.projectClient.Exists(ctx, destProjectID)
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "folder check: %v", err)
 	}
@@ -921,7 +923,7 @@ if _, gerr := rd.Networks().Get(ctx, s.NetworkID); gerr != nil {
 #### 5. Async doCreate
 ```go
 func (u *CreateSubnetUseCase) doCreate(ctx context.Context, subID string, s domain.Subnet) (*anypb.Any, error) {
-	exists, err := u.folderClient.Exists(ctx, s.FolderID)
+	exists, err := u.projectClient.Exists(ctx, s.ProjectID)  // peer = kacho-iam (KAC-106); s.ProjectID в DB-колонке folder_id
 	if err != nil {
 		return nil, status.Errorf(codes.Unavailable, "folder check: %v", err)
 	}
@@ -1194,8 +1196,9 @@ type SecurityGroupRepo interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type FolderClient interface {
-	Exists(ctx context.Context, folderID string) (bool, error)
+type ProjectClient interface {  // renamed from FolderClient в KAC-106; peer = kacho-iam
+	Exists(ctx context.Context, folderID string) (bool, error)  // folderID = projectID (legacy param-имя)
+	GetCloudIDFromProject(ctx context.Context, projectID string) (string, error)
 }
 ```
 
@@ -1302,7 +1305,7 @@ func invalidArg(field, msg string) error {
 | Domain model | `domain.Network`, `domain.Subnet` | Каноническая бизнес-логика |
 | Repository record | `kachorepo.NetworkRecord`, `kachorepo.SubnetRecord` | Результат repo.Get, repo.Insert |
 | Proto | `vpcv1.Network`, `operationpb.Operation` | Generated из .proto |
-| Port interface | `FolderClient`, `ZoneRegistry`, `SubnetReader` | Narrow; опциональны |
+| Port interface | `ProjectClient` (was `FolderClient`, KAC-106), `ZoneRegistry`, `SubnetReader` | Narrow; опциональны |
 
 ---
 

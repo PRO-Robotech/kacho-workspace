@@ -29,7 +29,7 @@ Edge-сервис Kachō — **gRPC-proxy + grpc-gateway REST mux** перед b
 
 ## Назначение
 
-1. **gRPC proxy** — клиент → api-gateway → backend (vpc/compute/rm) по prefix-routing id.
+1. **gRPC proxy** — клиент → api-gateway → backend (vpc/compute/iam) по prefix-routing id (rm removed KAC-124).
 2. **REST mux** через `grpc-gateway` — REST → gRPC проброс с `:verb` action-suffixes (YC-style).
 3. **Listener split** (KAC-50):
    - `:8080` plain HTTP/gRPC (cluster-internal + UI + admin tooling — admin paths exposed)
@@ -46,7 +46,7 @@ internal/
 ├── config/                  — viper YAML config.
 ├── proxy/                   — gRPC-proxy (Unknown service handler передаёт unknown methods в backend).
 ├── restmux/                 — grpc-gateway REST mux registration:
-│   ├── mux.go                  registers VPC/Compute/RM services + Internal* under vpcInternalAddr block.
+│   ├── mux.go                  registers VPC/Compute/IAM services + Internal* under vpcInternalAddr block (RM removed KAC-124).
 │   └── mux_test.go             contract tests для allowlist.
 ├── opsproxy/                — OperationService.Get prefix-routing logic.
 ├── allowlist/               — public RPC allowlist (НЕ публиковать Internal.* на TLS endpoint).
@@ -69,8 +69,8 @@ internal/
 | `/vpc/v1/addressPools` | `InternalAddressPoolService` | vpc:9091 (internal) |
 | `/compute/v1/instances` | `kacho.cloud.compute.v1.InstanceService` | compute:9090 |
 | `/compute/v1/regions` | `RegionService` (после KAC-15) | compute:9091 |
-| `/resource-manager/v1/folders` | `FolderService` | resource-manager:9090 |
-| `/organization-manager/v1/organizations` | `OrganizationService` | resource-manager:9090 |
+| ~~`/resource-manager/v1/folders`~~ | ~~`FolderService`~~ | removed (KAC-124; → `/iam/v1/projects` `ProjectService` на iam) |
+| ~~`/organization-manager/v1/organizations`~~ | ~~`OrganizationService`~~ | removed (KAC-124; Account/Project в iam) |
 | `/operations/{id}` | `OperationService.Get` (proxy by prefix) | by id-prefix |
 
 ## Internal mux block
@@ -101,7 +101,7 @@ client (yc CLI / curl / UI)
   → api-gateway:8080
     → vpc:9090 / vpc:9091
     → compute:9090 / compute:9091
-    → resource-manager:9090
+    → iam:9090 / iam:9091     (Account/Project; resource-manager removed в KAC-124)
 ```
 
 См. [[../architecture]] для полного графа.

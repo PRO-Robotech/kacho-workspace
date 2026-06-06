@@ -56,7 +56,7 @@ tags:
 - **Внутрь**: `kacho-proto` (импортирует `Operation`-message из `kacho.cloud.operation.v1`).
 - **Из вне**: импортируется всеми сервисами:
   - [[../kacho-vpc/README|kacho-vpc]] — `ids`, `operations`, `db`, `validate`, `filter`, `outbox`, `baggage`, `grpcsrv`.
-  - [[../kacho-resource-manager/README|kacho-resource-manager]] — `ids`, `operations`, `db`, `validate`, `grpcsrv`.
+  - `kacho-iam` — `ids`, `operations`, `db`, `validate`, `grpcsrv` (заменил `kacho-resource-manager`, удалённый в KAC-124).
   - [[../kacho-api-gateway/README|kacho-api-gateway]] — `grpcsrv`, `observability`.
   - kacho-compute, kacho-loadbalancer — аналогично.
 

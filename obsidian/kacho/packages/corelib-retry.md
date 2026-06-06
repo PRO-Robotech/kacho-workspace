@@ -29,7 +29,7 @@ Retry-helpers для gRPC-вызовов peer-сервисам.
 
 ```go
 err := retry.OnUnavailable(ctx, func(ctx context.Context) error {
-    return folderClient.Exists(ctx, folderID)
+    return projectClient.Exists(ctx, projectID)
 })
 ```
 

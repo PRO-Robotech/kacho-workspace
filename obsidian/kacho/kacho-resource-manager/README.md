@@ -8,7 +8,7 @@ repo: kacho-resource-manager
 go_module: github.com/PRO-Robotech/kacho-resource-manager
 service_type: control-plane
 domain: resourcemanager
-status: stable
+status: removed
 related_packages:
   - "[[packages/rm-domain]]"
   - "[[packages/rm-service]]"
@@ -18,15 +18,19 @@ tags:
   - organization
   - folder
   - control-plane
+  - deprecated
 ---
 
-# kacho-resource-manager
+> [!warning] Removed by KAC-124 (E5 sub-phase 2.0) — historical tombstone
+> `kacho-resource-manager` **упразднён**: backend, Postgres-инстанс и proto-пакеты `resourcemanager.v1` / `organizationmanager.v1` удалены полностью. Organization / Cloud / Folder заменены на **Account / Project** в `kacho-iam` ([[../resources/iam-account]], [[../resources/iam-project]]). Peer-валидация owner-scope теперь через `kacho-iam.ProjectService.Get` ([[../edges/vpc-to-iam-project-exists]]). Эта заметка оставлена как исторический след. Остальное ниже — описание **бывшего** сервиса.
 
-Top-level tenant hierarchy сервис Kachō: **Organization → Cloud → Folder**.
+# kacho-resource-manager (REMOVED — KAC-124)
 
-- Repo: `github.com/PRO-Robotech/kacho-resource-manager`
+Top-level tenant hierarchy сервис Kachō: **Organization → Cloud → Folder** (исторически).
+
+- Repo: `github.com/PRO-Robotech/kacho-resource-manager` (удалён)
 - Тип: control-plane.
-- Leaf-owner всей иерархии — другие сервисы только **читают** (`FolderService.Get`).
+- Был leaf-owner всей иерархии — другие сервисы только **читали** (`FolderService.Get`). Теперь эту роль выполняет `kacho-iam` (`ProjectService.Get`).
 
 ## Ресурсы (3)
 

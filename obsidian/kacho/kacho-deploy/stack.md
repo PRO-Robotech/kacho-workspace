@@ -15,30 +15,31 @@ tags:
 ## docker-compose CI stack (ci/docker-compose.yml)
 
 ```mermaid
+%% resource-manager removed в KAC-124 — заменён на kacho-iam (Account/Project)
 graph TD
     api[api-gateway :28080<br/>HTTP edge]
-    rm[resource-manager :9090]
+    iam[iam :9090/:9091<br/>Account/Project — заменил rm KAC-124]
     vpc[vpc :9090/:9091]
     compute[compute :9090/:9091]
 
-    pg_rm[(pg-rm)]
+    pg_iam[(pg-iam)]
     pg_vpc[(pg-vpc)]
     pg_compute[(pg-compute)]
 
-    api --> rm
+    api --> iam
     api --> vpc
     api --> compute
-    rm --> pg_rm
+    iam --> pg_iam
     vpc --> pg_vpc
     compute --> pg_compute
 
     vpc -.zone validate.-> compute
-    vpc -.folder check.-> rm
+    vpc -.project check.-> iam
     compute -.NIC validate.-> vpc
-    compute -.folder check.-> rm
+    compute -.project check.-> iam
 ```
 
-Bring-up order: pg's first (depends_on with health check) → rm/vpc/compute → api-gateway.
+Bring-up order: pg's first (depends_on with health check) → iam/vpc/compute → api-gateway.
 
 ## Helm umbrella chart (helm/umbrella/)
 
@@ -47,27 +48,27 @@ graph TD
     umbrella[kacho-umbrella]
     ingress[ingress-nginx<br/>community chart]
 
-    sc_rm[resource-manager<br/>file://../../../kacho-resource-manager/deploy]
+    sc_iam[iam<br/>file://../../../kacho-iam/deploy<br/>заменил resource-manager KAC-124]
     sc_vpc[vpc<br/>file://../../../kacho-vpc/deploy]
     sc_compute[compute<br/>file://../../../kacho-compute/deploy]
     sc_apigw[api-gateway<br/>file://../../../kacho-api-gateway/deploy]
     sc_ui[ui<br/>file://../../../kacho-ui/deploy<br/>private — best-effort]
 
-    pg_rm[(pg-resource-manager<br/>bitnami postgresql)]
+    pg_iam[(pg-iam<br/>bitnami postgresql)]
     pg_vpc[(pg-vpc)]
     pg_compute[(pg-compute)]
 
     umbrella --> ingress
-    umbrella --> pg_rm
+    umbrella --> pg_iam
     umbrella --> pg_vpc
     umbrella --> pg_compute
-    umbrella --> sc_rm
+    umbrella --> sc_iam
     umbrella --> sc_vpc
     umbrella --> sc_compute
     umbrella --> sc_apigw
     umbrella --> sc_ui
 
-    sc_rm -.depends.-> pg_rm
+    sc_iam -.depends.-> pg_iam
     sc_vpc -.depends.-> pg_vpc
     sc_compute -.depends.-> pg_compute
 ```
