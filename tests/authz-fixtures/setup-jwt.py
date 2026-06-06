@@ -28,16 +28,23 @@ def b64u(data: bytes) -> str:
     return base64.urlsafe_b64encode(data).rstrip(b"=").decode("ascii")
 
 
-def mint(secret: str, sub: str, exp_seconds: int, extra_claims: dict | None = None) -> str:
-    """HS256 JWT с минимальным набором claim'ов: sub, iat, exp."""
+def mint(secret: str, sub: str, exp_seconds: int | None = None, extra_claims: dict | None = None) -> str:
+    """HS256 JWT с claim'ами sub, iat, iss (+ exp ТОЛЬКО если exp_seconds задан).
+
+    exp_seconds=None → БЕССРОЧНЫЙ токен (без `exp`) — требование zero-manual тестов
+    (KAC-263): newman/e2e не должны падать из-за протухших JWT. api-gateway dev-authn
+    (`jwt.Parse`, без WithExpirationRequired) корректно принимает токен без `exp`.
+    Отрицательный exp_seconds → уже-протухший токен (для expired-варианта model 6).
+    """
     header = {"alg": "HS256", "typ": "JWT"}
     now = int(time.time())
     claims: dict = {
         "sub": sub,
         "iat": now,
-        "exp": now + exp_seconds,
         "iss": "kacho-authz-deny-suite",
     }
+    if exp_seconds is not None:
+        claims["exp"] = now + exp_seconds
     if extra_claims:
         claims.update(extra_claims)
     head_b64 = b64u(json.dumps(header, separators=(",", ":")).encode())
@@ -48,8 +55,8 @@ def mint(secret: str, sub: str, exp_seconds: int, extra_claims: dict | None = No
     return f"{head_b64}.{body_b64}.{sig_b64}"
 
 
-def bulk(secret: str, exp_hours: int) -> dict:
-    exp = exp_hours * 3600
+def bulk(secret: str) -> dict:
+    """6 основных user-токенов — БЕССРОЧНЫЕ (exp_seconds=None, KAC-263)."""
     subjects = {
         # external_id ↔ JWT env-var name. external_id = `sub` claim, который
         # api-gateway пробросит на InternalIAMService.LookupByExternalID для
@@ -64,10 +71,10 @@ def bulk(secret: str, exp_hours: int) -> dict:
         "jwtAccountAdminB": "auth-test-account-admin-b@example.com",
         "jwtInvitee": "auth-test-invitee@example.com",
     }
-    return {name: mint(secret, sub, exp) for name, sub in subjects.items()}
+    return {name: mint(secret, sub) for name, sub in subjects.items()}
 
 
-def mint_sa(secret: str, sva_id: str, exp_seconds: int) -> str:
+def mint_sa(secret: str, sva_id: str, exp_seconds: int | None = None) -> str:
     """KAC-127 модель 5 — Service Account токен.
 
     На стенде dev-mode моделирует Kachō-JWT, который Hydra-token_hook
@@ -101,7 +108,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="HS256 JWT minter for authz-deny suite")
     parser.add_argument("--secret", required=True, help="HMAC secret (KACHO_API_GATEWAY_AUTHN_DEV_SECRET)")
     parser.add_argument("--sub", help="sub claim (single-mint mode)")
-    parser.add_argument("--exp-hours", type=int, default=168, help="exp = iat + exp-hours*3600 (default 168h = 7 days)")
+    parser.add_argument("--exp-hours", type=int, default=0, help="exp = iat + exp-hours*3600; 0 (default) = БЕССРОЧНЫЙ токен без exp (KAC-263)")
     parser.add_argument("--bulk", action="store_true", help="Mint all 6 subjects, print JSON")
     # KAC-127 models 5-6.
     parser.add_argument("--sa", metavar="SVA_ID",
@@ -116,12 +123,19 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.bulk:
-        result = bulk(args.secret, args.exp_hours)
+        result = bulk(args.secret)
         json.dump(result, sys.stdout, indent=2)
         sys.stdout.write("\n")
         return 0
 
-    exp_seconds = args.exp_seconds if args.exp_seconds is not None else args.exp_hours * 3600
+    # exp_seconds: явный --exp-seconds (включая отрицательный для expired-теста);
+    # иначе --exp-hours>0 → секунды; иначе None → бессрочный (KAC-263).
+    if args.exp_seconds is not None:
+        exp_seconds = args.exp_seconds
+    elif args.exp_hours > 0:
+        exp_seconds = args.exp_hours * 3600
+    else:
+        exp_seconds = None
 
     if args.sa:
         sys.stdout.write(mint_sa(args.secret, args.sa, exp_seconds))
@@ -131,7 +145,7 @@ def main() -> int:
         return 0
     if not args.sub:
         parser.error("--sub required when --bulk / --sa / --api-token not set")
-    token = mint(args.secret, args.sub, args.exp_hours * 3600)
+    token = mint(args.secret, args.sub, exp_seconds)
     sys.stdout.write(token)
     return 0
 
