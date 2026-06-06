@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-project]]"
-methods_count: 7
-async_methods: 4
+methods_count: 6
+async_methods: 3
 status: planned
 related_tickets:
   - "[[KAC-105]]"
@@ -37,7 +37,6 @@ tags:
 | Create | CreateProjectRequest | operation.Operation | **async** | account_id required |
 | Update | UpdateProjectRequest | operation.Operation | **async** | UpdateMask; `account_id` immutable через Update |
 | Delete | DeleteProjectRequest | operation.Operation | **async** | RESTRICT через FK от vpc/compute resources (E1+) |
-| **Move** | MoveProjectRequest | operation.Operation | **async** | cross-account; атомарный CAS на `account_id` |
 | ListOperations | ListProjectOperationsRequest | ListProjectOperationsResponse | sync | |
 
 ## REST mapping
@@ -49,12 +48,14 @@ tags:
 | `POST /iam/v1/projects` | Create |
 | `PATCH /iam/v1/projects/{id}` | Update |
 | `DELETE /iam/v1/projects/{id}` | Delete |
-| `POST /iam/v1/projects/{id}:move` | Move |
 | `GET /iam/v1/projects/{id}/operations` | ListOperations |
 
 ## Notes
 
-- **Move** — спец-семантика: `UPDATE projects SET account_id=$new WHERE id=$id AND account_id=$expected RETURNING ...` (CAS, запрет #10), плюс UNIQUE (account_id, name) ловит конфликт по new (account_id, name).
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /iam/v1/projects/{id}:move` сняты (contract-removal). `account_id` теперь
+> неизменяем после Create (раньше Move делал атомарный CAS `account_id`). См. [[../KAC/KAC-266]].
+
 - E1 ([[KAC-106]]) переключит `folder_id → project_id` в kacho-vpc/compute/loadbalancer (через peer `ProjectService.Get` — см. [[../edges/vpc-to-iam-project-exists]]).
 
 ## See also

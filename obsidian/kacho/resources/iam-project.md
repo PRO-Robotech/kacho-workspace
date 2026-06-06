@@ -58,12 +58,11 @@ tags:
 ## Lifecycle
 
 - **Create / Update / Delete** — все async через `Operation`.
-- **Move** — спец-операция: атомарный UPDATE `account_id` с CAS-условием на текущий account_id; защита от race и UNIQUE-конфликта по new (account_id, name).
+- **Move удалён** в [[KAC-266]] (contract-removal): RPC `ProjectService.Move` + `MoveProjectRequest`/`MoveProjectMetadata` сняты. `account_id` теперь неизменяем после Create.
 
 ## Gotchas
 
-- Move через границу Account → новый `(account_id, name)` должен быть свободен, иначе `AlreadyExists`.
-- `account_id` immutable через обычный Update (`UpdateMask` rejects); меняется только через `Move`.
+- `account_id` immutable через обычный Update (`UpdateMask` rejects) и не меняется ничем другим (Move удалён, [[KAC-266]]).
 - E1 ([[KAC-106]]) переключит cross-service `folder_id` ссылки в kacho-vpc/compute/loadbalancer; до этого dangling-coexistence с `kacho-resource-manager.Folder` (см. [[../edges/vpc-to-iam-project-exists]]).
 
 ## See also

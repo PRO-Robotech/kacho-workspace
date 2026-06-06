@@ -46,7 +46,7 @@ CHECK (0030).
 ## Gotchas
 
 - Delete Gateway → FailedPrecondition если используется в RouteTable static_route.
-- Cross-folder Move — Gateway уровень folder, как и другие resources.
+- Cross-folder/cross-project **Move удалён** в [[KAC-266]] (RPC `GatewayService.Move` снят).
 
 ## See also
 

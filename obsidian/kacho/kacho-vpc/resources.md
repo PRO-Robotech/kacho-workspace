@@ -19,7 +19,7 @@ tags:
 - Folder-level. `name` unique per folder (`networks_folder_id_name_key`).
 - (Прежнее internal-only data-plane-id-поле удалено в KAC-36/79/80.)
 - Inline default-SG creation при Create (управляется `KACHO_VPC_DEFAULT_SG_INLINE=true`). После KAC-94 — atomic в одной writer-TX через `CreateDefaultSGUseCase` composition.
-- RPCs: `Get / List / Create / Update / Delete / Move / ListOperations`.
+- RPCs: `Get / List / Create / Update / Delete / ListOperations` (+ ListSubnets/SecurityGroups/RouteTables nav). `Move` удалён в [[../KAC/KAC-266]].
 
 ### Subnet
 
@@ -73,28 +73,24 @@ tags:
 - v4_address_ids[] / v6_address_ids[] cardinality ≤ 1 (CHECK constraint миграция 0018).
 - security_group_ids[].
 - mac_address — output-only, output-only, allocated by Kachō (prefix `0e:` + 40-bit), unique across cloud.
-- used_by — denormalized Reference (`{compute_instance, <instance_id>}` после AttachToInstance).
-- atomic CAS для AttachToInstance (single-statement UPDATE — KAC-52 race fix).
+- used_by — denormalized Reference (`{compute_instance, <instance_id>}`). `AttachToInstance`/`DetachFromInstance` удалены ([[../KAC/KAC-266]] — инстанс без авто-NIC); `used_by_id` этими RPC больше не выставляется. CAS-история — KAC-52 (см. [[../resources/vpc-networkinterface]]).
 - (Прежняя internal data-plane-проекция NIC — kube-ovn-эпоха — удалена в KAC-36/79/80.)
 
-## 3 admin (internal-only)
+## 2 admin (internal-only)
 
 ### AddressPool
 
 - ID prefix: `apl` (литерал, не из `ids.PrefixXxx`).
 - **Global** (без folder_id). Один pool на всю установку для (zone_id, kind, family).
 - Family-split (KAC-71): `v4_cidr_blocks` + `v6_cidr_blocks` отдельные fields.
-- 5-step cascade resolve: `address_override → network_default → label_selector → zone_default → global_default`.
-- Match: `network_selector ⊆ pool.selector_labels` (inverse k8s NodeSelector).
+- 3-step cascade resolve: `network_default → zone_default → global_default` (override + label-selector сняты в [[../KAC/KAC-266]]).
 - DB-level: partial UNIQUE (zone_id, kind) WHERE is_default.
 
 ### AddressPoolBinding
 
-- Per-network и per-address admin bindings (override pool resolve).
+- Per-network default binding (`BindAsNetworkDefault`). Per-address override удалён в [[../KAC/KAC-266]].
 
-### CloudPoolSelector
-
-- Admin-controlled labels per Cloud для Step 3 cascade (label-selector match).
+(`CloudPoolSelector` ресурс + `InternalCloudService` удалены в [[../KAC/KAC-266]].)
 
 ## Operation
 

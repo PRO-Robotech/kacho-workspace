@@ -119,7 +119,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/vpc-gateway-service|GatewayService]]
 - [[rpc/vpc-internal-address-pool-service|InternalAddressPoolService]]
 - [[rpc/vpc-internal-address-service|InternalAddressService]]
-- [[rpc/vpc-internal-cloud-service|InternalCloudService]]
+- [[rpc/vpc-internal-cloud-service|InternalCloudService (removed, KAC-266)]]
 - [[rpc/vpc-internal-network-service|InternalNetworkService]]
 - [[rpc/vpc-internal-watch-service|InternalWatchService (deprecated)]]
 - [[rpc/vpc-network-service|NetworkService]]

@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-network]]"
-methods_count: 10
-async_methods: 4
+methods_count: 9
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
@@ -36,7 +36,6 @@ tags:
 | ListSecurityGroups | ListNetworkSecurityGroupsRequest | ListNetworkSecurityGroupsResponse | sync | nav |
 | ListRouteTables | ListNetworkRouteTablesRequest | ListNetworkRouteTablesResponse | sync | nav |
 | ListOperations | ListNetworkOperationsRequest | ListNetworkOperationsResponse | sync | per-resource ops history |
-| Move | MoveNetworkRequest | operation.Operation | **async** | cross-folder move |
 
 ## REST mapping
 
@@ -51,7 +50,9 @@ tags:
 | `GET /vpc/v1/networks/{network_id}/security_groups` | ListSecurityGroups |
 | `GET /vpc/v1/networks/{network_id}/route_tables` | ListRouteTables |
 | `GET /vpc/v1/networks/{network_id}/operations` | ListOperations |
-| `POST /vpc/v1/networks/{network_id}:move` | Move |
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/networks/{network_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
 
 ## See also
 

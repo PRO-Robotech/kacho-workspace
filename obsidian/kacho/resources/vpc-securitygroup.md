@@ -48,7 +48,7 @@ CHECK (0029): name + rules format.
 
 ## network_id — обязателен + immutable (KAC-243)
 
-`network_id` **обязателен** при Create (`INVALID_ARGUMENT "network_id required"`) и **неизменяем** после: его нет в Update known-mask {name,description,labels,rule_specs} (в маске → `INVALID_ARGUMENT`); `Move` network-bound SG между проектами → `FAILED_PRECONDITION`. Причина: SG→SG-правила валидны только в пределах одной Network (SG в разных сетях физически не видят друг друга). Откат «optional network_id» (kacho-proto#8). Миграция `0004` (Go goose, transactional) backfill'ит orphan-SG в сеть `default` проекта перед `ALTER ... SET NOT NULL`.
+`network_id` **обязателен** при Create (`INVALID_ARGUMENT "network_id required"`) и **неизменяем** после: его нет в Update known-mask {name,description,labels,rule_specs} (в маске → `INVALID_ARGUMENT`). Причина: SG→SG-правила валидны только в пределах одной Network (SG в разных сетях физически не видят друг друга). Откат «optional network_id» (kacho-proto#8). Миграция `0004` (Go goose, transactional) backfill'ит orphan-SG в сеть `default` проекта перед `ALTER ... SET NOT NULL`. (`Move` network-bound SG раньше отбивался `FAILED_PRECONDITION` — RPC `Move` удалён целиком в [[KAC-266]].)
 
 ## OCC (xmin) — только UpdateRules/UpdateRule
 

@@ -66,7 +66,6 @@ internal/
 | HTTP path | gRPC method | Backend |
 |---|---|---|
 | `/vpc/v1/networks` | `kacho.cloud.vpc.v1.NetworkService` | vpc:9090 |
-| `/vpc/v1/networks/{id}:move` | `NetworkService.Move` | vpc:9090 |
 | `/vpc/v1/addressPools` | `InternalAddressPoolService` | vpc:9091 (internal) |
 | `/compute/v1/instances` | `kacho.cloud.compute.v1.InstanceService` | compute:9090 |
 | `/compute/v1/regions` | `RegionService` (после KAC-15) | compute:9091 |
@@ -81,10 +80,12 @@ internal/
 Текущие internal paths:
 - `/vpc/v1/addressPools*` (InternalAddressPoolService)
 - `/vpc/v1/networks/*/addressPoolBinding`
-- `/vpc/v1/addresses/*/addressPoolOverride`
-- `/vpc/v1/clouds/*/poolSelector`
-- `/vpc/v1/addressPools:explainResolution`, `:check`
 - (после KAC-15) `/compute/v1/regions*`, `/compute/v1/zones*`
+
+> [!note] Удалено в KAC-266
+> `/vpc/v1/addresses/*/addressPoolOverride`, `/vpc/v1/clouds/*/poolSelector`,
+> `/vpc/v1/addressPools:explainResolution`, `:check` сняты (InternalCloudService удалён,
+> AddressPool override/check/explain удалены). См. [[../KAC/KAC-266]].
 
 См. [[../kacho-vpc/README#admin-paths|kacho-vpc/README]] §16.x для полного списка admin paths.
 

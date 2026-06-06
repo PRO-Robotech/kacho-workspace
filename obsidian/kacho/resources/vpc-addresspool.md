@@ -13,7 +13,6 @@ visibility: internal
 status: stable
 related_rpc:
   - "[[rpc/vpc-internal-address-pool-service]]"
-  - "[[rpc/vpc-internal-cloud-service]]"
 related_packages:
   - "[[packages/vpc-apps-kacho-api-addresspool]]"
 tags:
@@ -28,7 +27,7 @@ tags:
 
 **Domain**: vpc (kacho-only — нет в YC)
 **ID prefix**: `apl`
-**Owner table**: `kacho_vpc.address_pools` (+ `address_pool_network_default`, `address_pool_address_override`, `cloud_pool_selector`)
+**Owner table**: `kacho_vpc.address_pools` (+ `address_pool_network_default`)
 **Folder-level**: нет (cloud/zone-level admin ресурс)
 
 ## Fields
@@ -51,17 +50,18 @@ tags:
 ## Bindings tables
 
 - `address_pool_network_default(network_id PK, pool_id FK)` — override default-pool для Network.
-- `address_pool_address_override(address_id PK, pool_id FK)` — explicit pool для конкретного Address.
-- `cloud_pool_selector(cloud_id PK, selector-json)` — cloud-level rule selector.
+
+> [!note] Упрощено в [[KAC-266]]
+> Таблицы `address_pool_address_override` (per-Address override) и `cloud_pool_selector`
+> (cloud-level selector) и соответствующие RPC удалены. IPAM-cascade сведён к трём шагам.
 
 ## Resolution chain (для tenant Address Create)
 
-1. `address_pool_address_override` (per-Address) → если есть, use.
-2. `address_pool_network_default` (per-Network).
-3. `cloud_pool_selector` (per-Cloud, JSON predicate).
-4. Default pool в zone (UNIQUE).
+После [[KAC-266]] cascade упрощён до трёх шагов (override/selector сняты):
 
-См. `InternalAddressPoolService.ExplainResolution` ([[../rpc/vpc-internal-address-pool-service]]).
+1. `network_default` — `address_pool_network_default` (per-Network).
+2. `zone_default` — default pool в zone (UNIQUE по (zone, kind)).
+3. `global_default` — default pool без zone (zone_id NULL).
 
 ## Allocate freelist (0015)
 
@@ -74,6 +74,6 @@ tags:
 
 ## See also
 
-[[../packages/vpc-apps-kacho-api-addresspool]] [[../rpc/vpc-internal-address-pool-service]] [[../rpc/vpc-internal-cloud-service]]
+[[../packages/vpc-apps-kacho-api-addresspool]] [[../rpc/vpc-internal-address-pool-service]]
 
 #resource #vpc #addresspool #admin #kacho-only

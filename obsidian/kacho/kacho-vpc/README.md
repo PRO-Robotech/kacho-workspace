@@ -41,17 +41,18 @@ VPC control-plane сервис Kachō — Network/Subnet/Address/RouteTable/Secu
 | SecurityGroup | `enp` | Rules (oneof source/destination) + OCC через `xmin`. |
 | Gateway | `enp` | shared_egress only (frozen scope). Strict-name `NameGateway` (lowercase). |
 | PrivateEndpoint | `enp` | object_storage scope; FK на Network/Subnet/Address (inline в baseline `0001_initial.sql` после squash). |
-| NetworkInterface | `e9b` | AWS-ENI-style first-class (вариант А, KAC-2). AttachToInstance atomic CAS. MAC-allocation retry. v4/v6 cardinality ≤ 1 (CHECK inline в baseline). |
+| NetworkInterface | `e9b` | AWS-ENI-style first-class (вариант А, KAC-2). CRUD-ресурс; `AttachToInstance`/`DetachFromInstance` удалены ([[../KAC/KAC-266]] — инстанс без авто-NIC). MAC-allocation retry. v4/v6 cardinality ≤ 1 (CHECK inline в baseline). |
 
-## Admin / Internal ресурсы (3)
+## Admin / Internal ресурсы (2)
 
 Internal-only, exposed только через api-gateway internal mux (НЕ на external TLS endpoint).
 
 | Resource | ID prefix | Note |
 |---|---|---|
-| **AddressPool** | `apl` | Global infrastructure resource. Family-split (v4_cidr_blocks/v6_cidr_blocks, KAC-71). Cascade 5-step resolve. |
-| AddressPoolBinding | — | per-network / per-address bindings. |
-| CloudPoolSelector | — | admin-controlled routing labels per Cloud. |
+| **AddressPool** | `apl` | Global infrastructure resource. Family-split (v4_cidr_blocks/v6_cidr_blocks, KAC-71). Cascade 3-step resolve (network_default→zone_default→global_default; override/selector сняты в [[../KAC/KAC-266]]). |
+| AddressPoolBinding | — | per-network default binding (`BindAsNetworkDefault`). per-address override удалён [[../KAC/KAC-266]]. |
+
+(`CloudPoolSelector` ресурс + `InternalCloudService` удалены в [[../KAC/KAC-266]].)
 
 ## Структура пакетов
 
@@ -98,7 +99,8 @@ internal/
 
 ## RPC: public (8 сервисов × ~5-7 методов)
 
-- `NetworkService.{Get,List,Create,Update,Delete,Move,ListOperations}` + `SubnetService` etc.
+- `NetworkService.{Get,List,Create,Update,Delete,ListOperations}` + `SubnetService` etc. (`Move`/Subnet `Relocate` удалены в [[../KAC/KAC-266]]).
+- NIC: публичный `NetworkInterfaceService` CRUD; `AttachToInstance`/`DetachFromInstance` удалены ([[../KAC/KAC-266]] — инстанс без авто-NIC).
 - Все мутации возвращают `*operation.Operation` (async LRO).
 - Watch RPC удалён в 1.0 rewrite (использовать List-polling 2-5s).
 
@@ -106,13 +108,13 @@ internal/
 
 - `InternalAddressService.{AllocateInternalIP,AllocateExternalIP,FreeIP}` — IPAM (вызывается in-process из `address.go`).
 - `InternalNetworkService.SetDefaultSecurityGroupId` — admin Network (default-SG management).
-- `InternalAddressPoolService` — admin CRUD + Check + ExplainResolution.
-- `InternalCloudService.SetPoolSelector` — admin Cloud→pool routing.
+- `InternalAddressPoolService` — admin CRUD + `BindAsNetworkDefault`/`Unbind`. (`Check`/`ExplainResolution`/per-Address override удалены в [[../KAC/KAC-266]].)
+- ~~`InternalCloudService`~~ — удалён целиком в [[../KAC/KAC-266]] (IPAM-cascade: network_default→zone_default→global_default).
 - `InternalWatchService` — outbox stream через LISTEN/NOTIFY.
 
 ## Cross-repo runtime edges
 
-- → `kacho-resource-manager`: `FolderService.Get` для folder existence на async-path Create/Move.
+- → `kacho-resource-manager`: `FolderService.Get` для folder existence на async-path Create.
 - → `kacho-compute`: `ZoneService.Get` для zone validation в Subnet/Address spec (после KAC-15 Geography moved).
 - ← `kacho-compute`: `NetworkInterface` validation, IPAM-allocate ephemeral Address.
   (Прежнее ребро ← `kacho-vpc-implement` NI dataplane writeback удалено в KAC-36/79/80.)

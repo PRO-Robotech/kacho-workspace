@@ -48,12 +48,18 @@ NIC — first-class ресурс в Kachō (расходимся со YC, где
 | `mac_address` | TEXT | auto-generate (0014 → inline в baseline 0001) или explicit |
 | `primary_v4_address` / `primary_v6_address` | TEXT | IP-аллокация через [[../rpc/vpc-internal-address-service]] |
 | `address_ids` | JSONB | связанные Address ресурсы (cardinality 0018) |
-| `used_by_id` | TEXT | `'' \| instance-id` — CAS-protected attach/detach |
+| `used_by_id` | TEXT | `'' \| instance-id` — historically set by attach/detach RPC (удалены, KAC-266) |
 | `used_by_kind` | TEXT | `instance` (на момент индексации) |
 
 (Бывшие data-plane поля `hv_id`, `sid`, `sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `dataplane_revision`, `status_error`, `dataplane_updated_at` — часть kube-ovn-эпохи data-plane-модели — **удалены до squash** (historical migration 0023, теперь baseline просто без этих полей), эпики KAC-36/79/80.)
 
-## Attach race (CAS, KAC-52)
+## Attach race (CAS, KAC-52) — historical
+
+> [!warning] Attach/Detach RPC удалены в [[KAC-266]]
+> Публичные `NetworkInterfaceService.AttachToInstance` / `DetachFromInstance` сняты (contract-removal).
+> `used_by_id` больше **не** выставляется этими RPC. Инстанс создаётся **без авто-NIC** (compute
+> `materializeNICs` удалён, см. [[../edges/compute-to-vpc-nic-validate]]). NIC остаётся first-class
+> CRUD-ресурсом. CAS-паттерн ниже сохранён как archeology того, как attach защищался от race.
 
 ```sql
 UPDATE network_interfaces
@@ -73,11 +79,11 @@ RETURNING ...;
 
 ## Lifecycle
 
-DETACHED (`used_by_id=''`) ↔ ATTACHED (`used_by_id=<instance>`). Delete → FailedPrecondition если attached.
+DETACHED (`used_by_id=''`) — единственное штатное состояние после [[KAC-266]] (attach/detach RPC сняты, инстанс без авто-NIC). Историческое ATTACHED (`used_by_id=<instance>`) больше не достигается публичным API. Delete → FailedPrecondition если `used_by_id` непустой.
 
 ## Gotchas
 
-- compute должен **сначала** вызвать `AttachToInstance` через vpc, **потом** проводить compute-side. См. [[../edges/compute-to-vpc-nic-validate]].
+- Инстанс создаётся **без авто-NIC** ([[KAC-266]]): compute больше не создаёт/привязывает NIC при `Instance.Create`. См. [[../edges/compute-to-vpc-nic-validate]].
 - Address с `used_by={kind=ni, id=<ni-id>}` — внутренние IP NIC'а.
 
 
