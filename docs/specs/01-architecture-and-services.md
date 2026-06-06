@@ -33,7 +33,7 @@
 - `vpc` → `compute` (валидация `zoneId` через `compute.v1.ZoneService.Get` — Geography/Region/Zone — домен kacho-compute, эпик `KAC-15`; раньше было наоборот — это ребро удалено).
 - `compute` → `vpc` (валидация NIC-spec — `subnetId`/`securityGroupIds`; IPAM-аллокация эфемерных `Address` через `AddressService`/`InternalAddressService`).
 - `loadbalancer` → `vpc` (валидация `networkId`) + `compute` (валидация `instanceId` в targets).
-- `vpc-implement` (data-plane sibling, `kacho-vpc-implement`) → `vpc` (`InternalNetworkInterfaceService.ReportNiDataplane` — write-back data-plane-состояния NI) + читает `vpn_id` у `vpc` (`InternalNetworkService.GetNetwork`) и `node_index` у `compute` (`InternalHypervisorService.GetHypervisor`).
+- `vpc-implement` (future data-plane sibling, `kacho-vpc-implement`, spec-only) — будущий SRv6 data-plane; прежняя kube-ovn-эпохи control-plane-привязка (write-back состояния NI, чтение vpn_id/node_index у upstream) удалена в KAC-36/79/80.
 
 Циклов нет. Все межсервисные вызовы — синхронный gRPC, internal API (не маршрутизируется через api-gateway наружу на external TLS-endpoint).
 
@@ -50,7 +50,7 @@
 - **REST mux**: импортирует все сгенерированные `RegisterXxxServiceHandlerFromEndpoint`, регистрирует обработчики. REST-маршруты: `POST /v1/<resource>/upsert`, `/delete`, `/list`, `/watch`, и т.п.
 - Middleware-цепочка: request-id (`X-Request-ID`), recovery (panic → 500), structured access log (`slog`), placeholder для будущего auth.
 - НЕ маршрутизирует internal-RPC (`/upd-status`, internal-`Exists` методы между сервисами): таблица allowlist в gateway-конфиге определяет публично-доступные RPC.
-- **Два mux'а**: external TLS-endpoint (advertised, для внешних клиентов) и cluster-internal mux (UI / admin-tooling / port-forward). `Internal*`-сервисы регистрируются **только** на internal mux. Текущая регистрация: `NetworkInterfaceService` — public, `/vpc/v1/networkInterfaces`; `InternalNetworkInterfaceService` / `InternalNetworkService` / `InternalHypervisorService` — только internal mux, никогда не на external TLS; Geography (`Region`/`Zone` — public read + admin CRUD через `Internal*`-сервисы) — на `/compute/v1/...` (перенесено из vpc, эпик `KAC-15`).
+- **Два mux'а**: external TLS-endpoint (advertised, для внешних клиентов) и cluster-internal mux (UI / admin-tooling / port-forward). `Internal*`-сервисы регистрируются **только** на internal mux. Текущая регистрация: `NetworkInterfaceService` — public, `/vpc/v1/networkInterfaces`; Geography (`Region`/`Zone` — public read + admin CRUD через `Internal*`-сервисы) — на `/compute/v1/...` (перенесено из vpc, эпик `KAC-15`).
 
 **Health probes:** `/healthz` (alive), `/readyz` (alive + все backends отвечают на gRPC `Health.Check`).
 
@@ -74,12 +74,12 @@
 
 **Ресурсы:**
 
-- `Network` — контейнер для подсетей. Без lifecycle (мгновенно). Несёт internal-only `vpn_id` — 24-битный data-plane-идентификатор VPN, аллоцируется kacho-vpc на `Create` (sequence + free-list), стабилен, освобождается на `Delete`. **Не на публичной проекции `Network`** — раскрывается только через `InternalNetworkService.GetNetwork → InternalNetwork{network, vpn_id}` (REST на internal mux: `GET /vpc/v1/networks/{network_id}/internal`).
+- `Network` — контейнер для подсетей. Без lifecycle (мгновенно). (Прежний internal-only data-plane-идентификатор VPN на Network — удалён в KAC-36/79/80 вместе с kube-ovn-эпохи control-plane-слоем.)
 - `Subnet` — IP-диапазон в Network. Без lifecycle. `v4_cidr_blocks` **не обязателен** на `Create` (подсеть может быть создана без IPv4 CIDR, добавлен позже вербом `:add-cidr-blocks`); `:add-cidr-blocks`/`:remove-cidr-blocks` принимают и `v4_cidr_blocks`, и `v6_cidr_blocks`; `UpdateSubnet` принимает `v6_cidr_blocks` (soft-immutable, как v4 — реальные изменения через вербы).
 - `SecurityGroup` + `SecurityGroupRule` — правила фильтрации. Без lifecycle. `network_id` **не обязателен** на `Create` — SG может быть folder-level / не привязан к сети (default-SG-on-network не меняется).
 - `RouteTable` + `StaticRoute` — таблицы маршрутизации. Без lifecycle.
 - `Address` — IP-адрес. Имеет minimal lifecycle status. Поддерживает internal IPv6: `Address.internal_ipv6_address` (oneof `{address, oneof scope{subnet_id}}`), `CreateAddressRequest.internal_ipv6_address_spec`, `InternalAddressService.AllocateInternalIPv6`; `ListAddressesRequest.subnet_id` фильтрует по v4 ИЛИ v6 internal `subnet_id`. `used_by` — best-effort usage-hint (`kacho.cloud.reference.Reference`), кто привязал адрес.
-- `NetworkInterface` (NIC) — first-class ресурс домена kacho-vpc (AWS-ENI-подобный). Принадлежит `Subnet` (`subnet_id`); ссылается на `Address`-ресурсы по id (`v4_address_ids[]`/`v6_address_ids[]` — один Address максимум на одном NIC, enforced на service-слое через `addresses.used` + `address_references`); несёт `security_group_ids[]` (default на `Create` = `Network.default_security_group_id`); имеет `used_by` (`kacho.cloud.reference.Reference` — кто его прикрепил; ставится `AttachToInstance`, чистится `DetachFromInstance`, зеркалит `Address.used_by`); `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`. Может быть создан без адресов. Публичная проекция — lean; инфра/data-plane-поля (`hv_id`/`sid`/`sid_seq`/`host_iface`/`netns`/`gateway_ip`/`container_id`, resolved `vpn_id`) — ТОЛЬКО на `InternalNetworkInterface` (internal-port 9091, `InternalNetworkInterfaceService`). NIC compute-инстанса ссылается на VPC-NIC по `nic_id` (device-index — на `compute.v1.NetworkInterface.index`).
+- `NetworkInterface` (NIC) — first-class ресурс домена kacho-vpc (AWS-ENI-подобный). Принадлежит `Subnet` (`subnet_id`); ссылается на `Address`-ресурсы по id (`v4_address_ids[]`/`v6_address_ids[]` — один Address максимум на одном NIC, enforced на service-слое через `addresses.used` + `address_references`); несёт `security_group_ids[]` (default на `Create` = `Network.default_security_group_id`); имеет `used_by` (`kacho.cloud.reference.Reference` — кто его прикрепил; ставится `AttachToInstance`, чистится `DetachFromInstance`, зеркалит `Address.used_by`); `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`. Может быть создан без адресов. Публичная проекция — lean (control-plane-only). NIC compute-инстанса ссылается на VPC-NIC по `nic_id` (device-index — на `compute.v1.NetworkInterface.index`). (Прежняя internal data-plane-проекция NIC удалена в KAC-36/79/80.)
 
 **Cross-service validation:** при `Create` `Subnet` валидируется `networkId` (внутренняя FK same-DB) и `zoneId` (вызов `compute.v1.ZoneService.Get`). При `Create` ресурсов compute/loadbalancer, ссылающихся на VPC-ресурсы, **они** делают gRPC-вызов в `kacho-vpc`.
 
@@ -95,7 +95,7 @@
 - `Disk` — блочный диск. Lifecycle: `CREATING → READY ⇆ ATTACHING/DETACHING`. Симулированно.
 - `Image` — read-only catalog (родительские образы для дисков). Seed-таблица, всегда `READY`.
 - `Snapshot` — снимок диска. Lifecycle: `CREATING (с progress%) → READY`. Симулированно.
-- `Hypervisor` — **internal-only** ресурс (инфра-чувствительный — placement/HW-inventory, см. CLAUDE.md §«Инфра-чувствительные данные»; НЕ на external TLS-endpoint, нет tenant-facing пути). `{id, zone_id, node_index (uint32, 0-based), fqdn, State ∈ {READY, CORDONED, DRAINING, DOWN}, Capacity{vcpus, memory_bytes, instances}, created_at, updated_at}`. Управляется `InternalHypervisorService`: `RegisterHypervisor`/`GetHypervisor`/`ListHypervisors`/`UpdateHypervisorState`/`DeregisterHypervisor` — синхронные RPC (это инфра-registry, не Operations). REST на internal mux: `GET/POST /compute/v1/hypervisors`, `GET/DELETE /compute/v1/hypervisors/{id}`, `POST /compute/v1/hypervisors/{id}:updateState`.
+- (Прежний internal-only `Hypervisor`-ресурс и `InternalHypervisorService` — kube-ovn-эпохи placement/HW-inventory — удалены в KAC-36/79/80.)
 
 **Sub-resource updates** (только internal, не наружу):
 - `/upd-status` — стандартный, для всех ресурсов с lifecycle.
@@ -154,9 +154,6 @@
 | `<Service>.Internal.<Resource>Exists(uid)` | существует ли ресурс с заданным uid |
 | `<Service>.Internal.HasDependentsOn(uid)` | есть ли зависимые ресурсы — для валидации удаления |
 | `<Service>.Internal.UpdateStatus(req)` | reconciler пишет в `status` |
-| `InternalNetworkService.GetNetwork(network_id)` → `InternalNetwork{network, vpn_id}` | full-проекция Network с `vpn_id` (data-plane VPN id) |
-| `InternalNetworkInterfaceService.*` | NIC с инфра/data-plane-полями; `ReportNiDataplane` — write-back state от `kacho-vpc-implement` (per-NI `sid_seq`, host-wiring, статусы программирования ядра) |
-| `InternalHypervisorService.{Register,Get,List,UpdateState,Deregister}Hypervisor` | infra-registry гипервизоров (синхронные RPC, не Operations) |
 | `InternalAddressService.AllocateInternalIPv6` | аллокация internal IPv6 (рядом с `AllocateInternalIPv4`) |
 
 `api-gateway` НЕ маршрутизирует `Internal.*` методы / `Internal*`-сервисы на external TLS-endpoint — только на cluster-internal mux (allowlist-фильтр).

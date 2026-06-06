@@ -381,7 +381,7 @@
       "fromSide": "left",
       "toNode": "70ceb90e0ace44b3",
       "toSide": "right",
-      "label": "ReportNiDataplane (deprecated)"
+      "label": "NI dataplane writeback (removed KAC-36/79/80)"
     }
   ]
 }

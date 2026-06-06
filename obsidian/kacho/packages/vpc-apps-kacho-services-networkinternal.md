@@ -15,7 +15,7 @@ tags:
 **Path**: `kacho-vpc/internal/apps/kacho/services/networkinternal/`
 **Implements**: [[../rpc/vpc-internal-network-service|InternalNetworkService]] (SetDefaultSecurityGroupId).
 
-Internal admin для Network — admin/admin-UI only. Сейчас тонкий — один RPC. После KAC-79/KAC-36 (post-kube-ovn) `vpn_id`-related RPC'ы выкинуты (см. миграция 0023).
+Internal admin для Network — admin/admin-UI only. Сейчас тонкий — один RPC. Прежние data-plane-id-related RPC'ы (kube-ovn-эпоха) удалены в KAC-36/79/80 (см. миграция 0023).
 
 ## Files
 

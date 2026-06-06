@@ -24,8 +24,7 @@ tags:
 - `privatelink/private_endpoint.proto` (под-пакет `kacho.cloud.vpc.v1.privatelink`)
 - `internal_address_service.proto` — IPAM Allocate/Free
 - `internal_address_pool_service.proto` — AddressPool admin
-- `internal_network_service.proto` — Network + vpn_id projection
-- `internal_network_interface_service.proto` — NIC + data-plane projection
+- `internal_network_service.proto` — Network admin (default-SG management)
 - `internal_cloud_service.proto` — Cloud pool selector
 - `internal_watch_service.proto` — outbox stream (LISTEN/NOTIFY)
 - `internal_region_service.proto` / `internal_zone_service.proto` — Geography (до KAC-15 — была здесь).
@@ -38,7 +37,6 @@ tags:
 - `image.proto / image_service.proto`
 - `snapshot.proto / snapshot_service.proto`
 - `disk_type.proto / disk_type_service.proto`
-- `hypervisor.proto / internal_hypervisor_service.proto`
 - `region.proto / region_service.proto` (после KAC-15 — здесь)
 - `zone.proto / zone_service.proto` (после KAC-15 — здесь)
 - + reference resources, snapshot schedules, host groups, placement groups, attach RPCs, network_interfaces (compute-side adapter).

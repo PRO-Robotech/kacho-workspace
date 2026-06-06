@@ -82,7 +82,7 @@ W3.4 — **gate-итерация**: не реализует фичи, **пров
 
 | ID | Вопрос | Рекомендация |
 |---|---|---|
-| OQ-W3.4-1 | Item #5 «Блок C: Compute Internal admin Lists готовы» — kacho-compute has internal Hypervisor list? Per master plan «kacho-loadbalancer вне scope» — confirmed. | Verify proto файлы in `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` exist + have List RPC. |
+| OQ-W3.4-1 | Item #5 «Блок C: Compute Internal admin Lists готовы» — kacho-compute internal admin Lists (Region/Zone/DiskType)? Per master plan «kacho-loadbalancer вне scope» — confirmed. | Verify proto файлы in `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` exist + have List RPC. |
 | OQ-W3.4-2 | Item #9 «Postgres+бэкапы» — backup automation product (pgbackrest? wal-g? CronJob+pg_dump?) уже в kacho-deploy? | Verify `kacho-deploy/helm/postgres-backup/` chart; если нет — это finding на отдельный KAC-deploy ticket, blocks freeze. |
 | OQ-W3.4-3 | Item #11 «Observability: metrics/logs/traces/alerts/dashboards/runbooks» — runbooks где живут? Vault `observability/runbooks-iam.md`? | Recommend per-service runbook: `obsidian/kacho/observability/runbook-<svc>.md`. Gate проверяет existence per-service + last-edited не >90 days. |
 | OQ-W3.4-4 | Item #13 «(рекомендуется) внешний pentest пройден» — gate-state? | По решению W3.4-D3: pending — informational, не блокирует freeze. Vault dashboard показывает «pentest pending — not required». |
@@ -208,7 +208,7 @@ Exit 0 на success; exit 1 с list of found.
 
 **When** `scripts/freeze-checks/04-block-c-compute-internal.sh`.
 **Then**:
-- Verify `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` имеет `Hypervisor`, `InternalInstance`, `InternalDisk` services с List RPC
+- Verify `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` имеет `InternalInstance`, `InternalDisk` services с List RPC
 - Verify `kacho-compute/internal/apps/.../internal_*/` implementations exist
 - Verify `kacho-workspace/CLAUDE.md` mentions «kacho-loadbalancer вне scope» (already does — verify still present)
 

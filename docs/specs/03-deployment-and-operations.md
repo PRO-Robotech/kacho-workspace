@@ -46,10 +46,9 @@ cloud-demo/                              (workspace, не git, рабочая д
     ├── helm/postgres/                   ← общий Postgres-chart (alias-используется per-сервис)
     ├── helm/ingress/                    ← nginx-ingress конфиг
     ├── e2e/                             ← API-наблюдаемые e2e-сценарии (bash + curl/grpcurl):
-    │                                       cp-resource-model.sh (resource model: NIC/vpn_id/Hypervisor
-    │                                       + негативный infra-leak-аудит — публичные vpc/compute-эндпоинты
-    │                                       НЕ светят hv_id/sid/host_iface/netns/container_id/vpn_id/node_index),
     │                                       geography-move.sh, …  — гоняются в nightly CI job `e2e-on-kind`
+    │                                       (прежний cp-resource-model.sh для kube-ovn-эпохи data-plane
+    │                                       control-plane-модели удалён в KAC-36/79/80)
     └── Makefile (dev-up, dev-down, reload-svc)
 ```
 
@@ -154,9 +153,9 @@ make reload-svc SVC=compute
 | `make integration-test` | поднимает testcontainers-Postgres локально (не kind), прогоняет integration-тесты |
 | `make e2e-test` | grpcurl/curl против `api.kacho.local`, проверяет основные сценарии (`e2e/*.sh`) |
 
-**E2E / CI-сценарии.** В `kacho-deploy/e2e/` живут API-наблюдаемые сценарии; nightly CI job `e2e-on-kind` гоняет среди прочего `geography-move.sh` и `cp-resource-model.sh` (последний — сценарии resource model: NIC/`vpn_id`/`Hypervisor` + **негативный infra-leak-аудит**: проверяет, что ни один публичный vpc/compute-эндпоинт не отдаёт `hv_id`/`sid`/`host_iface`/`netns`/`container_id`/`vpn_id`/`node_index`). Newman-suite kacho-vpc ускорена (~7 мин → ~3 мин: меньше per-request-delay + параллельный прогон коллекций). MVP `kacho-vpc-implement` (data-plane) проверен end-to-end на двух bare-metal хостах.
+**E2E / CI-сценарии.** В `kacho-deploy/e2e/` живут API-наблюдаемые сценарии; nightly CI job `e2e-on-kind` гоняет среди прочего `geography-move.sh`. Newman-suite kacho-vpc ускорена (~7 мин → ~3 мин: меньше per-request-delay + параллельный прогон коллекций). (Прежний `cp-resource-model.sh` и MVP `kacho-vpc-implement` data-plane для kube-ovn-эпохи control-plane-модели удалены в KAC-36/79/80; будущий SRv6 data-plane — spec-only.)
 
-**Admin-UI** (`kacho-ui`, admin-раздел): есть вкладка «Hypervisors» (поверх `InternalHypervisorService` на internal mux); generic per-resource вкладка «jsonint» — internal-проекция ресурса для тех, кто объявляет `internalGetPath` (включена на networks — `vpn_id` — и network-interfaces — инфра/data-plane-поля).
+**Admin-UI** (`kacho-ui`, admin-раздел): generic per-resource вкладка «jsonint» — internal-проекция ресурса для тех, кто объявляет `internalGetPath`. (Прежние вкладка «Hypervisors» и internal-проекции networks/network-interfaces для kube-ovn-эпохи data-plane-модели удалены в KAC-36/79/80.)
 
 ## 3. kind cluster config
 

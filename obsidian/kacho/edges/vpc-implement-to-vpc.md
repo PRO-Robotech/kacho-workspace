@@ -27,15 +27,14 @@ tags:
 
 KAC-2 эпик (control-plane resource model) ввёл writeback из vpc-implement: после программирования SRv6 data-plane (`hv_id`, `sid_seq`, `host_iface`, `netns`, `gateway_ip`, `container_id`, `status`) agent сообщал vpc через `ReportNiDataplane`.
 
-После **KAC-79/KAC-36 (post-kube-ovn)**:
-- Underlay управляется **kube-ovn**, не vpc-implement.
+После **KAC-36/79/80 (purge kube-ovn-эпохи data-plane control-plane-слоя)**:
 - Миграция **0023** удалила все data-plane колонки из `network_interfaces` (см. [[../resources/vpc-networkinterface]]).
 - RPC `ReportNiDataplane` исчез вместе с ними.
 - Сервис `InternalNetworkInterfaceService` в proto не commit'нут (см. [[../rpc/vpc-internal-network-interface-service]]).
 
 ## Current state
 
-vpc-implement как control-plane sibling в Kachō больше не нужен в текущем графе. Spec остаётся в `docs/specs-oss-stack/` (отвергнут) и `docs/specs/09-implementation-strategy.md` (зафиксированный план). См. workspace CLAUDE.md эпик KAC-2.
+Это ребро **удалено**. Будущий SRv6 data-plane (`kacho-vpc-implement`) — spec-only: networking-дизайн остаётся в `docs/specs/09-implementation-strategy.md` (зафиксированный план), но прежняя control-plane-привязка к kacho-vpc (writeback NI-состояния) не действует.
 
 ## See also
 

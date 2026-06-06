@@ -41,12 +41,12 @@ tags:
 
 - [[../rpc/vpc-internal-address-service]] — `internal_address_service.proto` (IPAM allocate ephemeral)
 - [[../rpc/vpc-internal-address-pool-service]] — `internal_address_pool_service.proto` (AddressPool CRUD)
-- [[../rpc/vpc-internal-network-service]] — `internal_network_service.proto` (full Network с `vpn_id`)
+- [[../rpc/vpc-internal-network-service]] — `internal_network_service.proto` (admin Network: default-SG management)
 - [[../rpc/vpc-internal-cloud-service]] — `internal_cloud_service.proto` (cloud-level admin)
 - [[../rpc/vpc-internal-watch-service]] — `internal_watch_service.proto` (LISTEN/NOTIFY stream; deprecated с 1.0)
 
 > [!warning] Внимание
-> Internal NIS (ReportNiDataplane) — **в proto ещё нет** (KAC-2 в работе). См. CLAUDE.md.
+> Прежний Internal NIS (NIC-dataplane-проекция, writeback-RPC) — часть kube-ovn-эпохи data-plane-модели, **удалён в KAC-36/79/80** и в proto никогда не commit'нут. См. [[../rpc/vpc-internal-network-interface-service]].
 
 ## Shared
 

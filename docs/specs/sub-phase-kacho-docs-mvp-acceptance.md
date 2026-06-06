@@ -515,15 +515,19 @@ Address, NetworkInterface, PrivateEndpoint
 **Then** НЕТ ни одного совпадения по: `vpn_id, sid, sid_seq, hv_id, hypervisor, node_index, netns, host_iface, underlay, kube-ovn, 169.254, container_id, kh-, AddressPool, Internal`
 **And** CI зелёный (exit 0) только при нулевом совпадении
 
-## Сценарий H-03: PRIMARY-фильтр — Internal-проекции Region/Zone/Hypervisor недостижимы
+## Сценарий H-03: PRIMARY-фильтр — Internal-проекции Region/Zone недостижимы
 
 **ID:** docs-H-03 · трассировка: §9 PRIMARY
+
+> Токены removed kube-ovn-эпохи data-plane-модели (Hypervisor, placement, SID-схема, underlay)
+> удалены из продукта в KAC-36/79/80, но **сохранены в blocklist** как defense-in-depth guard —
+> чтобы их случайное переписывание в будущем не утекло на публичную поверхность.
 
 **Given** OpenAPI отфильтрован против канонического allowlist на этапе генерации
 
 **When** ревьюер проверяет reference / llms.txt / MCP-индекс
 
-**Then** Internal-проекции (placement, SID-схема, underlay, Hypervisor целиком) не достигают ни одной публичной поверхности
+**Then** Internal-проекции (placement, SID-схема, underlay) не достигают ни одной публичной поверхности
 **And** корректность доказана B-02 (unit RED→GREEN) + B-05 (diff-snapshot)
 
 ## Сценарий H-04: CONTENT-гард — концепты курируются из tenant-полей, vault-инфра не копируется

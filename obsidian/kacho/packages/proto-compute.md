@@ -35,7 +35,7 @@ Tenant read через api-gateway `/compute/v1/regions` + `/compute/v1/zones`; 
 
 ## Internal services
 
-- `internal_catalog_service.proto` — admin для Region/Zone/HostType (+ Hypervisor — internal-only ресурс, см. CLAUDE.md «Инфра-чувствительные данные»).
+- `internal_catalog_service.proto` — admin для Region/Zone/HostType. (Прежний internal-only `Hypervisor`-ресурс удалён в KAC-36/79/80.)
 - `internal_watch_service.proto` — LISTEN/NOTIFY (deprecated с 1.0).
 
 ## Service protos

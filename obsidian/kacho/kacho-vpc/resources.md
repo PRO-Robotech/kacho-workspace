@@ -17,7 +17,7 @@ tags:
 
 - ID prefix: `enp`
 - Folder-level. `name` unique per folder (`networks_folder_id_name_key`).
-- Field internal-only: `vpn_id` (24-bit, не в public Network message).
+- (Прежнее internal-only data-plane-id-поле удалено в KAC-36/79/80.)
 - Inline default-SG creation при Create (управляется `KACHO_VPC_DEFAULT_SG_INLINE=true`). После KAC-94 — atomic в одной writer-TX через `CreateDefaultSGUseCase` composition.
 - RPCs: `Get / List / Create / Update / Delete / Move / ListOperations`.
 
@@ -75,7 +75,7 @@ tags:
 - mac_address — output-only, output-only, allocated by Kachō (prefix `0e:` + 40-bit), unique across cloud.
 - used_by — denormalized Reference (`{compute_instance, <instance_id>}` после AttachToInstance).
 - atomic CAS для AttachToInstance (single-statement UPDATE — KAC-52 race fix).
-- Internal projection (`InternalNetworkInterface`): + hv_id, sid, sid_seq, host_iface, netns, gateway_ip, container_id (заполняет kacho-vpc-implement через ReportNiDataplane).
+- (Прежняя internal data-plane-проекция NIC — kube-ovn-эпоха — удалена в KAC-36/79/80.)
 
 ## 3 admin (internal-only)
 

@@ -483,7 +483,6 @@ var fgaTypes = map[string]string{
 	"compute.disk":       "compute_disk",
 	"compute.image":      "compute_image",
 	"compute.snapshot":   "compute_snapshot",
-	"compute.hypervisor": "compute_hypervisor",
 	"vpc.network":             "vpc_network",
 	"vpc.subnet":              "vpc_subnet",
 	"vpc.address":             "vpc_address",

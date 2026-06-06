@@ -122,7 +122,7 @@ Per DECISION-2. Для каждой отложенной фичи:
 
 - **WS-7.1** — authz fail-closed везде (WS-2.4); проверить, что недоступность OpenFGA → deny, не allow.
 - **WS-7.2** — Internal-vs-external: `Internal*`-сервисы НЕ на external TLS endpoint (CLAUDE.md §6); проверить gateway-конфиг.
-- **WS-7.3** — инфра-чувствительные данные не на публичном API (CLAUDE.md §«Инфра-чувствительные»): `vpn_id`, placement, SID — internal-only.
+- **WS-7.3** — инфра-чувствительные данные не на публичном API (CLAUDE.md §«Инфра-чувствительные»): placement, underlay, SID-схема — internal-only.
 - **WS-7.4** — anti-anonymous interceptor покрывает все мутации (#43).
 - **WS-7.5** — NetworkPolicy: `grpc-internal` (9091) ограничен cluster-internal источниками (#20).
 - **WS-7.6** — rate limiting на external endpoint; request size limits.

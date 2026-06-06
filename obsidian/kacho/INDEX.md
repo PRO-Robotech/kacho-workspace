@@ -120,7 +120,6 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/vpc-internal-address-pool-service|InternalAddressPoolService]]
 - [[rpc/vpc-internal-address-service|InternalAddressService]]
 - [[rpc/vpc-internal-cloud-service|InternalCloudService]]
-- [[rpc/vpc-internal-network-interface-service|InternalNetworkInterfaceService (deprecated)]]
 - [[rpc/vpc-internal-network-service|InternalNetworkService]]
 - [[rpc/vpc-internal-watch-service|InternalWatchService (deprecated)]]
 - [[rpc/vpc-network-service|NetworkService]]
@@ -244,7 +243,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[edges/ui-to-zitadel-redirect]] — ui → zitadel: OIDC redirect (deprecated)
 - [[edges/compute-to-rm-folder-check]] — compute → rm: folder check (deprecated)
 - [[edges/compute-to-vpc-nic-validate]] — compute → vpc: NIC validate + attach (CAS)
-- [[edges/vpc-implement-to-vpc]] — vpc-implement → vpc: ReportNiDataplane
+- [[edges/vpc-implement-to-vpc]] — vpc-implement → vpc: NI dataplane writeback (removed, KAC-36/79/80)
 - [[edges/vpc-to-compute-zone-validate]] — vpc → compute: zone_id validation (KAC-15)
 - [[edges/vpc-to-rm-folder-exists]] — vpc → rm: folder check (deprecated)
 

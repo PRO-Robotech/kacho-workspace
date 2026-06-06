@@ -40,7 +40,7 @@ graph TD
 
     config[apps/kacho/config<br/>viper + Mode enum]
     clients[internal/clients<br/>folder + compute gRPC clients]
-    handler[internal/handler<br/>InternalWatch + InternalNetworkInterface + etc.]
+    handler[internal/handler<br/>InternalWatch + etc.]
 
     apps_migrator[apps/migrator<br/>Dialect interface + postgres/cockroach impls]
     migrations[internal/migrations<br/>goose .sql files]

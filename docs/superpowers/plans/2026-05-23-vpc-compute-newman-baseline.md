@@ -37,7 +37,6 @@ what exists, what passes, and what's needed to reach full green.
 | `authz-deny`  | Cross-project / unauthenticated 403/401 matrix           |
 | `disk`        | Disk CRUD lifecycle                                      |
 | `disk-type`   | DiskType read-only catalogue                             |
-| `hypervisor`  | Hypervisor internal CRUD                                 |
 | `image`       | Image CRUD lifecycle                                     |
 | `instance`    | Instance CRUD lifecycle + NIC attach + start/stop        |
 | `operation`   | OperationService.Get polling lifecycle                   |
@@ -79,7 +78,6 @@ subnet                         10         10          9
 RESOURCE                   ASSERT     FAILED   REQUESTS
 disk                           12         12         10
 disk-type                      24         21         10
-hypervisor                     37         34         22
 image                          11         11         10
 instance                       50         36         30
 operation                      15         15         12

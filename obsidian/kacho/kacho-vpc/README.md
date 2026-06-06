@@ -34,7 +34,7 @@ VPC control-plane сервис Kachō — Network/Subnet/Address/RouteTable/Secu
 
 | Resource | ID prefix | Note |
 |---|---|---|
-| Network | `enp` | + internal `vpn_id` field (24-bit data-plane id; не в публичном API). |
+| Network | `enp` | Контейнер для подсетей. (Прежнее internal data-plane-id-поле удалено в KAC-36/79/80.) |
 | Subnet | `e9b` | EXCLUDE CIDR-overlap, auto-association с RouteTable (DB-trigger). |
 | Address | `e9b` | External/Internal IPv4/IPv6; IPAM inline allocate. |
 | RouteTable | `enp` | StaticRoutes + auto-association с Subnet'ами. |
@@ -105,8 +105,7 @@ internal/
 ## RPC: internal (cluster-internal только, port 9091)
 
 - `InternalAddressService.{AllocateInternalIP,AllocateExternalIP,FreeIP}` — IPAM (вызывается in-process из `address.go`).
-- `InternalNetworkService.{Get,SetDefaultSecurityGroupId}` — Network + internal `vpn_id` projection.
-- `InternalNetworkInterfaceService.{Get,ListByHypervisor,ReportNiDataplane}` — внутренняя проекция NIC с data-plane полями.
+- `InternalNetworkService.SetDefaultSecurityGroupId` — admin Network (default-SG management).
 - `InternalAddressPoolService` — admin CRUD + Check + ExplainResolution.
 - `InternalCloudService.SetPoolSelector` — admin Cloud→pool routing.
 - `InternalWatchService` — outbox stream через LISTEN/NOTIFY.
@@ -116,7 +115,7 @@ internal/
 - → `kacho-resource-manager`: `FolderService.Get` для folder existence на async-path Create/Move.
 - → `kacho-compute`: `ZoneService.Get` для zone validation в Subnet/Address spec (после KAC-15 Geography moved).
 - ← `kacho-compute`: `NetworkInterface` validation, IPAM-allocate ephemeral Address.
-- ← `kacho-vpc-implement` (data-plane): `ReportNiDataplane` write-back.
+  (Прежнее ребро ← `kacho-vpc-implement` NI dataplane writeback удалено в KAC-36/79/80.)
 
 ## Эпики / тикеты
 

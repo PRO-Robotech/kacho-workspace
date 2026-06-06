@@ -41,7 +41,7 @@ tags:
 | `created_at` | TIMESTAMP | server-set | truncated to seconds (YC parity) |
 | `default_security_group_id` | TEXT | nullable | `InternalNetworkService.SetDefaultSecurityGroupId` |
 
-(Бывшее поле `vpn_id` **удалено** historical migration 0023 (свёрнуто в baseline 0001 — KAC-111) KAC-79/KAC-36 — underlay = kube-ovn.)
+(Бывшее поле `vpn_id` — часть kube-ovn-эпохи data-plane-модели — **удалено** historical migration 0023 (свёрнуто в baseline 0001 — KAC-111), эпики KAC-36/79/80.)
 
 ## Constraints / indexes
 

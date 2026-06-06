@@ -36,7 +36,7 @@ tags:
 Клиенты, использовавшие `Watch`:
 - UI → List-polling 2–5s.
 - Async-workers → `OperationService.Get(id)` для in-flight.
-- impl-controller → upstream-read on-demand + ReportNiDataplane (KAC-2).
+- impl-controller (kube-ovn-эпоха) → NI dataplane writeback — удалён в KAC-36/79/80.
 
 `kacho-corelib/watch/` package удалён в 1.0. Proto-файл остался для backward-compat, но его регистрация в api-gateway убрана (см. [[apigw-restmux]]).
 

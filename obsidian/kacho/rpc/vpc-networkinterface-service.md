@@ -61,9 +61,9 @@ UPDATE network_interfaces SET used_by_id = $new
 RETURNING ...
 ```
 
-## Internal NIS
+## Internal NIS (removed)
 
-`InternalNetworkInterfaceService.ReportNiDataplane` (write-back из vpc-implement) — **в proto пока не commit'нут**, см. CLAUDE.md (KAC-2 в работе).
+Прежняя internal data-plane-проекция NIC и writeback-RPC (kube-ovn-эпоха) **удалены в KAC-36/79/80** и в proto никогда не commit'нулись. Публичный `NetworkInterfaceService` — живой. См. [[vpc-internal-network-interface-service]].
 
 ## See also
 

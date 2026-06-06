@@ -40,8 +40,8 @@ ci/
 
 e2e/
 ├── 0.1/                       — kind-cluster smoke tests (E1 dev-up, E5 secrets, E6 ingress, E7-E9, F1-F2).
-├── geography-move.sh          — integration test cross-service ref-validation.
-└── cp-resource-model.sh       — control-plane resource model integration (NIC + vpn_id + Hypervisor).
+└── geography-move.sh          — integration test cross-service ref-validation.
+    (cp-resource-model.sh для kube-ovn-эпохи data-plane-модели удалён в KAC-36/79/80.)
 
 kind/
 ├── kind-config.yaml           — kind cluster config (hostPort 80/443 for ingress).
