@@ -40,6 +40,13 @@ tags:
 
 `kacho-corelib/watch/` package удалён в 1.0. Proto-файл остался для backward-compat, но его регистрация в api-gateway убрана (см. [[apigw-restmux]]).
 
+> [!important] KAC-261 (2026-06-06) — impl удалён из kacho-vpc
+> `InternalWatchHandler` (`internal/handler/internal_watch_handler.go`), его регистрация
+> на :9091, `WatchConfig` (`watch.max-streams`) и deploy-ключи **удалены** — 0 потребителей
+> (controllers упразднён). **Сохранены** (контракт): proto-файл (cross-repo, kacho-proto),
+> таблица `vpc_outbox` + все outbox-WRITES (каждая мутация emit'ит). Сам сервис на :9091
+> больше не поднимается. См. [[../KAC/KAC-261]].
+
 ## See also
 
 [[../packages/corelib-operations]] [[../rpc/operation-service]]
