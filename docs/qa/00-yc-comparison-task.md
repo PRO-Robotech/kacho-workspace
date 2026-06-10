@@ -1,6 +1,22 @@
-# QA-задача: сравнение Kachō с эталонным YC API
+# QA-задача: сравнение с внешним облаком — УПРАЗДНЕНО (исторический артефакт)
 
-Цель — найти corner-cases, где наш control plane (1.0) отличается от поведения YC. Используем CLI `yc` как **опорное поведение**, наш REST через `api-gateway` — как тестируемое.
+> [!warning] Не использовать. Подход отменён.
+> Kachō — **самостоятельный продукт** со своими конвенциями; сравнение с чужим облаком
+> больше не является целью (см. `docs/specs/00-overview-and-scope.md`,
+> `.claude/rules/00-kacho-core.md`). Этот документ и `scripts/`/`findings/` под ним —
+> замороженный исторический артефакт фазы 1.0 (домены Organization/Cloud/Folder,
+> resource-manager, loadbalancer уже упразднены).
+>
+> **Актуальная regression-инфра:** per-service Newman-сьюты (`tests/newman/`, агенты
+> `vpc-newman-author`/`compute-newman-author`) + аудит собственных конвенций
+> (`vpc-conventions-auditor`/`compute-conventions-auditor`) против канонического
+> контракта Kachō. Методология — skill `testing-product-coach`.
+
+---
+
+<sub>Ниже — оригинальный текст артефакта (frozen, не актуализируется).</sub>
+
+Цель — найти corner-cases, где наш control plane (1.0) отличается от поведения внешнего эталона. CLI внешнего облака — как **опорное поведение**, наш REST через `api-gateway` — как тестируемое.
 
 ## 0. Скоуп
 

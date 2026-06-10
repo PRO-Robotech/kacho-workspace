@@ -1,7 +1,8 @@
 # 06 — Deployment (dev)
 
-Только dev-стенд через kind+helm. Production-deployment не описан (нужен
-`yc` provider или подобное; out of scope текущего спринта).
+Только dev-стенд через kind+helm. Production-deployment не описан (real ingress,
+External Secrets, Postgres replication — отдельная HA/Production-фаза; out of scope
+текущего спринта).
 
 ## kind cluster
 
@@ -27,14 +28,17 @@ nodes:
 
 ```
 kacho-umbrella
-├── ingress-nginx           edge для UI (cluster-local через 28080)
-├── pg-resource-manager     postgres-operator или bitnami chart
-├── pg-vpc                  postgres-operator или bitnami chart
-└── netbox (legacy)         не используется (исторически — до встроенного IPAM)
+├── ingress-nginx           edge для UI / api-gateway (cluster-local через 28080)
+├── pg-iam                  postgres-operator или bitnami chart (БД kacho_iam)
+├── pg-vpc                  postgres-operator или bitnami chart (БД kacho_vpc)
+└── pg-compute             postgres-operator или bitnami chart (БД kacho_compute)
 ```
 
-Сервисы Kachō (resource-manager, vpc, api-gateway, ui) — отдельные
-deployment'ы внутри umbrella. Каждый имеет:
+Сервисы Kachō (iam, vpc, compute, api-gateway, ui) — отдельные deployment'ы
+внутри umbrella; `kacho-nlb` добавляется как отдельный deployment + `pg-nlb`
+при включении домена NLB. `kacho-vpc-operator` (data-plane sibling) — вне
+control-plane build-графа, разворачивается отдельно. Каждый control-plane
+deployment имеет:
 - Init container `migrate up` — прокатывает миграции из `internal/migrations/`
   через `goose`-style (embedded `embed.FS`).
 - Liveness/readiness — `/healthz` `/readyz`.
@@ -51,8 +55,9 @@ make dev-down
 
 # Перезалить один сервис: docker build → kind load → kubectl rollout restart
 make reload-svc SVC=vpc
+make reload-svc SVC=compute
+make reload-svc SVC=iam
 make reload-svc SVC=api-gateway
-make reload-svc SVC=resource-manager
 # UI вне whitelist, билдится вручную:
 cd ../kacho-ui && make docker && \
   kind load docker-image kacho-ui:dev --name kacho && \
@@ -71,13 +76,13 @@ make e2e-test       # → newman через kacho-test
 ## Port-forward для локального доступа
 
 ```bash
-# Public REST (для UI, kacho-tui, curl)
+# Public REST (для UI, curl)
 kubectl -n kacho port-forward svc/api-gateway 18080:8080
 
 # UI prebuilt static
 kubectl -n kacho port-forward svc/ui 18000:8080
 
-# vpc internal gRPC (для kachoctl-ipam)
+# vpc internal gRPC (для admin IPAM-tooling)
 kubectl -n kacho port-forward svc/vpc 19091:9091
 
 # Postgres (psql напрямую)
@@ -104,14 +109,17 @@ kubectl -n kacho port-forward statefulset/kacho-umbrella-pg-vpc 15432:5432
 0012_private_endpoints.sql
 0014_addresses_external_pool_id.sql  ← нумерация прыгает (0013 был removed)
 0015_address_pools.sql               ← AddressPool + bindings
-0016_address_pool_selectors.sql      ← добавил selector_labels (был network_pool_selector)
+0016_address_pool_selectors.sql      ← добавил selector_labels
 0017_addresses_external_ip_uniq_skip_empty.sql
-0018_networks_folder_name_unique.sql
-0019_regions_zones.sql               ← Region + Zone first-class + seed ru-central1
+0018_networks_project_name_unique.sql  ← UNIQUE(project_id, name) для networks
+0019_regions_zones.sql               ← Region + Zone first-class + seed региона
 0020_address_pools_zone.sql          ← region_id (TEXT) → zone_id FK
-0021_address_pools_drop_folder.sql   ← AddressPool становится глобальным
-0022_pool_selector_to_cloud.sql      ← drop network_pool_selector + add cloud_pool_selector + UNIQUE(region_id, name) для zones
+0021_address_pools_global.sql        ← AddressPool становится глобальным (project-независимым)
+0022_pool_selector_project.sql       ← project-level selector + UNIQUE(region_id, name) для zones
 ```
+
+(Имена файлов миграций — исторические и неизменяемые: однажды применённую миграцию
+не редактируют. Описания выше отражают текущую project-level модель владения.)
 
 Запреты:
 - НЕ редактировать применённую миграцию. Только новая.
@@ -123,9 +131,9 @@ kubectl -n kacho port-forward statefulset/kacho-umbrella-pg-vpc 15432:5432
 | Что | CIDR | Где |
 |---|---|---|
 | Subnet client default | `10.0.0.0/24` (test-данные) | через `Subnet.Create` |
-| AddressPool default zone-a | `198.51.100.0/24` (TEST-NET-2) | seed через kachoctl |
+| AddressPool default zone-a | `198.51.100.0/24` (TEST-NET-2) | seed через admin IPAM-tooling |
 | AddressPool premium | `203.0.113.0/30` (TEST-NET-3) | demo selector |
-| AddressPool global zone-b | `203.0.113.0/24` | через kachoctl |
+| AddressPool global zone-b | `203.0.113.0/24` | через admin IPAM-tooling |
 
 Используем RFC 5737 TEST-NET ranges чтобы не пересекаться с реальным интернетом.
 
@@ -143,15 +151,17 @@ kubectl -n kacho port-forward statefulset/kacho-umbrella-pg-vpc 15432:5432
 make seed-ipam   # NOOP сейчас. См. README — admin должен явно создать pool.
 ```
 
-Перед прогоном master collection — нужны admin-pool'ы (иначе external Address
-allocate упадёт). Минимум:
+`AddressPool` — admin-only (Internal*) ресурс на cluster-internal listener (:9091).
+Перед прогоном master collection нужны admin-pool'ы (иначе external Address
+allocate упадёт). Минимум — создать pool через internal IPAM-tooling по
+port-forward на :9091:
 
 ```bash
 PF_INT=19091
 kubectl -n kacho port-forward svc/vpc $PF_INT:9091 &
-cd ../kacho-vpc && ./bin/kachoctl-ipam pool create \
+cd ../kacho-vpc && ./bin/kacho-ipam pool create \
   --kind EXTERNAL_PUBLIC \
-  --zone-id ru-central1-a \
+  --zone-id <region>-a \
   --cidr 198.51.100.0/24 \
   --is-default \
   --name newman-default

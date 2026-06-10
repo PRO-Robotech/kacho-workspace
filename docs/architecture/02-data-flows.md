@@ -5,45 +5,46 @@ Sequence-диаграммы ключевых сценариев. Все прим
 
 ## Содержание
 
-1. [Setup: Org → Cloud → Folder](#1-setup-org--cloud--folder)
+1. [Setup: Account → Project](#1-setup-account--project)
 2. [Network create + автогенерация default-SG](#2-network-create)
 3. [External Address allocate с cascade](#3-external-address-allocate-с-cascade)
 4. [Internal Address allocate из Subnet CIDR](#4-internal-address-allocate)
 5. [Operations LRO polling](#5-operations-lro)
 6. [InternalWatchService outbox stream](#6-internalwatchservice-outbox-stream)
-7. [Admin: задать pool-selector на Cloud](#7-admin-задать-pool-selector-на-cloud)
+7. [Admin: задать pool-selector на Project](#7-admin-задать-pool-selector-на-project)
 
-## 1. Setup: Org → Cloud → Folder
+## 1. Setup: Account → Project
 
 ```mermaid
 sequenceDiagram
   autonumber
   participant U as User (UI/CLI)
   participant GW as api-gateway
-  participant RM as kacho-resource-manager
-  participant DB as pg-resource-manager
+  participant IAM as kacho-iam
+  participant DB as pg-iam
 
-  U->>GW: POST /organization-manager/v1/organizations<br/>{name:"acme"}
-  GW->>RM: OrganizationService.Create
-  RM->>RM: Validate name (verbatim YC regex)
-  RM->>DB: INSERT organization + outbox
-  RM-->>GW: Operation{id:bpf..., done:false, metadata:{organizationId:...}}
+  U->>GW: POST /iam/v1/accounts<br/>{name:"acme"}
+  GW->>IAM: AccountService.Create
+  IAM->>IAM: Validate name (Kachō name regex)
+  IAM->>DB: INSERT account + outbox
+  IAM-->>GW: Operation{id:opiam..., done:false, metadata:{accountId:...}}
   GW-->>U: 200 + Operation
 
   loop polling 1-2s
     U->>GW: GET /operations/{id}
-    GW->>RM: OperationService.Get
-    RM-->>GW: Operation{done:true, response:Organization}
+    GW->>IAM: OperationService.Get
+    IAM-->>GW: Operation{done:true, response:Account}
     GW-->>U: 200 + Operation done
   end
 
-  Note over U,DB: повторить для Cloud (FK organization_id) и Folder (FK cloud_id)
+  Note over U,DB: повторить для Project (FK account_id)
 ```
 
 Ключевые инварианты:
-- `Cloud.UNIQUE(organization_id, name)` — FailedCreate с ALREADY_EXISTS.
-- `Folder.cloud_id` иммутабельно через Update (Move — отдельный RPC).
-- Garbage UUID format в `id` → **async NotFound** (verbatim YC), не sync InvalidArgument.
+- `Project.UNIQUE(account_id, name)` — Create падает с `ALREADY_EXISTS`.
+- `Project.account_id` иммутабельно через Update (immutable after Create).
+- Malformed id → sync `InvalidArgument "invalid <res> id '<X>'"` первым стейтментом
+  RPC; well-formed-но-нет → `NotFound` через `repo.Get`.
 
 ## 2. Network create
 
@@ -53,10 +54,10 @@ sequenceDiagram
   participant U as User
   participant GW as api-gateway
   participant V as kacho-vpc
-  participant RM as kacho-resource-manager
+  participant IAM as kacho-iam
   participant DB as pg-vpc
 
-  U->>GW: POST /vpc/v1/networks {folderId, name:"prod"}
+  U->>GW: POST /vpc/v1/networks {projectId, name:"prod"}
   GW->>V: NetworkService.Create
   V->>V: sync validate (NameVPC, labels, mask)
   V->>V: ids.NewID(PrefixNetwork) → "net..."
@@ -66,12 +67,12 @@ sequenceDiagram
 
   rect rgb(255,247,230)
   Note over V: async worker — operations.Run(...)
-  V->>RM: FolderService.Get(folder_id)
-  alt folder not found
+  V->>IAM: ProjectService.Get(project_id)
+  alt project not found
     V->>DB: UPDATE operations SET done=true, error=NotFound
-  else folder OK
+  else project OK
     V->>DB: BEGIN
-    V->>DB: INSERT networks (id, folder_id, name, …)
+    V->>DB: INSERT networks (id, project_id, name, …)
     V->>DB: INSERT vpc_outbox (Network CREATED) → pg_notify
     V->>DB: COMMIT
     V->>V: short = first-8-chars(net_id)
@@ -86,8 +87,9 @@ sequenceDiagram
 ```
 
 Особенности:
-- **Inline default-SG creation** — раньше делал отдельный `kacho-vpc-controllers` reconciler-loop, в Phase-2 удалили, всё inline в worker'е.
-- Error mapping: UNIQUE-violation `(folder_id, name)` (миграция 0018) → `ALREADY_EXISTS`.
+- **Inline default-SG creation** — раньше делал отдельный reconciler-loop, позже
+  удалили, всё inline в worker'е операции.
+- Error mapping: UNIQUE-violation `(project_id, name)` (миграция 0018) → `ALREADY_EXISTS`.
 
 ## 3. External Address allocate с cascade
 
@@ -97,10 +99,10 @@ sequenceDiagram
   participant U as User
   participant GW as api-gateway
   participant V as kacho-vpc
-  participant RM as kacho-resource-manager
+  participant IAM as kacho-iam
   participant DB as pg-vpc
 
-  U->>GW: POST /vpc/v1/addresses<br/>{folderId, externalIpv4AddressSpec:{zoneId:"ru-central1-a"}}
+  U->>GW: POST /vpc/v1/addresses<br/>{projectId, externalIpv4AddressSpec:{zoneId:"ru-central1-a"}}
   GW->>V: AddressService.Create
   V->>V: sync validate (oneof spec, zone whitelist)
   V-->>GW: Operation{id:opvpc..., addressId:adr...}
@@ -108,7 +110,7 @@ sequenceDiagram
 
   rect rgb(255,247,230)
   Note over V: async worker — doCreate
-  V->>RM: FolderService.Get(folder_id)
+  V->>IAM: ProjectService.Get(project_id)
   V->>DB: INSERT addresses (external_ipv4 spec, address="")
 
   Note over V,DB: AddressAllocator.AllocateExternalIP(addressID)
@@ -122,9 +124,9 @@ sequenceDiagram
 
     Note over V,DB: Step 2: address_pool_network_default[networkID]<br/>(только internal IP — у external нет network_id)
 
-    Note over V,DB: Step 3: cloud-label-selector
-    V->>RM: FolderService.Get(folder_id) → cloud_id
-    V->>DB: SELECT selector FROM cloud_pool_selector WHERE cloud_id=$1
+    Note over V,DB: Step 3: project-label-selector
+    V->>IAM: ProjectService.Get(project_id)
+    V->>DB: SELECT selector FROM project_pool_selector WHERE project_id=$1
     alt selector present
       V->>DB: SELECT pool FROM address_pools<br/>WHERE selector_labels @> $selector<br/>AND (zone_id=$zone OR zone_id IS NULL)<br/>ORDER BY (size_diff ASC, priority DESC) LIMIT 1
       V->>V: matched_via:"label_selector"
@@ -198,13 +200,16 @@ sequenceDiagram
 ```
 
 `opsproxy` — in-process router в api-gateway, который смотрит на ID prefix
-(`opvpc...` → vpc, `opfo...` → resource-manager) и делегирует на нужный backend.
-Это позволяет иметь **один** `OperationService` URL в YC-стиле без знания
-о том, какой backend выполнил мутацию.
+(`opvpc...` → vpc, `opiam...` → iam) и делегирует на нужный backend.
+Это даёт **один** `OperationService` URL для клиента без знания о том, какой
+backend выполнил мутацию. Watch-стриминга на публичной поверхности нет — клиент
+поллит `OperationService.Get(id)` до `done=true` (и `List` 2–5 c для актуализации
+коллекций).
 
 ## 6. InternalWatchService outbox stream
 
-Только для server-to-server (kacho-tui/UI не используют).
+Только для server-to-server (UI/CLI не используют; на external TLS-endpoint не
+маршрутизируется — internal mux :9091).
 
 ```mermaid
 sequenceDiagram
@@ -232,9 +237,11 @@ sequenceDiagram
   Note over V,CONN: defer UNLISTEN + Release()
 ```
 
-Тригер `vpc_outbox_notify_trg` на INSERT в `vpc_outbox` шлёт `pg_notify`.
+Тригер `vpc_outbox_notify_trg` на INSERT в `vpc_outbox` шлёт `pg_notify`. Это
+internal-механизм журнала событий (транзакционный outbox), а не публичный Watch
+RPC.
 
-## 7. Admin: задать pool-selector на Cloud
+## 7. Admin: задать pool-selector на Project
 
 ```mermaid
 sequenceDiagram
@@ -242,20 +249,21 @@ sequenceDiagram
   participant GW as api-gateway
   participant V as kacho-vpc :9091
 
-  Admin->>GW: POST /vpc/v1/clouds/{cloud_id}/poolSelector<br/>{selector:{tier:"premium"}, set_by:"admin@kacho"}
-  GW->>V: InternalCloudService.SetPoolSelector
-  V->>V: validate cloud_id non-empty
-  V->>V: AddressPoolService.SetCloudPoolSelector
-  V->>V: cloudSel.Set(cloud_id, selector, set_by)
+  Admin->>GW: POST /vpc/v1/projects/{project_id}/poolSelector<br/>{selector:{tier:"premium"}, set_by:"admin@kacho"}
+  GW->>V: InternalProjectService.SetPoolSelector
+  V->>V: validate project_id non-empty
+  V->>V: AddressPoolService.SetProjectPoolSelector
+  V->>V: projectSel.Set(project_id, selector, set_by)
   V->>V: BEGIN
-  V->>V: INSERT INTO cloud_pool_selector ON CONFLICT UPDATE
-  V->>V: INSERT vpc_outbox (CloudPoolSelector UPDATED)
+  V->>V: INSERT INTO project_pool_selector ON CONFLICT UPDATE
+  V->>V: INSERT vpc_outbox (ProjectPoolSelector UPDATED)
   V->>V: COMMIT
-  V-->>GW: SetCloudPoolSelectorResponse{}
+  V-->>GW: SetProjectPoolSelectorResponse{}
   GW-->>Admin: 200 {}
 ```
 
-После set'а **следующий** `AllocateExternalIP` для Address из любого folder этого cloud'а будет использовать selector в cascade Step 3.
+После set'а **следующий** `AllocateExternalIP` для Address из этого project'а
+будет использовать selector в cascade Step 3.
 
 ## Где смотреть детали
 
@@ -266,4 +274,4 @@ sequenceDiagram
 | AllocateExternalIP retry loop | `kacho-vpc/internal/service/address_allocate.go::AllocateExternalIP` |
 | Operations worker | `kacho-corelib/operations/run.go` |
 | Outbox + LISTEN/NOTIFY | `kacho-vpc/internal/handler/internal_watch_handler.go` |
-| FolderClient.GetCloudID | `kacho-vpc/internal/clients/resourcemanager_client.go` |
+| ProjectClient.Get | `kacho-vpc/internal/clients/iam_client.go` |

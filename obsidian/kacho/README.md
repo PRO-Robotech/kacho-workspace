@@ -91,9 +91,9 @@ Production-ready IAM в 13 фазах. Key vault entries:
 
 ## Документы вне scope этих 6 проектов
 
-- `kacho-compute` (Instance/Disk/Image/…) — отдельный сервис, не индексируется в этой версии.
-- `kacho-loadbalancer` — frozen в 1.0 (proto verbatim YC, backend ещё не переписан).
-- `kacho-vpc-implement` — data-plane sibling kacho-vpc; spec-only, вне build-графа, control-plane его не касается.
+- `kacho-compute` (Instance/Disk/Image/Snapshot/DiskType + Geography Region/Zone) — отдельный сервис, не индексируется в этой версии.
+- `kacho-nlb` — Network Load Balancer (NetworkLoadBalancer/TargetGroup) control-plane.
+- `kacho-vpc-operator` — data-plane sibling kacho-vpc; spec-only, вне build-графа, control-plane его не касается.
 - `kacho-ui` — Vite + React SPA.
 - `kacho-test` — сводный e2e/regression стенд.
 

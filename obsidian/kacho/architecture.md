@@ -20,7 +20,7 @@ graph TD
     iam[kacho-iam<br/>Account/Project/User/SA/<br/>Group/Role/AccessBinding<br/>+ Cluster/Org/Federation<br/>+ JIT/BreakGlass/CAEP/SCIM/<br/>SAML/GDPR/AccessReviews]
     vpc[kacho-vpc]
     compute[kacho-compute]
-    nlb[kacho-loadbalancer]
+    nlb[kacho-nlb]
     apigw[kacho-api-gateway<br/>+DPoP/JWT/mTLS/step-up<br/>+per-RPC authz Check]
     deploy[kacho-deploy]
     ui[kacho-ui]
@@ -156,7 +156,7 @@ graph LR
 Топологическая сортировка build-графа:
 1. `kacho-proto` — proto changes + регенерация Go-stubs (commit `gen/`).
 2. `kacho-corelib` — общие пакеты (если меняются).
-3. Сервисы (`kacho-iam` / `kacho-vpc` / `kacho-compute` / `kacho-loadbalancer`) — в любом порядке между собой (DB-per-service).
+3. Сервисы (`kacho-iam` / `kacho-vpc` / `kacho-compute` / `kacho-nlb`) — в любом порядке между собой (DB-per-service).
 4. `kacho-api-gateway` — регистрация новых RPC.
 5. `kacho-deploy` — helm/compose tweaks.
 6. `kacho-workspace` — docs/specs.

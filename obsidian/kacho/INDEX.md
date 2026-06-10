@@ -134,7 +134,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/proto-access|cloud/access — IAM shared]]
 - [[packages/proto-api|cloud/api — legacy]]
 - [[packages/proto-compute|cloud/compute/v1]]
-- [[packages/proto-loadbalancer|cloud/loadbalancer/v1]]
+- [[packages/proto-loadbalancer|cloud/nlb proto (legacy 1.0, frozen) — current repo kacho-nlb]]
 - [[packages/proto-maintenance|cloud/maintenance/v2]]
 - [[packages/proto-operation|cloud/operation — LRO envelope]]
 - [[packages/proto-organizationmanager|cloud/organizationmanager/v1]]
@@ -198,7 +198,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/apigw-proxy|proxy]]
 - [[packages/apigw-restmux|restmux]]
 
-## Packages — kacho-resource-manager (deprecated, KAC-124)
+## Packages — legacy RM repo (replaced by kacho-iam, KAC-124)
 
 - [[packages/rm-bootstrap]] [[packages/rm-cmd]] [[packages/rm-config]] [[packages/rm-domain]] [[packages/rm-handler]] [[packages/rm-repo]] [[packages/rm-service]]
 
@@ -243,7 +243,8 @@ Alphabetical index всех узких файлов. Использовать д
 - [[edges/ui-to-zitadel-redirect]] — ui → zitadel: OIDC redirect (deprecated)
 - [[edges/compute-to-rm-folder-check]] — compute → rm: folder check (removed, KAC-124; → iam project check)
 - [[edges/compute-to-vpc-nic-validate]] — compute → vpc: NIC validate + attach (CAS)
-- [[edges/vpc-implement-to-vpc]] — vpc-implement → vpc: NI dataplane writeback (removed, KAC-36/79/80)
+- [[edges/vpc-implement-to-vpc]] — legacy data-plane sibling → vpc: NI dataplane writeback (removed, KAC-36/79/80; data-plane sibling is now kacho-vpc-operator)
+- [[edges/vpc-operator-to-kubeovn]] — kacho-vpc-operator → kube-ovn / Multus: data-plane materialization (experimental)
 - [[edges/vpc-to-compute-zone-validate]] — vpc → compute: zone_id validation (KAC-15)
 - [[edges/vpc-to-rm-folder-exists]] — vpc → rm: folder check (deprecated)
 
@@ -272,7 +273,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[KAC/KAC-107]] — IAM E2: Zitadel OIDC (deprecated)
 - [[KAC/KAC-108]] — IAM E3: OpenFGA REBAC (in-progress)
 - [[KAC/KAC-109]] — IAM E4: UI IAM block (done)
-- [[KAC/KAC-110]] — IAM E5: deprecate kacho-resource-manager (done in KAC-124)
+- [[KAC/KAC-110]] — IAM E5: deprecate legacy RM repo → kacho-iam (done in KAC-124)
 - [[KAC/KAC-111]] — Squash kacho-vpc migrations (done)
 - [[KAC/KAC-112]] — E0 follow-up: backend (done)
 - [[KAC/KAC-113]] — E0 follow-up: sync principal_* (done)
@@ -280,7 +281,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[KAC/KAC-116]] — Keto + Kratos DoD closeout (done)
 - [[KAC/KAC-122]] — authz-deny matrix newman suite
 - [[KAC/KAC-123]] — production-IAM YT id (== vault KAC-127)
-- [[KAC/KAC-124]] — resource-manager → iam Account/Project (done)
+- [[KAC/KAC-124]] — legacy RM repo → kacho-iam Account/Project (done)
 - [[KAC/KAC-125]] — User per-Account + Invite (done)
 - [[KAC/KAC-127]] — **Production-Ready Next-Gen IAM (epic, 13 phases)** — in-progress
 
