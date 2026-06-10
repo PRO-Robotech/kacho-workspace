@@ -29,3 +29,4 @@ go.work.sum
 .claude/skills/obsidian-markdown/
 # Obsidian vault internal state
 obsidian/kacho/.obsidian/
+kubeconfig*

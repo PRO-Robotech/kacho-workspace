@@ -20,7 +20,7 @@ if [ -d "$SCRIPT_DIR/.git" ]; then
   fi
 fi
 
-REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-nlb kacho-deploy)
+REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-iam kacho-vpc kacho-compute kacho-nlb kacho-ui kacho-deploy kacho-vpc-operator)
 
 for r in "${REPOS[@]}"; do
   if [ ! -d "$PROJECT_DIR/$r/.git" ]; then
@@ -41,3 +41,9 @@ for r in "${REPOS[@]}"; do
     echo "[$r] skipped: not fast-forward"
   fi
 done
+
+# Раскатать AI-оснастку из workspace во все репо (источник истины — kacho-workspace/.claude)
+if [ -x "$SCRIPT_DIR/sync-tooling.sh" ]; then
+  echo
+  "$SCRIPT_DIR/sync-tooling.sh"
+fi

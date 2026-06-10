@@ -11,13 +11,13 @@ REPOS=(
   kacho-proto
   kacho-corelib
   kacho-api-gateway
-  kacho-resource-manager
+  kacho-iam
   kacho-vpc
-  kacho-vpc-implement
   kacho-compute
-  kacho-loadbalancer
   kacho-nlb
+  kacho-ui
   kacho-deploy
+  kacho-vpc-operator
 )
 
 cd "$PROJECT_DIR"
@@ -53,6 +53,12 @@ echo "Summary: cloned=$clone_count skipped=$skip_count failed=$fail_count"
 if [ "$fail_count" -gt 0 ]; then
   echo "Some repos failed to clone. Already-cloned repos are preserved." >&2
   exit 1
+fi
+
+if [ -x "$SCRIPT_DIR/sync-tooling.sh" ]; then
+  echo
+  echo "Раскатываю AI-оснастку (rules/agents/skills/hooks/settings) в репо…"
+  "$SCRIPT_DIR/sync-tooling.sh" || echo "[warn] sync-tooling завершился с ошибкой — запусти ./sync-tooling.sh вручную"
 fi
 
 echo
