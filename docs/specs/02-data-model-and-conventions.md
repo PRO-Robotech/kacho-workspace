@@ -2,511 +2,366 @@
 
 **Документ:** 02 / 5
 
-## 1. Resource envelope
+Граф сервисов и runtime-зависимости описаны в `01-architecture-and-services.md`.
+Здесь — нормативный reference по форме ресурса, naming, ошибкам, async-исполнению и
+схеме БД, единый для всех доменов (IAM / VPC / Compute) и обязательный для каждого
+нового ресурса или RPC. Это собственные конвенции продукта, а не подражание чужим
+облакам.
 
-Все ресурсы Kachō имеют единый envelope:
+## 1. Форма ресурса — плоский message + Operations
 
-```json
-{
-  "metadata": { ... },
-  "spec":     { ... },
-  "status":   { ... },
-  "refs":     [ ... ]
-}
-```
-
-| Блок | Кто пишет | Через что | Семантика |
-|---|---|---|---|
-| `metadata` | пользователь (часть полей) + сервер (часть полей) | разные RPC, см. ниже | identity + control signals + теги |
-| `spec` | пользователь | `/upsert` | желаемая конфигурация ресурса |
-| `status` | **только** reconciler | internal `/upd-status` | наблюдаемое состояние |
-| `refs[]` | сервер | автоматически в `/list` и `/watch` ответах | обратные ссылки на связанные ресурсы (там где есть смысл) |
-
-В `/upsert`-теле клиент НЕ может задать `status` или server-managed metadata-поля — они игнорируются (или отвечается `invalidArgument`, конкретное поведение — параметр сервиса).
-
-## 2. Структура `metadata`
-
-### 2.1 Поля `metadata` по уровню ресурса
-
-| Поле | Тип | Кто пишет | Org | Cloud | Folder | Domain Resource |
-|---|---|---|---|---|---|---|
-| `uid` | UUID v4 | сервер при первом upsert | ✓ | ✓ | ✓ | ✓ |
-| `name` | string (regex `^[a-z]([-a-z0-9]{0,61}[a-z0-9])?$`) | пользователь | ✓ | ✓ | ✓ | ✓ |
-| `organizationId` | UUID | сервер по контексту upsert | — | ✓ | ✓ | ✓ |
-| `cloudId` | UUID | сервер | — | — | ✓ | ✓ |
-| `folderId` | UUID | сервер | — | — | — | ✓ |
-| `labels` | `map<string,string>` | пользователь | ✓ | ✓ | ✓ | ✓ |
-| `annotations` | `map<string,string>` | пользователь | ✓ | ✓ | ✓ | ✓ |
-| `creationTimestamp` | timestamp | сервер при создании | ✓ | ✓ | ✓ | ✓ |
-| `resourceVersion` | string (decimal) | сервер при каждом write | ✓ | ✓ | ✓ | ✓ |
-| `generation` | int64 | сервер при каждом spec-change | — | — | — | ✓ |
-| `deletionTimestamp` | timestamp NULLABLE | сервер при `/delete` | ✓ | ✓ | ✓ | ✓ |
-| `finalizers[]` | string[] | server-managed | — | — | — | ✓ (где есть cleanup) |
-| `restartedAt` | timestamp NULLABLE | сервер при `/restart` | — | — | — | только Instance |
-
-`organizationId`/`cloudId`/`folderId` денормализованы для быстрого filtering (selector по `folderId` без join). При upsert сервер заполняет цепочку, проверив существование parent.
-
-### 2.2 Identification policy
-
-Пользователь идентифицирует ресурс одним из двух способов в `/delete`, `/upd-status` (internal), `/restart`:
-
-- **`metadata.uid`** — UUID, гарантированно уникальный.
-- **Цепочка `metadata.name` + scope-ID-поля**:
-  - Organization: `name`.
-  - Cloud: `name + organizationId`.
-  - Folder: `name + cloudId`.
-  - Domain resource: `name + folderId`.
-
-В `/upsert` upsert-семантика: если цепочка идентификации существует — обновление, иначе создание (новый `uid`).
-
-### 2.3 Уникальность `name`
-
-| Уровень | Уникален в пределах |
-|---|---|
-| Organization | глобально |
-| Cloud | `organizationId` |
-| Folder | `cloudId` |
-| Domain resource | `folderId + resource_kind` |
-
-Реализация: UNIQUE-constraint на уровне БД (см. секцию «Schema» ниже).
-
-## 3. Структура `spec`
-
-`spec` — конфигурация ресурса. Имена и типы полей берутся из соответствующего YC ресурса с camelCase JSON / snake_case proto. Полный список — отдельной структурой per-resource (приведу для примера один ресурс ниже; остальные следуют тому же паттерну).
-
-### Пример: `Compute Instance.spec`
-
-```json
-{
-  "displayName":         "string",
-  "description":         "string",
-  "platformId":          "standard-v3",
-  "zoneId":              "kacho-zone-a",
-  "resources": {
-    "cores":          4,
-    "memory":         "8Gi",
-    "coreFraction":   100,
-    "gpus":           0
-  },
-  "bootDisk": {
-    "diskId":          "<UUID>",
-    "deviceName":      "boot",
-    "autoDelete":      true
-  },
-  "secondaryDisks": [ { "diskId": "...", "deviceName": "...", "autoDelete": false } ],
-  "networkInterfaces": [
-    {
-      "subnetId":        "<UUID>",
-      "primaryV4Address": { "address": "10.0.0.5" },
-      "primaryV6Address": null,
-      "securityGroupIds": [ "<UUID>", ... ]
-    }
-  ],
-  "schedulingPolicy":  { "preemptible": false },
-  "metadata":          { "user-data": "..." },
-  "fqdn":              "string",
-  "desiredPowerState": "RUNNING"
-}
-```
-
-Конкретные поля per ресурс — для всех Network/Subnet/SG/RouteTable/Address/Instance/Disk/Image/Snapshot/NLB/TargetGroup — будут описаны в детальном плане каждой sub-итерации (`04-roadmap-and-phasing.md`).
-
-## 4. Структура `status`
-
-`status` присутствует у ресурсов с lifecycle (`Instance`, `Disk`, `Snapshot`, `NLB`, `TargetGroup`) и у ресурсов с server-вычисляемыми полями (`Address.allocatedIPv4`).
-
-### Пример: `Compute Instance.status`
-
-```json
-{
-  "state":                    "RUNNING",
-  "stateLastTransitionAt":    "2026-05-01T12:00:00Z",
-  "ips": {
-    "internal": "10.0.0.5",
-    "external": "203.0.113.5"
-  },
-  "fqdn":                      "instance-foo.kacho.local",
-  "hostId":                    "simulated-host-1",
-  "lastRestartCompletedAt":    "2026-05-01T11:30:00Z",
-  "conditions": [
-    { "type": "Ready",       "status": "True",  "reason": "AllSystemsGo", "lastTransitionTime": "..." },
-    { "type": "DiskAttached", "status": "True", "reason": "BootDiskAttached", "lastTransitionTime": "..." }
-  ]
-}
-```
-
-`conditions[]` — k8s-style массив текущих condition-ов. Полезно для диагностики и UI.
-
-Lifecycle-state enum (`status.state`) per resource:
-
-| Ресурс | enum |
-|---|---|
-| Instance | `PROVISIONING`, `RUNNING`, `STOPPING`, `STOPPED`, `STARTING`, `RESTARTING`, `UPDATING`, `ERROR`, `DELETING` |
-| Disk | `CREATING`, `READY`, `ATTACHING`, `DETACHING`, `ERROR`, `DELETING` |
-| Snapshot | `CREATING`, `READY`, `ERROR`, `DELETING` |
-| Image | `READY` (read-only, всегда) |
-| NLB | `CREATING`, `ACTIVE`, `UPDATING`, `ERROR`, `DELETING` |
-| TargetGroup | `CREATING`, `READY`, `UPDATING`, `DELETING` |
-| Address | `RESERVED`, `IN_USE`, `RELEASED` |
-| NetworkInterface | `PROVISIONING`, `ACTIVE`, `AVAILABLE`, `FAILED`, `DELETING` |
-| Network/Subnet/SG/RouteTable | `ACTIVE`, `DELETING` (минимальный) |
-
-## 5. Refs (обратные ссылки)
-
-`refs[]` — server-populated, появляется только в ответах `/list` и `/watch`. Тип:
-
-```json
-{ "name": "...", "uid": "...", "kind": "Instance" /* enum */ }
-```
-
-Применимость per ресурс:
-- `Network` → refs к `Subnet` (внутрисервисный refs, дешёвый), к `Instance` (cross-service, опционально и costly — может быть не включён по умолчанию).
-- `Subnet` → refs к `Instance`.
-- `SecurityGroup` → refs к `Instance`.
-- `Folder` → refs к ресурсам в нём (агрегированно по типам и счётчикам, не по полному списку).
-
-В первой реализации `refs[]` минимально, расширяется по требованию.
-
-## 6. Стандартные API-методы
-
-### 6.1 Public (через api-gateway)
-
-| RPC | Описание |
-|---|---|
-| `Upsert(<R>UpsertRequest)` → `<R>UpsertResponse` | Batch payload `<r>: [<R>{metadata, spec}, ...]`. Возвращает массив с заполненными `metadata.uid`/`creationTimestamp`/`resourceVersion`. |
-| `Delete(<R>DeleteRequest)` → `<R>DeleteResponse` | Batch payload `<r>: [{metadata: {uid \| name+scope}}, ...]`. Сервер выставляет `metadata.deletionTimestamp`. Если `finalizers[]` пуст — ресурс физически удаляется в той же транзакции; иначе помечен и финальное удаление после finalizers cleanup. |
-| `List(<R>ListRequest)` → `<R>ListResponse` | `selectors[]` (см. ниже). Возвращает массив + `resourceVersion` (snapshot version) для последующего Watch. |
-| `Watch(<R>WatchRequest)` → server-stream `<R>WatchEvent` | `selectors[]` + `resourceVersion`. Стрим событий `{type: ADDED|MODIFIED|DELETED, <r>: <R>}`. |
-| `Restart(<R>RestartRequest)` → `<R>RestartResponse` | Только для Instance. Server выставляет `metadata.restartedAt`. |
-
-### 6.2 Internal (между сервисами, не наружу)
-
-| RPC | Описание |
-|---|---|
-| `<R>Internal.UpdateStatus(<R>UpdateStatusRequest)` | Reconciler пишет в `status`. Идемпотентен (повторный вызов с тем же status — no-op). |
-| `<R>Internal.Exists(req: {uid})` → `{exists: bool}` | Cross-service ref-validation. |
-| `<R>Internal.HasDependents(req: {uid})` → `{hasDependents: bool, kinds: [...]}` | Для валидации удаления. |
-
-`api-gateway` НЕ маршрутизирует `Internal.*` методы наружу (allowlist-фильтр в gateway-конфиге).
-
-## 7. Селекторы
+Каждый ресурс Kachō — **плоский** protobuf-message: domain-поля на верхнем уровне, без
+вложенного K8s-envelope. Запрещены конструкции K8s-стиля: nested `spec`/`status`-объект,
+version-cursor поля, generation-счётчик, cleanup-хуки, отдельный `uid`, soft-delete-метка.
+`status` — это enum-поле верхнего уровня (lifecycle-состояние), а не вложенный объект.
 
 ```protobuf
-message Selector {
-  FieldSelector field_selector = 1;
-  map<string, string> label_selector = 2;
-}
-
-message FieldSelector {
-  string name             = 1;
-  string organization_id  = 2;
-  string cloud_id         = 3;
-  string folder_id        = 4;
-  repeated ResourceRef refs = 5;
-}
-
-message <R>ListRequest {
-  repeated Selector selectors = 1;
-  // pagination
-  string  page_token = 10;
-  int32   page_size  = 11;
+message Instance {
+  string id = 1;
+  string project_id = 2;                       // owner — всегда project-level
+  google.protobuf.Timestamp created_at = 3;    // truncate до секунд в ответе
+  string name = 4;
+  string description = 5;
+  map<string,string> labels = 6;
+  string zone_id = 7;
+  Status status = 10;                           // enum, не nested message
+  // ...domain-поля плоско: resources_spec, network_interfaces, ...
 }
 ```
 
-Логика комбинирования:
-- **Внутри одного `Selector`** — `field_selector` AND `label_selector` (все указанные поля должны совпасть).
-- **Между `selectors[]`** — OR (ресурс попадает, если соответствует хотя бы одному).
+**Иерархия владения** — Account → Project. Все мутируемые domain-ресурсы — project-level:
+`project_id` обязателен в `Create`, в БД это колонка-владелец `project_id`.
 
-Реализация фильтра в SQL — генерация `WHERE`-clause по AST селектора. Параметризованные запросы (никакой конкатенации). Парсер живёт в `kacho-corelib/selector/`.
+### Стандартные методы
 
-### Пагинация
+`Get`/`List` — синхронны. `Create`/`Update`/`Delete` и domain-действия (`Start`,
+`Stop`, `AttachDisk`, `:addCidrBlocks`, `Move`, …) — асинхронны, возвращают `Operation`.
+Upsert-семантики нет. Публичного `Watch`-RPC нет (клиент поллит `List` каждые 2-5 c и
+`OperationService.Get(id)` до `done=true`).
 
-Курсор-based: `page_token` = base64(json{`last_resource_version`, `last_uid`}). Серверный SQL: `WHERE (resource_version, uid) > ($lastRV, $lastUID) ORDER BY resource_version, uid LIMIT $pageSize`.
+```protobuf
+service InstanceService {
+  rpc Get(GetInstanceRequest) returns (Instance);                    // sync
+  rpc List(ListInstancesRequest) returns (ListInstancesResponse);    // sync
+  rpc Create(CreateInstanceRequest) returns (operation.Operation);   // async
+  rpc Update(UpdateInstanceRequest) returns (operation.Operation);   // async
+  rpc Delete(DeleteInstanceRequest) returns (operation.Operation);   // async
+  rpc Start(StartInstanceRequest) returns (operation.Operation);     // async, :verb
+}
+```
 
-`page_size` ≤ 1000.
+### Две проекции ресурса (public / internal)
 
-## 8. resourceVersion и Watch
+Инфра-чувствительные данные (placement, underlay, host-wiring, числовой инфра-id) живут
+**только** в `Internal*`-API на :9091, никогда на публичной поверхности. Публичный ресурс
+показывает tenant-facing «намерение + результат»: id, name/labels, привязки, выделенный
+адрес, `status`. Детали — `.claude/rules/security.md`.
 
-### 8.1 resourceVersion
+## 2. ID-модель
 
-Per-database монотонная sequence:
+Все id выдаёт `kacho-corelib/ids.NewID(<prefix>)`: **3-char prefix + 17-char
+crockford-base32**. Тип ресурса читается по prefix; api-gateway маршрутизирует
+`OperationService.Get(id)` именно по первым 3 символам. Колонки `id` в БД — `TEXT`.
+
+| Домен | Prefix → ресурс |
+|---|---|
+| IAM | `acc` Account · `prj` Project · `usr` User · `sva` ServiceAccount · `grp` Group · `rol` Role · `acb` AccessBinding · `iop` Operation |
+| VPC | `net` Network · `sub` Subnet · `adr` Address · `rtb` RouteTable · `sgr` SecurityGroup · `gtw` Gateway · `nic` NetworkInterface · `apl` AddressPool · `enp` Operation |
+| Compute | `epd` Instance/Disk/Operation · `fd8` Image/Snapshot · литералы (`network-ssd`, `ru-central1-a`) для DiskType/Region/Zone |
+
+Заметки по prefix-шарингу (умышленно):
+
+- **Operation декаплен от ресурса** — иначе api-gateway-маршрутизация `OperationService.Get`
+  конфликтует с основным сервисом (IAM: `iop`, не `acc`; VPC: `enp`; Compute: `epd`).
+- Compute группирует prefix по домену: Instance/Disk → `epd`, Image/Snapshot → `fd8`.
+  Все compute-операции получают `epd` независимо от ресурса; `ImageService.Create` вернёт
+  operation `epd…`, внутри которого `response` = Image с id `fd8…`.
+- Read-only справочники Compute (DiskType/Region/Zone) используют осмысленные литералы как id.
+
+## 3. Naming convention
+
+| Контекст | Значение |
+|---|---|
+| Бренд / README / UI | **Kachō** (макрон над `ō`) |
+| ASCII-бренд / технические идентификаторы | **`kacho`** |
+| Proto package | **`kacho.cloud.<domain>.v1`** (`kacho.cloud.compute.v1`) |
+| gRPC method path | **`/kacho.cloud.<domain>.v1.<Service>/<Method>`** |
+| Go-импорты stubs | `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1` |
+| Имена репо | **`kacho-<part>`** (дефис) |
+| k8s namespace | **`kacho`** |
+| k8s service name | `<domain>` (`compute`, `vpc`, `iam`) |
+| Postgres database / schema | **`kacho_<domain>`** (подчёркивание) |
+| Env-переменные | **`KACHO_<DOMAIN>_<NAME>`** |
+| Docker image | `prorobotech/kacho-<svc>:<tag>` |
+| JSON-поля (REST) | camelCase: `<resource>Id`, `projectId`, `labels`, `createdAt` |
+| REST-пути | `/<service>/v1/<resource>`; suffix-action — `:verb` (`/subnets/{id}:addCidrBlocks`) |
+
+## 4. Timestamps
+
+В БД timestamps хранятся с микросекундной точностью (`TIMESTAMPTZ`). В proto-ответе они
+**усекаются до секунд** (`CreatedAt.Truncate(time.Second)`) — стабильный контракт для
+сравнения/idempotency на стороне клиента.
+
+## 5. Error-format
+
+gRPC: `status.Error(code, message)`. REST через grpc-gateway → `{code, message,
+details[]}` + `google.rpc.Status`.
+
+| Код | Когда |
+|---|---|
+| `INVALID_ARGUMENT` | формат/валидация поля; неизвестное поле в `update_mask`; immutable в mask |
+| `NOT_FOUND` | id well-formed, но ресурса нет (через `repo.Get`) |
+| `FAILED_PRECONDITION` | состояние ресурса не позволяет операцию; FK RESTRICT; CAS не matched; CIDR-overlap |
+| `ALREADY_EXISTS` | нарушение UNIQUE (`23505`) в create-контексте |
+| `UNAVAILABLE` | peer-сервис недоступен — **fail-closed** для мутаций |
+| `INTERNAL` | непредвиденная ошибка; **фиксированный текст без leak'а pgx/SQL** |
+
+**id-валидация**: malformed/нераспознанный prefix → sync `InvalidArgument "invalid <res>
+id '<X>'"` первым стейтментом RPC (`corevalidate.ResourceID`); well-formed-но-нет →
+`NotFound` через `repo.Get`.
+
+**Канонические тексты** (часть контракта, меняются только осознанно через тикет):
+
+- `"<Resource> %s not found"` — `"Route table %s not found"`, `"Project with id %s not found"`.
+- `"<field> is immutable after <Resource>.Create"`.
+- `"network is not empty"` · `"Subnet CIDRs can not overlap"` · `"The disk is being used"` ·
+  `"Instance must be stopped"` · `"<resource> with name ... exists"` · `"internal database error"`.
+
+Маппинг SQLSTATE→gRPC в сервисном слое: `23503`→FailedPrecondition, `23505`→AlreadyExists
+или FailedPrecondition (по контексту), `23514`→InvalidArgument, `23P01`→FailedPrecondition.
+
+## 6. update_mask discipline
+
+`Update` принимает `google.protobuf.FieldMask update_mask`. Дисциплина едина для всех
+ресурсов всех сервисов:
+
+| Случай | Поведение |
+|---|---|
+| mask содержит **unknown** поле | `InvalidArgument` (`corevalidate.UpdateMask` с known-set) |
+| mask содержит **hard-immutable** поле | `InvalidArgument` (`"<field> is immutable after <R>.Create"`) |
+| mask **пустой** | full-object PATCH: применяются все mutable-поля, immutable из тела молча игнорируются |
+| mask содержит mutable поле | применяется; валидируется теми же правилами, что и `Create` |
+
+Hard-immutable поля задаются per-resource. Примеры: IAM — `Account.owner_user_id`,
+`Project.account_id` (меняется через `Move`), `User.external_id`; VPC — `Subnet.network_id`,
+`Subnet.zone_id`, `Address.*_address_spec`; Compute — `Disk.type_id`/`zone_id`/`block_size`,
+`Instance.zone_id`/`boot_disk`. Полные таблицы — в `docs/architecture/` каждого сервиса.
+
+## 7. Pagination / filter
+
+- **Cursor-based**, ключ курсора — `(created_at, id)`, `ORDER BY created_at, id ASC`.
+- `page_token` — opaque base64 `{created_at, id}`; garbage-token → `InvalidArgument`.
+- `page_size` через `corevalidate.PageSize`: `0` → default 50, max 1000.
+- `filter` — `kacho-corelib/filter.Parse` с whitelist полей (текущая фаза — `name=`).
+- Публичный `List` дополнительно фильтруется через listauthz (CI-гейт `make audit-list-filter`).
 
 ```sql
-CREATE SEQUENCE resource_version_seq;
+WHERE (created_at, id) > ($lastCreatedAt, $lastId)
+ORDER BY created_at, id ASC
+LIMIT $pageSize;
 ```
 
-Каждое мутирующее действие (insert/update/delete-tombstone) на любой ресурс сервиса поднимает `resource_version` через `nextval('resource_version_seq')`. В рамках одной service-БД — монотонно возрастающая глобальная версия.
+## 8. Async-исполнение: Operation + outbox
 
-Хранится:
-- В колонке `resource_version BIGINT` каждой ресурсной таблицы — последняя версия этого ресурса.
-- В outbox-таблице `resource_events.resource_version BIGINT PRIMARY KEY` — версия конкретного события.
+Мутация не возвращает ресурс синхронно — она создаёт `Operation` и запускает worker.
 
-Возвращается клиенту в `metadata.resourceVersion` (как decimal-строка, K8s-style).
+### Operation
 
-### 8.2 Outbox таблица
-
-В каждой service-БД:
-
-```sql
-CREATE TABLE resource_events (
-  resource_version BIGINT      PRIMARY KEY DEFAULT nextval('resource_version_seq'),
-  event_type       TEXT        NOT NULL CHECK (event_type IN ('ADDED', 'MODIFIED', 'DELETED')),
-  resource_kind    TEXT        NOT NULL,
-  resource_uid     UUID        NOT NULL,
-  data             BYTEA,                    -- protobuf-encoded full resource (NULL для DELETED-tombstone после finalizers)
-  created_at       TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-CREATE INDEX resource_events_kind_rv_idx
-  ON resource_events (resource_kind, resource_version);
-CREATE INDEX resource_events_cleanup_idx
-  ON resource_events (created_at);
-```
-
-Каждый `/upsert`, `/delete`, `/upd-status` в **одной транзакции**:
-1. Меняет ресурсную таблицу.
-2. INSERT в `resource_events` с `event_type` и encoded `data`.
-3. После commit: `pg_notify('kacho_<svc>', '')` (только wake-up, без payload).
-
-### 8.3 In-process Watch Hub
-
-В каждой реплике сервиса при старте поднимается одна горутина — Watch Hub:
-
-```
-Hub state:
-  cursorRV       int64                       // last delivered resource_version
-  ringBuffer     [1024]Event                 // recent events for fast-replay
-  subscribers    map[subscriberID]channel    // Watch streams
-
-Hub loop:
-  select {
-    case <- pgNotifyCh:        // got pg_notify
-    case <- time.Tick(100ms):  // poll fallback
+```protobuf
+message Operation {                              // kacho.cloud.operation.v1
+  string id = 1;
+  string description = 2;
+  google.protobuf.Timestamp created_at = 3;
+  bool done = 4;
+  google.protobuf.Any metadata = 5;
+  oneof result {
+    google.rpc.Status error = 6;                 // при ошибке
+    google.protobuf.Any response = 7;            // готовый ресурс при успехе
   }
-  events := SELECT * FROM resource_events
-            WHERE resource_version > cursorRV
-            ORDER BY resource_version ASC
-            LIMIT 1000
-  for ev in events:
-    ringBuffer.append(ev)
-    cursorRV = ev.resource_version
-    for sub in subscribers:
-      if matches(ev, sub.selectors):
-        non-blocking send to sub.channel
+}
 ```
 
-Watch Endpoint:
+Клиент поллит `OperationService.Get(id)` до `done=true`. `ListOperations(resource_id)`
+переживает удаление самого ресурса (история операций не каскадится).
 
-```
-Watch(req):
-  // 1. Catch-up phase
-  if req.resourceVersion < cursorRV - 1024:
-    // out of ring, query outbox
-    rows := SELECT * FROM resource_events
-            WHERE resource_kind = X
-              AND resource_version > req.resourceVersion
-            ORDER BY resource_version ASC
-            LIMIT 10000
-    if no rows AND req.resourceVersion < (SELECT min(resource_version) FROM resource_events):
-      return error.Gone(410)  // outbox retention exceeded, client must relist
-    stream rows to client
-  else:
-    // in ring buffer
-    stream ring slice to client
+### Транзакционный outbox (без внешнего брокера)
 
-  // 2. Subscribe to live updates
-  ch := make chan Event, 100
-  hub.subscribe(ch)
-  for ev := range ch:
-    if matches(ev, req.selectors):
-      stream ev to client
-```
-
-Ring buffer (1024 события) ускоряет catch-up для близких отстающих клиентов без хождения в outbox.
-
-### 8.4 Cleanup
-
-Фоновая горутина в каждой реплике сервиса, защищённая `pg_advisory_xact_lock(<svc>_cleanup_lockid)` для координации между репликами (только одна реплика в момент времени реально выполняет cleanup):
+Источник истины — Postgres; журнал событий — outbox-таблица, пишется **в той же
+транзакции**, что и мутация (никакого dual-write race). После commit — `LISTEN/NOTIFY`
+как wake-up-сигнал; worker дренирует outbox.
 
 ```sql
-SELECT pg_advisory_xact_lock(hashtext('kacho_<svc>_cleanup'));
-DELETE FROM resource_events WHERE created_at < now() - interval '1 hour';
+-- per-service outbox (имя: <svc>_outbox)
+CREATE TABLE compute_outbox (
+  id           BIGSERIAL   PRIMARY KEY,
+  resource_id  TEXT        NOT NULL,
+  event_type   TEXT        NOT NULL,      -- created | updated | deleted
+  payload      JSONB       NOT NULL,      -- encoded resource snapshot
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  published_at TIMESTAMPTZ                -- NULL пока не доставлено
+);
+-- AFTER INSERT/UPDATE/DELETE-trigger вызывает pg_notify('<svc>_outbox', '') (wake-up без payload)
 ```
 
-Запускается каждые 5 минут.
+Один writer-TX:
 
-Retention 1 час обеспечивает покрытие большинства реальных дисконнектов клиентов (рестарт сервиса, временные network glitches). Клиент с устаревшим `resourceVersion` получает `Gone 410` → должен делать `/list` → новый `/watch` от полученной snapshot-version.
+1. меняет ресурсную таблицу + таблицу `operations`;
+2. `INSERT` в `<svc>_outbox`;
+3. после commit — `pg_notify('<svc>_outbox', '')`.
 
-### 8.5 Multi-replica behavior
+Внутренний стрим (UI / cross-service) идёт через `Internal*Watch`-сервис на :9091 поверх
+outbox + `LISTEN/NOTIFY` — это **не** публичный Watch (его нет на external-поверхности).
 
-Каждая реплика имеет независимый Watch Hub. Они **не координируют** state между собой:
-- Каждая независимо опрашивает БД (через свой cursor + NOTIFY).
-- Watch-клиенты ходят через api-gateway → load balancer → любая реплика.
-- Eventually consistent (типичная разница между репликами — миллисекунды).
-- При scale-out (3 реплики на сервис) пропорционально растёт количество concurrent watchers.
+### Таблица `operations` (LRO)
 
-## 9. Soft-delete и finalizers
+Общий corelib-pattern (`operations`: Repo + Worker): по строке на каждую async-мутацию.
 
-При `/delete`:
+```sql
+CREATE TABLE operations (
+  id           TEXT        PRIMARY KEY,    -- prefix per-domain: iop / enp / epd
+  resource_id  TEXT        NOT NULL,
+  description  TEXT        NOT NULL,
+  done         BOOLEAN     NOT NULL DEFAULT false,
+  metadata     JSONB,
+  response     JSONB,                      -- при успехе
+  error        JSONB,                      -- google.rpc.Status при ошибке
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  done_at      TIMESTAMPTZ
+);
+```
 
-1. Сервер выставляет `metadata.deletionTimestamp = now()` в одной транзакции с outbox-event типа `MODIFIED`.
-2. Если `metadata.finalizers[]` пуст:
-   - Сразу удаляет ресурс из БД (тот же tx).
-   - В outbox добавляется второй event типа `DELETED`.
-3. Если `metadata.finalizers[]` непуст:
-   - Ресурс остаётся в БД с `deletionTimestamp != NULL`.
-   - Reconciler-ы, отвечающие за каждый finalizer, выполняют cleanup и удаляют свой finalizer из списка через `Internal.UpdateMetadata`.
-   - Когда `finalizers[]` стал пустым — ресурс физически удаляется (новый event `DELETED`).
+IAM расширяет `operations` тремя principal-полями (`principal_type`/`principal_id`/
+`principal_display_name`) для audit-trail.
 
-Finalizers в текущей фазе:
-- `compute.kacho.io/disk-detach` (на Instance — отвязать disks перед удалением).
-- `loadbalancer.kacho.io/target-deregister` (на Instance — снять с TargetGroup).
-- `vpc.kacho.io/dependent-check` (на Network — убедиться нет зависимых Subnet/Instance).
+### Lifecycle ресурса
 
-Конкретные finalizers — детализируются в соответствующих под-фазах (см. `04-roadmap-and-phasing.md`).
+Переходы `status` — детерминированная server-side state-машина **внутри worker'а
+операции**: для IAM/VPC переход мгновенный, для Compute — симуляция (нет гипервизора;
+например `PROVISIONING → RUNNING`). Compute дополнительно держит фоновый reconciler,
+защищённый `pg_advisory_lock` от двойной обработки между репликами.
 
-## 10. Per-service schemas (sketches)
+## 9. Per-service schemas (sketches)
 
-Полные SQL-схемы — в миграциях каждого сервиса. Здесь — структурный обзор.
+Полные SQL — в `internal/migrations/` каждого сервиса. Здесь — структурный обзор;
+все таблицы flat, все мутируемые ресурсы несут колонку `project_id`.
 
-### `kacho_resource_manager`
+### `kacho_iam`
 
 ```
-organizations (uid PK, name UNIQUE, labels JSONB, annotations JSONB,
-               creation_timestamp, resource_version, deletion_timestamp NULL,
-               spec JSONB)
-clouds        (uid PK, organization_id FK→organizations, name,
-               labels, annotations, creation_timestamp, resource_version,
-               deletion_timestamp NULL, spec JSONB,
-               UNIQUE (organization_id, name))
-folders       (uid PK, cloud_id FK→clouds, organization_id, name,
-               labels, annotations, creation_timestamp, resource_version,
-               deletion_timestamp NULL, spec JSONB,
-               UNIQUE (cloud_id, name))
-resource_events  (см. секцию 8.2)
+accounts        (id PK, owner_user_id FK→users RESTRICT, name UNIQUE, description,
+                 labels JSONB, created_at)
+projects        (id PK, account_id FK→accounts RESTRICT, name, labels, created_at,
+                 UNIQUE (account_id, name))                 -- Move = atomic CAS
+users           (id PK, external_id UNIQUE,                 -- Zitadel sub (mirror identity)
+                 email, display_name, created_at)
+service_accounts(id PK, account_id FK→accounts RESTRICT, name, ...,
+                 UNIQUE (account_id, name))
+groups          (id PK, account_id FK→accounts RESTRICT, name, ...)
+group_members   (group_id FK→groups CASCADE, member_type, member_id)   -- ref-trigger
+roles           (id PK, account_id NULL FK→accounts RESTRICT, is_system, name,
+                 permissions JSONB CHECK iam_permissions_valid(), ...,
+                 partial UNIQUE (account_id, name) WHERE is_system=false)  -- 12 system seed
+access_bindings (id PK, subject_type, subject_id, role_id FK→roles RESTRICT,
+                 resource_type, resource_id,                -- resource_id: cross-DB, без FK
+                 UNIQUE (subject_type,subject_id,role_id,resource_type,resource_id))  -- идемпотентный Create
+operations      (см. §8; + principal_*)
+iam_outbox
 ```
 
 ### `kacho_vpc`
 
 ```
-networks      (uid PK, folder_id, cloud_id, organization_id, name,
-               labels, annotations, creation_timestamp, resource_version,
-               deletion_timestamp NULL, generation, finalizers TEXT[],
-               spec JSONB, status JSONB,
-               UNIQUE (folder_id, name))
-subnets       (uid PK, network_id FK→networks, folder_id, cloud_id, organization_id,
-               name, ..., spec JSONB, status JSONB,
-               UNIQUE (folder_id, name))
-security_groups (...)               -- network_id NULLABLE: SG может быть folder-level / не привязан к сети
-security_group_rules (uid PK, security_group_id FK→security_groups CASCADE,
-                      ..., spec JSONB)
-route_tables  (...)
-static_routes (uid PK, route_table_id FK→route_tables CASCADE, ..., spec JSONB)
-addresses     (..., internal_ipv4 / internal_ipv6 NULLABLE, subnet_id для internal-адресов,
-               used BOOL, used_by JSONB (kacho.cloud.reference.Reference))
-address_references (...)             -- enforce «один Address максимум на одном NIC» на service-слое
-network_interfaces (id PK, subnet_id FK→subnets RESTRICT, network_id, folder_id, ...,
-               v4_address_ids[] / v6_address_ids[] (→ addresses, RESTRICT через address_references),
-               security_group_ids[] (default = network.default_security_group_id),
-               used_by JSONB, status)   -- публичный control-plane-ресурс (lean)
-               -- прежняя internal data-plane-проекция NIC и vpn_id_sequence удалены в KAC-36/79/80
-resource_events
+networks         (id PK, project_id, name, labels, created_at,
+                  default_security_group_id NULL FK→security_groups ON DELETE SET NULL,
+                  partial UNIQUE «≤1 default-SG на сеть»)
+subnets          (id PK, network_id FK→networks RESTRICT, project_id, zone_id (TEXT, без FK),
+                  v4_cidr_blocks / v6_cidr_blocks, ...,
+                  EXCLUDE gist subnets_no_overlap_v4/_v6)
+addresses        (id PK, project_id, internal_subnet_id (generated, FK→subnets RESTRICT),
+                  internal_ipv4 / internal_ipv6 NULL, used_by JSONB)   -- external: без Subnet
+security_groups  (id PK, network_id FK→networks RESTRICT, project_id, ...)
+security_group_rules (id PK, security_group_id FK→security_groups CASCADE, ...)
+route_tables     (id PK, network_id FK→networks RESTRICT, project_id, ...)
+network_interfaces (id PK, subnet_id FK→subnets RESTRICT, project_id,
+                  v4_address_ids / v6_address_ids (≤1+≤1, CHECK jsonb_array_length<=1),
+                  security_group_ids, mac_address (output-only, cloud-wide UNIQUE),
+                  used_by JSONB, status)
+address_pools    (id PK, v4_cidr_blocks / v6_cidr_blocks, kind, zone_id (TEXT, без FK),
+                  is_default, selector_*, EXCLUDE gist per-kind)        -- admin-only (Internal*)
+operations       (см. §8) · vpc_outbox
 ```
 
-**FK / dependency-цепочка `kacho_vpc` — всё RESTRICT:** `network_interfaces → addresses → subnets → networks`.
-- `Address.Delete` блокируется, пока на него ссылается NIC (через `address_references`).
-- `Subnet.Delete` блокируется, пока есть internal-Address-ы (v4 ИЛИ v6) или хоть один NetworkInterface.
-- `Network.Delete` блокируется, пока есть subnets / route_tables / non-default SG (default SG авто-удаляется).
-- Net-effect: удалять снизу-вверх — NIC → Address → Subnet → Network, на каждом уровне — понятный `FAILED_PRECONDITION` с blockers.
-- `operations` (история операций) **не** каскад-удаляется с ресурсом — `ListOperations(resource_id)` работает после удаления ресурса.
+FK-цепочка `kacho_vpc` — RESTRICT снизу вверх: удалять `NetworkInterface → Address →
+Subnet → Network`; default-SG авто-удаляется в writer-TX при `Network.Delete`. Внешний
+`Address` — project-level без Subnet. `Gateway` — project-level (shared egress). `zone_id`
+хранится как TEXT и валидируется вызовом `compute.v1.ZoneService.Get`.
 
 ### `kacho_compute`
 
-> **Geography (Region/Zone) — домен kacho-compute** (перенесено из kacho-vpc, эпик `KAC-15`).
-> Таблицы `regions` / `zones` живут в схеме `kacho_compute`; в `kacho_vpc` их **нет** —
-> `subnets.zone_id`, `address_pools.zone_id` и т.п. хранят zone-id как обычную строку без FK и
-> валидируют существование вызовом `compute.v1.ZoneService.Get` на request-path (см. CLAUDE.md
-> §«Кросс-доменные ссылки на ресурсы»).
+Compute — owner Geography (Region/Zone перенесены из VPC, эпик `KAC-15`).
 
 ```
-instances     (uid PK, folder_id, cloud_id, organization_id, name,
-               labels, annotations, creation_timestamp, resource_version,
-               deletion_timestamp NULL, generation, finalizers TEXT[], restarted_at NULL,
-               spec JSONB, status JSONB,
-               UNIQUE (folder_id, name))
-disks         (...)
-images        (...)        -- read-only seed
-snapshots     (...)
-regions       (id PK, name, created_at)               -- seed: ru-central1
-zones         (id PK, region_id FK→regions RESTRICT,  -- seed: ru-central1-{a,b,d}
-               name, status, created_at)
-disk_types    (...)        -- seed: network-hdd, network-ssd, network-ssd-nonreplicated
-platforms     (...)        -- seed: standard-v1, standard-v2, standard-v3
-images_catalog(...)        -- seed: ubuntu-2204-lts, debian-12, и т.д.
-               -- прежняя internal-only таблица hypervisors (placement / HW-inventory) удалена в KAC-36/79/80
-resource_events
+instances        (id PK, project_id, name, labels, zone_id, status, created_at,
+                  boot_disk_id (диск из attached_disks c is_boot), ...,
+                  partial UNIQUE (project_id, name) WHERE name<>'')
+instance_network_interfaces (id PK, instance_id FK→instances CASCADE,
+                  subnet_id, primary_v4_address, one_to_one_nat.address_id?, security_group_ids)
+disks            (id PK, project_id, type_id (→ disk_types), zone_id, size, status,
+                  source_image_id / source_snapshot_id — НЕ FK (existence-check в worker'е))
+attached_disks   (instance_id FK→instances CASCADE, disk_id FK→disks RESTRICT,
+                  auto_delete, is_boot)                     -- M:N
+images           (id PK, project_id, family, ..., status READY)   -- download — заглушка
+snapshots        (id PK, project_id, source_disk_id (НЕ FK), ..., status)
+disk_types       (id PK литерал, ...)                       -- seed: network-hdd/ssd/...
+regions          (id PK, name, created_at)                  -- seed: ru-central1
+zones            (id PK, region_id FK→regions RESTRICT, name, status, created_at)
+operations       (см. §8; prefix epd) · compute_outbox · compute_watch_cursors
 ```
 
-### `kacho_loadbalancer`
+`disks.source_*`/`snapshots.source_disk_id` — без FK (источник можно удалить, ссылка
+остаётся как «откуда создан», existence-check на Create). `attached_disks.disk_id` RESTRICT
+(нельзя удалить присоединённый диск); `Instance.Delete` worker по `auto_delete` решает
+судьбу дисков, затем CASCADE чистит NIC и строки attach.
 
-```
-network_load_balancers (uid PK, folder_id, ..., spec JSONB, status JSONB)
-target_groups          (uid PK, folder_id, ..., spec JSONB, status JSONB)
-resource_events
-```
+## 10. БД-конвенции (within-service инварианты)
 
-## 11. БД-конвенции
+Инварианты внутри одной БД сервиса выражаются **только** DB-конструкциями (не
+software-side check-then-act). Сервисный слой лишь маппит SQLSTATE → gRPC.
 
-- **`spec` и `status` — JSONB** колонки. Это даёт гибкость без миграции при добавлении новых полей. Денормализованные «горячие» поля (folder_id, name) — отдельные колонки для индексирования.
-- **labels — JSONB + GIN-индекс** (`USING GIN (labels jsonb_path_ops)`) для эффективного label-selector-а.
-- **NOT NULL по умолчанию** везде где можно. NULL только для опциональных полей (`deletion_timestamp`, `restarted_at`).
-- **Update-trigger для `resource_version`**: триггер `BEFORE UPDATE` устанавливает `resource_version = nextval('resource_version_seq')`. INSERT тоже использует sequence через DEFAULT.
-- **`pg_advisory_lock(uid_hash)`** для координации reconciler-репик — берётся в начале обработки конкретного ресурса.
-- **`SELECT FOR UPDATE`** в read-modify-write транзакциях — защита от concurrent update.
-- **`statement_timeout = '30s'`** на всех соединениях — защита pool-а.
-
-## 12. sqlc + миграции
-
-- **sqlc** генерирует типизированные методы для CRUD. Аннотированные `*.sql` в `internal/repo/queries/`.
-- **goose** миграции в `migrations/`. Формат `0001_initial.sql` (sequential, не timestamp).
-- **Common migrations** (`resource_events` + sequence + cleanup-функция) — шаблоны в `kacho-corelib/migrations/common/`, синхронизируются в каждое сервисное репо через `make sync-migrations`.
-- **Filter/selector queries** — handwritten SQL с динамическим WHERE-builder поверх sqlc-generated базовых методов.
-- **Init-container** в каждом Pod-е выполняет `<svc> migrate up` перед стартом основного контейнера. Тот же Docker-image содержит и сервис, и миграции (через `//go:embed migrations/*.sql`).
-
-## 13. Naming convention (полная таблица)
-
-| Контекст | Значение |
+| Инвариант | DB-механизм |
 |---|---|
-| Бренд / маркетинг / README / UI | **Kachō** |
-| ASCII-бренд / технические идентификаторы | **`kacho`** |
-| Proto package | **`kacho.cloud.<domain>.v1`** |
-| gRPC method path | **`/kacho.cloud.<domain>.v1.<Service>/<Method>`** |
-| Go-модули, импорты | `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1` |
-| Имена репо | **`kacho-<part>`** (с дефисом) |
-| k8s namespace | **`kacho`** |
-| k8s service name | `<domain>` (`compute`, `vpc`, ...) |
-| Postgres database / schema | **`kacho_<domain>`** (с подчёркиванием) |
-| Env-переменные | **`KACHO_<DOMAIN>_<NAME>`** |
-| Docker image | `prorobotech/kacho-<svc>:<tag>` |
+| id обязан существовать в той же БД | `FK REFERENCES … ON DELETE {RESTRICT\|CASCADE\|SET NULL}` |
+| поле уникально | `UNIQUE` / `CREATE UNIQUE INDEX` |
+| уникально только если поле непусто | partial `UNIQUE … WHERE <cond>` |
+| range не пересекается (CIDR) | `EXCLUDE USING gist (… WITH &&)` |
+| простой предикат | `CHECK (…)` |
+| атомарный compare-and-swap (attach/Move) | `UPDATE … WHERE <expected> RETURNING …` + проверка кардинальности |
+| read-modify-write OCC без version-колонки | `xmin::text` snapshot + `UPDATE … WHERE xmin::text=$exp` |
+| уникальная аллокация из пула (IPAM v4) | `FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING` |
+| сериализовать read-modify-write набора | `SELECT … FOR UPDATE` перед merge+write |
 
-## 14. Коды ошибок
+Прочее: `labels` — JSONB + GIN-индекс; `NOT NULL` по умолчанию (NULL только для реально
+опциональных полей); cross-service ссылки — TEXT без FK (валидация через peer-API на
+request-path). Cross-service FK/cascade запрещены (database-per-service). Каждый спорный
+конкурентный путь покрывается integration-тестом с goroutine-гонкой (testcontainers).
 
-`google.rpc.Status` со стандартными gRPC-кодами:
+## 11. sqlc + миграции
 
-| Код | Когда |
-|---|---|
-| `OK` | успех |
-| `INVALID_ARGUMENT` | валидация полей не прошла, неверный selector, отсутствует обязательное поле |
-| `NOT_FOUND` | ресурс не существует (по uid или name+scope) |
-| `ALREADY_EXISTS` | uniqueness-violation при upsert (нарушение уникальности `name` в scope при попытке create) |
-| `FAILED_PRECONDITION` | удаление при наличии зависимых ресурсов; conflicting state-transition |
-| `ABORTED` | concurrent update (OCC failure после `SELECT FOR UPDATE`) — клиент должен retry |
-| `RESOURCE_EXHAUSTED` | quota (зарезервировано, не используется в текущей фазе) |
-| `UNAVAILABLE` | downstream-сервис недоступен |
-| `INTERNAL` | unexpected server error |
-| `GONE` (410) | watch-клиент с `resourceVersion` за пределами outbox-retention |
+- **Без ORM** — `sqlc` генерирует типизированные методы поверх аннотированных `*.sql`;
+  динамический фильтр/pagination — handwritten pgx с параметризованным WHERE-builder.
+- **goose**-миграции в `internal/migrations/*.sql` (`embed.FS`), формат `0001_initial.sql`
+  (sequential, не timestamp). **Применённую миграцию не редактируют — только новая.**
+- Каждый сервис стартует с `0001_initial.sql` (squashed baseline: таблицы, FK/UNIQUE/
+  EXCLUDE/CHECK, триггеры outbox, seed справочников), дальше — инкрементальные миграции.
+- Миграции применяет **отдельный `cmd/migrator`** (cobra-CLI, тот же образ через
+  `//go:embed`), не основной serve-бинарь.
 
-`details[]` содержит:
-- `BadRequest` (для invalid_argument с list-field-violations).
-- `PreconditionFailure` (для failed_precondition с list-причин).
-- `RequestInfo` (`request_id` всегда заполнен — для trace).
-- `ResourceInfo` (для not_found / already_exists, с указанием конкретного uid/name).
+## 12. Config
+
+Конфигурация — **YAML через viper** (skill `evgeniy`), не разбор env через struct-tags.
+Секреты — через `secretKeyRef`/env-мост, не в YAML/ConfigMap. Env-переменные следуют
+`KACHO_<DOMAIN>_<NAME>`. Clean Architecture (`domain ← use-case ← repo/clients/handler`,
+`cmd` — composition root) и распределённые аспекты — `01-architecture-and-services.md`
+и `.claude/rules/architecture.md`.
+
+Развёртывание, миграции в кластере и эксплуатация — `03-deployment-and-operations.md`.

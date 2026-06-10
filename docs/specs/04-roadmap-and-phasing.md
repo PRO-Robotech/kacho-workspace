@@ -1,309 +1,260 @@
-# Kachō — Дорожная карта и фазирование
+# Kachō — Дорожная карта и процесс
 
 **Документ:** 04 / 5
 
+Главы 01–03 описали архитектуру, модель данных и эксплуатацию платформы Kachō. Эта
+глава отвечает на вопрос «как мы это строим»: логика фазирования, обязательный
+acceptance-first + строгий TDD lifecycle, уровни тестов, текущее состояние и
+будущие фазы. Регламент здесь — нормативный: он повторяет non-negotiables из
+`.claude/rules/*` применительно к процессу доставки.
+
 ## 1. Логика фазирования
 
-«Текущая фаза» (Bootstrap) описанная в этой спеке слишком велика для одной волны реализации. Разбиваем на 7 sub-итераций. Каждая sub-итерация:
+Платформа растёт **доменами** (отдельный сервис = отдельная Postgres-БД,
+`.claude/rules/polyrepo.md`), а каждый домен — **фазами** под-итераций. Принципы:
 
-- Начинается с **acceptance-документа на человеко-читаемом языке** (см. §3 ниже), который **проходит approve агента `acceptance-reviewer` до старта кода**. Заказчик подключается только к финальной верификации (smoke / e2e); рутинный approve контракта — между двумя агентами (`acceptance-author` ↔ `acceptance-reviewer`).
-- Получает свой план реализации (`docs/plans/<sub-phase>-<topic>.md`).
-- Реализуется TDD-стилем: тесты пишутся первыми (по acceptance-кейсам), потом код.
-- Завершается работающим e2e-сценарием через `grpcurl`.
-- Проходит code-review через `superpowers:requesting-code-review` или специализированных агентов.
-- Не считается завершённой без integration-тестов и e2e smoke в `kacho-deploy/e2e/`.
+- **Один домен — один сервис — одна БД.** Новый домен не подмешивается в чужую
+  схему; он получает собственное репо `kacho-<part>` и схему `kacho_<domain>`.
+- **Кросс-репо фича топосортируется по build-графу**: `kacho-proto` → `kacho-corelib`
+  → сервис(ы) → `kacho-api-gateway` → `kacho-deploy` → `kacho-workspace` (docs).
+  Пока вышестоящий PR не в `main`, нижестоящий CI временно пиннит sibling к
+  feature-ветке; после merge — обратно на `ref: main`.
+- **Кросс-репо эпик** ведётся как tracking-issue в `kacho-workspace` (метка `epic`)
+  + per-repo issue с `Blocked by PRO-Robotech/<repo>#<n>`. В трекере KAC — `[EPIC]`
+  + Subtask-иерархия (`.claude/rules/git-youtrack.md`).
+- **Каждая под-итерация замкнута**: APPROVED acceptance-док → ветка `KAC-<N>` → RED →
+  GREEN → review ролями → integration + newman зелёные → trail в vault + перевод
+  тикета в `Done`. Без этого под-итерация не считается завершённой.
 
-Каждая sub-итерация выполняется по дисциплине `superpowers:test-driven-development` + `superpowers:executing-plans` или `superpowers:subagent-driven-development`.
+Под-итерация **не стартует без APPROVED acceptance-дока** (ban #1). Это входной
+gate всей работы — детали в §2.
 
-## 2. TDD / BDD workflow per sub-phase
+## 2. Acceptance-first + строгий TDD lifecycle
 
-Это **обязательная** последовательность для каждой sub-итерации, нового RPC, нового ресурса. Без неё работа не считается начатой.
+Это **обязательная** последовательность для каждой под-итерации, нового RPC, нового
+поля, нового ресурса и для багфикса. Без неё работа не считается начатой.
 
-### Шаг 1. Acceptance-документ на человеко-читаемом языке
+### 2.1. Шаг 1 — acceptance-документ (Given-When-Then)
 
-Перед любой строчкой кода — `docs/specs/sub-phase-<X.Y>-<topic>-acceptance.md` в формате Given-When-Then:
+Перед любой строчкой кода — `docs/specs/<sub-phase>-acceptance.md` в формате
+Given-When-Then. Сценарии формулируются в терминах **текущего контракта Kachō**:
+плоский ресурс, мутации возвращают `Operation`, клиент поллит `OperationService.Get`
+до `done=true` (Watch RPC не существует).
 
 ```markdown
 # Sub-phase 0.4 (compute) — Acceptance
 
-## Сценарий: создание VM с bootDisk
+## Сценарий: создание Instance с boot_disk
 
-**Given** Folder `default` существует в default-cloud
-**And** Image `ubuntu-2204-lts` присутствует в каталоге
-**And** Network `internal-net` создана в этом Folder
-**And** Subnet `internal-net-subnet-a` создана в Network с CIDR `10.0.0.0/24`
+**Given** Project `prj-…` существует (kacho-iam)
+**And** Image `fd8…` присутствует в каталоге (status READY)
+**And** Subnet `sub-…` создана в Network (kacho-vpc) в зоне `ru-central1-a`
 
-**When** клиент дёргает `POST /v1/compute/instances/upsert` с payload:
-  - metadata.name = "test-vm-01"
-  - metadata.folderId = <default-folder-uid>
-  - spec.platformId = "standard-v3"
-  - spec.zoneId = "kacho-zone-a"
-  - spec.resources.cores = 2, memory = "4Gi"
-  - spec.bootDisk.diskId = <newly-created-disk-uid>
-  - spec.networkInterfaces[0].subnetId = <subnet-uid>
-  - spec.desiredPowerState = "RUNNING"
+**When** клиент дёргает `POST /compute/v1/instances` с payload:
+  - projectId      = "prj-…"
+  - name           = "test-vm-01"
+  - zoneId         = "ru-central1-a"
+  - platformId     = "standard-v3"
+  - resourcesSpec  = { cores: 2, memory: "4Gi" }
+  - bootDiskSpec   = { diskSpec: { imageId: "fd8…", size: "20Gi", typeId: "network-ssd" } }
+  - networkInterfaces[0] = { subnetId: "sub-…" }
 
-**Then** ответ содержит ресурс с заполненными metadata.uid, creationTimestamp, resourceVersion
-**And** status.state = "PROVISIONING" в первом ответе
-**And** в течение 60 секунд через Watch приходит событие MODIFIED с status.state = "RUNNING"
-**And** status.ips.internal не пустой
-**And** status.lastTransitionAt больше creationTimestamp
+**Then** ответ — `Operation` с `id` (prefix `epd`), `done=false`
+**And** `GET /compute/v1/operations/{operationId}` в пределах разумного poll-окна → `done=true`
+**And** `operation.response` — Instance с `status = RUNNING`, заполненными `id`/`createdAt`
+**And** `GET /compute/v1/instances/{instanceId}` возвращает тот же Instance (sync read)
+**And** у Instance есть `networkInterfaces[0].primaryV4Address` (IPAM-аллокация в kacho-vpc)
 
-## Сценарий: попытка создания VM в несуществующем Folder
-...
+## Negative-сценарий: создание Instance в несуществующем Project
 
-## Сценарий: restart VM
-**Given** VM `test-vm-01` в состоянии RUNNING
-**When** клиент дёргает `POST /v1/compute/instances/restart` с metadata.uid = <uid>
-**Then** ответ содержит ресурс с заполненным metadata.restartedAt
-**And** через Watch приходят события: MODIFIED (RESTARTING) → MODIFIED (RUNNING)
-**And** status.lastRestartCompletedAt равен metadata.restartedAt
+**Given** Project с id `prj-DOESNOTEXIST00000` отсутствует
+**When** клиент дёргает `POST /compute/v1/instances` с этим `projectId`
+**Then** возвращается ошибка `NOT_FOUND` с message `"Project with id prj-DOESNOTEXIST00000 not found"`
+**And** ресурс не создан (cross-domain существование валидируется в worker'е Create
+        через `kacho-iam.ProjectService.Get`; peer недоступен → `UNAVAILABLE`, fail-closed)
 
-## Negative-сценарий: writing status через upsert
-**Given** VM `test-vm-01` существует
-**When** клиент дёргает `/upsert` с status.state = "STOPPED" в payload
-**Then** ответ — INVALID_ARGUMENT с RequestInfo и BadRequest.field_violations[0].field = "status"
+## Negative-сценарий: Update immutable-поля
+
+**Given** Instance `epd…` существует
+**When** клиент дёргает `PATCH /compute/v1/instances/{id}` с `update_mask = "zoneId"`
+**Then** возвращается `INVALID_ARGUMENT` с message `"zoneId is immutable after Instance.Create"`
 ```
 
-### Шаг 2. Валидация acceptance-документа
+Acceptance-документ — **единственный источник истины** для тестов. Изменился кейс —
+правка сначала в документе, потом в тестах, потом в коде. В нём нет места устаревшим
+конструкциям K8s-envelope (вложенные `spec`/`status`-as-message и служебные поля
+версии/жизненного цикла), оптимистичной replace-семантике мутаций, записи `status`
+через тело мутации, серверному стриму изменений. Контракт строго плоский: domain-поля
+на верхнем уровне, `status` — enum-поле, мутации возвращают `Operation`.
 
-- `acceptance-author` помечает документ статусом «Draft, на ревью».
-- Документ проходит **review агента `acceptance-reviewer`** (см. `.claude/agents/acceptance-reviewer.md` для критериев) **до** старта кода.
-- Замечания → правки документа автором → новый раунд review. Цикл итеративный, обычно сходится за 1–3 раунда.
-- `✅ APPROVED` от `acceptance-reviewer` = «можно начинать код, контракт зафиксирован».
-- Заказчик **не подключается** к этому шагу. Он проверяет финальный результат на шаге 7 (e2e через `grpcurl` / `make e2e-test`).
-- Эскалация заказчику только если: (a) `acceptance-author` итерирует ≥3 раунда без сходимости — это сигнал об ambiguity в спеке, требующей человеческого решения; (b) `acceptance-reviewer` обнаружил scope-конфликт со спекой, требующий стратегического выбора.
+### 2.2. Шаг 2 — gate `acceptance-reviewer`
 
-Acceptance-документ — это **источник истины** для тестов. Если кейс изменился — изменения сначала в документе, потом в тестах, потом в коде.
+- `acceptance-author` помечает документ «Draft, на ревью».
+- Документ проходит **review агента `acceptance-reviewer`** — это единственный
+  владелец вердикта APPROVED (не заказчик). Критерии — в `.claude/agents/acceptance-reviewer.md`.
+- Замечания → правка автором → новый раунд. Цикл итеративный, обычно сходится за 1–3
+  раунда.
+- `✅ APPROVED` = «контракт зафиксирован, можно начинать код».
+- Эскалация заказчику — только при (a) ≥3 раундах без сходимости (ambiguity в спеке,
+  нужно человеческое решение) либо (b) scope-конфликте acceptance со спекой.
 
-### Шаг 3. Конвертация в исполняемые тесты
+### 2.3. Шаг 3 — конвертация в исполняемые тесты (RED)
 
-Для каждого сценария — соответствующий тест на Go. Тесты мапятся 1-к-1 на сценарии acceptance-документа:
+Каждый сценарий мапится 1-к-1 на тест. Имена тест-функций соответствуют именам
+сценариев — это даёт трассируемость acceptance ↔ test.
 
 ```go
-// internal/service/instance_acceptance_test.go
-func TestInstance_CreateWithBootDisk_TransitionsToRunning(t *testing.T) {
-    // Given (setup из acceptance-сценария)
-    // When (RPC call)
-    // Then (assertions)
-}
-
-func TestInstance_CreateInNonExistentFolder_ReturnsInvalidArgument(t *testing.T) { ... }
-
-func TestInstance_Restart_PropagatesViaWatch(t *testing.T) { ... }
-
-func TestInstance_UpsertWithStatus_ReturnsInvalidArgument(t *testing.T) { ... }
+func TestInstance_CreateWithBootDisk_OperationCompletesRunning(t *testing.T) { /* Given/When/Then */ }
+func TestInstance_CreateInNonExistentProject_ReturnsNotFound(t *testing.T)    { ... }
+func TestInstance_UpdateImmutableZone_ReturnsInvalidArgument(t *testing.T)    { ... }
 ```
 
-Имена тест-функций соответствуют именам сценариев — это даёт **трассируемость** acceptance ↔ test.
+`integration-tester` пишет тесты **первыми** и **прогоняет их до кода** — все падают
+(RED). Это подтверждает, что тест проверяет реальное поведение, а не опечатку. LRO в
+unit-тестах дожидаются детерминированно (`AwaitOpDone`), не `time.Sleep`.
 
-### Шаг 4. Тесты падают (red)
+### 2.4. Шаг 4 — реализация до GREEN
 
-Запускаем — все тесты fail (нет реализации). Это подтверждает, что тесты реально проверяют что-то.
+Минимальная реализация, чтобы каждый тест прошёл — по одному тесту за раз. Чанк из
+нескольких изменений: все падающие тесты пишутся первыми (RED по всем), затем
+чиним по одному в GREEN. В PR/отчёте показывается пара «RED → GREEN»; без неё заявлять
+о готовности нельзя (ban #12).
 
-### Шаг 5. Implement minimum to pass (green)
+Кодинг идёт по чистой архитектуре (`domain ← use-case ← repo/clients/handler`,
+`cmd` — composition root) и DB-инвариантам (within-service целостность — только на
+уровне Postgres: FK / partial-UNIQUE / EXCLUDE / CHECK / атомарный CAS / xmin-OCC /
+`FOR UPDATE SKIP LOCKED`, не software check-then-act). Каждая мутация атомарно пишет
+запись в `operations` + транзакционный outbox в той же TX; worker исполняет
+state-машину (`.claude/rules/data-integrity.md`).
 
-Минимальная реализация, чтобы каждый тест прошёл. По одному тесту за раз — `superpowers:test-driven-development` дисциплина.
+### 2.5. Шаг 5 — review ролями + рефакторинг
 
-### Шаг 6. Refactor
+При работающих тестах — рефакторинг (любая регрессия ловится тестами) и review
+специалист-агентами per-RPC: `proto-api-reviewer`, `db-architect-reviewer`,
+`go-style-reviewer`, `system-design-reviewer`; конвенции — `<svc>-conventions-auditor`.
 
-Убираем дублирование, улучшаем структуру кода **при работающих тестах**. Любое регрессивное изменение ловится тестами.
+### 2.6. Шаг 6 — финальная верификация и trail
 
-### Шаг 7. e2e через grpcurl
+Перед merge: `go test ./... -race` + `golangci-lint run` + `govulncheck` +
+`make audit-list-filter` (каждый public `List` фильтрует через listauthz) + newman
+зелёные. После merge — обновить trail в vault (resources/rpc/packages/edges/KAC) и
+перевести тикет `Test → Done` со всеми артефактами (PR-URL, лог тестов, кросс-репо
+ссылки).
 
-Тот же набор сценариев из acceptance-документа реализуется как bash-скрипты в `kacho-deploy/e2e/<sub-phase>/<scenario>.sh`. Это финальная проверка — реальный gRPC через api-gateway против работающего сервиса в kind.
+> «План реализации» (декомпозиция APPROVED-дока на файлы/шаги) — опциональный
+> вспомогательный артефакт под крупную под-итерацию; источник истины контракта —
+> сам acceptance-документ.
 
-### Уровни тестов и их назначение
+## 3. Уровни тестов
 
-| Уровень | Где живёт | Что проверяет | Длительность |
+Acceptance-документ покрывается **двумя независимыми путями** — integration и
+newman-e2e (один сценарий → один integration-тест + один newman-кейс). Это даёт
+валидацию с одной точкой истины и два разных слоя поимки регрессий.
+
+| Уровень | Где живёт | Что проверяет | Инфра |
 |---|---|---|---|
-| Unit | `internal/<pkg>/*_test.go` | чистая логика без БД | мс |
-| Integration | `internal/service/*_acceptance_test.go` + testcontainers-Postgres | RPC handler + repo + outbox в одной транзакции | секунды |
-| E2E (smoke) | `kacho-deploy/e2e/<sub-phase>/*.sh` | реальный gRPC через api-gateway против kind | минуты |
+| **unit** | `internal/apps/kacho/api/<resource>/*_test.go`, `internal/handler/*_test.go` | чистая use-case логика; mock port-интерфейсов (`repomock`/`kachomock`); LRO через `AwaitOpDone` | без БД (мс) |
+| **integration** | `internal/repo/*integration_test.go` | SQL-сторона: CRUD, FK/UNIQUE/EXCLUDE/CHECK, outbox-транзакционность, CAS/OCC/SKIP-LOCKED **races** (concurrent goroutines) | testcontainers Postgres 16 |
+| **e2e / newman** | `tests/newman/cases/*.py` → `gen.py` → коллекции | black-box через api-gateway (HTTP); ≥1 happy + ≥1 negative на RPC; conformance к acceptance/спеке | поднятый стенд |
 
-**Acceptance-документ покрывается тестами Integration-уровня и Е2Е-уровня одновременно** (один acceptance-сценарий → один integration-тест + один e2e-bash-сценарий). Это даёт два независимых пути валидации с одной point-of-truth.
+Правила, которые держат пирамиду честной:
 
-## 3. Sub-итерации текущей фазы
+- Если service-тест требует Postgres — это утечка adapter в use-case (`architecture.md`).
+- Concurrent-race-сценарий для любого CAS/UNIQUE/EXCLUDE-пути обязателен на
+  integration-уровне (race не ловится unit-тестом — реальный инцидент NIC-attach
+  2026-05-14, `.claude/rules/data-integrity.md`).
+- Newman/integration-тест, написанный уже **после** кода, — нарушение TDD (даже если
+  зелёный). Workflow нового кейса: `validate-cases.py` (уникальность + CASES-INDEX) →
+  `gen.py`. Коллекции `collections/*.postman_collection.json` руками не правятся.
+- **Test-only PR** (дописать тесты под существующий функционал) не трогает прод-код и
+  не содержит TODO/FIXME/`skip` (ban #13). TDD-red против реального бага прода = finding:
+  GitHub Issue (`bug` + `verified-by:test`) + аннотация `# verifies <url>` в кейсе.
 
-### Sub-итерация 0.1 — Bootstrap (foundation)
+Методология — skills `testing-code-coach` (unit/integration), `testing-product-coach`
+(black-box техники), `load-testing-coach` / `<svc>-load-testing` (нагрузка, k6/ghz).
 
-**Скоуп:**
-- `kacho-workspace`-репо: CLAUDE.md, .claude/agents/*.md, .claude/settings.json, bootstrap.sh, sync-all.sh, go.work.example, README.md.
-- `kacho-proto`-репо: каркас (`buf.yaml`, `buf.gen.yaml`, Makefile, gen/-структура), пока без proto-файлов конкретных сервисов. Только common-типы: ResourceMeta-helper, Selector, FieldSelector, ResourceRef, эвенты Watch.
-- `kacho-corelib`-репо: ids/ (UUID), errors/, db/ (pool, transactor), config/, grpcsrv/, observability/. Без watch/ и outbox/ (это в 0.2).
-- `kacho-deploy`-репо: kind/, helm/umbrella/ скелет, ingress, postgres-charts. Без сервисных deps (добавятся по мере появления).
-- Скрипт `make dev-up` — поднимает kind с пустым кластером + ingress + 4 пустых Postgres-инстанса (БД созданы, схем нет).
+## 4. Текущее состояние
 
-**Acceptance:**
-- `cd cloud-demo && git clone .../kacho-workspace && ./kacho-workspace/bootstrap.sh` клонирует все репо как заглушки.
-- `cd kacho-deploy && make dev-up` поднимает кластер за < 5 минут.
-- `kubectl get pods -n kacho` показывает 4 ready postgres-инстанса.
-- `~/.claude/CLAUDE.md` ничего не трогает; новый chat в `cloud-demo/` видит workspace-CLAUDE.md и агентов.
+Базовый control-plane по доменам IAM / VPC / Compute собран; edge и стенд работают.
 
-### Sub-итерация 0.2 — Resource Manager + Watch infrastructure
+| Сервис | Состояние | Содержимое |
+|---|---|---|
+| `kacho-api-gateway` | работает | edge: gRPC-proxy + grpc-gateway REST; two-listener (external TLS + cluster-internal :9091); backend gRPC :9090 |
+| `kacho-iam` | в активной работе | Account, Project, User, ServiceAccount, Group, Role, AccessBinding; OIDC + REBAC-Check, JIT/break-glass/access-review/audit-pipeline (эпик AAA) |
+| `kacho-vpc` | работает | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface; built-in IPAM; `AddressPool` admin-only (Internal*) |
+| `kacho-compute` | работает | Instance, Disk, Image, Snapshot, DiskType + Geography (Region/Zone, owner — compute); reconciler с `pg_advisory_lock` |
+| `kacho-deploy` | работает | dev-стенд (kind + helm + Postgres + ingress) + e2e |
+| `kacho-ui` | работает | Vite + React SPA control plane (polling-модель: List + OperationService.Get) |
+| `kacho-nlb` | **планируется** | NetworkLoadBalancer, TargetGroup; БД `kacho_nlb` |
 
-**Скоуп:**
-- `kacho-corelib/watch/` — In-process Watch Hub с outbox-чтением, NOTIFY wake-up, ring buffer, fan-out.
-- `kacho-corelib/outbox/` — wrapper над transactor для атомарной записи resource + event.
-- `kacho-corelib/selector/` — парсер FieldSelector + LabelSelector, генератор SQL-WHERE.
-- `kacho-corelib/migrations/common/` — `resource_events` table, `resource_version_seq`, cleanup-функция.
-- `kacho-proto/proto/kacho/cloud/resourcemanager/v1/` — Organization, Cloud, Folder с RPC: Upsert, Delete, List, Watch.
-- `kacho-resource-manager`-репо: реализация (cmd, internal/service, internal/repo, миграции, deploy/).
-- bootstrap данных: при первом старте создаётся default Org → Cloud → Folder.
+Поддерживающие репо: `kacho-corelib` (горизонтальные пакеты: `ids`/`errors`/`config`/
+`observability`/`db`/`operations`/`outbox`/…), `kacho-proto` (единственный дом всех
+`.proto` + сгенерированные stubs), `kacho-vpc-operator` (data-plane sibling VPC,
+spec-only, **вне build-графа** control-plane).
 
-**Acceptance:**
-- `grpcurl -plaintext api.kacho.local:80 kacho.cloud.resourcemanager.v1.OrganizationService/List` возвращает default-org.
-- `Upsert` создаёт Cloud в default-Org → `List` показывает.
-- `Watch` стрим получает `ADDED` event при `Upsert`, `MODIFIED` при изменении labels, `DELETED` при `Delete`.
-- Watch с устаревшим `resourceVersion` получает `Gone 410`.
-- Integration-тест на testcontainers-Postgres проверяет атомарность outbox+resource в транзакции.
+**Кросс-доменные runtime-рёбра** (синхронный gRPC service→service, не через api-gateway
+наружу; циклов нет):
 
-### Sub-итерация 0.3 — VPC
+- `kacho-vpc → kacho-compute` — валидация `zone_id` (`compute.v1.ZoneService.Get`).
+- `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
+- `* → kacho-iam` — `ProjectService.Get` (existence + account lookup) + `InternalIAMService.Check` (authz-gate).
 
-**Скоуп:**
-- `kacho-proto/proto/kacho/cloud/vpc/v1/` — Network, Subnet, SecurityGroup, SecurityGroupRule, RouteTable, StaticRoute, Address. Все RPC + internal Exists.
-- `kacho-vpc`-репо: реализация. Без reconciler-а (lifecycle минимальный, переходы синхронные).
-- Cross-service validation: vpc → resource-manager (`Folder.Internal.Exists`).
+## 5. Будущие фазы
 
-**Acceptance:**
-- Создание Network, потом Subnet с указанием networkId.
-- Удаление Network с зависимым Subnet → `FAILED_PRECONDITION` с указанием blockers.
-- Watch на Subnet показывает события при их создании.
+Каждая фаза проходит тот же lifecycle (§2): APPROVED acceptance → TDD → review → trail.
+Порядок — по приоритету; внутри фазы детализация под-итераций — отдельные
+acceptance-доки `docs/specs/*-acceptance.md`.
 
-### Sub-итерация 0.4 — Compute (с reconciler-ом)
+### Фаза AAA — IAM, authn/authz, audit (в работе)
 
-**Скоуп:**
-- `kacho-proto/proto/kacho/cloud/compute/v1/` — Instance, Disk, Image, Snapshot. Все RPC + Restart + internal.
-- `kacho-compute`-репо: реализация **с reconciler-ом**. Симулированный lifecycle Instance (5–30с задержки). Симулированный disk attach. Симулированный snapshot progress.
-- Seed-таблицы: zones, disk_types, platforms, images_catalog (`0002_seed_catalogs.sql`).
-- Cross-service: compute → resource-manager + compute → vpc (subnet validation).
-- Finalizer на Instance: `compute.kacho.io/disk-detach`.
+- IAM-домен: subjects (User, ServiceAccount, Group), Role (system + custom),
+  AccessBinding; иерархия Account → Project.
+- AuthN: OIDC-федерация (внешний IdP), коротко-живущие токены, principal-propagation
+  из JWT в `operations`.
+- AuthZ: REBAC-Check на каждый мутирующий RPC (`InternalIAMService.Check`, peer-call
+  из vpc/compute); публичный `List` фильтруется listauthz (CI-гейт).
+- Audit: structured audit-события на каждый мутирующий путь, audit-pipeline-сервис
+  поверх транзакционного outbox.
+- Транспортная защита: mTLS внутри кластера, TLS на edge.
 
-**Acceptance:**
-- Создание Instance с bootDisk + secondaryDisks → видны переходы PROVISIONING → RUNNING через Watch.
-- `Restart` на Instance → видна цепочка событий через Watch (RESTARTING → RUNNING) + `status.lastRestartCompletedAt = metadata.restartedAt`.
-- `spec.desiredPowerState = STOPPED` → reconciler переводит status → STOPPED.
-- Удаление Instance с прикреплённым Disk: finalizer срабатывает, диск отвязывается, потом Instance удаляется.
+### Фаза Observability
 
-### Sub-итерация 0.5 — Load Balancer
+- Логи (`slog` → агрегатор), метрики (Prometheus + ServiceMonitor), tracing
+  (OpenTelemetry SDK → backend).
+- Алерты на ключевые сигналы: lag reconciler'а, backlog outbox-drainer'а, ошибки БД,
+  длительность операций.
 
-**Скоуп:**
-- `kacho-proto/proto/kacho/cloud/loadbalancer/v1/` — NetworkLoadBalancer, TargetGroup. Все RPC.
-- `kacho-loadbalancer`-репо: реализация с reconciler-ом.
-- Cross-service: loadbalancer → resource-manager + loadbalancer → vpc + loadbalancer → compute.
-- Finalizer на Instance: `loadbalancer.kacho.io/target-deregister`.
+### Фаза HA / Production-readiness
 
-**Acceptance:**
-- Создание TargetGroup с targets, ссылающимися на существующие Instance + Subnet.
-- Создание NetworkLoadBalancer с listenerами + attachedTargetGroups.
-- Удаление Instance, входящего в TargetGroup: finalizer вычищает target из группы.
+- Postgres replication (primary + реплики) per-сервис; PITR/backup.
+- Multi-replica на сервис; reconciler координируется через `pg_advisory_lock` (одна
+  реплика обрабатывает операцию — без двойного исполнения).
+- Секреты через external-secrets-мост, persistent storage вместо emptyDir, реальный
+  ingress с управляемыми сертификатами.
 
-### Sub-итерация 0.6 — API Gateway (соединяем всё)
+### Фаза расширения доменов
 
-**Скоуп:**
-- `kacho-api-gateway`-репо: реализация.
-- gRPC-proxy через `mwitkow/grpc-proxy`.
-- REST mux через grpc-gateway, регистрирующий все 4 сервиса.
-- `cmux` для разделения gRPC и REST на одном порту.
-- Allowlist-фильтр: `Internal.*` методы НЕ маршрутизируются.
-- Health probes, request-id, recovery, slog access log.
-- Ingress в helm/umbrella/ привязан к api-gateway.
+Каждый домен — отдельный сервис/БД/полный цикл. Порядок — по реальному запросу:
 
-**Acceptance:**
-- `grpcurl -plaintext api.kacho.local:80 ... InstanceService/Upsert` работает (раньше шли напрямую на сервис, теперь через gateway).
-- `curl -X POST http://api.kacho.local/v1/instances/list -d '{}'` работает (REST через grpc-gateway).
-- Попытка дёрнуть `/v1/instances/upd-status` снаружи возвращает `NotFound` (отфильтровано allowlist-ом).
+- **Load Balancer** (`kacho-nlb`): NetworkLoadBalancer, TargetGroup; БД `kacho_nlb`.
+  Cross-domain рёбра: nlb → vpc (Subnet/Address) + nlb → compute (Instance-таргеты),
+  nlb → iam (Project). Удаление таргетируемого Instance переживается грациозно
+  (dangling-ref → деградированный статус, без cross-service cascade).
+- **DNS** (зоны, записи).
+- **Object Storage** (S3-совместимый API + control plane).
+- Далее по запросу: Managed Databases, Cloud Functions, Container Registry,
+  Managed Kubernetes — каждый своим сервисом и фазой.
 
-### Sub-итерация 0.7 — End-to-end (smoke + docs)
+### Фаза Multi-region
 
-**Скоуп:**
-- `kacho-deploy/e2e/`-набор bash-скриптов на grpcurl: создаёт полный сценарий «Org → Cloud → Folder → Network → Subnet → Instance → NLB», верифицирует через List/Watch.
-- CI (GitHub Actions) запускает e2e на kind в matrix-job.
-- Документация в каждом репо: обновлённый CLAUDE.md, README, примеры grpcurl-команд.
-- Финальный smoke-pass.
+Только когда single-region вырастет: multi-region-топология с межрегиональной
+репликацией метаданных control-plane. Архитектурные точки расширения (per-service `operations`,
+транзакционный outbox, отсутствие внешнего брокера) зарезервированы заранее, но не
+вводятся, пока in-process реализация справляется (ban #7).
 
-**Acceptance:**
-- `make e2e-test` зелёный.
-- CI всех репо зелёный.
-- README в `kacho-workspace` содержит «как поднять стенд за 5 минут».
+---
 
-## 4. Будущие фазы (вне scope текущей)
-
-Каждая получит свой brainstorming → spec → plan → implementation цикл.
-
-### Фаза 1 — AAA (auth, authorization, audit)
-
-- IAM: subjects (User, ServiceAccount), federation через OIDC, выдача коротко-живущих токенов.
-- Authorization: role-based access control привязанный к иерархии Org/Cloud/Folder.
-- Audit: structured audit-events emitted каждым сервисом, отдельный `kacho-audit`-сервис с outbox (тот же Watch-механизм поверх своих событий).
-- mTLS внутри cluster (cert-manager + per-service Certificate, монтируется в pod).
-- TLS на edge через ingress.
-- gRPC interceptor в каждом сервисе для проверки subject + permissions.
-
-### Фаза 2 — Production observability
-
-- Loki + Grafana для логов.
-- Prometheus + ServiceMonitor (раскомментировать заглушки).
-- Tempo для tracing.
-- Алерты на ключевые метрики (reconciler lag, watch backlog, БД ошибки).
-
-### Фаза 3 — HA / Production-readiness
-
-- Postgres replication (primary + replicas) per-сервис.
-- Multi-replica для каждого сервиса с advisory-lock-координацией reconciler-ов.
-- External Secrets Operator + Vault.
-- PVC вместо emptyDir.
-- Real ingress с cert от Let's Encrypt.
-- Backup/PITR для Postgres.
-- Multi-zone топология (когда появится k8s-cluster с zonal nodes).
-
-### Фаза 4 — Расширение Watch-инфраструктуры
-
-Только если упрёмся в лимиты in-process Watch Hub. Триггер: > 100k concurrent watchers, > 10k events/sec на сервис.
-
-- Добавление NATS JetStream между outbox и Watch Hub.
-- Watch Hub становится тонким адаптером NATS → gRPC stream.
-- Outbox остаётся как источник истины + recovery-буфер publisher-а.
-- API контракт не меняется.
-
-### Фаза 5 — Дополнительные домены (последовательно)
-
-Каждый — свой полный цикл:
-- DNS (zones, records).
-- Object Storage (S3-compatible API + control plane).
-- Managed Databases (PostgreSQL, ClickHouse, Redis).
-- Cloud Functions (serverless runtime).
-- Container Registry (OCI registry + control plane).
-- Managed Kubernetes (control plane для k8s-кластеров).
-
-Порядок — по реальному запросу пользователей платформы.
-
-### Фаза 6 — Multi-region
-
-Только когда single-region вырастет: multi-region active-active с CockroachDB или sharded Postgres + cross-region replication для metadata.
-
-## 5. Что обязательно делать перед каждой sub-итерацией
-
-1. **Brainstorm** для уточнения деталей (`superpowers:brainstorming`), если в этой спеке не хватает конкретики.
-2. **Spec** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>.md`.
-3. **Acceptance-документ** в `kacho-workspace/docs/specs/sub-phase-X.Y-<topic>-acceptance.md` в формате Given-When-Then (см. §2). **Approve выставляет агент `acceptance-reviewer` до старта кода.** Заказчик не участвует — он проверяет финальный smoke (шаг 7).
-4. **Plan** в `kacho-workspace/docs/plans/sub-phase-X.Y-<topic>-plan.md` (`superpowers:writing-plans`). План пишется **после `✅ APPROVED` acceptance-документа** и опирается на него: каждый шаг плана связан с одним или несколькими сценариями.
-5. **Worktree** через `superpowers:using-git-worktrees` для изоляции (особенно если работают несколько потоков).
-6. **TDD** через `superpowers:test-driven-development` — конвертация acceptance-сценариев в исполняемые тесты, потом код. Без сюрпризов: контракт зафиксирован на шаге 3.
-7. **Code review** через `superpowers:requesting-code-review` + кастомные специалист-агенты.
-
-## 6. Что обязательно делать после каждой sub-итерации
-
-1. **Все сценарии из acceptance-документа** покрыты integration-тестами и e2e-bash-сценариями, оба зелёные.
-2. CI на каждом затронутом репо зелёный.
-3. README/CLAUDE.md обновлены.
-4. `kacho-workspace/docs/specs/CHANGELOG.md` пополнен.
-5. Тег версии: `kacho-<svc>:0.<sub-phase>.0` (например, `kacho-resource-manager:0.2.0`).
-
-## 7. Декомпозиция в подплан
-
-Когда переходим к sub-итерации 0.1 (Bootstrap):
-- Brainstorm не нужен (в этой спеке всё детализировано).
-- **Шаг 1 — acceptance-документ** `sub-phase-0.1-bootstrap-acceptance.md` в формате Given-When-Then. Approve выставляет `acceptance-reviewer`.
-- **Шаг 2 — `superpowers:writing-plans`** с acceptance-документом + этой спекой как входом. План связывает каждый сценарий со списком конкретных файлов для создания.
-- **Шаг 3 — реализация** через `superpowers:executing-plans` или `superpowers:subagent-driven-development`. TDD-дисциплина: каждый сценарий сначала становится падающим тестом, потом проходящим.
+На этом спека замыкается: глава 00 задаёт scope и принципы, 01–03 — архитектуру,
+данные и эксплуатацию, 04 — процесс и дорожную карту. Источник истины по конвенциям
+и инвариантам — `.claude/rules/*` и per-repo `docs/architecture/`; эта глава на них
+ссылается, а не дублирует.

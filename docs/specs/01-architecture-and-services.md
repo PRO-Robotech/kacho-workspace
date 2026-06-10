@@ -2,213 +2,271 @@
 
 **Документ:** 01 / 5
 
+Обзор (`00-overview-and-scope.md`) зафиксировал продукт, scope и принципы дизайна:
+плоские ресурсы, асинхронные `Operation`, database-per-service, polyrepo. Эта глава
+раскладывает их на конкретные сервисы — граф вызовов, ресурсная модель каждого
+домена, стандартный API-контракт на ресурс, routing api-gateway и механику
+асинхронного исполнения. Naming-таблица, каталог error-кодов и per-service DDL —
+в `02-data-model-and-conventions.md` (single source of truth, здесь не дублируются).
+
 ## 1. Граф сервисов
 
+Edge-сервис `kacho-api-gateway` принимает внешний трафик; каждый доменный сервис
+владеет своей Postgres-БД и своим набором ресурсов. Между собой доменные сервисы
+не зависят по build (database-per-service, общение только по API), но в runtime
+делают синхронные gRPC-вызовы для валидации cross-domain ссылок.
+
 ```
-                     ingress-nginx (HTTP, port 80)
-                              │ host=api.kacho.local
+                    внешние клиенты (TLS)
+                              │
                               ▼
-                    ┌───────────────────────┐
-                    │   kacho-api-gateway   │  edge: gRPC-proxy + grpc-gateway REST
-                    └─────┬───────────┬─────┘
-        ┌─────────────────┘           └─────────────────┐
-        │                                                │
-        ▼                                                ▼
-┌───────────────────┐                          ┌─────────────────┐
-│ resource-manager  │   ◀──── parent validation────  vpc          │
-│ Org/Cloud/Folder  │                          │   Networks/SG   │
-└───────────────────┘                          └─────┬───────────┘
-                                                     │ ref check
-                ┌────────────────────────────────────┘
-                ▼
-       ┌─────────────────┐                   ┌─────────────────┐
-       │     compute      │ ◀─ instance ref ── loadbalancer    │
-       │  Instances/Disks │                   │ NLB/TargetGroup│
-       └─────────────────┘                   └─────────────────┘
+                  ┌───────────────────────┐
+                  │   kacho-api-gateway   │  edge: gRPC-proxy + grpc-gateway REST
+                  └───┬──────────┬────────┘   (без БД, без бизнес-логики)
+        ┌─────────────┼──────────┼─────────────┐
+        ▼             ▼          ▼              ▼
+  ┌──────────┐  ┌──────────┐ ┌──────────┐ ┌──────────┐
+  │ kacho-iam│  │ kacho-vpc│ │ kacho-   │ │ kacho-nlb│  (планируется)
+  │          │  │          │ │ compute  │ │          │
+  │ kacho_iam│  │ kacho_vpc│ │kacho_    │ │ kacho_nlb│
+  └────▲─────┘  └──┬────▲──┘ │ compute  │ └──────────┘
+       │           │    │    └──┬────▲──┘
+       │  ProjectService.Get    │    │
+       │  InternalIAMService    │    │
+       └───────────┴────────────┘    │
+       (* → iam)                      │
+                   vpc → compute: ZoneService.Get (zone_id)
+                   compute → vpc: Subnet/SG/Address (NIC-spec, IPAM)
 ```
 
-**Граф зависимостей синхронных gRPC-вызовов:**
+**Runtime cross-domain edges** (синхронный gRPC service→service; НЕ build-зависимость,
+вызовы напрямую, не через api-gateway; циклов нет):
 
-- Все ресурсные сервисы → `resource-manager` (валидация `folderId`).
-- `vpc` → `compute` (валидация `zoneId` через `compute.v1.ZoneService.Get` — Geography/Region/Zone — домен kacho-compute, эпик `KAC-15`; раньше было наоборот — это ребро удалено).
-- `compute` → `vpc` (валидация NIC-spec — `subnetId`/`securityGroupIds`; IPAM-аллокация эфемерных `Address` через `AddressService`/`InternalAddressService`).
-- `loadbalancer` → `vpc` (валидация `networkId`) + `compute` (валидация `instanceId` в targets).
-- `vpc-implement` (future data-plane sibling, `kacho-vpc-implement`, spec-only) — будущий SRv6 data-plane; прежняя kube-ovn-эпохи control-plane-привязка (write-back состояния NI, чтение vpn_id/node_index у upstream) удалена в KAC-36/79/80.
+| Ребро | Назначение |
+|---|---|
+| `vpc → compute` | валидация `zone_id` при `Create` Subnet/Address/AddressPool через `compute.v1.ZoneService.Get` (Geography — домен compute, эпик `KAC-15`) |
+| `compute → vpc` | валидация NIC-spec инстанса (`SubnetService.Get` / `SecurityGroupService.Get` / `AddressService.Get`) + IPAM-аллокация Address |
+| `* → iam` | `ProjectService.Get` (existence + account lookup, leaf-owner) + `InternalIAMService.Check` (per-RPC authz-gate) |
+| `nlb → vpc` *(планируется)* | валидация `subnet_id` таргетов |
+| `nlb → compute` *(планируется)* | валидация `instance_id` таргетов |
 
-Циклов нет. Все межсервисные вызовы — синхронный gRPC, internal API (не маршрутизируется через api-gateway наружу на external TLS-endpoint).
+**Циклы запрещены**: если A зовёт B — B не зовёт A. Peer недоступен → мутация
+fail-closed (`Unavailable`). Новое ребро фиксируется в `polyrepo.md`.
 
 ## 2. Сервисы
 
+Каждый доменный сервис — единственный владелец своих типов ресурсов (канонический
+CRUD + read-API). Consumer'ы ссылаются по id (TEXT, без cross-service FK) и
+валидируют через API владельца на request-path.
+
 ### 2.1 `kacho-api-gateway`
 
-**Роль:** единая точка входа для внешних клиентов. Не содержит бизнес-логики, не имеет БД.
+**Роль:** единая точка входа для внешних клиентов. Без БД, без бизнес-логики.
 
-**Поведение:**
-- TCP listener на порту 8080 (HTTP/2 cleartext + HTTP/1.1).
-- Использует `cmux` для разделения: `Content-Type: application/grpc*` → gRPC-proxy, прочее → REST `runtime.ServeMux` от grpc-gateway.
-- **gRPC-proxy** через `grpc.UnknownServiceHandler` (`mwitkow/grpc-proxy`): по gRPC-method-path `/kacho.cloud.<domain>.v1.<Service>/<Method>` определяет `<domain>` и проксирует на соответствующий backend (`compute.kacho.svc.cluster.local:9090`, и т. п.). Поддерживает streaming RPC прозрачно (нужно для `/watch`).
-- **REST mux**: импортирует все сгенерированные `RegisterXxxServiceHandlerFromEndpoint`, регистрирует обработчики. REST-маршруты: `POST /v1/<resource>/upsert`, `/delete`, `/list`, `/watch`, и т.п.
-- Middleware-цепочка: request-id (`X-Request-ID`), recovery (panic → 500), structured access log (`slog`), placeholder для будущего auth.
-- НЕ маршрутизирует internal-RPC (`/upd-status`, internal-`Exists` методы между сервисами): таблица allowlist в gateway-конфиге определяет публично-доступные RPC.
-- **Два mux'а**: external TLS-endpoint (advertised, для внешних клиентов) и cluster-internal mux (UI / admin-tooling / port-forward). `Internal*`-сервисы регистрируются **только** на internal mux. Текущая регистрация: `NetworkInterfaceService` — public, `/vpc/v1/networkInterfaces`; Geography (`Region`/`Zone` — public read + admin CRUD через `Internal*`-сервисы) — на `/compute/v1/...` (перенесено из vpc, эпик `KAC-15`).
+- **gRPC-proxy** — по method-path `/kacho.cloud.<domain>.v1.<Service>/<Method>`
+  определяет `<domain>` и проксирует на backend (`<svc>:9090`).
+- **REST-фасад** (grpc-gateway): camelCase JSON ⇄ proto; пути `/<service>/v1/<resource>`,
+  suffix-actions через `:verb` (`/subnets/{id}:addCidrBlocks`).
+- **OperationService.Get(id)** — маршрутизируется по 3-char prefix id (тип ресурса
+  читается по prefix), поэтому все операции домена идут в один backend.
+- **Two-listener** (детали — §4): external TLS — публичные сервисы; cluster-internal
+  `:9091` — `Internal*`-сервисы и admin-RPC (UI/admin-tooling/port-forward).
 
-**Health probes:** `/healthz` (alive), `/readyz` (alive + все backends отвечают на gRPC `Health.Check`).
+### 2.2 `kacho-iam`
 
-### 2.2 `kacho-resource-manager`
+**Роль:** identity & access. БД `kacho_iam`. Владелец иерархии владения
+**Account → Project** (заместил упразднённый `resource-manager`, эпик `KAC-124`).
 
-**Роль:** иерархия Organization → Cloud → Folder. Без lifecycle (мгновенно создаются и удаляются).
+**Ресурсы:** `Account`, `Project`, `User`, `ServiceAccount`, `Group`, `Role`,
+`AccessBinding`.
 
-**Ресурсы:**
+- **Account** — top-level tenant. Owner — единственный `User` (`owner_user_id`
+  FK ON DELETE RESTRICT). Имя глобально уникально.
+- **Project** — child Account-а, контейнер всех domain-ресурсов. Имя уникально
+  per-Account. Имеет `Move` (atomic CAS UPDATE).
+- **Role** — system (12 seed'ятся миграцией с детерминированными id) + custom
+  (per-Account, partial UNIQUE).
+- **AccessBinding** — `(subject) ↔ role ↔ (resource)`; idempotent `Create`
+  (`ON CONFLICT DO UPDATE SET id=id`); runtime-Check — через `InternalIAMService.Check`.
 
-- `Organization` — top-level. Identification: `metadata.name` (глобально уникален).
-- `Cloud` — parent: organization. Identification: `metadata.name` (уникален в `metadata.organizationId`).
-- `Folder` — parent: cloud. Identification: `metadata.name` (уникален в `metadata.cloudId`).
-
-**API per ресурс:** `/upsert`, `/delete`, `/list`, `/watch`. Нет sub-resource методов (нет lifecycle). Нет `/upd-status` (не имеет смыслового status).
-
-**Bootstrap.** При первом запуске создаются дефолтная Organization → Cloud → Folder (`name=default` на каждом уровне) — чтобы можно было сразу делать ресурсы compute/vpc/lb с валидным `folderId`.
+**Lifecycle:** нет (мгновенное применение внутри worker'а операции).
+**Cross-service:** входящее ребро `* → iam` (`ProjectService.Get` — existence +
+account lookup). Внутри-IAM ссылки защищены DB-уровнем (FK / UNIQUE / CAS / trigger).
 
 ### 2.3 `kacho-vpc`
 
-**Роль:** control plane сетевых ресурсов.
+**Роль:** control plane сетевых ресурсов. БД `kacho_vpc`.
 
-**Ресурсы:**
+**Ресурсы:** `Network`, `Subnet`, `SecurityGroup` (+ `SecurityGroupRule`),
+`RouteTable` (+ `StaticRoute`), `Address`, `Gateway`, `NetworkInterface` (NIC —
+first-class ENI-подобный ресурс, отдельно от Instance). Admin-only: `AddressPool`
+(IPAM, Internal*).
 
-- `Network` — контейнер для подсетей. Без lifecycle (мгновенно). (Прежний internal-only data-plane-идентификатор VPN на Network — удалён в KAC-36/79/80 вместе с kube-ovn-эпохи control-plane-слоем.)
-- `Subnet` — IP-диапазон в Network. Без lifecycle. `v4_cidr_blocks` **не обязателен** на `Create` (подсеть может быть создана без IPv4 CIDR, добавлен позже вербом `:add-cidr-blocks`); `:add-cidr-blocks`/`:remove-cidr-blocks` принимают и `v4_cidr_blocks`, и `v6_cidr_blocks`; `UpdateSubnet` принимает `v6_cidr_blocks` (soft-immutable, как v4 — реальные изменения через вербы).
-- `SecurityGroup` + `SecurityGroupRule` — правила фильтрации. Без lifecycle. `network_id` **не обязателен** на `Create` — SG может быть folder-level / не привязан к сети (default-SG-on-network не меняется).
-- `RouteTable` + `StaticRoute` — таблицы маршрутизации. Без lifecycle.
-- `Address` — IP-адрес. Имеет minimal lifecycle status. Поддерживает internal IPv6: `Address.internal_ipv6_address` (oneof `{address, oneof scope{subnet_id}}`), `CreateAddressRequest.internal_ipv6_address_spec`, `InternalAddressService.AllocateInternalIPv6`; `ListAddressesRequest.subnet_id` фильтрует по v4 ИЛИ v6 internal `subnet_id`. `used_by` — best-effort usage-hint (`kacho.cloud.reference.Reference`), кто привязал адрес.
-- `NetworkInterface` (NIC) — first-class ресурс домена kacho-vpc. Принадлежит `Subnet` (`subnet_id`); ссылается на `Address`-ресурсы по id (`v4_address_ids[]`/`v6_address_ids[]` — один Address максимум на одном NIC, enforced на service-слое через `addresses.used` + `address_references`); несёт `security_group_ids[]` (default на `Create` = `Network.default_security_group_id`); имеет `used_by` (`kacho.cloud.reference.Reference` — кто его прикрепил; ставится `AttachToInstance`, чистится `DetachFromInstance`, зеркалит `Address.used_by`); `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`. Может быть создан без адресов. Публичная проекция — lean (control-plane-only). NIC compute-инстанса ссылается на VPC-NIC по `nic_id` (device-index — на `compute.v1.NetworkInterface.index`). (Прежняя internal data-plane-проекция NIC удалена в KAC-36/79/80.)
+- **Subnet** — IP-диапазон в Network; `v4_cidr_blocks` не обязателен на `Create`
+  (добавляется позже через `:addCidrBlocks`/`:removeCidrBlocks`). CIDR не пересекаются —
+  DB `EXCLUDE USING gist`. `zone_id` валидируется через compute.
+- **Address** — IP-адрес, minimal lifecycle status; `used_by` — best-effort
+  usage-hint (кто привязал).
+- **NetworkInterface** — принадлежит `Subnet`; ссылается на `Address` по id
+  (`v4_address_ids[]`/`v6_address_ids[]`, ≤1 v4 + ≤1 v6 — DB CHECK); несёт
+  `security_group_ids[]`; `used_by` ставится `:attachToInstance`, чистится
+  `:detachFromInstance`. `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`.
+  Проекция — lean tenant-facing (без инфра/data-plane полей).
 
-**Cross-service validation:** при `Create` `Subnet` валидируется `networkId` (внутренняя FK same-DB) и `zoneId` (вызов `compute.v1.ZoneService.Get`). При `Create` ресурсов compute/loadbalancer, ссылающихся на VPC-ресурсы, **они** делают gRPC-вызов в `kacho-vpc`.
+**Lifecycle:** Address и NetworkInterface несут status; Network/Subnet/SG/RouteTable —
+без lifecycle (мгновенно).
 
-**FK / dependency-цепочка (всё RESTRICT):** `NetworkInterface → Address → Subnet → Network`. `Address.Delete` блокируется, пока на адрес ссылается NIC; `Subnet.Delete` блокируется, пока есть internal-Address-ы (v4 ИЛИ v6) или хоть один NetworkInterface; `Network.Delete` блокируется, пока есть subnets / route-tables / non-default SG (default SG авто-удаляется). Net-effect: удаление снизу-вверх — NIC → Address → Subnet → Network, с понятным precondition-error на каждом уровне.
+**FK / dependency-цепочка (всё RESTRICT, same-DB):**
+
+```
+NetworkInterface → Address → Subnet → Network
+```
+
+- `Address.Delete` блокируется, пока на адрес ссылается NIC.
+- `Subnet.Delete` блокируется, пока есть internal-Address (v4 или v6) или хоть один NIC.
+- `Network.Delete` блокируется, пока есть Subnet / RouteTable / non-default SG
+  (default-SG авто-создаётся и авто-удаляется в той же writer-TX) → `"network is not empty"`.
+
+Net-effect: удаление снизу вверх — NIC → Address → Subnet → Network, с понятным
+precondition-error на каждом уровне. Default-SG-связь: `Network.default_security_group_id`
+FK ON DELETE SET NULL + partial UNIQUE «≤1 default-SG на сеть».
+
+**Cross-service:** `Subnet.Create` валидирует `zone_id` (→ compute); ресурсы
+compute/nlb валидируют свои VPC-ссылки вызовом в kacho-vpc.
 
 ### 2.4 `kacho-compute`
 
-**Роль:** control plane виртуальных машин и блочных дисков. Самый сложный сервис — содержит reconciler с симулированным lifecycle.
+**Роль:** control plane вычислительных ресурсов. БД `kacho_compute`. Самый сложный
+сервис — несёт reconciler с симулированным lifecycle. Владелец домена **Geography**.
 
-**Ресурсы:**
+**Ресурсы:** `Instance`, `Disk`, `Image`, `Snapshot`, read-only `DiskType` +
+Geography (`Region`, `Zone`).
 
-- `Instance` — VM. **Полный lifecycle**: `PROVISIONING → RUNNING ⇆ STOPPING → STOPPED ⇆ STARTING → RUNNING; → DELETING → terminal`. `spec.desiredPowerState ∈ {RUNNING, STOPPED}`. Reconciler симулирует переходы с задержками 5–30с.
-- `Disk` — блочный диск. Lifecycle: `CREATING → READY ⇆ ATTACHING/DETACHING`. Симулированно.
-- `Image` — read-only catalog (родительские образы для дисков). Seed-таблица, всегда `READY`.
-- `Snapshot` — снимок диска. Lifecycle: `CREATING (с progress%) → READY`. Симулированно.
-- (Прежний internal-only `Hypervisor`-ресурс и `InternalHypervisorService` — kube-ovn-эпохи placement/HW-inventory — удалены в KAC-36/79/80.)
+- **Instance** — VM с полной state-машиной (control-plane имитация):
+  `PROVISIONING, RUNNING, STOPPING, STOPPED, STARTING, RESTARTING, UPDATING, ERROR,
+  CRASHED, DELETING`. Действия — отдельные async RPC: `Start`/`Stop`/`Restart`/`Move`/
+  `AttachDisk`/`DetachDisk`/`AddOneToOneNat`/`RemoveOneToOneNat`/`UpdateNetworkInterface`/
+  `UpdateMetadata`. Precondition не выполнено → `FailedPrecondition` со стабильным
+  текстом (`"Instance must be stopped"`, `"The disk is being used"`).
+- **Disk** — `CREATING, READY, ERROR, DELETING`; `Move`/`Relocate`. Источник —
+  Image / Snapshot.
+- **Image** — каталог родительских образов (download — заглушка, статус сразу `READY`).
+- **Snapshot** — снимок Disk.
+- **Region / Zone** — read-only справочник; admin CRUD только через Internal*.
 
-**Sub-resource updates** (только internal, не наружу):
-- `/upd-status` — стандартный, для всех ресурсов с lifecycle.
+**Lifecycle:** Instance/Disk/Image/Snapshot несут status; переходы детерминированы
+внутри worker'а операции (нет гипервизора, нет реальных таймеров).
 
-**Imperative thin RPC** (наружу, через api-gateway, тонкая обёртка над `metadata`-control-signals):
-- `POST /v1/compute/instances/restart` — устанавливает `metadata.restartedAt = now()`. Reconciler сравнивает с `status.lastRestartCompletedAt`, выполняет stop+start цикл при расхождении.
+**FK contract (same-DB):**
 
-`Start` и `Stop` НЕ имеют отдельных RPC — реализуются через upsert с `spec.desiredPowerState`. CLI добавит alias-команды поверх.
+- `attached_disks.disk_id → disks` ON DELETE RESTRICT (нельзя удалить attached Disk).
+- `attached_disks.instance_id → instances` ON DELETE CASCADE.
+- `instance_network_interfaces.instance_id → instances` ON DELETE CASCADE.
+- `zones.region_id → regions` ON DELETE RESTRICT.
+- `disks.source_image_id` / `source_snapshot_id`, `snapshots.source_disk_id` —
+  **НЕ FK** (источник можно удалить; existence-check в worker'е Create).
+- partial UNIQUE `(project_id, name) WHERE name <> ''`.
 
-**Cross-service validation при upsert Instance:**
-- `metadata.folderId` → `kacho-resource-manager` (gRPC `Internal.FolderExists`).
-- `spec.bootDisk.diskId` → same-DB FK на `disks`.
-- `spec.networkInterfaces[].subnetId` → `kacho-vpc` (gRPC `Internal.SubnetExists`).
+**Cross-service:** owner-проект → iam (`ProjectService.Get`); Instance NIC → vpc
+(Subnet/SG/Address + `subnet.zone_id == instance.zone_id`). Входящее ребро vpc→compute
+(`ZoneService.Get`). Освобождение one-to-one NAT при `Instance.Delete` — best-effort
+(VPC недоступен → log warning, операция не падает).
 
-### 2.5 `kacho-loadbalancer`
+### 2.5 `kacho-nlb` *(планируется)*
 
-**Роль:** control plane Network Load Balancer (L4).
+**Роль:** control plane Network Load Balancer (L4). БД `kacho_nlb`.
 
-**Ресурсы:**
+**Ресурсы:** `NetworkLoadBalancer`, `TargetGroup`.
 
-- `NetworkLoadBalancer` — L4 балансировщик. Lifecycle: `CREATING → ACTIVE`. Listeners и attached target-groups — inline JSONB-поля ресурса, не отдельные ресурсы.
-- `TargetGroup` — группа таргетов (instance + subnet). Lifecycle: `CREATING → READY`.
+**Cross-service (планируется):** `subnet_id` таргетов → vpc; `instance_id` таргетов →
+compute; owner-проект → iam. Lifecycle — по образцу compute (status + worker).
 
-**Cross-service validation при upsert NLB:**
-- `metadata.folderId` → resource-manager.
-- `spec.attachedTargetGroups[].targetGroupId` → same-DB FK.
+## 3. Стандартный API-контракт на ресурс
 
-**Cross-service validation при upsert TargetGroup:**
-- `spec.targets[].subnetId` → vpc.
-- `spec.targets[].address` — IP-адрес, опционально валидируется на принадлежность какому-то Instance (через compute.Internal.HasInstanceWithIP) — пока не валидируется (упрощение).
-
-## 3. Стандартный API на каждый ресурс
+Каждый ресурс следует единому паттерну (parity по форме между ресурсами обязателен).
 
 ### 3.1 Публичные RPC (наружу через api-gateway)
 
 | Метод | REST | Семантика |
 |---|---|---|
-| `<Service>.Upsert(req)` | `POST /v1/<r>/upsert` | batch create-or-update; identification: `metadata.uid` или `metadata.name` + parent IDs |
-| `<Service>.Delete(req)` | `POST /v1/<r>/delete` | batch soft-delete (server выставляет `metadata.deletionTimestamp`); финальное удаление после finalizers cleanup |
-| `<Service>.List(req)` | `POST /v1/<r>/list` | через `selectors[]` |
-| `<Service>.Watch(req)` | `POST /v1/<r>/watch` | server-streaming, `resourceVersion` cursor |
+| `Get(id)` | `GET /<svc>/v1/<r>/{id}` | **sync** — возвращает ресурс |
+| `List(req)` | `GET /<svc>/v1/<r>` | **sync** — cursor-пагинация `(created_at, id)`, `filter` (whitelist), result фильтруется через listauthz |
+| `Create(req)` | `POST /<svc>/v1/<r>` | **async** → `Operation` |
+| `Update(req)` | `PATCH /<svc>/v1/<r>/{id}` | **async** → `Operation`; `update_mask` discipline |
+| `Delete(id)` | `DELETE /<svc>/v1/<r>/{id}` | **async** → `Operation` |
+| domain-действие | `POST /<svc>/v1/<r>/{id}:verb` | **async** → `Operation` (`:addCidrBlocks`, `Start`, `Stop`, `AttachDisk`, …) |
+| `ListOperations(id)` | `GET /<svc>/v1/<r>/{id}/operations` | **sync** — переживает удаление ресурса (см. ниже) |
 
-**Imperative thin-RPC** (только где осмысленно):
-| Метод | REST | Семантика |
-|---|---|---|
-| `<Service>.Restart(req)` | `POST /v1/<r>/restart` | устанавливает `metadata.restartedAt` |
-| `NetworkInterfaceService.AttachToInstance(req)` | `POST /vpc/v1/networkInterfaces/{id}:attachToInstance` | ставит `NetworkInterface.used_by` (кто прикрепил) |
-| `NetworkInterfaceService.DetachFromInstance(req)` | `POST /vpc/v1/networkInterfaces/{id}:detachFromInstance` | чистит `used_by` |
+Контракт мутаций (из `00-overview-and-scope.md`): мутации **не** возвращают ресурс
+синхронно — только `Operation`. Клиент поллит `OperationService.Get(id)` до
+`done=true`, читает `oneof result { error | response }`. Нет `upsert`, нет публичного
+`Watch` (опрос вместо стриминга: `List` каждые 2-5 c или `Operation.Get` для in-flight).
 
-`NetworkInterfaceService` — стандартный набор `Get`/`List`/`Create`/`Update`/`Delete`/`ListOperations` + `AttachToInstance`/`DetachFromInstance`; REST-префикс `/vpc/v1/networkInterfaces`.
+**`update_mask` discipline:** unknown поле → `InvalidArgument`; hard-immutable поле →
+`InvalidArgument`; пустой mask → full-object PATCH (immutable из тела игнорируются);
+mutable поле → применяется, валидируется как при `Create`.
 
-### 3.2 Internal RPC (между сервисами, не наружу)
+**`ListOperations` переживает удаление ресурса:** история операций (per-service
+`operations`-таблица) не каскад-удаляется вместе с ресурсом — `ListOperations(id)`
+работает после того, как ресурс удалён.
 
-| Метод | Назначение |
+### 3.2 Internal RPC (между сервисами / admin, не наружу на external TLS)
+
+| Пример | Назначение |
 |---|---|
-| `<Service>.Internal.<Resource>Exists(uid)` | существует ли ресурс с заданным uid |
-| `<Service>.Internal.HasDependentsOn(uid)` | есть ли зависимые ресурсы — для валидации удаления |
-| `<Service>.Internal.UpdateStatus(req)` | reconciler пишет в `status` |
-| `InternalAddressService.AllocateInternalIPv6` | аллокация internal IPv6 (рядом с `AllocateInternalIPv4`) |
+| `InternalIAMService.Check` | per-RPC authz-gate (vpc/compute зовут peer-to-peer) |
+| `InternalAddressService.Allocate/Free` (vpc) | IPAM-аллокация Address |
+| `InternalAddressPoolService` (vpc) | admin-CRUD пулов IPAM |
+| `InternalRegionService` / `InternalZoneService` / `InternalDiskTypeService` (compute) | admin-CRUD справочников Geography/типов |
 
-`api-gateway` НЕ маршрутизирует `Internal.*` методы / `Internal*`-сервисы на external TLS-endpoint — только на cluster-internal mux (allowlist-фильтр).
+Публичный API ресурса показывает только tenant-facing «намерение + результат» (id,
+name/labels, привязки, выделенный адрес, status). Инфра-чувствительные данные
+(placement / underlay / wiring / числовой инфра-id) — **только** в Internal*-проекции
+(`security.md`). Любой admin-RPC, которого нет в публичном API, добавляется только в
+`Internal*`-сервис.
 
-**`ListOperations` переживает удаление ресурса:** история операций (таблица `operations`) не каскад-удаляется вместе с ресурсом; `ListOperations(resource_id)` работает после того, как ресурс удалён (per-service `ListOperations` больше не требует существования ресурса).
+## 4. Routing api-gateway (two-listener)
 
-## 4. Watch architecture (Kine-style)
+api-gateway — единственная edge-поверхность; backend каждого сервиса слушает gRPC
+`:9090`. Маршрутизация разнесена на два listener'а:
 
-Полное описание реализации — в `02-data-model-and-conventions.md` (секция «Watch + Outbox»). Кратко:
+- **External TLS** (advertised, для внешних клиентов) — только публичные сервисы и
+  публичные RPC.
+- **Cluster-internal `:9091`** — `Internal*`-сервисы и admin-RPC (UI, admin-tooling,
+  port-forward).
 
-1. **Outbox-таблица** в каждой service-БД (`resource_events`) хранит каждое мутирующее действие.
-2. **Транзакционная атомарность**: любая мутация ресурса + INSERT в outbox в одной транзакции.
-3. **Wake-up через `pg_notify`** на канале `kacho_<svc>` (без payload — только trigger).
-4. **In-process Watch Hub** в каждой реплике сервиса:
-   - Одна горутина с cursor по `resource_version`.
-   - Просыпается на NOTIFY (или ticker 100мс fallback).
-   - Читает свежие события из outbox, бродкастит в локальные in-memory channels.
-5. **Watch endpoint** (gRPC streaming) — каждый клиентский стрим — горутина, подписана на hub, фильтрует по selector-у, отправляет в gRPC stream.
-6. **Catch-up для отстающих клиентов** — клиент с `resourceVersion`, доступной в outbox-retention-окне (1 час), догоняет по запросу. С устаревшим — `Gone 410` → relist.
+`Internal.*` методы и `Internal*`-сервисы регистрируются **только** на internal mux
+(ban #6). Текущие Internal admin-ресурсы: `AddressPool` (`/vpc/v1/addressPools`),
+`Region`/`Zone`/`DiskType` (`/compute/v1/regions`, `/zones`, `/diskTypes`).
+Ответственность за корректную регистрацию — агент `api-gateway-registrar`.
 
-**Масштаб**: до миллионов ресурсов, до 100k concurrent watchers на сервисный кластер. Точка перехода на внешний broker (NATS JetStream) — заранее заложена, без изменений API.
+## 5. Асинхронное исполнение (Operation + outbox + polling)
 
-## 5. Reconciler-pattern
+Все мутации асинхронны и проходят через единый механизм (corelib `operations` +
+`outbox`); без внешнего брокера (Kafka/NATS) — транзакционный outbox.
 
-Сервисы с lifecycle (`compute`, `loadbalancer`) имеют reconciler — фоновую горутину, которая:
+1. **Мутация создаёт `Operation`** — RPC возвращает `Operation` (id с per-service
+   prefix), запись в `operations`-таблицу + INSERT в `outbox` — **в той же TX**, что
+   и (будущая) запись ресурса. Никаких dual-write race conditions.
+2. **Worker исполняет** — фоновая горутина-worker (corelib `operations.Worker`)
+   подхватывает запись, выполняет переход, транзакционно обновляет ресурс + `Operation`
+   (`done=true`, `result`) + outbox. Для iam/vpc — мгновенно; для compute —
+   детерминированная state-машина внутри worker'а.
+3. **Wake-up через `LISTEN/NOTIFY`** — INSERT в outbox шлёт `pg_notify` на
+   per-service канал; worker просыпается без busy-poll (ticker — fallback).
+4. **Клиент опрашивает** — `OperationService.Get(id)` до `done=true`; для списков —
+   `List` каждые 2-5 c. Публичного `Watch`-стриминга нет.
 
-1. Опрашивает БД на ресурсы с `status.state ≠ desired`-семантикой:
-   - Pending creation: `status.state IS NULL OR status.state = 'CREATING'`.
-   - Pending state change: `spec.desiredPowerState ≠ status.state` (для Instance).
-   - Pending restart: `metadata.restartedAt > status.lastRestartCompletedAt`.
-   - Pending deletion: `metadata.deletionTimestamp IS NOT NULL AND finalizers[] != []`.
-2. Берёт `pg_advisory_lock` на `resource_uid` (защита от двух reconciler-репик, обрабатывающих один ресурс).
-3. Выполняет переход (симулированно — `time.Sleep` на нужный интервал, реальный гипервизор не дёргается).
-4. Транзакционно обновляет `status` через `UpdateStatus` (своё internal-RPC) + outbox-event.
+**compute reconciler:** фоновый worker, который двигает state-машину Instance/Disk/
+Snapshot к целевому состоянию. Координация multi-replica — `pg_advisory_lock` на
+`resource_id` (защита от двойной обработки разными репликами); eventually-consistent.
 
-**Координация multi-replica:** каждая реплика независимо опрашивает БД. Advisory locks предотвращают двойную обработку. Eventually-consistent.
+Within-service инварианты на этом пути выражены DB-конструкциями (FK / partial-UNIQUE /
+EXCLUDE / CHECK / атомарный CAS / xmin-OCC / `FOR UPDATE SKIP LOCKED`), а не software
+check-then-act — детали в `02-data-model-and-conventions.md` и `data-integrity.md`.
 
-## 6. Config и DNS
+---
 
-- Каждый сервис конфигурируется через env-переменные (`envconfig`).
-- DNS внутри cluster: `<service>.kacho.svc.cluster.local`. В коде используются короткие имена (`compute`, `vpc`), k8s DNS добавляет суффикс.
-- Внешний endpoint: `http://api.kacho.local:80` (через ingress).
-- Адреса backend-ов в api-gateway-конфиге:
-  ```
-  KACHO_RESOURCE_MANAGER_GRPC=resource-manager.kacho.svc.cluster.local:9090
-  KACHO_VPC_GRPC=vpc.kacho.svc.cluster.local:9090
-  KACHO_COMPUTE_GRPC=compute.kacho.svc.cluster.local:9090
-  KACHO_LOADBALANCER_GRPC=loadbalancer.kacho.svc.cluster.local:9090
-  ```
-
-## 7. Health и observability (минимум)
-
-- **Health probes**: каждый сервис экспонирует `/healthz` (HTTP) и gRPC `grpc.health.v1.Health.Check`. K8s-Liveness и Readiness probes сконфигурированы.
-- **Metrics**: `/metrics` Prometheus-эндпоинт на каждом сервисе (закомментированный ServiceMonitor в helm-chart).
-- **Tracing**: OpenTelemetry SDK инициализируется условно (env `KACHO_OTEL_EXPORTER_OTLP_ENDPOINT`), в dev по умолчанию выключен.
-- **Логи**: structured JSON через `slog` в stdout. K8s `kubectl logs` достаточно в dev.
-
-Production-настройки observability stack (Loki/Grafana/Tempo) — отдельная фаза.
+Это раскладка сервисов и их контрактов. Следующая глава —
+`02-data-model-and-conventions.md` — фиксирует naming-таблицу, форму ресурса,
+error-каталог и per-service схемы данных, на которые ссылается этот документ.

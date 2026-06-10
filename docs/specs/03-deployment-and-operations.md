@@ -2,164 +2,148 @@
 
 **Документ:** 03 / 5
 
-## 1. Структура репозиториев (polyrepo)
+Архитектура из `01-architecture-and-services.md` (gRPC control plane, async
+`Operation`, transactional outbox) и конвенции из `02-data-model-and-conventions.md`
+(flat-ресурсы, error-format, ID-prefix) собираются в один развёртываемый стенд. Эта
+глава описывает физику: polyrepo-структуру, шаблон сервисного репо, локальную
+разработку на kind, helm, Postgres-per-service, CI и наблюдаемость.
 
-Все репо живут в организации `github.com/PRO-Robotech/`. Локально — соседние папки в workspace:
+## 1. Polyrepo: структура и build-граф
+
+Все репо живут в `github.com/PRO-Robotech/`. Workspace (`kacho-workspace`) — корневой
+git-репо; sibling-репо клонируются в `./project/` через `bootstrap.sh` (`project/` под
+gitignore, у каждого собственный `.git`). Сервисы — самостоятельные модули: склонировал
+→ собрал, между собой связаны только runtime-API.
+
+| Репо | Роль |
+|---|---|
+| `kacho-workspace` | корень: CLAUDE.md/rules, общие агенты, спеки, `bootstrap.sh`, `sync-tooling.sh` |
+| `kacho-proto` | **единственный** дом всех `.proto` (`proto/kacho/cloud/<domain>/v1/`) + commit-нутые Go-stubs (`gen/go/...`) |
+| `kacho-corelib` | горизонтальные Go-пакеты (ids / errors / config / observability / db / operations / outbox / …) |
+| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST. БД нет, бизнес-логики нет |
+| `kacho-iam` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding (`kacho_iam`) |
+| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface (`kacho_vpc`) |
+| `kacho-compute` | Instance / Disk / Image / Snapshot / DiskType + Geography Region/Zone (`kacho_compute`) |
+| `kacho-nlb` *(планируется)* | NetworkLoadBalancer / TargetGroup (`kacho_nlb`) |
+| `kacho-deploy` | dev-стенд (kind + helm + Postgres + ingress) + e2e |
+| `kacho-ui` | Vite + React SPA control plane |
+| `kacho-vpc-operator` | data-plane sibling VPC — spec-only, вне build-графа control plane |
+
+**Build-граф** (источник истины — `replace github.com/PRO-Robotech/…` в `*/go.mod`):
 
 ```
-cloud-demo/                              (workspace, не git, рабочая директория)
-├── kacho-workspace/                     git: kacho-workspace
-│   ├── CLAUDE.md
-│   ├── .claude/
-│   │   ├── agents/                      ← субагенты (см. CLAUDE.md & agents)
-│   │   └── settings.json
-│   ├── docs/specs/                      ← эта спека
-│   ├── bootstrap.sh
-│   ├── sync-all.sh
-│   └── go.work.example
-├── kacho-proto/                           git: kacho-proto
-│   ├── proto/kacho/cloud/<domain>/v1/   ← proto-определения
-│   ├── gen/go/kacho/cloud/<domain>/v1/  ← сгенерированные stubs (committed)
-│   ├── buf.yaml + buf.gen.yaml + buf.lock
-│   └── Makefile
-├── kacho-corelib/                       git: kacho-corelib
-│   ├── ids/                             ← UUID-helpers
-│   ├── errors/                          ← google.rpc.Status mapping
-│   ├── db/                              ← pgx pool, transactor
-│   ├── selector/                        ← FieldSelector + LabelSelector parser & SQL-builder
-│   ├── watch/                           ← in-process Watch Hub
-│   ├── outbox/                          ← outbox writer wrappers
-│   ├── grpcsrv/                         ← gRPC server bootstrap
-│   ├── grpcclient/                      ← gRPC client factory
-│   ├── observability/                   ← otel + slog setup
-│   ├── config/                          ← envconfig wrapper
-│   ├── audit/                           ← AuditLogger (no-op в текущей фазе)
-│   └── migrations/common/               ← общие миграции (resource_events, sequence)
-├── kacho-api-gateway/                   git: kacho-api-gateway
-├── kacho-resource-manager/              git: kacho-resource-manager
-├── kacho-vpc/                           git: kacho-vpc
-├── kacho-compute/                       git: kacho-compute
-├── kacho-loadbalancer/                  git: kacho-loadbalancer
-└── kacho-deploy/                        git: kacho-deploy
-    ├── kind/                            ← create-cluster.sh, kind-config.yaml
-    ├── helm/umbrella/                   ← umbrella chart
-    ├── helm/postgres/                   ← общий Postgres-chart (alias-используется per-сервис)
-    ├── helm/ingress/                    ← nginx-ingress конфиг
-    ├── e2e/                             ← API-наблюдаемые e2e-сценарии (bash + curl/grpcurl):
-    │                                       geography-move.sh, …  — гоняются в nightly CI job `e2e-on-kind`
-    │                                       (прежний cp-resource-model.sh для kube-ovn-эпохи data-plane
-    │                                       control-plane-модели удалён в KAC-36/79/80)
-    └── Makefile (dev-up, dev-down, reload-svc)
+kacho-proto                 ← ни от чего внутри проекта не зависит
+  └─ kacho-corelib          ← replace ../kacho-proto
+       ├─ kacho-iam         ┐ каждый сервис: replace ../kacho-corelib + ../kacho-proto
+       ├─ kacho-vpc         │ между собой сервисы НЕ зависят по build (DB-per-service,
+       ├─ kacho-compute     │ общение только по runtime-API)
+       └─ kacho-api-gateway ┘ (api-gateway импортирует proto-stubs всех доменов)
+kacho-deploy   ← Dockerfile'ы COPY ../kacho-*; build-context = parent dir
+kacho-ui       ← зависит от REST api-gateway в runtime (не build)
 ```
 
-### 1.1 Структура сервисного репо (шаблон)
+`replace ../` — осознанный выбор для polyrepo-dev в одном дереве; переход на versioned
+modules зарезервирован под релизную фазу. Новый `.proto` всегда заводится в `kacho-proto`;
+сервисные репо `.proto` не держат, только Go-импорт сгенерированных stubs.
+
+Кросс-репо фича катится топосортом графа: `kacho-proto` → `kacho-corelib` → сервис(ы) →
+`kacho-api-gateway` → `kacho-deploy` → `kacho-workspace` (docs). Подробности — в
+`.claude/rules/polyrepo.md`.
+
+## 2. Шаблон сервисного репо
+
+Каждый доменный сервис следует Clean Architecture (`.claude/rules/architecture.md`):
+`domain ← use-case ← repo/clients/handler`, единственная точка wiring — `cmd`.
 
 ```
 kacho-<svc>/
-├── cmd/<svc>/main.go                    ← entry point: subcommand `migrate` и `serve`
+├── cmd/
+│   ├── <svc>/main.go               ← composition root: serve (gRPC :9090 + :9091, health :8080)
+│   └── migrator/main.go            ← отдельный CLI миграций (goose, cobra)
 ├── internal/
-│   ├── domain/                          ← доменные типы
-│   ├── service/                         ← реализация *ServiceServer из proto
-│   ├── repo/                            ← Postgres-репозитории (sqlc + handwritten)
-│   │   ├── queries/*.sql                ← аннотированные запросы для sqlc
-│   │   ├── gen/                         ← sqlc output (committed)
-│   │   └── *.go                         ← handwritten wrappers
-│   ├── reconciler/                      ← фоновые воркеры (только compute и loadbalancer)
-│   ├── clients/                         ← gRPC-клиенты к peer-сервисам
-│   └── config/
-├── migrations/                          ← goose .sql + копия common/ из corelib
+│   ├── domain/                     ← entities + Validate(); только stdlib + kacho-proto
+│   ├── apps/kacho/api/<resource>/  ← use-cases (per-RPC); определяют port-интерфейсы
+│   ├── apps/kacho/config/          ← viper YAML config
+│   ├── repo/                       ← adapter: pgx + sqlc (queries/*.sql → gen/), CQRS Reader/Writer
+│   ├── clients/                    ← adapter: gRPC-клиенты к peer-сервисам (iam/vpc/compute)
+│   ├── handler/                    ← тонкий gRPC transport: parse → use-case → format
+│   ├── tenant/                     ← нейтральный носитель caller-identity (для authz)
+│   └── migrations/                 ← goose .sql (embed.FS); схема kacho_<domain>
 ├── deploy/
 │   ├── Chart.yaml + values.yaml + values.dev.yaml
-│   └── templates/
-│       ├── deployment.yaml              ← initContainer (migrate) + container (serve)
-│       ├── service.yaml
-│       ├── configmap.yaml
-│       ├── secret.yaml
-│       └── servicemonitor.yaml          ← закомментирован
+│   └── templates/                  ← deployment (initContainer migrate + serve), service, configmap, secret
+├── tests/newman/                   ← cases/*.py → gen.py → коллекции (black-box через api-gateway)
 ├── go.mod / go.sum
-├── Dockerfile                           ← multi-stage: builder + FROM scratch
+├── Dockerfile                      ← multi-stage builder + минимальный runtime-образ
 ├── Makefile
 └── .github/workflows/ci.yaml
 ```
 
-### 1.2 Тулинг (общий стек)
+Запреты слоёв: `domain`/use-case не импортируют pgx/grpc-stubs/sqlc-типы; бизнес-логика
+не живёт в `handler`; глобальные синглтоны — только в `cmd`. Конфиг — **YAML через viper**
+(не struct-tag-конфиг), секреты приходят из env поверх YAML. Каноничный Go-style ruleset —
+skill `evgeniy`.
 
-- **Go 1.22+**
-- **buf** (lint, breaking, generate)
-- **`google.golang.org/grpc`** + **`grpc-ecosystem/grpc-gateway/v2`**
-- **`mwitkow/grpc-proxy`** (для api-gateway)
-- **`jackc/pgx/v5`** + **`sqlc`**
-- **`pressly/goose`** (миграции)
-- **`log/slog`** (логирование)
-- **OpenTelemetry SDK**
-- **`kelseyhightower/envconfig`** (конфиг)
-- **`testify/require`** + **`testcontainers-go`** (тесты)
-- **`golangci-lint`** (линтер)
-- **Helm**, **kind**, **kubectl**, **docker**
+### Общий стек
 
-## 2. Локальная разработка
+- Go 1.25 · `google.golang.org/grpc` + `grpc-ecosystem/grpc-gateway/v2`.
+- `buf` (lint / breaking / generate) — в `kacho-proto`.
+- `jackc/pgx/v5` + `sqlc` (типизированные запросы) + `pressly/goose` (миграции). Без ORM.
+- `log/slog` + OpenTelemetry SDK (логи / метрики / трейсы).
+- `spf13/viper` (YAML-config) · `testify` + `testcontainers-go` + Newman (тесты).
+- Docker · Helm · kind · `golangci-lint` · `govulncheck`.
 
-### 2.1 Bootstrap
+## 3. Локальная разработка
 
-Разработчик начинает с пустой директории `cloud-demo/`:
+### 3.1 Bootstrap
+
+Разработчик клонирует workspace и разворачивает siblings одним скриптом:
 
 ```bash
-cd cloud-demo
 git clone git@github.com:PRO-Robotech/kacho-workspace.git
-./kacho-workspace/bootstrap.sh
-# Скрипт клонирует все kacho-* репо как соседние папки.
-cp kacho-workspace/go.work.example go.work
-# go.work не коммитится, локальный артефакт.
+cd kacho-workspace
+./bootstrap.sh          # клонирует все kacho-* репо в ./project/
+cp go.work.example go.work   # объединяет репо в Go workspace (не коммитится)
 ```
 
-В результате `cloud-demo/` содержит все репо как siblings, `go.work` объединяет их в Go workspace для локальной кросс-репо разработки.
+`go.work` — локальный артефакт для кросс-репо навигации/сборки в одном дереве.
+`./sync-tooling.sh` (вшит в `./sync-all.sh`) раскатывает generic AI-оснастку (rules /
+агенты / скилы / hooks) из `kacho-workspace/.claude/` в каждый `project/<repo>/.claude/`,
+чтобы репо был самодостаточен при standalone-клоне; источник истины — workspace, копии в
+репо руками не редактируются.
 
-### 2.2 Поднятие dev-стенда
+### 3.2 Поднятие стенда
 
 ```bash
-cd kacho-deploy
-make dev-up
+cd project/kacho-deploy
+make dev-up      # kind create cluster → build образов → kind load → helm install → wait ready
+make dev-down    # kind delete cluster
 ```
 
-Цепочка:
-1. `kind create cluster --config kind/kind-config.yaml --name kacho`.
-2. `kubectl apply -f` для namespace `kacho`.
-3. `helm dependency update` в `helm/umbrella/`.
-4. Сборка docker-images каждого сервиса (`make docker` в каждом репо), загрузка через `kind load docker-image`.
-5. `helm install kacho-umbrella helm/umbrella/ -n kacho -f helm/umbrella/values.dev.yaml`.
-6. Ожидание ready-status всех Pod-ов.
-7. Вывод сообщения «доступно на http://api.kacho.local» с напоминанием добавить запись в `/etc/hosts`.
+`make dev-up` (после `preflight`-проверки тулинга): создаёт kind-кластер, собирает
+docker-образы сервисов (build-context = parent dir, Dockerfile `COPY ../kacho-*`),
+загружает их в кластер через `kind load`, ставит umbrella-chart с `values.dev.yaml`,
+ждёт ready всех Pod-ов и печатает endpoint api-gateway. Для REST-доступа host добавляет
+запись в `/etc/hosts`.
 
-`make dev-down` — `kind delete cluster --name kacho`.
-
-### 2.3 Hot-reload одного сервиса
-
-```bash
-make reload-svc SVC=compute
-```
-
-Цепочка:
-1. `cd ../kacho-compute && docker build -t kacho-compute:dev .`
-2. `kind load docker-image kacho-compute:dev --name kacho`
-3. `kubectl rollout restart -n kacho deployment/compute`
-4. Ожидание ready.
-
-### 2.4 Прочие make-цели
+### 3.3 Итерация по одному сервису
 
 | Цель | Что делает |
 |---|---|
-| `make logs-svc SVC=compute` | `kubectl logs -f deploy/compute -n kacho` |
-| `make psql SVC=compute` | подключиться к pg-compute (psql внутри pod-а) |
-| `make integration-test` | поднимает testcontainers-Postgres локально (не kind), прогоняет integration-тесты |
-| `make e2e-test` | grpcurl/curl против `api.kacho.local`, проверяет основные сценарии (`e2e/*.sh`) |
+| `make reload-svc SVC=<iam\|vpc\|compute\|nlb>` | rebuild образа → `kind load` → `kubectl rollout restart` → wait ready |
+| `make logs-svc SVC=<svc>` | `kubectl logs -f` нужного deployment |
+| `make psql SVC=<svc>` | psql внутрь Postgres-пода схемы `kacho_<domain>` |
+| `make e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
 
-**E2E / CI-сценарии.** В `kacho-deploy/e2e/` живут API-наблюдаемые сценарии; nightly CI job `e2e-on-kind` гоняет среди прочего `geography-move.sh`. Newman-suite kacho-vpc ускорена (~7 мин → ~3 мин: меньше per-request-delay + параллельный прогон коллекций). (Прежний `cp-resource-model.sh` и MVP `kacho-vpc-implement` data-plane для kube-ovn-эпохи control-plane-модели удалены в KAC-36/79/80; будущий SRv6 data-plane — spec-only.)
+Integration-тесты (testcontainers Postgres) гоняются локально в каждом сервисном репо
+(`make test`), без kind. Методология тестов — `.claude/rules/testing.md`.
 
-**Admin-UI** (`kacho-ui`, admin-раздел): generic per-resource вкладка «jsonint» — internal-проекция ресурса для тех, кто объявляет `internalGetPath`. (Прежние вкладка «Hypervisors» и internal-проекции networks/network-interfaces для kube-ovn-эпохи data-plane-модели удалены в KAC-36/79/80.)
+## 4. kind cluster + helm umbrella
 
-## 3. kind cluster config
+### 4.1 kind config
 
-`kacho-deploy/kind/kind-config.yaml`:
+`kacho-deploy/kind/kind-config.yaml` поднимает single-node control-plane с
+ingress-ready node-label и проброшенным портом 80:
 
 ```yaml
 kind: Cluster
@@ -167,9 +151,7 @@ apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
     extraPortMappings:
-      - containerPort: 80
-        hostPort: 80
-        protocol: TCP
+      - { containerPort: 80, hostPort: 80, protocol: TCP }
     kubeadmConfigPatches:
       - |
         kind: InitConfiguration
@@ -178,126 +160,105 @@ nodes:
             node-labels: "ingress-ready=true"
 ```
 
-`/etc/hosts` host-машины:
+Все рабочие нагрузки — в namespace `kacho`. REST-доступ снаружи — через ingress на
+api-gateway по hostname, прописанному в `/etc/hosts` host-машины.
 
-```
-127.0.0.1 api.kacho.local kacho.local
-```
+### 4.2 Umbrella-chart
 
-## 4. Helm umbrella chart
-
-`kacho-deploy/helm/umbrella/Chart.yaml`:
+`kacho-deploy/helm/umbrella/` агрегирует ingress, по одному Postgres на сервис и сами
+сервисы (subchart на каждый домен):
 
 ```yaml
 apiVersion: v2
 name: kacho-umbrella
 version: 0.1.0
 dependencies:
-  - name: ingress-nginx
-    version: 4.x
-    repository: https://kubernetes.github.io/ingress-nginx
-  - name: postgresql
-    alias: pg-resource-manager
-    version: 13.x
-    repository: https://charts.bitnami.com/bitnami
-  - name: postgresql
-    alias: pg-vpc
-    ...
-  - name: postgresql
-    alias: pg-compute
-    ...
-  - name: postgresql
-    alias: pg-loadbalancer
-    ...
-  - name: api-gateway
-    version: 0.1.0
-    repository: file://../../../kacho-api-gateway/deploy
-  - name: resource-manager
-    version: 0.1.0
-    repository: file://../../../kacho-resource-manager/deploy
-  - name: vpc
-    version: 0.1.0
-    repository: file://../../../kacho-vpc/deploy
-  - name: compute
-    version: 0.1.0
-    repository: file://../../../kacho-compute/deploy
-  - name: loadbalancer
-    version: 0.1.0
-    repository: file://../../../kacho-loadbalancer/deploy
+  - { name: ingress-nginx, repository: "https://kubernetes.github.io/ingress-nginx" }
+  - { name: postgresql, alias: pg-iam,     repository: "https://charts.bitnami.com/bitnami" }
+  - { name: postgresql, alias: pg-vpc,     repository: "https://charts.bitnami.com/bitnami" }
+  - { name: postgresql, alias: pg-compute, repository: "https://charts.bitnami.com/bitnami" }
+  - { name: postgresql, alias: pg-nlb,     repository: "https://charts.bitnami.com/bitnami" }
+  - { name: api-gateway, repository: "file://../../../kacho-api-gateway/deploy" }
+  - { name: iam,         repository: "file://../../../kacho-iam/deploy" }
+  - { name: vpc,         repository: "file://../../../kacho-vpc/deploy" }
+  - { name: compute,     repository: "file://../../../kacho-compute/deploy" }
+  - { name: nlb,         repository: "file://../../../kacho-nlb/deploy" }   # планируется
 ```
 
-`templates/ingress.yaml` маршрутизирует `api.kacho.local` → service `api-gateway:8080`.
+Ingress маршрутизирует внешний REST-трафик на api-gateway. Внутрисервисные gRPC-вызовы
+идут напрямую (см. §6), не через ingress.
 
-## 5. Postgres per service (dev)
+## 5. Postgres-per-service (dev)
 
-Каждая БД — отдельный StatefulSet через Bitnami Postgres chart:
+Database-per-service (ban #8): у каждого домена своя БД и схема `kacho_<domain>` —
+общих БД нет, кросс-сервисных FK/cascade нет. В dev каждая БД — отдельный StatefulSet
+Bitnami Postgres-chart:
 
-| Alias | БД | User | Password |
-|---|---|---|---|
-| `pg-resource-manager` | `kacho_resource_manager` | `resource_manager` | dev-cred (генерится umbrella) |
-| `pg-vpc` | `kacho_vpc` | `vpc` | dev-cred |
-| `pg-compute` | `kacho_compute` | `compute` | dev-cred |
-| `pg-loadbalancer` | `kacho_loadbalancer` | `loadbalancer` | dev-cred |
+| Alias | БД | Схема |
+|---|---|---|
+| `pg-iam` | `kacho_iam` | `kacho_iam` |
+| `pg-vpc` | `kacho_vpc` | `kacho_vpc` |
+| `pg-compute` | `kacho_compute` | `kacho_compute` |
+| `pg-nlb` *(планируется)* | `kacho_nlb` | `kacho_nlb` |
 
-Persistence: **emptyDir** (в `values.dev.yaml`). Данные пропадают при `dev-down` — это сознательно, для воспроизводимости тестов.
+Persistence в `values.dev.yaml` — эфемерная: данные пропадают при `dev-down` (сознательно,
+для воспроизводимости тестов). Креды живут в k8s `Secret <svc>-db-credentials`; сервис
+монтирует только свой Secret через `secretKeyRef`. Production-вариант (PVC + replication +
+backup, External Secrets) — вне scope текущей фазы (см. `04-roadmap-and-phasing.md`).
 
-Production (вне scope текущей фазы): PVC + replication + backup.
+Схема накатывается init-контейнером сервиса (`cmd/migrator`, goose, embed.FS) до старта
+`serve`; применённые миграции не редактируются (ban #5) — только новая.
 
-Креденциалы хранятся в k8s `Secret <svc>-db-credentials` (генерируются helm-init-job-ом). Каждый сервис монтирует только свой Secret через `valueFrom.secretKeyRef`.
+## 6. Сервисный helm-chart и порты
 
-## 6. Сервисный helm-chart (детали)
-
-`kacho-<svc>/deploy/templates/deployment.yaml` (упрощённо):
+`kacho-<svc>/deploy/templates/deployment.yaml` (упрощённо) — initContainer прогоняет
+миграции, основной контейнер обслуживает запросы:
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: {{ .Values.name }}
-  namespace: kacho
 spec:
-  replicas: {{ .Values.replicas }}
   template:
     spec:
       initContainers:
         - name: migrate
           image: "{{ .Values.image }}"
-          command: ["/usr/local/bin/{{ .Values.name }}", "migrate", "up"]
+          command: ["/usr/local/bin/migrator", "up"]
           env:
             - name: KACHO_{{ .Values.name | upper }}_DB_DSN
-              valueFrom:
-                secretKeyRef:
-                  name: {{ .Values.name }}-db-credentials
-                  key: dsn
+              valueFrom: { secretKeyRef: { name: "{{ .Values.name }}-db-credentials", key: dsn } }
       containers:
         - name: {{ .Values.name }}
           image: "{{ .Values.image }}"
           command: ["/usr/local/bin/{{ .Values.name }}", "serve"]
           ports:
-            - name: grpc
-              containerPort: 9090
-            - name: rest
-              containerPort: 8080
-            - name: metrics
-              containerPort: 9091
-          readinessProbe:
-            httpGet: { path: /readyz, port: 8080 }
-          livenessProbe:
-            httpGet: { path: /healthz, port: 8080 }
+            - { name: grpc,          containerPort: 9090 }   # backend gRPC (external surface)
+            - { name: grpc-internal, containerPort: 9091 }   # Internal.* (cluster-only)
+            - { name: health,        containerPort: 8080 }   # healthz/readyz + /metrics
+          readinessProbe: { httpGet: { path: /readyz,  port: 8080 } }
+          livenessProbe:  { httpGet: { path: /healthz, port: 8080 } }
           env:
             - name: KACHO_{{ .Values.name | upper }}_DB_DSN
               valueFrom: { secretKeyRef: { ... } }
-            - name: KACHO_{{ .Values.name | upper }}_GRPC_PORT
-              value: "9090"
-            - name: KACHO_{{ .Values.name | upper }}_REST_PORT
-              value: "8080"
 ```
 
-`Service` экспонирует `9090` (gRPC) и `8080` (REST/health). API-gateway ходит на `9090`. Ingress (на api-gateway) ходит на `8080`.
+**Адресация (cluster-internal):** сервисы зовут друг друга напрямую по
+`<svc>.kacho.svc.cluster.local:9090`. Runtime-edges (синхронный gRPC, без циклов;
+`.claude/rules/polyrepo.md`):
 
-## 7. Конвенции CI per repo
+- `kacho-vpc → kacho-compute` — валидация `zone_id` (`ZoneService.Get`; Geography — домен compute).
+- `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
+- `* → kacho-iam` — `ProjectService.Get` (existence + account-lookup) + `InternalIAMService.Check` (authz-gate).
 
-Каждое сервисное репо имеет `.github/workflows/ci.yaml` (упрощённо):
+**api-gateway — two-listener edge:** external TLS-листенер для внешних клиентов + отдельный
+cluster-internal листенер (:9091) для UI/admin-tooling. `Internal.*` методы и `Internal*`-
+сервисы (`AddressPool` в kacho-vpc; admin-CRUD `Region`/`Zone`/`DiskType` в kacho-compute)
+проксируются **только** на cluster-internal mux и никогда не светятся на external endpoint
+(ban #6; `.claude/rules/security.md`). Регистрацию public-RPC в gateway-mux ведёт агент
+`api-gateway-registrar`.
+
+## 7. CI per repo
+
+У каждого репо — `.github/workflows/ci.yaml`; джоба `test` поднимает Postgres-service для
+integration-тестов, `build` собирает и публикует образ:
 
 ```yaml
 on: [push, pull_request]
@@ -305,86 +266,63 @@ jobs:
   test:
     runs-on: ubuntu-latest
     services:
-      postgres:
-        image: postgres:16
-        env: { POSTGRES_USER: test, POSTGRES_PASSWORD: test, POSTGRES_DB: test }
+      postgres: { image: postgres:16, env: { POSTGRES_USER: test, POSTGRES_PASSWORD: test, POSTGRES_DB: test } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
-        with: { go-version: '1.22' }
-      - run: make lint
-      - run: make test
-      - run: make integration-test
+        with: { go-version: '1.25' }
+      - run: make lint            # golangci-lint
+      - run: make test            # unit + integration (testcontainers)
+      - run: govulncheck ./...
   build:
     needs: test
     steps:
       - run: make docker
-      - run: docker push prorobotech/kacho-<svc>:${{ github.sha }}
+      - run: docker push ghcr.io/pro-robotech/kacho-<svc>:${{ github.sha }}
 ```
 
-`kacho-proto`-репо имеет дополнительный CI-step `buf breaking` против предыдущего тега — защита от breaking changes.
+`kacho-proto` дополнительно гоняет `buf lint` + `buf breaking` против предыдущего тега
+(защита от ломающих изменений контракта). Сервисы с публичными `List<Resource>` гоняют
+CI-гейт `make audit-list-filter` (каждый public List обязан фильтровать результат через
+listauthz). Пока вышестоящий репо не в `main`, нижестоящий CI временно пиннит sibling-`ref`
+к feature-ветке; после merge — обратно на `main`.
 
-## 8. CLAUDE.md иерархия
+## 8. AI-оснастка (кратко)
 
-Claude Code читает CLAUDE.md по дереву от текущей рабочей папки до `~`:
+Kachō разрабатывается, тестируется и сопровождается автономно через Claude Code. Оснастка —
+это «команда» из четырёх слоёв:
 
-1. **`~/.claude/CLAUDE.md`** — пользовательские предпочтения (язык ответов, стиль). Не трогаем.
-2. **`cloud-demo/kacho-workspace/CLAUDE.md`** — workspace-уровень: общая архитектура, naming, ссылки на документы.
-3. **`cloud-demo/kacho-<svc>/CLAUDE.md`** — service-уровень: как собрать, протестировать, миграции, специфика.
+- **rules** (`.claude/rules/*.md`) — нормативные правила (naming, api-conventions, polyrepo,
+  architecture, data-integrity, security, testing, git-youtrack, vault).
+- **agents** (`.claude/agents/*.md`) — роли: task-execution (acceptance-author, rpc-implementer,
+  migration-writer, api-gateway-registrar, …) и specialist-review (db-architect-reviewer,
+  go-style-reviewer, proto-api-reviewer, …); плюс domain-specific (`vpc-*`, `compute-*`).
+- **skills** (`.claude/skills/<name>/SKILL.md`) — экспертиза (`evgeniy` — Go-style, testing-coaches,
+  load-testing-coach).
+- **hooks** (`.claude/settings.json`) — дисциплина исполнения (cwd-only, без parent-walkup).
 
-`kacho-workspace/CLAUDE.md` содержит executive summary (сводно из этой спеки + ссылки), общие конвенции, запреты («НЕ упоминать yandex в handwritten коде», «НЕ ORM», «НЕ редактировать применённые миграции»), команды для частых задач. См. раздел 7 `kacho-workspace/CLAUDE.md` после первого `make dev-up`.
+Модель распространения — **self-sufficient репо + sync**: источник истины — `kacho-workspace/.claude/`;
+generic-оснастка физически дублируется в каждый `project/<repo>/.claude/` через `./sync-tooling.sh`,
+поэтому standalone-клон репо остаётся рабочим. Domain-агенты/скилы (`vpc-*`, `compute-*`) —
+нативные в своём репо, sync их не трогает. Полный список ролей и lifecycle-гейты (acceptance-first
+→ ticket → vault-context → cross-repo order → TDD → review → verify → trail) — в
+`.claude/rules/ai-tooling.md`; не дублируется здесь.
 
-## 9. Subagents (`.claude/agents/`)
+## 9. Health и observability
 
-В `kacho-workspace/.claude/agents/` живут 12 кастомных агентов (project-level, видны Claude Code из любой подпапки workspace). Они делятся на task-execution (делают работу — 7 шт) и specialist-review (дают экспертный взгляд — 5 шт).
+Каждый сервис экспонирует на health-порту (:8080):
 
-### 9.1 Task-execution агенты (делают работу)
+- **`/healthz`** — liveness (процесс жив); **`/readyz`** — readiness (pgx-pool поднят,
+  миграции применены, peer-клиенты сконфигурированы). Probes в deployment бьют именно их.
+- **`/metrics`** — Prometheus-формат через OpenTelemetry SDK: RPC-латентности/коды,
+  pgx-pool, длина и лаг outbox/operations-воркера.
 
-| Агент | Назначение |
-|---|---|
-| `acceptance-author` | **Первый агент в любой итерации.** Пишет acceptance-документ на человеко-читаемом языке (Given-When-Then) для нового RPC / sub-фазы / фичи. Использует данные из `02-data-model-and-conventions.md` для понимания, какие сценарии возможны. Output — markdown-файл в `kacho-workspace/docs/specs/`. Передаёт на approve агенту `acceptance-reviewer` (заказчик не подключается) **до** старта кодирования |
-| `proto-sync` | синхронизация upstream-источников proto-определений (если будем подсматривать YC); rewrite `yandex.cloud → kacho.cloud` |
-| `service-scaffolder` | создание нового сервисного репо из шаблона |
-| `rpc-implementer` | реализация одного RPC end-to-end **по утверждённому acceptance-документу**: TDD — сначала исполняемые тесты по сценариям документа (red), затем proto → handler → repo → миграция (green), потом refactor |
-| `migration-writer` | написание goose-миграций по конвенциям |
-| `api-gateway-registrar` | обновление маршрутизации в api-gateway при добавлении нового сервиса/RPC |
-| `integration-tester` | конвертация утверждённого acceptance-документа в исполняемые integration-тесты (`testcontainers-go` + Postgres) и e2e-bash-сценарии (`kacho-deploy/e2e/<sub-phase>/*.sh` через grpcurl). Один сценарий acceptance → один integration-тест + один e2e-сценарий |
+**Логи** — структурный `slog` (JSON в кластере), с request-id и caller-identity из
+`internal/tenant`. **Трейсы** — OpenTelemetry SDK (gRPC + pgx инструментированы); spans
+сшиваются по runtime-edges между сервисами. `INTERNAL`-ошибки наружу отдают фиксированный
+текст без leak'а pgx/SQL (`.claude/rules/data-integrity.md`), детальная причина — только в
+логах/трейсах.
 
-### 9.2 Specialist-review агенты (дают экспертный взгляд)
-
-| Агент | Назначение |
-|---|---|
-| `acceptance-reviewer` | **Approval gate для acceptance-документа.** Ревьюит черновик от `acceptance-author` на coverage спеки, полноту сценариев (positive/negative/edge), traceability, реалистичность scope. Возвращает `✅ APPROVED` или `❌ CHANGES REQUESTED` с конкретными замечаниями. Заказчик не подключается к этому шагу — он проверяет финальный smoke (см. `04-roadmap-and-phasing.md` §2 шаг 2) |
-| `system-design-reviewer` | ревью архитектурных решений с точки зрения distributed systems best practices |
-| `db-architect-reviewer` | ревью схем и миграций: индексы, FK-стратегия, JSONB vs scalar, OCC, keyset pagination |
-| `go-style-reviewer` | Go-специфичный clean code: error handling, context, generics, naming |
-| `proto-api-reviewer` | ревью proto-изменений: backward-compat, validation-аннотации, отсутствие `yandex` в `proto/kacho/`, buf-lint clean |
-
-### 9.3 Используем готовые (ничего не настраиваем)
-
-- `Explore`, `Plan`, `general-purpose`
-- `superpowers:code-reviewer`, `superpowers:brainstorming`, `superpowers:writing-plans`, `superpowers:test-driven-development`, `superpowers:systematic-debugging`, `superpowers:requesting-code-review`
-
-## 10. `.claude/settings.json` workspace-level
-
-```json
-{
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  }
-}
-```
-
-Локальная dev-машина — все Bash/Edit/Write автоматически разрешены. Можно ужесточить позже без переписывания агентов.
-
-## 11. Запреты (закреплены в `kacho-workspace/CLAUDE.md`)
-
-- **НЕ начинать кодирование** до утверждения acceptance-документа в формате Given-When-Then (см. `04-roadmap-and-phasing.md` §2). Контракт фиксируется текстом перед кодом, не наоборот.
-- НЕ упоминать «yandex» в handwritten-коде, README, комментариях, env-name, именах функций.
-- НЕ использовать ORM (gorm, ent, bun). sqlc + handwritten pgx.
-- НЕ делать каскадное удаление через границу сервиса (только same-DB FK cascade).
-- НЕ редактировать применённую миграцию. Только новая миграция.
-- НЕ писать в `status` через `/upsert` handler; только через `/upd-status` (internal).
-- НЕ маршрутизировать `Internal.*` методы через api-gateway наружу.
-- НЕ вводить broker (Kafka/NATS) до тех пор, пока in-process Watch Hub справляется с нагрузкой.
-- НЕ создавать новые «единые» БД — только database-per-service.
+Полноценный observability-стек (Loki / Grafana / Tempo / Prometheus) разворачивается в HA/
+production-фазе; в dev достаточно `/metrics` + `make logs-svc`. Дорожная карта — в
+`04-roadmap-and-phasing.md`.

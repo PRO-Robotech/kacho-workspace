@@ -42,7 +42,7 @@ Lifecycle ресурсов — детерминированная server-side st
 ## 3. Non-goals (явно вне scope текущей фазы)
 
 - **Реальный data plane**: гипервизоры, VXLAN, eBPF, BGP, SRv6, dataplane-агенты
-  (будущий data-plane sibling `kacho-vpc-implement` — spec-only, вне build-графа).
+  (data-plane sibling `kacho-vpc-operator` — вне build-графа control-plane).
 - **Биллинг, квоты, monitoring-стек, DNS, Object Storage, Managed Databases,
   Functions, Container Registry** — отдельные домены, отдельные фазы.
 - **Multi-region active-active, multi-cluster federation** — single region в текущей фазе.
@@ -52,8 +52,8 @@ Lifecycle ресурсов — детерминированная server-side st
 > **Дизайн-философия.** API проектируется в чистой, удобной форме под нужды Kachō.
 > Структура методов и состав ресурсов — собственные (например, `NetworkInterface` —
 > first-class ресурс домена kacho-vpc; `AddressPool` — admin-only IPAM-ресурс).
-> Стиль сообщений/ошибок/таймстемпов — единые конвенции Kachō (`.claude/rules/api-conventions.md`),
-> зафиксированные в `docs/architecture/` и проверяемые тестами.
+> Стиль сообщений/ошибок/таймстемпов — единые конвенции Kachō
+> (`.claude/rules/api-conventions.md` + глава `02`), проверяемые тестами.
 
 ## 4. Принципы дизайна
 
