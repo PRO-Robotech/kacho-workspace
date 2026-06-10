@@ -79,7 +79,7 @@
 - `SecurityGroup` + `SecurityGroupRule` — правила фильтрации. Без lifecycle. `network_id` **не обязателен** на `Create` — SG может быть folder-level / не привязан к сети (default-SG-on-network не меняется).
 - `RouteTable` + `StaticRoute` — таблицы маршрутизации. Без lifecycle.
 - `Address` — IP-адрес. Имеет minimal lifecycle status. Поддерживает internal IPv6: `Address.internal_ipv6_address` (oneof `{address, oneof scope{subnet_id}}`), `CreateAddressRequest.internal_ipv6_address_spec`, `InternalAddressService.AllocateInternalIPv6`; `ListAddressesRequest.subnet_id` фильтрует по v4 ИЛИ v6 internal `subnet_id`. `used_by` — best-effort usage-hint (`kacho.cloud.reference.Reference`), кто привязал адрес.
-- `NetworkInterface` (NIC) — first-class ресурс домена kacho-vpc (AWS-ENI-подобный). Принадлежит `Subnet` (`subnet_id`); ссылается на `Address`-ресурсы по id (`v4_address_ids[]`/`v6_address_ids[]` — один Address максимум на одном NIC, enforced на service-слое через `addresses.used` + `address_references`); несёт `security_group_ids[]` (default на `Create` = `Network.default_security_group_id`); имеет `used_by` (`kacho.cloud.reference.Reference` — кто его прикрепил; ставится `AttachToInstance`, чистится `DetachFromInstance`, зеркалит `Address.used_by`); `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`. Может быть создан без адресов. Публичная проекция — lean (control-plane-only). NIC compute-инстанса ссылается на VPC-NIC по `nic_id` (device-index — на `compute.v1.NetworkInterface.index`). (Прежняя internal data-plane-проекция NIC удалена в KAC-36/79/80.)
+- `NetworkInterface` (NIC) — first-class ресурс домена kacho-vpc. Принадлежит `Subnet` (`subnet_id`); ссылается на `Address`-ресурсы по id (`v4_address_ids[]`/`v6_address_ids[]` — один Address максимум на одном NIC, enforced на service-слое через `addresses.used` + `address_references`); несёт `security_group_ids[]` (default на `Create` = `Network.default_security_group_id`); имеет `used_by` (`kacho.cloud.reference.Reference` — кто его прикрепил; ставится `AttachToInstance`, чистится `DetachFromInstance`, зеркалит `Address.used_by`); `status ∈ {PROVISIONING, ACTIVE, AVAILABLE, FAILED, DELETING}`. Может быть создан без адресов. Публичная проекция — lean (control-plane-only). NIC compute-инстанса ссылается на VPC-NIC по `nic_id` (device-index — на `compute.v1.NetworkInterface.index`). (Прежняя internal data-plane-проекция NIC удалена в KAC-36/79/80.)
 
 **Cross-service validation:** при `Create` `Subnet` валидируется `networkId` (внутренняя FK same-DB) и `zoneId` (вызов `compute.v1.ZoneService.Get`). При `Create` ресурсов compute/loadbalancer, ссылающихся на VPC-ресурсы, **они** делают gRPC-вызов в `kacho-vpc`.
 
@@ -116,7 +116,7 @@
 
 **Ресурсы:**
 
-- `NetworkLoadBalancer` — L4 балансировщик. Lifecycle: `CREATING → ACTIVE`. Listeners и attached target-groups — inline JSONB-поля в `spec`, не отдельные ресурсы (по аналогии с YC NLB).
+- `NetworkLoadBalancer` — L4 балансировщик. Lifecycle: `CREATING → ACTIVE`. Listeners и attached target-groups — inline JSONB-поля ресурса, не отдельные ресурсы.
 - `TargetGroup` — группа таргетов (instance + subnet). Lifecycle: `CREATING → READY`.
 
 **Cross-service validation при upsert NLB:**

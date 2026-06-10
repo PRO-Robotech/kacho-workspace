@@ -1,53 +1,92 @@
 # Kachō Cloud Control Plane — Обзор и Scope
 
 **Документ:** 00 / 5
-**Дата:** 2026-05-03
-**Статус:** Draft, для ревью
+**Дата:** 2026-05-03 (актуализирован 2026-06-10)
+**Статус:** Living document
 
 ## 1. Что это
 
-Kachō — облачная управляющая платформа (control plane) с декларативным API в стиле Kubernetes/SGroups. Воспроизводит подмножество доменов Yandex Cloud (поля и семантика ресурсов) в Kubernetes-style envelope (`metadata` + `spec` + `status`).
+Kachō — **собственная** облачная управляющая платформа (control plane) с
+декларативным API. Это самостоятельный продукт со своей ресурсной моделью и
+конвенциями, удовлетворяющий требованиям проекта; не клон и не реплика какого-либо
+стороннего облака. Домены: **IAM** (Account / Project / User / ServiceAccount /
+Group / Role / AccessBinding), **VPC** (Network / Subnet / SecurityGroup /
+RouteTable / Address / Gateway / NetworkInterface), **Compute** (Instance / Disk /
+Image / Snapshot + Geography).
 
-**Только control plane.** Никаких реальных гипервизоров, SDN, dataplane-агентов. Lifecycle ресурсов с симулированными переходами состояний (PROVISIONING → RUNNING) — через server-side reconciler с искусственными задержками.
+API — **плоские ресурсы** (flat message с domain-полями на верхнем уровне, без
+вложенного envelope) + **асинхронные `Operation`** на каждой мутации. Чтения
+(`Get`/`List`) синхронны; мутации (`Create`/`Update`/`Delete` и domain-действия)
+возвращают `Operation`, клиент поллит `OperationService.Get(id)` до `done=true`.
+
+**Только control plane.** Никаких реальных гипервизоров, SDN, dataplane-агентов.
+Lifecycle ресурсов — детерминированная server-side state-машина внутри worker'а
+операции (симулированные переходы PROVISIONING → RUNNING), без реального железа.
 
 ## 2. Цели
 
-1. **Декларативный API**, симметричный современным K8s-style cloud control planes (Crossplane, ACK, GCP Config Connector). Единый паттерн для всех ресурсов: `upsert`/`delete`/`list`/`watch` + sub-resource updates.
-2. **Состав полей** ресурсов — берём из Yandex Cloud для familiar-домена (Compute, VPC, Load Balancer): `cores`, `memory`, `networkInterfaces`, `bootDisk`, и т. д.
-3. **Иерархия**: Organization → Cloud → Folder, как в YC. Без k8s-namespace.
-4. **Масштабируемость**: архитектура с расчётом на миллионы ресурсов (Postgres Outbox + in-process Watch Hub, Kine-style).
-5. **Open для будущего расширения**: AAA (IAM/mTLS/audit), observability stack, дополнительные домены (Object Storage, Managed DBs) — вне scope текущей фазы, но архитектурные точки для расширения зарезервированы.
+1. **Чистый декларативный API.** Единый предсказуемый паттерн на каждый ресурс:
+   `Get`/`List` (sync) + `Create`/`Update`/`Delete` (async через `Operation`) +
+   узкий набор domain-действий (`Start`/`Stop`/`AttachDisk`/`:addCidrBlocks`/…).
+2. **Практичный состав полей** для облачных доменов (Compute, VPC, IAM): `cores`,
+   `memory`, `networkInterfaces`, `bootDisk`, `cidrBlocks`, и т. д. — спроектирован
+   под удобство потребителя API, а не под копирование чужой схемы.
+3. **Иерархия владения**: Account → Project. Все ресурсы доменов — project-level
+   (`project_id` обязателен в `Create`).
+4. **Масштабируемость**: архитектура с расчётом на большой объём ресурсов
+   (Postgres + транзакционный outbox + per-service `operations`).
+5. **Открытость к расширению**: новые домены (DNS, Object Storage, Managed DBs,
+   Load Balancer) — отдельные сервисы/фазы; архитектурные точки расширения
+   зарезервированы.
 
-## 3. Non-goals (явно вне scope)
+## 3. Non-goals (явно вне scope текущей фазы)
 
-- **Реальный data plane**: гипервизоры, VXLAN, eBPF, BGP, dataplane-агенты.
-- **AAA**: IAM, federation, RBAC, mTLS, audit-сервис.
-- **TLS на edge**: сейчас HTTP-only. TLS добавляется одной фазой с AAA.
-- **Verbatim-совместимость с Yandex Cloud (proto-форма, error texts, status codes, behavioural semantics) — ОТЛОЖЕНА** (не текущее требование, см. `00`/CLAUDE.md врезку). API проектируется в чистой, удобной форме — допустимы расхождения с YC: NIC (`NetworkInterface`) как отдельный AWS-ENI-подобный first-class ресурс домена kacho-vpc, плоские ресурсы + Operations вместо YC-flat+sync. YC-compat — отдельная поздняя фаза (compat-слой), а не constraint на нынешний дизайн. (Прежняя kube-ovn-эпохи data-plane control-plane-привязка — vpn_id, internal-ресурс Hypervisor, NIC-dataplane-проекция — удалена в KAC-36/79/80; будущий SRv6 data-plane — `kacho-vpc-implement`, spec-only.)
-- **Биллинг, квоты, monitoring, console UI, DNS, Object Storage, Managed Databases, Functions, Container Registry** — отдельные домены, отдельные фазы.
+- **Реальный data plane**: гипервизоры, VXLAN, eBPF, BGP, SRv6, dataplane-агенты
+  (будущий data-plane sibling `kacho-vpc-implement` — spec-only, вне build-графа).
+- **Биллинг, квоты, monitoring-стек, DNS, Object Storage, Managed Databases,
+  Functions, Container Registry** — отдельные домены, отдельные фазы.
 - **Multi-region active-active, multi-cluster federation** — single region в текущей фазе.
-- **Message broker (Kafka/NATS)** — заменён локальной outbox+in-process-hub архитектурой.
+- **Внешний message broker (Kafka/NATS)** — заменён транзакционным outbox; не вводится,
+  пока in-process реализация справляется.
+
+> **Дизайн-философия.** API проектируется в чистой, удобной форме под нужды Kachō.
+> Структура методов и состав ресурсов — собственные (например, `NetworkInterface` —
+> first-class ресурс домена kacho-vpc; `AddressPool` — admin-only IPAM-ресурс).
+> Стиль сообщений/ошибок/таймстемпов — единые конвенции Kachō (`.claude/rules/api-conventions.md`),
+> зафиксированные в `docs/architecture/` и проверяемые тестами.
 
 ## 4. Принципы дизайна
 
-1. **Declarative > Imperative.** Желаемое состояние в `spec`, наблюдаемое в `status`, контрольные сигналы в `metadata`. Reconciler сходится к декларации.
-2. **Single source of truth.** Postgres — primary store; outbox — журнал событий; in-process hub — fan-out. Никаких dual-write race conditions.
-3. **Service autonomy.** Database-per-service, polyrepo, каждое репо самодостаточно (склонировал — собрал).
-4. **Standard envelope.** `metadata` / `spec` / `status` / `refs` единообразны для всех ресурсов.
-5. **Generic API surface.** 4 стандартных RPC (`upsert`/`delete`/`list`/`watch`) на каждый ресурс + узкий набор sub-resource (`upd-status`, тонкие imperative-RPC для discrete-триггеров).
-6. **K8s-conventional control signals.** `metadata.deletionTimestamp`, `metadata.finalizers[]`, `metadata.generation`, `metadata.restartedAt` — те же роли, что в Kubernetes.
-7. **Future-proof scaling path.** Architecture даёт линейный рост через replicas; точка перехода на внешний broker и distributed DB чётко определена и не ломает API.
-8. **Test-first / BDD-style разработка.** Каждая итерация (sub-фаза, новый RPC, фича) **начинается с описания приёмочных тест-кейсов на понятном человеку языке** (формат Given-When-Then в markdown). Эти описания проходят **валидацию заказчика/команды до начала кодирования**. Только после approve кейсы конвертируются в исполняемые тесты, и разработка идёт до прохождения этих тестов. Кодинг без утверждённых acceptance — запрещён. Подробности процесса — в `04-roadmap-and-phasing.md` §3.
+1. **Плоские ресурсы + асинхронные Operations.** Domain-поля на верхнем уровне; все
+   мутации — long-running `Operation`. Никаких синхронных возвратов ресурса из мутаций.
+2. **Single source of truth.** Postgres — primary store; транзакционный outbox в той же
+   TX, что и мутация, — журнал событий. Никаких dual-write race conditions.
+3. **Опрос вместо стриминга.** Клиент использует `List`-polling и `OperationService.Get`
+   для in-flight задач; серверного Watch-стриминга на публичной поверхности нет.
+4. **Инварианты — на уровне БД.** Ссылочная целостность и инварианты внутри одной БД
+   сервиса выражаются конструкциями Postgres (FK / partial-UNIQUE / EXCLUDE / CHECK /
+   атомарный CAS), а не software-side check-then-act (`.claude/rules/data-integrity.md`).
+5. **Service autonomy.** Database-per-service, polyrepo; каждое репо самодостаточно
+   (склонировал — собрал). Между сервисами — только API, общих БД нет.
+6. **Clean Architecture.** `domain ← use-case ← repo/clients/handler`; `cmd` —
+   composition root (`.claude/rules/architecture.md`).
+7. **Test-first / BDD.** Каждая итерация начинается с приёмочных Given-When-Then в
+   markdown, проходит approve до кодирования; затем — строгий TDD (RED → GREEN).
+   Кодинг без утверждённого acceptance запрещён (`04-roadmap-and-phasing.md` §3).
 
-## 5. Сервисы текущей фазы (5)
+## 5. Сервисы текущей фазы
 
 | Сервис | Ресурсы | Postgres БД |
 |---|---|---|
-| `kacho-api-gateway` | — (edge proxy) | — |
-| `kacho-resource-manager` | Organization, Cloud, Folder | `kacho_resource_manager` |
-| `kacho-vpc` | Network, Subnet, SecurityGroup, RouteTable, Address, NetworkInterface | `kacho_vpc` |
-| `kacho-compute` | Instance, Disk, Image (read-only catalog), Snapshot | `kacho_compute` |
-| `kacho-loadbalancer` | NetworkLoadBalancer, TargetGroup | `kacho_loadbalancer` |
+| `kacho-api-gateway` | — (edge: gRPC-proxy + REST-фасад) | — |
+| `kacho-iam` | Account, Project, User, ServiceAccount, Group, Role, AccessBinding | `kacho_iam` |
+| `kacho-vpc` | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface | `kacho_vpc` |
+| `kacho-compute` | Instance, Disk, Image, Snapshot, DiskType + Geography (Region, Zone) | `kacho_compute` |
+| `kacho-nlb` *(планируется)* | NetworkLoadBalancer, TargetGroup | `kacho_nlb` |
+
+`kacho-corelib` — переиспользуемые горизонтальные пакеты (ids / errors / config /
+observability / db / operations / outbox / …). `kacho-proto` — центральная директория
+всех `.proto` + сгенерированных stubs.
 
 ## 6. Бренд и naming
 
@@ -62,25 +101,26 @@ Kachō — облачная управляющая платформа (control p
 
 ## 7. Стек
 
-- **Язык**: Go 1.22+.
+- **Язык**: Go 1.25.
 - **API**: gRPC + grpc-gateway (REST-фасад).
 - **Proto**: buf (lint, breaking-change detection, code generation).
 - **БД**: Postgres 16, `pgx/v5`, `sqlc` для типизированных запросов, `goose` для миграций.
-- **Watch**: Postgres outbox + in-process Watch Hub (Kine-inspired) с Postgres `LISTEN/NOTIFY` как wake-up signal.
+- **Async**: per-service `operations`-таблица + worker (corelib `operations`) +
+  транзакционный outbox с `LISTEN/NOTIFY` как wake-up signal.
 - **Логи / metrics / tracing**: `slog`, OpenTelemetry SDK.
 - **Контейнеризация и orchestration**: Docker, Helm, kind.
-- **Тесты**: `testing` + `testify` + `testcontainers-go` для интеграционных.
+- **Тесты**: `testing` + `testify` + `testcontainers-go` (integration) + Newman (e2e).
 
 ## 8. Дорожная карта
 
-**Текущая фаза (Bootstrap)** разбита на 7 sub-итераций (0.1–0.7). Каждая sub-итерация получает свой план реализации (см. `04-roadmap-and-phasing.md`).
-
 **Будущие фазы** (порядок приоритета):
 
-1. AAA — IAM, mTLS, audit, RBAC.
+1. AAA — IAM (в работе: `kacho-iam`), mTLS, audit, RBAC.
 2. Observability — Loki, Grafana, Tempo, Prometheus.
 3. HA / Production — Postgres replication, multi-replica services, External Secrets, real ingress.
-4. Расширение доменов — DNS, Object Storage, Managed DBs, и далее.
+4. Расширение доменов — Load Balancer (`kacho-nlb`), DNS, Object Storage, Managed DBs, и далее.
+
+Детализация sub-итераций — `04-roadmap-and-phasing.md`.
 
 ## 9. Дальнейшее чтение
 

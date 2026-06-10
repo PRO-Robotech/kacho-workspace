@@ -212,7 +212,7 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.7.0`
 
-## 2026-05-04 — Sub-phase 1.0 (flat API + Operations, verbatim YC) завершена
+## 2026-05-04 — Sub-phase 1.0 (flat API + Operations) завершена
 
 **Major version bump.** Полностью переделан API-контракт. Теги 0.x остаются как frozen.
 
@@ -220,19 +220,19 @@ dev-стенд за < 3 минут.
 - K8s-style envelope (`metadata/spec/status`) — больше нет
 - Watch RPC + WebSocket-streaming + `kacho-corelib/watch/` пакет — удалены
 - Custom `Internal*Service` методы — заменены на Operations
-- Hand-written 1.0 (промежуточная итерация) — заменена на verbatim YC sync
+- Hand-written промежуточная итерация — заменена на унифицированный sync-read + async Operations контракт
 
 **Что добавлено:**
 
-### Proto (verbatim YC, namespace `kacho.cloud.*`)
-- 71 .proto файл скопирован verbatim из `yandex-cloud/cloudapi`:
+### Proto (namespace `kacho.cloud.*`)
+- 71 .proto файл заведён под namespace `kacho.cloud.*`:
   - `kacho/cloud/resourcemanager/v1/` (cloud, folder + services)
   - `kacho/cloud/organizationmanager/v1/` (organization + service)
   - `kacho/cloud/vpc/v1/` (network, subnet, address, route_table, security_group, gateway, privatelink + services)
   - `kacho/cloud/compute/v1/` (frozen)
   - `kacho/cloud/loadbalancer/v1/` (frozen)
   - `kacho/cloud/operation/`, `api/`, `access/`, `validation.proto` — extension stack
-- Rewrites: `yandex.cloud` → `kacho.cloud`, `yandex-cloud/go-genproto` → `PRO-Robotech/kacho-proto`, `Yandex` mentions → `Kachō`. `make verify-no-yandex` clean.
+- Все proto package / go import-пути — под `kacho.cloud` / `PRO-Robotech/kacho-proto`; CI-гейт `make verify-no-yandex` (гигиена: сторонних брендов в коде нет) — clean.
 - 131 сгенерированный .pb / .pb.gw файл
 
 ### kacho-corelib (1.0)
@@ -242,16 +242,16 @@ dev-стенд за < 3 минут.
 - Удалены: `watch/`
 
 ### Backend services (3 active)
-- **kacho-resource-manager** — Get/List/Create/Update/Delete для Organization (organizationmanager.v1) + Cloud + Folder. Hard-delete (verbatim YC, no soft-delete). 75.6% coverage. Default Org/Cloud/Folder bootstrap.
+- **kacho-resource-manager** — Get/List/Create/Update/Delete для Organization (organizationmanager.v1) + Cloud + Folder. Hard-delete (no soft-delete). 75.6% coverage. Default Org/Cloud/Folder bootstrap. *(Домен позже упразднён в KAC-124 → Account/Project в kacho-iam.)*
 - **kacho-vpc** — Get/List/Create/Update/Delete для Network/Subnet/Address/RouteTable. Address с oneof External/Internal. Subnet с `v4_cidr_blocks []string`. RouteTable со `static_routes` JSONB. SecurityGroup/Gateway/PrivateLink — UNIMPLEMENTED stubs. 64.4% coverage.
-- **kacho-api-gateway** — REST mux для 6 services + OpsProxy для OperationService.Get/Cancel (no List у YC). Domain prefix routing. wsproxy удалён (Watch ушёл).
+- **kacho-api-gateway** — REST mux для 6 services + OpsProxy для OperationService.Get/Cancel (List не экспонируется). Domain prefix routing. wsproxy удалён (Watch ушёл).
 
 ### Frozen (не реализованы в 1.0)
-- **kacho-compute** — proto verbatim YC, backend код от 0.x несовместим. Frozen до отдельной фазы.
+- **kacho-compute** — proto заведён, backend код от 0.x несовместим. Frozen до отдельной фазы.
 - **kacho-loadbalancer** — то же самое.
 
 ### kacho-ui — 7 ресурсов
-- Vite + React 19 + TS + Tailwind + shadcn — собран под verbatim YC URLs:
+- Vite + React 19 + TS + Tailwind + shadcn — собран под REST-URL'ы 1.0:
   - `/organization-manager/v1/organizations`, `/resource-manager/v1/clouds`, `/resource-manager/v1/folders`
   - `/vpc/v1/{networks,subnets,addresses,route-tables}`
   - `/operations/{id}` для polling
@@ -269,8 +269,8 @@ dev-стенд за < 3 минут.
 - `verify-no-yandex` — clean во всех репо
 
 **Найденные/исправленные проблемы:**
-- buf STANDARD lint требовал ENUM_VALUE_PREFIX — добавлены в `buf.yaml::lint.except` (YC использует короткие enum values без prefix)
-- DeletedAt soft-delete pattern был у hand-written 1.0 — выкинут (verbatim YC = hard-delete)
+- buf STANDARD lint требовал ENUM_VALUE_PREFIX — добавлены в `buf.yaml::lint.except` (короткие enum values без prefix — осознанный выбор)
+- DeletedAt soft-delete pattern был у hand-written 1.0 — выкинут (контракт 1.0 = hard-delete)
 - Operation.id `UUID PRIMARY KEY` в БД блокировал prefix — поменяли на `TEXT`
 - Worker использовал request-ctx → cross-service gRPC падали с canceled — переключили на `context.Background()`
 
