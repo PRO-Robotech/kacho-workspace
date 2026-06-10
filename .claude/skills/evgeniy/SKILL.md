@@ -513,7 +513,7 @@ err := parallel.ExecAbstract(ctx,
 
 @EvgenyGRI: *«не понимаю зачем тут плодить какие-то асинхронные операции, когда тут вся работа ведётся в обслуживании репозитория»*.
 
-**L.1 — Архитектурное решение зафиксировано (workspace `CLAUDE.md` §«API contract — flat resources + Operations»):** все мутирующие RPC возвращают `Operation` (long-running async). Это **proto-контракт верхнего уровня** Kachō (verbatim YC), не bug. Менять не предполагается.
+**L.1 — Архитектурное решение зафиксировано (workspace `CLAUDE.md` §«API contract — flat resources + Operations»):** все мутирующие RPC возвращают `Operation` (long-running async). Это **proto-контракт верхнего уровня** Kachō, не bug. Менять не предполагается.
 
 **L.2 — Внутри Operation worker'а — НЕ оторванный контекст.** См. I.3. Это исправляется в `kacho-corelib/operations`, не в каждом сервисе.
 
@@ -741,6 +741,57 @@ type Network struct {
 }
 ```
 
+### AP-13: per-field `update_*`/`replace_*` флаги вместо `FieldMask update_mask`
+
+**Контракт partial-update — ОДИН на весь проект: `google.protobuf.FieldMask update_mask`.**
+Любой `Update`-RPC выражает «какие поля менять» через `update_mask` + дисциплину
+§4.4 (known-set / immutable / empty-mask=full-PATCH). Изобретать булевы флаги
+вида `update_is_default` / `replace_labels` — **запрещено**, ресурсов. Две конвенции partial-update в одном
+API — footgun.
+
+```protobuf
+// ❌ per-field флаги (AddressPool до unify) — отдельная конвенция, рассинхрон с
+//    остальными Update-RPC, и UI/SDK о ней не знает.
+message UpdateAddressPoolRequest {
+  string pool_id = 1;
+  bool   update_is_default = 7;   bool is_default = 8;
+  bool   replace_labels = 4;      map<string,string> labels = 5;
+  bool   update_selector_priority = 11; int32 selector_priority = 12;
+}
+```
+
+```protobuf
+// ✅ FieldMask (parity со всеми VPC/Compute/IAM Update-RPC)
+message UpdateAddressPoolRequest {
+  string pool_id = 1 [(required) = true];
+  google.protobuf.FieldMask update_mask = 17;   // набор изменяемых полей
+  string name = 2;  string description = 3;  map<string,string> labels = 5;
+  bool is_default = 8;  map<string,string> selector_labels = 10;  int32 selector_priority = 12;
+}
+```
+
+```go
+// use-case (parity с SubnetService): immutable в mask → InvalidArgument,
+// unknown → InvalidArgument (corevalidate.UpdateMask), пустой mask → full-PATCH.
+for _, f := range req.UpdateMask {
+    switch f {
+    case "kind", "zone_id", "id", "created_at":
+        return nil, serviceerr.InvalidArg(f, f+" is immutable after <Res>.Create")
+    }
+}
+if err := corevalidate.UpdateMask("update_mask", req.UpdateMask, knownMutable); err != nil { return nil, err }
+updates := req.UpdateMask
+if len(updates) == 0 { updates = allMutableFields }  // full-PATCH
+for _, f := range updates { /* применить только masked поля */ }
+```
+
+> **Реальный инцидент (cautionary tale):** AddressPool жил на per-field флагах,
+> пока остальные 7 VPC-ресурсов — на `update_mask`. UI-форма строила `update_mask`
+> (как для всех), бэкенд молча отбрасывал неизвестное поле + игнорировал
+> `is_default` без `update_is_default` ⇒ `PATCH` отдавал `200`, но переключатель
+> «Default» не применялся (silent no-op). Унифицировано на FieldMask;
+> per-field флаги удалены из proto (`reserved`).
+
 ---
 
 ## §12. Step-by-step migration plan для kacho-vpc
@@ -897,6 +948,7 @@ type Network struct {
 - [ ] Нет `XxxReq`/`XxxResp`, дублирующих domain.
 - [ ] `operations.Run` worker получает ctx с copied baggage (trace/request-id/slog-attrs).
 - [ ] Нет race-prone `Exists`-prechecks перед Insert (полагаемся на FK).
+- [ ] `Update`-RPC использует `google.protobuf.FieldMask update_mask` (НЕ per-field `update_*`/`replace_*` флаги — AP-13); known-set/immutable дисциплина §4.4; пустой mask → full-PATCH.
 
 ### DTO
 - [ ] Нет ручных `func ToPb(d domain.X) *pbX` — через `dto.RegTransfer` + `dto.Transfer(dto.FromTo(...))`.

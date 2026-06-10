@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Stop hook — проверка vault state перед окончанием session.
-VAULT="/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/obsidian/kacho"
-PROJ="/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/project"
+# Корень workspace берём из $CLAUDE_PROJECT_DIR (выставляет Claude Code в hook-env);
+# fallback — каталог на 2 уровня выше скрипта (.claude/hooks/ → workspace root).
+ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+VAULT="$ROOT/obsidian/kacho"
+PROJ="$ROOT/project"
 
 # 1. Активные KAC-тикеты в vault — напоминание про status update
 INPROG=$(grep -rlE "^status: (in-progress|test)" "$VAULT/KAC/" 2>/dev/null | head -5)
@@ -23,7 +26,7 @@ fi
 
 # 3. Open PR'ы по KAC-эпикам — проверить нужно ли trail обновить
 if command -v gh >/dev/null 2>&1; then
-  for repo in kacho-vpc kacho-deploy kacho-compute kacho-resource-manager kacho-api-gateway kacho-corelib kacho-proto; do
+  for repo in kacho-vpc kacho-deploy kacho-compute kacho-iam kacho-api-gateway kacho-corelib kacho-proto; do
     if [ -d "$PROJ/$repo/.git" ]; then
       OPEN=$(cd "$PROJ/$repo" && gh pr list --state open --json number,title 2>/dev/null | python3 -c "
 import sys,json

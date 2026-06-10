@@ -3,7 +3,7 @@ name: load-testing-coach
 description: Use when designing or extending performance/load/stress/soak/spike/breakpoint tests using k6 or equivalent tooling. Owns benchmarking methodology, SLO/SLA definition, capacity planning, bottleneck identification (CPU/memory/network/DB-pool/connection-limit), result analysis (p50/p95/p99/error rate/RPS curve), reproducibility, comparison between runs. Separates load testing from functional tests (newman) and from production observability. Defers product-functional tests to testing-product-coach and code-level benchmarking to testing-code-coach.
 ---
 
-# Агент: load-testing-coach
+# Skill: load-testing-coach
 
 ## 1. Когда меня вызывают
 
