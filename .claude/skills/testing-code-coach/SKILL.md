@@ -18,7 +18,7 @@ description: Use when designing, writing, or reviewing tests for production code
 ## 2. Когда меня НЕ вызывать
 
 - Расширение Newman regression suite — это `testing-product-coach` или `qa-test-engineer`.
-- Conformance с verbatim YC текстами / response-формами — `vpc-yc-parity-auditor`.
+- Conformance с каноническими Kachō текстами/контрактом ошибок — `vpc-conventions-auditor`.
 - Спорные кейсы в CIDR / EXCLUDE — `vpc-cidr-specialist`.
 - Outbox / Watch testing с реальной БД — `vpc-outbox-watch-engineer` + я.
 - Acceptance-spec — `acceptance-author`.
@@ -362,7 +362,7 @@ Mocks тянут к interaction-based, fakes — к state-based. Выбирай 
 
 Для сложных выходных артефактов (большой JSON-объект, generated SQL,
 HTML-fragment) сравнение с эталонным snapshot'ом. Полезно для
-proto-форм и regex-проверок verbatim-YC.
+proto-форм и regex-проверок канонического контракта ошибок Kachō.
 
 Анти-паттерн: snapshot обновляется автоматически при изменении output —
 тест становится no-op. Snapshot всегда обновляется руками с
@@ -401,13 +401,16 @@ shared proto + reflection-based tests.
 
 Похоже на snapshot, но интерактивнее: тест печатает результат, человек
 "одобряет" (commit'ит) ровно один раз. Затем каждый прогон сравнивает с
-одобренным. Хорошо для error-message текстов (verbatim YC).
+одобренным. Хорошо для error-message текстов (канонические строки Kachō,
+зафиксированные в `docs/architecture/`).
 
 ### 4.14 Differential / Comparison Testing
 
-Прогоняем тот же сценарий против двух систем (своя реализация vs
-эталонная), сравниваем результаты. У нас Newman делает именно это:
-`--env local` против `--env yc`, ожидая идентичный response.
+Прогоняем тот же сценарий против двух реализаций одного контракта и
+сравниваем результаты. Применимо, когда есть независимый oracle
+(референс-реализация алгоритма или предыдущая версия сервиса при
+рефакторинге без изменения контракта): один и тот же набор входов
+гоним против обеих, расхождение в response — сигнал регрессии.
 
 ---
 
@@ -550,9 +553,11 @@ Use-case с внутренним состоянием (счётчик, кэш, r
 
 Реализация: бенчмарк или счётчик запросов в integration-тесте.
 
-### 6.6 Verbatim-внешний контракт
+### 6.6 Замороженный контракт ошибок
 
-Если контракт замораживается (как verbatim YC у нас), тесты на:
+Канонический контракт ошибок Kachō (тексты, коды, форматы — зафиксированы
+в `docs/architecture/` и `api-conventions.md`) трактуется как замороженный:
+меняется только осознанно через тикет. Тесты на:
 
 - точный текст ошибки (byte-level),
 - gRPC-код,
@@ -608,7 +613,7 @@ Test<Subject>_<Action>_<ExpectedOutcome>[_<UnderCondition>]
 ### 7.5 Fixtures vs factories
 
 **Fixture** — статический файл (JSON, SQL dump), читаемый перед
-тестом. Хорош для verbatim-контрактов и approval-тестов.
+тестом. Хорош для byte-exact замороженных контрактов и approval-тестов.
 
 **Factory** — функция, генерирующая объект с параметрами. Хороша
 для unit-тестов use-case.
@@ -728,7 +733,7 @@ Negative-тестов должно быть **больше**, чем positive.
 |---|---|---|
 | Pre-commit hook (локально) | gofmt + go vet + unit с -short | < 30s |
 | PR commit | Полный unit + integration | < 10min |
-| PR merge / nightly | + e2e (Newman local + smoke YC) | < 30min |
+| PR merge / nightly | + e2e (Newman против dev-стенда) | < 30min |
 | Release | + perf benchmarks + mutation testing | < 2h |
 
 ### 9.2 Selective test running
@@ -790,16 +795,16 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 - Каждая suite-collection начинается с `00-preflight` и
   заканчивается `99-teardown`.
 - Кейсы работают только в `{{_suiteProjectId}}`, не создают свои
-  org/cloud/project.
-- `--env local` против Kachō, `--env yc` против реального YC —
-  одна и та же коллекция (differential testing).
+  account/project.
+- Одна и та же коллекция гоняется через `--env`-окружения (локальный
+  стенд, dev, staging) — единый источник кейсов для всех сред.
 
 ### 10.4 Конкретные инварианты для Kachō
 
 | Сервис | Обязательный инвариант | Уровень теста |
 |---|---|---|
 | Все | Garbage id → NOT_FOUND, не INVALID_ARGUMENT | unit handler |
-| Все | Verbatim YC error texts | snapshot/approval |
+| Все | Канонические тексты ошибок Kachō | snapshot/approval |
 | VPC | CIDR overlap → FAILED_PRECONDITION (EXCLUDE) | repo integration |
 | VPC | AllocateExternalIP idempotent | service unit + integration |
 | VPC | AllocateExternalIP race-free (N concurrent) | integration |
@@ -828,7 +833,7 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 - [ ] Garbage id → NotFound, не InvalidArgument.
 - [ ] Operation: done=true + правильный response type для Create/Update,
       `google.protobuf.Empty` для Delete.
-- [ ] Verbatim YC error text byte-level (если verbatim-required).
+- [ ] Канонический текст ошибки Kachō byte-level (если контракт заморожен).
 - [ ] Outbox-emit транзакционен с основной операцией.
 - [ ] AuthMode production-mode: anonymous → PermissionDenied.
 
@@ -857,10 +862,10 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 | Equivalence partitioning | Дискретная классификация входа | Низкая | Низкая |
 | Combinatorial / pairwise | Функции с N параметрами | Средняя | Низкая |
 | Golden master / snapshot | Сложный generated output | Низкая | Средняя |
-| Approval | Замороженный контракт (verbatim YC) | Низкая | Низкая |
+| Approval | Замороженный контракт (канонические тексты Kachō) | Низкая | Низкая |
 | Mutation | Критичный модуль, валидация качества тестов | Высокая | — |
 | Fuzz | Парсеры user-input | Средняя | Низкая |
-| Differential | Replica system (Kachō vs YC) | Средняя | Средняя |
+| Differential | Независимый oracle / референс-реализация | Средняя | Средняя |
 | Contract (consumer-driven) | Кросс-сервисный контракт | Высокая | Низкая |
 | Stress / race | Concurrent code | Средняя | Средняя |
 
