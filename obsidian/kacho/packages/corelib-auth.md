@@ -54,6 +54,14 @@ const (
 > и grpc/metadata. Adapter, который читает Principal из incoming MD (server-side),
 > живёт в `corelib/grpcsrv`.
 
+> [!important] SEC-B — инвариант доверия principal ⟺ mTLS (FD-4)
+> На mTLS internal-listener'е principal-metadata (`x-kacho-principal-*`) доверяется
+> **только если** peer прошёл mTLS client-cert verify (см. `grpcsrv.UnaryTrustedPrincipalExtract`
+> / `TrustedPrincipalFromContext`). cert-identity (модуль, из SAN `spiffe://kacho.cloud/...`,
+> `grpcsrv.CertIdentity`) и principal (пользователь, из MD) — **ортогональны**, оба логируются
+> для аудита, не подменяют друг друга. insecure-listener (`enable=false`, dev) — инвариант
+> неприменим, principal принимается как сейчас. Резолв cert-identity → ServiceAccount — SEC-C.
+
 ## Imported by
 
 - kacho-vpc — `internal/apps/kacho/check/check_client.go` (IAM Check),
