@@ -74,8 +74,28 @@ tags:
 - KAC-127: удаление SA каскадно удаляет `service_account_oauth_clients` + `federation_trust_policies` (CASCADE). НЕ каскадит на GroupMember/AccessBinding (soft-ref).
 - На KAC-105: SA без OAuthClient не может «логиниться» — только хранится как identity-stub. KAC-127 Phase 5 включает реальный workload identity flow.
 
+## Module service-accounts (SEC-C, least-priv ReBAC)
+
+[[../KAC/SEC-C-iam-fga-proxy-sa-roles]] seed-миграция `0009` сидит **5 системных module-SA**
+(детерминированный `'sva'||substr(md5('kacho-<svc>'),1,17)`), anchored к системному
+account/user (`account_id NOT NULL` constraint): `kacho-vpc`, `kacho-compute`, `kacho-nlb`,
+`kacho-vpc-operator`, `kacho-api-gateway` (имена — эпик §4.1 п.6 канон).
+
+- **Backing RBAC-v2 роль** на каждый SA (cluster-scoped, `is_system`, детерминированный `rol`-id
+  из `md5('module.<svc>_sa')` — имя `module.<svc>_sa`, post-dot сегмент без дефиса per
+  `roles_system_name_check`). Permission-строки **строго 4-сегментные** `module.resource.*.verb`,
+  эмпирически из `kacho-proto/gen/permission_catalog.json` (напр. `vpc.subnets.*.get`,
+  `vpc.subnetses.*.list`, `iam.projectses.*.list`). compute: addresses CRUD + subnets/sg/projects get;
+  vpc: zones.get + projects.get; nlb: subnets.get + projects.get; vpc-operator: read-only list/get;
+  api-gateway: minimal `iam.projects.*.get` (identity-only, authz по user-JWT).
+- **AccessBinding** SA→роль на cluster scope (`scope=1`), `acb`-id детерминированный, idempotent.
+- **ReBAC relation-tuple** `service_account:<sva>#fga_writer@iam_fgaproxy:system` в `fga_outbox`
+  для vpc/compute/nlb (FGA-proxy право); vpc-operator/api-gateway — **без** (least-priv).
+- **cert→SA mapping** (OQ-C-5): SPIRE-SAN `spiffe://kacho.cloud/ns/<ns>/sa/kacho-<svc>` →
+  тот же детерминированный `sva`-id (`authzguard.SANToServiceAccountID`). Без новой колонки.
+
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-service-account-service]] [[iam-account]] [[iam-project]] [[iam-service-account-oauth-client]] [[iam-federation-trust-policy]] [[../KAC/KAC-105]] [[../KAC/KAC-127]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-service-account-service]] [[../rpc/iam-internal-iam-service]] [[iam-account]] [[iam-project]] [[iam-service-account-oauth-client]] [[iam-federation-trust-policy]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/SEC-C-iam-fga-proxy-sa-roles]]
 
 #resource #kacho-iam #iam

@@ -16,6 +16,7 @@ related_tickets:
   - "[[KAC-105]]"
   - "[[KAC-112]]"
   - "[[SEC-A-proto-fga-proxy]]"
+  - "[[SEC-C-iam-fga-proxy-sa-roles]]"
 tags:
   - rpc
   - kacho-iam
@@ -58,7 +59,7 @@ tags:
 - E2 auth-interceptor `api-gateway` будет звать `LookupSubject` для резолва JWT → Principal.
 - E3 переключит `ListPermissions` на OpenFGA `Check`/`ListObjects` (см. [[../edges/iam-to-openfga-check]]).
 - `PollSubjectChanges` (WS-2.3) — read-only, по слоям Clean Arch: port `service.SubjectChangeReader` + pg-адаптер `internal/repo/kacho/pg/subject_change_repo.go`. Источник строк — `subject_change_outbox`, куда пишут `AccessBinding.Create/Delete` (см. [[../resources/iam-access-binding]]). Потребитель — [[../edges/api-gateway-to-iam-subject-change]].
-- `RegisterResource`/`UnregisterResource` ([[SEC-A-proto-fga-proxy]]) — **proto + buf only** в SEC-A (нет Go-handler в этой подфазе; контракт верифицирован descriptor-assert `kacho-proto/internal/conformance/`). Это FGA-proxy: vpc/compute/nlb перестают писать owner-tuple в OpenFGA напрямую (эпик #6) и декларируют намерение через IAM. Реализация handler — SEC-C; transactional-outbox drainer в модулях (at-least-once) — SEC-D. Вызывающие рёбра: [[../edges/vpc-to-iam-fgaproxy]], [[../edges/compute-to-iam-fgaproxy]] (planned). Эпик: [[../KAC/EPIC-SEC-mtls-iam-authz]].
+- `RegisterResource`/`UnregisterResource` ([[SEC-A-proto-fga-proxy]]) — proto + buf в SEC-A; **handler реализован в SEC-C** ([[../KAC/SEC-C-iam-fga-proxy-sa-roles]]). FGA-proxy: vpc/compute/nlb перестают писать owner-tuple в OpenFGA напрямую (эпик #6) и декларируют намерение через IAM. Handler (`internal/apps/kacho/api/internal_iam/register_resource.go` + `handler.go`) валидирует tuple (`<type>:<id>` грамматика, no `#`/whitespace) → эмитит в `kacho_iam.fga_outbox` в одной writer-tx (`RegisterResourceUseCase`) → drainer (`clients/fga_applier.go`) применяет к OpenFGA. **Идемпотентность — контракт drainer'а**: write `already_exists`→OK (не AlreadyExists), delete absent→OK (не NotFound). **authz-гейт SEC-C** — `authzguard.FGAProxyGate`: mTLS client-cert SAN (`spiffe://kacho.cloud/ns/<ns>/sa/kacho-<svc>`, SEC-B extractor) → детерминированный `sva`-id → ReBAC `Check(service_account:<sva>, fga_writer, iam_fgaproxy:system)`; dev-mode insecure → allow (backward-compat), prod-mode → fail-closed. Internal listener получил `UnaryCertIdentityExtract` (cmd serve.go). transactional-outbox drainer в модулях (at-least-once) — SEC-D. Вызывающие рёбра: [[../edges/vpc-to-iam-fgaproxy]], [[../edges/compute-to-iam-fgaproxy]] (SEC-D). Эпик: [[../KAC/EPIC-SEC-mtls-iam-authz]].
 
 ## See also
 
