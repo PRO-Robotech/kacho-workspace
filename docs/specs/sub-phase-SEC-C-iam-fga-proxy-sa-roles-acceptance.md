@@ -1,7 +1,17 @@
 # Sub-phase SEC-C — IAM FGA-proxy (RegisterResource/UnregisterResource) + least-privilege service-account identities (ReBAC) + client-cert→SA mapping — Acceptance
 
-> Статус: DRAFT (re-draft v2 — закрыты critical findings acceptance-review v1)
+> Статус: DRAFT (re-draft v2 — закрыты critical findings acceptance-review v1; v3 — §2.1/A-01..A-07 выровнены на SYNC RegisterResourceResponse по ground-truth SEC-A proto)
 > Дата: 2026-06-11
+>
+> **Согласование с SEC-A proto (v3, system-design review I2):** §2.1 и сценарии A-01..A-07 в
+> v2 описывали `RegisterResource`/`UnregisterResource` как async через `operation.Operation`
+> (ban #9). Реальный SEC-A-контракт (ground truth — `kacho-proto` `InternalIAMService`) —
+> **SYNC unary**: `RegisterResource(RegisterResourceRequest) → RegisterResourceResponse{}`
+> (пустой ответ; success = gRPC `OK`). Это осознанное исключение из ban #9 для FGA-proxy:
+> at-least-once-гарантия обеспечивается **caller-side drainer'ом (SEC-D)** через
+> transactional-outbox, а не LRO; сам RegisterResource — тонкий relay, коммитящий tuple-intent
+> в `kacho_iam.fga_outbox` в одной writer-tx и возвращающий пустой ответ синхронно. Спека
+> приведена к sync (Operation-поллинг для этих RPC убран); код корректен.
 > Ревьюер: acceptance-reviewer (gate per workspace `CLAUDE.md` §Non-negotiables #1; + `system-design-reviewer` на распределённые аспекты)
 > Автор-агент: acceptance-author
 > Эпик: [EPIC] SEC — mTLS + IAM-fronted authz + least-privilege service identities — `docs/specs/sub-phase-SEC-mtls-iam-authz-epic.md` (подфаза **SEC-C**, зависит от SEC-A + SEC-B). **Канон-вход: эпик §4.1 «Уточнения после acceptance-review v1».**
@@ -91,11 +101,11 @@ public proto breaking-diff = 0 (гейт SEC-A). Никакой публичны
 | **эпик §4.1 п.3 (permission-строки 4-сегментные; имена ресурсов из `permission_catalog.json`)** | §2.3; сценарии B-02..B-05 (byte-for-byte 4-сегментные строки из каталога). |
 | **эпик §4.1 п.4 (SPIFFE SAN = `spiffe://kacho.cloud/ns/<ns>/sa/kacho-<svc>`)** | §2.4; группа C (C-01..C-05). |
 | **эпик §4.1 п.6 (имена/прецеденты: NLB=`kacho-nlb`, переиспользовать `kacho-selfsigned`, kube-labels `app.kubernetes.io/*`)** | §2.4 (SA-имя nlb выровнено на `kacho-nlb`); SEC-F-boundary (issuer/labels — deploy). |
-| Решение §6.7 / data-integrity fail-closed | FGA/drainer-недоступность → tuple не теряется, Operation не падает (A-07); IAM down для модуля → Unavailable (SEC-D-сторона; здесь — A-07 «intent не теряется»). |
+| Решение §6.7 / data-integrity fail-closed | FGA/drainer-недоступность → tuple не теряется, sync RPC не падает (A-07); IAM down для модуля → Unavailable (SEC-D-сторона; здесь — A-07 «intent не теряется»). |
 | Решение §3.1 invariant I2 (principal ⟺ mTLS, оба логируются) | сценарий C-04 (audit-лог несёт cert-identity модуля + propagated principal). |
 | **Решение §6.2 (restart-on-rotate MVP; Operations персистентны, worker читает state из БД)** | сценарий A-07 (in-flight intent переживает рестарт drainer-реплики). |
 | ban #10 (within-service инвариант на DB-уровне) | atomic claim drainer'а (наследуется из W1.1); seed-идемпотентность через `ON CONFLICT (id) DO NOTHING`; сценарий A-06 (конкурентный двойной Register → ровно один tuple). |
-| ban #9 (мутации → Operation) | RegisterResource/Unregister возвращают `operation.Operation` (как `WriteTuples` в том же сервисе) — §2.1 + A-01. |
+| ban #9 (мутации → Operation) | **Осознанное исключение для FGA-proxy:** RegisterResource/Unregister — **SYNC unary** (`RegisterResourceResponse{}`, ground-truth SEC-A proto, как `WriteCreatorTuple`); at-least-once даёт caller-side drainer (SEC-D) через outbox, не LRO — §2.1 + A-01. |
 | ban #5 (применённые миграции не редактируем) | новая seed-миграция SEC-C (следующий свободный номер; не трогаем 0001..0008/0025). |
 | ban #12 (TDD-red) | §7 — список integration+newman тестов, написанных RED до кода (1:1 на ID). |
 
@@ -105,29 +115,31 @@ public proto breaking-diff = 0 (гейт SEC-A). Никакой публичны
 
 ### 2.1 RPC-форма
 
-> Точные proto-определения — SEC-A. Ниже — поведенческий контракт, на который опираются сценарии.
-> Форма следует образцу `InternalAuthorizeService.WriteTuples` (Internal :9091, возвращает `Operation`,
-> tuple-словарь `user`/`relation`/`object` совпадает с FGA-вокабуляром и с payload `fga_outbox`-эмиттера).
+> Точные proto-определения — SEC-A (ground truth). Ниже — поведенческий контракт, на который опираются сценарии.
+> Форма следует образцу `InternalIAMService.WriteCreatorTuple` (Internal :9091, **SYNC unary**,
+> пустой response; success = gRPC `OK`); tuple-словарь `subject_id`/`relation`/`object` совпадает с
+> FGA-вокабуляром и с payload `fga_outbox`-эмиттера (`user`/`relation`/`object`).
 
-- **`InternalIAMService.RegisterResource(RegisterResourceRequest) → operation.Operation`** (async, ban #9).
+- **`InternalIAMService.RegisterResource(RegisterResourceRequest) → RegisterResourceResponse{}`** (SYNC unary; см. согласование с SEC-A proto в шапке — исключение из ban #9 для FGA-proxy).
   Cluster-internal :9091, REST internal mux `POST /iam/v1/internal:registerResource` (только internal listener; **нет** на external — ban #6).
-  Payload (camelCase в REST):
-  - `resourceType` (string, FGA object-type, напр. `vpc_network`) — required, `INVALID_ARGUMENT` если пуст.
-  - `resourceId` (string, id ресурса, напр. `enp…`) — required, `INVALID_ARGUMENT` если пуст.
-  - `projectId` (string, owner-проект ресурса) — required, `INVALID_ARGUMENT` если пуст.
-  - `idempotencyKey` (string, опционален; для trace-логов; не влияет на семантику — она идемпотентна сама по себе).
-  Семантика: пишет owner-hierarchy-tuple `{user: "project:<projectId>", relation: "parent", object: "<resourceType>:<resourceId>"}`
-  (точная relation/форма — из SEC-A authorization-model; здесь фиксируем «owner-hierarchy tuple ресурс→проект» — OQ-C-1 §2.5)
-  в `kacho_iam.fga_outbox` (event_type `fga.tuple.write`) **в одной tx**, затем возвращает Operation;
-  drainer применяет к FGA асинхронно (как сегодня `fga_applier.go`).
+  Payload (camelCase в REST; точные имена — SEC-A proto):
+  - `subjectId` (string, FGA-subject `"<type>:<id>"`, напр. `project:<prj_…>`) — required, `INVALID_ARGUMENT` если пуст.
+  - `relation` (string, FGA-relation owner-tuple, напр. `parent`/`admin`) — required, `INVALID_ARGUMENT` если пуст.
+  - `object` (string, FGA-object `"<type>:<id>"`, напр. `vpc_network:<enp_…>`) — required, `INVALID_ARGUMENT` если пуст.
+  - `traceId` (string, опционален; для correlation в логах; не влияет на семантику — она идемпотентна сама по себе).
+  Семантика: пишет owner-hierarchy-tuple `{user: subjectId, relation, object}` (FGA-строки приходят уже
+  скомпонованными от модуля — relay не знает resource-type; точная relation/форма — из SEC-A authorization-model,
+  «owner-hierarchy tuple ресурс→проект» — OQ-C-1 §2.5) в `kacho_iam.fga_outbox` (event_type `fga.tuple.write`)
+  **в одной tx**, затем **синхронно** возвращает пустой `RegisterResourceResponse` (gRPC `OK`); drainer применяет
+  к FGA асинхронно (как сегодня `fga_applier.go`).
 
-- **`InternalIAMService.UnregisterResource(UnregisterResourceRequest) → operation.Operation`** (async).
+- **`InternalIAMService.UnregisterResource(UnregisterResourceRequest) → UnregisterResourceResponse{}`** (SYNC unary).
   Cluster-internal :9091, REST internal mux `POST /iam/v1/internal:unregisterResource`.
-  Payload: те же `resourceType` / `resourceId` / `projectId` / `idempotencyKey`.
-  Семантика: пишет тот же tuple в `fga_outbox` с event_type `fga.tuple.delete` (симметричный revoke).
+  Payload: те же `subjectId` / `relation` / `object` / `traceId`.
+  Семантика: пишет тот же tuple в `fga_outbox` с event_type `fga.tuple.delete` (симметричный revoke), синхронный пустой ответ.
 
 - **Idempotency как контракт (решение §3.1/§6.1):** повторный `RegisterResource` тем же tuple → gRPC `OK`
-  (Operation done без error), **НЕ** `ALREADY_EXISTS`; `UnregisterResource` отсутствующего tuple → `OK`,
+  (пустой response), **НЕ** `ALREADY_EXISTS`; `UnregisterResource` отсутствующего tuple → gRPC `OK`,
   **НЕ** `NOT_FOUND`. Это требование — на нём держится retry-цепочка SEC-D-drainer'а. Реализуется
   естественно: drainer-applier уже маппит FGA `already_exists`→`ErrAlreadyApplied`→success и
   `cannot_delete`/`does not exist`/`not_found`→`ErrAlreadyApplied`→success (`fga_applier.go`).
@@ -211,7 +223,7 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 ## Группа A — RegisterResource / UnregisterResource: идемпотентность + outbox-применение + fail-safe
 
-### Сценарий A-01: RegisterResource (happy path) → Operation → tuple применён в FGA
+### Сценарий A-01: RegisterResource (happy path) → sync OK → tuple применён в FGA
 
 **ID:** SEC-C-A-01-REGISTER-OK
 **Трассировка:** эпик §3.1 (Вариант A), §6.1; ban #9.
@@ -221,15 +233,14 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 **And** caller — module-SA `kacho-vpc` (`sva`-id из B-01) с relation `fga_writer` на `iam_fgaproxy:system` (см. группу B), production-mode authz
 
 **When** caller вызывает `InternalIAMService/RegisterResource` (`POST /iam/v1/internal:registerResource` на internal listener) с payload:
-  - resourceType = `"vpc_network"`
-  - resourceId = `"enp00000000000000001"`
-  - projectId = `"prj-1"`
-  - idempotencyKey = `"enp00000000000000001"`
+  - subjectId = `"project:prj-1"`
+  - relation = `"parent"`
+  - object = `"vpc_network:enp00000000000000001"`
+  - traceId = `"enp00000000000000001"`
 
-**Then** ответ синхронно — `operation.Operation` с непустым `id`, `done=false` (async-контракт)
-**And** в `kacho_iam.fga_outbox` появилась ровно **одна** строка `event_type='fga.tuple.write'`, payload `{user:"project:prj-1", relation:"parent", object:"vpc_network:enp00000000000000001"}` (точная форма tuple — OQ-C-1/§2.5), `sent_at IS NULL`, в **той же tx**, что и Operation-INSERT
+**Then** ответ синхронно — пустой `RegisterResourceResponse{}`, gRPC `OK` (sync-контракт SEC-A proto; нет Operation-id)
+**And** в `kacho_iam.fga_outbox` появилась ровно **одна** строка `event_type='fga.tuple.write'`, payload `{user:"project:prj-1", relation:"parent", object:"vpc_network:enp00000000000000001"}` (точная форма tuple — OQ-C-1/§2.5), `sent_at IS NULL`, закоммичена в **одной writer-tx** (rollback ⇒ нет orphan-строки)
 **And** в течение ≤ 2 c (drainer NOTIFY-apply) строка помечена `sent_at IS NOT NULL`, `last_error IS NULL`
-**And** poll `OperationService.Get(<opId>)` сходится к `done=true` без `error`
 **And** последующий FGA-Check «является ли `project:prj-1` parent для `vpc_network:enp00000000000000001`» → ALLOW.
 
 ### Сценарий A-02: RegisterResource повторно тем же tuple → OK (идемпотентно, не ALREADY_EXISTS)
@@ -241,8 +252,8 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **When** caller повторно вызывает `RegisterResource` с **идентичным** payload (A-01)
 
-**Then** ответ — `operation.Operation`, который сходится к `done=true` **без** `error` (gRPC `OK`)
-**And** **не** возвращается `ALREADY_EXISTS` ни синхронно, ни в `Operation.error`
+**Then** ответ — пустой `RegisterResourceResponse{}`, gRPC `OK`
+**And** **не** возвращается `ALREADY_EXISTS`
 **And** в FGA по-прежнему ровно **один** соответствующий tuple (не задвоен)
 **And** drainer пометил повторную outbox-строку `sent_at IS NOT NULL` (FGA `already_exists`→`ErrAlreadyApplied`→success, `fga_applier.go`).
 
@@ -253,9 +264,9 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **Given** tuple для `vpc_network:enp00000000000000001`/`project:prj-1` зарегистрирован (A-01)
 
-**When** caller (module-SA `kacho-vpc`, relation `fga_writer`) вызывает `UnregisterResource` с тем же `resourceType`/`resourceId`/`projectId`
+**When** caller (module-SA `kacho-vpc`, relation `fga_writer`) вызывает `UnregisterResource` с тем же `subjectId`/`relation`/`object` (что в A-01)
 
-**Then** ответ — `operation.Operation`, сходится к `done=true` без `error`
+**Then** ответ — пустой `UnregisterResourceResponse{}`, gRPC `OK`
 **And** в `fga_outbox` строка `event_type='fga.tuple.delete'` появилась и помечена `sent_at IS NOT NULL`
 **And** последующий FGA-Check для этого tuple → DENY (tuple отсутствует).
 
@@ -266,25 +277,25 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **Given** для `vpc_network:enp99999999999999999`/`project:prj-1` tuple **никогда** не регистрировался
 
-**When** caller вызывает `UnregisterResource(resourceType="vpc_network", resourceId="enp99999999999999999", projectId="prj-1")`
+**When** caller вызывает `UnregisterResource(subjectId="project:prj-1", relation="parent", object="vpc_network:enp99999999999999999")`
 
-**Then** ответ — `operation.Operation`, сходится к `done=true` **без** `error` (gRPC `OK`)
+**Then** ответ — пустой `UnregisterResourceResponse{}`, gRPC `OK`
 **And** **не** возвращается `NOT_FOUND`
 **And** drainer пометил outbox-строку `sent_at IS NOT NULL` (FGA `cannot_delete`/`does not exist`→`ErrAlreadyApplied`→success).
 
-### Сценарий A-05: RegisterResource с невалидным payload → sync INVALID_ARGUMENT (Operation НЕ создаётся)
+### Сценарий A-05: RegisterResource с невалидным payload → sync INVALID_ARGUMENT (outbox-строка НЕ создаётся)
 
 **ID:** SEC-C-A-05-NEG-INVALID-INPUT
-**Трассировка:** `.claude/rules/api-conventions.md` error-format (validation → INVALID_ARGUMENT, sync до Operation).
+**Трассировка:** `.claude/rules/api-conventions.md` error-format (validation → INVALID_ARGUMENT, sync до эмиссии outbox).
 
 **Given** caller — module-SA с relation `fga_writer` на `iam_fgaproxy:system`
 
-**When / Then** (каждый под-кейс — sync `INVALID_ARGUMENT`, **ни** Operation, **ни** outbox-строка не создаются):
-  - **A-05a** `resourceType=""` → `INVALID_ARGUMENT` «resourceType required»
-  - **A-05b** `resourceId=""` → `INVALID_ARGUMENT` «resourceId required»
-  - **A-05c** `projectId=""` → `INVALID_ARGUMENT` «projectId required»
-  - **A-05d** `resourceId` содержит запрещённые для FGA object-id символы (напр. пробел/`:`/`#` — конфликт с tuple-грамматикой) → `INVALID_ARGUMENT` «invalid resourceId»
-**And** в `kacho_iam.fga_outbox` новых строк **нет**; `OperationService` новой записи не вернул.
+**When / Then** (каждый под-кейс — sync `INVALID_ARGUMENT`, outbox-строка **не** создаётся):
+  - **A-05a** `subjectId=""` → `INVALID_ARGUMENT` «subject_id required»
+  - **A-05b** `relation=""` → `INVALID_ARGUMENT` «relation required»
+  - **A-05c** `object=""` → `INVALID_ARGUMENT` «object required»
+  - **A-05d** `object`/`subjectId` содержит запрещённые для FGA-грамматики символы (пробел / `#`, либо нет ровно одного `:`) → `INVALID_ARGUMENT` «invalid object»/«invalid subject_id»
+**And** в `kacho_iam.fga_outbox` новых строк **нет**.
 
 ### Сценарий A-06: Concurrency — два конкурентных RegisterResource тем же tuple → ровно один эффективный tuple
 
@@ -295,24 +306,24 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **When** две goroutine одновременно вызывают `RegisterResource` с идентичным payload (`vpc_network:enp00000000000000002`/`project:prj-1`)
 
-**Then** обе получают `Operation`, обе сходятся к `done=true` **без** `error`
+**Then** обе вернули gRPC `OK` (пустой `RegisterResourceResponse{}`)
 **And** в FGA — ровно **один** соответствующий tuple (вторая outbox-строка → drainer `already_exists`→`ErrAlreadyApplied`→success; idempotent, без двойного эффекта)
 **And** сервис **не** падает и **не** возвращает `INTERNAL` с leak'ом pgx/FGA-текста (error-format).
 
-### Сценарий A-07: FGA/drainer недоступен (incl. рестарт реплики) → intent не теряется, Operation не падает (fail-safe)
+### Сценарий A-07: FGA/drainer недоступен (incl. рестарт реплики) → intent не теряется, RPC не падает (fail-safe)
 
 **ID:** SEC-C-A-07-FGA-DOWN-INTENT-PERSISTS (integration / testcontainers)
-**Трассировка:** эпик §3.1 «IAM Unavailable → drainer retry с backoff, tuple не теряется»; §6.7 fail-closed; **§6.2 (restart-on-rotate; Operations персистентны, worker читает state из БД)**.
+**Трассировка:** эпик §3.1 «IAM Unavailable → drainer retry с backoff, tuple не теряется»; §6.7 fail-closed; **§6.2 (restart-on-rotate; intent-строка персистентна в БД, drainer читает state из БД)**.
 
 **Given** kacho-iam поднят, **FGA-stub настроен возвращать 5xx/transient** (или drainer временно остановлен)
 **And** caller — module-SA с relation `fga_writer` на `iam_fgaproxy:system`
 
-**When** caller вызывает `RegisterResource(vpc_network:enp00000000000000003 / project:prj-1)`
+**When** caller вызывает `RegisterResource(subjectId=project:prj-1, relation=parent, object=vpc_network:enp00000000000000003)`
 
-**Then** `RegisterResource` возвращает `operation.Operation` (запись-намерение в `fga_outbox` коммитится в tx **независимо** от доступности FGA — intent **не** теряется)
+**Then** `RegisterResource` **синхронно** возвращает `OK` (пустой `RegisterResourceResponse{}`): запись-намерение в `fga_outbox` коммитится в writer-tx **независимо** от доступности FGA — intent **не** теряется
 **And** outbox-строка остаётся `sent_at IS NULL` с растущим `attempt_count` + `last_error` (transient-retry, `fga_applier.go` классифицирует 5xx как retryable)
-**And** Operation для самой записи-намерения **не** завершается `error` из-за недоступности FGA (запись intent выполнена; применение eventual)
-**And** **(рестарт реплики, §6.2)** если drainer-реплику рестартнуть в окне до применения — `sent_at IS NULL`-строка переживает рестарт (state в БД, не в памяти; Operations персистентны, Watch RPC нет), после старта новая реплика подхватывает строку
+**And** sync-ответ RegisterResource **не** становится ошибкой из-за недоступности FGA (запись intent выполнена; применение eventual через drainer)
+**And** **(рестарт реплики, §6.2)** если drainer-реплику рестартнуть в окне до применения — `sent_at IS NULL`-строка переживает рестарт (state в БД, не в памяти; Watch RPC нет), после старта новая реплика подхватывает строку
 **And** после восстановления FGA-stub (отдаёт 200) drainer в течение ≤ 5 c помечает строку `sent_at IS NOT NULL`; FGA-Check → ALLOW (окно DENY конечно и гарантированно закрывается — эпик §3.1).
 
 ### Сценарий A-08: Decoder-poison — некорректный intent → poison, drainer не застревает
@@ -441,7 +452,7 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **When** caller вызывает `RegisterResource` (валидный payload, A-01)
 
-**Then** authz-gate выполняет ReBAC-Check `service_account:<sva-vpc>` / `fga_writer` / `iam_fgaproxy:system` → ALLOW; RPC отрабатывает по A-01 (`Operation` done без error)
+**Then** authz-gate выполняет ReBAC-Check `service_account:<sva-vpc>` / `fga_writer` / `iam_fgaproxy:system` → ALLOW; RPC отрабатывает по A-01 (sync `OK`, пустой `RegisterResourceResponse{}`)
 **And** решение принято **по ReBAC-relation**, а **не** по наличию permission-строки `iam.fgaproxy.write` (такой строки нет — эпик §4.1 п.3).
 
 ### Сценарий B-08: SA БЕЗ relation `fga_writer` вызывает RegisterResource → PERMISSION_DENIED (ReBAC deny)
@@ -453,7 +464,7 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 
 **When** caller вызывает `RegisterResource` (валидный payload)
 
-**Then** ReBAC-Check `service_account:<sva-operator>` / `fga_writer` / `iam_fgaproxy:system` → DENY → gRPC `PERMISSION_DENIED` (Operation **НЕ** создаётся, outbox-строка **НЕ** появляется)
+**Then** ReBAC-Check `service_account:<sva-operator>` / `fga_writer` / `iam_fgaproxy:system` → DENY → gRPC `PERMISSION_DENIED` (authz-gate срабатывает до relay; outbox-строка **НЕ** появляется)
 **And** в `kacho_iam.fga_outbox` новых строк нет
 **And** (anonymous-вариант) anonymous caller в production-mode → `PERMISSION_DENIED` (fail-closed); в dev-mode (`enable=false`, anonymous→full-access) → разрешено (backward-compat, группа D).
 
@@ -616,7 +627,7 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 - [ ] Ветка `KAC-<N>` в `kacho-iam`; SEC-A (proto + authorization-model `iam_fgaproxy`/`fga_writer`) + SEC-B (corelib) уже в `main` либо запиннены feature-ветками (кросс-репо порядок, `polyrepo.md`).
 - [ ] **RED phase**: integration + newman тесты §7 написаны и прогнаны RED **до** кода (RED→GREEN-пара в PR).
 - [ ] **GREEN phase**:
-  - [ ] `RegisterResource`/`UnregisterResource` use-case + handler (Internal listener :9091; tuple-INSERT в `fga_outbox` в одной tx; возврат `Operation`).
+  - [ ] `RegisterResource`/`UnregisterResource` use-case + handler (Internal listener :9091; tuple-INSERT в `fga_outbox` в одной writer-tx; **sync** возврат пустого `RegisterResourceResponse{}`/`UnregisterResourceResponse{}`, gRPC `OK` — ground-truth SEC-A proto, не Operation).
   - [ ] Идемпотентность как контракт (повтор→OK, не AlreadyExists/NotFound) — опирается на drainer `fga_applier.go` already_exists/cannot_delete→ErrAlreadyApplied.
   - [ ] **ReBAC authz-gate** на оба RPC: cert-SAN→SA → `Check(service_account:<sva>, fga_writer, iam_fgaproxy:system)` (§2.2; **не** permission-строка).
   - [ ] service→service SA освобождены от `required_acr_min` (B-09).
@@ -646,7 +657,7 @@ promotion в 0005 и precedent в `seed_nlb_roles`):**
 - `internal/service/fgaproxy_backward_compat_integration_test.go` — D-01, D-02, D-03, D-04 (enable=false/true, per-edge, контракт FGA-за-IAM).
 
 **Newman (tests/newman/cases/sec-c-*.py → gen.py; через internal-mux):**
-- `sec-c-register-resource-ok.py` — A-01 happy (Operation done, FGA-Check ALLOW).
+- `sec-c-register-resource-ok.py` — A-01 happy (sync `OK`, FGA-Check ALLOW).
 - `sec-c-register-resource-idempotent.py` — A-02 (повтор → OK, не AlreadyExists).
 - `sec-c-unregister-resource-ok.py` + `sec-c-unregister-idempotent.py` — A-03, A-04.
 - `sec-c-register-invalid-arg.py` — A-05 negative.
