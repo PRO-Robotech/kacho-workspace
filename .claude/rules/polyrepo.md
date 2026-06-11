@@ -50,6 +50,14 @@ versioned modules — под релизную фазу). Проверка: `grep
   через transactional-outbox (SEC-D). Least-priv: ReBAC `fga_writer` @ `iam_fgaproxy:system`.
 - `kacho-compute → kacho-iam` (fgaproxy, SEC-A) — то же ребро: `RegisterResource`/`UnregisterResource` для owner-tuple
   compute-ресурсов. Internal-only :9091, идемпотентно, fgaproxy least-priv `fga_writer` @ `iam_fgaproxy:system`.
+- `kacho-vpc-operator → kacho-vpc` (SEC-G) — sync-poll read: `SubnetService.List` / `NetworkService.Get` /
+  `NetworkInterfaceService.Get` / `AddressService.Get`. **mTLS** (отдельный operator client-cert, SAN
+  `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`); per-edge `enable` (`enable=false` → insecure
+  back-compat). Least-priv: персональный SA оператора с **read-only ReBAC viewer**-tuples (SEC-C seed), без editor/мутаций.
+  Оператор — **вне build-графа** control-plane (sibling, не импортируется по build).
+- `kacho-vpc-operator → kacho-iam` (SEC-G) — sync-poll read (ns-operator fan-out): exempt `AccountService.List`
+  (membership scope-filter) → viewer-scoped `ProjectService.List`. **mTLS** (тот же operator client-cert);
+  per-edge `enable`. SA освобождён от `required_acr_min` (service→service, §4.1.2).
 
 **Циклы запрещены**: если A зовёт B — B не зовёт A. Новое ребро фиксируется здесь как runtime-edge.
 - `kacho-vpc ⇄ kacho-compute` — **НЕ семантический цикл**: рёбра разнонаправлены по ресурсному контексту
