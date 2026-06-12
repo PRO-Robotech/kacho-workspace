@@ -60,6 +60,18 @@ tags:
 - **KAC-266** — ребро **разорвано**: compute больше не создаёт/привязывает NIC (инстанс без
   авто-NIC); vpc `AttachToInstance`/`DetachFromInstance` удалены (contract-removal). compute proper
   rework (как именно NIC будет привязываться к инстансу) — deferred.
+- **SEC-M** — transport на **оставшемся** живом compute→vpc ребре (NIC-spec валидация
+  `Subnet/SecurityGroup.Get` :9090 + one-to-one-NAT IPAM `Address.Get`/`InternalAddressService`
+  :9091, см. «Что осталось KAC-266») переведён на **client-cert mTLS**. `kacho-compute`
+  composition-root (`cmd/compute/main.go` `dialPeers` → `dialVPCPeer`) ветвится на
+  `cfg.VPCMTLS.Enable`: enable=true → оба vpc-conn'а предъявляют `kacho-compute-client-tls`
+  через corelib `grpcclient.TLSClientTransportCreds(cfg.VPCMTLS)` (тот же seam
+  `dialPeerCreds`/`peerDialOptsCreds`, что несёт SEC-I iam-creds); enable=false → insecure
+  (dev, нулевая регрессия). Один `cfg.VPCMTLS` (один ServerName=`vpc.kacho.svc.cluster.local`)
+  покрывает оба listener'а (vpc Service = `vpc`). Зеркало `vpc→compute` (SEC-D-19). Helm
+  (compute deploy chart) уже рендерит `KACHO_COMPUTE_VPC_MTLS_*` gated на `mtls.edges.vpc`;
+  umbrella `values.mtls.yaml` → `compute.mtls.edges.vpc=true`. Контракт/RPC не менялись —
+  только транспорт.
 
 ## See also
 

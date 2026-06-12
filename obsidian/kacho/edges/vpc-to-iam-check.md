@@ -88,8 +88,23 @@ authz:
 Если `iam-endpoint` пуст и `breakglass=false` → interceptor НЕ навешивается
 (graceful start без kacho-iam в dev). В production это ошибка — fail на старте.
 
+**CLIENT mTLS (SEC-I)**: the `authzConn` dial (this Check edge, :9091) — **shared** by
+the per-RPC gate AND the project-level list-filter ([[vpc-to-iam-listobjects]] /
+`newListAuthz`, ONE conn) — presents the `kacho-vpc-client-tls` client-cert when
+`KACHO_VPC_IAM_AUTHZ_MTLS_ENABLE=true`. Config field `MTLSConfig.IAMAuthzMTLS` + helper
+`IAMAuthzClientCreds()` (mirror of register-drainer). ServerName =
+`kacho-iam-internal.kacho.svc.cluster.local` (:9091 SAN, I6). `enable=false` → insecure
+(dev). Helm: `mtls.edges.iamAuthz` reuses the mounted client secret. Required before
+kacho-iam runs `RequireAndVerifyClientCert` (SEC-H), else the handshake fails → `Check`
+returns `Unavailable`/fail-closed (B-05 completeness — no iam read/authz edge may stay plaintext).
+
 ## History
 
+- **2026-06-12 (SEC-I)**: `authzConn` dial gained CLIENT mTLS — `MTLSConfig.IAMAuthzMTLS`
+  (env `KACHO_VPC_IAM_AUTHZ_MTLS_*`) + helper `IAMAuthzClientCreds()`, wired in
+  `cmd/vpc/main.go`. ONE conn covers per-RPC Check + list-filter (OQ-2). Helm
+  `mtls.edges.iamAuthz` reuses `kacho-vpc-client-tls`; ServerName=`kacho-iam-internal`
+  (:9091). Transport-only; contract / FGA logic unchanged.
 - **2026-05-24** (W1.4, [[../KAC/KAC-140]]): principal propagated через
   `auth.PropagateOutgoing` — iam Check теперь видит caller Principal, не
   `user:bootstrap`. Closes round-3 finding из [[../KAC/KAC-127]].

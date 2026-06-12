@@ -78,8 +78,18 @@ tags:
 - Phase 4 — ListObjects integration ([[vpc-to-iam-listobjects]] / [[compute-to-iam-listobjects]]) — backend itself queries ListObjects для List handlers; api-gateway не пред-фильтрует.
 - API-gateway side cache shared across requests on same node (sync.Map). Cold cache p95 +5ms.
 
+## History
+
+- SEC-E ([[../KAC/SEC-E-gateway-mtls]], 2026-06-11) — backend-dial этого ребра переключён
+  с insecure на **mTLS client-cert** идентичности «api-gateway» под
+  `KACHO_API_GATEWAY_MTLS_IAM_ENABLE` (per-edge, тот же флаг, что iam-subject + iam-backend;
+  one module identity, OQ-SEC-E-3). `enable=false` (default) = insecure (dev backward-compat).
+  Check-логика и cache не изменены — mTLS оборачивает только транспорт, principal идёт поверх
+  (epic invariant I2). Mismatch (client mTLS vs insecure server) → `Unavailable` (fail-closed).
+  Реализация: [[../packages/api-gateway-backend-dial-mtls]].
+
 ## See also
 
-[[iam-to-openfga-check]] [[iam-to-opa]] [[vpc-to-iam-listobjects]] [[compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../packages/api-gateway-middleware-authz]] [[../packages/api-gateway-middleware-dpop]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]]
+[[iam-to-openfga-check]] [[iam-to-opa]] [[vpc-to-iam-listobjects]] [[compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../packages/api-gateway-middleware-authz]] [[../packages/api-gateway-middleware-dpop]] [[../packages/api-gateway-backend-dial-mtls]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]] [[../KAC/SEC-E-gateway-mtls]]
 
 #edge #kacho-api-gateway #cross-service #authz #fga

@@ -76,12 +76,20 @@ extapi:
       enable: false
 ```
 
-Transitional fallback: если `extapi.iam.endpoint` пуст — main.go берёт `extapi.resource-manager.endpoint`.
+**CLIENT mTLS (SEC-I)**: `iamConn` (this ProjectService.Get edge, :9090) presents the
+`kacho-vpc-client-tls` client-cert when `KACHO_VPC_IAM_PROJECT_MTLS_ENABLE=true` —
+config field `MTLSConfig.IAMProjectMTLS` + helper `IAMProjectClientCreds()` (mirror of
+the register-drainer `IAMRegisterMTLS`). `enable=false` → insecure (dev, zero regression).
+ServerName = `kacho-iam.kacho.svc.cluster.local` (:9090 SAN, **distinct** from the :9091
+Check/Register dial-host — I6). Helm: `mtls.edges.iamProject` reuses the already-mounted
+`kacho-vpc-client-tls` volume (no new secret). Required before kacho-iam runs
+`RequireAndVerifyClientCert` (SEC-H), else the TLS handshake fails → `Unavailable`.
 
 ## History
 
 - **2026-05-17 (KAC-106 E1)**: edge created; replaces vpc→rm folder check ([[vpc-to-rm-folder-exists]] deprecated).
 - File `internal/clients/resourcemanager_client.go` → `iam_client.go`; type `FolderClient` → `ProjectClient`; same TTL+LRU cache pattern preserved.
+- **2026-06-12 (SEC-I)**: `iamConn` dial gained CLIENT mTLS — `MTLSConfig.IAMProjectMTLS` (env `KACHO_VPC_IAM_PROJECT_MTLS_*`) + helper `IAMProjectClientCreds()`, wired in `cmd/vpc/main.go` (enable=true → `grpc.NewClient` with client-cert; enable=false → insecure clients.Build). Helm `mtls.edges.iamProject` reuses `kacho-vpc-client-tls`. Transport-only; contract unchanged.
 
 ## See also
 

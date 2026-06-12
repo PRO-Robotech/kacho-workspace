@@ -22,23 +22,50 @@ kubebuilder/controller-runtime). Control-plane его не касается — 
 VPC-ресурсы из `kacho-vpc` по gRPC и **материализует** их в kube-ovn + Multus.
 kube-ovn — **NON_PRIMARY** (secondary CNI; primary — kindnet/Cilium).
 
-## Поток
+## Поток (OP1 — два контура через промежуточный CRD KachoSubnet)
 
 ```
 kacho-vpc (vpc:9090, NetworkService/SubnetService.List)
-   │  gRPC poll (Syncer.reconcileOnce, interval=10s)
+   │  gRPC poll (Syncer.reconcileOnce, interval=10s) — Kachō без Watch
    │  ⚠ per-RPC authz-gate: оператор шлёт x-kacho-principal-{type,id}
    ▼
-kacho-vpc-operator (internal/syncer)
-   ├─ Network → kubeovn.io/Vpc            (имя = network-id 1:1)
-   ├─ Subnet  → kubeovn.io/Subnet         (имя = subnet-id; spec.vpc=network-id)
-   │          + Multus NAD                (kacho-multus/<subnet-id>, provider <id>.kacho-multus.ovn)
-   └─ NIC     → pod annotations (webhook) (k8s.v1.cni.cncf.io/networks + mac)
+INGRESS (internal/syncer)            EGRESS (internal/controller, controller-runtime)
+   ├─ Network → kubeovn.io/Vpc          For(&KachoSubnet{}).Owns(Subnet).Owns(NAD)
+   │            (имя=network-id 1:1)     event-driven + periodic resync
+   └─ Subnet  → KachoSubnet CR ─────────►  на КАЖДЫЙ CIDR (v4∪v6):
+                (kacho.io/v1, cluster,        ├─ 1 kubeovn.io/Subnet (single-family,
+                 1:1 зеркало spec)            │   protocol=IPv4|IPv6, решение A — БЕЗ combine)
+                                              └─ 1 Multus NAD в projectNamespace
+   NIC → pod annotations (webhook, k8s.v1.cni.cncf.io/networks + mac)  ← без изменений
 ```
 
-**Имена downstream-ресурсов = id со стороны kacho-api** (1:1, без префикса).
-Labels: `kacho.io/managed-by=kacho-vpc-operator` + `project-id` / `upstream-id` /
-`upstream-name`. Cleanup orphan'ов по label'ам: Subnet+NAD, затем Vpc.
+**KachoSubnet** (`kacho.io/v1`, **cluster-scoped**) — первый собственный CRD оператора.
+Cluster-scope обязателен: его ownerRef каскадит И на cluster-scoped kube-ovn Subnet,
+И на namespaced NAD (namespaced owner НЕ мог бы владеть cluster-scoped Subnet).
+Имя CR = subnet-id. Child-имена **stable-by-CIDR**: `<name>-<shorthash(canonical(cidr))>`
+(НЕ index-based — перестановка/добавление CIDR не вызывает ложный prune+recreate).
+Labels child'ов: `managed-by` + `project-id` / `upstream-id` / `upstream-name` /
+`kacho.io/cidr`. Каждый child: `SetControllerReference(KachoSubnet)` (controller=true).
+`pickCIDR` (first-v4-only, терял v6+лишние CIDR) **удалён** — заменён итерацией v4∪v6.
+
+### Deletion-sync
+- **element-level** (CIDR убран из spec): egress считает desired-set
+  `{name(cidr)|valid cidr}` vs actual owned-children (List по label upstream-id +
+  ownerRef-uid) → PRUNE child'ов ∉ desired (kube-ovn Subnet + парный NAD).
+  prune-fail-safe: битый CIDR не порождает имени и не участвует в set-diff (валидный
+  child не запрунится из-за соседнего garbage).
+- **whole-delete**: ingress сносит KachoSubnet CR → finalizer
+  `kacho.io/kachosubnet-teardown` держит в Terminating; контроллер САМ удаляет free
+  child'ы (controller-driven, GC по ownerRef не стартует пока владелец жив) → снимает
+  finalizer когда чисто → k8s GC завершает каскад.
+- **in-use safety**: child с реальными pod-аллокациями (version-pinned kube-ovn
+  `.status.v4usingIPs`/`.status.v6usingIPs > 0`, **v1.16.1**; gateway/excludeIps НЕ в
+  счёт) НЕ удаляется — degraded `Ready=False` reason `CIDRInUse` + Event + requeue.
+  finalizer снимается в момент обнуления usingIPs (graceful dangling-ref, data-integrity §4).
+
+**Shared-примитивы** материализации — `internal/kubeovn` (GVK, label-ключи,
+`VpcNameFor`/`FirstUsableIP`/`Provider`/`NADConfig`), переиспользуются ingress+egress.
+Cleanup orphan'ов ingress: KachoSubnet CR (по label) → egress GC-каскадит child'ы; затем Vpc.
 
 ## AuthZ (важно)
 
@@ -133,6 +160,14 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
 
 ## История
 
+- 2026-06-12 (OP1, KachoSubnet CRD redesign) — Subnet больше НЕ маппится напрямую в
+  одну kube-ovn Subnet (first-v4-only `pickCIDR` удалён). Введён промежуточный
+  cluster-scoped CRD `KachoSubnet` (`kacho.io/v1`) + два контура: ingress (syncer 1:1
+  reflect Kachō Subnet → KachoSubnet CR) и egress (controller-runtime Reconciler →
+  N×(kube-ovn Subnet+NAD) per-CIDR, single-family/решение A, stable-by-CIDR имена,
+  ownerRef-каскад, element-prune, finalizer + in-use safety по version-pinned
+  `v4usingIPs`/`v6usingIPs` kube-ovn v1.16.1). envtest egress-reconcile. Network→Vpc и
+  NIC-webhook без изменений; SEC-G mTLS/FGA не тронуты; ns-operator не тронут.
 - 2026-06-11 (SEC-G) — upstream-dial operator→{vpc,iam} переведён на mTLS (отдельный
   op client-cert, per-edge enable); least-priv read-only SA principal; webhook
   server-cert на internal-CA. Подробности: [[vpc-operator-to-vpc-mtls]].

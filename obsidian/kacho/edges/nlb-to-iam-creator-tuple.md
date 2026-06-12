@@ -8,11 +8,12 @@ caller_repo: kacho-nlb
 callee_repo: kacho-iam
 sync_async: sync
 protocol: grpc-cluster-internal
-status: active
+status: deprecated
 related_tickets:
   - "[[KAC-141]]"
   - "[[KAC-158]]"
   - "[[KAC-108]]"
+  - "[[SEC-D-services-fga-via-iam-mtls]]"
 tags:
   - edge
   - kacho-nlb
@@ -22,8 +23,11 @@ tags:
   - d11
 ---
 
-> [!success] Active since 2026-05-24 (KAC-141, kacho-nlb PR#11)
-> Edge активен; на каждом Create-worker'е nlb sync-вызывает `kacho-iam.InternalIAMService.WriteCreatorTuple` для записи hierarchy tuple (D-11 pattern).
+> [!warning] Deprecated by SEC-D (2026-06-11) → [[nlb-to-iam-fga-register]]
+> Прямой best-effort `WriteCreatorTuple` после commit (GitHub Issue N5: при сбое FGA tuple терялся навсегда → per-resource Check DENY). SEC-D заменил его транзакционным outbox: owner-tuple intent пишется в той же writer-tx, что и INSERT/DELETE ресурса, и применяется register-drainer'ом через `RegisterResource`/`UnregisterResource` по mTLS (intent durable, IAM-down → retry). `internal/fgawrite/` удалён; `InternalIAMService.WriteCreatorTuple` больше не вызывается из nlb. Ниже — историческое описание удалённого пути.
+
+> [!quote] Историческое (до SEC-D)
+> Описание ниже относится к удалённому direct-FGA пути и сохранено как trail.
 
 # nlb → iam: D-11 sync creator-tuple write
 

@@ -31,7 +31,7 @@ tags:
 | Create | CreateAddressPoolRequest | AddressPool | sync | CIDR-list (v4/v6 split, KAC-71); overlap per kind → FailedPrecondition (KAC-272) |
 | Get | GetAddressPoolRequest | AddressPool | sync | |
 | List | ListAddressPoolsRequest | ListAddressPoolsResponse | sync | |
-| Update | UpdateAddressPoolRequest | AddressPool | sync | name/desc/labels/is_default/selector — **НЕ CIDR** (KAC-269) |
+| Update | UpdateAddressPoolRequest | AddressPool | sync | **FieldMask `update_mask`** (unify, evgeniy AP-13): name/desc/labels/is_default/selector_labels/selector_priority. immutable (kind/zone_id/CIDR) в mask → InvalidArgument; пустой mask → full-PATCH. **НЕ CIDR** (KAC-269) |
 | Delete | DeleteAddressPoolRequest | DeleteAddressPoolResponse | sync | RESTRICT если связан |
 | AddCidrBlocks | AddAddressPoolCidrBlocksRequest | AddressPool | sync | KAC-269: append v4/v6 + dedup + freelist-дельта; KAC-272: overlap per kind → FailedPrecondition |
 | RemoveCidrBlocks | RemoveAddressPoolCidrBlocksRequest | AddressPool | sync | KAC-269: use-guard (allocated IP → FailedPrecondition) + free_ips cleanup |
@@ -75,6 +75,18 @@ tags:
 > verbatim "address pool CIDR <cidr> has allocated addresses"), `DeleteFreelistForCidrs`,
 > запрет опустошить пул (InvalidArgument). Атомарность remove vs alloc: DELETE free_ips
 > (row-lock) → use-check в одной writer-TX. См. [[../KAC/KAC-269]].
+
+> [!note] Unify partial-update → FieldMask (skill evgeniy AP-13)
+> `UpdateAddressPoolRequest` переведён с per-field флагов (`update_is_default` /
+> `replace_labels` / `replace_selector_labels` / `update_selector_priority`,
+> tags 4/7/9/11 → `reserved`) на единый `google.protobuf.FieldMask update_mask`
+> (tag 17) — паритет со всеми прочими VPC Update-RPC. Дисциплина как у Subnet
+> (§4.4): immutable (kind/zone_id/CIDR) в mask → InvalidArgument, unknown →
+> InvalidArgument (`corevalidate.UpdateMask`), пустой mask → full-PATCH мутабельных
+> полей. Поведение «один default на (zone, kind)» не изменилось (второй default →
+> AlreadyExists). Причина: две конвенции partial-update в одном API дали
+> silent-no-op в UI (форма слала `update_mask`, бэкенд молча игнорировал
+> `is_default` без `update_is_default`). См. skill `evgeniy` AP-13.
 
 > [!note] KAC-272 — DB-level CIDR overlap prevention
 > `Create` / `AddCidrBlocks` нормализуют CIDR-блоки в child-таблицу `address_pool_cidrs`

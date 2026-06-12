@@ -77,6 +77,18 @@ tags:
 
 `KACHO_NLB_AUTHZ__BREAKGLASS=true` → bypass + WARN-метрика. Dev/emergency only.
 
+## Transport mTLS (SEC-I)
+
+Check идёт по **internal** iam-conn'у (`iamInternalConn`, :9091), общему с
+register-drainer. SEC-D дал ему client-cert (`cfg.MTLS.IAMRegister`,
+ServerName=`kacho-iam-internal.*`). SEC-I **подтверждает**, что authz/Check-ребро
+покрыто этим же conn'ом (отдельного list-filter-conn у nlb нет — Check для List
+идёт через тот же `iamInternalConn`). Read-ребро ProjectService.Get (:9090,
+[[nlb-to-iam-creator-tuple|public iam-conn]]) получило **отдельное** поле
+`cfg.MTLS.IAMProject` (ServerName=`kacho-iam.*`) — per-listener split (I6), т.к.
+единый ServerName не покрывает оба listener'а под SEC-H. `enable=false` → insecure
+(dev). Completeness (SEC-I-07): оба iam-conn'а nlb предъявляют `kacho-nlb-client-tls`.
+
 ## See also
 
 [[../packages/nlb-internal-check]] [[../packages/corelib-authz]] [[vpc-to-iam-check]] [[compute-to-iam-check]] [[../KAC/KAC-108]] [[../KAC/KAC-141]]
