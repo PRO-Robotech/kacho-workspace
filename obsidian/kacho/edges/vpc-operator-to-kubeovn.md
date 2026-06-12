@@ -98,11 +98,60 @@ least-priv: [[vpc-operator-to-vpc-mtls]]. webhook server-cert (kube-apiserver→
 (§4.1.6). **mTLS — только на gRPC-рёбрах**; operator→kube-ovn/multus (k8s-API,
 downstream) — вне mTLS-периметра.
 
+## Поток (OP2-P2 — RouteTable → Vpc.staticRoutes, промежуточный CRD KachoRouteTable)
+
+```
+kacho-vpc (RouteTableService.List(projectId)) ── gRPC poll, БЕЗ zone-filter
+   ▼                                              (RouteTable network-global, не зональна)
+INGRESS (internal/syncer/route_ingress.go)   EGRESS (internal/controller/kachoroutetable_controller.go)
+   RouteTable → KachoRouteTable CR ───────────►  For(&KachoRouteTable{}) + periodic resync
+   (kacho.io/v1, cluster, 1:1 зеркало;            UNION всех KachoRouteTable того же networkId
+    spec.staticRoutes[]{destinationPrefix,        → field/element-scoped MERGE в
+    nextHopAddress, gatewayId, labels})           Vpc(VpcNameFor(networkId)).spec.staticRoutes[]
+                                                   {cidr=destinationPrefix, nextHopIP=nextHopAddress}
+```
+
+**KachoRouteTable** (`kacho.io/v1`, **cluster-scoped**) — второй собственный CRD. См.
+[[resources/kacho-vpc-operator-KachoRouteTable]]. Целевой sink — `Vpc.spec.staticRoutes[]`
+(live: `{cidr,nextHopIP,policy,routeTable,ecmpMode,bfdId}`); оператор выставляет ТОЛЬКО
+`cidr`+`nextHopIP`, kube-ovn дефолтит `policy=policyDst` (+пустые остальные) на наш же
+элемент (live-проверено).
+
+### Ключевые отличия от OP1 (Subnet)
+- **НЕТ ownerRef-каскада**: staticRoutes — под-поля одного Vpc (владелец — Network-ingress),
+  не отдельные объекты. ownerRef на элемент массива невозможен. Teardown = finalizer
+  `kacho.io/kachoroutetable-teardown` + **element-prune** (снять ровно свои элементы), не k8s-GC.
+- **field-scoped + element-scoped merge** в ОБЩИЙ Vpc: egress читает текущий
+  `spec.staticRoutes`, мёржит ТОЛЬКО свои элементы (по ключу), сохраняя базовый spec Vpc
+  (Network-ingress) + чужие элементы + kube-ovn-дефолты НАШИХ элементов (переиспускаем
+  существующий элемент по ключу — иначе whole-array replace стёр бы `policy` → передефолт →
+  hot-loop, как OP1 §callout). retry-on-conflict (OCC).
+- **multi-RT aggregation**: Network ↔ много RouteTable, один `Vpc.staticRoutes[]` → AGGREGATE
+  union всех RT того же networkId (НЕ default-RT only). Дедуп идентичных `(cidr,nextHopIP)`;
+  конфликт (один cidr, разный nextHop) → детерминированный winner по стабильной сортировке
+  `(routeTableId,cidr,nextHopIP)`, проигравший RT → degraded `RouteConflict`.
+- **owned-route identity / prune**: элемент структурно неотличим (kube-ovn дефолтит policy на
+  наш). Applied-state — в `status.materializedRoutes` каждого RT (ключи `<cidr>|<nextHopIP>`).
+  owned-union = ∪ materializedRoutes live-RT ∪ keys(desired); prune = owned\desired; foreign
+  (ключ ∉ owned) НЕ трогаются. dedup-aware teardown: общий маршрут переживает удаление одного
+  RT, пока им владеет другой live-RT.
+- **gatewayId next-hop** (без nextHopAddress) → degraded `GatewayUnresolved` + skip (gated на
+  Gateway-фазу P4, резолв gatewayId→IP недоступен), partial-progress. **invalid CIDR / оба-или-
+  ни-одного next-hop** → degraded `InvalidRoute` + skip (prune-fail-safe). **нет Vpc / пустой
+  networkId** → degraded `VpcNotFound` + requeue (контроллер НЕ создаёт Vpc — RBAC vpcs без
+  create/delete, least-priv).
+
+**Reuse для multi-AZ**: field-scoped `Vpc.staticRoutes` egress (`applyVpcRoutes`/`mergeStaticRoutes`,
+`internal/controller`) — тот же механизм для будущих remote-/18 routes multi-AZ learn-side
+(design-doc §3.2), без копипасты.
+
 ## Реализовано / boundary
 
-- ✅ Network→Vpc, Subnet→Subnet+NAD, NIC→pod-annotation (networks+mac).
+- ✅ Network→Vpc, Subnet→Subnet+NAD, NIC→pod-annotation (networks+mac),
+  **RouteTable→Vpc.staticRoutes (OP2-P2)**.
 - ⏳ boundary (см. `kacho-vpc-operator/MAPPING.md`): SecurityGroup→ACL,
-  RouteTable→Vpc.staticRoutes, Gateway→VpcNatGateway, Address→fixed-IP. NIC
+  Gateway→VpcNatGateway (+ разблокирует gatewayId-next-hop), Address→fixed-IP,
+  Subnet.route_table_id→Vpc.policyRoutes (per-subnet source-routing, future). NIC
   fixed-IP (resolve Address по `v4_address_ids`) — тоже boundary; IP пока даёт
   kube-ovn IPAM.
 
@@ -186,6 +235,20 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
 
 ## История
 
+- 2026-06-12 (OP2-P2, KachoRouteTable CRD + RouteTable→Vpc.staticRoutes) — второй
+  собственный CRD `KachoRouteTable` (`kacho.io/v1`, cluster-scoped) + два контура: ingress
+  (syncer 1:1 reflect Kachō RouteTable → CR, БЕЗ zone-filter — network-global) и egress
+  (controller-runtime Reconciler → field/element-scoped MERGE union-маршрутов всех RT
+  networkId в `Vpc.spec.staticRoutes[]`). НЕТ ownerRef-каскада (staticRoutes — под-поля Vpc):
+  teardown = finalizer + element-prune. owned-route identity `(cidr,nextHopIP)` + applied-state
+  в `status.materializedRoutes` (kube-ovn дефолтит policy=policyDst на наш элемент —
+  структурно неотличим). multi-RT aggregation + дедуп + детерминированный conflict-winner;
+  gatewayId→degraded GatewayUnresolved (gated P4); invalid CIDR/next-hop→InvalidRoute;
+  нет Vpc→VpcNotFound+requeue. RBAC vpcs least-priv для egress (update/patch, без create/delete).
+  envtest egress (12 сценариев) + unit desired-union + ingress; field-scoped no-clobber RED→GREEN.
+  Live-проверено: CRD ставится (Cluster, cols Network/Routes/Ready/Age); kube-ovn пишет
+  policy=policyDst назад в наш spec-элемент → reuse-by-key сохраняет (нет hot-loop). Network→Vpc
+  ingress (OP1) не клоберится; mTLS/FGA/ns-operator не тронуты.
 - 2026-06-12 (OP2-P0 NIC-webhook fix, `439c411`, closes #1) — webhook ссылается на
   per-CIDR child-NAD `kubeovn.ChildName(subnetID,cidr)` (NIC→Address→containing-CIDR),
   а не голый `<subnet-id>`; dual-stack (оба семейства); `ChildName`/`CanonicalCIDR`/
