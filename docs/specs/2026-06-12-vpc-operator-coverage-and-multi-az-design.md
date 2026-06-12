@@ -98,6 +98,18 @@ webhook-only, без CRD/NAT, минимальный blast-radius, задаёт 
 внутри кластера. ⇒ **OVN-IC отвергнут**; явно запретить `ENABLE_IC` в deploy-values
 (ловушка). На живом стенде IC не установлен/не сконфигурён (verified).
 
+> [!warning] LIVE-BLOCKER (2026-06-12, kacho-vpc-operator#2) — Vpc.staticRoutes стрипается
+> На стенде (kube-ovn v1.16.1, NON_PRIMARY custom-VPC) **kube-ovn-controller удаляет
+> user-добавленные `Vpc.spec.staticRoutes` за ~1с** (add→del cycle; vpc.go:525 add →
+> vpc.go:507 del с `ECMPMode:ecmp_symmetric_reply`). Воспроизведено и ручным
+> `kubectl patch` (без оператора), и с явным `ecmpMode`. OVN LR держит только auto
+> subnet-routes. Подозрение: route получает `ecmp_symmetric_reply` при
+> `--enable-ecmp=false` → kube-ovn его удаляет. **Это блокирует И OP2-P2 RouteTable, И
+> выбранный ниже multi-AZ-механизм (operator-written Vpc.staticRoutes).** До решения
+> (kube-ovn config/version, либо `policyRoutes`, либо BGP) inter-zone L3 через
+> staticRoutes не работает. Оператор пишет корректно (envtest-green) — блокер на стороне
+> kube-ovn.
+
 ### 3.2 Выбранный механизм — операторские `Vpc.spec.staticRoutes` (BGP в prod)
 Каждый оператор пишет в свой custom-VPC `staticRoutes` на remote /18 (next-hop =
 gateway-нода соседней зоны). Два тира:

@@ -117,6 +117,14 @@ INGRESS (internal/syncer/route_ingress.go)   EGRESS (internal/controller/kachoro
 `cidr`+`nextHopIP`, kube-ovn дефолтит `policy=policyDst` (+пустые остальные) на наш же
 элемент (live-проверено).
 
+
+> [!warning] LIVE-BLOCKER (kacho-vpc-operator#2): kube-ovn стрипает user `Vpc.staticRoutes`
+> На стенде (v1.16.1, NON_PRIMARY custom-VPC) kube-ovn-controller удаляет добавленный
+> статический маршрут за ~1с (add→del, `ecmp_symmetric_reply` при `--enable-ecmp=false`).
+> Воспроизведено ручным patch без оператора. OVN LR держит только auto subnet-routes.
+> Блокирует OP2-P2 RouteTable И multi-AZ Vpc.staticRoutes. Оператор пишет корректно
+> (envtest-green) — блокер kube-ovn. Направления: `--enable-ecmp`, `policyRoutes`, BGP.
+
 ### Ключевые отличия от OP1 (Subnet)
 - **НЕТ ownerRef-каскада**: staticRoutes — под-поля одного Vpc (владелец — Network-ingress),
   не отдельные объекты. ownerRef на элемент массива невозможен. Teardown = finalizer
