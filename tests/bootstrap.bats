@@ -18,7 +18,7 @@ teardown() { teardown_fake_workspace; }
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -eq 0 ]
 
-  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-nlb kacho-deploy; do
+  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-iam kacho-vpc kacho-compute kacho-nlb kacho-ui kacho-deploy kacho-vpc-operator; do
     [ -d "kacho-workspace/project/$r/.git" ] || { echo "missing $r"; false; }
   done
 }
@@ -54,13 +54,13 @@ teardown() { teardown_fake_workspace; }
   cp "$BATS_TEST_DIRNAME/../bootstrap.sh" kacho-workspace/
   chmod +x kacho-workspace/bootstrap.sh
 
-  rm -rf "$FAKE_REMOTES_BASE/kacho-loadbalancer.git"
+  rm -rf "$FAKE_REMOTES_BASE/kacho-compute.git"
   export KACHO_REMOTE_BASE="file://$FAKE_REMOTES_BASE"
 
   run ./kacho-workspace/bootstrap.sh
   [ "$status" -ne 0 ]
   [[ "$output" == *"FAIL"* ]] || [[ "$output" == *"failed"* ]]
-  [[ "$output" == *"loadbalancer"* ]]
+  [[ "$output" == *"compute"* ]]
 
   # Другие репо клонировались
   [ -d "kacho-workspace/project/kacho-proto/.git" ]
