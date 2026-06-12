@@ -125,6 +125,14 @@ INGRESS (internal/syncer/route_ingress.go)   EGRESS (internal/controller/kachoro
 > Блокирует OP2-P2 RouteTable И multi-AZ Vpc.staticRoutes. Оператор пишет корректно
 > (envtest-green) — блокер kube-ovn. Направления: `--enable-ecmp`, `policyRoutes`, BGP.
 
+> [!check] ОБХОД (OP2-P-BGP): доставка subnet-CIDR в маршрутизацию через BGP, минуя стрип
+> Вместо стрипаемого `Vpc.spec.staticRoutes` CIDR подсети доставляется в маршрутизацию
+> через **BGP (kube-ovn-speaker)** — анонс по аннотации `ovn.kubernetes.io/bgp=cluster`
+> на kube-ovn Subnet (оператор ставит на каждой материализуемой подсети). Live-проверено:
+> custom-VPC subnet-CIDR выучен route-reflector'ом и **персистит** (≠ стрип). См. новый
+> egress-аспект ниже + ребро [[kube-ovn-to-bgp-fabric]]. staticRoutes-механизм OP2-P2
+> остаётся в коде (не удалён), но на v1.16.1 не работает (#2) — BGP введён рядом.
+
 ### Ключевые отличия от OP1 (Subnet)
 - **НЕТ ownerRef-каскада**: staticRoutes — под-поля одного Vpc (владелец — Network-ingress),
   не отдельные объекты. ownerRef на элемент массива невозможен. Teardown = finalizer
@@ -153,10 +161,35 @@ INGRESS (internal/syncer/route_ingress.go)   EGRESS (internal/controller/kachoro
 `internal/controller`) — тот же механизм для будущих remote-/18 routes multi-AZ learn-side
 (design-doc §3.2), без копипасты.
 
+## Поток (OP2-P-BGP — subnet-CIDR в маршрутизацию через BGP, обход стрипа #2)
+
+Egress-reconciler `KachoSubnetReconciler.applySubnet` дополнительно ставит на КАЖДОЙ
+материализуемой kube-ovn Subnet аннотацию `ovn.kubernetes.io/bgp=cluster` (always-on,
+policy Cluster). `kube-ovn-speaker` (DaemonSet, gateway-ноды) анонсирует CIDR
+аннотированной подсети в BGP-фабрику → route-reflector учит маршрут. Это рабочая замена
+стрипаемых `Vpc.spec.staticRoutes` (#2): маршрут программируется BGP'ом, минуя стрип.
+
+- Ключ/значение — в shared `internal/kubeovn` (`AnnotationBGP`/`BGPPolicyCluster`/
+  `SubnetBGPAnnotations()`) — единый источник (drift-prevention, корень #1), reuse в
+  multi-AZ learn-side.
+- Аннотация выставляется тем же **field-scoped merge** (`mergeAnnotations`, parity с
+  `mergeLabels`), что и label'ы OP1 — мёржит ТОЛЬКО свой ключ, не клоберит
+  чужие/kube-ovn-дефолтные аннотации; идемпотентно (no spurious write).
+- Только на Subnet (НЕ на парном NAD): BGP-анонс — Subnet-level концепт.
+- **Withdraw**: аннотация уходит вместе с объектом при element-prune/teardown (OP1) →
+  speaker снимает анонс автоматически; явный `ovn.kubernetes.io/bgp-` нужен только если
+  Subnet остаётся, а анонс должен прекратиться.
+- BGP `speaker↔RR` — отдельное data-plane ребро, см. [[kube-ovn-to-bgp-fabric]]
+  (вне gRPC mTLS-mesh, auth TCP-MD5). Деплой speaker+RR — `kacho-deploy/argo-apps/kube-ovn/bgp/`.
+- Live (2026-06-12): оператор аннотирует все подсети; session Established; custom-VPC
+  CIDR (`192.168.88/89.0/24`, `29.62.0.0/16`) + Kachō-NIC /32 (`.88.12`/`.88.39`) выучены
+  RR'ом, персистят ≥60с; withdraw на снятие. **v6-анонс не активен** (стенд `NET_STACK ipv4`).
+
 ## Реализовано / boundary
 
 - ✅ Network→Vpc, Subnet→Subnet+NAD, NIC→pod-annotation (networks+mac),
-  **RouteTable→Vpc.staticRoutes (OP2-P2)**.
+  **RouteTable→Vpc.staticRoutes (OP2-P2, не работает на v1.16.1 #2)**,
+  **subnet-CIDR→BGP-анонс (OP2-P-BGP, рабочая доставка в маршрутизацию)**.
 - ⏳ boundary (см. `kacho-vpc-operator/MAPPING.md`): SecurityGroup→ACL,
   Gateway→VpcNatGateway (+ разблокирует gatewayId-next-hop), Address→fixed-IP,
   Subnet.route_table_id→Vpc.policyRoutes (per-subnet source-routing, future). NIC
@@ -243,6 +276,16 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
 
 ## История
 
+- 2026-06-12 (OP2-P-BGP, subnet-CIDR → BGP-анонс, обход стрипа #2) — egress-reconciler
+  ставит `ovn.kubernetes.io/bgp=cluster` (always-on, field-scoped `mergeAnnotations`,
+  идемпотентно) на каждую материализуемую kube-ovn Subnet (НЕ на NAD); ключ/значение в
+  shared `internal/kubeovn` (`SubnetBGPAnnotations`). `kube-ovn-speaker` (DaemonSet) +
+  GoBGP route-reflector (PoC, `kacho-deploy/argo-apps/kube-ovn/bgp/` + `scripts/bgp-up.sh`).
+  Заменяет стрипаемые `Vpc.staticRoutes` (#2): CIDR подсети доставляется в маршрутизацию
+  BGP'ом. TDD envtest RED→GREEN (`bgp_annotation_test.go`). Live: session Established,
+  custom-VPC CIDR выучен RR + персистит ≥60с (≠ #2), withdraw на prune, оператор
+  аннотирует автоматически. v6-анонс вне scope (стенд ipv4). Новое ребро
+  [[kube-ovn-to-bgp-fabric]]. PR kacho-vpc-operator#3 + kacho-deploy#75.
 - 2026-06-12 (OP2-P2, KachoRouteTable CRD + RouteTable→Vpc.staticRoutes) — второй
   собственный CRD `KachoRouteTable` (`kacho.io/v1`, cluster-scoped) + два контура: ingress
   (syncer 1:1 reflect Kachō RouteTable → CR, БЕЗ zone-filter — network-global) и egress
