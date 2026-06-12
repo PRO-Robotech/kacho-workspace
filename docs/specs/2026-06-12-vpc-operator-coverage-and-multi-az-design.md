@@ -189,3 +189,51 @@ PoC + zone-aware оператор → `P2` zone-sharding hardening → `P3` 3 к
 > Реализация — только после APPROVED Given-When-Then на под-фазу (ban #1). Multi-AZ —
 > после решений §4. Связанные сущности vault: [[vpc-operator-to-kubeovn]],
 > [[kacho-vpc-operator-KachoSubnet]]. Issues: kacho-vpc-operator#1 (NAD-ref).
+
+---
+
+## 6. P-DERISK live findings (2026-06-12, single 'kacho' cluster) — multi-AZ goal
+
+Эмпирическая де-рисковка (design-research workflow + adversarial-verify + live nbctl). Меняет §3.
+
+### 6.1 Root-cause #2 (strip) — установлен
+`Vpc.spec.staticRoutes {policyDst}` на custom-VPC: kube-ovn ставит LR-route (`dst-ip`),
+через ~4с удаляет. Логи: `vpc.go:525 add ... ECMPMode:` (пусто) → `vpc.go:507 del ...
+ECMPMode:ecmp_symmetric_reply`. kube-ovn/OVN тегает spec-driven dst-routes
+`ecmp_symmetric_reply`, при `--enable-ecmp=false` reconcile их прунит (+ затирает из
+`vpc.spec.staticRoutes`). Auto `src-ip` subnet-routes не трогаются.
+
+### 6.2 Durable import lever — НАЙДЕН
+Route, записанный **напрямую в OVN-NB** (`ovn-nbctl lr-route-add`, vendor-untagged) →
+plain `dst-ip` (без `ecmp_symmetric_reply`) → **ПЕРСИСТИТ через Vpc-reconcile,
+spec-change И полный restart kube-ovn-controller** (kube-ovn диффит только свои routes
+из `vpc.spec`, чужие NB-routes не трогает). Прямой `lr-policy` reroute переживает
+reconcile, но **прунится на полном resync** (отвергнут). ⇒ import = **direct OVN-NB
+(libovsdb), не `Vpc.spec.staticRoutes`**.
+
+### 6.3 Реальный gate — custom-VPC LR не имеет external-порта
+Custom-VPC LR имеет ТОЛЬКО subnet-порты (по одному на subnet), **нет external/gateway
+LRP** (у `ovn-cluster` есть `-join`). ⇒ next-hop dst-route'а (node-IP) недостижим из LR,
+и нет host→LR ingress-пути. На стенде НЕТ provider-network / vlan / external-subnet
+(`ENABLE_NAT_GW=false`). Cross-zone L3 требует подключить каждый custom-VPC LR к
+**underlay (kind-бридж)** через external-LRP (`Vpc.enableExternal` + provider-subnet).
+
+### 6.4 VpcEgressGateway — НЕ механизм import (adversarial-verify)
+VEG — `ip4.src`-reroute + SNAT (egress-to-external), НЕ `ip4.dst==remote/18` import. Его
+EVPN/BGP учит routes в FRR gw-пода + SNAT, не в OVN LR. Wrong shape для no-NAT
+within-VPC L3. ⇒ VEG = только external/internet-egress (P3/P4), не cross-zone import.
+
+### 6.5 Изоляция VPC — структурная (sound)
+Разные Network → разные custom-VPC LR → нет общих routes. Оператор пишет cross-zone
+route в LR ТОЛЬКО на remote /18 ТОЙ ЖЕ Network → VPC-X не достаёт VPC-Y. **Shared BGP-RR
+для import = leak** (speaker анонсит все CIDR в один RIB без Spec.Vpc-фильтра) → RR НЕ
+использовать как import-путь; для prod-BGP изоляция требует per-VPC EVPN route-target.
+
+### 6.6 Пересмотренный механизм (для acceptance)
+Cross-zone no-NAT within-VPC L3 на v1.16.1 custom-VPC = (a) каждый custom-VPC LR на
+underlay (kind-бридж) через external-LRP; (b) durable dst-route на remote /18 →
+peer-node/underlay-IP, записанный **прямо в OVN-NB** (libovsdb, не Vpc.spec — обход
+ecmp-prune) с SSA-стилем ownership (managedFields неприменим к OVN-NB, но к k8s-CR —
+да); (c) underlay = общий kind docker-бридж; (d) изоляция структурная per-VPC.
+**Открытый gate до acceptance-кода:** доказать external-LRP + forwarding pod→bridge на
+ОДНОМ кластере (provider-network setup) — это последний make-or-break.
