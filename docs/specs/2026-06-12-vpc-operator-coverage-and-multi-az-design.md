@@ -268,3 +268,27 @@ transit-IP LR соседней зоны + durable dst-route на remote /18.
 **Следующее (P1/P2):** оператор zone-aware + программирует transit-subnet(u2o) + durable
 dst-route на remote /18 (libovsdb) per materialized Network; затем 2 зональных kind на общем
 бридже, кросс-роуты same-Network /18, проверка A↔B within-VPC + cross-VPC изоляция.
+
+### 6.8 P2 MANUAL DATAPATH PROVEN — cross-zone within-VPC + isolation (live, 2026-06-12)
+
+3 kind на общих бриджах (`kind` 172.19/16 + `kacho-underlay` 172.31/16):
+`kacho`(cp, .2), `kacho-zonea`(.3), `kacho-zoneb`(.4). Per-zone kube-ovn v1.16.1
+NON_PRIMARY с деконфликтнутыми CIDR (ovn-default 172.32/172.33, join 100.65/100.66,
+kindnet pod 10.245/10.246, svc 10.97/10.98) + multus + provider-network(eth1)+vlan.
+
+**Per zone (manual, = будущая работа оператора):** Vpc `net-demo` + overlay subnet
+(zoneA 10.80.0.0/18, zoneB 10.80.64.0/18) + transit subnet (172.31/16, vlan, vpc=net-demo,
+**u2oInterconnection** → LRP на underlay: zoneA u2oIP 172.31.0.101, zoneB .151) + NAD +
+pod (net1 на overlay). Cross-route (direct OVN-NB): zoneA `10.80.64.0/18→172.31.0.151`,
+zoneB `10.80.0.0/18→172.31.0.101`. Pod route на remote /18 через net1-LR (NET_ADMIN).
+
+**РЕЗУЛЬТАТ:**
+- ✅ **Cross-zone within-VPC: demo-zonea (10.80.0.3) ↔ demo-zoneb (10.80.64.3) — 0% loss,
+  bidirectional, TTL=62 (2 LR-хопа).** Поды в РАЗНЫХ kind-кластерах видят друг друга в
+  рамках одного VPC, routed L3 через underlay (без L2-растяжки).
+- ✅ **Cross-VPC изоляция: other-zonea (net-other 10.81.0.2) НЕ достаёт net-demo**
+  (10.80.0.3 ни 10.80.64.3) даже с добавленным pod-route — LR net-other не имеет route →
+  drop. net-demo при этом продолжает работать. Изоляция структурная (per-VPC LR).
+
+⇒ Цель достижима. Остаётся **автоматизация оператором** (P1): zone-aware materialize +
+transit(u2o) + direct-OVN cross-route + cross-cluster чтение control-plane.
