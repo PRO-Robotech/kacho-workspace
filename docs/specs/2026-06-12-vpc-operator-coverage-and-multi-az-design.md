@@ -1,0 +1,145 @@
+# Дизайн: покрытие ресурсов kacho-vpc-operator + multi-AZ L3-interconnect
+
+**Документ:** design-proposal (pre-acceptance для нереализованных фаз) · 2026-06-12
+**Статус:** Часть «покрытие ресурсов» — активный roadmap реализации; «multi-AZ» —
+proposal, ждёт продуктовых решений (см. §«Открытые вопросы»).
+**Scope:** `kacho-vpc-operator` (data-plane sibling, вне build-графа control-plane) +
+`kacho-deploy` (kube-ovn helm/kind) + `kacho-compute` (Geography Zone seed). Control-plane
+proto/API менять **не требуется** для v1 (`Subnet.zone_id` + per-Network EXCLUDE-gist
+non-overlap уже есть).
+
+Основано на двух research-workflow (2026-06-12), заземлённых на живом стенде
+(kube-ovn v1.16.1, `kind-kacho`) + офиц. доки kube-ovn. Полные per-resource mappings и
+per-angle findings — в transcript'ах workflow.
+
+---
+
+## 1. Текущее состояние (что уже материализуется)
+
+OP1 (KachoSubnet CRD): **Network → kube-ovn Vpc** (`=net-id`, isolated custom VPC);
+**Subnet → N×(kube-ovn Subnet + Multus NAD)** по одному на CIDR (single-family, решение A),
+cluster-scoped intermediate CRD `KachoSubnet`, ingress poll-syncer + egress
+controller-runtime Reconciler (ownerRef+finalizer, element-prune, field-scoped apply,
+stable-by-**immutable-id** имена `<sub-id>-<cidrhash>`). NIC fixed-IP — частично (webhook).
+
+**Baseline для всех новых фаз** — машинерия KachoSubnet: cluster-scoped CRD, ingress
+1:1 mirror (без Watch), egress Reconciler, `SetControllerReference`+finalizer teardown,
+content-stable id-naming, **field-scoped apply** (писать только свои ключи),
+element-prune, in-use guard, degraded-conditions. Общие хелперы (`internal/kubeovn`,
+`naming.go`/`canonicalCIDR`/`childName`) — **shared-пакеты**, не дублировать (drift =
+корень бага #1).
+
+---
+
+## 2. Roadmap покрытия ресурсов (single-cluster)
+
+Заземлено на живом стенде: все целевые kube-ovn CRD присутствуют
+(`vips`, `security-groups`, `vpc-egress-gateways`, `vpc-nat-gateways`, `ovn-eips`);
+NAT-путь **выключен**: `ENABLE_NAT_GW=false` + `ENABLE_EIP_SNAT=false`
+(`argo-apps/kube-ovn/{values.kind.yaml,application.yaml}`).
+
+| Фаза | Ресурс | Механизм | Гейт/риск |
+|---|---|---|---|
+| **P0** (старт) | NIC fixed-IP + internal Address (v4/v6) | **pod-annotation** (webhook). Чинит **#1** (NAD по `<sub-id>-<cidrhash>`, не голый `<subnet-id>`), общий `childName` пакет, dual-stack | latent data-loss, без CRD/NAT |
+| **P1** | SecurityGroup + rules + NIC-binding | `KachoSecurityGroup` CRD → `security-groups.kubeovn.io` (ACL ingress/egress) + per-NIC `<provider>.kubernetes.io/security_groups` annotation | ⚠ проверить, что SG-ACL действует **внутри custom-VPC** (иначе silent no-op изоляции) |
+| **P2** | RouteTable + static routes | `KachoRouteTable` CRD → `Vpc.spec.staticRoutes[]` (field-scoped, **без** ownerRef-каскада; prune по `(cidr,nextHop,policy)`) | write-contention на Vpc (Network ingress тоже пишет Vpc) → строго field-scoped |
+| **P3** | infra enablement | flip `ENABLE_NAT_GW=true` + external underlay (kacho-deploy), re-roll kube-ovn | отдельный гейт; re-roll может задеть рабочий datapath |
+| **P4** | Gateway (shared-egress/NAT) | `KachoGateway` CRD → `vpc-egress-gateways.kubeovn.io` (Namespaced, self-SNAT) | gated P3; proto Gateway **пустой** → scoping/external-IP/placement только через Internal* (security.md) |
+| **P5** | Address (reserved internal + external/elastic) | `KachoAddress` CRD → `vips` (reserved-internal, pin точного IP) / `ovn-eips`+NAT-rules (external). NIC-bound internal остаётся P0 pod-annotation | gated P4; IPAM-pin, **не** `ips`/`ippools` (kube-ovn-owned); atomic teardown EIP+NAT |
+
+**DAG:** `P0 → P1`; `P0 → P5 (+P4)`; `P2` (NAT-independent, но `gateway_id`-next-hop ждёт P4);
+`P3 → P4 → P5(external)`. P0/P1/P2 — без NAT, можно сразу.
+
+**Рекоменд. старт: P0** — чинит латентную регрессию NIC-attach (#1), webhook-only, без CRD/NAT,
+минимальный blast-radius, задаёт shared-naming контракт для P1/P5.
+
+---
+
+## 3. Multi-AZ L3-interconnect (proposal)
+
+### 3.1 Главный verified-вывод
+**OVN-IC связывает только default-VPC (`ovn-cluster`).** Kachō кладёт каждую Network в
+**custom-VPC** (`kacho-<net-id>`) → vanilla `enable-ic + auto-route` = **тихий no-op**
+(ноль связности Kachō-подсетей, без ошибки). VPC Peering (`vpcPeerings`) — только
+внутри кластера. ⇒ **OVN-IC отвергнут**; явно запретить `ENABLE_IC` в deploy-values
+(ловушка). На живом стенде IC не установлен/не сконфигурён (verified).
+
+### 3.2 Выбранный механизм — операторские `Vpc.spec.staticRoutes` (BGP в prod)
+Каждый оператор пишет в свой custom-VPC `staticRoutes` на remote /18 (next-hop =
+gateway-нода соседней зоны). Два тира:
+- **PoC/kind:** static-route mesh, без BGP. 3 kind на общем docker-бридже `kind`
+  (172.19.0.0/16 → ноды взаимно достижимы). Детерминированно, in-version.
+- **Prod:** `VpcEgressGateway.bgpConf` + route-reflector → динамика, ECMP/BFD. EVPN
+  отложить (экспериментальный в 1.16). Honest gap: в v1.16.1 нет CRD-поля, авто-
+  устанавливающего BGP-learned префиксы в custom-VPC LR → learn-side = оператор пишет
+  `Vpc.staticRoutes` (это **и есть** фаза RouteTable — дорожки сходятся).
+
+### 3.3 Топология
+```
+control-plane (1 набор): Network enp-X · Subnet-A zoneA 10.80.0.0/18 · -B zoneB 10.80.64.0/18 · -C zoneC 10.80.128.0/18
+   (DB EXCLUDE-gist subnets_no_overlap per network_id — непересечение уже гарантировано)
+        │ gRPC poll (mTLS SEC-G); каждый оператор читает ВСЕ subnets, материализует свою зону, УЧИТ remote /18
+ kind-zoneA / kind-zoneB / kind-zoneC  (= 3 AZ; vpc+project-оператор; KACHO_ZONE_ID=zoneX)
+   VPC enp=net-id  ← одно имя, 3 НЕЗАВИСИМЫХ LR (НЕ растянутый L2)
+   Subnet своей зоны +NAD; gw-нода
+   Vpc.staticRoutes → два remote /18 via peer-node-IP (PoC) / BGP-learned (prod)
+ Итог: pod zoneA → VPC-LR → route remote/18 nh=peer-node → underlay(kind bridge) → peer VPC-LR → pod. Routed L3, без L2.
+```
+
+### 3.4 Адресация
+Network **не имеет CIDR-поля** (supernet — admin/AddressPool-конвенция). Пример
+supernet `10.80.0.0/16` → disjoint /18 на зону. IPAM authority = **kacho-vpc**
+(EXCLUDE-gist per network_id). kube-ovn IPAM — subordinate (каждый kube-ovn Subnet
+держит только свой /18; pod fixed-IP через NIC→Address→annotation). ⚠ Нарезать
+per-cluster дефолты kube-ovn (`ovn-default 172.30/16`, `JOIN_CIDR 100.64/16` —
+одинаковы во всех kind) + distinct kindnet pod/svc subnets.
+
+### 3.5 Изменения оператора (zone-awareness)
+1. `KACHO_VPCOPERATOR_ZONE_ID` env; пробросить `subnet.zone_id` в `KachoSubnetSpec.ZoneID`.
+2. Материализовать subnet только если `zone_id == ZONE_ID`; один деплой оператора на kind.
+3. VPC-name `=net-id` одинаков во всех кластерах (3 независимых LR — задокументировать).
+4. Route-advertise: оператор читает ВСЕ subnets Network (zone-фильтр гейтит только
+   *материализацию*, не *чтение*), пишет remote /18 в `Vpc.staticRoutes` (+ `bgpConf` в prod).
+5. **Replica-isolation**: партиционирование по `zone_id`; prune/GC zone-scoped
+   (label `kacho.io/zone=<zone-id>`) — оператор не трогает чужую зону.
+6. `Vpc.staticRoutes` пишется **field-scoped** (как egress applyChild) — иначе OCC hot-loop.
+7. Блокирующий пререквизит: фикс #1 (NAD-name) — иначе поды в multi-AZ не attach'атся.
+
+### 3.6 Изменения kacho-deploy
+3 kind на общем `kind`-бридже (НЕ изолировать — нужны взаимно достижимые ноды);
+distinct pod/svc subnets per kind; per-zone kube-ovn values; `func.ENABLE_NAT_GW=true`
+(для GW/BGP-пути), `--enable-ecmp`/`--enable-external-vpc` где надо; **НЕ** `ENABLE_IC`;
+`dataplane-up.sh`/`operator-up.sh` параметризовать per-context (`KACHO_ZONE_ID`); seed
+3 Geography Zone в kacho-compute (под `Subnet.zone_id` валидацию). Next-hop/ASN/VRF —
+infra-sensitive → только Internal* (security.md).
+
+### 3.7 Фазы multi-AZ
+`P0`(#1 NAD-fix) → `P0.5` custom-VPC route proof (1 кластер) → `P1` 2-cluster static-mesh
+PoC + zone-aware оператор → `P2` zone-sharding hardening → `P3` 3 кластера + 3 Zone →
+`P4` prod BGP+RR. **Старт: P0 → P0.5 → P1, на 3 не прыгать.**
+
+---
+
+## 4. Открытые вопросы (нужны продуктовые решения до acceptance/epic)
+1. Цель v1 multi-AZ: static-mesh (проще) или сразу BGP+RR?
+2. 3 kind остаются single-host (общий `kind`-бридж)? Multi-host меняет фабрику.
+3. Где нарезка supernet→/18: AddressPool / новый internal-allocator / конвенция оператора?
+4. `zone_id` делаем required+immutable для multi-AZ Network? Одна подсеть на зону или N?
+5. Scope связности: pod-to-pod именно по secondary (kube-ovn) NIC, или достижимости Kachō-IP достаточно?
+6. ASN-план + какой Internal*-API отдаёт next-hops/ASN.
+7. Завести cross-repo EPIC (operator zone-shard+routes · deploy 3-kind · compute zone-seed · workspace docs).
+
+---
+
+## 5. Сквозные риски (master)
+1. **OVN-IC silent-no-op** для custom-VPC — запретить `ENABLE_IC`.
+2. **Custom-VPC learn-side gap** — нет CRD авто-установки BGP-routes в custom-VPC LR → оператор → `Vpc.staticRoutes`.
+3. **OCC hot-loop** — все записи в общий Vpc (staticRoutes) строго field-scoped; ловится только на живом кластере (envtest слеп).
+4. **VPC-scope SG-ACL** в custom-VPC — возможен silent no-op изоляции; проверить до P1.
+5. **Delete-cascade ordering** — external Address EIP+NAT atomic; route element-prune без ownerRef; in-use guards.
+6. **Internal-vs-public surface** — Gateway scoping/external-IP/placement + NAT-wiring + next-hops/ASN — только Internal* (security.md).
+7. **#1 NAD-ref** блокирует attach подов → P0 первым.
+
+> Реализация — только после APPROVED Given-When-Then на под-фазу (ban #1). Multi-AZ —
+> после решений §4. Связанные сущности vault: [[vpc-operator-to-kubeovn]],
+> [[kacho-vpc-operator-KachoSubnet]]. Issues: kacho-vpc-operator#1 (NAD-ref).
