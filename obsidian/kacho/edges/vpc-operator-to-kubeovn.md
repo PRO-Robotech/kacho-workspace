@@ -67,6 +67,17 @@ Labels child'ов: `managed-by` + `project-id` / `upstream-id` / `upstream-name`
 `VpcNameFor`/`FirstUsableIP`/`Provider`/`NADConfig`), переиспользуются ingress+egress.
 Cleanup orphan'ов ingress: KachoSubnet CR (по label) → egress GC-каскадит child'ы; затем Vpc.
 
+> [!warning] Gotcha: field-scoped apply (иначе OCC hot-loop с kube-ovn)
+> Контроллер kube-ovn САМ дефолтит доп. spec-поля созданной Subnet (`gatewayType`,
+> `natOutgoing`, … — ~6 полей; 12 ключей итого vs 6 наших). `applyChild` ОБЯЗАН
+> сравнивать/писать **только управляемые ключи** (protocol/cidrBlock/gateway/
+> excludeIps/provider/vpc; `config` для NAD), а не весь `spec`. Whole-spec replace
+> (`current.Object["spec"] = desired`) стирал kube-ovn-дефолты каждый reconcile →
+> kube-ovn передефолчивал → два контроллера в hot-loop (~1877 OCC «object has been
+> modified» конфликтов/мин, видно только на живом кластере — envtest без реального
+> kube-ovn-контроллера это НЕ ловит). Фикс field-scoped: 0 конфликтов. kube-ovn НЕ
+> переписывает наши 6 ключей (проверено), поэтому per-key merge безопасен.
+
 ## AuthZ (важно)
 
 `kacho-vpc` включает per-RPC authz (`InternalIAMService.Check`) и читает принципала
@@ -168,6 +179,11 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
   ownerRef-каскад, element-prune, finalizer + in-use safety по version-pinned
   `v4usingIPs`/`v6usingIPs` kube-ovn v1.16.1). envtest egress-reconcile. Network→Vpc и
   NIC-webhook без изменений; SEC-G mTLS/FGA не тронуты; ns-operator не тронут.
+  **Live-fix (тот же день, найдено на чистом `make dev-up MTLS=on`):** (1) `config/dev`
+  kustomize не мог сослаться на `../rbac/role.yaml` (load-restrictor) → RBAC bundle
+  применяется out-of-band из `operator-up.sh`; (2) egress field-scoped apply против
+  OCC hot-loop с kube-ovn (см. callout выше). Оба провалидированы на живом кластере
+  (create→reconcile→delete-cascade, 0 конфликтов).
 - 2026-06-11 (SEC-G) — upstream-dial operator→{vpc,iam} переведён на mTLS (отдельный
   op client-cert, per-edge enable); least-priv read-only SA principal; webhook
   server-cert на internal-CA. Подробности: [[vpc-operator-to-vpc-mtls]].
