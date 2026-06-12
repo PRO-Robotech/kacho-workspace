@@ -4,7 +4,7 @@ aliases:
   - OP2-P-BGP
 ticket_id: KAC-PENDING
 category: kac
-status: test
+status: done
 type: feature
 repos:
   - kacho-vpc-operator
@@ -14,6 +14,7 @@ prs:
   - https://github.com/PRO-Robotech/kacho-deploy/pull/75
 yt_url: https://prorobotech.youtrack.cloud/issue/KAC-PENDING
 opened: 2026-06-12
+closed: 2026-06-12
 tags:
   - kac
   - feature
@@ -78,8 +79,12 @@ CIDR Kachō-подсетей в маршрутизацию через **BGP (kub
 - [x] Deploy-манифесты + bgp-up.sh + runbook (kacho-deploy).
 - [x] Vault trail (edges + KAC) + acceptance committed.
 - [x] PR'ы: kacho-vpc-operator#3, kacho-deploy#75.
-- [ ] Merge обоих PR + перевод в Done (orchestrator/owner).
+- [x] **Merge обоих PR** (2026-06-12): operator#3 → `39895eb`, deploy#75 → `4c279b1` (main не protected; ветки удалены). **Done.**
 - [ ] (follow-on) Multi-AZ S6 — отдельная под-фаза, gated на §4-решения design-doc.
+
+> [!note] Известные пред-существующие красные CI (НЕ от этой работы, кандидаты в tech-debt issue)
+> - `kacho-vpc` `security-scan` (trivy CRITICAL/HIGH) — красный на каждом коммите main несколько дней (Go-bump зависимости).
+> - `kacho-deploy` `newman-e2e` — красный из-за IAM/FGA-сьютов (`iam-access-binding`/`iam-role`/`authz-*`/`sec-c-fga-proxy`), ~20 мин, 3/4 последних прогонов main красные. К VPC/BGP не относится; merge не блокировал (main не protected).
 
 ## Связанные тикеты
 
