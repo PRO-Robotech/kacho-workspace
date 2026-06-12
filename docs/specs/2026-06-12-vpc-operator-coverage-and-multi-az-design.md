@@ -237,3 +237,34 @@ ecmp-prune) с SSA-стилем ownership (managedFields неприменим к
 да); (c) underlay = общий kind docker-бридж; (d) изоляция структурная per-VPC.
 **Открытый gate до acceptance-кода:** доказать external-LRP + forwarding pod→bridge на
 ОДНОМ кластере (provider-network setup) — это последний make-or-break.
+
+### 6.7 P-DERISK-EXT RESULT — datapath FEASIBLE (PROVEN live, 2026-06-12)
+
+Hard gate из acceptance OP3-MULTIAZ пройден на одном кластере 'kacho' (kube-ovn v1.16.1).
+`datapath_feasible` пересмотрен с FALSE → **TRUE**.
+
+**Проверенный рецепт (custom-VPC LR ↔ underlay-бридж):**
+1. Второй docker-NIC на ноде (`docker network create kacho-underlay 172.31.0.0/16` +
+   `docker network connect` → нода получает eth1).
+2. kube-ovn `ProviderNetwork{defaultInterface: eth1}` + `Vlan{id:0, provider}` +
+   `Subnet{vlan, vpc: <custom>, cidr: 172.31.0.0/16}` (underlay, attached to custom VPC).
+   → kube-ovn создаёт OVS `br-underlay`, переносит IP eth1→br-underlay, provider ready.
+3. **`subnet.spec.u2oInterconnection: true`** — ключевой шаг: kube-ovn создаёт LRP
+   `<vpc>-<transit-subnet>` на custom-VPC LR с u2oIP (172.31.0.51) + auto-route
+   `172.31.0.0/16 → 172.31.0.1 src-ip`. **Это внешняя дверь LR на underlay.**
+4. Durable cross-zone route: `ovn-nbctl lr-route-add <vpc> <remote/18> <peer-transit-IP>`
+   (прямой OVN-NB, plain dst-ip, переживает reconcile+restart — §6.2).
+
+**Доказанный датапас (bidirectional):** pod `192.168.88.12` (net1) → LR `192.168.88.1`
+→ transit-LRP `172.31.0.51` → br-underlay/eth1 → нода `172.31.0.2` — **ping 3/3, 0% loss**.
+Обратный путь (нода→`172.31.0.51`→LR→pod) = **host→LR ingress injection РАБОТАЕТ** (та самая
+«недоказанная половина» из adversarial-verify). Cross-zone = заменить «ноду 172.31.0.2» на
+transit-IP LR соседней зоны + durable dst-route на remote /18.
+
+**Изоляция:** pod net1 → CIDR другого VPC (29.62.0.1) = 100% loss (нет route → нет пути).
+Структурно: оператор пишет cross-zone route ТОЛЬКО на remote /18 той же Network; без route
+пути нет. (Для prod на shared underlay — per-VPC transit для L2-изоляции.)
+
+**Следующее (P1/P2):** оператор zone-aware + программирует transit-subnet(u2o) + durable
+dst-route на remote /18 (libovsdb) per materialized Network; затем 2 зональных kind на общем
+бридже, кросс-роуты same-Network /18, проверка A↔B within-VPC + cross-VPC изоляция.
