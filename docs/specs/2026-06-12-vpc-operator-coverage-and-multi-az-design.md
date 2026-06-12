@@ -31,6 +31,35 @@ element-prune, in-use guard, degraded-conditions. Общие хелперы (`in
 
 ---
 
+## 1a. Разделение кодовой базы: IAM-контроллер ⟂ VPC-контроллер (решение 2026-06-12)
+
+Сейчас репо `kacho-vpc-operator` совмещает **два независимых контроллера**:
+- **IAM/project-контроллер** (`cmd/nsoperator`, `internal/nssyncer`) — потребляет
+  kacho-iam (`AccountService.List → ProjectService.List`), материализует Project → k8s
+  Namespace (lifecycle/labels/prune). Никак не зависит от kube-ovn/VPC.
+- **VPC-контроллер** (`cmd/main.go`, `internal/{syncer,controller,kubeovn,webhook}`,
+  `api/v1 KachoSubnet`) — материализует VPC-сущности → kube-ovn/Multus.
+
+**Решение:** разнести в **две отдельные кодовые базы** (polyrepo-native):
+- `kacho-iam-operator` (новый репо) — IAM/project-контроллер (проекты→namespaces).
+- `kacho-vpc-operator` — только VPC-сущности→kube-ovn (остаётся; из него уходит
+  `cmd/nsoperator` + `internal/nssyncer`).
+
+Зачем: чистая граница ответственности (один контроллер = один домен), независимый
+lifecycle/CI/RBAC (project-оператору нужен только namespace-CRUD + чтение iam; vpc-
+оператору — kube-ovn/Multus + чтение vpc), отсутствие ложной связности доменов в одном
+бинаре. Соответствует `kacho-<part>` конвенции и build-границам (оба — sibling вне
+build-графа control-plane). Фаза **OP-SPLIT** (см. §2) — фундаментальная, до добавления
+новых VPC-ресурсов в VPC-контроллер.
+
+## 1b. Скилы для разработки kube-контроллеров (обязательно)
+
+Вся разработка/рефакторинг контроллеров (CRD, reconciler, webhook, dev-loop) ведётся с
+применением плагин-скилов: **`k8s-crd-design`** (схема/версионирование CRD),
+**`k8s-operator-workflow`** (kubebuilder-паттерны, dev-loop, RBAC), **`k8s-quality-
+checklist`** (проверка качества контроллера), **`k8s-templates`**; Go-стиль — `evgeniy`.
+Это дополняет (не отменяет) acceptance-first + строгий TDD (envtest).
+
 ## 2. Roadmap покрытия ресурсов (single-cluster)
 
 Заземлено на живом стенде: все целевые kube-ovn CRD присутствуют
@@ -50,8 +79,13 @@ NAT-путь **выключен**: `ENABLE_NAT_GW=false` + `ENABLE_EIP_SNAT=fals
 **DAG:** `P0 → P1`; `P0 → P5 (+P4)`; `P2` (NAT-independent, но `gateway_id`-next-hop ждёт P4);
 `P3 → P4 → P5(external)`. P0/P1/P2 — без NAT, можно сразу.
 
-**Рекоменд. старт: P0** — чинит латентную регрессию NIC-attach (#1), webhook-only, без CRD/NAT,
-минимальный blast-radius, задаёт shared-naming контракт для P1/P5.
+**Фундаментальная фаза OP-SPLIT (до/параллельно P0):** разнести IAM/project-контроллер в
+новый репо `kacho-iam-operator`, оставить `kacho-vpc-operator` чисто VPC (см. §1a). Это
+рефактор-перенос (`cmd/nsoperator`+`internal/nssyncer` → новый репо; deploy `operator-up.sh`
+поднимает оба; CI на оба). P0 (webhook) — VPC-контроллер, остаётся в `kacho-vpc-operator`.
+
+**Рекоменд. старт: OP-SPLIT → P0** — P0 чинит латентную регрессию NIC-attach (#1),
+webhook-only, без CRD/NAT, минимальный blast-radius, задаёт shared-naming контракт для P1/P5.
 
 ---
 
