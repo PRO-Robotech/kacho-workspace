@@ -56,6 +56,13 @@ data-plane с операторами; поды zone A ↔ zone B видят др
 - pod zoneA `192.168.88.2` ↔ zoneB `10.80.64.2` (VPC `netrpwd…`) — **0% loss bidirectional, стабильно**.
 - single-zone VPC `netnqb…` — изолирован.
 
+## Документация
+
+- docs-site (Docusaurus 3) `kacho-vpc-operator/docs-site/` — **канонический** реф: конвертация
+  Kachō VPC→kube-ovn/OVN (`architecture/conversion`) + max-detail multi-AZ interconnect со
+  стендозависимыми переменными (`architecture/interconnect`) + reference/{kachosubnet,nic-attach,variables}.
+  Build green, 0 broken links. Plain `docs/` (implementor) — dev-обзор, ссылается на docs-site.
+
 ## Затронутые сущности vault
 
 - [[vpc-operator-to-kubeovn]] — zone-filter + interconnect (transit u2o + direct-OVN cross-route) аспект.
