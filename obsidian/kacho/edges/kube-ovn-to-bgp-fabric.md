@@ -5,7 +5,8 @@ caller_repo: kacho-deploy
 callee_repo: kube-ovn
 sync_async: async
 protocol: BGP (TCP-179)
-status: experimental
+status: deprecated
+superseded_by: "[[vpc-operator-to-cilium-realization]]"
 related_tickets:
   - OP2-P-BGP
 tags:
@@ -13,10 +14,17 @@ tags:
   - kacho-deploy
   - kube-ovn
   - cross-service
-  - experimental
+  - deprecated
 ---
 
 # kube-ovn-speaker → BGP route-reflector
+
+> [!warning] DEPRECATED (2026-06-13) — вытеснено Cilium SRv6
+> kube-ovn-speaker-часть заморожена вместе с [[vpc-operator-to-kubeovn]] (канон —
+> Cilium SRv6, см. [[vpc-operator-to-cilium-realization]]). **Но BGP route-reflector
+> фабрика переиспользуема**: Cilium BGP control plane анонсирует SRv6 SID/VPN-маршруты
+> по тому же BGP в ту же фабрику. Сохранить RR (ASN-план 65000/65001, GoBGP); заменить
+> speaker (kube-ovn) на Cilium BGP CP. Контент НЕ удалён.
 
 Новое **data-plane** ребро (OP2-P-BGP): `kube-ovn-speaker` анонсирует CIDR Kachō-подсетей
 в BGP-фабрику (route-reflector), чтобы доставить их в маршрутизацию **минуя** стрипаемый
@@ -75,4 +83,4 @@ route-reflector (GoBGP, PoC на kind) — учит маршрут, реанон
   выучены RR + персистят (≠ стрип #2), withdraw на снятие аннотации. PR kacho-deploy#75 +
   kacho-vpc-operator#3 (аннотация на Subnet — см. [[vpc-operator-to-kubeovn]]).
 
-#edge #kacho-deploy #kube-ovn #experimental
+#edge #kacho-deploy #kube-ovn #deprecated
