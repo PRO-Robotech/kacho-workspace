@@ -7,7 +7,8 @@ aliases:
 category: packages
 repo: cilium
 layer: operator-cell
-status: planned
+status: experimental
+repo_url: "https://github.com/PRO-Robotech/kacho-vpc-cilium"
 tags:
   - packages
   - kacho-vpc
@@ -16,6 +17,13 @@ tags:
 ---
 
 # kacho-vpc-cilium compiler
+
+> [!check] CIL1 реализован (2026-06-13) — репо `PRO-Robotech/kacho-vpc-cilium` (genesis на main)
+> CRD `KachoVPC` spec (`apis/vpc.kacho.cloud/v1`) + чистый `compiler.CompileVRF`
+> (KachoVPC+endpoints → `[]VRFEntry`, per-family, overlapping CIDR безопасны через
+> VRFID = тенантинг). stdlib-only, unit-тесты CIL1-01..07 `-race` зелёные. `pkg/srv6adapter`
+> — задокументированная граница (VRFEntry→`srv6map.VRFKey/VRFValue`), **gated на SRv6-ядро**
+> (CIL1b). Hive-cell/reconciler — CIL2. Acceptance: `docs/specs/sub-phase-CIL1-…`.
 
 Встраиваемый модуль в Cilium: компиляция CRD `vpc.kacho.cloud/v1` → нативный
 **SRv6 L3VPN датаплейн**. Не форк — отдельный Go-модуль, подмешиваемый в Hive

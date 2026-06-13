@@ -97,6 +97,18 @@ VPC реализуется на Cilium SRv6 VRF (решение 2026-06-13: Cili
 | kacho-api-gateway | ff1f774 | catalog mirror sync |
 | kacho-vpc (tests) | 9f22071 | 6 newman cases |
 
+## CIL1 (продолжение трека, 2026-06-13)
+
+Cilium-сторона: новый модуль **`PRO-Robotech/kacho-vpc-cilium`** (genesis на main).
+CRD `KachoVPC` spec + чистый `compiler.CompileVRF` (→ `[]VRFEntry`, per-family,
+overlapping-CIDR тенантинг). stdlib-only, unit CIL1-01..07 `-race` зелёные.
+Acceptance: `docs/specs/sub-phase-CIL1-kachovpc-vrf-compiler-acceptance.md`.
+См. [[../packages/kacho-vpc-cilium-compiler]].
+
+**Граница верификации:** datapath (BPF SRv6 map-write, End.DT4/DT6, IPv6-underlay,
+ядро ≥5.10) НЕ верифицируется в kind/macOS-окружении → CIL1b (srv6adapter+cell) +
+SRv6-e2e — отдельная фаза. Чистая логика (компилятор) покрыта полностью.
+
 ## Связанные
 
 Депрекейтит трек OP (kube-ovn): [[../edges/vpc-operator-to-kubeovn]],
