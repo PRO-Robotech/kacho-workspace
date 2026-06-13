@@ -136,8 +136,21 @@ Verified live: 2 KachoVPC (vrf 42/43, overlapping 10.0.0.0/16) + 2 пода →
 PR `kacho-vpc-cilium#2` (stack на #1), образ `sgroups/kacho-vpc-cilium:cil2-controller`.
 DaemonSet оставлен задеплоен (no-op без помеченных подов).
 
-**Дальше:** CIL3 (Subnet → IPAM-пул scoped к VRF — для настоящих overlapping pod-IP),
-SID-аллокация + BGP L3VPN (cross-node/DC), SG→CNP intra-VRF, multi-NIC.
+## CIL3 — Subnet = CiliumPodIPPool (multi-pool) ВЕРИФИЦИРОВАН (2026-06-14)
+
+Включён `ipam.mode=multi-pool` через AddonValue + per-Subnet `CiliumPodIPPool`
+(autoCreate). **Требование №2 «subnet = multipool» реализовано.** Live: под с
+`ipam.cilium.io/ip-pool=subnet-a` получил dual-stack IP из CIDR Subnet'а
+(ipv4 `10.10.1.170`/10.10.0.0/16, ipv6 `fd00:a:0:3::9e6e`/fd00:a::/48). cilium Ok,
+SRv6 Enabled, 2 пула, 160/160, argocd Synced. PR `kacho-vpc-cilium#3`.
+Гочи: SRv6⇒IPv6; multi-pool+iptables-masq ⇒ `egressMasqueradeInterfaces` (НЕ bpf-masq —
+конфликт); autoCreate только создаёт (правка семей пула = delete CR + restart operator);
+dual-stack пул обязан иметь обе семьи; agent рестартить чтобы подхватить node-CIDR пула.
+Runbook: [[../runbooks/cilium-enable-srv6-addonvalue]].
+
+**Дальше:** SID-аллокация + BGP L3VPN (cross-node/DC forwarding — нужно 2 узла),
+SG→CNP intra-VRF, NIC fixed-IP, multi-NIC. Настоящий overlapping pod-IP (один IP в двух
+VRF) = per-VRF IPAM поверх multi-pool — ещё глубже.
 
 ## Связанные
 

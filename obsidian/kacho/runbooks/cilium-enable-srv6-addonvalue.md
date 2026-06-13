@@ -74,6 +74,26 @@ agent'а на узле → сеть деградировала → coredns/argoc
 рендерить (chicken-and-egg). Восстановление: rollout restart coredns + argocd-repo-server,
 выравнивание desired через AddonValue. **Вывод: только AddonValue + restart/reconcile.**
 
+## Multi-pool IPAM (CIL3 — Subnet = CiliumPodIPPool)
+
+`cilium.ipam.mode: multi-pool` + `ipam.operator.autoCreateCiliumPodIPPools` (default +
+per-Subnet пулы). Под выбирает пул аннотацией `ipam.cilium.io/ip-pool: <pool>`.
+
+Гочи (выстраданные на fe3455-infra):
+1. **masquerade**: multi-pool + iptables-masq → panic «Egress masquerading interfaces
+   cannot be empty». Фикс — `egressMasqueradeInterfaces: "eth0"`. **НЕ** `bpf.masquerade`
+   (конфликт: «BPF masquerade does not allow --egress-masquerade-interfaces, use --devices»).
+2. **autoCreate только СОЗДАёт** пулы; смена семей существующего пула не применяется →
+   `kubectl delete ciliumpodippool <p>` + `rollout restart deploy/cilium-operator`.
+3. **dual-stack** (т.к. SRv6⇒IPv6): пул обязан иметь и ipv4, и ipv6 cidrs, иначе под падает
+   «pool not (yet) available (family ipv6)».
+4. **agent** надо рестартить, чтобы подхватить новый per-node CIDR пула (иначе
+   «pool not available» / «all pod CIDR ranges are exhausted» на поде).
+5. default-пул обязателен (неразмеченные поды). chart честит `ipam.mode`/`ipv6.enabled`/
+   `egressMasqueradeInterfaces`/`autoCreate...`, но НЕ `srv6.enabled`/`bpf.masquerade`.
+
+Канонический манифест: `kacho-vpc-cilium/deploy/cilium-srv6-multipool-addonvalue.yaml`.
+
 ## Связь с CIL-треком
 
 SRv6-датаплейн поднят → `cilium_srv6_vrf_v4/v6` существуют → разблокирована
