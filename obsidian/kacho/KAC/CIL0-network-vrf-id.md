@@ -105,9 +105,12 @@ overlapping-CIDR тенантинг). stdlib-only, unit CIL1-01..07 `-race` зе
 Acceptance: `docs/specs/sub-phase-CIL1-kachovpc-vrf-compiler-acceptance.md`.
 См. [[../packages/kacho-vpc-cilium-compiler]].
 
-**Граница верификации:** datapath (BPF SRv6 map-write, End.DT4/DT6, IPv6-underlay,
-ядро ≥5.10) НЕ верифицируется в kind/macOS-окружении → CIL1b (srv6adapter+cell) +
-SRv6-e2e — отдельная фаза. Чистая логика (компилятор) покрыта полностью.
+**Граница верификации (СНЯТА 2026-06-13):** получен SRv6-capable кластер `fe3455-infra`
+(ядро 6.8, Cilium 1.19.4). SRv6 **включён и верифицирован** через AddonValue
+`cilium-custom` (`ipv6.enabled` + `extraConfig.enable-srv6`): `SRv6: Enabled`,
+5 BPF-map'ов (`cilium_srv6_vrf_v4/v6`, `policy_v4/v6`, `sid`), 151/151 healthy,
+argocd Synced. Runbook: [[../runbooks/cilium-enable-srv6-addonvalue]]. →
+**CIL1b разблокирована** (srv6adapter: `compiler.VRFEntry` → `cilium_srv6_vrf`).
 
 ## Связанные
 
