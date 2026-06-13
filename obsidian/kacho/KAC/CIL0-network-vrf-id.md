@@ -3,13 +3,15 @@ title: "CIL0: Network vrf_id alloc + InternalNetworkService.GetNetwork"
 aliases:
   - CIL0
   - network vrf_id
-ticket_id: "KAC-<pending>"
+ticket_id: CIL0
+tracker: obsidian
 category: kac
 status: in-progress
 type: feature
 repos:
   - kacho-proto
   - kacho-vpc
+  - kacho-iam
   - kacho-api-gateway
 prs:
   - PRO-Robotech/kacho-proto#53
@@ -17,7 +19,6 @@ prs:
   - PRO-Robotech/kacho-iam#103
   - PRO-Robotech/kacho-api-gateway#69
   - PRO-Robotech/kacho-workspace#75
-yt_url: "(pending — нет YouTrack-токена в сессии)"
 opened: 2026-06-13
 tags:
   - kac
@@ -29,10 +30,10 @@ tags:
 
 # CIL0: Network vrf_id alloc + InternalNetworkService.GetNetwork
 
-**Status**: in-progress (acceptance ✅ APPROVED; код — заблокирован окружением)
+**Status**: in-progress (acceptance ✅ APPROVED; код + тесты зелёные; PR'ы открыты)
 **Type**: feature (трек **CIL** — Cilium SRv6 data-plane realization)
-**Repos**: kacho-proto → kacho-vpc → kacho-api-gateway
-**YT**: pending (нет токена; KAC-номер присваивает orchestrator до старта кода — ban #1 gate)
+**Repos**: kacho-proto → kacho-vpc → kacho-iam → kacho-api-gateway
+**Трекер**: **Obsidian** (этот файл — источник истины; YouTrack не используется).
 
 ## Что и зачем
 
@@ -59,7 +60,7 @@ VPC реализуется на Cilium SRv6 VRF (решение 2026-06-13: Cili
 
 - [x] Acceptance APPROVED (gate ban #1)
 - [x] Implementation plan
-- [ ] KAC-номер присвоен (блокер: YouTrack недоступен — ветки `cil0-network-vrf-id`)
+- [x] Трекинг в Obsidian (этот файл; YouTrack не используется), ветки `cil0-network-vrf-id`
 - [x] proto: GetNetwork + messages + http `:internal`, buf lint/breaking/gen зелёные (commit ba51a83)
 - [x] vpc: миграция 0007 + repo/usecase/handler (commit 1a59089)
 - [x] integration RED→GREEN: CIL0-02 concurrency uniqueness + 03/05/13 (testcontainers, -race чисто)
