@@ -109,8 +109,21 @@ Acceptance: `docs/specs/sub-phase-CIL1-kachovpc-vrf-compiler-acceptance.md`.
 (ядро 6.8, Cilium 1.19.4). SRv6 **включён и верифицирован** через AddonValue
 `cilium-custom` (`ipv6.enabled` + `extraConfig.enable-srv6`): `SRv6: Enabled`,
 5 BPF-map'ов (`cilium_srv6_vrf_v4/v6`, `policy_v4/v6`, `sid`), 151/151 healthy,
-argocd Synced. Runbook: [[../runbooks/cilium-enable-srv6-addonvalue]]. →
-**CIL1b разблокирована** (srv6adapter: `compiler.VRFEntry` → `cilium_srv6_vrf`).
+argocd Synced. Runbook: [[../runbooks/cilium-enable-srv6-addonvalue]].
+
+## CIL1b — датаплейн-адаптер ВЕРИФИЦИРОВАН (2026-06-13)
+
+`srv6adapter` (`compiler.VRFEntry` → pinned `cilium_srv6_vrf_v4`, LPM, ABI зеркалит
+`srv6map.VRFKey4`; импорт только `cilium/ebpf`, **не** кодовую базу cilium → живёт
+параллельно). `cmd/srv6-verify` запущен privileged-подом на узле:
+```
+src=10.99.0.5 dst=10.0.0.0/16 -> vrf=42 ; src=10.99.0.6 dst=10.0.0.0/16 -> vrf=43
+tenancy OK: overlapping destCIDR в разных VRF по source-endpoint ; PASS
+```
+**Тенантинг доказан на живом датаплейне** (overlapping CIDR в двух VRF). Cleanup
+выполнен (map=0), cilium 151/151 healthy. PR `PRO-Robotech/kacho-vpc-cilium#1`,
+образ `sgroups/kacho-vpc-cilium:cil1b-verify` (логин `sgroups`; prorobotech namespace
+требует авторизованного логина). Unit: keyFor layout/overlap/v6-reject.
 
 ## Связанные
 
