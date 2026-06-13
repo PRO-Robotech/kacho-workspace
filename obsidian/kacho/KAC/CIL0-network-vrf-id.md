@@ -19,6 +19,7 @@ prs:
   - PRO-Robotech/kacho-iam#103
   - PRO-Robotech/kacho-api-gateway#69
   - PRO-Robotech/kacho-workspace#75
+  - PRO-Robotech/kacho-deploy#77
 opened: 2026-06-13
 tags:
   - kac
@@ -69,10 +70,22 @@ VPC реализуется на Cilium SRv6 VRF (решение 2026-06-13: Cili
 - [x] iam: permission_catalog 2 зеркала синканы (commit 8534b8d); catalog-тесты зелёные
 - [x] api-gateway: routing авто (service-level на vpcInternalAddr) + 3-е зеркало (commit ff1f774)
 - [x] newman: 6 кейсов internal-network.py, validate-cases OK, gen зелёный (commit 9f22071)
-- [ ] newman E2E прогон против стенда (kind пересобран начисто 2026-06-13)
-- [ ] финал govulncheck
+- [x] newman E2E **GREEN** против стенда: 41 assertions, 0 failed (`make e2e-newman SVC=vpc COLLECTION=internal-network`)
+- [x] финал govulncheck (0 vulns в коде)
 - [x] vault-trail: resources/vpc-network, rpc/vpc-internal-network-service, cilium-kachovpc, edges
-- [ ] PR'ы (proto→vpc→iam→api-gateway) + status→test/done
+- [x] PR'ы (proto→vpc→iam→api-gateway→deploy→workspace) открыты
+- [x] **воспроизводимый e2e-флоу** вшит: `make e2e-newman` (port-forward+seed+newman), не ручной
+
+## Баги, пойманные newman e2e (закрыты)
+
+- **api-gateway route resolution (CIL0-critical):** custom-verb `:internal` маршрут
+  отсутствовал в `rest_route_table_gen.go` → authz-mw не находил catalog-entry →
+  «no entry for method» deny. Фикс + regression-тест (kacho-api-gateway#69).
+- **authz-fixtures wiring:** `setup.sh` не отдавал `existingProjectId` → VPC-сьюты
+  ссылались на stale-project. Фикс: `existing*`-алиасы (kacho-workspace#75).
+- **newman auth model:** `vpc.networks.delete` требует `admin` на network (cluster-admin
+  НЕ каскадит) → cleanup-delete под `jwtAccountAdminA`; get_internal под `jwtBootstrap`.
+- **token expiry:** runtime-mint в collection pre-request (kacho-vpc#144) — токены не протухают.
 
 ## Коммиты (ветки `cil0-network-vrf-id` в каждом репо)
 
