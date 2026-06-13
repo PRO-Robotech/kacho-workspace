@@ -292,3 +292,79 @@ zoneB `10.80.0.0/18→172.31.0.101`. Pod route на remote /18 через net1-L
 
 ⇒ Цель достижима. Остаётся **автоматизация оператором** (P1): zone-aware materialize +
 transit(u2o) + direct-OVN cross-route + cross-cluster чтение control-plane.
+
+### 6.9 P1 OPERATOR AUTOMATION — реализовано (kacho-vpc-operator, ветка OP3-MULTIAZ, envtest TDD)
+
+Автоматизирует ручной рецепт §6.7/§6.8 в коде оператора (envtest RED→GREEN; live-verify
+отдельно). Реализованные части:
+
+1. **`KachoSubnetSpec.ZoneID`** (`api/v1`, `json:"zoneId"`) — зеркало `Subnet.zone_id`;
+   syncer (`internal/syncer`) заполняет из `Subnet.GetZoneId()` (read-all, без zone-фильтра
+   на чтении — решение D).
+2. **Zones config** (`internal/config/zones.go`): `KACHO_VPCOPERATOR_ZONE_ID` (своя зона) +
+   `KACHO_VPCOPERATOR_ZONES` (JSON `[{"id","transitHost"}]`). Типизированный `Zones` +
+   `ByID/OtherThan/TransitIP`. `VpcIdx(networkID)=crc32%240` (детерминирован, стабилен между
+   зонами; коллизии допускаются для PoC — разные Network = разные LR, изоляция структурна).
+   transit IP `(vpcIdx,zone)` = `172.31.<vpcIdx>.<transitHost>` — вычислим обеими зонами из
+   общего config → симметричные cross-routes без runtime-обмена.
+3. **Zone-filter материализации** (`KachoSubnetReconciler.ZoneID`): материализуем kube-ovn
+   Subnet+NAD только для своей зоны (`ks.Spec.ZoneID==ZoneID`); чужая зона — CR удерживается
+   (read-all для cross-route awareness), но НЕ материализуется/прунится (replica-isolation).
+   `ZoneID=""` ИЛИ пустой `ks.Spec.ZoneID` → materialize-all (single-cluster back-compat —
+   незональный оператор/подсеть не «прячутся»).
+4. **`KachoInterconnectReconciler`** (`internal/controller/kachointerconnect_controller.go`,
+   `For(KachoSubnet)`, группировка по NetworkID): per-Network с local-zone subnet'ом —
+   ensure ОДНУ transit u2o Subnet (`<nid>-transit`, `cidrBlock=172.31.<idx>.0/24`,
+   `u2oInterconnection:true`, `vlan=underlay-vlan`, `vpc=<nid>`, `excludeIps` пинит
+   u2oIP на own-zone host) + cross-routes на remote-/18 той же Network через REUSE
+   `applyVpcRoutesFor`/`mergeStaticRoutes` (element-scoped, owned-set, OCC-retry; `policyDst`).
+5. **Pod remote-routes** (`internal/webhook/v1`): `kubeovn.PodRoutes(gw, remoteCIDRs)` →
+   аннотация `<provider>.kubernetes.io/routes`; webhook резолвит remote-/18 той же Network
+   (`SubnetResolver.List` + фильтр `networkId` + `zone!=own`) и инъектит маршрут через
+   gateway overlay-подсети (LR). Изоляция: только same-Network.
+
+> **РЕШЕНИЕ ПО МЕХАНИЗМУ cross-route (отличие от §6.2 direct-OVN-NB):** P1-реализация
+> пишет cross-route в **`Vpc.spec.staticRoutes`** (REUSE OP2-P2 writer), а НЕ через
+> прямой OVN-NB libovsdb. Это сознательный выбор для текущего тира: стенд гоняется с
+> **`--enable-ecmp=TRUE`**, при котором spec-driven dst-routes НЕ прунятся (#2 root-cause
+> §6.1 — прун происходит при `--enable-ecmp=false`). Под ecmp=TRUE `Vpc.spec.staticRoutes`
+> ПЕРСИСТИТ, поэтому direct-OVN-NB (сложность libovsdb + ownership-by-externalID) не нужен.
+> **Если кластер вернётся к `--enable-ecmp=false`** — cross-route снова будет стрипаться,
+> и потребуется direct-OVN-NB writer (§6.2) как отдельная под-фаза. Durability пиннится на
+> (kube-ovn v1.16.1, ecmp=TRUE).
+
+> **SSA follow-up (решение E):** спорные записи в общие CR (transit Subnet, `Vpc.spec.staticRoutes`)
+> ведутся **field/element-scoped** (мёрж только своих ключей/элементов, no whole-object
+> clobber) + стабильный **fieldManager `kacho-vpc-operator-<zone>`** (через `client.FieldOwner`
+> на Create/Update). Полный переход на **Server-Side Apply** (`Patch` + `types.ApplyPatchType`,
+> `list-type=map`-keyed staticRoutes) — отдельная follow-up под-фаза P3 (не блокирует
+> datapath P2; текущий field-scoped+fieldManager уже устраняет whole-object clobber и даёт
+> per-operator co-ownership). **Это не code-TODO — это документированное by-design-решение
+> тира P1.**
+
+### 6.9 OP3-MULTIAZ operator (live, 2026-06-12/13) — automated cross-zone
+
+Зональный оператор (`KACHO_VPCOPERATOR_ZONE_ID` + `KACHO_VPCOPERATOR_ZONES`) развёрнут в
+2 зональных kind (`kacho-zonea`/`kacho-zoneb`), читает control-plane cross-cluster
+(NodePort `vpc-cross` :9090 на node-IP контрол-плейна, **только public, не :9091**;
+SEC-G mTLS, SERVERNAME pin `vpc.kacho.svc.cluster.local`). Автоматизирует:
+- **syncer** mirror control-plane Subnet→KachoSubnet (ZoneID из `Subnet.zone_id`, read-all);
+- **zone-filter** материализации (своя зона материализует kube-ovn Subnet+NAD, чужую — нет);
+- **interconnect**: transit-subnet (u2o) + cross-route computation для multi-zone Network.
+Live: pod zoneA `192.168.88.2` ↔ pod zoneB `10.80.64.2` в одном VPC `netrpwd…` — **0% loss
+bidirectional**; single-zone VPC `netnqb…` без transit/cross-route — изолирован.
+Deploy: `kacho-deploy/multiaz/{operator-up.sh,kind-zone{a,b}.yaml}`.
+
+### 6.10 РЕШЕНО/follow-up — transit /16 + cross-route delivery
+
+- **Transit ОБЯЗАН быть полный bridge /16** (real gateway `172.31.0.1`): /24-срез не
+  бриджуется (gateway `172.31.<idx>.1` не на L2) → LR transit-порт недостижим. Оператор
+  создаёт `172.31.0.0/16` u2o-transit ТОЛЬКО для multi-zone VPC; multi multi-AZ VPC —
+  per-VPC VLAN (follow-up).
+- **#2 strip нестабилен**: `Vpc.spec.staticRoutes` dst-route стрипается kube-ovn v1.16.1
+  (`ecmp_symmetric_reply`) **НЕЗАВИСИМО от `--enable-ecmp`** (ранее §6.9-черновик ошибочно
+  считал ecmp=true фиксом — на нестабильном стенде flaky). **Надёжный механизм — direct
+  OVN-NB `lr-route-add`** (переживает reconcile+restart, §6.2). Live-демо cross-route'ы
+  заведены прямым OVN-NB. **Follow-up:** оператор `applyCrossRoutes` → libovsdb direct-OVN
+  вместо `Vpc.spec.staticRoutes` (kube-ovn-operator#2). Pod remote-/18 route — через
+  webhook (NIC-attach flow); в demo добавлен вручную (raw-NAD поды).
