@@ -592,6 +592,8 @@ cat > "$OUT_DIR/authz-fixtures.json" <<EOF
   "projectA1Id": "$PROJECT_A1",
   "projectA2Id": "$PROJECT_A2",
   "projectB1Id": "$PROJECT_B1",
+  "existingProjectId": "$PROJECT_A1",
+  "existingProjectCrossId": "$PROJECT_A2",
   "seedNetworkA1Id": "$SEED_NET_A1",
   "seedNetworkB1Id": "$SEED_NET_B1",
   "userNOBId": "$USER_NOB",
