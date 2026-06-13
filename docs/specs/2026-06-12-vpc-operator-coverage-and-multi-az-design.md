@@ -368,3 +368,24 @@ Deploy: `kacho-deploy/multiaz/{operator-up.sh,kind-zone{a,b}.yaml}`.
   заведены прямым OVN-NB. **Follow-up:** оператор `applyCrossRoutes` → libovsdb direct-OVN
   вместо `Vpc.spec.staticRoutes` (kube-ovn-operator#2). Pod remote-/18 route — через
   webhook (NIC-attach flow); в demo добавлен вручную (raw-NAD поды).
+
+### 6.11 OP3-MULTIAZ COMPLETE — operator-automated, continuous, stable (live, 2026-06-13)
+
+Cross-route доставка переведена с `Vpc.spec.staticRoutes` (стрипается, конфликтует) на
+**direct OVN-NB** (`ovn-nbctl lr-route-{list,add,del}` exec в поде ovn-central, пакет
+`internal/ovnnb`). interconnect-reconciler: list→diff→add/del, owned-set = next-hop ∈
+transit-IP всех зон (add=desired\current, del=owned-current\desired, чужие не трогаем),
+`Vpc.spec` НЕ пишется. RBAC: pods get/list + pods/exec create.
+
+**Финальный live-результат (операторы РАБОТАЮТ непрерывно, не g-down):**
+- Оператор сам программирует cross-routes в OVN-NB (лог `added cross-zone LR route`);
+  `Vpc.spec.staticRoutes` пуст → нет strip-конфликта; LR-route стабилен ≥30с.
+- pod zoneA `192.168.88.2` ↔ pod zoneB `10.80.64.2` в одном VPC — **0% loss bidirectional,
+  СТАБИЛЬНО при работающих операторах**.
+- single-zone VPC — без transit/cross-route (изоляция).
+
+⇒ Multi-AZ цель закрыта end-to-end автоматически: control-plane на опорном kind, 2
+зональных kind с операторами, поды A↔B в рамках VPC видят друг друга, вне VPC — нет.
+PR: kacho-vpc-operator#4, kacho-deploy#76. Остаток (prod-hardening, не блокер):
+full SSA, per-VPC VLAN для нескольких multi-AZ VPC, pod remote-route через webhook
+(NIC-attach flow) вместо ручного, libovsdb вместо exec.
