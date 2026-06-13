@@ -11,7 +11,12 @@ repos:
   - kacho-proto
   - kacho-vpc
   - kacho-api-gateway
-prs: []
+prs:
+  - PRO-Robotech/kacho-proto#53
+  - PRO-Robotech/kacho-vpc#144
+  - PRO-Robotech/kacho-iam#103
+  - PRO-Robotech/kacho-api-gateway#69
+  - PRO-Robotech/kacho-workspace#75
 yt_url: "(pending — нет YouTrack-токена в сессии)"
 opened: 2026-06-13
 tags:
