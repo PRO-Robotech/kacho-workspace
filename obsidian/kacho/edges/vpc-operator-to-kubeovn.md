@@ -276,6 +276,18 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
 
 ## История
 
+- 2026-06-13 (OP3-MULTIAZ, cross-zone within-VPC L3 + изоляция) — zone-aware оператор в
+  2 зональных kind (`KACHO_VPCOPERATOR_ZONE_ID`+`ZONES`), читает control-plane cross-cluster
+  (NodePort :9090 + SEC-G mTLS). Автоматизирует: syncer mirror (zone_id), zone-filter
+  материализации (своя зона), interconnect — underlay-transit Subnet (`u2oInterconnection`,
+  full bridge /16, u2oIP `172.31.0.<host>` per zone; /24-срез не бриджуется — gateway не на
+  L2) + **cross-routes ПРЯМО в OVN-NB** (`ovn-nbctl` exec в ovn-central, пакет `internal/ovnnb`),
+  НЕ `Vpc.spec.staticRoutes` (kube-ovn#2 flaky-стрип независимо от --enable-ecmp + его
+  `lr-route-del` сносит и direct-OVN маршрут → Vpc.spec-writer конфликтует). owned-set diff
+  (next-hop ∈ transit-IP зон). Изоляция структурна (cross-route только same-Network remote /18;
+  single-zone VPC без transit). Live: pod zoneA↔zoneB в одном VPC 0% loss bidirectional
+  стабильно при работающих операторах; cross-VPC изолирован. RBAC +pods/exec. См.
+  [[OP3-MULTIAZ]]. PR kacho-vpc-operator#4 + kacho-deploy#76; design-doc §6.6-6.11.
 - 2026-06-12 (OP2-P-BGP, subnet-CIDR → BGP-анонс, обход стрипа #2) — egress-reconciler
   ставит `ovn.kubernetes.io/bgp=cluster` (always-on, field-scoped `mergeAnnotations`,
   идемпотентно) на каждую материализуемую kube-ovn Subnet (НЕ на NAD); ключ/значение в
