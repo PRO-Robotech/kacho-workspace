@@ -148,9 +148,16 @@ SRv6 Enabled, 2 пула, 160/160, argocd Synced. PR `kacho-vpc-cilium#3`.
 dual-stack пул обязан иметь обе семьи; agent рестартить чтобы подхватить node-CIDR пула.
 Runbook: [[../runbooks/cilium-enable-srv6-addonvalue]].
 
-**Дальше:** SID-аллокация + BGP L3VPN (cross-node/DC forwarding — нужно 2 узла),
-SG→CNP intra-VRF, NIC fixed-IP, multi-NIC. Настоящий overlapping pod-IP (один IP в двух
-VRF) = per-VRF IPAM поверх multi-pool — ещё глубже.
+## Overlap-вопрос ЗАКРЫТ (2026-06-14) + Tier-2 фундамент
+
+Решение зафиксировано: [[../edges/cilium-overlap-tier2-l3vpn]].
+- **Корень:** ipcache cilium keyed `(IP, cluster-id)` — overlap нерешаем в IPAM, только в датаплейне.
+- **Tier 1 (default):** непересекающиеся CIDR per Network (Kachō-IPAM координирует) + VRF-изоляция. Ship today.
+- **Tier 2 (выбран для true overlap):** underlay(unique,cilium)/overlay(overlap,наш VRF) + tenant-NIC + SRv6 BPF via `CiliumDatapathPlugin`; VRF по ingress-endpoint, не srcIP. Закрывает overlap + multi-NIC №4 + fixed-IP №5. Без форка ipcache.
+
+**Готово (PR `kacho-vpc-cilium#4`):** `overlayipam` — per-VRF аллокатор, **overlap-инвариант** (один IP в разных VRF) `-race`-зелёный; `CompileSecurityGroup` → CNP (№3). Оба чистые/unit.
+
+**Отложено (high-risk live):** SRv6 BPF-датаплейн (endpoint→VRF + decap) + tenant-NIC CNI — нужен стабильный **≥2-узловой** стенд. Инцидент 2026-06-14 (ноды флапали по `Unauthorized` = SA-токен при ротации control-plane, ребут восстановил; НЕ мой datapath) — урок осторожности с live BPF на managed-кластере.
 
 ## Связанные
 
