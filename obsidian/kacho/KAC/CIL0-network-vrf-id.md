@@ -125,6 +125,20 @@ tenancy OK: overlapping destCIDR в разных VRF по source-endpoint ; PASS
 образ `sgroups/kacho-vpc-cilium:cil1b-verify` (логин `sgroups`; prorobotech namespace
 требует авторизованного логина). Unit: keyFor layout/overlap/v6-reject.
 
+## CIL2 — node-local reconciler (DaemonSet) ВЕРИФИЦИРОВАН (2026-06-13)
+
+`srv6-controller` (poll-loop, конвенция Kachō без Watch): list `KachoVPC` CRD +
+поды узла с меткой `vpc.kacho.cloud/network` → `CompileVRF` → reconcile
+`cilium_srv6_vrf_v4` (program desired, delete owned-stale). **Недостающий в OSS
+SRv6 control-plane**, параллельно cilium-agent (CRD + RBAC + privileged DaemonSet).
+Verified live: 2 KachoVPC (vrf 42/43, overlapping 10.0.0.0/16) + 2 пода →
+`reconciled added=2`; pod-delete → `removed=1`; cleanup → map=0; cilium 151/151.
+PR `kacho-vpc-cilium#2` (stack на #1), образ `sgroups/kacho-vpc-cilium:cil2-controller`.
+DaemonSet оставлен задеплоен (no-op без помеченных подов).
+
+**Дальше:** CIL3 (Subnet → IPAM-пул scoped к VRF — для настоящих overlapping pod-IP),
+SID-аллокация + BGP L3VPN (cross-node/DC), SG→CNP intra-VRF, multi-NIC.
+
 ## Связанные
 
 Депрекейтит трек OP (kube-ovn): [[../edges/vpc-operator-to-kubeovn]],
