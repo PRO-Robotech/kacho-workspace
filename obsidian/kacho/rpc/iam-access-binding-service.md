@@ -68,6 +68,8 @@ tags:
 - **KAC-133 ListBySubject self-check**: enforced в use-case — `user` principal может запрашивать ТОЛЬКО свои bindings; cross-user → 403 (KAC-123 requirement).
 - **KAC-133 ListByResource scope-gate**: use-case добавил `requireGrantAuthority` check — non-member не может перечислить bindings на ресурсе. FGA-wired в main.go. Catalog остаётся `<exempt>`, authz — handler-level.
 - **REST HTTP verbs (KAC-133 fix)**: `ListByResource` и `ListBySubject` — `GET` с query params (НЕ POST + body). Тесты ошибочно использовали POST, что давало catalog-miss → 403.
+- **Bug A — ListByResource scope-polymorphism (2026-06-14, proto #55 / api-gateway #74)**: catalog для `ListByResource` теперь несёт `object_type_from_request_field=resource_type` — api-gateway берёт FGA object type из request `resource_type` (project|account|cluster), а не статический `project`. До фикса account/cluster-scoped listByResource проверял `project:<id>` → 403 у владельца. Handler-side `requireGrantAuthority` уже умеет cluster (FGA `admin@cluster`), поэтому listByResource(cluster) у bootstrap-admin теперь 200.
+- **Bug B — cluster-scope Get readability (2026-06-14, iam #107)**: `GetAccessBindingUseCase` раньше имел только `account`/`project` owner-switch — cluster-scope binding был нечитаем кем-либо кроме своего subject (bootstrap cluster-admin получал 403). Теперь non-subject путь идёт через общий `requireGrantAuthority` (owner ИЛИ FGA-admin, единообразно account/project/cluster). `WithOpenFGA` подключён в composition root. Связанный фикс: `seed.RunBootstrapAdmin` теперь wired как startup-reconciler (KACHO_IAM_BOOTSTRAP_ROOT_EMAIL) → пишет `system_admin@cluster_kacho_root` через fga_outbox-drainer (раньше SQL-seed в обход outbox).
 
 ## See also
 

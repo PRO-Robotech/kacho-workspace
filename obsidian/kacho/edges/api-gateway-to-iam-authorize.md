@@ -80,6 +80,15 @@ tags:
 
 ## History
 
+- Bug A (listByResource scope, 2026-06-14, api-gateway PR #74 / proto PR #55) — для
+  **scope-polymorphic** RPC api-gateway теперь берёт FGA `object_type` из request-поля,
+  а не из статического `scope_extractor.object_type`. Catalog получил поле
+  `object_type_from_request_field`; `AccessBindingService/ListByResource` помечен
+  `object_type_from_request_field=resource_type` (→ project|account|cluster). Middleware
+  `decide()` извлекает это поле (proto-reflect для gRPC, query/JSON-body для REST) и
+  подставляет как FGA object type; статический `object_type` — fallback. До фикса
+  account/cluster-scoped listByResource проверял `project:<id>` → 403. Fixed-scope RPC
+  не затронуты. Реализация: [[../packages/api-gateway-middleware-authz]].
 - SEC-E ([[../KAC/SEC-E-gateway-mtls]], 2026-06-11) — backend-dial этого ребра переключён
   с insecure на **mTLS client-cert** идентичности «api-gateway» под
   `KACHO_API_GATEWAY_MTLS_IAM_ENABLE` (per-edge, тот же флаг, что iam-subject + iam-backend;
