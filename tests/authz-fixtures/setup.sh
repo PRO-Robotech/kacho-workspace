@@ -121,6 +121,15 @@ api() {
   fi
 }
 
+# api_status — like api() but emits ONLY the numeric HTTP status code (for
+# readiness probes that gate on 200 vs 403). Quiet (no vrun trace).
+api_status() {
+  local method="$1" path="$2" token="${3:-}"
+  local hdrs=(-H "Content-Type: application/json" -H "Accept: application/json")
+  if [ -n "$token" ]; then hdrs+=(-H "Authorization: Bearer $token"); fi
+  curl -sS -o /dev/null -w '%{http_code}' -X "$method" "${hdrs[@]}" "$BASE_URL$path" 2>/dev/null || echo 000
+}
+
 # poll-op — ждёт Operation.done=true и возвращает response.metadata если есть.
 poll_op() {
   local op_id="$1" token="$2"
@@ -387,44 +396,47 @@ ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 # INV — owner-of-B (his home) — admin in account-B. Grantor = AAB (owner of B).
 ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
-# 5b) BOOT — cluster-admin via SQL backdoor (fixture-only).
+# 5b) BOOT — cluster-admin via the PRODUCT bootstrap reconciler (no SQL backdoor).
 #
 # AccessBindingService.Create requires the caller to already hold `system_admin`
-# on the cluster scope (CLAUDE.md §«Запреты» #10 — atomic CAS). Bootstrap
-# (the very first cluster-admin) is therefore chicken-and-egg via the public
-# API; the production path is `seed.RunBootstrapAdmin` which is NOT yet wired
-# from `cmd/kacho-iam/serve.go` (task #10 in batch backlog — auto-call
-# RunBootstrapAdmin on kacho-iam startup).
+# on the cluster scope (CLAUDE.md §«Запреты» #10 — atomic CAS). Bootstrap (the
+# very first cluster-admin) is chicken-and-egg via the public API; the
+# production path is `seed.RunBootstrapAdmin`, now WIRED from
+# `cmd/kacho-iam/serve.go` as a startup reconciler driven by
+# KACHO_IAM_BOOTSTRAP_ROOT_EMAIL=admin@prorobotech.ru (Bug B fix). It grants
+# `system_admin@cluster_kacho_root` and enqueues the FGA tuple through the
+# transactional fga_outbox → drainer → OpenFGA, the same path every
+# AccessBinding uses (no raw INSERT that bypasses the drainer).
 #
-# Until that product fix lands, the IAM-ACB-CR-CLUSTER-OK newman case (which
-# exercises `Create cluster-scope AccessBinding as bootstrap admin`) fails 17×
-# because BOOT lacks `system_admin@cluster_kacho_root`. We grant it here via
-# direct INSERT — same as the cluster_admin_grant_backfill_integration_test.go
-# pattern. This is fixture-side (setup.sh is not product code).
-log "5b/10 SQL-seeding BOOT cluster-admin binding (RunBootstrapAdmin backdoor)"
-PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
-NS="${SETUP_NS:-kacho}"
-PG_PW=$(kubectl -n "$NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
-if [ -n "$PG_PW" ] && [ -n "$USER_BOOT" ]; then
-  CLUSTER_ACB_ID="acbboot$(date +%s | sha256sum | head -c 13)"
-  kubectl -n "$NS" exec "$PG_POD" -- env PGPASSWORD="$PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
-    INSERT INTO kacho_iam.access_bindings
-      (id, subject_type, subject_id, role_id, resource_type, resource_id, created_at, granted_by_user_id)
-    SELECT '$CLUSTER_ACB_ID', 'user', '$USER_BOOT', '$ROLE_ADMIN', 'cluster', 'cluster_kacho_root', now(), '$USER_BOOT'
-    WHERE NOT EXISTS (
-      SELECT 1 FROM kacho_iam.access_bindings
-       WHERE subject_id='$USER_BOOT' AND subject_type='user' AND role_id='$ROLE_ADMIN'
-         AND resource_type='cluster' AND resource_id='cluster_kacho_root' AND revoked_at IS NULL
-    );
-  " >/dev/null 2>&1 || log "    WARN: SQL seed cluster-admin failed (idempotent or schema mismatch)"
-  log "    BOOT($USER_BOOT) → admin@cluster:cluster_kacho_root (acb=$CLUSTER_ACB_ID, SQL-seed)"
+# The bootstrap user row appears only after the upsert above (step ~4); the
+# reconciler retries on a 10s interval and converges shortly after. We poll the
+# FGA tuple's effect via a cluster-scope readiness probe so the cluster newman
+# cases don't race the reconciler.
+log "5b/10 awaiting product bootstrap reconciler (system_admin@cluster via fga_outbox)"
+if [ -n "$JWT_BOOTSTRAP" ] && [ -n "$ACCOUNT_A" ]; then
+  boot_ok=""
+  for i in $(seq 1 40); do
+    # listByResource(cluster) by the bootstrap admin returns 200 once the
+    # reconciler's system_admin@cluster tuple has propagated to OpenFGA.
+    code=$(api_status GET "/iam/v1/accessBindings:listByResource?resourceType=cluster&resourceId=cluster_kacho_root" "$JWT_BOOTSTRAP" 2>/dev/null || echo 000)
+    if [ "$code" = "200" ]; then boot_ok=1; log "    bootstrap cluster-admin ready (${i}x2s, code=200)"; break; fi
+    sleep 2
+  done
+  [ -z "$boot_ok" ] && log "    WARN: bootstrap cluster-admin not ready after 80s (last code=$code) — cluster cases may fail"
+else
+  log "    WARN: skipping bootstrap readiness probe (JWT_BOOTSTRAP or ACCOUNT_A empty)"
+fi
 
-  # CIL0: super-admin фикстуры должен держать и system_viewer@cluster. Cluster-system
-  # relation `system_viewer` НЕ выводится из `system_admin` в FGA-модели (намеренно:
-  # system_viewer без wildcard user:*), поэтому сидим его отдельным fga_outbox-tuple.
-  # Нужно для internal-RPC, гейтящихся read-tier system_viewer (vpc
-  # InternalNetworkService.GetNetwork — отдаёт инфра-vrf_id): super-admin их читает.
-  kubectl -n "$NS" exec "$PG_POD" -- env PGPASSWORD="$PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+# 5c) CIL0: super-admin фикстуры должен держать и system_viewer@cluster.
+# `system_viewer` (cluster-system read) НЕ выводится из `system_admin` в FGA-модели
+# (намеренно: без wildcard user:*), продуктового reconciler'а для него нет — сидим
+# fixture-side через fga_outbox (drainer применит). Нужно для internal-RPC,
+# гейтящихся read-tier system_viewer (vpc InternalNetworkService.GetNetwork → vrf_id).
+SV_NS="${SETUP_NS:-kacho}"
+SV_PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+SV_PG_PW=$(kubectl -n "$SV_NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$SV_PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  kubectl -n "$SV_NS" exec "$SV_PG_POD" -- env PGPASSWORD="$SV_PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
     INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
     SELECT 'fga.tuple.write',
            jsonb_build_object('user','user:$USER_BOOT','relation','system_viewer','object','cluster:cluster_kacho_root'),
@@ -435,10 +447,10 @@ if [ -n "$PG_PW" ] && [ -n "$USER_BOOT" ]; then
          AND payload->>'relation'='system_viewer'
          AND payload->>'object'='cluster:cluster_kacho_root'
     );
-  " >/dev/null 2>&1 || log "    WARN: SQL seed system_viewer failed (idempotent or schema mismatch)"
+  " >/dev/null 2>&1 || log "    WARN: system_viewer seed failed (idempotent or schema mismatch)"
   log "    BOOT($USER_BOOT) → system_viewer@cluster:cluster_kacho_root (fga_outbox seed)"
 else
-  log "    WARN: skipping cluster-admin SQL-seed (PG_PW or USER_BOOT empty)"
+  log "    WARN: skipping system_viewer seed (PG access or USER_BOOT empty)"
 fi
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
@@ -611,8 +623,6 @@ cat > "$OUT_DIR/authz-fixtures.json" <<EOF
   "projectA1Id": "$PROJECT_A1",
   "projectA2Id": "$PROJECT_A2",
   "projectB1Id": "$PROJECT_B1",
-  "existingProjectId": "$PROJECT_A1",
-  "existingProjectCrossId": "$PROJECT_A2",
   "seedNetworkA1Id": "$SEED_NET_A1",
   "seedNetworkB1Id": "$SEED_NET_B1",
   "userNOBId": "$USER_NOB",
