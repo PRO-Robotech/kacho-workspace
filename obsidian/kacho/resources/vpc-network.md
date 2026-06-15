@@ -40,6 +40,7 @@ tags:
 | `labels` | JSONB | `validate.Labels` (`<=64` pairs) | CHECK constraint (0025 → inline в baseline 0001) |
 | `created_at` | TIMESTAMP | server-set | truncated to seconds (YC parity) |
 | `default_security_group_id` | TEXT | nullable | `InternalNetworkService.SetDefaultSecurityGroupId` |
+| `vrf_id` | BIGINT | UNIQUE, CHECK 1..4294967295, sequence DEFAULT | **CIL0**: SRv6 VRF id (uint32). Инфра-чувствительный → только `InternalNetworkService.GetNetwork`, НЕ на public. Immutable, без reuse. migration 0007. |
 
 (Бывшее поле `vpn_id` — часть kube-ovn-эпохи data-plane-модели — **удалено** historical migration 0023 (свёрнуто в baseline 0001 — KAC-111), эпики KAC-36/79/80.)
 
@@ -47,6 +48,7 @@ tags:
 
 - `networks_pkey` PRIMARY KEY (id)
 - `networks_project_id_name_key` UNIQUE (project_id, name)
+- `networks_vrf_id_key` UNIQUE (vrf_id) + `networks_vrf_id_range` CHECK (CIL0, migration 0007); аллокация `networks_vrf_id_seq` (атомарно на INSERT, ban #10)
 - Labels CHECK (0025 → inline в baseline 0001)
 - Name CHECK (0025 → inline в baseline 0001)
 

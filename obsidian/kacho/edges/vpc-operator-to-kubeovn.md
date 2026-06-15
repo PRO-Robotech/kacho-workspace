@@ -5,17 +5,26 @@ caller_repo: kacho-vpc-operator
 callee_repo: kube-ovn
 sync_async: sync-poll
 protocol: gRPC (upstream) + k8s API (downstream)
-status: experimental
+status: deprecated
+superseded_by: "[[vpc-operator-to-cilium-realization]]"
 tags:
   - edge
   - kacho-vpc-operator
   - kube-ovn
   - grpc
   - cross-service
-  - experimental
+  - deprecated
 ---
 
 # kacho-vpc-operator → kube-ovn / Multus
+
+> [!warning] DEPRECATED (2026-06-13) — вытеснено Cilium SRv6
+> Заказчик зафиксировал: канон data-plane — **Cilium SRv6 VRF (L3VPN, без Multus)**,
+> см. [[vpc-operator-to-cilium-realization]]. Этот kube-ovn+Multus трек (OP1…OP3-MULTIAZ)
+> **заморожен**. Контент НЕ удалён — ценен как archeology для миграции (multi-NIC
+> семантика, project↔namespace, staticRoutes-strip gotchas, BGP-fabric).
+> Соответствие фич: Multus multi-NIC → SRv6 multi-VRF endpoint; `Vpc.staticRoutes`/BGP →
+> SRv6 SID-policy + BGP L3VPN; kube-ovn Subnet → IPAM-пул scoped к VRF.
 
 Data-plane sibling оператора (`github.com/PRO-Robotech/kacho-vpc-operator`,
 kubebuilder/controller-runtime). Control-plane его не касается — он **читает**
@@ -345,4 +354,4 @@ Subnet'ы (10.10.0.0/24 / 10.20.0.0/24) в отдельных kube-ovn VPC; по
   kube-ovn+multus deploy на kind (`kacho-deploy/argo-apps/kube-ovn/values.kind.yaml`).
   Syncer был single-project, NAD в shared `kacho-multus`.
 
-#edge #kacho-vpc-operator #kube-ovn #experimental
+#edge #kacho-vpc-operator #kube-ovn #deprecated

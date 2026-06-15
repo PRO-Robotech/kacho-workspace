@@ -427,6 +427,32 @@ else
   log "    WARN: skipping bootstrap readiness probe (JWT_BOOTSTRAP or ACCOUNT_A empty)"
 fi
 
+# 5c) CIL0: super-admin фикстуры должен держать и system_viewer@cluster.
+# `system_viewer` (cluster-system read) НЕ выводится из `system_admin` в FGA-модели
+# (намеренно: без wildcard user:*), продуктового reconciler'а для него нет — сидим
+# fixture-side через fga_outbox (drainer применит). Нужно для internal-RPC,
+# гейтящихся read-tier system_viewer (vpc InternalNetworkService.GetNetwork → vrf_id).
+SV_NS="${SETUP_NS:-kacho}"
+SV_PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+SV_PG_PW=$(kubectl -n "$SV_NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$SV_PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  kubectl -n "$SV_NS" exec "$SV_PG_POD" -- env PGPASSWORD="$SV_PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
+    SELECT 'fga.tuple.write',
+           jsonb_build_object('user','user:$USER_BOOT','relation','system_viewer','object','cluster:cluster_kacho_root'),
+           now()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM kacho_iam.fga_outbox
+       WHERE payload->>'user'='user:$USER_BOOT'
+         AND payload->>'relation'='system_viewer'
+         AND payload->>'object'='cluster:cluster_kacho_root'
+    );
+  " >/dev/null 2>&1 || log "    WARN: system_viewer seed failed (idempotent or schema mismatch)"
+  log "    BOOT($USER_BOOT) → system_viewer@cluster:cluster_kacho_root (fga_outbox seed)"
+else
+  log "    WARN: skipping system_viewer seed (PG access or USER_BOOT empty)"
+fi
+
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
 log "6/10 invite INV to account-A (KAC-125)"
 invite_body=$(printf '{"accountId":"%s","email":"auth-test-invitee@example.com","roleId":"%s","projectId":"%s"}' "$ACCOUNT_A" "$ROLE_EDIT" "$PROJECT_A1")
