@@ -89,6 +89,22 @@ tags:
   подставляет как FGA object type; статический `object_type` — fallback. До фикса
   account/cluster-scoped listByResource проверял `project:<id>` → 403. Fixed-scope RPC
   не затронуты. Реализация: [[../packages/api-gateway-middleware-authz]].
+- Bug C — RequiredRelation drop (2026-06-16, api-gateway PR #77) — адаптер
+  `clients.AuthzChecker.Check` (мост `middleware.AuthzCheckInput` →
+  `clients.AuthorizeCheckInput`, `iam_authorize_checker.go`) копировал 6 полей, но
+  **ронял `RequiredRelation`** (написан в KAC-127 до появления поля; KAC-198 добавил его
+  во все хопы, кроме этого промежуточного). Эффект: catalog `required_relation` не доходил
+  до IAM → `AuthorizeService.Check` падал в verb-fallback (`resolveActionToRelation`).
+  **Priv-esc**: admin-RPC с verb `list`/`get` (`required_relation=system_admin`, напр.
+  `InternalAddressPoolService` reads) деривились в `viewer` → `cluster.viewer=user:*` →
+  любой аутентифицированный проходил. Не-CRUD verb'ы (`issue`/`grant`/`bind`/…) → `""` →
+  fail-closed deny («action does not resolve to a known relation»; 403'ило `SAKeyService.Issue`).
+  Не ловилось тестами (middleware-тесты мокают `AuthorizeChecker`, не реальный адаптер).
+  Fix: проброс `in.RequiredRelation` + unit-тест pass-through. Это корневой фикс —
+  делает verb-fallback IAM избыточным для catalog-RPC и единственный способ гейтить
+  system_admin-verb'ы. Сопутствующие band-aid'ы (kacho-iam PR #120: `resolveActionToRelation`
+  `issue`/`revoke`→editor; верб-fold M2) теперь defensive-only. Реализация:
+  [[../packages/api-gateway-middleware-authz]].
 - SEC-E ([[../KAC/SEC-E-gateway-mtls]], 2026-06-11) — backend-dial этого ребра переключён
   с insecure на **mTLS client-cert** идентичности «api-gateway» под
   `KACHO_API_GATEWAY_MTLS_IAM_ENABLE` (per-edge, тот же флаг, что iam-subject + iam-backend;
