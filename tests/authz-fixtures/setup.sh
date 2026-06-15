@@ -108,6 +108,9 @@ JWT_PA1=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)
 JWT_AAA=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminA"])')
 JWT_AAB=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminB"])')
 JWT_INV=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtInvitee"])')
+# Step-up (acr=2) variant of account-admin-A — for RPCs gated by the catalog's
+# required_acr_min (RFC 9470), e.g. SAKeyService.Issue/Revoke.
+JWT_AAA_STEPUP=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminAStepUp"])')
 
 # Helper: curl with bearer; prints body to stdout.
 api() {
@@ -616,6 +619,7 @@ cat > "$OUT_DIR/authz-fixtures.json" <<EOF
   "jwtNoBindings": "$JWT_NO_BINDINGS",
   "jwtProjectAdminA1": "$JWT_PA1",
   "jwtAccountAdminA": "$JWT_AAA",
+  "jwtAccountAdminAStepUp": "$JWT_AAA_STEPUP",
   "jwtAccountAdminB": "$JWT_AAB",
   "jwtInvitee": "$JWT_INV",
   "accountAId": "$ACCOUNT_A",

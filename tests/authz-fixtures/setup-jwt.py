@@ -64,7 +64,22 @@ def bulk(secret: str, exp_hours: int) -> dict:
         "jwtAccountAdminB": "auth-test-account-admin-b@example.com",
         "jwtInvitee": "auth-test-invitee@example.com",
     }
-    return {name: mint(secret, sub, exp) for name, sub in subjects.items()}
+    out = {name: mint(secret, sub, exp) for name, sub in subjects.items()}
+    # Step-up (acr=2) variant of the account-admin-A session. Some RPCs carry a
+    # catalog `required_acr_min` (RFC 9470 step-up) — e.g. SAKeyService.Issue /
+    # Revoke, where issuing/revoking long-lived SA OAuth credentials demands a
+    # re-auth ceremony. The api-gateway step-up gate denies a normal acr<2
+    # session for those, so a suite exercising them must present a token minted
+    # from a step-up'd session. `auth_time` is set fresh so any `mfa_max_age`
+    # freshness window passes too. Same `sub` as jwtAccountAdminA → same User
+    # principal, only the authentication strength differs.
+    out["jwtAccountAdminAStepUp"] = mint(
+        secret,
+        subjects["jwtAccountAdminA"],
+        exp,
+        extra_claims={"acr": "2", "auth_time": int(time.time())},
+    )
+    return out
 
 
 def mint_sa(secret: str, sva_id: str, exp_seconds: int) -> str:
