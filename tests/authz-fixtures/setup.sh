@@ -418,6 +418,25 @@ if [ -n "$PG_PW" ] && [ -n "$USER_BOOT" ]; then
     );
   " >/dev/null 2>&1 || log "    WARN: SQL seed cluster-admin failed (idempotent or schema mismatch)"
   log "    BOOT($USER_BOOT) → admin@cluster:cluster_kacho_root (acb=$CLUSTER_ACB_ID, SQL-seed)"
+
+  # CIL0: super-admin фикстуры должен держать и system_viewer@cluster. Cluster-system
+  # relation `system_viewer` НЕ выводится из `system_admin` в FGA-модели (намеренно:
+  # system_viewer без wildcard user:*), поэтому сидим его отдельным fga_outbox-tuple.
+  # Нужно для internal-RPC, гейтящихся read-tier system_viewer (vpc
+  # InternalNetworkService.GetNetwork — отдаёт инфра-vrf_id): super-admin их читает.
+  kubectl -n "$NS" exec "$PG_POD" -- env PGPASSWORD="$PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
+    SELECT 'fga.tuple.write',
+           jsonb_build_object('user','user:$USER_BOOT','relation','system_viewer','object','cluster:cluster_kacho_root'),
+           now()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM kacho_iam.fga_outbox
+       WHERE payload->>'user'='user:$USER_BOOT'
+         AND payload->>'relation'='system_viewer'
+         AND payload->>'object'='cluster:cluster_kacho_root'
+    );
+  " >/dev/null 2>&1 || log "    WARN: SQL seed system_viewer failed (idempotent or schema mismatch)"
+  log "    BOOT($USER_BOOT) → system_viewer@cluster:cluster_kacho_root (fga_outbox seed)"
 else
   log "    WARN: skipping cluster-admin SQL-seed (PG_PW or USER_BOOT empty)"
 fi
