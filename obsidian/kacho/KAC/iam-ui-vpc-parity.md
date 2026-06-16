@@ -6,14 +6,17 @@ aliases:
 vault_label: iam-ui-vpc-parity
 ticket_id: "(none — owner-waived)"
 category: kac
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-ui
   - kacho-workspace
-prs: []
+prs:
+  - PRO-Robotech/kacho-ui@9059e3a (merge to main, no-PR per owner)
+  - PRO-Robotech/kacho-workspace@760512a (merge to main)
 yt_url: "(none — ticket waived by owner 2026-06-17)"
 opened: 2026-06-17
+closed: 2026-06-17
 tags:
   - kac
   - feature
@@ -29,7 +32,7 @@ tags:
 > YouTrack по решению владельца не заводился; ветка во всех затронутых репо =
 > `feature/iam-ui-vpc-parity`.
 
-**Status**: in-progress
+**Status**: ✅ done — merged to `main` (kacho-ui `9059e3a`, kacho-workspace `760512a`) + deployed to external cluster `fe3455-client` (UI `prorobotech/kacho-ui:main-9059e3ad`, rollout rev 3, pod Ready).
 **Acceptance (APPROVED)**: [[../../../docs/specs/sub-phase-2.1-iam-ui-vpc-parity-acceptance|sub-phase-2.1-iam-ui-vpc-parity-acceptance]] (73 сценария §A–§J, `acceptance-reviewer` round 3).
 **Дизайн-источник**: [[../../../docs/specs/sub-phase-1.x-ui-yc-redesign-plan|YC-redesign 1.x]] (VPC облик).
 
@@ -52,9 +55,11 @@ Access-страница bespoke+косметика; AccessBinding registry-detai
 | 3 | StatusBadge IAM tones + reorder | ✅ | `e0fa307` |
 | 4 | List pages → ResourceListPage | ✅ | `53a3ed9` |
 | 5 | Detail → ResourceShell + DETAIL_EXTENSIONS | ✅ | `b79f571` |
-| 6 | Forms → roles permissions-editor + modal | in-progress | — |
-| 7 | Nav / breadcrumbs / Access cosmetics | in-progress | — |
-| — | Tests (vitest + e2e:ci RED→GREEN) + verify | in-progress | — |
+| 6 | Forms → roles permissions-editor (4-сегм) + modal | ✅ | `61eb351` |
+| 7 | Access page chrome cosmetics | ✅ | `41c5260` |
+| 8 | e2e:ci specs под новый UI (RED→GREEN) | ✅ | `b64a198` |
+| 9 | Merge to main + push (CI собрал образ) | ✅ | ui `9059e3a` / ws `760512a` |
+| 10 | Deploy на fe3455-client | ✅ | `main-9059e3ad` |
 
 > [!note] Верификация Phase 4+5 (мной)
 > `tsc --noEmit` 0 ошибок · `npm run build` OK · vitest 180 pass / 6 fail
@@ -89,10 +94,24 @@ IAM-ресурсы, чьи UI-поверхности мигрируют (зап�
 - [x] StatusBadge / cells (#2)
 - [x] List pages (#3) — `53a3ed9`
 - [x] Detail + DETAIL_EXTENSIONS (#4) — `b79f571`
-- [ ] Forms (#5) — roles permissions-editor in-progress
-- [ ] Nav / breadcrumbs (#6) — Access cosmetics in-progress
-- [ ] Tests RED→GREEN + `tsc`/build/`e2e:ci` зелёные (#7)
-- [ ] Trail обновлён (этот файл) + статус (#8)
+- [x] Forms (#5) — roles permissions-editor 4-сегм `61eb351`
+- [x] Nav / breadcrumbs (#6) — Access cosmetics `41c5260`
+- [x] Tests RED→GREEN + `tsc`/build/`e2e:ci` зелёные (#7) — e2e:ci 27 passed `b64a198`
+- [x] Trail обновлён (этот файл) + статус → done (#8)
+
+## Merge + deploy (2026-06-17)
+
+- **Merge → main** (`--no-ff`, прямой merge по решению владельца, без PR/тикета):
+  kacho-ui `377a187..9059e3a`, kacho-workspace `bfaee4a..760512a`.
+- **CI**: push в main → `kacho-ui/docker-build.yml` (run 27652461514, success) собрал и
+  запушил multiarch `docker.io/prorobotech/kacho-ui:main-9059e3ad`.
+- **Deploy**: внешний кластер `fe3455-client` (ns `kacho`, helm `kacho-umbrella`).
+  `kubectl set image deploy/ui ui=…:main-9059e3ad` → rollout rev 3, pod
+  `ui-79fdc758c7` 1/1 Ready (readiness `GET /healthz`), Service endpoint
+  `10.244.1.40:8080`. Backend-сервисы не трогались (остаются на текущем main).
+- **Финальная верификация (локально перед merge)**: `tsc -b --noEmit` 0 ошибок ·
+  `npm run build` OK · `e2e:ci` 27 passed / 0 failed · vitest 180 passed (6
+  pre-existing `theme-context` localStorage-фейлов — НЕ в CI).
 
 ## Связанные тикеты
 
