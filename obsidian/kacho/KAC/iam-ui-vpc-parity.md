@@ -136,6 +136,20 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-83c66146`.
 - Верификация: `tsc -b` 0 · `e2e:ci` 27/0.
 
+## Follow-up: detail/list refinements (2026-06-17)
+
+7 правок по запросу владельца (clarity & parity):
+1. **account_id → `IamRefLink`** в таблицах projects/SA/groups/roles + новая «Аккаунт» колонка у users (кликабельная ссылка иконка+имя на `/iam/accounts/:id`, как `subnet→network`).
+2. **ServiceAccount** — убран «статус»/`enabled` (колонка + строка обзора); proto не даёт сеттера, путал.
+3. **ServiceAccount** — убран `project_id` из обзора (главный реф — account_id).
+4. **Группы** — участники перенесены из extra-tab в `overviewBelow` (как `SubnetCidrPanel` у подсетей); добавление селекторами; участники — `IamRefLink`.
+5. **Account** — убран `organization_id` из обзора (нерелевантен tenant-UI).
+6. **AccessBindings → единая таблица** (`listByAccount`, account из context-пилюли шапки): субъект/роль/ресурс/статус/область одной таблицей. Убраны 3-view Segmented + «Мои AccessBinding'и». Create/Отозвать сохранены; пусто без account → Empty.
+7. **Иконки IAM** были = VPC (Apartment/Cluster/NodeIndex/Safety/Api/Gateway) → даны отдельные: accounts=Bank, projects=Project, users=User, service-accounts=Robot, groups=Team, roles=SafetyCertificate, access-bindings=Key (синхронно `ResourceIcon` ↔ `service-modules`).
+- **Merge → main**: kacho-ui `83c6614..a45eb6e` (3 коммита). CI docker-build (run 27655820143, success) → `prorobotech/kacho-ui:main-a45eb6e4`.
+- **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-a45eb6e4`.
+- Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 27/0 · vitest 179 pass (6 pre-existing theme-context).
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
