@@ -26,7 +26,7 @@ tags:
 
 # AccessBindingCondition
 
-**Domain**: iam — CEL-like overlay условия на AccessBinding (mfa_fresh / source_ip_in_range / business_hours / jit_window / break_glass_window / device_compliant / non_expired). 1:1 c AccessBinding.
+**Domain**: iam — CEL-like overlay условия на AccessBinding (mfa_fresh / source_ip_in_range / business_hours / device_compliant / non_expired). 1:1 c AccessBinding. `jit_window`/`break_glass_window` — **удалены** из whitelist миграцией 0013 (JIT/break-glass retired, KAC-198/214; evaluator fail-closed reject'ит их).
 **ID prefix**: `cond_` + `[a-z0-9_]{1,40}` → `^cond_[a-z0-9_]{1,40}$`.
 **Owner table**: `kacho_iam.access_binding_conditions` (migration 0012).
 **Phase 1**: schema-only. CEL evaluator — Phase 3 OpenFGA Conditions.
@@ -37,22 +37,25 @@ tags:
 |---|---|---|---|
 | `id` | TEXT PK | `^cond_[a-z0-9_]{1,40}$` | |
 | `binding_id` | TEXT | FK → access_bindings(id) CASCADE | **UNIQUE** — 1:1 |
-| `expression` | TEXT | CHECK whitelist enum (7 values) | predicate name |
+| `expression` | TEXT | CHECK whitelist enum (5 values) | predicate name |
 | `params` | JSONB | object (per-predicate schema) | params для CEL evaluator |
 | `created_at` | TIMESTAMPTZ | server-set | |
 | `created_by` | TEXT | length <=64 | user_id grantor'а |
 
-## Expression whitelist (7 values, DB CHECK)
+## Expression whitelist (5 values, DB CHECK)
 
 | Value | Semantic |
 |---|---|
 | `mfa_fresh` | MFA проверка ≤N min от now (params: `{max_age_seconds: int}`) |
 | `non_expired` | binding не expired (auto-evaluated by expires_at) |
 | `source_ip_in_range` | source IP в CIDR (params: `{cidrs: [...]}`) |
-| `break_glass_window` | active внутри break-glass окна (Phase 7) |
-| `jit_window` | active внутри JIT-activation окна (Phase 7) |
 | `business_hours` | business-hours filter (params: `{tz, hours}`) |
 | `device_compliant` | device-posture compliance check |
+
+> [!warning] Удалены (migration 0013, kacho-iam #133)
+> `break_glass_window` и `jit_window` исключены из whitelist CHECK — break-glass и JIT/PIM
+> ретайрнуты (KAC-198/214). Evaluator (`conditions_evaluator.go`) роутит их в reject-ветку
+> (fail-closed, как раньше только break_glass). Не добавлять обратно без восстановления фичи.
 
 ## Constraints / indexes
 
