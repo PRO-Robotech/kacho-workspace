@@ -34,8 +34,8 @@ tags:
 | Method | Phase | Sync/Async | Status | Note |
 |---|---|---|---|---|
 | Get | 2 | sync | **done** | get cluster singleton |
-| GrantAdmin | 2 | async (Operation) | **done** | INSERT/Reactivate cluster_admin_grants + fga_outbox + audit_outbox (D-4 idempotent) |
-| RevokeAdmin | 2 | async (Operation) | **done** | atomic CAS UPDATE granted_until=now (D-5 self / D-6 last / D-12 not-active) |
+| GrantAdmin | 2 | async (Operation) | **done** | INSERT/Reactivate cluster_admin_grants + fga_outbox + **audit_outbox `iam.cluster_admin.granted`** (sub-phase 5.2, atomic in tx; no-op repeat emits nothing) |
+| RevokeAdmin | 2 | async (Operation) | **done** | atomic CAS UPDATE granted_until=now (D-5 self / D-6 last / D-12 not-active) + **audit_outbox `iam.cluster_admin.revoked`** (sub-phase 5.2, atomic in tx) |
 | ListAdmins | 2 | sync | **done** | active permanent admins (JOIN users for denormalised email/display_name) |
 | RequestBreakGlass | 7 | async | INSERT cluster_break_glass_grant (state=AWAITING_APPROVAL_A) |
 | ApproveBreakGlass | 7 | async | CAS UPDATE state-transitions |
@@ -65,6 +65,6 @@ tags:
 
 ## See also
 
-[[../resources/iam-cluster]] [[../resources/iam-cluster-admin-grant]] [[../resources/iam-cluster-break-glass-grant]] [[../packages/iam-seed]] [[../KAC/KAC-127]]
+[[../resources/iam-cluster]] [[../resources/iam-cluster-admin-grant]] [[../resources/iam-cluster-break-glass-grant]] [[../resources/iam-audit-outbox]] [[../packages/iam-seed]] [[../KAC/KAC-127]]
 
 #rpc #kacho-iam #iam #internal
