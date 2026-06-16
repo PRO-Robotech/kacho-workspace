@@ -61,3 +61,37 @@ tags:
 [[../packages/iam-domain]] [[../resources/iam-user]] [[../edges/iam-to-zitadel-oidc]] [[iam-user-service]] [[../KAC/KAC-105]]
 
 #rpc #kacho-iam #iam #internal #mirror
+
+## OnRecoveryCompleted (KAC-127 Phase 2 / sub-phase 5.3) — IMPLEMENTED
+
+Третий метод сервиса (был `Unimplemented` → Kratos recovery нерабочий). Реализован
+в Wave R (PR в kacho-iam, ветка `wave-r-on-recovery`).
+
+| Method | Request | Response | Sync/Async | Transport |
+|---|---|---|---|---|
+| **OnRecoveryCompleted** | OnRecoveryCompletedRequest (`external_id`, `recovery_jti`, `email`) | operation.Operation (metadata `OnRecoveryCompletedMetadata`, response `User`) | **async** | **gRPC :9091 only** (нет `google.api.http` в proto → НЕТ REST-маршрута через api-gateway; Kratos бьёт api-gateway, gateway re-dial'ит :9091 своим mTLS-cert'ом) |
+
+Семантика (one writer-tx, запрет #10): idempotency-INSERT `recovery_completions`
+(PK `recovery_jti`, ON CONFLICT DO NOTHING) → re-enable BLOCKED→ACTIVE (idempotent;
+ACTIVE no-op) → revoke-all cutoff `user_token_revocations` (reason `password-change`,
+монотонный GREATEST) → audit `iam.user.recovery_completed` (`tenant_account_id` =
+`User.AccountID`). Sync-gates до спавна Operation: malformed→INVALID_ARGUMENT,
+unknown external_id→NOT_FOUND, email-mismatch→FAILED_PRECONDITION (no side-effects).
+
+> [!warning] Spec-vs-schema конфликт (5.3-09)
+> APPROVED 5.3-09 предполагал 2 non-PENDING row (BLOCKED+ACTIVE) одной identity,
+> оба re-enabled. Это НЕВОЗМОЖНО: migration 0011 `users_active_external_id_uniq`
+> (global partial UNIQUE на external_id WHERE invite_status='ACTIVE') допускает
+> ОДИН ACTIVE-row на external_id глобально. Реализация: re-enable
+> constraint-bounded (23505 на BLOCKED→ACTIVE рядом с ACTIVE-sibling → skip,
+> identity уже имеет канонический ACTIVE-row); revoke-all + audit идут всегда.
+> Multi-account identity на этой схеме = один non-PENDING row + PENDING-siblings
+> (external_id='') которые не matched. Требует ре-ревью acceptance-reviewer'ом.
+
+Auth (5.3-08): уже было на месте — `caller_policy.go` GatewayFrontedInternalRPCs
+(gateway-only), exempt от `system_viewer`-floor, `<exempt>` в permission_catalog.
+
+Новые within-iam DB-конструкции: таблица `recovery_completions` (migration 0015,
+PK-dedup); reader `FindByExternalIDInStatuses({ACTIVE,BLOCKED})` (BLOCKED-aware);
+writer `ReEnable` (CAS через `UPDATE … FROM (SELECT … FOR UPDATE)`); tx-scoped
+`InsertRecoveryCompletion` + `UpsertUserTokenRevokeAll` на `kacho.Writer`.

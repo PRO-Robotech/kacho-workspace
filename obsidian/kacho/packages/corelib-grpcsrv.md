@@ -33,6 +33,13 @@ Bootstrap-helper для gRPC-server с дефолтным набором: health
 - `UnaryCertIdentityExtract()` / `StreamCertIdentityExtract()` — классифицируют peer (insecure / TLS-no-verified-cert / mTLS-verified) и кладут cert-identity в ctx. Ставить ПЕРЕД principal-extract.
 - `UnaryTrustedPrincipalExtract()` / `StreamTrustedPrincipalExtract()` + `TrustedPrincipalFromContext(ctx) (operations.Principal, bool)` — инвариант доверия (FD-4): principal-metadata доверяется ⟺ peer mTLS-verified; insecure-listener ⇒ dev backward-compat; TLS-без-verified-cert ⇒ principal отбрасывается. cert-identity (модуль) и principal (пользователь) — ортогональны, оба доступны downstream для аудита.
 
+### sub-phase 5.4 — acr carrier (`acr.go` + `cert_identity.go`)
+
+- `MDKeyTokenACR = "x-kacho-token-acr"` — trusted metadata-ключ с validated JWT `acr` (api-gateway forwards на mTLS-verified gateway→iam re-dial, рядом с `x-kacho-principal-*`).
+- `UnaryTrustedPrincipalExtract` доп. читает `acr` и кладёт в trusted-carrier **только когда trusted** (тот же FD-4 boundary): на untrusted/unverified peer `acr` отбрасывается вместе с principal (anti-spoof). insecure dev-listener ⇒ принимается как сегодня.
+- `TrustedACRFromContext(ctx) (acr string, trusted bool)` — accessor. `WithTrustedACR(ctx, acr, trusted)` — test-support helper (mirror `WithCertIdentity`).
+- `ACRRank(acr) int` (`""/"0"<"1"<"2"<"3"`, unknown ⇒ 0) + `ACRSatisfies(presented, required) bool` (`required==""/"0"` ⇒ no-op) — **единая** ranking-точка, общая для api-gateway StepUpGate и iam ACRFloor (no drift). Imported-by: `kacho-iam/internal/authzguard` (ACRFloor), `kacho-api-gateway/internal/restmux` (forwards acr).
+
 ## Convention
 
 - Каждый сервис в `cmd/<svc>/main.go` зовёт `grpcsrv.NewServer(...)` для public-listener (9090) и отдельно для internal-listener (9091).

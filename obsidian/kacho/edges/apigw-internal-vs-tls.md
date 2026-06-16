@@ -10,9 +10,10 @@ protocol: http-listener
 status: active
 related_tickets:
   - "[[KAC/KAC-94]]"
+  - "[[KAC/SEC-L-rest-internal-isolation]]"
 tags:
   - edge
-  - kacho-apigw
+  - kacho-api-gateway
   - internal
   - security
 ---
@@ -26,6 +27,9 @@ tags:
 ## Why two listeners
 
 CLAUDE.md «Запреты» #6: `Internal*` методы **никогда** не должны попадать на публичный TLS edge (`api.kacho.local:443`). Они нужны admin-UI / impl-controllers / port-forward — отдельный cluster-internal listener.
+
+> [!warning] До SEC-L «split» был только marshaller, не enforcement
+> Один `httpSrv` обслуживает **оба** listener'а (plaintext `:8080` internal + TLS external). `isInternalPath` выбирал только JSON-marshaller — **не** отклонял по listener'у → `Internal*` REST были доступны на external edge (gRPC-director их блокировал, REST — нет). SEC-L закрыл: external listener помечается через `internal/listenerorigin` (`ExternalListener` + `httpSrv.ConnContext`); dispatcher отдаёт **404** на `Internal*`-путь с external origin; allowlist больше не несёт 4 `Internal*` FQN (заменены на internal-origin gate в `decide()` — только для `<exempt>` RPC, не gated).
 
 ## Two endpoints
 
@@ -53,4 +57,8 @@ REST path → выбор backend addr (`vpcAddr` vs `vpcInternalAddr`):
 
 [[../packages/apigw-restmux]] [[../packages/apigw-proxy]] [[apigw-to-vpc]] [[apigw-to-compute]] [[apigw-to-rm]]
 
-#edge #kacho-apigw #internal #security
+## History
+
+- **SEC-L (2026-06-16)** — REST external-isolation **enforcement** (PR #78). До этого `isInternalPath` только выбирал marshaller; `Internal*` REST были externally reachable (bug A) + 4 `Internal*` FQN в `DefaultPublicAllowlist()` давали unauthenticated allow на edge (bug B, priv-esc). Fix: `internal/listenerorigin` per-listener marker (wrap external TLS HTTP sub-listener + `httpSrv.ConnContext`); dispatcher 404-ит `Internal*` на external origin; `isInternalPath` теперь ловит и `:internal` verb-suffix (`InternalNetworkService.GetNetwork`); allowlist-gate заменён на internal-origin + `<exempt>`-only (gated `Internal*` как `InternalClusterService` D-11 по-прежнему проходят FGA Check на internal listener). Internal callers (UI/admin/port-forward/self-call, newman `baseUrl`=:18080→:8080) не затронуты.
+
+#edge #kacho-api-gateway #internal #security
