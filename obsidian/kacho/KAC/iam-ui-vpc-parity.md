@@ -126,6 +126,16 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - **Deploy**: `fe3455-client` `set image deploy/ui` → pod `ui-547894677c` 1/1 Ready.
 - Верификация: `tsc -b` 0 · `e2e:ci` 27/0.
 
+## Follow-up: detail parity — edit-in-panel + full-height + drop IamLayout (2026-06-17)
+
+По запросу владельца ещё три правки «как в VPC»:
+1. **Edit IAM-ресурсов → зона-3 ResourceShell** (`mode=edit` → `InlineResourceForm action=edit`), а не модалка — системно: `ResourceListPage.editAsPanel = panelForms || isIam`, `RelatedTable` editAsPanel для IAM-детей. (Кнопка на детали уже вела на панель; чинило list/child kebab, который слал `?modal=*-edit`.) CREATE у IAM остаётся модалкой.
+2. **Убрана IamLayout-обёртка** целиком — IAM-роуты рендерятся напрямую под `Layout` (как VPC): убран дублирующий Account-`<Select>` (account уже в пилюле `ContextBreadcrumb` шапки → `context-store.account`); detail-фон растягивается на весь экран (`.kc-surface{minHeight:100%}` в `flex:1` content, не зажат `<Space>`). Нав по разделам — левый `ServiceSidebar` (module `iam`, уже содержал все leaves). `IamLayout.tsx` удалён.
+3. `e2e/ci/iam-walkthrough` обновлён (нет таб-бара/in-content селектора).
+- **Merge → main**: kacho-ui `0c3456f..83c6614`. CI docker-build (run 27654186773, success) → `prorobotech/kacho-ui:main-83c66146`.
+- **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-83c66146`.
+- Верификация: `tsc -b` 0 · `e2e:ci` 27/0.
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
