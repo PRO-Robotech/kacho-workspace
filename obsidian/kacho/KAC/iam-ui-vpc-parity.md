@@ -150,6 +150,17 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-a45eb6e4`.
 - Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 27/0 · vitest 179 pass (6 pre-existing theme-context).
 
+## Follow-up r3: group members + AccessBinding create/detail (2026-06-17)
+
+- **Группы — участники в Обзоре в едином CIDR-стиле** (`SubnetCidrManager.CidrSection`-паттерн): `SectionHeader` «Участники (N)» + bordered `kc-grid-table` [Тип | Участник (`IamRefLink`) | Добавлен | ⌫] + add-row через `Space.Compact` (Type-Select + member-Select + dashed «Добавить»), spinner на изменяемой строке. `GroupMembersPanel` переписан.
+- **AccessBinding create → full-page** (`/iam/access-bindings/create` → `AccessBindingCreatePage`, FormShell+FormFooter, как VPC-create) вместо bespoke AntD Modal («наш подход»). CTA + cluster-admin deep-link (`ClusterAdminsPage`) ведут на страницу; legacy `?modal=…` редиректят.
+- **Роль — Cascader** module→resource→verb (хелперы вынесены в `src/components/iam/roleCascader.ts`, переиспользуются `AccessPage` + create-page; system/custom Segmented).
+- **Ресурс — типизированный дропдаун** по `resource_type`: account→`listAccounts`, project→`listProjects(account)`, cluster→фикс `cluster_kacho_root`.
+- **AccessBinding detail**: строки единой таблицы кликабельны → `/iam/access-bindings/:uid` (revoke/ссылки stopPropagation).
+- **Merge → main**: kacho-ui `a45eb6e..2c54139` (5 коммитов). CI docker-build (run 27657040322, success) → `prorobotech/kacho-ui:main-2c541397`.
+- **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-2c541397`.
+- Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 28/0 · vitest 181 pass (6 pre-existing theme-context; регресс group-members detail-теста починен).
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
