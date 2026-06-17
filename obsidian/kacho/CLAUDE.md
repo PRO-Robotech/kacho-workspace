@@ -26,7 +26,7 @@ tags:
 
 Никогда не создавай новые синонимы. Используй только из этого списка (иначе Bases/фильтры ломаются):
 
-- **Repo**: `kacho-vpc`, `kacho-iam`, `kacho-corelib`, `kacho-proto`, `kacho-api-gateway`, `kacho-compute`, `kacho-deploy`, `kacho-vpc-implement`, `kacho-ui`, `kacho-test` (для каждого репо — **полное** имя, не `vpc`/`iam`/`apigw`). (`kacho-rm`/`kacho-resource-manager` упразднён KAC-124 → `kacho-iam`.)
+- **Repo**: `kacho-vpc`, `kacho-iam`, `kacho-geo`, `kacho-nlb`, `kacho-corelib`, `kacho-proto`, `kacho-api-gateway`, `kacho-compute`, `kacho-deploy`, `kacho-vpc-implement`, `kacho-vpc-operator`, `kacho-ui`, `kacho-test` (для каждого репо — **полное** имя, не `vpc`/`iam`/`apigw`). (`kacho-rm`/`kacho-resource-manager` упразднён KAC-124 → `kacho-iam`.)
 - **Category**: `resource`, `rpc`, `packages`, `edge`, `kac`, `hub`, `vault`, `conventions`, `index` (используются Bases-фильтрами — не менять).
 - **Architecture**: `cqrs`, `architecture`, `dependencies` (не `imports`), `polyrepo`, `proto` (не `protobuf`), `grpc`, `go`, `migrations`, `cross-service`, `internal`, `composition-root`, `cmd`, `config`, `handler`, `repo`, `service`, `domain`, `dto`, `clients`, `usecase`, `ports`.
 - **Status**: `done`, `planned`, `deprecated`, `legacy`, `wontfix`, `experimental`, `stable`, `race-fix`.

@@ -77,6 +77,11 @@ Alphabetical index всех узких файлов. Использовать д
 - [[resources/vpc-securitygroup|SecurityGroup]]
 - [[resources/vpc-subnet|Subnet]]
 
+### kacho-geo (эпик #82)
+
+- [[resources/geo-region|Region (geo)]]
+- [[resources/geo-zone|Zone (geo)]]
+
 ## RPCs (~40)
 
 ### kacho-iam (KAC-127)
@@ -129,11 +134,17 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/vpc-securitygroup-service|SecurityGroupService]]
 - [[rpc/vpc-subnet-service|SubnetService]]
 
+### kacho-geo (эпик #82)
+
+- [[rpc/geo-region-service|RegionService + InternalRegionService]]
+- [[rpc/geo-zone-service|ZoneService + InternalZoneService]]
+
 ## Packages — proto (11)
 
 - [[packages/proto-access|cloud/access — IAM shared]]
 - [[packages/proto-api|cloud/api — legacy]]
 - [[packages/proto-compute|cloud/compute/v1]]
+- [[packages/proto-geo|cloud/geo/v1 (эпик #82)]]
 - [[packages/proto-loadbalancer|cloud/nlb proto (legacy 1.0, frozen) — current repo kacho-nlb]]
 - [[packages/proto-maintenance|cloud/maintenance/v2]]
 - [[packages/proto-operation|cloud/operation — LRO envelope]]
@@ -184,6 +195,11 @@ Alphabetical index всех узких файлов. Использовать д
 ## Packages — kacho-vpc (~27)
 
 См. категориальный список в [[README#Категории-детальных-файлов]] либо `obsidian/kacho/packages/vpc-*.md` glob.
+
+## Packages — kacho-geo (эпик #82)
+
+- [[packages/proto-geo|proto/geo (kacho-proto)]]
+- [[packages/geo-domain|internal/domain]]
 
 ## Packages — kacho-api-gateway (10)
 
@@ -245,7 +261,12 @@ Alphabetical index всех узких файлов. Использовать д
 - [[edges/compute-to-vpc-nic-validate]] — compute → vpc: NIC validate + attach (CAS)
 - [[edges/vpc-implement-to-vpc]] — legacy data-plane sibling → vpc: NI dataplane writeback (removed, KAC-36/79/80; data-plane sibling is now kacho-vpc-operator)
 - [[edges/vpc-operator-to-kubeovn]] — kacho-vpc-operator → kube-ovn / Multus: data-plane materialization (experimental)
-- [[edges/vpc-to-compute-zone-validate]] — vpc → compute: zone_id validation (KAC-15)
+- [[edges/vpc-to-geo-zone-validate]] — vpc → geo: zone_id validation (эпик #82)
+- [[edges/compute-to-geo-zone-validate]] — compute → geo: Instance.zone_id validation (эпик #82)
+- [[edges/nlb-to-geo-region-validate]] — nlb → geo: Region validation (эпик #82)
+- [[edges/geo-to-iam-check]] — geo → iam: per-RPC authz Check (эпик #82)
+- [[edges/vpc-to-compute-zone-validate]] — vpc → compute: zone_id validation (KAC-15, **superseded** by vpc→geo, эпик #82)
+- [[edges/nlb-to-compute-region-validation]] — nlb → compute: Region validation (**superseded** by nlb→geo, эпик #82)
 - [[edges/vpc-to-rm-folder-exists]] — vpc → rm: folder check (deprecated)
 
 ## Public docs (KAC-127 Phase 13)
@@ -259,8 +280,9 @@ Alphabetical index всех узких файлов. Использовать д
 - [[KAC/README|KAC trail index]]
 - [[KAC/_TEMPLATE|template]]
 - [[KAC/all-tickets|all-tickets.base]] — table view
+- [[KAC/EPIC-geo-extraction]] — Geography → kacho-geo leaf-service (эпик #82, in-progress)
 - [[KAC/KAC-2]] — NetworkInterface first-class (done)
-- [[KAC/KAC-15]] — Geography moved (done)
+- [[KAC/KAC-15]] — Geography moved vpc → compute (done; теперь надстроено эпиком #82)
 - [[KAC/KAC-50]] — api-gateway listener split (done)
 - [[KAC/KAC-52]] — NIC attach race fix (done)
 - [[KAC/KAC-55]] — NIC v4/v6 cardinality (done)

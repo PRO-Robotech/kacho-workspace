@@ -182,7 +182,8 @@ newman-e2e (один сценарий → один integration-тест + оди
 | `kacho-api-gateway` | работает | edge: gRPC-proxy + grpc-gateway REST; two-listener (external TLS + cluster-internal :9091); backend gRPC :9090 |
 | `kacho-iam` | в активной работе | Account, Project, User, ServiceAccount, Group, Role, AccessBinding; OIDC + REBAC-Check, JIT/break-glass/access-review/audit-pipeline (эпик AAA) |
 | `kacho-vpc` | работает | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface; built-in IPAM; `AddressPool` admin-only (Internal*) |
-| `kacho-compute` | работает | Instance, Disk, Image, Snapshot, DiskType + Geography (Region/Zone, owner — compute); reconciler с `pg_advisory_lock` |
+| `kacho-compute` | работает | Instance, Disk, Image, Snapshot, DiskType; reconciler с `pg_advisory_lock` (Geography вынесена в `kacho-geo`, эпик #82) |
+| `kacho-geo` | **в работе** (эпик #82) | Region, Zone (Geography — platform-топология, leaf-домен как iam); БД `kacho_geo`; public read + admin-CRUD через Internal* |
 | `kacho-deploy` | работает | dev-стенд (kind + helm + Postgres + ingress) + e2e |
 | `kacho-ui` | работает | Vite + React SPA control plane (polling-модель: List + OperationService.Get) |
 | `kacho-nlb` | **планируется** | NetworkLoadBalancer, TargetGroup; БД `kacho_nlb` |
@@ -195,9 +196,17 @@ spec-only, **вне build-графа** control-plane).
 **Кросс-доменные runtime-рёбра** (синхронный gRPC service→service, не через api-gateway
 наружу; циклов нет):
 
-- `kacho-vpc → kacho-compute` — валидация `zone_id` (`compute.v1.ZoneService.Get`).
+- `kacho-vpc → kacho-geo` — валидация `zone_id` Subnet/AddressPool (`geo.v1.ZoneService.Get`).
+- `kacho-compute → kacho-geo` — валидация `Instance.zone_id` (`geo.v1.ZoneService.Get`).
+- `kacho-nlb → kacho-geo` — валидация `region_id` LoadBalancer/TargetGroup (`geo.v1.RegionService.Get`, sync precheck).
+- `kacho-nlb → kacho-compute` — резолв Instance-таргетов (`compute.v1.InstanceService.Get`); только Instance, НЕ geography.
 - `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
-- `* → kacho-iam` — `ProjectService.Get` (existence + account lookup) + `InternalIAMService.Check` (authz-gate).
+- `* → kacho-iam` — `ProjectService.Get` (existence + account lookup) + `InternalIAMService.Check` (authz-gate); `kacho-geo` — обычный leaf-консумер iam.
+
+> Geography (Region/Zone) вынесена из `kacho-compute` в leaf-сервис `kacho-geo` (эпик #82,
+> `docs/specs/sub-phase-6.0-kacho-geo-extraction-acceptance.md`). Ложные «ради geography» рёбра
+> `vpc→compute (zone)` и `nlb→compute (region)` удалены; consumer'ы ходят прямо в `geo`. `geo` — leaf
+> (как iam): никого, кроме iam (authz-Check), не зовёт, поэтому ацикличность сохранена.
 
 ## 5. Будущие фазы
 

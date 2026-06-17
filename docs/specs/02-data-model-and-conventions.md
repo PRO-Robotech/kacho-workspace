@@ -67,7 +67,8 @@ crockford-base32**. Тип ресурса читается по prefix; api-gate
 |---|---|
 | IAM | `acc` Account · `prj` Project · `usr` User · `sva` ServiceAccount · `grp` Group · `rol` Role · `acb` AccessBinding · `iop` Operation |
 | VPC | `net` Network · `sub` Subnet · `adr` Address · `rtb` RouteTable · `sgr` SecurityGroup · `gtw` Gateway · `nic` NetworkInterface · `apl` AddressPool · `enp` Operation |
-| Compute | `epd` Instance/Disk/Operation · `fd8` Image/Snapshot · литералы (`network-ssd`, `ru-central1-a`) для DiskType/Region/Zone |
+| Compute | `epd` Instance/Disk/Operation · `fd8` Image/Snapshot · литерал `network-ssd` для DiskType |
+| Geo | литералы для Region/Zone (`ru-central1`, `ru-central1-a`) — admin-assigned id, leaf-домен `kacho-geo` |
 
 Заметки по prefix-шарингу (умышленно):
 
@@ -76,7 +77,7 @@ crockford-base32**. Тип ресурса читается по prefix; api-gate
 - Compute группирует prefix по домену: Instance/Disk → `epd`, Image/Snapshot → `fd8`.
   Все compute-операции получают `epd` независимо от ресурса; `ImageService.Create` вернёт
   operation `epd…`, внутри которого `response` = Image с id `fd8…`.
-- Read-only справочники Compute (DiskType/Region/Zone) используют осмысленные литералы как id.
+- Read-only справочники Compute (DiskType) и Geo (Region/Zone) используют осмысленные литералы как id.
 
 ## 3. Naming convention
 
@@ -294,11 +295,27 @@ operations       (см. §8) · vpc_outbox
 FK-цепочка `kacho_vpc` — RESTRICT снизу вверх: удалять `NetworkInterface → Address →
 Subnet → Network`; default-SG авто-удаляется в writer-TX при `Network.Delete`. Внешний
 `Address` — project-level без Subnet. `Gateway` — project-level (shared egress). `zone_id`
-хранится как TEXT и валидируется вызовом `compute.v1.ZoneService.Get`.
+хранится как TEXT и валидируется вызовом `geo.v1.ZoneService.Get`.
+
+### `kacho_geo`
+
+Geo — owner Geography (Region/Zone вынесены из `kacho-compute`, эпик #82). Leaf-домен.
+
+```
+regions  (id TEXT PK = literal напр. 'ru-central1', name, created_at)
+zones    (id TEXT PK = literal напр. 'ru-central1-a', region_id FK→regions(id) ON DELETE RESTRICT,
+          status TEXT (UNSPECIFIED|UP|DOWN), name, created_at)
+geo_outbox (audit на admin-мутациях — parity с compute_outbox/vpc_outbox)
+```
+
+Within-service инвариант: регион с зонами удалить нельзя (FK RESTRICT, DB-уровень). Cross-service
+ссылки (`Instance.zone_id`, `Subnet.zone_id`, `address_pools.zone_id`, NLB `region_id`) — TEXT без
+cross-service FK, валидируются peer-вызовом в geo; dangling-ref на чтении переживается грациозно.
 
 ### `kacho_compute`
 
-Compute — owner Geography (Region/Zone перенесены из VPC, эпик `KAC-15`).
+Compute — Instance/Disk/Image/Snapshot/DiskType. Geography (Region/Zone) больше не здесь —
+вынесена в `kacho_geo` (эпик #82); `zone_id`/`region_id` валидируются peer-вызовом в geo.
 
 ```
 instances        (id PK, project_id, name, labels, zone_id, status, created_at,
@@ -313,10 +330,11 @@ attached_disks   (instance_id FK→instances CASCADE, disk_id FK→disks RESTRIC
 images           (id PK, project_id, family, ..., status READY)   -- download — заглушка
 snapshots        (id PK, project_id, source_disk_id (НЕ FK), ..., status)
 disk_types       (id PK литерал, ...)                       -- seed: network-hdd/ssd/...
-regions          (id PK, name, created_at)                  -- seed: ru-central1
-zones            (id PK, region_id FK→regions RESTRICT, name, status, created_at)
 operations       (см. §8; prefix epd) · compute_outbox · compute_watch_cursors
 ```
+
+> Региона/зоны (`regions`/`zones`) в `kacho_compute` больше нет — вынесены в `kacho_geo`
+> (эпик #82); `instances.zone_id`/`disks.zone_id` — TEXT-ссылки, валидируемые peer-вызовом в geo.
 
 `disks.source_*`/`snapshots.source_disk_id` — без FK (источник можно удалить, ссылка
 остаётся как «откуда создан», existence-check на Create). `attached_disks.disk_id` RESTRICT

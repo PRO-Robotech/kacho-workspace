@@ -91,7 +91,8 @@ Production-ready IAM в 13 фазах. Key vault entries:
 
 ## Документы вне scope этих 6 проектов
 
-- `kacho-compute` (Instance/Disk/Image/Snapshot/DiskType + Geography Region/Zone) — отдельный сервис, не индексируется в этой версии.
+- `kacho-compute` (Instance/Disk/Image/Snapshot/DiskType) — отдельный сервис, не индексируется в этой версии. Geography (Region/Zone) вынесена в `kacho-geo` (эпик #82).
+- `kacho-geo` — Geography (Region/Zone) leaf-сервис (домен `geo.v1`, схема `kacho_geo`); owner Geography после эпика #82. См. [[KAC/EPIC-geo-extraction]], [[resources/geo-region]], [[resources/geo-zone]].
 - `kacho-nlb` — Network Load Balancer (NetworkLoadBalancer/TargetGroup) control-plane.
 - `kacho-vpc-operator` — data-plane sibling kacho-vpc; spec-only, вне build-графа, control-plane его не касается.
 - `kacho-ui` — Vite + React SPA.

@@ -26,16 +26,18 @@ tags:
 - `instance_group.proto` — Compute IG (autoscaling)
 - `application.proto`, `hardware_generation.proto`, `kek.proto`, `maintenance.proto`
 
-## Geography (после KAC-15 — owner = compute, не vpc)
+## Geography — ВЫНЕСЕНА в `kacho-geo` (эпик #82)
 
-- `region.proto` / `region_service.proto`
-- `zone.proto` / `zone_service.proto`
-
-Tenant read через api-gateway `/compute/v1/regions` + `/compute/v1/zones`; admin-мутации — `InternalCatalogService`. См. [[../edges/vpc-to-compute-zone-validate]].
+> [!warning] Region/Zone больше не в `compute.v1`
+> Geography (Region/Zone + RegionService/ZoneService + InternalRegion/ZoneService) вынесена в новый
+> leaf-домен `kacho.cloud.geo.v1` (см. [[proto-geo]]). На S7 эпика #82 эти proto удаляются из `compute.v1`
+> (намеренный `buf breaking`, ПОСЛЕ перевода всех consumer'ов). REST `/compute/v1/regions`/`/compute/v1/zones`
+> → `/geo/v1/regions`/`/geo/v1/zones`. zone-валидация compute теперь [[../edges/compute-to-geo-zone-validate]].
 
 ## Internal services
 
-- `internal_catalog_service.proto` — admin для Region/Zone/HostType. (Прежний internal-only `Hypervisor`-ресурс удалён в KAC-36/79/80.)
+- `internal_catalog_service.proto` — admin для DiskType/HostType. (Region/Zone-ветки вынесены в geo, эпик #82;
+  прежний internal-only `Hypervisor`-ресурс удалён в KAC-36/79/80.)
 - `internal_watch_service.proto` — LISTEN/NOTIFY (deprecated с 1.0).
 
 ## Service protos
