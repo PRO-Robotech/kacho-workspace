@@ -36,8 +36,9 @@ tags:
 
 - Все публичные RPC: DiskService, ImageService, SnapshotService, InstanceService
   (lifecycle-heavy: Start/Stop/Restart/Attach*/Detach*/AddOneToOneNat/…),
-  DiskTypeService, ZoneService, RegionService, OperationService.Get/Cancel
-  (40+ RPC, см. [[../packages/compute-internal-check]] permission_map).
+  DiskTypeService, OperationService.Get/Cancel
+  (40+ RPC, см. [[../packages/compute-internal-check]] permission_map). Region/Zone-RPC
+  вынесены в `kacho-geo` (эпик #82) — их authz-Check теперь [[geo-to-iam-check]].
 - `Internal*` RPC — bypass (admin :9091 listener).
 
 ## Object types
@@ -47,11 +48,11 @@ tags:
 
 ## Особенность: catalog-resources
 
-`DiskType.{Get,List}`, `Zone.{Get,List}`, `Region.{Get,List}` — глобальные
-read-only справочники без `project_id` в request'е. Резолвятся в один
-well-known FGA-object `system:catalog`. E3-модель выдаёт всем authenticated
-principal'ам `viewer on system:catalog` implicit'но (см. acceptance §4).
-Это эквивалент `Public=true`, но через audit-trail в kacho-iam.
+`DiskType.{Get,List}` — глобальный read-only справочник без `project_id` в request'е.
+Резолвится в well-known FGA-object `system:catalog`. E3-модель выдаёт всем authenticated
+principal'ам `viewer on system:catalog` implicit'но (см. acceptance §4). Это эквивалент
+`Public=true`, но через audit-trail в kacho-iam. (Region/Zone — тот же catalog-паттерн, но
+теперь в `kacho-geo`; см. [[geo-to-iam-check]].)
 
 ## Cache + revoke target
 

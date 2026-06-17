@@ -14,7 +14,8 @@ Workspace — корневой git-репо. Sibling-репо клонируют
 | `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
 | `kacho-iam` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding |
 | `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface |
-| `kacho-compute` | Instance / Disk / Image / Snapshot + Geography (Region/Zone) |
+| `kacho-compute` | Instance / Disk / Image / Snapshot / DiskType |
+| `kacho-geo` | Region / Zone (Geography — platform topology leaf, owner) |
 | `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e |
 | `kacho-ui` | Vite + React SPA control plane |
 | `kacho-test` | сводный e2e/regression стенд |
@@ -30,8 +31,9 @@ Workspace — корневой git-репо. Sibling-репо клонируют
 kacho-proto                 ← ни от чего внутри проекта не зависит
   └─ kacho-corelib          ← replace ../kacho-proto
        ├─ kacho-iam         ┐ каждый сервис: replace ../kacho-corelib + ../kacho-proto.
-       ├─ kacho-vpc         │ Между собой сервисы НЕ зависят по build (DB-per-service,
-       ├─ kacho-compute     │ общение только по API).
+       ├─ kacho-geo         │ Между собой сервисы НЕ зависят по build (DB-per-service,
+       ├─ kacho-vpc         │ общение только по API). kacho-geo — leaf-домен Geography
+       ├─ kacho-compute     │ (Region/Zone), как iam: ни от какого сервиса не зависит.
        └─ kacho-api-gateway ┘ (api-gateway импортирует proto-stubs всех доменов)
 kacho-deploy   ← Dockerfile'ы COPY ../kacho-*; build-context = parent dir
 kacho-ui/test  ← зависят от REST api-gateway в runtime (не build)
@@ -42,8 +44,12 @@ versioned modules — под релизную фазу). Проверка: `grep
 
 ## Runtime cross-domain edges (gRPC service→service; НЕ build-зависимость)
 
-- `kacho-vpc → kacho-compute` — валидация `zone_id` (`compute.v1.ZoneService.Get`); Geography — домен compute.
+- `kacho-vpc → kacho-geo` — валидация `zone_id` Subnet/AddressPool (`geo.v1.ZoneService.Get`); Geography — домен geo (KAC-эпик #82). Заменяет прежнее ложное ребро `vpc→compute (zone)`.
+- `kacho-compute → kacho-geo` — валидация `Instance.zone_id` (`geo.v1.ZoneService.Get`). Geography больше не «своя» таблица compute — теперь peer-валидация через geo-client (KAC-эпик #82).
+- `kacho-nlb → kacho-geo` — валидация `region_id` LoadBalancer/TargetGroup (`geo.v1.RegionService.Get`, sync precheck на request-path, кэша нет). Заменяет прежнее ложное ребро `nlb→compute (region)`.
+- `kacho-geo → kacho-iam` — `InternalIAMService.Check` (authz-gate на каждом RPC обоих листенеров; read-RPC `system_viewer`-floor, admin-CRUD `system_admin`). geo — leaf-консумер только iam (как любой сервис).
 - `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
+- `kacho-nlb → kacho-compute` — резолв Instance-таргетов (`compute.v1.InstanceService.Get`); **только** для Instance (НЕ для geography — region-валидация теперь `nlb→geo`).
 - `* → kacho-iam` — `ProjectService.Get` (existence + account lookup, leaf-owner) + `InternalIAMService.Check` (authz-gate).
 - `kacho-vpc → kacho-iam` (fgaproxy, SEC-A) — `InternalIAMService.RegisterResource`/`UnregisterResource`: запись/снятие
   owner-hierarchy-tuple в FGA через IAM (модули не ходят в FGA напрямую). Internal-only :9091, идемпотентно, at-least-once
@@ -60,16 +66,18 @@ versioned modules — под релизную фазу). Проверка: `grep
   per-edge `enable`. SA освобождён от `required_acr_min` (service→service, §4.1.2).
 
 **Циклы запрещены**: если A зовёт B — B не зовёт A. Новое ребро фиксируется здесь как runtime-edge.
-- `kacho-vpc ⇄ kacho-compute` — **НЕ семантический цикл**: рёбра разнонаправлены по ресурсному контексту
-  (`vpc→compute` = валидация `zone_id`/Geography; `compute→vpc` = валидация NIC-spec + IPAM). Запрос по одному ребру
-  **не порождает обратный синхронный вызов** по другому (нет request-time A→B→A). Допустимо как два независимых runtime-edge.
+- `kacho-geo` — **leaf** (как iam): geo никого, кроме iam (authz-Check), не зовёт. Рёбра `vpc→geo` / `compute→geo` /
+  `nlb→geo` однонаправлены (geo не вызывает consumer'ов обратно) → циклов с geo нет. После выноса Geography ложные
+  «ради geography» рёбра `vpc→compute` и `nlb→compute (region)` удалены.
+- `kacho-compute → kacho-vpc` (NIC/IPAM) — единственное оставшееся ребро между vpc и compute, **одностороннее**:
+  vpc больше не зовёт compute (zone-валидация ушла в geo). Семантического цикла нет.
 Регламент кросс-доменных ссылок — `data-integrity.md`.
 
 ## Порядок работы / merge для кросс-репо фичи (топосортировка графа)
 
 1. `kacho-proto` (новый `.proto` + регенерация `gen/`, `buf lint`/`breaking` зелёные)
 2. `kacho-corelib` (если меняются общие пакеты)
-3. сервис(ы) (`kacho-vpc`/`kacho-iam`/`kacho-compute` — между собой в любом порядке)
+3. сервис(ы) (`kacho-geo`/`kacho-iam`/`kacho-vpc`/`kacho-compute` — между собой в любом порядке; leaf-домены iam/geo обычно первыми, т.к. их зовут consumer'ы)
 4. `kacho-api-gateway` (регистрация RPC: public mux / internal mux)
 5. `kacho-deploy` (helm/compose)
 6. `kacho-workspace` (docs/specs)

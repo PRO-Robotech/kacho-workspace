@@ -12,7 +12,7 @@ Kachō — **собственная** облачная управляющая п
 стороннего облака. Домены: **IAM** (Account / Project / User / ServiceAccount /
 Group / Role / AccessBinding), **VPC** (Network / Subnet / SecurityGroup /
 RouteTable / Address / Gateway / NetworkInterface), **Compute** (Instance / Disk /
-Image / Snapshot + Geography).
+Image / Snapshot), **Geography** (Region / Zone — leaf-домен `kacho-geo`, эпик #82).
 
 API — **плоские ресурсы** (flat message с domain-полями на верхнем уровне, без
 вложенного envelope) + **асинхронные `Operation`** на каждой мутации. Чтения
@@ -81,7 +81,8 @@ Lifecycle ресурсов — детерминированная server-side st
 | `kacho-api-gateway` | — (edge: gRPC-proxy + REST-фасад) | — |
 | `kacho-iam` | Account, Project, User, ServiceAccount, Group, Role, AccessBinding | `kacho_iam` |
 | `kacho-vpc` | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface | `kacho_vpc` |
-| `kacho-compute` | Instance, Disk, Image, Snapshot, DiskType + Geography (Region, Zone) | `kacho_compute` |
+| `kacho-compute` | Instance, Disk, Image, Snapshot, DiskType | `kacho_compute` |
+| `kacho-geo` *(в работе, эпик #82)* | Region, Zone (Geography — platform-топология, leaf) | `kacho_geo` |
 | `kacho-nlb` *(планируется)* | NetworkLoadBalancer, TargetGroup | `kacho_nlb` |
 
 `kacho-corelib` — переиспользуемые горизонтальные пакеты (ids / errors / config /

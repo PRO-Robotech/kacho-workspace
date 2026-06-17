@@ -23,6 +23,7 @@ REPOS=(
   kacho-corelib
   kacho-api-gateway
   kacho-iam
+  kacho-geo
   kacho-vpc
   kacho-compute
   kacho-nlb
