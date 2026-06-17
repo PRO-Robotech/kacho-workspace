@@ -163,23 +163,33 @@ log "2/10 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 # чего bootstrap-state юзера (и его FGA-tuple'ы) гарантированно есть.
 upsert_user_grpc() {
   local ext_id="$1" email="$2" display="${3:-$email}"
-  local body resp op_id user_id
+  local body resp op_id user_id attempt
   body=$(printf '{"externalId":"%s","email":"%s","displayName":"%s"}' "$ext_id" "$email" "$display")
-  resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
-    kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
-  # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
-  # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
-  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
-  if [ -n "$op_id" ]; then
-    poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
-  fi
-  user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
-  if [ -z "$user_id" ]; then
-    # PENDING-row может быть активирован — get_by_email через grpc.
-    user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
-      kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
-      | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
-  fi
+  # RETRY-until-non-empty (openfga-bootstrap restart-race): the openfga-bootstrap
+  # post-install hook rolling-restarts kacho-iam to load the FGA store-id; the
+  # Deployment can report Ready a beat before the new pod's FGA store env is fully
+  # warm, so the first UpsertFromIdentity may transiently error → empty id → FATAL
+  # (flaked the fleet-wide newman-e2e). UpsertFromIdentity is idempotent by
+  # externalId/email, so retrying is safe; ~12×3s ≈ 36s absorbs the warm-up window.
+  for attempt in $(seq 1 12); do
+    resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
+      kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
+    # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
+    # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
+    op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+    if [ -n "$op_id" ]; then
+      poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+    fi
+    user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
+    if [ -z "$user_id" ]; then
+      # PENDING-row может быть активирован — get_by_email через grpc.
+      user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
+        kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
+        | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
+    fi
+    [ -n "$user_id" ] && break
+    sleep 3
+  done
   echo "$user_id"
 }
 
