@@ -81,6 +81,7 @@ Findings во время cutover (все исправлены):
 3. **per-repo newman-e2e не собирал `kacho-geo:dev`** (deploy#95 добавил sub-chart, build-матрицы не обновили) → стек не вставал → geo build добавлен в e2e всех 6 репо (deploy#96 + vpc#157/nlb#31/iam#157).
 4. **data-migration job** читает `kacho_compute.regions` — после S7-drop устарел → отключён (deploy#97); толерантен к отсутствию source (нет pipefail).
 5. compute authz-deny newman floor 200→180 после удаления Region/Zone кейсов.
+6. **api-gateway→geo дозвон сломан** (post-cutover, нашёл пользователь: 503 `code 14 no children`): gateway звонил по `geo.kacho.svc.cluster.local` (NXDOMAIN — svc называется `kacho-geo`!) + не был включён gateway→geo mTLS-edge. Проявлялось ТОЛЬКО на аутентифицированном запросе (unauth режется authz-интерсептором ДО backend-дозвона — поэтому unauth-smoke не ловил, ложное «готово»). Фикс: host→`kacho-geo.*` + `MTLS_GEO_ENABLE=true` ([api-gateway#83](https://github.com/PRO-Robotech/kacho-api-gateway/pull/83) + [deploy#99](https://github.com/PRO-Robotech/kacho-deploy/pull/99)). Test-gap закрыт: аутентиф. geo newman-suite `geo-read` ([iam#158](https://github.com/PRO-Robotech/kacho-iam/pull/158)). **Урок**: svc `kacho-<x>` (iam/nlb/geo) vs `<x>` (vpc/compute) — geo-дефолт ошибочно скопирован с no-prefix паттерна; всегда проверять аутентифицированный путь, не только unauth-smoke.
 
 ## Затронутые сущности vault
 
