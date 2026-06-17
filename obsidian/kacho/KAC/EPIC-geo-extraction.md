@@ -12,7 +12,8 @@ repos:
   - kacho-api-gateway
   - kacho-deploy
   - kacho-workspace
-prs: []
+prs:
+  - "PRO-Robotech/kacho-workspace#83 (S8)"
 yt_url: https://prorobotech.youtrack.cloud/issue/KAC-
 opened: 2026-06-17
 tags:
@@ -55,7 +56,7 @@ Cutover: **expand → migrate → switch → contract** (geo.v1 additive → д�
 - **S5** kacho-api-gateway — REST `/geo/v1/*`; permission_catalog → geo FQN; Internal* на internal mux.
 - **S6** kacho-deploy — sub-chart kacho-geo + pg-geo + migration-job + mTLS (SEC-F) + values.
 - **S7** kacho-proto (финал) — удалить geography из `compute.v1` (breaking, ПОСЛЕ перевода consumer'ов).
-- **S8** kacho-workspace — docs/specs + vault + polyrepo build-graph + owner-map + bootstrap/sync (**этот PR**).
+- **S8** kacho-workspace — docs/specs + vault + polyrepo build-graph + owner-map + bootstrap/sync (PR [#83](https://github.com/PRO-Robotech/kacho-workspace/pull/83)).
 
 ## Затронутые сущности vault
 
