@@ -161,6 +161,15 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-2c541397`.
 - Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 28/0 · vitest 181 pass (6 pre-existing theme-context; регресс group-members detail-теста починен).
 
+## Follow-up r4: IAM create → страницы (базовый флоу) + group-members симметрия (2026-06-17)
+
+- **Все IAM create — страницами, не модалками** («опять модалки вместо базового флоу»): новый generic `IamResourceCreatePage` (тонкая обёртка над диспетчером `InlineResourceForm action=create` — account из context-store, roles → permissions-editor) на `/iam/<route>/create` для accounts/projects/service-accounts/groups/roles; `ResourceListPage.createTarget` для IAM → `/create` (page), `ResourceShell` child-create + RowActionsMenu → page. AccessBinding create уже страница.
+- **User invite → страница** `/iam/users/invite` (`InviteUserPage`, FormShell+FormFooter); `IamUsersListShell` invite-кнопка навигирует туда. **Dead `UsersPage.tsx` удалён** (только нёс obsolete `InviteUserModal`, не роутился).
+- **Group members table**: add-row выровнен по колонкам (Type-select под «Тип», member-select под «Участник», «Добавить» под «Добавлен»); цветные теги типов → чистый secondary-текст «Пользователь»/«Сервисный аккаунт».
+- **Merge → main**: kacho-ui `2c54139..eff62b8` (2 коммита). CI docker-build (run 27657878750, success) → `prorobotech/kacho-ui:main-eff62b85`.
+- **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-eff62b85`.
+- Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 32/0 · vitest 181 pass (6 pre-existing theme-context).
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
