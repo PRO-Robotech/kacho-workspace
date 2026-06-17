@@ -170,6 +170,17 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - **Deploy**: `fe3455-client` → pod 1/1 Ready, live `main-eff62b85`.
 - Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 32/0 · vitest 181 pass (6 pre-existing theme-context).
 
+## Follow-up r5: русские плуралы + типовая AccessBindings-таблица + чистка (2026-06-17)
+
+- **Все IAM-плуралы → русский** (Accounts→Аккаунты, Projects→Проекты, Service Accounts→Сервисные аккаунты, Users→Пользователи, Groups→Группы, Roles→Роли, Access Bindings→Привязки доступа) — убран рус./англ. разнобой в заголовках/крошках.
+- **AccessBindings таблица → типовая**: `ResourceTable` + `buildSpecColumns` + стандартный kebab `RowActionsMenu` («Отозвать» через новый `deleteLabel` + `DeleteDialog.actionLabel`); убраны bespoke Table/Popconfirm. Теги типов (group/sa/user) в Субъект/Ресурс убраны → `IamRefLink` (тип виден по иконке); tag-free scope-колонка в registry.
+- **Убрана кнопка «Открыть в VPC»** (деталь проекта).
+- **`RowActionsMenu`**: IAM-ресурсы больше не показывают «Переместить» (`resourceServicePrefix !== "iam"`) — фикс латентного бага.
+- **Группы**: пикер добавления участника не показывает уже состоящих (`main-3df85707`, merge `eff62b8..3df8570`).
+- **Merge → main**: kacho-ui `3df8570..a9df14d`. CI docker-build (run 27658798086, success) → `prorobotech/kacho-ui:main-a9df14df`. **Deploy:** ⏳ финальный `kubectl set image` заблокирован обновлённым `context-guard.sh` (cluster-мутации под guard) — выкат вручную владельцем.
+- Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 32/0 · vitest 181 pass.
+- **Backend-баг (вне UI-scope):** DeleteUser → Operation error code=9 «User … not found» → issue **kacho-iam#156**.
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
