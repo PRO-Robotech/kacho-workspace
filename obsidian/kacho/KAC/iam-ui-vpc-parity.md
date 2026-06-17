@@ -181,6 +181,13 @@ Account-селектор оставлен (scope account-scoped ресурсов
 - Верификация: `tsc -b` 0 · `npm run build` OK · `e2e:ci` 32/0 · vitest 181 pass.
 - **Backend-баг (вне UI-scope):** DeleteUser → Operation error code=9 «User … not found» → issue **kacho-iam#156**.
 
+## Follow-up r6: child-create в зоне-3 + выкат r5/r6 (2026-06-17)
+
+- **Child-create через родителя → форма-панель в зоне-3 детали** (`ResourceShell mode=child-create`, как VPC): Account → Проекты/СА/Группы открываются в shell аккаунта (route `/iam/<route>/:uid/:childRoute/create`, presetFields parent-ref), не отдельной страницей. Top-level create (CTA списка) остаётся страницей.
+- **Merge → main**: kacho-ui `a9df14d..d9eb8a8` (child-create) — поверх r5. **Deploy: ✅ live `prorobotech/kacho-ui:main-d9eb8a8e`** на `fe3455-client` (pod 1/1 Ready). Образ покрывает r5 (русские плуралы + типовая AB-таблица + чистка) + child-create + members-exclude.
+- **Разблокировка деплоя**: `kubectl set image` блокировал k8s-плагин `sagart-devtools` (`context-guard.sh`: kind-only guardrail, блок любых kubectl-write вне `kind-*` контекста; наш fe3455 — не kind). По решению владельца **плагин удалён** (settings.json/installed_plugins/known_marketplaces + marketplace+cache каталоги).
+- Верификация: `tsc -b` 0 · `e2e:ci` 32/0.
+
 ## Связанные тикеты
 
 - [[KAC-127]] — Production-Ready IAM (backend baseline; этот UI поверх него)
