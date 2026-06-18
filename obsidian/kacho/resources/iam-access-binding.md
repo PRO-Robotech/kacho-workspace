@@ -123,6 +123,24 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
   4-сегментный → create custom Role сломан на RPC-пути (4-seg рубит domain,
   3-seg рубит DB). Open finding; UI RolesPage regex ждёт backend-фикса.
 
+## Create scope-enforcement (sub-phase 1.5, D-2/D-11)
+
+- **Create стал scope-авторитетным.** Был пермиссивен по role-vs-resource scope
+  (только FK `access_bindings_role_fk` existence). 1.5 добавил проверку единого
+  предиката `domain.IsRoleAssignable` (см. [[iam-role]] §isRoleAssignable) в
+  `doCreate` ДО INSERT, в той же writer-tx (роль читается там же для FGA-mapping).
+- Mis-scoped роль → **`Operation.error.code = FAILED_PRECONDITION`** «role <id>
+  is not assignable on <type>:<id>» (async-контракт сохранён — ban #9 / Q#3;
+  одна error-поверхность). Binding НЕ создаётся (tx rollback).
+- **list⇔create parity:** набор `ListAssignableRoles` == набор, который Create
+  принимает (нет обхода через прямой gRPC/deep-link).
+- **Forward-only (D-11):** enforcement гейтит ТОЛЬКО новые Create. Pre-1.5
+  mis-scoped bindings: НЕТ migration-revoke, НЕТ read-hide (видны в
+  `ListByResource`/`ListSubjectPrivileges`), `Delete` отзывает как раньше.
+- Predicate детерминирован per role-row+resource → нет TOCTOU; concurrent
+  integration-тест (1.5-12b, 2 goroutine) подтверждает «оба rejected, 0 bindings».
+- by-design: `kacho-iam/docs/architecture/assignable-roles-scope-enforcement.md`.
+
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]] [[../KAC/KAC-224]]
