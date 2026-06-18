@@ -439,3 +439,79 @@ JSON-ответ (camelCase): `{ "privileges": [ { "bindingId","roleId","roleName
 - `ListBySubject` НЕ модифицируется (D-1); grant — существующий `AccessBinding.Create` (НЕ меняется).
 - Без сравнений с чужими облаками — конвенции Kachō нормативны (`api-conventions.md`).
 - Координация после APPROVED: `superpowers:writing-plans` → `integration-tester` (RED по 1.3-NN) → `rpc-implementer` → `proto-api-reviewer` (proto) / `db-architect-reviewer` (если индекс) / `api-gateway-registrar` (public RPC) → заказчик: финальный smoke (§J 1.3-22).
+
+---
+
+## Sub-phase 1.3b — group subject privileges (scope extension)
+
+> **Статус:** ✅ ACCEPTED-RETROACTIVELY (ban #1 ретроспективно). Реализовано и оттестировано в `kacho-iam#162` + `kacho-ui#82`, развёрнуто live `fe3455` helm **rev14** (2026-06-18). Этот раздел — addendum к APPROVED-доку 1.3, фиксирующий уже-смерженное поведение.
+> **Дата:** 2026-06-18
+> **Тип:** scope-extension (user-requested live-feedback)
+
+**Почему addendum, а не блокирующий gate.** В исходной под-фазе 1.3 `subject_type=group` был **явно вне scope** (D-5/Q#5: «заказчик — пользователь или сервис аккаунт»; 1.3-05 закреплял `group` → `INVALID_ARGUMENT`). После live-прогона заказчик попросил видеть привилегии и **группы** (на детали Group уже есть Обзор + Участники; привилегии — естественное третье измерение). Это **additive-расширение** контракта (новый принимаемый `subject_type`, новые строки `derivation=DIRECT` для group-субъекта) — `buf breaking` зелёный, существующий user/service_account-путь не тронут. Поскольку код уже смержен и развёрнут, acceptance оформляется ретроспективно (ban #1: «существенный кусок без APPROVED — завести ретроспективно»).
+
+**Дельта поведения относительно 1.3:**
+- `subject_type` теперь ∈ `{user, service_account, **group**}` (было `{user, service_account}`). 1.3-05 более не отражает прод: `group`-субъект — валидный, не `INVALID_ARGUMENT`.
+- Group-субъект возвращает **свои прямые AccessBinding'и** — это binding'и, где `subject_type=group` и `subject_id` равен запрошенной группе (DIRECT). Эффективные роли через **вложенность групп** по-прежнему вне scope (группы не вкладываются — один уровень).
+- prefix↔type: `group` ⇒ `subject_id` prefix `grp` (mismatch → `INVALID_ARGUMENT`, D-7-паритет).
+- AuthZ self-OR-account-admin (D-4) распространяется на group: `resolveSubjectHomeAccount` резолвит домашний account группы через `groups.account_id` (within-`kacho_iam`, same-schema — НЕ новый cross-domain edge).
+- UI: секция «Привилегии» добавлена на детали **Group** (третья секция: Обзор + Участники + Привилегии), наряду с User/ServiceAccount.
+
+### Сценарий 1.3b-01: Happy path — group-субъект возвращает свои прямые binding'и
+
+**ID:** `1.3b-01`
+
+**Given** существует account `acc-A` (owner `usr-OWNER`)
+**And** существует Group `grp-TEAM` с `account_id = acc-A`
+**And** на `grp-TEAM` выдана привилегия `acb-g` (role `rol-editor`, name «editor», scope PROJECT, resource `prj-X`), ACTIVE
+**And** caller — `usr-OWNER` (owner home-account группы)
+
+**When** caller вызывает `GET /iam/v1/accessBindings:listSubjectPrivileges?subjectType=group&subjectId=grp-TEAM`
+
+**Then** sync-ответ `200 OK`, gRPC `OK`
+**And** `privileges` содержит `acb-g` с `roleId="rol-editor"`, **`roleName="editor"`** (resolved сервером, LEFT JOIN roles), `scope="PROJECT"`, `resourceId="prj-X"`, `status="ACTIVE"`, **`derivation="DIRECT"`**
+**And** `nextPageToken=""`
+
+### Сценарий 1.3b-02: AuthZ — home-account группы резолвится для grant-authority gate
+
+**ID:** `1.3b-02`
+
+**Given** Group `grp-TEAM` (`account_id=acc-A`) с привилегией, caller — `usr-ADMIN` с FGA `admin` на `account:acc-A` (не owner)
+
+**When** caller вызывает `…:listSubjectPrivileges?subjectType=group&subjectId=grp-TEAM`
+
+**Then** `200 OK`, привилегии видны (D-4 path (b) — delegated admin на home-account группы; `resolveSubjectHomeAccount` для group читает `groups.account_id`)
+
+**When** caller `usr-B` (owner другого `acc-B`, без admin на `acc-A`) вызывает тот же запрос
+
+**Then** gRPC `PERMISSION_DENIED`, REST `403` (кросс-account изоляция, D-4/D-10 паритет с user/SA)
+
+### Сценарий 1.3b-03: Negative — group id под subject_type=user → INVALID_ARGUMENT (prefix↔type mismatch)
+
+**ID:** `1.3b-03`
+
+**Given** аутентифицированный caller
+
+**When** caller вызывает `…:listSubjectPrivileges?subjectType=user&subjectId=grp-TEAMAAAAAAAAAAAA` (валидный group-id, но `subject_type=user`)
+
+**Then** gRPC `INVALID_ARGUMENT`, REST `400`, message `"invalid user id 'grp-…'"` (prefix↔type mismatch, D-7 — `group`-prefix `grp` не соответствует `subject_type=user` ⇒ prefix `usr`)
+**And** симметрично: `subject_type=group` с `usr-…`/`sva-…` → `"invalid group id '<X>'"`
+
+### Сценарий 1.3b-04: UI — секция «Привилегии» на детали Group
+
+**ID:** `1.3b-04`
+
+**Given** оператор-owner `acc-A` залогинен в UI
+**And** открыта страница деталей `grp-TEAM` (`/iam/groups/grp-TEAM`) с ≥1 привилегией
+
+**When** оператор скроллит к секции «Привилегии» (третья секция: Обзор + Участники + Привилегии)
+
+**Then** секция рендерится `ResourceTable` (паритет с access-bindings-списком): колонки Роль (resolved) / Scope / Статус / Создано
+**And** кнопка «Добавить привилегии» — в `SectionHeader.right` секции (deep-link `…/access-bindings/create?subject_type=group&subject_id=grp-TEAM&lock_subject=1`)
+**And** данные — одним вызовом `…:listSubjectPrivileges?subjectType=group&subjectId=grp-TEAM` (без per-row `GET /roles/{id}`)
+
+### Реализация (для трассировки)
+
+- **kacho-iam#162**: use-case `ListSubjectPrivileges` принимает `subject_type=group`; group connected roles = прямые AccessBinding'и на группе; `resolveSubjectHomeAccount` резолвит group через `groups.account_id` (within-DB). RED→GREEN integration-тесты по 1.3b-01..03.
+- **kacho-ui#82**: секция «Привилегии» (overviewBelow, VPC-`RoutesPanel`-стиль, `ResourceTable`, add-button в `SectionHeader.right`) добавлена на Group в дополнение к User/ServiceAccount; 1.3b-04.
+- **Follow-up (не блокер):** `kacho-proto` `ListSubjectPrivilegesRequest.subject_type` doc-comment всё ещё гласит «group — вне scope» (stale после 1.3b) — отдельный proto-comment-фикс.
