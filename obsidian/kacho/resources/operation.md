@@ -42,12 +42,22 @@ tags:
 | principal_type | principal_type | TEXT — `user` / `service_account` / `system` (KAC-105) |
 | principal_id | principal_id | TEXT — usr.../sva.../`bootstrap` |
 | principal_display_name | principal_display_name | TEXT — email / name / `kacho-iam-bootstrap` |
+| (denorm) account_id | account_id | TEXT NULL — denormalization (sub-phase 1.2); partial index `(account_id,created_at,id) WHERE account_id IS NOT NULL`. Источник — извлечение из metadata по точному имени поля (corelib `extractAccountID`). |
 
 **Principal-колонки** (KAC-105, миграция corelib `0002_operations_principal.sql`,
 синхронизирована в legacy сервисах KAC-113) — кто инициировал операцию.
 E0 stub: `('system', 'bootstrap', 'kacho-iam-bootstrap')`. E2+ заполняется
 реальным subject из JWT через [[../packages/corelib-operations]]
 `PrincipalFromContext(ctx)` + `Repo.CreateWithPrincipal`.
+
+**`account_id`-колонка** (sub-phase 1.2, corelib `migrations/common/0003`) —
+денормализация для account-scoped / cluster-wide operations-фидов IAM. Т.к.
+каждый сервис **владеет своей копией** `operations`-DDL и НЕ применяет
+corelib `migrations/common` автоматически, колонка добавляется per-service:
+iam `0016` · vpc `0009` · compute `0012` · nlb `0003`. На текущей фазе
+реально штампуется только iam (category-I ops); в остальных сервисах колонка
+есть, но остаётся NULL. См. [[sub-phase-1.2-iam-operations]] и
+[[../packages/corelib-operations]] (инцидент 42703).
 
 ## Lifecycle (in DB)
 

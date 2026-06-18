@@ -89,6 +89,8 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 - **Delete / Revoke**: `Delete` физически удаляет row. **WS-2.3 ([[KAC-WS23]])**: в той же writer-TX пишет `subject_change_outbox` row (`op='binding_delete'`) → atomic с удалением. FGA-tuple revoke — отдельным путём (sync `DeleteTuples`, review #8).
 - **Expire (KAC-127 Phase 7 worker)**: scan `WHERE status='ACTIVE' AND expires_at < now()` → CAS UPDATE → REVOKED.
 - **ListByResource** / **ListBySubject** — sync read.
+- **ListOperations** (sub-phase 1.2) — per-AB ops history (sync read, filter `resource_id`). См. [[../KAC/sub-phase-1.2-iam-operations]].
+- **ListSubjectPrivileges** (sub-phase 1.3) — все привилегии субъекта (effective roles) с `role_name` (LEFT JOIN roles) + `derivation`; питает UI таб «Привилегии» на User/SA. См. [[../KAC/sub-phase-1.3-subject-privileges]].
 
 ## Gotchas
 

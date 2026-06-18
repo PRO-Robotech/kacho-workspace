@@ -9,11 +9,12 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-account]]"
-methods_count: 6
+methods_count: 7
 async_methods: 3
 status: done
 related_tickets:
   - "[[KAC-105]]"
+  - "[[sub-phase-1.2-iam-operations]]"
 tags:
   - rpc
   - kacho-iam
@@ -36,7 +37,8 @@ tags:
 | Create | CreateAccountRequest | operation.Operation | **async** | metadata: CreateAccountMetadata{account_id} |
 | Update | UpdateAccountRequest | operation.Operation | **async** | UpdateMask; `owner_user_id` immutable |
 | Delete | DeleteAccountRequest | operation.Operation | **async** | FailedPrecondition если есть projects/SA/groups/custom roles |
-| ListOperations | ListAccountOperationsRequest | ListAccountOperationsResponse | sync | per-account ops history |
+| ListOperations | ListAccountOperationsRequest | ListAccountOperationsResponse | sync | per-resource (account) ops history |
+| ListAllOperations | ListAllAccountOperationsRequest | ListAllAccountOperationsResponse | sync | sub-phase 1.2 — **module-level** feed: ВСЕ category-(I) iam-операции этого account (corelib `ListFilter.AccountID`). Питает UI `/iam/operations`. |
 
 ## REST mapping (api-gateway)
 
@@ -48,12 +50,14 @@ tags:
 | `PATCH /iam/v1/accounts/{id}` | Update |
 | `DELETE /iam/v1/accounts/{id}` | Delete |
 | `GET /iam/v1/accounts/{id}/operations` | ListOperations |
+| `GET /iam/v1/accounts/{account_id}/operations:all` | ListAllOperations |
 
 ## Notes
 
 - E0 stub: `Operation.principal_*` = `('system','bootstrap','kacho-iam-bootstrap')`. E2 заменит реальным JWT principal.
 - Account name **глобально** уникальна (UNIQUE без partial).
 - FK на user RESTRICT — `owner_user_id` обязан существовать.
+- **ListAllOperations (sub-phase 1.2, iam #160)** — account-scoped public feed; authz self-OR-account-admin (`requireAccountViewAuthority`). Фильтрует по денормализованной колонке `operations.account_id` (corelib `ListFilter.AccountID`); category-(II)/Internal-only producers (Role/SAKey/Condition/cluster-grant) имеют `account_id=NULL` → НЕ попадают сюда (видны только через [[iam-internal-operations-service]] cluster-wide feed). См. [[../packages/corelib-operations]], [[sub-phase-1.2-iam-operations]].
 
 ## See also
 

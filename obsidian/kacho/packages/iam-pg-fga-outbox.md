@@ -28,6 +28,7 @@ LISTEN/NOTIFY-уведомлением + fallback-polling.
 | `EmitDeleteTx(ctx, tx, ev FGADeleteEvent) error` | INSERT row с `op=delete` (revoke) в той же tx |
 | `FGAWriteEvent` | `{User, Relation, Object}` (FGA tuple-key) + опц. `Condition` |
 | `FGADeleteEvent` | `{User, Relation, Object}` |
+| `Writer.EmitFGARelationWrite` / `EmitFGARelationDelete` (sub-phase 1.4 S2, iam #161) | co-commit **owner/hierarchy**-tuple для СОБСТВЕННЫХ iam-ресурсов (Account/Project/Group/SA/Role + bootstrap `UpsertFromIdentity`) В writer-tx → тот же `fga_outbox`. Перенос с best-effort POST-COMMIT `relationhook.WriteHierarchyTuple` (терялся при крэше). Без новой миграции (fga_outbox в `0001`). |
 
 Оба `Emit*Tx` принимают `pgx.Tx` (не `Conn`) — это контракт «в одной транзакции с domain
 mutation»: writer открывает tx → выполняет domain INSERT/UPDATE/DELETE → выполняет `EmitWriteTx`
@@ -45,6 +46,7 @@ fire-and-forget вне transaction-границы.
 - `internal/repo/kacho/pg/access_binding/writer.go` — Create/Delete emit
 - `internal/service/jit/jit_service.go` (или соотв. writer) — auto-grant, Approve, Expire emit
 - `internal/service/breakglass/bg_service.go` — ApproveB emit
+- own-resource writers (Account/Project/Group/SA/Role + bootstrap) — owner/hierarchy-tuple co-commit (sub-phase 1.4 S2)
 
 ## Контракт идемпотентности
 
@@ -69,6 +71,7 @@ migration 0024 (см. CLAUDE.md §запрет #10: software refcheck запре
 
 - [[../KAC/KAC-163]] (W1.5 — внедрение)
 - [[../KAC/KAC-137]] (W1.1 — drainer foundation)
+- [[../KAC/sub-phase-1.4-tuple-resource-guarantee]] (S2 — own-resource owner-tuple co-commit)
 - [[corelib-outbox-drainer]] (применяет события к FGA)
 - [[../edges/iam-to-openfga-grant-write]] (runtime-edge)
 - [[../packages/iam-authzmap]] (mapping rules для tuple-relation derive)

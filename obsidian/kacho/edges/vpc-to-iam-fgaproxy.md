@@ -49,6 +49,6 @@ relation-tuple (seed `0009`). Нет relation → `PermissionDenied`.
 
 ## See also
 
-[[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[vpc-to-iam-check]] [[compute-to-iam-fgaproxy]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
+[[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[vpc-to-iam-check]] [[compute-to-iam-fgaproxy]] [[iam-to-openfga-grant-write]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
 
 #edge #kacho-vpc #kacho-iam #cross-service #security #internal

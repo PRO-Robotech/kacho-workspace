@@ -7,6 +7,7 @@ tags:
   - packages
   - kacho-corelib
   - outbox
+  - race-fix
 ---
 
 # outbox/drainer
@@ -44,8 +45,11 @@ var ErrPermanent      = errors.New("drainer: permanent error")      // poison ro
 ## Mechanics (acceptance §4)
 
 - **Atomic CAS-claim в одной tx** (per CLAUDE.md §запрет #10):
-  `BEGIN → SELECT … FOR UPDATE SKIP LOCKED LIMIT N → UPDATE attempt_count++ → apply → markSuccess/markFailure/markPoisoned → COMMIT`.
+  `BEGIN → SELECT … FOR UPDATE SKIP LOCKED ORDER BY attempt_count, id LIMIT N → UPDATE attempt_count++ → apply → markSuccess/markFailure/markPoisoned → COMMIT`.
   Row-lock держится до commit'а → HA exactly-once (W1.1-10 verified).
+  - **Claim-order `ORDER BY attempt_count, id`** (sub-phase 1.4, corelib #26) — НЕ просто `ORDER BY id`.
+    Иначе backlog transient-застрявших low-id rows навечно затеняет свежие higher-id intent'ы
+    (head-of-line starvation → at-least-once нарушен). См. ниже инцидент A07.
 - **LISTEN/NOTIFY conn** — `pool.Acquire().Hijack()` (separate from pool, не возвращается).
   Auto-reconnect с exp-backoff при conn drop (W1.1-08).
 - **Startup catch-up** — `drainBatch(ctx)` ДО main select-loop (W1.1-02, W1.1-15).
@@ -65,9 +69,27 @@ var ErrPermanent      = errors.New("drainer: permanent error")      // poison ro
 
 stdlib (`context`, `errors`, `fmt`, `log/slog`, `time`, `crypto/rand`) + `github.com/jackc/pgx/v5` + `pgxpool`.
 
+## S0 hardening (sub-phase 1.4, corelib #25 — at-least-once гарантии)
+
+- **transient-no-poison** — `markTransientFailure` кэпит `attempt_count` на `MaxAttempts-1`,
+  чтобы transient-сбой (peer `Unavailable`) НИКОГДА сам по себе не достигал poison-порога;
+  poison — только явный `ErrPermanent`. Закрывает «outage дольше MaxAttempts → intent отравлен → tuple потерян».
+- **reconciler** — `RedrivePoisoned` / `BackfillFromState` / `GCOrphans` (фон-задача целостности outbox↔state).
+- **fail-closed bootgate** — drainer не стартует, если outbox в несогласованном состоянии (метрики + bootgate).
+
+## ⚠️ Инцидент A07 — head-of-line starvation (sub-phase 1.4, corelib #26)
+
+> [!warning] Регрессия at-least-once от S0 attempt_count-cap + `ORDER BY id`
+> S0-кэп (transient row застревает с высоким `attempt_count`, но НЕ poison) в паре со старым
+> claim-`ORDER BY id` дал **starvation**: backlog transient-застрявших **low-id** строк
+> навсегда затенял свежие **higher-id** intent'ы → под длительным outage новый intent НЕ доставлялся
+> → **нарушение at-least-once**. Поймано как red `kacho-iam/TestRegisterResource_A07_FGADownIntentPersistsAcrossRestart` на main.
+> **Фикс (corelib #26)**: claim `ORDER BY attempt_count, id` — свежие (низкий attempt_count) идут первыми.
+> Гард: новый тест `Test_1_4_24_TransientBacklog_DoesNotStarveFreshIntent`.
+
 ## Imported by (current)
 
-- `kacho-iam/internal/clients/fga_applier.go` — первый concrete consumer (W1.1 KAC-137)
+- `kacho-iam/internal/clients/fga_applier.go` — concrete consumer для `fga_outbox` (W1.1 KAC-137; idempotent FGA-409→success). Также применяет owner/hierarchy-tuple для **собственных** iam-ресурсов (sub-phase 1.4 S2 — co-commit через `Writer.EmitFGARelationWrite`, см. [[../edges/iam-to-openfga-grant-write]]).
 
 ## Planned (по master plan)
 
@@ -78,6 +100,9 @@ stdlib (`context`, `errors`, `fmt`, `log/slog`, `time`, `crypto/rand`) + `github
 - [[../KAC/KAC-137]] — W1.1 implementation
 - [[../KAC/KAC-136]] — W1 parent
 - [[../KAC/KAC-134]] — epic
+- [[sub-phase-1.4-tuple-resource-guarantee]] — S0/S2/S3 (100% tuple↔resource при Create)
+- [[corelib-outbox]] — writer-side (`Emit` в TX)
+- [[iam-pg-fga-outbox]] — iam concrete fga_outbox emitter
 - [[../edges/iam-to-openfga-grant-write]] — usage
 
 #packages #kacho-corelib #outbox
