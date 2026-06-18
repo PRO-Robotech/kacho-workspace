@@ -1,9 +1,9 @@
 # Sub-phase 1.5 (IAM Assignable Roles — backend-driven grant form) — Acceptance
 
-> **Статус:** DRAFT (на ревью `acceptance-reviewer`)
+> **Статус:** ✅ APPROVED (`acceptance-reviewer`, 2026-06-18)
 > **Дата:** 2026-06-18
 > **Автор:** `acceptance-author`
-> **Ревьюер:** `acceptance-reviewer` — _ожидает вердикта (✅ APPROVED / ❌ CHANGES REQUESTED)._
+> **Ревьюер:** `acceptance-reviewer` — ✅ APPROVED (все замечания закрыты: D-11 forward-only + 1.5-21, 1.5-12b concurrent, Q#3 async Operation.error; §5 резолюции зафиксированы)._
 > **Эпик/тикет:** sub-phase 1.5 (no KAC ticket — tracked by acceptance doc + vault, MCP unavailable) (фича «backend-driven assignable roles для grant-формы AccessBinding»; затронутые репо — `kacho-proto` / `kacho-iam` / `kacho-api-gateway` / `kacho-ui` / `kacho-deploy` / `kacho-workspace`(docs). **Номер тикета проставляется до старта `superpowers:writing-plans`** — фича → тикет СНАЧАЛА, `git-youtrack.md`; в финальном APPROVED-артефакте `sub-phase 1.5 (no KAC ticket — tracked by acceptance doc + vault, MCP unavailable)` не остаётся.)
 > **Источник требований (verbatim intent заказчика):** «logic of which roles are valid for a resource сейчас живёт во фронте — это диссонанс и неправильный слой. Перенести в backend: фронт тонкий, рендерит то, что вернул сервер. Форма grant переупорядочивается RESOURCE-FIRST (выбрал ресурс → роли). Backend computes validity, frontend renders.»
 > **Ground-truth (сверено против кода 2026-06-18):**
