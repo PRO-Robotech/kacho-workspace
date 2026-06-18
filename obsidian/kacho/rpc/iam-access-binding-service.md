@@ -9,14 +9,16 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
-methods_count: 5
+methods_count: 7
 async_methods: 2
-status: planned
+status: done
 related_tickets:
   - "[[KAC-105]]"
   - "[[KAC-112]]"
   - "[[KAC-129]]"
   - "[[KAC-131]]"
+  - "[[sub-phase-1.2-iam-operations]]"
+  - "[[sub-phase-1.3-subject-privileges]]"
 tags:
   - rpc
   - kacho-iam
@@ -39,6 +41,8 @@ tags:
 | Get | GetAccessBindingRequest | AccessBinding | sync | |
 | ListByResource | ListAccessBindingsByResourceRequest | ListAccessBindingsResponse | sync | filter (resource_type, resource_id) |
 | ListBySubject | ListAccessBindingsBySubjectRequest | ListAccessBindingsResponse | sync | filter (subject_type, subject_id) |
+| ListOperations | ListAccessBindingOperationsRequest | ListAccessBindingOperationsResponse | sync | per-resource ops history (sub-phase 1.2; filter `resource_id`, viewer-tier). Был дырой → UI таб «Операции» бил в 404. |
+| ListSubjectPrivileges | ListSubjectPrivilegesRequest | ListSubjectPrivilegesResponse | sync | sub-phase 1.3 — все привилегии субъекта (effective roles); `SubjectPrivilege{ subject_type, subject_id, role_id, role_name, resource_type, resource_id, scope, derivation }` + `Derivation` enum. LEFT JOIN roles для `role_name`. Authz self-OR-account-admin (`requireAccountViewAuthority`). |
 
 ## REST mapping
 
@@ -49,6 +53,8 @@ tags:
 | `DELETE /iam/v1/accessBindings/{id}` | Delete |
 | `POST /iam/v1/accessBindings:listByResource` | ListByResource |
 | `POST /iam/v1/accessBindings:listBySubject` | ListBySubject |
+| `GET /iam/v1/accessBindings/{access_binding_id}/operations` | ListOperations |
+| `GET /iam/v1/accessBindings:listSubjectPrivileges` | ListSubjectPrivileges |
 
 ## Notes
 
@@ -70,6 +76,8 @@ tags:
 - **REST HTTP verbs (KAC-133 fix)**: `ListByResource` и `ListBySubject` — `GET` с query params (НЕ POST + body). Тесты ошибочно использовали POST, что давало catalog-miss → 403.
 - **Bug A — ListByResource scope-polymorphism (2026-06-14, proto #55 / api-gateway #74)**: catalog для `ListByResource` теперь несёт `object_type_from_request_field=resource_type` — api-gateway берёт FGA object type из request `resource_type` (project|account|cluster), а не статический `project`. До фикса account/cluster-scoped listByResource проверял `project:<id>` → 403 у владельца. Handler-side `requireGrantAuthority` уже умеет cluster (FGA `admin@cluster`), поэтому listByResource(cluster) у bootstrap-admin теперь 200.
 - **Bug B — cluster-scope Get readability (2026-06-14, iam #107)**: `GetAccessBindingUseCase` раньше имел только `account`/`project` owner-switch — cluster-scope binding был нечитаем кем-либо кроме своего subject (bootstrap cluster-admin получал 403). Теперь non-subject путь идёт через общий `requireGrantAuthority` (owner ИЛИ FGA-admin, единообразно account/project/cluster). `WithOpenFGA` подключён в composition root. Связанный фикс: `seed.RunBootstrapAdmin` теперь wired как startup-reconciler (KACHO_IAM_BOOTSTRAP_ROOT_EMAIL) → пишет `system_admin@cluster_kacho_root` через fga_outbox-drainer (раньше SQL-seed в обход outbox).
+- **ListOperations (sub-phase 1.2, iam #160)** — per-resource ops history для одного AB; `WithListOperations` mirror; AB stays viewer@iam_access_binding (no account-fallback нужен). См. [[sub-phase-1.2-iam-operations]].
+- **ListSubjectPrivileges (sub-phase 1.3, iam #159 / api-gateway #84)** — public sync read; возвращает все привилегии субъекта (effective roles) с `role_name` (LEFT JOIN roles) и `derivation`-источником. Authz `requireAccountViewAuthority` (self ИЛИ account-admin). Питает UI таб «Привилегии» на User/ServiceAccount. См. [[sub-phase-1.3-subject-privileges]].
 
 ## See also
 

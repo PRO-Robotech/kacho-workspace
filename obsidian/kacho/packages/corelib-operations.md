@@ -25,6 +25,7 @@ Long-Running Operations (LRO) — Operation table (per-service) + Worker (queue 
 - `Principal struct{ Type, ID, DisplayName string }` (KAC-105) — соответствует колонкам `operations.principal_type / principal_id / principal_display_name`. Helpers: `SystemPrincipal()`, `BootstrapPrincipal(displayName string)`. Context-baggage helpers: `PrincipalToContext(ctx, p)` / `PrincipalFromContext(ctx) Principal` (через `corelib/baggage`).
 - `Repo interface { Create, CreateWithPrincipal, Get, List, Update, Heartbeat }` — порт; pg-реализация ниже. `CreateWithPrincipal(ctx, op, p)` (KAC-105) — пишет new operation с явным principal'ом; вызывается из use-case'ов после `PrincipalFromContext(ctx)`. Legacy `Create(ctx, op)` сохранён для backward-compat — внутри делает `CreateWithPrincipal` с default'ом (`SystemPrincipal()` либо `op.Principal` если уже заполнен).
   - `NewRepo(pool *pgxpool.Pool, schema string) Repo` — pgx-репозиторий поверх таблицы `<schema>.operations`.
+- **`account_id` денормализация (sub-phase 1.2, corelib #24, migrations/common `0003`)** — `CreateWithPrincipal` теперь штампует `operations.account_id`, извлекая его из metadata-сообщения по **точному имени поля** (`extractAccountID`). `ListFilter.AccountID` (новое поле) фильтрует List по этой колонке; partial cursor-индекс `(account_id, created_at, id) WHERE account_id IS NOT NULL`. Питает account-scoped feed ([[../rpc/iam-account-service]] `ListAllOperations`) и cluster-wide ([[../rpc/iam-internal-operations-service]]).
 - `Worker struct{ ... }` — pool горутин, обрабатывающих pending operations.
   - `NewWorker() *Worker`
   - `(*Worker).Wait(ctx) error`
@@ -50,8 +51,18 @@ operations.Run(ctx, repo, op.ID, func(ctx context.Context) (proto.Message, error
 return convertToProto(op), nil // sync return — клиент поллит OperationService.Get
 ```
 
+## ⚠️ Инцидент 42703 — per-service operations DDL (merge-order)
+
+> [!warning] corelib `migrations/common/*` НЕ применяются сервисами автоматически
+> Каждый сервис **владеет своей копией** `operations`-таблицы (iam/vpc/compute/nlb — у каждого своя DDL).
+> corelib #24 включил **безусловный** INSERT `account_id` и был смержен **раньше**, чем consumer-сервисы
+> добавили колонку → SQLSTATE `42703` undefined_column на **КАЖДОМ** operations-INSERT fleet-wide
+> (замаскировалось под bootstrap-flake). Фикс: добавлены additive-миграции `account_id` —
+> iam `0016` · vpc `0009` · compute `0012` · nlb `0003`.
+> **Урок**: меняешь corelib-write-path по колонке → миграции consumer'ов landятся ПЕРВЫМИ (топосорт build-графа).
+
 ## See also
 
-[[corelib-baggage]] [[corelib-outbox]] [[../resources/operation]] [[../rpc/operation-service]]
+[[corelib-baggage]] [[corelib-outbox]] [[corelib-outbox-drainer]] [[../resources/operation]] [[../rpc/operation-service]] [[../rpc/iam-account-service]] [[sub-phase-1.2-iam-operations]]
 
 #packages #kacho-corelib #async #operations

@@ -73,6 +73,11 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
 
 ## See also
 
-[[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[compute-to-iam-check]] [[vpc-to-iam-fgaproxy]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
+[[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[compute-to-iam-check]] [[vpc-to-iam-fgaproxy]] [[iam-to-openfga-grant-write]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
+
+> [!note] iam применяет тот же owner-tuple-co-commit к СВОИМ ресурсам (sub-phase 1.4 S2)
+> Consumer'ы (vpc/compute/nlb) делают owner-tuple write через это сетевое ребро (`RegisterResource` по mTLS);
+> iam как leaf-owner своих ресурсов делает ровно тот же co-commit **in-process** (свой `fga_outbox` + drainer) —
+> см. [[iam-to-openfga-grant-write]].
 
 #edge #kacho-compute #kacho-iam #cross-service #security #internal
