@@ -45,10 +45,10 @@ UI-деталь субъекта (User / ServiceAccount) должна показ
 После live-прогона заказчик попросил привилегии и для **Group** (в 1.3 group был **вне scope** — D-5/Q#5). Additive-расширение (`buf breaking` зелёный), оформлено addendum'ом к acceptance-доку (ретроспективный ban #1).
 
 - **kacho-iam #162**: `ListSubjectPrivileges` принимает `subject_type=group` (было user\|service_account); group connected roles = прямые AccessBinding'и на группе (`derivation=DIRECT`); `resolveSubjectHomeAccount` резолвит home-account группы через `groups.account_id` (within-`kacho_iam`, не новый cross-domain edge). Плюс — в том же PR migration `0017` backfill `operations.account_id` (см. [[sub-phase-1.2-iam-operations]]).
-- **kacho-ui #82**: «Привилегии» переработана из detail-**таба** в detail-**секцию** (`overviewBelow`, VPC-`RoutesPanel`/`SubnetCidrPanel`-стиль): `SectionHeader` с кнопкой «Добавить привилегии» в `right=`-слоте (без page-level `HeaderSlotPortal`), таблица — `ResourceTable` (визуальный паритет с access-bindings-списком), секция **добавлена на Group** (3-я секция: Обзор + Участники + Привилегии) в дополнение к User/ServiceAccount.
+- **kacho-ui #82 → #83 (live-итерация)**: финал — «Привилегии» это отдельная detail-**вкладка** (`extraTabs`) на User/ServiceAccount/**Group**; кнопка «Добавить привилегии» поднята в **шапку страницы** (зона-3) через `HeaderSlotPortal`; таблица — `ResourceTable` (паритет с access-bindings-списком); `subject_type=group` поддержан. (Промежуточно ui#82 сделал секцию `overviewBelow` + `SectionHeader`-кнопку; по live-feedback ui#83 вернул вкладку + кнопку в шапку.) Для Group «Участники» — секция `overviewBelow`, «Привилегии» — вкладка.
 
-> [!note] UI: секция, не таб
-> «Привилегии» с 1.3b — detail-**секция** (`overviewBelow`), не отдельный таб. Это сменило исходное решение Q#6 (`extraTabs`) после live-feedback — паритет с VPC `RoutesPanel`/`SubnetCidrPanel`.
+> [!note] UI: вкладка, кнопка в шапке страницы
+> Финальное (ui#83): «Привилегии» — отдельная detail-**вкладка** (`extraTabs`), кнопка «Добавить привилегии» в **шапке страницы** (`HeaderSlotPortal`, зона-3). Это вернуло исходное решение Q#6 (`extraTabs`) после короткой итерации через секцию (ui#82). Таблица — `ResourceTable` (паритет с access-bindings).
 
 > [!warning] Follow-up (не блокер)
 > `kacho-proto` `ListSubjectPrivilegesRequest.subject_type` doc-comment всё ещё «group — вне scope» (stale после 1.3b) — отдельный proto-comment-фикс.
