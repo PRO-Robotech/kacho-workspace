@@ -27,9 +27,9 @@ tags:
 > [!note] Трек без KAC-номера
 > Работа ведётся по acceptance-доку `docs/specs/sub-phase-1.2-iam-operations-acceptance.md` (✅ APPROVED rev 5), YouTrack-тикет не заводился.
 
-**Status**: ✅ done — merged на `main` + live на внешнем кластере `fe3455` (helm rev13, 2026-06-18).
+**Status**: ✅ done — merged на `main` + live на внешнем кластере `fe3455` (helm **rev14**, 2026-06-18; включает backfill 0017).
 **Type**: feature
-**Repos / PRs**: kacho-proto (merged), kacho-corelib [#24](https://github.com/PRO-Robotech/kacho-corelib/pull/24), kacho-iam [#160](https://github.com/PRO-Robotech/kacho-iam/pull/160), kacho-api-gateway [#85](https://github.com/PRO-Robotech/kacho-api-gateway/pull/85), kacho-ui [#81](https://github.com/PRO-Robotech/kacho-ui/pull/81).
+**Repos / PRs**: kacho-proto (merged), kacho-corelib [#24](https://github.com/PRO-Robotech/kacho-corelib/pull/24), kacho-iam [#160](https://github.com/PRO-Robotech/kacho-iam/pull/160), kacho-api-gateway [#85](https://github.com/PRO-Robotech/kacho-api-gateway/pull/85), kacho-ui [#81](https://github.com/PRO-Robotech/kacho-ui/pull/81). **Backfill**: kacho-iam [#162](https://github.com/PRO-Robotech/kacho-iam/pull/162) (migration 0017).
 
 ## Что и зачем
 
@@ -44,6 +44,7 @@ tags:
 - **iam #160**: 4 RPC-handler'а + `account_id`-стамп category-(I) + migration `0016` (additive nullable + partial index) + `InternalOperationsService` (`requireClusterSystemAdmin`) + by-design doc `operations-visibility-privacy.md` (D-12 per-scope-viewer).
 - **api-gateway #85**: public RPC в allowlist+routes; `InternalOperationsService` только internal-mux (ban #6).
 - **ui #81**: таб «Операции» на 7 IAM-деталях; module `/iam/operations` (`ListAllOperations`); admin `/system/operations` (`InternalOperationsService`).
+- **iam #162 — backfill `0017`**: `0016` добавил `account_id` nullable, но pre-1.2 строки остались NULL → account-scoped `/iam/operations` отдавал пусто. `0017_backfill_operations_account_id` бэкфилит, джойня заполненный `resource_id` к owning-ресурсу: account ops → self; project/group/service_account/user → `resource.account_id`. **Category-II** (`access_binding`/`role`) остаются NULL. Verified live `fe3455` rev14: 50 ops, `account_id` 0→39 → исторические данные `/iam/operations` теперь видны. (Тот же PR #162 несёт 1.3b group privileges — см. [[sub-phase-1.3-subject-privileges]].)
 
 ## Затронутые сущности vault
 
@@ -53,7 +54,8 @@ tags:
 
 - [x] proto + corelib #24 + iam #160 (4 RPC RED→GREEN, migration 0016, privacy doc) merged
 - [x] api-gateway #85 (allowlist+routes, internal mux, `external_isolation_test`) + ui #81 merged
-- [x] всё на `main` + live `fe3455` rev13; vault обновлён
+- [x] iam #162 backfill `0017` — pre-1.2 `account_id` заполнен (0→39 live), `/iam/operations` исторические видны
+- [x] всё на `main` + live `fe3455` rev14; vault обновлён
 
 ## Инцидент 42703 (merge-order)
 

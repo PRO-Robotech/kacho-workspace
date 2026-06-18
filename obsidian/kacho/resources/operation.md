@@ -59,6 +59,14 @@ iam `0016` · vpc `0009` · compute `0012` · nlb `0003`. На текущей ф
 есть, но остаётся NULL. См. [[sub-phase-1.2-iam-operations]] и
 [[../packages/corelib-operations]] (инцидент 42703).
 
+**Backfill для pre-1.2 строк** (iam migration `0017_backfill_operations_account_id`,
+iam#162) — `0016` добавил колонку nullable, но историческим ops (созданным до
+`account_id`-стампа) она осталась NULL → account-scoped `/iam/operations` отдавал
+пусто. `0017` бэкфилит, джойня заполненный `resource_id` к owning-ресурсу: account
+ops → self; project/group/service_account/user ops → `resource.account_id`.
+**Category-II** (`access_binding`/`role`) остаются NULL (нет однозначного
+home-account). Verified live `fe3455` rev14: 50 ops, `account_id` 0→39.
+
 ## Lifecycle (in DB)
 
 1. `Create(done=false, metadata={ResourceId})`.
