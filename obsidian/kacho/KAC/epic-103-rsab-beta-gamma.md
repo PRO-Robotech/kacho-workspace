@@ -1,6 +1,6 @@
 ---
 ticket_id: epic-103
-status: in-progress
+status: done
 type: epic
 repos:
   - kacho-proto
@@ -17,7 +17,7 @@ prs:
   - "https://github.com/PRO-Robotech/kacho-ui/pull/98"
 yt_url: "https://github.com/PRO-Robotech/kacho-workspace/issues/103"
 opened: 2026-06-19
-closed:
+closed: 2026-06-19
 tags:
   - kac
   - epic
@@ -59,16 +59,29 @@ reconcile-sweep dangling. `match_tags`→`match_labels` rename (γ, pre-activati
 oneof в модель; прокид в conditional-tuples (`ConditionalTuple.Condition` инфра есть); рабочий
 только `non_expired`(TTL→eager-revoke); прочие builtin schema-only forward.
 
-### δ — чистая форма (отдельная волна, после γ)
-`scope{tier,id}` + `target.all/byName/bySelector` канонические; старые поля deprecated/проекция.
+### δ — DONE ✅ (2026-06-19, live fe3455 rev30) — чистая форма
+proto#71 / iam#174 / ui#100 merged (api-gateway — no-op, поля проходят generic).
+Образы iam `main-5db25bf6`, ui `main-6766f623`. δ — форма-only (без миграций).
+- proto: `ScopeRef{tier,id}` (scope_ref) + `AccessTargetRef{all|by_name|by_selector}`
+  (target_ref) — **отдельные поля** (не arms-в-oneof, чтобы конфликт legacy≠canonical
+  был wire-distinguishable, δ-04); legacy resource_type/resource_id/scope/target —
+  comment-deprecated (заполняются на чтении для pre-δ клиентов; удаление = future major).
+- iam: двусторонняя проекция в handler/dto (Dδ8 форма-over-data, без domain/repo/migration):
+  Create принимает обе формы (canonical приоритет, конфликт старое≠новое → INVALID_ARGUMENT,
+  derived-equivalent OK); Get/List заполняют ОБА представления; pre-δ binding read-time.
+  targetsEqual order-insensitive (no false δ-04 on reorder).
+- ui: Create шлёт canonical scopeRef/targetRef; read canonical-preferred + legacy fallback.
+- Ревью: proto-api / go-style — APPROVED. condition-форма (5-е измерение явный oneof) —
+  отложено в **ε** (condition_id field-9 уже populated, oneof не выразим без breaking; non_expired уже работает).
+- Smoke fe3455: canonical форма принята (401 authN, не 400-unknown-field).
 
 ## DoD
 - [x] β: proto+compute+iam merged + fe3455 rev28 + migration 0019
-- [x] γ: reconciler + containment + expiry + ReplaceTargetSelector → fe3455 rev29 (migrations 0020-0022; proto#69/iam#171/gw#90/ui#98 merged; reconciler-worker live)
-- [x] condition: `non_expired` рабочий (expiry eager-revoke в γ-reconciler); прочие builtin — schema-forward (ε)
-- [ ] δ: чистая форма non-breaking (`scope{tier,id}` + target.all/byName/bySelector; последняя волна)
-- [x] CI proto/gateway-pin reverted (β + γ — сделано)
-- GitHub Issue #170 (reconcile_outbox TTL/poison); follow: `ListTargetMembers` RPC (UI verification-бейджи γ-07)
+- [x] γ: reconciler + containment + expiry + ReplaceTargetSelector → fe3455 rev29 (migrations 0020-0022; proto#69/iam#171/gw#90/ui#98)
+- [x] condition: `non_expired` рабочий (expiry eager-revoke в γ); прочие builtin — schema-forward (ε)
+- [x] δ: чистая форма non-breaking (scope_ref/target_ref + двусторонняя проекция) → fe3455 rev30 (proto#71/iam#174/ui#100)
+- [x] CI proto/gateway-pin reverted (β + γ + δ — сделано)
+- [x] **ЭПИК ЗАВЕРШЁН** — α+β+γ+δ live fe3455. Открытые follow: #170 (reconcile_outbox TTL), `ListTargetMembers` RPC (γ-07 UI бейджи), #173 (Scope.ResourceType dedup), condition-форма (ε)
 
 ## Связанные
 [[epic-100-resource-scoped-access-binding]] (α), [[KAC-127]] (lifecycle), [[KAC-214]] (RBAC v2 FGA).
