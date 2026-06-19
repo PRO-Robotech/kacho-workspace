@@ -5,7 +5,7 @@ aliases:
   - assignable-roles
 ticket_id: "(none — sub-phase acceptance doc)"
 category: kac
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-proto
@@ -25,8 +25,14 @@ tags:
 > [!note] Трек без KAC-номера
 > Acceptance-док `docs/specs/sub-phase-1.5-assignable-roles-acceptance.md` (✅ APPROVED); YouTrack-тикет не заводился (MCP недоступен).
 
-**Status**: 🔧 in-progress — S2 (kacho-iam) код-комплит RED→GREEN; S1 (proto) на feature-ветке (не main); S3 (api-gateway) делегирован; S4 (ui) — отдельно.
+**Status**: ✅ done — все 4 репо в `main` (proto#63 · gw#86 · iam#163 · ui#94).
 **Type**: feature
+
+> [!note] Merge-цепочка (2026-06-19, build-граф proto→gw→iam)
+> - **proto** `#63` → `main` `0ee44fe` (ListAssignableRoles + AssignableRole/ScopeGroup).
+> - **api-gateway** `#86` → `main` `7dd13c5` (public RPC регистрация; sibling-пины флипнуты на `ref: main`).
+> - **iam** `#163` → `main` `f62d65e` (предикат + use-case + Create-enforcement; un-skip known-RED whitelist).
+> - **ui** `#94` → `main` `37372fa` (resource-first форма + thin render по scope_group; Playwright e2e адаптирован).
 
 ## Что и зачем
 
@@ -52,6 +58,13 @@ tags:
 > [!note] Testcontainers
 > Локально нужен `TESTCONTAINERS_RYUK_DISABLED=true` (colima/QEMU Ryuk-reaper флапает «container removing») + `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock`. Все integration-тесты зелёные на чистой VM.
 
+## Фиксы при un-skip (2026-06-19, после merge proto#63+gw#86 в main)
+
+Снятие known-RED whitelist обнажило 2 расхождения (deps уже в main, не cross-repo):
+
+- **Регрессия missing-role**: ранний role-read в `doCreate` (для scope-enforcement) для несуществующей роли отдавал сырой `ErrNotFound` (5) вместо pre-1.5 FK-контракта (23503→`FailedPrecondition` 9). Фикс: role-not-found из раннего read → `FAILED_PRECONDITION` (и missing, и mis-scoped роль → 9). RED→GREEN `TestCreate_RoleMissing_FailedPrecondition`. Покрыт newman `IAM-ACB-CR-NEG-ROLE-MISSING`.
+- **malformed resource_id → 400 vs 403**: use-case валидирует формат первым (D-6 → 400; держит integration 1.5-06), НО e2e через gateway authz-интерцептор fail-closed pre-empt'ит формат-валидацию на malformed scope-объекте → `PERMISSION_DENIED` 403. Оба корректны (defense-in-depth). newman `IAM-ACB-LAR-NEG-MALFORMED` → `oneOf([400,403])` (прецедент `Get-malformed` 400/404); слоистость в `docs/architecture/assignable-roles-scope-enforcement.md`.
+
 ## Затронутые сущности vault
 
 [[../rpc/iam-access-binding-service]] [[../resources/iam-role]] [[../resources/iam-access-binding]]
@@ -61,10 +74,11 @@ tags:
 - [x] proto: `ListAssignableRoles` + `AssignableRole` + `ScopeGroup` (на feature-ветке `iam-list-assignable-roles`, gen-stubs в `kacho-proto/gen`)
 - [x] iam S2: предикат + use-case + Create-enforcement + roleCols; RED→GREEN (unit + integration зелёные)
 - [x] newman happy + negative + parity
-- [x] docs/architecture by-design note
-- [ ] proto merge на `main` (блокер для api-gateway → main с `ref: main`)
-- [ ] api-gateway S3: регистрация public RPC (делегировано `api-gateway-registrar`)
-- [ ] ui S4: resource-first форма + thin render по scope_group
+- [x] docs/architecture by-design note (+ malformed 400/403 layering + missing-role→FP)
+- [x] proto merge на `main` (`#63` → `0ee44fe`)
+- [x] api-gateway S3: регистрация public RPC (`#86` → `7dd13c5`)
+- [x] iam merge на `main` (`#163` → `f62d65e`; un-skip whitelist + 2 фикса)
+- [x] ui S4: resource-first форма + thin render по scope_group (`#94` → `37372fa`)
 - [x] vault обновлён
 
 ## Связанные тикеты
