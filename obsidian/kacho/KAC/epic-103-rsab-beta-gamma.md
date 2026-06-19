@@ -11,6 +11,10 @@ prs:
   - "https://github.com/PRO-Robotech/kacho-proto/pull/67"
   - "https://github.com/PRO-Robotech/kacho-compute/pull/59"
   - "https://github.com/PRO-Robotech/kacho-iam/pull/168"
+  - "https://github.com/PRO-Robotech/kacho-proto/pull/69"
+  - "https://github.com/PRO-Robotech/kacho-iam/pull/171"
+  - "https://github.com/PRO-Robotech/kacho-api-gateway/pull/90"
+  - "https://github.com/PRO-Robotech/kacho-ui/pull/98"
 yt_url: "https://github.com/PRO-Robotech/kacho-workspace/issues/103"
 opened: 2026-06-19
 closed:
@@ -60,10 +64,11 @@ oneof в модель; прокид в conditional-tuples (`ConditionalTuple.Con
 
 ## DoD
 - [x] β: proto+compute+iam merged + fe3455 rev28 + migration 0019
-- [ ] γ: reconciler + containment + expiry → fe3455
-- [ ] condition: non_expired рабочий
-- [ ] δ: чистая форма non-breaking
-- [ ] CI proto-pin reverted (β — сделано)
+- [x] γ: reconciler + containment + expiry + ReplaceTargetSelector → fe3455 rev29 (migrations 0020-0022; proto#69/iam#171/gw#90/ui#98 merged; reconciler-worker live)
+- [x] condition: `non_expired` рабочий (expiry eager-revoke в γ-reconciler); прочие builtin — schema-forward (ε)
+- [ ] δ: чистая форма non-breaking (`scope{tier,id}` + target.all/byName/bySelector; последняя волна)
+- [x] CI proto/gateway-pin reverted (β + γ — сделано)
+- GitHub Issue #170 (reconcile_outbox TTL/poison); follow: `ListTargetMembers` RPC (UI verification-бейджи γ-07)
 
 ## Связанные
 [[epic-100-resource-scoped-access-binding]] (α), [[KAC-127]] (lifecycle), [[KAC-214]] (RBAC v2 FGA).

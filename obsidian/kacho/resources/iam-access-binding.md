@@ -173,6 +173,26 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 - by-design: `kacho-iam/docs/architecture/resource-scoped-access-binding-alpha.md`.
   Эпик: [[../KAC/epic-100-resource-scoped-access-binding]].
 
+## Selector mutable: ReplaceTargetSelector (epic-100 γ — D2/D11)
+
+- **`selector` — единственная mutable часть target'а** (subject/role/scope-anchor
+  immutable; смена ветки oneof `selector⇄resources⇄all_in_scope` = Delete+Create, D10).
+  Меняется async RPC `ReplaceTargetSelector` (atomic **полная замена**, не merge —
+  `access_binding_selector` ON CONFLICT (binding_id) DO UPDATE).
+- **CAS = `xmin::text`** (γ-19, ban #10): `access_bindings` **НЕ имеет** version-колонки
+  (она у `conditions`), поэтому OCC-токен `resource_version` — системный `xmin` строки.
+  Репо `ReplaceSelectorCAS` делает no-op `UPDATE … SET status=status WHERE id AND
+  status='ACTIVE' AND xmin::text=$expected` (бампит xmin под row-lock) → конкурентный
+  replace с тем же expected видит изменённый xmin → 0 rows → `ErrFailedPrecondition`
+  «access binding was modified concurrently, retry». Клиент читает `resource_version`
+  через `GetWithVersion` (`SELECT xmin::text, …`), эхо-ит в replace.
+- **Read-side проекция selector**: `Get` теперь проецирует `selector`-arm (был только
+  resources[]/all_in_scope); `dto.domainTargetToProto` эмитит `AccessTarget_Selector`.
+  Membership пересчёт после CAS — `reconciler.ReconcileBinding` (выпавшие → eager-revoke,
+  новые matched → emit), в отдельной writer-tx post-commit.
+- migrations 0019-0022 (mirror / target_members / reconcile_outbox / selector). См.
+  [[../rpc/iam-access-binding-service]] ReplaceTargetSelector + эпик γ.
+
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]] [[../KAC/KAC-224]]
