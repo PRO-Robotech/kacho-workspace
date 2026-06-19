@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
-methods_count: 11
-async_methods: 4
+methods_count: 12
+async_methods: 5
 status: done
 related_tickets:
   - "[[KAC-105]]"
@@ -45,6 +45,7 @@ tags:
 | ListSubjectPrivileges | ListSubjectPrivilegesRequest | ListSubjectPrivilegesResponse | sync | sub-phase 1.3 (+1.3b) — все привилегии субъекта (effective roles); `subject_type ∈ {user, service_account, **group**}` (group добавлен в 1.3b, iam#162; было user\|service_account). `SubjectPrivilege{ subject_type, subject_id, role_id, role_name, resource_type, resource_id, scope, derivation }` + `Derivation` enum. LEFT JOIN roles для `role_name`. Authz self-OR-account-admin (`requireAccountViewAuthority`; для group home-account через `groups.account_id`). |
 | AddTargetResources | AddTargetResourcesRequest | operation.Operation | **async** | **epic-100 α** — добавить concrete refs в `target.resources[]` существующего binding'а. Idempotent (`ON CONFLICT DO NOTHING`); role-coverage re-check (D-13); add к `all_in_scope`-binding → `Operation.error` FAILED_PRECONDITION. exempt-perm (handler `requireGrantAuthority`). REST `POST …/{id}:addTargetResources`. |
 | RemoveTargetResources | RemoveTargetResourcesRequest | operation.Operation | **async** | **epic-100 α** — убрать refs из `target.resources[]`. Idempotent (DELETE no-op); **last-element guard** (D-10): снятие последнего → `Operation.error` FAILED_PRECONDITION «use Delete to revoke» (НЕ авто-`all_in_scope`, НЕ пустой target). Сериализация concurrent через `CountTargetsForUpdate` (`SELECT … FOR UPDATE` на parent). REST `POST …/{id}:removeTargetResources`. |
+| ReplaceTargetSelector | ReplaceTargetSelectorRequest | operation.Operation | **async** | **epic-100 γ (D2/D11/γ-18/γ-19)** — атомарная **полная замена** selector'а bySelector-binding'а (НЕ merge). Только `selector` mutable; subject/role/scope immutable (смена ветки oneof = Delete+Create). **CAS на `resource_version` = `xmin::text`** access_bindings-row (НЕТ version-колонки; OCC через системный xmin, ban #10): `UPDATE … SET status=status WHERE id AND status='ACTIVE' AND xmin::text=$rv` — no-op SET бампит xmin, конкурентный replace с тем же rv → 0 rows → `Operation.error` FAILED_PRECONDITION «access binding was modified concurrently, retry» (γ-19). Гейты (Operation.error FAILED_PRECONDITION): non-selector binding (D2); role-coverage новых `selector.types` (α D-13). После CAS+selector-UPSERT (одна writer-tx + subject_change outbox) → `reconciler.ReconcileBinding` пересчитывает membership (выпавшие → eager-revoke tuple, новые matched → emit). `resource_version` клиент читает из `Get` (репо `GetWithVersion`). exempt-perm (handler `requireGrantAuthority`). REST `POST …/{id}:replaceTargetSelector`. |
 | ListGrantableResources | ListGrantableResourcesRequest | ListGrantableResourcesResponse | sync | **epic-100 α** — объекты типа `object_type` под scope для object-picker'а. `GrantableResource{type,id,name}`. **iam-owned типы** (`iam.project`/`account`/…) — реальные строки same-DB; **не-iam** (`compute.*`/`vpc.*`) → **пустой list** (нет mirror, нет ребра iam→owner — D-14; UI резолвит client-side). Authz `requireGrantAuthority` на scope (scope-полиморфный extractor `scope_type`/`scope_id`). НЕ строгий read==accept parity (containment не энфорсится в α). REST `GET …:listGrantableResources`. |
 | ListAssignableRoles | ListAssignableRolesRequest | ListAssignableRolesResponse | sync | **sub-phase 1.5** — роли, ВАЛИДНЫЕ для привязки на `(resource_type, resource_id)`; каждая с серверно-вычисленным `scope_group` (SYSTEM/ACCOUNT/PROJECT). `AssignableRole{ role_id, name, description, is_system, scope_group, created_at }` (БЕЗ permissions — lean picker, Q#2). Authz `requireGrantAuthority` (как `ListByResource`/Create на ресурсе; scope-полиморфный extractor). Фильтр — единый предикат `domain.IsRoleAssignable` (D-2), SQL-mirror в `Reader.ListAssignable`, keyset `(created_at,id)`. resource_type ∈ {account,project,cluster}; malformed→InvalidArgument (sync, first stmt — **use-case контракт**), missing→NotFound. **E2e через gateway**: malformed `resource_id` → **403 PERMISSION_DENIED** (authz-интерцептор fail-closed pre-empt'ит формат-валидацию на malformed scope-объекте — defense-in-depth); строгий 400 держится на use-case/direct-gRPC уровне (newman принимает 400\|403, как `Get-malformed` 400\|404). |
 
@@ -62,6 +63,7 @@ tags:
 | `GET /iam/v1/accessBindings:listAssignableRoles` | ListAssignableRoles |
 | `POST /iam/v1/accessBindings/{id}:addTargetResources` | AddTargetResources |
 | `POST /iam/v1/accessBindings/{id}:removeTargetResources` | RemoveTargetResources |
+| `POST /iam/v1/accessBindings/{id}:replaceTargetSelector` | ReplaceTargetSelector |
 | `GET /iam/v1/accessBindings:listGrantableResources` | ListGrantableResources |
 
 ## Notes
