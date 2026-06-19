@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
-methods_count: 8
-async_methods: 2
+methods_count: 11
+async_methods: 4
 status: done
 related_tickets:
   - "[[KAC-105]]"
@@ -43,6 +43,9 @@ tags:
 | ListBySubject | ListAccessBindingsBySubjectRequest | ListAccessBindingsResponse | sync | filter (subject_type, subject_id) |
 | ListOperations | ListAccessBindingOperationsRequest | ListAccessBindingOperationsResponse | sync | per-resource ops history (sub-phase 1.2; filter `resource_id`, viewer-tier). Был дырой → UI таб «Операции» бил в 404. |
 | ListSubjectPrivileges | ListSubjectPrivilegesRequest | ListSubjectPrivilegesResponse | sync | sub-phase 1.3 (+1.3b) — все привилегии субъекта (effective roles); `subject_type ∈ {user, service_account, **group**}` (group добавлен в 1.3b, iam#162; было user\|service_account). `SubjectPrivilege{ subject_type, subject_id, role_id, role_name, resource_type, resource_id, scope, derivation }` + `Derivation` enum. LEFT JOIN roles для `role_name`. Authz self-OR-account-admin (`requireAccountViewAuthority`; для group home-account через `groups.account_id`). |
+| AddTargetResources | AddTargetResourcesRequest | operation.Operation | **async** | **epic-100 α** — добавить concrete refs в `target.resources[]` существующего binding'а. Idempotent (`ON CONFLICT DO NOTHING`); role-coverage re-check (D-13); add к `all_in_scope`-binding → `Operation.error` FAILED_PRECONDITION. exempt-perm (handler `requireGrantAuthority`). REST `POST …/{id}:addTargetResources`. |
+| RemoveTargetResources | RemoveTargetResourcesRequest | operation.Operation | **async** | **epic-100 α** — убрать refs из `target.resources[]`. Idempotent (DELETE no-op); **last-element guard** (D-10): снятие последнего → `Operation.error` FAILED_PRECONDITION «use Delete to revoke» (НЕ авто-`all_in_scope`, НЕ пустой target). Сериализация concurrent через `CountTargetsForUpdate` (`SELECT … FOR UPDATE` на parent). REST `POST …/{id}:removeTargetResources`. |
+| ListGrantableResources | ListGrantableResourcesRequest | ListGrantableResourcesResponse | sync | **epic-100 α** — объекты типа `object_type` под scope для object-picker'а. `GrantableResource{type,id,name}`. **iam-owned типы** (`iam.project`/`account`/…) — реальные строки same-DB; **не-iam** (`compute.*`/`vpc.*`) → **пустой list** (нет mirror, нет ребра iam→owner — D-14; UI резолвит client-side). Authz `requireGrantAuthority` на scope (scope-полиморфный extractor `scope_type`/`scope_id`). НЕ строгий read==accept parity (containment не энфорсится в α). REST `GET …:listGrantableResources`. |
 | ListAssignableRoles | ListAssignableRolesRequest | ListAssignableRolesResponse | sync | **sub-phase 1.5** — роли, ВАЛИДНЫЕ для привязки на `(resource_type, resource_id)`; каждая с серверно-вычисленным `scope_group` (SYSTEM/ACCOUNT/PROJECT). `AssignableRole{ role_id, name, description, is_system, scope_group, created_at }` (БЕЗ permissions — lean picker, Q#2). Authz `requireGrantAuthority` (как `ListByResource`/Create на ресурсе; scope-полиморфный extractor). Фильтр — единый предикат `domain.IsRoleAssignable` (D-2), SQL-mirror в `Reader.ListAssignable`, keyset `(created_at,id)`. resource_type ∈ {account,project,cluster}; malformed→InvalidArgument (sync, first stmt — **use-case контракт**), missing→NotFound. **E2e через gateway**: malformed `resource_id` → **403 PERMISSION_DENIED** (authz-интерцептор fail-closed pre-empt'ит формат-валидацию на malformed scope-объекте — defense-in-depth); строгий 400 держится на use-case/direct-gRPC уровне (newman принимает 400\|403, как `Get-malformed` 400\|404). |
 
 ## REST mapping
@@ -57,6 +60,9 @@ tags:
 | `GET /iam/v1/accessBindings/{access_binding_id}/operations` | ListOperations |
 | `GET /iam/v1/accessBindings:listSubjectPrivileges` | ListSubjectPrivileges |
 | `GET /iam/v1/accessBindings:listAssignableRoles` | ListAssignableRoles |
+| `POST /iam/v1/accessBindings/{id}:addTargetResources` | AddTargetResources |
+| `POST /iam/v1/accessBindings/{id}:removeTargetResources` | RemoveTargetResources |
+| `GET /iam/v1/accessBindings:listGrantableResources` | ListGrantableResources |
 
 ## Notes
 
@@ -83,8 +89,20 @@ tags:
 - **1.3b group support (iam #162 / ui #82, live fe3455 rev14)** — `subject_type=group` теперь принимается (был вне scope в 1.3). Group connected roles = прямые AccessBinding'и на группе (DIRECT); `resolveSubjectHomeAccount` резолвит home-account группы через `groups.account_id` (within-`kacho_iam`, не новый cross-domain edge). UI: вкладка «Привилегии» добавлена на Group (ui #83 — таб + кнопка в шапке страницы). NB: `kacho-proto` `ListSubjectPrivilegesRequest` doc-comment всё ещё «group — вне scope» (stale, follow-up proto-fix).
 - **ListAssignableRoles + Create scope-enforcement (sub-phase 1.5)** — НОВЫЙ public sync RPC (форма выше) + **`AccessBinding.Create` стал scope-авторитетным** (D-2): был пермиссивен по role-vs-resource scope (только FK existence), теперь энфорсит единый предикат `domain.IsRoleAssignable` (см. [[../resources/iam-role]] §isRoleAssignable). Mis-scoped роль → **`Operation.error.code = FAILED_PRECONDITION`** «role <id> is not assignable on <type>:<id>» (async-контракт сохранён, ban #9 / Q#3; проверка в `doCreate` ДО INSERT, в той же writer-tx; binding не создаётся). list⇔create parity: набор `ListAssignableRoles` == набор, который принимает Create. **Forward-only (D-11):** гейтит ТОЛЬКО новые Create — pre-1.5 mis-scoped bindings НЕ трогаются (нет migration-revoke / read-hide; `ListByResource`/`ListSubjectPrivileges` показывают как раньше; `Delete` отзывает беспрепятственно). Predicate детерминирован per role-row+resource (нет TOCTOU; concurrent integration-тест 1.5-12b подтверждает). impl: `roleCols` расширен на `cluster_id`/`project_id` (scope read). by-design: `docs/architecture/assignable-roles-scope-enforcement.md`. См. [[sub-phase-1.5-assignable-roles]].
 
+- **Resource-scoped AccessBinding (epic-100 α, proto#65 / iam#165 / gateway#88)** — `AccessBinding.target` oneof (`AllInScope` | `TargetResourceRefList` | `ResourceSelector`-forward-γ) + `CreateAccessBindingRequest.target`; Role → чистый verb-bundle (`resourceName` уходит из роли в target). Create получил **третий** независимый детерминированный гейт — **role-coverage** (D-13, `domain.RoleCoversType`: `target.type ⊆ типов в role.permissions`; mis → `Operation.error` FAILED_PRECONDITION «role <id> does not grant any verb on <type>») — ортогонален 1.5 IsRoleAssignable (scope-tier). FGA per-object tuple: источник `resourceName` = `binding.target`, НЕ `role.permissions`; ref прошедший D-13 но давший 0 tuples → INTERNAL fail-closed (нет target-без-tuple). target unset → backfill `all_in_scope` (D-8, read-time). `target.id` opaque soft-ref без existence/containment (НЕТ ребра iam→compute/vpc — цикл; containment → γ). +3 RPC (выше). by-design: `kacho-iam/docs/architecture/resource-scoped-access-binding-alpha.md`. См. [[../KAC/epic-100-resource-scoped-access-binding]].
+
+- **UI consumer (kacho-ui, ui#95)** — grant-форма (`AccessBindingCreateForm`)
+  кладёт `target` в Create-body: дефолт `{"target":{"allInScope":{}}}` (α-20
+  back-compat), режим resources → `{"target":{"resources":{"resources":[{type,id}]}}}`.
+  `allInScope` — **пустой объект `{}`** (message-sentinel), НЕ bool. Object-picker
+  зовёт `…:listGrantableResources?scopeType=&scopeId=&objectType=` (camelCase
+  proto-полей); для iam-типов рисует dropdown из ответа, для non-iam (пустой list,
+  D-14) — ручной ввод id (tags-input). Display устойчив к legacy (parseTarget:
+  отсутствие target → all_in_scope). Detail-страница resources-binding'а — панель
+  add/remove через `:addTargetResources`/`:removeTargetResources`.
+
 ## See also
 
-[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]]
+[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/epic-100-resource-scoped-access-binding]]
 
 #rpc #kacho-iam #iam

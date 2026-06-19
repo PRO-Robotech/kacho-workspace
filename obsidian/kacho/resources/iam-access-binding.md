@@ -141,6 +141,38 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
   integration-тест (1.5-12b, 2 goroutine) подтверждает «оба rejected, 0 bindings».
 - by-design: `kacho-iam/docs/architecture/assignable-roles-scope-enforcement.md`.
 
+## Resource-scoped target (epic-100 α — proto#65 / iam#165 / gateway#88)
+
+- **Новое поле `target` (AccessTarget oneof)** — decides WHICH objects под scope-anchor
+  (`resource_type`/`resource_id`) применяются verb'ы роли: `all_in_scope` (= pre-α
+  wildcard, tier-tuple) | `resources[]` (per-object tuples) | `selector` (forward γ,
+  → `UNIMPLEMENTED` на α). Strict oneof. Role стал **чистым verb-bundle** —
+  `resourceName` ушёл из роли в target (см. [[iam-role]]).
+- **Новая таблица `kacho_iam.access_binding_targets`** (migration 0018): `binding_id`
+  FK → `access_bindings(id)` **ON DELETE CASCADE** (same-DB), `type`, `id`,
+  `UNIQUE(binding_id,type,id)` (идемпотентность add), CHECK `id<>'' AND id<>'*'`.
+  **`all_in_scope` ≡ отсутствие строк** для binding'а (read-time проекция, D-8).
+- **Role-coverage гейт (D-13)** — ТРЕТИЙ независимый детерминированный гейт на
+  Create/Add (ортогонален 1.5 `IsRoleAssignable` scope-tier): `target.resources[].type`
+  обязан покрываться типом в `role.permissions` (`domain.RoleCoversType`, same-DB, нет
+  TOCTOU). Mis → `Operation.error` FAILED_PRECONDITION «role <id> does not grant any
+  verb on <type>».
+- **FGA-эмиссия**: per-object tuple `fga_type(ref.type):<id>#tier(verb)@subject`,
+  источник `resourceName` = `binding.target`, НЕ `role.permissions`. Ref прошедший
+  D-13 но давший 0 tuples → INTERNAL fail-closed (нет target-без-tuple split-brain).
+  Всё в одной writer-tx с INSERT binding + outbox (ban #10).
+- **`target.id` — opaque soft-ref** без existence/containment-валидации (как
+  `resource_id`, запрет #8): IAM не звонит владельцу (НЕТ ребра iam→compute/vpc —
+  цикл; `compute→iam`/`vpc→iam` уже есть). Containment «объект под scope» вынесен в γ
+  (D-14). Dangling переживается graceful.
+- **Last-element guard (D-10)**: `RemoveTargetResources` последнего ref →
+  FAILED_PRECONDITION «use Delete to revoke» (НЕ авто-`all_in_scope`, НЕ пустой target);
+  сериализация concurrent через `CountTargetsForUpdate` (`SELECT … FOR UPDATE` на parent).
+- **Forward-only (D-8)**: legacy bindings (concrete-`resourceName`-в-роли) читаются как
+  `all_in_scope`, без migration-revoke. β = governance IAM Tags; γ = selector+reconciler.
+- by-design: `kacho-iam/docs/architecture/resource-scoped-access-binding-alpha.md`.
+  Эпик: [[../KAC/epic-100-resource-scoped-access-binding]].
+
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]] [[../KAC/KAC-224]]
