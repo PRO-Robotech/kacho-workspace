@@ -9,7 +9,7 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
-methods_count: 7
+methods_count: 8
 async_methods: 2
 status: done
 related_tickets:
@@ -36,13 +36,14 @@ tags:
 
 | Method | Request | Response | Sync/Async | Note |
 |---|---|---|---|---|
-| Create | CreateAccessBindingRequest | operation.Operation | **async** | UNIQUE → идемпотентный re-create; пишет FGA grant-tuple |
+| Create | CreateAccessBindingRequest | operation.Operation | **async** | UNIQUE → идемпотентный re-create; пишет FGA grant-tuple. **sub-phase 1.5 scope-enforcement (D-2)**: `doCreate` читает роль ДО INSERT и энфорсит `domain.IsRoleAssignable` → mis-scoped роль → `Operation.error` **FAILED_PRECONDITION** «not assignable» (binding не создаётся). **Missing роль тоже FAILED_PRECONDITION** (ранний read мапит role-not-found→FP, сохраняя pre-1.5 FK RESTRICT-контракт 23503→9; иначе регрессия 9→5). Forward-only (D-11): гейтит только новые Create. |
 | Delete | DeleteAccessBindingRequest | operation.Operation | **async** | по id; **удаляет FGA grant-tuple** (revoke) |
 | Get | GetAccessBindingRequest | AccessBinding | sync | |
 | ListByResource | ListAccessBindingsByResourceRequest | ListAccessBindingsResponse | sync | filter (resource_type, resource_id) |
 | ListBySubject | ListAccessBindingsBySubjectRequest | ListAccessBindingsResponse | sync | filter (subject_type, subject_id) |
 | ListOperations | ListAccessBindingOperationsRequest | ListAccessBindingOperationsResponse | sync | per-resource ops history (sub-phase 1.2; filter `resource_id`, viewer-tier). Был дырой → UI таб «Операции» бил в 404. |
 | ListSubjectPrivileges | ListSubjectPrivilegesRequest | ListSubjectPrivilegesResponse | sync | sub-phase 1.3 (+1.3b) — все привилегии субъекта (effective roles); `subject_type ∈ {user, service_account, **group**}` (group добавлен в 1.3b, iam#162; было user\|service_account). `SubjectPrivilege{ subject_type, subject_id, role_id, role_name, resource_type, resource_id, scope, derivation }` + `Derivation` enum. LEFT JOIN roles для `role_name`. Authz self-OR-account-admin (`requireAccountViewAuthority`; для group home-account через `groups.account_id`). |
+| ListAssignableRoles | ListAssignableRolesRequest | ListAssignableRolesResponse | sync | **sub-phase 1.5** — роли, ВАЛИДНЫЕ для привязки на `(resource_type, resource_id)`; каждая с серверно-вычисленным `scope_group` (SYSTEM/ACCOUNT/PROJECT). `AssignableRole{ role_id, name, description, is_system, scope_group, created_at }` (БЕЗ permissions — lean picker, Q#2). Authz `requireGrantAuthority` (как `ListByResource`/Create на ресурсе; scope-полиморфный extractor). Фильтр — единый предикат `domain.IsRoleAssignable` (D-2), SQL-mirror в `Reader.ListAssignable`, keyset `(created_at,id)`. resource_type ∈ {account,project,cluster}; malformed→InvalidArgument (sync, first stmt — **use-case контракт**), missing→NotFound. **E2e через gateway**: malformed `resource_id` → **403 PERMISSION_DENIED** (authz-интерцептор fail-closed pre-empt'ит формат-валидацию на malformed scope-объекте — defense-in-depth); строгий 400 держится на use-case/direct-gRPC уровне (newman принимает 400\|403, как `Get-malformed` 400\|404). |
 
 ## REST mapping
 
@@ -55,6 +56,7 @@ tags:
 | `POST /iam/v1/accessBindings:listBySubject` | ListBySubject |
 | `GET /iam/v1/accessBindings/{access_binding_id}/operations` | ListOperations |
 | `GET /iam/v1/accessBindings:listSubjectPrivileges` | ListSubjectPrivileges |
+| `GET /iam/v1/accessBindings:listAssignableRoles` | ListAssignableRoles |
 
 ## Notes
 
@@ -79,6 +81,7 @@ tags:
 - **ListOperations (sub-phase 1.2, iam #160)** — per-resource ops history для одного AB; `WithListOperations` mirror; AB stays viewer@iam_access_binding (no account-fallback нужен). См. [[sub-phase-1.2-iam-operations]].
 - **ListSubjectPrivileges (sub-phase 1.3, iam #159 / api-gateway #84)** — public sync read; возвращает все привилегии субъекта (effective roles) с `role_name` (LEFT JOIN roles) и `derivation`-источником. Authz `requireAccountViewAuthority` (self ИЛИ account-admin). Питает UI вкладку «Привилегии» на User/ServiceAccount. См. [[sub-phase-1.3-subject-privileges]].
 - **1.3b group support (iam #162 / ui #82, live fe3455 rev14)** — `subject_type=group` теперь принимается (был вне scope в 1.3). Group connected roles = прямые AccessBinding'и на группе (DIRECT); `resolveSubjectHomeAccount` резолвит home-account группы через `groups.account_id` (within-`kacho_iam`, не новый cross-domain edge). UI: вкладка «Привилегии» добавлена на Group (ui #83 — таб + кнопка в шапке страницы). NB: `kacho-proto` `ListSubjectPrivilegesRequest` doc-comment всё ещё «group — вне scope» (stale, follow-up proto-fix).
+- **ListAssignableRoles + Create scope-enforcement (sub-phase 1.5)** — НОВЫЙ public sync RPC (форма выше) + **`AccessBinding.Create` стал scope-авторитетным** (D-2): был пермиссивен по role-vs-resource scope (только FK existence), теперь энфорсит единый предикат `domain.IsRoleAssignable` (см. [[../resources/iam-role]] §isRoleAssignable). Mis-scoped роль → **`Operation.error.code = FAILED_PRECONDITION`** «role <id> is not assignable on <type>:<id>» (async-контракт сохранён, ban #9 / Q#3; проверка в `doCreate` ДО INSERT, в той же writer-tx; binding не создаётся). list⇔create parity: набор `ListAssignableRoles` == набор, который принимает Create. **Forward-only (D-11):** гейтит ТОЛЬКО новые Create — pre-1.5 mis-scoped bindings НЕ трогаются (нет migration-revoke / read-hide; `ListByResource`/`ListSubjectPrivileges` показывают как раньше; `Delete` отзывает беспрепятственно). Predicate детерминирован per role-row+resource (нет TOCTOU; concurrent integration-тест 1.5-12b подтверждает). impl: `roleCols` расширен на `cluster_id`/`project_id` (scope read). by-design: `docs/architecture/assignable-roles-scope-enforcement.md`. См. [[sub-phase-1.5-assignable-roles]].
 
 ## See also
 
