@@ -7,14 +7,17 @@ repos:
   - kacho-iam
   - kacho-api-gateway
   - kacho-ui
+  - kacho-deploy
 prs:
   - "https://github.com/PRO-Robotech/kacho-proto/pull/65"
   - "https://github.com/PRO-Robotech/kacho-iam/pull/165"
   - "https://github.com/PRO-Robotech/kacho-api-gateway/pull/88"
   - "https://github.com/PRO-Robotech/kacho-ui/pull/96"
+  - "https://github.com/PRO-Robotech/kacho-workspace/pull/101"
+  - "https://github.com/PRO-Robotech/kacho-deploy/pull/117"
 yt_url: "https://github.com/PRO-Robotech/kacho-workspace/issues/100"
 opened: 2026-06-19
-closed:
+closed: 2026-06-19
 tags:
   - kac
   - epic
@@ -31,7 +34,24 @@ tags:
 > `epic100-resource-scoped-ab-alpha`.
 
 ## Status
-`in-progress` (sub-phase α — реализация).
+**`done`** (sub-phase α — все 5 PR merged в main, раскатано на fe3455 helm rev27,
+migration 0018 applied, smoke зелёный). β/γ — будущие под-фазы. 2026-06-19.
+
+> [!success] α live on fe3455 (helm rev27, 2026-06-19)
+> iam `main-e64df1e2` · api-gateway `main-0f943164` · ui `main-cfa11c88`.
+> Migration 0018 `access_binding_targets` applied (goose version 18). Pods
+> Running 1/1. Smoke: 3 новых RPC маршрутизируются (401 anti-anon, не 404);
+> Create принимает `target`. Authenticated grant→Check корректность доказана
+> в CI newman-e2e umbrella (0 fails).
+
+> [!note] CI-гейт: 2 prod-бага найдены e2e (repo-integration не покрыл gateway authz/length), починены в том же PR:
+> - **iam#166** — resources[]-target binding не эмитил hierarchy parent-pointer
+>   tuple `<scope> → iam_access_binding:<id>` → владелец 403 на Get/Delete/Add/Remove.
+>   Фикс: `hierarchyParentTuple()` в Create-пути (lifecycle-bound; Delete симметричен).
+> - **target ref length** — `id/type >64` не отбраковывался (proto length не
+>   энфорсится на nested repeated через gateway) → domain `AccessTarget.Validate` `<=64`.
+> + newman env-collision в 2 negative-кейсах (`assert_op_error` глобальный `opId` →
+>   per-case `op_var`; бонусом poll-loop в 5 suite).
 
 ## Что и зачем
 Дать доступ к **конкретному** ресурсу в рамках одного `AccessBinding`, без
@@ -99,8 +119,11 @@ tags:
       зелёные (включая α-06/07/20 + parseTarget). Визуальная проверка на стенде —
       follow-up при деплое.
 - [x] reviews: proto-api (APPROVED) / db-architect / system-design / go-style — все находки закрыты
-- [ ] vault trail обновлён + status → test/done (после merge + CI green)
-- [ ] CI: revert kacho-proto pin `ref: epic100-...` → `ref: main` (во всех iam+gateway workflows) после merge proto#65
+- [x] vault trail обновлён + status → **done** (workspace#101 + этот апдейт)
+- [x] CI: revert kacho-proto + api-gateway pin → `ref: main` (gateway#88, iam#165 — сделано до merge)
+- [x] все 5 PR merged: proto#65, gateway#88, iam#165, ui#96, workspace#101 (squash, ветки удалены)
+- [x] раскатка fe3455: helm rev27, новые образы, migration 0018, smoke — deploy#117
+- [x] эпик #100 закрыт
 
 ## Связанные
 [[KAC-127]] (lifecycle AccessBinding), [[KAC-214]] (RBAC v2 grammar / FGA emission).
