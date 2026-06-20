@@ -193,6 +193,37 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 - migrations 0019-0022 (mirror / target_members / reconcile_outbox / selector). См.
   [[../rpc/iam-access-binding-service]] ReplaceTargetSelector + эпик γ.
 
+## Symmetric revoke + Role.Update reconcile ledger (security #178, iam#42-followup)
+
+- **`kacho_iam.access_binding_emitted_tuples`** (migration 0024) — persisted EXACT
+  FGA tuple-set a binding emitted (PK `(binding_id, fga_user, relation, object)`,
+  FK `binding_id` → `access_bindings(id)` **ON DELETE CASCADE**, non-empty CHECKs).
+  Authoritative «что было эмитировано», co-commit с `EmitRelationWrite` в writer-tx
+  (ban #10). **Revoke реплеит этот ledger** (`SelectEmittedTuples` → `EmitRelationDelete`),
+  НЕ ре-деривит из CURRENT роли → нет orphan-tuple при Role.Update между grant и revoke.
+- **Role.Update fan-out** (`access_binding.RoleTupleReconciler`, port `role.TupleReconciler`):
+  при смене `role.permissions` реконсайлит FGA-tuples активных биндингов роли в ТОЙ ЖЕ
+  writer-tx, что и UPDATE роли (atomic, ban #10). Bounded (`ListActiveByRole`), идемпотентен
+  (diff old-ledger vs new-derive → ∅ при неизменном tier).
+- **Selector arm (γ) ledger-unification (#178 C1/V3):** γ-reconciler теперь co-commit'ит
+  каждый materialized member-tuple в ledger (`RecordEmittedTuples`/`ForgetEmittedTuples` в
+  γ writer-tx). Следствие — **V3**: `Delete` selector-биндинга реплеит ledger ⇒ снимает и
+  per-member tuples (был orphan). **C1**: `RoleTupleReconciler` для selector-арма
+  ре-деривит per-member tuples (ACTIVE `access_binding_target_members` ×
+  НОВЫЙ tier роли — `ListActiveMembers` + `tuplesForTarget`) → diff vs ledger ⇒ снимает
+  stale-tier, пишет new-tier. γ tier-BLIND (диффит по VerificationStatus), поэтому
+  понижение tier роли закрывается ИМЕННО на Role.Update, не γ-проходом.
+- **Две роли-реконсайлера (не путать):** γ `reconcile.Reconciler` = MEMBERSHIP («какие
+  объекты», из mirror label/containment); `RoleTupleReconciler` = ROLE-PERMISSION («на каком
+  tier», на Role.Update). Комплементарны.
+
+## Role OCC (#178 V2) — см. [[iam-role]]
+
+`roles` не имеет version-колонки → Role.Update OCC через `xmin::text`-CAS
+(`GetWithVersion` на sync-пути → `UpdateCAS … WHERE xmin::text=$exp` в worker-tx).
+Конкурентный Role.Update: loser → `FAILED_PRECONDITION` «role was modified
+concurrently, retry», его FGA fan-out откатывается (одна writer-tx) → нет ledger↔FGA drift.
+
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[iam-role]] [[iam-access-binding-condition]] [[iam-jit-eligibility]] [[../edges/iam-to-openfga-check]] [[../edges/api-gateway-to-iam-subject-change]] [[../KAC/KAC-105]] [[../KAC/KAC-127]] [[../KAC/KAC-WS23]] [[../KAC/KAC-214]] [[../KAC/KAC-217]] [[../KAC/KAC-224]]
