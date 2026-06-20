@@ -22,8 +22,9 @@ tags:
   - security
 ---
 
-> [!success] Active since SEC-D (2026-06-11)
-> Заменяет прямой best-effort FGA-write [[nlb-to-iam-creator-tuple]] (GitHub Issue N5). Owner-hierarchy tuple intent пишется в outbox в той же writer-tx, что и INSERT/DELETE ресурса; register-drainer применяет его через `InternalIAMService.RegisterResource`/`UnregisterResource` по opt-in mTLS.
+> [!success] Active since SEC-D (2026-06-11) · payload расширен epic-rsab T3/D4 (2026-06-20)
+> Заменяет прямой best-effort FGA-write [[nlb-to-iam-creator-tuple]] (GitHub Issue N5). Owner-hierarchy tuple intent пишется в outbox в той же writer-tx, что и INSERT/DELETE/UPDATE ресурса; register-drainer применяет его через `InternalIAMService.RegisterResource`/`UnregisterResource` по opt-in mTLS.
+> **T3 (D4)**: payload теперь несёт `labels` + `parent_project_id` + монотонный `source_version` (зеркало compute-β) → IAM наполняет output-only `resource_mirror`, питающий γ-`bySelector{matchLabels}`. НЕ новое ребро — расширен payload существующего. Эмит на **Create** И **Update-when-labels-in-mask** (non-labels Update → mirror no-op).
 
 # nlb → iam: SEC-D FGA owner-tuple register
 
@@ -48,6 +49,16 @@ tags:
 | TargetGroup | `project:<pid> #project @lb_target_group:<id>` + (если не system) `<subject> #admin @lb_target_group:<id>` |
 
 Delete → симметричный `fga.unregister` (project-hierarchy / parent-link; creator оставлен IAM-side GC, OQ-SEC-D-4).
+
+## Mirror-feed payload (epic-rsab T3 / D4, T3-02)
+
+`domain.FGARegisterIntent` (`internal/domain/fga_intent.go`) + emitter (`internal/repo/kacho/pg/fga_register_outbox_emitter.go`) + applier (`internal/clients/iam/register_applier.go`):
+
+- `labels` — копия tenant-меток ресурса (`domain.LabelsToMap`), питает γ matchLabels. ТОЛЬКО labels+parent — НЕ underlay/placement (`security.md` инфра-чувствительные).
+- `parent_project_id` — owning project (γ containment «объект под scope»). `parent_account_id` — пусто (nlb не резолвит project→account на hot-path; IAM graceful).
+- `source_version` — стампится emitter'ом из DB-clock `jsonb_set(payload,'{source_version}',to_jsonb(now()))` внутри writer-tx → монотонен per-object → IAM mirror UPSERT last-source-state-wins (reordered stale intent → no-op).
+- **Эмит на Update**: TG/LB `update.go` → `tgMirrorIntent`/`lbMirrorIntent` (project-tuple + refreshed labels, без creator) при `labels` в mask или пустом mask (full PATCH); non-labels mask → no-op. NLB-ресурсы: NetworkLoadBalancer + TargetGroup (Listener — child, без project-scope labels).
+- **Move** — без изменений: использует minimal `*UnregisterIntent` (labels-refresh на Move вне scope T3-02).
 
 ## Error → drainer classification (`classifyRegisterErr`)
 
