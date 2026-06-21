@@ -67,6 +67,26 @@ PRIMARY KEY (group_id, member_type, member_id) — идемпотентный Ad
 - **Group**: Create / Update / Delete — async через `Operation`. Delete → CASCADE по `group_members`.
 - **Membership**: `AddMember`, `RemoveMember`, `ListMembers` — отдельные async-RPC.
 
+## FGA membership mirror (КРИТИЧНО для group-based authz)
+
+> [!important] Membership должно зеркалиться в FGA, иначе group-subject binding не даёт доступа
+> AccessBinding с group-субъектом эмитит FGA userset-tuple `<obj>#<rel>@group:<gid>#member`
+> (access_binding/tuples.go `subjectRef`). Чтобы FGA Check резолвил ЧЛЕНА группы, нужен
+> member-tuple `group:<gid>#member@<user|service_account>:<id>`.
+
+- **AddMember.doAdd** co-commit'ит `EmitFGARelationWrite{user|service_account:<id>, member, group:<gid>}`
+  в той же writer-tx, что `INSERT group_members` (SEC-D / запрет #10, fix 9e4f2e6).
+- **RemoveMember.doRemove** — симметричный `EmitFGARelationDelete`.
+- **Тип объекта = `group`** (FGA userset-тип, на который ссылается binding), **НЕ `iam_group`**
+  (object-scope hierarchy-тип, который эмитит group Create: `iam_group:<id>#account@account:<acc>`).
+  member-tuple на `iam_group` НЕ резолвит binding userset (проверено real-FGA тестом GM-3).
+- `member_type` (`user`/`service_account`) = канонический FGA user-prefix → маппится verbatim
+  (та же логика, что `subjectRef` для subject-стороны binding'а).
+- **Backfill**: migration `0029_backfill_group_member_fga_tuples` эмитит member-tuple intent
+  для всех существующих `group_members` (идемпотентно `WHERE NOT EXISTS`); drainer применяет at-least-once.
+- Был баг (до 9e4f2e6): AddMember писал ТОЛЬКО `group_members` → group-binding userset резолвился
+  в пусто → члены не получали доступ, ExpandAccess не находил членов (E-31 RBACSUBJ-EXPAND-GROUP-OK red).
+
 ## Gotchas
 
 - `member_id` без FK (полиморфно) — целостность через триггер `group_members_member_exists`; нельзя добавить несуществующего user/sa.
