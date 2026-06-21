@@ -9,7 +9,7 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
-methods_count: 12
+methods_count: 14
 async_methods: 5
 status: done
 related_tickets:
@@ -103,8 +103,15 @@ tags:
   отсутствие target → all_in_scope). Detail-страница resources-binding'а — панель
   add/remove через `:addTargetResources`/`:removeTargetResources`.
 
+- **subjects[] + ExpandAccess + ListByRole (RBAC rules-model 2026 sub-phase E; proto rbac-rules-e-proto / iam rbac-rules-e-iam / gateway rbac-rules-e-gateway)** — три добавления к `AccessBindingService`:
+  - **`AccessBinding.subjects=19` (`repeated Subject{type,id}`, 1..32, R-5)** — multi-subject binding. Одна `access_bindings`-строка несёт N субъектов в child-таблице `access_binding_subjects (binding_id FK CASCADE, subject_type, subject_id, ordinal) UNIQUE` (migration **0028**, backfill 1 строка/legacy-binding). **Per-subject independence (E-30):** Create эмитит НЕЗАВИСИМЫЙ tuple-set на каждого субъекта (`buildBindingTuples` в цикле по subjects; FGA `User` различается: `user:` / `group:…#member` / `service_account:`); emitted-ledger #178 различает субъекта по `fga_user` → per-subject revoke удаляет только его tuple'ы. subject_change + audit эмитятся per-subject; hierarchy parent-pointer subject-независим (dedupe).
+  - **Нормализация (E-34 двусторонняя проекция, `domain.NormalizeSubjects`):** `subjects[]` каноничен; legacy single `subject_type`/`subject_id` = `subjects[0]`. Конфликт single≠subjects[0] → sync `INVALID_ARGUMENT`. Пусто/`>32` → `INVALID_ARGUMENT "Illegal argument subjects (must be 1..32)"`. На чтении Get/List/ListByResource/ListByAccount/**ListByRole** заполняют ОБА: `subjects[]` (из child-table, `ListSubjectsForBindings` batch) + legacy single (= subjects[0]); пустой child ⇒ fallback legacy single как один элемент (`toPb domainSubjectsToProto`). Окно до Phase 6.
+  - **`ExpandAccess(ExpandAccessRequest{object_type,object_id,relation,max_results}) → ExpandAccessResponse{principals[],truncated}` (sync read, **per-object grant-authority**, E-31/R-6)** — разворот в concrete principals (USER/SERVICE_ACCOUNT). **Механизм: OpenFGA `POST /list-users` (graph-traversing), НЕ плоский Read** (fix `rbac-rules-e-iam`, поверх 6ca2c71). Плоский filtered-Read `ListSubjects` видел только литеральные tuple'ы на `<object>#<relation>` и НЕ обходил граф → rules-model гранты через индирекцию (computed-userset каскад `admin⇒editor⇒viewer`, `scope_grant`-pull-up `g_*_<type>`, group#member) резолвились в ПУСТО (`RBACSUBJ-EXPAND-GROUP-OK` red). `OpenFGAHTTPClient.ListUsers(objectType,objectID,relation,[user,service_account])` нативно обходит ВЕСЬ граф (группы разворачивает сервер, server-side limits — нет client cycle-guard/depth/paging); dedup (E-30), truncation-flag, fail-closed (FGA-ошибка → фикс. INTERNAL). OpenFGA v1.8.4: `user_filters` ровно 1 элемент → 1 запрос на тип, merge. (`ListSubjects` сохранён для `AuthorizeService.ListSubjects` — там нужны direct-subjects.) **Authz (security review E, В3, fix `rbac-rules-e-iam`):** read==enforce — caller ОБЯЗАН иметь grant-authority/admin на target object/scope (тот же `requireGrantAuthority`, что `ListByResource`/`ListByRole`) ДО разворота; чужой объект → `PERMISSION_DENIED` (НЕ только anti-anon floor — иначе любой authenticated раскрывал authz-топологию/членство на ЛЮБОМ объекте). **relation closed-set (В2):** валидируется против `authzmap.IsExpandableRelation` (per-verb `v_*` + tier viewer/editor/admin + member); unknown → `INVALID_ARGUMENT` (нет probe произвольных FGA-relation строк). REST `GET /iam/v1/accessBindings:expandAccess`; perm `iam.access_bindings_by_resources.expandAccess`.
+  - **`ListByRole(ListAccessBindingsByRoleRequest{role_id,page,include_revoked}) → ListAccessBindingsResponse` (sync read, E-33)** — audit «кто несёт роль R». repo keyset `(created_at,id) ASC`; authz: authenticated floor + per-row scope-filter через `requireGrantAuthority`. REST `GET /iam/v1/accessBindings:listByRole`; perm `iam.access_bindings_by_roles.listByRole`.
+  - **group-amplification guard (E-32/Q#4)** — admin/editor + GROUP требует `requireGrantAuthority` на scopeRef (Create вызывает его для ЛЮБОГО create → guard by construction). Оба новых RPC — **public** (external endpoint, gateway public mux); НЕ Internal. См. [[../KAC/rbac-rules-model-2026-subphase-E-iam]].
+
 ## See also
 
-[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/epic-100-resource-scoped-access-binding]]
+[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/epic-100-resource-scoped-access-binding]] [[../KAC/rbac-rules-model-2026-subphase-E-iam]]
 
 #rpc #kacho-iam #iam

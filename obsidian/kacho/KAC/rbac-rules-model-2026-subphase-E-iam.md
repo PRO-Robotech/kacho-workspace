@@ -102,6 +102,21 @@ E-31 `RBACSUBJ-EXPAND-GROUP-OK` вскрыл баг ШИРЕ ExpandAccess — в
 - **TDD RED→GREEN:** unit (`group/member_fga_emit_test.go`, doAdd/doRemove emit — RED без emit → GREEN); real-OpenFGA (`access_binding/group_member_fga_integration_test.go` GM-1..4: member на `group`→Check allow; без tuple→deny=баг; iam_group→deny; revoke→deny); pg co-commit (`pg/group_member_fga_outbox_integration_test.go` GM-O1..3: atomic + rollback discards + symmetric); backfill (`pg/group_member_backfill_integration_test.go` GM-BF1..2). newman: E-31 зелёный + новый happy `RBACSUBJ-GROUP-GRANTS-MEMBER-OK` (Check member→allowed via group binding). go build + vet + gofmt + full short suite + targeted integration (-p 1, colima+real-OpenFGA) зелёные.
 - Затронуто vault: [[../resources/iam-group]] (FGA membership mirror section).
 
+## ExpandAccess graph-traversal fix — flat-Read → OpenFGA ListUsers (branch `rbac-rules-e-iam`, поверх 6ca2c71)
+
+`RBACSUBJ-EXPAND-GROUP-OK` оставался КРАСНЫМ даже после group-mirror fix (poll 180 не помог — НЕ timing, неверный механизм).
+
+- **Баг:** `ExpandAccessUseCase` резолвил принципалов плоским FGA filtered-Read `(object, relation)` + ручным рекурсивным разворотом `group:G#member` (`collectPrincipals`). Плоский Read видит ТОЛЬКО литеральные tuple'ы на ТОЧНОМ узле `<object>#<relation>` — он НЕ обходит authorization-граф. Все rules-model гранты достигают запрашиваемой relation через ИНДИРЕКЦИЮ, невидимую для Read → резолв в ПУСТО:
+  - **computed-userset каскад** (`admin⇒editor⇒viewer`): legacy `compute.instance.*` роль (= `ROLE_COMPUTE_ADMIN`, newman-кейс) эмитит `account:<id>#admin@subject`; `ExpandAccess(account, viewer)` плоским Read видел НИЧЕГО (tuple на `#admin`, не `#viewer`).
+  - **scope_grant индирекция** (`g_admin_<type> from <anchor>`): subject сидит на объекте `scope_grant:…`, НИКОГДА на relation запрашиваемого объекта.
+  - **group#member** usersets (включая nested).
+- **Fix:** OpenFGA `POST /stores/{id}/list-users` (graph-traversing) — `OpenFGAHTTPClient.ListUsers(ctx, objectType, objectID, relation, userTypes)` нативно обходит ВЕСЬ граф (caскады + scope_grant + группы) и возвращает КОНКРЕТНЫХ user/service_account (группы разворачивает сам сервер, server-side limits — без client-side cycle-guard/depth/paging). `expand_access.go` `collectPrincipals` заменён на единый `ListUsers` (port `UsersetExpander`→`PrincipalLister`). Сохранены: dedup (E-30), truncation-flag, fail-closed (любая FGA-ошибка → фикс. INTERNAL, без leak), per-object authz-gate В3 (`requireGrantAuthority` не тронут), relation closed-set В2.
+  - **OpenFGA v1.8.4 quirk:** `list-users` требует РОВНО 1 элемент в `user_filters` → клиент делает по запросу на тип (`user`, затем `service_account`) и мёржит. Граф обходится в каждом запросе целиком; per-request скоупится только ТИП возвращаемого принципала.
+  - `ListSubjects` сохранён (всё ещё нужен `AuthorizeService.ListSubjects` RPC — там нужны direct-subjects), помечен deprecated для principal-resolution.
+- **TDD RED→GREEN (colima + РЕАЛЬНЫЙ OpenFGA v1.8.4, canonical fga_model.fga):** `expand_access_indirection_fga_integration_test.go` — `ScopeGrant_GroupMembers` (all_in_scope rules-роль на group-субъекте → члены через scope_grant) + `AccountCascade_GroupMembers` (legacy `compute.instance.*` → admin→viewer каскад + группа, точная форма newman-кейса) РЕД (резолв в `[]`) → ГРИН; `NestedGroup_DedupDirectAndViaGroup` (nested group + direct∧via-group dedup) ГРИН. Сохранены зелёными: unit В3/В2/E-31/E-30/truncation + новый `FailClosedOnListerError`; real-FGA `E31_GroupExpandsToMembers` + `В3_ForeignObject_DeniedRealFGA`. go build ./... + vet + gofmt + full short suite зелёные.
+- newman `RBACSUBJ-EXPAND-GROUP-OK` станет зелёным на стенде (backend-only fix; кейс не менялся, gen.py регенерён byte-identical).
+- Затронуто vault: [[../rpc/iam-access-binding-service]] (ExpandAccess механизм), [[../packages/iam-clients]] (ListUsers).
+
 ## Связанные
 
 - Epic «RBAC rules-model 2026» (под-фазы A–F). Следующая: F (data migration + UI + legacy cleanup).
