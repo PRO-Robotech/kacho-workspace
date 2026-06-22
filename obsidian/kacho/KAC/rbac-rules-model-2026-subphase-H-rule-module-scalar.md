@@ -41,9 +41,13 @@ tags:
 - gateway #95 umbrella-e2e (full module-scalar поток через gateway) = SUCCESS — end-to-end доказательство.
 - kacho-deploy `values.fe3455.yaml` bumped to live tags (kacho-deploy `807d6b0` + ui-bump для #2).
 
-## Follow-up fix #2 — «созданная кастомная роль не видна в списке» (ui #109, LIVE)
+## Follow-up fix #2 — «созданная кастомная роль не видна» (ui #109 + #110, LIVE-verified в браузере)
 
-Реальный UI-баг (НЕ backend): `/iam/roles` (route 53a3ed9 → bare `ResourceListPage`) звал listRoles **без `accountId`**. Backend by-contract (`IAM-ROL-LS-SYSTEM-ONLY-NO-ACCOUNT` + `…WITH-ACCOUNT`, оба GREEN): без accountId → только system; `?accountId=<acc>` → system+custom. → Custom-вкладка всегда пуста. Фикс: новый `RolesListShell` (читает context-store account → `ResourceListPage parentField="accountId" parentValue={account.id}` при выбранном; bare = system-каталог без аккаунта), сохраняя Segmented-chrome (НЕ RolesPage, НЕ IamScopedListShell-gate). vitest RED→GREEN + playwright roles-specs green. Первый WRONG attempt (#108 re-route на RolesPage) закрыт (реверсил дизайн + ломал e2e). UX: Custom-вкладке нужен выбранный account-pill.
+Реальный UI-баг (НЕ backend), **3 слоя**, найдены только логином в живой fe3455-UI + инспекцией реального `GET /iam/v1/roles` (mocked-playwright это НЕ ловил — мок отдаёт custom безусловно):
+1. `/iam/roles` (route 53a3ed9 → bare `ResourceListPage`) слал listRoles **без `accountId`** → backend by-contract отдаёт только system. Фикс (ui **#109**): `RolesListShell` скоупит по context-store account.
+2. **PAGE-BOUNDARY** (главный): даже с accountId — ~56 system-ролей сортируются первыми (created_at ASC), дефолтный pageSize=50 → стр.1 вся system, custom на стр.2; Segmented «Кастомные» фильтрует **client-side** загруженную страницу → пусто. Фикс (ui **#110**): `useResourceList`+`ResourceListPage` получили опц. `pageSize`; `RolesListShell` шлёт `pageSize=1000` → все роли одной страницей → custom видны.
+3. **auto-default**: `RolesListShell` дефолтит на `listAccounts[0]` без выбранной пилюли + page-level Account Select → custom видны БЕЗ ручного выбора (single-account кейс репортёра).
+LIVE PROOF: залогинился через chrome-devtools (свой PF svc/ui 28099; fe3455 отвергает dev-HS256-JWT → пришлось гнать реальный браузерный логин), /iam/roles → клик «Кастомные» → **rowCount 2, `["test","treska"]`**. Первый WRONG attempt (#108 re-route на старый RolesPage) реверсил намеренный ResourceListPage+Segmented дизайн + ломал playwright → закрыт.
 
 ## Что и зачем (owner-mandated)
 
