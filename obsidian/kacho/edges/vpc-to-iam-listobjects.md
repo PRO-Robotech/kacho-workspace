@@ -8,9 +8,10 @@ caller_repo: kacho-vpc
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-127]]"
+  - "[[rbac-rules-model-2026-subphase-D-consumer-vpc]]"
 tags:
   - edge
   - kacho-vpc
@@ -21,8 +22,31 @@ tags:
 
 # vpc → iam: AuthorizeService.ListObjects
 
-**Caller**: `kacho-vpc` List handlers (14 List* RPCs — networks, subnets, security_groups, route_tables, addresses, gateways, private_endpoints, network_interfaces, …).
-**Callee**: `kacho-iam` AuthorizeService.ListObjects ([[../rpc/iam-authorize-service]]).
+> [!important] Текущая реализация — sub-phase D-consumer (§11), не KAC-127 Phase 4
+> Раздел «Flow / Implementation pattern» ниже — исторический KAC-127-черновик. Актуальная
+> механика — в callout «Sub-phase D-consumer (active)». Главное расхождение: relation =
+> **`viewer`** (не `vpc.network.read`/`v_list`), object_type = FGA snake-case **`vpc_subnet`**
+> (не `network`), scope — НЕ отдельное поле request'а (containment внутри FGA-модели).
+
+> [!note] Sub-phase D-consumer (active) — kacho-vpc per-object filtered List
+> - **Каждый из 7 public `List<Resource>`** (network/subnet/securityGroup/routeTable/address/
+>   gateway/networkInterface) зовёт `AuthorizeService.ListObjects(subject, resource_type, action)`.
+>   - `subject` = `pbconv.SubjectFromContext` (`user:usr_…`/`service_account:sva_…`); system/empty → passthrough (enforce делает per-RPC interceptor).
+>   - `resource_type` = FGA snake-case (`vpc_subnet`, `vpc_network`, `vpc_security_group`, `vpc_route_table`, `vpc_address`, `vpc_gateway`, `vpc_network_interface`).
+>   - `action` = `vpc.<resource>.list` → iam server-side `resolveActionToRelation` мапит verb `list`→relation **`viewer`** (та же tier-relation, что Check для read → **read==enforce**, D-45).
+> - Ответ → `Decision`: `wildcard_grant` → bypass (все project-scoped строки, D-42 LST-3 global);
+>   иначе `resource_ids` (bare) → `repo.ListByIDs(WHERE id = ANY)`; **pagination ПОСЛЕ фильтра** (D-46 LST-6).
+> - **Get no-leak** (D-44 LST-5): `Get<Resource>` тоже прогоняет id через тот же `ListObjects` grant-set;
+>   id ∉ set → `NotFound` (тот же текст, что и несуществующий ресурс) — **НЕ** `PermissionDenied`.
+> - **fail-closed** (D-47): iam недоступен/ошибка → `Unavailable` (НЕ unfiltered, НЕ silently empty).
+> - **Реализация**: `internal/authzfilter/` (`FGAFilter` поверх `AuthorizeService.ListObjects`, TTL-cache 5s,
+>   fail-closed default) + `internal/clients/iam_listobjects_client.go` (gRPC adapter, `auth.PropagateOutgoing`).
+>   Конфиг `authz.list-filter.{enabled(default true),authorize-endpoint,authorize-tls,timeout-ms,max-results,fail-open}`.
+>   CI-гейт `make audit-list-filter` ужесточён до per-object (`ListAllowedIDs` обязателен в каждом List).
+> - **Эталон**: kacho-compute `internal/authzfilter/` ([[compute-to-iam-listobjects]]) — тот же контракт.
+
+**Caller**: `kacho-vpc` List handlers (7 public List* RPCs — networks, subnets, security_groups, route_tables, addresses, gateways, network_interfaces) + per-object no-leak Get* (D-44).
+**Callee**: `kacho-iam` AuthorizeService.ListObjects ([[../rpc/iam-authorize-service]]) — public projection; verb `list`→relation `viewer`.
 **Protocol**: gRPC.
 **Sync/Async**: sync per-request.
 **Status**: **Phase 4 planned**. SLO ListObjects p95 ≤100ms (Phase 4 DoD).

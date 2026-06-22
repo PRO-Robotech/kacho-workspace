@@ -30,3 +30,4 @@ go.work.sum
 # Obsidian vault internal state
 obsidian/kacho/.obsidian/
 kubeconfig*
+tests/authz-fixtures/__pycache__/

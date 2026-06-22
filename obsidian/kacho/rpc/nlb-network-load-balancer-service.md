@@ -68,8 +68,18 @@ tags:
 
 См. [[../packages/nlb-internal-check]] permission_map + [[../packages/nlb-permissions-catalog]].
 
+## RBAC sub-phase D §11 — per-object filtered List (issue #111)
+
+`List` (NLB / Listener / TargetGroup) теперь отдаёт **только доступные** объекты:
+use-case прогоняет id-set через `iam.AuthorizeService.ListObjects(subject,
+"loadbalancer.<res>.list", "lb_*")` → repo `WHERE id = ANY` ДО LIMIT
+(pagination-after-filter). read==enforce (Get-Check relation viewer, та же
+tuple-база), fail-closed (iam down → UNAVAILABLE), no-leak (empty grant → `[]`;
+Get вне гранта → 404 via per-RPC Check). Toggle `authz.list-filter.enabled`
+(default true). Детали — [[../edges/nlb-to-iam-listobjects]] / [[../KAC/rbac-rules-model-2026-subphase-D-nlb-consumer]].
+
 ## See also
 
-[[../packages/nlb-apps-kacho-api-loadbalancer]] [[../resources/nlb-load-balancer]] [[nlb-listener-service]] [[nlb-target-group-service]]
+[[../packages/nlb-apps-kacho-api-loadbalancer]] [[../resources/nlb-load-balancer]] [[nlb-listener-service]] [[nlb-target-group-service]] [[../edges/nlb-to-iam-listobjects]]
 
 #rpc #kacho-nlb #loadbalancer

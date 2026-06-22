@@ -1,7 +1,9 @@
 # RBAC rules-model 2026 — Acceptance (Given-When-Then)
 
-> **Статус:** ✅ APPROVED (`acceptance-reviewer`, раунд 2, 2026-06-20) — можно начинать `superpowers:writing-plans` + implementation (ban #1 снят)
-> **post-APPROVE consistency-правка (2026-06-20):** убраны `permissions[]`/`ruleDiagnostics` из API-поверхности Role (решение заказчика — публичный ответ Role несёт только `rules[]`; `permissions[]` — internal compiled, не заполняется; `RuleDiagnostics`/`GetRoleResponse` удалены, `Role.Get` возвращает `Role` напрямую). Требуется быстрый re-confirm `acceptance-reviewer`.
+> **Статус:** A–E ✅ APPROVED + LIVE (fe3455); **под-фаза F переработана 2026-06-21 (clean-cut) — требует re-review `acceptance-reviewer` ТОЛЬКО на F-секцию** (A–E не затронуты, остаются APPROVED).
+> **РЕШЕНИЕ ВЛАДЕЛЬЦА (2026-06-21) — под-фаза F = clean-cut (hard-cut):** продовых данных нет → прошлую модель НЕ сохраняем. F переписана с «backfill + inert + отложенный Phase-6» на **clean-cut**: F-01/F-20/F-21/F-cleanup-30 **SUPERSEDED**; добавлены F-50..F-54 (target-мутатор-RPC удалён → Unimplemented/404; target/selector в теле игнорируется; Role.Get permissions пусто + rules заполнен; system-роль через `rules[]`; namespace breaking задокументирован); F-22 (UI) остаётся, расширен subjects[]-формой. Phase-6 cleanup свёрнут в F; flag-flip/mirror-sync/dual-authority gate сняты. `permissions=5`/`organization_id=9`/`target=16`/`target_ref=18` — reserved-tombstone (не переиспользуются). Детали — под-фаза F + §0.2 (R-13/R-15) + §0.3 (Q#5) + §5.
+> **Прежний статус (A–E core):** ✅ APPROVED (`acceptance-reviewer`, раунд 2, 2026-06-20) — реализовано и LIVE.
+> **post-APPROVE consistency-правка (2026-06-20):** убраны `permissions[]`/`ruleDiagnostics` из API-поверхности Role (решение заказчика — публичный ответ Role несёт только `rules[]`; `permissions[]` — internal compiled, не заполняется; `RuleDiagnostics`/`GetRoleResponse` удалены, `Role.Get` возвращает `Role` напрямую).
 > **Дата:** 2026-06-20
 > **Автор:** `acceptance-author`
 > **Ревьюер:** `acceptance-reviewer` — **✅ APPROVED (раунд 2)**: round-1 CHANGES REQUESTED полностью отработаны — O-1..O-8 абсорбированы в нормативные секции (§2.2/§2.4/§2.5/§5), A-16 (O-7 Role.Delete in-use) и E-34 (O-6 dual read-projection) добавлены как полные GWT с DoD+трассировкой, fan-out limit=10000 зафиксирован консистентно (§2.5/C-21/DoD C/§0.5/§5), §5 закрыт без открытых блокеров; одобренное ядро (GWT-1..15, LST-1..6, под-фазы A–F, §11 per-object List, reuse-карта) не сломано, внутренних противоречий нет; покрытие 100% (подтверждено в раунде 1).
@@ -42,11 +44,11 @@
 
 | ID | Решение (дизайн §2/§6/§7/§8) | Сценарии |
 |---|---|---|
-| **R-11** | **proto append-only**: live-tag'и НЕ двигаются; `Role.rules=11`, `Role.resource_version=12`, `Role.created_by_user_id=13`, `Role.updated_at=14`; `AccessBinding.subjects=19`; новый `Rule`. **`RoleService.Get` остаётся `returns (Role)`** (НЕ вводим `GetRoleResponse`-обёртку); **`RuleDiagnostics` НЕ создаётся** (диагностического поля нет). `organization_id=9` — **reserved tombstone**; `Role.permissions=5` — deprecated (internal compiled). **`aggregationRule` (O-1 ПРИНЯТО): НЕ в этой фазе — упомянуть только proto-комментарием, БЕЗ резерва tag (append-only позже).** `buf breaking` зелёный. | A-01, F-09 |
+| **R-11** | **proto append-only**: live-tag'и НЕ двигаются; `Role.rules=11`, `Role.resource_version=12`, `Role.created_by_user_id=13`, `Role.updated_at=14`; `AccessBinding.subjects=19`; новый `Rule`. **`RoleService.Get` остаётся `returns (Role)`** (НЕ вводим `GetRoleResponse`-обёртку); **`RuleDiagnostics` НЕ создаётся** (диагностического поля нет). `organization_id=9` — **reserved tombstone**; `Role.permissions=5` — deprecated (internal compiled). **`aggregationRule` (O-1 ПРИНЯТО): НЕ в этой фазе — упомянуть только proto-комментарием, БЕЗ резерва tag (append-only позже).** `buf breaking` зелёный **для A/E append-only-изменений** (намеренный breaking — только в clean-cut F: удаление target-мутаторов/полей, F-54). | A-01, F-54 |
 | **R-12** | **cardinality**: `rules[]` 1..64; `modules`/`resources`/`verbs` 1..16 каждый; `resourceNames` ≤256/правило; `matchLabels` ≤16 ключей; **compiled `permissions[]` ≤1024** (cap-raise с live-256 lockstep-миграцией: DB CHECK + domain + proto `(size)` в одной tx); `subjects[]` 1..32. Превышение compiled-cap → `INVALID_ARGUMENT` (НЕ silent truncation, НЕ INTERNAL). | A-12, A-13, GWT-12 |
-| **R-13** | **миграция live-данных**: backfill `rules` из `permissions` детерминирован **только** для anchor/names-армов (`m.r.*.v`→ARM_ANCHOR, `m.r.<id>.v`→ARM_NAMES); matchLabels из permissions НЕ recoverable. **legacy γ-биндинги (`by_name`/`by_selector` `binding.target`/`selector`) — INERT** до явного re-author (нет migration-revoke, нет double-emit, нет lazy-«когда-нибудь»). bit-identical-инвариант сужен до all_in_scope-биндингов. | F-* (migration), GWT-8 |
-| **R-14** | **org-drop и grammar-flip НЕ повторяются** (сделаны `0008`/`0005`, phantom-шаги вычеркнуты). Live grammar уже 4-сегментная. `scope_ref=17`/`target_ref=18`/`match_labels` уже в live proto (epic-100) — НЕ пере-добавлять. `scope_tier/scope_id` колонки НЕ добавляются (anchor = `scope_ref`-проекция). | F-* |
-| **R-15** | **breaking-cleanup только Phase 6 (F-cleanup)**: DROP legacy `access_binding_targets`/`access_binding_selector`/legacy-колонок, retire target-мутаторов (`AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`/`ListGrantableResources`), rename `ListByResource→ListByScope`. До Phase 6 wire-name `ListByResource` СОХРАНЁН; target-мутаторы зарегистрированы но на write → `FAILED_PRECONDITION`. | F-cleanup-* |
+| **R-13** | **clean-cut, НЕ миграция live-данных (РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-06-21: продданных нет).** Прошлая модель НЕ сохраняется: backfill `permissions→rules` **отменён** (бэкфилить нечего), legacy γ-биндинги (`binding.target`/`selector`) **удаляются целиком**, а НЕ инертизируются (нет INERT-режима, нет double-emit-gate, нет bit-identical-инварианта — есть один источник истины `rules[]`). [исторически: «backfill anchor/names + γ INERT» — superseded.] | F-50/F-51 |
+| **R-14** | **org-drop и grammar-flip НЕ повторяются** (сделаны `0008`/`0005`, phantom-шаги вычеркнуты). Live grammar уже 4-сегментная. `scope_ref=17`/`target_ref=18`/`match_labels` уже в live proto (epic-100) — `scope_ref` сохраняется; `target_ref=18` теперь **удаляется** (clean-cut F) → `reserved` tombstone. `scope_tier/scope_id` колонки НЕ добавляются (anchor = `scope_ref`-проекция). | F-* |
+| **R-15** | **breaking-cleanup СВЁРНУТ в F (clean-cut, НЕ отдельный Phase 6).** РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-06-21 (pre-prod, продданных/внешних клиентов нет): DROP legacy `access_binding_targets`/`access_binding_selector`/legacy-колонок, retire target-мутаторов (`AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`/`ListGrantableResources`), rename `ListByResource→ListByScope` — всё в один проход в под-фазе F. Deprecation-окна нет; target-мутаторы и поля target/selector **удаляются совсем** (не `FAILED_PRECONDITION`); `buf breaking` — намеренный, документированный (F-54). [исторически: «cleanup только Phase 6, мутаторы в окне → FAILED_PRECONDITION» — superseded.] | F-50/F-54 |
 
 ### 0.3. Открытые вопросы дизайна §9 — статус для acceptance
 
@@ -56,8 +58,8 @@
 | Q#2 strict-mode double-coverage | **WARNING (не reject)** при одном tier; при разных tier'ах (anchor viewer + label admin) — оба арма, БЕЗ warning. | A-11 |
 | Q#3 matchExpressions | **только AND-equality v1** (зарезервировать). matchExpressions на входе → `INVALID_ARGUMENT`. | A-09 |
 | Q#4 group-amplification + ExpandAccess | admin/editor + GROUP → `requireGrantAuthority`; `ExpandAccess` реализуется (R-6). | E-*, GWT-11, GWT-15 |
-| Q#5 deprecation-окно legacy target | ≥1 минорный релиз accepted-as-`FAILED_PRECONDITION`, затем Phase 6 DROP. | F-cleanup-* |
-| Q#6 verb-granularity | **РЕШЕНО (O-2 ПРИНЯТО):** переопределён заказчиком на per-verb (R-2) — НЕ advisory; verb-`*` allowed (R-3). Дизайн §8 обновлён, конфликта нет. true per-verb FGA-relations входят в B. | B-*; §5 closed |
+| Q#5 deprecation-окно legacy target | **СНЯТО (РЕШЕНИЕ ВЛАДЕЛЬЦА 2026-06-21):** deprecation-окна нет — продданных/внешних клиентов нет, legacy target/selector + мутаторы **удаляются совсем** в clean-cut F (не `FAILED_PRECONDITION` в окне, не отдельный Phase 6). **Design §7 Phase-5 (flag-flip `KACHO_IAM_ROLE_RULES_SELECTION` / mirror-sync gate / INERT-backfill) и Phase-6 (отдельный major cleanup) SUPERSEDED O-9 — синхронизировано (design §7 врезка O-9 + proto-комменты).** Источник истины миграции F = **acceptance §5/O-9**, не описание Phase 5/6 в design. | F-50/F-54 |
+| Q#6 verb-granularity | **РЕШЕНО (O-2 ПРИНЯТО):** переопределён заказчиком на per-verb (R-2) — НЕ advisory; verb-`*` allowed (R-3). Дизайн §8 обновлён под per-verb, конфликта нет. true per-verb FGA-relations входят в B. | B-*; §5 closed |
 
 ### 0.4. Маппинг §10-GWT / §11-LST дизайна → под-фазы acceptance
 
@@ -71,7 +73,7 @@
 | GWT-5 (Role.Update fan-out) | C | **C-21** |
 | GWT-6 (matchLabels no over-grant) | C | **C-22** |
 | GWT-7 (feed-gate) | A | **A-10** |
-| GWT-8 (dual-authority inert) | F | **F-20** |
+| GWT-8 (dual-authority inert) | F | **SUPERSEDED** — clean-cut F убирает dual-authority целиком (один источник `rules[]`); legacy target/selector в теле игнорируется → **F-51** |
 | GWT-9 (condition no bypass) | C | **C-23** |
 | GWT-10 (resourceNames PENDING bounded) | C | **C-24** |
 | GWT-11 (label-tampering) | C | **C-25** |
@@ -83,7 +85,7 @@
 | O-7 (Role.Delete пока несёт binding-строку, FK 23503) — *резолюция заказчика* | A | **A-16** |
 | O-6 (read-projection new↔legacy представления) — *резолюция заказчика* | E | **E-34** |
 
-### 0.5. РЕЗОЛЮЦИИ ПРИНЯТЫ (заказчик) — O-1..O-8 абсорбированы в контракт
+### 0.5. РЕЗОЛЮЦИИ ПРИНЯТЫ (заказчик) — O-1..O-9 абсорбированы в контракт
 
 Вопросы, найденные автором acceptance (дыры/неоднозначности дизайна вне §9), **закрыты заказчиком** и перенесены в нормативные секции контракта. Это **не** открытые блокеры APPROVE — здесь только указатель «куда абсорбировано». Полные формулировки решений — §5 «Зафиксированные решения (closed)».
 
@@ -94,9 +96,10 @@
 | **O-3** verb-`*` FGA-разворот | `verbs:["*"]` → полный закрытый per-verb набор типа (наследует все per-verb relations), bounded; permissions-проекция `m.r.*.*` (A-04) ок | §2.2, B-12, DoD B `fga_model.fga` |
 | **O-4** iam-direct fed-типы | selectable = `iam.project`, `iam.account`; `iam.role`/`iam.serviceAccount`/`iam.group` НЕ selectable (feed-gate reject) | §2.4, A-10 |
 | **O-5** ListObjects performance | load-gate (`load-testing-coach` FGA ListObjects) **обязателен** перед prod-flip под-фазы D | §0.3 (Q#5-смежн.), DoD D |
-| **O-6** read-projection new↔legacy | Get/List/ListByRole заполняют ОБА представления до Phase 6; legacy-single↔subjects[] паритет | E-34, DoD E |
+| **O-6** read-projection new↔legacy | Get/List/ListByRole заполняют ОБА представления в окне до clean-cut F (прежде «до Phase 6»; legacy-проекция снимается в F, т.к. legacy-поля DROP); legacy-single↔subjects[] паритет | E-34, DoD E |
 | **O-7** Role.Delete in-use bindings | FK 23503→FailedPrecondition `"role is in use by access bindings"` (текст без «active» — FK блокирует на любой binding-строке), без leak pgx; после **hard-purge** биндингов (`AccessBindingService.Delete` = hard delete) — Delete проходит | §2.5, A-16, DoD A |
 | **O-8** fan-out limit | **limit=10000** active bindings/role; превышение → `FAILED_PRECONDITION` | §2.5, C-21, DoD C |
+| **O-9** под-фаза F = clean-cut (hard-cut) — ВЛАДЕЛЕЦ 2026-06-21 | продданных нет → backfill (F-01)/inert (F-20)/target-мутаторы-в-окне (F-21)/отдельный Phase-6 (F-cleanup-30) SUPERSEDED; legacy удаляется целиком в один проход; namespace breaking задокументирован; reserved-tombstone tags; без flag-flip | под-фаза F (F-50..F-54, F-22), §0.2 (R-13/R-15), §0.3 (Q#5), §3, §4 |
 
 ---
 
@@ -111,7 +114,7 @@
 | `api-conventions.md` — REST `/<service>/v1/<resource>`, suffix-action `:verb`; JSON camelCase (`rules`, `matchLabels`, `resourceNames`, `scopeRef`, `resourceVersion`, `createdByUserId`, `nextPageToken`) | A/E REST-формы, §smoke |
 | `api-conventions.md` — update_mask discipline: unknown → InvalidArgument; immutable в mask → InvalidArgument; пустой → full-PATCH | A-08, C-21 |
 | `data-integrity.md` §within-service — FK RESTRICT (binding→role, role→account/project), partial UNIQUE (role name per scope, strict-create binding), CAS (xmin OCC на `Role.Update`), CASCADE same-DB (`access_binding_*` child-таблицы) | A-01, C-26, R-9, R-12 |
-| `data-integrity.md` §within-service п.5 — конкурентный спорный путь → integration-тест (testcontainers, ≥2 goroutine) | C-21, C-26, F-20 |
+| `data-integrity.md` §within-service п.5 — конкурентный спорный путь → integration-тест (testcontainers, ≥2 goroutine) | C-21, C-26, A-16 (concurrent delete∥grant) |
 | `data-integrity.md` §cross-domain — НЕ вводит нового iam→consumer ребра (цикл): selection-id'ы — opaque soft-ref; per-object List у consumer'ов фильтруется через `InternalIAMService` (vpc/compute/nlb→iam, ребро существует), fail-closed | D-40..D-46, §6 |
 | `security.md` §AuthN+AuthZ ВЕЗДЕ — каждый RPC per-RPC Check; read-RPC viewer-floor, мутации admin-tier; анонимный fail-closed; **обе проекции (public/internal)** | A-03/B/C/E (authz), D (List-filter fail-closed) |
 | `security.md` §Internal-vs-external (ban #6) — Role/AccessBinding-RPC публичны (tenant-UI); `ExpandAccess`/`ListByRole` — **public** (audit для grant-authority holder, не инфра-данные). `scope_grant`-FGA-tuple — внутренняя машинерия, не на публичной поверхности | A/E (public), B (FGA internal) |
@@ -200,10 +203,10 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 |---|---|---|---|
 | `Role` | `rol` | flat: id/account_id/name/description/permissions/is_system/created_at/cluster_id/(org tombstone)/project_id; scope 4-way XOR `roles_scope_xor`; `permissions` JSONB strict 4-сегмент `M.R.rn.V` cardinality 1-256; system-роли immutable seed | **+`rules[]`=11** (authority + публичный API), `resource_version`=12, `created_by_user_id`=13, `updated_at`=14; `permissions[]`→**internal compiled** (anchor/names; deprecated; **НЕ в API-ответе** для rules-ролей); cap 256→**1024**; `Role.Get` → `returns (Role)` (НЕ обёртка) |
 | `Rule` | — | **НЕ существует** | **НОВЫЙ** message `{modules[], resources[], verbs[], resourceNames[] XOR matchLabels{}}` |
-| `AccessBinding` | `acb` | flat: subject_type/subject_id/role_id/resource_type/resource_id/status/condition_id/scope/scope_ref(17,live)/target(16,deprec)/target_ref(18,deprec)/…; FK role RESTRICT; epic-100 α `target` + γ `selector` | **+`subjects[]`=19** (1..32); `target`/`target_ref`/`selector`-аппарат **деприкейтится** (write→FAILED_PRECONDITION в окне, DROP Phase 6); селекция уезжает в `role.rules` |
+| `AccessBinding` | `acb` | flat: subject_type/subject_id/role_id/resource_type/resource_id/status/condition_id/scope/scope_ref(17,live)/target(16,deprec)/target_ref(18,deprec)/…; FK role RESTRICT; epic-100 α `target` + γ `selector` | **+`subjects[]`=19** (1..32); `target`/`target_ref`(16/18)/`selector`-аппарат **удаляется целиком (clean-cut F, РЕШЕНИЕ 2026-06-21 — продданных нет): поля убраны из proto (tags→`reserved` tombstone), колонки DROP, мутаторы retire**; селекция целиком в `role.rules` (единый источник истины) |
 | `scope_grant` (FGA-тип) | — | **НЕ существует** | **НОВЫЙ** FGA-примитив: `viewer/editor/admin`+per-verb relations на `(anchor, objectType)`; целевые типы каскадят tier from `scope_grant:<self_type>@anchor` **только на свой тип** (fix F1) |
 | `access_binding_emitted_tuples` | — | **СУЩЕСТВУЕТ** (ledger, fix #178) | **переиспользуется** для revoke по сохранённому tuple-set (R-9) |
-| `access_binding_targets` / `_selector` / `_target_members` / `resource_reconcile_outbox` / `resource_mirror` | — | СУЩЕСТВУЮТ (epic-100 α/γ, mig 0018-0022) | reconciler/mirror/outbox **переиспользуются** (driven by `role.rules`, rekeyed `rule_fp`); legacy target/selector-таблицы — INERT→DROP Phase 6 |
+| `access_binding_targets` / `_selector` / `_target_members` / `resource_reconcile_outbox` / `resource_mirror` | — | СУЩЕСТВУЮТ (epic-100 α/γ, mig 0018-0022) | `resource_reconcile_outbox`/`resource_mirror` **переиспользуются** (driven by `role.rules`, rekeyed `rule_fp`); legacy target/selector-таблицы (`access_binding_targets`/`_selector`/`_target_members`) — **DROP в clean-cut F** (не INERT, не отложенный Phase 6 — продданных нет, удаляются сразу) |
 | `RoleService.{Get,List}` | — | LIVE; List `<exempt>` tenant-wide | `Get`→`returns (Role)` (live; `rules[]` публичны, `permissions[]` пустое); `List` scope-filtered (per-object, R-10) |
 | `AccessBindingService.{ExpandAccess, ListByRole}` | — | **НЕ существуют** | **НОВЫЕ** sync read-RPC (E) |
 | `List<Resource>` (vpc/compute/nlb/iam) | — | type-level listauthz (all-or-nothing) | **per-object filtered** через FGA `ListObjects` (R-10/§11/D) |
@@ -762,7 +765,7 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
   - legacy: `subjectType`/`subjectId` (= **первый** subject из `subjects[]`), `resourceType`/`resourceId`/`scope` (= legacy-проекция `scopeRef`-триплета `(scope,resource_type,resource_id)`, R-14)
 **And** обратная проекция: binding, авторённый через **legacy single-subject** вход (`subjectType`/`subjectId`), в ответе несёт `subjects[]` ровно из одного элемента (`[{type:subjectType,id:subjectId}]`) — паритет new←legacy
 **And** проекция — output-only, не источник истины; на входе Create приоритет у `subjects[]`/`scopeRef` (legacy single-поля при наличии `subjects[]` silently игнорируются)
-**And** окно действует ДО Phase 6 (F-cleanup-30 DROP'ает legacy-поля; после Phase 6 проекция снимается)
+**And** окно действует ДО clean-cut F (clean-cut F DROP'ает legacy-поля `target`/`selector` из `AccessBinding`/proto, см. F-51/F-54; после F legacy-проекция снимается — представление binding несёт только `subjects[]`/`scopeRef`). *(Прежде окно адресовало «Phase 6 / F-cleanup-30»; Phase-6 свёрнут в F решением владельца 2026-06-21, O-9.)*
 
 ### DoD под-фазы E
 - [ ] `kacho-proto`: `AccessBinding.subjects=19` (`repeated Subject`), `Subject{type,id}`; `ExpandAccess`/`ListByRole` RPC + request/response; append-only buf clean.
@@ -775,88 +778,129 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 
 ---
 
-# ПОД-ФАЗА F — миграция live-данных + UI + legacy-cleanup
+# ПОД-ФАЗА F — clean-cut: hard-удаление legacy + re-seed system-ролей через `rules[]` + UI
 
-**Deliverable:** backfill `rules` из `permissions` (anchor/names детерминирован; matchLabels не recoverable), legacy γ-биндинги **INERT** до re-author (R-13), UI рендер из `rules[]` (arm выводится клиентом из формы правила; verb-`*` теперь разрешён для custom — R-3), re-seed system-ролей через `rules[]`, **Phase 6 breaking-cleanup** (legacy target/selector DROP, retire target-мутаторов, rename `ListByResource→ListByScope`, R-15).
-**Порядок:** `kacho-iam` (backfill-миграция, inert-guard, re-seed) → `kacho-ui` (рендер из rules) → `kacho-deploy` (flag flip после mirror-sync gate + FGA re-bootstrap) → `kacho-workspace` (docs) → **отдельный major: Phase 6 cleanup**.
+> **РЕШЕНИЕ ВЛАДЕЛЬЦА (2026-06-21): продовых данных нет → прошлую модель НЕ сохраняем, hard-cut.**
+> Под-фаза F перепроектирована с «backfill + inert + отложенный Phase-6» на **clean-cut**: прежний
+> отдельный major Phase-6 cleanup (F-cleanup-30, R-15) **свёрнут в F**. Поскольку live-данных нет —
+> бэкфилить нечего, инертизировать нечего, deprecation-окна не нужно. `rules[]` становится
+> **единственным источником истины**; весь legacy target/selector/permissions-write-аппарат удаляется
+> в один проход. Breaking-изменение **допустимо** на pre-prod без внешних клиентов (см. F-54).
 
-## Сценарий F-01: backfill rules из permissions — детерминирован для anchor/names
+**Deliverable:** **clean-cut удаление legacy** (proto: убрать target-мутатор-RPC + поля `target`/`selector`/`permissions`-write; iam: DROP legacy-колонок, удалить target-мутатор handlers/use-cases/repo + legacy γ reconcile-путь epic-100 + inert-guard код; gateway: снять регистрацию target-мутатор-роутов), **re-seed ВСЕХ 58 system-ролей через `rules[]`** (весь каталог `0001_initial.sql`, не только 3 tier — доступ выражен как `rules[]`, не `permissions[]`; идемпотентный UPSERT по детерминированному id, БЕЗ DELETE биндингов/ролей; tier-parity измерим для каждой из 58 — F-53), UI рендер из `rules[]` (arm выводится клиентом из формы правила; verb-`*` разрешён для custom — R-3; subjects[]-форма), deploy re-bootstrap FGA + раскатка fe3455 (clean, один путь, без flag-flip).
+**Порядок:** `kacho-proto` (намеренный breaking — удаление RPC/полей, tags→`reserved` tombstone) → `kacho-iam` (DROP-миграция legacy-колонок, удаление target-мутатор-кода + γ reconcile + inert-guard, re-seed system-ролей через `rules[]`) → `kacho-api-gateway` (снять target-мутатор-роуты) → `kacho-ui` (рендер из rules + subjects[]-форма, прекратить слать target/selector/permissions) → `kacho-deploy` (FGA re-bootstrap + раскатка fe3455) → `kacho-workspace` (docs).
 
-**ID:** F-01
+> **SUPERSEDED резолюцией владельца 2026-06-21 (продданных нет — отменены):**
+> - ~~**F-01** (backfill `permissions→rules`)~~ — **отменён**: бэкфилить нечего (live-данных нет), round-trip parity-требование снято.
+> - ~~**F-20** (legacy γ-binding INERT, no double-emit)~~ — **отменён**: legacy γ удаляется целиком, а не инертизируется; dual-authority/double-emit-gate и bit-identical-инвариант больше не нужны (нет двух источников истины — есть один, `rules[]`).
+> - ~~**F-21** (legacy target-мутаторы в окне → FAILED_PRECONDITION)~~ — **отменён**: мутаторы (`AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`) **удаляются совсем** из proto/iam/gateway, а не отвечают `FAILED_PRECONDITION` в deprecation-окне; deprecation-окно не существует.
+> - ~~**F-cleanup-30** (отдельный major Phase-6)~~ — **свёрнут в F**: DROP legacy / retire мутаторов / rename выполняются здесь, не отдельной фазой. Прежний `ListByResource→ListByScope` rename — см. F-50/DoD F (выполняется в этом же проходе).
+> - **mirror-sync gate / dual-authority gate / flag-flip** (`KACHO_IAM_ROLE_RULES_SELECTION`) — **не нужны**: один путь, без переключателя.
 
-**Given** pre-redesign роль с `permissions=["compute.image.*.get", "vpc.address.addr5k.update"]` (anchor + names армы)
+## Сценарий F-50: target-мутатор-RPC + `ListGrantableResources` удалены из контракта — вызов → Unimplemented/404
 
-**When** backfill-миграция (≥0024) выполняется
+**ID:** F-50  ·  *(заменяет F-21; R-15 свёрнут)*
 
-**Then** `roles.rules` = `[{compute,image,[get]} (ARM_ANCHOR), {vpc,address,[update],resourceNames:[addr5k]} (ARM_NAMES)]`
-**And** `compile(rules) == permissions` (round-trip parity для anchor/names)
-**And** matchLabels-правил не появляется (из permissions не recoverable — их не было в плоской форме)
+**Given** clean-cut применён (proto без target-мутаторов и без `ListGrantableResources`, gateway без их роутов)
 
-## Сценарий F-20: dual-authority — legacy γ-биндинг INERT, нет double-emit (GWT-8)
+**When** клиент вызывает legacy `AddTargetResources` / `RemoveTargetResources` / `ReplaceTargetSelector` / `ListGrantableResources` (gRPC) или их REST suffix-action / read-путь
 
-**ID:** F-20  ·  *(GWT-8, HIGH #10)*
+**Then** gRPC → `UNIMPLEMENTED` (метод отсутствует в дескрипторе сервиса); REST через api-gateway → `404` (роут снят из mux) — для всех четырёх RPC, включая read-RPC `ListGrantableResources`
+**And** селекция выражается **только** через `role.rules` (target-аппарата в контракте нет); grantable-объекты больше не перечисляются отдельным read-RPC (удалён вместе с target-аппаратом — двусторонняя трассировка с F-54/DoD)
+**And** rename `ListByResource→ListByScope` выполнен в этом же проходе: legacy wire-name `ListByResource` отсутствует (вызов → `UNIMPLEMENTED`/`404`), доступен `ListByScope`
 
-**Given** legacy by_selector-биндинг (epic-100 γ `binding.selector`/`target`), существующий ДО flip-флага
+## Сценарий F-51: target/selector в теле Create/Update игнорируется (поле отсутствует в proto)
 
-**When** роль обретает matchLabels-правила (role-driven селекция включена флагом)
+**ID:** F-51  ·  *(заменяет dual-authority/F-20; один источник истины — `rules[]`)*
 
-**Then** reconciler **НЕ** double-эмитит (legacy target tuples + role.rules tuples) для одного `(binding, object)`
-**And** legacy-путь остаётся authority для pre-flag биндингов до явного re-author (role-driven селекция к ним **инертна** — explicit guard, не lazy)
-**And** bit-identical-инвариант держится для all_in_scope-биндингов (compiled permissions + FGA tuple-set до/после)
-**And** integration-тест: zero double-emit на legacy `(binding,object)`
+**Given** clean-cut применён (`AccessBinding` без полей `target`/`selector`; tags `target=16`/`target_ref=18`/`selector` → `reserved` tombstone, не переиспользуются)
 
-## Сценарий F-21: legacy target-мутаторы в окне → FAILED_PRECONDITION (Q#5)
+**When** клиент шлёт `AccessBinding.Create`/`Update` с JSON, содержащим `target`/`selector` (legacy-привычка клиента)
 
-**ID:** F-21
+**Then** поля **отсутствуют в proto** → grpc-gateway их игнорирует (unknown field), биндинг создаётся **только** из `subjects[]`/`roleId`/`scopeRef`/`condition`
+**And** `Get(binding)` не несёт `target`/`selector` (полей в message нет)
+**And** селекция объектов целиком определяется `role.rules` — нет второго пути и нет double-emit (legacy reconcile-путь epic-100 удалён)
 
-**Given** окно deprecation (флаг включён, Phase 6 ещё не наступила)
+## Сценарий F-52: Role.Get — `permissions[]` пусто, `rules[]` заполнен (write-path permissions убран)
 
-**When** клиент вызывает legacy `AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`
+**ID:** F-52  ·  *(write-path `Role.permissions` свёрнут; `permissions=5` reserved)*
 
-**Then** `Operation.error FAILED_PRECONDITION` (RPC зарегистрирован, но write отклоняется — селекция уехала в `role.rules`)
-**And** `ListByResource` wire-name СОХРАНЁН (НЕ переименован до Phase 6)
+**Given** custom-роль R, созданная через `rules[]`; `Role.permissions=5` убран из write-path (read возвращает пусто)
 
-## Сценарий F-22: UI рендер из rules[] (resource-first, arm выводится из формы правила, verb-* разрешён)
+**When** клиент вызывает `RoleService.Get(R)`
 
-**ID:** F-22
+**Then** ответ `Role` несёт `rules[]` = авторские правила (публичная поверхность роли)
+**And** `permissions` в ответе **пусто** (write-path удалён; на rules-ролях не заполняется — R-7)
+**And** попытка `RoleService.Create/Update` с непустым `permissions` в теле → sync `INVALID_ARGUMENT "Illegal argument permissions (compiled/output-only)"` (паритет с A-02; write-path отсутствует)
+
+## Сценарий F-53: re-seed ВСЕХ 58 system-ролей через `rules[]` — идемпотентный UPSERT, без DROP биндингов, tier-parity сохранён
+
+**ID:** F-53  ·  *(re-seed system-ролей через `rules[]`)*
+
+**Ground-truth (нормативно для реализации):** каталог system-ролей — **58 ролей** (`kacho-iam/internal/migrations/0001_initial.sql:25`), все cluster-scoped (`account_id IS NULL`, `is_system=true`), детерминированный id = `'rol' || substr(md5(name),1,17)`. FK `access_bindings_role_fk` — **RESTRICT** (`0001_initial.sql:1730`).
+
+**ДВЕ независимые механики доступа к system-ролям на fe3455** (не путать — assert'ы под-фазы F покрывают обе):
+- **(i) FK-child через `access_bindings`** (`role_id` ссылается на system-роль, FK RESTRICT срабатывает на их удалении): **cluster-admin** `access_bindings`-строки на роль **admin** (mig `0004_backfill_cluster_admin_grants_into_access_bindings`) + **module-SA / SEC-C** `access_bindings`-строки на роли `module.*_sa` (mig `0009_sec_c_module_sa_least_priv`). Для них доступ = живая строка `access_bindings` → count-parity измерим.
+- **(ii) FGA-tuple-based** (`relation=system_viewer` на `cluster:cluster_kacho_root`, enqueued через `fga_outbox`, **ноль строк** в `access_bindings`): **operator-SA** `system_viewer@cluster` (mig `0010_sec_l_operator_system_viewer`) + **reader-SA** `system_viewer@cluster` (mig `0014_reader_sa_system_viewer`). Для них count-parity по `access_bindings` **вакуумен** — доступ держится на стабильности детерминированного id роли `system_viewer` + сохранности FGA-tuple через re-bootstrap → измерим **FGA-Check + tuple-снапшотом**, не count'ом.
+
+Прежний seed-приём «snapshot + rebuild каталога» в текущем squashed-дереве — `0005_rbac_v2_grammar_and_scope` (`_pre_rbac_v2_*` backup + in-place promote, **без** DROP строк ролей); `0008_role_catalog_kac122` — историческая pre-squash ссылка, такого файла в дереве **нет** (`0008` в дереве — `0008_drop_organizations`). DROP-then-reinsert каталога (`DELETE FROM access_bindings … role IN (system); DELETE FROM roles WHERE is_system`) для re-seed **запрещён** — порвёт FK-child доступ cluster-admin/module-SA и упрётся в FK RESTRICT (а tier/scope-каскад поедет, сломав FGA-доступ operator/reader-SA).
+
+**Given** re-seed-миграция выполнена **идемпотентным UPSERT'ом** (`INSERT … ON CONFLICT (id) DO UPDATE SET rules=…`) по детерминированному id для **ВСЕХ 58** system-ролей: каждая роль получает поле `rules[]`, выражающее тот же доступ, что прежний `permissions[]`; `permissions[]` на read возвращается пустым (write-path убран, F-52); **id каждой роли 1:1 сохранён** (`ON CONFLICT (id) DO UPDATE` — цель `scope_grant`/tier-каскада не движется); `is_system=true`; **без DELETE биндингов и без DELETE/DROP строк ролей** → обе механики доступа в окне re-seed **не рвутся**: (i) FK-child строки cluster-admin (mig 0004) / module-SA-SEC-C (mig 0009) целы (UPDATE-in-place, не replace → FK RESTRICT не задет); (ii) FGA-tuple operator-SA (mig 0010) / reader-SA (mig 0014) `system_viewer@cluster` целы, т.к. id роли `system_viewer` не сдвинулся и tuple переживает re-bootstrap
+
+**When** (a) `RoleService.Get(<любая из 58, напр. system_viewer>)`; (b) живой биндинг operator-SA `system_viewer@cluster` остаётся ACTIVE сразу после применения миграции (без разрыва); (c) `AccessBinding.Create` для subject S с `roleId=<reader>` @ `scopeRef:{tier:PROJECT, id:prj-X}` → `Operation` done
+
+**Then** (a) `Get` отдаёт system-роль с непустым `rules[]` (доступ выражен правилами; `permissions` пусто); `is_system=true`, роль immutable (`Update/Delete` → `FAILED_PRECONDITION "system role is immutable"`)
+**And** (b) **доступ НЕ рвётся — раздельно по двум механикам** (одного count-assert НЕ достаточно: для tuple-based когорты он вакуумен — у operator/reader-SA ноль строк в `access_bindings`):
+  - **(i) FK-child когорта (cluster-admin mig 0004 + module-SA/SEC-C mig 0009):** ни одна строка `access_bindings` на system-роль не удалена миграцией — assert `count(access_bindings WHERE role_id IN system) == pre-migration count` (UPSERT `ON CONFLICT (id) DO UPDATE` без DELETE → FK RESTRICT не задет, биндинги целы);
+  - **(ii) tuple-based когорта (operator-SA mig 0010 + reader-SA mig 0014):** assert **стабильности id** — `id` роли `system_viewer` после re-seed **1:1 совпадает** с pre-migration (`'rol'||substr(md5('system_viewer'),1,17)` неизменен → tier/scope-каскад не переехал); **+** после re-seed-миграции **И** FGA re-bootstrap — **FGA Check** для operator-SA (`system_viewer`-cascade, напр. `viewer` на `cluster`/через `AccountService.List`) → **allow**, reader-SA → **allow**; **+** pre/post tuple-снапшот: `system_viewer@cluster:cluster_kacho_root`-tuple для operator-SA и reader-SA присутствует в **post**-снапшоте (tuple пережил re-bootstrap)
+**And** (c) после ACTIVE биндинга FGA Check `S can <verb из rules[]> <type>:<obj>` (obj в scope `prj-X`) → **allow**; вне правил → **deny** (грант от system-роли через `rules[]` эквивалентен прежней permissions-семантике для tenant)
+**And** **tier-parity измеримо** — integration-тест compile-parity: для **каждой из 58** ролей tier, выводимый из нового `rules[]` (через `scope_grant`-эмиссию: viewer/editor/admin tier на (module,resource) из армов rules), **== тот же tier**, что давал прежний `permissions[]`-маппинг той же роли (assert: `tierFromRules(role) == tierFromPermissions(legacy[role])` для всех 58, не выборочно)
+**And** wildcard `modules:["*"]`/`resources:["*"]` в system-роли принят при seed (system-only, A-05 seed-path)
+
+## Сценарий F-54: buf breaking — намеренный breaking задокументирован (не append-only)
+
+**ID:** F-54  ·  *(заменяет F-09 для под-фазы F)*
+
+**Given** clean-cut удаляет RPC (`AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`/`ListGrantableResources`) + поля (`AccessBinding.target=16`/`target_ref=18`/`selector`; `Role.permissions=5` write-path) + rename `ListByResource→ListByScope`
+
+**When** CI прогоняет `buf breaking` против main на proto-изменениях под-фазы F
+
+**Then** `buf breaking` сигналит breaking-изменения — это **намеренно** (НЕ append-only); breaking зафиксирован как осознанный major bump с обоснованием «pre-prod, продданных/внешних клиентов нет, hard-cut на единый источник истины `rules[]`» (документированное исключение `proto-api-reviewer`)
+**And** удалённые tags → `reserved` tombstone (`AccessBinding`: `reserved 16; reserved 18; reserved "target"; reserved "target_ref"; reserved "selector"`; `Role`: `permissions=5` остаётся reserved/deprecated, `organization_id=9` остаётся reserved tombstone) — номера **не переиспользуются**
+**And** tombstone **энфорсится механически** (не только декларация): попытка добавить новое поле на reserved tag (`AccessBinding` 16/18, `Role` 5/9) или на reserved-имя (`target`/`target_ref`/`selector`) → `buf lint`/`protoc`-compile **FAIL** (`FIELD/NAME ... is reserved`); CI-кейс прогоняет такой заведомо-битый proto и ожидает non-zero exit
+**And** A/E-изменения (append-only `Rule`/`Role.rules=11`/`subjects=19`/`ExpandAccess`/`ListByScope`) сами по себе breaking не вносят — breaking исходит только из удалений F
+
+## Сценарий F-22: UI рендер из rules[] (resource-first, arm выводится из формы правила, verb-* разрешён, subjects[]-форма)
+
+**ID:** F-22  ·  *(остаётся; расширен subjects[]-формой)*
 
 **Given** роль с mixed-арм rules
 
 **When** UI открывает Role-detail / grant-форму
 
 **Then** UI рендерит роль из `role.rules[]` (НЕ из `permissions[]` — оно пустое в API-ответе); arm каждого правила (ARM_ANCHOR/ARM_LABELS/ARM_NAMES) UI выводит из формы правила (наличие `matchLabels`/`resourceNames`)
-**And** автор правил per-rule; verb-`*` в UI **разрешён** для custom (R-3 — отличие от §8); module/resource-`*` disabled для custom
-**And** UI прекращает отправлять `binding.target`/`selector`
+**And** per-rule editor: автор правил per-rule; verb-`*` в UI **разрешён** для custom (R-3 — отличие от §8); module/resource-`*` disabled для custom
+**And** grant-форма ведёт `subjects[]` (multi-subject, R-5/E-30); UI **прекращает слать** `binding.target`/`binding.selector`/`role.permissions` (полей в контракте нет)
 
-## Сценарий F-09: buf-breaking чистота — append-only
+> **Measurable DoD (F-22 — component/e2e-тест, не «UI обновлён»):** автотест (component- или e2e-уровня) утверждает:
+> 1. на роли с mixed-арм rules рендерятся **ровно 3 арма** (ARM_ANCHOR + ARM_LABELS + ARM_NAMES видны как отдельные блоки правил);
+> 2. **permissions-панель отсутствует** в DOM (роль рендерится из `rules[]`, не из `permissions[]`);
+> 3. в custom-editor **verb-`*` доступен** (не disabled), а **module-`*`/resource-`*` disabled**;
+> 4. submit grant-формы шлёт payload c `subjects[]` и **без** ключей `target`/`selector`/`permissions` (assert на теле запроса).
 
-**ID:** F-09
-
-**When** CI прогоняет `buf breaking` против main на всех proto-изменениях (A+E)
-
-**Then** **зелёный**: ZERO renumber/delete; новые `Rule`/`Role.rules=11`/`AccessBinding.subjects=19`/`ExpandAccess`/`ListByRole` — append-only; `RoleService.Get` остаётся `returns (Role)` (НЕ `GetRoleResponse`); `RuleDiagnostics` не вводится; `organization_id=9` остаётся tombstone (reserved, не удалён), `Role.permissions=5` deprecated
-
-## Сценарий F-cleanup-30: Phase 6 — legacy DROP + rename (отдельный major, breaking)
-
-**ID:** F-cleanup-30  ·  *(R-15, Phase 6)*
-
-**Given** все γ-биндинги re-author'ены в `role.rules` (data-cleanup завершён); deprecation-окно (≥1 минор) прошло
-
-**When** Phase 6 миграция/proto-major
-
-**Then** DROP `access_binding_targets`/`access_binding_selector`/legacy-колонок (subject_type/subject_id/resource_*/scope/target/target_ref); retire target-мутатор-RPC; rename `ListByResource→ListByScope`
-**And** `organization_id=9` остаётся reserved tombstone (НЕ удаляется)
-**And** `buf breaking` разрешён ТОЛЬКО здесь (документированный major bump)
-
-### DoD под-фазы F
-- [ ] `kacho-iam`: backfill-миграция (≥0024) `rules` из `permissions` (anchor/names; matchLabels не recoverable); inert-guard для pre-flag γ-биндингов (no double-emit тест); re-seed system-ролей через `rules[]` (детерминированные id); `access_binding_emitted_tuples` миграция (если ledger-форма меняется — переиспользуем #178).
-- [ ] `kacho-ui`: рендер из `rules[]` (arm выводится из формы правила); per-rule editor; verb-`*` allowed для custom (R-3); прекратить `binding.target`/`selector`.
-- [ ] `kacho-deploy`: mirror-sync gate перед flip `KACHO_IAM_ROLE_RULES_SELECTION` (default off → flip после verify); FGA-модель re-bootstrap (`scope_grant`); tuple-снапшот pre/post; rollback-окно.
+### DoD под-фазы F (clean-cut)
+- [ ] `kacho-proto` (намеренный breaking, **не** append-only): удалить RPC `AddTargetResources`/`RemoveTargetResources`/`ReplaceTargetSelector`/`ListGrantableResources` из `AccessBindingService`; удалить поля `AccessBinding.target`/`target_ref`/`selector` (tags 16/18/имена → `reserved` tombstone, не переиспользовать); `Role.permissions=5` убрать из write-path (read пусто; tag остаётся reserved/deprecated); rename `ListByResource→ListByScope`; `organization_id=9` остаётся reserved tombstone; `buf breaking` сигналит — обоснование «pre-prod hard-cut» в PR (gate `proto-api-reviewer`, документированное исключение); `buf lint`/`buf generate` зелёные; **tombstone-enforcement CI-кейс (F-54): заведомо-битый proto, переиспользующий reserved tag (`AccessBinding` 16/18, `Role` 5/9) или reserved-имя (`target`/`target_ref`/`selector`), даёт `buf lint`/compile FAIL (non-zero exit) — энфорс, не только декларация**.
+- [ ] `kacho-iam`: DROP-миграция (forward ≥0024) legacy-колонок `access_bindings` (`target`/`target_ref`/`selector` + legacy `access_binding_targets`/`access_binding_selector`/`_target_members` таблицы; `roles.permissions` write-колонка если применимо — read возвращает пусто); **удалить** target-мутатор handlers/use-cases/repo; **удалить** legacy γ reconcile-путь (epic-100) + inert-guard код (более не нужен — нет двух источников истины); `access_binding_emitted_tuples` ledger переиспользуется (revoke по сохранённому tuple-set, R-9).
+- [ ] `kacho-iam` **re-seed ВСЕХ 58 system-ролей через `rules[]`** (F-53): forward-миграция, **идемпотентный UPSERT** `INSERT … ON CONFLICT (id) DO UPDATE SET rules=…` по детерминированному id (`'rol'||substr(md5(name),1,17)`) для всего каталога (58, не только 3 tier); каждая роль получает `rules[]`, эквивалентный прежнему `permissions[]`; **БЕЗ `DELETE FROM access_bindings` и БЕЗ `DELETE/DROP` строк ролей** → обе механики доступа целы: (i) FK-child строки cluster-admin (роль `admin`, mig `0004`) / module-SA-SEC-C (роли `module.*_sa`, mig `0009`) — FK `access_bindings_role_fk` RESTRICT не задевается; (ii) FGA-tuple operator-SA (mig `0010`) / reader-SA (mig `0014`) `system_viewer@cluster` — id роли `system_viewer` не сдвинут (`ON CONFLICT (id) DO UPDATE`). **Запрещено** повторять DROP-then-reinsert каталога (в squashed-дереве snapshot+rebuild — `0005_rbac_v2_grammar_and_scope`, in-place; файла `0008_role_catalog` НЕТ — `0008` это `0008_drop_organizations`, `0008_role_catalog_kac122` — pre-squash). id 1:1 сохранены; `is_system=true`; immutable.
+- [ ] `kacho-iam` **measurable tier-parity integration-тест** (F-53-Then-c): для **каждой из 58** ролей assert `tierFromRules(role) == tierFromPermissions(legacyMap[role])` (viewer/editor/admin tier на (module,resource), выведенный из `scope_grant`-эмиссии армов rules == тот, что давал прежний permissions-маппинг) — параметризованный по всему каталогу, не выборочно.
+- [ ] `kacho-iam` **measurable «доступ не рвётся» integration-тест — РАЗДЕЛЬНО по двум механикам** (F-53-Then-b): **(i)** FK-child когорта — assert `count(access_bindings WHERE role_id IN system) == pre-migration count` (cluster-admin mig `0004` + module-SA/SEC-C mig `0009` не порваны; UPSERT без DELETE); **(ii)** tuple-based когорта (operator-SA mig `0010` + reader-SA mig `0014`, **ноль строк** в `access_bindings` → count-assert для них вакуумен): assert `id` роли `system_viewer` стабилен 1:1 + после re-seed И FGA re-bootstrap **FGA Check** operator-SA / reader-SA (`system_viewer`-cascade) → **allow** + pre/post tuple-снапшот: `system_viewer@cluster:cluster_kacho_root`-tuple обоих SA присутствует в post-снапшоте.
+- [ ] `kacho-api-gateway`: снять регистрацию target-мутатор-роутов (public mux); зарегистрировать `ListByScope` (rename); Internal* не трогаем.
+- [ ] `kacho-ui`: рендер из `rules[]` (arm выводится из формы правила); per-rule editor; verb-`*` allowed для custom (R-3); `subjects[]`-форма (multi-subject); прекратить слать `binding.target`/`selector`/`role.permissions`. **Measurable (F-22): component/e2e-тест — (1) mixed-арм роль рендерит 3 арма из `rules[]`; (2) permissions-панель отсутствует в DOM; (3) verb-`*` доступен в custom-editor, module-`*`/resource-`*` disabled; (4) submit grant-формы шлёт `subjects[]` и НЕ шлёт `target`/`selector`/`permissions`.**
+- [ ] `kacho-deploy`: FGA-модель re-bootstrap (`scope_grant` + per-verb, новый model id); раскатка fe3455; **без flag-flip** (clean, один путь — нет `KACHO_IAM_ROLE_RULES_SELECTION`); **pre/post tuple-снапшот, обязан включать `system_viewer@cluster:cluster_kacho_root` для operator-SA (mig 0010) и reader-SA (mig 0014)** — post-снапшот доказывает, что tuple-based доступ пережил re-bootstrap (F-53-Then-b-ii); rollback — откат на предыдущий релиз (нет dual-authority-окна).
 - [ ] `kacho-workspace`: docs-site Role-глава (`kacho-docs-writer`); vault-trail полный.
-- [ ] **Phase 6 (отдельный major)**: legacy DROP + retire + rename; `buf breaking` разрешён только здесь.
-- [ ] **RED→GREEN**: integration (backfill F-01, inert F-20, legacy-мутаторы F-21) + newman + buf-breaking CI (F-09) + UI-тесты (F-22) в соответствующих PR.
-- [ ] db-architect-reviewer (backfill/inert-миграция), proto-api-reviewer (buf clean), qa-test-engineer (regression).
-- [ ] заказчик — финальный smoke/e2e (`make e2e-test` / `grpcurl`): создать роль с mixed-арм rules, bind, проверить per-verb Check, per-object List, ExpandAccess.
+- [ ] **RED→GREEN**: integration (DROP-миграция применяется; target-мутатор-кода нет → компиляция/route отсутствует; re-seed system-ролей через `rules[]` F-53; `Role.Get` permissions пусто F-52; AccessBinding без target/selector F-51) + newman (F-50 target-мутатор + `ListGrantableResources` + `ListByResource`→Unimplemented/404; F-51 target/selector в теле игнорируется; F-52 Role.Get permissions пусто + rules заполнен; F-53 re-seed 58 ролей — system-role через rules грантит happy Check allow + negative deny + tuple-based доступ operator/reader-SA не порван: FGA Check `system_viewer`-cascade → allow после re-seed+re-bootstrap, НЕ count-based; rename `ListByScope` happy) + buf-breaking CI (F-54 — breaking ожидаем, документирован) + buf-tombstone-enforcement CI (F-54 — reused reserved tag 16/18/5/9 или reserved-имя → `buf lint`/compile FAIL) + UI-тесты (F-22) в соответствующих PR.
+- [ ] db-architect-reviewer (DROP-миграция legacy-колонок — forward-only, не редактировать применённые, ban #5), proto-api-reviewer (намеренный breaking + reserved-tombstone tags — обоснование задокументировано), qa-test-engineer (regression), go-style-reviewer (удаление target-мутатор-кода без сирот).
+- [ ] заказчик — финальный smoke/e2e (`make e2e-test` / `grpcurl`): создать роль с mixed-арм rules, bind через `subjects[]`, проверить per-verb Check, per-object List, ExpandAccess; убедиться, что target-мутаторы и поля target/selector отсутствуют в контракте.
 
 ---
 
@@ -869,13 +913,13 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 | C | — | — | reconciler rekey + matchLabels + condition + fan-out | — | — | mirror-sync gate | resources |
 | D | — | listauthz per-object (если общий) | InternalIAM ListObjects | List-filter wiring | — | audit-list-filter per-object | edges |
 | E | `subjects=19`/`ExpandAccess`/`ListByRole` | — | subjects+expand+listbyrole | public mux | multi-subject форма | — | rpc |
-| F | (Phase 6 major) | — | backfill+inert+re-seed | (Phase 6 rename) | rules-рендер | flag-flip + FGA | docs-site |
+| F (clean-cut) | namespace breaking: drop target-мутаторы + поля target/selector + permissions-write; rename `ListByResource→ListByScope`; tags→reserved | — | DROP legacy-колонок + удалить target-мутатор-код + γ reconcile + inert-guard; re-seed system-ролей через `rules[]` | снять target-мутатор-роуты + register `ListByScope` | rules-рендер + subjects[]-форма | FGA re-bootstrap + fe3455 (без flag-flip) | docs-site |
 
 **Реюз (НЕ переписывать):** `MatchSelector`/`MatchIAMDirect`/`IsContainedIn`/`membershipTuples`, `fga_outbox`+drainer, `resource_reconcile_outbox`+sweep, `resource_mirror`, `access_binding_emitted_tuples` (ledger #178), `requireGrantAuthority`. **Новое:** Go-компайлер `rules→permissions`, `scope_grant` FGA-примитив, per-verb FGA-relations, arm-tag emit-вход, `rule_fp`-rekey membership, `role_rule_selectors`, fan-out-reconcile, ListObjects per-object List, `ExpandAccess`/`ListByRole`.
 
 ---
 
-## 5. Зафиксированные решения (closed) — резолюции заказчика O-1..O-8
+## 5. Зафиксированные решения (closed) — резолюции заказчика O-1..O-9
 
 Дизайн §9 закрыл Q#1..Q#6 (см. §0.3). Дополнительные дыры/неоднозначности, найденные автором acceptance вне §9, **закрыты заказчиком** и абсорбированы в нормативные секции контракта (§2.2/§2.4/§2.5, A-04/A-10/A-16, B-12, C-21, E-34, DoD под-фаз A/B/C/D/E). Ниже — зафиксированные решения (НЕ открытые вопросы, не блокеры APPROVE):
 
@@ -887,8 +931,9 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 - **O-6 (read-projection new↔legacy) — РЕШЕНО.** `Get`/`List`/`ListByRole` заполняют **ОБА** представления — new (`subjects`/`scopeRef`) И legacy (`subjectType`/`subjectId`/`resourceType`/`resourceId`/`scope`) — в окне до Phase 6 (старые клиенты не ломаются); legacy-single binding ⇒ `subjects[]` из одного элемента (обратная проекция). Абсорбировано: **E-34**, DoD под-фазы E.
 - **O-7 (Role.Delete пока несёт binding-строку) — РЕШЕНО + уточнено (ревью-round 3).** FK `access_bindings_role_fk` RESTRICT → SQLSTATE `23503`→`FAILED_PRECONDITION "role is in use by access bindings"` в `mapRepoErr` (без leak pgx/SQL). Текст **без «active»**: FK блокирует на любой binding-строке (ACTIVE или оставшейся REVOKED), а не только active. `AccessBindingService.Delete` — **HARD delete** (строка purge'ится, см. `abWriter.Delete`), НЕ soft-revoke (soft-revoke `TransitionStatus` — отдельный lifecycle-путь expiry/reconcile); precondition снимает именно purge биндинга. Абсорбировано: **A-16** (+ concurrent delete∥grant race, data-integrity §5), §2.5, DoD под-фазы A.
 - **O-8 (fan-out limit) — РЕШЕНО.** Контрактная константа **limit=10000** active bindings/role; превышение → `FAILED_PRECONDITION` (трассируется в текст ошибки и тест). Абсорбировано: §2.5, C-21, DoD под-фазы C.
+- **O-9 (под-фаза F = clean-cut / hard-cut) — РЕШЕНО (ВЛАДЕЛЕЦ, 2026-06-21).** Продовых данных нет → прошлую модель **НЕ сохраняем**. Под-фаза F переработана с «backfill + inert + отложенный major Phase-6» на **clean-cut в один проход**: (1) backfill `permissions→rules` (F-01) **отменён** — бэкфилить нечего; (2) legacy γ-биндинги (F-20 INERT) **удаляются целиком**, dual-authority/double-emit/bit-identical-инвариант сняты — единый источник истины `rules[]`; (3) target-мутаторы (F-21 → `FAILED_PRECONDITION`-в-окне) **удаляются совсем** из proto/iam/gateway, deprecation-окна нет; (4) Phase-6 cleanup (F-cleanup-30) **свёрнут в F** — DROP legacy-колонок/таблиц + retire мутаторов + rename `ListByResource→ListByScope` в этом же проходе; (5) re-seed **ВСЕХ 58** system-ролей через `rules[]` (не `permissions[]`) **идемпотентным UPSERT** по детерминированному id, **БЕЗ DELETE биндингов/ролей** (живой доступ operator/reader-SA/cluster-admin не рвётся), с **измеримым tier-parity** на каждую из 58 (F-53); (6) `buf breaking` — **намеренный** breaking (НЕ append-only), допустим на pre-prod без внешних клиентов, задокументирован (F-54); (7) `permissions=5`/`organization_id=9`/`target=16`/`target_ref=18`/`selector` → **reserved-tombstone**, номера не переиспользуются; (8) без flag-flip/mirror-sync/dual-authority gate — один путь. Абсорбировано: под-фаза F (F-50..F-54 + F-22), §0.2 (R-13/R-14/R-15), §0.3 (Q#5 снят), §0.4 (GWT-8 superseded), §3 (глоссарий-дельта AccessBinding + legacy-таблицы), §4 (строка F).
 
-> Все O-1..O-8 закрыты заказчиком и перенесены в нормативные секции — открытых блокеров APPROVE нет. Изменение любого из этих решений — только через правку дизайна + этого acceptance, не в реализации (§coordination).
+> Все O-1..O-9 закрыты заказчиком и перенесены в нормативные секции — открытых блокеров APPROVE нет. Изменение любого из этих решений — только через правку дизайна + этого acceptance, не в реализации (§coordination).
 
 ---
 
