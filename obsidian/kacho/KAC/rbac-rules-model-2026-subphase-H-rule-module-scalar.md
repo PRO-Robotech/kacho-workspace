@@ -37,9 +37,13 @@ tags:
 
 `kubectl set image` (ns `kacho`), all rollouts green, pods 1/1.
 - iam `main-4ffca09e` (app + `migrate` init) — **migration 0033 applied** (`goose: successfully migrated database to version: 33`); **64 роли переписаны** `modules:[x]`→`module:x`, **0 legacy** `modules` (verified в БД). Тестовая роль `roln9kgzrj` → `{module:"vpc", resources:["address"], ...}`.
-- api-gateway `main-d1afb89e` (rebuild), ui `main-f19a92c5`. vpc/compute/geo/nlb unchanged.
+- api-gateway `main-d1afb89e` (rebuild), ui `main-f19a92c5` → **`main-2a0ae017`** (после фикса #2). vpc/compute/geo/nlb unchanged.
 - gateway #95 umbrella-e2e (full module-scalar поток через gateway) = SUCCESS — end-to-end доказательство.
-- kacho-deploy `values.fe3455.yaml` bumped to live tags (kacho-deploy `807d6b0`).
+- kacho-deploy `values.fe3455.yaml` bumped to live tags (kacho-deploy `807d6b0` + ui-bump для #2).
+
+## Follow-up fix #2 — «созданная кастомная роль не видна в списке» (ui #109, LIVE)
+
+Реальный UI-баг (НЕ backend): `/iam/roles` (route 53a3ed9 → bare `ResourceListPage`) звал listRoles **без `accountId`**. Backend by-contract (`IAM-ROL-LS-SYSTEM-ONLY-NO-ACCOUNT` + `…WITH-ACCOUNT`, оба GREEN): без accountId → только system; `?accountId=<acc>` → system+custom. → Custom-вкладка всегда пуста. Фикс: новый `RolesListShell` (читает context-store account → `ResourceListPage parentField="accountId" parentValue={account.id}` при выбранном; bare = system-каталог без аккаунта), сохраняя Segmented-chrome (НЕ RolesPage, НЕ IamScopedListShell-gate). vitest RED→GREEN + playwright roles-specs green. Первый WRONG attempt (#108 re-route на RolesPage) закрыт (реверсил дизайн + ломал e2e). UX: Custom-вкладке нужен выбранный account-pill.
 
 ## Что и зачем (owner-mandated)
 
