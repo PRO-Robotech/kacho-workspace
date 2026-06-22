@@ -31,7 +31,15 @@ tags:
 
 # RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui
 
-**Status**: **done** — merged to main 2026-06-22. Cross-repo chain (topo): proto **#78** → iam **#208** → api-gateway **#94** → ui **#106**.
+**Status**: **done** — merged to main + **deployed to fe3455** 2026-06-22. Cross-repo chain (topo): proto **#78** → iam **#208** → api-gateway **#94** → ui **#106**.
+
+## Deploy — fe3455-client (2026-06-22)
+
+`kubectl set image` (ns `kacho`), verified: all rollouts green, all pods 1/1.
+- iam `main-92ca0f16` (main + `migrate` init) — **migration 0032 applied** (`goose: successfully migrated database to version: 32`).
+- api-gateway `main-495c01a3`, ui `main-865d9688`, nlb `main-521d28d8`, vpc `main-c9bcc518` (compute/geo unchanged).
+- **Live smoke**: `GET /iam/v1/permissionCatalog` (unauth) → **HTTP 401 AUTHN_REQUIRED**, `fqn PermissionCatalogService/ListPermissionCatalog` — route registered (not 404), authz-catalog recognises the method, authenticated-floor gate works.
+- kacho-deploy `values.fe3455.yaml` bumped to the live tags (kacho-deploy `4aebb37`) so a future `helm upgrade` won't revert. NB pre-existing values drift on other services was reconciled for compute only.
 **Type**: feature — epic «RBAC rules-model 2026», sub-phase G = backend-driven permission catalog.
 **Acceptance**: `docs/specs/rbac-rules-model-2026-G-permission-catalog-acceptance.md` (APPROVED round 3, 2026-06-22).
 
