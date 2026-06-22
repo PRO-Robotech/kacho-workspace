@@ -1,30 +1,48 @@
 ---
-title: RBAC rules-model 2026 — sub-phase G (Permission Catalog) — iam + proto
+title: RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui
 ticket_id: rbac-rules-model-2026-G-iam
-status: test
+status: done
 type: feature
 repos:
   - kacho-proto
   - kacho-iam
-prs: []
+  - kacho-api-gateway
+  - kacho-ui
+prs:
+  - "PRO-Robotech/kacho-proto#78"
+  - "PRO-Robotech/kacho-iam#208"
+  - "PRO-Robotech/kacho-api-gateway#94"
+  - "PRO-Robotech/kacho-ui#106"
 yt_url: ""
 opened: 2026-06-22
 tags:
   - kac
   - kacho-iam
   - kacho-proto
+  - kacho-api-gateway
+  - kacho-ui
   - feature
   - usecase
   - handler
   - proto
   - authz
+  - done
 ---
 
-# RBAC rules-model 2026 — sub-phase G (Permission Catalog) — iam + proto
+# RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui
 
-**Status**: test (iam-branch `rbac-docs-site`, stacks on F clean-cut; proto-branch `rbac-rules-g-proto`)
+**Status**: **done** — merged to main 2026-06-22. Cross-repo chain (topo): proto **#78** → iam **#208** → api-gateway **#94** → ui **#106**.
 **Type**: feature — epic «RBAC rules-model 2026», sub-phase G = backend-driven permission catalog.
 **Acceptance**: `docs/specs/rbac-rules-model-2026-G-permission-catalog-acceptance.md` (APPROVED round 3, 2026-06-22).
+
+## Merge (2026-06-22)
+
+- **proto #78** — `PermissionCatalogService.ListPermissionCatalog` + tombstone `RunRegoTest`/`ListPermissions`.
+- **iam #208** — handler/usecase (projection `authzmap.Catalog()`+`TypeHasVerbRelations`+`domain.ClosedVerbs`+curated `hasListEndpoint`); also bundled this session's prod-readiness cleanup (CRITICAL ledger-fix mig 0032, AccessBinding dedup, dead-code/stub removal, fail-closed parseMode). docs-site split out → iam issue #209 (trivy KSV-0118).
+- **api-gateway #94** — public-mux + allowlist + route-table registration; resync embedded `permission_catalog.json` (288→287).
+- **ui #106** — `usePermissionCatalog` (live RPC), RulesEditor dropdowns from catalog + resourceNames real-instance picker; hardcoded `permissionCatalog.ts` retired. e2e walkthrough mock added (`_mocks.ts`).
+- **Cross-repo lesson**: proto tombstone temporarily broke iam-main build; the catalog newman suite (in iam) runs in every umbrella e2e and needs the gateway route → merge order proto→iam→gateway, then re-run consumer e2e. `hasListEndpoint` truth = external-mux registration, not proto RPC existence.
+- Consumer review follow-ups merged same day: vpc **#163** (ListByIDs test coverage), nlb **#37** (name-parser unify + authzfilter tests). Follow-ups: nlb #38 (cache-copy), iam #209 (docs-site).
 
 ## Что и зачем
 
