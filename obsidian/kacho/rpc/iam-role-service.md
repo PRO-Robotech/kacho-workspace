@@ -76,6 +76,21 @@ tags:
   api-gateway — без правок (только поля на существующих сообщениях, RPC-набор не менялся).
 - Осталось на **sub-phase B**: FGA-эмиссия из rules (`scope_grant`, per-verb relations).
 
+## RBAC rules-model 2026 — sub-phase H (Rule.module scalar) — proto#80/iam#210/gw#95/ui#107, LIVE fe3455
+
+- **`Rule.modules` (repeated) → `Rule.module` (scalar)** — ровно ОДИН модуль на правило (proto
+  tag 6; `modules` tag 1 tombstoned `reserved`). Create/Update `rules[]` несут `module` (camelCase
+  REST). Роль на несколько модулей = несколько правил. Убирает декартов modules×resources с невалидными парами.
+- **`Validate` reject'ит unknown module** на request-path (`INVALID_ARGUMENT "Illegal argument module
+  (unknown module '<m>')"`; грамматика-fail → `invalid token`). Closed-set владеет domain
+  (`IsKnownModule`: iam/vpc/compute/loadbalancer); authzmap lockstep-drift-test.
+- **Migration 0033** (live fe3455): rewrite 64 ролей `modules:[x]`→`module:x` + `CREATE OR REPLACE
+  iam_rules_valid` scalar-shape (drop-constraint→rewrite→replace-fn→re-add `roles_rules_valid`, одна tx);
+  идемпотентна; reversible Down. Применена (`version: 33`), 0 legacy `modules`.
+- **#1 labelSelectable**: PermissionCatalog несёт `label_selectable` (=`domain.IsLabelSelectableType`);
+  UI гейтит арм matchLabels только label-selectable ресурсами.
+- Trail: [[rbac-rules-model-2026-subphase-H-rule-module-scalar]].
+
 ## RBAC rules-model 2026 — sub-phase D (§11 per-object filtered List)
 
 - **`List` is per-object scope-filtered** (R-10 / acceptance D-40..D-46). The use-case
