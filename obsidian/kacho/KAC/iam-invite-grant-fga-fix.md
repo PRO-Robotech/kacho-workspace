@@ -49,7 +49,8 @@ tags:
   - RC-1: `emitAnchorRule` tier-only `objType==anchorType` → concrete tier-tuple; mismatched → SKIP. Unit T-I1 RED(0 tuples)→GREEN.
   - RC-2: `EmitFGARelationWrite` member-tuple co-commit in Step-1 writer-tx. Integration T-I3 RED(0 member intents)→GREEN.
   - RC-5: gate → owns-zero-accounts (new `CountAccountsByOwner` reader over `accounts.owner_user_id`); bootstrap for existing activated user-id WITHOUT 2nd `InsertActive`. Integration T-I5 RED(0 owned)→GREEN.
-- [x] integration green: T-I1 (unit), T-I2/T-I4 (real OpenFGA model semantics, G1–G4 guard), T-I3/T-I5/T-E4-int (Postgres outbox/bootstrap), CountAccountsByOwner reader test. `go build`/`go vet`/`gofmt`/golangci-lint(changed files) clean.
+- [x] integration green: T-I1 (unit), T-I2/T-I4 (real OpenFGA model semantics, G1–G4 guard), T-I3/T-I5/T-E4-int (Postgres outbox/bootstrap), CountAccountsByOwner reader test, pg user/account subset (`ok 269.6s`). `go build`/`go vet`/`gofmt`/golangci-lint(changed files) clean.
+- [x] regression sweep: full access_binding suite caught one stale FGA-integration test (`...I1_AccountAnchorSkipped`) asserting the pre-RC-1 SKIP contract for the account-anchor twin → renamed `_AccountAnchorMatchingScope` + updated to RC-1 contract (commit `5691dcb`); both renamed FGA tests GREEN.
 - [x] newman T-E1..T-E4 authored (`tests/newman/cases/iam-invite-grant-fga.py`, gen.py OK, 5 cases) — RED-against-stale-stand per RC-4 (need re-bootstrap before live-green, acceptance §RC-4 / ban #13).
 - [x] system-design review (RC-1 #177-cascade): RC-1 correct; T-I4/D-R3 acceptance error flagged (see warning above).
 - [ ] db-architect review (Step-1 co-commit `fga_outbox`+`audit_outbox`; CountAccountsByOwner reader; no-2nd-InsertActive 23505-guard) + go-style review.
