@@ -34,7 +34,7 @@ tags:
 |---|---|---|---|---|
 | Get | GetRoleRequest | Role | sync | по id (`rol…`); **system → exempt (catalog floor, served to all); custom → per-object `viewer`-tier enforce (#193), ungranted → `NOT_FOUND` no-leak** (D-1, read==enforce с List) |
 | List | ListRolesRequest | ListRolesResponse | sync | **scope-filtered per-object** (R-10/§11): system roles (catalog floor) ∪ FGA `viewer`-tier custom (#193); `account_id` field (#185) scopes to system + that account; `page_size>1000`→`INVALID_ARGUMENT` (#184) |
-| Create | CreateRoleRequest | operation.Operation | **async** | **только custom**; account_id required |
+| Create | CreateRoleRequest | operation.Operation | **async** | **только custom**; scope = account_id **XOR** project_id (#212, proto tag 6); both/neither → `INVALID_ARGUMENT`. account-scoped → FGA owner-tuple `iam_role:<id>#account@account:<acc>`; project-scoped → no owner-tuple (FGA `iam_role` has no `project` ancestor) |
 | Update | UpdateRoleRequest | operation.Operation | **async** | system-role → `FailedPrecondition` |
 | Delete | DeleteRoleRequest | operation.Operation | **async** | system-role → FailedPrecondition; FK от AccessBinding RESTRICT |
 | ListOperations | ListRoleOperationsRequest | ListRoleOperationsResponse | sync | |
@@ -120,6 +120,22 @@ tags:
 - **`#184 page_size>1000`** → `INVALID_ARGUMENT` (no silent clamp) — repo `effectivePageSize`,
   parity with kacho-vpc `corevalidate.PageSize`. Applies to ALL iam public List RPCs.
 - **Fail-closed** (D-47): nil FGA port / FGA error → `UNAVAILABLE` (never an unfiltered catalog leak).
+
+## #212 — Create project-scoped custom role (CreateRoleRequest.project_id)
+
+- **Gap**: public `Role.Create` could mint only **account-scoped** custom roles — `CreateRoleRequest`
+  had no `project_id` and the handler dropped it. So the RC-1 **project-anchor** path
+  (`project:<P>#viewer@<subject>`, AccessBinding.Create emitAnchorRule with anchorType=project)
+  was unreachable: `IsRoleAssignable` (STRICT) needs a project-scoped role to bind on a `project`.
+- **Fix** (kacho-proto PR#81 + kacho-iam PR#215):
+  - proto: `CreateRoleRequest.project_id = 6` (append-only); `account_id` loses `(required)`.
+  - handler `roleFromCreateReq`: maps account_id **XOR** project_id.
+  - use-case: scope XOR (both/neither → `INVALID_ARGUMENT`); per-scope id-format check;
+    FGA owner-tuple emitted **only** for account-scoped (no `iam_role.project` relation in FGA model).
+  - repo `Insert`: persists `project_id`; account_id/project_id via `NULLIF($,'')` → NULL (CHECK/UNIQUE/FK).
+- **Follow-up**: T-E4 (`iam-invite-grant-fga.py`, #211) goes GREEN → un-whitelist `bind-project-anchor`
+  in `scripts/assert-suites-green.sh`. project-scoped `iam_role` admin/editor authz-cascade needs an
+  `iam_role.project` relation in the deploy FGA model (not in scope of #212).
 
 ## Fix #193 — read-enforce relation `v_list` → `viewer` (owner sees own role)
 
