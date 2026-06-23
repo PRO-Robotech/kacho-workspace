@@ -29,7 +29,7 @@ tags:
 > [!note] Anchor
 > Design+acceptance: `docs/specs/rbac-explicit-model-2026-acceptance.md` (43 сценария, D-1..D-18, 12 под-фаз). Re-touch эпика #109 (RBAC-rules-model). KAC-номер не заводился (MCP youtrack недоступен) — док + этот trail = anchor.
 
-**Status**: 🔧 in-progress — **acceptance ✅ APPROVED (round-2, оба ревьюера, 2026-06-24)**. P1 (proto expand `6171077`) + P2 (FGA-модель v_* на account/project) merged; **P3 (authzmap verb-bearing account/project) — PR [kacho-iam#218](https://github.com/PRO-Robotech/kacho-iam/pull/218), expand**.
+**Status**: 🔧 in-progress — **acceptance ✅ APPROVED (round-2, 2026-06-24)**. Merged: P1 proto deletion_protection (`6171077`), P2 FGA v_* (proto `6171077` + deploy configmap #121), P3 authzmap verb-bearing (iam main `e4fa354f`, #218). **P4 (unified reconciler — ядро) — PR open** [kacho-iam#219](https://github.com/PRO-Robotech/kacho-iam/pull/219) (`rbac-p4-unified-reconciler`), ждёт db-architect + system-design ревью + integration-зелёный.
 **Type**: feature (foundational, cross-repo)
 
 ## Что и зачем
@@ -71,6 +71,17 @@ P1 proto (scope/deletion_protection, drop org) → P1b iam org-decommission → 
 - **Insulation (#177 guard)**: emitter `scope_grant_tuples.go` ветка scope_grant гейтится на `tierScopeTypes`, НЕ на verb-bearing флаге — иначе dangling-write `sg_account@account:…` (модель не имеет sg_account/sg_project carrier). Прямая per-object v_* материализация (B-01/B-02) отложена в P4; binding-time scope_grant путь удаляется в P4 (КФ-3). Виалидировано system-design-reviewer.
 - Файлы: `internal/authzmap/fga_types.go`, `internal/authzmap/fga_model_drift_test.go`, `internal/authzmap/verb_bearing_account_project_test.go` (new), `internal/apps/kacho/api/access_binding/scope_grant_tuples.go` (insulation), `internal/apps/kacho/api/permission_catalog/usecase_test.go`.
 - Каскад / viewer-tier-эмиссия / scope_grant — **НЕ тронуты** (P-contract / P4).
+
+## P4 trail (unified reconciler — ядро / КФ-3, D-4)
+- PR [kacho-iam#219](https://github.com/PRO-Robotech/kacho-iam/pull/219), ветка `rbac-p4-unified-reconciler`. **PR open** — ждёт db-architect + system-design ревью.
+- **Единый материализатор**: reconciler материализует прямые per-object FGA-tuple (`<type>:<id> # v_*/tier @ subj`) для ВСЕХ селекторов — ARM_ANCHOR(all)+ARM_NAMES+ARM_LABELS × scope-границу. `desiredMembers` диспетчеризует по арму (all→`MatchAllInScope`, names→`MatchByIDs`, labels→`MatchSelector`); containment re-verify по scope.
+- **scope_grant emit удалён ЦЕЛИКОМ** (D-4): `scope_grant_tuples.go` удалён; `buildBindingTuples` rules-ветка → только hierarchy parent-pointer (membership-write-authz, D-7). Obsolete scope_grant unit/FGA-тесты удалены, FGA-harness → `fga_test_helpers_test.go`. **FGA-модель-каскад НЕ тронут** (contract-фаза §9).
+- **forward-materialization** (C-01b): `role_rule_selectors` (mig **0034** += `arm`+`resource_names`, arm-aware shape CHECK) хранит ВСЕ армы → fast-path `SelectorBindingsMatchingObject` arm-aware (anchor→type, names→type+id, labels→type+labels) → ресурс, созданный ПОСЛЕ гранта, материализуется на mirror-change event.
+- **КФ-1**: `pg_advisory_xact_lock(hashtext(binding_id))` (xact-scoped) первым стейтментом reconcile-tx + SELECT FOR UPDATE + ledger PK backstop → exactly-once под N репликами (H-05).
+- **ВЗ-3 co-commit**: материализация + ledger + outbox + advisory-lock — одна reconcile writer-tx.
+- TDD: `reconcile_unified_p4_integration_test.go` (8 testcontainers: A-01/A-02/A-04/C-01b×2/E-03/H-05) RED→GREEN; unit anchor/names/labels+lock. Регрессия C-22..C-26/DB1/DB2 зелёные.
+- Файлы: `internal/domain/rule_fingerprint.go` (`MaterializingSelectors`/`RuleSelector`), `internal/apps/kacho/api/access_binding/reconcile/reconcile.go`, `internal/repo/kacho/pg/reconcile_adapter.go`, `internal/repo/kacho/pg/resource_mirror/reader.go`, `internal/repo/kacho/pg/role_repo.go` (`ReplaceRuleSelectors([]RuleSelector)`), `internal/repo/kacho/role/iface.go`, `internal/migrations/0034_role_rule_selectors_all_arms.sql`, `internal/apps/kacho/api/{role,access_binding}/*.go`.
+- **Отложено в follow-up**: A-05 GLOBAL+all sync INVALID_ARGUMENT (требует sync role-read в Create.Execute — отдельная request-path-поверхность).
 
 ## Связанные
 - [[sub-phase-T3.1-cross-service-label-revoke]] — materialization-движок (фундамент)
