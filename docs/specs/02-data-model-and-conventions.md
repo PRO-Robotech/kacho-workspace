@@ -260,11 +260,15 @@ service_accounts(id PK, account_id FK→accounts RESTRICT, name, ...,
 groups          (id PK, account_id FK→accounts RESTRICT, name, ...)
 group_members   (group_id FK→groups CASCADE, member_type, member_id)   -- ref-trigger
 roles           (id PK, account_id NULL FK→accounts RESTRICT, is_system, name,
-                 permissions JSONB CHECK iam_permissions_valid(), ...,
-                 partial UNIQUE (account_id, name) WHERE is_system=false)  -- 12 system seed
-access_bindings (id PK, subject_type, subject_id, role_id FK→roles RESTRICT,
-                 resource_type, resource_id,                -- resource_id: cross-DB, без FK
-                 UNIQUE (subject_type,subject_id,role_id,resource_type,resource_id))  -- идемпотентный Create
+                 rules JSONB, permissions JSONB CHECK iam_permissions_valid(), ...,
+                 partial UNIQUE (account_id, name) WHERE is_system=false)  -- 64 system seed
+access_bindings (id PK, role_id FK→roles RESTRICT, scope SMALLINT (CLUSTER|ACCOUNT|PROJECT),
+                 resource_type, resource_id, deletion_protection,  -- resource_id: cross-DB, без FK
+                 partial UNIQUE (subject_id,subject_type,role_id,resource_type,resource_id)
+                   WHERE revoked_at IS NULL)                -- strict-create: дубль → ALREADY_EXISTS
+access_binding_subjects        (binding_id FK→access_bindings CASCADE, subject_type, subject_id, ordinal)
+access_binding_emitted_tuples  (binding_id FK→access_bindings CASCADE, fga_user, relation, object,
+                 PK (binding_id,fga_user,relation,object))  -- ledger материализованных per-object tuple
 operations      (см. §8; + principal_*)
 iam_outbox
 ```

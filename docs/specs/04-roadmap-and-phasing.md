@@ -180,7 +180,7 @@ newman-e2e (один сценарий → один integration-тест + оди
 | Сервис | Состояние | Содержимое |
 |---|---|---|
 | `kacho-api-gateway` | работает | edge: gRPC-proxy + grpc-gateway REST; two-listener (external TLS + cluster-internal :9091); backend gRPC :9090 |
-| `kacho-iam` | в активной работе | Account, Project, User, ServiceAccount, Group, Role, AccessBinding; OIDC + REBAC-Check, JIT/break-glass/access-review/audit-pipeline (эпик AAA) |
+| `kacho-iam` | в активной работе | Account, Project, User, ServiceAccount, Group, Role, AccessBinding; OIDC + explicit-RBAC authz (per-object материализация, плоский FGA-индекс), cluster-admin, audit-pipeline (эпик AAA) |
 | `kacho-vpc` | работает | Network, Subnet, SecurityGroup, RouteTable, Address, Gateway, NetworkInterface; built-in IPAM; `AddressPool` admin-only (Internal*) |
 | `kacho-compute` | работает | Instance, Disk, Image, Snapshot, DiskType; reconciler с `pg_advisory_lock` (Geography вынесена в `kacho-geo`, эпик #82) |
 | `kacho-geo` | **в работе** (эпик #82) | Region, Zone (Geography — platform-топология, leaf-домен как iam); БД `kacho_geo`; public read + admin-CRUD через Internal* |
@@ -216,12 +216,19 @@ acceptance-доки `docs/specs/*-acceptance.md`.
 
 ### Фаза AAA — IAM, authn/authz, audit (в работе)
 
-- IAM-домен: subjects (User, ServiceAccount, Group), Role (system + custom),
-  AccessBinding; иерархия Account → Project.
+- IAM-домен: subjects (User, ServiceAccount, Group), Role (system + custom; единица
+  авторизации — `rules[]`), AccessBinding; иерархия владения Account → Project
+  (folder/organization в модели нет).
 - AuthN: OIDC-федерация (внешний IdP), коротко-живущие токены, principal-propagation
   из JWT в `operations`.
-- AuthZ: REBAC-Check на каждый мутирующий RPC (`InternalIAMService.Check`, peer-call
-  из vpc/compute); публичный `List` фильтруется listauthz (CI-гейт).
+- AuthZ: **explicit RBAC** — грант `(subjects, role, scope)` материализуется
+  reconciler'ом в явные **per-object** FGA-tuple внутри границы scope (GLOBAL /
+  ACCOUNT / PROJECT); OpenFGA — плоский индекс без hierarchy-каскада. Единственное
+  исключение из per-object — cluster super-admin (одно cluster-relation +
+  Check short-circuit). Per-RPC Check на каждом мутирующем RPC
+  (`InternalIAMService.Check`, peer-call из vpc/compute/geo); публичный `List`
+  фильтруется listauthz (CI-гейт). Подробности модели —
+  `kacho-iam/docs/architecture/explicit-rbac-model.md`.
 - Audit: structured audit-события на каждый мутирующий путь, audit-pipeline-сервис
   поверх транзакционного outbox.
 - Транспортная защита: mTLS внутри кластера, TLS на edge.
