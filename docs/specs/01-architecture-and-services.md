@@ -87,10 +87,14 @@ CRUD + read-API). Consumer'ы ссылаются по id (TEXT, без cross-ser
   FK ON DELETE RESTRICT). Имя глобально уникально.
 - **Project** — child Account-а, контейнер всех domain-ресурсов. Имя уникально
   per-Account. Имеет `Move` (atomic CAS UPDATE).
-- **Role** — system (12 seed'ятся миграцией с детерминированными id) + custom
-  (per-Account, partial UNIQUE).
-- **AccessBinding** — `(subject) ↔ role ↔ (resource)`; idempotent `Create`
-  (`ON CONFLICT DO UPDATE SET id=id`); runtime-Check — через `InternalIAMService.Check`.
+- **Role** — единица авторизации из `rules[]` (`{module, resources, verbs,
+  selector}`); system (64 seed'ятся миграциями с детерминированными id) + custom
+  (per-Account/Project, partial UNIQUE).
+- **AccessBinding** — грант `(subjects[]) ↔ role ↔ scope`, где scope ∈
+  {GLOBAL, ACCOUNT, PROJECT} — **граница материализации** (не корень
+  наследования). Strict-create (дубль активного гранта → `ALREADY_EXISTS`).
+  Доступ — явные per-object FGA-tuple (explicit RBAC, плоский индекс — без
+  hierarchy-каскада); runtime-Check — через `InternalIAMService.Check`.
 
 **Lifecycle:** нет (мгновенное применение внутри worker'а операции).
 **Cross-service:** входящее ребро `* → iam` (`ProjectService.Get` — existence +
