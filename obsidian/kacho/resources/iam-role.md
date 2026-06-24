@@ -82,6 +82,7 @@ KAC-105 (12 system-roles) + KAC-121/KAC-122 (YC-style catalog) + KAC-127 (refact
 
 - `roles/iam.{admin,editor,viewer}`, `roles/vpc.{admin,editor,viewer}`, `roles/compute.{admin,editor,viewer}`, `roles/loadbalancer.{admin,editor,viewer}` — legacy
 - KAC-121 семейство YC-style (`kacho-system.admin`, `viewer`, `editor`, ...)
+- **`owner`** (RBAC explicit-2026 P6 / migration 0035, net-new) — cluster-scoped system-role; id `rol72122ce96bfec66e2` (`rol||md5('owner')[:17]`); rules `[{module:*, resources:[*], verbs:[*]}]` (`*.*.*` selector all), permissions `["*.*.*.*"]` (4-segment grammar). Биндится авто на `Account.Create` @ ACCOUNT:<A> с `deletion_protection=true` (D-8) — см. [[resources/iam-access-binding]].
 
 ## Permission string
 

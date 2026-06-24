@@ -53,7 +53,15 @@ tags:
 | `granted_by_user_id` | TEXT | length <=64 (KAC-127) | audit — кто выдал |
 | `revoked_at` | TIMESTAMPTZ NULL | (KAC-127) | set когда status → REVOKED |
 | `revoked_by_user_id` | TEXT NULL | length <=64 (KAC-127) | audit — кто отозвал |
+| `deletion_protection` | BOOLEAN NOT NULL DEFAULT false | (RBAC explicit-2026 P6 / migration 0035) | guard от Delete; owner-auto-binding ставит `true` |
 | `created_at` | TIMESTAMPTZ | server-set | |
+
+## deletion_protection (RBAC explicit-model 2026 P6 — D-10)
+
+- Колонка `deletion_protection` (migration 0035) по образцу `vpc.address.deletion_protection`.
+- **Delete на protected** → sync `FAILED_PRECONDITION` `"access binding <id> has deletion_protection enabled; clear it via Update before Delete"` + атомарный CAS-backstop `DELETE … WHERE deletion_protection=false` (`abWriter.DeleteGuarded`) против TOCTOU (C-02/C-04). Не software check-then-act.
+- **Снятие** — `AccessBindingService/Update(update_mask=["deletion_protection"], deletion_protection=false)` (новый RPC, C-03) → repo `SetDeletionProtection` CAS → затем Delete проходит.
+- **owner-auto-binding** (D-8/C-01): `Account.Create` co-commit'ит owner AccessBinding (subject=creator, role=`owner`, scope=ACCOUNT, `deletion_protection=true`) в той же writer-tx; per-object доступ материализуется forward reconciler'ом (C-01b).
 
 ## State machine (KAC-127 Phase 1)
 
@@ -223,6 +231,20 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 (`GetWithVersion` на sync-пути → `UpdateCAS … WHERE xmin::text=$exp` в worker-tx).
 Конкурентный Role.Update: loser → `FAILED_PRECONDITION` «role was modified
 concurrently, retry», его FGA fan-out откатывается (одна writer-tx) → нет ledger↔FGA drift.
+
+## subjects[] wire-form gotcha (proto enum, не lowercase)
+
+`CreateAccessBindingRequest.subjects[].type` — **proto enum** `SubjectType`
+(`SUBJECT_TYPE_USER`/`_SERVICE_ACCOUNT`/`_GROUP`), в отличие от legacy single
+`subject_type` (tag 2) — plain **string**. REST-клиент (UI) обязан слать
+**enum-ИМЯ** (`"SUBJECT_TYPE_USER"`), не нижне-регистровую строку `"user"`.
+grpc-gateway/protojson c `DiscardUnknown:true` **тихо** схлопывает неизвестную
+enum-строку в `SUBJECT_TYPE_UNSPECIFIED` (НЕ 400 на парсинге) → `subjects[0].type`
+пустой → backend `Subject.Validate()` → `Illegal argument subject_type ""`.
+Backend/use-case (`NormalizeSubjects`) корректен — это был **UI wire-form баг**
+(kacho-ui#113, fe3455 grant-форма). Read-проекция (legacy single `subjectType` =
+первый subject) отдаётся нижним регистром; в `subjects[].type` на read приходит
+enum-имя — клиент нормализует.
 
 ## See also
 
