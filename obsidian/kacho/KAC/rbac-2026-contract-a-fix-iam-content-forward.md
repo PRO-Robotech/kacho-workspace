@@ -105,3 +105,45 @@ newman with `REF_IAM=rbac-contract-a-fix`.
 - [x] iam PR #228 + deploy PR #122 REF_IAM pin
 - [ ] umbrella newman green (owner re-checks) → merge iam#228 then deploy#122
 - [ ] revert REF_IAM to main after iam#228 merges
+
+## Fallout closure — sync per-object materialization (GET-after-create race), PR #230 / branch `rbac-contract-a-flat-fallout`
+
+После #228/#122 (forward-mat аддитивен, не баг) на flat-модели остались красны
+`iam-access-binding` / `iam-rbac-subjects` e2e: `get-confirms → expected 403 to deeply equal 200`
+СРАЗУ после Create. Диагноз (артефакт `nm230`): не over-revoke и не containment-баг —
+**гонка тайминга**. Каждый iam-native Create со-коммитил только АСИНХРОННЫЙ reconcile-event
+(`EmitReconcileEvent`), дренаж воркером ~2с; клиент поллит Operation.Get до done и тут же GET'ит
+объект → опережает дренаж → 403. `iam.role`/`iam.group` get-after-create случайно 200 (быстрее/
+порядок дренажа), `iam.accessBinding` стабильно 403 — но механизм у всех ОДИНАКОВ (async-only).
+
+**Containment не баг** (подтверждено integration-тестом + статикой): `reconcile_adapter.go`
+`parentAccountExpr` (CASE по scope для iam.accessBinding; `o.account_id` для group/sa/user;
+COALESCE через projects для role), `IsContainedIn(account)` и `IAMDirectSelectorBindingsMatchingObject`
+(arm='anchor') корректно находят НЕ-owner account-admin-binding и пропускают containment. Фикс
+containment НЕ требовался.
+
+**Фикс**: каждый iam-native Create теперь СИНХРОННО зовёт `ReconcileObject(<type>, newID)`
+post-commit (best-effort/non-fatal; durable объект + co-committed event + sweep = at-least-once
+backstop). Единый путь материализации, тот же `rsabReconciler`:
+- `group`/`role`/`service_account`/`user(invite)`: новый порт `ObjectReconciler` + `WithObjectReconciler`
+  + helper `reconcileObject` (post-commit, nil-safe, log-on-error).
+- `access_binding`: порт `SelectorReconciler` расширен `ReconcileObject`; `doCreate` добавляет
+  object-reconcile рядом с существующим `ReconcileBinding` (binding сам по себе — объект iam.accessBinding).
+- wiring: `rsabReconciler` инжектится во все (он уже реализует `ReconcileObject`).
+
+**Тесты (TDD RED→GREEN, ban #12)**:
+- unit (RED первым, compile-fail на отсутствующем `WithObjectReconciler`):
+  `internal/apps/kacho/api/group/create_reconcile_test.go` — white-box: group Create обязан
+  синхронно `ReconcileObject("iam.group", id)` post-commit.
+- integration (testcontainers): `internal/repo/kacho/pg/reconcile_admin_iam_content_integration_test.go`
+  — (a) account-admin (НЕ owner) с admin-rules-role над iam.accessBinding+iam.group форвард-материализует
+  admin на созданных в аккаунте binding/group (containment-доказательство НЕ-owner-grantee);
+  (b) async-drain путь через worker-очередь (ClaimReconcileEvents → ReconcileObject → MarkReconcileEventSent)
+  сходится к тому же per-object tuple.
+
+**TEMP-PIN**: `newman-e2e.yml` kacho-deploy → `rbac-contract-a-fga-flat` (flat-configmap + iam forward-mat
+= правильное комбо); revert to main после kacho-deploy#122. PR #230 = #229 + forward-mat (#228) +
+эта sync-fallout-закрывашка. НЕ мержить #230 без coordinated kacho-deploy#122 (flat-configmap):
+cascade-configmap на main должен уйти в тот же момент.
+
+PR: https://github.com/PRO-Robotech/kacho-iam/pull/230 (branch `rbac-contract-a-flat-fallout`, commit `e66f9a2`)

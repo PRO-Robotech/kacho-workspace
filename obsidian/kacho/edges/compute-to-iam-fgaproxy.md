@@ -54,7 +54,13 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
   `compute_fga_register_outbox` (миграция `0010`) В ТОЙ ЖЕ tx, что Insert/Delete ресурса
   (Instance/Disk/Image/Snapshot + inline boot/secondary disks). `event_type ∈
   {fga.register, fga.unregister}`; payload — set из `fgaintent.Tuple`
-  (`project:<projectId> #project @compute_<kind>:<id>`). Tx abort → intent откатывается (no orphan).
+  (`project:<projectId> #project @compute_<kind>:<id>`) + (RSAB β) `labels` + `parent_project_id`
+  для наполнения IAM `resource_mirror`. Tx abort → intent откатывается (no orphan).
+- **Update-on-labels trigger (RSAB β / T3.1 #113)**: register-intent эмитится и на `Update`,
+  когда `labels` в update-mask (gated `emitLabelsRegister`, full-PATCH ⇒ true), чтобы mirror не
+  протух и ARM_LABELS-грант ревокался. Instance — с β; **Disk/Image/Snapshot — с T3.1**
+  (`{disk,image,snapshot}_repo.go::Update(…, emitLabelsRegister)`). Полное снятие меток → upsert
+  `labels={}` (НЕ Unregister — ресурс жив, G-3). Эмит в той же writer-tx, что UPDATE.
 - **Drainer**: corelib `outbox/drainer` (`cmd/compute/main.go::startRegisterDrainer`,
   default-on `KACHO_COMPUTE_FGA_REGISTER_DRAINER_ENABLED`), channel/table
   `compute_fga_register_outbox`. Applier — `internal/clients/iam_register_applier.go`
@@ -70,6 +76,10 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
 
 - **SEC-D** ([[../KAC/SEC-D-services-fga-via-iam-mtls]]): caller-сторона реализована — прямой FGA
   удалён, transactional-outbox + register-drainer + opt-in mTLS. Закрыт dual-write баг N5.
+- **T3.1 / #113** ([[../KAC/sub-phase-T3.1-cross-service-label-revoke]], PR kacho-compute#62):
+  Update-on-labels emit достроен на Disk/Image/Snapshot (раньше — только Instance) → ARM_LABELS
+  revoke на снятие/смену метки. G-3 upsert-not-unregister. Create-эмит compute уже нёс labels
+  (bare-create-бага, как у vpc.SG/nlb.listener, у compute нет). by-design compute §9.1.
 
 ## See also
 

@@ -165,8 +165,35 @@ computed-only-tier типов) — отдельным PR.
 - [x] #232 финал: flat-newman poll-for-propagation стабилизация (commit `d2a7fb6d`) — read-after-write
       кейсы (iam-access-binding 9 reads + authz-deny teardown) конвертированы в poll; generic
       `poll_request_until_status` helper в gen.py; прод НЕ тронут, без skip/TODO
-- [ ] flat-umbrella 2× стабильно зелёный (re-run gate): iam-access-binding + authz-deny + cascades
-      (iam-account/iam-user) → forward-mat-класс 0; остаток только whitelist + cross-repo
+- [x] flat-umbrella 2× стабильно зелёный (re-run gate): run 28121789889 attempt 1 + attempt 2 — оба
+      success, ВСЕ сьюты 0 failed; iam-account + iam-access-binding GREEN; forward-mat-класс = 0
 - [ ] coordinated merge с kacho-deploy#122 (revert flat-pin → main после deploy#122) — #230 готов;
       после меня — system-design-review sync-live-write
 - [ ] follow-up issue: reconciler не должен эмитить computed-only tier-tuple на iam_role (cosmetic, non-load-bearing)
+
+## flat-newman last-red — root cause (rpc-implementer, 2026-06-24)
+
+Последний красный сьют — **iam-account / IAM-ACC-DL-CRUD-OK / get-after-delete** (GET 200 past cap).
+Расследование (repo-level + use-case-level testcontainers интеграционные тесты — оба GREEN, account удаляется
+чисто): **это НЕ прод-баг и НЕ delete-timing**, а **newman harness flow-bug**.
+
+Корень: `gen.py` именовал каждый request коллекции голым `step.name`, поэтому reusable-helper-шаги
+(`poll-op`/`get-after-delete`/`create`/`delete`) были **неуникальны между кейсами**. Newman резолвит
+`setNextRequest(<name>)` в ПЕРВЫЙ одноимённый item во ВСЕЙ коллекции → self-poll-loop прыгал в `poll-op`
+предыдущего кейса, runner шёл вперёд и **ПРОПУСКАЛ** шаги текущего кейса (DL-CRUD-OK `delete` не выполнялся
+→ account не удалялся → get-after-delete вечный 200). Тот же класс уже фикшен case-local в authz-deny.py;
+здесь — collection-wide root-cause fix.
+
+Фиксы (test-only, прод НЕ тронут, без skip/TODO; ветка `rbac-contract-a-flat-fallout`):
+- `91b02c27` — `case_to_postman` префиксует имена шагов `case.id` (+`#N` для повторов) → глобально уникальны;
+  intra-case литеральные `setNextRequest('<sib>')` переписаны на префиксные. 0 дублей во всех 22 коллекциях.
+- `1dde99de` — POLL_CAP 30→50: фикс flow un-mask'нул IAM-ACB-CR-CRUD-OK/get-confirms — Contract-A flat
+  owner-access на свежий iam_access_binding OBJECT сходится ~4s (за старым ~3.7s cap); конвергентно
+  доказано (200 после серии 403). Timing, не дыра.
+- `91bcd22a` — 4 owner-read-fresh-binding шага (F51 get-f51-no-target, F53 get-f53-reflects-role,
+  DP get-shows-protected/get-shows-cleared) конвертированы в `poll_request_until_status(retry_on=(403,))`.
+
+**Находка-параллель:** Account.Delete оставляет dangling P6 owner-binding (orphaned owner FGA tuple →
+standing admin) — РЕАЛЬНЫЙ, но ОТДЕЛЬНЫЙ correctness-gap (account удаляем; НЕ причина flat-red).
+GitHub issue [PRO-Robotech/kacho-iam#234](https://github.com/PRO-Robotech/kacho-iam/issues/234)
+(bug/tech-debt, отдельный PR + TDD).
