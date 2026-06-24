@@ -71,11 +71,30 @@ access_binding / cross-service network; self-tuple emit.
 [[iam-user]] · [[iam-access-binding]] · [[iam-account]] · [[rbac-2026-contract-a-fix-iam-content-forward]] · [[rbac-2026-224-owner-wildcard-content]]
 edge: [[api-gateway-to-iam-authorize]] (signup провижн → bootstrap)
 
+## flat-newman результат (CI run 28101726088, commit 685b1ad)
+
+**Крупный сдвиг от baseline.** Полностью ЗЕЛЁНЫМИ стали (были red в диагнозе): **iam-group,
+iam-role, iam-service-account, iam-account, iam-authz-grant-check-propagation**.
+iam-access-binding: **73 → 24** fail.
+
+**Остаток red — ОДИН pre-existing forward-mat gap (drain-vs-done race), НЕ bootstrap-fallout:**
+iam-project (5), iam-access-binding (24), iam-rbac-subjects (33: add-member 403 + 32 derived poll),
+label-revoke-vpc (3), authz-deny (1). Механизм: per-object `Check(viewer, project|iam_access_binding:<id>)`
+на api-gateway гоняется СРАЗУ после `Operation.done`, но owner-content tuple материализуется
+forward в `fga_outbox` и применяется в OpenFGA **асинхронно** drainer'ом (LISTEN/NOTIFY) — done
+выставляется до drain → single-shot get-confirms проигрывает гонку → 403. role/group/sa GREEN т.к.
+их Get резолвится через account-tier `viewer` (каскад от tier), не через свежедренутый per-object tuple.
+Это property #228 forward-mat-дизайна (reconciler→outbox→async-drain), всплывшее под flat (per-object
+Check стал authoritative). Зафиксировано отдельным issue: **kacho-iam#232** (нужен system-design-reviewer
+для drain-vs-done контракта; fix — sync live `RelationStore.WriteTuples` по ledger перед Operation done,
+как invite.go; outbox остаётся durable backstop).
+
 ## DoD
 
 - [x] owner-binding + ReconcileBinding в bootstrap (оба composition root)
 - [x] self-tuple emit (get-self)
-- [x] integration RED→GREEN + регрессия
-- [x] go build / vet / gofmt / golangci-lint (CI) / govulncheck (CI) зелёные
-- [ ] flat-newman forward-mat-класс зелёный (CI #230 in-flight)
-- [ ] coordinated merge с kacho-deploy#122 (revert flat-pin → main после deploy#122)
+- [x] integration RED→GREEN + регрессия (CI: integration testcontainers SUCCESS)
+- [x] go build / vet / gofmt / golangci-lint / govulncheck / gosec / Trivy (CI) зелёные
+- [x] flat-newman: bootstrap-ROOT класс закрыт (5 сьютов fully green); остаток = drain-race (#232, отдельный gap)
+- [ ] coordinated merge с kacho-deploy#122 (revert flat-pin → main после deploy#122) — #230 готов
+- [ ] kacho-iam#232 (drain-vs-done race) — отдельный PR + system-design-reviewer
