@@ -304,12 +304,20 @@ log "4b/10 cleaning up stale NOB viewer bindings on account-A / account-B (KAC-1
 
 delete_binding_if_exists() {
   local subject_id="$1" resource_type="$2" resource_id="$3" grantor_token="$4"
-  # Use ListByResource to find bindings for this resource, then filter by subject.
-  # (AccessBindingService has no flat GET /accessBindings — only ListByResource
-  #  and ListBySubject actions. ListByResource returns all bindings for the
+  # Use ListByScope to find bindings for this resource, then filter by subject.
+  # (AccessBindingService has no flat GET /accessBindings — only :listByScope
+  #  and :listBySubject actions. :listByScope returns all bindings for the
   #  account; we filter client-side by subjectId.)
+  #
+  # #232 fix: this previously called the REMOVED `:listByResource` route (renamed
+  # to `:listByScope` in the RBAC rules-model 2026 sub-phase F clean-cut). A request
+  # to the dead route 403/404s → the discovery silently returned zero bindings → the
+  # stale NOB account-scoped viewer binding on account-A was NEVER revoked → it made
+  # NOB a "member" of account-A (ListAccountsForUser counts active account-scoped
+  # bindings), so iam-user `list-nonmember` over-showed 1 user. Pointing the discovery
+  # at the live `:listByScope` route restores the KAC-132 cleanup.
   local resp ab_ids
-  resp=$(api GET "/iam/v1/accessBindings:listByResource?resourceType=${resource_type}&resourceId=${resource_id}" "$grantor_token" 2>/dev/null || true)
+  resp=$(api GET "/iam/v1/accessBindings:listByScope?resourceType=${resource_type}&resourceId=${resource_id}" "$grantor_token" 2>/dev/null || true)
   ab_ids=$(echo "$resp" | python3 -c "
 import sys, json
 try:
@@ -429,9 +437,13 @@ log "5b/10 awaiting product bootstrap reconciler (system_admin@cluster via fga_o
 if [ -n "$JWT_BOOTSTRAP" ] && [ -n "$ACCOUNT_A" ]; then
   boot_ok=""
   for i in $(seq 1 40); do
-    # listByResource(cluster) by the bootstrap admin returns 200 once the
+    # listByScope(cluster) by the bootstrap admin returns 200 once the
     # reconciler's system_admin@cluster tuple has propagated to OpenFGA.
-    code=$(api_status GET "/iam/v1/accessBindings:listByResource?resourceType=cluster&resourceId=cluster_kacho_root" "$JWT_BOOTSTRAP" 2>/dev/null || echo 000)
+    # #232 fix: was the REMOVED `:listByResource` route (renamed to `:listByScope`
+    # in the RBAC rules-model 2026 sub-phase F clean-cut) → the probe got 403/404
+    # forever, boot_ok never set, cluster cases raced the reconciler. Use the live
+    # `:listByScope` route.
+    code=$(api_status GET "/iam/v1/accessBindings:listByScope?resourceType=cluster&resourceId=cluster_kacho_root" "$JWT_BOOTSTRAP" 2>/dev/null || echo 000)
     if [ "$code" = "200" ]; then boot_ok=1; log "    bootstrap cluster-admin ready (${i}x2s, code=200)"; break; fi
     sleep 2
   done
