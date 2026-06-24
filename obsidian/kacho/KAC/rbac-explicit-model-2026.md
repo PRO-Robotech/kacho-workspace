@@ -29,7 +29,7 @@ tags:
 > [!note] Anchor
 > Design+acceptance: `docs/specs/rbac-explicit-model-2026-acceptance.md` (43 сценария, D-1..D-18, 12 под-фаз). Re-touch эпика #109 (RBAC-rules-model). KAC-номер не заводился (MCP youtrack недоступен) — док + этот trail = anchor.
 
-**Status**: 🔧 in-progress — **acceptance ✅ APPROVED (round-2, 2026-06-24)**. Merged: P1 proto deletion_protection (`6171077`), P2 FGA v_* (proto `6171077` + deploy configmap #121), P3 authzmap verb-bearing (iam main `e4fa354f`, #218). **P4 (unified reconciler — ядро) — PR open** [kacho-iam#219](https://github.com/PRO-Robotech/kacho-iam/pull/219) (`rbac-p4-unified-reconciler`), ждёт db-architect + system-design ревью + integration-зелёный.
+**Status**: 🔧 in-progress — **acceptance ✅ APPROVED (round-2, 2026-06-24)**. Merged: P1 proto deletion_protection (`6171077`), P2 FGA v_* (proto `6171077` + deploy #121), P3 authzmap verb-bearing (`e4fa354f`, #218), **P4 unified reconciler — ядро (`0ab8d20f`, #219)**: единый материализатор all/names/labels + выпил scope_grant-emit + scope-self tier + lock-ordering + grant-propagation; 4 ревью ✅, integration+newman зелёные (newman поймал реальный no-access-loss gap — scope-self tier на якоре). **P5 (Check flat + cluster-admin short-circuit + A-05 GLOBAL+all guard) — PR open, ждёт system-design + go-style ревью**.
 **Type**: feature (foundational, cross-repo)
 
 ## Что и зачем
@@ -81,7 +81,19 @@ P1 proto (scope/deletion_protection, drop org) → P1b iam org-decommission → 
 - **ВЗ-3 co-commit**: материализация + ledger + outbox + advisory-lock — одна reconcile writer-tx.
 - TDD: `reconcile_unified_p4_integration_test.go` (8 testcontainers: A-01/A-02/A-04/C-01b×2/E-03/H-05) RED→GREEN; unit anchor/names/labels+lock. Регрессия C-22..C-26/DB1/DB2 зелёные.
 - Файлы: `internal/domain/rule_fingerprint.go` (`MaterializingSelectors`/`RuleSelector`), `internal/apps/kacho/api/access_binding/reconcile/reconcile.go`, `internal/repo/kacho/pg/reconcile_adapter.go`, `internal/repo/kacho/pg/resource_mirror/reader.go`, `internal/repo/kacho/pg/role_repo.go` (`ReplaceRuleSelectors([]RuleSelector)`), `internal/repo/kacho/role/iface.go`, `internal/migrations/0034_role_rule_selectors_all_arms.sql`, `internal/apps/kacho/api/{role,access_binding}/*.go`.
-- **Отложено в follow-up**: A-05 GLOBAL+all sync INVALID_ARGUMENT (требует sync role-read в Create.Execute — отдельная request-path-поверхность).
+- **Отложено в follow-up**: A-05 GLOBAL+all sync INVALID_ARGUMENT (требует sync role-read в Create.Execute — отдельная request-path-поверхность). → **закрыто в P5**.
+
+## P5 trail (Check flat + cluster-admin short-circuit + A-05 — D-9/D-06/D-07/КФ-2)
+- Ветка `rbac-p5-check-shortcircuit` от `0ab8d20f`. PR open — ждёт system-design + go-style.
+- **Плоский super-gate `authzguard.IsClusterAdmin`/`SubjectIsClusterAdmin`** (`internal/authzguard/cluster_admin_shortcircuit.go`): одна relation-Check `cluster:cluster_kacho_root#system_admin@subj` (НЕ `<rel> from cluster`-каскад). fail-closed (nil checker/anon/empty/Check-err → false). ctx-вариант (write-authz) + subject-string-вариант (Check).
+- **Check + write-authz применение (КФ-2)**:
+  - `authorize_service.Check` + `CheckRelation` → short-circuit ALLOW до per-object резолва (D-02); `AuthorizeServiceConfig.ClusterAdminChecker` (nil-safe, additive); wired `relationStore` в `cmd/kacho-iam/wiring.go`.
+  - `requireGrantAuthority` (Path 0) + `fgaHoldsAdmin` (`helpers.go`) → cluster-admin проходит на чужой account (D-06) и над `iam_access_binding`-объектами (D-07). Additive РЯДОМ с owner/FGA-admin путями (каскад не тронут — expand §9).
+- **A-05/A-05b/A-05c sync-валидация** (`CreateAccessBindingUseCase.validateGlobalAllSelector`, `create.go` request-path до Operation): GLOBAL(=cluster scope) + ARM_ANCHOR(selector all) + роль НЕ `*.*.*` → sync `INVALID_ARGUMENT` «GLOBAL scope requires names or labels selector for non-cluster-admin roles». GLOBAL+names/labels (A-05b) OK; GLOBAL+all для `*.*.*` cluster-admin роли (A-05c) OK. Domain-предикаты `Rules.HasAnchorRule()` + `Role.IsClusterAdminRole()` (`internal/domain/role_cluster_admin.go`, system-gated). NB: в proto/domain **нет GLOBAL-tier** — GLOBAL == cluster scope (`resource_type=="cluster"`, `cluster_kacho_root`).
+- **Guard-test dead cluster scope-self** (scope item 5): `scopeSelfTuples` cluster-ветка была недостижима (gated на `iam.cluster` ∉ objectTypes) → ветка удалена с явным комментарием «cluster обслуживается D-9», добавлен guard-тест `scope_self_cluster_guard_test.go` (cluster scope-self не эмитит per-object — страхует Q-2/D-9 от регрессии при будущем `iam.cluster`).
+- **Expand-дисциплина**: FGA-модель-каскад НЕ тронут (contract §9); short-circuit additive.
+- TDD RED→GREEN: unit `role_cluster_admin_test.go`, `cluster_admin_shortcircuit_test.go` (authzguard + access_binding), `authorize_shortcircuit_test.go` (service), `create_global_all_validation_test.go` (A-05/A-05b/A-05c), guard-test reconcile. newman A-05 negative `IAM-ACB-CR-GLOBAL-ALL-NONADMIN-REJECT` (cluster GLOBAL+all с ROLE_VIEW `*.*.{get,list,read}` → 400); A-05c happy = существующий `IAM-ACB-CR-CLUSTER-OK` (ROLE_ADMIN `*.*.*`). build/vet/gofmt + `-race` зелёные; access_binding+cluster integration (testcontainers) зелёные.
+- Файлы: `internal/domain/role_cluster_admin.go`(+test), `internal/authzguard/cluster_admin_shortcircuit.go`(+test), `internal/service/authorize_service.go`(+test), `internal/apps/kacho/api/access_binding/{helpers,create}.go`(+tests), `internal/apps/kacho/api/access_binding/reconcile/tuples.go`(+guard-test), `cmd/kacho-iam/wiring.go`, `tests/newman/cases/iam-access-binding.py`.
 
 ## Связанные
 - [[sub-phase-T3.1-cross-service-label-revoke]] — materialization-движок (фундамент)
