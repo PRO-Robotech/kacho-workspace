@@ -60,10 +60,17 @@ P1 proto (scope/deletion_protection, drop org) → P1b iam org-decommission → 
 
 ## DoD (верхнеуровневый)
 - [x] acceptance APPROVED (round-2 gate, оба ревьюера)
-- [ ] P1..P12 под-фазы (каждая — свой acceptance + TDD + ревью + merge по build-графу)
-- [ ] migration backfill 63 ролей + bindings + owner на существующие аккаунты (no-access-loss verify)
-- [ ] deploy fe3455 + live-верификация (account/project в селекторе без контента; owner; cluster-admin; org отсутствует)
-- [ ] vault trail per-под-фаза + закрытие
+- [x] P1..P10 + Contract-A/B под-фазы merged (P11 ui PR open, P12 docs PR open)
+- [x] migration backfill ролей + bindings + owner на существующие аккаунты (no-access-loss verify) — **live fe3455: backfill 90 bindings, verify-gate 100% no_access_loss, forward-smoke passed**
+- [x] deploy fe3455 + live-верификация — **rev 45, iam main-cf76ad4b, OpenFGA flat (0 cascade, 0 organization), verify-gate 100% no-access-loss; umbrella 22/22 поведенчески**
+- [ ] vault trail per-под-фаза + закрытие (P11 ui + P12 docs merge → close)
+
+## P10 trail (deploy fe3455 + live cutover — §9 contract live)
+- **Live cutover fe3455** (helm upgrade rev 45, 2026-06-25): `kacho-iam:main-cf76ad4b` (Contract-A flat + Contract-B org-removed) + flat OpenFGA-configmap. Команда: `helm upgrade --install kacho-umbrella ./helm/umbrella -n kacho -f values.dev.yaml -f values.fe3455.yaml --wait`. Механизм fe3455: ручной helm (нет GitOps); OpenFGA-модель через `openfga-bootstrap` post-upgrade hook.
+- **Ordering materialize-then-swap**: `--wait` → new iam pod Ready + backfill на старой каскадной модели (доступ цел) → post-upgrade hook пишет flat-модель (доступ через свежематериализованные tuple). Owner выбрал single-step (краткое eventual-consistency окно приемлемо на dev-стенде).
+- **Live-верификация**: OpenFGA-модель flat (non-comment 0 `from account/project/cluster/organization`, `type organization` не объявлен, 29 типов); iam-логи `backfill: reconcile-sweep complete bindings_reconciled=90` → `verify-gate: 100% no-access-loss — contract phase permitted (failures=0)` → `forward-smoke passed`. Все поды healthy на cf76ad4b.
+- Source-of-truth: `values.fe3455.yaml` iam tag → main-cf76ad4b (deploy#125).
+- **Достигнуто**: implicit over-grant (исходная жалоба, live-находки на fe3455) устранён на проде; explicit per-object flat активен.
 
 ## P3 trail (authzmap verb-bearing account/project — expand)
 - PR [kacho-iam#218](https://github.com/PRO-Robotech/kacho-iam/pull/218), ветка `rbac-p3-authzmap-verb-bearing`.
