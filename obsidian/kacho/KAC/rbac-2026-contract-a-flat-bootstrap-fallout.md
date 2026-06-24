@@ -89,12 +89,84 @@ Check стал authoritative). Зафиксировано отдельным iss
 для drain-vs-done контракта; fix — sync live `RelationStore.WriteTuples` по ledger перед Operation done,
 как invite.go; outbox остаётся durable backstop).
 
+## #232 хвост — НЕ просто drain-race: batch-limit + computed-only-tier (sync-FGA отказывал)
+
+После sync-FGA материализации (d2b715a6) остался ТОЛЬКО `iam-access-binding` get-confirms 403
+(+ derived `authz-deny delete-ab-teardown`). Диагноз уточнён за пределы «drain-vs-done»:
+sync-FGA-запись (`reconcile.applyAfterCommit` → `RelationStore.WriteTuples`) слала ВЕСЬ собранный
+tuple-set ОДНОГО `ReconcileObject` прохода в ОДИН OpenFGA `/write`. Для `ReconcileObject("iam.accessBinding", id)`
+fan-out идёт по ДВУМ bounded `*.*` ARM_ANCHOR биндингам на populated-аккаунте (owner-binding +
+свежевыданный peer `*.*` view-binding), каждый материализует per-object tuples по всему контенту →
+батч (a) **превышает дефолтный OpenFGA `maxTuplesPerWrite=100`** И (b) несёт tuple, который OpenFGA
+**отвергает для sibling-объекта с computed-only tier** (`iam_role#viewer` не принимает direct user —
+модель `viewer: editor`/`editor: admin`). OpenFGA реджектит ВЕСЬ батч 400 → НИ ОДИН tuple не лёг,
+включая валидный owner `iam_access_binding#viewer/admin`. `applyAfterCommit` best-effort (логирует,
+не возвращает) → немедленный GET опережает async-дренаж (который пишет ПО-СТРОЧНО, лимит не бьёт) → 403.
+account/group/role get-after-create зелены: их fan-out < 100 и без computed-only sibling.
+
+**Фикс (kacho-iam#230, commit `281d924f`) — 2 слоя:**
+- `OpenFGAHTTPClient.WriteTuples/DeleteTuples` чанкуют по ≤100 (`maxTuplesPerWriteRequest`) — большой
+  fan-out применяется несколькими запросами, не реджектится целиком. Async-дренаж пишет по-строчно → не затронут.
+- `syncFGAWriter.WriteTuples` (create-path read-after-write closer) на ошибке батча ретраит ПО-ТУПЛУ —
+  один невалидный/over-limit tuple дропает только себя (паритет с per-tuple изоляцией дренажа). Валидные
+  owner `iam_access_binding` viewer/admin/v_* ложатся синхронно до Operation.done; durable fga_outbox +
+  дренаж — at-least-once backstop.
+
+**TDD RED→GREEN:** `internal/clients/openfga_write_chunk_test.go` (httptest эмулирует per-request лимит:
+un-chunked >100 реджект RED → chunked GREEN) + `syncfga_read_after_write_e2e_integration_test.go`
+`TestSyncFGA_ReadAfterWrite_PopulatedAccount_OwnerViewerCheckImmediately` (real OpenFGA+PG, дренаж НЕ
+запущен, populated-аккаунт >100 fan-out; RED со стэшнутыми прод-фиксами 403 → GREEN). chunk-тест прогнан -race.
+
+**Сопутствующая находка (НЕ в scope, follow-up issue):** reconciler эмитит computed-only tier-tuple
+`iam_role#viewer`/`editor`, который модель отвергает; доступ к iam_role фактически несут direct `v_*`
+(iam_role verb-bearing), так что отклонённый tier-tuple НЕ load-bearing — после per-tuple-изоляции
+безвреден (дренаж пойзонит одну строку). Стоит чистки в reconcile.ruleObjectTuples (не эмитить tier для
+computed-only-tier типов) — отдельным PR.
+
+## #232 финал — flat-newman poll-for-propagation стабилизация (commit `d2a7fb6d`)
+
+После sync-FGA фикса (`281d924f`) продукт-корректность доказана ДЕТЕРМИНИРОВАННО integration-тестами,
+но flat-umbrella newman **МЕРЦАЛ** между прогонами (4f8c24bb: authz-deny+iam-access-binding;
+281d924f: +iam-account+iam-user). Диагноз: **eventual-consistency на grant→access под CI-нагрузкой** —
+доступ материализуется синхронно (sync-FGA-write до Operation.done), но ВИДИМОСТЬ на api-gateway authz-gate
+(`<caller> editor|viewer on iam_access_binding:<id>` через account-anchor parent-tuple) пропагируется на удар
+позже op-done → «create → СРАЗУ GET/DELETE, ждёт 200» интермиттентно 403. Это TIMING, не дыра.
+
+**Решение (e2e-poll, прод НЕ тронут):** конвертация read-after-write кейсов в poll-for-propagation.
+- `gen.py`: новый `poll_request_until_status` — зеркало `get_until_gone`. Ретраит ТОТ ЖЕ запрос (bounded
+  POLL_CAP, изолированный per-step счётчик) пока код в propagation-window-сете (здесь 403-only), реальные
+  asserts на терминальном/converged ответе. Опц. `retry_predicate` для LIST read-after-write (200, но свежей
+  строки ещё нет в наборе). Легитимно ТОЛЬКО т.к. доступ доказанно появляется — не-converging deny падает на cap.
+- `iam-access-binding` (9 forward-mat reads на свежем crudAcbId/flowAcbId): get-confirms / verify-original-survives /
+  get-ok (GET 200); list-by-resource / list-by-subject-self / list-by-account-owner (LIST содержит crudAcbId);
+  delete / delete-as-owner / revoke-delete (DELETE 200). 403-only retry (строка существует; 404 — реальная аномалия).
+  Negative / no-leak / must-DENY кейсы — single-shot (не маскируем).
+- `authz-deny` AUTHZ-AB-CR ALLOW teardown: НЕ продукт-баг, а control-flow баг харнеса. Шейренные имена шагов
+  (poll-op-create / poll-op-delete) + env vars across 3 ALLOW-кейсов → `setNextRequest(requestName)` бледил
+  control flow (self-re-poll прыгал в СЛЕДУЮЩИЙ кейс, СКИПАЯ его create POST → poll чужого op как др. principal →
+  404 anti-leak → teardown id не резолвился → DELETE с литералом `{{...}}` → 400). Фикс: per-case-уникальные имена
+  шагов + env vars, reset teardown-vars на create, retry op-poll на 404-visibility-window, fallback на well-formed
+  garbage acb (чистый 404/403) при нерезолве — никогда литерал-темплейт.
+
+**iam-user `list-nonmember` (saw 1, want 0)** и **iam-account `get-after-delete` (200 past cap)** — downstream:
+первый = no-leak, корень = IAM-ACB delete flake (теперь poll-стабилен → tuple снимается → leak уходит);
+второй = delete-side propagation (уже polls через get_until_gone). Оба НЕ конвертированы в forward-poll
+(не маскировка negative/delete-side); наблюдаем после re-run.
+
 ## DoD
 
 - [x] owner-binding + ReconcileBinding в bootstrap (оба composition root)
 - [x] self-tuple emit (get-self)
 - [x] integration RED→GREEN + регрессия (CI: integration testcontainers SUCCESS)
 - [x] go build / vet / gofmt / golangci-lint / govulncheck / gosec / Trivy (CI) зелёные
-- [x] flat-newman: bootstrap-ROOT класс закрыт (5 сьютов fully green); остаток = drain-race (#232, отдельный gap)
-- [ ] coordinated merge с kacho-deploy#122 (revert flat-pin → main после deploy#122) — #230 готов
-- [ ] kacho-iam#232 (drain-vs-done race) — отдельный PR + system-design-reviewer
+- [x] flat-newman: bootstrap-ROOT класс закрыт (5 сьютов fully green)
+- [x] #232 хвост: root cause = batch-limit + computed-only-tier sync-FGA reject (НЕ просто drain-race);
+      fix chunk + per-tuple-resilient sync-FGA write (commit `281d924f`); TDD RED→GREEN
+- [x] #232 финал: flat-newman poll-for-propagation стабилизация (commit `d2a7fb6d`) — read-after-write
+      кейсы (iam-access-binding 9 reads + authz-deny teardown) конвертированы в poll; generic
+      `poll_request_until_status` helper в gen.py; прод НЕ тронут, без skip/TODO
+- [ ] flat-umbrella 2× стабильно зелёный (re-run gate): iam-access-binding + authz-deny + cascades
+      (iam-account/iam-user) → forward-mat-класс 0; остаток только whitelist + cross-repo
+- [ ] coordinated merge с kacho-deploy#122 (revert flat-pin → main после deploy#122) — #230 готов;
+      после меня — system-design-review sync-live-write
+- [ ] follow-up issue: reconciler не должен эмитить computed-only tier-tuple на iam_role (cosmetic, non-load-bearing)
