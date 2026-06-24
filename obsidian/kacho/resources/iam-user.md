@@ -68,6 +68,8 @@ tags:
 - Полиморфная ссылка `group_members.member_id` — без FK, защищается триггером (см. [[iam-group]]).
 - `email` хранится case-preserve, но `users_email_idx` lowercases; lookup-by-email — через `lower()`.
 - На E0 `external_id` может быть admin-stub (пустой/локальный) для bootstrap; E2 переключит на реальный Zitadel `sub`.
+- **get-self под flat-моделью (Contract-A)**: FGA `iam_user.viewer = subject or editor`. User видит сам себя ТОЛЬКО через self-tuple `iam_user:<U>#subject@user:<U>`. Это D-4-класс — НЕ восстановим reconciler'ом, эмитится явно при создании user (bootstrap `bootstrapTuples` + invite-path). См. [[../KAC/rbac-2026-contract-a-flat-bootstrap-fallout]].
+- **bootstrap signup → owner-binding**: signup-юзер получает **owner**-binding (не admin) на свой personal account + post-commit `ReconcileBinding` (forward-mat per-object owner-доступ на project/iam-native/cross-service). Под flat hierarchy-pointer'ы доступа не дают.
 
 ## See also
 
