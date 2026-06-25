@@ -8,9 +8,10 @@ caller_repo: kacho-compute
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: done
 related_tickets:
   - "[[KAC-127]]"
+  - "[[compute-list-leak-fix]]"
 tags:
   - edge
   - kacho-compute
@@ -56,6 +57,24 @@ Identical to [[vpc-to-iam-listobjects]] — see that document for full pattern.
 
 - Phase 4 covers 4 public lists (Instance, Disk, Image, Snapshot). Catalogs (DiskType/Zone/Region) — public read no authz.
 - Internal admin Lists (InternalInstance, InternalDisk) — **DEFERRED** (Phase 4 acceptance §"Out of scope") — proto types ещё не существуют в kacho-proto. Follow-up tracked in KAC-127 trail. (Прежний Hypervisor из этого списка удалён в KAC-36/79/80.)
+
+## Identity source (subject) — единый с per-RPC Check
+
+List handler берёт FGA-subject из **request Principal** (`authzfilter.SubjectFromPrincipal` →
+`operations.PrincipalFromContext` → `type:id`), НЕ из gRPC-метадаты `x-kacho-subject*`. Это тот же
+источник, что [[compute-to-iam-check]] и эталон kacho-vpc (`pbconv.SubjectFromContext`). **subject=""**
+(system principal / нет identity) → **fail-closed** (пустой allow-list → пустой List), никогда не
+bypass-all. `filter==nil` (FGA disabled config-gate) — осознанный bypass, не утечка. Cluster-admin/owner
+видят всё, т.к. сам ListObjects(viewer) возвращает все id (owner→viewer FGA-каскад); compute-side
+header-bypass (`x-kacho-admin`) удалён.
+
+## History
+
+- **2026-06-25 — subject-source over-show leak fix** ([[../KAC/compute-list-leak-fix]], `kacho-compute#65`).
+  До фикса subject читался из несуществующих `x-kacho-subject*` → subject="" → `resolveListFilter`
+  короткозамыкал на `bypass:true` → List возвращал **все** ресурсы проекта мимо list-authz (verified live
+  fe3455). Фикс: principal-based subject + fail-closed на subject="". Acceptance:
+  `docs/specs/sub-phase-compute-list-leak-fix-acceptance.md`.
 
 ## See also
 

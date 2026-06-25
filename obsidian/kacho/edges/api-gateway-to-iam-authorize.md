@@ -113,6 +113,40 @@ tags:
   (epic invariant I2). Mismatch (client mTLS vs insecure server) → `Unavailable` (fail-closed).
   Реализация: [[../packages/api-gateway-backend-dial-mtls]].
 
+- Design-B verb-bearing-complete (2026-06-25, api-gateway PR #99 / proto PR #88) — встроенная
+  копия каталога (`internal/middleware/embed/permission_catalog.json`, 288 entries) ресинкнута из
+  Design-B proto-gen: **148** object-self RPC флипнуты `required_relation` tier→`v_*`
+  (`viewer`×70 / `editor`×75 / `admin`×3 → `v_get`×24 / `v_list`×47 / `v_update`×56 / `v_delete`×21).
+  Gateway теперь форвардит `v_get`/`v_list`/`v_update`/`v_delete` в `AuthorizeService.Check` для
+  get/list/update/delete-self; enforcement резолвит на verb, а не на tier (D-6 see-in-selector-
+  without-content). **create-child остаётся `editor`** на parent project/account (F-7); **Internal.***
+  admin-RPC остаются `system_admin` (ban #6 — ноль downgrade); exempt-List'ы и scope_extractor/acr
+  не тронуты. Authz-интерсептор (`decide()`/`AuthzChecker`) **не менялся** — он уже verbatim-форвардит
+  `required_relation`. Conformance-guard: `TestPermissionCatalog_VBC22_VerbBearingFlip` +
+  `…AccessBindingUpdate_VerbBearing` (editor→v_update). SUPERSEDES Design-A union (#241).
+  Реализация: [[../packages/api-gateway-middleware-authz]].
+
+- BUG-2 hide-existence on read-deny (2026-06-25, api-gateway PR #100 / kacho-iam newman PR #248) —
+  для **verb-bearing IAM read** (`account/project/user/service_account/group` `Get`,
+  `required_relation=v_get` + concrete scope) gateway-Check бьёт ДО iam: deny → раньше
+  **403 PERMISSION_DENIED** с verbose `deny_reasons`, перекрывая hide-existence-контракт
+  владельца (iam `read_authz.go` отдаёт `NotFound`, «never PermissionDenied, no enumeration
+  leak»). `RoleService/Get` был корректен только потому что `<exempt>` (без gateway-Check →
+  доходит до iam → 404). Fix: deny на hide-existence read RPC → **NotFound (gRPC 5 / HTTP 404)
+  без deny_reasons** (новый `outcomeNotFound`; три authz-Check-deny сайта идут через
+  `denyDecision()`). Резолв: explicit catalog-флаг `HideExistence` ИЛИ эвристика «`/Get` +
+  `v_get` + concrete scope». Enforcement не ослаблен (deny блокирует, handler не достигается);
+  nonexistent == existing-denied → одинаковый 404 (no enumeration leak); мутации/List/
+  catalog-miss/override-deny остаются 403/правильный код. **Scope:** эвристика покрывает 20
+  verb-bearing single-resource `Get` на одном gateway-пути — iam(6) + vpc(7) + compute(4) +
+  loadbalancer(3), не только iam (единая security-политика hide-existence-on-read). **Refinements:**
+  404 только для single-resource `Get` (`…/{id}`, без query) — denied **List** остаётся **403**
+  (нет конкретного объекта), anonymous → **401** (authN, не authz-hide); read-after-write на
+  свежем `iam_access_binding` → transient 404 (`retry_on=(403,404)`); `get-after-revoke` на
+  удалённом ресурсе → tolerant `oneOf([404,403])`. Merged + fe3455-live + TEMP-PIN ревёрнут
+  (gw#101/iam#250), BUG-2 ветки удалены — см. [[../KAC/rbac-2026-bug2-hide-existence-read-deny]].
+  Реализация: [[../packages/api-gateway-middleware-authz]].
+
 ## See also
 
 [[iam-to-openfga-check]] [[iam-to-opa]] [[vpc-to-iam-listobjects]] [[compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../packages/api-gateway-middleware-authz]] [[../packages/api-gateway-middleware-dpop]] [[../packages/api-gateway-backend-dial-mtls]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]] [[../KAC/SEC-E-gateway-mtls]]
