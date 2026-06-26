@@ -36,6 +36,11 @@ VERBOSE="${VERBOSE:-false}"
 RESET_FGA="${RESET_FGA:-false}"
 OPENFGA_HTTP="${OPENFGA_HTTP:-http://localhost:18081}"
 OPENFGA_STORE_ID="${OPENFGA_STORE_ID:-}"
+# Cap ожидания готовности bootstrap cluster-admin (system_admin@cluster через
+# fga_outbox-reconciler). На реальном стенде с mTLS реконсайл fga_outbox медленнее
+# kind, поэтому cap конфигурируем: poll идёт с шагом 2s и выходит рано по готовности,
+# так что больший cap не замедляет happy-path, но даёт prod-like стендам сойтись.
+CLUSTER_ADMIN_WAIT_SECS="${CLUSTER_ADMIN_WAIT_SECS:-180}"
 
 # Транспорт для grpcurl к kacho-iam-internal. По умолчанию (kind / mTLS-off CI)
 # — plaintext. На mTLS-стенде (например fe3455, KACHO_IAM_INTERNAL_SERVER_MTLS_ENABLE=true)
@@ -439,14 +444,15 @@ ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 log "5b/10 awaiting product bootstrap reconciler (system_admin@cluster via fga_outbox)"
 if [ -n "$JWT_BOOTSTRAP" ] && [ -n "$ACCOUNT_A" ]; then
   boot_ok=""
-  for i in $(seq 1 40); do
+  boot_iters=$(( CLUSTER_ADMIN_WAIT_SECS / 2 )); [ "$boot_iters" -lt 1 ] && boot_iters=1
+  for i in $(seq 1 "$boot_iters"); do
     # listByResource(cluster) by the bootstrap admin returns 200 once the
     # reconciler's system_admin@cluster tuple has propagated to OpenFGA.
     code=$(api_status GET "/iam/v1/accessBindings:listByResource?resourceType=cluster&resourceId=cluster_kacho_root" "$JWT_BOOTSTRAP" 2>/dev/null || echo 000)
     if [ "$code" = "200" ]; then boot_ok=1; log "    bootstrap cluster-admin ready (${i}x2s, code=200)"; break; fi
     sleep 2
   done
-  [ -z "$boot_ok" ] && log "    WARN: bootstrap cluster-admin not ready after 80s (last code=$code) — cluster cases may fail"
+  [ -z "$boot_ok" ] && log "    WARN: bootstrap cluster-admin not ready after ${CLUSTER_ADMIN_WAIT_SECS}s (last code=$code) — cluster cases may fail"
 else
   log "    WARN: skipping bootstrap readiness probe (JWT_BOOTSTRAP or ACCOUNT_A empty)"
 fi
