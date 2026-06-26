@@ -1,9 +1,10 @@
 # Sub-phase T3.3 (unify IAM label-scope — all iam-types label-selectable) — Acceptance
 
-> **Статус:** DRAFT — ревизия rev2 (адресует ❌ CHANGES REQUESTED `acceptance-reviewer`; готов к re-review — НЕ кодить до APPROVED, ban #1)
-> **Дата:** 2026-06-25
+> **Статус:** ✅ APPROVED (round-2, `acceptance-reviewer`) + **MERGED to `main`** — реализация (DIVERGENCE-A) влита и развёрнута; документ хранится как исторический контракт под-фазы.
+> **Дата:** 2026-06-25 (acceptance) · merged 2026-06-26
 > **Автор:** `acceptance-author`
-> **Ревьюер:** `acceptance-reviewer` — _на re-review (rev2)_
+> **Ревьюер:** `acceptance-reviewer` — ✅ APPROVED (round-2)
+> **Реализация (merged → `main`, live на `fe3455`):** `kacho-proto#89` (resource+request `labels` для всех 5 iam-типов, новый `UpdateUser`), `kacho-iam#249` (squash `b4164e0f` — DIVERGENCE-A: feed-gate снят, iam-direct ARM_LABELS, `viewer ∪ v_list`), `kacho-api-gateway#102` (public-регистрация `UserService.Update`). Verified: iam-role label-selectability green на `fe3455`.
 > **Изменения rev2:** BLOCKING — User write-path специфицирован через **новый публичный `UpdateUser` RPC** (D-1a; proto→handler→gateway в DoD). Точность: AB immutability (нет `ReplaceTargetSelector`); request-`labels` annotation parity (SA — gap); §0.1/§6 ground-truth (foundation+SA уже COMMITTED — retro-gate ban #1); Q1–Q5 зафиксированы как принятые; MAT-02 — assertion «admin/owner no visibility loss».
 > **Эпик/тикет:** GitHub-issue / KAC-Subtask проставит исполнитель ДО `superpowers:writing-plans`. Продолжение эпика «Resource-scoped AccessBinding» под-фаза **T3** (`epic-resource-scoped-access-binding-selectors-acceptance.md`, D6/Q4 + O-4 reopening) и след за `sub-phase-T3.1-cross-service-label-revoke-acceptance.md` (label-change revoke).
 > **Затронутые репо:** `kacho-proto` / `kacho-iam` / **`kacho-api-gateway`** (новая public-регистрация `UserService.Update` — D-1a, блокирующая) / `kacho-ui` (follow-up, **не-блокирующий** backend) / `kacho-deploy` (e2e) / `kacho-workspace` (docs/vault).
@@ -16,13 +17,15 @@
 
 Документ описывает **только внешнее наблюдаемое поведение API/UI** (gRPC-коды, REST-формы, `viewer ∪ v_list`-видимость, eventual-consistency reconcile-семантику), не реализацию (SQL/Go — забота implementer/db-reviewer). Сценарии трассируются в имена integration-/newman-/UI-тестов через ID `T3.3-NN`. Стандартные конвенции (`api-conventions.md`, `security.md`, `data-integrity.md`) нормативны и в тело не дублируются — только ссылками (§1).
 
-> **Retro-gate (формальная фиксация ban #1-нарушения).** Часть работы УЖЕ начата ДО APPROVED: ветка `unify-iam-label-scope` несёт **закоммиченную** foundation + ServiceAccount end-to-end (`kacho-iam`@`unify-iam-label-scope` — 2 коммита впереди `main`: `feat(iam): unify label-scope foundation — feed-gate, reconciler, SA end-to-end` + CI-pin; в `kacho-proto` добавлены resource-message `labels` для всех 5 типов). Это формальное отклонение от ban #1 (код до APPROVED) — фиксируется здесь для трассировки. Этот acceptance **retro-gate'ит** уже-сделанное: foundation+SA подлежат тому же ревью, что и остальное. **ОСТАВШИЙСЯ код** (user / role / access_binding + **новый `UpdateUser` RPC** + request-`labels` proto-аннотации + api-gateway public-регистрация UpdateUser) пишется **ТОЛЬКО ПОСЛЕ** APPROVED этого документа.
+> **Retro-gate (исторически — фиксация ban #1-отклонения).** Часть работы велась на ветке `unify-iam-label-scope` ДО APPROVED (foundation + ServiceAccount end-to-end + resource-message `labels` для всех 5 типов в `kacho-proto`) — формальное отклонение от ban #1, зафиксировано для трассировки. **Итог:** документ APPROVED (round-2), вся реализация (DIVERGENCE-A: foundation + SA + user/role/access_binding + **новый `UpdateUser` RPC** + request-`labels` proto-аннотации + api-gateway public-регистрация `UserService.Update`) прошла ревью и **влита в `main`** (`kacho-proto#89` / `kacho-iam#249` squash `b4164e0f` / `kacho-api-gateway#102`), развёрнута на `fe3455`. Ничего из перечисленного больше не «ожидает APPROVED».
 
 ---
 
 ## 0.1 Ground-truth (сверено против кода — что есть / чего нет)
 
-| Слой | Состояние (verified 2026-06-25) | T3.3 действие |
+> **Post-merge (2026-06-26):** таблица ниже — снимок на момент acceptance (pre-merge). Вся реализация с тех пор **влита в `main`** (`kacho-proto#89` / `kacho-iam#249` `b4164e0f` / `kacho-api-gateway#102`) и развёрнута на `fe3455`. Формулировки «ветка `unify-iam-label-scope`» / «уже COMMITTED'ила» / «не на main» ниже относятся к историческому снимку — фактически всё перечисленное уже на `main`.
+
+| Слой | Состояние (verified 2026-06-25, merged 2026-06-26) | T3.3 действие |
 |---|---|---|
 | **proto resource-message labels** | `account`/`project`/`group` несут `map<string,string> labels`. **Ветка `unify-iam-label-scope` уже COMMITTED'ила** (`kacho-proto`@`unify-iam-label-scope`): `User.labels=9`, `ServiceAccount.labels=8`, `Role.labels=15` (ресурса, отдельно от `Rule.match_labels=5`), `AccessBinding.labels=21` (mutable). | Зафиксировать как контракт; ревью `proto-api-reviewer`. Tag-номера утвердить (Q3). |
 | **proto Create/Update request-messages** | `Create*/Update*Request` для SA/role/accessBinding принимают `labels` лишь частично; **User write-path вовсе отсутствует** — `UserService` сегодня несёт только `Get`/`List`/`Invite`/`Delete`/`ListOperations` (единственный иной User-write — internal `InternalUserService.UpsertFromIdentity`). НЕТ публичного `Update`/`UpdateUser`. | Ввести **НОВЫЙ публичный `UpdateUser` RPC** (D-1a); добавить `labels` в Create/Update request остальных типов + `update_mask`-allowed (D-1). |
@@ -449,7 +452,7 @@
 
 ## 6. Выход / запреты
 
-- Единственный артефакт авторства — этот markdown. **Никакого кода** (`.go`/`.sql`/`.proto`). Ветка `unify-iam-label-scope` уже несёт **закоммиченную** foundation + ServiceAccount (см. §0.1 / Обзор retro-gate) — это формальное ban #1-отклонение, зафиксировано для трассировки; **ОСТАВШИЙСЯ** код (user/role/access_binding + **новый `UpdateUser` RPC** + request-`labels` proto-аннотации + api-gateway-регистрация UpdateUser) пишется ТОЛЬКО после APPROVED (ban #1).
+- Единственный артефакт авторства — этот markdown. **Никакого кода** (`.go`/`.sql`/`.proto`). Реализация (foundation + ServiceAccount + user/role/access_binding + **новый `UpdateUser` RPC** + request-`labels` proto-аннотации + api-gateway-регистрация `UserService.Update`) прошла ревью после APPROVED и **влита в `main`** (`kacho-proto#89` / `kacho-iam#249` `b4164e0f` / `kacho-api-gateway#102`), live на `fe3455`. Раннее ban #1-отклонение (foundation+SA на ветке до APPROVED) зафиксировано в §0.1 / Обзоре retro-gate для трассировки.
 - Описано только наблюдаемое поведение API/authz/UI; DB-уровень (0041 GIN/CHECK, iam-direct `@>` SQL, reconcile-event co-commit, role_rule_selectors) — забота `rpc-implementer`/`db-architect-reviewer`/`migration-writer`/`system-design-reviewer`.
 - **Это осознанное расширение по прямому указанию владельца** «для всех iam-типов единая модель» — переоткрытие T3/Q4-дефолта и решения O-4 (`feed_registry.go`). Зафиксировано как D-2 + S6 by-design-запись.
 - **НЕ resource_mirror для iam-типов** (D-8): iam-direct same-DB, **НЕТ self-ребра `iam→iam`**, **НЕТ нового cross-domain ребра**; ацикличность графа non-negotiable (`polyrepo.md`).
