@@ -64,9 +64,13 @@ tags:
   (compiled/output-only)"` (A-02, первым стейтментом handler'а).
 - **Get → `Role`** (как и раньше, без `GetRoleResponse`-обёртки) с `rules[]`;
   `permissions` в ответе **пустое** (internal compiled, R-7). List — то же.
-- **update_mask**: `rules`(+name/description) mutable; `permissions` → `INVALID_ARGUMENT
+- **update_mask**: `rules`(+name/description/**labels**) mutable; `permissions` → `INVALID_ARGUMENT
   "permissions is immutable after Role.Create"`; OCC через `resource_version` (xmin) при
   изменении rules.
+- **Own-resource `labels` (T3.3)**: `Create/UpdateRoleRequest.labels` (own-resource метки
+  Role, ≠ `Rule.matchLabels` object-selector) → `roles.labels` jsonb; полный annotation-set
+  (паритет account/project). Изменение labels co-commit'ит reconcile-event `iam.role`
+  (label-grant на `iam.role` материализует `v_list` — Role стал label-selectable).
 - **Delete (A-16)**: custom-роль с активными биндингами → `Operation.error
   FAILED_PRECONDITION "role is in use by active access bindings"` (FK 23503 RESTRICT,
   не software TOCTOU).

@@ -43,6 +43,7 @@ tags:
 | `name` | TEXT | `^[a-z][-a-z0-9]{2,62}$` | UNIQUE (account_id, name) |
 | `description` | TEXT | `<=256` chars | |
 | `enabled` | BOOL | default `true` (KAC-127) | false → SA не может authenticate |
+| `labels` | JSONB | `kacho_labels_valid` (mig 0041) | tenant-facing метки; **mutable** через Update; делают SA label-selectable |
 | `created_at` | TIMESTAMPTZ | server-set | |
 
 ## Constraints / indexes
@@ -52,6 +53,7 @@ tags:
 - `service_accounts_project_fk` FK → `projects(id)` ON DELETE RESTRICT (KAC-127)
 - `service_accounts_account_name_unique` UNIQUE (account_id, name)
 - CHECK: `service_accounts_name_check`, `service_accounts_description_check`
+- **`labels` jsonb** (migration 0041): `NOT NULL DEFAULT '{}'` + CHECK `kacho_iam.kacho_labels_valid(labels)` + GIN `jsonb_path_ops` (под `labels @> matchLabels`).
 
 ## FK contract (in-bound)
 
@@ -66,6 +68,12 @@ tags:
 - **Disable (KAC-127)**: `enabled=false` → AuthN-interceptor (Phase 2) запретит `client_credentials` grant; existing tokens продолжают работать до natural `exp` (или revoke через [[iam-session-revocation]]).
 - **Key-credentials** — KAC-127 Phase 5 через [[iam-service-account-oauth-client]] (Class A static Hydra client).
 - **Federation** — KAC-127 Phase 5 через [[iam-federation-trust-policy]] (Class B OIDC federation).
+
+## Label-selectability + List-видимость (DIVERGENCE-A / T3.3)
+
+- **Label-selectable** (own-resource `labels`, mig 0041): label-грант `{module:iam, resources:["serviceAccount"], matchLabels:{…}}` материализует `v_list` на matching-SA (`service_accounts.labels @> matchLabels`), iam-direct same-DB (НЕ mirror), containment по iam-hierarchy. `labels` mutable через `Update` (`update_mask=labels`); Create/Update request `labels` несут полный annotation-set (паритет account/project — раньше SA request-`labels` были без аннотаций, доведены до паритета).
+- **`List` = `viewer ∪ v_list`** (эталон role.List): anonymous → empty; FGA error → `Unavailable`; self-floor; admin/owner/cluster-admin через FGA viewer tier-cascade. `Get == List` resolver.
+- **membership-over-show устранён** — член аккаунта больше не видит все SA автоматически (только себя + viewer/v_list-видимые); admin/owner — без visibility loss.
 
 ## Gotchas
 

@@ -61,11 +61,17 @@ PRIMARY KEY (group_id, member_type, member_id) — идемпотентный Ad
 - `group_members_group_fk` FK → `groups(id)` ON DELETE CASCADE
 - **Trigger** `group_members_member_exists_trg` (BEFORE INSERT/UPDATE) — проверяет existence row в `users` либо `service_accounts` (по `member_type`); SQLSTATE 23503/23514 → `FailedPrecondition`.
 - `group_members_member_idx` (member_type, member_id)
+- `groups.labels` — колонка с baseline (CHECK `kacho_labels_valid`); **GIN `jsonb_path_ops` добавлен migration 0041** (раньше колонка была, индекса под `labels @> matchLabels` не было).
 
 ## Lifecycle
 
-- **Group**: Create / Update / Delete — async через `Operation`. Delete → CASCADE по `group_members`.
+- **Group**: Create / Update / Delete — async через `Operation`. Delete → CASCADE по `group_members`. `labels` mutable через `Update` (`update_mask=labels`).
 - **Membership**: `AddMember`, `RemoveMember`, `ListMembers` — отдельные async-RPC.
+
+## Label-selectability + List-видимость (DIVERGENCE-A / T3.3)
+
+- **Label-selectable** (own-resource `labels`): label-грант `{module:iam, resources:["group"], matchLabels:{…}}` материализует `v_list` на matching-группы (`groups.labels @> matchLabels`), iam-direct same-DB (НЕ mirror), containment по iam-hierarchy. Реверс O-4 (раньше iam content-типы не были label-selectable).
+- **`List` = `viewer ∪ v_list`** (эталон role.List): anonymous → empty; FGA error → `Unavailable`; admin/owner/cluster-admin через FGA viewer tier-cascade. `Get == List` resolver. (Раньше `group.List` был голым repo-passthrough.)
 
 ## FGA membership mirror (КРИТИЧНО для group-based authz)
 

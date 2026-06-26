@@ -33,9 +33,9 @@ tags:
 | Method | Request | Response | Sync/Async | Note |
 |---|---|---|---|---|
 | Get | GetServiceAccountRequest | ServiceAccount | sync | |
-| List | ListServiceAccountsRequest | ListServiceAccountsResponse | sync | filter account_id обязателен |
-| Create | CreateServiceAccountRequest | operation.Operation | **async** | account_id required |
-| Update | UpdateServiceAccountRequest | operation.Operation | **async** | UpdateMask; account_id immutable |
+| List | ListServiceAccountsRequest | ListServiceAccountsResponse | sync | filter account_id. **`viewer ∪ v_list`** (эталон role.List; DIVERGENCE-A): anonymous→empty, FGA error→`Unavailable`, self-floor, admin/owner/cluster-admin через viewer-tier; **membership-over-show устранён** (член аккаунта не видит все SA). `Get == List` resolver. |
+| Create | CreateServiceAccountRequest | operation.Operation | **async** | account_id required; принимает own-resource `labels` (DIVERGENCE-A; полный annotation-set, паритет account/project — раньше SA request-`labels` были без аннотаций). |
+| Update | UpdateServiceAccountRequest | operation.Operation | **async** | UpdateMask; account_id immutable; `labels` mutable через `update_mask` (DIVERGENCE-A) — label-change co-commit'ит reconcile-event `iam.serviceAccount`. |
 | Delete | DeleteServiceAccountRequest | operation.Operation | **async** | |
 | ListOperations | ListServiceAccountOperationsRequest | ListServiceAccountOperationsResponse | sync | |
 

@@ -147,6 +147,15 @@ tags:
   (gw#101/iam#250), BUG-2 ветки удалены — см. [[../KAC/rbac-2026-bug2-hide-existence-read-deny]].
   Реализация: [[../packages/api-gateway-middleware-authz]].
 
+- DIVERGENCE-A — новый public-route `UserService.Update` (2026-06-26, api-gateway PR #102 /
+  proto PR #89 / iam PR #249) — `UserService` получил публичный label-write `Update`
+  (`PATCH /iam/v1/users/{user_id}`, async→Operation). Зарегистрирован в public allowlist +
+  gRPC-director + public REST mux (наравне с `UpdateRole`/`UpdateGroup`/`UpdateServiceAccount`;
+  НЕ Internal.* — `InternalUserService.UpsertFromIdentity` остаётся на :9091). `required_relation
+  = v_update` на `iam_user:<id>` (verb-bearing, форвардится в `AuthorizeService.Check`); каталог
+  расширен новой записью. Прочие iam Create/Update (SA/Group/Role/AccessBinding) с `labels`-полями
+  идут через существующий public-mux (новых регистраций нет). Контекст — [[../KAC/DIVERGENCE-A-unify-iam-label-scope]].
+
 ## See also
 
 [[iam-to-openfga-check]] [[iam-to-opa]] [[vpc-to-iam-listobjects]] [[compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../packages/api-gateway-middleware-authz]] [[../packages/api-gateway-middleware-dpop]] [[../packages/api-gateway-backend-dial-mtls]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]] [[../KAC/SEC-E-gateway-mtls]]

@@ -63,6 +63,12 @@ tags:
 - **Снятие** — `AccessBindingService/Update(update_mask=["deletion_protection"], deletion_protection=false)` (новый RPC, C-03) → repo `SetDeletionProtection` CAS → затем Delete проходит.
 - **owner-auto-binding** (D-8/C-01): `Account.Create` co-commit'ит owner AccessBinding (subject=creator, role=`owner`, scope=ACCOUNT, `deletion_protection=true`) в той же writer-tx; per-object доступ материализуется forward reconciler'ом (C-01b).
 
+## Own-resource `labels` + mutable set (T3.3 unify label-scope)
+
+- Колонка `labels` jsonb (migration 0041, CHECK `kacho_labels_valid` + GIN `jsonb_path_ops`). Tenant-facing метки САМОГО binding-ресурса — делают AccessBinding **label-selectable** (label-грант на `iam.accessBinding` материализует `v_list` на matching-binding'и). Create/Update request `labels` несёт полный annotation-set (паритет account/project).
+- **Mutable set расширен до `{deletion_protection, labels}`** (T3.3-IMM-01). Любой ИНОЙ `update_mask` путь (`role_id`/subject/scope/`resource_*`) → sync `INVALID_ARGUMENT "<field> is immutable after AccessBinding.Create"` (immutable набор НЕ ослаблен). repo `abWriter.UpdateLabels` — single-statement `UPDATE … SET labels=$2 RETURNING` (row-lock, не TOCTOU). Изменение labels co-commit'ит reconcile-event `iam.accessBinding` в writer-tx (eager re-материализация).
+- **List-видимость (D-6)** = `viewer ∪ v_list ∪ self/granted-floor`. `ListByScope`/`ListByAccount`: grant-authority (owner/FGA-admin/cluster-admin) → ВСЕ binding'и на scope (floor НЕ урезан); не-authority caller → только `viewer ∪ v_list`-видимый subset (label-грант), пустой subset → `PermissionDenied` (anti-leak). `ListBySubject` (self) сохранён как floor. FGA ListObjects-ошибка → `UNAVAILABLE` (fail-closed). `Get`: self ∪ grant-authority ∪ `viewer/v_list` (label-грант) — D-6 additive путь, паритет gateway v_get Check.
+
 ## State machine (KAC-127 Phase 1)
 
 ```

@@ -38,7 +38,8 @@ tags:
 |---|---|---|---|---|
 | Create | CreateAccessBindingRequest | operation.Operation | **async** | UNIQUE → идемпотентный re-create; пишет FGA grant-tuple. **sub-phase 1.5 scope-enforcement (D-2)**: `doCreate` читает роль ДО INSERT и энфорсит `domain.IsRoleAssignable` → mis-scoped роль → `Operation.error` **FAILED_PRECONDITION** «not assignable» (binding не создаётся). **Missing роль тоже FAILED_PRECONDITION** (ранний read мапит role-not-found→FP, сохраняя pre-1.5 FK RESTRICT-контракт 23503→9; иначе регрессия 9→5). Forward-only (D-11): гейтит только новые Create. |
 | Delete | DeleteAccessBindingRequest | operation.Operation | **async** | по id; **удаляет FGA grant-tuple** (revoke) |
-| Get | GetAccessBindingRequest | AccessBinding | sync | |
+| Get | GetAccessBindingRequest | AccessBinding | sync | self ∪ grant-authority ∪ `viewer/v_list` (label-грант, T3.3 D-6 additive путь, паритет gateway v_get Check) |
+| Update | UpdateAccessBindingRequest | operation.Operation | **async** | mutable set `{deletion_protection, labels}` (T3.3-IMM-01). `deletion_protection` (C-03 снятие) + own-resource `labels` (T3.3, label-selectability) в одной writer-tx; иной mask путь (`role_id`/subject/scope/`resource_*`) → `INVALID_ARGUMENT "<field> is immutable after AccessBinding.Create"`. labels-change co-commit'ит reconcile-event `iam.accessBinding`. REST `PATCH …/{id}` |
 | ListByResource | ListAccessBindingsByResourceRequest | ListAccessBindingsResponse | sync | filter (resource_type, resource_id) |
 | ListBySubject | ListAccessBindingsBySubjectRequest | ListAccessBindingsResponse | sync | filter (subject_type, subject_id) |
 | ListOperations | ListAccessBindingOperationsRequest | ListAccessBindingOperationsResponse | sync | per-resource ops history (sub-phase 1.2; filter `resource_id`, viewer-tier). Был дырой → UI таб «Операции» бил в 404. |
