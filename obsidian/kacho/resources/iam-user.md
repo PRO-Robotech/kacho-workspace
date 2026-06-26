@@ -40,9 +40,10 @@ tags:
 | Field | Type | Validation | Note |
 |---|---|---|---|
 | `id` | TEXT PK | `ids.IsValid("usr")` | |
-| `external_id` | TEXT | length 1-256 | **UNIQUE** — Zitadel `sub` claim |
-| `email` | TEXT | RFC 5321 lite regex, length 3-254 | indexed `lower(email)` |
-| `display_name` | TEXT | `<=128` chars | |
+| `external_id` | TEXT | length 1-256 | **UNIQUE** — Zitadel `sub` claim; IdP-mirror, **immutable** локально |
+| `email` | TEXT | RFC 5321 lite regex, length 3-254 | indexed `lower(email)`; IdP-mirror |
+| `display_name` | TEXT | `<=128` chars | IdP-mirror |
+| `labels` | JSONB | `kacho_labels_valid` (mig 0041) | tenant-facing метки; **mutable** через `UpdateUser`; делают User label-selectable |
 | `created_at` | TIMESTAMPTZ | server-set | |
 
 ## Constraints / indexes
@@ -51,6 +52,7 @@ tags:
 - `users_external_id_unique` UNIQUE (external_id) — upsert-семантика
 - `users_email_check`, `users_display_name_check`, `users_external_id_check`
 - `users_email_idx` (lower(email))
+- **`labels` jsonb** (migration 0041): `NOT NULL DEFAULT '{}'` + CHECK `kacho_iam.kacho_labels_valid(labels)` + GIN `jsonb_path_ops` (под `labels @> matchLabels` containment-probe).
 
 ## FK contract (in-bound)
 
@@ -60,8 +62,15 @@ tags:
 
 ## Lifecycle
 
-- **Public RPC**: `Get`, `List`, `Delete` (admin-only на E0). **НЕТ Create/Update** публично — User создаётся только через OIDC.
+- **Public RPC**: `Get`, `List`, **`Update`** (label-write, см. ниже), `Delete` (admin-only на E0). **НЕТ публичного Create** — User создаётся только через OIDC.
+- **`Update` (public, label-write)** — единственный mutable-путь tenant-данных User: `labels` через `update_mask`. `external_id`/`email`/`display_name` остаются IdP-mirror'ом (immutable локально) → их наличие в `update_mask` → `INVALID_ARGUMENT "<field> is immutable after User.Create"`. async → `Operation`. Подробности — [[../rpc/iam-user-service]].
 - **Internal**: `InternalUserService.UpsertFromIdentity` — UPSERT по `external_id`; на E0 вызывается через gRPC direct (admin), в E2 — из OIDC-callback в api-gateway.
+
+## Label-selectability + List-видимость (DIVERGENCE-A / T3.3)
+
+- **Label-selectable** (наравне с account/project): label-грант `Role.rule{module:iam, resources:["user"], matchLabels:{…}}` материализует `v_list` на matching-user'ов (`users.labels @> matchLabels`). Источник — **own-table same-DB** (iam-direct, НЕ `resource_mirror` — нет self-ребра `iam→iam`); containment по iam-hierarchy (`users.account_id ⊑ scope`). Реверс решения O-4 (раньше iam content-типы НЕ были label-selectable).
+- **`List` = `viewer ∪ v_list`** (эталон role.List): anonymous → empty (default-deny до FGA-call); FGA error → `Unavailable` (fail-closed, никогда unfiltered leak); self-floor (user видит себя через self-tuple); admin/owner/cluster-admin — через FGA viewer tier-cascade. **`Get == List` resolver** (тот же путь).
+- **membership-over-show устранён** — обычный член аккаунта больше НЕ видит всех user'ов автоматически; только себя (self) + тех, на кого есть `viewer`/`v_list`. Admin/owner visibility loss нет (видят всех через viewer-tier).
 
 ## Gotchas
 
