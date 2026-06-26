@@ -33,7 +33,7 @@ tags:
 | Method | Request | Response | Sync/Async | Note |
 |---|---|---|---|---|
 | Get | GetProjectRequest | Project | sync | |
-| List | ListProjectsRequest | ListProjectsResponse | sync | filter, page_token |
+| List | ListProjectsRequest | ListProjectsResponse | sync | filter, page_token. **Authz: `<exempt>` — авторитетный gate — in-handler фильтр `viewer ∪ v_list` на `project` (200+filtered, никогда 403; anon→empty; FGA-ошибка→Unavailable). Паритет с User/SA/Role/Group List.** Раньше gateway Check `account#v_list` + step-up `acr=2` → 403 для non-member и by-label `v_list`-only гранта (ломало see-in-selector). Унифицировано #255 (proto#90/iam#269/gw#103). |
 | Create | CreateProjectRequest | operation.Operation | **async** | account_id required |
 | Update | UpdateProjectRequest | operation.Operation | **async** | UpdateMask; `account_id` immutable через Update |
 | Delete | DeleteProjectRequest | operation.Operation | **async** | RESTRICT через FK от vpc/compute resources (E1+) |

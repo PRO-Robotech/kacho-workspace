@@ -156,6 +156,16 @@ tags:
   расширен новой записью. Прочие iam Create/Update (SA/Group/Role/AccessBinding) с `labels`-полями
   идут через существующий public-mux (новых регистраций нет). Контекст — [[../KAC/DIVERGENCE-A-unify-iam-label-scope]].
 
+- Unify account-scoped List call-gate (2026-06-27, proto#90 / kacho-iam#269 / api-gateway#103) —
+  `ProjectService.List` и `GroupService.List` приведены к `<exempt>` паритету с
+  `User/ServiceAccount/Role List`: сняты `required_relation=v_list` + `scope_extractor={account,account_id}`
+  + `required_acr_min=2`; embedded-catalog ресинкнут (ровно 2 записи из 289). Gateway больше НЕ Check-ает
+  `account:<id>#v_list` для этих List — авторитетный gate — in-handler фильтр `viewer ∪ v_list`
+  (200+filtered, никогда 403; anon→401; FGA-err→Unavailable). Чинит non-member List 403→200+empty +
+  by-label `v_list`-only see-in-selector discovery. Прод-код iam не менялся (фильтр project уже был,
+  group доделан #261). Live fe3455 gw `main-cbaa8bc1`. Реализация:
+  [[../packages/api-gateway-middleware-authz]], [[../rpc/iam-project-service]], [[../rpc/iam-group-service]].
+
 ## See also
 
 [[iam-to-openfga-check]] [[iam-to-opa]] [[vpc-to-iam-listobjects]] [[compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../packages/api-gateway-middleware-authz]] [[../packages/api-gateway-middleware-dpop]] [[../packages/api-gateway-backend-dial-mtls]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]] [[../KAC/SEC-E-gateway-mtls]]
