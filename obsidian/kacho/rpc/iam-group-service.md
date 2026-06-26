@@ -33,7 +33,7 @@ tags:
 | Method           | Request                    | Response                    | Sync/Async | Note                             |
 | ---------------- | -------------------------- | --------------------------- | ---------- | -------------------------------- |
 | Get              | GetGroupRequest            | Group                       | sync       |                                  |
-| List             | ListGroupsRequest          | ListGroupsResponse          | sync       | **`viewer ∪ v_list`** (эталон role.List; DIVERGENCE-A): anonymous→empty, FGA error→`Unavailable`, admin/owner/cluster-admin через viewer-tier. `Get == List` resolver. (Раньше — голый repo-passthrough.) |
+| List             | ListGroupsRequest          | ListGroupsResponse          | sync       | **`viewer ∪ v_list`** (эталон role.List; DIVERGENCE-A): anonymous→empty, FGA error→`Unavailable`, admin/owner/cluster-admin через viewer-tier. `Get == List` resolver. (Раньше — голый repo-passthrough.) **#255:** call-gate `account#v_list`+step-up снят, List стал `<exempt>` (паритет project/user/SA/role; фильтр — единственный gate). |
 | Create           | CreateGroupRequest         | operation.Operation         | **async**  | принимает own-resource `labels` (DIVERGENCE-A; полный annotation-set) |
 | Update           | UpdateGroupRequest         | operation.Operation         | **async**  | UpdateMask; account_id immutable; `labels` mutable (DIVERGENCE-A) — label-change co-commit'ит reconcile-event `iam.group` |
 | Delete           | DeleteGroupRequest         | operation.Operation         | **async**  | CASCADE по `group_members`       |
