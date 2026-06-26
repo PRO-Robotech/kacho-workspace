@@ -37,6 +37,17 @@ RESET_FGA="${RESET_FGA:-false}"
 OPENFGA_HTTP="${OPENFGA_HTTP:-http://localhost:18081}"
 OPENFGA_STORE_ID="${OPENFGA_STORE_ID:-}"
 
+# Транспорт для grpcurl к kacho-iam-internal. По умолчанию (kind / mTLS-off CI)
+# — plaintext. На mTLS-стенде (например fe3455, KACHO_IAM_INTERNAL_SERVER_MTLS_ENABLE=true)
+# internal-listener требует client-cert: задай IAM_INTERNAL_GRPC_MTLS_CERT/_KEY
+# (PEM client-cert/key, принимаемые ClientCAFiles internal-листенера) — тогда grpcurl
+# идёт mTLS. -insecure пропускает проверку server-SAN (порт-форвард меняет hostname),
+# client-cert всё равно предъявляется.
+GRPCURL_TLS="-plaintext"
+if [ -n "${IAM_INTERNAL_GRPC_MTLS_CERT:-}" ] && [ -n "${IAM_INTERNAL_GRPC_MTLS_KEY:-}" ]; then
+  GRPCURL_TLS="-insecure -cert ${IAM_INTERNAL_GRPC_MTLS_CERT} -key ${IAM_INTERNAL_GRPC_MTLS_KEY}"
+fi
+
 # require grpcurl for InternalUserService.UpsertFromIdentity (нет REST маппинга — KAC-125)
 if ! command -v grpcurl >/dev/null 2>&1; then
   echo "[setup] FATAL: grpcurl не найден в PATH. Установи: go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest" >&2
@@ -172,7 +183,7 @@ upsert_user_grpc() {
   # (flaked the fleet-wide newman-e2e). UpsertFromIdentity is idempotent by
   # externalId/email, so retrying is safe; ~12×3s ≈ 36s absorbs the warm-up window.
   for attempt in $(seq 1 12); do
-    resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
+    resp=$(grpcurl $GRPCURL_TLS -d "$body" "$IAM_INTERNAL_GRPC" \
       kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
     # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
     # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
@@ -183,7 +194,7 @@ upsert_user_grpc() {
     user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
     if [ -z "$user_id" ]; then
       # PENDING-row может быть активирован — get_by_email через grpc.
-      user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
+      user_id=$(grpcurl $GRPCURL_TLS -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
         kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
         | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
     fi
