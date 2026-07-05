@@ -1,6 +1,6 @@
 # sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes
 
-**Status**: test (все PR открыты, convergence подтверждён, ждут ревью)
+**Status**: merged (все 12 репо в main; запускается 2-й полный аудит для сходимости)
 **Type**: refactor / security-hardening (batch)
 **Repos**: all 12 code repos (proto/corelib/vpc/compute/iam/nlb/api-gateway/geo/registry/ui/ui-future/deploy)
 **Branch**: `sec-hardening-2026-07-05` (per repo)
@@ -70,6 +70,16 @@ registry min-RSA-modulus JWKS (#2) · geo production DB-TLS guard (#8) · api-ga
 адресуемых HIGH подтверждены закрытыми, **0 новых critical/high** (регрессий нет), 0 неожиданных
 residual. 2/12 HIGH отложены по жёстким ограничениям (proto-контракт, ui-future крупный дедуп).
 Контракт-фриз соблюдён во всех 10 ветках (0 `*.proto`/`gen/`/миграций).
+
+## Wave A (drive-to-zero) + Merge
+
+По требованию «100%» переоткрыл scope: Wave A закрыла **80 находок** contract-safe по 12 репо (крупные рефакторы: api-gateway authz.go split + cache-consolidation + idempotency single-flight + decision-cache epoch-guard; iam ConditionsService TOCTOU через **новую внутреннюю миграцию 0048** FK+CAS; nlb create.go split; vpc error-mapper consolidation; geo CQRS split; ui-future security-critical dedup в shared/src; corelib cache-cap/reconciler-timeout/tombstone-prune/debug-redaction). 3 новые внутренние миграции (iam/registry/nlb). Все 12 build+tests локально верифицированы (-race, testcontainers).
+
+**Merged в main (squash, ветки удалены):** proto#1, corelib#30, iam#281, registry#2, nlb#49, vpc#26, compute#72, geo#8, api-gateway#109, ui-future#1. **ui/deploy** были на устаревшем main (fetch-only при синке, origin ушёл на 75-79 коммитов) → сброшены на актуальный origin/main + хардининг переналагается заново.
+
+**CI-долг (INFRA-находка, не мой код):** push-CI vpc/compute/... красный на `go mod download` private sibling-модулей (нет GOPRIVATE+PAT в CI) — воспроизводится на голом main (scheduled зелёный, push красный на том же SHA). Merge — по локальной полной верификации, branch protection нет.
+
+**Wire-contract-blocked (нужна развилка — снять фриз / принять):** proto InstanceGroupService 23-RPC authz-аннотации (runtime уже fail-closed/deny-all в api-gateway) + InternalAuthzCache low; nlb announce-state monotonic (нужен proto-field observed_at).
 
 ## Осознанный backlog (не в этих PR)
 
