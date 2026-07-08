@@ -83,3 +83,20 @@ service InstanceService {
 - Cursor-based: `(created_at, id)` ORDER BY ASC; `page_token` — opaque base64 `{created_at,id}`.
 - `page_size` через `corevalidate.PageSize` (0 → default 50, max 1000); garbage token → `InvalidArgument`.
 - `filter` — `kacho-corelib/filter.Parse` с whitelist полей (текущая фаза — `name=`).
+
+## Gotcha'и (выведены из audit-раундов — частые нарушения конвенций)
+
+- **Timestamp truncate — на КАЖДОМ ресурсе И под-записи.** `.Truncate(time.Second)` для
+  `created_at`/`updated_at` во ВСЕХ proto-ответах, включая вложенные сущности (напр.
+  `AddressPoolAddressEntry`, а не только «главный» `AddressPool`). Микросекунды с БД не текут на wire.
+- **Malformed-id — ПЕРВЫМ стейтментом RPC.** `corevalidate.ResourceID(id, <prefix>)` до любого
+  repo-вызова → sync `InvalidArgument "invalid <res> id '<X>'"`. Без format-check malformed-id
+  уходит в `repo.Get` и возвращает `NotFound` (неверно). well-formed-но-нет → `NotFound`.
+- **Immutable-check в Update — ДО `corevalidate.UpdateMask`.** known-set маски НЕ содержит
+  immutable-полей, поэтому `UpdateMask` отвергнет их первым как generic «unknown field» вместо
+  конвенционного `"<field> is immutable after <R>.Create"`. Порядок: immutable-switch → UpdateMask.
+- **DEFERRABLE INITIALLY DEFERRED FK — 23503 на COMMIT, не на INSERT.** Ошибка приходит из
+  `tx.Commit()`, а не из INSERT-стейтмента → маршрутизируй **commit-ошибку** через
+  constraint-aware mapper (с owner-id hint), а не sentinel-only fallback, иначе 23503 попадёт в
+  INTERNAL вместо `FailedPrecondition "User <id> not found"`. (Deferral — осознанный, для
+  order-independence сидов; см. `data-integrity.md` SQLSTATE-маппинг.)

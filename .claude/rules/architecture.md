@@ -39,3 +39,27 @@ self-validating domain, DTO-таблицы, YAML-config через viper/koanf, 
 Перед написанием новой утилиты в сервисе — проверь corelib. Будет нужно 2+ сервисам →
 сразу в corelib. **Исключение**: доменная бизнес-логика (VPC ref-validation, Compute
 reconciler) живёт в сервисном репо.
+
+## Concurrency / lifecycle / читаемость (выведено из audit-раундов)
+
+- **Per-call deadline на КАЖДОМ внешнем вызове.** Любой peer-gRPC / HTTP / DB-запрос обязан
+  нести собственный `context.WithTimeout(ctx, …)` — **никогда** `http.DefaultClient.Do(req)` с
+  сырым request-ctx на hot-path. `DefaultClient` не имеет Timeout: неотвечающий peer (GC/overload/
+  half-open TCP) вешает горутину **навсегда**. Особо критично для authz-Check (OpenFGA): без
+  таймаута интерсептор не доходит до fail-closed-ветки, горутины копятся → исчерпание процесса.
+  Все sibling-методы клиента обязаны применять один и тот же configured-timeout (не «часть — да,
+  часть — нет»).
+- **WaitGroup-lifecycle: закрывать счётчик для брошенных задач.** Worker/dispatcher с `wg`:
+  на `Stop()` обязан `wg.Done` для КАЖДОЙ задачи, оставшейся в backlog (её `wg.Add` уже сделан),
+  и **guard enqueue-after-stop** (не `wg.Add` задачу, которую мёртвый dispatcher не исполнит).
+  Иначе `Wait()` никогда не дойдёт до `wg==0` (spurious timeout + утечка `wg.Wait`-горутины).
+  Синхронизация backlog-drain и enqueue-guard — под одним mutex.
+- **Doc-truthfulness: комментарий/godoc обязан совпадать с кодом.** Комментарий, противоречащий
+  коду (напр. описывает `WHERE status='ACTIVE'`, а реально `IN ('ACTIVE','DELETING')`; или
+  status-машину, которой worker не реализует; или sentinel, которого код не возвращает) — это
+  latent-баг: следующий контрибьютор «чинит» код под неверный док. Если поведение задумано, но
+  не реализовано — док отражает **реальность**, не намерение.
+- **LEAN: без vestigial-кода.** Мёртвый тип/пакет/ветка/builder (нет prod-импортёров; unreachable
+  branch, «документирующая» контракт, который код никогда не производит) — удаляй вместе с его
+  тестами. Сложное делать просто, без over-engineering, но без потери функциональности/безопасности/
+  контракта (ban #11 «без тех-долга» + LEAN-дименсия аудита).

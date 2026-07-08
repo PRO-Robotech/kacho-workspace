@@ -42,3 +42,18 @@ newman-кейсов. Newman/integration-тест, написанный уже П
 Методология: skills `testing-code-coach` (unit/integration), `testing-product-coach` (black-box техники),
 `load-testing-coach` / `<svc>-load-testing` (нагрузка). Финальная верификация перед merge:
 `go test ./... -race` + `golangci-lint run` + `govulncheck` + newman зелёные.
+
+## Regression-lock security/leak-фиксов — на уровне ОБСЕРВАБЛА (выведено из audit-раундов)
+
+Security/leak/PII-фикс обязан локать **наблюдаемое поведение**, а не только gRPC-код — иначе
+рефактор, реинтродуцирующий баг, оставляет suite зелёным:
+
+- **Error-leak фикс** (INTERNAL → фикс. текст): assert `status.Convert(err).Message() == "internal error"`
+  (или `NotContains(msg, <raw-err-text>)`), НЕ только `status.Code(err) == codes.Internal`.
+- **PII-фикс**: assert `NotContains(logBuf, <email/token>)` на success- И error-пути (харнесс logBuf).
+- **APICONV-фикс** (timestamp/malformed-id/immutable-msg/SQLSTATE): assert точный текст/усечение/код.
+- **Каждый security-багфикс несёт свой regression-тест в ТОМ ЖЕ PR** (ban #12) — не «code-level», а
+  «behaviour-level». RPC, в который сел фикс, но который был вообще без функционального теста, —
+  добери handler-level unit (fake-порты) в том же PR.
+- **Concurrency-фикс** (wg-drain, race) — тест под `-race`, детерминированно (blocker держит слот,
+  backlog копится, Stop→Wait должен завершиться), не `time.Sleep`.
