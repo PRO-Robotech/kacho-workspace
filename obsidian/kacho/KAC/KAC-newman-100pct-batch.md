@@ -506,3 +506,55 @@ PR `kacho-ui#64` (branch `KAC-batch-ui-nginx-fix-2026-05-26`):
 ### Vault delta
 - Создан KAC-batch trail в этом файле (UI fix не отдельный KAC — это side-effect newman rollout-цикла, batch-bug правило per memory feedback)
 
+## Session 16 (2026-07-08) — newman-e2e CI-стек bring-up онион (НЕ suite-контент)
+
+Sessions 1-15 гоняли suite-**ассерты** на ЛОКАЛЬНОМ стенде. К 2026-07-08 newman-e2e
+workflow (kind + helm umbrella в CI) был red месяцами на другом уровне — стек вообще
+**не поднимался**, все suites `(no-report)`. Онион из НЕЗАВИСИМЫХ инфра/config-багов,
+каждый маскировал следующий (каждый цикл диагностики = ~40 мин kind bring-up):
+
+1. **build-context** — сервис-Dockerfile'ы стали single-repo (`COPY . .` + versioned
+   GitHub-deps), но newman/Makefile-харнесс строил с context = workspace-root → `go: no
+   modules specified`. Fix: context = `kacho-$svc`. (compute#89, deploy#148, Makefile).
+2-3. **trivy `0.64.1`** — выдуманная версия (введена «pin actions to SHA»), `curl` → 404,
+   роняло пайплайн ДО стека. В `ci.yaml` (helm-lint) И `newman-e2e.yml` (image-scan).
+   Fix → `0.72.0` (self-verifies checksum). (deploy#148, #151).
+4. **base-image CVE** — alpine:3.20 / nginx:1.27-alpine final-stage нёс snapshot base-
+   пакетов с fixable HIGH/CRITICAL (CVE-2026-31789 **CRITICAL** openssl heap-overflow RCE,
+   libpng/libexpat). `apk upgrade --no-cache` в final-stage (фиксы уже в 3.20/3.21 бранче,
+   без bump мажора). 8 репо + UI. trivy 36→0. (vpc#42, iam#304, compute#90, geo#21,
+   nlb#67, api-gateway#126, registry#16, ui#131).
+5. **api-gateway boot** — prod-guard `validateProductionAuthzConfig` роняет при пустом
+   `KACHO_APP_ENV` (=production-class) + `authn.mode=dev`. values.dev.yaml выставлял
+   `KACHO_API_GATEWAY_APP_ENV` (лишний domain-префикс) — config биндит **domain-LESS**
+   `KACHO_APP_ENV` (`config.go envconfig`), т.е. читалось **ничем** → CrashLoopBackOff →
+   `/healthz` не зеленел. Fix: `KACHO_APP_ENV: dev`. (deploy#149→#152).
+6. **init-log observability** — `kubectl logs deploy/$d` брал только main-контейнер;
+   crashlooping init (migrate) был невидим. `--all-containers --prefix` + `-c migrate
+   --previous`. (deploy#154).
+7-9. **compute dev-профиль (триплет из chart-комментария)** — chart дефолтит строго:
+   `db.sslMode=require` + `auth.mode=production`. newman отключает mTLS для всех
+   (`--set *.mtls.enable=false`). Итог: (7) migrate-init `tls error: server refused TLS`
+   (pg-compute без TLS) → Init:CrashLoop; (9) serve `production requires server-mTLS` →
+   CrashLoop. Fix: `compute.db.sslMode=disable` + `compute.auth.mode=dev` в values.dev.yaml
+   (chart-deployment.yaml сам документирует «dev stand overrides auth.mode=dev +
+   mtls.enable=false + db.sslMode=disable»; было только mtls). (deploy#155, #156).
+
+### Reusable gotcha — config-требования newman CI dev-стека
+> newman-e2e helm-install'ит umbrella с `values.dev.yaml` + `--set *.mtls.enable=false`.
+> Значит КАЖДЫЙ сервис в dev-стеке должен быть в mTLS-совместимой posture:
+> **api-gateway** — `KACHO_APP_ENV: dev` (domain-LESS!) via extraEnv; **compute** —
+> `auth.mode=dev` + `db.sslMode=disable` (строже чем vpc/iam/geo, которые уже dev);
+> **geo/vpc/iam** — dev (env / config-YAML). Сервис с prod-mode + mtls-off = boot-guard
+> CrashLoop → `/healthz` timeout → все suites `(no-report)`. values.prod.yaml не трогается.
+
+### Затронутые сущности vault
+- `[[../packages/vpc-apps-kacho-api-address]]` — vpc IPAM nested-conn deadlock race-fix (vpc#41)
+
+**Status после Session 16**: api-gateway boots ✓, стек поднимается, iam-authz suites
+реально прогоняются (слой 8). Остаток = suite-контент Sessions 1-15 (env-staleness,
+cluster-binding, VPC-Check timeout) — на CI это test-infra follow-up, не инфра-онион.
+Core-`ci` мастера всех 10 репо — GREEN (отдельно от newman-e2e, non-required gate).
+
+#kac #fix #batch #newman #kacho-deploy #ci #race-fix
+
