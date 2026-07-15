@@ -22,6 +22,18 @@
 authN+authZ на КАЖДОМ запросе обоих листенеров**. Применяется ретроактивно: любой
 существующий листенер без authz-Check на internal — приоритетный security-фикс.
 
+> [!note] Задокументированное исключение: iam JWKS-route (internal-only, unauthenticated-by-design)
+> Cluster-internal HTTPS-эндпоинт iam `GET /.well-known/jwks.json` (`:9097`, выставлен **только** на
+> Service `kacho-iam-internal`) отдаёт **публичные ключи верификации** (standard OIDC well-known —
+> short-TTL байт-в-байт зеркало публичного JWKS Hydra) **без** authN-гейта. Это осознанное,
+> **задокументированное** исключение из «authN на каждом листенере», обоснованное: internal-only
+> surface + **server-TLS** (one-way, internal-CA leaf), на wire — **только публичный материал** (нет
+> секретов/PII/инфра-данных, раскрытие которых помогало бы атакующему). mTLS-gating технически
+> возможен, но потребовал бы менять TLS-клиент registry-verifier'а и сломал бы его origin-agnostic
+> инвариант — решение принято в пользу documented exception. Issuer/подписант остаётся **Hydra**;
+> iam ключи не чеканит (proxy, не minting). См. `edges/registry-to-iam-jwks-fetch.md` и acceptance
+> `docs/specs/sub-phase-registry-iam-jwks-unify-acceptance.md`.
+
 ## Internal-vs-external (ban #6)
 
 `Internal.*` методы **не публикуются на external TLS endpoint** (`api.kacho.local:443`,
