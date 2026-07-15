@@ -45,6 +45,21 @@ tags:
 
 См. [[apigw-internal-vs-tls]] про разделение.
 
+## Identity forwarding (production auth contract)
+
+Как [[apigw-to-vpc]]: gateway форвардит identity **только** как `x-kacho-principal-*`
+(trust-gated в operations-carrier `UnaryTrustedPrincipalExtract`), не legacy
+`x-kacho-project-id`. compute `TenantInterceptor` (production) обязан признавать
+forwarded-принципал не-anonymous; per-object `authzIntr` (FGA Check) + listFilter — реальный гейт.
+
+## History
+
+- **2026-07-10** — тот же production tenant-guard баг, что и в vpc: guard считал
+  `IsAnonymous` только по `x-kacho-project-id` → отвергал аутентиф.+авториз. compute-запрос
+  (`403 "AuthN required (production mode)"`) до authzIntr. Фикс: guard принимает
+  `x-kacho-principal-*` (mirror kacho-iam `authzguard.IsAnonymous`). `kacho-compute#103` →
+  PR `kacho-compute#104` (merged, image `main-1678f62c`). Детали: [[apigw-to-vpc]].
+
 ## See also
 
 [[../packages/apigw-restmux]] [[apigw-to-vpc]]

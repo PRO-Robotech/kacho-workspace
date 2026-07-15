@@ -47,6 +47,26 @@ tags:
 
 Director (`internal/proxy/director.go`) роутит requests на internal-port (`vpcInternalAddr`) или public-port (`vpcAddr`) в зависимости от пути.
 
+## Identity forwarding (production auth contract)
+
+Gateway аутентифицирует end-user (Hydra-JWT / Kratos-session), авторизует per-RPC (FGA Check),
+и форвардит identity в backend **только** как `x-kacho-principal-{type,id,display-name}` (+
+`x-kacho-token-acr`) — см. `internal/restmux/mux.go` `buildPrincipalMetadata`. Gateway **НЕ**
+форвардит legacy `x-kacho-project-id` (нет кода, вычисляющего project-access-list).
+
+vpc's `TenantInterceptor` (production-mode) обязан признавать forwarded-принципал как
+не-anonymous; project-scoping энфорсит per-object `authzIntr` (FGA Check, fatal-if-missing в
+prod) + listFilter — не tenant-guard. `x-kacho-project-id`/`x-kacho-admin` — legacy scaffolding,
+в проде пустые (gateway их не шлёт) → `AssertProjectOwnership` no-op'ит.
+
+## History
+
+- **2026-07-10** — fe3455 production-cutover вскрыл: vpc production tenant-guard считал
+  `IsAnonymous` только по `x-kacho-project-id` → отвергал аутентиф.+авториз. запрос
+  (`403 "AuthN required (production mode)"`) до authzIntr. CI/newman гоняют dev-mode (guard
+  skipped) → путь был непокрыт. Фикс: guard принимает `x-kacho-principal-*` (mirror kacho-iam
+  `authzguard.IsAnonymous`). `kacho-vpc#53` → PR `kacho-vpc#54` (merged). Аналог: [[apigw-to-compute]].
+
 ## See also
 
 [[../packages/apigw-restmux]] [[../packages/apigw-proxy]] [[apigw-internal-vs-tls]]
