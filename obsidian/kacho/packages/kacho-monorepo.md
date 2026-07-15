@@ -1,5 +1,10 @@
 ---
-tags: [kacho/package, kacho/monorepo]
+title: kacho — монорепа
+category: packages
+repo: kacho
+layer: root
+status: experimental
+tags: [packages, polyrepo, dependencies, architecture, go, proto]
 ---
 
 # kacho — монорепа (замещает polyrepo)
@@ -68,3 +73,5 @@ lint/breaking/**generate-diff**, golangci-lint, govulncheck, helm lint,
 check-mtls-off-complete. `docker-build` — матрица на 8 образов, context = корень.
 
 Связано: [[registry-dataplane-public-tls]], [[fe3455-production-deploy]].
+
+#packages #polyrepo #dependencies #architecture #go #proto

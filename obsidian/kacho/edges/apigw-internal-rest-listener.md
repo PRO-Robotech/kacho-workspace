@@ -1,5 +1,12 @@
 ---
-tags: [kacho/edge, kacho/api-gateway, kacho/security]
+title: api-gateway public cmux vs internal-rest
+category: edge
+caller_repo: kacho-api-gateway
+callee_repo: kacho-vpc
+sync_async: sync
+protocol: REST
+status: stable
+tags: [edge, kacho-api-gateway, kacho-vpc, internal, handler]
 ---
 
 # api-gateway: публичный cmux vs internal-rest — куда идут Internal*-пути
@@ -73,3 +80,5 @@ backend (9091)» — это про **backend**, а не про то, что REST
 не доказывает.
 
 Связано: [[kacho-monorepo]], `security.md` §Internal-vs-external (ban #6).
+
+#edge #kacho-api-gateway #kacho-vpc #internal #handler
