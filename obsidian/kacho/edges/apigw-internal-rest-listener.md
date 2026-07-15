@@ -57,4 +57,19 @@ backend (9091)» — это про **backend**, а не про то, что REST
 История: до 2026-07-16 vpc-набор про `internalBaseUrl` не знал вообще (в отличие от iam) →
 `internal-pool` падал 48/63. Пробел был pre-existing, вскрыт при переезде в [[kacho-monorepo]].
 
+## Гоча харнесса: одиночный прогон ≠ полный
+
+`internal-pool` давал **78/0** при `COLLECTION=internal-pool`, но **62/56** в полном наборе.
+Причина не в тестах: `newman-e2e.sh` в одиночной ветке передаёт `--env-var internalBaseUrl=…`
+напрямую, а полная ветка идёт через `scripts/run.sh`, который **значения из окружения НЕ
+читает** — он берёт их только из env-файла, а всё неизвестное в argv пробрасывает в newman
+(массив `EXTRA`). Поэтому `INTERNAL_BASE_URL=… ./scripts/run.sh` молча ничего не давал:
+`{{internalBaseUrl}}` оставался пустым и запрос уходил на литерал —
+`getaddrinfo ENOTFOUND {{internalbaseurl}}`, а следом сыпался каскад неразрешённых
+`{{lifeId}}`/`{{addrIdIdm}}` («invalid resource id '{{…}}'» → 400 вместо 404).
+
+Вывод: переменные в полный набор передавать **через argv** (`--env-var k=v` → попадает в
+`EXTRA`), а не через env. И проверять фикс ИМЕННО полным прогоном — одиночный зелёный ничего
+не доказывает.
+
 Связано: [[kacho-monorepo]], `security.md` §Internal-vs-external (ban #6).
