@@ -64,6 +64,15 @@ versioned modules — под релизную фазу). Проверка: `grep
 - `kacho-vpc-operator → kacho-iam` (SEC-G) — sync-poll read (ns-operator fan-out): exempt `AccountService.List`
   (membership scope-filter) → viewer-scoped `ProjectService.List`. **mTLS** (тот же operator client-cert);
   per-edge `enable`. SA освобождён от `required_acr_min` (service→service, §4.1.2).
+- `kacho-registry → kacho-iam` (jwks-fetch) — **HTTPS GET публичного JWKS** с cluster-internal iam-эндпоинта
+  (`:9097` `GET /.well-known/jwks.json`), **sync** на request-path (data-plane верифицирует подпись
+  docker-Bearer'а), **fail-closed** (iam недоступен/5xx и в кэше нет пригодного ключа → verify reject →
+  docker-клиенту `401 invalid_token`; **никогда** allow), **server-TLS** (one-way) с trust'ом internal-CA.
+  **Замещает** прежний прямой fetch публичного JWKS Hydra: iam — short-TTL кэширующий reverse-proxy
+  Hydra-JWKS (байт-в-байт зеркало; **Hydra остаётся issuer'ом/подписантом**, iam ключи не чеканит, issuer-pin
+  registry остаётся на Hydra). Ацикличность holds: iam **никогда** не зовёт registry. Уже существующие рёбра
+  `kacho-registry → kacho-iam`: `InternalIAMService.Check`/fgaproxy (:9091, authz-gate) + `ProjectService.Get`
+  (:9090, existence + account lookup). Детали — `edges/registry-to-iam-jwks-fetch.md`.
 
 **Циклы запрещены**: если A зовёт B — B не зовёт A. Новое ребро фиксируется здесь как runtime-edge.
 - `kacho-geo` — **leaf** (как iam): geo никого, кроме iam (authz-Check), не зовёт. Рёбра `vpc→geo` / `compute→geo` /
