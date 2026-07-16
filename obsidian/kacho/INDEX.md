@@ -139,10 +139,11 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/geo-region-service|RegionService + InternalRegionService]]
 - [[rpc/geo-zone-service|ZoneService + InternalZoneService]]
 
-## Packages — монорепа (2)
+## Packages — монорепа (3)
 
 - [[packages/kacho-monorepo|kacho — монорепа (замещает polyrepo)]]
 - [[packages/kacho-ci-runners|CI: ранеры и раскладка job'ов (beget-runner / ubuntu-latest)]]
+- [[packages/kacho-ci-determinism|CI: детерминизм — пины версий и честные exit-коды]]
 
 ## Packages — proto (11)
 
