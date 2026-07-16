@@ -49,6 +49,19 @@ Create не прошёл → `get-confirms` 404 → каскад.
 списку (`authz-deny` → … → `iam-access-binding`), ранняя создаёт binding, поздняя на него
 натыкается. KAC-132 лечит симптом.
 
+**Почему per-case pre-clean не спасает.** У `IAM-ACB-CR-CRUD-OK` есть свой pre-clean, но
+он зовёт `ListBySubject` — а тот **cluster-scoped** (`scope_extractor.object_type: cluster`,
+`required_relation: viewer`, `required_acr_min: 2`). Account-admin не cluster-viewer → 403,
+скрипт `if(code===200)` его не ловит, дубль не удаляется. Правильный путь (проверено
+вручную): `ListByScope(resourceType=account)` + step-up токен `jwtAccountAdminAStepUp`
+(account-admin — viewer на своём account-scope). В polyrepo этот pre-clean был тот же и
+так же не работал — RESULTS.md звал это «occasionally flake». Направление фикса и где он
+застрял (step-up не резолвится в рантайме newman) — kacho#6.
+
+Масштаб: `listBySubject` в pre-clean/setup — **7 кейсов**, не везде это pre-clean (местами
+тест контракта, 403 ожидаем). Каждый требует разбора. Полный зелёный — крупная
+fixture-переработка, не один заход.
+
 > [!warning] 403 парсится как пустой список
 > `delete_binding_if_exists` звал УДАЛЁННЫЙ роут `:listByResource` (RPC переименован в
 > `ListByScope`, wire-имя снято) → 403 приходил **валидным** JSON'ом, `.get('accessBindings', [])`
