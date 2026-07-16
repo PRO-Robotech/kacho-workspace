@@ -1,0 +1,69 @@
+---
+title: newman — гейт, known-RED и загрязнение фикстур
+category: packages
+repo: kacho
+layer: ci
+status: stable
+tags: [packages, architecture, cross-service, kacho-iam]
+---
+
+# newman: гейт и почему он краснеет
+
+Вердикт по e2e выносит **не exit-код newman**, а `services/iam/tests/newman/scripts/assert-suites-green.sh`.
+Скрипт ОДИН (живёт в iam) и применяется к каждому сервису **с его cwd** — он глобит
+`collections/` + `out/` относительно pwd. Так же было в polyrepo; при переезде в монорепу
+вызов потерялся, и гейтом стал голый exit newman → краснели кейсы RED-by-design.
+
+## Дефекты гейта (оба чинились 2026-07-16)
+
+> [!danger] Вычитание из РАЗНЫХ популяций прятало падения
+> `fails` = `.run.stats.assertions.failed` (только AssertionError), а `known_red`
+> считался по всему `.run.failures[]` — там ещё JSONError/script-ошибки. Разница давала
+> **запас поглощения** (замер: nlb 9 vs 6, channel-equiv 8 vs 6, invite-grant 3 vs 2), а
+> клэмп `fails<0 → 0` глушил перекос молча.
+>
+> Не теория: `rbac-subject-channel-equivalence` был зелёным ТОЛЬКО из-за перекоса —
+> whitelist там нацелен на шаги `*-gone` (они дают JSONError), а настоящие AssertionError
+> сидели в **других** шагах: `nonmember-denied` ×2 (не-член не получил отказ),
+> `user-not-inherits` ×2 (юзер унаследовал гранты SA). Тесты изоляции падали при зелёном
+> гейте. Лечится `select(.error.name=="AssertionError")` в known_red.
+
+**Мёртвый комментарий** про `neg-v_delete-denied`/`neg-v_update-denied`: этих шагов в
+`cases/` нет (grep → 0), в whitelist они не входят (doc-truthfulness).
+
+## Корень остаточной красноты — загрязнение фикстур, НЕ баг продукта
+
+На кластере с нуля (26/26 Running) остаётся **68** падений в 8 наборах. Первое звено:
+
+```
+IAM-ACB-CR-CRUD-OK :: poll-op
+  code 6 ALREADY_EXISTS: "these permissions are already granted to <NOB> on account:acc…"
+```
+
+Это **правильное** поведение продукта (UNIQUE → AlreadyExists). Неверен тест: он ждёт
+чистый лист для ресурса, **не привязанного к `runId`** (binding NOB на fixture-аккаунте A).
+Create не прошёл → `get-confirms` 404 → каскад.
+
+`setup.sh` про это знает (шаг «4b KAC-132: clean up stale NOB bindings»), но чистит
+**один раз перед** прогоном, а загрязнение возникает **во время**: коллекции идут по
+списку (`authz-deny` → … → `iam-access-binding`), ранняя создаёт binding, поздняя на него
+натыкается. KAC-132 лечит симптом.
+
+> [!warning] 403 парсится как пустой список
+> `delete_binding_if_exists` звал УДАЛЁННЫЙ роут `:listByResource` (RPC переименован в
+> `ListByScope`, wire-имя снято) → 403 приходил **валидным** JSON'ом, `.get('accessBindings', [])`
+> давал пустой список → «удалено 0» и отчёт об успехе. Очистка не работала никогда.
+> Проверяй HTTP-код, а не только парсинг тела. См. [[../rpc/iam-access-binding-service]].
+
+## Что вычитается корректно (RED-by-design, каждый с тикетом)
+
+- `SEC-C-A-*` — fga-proxy Register/Unregister: internal-only :9091 **без** `google.api.http`
+  → REST-хендлера нет вовсе, как black-box неисполнимы; покрыты `fgaproxy_test.go` (#111).
+- `T31-LBLREVOKE-NLB-*` — infra-RED: EXTERNAL listener требует zone_id, которого env не
+  провиженит (#217).
+- `iam-invite-grant-fga` T-E4 — product-gap: `CreateRoleRequest` без `project_id` (#212).
+- `*-gone` — poll-хвост eventual-consistency (#257).
+
+Связано: [[kacho-ci-runners]], [[kacho-ci-determinism]], [[../rpc/iam-access-binding-service]].
+
+#packages #architecture #cross-service #kacho-iam
