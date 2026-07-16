@@ -68,6 +68,21 @@ fixture-переработка, не один заход.
 > давал пустой список → «удалено 0» и отчёт об успехе. Очистка не работала никогда.
 > Проверяй HTTP-код, а не только парсинг тела. См. [[../rpc/iam-access-binding-service]].
 
+## Гочи прогона (стоили часов отладки)
+
+> [!danger] Не держи ручной `kubectl port-forward` во время `newman-e2e.sh`
+> Скрипт сам поднимает port-forward на :18080/:18081/:19091. Висящий ручной форвард
+> (напр. для отладочного curl) занимает порт → `setup.sh` не достучится до
+> iam-internal :19091 → `FATAL: user AAA resolved to an empty id`. Прогон падает на
+> setup, `out/*.json` НЕ обновляется. Перед прогоном: `pkill -f 'port-forward svc'`.
+
+> [!warning] Single-collection прогон пишет ТОЛЬКО cli, не `out/*.json`
+> `newman-e2e.sh iam <collection>` запускает newman с `--reporters cli` — JSON-отчёт в
+> `out/` НЕ пишется, там остаётся файл от последнего ПОЛНОГО прогона (`run.sh`). Парсить
+> результат надо из **cli-лога** (`│ assertions │ … │`, `inside "IAM-…"`), а не из
+> `out/*.json` — иначе анализируешь устаревший отчёт (реальная потеря: час на «фикс не
+> применяется», хотя out/ был просто старый).
+
 ## Что вычитается корректно (RED-by-design, каждый с тикетом)
 
 - `SEC-C-A-*` — fga-proxy Register/Unregister: internal-only :9091 **без** `google.api.http`
