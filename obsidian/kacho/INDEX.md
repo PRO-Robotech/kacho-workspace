@@ -139,6 +139,11 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/geo-region-service|RegionService + InternalRegionService]]
 - [[rpc/geo-zone-service|ZoneService + InternalZoneService]]
 
+## Packages — монорепа (2)
+
+- [[packages/kacho-monorepo|kacho — монорепа (замещает polyrepo)]]
+- [[packages/kacho-ci-runners|CI: ранеры и раскладка job'ов (beget-runner / ubuntu-latest)]]
+
 ## Packages — proto (11)
 
 - [[packages/proto-access|cloud/access — IAM shared]]
