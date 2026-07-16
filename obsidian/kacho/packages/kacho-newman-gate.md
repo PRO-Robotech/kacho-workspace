@@ -62,6 +62,31 @@ Create не прошёл → `get-confirms` 404 → каскад.
 тест контракта, 403 ожидаем). Каждый требует разбора. Полный зелёный — крупная
 fixture-переработка, не один заход.
 
+> [!danger] step-up на dev-стенде — NO-OP (моя гипотеза опровергнута экспериментом)
+> В `authn.mode=dev` acr step-up gate **НЕ энфорсится**: `jwtAccountAdminA` (без acr) и
+> `jwtAccountAdminAStepUp` (acr=2) дают ИДЕНТИЧНЫЕ ответы на DELETE/PATCH/GET (проверено
+> curl'ом). 403 на мутациях — это FGA **object-authz** (`lacks relation v_delete/v_update`),
+> одинаковый для обоих токенов, а НЕ acr-gate. Массовый flip на step-up = no-op (только
+> шумит diff). Мои прогоны «40→28 через step-up» были иллюзией загаженного стенда.
+
+**Настоящие fixture-баги (test-only, найдены qa-агентом, ЦЕННЫ):**
+1. **pre-clean cross-user 403.** `:listBySubject?subjectId=userNOBId` под токеном OWNER'а →
+   403 (owner ≠ subject) → дубль не найден → `create` ALREADY_EXISTS → phantom crudAcbId →
+   каскад. Фикс: авторизованный `:listByScope` + фильтр `subjectId===userNOBId`.
+2. **Пагинация.** `:listByScope`/`ListByAccount` пагинируются по 50; scope засорён >50
+   биндингами прошлых прогонов → целевой дубль на 2-й странице. Фикс: `&pageSize=1000`.
+3. **Status-фильтр.** Искали `status==='ACTIVE'`, API отдаёт `STATUS_UNSPECIFIED`. Фикс: принять оба.
+
+> [!warning] Число падений НЕДЕТЕРМИНИРОВАНО (43-52) на загаженном стенде
+> На переиспользованном kind FGA-пропагация read-after-write отстаёт под burst сьюта
+> (owner-GET/DELETE свежего биндинга сходится >10-28с — O(N) viewer-cascade по ~24
+> засорённым юзерам аккаунта). Ни один poll-cap не покрывает, не упираясь в timeout.
+> Плюс state-pollution ломает deny-тесты (jwtNoBindings уже получил grant-authority) и
+> даёт STRANGER-инверсию (adminB видит чужой accountA=200, свой accountB=403). Всё это
+> спутано с pollution → НЕ подтверждённые prod-баги. **Набор сойдётся ТОЛЬКО на чистом
+> стенде** (`make dev-down && dev-up` либо `RESET_FGA=true`). CI поднимает чистый kind
+> каждый прогон — там и надо мерить, а не на локальном загаженном.
+
 > [!danger] Автоматическое применение step-up РЕГРЕССИРУЕТ — только ручной разбор
 > Замеры на iam-access-binding: базовый pre-clean-фикс 40→28. Массовая замена всех
 > мутаций (26 шагов) на step-up → **34**. Замена «в non-deny кейсах» (25 шагов) → **46**
