@@ -39,6 +39,33 @@ newman-кейсов. Newman/integration-тест, написанный уже П
   только HTTP через api-gateway. Workflow нового кейса: `validate-cases.py` (уникальность + CASES-INDEX) → `gen.py`.
 - **fuzz** (`internal/fuzz/`) и **k6/ghz** (нагрузка) — где применимо.
 
+### e2e-инварианты (выведено из e2e-newman стабилизации; применять во ВСЕХ suite'ах)
+
+- **Read-your-writes eventual-consistency retry.** opgate (create confirm-gate) снят по
+  design-review: `Operation.done` = ресурс DURABLE, но owner/hierarchy FGA-tuple материализуется
+  **eventually-consistent** (authz/list-filter negative-cache TTL ≈5s). ПЕРВЫЙ Get/Update/Delete
+  **своего** только что созданного ресурса может кратко отдать `403`/`404`, а List — не содержать
+  его. Это read-your-writes лаг, чинится **на клиенте** bounded-retry, не сервер-барьером. В newman:
+  `retry_until_authorized(step)` (retry на 403/404 у Get/Update/Delete своего свежего ресурса),
+  `retry_until_present(step, "<idVar>")` (retry у List пока свой свежий id отсутствует). Budget
+  покрывает ~10s. Оборачивать ТОЛЬКО первый доступ к своему ресурсу — НИКОГДА negative/cross-account/
+  absent-id/`lst-excludes` (retry там маскирует реальный deny). Касается hand-written `cases/*.py`
+  ТАК ЖЕ, как generator-блоков (частый промах — обёрнут mutate, но не последующий verify/list).
+- **Authz-first толерантность негативов.** Gateway гейтит authz ДО backend-валидации. Create без
+  scope-поля (напр. `projectId`) → `project:*` unscoped → **fail-closed 403** (не 400). Get/Update/
+  Delete/`:verb` по несуществующему/malformed id → 403 (scope_extractor не резолвит target→project),
+  а не только 404. Negative-кейсы обязаны толерировать `oneOf([400,403,404])` (`assert_absent_id_rejected`),
+  иначе ложно падают на корректном authz-first 403.
+- **Per-service fixture isolation (директива #2).** Каждый resource-suite (vpc/nlb/compute) держит
+  **свой account + home/cross projects** (`setup.sh`), НЕ общий account-A/projA1/projA2 — иначе grant/
+  revoke или залистанный ресурс одного suite течёт в ожидания другого (cross-suite collision) и
+  параллельный прогон небезопасен. Общий 6-субъектный **authz-deny matrix** остаётся на shared-account
+  (это его контракт). Suite-scope через `existingProjectId`/`existingProjectCrossId`, дефолтный actor
+  гранится editor на ОБА своих проекта.
+- **Идемпотентность прогона.** Фикстур-ресурсы с UNIQUE(name) обязаны нести `{{runId}}`-суффикс —
+  фиксированное имя коллизит `409 AlreadyExists` на повторном прогоне (даже max-len BVA — вшивай runId
+  в пределах лимита). Cleanup своих ресурсов обязателен (leak → пул растёт, list-контракты плывут).
+
 Методология: skills `testing-code-coach` (unit/integration), `testing-product-coach` (black-box техники),
 `load-testing-coach` / `<svc>-load-testing` (нагрузка). Финальная верификация перед merge:
 `go test ./... -race` + `golangci-lint run` + `govulncheck` + newman зелёные.
