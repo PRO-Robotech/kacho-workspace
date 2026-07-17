@@ -84,3 +84,29 @@ Security/leak/PII-фикс обязан локать **наблюдаемое п
   добери handler-level unit (fake-порты) в том же PR.
 - **Concurrency-фикс** (wg-drain, race) — тест под `-race`, детерминированно (blocker держит слот,
   backlog копится, Stop→Wait должен завершиться), не `time.Sleep`.
+
+## Newman e2e — eventual-consistency дисциплина (выведено из owner-tuple раундов)
+
+Kachō eventually-consistent (`api-conventions.md` Operation.done), поэтому black-box newman
+обязан быть **robust к read-your-writes окну**, но НИКОГДА не маскировать реальный дефект:
+
+- **create→immediate-mutate/get СВОЕГО ресурса** → **bounded-retry** на transient `403`/`404`
+  (owner-tuple/материализация ещё не видна): helper `retry_until_authorized` (retry SELF на 403/404,
+  budget×interval ≈ покрытие 6-10s, **fail-open по budget → реальный assert падает если не сошлось**,
+  никогда бесконечно). **create→list-includes СВОЕГО ресурса** → `retry_until_present` (retry пока id
+  отсутствует в 200-массиве). Оборачивать ТОЛЬКО первый пост-create доступ к своему свежему ресурсу.
+  НЕ оборачивать: negatives, cross-account deny, sync-4xx (get-404/immutable-400), давно-существующие.
+- **op-poll с РЕАЛЬНОЙ inter-poll задержкой** (busy-wait ~400-500ms в retry-петле, budget покрывает
+  async-op tail ~15s): back-to-back поллы без задержки хаммерят и сами создают нагрузку.
+- **Per-suite fixture isolation (директива, корень cross-suite collision):** каждый resource-suite
+  (vpc/nlb/compute) сидится в **свой account + project**, НЕ в общий (иначе PROJECT-scope грант одной
+  суиты течёт в матрицу другой → ложные over-show/leak, вынужденный whitelist). Общий shared-tenant
+  контракт (6-subject authz-deny matrix) — намеренное исключение, остаётся на общем аккаунте.
+- **Параллельный прогон суит** (независимы при изоляции) — `newman-parallel.sh` fan-out iam/vpc/compute/nlb
+  после единого seed → wall-time = max(суита), убирает serial-timeout. Debug — точечно: `newman run
+  collections/<битая>.json` + `--folder <case>`; Go-фикс → `make reload-svc SVC=x` (patch без dev-up) → re-run той коллекции.
+- **negative-authz-ordering толерантность:** gateway scope_extractor fail-closes `403` на unscoped/
+  well-formed-nonexistent id ДО backend-валидации (authz-first, anti-BOLA) → negative-кейс, ждущий
+  `400`/`404`, обязан принимать **`403|400|404`** (`assert_unscoped_rejected`/`assert_absent_id_rejected`).
+  Это не маскировка: authz-отказ на недоступный объект — защитимое поведение. Malformed-id и GET-by-id
+  доходят до backend (400/404) — их НЕ ослаблять. Реальный product-баг в тексте/коде → Go-фикс + RED-lock, НЕ толерантность.

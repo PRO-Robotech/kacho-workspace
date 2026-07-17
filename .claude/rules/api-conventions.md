@@ -39,6 +39,20 @@ service InstanceService {
 Клиент поллит `OperationService.Get(id)` до `done=true`. **Watch RPC не существует**
 (полл List 2-5 c или Operation.Get для in-flight).
 
+**`Operation.done` = durability предмета мутации, НЕ видимость downstream side-effect
+(non-negotiable).** `done=true` означает «ресурс закоммичен» (`w.Commit()` в worker-fn) —
+и ТОЛЬКО это. **Категорически запрещено гейтить `done` на видимость eventually-consistent
+downstream-эффекта** (owner-tuple в OpenFGA, зеркало в другом сервисе, drain outbox): это
+(а) переопределяет контракт Operation (ban #9 — предмет = «создать Network», не «распространить
+FGA-tuple»); (б) на fail-closed рождает **phantom-ресурс** (row закоммичен, имя занято UNIQUE,
+но op=ERROR → клиент видит fail → retry ловит `AlreadyExists` → get воспринимает как 404); (в)
+конвертирует ограниченный read-after-write лаг в неограниченный hard-fail под нагрузкой на
+downstream. Kachō **eventually-consistent by design** (async Operation, polling, replica isolation):
+side-effect материализуется в ограниченном окне (at-least-once outbox+drainer+reconciler), а
+«создал→сразу мутирую» обеспечивается **bounded client-retry** на кратком 403/404-окне, НЕ серверным
+confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm-gate на видимость owner-tuple
+удалён по system-design-review как ban #9-нарушение (см. `data-integrity.md` cross-domain authz).
+
 ## Naming / формат
 
 - **JSON (REST через api-gateway): camelCase** — `<resource>Id`, `projectId`, `labels`, `createdAt`.
