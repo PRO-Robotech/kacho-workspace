@@ -110,3 +110,14 @@ Kachō eventually-consistent (`api-conventions.md` Operation.done), поэтом
   `400`/`404`, обязан принимать **`403|400|404`** (`assert_unscoped_rejected`/`assert_absent_id_rejected`).
   Это не маскировка: authz-отказ на недоступный объект — защитимое поведение. Malformed-id и GET-by-id
   доходят до backend (400/404) — их НЕ ослаблять. Реальный product-баг в тексте/коде → Go-фикс + RED-lock, НЕ толерантность.
+- **Fixture-seed обязан проверять `op.error` перед извлечением resource-id из `metadata`.** Kachō Operation
+  несёт **pre-allocated id в `metadata` ДАЖЕ на `done:true` с `error`** (id аллоцируется до async-фейла). Хелпер
+  `ensure_<resource>`, читающий `metadata.<res>Id` без проверки `result.error`, вернёт **фантомный id** несозданного
+  ресурса → пропатчит его в env → downstream FGA-биндинги пишутся против фантома (gateway 200), а cross-service
+  peer-check (`vpc/compute → iam ProjectService.Get`) отдаёт `NOT_FOUND` → каскад. Всегда: op-poll до `done` → assert
+  `!op.error` → только тогда извлекай id. Флейки-фикстура — предпочти **self-seed свежего ресурса per-case** (не
+  shared-литерал env-var, который мог async-упасть) — как `discover_zone`/`create_suite_project`.
+- **Serialised suite (`--jobs 1`) для pool-contended ресурсов.** Кейсы, аллоцирующие из ограниченного пула
+  (external VIP/AddressPool, N адресов), под `--jobs >1` исчерпывают пул → `could not allocate` → phantom-ресурс →
+  каскад. Либо больший пул (seed-CIDR), либо `--jobs 1` для этой суиты, либо перевод на pool-independent ресурс
+  (INTERNAL вместо EXTERNAL). Проверь **recycle-on-delete** — если пул не возвращает адрес на Delete, это product-баг.
