@@ -16,6 +16,7 @@ related_packages:
   - "[[packages/geo-domain]]"
 related_tickets:
   - "[[KAC/EPIC-geo-extraction]]"
+  - "[[KAC/GEO-1]]"
 tags:
   - resource
   - kacho-geo
@@ -25,40 +26,50 @@ tags:
 
 # Region
 
-**Domain**: geo — platform-топология (leaf-домен `kacho-geo`, как iam). Глобальный
-catalog-ресурс, не привязан к Project/Account (scope `cluster`).
-**ID**: admin-assigned **литерал** (нет 3-char prefix), напр. `ru-central1`. Immutable после Create.
-**Owner table**: `kacho_geo.regions`. Вынесен из `kacho_compute.regions` эпиком #82 (id сохранены 1-в-1).
-**Visibility**: public read (`RegionService.Get/List` — sync) + admin-CRUD через `InternalRegionService` (:9091).
+**Domain**: geo — placement-координата (REGIONAL/anycast), leaf-домен `kacho-geo`.
+Cluster-scoped catalog, не привязан к Project/Account.
+**ID**: admin-assigned **slug** (carve-out), напр. `ru-central1`. Immutable.
+**Visibility**: public read (`RegionService.Get/List` — sync) + admin-CRUD/infra через
+`InternalRegionService` (:9091).
 
-## Fields
+## Two-projection (GEO-1)
 
-| Field | Type | Validation | Note |
-|---|---|---|---|
-| `id` | TEXT PK | admin-assigned литерал | immutable; напр. `ru-central1` |
-| `name` | TEXT | human-readable | напр. `RU Central 1` |
-| `created_at` | TIMESTAMPTZ | server-set | truncate-to-seconds |
+Публичный `Region` (lean) и `InternalRegion` (full) — **РАЗНЫЕ proto-messages**. Сырой `status`
+и `infra°` — только в internal-message.
 
-## Constraints / invariants
+| Проекция | Поля |
+|---|---|
+| **public `Region`** | `id`, `name`, `country_code°` (ISO-3166 alpha-2), `open_for_placement°`, `open_zone_count_hint°`, `created_at°` |
+| **`InternalRegion`** (:9091) | `id`, `name`, `country_code`, `status` (GeoStatus), `infra°`{`numeric_infra_id`(immut), `capacity_hint`(rollup)}, `created_at°` |
 
-- `regions_pkey` PRIMARY KEY (id).
-- Регион с зонами **нельзя удалить** — FK RESTRICT со стороны `zones.region_id` (within-service
-  инвариант на DB-уровне, ban #10). `InternalRegionService.Delete` при наличии зон → `FailedPrecondition`
-  (SQLSTATE 23503).
+- `open_for_placement° = status==UP` (Region: если false — причина ВСЕГДА REGION_DOWN by
+  construction ⇒ нет `placement_blocked_reason°` на Region).
+- `open_zone_count_hint°` — **advisory read-time COUNT** зон с `open_for_placement°=true` (НЕ
+  persisted; authoritative = `ZoneService.List?openForPlacement=true`).
+- `placementType°` НЕ эмитится.
 
-## Cross-domain refs (consumer-side)
+## Constraints / invariants (DB-level, ban #10)
 
-- `kacho-nlb` хранит `region_id` (TEXT, без cross-service FK), валидирует через `geo.v1.RegionService.Get`
-  на request-path. См. [[../edges/nlb-to-geo-region-validate]].
-- Удаление региона admin'ом не каскадит в consumer'ов — dangling-ref переживается грациозно на чтении.
+- `regions_pkey` PK (slug id).
+- `regions_name_key` **UNIQUE(name)** глобально; `name` NOT NULL required (dup → 23505).
+- `regions_status_check` CHECK(status IN ('UP','DOWN')); fresh-default **`status DEFAULT 'DOWN'`** (fail-safe).
+- `numeric_infra_id` immutable после Create.
+- Delete-инвариант: регион с зонами удалить нельзя (FK RESTRICT `zones.region_id`) →
+  `FAILED_PRECONDITION "region <id> is not empty"`.
 
-## Lifecycle
+## Lifecycle (GEO-1)
 
-Catalog-ресурс: admin создаёт/правит явным id через `Internal*` (синхронный ответ, не `Operation` —
-catalog-паттерн, parity с `InternalDiskTypeService`). Tenant'ы только читают. Seed: `ru-central1`.
+Admin создаёт slug через `InternalRegionService.Create` → **`Operation{done:true, metadata:{regionId
++ warnings°}, response:public Region}`** (config-INSERT, sync). Fresh region **DOWN**; громкий
+`warnings°` в `CreateRegionMetadata`. `countryCode` LIVE-mutable (валидируется на Create/Update).
+
+## Cross-domain refs
+
+- `kacho-nlb` `LoadBalancer.region_id` (валидируется `geo.v1.RegionService.Get`). См.
+  [[../edges/nlb-to-geo-region-validate]] (consumer-side gate — отдельная под-фаза).
 
 ## See also
 
-[[geo-zone]] [[../rpc/geo-region-service]] [[../edges/nlb-to-geo-region-validate]]
+[[geo-zone]] [[../rpc/geo-region-service]] [[KAC/GEO-1]]
 
 #resource #kacho-geo #geo #geography

@@ -10,9 +10,11 @@ backend_port: 9090
 visibility: public
 domain: geo
 related_resource: "[[resources/geo-region]]"
-methods_count: 5
+methods_count: 6
 async_methods: 0
 status: in-progress
+related_tickets:
+  - "[[KAC/GEO-1]]"
 tags:
   - rpc
   - kacho-geo
@@ -25,36 +27,39 @@ tags:
 **Proto**: `kacho-proto/proto/kacho/cloud/geo/v1/region_service.proto` (public) +
 `internal_catalog_service.proto` (`InternalRegionService`, admin).
 **Backend**: `kacho-geo:9090` (public read) · `kacho-geo:9091` (Internal admin).
-**Domain**: geo (вынесен из `compute.v1` эпиком #82). **Catalog-паттерн**: read-only public + admin-CRUD,
-все методы **sync** (admin-мутации возвращают ресурс синхронно, НЕ `Operation` — parity с `InternalDiskTypeService`).
+**Domain**: geo. **Catalog-паттерн (GEO-1 two-projection)**: public read отдаёт **lean**
+`Region` (без status/infra; несёт `country_code°`/`open_for_placement°`/`open_zone_count_hint°`);
+admin-мутации возвращают **синхронно-завершённый `Operation{done:true}`** (unwrap `.response`);
+`GetInternal` отдаёт **full** `InternalRegion` (status + infra°). Byte-identical `InternalDiskTypeService`.
 
-## Public methods (RegionService, :9090)
+## Public methods (RegionService, :9090) — lean projection
 
 | Method | Request | Response | Sync/Async | authz |
 |---|---|---|---|---|
-| Get | GetRegionRequest | Region | sync | `geo.regions.get` (viewer/`system_viewer`-floor) |
-| List | ListRegionsRequest | ListRegionsResponse | sync | `geo.regions.list` (viewer-floor) |
+| Get | GetRegionRequest | Region (lean) | sync | `geo.regions.get` (→ GEO-1: project-scope EXEMPT, follow-on) |
+| List | ListRegionsRequest | ListRegionsResponse | sync | фильтр `open_for_placement` |
 
 ## Admin methods (InternalRegionService, :9091)
 
 | Method | Request | Response | Sync/Async | authz |
 |---|---|---|---|---|
-| Create | CreateRegionRequest | Region | sync | `geo.regions.create` (`system_admin`) |
-| Update | UpdateRegionRequest | Region | sync | `geo.regions.update` (`system_admin`) |
-| Delete | DeleteRegionRequest | (Delete resp) | sync | `geo.regions.delete` (`system_admin`); RESTRICT если есть зоны → FailedPrecondition |
+| Create | CreateRegionRequest (countryCode/status/infra) | Operation{done:true, response:Region, metadata:warnings°} | sync-done | `system_admin` |
+| Update | UpdateRegionRequest (FieldMask) | Operation{done:true} | sync-done | `system_admin`; numericInfraId immutable |
+| Delete | DeleteRegionRequest | Operation{done:true, response:Empty} | sync-done | `system_admin`; RESTRICT → `FAILED_PRECONDITION "region <id> is not empty"` |
+| GetInternal | GetInternalRegionRequest | InternalRegion (status + infra°) | sync | `system_admin` |
 
-## REST mapping
+## REST mapping (internal path self-describing)
 
 | HTTP | Method | mux |
 |---|---|---|
 | `GET /geo/v1/regions/{region_id}` | Get | public |
 | `GET /geo/v1/regions` | List | public |
-| `POST /geo/v1/regions` | Create | **internal-only** (:9091, ban #6) |
-| `PATCH /geo/v1/regions/{region_id}` | Update | **internal-only** |
-| `DELETE /geo/v1/regions/{region_id}` | Delete | **internal-only** |
+| `POST /geo/v1/internal/regions` | Create | **internal-only** (:9091, ban #6) |
+| `PATCH /geo/v1/internal/regions/{region_id}` | Update | **internal-only** |
+| `DELETE /geo/v1/internal/regions/{region_id}` | Delete | **internal-only** |
+| `GET /geo/v1/internal/regions/{region_id}` | GetInternal | **internal-only** |
 
-> Прежние `/compute/v1/regions` удалены (путь врал бы про владельца). Опечатка `compute.regionses.list`
-> исправлена на `geo.regions.list` при extract (эпик #82, scenario 6.0-01).
+> Gateway internal-mux регистрация + 4 read-RPC project-scope EXEMPT — follow-on (`api-gateway-registrar`).
 
 ## authz invariant
 
