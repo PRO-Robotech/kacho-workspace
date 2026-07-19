@@ -34,6 +34,22 @@ authN+authZ на КАЖДОМ запросе обоих листенеров**. 
 > iam ключи не чеканит (proxy, не minting). См. `edges/registry-to-iam-jwks-fetch.md` и acceptance
 > `docs/specs/sub-phase-registry-iam-jwks-unify-acceptance.md`.
 
+> [!note] Задокументированное исключение: geo public-read Region/Zone (project-scope EXEMPT, authN-only)
+> 4 публичных read-RPC geo — `RegionService.Get/List`, `ZoneService.Get/List` (`/geo/v1/regions`,
+> `/geo/v1/zones`) — объявлены **project-scope EXEMPT**: у них снят `required_relation`+`scope_extractor`
+> (в proto `permission = "<exempt>"`), поэтому api-gateway **не** делает per-RPC FGA-Check. Это осознанное,
+> **задокументированное** исключение из «authZ project-scope на каждом RPC», обоснованное: Region/Zone —
+> **admin-curated глобальный catalog оси размещения**, который **каждый** аутентифицированный tenant
+> обязан читать, чтобы launch'ить любой размещаемый ресурс (`zoneId`/`regionId` берутся отсюда); единый
+> project-scope Check отверг бы zero-binding tenant'а `no path` 403 ещё до чтения (GEO-1-20). Снят **только
+> authZ project-scope** — **authN остаётся обязательным** (gateway `<exempt>`-ветка всё равно требует
+> валидный принципал → unauthenticated ⇒ `UNAUTHENTICATED`, GEO-1-21; anonymous-full-access запрещён).
+> Инфра-чувствительного на этой поверхности нет (сырой `status` + `infra°` живут только в `InternalRegion`/
+> `InternalZone` на :9091 — two-projection). Admin-CRUD (`InternalRegion/ZoneService`) остаётся `system_admin`
+> на cluster-singleton. permission-catalog regen — byte-identical (iam-seed ↔ gateway-middleware). См.
+> `docs/plans/kacho-redesign-2026/module-geo.md` (rule 5) и acceptance
+> `docs/specs/sub-phase-GEO-1-region-zone-redesign-acceptance.md` (F6, GEO-1-20/21).
+
 ## Internal-vs-external (ban #6)
 
 `Internal.*` методы **не публикуются на external TLS endpoint** (`api.kacho.local:443`,
