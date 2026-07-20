@@ -4,6 +4,7 @@
 
 - Conventional Commits (`feat:`/`fix:`/`chore:`/`docs:`/`test:`/`ci:`/`refactor:`).
 - Подпись — git-config (`user.name`/`user.email` репо). **НЕ добавлять** `Co-Authored-By` или attribution-trailers (локальный проект).
+- **Author И committer — ТОЛЬКО личная учётка владельца** (`pointpu@prorobotech.ru`). Ни субагент, ни оркестратор **НЕ переопределяют** git-identity: запрещены `--author=…`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env, `git -c user.*`, worktree-local `user.*`-override. Коммить дефолтно (config уже указывает на владельца). Дрейф на «Kacho Workspace»/бот-идентичность = ошибка, фиксится `filter-branch --env-filter` на затронутом диапазоне. Касается ВСЕХ репо (монорепо `project/kacho` и workspace).
 - **Не пушить в `main` напрямую и не `--force`** (если владелец явно не разрешил) — работа через ветку = номер тикета → PR.
 - `--no-verify` (скип pre-commit hooks) — только по явной просьбе.
 
