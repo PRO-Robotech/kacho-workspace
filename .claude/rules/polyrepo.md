@@ -94,3 +94,24 @@ versioned modules — под релизную фазу). Проверка: `grep
 Пока вышестоящее не в `main` — нижестоящий CI временно пиннит sibling к feature-ветке
 (`ref:` в `.github/workflows/ci.yaml`); после merge — `ref: main`. Кросс-репо эпик —
 tracking-issue в `kacho-workspace` (метка `epic`) + per-repo issue с `Blocked by PRO-Robotech/<repo>#<n>`.
+
+## Контейнерные образы — ТОЛЬКО через CI/CD (non-negotiable #14)
+
+Любой образ, деплоящийся в кластер, **обязан** быть собран и запушен release-workflow'ом
+своего репо (`.github/workflows/*` → `docker/build-push-action` на push в `main`/`master`),
+тег `<branch>-<sha>` из merged-коммита. **Запрещены** laptop-built / «surgical» / hand-tagged
+образы в деплое.
+
+- **Почему**: hand-built теги не имеют provenance, дрейфят от source, и **маскируют несобираемый
+  код** — реальный инцидент: fe3455 месяц крутил stale WIP-образы uif (`admin-mf2-0711`,
+  `ui-merged-0710`) с потерянным футером/рассинхроном federation, потому что image-CI был красный
+  (standalone-deps не ставились + ESM-VM хэнг), и никто не замечал, что master давно другой.
+- **kacho-deploy держит только CI-теги**: `values*.yaml` ссылается на `<registry>/<repo>-<part>:<branch>-<sha>`,
+  собранный CI. Обновление образа = новый CI-тег в values + `helm upgrade` (не `kubectl set image` как
+  постоянное состояние — это дрейф от helm; допустимо только как временный bridge с немедленным
+  выравниванием values).
+- **Gate**: если image-CI репо красный — это **P1-блокер релиза**, чинится в CI, а не обходится ручной
+  сборкой. Push в registry требует секретов `*_DOCKERHUB_USERNAME`/`*_DOCKERHUB_TOKEN` в репо (без них
+  `build` собирает, но `push=false` — образы не публикуются).
+- **Матрица build** должна покрывать **все** деплоящиеся компоненты (напр. module-federation host + ВСЕ
+  remotes, включая новые) — иначе часть образов «выпадает» в hand-build.
