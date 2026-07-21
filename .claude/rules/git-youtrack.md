@@ -28,11 +28,36 @@ MCP `mcp__youtrack__*` или REST `…/api/...` с perm-токеном.
 - **States**: `To do` → `In Progress` → `Test` → `Done`. При завершении — в `Done` + ВСЕ артефакты в комментарий (PR-URL, лог тестов, кросс-репо ссылки).
 - **Gate**: кодинг таска (вне `kacho-vpc-implement`) — только после APPROVED acceptance-дока под-фазы (`acceptance-reviewer`).
 
+## Continuous integration — фича→merge СРАЗУ, trunk ведётся к цели (ОСНОВНОЕ, non-negotiable)
+
+**Каждая готовая фича/фикс мержится в интеграционный trunk НЕМЕДЛЕННО по green — не копится в
+долгоживущей divergent-ветке.** Ветки — короткоживущие (idealно часы-день, не дни-недели); trunk
+(`main`/`redesign/integration`) непрерывно ведётся к цели единым авторитетным состоянием. Причина
+(инцидент 2026-07: 5 divergent-веток, `iam-acb` 6 дней → cherry-pick конфликтует, работа «на произвол»,
+состояния разъехались): чем дольше ветка живёт в стороне, тем дороже merge (конфликты, drift, потеря
+работы, дубли, регресс при слепом merge). Инварианты:
+
+- **Feature→merge каждый green-chunk.** Готовый вертикальный срез (proto→код→тест green) → merge в trunk
+  сразу, НЕ «накоплю ветку, потом влью». Крупная фича — серия мелких green-merge (expand-contract:
+  каждая фаза green-committable-и-merge-able), не один гигантский divergent-branch.
+- **Ни одна ветка НЕ остаётся на произвол.** Ветка либо (a) активно ведётся к merge (короткий цикл),
+  либо (b) смёржена+удалена, либо (c) явно закрыта (`wontfix`+удалена). «Висящая» feature-ветка старше
+  ~2 дней без merge-плана — долг: догнать trunk (rebase) и влить, ИЛИ закрыть. Регулярный branch-аудит
+  (`git branch` vs trunk merge-base age) — часть завершения задачи.
+- **Trunk — единственный авторитет.** Не держи параллельные линии работы в расходящихся ветках (feature
+  vs CI-hardening vs fixture) — они разъезжаются. Всё сходится в один trunk частым merge; параллельные
+  под-задачи rebase'ятся на свежий trunk перед продолжением.
+- **Избегать сильных дрейфов by construction.** Перед новой правкой — синхронизируй локальное дерево с
+  origin trunk (fetch+rebase/merge); worktree-агенты ветвятся от СВЕЖЕГО trunk ([[isolation-worktree-base-branch]]),
+  не от устаревшей базы. Не начинай большую работу поверх устаревшего состояния.
+
 ## git-флоу под задачу
 
 - `git checkout -b KAC-<N>` от `main` в каждом затронутом репо (порядок по build-графу).
 - `git push -u origin KAC-<N>` → `gh pr create --title "[KAC-<N>] …" --body "… Closes KAC-<N>"` → ссылку комментарием в тикет.
-- После merge + `Done` — удалить ветку (`gh pr merge --delete-branch` или `git push origin --delete KAC-<N>` + `git branch -D`). Исключение: ветка нужна зависимой работе.
+- **Merge как только green** (не копить): маленькие частые PR > один большой divergent. После merge + `Done` —
+  удалить ветку (`gh pr merge --delete-branch` или `git push origin --delete KAC-<N>` + `git branch -D`).
+  Исключение: ветка нужна зависимой работе — и то rebase'ится на trunk регулярно, не дрейфует.
 - KAC-trail в vault (`obsidian/kacho/KAC/KAC-<N>.md`) — обязателен (см. `vault.md`).
 
 ## Баги / tech-debt — GitHub Issues (не TODO.md)
