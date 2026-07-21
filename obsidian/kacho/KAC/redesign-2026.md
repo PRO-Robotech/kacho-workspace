@@ -273,3 +273,21 @@ security-дефекты — production-mode их вскрыл:
 **Институционализировано — non-negotiable #16 (`00-kacho-core.md`) + `security.md` §«Production-mode ВЕЗДЕ»** (раскатано
 10 репо, `0e157a4`): production-guard на каждом сервисе · dev-стенд=production-posture · values.prod ОБЯЗАН boots ·
 iam-единый-фасад-к-Hydra. [[production-mode-everywhere-even-local]] · [[no-security-bypass-flag-use-prod-pattern]]
+
+## Unit+integration ПОЛНОСТЬЮ ЗЕЛЁНЫЕ + #58 production-JWT (2026-07-22)
+
+**Тесты (code-уровень) — 0 assertion failures:** `go test -short` EXIT 0 (весь модуль) + **полный integration
+testcontainers (NO -short, production-green gate)** все 7 сервисов + gateway + pkg PASS (iam 45pkg/440funcs
+шардированы, vpc 41, nlb 31, compute/storage/registry/geo/gateway/pkg). golangci 0. Phase A не потребовала правок
+(уже green). Backend-map фиксы (5) + #56 storage guard + #57 gateway — все с тестами, зелёные.
+
+**#58 production-JWT bootstrap** (acceptance APPROVED `sub-phase-IAM-BOOTSTRAP-TOKEN-acceptance.md`, 11 GWT): design
+reverse-engineered — `InternalBootstrapTokenService.MintBootstrapToken` (iam :9091, RS256 для bootstrap-SA,
+переиспользует registry `/iam/token` ES256-assertion→Hydra-exchange machinery). iam-unified (не Hydra-direct, #16).
+Impl в работе (proto→codegen→migration→repo→usecase→handler→registration→O-1→tests). Разблокирует production-newman
+(production-strict accepts RS256 only; setup-jwt.py HS256 → 403-all).
+
+**Real finding O-1:** gateway `stepup_gate.go` нет service_account acr-exemption (acrRank без principal-type branch;
+SA client_credentials acr=0) → противоречит security.md §4.1.2 (SA acr-exempt), блокирует bootstrap-SA flow. Фикс — часть #58.
+
+**production-newman гейтится на #58** (impl + reload iam + RS256-seed). ФАЗА C после B. [[production-mode-everywhere-even-local]]
