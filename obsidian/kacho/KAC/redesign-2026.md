@@ -291,3 +291,20 @@ Impl в работе (proto→codegen→migration→repo→usecase→handler→r
 SA client_credentials acr=0) → противоречит security.md §4.1.2 (SA acr-exempt), блокирует bootstrap-SA flow. Фикс — часть #58.
 
 **production-newman гейтится на #58** (impl + reload iam + RS256-seed). ФАЗА C после B. [[production-mode-everywhere-even-local]]
+
+## #58 landed + token-hook root-cause (2026-07-22)
+
+**#58 InternalBootstrapTokenService.MintBootstrapToken + O-1 — landed end-to-end** (`a925d76..6249277`, 7 green-chunks,
+все 4 review APPROVE + O-1 system-design sign-off): proto+codegen · migration 0058 (singleton bootstrap-SA + grant + fga) ·
+repo (advisory-lock CAS) · use-case (reuse registrytoken ES256-assertion + HydraTokenClient exchange) · handler · :9091
+registration · gateway O-1 SA acr-exemption. Tests green (unit+integration+race, IBT-01..11+O-1). Live-verified: migration
+applied, bootstrap-SA seeded, mint reachable via gateway route, Hydra OAuth client created, ES256 accepted.
+
+**token-hook 401 — pre-existing stand-misconfig root-caused + fixed (`83ca725`):** `values.dev-prod` был БЕЗ Hydra
+`oauth2.token_hook` config (values.prod имеет; overlay пропустил) → Hydra не слал `X-Kacho-Hook-Token` → iam :9092 hook
+401 → Hydra 500 → **ВСЕ client_credentials exchange падали** (registry SA-keys + #58 bootstrap-mint), независимо от #58.
+Фикс: зеркало values.prod token_hook + refresh + `OAUTH2_*_HOOK_AUTH_CONFIG_VALUE` env-override (Ory не интерполирует
+YAML-placeholder) + CA-trust. Разблокирует production-newman RS256.
+
+**ФАЗА C production-newman (#59):** apply token-hook + setup-jwt.py→RS256 (bootstrap→UserToken/SAKey.Issue→exchange) +
+прогон 7 suites production-mode. Финальная миля — в работе.
