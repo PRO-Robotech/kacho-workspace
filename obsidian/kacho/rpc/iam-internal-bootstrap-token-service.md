@@ -1,16 +1,31 @@
 ---
-tags: [rpc, iam, internal, authn, planned]
+tags: [rpc, iam, internal, authn, done]
 service: kacho-iam
 listener: ":9091 (cluster-internal, mTLS)"
-status: acceptance-approved-not-implemented
+status: implemented
 ---
 
-# InternalBootstrapTokenService (planned — #58)
+# InternalBootstrapTokenService (implemented — #58)
 
-**Status:** acceptance **APPROVED** (`docs/specs/sub-phase-IAM-BOOTSTRAP-TOKEN-acceptance.md`,
-2026-07-22), **not yet implemented**. Unblocks non-interactive **production-mode** newman/e2e.
+**Status:** **IMPLEMENTED** on `redesign/integration` (2026-07-22). Sub-phase B landed:
+proto+codegen, migration 0058, repo (BootstrapStore, advisory-lock CAS), mint use-case
+(reuses `registrytoken` ES256 assertion + `HydraTokenClient` exchange), handler, :9091
+registration, gateway internal-route + permission-catalog, and the O-1 gateway SA
+acr-exemption. Full TDD RED→GREEN (unit IBT-08/09/11, integration IBT-01/02/03 +
+concurrency, IBT-T5 enrichment, IBT-06/07 internal-only, O-1 mechanism-lock).
 
-## Problem
+## Live-stand verification (2026-07-21)
+Migration 0058 applied live (goose v58) → bootstrap SA `svab91854890de887e6d` + cluster
+`system_admin` grant (subject_type=service_account) + fga owner-tuple seeded. Mint reachable
+via gateway internal REST (:8081 → iam :9091 mТLS). **Provisioning works live** (Hydra OAuth
+client `kacho-bootstrap-admin` created + `service_account_oauth_clients` mapping committed);
+the ES256 private_key_jwt assertion is **accepted by Hydra** (client auth passes). The token
+EXCHANGE then dies because iam's Hydra **token-enrichment hook** (`:9092 /iam/v1/hooks/token`)
+returns **401 → Hydra 500** — a pre-existing stand Hydra↔iam **hook-auth misconfig** that
+blocks ALL client_credentials issuance (registry SA-keys too), independent of #58. Phase C
+(production-newman) is blocked on that hook-auth fix — tracked in **#59**.
+
+## Original problem
 Production authN (`api-gateway authn.mode=production-strict`) accepts **RS256 only** (Hydra-signed;
 issuer-pin=Hydra; gateway verifies via iam JWKS-proxy :9097; requires `aud=https://{API_DOMAIN}`).
 Newman seed (`tests/authz-fixtures/setup-jwt.py`) mints **HS256** dev JWTs → inert (anon+HS256→403).
