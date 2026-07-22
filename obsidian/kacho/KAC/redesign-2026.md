@@ -410,3 +410,22 @@ scope/relation — storage гейтил на cluster-singleton, registry Create 
 
 **Остаток newman:** compute EC-retry (test-robustness) · registry #63 (garbage-pageToken→500 leak) + repository-overlay ·
 nlb ext-seeder (**= NLB-1d редизайн**) · iam #59 (interactive-OIDC user-principal). Переход к NLB-final (1c/1d/CONTRACT).
+
+## NLB-final: NLB-1c/1d landed + stub-drift fix + CONTRACT (2026-07-22)
+
+**NLB-1c TargetGroup HealthCheck redesign — LANDED GREEN** (bca9100/dafc795/5ffe414): HealthCheck oneof
+tcp/http/https/grpc + effectivePort° (probe.port 0→inherit TG.port), durations B8 (int→Duration, whole-second guard),
+oneof-replace PATCH discipline (NLB-1-36/37/38), port live-mutable→resolvedBackendPort° re-echo, teardown RESTRICT
+blocker-list (ReferencingListenerIDs). **Closed kacho#8** (https/grpc probes on wire). Integration testcontainer green,
+go-style MEDIUM (sub-second Duration truncation) fixed. NLB-1d newman migrated (d82b128, 367 cases).
+
+**Stub-drift fix (a060619, мой b048359 упущение):** acr-narrowing отредактировал proto-annotations в 53 файлах БЕЗ
+buf generate → committed *_service.pb.go stale descriptor-bytes (acr='2' где proto='1'). Enforcement OK (catalog regen
+отдельно), но stubs дрейфнули. buf generate реконсайл всех 53 (compute/iam/vpc/storage/loadbalancer/registry/geo). build OK.
+
+**CONTRACT (a4dfb978, в работе):** финал expand-contract — удалить legacy LB-модель (Start/Stop/Attach/DetachTargetGroup RPC
++ VipSource pivot + type-input authority-switch), VIP-on-LB authoritative. Breaking: proto+buf-all-stubs+gateway-codegen+
+migration+nlb-prod. own TDD. Правильно deferred predecessor'ом (ban #14 — не half-remove).
+
+**Остаток newman (follow-up):** compute EC-retry (test-robustness) · registry #63 (garbage-pageToken→500 leak) ·
+nlb production-newman (CI verify) · iam #59 (interactive-OIDC). Затем поздние под-фазы COMP/STOR/VPC/IAM/REG/NLB-2/3/4.
