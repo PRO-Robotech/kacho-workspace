@@ -374,3 +374,26 @@ SA-user-token FK → acr blanket-372 → user-e2e interactive-login. Кажды�
 production-mode security ПОЛНОСТЬЮ verified (boot, mTLS, sslmode, authz, acr, anonymous/HS256→403).
 
 **Следующее по плану:** production-newman числа (ad1b66dc) → NLB-final (1c/1d/CONTRACT) → поздние под-фазы.
+
+## Production-mode newman ПЕРВЫЕ РЕАЛЬНЫЕ ЧИСЛА (SA-principal, 2026-07-22)
+
+SA-matrix seed (prodseed_matrix.py + prodrun.sh + mint_rs256.py, RS256 acr-exempt, production-strict):
+- **geo 7/7 green** (213 assert 0f) · **vpc 15/16** (~5296 assert 0f; 1 EC-under-load) · **storage 5/7** (#61/#62) ·
+  registry blocked #62 · compute disk+disk-type green, instance blocked (пустой machineType catalog ~#10) · nlb/iam not-run (deps).
+Baseline был all-401.
+
+**Реальные prod-баги (production-mode вскрыл):**
+- **TDD-FIXED `389f9f7`**: storage `img`-prefix не в `ids.KnownPrefixes` → gateway 400 на всех image Get/Update/Delete
+  (get-by-id полностью сломан). RED-lock + gateway-rebuild. storage image 47→4.
+- **#62 (RED)**: `edit`-role не материализует storage+registry domain verbs (`role_rule_selectors` gap для новых доменов —
+  класс data-integrity.md). editor-SA vpc-networks 200 но storage/registry 403. Блокирует registry+storage-authz.
+- **#61 (RED)**: Image.Create пропускает BVA (description>256/labels>64) что Volume.Create энфорсит.
+
+**Operational (prodrun.sh):** Hydra 900s SA-tokens + EC AccessBinding materialization → reseed >10min + wait 60s
+post-reseed (matrix-age-0 → 403-cascade; >15min → 401-cascade; оба диагностированы+фикшены).
+
+**production-user-gated (#59):** jwtAccountAdminAStepUp (acr step-up→interactive Kratos→Hydra OIDC) + static apiToken*
+(SA-key) — genuine interactive-OIDC subset, НЕ форсим/фейкаем.
+
+**Добив (aea49118):** #62 role_rule_selectors storage/registry + machineType catalog seed + #61 Image BVA + nlb/iam
+ext-seeders → все 7 suites production-green. Затем NLB-редизайн (дерево свободно). [[step-up-acr-sensitive-only]]
