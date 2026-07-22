@@ -342,3 +342,16 @@ MintUserToken RPC:
   если нет — точечный root-grant, не глобальное ослабление. + сохранить defense-in-depth: opaque FK-error→sync-reject.
 - Решает первичную настройку + токены + #60 одним паттерном (bootstrap-admin, как k8s cluster-admin/DB-root).
 Субагент a69550ab переориентирован. [[production-mode-everywhere-even-local]]
+
+## acr step-up refinement — финальный production-newman блокер (owner-decision 2026-07-22)
+
+**Корневой блокер (глубже #60, live-diagnosed):** 349 RPC несли `required_acr_min="2"` (blanket на каждый
+resource Get/List/CRUD). user/client_credentials-токены (acr=0) → 401 step-up на всех → production-newman
+user-subjects невозможны (только service_account acr-exempt проходят, O-1). #60 created_by FK решён (`05a2291`),
+но acr-floor — реальный блокер, не token-minting.
+
+**Owner-решение (best-practice 2026, RFC 9470/NIST AAL):** step-up acr>=2 — ТОЛЬКО security-posture-changing
+(credential-issue/revoke, privilege-grant, irreversible-destroy); routine resource CRUD/read/list + authz-primitives
+→ normal auth. Не blanket MFA (anti-pattern). Субагент af08ff16: acceptance+system-design-review → снять acr>=2
+с ~282 routine RPC (оставить sensitive-set) → regen permission-catalog → verify → production-newman RS256.
+[[step-up-acr-sensitive-only]]
