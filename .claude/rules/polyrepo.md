@@ -25,12 +25,12 @@ Workspace — корневой git-репо. Sibling-репо клонируют
 только Go-импорт `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`.
 Единый `buf lint`/`buf breaking` на всё, синхронные версии, готовые клиентские SDK.
 
-## Build-граф (источник истины — `replace github.com/PRO-Robotech/...` в `*/go.mod`)
+## Build-граф (источник истины — versioned `require` в `*/go.mod`, БЕЗ `replace`)
 
 ```
 kacho-proto                 ← ни от чего внутри проекта не зависит
-  └─ kacho-corelib          ← replace ../kacho-proto
-       ├─ kacho-iam         ┐ каждый сервис: replace ../kacho-corelib + ../kacho-proto.
+  └─ kacho-corelib          ← require kacho-proto@<pseudo-version>
+       ├─ kacho-iam         ┐ каждый сервис: require kacho-corelib + kacho-proto (versioned).
        ├─ kacho-geo         │ Между собой сервисы НЕ зависят по build (DB-per-service,
        ├─ kacho-vpc         │ общение только по API). kacho-geo — leaf-домен Geography
        ├─ kacho-compute     │ (Region/Zone), как iam: ни от какого сервиса не зависит.
@@ -39,8 +39,28 @@ kacho-deploy   ← Dockerfile'ы COPY ../kacho-*; build-context = parent dir
 kacho-ui/test  ← зависят от REST api-gateway в runtime (не build)
 ```
 
-Связь — `replace ../` (осознанный выбор для polyrepo-dev в одном дереве; переход на
-versioned modules — под релизную фазу). Проверка: `grep -rn "replace github.com/PRO-Robotech" project/*/go.mod`.
+### Правило зависимостей — versioned modules, `replace` ЗАПРЕЩЁН (non-negotiable)
+
+**В committed `go.mod` НЕ должно быть НИ ОДНОГО `replace github.com/PRO-Robotech/...`.**
+Зависимости резолвятся **только** как versioned-модули (`require …@<pseudo-version>` с
+public/GOPRIVATE-proxy). Причина: локальный `replace ../` не резолвится при single-repo
+checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → падает
+`go build`/`docker-build` → образ main не собирается (реальный инцидент: storage-split-gateway,
+2026-07-13 — storage/v1 403 на проде из-за несобранного gateway-образа).
+
+- **Локальная кросс-репо разработка** — через **git-ignored `go.work`** (root `project/go.work`,
+  `use ./kacho-*` для всех репо; шаблон — `go.work.example`). go.work даёт локальные siblings
+  БЕЗ правки go.mod; CI его не видит (single-repo) → использует versioned require. Это чистый
+  Go-workspace-паттерн (Go ≥1.18) — заменяет `replace ../` полностью.
+- **Бамп зависимости** — `GOWORK=off go get github.com/PRO-Robotech/<repo>@<sha>` в затронутом
+  сервисе → PR (см. «Порядок работы»). Кросс-репо фича: proto → corelib → сервисы → gateway, каждый
+  шаг бампит пин на предыдущий.
+- **CI-гейт / проверка (обязательна, роняет PR):**
+  `! grep -rnE '^replace github.com/PRO-Robotech' project/*/go.mod` (пусто = OK). Ни один go.mod
+  не должен нести replace на внутренний модуль.
+- **Dockerfile'ы** собираются versioned-модулями (single-repo context) ЛИБО через
+  build-context = parent + COPY siblings (umbrella/deploy) — но **go.mod остаётся без replace**
+  в обоих случаях (go.work/COPY предоставляют исходники, версии — из require).
 
 ## Runtime cross-domain edges (gRPC service→service; НЕ build-зависимость)
 
@@ -56,6 +76,11 @@ versioned modules — под релизную фазу). Проверка: `grep
   через transactional-outbox (SEC-D). Least-priv: ReBAC `fga_writer` @ `iam_fgaproxy:system`.
 - `kacho-compute → kacho-iam` (fgaproxy, SEC-A) — то же ребро: `RegisterResource`/`UnregisterResource` для owner-tuple
   compute-ресурсов. Internal-only :9091, идемпотентно, fgaproxy least-priv `fga_writer` @ `iam_fgaproxy:system`.
+- `kacho-storage → kacho-iam` (fgaproxy, SEC-D / CS-1 GAP-D) — то же ребро: `RegisterResource`/`UnregisterResource`
+  для owner-tuple storage-ресурсов (`storage_volume:<id>` / `storage_snapshot:<id>`). Нужен, чтобы gateway
+  scope_extractor'ы `{storage_volume,volume_id}`/`{storage_snapshot,snapshot_id}` резолвили target→project (анти-BOLA).
+  Internal-only :9091, идемпотентно, at-least-once через transactional-outbox (`kacho_storage.fga_register_outbox`) +
+  register-drainer, fgaproxy least-priv `fga_writer` @ `iam_fgaproxy:system`. Одностороннее (storage не зовётся обратно).
 - `kacho-vpc-operator → kacho-vpc` (SEC-G) — sync-poll read: `SubnetService.List` / `NetworkService.Get` /
   `NetworkInterfaceService.Get` / `AddressService.Get`. **mTLS** (отдельный operator client-cert, SAN
   `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`); per-edge `enable` (`enable=false` → insecure

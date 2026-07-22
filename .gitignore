@@ -31,3 +31,11 @@ go.work.sum
 obsidian/kacho/.obsidian/
 kubeconfig*
 tests/authz-fixtures/__pycache__/
+# Agent scratch worktrees (EnterWorktree / subagent isolation)
+.claude/worktrees/
+# Credentials that land in the repo root during local registry/SA-key debugging.
+# `pem` is a real PEM private key (docker login -u <client-id> --password-stdin < pem);
+# secrets never get committed — the vault is git-committed too (rules/vault.md).
+pem
+*.pem
+*.key

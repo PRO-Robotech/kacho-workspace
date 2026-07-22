@@ -39,6 +39,20 @@ service InstanceService {
 Клиент поллит `OperationService.Get(id)` до `done=true`. **Watch RPC не существует**
 (полл List 2-5 c или Operation.Get для in-flight).
 
+**`Operation.done` = durability предмета мутации, НЕ видимость downstream side-effect
+(non-negotiable).** `done=true` означает «ресурс закоммичен» (`w.Commit()` в worker-fn) —
+и ТОЛЬКО это. **Категорически запрещено гейтить `done` на видимость eventually-consistent
+downstream-эффекта** (owner-tuple в OpenFGA, зеркало в другом сервисе, drain outbox): это
+(а) переопределяет контракт Operation (ban #9 — предмет = «создать Network», не «распространить
+FGA-tuple»); (б) на fail-closed рождает **phantom-ресурс** (row закоммичен, имя занято UNIQUE,
+но op=ERROR → клиент видит fail → retry ловит `AlreadyExists` → get воспринимает как 404); (в)
+конвертирует ограниченный read-after-write лаг в неограниченный hard-fail под нагрузкой на
+downstream. Kachō **eventually-consistent by design** (async Operation, polling, replica isolation):
+side-effect материализуется в ограниченном окне (at-least-once outbox+drainer+reconciler), а
+«создал→сразу мутирую» обеспечивается **bounded client-retry** на кратком 403/404-окне, НЕ серверным
+confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm-gate на видимость owner-tuple
+удалён по system-design-review как ban #9-нарушение (см. `data-integrity.md` cross-domain authz).
+
 ## Naming / формат
 
 - **JSON (REST через api-gateway): camelCase** — `<resource>Id`, `projectId`, `labels`, `createdAt`.
@@ -47,6 +61,16 @@ service InstanceService {
   Доп. действия — отдельные RPC с `:verb`-путём.
 - **Timestamps**: в proto-ответе truncate до **секунд** (`CreatedAt.Truncate(time.Second)`); БД хранит микросекунды.
 - **ID**: `kacho-corelib/ids.NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix.
+- **id-prefix — hyphen-канон (going-forward, B3)**: **новые** ресурсы адресуются формой
+  `<prefix>-<crockford-base32>` (`ins-…`, `ns-…`, `mt-…`) — дефис-разделитель, prefix бывает
+  2+ символа (не фикс-3). Legacy слитная форма `<prefix><17-base32>` (`net…`, `epd…`) остаётся
+  валидной; сервисы мигрируют свой prefix **по одному** в собственном редизайне. Router
+  `corevalidate.ResourceID` классифицирует **обе** формы **аддитивно** (legacy-приём не отзывается):
+  крокфорд-тело дефиса не содержит → дефис = однозначный дискриминатор новой формы. Канон
+  hyphen-префиксов — `ids.KnownHyphenPrefixes()` (единый источник) + config-extra
+  `KACHO_EXTRA_RESOURCE_ID_HYPHEN_PREFIXES` (новый домен без релиза corelib). **`NewID`-генерация
+  ещё НЕ мигрирована** (эмитит legacy 3-char) — Phase-0-фундамент только учит router принимать
+  hyphen **вперёд** миграции сервисов.
 
 ## Error-format
 
@@ -59,6 +83,37 @@ service InstanceService {
   `"network is not empty"`. Тексты — часть контракта; меняются только осознанно (через тикет).
 - malformed id → sync `InvalidArgument "invalid <res> id '<X>'"` первым стейтментом RPC
   (`corevalidate.ResourceID`); well-formed-но-нет → `NotFound` через `repo.Get`.
+
+### By-lane code-split — NOT_FOUND vs FAILED_PRECONDITION по **линии** резолва id (обязательно)
+
+Код «id well-formed, но не резолвится» зависит от **линии**, а не от ресурса:
+
+- **direct-read lane** — own-owned id, `repo.Get` **своей** БД → нет строки = **`NOT_FOUND`**
+  (`"<Resource> <id> not found"`). Это «я не нашёл СВОЙ ресурс».
+- **peer-validate lane** — foreign id, cross-service peer-вызов владельцу на request-path
+  (`Create`/`Update`) → нет/не то состояние у владельца = **`FAILED_PRECONDITION`** (НЕ NOT_FOUND:
+  consumer не «не нашёл своё», а «предусловие на ЧУЖОЙ ресурс не выполнено»); владелец недоступен =
+  **`UNAVAILABLE`** (fail-closed для мутаций).
+- **Format-check — только own-owned id** (B4): malformed own-id → sync `INVALID_ARGUMENT`
+  (`corevalidate.ResourceID`, prefix-router); foreign id **не** prefix-checked — existence-only
+  peer-validate (чужой prefix — не наш словарь).
+
+Клиент **машинно** различает линии по **`reason`-token** в `rpc.Status.details`
+(`google.rpc.ErrorInfo.reason`), НЕ парся прозу message (тон message стабилен, но не парсибелен).
+`ErrorInfo.domain = "<service>.kacho.cloud"`, `metadata = {resource_type, resource_id}`:
+
+| `reason` | code | линия | смысл |
+|---|---|---|---|
+| `INVALID_RESOURCE_ID` | INVALID_ARGUMENT | sync-format | malformed own-id (prefix-router, первым стейтментом) |
+| `RESOURCE_NOT_FOUND` | NOT_FOUND | direct-read | own-owned id well-formed, строки в своей БД нет |
+| `PEER_RESOURCE_MISSING` | FAILED_PRECONDITION | peer-validate | foreign id не существует у владельца |
+| `PEER_RESOURCE_STATE` | FAILED_PRECONDITION | peer-validate | foreign ресурс есть, состояние не позволяет |
+| `PEER_UNAVAILABLE` | UNAVAILABLE | peer-validate | владелец недоступен (fail-closed мутации) |
+
+Split энфорсится **на обеих сторонах**: geo Region/Zone.Get **direct** → `RESOURCE_NOT_FOUND`/NOT_FOUND
+(GEO-1-34/35); consumer (vpc/compute/nlb), валидируя `zoneId`/`regionId` **peer** через geo, на geo-miss
+маппит в `PEER_RESOURCE_MISSING`/FAILED_PRECONDITION. Regression: assert `reason`-token И code (не только
+code) — тон message остаётся стабильным контрактом, но клиент ключуется на token.
 
 ## update_mask discipline
 
@@ -78,11 +133,36 @@ service InstanceService {
 семантика там, где удобнее (напр. AddressPool split v4/v6, KAC-71). Осознанные
 дизайн-решения документируй в `docs/architecture/` соответствующего сервиса.
 
+## Reference-типы — 3-way naming (B1, НЕ overload одного идентификатора)
+
+Три РАЗНЫЕ семантики ссылки — три разных типа. **Переименование landed-типов запрещено**
+(сломало бы wire-форму) — disambiguation достигается именами, не relocation:
+
+- **`reference.Referrer{type,id,name°}`** (пакет `kacho.cloud.reference`) — generic **cross-owner
+  dependency handle** (class-C, graceful-dangling: референт удалён → DETACHED/degraded, не паника).
+  `type` — dotted `domain.resource` из shared-каталога; `name°` — output-only best-effort зеркало
+  на момент привязки. Плюс `reference.Reference{referrer,type(MANAGED_BY|USED_BY),owned}` (reverse).
+  Landed: vpc (NIC/Address/SG `usedBy°`), storage (Volume `usedBy°`), compute (`Instance.serviceAccountId`).
+- **`iam.v1.ResourceRef{type,id}`** — **closed-table authz/AccessBinding target** (БЕЗ `name`;
+  `type` — из закрытого FGA object-type словаря). Живёт в `authorize_service.proto` (пакет
+  `kacho.cloud.iam.v1`); переиспользуется `AccessBinding.target` **в том же пакете** через import —
+  БЕЗ relocation (F8 iam-редизайн добавляет поле; wire/Go-тип `iamv1.ResourceRef` уже доступен,
+  buf-clean). НЕ несёт `name` (least-info, anti-oracle).
+- **`OciReferrer`/`ArtifactRef`** — **OCI-1.1 artifact-граф** registry (подпись/SBOM/аттестация).
+  Сейчас `Referrer` в пакете `kacho.cloud.registry.v1` (FQN отличается от generic — коллизии нет,
+  только читаемостная неоднозначность). Каноничный rename → `OciReferrer` вводится в **REG-2**
+  (buf-breaking, registry-домен) — Phase-0 НЕ добавляет мёртвый скелет (LEAN, ban #11).
+
+Правило выбора: dependency-handle → **`Referrer`**; authz-target → **`ResourceRef`**; OCI-граф →
+**`OciReferrer`**. Один и тот же id в разных ролях — разные типы, не overload.
+
 ## Pagination / filter
 
 - Cursor-based: `(created_at, id)` ORDER BY ASC; `page_token` — opaque base64 `{created_at,id}`.
 - `page_size` через `corevalidate.PageSize` (0 → default 50, max 1000); garbage token → `InvalidArgument`.
+  page_size вне `[0..1000]` → `InvalidArgument` (**отвергается, не clamp'ится**).
 - `filter` — `kacho-corelib/filter.Parse` с whitelist полей (текущая фаза — `name=`).
+- **Валидация pagination — ДО listauthz empty-grant short-circuit** (см. Gotcha ниже).
 
 ## Gotcha'и (выведены из audit-раундов — частые нарушения конвенций)
 
@@ -100,3 +180,13 @@ service InstanceService {
   constraint-aware mapper (с owner-id hint), а не sentinel-only fallback, иначе 23503 попадёт в
   INTERNAL вместо `FailedPrecondition "User <id> not found"`. (Deferral — осознанный, для
   order-independence сидов; см. `data-integrity.md` SQLSTATE-маппинг.)
+- **List: валидация pagination — ДО listauthz empty-grant short-circuit.** List-хендлеры с
+  per-object listauthz (compute/nlb/vpc) при пустом гранте (`len(AllowedIDs)==0`) отдают пустую
+  страницу РАНО — часто и в use-case, и в repo — **до** того как repo декодирует/валидирует
+  `page_token`/`page_size`. Тогда malformed-token / `page_size>1000` при пустом гранте утекают в
+  `200 {[]}` вместо `400 InvalidArgument` — расхождение с конвенцией и между сервисами
+  (реальный баг: compute disk/image/nlb; vpc был эталоном — валидирует рано). Порядок в хендлере:
+  **`ValidatePagination(page_token, page_size)` → listauthz-resolve → empty-grant short-circuit →
+  repo**. Repo-декод остаётся authoritative backstop; sync-guard в use-case/handler делает 400
+  детерминированным независимо от grant-state. Regression: unit на `ValidatePagination`
+  (garbage-token/`>1000` → `InvalidArgument`) в КАЖДОМ сервисе с этим паттерном.

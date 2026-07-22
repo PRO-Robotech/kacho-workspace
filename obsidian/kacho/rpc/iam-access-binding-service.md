@@ -40,7 +40,7 @@ tags:
 | Delete | DeleteAccessBindingRequest | operation.Operation | **async** | по id; **удаляет FGA grant-tuple** (revoke) |
 | Get | GetAccessBindingRequest | AccessBinding | sync | self ∪ grant-authority ∪ `viewer/v_list` (label-грант, T3.3 D-6 additive путь, паритет gateway v_get Check) |
 | Update | UpdateAccessBindingRequest | operation.Operation | **async** | mutable set `{deletion_protection, labels}` (T3.3-IMM-01). `deletion_protection` (C-03 снятие) + own-resource `labels` (T3.3, label-selectability) в одной writer-tx; иной mask путь (`role_id`/subject/scope/`resource_*`) → `INVALID_ARGUMENT "<field> is immutable after AccessBinding.Create"`. labels-change co-commit'ит reconcile-event `iam.accessBinding`. REST `PATCH …/{id}` |
-| ListByResource | ListAccessBindingsByResourceRequest | ListAccessBindingsResponse | sync | filter (resource_type, resource_id) |
+| **ListByScope** | ListAccessBindingsByScopeRequest | ListAccessBindingsResponse | sync | filter (resource_type, resource_id) — scope-якорь project\|account\|cluster. **Переименован из `ListByResource`, старое wire-имя СНЯТО** (не роутится → 403 catalog-miss, залочено кейсом `IAM-ACB-F50-ROUTES-REMOVED`). REST — **GET** `…:listByScope`. |
 | ListBySubject | ListAccessBindingsBySubjectRequest | ListAccessBindingsResponse | sync | filter (subject_type, subject_id) |
 | ListOperations | ListAccessBindingOperationsRequest | ListAccessBindingOperationsResponse | sync | per-resource ops history (sub-phase 1.2; filter `resource_id`, viewer-tier). Был дырой → UI таб «Операции» бил в 404. |
 | ListSubjectPrivileges | ListSubjectPrivilegesRequest | ListSubjectPrivilegesResponse | sync | sub-phase 1.3 (+1.3b) — все привилегии субъекта (effective roles); `subject_type ∈ {user, service_account, **group**}` (group добавлен в 1.3b, iam#162; было user\|service_account). `SubjectPrivilege{ subject_type, subject_id, role_id, role_name, resource_type, resource_id, scope, derivation }` + `Derivation` enum. LEFT JOIN roles для `role_name`. Authz self-OR-account-admin (`requireAccountViewAuthority`; для group home-account через `groups.account_id`). |
@@ -57,8 +57,8 @@ tags:
 | `POST /iam/v1/accessBindings` | Create |
 | `GET /iam/v1/accessBindings/{id}` | Get |
 | `DELETE /iam/v1/accessBindings/{id}` | Delete |
-| `POST /iam/v1/accessBindings:listByResource` | ListByResource |
-| `POST /iam/v1/accessBindings:listBySubject` | ListBySubject |
+| `GET /iam/v1/accessBindings:listByScope` | **ListByScope** (ex-`ListByResource`; старый путь СНЯТ → 403 catalog-miss) |
+| `GET /iam/v1/accessBindings:listBySubject` | ListBySubject |
 | `GET /iam/v1/accessBindings/{access_binding_id}/operations` | ListOperations |
 | `GET /iam/v1/accessBindings:listSubjectPrivileges` | ListSubjectPrivileges |
 | `GET /iam/v1/accessBindings:listAssignableRoles` | ListAssignableRoles |
@@ -68,6 +68,22 @@ tags:
 | `GET /iam/v1/accessBindings:listGrantableResources` | ListGrantableResources |
 
 ## Notes
+
+> [!warning] `ListByResource` → `ListByScope`: старое wire-имя СНЯТО, роут не отвечает
+> REST — **GET** `/iam/v1/accessBindings:listByScope`. Legacy `:listByResource` не
+> мапится в gRPC-метод: fqn вырождается в путь (`//iam/v1/accessBindings:listByResource`),
+> записи в permission-каталоге нет → **403 catalog-miss** (fail-closed, `security.md` §4).
+> Залочено кейсом `IAM-ACB-F50-ROUTES-REMOVED`. Записи ниже про `ListByResource` —
+> история; действующий метод — `ListByScope`.
+>
+> **Гоча (стоила отладки, 2026-07-16):** 403 приходит **валидным JSON'ом**
+> (`google.rpc.Status` + details). Клиент, делающий `json.load(resp).get('accessBindings', [])`,
+> получает **пустой список**, а не исключение — отказ исчезает бесследно и выглядит как
+> «binding'ов нет». Так `tests/authz-fixtures/setup.sh` ломался молча: «очистка»
+> stale-binding'ов не удаляла НИЧЕГО и рапортовала успех (мусор копился и ронял кейсы,
+> ждущие чистое состояние), а проба готовности bootstrap cluster-admin получала 403
+> независимо от готовности и выжигала 180с на каждом прогоне. **Проверяй HTTP-код, а не
+> только парсинг тела.** См. [[../packages/kacho-ci-runners]].
 
 - UNIQUE (subject_type, subject_id, role_id, resource_type, resource_id) ловит дубликаты; `maperr.go` mapping для этого constraint — `success (no-op)` либо `AlreadyExists` (см. acceptance §6 / §13.4). **KAC-128 BUG-7 fix**: Operation metadata `access_binding_id` теперь содержит СУЩЕСТВУЮЩИЙ id (pre-resolved через `FindExisting` до создания Operation) — не кандидат-id. DB ON CONFLICT остаётся safety-net.
 - `subject_id` / `resource_id` хранятся **без FK** (полиморфно, cross-DB) — software-validation отложена в E3 (OpenFGA tuple sync через [[../edges/iam-to-openfga-check]]).
