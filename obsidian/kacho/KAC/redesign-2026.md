@@ -326,3 +326,19 @@ iss trailing-slash gateway-strip). **Verified: `client_credentials /oauth2/token
 **Решение #60 (в работе, acceptance-first):** internal admin `MintUserToken` (параллель MintBootstrapToken, iam-unified,
 created_by=target-user) + sync FK-rejection. Разблокирует production-newman seed. Цепочка production-gap'ов (#58→token-hook→#60)
 — production-mode валидация вскрывает реальные defects, dev маскировал. [[production-mode-everywhere-even-local]]
+
+## Root-superuser bootstrap (owner-решение #60, 2026-07-22)
+
+Проблема первичной настройки: у системы НЕТ админа → нет non-interactive пути создать accounts/projects/tokens
+для e2e. #60 (bootstrap-SA не может issue user-tokens) — симптом. **Owner-решение: root-USER «вездеход»** — чище
+MintUserToken RPC:
+- Корень #60: `UserTokenService.Issue` ставит `created_by=caller`; caller=SA → sva-id → нарушает FK
+  `user_oauth_clients.created_by_user_id→users(id)`. **caller=root-USER → created_by=root-usr-id (валиден) → FK OK**,
+  БЕЗ нового RPC (работает существующий Issue).
+- Механика: seed root-user (system_admin@cluster) + root OAuth-client (private_key_jwt) из **статичного секрета**
+  (не git, real RS256 superuser — audit/revocable, не dev-bypass) → root client_assertion→Hydra-exchange (iam-unified,
+  reuse #58) → root RS256 → root создаёт test-accounts/projects + per-subject user-tokens (created_by=root).
+- Проверить: резолвит ли root=system_admin@cluster `v_update@user:<id>` через containment (issue-for-another);
+  если нет — точечный root-grant, не глобальное ослабление. + сохранить defense-in-depth: opaque FK-error→sync-reject.
+- Решает первичную настройку + токены + #60 одним паттерном (bootstrap-admin, как k8s cluster-admin/DB-root).
+Субагент a69550ab переориентирован. [[production-mode-everywhere-even-local]]
