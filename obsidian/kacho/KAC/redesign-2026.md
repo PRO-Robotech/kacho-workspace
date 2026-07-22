@@ -445,3 +445,20 @@ pivot + transitional statuses. migration 0059 (drop start/stop role-perms) verif
 **Финальная newman-прогонка (a2a7f32f):** deploy fixes (reload gateway/iam) + все 7 suites production-mode + добить остаток
 (iam AB 10, compute EC-retry, vpc list-filter-d #1, registry repository-overlay, nlb prodseed_ext) → полные per-service числа.
 production-user-gated (#59 interactive-OIDC) + sec-c whitelisted — declared.
+
+## Финальная production-mode newman — полные числа (ffd09c8, 2026-07-22)
+
+| svc | assert | failed | класс |
+|---|---|---|---|
+| geo | 213 | **0** | GREEN | storage 247/**0** GREEN · vpc 5319/**1** (transient FGA-timeout; list-filter-d #1 FIXED) |
+| compute | 1988 | 19 | EC + cluster-viewer-floor gap | registry ~588/**161** real-bugs #64 · iam ~1650/~477 (6 coll green; #59/token-expiry/EC) · nlb ~1600 token-blocked |
+
+**Классификация (не маскировано):** (1) geo/storage green, vpc effectively; (2) **registry #64** owner-tuple edge
+registry→iam **unwired/inactive** (код есть, не подключён)→owner 404 + ListRepositories route-shadowed by GetRepository
+catch-all (RG-1); (3) **cluster-viewer-floor gap** — `c6fd46e` system_admin@cluster seed отсутствует на redesign/integration
+(compute/iam authz-deny); (4) **stand degradation** — FGA-tuple accumulation → reseed 4→10min → seed-time ≥ 900s Hydra-window
+→ 401-cascade (iam/nlb inflated; fresh стенд collapse); (5) #59 iam user-OIDC declared; (6) #65 orphan nlb-perms LEAN.
+prodseed_nlb_ext.py authored. Issues #64/#65 filed.
+
+**Fixable-добив:** cluster-viewer-floor seed (c6fd46e port) + #64 registry owner-tuple wire + #65 orphan-perms migration →
+fresh dev-up clean re-run (collapse stand-degradation token-expiry) → чистые iam/nlb числа.
