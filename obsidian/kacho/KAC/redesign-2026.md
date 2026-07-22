@@ -429,3 +429,19 @@ migration+nlb-prod. own TDD. Правильно deferred predecessor'ом (ban #
 
 **Остаток newman (follow-up):** compute EC-retry (test-robustness) · registry #63 (garbage-pageToken→500 leak) ·
 nlb production-newman (CI verify) · iam #59 (interactive-OIDC). Затем поздние под-фазы COMP/STOR/VPC/IAM/REG/NLB-2/3/4.
+
+## NLB-final DONE + newman-добив prod-баги (2026-07-22)
+
+**NLB-final ПОЛНОСТЬЮ landed** (expand-contract complete): NLB-1c HealthCheck (bca9100/dafc795/5ffe414) + NLB-1d newman
+(d82b128) + **CONTRACT** (0bd1ac5 `feat(nlb)!`): удалены legacy Start/Stop/Attach/Detach RPC + attached_target_groups
+pivot + transitional statuses. migration 0059 (drop start/stop role-perms) verified. VIP-on-LB authoritative.
+
+**Newman-добив (3 prod-баги, cherry-picked b1779a2/27acc2d/009ecd5):**
+- **#55** gateway OpsProxy не роутил geo Operation IDs (geo prefix missing из prefixToBackend) — geo admin CRUD unpollable. Fixed.
+- **#63** corelib page_token garbage → 500 вместо 400 INVALID_ARGUMENT (format-validate ДО authz, security.md #7). Fixed.
+- **#9/#6** iam AccessBinding.Delete cluster-admin/owner 403 в своём аккаунте (authz-parity класс #62). Fixed — iam-access-binding
+  44→10 (live-verified delete-hard 200). [[in-service-gateway-authz-scope-parity]]
+
+**Финальная newman-прогонка (a2a7f32f):** deploy fixes (reload gateway/iam) + все 7 suites production-mode + добить остаток
+(iam AB 10, compute EC-retry, vpc list-filter-d #1, registry repository-overlay, nlb prodseed_ext) → полные per-service числа.
+production-user-gated (#59 interactive-OIDC) + sec-c whitelisted — declared.
