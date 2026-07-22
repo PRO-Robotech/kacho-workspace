@@ -355,3 +355,22 @@ user-subjects невозможны (только service_account acr-exempt пр
 → normal auth. Не blanket MFA (anti-pattern). Субагент af08ff16: acceptance+system-design-review → снять acr>=2
 с ~282 routine RPC (оставить sensitive-set) → regen permission-catalog → verify → production-newman RS256.
 [[step-up-acr-sensitive-only]]
+
+## acr step-up refinement DONE + SA-principal e2e-модель (2026-07-22)
+
+**acr-refinement landed+verified+deployed** (b048359/6b26bfb, оба gates APPROVED R3): 41 sensitive RPC → acr=2
+(credential-issue/revoke + privilege-grant domain-agnostic + irreversible-destroy incl Group/Role/Account/Project Delete),
+332 routine → acr=1, 65 exempt = 438 (byte-identical обе embedded). C2 (AccessBinding.Create exempt+acr2). 3 godoc-fixes.
+TDD RED→GREEN. **Live: `/vpc/networks` acr=1 401→200.** Net-strengthening (FGA untouched). RFC 9470/NIST. [[step-up-acr-sensitive-only]]
+
+**Фундаментал production user-e2e (OIDC-природа, не баг):** client_credentials → machine/SA-token (acr=None → SA-exempt).
+User-token с acr-claim — ТОЛЬКО interactive-login (Kratos→Hydra + token-hook enrichment). Поэтому production-newman
+user-subjects non-interactively невозможны by construction. **Решение: e2e-runner = SA by nature** → production-newman
+через SA-principals (client_credentials RS256, acr-exempt, resource RPC работают). authz-deny через SA с разными grants.
+User-specific membership-flows → `production-user-gated` (#59 follow-up). SA-based production-newman в исполнении (ad1b66dc).
+
+**Цепочка production-mode находок (все реальные, dev маскировал):** #58 bootstrap-RPC → token-hook misconfig → #60
+SA-user-token FK → acr blanket-372 → user-e2e interactive-login. Каждый — настоящий production-defect/architectural-reality.
+production-mode security ПОЛНОСТЬЮ verified (boot, mTLS, sslmode, authz, acr, anonymous/HS256→403).
+
+**Следующее по плану:** production-newman числа (ad1b66dc) → NLB-final (1c/1d/CONTRACT) → поздние под-фазы.
