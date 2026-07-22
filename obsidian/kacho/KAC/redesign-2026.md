@@ -397,3 +397,16 @@ post-reseed (matrix-age-0 → 403-cascade; >15min → 401-cascade; оба диа
 
 **Добив (aea49118):** #62 role_rule_selectors storage/registry + machineType catalog seed + #61 Image BVA + nlb/iam
 ext-seeders → все 7 suites production-green. Затем NLB-редизайн (дерево свободно). [[step-up-acr-sensitive-only]]
+
+## Production-newman добит (geo/vpc/storage green) + in-service authz-parity класс (2026-07-22)
+
+**Финал production-mode:** geo 7/7 · vpc 15/16 (1 EC) · **storage 7/7** (после #62) · compute ~19 EC-lag (test-robustness,
+не product) machineType green · registry main-green (residual repository-overlay + #63) · nlb (ext-seeder=NLB-редизайн) ·
+iam (#59 user-gated). Пофикшено: `img`-prefix (389f9f7) · storage-scope+registry-relation #62 (052e378/c9464d4) · Image-BVA #61.
+
+**Важный класс (#62, [[in-service-gateway-authz-scope-parity]]):** backend permission_map расходился с gateway-catalog по
+scope/relation — storage гейтил на cluster-singleton, registry Create на v_create вместо editor → project-editor 403 на
+своих ресурсах. Bootstrap cluster-admin маскировал. Production SA-matrix вскрыл. Фикс: backend зеркалит gateway (scope+relation).
+
+**Остаток newman:** compute EC-retry (test-robustness) · registry #63 (garbage-pageToken→500 leak) + repository-overlay ·
+nlb ext-seeder (**= NLB-1d редизайн**) · iam #59 (interactive-OIDC user-principal). Переход к NLB-final (1c/1d/CONTRACT).
