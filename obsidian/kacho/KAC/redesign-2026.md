@@ -308,3 +308,21 @@ YAML-placeholder) + CA-trust. Разблокирует production-newman RS256.
 
 **ФАЗА C production-newman (#59):** apply token-hook + setup-jwt.py→RS256 (bootstrap→UserToken/SAKey.Issue→exchange) +
 прогон 7 suites production-mode. Финальная миля — в работе.
+
+## Production-mode client_credentials РАЗБЛОКИРОВАН + #60 (2026-07-22)
+
+**FLOW 1 DONE (verified live, reproducible):** мой `83ca725` token-hook был half-applied — 3 defects live-verify:
+(1) Ory subchart nests под `hydra.hydra.config` (double-nest) → override no-op; (2) mtls.httpListeners TLS-wrapped
+JWKS-proxy :9097 (gateway plaintext) → сломало token-validation → revert plaintext; (3) real — `OAUTH2_*_HOOK_AUTH_CONFIG_VALUE`
+env-override (Ory не интерполирует YAML). + bootstrap-mint 3 gaps (signing-key, assertion-audience `hydraIssuer` knob,
+iss trailing-slash gateway-strip). **Verified: `client_credentials /oauth2/token → 200+RS256`; `MintBootstrapToken → RS256
+→ GET /accounts 200` (IBT-04); HS256→401 (IBT-10).** Commits e66e7ce/4fafb1a/9f6af91.
+
+**FLOW 2 блокирован #60 (реальный product-gap):** #58 bootstrap-SA НЕ может issue USER tokens — `UserTokenService.Issue`
+форсит created_by=caller → SA-caller sva-id violates FK `user_oauth_clients.created_by_user_id→users(id)` → op code 9.
+Нет admin-path mint user-token другому principal. newman authz-deny subjects=Users → RS256 нельзя seed. 2 дефекта:
+(a) нет admin-issue capability, (b) opaque async FK-error вместо sync rejection. → **iam#60** (blocks #59 production-newman).
+
+**Решение #60 (в работе, acceptance-first):** internal admin `MintUserToken` (параллель MintBootstrapToken, iam-unified,
+created_by=target-user) + sync FK-rejection. Разблокирует production-newman seed. Цепочка production-gap'ов (#58→token-hook→#60)
+— production-mode валидация вскрывает реальные defects, dev маскировал. [[production-mode-everywhere-even-local]]
