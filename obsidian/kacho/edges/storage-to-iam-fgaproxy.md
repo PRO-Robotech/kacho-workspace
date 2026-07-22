@@ -113,6 +113,22 @@ fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → dr
   + `module_set_drift`. **Требует iam service-rebuild, не только model re-pin.** Newman
   `VOL-OBJSELF-PROJECT-SCOPED-CRUD` гоняет object-self под project-editor (unmask). TDD: model-lock
   + wiring-lock + real-OpenFGA Check.
+- **#71 — ВТОРАЯ половина (materialization), commit `1a399dd` + migration `0060`**: даже с валидными
+  FGA-типами + wiring project-scoped owner ВСЁ ЕЩЁ получал 403. Live-диагностика: свежий
+  `storage_volume:<id>` нёс ТОЛЬКО структурный `#project`-tuple — реконсайлер материализовал **ноль**
+  per-object `v_*` для creator-SA. Причина: реконсайлер материализует `v_*` только для типов из
+  `domain.AllMaterializableTypes()` (`labelSelectableTypes ∪ registry.repositories`), которые
+  boot-backfill `SyncAllSystemRoleSelectors` (serve.go `BackfillOwnerBindings`) проецирует в
+  `role_rule_selectors` системных ролей (edit/view/admin/owner). `storage.*` там ОТСУТСТВОВАЛ →
+  editor-binding невидим discovery для storage-объектов → 403 на своём ресурсе (инвариант
+  data-integrity.md «role_rule_selectors для ВСЕХ materializing-ролей»). Фикс: `storage.volumes/
+  snapshots/images` → `domain.labelSelectableTypes` (own-table labels, mirror-fed, парити vpc/compute)
+  → `AllMaterializableTypes()` = 26; migration `0060` пере-сидит admin/edit/view/owner селекторы
+  26-типным массивом (stable `rule_fp` хеширует `*.*`-rule, не object_types → idempotent UPSERT).
+  Требует iam-rebuild+restart (boot-backfill подхватывает 26). **Verified live 403→200**: project-editor
+  owner-GET/Update/Delete своего тома = 200, cross = 403; DB — все 4 системные роли `has_storage=t, n=26`.
+  Полная цепочка #71: model-types → objectTypes/verbBearingTypes/knownModules → AllMaterializableTypes/
+  role_rule_selectors → reconciler `objectType ∈ selector.types` → materialize `v_*`.
 
 ## See also
 
