@@ -97,6 +97,22 @@ fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → dr
   `feat/CS-1-storage-network-disk`): caller-сторона реализована — outbox emit (0006) +
   register-drainer + sync-registrar + applier. Закрывает анти-BOLA owner-tuple gap (INV-10):
   без owner-tuple gateway scope_extractor не резолвил target→project.
+- **#71 — callee-сторона (FGA model + iam-wiring) отсутствовала** (redesign/integration, commit
+  `c01c2b9`): caller корректно эмитил `storage_<t>:<id> #project @project:<pid>`, НО
+  (1) openfga-модель **не определяла типы** `storage_volume`/`storage_snapshot`/`storage_image`
+  → каждый owner-tuple = poison FGA-write (`type not found` → drainer permanent-dead-letter);
+  (2) даже с типом iam-реконсайлер ронял объект: `RegisterResource` мапит FGA-префикс→dotted
+  mirror-ключ через `authzmap.DottedType`, без storage-записи mirror хранил `storage_volume`
+  **verbatim (без точки)** → `ReconcileObjectForward`→`FGAObjectType` возвращал ok=false →
+  **никакие v_\* не материализовались**. Итог (проверено live): project-scoped owner-GET = **403**
+  "no authorization path", cross = 403 — **fail-CLOSED over-denial, НЕ BOLA**. Маскировалось
+  false-green newman-суитой, гонявшей CRUD под `jwtBootstrap` (cluster system_admin
+  short-circuit'ит per-object Check → 200). Фикс: openfga-типы (parity с nlb: `project` +
+  DIRECT `v_*`, **без** `owner`-деривации — storage не эмитит owner-tuple) + `authzmap.objectTypes`
+  (`storage.volumes/snapshots/images`→`storage_*`) + `verbBearingTypes` + `domain.knownModules("storage")`
+  + `module_set_drift`. **Требует iam service-rebuild, не только model re-pin.** Newman
+  `VOL-OBJSELF-PROJECT-SCOPED-CRUD` гоняет object-self под project-editor (unmask). TDD: model-lock
+  + wiring-lock + real-OpenFGA Check.
 
 ## See also
 
