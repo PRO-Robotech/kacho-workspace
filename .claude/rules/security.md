@@ -171,3 +171,18 @@ secure-by-default boot-guards, HS256 stand-in вместо Hydra-RS256. Инва
    обход iam — нарушение унификации, фиксится маршрутизацией через iam. Единственное допустимо-прямое: финальный
    OAuth2 `client_assertion→JWT` exchange (`/oauth2/token`, OAuth2-standard client-flow) — и то проверь, не проксирует
    ли iam этот путь. e2e/newman авторизуется **Hydra-RS256 через iam-unified issuance**, НЕ HS256-stand-in в production.
+
+
+## Публичные артефакты — НЕ раскрывать operational security-internals (выведено 2026-07)
+
+Репо `PRO-Robotech/kacho` — **PUBLIC** (open-source BUSL-1.1). GitHub issues/PR-комментарии/описания в
+публичном репо ВИДНЫ всем. **НЕ постить в публичные артефакты консолидированные operational
+security-детали**: пошаговую auth-bypass/exemption-механику (напр. «SA acr-exempt keyed on
+principal_type==service_account → обойти step-up»), точные code-paths энфорсмента, JWT-claim-internals,
+DB-error→behavior mapping (SQLSTATE→код), internal endpoints/порты, схему обхода authz. Даже когда код
+open-source — консолидированное «как обойти» = roadmap атакующему (код показывает КАК устроено, а не
+собранный в одном месте bypass-рецепт). В публичный issue/PR — **high-level статус** (что сделано, ссылка
+на commit, числа); **детали реализации/дизайна → internal engineering trail** (obsidian vault, docs/architecture).
+Инцидент: субагент запостил 3.9KB auth-bypass-деталей в public issue #59 → подчищено до high-level.
+Правило касается ВСЕХ агентов/субагентов. Не путать с open-development (дизайн-обсуждения ок на уровне
+контракта/поведения, без operational-bypass-механики).
