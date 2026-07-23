@@ -31,6 +31,41 @@ tags: [packages, architecture, cross-service, kacho-iam]
 **Мёртвый комментарий** про `neg-v_delete-denied`/`neg-v_update-denied`: этих шагов в
 `cases/` нет (grep → 0), в whitelist они не входят (doc-truthfulness).
 
+## ОКОНЧАТЕЛЬНЫЙ root-cause (multiagent triage 2026-07-16) — TEST-FIXTURE, не продукт/регресс
+
+96 записей label-revoke на чистом kind → **один test-fixture корень, доказано**:
+каскад `editor from account` на типе `project` **осознанно удалён** коммитом `f869c8e`
+«[rbac-2026 Contract-A] flat index (#122)» (Point Pu, 2026-06-24) **внутри polyrepo** —
+модели monorepo↔polyrepo **байт-идентичны** (кроме license-header). Под Contract-A владелец
+материализуется **reconciler'ом** (per-object forward-materialization owner `*.*` ARM_ANCHOR
+на Create, см. `services/iam/.../api/project/create.go:33-38,168-178` +
+`docs/architecture/owner-role-content-access-cascade.md`), НЕ FGA-каскадом.
+
+- **Root A — МИСДИАГНОЗ, ОПРОВЕРГНУТ эмпирикой (qa-агент, прямое FGA :check-зондирование).**
+  Гипотеза «swap `jwtAccountAdminA`→`jwtProjectAdminA1`» НЕВЕРНА. На корректно засеянном стенде
+  `jwtAccountAdminA` **имеет** `editor@project:A1` (create→200) И `editor@vpc_network` (update→200);
+  `jwtProjectAdminA1` имеет `editor@project`, но **НЕ** `editor@vpc_network` — его PATCH даёт 403
+  даже на своей сети (**network-editor привязан к account, не к project**). Swap на PA1 ломает
+  update-путь (+46 падений). Наблюдавшийся ранее `create-net-n1 → 403` в out/*.json был
+  **транзиентным seed-propagation-lag'ом** на непрогретом FGA, НЕ реальным багом. Оригинальная
+  идентичность (всё `jwtAccountAdminA`) — правильная для deployed flat-модели. Root A применять НЕ надо.
+- **Root B (~51, ЕДИНСТВЕННЫЙ реальный корень label-revoke) — применён (commit 42c3632).**
+  `POST /iam/v1/internal/iam:check` бил в external :18080 (public cmux) → `404 page not found` →
+  JSONError в test_script. **Фикс test-only:** file-local `_internal_url_override(path)` (зеркало
+  `iam-internal-only-check.py`) как `pre_script` на каждый Check-probe → перенаправляет на
+  `{{internalBaseUrl}}` :18081 (cluster-internal REST, инъектится `newman-e2e.sh --env-var
+  internalBaseUrl=http://localhost:18081`). Применён к label-revoke-vpc/compute +
+  rbac-subject-channel-equivalence + iam-authz-grant-check-propagation. RED→GREEN: compute **9→0
+  полностью**, vpc **31 JSONError→0** (+3-4 флапа async-revoke-convergence — load-induced, свежий
+  стенд сходится; POLL_CAP=30 vs fga_outbox-drain-lag на загруженном стенде).
+- **Residual (product-decisions, не Stages 1-2):** (1) operations-worker + fga-register-drainer
+  похоже НЕ запущены на umbrella clean-kind (Operation'ы AccessBinding/IssueSAKey `done:false`) —
+  реальный **deploy-gap**; (2) anon Operations.Get/Cancel: 401 (authN-first) vs 404 (hide-existence) —
+  контрактный вопрос; (3) owner-tuple: синхронно-at-op-done или eventually-consistent (poll-backoff).
+
+Stages 1-2 (Root B+A) → оба label-revoke набора зелёные. Прежние заметки ниже (step-up NO-OP,
+пагинация) — верны, но это уже про residual-наборы, не про доминирующий корень.
+
 ## Корень остаточной красноты — загрязнение фикстур, НЕ баг продукта
 
 На кластере с нуля (26/26 Running) остаётся **68** падений в 8 наборах. Первое звено:
@@ -77,15 +112,23 @@ fixture-переработка, не один заход.
    биндингами прошлых прогонов → целевой дубль на 2-й странице. Фикс: `&pageSize=1000`.
 3. **Status-фильтр.** Искали `status==='ACTIVE'`, API отдаёт `STATUS_UNSPECIFIED`. Фикс: принять оба.
 
-> [!warning] Число падений НЕДЕТЕРМИНИРОВАНО (43-52) на загаженном стенде
-> На переиспользованном kind FGA-пропагация read-after-write отстаёт под burst сьюта
-> (owner-GET/DELETE свежего биндинга сходится >10-28с — O(N) viewer-cascade по ~24
-> засорённым юзерам аккаунта). Ни один poll-cap не покрывает, не упираясь в timeout.
-> Плюс state-pollution ломает deny-тесты (jwtNoBindings уже получил grant-authority) и
-> даёт STRANGER-инверсию (adminB видит чужой accountA=200, свой accountB=403). Всё это
-> спутано с pollution → НЕ подтверждённые prod-баги. **Набор сойдётся ТОЛЬКО на чистом
-> стенде** (`make dev-down && dev-up` либо `RESET_FGA=true`). CI поднимает чистый kind
-> каждый прогон — там и надо мерить, а не на локальном загаженном.
+> [!danger] ОПРОВЕРГНУТО измерением: чистый стенд НЕ даёт зелёный (2026-07-16, свежий kind)
+> Прежняя гипотеза «сойдётся ТОЛЬКО на чистом стенде» **неверна**. Прогон на реально
+> свежем kind (`make dev-down` = `kind delete cluster` → `dev-up`, 26/26 Running) через
+> сам гейт `assert-suites-green.sh` дал **96 падений в 8 наборах** (после known-RED skip):
+> `label-revoke-vpc 40 · label-revoke-compute 16 · iam-access-binding 18 · rbac-visibility-set 10 ·
+> iam-read-authz-vget 4 · rbac-subject-channel-equivalence 4 · iam-authz-grant-check-propagation 3 · iam-user 1`.
+> Загрязнение стенда — НЕ причина (стенд пересоздан). Классификация корней (evidence из out/*.json):
+> - **каскад от `create → 403`** (label-revoke-vpc/compute, большинство): actor без grant на create →
+>   403 → `{{_op}}` не проставлен → `poll` шлёт литерал `{{_op}}` (`invalid operation id`) + `GET /…/{{id}}`
+>   с литералом в пути → grpc-gateway `404 page not found` (JSONError). Один каскад = одно 403. FGA-grant/пропагация;
+> - **authz-контракт**: anon → 401, тест ждёт 404 (anti-leak) / 403 (iam-authz-grant-check-propagation);
+> - **visibility/listauthz**: list-only видит detail (200 вместо 404-hide); non-member видит 1 юзера вместо 0;
+> - **teardown-order**: `teardown-binding` → `code:7 PreconditionFailure`; `teardown-*-gone` → 404.
+>
+> Вывод (жёсткий, на свежем kind): green — крупная многонаборная работа (FGA-grant-пропагация в фикстурах +
+> authz-контрактные ожидания + teardown-порядок), НЕ «чистый стенд» и НЕ один заход. CI тоже поднимает
+> свежий kind → на CI гейт красный по тем же 96. `RESET_FGA`/re-up краснотy не снимают.
 
 > [!danger] Автоматическое применение step-up РЕГРЕССИРУЕТ — только ручной разбор
 > Замеры на iam-access-binding: базовый pre-clean-фикс 40→28. Массовая замена всех
@@ -118,6 +161,21 @@ fixture-переработка, не один заход.
 > результат надо из **cli-лога** (`│ assertions │ … │`, `inside "IAM-…"`), а не из
 > `out/*.json` — иначе анализируешь устаревший отчёт (реальная потеря: час на «фикс не
 > применяется», хотя out/ был просто старый).
+
+> [!danger] Fresh dev-up → ПЕРЕИЗВЛЕКИ mTLS client-cert перед reseed/geo-seed (stale-cert блокер)
+> `prodseed_matrix.py`/geo-seed бьют iam-internal :9091 по **mTLS** (`/tmp/iam-mtls/client.crt`
+> +`.key`, grpcurl `UpsertFromIdentity`). После `dev-down→up` cert-manager **регенерит
+> internal-CA** → cert со СТАРОГО стенда signed старой CA → :9091 отвергает (SPIFFE/CA-mismatch)
+> → `UpsertFromIdentity` **виснет на dial-deadline** → 0 users → `db_lookup(...) empty after
+> retries` → пустой matrix → весь прогон washed. Это **персистентный** блокер (НЕ transient
+> provisioning-EC — bounded-retry просто пере-виснет, каждый раз новый email). Фикс —
+> переизвлечь cert из живого секрета ПЕРЕД reseed:
+> ```
+> kubectl -n kacho get secret api-gateway-client-tls -o jsonpath='{.data.tls\.crt}'|base64 -d >/tmp/iam-mtls/client.crt
+> kubectl -n kacho get secret api-gateway-client-tls -o jsonpath='{.data.tls\.key}'|base64 -d >/tmp/iam-mtls/client.key
+> ```
+> `prodrun.sh` делает это автоматически перед reseed (commit 4c54c67). #67-adjacent (тот же класс
+> «fresh dev-up обнуляет/протухает фикстур-предпосылку»: geo-каталог пуст, mTLS-cert протух).
 
 ## Что вычитается корректно (RED-by-design, каждый с тикетом)
 
