@@ -142,12 +142,16 @@ red **блуждают** (rbac-subjects 8→13, registry-repository 0→7, но�
       (attempt=0) в РАЗНЫЕ батчи → delete клеймится без write → delete-before-write → tuple выживает → **authz leak**
       (repro: authz-deny 10, iam-role 3 — тот же лик что naive N=16). Порог низкий (профиль целевой нагрузки).
       reconciler-backstop НЕ спасает (эти tuple не LWW/source_version-guarded — потому и revert). Оба ревью ❌, repro ❌.
-- [ ] **Safe revoke-lag fix = partition-HEAD-only claim** (CRIT-1 fix A): не клеймить row если есть same-partition
-      unsent lower-id → преемник НИКОГДА не впереди unsent-предшественника (гарантия cross-batch). Нужна **миграция**
-      (`partition_key` колонка на fga_outbox, fill на enqueue) + claim-предикат `AND NOT EXISTS(same key, unsent, id<)`.
-      + RED-lock cross-batch тест + partition head-of-line wedge observability. Глубокий careful design — НЕ marathon-end.
-      ТРИ unsafe-попытки (sequential-slow / naive-N16-leak / partition-in-batch-leak) → это genuinely HARD (non-commutative
-      outbox + claim-ordering + starvation trade-off). Follow-up epic, fresh design+review.
-- [ ] registry (docker#33/фикстуры/mirror-fed create-retry) + мелкие блуждающие (iam-account/user/authz-deny fixture-isolation)
+- [x] **Safe revoke-lag fix = partition-HEAD-only claim РЕАЛИЗОВАН (`4563ebc`, dual-review APPROVED v2).** Не apply-level
+      (тот лакнул cross-batch) — на **CLAIM-уровне**: opt-in `Config.PartitionColumn` (SQL-expr, iam=`payload->>'object'`) +
+      claim-предикат `AND NOT EXISTS(p: sent_at NULL, attempt<MaxAttempts, id<t.id, same partition)` → преемник НЕ клеймится
+      пока deliverable-unsent-предшественник существует → per-partition FIFO **cross-batch И cross-replica** by construction.
+      At-most-one-per-partition-claimable → apply-grouping не нужен (LEAN). Poison исключён (иначе permanent wedge). Миграция
+      **0061** partial-index. Head-of-line wedge = leak-safety>liveness (per-object, heals, observable). RED-lock Test_1_4_40
+      cross-batch (+ 41-44). compute byte-identical (PartitionColumn nil). Оба ревью: CRIT-1 ЗАКРЫТ, exactly-once/cross-replica ✓.
+- [~] CI #5 (30112149890) confirming — fresh dev-up (авторитетно; локальный флипнутый стенд был contaminated: drainer
+      caught-up 0-pending но authz-deny видел 37 накопленных групп = stand-artifact, НЕ drainer/CI. Урок: часами-старый
+      флипнутый стенд ненадёжен для fixture-sensitive кейсов — CI fresh-stand авторитетен).
+- [ ] registry (docker#33/фикстуры/mirror-fed create-retry) + мелкие блуждающие — после CI#5 (option-A мог их тоже сдвинуть)
 
 #kacho-iam #kacho-storage #kacho-registry #kacho-deploy #kac #fix #testing
