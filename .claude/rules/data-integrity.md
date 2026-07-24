@@ -132,6 +132,42 @@ free-list **на КАЖДОМ пути высвобождения**, атома�
   Conformance: `grant-by-email → login → access материализуется`; `revoke-before-login → clears pending
   intent` (не залипает). Серверный confirm-барьер запрещён (ban #9) — EC-окно, bounded client-retry.
 
+## Outbox-drainer concurrency — ordering только на CLAIM-уровне (выведено 2026-07-24)
+
+Ускорять drainer конкуренцией можно **ТОЛЬКО** после ответа на вопрос: **коммутативны ли
+события этого outbox?**
+
+- **Write-only outbox** (compute `fga_register_outbox` — только регистрация owner-tuple):
+  события коммутативны → `ApplyConcurrency=N` безопасен «как есть».
+- **Write+delete одного ключа** (iam `fga_outbox`: grant→WRITE и revoke/delete-stale→DELETE
+  одного `(user,relation,object)`) — **НЕ коммутативны**. Наивный `ApplyConcurrency>1`
+  переупорядочивает → delete применяется раньше write → **tuple выживает → authz over-grant /
+  cross-account leak**. Corelib-godoc это прямо оговаривает: «включать ТОЛЬКО когда финальное
+  состояние target СХОДИТСЯ независимо от порядка».
+- **Group-by-key НА APPLY-УРОВНЕ НЕДОСТАТОЧЕН** (ловушка — выглядит как решение, но течёт):
+  claim идёт `ORDER BY (attempt_count, id)`, поэтому transient-подтянутый предшественник
+  (`attempt≥1`) сортируется **позже** свежего преемника (`attempt=0`) и они попадают в **разные
+  claim-батчи** — внутрибатчевая группировка/re-sort про это ничего не знает. Cross-batch
+  reorder → тот же leak.
+- **Правильно — partition-head-only CLAIM**: не клеймить строку, пока в её партиции есть
+  **доставляемый** unsent-предшественник с меньшим id:
+  `AND NOT EXISTS (SELECT 1 FROM <t> p WHERE p.sent_at IS NULL AND p.attempt_count < MaxAttempts
+  AND p.id < t.id AND p.<partition_expr> = t.<partition_expr>)`. Тогда per-partition FIFO держится
+  **cross-batch И cross-replica** (незакоммиченный peer-claim в чужом snapshot всё ещё
+  `sent_at IS NULL`; `FOR UPDATE OF t SKIP LOCKED` лочит только кандидата, коррелированный `p` —
+  чистый read). Следствие: в снапшоте claimable максимум одна строка партиции ⇒ apply-группировка
+  становится не нужна (LEAN). Обязателен partial-index `((<partition_expr>), id) WHERE sent_at IS NULL`.
+- **Poison исключать из блокирующего набора** (`p.attempt_count < MaxAttempts`) — отравленная
+  строка никогда не применится, блокировка на ней = **вечный wedge** партиции; leak-safe (отравленный
+  WRITE не создал tuple).
+- **Head-of-line wedge — осознанный размен leak-safety > liveness**: persistently-transient
+  предшественник блокирует СВОЮ партицию (радиус — один объект), остальные дренятся; heals на
+  восстановлении peer'а. Обязателен observability-контракт (per-partition WARN + table-wide
+  oldest-pending gauge), иначе застрявший revoke тихий.
+- **Тест (ban #12) обязан быть CROSS-BATCH**, а не внутрибатчевым: bumped-WRITE (`attempt=5`) +
+  fresh-DELETE (`attempt=0`) + ≥`ApplyConcurrency` filler'ов ⇒ без фикса delete уезжает в ранний
+  батч и tuple выживает (RED), с фиксом — absent (GREEN). Внутрибатчевый тест это НЕ ловит.
+
 ## Placement-coherence — ВСЕ ресурсы связываются зонально ИЛИ регионально (обязательно)
 
 Любая ссылка/привязка между двумя placement-scoped ресурсами **обязана** быть
