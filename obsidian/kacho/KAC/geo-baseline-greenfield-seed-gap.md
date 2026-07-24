@@ -104,7 +104,16 @@ route-table(481)/NIC(366)/authz-deny(705)/gateway = **0**; compute core (60→2/
   дропнул zones в редизайне; stale-путь молча маскировал gap).
 - `geo-data-migration-job.yaml` — doc-truthfulness: комментарий ложно заявлял «миграция сеет baseline».
 Валидировано: geo Internal POST/GET-confirm path против живого стенда (region durable, 4 zones);
-все 3 скрипта bash -n clean. CI-verify: e2e-newman dispatched на redesign/integration (run 30063062957).
+все 3 скрипта bash -n clean.
+
+> [!success] CI-verify PASSED (run 30063062957, 2026-07-24)
+> e2e-newman на redesign/integration: **vpc/compute/nlb/geo гейты ЗЕЛЁНЫЕ** (+ dev-up, coverage,
+> proto-coverage). geo-seed в setup.sh отработал → zone-dependent creates прошли (раньше все
+> фейлили "Zone not found"). Доказывает фикс end-to-end в CI dev-mode, не только локально.
+> Осталось red (хвост редизайна, НЕ geo-related): iam ~50 (EC create→Get 404 + test-infra
+> api.kacho.local ENOTFOUND ×8 + test-design RBACSG-plain404 ×7 + возможный channel-leak ×4),
+> storage 1 кейс (VOL-OBJSELF broken objself-token, 74 assert; остальное storage 0-fail),
+> registry 4 (repo-create EC). Триаж — ci-red-triage workflow.
 
 > [!warning] Rule #16 gap (flagged, НЕ фикшу mid-marathon): CI-стенд = **dev-mode** (values.dev:
 > authMode=dev, HS256, sslmode=disable), НЕ production-mode. Правило #16 требует production-mode
