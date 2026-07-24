@@ -117,6 +117,18 @@ red **блуждают** (rbac-subjects 8→13, registry-repository 0→7, но�
   (родственный forward-паттерн) · [[grant-materialization-omirror-root]] · [[fga-register-throughput-inversion]]
 - setup.sh (storage editor seed) · newman-parallel.sh (drain-gate) · iam/registry newman cases
 
+## ✅ ЦЕЛЬ ДОСТИГНУТА — CI #7 (30118562428): ВЕСЬ NEWMAN ЗЕЛЁНЫЙ
+
+Все 7 сервисных гейтов + coverage: **iam · vpc · compute · nlb · storage · registry · geo**.
+Путь от greenfield-all-red: geo-seed (разблокировал 4 домена) → storage stale-RS256-token (74→0) →
+vpc ephemeral-zone race → iam-direct additive SHARE-forward материализация → order-preserving
+partition-head drainer → 51 delay-less poll-петля (+backbone-хелпер) → registry retry → revoke
+v_delete EC-retry (и его каскад в соседнюю коллекцию).
+
+**Мета-уроки раунда** (все — в правилах): «поллер сдался, хотя async-хвост был здоров» ≠ лаг
+сервиса; caps раздувают, чтобы компенсировать отсутствие ожидания; cross-suite гонка эфемерных
+фикстур маскируется под флейк; ordering в outbox чинится на CLAIM-уровне, не на apply.
+
 ## Status
 - [x] geo-seed → vpc/compute/nlb/geo green (run 30063062957)
 - [x] 7-агентный триаж → 6 non-masking фиксов (commit `05dc544`)
