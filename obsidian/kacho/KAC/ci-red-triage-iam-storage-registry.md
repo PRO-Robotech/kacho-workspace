@@ -128,7 +128,15 @@ red **блуждают** (rbac-subjects 8→13, registry-repository 0→7, но�
       (access_binding/project/role/group/service_account/user). dual-review APPROVED + 9 integration + `-race`.
 - [x] **stand-validated (production-strict)**: iam-access-binding-redesign **244/0 GREEN** (было 14 fails в CI#3);
       create→Get свежего binding = 8ms материализация. Deploy boots clean.
-- [ ] CI #4 (30095443768) — подтвердить iam green под полной параллельной волной (dev-mode)
-- [ ] label-revoke-vpc (mirror-fed drainer) + registry (docker#33/фикстуры) — отдельные roots если ещё red
+- [x] CI #4 (30095443768): iam-direct fix подтверждён — access-binding **13→0**, project **5→0**, rbac-subjects 13→2
+- [x] **dev-mode local repro поднят** (флип стенда production-strict→dev-mode + setup.sh seed) — faithful CI-flow локально
+- [x] хвост характеризован (faithful): grant-check GREEN в isolation → CI-red = **cumulative materialization backlog**;
+      доминанта = **revoke/group-member propagation lag** через iam fga_outbox drainer (sequential, default 1)
+- [x] **drainer N=16 trial → ОТКАЧЕН (unsafe)**: очистил revoke-lag (rbac-channel 8→0) НО внёс authz-leak
+      (authz-deny 3→10, iam-role foreign-Get 200) — iam fga_outbox имеет write+delete одного tuple (не commutative);
+      ApplyConcurrency>1 переупорядочивает → leak. Поймал до пуша ([[drainer-applyconcurrency-ordering]]). Revert `fe3fdc8`.
+- [ ] **revoke-lag safe fix = order-preserving (partition-by-object) concurrent drainer** — corelib opt-in enhancement,
+      design+TDD+dual-review (НЕ naive N>1). Зеленит rbac-channel/rbac-visibility/label-revoke-compute безопасно.
+- [ ] registry (docker#33/фикстуры/mirror-fed create-retry) + мелкие блуждающие (iam-account/user/authz-deny fixture-isolation)
 
 #kacho-iam #kacho-storage #kacho-registry #kacho-deploy #kac #fix #testing
