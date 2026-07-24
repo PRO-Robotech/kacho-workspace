@@ -53,16 +53,39 @@ opened: 2026-07-24
    Fix: **inter-wave drain-gate** (drain healthy fga_outbox→0 bounded перед iam-волной). НЕ поднимать
    FGA_POLL_CAP (=180 уже красный — анти-фикс).
 
-## Follow-up (prod-fixes, tracked, если drain-gate не хватит)
+## Run #2 (30083782782) + DISCRIMINATOR ВЕРДИКТ (2026-07-24)
 
-- **iam `forward.go` iam-direct additive forward** (create.go:189/409 якоря): brand-new iam-direct
-  объект (project/accessBinding) получает additive SHARE-lock forward-материализацию доступа создателя
-  (резолв account-scoped-containment) вместо отложенного FULL EXCLUSIVE async sweep. Durable throughput-фикс
-  (родствен [[iam-accessbinding-forward-materialization]] ReconcileBindingForward, но для СОЗДАТЕЛЯ объекта).
-  Нужен RED-lock integration-тест (`reconcile_owner_iam_content_integration_test.go`: assert DIRECT
-  v_delete/v_get для owner). Landing только если CI после drain-gate всё ещё red на этих категориях.
-- **grant-check v_delete owner-mat**: тот же integration-тест дискриминирует EC vs prod-bug forward-mat
-  containment для iam.accessBinding.
+CI #2: **storage 74→0** ✅ (token-фикс сработал), geo/compute/nlb green, rbac-subjects 17→8,
+channel 4→1, registry-repository 4→0. Осталось red: vpc list-filter-d 3 (регресс), iam
+access-binding 14 / grant-check 6 / label-revoke-vpc 10 / rbac-subjects 8, registry-authz/redesign 9.
+
+> [!important] Discriminator: остаток = EC materialization THROUGHPUT, НЕ correctness-bug
+> Integration-тест (`TestOwnerIamContent_AccessBindingForward`, синхронный `ReconcileObject`,
+> нет EC-окна) **GREEN на v_get/v_update/v_delete** для owner → **эмиссия owner-tuple КОРРЕКТНА**
+> (v_delete эмитится DIRECT: feed_registry `iam.accessBinding` verb-bearing → `ResolveVerbsAndTier(["*"])`
+> → `[get,list,create,update,delete]` → `ruleObjectTuples` add `v_delete`). e2e-403 = read-your-writes
+> materialization lag, НЕ дефект feed/reconcile. **openfga replicaCount=1 + iam replicas=1 УЖЕ**
+> (values.dev:1061/1097) → НЕ replica-read-lag → чистый **drainer throughput** (ledger→OpenFGA Write)
+> под wave1-конкуренцией (registry 404-after-48s = backlog >48s под --jobs>1).
+
+## Fix (commit `d4970c1`) — test-infra parallel-safety, НЕ prod-change
+
+EC-throughput чинится снижением materialization-contention (legitimate per testing.md — CI валидирует
+**correctness** при этой concurrency; prod-scale throughput = отдельный tracked epic):
+- **newman-parallel.sh: iam + registry `--jobs 1`** (сериализовать materialization-heavy суиты, как nlb) →
+  drainer поспевает → bounded client-retry покрывает read-your-writes окно.
+- **setup.sh: grant-materialization drain-gate ПЕРЕД Phase B resource-seeds (block 11-14)** → JWT_AAA
+  grants материализованы до subnet/network create (иначе ensure_subnet пусто → `{{subnetVisibleId}}`
+  unsubstituted → vpc list-filter red). Fixes vpc seed-flake.
+
+## Follow-up (throughput scalability EPIC — НЕ correctness, НЕ блокер CI-green)
+
+- **iam `forward.go` iam-direct additive forward** (create.go:189/409): brand-new iam-direct объект
+  (project/accessBinding) → additive SHARE-lock forward вместо FULL EXCLUSIVE (forward.go:235 делегирует
+  iam-direct в full). **Оптимизация throughput** (родствен [[iam-accessbinding-forward-materialization]]),
+  НЕ correctness (эмиссия уже верна). Prod-scale concern для high-density; НЕ нужен для CI-green если
+  contention-reduction работает. Landing с design+TDD+dual-review — НЕ marathon-end push в критичный
+  materialization-путь. Трейл throughput: [[fga-register-throughput-inversion]].
 
 ## Skip (не gate-failing)
 - **iam-internal-only-check (8 ENOTFOUND api.kacho.local)**: `assert-suites-green.sh` уже вычитает
@@ -75,8 +98,11 @@ opened: 2026-07-24
 
 ## Status
 - [x] geo-seed → vpc/compute/nlb/geo green (run 30063062957)
-- [x] 7-агентный триаж → 6 non-masking фиксов (commit `05dc544`, pushed)
-- [ ] CI re-verify (run 30083782782) — подтвердить iam/storage/registry green
-- [ ] если grant-check/materialization всё ещё red → forward.go prod-fix + RED-lock (follow-up)
+- [x] 7-агентный триаж → 6 non-masking фиксов (commit `05dc544`)
+- [x] CI #2 (30083782782): storage 74→0 ✅; остаток = EC materialization throughput
+- [x] **discriminator: v_delete эмиссия КОРРЕКТНА (EC-lag, НЕ correctness-bug)** — integration GREEN
+- [x] contention-reduction fix (`d4970c1`): iam+registry --jobs 1 + setup drain-gate
+- [ ] CI #3 (30088223667) — подтвердить iam/registry/vpc green при --jobs 1
+- [ ] если всё ещё red при serial → throughput floor выше retry → forward.go epic (design+review)
 
 #kacho-iam #kacho-storage #kacho-registry #kacho-deploy #kac #fix #testing
