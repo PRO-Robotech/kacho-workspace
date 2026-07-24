@@ -5,7 +5,7 @@
 > **Ревьюер:** `acceptance-reviewer` → APPROVED
 > **Эпик/тикет:** KAC-`<N>` (завести); первопричина — GitHub issue `PRO-Robotech/kacho#58`
 > **Тип:** новый cluster-INTERNAL RPC (`kacho.cloud.iam.v1`, :9091, mTLS-gated) + идемпотентный provisioning — **не** новый tenant-facing ресурс
-> **Repos:** `kacho-proto` (новый `internal_*.proto` + regen) · `kacho-iam` (RPC + provisioning + миграция) · `kacho-api-gateway` (регистрация ТОЛЬКО на internal sub-mux) · `kacho-deploy` (env/helm) · `kacho-workspace` (docs+vault)
+> **Repos:** `kacho-proto` (новый `internal_*.proto` + regen) · `kacho-iam` (RPC + provisioning + миграция) · `kacho-api-gateway` (**НЕ фронтит** — REST-маршрута нет, см. §5a A-1) · `kacho-deploy` (env/helm + операторская client-identity) · `kacho-workspace` (docs+vault)
 > **Формат:** Given-When-Then (только markdown — без кода)
 
 ---
@@ -91,10 +91,13 @@ HS256-байпаса.
    (+ его Hydra OAuth-клиента + `system_admin@cluster`-grant) при отсутствии; ES256-assertion →
    Hydra-обмен с `aud=https://{API_DOMAIN}` → RS256-токен; DB-инвариант «ровно один bootstrap-SA»;
    миграция под provisioning-строку.
-3. **kacho-api-gateway:** регистрация `InternalBootstrapTokenService` **только** на internal sub-mux
-   (`iamInternalAddr`); RPC-суффикс попадает в `HasInternalSuffix` (не роутится на external).
+3. **kacho-api-gateway:** ~~регистрация `InternalBootstrapTokenService` на internal sub-mux~~ →
+   **ОТМЕНЕНО поправкой A-1**: gateway не фронтит этот RPC вообще (ни public, ни internal REST-mux);
+   единственный вход — прямой mTLS-gRPC на iam `:9091`. Вклад gateway'я — **отрицательный** (регрессионный
+   локк «маршрута нет»).
 4. **kacho-deploy:** env для `API_DOMAIN`/аудитории bootstrap-токена + Hydra-token-URL (переиспользуют
-   существующие registry-шим/hook конфиги, где применимо).
+   существующие registry-шим/hook конфиги, где применимо); **+ (A-1)** выпуск операторской client-identity
+   (`mtls.bootstrapOperator`) и её SAN в `authn.bootstrap-mint.allowed-client-sans` профилей.
 5. Тесты (TDD, тот же PR): integration (testcontainers) идемпотентности + «ровно один bootstrap-SA»
    инвариант; unit use-case через mock-порты (Hydra-обмен замокан); assertion token-hook-обогащения
    (SA-принципал claims).
@@ -122,8 +125,8 @@ HS256-байпаса.
 | package | `kacho.cloud.iam.v1` |
 | service | `InternalBootstrapTokenService` (Internal-only, :9091) |
 | RPC | `rpc MintBootstrapToken (MintBootstrapTokenRequest) returns (MintBootstrapTokenResponse)` — **sync** |
-| permission | `option (kacho.iam.authz.v1.permission) = "<exempt>"` (листенер = gate; НЕ `required_relation`/`scope_extractor`) |
-| REST (только internal sub-mux) | `POST /iam/v1/internal/bootstrapToken:mint` |
+| permission | `option (kacho.iam.authz.v1.permission) = "<exempt>"` — означает **только** «per-RPC FGA/ReBAC Check невозможен» (RPC существует, чтобы получить ПЕРВЫЙ токен, когда отношения ещё нет). Gate — **allow-list SPIFFE-SAN клиентского сертификата** (см. поправку A-1), НЕ граница листенера |
+| REST | **отсутствует** — ни `google.api.http`-биндинга, ни регистрации на gateway-mux'ах. Единственная дверь — прямой mTLS-gRPC на iam `:9091` (см. поправку A-1) |
 | request-поля | `int64 ttl_seconds = 1` (опц.; `0` → серверный дефолт; клампится к hard-max, см. IBT-09). **НЕТ** поля subject/principal. |
 | response-поля (camelCase) | `accessToken` (RS256 JWT), `tokenType` (`"Bearer"`), `expiresIn` (сек), `expiresAt` (Timestamp, truncate до секунд), `principalId` (id bootstrap-SA, `sva_…`), `issuedAt` (Timestamp, truncate до секунд) |
 
@@ -273,34 +276,43 @@ D-1); поллинг `OperationService.Get` до `done=true && !error` отда�
 
 ---
 
-### Сценарий IBT-06: Internal-only — RPC не роутится на external endpoint (ban #6)
+### Сценарий IBT-06: RPC не имеет REST-двери ВООБЩЕ (ban #6 + поправка A-1)
 
 **ID:** `IBT-06`
 
-**Given** production-стенд; `InternalBootstrapTokenService` зарегистрирован **только** на internal sub-mux
+**Given** production-стенд; `InternalBootstrapTokenService` зарегистрирован **только** как gRPC-сервис
+на iam-листенере :9091 и **не зарегистрирован ни на одном** REST-mux'е api-gateway (ни public, ни
+internal — см. поправку A-1)
 
 **When** клиент обращается к `POST /iam/v1/internal/bootstrapToken:mint` на **external** TLS endpoint
-(`api.{API_DOMAIN}:443`)
+(`api.{API_DOMAIN}:443`) **либо** на cluster-internal REST-листенер api-gateway
 
-**Then** запрос **не** маршрутизируется на хендлер — `404 Not Found` (dispatcher/`HasInternalSuffix`
-блокирует Internal-суффикс на публичном листенере)
-**And** RPC достижим **только** через cluster-internal :9091 / internal sub-mux (port-forward/admin-tooling)
+**Then** в обоих случаях маршрута нет — `404 Not Found` (на external дополнительно блокирует
+dispatcher/`HasInternalSuffix`; на internal маршрут просто не зарегистрирован, что закреплено
+`gateway/internal/restmux/bootstrap_token_no_rest_route_test.go`)
+**And** RPC достижим **только** прямым mTLS-gRPC-диалом на cluster-internal :9091 — и там ещё раз
+гейтится allow-list'ом SAN (IBT-07)
 
 ---
 
-### Сценарий IBT-07: Non-mTLS вызывающий на :9091 → отклонён
+### Сценарий IBT-07: Вызывающий вне SAN-allow-list'а → отклонён (во ВСЕХ режимах)
 
 **ID:** `IBT-07`
 
-**Given** production-стенд, :9091 требует verified client-cert (mTLS)
+**Given** стенд, :9091 требует verified client-cert (mTLS); `authn.bootstrap-mint.allowed-client-sans`
+содержит **только** SAN операторской identity (`spiffe://kacho.cloud/ns/kacho/sa/kacho-bootstrap-operator`)
 
 **When** клиент вызывает `MintBootstrapToken` по :9091 **без** валидного клиентского сертификата
-(plaintext/insecure или неверный SAN)
+(plaintext/insecure) **либо** с валидным сертификатом другого модуля (напр. SAN api-gateway)
 
-**Then** соединение/запрос отклоняется на транспорте (TLS handshake fail либо `UNAVAILABLE`/
-`UNAUTHENTICATED`) — токен **не** выдаётся
-**And** «internal = trusted, mTLS не нужен» — недопустимо (`security.md` §authN-везде); хендлер
-недостижим без mTLS
+**Then** без сертификата — отказ на транспорте (TLS handshake fail либо `UNAVAILABLE`/
+`UNAUTHENTICATED`); с чужим валидным сертификатом — `PERMISSION_DENIED` («permission denied», без
+раскрытия списка) — токен **не** выдаётся ни в одном случае
+**And** отказ действует **в любом режиме** (dev тоже; arm-3 не расслабляется dev-режимом), а **пустой**
+allow-list отказывает **всем** (у минта нет дефолтного вызывающего)
+**And** «internal = trusted, mTLS не нужен» и «я — api-gateway, значит можно» — оба недопустимы
+(`security.md` §authN-везде): сеть — не credential, и фронт tenant-трафика не даёт права чеканить
+cluster-admin
 
 ---
 
@@ -373,10 +385,12 @@ D-2/Non-goals) — per-subject-выдача идёт **только** через
 Минт токена cluster-`system_admin`-принципала — чувствительная операция; она приемлема **строго** при
 одновременном выполнении (defense-in-depth, `security.md`):
 
-1. **Internal-only surface** — RPC достижим **только** на cluster-internal :9091 / internal sub-mux;
-   dispatcher 404 на external (ban #6, IBT-06). Публичный периметр его не видит.
-2. **mTLS обязателен** — verified client-cert; non-mTLS → reject (IBT-07). AuthN не байпасится
-   (`<exempt>` снимает лишь per-RPC FGA-Check, не транспортный authN — «internal = trusted» запрещено).
+1. **gRPC-only surface** — RPC достижим **только** прямым mTLS-gRPC-диалом на cluster-internal :9091;
+   REST-двери нет нигде (ban #6, IBT-06 + поправка A-1). Публичный периметр его не видит.
+2. **Именованный вызывающий, а не сеть** — verified client-cert, чей SPIFFE-SAN **явно** в
+   `authn.bootstrap-mint.allowed-client-sans`; всё остальное → deny, во всех режимах, пустой список →
+   deny всем (IBT-07). AuthN не байпасится (`<exempt>` снимает лишь per-RPC FGA-Check — «internal =
+   trusted» и «граница листенера = gate» запрещены как обоснования).
 3. **Bootstrap-only принципал** — минтится **исключительно** заранее-известный bootstrap-admin SA; нет
    произвольного-принципала (IBT-11). Компрометация RPC не даёт «выписать токен на любого» — только на
    тот единственный принципал, что и так провижится идемпотентно.
@@ -391,6 +405,50 @@ D-2/Non-goals) — per-subject-выдача идёт **только** через
 
 ---
 
+## 5a. Поправка A-1 (post-merge hardening) — минт больше НЕ фронтится api-gateway'ем
+
+> **Внесена:** 2026-07-24 (hardening-раунд, монорепо `PRO-Robotech/kacho`). Меняет **gate**, не контракт
+> ответа: форма запроса/ответа, TTL-клампы, bootstrap-only-принципал, fail-closed поведение — без изменений.
+
+**Что было не так.** Исходный дизайн опирался на «граница листенера = gate»: RPC регистрировался на
+internal REST-sub-mux'е api-gateway (`POST /iam/v1/internal/bootstrapToken:mint`) и считался защищённым
+тем, что этот листенер cluster-internal. Но internal REST-листенер gateway'я — **plain HTTP/1.1**, без
+TLS и без клиентского сертификата, а authz-middleware пропускает `<exempt>` Internal\*-RPC, прибывший на
+internal-origin, **не извлекая принципала**. Итого минт cluster-admin-токена был доступен **без единого
+credential** любому, кто дотягивается до порта `internal-rest` (или держит port-forward). Сетевая позиция —
+не credential (`security.md`).
+
+**Что стало (три слоя, каждый fail-closed):**
+
+1. **Двери нет.** Из proto убран `google.api.http`-биндинг, из `restmux` — регистрация хендлера.
+   Единственный вход — прямой mTLS-gRPC на iam `:9091`. Локк — `gateway/internal/restmux/
+   bootstrap_token_no_rest_route_test.go`.
+2. **Gate — сертификат вызывающего** (`authzguard.CallerPolicy`, «arm 3»): SAN клиентского сертификата
+   обязан быть в **явном** allow-list'е `authn.bootstrap-mint.allowed-client-sans`. Проверяется
+   **первым и терминально** (ни dev-режим, ни принадлежность к gateway-fronted-набору его не расширяют);
+   набор SAN-restricted методов **статичен** (не зависит от конфига) — забытый конфиг обязан **закрывать**,
+   а не проваливаться на общий floor. Пустой/отсутствующий список → deny всем.
+   **api-gateway из этого списка исключён намеренно**: он фронтит tenant-трафик и достижим из всего
+   кластера — «я api-gateway» не должно быть лицензией чеканить cluster-admin.
+3. **Boot-guard.** В production `Config.Validate()` **отказывается стартовать**, если минт ENABLED
+   (задан signing-key) при пустом allow-list'е (core rule #16: включённый-но-невызываемый минт провоцирует
+   «починку» через возврат дыры).
+
+**Операторский путь (end-to-end).** Umbrella выпускает **отдельную** client-auth-only identity
+cert-manager'ом (internal-CA): секрет `kacho-bootstrap-operator-client-tls`, SAN
+`spiffe://kacho.cloud/ns/kacho/sa/kacho-bootstrap-operator` (`mtls.bootstrapOperator` в
+`deploy/helm/umbrella/values.yaml`, шаблон `templates/bootstrap-operator-certificate.yaml`). Тот же SAN
+прописан в `kacho-iam.config.authn.bootstrapMint.allowedClientSANs` профилей `values.dev.yaml` и
+`values.dev-prod.yaml` → рендерится в `config.yaml` как `authn.bootstrap-mint.allowed-client-sans`.
+Оператор/фикстура забирает материал из секрета и дёргает iam `:9091` напрямую
+(`tests/authz-fixtures/mint_rs256.py::mint_bootstrap`, grpcurl + mTLS). Когерентность «выпущенный SAN ==
+allow-listed SAN» закреплена `deploy/tests/helm/bootstrap-mint-operator-identity-test.sh`.
+
+**Влияние на сценарии:** IBT-06 переформулирован (REST-двери нет вообще), IBT-07 расширен (чужой валидный
+сертификат → `PERMISSION_DENIED`, во всех режимах). Остальные сценарии — без изменений.
+
+---
+
 ## 6. Traceability (сценарий → тест)
 
 | ID | Проверяемое | Уровень теста | Тест-идентификатор |
@@ -400,8 +458,11 @@ D-2/Non-goals) — per-subject-выдача идёт **только** через
 | IBT-03 | concurrency → ровно один bootstrap-SA (DB-инвариант) | integration, concurrent goroutines | `TestMintBootstrapToken_Concurrent_SingleBootstrapSA` |
 | IBT-04 | gateway принимает RS256-Bearer (200, не 401/403) | e2e-conformance (Phase C follow-up) | `IBT-04::bootstrap-token-accepted` (Phase C) |
 | IBT-05 | bootstrap-SA зовёт acr-gated Issue → 200 (acr-exempt) | e2e-conformance (Phase C) + unit acr-exempt | `IBT-05::seed-usertoken-sakey` (Phase C) |
-| IBT-06 | Internal-only: external → 404 | e2e/gateway-routing | `IBT-06::not-on-external` (Phase C) |
-| IBT-07 | non-mTLS → reject | integration/transport | `TestMintBootstrapToken_NonMTLS_Rejected` |
+| IBT-06 | REST-двери нет: external → 404 **и** ни одной регистрации на internal REST-mux (A-1) | gateway-routing unit + e2e | `TestBootstrapToken_NoRESTRoute` (`gateway/internal/restmux/bootstrap_token_no_rest_route_test.go`) + `TestBootstrapToken_InternalOnly_NotOnExternalListener` |
+| IBT-07 | non-mTLS → reject; чужой валидный SAN → PermissionDenied; пустой allow-list → deny всем (A-1) | unit caller-policy + integration/transport | `authzguard/caller_policy_bootstrap_mint_test.go` + `TestMintBootstrapToken_NonMTLS_Rejected` |
+| IBT-A1 | boot-guard: production + минт enabled + пустой allow-list → refuse-to-start; непустой → boots | unit config | `TestValidate_Production_BootstrapMintEnabled_{EmptyAllowlist_Rejected,WithAllowlist_OK}` |
+| IBT-A2 | конфиг-путь: ключ, который рендерит чарт, доезжает до структуры (иначе allow-list читает никто) | unit config-load | `TestLoad_BootstrapMintAllowlist_{FromChartShapedYAML,FromEnv,DefaultEmpty}` |
+| IBT-A3 | когерентность деплоя: выпущенный операторский SAN == allow-listed SAN; это НЕ SAN api-gateway; дефолт пуст | helm manifest-assertion | `deploy/tests/helm/bootstrap-mint-operator-identity-test.sh` |
 | IBT-08 | Hydra down → fail-closed UNAVAILABLE, no-leak | unit use-case (Hydra-exchange mock → ErrHydraUnavailable) | `TestMintBootstrapToken_HydraUnavailable_FailClosed` |
 | IBT-09 | bounded TTL (clamp) | unit use-case (injected clock) | `TestMintBootstrapToken_TTLClampedToMax` |
 | IBT-10 | anon/HS256 по-прежнему 401/403 (регресс-lock) | e2e-conformance (Phase C) | `IBT-10::hs256-still-rejected` (Phase C) |
