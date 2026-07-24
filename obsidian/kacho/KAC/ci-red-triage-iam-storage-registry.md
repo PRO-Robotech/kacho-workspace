@@ -135,8 +135,19 @@ red **блуждают** (rbac-subjects 8→13, registry-repository 0→7, но�
 - [x] **drainer N=16 trial → ОТКАЧЕН (unsafe)**: очистил revoke-lag (rbac-channel 8→0) НО внёс authz-leak
       (authz-deny 3→10, iam-role foreign-Get 200) — iam fga_outbox имеет write+delete одного tuple (не commutative);
       ApplyConcurrency>1 переупорядочивает → leak. Поймал до пуша ([[drainer-applyconcurrency-ordering]]). Revert `fe3fdc8`.
-- [ ] **revoke-lag safe fix = order-preserving (partition-by-object) concurrent drainer** — corelib opt-in enhancement,
-      design+TDD+dual-review (НЕ naive N>1). Зеленит rbac-channel/rbac-visibility/label-revoke-compute безопасно.
+- [~] **partition-by-object drainer trial → ❌ ОТКАЧЕН (dual-review + repro поймали cross-batch leak).**
+      Реализация: opt-in `Config.PartitionKey`, same-object rows sequential id-order (in-batch), different-object concurrent.
+      In-batch ordering + exactly-once — корректны (оба ревьюера ✓). **НО CRIT-1 cross-batch reorder:** claim
+      `ORDER BY (attempt_count,id)` разносит bumped-write (transient/PermissionDenied → attempt≥1) и fresh-delete
+      (attempt=0) в РАЗНЫЕ батчи → delete клеймится без write → delete-before-write → tuple выживает → **authz leak**
+      (repro: authz-deny 10, iam-role 3 — тот же лик что naive N=16). Порог низкий (профиль целевой нагрузки).
+      reconciler-backstop НЕ спасает (эти tuple не LWW/source_version-guarded — потому и revert). Оба ревью ❌, repro ❌.
+- [ ] **Safe revoke-lag fix = partition-HEAD-only claim** (CRIT-1 fix A): не клеймить row если есть same-partition
+      unsent lower-id → преемник НИКОГДА не впереди unsent-предшественника (гарантия cross-batch). Нужна **миграция**
+      (`partition_key` колонка на fga_outbox, fill на enqueue) + claim-предикат `AND NOT EXISTS(same key, unsent, id<)`.
+      + RED-lock cross-batch тест + partition head-of-line wedge observability. Глубокий careful design — НЕ marathon-end.
+      ТРИ unsafe-попытки (sequential-slow / naive-N16-leak / partition-in-batch-leak) → это genuinely HARD (non-commutative
+      outbox + claim-ordering + starvation trade-off). Follow-up epic, fresh design+review.
 - [ ] registry (docker#33/фикстуры/mirror-fed create-retry) + мелкие блуждающие (iam-account/user/authz-deny fixture-isolation)
 
 #kacho-iam #kacho-storage #kacho-registry #kacho-deploy #kac #fix #testing
