@@ -78,14 +78,35 @@ EC-throughput чинится снижением materialization-contention (legi
   grants материализованы до subnet/network create (иначе ensure_subnet пусто → `{{subnetVisibleId}}`
   unsubstituted → vpc list-filter red). Fixes vpc seed-flake.
 
-## Follow-up (throughput scalability EPIC — НЕ correctness, НЕ блокер CI-green)
+## Throughput prod-fix РЕАЛИЗОВАН (owner greenlight «на твоё усмотрение», 2026-07-24)
 
-- **iam `forward.go` iam-direct additive forward** (create.go:189/409): brand-new iam-direct объект
-  (project/accessBinding) → additive SHARE-lock forward вместо FULL EXCLUSIVE (forward.go:235 делегирует
-  iam-direct в full). **Оптимизация throughput** (родствен [[iam-accessbinding-forward-materialization]]),
-  НЕ correctness (эмиссия уже верна). Prod-scale concern для high-density; НЕ нужен для CI-green если
-  contention-reduction работает. Landing с design+TDD+dual-review — НЕ marathon-end push в критичный
-  materialization-путь. Трейл throughput: [[fga-register-throughput-inversion]].
+CI #3 (30088223667): vpc GREEN (setup drain-gate починил seed-flake) → **5/7 гейтов green**. iam/registry
+red **блуждают** (rbac-subjects 8→13, registry-repository 0→7, новые iam-project/user) = edge-of-throughput,
+`--jobs 1` не фиксит. Owner делегировал: атаковать durable fix, итерируя локально. TDD-агент реализовал:
+
+**iam-direct additive forward materialization** (5 прод-файлов, tested GREEN + `-race`, под dual-review):
+- Root: `ReconcileObjectForward` БЕЗУСЛОВНО делегировал iam-direct (accessBinding/project) в FULL
+  `ReconcileObject` (EXCLUSIVE per-binding lock + delete-stale). Все accessBinding/project аккаунта шарят
+  ОДИН owner/account binding → N concurrent creates сериализуются на lock → materialization lag > retry.
+- Fix: `ReconcileObjectForward` стал **feed-aware** — brand-new iam-direct → additive **SHARE-lock**
+  (own-table `GetIAMDirectObject` + `IAMDirectSelectorBindingsMatchingObject`), переиспользуя ОБЩУЮ
+  feed-agnostic эмиссию (`ruleObjectTuples`) → **byte-identical tuples** к FULL. create.go (access_binding
+  +project) sync post-commit `ReconcileObject`→`ReconcileObjectForward`. FULL СОХРАНЁН как async backstop +
+  delete-stale/re-register. Родствен уже-залендённому [[iam-accessbinding-forward-materialization]]
+  `ReconcileBindingForward` (тот же паттерн, но для OBJECT-owner-tuple, не binding-membership).
+- Тесты: unit (SHARE lock-mode `locks==0 && sharedLocks>=1` + owner verb-set) + 6 integration (testcontainers:
+  single-object не O(scope) · byte-identical-vs-FULL · N=12 concurrent · cross-account · idempotent · T31
+  delete-stale guard). Build/vet/lint clean.
+- Файлы: `reconcile/reconcile.go` (+port) · `reconcile/forward.go` (feed-aware) · `repo/kacho/pg/reconcile_adapter.go`
+  (+GetIAMDirectObject) · `access_binding/create.go` · `project/create.go`.
+
+**Sibling follow-up** (agent-noted): user/group/role/sa create-paths — тот же FULL→forward switch + mock update
+(их white-box mocks ассертят ReconcileObject) → расширит fix на iam-user/group/role/sa red-суиты. Trivial.
+
+**registry** (Task B диагноз): УЖЕ имеет sync-registrar (#102, mirror-fed → additive SHARE уже) → registry-red
+= НЕ throughput; вероятно docker#33/iam#320 ИЛИ parallel-newman фикстуры (testing.md §параллельный). Отдельно.
+
+Трейл throughput: [[fga-register-throughput-inversion]].
 
 ## Skip (не gate-failing)
 - **iam-internal-only-check (8 ENOTFOUND api.kacho.local)**: `assert-suites-green.sh` уже вычитает
@@ -102,7 +123,12 @@ EC-throughput чинится снижением materialization-contention (legi
 - [x] CI #2 (30083782782): storage 74→0 ✅; остаток = EC materialization throughput
 - [x] **discriminator: v_delete эмиссия КОРРЕКТНА (EC-lag, НЕ correctness-bug)** — integration GREEN
 - [x] contention-reduction fix (`d4970c1`): iam+registry --jobs 1 + setup drain-gate
-- [ ] CI #3 (30088223667) — подтвердить iam/registry/vpc green при --jobs 1
-- [ ] если всё ещё red при serial → throughput floor выше retry → forward.go epic (design+review)
+- [x] CI #3 (30088223667): **vpc GREEN** (setup drain-gate) → 5/7 гейтов; iam/registry блуждают (edge-of-throughput)
+- [x] **iam-direct throughput prod-fix (`e86db60`)**: additive SHARE-forward для ВСЕХ 6 iam-direct create-paths
+      (access_binding/project/role/group/service_account/user). dual-review APPROVED + 9 integration + `-race`.
+- [x] **stand-validated (production-strict)**: iam-access-binding-redesign **244/0 GREEN** (было 14 fails в CI#3);
+      create→Get свежего binding = 8ms материализация. Deploy boots clean.
+- [ ] CI #4 (30095443768) — подтвердить iam green под полной параллельной волной (dev-mode)
+- [ ] label-revoke-vpc (mirror-fed drainer) + registry (docker#33/фикстуры) — отдельные roots если ещё red
 
 #kacho-iam #kacho-storage #kacho-registry #kacho-deploy #kac #fix #testing
