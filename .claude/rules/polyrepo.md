@@ -14,7 +14,10 @@ Workspace — корневой git-репо. Sibling-репо клонируют
 | `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
 | `kacho-iam` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding |
 | `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface |
-| `kacho-compute` | Instance / Disk / Image / Snapshot / DiskType |
+| `kacho-compute` | Instance / MachineType (+ **живой дубль** Disk/Image/Snapshot/DiskType — раскол не завершён, см. `data-integrity.md` карта владельцев) |
+| `kacho-storage` | Volume / Snapshot / Image / DiskType — блочное хранение; владелец `volume_attachments` |
+| `kacho-nlb` | LoadBalancer / Listener / TargetGroup / Target |
+| `kacho-registry` | Registry / Repository / Tag (OCI) |
 | `kacho-geo` | Region / Zone (Geography — platform topology leaf, owner) |
 | `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e |
 | `kacho-ui` | Vite + React SPA control plane |
@@ -70,6 +73,14 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
 - `kacho-registry → kacho-geo` (REG-1 F4) — валидация `Namespace.region_id` (**required** на Create, `placement_type` всегда `REGIONAL`, оба immutable) через `geo.v1.RegionService.Get`, sync peer-validate на request-path, per-call 5s deadline + `retry.OnUnavailable`, fail-closed `UNAVAILABLE`. Namespace — regional-anycast (zone-независим). geo — leaf (не зовёт registry обратно) → ацикличность holds. Client `services/registry/internal/clients/geo`, wired в `serve.go` (`GeoGRPCAddr`/`GeoMTLS`).
 - `kacho-geo → kacho-iam` — `InternalIAMService.Check` (authz-gate на каждом RPC обоих листенеров; read-RPC `system_viewer`-floor, admin-CRUD `system_admin`). geo — leaf-консумер только iam (как любой сервис).
 - `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
+- `kacho-compute → kacho-storage` — **несущее ребро раскола блочного хранения** (было не задокументировано
+  до 2026-07-25, хотя живо в коде: `services/compute/internal/clients/storage_client.go`, провязано в
+  composition root). Резолв boot-источника (`storage.image`/`storage.snapshot`/`storage.volume`) + attach/detach
+  тома. **Attach инициируется compute, payload самоописывающийся** (несёт `instance_id`/`instance_zone_id`/
+  `project_id`/`instance_name`) → storage валидирует **свою** строку одним CAS-INSERT и **никогда не зовёт
+  compute обратно** — ацикличность держится (проверено: ноль импортов `computev1` в `services/storage`).
+  Таблица привязки `volume_attachments` живёт **у владельца-storage**; compute-шная `attached_disks` дропнута.
+  На Instance — read-only зеркало с мягкой деградацией при dangling-ref.
 - `kacho-nlb → kacho-compute` — резолв Instance-таргетов (`compute.v1.InstanceService.Get`); **только** для Instance (НЕ для geography — region-валидация теперь `nlb→geo`).
 - `* → kacho-iam` — `ProjectService.Get` (existence + account lookup, leaf-owner) + `InternalIAMService.Check` (authz-gate).
 - `kacho-vpc → kacho-iam` (fgaproxy, SEC-A) — `InternalIAMService.RegisterResource`/`UnregisterResource`: запись/снятие

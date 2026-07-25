@@ -11,8 +11,10 @@ workspace; копии во всех репо синхронизируются `.
 **Kachō — самостоятельная облачная control-plane платформа** (только control plane,
 без data plane). Домены: **IAM** (Account / Project / User / ServiceAccount / Group /
 Role / AccessBinding), **VPC** (Network / Subnet / SecurityGroup / RouteTable / Address /
-Gateway / NetworkInterface), **Compute** (Instance / Disk / Image / Snapshot + Geography
-Region/Zone). Это собственный продукт со своими требованиями — описывай и проектируй
+Gateway / NetworkInterface), **Compute** (Instance / MachineType), **Storage** (Volume /
+Snapshot / Image / DiskType — блочное хранение), **Geo** (Region / Zone — топология
+размещения, leaf-owner), **NLB** (LoadBalancer / Listener / TargetGroup), **Registry**
+(Registry / Repository / Tag — OCI). Это собственный продукт со своими требованиями — описывай и проектируй
 API в терминах **конвенций Kachō** (см. `@.claude/rules/api-conventions.md`), без
 сравнений с чужими облаками.
 

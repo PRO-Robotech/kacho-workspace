@@ -60,8 +60,20 @@ one-resource-per-owner-or-many семантики он ложно ловит н�
 4. **Удаление**: владелец не спрашивает consumer'ов (нет cross-service cascade). Consumer обязан
    грациозно переживать dangling-ref (деградированный статус, не паника). Жёсткие гарантии — только same-schema FK.
 5. **Карта владельцев**: Geography (Region/Zone) → `kacho-geo`; IAM (Account/Project/User/SA/Group/Role/AccessBinding) → `kacho-iam`;
-   Network/Subnet/SG/RouteTable/Address/Gateway/NetworkInterface → `kacho-vpc`; Instance/Disk/Image/Snapshot/DiskType → `kacho-compute`;
+   Network/Subnet/SG/RouteTable/Address/Gateway/NetworkInterface → `kacho-vpc`; Instance/MachineType → `kacho-compute`;
+   **Volume/Snapshot/Image/DiskType → `kacho-storage`** (блочное хранение; `volume_attachments` живёт у владельца-storage);
+   LoadBalancer/Listener/TargetGroup → `kacho-nlb`; Registry/Repository/Tag → `kacho-registry`;
    Operation — per-service (общая `operations`-таблица из corelib).
+   > [!warning] Раскол compute→storage НЕ завершён (состояние на 2026-07-25)
+   > Владельцем блочного хранения объявлен **storage**, но `kacho-compute` **параллельно держит
+   > живые** `Disk`/`Image`/`Snapshot`/`DiskType`: свои таблицы, свои gRPC-сервисы, 34 REST-маршрута,
+   > свои записи в каталоге прав, свои FGA-типы (`compute_disk`/`compute_image`/`compute_snapshot`)
+   > и свои newman-коллекции. Это **живое дублирование**, а не остаточные артефакты — ретайрен не
+   > выполнен ни для одного ресурса. Правило «один владелец на тип ресурса» (п.1 выше) сейчас
+   > **нарушено** по четырём типам. Ресайз тома тоже задвоен (compute резайзит свой Disk публично,
+   > вопреки зафиксированному «resize только со стороны storage»). Порядок доведения — expand →
+   > migrate → contract, см. [[e2e-local-first-2026-07-25]] и план раскола. **Не считать эту карту
+   > описанием кода, пока предупреждение не снято.**
 6. Новое cross-domain ребро — фиксируется в `polyrepo.md` (runtime-edge); циклы запрещены.
 
 ## Cross-service saga-compensation — one-shot launch (B12, инициатор компенсирует)
