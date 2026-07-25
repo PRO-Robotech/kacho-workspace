@@ -73,6 +73,17 @@ iam→owner** (цикл запрещён).
   (строки нет → INSERT воскрешает) — оставлен **γ reconcile-sweep** (benign в β,
   mirror не authz; by-design `kacho-iam/docs/architecture/resource-mirror-source-version.md`).
 - `parent_account_id` пуст от compute → γ дополняет IAM same-DB lookup `projects.account_id`.
+- **Read-time транзитивный резолв account (keystone-regress fix, 2026-07-17):** register-time
+  backfill (`register_resource.go`) — не единственный гейт. **Все** mirror-reads
+  (`reader.go`: AllByTypes/ByTypesAndIDs/MatchByLabels/GetByObject) **и** fast-path JOIN
+  (`SelectorBindingsMatchingObject`) резолвят account через `LEFT JOIN kacho_iam.projects pj
+  ON pj.id = m.parent_project_id` + `COALESCE(NULLIF(m.parent_account_id,''), pj.account_id, '')`.
+  Иначе project-вложенный объект со **стёртым** `parent_account_id` (legacy/unresolved-register)
+  выпадал из **account-scoped** containment → account-owner (`owner`@account:A) не материализует
+  per-object v_* на ресурсе в проекте СВОЕГО аккаунта → 403 на create/mutate (regress после
+  keystone e195632: scope-narrowing JOIN проверял только прямую колонку). `IsContainedIn`
+  (pure-domain) остаётся источником истины семантики — ему подаётся уже-резолвнутый account.
+  Резолв account-bounded (project→ровно один account) → нет over-grant через границу аккаунта.
 - Dangling (объект исчез без Unregister) — строка переживает, не паника, не каскад.
 
 ## See also

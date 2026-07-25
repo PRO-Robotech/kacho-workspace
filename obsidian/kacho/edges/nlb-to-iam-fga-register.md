@@ -25,6 +25,7 @@ tags:
 > [!success] Active since SEC-D (2026-06-11) · payload расширен epic-rsab T3/D4 (2026-06-20)
 > Заменяет прямой best-effort FGA-write [[nlb-to-iam-creator-tuple]] (GitHub Issue N5). Owner-hierarchy tuple intent пишется в outbox в той же writer-tx, что и INSERT/DELETE/UPDATE ресурса; register-drainer применяет его через `InternalIAMService.RegisterResource`/`UnregisterResource` по opt-in mTLS.
 > **T3 (D4)**: payload теперь несёт `labels` + `parent_project_id` + монотонный `source_version` (зеркало compute-β) → IAM наполняет output-only `resource_mirror`, питающий γ-`bySelector{matchLabels}`. НЕ новое ребро — расширен payload существующего. Эмит на **Create** И **Update-when-labels-in-mask** (non-labels Update → mirror no-op).
+> **sync-primary (2026-07-18)**: Create дополнительно вызывает `RegisterResource` **синхронно** сразу после commit (best-effort `SyncRegistrar`) — закрывает read-your-writes окно owner-tuple. Async drainer остаётся at-least-once backstop'ом; `Operation.done` НЕ гейтится (ban #9). См. секцию ниже.
 
 # nlb → iam: SEC-D FGA owner-tuple register
 
@@ -73,8 +74,47 @@ Delete → симметричный `fga.unregister` (project-hierarchy / parent
 
 Per-edge `cfg.MTLS.IAMRegister` (`grpcclient.TLSClient`, default `enable=false`=insecure). IAM internal listener — `RequireAndVerifyClientCert` при server-enable. Mismatch → transport-error → `Unavailable` (intent durable, SEC-D-20/21). PKI/helm-wiring — SEC-F.
 
+## sync-primary owner-tuple registrar (2026-07-18) — replaces removed opgate
+
+Because nlb registered owner-tuples **only** via this async NOTIFY-driven drainer,
+`LoadBalancer/Listener/TargetGroup` Create-op-done raced ahead of owner-tuple
+FGA-visibility under full-suite load → creator hit transient 403 (`lacks
+v_update/v_delete`) on immediate mutate and 404 (hide-existence) on Get of its own
+resource, inflating newman `retry_until_authorized` busy-wait (nlb suites were the
+timeout casualty).
+
+**Removed approach (opgate confirm-gate, commit 4d3f35d):** gated Create-op
+`done=success` on `check.OwnerConfirmer.Confirm` seeing `v_update` ALLOW. **Deleted
+as a ban #9 violation** (`api-conventions.md` `Operation.done` = resource durability,
+NOT downstream-visibility): gating `done` on eventually-consistent FGA-visibility
+redefines the Operation contract and yields a **phantom-resource** on fail-closed
+(row committed, name UNIQUE-taken, but op=ERROR). Rationale: `api-conventions.md`
+§`Operation.done` + `data-integrity.md` cross-domain authz (opgate removal, 2026-07).
+
+**Current fix — sync-primary registrar** (`internal/clients/iam/sync_registrar.go`
+`SyncRegistrar`, port `iam.Registrar` aliased in each create ports.go; wired in
+`cmd/kacho-loadbalancer/wiring.go`; mirrors vpc `internal/clients/iam_sync_registrar.go`):
+after durable commit of the resource **and** its `fga_register_outbox` intent, the
+create use-case synchronously calls `RegisterResource` for the same tuples (per-call
+5s deadline; `source_version=now()` → monotonic ≥ DB-stamp → async re-apply is a
+stale no-op). Closes the read-your-writes window at create-time; durable outbox +
+register-drainer remain the at-least-once backstop.
+
+- **BEST-EFFORT (ban #9):** `SyncRegistrar` error is logged (`slog.Warn`) and
+  **swallowed** by the use-case — NEVER fails the Operation, NEVER gates `done`.
+  Residual visibility lag covered by bounded client-retry, not a server barrier.
+- **Non-short-circuit + benign proxy-rejection:** iterates all tuples; the
+  containment `project`-tuple (first) is what materialises the creator's
+  project-scoped grant. `admin`/`load_balancer` relations are rejected by iam's
+  `allowedProxyRelations={project,account,parent,owner}` — `classifySyncRegisterErr`
+  treats `PermissionDenied`/`InvalidArgument` as **benign** (async drainer poisons
+  them identically), surfacing only transient (`Unavailable`/…) for the best-effort log.
+- **vs vpc:** vpc's sync-registrar is **fail-closed** (`return nil, err` on
+  RegisterResource failure) — a latent phantom-risk; nlb is deliberately best-effort
+  (the correct ban #9 posture). vpc not modified here.
+
 ## See also
 
-[[nlb-to-iam-creator-tuple]] (deprecated direct path) · [[../rpc/iam-internal-iam-service]] · [[vpc-to-iam-fgaproxy]] · [[compute-to-iam-fgaproxy]] · [[iam-to-nlb-resource-lifecycle]] · [[../KAC/SEC-D-services-fga-via-iam-mtls]]
+[[nlb-to-iam-creator-tuple]] (deprecated direct path) · [[../rpc/iam-internal-iam-service]] · [[vpc-to-iam-fgaproxy]] · [[compute-to-iam-fgaproxy]] · [[iam-to-nlb-resource-lifecycle]] · [[iam-openfga-confirm-read-consistency]] · [[../KAC/SEC-D-services-fga-via-iam-mtls]]
 
 #edge #kacho-nlb #kacho-iam #cross-service #fga #internal #security

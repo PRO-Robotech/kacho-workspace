@@ -227,8 +227,136 @@ vpc subnet/address (retry-wraps + tolerant absent-id), nlb hand-written, compute
 Issues заведены: **#9** (cluster-admin delete-binding), **#10** (compute infra-gaps + sync-validation). Whitelist имеет трекинг.
 NB: nlb round-2 — крупная структурная правка (~46 cases setup→INTERNAL) БЕЗ стенд-верификации → CI eeb533d покажет (риск-регресс возможен).
 
+## CI-цикл 3 (7b9429f) — по ci-rep3 (total 239), 4 агента round-3 + Go product-фиксы
+- **compute** (ea09ce4 Go + 8d3ddfe): **sync-validation** cores∈{2,4,6,…80} + boot_disk_spec required → sync-400 (APICONV,
+  RED→GREEN handler+service тесты). updateMask camelCase (gateway отвергал snake). SECD sync-404. Флаг: compute_image
+  listauthz материализация iam-side (disk/snapshot зелёные, image нет) → kacho-iam issue-кандидат.
+- **iam** (ba226a7): label-revoke phantom-project — **`ensure_project` извлекал metadata.projectId БЕЗ проверки op.error**
+  (op несёт pre-allocated id даже на error) → фантом → peer-check NOT_FOUND. Фикс: self-seed project per-case. Системный
+  gotcha → **записан в testing.md** (e47995c).
+- **vpc** (9dc0542 Go + b2258c6): **SQLSTATE 40001/40P01 → codes.Aborted** (были ErrInternal code13; ErrConflict sentinel,
+  RED→GREEN). internal-pool = TEST-фикс (IPAM корректен, operation.response verify). read-your-writes wraps.
+- **nlb** (7b9429f): `--jobs 4→1` (serial, VIP concurrent over-subscription — не leak, delete.go освобождает). attach-shape
+  nested (убрал 5 obsolete PRIORITY). protojson FieldMask camelCase. retry budget 25→40.
+- rules-gotchas → e47995c (op.error-before-metadata-id, pool-contention-jobs1).
+
+## ОСТАТОЧНЫЙ FLOOR — confirmed product-bugs (whitelist-with-ticket ИЛИ deep-fix)
+Не «fake green» — это документированный known-RED-by-product-gap механизм гейта (как iam#188/#212/#217):
+- **cluster-admin DELETE AccessBinding 403** (#9) — rbac-subject-channel-equivalence teardown-revoke. FGA-model/gateway short-circuit gap.
+- **compute_image listauthz материализация** — image суита. iam-side FGA-seed gap (issue-кандидат).
+- **AUTHZ-*-LS-OWN-AAB / list-filter-d subset-viewer** — ACB-fixture #276 (AAB whitelisted f7b09bd; subset-viewer per-object grant seed).
+- Решение после ci-rep4: fixable-fixture дочинить; product-bug-floor → whitelist с issue-ref (гейт зелёный + баг трекается).
+
+## CI-цикл 4 (round-4, total 161) — approaching green
+Whitelist-против-ci-rep4 gate-тест: iam → только iam-user; vpc→sg+subnet; compute→instance+operation; nlb→3.
+Многое из vpc/compute/nlb — case-фиксы round-4 (не в ci-rep4-данных) → новый CI покажет ниже.
+- **nlb** (a90b84d): retry budget 40→60 (~30s), whitelist 23 owner-tuple-lag (**issue #11** iam#257-style eventual-consistency).
+- **consolidation** (3c21f6b): whitelist floor #9 (cluster-admin DELETE)/#10 (storage-mirror)/#276 (subset-viewer);
+  ПОЧИНИЛ (не whitelist) compute OP-GET malformed-text + INST-DEL Empty-Any + volumeId-relax + vpc SUB-RCB retry.
+  Оставил RED canary: iam-user NONMEMBER (#276 pollution), vpc SG-DEL (#27 real bug), SUBNET-LF-D-GET (existence canary).
+
+## ROUND 4b (в работе) — последние блокеры до green
+- **vpc SG.Delete NIC-refcheck** (adbe124…): реальный data-integrity #27 (SG.Delete не проверяет dangling NIC-ref) →
+  Go-фикс software-refcheck/trigger + TDD (НЕ whitelist — правило владельца, реальный баг фиксится).
+- **nlb cross-resource/listener create-wrap** (a184e73…): child-create-шаги (create-listener/attach-tg) unwrapped →
+  parent-LB owner-tuple-lag 403 → обернуть в retry + subnet-not-found retry_create_until_present + GTS case-fix.
+- **iam-user NONMEMBER** (#276 pollution) — решить по новому CI: env-flake (пройдёт) ИЛИ persistent → whitelist #276 (как AAB/NOB).
+
+Issues: #9 (cluster-admin DELETE), #10 (compute infra/validation), **#11 (nlb owner-tuple-lag eventual-consistency)**, kacho-vpc#27 (SG.Delete refcheck), kacho-iam#276 (fixture de-share). Все whitelist-энтри имеют тикет.
+
+## ОКОНЧАТЕЛЬНЫЙ ДИАГНОЗ ОСТАТКА (ci-rep5, RAW 110) — флейки eventual-consistency
+Падающие суиты **перемещаются между прогонами** (ci-rep4→ci-rep5: iam authz-deny/rbac-visibility, vpc address/network/gateway,
+compute image — были green, стали red; и наоборот). ВСЕ сигнатуры = materialization-lag: `403/404 to equal 200` (owner-tuple
+v_* не материализован), `[] to include <id>` / `undefined match` (list read-your-writes), `404 post-revoke; got 200` (revoke-deny
+convergence). **Флейк под CI-нагрузкой**: iam reconciler / FGA-drainer throughput не успевает за create-rate 4 сервисов → под пиком
+backlog lag > 60-retry (~30s) → лендится на разные суиты каждый прогон. Детерминированных багов НЕТ (все ops done=true, materializ.
+происходит — просто медленно под backlog). Это архитектурная характеристика eventually-consistent authz после opgate-removal
+(design-review), НЕ баг.
+
+## Лечение флейка (по возрастанию стоимости)
+1. **--jobs 1 везде** (e043a94: vpc 4→1; compute/iam уже serial, nlb=1) — снижает burst create-rate → drainer успевает. Пробуем.
+2. Больше retry-budget (brute force, lag может быть unbounded под backlog).
+3. **Product: iam reconciler/drainer throughput** (batch-materializ., больше FGA-writers) — реальный фикс у корня, значимая работа.
+4. **Contract-B** (project-editor ⇒ implied editor через computed relation) — убирает per-object materializ. с критического пути
+   by construction (design-review strategic note) — крупная IAM-model смена, вне scope PR.
+5. Принять documented flaky-tolerance (assertions корректны, materializ. eventually happens) — whitelist-by-class с тикетом ИЛИ
+   e2e advisory. Как iam#257 revoke-latency, но шире.
+
+Все ДЕТЕРМИНИРОВАННЫЕ баги починены (6 Go product-фиксов + fixture/test). Остаток — только флейки-хвост eventual-consistency.
+
+## ПРОРЫВ (b0b2d6b, ci-rep7) — replicaCount:1 убрал флейк, iam+compute GREEN
+`openfga.replicaCount 2→1` (values.dev.yaml) устранил read-after-write replica-lag = корень
+eventual-consistency флейка. Результат: **iam 27/27 GREEN · compute 9/9 GREEN** (были флейки),
+RAW 161→91. Осталось малое (детерминированное, НЕ replica-lag):
+- vpc: address (2, ADR-UPD verify RYW), concurrency (2, cleanup-net/sub retry).
+- nlb: cross-resource (2), listener (3), load-balancer (3) — read-your-writes на не-обёрнутых + LB-alloc(#11) остаток.
+2 закрывающих агента (afac934 vpc + a5292e6 nlb). Находка → память [[openfga-replica-lag-flaky-authz]].
+
+**PROD-заметка**: prod держит replicaCount>1 (HA) → enforcement-Check default-consistency может дать тот же
+флейк под нагрузкой. Follow-up для prod: HIGHER_CONSISTENCY на enforcement immediate-post-create ИЛИ retry.
+
+## ci-rep8 (92a6f00) — iam+compute GREEN, остаток ~6 кейсов
+Go-fail = транзиент (buf-setup GitHub API rate-limit, не код — пройдёт re-run). alloc-phantom #11 УШЁЛ.
+Остаток: vpc/network (NET-CR-IDM cleanup lag → wrap), nlb/listener (LST-CR-VAL-PORT-ZERO), nlb/cross-resource
+(networkId-invalid case), nlb/load-balancer (**deletion_protection не персистится/не гейтит Delete — возможно product-баг**).
+Финальный агент ad511728 (deletion_protection investigation + close-out). Замечание vpc-флейк: даже с replicaCount:1
+остаётся малое owner-tuple materialization-окно (sync-registrar post-commit latency) на НЕобёрнутых cleanup/verify-шагах
+→ разные суиты флейкают (ci-rep7 address/concurrency → ci-rep8 network); лечится wrap необёрнутых.
+
 ## Merge-путь (готов)
 qa/iam-acb-fixture-green — линейный потомок origin/ci/newman-e2e-and-beget-runner (tip f3cbfbd, не сдвигался),
 16+ коммитов сверху → merge = **fast-forward**. При зелёном гейте: FF PR-ветки на qa HEAD + push → CI newman.
 CI регенерит коллекции (`newman-e2e.sh:123 gen.py`) → source of truth = cases/gen.py/фикстуры/gate-скрипт (закоммичено);
 регенеренные коллекции в working-tree — эфемерный шум, не коммитить.
+
+## КОРНЕВОЙ ФИКС (aa4ae66) — grant-материализация O(scope) + nlb sync-registrar + параллельный newman
+Владелец: «дубли тестов + долгий прогон + криво гранты». system-design-review по коду вскрыл ЕДИНЫЙ корень
+(это и есть п.3 «iam reconciler throughput» выше — реальный фикс у корня, а не brute-force retry):
+- **iam reconcile O(весь mirror)**: `ReconcileObject`→`MatchAllInScope`→`resource_mirror.AllByTypes` читал ВЕСЬ
+  mirror кластера (`WHERE object_type=ANY($1)`, сужение в Go) → O(N) на create → **O(N²) на суиту** → grant-лаг
+  РАСТЁТ по прогону → newman busy-wait retry пере-выпускает запрос ~10× («дубли» nlb 2.4-3×, «долго» ~12мин/колл).
+  Фикс: account/project-предикат в SQL (доказанный суперсет Go `IsContainedIn` → без under-grant; db-review APPROVE;
+  migration 0054 index `resource_mirror(parent_project_id)`, project-scope hot-path index-driven).
+- **nlb без sync-registrar**: единственный сервис, где owner-tuple чисто async (outbox→drainer) → худший флейк.
+  Фикс: sync-primary registrar (зеркало vpc, best-effort + outbox backstop, НЕ fail-closed → без phantom, ban #9),
+  все 3 create-пути (LB/listener/TG). Побочно: vpc sync-registrar **fail-closed = латентный phantom-риск** (отмечено, не трогал).
+- **budget-raise 25→60 (3d4e809) = АНТИ-фикс** (ci-rep10): не убрал флейк (хвост смещался concurrency/gateway/
+  security-group/subnet) + раздул суммарное время за `timeout-minutes:90` → cancel посреди nlb (no-report, RAW 133>78).
+  Откачен к 25. Ретраи — СИМПТОМ; лечим grant (быстрый sync per-object).
+- **CI параллель (запрос владельца)**: 4 суита шли СЕРИЙНО (сумма) → timeout. Теперь `newman-parallel.sh`: один seed →
+  fan-out iam/vpc/compute/nlb ПАРАЛЛЕЛЬНО (wall = dev-up + max(суита)); nlb форсированно `--jobs 1` (shared external-VIP
+  pool, был баг — параллель-скрипт пробрасывал --jobs 2 во все). `timeout-minutes 90→45`. Цель ≤30мин.
+
+TDD RED→GREEN в коммите (iam 4 integration scope-predicate; nlb sync-registrar unit + backstop×3). build/vet/test-race/lint зелёные.
+Замер: e2e-run 29656744355 (sha aa4ae66). Память: [[grant-materialization-omirror-root]].
+
+## СХОДИМОСТЬ (2026-07-19) — e2e-newman GREEN через слоёную parallel-safety
+Финальная траектория замеров (параллель, было serial 90мин-timeout):
+| sha | iam | vpc | compute | nlb | примечание |
+|---|---|---|---|---|---|
+| aa4ae66 | 4 | — | — | — | scope-предикат+nlb-registrar+параллель |
+| 818e72a | 1 | 5 | GREEN | 5 | тест-фиксы routing/poll/wraps |
+| bb4fe23 | **9** | GREEN | GREEN | 2 | forward-throughput (vpc↑) но iam-регресс↓ |
+| 2d3649c | 9→core | GREEN | GREEN | 2 | forward delete-stale (каскад 317→12) |
+| 7a5a63b | **3** | GREEN | GREEN | 2 | 2-волна (iam изолирован) |
+| 2f27ab9 | **27/27** | 14/15 | GREEN | **9/9** | финальные 5 fixture-фиксов |
+| c489704 | — | (subnet wrap) | — | — | последний флейк subnet RCB verify |
+
+Слои (каждый обнажал следующий): (1) scope-предикат O(mirror)→O(scope); (2) nlb sync-registrar;
+(3) CI 2-волновой fan-out (iam изолирован — его full-path EXCLUSIVE-lock материализация дрейнила под
+конкурентной leaf-нагрузкой); (4) forward SHARE-lock additive throughput + **delete-stale дискриминатор**
+(RegisterResource зовётся и на label-UPDATE — additive ронял revoke); (5) fixture-изоляция (CIDR disjoint,
+is_default serial-tail, pure-NOB never-granted subject); (6) idempotency/phantom/ordering (ACB pre-clean-revoke
+retry-403, iam_group leaf v_get budget↑, nlb move authz-first-ordering tolerance, cr-drain-all peer-RYW wrap).
+
+2 product-bug кандидата (не блокеры — фиксы сошлись): iam_group leaf v_get ~15× медленнее SA/role;
+возможный v_list over-emit под label-selector. → tech-debt Issues после merge.
+Ключ: массовая параллелизация e2e = не одна причина, а пирог throughput+isolation+idempotency. Память [[grant-materialization-omirror-root]].
+
+## ✅ GREEN (2026-07-19, run 29672392006, sha 3788c6e) — весь e2e-newman зелёный
+iam 27/27 · vpc 15/15 · compute 9/9 · nlb 9/9 · ~35мин (было serial 90мин-timeout). Весь CI-пайп зелёный.
+7-й слой (закрыл блуждающий флейк): nlb CIDR-collision энтропия ~56k /24 (общий runId → тот же октет →
+параллельные subnet-creates коллизят; какой hash на насыщенной band — дрейфует = «блуждание») + rbac-visibility
+fresh-account (ProjectService.List account-member-floor бил by-label narrowing). Оба fixture (не product).
+Остаточные наблюдения (tech-debt, не блокеры): iam_group leaf v_get ~15× медленнее SA/role (budget-60 покрыл);
+CIDR-leak в cross-resource/authz-deny (~5/run против 56k — long runway, не чищены). Merge за владельцем.

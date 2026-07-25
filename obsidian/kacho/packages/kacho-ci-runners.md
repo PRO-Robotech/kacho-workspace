@@ -64,11 +64,33 @@ make. Тулчейны ставятся `actions/setup-*` (кэшируются 
 self-hosted нет. Тулчейны (kind) ставим в `~/bin` + `GITHUB_PATH`. Ровно тот класс
 различий, на котором «работало на hosted» ломается при переезде.
 
-**jest без `--forceExit` виснет НА РАНЕРЕ.** ui-unit job шёл 56 минут и таймаутил: jest
-не завершается при async-leak (незакрытый timer/promise в одном из 9 пакетов) — ждёт
-дренажа event-loop бесконечно. Локально проходил быстро (окружение/скорость), на
-ubuntu-latest висел. Это НЕ инфра-флюк. `--forceExit` во всех 9 test-скриптах чинит
-корень (весь `npm test` → exit 0 за 44с). `timeout-minutes: 20` на job — лишь backstop.
+**ui-unit host jest-ESM link-hang — КОРЕНЬ: `@ant-design/icons` Proxy-мок (kacho#7).**
+Точный root-cause сведён 6 CI-DIAG-итерациями 2026-07-16, опровергнув **8 гипотез**:
+async-leak (виснет с `--forceExit`), host-vs-docker (`container: node:22` тоже виснет),
+GitHub-VM-vs-real (**self-hosted beget ТОЖЕ виснет 18 мин** — «GitHub-VM-специфично» ОПРОВЕРГНУТО),
+node-patch (22.23.1 локально ok), install-layout/dual-react, ulimit/threadpool-старвейшн
+(raised → всё равно висит), CPU-scheduling (taskset 1-CPU ok).
+
+**Механизм (изолирован DIAG6):** `setup.ts` мокал `@ant-design/icons` через
+`jest.unstable_mockModule`, возвращая **Proxy**. Proxy НЕ даёт СТАТИЧЕСКИХ named-экспортов,
+поэтому под `--experimental-vm-modules` ESM-линкер `import { ApartmentOutlined } from
+'@ant-design/icons'` (HostRail, 20 иконок) **висит ВЕЧНО**, ожидая binding — доказано:
+изолированный `import { XOutlined }` виснет на LINK ДАЖЕ без рендера; lucide-иконки (real) — ok.
+Виснут ровно 3 shell-теста (App/HostShell/HostRail) — все рендерят HostRail, единственный
+импортёр `@ant-design/icons`. libuv висящего процесса: только findBy-таймер (render не доходит).
+
+> [!danger] Локально jest МОЛЧА no-op'ит shell-import тесты (false-green, прятал баг)
+> На локальной машине jest под `--experimental-vm-modules` на shell-import тесте выдаёт **0 байт
+> вывода + exit 0 даже с failing-assert** (тот же link-провал → тихий выход). Поэтому «локально
+> проходит за 2с» было ИЛЛЮЗИЕЙ — jest их не исполнял. Тривиальный тест (без импортов) исполняется
+> нормально. Это отдельная опасность: `npm test` локально даёт ложный green на shell-тестах.
+
+**Фикс (kacho#7):** `moduleNameMapper ^@ant-design/icons$` → `src/test/antd-icons-stub.tsx`
+(20 реальных статических named-экспортов `<span>`) → линкер резолвит. Убран сломанный
+`unstable_mockModule` из `setup.ts`. Заодно снимает исходную ESM/CJS-гонку antd↔icons.
+**Проверено на CI: 3 бывших-виснущих файла ✓, host 13 suites/31 tests зелёный.**
+`runs-on: ubuntu-latest` (дефолтный ранер — корень не в окружении). Guard на 3 shell-теста
+ловит регресс класса. Ранняя гипотеза «фикс = self-hosted» — ОПРОВЕРГНУТА (self-hosted тоже висел).
 
 ## Гочи одного ранера (не повторять)
 

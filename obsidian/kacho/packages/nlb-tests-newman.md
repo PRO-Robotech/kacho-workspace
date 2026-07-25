@@ -24,7 +24,7 @@ tags:
 |---|---|
 | `_helpers.py` | shared utilities: project fixture, auth bootstrap, polling helpers |
 | `load-balancer.py` | NLB-* cases: CRUD + Start/Stop/Move/Attach/Detach + GetTargetStates |
-| `listener.py` | LST-* cases: BYO+auto VIP, immutable Update reject, DELETE VIP-free |
+| `listener.py` | LST-* cases: create/wire targetGroupId, immutable Update reject, port BVA, delete |
 | `target-group.py` | TGR-* cases: CRUD + Move, embedded health_check ranges |
 | `targets.py` | TGT-* cases: AddTargets (4 identity-types × idempotent), RemoveTargets 2-phase drain |
 | `operation.py` | OP-* cases: poll done=true + Cancel idempotent |

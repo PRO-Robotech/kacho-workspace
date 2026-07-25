@@ -25,7 +25,7 @@ Self-validating domain (evgeniy §D — newtypes + `Validate()` everywhere). No 
 | `constants.go` | enum strings (LBType, LBStatus, SessionAffinity, ListenerStatus, TargetGroupStatus, TargetHealthStatus) |
 | `status.go` | status state machine helpers (`CanTransition`, `IsTerminal`) |
 | `loadbalancer.go` | `LoadBalancer` struct + `Validate()` + `Equal()` |
-| `listener.go` | `Listener` struct + `Validate()` (VIP rules, INTERNAL→subnet required) |
+| `listener.go` | `Listener` struct + `Validate()` (name/port/protocol; адресных полей листенер не несёт) |
 | `target_group.go` | `TargetGroup` struct + `Validate()` |
 | `target.go` | `Target` struct + `Validate()` (4-way oneof exactly-one + bogon-check для external_ip) |
 | `health_check.go` | `HealthCheck` + 4 variants (TCP/HTTP/HTTPS/GRPC) exactly-one + ranges |

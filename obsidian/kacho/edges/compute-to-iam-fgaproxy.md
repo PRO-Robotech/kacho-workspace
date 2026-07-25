@@ -72,10 +72,36 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
   `PUBLIC_SERVER_MTLS`/`INTERNAL_SERVER_MTLS` (`grpcsrv.TLSServer`).
 - **Удалено**: `internal/clients/openfga_write_client.go`, `internal/fgawrite/` (прямой HTTP-write FGA).
 
+## owner-tuple op-gating (P4) — Create-op ждёт read-after-register confirm
+
+owner-tuple-opgate (`docs/specs/sub-phase-owner-tuple-opgate-acceptance.md`, APPROVED): Instance/Disk
+`Create`-Operation достигает `done=true,result=response` **только после** read-after-register confirm
+owner-tuple в FGA (нет окна 403 «no direct relations granted» на немедленной мутации создателем).
+
+- **Confirm** — reuse существующего `InternalIAMService.Check` (тот же authz-conn, [[compute-to-iam-check]]);
+  **нового ребра нет** (OTG-08). `check(subject=creator, relation=v_update, object=compute_<kind>:<id>)`:
+  owner-tuple `project #project @compute_<kind>:<id>` — единый parent-pointer, каскадящий всю verb-связку,
+  поэтому confirm `v_update` подтверждает эффективность и для Delete. Порт `ports.OwnerConfirmer`,
+  impl — `internal/check/IAMCheckClient`, wiring — `cmd/compute` (только когда authzConn сконфигурирован).
+- **Sync-registrar (NEW, compute его раньше НЕ имел)** — `internal/clients/iam_sync_registrar.go`
+  (`ports.OwnerRegistrar`): post-commit синхронно регистрирует тот же owner-tuple через `RegisterResource`
+  (тот же fga-proxy edge/creds, что drainer), чтобы confirm-gate happy-path'а резолвился немедленно, не
+  ожидая poll'а register-drainer'а. Best-effort: ошибка → WARN, durable outbox-intent + drainer — backstop.
+- **Gate-механизм** — corelib P1 `pkg/operations.RunWithConfirm` + `WithConfirmationDeadline`
+  (env `KACHO_COMPUTE_OWNER_CONFIRM_DEADLINE`, default 30s ≪ opTimeout 4m). Timeout → `op.error(codes.Unavailable,
+  "owner-tuple registration not confirmed")` (fail-closed, FIX-1; НЕ DeadlineExceeded). resource-ref в
+  `Create<R>Metadata` durable на ВСЕХ терминалах вкл. error (FIX-3, orphan-guard). `Update`/`Delete`
+  существующего — НЕ gated (нового owner-tuple не создают, OTG-16). **Supersede SEC-D-11**: timeout-ветка
+  теперь `op.error`, durability ресурса/intent сохранена (drainer добивает at-least-once).
+
 ## History
 
 - **SEC-D** ([[../KAC/SEC-D-services-fga-via-iam-mtls]]): caller-сторона реализована — прямой FGA
   удалён, transactional-outbox + register-drainer + opt-in mTLS. Закрыт dual-write баг N5.
+- **owner-tuple-opgate P4** (compute Instance/Disk): Create-op gated на read-after-register confirm
+  (reuse `Check`, sync-registrar добавлен) — окно 403 «no direct relations» на немедленной мутации закрыто.
+  Тесты: `internal/service/owner_opgate_integration_test.go` (OTG-03/-04/-05/-05b/-16, testcontainers),
+  `internal/clients/iam_sync_registrar_test.go`.
 - **T3.1 / #113** ([[../KAC/sub-phase-T3.1-cross-service-label-revoke]], PR kacho-compute#62):
   Update-on-labels emit достроен на Disk/Image/Snapshot (раньше — только Instance) → ARM_LABELS
   revoke на снятие/смену метки. G-3 upsert-not-unregister. Create-эмит compute уже нёс labels

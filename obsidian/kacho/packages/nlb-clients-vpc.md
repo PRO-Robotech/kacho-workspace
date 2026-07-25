@@ -15,7 +15,7 @@ tags:
 
 **Path**: `kacho-nlb/internal/clients/vpc/`
 **Imports**: `kacho-proto/gen/go/kacho/cloud/vpc/v1`, [[corelib-retry]]
-**Imported by**: [[nlb-apps-kacho-api-listener]] (VIP alloc / BYO), [[nlb-apps-kacho-api-targetgroup]] (Subnet + NIC resolve)
+**Imported by**: [[nlb-apps-kacho-api-loadbalancer]] (VIP acquire/release + subnet/SG peer-validate), [[nlb-apps-kacho-api-targetgroup]] (Subnet + NIC resolve), `jobs/free_ip_runner.go` (release-backstop)
 
 Typed peer-service gRPC client adapters для kacho-vpc.
 

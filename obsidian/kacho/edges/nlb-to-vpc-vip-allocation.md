@@ -1,5 +1,5 @@
 ---
-title: "nlb → vpc: VIP allocation (External/Internal)"
+title: "nlb → vpc: VIP acquire/release (LoadBalancer)"
 aliases:
   - nlb vip allocation
   - nlb to vpc allocate ip
@@ -20,47 +20,58 @@ tags:
   - vip
 ---
 
-> [!success] Active since 2026-05-24 (KAC-141, kacho-nlb PR#8)
-> Edge активен; nlb worker аллоцирует VIP через `vpc.InternalAddressService.AllocateExternalIP/AllocateInternalIP` при Listener.Create (auto mode).
+> [!warning] Якорь VIP — LoadBalancer, не Listener
+> Ребро висит на `NetworkLoadBalancer.Create`/`.Delete`. Прежняя форма (аллокация в `Listener.Create`,
+> release в `Listener.Delete`) **не действует**: листенер адреса не несёт — см. [[../resources/nlb-listener]].
 
-# nlb → vpc: VIP allocation (auto mode)
+# nlb → vpc: VIP acquire/release (LoadBalancer)
 
-**Caller**: `kacho-nlb` (`internal/clients/vpc/address_client.go` — InternalAddressService client; вызывается из Listener.Create worker)
-**Callee**: `kacho-vpc.InternalAddressService.AllocateExternalIP` / `AllocateInternalIP` (port 9091)
-**Protocol**: gRPC cluster-internal (direct dial; не через api-gateway)
-**Sync/Async**: **async** (внутри Operation worker'а Listener.Create)
+**Caller**: `kacho-nlb` (`internal/clients/vpc` — `InternalAddressService` + public `AddressService`;
+вызывается из `LoadBalancer.Create`/`.Delete` worker'ов и free-ip-reconciler'а)
+**Callee**: `kacho-vpc.InternalAddressService` (`:9091`) + `AddressService.Get` (link-precheck)
+**Sync/Async**: sync-precheck на request-path + **async** acquire/release внутри Operation worker'а
 
-## When invoked
+## Acquire — per-family, по `VipSource` oneof
 
-- `ListenerService.Create` (worker, после Validate + LB.Get sync prechecks):
-  - Если `address_id` пустой → auto-mode → `AllocateExternalIP` (для EXTERNAL LB) или `AllocateInternalIP` (для INTERNAL LB, с `subnet_id`).
-  - owner = `nlb_listener:<id>` (для tracking + Free на Delete).
+LB несёт максимум один Address на семейство. Источник задаётся на Create отдельно для v4 и v6:
 
-## Allocation result
+| `VipSource` | Режим | Вызов | `vip_origin` |
+|---|---|---|---|
+| `subnet_id` | INTERNAL | `AllocateInternalIP` / `AllocateInternalIPv6` | `auto` |
+| `public {}` | EXTERNAL | `AllocateExternalIP` / `AllocateExternalIPv6`; underlay-зона деривится из региона (первая по сортировке) и наружу **не** отдаётся | `auto` |
+| `address_id` | оба | `AttachExisting` (`SetReference` CAS, `owned=false`) | `linked` |
 
-- vpc возвращает свежий `Address` с резолвленным IP-string + assigned `address_id`.
-- nlb сохраняет в `listeners.allocated_address` + `listeners.address_id` (auto-allocated, kacho-managed).
+owner = `nlb_load_balancer:<lb-id>`. Результат (`address_id` + IP) персистится CAS-attach'ем
+`AttachVIP` в собственном commit'е на семейство.
+
+**Sync-precheck ДО Operation** (fail-fast, request-path): placement подсети == placement LB,
+region-coherence, dualstack same-network/same-zone; для `address_id` — проект/семейство/kind через
+public `AddressService.Get` под identity тенанта. vpc недоступен → `Unavailable` (fail-closed).
+
+## Release — по `vip_origin`, три пути
+
+- `LoadBalancer.Delete` (после того как листенеры удалены — FK RESTRICT + sync precheck);
+- **компенсация Create-саги**: падение после acquire, но до финализации — освобождает уже добытые
+  адреса в обратном порядке и снимает `CREATING`-handle;
+- **free-ip-reconciler**: скан `load_balancers` в `CREATING`/`DELETING` дольше порога
+  (`load_balancers_reconcile_idx`) — backstop на краш worker'а между acquire и persist.
+
+Ветка выбирается дискриминатором: `auto` → `ClearReference` **затем** `FreeIP`; `linked` → только
+`ClearReference` (адрес остаётся у тенанта). Two-step для `auto` обязателен — `FreeIP` (== Delete
+адреса) упёрся бы в собственный guard на owned-референсе. Все шаги идемпотентны (NotFound = успех).
 
 ## Error handling
 
-| Result | gRPC code | Note |
+| Result | Наружу | Note |
 |---|---|---|
-| pool exhausted | `ResourceExhausted "no free addresses in pool"` | client retry, ops.error |
-| invalid subnet (INTERNAL) | `InvalidArgument "subnet_id ..."` | sync precheck в [[nlb-to-vpc-subnet-validation]] |
-| vpc недоступен | `Unavailable` | retry через `corelib/retry.OnUnavailable` |
-
-## Compensation
-
-Defer worker pattern: если `listeners.Insert` упал после успешного `AllocateXxxIP` → best-effort `vpc.InternalAddressService.FreeIP(address_id)`. Если FreeIP тоже упал — alert через `jobs/free_ip_runner.go` retry-loop.
-
-## Listener.Delete — VIP release
-
-Inverse path: на `Listener.Delete` worker'а:
-- Auto-allocated → `vpc.InternalAddressService.FreeIP(address_id)` (возврат в pool).
-- BYO — отдельный flow [[nlb-to-vpc-byo-address]] (clear `used_by`, IP остаётся за tenant'ом).
+| пул исчерпан / подсеть не резолвится | `FailedPrecondition "could not allocate load balancer address"` | намеренно лосси (анти-oracle) — **реальная причина логируется** (`load_balancer_vip_acquire_failed`), иначе отказ неатрибутируем (CWE-778) |
+| link-конфликт / чужой адрес / mismatch | `InvalidArgument "Illegal argument addressId"` | generic, не подтверждает существование/свойства |
+| double-claim в регионе (23505) | `FailedPrecondition "could not assign address to load balancer"` | владельца адреса не раскрываем |
+| семейство уже несёт другой адрес | `FailedPrecondition "load balancer already has an address for this family"` | `AttachVIP` CAS вернул 0 rows |
+| vpc недоступен | `Unavailable` | fail-closed для мутаций |
 
 ## See also
 
-[[../rpc/vpc-internal-address-service]] [[../resources/vpc-address]] [[../resources/nlb-listener]] [[nlb-to-vpc-byo-address]] [[../packages/nlb-clients-vpc]]
+[[../rpc/vpc-internal-address-service]] [[../resources/vpc-address]] [[../resources/nlb-load-balancer]] [[../resources/nlb-listener]] [[nlb-to-vpc-byo-address]] [[../packages/nlb-clients-vpc]]
 
 #edge #kacho-nlb #kacho-vpc #cross-service #vip
