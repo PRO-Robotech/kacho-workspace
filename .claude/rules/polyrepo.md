@@ -73,6 +73,18 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
 - `kacho-registry → kacho-geo` (REG-1 F4) — валидация `Namespace.region_id` (**required** на Create, `placement_type` всегда `REGIONAL`, оба immutable) через `geo.v1.RegionService.Get`, sync peer-validate на request-path, per-call 5s deadline + `retry.OnUnavailable`, fail-closed `UNAVAILABLE`. Namespace — regional-anycast (zone-независим). geo — leaf (не зовёт registry обратно) → ацикличность holds. Client `services/registry/internal/clients/geo`, wired в `serve.go` (`GeoGRPCAddr`/`GeoMTLS`).
 - `kacho-geo → kacho-iam` — `InternalIAMService.Check` (authz-gate на каждом RPC обоих листенеров; read-RPC `system_viewer`-floor, admin-CRUD `system_admin`). geo — leaf-консумер только iam (как любой сервис).
 - `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
+- `kacho-compute → kacho-vpc` (subnet-placement, 2026-07-25) — `SubnetService.Get` на **request-path** `Instance.Create`:
+  зона подсети каждого NIC обязана совпадать с зоной инстанса (REGIONAL/anycast-подсеть из зональной
+  проверки исключена, проверяется регионально). Читается **под identity вызывающего**, per-call deadline,
+  fail-closed. До этой правки compute подсеть **вообще не резолвил** → машина создавалась с интерфейсом
+  в чужой зоне. Переиспользует уже объявленную, но мёртвую группу mTLS-переменных чарта.
+- `kacho-nlb → kacho-geo` (zone→region для instance-таргетов, 2026-07-25) — `ZoneService.Get` через порт
+  `ZoneRegionClient`. Заменяет **удалённую** строковую деривацию региона из имени зоны (`regionFromZone`).
+  Для nic/ip_ref-таргетов регион берётся из авторитетного `Subnet.RegionID` (peer-ответ vpc), без вызова geo.
+- `kacho-storage → kacho-geo` (zone→region для Volume из Image, 2026-07-25) — `RegionOfZone` на request-path:
+  регион зоны тома обязан совпадать с регионом образа; сверка **внутри insert-CAS** (`AND i.region_id = $12`),
+  0 строк → байт-идентичный hide-existence `Image <id> not found`. Реализует заявление миграции 0007,
+  которого в коде не было.
 - `kacho-compute → kacho-storage` — **несущее ребро раскола блочного хранения** (было не задокументировано
   до 2026-07-25, хотя живо в коде: `services/compute/internal/clients/storage_client.go`, провязано в
   composition root). Резолв boot-источника (`storage.image`/`storage.snapshot`/`storage.volume`) + attach/detach
