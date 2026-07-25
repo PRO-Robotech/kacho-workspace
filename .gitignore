@@ -37,5 +37,11 @@ tests/authz-fixtures/__pycache__/
 # `pem` is a real PEM private key (docker login -u <client-id> --password-stdin < pem);
 # secrets never get committed — the vault is git-committed too (rules/vault.md).
 pem
+pem[0-9]*
 *.pem
 *.key
+# Kubeconfigs dropped in the root while switching between the kind stand and a real
+# cluster. They carry cluster CA data and client credentials — the repo is public.
+kubeconfig*
+*.kubeconfig
+foo
