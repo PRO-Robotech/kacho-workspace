@@ -98,6 +98,31 @@ confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm
 - **Format-check — только own-owned id** (B4): malformed own-id → sync `INVALID_ARGUMENT`
   (`corevalidate.ResourceID`, prefix-router); foreign id **не** prefix-checked — existence-only
   peer-validate (чужой prefix — не наш словарь).
+  > [!note] Задокументированное исключение: синтаксический gate на чужой ссылке (nlb VIP-источники)
+  > Consumer **вправе** прогнать чужой id через `corevalidate.ResourceID` перед peer-validate, но
+  > **только** если это записано как решение (запись в `docs/architecture/` сервиса + ссылка отсюда) и
+  > соблюдены все три границы: (а) **никакого утверждения о типе** — `corevalidate.ResourceID`
+  > **family-agnostic по контракту** (`expectedPrefix` не читается, см. её godoc), проверяет лишь
+  > членство первого сегмента в **платформенном** каталоге `ids.KnownPrefixes()`/`KnownHyphenPrefixes()`
+  > + config-extras, поэтому id с чужим для этого поля префиксом **проходит** к владельцу; (б) каталог —
+  > **общий corelib-артефакт**, а не копия приватного словаря владельца, поэтому предмет запрета
+  > («владелец сменил prefix → consumer отвергает валидный id») отсутствует by construction; (в)
+  > существование/тип/ownership/placement по-прежнему решает **только** владелец, а нерезолвящийся
+  > чужой id отвечает полосой peer-validate, **никогда** own-полосой `NOT_FOUND`.
+  > Мотив — что видит вызывающий: явно-не-id получает **терминальный** `INVALID_ARGUMENT
+  > "invalid <res> id '<X>'"` вместо (1) retryable `UNAVAILABLE`, когда владелец недоступен — «повтори
+  > позже» на ввод, который валидным не станет никогда, и (2) ложного `"<res> <X> not found"` —
+  > контракт-тона **отсутствия ресурса** на строку, которая ресурсом быть не может. Плюс явный мусор не
+  > оплачивается вызовом к соседу. Landed: nlb `v4Source/v6Source.subnetId`/`.addressId`
+  > (`services/nlb/docs/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»);
+  > прочие чужие id nlb (`projectId`/`regionId`/`securityGroupIds`/instance/nic) — existence-only.
+  > **Молчаливое** отступление (проверка есть, записи нет) остаётся нарушением B4.
+- **`corevalidate.ResourceID` пустую строку ПРОПУСКАЕТ** — required-проверка это **отдельная**
+  ответственность вызывающего (её godoc это оговаривает). Поле-ссылка, обязательное по форме запроса
+  (в т.ч. выбранная ветка `oneof` со ссылкой), обязано нести **свой** required-check → `INVALID_ARGUMENT
+  "<field>: required"`. Иначе пустая строка уезжает в peer-lane и возвращается контракт-тоном miss'а с
+  вырезанным id (`"subnet  not found"`) — утверждение об отсутствии ресурса, которого caller не называл
+  (реальный дефект nlb `resolveVipSources`, 2026-07-27).
 
 Клиент **машинно** различает линии по **`reason`-token** в `rpc.Status.details`
 (`google.rpc.ErrorInfo.reason`), НЕ парся прозу message (тон message стабилен, но не парсибелен).

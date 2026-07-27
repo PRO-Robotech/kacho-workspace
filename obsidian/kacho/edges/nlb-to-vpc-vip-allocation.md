@@ -70,6 +70,32 @@ public `AddressService.Get` под identity тенанта. vpc недоступ
 | семейство уже несёт другой адрес | `FailedPrecondition "load balancer already has an address for this family"` | `AttachVIP` CAS вернул 0 rows |
 | vpc недоступен | `Unavailable` | fail-closed для мутаций |
 
+## Форма ссылки на чужой id — что решает nlb, а что владелец
+
+`subnetId`/`addressId` — **vpc-owned**. Существование, тип, ownership и placement решает
+**только владелец** (`SubnetService.Get` / `AddressService.Get`); нерезолвящийся чужой id отвечает
+полосой peer-validate (`InvalidArgument "subnet <id> not found"` / generic `"Illegal argument
+addressId"`) и **никогда** own-полосой `NOT_FOUND` — та означает «не нашёл СВОЮ строку».
+
+До владельца, синхронно, nlb проверяет только **форму запроса** (`resolveVipSources` →
+`foreignVipRef`):
+
+- **ссылка названа** — выбранная ветка oneof с пустым значением → `InvalidArgument
+  "<v4|v6>_source.subnet_id: required"`. Раньше пустая строка уезжала в peer-адаптер и
+  возвращалась как **`"subnet  not found"`** — контракт-тон отсутствия с вырезанным id
+  (утверждение об отсутствии ресурса, которого caller не называл). Исправлено 2026-07-27.
+- **строка вообще является id Kachō** — `corevalidate.ResourceID`, **family-agnostic по контракту**
+  (`expectedPrefix` не читается): членство первого сегмента в **платформенном** каталоге
+  `ids.KnownPrefixes()`/`KnownHyphenPrefixes()`. Приватный словарь vpc не копируется, тип чужого
+  ресурса локально не утверждается (`nlb…`-id проходит к владельцу).
+
+Это **записанное узкое исключение** из `api-conventions.md` B4 («foreign id — existence-only»),
+а не молчаливое отступление: мотив — терминальный 400 на явно-не-id вместо retryable `UNAVAILABLE`
+при недоступном vpc и вместо ложного `"subnet <X> not found"`. Границы и обоснование —
+`services/nlb/docs/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»;
+carve-out записан в самом B4. Прочие чужие id nlb (`projectId`/`regionId`/`securityGroupIds`/
+instance/nic-таргеты) остаются existence-only, без format-check.
+
 ## See also
 
 [[../rpc/vpc-internal-address-service]] [[../resources/vpc-address]] [[../resources/nlb-load-balancer]] [[../resources/nlb-listener]] [[nlb-to-vpc-byo-address]] [[../packages/nlb-clients-vpc]]
