@@ -12,9 +12,7 @@ domain: iam
 related_resource: "[[resources/iam-condition]]"
 methods_count: 6
 async_methods: 3
-status: planned
-related_tickets:
-  - "[[KAC-127]]"
+status: experimental
 tags:
   - rpc
   - kacho-iam
@@ -24,42 +22,41 @@ tags:
 
 # ConditionsService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/conditions_service.proto` (Phase 3).
-**Backend**: `kacho-iam:9090`.
-**Visibility**: **public** — admin / account-owner CRUD + sandboxed Evaluate.
-**Status**: **Phase 3 planned**. CRUD reusable CEL-like conditions, ссылаемых на через [[../resources/iam-access-binding-condition]].
+**Proto**: `proto/kacho/cloud/iam/v1/conditions_service.proto`. **Backend**: `kacho-iam:9090`.
+**Visibility**: public — mounted on the api-gateway external mux and in the gRPC allowlist.
 
-## Methods (Phase 3)
+## Methods
 
-| Method | Sync/Async | Description |
-|---|---|---|
-| CreateCondition | async (Operation) | INSERT в `conditions` table. Body: `expression` (CEL string), `params_schema` (JSON Schema), `kind` (`time` / `ip` / `mfa` / `request_attr` / `resource_attr` / `composite`). |
-| GetCondition | sync | by id (`cond_…`) |
-| UpdateCondition | async | mutable: `description`, `expression`, `params_schema`, `enabled`. Immutable: `kind`, `id`. |
-| DeleteCondition | async | RESTRICT pendant references из `access_binding_conditions` (см. iam-access-binding-condition FK contract). |
-| ListConditions | sync | filter by `account_id` / `kind` / `enabled`. Pagination cursor. |
-| **Evaluate** | sync | dry-run: `(condition_id, params, request_context) → allowed=bool, trace=[]`. Sandboxed CEL evaluator (no I/O). Покрывается e2e тестами Phase 3 §Conditions. |
+| Method | Sync/Async | REST | Scope checked |
+|---|---|---|---|
+| `Get` | sync | `GET /iam/v1/conditions/{condition_id}` | `viewer` @ `iam_condition:<id>` |
+| `List` | sync | `GET /iam/v1/conditions?projectId=…` | `viewer` @ `project:<projectId>` |
+| `Create` | async | `POST /iam/v1/conditions` | `editor` @ `project:<projectId>` |
+| `Update` | async | `PATCH /iam/v1/conditions/{condition_id}` | `editor` @ `iam_condition:<id>`, acr ≥ 2 |
+| `Delete` | async | `DELETE /iam/v1/conditions/{condition_id}` | `editor` @ `iam_condition:<id>`, acr ≥ 2 |
+| `Evaluate` | sync | `POST /iam/v1/conditions/{condition_id}:evaluate` | `viewer` @ `iam_condition:<id>` |
 
-## REST mapping (public mux)
+Scope field is **`projectId`** on `Create` and `List`. It was `folderId` — the one pre-redesign name left in the product — until the rename; a client following the platform convention sent `projectId`, the REST bridge dropped the unknown key, the required scope stayed empty and the gateway fail-closed on `project:*`.
 
-| HTTP | Method |
-|---|---|
-| `POST /iam/v1/conditions` | CreateCondition |
-| `GET /iam/v1/conditions/{id}` | GetCondition |
-| `PATCH /iam/v1/conditions/{id}` | UpdateCondition |
-| `DELETE /iam/v1/conditions/{id}` | DeleteCondition |
-| `GET /iam/v1/conditions` | ListConditions |
-| `POST /iam/v1/conditions/{id}:evaluate` | Evaluate |
+## Reality check — what is NOT wired
+
+> [!warning] The resource is reachable; the feature is not
+> - `AccessBindingService.Create` declares `condition_id` / `builtin_condition` and **reads neither** — the generated getters have no callers. `Update` cannot set them either (`abMutableFields` = `deletion_protection`, `labels`).
+> - `AccessBinding.condition_id` is typed `^cond_…` and FK'd to **`access_binding_conditions`** — a different table and id space from `conditions` (`^cnd…`). The two designs were never joined.
+> - `access_binding_conditions` has **no production INSERT** anywhere; its only production reader is the refcount in `ConditionsRepo.CountReferences`, which is therefore structurally always 0.
+> - `Evaluate` is a **substring matcher**, not CEL — `cel-go` is not a dependency. A free-form expression returns `ErrUnsupportedExpression`, which the use-case swallows into `200 {allowed:false}` — a silent deny presented as an evaluation.
+> - The model declares six FGA conditions; only `mfa_fresh` is referenced by any relation, and no production writer ever attaches a condition to a tuple.
+>
+> Treat this service as a standalone CRUD surface until those joints exist.
 
 ## Notes
 
-- CEL evaluator — `github.com/google/cel-go` (sandboxed: no `net`, no `os`, no `time.Now()` outside of provided context).
-- `expression` parse-validate в `Create`/`Update` — failure → `InvalidArgument`.
-- `params_schema` — JSON Schema (draft 2020-12); валидируется server-side при привязке condition к AccessBinding (Phase 3 §Conditions).
-- Conditions глобальны по умолчанию (cluster-scope) либо account-scoped (`account_id` field). Per-binding-overlay живёт в `access_binding_conditions` (см. [[../resources/iam-access-binding-condition]]).
+- Mutations return `Operation` with the iam op prefix **`iop`** (not `epd`).
+- `Create` co-commits the `project` hierarchy pointer into `fga_outbox`; `Delete` retracts it. See [[../resources/iam-condition]] §Authorization.
+- `name` and `project_id` are immutable after Create (rejected in `update_mask`).
 
 ## See also
 
-[[../resources/iam-condition]] [[../resources/iam-access-binding-condition]] [[../resources/iam-access-binding]] [[iam-authorize-service]] [[../KAC/KAC-127]]
+[[../resources/iam-condition]] [[../resources/iam-access-binding-condition]] [[../resources/iam-access-binding]] [[iam-authorize-service]]
 
 #rpc #kacho-iam #iam #authz
