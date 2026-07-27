@@ -636,8 +636,8 @@ REG-1 готова к merge только при выполнении всего 
 - [ ] proto+regen: `buf lint` / `buf breaking` / `buf generate` зелёные. Rename `default_visibility →
   defaultRepositoryVisibility` — **breaking** (задекларировать в `buf.yaml` breaking-allow или согласовать
   с `proto-api-reviewer`, O2). Добавление `region_id`/`placement_type`/`lifecycle` — additive (не breaking).
-- [ ] `permission-catalog` регенерирован (`make permission-catalog`, byte-identical iam-seed↔gateway; CI
-  drift-gate `make permission-catalog-check`) — новых public RPC REG-1 не вводит (F4/F5/F7 — поля на
+- [ ] `permission-catalog` регенерирован (`make -C gateway permission-catalog`, byte-identical iam-seed↔gateway; CI
+  drift-gate `make -C gateway permission-catalog-check`) — новых public RPC REG-1 не вводит (F4/F5/F7 — поля на
   существующих RPC), но rename поля не должен ломать catalog.
 
 **Проектные гейты (финальная верификация):**

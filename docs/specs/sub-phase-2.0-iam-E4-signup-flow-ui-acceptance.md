@@ -814,7 +814,7 @@ export function SignupPage() {
 **ID:** 2.0-E4-GWT-01
 **REQ:** REQ-IAM-SIGNUP-FIRST-01
 
-**Given** свежий `make dev-up` cluster, `kacho_iam.users` пустой, `accounts.owner_user_id IS NULL` для `acc_default`
+**Given** свежий `make -C deploy dev-up` cluster, `kacho_iam.users` пустой, `accounts.owner_user_id IS NULL` для `acc_default`
 **And** Zitadel up, OpenFGA up, `kacho-iam` healthy
 **And** seed-миграции applied: `acc_default` (E0 `0002_seed_default_account.sql`), `prj_default` (E0 `0002_seed_default_account.sql`), `rol_default_admin` (E0 `0003_seed_default_roles.sql` — см. E0 §4.2; миграция seed-ит **12 system-roles**: `rol_default_admin`, `rol_default_viewer`, `rol_default_editor`, `rol_default_vpc_viewer`, `rol_default_vpc_editor`, `rol_default_compute_viewer`, `rol_default_compute_editor`, `rol_default_lb_viewer`, `rol_default_lb_editor`, `rol_default_iam_viewer`, `rol_default_iam_editor`, `rol_default_billing_viewer`)
 

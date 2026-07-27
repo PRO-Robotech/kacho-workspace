@@ -660,12 +660,12 @@ gate 4-7; `testing.md`):
 - [ ] `warnings°` реализованы как `repeated string warnings` в `CreateRegionMetadata`/`CreateZoneMetadata` (geo-owned
   metadata), НЕ в shared Operation-proto, НЕ в public response.
 - [ ] Ambient-read: catalog-записи 4 read-RPC (`RegionService.Get/List`, `ZoneService.Get/List`) меняются на **exempt**
-  (снят `required_relation`+`scope_extractor`); `make permission-catalog` regen → обе embedded-копии **byte-identical**
-  (`make permission-catalog-check` зелёный); documented-exception дописан в `security.md` (note рядом с JWKS-route).
+  (снят `required_relation`+`scope_extractor`); `make -C gateway permission-catalog` regen → обе embedded-копии **byte-identical**
+  (`make -C gateway permission-catalog-check` зелёный); documented-exception дописан в `security.md` (note рядом с JWKS-route).
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical; newman зелёные (все `GEO-1-NN`).
+- [ ] `make -C gateway permission-catalog-check` byte-identical; newman зелёные (все `GEO-1-NN`).
 
 **MERGE-GATE (`[PHASE-0-GATED]` — жёсткий блокер, единственная кросс-фазовая зависимость):**
 - [ ] **GEO-1 НЕ мёржится, пока Phase-0 governance change-set не приземлит в `api-conventions.md`:**

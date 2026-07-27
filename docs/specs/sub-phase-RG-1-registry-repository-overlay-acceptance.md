@@ -48,7 +48,7 @@ signing/scanning/SBOM под-фазы).
 bucket, host, числовой инфра-id) не появляется на публичной поверхности.**
 
 Заказчик к approve контракта не подключается — он проверяет только финальный smoke/e2e (шаг 7:
-`make e2e-test` / `docker pull` anon-public + `grpcurl` CreateRepository).
+`make -C deploy e2e-test` / `docker pull` anon-public + `grpcurl` CreateRepository).
 
 ---
 
@@ -192,7 +192,7 @@ bucket, host, числовой инфра-id) не появляется на п�
 - Op-envelope: `CreateRepositoryMetadata{registry_id, repository}` resp `Repository`; `Update…` resp
   `Repository`; `DeleteRepositoryMetadata{registry_id, repository}` resp `google.protobuf.Empty`;
   `RenameRepositoryMetadata{registry_id, repository, new_name}` resp `Repository`.
-- `permission-catalog` регенерируется (`make permission-catalog`, byte-identical, CI drift-gate,
+- `permission-catalog` регенерируется (`make -C gateway permission-catalog`, byte-identical, CI drift-gate,
   `security.md` #4); scope_extractor per-RPC (object-scoped authz, `security.md` #3).
 
 **`kacho-iam`** — anon-token issuance (IAM `/token` выдаёт токен без Basic-creds → subject-принципал
@@ -1097,7 +1097,7 @@ ID'ы (`RG-1-<Group><NN>`) трассируются в имена integration- �
 - [ ] `RenameRepositoryRequest{registry_id, repository, new_name}` — `new_name` **голое** repo-имя (без
       target-registry поля, D-5); `ListReferrers` — bounded (без `page_token`/`page_size`, D-8).
 - [ ] `buf lint` / `buf breaking` / `buf validate` зелёные; `gen/go` регенерирован.
-- [ ] `permission-catalog` регенерирован (`make permission-catalog`), обе embedded-копии byte-identical,
+- [ ] `permission-catalog` регенерирован (`make -C gateway permission-catalog`), обе embedded-копии byte-identical,
       CI drift-gate зелёный (`security.md` #4).
 
 **Stage iam** — `kacho-iam`:
@@ -1152,7 +1152,7 @@ Internal.* не на external, `security.md` ban #6) · `kacho-deploy` (helm/com
 **Ревью-роли (шаг 6):** `proto-api-reviewer` (proto) · `db-architect-reviewer` (миграция/CAS/UNIQUE/CHECK) ·
 `go-style-reviewer` · `system-design-reviewer` (outbox at-least-once, adopt-race D05, visibility-CAS B09).
 
-**Финал (шаг 7):** заказчик — smoke/e2e (`make e2e-test`; anon `/token` без creds → `docker pull` anon-public
+**Финал (шаг 7):** заказчик — smoke/e2e (`make -C deploy e2e-test`; anon `/token` без creds → `docker pull` anon-public
 + uniform-404 anon-private; anon push → 403; `grpcurl` CreateRepository→Get durable-empty; `ListRepositories`
 показывает durable-empty; admin `default_visibility=PUBLIC` → не-admin create без `visibility` → PUBLIC (+anon 200);
 visibility flip → anon 200↔404; rename durable old→404/new→200; rename **ephemeral** (pushed-но-неконфиг)

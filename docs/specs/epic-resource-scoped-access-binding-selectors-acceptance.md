@@ -462,7 +462,7 @@ message ResourceSelector {
 
 **ID:** `T1T3-E2E`
 
-**Given** развёрнутый стенд (`make dev-up`); bootstrap `acc-A`+`prj_prod`+owner; reusable роли (concrete compute.instance / vpc.subnet / iam.project); mirror наполнен через `compute→iam`, `vpc→iam`, `nlb→iam` RegisterResource (расширенный payload D4); под `prj_prod` — `inst-1`{env:prod}, `sub-1`{env:prod}, `disk-1`{env:prod}; `prj_a`{tier:gold} под `acc-A`
+**Given** развёрнутый стенд (`make -C deploy dev-up`); bootstrap `acc-A`+`prj_prod`+owner; reusable роли (concrete compute.instance / vpc.subnet / iam.project); mirror наполнен через `compute→iam`, `vpc→iam`, `nlb→iam` RegisterResource (расширенный payload D4); под `prj_prod` — `inst-1`{env:prod}, `sub-1`{env:prod}, `disk-1`{env:prod}; `prj_a`{tier:gold} под `acc-A`
 
 **When** owner создаёт selector-binding БЕЗ types (concrete compute.instance роль): `target={selector:{matchLabels:{env:prod}}}` → poll Operation
 **Then** Operation done; `Get` отдаёт derived `types=["compute.instance"]`; `Check`(`inst-1`) → allowed (T1-01 derive E2E)

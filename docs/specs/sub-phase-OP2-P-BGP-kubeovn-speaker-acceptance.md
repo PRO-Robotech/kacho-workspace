@@ -187,7 +187,7 @@ envtest-testable. `go test ./... -race` + `golangci-lint run` зелёные д�
 **And** нода(ы) помечены node-label `ovn.kubernetes.io/bgp=true` (на single-node kind — control-plane-нода; gateway-роль)
 **And** manifest speaker (DaemonSet) добавлен в `kacho-deploy` (`argo-apps/kube-ovn/` values/манифест) с nodeSelector `ovn.kubernetes.io/bgp=true`
 
-**When** применяется deploy (`make dev-up` / argo sync)
+**When** применяется deploy (`make -C deploy dev-up` / argo sync)
 
 **Then** DaemonSet `kube-ovn-speaker` создаётся, под(ы) `Running 1/1` **только** на нодах с label `ovn.kubernetes.io/bgp=true` (на непомеченных нодах — нет пода)
 **And** speaker запущен с флагами: `--neighbor-address=<RR-IP>`, `--neighbor-as=<RR-AS>`, `--cluster-as=<cluster-AS>`, `--announce-cluster-ip=false` (ClusterIP-сервисы НЕ анонсятся)

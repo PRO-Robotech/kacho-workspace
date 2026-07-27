@@ -1689,7 +1689,7 @@ Within each group, sequential per author-bandwidth; between groups, parallel.
   - mTLS internal listener (gateway → iam Check works)
 - [ ] kacho-iam CI green (unit + integration + race) across all 10 feature branches
 - [ ] kacho-proto: `buf lint`/`buf breaking` zero issues; gen/ regenerated and committed
-- [ ] kacho-deploy: `helm template` valid; `make dev-up` succeeds with all B.* features wired
+- [ ] kacho-deploy: `helm template` valid; `make -C deploy dev-up` succeeds with all B.* features wired
 - [ ] **Запрет #5 verification**: `git log --all -- 'project/kacho-iam/internal/migrations/000{1..25}*.sql'` shows NO new commits in W2.B PR series (only NEW migration files added per §3 table)
 - [ ] **Запрет #11 verification**: `! git diff main -- '*.go' '*.sql' '*.proto' | grep -E '(TODO|FIXME|XXX)\(.*KAC'` returns empty across all 10 PRs (B.1 501-guard is boundary, not TODO — explicit DOCSTRING marker `// W3.1 #40: replace 501 with verify-callback`, which is documentation, not TODO action)
 - [ ] **Newman closing**: post-W2.B baseline ≥ 1300/1300 GREEN (W1.6 closed 87, W2.B adds ~30 cases per features = ~270 new cases all GREEN); W2.D adds remainder

@@ -2698,4 +2698,4 @@ Reviewer перед `✅ APPROVED` проверяет:
 > этим изменением мержится первым в цепочке. Только после этого `superpowers:writing-plans` →
 > `integration-tester` (TDD red) → `rpc-implementer` (TDD green) → `api-gateway-registrar`
 > могут стартовать. Заказчик подключается только к финальной smoke-верификации
-> (`make e2e-test` через api-gateway по §7 сценариям).
+> (`make -C deploy e2e-test` через api-gateway по §7 сценариям).

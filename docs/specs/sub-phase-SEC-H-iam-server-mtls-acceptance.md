@@ -422,7 +422,7 @@ SEC-H — небольшой mirror-патч, дробится на 2 стади
   - [ ] `obsidian/kacho/edges/*-to-iam-*.md` (vpc/compute/nlb→iam) — «History»: server-side mTLS на IAM-listener теперь поддержан (SEC-H, KAC-<N>); до SEC-H IAM-сторона была plaintext даже при mTLS-клиенте.
   - [ ] `obsidian/kacho/KAC/KAC-<N>.md` — trail + PR-URL + статус.
 - [ ] YouTrack KAC: `In Progress` на старте → `Test` → `Done` по merge + smoke; PR-ссылки + лог тестов комментарием.
-- [ ] Заказчик — финальный smoke/e2e: профиль mTLS-on (`make dev-up` c `values.mtls.yaml`) — vpc→iam `RegisterResource` handshake-ok; plaintext-клиент против :9091 → `tls: first record does not look like a TLS handshake`; профиль mTLS-off — dev работает как сегодня.
+- [ ] Заказчик — финальный smoke/e2e: профиль mTLS-on (`make -C deploy dev-up` c `values.mtls.yaml`) — vpc→iam `RegisterResource` handshake-ok; plaintext-клиент против :9091 → `tls: first record does not look like a TLS handshake`; профиль mTLS-off — dev работает как сегодня.
 
 ---
 

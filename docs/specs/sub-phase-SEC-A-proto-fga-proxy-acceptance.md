@@ -332,7 +332,7 @@ SEC-A — proto+buf-only, поэтому «тесты» подфазы — эт�
 descriptor-assert; полные integration / newman-кейсы на поведение (идемпотентность,
 коды, ReBAC-энфорс) пишутся RED в зависимых подфазах (SEC-C / SEC-D / SEC-E) и
 трассируются к ID отсюда. Newman-харнесс живёт в **сервисных репо** (`kacho-<svc>/tests/newman`),
-не в kacho-deploy (§4.1 п.5); `make e2e-test` в kacho-deploy = bash-смоук `e2e/0.1/*.sh`.
+не в kacho-deploy (§4.1 п.5); `make -C deploy e2e-test` в kacho-deploy = bash-смоук `e2e/0.1/*.sh`.
 
 **В этом PR (kacho-proto) — RED → GREEN proto-гейты:**
 - `make buf-lint` (SEC-A-08) — RED до правки невозможен (RPC ещё нет); GREEN после.

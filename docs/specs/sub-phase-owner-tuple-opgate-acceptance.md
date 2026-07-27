@@ -532,7 +532,7 @@ covered/verified scope.
   - [ ] `obsidian/kacho/KAC/KAC-<N>.md` — trail + PR-URL + статус.
 - [ ] Соответствующие GitHub Issues (owner-tuple-lag 403) — закрыты со ссылкой на PR; **idempotency-key-на-Create** заведён как отдельный follow-up-Issue (§3.1 FIX-3).
 - [ ] YouTrack KAC: `In Progress` → `Test` → `Done` по merge + smoke; PR-ссылки + лог тестов RED→GREEN комментарием.
-- [ ] Заказчик — финальный smoke/e2e (`make e2e-test` / `grpcurl`): Create Network → poll op done → **немедленный** Update/Delete тем же creator → 200, без 403 «no direct relations granted».
+- [ ] Заказчик — финальный smoke/e2e (`make -C deploy e2e-test` / `grpcurl`): Create Network → poll op done → **немедленный** Update/Delete тем же creator → 200, без 403 «no direct relations granted».
 
 ---
 

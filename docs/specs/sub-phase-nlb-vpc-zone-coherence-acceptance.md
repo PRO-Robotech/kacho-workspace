@@ -453,4 +453,4 @@ ID'ы трассируются в имена integration- и newman-кейсов
 - [ ] Integration + newman (happy known-zone, negative unknown-zone).
 - [ ] `go test ./... -race` + lint + govulncheck; vault: `resources/vpc-address` (external zone validated) + `edges/vpc-to-geo-zone-validate` History.
 
-**Финал:** заказчик — smoke/e2e (`make e2e-test` / `grpcurl` cross-zone/cross-region negative + happy).
+**Финал:** заказчик — smoke/e2e (`make -C deploy e2e-test` / `grpcurl` cross-zone/cross-region negative + happy).

@@ -42,7 +42,7 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
   (`spire-registration/kacho-vpc.yaml` и др.). **SEC-F НЕ вводит параллельный
   `spiffe://kacho/<sva-id>`** — cert-manager выдаёт URI-SAN В ЭТОМ ЖЕ формате (§4.1.4),
   чтобы при будущем включении SPIRE identity не мигрировала. См. §«Разрешение SPIFFE-коллизии».
-- **`make e2e-test` ≠ newman**: target гоняет `bash e2e/0.1/*.sh` (стенд-смоук E1/E5/E6…).
+- **`make -C deploy e2e-test` ≠ newman**: target гоняет `bash e2e/0.1/*.sh` (стенд-смоук E1/E5/E6…).
   CRUD-регрессионный **newman живёт в сервисных репо** (`kacho-vpc/tests/newman/cases`,
   `kacho-compute/…`, `kacho-iam/…`, `kacho-nlb/…`), НЕ в kacho-deploy. SEC-F ссылается на
   реальные харнессы по их месту жительства (§«Тест-харнессы»).
@@ -105,7 +105,7 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
 
 | Что | Где живёт | Команда | Тип |
 |---|---|---|---|
-| Стенд-смоук (поднятие, секреты, ingress) | `kacho-deploy/e2e/0.1/*.sh` | `make e2e-test` | bash-смоук (НЕ newman) |
+| Стенд-смоук (поднятие, секреты, ingress) | `kacho-deploy/e2e/0.1/*.sh` | `make -C deploy e2e-test` | bash-смоук (НЕ newman) |
 | CRUD-регрессия vpc | `kacho-vpc/tests/newman/cases` | newman против REST api-gateway | newman (сервисный репо) |
 | CRUD-регрессия compute | `kacho-compute/tests/newman/cases` | newman | newman (сервисный репо) |
 | CRUD-регрессия iam | `kacho-iam/tests/newman/cases` | newman | newman (сервисный репо) |
@@ -113,9 +113,9 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
 | Manifest/template-assertion | `kacho-deploy/tests/helm/` (**НОВАЯ** инфра) | `yq`/`grep` поверх `helm template` (опц. `helm-unittest`) | helm-assertion (новый) |
 | Cert-инспекция SAN | `kacho-deploy/tests/helm/` (**НОВАЯ**) | bash + `openssl x509` поверх выпущенных secret'ов | runtime-assertion (новый) |
 
-«Полный newman-прогон против mTLS-стенда» = поднять стенд (`make dev-up MTLS=on`), затем
+«Полный newman-прогон против mTLS-стенда» = поднять стенд (`make -C deploy dev-up MTLS=on`), затем
 прогнать newman-наборы **сервисных репо** (vpc/compute/iam/nlb) против REST api-gateway этого
-стенда. `make e2e-test` (deploy) валидирует только bash-смоук стенда — он расширяется кейсом
+стенда. `make -C deploy e2e-test` (deploy) валидирует только bash-смоук стенда — он расширяется кейсом
 «mTLS-стенд поднялся, service→service handshake успешен».
 
 ## Трассировка сценариев → требованиям эпика
@@ -240,14 +240,14 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
 **And** SEC-B..E уже в `main` (corelib/services/gateway понимают `mtls.enabled`, при false →
   `insecure.NewCredentials()`)
 
-**When** `make dev-up` на свежем kind-кластере (профиль dev, mTLS выключен, namespace `kacho`)
+**When** `make -C deploy dev-up` на свежем kind-кластере (профиль dev, mTLS выключен, namespace `kacho`)
 
 **Then** все `kacho-*` поды достигают `Ready` в стандартный таймаут (`helm … --wait --timeout 10m`)
 **And** service→service общение — insecure (текущее поведение); поды **не** монтируют
   client/server cert-secret'ы (либо монтируют, но creds не используются — `enabled=false`)
 **And** internal CA `ClusterIssuer` и per-svc `Certificate` в dev-профиле **не создаются**
   (или создаются, но не потребляются — допустимо; критерий: dev работает без них)
-**And** `make e2e-test` (bash-смоук `e2e/0.1/*.sh`) — **полностью зелёный** (E1/E5/E6…),
+**And** `make -C deploy e2e-test` (bash-смоук `e2e/0.1/*.sh`) — **полностью зелёный** (E1/E5/E6…),
   ни один кейс не падает
 **And** регрессионный **newman сервисных репо** (vpc/compute/iam/nlb против REST api-gateway
   этого стенда) — полностью зелёный, ни один кейс не падает и не пропущен
@@ -263,7 +263,7 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
   `mtls.enabled: true` и `mtls.edges.*` все включены (см. SEC-F-07)
 **And** cert-manager установлен; SEC-C seed'ит ReBAC-SA-tuples и client-cert→SA mapping
 
-**When** `make dev-up MTLS=on` (helm-профиль с `-f values.dev.yaml -f values.mtls.yaml`)
+**When** `make -C deploy dev-up MTLS=on` (helm-профиль с `-f values.dev.yaml -f values.mtls.yaml`)
   на свежем kind-кластере (namespace `kacho`)
 
 **Then** internal CA `ClusterIssuer` + все per-svc `Certificate` ×2 выпускаются (`Ready=True`)
@@ -307,10 +307,10 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
 
 **ID:** SEC-F-08
 
-**Given** SEC-F-06 (mTLS-стенд поднят `make dev-up MTLS=on`, все рёбра включены)
+**Given** SEC-F-06 (mTLS-стенд поднят `make -C deploy dev-up MTLS=on`, все рёбра включены)
 **And** SA-seed применён (SEC-F-09), ReBAC-least-priv роли активны
 
-**When** против этого стенда прогоняются: (a) `make e2e-test` (deploy bash-смоук `e2e/0.1/*.sh`)
+**When** против этого стенда прогоняются: (a) `make -C deploy e2e-test` (deploy bash-смоук `e2e/0.1/*.sh`)
   и (b) регрессионный **newman сервисных репо** (`kacho-vpc/tests/newman` и аналоги
   compute/iam/nlb) против REST api-gateway
 
@@ -335,7 +335,7 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
   единый источник истины, потребляемый cert-manager `Certificate` (SAN, SEC-F-04),
   IAM SA-mapping (SEC-C) и spire-registration (выровнен NLB-entry, §4.1.6)
 
-**When** `make dev-up MTLS=on` поднимает стенд
+**When** `make -C deploy dev-up MTLS=on` поднимает стенд
 
 **Then** под каждого сервиса `<svc>` монтирует **только свой** `<svc>-client-tls` secret
   (не чужой). Селектор пода — каноническая label (§4.1.6, прецедент `networkpolicy-audit.yaml`):
@@ -506,9 +506,9 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
   - [ ] **cert-инспекция-тест** (НОВАЯ, `tests/helm/`): bash+`openssl x509` извлекает SAN из
         выпущенных secret'ов — server-SAN=DNS, client-URI-SAN=`spiffe://kacho.cloud/ns/<ns>/sa/kacho-<svc>`,
         совпадает со spire-registration `spiffeId`, разные secret'ы (SEC-F-03/04). RED — до internal-CA Certificate.
-  - [ ] **e2e dev-profile (mTLS-off):** `make e2e-test` (deploy bash-смоук) + newman сервисных
+  - [ ] **e2e dev-profile (mTLS-off):** `make -C deploy e2e-test` (deploy bash-смоук) + newman сервисных
         репо (vpc/compute/iam/nlb) — зелёные, нулевая регрессия (SEC-F-05).
-  - [ ] **e2e mTLS-profile:** `make dev-up MTLS=on` → `make e2e-test` (deploy bash-смоук, расширен
+  - [ ] **e2e mTLS-profile:** `make -C deploy dev-up MTLS=on` → `make -C deploy e2e-test` (deploy bash-смоук, расширен
         smoke service→service handshake) + newman сервисных репо — зелёные (SEC-F-06/08).
   - [ ] **ReBAC-least-priv e2e + over-grant diff:** прогон newman сервисного репо под узким SA,
         сбор `Check`-вызовов (fqn+relation+scope), diff SA-tuples⊇Check; негативная проба

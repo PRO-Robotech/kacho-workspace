@@ -2005,7 +2005,7 @@ min(15min, override, max_token_ttl) = max_token_ttl (sanity).
 **Mapping:** newman `cases/e2e_class_a.py` (full stack against real Hydra in `kacho-deploy` dev
 stack).
 
-**Given** Dev стенд (`make dev-up` в `kacho-deploy`) запущен — kacho-iam + kacho-vpc + kacho-api-
+**Given** Dev стенд (`make -C deploy dev-up` в `kacho-deploy`) запущен — kacho-iam + kacho-vpc + kacho-api-
 gateway + Hydra (real instance, не httptest).
 
 **When**:
@@ -2055,7 +2055,7 @@ compose.yml` — small Go binary `mock-github-oidc` бинарь housed in `kach
 - [ ] UI pages `/iam/serviceAccounts/:sva/keys` + `/iam/federations` функциональны (Playwright
   e2e green); docs snippets для 8 providers — copy-paste ready (real CI snippets, не
   pseudo-code).
-- [ ] e2e smoke (Scenarios 6.13.1 + 6.13.2) проходит в dev-стенде `make e2e-test`.
+- [ ] e2e smoke (Scenarios 6.13.1 + 6.13.2) проходит в dev-стенде `make -C deploy e2e-test`.
 
 ### Tests / CI
 
@@ -2092,8 +2092,7 @@ compose.yml` — small Go binary `mock-github-oidc` бинарь housed in `kach
   + `make migrate-down` + `make migrate-up` — no errors.
 - [ ] **Bootstrap behaviour**: при первом запуске kacho-iam — нет issues (нет policies, нет
   keys; tables пустые — sanity test).
-- [ ] **Hydra integration**: dev стенд имеет real Hydra; tests на real Hydra pass (через `make
-  e2e-test`).
+- [ ] **Hydra integration**: dev стенд имеет real Hydra; tests на real Hydra pass (через `make -C deploy e2e-test`).
 - [ ] **Metrics** exposed на `/metrics`:
   - `iam_sa_key_create_total{outcome}`, `iam_sa_key_delete_total`, `iam_sa_key_rotate_total`.
   - `iam_federation_exchange_total{outcome,issuer,reason}`.

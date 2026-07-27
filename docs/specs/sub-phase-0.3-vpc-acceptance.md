@@ -1442,7 +1442,7 @@ grpcurl -plaintext \
 
 **ID:** 0.3-J6
 
-**Given** `kind`-кластер поднят (`make dev-up`)
+**Given** `kind`-кластер поднят (`make -C deploy dev-up`)
 **And** В `kacho-deploy/helm/` присутствует chart для `vpc`
 **And** Image `prorobotech/kacho-vpc:0.3.0` доступен (через `kind load` или локальный registry)
 
@@ -1460,7 +1460,7 @@ Sub-итерация 0.3 считается **завершённой**, когд
 
 1. **Все сценарии §1–§10** (A1–A8, B1–B8, C1–C10, D1–D6, E1–E5, F1–F8, G1–G7, H1–H5, I1–I19, J1–J6) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-vpc/internal/service/*_acceptance_test.go` — все зелёные.
-   - E2E bash-скрипты в `kacho-deploy/e2e/0.3/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.3`.
+   - E2E bash-скрипты в `kacho-deploy/e2e/0.3/*.sh` — все зелёные при запуске `make -C deploy e2e-test PHASE=0.3`.
    - A1 и A2 трассируются через CI-шаги `buf-lint` / `buf-breaking` в `kacho-proto/.github/workflows/ci.yaml` (не Go-тест-функции).
 
 2. **Proto** `kacho-proto/proto/kacho/cloud/vpc/v1/` содержит:
@@ -1545,4 +1545,4 @@ Sub-итерация 0.3 считается **завершённой**, когд
 - План реализации — `kacho-workspace/docs/plans/sub-phase-0.3-vpc-plan.md` (через `superpowers:writing-plans`), каждый шаг плана ссылается на идентификаторы сценариев из этого документа.
 - Proto-контракт `kacho-proto/proto/kacho/cloud/vpc/v1/` проверяет субагент `proto-api-reviewer` после реализации.
 - Схема миграций `kacho_vpc` проверяет субагент `db-architect-reviewer` после реализации.
-- После реализации и code-review — финальный smoke через `make e2e-test PHASE=0.3` выполняет заказчик.
+- После реализации и code-review — финальный smoke через `make -C deploy e2e-test PHASE=0.3` выполняет заказчик.

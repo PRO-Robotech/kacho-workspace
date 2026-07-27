@@ -191,7 +191,7 @@ iam-authorize клиенты дилятся с `insecure.NewCredentials()` — �
 
 **And** процесс стартует без ошибок; health-probe (`grpc.health.v1.Health/Check`) отвечает.
 
-**And** существующий dev-стенд (`make dev-up`) поднимается, newman-suite зелёный (no regression).
+**And** существующий dev-стенд (`make -C deploy dev-up`) поднимается, newman-suite зелёный (no regression).
 
 ### 3.2 Scenario SEC-E-02 — mTLS включён для ребра с полным cert-материалом → старт ОК
 
@@ -425,7 +425,7 @@ endpoint → не доступен (kacho-only internal, как и в insecure-�
 - [ ] **Newman**: `SEC-E-GATEWAY-MTLS-A` (happy) + `SEC-E-GATEWAY-MTLS-NEG-A` (negative)
       добавлены в `tests/newman/cases/` (`validate-cases.py` → `gen.py`), зелёные на mTLS-стенде.
 - [ ] **e2e (заказчик, §7 канона)**: на стенде в mTLS-профиле — пользовательский Create через
-      gateway (`make e2e-test` / `grpcurl`) проходит JWT → principal → mTLS-dial → Check (§3.4);
+      gateway (`make -C deploy e2e-test` / `grpcurl`) проходит JWT → principal → mTLS-dial → Check (§3.4);
       `enable=false` → стенд работает как dev (§3.1).
 - [ ] **Финальная верификация** (`ai-tooling.md` gate 7): `go test ./... -race` +
       `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.

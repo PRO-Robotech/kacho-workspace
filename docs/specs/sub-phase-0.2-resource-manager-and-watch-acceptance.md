@@ -20,7 +20,7 @@ Sub-итерация 0.2 реализует первый работающий б
 - `kacho-corelib/audit/` — только заглушка.
 - Пагинация глубже 1000 — зарезервирована архитектурно, но не тестируется в 0.2.
 - Finalizers на Organization/Cloud/Folder — у этих ресурсов нет lifecycle и нет finalizers; они удаляются мгновенно при Delete с пустым `finalizers[]` (который всегда пуст — поле не поддерживается для Org/Cloud/Folder согласно `02-data-model-and-conventions.md` §2.1).
-- Helm umbrella chart интеграция через `make dev-up` — resource-manager добавляется в helm umbrella, но e2e smoke через port-forward, не через api-gateway/ingress.
+- Helm umbrella chart интеграция через `make -C deploy dev-up` — resource-manager добавляется в helm umbrella, но e2e smoke через port-forward, не через api-gateway/ingress.
 - Проверка cluster-internal DNS (`resource-manager.kacho.svc.cluster.local:9090`) из другого Pod-а — отложена до sub-phase 0.6 (api-gateway). Все e2e-сценарии §9 используют исключительно `kubectl port-forward`.
 
 **Зафиксированные соглашения (resolved при ревью):**
@@ -1112,7 +1112,7 @@ kill $WATCH_PID
 
 **ID:** 0.2-I5
 
-**Given** `kind`-кластер поднят (`make dev-up`)
+**Given** `kind`-кластер поднят (`make -C deploy dev-up`)
 **And** В `kacho-deploy/helm/` присутствует chart для `resource-manager`
 **And** Image `prorobotech/kacho-resource-manager:0.2.0` доступен (через `kind load` или локальный registry)
 
@@ -1131,7 +1131,7 @@ Sub-итерация 0.2 считается **завершённой**, когд
 
 1. **Все сценарии §1–§9** (A1–A8, B1–B10, C1–C6, D1–D14, E1–E8, F1–F5, G1a, G2–G5, G7–G12, H1–H4, I1–I5) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-resource-manager/internal/service/*_acceptance_test.go` и `kacho-corelib/**/*_test.go` — все зелёные.
-   - E2E bash-скрипты в `kacho-deploy/e2e/0.2/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.2`.
+   - E2E bash-скрипты в `kacho-deploy/e2e/0.2/*.sh` — все зелёные при запуске `make -C deploy e2e-test PHASE=0.2`.
 
 2. **Proto** `kacho-proto/proto/kacho/cloud/resourcemanager/v1/` содержит:
    - `organization.proto` — сообщения `Organization`, `OrganizationUpsertRequest/Response`, `OrganizationDeleteRequest/Response`, `OrganizationListRequest/Response`, `OrganizationWatchRequest`, `OrganizationWatchEvent`

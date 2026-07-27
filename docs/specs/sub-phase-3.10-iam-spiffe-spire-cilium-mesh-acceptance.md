@@ -34,7 +34,7 @@
 >     - `spire-registration/cosign-attestor-config.yaml` — cosign trusted-signers (kacho-platform team key + Fulcio root for OIDC keyless if enabled);
 >     - `helm/umbrella/templates/hsm-pkcs11-secret.yaml` (External Secrets pulls AWS CloudHSM credentials);
 >     - `helm/umbrella/templates/federation-bundle-ingress.yaml` — public Ingress `spire.kacho.cloud/federation/bundle` (Cloudflare-fronted in Phase 11);
->     - `Makefile` targets: `make spire-bootstrap`, `make spire-rotate-trust-domain`, `make cilium-policy-dry-run`.
+>     - `Makefile` targets: `make -C deploy spire-bootstrap`, `make -C deploy spire-rotate-trust-domain`, `make -C deploy cilium-policy-dry-run`.
 > 7. `PRO-Robotech/kacho-ui` — minimal: `pages/admin/spiffe/{registrations-list,bundle-info,revoke-svid}.tsx` (read-only for non-admins, admin actions for `cluster.kacho-root.security_admin`); Hubble UI iframe link in admin observability panel.
 > 8. `PRO-Robotech/kacho-test` — `tests/e2e/defense_in_depth_kac127.go` — forge end-user principal scenario; `tests/e2e/mesh_lateral_movement.go` — non-allowlisted pod denied; `tests/e2e/spire_failover.go` — primary SPIRE Server kill → SVID issuance continues from replicas.
 > 9. `PRO-Robotech/kacho-workspace` — vault:
@@ -134,7 +134,7 @@ Phase 10 закладывает **in-cluster workload identity plane** во ве
 | **Запрет #8** — DB-per-service | SPIFFE registration store — внутри `kacho_iam` (схема `spire_server` для SPIRE DataStore is separate technical schema но **same Postgres instance**); НЕ shared DB между kacho-iam и SPIRE Server (даже хоть и same cluster); pgBouncer separate users (`kacho_iam`, `spire_server`) с разными `search_path` |
 | **Запрет #9** — async-only мутации | `InternalSpiffeRegistrationService.Upsert/Delete` → `Operation` (async; SPIRE Server propagates to Agents в течение ~10s); `RevokeSvid` → `Operation` (async; revocation propagates ~30s); `RotateTrustDomain` → `Operation` (long-running; 5-30 min); `FederationBundleService.Get` — sync read (просто SELECT текущего bundle row + JWKS render) |
 | **Запрет #10** — within-service refs на DB-уровне | `spiffe_registrations.parent_id REFERENCES spiffe_registrations(id) ON DELETE RESTRICT` (entry parent chain); `svid_revocations.spiffe_id` индексируется + matched через partial UNIQUE для idempotent revoke; `trust_domain_bundles.sequence_number` имеет CHECK + `EXCLUDE USING gist` против overlapping `active_from..active_until` rows (sequence monotonicity invariant); state machine на revocations (`PENDING → PROPAGATING → COMPLETE`) — atomic conditional UPDATE с CAS на `status` |
-| **Запрет #11** — тесты в том же PR | каждый PR Phase 10 содержит: kacho-proto — buf-lint + buf-breaking; corelib/spiffe — unit-tests с in-memory SVID source + integration smoke; kacho-iam — integration-tests testcontainer Postgres (registration entry CRUD race; trust-domain rotation atomic CAS; SVID revocation idempotency); kacho-deploy — `make cilium-policy-dry-run` зелёный + Newman E2E через api-gateway; kacho-test — e2e defense-in-depth + lateral-movement + failover scenarios |
+| **Запрет #11** — тесты в том же PR | каждый PR Phase 10 содержит: kacho-proto — buf-lint + buf-breaking; corelib/spiffe — unit-tests с in-memory SVID source + integration smoke; kacho-iam — integration-tests testcontainer Postgres (registration entry CRUD race; trust-domain rotation atomic CAS; SVID revocation idempotency); kacho-deploy — `make -C deploy cilium-policy-dry-run` зелёный + Newman E2E через api-gateway; kacho-test — e2e defense-in-depth + lateral-movement + failover scenarios |
 
 ### 1.1 Production-edition specifics (round 2 user feedback: no strict backward-compat)
 
@@ -1931,7 +1931,7 @@ Total estimate: **8000-10000 LOC + 30KB vault** across 11 repos.
 | **Hubble UI flow volume too high → OOM** | Low | `hubble.flowBufferSize: 4096`; OTEL collector buffers; Loki retention 30 days |
 | **SPIRE Server Postgres schema clashes with kacho-iam** | Low | Separate schemas (`spire_server` vs `kacho_iam`); separate Postgres users; `search_path` enforced |
 | **PKCS#11 plugin library version mismatch with HSM firmware** | Medium | Pin library version in Helm; CloudHSM client lib upgrades per HSM provider matrix; documented in Phase 11 runbook |
-| **WireGuard kernel module not available on all nodes** (older kernel) | Medium | Phase 10 requires kernel ≥5.4 (per Cilium docs); node pre-flight check in `make spire-bootstrap` |
+| **WireGuard kernel module not available on all nodes** (older kernel) | Medium | Phase 10 requires kernel ≥5.4 (per Cilium docs); node pre-flight check in `make -C deploy spire-bootstrap` |
 | **L7 HTTP/2 + gRPC interactions with Cilium eBPF L7 parser** edge cases | Medium | Extensive integration testing per S10.5.x, S10.6.x; pre-prod soak 2 weeks |
 | **Federation bundle endpoint compromise** (DNS hijack, MitM cert) | Medium | Cert-pinning at external consumers (Phase 11 docs); short bundle refresh-hint (300s) limits exposure |
 | **Re-attestation thunder-herd after Agent restart** (50 pods all request SVID simultaneously) | Low | HSM signing queue limits; SPIRE Server backpressure; jittered re-attestation in go-spiffe v2 client (built-in) |

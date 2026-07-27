@@ -127,5 +127,5 @@
 - [ ] Все сценарии §1–3 покрыты unit-тестами (service: моки `CloudRepo`, `FolderRepo`, `operations.Repo`; handler: моки `*Service`).
 - [ ] `go test ./...` зелёный в `kacho-resource-manager` и `kacho-api-gateway`.
 - [ ] `go build ./...` зелёный в обоих репо.
-- [ ] kind-стенд поднят (`make dev-up`), `make reload-svc SVC=resource-manager` + `SVC=api-gateway` прошли без ошибок.
+- [ ] kind-стенд поднят (`make -C deploy dev-up`), `make -C deploy reload-svc SVC=resource-manager` + `SVC=api-gateway` прошли без ошибок.
 - [ ] Smoke-curl C2 (через port-forward на api-gateway) возвращает 200 с операцией от предшествующего `Create cloud`.

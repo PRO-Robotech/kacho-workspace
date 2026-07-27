@@ -828,12 +828,12 @@ See DoD §8.
 
 **Phases**:
 
-1. **Setup**: `make dev-up` (bring up kind + helm umbrella with SPIRE + Cilium + kacho-iam W3.3-enabled)
+1. **Setup**: `make -C deploy dev-up` (bring up kind + helm umbrella with SPIRE + Cilium + kacho-iam W3.3-enabled)
 2. **Wait**: pods Ready (`kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=spire-server -n spire-system`, same for `spire-agent`, `kacho-iam`)
 3. **Register test-driver SVID**: create `SpiffeRegistration` `test-driver-as-api-gateway` mapping to `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-api-gateway` with selectors matching a test-driver Deployment
 4. **Deploy test-driver pod**: tiny Go binary using `go-spiffe` + kacho-iam-proto, calls `InternalIAMService.Check` against `kacho-iam:9091`
 5. **Run scenarios** W3.3-POS-01..03, W3.3-NEG-01..03, W3.3-EDGE-01..06, W3.3-PROP-01
-6. **Teardown**: `make dev-down`
+6. **Teardown**: `make -C deploy dev-down`
 
 **CI integration**: gate on `make spire-iam-mtls-test` Make target; runs in PR CI for kacho-iam, kacho-deploy, and peer-service PRs that touch `internal/clients/iam*.go`.
 

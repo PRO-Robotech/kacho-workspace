@@ -237,7 +237,7 @@ Production-complete в границах TargetGroup redesign (`ai-tooling.md` §
 **Проектные гейты:**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
 - [ ] proto — `buf lint`/`buf breaking` (breaking задекларированы: HealthCheck `name`-drop + oneof-расширение, duration-rename) зелёные после регена. proto ревьюит `proto-api-reviewer`; миграции — `db-architect-reviewer`; oneof-replace merge-семантика — `go-style-reviewer`.
-- [ ] `make permission-catalog-check` byte-identical (TargetGroup RPC — записи есть, ключёваны на `nlb_target_group` из 1a).
+- [ ] `make -C gateway permission-catalog-check` byte-identical (TargetGroup RPC — записи есть, ключёваны на `nlb_target_group` из 1a).
 - [ ] authz на КАЖДОМ RPC (`nlb_target_group`-тип из 1a): read → viewer-floor, мутации → editor на target, Create → editor на project; `scope_extractor{nlb_target_group, target_group_id}` резолвит target→project; `List` (TG) фильтруется listauthz + pagination-validate ДО listauthz (тот же контракт, что NLB-1-48 в 1b). Per-RPC gateway-регистрация нового TargetGroup RPC-surface — **в этом PR** (`api-gateway-registrar`).
 
 **MERGE-GATE:** 1c наследует Phase-0 MERGE-GATE из 1b (B1 `common.v1`-Referrer для HealthCheck-эмбеддинга не требуется — HealthCheck value-object; B3 hyphen id-prefix; conv-11 by-lane касается peer-validate scope-coord — в 1c нет новых peer-validate lane сверх 1b). Ungated (HealthCheck oneof-replace, durations, immutables, teardown RESTRICT, port LIVE-mutable, inline config-only TG) строятся **без** ожидания change-set.

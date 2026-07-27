@@ -484,7 +484,7 @@ gRPC: `Create`/`AddTargetResources`/`RemoveTargetResources` — все **async �
 
 **ID:** `α-21`
 
-**Given** развёрнутый стенд (`make dev-up`), bootstrap `acc-A` + `prj-P` + owner; reusable SYSTEM-роль; под `prj-P` инстансы `inst-1`, `inst-2`; **legacy** binding `acb-LEGACY`, созданный до α (concrete-`resourceName` в custom-роли ИЛИ wildcard-роль)
+**Given** развёрнутый стенд (`make -C deploy dev-up`), bootstrap `acc-A` + `prj-P` + owner; reusable SYSTEM-роль; под `prj-P` инстансы `inst-1`, `inst-2`; **legacy** binding `acb-LEGACY`, созданный до α (concrete-`resourceName` в custom-роли ИЛИ wildcard-роль)
 
 **When** owner вызывает `GET …:listGrantableResources?resourceType=project&resourceId=prj-P&objectType=compute.instance`
 **Then** ответ содержит `inst-1`, `inst-2` (объекты под scope); чужих нет

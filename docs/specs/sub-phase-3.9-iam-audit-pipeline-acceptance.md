@@ -678,7 +678,7 @@ kacho-deploy/
 - **Audit verifier CronJob:** `audit-verifier/cronjob.yaml` — schedule `0 2 * * *`; image `kacho-iam:latest` with command `kacho-iam audit-verify`; resources cpu=1, mem=2Gi; ReadOnly PG creds + HSM verify-only role.
 - **Grafana dashboards (task 9.10):** 4 JSON files в `grafana/dashboards/`; provisioned via grafana-operator ConfigMap.
 - **PagerDuty integration:** `pagerduty/audit-tamper-service.json` — PD service config with escalation policy.
-- **DoD:** `make dev-up` deploys all components; integration smoke tests (audit event → Kafka → ClickHouse → S3) зелёный.
+- **DoD:** `make -C deploy dev-up` deploys all components; integration smoke tests (audit event → Kafka → ClickHouse → S3) зелёный.
 
 ### 5.5 kacho-api-gateway (PR #5, task 9.8)
 

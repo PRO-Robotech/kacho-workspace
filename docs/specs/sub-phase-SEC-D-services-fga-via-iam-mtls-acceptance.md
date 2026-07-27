@@ -546,7 +546,7 @@ mechanics уже покрыт corelib W1.1; SEC-D добавляет **consumer-
   - [ ] `obsidian/kacho/rpc/iam-internal-iam-service.md` — `RegisterResource`/`UnregisterResource` как consumed-by vpc/compute/nlb (RPC определён в SEC-A).
   - [ ] `obsidian/kacho/KAC/KAC-<N>.md` — trail + PR-URL + статус.
 - [ ] YouTrack KAC: `In Progress` на старте → `Test` → `Done` по merge + smoke; PR-ссылки + лог тестов комментарием.
-- [ ] Заказчик — финальный smoke/e2e (`make e2e-test` / `grpcurl`): создать Network → Get показывает ресурс; mTLS-профиль (enable=true) handshake-ok на vpc→iam.
+- [ ] Заказчик — финальный smoke/e2e (`make -C deploy e2e-test` / `grpcurl`): создать Network → Get показывает ресурс; mTLS-профиль (enable=true) handshake-ok на vpc→iam.
 
 ---
 

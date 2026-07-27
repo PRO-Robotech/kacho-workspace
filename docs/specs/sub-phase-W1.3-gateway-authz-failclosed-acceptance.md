@@ -234,7 +234,7 @@ All scenario IDs use the prefix `W1.3-`. Negative cases — exact gRPC code from
 
 #### Scenario W1.3-01: OpenFGA reachable + Check ALLOW → request proxied
 
-**Given** the kind dev stand is up via `make dev-up` with W1.3 helm overlay applied
+**Given** the kind dev stand is up via `make -C deploy dev-up` with W1.3 helm overlay applied
 **And** OpenFGA is healthy (`kubectl get pods -l app.kubernetes.io/name=openfga` shows Running/Ready=1)
 **And** subject `user:usr_admin_e2e` has a `cluster_admin` tuple in OpenFGA (seeded by `tests/authz-fixtures/setup.sh`)
 **When** client calls `POST /iam/v1/projects` with `Authorization: Bearer <admin-jwt>` and a valid `CreateProject` payload
@@ -400,7 +400,7 @@ When W1.6 lands later: same request → gateway 401 (unchanged) → if gateway w
 
 **ID:** W1.3-NM-01
 
-**Given** the kind stand from `kacho-deploy` is up via `make dev-up` (W1.3 helm overlay)
+**Given** the kind stand from `kacho-deploy` is up via `make -C deploy dev-up` (W1.3 helm overlay)
 **And** `tests/authz-fixtures/setup.sh` has run (admin-jwt + viewer-jwt minted)
 **And** OpenFGA is initially Ready (sanity check via `kubectl wait`)
 **When** the wrapper script `tests/newman/scripts/run-failclosed.sh` executes:
@@ -428,7 +428,7 @@ When W1.6 lands later: same request → gateway 401 (unchanged) → if gateway w
   - [ ] 06-10: gateway integration `authz_failclosed_enforcement_test.go` GREEN
   - [ ] 07-09: gateway unit `cmd/api-gateway/main_failclosed_startup_test.go` GREEN
   - [ ] 11-15: cross-cut integration tests added to `cmd/api-gateway/internal_grpc_listener_w1_2_test.go` extension (or new `*_w1_3_test.go`)
-  - [ ] NM-01: newman `AUTHZ-FAILCLOSED-OPENFGA-DOWN` GREEN in `make dev-up && cd project/kacho-iam/tests/newman && ./scripts/run-failclosed.sh`
+  - [ ] NM-01: newman `AUTHZ-FAILCLOSED-OPENFGA-DOWN` GREEN in `make -C deploy dev-up && cd project/kacho-iam/tests/newman && ./scripts/run-failclosed.sh`
 - [ ] CI green in 2 repos: `kacho-api-gateway` (build/lint/gosec/integration), `kacho-deploy` (helm-lint, helm-template, newman-e2e)
 - [ ] Helm `values.prod.yaml` patched per §2.1; PR shows explicit `authz.enabled=true, authz.failOpen=false, authn.mode=production-strict, extraEnv.KACHO_APP_ENV=prod`
 - [ ] Helm `values.dev.yaml` carries `extraEnv.KACHO_APP_ENV=dev` (matches startup validation)

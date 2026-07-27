@@ -37,7 +37,7 @@ permission-string/proto-package — родитель §Out-of-scope NLB-4 / Де
 |---|---|---|
 | A1 | Rename object-type `lb_*`→`nlb_*` во всех ~265 sites; authz-Check на каждом RPC обоих листенеров резолвит по новому типу (mutate → editor, read → viewer-floor) | родитель §DoD «FGA object-type Q1», `security.md` §AuthN+AuthZ ВЕЗДЕ п.2 |
 | A2 | `scope_extractor` резолвит `nlb_*`-target → project (анти-BOLA): `{nlb_network_load_balancer, network_load_balancer_id}` / `{nlb_listener, listener_id}` / `{nlb_target_group, target_group_id}` → project | `security.md` §Hardening инв-3 (object-scoped authz) |
-| A3 | `permission-catalog` regen byte-identical: обе embedded-копии (iam-seed + gateway middleware) синхронны; `make permission-catalog-check` зелёный; каждый nlb-RPC имеет запись в каталоге | `security.md` §Hardening инв-4 (каталог полон/в синхроне) |
+| A3 | `permission-catalog` regen byte-identical: обе embedded-копии (iam-seed + gateway middleware) синхронны; `make -C gateway permission-catalog-check` зелёный; каждый nlb-RPC имеет запись в каталоге | `security.md` §Hardening инв-4 (каталог полон/в синхроне) |
 | A4 | `List<Resource>` фильтруется listauthz под `nlb_*`-типом (`make audit-list-filter`) | `security.md` §AuthN/AuthZ, `api-conventions.md` §Pagination |
 | A5 | Rename **завершён**: старый `lb_*` object-type больше не резолвит доступ (нет dangling old-type пути); regression-lock ключуется на токен `nlb_*` | родитель §Дефолт Q1, `testing.md` §Regression-lock security-фиксов |
 
@@ -90,9 +90,9 @@ permission-string/proto-package — родитель §Out-of-scope NLB-4 / Де
 
 **ID:** NLB-1a-02
 
-**Given** rename применён во всех sites; permission-catalog сгенерирован из proto (`make permission-catalog`)
+**Given** rename применён во всех sites; permission-catalog сгенерирован из proto (`make -C gateway permission-catalog`)
 
-**When** CI-гейт `make permission-catalog-check` сравнивает две embedded-копии каталога (iam-seed + api-gateway middleware)
+**When** CI-гейт `make -C gateway permission-catalog-check` сравнивает две embedded-копии каталога (iam-seed + api-gateway middleware)
 
 **Then** обе копии **byte-identical**; каждый выставленный nlb-RPC (обоих листенеров) имеет запись в каталоге, ключёванную на `nlb_*`-object-type; отсутствие записи → рантайм `catalog: no entry for method` = AUTHZ_DENIED (fail-closed) — недопустимо (`security.md` §Hardening инв-4)
 **And** снятие несуществующих (после core-редизайна) методов из каталога — задача 1b/1c; 1a **только** переименовывает object-type в существующих записях, не меняя набор методов
@@ -146,7 +146,7 @@ Production-complete в своих границах (`ai-tooling.md` §lifecycle,
 - [ ] read-your-writes: первый Get своего свежего ресурса обёрнут `retry_until_authorized` (owner-tuple EC-окно, conv-3) — но негативы (cross-account deny) **НЕ** оборачивать.
 
 **Проектные гейты:**
-- [ ] `make permission-catalog-check` **byte-identical** (обе embedded-копии); `make audit-list-filter` зелёный; `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные.
+- [ ] `make -C gateway permission-catalog-check` **byte-identical** (обе embedded-копии); `make audit-list-filter` зелёный; `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные.
 - [ ] `buf lint` зелёный (proto-package/permission-string **не** трогаются — они NLB-4; rename object-type — на уровне FGA-модели/каталога, не proto-shape).
 - [ ] Нет shape-change ресурсов, нет новых миграций данных, нет изменения RPC-surface — 1a строго shape-agnostic.
 

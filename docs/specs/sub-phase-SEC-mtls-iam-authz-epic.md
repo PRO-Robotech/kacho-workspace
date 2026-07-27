@@ -164,7 +164,7 @@ Acceptance-review v1: **APPROVED B, D, E**; **CHANGES A, C, F, G** — допу�
    деплоится в `kacho-vpc-operator`** → его SAN = `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`
    (вариант B acceptance-review v2; consolidation в kacho-system НЕ выбран).
 5. **Тест-харнесс**: newman-регрессия живёт в **сервисных репо** (`kacho-<svc>/tests/newman`),
-   не в kacho-deploy; `make e2e-test` в deploy = bash-смоук `e2e/0.1/*.sh`. SEC-F/G ссылаются
+   не в kacho-deploy; `make -C deploy e2e-test` в deploy = bash-смоук `e2e/0.1/*.sh`. SEC-F/G ссылаются
    на реальные харнессы; helm-assertion — НОВАЯ инфра (yq/helm-unittest), не «по прецеденту».
 6. **Имена/прецеденты сверять с кодом**: kube-labels `app.kubernetes.io/name|component`
    (не `app=`); NLB-сервис канонически `kacho-nlb` (spire-registration упоминает legacy
@@ -180,7 +180,7 @@ Acceptance-review v1: **APPROVED B, D, E**; **CHANGES A, C, F, G** — допу�
 - Каждый внутренний компонент — SA с least-priv ролью (audit: ни одной лишней permission).
 - JWT-флоу для пользователей не изменён; публичные ресурсные контракты не изменены
   (proto breaking-diff = 0 на публичных сервисах; новое — только Internal IAM).
-- Стенд `make dev-up` (mTLS-профиль) поднимается: сервисы + vpc-operator + kube-ovn,
+- Стенд `make -C deploy dev-up` (mTLS-профиль) поднимается: сервисы + vpc-operator + kube-ovn,
   все коммуникации mTLS; e2e newman зелёные.
 
 ## 6. Решения по распределённым аспектам (закрыто design-review 2026-06-11)

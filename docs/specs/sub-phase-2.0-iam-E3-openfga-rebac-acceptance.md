@@ -195,7 +195,7 @@ Decision D-1 централизует FGA-write/read в kacho-iam: per-service i
 - OpenFGA — 3 replicas (helm default; см. §8 Risks); load balancing через Kubernetes Service.
 - Backend interceptor использует **per-process gRPC connection pool к kacho-iam** (corelib `authz.CheckClient` keeps long-lived connection; не пересоздаёт на каждый Check).
 
-**Cache hit path** (steady-state ≥95% hit ratio — GWT-22): ≤0.5ms; не доходит до kacho-iam → openfga. Cache miss происходит на первом RPC subject'а после `make dev-up` / pod restart / TTL expiry (5s) / NOTIFY invalidate.
+**Cache hit path** (steady-state ≥95% hit ratio — GWT-22): ≤0.5ms; не доходит до kacho-iam → openfga. Cache miss происходит на первом RPC subject'а после `make -C deploy dev-up` / pod restart / TTL expiry (5s) / NOTIFY invalidate.
 
 **Fallback / overrun:** если p95 >20ms — alert `KachoAuthzCheckLatencyHigh` (>20ms p95 для 5 минут sustained); ops escalates → openfga scale + Postgres FGA read replicas (Phase 2.1).
 
@@ -544,7 +544,7 @@ func (rs *ResourceLifecycleSubscriber) handleNetworkEvent(ctx context.Context, e
 - Production deploy: env **не выставлен** (helm values default `breakglass: false`); ops может выставить вручную через `kubectl set env deployment/kacho-vpc KACHO_VPC_AUTHZ__BREAKGLASS=true` в incident response (rollback по timer).
 
 **Dev convenience:**
-- `make dev-up` поднимает с `breakglass: false` по умолчанию; integration tests без auth-token упадут с PermissionDenied — это **expected** (тест должен передавать valid Principal через E2 auth-interceptor mock).
+- `make -C deploy dev-up` поднимает с `breakglass: false` по умолчанию; integration tests без auth-token упадут с PermissionDenied — это **expected** (тест должен передавать valid Principal через E2 auth-interceptor mock).
 - Local dev override: `kacho-deploy/values.dev.yaml` может содержать `breakglass: true` для быстрого smoke-теста без OIDC setup.
 
 ---
@@ -559,8 +559,8 @@ func (rs *ResourceLifecycleSubscriber) handleNetworkEvent(ctx context.Context, e
 
 **ID:** 2.0-E3-GWT-01
 
-**Given** свежий dev-стенд (`make dev-down` если был поднят)
-**And** E0 (KAC-105) merged — stub-model (`type user`) уже применена при первом `make dev-up` post-E0
+**Given** свежий dev-стенд (`make -C deploy dev-down` если был поднят)
+**And** E0 (KAC-105) merged — stub-model (`type user`) уже применена при первом `make -C deploy dev-up` post-E0
 **And** Secret `kacho-iam-openfga-store` существует со старым `authorization_model_id` (stub)
 
 **When** разработчик выполняет `cd project/kacho-deploy && make dev-up` (helm upgrade)
@@ -582,7 +582,7 @@ func (rs *ResourceLifecycleSubscriber) handleNetworkEvent(ctx context.Context, e
 **Given** dev-стенд поднят (GWT-01 выполнен), full DSL применена, `authorization_model_id` в Secret = `mdl_v2`
 **And** `kacho_iam.fga_model_version` содержит ровно одну row для `mdl_v2`
 
-**When** разработчик выполняет `make dev-up` повторно (без изменений в DSL — `authorization-model.fga` SHA-256 не изменился)
+**When** разработчик выполняет `make -C deploy dev-up` повторно (без изменений в DSL — `authorization-model.fga` SHA-256 не изменился)
 **And** helm hook `openfga-bootstrap` job re-runs
 **And** job вычисляет SHA-256 локального DSL → сравнивает с `kacho_iam.fga_model_version.dsl_sha256` для current `mdl_v2`
 
@@ -596,7 +596,7 @@ func (rs *ResourceLifecycleSubscriber) handleNetworkEvent(ctx context.Context, e
 **ID:** 2.0-E3-GWT-03
 
 **Given** dev-стенд поднят с `mdl_v2` (full DSL)
-**And** разработчик выпустил `mdl_v3` (изменил DSL — добавил новый тип) → `make dev-up` apply → Secret = `mdl_v3`
+**And** разработчик выпустил `mdl_v3` (изменил DSL — добавил новый тип) → `make -C deploy dev-up` apply → Secret = `mdl_v3`
 
 **When** разработчик решает откатить: `helm rollback kacho-umbrella <revision-of-v2>`
 **And** Helm применяет old templates (включая bootstrap-job с DSL версии v2)

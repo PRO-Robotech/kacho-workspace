@@ -1186,7 +1186,7 @@ grpcurl -plaintext api.kacho.local:80 grpc.health.v1.Health/Check -d '{}'
 
 **ID:** 0.6-K1
 
-**Given** kind-кластер поднят (`make dev-up`)
+**Given** kind-кластер поднят (`make -C deploy dev-up`)
 **And** все 4 backend-сервиса задеплоены и в состоянии Ready (kubectl get pods -n kacho)
 **And** api-gateway задеплоен в namespace kacho
 **And** Ingress настроен на `api.kacho.local:80` → `api-gateway:8080`
@@ -1254,7 +1254,7 @@ grpcurl -plaintext api.kacho.local:80 \
 
 **ID:** 0.6-K4
 
-**Given** полное развёртывание (`make dev-up`)
+**Given** полное развёртывание (`make -C deploy dev-up`)
 **And** default Org → Cloud → Folder существуют
 
 **When** последовательно выполняются bash-команды e2e/0.6/K4-full-smoke.sh:
@@ -1268,7 +1268,7 @@ grpcurl -plaintext api.kacho.local:80 \
 
 **Then** все 7 команд завершаются с кодом 0
 **And** все ресурсы видны через соответствующие List-запросы через gateway
-**And** `make e2e-test` (если задан e2e-скрипт 0.6) завершается с кодом 0
+**And** `make -C deploy e2e-test` (если задан e2e-скрипт 0.6) завершается с кодом 0
 
 ### K5. Ingress в helm/umbrella привязан к api-gateway Service
 
@@ -1320,7 +1320,7 @@ kubectl get ingress -n kacho -o jsonpath='{.items[0].spec.rules[0].http.paths[0]
 **ID:** 0.6-L3
 
 **Then** в `kacho-deploy/e2e/0.6/` присутствуют bash-скрипты для сценариев группы K (K1–K5)
-**And** `make e2e-test` (или эквивалент) запускает эти скрипты против живого kind-кластера
+**And** `make -C deploy e2e-test` (или эквивалент) запускает эти скрипты против живого kind-кластера
 **And** все e2e-скрипты завершаются с кодом 0
 
 ### L4. CI зелёный

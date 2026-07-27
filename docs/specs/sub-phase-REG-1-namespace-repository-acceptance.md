@@ -729,7 +729,7 @@ gate 4-7; `testing.md`):
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical (rename RPC → перегенерировать permission-catalog,
+- [ ] `make -C gateway permission-catalog-check` byte-identical (rename RPC → перегенерировать permission-catalog,
   обе embedded-копии iam-seed↔gateway); newman зелёные (все `REG-1-NN`).
 
 **MERGE-GATE (`[PHASE-0-GATED]` — жёсткие кросс-фазовые блокеры):**

@@ -402,7 +402,7 @@ JSON-ответ (camelCase): `{ "roles": [ { "roleId","name","description","isSy
 
 **ID:** `1.5-20`
 
-**Given** развёрнутый стенд (`make dev-up`), bootstrap account `acc-A` + owner, seed SYSTEM-роли, кастом-роль `rol-accustom` в `acc-A`
+**Given** развёрнутый стенд (`make -C deploy dev-up`), bootstrap account `acc-A` + owner, seed SYSTEM-роли, кастом-роль `rol-accustom` в `acc-A`
 **When** owner вызывает `GET /iam/v1/accessBindings:listAssignableRoles?resourceType=account&resourceId=acc-A`
 **Then** ответ содержит SYSTEM-роли (`scopeGroup=SYSTEM`) + `rol-accustom` (`scopeGroup=ACCOUNT`), без чужих ролей
 **And** `grpcurl … AccessBindingService/ListAssignableRoles` даёт эквивалентный набор (REST/gRPC parity)

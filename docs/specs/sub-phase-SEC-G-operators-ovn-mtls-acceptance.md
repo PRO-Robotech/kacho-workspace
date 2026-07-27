@@ -332,10 +332,10 @@ data-path (secondary CNI) не сломан.
 **Given** стенд поднят с mTLS-профилем: все per-edge `enable=true`
 **And** деплоятся api-gateway, iam, vpc, compute, `kacho-nlb`, pg-*, openfga/kratos/hydra, multus, kube-ovn, vpc-operator, ns-operator; каждый под — server-cert + client-cert (раздельные, internal CA); kube-labels `app.kubernetes.io/name|component` (§4.1.6)
 
-**When** прогоняется e2e: newman-регрессия (в сервисных репо, через api-gateway, external TLS + JWT) + deploy bash-смоук `make e2e-test` (`e2e/0.1/*.sh`, §4.1.5) + operator-синк-сценарий (project→Network→Subnet→kube-ovn Subnet+NAD→test-pod NIC)
+**When** прогоняется e2e: newman-регрессия (в сервисных репо, через api-gateway, external TLS + JWT) + deploy bash-смоук `make -C deploy e2e-test` (`e2e/0.1/*.sh`, §4.1.5) + operator-синк-сценарий (project→Network→Subnet→kube-ovn Subnet+NAD→test-pod NIC)
 
 **Then** все service→service коммуникации по mTLS (раздельные client/server cert)
-**And** newman-регрессия зелёная (публичные контракты не изменены — #8); JWT-флоу не тронут (#7); bash-смоук `make e2e-test` зелёный
+**And** newman-регрессия зелёная (публичные контракты не изменены — #8); JWT-флоу не тронут (#7); bash-смоук `make -C deploy e2e-test` зелёный
 **And** test-pod получает secondary NIC из Kachō-subnet (data-path подтверждён, как 2026-06-09 recon)
 
 ### Сценарий S3-03: kube-ovn/multus интеграция не сломана [req #5][эпик DoD]
@@ -384,7 +384,7 @@ data-path (secondary CNI) не сломан.
 **DoD S3:**
 - `kacho-vpc-operator/config/certmanager/`: webhook Certificate переключён на internal-CA `issuerRef` (переиспользован `kacho-selfsigned` ClusterIssuer, §4.1.6; отдельно от operator-client-cert); локальный `selfsigned-issuer` заменён ссылкой на internal-CA в mTLS-профиле (dev-профиль может сохранять локальный self-signed, если SEC-F не активен).
 - `kacho-deploy`: argo-app `kacho-vpc-operator` + umbrella helm — mTLS-values для operator (client-cert mount, per-edge `enable`); полный стенд-профиль поднимает сервисы + операторы + kube-ovn + multus; kube-labels `app.kubernetes.io/*`, NLB как `kacho-nlb` (§4.1.6).
-- **Тест-харнес (§4.1.5):** newman-регрессия зелёная в сервисных репо (`kacho-<svc>/tests/newman`); `make e2e-test` в deploy (bash-смоук `e2e/0.1/*.sh`) зелёный в mTLS-профиле (S3-02); helm-mTLS-конфиг проверяется **новой** helm-assertion-инфрой (yq/helm-unittest — вводится в этой подфазе, не «по прецеденту»). kube-ovn/multus data-path (single + multi-project) подтверждён (S3-03); deletion-семантика не регрессирует (S3-04); insecure-rollback работает (S3-05).
+- **Тест-харнес (§4.1.5):** newman-регрессия зелёная в сервисных репо (`kacho-<svc>/tests/newman`); `make -C deploy e2e-test` в deploy (bash-смоук `e2e/0.1/*.sh`) зелёный в mTLS-профиле (S3-02); helm-mTLS-конфиг проверяется **новой** helm-assertion-инфрой (yq/helm-unittest — вводится в этой подфазе, не «по прецеденту»). kube-ovn/multus data-path (single + multi-project) подтверждён (S3-03); deletion-семантика не регрессирует (S3-04); insecure-rollback работает (S3-05).
 - vault: `edges/vpc-operator-to-kubeovn.md` (mTLS-граница, webhook internal-CA), `edges/vpc-operator-to-vpc-mtls.md` (новая, full).
 
 ---
@@ -449,7 +449,7 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 > Каждый тест пишется **красным** (RED) до реализации, прогоняется, подтверждается
 > падение по нужной причине, затем код → GREEN (ban #12). Имена тестов трассируются к
 > ID сценария (`SEC-G-NN`). Newman-регрессия — в сервисных репо (`kacho-<svc>/tests/newman`);
-> deploy `make e2e-test` — bash-смоук (`e2e/0.1/*.sh`); helm-mTLS — новая helm-assertion-инфра (§4.1.5).
+> deploy `make -C deploy e2e-test` — bash-смоук (`e2e/0.1/*.sh`); helm-mTLS — новая helm-assertion-инфра (§4.1.5).
 
 ### Integration (Go, testcontainers / bufconn)
 
@@ -475,7 +475,7 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 | `CONF-` ns-operator fan-out (exempt AccountService.List + viewer ProjectService.List) по mTLS → namespace materialized | SEC-G-04 |
 | `CONF-` webhook NIC fixed-IP резолв по mTLS → pod-аннотации проставлены | SEC-G-05 |
 | `CONF-` webhook-cert internal-CA → admission-mutation отрабатывает | SEC-G-12 |
-| `CONF-` полный стенд mTLS-профиль → newman зелёные + `make e2e-test` bash-смоук + test-pod secondary NIC | SEC-G-13 |
+| `CONF-` полный стенд mTLS-профиль → newman зелёные + `make -C deploy e2e-test` bash-смоук + test-pod secondary NIC | SEC-G-13 |
 | `CONF-` kube-ovn/multus 2-project изоляция под mTLS → net1 из своих subnet'ов | SEC-G-14 |
 | `CONF-` deletion-семантика (clean subnet + project-delete) под mTLS не регрессирует + fail-closed cleanup | SEC-G-15 |
 | `CONF-` insecure-rollback (per-edge enable=false) → синк работает | SEC-G-16 |
@@ -495,7 +495,7 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 
 - [ ] **S1**: operator→vpc и operator→iam dial на mTLS с отдельным operator-client-cert (раздельно от webhook-server-cert, #5; SAN `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`, §4.1.4); per-edge `enable`; `enable=false` = insecure back-compat (#1).
 - [ ] **S2**: operator-SA с least-priv **ReBAC viewer-relation tuples** на scope-объекты синка (account/project/vpc_network/vpc_network_interface; permission-литералы `vpc.subnetses.list`/`vpc.networks.get`/`vpc.network_interfaces.get`/`iam.projectses.list` validated из `permission_catalog.json`; `AccountService.List` покрыт членством/exempt) seed'ом в kacho-iam (SEC-C); никаких editor/мутаций (#4); SA exempt от `required_acr_min` (§4.1.2); over/under-grant пройдены эмпирически (I6); unknown SAN → DENY; known SAN без scope-relation → DENY.
-- [ ] **S3**: webhook-cert оператора через internal-CA (переиспользован `kacho-selfsigned`, единый trust-root, #2, §4.1.6); полный стенд (сервисы + vpc-operator + ns-operator + kube-ovn + multus) на mTLS; newman зелёные в сервисных репо + `make e2e-test` bash-смоук зелёный + helm-assertion (§4.1.5); kube-ovn/multus data-path и deletion-семантика не сломаны; per-edge insecure-rollback работает; kube-labels `app.kubernetes.io/*`, NLB=`kacho-nlb`.
+- [ ] **S3**: webhook-cert оператора через internal-CA (переиспользован `kacho-selfsigned`, единый trust-root, #2, §4.1.6); полный стенд (сервисы + vpc-operator + ns-operator + kube-ovn + multus) на mTLS; newman зелёные в сервисных репо + `make -C deploy e2e-test` bash-смоук зелёный + helm-assertion (§4.1.5); kube-ovn/multus data-path и deletion-семантика не сломаны; per-edge insecure-rollback работает; kube-labels `app.kubernetes.io/*`, NLB=`kacho-nlb`.
 - [ ] **S4**: `polyrepo.md` фиксирует fgaproxy-рёбра (#6, exempt+ReBAC `fga_writer`@`iam_fgaproxy:system`, §4.1.1) + vpc⇄compute не-цикл-инвариант (§6.6) + operator→{vpc,iam} mTLS-рёбра; раскатано sync-tooling'ом.
 - [ ] Публичные ресурсные контракты не изменены (#8); JWT-флоу не тронут (#7).
 - [ ] Каждая стадия — отдельный PR + ветка `KAC-<N>` в затронутых репо; integration+newman в том же PR (RED→GREEN, ban #12).

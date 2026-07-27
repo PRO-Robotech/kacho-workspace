@@ -690,7 +690,7 @@ STOR-1 готова к merge только при выполнении ВСЕГО
 - [ ] TDD-порядок: RED (падает по нужной причине) ДО кода, пара RED→GREEN в PR. Трассировка `STOR-1-NN ↔ Test<R>_STOR_1_NN ↔ cases/*.py`.
 
 **e2e-smoke (real gateway, заказчик проверяет):**
-- [ ] `VolumeService.Create` → poll `Operation` `done` → `Get` `AVAILABLE` через реальный api-gateway (`make e2e-test` / `grpcurl`).
+- [ ] `VolumeService.Create` → poll `Operation` `done` → `Get` `AVAILABLE` через реальный api-gateway (`make -C deploy e2e-test` / `grpcurl`).
 - [ ] `ImageService.Create` (net-new) → `Get` `READY`; `VolumeService.Create{sourceImageId}` → boot-Volume `AVAILABLE` (F9/`STOR-1-18`); `ImageService.Delete` засевшего Image → `vol-boot.sourceImageId==""`, том цел (`STOR-1-28`).
 - [ ] two-projection field-absence на **реальном** gateway-ответе: public `Volume`/`Image` НЕ содержат infra/blob-layout (`STOR-1-16/25`).
 
@@ -698,12 +698,12 @@ STOR-1 готова к merge только при выполнении ВСЕГО
 - [ ] **Volume-дельты:** `used_by` тип `reference.Reference` → `common.v1.Referrer` (F7, breaking proto — `[B1]`); id-prefix `vol` → `vol-` (F2, `[B3]`); **новое поле** `source_image_id` (immutable, F9).
 - [ ] **Image net-new:** новый `image.proto` + `image_service.proto` + `internal_image_service.proto` (`buf lint`/`breaking`/`validate` зелёные, proto-api-reviewer); regen `gen/`.
 - [ ] **Новая goose-миграция** (не редактировать применённые `0001`–`0006`, ban #5): таблица `images` (`UNIQUE(project_id,name) WHERE name<>''`, state CHECK, `region_id`, source-oneof cols `source_snapshot_id`/`source_volume_id` с FK → snapshots/volumes, `format` native-enum CHECK, `size_bytes`/`min_disk_bytes`); колонка `volumes.source_image_id` + FK → `images` **ON DELETE SET NULL** (parity `source_snapshot_id`; provenance, НЕ RESTRICT) + partial-index; DB-review (db-architect-reviewer).
-- [ ] **fgaproxy Image:** `storage_image:<id>` owner-tuple через существующий `fga_register_outbox` (F13/F27); permission-catalog запись `{storage_image, image_id}` scope_extractor; `make permission-catalog` regen → обе embedded-копии byte-identical (`make permission-catalog-check`).
+- [ ] **fgaproxy Image:** `storage_image:<id>` owner-tuple через существующий `fga_register_outbox` (F13/F27); permission-catalog запись `{storage_image, image_id}` scope_extractor; `make -C gateway permission-catalog` regen → обе embedded-копии byte-identical (`make -C gateway permission-catalog-check`).
 - [ ] Public RPC (`ImageService` Get/List/Create/Update/Delete) зарегистрированы в api-gateway (`api-gateway-registrar`); `InternalImageService` — **только** internal mux (ban #6).
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical; newman зелёные (все public `STOR-1-NN`).
+- [ ] `make -C gateway permission-catalog-check` byte-identical; newman зелёные (все public `STOR-1-NN`).
 - [ ] Vault-trail: обновить `resources/storage-volume.md` (source_image_id, Referrer), создать `resources/storage-image.md`, `rpc/storage-image-service.md`; `edges/storage-to-iam-fgaproxy.md` (+ storage_image); `KAC/STOR-1.md`.
 
 **MERGE-GATE (`[PHASE-0-GATED]` — жёсткий кросс-фазовый блокер):**

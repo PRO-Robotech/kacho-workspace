@@ -611,7 +611,7 @@ Address, NetworkInterface, PrivateEndpoint
 **Given** Helm-чарт зеркало kacho-ui (`name=docs`, `ingress.host=docs.kacho.local`, port 8080), подключён в umbrella `kacho-deploy`
 **And** `kacho-deploy/Makefile` имеет `build-docs` (вызывается из `dev-up` после `build-ui`), `docs` в whitelist `reload-svc`
 
-**When** `make dev-up`
+**When** `make -C deploy dev-up`
 
 **Then** `kacho-docs` собирается, грузится в kind, разворачивается; `docs.kacho.local` резолвится на статический сайт
 **And** umbrella `Chart.yaml` ссылается `file://../../../kacho-docs/deploy`; `values.dev.yaml` задаёт `docs.image`/`ingress.host`

@@ -637,7 +637,7 @@ IAM-1 готова к merge только при выполнении ВСЕГО 
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical (iam-seed ↔ gateway-middleware) после regen под новые Role-verbs/catalog; newman зелёные (все `IAM-1-NN`).
+- [ ] `make -C gateway permission-catalog-check` byte-identical (iam-seed ↔ gateway-middleware) после regen под новые Role-verbs/catalog; newman зелёные (все `IAM-1-NN`).
 - [ ] Ревью ролями: `proto-api-reviewer` (target-reintroduce tags, definitionTier, scope-rename, buf breaking); `db-architect-reviewer` (partial-UNIQUE WHERE ACTIVE, CHECK-XOR, FK RESTRICT, saga writer-tx atomicity, CAS-backstop); `system-design-reviewer` (Create-сага dual-write, EC-материализация, ban #9).
 
 **MERGE-GATE (`[PHASE-0-GATED]` — жёсткий блокер, единственная кросс-фазовая зависимость):**

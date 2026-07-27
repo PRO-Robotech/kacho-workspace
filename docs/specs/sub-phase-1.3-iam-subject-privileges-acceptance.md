@@ -364,7 +364,7 @@ JSON-ответ (camelCase): `{ "privileges": [ { "bindingId","roleId","roleName
 
 **ID:** `1.3-22`
 
-**Given** развёрнутый стенд (`make dev-up`), bootstrap account `acc-A` + owner
+**Given** развёрнутый стенд (`make -C deploy dev-up`), bootstrap account `acc-A` + owner
 **When** owner создаёт binding для `usr-MEMBER` (`grpcurl`/REST `POST /iam/v1/accessBindings`), дожидается Operation done
 **And** owner вызывает `GET /iam/v1/accessBindings:listSubjectPrivileges?subjectType=user&subjectId=usr-MEMBER`
 **Then** ответ содержит созданную привилегию с resolved `roleName`

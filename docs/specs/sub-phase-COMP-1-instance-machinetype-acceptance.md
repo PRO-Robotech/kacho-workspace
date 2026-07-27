@@ -858,7 +858,7 @@ COMP-1 готова к merge только при выполнении ВСЕГО
 - [ ] **Internal-only** сценарии (`InternalMachineTypeService` admin-CRUD, `COMP-1-21`; future infra-проекция `COMP-1-29`) покрываются **integration + bufconn** (не newman-public); **отсутствие `InternalMachineTypeService` на external mux** — сам по себе assert (api-gateway-audit).
 - [ ] TDD-порядок: RED (падает по нужной причине) ДО кода, пара RED→GREEN в PR.
 
-**e2e-smoke (real gateway, заказчик проверяет — `make e2e-test` / `grpcurl`):**
+**e2e-smoke (real gateway, заказчик проверяет — `make -C deploy e2e-test` / `grpcurl`):**
 - [ ] `InstanceService.Create` (VM, минимальный redesign-payload) → poll `Operation` `done` → `Get` отдаёт `instanceKind=="VM"`, resolved `machineTypeId`+`effectiveResources°`, `bootSource{type,id}` через реальный api-gateway (материализация NIC/Volume + переход к `RUNNING` — COMP-2, не проверяется здесь).
 - [ ] `MachineTypeService.List` читается **zero-binding** project'ом (ambient, `COMP-1-18`); GPU-discovery `family=GPU&minGpus=4` (`COMP-1-19`).
 - [ ] `InstanceService.Delete` → poll `done` → `Get` `NOT_FOUND`; **name-recycle** — тот же непустое `name` снова Create-able в проекте (`COMP-1-37`) через реальный api-gateway.
@@ -872,7 +872,7 @@ COMP-1 готова к merge только при выполнении ВСЕГО
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical (новые RPC в каталоге, ambient MachineType read — exempt как geo); newman зелёные (все public `COMP-1-NN`).
+- [ ] `make -C gateway permission-catalog-check` byte-identical (новые RPC в каталоге, ambient MachineType read — exempt как geo); newman зелёные (все public `COMP-1-NN`).
 - [ ] Vault-trail: обновить `resources/compute-instance.md` (instanceKind/machineTypeId/bootSource/Referrer, retire YC-cruft), создать `resources/compute-machinetype.md`, `rpc/compute-instance-service.md`, `rpc/compute-machinetype-service.md`; `KAC/COMP-1.md`.
 
 **MERGE-GATE (`[PHASE-0-GATED]` + B10 — жёсткие кросс-фазовые блокеры):**

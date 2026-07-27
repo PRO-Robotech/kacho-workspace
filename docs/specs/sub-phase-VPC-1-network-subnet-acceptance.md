@@ -797,7 +797,7 @@ VPC-1 готова к merge только при выполнении ВСЕГО 
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге);
+- [ ] `make -C gateway permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге);
   proto — `buf lint`/`buf breaking` (breaking-changes задекларированы: DhcpOptions-drop,
   placement_type write-contract, cidr-rename) зелёные после регена.
 - [ ] newman зелёные (все `VPC-1-NN`); proto-контракт ревьюит `proto-api-reviewer`; миграции —

@@ -1357,7 +1357,7 @@ grpcurl -plaintext \
 
 **ID:** 0.4-O6
 
-**Given** `kind`-кластер поднят (`make dev-up`)
+**Given** `kind`-кластер поднят (`make -C deploy dev-up`)
 **And** В `kacho-deploy/helm/` присутствует chart для `compute`
 **And** Image `prorobotech/kacho-compute:0.4.0` доступен
 
@@ -1376,7 +1376,7 @@ Sub-итерация 0.4 считается **завершённой**, когд
 
 1. **Все сценарии §1–§15** (A1–A6, B1–B9, C1–C5, D1–D6, E1–E9, F1–F3, G1–G4, H1–H4, I1–I4, J1–J5, K1–K7, L1–L5, M1–M10, N1–N5, O1–O6) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-compute/internal/service/*_acceptance_test.go` — все зелёные.
-   - E2E bash-скрипты в `kacho-deploy/e2e/0.4/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.4`.
+   - E2E bash-скрипты в `kacho-deploy/e2e/0.4/*.sh` — все зелёные при запуске `make -C deploy e2e-test PHASE=0.4`.
 
 2. **Proto** `kacho-proto/proto/kacho/cloud/compute/v1/` содержит:
    - `instance.proto` — `InstanceService` с Upsert, Delete, List, Watch, Restart; все message-типы

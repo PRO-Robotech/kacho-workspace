@@ -807,7 +807,7 @@
 **ID:** 1.x-G1
 **REQ:** REQ-SMOKE-01
 
-**Given** `make dev-up` (kind cluster, kacho-vpc/api-gateway/ui собраны на KAC-71)
+**Given** `make -C deploy dev-up` (kind cluster, kacho-vpc/api-gateway/ui собраны на KAC-71)
 **And** port-forward на `api-gateway:8080 → localhost:18080`
 
 **When** оператор гоняет smoke:

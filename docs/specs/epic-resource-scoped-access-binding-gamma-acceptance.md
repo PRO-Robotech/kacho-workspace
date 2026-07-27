@@ -450,7 +450,7 @@ gRPC: `Create`/`ReplaceTargetSelector` — async → Operation (ban #9).
 
 **ID:** `γ-21`
 
-**Given** развёрнутый стенд (`make dev-up`); bootstrap `acc-A` + `prj_prod` + owner; reusable SYSTEM-роль `rol-computeeditor`; под `prj_prod` — `inst-1`{env:prod,team:payments}, `inst-2`{env:dev}; чужой `inst-foreign`{env:prod} под `prj_other`; mirror наполнен через `compute→iam RegisterResource`
+**Given** развёрнутый стенд (`make -C deploy dev-up`); bootstrap `acc-A` + `prj_prod` + owner; reusable SYSTEM-роль `rol-computeeditor`; под `prj_prod` — `inst-1`{env:prod,team:payments}, `inst-2`{env:dev}; чужой `inst-foreign`{env:prod} под `prj_other`; mirror наполнен через `compute→iam RegisterResource`
 
 **When** owner создаёт selector-binding (REST `POST accessBindings`, целевой JSON):
   `{subjectType:"user", subjectId:"usr-MEMBER", roleId:"rol-computeeditor", resourceType:"project", resourceId:"prj_prod", target:{selector:{types:["compute.instance"], matchLabels:{env:"prod", team:"payments"}}}}` → poll Operation

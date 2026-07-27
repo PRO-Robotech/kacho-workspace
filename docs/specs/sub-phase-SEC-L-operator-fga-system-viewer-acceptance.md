@@ -87,7 +87,7 @@ relation, который запрашивает `ListObjects`, остаётся 
 ### 2.1 FGA authorization model (kacho-proto `fga_model.fga`)
 
 **Файл:** `kacho-proto/proto/kacho/cloud/iam/v1/fga_model.fga` (канонический источник;
-Helm-configmap регенерируется `make openfga-model-json` → `gen-openfga-model-configmap.py`).
+Helm-configmap регенерируется `make -C deploy openfga-model-json` → `gen-openfga-model-configmap.py`).
 
 Добавить **non-wildcard** cluster→account и cluster→project read-cascade.
 
@@ -326,7 +326,7 @@ SA-principal'а и `user:<id>` для user-principal'а — один для `acc
 
 После правки канонического `fga_model.fga` регенерировать
 `kacho-deploy/helm/umbrella/templates/openfga-model-stub-configmap.yaml` через
-`make openfga-model-json` (вызывает `gen-openfga-model-configmap.py`), чтобы bootstrap-job-
+`make -C deploy openfga-model-json` (вызывает `gen-openfga-model-configmap.py`), чтобы bootstrap-job-
 модель осталась byte-for-byte в синке с каноническим DSL. Configmap руками не редактировать.
 
 ---
@@ -511,7 +511,7 @@ Assert OWNER по-прежнему работает:
 model-уровневого (не stub) ассерта инвариант over-exposure не протестирован там, где он
 реально ломается** — обязательный, blocking кейс.
 
-Также: `make openfga-model-json` после правки `fga_model.fga` проходит (DSL транслируется в
+Также: `make -C deploy openfga-model-json` после правки `fga_model.fga` проходит (DSL транслируется в
 JSON без ошибок); configmap-stub регенерируется (§2.8).
 
 ### 5.5 Newman — black-box через api-gateway (`kacho-iam/tests/newman/cases/iam-*.py`)
@@ -526,12 +526,12 @@ JSON без ошибок); configmap-stub регенерируется (§2.8).
 ## 6. Ручная dev-верификация (стенд kind, kacho-deploy)
 
 ```
-make dev-up
-make psql SVC=iam   # подтвердить outbox-intent applied / drainer прогнал system_viewer-tuple
+make -C deploy dev-up
+make -C deploy psql SVC=iam   # подтвердить outbox-intent applied / drainer прогнал system_viewer-tuple
 # через port-forward api-gateway:
 #   operator-persona List → видит все account/project
 #   tenant-user List → видит только свои; чужой user → не видит первого
-make reload-svc SVC=iam ; make logs-svc SVC=iam
+make -C deploy reload-svc SVC=iam ; make -C deploy logs-svc SVC=iam
 ```
 
 ---
@@ -550,14 +550,14 @@ make reload-svc SVC=iam ; make logs-svc SVC=iam
 | Stub поддерживает ListObjects | `openfga_stub_test.go` (§2.7) | enables 5.1 |
 | Контракт не меняется | нет proto/REST/pagination-правки (Non-goals 1, INV-5) | H / 5.5 |
 | Не редактировать 0009 | новая миграция 0010 (Non-goals 3) | 5.2 |
-| Model-stub в синке | `make openfga-model-json` (§2.8) | 5.4 |
+| Model-stub в синке | `make -C deploy openfga-model-json` (§2.8) | 5.4 |
 
 **Файлы:**
 
 | Слой | Артефакт | Изменение |
 |---|---|---|
 | proto/model | `kacho-proto/proto/kacho/cloud/iam/v1/fga_model.fga` | `account.viewer`/`project.viewer` += `or system_viewer from cluster` (НЕ-wildcard); `project` += `cluster: [cluster]` (§2.1) |
-| deploy | `kacho-deploy/helm/umbrella/templates/openfga-model-stub-configmap.yaml` | регенерируется `make openfga-model-json` (§2.8) |
+| deploy | `kacho-deploy/helm/umbrella/templates/openfga-model-stub-configmap.yaml` | регенерируется `make -C deploy openfga-model-json` (§2.8) |
 | migration | `kacho-iam/internal/migrations/0010_sec_l_operator_system_viewer.sql` | seed `system_viewer@cluster-root` (§2.2) |
 | use-case | `kacho-iam/internal/apps/kacho/api/account/list.go` | FGA-relation-driven + `WithOpenFGA` + subject-prefix + fail-closed (§2.5/§2.6) |
 | use-case | `kacho-iam/internal/apps/kacho/api/project/list.go` | subject-prefix фикс + fail-closed (§2.5/§2.6) |

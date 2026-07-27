@@ -980,7 +980,7 @@ Read-only проекции attach-состояния на `Instance` (source of 
   `rpc/compute-instance-service`, `rpc/vpc-internal-networkinterface-service`;
   `edges/compute-to-storage-attach`, `edges/compute-to-vpc-nic-validate`,
   **`edges/storage-to-geo-zone-validate`**, **`edges/storage-to-iam-project-validate`**; `KAC/KAC-<N>`).
-- Заказчик — только финальный smoke/e2e (`make e2e-test` / `grpcurl`), не участвует в APPROVE контракта.
+- Заказчик — только финальный smoke/e2e (`make -C deploy e2e-test` / `grpcurl`), не участвует в APPROVE контракта.
 
 ---
 

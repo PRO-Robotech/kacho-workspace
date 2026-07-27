@@ -845,7 +845,7 @@ NLB-1 готова к merge только при выполнении ВСЕГО 
 
 **Проектные гейты (финальная верификация):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
-- [ ] `make permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге; снятые
+- [ ] `make -C gateway permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге; снятые
   `start`/`stop`/`attachTargetGroup`/`detachTargetGroup` — удалены); proto — `buf lint`/`buf breaking`
   (breaking-changes задекларированы: placement-слияние, start/stop-drop, attach/detach-drop, target_port-drop,
   duration-rename, FGA-type rename) зелёные после регена. proto ревьюит `proto-api-reviewer`; миграции —

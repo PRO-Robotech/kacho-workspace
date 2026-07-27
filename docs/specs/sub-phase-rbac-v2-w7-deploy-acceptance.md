@@ -13,7 +13,7 @@
 - Remove any jackson-saml Deployment / ConfigMap if present.
 - Delete newman cases for SCIM/SAML/BG (`tests/newman/cases/iam-scim-*.py`, `iam-saml-*.py`, `iam-break-glass-*.py`); regen newman collections.
 - Add newman list-filter regression matrix per (service × resource) cell.
-- `make dev-up && make newman-iam-list-filter` green.
+- `make -C deploy dev-up && make newman-iam-list-filter` green.
 
 ## Scope (out)
 
@@ -32,7 +32,7 @@
 ### S7.2 — Deploy succeeds end-to-end without removed artifacts
 
 **Given** the W7 branch.
-**When** `make dev-up` runs on a fresh kind cluster.
+**When** `make -C deploy dev-up` runs on a fresh kind cluster.
 **Then** all kacho-* pods reach Ready within the standard timeout.
 **And** `kubectl get pods -n kacho` shows no pods named `*saml*`, `*scim*`, `*jackson*`, `*break-glass*`.
 
@@ -53,10 +53,10 @@
 **And** the system_admin subject sees all six rows in the three lists.
 **And** an anonymous subject sees Unauthenticated; an authenticated-no-grants subject sees empty lists (OK status).
 
-### S7.5 — Helm + newman together stable across a full `make dev-up && newman`
+### S7.5 — Helm + newman together stable across a full `make -C deploy dev-up && newman`
 
 **Given** the W7 branch + W2..W6 merged.
-**When** `make dev-up && make newman-iam-list-filter && make newman-iam-rbac` is run.
+**When** `make -C deploy dev-up && make newman-iam-list-filter && make newman-iam-rbac` is run.
 **Then** all suites green; no test skipped; no test in the `// verifies <issue>` red-list.
 
 ## Definition of Done

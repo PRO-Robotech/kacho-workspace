@@ -69,7 +69,7 @@
 2. **Newman cases RED first** — `iam-access-review.py`, `iam-gdpr.py`, `iam-federation.py` (NEW files) populated; `run.sh` shows FAIL because restmux registrations missing
 3. **GREEN phase commits (logical commit per finding, ordered by §6 priority)**:
    - Chunk 3 (kacho-proto): `PermissionsCatalogRoot` proto → generator rewrite → scope_extractor proto fixes → `ActivateJIT` RPC → permission strings fix #44 → regen committed
-   - Chunk 3 (kacho-api-gateway): `make sync-permission-catalog` consumed → `permission_catalog.go::Validate()` → `restmux/mux.go` register block → `scope_extractor_dblookup.go` handler
+   - Chunk 3 (kacho-api-gateway): `make -C services/iam sync-permission-catalog` consumed → `permission_catalog.go::Validate()` → `restmux/mux.go` register block → `scope_extractor_dblookup.go` handler
    - Chunk 4 (kacho-iam): handler/usecase fixes per finding (#1, #4, #5, #6, #14, #15, #27, #46, #55, #49) + migration 0026 + service_account project-scope rewrite
 4. **CI gate (per-PR)**: `make verify-permission-catalog` must pass in all three repos before merge
 5. **Cross-repo merge order**: kacho-proto → kacho-api-gateway → kacho-iam (per workspace §«Кросс-репо зависимости»)

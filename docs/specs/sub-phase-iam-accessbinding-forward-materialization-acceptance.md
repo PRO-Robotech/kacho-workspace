@@ -70,7 +70,7 @@ enforcement**-поверхности: gateway per-RPC `InternalIAMService.Check(
 `data-integrity.md` §«Authz-материализация» и здесь НЕ дублируются.
 
 Заказчик к approve контракта не подключается — он проверяет только финальный smoke/e2e (шаг 7:
-`make e2e-test` / mega-rbac stress newman без cap-widen).
+`make -C deploy e2e-test` / mega-rbac stress newman без cap-widen).
 
 ---
 

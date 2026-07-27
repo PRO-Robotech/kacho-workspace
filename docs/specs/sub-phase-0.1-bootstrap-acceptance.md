@@ -158,7 +158,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 - ссылку на 5 файлов спеки `docs/specs/00..04`
 - все 8 запретов из §11 (`yandex`, ORM, каскад между сервисами, миграции, status-через-upsert, Internal-через-gateway, broker, единые БД)
 - обязательность acceptance-документа **до** кодирования (см. `00-overview-and-scope.md` §4.8 и `04-roadmap-and-phasing.md` §2)
-- инструкции локальной разработки `make dev-up` / `make reload-svc` / `make logs-svc` / `make psql`.
+- инструкции локальной разработки `make -C deploy dev-up` / `make -C deploy reload-svc` / `make -C deploy logs-svc` / `make -C deploy psql`.
 
 ---
 
@@ -271,9 +271,9 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 ---
 
-## 5. Группа E — `kacho-deploy` и `make dev-up`
+## 5. Группа E — `kacho-deploy` и `make -C deploy dev-up`
 
-### E1. `make dev-up` поднимает кластер за < 5 минут
+### E1. `make -C deploy dev-up` поднимает кластер за < 5 минут
 
 **Given** все репо склонированы согласно A1
 **And** установлены `docker`, `kind`, `kubectl`, `helm`
@@ -289,7 +289,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 ### E2. kind cluster с правильным kind-config
 
-**Given** `make dev-up` завершился успешно
+**Given** `make -C deploy dev-up` завершился успешно
 
 **When** разработчик выполняет `kind get clusters`
 
@@ -318,7 +318,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 **Then** для каждой из 4 Postgres-БД существует Secret вида `<svc>-db-credentials`, содержащий ключ `dsn` (по соглашению §6 шаблона deployment.yaml)
 **And** DSN указывает на правильный k8s-service (`pg-<svc>.kacho.svc.cluster.local`) и правильную БД (`kacho_<svc>`)
-**And** ни один Secret не залогирован в stdout/stderr `make dev-up` в plaintext-виде.
+**And** ни один Secret не залогирован в stdout/stderr `make -C deploy dev-up` в plaintext-виде.
 
 ### E6. Ingress-nginx ready
 
@@ -337,11 +337,11 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 **Then** **отсутствуют** Pod-ы с именами `api-gateway-*`, `resource-manager-*`, `vpc-*`, `compute-*`, `loadbalancer-*`
 **And** в `helm/umbrella/Chart.yaml` зависимости на эти 5 сервисных chart-ов либо отсутствуют, либо закомментированы, либо защищены feature-flag-ом, выключенным в `values.dev.yaml`.
 
-### E8. `make dev-down` чистит state полностью
+### E8. `make -C deploy dev-down` чистит state полностью
 
-**Given** `make dev-up` отработал успешно
+**Given** `make -C deploy dev-up` отработал успешно
 
-**When** разработчик выполняет `make dev-down`
+**When** разработчик выполняет `make -C deploy dev-down`
 
 **Then** код выхода = 0
 **And** `kind get clusters` не содержит `kacho`
@@ -350,41 +350,41 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 ### E9. `emptyDir` persistence — данные не переживают rebuild
 
-**Given** `make dev-up` отработал, разработчик руками создал в `pg-compute` тестовую таблицу и вставил строку
+**Given** `make -C deploy dev-up` отработал, разработчик руками создал в `pg-compute` тестовую таблицу и вставил строку
 
-**When** разработчик выполняет `make dev-down && make dev-up`
+**When** разработчик выполняет `make -C deploy dev-down && make dev-up`
 
 **Then** новая БД `kacho_compute` пуста (тестовой таблицы нет)
 **And** это поведение явно задокументировано в `kacho-deploy/README.md` или `kacho-workspace/CLAUDE.md` как **сознательное** для воспроизводимости тестов (см. `03-deployment-and-operations.md` §5).
 
-### E10. `make reload-svc` присутствует, но в 0.1 ничего не перезагружает
+### E10. `make -C deploy reload-svc` присутствует, но в 0.1 ничего не перезагружает
 
 **Given** `Makefile` в `kacho-deploy/`
 
 **When** разработчик читает `make help`
 
 **Then** упомянуты таргеты `dev-up`, `dev-down`, `reload-svc`, `logs-svc`, `psql`, `integration-test`, `e2e-test` (как минимум скелет/заглушки)
-**And** `make reload-svc SVC=compute` в 0.1 возвращает осмысленную ошибку «service `compute` is not deployed yet (planned for sub-phase 0.4)» либо просто завершается с предупреждением и кодом 0 — конкретное поведение фиксируется в плане.
+**And** `make -C deploy reload-svc SVC=compute` в 0.1 возвращает осмысленную ошибку «service `compute` is not deployed yet (planned for sub-phase 0.4)» либо просто завершается с предупреждением и кодом 0 — конкретное поведение фиксируется в плане.
 
 ---
 
 ## 6. Группа F — Negative-сценарии и failure modes
 
-### F1. `make dev-up` при занятом порту 80
+### F1. `make -C deploy dev-up` при занятом порту 80
 
 **Given** на host-машине порт 80 уже занят другим процессом (например, локальный nginx)
 
-**When** разработчик запускает `make dev-up`
+**When** разработчик запускает `make -C deploy dev-up`
 
 **Then** скрипт завершается с кодом ≠ 0
 **And** в stderr — осмысленное сообщение «port 80 is already in use, free it or change kind-config.yaml»
 **And** kind-кластер либо не создан, либо удалён (state не остаётся «полусломанным»).
 
-### F2. `make dev-up` без установленного `kind`/`docker`/`kubectl`/`helm`
+### F2. `make -C deploy dev-up` без установленного `kind`/`docker`/`kubectl`/`helm`
 
 **Given** в PATH отсутствует один из инструментов
 
-**When** разработчик запускает `make dev-up`
+**When** разработчик запускает `make -C deploy dev-up`
 
 **Then** скрипт делает preflight-check
 **And** при отсутствии инструмента — печатает «<tool> is not installed: see <link to install>» и завершается с кодом ≠ 0 **до** попытки что-либо создать.
@@ -444,8 +444,8 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 Sub-итерация считается завершённой, когда **все** условия выполнены:
 
 1. Все сценарии §1–§7 этого документа покрыты автотестами (integration или e2e-bash) и проходят на CI и локально.
-2. `make dev-up` на чистой машине выполняется за < 5 минут и поднимает кластер с 4 ready Postgres + ingress.
-3. `make dev-down` полностью убирает state.
+2. `make -C deploy dev-up` на чистой машине выполняется за < 5 минут и поднимает кластер с 4 ready Postgres + ingress.
+3. `make -C deploy dev-down` полностью убирает state.
 4. CI всех 9 репо (`kacho-workspace`, `kacho-proto`, `kacho-corelib`, `kacho-api-gateway`, `kacho-resource-manager`, `kacho-vpc`, `kacho-compute`, `kacho-loadbalancer`, `kacho-deploy`) — зелёный.
 5. `kacho-workspace/CLAUDE.md` содержит executive summary и все 8 запретов из `03-deployment-and-operations.md` §11.
 6. Все 11 субагентов из §9.1–§9.2 присутствуют в `kacho-workspace/.claude/agents/`.
@@ -461,7 +461,7 @@ Sub-итерация считается завершённой, когда **в�
 1. **A2 / idempotency:** допустимо ли давать `bootstrap.sh` опциональный флаг `--update`, который при повторном запуске делает `git pull --ff-only`? Или политика «никогда не трогать рабочее дерево пользователя» строгая?
 2. **B3 / агенты:** все 11 файлов агентов пишутся **в этой** sub-итерации, или часть может прийти заглушками (только frontmatter), а тело наполняется по мере появления соответствующих доменов? (Например, `proto-api-reviewer` может быть полезен только когда в `kacho-proto/proto/` появятся доменные сервисы — это 0.2+.)
 3. **C2 / proto common-types:** `WatchEvent` в 0.1 — это только тип в proto (без сервиса) или вообще не нужен в 0.1, потому что `Watch`-RPC появляется в 0.2 вместе с `kacho-resource-manager`? Я заложил минимальный common-тип в 0.1, чтобы зафиксировать envelope; готов вынести в 0.2, если так чище.
-4. **E10 / `make reload-svc`:** какой режим в 0.1 — early-error («сервиса нет, ждите 0.4») или soft-warning?
+4. **E10 / `make -C deploy reload-svc`:** какой режим в 0.1 — early-error («сервиса нет, ждите 0.4») или soft-warning?
 5. **G1 / CI service-stubs:** для пустых сервисных репо-заглушек оставляем CI с одним trivial job-ом или вообще без `.github/workflows/`? Я склоняюсь к минимальному CI ради единообразия, но это лишние GitHub Actions minutes.
 6. **F2 / preflight-checks:** делаем check в чистом bash или используем что-то более структурированное (например, `make check-prereqs` отдельным таргетом, который вызывается из `dev-up`)?
 

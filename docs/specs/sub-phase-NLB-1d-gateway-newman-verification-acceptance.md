@@ -93,7 +93,7 @@ newman-harness, two-projection field-absence, integrated-smoke, authz-matrix), �
 **When** клиент обращается к external edge (:9090 → REST `/nlb/v1/…`): к каждому public RPC трёх ресурсов; отдельно — к снятым `POST …/{id}:start`, `:stop`, `:attachTargetGroup`, `:detachTargetGroup`; отдельно — к `Internal*`-методам (напр. будущий `NetworkLoadBalancerInternalService.*`)
 
 **Then** каждый **public** RPC трёх ресурсов **маршрутизируется** (200/Operation по контракту 1b/1c); снятые `:start`/`:stop`/`:attachTargetGroup`/`:detachTargetGroup` → **404 / not-registered** (маршрут отсутствует — согласуется с NLB-1-15/21 из 1b); **никакой `Internal.*` метод не выставлен на external** (`security.md` ban #6) — Internal живёт только на cluster-internal :9091
-**And** агрегатный аудит: `make permission-catalog-check` byte-identical (нет записей снятых методов; все выставленные — с записью на `nlb_*`); нет «сиротских» gateway-маршрутов без catalog-записи (fail-closed AUTHZ_DENIED недопустим для легитимного RPC)
+**And** агрегатный аудит: `make -C gateway permission-catalog-check` byte-identical (нет записей снятых методов; все выставленные — с записью на `nlb_*`); нет «сиротских» gateway-маршрутов без catalog-записи (fail-closed AUTHZ_DENIED недопустим для легитимного RPC)
 
 ---
 
@@ -149,7 +149,7 @@ newman-harness, two-projection field-absence, integrated-smoke, authz-matrix), �
 
 **ID:** NLB-1d-05
 
-**Given** проект+регион ok; вызывающий — editor проекта; construction-verified real gateway (`make e2e-test` / `grpcurl`)
+**Given** проект+регион ok; вызывающий — editor проекта; construction-verified real gateway (`make -C deploy e2e-test` / `grpcurl`)
 
 **When** `NetworkLoadBalancerService.Create` c `placement="EXTERNAL_REGIONAL"`, `listenerSpecs=[{ name:"tcp-443", port:443, protocol:"TCP", ipVersion:"IPV4", targetGroup:{ port:8080, healthCheck:{ interval:"2s", timeout:"1s", healthyThreshold:2, unhealthyThreshold:2, tcp:{} } } }]` (inline redesigned-TG из 1c); клиент поллит `OperationService.Get` до `done`
 
@@ -181,18 +181,18 @@ Production-complete в границах интеграции/верификац�
 
 **Cross-cutting verification (тесты):**
 - [ ] `NLB-1d-01..06` — зелёные **newman-кейсы** `# verifies NLB-1d-NN` через real api-gateway.
-- [ ] **G1:** gateway-coherence аудит — весь public NLB-1 surface на :9090; снятые RPC → 404; grep/аудит: **никакой `Internal.*` на external mux**; `make permission-catalog-check` byte-identical (агрегатно).
+- [ ] **G1:** gateway-coherence аудит — весь public NLB-1 surface на :9090; снятые RPC → 404; grep/аудит: **никакой `Internal.*` на external mux**; `make -C gateway permission-catalog-check` byte-identical (агрегатно).
 - [ ] **G2:** newman shared-harness — per-suite fixture isolation (`setup.sh` свой account+projects), `{{runId}}`-суффиксы, `retry_until_authorized`/`retry_until_present`, op-poll `!op.error`-перед-`metadata`, `newman-parallel.sh` fan-out **зелёный и parallel-safe** (umbrella-closeout); pool-contended → `--jobs 1`/disjoint-CIDR (не retry-маска).
 - [ ] **G3:** two-projection field-absence — assert **отсутствия** инфра-ключей в публичных LB/Listener/TG (не только присутствия нужных).
-- [ ] **G4:** integrated e2e-smoke — full one-shot → ACTIVE + derived на **реальном** gateway-ответе (`make e2e-test`).
+- [ ] **G4:** integrated e2e-smoke — full one-shot → ACTIVE + derived на **реальном** gateway-ответе (`make -C deploy e2e-test`).
 - [ ] **G5:** authz-matrix — cross-account/no-binding deny, listauthz-фильтр List, hide-existence 404 byte-identical (behaviour-level lock, `testing.md` §Regression-lock); негативы **не** обёрнуты retry.
 
 **Проектные гейты (финальная верификация всего NLB-1, `ai-tooling.md` §lifecycle 7):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` · `make permission-catalog-check` зелёные (агрегатно по репо).
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` · `make -C gateway permission-catalog-check` зелёные (агрегатно по репо).
 - [ ] newman зелёные — **все** `NLB-1a-NN` + `NLB-1-01..58` (1b/1c) + `NLB-1d-NN` (umbrella).
 - [ ] Trail: обновить vault (`resources/nlb-*`, `rpc/nlb-*`, `edges/nlb-to-*`, `KAC/KAC-NLB-1`) + перевести тикет Test→Done с артефактами (`vault.md`, `git-youtrack.md`).
 
-**Заказчик (шаг 7):** только финальный smoke / e2e (`make e2e-test` / `grpcurl`) — G4/G5 на реальном стенде.
+**Заказчик (шаг 7):** только финальный smoke / e2e (`make -C deploy e2e-test` / `grpcurl`) — G4/G5 на реальном стенде.
 
 **MERGE-GATE:** 1d финализирует поверх merged 1a/1b/1c. Наследует Phase-0 MERGE-GATE (B1/B3/conv-11)
 транзитивно через 1b/1c — если те не могут мёржиться до Phase-0 change-set, 1d тем более. UI/docs-site/

@@ -31,7 +31,7 @@ dev-стенд за < 3 минут.
 - 11 project-level субагентов с full system-prompts (~145–243 строк каждый)
 
 **Smoke (Phase 8.1):**
-- `make dev-up` = 179 сек (<5 мин — E1 PASS)
+- `make -C deploy dev-up` = 179 сек (<5 мин — E1 PASS)
 - 5 pods Running: ingress-nginx + 4 Postgres
 - E4 (4 postgres ready), E5 (4 secrets), E6 (ingress 503), E7 (no service pods), E8 (dev-down clean) — все PASS
 - E9 (emptyDir regression) — не прогонялось в smoke (требует dev-down/up цикла, ~6 мин); скрипт готов
@@ -63,7 +63,7 @@ dev-стенд за < 3 минут.
 - `kacho-corelib/grpcsrv`: добавлен `reflection.Register(s)` (для grpcurl).
 
 **Smoke (Phase D 0.2):**
-- `make dev-up`: 5 pods (4 Postgres + ingress) + resource-manager Pod (1/1 Running)
+- `make -C deploy dev-up`: 5 pods (4 Postgres + ingress) + resource-manager Pod (1/1 Running)
 - `grpcurl OrganizationService/List`: возвращает default-org с uid + resourceVersion
 - `grpcurl CloudService/Upsert`: создаёт smoke-test-cloud в default-org
 - `grpcurl CloudService/List`: показывает default + smoke-test-cloud
@@ -85,7 +85,7 @@ dev-стенд за < 3 минут.
 - `kacho-deploy/helm/umbrella` 0.3.0: vpc dep раскомментирован.
 
 **Smoke (Phase D 0.3):**
-- `make dev-up`: 6 pods (4 Postgres + ingress + resource-manager + vpc), все Running 1/1
+- `make -C deploy dev-up`: 6 pods (4 Postgres + ingress + resource-manager + vpc), все Running 1/1
 - vpc + resource-manager оба listening :9090 в кластере
 - `grpcurl NetworkService/Upsert` создаёт smoke-net в default-folder
 - `grpcurl NetworkService/List` показывает созданную сеть с status.state=ACTIVE
@@ -115,7 +115,7 @@ dev-стенд за < 3 минут.
 - Finalizer disk-detach: `compute.kacho.io/disk-detach` cleanup перед физическим DELETE
 
 **Smoke (Phase D 0.4):**
-- `make dev-up`: 7 pods (4 Postgres + ingress + resource-manager + vpc + compute), все Running 1/1
+- `make -C deploy dev-up`: 7 pods (4 Postgres + ingress + resource-manager + vpc + compute), все Running 1/1
 - compute reconciler started; gRPC :9090
 - `grpcurl ImageService/List` возвращает seed-каталог: ubuntu-22.04-lts, ubuntu-20.04-lts, debian-11
 - `grpcurl DiskService/Upsert` создаёт smoke-disk в state=STATE_CREATING
@@ -148,7 +148,7 @@ dev-стенд за < 3 минут.
 **Известное ограничение:** REST мaршруты не активны — proto-файлы Kachō не содержат `google.api.http` аннотаций. Grpc-gateway ServeMux инициализирован, но routes возвращают 404. gRPC через port 8080 полностью работает. REST UX перенесён на phase 1 (требует addition `import "google/api/annotations.proto"` + URL опции в каждый proto RPC).
 
 **FULL STACK SMOKE (Phase D 0.5+0.6):**
-- `make dev-up`: 10 pods (4 Postgres + ingress + 5 services), все Running 1/1
+- `make -C deploy dev-up`: 10 pods (4 Postgres + ingress + 5 services), все Running 1/1
 - HTTP `/healthz` через api-gateway → `{"status":"ok"}`
 - HTTP `/readyz` → `{"status":"ok","backends":{"compute":"SERVING","loadbalancer":"SERVING","resourcemanager":"SERVING","vpc":"SERVING"}}`
 - **gRPC через gateway (с proto-файлами для grpcurl):**

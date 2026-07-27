@@ -327,7 +327,7 @@ public и :9091 путях). Фактическая цепочка (источн
 - **Регенерация каталога.** `cd gateway && make permission-catalog-apply` перегенерирует
   `gateway/internal/middleware/embed/permission_catalog.json`; iam-копия
   `services/iam/internal/apps/kacho/seed/embedded/permission_catalog.json` синхронизируется **byte-identical**.
-  CI-гейт `make permission-catalog-check` роняет сборку при staleness/дрейфе (security.md инвариант #4).
+  CI-гейт `make -C gateway permission-catalog-check` роняет сборку при staleness/дрейфе (security.md инвариант #4).
 - **Рантайм-читатели (одно каталожное значение, два места):** gateway `StepUpGate.Check` +
   `dpop_http_middleware.go` (public/edge; недостаток → RFC 9470 `401` + `WWW-Authenticate: Bearer
   error="insufficient_user_authentication", acr_values="<min>"`; SA → exempt O-1); iam `authzguard` acr-floor
@@ -758,7 +758,7 @@ byte-identity), не только на значении (testing.md §regression
   → `401` + `acr_values="2"`; после step-up до `acr="2"` → pass. ≥1 negative.
 
 > Финальный гейт (ai-tooling §7): `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-> `make permission-catalog-check` (byte-identity) + newman зелёные (prod-mode e2e-конфиг для acr-кейсов).
+> `make -C gateway permission-catalog-check` (byte-identity) + newman зелёные (prod-mode e2e-конфиг для acr-кейсов).
 
 ---
 
@@ -797,7 +797,7 @@ byte-identity), не только на значении (testing.md §regression
 - [ ] **proto:** явный `="1"` на 332 routine; явный `="2"` на 40 sensitive-с-permission (incl. `GroupService/Delete`);
       `="2"` **ADDED** на `AccessBindingService/Create` при сохранённом `permission="<exempt>"`; generator-default остаётся `"2"` (non-exempt).
 - [ ] **regen каталога:** `cd gateway && make permission-catalog-apply`; iam-копия синхронизирована byte-identical;
-      `make permission-catalog-check` зелёный.
+      `make -C gateway permission-catalog-check` зелёный.
 - [ ] **инвариант I1/I2:** ровно 41 FQN несут `"2"` (enumerate; incl. `GroupService/Delete` R3/B-2); комплемент `!="2"`; обе копии byte-identical;
       `permission`-поле не менялось (SEC-ACR-13).
 - [ ] **предохранён step-up** на 41 sensitive iam+compute (I3); Create net-strengthen (I4); **разблокирован**
@@ -815,7 +815,7 @@ byte-identity), не только на значении (testing.md §regression
       слоистость), `go-style-reviewer` (godoc-правки, thin). proto-message/RPC не добавлены → `proto-api-reviewer`
       только sanity (option-аннотации); схема БД не менялась → `db-architect-reviewer` N/A.
 - [ ] **Финальная верификация:** `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-      `make permission-catalog-check` + newman зелёные.
+      `make -C gateway permission-catalog-check` + newman зелёные.
 - [ ] **Trail:** vault KAC-trail + затронутые сущности (rpc/edges); `#59`/`#60` обновлены; тикет → Test → Done с
       артефактами (PR-URL, лог RED→GREEN, newman-отчёт).
 

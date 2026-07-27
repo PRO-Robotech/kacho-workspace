@@ -50,7 +50,7 @@ E1 переключает все 3 backend-сервиса с `folder_id`/`Folder
   тестовые клиенты могли продолжать использовать RM до E5; единственная разница — peer-сервисы
   больше его не зовут.
 - **Реальную миграцию данных** `kacho_resource_manager.folders → kacho_iam.projects` —
-  это тоже E5. В E1 на dev-стенде `make dev-up` пересоздаёт обе БД с нуля; в prod —
+  это тоже E5. В E1 на dev-стенде `make -C deploy dev-up` пересоздаёт обе БД с нуля; в prod —
   prod-strategy для миграции данных пишется в E5-acceptance.
 - **Auth / authz / Zitadel / OpenFGA** — это E2/E3.
 - **Operation.principal** заполнение реальным user'ом — E4. В E1 `principal_type='system'`
@@ -106,7 +106,7 @@ E5 закрывает финальный аккорд (RM gone).
    - двойные backfill-триггеры,
    - тесты «и так и эдак».
    Удалить всё это в E5 — больше работы, чем сделать один hard-rename сейчас.
-3. **Нет prod-data на момент E1**. Dev-стенд пересоздаётся `make dev-down -v && make dev-up`
+3. **Нет prod-data на момент E1**. Dev-стенд пересоздаётся `make -C deploy dev-down -v && make dev-up`
    при каждом значимом изменении; прод-релизов backend-сервисов VPC/CMP/LB не было.
 4. **Migration path data**. Если в будущем появится prod-инсталляция с данными — миграция данных
    `folders → projects` будет одна, в E5, по single-shot стратегии (`INSERT INTO projects
@@ -1043,7 +1043,7 @@ type Config struct {
 Все `WHERE folder_id = $1` → `WHERE project_id = $1`. Все `ORDER BY folder_id, ...` → `project_id`.
 Все `INSERT (... folder_id ...) VALUES (... $1 ...)` → `... project_id ...`.
 
-Для sqlc — перегенерить через `make sqlc-gen` после переименования колонок в migration + перегенерации
+Для sqlc — перегенерить через `make -C services/storage sqlc-gen` после переименования колонок в migration + перегенерации
 schema-snapshot. (kacho-vpc использует не sqlc, а handwritten pgx — упрощает.)
 
 #### 5.3.5 Newman cases
@@ -1175,7 +1175,7 @@ env:
 **ID**: E1.MIG-01
 **Тип**: Happy path / fresh install
 
-**Given** новый dev-стенд: `make dev-down -v && make dev-up`
+**Given** новый dev-стенд: `make -C deploy dev-down -v && make dev-up`
 **And** `kacho_vpc` БД создана с пустыми таблицами после `0001_initial.sql`, `0002_operations_principal.sql`, и `0003_operations_project_id.sql` (последняя — corelib-synced из `make sync-migrations`)
 **And** миграция `0004_rename_folder_to_project.sql` ещё не применена
 
@@ -1854,7 +1854,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 - Down-миграция предлагает только symmetrical RENAME (project_id → folder_id) без type-cast — но
   это **оставит TEXT-колонку под именем folder_id**, что нарушит существующую схему `UUID`-типа
   старого кода. Поэтому down-flow для loadbalancer-rename **запрещён** в production-flavored
-  использовании; для dev — приемлемо использовать `make dev-down -v && make dev-up` для full
+  использовании; для dev — приемлемо использовать `make -C deploy dev-down -v && make dev-up` для full
   recreate БД.
 - В down-секции миграции добавляется `RAISE EXCEPTION 'down migration not supported for type-change
   UUID→TEXT; recreate DB instead'` (или эквивалент в goose down-stub).
@@ -1920,7 +1920,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 
 ### 6.12 Сценарии smoke (deploy)
 
-#### Сценарий E1.SMK-01: make dev-up поднимает обновлённые сервисы
+#### Сценарий E1.SMK-01: make -C deploy dev-up поднимает обновлённые сервисы
 
 **ID**: E1.SMK-01
 **Тип**: Smoke deploy
@@ -1938,7 +1938,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
   - `kacho-resource-manager-0` Ready (live, но peer-сервисы не зовут)
   - `kacho-api-gateway-0` Ready
 **And** `curl http://api-gateway:18080/healthz` → 200
-**And** `make psql SVC=vpc` → `\d kacho_vpc.networks` показывает `project_id`, не `folder_id`
+**And** `make -C deploy psql SVC=vpc` → `\d kacho_vpc.networks` показывает `project_id`, не `folder_id`
 
 #### Сценарий E1.SMK-02: end-to-end smoke — создать project, создать network, создать subnet, создать instance
 
@@ -2026,11 +2026,11 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 - [ ] **DoD-12**: Все newman cases во всех 3 сервисах зелёные с `projectId` payload (E1.NEW-01/02/03).
 - [ ] **DoD-13**: corelib operations integration-test (E1.COR-01) зелёный.
 - [ ] **DoD-14**: Concurrent-race test для cross-project trigger: parallel Subnet.Create в Network А и моментальный Move(Network А → другой project) — проверить, что D-5 trigger катчит inconsistency.
-- [ ] **DoD-15**: `make e2e-test` smoke (E1.SMK-02) проходит чисто.
+- [ ] **DoD-15**: `make -C deploy e2e-test` smoke (E1.SMK-02) проходит чисто.
 
 ### 7.3 Deploy & operations
 
-- [ ] **DoD-16**: `make dev-up` поднимает все обновлённые сервисы; healthz зелёный на каждом (E1.SMK-01).
+- [ ] **DoD-16**: `make -C deploy dev-up` поднимает все обновлённые сервисы; healthz зелёный на каждом (E1.SMK-01).
 - [ ] **DoD-17**: kacho-resource-manager остаётся live в стенде, но Prometheus counter `kacho_resource_manager_grpc_server_handled_total` от peer-сервисов = 0 (verified в течение 5 минут после smoke).
 - [ ] **DoD-18**: Env vars `KACHO_*_RM__ENDPOINT` / `RESOURCE_MANAGER_GRPC_ADDR` удалены из helm values трёх сервисов; добавлены `KACHO_*_IAM__ENDPOINT` + `KACHO_*_PROJECT_CACHE_*`.
 
@@ -2256,7 +2256,7 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 - Ссылка на этот acceptance: `Closes part of KAC-106 (acceptance §<N>)`.
 - Список затронутых GWT-сценариев: `Verifies E1.MIG-01, E1.MIG-02, E1.CLI-01...`.
 - Лог `make test` (integration + newman) — pass-fail tally в комментарии.
-- Лог `make dev-up` smoke (для PR #7) — все pods Ready.
+- Лог `make -C deploy dev-up` smoke (для PR #7) — все pods Ready.
 
 ---
 
@@ -2312,7 +2312,7 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
   Также явно перечислены 5 D-5 child-project-matches triggers + D-8/D-9 triggers.
 - **13** (loadbalancer down-migration policy): добавлена policy в E1.LB-04 — down НЕ
   поддерживается для type-change UUID→TEXT; goose down stub содержит RAISE EXCEPTION либо
-  ссылку на `make dev-down -v`.
+  ссылку на `make -C deploy dev-down -v`.
 - **14** (E1.NEW-03 «follow-up»): заменено `«out-of-scope skip»` на `«follow-up KAC-N issue
   заведён ДО merge с обязательством добавить тесты в том же спринте»`; формулировка
   «out-of-scope skip» явно ЗАПРЕЩЕНА в commit-message / PR-description (запрет #11).

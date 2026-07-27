@@ -254,7 +254,7 @@ gateway→iam ребро (как 5.1 floor). REST-сценарии идут че
 | iam acr-floor interceptor | 5.4-01..05, 5.4-07, 5.4-08: allow/deny по acr vs catalog acr_min, gateway-fronted-набор, exempt service-caller, dev no-op, fixture-acr_min>0 | unit-тест интерсептора (table-driven: acr × required_acr_min × prod-mode × RPC-в-наборе), fake catalog + ctx | **ДА** |
 | iam acr-floor + caller-policy ordering | 5.4-06: caller-policy срабатывает первым; acr drop на не-gateway peer | unit/integration interceptor-chain тест (bufconn, как 5.1 floor integration) | **ДА** |
 | gateway forward acr-metadata | `restmux` `principalMetadata` добавляет `x-kacho-acr` в outgoing md из `X-Kacho-Token-Acr` | unit-тест callback'а (как существующие principal-metadata тесты) | **ДА** (на стороне gateway) |
-| Сквозной REST→internal-mux→iam :9091 | полный путь: JWT acr → gateway public DPoP-mw → internal re-dial → iam floor → deny/allow | newman/e2e через **живой** gateway + iam с mTLS + prod-mode | **требует live-gateway** (e2e-стенд; `make e2e-test` / smoke заказчика) |
+| Сквозной REST→internal-mux→iam :9091 | полный путь: JWT acr → gateway public DPoP-mw → internal re-dial → iam floor → deny/allow | newman/e2e через **живой** gateway + iam с mTLS + prod-mode | **требует live-gateway** (e2e-стенд; `make -C deploy e2e-test` / smoke заказчика) |
 
 Newman happy+negative обязателен (`testing.md`): ≥1 happy (acr достаточен → allowed) + ≥1 negative
 (acr недостаточен → PERMISSION_DENIED) на сквозном пути. На default newman-стенде (dev-mode) floor —

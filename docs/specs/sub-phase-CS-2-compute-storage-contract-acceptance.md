@@ -1589,7 +1589,7 @@ project-editor зелёный
 
 **Given** proto-дерево не содержит снятых сервисов
 
-**When** выполняются `make permission-catalog-check` и сверка двух встроенных копий
+**When** выполняются `make -C gateway permission-catalog-check` и сверка двух встроенных копий
 
 **Then** обе копии байт-идентичны
 **And** ни одна не содержит записи, чей `fqn` начинается с одного из **пяти** снятых префиксов
@@ -1747,7 +1747,7 @@ proto/kacho/cloud/compute/v1/internal_watch_service.proto` — **0** попад�
 **Given** из `proto/kacho/cloud/iam/v1/fga_model.fga` удалены `type compute_disk`,
 `type compute_image`, `type compute_snapshot`
 
-**When** выполняется `make openfga-model-json` и применяется модель
+**When** выполняется `make -C deploy openfga-model-json` и применяется модель
 
 **Then** конфигмап `deploy/helm/umbrella/charts/openfga-bootstrap/templates/openfga-model-stub-configmap.yaml`
 пересобран из канонического файла, гейт дрейфа зелёный
@@ -2030,7 +2030,7 @@ exit-код 0». **Этот скрипт зелёным чеком не явля
       **не изменена**
 - [ ] `buf lint` — **0** замечаний; `buf breaking` — **0** нарушений (изменение опций authz не ломает wire)
 - [ ] `make -C gateway permission-catalog-check` — exit-код **0** (цель живёт в `gateway/Makefile:66-67`;
-      из корня `make permission-catalog-check` падает «нет такой цели» — корневого Makefile нет). В CI
+      из корня `make -C gateway permission-catalog-check` падает «нет такой цели» — корневого Makefile нет). В CI
       это шаг `permission-catalog staleness + copy-drift` джоба `authz-artifacts`
       (`ci.yaml:199-201`, `working-directory: gateway`). sha256 двух встроенных копий совпадают
       (сегодня уже совпадают: `69c9429c…`); diff каталога — **ровно 11** изменённых строк, ни одной
@@ -2198,7 +2198,7 @@ exit-код 0». **Этот скрипт зелёным чеком не явля
 ### DoD S6 — модель прав и системные роли
 
 - [ ] `proto/kacho/cloud/iam/v1/fga_model.fga` — **3** типа удалены; **`make -C deploy openfga-model-json`**
-      выполнен (цель живёт в `deploy/Makefile:452`; из корня `make openfga-model-json` падает «нет
+      выполнен (цель живёт в `deploy/Makefile:452`; из корня `make -C deploy openfga-model-json` падает «нет
       такой цели»); гейт дрейфа конфигмапа — exit-код **0**; модель применена **один раз** на
       свободном стенде
 - [ ] Новая миграция iam **`0071`**: `role_rule_selectors` пересеяны на **23** типа;
@@ -2350,7 +2350,7 @@ exit-код 0». **Этот скрипт зелёным чеком не явля
    зависел от доступности трекера):**
    1. каталог storage переводится на verb-bearing отношения на всех read- и mutate-RPC — в
       proto-аннотациях, в `services/storage/internal/check/permission_map.go` и в обеих встроенных
-      копиях каталога; `make permission-catalog-check` остаётся byte-identical;
+      копиях каталога; `make -C gateway permission-catalog-check` остаётся byte-identical;
    2. фильтр видимости спрашивает **ровно то** отношение, которым гейтится per-object чтение, без
       союза. **В storage это уже сделано** (`1444242`): `visibilityRelations = {"viewer"}`
       (`filter.go:84`), тест, локавший дефект (`TestFGAFilter_VListPicksUpWhatViewerDenied`),

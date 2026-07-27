@@ -116,11 +116,11 @@ cp go.work.example go.work   # объединяет репо в Go workspace (н
 
 ```bash
 cd project/kacho-deploy
-make dev-up      # kind create cluster → build образов → kind load → helm install → wait ready
-make dev-down    # kind delete cluster
+make -C deploy dev-up      # kind create cluster → build образов → kind load → helm install → wait ready
+make -C deploy dev-down    # kind delete cluster
 ```
 
-`make dev-up` (после `preflight`-проверки тулинга): создаёт kind-кластер, собирает
+`make -C deploy dev-up` (после `preflight`-проверки тулинга): создаёт kind-кластер, собирает
 docker-образы сервисов (build-context = parent dir, Dockerfile `COPY ../kacho-*`),
 загружает их в кластер через `kind load`, ставит umbrella-chart с `values.dev.yaml`,
 ждёт ready всех Pod-ов и печатает endpoint api-gateway. Для REST-доступа host добавляет
@@ -130,10 +130,10 @@ docker-образы сервисов (build-context = parent dir, Dockerfile `CO
 
 | Цель | Что делает |
 |---|---|
-| `make reload-svc SVC=<iam\|vpc\|compute\|nlb>` | rebuild образа → `kind load` → `kubectl rollout restart` → wait ready |
-| `make logs-svc SVC=<svc>` | `kubectl logs -f` нужного deployment |
-| `make psql SVC=<svc>` | psql внутрь Postgres-пода схемы `kacho_<domain>` |
-| `make e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
+| `make -C deploy reload-svc SVC=<iam\|vpc\|compute\|nlb>` | rebuild образа → `kind load` → `kubectl rollout restart` → wait ready |
+| `make -C deploy logs-svc SVC=<svc>` | `kubectl logs -f` нужного deployment |
+| `make -C deploy psql SVC=<svc>` | psql внутрь Postgres-пода схемы `kacho_<domain>` |
+| `make -C deploy e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
 
 Integration-тесты (testcontainers Postgres) гоняются локально в каждом сервисном репо
 (`make test`), без kind. Методология тестов — `.claude/rules/testing.md`.
@@ -324,5 +324,5 @@ generic-оснастка физически дублируется в кажды
 логах/трейсах.
 
 Полноценный observability-стек (Loki / Grafana / Tempo / Prometheus) разворачивается в HA/
-production-фазе; в dev достаточно `/metrics` + `make logs-svc`. Дорожная карта — в
+production-фазе; в dev достаточно `/metrics` + `make -C deploy logs-svc`. Дорожная карта — в
 `04-roadmap-and-phasing.md`.

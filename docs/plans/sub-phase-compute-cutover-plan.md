@@ -32,7 +32,7 @@
 ### 4. api-gateway (task #8, координация)
 - Регистрация storage.v1 `/storage/v1/*` + InternalVolumeService на internal-mux + opsproxy `sop`.
 - Новые Instance RPC (Attach*NetworkInterface) на public.
-- **object-scoped authz catalog** для storage + новых compute RPC (HIGH-gate go-review) + `make permission-catalog-check`.
+- **object-scoped authz catalog** для storage + новых compute RPC (HIGH-gate go-review) + `make -C gateway permission-catalog-check`.
 - corelib `ids` префиксы `vol/snp/dtp` + op-root `sop` (для cross-repo corevalidate + opsproxy).
 
 ### 5. Data-migration (поздняя фаза, со снятием compute.v1.Disk)

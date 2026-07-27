@@ -211,7 +211,7 @@ deploy/helm/umbrella/charts/kacho-iam` даёт **ноль** ConfigMap'ов `opa
 > скрипта — **комментарий** в `deploy/scripts/assert-production-posture.sh:79`. Job
 > `helm lint · template (dev + prod)` (`.github/workflows/ci.yaml:273`) исполняет
 > `helm lint`, два `helm template`, `.github/scripts/check-volume-mounts.sh` и
-> `make check-mtls-off-complete` — и **ничего** из `deploy/tests/helm/`. То есть гейт
+> `make -C deploy check-mtls-off-complete` — и **ничего** из `deploy/tests/helm/`. То есть гейт
 > сегодня не наблюдает ничего вообще: он не «превратится в форму без содержания после
 > снятия ручки», он уже ею является. Это ровно предмет задачи **#81** (третий её пункт:
 > «команда гейта не исполняется из корня и не вызывается в CI»). Следствие для R13:
@@ -558,7 +558,7 @@ deploy/helm/umbrella/charts/kacho-iam` завершается успешно, и
 > оно правит текст скрипта, который никто не исполняет. R13 считается выполненным только
 > когда сделано **и то, и другое**: (1) мёртвый `--set` убран, (2) скрипт **подключён к
 > CI** отдельным шагом job'а `helm lint · template (dev + prod)` — по образцу уже
-> подключённых там `.github/scripts/check-volume-mounts.sh` и `make check-mtls-off-complete`
+> подключённых там `.github/scripts/check-volume-mounts.sh` и `make -C deploy check-mtls-off-complete`
 > (`.github/workflows/ci.yaml:330-336`). Без (2) IAM-C-53 проверял бы скрипт, который в CI
 > не запускается, — то есть был бы экземпляром ровно того класса, ради которого скрипт
 > писали. Это предмет задачи **#81**; исход и критерий — §12, строка O-1.
@@ -706,7 +706,7 @@ retirement-записок vault:
 `iam-condition` в known-RED whitelist гейта **отсутствует** (проверено), поэтому снятие
 набора правок whitelist'а не требует.
 
-Стенд поднимается в production-posture: `make dev-prod-up` (`deploy/Makefile:180`) зелёный,
+Стенд поднимается в production-posture: `make -C deploy dev-prod-up` (`deploy/Makefile:180`) зелёный,
 посадка проверяется **у живого процесса** и по `pg_stat_ssl`
 (`deploy/scripts/assert-production-posture.sh`), а не по ConfigMap'у.
 
@@ -891,7 +891,7 @@ retirement-записок vault:
 
 **ID:** IAM-C-11
 
-**Given** тот же шлюз, поднятый в посадке `production-strict` (та, что даёт `make dev-prod-up`:
+**Given** тот же шлюз, поднятый в посадке `production-strict` (та, что даёт `make -C deploy dev-prod-up`:
 `values.dev-prod.yaml:73` — `authn.mode: production-strict`)
 **And** запрос без заголовка `Authorization`
 
@@ -970,7 +970,7 @@ retirement-записок vault:
 
 **Given** каталог перегенерирован из proto после S1
 
-**When** выполняется `make permission-catalog-check`
+**When** выполняется `make -C gateway permission-catalog-check`
 
 **Then** обе встроенные копии (сид iam и middleware шлюза) байт-идентичны
 **And** ни одна не содержит записи с `permission`, начинающимся на `iam.conditions.`
@@ -1892,7 +1892,7 @@ malformed-типом — проверяется инъекцией: прямой
       `ok` по всем пакетам, 0 FAIL, 0 SKIP.
 - [ ] Дерево компилируется и стенд поднимается **на каждой** стадии по отдельности
       (green-committable): для каждой стадии зафиксирован `git rev-parse HEAD` + вывод
-      `make dev-prod-up` до `Ready`.
+      `make -C deploy dev-prod-up` до `Ready`.
 - [ ] `grep -rnE 'TODO|FIXME|XXX|pm\.test\.skip|t\.Skip' <diff-файлы>` = 0 совпадений;
       ни одного закомментированного утверждения в добавленных тестах.
 - [ ] Трассировка сходится в обе стороны: множество `IAM-C-` из грепа по дереву **равно**
@@ -2139,7 +2139,7 @@ malformed-типом — проверяется инъекцией: прямой
 | 4 | §4 S1: «сервис + 5 RPC» | **6** RPC (`conditions_service.proto:28,40,54,72,92,114`) — согласуется с 6 записями каталога / 6 маршрутами |
 | 5 | §2: `BuiltinEvaluator.mu` на «горячем пути авторизации» | вынесено из горячего пути: единственный вызов `Evaluate` — `conditions_crud_service.go:614` через `api/conditions/handler.go:140`, только RPC `ConditionsService/Evaluate`. Первый пункт (копирование map'а, 8 ключей) подтверждён: `authorize_service.go:58-66,79-92`, вызовы `:272` и `:596` |
 | 6 | «`run_one` в `tests/newman/run.sh`» | `services/iam/tests/newman/scripts/run.sh:177` (файла `tests/newman/run.sh` не существует) |
-| 7 | §5.2: `make permission-catalog-check` без адреса | цель — `gateway/Makefile:67`, запускать из `gateway/`; названы обе tracked-копии; третья копия `gateway/build/permission_catalog.json` объявлена untracked build-артефактом и **исключена** из инвентаря §5.1 |
+| 7 | §5.2: `make -C gateway permission-catalog-check` без адреса | цель — `gateway/Makefile:67`, запускать из `gateway/`; названы обе tracked-копии; третья копия `gateway/build/permission_catalog.json` объявлена untracked build-артефактом и **исключена** из инвентаря §5.1 |
 | 8 | §1.3 D: «комментарий устарел после #71» | комментарий неверен **дважды**: регистрация есть (`restmux/mux.go:612`) **и** записи `iam.condition` в `noPublicListEndpoint` нет вовсе (там только `vpc.addressPool`, `has_list_endpoint.go:45-48`) — то есть `false` там никогда не возвращался. Та же фраза продублирована в `resourceInstanceFetchers.ts:49` |
 | 9 | IAM-C-16: «верхняя/нижняя граница прежнего формата» | мотивировка исправлена: `validate.ResourceID` (`validate.go:455-474`) длину/алфавит тела не проверяет вовсе — только членство префикса и `len>=3`; добавлено утверждение про пропуск пустой строки (`:457-459`) |
 | 10 | §4 S1 tests: не названы падающие при регенерации артефакты | добавлена строка «tests · правятся» с пятью файлами, включая `super_admin_cascade_test.go:319` (убрать `iam_condition` из списка leaf-типов, **не** ослабляя утверждение) |
@@ -2221,7 +2221,7 @@ malformed-типом — проверяется инъекцией: прямой
 
 | # | Пункт (и почему он открыт) | Задача | Критерий закрытия — одной фразой |
 |---|---|---|---|
-| **O-1** | **`deploy/tests/helm/config-rollout-binding-test.sh` не вызывается ни из CI, ни из Makefile** — единственное упоминание вне скрипта — комментарий `deploy/scripts/assert-production-posture.sh:79`; job `helm lint · template (dev + prod)` (`ci.yaml:273`) исполняет lint, два `helm template`, `check-volume-mounts.sh` и `make check-mtls-off-complete`, и ничего из `deploy/tests/helm/`. Документ до круга 4 называл его «живым CI-гейтом» (§1.3 F). Тот же класс покрывает и остальные **11** скриптов этого каталога | **#81** (третий пункт: «команда гейта не исполняется из корня и не вызывается в CI») | Скрипт вызывается шагом CI и его вывод **виден в логе прогона**; инъекция `envFrom` без `checksum`-аннотации делает прогон красным, откат инъекции — зелёным |
+| **O-1** | **`deploy/tests/helm/config-rollout-binding-test.sh` не вызывается ни из CI, ни из Makefile** — единственное упоминание вне скрипта — комментарий `deploy/scripts/assert-production-posture.sh:79`; job `helm lint · template (dev + prod)` (`ci.yaml:273`) исполняет lint, два `helm template`, `check-volume-mounts.sh` и `make -C deploy check-mtls-off-complete`, и ничего из `deploy/tests/helm/`. Документ до круга 4 называл его «живым CI-гейтом» (§1.3 F). Тот же класс покрывает и остальные **11** скриптов этого каталога | **#81** (третий пункт: «команда гейта не исполняется из корня и не вызывается в CI») | Скрипт вызывается шагом CI и его вывод **виден в логе прогона**; инъекция `envFrom` без `checksum`-аннотации делает прогон красным, откат инъекции — зелёным |
 | **O-2** | **Внутрисервисная карта глаголов расходится с каталогом прав.** `resolveActionToRelation` (`services/iam/internal/service/authorize_service.go:783`) держит собственный словарь: viewer-ветка (`:824-829`) несёт `evaluate`, passthrough-ветка (`:835`) — `ssh`/`console`. Ни у одного из трёх нет пары в каталоге разрешений после ретайра (`evaluate` — единственный такой глагол, `permission_catalog.json:1307`; у `ssh`/`console` записей каталога **ноль уже сегодня**). Ретайр снимает три элемента, но **сам механизм расхождения остаётся**: карта не выводится из каталога и может разъехаться снова на следующем глаголе | **#75** («внутрисервисная карта зеркалит каталог прав; проверено во всех семи сервисах») | Множество глаголов, резолвящихся картой сервиса, выводится из каталога (или сверяется с ним гейтом) во **всех семи** сервисах; расхождение роняет сборку |
 | **O-3** | **Гейт `listauthz` покрывает 4 сервиса из 7.** `ci.yaml:226-235` гоняет `make -C services/<svc> audit-list-filter` для `compute`, `nlb`, `storage`, `vpc`. `iam`, `geo`, `registry` не покрыты — при том что публичные `List` у них есть. Документ опирается на listauthz как на действующий контроль (§2 «Не снимается ничего из действующих контролей»), а для iam этот контроль **не исполняется** | **#75** (та же формулировка «во всех семи сервисах») | `audit-list-filter` (или эквивалент) исполняется в CI для **7 из 7** сервисов; отсутствие цели у сервиса — красный, а не пропуск |
 | **O-4** | **Граница с ретайром JWKS-поверхности.** `jwks-configmap.yaml` снимается здесь (он за флагом `opaSidecar.enabled` и обслуживает только подпись OPA-бандла), остальная JWKS-поверхность — нет. Без явной границы два потока столкнутся на одном чарте | **#47** («Ретайр контракта GetJWKSStatus + мёртвая поверхность чарта») | Диф этого PR трогает из JWKS-поверхности **ровно один** файл (`jwks-configmap.yaml`); `GetJWKSStatus`, ротатор и `values.yaml:56 encKeySecretName` в дифе отсутствуют |

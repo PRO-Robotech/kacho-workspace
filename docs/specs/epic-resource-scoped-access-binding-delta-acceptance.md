@@ -312,7 +312,7 @@ REST: `POST /iam/v1/accessBindings` (body несёт старую ИЛИ нов�
 
 **ID:** `δ-13`
 
-**Given** развёрнутый стенд (`make dev-up`); `acc-A`+`prj_prod`+owner; reusable роль `rol-computeeditor`; `inst-1`{env:prod} в mirror
+**Given** развёрнутый стенд (`make -C deploy dev-up`); `acc-A`+`prj_prod`+owner; reusable роль `rol-computeeditor`; `inst-1`{env:prod} в mirror
 
 **When** owner создаёт binding **старой** формой (REST `POST accessBindings`, `resourceType/resourceId/scope`-enum + `target.resources`) → poll Operation
 **Then** Operation `done`; `Get` (REST + `grpcurl`) отдаёт обе формы; per-object tuple эмитится; `Check` allowed
