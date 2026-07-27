@@ -233,7 +233,7 @@ companion-сценариях — иллюстративная admin-строка
       existence-non-revealing (один и тот же `permission denied`, есть цель или нет).
     - **list-scoped + result-filter (listauthz):** `Volume.List`/`Snapshot.List` → `{project,
       project_id}`. Caller без `viewer` на запрошенный `projectId` → `PERMISSION_DENIED`; при
-      наличии — результат **отфильтрован** listauthz (CI-гейт `make audit-list-filter`) так, что
+      наличии — результат **отфильтрован** listauthz (CI-гейт `make -C services/storage audit-list-filter`) так, что
       caller, авторизованный на `prj-1`, **никогда** не видит ресурсы `prj-2` (кросс-проектной
       утечки нет by construction).
   Публичный `DiskType.Get/List` — `{cluster, *}` `viewer` (каталог cluster-wide, не project-scoped)
@@ -571,7 +571,7 @@ public RPC на public-mux с per-RPC Check** · vault-trail (`resources/kacho-s
 
 **When** `alice` вызывает публичный `VolumeService.List` (`GET /storage/v1/volumes?projectId=prj-1`)
 **Then** sync-ответ содержит **только** `vol-a1`,`vol-a2` (тома `prj-1`) — `vol-b1` (`prj-2`)
-        **не** появляется никогда (result отфильтрован listauthz; CI-гейт `make audit-list-filter`)
+        **не** появляется никогда (result отфильтрован listauthz; CI-гейт `make -C services/storage audit-list-filter`)
 
 **When** `alice` вызывает `List` с `projectId=prj-2` (проект, на который у неё нет `viewer`)
 **Then** sync `PERMISSION_DENIED` `permission denied` (scope_extractor `{project, project_id}` не
@@ -820,7 +820,7 @@ vault (`resources/kacho-storage-snapshot.md`).
 
 **When** `alice` вызывает публичный `SnapshotService.List` (`GET /storage/v1/snapshots?projectId=prj-1`)
 **Then** sync-ответ содержит **только** `snp-a1`,`snp-a2` — `snp-b1` (`prj-2`) не появляется никогда
-        (result отфильтрован listauthz; CI-гейт `make audit-list-filter`)
+        (result отфильтрован listauthz; CI-гейт `make -C services/storage audit-list-filter`)
 
 **When** `alice` вызывает `List` с `projectId=prj-2` (нет `viewer`)
 **Then** sync `PERMISSION_DENIED` `permission denied` (scope_extractor `{project, project_id}`) —
@@ -1081,7 +1081,7 @@ auto-пути **никогда** не всплывает наружу как о�
 - [ ] per-RPC `InternalIAMService.Check` активен на **обоих** листенерах fail-closed (не dev-passthrough);
       mTLS на :9091; object-scoped `scope_extractor` на attach-мутациях (анти-BOLA).
 - [ ] **Public-surface authz (INV-10):** `Volume.List`/`Snapshot.List` listauthz-filtered
-      (`make audit-list-filter`, кросс-проектной утечки нет — CS1-S1-13/CS1-S3-07); object-scoped
+      (`make -C services/storage audit-list-filter`, кросс-проектной утечки нет — CS1-S1-13/CS1-S3-07); object-scoped
       анти-BOLA на public `Volume.Get/Update/Delete/ListOperations` и `Snapshot.Get/Update/Delete`
       (scope против **целевого** объекта → `PERMISSION_DENIED`, existence-non-revealing —
       CS1-S1-14/15, CS1-S3-08). Assert **behaviour-level** (код + фикс. `permission denied`).
@@ -1107,7 +1107,7 @@ auto-пути **никогда** не всплывает наружу как о�
 - [ ] vault: `resources/kacho-storage-{volume,snapshot,disktype}.md`, `rpc/kacho-storage-*.md`,
       `edges/storage-to-{geo,iam}-*.md`, `edges/compute-to-storage-volume-attach.md`; рёбра `storage→geo`/
       `storage→iam` в `polyrepo.md` (one-way, ацикличность INV-1).
-- [ ] `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+- [ ] `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/storage audit-list-filter` + newman зелёные.
 
 ---
 

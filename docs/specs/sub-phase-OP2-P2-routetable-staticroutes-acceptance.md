@@ -185,7 +185,7 @@ Schema/validation/printcolumns — по скилу `k8s-crd-design`.
 **Given** kubebuilder-проект `kacho-vpc-operator` (`group kacho.io`, `version v1`)
 **And** маркер `+kubebuilder:resource:scope=Cluster` на типе `KachoRouteTable` (parity с `KachoSubnet`; ingress↔egress корреляция по cluster-scoped имени)
 
-**When** генерируются CRD-манифесты (`make manifests`) и тип устанавливается в кластер (envtest/kind)
+**When** генерируются CRD-манифесты (цель `manifests` оператора `kacho-vpc-implement` — репозиторий вне монорепо) и тип устанавливается в кластер (envtest/kind)
 
 **Then** создаётся CRD `kachoroutetables.kacho.io`, `spec.scope == Cluster`
 **And** spec содержит поля, зеркальные Kachō RouteTable 1:1: `id` (string), `projectId` (string), `networkId` (string), `name` (string), `staticRoutes` (`[]StaticRoute`), где `StaticRoute = { destinationPrefix (string, CIDR), nextHopAddress (string, optional), gatewayId (string, optional), labels (map[string]string, optional) }`

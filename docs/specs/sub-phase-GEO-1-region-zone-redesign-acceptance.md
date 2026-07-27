@@ -664,7 +664,9 @@ gate 4-7; `testing.md`):
   (`make -C gateway permission-catalog-check` зелёный); documented-exception дописан в `security.md` (note рядом с JWKS-route).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные. Цели `audit-list-filter`
+      у geo **нет**, и она здесь неприменима: `Region`/`Zone` — публично-читаемый каталог,
+      project-scope EXEMPT, фильтровать по объектам нечего.
 - [ ] `make -C gateway permission-catalog-check` byte-identical; newman зелёные (все `GEO-1-NN`).
 
 **MERGE-GATE (`[PHASE-0-GATED]` — жёсткий блокер, единственная кросс-фазовая зависимость):**

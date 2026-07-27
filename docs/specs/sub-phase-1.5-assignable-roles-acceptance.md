@@ -478,7 +478,8 @@ JSON-ответ (camelCase): `{ "roles": [ { "roleId","name","description","isSy
 
 **S6 — workspace (docs/vault):** обновить vault `rpc/iam-access-binding-service.md` (новый RPC + Create-enforcement дельта через `Operation.error`), `resources/iam-role.md` (assignable-проекция / `isRoleAssignable`; `ScopeGroup` игнорирует legacy org), `resources/iam-access-binding.md` (Create стал scope-авторитетным forward-only — legacy mis-scoped bindings сохраняются), KAC-trail; этот acceptance-док → статус APPROVED.
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` (новый list-RPC должен фильтровать по grant-authority) + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` (у iam своей цели нет; что новый
+list-RPC фильтрует по grant-authority — доказывают go-тесты `internal/authzfilter`) + newman зелёные.
 
 ---
 

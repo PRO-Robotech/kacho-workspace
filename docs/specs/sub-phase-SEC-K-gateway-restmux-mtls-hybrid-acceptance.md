@@ -302,7 +302,7 @@ mTLS-verified hop'ах. External listener выводит principal из **JWT и
 - **Helm/env (`kacho-deploy`):** включение REST-mux mTLS не требует новых per-edge env
   сверх SEC-E (тот же `MTLS_*`-блок); external-client-CA проброшен в gateway-chart.
 - **Финальная верификация:** `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-  `make audit-list-filter` + newman зелёные.
+  `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman зелёные.
 - **Vault-trail:** обновить `edges/` (gateway→backend REST-mux mTLS; external-listener
   hybrid auth) + `KAC/KAC-<N>.md`.
 

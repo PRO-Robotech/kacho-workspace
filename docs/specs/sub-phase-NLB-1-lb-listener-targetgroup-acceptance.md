@@ -844,7 +844,7 @@ NLB-1 готова к merge только при выполнении ВСЕГО 
   шаг c change-set (сценарии формулируют target hyphen-форму, не редактировать).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/nlb audit-list-filter` зелёные.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге; снятые
   `start`/`stop`/`attachTargetGroup`/`detachTargetGroup` — удалены); proto — `buf lint`/`buf breaking`
   (breaking-changes задекларированы: placement-слияние, start/stop-drop, attach/detach-drop, target_port-drop,

@@ -384,7 +384,10 @@ REST: `POST /iam/v1/accessBindings` (body несёт старую ИЛИ нов�
 
 **S6 — workspace (docs/vault):** обновить `resources/iam-access-binding.md` (раздел «Clean-form (epic-100 δ)»: каноническое scope+target + deprecated-проекция + future-major; condition отложен в ε), `rpc/iam-access-binding-service.md` (двусторонняя проекция вход/выход scope+target), KAC-trail; этот acceptance-док → APPROVED. **НЕ** добавлять новых cross-domain рёбер (δ — форма, не данные).
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные + `buf breaking` ЗЕЛЁНЫЙ (δ-05).
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и проверяется
+go-тестами) + `cd proto && buf breaking --against 'https://github.com/PRO-Robotech/kacho.git#branch=main,subdir=proto'`
+ЗЕЛЁНЫЙ (δ-05).
 
 ---
 

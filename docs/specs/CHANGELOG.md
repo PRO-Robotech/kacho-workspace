@@ -232,7 +232,8 @@ dev-стенд за < 3 минут.
   - `kacho/cloud/compute/v1/` (frozen)
   - `kacho/cloud/loadbalancer/v1/` (frozen)
   - `kacho/cloud/operation/`, `api/`, `access/`, `validation.proto` — extension stack
-- Все proto package / go import-пути — под `kacho.cloud` / `PRO-Robotech/kacho-proto`; CI-гейт `make verify-no-yandex` (гигиена: сторонних брендов в коде нет) — clean.
+- Все proto package / go import-пути — под `kacho.cloud` / `PRO-Robotech/kacho-proto`; проверка `! grep -ri 'yandex' proto/ pkg/api/` — clean. **Гейта под неё нет:** цели
+  `verify-no-yandex` не объявлено ни в одном `Makefile`, в CI шага тоже нет.
 - 131 сгенерированный .pb / .pb.gw файл
 
 ### kacho-corelib (1.0)

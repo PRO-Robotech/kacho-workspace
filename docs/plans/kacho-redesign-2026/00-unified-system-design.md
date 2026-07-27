@@ -257,7 +257,7 @@ Build-граф (versioned `require`, БЕЗ `replace`): `kacho-proto → kacho-c
 12. **`kacho-deploy`** — helm/compose (PG-per-service, internal-CA/mTLS, Hydra, JWKS-terminator).
 13. **`kacho-workspace`** — docs/specs + vault trail (после фактического merge governance change-set — проставить «landed» в §1/§5).
 
-Внутри каждого сервиса: строгий TDD (RED→GREEN), integration (testcontainers) + newman в том же PR, ревью ролями, финал `go test -race`+`golangci-lint`+`govulncheck`+`make audit-list-filter`+newman зелёные. **Gate:** кодинг — только после APPROVED acceptance-дока под-фазы.
+Внутри каждого сервиса: строгий TDD (RED→GREEN), integration (testcontainers) + newman в том же PR, ревью ролями, финал `go test -race`+`golangci-lint`+`govulncheck`+`make -C services/{compute,nlb,storage,vpc} audit-list-filter`+newman зелёные. **Gate:** кодинг — только после APPROVED acceptance-дока под-фазы.
 
 ---
 

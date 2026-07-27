@@ -563,7 +563,7 @@ func (rs *ResourceLifecycleSubscriber) handleNetworkEvent(ctx context.Context, e
 **And** E0 (KAC-105) merged — stub-model (`type user`) уже применена при первом `make -C deploy dev-up` post-E0
 **And** Secret `kacho-iam-openfga-store` существует со старым `authorization_model_id` (stub)
 
-**When** разработчик выполняет `cd project/kacho-deploy && make dev-up` (helm upgrade)
+**When** разработчик выполняет `make -C deploy dev-up` (helm upgrade)
 **And** helm hook `openfga-bootstrap` job стартует post-upgrade
 **And** job извлекает `store_id` из существующего Secret
 **And** job пишет полную DSL (~100 строк) через `fga model write --file=/etc/openfga-model/authorization-model.fga --store-id=$STORE_ID` → возвращает новый `authorization_model_id`

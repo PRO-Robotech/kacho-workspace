@@ -154,7 +154,10 @@ Hard-immutable поля задаются per-resource. Примеры: IAM — `
 - `page_token` — opaque base64 `{created_at, id}`; garbage-token → `InvalidArgument`.
 - `page_size` через `corevalidate.PageSize`: `0` → default 50, max 1000.
 - `filter` — `kacho-corelib/filter.Parse` с whitelist полей (текущая фаза — `name=`).
-- Публичный `List` дополнительно фильтруется через listauthz (CI-гейт `make audit-list-filter`).
+- Публичный `List` дополнительно фильтруется через listauthz. Гейт объявлен **по сервису**, а не
+  в корне: CI гоняет `make -C services/{compute,nlb,storage,vpc} audit-list-filter`
+  (джоб `authz-artifacts`). У `services/registry` цель есть, но её рецепт — заглушка; у iam и geo
+  цели нет вовсе.
 
 ```sql
 WHERE (created_at, id) > ($lastCreatedAt, $lastId)

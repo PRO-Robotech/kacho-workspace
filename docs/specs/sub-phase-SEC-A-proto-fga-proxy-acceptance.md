@@ -141,7 +141,7 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 **ID:** SEC-A-01   (трассировка: эпик #6, §3.1; форма симметрична `WriteCreatorTuple`)
 
 **Given** ветка `kacho-proto` SEC-A с правкой `internal_iam_service.proto`
-**And** `make generate` (buf generate + plugin) выполнен
+**And** `cd proto && buf generate` (стабы + плагин каталога) выполнен
 
 **When** инспектируется сгенерированный дескриптор `InternalIAMService` и Go-stubs
 
@@ -171,15 +171,15 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 **ID:** SEC-A-03   (трассировка: эпик §4.1 п.1/п.3 ground-truth; security.md Internal admin-RPC; закрывает критику v1 п.1-2)
 
 **Given** оба RPC несут `option (kacho.iam.authz.v1.permission) = "<exempt>"` (без `required_relation` / `scope_extractor`)
-**And** `make generate` выполнен (плагин `protoc-gen-kacho-permissions` отрабатывает)
+**And** `make -C gateway permission-catalog-apply` выполнен (плагин `protoc-gen-kacho-permissions` отрабатывает)
 
 **When** читается `gen/permission_catalog.json` и `gen/permission_catalog_warnings.txt`
 
 **Then** есть запись `{"fqn":"kacho.cloud.iam.v1.InternalIAMService/RegisterResource","permission":"<exempt>","required_relation":"","scope_extractor":{"object_type":"","from_request_field":""}}` — форма идентична существующим exempt-записям (`Check`, `WriteCreatorTuple`, `LookupSubject` …)
 **And** есть аналогичная запись для `.../UnregisterResource`
 **And** **`permission_catalog_warnings.txt` НЕ содержит** offending-FQN для register/unregister (плагин для `<exempt>` short-circuit'ит required-fields-проверку → warnings не пишутся) — warnings-файл либо отсутствует, либо его прежнее содержимое не меняется этими RPC
-**And** `make verify-catalog` зелёный: `git diff --exit-code gen/permission_catalog.json gen/permission_catalog_warnings.txt` = 0 (каталог + warnings закоммичены консистентно с регенерацией)
-**And** `make verify-permissions-coverage` (strict `KACHO_PERMISSIONS_STRICT=1`) зелёный — exempt-RPC не дают warnings, strict-mode не фейлит
+**And** `make -C gateway permission-catalog-check` зелёный (обе вшитые копии совпадают с регенерацией) (каталог + warnings закоммичены консистентно с регенерацией)
+**And** `KACHO_PERMISSIONS_STRICT=1 make -C gateway permission-catalog` зелёный — exempt-RPC не дают warnings, strict-mode не фейлит
 **And** `iam.fgaproxy.write` отсутствует в `permission_catalog.json` (permission-строка не вводится, §4.1 п.3)
 
 ## Сценарий SEC-A-04: least-priv fgaproxy = ReBAC fga_writer @ iam_fgaproxy:system (нормативное ожидание для SEC-C)
@@ -243,7 +243,7 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 
 **Given** ветка SEC-A с новыми RPC и сообщениями
 
-**When** выполняется `make buf-lint` (`buf lint`)
+**When** выполняется `cd proto && buf lint`
 
 **Then** выход 0, нарушений нет
 **And** имена сообщений (`RegisterResourceRequest` / `Response`, `UnregisterResourceRequest` / `Response`) соответствуют STANDARD-набору с действующими `except` из `buf.yaml`
@@ -256,7 +256,7 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 **Given** ветка SEC-A
 **And** `buf.yaml` breaking-конфиг — `use: FILE`
 
-**When** выполняется `make buf-breaking` (`buf breaking --against ".git#branch=main"`)
+**When** выполняется `cd proto && buf breaking --against 'https://github.com/PRO-Robotech/kacho.git#branch=main,subdir=proto'`
 
 **Then** выход 0
 **And** изменение — чисто additive: добавлены RPC + новые message'ы, ни один существующий RPC / поле / номер не удалён и не переименован, существующие field-номера не переиспользованы
@@ -305,7 +305,8 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 
 **Given** новые proto-комментарии и имена
 
-**When** выполняется `make verify-no-yandex` (`! grep -ri 'yandex' proto/ gen/`)
+**When** выполняется `! grep -ri 'yandex' proto/ pkg/api/` — **цели `verify-no-yandex` не существует**
+ни в одном `Makefile` монорепо: гигиена держится на самом grep, гейта под неё не заведено
 
 **Then** выход 0 — ни в RPC-комментариях, ни в каталоге нет упоминаний чужих облаков
 **And** контракт сформулирован в терминах Kachō (FGA-proxy / owner-tuple / IAM), без «как у X»
@@ -315,13 +316,15 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 ## DoD подфазы SEC-A
 
 - [ ] `internal_iam_service.proto`: добавлены `RegisterResource` / `UnregisterResource` RPC + 4 message'а (`Register/UnregisterResourceRequest/Response`) по форме выше; **authz-опция `permission = "<exempt>"` на обоих** (без `required_relation` / `scope_extractor` / `required_acr_min`); без `google.api.http`, без `operation`-опции; proto-комментарий явно фиксирует идемпотентность + ReBAC-энфорс fga_writer @ iam_fgaproxy:system (SEC-A-01/02/03/04/05/06).
-- [ ] `make generate` — Go-stubs + `gen/permission_catalog.json` + `gen/permission_catalog_warnings.txt` регенерированы и закоммичены; register/unregister попали в каталог как exempt-записи; warnings-файл НЕ получил offending-FQN для этих RPC (SEC-A-03).
-- [ ] `make verify-catalog` зелёный — `git diff --exit-code gen/permission_catalog.json gen/permission_catalog_warnings.txt` = 0 (SEC-A-03).
-- [ ] `make verify-permissions-coverage` (strict) зелёный — exempt-RPC не дают warnings (SEC-A-03).
-- [ ] `make buf-lint` зелёный без новых `except` (SEC-A-08).
-- [ ] `make buf-breaking` зелёный — additive (SEC-A-09).
+- [ ] `cd proto && buf generate` (Go-stubs) + `make -C gateway permission-catalog-apply`
+      (`gateway/internal/middleware/embed/permission_catalog.json`, побочно —
+      `gateway/build/permission_catalog_warnings.txt`) регенерированы и закоммичены; register/unregister попали в каталог как exempt-записи; warnings-файл НЕ получил offending-FQN для этих RPC (SEC-A-03).
+- [ ] `make -C gateway permission-catalog-check` зелёный — `git diff --exit-code` по вшитым копиям = 0 (SEC-A-03).
+- [ ] `KACHO_PERMISSIONS_STRICT=1 make -C gateway permission-catalog` зелёный — exempt-RPC не дают warnings (SEC-A-03).
+- [ ] `cd proto && buf lint` зелёный без новых `except` (SEC-A-08).
+- [ ] `cd proto && buf breaking --against 'https://github.com/PRO-Robotech/kacho.git#branch=main,subdir=proto'` зелёный — additive (SEC-A-09).
 - [ ] public breaking-diff = 0 — изменён только Internal-сервис, публичные контракты нетронуты (SEC-A-10); ban #6 proto-предусловие (нет http-аннотации) соблюдено (SEC-A-11).
-- [ ] `make verify-no-yandex` зелёный (SEC-A-13).
+- [ ] `! grep -ri 'yandex' proto/ pkg/api/` пуст (SEC-A-13) — цели под этот гейт нет.
 - [ ] `polyrepo.md` обновлён fgaproxy-рёбрами (vpc/compute/nlb→iam) + не-цикл-инвариантом (SEC-A-12; §6.6 эпика); NLB упомянут как `kacho-nlb`.
 - [ ] Тесты для контракта (этот PR / kacho-proto): см. ниже «proto-conformance / buf тесты». Идемпотентность / коды / ReBAC-энфорс (SEC-A-04/05/06/07) — нормативные ожидания, RED-тесты под них пишутся как conformance в SEC-C (kacho-iam) и newman в сервисных репо (SEC-D/SEC-E); зафиксированы здесь для трассировки 1:1.
 - [ ] vault-trail: `rpc/iam-internal-iam-service.md` (+2 метода; **methods_count 7→9** — реальный proto уже содержит 7 RPC: `LookupSubject` / `ListPermissions` / `Check` / `WriteCreatorTuple` / `GetJWKSStatus` / `ForceLogout` / `PollSubjectChanges`; vault-запись `methods_count: 3` stale — актуализировать как часть trail), новые `edges/*-to-iam-fgaproxy.md` (planned), `KAC/KAC-<SEC-A>.md`.
@@ -335,11 +338,14 @@ descriptor-assert; полные integration / newman-кейсы на повед�
 не в kacho-deploy (§4.1 п.5); `make -C deploy e2e-test` в kacho-deploy = bash-смоук `e2e/0.1/*.sh`.
 
 **В этом PR (kacho-proto) — RED → GREEN proto-гейты:**
-- `make buf-lint` (SEC-A-08) — RED до правки невозможен (RPC ещё нет); GREEN после.
-- `make buf-breaking` против `main` (SEC-A-09) — должен остаться зелёным (additive).
-- `make verify-catalog` (SEC-A-03) — RED, если каталог/warnings не регенерированы / не закоммичены; GREEN после `make generate` + commit. **Проверить именно отсутствие warnings-FQN** для register/unregister (контракт exempt).
-- `make verify-permissions-coverage` strict (SEC-A-03) — GREEN: exempt не фейлит strict-mode.
-- `make verify-no-yandex` (SEC-A-13).
+- `cd proto && buf lint` (SEC-A-08) — RED до правки невозможен (RPC ещё нет); GREEN после.
+- `cd proto && buf breaking --against 'https://github.com/PRO-Robotech/kacho.git#branch=main,subdir=proto'` (SEC-A-09) — должен остаться зелёным (additive).
+- `make -C gateway permission-catalog-check` (SEC-A-03) — RED, если каталог не регенерирован / не
+  закоммичен; GREEN после `make -C gateway permission-catalog-apply` + commit. **Проверить именно отсутствие warnings-FQN** для register/unregister (контракт exempt).
+- `KACHO_PERMISSIONS_STRICT=1 make -C gateway permission-catalog` (SEC-A-03) — GREEN: exempt не
+  фейлит strict-mode. Отдельной цели `verify-permissions-coverage` нет: strict-режим — переменная
+  окружения генератора, а не своя цель.
+- `! grep -ri 'yandex' proto/ pkg/api/` (SEC-A-13) — цели под этот гейт нет.
 - Descriptor-assert (Go-тест в `kacho-proto`, reflect-проверка дескриптора или CI-скрипт): сервис `InternalIAMService` содержит `RegisterResource` / `UnregisterResource`; request-сообщения имеют ровно ожидаемые поля / номера / аннотации; ни у одного из RPC нет `google.api.http` / `operation`-опции; `permission = "<exempt>"`, нет `required_relation` / `scope_extractor` (SEC-A-01/02/03/11). RED до правки proto, GREEN после.
 - public-no-change-assert (CI-скрипт): `git diff --stat main -- proto/ ':(exclude)**/internal_*'` по сервис-контрактам = 0 (SEC-A-10).
 

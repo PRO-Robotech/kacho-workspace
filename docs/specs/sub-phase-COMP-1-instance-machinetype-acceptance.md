@@ -66,7 +66,7 @@ compute→registry pull-resolve), **compensation-outbox** (B12), output-зерк
 | F11 | Two-projection: public `Instance` без инфра (node/host/scheduler/`topologyKey`/numeric-infra; `host_group_id`/`host_id` уже reserved AS-IS); infra-проекция → `Internal*` :9091 (наполнение — COMP-4) | module-compute rule 11; security §infra-sensitive; unified §5 инв-1 |
 | F12 | `UNIQUE(project,name)` partial (пустое `name` — id-only escape-hatch) + **concurrent name-race** (ровно один writer); BVA границы `name`/`description`/`labels` | data-integrity §within-service/§5; module-compute rule 13 |
 | F13 | Единый тон ошибок by-lane: INTERNAL-opaque (без pgx/SQL-leak), immutable-текст, malformed-first, `ALREADY_EXISTS`; project/zone peer-validate fail-closed (`UNAVAILABLE`), authz-first толерантность | api-conventions §error-format; security §hardening инв-1; unified §1 conv-11, §5 инв-5 · `[reason-token PHASE-0-GATED]` |
-| F14 | `InstanceService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → 400) + cursor + `filter name=` (**единственное поле фазы**; любое другое → 400 с именем поля — см. §Reconcile F14 filter-whitelist) | api-conventions §pagination/Gotcha; security инв-7; `make audit-list-filter` |
+| F14 | `InstanceService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → 400) + cursor + `filter name=` (**единственное поле фазы**; любое другое → 400 с именем поля — см. §Reconcile F14 filter-whitelist) | api-conventions §pagination/Gotcha; security инв-7; `make -C services/compute audit-list-filter` |
 | F15 | `InstanceService.Delete` — **hard-delete durable-row БЕЗ detach-саги** (launch-`*Specs` не материализуются в COMP-1) → `Get` `NOT_FOUND`; **name-recycle** (непустое `name` освобождается, F12 partial-UNIQUE); malformed-id first-statement / absent-id authz-first tolerant | api-conventions §error-format; data-integrity §within-service; module-compute rule 11 |
 
 ---
@@ -724,7 +724,7 @@ Phase-0 governance change-set). COMP-1 фиксирует **compute-сторон
 
 ## F14 — `InstanceService.List` — listauthz row-filter + pagination-validate ДО authz-short-circuit + cursor/filter
 
-> `→ api-conventions §pagination/Gotcha` · `→ security инв-7` · `→ `make audit-list-filter``
+> `→ api-conventions §pagination/Gotcha` · `→ security инв-7` · `→ `make -C services/compute audit-list-filter``
 > **AS-IS**: `InstanceService.List` есть, но подвержен **документированному рецидивирующему классу**
 > (реальные инциденты compute disk/image/nlb): валидация `page_size`/`page_token` обязана идти **ДО**
 > listauthz empty-grant short-circuit — иначе caller без грантов получает `200 {[]}` (или authz-403)
@@ -774,7 +774,7 @@ Phase-0 governance change-set). COMP-1 фиксирует **compute-сторон
 **Given** `prj-acme` содержит `ins-a`, `ins-b`; `prj-other` содержит `ins-x`; caller — `viewer` только на `prj-acme`
 
 **When** `InstanceService.List(projectId="prj-acme")`
-**Then** `200` с `ins-a`, `ins-b`; `ins-x` **отсутствует** (listauthz row-filter — результат отфильтрован per-object; security-инвариант + CI-гейт `make audit-list-filter` включает `compute.instances.list`)
+**Then** `200` с `ins-a`, `ins-b`; `ins-x` **отсутствует** (listauthz row-filter — результат отфильтрован per-object; security-инвариант + CI-гейт `make -C services/compute audit-list-filter` включает `compute.instances.list`)
 **And** caller **без** грантов на `prj-acme` → пустая страница (empty-grant short-circuit) — но **после** pagination-validate (COMP-1-35)
 
 ### Сценарий COMP-1-35 (negative): pagination-validate ДО authz empty-grant short-circuit
@@ -854,7 +854,7 @@ COMP-1 готова к merge только при выполнении ВСЕГО
 - [ ] **STOPPED-gate ЭНФОРСМЕНТ** (`COMP-1-27`): реальный `Update{updateMask:["machineTypeId"]}` на COMP-1-инстансе (никогда не STOPPED) → sync `FAILED_PRECONDITION` — тест **не требует** `Stop` (предусловие недостижимо ⇒ always-reject); поле остаётся в known-set.
 - [ ] **`Delete` hard-delete + name-recycle** (`COMP-1-37`): integration подтверждает, что hard-delete снимает partial-`UNIQUE(project,name)`-slot (не soft-tombstone) → тот же непустой `name` снова Create-able в проекте — **db-review** (db-architect-reviewer) на корректность DELETE + UNIQUE-slot-release.
 - [ ] Каждый **public-наблюдаемый** `COMP-1-NN` (Instance CRUD **incl. `Delete` F15**, `InstanceService.List` F14, `MachineTypeService.Get/List`, field-absence F11/F24, BVA F31 **incl. non-ASCII name**) имеет зелёный **newman-кейс** `tests/newman/cases/*.py` c аннотацией `# verifies COMP-1-NN` — ≥1 happy + ≥1 negative на фичу; трассировка `COMP-1-NN ↔ Test<R>_COMP_1_NN ↔ cases/*.py`.
-- [ ] **List-регрессия обязательна** (api-conventions Gotcha + security инв-7): unit на `ValidatePagination` для `InstanceService.List` (garbage-token / `pageSize>1000` → `InvalidArgument`) — **до** listauthz empty-grant short-circuit (`COMP-1-35`); listauthz row-filter покрыт (`COMP-1-34`) — `make audit-list-filter` включает `compute.instances.list`.
+- [ ] **List-регрессия обязательна** (api-conventions Gotcha + security инв-7): unit на `ValidatePagination` для `InstanceService.List` (garbage-token / `pageSize>1000` → `InvalidArgument`) — **до** listauthz empty-grant short-circuit (`COMP-1-35`); listauthz row-filter покрыт (`COMP-1-34`) — `make -C services/compute audit-list-filter` включает `compute.instances.list`.
 - [ ] **Internal-only** сценарии (`InternalMachineTypeService` admin-CRUD, `COMP-1-21`; future infra-проекция `COMP-1-29`) покрываются **integration + bufconn** (не newman-public); **отсутствие `InternalMachineTypeService` на external mux** — сам по себе assert (api-gateway-audit).
 - [ ] TDD-порядок: RED (падает по нужной причине) ДО кода, пара RED→GREEN в PR.
 
@@ -871,7 +871,7 @@ COMP-1 готова к merge только при выполнении ВСЕГО
 - [ ] Public RPC (`InstanceService` Get/List/Create/Update/Delete, `MachineTypeService` Get/List) зарегистрированы в api-gateway (`api-gateway-registrar`); `InternalMachineTypeService` — **только** internal mux (ban #6).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/compute audit-list-filter` зелёные.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (новые RPC в каталоге, ambient MachineType read — exempt как geo); newman зелёные (все public `COMP-1-NN`).
 - [ ] Vault-trail: обновить `resources/compute-instance.md` (instanceKind/machineTypeId/bootSource/Referrer, retire YC-cruft), создать `resources/compute-machinetype.md`, `rpc/compute-instance-service.md`, `rpc/compute-machinetype-service.md`; `KAC/COMP-1.md`.
 

@@ -38,7 +38,7 @@
 | **R-7** | **`permissions[]` — INTERNAL compiled** (anchor+names армы; **matchLabels НЕ компилируется**). Live deprecated-поле (нельзя удалить, buf-breaking); используется для FGA-эмиссии/Check-reuse. **НЕ заполняется** в публичном `Get`/`List`-ответе для rules-ролей (пустое); игнорируется на входе Create/Update. Публичный API роли = `rules[]`; UI рендерит роль из `rules[]`. **`Role.Get` возвращает `Role` напрямую** (не `GetRoleResponse`-обёртку); диагностического поля (`RuleDiagnostics`) нет — `arm` выводится клиентом из формы правила, feed-проблемы — ошибка Create. | A-* (compile), GWT-6 |
 | **R-8** | **condition → FGA conditional-tuple** (Condition-ref + CEL для time/IP/MFA); FGA энфорсит сам, fail-closed. matchLabels (object-state) — materialization, НЕ conditional-tuple. | C-* (condition), GWT-9 |
 | **R-9** | **revoke по СОХРАНЁННОМУ tuple-set** (`access_binding_emitted_tuples`, ledger из fix #178 переиспользуется), НЕ re-derive из текущей роли. `Role.Update(rules)` → bounded фан-аут reconcile всех ACTIVE-биндингов; membership ключуется `rule_fp` (content-hash), не `rule_index`. | B-* / C-* (revoke), GWT-4, GWT-5 |
-| **R-10** | **per-object filtered List (§11, КРИТИЧНО)** — `List<Resource>` отдаёт ТОЛЬКО доступные объекты (union армов), через FGA `ListObjects` поверх materialized per-object tuples + `scope_grant`. read==enforce паритет. `make audit-list-filter` расширяется до per-object. Pagination ПОСЛЕ фильтра. Применяется во **всех** доменах (iam/vpc/compute/nlb). | D-* (List-filter), LST-1..6 |
+| **R-10** | **per-object filtered List (§11, КРИТИЧНО)** — `List<Resource>` отдаёт ТОЛЬКО доступные объекты (union армов), через FGA `ListObjects` поверх materialized per-object tuples + `scope_grant`. read==enforce паритет. `make -C services/{compute,nlb,storage,vpc} audit-list-filter` расширяется до per-object. Pagination ПОСЛЕ фильтра. Применяется во **всех** доменах (iam/vpc/compute/nlb). | D-* (List-filter), LST-1..6 |
 
 ### 0.2. Решения формы / proto / миграции
 
@@ -119,7 +119,7 @@
 | `security.md` §AuthN+AuthZ ВЕЗДЕ — каждый RPC per-RPC Check; read-RPC viewer-floor, мутации admin-tier; анонимный fail-closed; **обе проекции (public/internal)** | A-03/B/C/E (authz), D (List-filter fail-closed) |
 | `security.md` §Internal-vs-external (ban #6) — Role/AccessBinding-RPC публичны (tenant-UI); `ExpandAccess`/`ListByRole` — **public** (audit для grant-authority holder, не инфра-данные). `scope_grant`-FGA-tuple — внутренняя машинерия, не на публичной поверхности | A/E (public), B (FGA internal) |
 | `security.md` §Инфра-чувствительные данные — `Role`/`AccessBinding`/`AssignableRole` не светят инфра-полей; публичный ответ Role несёт только `rules[]` (`permissions[]` — internal compiled, не в API-ответе) | A-02, E-* |
-| `security.md` §публичный List обязан фильтровать (listauthz CI-гейт) — **расширяется до per-object** `make audit-list-filter` | D-40..D-46 (R-10) |
+| `security.md` §публичный List обязан фильтровать (listauthz CI-гейт) — **расширяется до per-object** `make -C services/{compute,nlb,storage,vpc} audit-list-filter` | D-40..D-46 (R-10) |
 | `00-kacho-core.md` ban #1 (APPROVED перед кодом), #5 (не редактировать применённую миграцию — новые forward-файлы ≥0024), #9 (мутации→Operation), #10 (within-DB инвариант — DB CHECK/FK/CAS, не TOCTOU), #12 (TDD RED→GREEN integration+newman в том же PR), #2 (без упоминания чужих облаков) | весь документ; DoD каждой под-фазы |
 | `polyrepo.md` §порядок merge | DoD §A..§F: proto → corelib → iam → api-gateway → ui → deploy → workspace(docs) |
 | `architecture.md` — чистый Go-компайлер `rules→permissions` в `domain/` (не PL/pgSQL, не handler); FGA-emit в service-слое | A-* (compile в domain), B-* (emit) |
@@ -602,7 +602,7 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 
 # ПОД-ФАЗА D — per-object filtered `List` (§11, КРИТИЧНО — требование заказчика)
 
-**Deliverable:** `List<Resource>` во всех доменах (iam/vpc/compute/nlb) возвращает **только доступные объекты** через FGA `ListObjects` поверх materialized per-object tuples + `scope_grant`. read==enforce паритет. `make audit-list-filter` расширяется до per-object. Pagination ПОСЛЕ фильтра. **НЕ K8s all-or-nothing.**
+**Deliverable:** `List<Resource>` во всех доменах (iam/vpc/compute/nlb) возвращает **только доступные объекты** через FGA `ListObjects` поверх materialized per-object tuples + `scope_grant`. read==enforce паритет. `make -C services/{compute,nlb,storage,vpc} audit-list-filter` расширяется до per-object. Pagination ПОСЛЕ фильтра. **НЕ K8s all-or-nothing.**
 **Порядок:** `kacho-corelib` (listauthz per-object helper, если общий) → `kacho-iam` (`InternalIAMService` ListObjects-аналог) → consumer-сервисы (vpc/compute/nlb List-filter) → `kacho-api-gateway` → `kacho-deploy` (расширить audit-гейт) → docs.
 
 ## Сценарий D-40: LST-1 labels — List отдаёт только совпавшие по меткам в scope
@@ -668,7 +668,8 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 **When** для каждого объекта o типа T в scope сравниваются `o ∈ List(T)` и `FGA Check(S, list/get, o)`
 
 **Then** множества **совпадают** (single source of truth — те же materialized tuples + `scope_grant`); расхождений нет
-**And** `make audit-list-filter` (per-object расширение) проходит для всех публичных List всех доменов
+**And** `make -C services/{compute,nlb,storage,vpc} audit-list-filter` (per-object расширение)
+проходит для всех публичных List всех доменов
 
 ## Сценарий D-46: LST-6 pagination — page_size/page_token корректны ПОСЛЕ фильтра
 
@@ -696,7 +697,8 @@ ARM_LABELS-правило допустимо **только** на `(module,reso
 - [ ] `kacho-iam`: `InternalIAMService` ListObjects-аналог (FGA `ListObjects` поверх materialized tuples + `scope_grant`); read==enforce.
 - [ ] consumer-сервисы (vpc/compute/nlb + iam own List): публичный `List<Resource>` прогоняет id-set через ListObjects/batch-Check, отдаёт пересечение; pagination ПОСЛЕ фильтра; `Get` вне гранта → NOT_FOUND (no-leak).
 - [ ] `kacho-corelib`: per-object listauthz helper (если ≥2 сервиса).
-- [ ] `kacho-deploy`/CI: `make audit-list-filter` расширен до per-object (CI-гейт по всем публичным List всех доменов).
+- [ ] CI (`.github/workflows/ci.yaml`, джоб `authz-artifacts`): `make -C services/{compute,nlb,storage,vpc} audit-list-filter`
+      расширен до per-object (гейт по всем публичным List всех доменов).
 - [ ] **RED→GREEN**: integration + newman LST-1..6 (D-40..D-46) + D-47 fail-closed, **per арм для всех доменов** (compute/vpc/nlb/iam), в том же PR.
 - [ ] system-design-reviewer (read==enforce, fail-closed, replica-isolation), security-review (no-leak).
 - [ ] **load-testing-coach gate ОБЯЗАТЕЛЕН перед prod-flip (O-5 ПРИНЯТО):** нагрузочная валидация FGA `ListObjects` на крупных наборах (тысячи объектов/тип/scope) — latency/cardinality + стабильность cursor-пагинации ПОСЛЕ фильтра; prod-flip под-фазы D не разрешён без зелёного load-gate.

@@ -255,7 +255,7 @@ func setupTestDB(t testing.TB) string {
 }
 ```
 
-Каждый тест: `if testing.Short() { t.Skip(...) }` первым стейтментом (`make test-short` их
+Каждый тест: `if testing.Short() { t.Skip(...) }` первым стейтментом (`make -C services/{compute,geo,iam,nlb,registry,storage,vpc} test-short` их
 пропускает). Реальные goose-миграции (не хардкод DDL) — тест верифицирует ту же схему, что прод.
 
 ### 5.2 Concurrent-race goroutines — на КАЖДЫЙ спорный DB-инвариант (обязательно, `data-integrity.md` §чек-лист п.5)

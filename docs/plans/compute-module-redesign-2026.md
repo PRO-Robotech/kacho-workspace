@@ -89,7 +89,7 @@ Uniform reference-граф = закон единообразен; wire-shape р�
 | **Operation** | compute | `epd` | Public | Async LRO-envelope каждой мутации |
 | *registry.image / storage.volume / storage.snapshot / vpc.networkInterface / geo.zone,region / iam.project,serviceAccount* | (peer) | — | — | Referenced (class B/C), не compute-owned |
 
-**Two-projection контракт (load-bearing):** каждый `Mixed`-ресурс несёт lean-public message (id/name/labels/bindings/intent/`status`) **плюс** отдельную `Internal*`-message с placement/underlay/capacity/numeric-infra-id. Ни одно infra-поле не добавляется на public-message additively — gateway projection-audit (аналог `make audit-list-filter`) гейтит.
+**Two-projection контракт (load-bearing):** каждый `Mixed`-ресурс несёт lean-public message (id/name/labels/bindings/intent/`status`) **плюс** отдельную `Internal*`-message с placement/underlay/capacity/numeric-infra-id. Ни одно infra-поле не добавляется на public-message additively — gateway projection-audit (аналог `make -C services/compute audit-list-filter`) гейтит.
 
 ### 1.1 Instance — **public**
 

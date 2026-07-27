@@ -616,7 +616,7 @@ make -C deploy reload-svc SVC=iam ; make -C deploy logs-svc SVC=iam
 - [ ] INV-1..INV-7 подтверждены тестами (особо INV-1/D над-экспозиция, INV-2/B оператор-видит-все,
       INV-6/§5.4 wildcard-leak-guard, INV-7/F fail-closed).
 - [ ] Финальная верификация: `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-      `make audit-list-filter` + newman зелёные.
+      `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman зелёные.
 - [ ] Ревью ролями: `proto-api-reviewer` (модель), `db-architect-reviewer` (миграция/outbox),
       `system-design-reviewer` (propagation/fail-closed), `go-style-reviewer` (use-case).
 - [ ] Vault-trail обновлён (edges/rpc/resources/KAC); тикет Test → Done с артефактами.

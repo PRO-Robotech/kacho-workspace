@@ -121,7 +121,8 @@ Operations + verified-snippets + Pagefind/тема + деплой); Phase 2 (Try
 с `protoc-gen-connect-openapi@v0.25.6`
 **And** все `.proto` — `syntax = "proto3"` (editions-2023 отсутствуют)
 
-**When** запускается `make generate-openapi`
+**When** запускается генерация OpenAPI — **цели `generate-openapi` нет**, как нет и
+`proto/buf.gen.openapi.yaml`: сценарий описывает несделанное
 
 **Then** генерируется по одной спеке на домен: `gen/openapi/{vpc,compute,iam,loadbalancer}.openapi.json`
 **And** каждая спека — OpenAPI **3.1** (не Swagger 2.0)

@@ -728,7 +728,9 @@ gate 4-7; `testing.md`):
   задекларировать в `buf.yaml` breaking-allow или bump proto major, см. open question O2).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные. `make -C services/registry
+      audit-list-filter` **гейтом пока не является**: рецепт печатает «реализуется вместе с
+      `RegistryService.List`» и выходит с нулём (`services/registry/Makefile`) — цель есть, проверки нет.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (rename RPC → перегенерировать permission-catalog,
   обе embedded-копии iam-seed↔gateway); newman зелёные (все `REG-1-NN`).
 

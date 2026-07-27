@@ -45,7 +45,7 @@
    `metadata.<res>Id` без `assert !result.error`). Фантом-id может утечь в downstream FGA-биндинги (§2.5 канона).
 5. **`internal-*.py` отсутствует** там, где есть Internal*-сервисы (nlb: Announce/Lifecycle; registry: GC/Stats) →
    ban #6 surface (Internal-RPC на public → 404) не проверяется декларативными кейсами.
-6. **`testing.Short()`-skip не в каждом integration-файле** (registry 1/15, storage 1/N) → `make test-short`
+6. **`testing.Short()`-skip не в каждом integration-файле** (registry 1/15, storage 1/N) → `make -C services/{registry,storage} test-short`
    не пропустит → долгий прогон (нарушение §5.1).
 
 ---
@@ -190,7 +190,7 @@ H0  shared helper-lib + validate-cases в shared        ← РАЗБЛОКИРУ
 1. **op.error-guard hard-fail в `setup.sh`** (vpc/iam/compute/storage, S×4) — закрывает anti-phantom §2.5,
    первопричину каскадных флейков («phantom-id → downstream FGA против несуществующего project»). Наибольший
    ROI: убирает целый класс «блуждающих» e2e-флейков.
-2. **`testing.Short()` sweep** (registry 1/15→15, storage) — S, чистая конвенция, ускоряет `make test-short`.
+2. **`testing.Short()` sweep** (registry 1/15→15, storage) — S, чистая конвенция, ускоряет `make -C services/{registry,storage} test-short`.
 3. **registry gen.py drift** — устраняется **бесплатно** switch'ем на shared-lib (H0/H1): docstring/collection-name/
    OP-regex перестают быть форком.
 4. **`serial-collections.txt`** для nlb/compute/storage (S) — вернуть parallel fan-out uncontended-коллекциям

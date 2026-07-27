@@ -603,7 +603,7 @@ Total estimate: **8000-10000 LOC + 30KB vault** across 11 repos.
 - Cluster admin user has `cluster.kacho-root.security_admin` role
 
 **When**:
-- `cd kacho-deploy && helm upgrade --install spire spire/spire-server -f values.dev.yaml` executed
+- `cd deploy && helm upgrade --install spire spire/spire-server -f values.dev.yaml` executed
 - Helm renders StatefulSet (3 replicas), ConfigMap (server config), Service (headless + ClusterIP), RBAC (ClusterRole для k8s_psat attestor), Secret references for HSM credentials
 - Argo CD also installed; reconciles applied state
 

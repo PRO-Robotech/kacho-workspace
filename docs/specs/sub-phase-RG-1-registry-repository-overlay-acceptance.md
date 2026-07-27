@@ -1014,7 +1014,7 @@ unregister wildcard v_get). **Не** новый ресурс — расшире�
        числовой инфра-id, scan-queue/scanner-engine-id (`security.md §Инфра-чувствительные данные`) —
        только tenant-intent (`name`/`labels`/`visibility`/`description`) + result-counts (`tagCount`/
        `sizeBytes`/timestamps/`downloadCount`)
-**And** gateway projection-audit (аналог `make audit-list-filter`) гейтит, что additively-добавленное поле
+**And** gateway projection-audit (аналог гейта `audit-list-filter`) гейтит, что additively-добавленное поле
        не утекло на external-поверхность; `RegistryStats`/`GetRegistryStats` остаются Internal-only (:9091).
 
 ### Сценарий X02: DB-ошибка в overlay-мутации → фикс. INTERNAL-текст (без pgx-leak)
@@ -1076,7 +1076,7 @@ unregister wildcard v_get). **Не** новый ресурс — расшире�
 
 **Named verification paths (two-way traceability, §4.4 — ни один in-scope сценарий не orphan):**
 - **RG-1-X01-NO-INFRA-LEAK-CONF** — verified-by: **gateway projection-audit gate** (аналог
-  `make audit-list-filter`: additively-добавленное поле `Repository`/`Referrer` не течёт на external-mux) +
+  гейта `audit-list-filter`: additively-добавленное поле `Repository`/`Referrer` не течёт на external-mux) +
   **message-schema review** публичного `Repository`/`Referrer` (`proto-api-reviewer`: ни engine/bucket/host/
   числовой-инфра-id; `RegistryStats`/`GetRegistryStats` остаются Internal-only :9091). Это не Go-unit RED-кейс,
   а гейт-проверка — поэтому вынесен явным verified-by, чтобы не считаться неверифицированным.
@@ -1115,7 +1115,7 @@ ID'ы (`RG-1-<Group><NN>`) трассируются в имена integration- �
       B02/B04/B05/B07/B08/B10/B12/B14 (existence-hiding+anon+admin-gate+inherit-guard), C02/C04,
       D02/D03/D05, X02/X03/X04; happy/edge A01/A03/A07/A09/A12/A13/A16/A20/A23 (**A23** = rename-ephemeral
       auto-promote → durable/survives-empty), B01/B03/B06/B09/B11, C01/C03, D01/D04.
-- [ ] **X01 (no-infra-leak)** — verified-by: gateway projection-audit gate (аналог `make audit-list-filter`,
+- [ ] **X01 (no-infra-leak)** — verified-by: gateway projection-audit gate (аналог гейта `audit-list-filter`,
       additively-added поле не течёт на external) + message-schema review публичного `Repository`/`Referrer`
       (`proto-api-reviewer`); `RegistryStats` остаётся Internal-only (:9091). Не Go-unit RED, а гейт-проверка
       (§4.4 two-way traceability — сценарий не orphan).
@@ -1139,7 +1139,11 @@ ID'ы (`RG-1-<Group><NN>`) трассируются в имена integration- �
       FGA re-register; **durable re-key `UPDATE`** (A16) и **ephemeral auto-promote `INSERT`** (A23) —
       оба пути покрыты; `ListReferrers` engine-projection.
 - [ ] Newman: ≥1 happy (A01/B03) + ≥1 negative (A02/B04/B05) через api-gateway.
-- [ ] `go test ./... -race` + `golangci-lint` + `govulncheck` + `make audit-list-filter` зелёные;
+- [ ] `go test ./... -race` + `golangci-lint` + `govulncheck` + `make -C services/registry audit-list-filter`
+      зелёные. **Про последнюю цель:** в registry она пока заглушка — рецепт печатает
+      «реализуется вместе с `RegistryService.List`» и ничего не проверяет
+      (`services/registry/Makefile`), поэтому её «зелёный» ничего не доказывает; работающие
+      реализации — в `services/{compute,nlb,storage,vpc}`, и CI гоняет именно их;
       error-тексты assert'ятся behaviour-level (X02 no-leak).
 
 **Stage gateway/deploy** — `kacho-api-gateway` (public-mux регистрация 6 RPC через `api-gateway-registrar`;

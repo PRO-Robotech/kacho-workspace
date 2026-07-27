@@ -116,7 +116,7 @@ DoD каждой стадии — все её сценарии зелёные (T
 **Given** kubebuilder-проект `kacho-vpc-operator` (`group kacho.io`, `version v1`)
 **And** маркер `+kubebuilder:resource:scope=Cluster` на типе `KachoSubnet`
 
-**When** генерируются CRD-манифесты (`make manifests`) и тип устанавливается в кластер (envtest/kind)
+**When** генерируются CRD-манифесты (цель `manifests` оператора `kacho-vpc-implement` — репозиторий вне монорепо) и тип устанавливается в кластер (envtest/kind)
 
 **Then** создаётся CRD `kachosubnets.kacho.io`, `spec.scope == Cluster` (НЕ Namespaced)
 **And** spec содержит поля, зеркальные Kachō Subnet 1:1: `id` (string), `projectId` (string), `networkId` (string), `name` (string), `v4CidrBlocks` (`[]string`), `v6CidrBlocks` (`[]string`), `projectNamespace` (string — ссылка на namespace проекта)

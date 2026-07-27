@@ -415,7 +415,9 @@ _Имена файлов newman (`label-revoke-*.py`) — новые в `kacho-d
 - [ ] by-design G-1..G-8 — запись в `docs/architecture/` соответствующих сервисов (consumer обязан re-emit mirror на label-Update; G-3 upsert-not-unregister; G-8 assignability scope-tier).
 - [ ] **Остаточный gap** (§3.1): завести GitHub Issue (`bug`) на vpc.routeTable/address/gateway/networkInterface (selectable, но labels не feed-ятся ни на Create, ни на Update) с декларацией риска и ссылкой на эту под-фазу как родителя.
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и
+проверяется go-тестами).
 
 ---
 

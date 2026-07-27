@@ -428,7 +428,8 @@ endpoint → не доступен (kacho-only internal, как и в insecure-�
       gateway (`make -C deploy e2e-test` / `grpcurl`) проходит JWT → principal → mTLS-dial → Check (§3.4);
       `enable=false` → стенд работает как dev (§3.1).
 - [ ] **Финальная верификация** (`ai-tooling.md` gate 7): `go test ./... -race` +
-      `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+      `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` +
+      newman зелёные.
 - [ ] **Ревью**: `go-style-reviewer` (thin handlers, ctx, no panic) + `system-design-reviewer`
       (fail-closed на edge-mismatch, per-edge rollback). Public proto breaking-diff = 0 (proto не трогали).
 - [ ] **Vault-trail**: `obsidian/kacho/KAC/KAC-<SEC-E>.md` создан (PR-URL, DoD, status);

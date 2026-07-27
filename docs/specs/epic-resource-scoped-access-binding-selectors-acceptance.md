@@ -540,7 +540,9 @@ message ResourceSelector {
 
 **S7 — workspace (docs/vault):** обновить `resources/iam-resource-mirror.md` (vpc/nlb теперь fed labels+parent — расширить «Lifecycle» секцию), `resources/iam-access-binding.md` (selector.types опциональны + derive; selectable-типы расширены до all-services + iam-direct), `rpc/iam-access-binding-service.md` (derive-семантика), `edges/vpc-to-iam-*` / `edges/nlb-to-iam-*` (payload labels/parent + History KAC), KAC-trail (Subtask T1, Subtask T3); этот acceptance-док → APPROVED. **НЕ заводить `edges/iam-to-vpc`/`iam-to-nlb`/`iam-to-compute`** (containment из same-DB mirror/own-table); **НЕ заводить `edges/iam-to-iam`** (iam-direct same-DB).
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и
+проверяется go-тестами).
 
 ---
 

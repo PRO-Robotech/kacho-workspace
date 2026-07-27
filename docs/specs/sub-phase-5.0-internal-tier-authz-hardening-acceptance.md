@@ -379,7 +379,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 **And** все 44 Internal.*-метода в `kacho-proto/proto/kacho/cloud/<domain>/v1/internal_*.proto` имеют annotation согласно policy-таблицы §2.2 (cat-A/B/C)
 **And** plugin regenerates `permission_catalog.json` + drift-mirror в `kacho-api-gateway/internal/middleware/embed/`
 
-**When** запускается `cd project/kacho-iam && go test ./tests/drift/... -run TestCatalogCoversAllProtoMethods -v`
+**When** запускается `cd services/iam && go test ./tests/drift/... -run TestCatalogCoversAllProtoMethods -v`
 
 **Then** test passes (RED → GREEN compared to baseline §1.6 where assertion was `entry exists`)
 **And** для каждого из 44 Internal.* FQN: `entry.Permission != ""`, `entry.RequiredRelation != ""`, `entry.ScopeExtractor.ObjectType != ""`, `entry.RequiredSubjectType ∈ {"user","service_account"}`
@@ -395,7 +395,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 **Given** Сценарий 01 passes (catalog enriched)
 **And** разработчик добавляет в proto новый RPC `InternalFooService.Bar` БЕЗ `(kacho.permission)` annotation
 
-**When** запускается `make generate` + drift-test
+**When** запускается `make -C gateway permission-catalog-apply` + drift-test
 
 **Then** plugin генерирует entry с `permission: ""`
 **And** drift-test FAILS со строкой `Internal FQN has empty permission: kacho.cloud.foo.v1.InternalFooService/Bar`
@@ -577,7 +577,8 @@ fga tuple read --store-id $STORE_ID 'cluster:cluster_kacho_root#service_account@
 **Given** Newman fixture (`tests/newman/cases/internal-tier-authz/`) генерируется через `gen.py`-pattern (parity с W2.D 100% coverage)
 **And** 3 personae setup'ятся в fixture: `usr_tenant_alice` (regular user, no cluster-grants), `usr_admin_root` (cluster system_admin), `sva_kacho_test_peer` (service_account with `service_account@cluster:cluster_kacho_root`)
 
-**When** запускается newman suite `make newman-internal-tier-authz`
+**When** запускается newman-набор `make -C deploy e2e-newman SVC=iam` (отдельной цели
+`newman-internal-tier-authz` не существует)
 
 **Then** для каждого из 44 FQN:
   - **Cat-A** (26 методов): `alice → 403` (PermissionDenied, reason "no path"), `admin → 200/202` (allow), `peer → 403` (subject_type mismatch: required user)

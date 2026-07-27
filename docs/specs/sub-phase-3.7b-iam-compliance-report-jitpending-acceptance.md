@@ -606,7 +606,7 @@ REST mapping: `POST /iam/v1/jitPending/{request_id}:approve`, `POST /iam/v1/jitP
 - [ ] **Newman cases** (`tests/newman/cases/iam_compliance_report_*.py`, `iam_jit_pending_*.py` → `gen.py`, run в `make -C deploy e2e-test`):
   - compliance: generate happy (CSV) / generate invalid scope_type `INVALID_ARGUMENT` / scope not-found `NOT_FOUND` / no permission `PERMISSION_DENIED` / no step-up `UNAUTHENTICATED` / get download URL / get not-completed `FAILED_PRECONDITION`;
   - jit-pending: activate-with-approval creates pending / approve happy / deny / double-approve `FAILED_PRECONDITION` / self-approve `FAILED_PRECONDITION` / non-designated approver `PERMISSION_DENIED` / duplicate pending `ALREADY_EXISTS` / no step-up `UNAUTHENTICATED`.
-- [ ] **CI** — `make test-integration && make e2e-test` зелёный.
+- [ ] **CI** — `make -C services/iam test && make -C deploy e2e-test` зелёный.
 
 ### Operational
 

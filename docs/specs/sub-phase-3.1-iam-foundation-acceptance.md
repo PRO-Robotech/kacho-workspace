@@ -495,7 +495,7 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
   protocol; парсит все .proto в `proto/kacho/cloud/*/v1/*.proto`; emit'ит JSON.
 - **`gen/permission_catalog.json`** (commit'ится) — generated artifact.
 - **`buf.gen.yaml`** — wire plugin для регенерации catalog при `buf generate`.
-- **`.github/workflows/ci.yaml`** — добавить step `make verify-catalog` который запускает
+- **`.github/workflows/ci.yaml`** — добавить step `make -C gateway permission-catalog-check` который запускает
   `buf generate` + `git diff --exit-code gen/permission_catalog.json`.
 
 ### 5.2 kacho-corelib
@@ -576,7 +576,7 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 **Given** Postgres-инстанс с уже применёнными миграциями `0001..0010` (KAC-105/108/125 baseline);
 данные не содержат строк, которые будут конфликтовать с новыми CHECK constraint'ами.
 
-**When** запускается `kacho-iam-migrator up` (или `make migrate-iam`).
+**When** запускается `kacho-iam-migrator up` (или `make -C services/iam migrate-up`).
 
 **Then** все 4 миграции `0011_kac127_identity_extension.sql`, `0012_kac127_federation_jit_conditions.sql`,
 `0013_kac127_audit_caep_pipeline.sql`, `0014_kac127_scim_gdpr_reviews_jwks.sql` применены без ошибок.
@@ -1037,7 +1037,7 @@ INSERT INTO access_bindings_jit_eligibility (
 **Given** kacho-proto репо со всеми текущими `.proto` под `proto/kacho/cloud/*/v1/*.proto`,
 RPC которых аннотированы `(kacho.iam.authz.permission)` и т.д.
 
-**When** запускается `cd kacho-proto && buf generate`.
+**When** запускается `cd proto && buf generate`.
 
 **Then** генерируется `gen/permission_catalog.json` с deterministic ordering.
 **And** для каждой RPC присутствует запись (формат — нормативная JSON-schema из §2.7):

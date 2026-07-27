@@ -796,7 +796,7 @@ VPC-1 готова к merge только при выполнении ВСЕГО 
   шаг с change-set (не редактировать сценарии — они формулируют target hyphen-форму).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/vpc audit-list-filter` зелёные.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (новые/изменённые RPC — записи в каталоге);
   proto — `buf lint`/`buf breaking` (breaking-changes задекларированы: DhcpOptions-drop,
   placement_type write-contract, cidr-rename) зелёные после регена.

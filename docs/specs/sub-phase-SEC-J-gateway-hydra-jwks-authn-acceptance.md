@@ -318,7 +318,8 @@ All tests authored and run RED **before** the fix; pair RED→GREEN shown in the
 - **Regression (B)**: an existing HS256-dev-authenticated case still passes unedited.
 
 > Final verification before merge (ai-tooling §7): `go test ./... -race` +
-> `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman green; and a
+> `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` +
+> newman green; and a
 > manual end-to-end "register+login → WhoAmI 200" on the kind dev stand confirming the
 > original bug is fixed.
 
@@ -363,6 +364,7 @@ verified by a render test and the kind stand.
 - [ ] kacho-deploy helm emits a reachable in-cluster JWKS URL + consistent issuer (F);
       render test green.
 - [ ] No proto/contract change; ban #6 unaffected (G).
-- [ ] `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman green.
+- [ ] `go test ./... -race` + `golangci-lint run` + `govulncheck` +
+      `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman green.
 - [ ] Manual dev-stand check: register + login → WhoAmI returns 200 (original bug gone).
 - [ ] Ticket → Test → Done with artifacts (PR URLs, test logs); vault trail updated.

@@ -428,7 +428,8 @@ JSON-ответ (camelCase): `{ "privileges": [ { "bindingId","roleId","roleName
 
 **S6 — workspace (docs/vault):** обновить vault `rpc/kacho-iam-access_binding_service.md` (новый RPC), `resources/kacho-iam-access_binding.md` (subject-privileges проекция), KAC-trail; этот acceptance-док → статус APPROVED.
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` (новый list-RPC должен фильтровать по scope) + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` (у iam своей цели нет; что новый
+list-RPC фильтрует по scope — доказывают go-тесты `internal/authzfilter`) + newman зелёные.
 
 ---
 

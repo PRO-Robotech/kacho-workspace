@@ -699,8 +699,8 @@ Phase 8 разбит на 6 tasks (per plan §477-503). Каждая task име
   - subscriber partial UNIQUE: два concurrent Create'а с same (account_id, endpoint_url, signing_kid) → ровно один win, второй → AlreadyExists (23505);
   - signer kid-cache eviction: rotation in jwks_keys → drainer fetches new key in ≤5min.
 - **DoD**:
-  - сборка `make build` зелёная;
-  - `make integration-test` зелёный (включая race tests);
+  - сборка `make -C services/iam build` зелёная;
+  - `make -C services/iam test` зелёный (включая race tests);
   - newman cases (см. §6 / §7) зелёные;
   - drainer survives `SIGTERM` graceful (current claims released back to pending в-flight).
 
@@ -1723,7 +1723,8 @@ Phase 8 разбит на 6 tasks (per plan §477-503). Каждая task име
 
 ### k6 load test
 
-- [ ] `kacho-test/tests/k6/caep_revoke_latency_kac127.js` — fully implemented; runs in `make k6-test`.
+- [ ] `caep_revoke_latency_kac127.js` — **не написан**, и цели `k6-test` не существует: единственный
+      k6-набор в дереве — `services/nlb/tests/k6` (`make -C services/nlb/tests/k6 k6-smoke`), iam-сценария там нет.
 - [ ] Test report `docs/qa/phase8-k6-revoke-latency-2026-MM-DD.md` committed with:
   - p95 webhook delivery ≤ 2s — pass/fail status.
   - p99 webhook delivery ≤ 5s — pass/fail.

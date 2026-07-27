@@ -53,7 +53,7 @@ Image-часть — **net-new**: нет proto, нет таблицы, нет к
 | F11 | **NET-NEW** `Image` как `storage.image` Referrer-цель — **ортогонален** registry `registry.image` (B13 imageKind-дискриминатор) `[PHASE-0-GATED B1/B13]` | unified §2 compute ImageCatalog, §8 B13 |
 | F12 | **NET-NEW** `Image` source-oneof `{sourceSnapshotId\|sourceVolumeId}` exactly-one (blank DEFER); public `{sizeBytes°,minDiskBytes°,format°}` (`format°` native Kachō enum); two-projection (blob-layout/bucket/engineNamespace — Internal) | unified §2 registry (bucket/blob Internal), §5 инв-1 |
 | F13 | Единый тон ошибок by-lane (INTERNAL-opaque, immutable-текст, malformed-first) `[reason-token PHASE-0-GATED]`; Image owner-tuple anti-BOLA (`storage_image:<id>`, emit в STOR-1, hardening→STOR-3) | unified §1 conv-11, §5 инв-5; edges/storage-to-iam-fgaproxy |
-| F14 | **NET-NEW** `ImageService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → INVALID_ARGUMENT) + cursor + `filter name=` | api-conventions §pagination/Gotcha; security инв-7; `make audit-list-filter` |
+| F14 | **NET-NEW** `ImageService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → INVALID_ARGUMENT) + cursor + `filter name=` | api-conventions §pagination/Gotcha; security инв-7; `make -C services/storage audit-list-filter` |
 
 ---
 
@@ -648,7 +648,7 @@ OQ5 `source_image_id` **ON DELETE SET NULL** (parity с `source_snapshot_id`); O
 **Given** проект `prj-acme` содержит `img-a`, `img-b`; проект `prj-other` содержит `img-x`; caller — `viewer` только на `prj-acme`
 
 **When** `ImageService.List(projectId="prj-acme")`
-**Then** 200 с `img-a`, `img-b`; `img-x` **отсутствует** (listauthz row-filter — результат отфильтрован per-object; security-инвариант + CI-гейт `make audit-list-filter`)
+**Then** 200 с `img-a`, `img-b`; `img-x` **отсутствует** (listauthz row-filter — результат отфильтрован per-object; security-инвариант + CI-гейт `make -C services/storage audit-list-filter`)
 **And** caller **без** грантов на `prj-acme` → пустая страница (empty-grant short-circuit) — но **после** pagination-validate (STOR-1-32)
 
 ### Сценарий STOR-1-32 (negative): pagination-validate ДО authz empty-grant short-circuit
@@ -685,7 +685,7 @@ STOR-1 готова к merge только при выполнении ВСЕГО
 - [ ] Каждый `STOR-1-NN` имеет зелёный **integration-тест** (testcontainers Postgres 16) — `Test<Resource>_STOR_1_NN` — покрывающий SQL-сторону: CAS/FK-RESTRICT/UNIQUE/EXCLUDE.
 - [ ] **Concurrent-race обязателен** (data-integrity §5): `STOR-1-07` (двойной attach) — integration `-race`, детерминированный (blocker держит CAS-слот, backlog копится, ровно один writer выигрывает), **не** `time.Sleep`. Аналогично любой спорный CAS-путь Image, если добавлен.
 - [ ] Каждый **public-наблюдаемый** `STOR-1-NN` (Volume/Image CRUD, `ImageService.List` F14, delete-safety через public `Delete`, Image.Delete SET NULL `STOR-1-28`, field-absence, BVA) имеет зелёный **newman-кейс** `tests/newman/cases/*.py` c аннотацией `# verifies STOR-1-NN` — ≥1 happy + ≥1 negative на фичу.
-- [ ] **List-регрессия обязательна** (api-conventions Gotcha + security инв-7): unit на `ValidatePagination` для `ImageService.List` (garbage-token / `pageSize>1000` → `InvalidArgument`) — **до** listauthz empty-grant short-circuit (`STOR-1-32`); listauthz row-filter покрыт (`STOR-1-31`) — `make audit-list-filter` включает `storage.images.list`.
+- [ ] **List-регрессия обязательна** (api-conventions Gotcha + security инв-7): unit на `ValidatePagination` для `ImageService.List` (garbage-token / `pageSize>1000` → `InvalidArgument`) — **до** listauthz empty-grant short-circuit (`STOR-1-32`); listauthz row-filter покрыт (`STOR-1-31`) — `make -C services/storage audit-list-filter` включает `storage.images.list`.
 - [ ] **Internal-only** сценарии (attach-CAS F3, GetInternal F8, InternalImageService F12) покрываются **integration + bufconn** (не newman-public); **отсутствие `InternalVolumeService`/`InternalImageService` на external mux** — сам по себе assert (`STOR-1-17`, api-gateway-audit).
 - [ ] TDD-порядок: RED (падает по нужной причине) ДО кода, пара RED→GREEN в PR. Трассировка `STOR-1-NN ↔ Test<R>_STOR_1_NN ↔ cases/*.py`.
 
@@ -702,7 +702,7 @@ STOR-1 готова к merge только при выполнении ВСЕГО
 - [ ] Public RPC (`ImageService` Get/List/Create/Update/Delete) зарегистрированы в api-gateway (`api-gateway-registrar`); `InternalImageService` — **только** internal mux (ban #6).
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/storage audit-list-filter` зелёные.
 - [ ] `make -C gateway permission-catalog-check` byte-identical; newman зелёные (все public `STOR-1-NN`).
 - [ ] Vault-trail: обновить `resources/storage-volume.md` (source_image_id, Referrer), создать `resources/storage-image.md`, `rpc/storage-image-service.md`; `edges/storage-to-iam-fgaproxy.md` (+ storage_image); `KAC/STOR-1.md`.
 

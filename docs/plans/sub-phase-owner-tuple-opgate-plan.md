@@ -36,7 +36,7 @@ success-done никогда без confirm.
 - **P3** vpc (полная матрица): RED OTG-03/-04(крит)/-05(крит)/-05b(крит)/-06/-07/-08/-16/-13(-race)/-09..12. Confirmer+switch Network/SG/Subnet+cmd wiring.
 - **P4** compute Instance/Disk: RED OTG-03/-04/-05/-05b/-16. `runOpWithConfirm`+confirmer+sync-registrar.
 - **P5** storage Volume: RED OTG-03/-04/-05. Confirmer+switch.
-- **P6** newman (§6.2): RED OTG-01/02/14/04 → green post-fix. buf breaking=0, vpc `make audit-list-filter`.
+- **P6** newman (§6.2): RED OTG-01/02/14/04 → green post-fix. buf breaking=0, vpc `make -C services/vpc audit-list-filter`.
 - **P7** trail: vault edges/rpc/resources/KAC + follow-up Issue idempotency-key-на-Create (FIX-3).
 
 Merge-блокеры (DoD): RED→GREEN пары OTG-04/-05/-05b/-13.

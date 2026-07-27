@@ -728,7 +728,7 @@ Production-complete в границах LB+Listener core + TG.port co-req (`ai-t
 - [ ] **VIP-uniqueness проверяется на LoadBalancer.** Ни один listener-level индекс/CHECK не претендует на VIP-инвариант; `listeners.allocated_address`/`address_id` прод-кодом не пишутся (`SetAllocatedAddress`/`SetVIP` — без прод-вызывающих).
 
 **Проектные гейты:**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/nlb audit-list-filter` зелёные.
 - [ ] proto — `buf lint`/`buf breaking` (breaking задекларированы: placement-слияние, start/stop-drop, attach/detach-drop, VIP-консолидация на LB — снятие listener-адресных полей в `reserved`) зелёные после регена. proto ревьюит `proto-api-reviewer`; миграции — `db-architect-reviewer`; VIP-сага + status-recompute CAS — `system-design-reviewer`.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (снятые `start`/`stop`/`attachTargetGroup`/`detachTargetGroup` — удалены из каталога; новые LB/Listener RPC — записи есть, ключёваны на `nlb_*` из 1a).
 - [ ] authz на КАЖДОМ RPC обоих листенеров (`nlb_*`-типы из 1a): read → viewer-floor, мутации → editor на target, Create → editor на project; `scope_extractor` резолвит target→project; `List` фильтруется listauthz. Per-RPC gateway-регистрация каждого нового public LB/Listener RPC — **в этом PR** (`api-gateway-registrar`).

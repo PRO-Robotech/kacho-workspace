@@ -482,7 +482,7 @@ Subsequent API calls — standard:
 - `gen/permission_catalog.json` — обновлён `protoc-gen-kacho-permissions` plugin'ом (Phase 1) — новые permissions: `iam.serviceAccountKeys.{create,delete,list,rotate,get}`, `iam.federationTrustPolicies.{create,update,delete,get,list}`, `iam.federations.exchange` (anonymous → permission tag = `"public"`).
 
 **Sanity**: `buf lint` зелёный, `buf breaking against=main` — нет breaking changes (только новые
-файлы / messages / services), `make gen` пересоздаёт `gen/go/...` без diff.
+файлы / messages / services), `cd proto && buf generate` пересоздаёт `pkg/api/...` без diff.
 
 ### 5.2 `kacho-corelib` PR (#2)
 
@@ -2076,20 +2076,20 @@ compose.yml` — small Go binary `mock-github-oidc` бинарь housed in `kach
     `exchange_wrong_aud.py`, `exchange_business_hours.py`, `exchange_policy_disabled.py`,
     `exchange_rate_limit.py`.
   - `e2e_class_a.py`, `e2e_class_b.py`.
-  Все запускаются `make newman` зелёные.
+  Все запускаются `services/iam/tests/newman/scripts/run.sh` зелёные (цели `newman` нет ни в одном Makefile).
 - [ ] **Concurrent integration tests** — Scenario 6.4.4 (concurrent rotate via partial UNIQUE)
   и Scenario 6.8.3 (singleflight collapses) — N goroutines, проверяют что **exactly one**
   succeeds / **exactly one** HTTP fetch.
 - [ ] **buf lint** + **buf breaking** зелёные на `kacho-proto`.
-- [ ] **`make gen`** в `kacho-proto` — diff пустой (regenerated stubs committed).
+- [ ] **`cd proto && buf generate`** — diff по `pkg/api` пустой (regenerated stubs committed).
 - [ ] **`go vet` + golangci-lint** зелёные.
 - [ ] **regression test**: `kacho-api-gateway` mux_test проверяет — `InternalTrustPolicyService`
   НЕ на public mux.
 
 ### Operational
 
-- [ ] **Migration `0015_kac127_federation_rate_limits.sql`** applies cleanly: `make migrate-up`
-  + `make migrate-down` + `make migrate-up` — no errors.
+- [ ] **Migration `0015_kac127_federation_rate_limits.sql`** applies cleanly: `make -C services/iam migrate-up`
+  + `make -C services/iam migrate-down` + `make -C services/iam migrate-up` — no errors.
 - [ ] **Bootstrap behaviour**: при первом запуске kacho-iam — нет issues (нет policies, нет
   keys; tables пустые — sanity test).
 - [ ] **Hydra integration**: dev стенд имеет real Hydra; tests на real Hydra pass (через `make -C deploy e2e-test`).

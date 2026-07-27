@@ -528,7 +528,9 @@ gRPC: `Create`/`ReplaceTargetSelector` — async → Operation (ban #9).
 
 **S6 — workspace (docs/vault):** обновить `rpc/iam-access-binding-service.md` (`ReplaceTargetSelector` + Create-selector дельта), `resources/iam-access-binding.md` (selector активирован + verification_status + containment из mirror + expiry eager-revoke), **обновить vault-trail mirror** (`resources/iam-resource-mirror.md` — read-for-authz в γ + `parent_account_id` backfill D4; файл уже создан в β — **обязательный DoD-пункт**, не «создать если нет»), KAC-trail; этот acceptance-док → APPROVED. **НЕ заводить `edges/iam-to-compute`/`iam-to-vpc`** — γ НЕ вводит cross-domain ребра (containment из same-DB mirror, D1/D10).
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и
+проверяется go-тестами).
 
 ---
 

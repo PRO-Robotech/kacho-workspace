@@ -225,7 +225,7 @@ Exit 0 на success; exit 1 с list of found.
 
 **When** `scripts/freeze-checks/06-newman-100pct.sh`.
 **Then**:
-- `cd project/kacho-iam && ./tests/newman/scripts/coverage.py --min 100` exit 0
+- `cd services/iam && ./tests/newman/scripts/coverage.py --min 100` exit 0
 - Same для kacho-vpc, kacho-compute, kacho-api-gateway (если applicable)
 
 ### Item 07: «Все newman-сюиты в run.sh, генерируются gen.py, зелёные в CI»

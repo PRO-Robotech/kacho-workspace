@@ -666,7 +666,7 @@ kacho-deploy/
   - `internal/audit/s3writer_test.go` — MinIO testcontainer + SoftHSM.
   - `internal/audit/verifier_test.go` — Merkle chain tamper detection.
   - `internal/audit/siem_forwarder_test.go` — httptest webhook stub.
-- **DoD:** unit + integration зелёные; `make test` зелёный; vault `resources/iam-siem-subscriber.md` + `packages/iam-audit.md` created.
+- **DoD:** unit + integration зелёные; `make -C services/iam test` зелёный; vault `resources/iam-siem-subscriber.md` + `packages/iam-audit.md` created.
 
 ### 5.4 kacho-deploy (PR #4, tasks 9.3 + 9.4 + 9.6 + 9.10 + 9.11)
 
@@ -1478,7 +1478,8 @@ GeoIP service returns countries US / RU respectively.
 
 **Tests:**
 - [ ] Integration tests зелёные (testcontainers Postgres + Kafka + MinIO + SoftHSM): drainer concurrent SKIP LOCKED; S3 batch HSM sign roundtrip; verifier tamper detection.
-- [ ] End-to-end test (kacho-deploy `make e2e-test-phase-9`): mutation in kacho-iam → audit_outbox → Kafka → ClickHouse (queryable within 60s) + S3 (object + manifest present + HSM-signed) + SIEM webhook (httptest receiver verifies).
+- [ ] End-to-end test — цели `e2e-test-phase-9` **не существует**, и конвейер аудита (Kafka →
+      ClickHouse → S3) в дерево не посажен; сквозная проверка ниже описывает несделанное: mutation in kacho-iam → audit_outbox → Kafka → ClickHouse (queryable within 60s) + S3 (object + manifest present + HSM-signed) + SIEM webhook (httptest receiver verifies).
 - [ ] Newman cases `9.x_audit_pipeline.py` zелёный: SIEM CRUD; TestDelivery; subscriber 4xx auto-disable; subscriber 5xx exp backoff.
 - [ ] Chaos test (manual): kill 1 of 3 Kafka brokers — audit pipeline продолжает работать, no event loss.
 - [ ] Chaos test (manual): kill HSM connection — S3 writer pauses gracefully, PagerDuty Critical fires, recovers on HSM restore.

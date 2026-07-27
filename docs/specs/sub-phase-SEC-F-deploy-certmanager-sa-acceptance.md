@@ -383,7 +383,8 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
   (роль действительно узкая)
 **And** негативная проба FGA-proxy: SA без relation `fga_writer` на `iam_fgaproxy:system` зовёт
   `RegisterResource` → `PermissionDenied` (ReBAC-энфорс §4.1.1)
-**And** `make audit-list-filter` (CI-гейт) — зелёный (List-фильтрация под SA не регрессирует).
+**And** `make -C services/{compute,nlb,storage,vpc} audit-list-filter` (CI-гейт) — зелёный
+(List-фильтрация под SA не регрессирует).
 
 ---
 
@@ -520,7 +521,7 @@ secret'ах; helm-values профиль `mtls.enabled` (per-edge); `NetworkPolic
         селектор `app.kubernetes.io/name` (SEC-F-12). Гейт: только после SEC-D зелёного.
   - [ ] **per-edge mismatch-тест:** асимметрия ребра → `Unavailable`, локализация на ребро (SEC-F-07/13).
 - [ ] `helm lint` + `helm template` + `kubectl apply --dry-run=server`/`kubeconform` — зелёные на обоих профилях (SEC-F-14).
-- [ ] `make audit-list-filter` зелёный под least-priv SA (SEC-F-10).
+- [ ] `make -C services/{compute,nlb,storage,vpc} audit-list-filter` зелёный под least-priv SA (SEC-F-10).
 - [ ] **Зависимости-гейты соблюдены:** SEC-C/D/E в `main` до включения mTLS-профиля; NetworkPolicy
       openfga — только после SEC-D зелёного (§3.1).
 - [ ] PR `PRO-Robotech/kacho-deploy#<N>` открыт; CI зелёный; PR-URL в KAC-тикет (комментарий) + в KAC-trail.

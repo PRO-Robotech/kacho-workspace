@@ -430,7 +430,9 @@
 - [ ] by-design: запись в `docs/architecture/` kacho-iam (O-4 reopening — обоснование, единая модель видимости по указанию владельца).
 - [ ] **O-4 reopening зафиксирован**: T3 `feed_registry.go` комментарии O-4 («iam.role/serviceAccount/group/user/accessBinding are NOT label-selectable») — обновить под новое решение (это часть прод-кода S2, не S6 — отмечено для трассировки).
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и
+проверяется go-тестами).
 
 ---
 

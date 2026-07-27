@@ -54,7 +54,7 @@ separate `Internal*` message or `internal-only, unset-in-public` fields carrying
 upstream endpoint / credentials / scan-backend / bucket / host / numeric-infra-id. Precedent
 already live: `RegistryStats` + `TriggerGarbageCollection` are `Internal*`-only; the data-plane
 reverse-proxies to the engine but leaks **no** engine identity (fixed OCI error bodies only). A
-gateway-level projection audit (analogous to `make audit-list-filter`) should gate that no
+gateway-level projection audit (analogous to the `audit-list-filter` gate) should gate that no
 additively-added field leaks infra data onto the external surface.
 
 ---

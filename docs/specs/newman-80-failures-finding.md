@@ -73,7 +73,7 @@ Sub-phase 3.7b acceptance doc (which this finding harvested from the KAC-127 wor
 **Fix files**:
 - `kacho-proto/proto/kacho/cloud/iam/v1/internal_user_service.proto` + `internal_iam_service.proto` — add `option (google.api.http) = { post: "/iam/v1/internal/users:upsertFromIdentity", body: "*" };` (and 3 others, per `mux.go:444-447` already-wired RegisterInternalUserServiceHandlerFromEndpoint at `kacho-api-gateway/internal/restmux/mux.go`).
 - Regen `kacho-proto/gen/go/...` via `buf generate`.
-- Regen `kacho-api-gateway/internal/middleware/rest_route_table_gen.go` (or whatever the route-table generator is — `make gen` in gateway).
+- Regen `kacho-api-gateway/internal/middleware/rest_route_table_gen.go` — `make -C gateway rest-route-table-apply`.
 
 **Note**: This is also Admin-UI relevant — Internal RPCs need REST routes for admin tooling per workspace `CLAUDE.md` §«Запреты» #6 Admin-UI rule, but **on internal port only** (mux.go:444-447 already wires to `vpcInternalAddr` equivalent for iam). This finding does NOT leak Internal methods to external TLS endpoint — gateway listener separation still holds.
 

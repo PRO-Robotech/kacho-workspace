@@ -1979,7 +1979,7 @@ Vault updates (см. §«Predecessors» list). KAC-127 note updated с Phase 7 P
   - Access review: list pending + confirm + revoke + double-decision rejected.
   - GDPR: request happy + cancel + duplicate ALREADY_EXISTS + owner-block + processor full pipeline (with cool-off shortened for tests via env).
 - [ ] **Notification mocks** — tests use recorded HTTP/SMTP backends (no real PagerDuty/Slack/SMTP calls in CI).
-- [ ] **CI integration** — `make test-integration && make e2e-test` зелёный.
+- [ ] **CI integration** — `make -C services/iam test && make -C deploy e2e-test` зелёный.
 
 ### Operational
 

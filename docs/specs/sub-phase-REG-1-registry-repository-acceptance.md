@@ -587,7 +587,7 @@ negative указывает точный gRPC-код + `reason`-token (`api-conv
 **Then** (a) → hide-existence `NOT_FOUND "Registry reg-c9k2 not found"` (byte-identical реальному miss, `security.md` #6 — unauthorized неотличим от absent)
 **And** (b) → мутация fail-closed отвергнута (`PERMISSION_DENIED`, либо hide-existence по project-scope при невидимом project); e2e-негатив толерирует `oneOf([400,403,404])` (authz-first, `testing.md`)
 **And** (c) → аналогично hide-existence `NOT_FOUND` (Registry direct-read scope-gate); Operation НЕ создаётся
-**And** (d) → `List` scope-filtered через iam `ListObjects` (v_list) — возвращает **только** видимые реестры (listauthz row-filter, `security.md` «публичный List обязан фильтровать»; `make audit-list-filter` gate)
+**And** (d) → `List` scope-filtered через iam `ListObjects` (v_list) — возвращает **только** видимые реестры (listauthz row-filter, `security.md` «публичный List обязан фильтровать»; гейт `audit-list-filter`)
 
 ---
 
@@ -641,7 +641,9 @@ REG-1 готова к merge только при выполнении всего 
   существующих RPC), но rename поля не должен ломать catalog.
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные. `make -C services/registry
+      audit-list-filter` **гейтом пока не является**: рецепт печатает «реализуется вместе с
+      `RegistryService.List`» и выходит с нулём (`services/registry/Makefile`) — цель есть, проверки нет.
 - [ ] newman зелёные (все `REG-1-NN`); RG-1 overlay-suite не регрессировал (REG-1 additive).
 
 ---

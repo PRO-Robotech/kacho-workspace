@@ -470,7 +470,7 @@ Dedupe + стабильная сортировка. Результат — `role
 
 **Механизм:** per-object фильтрация через **FGA `ListObjects`** (вернуть множество объектов типа T, на которых subject имеет relation `viewer`/`list`), а НЕ type-level «можно листать тип». Источник питания — те же **materialized per-object tuples** (из matchLabels/resourceNames-правил, эмитятся reconciler'ом) + `scope_grant` (для all_in_scope). Т.е. List и Check читают одну и ту же tuple-базу — single source of truth, паритет read==enforce.
 
-**Интеграция:** существующий listauthz CI-гейт (`make audit-list-filter`, security.md «публичный List обязан фильтровать через listauthz») **расширяется до per-object**: каждый публичный `List` прогоняет id-set через `ListObjects`/batch-Check и отдаёт пересечение. Pagination применяется ПОСЛЕ фильтра (cursor по отфильтрованному набору). Cross-domain consumer'ы (vpc/compute/nlb List) фильтруют через `InternalIAMService` (ListObjects-аналог), fail-closed.
+**Интеграция:** существующий listauthz CI-гейт (`make -C services/{compute,nlb,storage,vpc} audit-list-filter`, security.md «публичный List обязан фильтровать через listauthz») **расширяется до per-object**: каждый публичный `List` прогоняет id-set через `ListObjects`/batch-Check и отдаёт пересечение. Pagination применяется ПОСЛЕ фильтра (cursor по отфильтрованному набору). Cross-domain consumer'ы (vpc/compute/nlb List) фильтруют через `InternalIAMService` (ListObjects-аналог), fail-closed.
 
 **Verification-гейт (после реализации — обязателен):**
 - **LST-1 (labels):** subject с `matchLabels:{env:prod}` list-грантом → `List` отдаёт ТОЛЬКО `env=prod`-объекты в scope; объекты с `env=staging` НЕ в выдаче.

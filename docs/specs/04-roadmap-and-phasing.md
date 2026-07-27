@@ -136,7 +136,8 @@ state-машину (`.claude/rules/data-integrity.md`).
 ### 2.6. Шаг 6 — финальная верификация и trail
 
 Перед merge: `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-`make audit-list-filter` (каждый public `List` фильтрует через listauthz) + newman
+`make -C services/{compute,nlb,storage,vpc} audit-list-filter`
+(каждый public `List` фильтрует через listauthz) + newman
 зелёные. После merge — обновить trail в vault (resources/rpc/packages/edges/KAC) и
 перевести тикет `Test → Done` со всеми артефактами (PR-URL, лог тестов, кросс-репо
 ссылки).

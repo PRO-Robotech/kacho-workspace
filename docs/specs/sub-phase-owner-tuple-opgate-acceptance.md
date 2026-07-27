@@ -509,7 +509,7 @@ covered/verified scope.
 |---|---|
 | confirm — reuse `InternalIAMService.Check`, без нового cross-service ребра (code-review + `polyrepo.md` без новой edge-записи) | OTG-08 |
 | `buf breaking` iam/vpc/compute/storage = 0 (op-форма additive-only или без proto-diff) | OTG-15 |
-| `make audit-list-filter` (vpc) зелёный — listauthz не сломан | (регрессия) |
+| `make -C services/vpc audit-list-filter` (vpc) зелёный — listauthz не сломан | (регрессия) |
 
 ---
 
@@ -523,7 +523,7 @@ covered/verified scope.
 - [ ] sync-registrar (SEC-D) переиспользован как confirm-шаг; register-drainer/at-least-once не сломан (OTG-06/07); SEC-D-11 durability сохранена.
 - [ ] Newman §6.2 (happy + regression) зелёные на dev-стенде; исчезновение 403-окна подтверждено на всех представителях (OTG-14).
 - [ ] `buf breaking` = 0 (или только additive metadata-поле) — OTG-15.
-- [ ] Финальная верификация per-repo: `go test ./... -race` + `golangci-lint run` + `govulncheck` + (vpc) `make audit-list-filter` + newman зелёные.
+- [ ] Финальная верификация per-repo: `go test ./... -race` + `golangci-lint run` + `govulncheck` + (vpc) `make -C services/vpc audit-list-filter` + newman зелёные.
 - [ ] Vault-trail:
   - [ ] `obsidian/kacho/edges/{vpc,compute,storage}-to-iam-fgaproxy.md` — секция «op-gating: Create-op ждёт read-after-register confirm (via `Check`, reuse); supersede SEC-D-11 (fail-closed по deadline, durability сохранена)» + «History» с KAC.
   - [ ] `obsidian/kacho/edges/iam-to-openfga-grant-write.md` — «iam confirm in-process (binding-OBJECT per-object access) перед op-done; γ-01 behaviorally locked».

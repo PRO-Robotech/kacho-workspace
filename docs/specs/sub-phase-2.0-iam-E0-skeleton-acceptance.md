@@ -2160,9 +2160,9 @@ RETURNING id;
 
 | # | Критерий                                                                                                              | Способ проверки                                                          |
 |---|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| 1 | `cd project/kacho-iam && make build` — зелёный (бинари `kacho-iam`, `migrator`)                                       | CI job `build` в `.github/workflows/ci.yaml` (matrix go 1.23/1.24)        |
-| 2 | `make test` — зелёный (unit + integration через testcontainers); race-flag активен                                    | CI job `test` (PostgreSQL 16 container)                                  |
-| 3 | `cd ../kacho-deploy && make dev-up` — поднимает `kacho-iam` в kind, healthcheck `/healthz` OK                          | вручную smoke в PR-описании / CI job `e2e` (если есть)                   |
+| 1 | `make -C services/iam build` — зелёный (бинари `kacho-iam`, `migrator`)                                       | CI job `build` в `.github/workflows/ci.yaml` (matrix go 1.23/1.24)        |
+| 2 | `make -C services/iam test` — зелёный (unit + integration через testcontainers); race-flag активен                                    | CI job `test` (PostgreSQL 16 container)                                  |
+| 3 | `make -C deploy dev-up` — поднимает `kacho-iam` в kind, healthcheck `/healthz` OK                          | вручную smoke в PR-описании / CI job `e2e` (если есть)                   |
 | 4 | `bin/migrator up` создаёт схему `kacho_iam` + 9 таблиц + 12 default-роли                                              | psql `\dt kacho_iam.*` → 9 row; `SELECT count(*) FROM roles WHERE is_system=true` = 12 |
 | 5 | Newman-кейсы (`tests/newman/cases/iam-*.py`) зелёные через api-gateway:18080                                          | CI job `newman` (минимум 10 cases-файлов по §7, каждый ≥ 1 happy + 1 negative) |
 | 6 | Каждый публичный RPC зарегистрирован в api-gateway (REST + gRPC)                                                       | `api-gateway-registrar` агент verify-step + newman кейс на каждый RPC    |
@@ -2172,7 +2172,7 @@ RETURNING id;
 | 10 | corelib `operations.Operation` расширен `principal_*` полями (PR-1 chain выше)                                        | grep на `principal_type` в corelib/operations + тест `worker_baggage_test.go` обновлён |
 | 11 | proto-PR на `kacho.cloud.iam.v1.*` смержен в kacho-proto, gen/go обновлён                                              | git ls-files в kacho-proto + `buf lint` зелёный                          |
 | 12 | Helm chart-stub в `kacho-deploy/charts/kacho-iam/` смержен                                                            | helm template kacho-iam — без ошибок                                     |
-| 13 | **Все existing-сервисы (kacho-vpc, kacho-resource-manager, kacho-compute, kacho-loadbalancer) пропустили `make sync-migrations` и пересобраны до merge'а PR-4 (kacho-iam) в main** — см. §14.1 PR-chain | per-repo `git log -- internal/migrations/common/0002_operations_principal.sql` показывает merged-commit; init-container `migrator` в kacho-deploy dev-up отрабатывает зелёным для каждого сервиса |
+| 13 | **Все existing-сервисы (kacho-vpc, kacho-resource-manager, kacho-compute, kacho-loadbalancer) пропустили `make -C services/{compute,nlb,vpc} sync-migrations` и пересобраны до merge'а PR-4 (kacho-iam) в main** — см. §14.1 PR-chain | per-repo `git log -- internal/migrations/common/0002_operations_principal.sql` показывает merged-commit; init-container `migrator` в kacho-deploy dev-up отрабатывает зелёным для каждого сервиса |
 
 **Acceptance gate enforcement (запрет #11)**: каждый PR в E0-chain содержит **либо** тесты
   на свой scope (integration + newman), **либо** trailer `Tests-followup: KAC-N` со ссылкой
@@ -2429,7 +2429,7 @@ pre-existing row RETURNING вернёт её оригинальные `id` и `c
 | # | Repo                     | Branch / PR title                                    | Содержание                                                                              |
 |---|--------------------------|------------------------------------------------------|-----------------------------------------------------------------------------------------|
 | 1 | `kacho-corelib`          | `KAC-105-corelib-principal`                          | Миграция `migrations/common/0002_operations_principal.sql` (новые колонки `principal_type/id/display_name` с DEFAULT'ами `'system'/'bootstrap'/'System'`) + `operations.Operation` domain-тип + `operations.Repo.CreateWithPrincipal(ctx, op, principal)` (новый метод; legacy `Create(ctx, op)` сохраняется) + `operations.SystemBootstrapPrincipal()` helper + `PrefixAccount/PrefixProject/PrefixUser/PrefixServiceAccount/PrefixGroup/PrefixRole/PrefixAccessBinding/PrefixOperationIAM` в `ids/ids.go` |
-| 2 | **sync-migrations rollout (kacho-vpc / kacho-resource-manager / kacho-compute / kacho-loadbalancer)** | per-repo: `KAC-105-sync-principal-migration` | В каждом сервисе: `make sync-migrations` копирует новый `0002_operations_principal.sql` из corelib в `internal/migrations/common/`; deploy через kacho-deploy с init-container'ом `migrator up`; сервис продолжает использовать legacy `operations.Repo.Create` — новые колонки заполняются DEFAULT'ами на DB-уровне. Это **блокирующий шаг для всего chain'а** (без него existing-сервисы упадут при INSERT после регенерации proto). |
+| 2 | **sync-migrations rollout (kacho-vpc / kacho-resource-manager / kacho-compute / kacho-loadbalancer)** | per-repo: `KAC-105-sync-principal-migration` | В каждом сервисе: `make -C services/{compute,nlb,vpc} sync-migrations` копирует новый `0002_operations_principal.sql` из corelib в `internal/migrations/common/`; deploy через kacho-deploy с init-container'ом `migrator up`; сервис продолжает использовать legacy `operations.Repo.Create` — новые колонки заполняются DEFAULT'ами на DB-уровне. Это **блокирующий шаг для всего chain'а** (без него existing-сервисы упадут при INSERT после регенерации proto). |
 | 3 | `kacho-proto`            | `KAC-105-iam-v1`                                     | Новый пакет `kacho/cloud/iam/v1/*.proto` + **append** полей 10/11/12 (`principal_type`, `principal_id`, `principal_display_name`) в `kacho/cloud/operation/v1/operation.proto` (proto append-only, **не** breaking по wire-формату; `buf breaking` зелёный) + gen/go regenerated |
 | 4 | `kacho-iam` (new repo)   | `KAC-105-bootstrap`                                  | Скелет репо + `0001_initial.sql` (с колонками `principal_*` сразу, новый сервис — squashed baseline) + cmd/kacho-iam + cmd/migrator + use-cases (используют `operations.Repo.CreateWithPrincipal` с stub'ом `SystemBootstrapPrincipal()` на E0) + integration-tests + Dockerfile + Makefile + ER-diagram |
 | 5 | `kacho-api-gateway`      | `KAC-105-iam-register`                               | Регистрация всех `iam.v1.*Service` в public mux; `Internal*Service` — только internal mux; admin-only TLS-filter обновлён (список запрещённых paths). Перегенерация stubs `kacho-proto` — автоматически подхватывает новые `principal_*` поля в Operation-payload через grpc-gateway. |
@@ -2482,7 +2482,7 @@ PR'ы должны ссылаться на KAC-105 в title (`[KAC-105]`) и bod
 
 **PR-2 — sync-migrations rollout** (несколько per-repo PR'ов, параллельно после PR-1 merge):
 - В каждом existing-сервисе (`kacho-vpc`, `kacho-resource-manager`, `kacho-compute`,
-  `kacho-loadbalancer`) запустить `make sync-migrations` (Makefile-target копирует
+  `kacho-loadbalancer`) запустить `make -C services/{compute,nlb,vpc} sync-migrations` (Makefile-target копирует
   `migrations/common/*.sql` из corelib в `internal/migrations/common/`).
 - Per-repo PR: `KAC-105-sync-principal-migration` — содержит **только** новый файл миграции
   + bumped `go.mod` version на corelib.
@@ -2524,7 +2524,7 @@ PR'ы должны ссылаться на KAC-105 в title (`[KAC-105]`) и bod
 legacy-метод оставляет `principal_*` = DEFAULT.
 
 **DoD-следствие для E0 (см. §8 пункт 13 ниже)**: все existing-сервисы (kacho-vpc, kacho-rm,
-kacho-compute, kacho-loadbalancer) **обязаны** пропустить `make sync-migrations` и быть
+kacho-compute, kacho-loadbalancer) **обязаны** пропустить `make -C services/{compute,nlb,vpc} sync-migrations` и быть
 пересобраны и задеплоены **до** merge'а PR-4 (kacho-iam) в main. Без этого новый kacho-iam
 запустится корректно (его squashed baseline уже содержит колонки), но любой existing-сервис
 после рестарта на новой версии corelib упадёт на INSERT, если не прокатил миграцию.

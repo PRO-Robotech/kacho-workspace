@@ -45,7 +45,8 @@
 
 **Given** the FGA model currently defines `emergency_admin: [user with break_glass_window]` and `any_admin: system_admin or emergency_admin`.
 **When** both are removed and `any_admin: system_admin` substituted.
-**Then** `openfga model validate --file fga_model.fga` (or `make openfga-model-validate`) exits 0.
+**Then** `openfga model validate --file fga_model.fga` exits 0 — there is no `openfga-model-validate` target; the committed model is kept in sync by
+`make -C deploy openfga-model-json`, which regenerates the chart configmap from the canonical file.
 **And** no other relation in the file references `emergency_admin` or `break_glass_window` (grep yields zero lines).
 
 ### S2.4 — Proto deletions are visible and intentional
@@ -62,7 +63,7 @@
 ### S2.5 — Regenerated go-stubs build
 
 **Given** the proto changes from S2.1..S2.4 are applied.
-**When** `make gen && go build ./...` is run inside kacho-proto.
+**When** `cd proto && buf generate` and then `go build ./...` are run.
 **Then** the build is clean (the standalone `gen/go/` packages compile without consumers).
 **And** the go-stubs for `iamv1.AccessBinding` carry the `Scope` enum + `GetScope()` accessor.
 **And** the go-stubs for `iamv1.ListObjectsResponse` carry `GetWildcardGrant()`.

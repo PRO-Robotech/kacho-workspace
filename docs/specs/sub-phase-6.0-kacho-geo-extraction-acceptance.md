@@ -316,7 +316,8 @@ Riskiest: (a) breaking-change `compute.v1` proto, (b) live data-migration на �
 - **No dead code**: в compute не осталось Region/Zone proto/схемы/кода (6.0-21/6.0-22); ban #5 (новая drop-миграция, не редактирование применённой); ban #11 (никакого «уберём потом»).
 - **No foreign-cloud refs** (ban #2): домен/код/доки/env описаны в терминах Kachō.
 - **vault + docs**: owner-map, polyrepo build-graph/edges, resources/rpc/packages/edges переписаны; bootstrap.sh + sync-tooling.sh покрывают `kacho-geo`; `docs/specs/00-overview/01-architecture/02-data-model/04-roadmap` отражают geo.
-- **Финальная верификация**: `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные во всех затронутых репо; e2e (`make -C deploy e2e-test`) — заказчиком на шаге 7.
+- **Финальная верификация**: `go test ./... -race` + `golangci-lint run` + `govulncheck` + newman зелёные во всех затронутых модулях (цели `audit-list-filter` у geo нет —
+  `Region`/`Zone` project-scope EXEMPT; гейт живёт в `services/{compute,nlb,storage,vpc}`); e2e (`make -C deploy e2e-test`) — заказчиком на шаге 7.
 
 ## Reviewer checklist (acceptance-reviewer)
 

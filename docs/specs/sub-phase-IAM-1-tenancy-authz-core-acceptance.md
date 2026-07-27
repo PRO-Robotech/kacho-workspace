@@ -636,7 +636,9 @@ IAM-1 готова к merge только при выполнении ВСЕГО 
 - [ ] **Не** редактировать применённые миграции — только новые (ban #5). Новые CHECK/partial-UNIQUE/FK — на DB-уровне (ban #10), не software check-then-act.
 
 **Проектные гейты (финальная верификация):**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные. Цели `audit-list-filter`
+      у iam **нет** — гейт объявлен в `services/{compute,nlb,storage,vpc}`; iam-фильтр
+      (`internal/authzfilter`) проверяется go-тестами.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (iam-seed ↔ gateway-middleware) после regen под новые Role-verbs/catalog; newman зелёные (все `IAM-1-NN`).
 - [ ] Ревью ролями: `proto-api-reviewer` (target-reintroduce tags, definitionTier, scope-rename, buf breaking); `db-architect-reviewer` (partial-UNIQUE WHERE ACTIVE, CHECK-XOR, FK RESTRICT, saga writer-tx atomicity, CAS-backstop); `system-design-reviewer` (Create-сага dual-write, EC-материализация, ban #9).
 

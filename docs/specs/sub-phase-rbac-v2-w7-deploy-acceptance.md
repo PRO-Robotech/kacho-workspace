@@ -13,7 +13,9 @@
 - Remove any jackson-saml Deployment / ConfigMap if present.
 - Delete newman cases for SCIM/SAML/BG (`tests/newman/cases/iam-scim-*.py`, `iam-saml-*.py`, `iam-break-glass-*.py`); regen newman collections.
 - Add newman list-filter regression matrix per (service × resource) cell.
-- `make -C deploy dev-up && make newman-iam-list-filter` green.
+- `make -C deploy dev-up && make -C deploy e2e-newman SVC=iam` green (именных целей
+  `newman-iam-list-filter` / `newman-iam-rbac` не существует — iam-наборы гоняет
+  `services/iam/tests/newman/scripts/run.sh`).
 
 ## Scope (out)
 
@@ -56,7 +58,7 @@
 ### S7.5 — Helm + newman together stable across a full `make -C deploy dev-up && newman`
 
 **Given** the W7 branch + W2..W6 merged.
-**When** `make -C deploy dev-up && make newman-iam-list-filter && make newman-iam-rbac` is run.
+**When** `make -C deploy dev-up && make -C deploy e2e-newman SVC=iam` is run.
 **Then** all suites green; no test skipped; no test in the `// verifies <issue>` red-list.
 
 ## Definition of Done

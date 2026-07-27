@@ -221,7 +221,8 @@ All scenario IDs use the prefix `W1.3-`. Negative cases — exact gRPC code from
   - `KACHO_API_GATEWAY_AUTHZ_FAIL_OPEN` with value `"false"`
   - `KACHO_APP_ENV` with value `"prod"`
 **And** `KACHO_API_GATEWAY_AUTHN_MODE` with value `"production-strict"`
-**And** grep-confirmed in CI by `make helm-validate-prod` (new target — wraps `helm template | grep -E "^.*KACHO_API_GATEWAY_AUTHZ_(ENABLED|FAIL_OPEN)" | wc -l == 2`).
+**And** grep-confirmed in CI by a `helm-validate-prod` target (**never landed** — `deploy/Makefile` has
+`helm-lint` and `helm-manifest-test`, and the `helm` CI job runs `helm template` directly) that would wrap `helm template | grep -E "^.*KACHO_API_GATEWAY_AUTHZ_(ENABLED|FAIL_OPEN)" | wc -l == 2`).
 
 #### Scenario W1.3-H2: dev values unchanged in functional content
 
@@ -423,12 +424,13 @@ When W1.6 lands later: same request → gateway 401 (unchanged) → if gateway w
 ## 4. Definition of Done
 
 - [ ] All 15 GWT scenarios authored above pass as automated tests:
-  - [ ] H1/H2: `make helm-validate-prod` + `make helm-validate-dev` GREEN in `kacho-deploy` CI
+  - [ ] H1/H2: targets `helm-validate-prod` / `helm-validate-dev` — **not landed**; what exists is
+        `make -C deploy helm-lint` + `make -C deploy helm-manifest-test` and the `helm` CI job
   - [ ] 01-05: gateway integration test `internal/middleware/authz_failclosed_integration_test.go` with testcontainers (OpenFGA + kacho-iam-stub) GREEN
   - [ ] 06-10: gateway integration `authz_failclosed_enforcement_test.go` GREEN
   - [ ] 07-09: gateway unit `cmd/api-gateway/main_failclosed_startup_test.go` GREEN
   - [ ] 11-15: cross-cut integration tests added to `cmd/api-gateway/internal_grpc_listener_w1_2_test.go` extension (or new `*_w1_3_test.go`)
-  - [ ] NM-01: newman `AUTHZ-FAILCLOSED-OPENFGA-DOWN` GREEN in `make -C deploy dev-up && cd project/kacho-iam/tests/newman && ./scripts/run-failclosed.sh`
+  - [ ] NM-01: newman `AUTHZ-FAILCLOSED-OPENFGA-DOWN` GREEN in `make -C deploy dev-up && cd services/iam/tests/newman && ./scripts/run-failclosed.sh`
 - [ ] CI green in 2 repos: `kacho-api-gateway` (build/lint/gosec/integration), `kacho-deploy` (helm-lint, helm-template, newman-e2e)
 - [ ] Helm `values.prod.yaml` patched per §2.1; PR shows explicit `authz.enabled=true, authz.failOpen=false, authn.mode=production-strict, extraEnv.KACHO_APP_ENV=prod`
 - [ ] Helm `values.dev.yaml` carries `extraEnv.KACHO_APP_ENV=dev` (matches startup validation)

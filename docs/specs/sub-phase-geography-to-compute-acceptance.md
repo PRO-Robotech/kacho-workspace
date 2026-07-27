@@ -11,7 +11,7 @@
 ## Preconditions
 - `kacho-proto` собран, `gen/` закоммичен, `buf lint` зелёный; ожидаемый `buf breaking` (удаление `vpc/v1` geography-сервисов) — зафиксирован в PR как намеренный.
 - `kacho-compute`, `kacho-vpc`, `kacho-api-gateway`, `kacho-ui`, `kacho-deploy` обновлены и развёрнуты на dev-стенде (`155.212.210.13`).
-- `make build` / `go build ./...` / `go vet ./...` зелёные во всех затронутых репо; UI-сборка зелёная.
+- `make -C services/{compute,geo,vpc} build` / `go build ./...` / `go vet ./...` зелёные во всех затронутых модулях; UI-сборка зелёная.
 
 ## Scenario 1 — Geography живёт ТОЛЬКО в kacho-compute
 **Given** стенд развёрнут, **When** инспектировать схемы БД и proto, **Then**:

@@ -46,7 +46,7 @@ lean public message (id / name / labels / bindings / allocated tenant resource /
 a separate `Internal*` message or `internal-only, unset-in-public` fields carrying placement /
 underlay / wiring / capacity / numeric-infra-id. Precedent already live: `Instance.host_id/host_group_id`
 are reserved-out of the public proto; `InternalVolumeService.GetInternal` carries backend-LUN.
-A gateway-level projection audit (analogous to `make audit-list-filter`) should gate that no
+A gateway-level projection audit (analogous to the `audit-list-filter` gate) should gate that no
 additively-added field leaks infra data onto the external surface.
 
 ---
@@ -205,7 +205,7 @@ becomes the desired-state input to a real reconciler/hypervisor later (the beget
    or a central `kacho-quota`? And confirm the `FAILED_PRECONDITION "insufficient capacity"` /
    quota-exceeded error convention (absent from rules today).
 6. **Two-projection enforcement** — add a corelib helper + a gateway projection-audit gate
-   (analogous to `make audit-list-filter`) so no additive field leaks infra data onto the public
+   (analogous to the `audit-list-filter` gate) so no additive field leaks infra data onto the public
    surface — build it as part of this epic?
 7. **Multi-attach / RWX volumes** — v1 or growth? (Drives Volume `shareable` + composite-PK model
    vs current single-attach PK=volume_id.)

@@ -522,7 +522,7 @@ mechanics уже покрыт corelib W1.1; SEC-D добавляет **consumer-
 | `grep -rn "openfga" <repo>/internal/clients/` = 0 во всех трёх репо | SEC-D-07 |
 | `buf breaking` public-сервисы vpc/compute/nlb = 0 diff | SEC-D-22 |
 | GitHub Issue N5 closed (vpc + compute) с ссылкой на PR | SEC-D-08 |
-| `make audit-list-filter` (vpc) зелёный — listauthz не сломан | (регрессия) |
+| `make -C services/vpc audit-list-filter` (vpc) зелёный — listauthz не сломан | (регрессия) |
 
 ---
 
@@ -538,7 +538,7 @@ mechanics уже покрыт corelib W1.1; SEC-D добавляет **consumer-
 - [ ] **grep-gate** SEC-D-07: `grep -rn "openfga" internal/clients/` = 0 в vpc/compute/nlb.
 - [ ] **proto breaking-diff = 0** на публичных сервисах vpc/compute/nlb (SEC-D-22).
 - [ ] GitHub Issue N5 закрыт в kacho-vpc и kacho-compute (SEC-D-08).
-- [ ] Финальная верификация per-repo: `go test ./... -race` + `golangci-lint run` + `govulncheck` + (vpc) `make audit-list-filter` + newman зелёные.
+- [ ] Финальная верификация per-repo: `go test ./... -race` + `golangci-lint run` + `govulncheck` + (vpc) `make -C services/vpc audit-list-filter` + newman зелёные.
 - [ ] Vault-trail:
   - [ ] `obsidian/kacho/edges/vpc-to-iam-fga-register.md` (новая) — outbox→drainer→RegisterResource по mTLS; «History» с KAC.
   - [ ] `obsidian/kacho/edges/compute-to-iam-fga-register.md` (новая); `obsidian/kacho/edges/nlb-to-iam-fga-register.md` (новая/обновление nlb→iam edge).

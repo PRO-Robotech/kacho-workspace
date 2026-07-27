@@ -974,7 +974,7 @@ Read-only проекции attach-состояния на `Instance` (source of 
   (`-race`, детерминированно, blocker-slot не `time.Sleep`) на S2-05, S4-02, S4-04.
 - Behaviour-level assert'ы на всех негативах (код **и** точный текст; leak-guard `internal error`).
 - Финальная верификация: `go test ./... -race` + `golangci-lint run` + `govulncheck` +
-  `make audit-list-filter` + newman зелёные.
+  `make -C services/{compute,storage} audit-list-filter` + newman зелёные.
 - vault-trail обновлён (`resources/storage-volume`, `resources/compute-instance`,
   `resources/vpc-networkinterface`; `rpc/storage-volume-service`, `rpc/storage-internal-volume-service`,
   `rpc/compute-instance-service`, `rpc/vpc-internal-networkinterface-service`;

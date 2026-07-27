@@ -115,7 +115,6 @@ cp go.work.example go.work   # объединяет репо в Go workspace (н
 ### 3.2 Поднятие стенда
 
 ```bash
-cd project/kacho-deploy
 make -C deploy dev-up      # kind create cluster → build образов → kind load → helm install → wait ready
 make -C deploy dev-down    # kind delete cluster
 ```
@@ -136,7 +135,7 @@ docker-образы сервисов (build-context = parent dir, Dockerfile `CO
 | `make -C deploy e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
 
 Integration-тесты (testcontainers Postgres) гоняются локально в каждом сервисном репо
-(`make test`), без kind. Методология тестов — `.claude/rules/testing.md`.
+(`make -C services/{compute,geo,iam,nlb,registry,storage,vpc} test`), без kind. Методология тестов — `.claude/rules/testing.md`.
 
 ## 4. kind cluster + helm umbrella
 
@@ -255,36 +254,41 @@ cluster-internal листенер (:9091) для UI/admin-tooling. `Internal.*` 
 (ban #6; `.claude/rules/security.md`). Регистрацию public-RPC в gateway-mux ведёт агент
 `api-gateway-registrar`.
 
-## 7. CI per repo
+## 7. CI
 
-У каждого репо — `.github/workflows/ci.yaml`; джоба `test` поднимает Postgres-service для
-integration-тестов, `build` собирает и публикует образ:
+CI — **один** `.github/workflows/ci.yaml` на монорепо, а не по джобе на репо. Go-ярус гоняется
+из корня по всему модулю; make-цели зовутся только там, где они и объявлены — в `gateway/`,
+`deploy/` и `services/*/`:
 
 ```yaml
 on: [push, pull_request]
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    services:
-      postgres: { image: postgres:16, env: { POSTGRES_USER: test, POSTGRES_PASSWORD: test, POSTGRES_DB: test } }
+  build-test:            # build · vet · gofmt · test -race -short (из корня, весь модуль)
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with: { go-version: '1.25' }
-      - run: make lint            # golangci-lint
-      - run: make test            # unit + integration (testcontainers)
-      - run: govulncheck ./...
-  build:
-    needs: test
+      - run: go build ./... && go vet ./... && go test ./... -race -short
+  integration:           # матрица по сервисам, только пакеты internal/repo и internal/clients
     steps:
-      - run: make docker
-      - run: docker push ghcr.io/pro-robotech/kacho-<svc>:${{ github.sha }}
+      - run: go test ./services/${{ matrix.svc }}/internal/repo/... -race -p 1
+  proto:                 # buf lint · breaking · generate-diff
+    steps:
+      - run: cd proto && buf lint
+      - run: cd proto && buf generate      # затем git diff по pkg/api обязан быть пустым
+  authz-artifacts:       # staleness/drift сгенерированных артефактов authz
+    steps:
+      - run: make -C gateway permission-catalog-check
+      - run: make -C gateway rest-route-table-check
+      - run: make -C services/{compute,nlb,storage,vpc} audit-list-filter
+  helm:                  # lint + template dev/prod
+    steps:
+      - run: make -C deploy check-mtls-off-complete
 ```
 
-`kacho-proto` дополнительно гоняет `buf lint` + `buf breaking` против предыдущего тега
+Публикацию образов ведёт отдельный workflow (`docker-build.yml`), не джоба `build` выше.
+Ярус proto гоняет `buf lint` + `buf breaking` против `main`
 (защита от ломающих изменений контракта). Сервисы с публичными `List<Resource>` гоняют
-CI-гейт `make audit-list-filter` (каждый public List обязан фильтровать результат через
-listauthz). Пока вышестоящий репо не в `main`, нижестоящий CI временно пиннит sibling-`ref`
+CI-гейт `make -C services/{compute,nlb,storage,vpc} audit-list-filter`
+(каждый public List обязан фильтровать результат через listauthz; цель живёт в Makefile каждого
+сервиса, корневой цели нет). Пока вышестоящий репо не в `main`, нижестоящий CI временно пиннит sibling-`ref`
 к feature-ветке; после merge — обратно на `main`.
 
 ## 8. AI-оснастка (кратко)

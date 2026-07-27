@@ -89,7 +89,7 @@ DROP SEQUENCE kacho_vpc.networks_vrf_id_seq;
 - newman-кейсы (`tests/newman/cases/`): cil0_06/07/08/09/10/11 (см. traceability acceptance).
 
 ## Финальная верификация (перед merge каждого PR)
-`go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter`
+`go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/vpc audit-list-filter`
 (vrf_id не должен пролезть в List-фильтр) + newman зелёные.
 
 ## Trail (после merge)

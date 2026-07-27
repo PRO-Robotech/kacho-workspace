@@ -45,7 +45,13 @@
 >     - `argocd-analysis-templates/{slo-burn-rate-5m,slo-burn-rate-30m,error-rate-canary-vs-stable,latency-canary-vs-stable}.yaml` — `AnalysisTemplate` CRDs that gate canary promotion;
 >     - `renovate.json` (root) + per-sibling `.github/renovate.json` — Renovate configuration with grouped PR (Go deps / Helm charts / npm deps / Docker base images), security-CVE labels, semver-policy;
 >     - `.github/workflows/release-iam.yml` (template applied to each sibling) — build container + syft SBOM (SPDX + CycloneDX) + cosign sign --keyless (Sigstore Fulcio) OR cosign sign --key (offline kacho-platform key for prod releases) + in-toto attest-build-provenance (gh-actions/attest-build-provenance@v2) + trivy scan + grype scan + gosec scan; gate fails on HIGH/CRITICAL CVE in new dependencies OR banned-license (GPLv3 family in backend);
->     - `Makefile` targets: `make multi-region-cutover-dry-run`, `make failover-drill-staging`, `make cert-renewal-dry-run`, `make slo-burn-report`, `make sbom-verify`, `make slsa-verify-image`.
+>     - `Makefile` targets: `multi-region-cutover-dry-run`, `failover-drill-staging`, `cert-renewal-dry-run`, `slo-burn-report`, `sbom-verify`, `slsa-verify-image`.
+>
+> **Ни одной из перечисленных `Makefile`-целей в дереве нет** (проверено по всем `Makefile`
+> монорепо: `deploy/`, `gateway/`, `services/*/`). Фаза 11 не посажена, поэтому ниже по тексту
+> эти цели только **названы** — «цель `failover-drill-staging`» — и намеренно не записаны в
+> форме исполняемой команды. Пока фаза не сделана, такая запись была бы командой, которая не
+> запускается.
 > 6. `PRO-Robotech/kacho-deploy/docs/runbooks/iam/` — Phase 11 mandatory deliverable:
 >     - `break-glass.md` (Phase 7 stub → full runbook),
 >     - `key-rotation.md` (JWT signing / mTLS CA / DB KEK rotation),
@@ -216,7 +222,7 @@ Phase 11 закладывает **production-grade external surface + multi-regi
 | **Запрет #8** — DB-per-service | каждый сервис имеет свой Patroni cluster (kacho_iam Postgres HA, kacho_vpc Postgres HA, kacho_compute Postgres HA, kacho_loadbalancer Postgres HA); НЕ shared Postgres между сервисами; cross-region replication — within-service (per-Postgres-cluster), не cross-service |
 | **Запрет #9** — async-only мутации | Phase 11 не вводит новые RPC mutations; all existing mutations (Phase 1-10) уже return Operation; canary cutover orchestrated by ArgoRollouts — это deploy-time mechanism, не API-mutation |
 | **Запрет #10** — within-service refs на DB-уровне | Phase 11 не вводит новые within-service refs (no migrations); Patroni замена streaming replication — DB-internal mechanism, не software refcheck |
-| **Запрет #11** — тесты в том же PR | каждый PR Phase 11 содержит: kacho-proto — n/a (минимальные annotation changes); kacho-corelib — unit-tests на `corelib/observability/otel/*` + `corelib/region/*` + `corelib/slo/budget.go`; kacho-deploy — `make multi-region-cutover-dry-run` + `make failover-drill-staging` + `make sbom-verify` + `make slsa-verify-image` + helm template validation (`helm template ... | kubeval`); kacho-test — e2e: multi_region_failover, cert_auto_renew, slo_burn_synthetic, supply_chain_unsigned_image, argocd_canary_rollback |
+| **Запрет #11** — тесты в том же PR | каждый PR Phase 11 содержит: kacho-proto — n/a (минимальные annotation changes); kacho-corelib — unit-tests на `corelib/observability/otel/*` + `corelib/region/*` + `corelib/slo/budget.go`; kacho-deploy — `multi-region-cutover-dry-run` + `failover-drill-staging` + `sbom-verify` + `slsa-verify-image` + helm template validation (`helm template ... | kubeval`); kacho-test — e2e: multi_region_failover, cert_auto_renew, slo_burn_synthetic, supply_chain_unsigned_image, argocd_canary_rollback |
 
 ### 1.1 Production-edition specifics (no strict backward-compat)
 
@@ -319,7 +325,7 @@ Phase 11 закладывает **production-grade external surface + multi-regi
 | **ListObjects p95 latency** | ≤ 100ms | Histogram `iam_authz_listobjects_duration_seconds_bucket` p95 over 5min | `KachoAuthzListObjectsLatencyHigh` (P2) > 100ms sustained 10min |
 | **CAEP delivery latency** | ≤ 10s p99 | Histogram `caep_delivery_duration_seconds_bucket` p99 over 5min | `KachoCAEPDeliveryLag` (P2) > 10s sustained 5min |
 | **Audit ingest lag** | ≤ 60s p99 | Histogram `audit_ingest_lag_seconds_bucket` p99 over 5min | `KachoAuditIngestLag` (P2) > 60s sustained 5min |
-| **DR RTO** | ≤ 15 min | Measured during quarterly failover drill (`make failover-drill-staging`) | n/a (drill-validated) |
+| **DR RTO** | ≤ 15 min | Measured during quarterly failover drill (`failover-drill-staging`) | n/a (drill-validated) |
 | **DR RPO** | ≤ 1 min | Postgres sync replication lag `pg_replication_lag_seconds` | `KachoPostgresReplicationLag` (P1) > 60s |
 | **Cert renewal SLA** | ≤ 30d before expiry | cert-manager metric `certmanager_certificate_expiration_timestamp_seconds - time()` | `KachoCertRenewalOverdue` (P2) < 30d |
 | **JWKS rotation SLA** | ≤ 90d | kacho-iam metric `iam_jwks_key_age_seconds` for current signing key | `KachoJWKSRotationOverdue` (P2) > 90d * 0.9 |
@@ -589,7 +595,7 @@ Phase 11 закладывает **production-grade external surface + multi-regi
 
 ### P11-D29: Per-region Postgres failover RTO ≤30s in-region; ≤15min cross-region
 
-**Decision**: In-region failover (Patroni primary kill within region): <30s; cross-region failover (entire region offline): ≤15 min (DNS TTL 60s + Patroni manual promote 30s + connection drain/refill 5-10 min + traffic rebalance 2-3 min). Drill quarterly via `make failover-drill-staging`.
+**Decision**: In-region failover (Patroni primary kill within region): <30s; cross-region failover (entire region offline): ≤15 min (DNS TTL 60s + Patroni manual promote 30s + connection drain/refill 5-10 min + traffic rebalance 2-3 min). Drill quarterly via `failover-drill-staging`.
 
 **Rationale**: 30s in-region = within typical request retry window (gRPC default 5 attempts); 15min cross-region matches design doc D-21 RTO; quarterly drill validates without prod risk.
 
@@ -791,7 +797,7 @@ Primary region (eu-central) detected unhealthy (synthetic probe failure > 2 min 
 On-call SRE acknowledges; consults regional-failover runbook
    │
    │ (2) Manual decision: failover yes/no (some outages recover; partial degradation may not justify failover)
-   │ (3) If failover: SRE invokes `make failover-prod` (CLI wrapper around runbook steps)
+   │ (3) If failover: SRE invokes `failover-prod` (CLI wrapper around runbook steps)
    │
    ▼
 Step 1: Update Cloudflare GeoDNS to route all traffic to eu-west
@@ -907,7 +913,7 @@ Failover complete; total elapsed time target ≤15 min from incident detection
 **Given**:
 - Cert `api-kacho-cloud-tls` issued at time T0 with validity 90 days (expiry T0+90d)
 - cert-manager renewal policy: renew when `notAfter - now() < 30d`
-- Test mode: simulate clock skew via `make cert-renewal-dry-run` (advance time markers; no actual clock change)
+- Test mode: simulate clock skew via `cert-renewal-dry-run` (advance time markers; no actual clock change)
 
 **When** time advances to T0+60d (30d before expiry)
 
@@ -1099,11 +1105,11 @@ Failover complete; total elapsed time target ≤15 min from incident detection
 
 **Given**:
 - Staging cluster simulating prod topology (2 regions: staging-eu-central + staging-eu-west)
-- `make failover-drill-staging` ready
+- `failover-drill-staging` ready
 - Baseline: api.kacho.staging.cloud responding 99.95% from eu-central
 - Synthetic blackbox probe every 10s during drill
 
-**When** operator executes `make failover-drill-staging` which:
+**When** operator executes `failover-drill-staging` which:
 1. Stops all kacho-* pods + Postgres primary in staging-eu-central (force-kill)
 2. Updates Cloudflare GeoDNS to route 100% traffic to staging-eu-west
 3. Triggers Patroni promote standby → primary in staging-eu-west
@@ -1652,7 +1658,7 @@ Failover complete; total elapsed time target ≤15 min from incident detection
 - `cosign attach sbom --sbom <spdx-json> ghcr.io/PRO-Robotech/kacho-iam:v0.11.0` succeeds
 - `cosign download sbom ghcr.io/PRO-Robotech/kacho-iam:v0.11.0` returns SBOM
 - SBOM contains: all Go module dependencies with versions + licenses; base image (e.g., `cgr.dev/chainguard/static:latest`) + its components
-- Verification: `make sbom-verify IMAGE=ghcr.io/PRO-Robotech/kacho-iam:v0.11.0` returns OK
+- Verification: `цель `sbom-verify` IMAGE=ghcr.io/PRO-Robotech/kacho-iam:v0.11.0` returns OK
 
 #### Scenario S11.9.2: SLSA L3 provenance attached + verifiable
 
@@ -1981,7 +1987,7 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
 
 **Given**:
 - All PrometheusRule files in `alerts/*.yaml`
-- CI check `make alerts-runbook-check` enforces every alert rule has `annotations.runbook_url`
+- CI check `alerts-runbook-check` enforces every alert rule has `annotations.runbook_url`
 
 **When** CI runs
 
@@ -2052,7 +2058,7 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
 - `docs/runbooks/iam/regional-failover.md` exists
 - Tabletop on staging cluster
 
-**When** SRE executes `make failover-drill-staging`
+**When** SRE executes `failover-drill-staging`
 
 **Then**
 - All steps in runbook executed successfully
@@ -2256,8 +2262,8 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
   - [ ] Renovate config PR — root `renovate.json` + per-sibling configs
   - [ ] Release CI workflow PR — `.github/workflows/release-iam.yml` applied per sibling (6 repos)
   - [ ] Helm template validation green (`helm template ... | kubeval`); ArgoCD diff dry-run clean
-- [ ] `kacho-deploy/dashboards/*.json` committed (12+ dashboards); Grafana load test passes (`make grafana-load-test`)
-- [ ] `kacho-deploy/alerts/*.yaml` committed (14+ alert files); CI check `make alerts-runbook-check` enforces runbook URL per alert
+- [ ] `kacho-deploy/dashboards/*.json` committed (12+ dashboards); Grafana load test passes (`grafana-load-test`)
+- [ ] `kacho-deploy/alerts/*.yaml` committed (14+ alert files); CI check `alerts-runbook-check` enforces runbook URL per alert
 - [ ] `kacho-deploy/docs/runbooks/iam/*.md` committed (15 runbooks); each runbook follows Problem→Diagnosis→Mitigation→Escalation→Post-mortem template
 - [ ] `kacho-test` PR merged: e2e tests for multi_region_failover, cert_auto_renew, slo_burn_synthetic, supply_chain_unsigned_image, argocd_canary_rollback; CI green
 - [ ] `kacho-ui` PR merged: admin observability pages (SLO embed, runbook index, region status); accessible only to platform_admin/security_admin groups
@@ -2318,7 +2324,7 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
 ### 7.6 Supply chain DoD
 
 - [ ] Every release container in registry has: SBOM attached (SPDX + CycloneDX); SLSA L3 provenance attestation; cosign signature
-- [ ] Verification commands work: `make sbom-verify IMAGE=...`; `cosign verify-attestation --type slsaprovenance ...`; `cosign verify --key ... ...`
+- [ ] Verification commands work: `цель `sbom-verify` IMAGE=...`; `cosign verify-attestation --type slsaprovenance ...`; `cosign verify --key ... ...`
 - [ ] Phase 10 SPIRE cosign attestor accepts both keyless OIDC (non-prod) and offline key (prod) signed images
 - [ ] CI gate: HIGH/CRITICAL CVE in new deps blocks PR
 - [ ] CI gate: banned-license in backend modules blocks PR
@@ -2427,7 +2433,7 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
 
 - **OWASP ASVS L3 conformance test suite** — **Phase 12** (`sub-phase-3.12-iam-conformance-pentest-chaos-acceptance.md`); Phase 11 ships baseline OWASP ZAP scan but not full ASVS coverage
 - **Continuous fuzzing (go-fuzz / native Go fuzz)** — **Phase 12**
-- **Litmus chaos engineering / game-day** — **Phase 12** (Phase 11 has failover drill via `make failover-drill-staging` but not chaos suite)
+- **Litmus chaos engineering / game-day** — **Phase 12** (Phase 11 has failover drill via `failover-drill-staging` but not chaos suite)
 - **External pentest engagement (NCC Group / Trail of Bits)** — **Phase 12** task 12.5
 - **Bug bounty program + security.txt + disclosure.html** — **Phase 12** task 12.6
 - **OpenID Foundation self-certification** — **Phase 12** task 12.7
@@ -2503,7 +2509,7 @@ slog.Info("user logged in", "user_email", "alice@example.com", "session_id", "se
 | **Tabletop runbook execution exposes runbook bugs at worst time** | Medium | Quarterly tabletops in advance of any production incident; transcripts + post-tabletop runbook updates |
 | **HSTS preload entry blocks subdomain experiments** | Medium | Test subdomains live on separate domain (e.g., `kacho-experiments.cloud`); production preload boundary documented |
 | **Cloudflare Access OIDC outage blocks admin UI access during incident** | Low | Cloudflare Access supports session-token caching (~hours); SRE accesses admin UI before token expiry; runbook documents break-glass to bypass via Cloudflare account direct console |
-| **MirrorMaker 2 misconfiguration causes consumer duplicates on failover** | High | Test failover quarterly via `make failover-drill-staging`; consumer idempotency verified at application layer |
+| **MirrorMaker 2 misconfiguration causes consumer duplicates on failover** | High | Test failover quarterly via `failover-drill-staging`; consumer idempotency verified at application layer |
 | **ClickHouse cross-region replication backlog grows during partition** | Medium | Keeper-coordinated retry; alert if backlog > 1h sustained; manual catch-up procedure in runbook |
 
 ---

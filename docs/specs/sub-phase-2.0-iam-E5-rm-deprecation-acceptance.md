@@ -40,7 +40,7 @@ Projects). RM остаётся «жив-но-неиспользуем» — pod 
 **E5 НЕ включает** (вынесено явно):
 
 - **Data migration `organizations`+`clouds`+`folders` → `accounts`+`projects`.** На момент E5 в dev
-  ничего ценного нет (заведомо чистый стенд после `make -C deploy dev-down -v && make dev-up`); в staging /
+  ничего ценного нет (заведомо чистый стенд после `make -C deploy dev-down -v && make -C deploy dev-up`); в staging /
   prod-инсталляций Kachō ещё нет. Если в будущем появятся — отдельная sub-phase ИЛИ runbook
   (out of scope для acceptance).
 - **Backup / snapshot БД `kacho_resource_manager` перед drop.** В dev — нет (PVC уничтожается с
@@ -160,7 +160,7 @@ bump).
 - `kacho-proto/proto/kacho/cloud/resourcemanager/v1/` — `rm -rf`; 5 `.proto` файлов исчезают.
 - `kacho-proto/proto/kacho/cloud/organizationmanager/v1/` — `rm -rf`; 3 `.proto` файла исчезают.
 - `kacho-proto/gen/go/kacho/cloud/resourcemanager/v1/` — `rm -rf` (генерация перепрогоняется
-  `make proto-gen` — должна быть no-op, поскольку source-protos удалены).
+  `cd proto && buf generate` — должна быть no-op, поскольку source-protos удалены).
 - `kacho-proto/gen/go/kacho/cloud/organizationmanager/v1/` — `rm -rf`.
 - `buf lint` после удаления — зелёный (нет orphan deps).
 - `buf breaking` — добавляется временный exception в `buf.yaml`:
@@ -489,10 +489,10 @@ release-binary.
 | `gen/go/kacho/cloud/access/` (directory, D-5)                    | `rm -rf`           |
 | `buf.yaml`                                                       | временный exception (см. D-2 + D-5: 3 пакета в list); **либо** CI env-flag вариант (предпочтительнее, см. D-6) — exception **не попадает** в `buf.yaml` `main`-ветки; после merge — exception removed follow-up PR'ом per D-6 |
 | `buf.gen.yaml`                                                   | проверить — может содержать explicit per-package config; если есть для resourcemanager/organizationmanager/access — удалить |
-| `Makefile`                                                       | `make proto-gen` после удаления должен быть зелёный (no-op) |
+| `Makefile`                                                       | `cd proto && buf generate` после удаления должен быть зелёный (no-op) |
 
 **Acceptance per kacho-proto PR**:
-- [ ] `make proto-gen` runs без ошибок (нет orphan-references).
+- [ ] `cd proto && buf generate` runs без ошибок (нет orphan-references).
 - [ ] `git diff --stat` показывает удаление 8 + N `.proto` + ~16-20 + M `.pb.go` / `.pb.gw.go` файлов в gen/ (где N+M — `kacho.cloud.access.*` per D-5).
 - [ ] `buf lint` зелёный.
 - [ ] `buf breaking --against '.git#branch=main'` падает с `PACKAGE_NO_DELETE` для **трёх** пакетов
@@ -537,7 +537,7 @@ release-binary.
 | `e2e/` (если содержит RM-specific e2e tests)        | удалить test cases (`grep -rn "resource-manager\|/folders\|/clouds\|/organizations" e2e/`)                                                                   |
 
 **Acceptance per kacho-deploy PR**:
-- [ ] `make -C deploy dev-down -v && make dev-up` — стенд поднимается **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods; `kubectl get pods -n kacho` не содержит RM (GWT-05).
+- [ ] `make -C deploy dev-down -v && make -C deploy dev-up` — стенд поднимается **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods; `kubectl get pods -n kacho` не содержит RM (GWT-05).
 - [ ] Никаких failed init-containers / CrashLoopBackOff (GWT-06).
 - [ ] Existing newman e2e suite (`tests/newman/cases/*`) — зелёный; ничего не сломалось от удаления RM.
 - [ ] `docs/operations/e5-rm-uninstall.md` присутствует.
@@ -706,7 +706,6 @@ helm template kacho . -f values.dev.yaml > /tmp/manifest.yaml
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-deploy
 make -C deploy dev-up
 sleep 60  # wait for pods to settle
 kubectl get pods -n kacho -o name | sort
@@ -733,7 +732,7 @@ kubectl get pods -n kacho -o json | jq -r '.items[] | select(.status.phase != "R
 
 **When** CI запускает:
 ```bash
-cd project/kacho-proto
+cd proto
 buf lint
 echo $?
 ```
@@ -774,7 +773,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://api.kacho.local/organization-man
 
 **When** CI запускает:
 ```bash
-cd project/kacho-api-gateway
+cd gateway
 go test ./internal/restmux/... -v -run TestRemovedResourceManagerRoutes
 ```
 
@@ -788,7 +787,6 @@ go test ./internal/restmux/... -v -run TestRemovedResourceManagerRoutes
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-deploy
 make -C deploy dev-down -v   # -v удаляет PVC
 sleep 5
 kubectl get pvc -n kacho | grep -c "pg-resource-manager"
@@ -887,7 +885,6 @@ ls obsidian/kacho/_archive/rm/ 2>/dev/null | wc -l
 
 **When** оператор запускает full E2E newman suite:
 ```bash
-cd project/kacho-deploy
 make -C deploy e2e-test
 ```
 
@@ -904,7 +901,7 @@ make -C deploy e2e-test
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-proto
+cd proto
 grep -c "PACKAGE_NO_DELETE" buf.yaml
 ```
 
@@ -926,7 +923,7 @@ grep -c "PACKAGE_NO_DELETE" buf.yaml
 
 ### Functional DoD
 
-- [ ] **DoD-1** — `make -C deploy dev-down -v && make dev-up` поднимает стенд **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods (GWT-05, GWT-06).
+- [ ] **DoD-1** — `make -C deploy dev-down -v && make -C deploy dev-up` поднимает стенд **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods (GWT-05, GWT-06).
 - [ ] **DoD-2** — `gh repo view PRO-Robotech/kacho-resource-manager --json isArchived` → `true` (GWT-13).
 - [ ] **DoD-3** — proto-домены `resourcemanager`, `organizationmanager` **и `access`** удалены из kacho-proto (включая `gen/go/`); `buf lint` зелёный; downstream сервисы build OK (GWT-07, GWT-08; B1 / D-5 fix — access добавлен).
 - [ ] **DoD-4** — `kacho-api-gateway` не маршрутизирует RM-endpoints; regression test проверяет 404 на `/resource-manager/v1/*`, `/organization-manager/v1/*` (GWT-09, GWT-10).

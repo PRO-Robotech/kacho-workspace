@@ -235,7 +235,7 @@ Production-complete в границах TargetGroup redesign (`ai-tooling.md` §
 - [ ] **Не** редактировать применённые миграции — только новые (продолжение `0015+` из 1b): HealthCheck restructure (drop `name`, oneof-расширение), durations-column type change, TG.port LIVE-mutable (снятие immutable-guard если ставился в 1b).
 
 **Проектные гейты:**
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные.
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/nlb audit-list-filter` зелёные.
 - [ ] proto — `buf lint`/`buf breaking` (breaking задекларированы: HealthCheck `name`-drop + oneof-расширение, duration-rename) зелёные после регена. proto ревьюит `proto-api-reviewer`; миграции — `db-architect-reviewer`; oneof-replace merge-семантика — `go-style-reviewer`.
 - [ ] `make -C gateway permission-catalog-check` byte-identical (TargetGroup RPC — записи есть, ключёваны на `nlb_target_group` из 1a).
 - [ ] authz на КАЖДОМ RPC (`nlb_target_group`-тип из 1a): read → viewer-floor, мутации → editor на target, Create → editor на project; `scope_extractor{nlb_target_group, target_group_id}` резолвит target→project; `List` (TG) фильтруется listauthz + pagination-validate ДО listauthz (тот же контракт, что NLB-1-48 в 1b). Per-RPC gateway-регистрация нового TargetGroup RPC-surface — **в этом PR** (`api-gateway-registrar`).

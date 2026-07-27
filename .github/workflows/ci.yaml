@@ -15,6 +15,25 @@ jobs:
       - name: run bats tests
         run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats
 
+  doc-commands:
+    name: quoted make commands run from the monorepo root
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      # Needs the monorepo checked out beside the workspace: the check reads the
+      # real Makefiles under project/kacho and asserts every make command quoted in
+      # docs/ resolves against them. Without it there is nothing to check against,
+      # and the script says so instead of passing vacuously.
+      - name: checkout monorepo into project/kacho
+        uses: actions/checkout@v4
+        with:
+          repository: PRO-Robotech/kacho
+          path: project/kacho
+      - name: docs quote commands that exist
+        run: python3 scripts/check-doc-commands.py
+
   authz-fixtures-lint:
     name: authz-fixtures bootstrap — lint (KAC-122)
     runs-on: ubuntu-latest

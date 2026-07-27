@@ -169,7 +169,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 **Given** репо `kacho-proto/` склонировано
 **And** установлен `buf` (версия из `Makefile` или README)
 
-**When** разработчик выполняет `cd kacho-proto && make buf-lint` (или `buf lint`)
+**When** разработчик выполняет `cd proto && buf lint`
 
 **Then** код выхода = 0
 **And** stdout не содержит warning/error.
@@ -179,7 +179,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 **Given** в `kacho-proto/proto/` присутствуют только common-типы (без доменных сервисов): `ResourceMeta`, `Selector`, `FieldSelector`, `ResourceRef`, и envelope-типы для Watch (`WatchEvent` с `event_type ∈ {ADDED, MODIFIED, DELETED}`)
 **And** `kacho-proto/buf.yaml` и `kacho-proto/buf.gen.yaml` сконфигурированы согласно `02-data-model-and-conventions.md` §13 (proto package = `kacho.cloud.<domain>.v1`, Go-import = `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`)
 
-**When** разработчик выполняет `make generate`
+**When** разработчик выполняет `cd proto && buf generate`
 
 **Then** в `kacho-proto/gen/go/...` появляются сгенерированные `.pb.go`-файлы для common-типов
 **And** сгенерированные файлы коммитятся в репо (committed, см. `03-deployment-and-operations.md` §1)
@@ -189,7 +189,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 **Given** `kacho-proto/.github/workflows/ci.yaml` или `Makefile` содержит таргет `buf-breaking`
 
-**When** разработчик выполняет `make buf-breaking` против тега `v0.1.0` (или другого baseline)
+**When** разработчик выполняет `cd proto && buf breaking --against '.git#tag=v0.1.0'` (или другой baseline)
 
 **Then** на чистом state (без изменений в proto) код выхода = 0
 **And** при искусственно сломанном поле в common-типе (например, переименование `ResourceMeta.uid → id`) код выхода ≠ 0 и stdout содержит описание breaking-change-а.
@@ -224,7 +224,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 **Given** в каждом из пакетов §D1 есть минимальный набор юнит-тестов (smoke-уровня — например, `ids.NewUID()` возвращает валидный UUIDv4, `errors.FromCode(codes.NotFound)` возвращает `*status.Status` с правильным `code`)
 
-**When** разработчик выполняет `cd kacho-corelib && go test ./...`
+**When** разработчик выполняет `go test ./pkg/...` (corelib живёт в `pkg/` монорепо, отдельного репо нет)
 
 **Then** код выхода = 0
 **And** все юнит-тесты зелёные
@@ -281,7 +281,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 **And** на host-машине свободен порт 80
 **And** запущен docker-демон
 
-**When** разработчик выполняет `cd kacho-deploy && make dev-up`
+**When** разработчик выполняет `make -C deploy dev-up`
 
 **Then** wall-clock время от старта команды до её завершения < 5 минут (на типичной dev-машине ≥ 4 CPU / 8 GB RAM)
 **And** код выхода = 0
@@ -352,7 +352,7 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 **Given** `make -C deploy dev-up` отработал, разработчик руками создал в `pg-compute` тестовую таблицу и вставил строку
 
-**When** разработчик выполняет `make -C deploy dev-down && make dev-up`
+**When** разработчик выполняет `make -C deploy dev-down && make -C deploy dev-up`
 
 **Then** новая БД `kacho_compute` пуста (тестовой таблицы нет)
 **And** это поведение явно задокументировано в `kacho-deploy/README.md` или `kacho-workspace/CLAUDE.md` как **сознательное** для воспроизводимости тестов (см. `03-deployment-and-operations.md` §5).
@@ -361,7 +361,9 @@ git clone git@github.com:PRO-Robotech/kacho-workspace.git
 
 **Given** `Makefile` в `kacho-deploy/`
 
-**When** разработчик читает `make help`
+**When** разработчик читает список целей в `deploy/Makefile`
+(цели `help` в нём **нет** — сценарий описывает несделанное: самодокументирующий `help`
+в `deploy/Makefile` не заведён)
 
 **Then** упомянуты таргеты `dev-up`, `dev-down`, `reload-svc`, `logs-svc`, `psql`, `integration-test`, `e2e-test` (как минимум скелет/заглушки)
 **And** `make -C deploy reload-svc SVC=compute` в 0.1 возвращает осмысленную ошибку «service `compute` is not deployed yet (planned for sub-phase 0.4)» либо просто завершается с предупреждением и кодом 0 — конкретное поведение фиксируется в плане.
@@ -463,7 +465,8 @@ Sub-итерация считается завершённой, когда **в�
 3. **C2 / proto common-types:** `WatchEvent` в 0.1 — это только тип в proto (без сервиса) или вообще не нужен в 0.1, потому что `Watch`-RPC появляется в 0.2 вместе с `kacho-resource-manager`? Я заложил минимальный common-тип в 0.1, чтобы зафиксировать envelope; готов вынести в 0.2, если так чище.
 4. **E10 / `make -C deploy reload-svc`:** какой режим в 0.1 — early-error («сервиса нет, ждите 0.4») или soft-warning?
 5. **G1 / CI service-stubs:** для пустых сервисных репо-заглушек оставляем CI с одним trivial job-ом или вообще без `.github/workflows/`? Я склоняюсь к минимальному CI ради единообразия, но это лишние GitHub Actions minutes.
-6. **F2 / preflight-checks:** делаем check в чистом bash или используем что-то более структурированное (например, `make check-prereqs` отдельным таргетом, который вызывается из `dev-up`)?
+6. **F2 / preflight-checks:** делаем check в чистом bash или используем что-то более структурированное (например, отдельной целью, которую зовёт `dev-up`)? **Как посажено:** целью `preflight`
+   в `deploy/Makefile` — `make -C deploy preflight`; цели `check-prereqs` не существует.
 
 ---
 

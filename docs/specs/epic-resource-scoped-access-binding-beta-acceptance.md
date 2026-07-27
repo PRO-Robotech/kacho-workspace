@@ -392,7 +392,9 @@ gRPC: `kacho.cloud.iam.v1.InternalIAMService/RegisterResource` (**sync, Internal
 
 **β2 (отдельная волна — vpc, Subtask эпика):** caller-сторона kacho-vpc (`vpc→iam` FGA-proxy, status planned→done) шлёт расширенный payload для vpc-ресурсов; mirror-таблица и proto-поля уже generic (D-β8) → только vpc-caller + newman + vault `edges/vpc-to-iam-fgaproxy`. Идентичный β-контракт на `vpc.subnet`/`vpc.network`/… Без proto/iam-изменений.
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` + newman
+зелёные (у iam своей цели нет — её фильтр живёт в `services/iam/internal/authzfilter` и
+проверяется go-тестами).
 
 ---
 

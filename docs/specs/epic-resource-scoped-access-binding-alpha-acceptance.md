@@ -550,7 +550,8 @@ gRPC: `Create`/`AddTargetResources`/`RemoveTargetResources` — все **async �
 
 **S6 — workspace (docs/vault):** обновить vault `rpc/iam-access-binding-service.md` (3 новых RPC + Create-target дельта), `resources/iam-access-binding.md` (`target`-поле + `access_binding_targets` таблица + FGA-source = target + target.id opaque soft-ref), новый `resources/iam-access-binding-target.md` (если нужен узкий файл), KAC-trail; этот acceptance-док → статус APPROVED. **НЕ заводить `edges/iam-to-compute`/`iam-to-vpc`** — α НЕ вводит cross-domain ребра (peer-call отсутствует, D-5/D-14).
 
-**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` (новый `ListGrantableResources` должен фильтровать по grant-authority) + newman зелёные.
+**Финальная верификация (перед merge каждой Go-стадии):** `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make -C services/{compute,nlb,storage,vpc} audit-list-filter` (у iam своей цели нет; что новый
+`ListGrantableResources` фильтрует по grant-authority — доказывают go-тесты `internal/authzfilter`) + newman зелёные.
 
 ---
 

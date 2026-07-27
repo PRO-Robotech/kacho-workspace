@@ -38,7 +38,7 @@ permission-string/proto-package — родитель §Out-of-scope NLB-4 / Де
 | A1 | Rename object-type `lb_*`→`nlb_*` во всех ~265 sites; authz-Check на каждом RPC обоих листенеров резолвит по новому типу (mutate → editor, read → viewer-floor) | родитель §DoD «FGA object-type Q1», `security.md` §AuthN+AuthZ ВЕЗДЕ п.2 |
 | A2 | `scope_extractor` резолвит `nlb_*`-target → project (анти-BOLA): `{nlb_network_load_balancer, network_load_balancer_id}` / `{nlb_listener, listener_id}` / `{nlb_target_group, target_group_id}` → project | `security.md` §Hardening инв-3 (object-scoped authz) |
 | A3 | `permission-catalog` regen byte-identical: обе embedded-копии (iam-seed + gateway middleware) синхронны; `make -C gateway permission-catalog-check` зелёный; каждый nlb-RPC имеет запись в каталоге | `security.md` §Hardening инв-4 (каталог полон/в синхроне) |
-| A4 | `List<Resource>` фильтруется listauthz под `nlb_*`-типом (`make audit-list-filter`) | `security.md` §AuthN/AuthZ, `api-conventions.md` §Pagination |
+| A4 | `List<Resource>` фильтруется listauthz под `nlb_*`-типом (`make -C services/nlb audit-list-filter`) | `security.md` §AuthN/AuthZ, `api-conventions.md` §Pagination |
 | A5 | Rename **завершён**: старый `lb_*` object-type больше не резолвит доступ (нет dangling old-type пути); regression-lock ключуется на токен `nlb_*` | родитель §Дефолт Q1, `testing.md` §Regression-lock security-фиксов |
 
 ## Out-of-scope (следующая под-фаза — NLB-1b)
@@ -105,7 +105,7 @@ permission-string/proto-package — родитель §Out-of-scope NLB-4 / Де
 
 **When** субъект вызывает `NetworkLoadBalancerService.List` (`GET /nlb/v1/networkLoadBalancers?projectId=…`) и `NetworkLoadBalancerService.Get` обоих LB
 
-**Then** read-RPC пропускается под **viewer-floor** (не требует editor); `List` **фильтруется listauthz** под object-type `nlb_network_load_balancer` (`make audit-list-filter`) → в результате виден **только** `nlb-1a2b3c4d5e6f7g8h`, `nlb-9z8y7x6w5v4u3t2s` **отсутствует**
+**Then** read-RPC пропускается под **viewer-floor** (не требует editor); `List` **фильтруется listauthz** под object-type `nlb_network_load_balancer` (`make -C services/nlb audit-list-filter`) → в результате виден **только** `nlb-1a2b3c4d5e6f7g8h`, `nlb-9z8y7x6w5v4u3t2s` **отсутствует**
 **And** `Get` на `nlb-9z8y7x6w5v4u3t2s` (нет гранта) → hide-existence отказ (byte-identical настоящему miss — `security.md` §Hardening инв-6); тот же listauthz-контракт для `nlb_listener`/`nlb_target_group` List
 
 ### Сценарий NLB-1a-04 (negative): нет binding'а на `nlb_*` → fail-closed deny; cross-account deny
@@ -146,7 +146,7 @@ Production-complete в своих границах (`ai-tooling.md` §lifecycle,
 - [ ] read-your-writes: первый Get своего свежего ресурса обёрнут `retry_until_authorized` (owner-tuple EC-окно, conv-3) — но негативы (cross-account deny) **НЕ** оборачивать.
 
 **Проектные гейты:**
-- [ ] `make -C gateway permission-catalog-check` **byte-identical** (обе embedded-копии); `make audit-list-filter` зелёный; `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные.
+- [ ] `make -C gateway permission-catalog-check` **byte-identical** (обе embedded-копии); `make -C services/nlb audit-list-filter` зелёный; `go test ./... -race` · `golangci-lint run` · `govulncheck` зелёные.
 - [ ] `buf lint` зелёный (proto-package/permission-string **не** трогаются — они NLB-4; rename object-type — на уровне FGA-модели/каталога, не proto-shape).
 - [ ] Нет shape-change ресурсов, нет новых миграций данных, нет изменения RPC-surface — 1a строго shape-agnostic.
 

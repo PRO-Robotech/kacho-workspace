@@ -866,7 +866,7 @@ Covered by W1.6-ANON-TABLE.
 - [ ] Anti-spoof property tests (W1.6-SPOOF-PROPERTY-01) GREEN for all 3 spoof-fix handlers
 - [ ] Newman cases (§6.5 W1.6-NM-01..17) GREEN
 - [ ] **87 newman failures closed**: post-W1.6 baseline `iam-jit-pending(0)+iam-user(0)+iam-compliance-report(0)+iam-internal-only-check(0)+iam-access-binding(0)+authz-deny(0) = 1144/1144 GREEN`. Verify via `tests/newman/run.sh` summary + W0.1 coverage gate.
-- [ ] `make e2e` smoke on dev-kind shows: anonymous can't list/get cross-tenant data; reviewer cannot be spoofed; SA-key creator stamped from principal; SAKey secret returned ONCE then redacted
+- [ ] `make -C deploy e2e-test` smoke on dev-kind shows: anonymous can't list/get cross-tenant data; reviewer cannot be spoofed; SA-key creator stamped from principal; SAKey secret returned ONCE then redacted
 - [ ] kacho-iam CI green (unit + integration + race)
 - [ ] PR merged
 - [ ] Vault обновлён:
