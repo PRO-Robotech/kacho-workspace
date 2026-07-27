@@ -66,7 +66,7 @@ compute→registry pull-resolve), **compensation-outbox** (B12), output-зерк
 | F11 | Two-projection: public `Instance` без инфра (node/host/scheduler/`topologyKey`/numeric-infra; `host_group_id`/`host_id` уже reserved AS-IS); infra-проекция → `Internal*` :9091 (наполнение — COMP-4) | module-compute rule 11; security §infra-sensitive; unified §5 инв-1 |
 | F12 | `UNIQUE(project,name)` partial (пустое `name` — id-only escape-hatch) + **concurrent name-race** (ровно один writer); BVA границы `name`/`description`/`labels` | data-integrity §within-service/§5; module-compute rule 13 |
 | F13 | Единый тон ошибок by-lane: INTERNAL-opaque (без pgx/SQL-leak), immutable-текст, malformed-first, `ALREADY_EXISTS`; project/zone peer-validate fail-closed (`UNAVAILABLE`), authz-first толерантность | api-conventions §error-format; security §hardening инв-1; unified §1 conv-11, §5 инв-5 · `[reason-token PHASE-0-GATED]` |
-| F14 | `InstanceService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → 400) + cursor + `filter name=`/`placementGroupId=`/`instanceKind=` | api-conventions §pagination/Gotcha; security инв-7; `make audit-list-filter` |
+| F14 | `InstanceService.List` — listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** (`page_size>1000`/garbage-token → 400) + cursor + `filter name=` (**единственное поле фазы**; любое другое → 400 с именем поля — см. §Reconcile F14 filter-whitelist) | api-conventions §pagination/Gotcha; security инв-7; `make audit-list-filter` |
 | F15 | `InstanceService.Delete` — **hard-delete durable-row БЕЗ detach-саги** (launch-`*Specs` не материализуются в COMP-1) → `Get` `NOT_FOUND`; **name-recycle** (непустое `name` освобождается, F12 partial-UNIQUE); malformed-id first-statement / absent-id authz-first tolerant | api-conventions §error-format; data-integrity §within-service; module-compute rule 11 |
 
 ---
@@ -93,6 +93,12 @@ compute→registry pull-resolve), **compensation-outbox** (B12), output-зерк
   placement-когерентность: `Create{placementGroupId, zoneId}` принимаются **вместе без coherence-check**
   (иначе half-coherence — часть проверок без второй). Existence `PlacementGroup`, spread-когерентность,
   scheduler-zone-assign для REQUIRED ZONE_SPREAD (в т.ч. правило «`zoneId` MUST be empty») — **COMP-3**.
+  Туда же — **фильтр `List` по placement-группе**: заводится вместе с ресурсом и **обязан прийти со
+  своим partial-индексом** (`(project_id, placement_group_id, created_at, id) WHERE placement_group_id
+  <> ''`), иначе `List` под нагрузкой вырождается в полное сканирование. Фильтр по `instanceKind`
+  дополнительно требует enum-декодера в общем `pkg/filter` (колонка — INTEGER-ordinal, парсер даёт
+  строку) — кросс-сервисное изменение, не compute-локальное. Обоснование — §Reconcile F14
+  filter-whitelist.
 - **COMP-4 — Internal* infra-проекции + легаси-RPC deprecation + `fd8`-Image полный ретайр.**
   `InternalHostAffinityService` + наполнение node/host/scheduler/`topologyKey`-проекций; снос легаси RPC
   (`UpdateMetadata`/`AddOneToOneNat`/`RemoveOneToOneNat`/`Relocate`/`SimulateMaintenanceEvent`/
@@ -722,8 +728,44 @@ Phase-0 governance change-set). COMP-1 фиксирует **compute-сторон
 > **AS-IS**: `InstanceService.List` есть, но подвержен **документированному рецидивирующему классу**
 > (реальные инциденты compute disk/image/nlb): валидация `page_size`/`page_token` обязана идти **ДО**
 > listauthz empty-grant short-circuit — иначе caller без грантов получает `200 {[]}` (или authz-403)
-> на garbage-token/`page_size>1000` вместо `400`. vpc — эталон. Редизайн: filter whitelist
-> `name=`/`placementGroupId=`/`instanceKind=`.
+> на garbage-token/`page_size>1000` вместо `400`. vpc — эталон. Filter whitelist фазы —
+> **`name=` и только он** (см. §Reconcile F14 filter-whitelist ниже); любое другое поле →
+> `400 INVALID_ARGUMENT` с именем поля в сообщении.
+
+#### Reconcile F14 filter-whitelist (2026-07-27) — фаза остаётся `name=`
+
+Прежняя редакция F14/COMP-1-36 заявляла whitelist `name=`/`placementGroupId=`/`instanceKind=`.
+Реализация whitelist'ит **только `name=`**, что совпадает с нормативным
+`api-conventions.md` §pagination/filter («текущая фаза — `name=`»). Расхождение сведено
+**в пользу кода**; расширение отложено в COMP-3 вместе с ресурсом `PlacementGroup`.
+
+Основания (проверены на коде и на живой Postgres, не декларативно):
+
+1. **Заявленное написание нереализуемо как есть.** `pkg/filter.Parse` подставляет имя поля в
+   SQL **дословно** (`FilterAST.ToSQL`), а колонки — snake_case. Замер: `… AND instanceKind = $1`
+   → `SQLSTATE 42703 column "instancekind" does not exist`; то же для `placementGroupId`. То есть
+   camelCase-написание из дока дало бы `INTERNAL`, а не отфильтрованную страницу.
+2. **`instanceKind` не фильтруется строкой в принципе.** `instances.instance_kind` — `INTEGER`
+   (ordinal enum, миграция 0016), а парсер производит только строковое значение. Замер:
+   `… AND instance_kind = 'CONTAINER'` → `SQLSTATE 22P02 invalid input syntax for type integer`.
+   Нужен enum-декодер в общем парсере — кросс-сервисное изменение `pkg/filter`, не правка compute.
+3. **Индекса под новые поля нет, и заводить его сейчас нечем оправдать.** Дополнительное поле
+   фильтра без индекса превращает `List` в полное сканирование под нагрузкой. `instance_kind` —
+   ≤3 значения (нулевая селективность), `placement_group_id` — `DEFAULT ''` практически на всех
+   строках, а сам `PlacementGroup` как ресурс появляется только в **COMP-3**: индексировать
+   поле, которое пока никто не населяет осмысленно, — это стоимость записи без выигрыша чтения.
+4. **`placementGroupId` в COMP-1 — opaque passthrough** (OQ4, COMP-1-22): без existence/coherence.
+   Фильтр по нему становится осмысленным одновременно с самим ресурсом — в COMP-3, где и
+   заводится вместе со **своим partial-индексом** (`(project_id, placement_group_id, created_at, id)
+   WHERE placement_group_id <> ''`).
+
+Наблюдаемый контракт фазы (залочен, не «на честном слове»): любое не-`name` поле фильтра →
+`400 INVALID_ARGUMENT "Bad expression at column 1. Unknown field: \"<field>\""` — **никогда**
+молчаливое игнорирование (иначе caller получает чужие строки под фильтром, который он считает
+применённым). Regression: `services/compute/internal/repo/list_filter_whitelist_test.go`
+(Instance/Disk/Image/Snapshot × 6 полей, assert кода **и** сообщения) + newman
+`INST-RD-LST-FILTER-UNKNOWN-FIELD-REJECTED`. Запись отклонения —
+`services/compute/docs/architecture/07-known-divergences.md` §12.
 
 ### Сценарий COMP-1-34 (positive/negative): listauthz row-filter — caller видит только свои Instances (anti-BOLA)
 
@@ -747,7 +789,7 @@ Phase-0 governance change-set). COMP-1 фиксирует **compute-сторон
 **When** `InstanceService.List` с garbage `pageToken="!!!not-base64!!!"`
 **Then** `INVALID_ARGUMENT` (`DecodePageToken` garbage→InvalidArgument) — тоже ДО authz-short-circuit. Порядок: **format-validate → authz-resolve → empty-grant short-circuit → repo**. Regression: unit на `ValidatePagination`
 
-### Сценарий COMP-1-36 (positive/edge): cursor-страница + filter name=/placementGroupId=/instanceKind= + пустой список
+### Сценарий COMP-1-36 (positive/edge/negative): cursor-страница + filter `name=` + не-whitelisted поле отвергается
 
 **ID:** COMP-1-36
 
@@ -756,11 +798,14 @@ Phase-0 governance change-set). COMP-1 фиксирует **compute-сторон
 **When** `InstanceService.List(projectId="prj-acme", pageSize=2)`
 **Then** 2 Instance (cursor `(created_at,id)` ASC) + непустой `nextPageToken`; следующая страница отдаёт 3-й + пустой `nextPageToken`
 
-**When** `InstanceService.List(projectId="prj-acme", filter="instanceKind=CONTAINER")`
-**Then** ровно CONTAINER-инстанс (filter whitelist — `name=`/`placementGroupId=`/`instanceKind=`)
+**When** `InstanceService.List(projectId="prj-acme", filter="name=\"<имя одного из них>\"")`
+**Then** `200` ровно с этим Instance (whitelist фазы — **`name=` и только он**)
 
-**When** `InstanceService.List(projectId="prj-acme", filter="name=no-match")`
+**When** `InstanceService.List(projectId="prj-acme", filter="name=\"no-match\"")`
 **Then** `200` с пустым `instances[]` (не ошибка)
+
+**When** `InstanceService.List(projectId="prj-acme", filter="instanceKind=\"CONTAINER\"")` — поле **вне** whitelist'а
+**Then** `INVALID_ARGUMENT` (`400`) с сообщением `Bad expression at column 1. Unknown field: "instanceKind"` — неподдерживаемое поле **отвергается явно, НИКОГДА не игнорируется молча** (иначе caller получил бы нефильтрованную страницу под фильтром, который считает применённым). То же для `placementGroupId=` и для snake_case-написаний. Обоснование фазы и план расширения — §Reconcile F14 filter-whitelist
 
 ---
 
@@ -856,7 +901,7 @@ COMP-1 готова к merge только при выполнении ВСЕГО
 - **F11** two-projection: public Instance без инфра (assert field-absence); host_group/host_id reserved; infra→Internal* (наполнение COMP-4) (COMP-1-28..29).
 - **F12** `UNIQUE(project,name)` partial + concurrent name-race + `op.error`-перед-metadata дисциплина + BVA name/description/labels (incl. non-ASCII) (COMP-1-30..31).
 - **F13** by-lane тон (INTERNAL-opaque) + project/zone peer-validate fail-closed (UNAVAILABLE) + authz-first толерантность `[reason-token PHASE-0-GATED]` (COMP-1-32..33).
-- **F14** `InstanceService.List` listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** + cursor + filter name=/placementGroupId=/instanceKind= (COMP-1-34..36).
+- **F14** `InstanceService.List` listauthz row-filter (anti-BOLA) + **pagination-validate ДО authz-short-circuit** + cursor + filter `name=` (единственное поле фазы; прочие → 400 с именем поля — §Reconcile F14 filter-whitelist) (COMP-1-34..36).
 - **F15** `InstanceService.Delete` hard-delete durable-row (БЕЗ detach-саги — launch-`*Specs` не материализуются) → `Get` `NOT_FOUND`; **name-recycle** (partial-UNIQUE slot освобождается); malformed-first / absent authz-first tolerant (COMP-1-37..38).
 
 Покрытие обязательного минимума (task): instanceKind oneof XOR ✓ (COMP-1-01/02/03) · single sizing channel + raw-retire ✓ (COMP-1-05/07) · bootSource+imageKind ✓ (COMP-1-09/10) · serviceAccountId Referrer ✓ (COMP-1-12) · unreachable-guard ✓ (COMP-1-14) · MachineType sync-каталог + GPU-granularity ✓ (COMP-1-18/19/21) · YC-cruft retire (platform_id/host_affinity/MetadataOptions) ✓ (COMP-1-23/24) · concurrent name-race ✓ (COMP-1-30) · **Delete + name-recycle ✓ (COMP-1-37)** · PHASE-0-GATED/CROSS-MODULE помечены (B1/B3/B13, fd8-retire). Каждая фича — positive + ≥1 negative + edge.
