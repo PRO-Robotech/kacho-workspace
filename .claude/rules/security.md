@@ -190,8 +190,17 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
 7. **Валидация формата ДО authz-short-circuit на read-path.** `List`/`Get` обязаны валидировать
    `page_size`/`page_token`/id-формат (→ `InvalidArgument`) **ДО** listauthz empty-grant
    short-circuit: иначе caller без грантов получает `200 empty` (или authz-403) на garbage-token/
-   `page_size>max` вместо `400` — маскирует контракт и расходится между сервисами. vpc — эталон
-   (`DecodePageToken` garbage→InvalidArgument); compute/nlb подогнаны. Порядок: format-validate → authz → repo.
+   `page_size>max` вместо `400` — то есть ответ на один и тот же некорректный ввод зависит от
+   того, что вызывающему выдано. Порядок: format-validate → authz → repo.
+   **Проверка формата обязана стоять в ТОЙ ЖЕ функции, которая замыкается**, а не у её
+   вызывающего: «валидирует репозиторий» верно ровно для того пути, который до репозитория
+   доходит, а замыкание до него не доходит по определению.
+   **Держит это гейт, а не звание эталона:** `internal/repohygiene`
+   `TestEmptyPageNeverPrecedesPaginationValidation` обходит прод-дерево по синтаксическому дереву
+   и требует свойство от каждой функции формы `([]T, string, error)`. Прежняя редакция называла
+   эталоном сервис — и звание пережило то, что им обозначалось: у названного сервиса не было ни
+   вызова предписанного артефакта, ни теста на порядок, а нарушений в дереве было 14 в двух
+   сервисах. **Название сервиса эталоном — не проверка; проверкой является гейт.**
 8. **Мягкий проход при отказе обязан ОТЛИЧАТЬ настройку от сбоя — иначе контроль открыт навсегда
    и молча.** Проверка, которая на недоступности зависимости логирует и продолжает («graceful
    degradation»), защитима **только** пока отказ действительно временный. Если она не различает
@@ -228,8 +237,13 @@ secure-by-default boot-guards, HS256 stand-in вместо Hydra-RS256. Инва
 
 1. **Каждый сервис ОБЯЗАН иметь production boot-guard (`Config.Validate()` fail-closed).** В production-mode
    config-валидация ОБЯЗАНА **refuse-to-start** (fatal), если: `sslmode=disable` (нужен require|verify-ca|verify-full),
-   mTLS off на любом live-ребре, authz-interceptor не в цепочке, breakglass on. Эталон — vpc `config/mode.go`
-   (Mode{Dev,Production,ProductionStrict}+IsProduction) + geo/vpc `validateSecurityConfig`. **`AuthMode`
+   mTLS off на любом live-ребре, authz-interceptor не в цепочке, breakglass on. Где это лежит:
+   vpc — `services/vpc/internal/apps/kacho/config/mode.go` (Mode{Dev,Production,ProductionStrict} +
+   `IsProduction`) и `.../config/validate.go` (`Config.Validate`, `ValidateBoot`, `ValidateServerMTLS`,
+   `ValidatePeerTransport`, `ValidateListFilter`); geo — `services/geo/cmd/kacho-geo/serve.go`
+   (`validateSecurityConfig`). Прежняя редакция приписывала `validateSecurityConfig` и vpc — такой
+   функции в vpc нет вовсе (`git grep validateSecurityConfig -- services/vpc` → пусто), и ссылка на
+   несуществующую точку входа посылает читателя искать защиту не там. **`AuthMode`
    declared-but-never-read = ЗАПРЕЩЕНО** (мёртвый guard: сервис boots insecure в «production» с одним WARN —
    инцидент storage #56, единственный не-fail-closed сервис). Новый сервис БЕЗ production-guard не мёржится.
 2. **Локальный/dev стенд поднимается в production-mode** (`values.prod`-posture: authMode=production + mTLS ВЕЗДЕ
