@@ -195,7 +195,7 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
    утверждение, а не валидатор: 7 из 7 List-хендлеров несут
    `TestListPaginationFormatCheckedBeforeIdentityShortCircuit` (неопознанный вызывающий +
    мусорный курсор ⇒ `InvalidArgument`, плюс положительный контроль — законная страница
-   проходит). Тред-wide энфорсмент — AST-гейт `internal/repohygiene`
+   проходит). Tree-wide энфорсмент — AST-гейт `internal/repohygiene`
    `TestEmptyPageNeverPrecedesPaginationValidation`, обходящий все List-образные функции.
    Прежняя редакция ссылалась на `DecodePageToken`-юнит и называла nlb «подогнанным» — оба
    утверждения предмета не имели (декод-юнит порядка не проверяет; у nlb нет ни одного
