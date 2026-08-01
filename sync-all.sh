@@ -20,27 +20,42 @@ if [ -d "$SCRIPT_DIR/.git" ]; then
   fi
 fi
 
-REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-iam kacho-vpc kacho-compute kacho-nlb kacho-ui kacho-deploy kacho-vpc-operator)
+# Перечень выводится из дерева. Здесь стоял третий рукописный список тех же имён — и он
+# уже разошёлся с двумя другими: в нём не хватало kacho-geo, то есть репозиторий, который
+# bootstrap.sh клонировал, sync-all.sh молча не обновлял. Один механизм, три копии списка,
+# расхождение никем не замечено — поэтому источник теперь один (repos.sh) и он же дерево.
+# shellcheck source=repos.sh
+. "$SCRIPT_DIR/repos.sh"
 
-for r in "${REPOS[@]}"; do
-  if [ ! -d "$PROJECT_DIR/$r/.git" ]; then
-    echo "[$r] not cloned, skip"
-    continue
-  fi
-  cd "$PROJECT_DIR/$r"
+pulled=0
+while IFS=$'\t' read -r repo identity; do
+  [ -n "$repo" ] || continue
+  pulled=$((pulled + 1))
+  cd "$repo" || continue
   before="$(git rev-parse HEAD 2>/dev/null)"
-  git fetch --quiet || { echo "[$r] fetch failed"; continue; }
+  git fetch --quiet || { echo "[$identity] fetch failed"; continue; }
   if git pull --ff-only --quiet 2>/dev/null; then
     after="$(git rev-parse HEAD)"
     if [ "$before" = "$after" ]; then
-      echo "[$r] up-to-date"
+      echo "[$identity] up-to-date"
     else
-      echo "[$r] updated to $after"
+      echo "[$identity] updated to $after"
     fi
   else
-    echo "[$r] skipped: not fast-forward"
+    echo "[$identity] skipped: not fast-forward"
   fi
-done
+done < <(kacho_discover_worktrees "$PROJECT_DIR")
+
+# Ноль целей — отсутствие предмета, а не «всё актуально». Различать обязательно: именно
+# неразличение этих двух исходов держало модель распространения невыполненной.
+if [ "$pulled" -eq 0 ]; then
+  {
+    echo "ОТКАЗ: в $PROJECT_DIR нет ни одной рабочей копии репозитория продукта — обновлять нечего."
+    echo "       Осмотрено каталогов: $(ls -1d "$PROJECT_DIR"/*/ 2>/dev/null | wc -l | tr -d ' '). См. repos.sh."
+  } >&2
+  exit 1
+fi
+echo "обновлено рабочих копий: $pulled"
 
 # Раскатать AI-оснастку из workspace во все репо (источник истины — kacho-workspace/.claude)
 if [ -x "$SCRIPT_DIR/sync-tooling.sh" ]; then

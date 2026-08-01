@@ -12,10 +12,18 @@ teardown_fake_workspace() {
 }
 
 # Создаёт локальные bare-репо как фейковые remotes для тестов bootstrap.sh
+#
+# `kacho` (монорепо) стоит ПЕРВЫМ и раньше здесь отсутствовал — ровно как и в самом
+# bootstrap.sh. Фикстура повторяла дефект продукта, поэтому тест «клонирует все репо»
+# оставался зелёным, ни разу не создав `project/kacho` — каталог, ради которого bootstrap
+# и запускают. `kacho-vpc-operator` убран: на GitHub такого репозитория нет (404).
 setup_fake_remotes() {
   local remotes_dir="$TMP_WS/fake-remotes"
   mkdir -p "$remotes_dir"
-  for r in kacho-proto kacho-corelib kacho-api-gateway kacho-iam kacho-geo kacho-vpc kacho-compute kacho-nlb kacho-ui kacho-deploy kacho-vpc-operator; do
+  # Владелец в file://-URL — последний сегмент каталога remotes; предикат repos.sh
+  # опознаёт цель по origin, поэтому тестам нужно назвать своего владельца явно.
+  export KACHO_REPO_OWNER="fake-remotes"
+  for r in kacho kacho-proto kacho-corelib kacho-api-gateway kacho-iam kacho-geo kacho-vpc kacho-compute kacho-nlb kacho-ui kacho-deploy; do
     git init --bare "$remotes_dir/$r.git" >/dev/null
     local work="$TMP_WS/work-$r"
     git clone "$remotes_dir/$r.git" "$work" >/dev/null 2>&1

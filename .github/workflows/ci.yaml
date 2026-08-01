@@ -13,7 +13,27 @@ jobs:
         working-directory: scripts/freeze-gate
         run: shellcheck -x -- *.sh
       - name: run bats tests
-        run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats
+        run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats tests/sync-tooling.bats
+
+  tooling-reaches-the-repo:
+    name: оснастка доезжает до репозитория продукта и не разошлась с источником
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Гейт бессмыслен без цели: раскатывать не во что — значит нечего и проверять, и это
+      # ОТКАЗ, а не зелёное. Именно неразличение этих двух исходов держало модель
+      # распространения невыполненной и ненаблюдаемой (см. .claude/rules/ai-tooling.md).
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v4
+        with:
+          repository: PRO-Robotech/kacho
+          path: project/kacho
+      - name: origin рабочей копии — как у настоящего клона
+        # actions/checkout ставит origin на github.com/<repo>, но перепроверяем явно:
+        # предикат «репозиторий продукта» опознаёт цель по origin, а не по имени каталога.
+        run: git -C project/kacho remote set-url origin https://github.com/PRO-Robotech/kacho.git
+      - name: sync-tooling --check
+        run: ./sync-tooling.sh --check
 
   doc-commands:
     name: quoted make commands run from the monorepo root

@@ -6,28 +6,58 @@ hooks (дисциплина). Принцип: **структурно, не из�
 
 ## Модель распространения: self-sufficient репо + sync из workspace
 
-Оснастка **физически дублируется в каждый `project/<repo>/.claude/`**, чтобы репо был
-самодостаточен при standalone-клоне (CI, свежий checkout, отдельный контрибьютор):
-parent-walkup работает только когда Claude запущен ВНУТРИ дерева workspace, а
-`settings.json`/hooks вообще не делают parent-walkup (cwd-only). **Источник истины —
+Оснастка **физически дублируется** в `.claude/` каждой рабочей копии продукта, чтобы репо
+был самодостаточен при standalone-клоне (CI, свежий checkout, отдельный контрибьютор):
+parent-walkup для `CLAUDE.md` работает только когда Claude запущен ВНУТРИ дерева workspace,
+а `settings.json`/hooks вообще не делают parent-walkup (cwd-only). **Источник истины —
 `kacho-workspace/.claude/`**; копии генерируются `./sync-tooling.sh` (вшит в `./sync-all.sh`).
 
+> [!warning] Эта модель была объявлена, но НЕ ВЫПОЛНЯЛАСЬ — и невыполнение было ненаблюдаемо
+> Замер 2026-08-02: в `project/kacho` (монорепо, где ведётся вся разработка) отслеживалось
+> **ноль** файлов `.claude/` — ни правил, ни агентов, ни скилов, ни `CLAUDE.md`. Механизм при
+> этом рапортовал успех: `REPOS` нёс одиннадцать имён полирепо, **ни одно** из них не
+> пересекалось со склонированным, скрипт печатал одиннадцать «skip» и выходил кодом 0.
+> То есть инвариант самодостаточности не выполнялся ни разу за всё время жизни механизма, а
+> раскатка «в ноль репозиториев» была неотличима от «всё уже синхронно».
+>
+> Исправлено тремя вещами, каждая закрывает свою половину:
+> 1. **перечень выводится из дерева** (`repos.sh`), а не выписывается — рукописный список жил
+>    в трёх копиях и уже разошёлся сам с собой (в `sync-all.sh` не хватало `kacho-geo`);
+> 2. **ноль целей — отказ**, а не успех (`sync-tooling.sh`, `sync-all.sh`, оба печатают
+>    объём осмотренного, чтобы «ноль находок» было отличимо от «ноль прочитанного»);
+> 3. **гейт** `./sync-tooling.sh --check` + `tests/sync-tooling.bats` в CI: репозиторий
+>    продукта без оснастки, раскатка в ноль целей и разошедшаяся с источником копия — красное.
+
 - **Правишь generic-оснастку → ТОЛЬКО в `kacho-workspace/.claude/`**, затем
-  `./sync-tooling.sh` раскатывает во все репо. Копию в репо руками не редактируй
-  (перетрётся при следующем sync) — это и есть защита от drift.
-- **Что синкается** (generic, во все репо): `rules/*` (включая `00-kacho-core.md`),
-  13 generic-агентов `agents/*.md`, 10 generic-скилов `skills/*/`, `hooks/*`, `settings.json`.
-  > [!warning] `sync-tooling.sh` берёт `ls -1d */` из `.claude/skills/` **без фильтра** —
-  > раскатается всё, что лежит в каталоге, включая **неотслеживаемое и игнорируемое**.
-  > Единица счёта здесь — **отслеживаемая git директория скила**, предикат:
-  > `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | wc -l`. На диске директорий
-  > **больше**, и расхождение не косметическое: то, что `.gitignore` объявил «не частью
-  > набора», всё равно **раскатывается по всем репо** — просто без версии и без ревью.
-  > Заводя скил, сверяй перечень ниже этим предикатом, а не памятью.
+  `./sync-tooling.sh`. Копию в репо руками не редактируй (перетрётся при следующем sync, а
+  гейт `--check` покраснеет раньше) — это и есть защита от drift.
+- **Единица счёта — ОТСЛЕЖИВАЕМЫЙ git-элемент, не то, что лежит на диске.** Раскатка берёт
+  наборы через `git ls-files`, поэтому объявление, `.gitignore` и поведение не могут
+  разъехаться молча. Предикаты (сверяй ими, а не памятью):
+  `git ls-files .claude/rules/ | cut -d/ -f2 | sort -u | wc -l` (**10**, из них едет **9**),
+  `git ls-files .claude/agents/ | wc -l` (**15**),
+  `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | wc -l` (**11**).
+  На диске скилов больше — сторонние, установленные рядом, объявлены чужими в `.gitignore`
+  и **не** раскатываются.
+- **Едет не всё: ассет без ПРЕДМЕТА в целевом репозитории не едет.** Мёртвый ассет — не «про
+  запас», он тихо ничего не делает, оставаясь на вид работающим (ровно тот класс, который
+  правила запрещают в продуктовом коде). Сегодня не едут три вещи, все про obsidian-vault,
+  которого в монорепо нет: `rules/vault.md`, `hooks/vault-reminder.sh`,
+  `hooks/vault-stop-check.sh` (замерено исполнением: на воркспейсе последний даёт 614 байт
+  вывода, на монорепо — **0 байт**, всегда). Исключение **самоистекает**: появится
+  `obsidian/kacho` в целевом репо — `--check` выдаст находку `STALE-EXCLUSION`.
+- **`settings.json` едет БЕЗ блока `permissions`.** `defaultMode: bypassPermissions` — выбор
+  про конкретную машину; закоммиченный в **публичный** репозиторий, он принял бы этот выбор
+  за каждого, кто сделает свежий клон. Место такого выбора — `.claude/settings.local.json`
+  (git-ignored). Портируемая часть — провязка хуков — едет, и гейт проверяет, что **каждый**
+  провязанный хук в назначении существует (провязка в пустоту = та же форма без содержания).
 - **Domain-агенты/скилы** (`vpc-*`, `compute-*`, `<svc>-load-testing`) — НАТИВНЫЕ в своём
-  репо; sync их не трогает и не перетирает. Имя domain-агента префиксуется доменом.
-- **Каждый `project/<repo>/CLAUDE.md`** сам `@import`-ит локальные `.claude/rules/*`
-  (включая `00-kacho-core.md`) — поэтому standalone-репо получает identity + правила.
+  репо; sync их не трогает и не перетирает. На монорепо перечень доменов **выводится** из
+  `services/*`, а не выписывается.
+- **Каждая рабочая копия несёт корневой `CLAUDE.md`**, который `@import`-ит локальные
+  `.claude/rules/*` (включая `00-kacho-core.md`) — поэтому standalone-репо получает identity
+  + правила. Гейт сверяет это в обе стороны: приехавшее правило обязано импортироваться
+  (`NO-IMPORT`), импортируемое — приезжать (`DANGLING-IMPORT`).
 
 ### Механика Claude Code (на чём это держится)
 - **CLAUDE.md** — загружается из cwd + parent-walkup; `@import` подтягивает файлы
@@ -55,15 +85,17 @@ parent-walkup работает только когда Claude запущен В�
 - `proto-api-reviewer` — proto-изменения: package naming, flat-resource envelope, `Get/List` sync + `Create/Update/Delete`→Operation, buf lint/breaking/validate, Internal-vs-public.
 - `qa-test-engineer` — расширяет regression-suite (Newman) против acceptance/спеки как источника истины; находки → GitHub Issue + регрессионный тест.
 
-**Domain-specific (в `project/<repo>/.claude/agents/`) — только узкая экспертиза:**
-- kacho-vpc: `vpc-cidr-specialist`, `vpc-outbox-watch-engineer`, `vpc-newman-author`, `vpc-load-testing`, `vpc-conventions-auditor` (аудит конвенций Kachō: error-format/regex/status-mapping/timestamp/update_mask/sync-vs-async — НЕ сравнение с чужими облаками).
-- kacho-compute: domain-specialists по аналогии (instance-lifecycle, disk-image, conventions-auditor, newman-author, load-testing).
+**Domain-specific (в `project/kacho/.claude/agents/`) — только узкая экспертиза:**
+- домен vpc: `vpc-cidr-specialist`, `vpc-outbox-watch-engineer`, `vpc-newman-author`, `vpc-load-testing`, `vpc-conventions-auditor` (аудит конвенций Kachō: error-format/regex/status-mapping/timestamp/update_mask/sync-vs-async — НЕ сравнение с чужими облаками).
+- домен compute: domain-specialists по аналогии (instance-lifecycle, disk-image, conventions-auditor, newman-author, load-testing).
 
-> Распространение: 13 generic-агентов — **источник истины в workspace**, копии
-> раскатываются `./sync-tooling.sh` в `project/<repo>/.claude/agents/` (репо самодостаточен
-> при standalone-клоне). Правка generic-агента — только в workspace, не в копии.
-> В `project/<repo>/.claude/agents/` рядом с синканными generic живут **нативные
-> domain-specific** агенты (имя префиксуется доменом: `vpc-*`, `compute-*`) — sync их не трогает.
+> Распространение: **15** generic-агентов (предикат: `git ls-files .claude/agents/ | wc -l` —
+> не память, перечень выше и это число обязаны совпадать) — **источник истины в workspace**,
+> копии раскатываются `./sync-tooling.sh` в `.claude/agents/` каждой рабочей копии продукта
+> (репо самодостаточен при standalone-клоне). Правка generic-агента — только в workspace, не в
+> копии: `--check` покраснеет находкой `DRIFT`. Рядом с синканными generic живут **нативные
+> domain-specific** агенты, имя которых префиксуется доменом (`vpc-*`, `compute-*`, …; на
+> монорепо перечень доменов выводится из `services/*`) — sync их не трогает и не вычищает.
 
 ## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
 

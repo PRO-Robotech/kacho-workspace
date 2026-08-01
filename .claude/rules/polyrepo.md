@@ -1,48 +1,76 @@
-# Polyrepo: структура, зависимости, порядок работы
+# Топология репозиториев, зависимости, порядок работы
 
-Workspace — корневой git-репо. Sibling-репо клонируются в `./project/`
-(`bootstrap.sh`); `project/` под gitignore, у каждого свой `.git/` и
-`git@github.com:PRO-Robotech/<repo>.git` (`gh` авторизован).
+## Топология — ОДНО монорепо (факт на 2026-08-02)
 
-## Репозитории
+Разработка ведётся в **одном** репозитории `PRO-Robotech/kacho` (**публичный**), который
+клонируется в `project/kacho` (`bootstrap.sh`); `project/` под gitignore. Workspace
+`PRO-Robotech/kacho-workspace` (**тоже публичный**) — корень: CLAUDE.md/rules, общие агенты,
+спеки, vault, bootstrap.
 
-| Репо | Роль |
-|---|---|
-| `kacho-workspace` | корень: CLAUDE.md/rules, общие агенты, спеки, bootstrap |
-| `kacho-proto` | **единственный** дом всех `.proto` (`proto/kacho/cloud/<domain>/v1/`); сгенерированные Go-stubs commit-ятся в `gen/go/...` |
-| `kacho-corelib` | переиспользуемые Go-пакеты (см. `architecture.md`) |
-| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST |
-| `kacho-iam` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding |
-| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface |
-| `kacho-compute` | Instance / MachineType (+ **живой дубль** Disk/Image/Snapshot/DiskType — раскол не завершён, см. `data-integrity.md` карта владельцев) |
-| `kacho-storage` | Volume / Snapshot / Image / DiskType — блочное хранение; владелец `volume_attachments` |
-| `kacho-nlb` | LoadBalancer / Listener / TargetGroup / Target |
-| `kacho-registry` | Registry / Repository / Tag (OCI) |
-| `kacho-geo` | Region / Zone (Geography — platform topology leaf, owner) |
-| `kacho-deploy` | dev-стенд (Postgres + ingress) + e2e |
-| `kacho-ui` | Vite + React SPA control plane |
-| `kacho-test` | сводный e2e/regression стенд |
-| `kacho-vpc-implement` | data-plane sibling VPC — spec-only, вне build-графа, control-plane его не касается |
+> [!warning] Здесь была описана топология из 15 отдельных репозиториев — её нет
+> Прежняя редакция этого раздела перечисляла `kacho-proto` / `kacho-corelib` / `kacho-<svc>` /
+> `kacho-api-gateway` / `kacho-deploy` / `kacho-ui` / `kacho-test` / `kacho-vpc-implement` как
+> действующую структуру, и на неё опирались `bootstrap.sh`, `sync-all.sh`, `sync-tooling.sh` —
+> тремя рукописными копиями одного списка, которые к тому же **разошлись между собой** (в
+> `sync-all.sh` не хватало `kacho-geo`). Замер 2026-08-02: в `project/` склонирован **один**
+> репозиторий продукта, и **ни одно** имя из этих списков с ним не пересекалось. Следствие —
+> раскатка оснастки печатала одиннадцать «skip» и выходила успехом, то есть объявленный
+> инвариант самодостаточности репо не выполнялся ни разу и это было ненаблюдаемо.
+> Перечень теперь **выводится из дерева** (`repos.sh`), а не выписывается: см. `ai-tooling.md`.
+>
+> Предшествующие полирепо на GitHub **существуют и не заархивированы** (проверено
+> `gh repo view`), но разработка в них не ведётся: последний push в каждом — середина июля
+> 2026, тогда как в `kacho` — ежедневно. README монорепо называет их «архивом» — по существу
+> верно, по факту флага `isArchived` нет. Клонируются только по явной просьбе
+> (`KACHO_CLONE_LEGACY_POLYREPOS=1`). `kacho-vpc-operator` не резолвится вовсе (404), хотя
+> стоял во всех трёх списках; `kacho-test` и `kacho-vpc-implement` в дереве не представлены.
 
-**Новый `.proto` — ВСЕГДА в `kacho-proto/`.** Сервисные репо `.proto` не содержат —
-только Go-импорт `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`.
-Единый `buf lint`/`buf breaking` на всё, синхронные версии, готовые клиентские SDK.
+### Раскладка монорепо (каталог ↔ прежний репозиторий)
 
-## Build-граф (источник истины — versioned `require` в `*/go.mod`, БЕЗ `replace`)
+| Каталог | Роль | Прежде |
+|---|---|---|
+| `proto/` | **единственный** дом всех `.proto` (`proto/kacho/cloud/<domain>/v1/`) + `buf.yaml` | `kacho-proto` |
+| `pkg/` | общий фундамент: `api/` (сгенерённые стабы, РУКАМИ НЕ ПРАВИТЬ), `ids/ db/ grpcsrv/ grpcclient/ authz/ operations/ outbox/` … | `kacho-corelib` |
+| `gateway/` | edge: gRPC-proxy + grpc-gateway REST | `kacho-api-gateway` |
+| `services/iam/` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding | `kacho-iam` |
+| `services/vpc/` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface | `kacho-vpc` |
+| `services/compute/` | Instance / MachineType (+ **живой дубль** Disk/Image/Snapshot/DiskType — раскол не завершён, см. `data-integrity.md` карта владельцев) | `kacho-compute` |
+| `services/storage/` | Volume / Snapshot / Image / DiskType — блочное хранение; владелец `volume_attachments` | — |
+| `services/nlb/` | LoadBalancer / Listener / TargetGroup / Target | `kacho-nlb` |
+| `services/registry/` | Registry / Repository / Tag (OCI) | — |
+| `services/geo/` | Region / Zone (Geography — platform topology leaf, owner) | `kacho-geo` |
+| `deploy/` | dev-стенд (Postgres + ingress) + e2e | `kacho-deploy` |
+| `ui-future/` | Vite + React SPA control plane | `kacho-ui` |
 
-```
-kacho-proto                 ← ни от чего внутри проекта не зависит
-  └─ kacho-corelib          ← require kacho-proto@<pseudo-version>
-       ├─ kacho-iam         ┐ каждый сервис: require kacho-corelib + kacho-proto (versioned).
-       ├─ kacho-geo         │ Между собой сервисы НЕ зависят по build (DB-per-service,
-       ├─ kacho-vpc         │ общение только по API). kacho-geo — leaf-домен Geography
-       ├─ kacho-compute     │ (Region/Zone), как iam: ни от какого сервиса не зависит.
-       └─ kacho-api-gateway ┘ (api-gateway импортирует proto-stubs всех доменов)
-kacho-deploy   ← Dockerfile'ы COPY ../kacho-*; build-context = parent dir
-kacho-ui/test  ← зависят от REST api-gateway в runtime (не build)
-```
+**Новый `.proto` — ВСЕГДА в `proto/`.** Сервисные каталоги `.proto` не содержат — только
+Go-импорт из `pkg/api/...`. Единый `buf lint`/`buf breaking` на всё дерево.
 
-### Правило зависимостей — versioned modules, `replace` ЗАПРЕЩЁН (non-negotiable)
+> [!note] Обратный раскол монорепо — НАМЕРЕНИЕ, а не факт
+> Если продукт когда-нибудь снова разъедется на полирепо, нижеследующее правило про
+> `replace` и versioned-модули вступает в силу **как есть** — оно писалось под ту топологию
+> и остаётся нормативным на случай её возвращения. Сегодня оно **неприменимо по построению**
+> (модуль один), и держать его как описание действительности — значит выдавать намерение за
+> факт. Именно поэтому раздел ниже помечен, а не удалён.
+
+## Build-граф — ОДИН Go-модуль (факт)
+
+Замер 2026-08-02: `go.mod` в дереве **1**, модуль `github.com/PRO-Robotech/kacho`;
+`replace` на внутренний модуль — **0**. Внутренних версионированных зависимостей между
+частями продукта нет by construction: `proto/` → `pkg/` → `services/*` / `gateway/` — это
+пакеты одного модуля, и порядок между ними — порядок импортов, а не пинов.
+
+Что от прежнего графа остаётся нормой **и сегодня**:
+
+- **Между собой сервисы НЕ зависят по коду.** DB-per-service, общение только по API
+  (ban #8). Каталог `services/<a>/` не импортирует `services/<b>/` — общее живёт в `pkg/`.
+  `geo` и `iam` — leaf-домены: их зовут, они не зовут никого из сервисов.
+- **`gateway/` импортирует стабы всех доменов** — это его роль, а не нарушение.
+- **Циклы запрещены** (см. рёбра ниже).
+
+### Правило зависимостей при полирепо-топологии — `replace` ЗАПРЕЩЁН (норма, сегодня неприменима)
+
+Действует, **если** части продукта снова станут отдельными модулями. Сегодня предмета нет
+(модуль один), но правило выведено из реального инцидента и потому сохраняется дословно:
 
 **В committed `go.mod` НЕ должно быть НИ ОДНОГО `replace github.com/PRO-Robotech/...`.**
 Зависимости резолвятся **только** как versioned-модули (`require …@<pseudo-version>` с
@@ -51,21 +79,29 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
 `go build`/`docker-build` → образ main не собирается (реальный инцидент: storage-split-gateway,
 2026-07-13 — storage/v1 403 на проде из-за несобранного gateway-образа).
 
-- **Локальная кросс-репо разработка** — через **git-ignored `go.work`** (root `project/go.work`,
-  `use ./kacho-*` для всех репо; шаблон — `go.work.example`). go.work даёт локальные siblings
-  БЕЗ правки go.mod; CI его не видит (single-repo) → использует versioned require. Это чистый
-  Go-workspace-паттерн (Go ≥1.18) — заменяет `replace ../` полностью.
+- **Локальная кросс-репо разработка** — через **git-ignored `go.work`** (`use ./kacho-*`;
+  шаблон — `go.work.example`). go.work даёт локальные siblings БЕЗ правки go.mod; CI его не
+  видит (single-repo) → использует versioned require. Заменяет `replace ../` полностью.
 - **Бамп зависимости** — `GOWORK=off go get github.com/PRO-Robotech/<repo>@<sha>` в затронутом
-  сервисе → PR (см. «Порядок работы»). Кросс-репо фича: proto → corelib → сервисы → gateway, каждый
-  шаг бампит пин на предыдущий.
-- **CI-гейт / проверка (обязательна, роняет PR):**
-  `! grep -rnE '^replace github.com/PRO-Robotech' project/*/go.mod` (пусто = OK). Ни один go.mod
-  не должен нести replace на внутренний модуль.
+  модуле → PR. Кросс-репо фича: proto → corelib → сервисы → gateway, каждый шаг бампит пин на предыдущий.
+- **CI-гейт:** `! grep -rnE '^replace github.com/PRO-Robotech' project/*/go.mod` (пусто = OK).
+  На монорепо гейт **тривиально зелёный** (один go.mod, ноль replace) — и это не «он работает»,
+  а «ему нечего рассматривать»: не считать его прохождение свидетельством.
 - **Dockerfile'ы** собираются versioned-модулями (single-repo context) ЛИБО через
-  build-context = parent + COPY siblings (umbrella/deploy) — но **go.mod остаётся без replace**
-  в обоих случаях (go.work/COPY предоставляют исходники, версии — из require).
+  build-context = parent + COPY siblings — но **go.mod остаётся без replace** в обоих случаях.
 
 ## Runtime cross-domain edges (gRPC service→service; НЕ build-зависимость)
+
+> Имена `kacho-<svc>` ниже — **домены**, а не отдельные репозитории: сегодня это каталоги
+> `services/<svc>/` одного репо. Содержание раздела от этого не меняется — рёбра рантайма,
+> направления и запрет циклов остаются нормой: сервисы общаются по API и не импортируют
+> друг друга по коду независимо от того, в скольких репозиториях они лежат.
+>
+> **Исключение — `kacho-vpc-operator`:** репозиторий не резолвится на GitHub (404), в дереве
+> монорепо ноль файлов по этому имени. Два ребра ниже (`→ kacho-vpc`, `→ kacho-iam`) описывают
+> компонент, которого в текущем дереве **нет**. Оставлены как контракт на случай его появления
+> (SEC-G), но проверять по ним живой стенд нечего — при работе с ними сперва установить, что
+> предмет существует.
 
 - `kacho-vpc → kacho-geo` — валидация `zone_id` Subnet/AddressPool (`geo.v1.ZoneService.Get`); Geography — домен geo (KAC-эпик #82). Заменяет прежнее ложное ребро `vpc→compute (zone)`.
 - `kacho-compute → kacho-geo` — валидация `Instance.zone_id` (`geo.v1.ZoneService.Get`). Geography больше не «своя» таблица compute — теперь peer-валидация через geo-client (KAC-эпик #82).
@@ -131,15 +167,25 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
   vpc больше не зовёт compute (zone-валидация ушла в geo). Семантического цикла нет.
 Регламент кросс-доменных ссылок — `data-integrity.md`.
 
-## Порядок работы / merge для кросс-репо фичи (топосортировка графа)
+## Порядок работы для кросс-доменной фичи (топосортировка графа)
 
-1. `kacho-proto` (новый `.proto` + регенерация `gen/`, `buf lint`/`breaking` зелёные)
-2. `kacho-corelib` (если меняются общие пакеты)
-3. сервис(ы) (`kacho-geo`/`kacho-iam`/`kacho-vpc`/`kacho-compute` — между собой в любом порядке; leaf-домены iam/geo обычно первыми, т.к. их зовут consumer'ы)
-4. `kacho-api-gateway` (регистрация RPC: public mux / internal mux)
-5. `kacho-deploy` (helm/compose)
-6. `kacho-workspace` (docs/specs)
+Порядок остаётся тем же — он про **зависимости**, а не про репозитории, и на монорепо
+означает порядок каталогов внутри одного PR (или серии green-коммитов, `git-youtrack.md`
+§CI), а не последовательность merge в разные репо:
 
-Пока вышестоящее не в `main` — нижестоящий CI временно пиннит sibling к feature-ветке
-(`ref:` в `.github/workflows/ci.yaml`); после merge — `ref: main`. Кросс-репо эпик —
-tracking-issue в `kacho-workspace` (метка `epic`) + per-repo issue с `Blocked by PRO-Robotech/<repo>#<n>`.
+1. `proto/` (новый `.proto` + регенерация в `pkg/api/`, `buf lint`/`breaking` зелёные)
+2. `pkg/` (если меняется общий фундамент)
+3. `services/<svc>/` (между собой в любом порядке; leaf-домены `iam`/`geo` обычно первыми — их зовут consumer'ы)
+4. `gateway/` (регистрация RPC: public mux / internal mux)
+5. `deploy/` (helm/compose)
+6. `kacho-workspace` (docs/specs, vault-trail) — **отдельный репозиторий**, отдельный коммит
+
+Единственная оставшаяся кросс-**репозиторная** граница — между монорепо и workspace:
+спека, приёмка и vault-trail живут в workspace, код — в монорепо. Ссылка между ними —
+по URL коммита/PR, не по пину модуля.
+
+> [!note] Прежний абзац про временный пин sibling-репо к feature-ветке (`ref:` в CI) снят:
+> при одном репозитории пиннить нечего. Правило возвращается вместе с полирепо-топологией,
+> если она вернётся (см. §«Обратный раскол — намерение»).
+
+Кросс-доменный эпик — tracking-issue в `kacho-workspace` (метка `epic`) + issue в `kacho`.
