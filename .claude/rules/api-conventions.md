@@ -238,9 +238,18 @@ code) — тон message остаётся стабильным контракт�
   per-object listauthz (compute/nlb/vpc) при пустом гранте (`len(AllowedIDs)==0`) отдают пустую
   страницу РАНО — часто и в use-case, и в repo — **до** того как repo декодирует/валидирует
   `page_token`/`page_size`. Тогда malformed-token / `page_size>1000` при пустом гранте утекают в
-  `200 {[]}` вместо `400 InvalidArgument` — расхождение с конвенцией и между сервисами
-  (реальный баг: compute disk/image/nlb; vpc был эталоном — валидирует рано). Порядок в хендлере:
+  `200 {[]}` вместо `400 InvalidArgument` — расхождение с конвенцией и между сервисами.
+  Порядок в хендлере:
   **`ValidatePagination(page_token, page_size)` → listauthz-resolve → empty-grant short-circuit →
   repo**. Repo-декод остаётся authoritative backstop; sync-guard в use-case/handler делает 400
-  детерминированным независимо от grant-state. Regression: unit на `ValidatePagination`
-  (garbage-token/`>1000` → `InvalidArgument`) в КАЖДОМ сервисе с этим паттерном.
+  детерминированным независимо от grant-state.
+  **Regression — проба ПОРЯДКА, а не юнит на валидатор.** Юнит, зовущий `ValidatePagination`
+  напрямую, локает, ЧТО отвечает гейт, и молчит о том, КОГДА он исполняется: он остаётся
+  зелёным при любом порядке, потому что ни вызывающего, ни замыкания в его картине нет.
+  Требуемая проба даёт хендлеру **неопознанного вызывающего** (пустой субъект / нулевой
+  грант) вместе с мусорным курсором и требует `InvalidArgument` вместо пустой страницы —
+  плюс парный положительный контроль (законная первая страница проходит), иначе отрицание
+  зеленеет на всём сломанном. Эталон формы — vpc, 7 из 7 хендлеров
+  (`TestListPaginationFormatCheckedBeforeIdentityShortCircuit`). Свойство дерева держит
+  AST-гейт `internal/repohygiene` `TestEmptyPageNeverPrecedesPaginationValidation`, а не
+  перечень per-service юнитов.

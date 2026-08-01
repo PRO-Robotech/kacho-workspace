@@ -190,8 +190,16 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
 7. **Валидация формата ДО authz-short-circuit на read-path.** `List`/`Get` обязаны валидировать
    `page_size`/`page_token`/id-формат (→ `InvalidArgument`) **ДО** listauthz empty-grant
    short-circuit: иначе caller без грантов получает `200 empty` (или authz-403) на garbage-token/
-   `page_size>max` вместо `400` — маскирует контракт и расходится между сервисами. vpc — эталон
-   (`DecodePageToken` garbage→InvalidArgument); compute/nlb подогнаны. Порядок: format-validate → authz → repo.
+   `page_size>max` вместо `400` — маскирует контракт и расходится между сервисами.
+   Порядок: format-validate → authz → repo. **Эталон — vpc**, и эталонное здесь именно
+   утверждение, а не валидатор: 7 из 7 List-хендлеров несут
+   `TestListPaginationFormatCheckedBeforeIdentityShortCircuit` (неопознанный вызывающий +
+   мусорный курсор ⇒ `InvalidArgument`, плюс положительный контроль — законная страница
+   проходит). Тред-wide энфорсмент — AST-гейт `internal/repohygiene`
+   `TestEmptyPageNeverPrecedesPaginationValidation`, обходящий все List-образные функции.
+   Прежняя редакция ссылалась на `DecodePageToken`-юнит и называла nlb «подогнанным» — оба
+   утверждения предмета не имели (декод-юнит порядка не проверяет; у nlb нет ни одного
+   хендлера с этим замыканием, и его собственный тест это прямо оговаривает).
 8. **Мягкий проход при отказе обязан ОТЛИЧАТЬ настройку от сбоя — иначе контроль открыт навсегда
    и молча.** Проверка, которая на недоступности зависимости логирует и продолжает («graceful
    degradation»), защитима **только** пока отказ действительно временный. Если она не различает
