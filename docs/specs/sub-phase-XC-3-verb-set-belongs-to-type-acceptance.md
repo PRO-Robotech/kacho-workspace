@@ -4,8 +4,12 @@
 > **Дата:** 2026-08-01
 > **Ревьюер:** `acceptance-reviewer` (единственный approve-gate, ban #1)
 > **Эпик/тикет:** KAC-XC-3 (cross-cutting, redesign-2026) — завести до старта S1Ф0
-> **Монорепо:** `project/kacho` (`github.com/PRO-Robotech/kacho`), база сверки — `redesign/integration` @ **`b92d62d1`**
-> **Метод сверки:** только `git show b92d62d1:<путь>` и `git grep <шаблон> b92d62d1 -- <пути>`. Рабочее дерево источником фактов о ревизии не является.
+> **Монорепо:** `project/kacho` (`github.com/PRO-Robotech/kacho`), база сверки — `redesign/integration` @ **`a15066ee`**
+> **Метод сверки:** только `git show a15066ee:<путь>` и `git grep <шаблон> a15066ee -- <пути>`. Рабочее дерево источником фактов о ревизии не является.
+> **Перемер S1Ф0 (2026-08-01):** база поднята с `b92d62d1` (предок, 5 коммитов) на `a15066ee`. Все измеряемые
+> здесь пути **побайтово идентичны** на обеих ревизиях, поэтому ни одно измерение §1 не изменилось; исправлены
+> только координаты, неверные с момента написания. Числа, единицы, команды и контроли предикатов —
+> `docs/plans/xc-3/s1f0-baseline.md` в монорепо (ветка `agent/xc3-s1-f0`).
 > **Владелец предмета:** `iam` — владелец модели прав. Домены-потребители предмета не содержат.
 > **Первый потребитель:** `sub-phase-NLB-TGT-1-target-membership-verbs-acceptance.md` — **блокируется** этой под-фазой.
 > **Формат:** Given-When-Then (только markdown — без кода)
@@ -32,7 +36,7 @@
 Разница решает всё: зеркало останавливает **случайное** расширение и пропускает **намеренное**.
 
 > расширить словарь **эмиттера** → падает `TestVerbBearing_AccountProjectVerbToRelation`
-> (`services/iam/internal/authzmap/verb_bearing_account_project_test.go:81-99`): его кейс
+> (`services/iam/internal/authzmap/verb_bearing_account_project_test.go:72` (кейс — `:81-99`)): его кейс
 > «account wildcard verb → full closed set» строит ожидаемое **тем же предикатом**, что и
 > эмиттер, и сверяет `require.ElementsMatch` с **захардкоженной пятёркой**. Но эта пятёрка —
 > литерал в `wantRels`: дописать в неё шестое имя, и гейт снова зелёный, **ничего не спросив у
@@ -156,7 +160,7 @@ XC-3 снимает допущение: набор глаголов станов
 | # | Измерение | Значение | Координата |
 |---|---|---|---|
 | M1 | каталожных типов объектов | **28** (28 дотированных имён → 28 различных типов модели) | `services/iam/internal/authzmap/fga_types.go`, `objectTypes` |
-| M2 | из них глагольных (получают `v_*`) | **28** — `verbBearingTypes` совпадает с `objectTypes` по ключам | `fga_types.go:143-152`, читается `TypeHasVerbRelations` (`:139`) |
+| M2 | из них глагольных (получают `v_*`) | **28** — `verbBearingTypes` совпадает с `objectTypes` по ключам | `fga_types.go:152`, записи `:153-187`, читается `TypeHasVerbRelations` (`:139`) |
 | M3 | ярусных типов (несут ярус, но не глаголы) | **0** — множество объявлено пустым | `fga_model_drift_test.go:99` |
 | M4 | типов с набором, отличным от общей пятёрки | **0** | следствие M2+M3 |
 | M5 | мест эмиссии `v_*` во всём дереве | **3** | `reconcile/tuples.go:60`, `:79`, `:175` |
@@ -172,7 +176,7 @@ XC-3 снимает допущение: набор глаголов станов
 | | Таблица | Координата | Что утверждает |
 |---|---|---|---|
 | **T1** | `domain.ClosedVerbs` — словарь **эмиттера** | `services/iam/internal/domain/rule_verbs.go:18` | пять глаголов; по нему эмиттер решает, писать ли `v_<глагол>` |
-| **T2** | `verbBearingTypes` — **булево** на тип | `authzmap/fga_types.go:143-152` | тип несёт **все пять** отношений либо **ни одного**; представления «четыре из пяти» не существует |
+| **T2** | `verbBearingTypes` — **булево** на тип | `authzmap/fga_types.go:152` (записи `:153-187`) | тип несёт **все пять** отношений либо **ни одного**; представления «четыре из пяти» не существует |
 | **T3** | `closedVerbRelations` — словарь **гейта** | `authzmap/fga_model_drift_test.go:75-78` | те же пять имён, **намеренно продублированы**: «intentionally duplicated here so the gate has no dependency on the emitter package and fails independently» |
 | **T4** | `expandableRelations` — **аудит-поверхность** | `authzmap/fga_types.go:209-221`, энфорс `expand_access.go:134-140` | закрытый набор из 9 отношений, которые вообще можно спросить в развёртке доступа |
 | **T5** | `crudOrder` — порядок и «известность» глагола в **превью роли** | `services/iam/internal/domain/role_effective_verbs.go:16`, читается `:33` (`expandedVerbSet`) и `:49` (`orderVerbs`) | те же пять имён: задаёт разворот `*` **в превью** и делит глаголы на «канонические» и «прочие, в хвост» |
@@ -195,11 +199,11 @@ XC-3-11). Отставшая T5 даёт роль, чьё **превью и чь
   немедленно требует новое отношение **от всех 28 типов**. Падает **громко**, с координатой;
   сообщение гейта называет причину дословно: «a CRUD verb would emit an unsatisfiable tuple».
 - **Дописать глагол в T4** → падает **обратная** половина
-  `TestDrift_ExpandableRelationsMatchModel` (`:401-410`): «model relation %q is NOT a
+  `TestDrift_ExpandableRelationsMatchModel` (`:379`; фрагмент обратной половины — `:401-410`): «model relation %q is NOT a
   v_*/tier/member relation yet IsExpandableRelation reports true — the ExpandAccess surface
   drifted past review». Тоже **громко**.
 - **Дописать глагол в T1** → падает `TestVerbBearing_AccountProjectVerbToRelation`
-  (`authzmap/verb_bearing_account_project_test.go:81-99`), плюс две чёрноящичные пробы
+  (`authzmap/verb_bearing_account_project_test.go:72` (кейс — `:81-99`)), плюс две чёрноящичные пробы
   (`services/iam/tests/newman/cases/iam-permission-catalog.py:94`,
   `services/nlb/tests/newman/cases/authz-deny.py:657`). **Но это зеркало, а не привязка:**
   ожидаемое лежит литералом в `wantRels`, и дописывание в него возвращает зелёный, ничего не
@@ -312,7 +316,7 @@ treats|classifies PermissionDenied as transient`, плюс `150`. По этом�
 - Каталожные типы **выводятся** из `authzmap.Catalog()`, а не перечисляются в гейте отдельно
   (`fga_model_drift_test.go:252-254`) — источник один.
 - Каждый тип модели обязан лежать **либо** в грантуемом каталоге, **либо** в явном списке
-  негрантуемых (`nonGrantableModelTypes`, `:101-104`) — «ни там, ни там» уже запрещено.
+  негрантуемых (`nonGrantableModelTypes`, `:120`, записи `:121-126`) — «ни там, ни там» уже запрещено.
 - Отравление **не заклинивает** партицию: клейм исключает строки, исчерпавшие бюджет. Чинить
   очередь не нужно.
 - Лишнее отношение у типа существующие гейты **не** отвергают: `hasFullVerbSet` (`:221-229`)
