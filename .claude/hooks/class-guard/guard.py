@@ -4,9 +4,15 @@
 Что это. Хук `PostToolUse` на Write/Edit/MultiEdit: прогоняет по только что
 записанному файлу предикаты тех классов из скилов `code-authoring`,
 `gate-authoring`, `measurement-discipline`, `verdict-and-landing`, чей вердикт
-зависит ТОЛЬКО от содержимого этого файла. Таких 29 предикатов на 32 класса из
-136 — четверть. Остальные три четверти требуют модуля, прогона, суждения или
-знания намерения и в момент записи файла ненаблюдаемы; хук о них не заявляет.
+зависит ТОЛЬКО от содержимого этого файла. Таких 32 из 138 — 23 %. Остальные три
+четверти требуют модуля, прогона, суждения или знания намерения и в момент записи
+файла ненаблюдаемы; хук о них не заявляет.
+
+Единица «32» и единица «138» — РАЗНЫЕ, и это названо: 32 — классы гейта (A1…G1,
+знаменатель выводится из `PREDICATES_BY_ROLE`, см. ниже); 138 — записи классов в
+четырёх скилах, каждая посчитана предикатом своего скила на `workspace@55d64bc`
+(51 + 35 + 33 + 19). Прежняя редакция называла «29 предикатов на 32 класса из 136»
+— три числа, из которых два были неверны, а первое считало не то, что второе.
 
 Что он НЕ делает. Не блокирует запись (правка уже произошла — PostToolUse
 срабатывает после). Не выносит вердикт о готовности. Не заменяет ревью.
@@ -49,12 +55,57 @@ except Exception:  # noqa: BLE001
     _yaml = None
 
 CACHE = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "kacho-class-guard"
-TOTAL_PREDICATES = 29
+
+# Журнал и счётчик лежат ВНУТРИ каталога гейта, а не в корне проекта.
+#
+# Причина — радиус, а не вкус. `sync-tooling.sh` зеркалит `hooks/` целиком в каждое
+# репо, поэтому артефакт, чьё место задано корнем проекта, требует строки в
+# `.gitignore` КАЖДОГО репозитория — и её там не было (проверено исполнением: три пути
+# NOT IGNORED в `project/kacho`). Внутри каталога их накрывает `.gitignore`, который
+# приезжает тем же `cp -R`, — по построению, без списка, который кто-то обязан вести.
+STATE = HERE / ".state"
 BUILD_BUDGET_S = 90
 RUN_BUDGET_S = 20
 
 # Классы, чей вердикт даёт СОБЫТИЕ инструмента, а не содержимое файла.
 MIGRATION_DIR = ("migrations/", "/migrations/")
+
+# --- Знаменатель переписи ---------------------------------------------------
+#
+# ЕДИНИЦА — КЛАСС, и она одна на числитель и знаменатель. Прежняя редакция несла
+# рукописную константу `TOTAL_PREDICATES = 29` при 32 распознаваемых
+# идентификаторах класса: числитель считал классы (ветви диспетчера), знаменатель —
+# число, которое кто-то однажды записал рукой. Расхождение печаталось на каждом
+# прогоне и не могло быть замечено ничем, потому что сверять было не с чем.
+#
+# Поэтому знаменатель ВЫВОДИТСЯ ИЗ РЕАЛИЗАЦИИ: он равен длине карты «класс → сколько
+# предикатов этой роли файла», а карта — то же самое, что диспетчер использует для
+# счёта прогнанного. Разойтись они больше не могут: рукой правится только одно место,
+# и его же читает `render`.
+#
+# Классы Go живут в `goast/main.go` (A1…A11), классы текста — в `text_predicates.py`,
+# событийный G1 — в `analyse`. Перечень сверяется гейтом самоописания (см. `prove.sh`
+# §«знаменатель выведен из реализации»): он читает идентификаторы классов из ОБОИХ
+# исходников и требует, чтобы множество совпало с этим.
+PREDICATES_BY_ROLE: dict[str, tuple[str, ...]] = {
+    "go":          ("A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", "A9", "A10", "A11"),
+    "shell":       ("B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9",
+                    "B10", "B11", "B12", "B13", "B14", "B15"),
+    "python":      ("C1",),
+    "newman-json": ("C1",),
+    "yaml":        ("D1", "D2"),
+    "markdown":    ("E1",),
+    "ts":          ("F1",),
+    "sql":         ("G1",),
+}
+# Единица знаменателя — КЛАСС, а не «ветвь диспетчера»: C1 достижим двумя ролями
+# файла (питоновский кейс и порождённая коллекция), и считать его дважды значило бы
+# менять единицу между числителем и знаменателем.
+ALL_CLASSES: tuple[str, ...] = tuple(sorted(
+    {c for cs in PREDICATES_BY_ROLE.values() for c in cs},
+    key=lambda c: (c[0], int(c[1:])),
+))
+TOTAL_PREDICATES = len(ALL_CLASSES)
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +257,8 @@ def analyse(path: str, tool: str) -> tuple[list[tp.Finding], dict]:
         # 11» рядом со строкой «предикаты не прогнаны» — это ровно расхождение текста
         # с поведением, из-за которого следующий читатель «чинит» верное под неверное.
         census.update({
-            "predicates_run": 0 if unparsed else 11,
+            "predicates_run": 0 if unparsed else len(PREDICATES_BY_ROLE["go"]),
+            "test_files": c.get("test_files", 0),
             "nodes": c.get("nodes", 0),
             "decls": c.get("decls", 0),
             "comments": c.get("comments", 0),
@@ -224,35 +276,31 @@ def analyse(path: str, tool: str) -> tuple[list[tp.Finding], dict]:
     if kind == "shell":
         src = tp.Source(path, raw, tp.strip_shell(raw))
         findings += tp.b_shell(src)
-        n = 15
     elif kind == "python":
         src = tp.Source(path, raw, tp.strip_hash(raw))
         findings += tp.c_newman(src)
-        n = 1
     elif kind == "newman-json":
         # Порождённая коллекция — тоже вход правки: её правят руками, когда чинят
         # кейс «по-быстрому». Комментариев в JSON нет, поэтому сырой текст и есть код.
         src = tp.Source(path, raw, raw.split("\n"))
         findings += tp.c_newman(src, from_json=True)
-        n = 1
     elif kind == "yaml":
         src = tp.Source(path, raw, tp.strip_hash(raw))
         findings += tp.d_yaml(src, _yaml)
-        n = 2
     elif kind == "markdown":
         src = tp.Source(path, raw, tp.strip_md(raw))
         findings += tp.e_markdown(src)
-        n = 1
     elif kind == "ts":
         src = tp.Source(path, raw, tp.strip_c_like(raw))
         findings += tp.f_typescript(src)
-        n = 1
     else:  # sql — только событийный предикат выше
         census["predicates_run"] = census.get("predicates_run", 0)
         return findings, census
 
     census.update({
-        "predicates_run": n,
+        # Число прогнанного берётся ОТТУДА ЖЕ, откуда знаменатель, — иначе они снова
+        # разойдутся, и никто этого не заметит.
+        "predicates_run": len(PREDICATES_BY_ROLE[kind]),
         "lines": len(src.code_lines),
         "considered": src.considered,
         "declared_skips": src.declared_skips,
@@ -314,10 +362,10 @@ def apply_allowances(path: str, findings: list[tp.Finding]) -> tuple[list[tp.Fin
 # ---------------------------------------------------------------------------
 
 
-def bump_stats(root: Path, path: str, kind: str, n_find: int, ms: int, census: dict) -> str | None:
+def bump_stats(path: str, kind: str, n_find: int, ms: int, census: dict) -> str | None:
     st = {"runs": 0, "findings": 0, "since": int(time.time())}
-    logp = root / ".claude" / "class-guard.log"
-    statp = root / ".claude" / "class-guard.stats.json"
+    logp = STATE / "class-guard.log"
+    statp = STATE / "class-guard.stats.json"
     try:
         logp.parent.mkdir(parents=True, exist_ok=True)
         with logp.open("a", encoding="utf-8") as fh:
@@ -368,8 +416,11 @@ def render(path: str, findings: list[tp.Finding], census: dict, ms: int, notes: 
     cons_s = ", ".join(f"{k}:{v}" for k, v in sorted(cons.items())) or "—"
     scope = census.get("nodes") or census.get("lines") or 0
     unit = "узлов" if census.get("nodes") else "строк кода"
-    out.append(f"║ перепись: предикатов прогнано {census.get('predicates_run', 0)} из {TOTAL_PREDICATES}; "
-               f"осмотрено {scope} {unit}; кандидатов формы — {cons_s}; {ms} мс")
+    out.append(f"║ перепись: предикатов прогнано {census.get('predicates_run', 0)} из {TOTAL_PREDICATES} "
+               f"(единица — класс); осмотрено {scope} {unit}; кандидатов формы — {cons_s}; {ms} мс")
+    if census.get("test_files"):
+        out.append(f"║ объявленная предпосылка: {census['test_files']} файл(ов) _test.go/testdata "
+                   "выведены из корпуса «прод-дерево» (A1…A3, A6…A8, A10)")
     for s in census.get("declared_skips") or []:
         out.append(f"║ объявленный пропуск: {s}")
     for u in census.get("unparsed") or []:
@@ -394,8 +445,6 @@ def main() -> None:
     if not path or not os.path.exists(path):
         sys.exit(0)
 
-    root = Path(payload.get("cwd") or os.environ.get("CLAUDE_PROJECT_DIR") or ".").resolve()
-
     try:
         findings, census = analyse(path, tool)
         findings, stale = apply_allowances(path, findings)
@@ -411,7 +460,7 @@ def main() -> None:
 
     ms = int((time.time() - t0) * 1000)
     notes = []
-    warn = bump_stats(root, path, census.get("kind", ""), len(findings), ms, census)
+    warn = bump_stats(path, census.get("kind", ""), len(findings), ms, census)
     if warn:
         notes.append(warn)
     # Три исхода — три РАЗНЫХ канала, и это не оформление.

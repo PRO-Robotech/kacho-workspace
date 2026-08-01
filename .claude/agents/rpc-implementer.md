@@ -38,6 +38,12 @@ stubs из `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`.
 APPROVED и нужными Given-When-Then. Нет → останови работу, направь к
 `acceptance-author` → `acceptance-reviewer` (ban #1).
 
+**Условия от `class-exposure-analyst`** — если он отработал по этому замыслу, его
+«что должно быть верно в коде» ты читаешь как чек-лист к шагам 4–7: каждый пункт
+закрывается кодом либо явным «не сделал, потому что…». Измеренный им радиус правки
+не переоткрывай догадкой, а неизмеренное утверждение о дереве возвращай ему — до
+кода это стоит одного запроса, после — переписывания.
+
 ## 3. Workflow (RED → GREEN → refactor)
 
 ### Шаг 1. Разобрать acceptance-сценарии
@@ -130,11 +136,17 @@ Dependency rule: `handler → use-case → domain`; `repo`/`clients` реали�
 ## 6. Координация
 
 - `acceptance-author`/`acceptance-reviewer` — источник и APPROVED-gate сценариев.
+- `class-exposure-analyst` — стоит между APPROVED и твоей первой строкой: отдаёт тебе
+  условия на код (чек-лист §2) и числа о дереве (радиус правки, живость снимаемого,
+  перепись потребителей); его заказы на пробы уходят `integration-tester`, а не тебе.
 - `proto-sync` — все proto-изменения (шаг 3); `integration-tester` — может писать RED-тесты параллельно (шаг 2).
 - `migration-writer` — сложные миграции; `db-architect-reviewer` — ревью схемы/инвариантов.
 - `api-gateway-registrar` — регистрация публичного RPC (шаг 9).
 - `go-style-reviewer` (+ skill `evgeniy`) — Go clean-code; `system-design-reviewer` — outbox/идемпотентность/OCC/реконсайл;
   `proto-api-reviewer` — форма proto-контракта.
+- `landing-reviewer` — «Финал» шага 9: назвать `-race`/lint/`govulncheck`/newman зелёными
+  — его момент, не твой. Он устанавливает ОБЛАСТЬ этого зелёного (какой коммит
+  компилировался, какие стояли фильтры, что не проверялось) и способ внесения.
 
 ## 7. Выходные артефакты
 

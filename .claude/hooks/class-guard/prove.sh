@@ -14,9 +14,15 @@
 set -uo pipefail
 
 HOOK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/class-guard.sh"
+# Корень воркспейса: prove.sh лежит в .claude/hooks/class-guard/, то есть на ТРИ
+# уровня ниже. Первая редакция поднималась на два и указывала в `.claude` — все пять
+# проб по дереву честно отчитались «НЕ ВЫПОЛНИЛОСЬ», а не зазеленели на несуществующем
+# входе; третья категория для того и заведена.
+WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+TREE="$WS/project/kacho"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-PASS=0; FAIL=0; CASES=0
+PASS=0; FAIL=0; CASES=0; NOTRUN=0
 
 run() { # run <tool> <path> → stderr гейта
   printf '{"tool_name":"%s","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$1" "$2" "$TMP" \
@@ -579,18 +585,36 @@ echo "OK: рассмотрено $count"
 SH
 ); expect_silent B4 Write "$P" "счётчик рассмотренного и отказ на пустом"
 
+# ── B5: обе стороны — ДОСЛОВНЫЕ фрагменты дерева ──────────────────────────────
+#
+# Прежняя пара была разошедшейся с реальностью: отрицательный близнец читал ТОЛЬКО
+# адрес движка и `current-context` не звал вовсе, тогда как весь живой код зовёт ОБА —
+# имя первым отсевом ради внятного совета оператору, адрес для решения. Фикстуре не
+# хватало сопутствующего элемента, который у настоящих данных есть, поэтому предикат
+# был доказан на входе, какого в дереве не бывает, и советовал снять ВЕРНУЮ проверку
+# в четырёх местах из шести.
+#
+# Теперь (+) — дословный `deploy/scripts/remeasure-provider-listener-tls.sh` (авторитета
+# нет), (−) — дословный `deploy/scripts/inject-admin-hop-defects.sh` (имя И адрес).
 P=$(w b5.sh <<'SH'
 #!/usr/bin/env bash
-[ "$(kubectl config current-context)" = "kind-kacho" ] || exit 1
+command -v kubectl >/dev/null 2>&1 || { echo "FATAL: нужен kubectl"; exit 2; }
+ctx="$(kubectl config current-context 2>/dev/null)"
+[ "$ctx" = kind-kacho ] || { echo "ABORT: контекст '$ctx' — не kind-kacho"; exit 2; }
 SH
-); expect_fires B5 Write "$P" "сверка имени контекста"
+); expect_fires B5 Write "$P" "kacho@5af959db remeasure-provider-listener-tls.sh — только имя"
 
 P=$(w b5n.sh <<'SH'
 #!/usr/bin/env bash
-srv="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
-[ "$srv" = "https://127.0.0.1:6443" ] || exit 1
+# ── ЦЕЛЬ ПИНИТСЯ ПО КЛАСТЕРУ, А НЕ ПО ИМЕНИ КОНТЕКСТА ───────────────────────
+ctx="$(kubectl config current-context 2>/dev/null)"
+[ "$ctx" = kind-kacho ] || invalid "активный контекст '$ctx' — не kind-kacho"
+want_srv="$(kind get kubeconfig --name kacho 2>/dev/null | sed -n 's/^ *server: *//p' | head -1)"
+have_srv="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null)"
+[ -n "$want_srv" ] || invalid "kind не знает кластера 'kacho' — сверить apiserver НЕ С ЧЕМ"
+[ "$want_srv" = "$have_srv" ] || invalid "контекст называется kind-kacho, но ведёт в другой кластер"
 SH
-); expect_silent B5 Write "$P" "сверка адреса движка"
+); expect_silent B5 Write "$P" "kacho@5af959db inject-admin-hop-defects.sh — имя И адрес"
 
 P=$(w b6.sh <<'SH'
 #!/usr/bin/env bash
@@ -834,10 +858,67 @@ P=$(w migrations/0007_x.sql <<'SQL'
 ALTER TABLE t ADD COLUMN c text;
 SQL
 ); expect_fires G1 Edit "$P" "Edit по применённой миграции"
-expect_silent G1 Write "$TMP/migrations/0012_y.sql" "Write новой миграции" 2>/dev/null || true
+# Прежняя редакция звала пробу по НЕСУЩЕСТВУЮЩЕМУ пути (файл создавался строкой ниже),
+# и гейт выходил на `os.path.exists` — то есть проба ничего не проверяла и всё равно
+# засчитывалась в «сошлось». «Не выполнилось», зачтённое за «прошло», — ровно тот класс,
+# который этот харнесс объявляет третьей категорией.
 cp "$TMP/migrations/0007_x.sql" "$TMP/migrations/0012_y.sql"
 expect_silent G1 Write "$TMP/migrations/0012_y.sql" "Write новой миграции"
 
+# ══ Живое дерево: предикат обязан дать ЗАЯВЛЕННЫЙ расклад на настоящих файлах ══
+#
+# Синтетическая пара доказывает, что предикат различает две конструкции. Она НЕ
+# доказывает, что расклад на дереве такой, как объявлено в README, — а именно там
+# прошлая редакция B5 и разошлась с реальностью (6 кандидатов, 6 находок, из которых
+# 4 ложные). Поэтому по каждому реальному кандидату спрашиваем исход поимённо.
+echo "== живое дерево (kacho) =="
+tree_expect() { # tree_expect <класс> <путь от корня kacho> <fires|silent> <подпись>
+  if [ ! -f "$TREE/$2" ]; then
+    NOTRUN=$((NOTRUN+1))
+    echo "  ⋯ ($3) $1 $2 — НЕ ВЫПОЛНИЛОСЬ: нет $TREE/$2 (в зачёт не идёт)"
+    return
+  fi
+  if [ "$3" = fires ]; then expect_fires "$1" Write "$TREE/$2" "$4"; else expect_silent "$1" Write "$TREE/$2" "$4"; fi
+}
+tree_expect B5 deploy/scripts/remeasure-provider-listener-tls.sh   fires  "авторитета нет"
+tree_expect B5 deploy/helm/umbrella/cutover-fe3455.sh              fires  "авторитета нет"
+tree_expect B5 deploy/Makefile                                     silent "guard-kind-context + guard-destructive"
+tree_expect B5 deploy/scripts/assert-admin-hop-transport.sh        silent "имя первым отсевом, решает адрес"
+tree_expect B5 deploy/scripts/inject-admin-hop-defects.sh          silent "имя первым отсевом, решает адрес"
+
+# ══ Знаменатель переписи выведен из реализации, а не записан рукой ══
+#
+# Проверяется НЕ равенство двум литералам (это бы просто перенесло рукопись сюда), а
+# совпадение множеств: идентификаторы классов, которые реализация действительно
+# эмитит, против того, что объявляет `PREDICATES_BY_ROLE`.
+echo "== самоописание =="
+CASES=$((CASES+1))
+if out="$(cd "$WS" && python3 - <<'PY' 2>&1
+import re, sys
+from pathlib import Path
+H = Path(".claude/hooks/class-guard")
+sys.path.insert(0, str(H))
+import guard
+go, py, gp = (H/"goast"/"main.go").read_text(), (H/"text_predicates.py").read_text(), (H/"guard.py").read_text()
+impl = (set(re.findall(r'Class:\s*"([A-G]\d+)"', go)) | set(re.findall(r'note\("([A-G]\d+)"\)', go))
+        | set(re.findall(r'Finding\(\s*\n?\s*"([A-G]\d+)"', py)) | set(re.findall(r'note\("([A-G]\d+)"\)', py))
+        | set(re.findall(r'tp\.Finding\(\s*\n?\s*"([A-G]\d+)"', gp)))
+if not impl:
+    print("ПУСТО: из исходников не извлечён НИ ОДИН идентификатор класса — предпосылка гейта не резолвится")
+    sys.exit(1)
+diff = impl ^ set(guard.ALL_CLASSES)
+print(f"классов в реализации {len(impl)}, объявлено {guard.TOTAL_PREDICATES}, расхождение {sorted(diff) or 'нет'}")
+sys.exit(1 if diff else 0)
+PY
+)"; then
+  echo "  ✔ знаменатель выведен из реализации — $out"; PASS=$((PASS+1))
+else
+  echo "  ✘ знаменатель разошёлся с реализацией — $out"; FAIL=$((FAIL+1))
+fi
+
 echo
-echo "══ пар проверено: $CASES · сошлось: $PASS · разошлось: $FAIL ══"
+echo "══ проб: $CASES · сошлось: $PASS · разошлось: $FAIL · НЕ ВЫПОЛНИЛОСЬ: $NOTRUN ══"
+# «Не выполнилось» не вычитается из первых двух и не вычитается из вердикта: проба,
+# которой не дали входа, ничего не доказала. Она названа числом отдельно.
 [ "$FAIL" -eq 0 ] || exit 1
+[ "$NOTRUN" -eq 0 ] || { echo "  (часть проб осталась без входа — вердикт неполон)"; exit 3; }

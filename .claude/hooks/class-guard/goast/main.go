@@ -51,6 +51,7 @@ type census struct {
 	Kind       string         `json:"kind"`
 	Files      int            `json:"files"`
 	Parsed     int            `json:"parsed"`
+	TestFiles  int            `json:"test_files"` // выведены из корпуса «прод-дерево» — объявленная предпосылка A1…A3, A6…A10
 	Decls      int            `json:"decls"`
 	Comments   int            `json:"comments"`
 	Nodes      int            `json:"nodes"`
@@ -194,6 +195,12 @@ func main() {
 		}
 		c.Parsed++
 		isTest := strings.HasSuffix(path, "_test.go") || strings.Contains(path, "/testdata/")
+		if isTest {
+			// Предпосылка ОБЪЯВЛЯЕТСЯ числом, а не подразумевается: «послабление в
+			// прод-дереве» — класс про прод-дерево, и сколько файлов из него выведено,
+			// читатель обязан видеть, иначе объём осмотренного завышен молча.
+			c.TestFiles++
+		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			if n != nil {
 				c.Nodes++
@@ -277,20 +284,27 @@ func run(fset *token.FileSet, f *ast.File, path string, isTest bool) {
 			}
 
 		case *ast.KeyValueExpr:
-			if !isTest {
-				checkA9kv(node, path, pos)
-			}
+			// Отметка кандидата стоит на ФОРМЕ и потому берёт и `_test.go`: тестовый
+			// файл — это и есть объявленный законный близнец класса, и он в дереве
+			// живой (`gateway/cmd/api-gateway/external_isolation_wiring_test.go`).
+			// Прежняя редакция отмечала уже ПОСЛЕ отсева тестов, поэтому близнец в
+			// переписи не значился и A9 читался как «0 кандидатов» — то есть
+			// «ничего не читал» было неотличимо от «класс в дереве закрыт».
+			checkA9kv(node, path, pos, isTest)
 
 		case *ast.Ident:
-			if !isTest && bypassIdent.MatchString(node.Name) {
-				l, col := pos(node.Pos())
-				emitFinding(finding{
-					Class: "A9", Title: "послабление вместо secure-эталона",
-					File: path, Line: l, Col: col, Symbol: node.Name,
-					Why:  "именованный обход проверки живёт в прод-дереве; он всегда доступен и никогда не истекает",
-					Fix:  "взять secure-паттерн из values.prod (allow-list SPIFFE) и применить его же в dev",
-					Section: "verdict-and-landing §«Внесение: expand → migrate → contract» · security.md §«Production-mode обязателен ВЕЗДЕ»",
-				})
+			if bypassIdent.MatchString(node.Name) {
+				note("A9")
+				if !isTest {
+					l, col := pos(node.Pos())
+					emitFinding(finding{
+						Class: "A9", Title: "послабление вместо secure-эталона",
+						File: path, Line: l, Col: col, Symbol: node.Name,
+						Why:  "именованный обход проверки живёт в прод-дереве; он всегда доступен и никогда не истекает",
+						Fix:  "взять secure-паттерн из values.prod (allow-list SPIFFE) и применить его же в dev",
+						Section: "verdict-and-landing §«Внесение: expand → migrate → contract» · security.md §«Production-mode обязателен ВЕЗДЕ»",
+					})
+				}
 			}
 		}
 		return true
@@ -668,12 +682,15 @@ func checkA8(rs *ast.RangeStmt, path string, pos func(token.Pos) (int, int), fse
 }
 
 // --- A9 (composite literal) ------------------------------------------------
-func checkA9kv(kv *ast.KeyValueExpr, path string, pos func(token.Pos) (int, int)) {
+func checkA9kv(kv *ast.KeyValueExpr, path string, pos func(token.Pos) (int, int), isTest bool) {
 	id, ok := kv.Key.(*ast.Ident)
 	if !ok || id.Name != "InsecureSkipVerify" {
 		return
 	}
 	note("A9")
+	if isTest {
+		return // тестовый файл — объявленный законный близнец, не находка
+	}
 	v, ok := kv.Value.(*ast.Ident)
 	if !ok || v.Name != "true" {
 		return

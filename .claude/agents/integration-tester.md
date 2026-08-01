@@ -121,6 +121,12 @@ cd project/kacho-<svc> && go test ./internal/repo/ -run Test<Resource>_<ID>   # 
 ## Координация
 
 - `acceptance-author` — источник сценариев; к нему возвращаются вопросы по неоднозначным.
+- `class-exposure-analyst` — второй источник входа, кроме сценариев: его заказы на пробы
+  («условие исполняется, но по коду не видно — нужна проба на …»). Предмет пробы —
+  его, конструкция — твоя (`gate-authoring`).
 - `rpc-implementer` — параллельно читает тот же acceptance-док; после RED доводит тесты до GREEN.
+- `landing-reviewer` — на подтверждении RED, когда прогон собираются назвать красным:
+  не скомпилировалось / процесс убит / ноль исполненных печатает то же слово, что
+  настоящий RED, но означает повтор прогона, а не переход к реализации.
 - `api-gateway-registrar` вызывает `rpc-implementer`, не ты.
 - Методология: skills `testing-code-coach` (integration), `testing-product-coach` (black-box техники для Newman).

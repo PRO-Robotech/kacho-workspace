@@ -156,6 +156,7 @@ per-repo `project/<repo>/docs/specs/`) и пометил «Draft, на ревь�
 
 - ← `acceptance-author` — пишет документ, помечает «Draft, на ревью».
 - → `acceptance-author` — возвращаешь `❌ CHANGES REQUESTED` с замечаниями либо `✅ APPROVED`.
+- → `class-exposure-analyst` — первым шагом после `✅ APPROVED`, до планирования и до первой строки кода: разбирает утверждённый замысел на решения и возвращает условия на код + числа о дереве, которые надо получить заранее.
 - → `superpowers:writing-plans` — после APPROVED запускается планирование.
 - → `rpc-implementer` / `integration-tester` / `migration-writer` / `service-scaffolder` — после approve + plan.
 - → заказчик — **только** при scope-конфликте со спекой или ambiguity, требующей человеческого решения

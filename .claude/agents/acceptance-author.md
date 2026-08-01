@@ -140,11 +140,18 @@ end-to-end deliverable с собственным DoD (см. KAC-239 как об�
 
 1. Передай `acceptance-reviewer` (coverage / completeness / traceability / scope) →
    `✅ APPROVED` или `❌ CHANGES REQUESTED`. Итерируй до APPROVED.
-2. После `APPROVED` (статус дока → APPROVED): `superpowers:writing-plans` →
-   `integration-tester` (RED-тесты по сценариям) → `rpc-implementer`.
+2. После `APPROVED` (статус дока → APPROVED): `class-exposure-analyst` (экспозиция
+   классов на утверждённом замысле, до первой строки кода) →
+   `superpowers:writing-plans` → `integration-tester` (RED-тесты по сценариям) →
+   `rpc-implementer`.
 3. proto-контракт затронут → `proto-api-reviewer` ревьюит proto после реализации.
 4. Схема БД затронута → `db-architect-reviewer` ревьюит миграцию после реализации.
 5. Заказчик — только финальный smoke / e2e (`make e2e-test` / `grpcurl`), шаг 7.
 
 Сценарий оказался неоднозначным **после** старта кодирования → верни его сюда для
 уточнения; НЕ меняй поведение реализации без правки acceptance-дока.
+
+Сюда же `class-exposure-analyst` возвращает две вещи, которые APPROVED не покрывает:
+утверждение дока о дереве, оказавшееся неизмеренным, и сценарий, состояние которого
+схема не допускает (неконструируем — значит не Given). Оба правятся в доке, а не
+обходятся в реализации.

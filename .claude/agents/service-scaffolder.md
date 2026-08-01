@@ -114,6 +114,11 @@ kacho-<SVC>/
 
 ## Координация
 
+До скелета → `class-exposure-analyst`: новый сервис — момент наибольшей экспозиции, и
+он же единственный, когда гейты дня первого ставятся даром (production boot-guard,
+непустой allow-list доверенных отправителей, authz на ОБОИХ листенерах, фильтрация
+списков). Его условия на код становятся анкерами скелета, а не долгом на потом.
+
 После скелета → `rpc-implementer` реализует RPC end-to-end (строгий TDD), для public RPC
 зовёт `api-gateway-registrar`; схему БД ревьюит `db-architect-reviewer`; proto-форму —
 `proto-api-reviewer`. Скелет создаётся только под уже APPROVED acceptance-док под-фазы.

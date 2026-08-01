@@ -119,6 +119,7 @@ timestamp truncate-to-seconds). Расходится → finding-кандида�
 - **`rpc-implementer`** / **`go-style-reviewer`** — фиксят прод по твоему GitHub Issue; после фикса твой красный кейс зеленеет (повторный run).
 - **`acceptance-author` / `acceptance-reviewer`** — для НОВЫХ RPC сначала APPROVED Given-When-Then; ты включаешься, когда RPC уже на стенде.
 - **`integration-tester`** — Go-integration внутри репо (testcontainers, TDD-red для нового RPC); ты — black-box ВНЕ сервиса через api-gateway. Не пересекаетесь.
+- **`landing-reviewer`** — читает твой прогон (шаг 5.7) прежде, чем его назовут зелёным или красным: три категории исхода (зелёный · красный · «не выполнилось»), суита без отчётов — провалена, а не зелёная, вердикт по числам. Красное из-за конструкции кейса возвращается тебе, красное из-за прода — в Issue, как и было.
 - **`vpc-newman-author`** (domain-specific, `kacho-vpc`) — глубокая VPC-специфика DSL/паттернов; ты — workspace-level QA across доменов. При работе по VPC опираешься на его паттерны.
 
 ## 7. DoD одного цикла
