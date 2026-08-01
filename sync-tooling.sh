@@ -38,9 +38,16 @@ for d in rules agents skills hooks; do
 done
 [ -f "$SRC/settings.json" ] || { echo "FATAL: нет $SRC/settings.json" >&2; exit 1; }
 
-# generic-наборы = ровно то, что лежит в workspace (space-separated для membership-теста)
+# generic-наборы = то, что воркспейс ОТСЛЕЖИВАЕТ, а не то, что лежит на диске.
+# Раньше здесь стоял `ls -1d */`, и раскатывалось всё содержимое каталога, включая
+# скилы, которые .gitignore прямо объявляет чужими проекту — то есть объявление и
+# поведение расходились, и расхождение было ненаблюдаемо: в репо приезжали каталоги,
+# которых нет ни в одном перечне. Единица теперь одна и та же у обоих — отслеживаемая
+# git директория скила, — поэтому перечень в rules, .gitignore и раскатка не могут
+# разъехаться молча.
 GEN_AGENTS="$(cd "$SRC/agents" && ls -1 *.md 2>/dev/null | tr '\n' ' ')"
-GEN_SKILLS="$(cd "$SRC/skills" && ls -1d */ 2>/dev/null | sed 's:/$::' | tr '\n' ' ')"
+GEN_SKILLS="$(cd "$SRC" && git ls-files skills/ 2>/dev/null | cut -d/ -f2 | sort -u | tr '\n' ' ')"
+[ -n "${GEN_SKILLS// /}" ] || { echo "FATAL: git не вернул ни одного отслеживаемого скила — раскатка без предмета" >&2; exit 1; }
 
 synced=0
 for r in "${REPOS[@]}"; do

@@ -20,9 +20,10 @@ go.work.sum
 
 # Local-only — auto-managed by Claude Code / harness
 .claude/scheduled_tasks.lock
-# Externally-installed skills (not part of project's intentional skill set)
+# Externally-installed skills (not part of project's intentional skill set).
+# Признак принадлежности — предмет, а не происхождение: godzila отсюда выведен
+# (7 упоминаний kacho, §20 «Companion sources for this workspace»), у остальных — ноль.
 .claude/skills/defuddle/
-.claude/skills/godzila/
 .claude/skills/json-canvas/
 .claude/skills/obsidian-bases/
 .claude/skills/obsidian-cli/
