@@ -20,6 +20,10 @@ cluster-internal listener через отдельный `*InternalAddr`-блок
 REST-пути, error-format), @.claude/rules/security.md (Internal-vs-external),
 @.claude/rules/polyrepo.md (api-gateway — предпоследний шаг кросс-репо порядка).
 
+> **Скил, владеющий этим моментом:** `code-authoring` §«Контракт, который нельзя выразить» — два обязанных совпадать реестра это два написания одного значения. Плюс `verdict-and-landing` §«Внесение: expand → migrate → contract»: посверка идёт ПО КАЖДОМУ ресурсу, branch-level «✅ готово» дыру не закрывает.
+>
+> Содержание скила не пересказывай — применяй по ссылке; ссылка на раздел даётся **именем**, а не номером строки. Классы, ловящиеся по одному файлу, уже держит хук `class-guard` (`.claude/hooks/class-guard/README.md`) — он советует в момент записи, вердикта не выносит.
+
 ## Когда запускаться
 
 - `rpc-implementer` завершил public RPC и передаёт управление.

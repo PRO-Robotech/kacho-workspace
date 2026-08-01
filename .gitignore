@@ -46,3 +46,11 @@ pem[0-9]*
 kubeconfig*
 *.kubeconfig
 foo
+
+# class-guard: журнал срабатываний и счётчик (см. .claude/hooks/class-guard/README.md
+# §«Счётчик срабатываний»). Локальные артефакты, в git не идут.
+.claude/class-guard.log
+.claude/class-guard.stats.json
+# Байткод предикатов: hooks/ зеркалится в каждый репо целиком (sync-tooling.sh),
+# и .pyc уехал бы туда вместе с исходником.
+.claude/hooks/class-guard/__pycache__/
