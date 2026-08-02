@@ -69,34 +69,72 @@ tags:
 
 ## Break-glass
 
-`KACHO_VPC_AUTHZ__BREAKGLASS=true` → bypass + WARN-метрика. Dev/emergency only.
+В группе `authz.*` есть аварийный override, снимающий per-RPC Check со **всех** RPC сразу
+(сопровождается WARN-метрикой). Он существует ради восстановления, когда iam недоступен, и
+на этом его область заканчивается.
+
+> [!warning] Включённый override — не «режим», а отказ в старте
+> Это ручка, отключающая авторизацию целиком, поэтому она подпадает под
+> `security.md` §Production-mode п.1 наравне с `sslmode=disable` и снятым mTLS: на любом
+> РАЗВЁРНУТОМ стенде (kind/CI/local/prod) production boot-guard обязан **отказывать в
+> старте**, пока она включена, а не ограничиваться предупреждением. Причина ровно та, из-за
+> которой этот класс вообще ловят: предупреждение в логе никого не будит, а «WARN есть,
+> сервис работает» неотличимо от нормы. Допустимая область — только in-process
+> unit/integration-фикстуры. Сообщение отказа при старте обязано называть ручку и причину
+> (это рантайм-диагностика оператору, а не публичный артефакт).
 
 ## Configuration
 
 ```yaml
-# values.yaml (kacho-vpc)
+# values.yaml (kacho-vpc) — форма ключей; посадка показана production-ной намеренно
 authz:
-  iam-endpoint: kacho-iam.kacho.svc.cluster.local:9091
+  iam-endpoint: kacho-iam-internal.kacho.svc.cluster.local:9091  # задаётся ЯВНО в каждом профиле
   iam-tls:
-    enable: false
-  breakglass: false
+    enable: true        # mTLS обязателен на любом развёрнутом стенде
+  breakglass: false     # включённый override ⇒ отказ в старте (см. §Break-glass)
   cache-ttl: 5s
   check-timeout: 2s
   deny-rate-limit-per-sec: 100
 ```
 
-Если `iam-endpoint` пуст и `breakglass=false` → interceptor НЕ навешивается
-(graceful start без kacho-iam в dev). В production это ошибка — fail на старте.
+> [!note] Почему пример показан в production-посадке
+> Пример конфигурации — это то, что копируют. Образец с выключенным транспортом и
+> подразумеваемым адресом учит небезопасной посадке ровно там, где человек не выбирает
+> осознанно, а берёт готовое. Инвариант — `security.md` §«Production-mode ОБЯЗАТЕЛЕН ВЕЗДЕ,
+> включая dev/локальный стенд».
+
+> [!warning] Незаданный адрес iam снимает интерцептор — это НЕ «мягкая деградация»
+> Если адрес iam пуст, интерцептор не навешивается вовсе: сервис поднимается **без**
+> per-RPC Check. Опасность здесь не в самом послаблении, а в том, что его причина —
+> **отсутствие настройки**, то есть состояние, которое ни один профиль не обязан задавать,
+> чтобы получить. Контроль при этом выглядит существующим (код есть, ветка есть), но не
+> отказывает ни разу за всю жизнь стенда. Это `security.md` §9 («адрес зависимости, от
+> которой зависит решение о доступе, не выводится и не подразумевается») и §8 («мягкий проход
+> обязан отличать настройку от сбоя»).
+>
+> Требование: адрес задаётся **явно** в каждом профиле, где сервис поднимается, а production
+> boot-guard **отказывает в старте**, когда гейт объявлен, но его зависимость не
+> сконфигурирована. Проверяется декларативным тестом, читающим файлы значений (а не
+> отрендеренный шаблон — иначе тест пропускается вместе с шаблоном). Ноль срабатываний гейта
+> за всю жизнь — повод для разбора, а не признак здоровья.
 
 **CLIENT mTLS (SEC-I)**: the `authzConn` dial (this Check edge, :9091) — **shared** by
 the per-RPC gate AND the project-level list-filter ([[vpc-to-iam-listobjects]] /
 `newListAuthz`, ONE conn) — presents the `kacho-vpc-client-tls` client-cert when
 `KACHO_VPC_IAM_AUTHZ_MTLS_ENABLE=true`. Config field `MTLSConfig.IAMAuthzMTLS` + helper
 `IAMAuthzClientCreds()` (mirror of register-drainer). ServerName =
-`kacho-iam-internal.kacho.svc.cluster.local` (:9091 SAN, I6). `enable=false` → insecure
-(dev). Helm: `mtls.edges.iamAuthz` reuses the mounted client secret. Required before
-kacho-iam runs `RequireAndVerifyClientCert` (SEC-H), else the handshake fails → `Check`
-returns `Unavailable`/fail-closed (B-05 completeness — no iam read/authz edge may stay plaintext).
+`kacho-iam-internal.kacho.svc.cluster.local` (:9091 SAN, I6). Helm: `mtls.edges.iamAuthz`
+reuses the mounted client secret. Required before kacho-iam runs `RequireAndVerifyClientCert`
+(SEC-H), else the handshake fails → `Check` returns `Unavailable`/fail-closed
+(B-05 completeness — **no iam read/authz edge may stay plaintext**).
+
+> [!warning] По этому ребру ходят РЕШЕНИЯ О ДОСТУПЕ — включатель здесь переходный
+> Тот же conn несёт и per-RPC gate, и list-filter, поэтому неаутентифицированный собеседник
+> на нём — это не «незашифрованный транспорт», а возможность влиять на исход авторизации.
+> Per-edge включатель введён ради поэтапной раскатки PKI и остаётся **переходной формой**:
+> на любом развёрнутом стенде mTLS обязателен, а production boot-guard обязан отказывать в
+> старте, если ребро живое и не защищено (`security.md` §AuthN+AuthZ ВЕЗДЕ п.1 +
+> §Production-mode п.1). «Internal = trusted, сеть закрытая» — прямо запрещённое допущение.
 
 ## History
 

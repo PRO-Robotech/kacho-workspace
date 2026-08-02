@@ -61,20 +61,39 @@ Identical to [[vpc-to-iam-listobjects]] — see that document for full pattern.
 ## Identity source (subject) — единый с per-RPC Check
 
 List handler берёт FGA-subject из **request Principal** (`authzfilter.SubjectFromPrincipal` →
-`operations.PrincipalFromContext` → `type:id`), НЕ из gRPC-метадаты `x-kacho-subject*`. Это тот же
-источник, что [[compute-to-iam-check]] и эталон kacho-vpc (`pbconv.SubjectFromContext`). **subject=""**
-(system principal / нет identity) → **fail-closed** (пустой allow-list → пустой List), никогда не
-bypass-all. `filter==nil` (FGA disabled config-gate) — осознанный bypass, не утечка. Cluster-admin/owner
-видят всё, т.к. сам ListObjects(viewer) возвращает все id (owner→viewer FGA-каскад); compute-side
-header-bypass (`x-kacho-admin`) удалён.
+`operations.PrincipalFromContext` → `type:id`) — тот же источник, что [[compute-to-iam-check]] и
+эталон kacho-vpc (`pbconv.SubjectFromContext`). Cluster-admin/owner видят всё, т.к. сам
+`ListObjects(viewer)` возвращает все id (owner→viewer FGA-каскад).
+
+**Неопознанный вызывающий (`subject==""`) отсекается БЕЗУСЛОВНО** — пустой allow-list ⇒ пустая
+страница, никогда «показать всё». Формулировка важна: за scope-filtered List **нет** per-RPC
+Check, на который можно откатиться, поэтому «отсечь, когда фильтр подключён» — не то же самое,
+что «отсечь». Инвариант — `security.md` §«Отношение, выполнимое подстановкой».
+
+> [!warning] Отключённый фильтр — это ДОЛГ, а не «осознанный bypass»
+> Прежняя редакция записки называла состояние «фильтр не подключён» осознанным решением и
+> явно отмечала, что это «не утечка». Так писать нельзя: у этого RPC фильтр — **единственный**
+> носитель авторизации, и его отсутствие ничем не компенсируется. Правильная посадка: метод
+> помечается `ScopeFiltered`, а production boot-guard **отказывается стартовать** без рабочего
+> фильтра (эталон формулировки и реализации — [[../rpc/vpc-internal-network-interface-service]]).
+> Пока такой пометки у метода нет, это открытый пункт, а не свойство дизайна.
 
 ## History
 
-- **2026-06-25 — subject-source over-show leak fix** ([[../KAC/compute-list-leak-fix]], `kacho-compute#65`).
-  До фикса subject читался из несуществующих `x-kacho-subject*` → subject="" → `resolveListFilter`
-  короткозамыкал на `bypass:true` → List возвращал **все** ресурсы проекта мимо list-authz (verified live
-  fe3455). Фикс: principal-based subject + fail-closed на subject="". Acceptance:
+- **2026-06-25 — источник личности читался не оттуда, и «никто» означало «всё»**
+  ([[../KAC/compute-list-leak-fix]], `kacho-compute#65`). Фильтр брал субъекта из
+  **метаданных, которых никто не отправлял**, поэтому субъект получался пустым всегда — а
+  пустой субъект трактовался как «фильтровать не по чему» и снимал фильтрацию целиком.
+  Фикс: субъект берётся из принципала запроса, пустой субъект — **fail-closed**. Acceptance:
   `docs/specs/sub-phase-compute-list-leak-fix-acceptance.md`.
+
+  **Класс (повторялся, не единичный):** «отсутствие личности» нельзя трактовать как
+  «ограничивать нечего» — ровно так аноним становится владельцем всего (`security.md`
+  §«Отношение, выполнимое подстановкой»). Два признака, по которым это ловится заранее:
+  (1) поле личности, которое
+  **никто не производит**, — у входа проверки обязан быть производитель, иначе проверка
+  измеряет пустоту; (2) ветка «данных нет ⇒ пропустить» в коде авторизации — всегда
+  подозрительна, потому что при полной поломке она зеленеет сильнее всего.
 
 ## See also
 

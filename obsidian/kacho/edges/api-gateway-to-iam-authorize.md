@@ -60,8 +60,18 @@ tags:
 | Operation | iam.Check unavailable | Action |
 |---|---|---|
 | Mutation (POST/PUT/PATCH/DELETE) | fail-closed | 503 Unavailable + retry-after |
-| Read (GET/List) | fail-open behind flag `KACHO_API_GATEWAY_AUTHZ_FAIL_OPEN_READS=true` (default false) | proceed without check (audit-logged) |
+| Read (GET/List) | fail-closed по умолчанию; мягкий проход — только за отдельной ручкой | см. предупреждение ниже |
 | List with FGA filtering | fail-closed (can't filter without lookup) | 503 |
+
+> [!warning] Мягкий проход на чтении — ручка, а не поведение по умолчанию
+> Ручка существует, выключена по умолчанию и оставляет след в аудите. Три условия, при
+> которых она защитима, и все три обязаны выполняться **одновременно**: (1) она
+> **различает** «зависимость сейчас не отвечает» и «мы стучимся не туда» — ответ, доказывающий
+> неверную настройку (404/405, не-JSON), обязан быть громким, а не тихим `Warn`; (2) каждое
+> срабатывание несёт **счётчик**, иначе мёртвый контроль невидим; (3) «ноль отказов за всю
+> жизнь контроля» само по себе — повод для разбора, а не признак здоровья. Инвариант и
+> обоснование — `security.md` §8 «Мягкий проход при отказе обязан ОТЛИЧАТЬ настройку от сбоя».
+> На развёрнутом стенде посадка — production (`security.md` §Production-mode обязателен ВЕЗДЕ).
 
 ## Error handling
 
@@ -95,22 +105,36 @@ tags:
   **ронял `RequiredRelation`** (написан в KAC-127 до появления поля; KAC-198 добавил его
   во все хопы, кроме этого промежуточного). Эффект: catalog `required_relation` не доходил
   до IAM → `AuthorizeService.Check` падал в verb-fallback (`resolveActionToRelation`).
-  **Priv-esc**: admin-RPC с verb `list`/`get` (`required_relation=system_admin`, напр.
-  `InternalAddressPoolService` reads) деривились в `viewer` → `cluster.viewer=user:*` →
-  любой аутентифицированный проходил. Не-CRUD verb'ы (`issue`/`grant`/`bind`/…) → `""` →
-  fail-closed deny («action does not resolve to a known relation»; 403'ило `SAKeyService.Issue`).
-  Не ловилось тестами (middleware-тесты мокают `AuthorizeChecker`, не реальный адаптер).
-  Fix: проброс `in.RequiredRelation` + unit-тест pass-through. Это корневой фикс —
-  делает verb-fallback IAM избыточным для catalog-RPC и единственный способ гейтить
-  system_admin-verb'ы. Сопутствующие band-aid'ы (kacho-iam PR #120: `resolveActionToRelation`
-  `issue`/`revoke`→editor; верб-fold M2) теперь defensive-only. Реализация:
-  [[../packages/api-gateway-middleware-authz]].
+  То есть решение принималось по **более слабому основанию, чем объявлено в каталоге**, и
+  расхождение было тем больше, чем строже запись. Заметна была только безопасная половина
+  эффекта: не-CRUD глаголы (`issue`/`grant`/`bind`/…) не резолвились ни во что и честно
+  отказывали («action does not resolve to a known relation»). Fix: проброс
+  `in.RequiredRelation` + unit-тест на сквозной перенос.
+
+  Три урока, каждый переиспользуем:
+  - **Передача — место, где теряется проверка.** Адаптер, переписывающий поля поимённо, —
+    молчаливый фильтр: поле, добавленное позже, по умолчанию не переносится. Мост между
+    двумя формами одного запроса обязан иметь тест на **сквозной перенос**, а не только на
+    сам вызов.
+  - **Тесты мокали слой НАД дефектом.** Middleware-тесты подменяли `AuthorizeChecker`
+    целиком, поэтому настоящий адаптер в прогоне не участвовал ни разу. Мок ровно на той
+    границе, где живёт дефект, делает суиту слепой именно к нему.
+  - **Запасной вывод — не подстраховка, а вторая политика.** Пока существует деривация
+    «требование не пришло ⇒ вывести из глагола», любая потеря требования по дороге
+    оборачивается тихой подменой политики вместо отказа. Правильная форма — не пришло ⇒
+    **fail-closed**. После фикса верб-fallback для catalog-RPC — defensive-only
+    (сопутствующие правки kacho-iam PR #120 — тоже).
+
+  Реализация: [[../packages/api-gateway-middleware-authz]].
 - SEC-E ([[../KAC/SEC-E-gateway-mtls]], 2026-06-11) — backend-dial этого ребра переключён
-  с insecure на **mTLS client-cert** идентичности «api-gateway» под
-  `KACHO_API_GATEWAY_MTLS_IAM_ENABLE` (per-edge, тот же флаг, что iam-subject + iam-backend;
-  one module identity, OQ-SEC-E-3). `enable=false` (default) = insecure (dev backward-compat).
-  Check-логика и cache не изменены — mTLS оборачивает только транспорт, principal идёт поверх
-  (epic invariant I2). Mismatch (client mTLS vs insecure server) → `Unavailable` (fail-closed).
+  на **mTLS client-cert** идентичности «api-gateway» (per-edge ручка, общая с iam-subject +
+  iam-backend; one module identity, OQ-SEC-E-3). Check-логика и cache не изменены — mTLS
+  оборачивает только транспорт, principal идёт поверх (epic invariant I2). Mismatch
+  (client mTLS vs сервер без него) → `Unavailable` (fail-closed).
+  **Ручка введена как per-edge включатель ради поэтапной раскатки — это переходная форма,
+  а не режим работы:** на любом РАЗВЁРНУТОМ стенде (kind/CI/local/prod) mTLS на этом ребре
+  обязателен, а production boot-guard обязан отказывать в старте, если ребро живое и не
+  защищено (`security.md` §Production-mode, п. 1). Раскатка PKI — SEC-F.
   Реализация: [[../packages/api-gateway-backend-dial-mtls]].
 
 - Design-B verb-bearing-complete (2026-06-25, api-gateway PR #99 / proto PR #88) — встроенная

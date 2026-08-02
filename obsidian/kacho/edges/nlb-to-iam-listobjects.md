@@ -42,7 +42,7 @@ Consumer передаёт `(subject, resource_type, action)` — iam-серве�
 
 ## Flow per-request
 
-1. List use-case извлекает subject из ctx (`operations.PrincipalFromContext` → `domain.FGASubjectFromPrincipal` → `user:…`/`service_account:…`; system/anon → `""` → bypass).
+1. List use-case извлекает subject из ctx (`operations.PrincipalFromContext` → `domain.FGASubjectFromPrincipal` → `user:…`/`service_account:…`). **Неопознанный вызывающий отсекается безусловно** — см. предупреждение в §«Config / cache».
 2. `authzfilter.Resolve(ctx, filter, resourceType, action)` → `iam.AuthorizeService.ListObjects` (ctx обёрнут `auth.PropagateOutgoing` — иначе iam видит `system:bootstrap` и отбивает).
 3. Decision → `filter.AllowedIDs` → repo `WHERE id = ANY($allowed)` **ВНУТРИ SQL ДО LIMIT** → pagination плотная по отфильтрованному набору (D-46, LST-6).
 4. Empty grant → `[]` (no-leak, не ошибка). `wildcard_grant=true` (KAC-214) → bypass (все строки).
@@ -54,10 +54,27 @@ Consumer передаёт `(subject, resource_type, action)` — iam-серве�
 
 ## Config / cache
 
-- Toggle `authz.list-filter.enabled` (default **true**; `KACHO_NLB_AUTHZ__LIST_FILTER__ENABLED`). disabled / нет iam conn → use-case'ы делают unfiltered project-scoped passthrough.
+- Включатель `authz.list-filter.enabled` — по умолчанию **включён**. См. предупреждение ниже:
+  выключенное состояние — переходная форма и долг, а не рабочий режим.
 - In-proc decision-cache 5s TTL keyed `(subject, resourceType, action)`, bound 10000, MaxResults cap 10000.
 - mTLS — через `mtls.iam-project` (тот же conn, что ProjectService.Get).
 - CI-гейт `make audit-list-filter` (`tools/audit-list-filter.sh`) — каждый `<res>/list.go` обязан нести `authzfilter.Filter` + `authzfilter.Resolve(`.
+
+> [!warning] У этого List фильтр — ЕДИНСТВЕННЫЙ носитель авторизации
+> Per-RPC Check остаётся на `Get` ([[nlb-to-iam-check]]), но за `List` его нет: отката,
+> который «подстрахует», не существует. Отсюда три следствия, и они не взаимозаменяемы:
+> (а) пустой субъект отсекается **безусловно**, а не «когда фильтр подключён»; (б) ошибка
+> резолва — **fail-closed** `UNAVAILABLE` (`FailOpen=false`), никогда не нефильтрованный
+> список и не молча пустой; (в) состояние «фильтр выключен» — **долг**: метод помечается
+> `ScopeFiltered`, и production boot-guard отказывается стартовать без рабочего фильтра
+> (эталон — [[../rpc/vpc-internal-network-interface-service]]). На развёрнутом стенде
+> посадка всегда production.
+>
+> Отдельно про шаг 4 потока: ветка «широкий грант ⇒ отдать все строки» обязана опираться на
+> отношение, которое **нельзя выполнить подстановочным субъектом**. Отношение уровня кластера,
+> выполнимое `user:*`, означает «аутентифицирован», а не «уполномочен», и в роли выключателя
+> фильтрации открыло бы список любому — `security.md` §«Отношение, выполнимое подстановочным
+> знаком, не сужает НИЧЕГО». Проверять надо не наличие ветки, а то, какие tuple её выполняют.
 
 ## Notes
 

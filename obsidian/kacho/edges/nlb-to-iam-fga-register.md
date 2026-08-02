@@ -31,7 +31,7 @@ tags:
 
 **Caller**: `kacho-nlb` register-drainer (corelib `outbox/drainer` на `kacho_nlb.fga_register_outbox`; applier `internal/clients/iam/register_applier.go`)
 **Callee**: `kacho-iam.InternalIAMService.RegisterResource` / `UnregisterResource` (port :9091, Internal-only)
-**Protocol**: gRPC cluster-internal, opt-in mTLS (`KACHO_NLB_MTLS__IAM-REGISTER__*`, default insecure)
+**Protocol**: gRPC cluster-internal, per-edge mTLS (`cfg.MTLS.IAMRegister`; обязателен на развёрнутом стенде — см. §mTLS)
 **Sync/Async**: **async** — мутация ресурса возвращает Operation сразу; tuple-применение off-hot-path через drainer (intent durable).
 
 ## Поток (Вариант A, эпик §3.1)
@@ -70,9 +70,25 @@ Delete → симметричный `fga.unregister` (project-hierarchy / parent
 | `InvalidArgument` | `ErrPermanent` → poison | malformed tuple, без бесконечного retry (SEC-D-14) |
 | `Unavailable`/`Deadline`/`PermissionDenied` | raw → transient retry | IAM down → intent durable, добивается после recover (SEC-D-11) |
 
-## mTLS (S3, opt-in)
+## mTLS (S3)
 
-Per-edge `cfg.MTLS.IAMRegister` (`grpcclient.TLSClient`, default `enable=false`=insecure). IAM internal listener — `RequireAndVerifyClientCert` при server-enable. Mismatch → transport-error → `Unavailable` (intent durable, SEC-D-20/21). PKI/helm-wiring — SEC-F.
+Per-edge `cfg.MTLS.IAMRegister` (`grpcclient.TLSClient`); iam internal listener —
+`RequireAndVerifyClientCert`. Несовпадение → transport-error → `Unavailable` (intent
+durable, SEC-D-20/21). PKI/helm-wiring — SEC-F.
+
+> [!warning] По этому ребру передаются ЗАПИСИ О ПРАВАХ — mTLS здесь не опция
+> Ребро пишет owner-tuple, то есть то, из чего потом выводится доступ к ресурсу. Значит цена
+> неаутентифицированного писателя тут — не «утечка транспорта», а **выдача прав**. Per-edge
+> включатель был введён ради поэтапной раскатки PKI (SEC-F) и остаётся **переходной формой**:
+> на любом РАЗВЁРНУТОМ стенде (kind/CI/local/prod) mTLS на этом ребре обязателен, а
+> production boot-guard обязан отказывать в старте, если ребро живое и не защищено
+> (`security.md` §AuthN+AuthZ ВЕЗДЕ п.1 + §Production-mode п.1). «Internal = trusted, сеть
+> закрытая» — прямо запрещённое допущение: внутренний периметр не доверенный.
+>
+> Симметрично требуется **сужение списком**: принимающая сторона обязана держать непустой
+> allow-list SAN'ов законных отправителей. Пустой список означает «не сужаем», а не
+> «запрещаем»; этот класс уже находили в четырёх сервисах, причём дважды комментарий рядом
+> утверждал обратное (`security.md` §AuthN+AuthZ ВЕЗДЕ п.5).
 
 ## sync-primary owner-tuple registrar (2026-07-18) — replaces removed opgate
 

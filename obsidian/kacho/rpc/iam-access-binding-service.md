@@ -88,10 +88,19 @@ tags:
 - UNIQUE (subject_type, subject_id, role_id, resource_type, resource_id) ловит дубликаты; `maperr.go` mapping для этого constraint — `success (no-op)` либо `AlreadyExists` (см. acceptance §6 / §13.4). **KAC-128 BUG-7 fix**: Operation metadata `access_binding_id` теперь содержит СУЩЕСТВУЮЩИЙ id (pre-resolved через `FindExisting` до создания Operation) — не кандидат-id. DB ON CONFLICT остаётся safety-net.
 - `subject_id` / `resource_id` хранятся **без FK** (полиморфно, cross-DB) — software-validation отложена в E3 (OpenFGA tuple sync через [[../edges/iam-to-openfga-check]]).
 - Удаление Role с активным binding → `FailedPrecondition "Role <id> is in use by access bindings"` (FK RESTRICT).
-- **Auth-matrix (KAC-123)** для ListBySubject в handler:
-  - explicit `service_account` principal → bypass (admin-tooling).
-  - `user` principal → разрешено ТОЛЬКО запрашивать **свои** bindings (`subject_type=user && subject_id=<self>`); иначе 403 `PermissionDenied`.
-  - anonymous / system-bootstrap fallback → empty list.
+- **ListBySubject — self-only для ВСЕХ типов субъекта** (KAC-123, ужесточено позже).
+  Метод перечисляет привилегии названного субъекта, поэтому разглашение здесь — это
+  разглашение чужой картины доступа. Каталог держит RPC `<exempt>`, значит гейт целиком
+  на стороне handler'а: аноним отсекается первым (`RequireAuthenticated`), `user` и
+  `service_account` обязаны быть **тем самым** субъектом, `group` — состоять в ней,
+  неизвестный `subject_type` — отказ. Корзины «все остальные» нет: ветка по умолчанию
+  **запрещает**, а не пропускает.
+  > [!warning] Здесь была запись про исключение для машинных принципалов
+  > Прежняя редакция описывала отдельную полосу «служебная учётка → мимо self-проверки»
+  > с обоснованием «admin-tooling». Такой полосы в коде нет, и заводить её заново нельзя:
+  > исключение, ключуемое на **тип** принципала, а не на выданное право, — ровно тот класс,
+  > который `security.md` запрещает (машина получает доступ **грантом**, а не тем, что она
+  > машина). Запись сохранена, чтобы следующий не «восстановил» её как утраченную.
 - **Create/Delete authority** (KAC review 2026-05-21 #8/#13): и Create, и Delete авторизуются через общий `requireGrantAuthority` — caller обязан быть owner владеющего Account/Project ИЛИ держать FGA `admin` на scope. Delete больше **не** self-only (`subject_id==principal` убран) — account-owner может отзывать чужие grants.
 - **FGA sync (KAC-129 fix #8/#16/#47/#48)**: `Delete.doDelete` после DB-commit удаляет те же tuple'ы, что записал `Create` — через общий `accessBindingTuples(b, relation)` + `OpenFGAClient.DeleteTuples`. Побайтовая идентичность ключей гарантирует, что FGA действительно удаляет (мисматч = silent no-op). До KAC-129 Delete не имел FGA-клиента → туплы оставались, Check → `allowed:true` после Delete. Verified live: 55→53 tuples, Check → `allowed:false`.
 - **KAC-131 authz catalog (2026-05-23)**: `Get`, `Delete`, `ListByResource`, `ListBySubject` переведены в `<exempt>` в permission_catalog.json. Причина: (a) account-scoped AB не получал FGA иерархический тупл (только `project`-тип — BUG-6); (b) ListByResource/ListBySubject имели неверный `scope_extractor` → FGA всегда "no path" (BUG-8). Authz теперь — handler-level scope-filter: `Get` — subject/owner check; `Delete` — `requireGrantAuthority`; List* — `RequireAuthenticated`. `Create` остаётся FGA-gated.

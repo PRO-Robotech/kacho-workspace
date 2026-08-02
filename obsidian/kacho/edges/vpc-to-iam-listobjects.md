@@ -31,7 +31,7 @@ tags:
 > [!note] Sub-phase D-consumer (active) — kacho-vpc per-object filtered List
 > - **Каждый из 7 public `List<Resource>`** (network/subnet/securityGroup/routeTable/address/
 >   gateway/networkInterface) зовёт `AuthorizeService.ListObjects(subject, resource_type, action)`.
->   - `subject` = `pbconv.SubjectFromContext` (`user:usr_…`/`service_account:sva_…`); system/empty → passthrough (enforce делает per-RPC interceptor).
+>   - `subject` = `pbconv.SubjectFromContext` (`user:usr_…`/`service_account:sva_…`). **Неопознанный вызывающий обязан отсекаться безусловно** — см. предупреждение под этим callout'ом.
 >   - `resource_type` = FGA snake-case (`vpc_subnet`, `vpc_network`, `vpc_security_group`, `vpc_route_table`, `vpc_address`, `vpc_gateway`, `vpc_network_interface`).
 >   - `action` = `vpc.<resource>.list` → iam server-side `resolveActionToRelation` мапит verb `list`→relation **`viewer`** (та же tier-relation, что Check для read → **read==enforce**, D-45).
 > - Ответ → `Decision`: `wildcard_grant` → bypass (все project-scoped строки, D-42 LST-3 global);
@@ -41,9 +41,18 @@ tags:
 > - **fail-closed** (D-47): iam недоступен/ошибка → `Unavailable` (НЕ unfiltered, НЕ silently empty).
 > - **Реализация**: `internal/authzfilter/` (`FGAFilter` поверх `AuthorizeService.ListObjects`, TTL-cache 5s,
 >   fail-closed default) + `internal/clients/iam_listobjects_client.go` (gRPC adapter, `auth.PropagateOutgoing`).
->   Конфиг `authz.list-filter.{enabled(default true),authorize-endpoint,authorize-tls,timeout-ms,max-results,fail-open}`.
+>   Конфиг — группа `authz.list-filter.*` (адрес/TLS/таймаут/потолок ответа/включатель).
 >   CI-гейт `make audit-list-filter` ужесточён до per-object (`ListAllowedIDs` обязателен в каждом List).
 > - **Эталон**: kacho-compute `internal/authzfilter/` ([[compute-to-iam-listobjects]]) — тот же контракт.
+
+> [!warning] Неопознанный вызывающий и выключенный фильтр — не одно и то же, и ни одно из двух не «проход»
+> За scope-filtered `List` **нет** per-RPC Check, на который можно откатиться: фильтр здесь —
+> единственный носитель авторизации. Поэтому (а) пустой субъект отсекается **безусловно**, а не
+> «когда фильтр подключён»; (б) ошибка резолва — **fail-closed** (`Unavailable`), а не пустая
+> страница и не полная; (в) состояние «фильтр выключен» — **долг**, а не режим: метод помечается
+> `ScopeFiltered`, и production boot-guard отказывается стартовать без рабочего фильтра.
+> Эталон формулировки и посадки — [[../rpc/vpc-internal-network-interface-service]];
+> инвариант — `security.md` §«Отношение, выполнимое подстановкой».
 
 **Caller**: `kacho-vpc` List handlers (7 public List* RPCs — networks, subnets, security_groups, route_tables, addresses, gateways, network_interfaces) + per-object no-leak Get* (D-44).
 **Callee**: `kacho-iam` AuthorizeService.ListObjects ([[../rpc/iam-authorize-service]]) — public projection; verb `list`→relation `viewer`.

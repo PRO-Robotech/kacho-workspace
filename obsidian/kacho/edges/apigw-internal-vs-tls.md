@@ -28,8 +28,15 @@ tags:
 
 CLAUDE.md «Запреты» #6: `Internal*` методы **никогда** не должны попадать на публичный TLS edge (`api.kacho.local:443`). Они нужны admin-UI / impl-controllers / port-forward — отдельный cluster-internal listener.
 
-> [!warning] До SEC-L «split» был только marshaller, не enforcement
-> Один `httpSrv` обслуживает **оба** listener'а (plaintext `:8080` internal + TLS external). `isInternalPath` выбирал только JSON-marshaller — **не** отклонял по listener'у → `Internal*` REST были доступны на external edge (gRPC-director их блокировал, REST — нет). SEC-L закрыл: external listener помечается через `internal/listenerorigin` (`ExternalListener` + `httpSrv.ConnContext`); dispatcher отдаёт **404** на `Internal*`-путь с external origin; allowlist больше не несёт 4 `Internal*` FQN (заменены на internal-origin gate в `decide()` — только для `<exempt>` RPC, не gated).
+> [!warning] Граница проводится по listener'у приёма, а не по разбору пути
+> Один `httpSrv` обслуживает **оба** listener'а (plaintext `:8080` internal + TLS external),
+> поэтому «internal» обязан быть свойством **соединения**, а не строки запроса: путь
+> подделывается, порт приёма — нет. Метка ставится на приёме (`internal/listenerorigin`
+> `ExternalListener` + `httpSrv.ConnContext`), dispatcher отдаёт **404** на `Internal*`-путь с
+> external origin, а поимённый список исключений заменён предикатом «origin=internal И
+> `<exempt>`». До SEC-L признак по пути выбирал лишь JSON-marshaller и **не отвергал ничего** —
+> различение с формой, но без содержания. Разбор класса и что из него переиспользовать —
+> в History ниже (SEC-L).
 
 ## Two endpoints
 
@@ -59,6 +66,32 @@ REST path → выбор backend addr (`vpcAddr` vs `vpcInternalAddr`):
 
 ## History
 
-- **SEC-L (2026-06-16)** — REST external-isolation **enforcement** (PR #78). До этого `isInternalPath` только выбирал marshaller; `Internal*` REST были externally reachable (bug A) + 4 `Internal*` FQN в `DefaultPublicAllowlist()` давали unauthenticated allow на edge (bug B, priv-esc). Fix: `internal/listenerorigin` per-listener marker (wrap external TLS HTTP sub-listener + `httpSrv.ConnContext`); dispatcher 404-ит `Internal*` на external origin; `isInternalPath` теперь ловит и `:internal` verb-suffix (`InternalNetworkService.GetNetwork`); allowlist-gate заменён на internal-origin + `<exempt>`-only (gated `Internal*` как `InternalClusterService` D-11 по-прежнему проходят FGA Check на internal listener). Internal callers (UI/admin/port-forward/self-call, newman `baseUrl`=:18080→:8080) не затронуты.
+- **SEC-L (2026-06-16)** — REST external-isolation **enforcement** (PR #78).
+
+  **Класс: различение, которое ничего не разделяло.** Один `httpSrv` обслуживал оба
+  listener'а, а `isInternalPath` выбирал по пути лишь **JSON-marshaller** — то есть
+  «internal» был признаком **форматирования ответа**, а не границей доступа. Разделение
+  выглядело существующим (функция есть, вызывается, имя говорит «internal»), но ни одного
+  запроса не отклоняло. Ровно тот класс «проверка с формой, но без содержания», который
+  описан в `testing.md` §«Гейт на класс»: чтобы это заметить, надо было спросить не
+  «есть ли различение», а **«что оно
+  отвергает»** — и ответ был «ничего». Вторым слоем шёл список исключений, который перечислял
+  часть внутренних методов поимённо и потому переживал любое изменение маршрутизации.
+
+  **Fix — граница проводится по listener'у, а не по строке пути:** external TLS sub-listener
+  помечается на приёме соединения (`internal/listenerorigin` + `httpSrv.ConnContext`),
+  dispatcher отдаёт **404** на `Internal*`-путь с external origin, `isInternalPath` доучен
+  распознавать также `:internal`-суффикс глагола. Поимённый список исключений заменён на
+  предикат «origin=internal И запись каталога `<exempt>`» — гейтованные `Internal*` (напр.
+  `InternalClusterService`, D-11) по-прежнему проходят FGA Check на внутреннем listener'е.
+  Внутренние потребители (UI/admin/port-forward/self-call, newman `baseUrl`=:18080→:8080) не
+  затронуты.
+
+  **Что отсюда переиспользовать:** (1) признак принадлежности к внутренней поверхности берётся
+  из **того, куда пришло соединение**, а не из разбора строки — путь подделывается, порт
+  приёма нет; (2) поимённый список внутренних методов — исключение, которое обязано
+  «истекать само», иначе следующий добавленный метод унаследует слепую зону; (3) 404 (а не
+  403) на внешнем origin — тот же hide-existence-контракт, что и везде: наличие внутренней
+  поверхности не подтверждается снаружи.
 
 #edge #kacho-api-gateway #internal #security

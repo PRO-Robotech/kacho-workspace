@@ -67,9 +67,17 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
   (`RegisterResource`/`UnregisterResource`). CAS-claim/advisory-lock → exactly-once across replicas.
 - **Error-маппинг**: `InvalidArgument` → poison (no retry); прочее (Unavailable/mTLS-mismatch)
   → transient retry с backoff. IAM down → intent durable, Operation не падает (tuple не теряется).
-- **mTLS (opt-in)**: `cfg.IAMRegisterMTLS` (`grpcclient.TLSClient`, env
-  `KACHO_COMPUTE_IAM_REGISTER_MTLS_*`); `enable=false` → insecure (dev). Server-listener creds —
+- **mTLS**: per-edge `cfg.IAMRegisterMTLS` (`grpcclient.TLSClient`). Server-listener creds —
   `PUBLIC_SERVER_MTLS`/`INTERNAL_SERVER_MTLS` (`grpcsrv.TLSServer`).
+  > [!warning] По этому ребру передаются ЗАПИСИ О ПРАВАХ — mTLS здесь не опция
+  > Ребро пишет owner-tuple, из которого потом выводится доступ к ресурсу, поэтому цена
+  > неаутентифицированного писателя тут — **выдача прав**, а не «открытый транспорт».
+  > Per-edge включатель существует ради поэтапной раскатки PKI и остаётся переходной формой:
+  > на любом развёрнутом стенде mTLS обязателен, а production boot-guard обязан отказывать в
+  > старте, если ребро живое и не защищено. Симметрично требуется **непустой** allow-list
+  > SAN'ов законных отправителей на принимающей стороне: пустой список означает «не сужаем»,
+  > а не «запрещаем» (`security.md` §AuthN+AuthZ ВЕЗДЕ п.1 и п.5). Тот же инвариант —
+  > [[nlb-to-iam-fga-register]], [[storage-to-iam-fgaproxy]], [[vpc-to-iam-fgaproxy]].
 - **Удалено**: `internal/clients/openfga_write_client.go`, `internal/fgawrite/` (прямой HTTP-write FGA).
 
 ## owner-tuple op-gating (P4) — Create-op ждёт read-after-register confirm

@@ -104,10 +104,13 @@ tags:
   **pagination runs AFTER the filter** at the SQL layer (dense keyset, no leaky pages, D-46).
 - **System roles bypass the filter** (tenant-wide reference catalog floor; `RoleService.Get`
   stays `<exempt>` in proto). Only **custom** roles are filtered per-object (ungranted custom → absent, LST-5).
-- **`Get` enforces custom roles too (BLOCKER D-1 fix).** `RoleService.Get` was `<exempt>` and the
-  use-case did NO per-object Check → `Get(<ungranted-custom-id>)` returned the FULL body incl.
-  `rules[]` (snapshot of another account's policy) while List hid it → read≠enforce (D-45) +
-  existence-leak (D-44/LST-5). Fix (`api/role/get.go`): **system** role (`is_system=true`) →
+- **`Get` enforces custom roles too (BLOCKER D-1 fix).** Класс: **read≠enforce** — два пути к
+  одним данным сузились по-разному. `List` фильтровал по объектам, а `Get` — нет, поэтому
+  скрытое в перечислении оставалось читаемым поимённо; заодно это existence-leak
+  (D-44/D-45/LST-5). Запись `<exempt>` в каталоге здесь **обязана** остаться (иначе system-роль,
+  которую по контракту читают все, не пройдёт интерцептор), поэтому носителем проверки может
+  быть только сам use-case — и тогда он обязан покрывать **обе** ветки, а не одну.
+  Fix (`api/role/get.go`): **system** role (`is_system=true`) →
   served to all (catalog floor, FGA NOT consulted); **custom** role → enforced via the SAME
   `resolveVisibleRoleIDs` (FGA `ListObjects(subject,"viewer","iam_role")`, #193) that backs List
   (single source of truth). `id ∉ set` → `NOT_FOUND "Role <id> not found"` (NOT `PERMISSION_DENIED`
