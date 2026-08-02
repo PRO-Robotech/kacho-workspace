@@ -112,8 +112,9 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
 - `kacho-compute → kacho-vpc` (subnet-placement, 2026-07-25) — `SubnetService.Get` на **request-path** `Instance.Create`:
   зона подсети каждого NIC обязана совпадать с зоной инстанса (REGIONAL/anycast-подсеть из зональной
   проверки исключена, проверяется регионально). Читается **под identity вызывающего**, per-call deadline,
-  fail-closed. До этой правки compute подсеть **вообще не резолвил** → машина создавалась с интерфейсом
-  в чужой зоне. Переиспользует уже объявленную, но мёртвую группу mTLS-переменных чарта.
+  fail-closed. Ребро заведено именно ради этой проверки: без резолва подсети у владельца зональная
+  когерентность интерфейса ничем не обеспечена (см. `data-integrity.md` §Placement-coherence).
+  Переиспользует уже объявленную, но мёртвую группу mTLS-переменных чарта.
 - `kacho-nlb → kacho-geo` (zone→region для instance-таргетов, 2026-07-25) — `ZoneService.Get` через порт
   `ZoneRegionClient`. Заменяет **удалённую** строковую деривацию региона из имени зоны (`regionFromZone`).
   Для nic/ip_ref-таргетов регион берётся из авторитетного `Subnet.RegionID` (peer-ответ vpc), без вызова geo.

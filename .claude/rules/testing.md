@@ -216,9 +216,12 @@ Kachō eventually-consistent (`api-conventions.md` Operation.done), поэтом
 1. **Throughput материализации grant** — owner-tuple создателя должен материализоваться быстро под N× нагрузкой. Форвард
    fast-path (`ReconcileObjectForward`, additive per-object, **SHARE**-advisory-lock не EXCLUSIVE → concurrent creates
    сосуществуют). Full `ReconcileObject` (EXCLUSIVE-lock) сериализует — под параллелью дрейнит. См. `data-integrity.md`.
-2. **Create vs update дискриминатор** — `RegisterResource` зовётся и на **label-UPDATE** (не только create). Additive-forward
-   (никогда не delete) роняет revoke при удалении label → grant persists. Fast-path обязан: нет existing-members ⇒ create→forward;
-   есть ⇒ update→full (delete-stale). Иначе revoke не залипает (`post-revoke {allowed:true}`).
+2. **Create vs update дискриминатор** — регистрация ресурса у владельца прав зовётся не только на create,
+   но и на **правку меток**. Аддитивный fast-path (который по построению никогда не удаляет) на правке
+   означает «добавить и ничего не снять» — то есть **снятие права просто не применяется**. Fast-path обязан
+   различать: нет existing-members ⇒ create→forward; есть ⇒ update→full (delete-stale). Проверять надо
+   **исход отзыва**, а не факт вызова: аддитивный путь на отзыве зелёный по всем «вызвали/эмитировали»
+   утверждениям и неверен ровно в том, ради чего отзыв делается.
 3. **Волновая изоляция iam** — iam-СОБСТВЕННАЯ authz-материализация (AccessBinding CRUD, label-revoke) идёт full-path
    EXCLUSIVE-lock; под конкурентной leaf-нагрузкой (vpc/compute/nlb регистрируют ресурсы) дрейнит (get-confirms 404,
    revoke-not-sticking). Гони iam **отдельной волной** (`PHASE2_SERVICES=iam` в newman-parallel.sh) — без конкурирующей нагрузки.
