@@ -216,8 +216,8 @@ Kachō eventually-consistent (`api-conventions.md` Operation.done), поэтом
 1. **Throughput материализации grant** — owner-tuple создателя должен материализоваться быстро под N× нагрузкой. Форвард
    fast-path (`ReconcileObjectForward`, additive per-object, **SHARE**-advisory-lock не EXCLUSIVE → concurrent creates
    сосуществуют). Full `ReconcileObject` (EXCLUSIVE-lock) сериализует — под параллелью дрейнит. См. `data-integrity.md`.
-2. **Create vs update дискриминатор** — регистрация ресурса у владельца прав зовётся не только на create,
-   но и на **правку меток**. Аддитивный fast-path (который по построению никогда не удаляет) на правке
+2. **Create vs update дискриминатор** — регистрация ресурса у владельца прав (`RegisterResource`) зовётся
+   не только на create, но и на **правку меток**. Аддитивный fast-path (никогда не удаляет) на правке
    означает «добавить и ничего не снять» — то есть **снятие права просто не применяется**. Fast-path обязан
    различать: нет existing-members ⇒ create→forward; есть ⇒ update→full (delete-stale). Проверять надо
    **исход отзыва**, а не факт вызова: аддитивный путь на отзыве зелёный по всем «вызвали/эмитировали»

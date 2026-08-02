@@ -88,7 +88,7 @@ Sub-phase 3.7b acceptance doc (which this finding harvested from the KAC-127 wor
 Two distinct facts are stacked here, and separating them matters more than the failure itself:
 
 - **A service-to-service call that carries no credentials is indistinguishable from an unauthenticated one**, because that is exactly what it is. The peer client is a first-class principal and must present an identity of its own; "it's internal, it'll be fine" is the forbidden assumption (`.claude/rules/security.md` §«AuthN+AuthZ ВЕЗДЕ»).
-- **Classifying methods by the shape of their name is the class W1.6 #43 removes** (perceived-mutating enumerated by suffix). Any conclusion drawn from that classifier is provisional, because the classifier is being replaced by an inverted one — read-only enumerated, everything else denied.o:48-58`.
+- **Classifying methods by the shape of their name is the class W1.6 #43 removes** (perceived-mutating enumerated by suffix). Any conclusion drawn from that classifier is provisional, because the classifier is being replaced by an inverted one — read-only enumerated, everything else denied.
 
 **Fix — direction, and an explicit warning about the cheap version.**
 
