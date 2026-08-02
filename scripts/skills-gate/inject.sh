@@ -29,6 +29,7 @@ git -C "$TMP" add -A >/dev/null 2>&1
 
 CA="$TMP/.claude/skills/code-authoring/SKILL.md"
 GA="$TMP/.claude/skills/gate-authoring/SKILL.md"
+SS="$TMP/.claude/skills/security-surface/SKILL.md"
 AT="$TMP/.claude/rules/ai-tooling.md"
 
 pass=0
@@ -127,6 +128,41 @@ run 0 "законный близнец: строка repo-скила в счёт
 restore
 sed -i 's/^## Канонические скилы.*/## Список скилов/' "$AT"
 run 2 "предпосылка: заголовок перечня сменился ⇒ VOID" check-03-roster-matches-tree.sh
+
+echo
+echo "== гейт 04 — три части записи каталога поверхностей =="
+
+restore
+run 0 "чистое дерево (законный близнец: все записи полны)" check-04-surface-record-parts.sh
+
+restore
+# снять противоядие у одной записи
+perl -0pi -e 's/^\*\*Противоядие\.\*\* /ЗАМЕНЕНО: /m' "$SS"
+run 1 "инъекция: у записи снято противоядие" check-04-surface-record-parts.sh
+grep -q '### S' <<<"${LAST_OUT:-}" \
+    && printf '  [ok]   инъекция названа записью\n' && pass=$((pass + 1)) \
+    || { printf '  [БЕДА] гейт покраснел, но запись не назвал\n'; fail=$((fail + 1)); }
+
+restore
+# снять держателя у одной записи
+perl -0pi -e 's/^> \*\*Держится:\*\* /> Держится: /m' "$SS"
+run 1 "инъекция: у записи не сказано, чем она держится" check-04-surface-record-parts.sh
+
+restore
+# ЗАКОННЫЙ БЛИЗНЕЦ: заголовок ТОЙ ЖЕ формы, но вне каталога поверхностей.
+# Без этой половины гейт ловил бы форму «### S<N>.<M>» где угодно в файле.
+perl -0pi -e 's/^## §12\./### S9.9. Пример формы, не запись\n\nТекст без частей.\n\n## §12./m' "$SS"
+run 0 "законный близнец: «### S<N>.<M>» вне каталога записью не считается" check-04-surface-record-parts.sh
+
+restore
+# счёт и проверка полноты обязаны читать ОДНО множество
+perl -0pi -e 's/^\*\*Записей класса — [0-9]+\*\*/**Записей класса — 999**/m' "$SS"
+run 1 "инъекция: объявленное число разошлось с осмотренным" check-04-surface-record-parts.sh
+
+restore
+# предпосылка гейта: сменилась форма объявления поверхностей ⇒ VOID, не успех
+sed -i 's/^## S1\./## Поверхность 1./' "$SS"
+run 2 "предпосылка: форма объявления поверхностей сменилась ⇒ VOID" check-04-surface-record-parts.sh
 
 restore
 echo
