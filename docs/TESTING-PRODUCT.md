@@ -9,5 +9,5 @@
 > - **Rule** `.claude/rules/testing.md` — e2e/newman как главная regression-инфра.
 > - Тестирование **кода** разработчиком — `.claude/skills/testing-code-coach/SKILL.md`.
 >
-> Оснастка синхронизируется во все репо через `./sync-tooling.sh` (источник истины —
-> `kacho-workspace/.claude/`).
+> Оснастка живёт в **единственном** экземпляре — `kacho-workspace/.claude/`. Копий в
+> рабочих копиях продукта нет, раскатки как механизма не существует (2026-08-02).

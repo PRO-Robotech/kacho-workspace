@@ -28,8 +28,7 @@ kacho-workspace/             ← этот репо (git)
 │   └── settings.json        ← permissions + hook-конфиг
 ├── docs/specs/             ← спека: 00–04 (книга) + acceptance-трейл + CHANGELOG
 ├── bootstrap.sh             ← клонирует sibling-репо в ./project/
-├── sync-tooling.sh          ← раскатывает .claude во все project/<repo>
-├── sync-all.sh              ← ff-pull workspace + project/* + sync-tooling
+├── sync-all.sh              ← ff-pull workspace + рабочих копий продукта
 ├── go.work.example          ← копируется в project/go.work
 └── project/                 ← gitignore'd; контейнер sibling-репо
     ├── kacho-proto/         ← единственный дом всех .proto + gen-stubs
@@ -49,34 +48,36 @@ kacho-workspace/             ← этот репо (git)
 в `bootstrap.sh::REPOS`. Build-граф: `kacho-proto → kacho-corelib → сервисы →
 kacho-api-gateway → kacho-deploy` (см. `CLAUDE.md` и `.claude/rules/polyrepo.md`).
 
-## AI-оснастка: один источник истины + полные копии в репо
+## AI-оснастка: единственный экземпляр, копий нет
 
-`kacho-workspace/.claude` — **единственный** источник истины для правил, агентов,
-скилов, hooks и `settings.json`. Каждый `project/<repo>` получает **полную
-самодостаточную копию** этой оснастки, чтобы репо работал при standalone-клоне
-(свежий checkout / CI), где parent-walkup до workspace недоступен.
+`kacho-workspace/.claude` — **единственное** место, где живут правила, агенты, скилы,
+hooks и `settings.json`. Копий в рабочих копиях продукта **не заводится**, раскатки как
+механизма **не существует** (решение владельца 2026-08-02).
 
-- **Раскатка**: `./sync-tooling.sh` зеркалит `.claude` (rules + generic agents +
-  generic skills + hooks + settings.json) во все `project/<repo>/.claude`.
-  Идемпотентно; вшит в `./sync-all.sh`.
-- **Domain-оснастка** (`<domain>-*` агенты/скилы, напр. `vpc-*`, `compute-*`) —
-  нативна в своём репо; sync-скрипт её не трогает. Устаревшие generic-копии — удаляет.
-- **Правка generic-оснастки — ТОЛЬКО в `kacho-workspace/.claude`**, затем
-  `./sync-tooling.sh`. Копию в репо не редактировать (перетрётся при следующем sync).
+Прежняя модель дублировала оснастку в каждый `project/<repo>/.claude` и обосновывала это
+тем, что hooks якобы не достают до воркспейса из вложенного каталога. **Обоснование
+оказалось ложным**: журнал hook'а содержит срабатывания по деревьям, где нет ни своего
+`settings.json`, ни своих hooks, — hook следует за **сессией**, а не за деревом файла.
+Копии не были нужны ни для чего, и механизм снят целиком вместе со своим обоснованием.
+
+- **Правка оснастки — только здесь.** Больше нигде её нет.
+- **Domain-оснастка** (`vpc-*`, `compute-*`, `<svc>-load-testing`) живёт рядом с generic,
+  в том же `.claude/`.
+- **Отдельно склонированный `PRO-Robotech/kacho` оснастки не несёт и не должен.** Правила —
+  инструмент разработки, а не часть поставки продукта. Проверки, обязанные работать в CI
+  продукта, живут **в продукте** (`internal/repohygiene`, `tools/`, `scripts/`, Makefile).
 
 ## Развернуть workspace на новой машине
 
 ```bash
 git clone git@github.com:PRO-Robotech/kacho-workspace.git
 cd kacho-workspace
-./bootstrap.sh                      # клонирует все sibling в ./project/
-cp go.work.example project/go.work  # multi-module Go workspace
-./sync-tooling.sh                   # раскатать .claude во все репо
-cd project/kacho-deploy && make dev-up
+./bootstrap.sh                      # клонирует монорепо в ./project/kacho
+cd project/kacho/deploy && make dev-up
 ```
 
 ## Sync
 
 ```bash
-./sync-all.sh   # ff-pull workspace + всех project/* + sync-tooling.sh
+./sync-all.sh   # ff-pull workspace + рабочих копий продукта
 ```

@@ -107,10 +107,11 @@ cp go.work.example go.work   # объединяет репо в Go workspace (н
 ```
 
 `go.work` — локальный артефакт для кросс-репо навигации/сборки в одном дереве.
-`./sync-tooling.sh` (вшит в `./sync-all.sh`) раскатывает generic AI-оснастку (rules /
-агенты / скилы / hooks) из `kacho-workspace/.claude/` в каждый `project/<repo>/.claude/`,
-чтобы репо был самодостаточен при standalone-клоне; источник истины — workspace, копии в
-репо руками не редактируются.
+AI-оснастка (rules / агенты / скилы / hooks) живёт в **единственном** экземпляре —
+`kacho-workspace/.claude/`. Копий в рабочих копиях продукта нет, раскатки как механизма
+не существует (2026-08-02). Работа ведётся из воркспейса; отдельно склонированный
+репозиторий продукта оснастки не несёт и не должен — проверки, обязанные работать в его
+CI, живут в нём самом.
 
 ### 3.2 Поднятие стенда
 
@@ -303,12 +304,13 @@ Kachō разрабатывается, тестируется и сопрово�
   go-style-reviewer, proto-api-reviewer, …); плюс domain-specific (`vpc-*`, `compute-*`).
 - **skills** (`.claude/skills/<name>/SKILL.md`) — экспертиза (`evgeniy` — Go-style, testing-coaches,
   load-testing-coach).
-- **hooks** (`.claude/settings.json`) — дисциплина исполнения (cwd-only, без parent-walkup).
+- **hooks** (`.claude/settings.json`) — дисциплина исполнения; следуют за сессией.
 
-Модель распространения — **self-sufficient репо + sync**: источник истины — `kacho-workspace/.claude/`;
-generic-оснастка физически дублируется в каждый `project/<repo>/.claude/` через `./sync-tooling.sh`,
-поэтому standalone-клон репо остаётся рабочим. Domain-агенты/скилы (`vpc-*`, `compute-*`) —
-нативные в своём репо, sync их не трогает. Полный список ролей и lifecycle-гейты (acceptance-first
+Модель распространения — **единственный экземпляр, копий нет**: вся оснастка живёт в
+`kacho-workspace/.claude/`, включая domain-агентов и скилы (`vpc-*`, `compute-*`). Прежняя
+модель дублирования снята вместе со своим обоснованием: она опиралась на допущение, что
+hooks не достают до воркспейса из вложенного каталога, а журнал hook'а это опровергает —
+срабатывания есть по деревьям без собственных hooks. Полный список ролей и lifecycle-гейты (acceptance-first
 → ticket → vault-context → cross-repo order → TDD → review → verify → trail) — в
 `.claude/rules/ai-tooling.md`; не дублируется здесь.
 
