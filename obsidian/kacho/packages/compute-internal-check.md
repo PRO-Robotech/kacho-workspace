@@ -40,11 +40,23 @@ permission map + IAM client adapter + factory.
 - `Update / Delete / Start / Stop / Restart / Attach*/Detach*/<verb>`
                                 → `editor` на `<resource_type>:<resource_id>`.
 - `DiskType.Get/List`, `Zone.Get/List`, `Region.Get/List`
-                                → `viewer` на `system:catalog`
-  (well-known FGA object; E3 модель выдаёт всем authenticated principal'ам
-  `viewer on system:catalog` неявно).
+                                → `viewer` на `system:catalog` — отношение, выполнимое
+  подстановочным tuple'ом, т.е. фактически «аутентифицирован», а не «авторизован».
+
+  > [!warning] Эта полоса законна ТОЛЬКО для глобального справочника
+  > `viewer` на кластерном объекте выполняется wildcard-tuple'ом, поэтому отвечает «да»
+  > **каждому** аутентифицированному субъекту. Для типов дисков / зон / регионов это и
+  > есть цель: admin-curated ось размещения, которую обязан читать любой тенант, иначе он
+  > не сможет создать ни один размещаемый ресурс. Для всего остального такая запись —
+  > гейт без содержания: форма проверки есть, сужения нет, и в диффе она неотличима от
+  > настоящей. Перед тем как поставить cluster-scoped отношение новому RPC, спроси, какие
+  > tuple его выполняют; если ответ «в том числе wildcard», а ответ RPC справочником не
+  > является — авторизуй на уровне данных (страница курсором + batch-check её id),
+  > а не одним вопросом. См. `security.md` §«Отношение, выполнимое подстановочным знаком».
 - `OperationService.Get/Cancel` → `viewer / editor` на `compute_operation:<id>`.
-- `Internal*` RPC — bypass (heuristic в corelib/authz).
+- `Internal*` RPC — **тоже в карте**; пропуск Check выдаётся записью
+  (`Public=false`/`ScopeFiltered`), а не выводится из имени метода. Незамапленный RPC
+  отказывает (см. [[corelib-authz]] §Decision pipeline).
 
 ## Object types
 
@@ -67,13 +79,22 @@ if authzIntr != nil {
 }
 ```
 
-Internal :9091 listener — БЕЗ authz-interceptor'а (admin-only, запрет workspace #6).
+Internal-листенер собирается **той же** цепочкой, что публичный: `authzIntr` навешивается
+на ОБА.
+
+> [!important] «Internal = trusted, mTLS достаточно» — запрещённое допущение
+> mTLS доказывает ровно одно: пир предъявил сертификат нашего CA. Он не говорит, **кто**
+> вызывающий и **на что** у него право, поэтому сам по себе не заменяет per-RPC Check.
+> Ban #6 сужает **поверхность методов**, а не снимает проверку прав на внутреннем порту.
+> См. `security.md` §«AuthN+AuthZ ВЕЗДЕ», п. 2 и 4, и [[corelib-authz]].
 
 ## Config
 
 - `KACHO_COMPUTE_AUTHZ_IAM_GRPC_ADDR` (default `""` → graceful skip)
 - `KACHO_COMPUTE_AUTHZ_IAM_TLS`
-- `KACHO_COMPUTE_AUTHZ_BREAKGLASS` (dev/emergency)
+- `KACHO_COMPUTE_AUTHZ_BREAKGLASS` — аварийный обход Check целиком. В production-режимах
+  `Config.Validate()` **отказывает в старте**: ручка, снимающая контроль, обязана быть
+  недостижима на развёрнутом стенде, иначе «мы ею не пользуемся» нечем проверить.
 
 ## Scope-guard (KAC-108 MVP)
 

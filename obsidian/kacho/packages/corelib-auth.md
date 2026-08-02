@@ -54,13 +54,19 @@ const (
 > и grpc/metadata. Adapter, который читает Principal из incoming MD (server-side),
 > живёт в `corelib/grpcsrv`.
 
-> [!important] SEC-B — инвариант доверия principal ⟺ mTLS (FD-4)
-> На mTLS internal-listener'е principal-metadata (`x-kacho-principal-*`) доверяется
-> **только если** peer прошёл mTLS client-cert verify (см. `grpcsrv.UnaryTrustedPrincipalExtract`
-> / `TrustedPrincipalFromContext`). cert-identity (модуль, из SAN `spiffe://kacho.cloud/...`,
-> `grpcsrv.CertIdentity`) и principal (пользователь, из MD) — **ортогональны**, оба логируются
-> для аудита, не подменяют друг друга. insecure-listener (`enable=false`, dev) — инвариант
-> неприменим, principal принимается как сейчас. Резолв cert-identity → ServiceAccount — SEC-C.
+> [!important] Инвариант доверия principal ⟺ mTLS (FD-4) — необходим, но НЕ достаточен
+> principal-metadata (`x-kacho-principal-*`) доверяется **только если** peer прошёл mTLS
+> client-cert verify (`grpcsrv.UnaryTrustedPrincipalExtract` / `TrustedPrincipalFromContext`).
+> cert-identity (модуль, из SAN `spiffe://kacho.cloud/...`, `grpcsrv.CertIdentity`) и principal
+> (пользователь, из MD) — **ортогональны**, оба логируются для аудита, не подменяют друг друга.
+> Резолв cert-identity → ServiceAccount — SEC-C.
+>
+> **Одной этой проверки мало**: она отвечает «сертификат наш», а не «этому пиру можно говорить
+> за пользователя». Ко второму вопросу нужен непустой allow-list форвардеров плюс boot-guard,
+> отказывающий в старте без него — полный разбор и все четыре обязательные части живут в
+> [[corelib-grpcsrv]] (владелец темы, здесь не дублируем). Insecure-транспорт (`enable=false`)
+> — фикстурный режим, не эксплуатационный: на развёрнутом стенде posture всегда production
+> (core rule #16).
 
 ## Imported by
 

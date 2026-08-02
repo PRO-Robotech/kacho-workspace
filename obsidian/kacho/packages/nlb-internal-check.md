@@ -36,7 +36,10 @@ Composition-root пакет — превращает corelib `authz`-interceptor
 - `AddTargets / RemoveTargets` → `editor` на `nlb_target_group:<id>`.
 - `GetTargetStates` → `viewer` на `nlb_load_balancer:<id>`.
 - `OperationService.Get/Cancel` → `viewer/editor` на `nlb_operation:<id>`.
-- `Internal*` (InternalResourceLifecycleService) — bypass (workspace #6).
+- `Internal*` (InternalResourceLifecycleService) — **тоже в карте**; пропуск Check
+  выдаётся записью (`Public=false`/`ScopeFiltered`), а не выводится из имени метода.
+  Незамапленный RPC отказывает (см. [[corelib-authz]] §Decision pipeline). `drift_test.go`
+  это и держит: RPC без записи роняет сборку.
 
 ## Wiring (cmd/kacho-loadbalancer/main.go)
 
@@ -53,7 +56,14 @@ if authzIntr != nil {
 }
 ```
 
-Internal :9091 listener — БЕЗ authz-interceptor (admin-only).
+Internal-листенер собирается **той же** цепочкой, что публичный: `wiring.go` строит две
+цепочки, и `authzIntr.Unary()`/`.Stream()` стоят в обеих.
+
+> [!important] «Internal = trusted, mTLS достаточно» — запрещённое допущение
+> mTLS доказывает ровно одно: пир предъявил сертификат нашего CA. Он не говорит, **кто**
+> вызывающий и **на что** у него право, поэтому сам по себе не заменяет per-RPC Check.
+> Ban #6 сужает **поверхность методов**, а не снимает проверку прав на внутреннем порту.
+> См. `security.md` §«AuthN+AuthZ ВЕЗДЕ», п. 2 и 4, и [[corelib-authz]].
 
 ## Cache invalidation
 

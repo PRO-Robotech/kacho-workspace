@@ -42,7 +42,9 @@ Composition-root пакет, который превращает corelib `authz`
 - `OperationService.Get/Cancel` → `viewer / editor` на `vpc_operation:<id>`.
 - `GetAddressByValue` со `scope.subnet_id`  → `viewer` на subnet'е;
   no-scope path → fail-closed (KAC-108 follow-up).
-- `Internal*` RPC — bypass (heuristic в corelib/authz).
+- `Internal*` RPC — **тоже в карте**; пропуск Check выдаётся записью
+  (`Public=false`/`ScopeFiltered`), а не выводится из имени метода. Незамапленный RPC
+  отказывает (см. [[corelib-authz]] §Decision pipeline).
 
 ## Wiring
 
@@ -60,7 +62,19 @@ if authzIntr != nil {
 }
 ```
 
-Internal :9091 listener — БЕЗ authz-interceptor'а (admin-only, запрет workspace #6).
+Internal-листенер собирается **той же** цепочкой, что публичный: `authzIntr` навешивается
+на ОБА (`internalUnary`/`internalStream` в `cmd/vpc/main.go`), плюс cert-identity и
+trusted-principal extract.
+
+> [!important] «Internal = trusted, mTLS достаточно» — запрещённое допущение
+> mTLS доказывает ровно одно: пир предъявил сертификат нашего CA. Он не говорит, **кто**
+> вызывающий и **на что** у него право, поэтому сам по себе не заменяет per-RPC Check.
+> Внутренний периметр не доверенный — это defense-in-depth против бокового движения:
+> один скомпрометированный сосед иначе получает всё, что выставлено на :9091.
+> Ban #6 сужает **поверхность методов** (что вообще опубликовано наружу) и никогда не
+> означал «на internal можно без проверки прав» — это разные вопросы, и их смешение
+> держало дыру, пока выглядело как ссылка на правило. См. `security.md`
+> §«AuthN+AuthZ ВЕЗДЕ», п. 2 и 4.
 
 ## Scope-guard (KAC-108 MVP)
 

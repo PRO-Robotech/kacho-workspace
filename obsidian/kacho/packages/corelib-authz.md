@@ -27,7 +27,7 @@ Cross-cutting authz пакет: gRPC unary+stream interceptor поверх вн�
 | Файл | Назначение |
 |---|---|
 | `doc.go` | overview + ASCII-схема pipeline. |
-| `types.go` | `RPCMap`, `RPCEntry`, `ObjectExtractor`, `StaticExtractor`, `Decision`, sentinel-errors, `FormatObject`, `FormatSubject`, `methodIsInternal`. |
+| `types.go` | `RPCMap`, `RPCEntry`, `ObjectExtractor`, `StaticExtractor`, `Decision`, sentinel-errors, `FormatObject`, `FormatSubject`. |
 | `cache.go` | `Cache` — TTL=5s positive-only кеш + `InvalidateBySubject` + `InvalidateAll` + thread-safe. |
 | `check_client.go` | port `CheckClient`, helper `CheckClientFunc`, port `CreatorTupleWriter` (D-11). |
 | `subject_extract.go` | `defaultSubjectExtractor` через `operations.PrincipalFromContext` (E2). |
@@ -57,11 +57,19 @@ var ErrNoPath     = errors.New("authz: no FGA path to resource")  // → Decisio
 
 ## Decision pipeline (interceptor.authorize)
 
-1. Breakglass=true → `Allowed` + WARN.
-2. RPCMap lookup; not found:
-   - `methodIsInternal(fullMethod)` → `Internal` (bypass);
-   - иначе → `Unmapped` → `PermissionDenied` (fail-closed).
-3. Principal extract; пусто → `Denied`.
+1. Breakglass=true → `Allowed` + WARN (на развёрнутом стенде недостижимо, см. Fail modes).
+2. RPCMap lookup; **not found → `Unmapped` → `PermissionDenied` (fail-closed)**, без
+   исключений — stream в том числе.
+   > [!important] Пропуск Check выдаётся ЗАПИСЬЮ в карте, а не выводится из имени метода
+   > Прежде здесь стояла эвристика по имени (`Internal*` ⇒ пропуск). Имя метода —
+   > свойство строки, а не решение о доступе: любой новый RPC, попавший под шаблон,
+   > молча получал пропуск, и добавление такого RPC выглядело в диффе как обычная
+   > фича. Теперь `DecisionInternal` выдаётся **только** явной записью `Public=false` /
+   > `ScopeFiltered=true` — то есть кто-то принял решение и оставил его в карте, где
+   > drift-guard-тест его видит. Незамапленный RPC отказывает.
+3. Principal extract; пусто → `Denied`. **Безусловно**, в том числе для
+   `ScopeFiltered`-полосы: за ней нет per-RPC Check, на который можно откатиться,
+   поэтому неопознанный вызывающий не имеет запасного пути.
 4. Object extract; ошибка → `Denied`.
 5. Cache lookup (positive-only); hit → `Allowed`/`Denied`.
 6. Rate-limit per-principal (denied-storm).
@@ -75,7 +83,18 @@ var ErrNoPath     = errors.New("authz: no FGA path to resource")  // → Decisio
 ## Fail modes (acceptance D-6)
 
 - FGA/kacho-iam недоступен → fail-closed `PermissionDenied`.
-- `KACHO_<SVC>_AUTHZ__BREAKGLASS=true` → bypass + WARN (dev/emergency).
+- **Breakglass — аварийный полный обход Check, и он гейтится посадкой, а не дисциплиной.**
+  В `production`/`production-strict` `Config.Validate()` **отказывает в старте**, называя
+  ручку в тексте отказа (message-lock'нуто тестами в geo/registry/compute). Ручка,
+  снимающая контроль, обязана быть недостижима на развёрнутом стенде — иначе она есть
+  всегда, а «мы ею не пользуемся» проверить нечем. Живёт только в in-process
+  unit/integration-фикстурах.
+
+> [!note] Не путать с `ClusterBreakGlassGrant`
+> Это **разные** механизмы. Здесь — config-ручка процесса (обход Check целиком).
+> [[../resources/iam-cluster-break-glass-grant]] — доменный ресурс: аварийная выдача
+> прав с двумя подписантами, сроком и kill-switch'ем, то есть решение внутри модели,
+> а не в обход неё.
 
 ## Cache invalidation (≤10s revoke, NFR-5)
 

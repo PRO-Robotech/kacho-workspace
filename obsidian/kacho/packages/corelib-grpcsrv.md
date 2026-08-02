@@ -31,20 +31,42 @@ Bootstrap-helper для gRPC-server с дефолтным набором: health
 - `CertIdentity(*x509.Certificate) string` — verbatim opaque SAN `spiffe://kacho.cloud/...` из verified client-cert (FD-5; без parse/resolve в SA — это SEC-C). nil/no-SAN/чужой trust-domain ⇒ `""` (детерминированно); multi-SAN ⇒ первый kacho-spiffe.
 - `WithCertIdentity` / `CertIdentityFromContext(ctx) (id string, verified bool)` — носитель cert-identity + mTLS-verified флага.
 - `UnaryCertIdentityExtract()` / `StreamCertIdentityExtract()` — классифицируют peer (insecure / TLS-no-verified-cert / mTLS-verified) и кладут cert-identity в ctx. Ставить ПЕРЕД principal-extract.
-- `UnaryTrustedPrincipalExtract()` / `StreamTrustedPrincipalExtract()` + `TrustedPrincipalFromContext(ctx) (operations.Principal, bool)` — инвариант доверия (FD-4): principal-metadata доверяется ⟺ peer mTLS-verified; insecure-listener ⇒ dev backward-compat; TLS-без-verified-cert ⇒ principal отбрасывается. cert-identity (модуль) и principal (пользователь) — ортогональны, оба доступны downstream для аудита.
+- `UnaryTrustedPrincipalExtract(opts...)` / `StreamTrustedPrincipalExtract(opts...)` + `TrustedPrincipalFromContext(ctx) (operations.Principal, bool)` — инвариант доверия (FD-4): principal-metadata доверяется ⟺ peer mTLS-verified; TLS-без-verified-cert ⇒ principal отбрасывается. cert-identity (модуль) и principal (пользователь) — ортогональны, оба доступны downstream для аудита.
+- `WithTrustedForwarders(sans ...string)` — allow-list SAN'ов, которым разрешено **говорить за пользователя**.
+
+> [!important] mTLS-verified — это НЕ «кто», а «предъявил сертификат нашего CA»
+> Одной trust-aware пары **недостаточно**, и это главная ловушка узла. `principalIsTrusted`
+> сверяет пира со списком **только если список непуст** — иначе возвращает «доверяю».
+> То есть пустой список означает **«не сужаем»**, а не «запрещаем»: переданную личность
+> примет ЛЮБОЙ проверенный пир, и сосед с сертификатом внутреннего CA может слать заголовки
+> личности другого тенанта, после чего per-RPC Check честно выполнится **от его имени**.
+> Сетевые политики этого не закрывают, а TLS имён не сверяет.
+>
+> Поэтому сервис, принимающий переданную личность, обязан нести **все четыре** части, а не три:
+> 1. trust-aware пару на **обоих** листенерах (`CertIdentityExtract` → `TrustedPrincipalExtract`);
+> 2. **непустой** allow-list из конфигурации (`WithTrustedForwarders`);
+> 3. production boot-guard, **отказывающий в старте** при пустом списке — и текст отказа
+>    обязан называть ручку, иначе стенд не поднять (эталон: `geo/serve.go`, `compute/bootposture.go`);
+> 4. это измерение в самоотчёте процесса, которое гейт посадки **оценивает**, а не просто печатает.
+>
+> Guard и самоотчёт обязаны считать **записи, которые примет транспорт** (`countNonEmpty`),
+> а не `len()` сырого среза: значение вида `","` даёт длину 1 и проходит наивную проверку.
+> Список пинится по **фактическим** отправителям, найденным по графу импортов, а не по догадке
+> «наверное только шлюз» — сужение до одного шлюза ломает законные service→service пути.
+> См. `security.md` §«AuthN+AuthZ ВЕЗДЕ», п. 5.
 
 ### sub-phase 5.4 — acr carrier (`acr.go` + `cert_identity.go`)
 
 - `MDKeyTokenACR = "x-kacho-token-acr"` — trusted metadata-ключ с validated JWT `acr` (api-gateway forwards на mTLS-verified gateway→iam re-dial, рядом с `x-kacho-principal-*`).
-- `UnaryTrustedPrincipalExtract` доп. читает `acr` и кладёт в trusted-carrier **только когда trusted** (тот же FD-4 boundary): на untrusted/unverified peer `acr` отбрасывается вместе с principal (anti-spoof). insecure dev-listener ⇒ принимается как сегодня.
+- `UnaryTrustedPrincipalExtract` доп. читает `acr` и кладёт в trusted-carrier **только когда trusted** (тот же FD-4 boundary): на untrusted/unverified peer `acr` отбрасывается вместе с principal (anti-spoof). `acr` едет по той же границе, что и личность, — иначе шаг-ап подделывался бы отдельно от того, за кого говорят.
 - `TrustedACRFromContext(ctx) (acr string, trusted bool)` — accessor. `WithTrustedACR(ctx, acr, trusted)` — test-support helper (mirror `WithCertIdentity`).
 - `ACRRank(acr) int` (`""/"0"<"1"<"2"<"3"`, unknown ⇒ 0) + `ACRSatisfies(presented, required) bool` (`required==""/"0"` ⇒ no-op) — **единая** ranking-точка, общая для api-gateway StepUpGate и iam ACRFloor (no drift). Imported-by: `kacho-iam/internal/authzguard` (ACRFloor), `kacho-api-gateway/internal/restmux` (forwards acr).
 
 ## Convention
 
 - Каждый сервис в `cmd/<svc>/main.go` зовёт `grpcsrv.NewServer(...)` для public-listener (9090) и отдельно для internal-listener (9091).
-- Interceptor chain (UnaryInterceptor) дополняется в самом сервисе: `recovery`, `logging`, `validate`, `auth` (если есть). На mTLS internal-listener'е (SEC-D/E/G): `UnaryCertIdentityExtract` → `UnaryTrustedPrincipalExtract` → бизнес.
-- mTLS включается per-edge флагом в SEC-D/E/G; SEC-B мёржится с `enable=false` повсеместно (транспорт не меняется).
+- Interceptor chain (UnaryInterceptor) дополняется в самом сервисе: `recovery`, `logging`, `validate`, `auth`. Порядок на **обоих** листенерах: `UnaryCertIdentityExtract` → `UnaryTrustedPrincipalExtract(WithTrustedForwarders(...))` → authz-Check → бизнес. Internal (:9091) от authz **не освобождён**.
+- `enable=false` (insecure-транспорт) — состояние периода внедрения SEC-B, а **не** режим эксплуатации: любой развёрнутый стенд, включая локальный, работает в production-posture (core rule #16). Insecure-путь допустим только в in-process unit/integration-фикстурах, потому что именно он маскирует всё, что этот узел защищает: неверифицированный пир доходит как доверенный форвардер.
 
 ## See also
 
