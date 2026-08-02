@@ -22,16 +22,22 @@ crypto/rand, fail-closed authz interceptor, DB-level invariants, Clean-Arch). О
 authz-края (List-энумерация, Move, LRO-polling), TOCTOU-update, мёртвый secure-path UI, дыры
 в прогоне тестов CI, дублирование micro-frontend. Полный отчёт: `scratchpad/AUDIT-REPORT.md`.
 
+> [!note] Уровень записи
+> Классы, репо и номера PR — да; поимённый разбор (координата + условие, при котором
+> защита не действовала, + следствие) — **нет**: оба репозитория публичны
+> ([[internal-vault-is-public]]), и связка остаётся рецептом даже когда находка закрыта.
+> Дифф по каждому пункту доступен по номеру PR тем, у кого есть код.
+
 ## Round 1 — HIGH (10/10 адресуемых закрыты, tests-first, contracts frozen)
 
 | repo | PR | что |
 |---|---|---|
 | kacho-compute | #72 | Instance.Update затирал CAS-статус (drop status из SET) + CI гоняет internal/clients integration |
-| kacho-corelib | #30 | negative-тесты breakglass anonymous-bypass guard (isAnonymousSubject) |
+| kacho-corelib | #30 | страж аварийного режима (breakglass) получил **негативные** тесты: до этого утверждалось только, что в штатном режиме он молчит — то есть отрицание жило без парного положительного и зеленело бы при мёртвом страже |
 | kacho-geo | #8 | OperationService.Get/Cancel → PermissionMap (LRO-polling больше не fail-closed) |
 | kacho-nlb | #49 | List fail-closed для system/empty subject; Move авторизует destination-project; + fix drift-теста |
 | kacho-registry | #2 | register-drainer не теряет tuples при retry-after-partial-apply |
-| kacho-vpc | #26 | NetworkService/List server-side FGA Check (не доверяет x-kacho-admin); Address/NIC/AddressPool CAS |
+| kacho-vpc | #26 | List решает права **на сервере**, а не по признаку из запроса; Address/NIC/AddressPool переведены на атомарный CAS |
 | kacho-ui | #123 | secure-client (DPoP/step-up) на реальном трафике; bump уязвимых deps (0 vulns) |
 
 Все ветки независимо верифицированы (build+vet+тесты -race, testcontainers): 7/7 PASS.
@@ -39,9 +45,14 @@ authz-края (List-энумерация, Move, LRO-polling), TOCTOU-update, м
 
 ## Отложено (документируется, не в этих PR)
 
-- **kacho-proto** InstanceGroupService — 23 RPC без authz-аннотаций. Фикс = правка proto →
-  контракт заморожен. Runtime вероятно fail-closed (interceptor денит unmapped RPC). Отдельный
-  contract-change тикет. См. [[../rpc/README]].
+- **kacho-proto** InstanceGroupService — целый сервис без authz-аннотаций. Фикс требовал
+  правки контракта, а контракт на время работы был заморожен → отдельный тикет.
+  > [!note] Исход (2026-07-28): сервис **снят целиком**, а не доаннотирован
+  > Он был объявлен в контракте, разведён маршрутами, и **не реализован нигде**; записи
+  > каталога прав гейтили пустоту. Правильным исходом оказалась не «доделать проверки», а
+  > [[wildcard-relation-sweep-2026-07-28|снять поверхность]] — поверхность без реализации
+  > нельзя защитить, её можно только убрать. Пункт оставлен как пример того, что
+  > «отложено на контракт-фикс» иногда означает «отложено на удаление».
 - **kacho-ui-future** — 263 byte-identical дубля (incl. 2845-строчный resource-registry.tsx).
   Огромный/рискованный дедуп в экспериментальном репо → отдельная задача.
 - Прочие needs-contract / large-refactor / deliberate-convention (envconfig) items — в отчёте.
@@ -49,15 +60,22 @@ authz-края (List-энумерация, Move, LRO-polling), TOCTOU-update, м
 ## Round 2 — medium/low sweep (~26 items closed)
 
 10 репо (7 продолжают ветку + iam/api-gateway/deploy новые): safe high-value medium/low tests-first:
-- **api-gateway** #109 — step-up (ACR/MFA) gate реально включён (был мёртвый: PermissionLookup unwired + broken REST→FQN mapper).
+- **api-gateway** #109 — гейт повышенной аутентификации **реально включён**: он был
+  объявлен, но не провязан, а сопоставление REST-пути с методом не работало — то есть
+  проверка присутствовала и не могла сработать ни разу.
 - **iam** #281 — redact OpenFGA/pgx transport-detail из ошибок (CWE-209), лог swallowed op-persist, dead-dir.
 - **deploy** #141 — securityContext на kacho-iam workloads, namespace PSA (warn+audit=restricted), pin init-image, trivy IaC CI-gate.
-- **registry** #2 — OperationService owner-scoped GetOwned/CancelOwned (BOLA), JWKS require https в production.
+- **registry** #2 — операции стали owner-scoped (чтение и отмена только своей), набор
+  ключей верификации в production требует защищённого перехода.
 - **ui** #123 — CSP/X-Frame/X-Content-Type/Referrer headers, удалены TODO(KAC-N)+yandex-коммент, gated dead access-token scaffolding.
-- **vpc** #26 — production boot-guard require list-filter.enabled (закрывает helm-default fail-open).
+- **vpc** #26 — production boot-guard **отказывается стартовать** без включённой
+  пофайловой фильтрации списков; до этого умолчание чарта расходилось с умолчанием кода
+  в небезопасную сторону (класс «умолчание получает тот, кто о ручке не знал»).
 - **nlb** #49 — config fail-closed на list-filter, concurrent exactly-once test для target-drain DELETE.
-- **corelib** #30 — authz cache lazy-eviction clobber fix (CWE-362), rate-limiter/ListenInvalidator тесты, outbox identifier sanitization.
-- **compute** #72 — production-strict TLS gate rewire (был dead cfg.IAMTLS), attached_disks uniqueness race/negative тесты.
+- **corelib** #30 — гонка вытеснения в кэше решений о доступе (CWE-362), тесты
+  ограничителя и инвалидации, санитизация идентификаторов очереди.
+- **compute** #72 — гейт TLS в строгом production перепровязан (читал поле, которого никто
+  не заполнял — мёртвый guard), плюс тесты гонки на уникальность привязки дисков.
 - **geo** #8 — negative тесты: Zone.Update FK, unique-PK one-winner, malformed page_token.
 
 ## Round 3 — safe tail (done)

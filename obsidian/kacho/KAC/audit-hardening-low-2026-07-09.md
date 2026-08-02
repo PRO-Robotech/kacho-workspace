@@ -63,21 +63,36 @@ no-timeout refuted r1 → confirmed r4; vpc geo-client partial-zone refuted r2 �
 
 ## Реестр HIGH / MEDIUM (crown jewels — security/leak/concurrency)
 
-- **r4 HIGH** registry `dataplane/handler.go` serveMount — cross-repo blob mount без membership-проверки digest в `from` → cross-tenant blob exfiltration. PR registry#22.
-- **r5 HIGH** registry `dataplane/handler.go` `/v2/_catalog` — pagination-курсор `Link:next` по boundary ДО authz-фильтра → cross-tenant repo-names leak. PR registry#23.
-- **r5 MED** registry `public.go` ListRepositories next_page_token тот же класс. PR registry#23.
-- **r3 MED** api-gw `auth.go` injectPrincipal→OUTGOING, proxy-хопы пересобирают из INCOMING → principal терялся. PR api-gw#130.
-- **r2 MED** api-gw `auth.go` Kratos login логировал email на INFO = PII-leak (#2). PR api-gw#129.
-- **r7 MED** iam `authorize_service.go` BatchCheck сворачивал transient FGA-ошибку в deny_reason с raw backend-текстом (leak). PR iam#313.
-- **r6 MED** iam `internal_iam/handler.go` Register/UnregisterResource raw pgx→Unknown на :9091 (#1 INTERNAL-leak на internal-листенере). PR iam#312.
-- **r4 MED** compute `permission_map.go` GetLatestByFamily project-viewer вместо per-object v_get (object-scoped gap). PR compute#96.
-- **r4 MED** nlb `targetgroup/move.go` Move ронял mirror-data. PR nlb#74.
-- **r2 MED** nlb `loadbalancer/move.go` то же для LB. PR nlb#72.
-- **r3 MED** nlb `free_ip_runner.go` poison-pill LB HOL-блокирует reconciler. PR nlb#73.
-- **r8 MED** registry `zot/backend.go` BlobInRepo кэшировал негатив от gctx-оборванного scan → poison TTL-кэша. PR registry#26.
-- **r2 MED** vpc `cmd/vpc/main.go` нет panic-recovery на обоих листенерах. PR vpc#45.
-- **r1 MED** vpc peer-clients (geo/region/iam) без per-call WithTimeout (#3). PR vpc#44.
-- **r3 MED** geo `region.go` Update/Delete без ValidateID (malformed-id). PR geo#24.
+Классы и номера PR. Поимённый разбор в git не идёт — оба репозитория публичны
+([[internal-vault-is-public]]), и связка «координата + условие + следствие» остаётся
+рецептом независимо от того, что находка закрыта. Дифф по каждому пункту доступен по
+номеру PR тем, у кого есть код.
+
+- **r4 HIGH** registry, плоскость данных — **межтенантное чтение содержимого**: путь
+  переиспользования слоя из другого репозитория не проверял членство запрашивающего в
+  источнике. PR registry#22.
+- **r5 HIGH** registry, плоскость данных — **утечка имён через курсор**: страница
+  перечисления резалась по границе **до** фильтра прав, поэтому продолжение выдавало то,
+  чего первая страница не показывала. PR registry#23.
+- **r5 MED** registry, публичный API — тот же класс на списочной поверхности. PR registry#23.
+- **r3 MED** шлюз — личность вызывающего клалась в исходящие метаданные, а следующий хоп
+  пересобирал контекст из входящих ⇒ на многохоповом пути личность терялась. PR api-gw#130.
+- **r2 MED** шлюз — **PII в логе** на пути входа (адрес почты, уровень INFO). PR api-gw#129.
+- **r7 MED** iam — временный сбой хранилища прав сворачивался в **причину отказа** с сырым
+  текстом бэкенда: и утечка деталей, и подмена ретрайабельного терминальным. PR iam#313.
+- **r6 MED** iam — сырая ошибка драйвера БД доходила наружу на внутреннем листенере
+  (правило «INTERNAL не эхает `err.Error()`» действует на **обоих**). PR iam#312.
+- **r4 MED** compute — чтение гейтилось уровнем проекта там, где предмет ответа —
+  конкретный объект (объектная проверка вместо уровневой). PR compute#96.
+- **r4 MED** nlb — перемещение теряло данные зеркала. PR nlb#74. **r2 MED** — то же для
+  балансировщика. PR nlb#72.
+- **r3 MED** nlb — отравленный элемент блокировал голову очереди реконсайлера. PR nlb#73.
+- **r8 MED** registry — кэшировался отрицательный ответ, полученный от **оборванного**
+  обхода: отмена контекста неотличима от «нет такого». PR registry#26.
+- **r2 MED** vpc — не было перехвата паники ни на одном из двух листенеров. PR vpc#45.
+- **r1 MED** vpc — peer-клиенты без собственного срока на вызов (класс, зачищенный
+  системно). PR vpc#44.
+- **r3 MED** geo — мутации без проверки формата идентификатора (malformed → неверный код). PR geo#24.
 
 ## Классы LOW (реальные, узкие; 69 шт)
 
@@ -96,10 +111,12 @@ anonymous-fail-closed, dev-в-проде, test-mode.
 
 - **Вердикт:** authN/authZ **enforcement fail-closed по дефолту во ВСЕХ 7** (anonymous denied; mTLS+per-RPC
   IAM-Check обязательны для старта — `validateSecurityConfig`/`validateAuthMode`, иначе не бутится).
-- **Единственная находка — geo** (LOW): mode-ручка `KACHO_GEO_AUTH_MODE` дефолтила в `dev` (config.go:44),
-  а под dev honored breakglass/trust-any bypass'ы (под production — inert). **Фикс:** default `dev`→`production`
-  (secure-by-default, как iam/vpc/nlb). Helm dev/e2e-стенд задаёт `KACHO_GEO_AUTH_MODE=dev` явно (sub-chart
-  values.yaml:68) → меняется только raw-binary-unset случай, e2e не тронут. **PR geo#28** (TDD RED→GREEN).
+- **Единственная находка — geo** (LOW): **умолчание режима было небезопасным** — ручка
+  режима по умолчанию выбирала dev, а dev-ветка почитала послабления, инертные в
+  production. **Фикс:** умолчание `dev`→`production` (secure-by-default, как у iam/vpc/nlb).
+  Развёртка задаёт режим явно, поэтому менялся только случай «бинарь запущен без
+  окружения» — тот самый, где умолчание и решает. **PR geo#28** (TDD RED→GREEN).
+  Класс общий: **умолчание — это то, что получит первый, кто о ручке не знал.**
 - compute/api-gw/registry тоже дефолтят ручку в dev в config, но у них она **decoupled** от authz (fail-closed
   идёт от DB-SSL/IAM-addr/list-filter env, не от mode) → audit finding=false, benign. Flip их дефолта сломал бы
   e2e (helm им mode не задаёт). Оставлено by-design.

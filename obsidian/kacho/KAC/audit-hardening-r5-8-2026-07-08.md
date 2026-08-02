@@ -50,25 +50,44 @@ convergence — не осталось находок, переживающих a
 
 ## Классы находок и фиксы (все merged кроме r8)
 
-- **SECURITY**:
-  - r7 **HIGH BOLA** — nlb `GetTargetStates` возвращал targets чужого project-TG без
-    object-scoped authz → same-project + FGA `viewer` на `lb_target_group` (helper `tg_authz.go`, дедуп с Attach). PR nlb#70.
-  - r5 — api-gateway authz-cache key без device_attestation/amr_claims (cache-poisoning replay) → в key. PR#127.
-  - r5 — vpc internal admin-gate блокировал object-scoped IPAM RPC до FGA-Check (nlb→vpc edge) → `IsObjectScopedInternalMethod` из PermissionMap. PR#43.
-  - r5 — compute `InternalWatchService/Watch` unmapped→fail-closed в prod → PermissionMap Public:true. PR#91.
-  - r5 — corelib `operations.NewFromContext` игнорировал WithoutPrincipal scrub (forged principal) → PrincipalFromContextOK. PR#45.
-  - r8 (fixing) — registry `ListRegistryOperations` existence-oracle (namespace v_list → имена чужих под-репо/тегов через DeleteTag-op metadata) → scope-filter по per-repo v_list.
+- **SECURITY** (классы; поимённый разбор — вне git, см. §«Где лежит разбор»):
+  - r7 **HIGH BOLA** — nlb: читающий RPC отдавал состав чужого объекта без объектной
+    проверки прав. Теперь право решается **на самом объекте**, а не на уровне, тем же
+    хелпером, что и смежная привязка (дедуп). PR nlb#70.
+  - r5 — шлюз: ключ кэша решения о доступе не включал часть признаков контекста
+    аутентификации, поэтому решение переиспользовалось шире, чем было принято. Признаки
+    внесены в ключ. PR#127.
+  - r5 — vpc: внутренний административный гейт отвергал объектно-скоупленные RPC **до**
+    проверки прав, ломая законное ребро nlb→vpc. Класс объектных методов теперь берётся
+    из карты прав, а не из имени. PR#43.
+  - r5 — compute: RPC отсутствовал в карте прав ⇒ fail-closed на каждом вызове в проде.
+    Запись добавлена. PR#91.
+  - r5 — corelib: конструктор операции не учитывал снятие принципала из контекста, то есть
+    личность могла пережить своё снятие. Читается через проверяющий вариант. PR#45.
+  - r8 — registry: оракул существования на списочной поверхности операций (уровень права
+    шире, чем предмет ответа) → фильтр по предмету, а не по родителю.
 - **LEAK / per-call-deadline** (systemic класс, **зачищен во ВСЕХ peer-клиентах**):
   - r5 iam openfga writeOrDelete; nlb check_client; registry IAMCheckClient.
   - r6 **sweep** — compute geo/iam clients; nlb vpc(address/subnet/nic/internal_address)/iam-project/geo-zone (~6); registry iam ProjectExists — все получили `context.WithTimeout` + Unavailable/DeadlineExceeded→ErrUnavailable + hanging-peer regression-тесты. PRs iam#306/compute#92/nlb#69/registry#18.
 - **READABILITY / doc-truthfulness** (misleading-security-comment trap):
-  - r5 iam access_binding Update/Delete: все Get-ошибки → PermissionDenied (коммент врал) → только ErrNotFound; прочие → MapRepoErr (retriable). PR#305.
-  - r6 iam `iamhooks/hook_auth.go`: коммент про dev-mode-no-auth/401, код — fail-closed 500 → коммент под реальность. PR#306.
-  - r5 compute `Instance.Fqdn` суффикс `.ru-central1.internal` (чужой-облако, **ban #2**) на публичной поверхности → Kachō-native. PR#91.
+  - r5 iam: на пути выдачи **любая** ошибка предварительного чтения сворачивалась в отказ
+    в правах — комментарий утверждал обратное, а ретрайабельный сбой становился
+    терминальным. Разведено: «нет строки» и «сбой» — разные полосы. PR#305.
+  - r6 iam: комментарий описывал режим без аутентификации, код был fail-closed → комментарий
+    приведён к реальности (сначала перестать врать). PR#306.
+  - r5 compute: суффикс имени чужого облака (**ban #2**) на публичной поверхности → Kachō-native. PR#91.
 - **CONCURRENCY/EFFICIENCY**:
   - r7 corelib `listObjectsCache` O(N²) insertion-sort под write-lock на hot-path → O(N) (incremental count + expired-sweep + arbitrary eviction, zeркалит `authz.Cache.evictLocked`); regression `LinearNotQuadratic` 19.7s→0.12s. PR#46.
 - **STDLIB SECURITY** (побочно вскрыт govulncheck при go1.26.5-DB):
   - GO-2026-5856 (crypto/tls) + GO-2026-4970 (os) в go1.26.4 → bump `go 1.26.5` + x/crypto v0.54.0 (iam/vpc/api-gateway). GO-2026-5932 (x/crypto/openpgp, depends-only/unfixable, `go mod why`=not-needed) → documented suppression в iam govulncheck-wrapper.
+
+## Где лежит разбор
+
+**Не в git.** Оба репозитория публичны ([[internal-vault-is-public]]): поимённый разбор
+security-находки (координата + условие, при котором защита не действовала, + следствие)
+собирается в рецепт, даже когда сама находка давно закрыта. Здесь — класс, репо и номер PR;
+этого достаточно, чтобы понять, что чинили и где смотреть, и недостаточно, чтобы
+воспользоваться прежним состоянием. Диффы доступны по номерам PR тем, у кого есть код.
 
 ## Затронутые сущности vault
 - [[../packages/vpc-apps-kacho-api-address]] (nested-conn race-fix — предыдущий батч)
