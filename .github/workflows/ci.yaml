@@ -35,6 +35,37 @@ jobs:
       - name: sync-tooling --check
         run: ./sync-tooling.sh --check
 
+  vault-gate:
+    name: записки хранилища знаний сверены с деревом продукта
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
+      # анализаторов сужения списков. Без монорепо выводить не из чего, и гейт
+      # отвечает VOID (код 2), а не «чисто»: неразличение этих исходов и есть тот
+      # класс, который он ловит.
+      #
+      # `ref:` временно пиннит sibling к интеграционному стволу, потому что на
+      # `main` анализаторов ЕЩЁ НЕТ (0 файлов против 18 на стволе) — сверять было
+      # бы не с чем. Снять пин ОДНОВРЕМЕННО со слиянием ствола в main
+      # (`.claude/rules/polyrepo.md` §Порядок работы: после merge — ref: main).
+      # Ранний снос пина не «пройдёт тихо»: гейт скажет VOID и уронит джобу.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v4
+        with:
+          repository: PRO-Robotech/kacho
+          ref: redesign/integration
+          path: project/kacho
+      - name: shellcheck vault-gate (strict)
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck && shellcheck -x -- scripts/vault-gate/*.sh
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      # Гейт, чью работоспособность не доказали, отчитывается зелёным одинаково
+      # и когда всё хорошо, и когда он сломан.
+      - name: vault-gate доказывает свою работоспособность
+        run: KACHO_MONOREPO="$PWD/project/kacho" ./scripts/vault-gate/inject.sh
+      - name: записки не выдают снятый механизм за текущий
+        run: KACHO_MONOREPO="$PWD/project/kacho" ./scripts/vault-gate/run-all.sh
+
   doc-commands:
     name: quoted make commands run from the monorepo root
     runs-on: ubuntu-latest
