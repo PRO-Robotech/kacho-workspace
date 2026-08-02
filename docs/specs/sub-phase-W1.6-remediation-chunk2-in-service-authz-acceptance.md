@@ -24,37 +24,64 @@
 > - W1.4 — principal propagation cross-service ([[KAC-140]]) — **MERGED**. Required so iam handlers can rely on `authzguard.PrincipalFromCtx` returning the *true* caller (not `user:bootstrap`) on cross-service paths.
 > - W1.5 — Remediation Chunk 1 ([[KAC-163]]) — **PR open** ([kacho-iam#35](https://github.com/PRO-Robotech/kacho-iam/pull/35)). W1.6 can begin once W1.5 merges (no source-file overlap, but W1.6 newman cases want the W1.5 fga_outbox grant-write path to be GREEN — otherwise NM cases that grant→check would fail for unrelated reasons).
 >
-> **Why W1.6 closes the 87 newman failures**: per master plan and W1.5 acceptance §0, the 87 failing newman cases break down as `iam-jit-pending`(33) + `iam-user`(25) + `iam-compliance-report`(10) + `iam-internal-only-check`(10) + `iam-access-binding`(8) + `authz-deny`(1). W1.5 makes grants reach FGA atomically. **W1.6 makes the corresponding handlers enforce caller identity** — without it: ListPending leaks across users (33 failures), compliance reports leak cross-tenant (10), AB.ListBySubject by other user (the 8 remaining), spoofed CreatedBy fails audit-shape assertions (jit-eligibility + sa-keys cases), and anti-anon misses Approve* paths (a portion of jit-pending). Together W1.5+W1.6 close the gap.
+> **Why W1.6 closes the 87 newman failures**: per master plan and W1.5 acceptance §0, the 87 failing newman cases break down as `iam-jit-pending`(33) + `iam-user`(25) + `iam-compliance-report`(10) + `iam-internal-only-check`(10) + `iam-access-binding`(8) + `authz-deny`(1). W1.5 makes grants reach FGA atomically — that is, the **right tuples exist**. W1.6 makes the handler layer **actually consult the caller's identity when answering** — that is, the right tuples get **used**. The two are independent failure modes, and the suites above measure the second one: they assert that a reader sees only what is theirs, that an actor is recorded as themselves, and that an unauthenticated caller mutates nothing. Correct tuples do not produce those outcomes on their own if the handler never asks. Together W1.5+W1.6 close the gap.
 
 ---
 
 ## 0. Преамбула — что эта sub-итерация (précis)
 
-W1.6 закрывает **в-сервисную** прослойку authz, которую W1.1–W1.5 не трогали: правильные tuple
-теперь летят в OpenFGA (W1.5), но **handler-слой iam** всё ещё (a) принимает identity-поля
-(`reviewer_user_id`, `created_by_user_id`, `created_by`) из request-body вместо authenticated
-principal'а — это **identity spoofing** через REST/gRPC, (b) отдаёт чужие данные в `List*`-вызовах
-без scope-фильтра — это **information disclosure** на уровне tenant boundary, (c) leak'ает
-plaintext `client_secret` в `Operation.response` объекте, к которому может пройти **anonymous**
-GET через operation-id (комбо #9 + #11), (d) пропускает мутирующие RPC мимо anti-anon
-interceptor'а (Approve/Deny/Issue/Revoke/Generate/Cancel suffix not in match list — #43).
+W1.6 закрывает **в-сервисную** прослойку authz, которую W1.1–W1.5 не трогали. W1.5 добился того,
+что в модель прав попадают правильные tuple; W1.6 добивается того, что **handler-слой iam их
+спрашивает**. Это разные вещи, и вторая не следует из первой. Четыре класса, каждый — про то, где
+слой принимал решение не по личности вызывающего:
+
+**(a) Личность из тела запроса, а не из аутентификации** («identity spoofing»). Обработчик,
+записывающий «кто это сделал» в БД, аудит или tuple, обязан брать это **только** из
+аутентифицированного принципала. Поле запроса с тем же смыслом — не источник истины: тело пишет
+вызывающий, и всё, что из него взято, он выбирает сам. Следствие для контракта: атрибуция перестаёт
+быть свидетельством. Это дороже, чем кажется, потому что аудит — единственный след, по которому
+разбор инцидента вообще возможен: если запись о том, «кто», пишет сам действующий, то следа нет —
+есть его версия событий.
+
+**(b) `List*` без scope-фильтра** («information disclosure» на границе тенанта). Списочный ответ
+обязан быть сужен до того, что вызывающему разрешено видеть. Отсутствие сужения — не «неудобство
+клиента»: границу тенанта держит именно этот фильтр, и никакой tuple за него это не сделает.
+
+**(c) Долгоживущий секрет в конверте асинхронного результата.** `Operation` хранится бессрочно и
+адресуется по id, поэтому всё, что попало в его `response`, живёт столько же, сколько запись, и
+доступно каждому, кто дотянется до конверта. Секрет, выданный один раз, не должен оставаться
+читаемым из хранилища операций — это отдельное требование, независимое от того, кто может читать
+операции (см. #11: выдача единожды + последующая редакция поля).
+
+**(d) Anti-anon по перечислению мутирующих глаголов.** Перехватчик определял «это мутация» списком
+известных суффиксов. Такой список **по построению** неполон: любой глагол, о котором не подумали,
+попадает в умолчание — а умолчанием было «пропустить». Инверсия обязательна: перечисляется
+**read-only**, всё остальное требует аутентификации (см. §4.11). Это тот же класс, что «пустой
+список значит не сужаем»: форма проверки есть, а сторона, в которую она ошибается, — открытая.
 
 W1.6 поставляет **десять** конкретных handler-/middleware-fix'ов (по findings из remediation plan
 §1.3 Chunk 2). Не вводит новых ресурсов, миграций, proto-полей; не меняет drainer/cache/FGA. Pure
 handler/usecase/middleware enforcement.
 
-| # | Sev | File:line (verified 2026-05-24) | Симптом | Fix |
+> **О форме таблицы.** Колонка «Где» называет **файл**, но не строку и не выражение: точная
+> координата вместе с условием и следствием — это восстановимый рецепт, а оба репозитория
+> публичны (`.claude/rules/security.md` §«Публичные артефакты»). Разбор по каждому пункту вёлся в
+> рабочем каталоге задачи и в git не идёт. Для работы этого достаточно: файл + класс + требуемое
+> поведение однозначно задают правку, а проверяется она сценариями §6, которые формулируют
+> **желаемое** свойство и потому публикацию выдерживают.
+
+| # | Sev | Где | Класс и почему это важно | Что должно стать верно |
 |---|---|---|---|---|
-| **#9** | P0 | `internal/handler/operation_handler.go:49`, `:62` (`if !authzguard.IsAnonymous(ctx) && !authzguard.IsSelf(...)`) | Ownership-check короткозамкнут на anonymous: `!IsAnonymous(ctx) && !IsSelf(...)` для anonymous возвращает `false && X = false` → guard НЕ срабатывает → anonymous GET'ит **любую** operation по id (включая JIT/AB/SA mutations с принципалом-владельцем в `Operation.response`). | Инвертировать guard: `if authzguard.IsAnonymous(ctx) { return NotFound }` → затем ВСЕГДА выполнять `IsSelf` check. (Bonus: anonymous GET даже **существующей** op'ы → `NotFound` — anti-info-leak parity с KAC-122 CRIT-27 для известных principal'ов.) Симметрично для `Cancel`. |
-| **#11** | P0 | `internal/apps/kacho/api/sa_keys/usecases.go:191-199` (`ClientSecret: hydraClient.ClientSecret` встроено в `Operation.response`) | Plaintext `client_secret` живёт в `Operation.response` навечно (operations не удаляются). В комбинации с #9 anonymous может вытащить secret по operation-id. | После закрытия #9 secret уже недоступен anonymous. Дополнительно: **редактировать** `Operation.response` через `(N+1)-фаза masking` — после первого успешного return клиенту во время `Issue`, secret обнуляется в БД (`UPDATE operations SET response = jsonb_set(response, '{client_secret}', '"<redacted>"') WHERE id = $id`). Документировать: «secret returned ONCE on Issue; subsequent `Operation.Get` returns redacted response». См. OQ-W1.6-2. |
-| **#12** | P1 | `internal/apps/kacho/api/access_binding/list_by_subject.go:31-36` (`!IsAnonymous && string(subjectType)=="user" && !IsSelf(...)`); `list_by_resource.go:33-37` (`requireGrantAuthority`) | **Частично закрыто** KAC-131/133: ListBySubject self-only **только для user-subjects**; ListByResource — `requireGrantAuthority` (owner или FGA-admin). Остаточный gap: (a) ListBySubject для `subjectType=service_account` / `group` **не scope-filter** (proceeds для любого authenticated); (b) anonymous идёт по `!IsAnonymous && …` short-circuit (false-AND-X = false → guard пропускает) если `RequireAuthenticated` не сработал бы (но он сработал на стр.24 — OK для anonymous). Для **service-account / group** subject — open. | Расширить ListBySubject self-check: для всех subject-types — `IsSelf(ctx, subject_id)` ИЛИ `requireGrantAuthority(ctx, resource_of_binding)` (parity с ListByResource). Symmetric для group: caller должен быть `member` группы ИЛИ resource-admin. ListByResource — already correct, just add explicit table-test to prevent regression. |
-| **#13** | P0 | `internal/apps/kacho/api/access_binding/delete.go:78-80` (`if !authzguard.IsSelf(ctx, string(binding.SubjectID)) { return PermissionDenied() }`) | Authority-проверка на Delete = **self-only**: пользователь может удалить ТОЛЬКО binding'и, где `subject_id == principal`. Resource-admin (имеющий `requireGrantAuthority` на resource) **не может** delete'нуть чужой binding на свой же resource — несимметрично с Create (которое использует `requireGrantAuthority`). Side-effect: account-admin не может удалить binding инвайтнутого user'а. | Заменить `IsSelf`-only check на `requireGrantAuthority(ctx, repo, fga, string(binding.ResourceType), binding.ResourceID)` — точное зеркало `create.go::Execute` authority-проверки. Self-binding (subject==principal) — тривиально проходит через grant-authority. Negative-тест: stranger (не self, не admin) → 403. |
-| **#35** | P0 | `internal/apps/kacho/api/access_review/handler.go:51,93,134` (`ReviewerUserID: domain.UserID(req.GetReviewerUserId())`); `internal/service/phase7_access_review_service.go::ApproveItem/RevokeItem/AddReviewer` принимает reviewer параметром доверием | Handler пробрасывает `reviewer_user_id` **из тела запроса** в service: каждый authenticated user может decid'ить от имени любого reviewer'а в audit-log. Spoofing audit-identity. | Handler берёт reviewer из `authzguard.PrincipalFromCtx(ctx)`; поле `reviewer_user_id` в `Decide*Request` ([[KAC-127]] proto frozen — поле остаётся для wire-compat) — если non-empty И ≠ principal → `InvalidArgument` («Illegal argument reviewer_user_id: must match authenticated principal or be empty»). Service-layer signature остаётся, handler фиксит источник. |
-| **#36** | P1 | `internal/service/jit_pending_service.go:425-433` (`GetPending → s.pending.Get`, `ListPending → s.pending.List` — оба passthrough, scope-фильтра нет) | `GetPending(id)`: любой authenticated user может прочитать любую pending-row → видит requester, approver, justification, resource — pre-decision leak. `ListPending(filter)`: без filter возвращает **все** pending'и cluster-wide. | Filter в caller-scoping (без новых полей в proto, добавляем server-side enforcement): `GetPending` — caller обязан быть `requester` ИЛИ `approver` ИЛИ resource-admin; иначе `NotFound` (anti-info-leak). `ListPending` — авто-filter `requester_user_id == principal OR approver_user_id == principal`; cluster-admin bypass через explicit `JitPendingListFilter.AllScopes=true` доступен только bootstrap/cluster-admin principal'у (KAC-122 §5). |
-| **#37** | P0 | `internal/apps/kacho/api/compliance_report/handler.go` (`GetReport`, `GetReportDownloadURL`); `cmd/kacho-iam/phase7b_wiring.go` (wiring без `WithVisibleScopeProvider`); `internal/service/compliance_report_service.go:32-77` (`scopes ComplianceScopeChecker` — есть, но не используется на read-paths) | `GetReport(reportID)`: handler возвращает отчёт **без** scope-проверки — report про project в одном tenant'е доступен всем authenticated. **Cross-tenant leak P0**. Закрытие 10 newman failures из `iam-compliance-report`. | Wiring: расширить `ComplianceScopeChecker` → `VisibleScopeProvider` (метод `IsScopeVisibleToPrincipal(ctx, scope_type, scope_id) bool`). Handler `GetReport`: после `s.Get(id)` — `if !provider.IsScopeVisibleToPrincipal(ctx, report.ScopeType, report.ScopeID) { return NotFound }`. Provider реализация: caller имеет `viewer/admin/auditor` relation на (account|project|organization). `GetReportDownloadURL` — same gate **до** генерации URL. `List` — filter via WHERE на provider-returned visible scopes. |
-| **#39** | P0 | `internal/apps/kacho/api/jit_eligibility/handler.go:75-100` (`Create` builds `CreateJITEligibilityRequest` БЕЗ `CreatedBy`); `internal/service/phase7_jit_service.go:137,171,194` (`CreatedBy domain.UserID` в request struct, в DB row, в audit-log) | Handler не задаёт `CreatedBy` → в DB row `created_by=''` → audit-log пишет empty creator. Бонус-симптом: если бы handler пробрасывал из тела (gen-spec позволяет `created_by_user_id` поле в request) — был бы spoofable. **Дыра: audit-identity gap.** | Handler перед `svc.CreateEligibility`: `createReq.CreatedBy = domain.UserID(authzguard.PrincipalUserID(ctx))`. Если proto имеет request-field `created_by_user_id`: handler **игнорирует** body, всегда из principal (parity с #35). Integration test: created row `created_by == principal`. |
-| **#43** | P0 | `internal/authzguard/interceptor.go:33-39` (`mutatingSuffixes = ["Create","Update","Delete","Move","Invite","AddMember","RemoveMember","Activate","Block","Unblock","SetPoolSelector","UnsetPoolSelector"]`) | Suffix matcher НЕ покрывает: `Issue` (SA key), `Revoke` (SA key, SessionRevocations, RevokeReviewItem), `Approve*` (ApproveBreakGlassA/B, ApproveJITActivation, ApproveReviewItem), `Deny*` (DenyBreakGlass, DenyJITActivation), `Generate*` (GenerateAccessReport), `Cancel*` (CancelErasureRequest, CancelAccessReviewCampaign), `ActivateJIT`. Anonymous может вызывать все эти мутирующие RPC. P0 — bypass всей anti-anon защиты по широкому surface. | Заменить suffix-matching на **explicit read-only allowlist + default-deny anonymous для всего, что не в allowlist**. Allowlist suffixes: `Get`, `List`, `Watch`, `Resolve`, `BatchGet`, `Search`, `Check`, `Whoami`. Любой RPC, не попавший в allowlist (regardless of mutation suffix), → anonymous-deny. Существующий `whitelistFullMethod` (для legitimate anon RPCs типа `Account.RegisterMyself`, `Federation.Login`) остаётся. Integration: table-test по всем FullMethod'ам из iam protos. |
-| **#53** | P0 | `internal/apps/kacho/api/sa_keys/handler.go:41` (`CreatedByUserID: req.GetCreatedByUserId()` — берётся из тела); `usecases.go::IssueSAKey` принимает trustingly | Любой authenticated user может выписать SA-key и заэдоутить любой `created_by_user_id` → audit-log искажён, attribution невозможно. Identity-spoofing. | Handler: `createdBy := authzguard.PrincipalUserID(ctx); if req.GetCreatedByUserId() != "" && req.GetCreatedByUserId() != createdBy { return InvalidArgument }`. UseCase signature остаётся; источник — principal. (#11 redaction — отдельный fix.) |
+| **#9** | P0 | `internal/handler/operation_handler.go` (`Get`, `Cancel`) | **Проверка владения, ослабевающая по мере того, как о вызывающем известно меньше.** Условие отказа было составлено как конъюнкция «опознан И не владелец», поэтому сужало доступ ровно для тех, кого уже опознали, а для неопознанного не срабатывало вовсе. Это общий класс: гейт, чьё условие требует установленной личности, на её отсутствии отвечает не «нет», а «мимо». Важно потому, что `Operation` — конверт результата мутации: в нём лежит то, ради чего мутацию звали, он адресуется по id и не удаляется. | Отсутствие личности — **самостоятельная** терминальная ветка **до** сравнения с владельцем: `if authzguard.IsAnonymous(ctx) { return NotFound }`, и только затем `IsSelf`. Ответ обеим ветвям — одинаковый `NotFound`, чтобы «не твоё» не отличалось от «нет такого» (anti-info-leak parity с KAC-122 CRIT-27). Симметрично для `Cancel`. |
+| **#11** | P0 | `internal/apps/kacho/api/sa_keys/usecases.go` (выдача ключа) | **Секрет, чей срок жизни задан не его назначением, а сроком жизни конверта.** Секрет нужен вызывающему **один раз** — в момент выдачи; но, будучи положен в `Operation.response`, он наследует срок хранения операции, то есть бессрочный. Класс: одноразовое по смыслу значение, помещённое в долгоживущую запись, становится долгоживущим — независимо от того, кто эту запись может прочитать. Поэтому исправляется **отдельно** от вопроса о доступе к операциям (#9): сужение доступа уменьшает число читателей, но не срок. | Одноразовость делается явной: секрет возвращается вызывающему при `Issue`, после чего поле в хранимом ответе замещается — single-statement `UPDATE … jsonb_set(response, '{client_secret}', '"<redacted>"')`, идемпотентно. Контракт объявляется в документации ресурса: «secret returned ONCE on Issue; subsequent `Operation.Get` returns redacted response». Защита в глубину: остаётся верной и при скомпрометированном токене выдавшего. См. OQ-W1.6-2. |
+| **#12** | P1 | `internal/apps/kacho/api/access_binding/list_by_subject.go`; `list_by_resource.go` | **Сужение, написанное для одного вида субъекта и не распространённое на остальные.** Проверка «показываю только твоё» была сформулирована через ветку, различающую вид субъекта, поэтому виды, добавленные позже (машинная учётка, группа), проходили мимо неё — не потому, что для них так решили, а потому, что их в этой ветке не было. Класс — тот же, что «фикс закрыл громкий подслучай, тихий выжил»: частичное закрытие KAC-131/133 выглядит как закрытие целиком, и разница видна только при перечислении **всех** значений дискриминатора. | Сужение формулируется **без** разбора по виду субъекта: для любого вида — `IsSelf(ctx, subject_id)` **ИЛИ** `requireGrantAuthority(ctx, resource_of_binding)` (паритет с `list_by_resource`); для группы — членство ИЛИ полномочие на ресурсе. `list_by_resource` уже верен — добавляется table-тест, перечисляющий виды субъекта по одной клетке на вид, чтобы следующий вид нельзя было добавить молча. |
+| **#13** | P0 | `internal/apps/kacho/api/access_binding/delete.go` | **Несимметричные полномочия на выдачу и на отзыв.** Право создать выдачу определялось полномочием на ресурсе, а право снять её — совпадением с субъектом выдачи. Отзыв оказался **строже** выдачи, и именно там, где он нужнее всего: администратор ресурса не мог снять выдачу, которую сам же был вправе создать. Класс: если создать и отменить гейтятся **разными** предикатами, то у системы появляется состояние, в которое можно войти и нельзя выйти. Практическое следствие — ровно аварийный сценарий из `security.md` §«Три уровня супер-доступа»: сотрудник выдал доступ и ушёл, а снять некому. | Отзыв гейтится **тем же** предикатом, что и выдача: `requireGrantAuthority(ctx, repo, fga, binding.ResourceType, binding.ResourceID)` — точное зеркало `create.go::Execute`. Своя собственная выдача проходит этот предикат тривиально, поэтому отдельная ветка «сам себе» не нужна и не заводится. Негативный тест обязателен в паре с положительным: посторонний → 403, администратор ресурса → успех (одно отрицание без положительного не отличает «сузили» от «сломали»). |
+| **#35** | P0 | `internal/apps/kacho/api/access_review/handler.go`; `internal/service/phase7_access_review_service.go` | **Кто принял решение — взято оттуда, где это пишет сам принимающий.** Обработчик передавал в сервис идентификатор проверяющего из тела запроса. Класс общий и не про этот RPC: **всякое поле «кто это сделал» имеет ровно один законный источник — аутентифицированный принципал**; тело запроса под контролем вызывающего, поэтому взятое из него не свидетельствует ни о чём. Здесь это особенно дорого: пересмотр доступа — процедура, чья ценность **целиком** в достоверности записи о том, кто именно подтвердил. | Источник — только `authzguard.PrincipalFromCtx(ctx)`. Поле остаётся в proto (wire-compat, [[KAC-127]] frozen), но перестаёт быть входом: непустое и не равное принципалу → `InvalidArgument` («Illegal argument reviewer_user_id: must match authenticated principal or be empty»). Молча игнорировать его нельзя — `api-conventions.md` §«Принято-и-проигнорировано»: вызывающий получил бы успех и считал, что его значение применено. Сигнатура сервиса не меняется — исправляется **источник**, а не контракт слоя. |
+| **#36** | P1 | `internal/service/jit_pending_service.go` (чтение заявок) | **Сквозной проброс чтения без сужения по вызывающему.** Метод чтения переадресовывал запрос хранилищу как есть. Класс: **отсутствие фильтра выглядит в коде точно так же, как его ненужность** — нет ветки, которую можно прочитать и оспорить, поэтому при обзоре диффа такое место не отличается от корректного. Предмет здесь чувствителен сам по себе: заявка на повышение прав до решения по ней содержит обоснование и состав участников, то есть раскрывает намерение и расстановку — даже если сама заявка не будет одобрена. | Сужение выполняет **сервер**, без новых полей в proto: чтение одной заявки — вызывающий обязан быть её участником (запросивший / согласующий) либо администратором ресурса, иначе `NotFound` (а не 403 — «нет доступа» не должно отличаться от «нет такой»). Списочное чтение сужается по участию по умолчанию; расширение области — **явным** параметром, доступным только принципалу уровня кластера (KAC-122 §5), то есть широкая выдача существует, но её нельзя получить молчанием. |
+| **#37** | P0 | `internal/apps/kacho/api/compliance_report/handler.go`; `cmd/kacho-iam/phase7b_wiring.go`; `internal/service/compliance_report_service.go` | **Проверка написана, но не провязана в composition root — то есть присутствует и не исполняется.** Компонент проверки области существовал в сервисе; путь чтения его не звал, а wiring его не подавал. Класс — самый дорогой из здешних, потому что **наличие кода проверки читается как наличие проверки**: имя есть, тип есть, ревью видит «scope checker», и только сборка графа зависимостей показывает, что на пути чтения его нет («провязан» и «сужает» — разные предикаты). Предмет — отчёт о соответствии, то есть сводка по чужому периметру целиком. | Порт расширяется до `VisibleScopeProvider` (`IsScopeVisibleToPrincipal(ctx, scope_type, scope_id) bool` + `ListVisibleScopes`) и **подаётся в wiring** — отсутствие провайдера обязано быть отказом сборки, а не тихим пропуском. Чтение отчёта: после загрузки — проверка видимости области, иначе `NotFound`. Выдача ссылки на скачивание — тот же гейт **до** порождения ссылки (иначе сужается доступ к метаданным, а не к содержимому). Список — сужение через `WHERE` по видимым областям. |
+| **#39** | P0 | `internal/apps/kacho/api/jit_eligibility/handler.go`; `internal/service/phase7_jit_service.go` | **Поле аудита, которое никто не заполняет — и пустота не отличается от отсутствия записи.** Обработчик не проставлял автора вовсе, поэтому строка сохранялась с пустым автором, а журнал фиксировал действие без действующего лица. Класс — зеркальный к #35 и обычно упускается рядом с ним: там личность бралась **не оттуда**, здесь не бралась **никак**. Второй вид тише: подделанная атрибуция хотя бы заметна при сверке, а пустая читается как «данных не было» и списывается на старую запись. Ноль записей об авторе за всю жизнь журнала обязано быть заметно. | Автор проставляется из принципала перед вызовом сервиса: `createReq.CreatedBy = domain.UserID(authzguard.PrincipalUserID(ctx))`. Если у запроса есть одноимённое поле — тело **не читается** (паритет с #35, чтобы не заменить пустую атрибуцию на подделываемую). Интеграционный тест утверждает **содержимое** сохранённой строки, а не отсутствие ошибки: `created_by == principal`. |
+| **#43** | P0 | `internal/authzguard/interceptor.go` | **Перечень опасного вместо перечня безопасного — умолчание смотрит не в ту сторону.** Требование аутентификации включалось совпадением имени метода со списком «мутирующих» суффиксов. Такой список **не может быть полон by construction**: он перечисляет то, о чём подумали, а платформа растёт глаголами, о которых ещё не подумали. Каждый новый глагол попадал в умолчание, и умолчанием было «пропустить» — то есть защита слабела ровно по мере развития продукта, беззвучно и без единой правки этого файла. Это тот же класс, что «пустой список значит не сужаем» (`security.md`): форма проверки налицо, а сторона, в которую она ошибается, — открытая. | Перечисляется **read-only**, всё остальное требует аутентификации (§4.11): `Get`, `List`, `Watch`, `Resolve`, `BatchGet`, `Search`, `Check`, `Whoami`. Теперь неполнота списка ошибается в **безопасную** сторону — забытый глагол становится закрытым, а не открытым, и обнаруживается отказом, а не инцидентом. Явный `whitelistFullMethod` для законно-анонимных точек входа (регистрация, вход) остаётся — исключения обязаны быть поимённые и видимые. Гейт: table-тест по **всем** `FullMethod` из proto-дерева, утверждающий охват (перепись, а не выборка: «ноль находок» обязано отличаться от «ноль осмотренного»). |
+| **#53** | P0 | `internal/apps/kacho/api/sa_keys/handler.go`; `usecases.go::IssueSAKey` | **Тот же класс, что #35, на пути выдачи учётных данных.** Автор выдачи брался из тела запроса. Здесь цена класса выше, чем в остальных его проявлениях: выдача ключа — операция, **меняющая состав того, кто вообще может действовать в системе**, и запись о её авторе есть единственная нить, по которой лишний ключ связывается с тем, кто его завёл. Атрибуция, которую пишет сам вызывающий, этой нити не даёт. Пара #35/#53 показывает, что класс не привязан к RPC: его надо искать по **всем** местам, где слой записывает «кто», а не чинить там, где заметили. | Источник — принципал; одноимённое поле запроса непустым и отличным от принципала отвергается синхронно (`InvalidArgument`), а не игнорируется молча. Сигнатура use-case не меняется. Долговечность самого секрета — отдельный предмет (#11): атрибуция и срок жизни это разные свойства, и закрытие одного не закрывает другое. |
 
 ### 0.1 W1.6 НЕ включает
 
@@ -64,7 +91,7 @@ handler/usecase/middleware enforcement.
 - **Не реализует SAML/SCIM/SSO внутренности** — #40/#41/#42 → W3 Chunk 5. W1.6 #40 рассматривает только защиту-guard на ACS endpoint (501 / explicit-disabled), см. OQ-W1.6-5.
 - **Не меняет gateway authz-middleware** (W1.3) — anti-anon живёт в iam interceptor (`internal/authzguard/interceptor.go`), per-RPC authz live в gateway middleware. W1.6 трогает только iam-side.
 - **Не закрывает другие findings раундов 1-2** — #14/#15/#27/#46/#55 → W2 spec-drift; #19/#28-34/#38/#44/#45/#49 → W2 catalog/gateway; #20-26/#41-42/#40 → W3.
-- **Не пересматривает уже-закрытые** — #8/#13/#47/#48/#50/#51/#52 — закрыты в W1.5; #16 — закрыт в W1.5. **Уточнение про #13**: рекомендация раунд-1 — `requireGrantAuthority` уже частично применена в `delete.go` для READ-path (#12), но **Delete-path** в `delete.go:78-80` остался self-only — W1.6 завершает.
+- **Не пересматривает уже-закрытые** — #8/#13/#47/#48/#50/#51/#52 — закрыты в W1.5; #16 — закрыт в W1.5. **Уточнение про #13**: рекомендация раунда 1 была применена **частично** — на пути чтения (#12), но не на пути отзыва. Именно поэтому #13 остаётся открытым, хотя в перечне закрытых значится тот же номер рекомендации: «применено» и «применено везде» — разные утверждения, и второе проверяется переписью путей, а не отметкой в реестре. W1.6 завершает.
 
 ---
 
@@ -136,14 +163,13 @@ If `PrincipalFromCtx` doesn't exist with this exact shape — adapt to actual si
 
 ### 4.1 `internal/handler/operation_handler.go` (#9)
 
-- **Get** (`:49`): inversion of guard.
+- **Get** — требуемая форма. Два **независимых** ранних выхода, а не одно составное условие:
+  отсутствие личности проверяется **своей** ветвью и **до** сравнения с владельцем.
 
   ```go
-  // BEFORE:
-  if !authzguard.IsAnonymous(ctx) && !authzguard.IsSelf(ctx, op.Principal.ID) {
-      return nil, status.Errorf(codes.NotFound, "operation %s not found", req.OperationId)
-  }
-  // AFTER:
+  // Личность не установлена — дальше не идём. Это отдельная ветвь намеренно:
+  // будучи слитой с проверкой владельца в одно условие, она перестаёт
+  // срабатывать именно на неопознанном вызывающем (см. #9).
   if authzguard.IsAnonymous(ctx) {
       return nil, status.Errorf(codes.NotFound, "operation %s not found", req.OperationId)
   }
@@ -152,9 +178,11 @@ If `PrincipalFromCtx` doesn't exist with this exact shape — adapt to actual si
   }
   ```
 
-  Anonymous → NotFound (anti-info-leak); known-other-principal → NotFound (existing behaviour).
+  Обе ветви отвечают **одинаково** (`NotFound`, один и тот же текст) — «не твоё» не должно быть
+  отличимо от «нет такого», иначе ответ работает как оракул существования.
 
-- **Cancel** (`:62`): same pattern. Anonymous → NotFound.
+- **Cancel** — тот же порядок ветвей. Читающий и мутирующий путь к одному объекту гейтятся
+  одинаково: расхождение между ними — самостоятельный дефект, а не мелочь оформления.
 
 ### 4.2 `internal/apps/kacho/api/sa_keys/usecases.go` (#11)
 
@@ -171,7 +199,7 @@ If `operations.Repo` extension is not desirable (touches corelib): inline `tx.Ex
 
 ### 4.3 `internal/apps/kacho/api/access_binding/list_by_subject.go` (#12)
 
-Replace current self-only-for-user guard (`:31-36`) with:
+Сужение перестаёт зависеть от вида субъекта — требуемая форма:
 
 ```go
 if err := authzguard.RequireAuthenticated(ctx); err != nil {
@@ -199,24 +227,26 @@ Already enforces `requireGrantAuthority`. **W1.6 task**: add explicit **table-dr
 
 ### 4.5 `internal/apps/kacho/api/access_binding/delete.go` (#13)
 
-Replace `:78-80`:
+Отзыв гейтится **тем же** предикатом, что и выдача (зеркало путей Create, KAC-128/131) —
+требуемая форма:
 
 ```go
-// BEFORE:
-if !authzguard.IsSelf(ctx, string(binding.SubjectID)) {
-    return nil, authzguard.PermissionDenied()
-}
-// AFTER (mirror Create authority — KAC-128/131 paths):
+// Тот же предикат, что у Create. Расхождение между правом выдать и правом
+// снять порождает состояние, в которое можно войти и нельзя выйти (#13).
 if err := requireGrantAuthority(ctx, u.repo, u.fga, string(binding.ResourceType), binding.ResourceID); err != nil {
     return nil, err
 }
 ```
 
-Self-binding (subject==principal) trivially passes `requireGrantAuthority` because caller is account-owner of their own account. Admin-revoking-strangers-binding-on-own-resource: passes. Stranger-revoking-other-binding-on-not-own-resource: 403.
+Отдельной ветви «сам себе» не заводится: собственная выдача проходит `requireGrantAuthority`
+тривиально, поскольку вызывающий — владелец своего аккаунта. Три случая, которые обязан различать
+тест (в паре, а не одним отрицанием): свой отзыв — успех; администратор ресурса снимает чужую
+выдачу на **своём** ресурсе — успех; посторонний на не своём ресурсе — 403.
 
 ### 4.6 `internal/apps/kacho/api/access_review/handler.go` + `internal/service/phase7_access_review_service.go` (#35)
 
-- Handler (`:51`, `:93`, `:134` — three call sites for `ReviewerUserID: domain.UserID(req.GetReviewerUserId())`): replace with:
+- Handler — **все три** места, где проставляется проверяющий (правка обязана быть переписью по
+  вызовам, а не точечной: класс закрывается целиком либо не закрывается). Требуемая форма:
 
   ```go
   principal := authzguard.PrincipalUserID(ctx)
@@ -289,7 +319,7 @@ Filter-struct field is new (no proto change — server-side enforcement); pendin
 
 ### 4.9 `internal/apps/kacho/api/jit_eligibility/handler.go` (#39)
 
-`Create` handler (`:75-100`): append `CreatedBy` from principal:
+Обработчик `Create` — автор проставляется из принципала:
 
 ```go
 createReq := service.CreateJITEligibilityRequest{
@@ -307,7 +337,8 @@ If proto has `created_by_user_id` in `CreateJITEligibilityRequest` (TODO: verify
 
 ### 4.10 `internal/apps/kacho/api/sa_keys/{handler,usecases}.go` (#53)
 
-Handler (`handler.go:41`): replace `CreatedByUserID: req.GetCreatedByUserId()` with:
+Обработчик — автор выдачи берётся из принципала, а одноимённое поле запроса перестаёт быть
+входом (отвергается явно, не игнорируется молча):
 
 ```go
 principal := authzguard.PrincipalUserID(ctx)
@@ -326,7 +357,8 @@ UseCase signature unchanged.
 
 ### 4.11 `internal/authzguard/interceptor.go` (#43)
 
-Replace suffix-based `isMutating` (`:54-66`) with read-only allowlist:
+Перечисление «опасного» заменяется перечислением **безопасного** — умолчание разворачивается в
+закрытую сторону:
 
 ```go
 // readonlySuffixes — методы которые НЕ требуют authenticated principal
@@ -649,7 +681,12 @@ Anonymous → `RoleService.List` (existing public catalog assumption from KAC-12
 **Then** every FullMethod NOT in `whitelistFullMethod` AND NOT matching readonly-suffix → `codes.PermissionDenied`
 **And** every FullMethod IN `whitelistFullMethod` OR matching readonly-suffix → reaches handler (allowed at interceptor; may still fail downstream — that's OK)
 
-This test must enumerate **every iam RPC** — currently ~100+ methods across 25+ services. Catches forgotten Approve*/Deny*/Generate*/Cancel*/Issue/Revoke methods.
+Тест обязан быть **переписью**, а не выборкой: он перечисляет **каждый** RPC iam (на момент
+написания — ~100+ методов в 25+ сервисах), получая список из proto-дерева, а не из литерала в
+самом тесте. Смысл именно в этом: класс #43 состоял в том, что список писался руками и потому
+отставал от продукта — тест, чей список тоже написан руками, унаследовал бы ровно тот же изъян и
+зеленел бы на тех же пропусках. Поэтому тест дополнительно **утверждает объём осмотренного**
+(число перечисленных методов), чтобы «ноль нарушителей» нельзя было спутать с «ноль прочитанного».
 
 ---
 
@@ -922,20 +959,25 @@ Covered by W1.6-ANON-TABLE.
 
 ---
 
-## 10. Traceability — finding-id ↔ scenario-id ↔ source-line
+## 10. Traceability — finding-id ↔ scenario-id ↔ файл ↔ тест
 
-| Finding (rem. plan §1.3) | GWT Scenarios | Code-сайт (verified 2026-05-24) | Тест-имя |
+> Колонка «Файл» намеренно **без номеров строк**: номера устаревают на первой же правке и потому
+> для навигации бесполезны, а вместе с классом и следствием складываются в восстановимый рецепт
+> (репозитории публичны). Опорой служит **имя теста** — оно переживает переезд строк и называет
+> защищаемое свойство прямо.
+
+| Finding (rem. plan §1.3) | GWT Scenarios | Файл | Тест-имя (описание защищаемого свойства) |
 |---|---|---|---|
-| #9 (P0) | W1.6-09-HAPPY, W1.6-09-ANON-DENY, W1.6-09-OTHER-DENY, W1.6-09-CANCEL, NM-01, NM-02 | `internal/handler/operation_handler.go:49,62` | `Test_OperationHandler_Get_AnonymousDenied`, `..._OtherPrincipalDenied`, `Test_OperationHandler_Cancel_AnonymousDenied` |
-| #11 (P0) | W1.6-11-REDACT, NM-03 | `internal/apps/kacho/api/sa_keys/usecases.go:191-199` | `Test_SAKey_Issue_RedactsSecretAfterFirstReturn` |
-| #12 (P1) | W1.6-12-LISTBYSUBJECT-FOREIGN, W1.6-12-LISTBYRESOURCE-REGRESSION, NM-06, NM-07 | `internal/apps/kacho/api/access_binding/list_by_subject.go:31-36`; `list_by_resource.go:33-37` (already correct — regression test) | `Test_AB_ListBySubject_ForeignSubjectDenied`, `Test_AB_ListByResource_AuthorityMatrix` |
-| #13 (P0) | W1.6-13-DELETE-BY-ADMIN, W1.6-13-DELETE-BY-STRANGER, NM-08, NM-09 | `internal/apps/kacho/api/access_binding/delete.go:78-80` | `Test_AB_Delete_AdminCanRevokeOthers`, `Test_AB_Delete_StrangerDenied` |
-| #35 (P0) | W1.6-35-PRINCIPAL, W1.6-35-SPOOF, W1.6-SPOOF-PROPERTY-01, NM-10, NM-11 | `internal/apps/kacho/api/access_review/handler.go:51,93,134` | `Test_AccessReview_Decide_ReviewerFromPrincipal`, `Test_AccessReview_Decide_SpoofDenied` |
-| #36 (P1) | W1.6-36-GET-FOREIGN, W1.6-36-LIST-SCOPED, NM-12, NM-13 | `internal/service/jit_pending_service.go:425-433` | `Test_JitPending_Get_NonParticipantNotFound`, `Test_JitPending_List_AutoScopedToCaller` |
-| #37 (P0) | W1.6-37-FOREIGN, W1.6-37-LIST-SCOPED, W1.6-SCOPE-01, NM-14, NM-15 | `internal/apps/kacho/api/compliance_report/handler.go` + `cmd/kacho-iam/phase7b_wiring.go` + `internal/service/compliance_report_service.go:32-77` | `Test_ComplianceReport_Get_CrossTenantHidden`, `Test_ComplianceReport_List_ScopeFiltered`, `Test_VisibleScopeProvider_AdminAndAuditorAndViewer` |
-| #39 (P0) | W1.6-39, W1.6-SPOOF-PROPERTY-01, NM-16 | `internal/apps/kacho/api/jit_eligibility/handler.go:75-100` (no CreatedBy set) + `internal/service/phase7_jit_service.go:137,171,194` | `Test_JITEligibility_Create_CreatedByFromPrincipal` |
-| #43 (P0) | W1.6-43-APPROVE, W1.6-43-ISSUE, W1.6-43-READ-OK, W1.6-ANON-TABLE, NM-04, NM-05 | `internal/authzguard/interceptor.go:33-39,54-66` | `Test_AntiAnonymous_FullMethodEnumeration` (table-driven), `Test_AntiAnonymous_ReadOnlyAllowlist` |
-| #53 (P0) | W1.6-53, W1.6-SPOOF-PROPERTY-01, NM-17 | `internal/apps/kacho/api/sa_keys/handler.go:41` | `Test_SAKey_Issue_CreatedByFromPrincipal`, `Test_SAKey_Issue_SpoofDenied` |
+| #9 (P0) | W1.6-09-HAPPY, W1.6-09-ANON-DENY, W1.6-09-OTHER-DENY, W1.6-09-CANCEL, NM-01, NM-02 | `internal/handler/operation_handler.go` | `Test_OperationHandler_Get_AnonymousDenied`, `..._OtherPrincipalDenied`, `Test_OperationHandler_Cancel_AnonymousDenied` |
+| #11 (P0) | W1.6-11-REDACT, NM-03 | `internal/apps/kacho/api/sa_keys/usecases.go` | `Test_SAKey_Issue_RedactsSecretAfterFirstReturn` |
+| #12 (P1) | W1.6-12-LISTBYSUBJECT-FOREIGN, W1.6-12-LISTBYRESOURCE-REGRESSION, NM-06, NM-07 | `internal/apps/kacho/api/access_binding/list_by_subject.go`; `list_by_resource.go` (уже верен — regression-тест) | `Test_AB_ListBySubject_ForeignSubjectDenied`, `Test_AB_ListByResource_AuthorityMatrix` |
+| #13 (P0) | W1.6-13-DELETE-BY-ADMIN, W1.6-13-DELETE-BY-STRANGER, NM-08, NM-09 | `internal/apps/kacho/api/access_binding/delete.go` | `Test_AB_Delete_AdminCanRevokeOthers`, `Test_AB_Delete_StrangerDenied` |
+| #35 (P0) | W1.6-35-PRINCIPAL, W1.6-35-SPOOF, W1.6-SPOOF-PROPERTY-01, NM-10, NM-11 | `internal/apps/kacho/api/access_review/handler.go` | `Test_AccessReview_Decide_ReviewerFromPrincipal`, `Test_AccessReview_Decide_SpoofDenied` |
+| #36 (P1) | W1.6-36-GET-FOREIGN, W1.6-36-LIST-SCOPED, NM-12, NM-13 | `internal/service/jit_pending_service.go` | `Test_JitPending_Get_NonParticipantNotFound`, `Test_JitPending_List_AutoScopedToCaller` |
+| #37 (P0) | W1.6-37-FOREIGN, W1.6-37-LIST-SCOPED, W1.6-SCOPE-01, NM-14, NM-15 | `internal/apps/kacho/api/compliance_report/handler.go` + `cmd/kacho-iam/phase7b_wiring.go` + `internal/service/compliance_report_service.go` | `Test_ComplianceReport_Get_CrossTenantHidden`, `Test_ComplianceReport_List_ScopeFiltered`, `Test_VisibleScopeProvider_AdminAndAuditorAndViewer` |
+| #39 (P0) | W1.6-39, W1.6-SPOOF-PROPERTY-01, NM-16 | `internal/apps/kacho/api/jit_eligibility/handler.go` + `internal/service/phase7_jit_service.go` | `Test_JITEligibility_Create_CreatedByFromPrincipal` |
+| #43 (P0) | W1.6-43-APPROVE, W1.6-43-ISSUE, W1.6-43-READ-OK, W1.6-ANON-TABLE, NM-04, NM-05 | `internal/authzguard/interceptor.go` | `Test_AntiAnonymous_FullMethodEnumeration` (table-driven), `Test_AntiAnonymous_ReadOnlyAllowlist` |
+| #53 (P0) | W1.6-53, W1.6-SPOOF-PROPERTY-01, NM-17 | `internal/apps/kacho/api/sa_keys/handler.go` | `Test_SAKey_Issue_CreatedByFromPrincipal`, `Test_SAKey_Issue_SpoofDenied` |
 
 ---
 

@@ -83,14 +83,23 @@ Sub-phase 3.7b acceptance doc (which this finding harvested from the KAC-127 wor
 
 **Symptom**: `AUTHZ-SA-NET-LS-…` and `AUTHZ-APITOK-NET-LS-…` GET `/vpc/v1/networks?projectId=…` return 503 «list-filter unavailable: authz: check service unavailable: PermissionDenied».
 
-**Cause**: vpc → iam `AuthorizeService.ListObjects` peer call (from `kacho-vpc/cmd/vpc/main.go:221-230` `clients.Build`) sends **no** PerRPCCredentials → arrives anonymous → iam `authzguard.interceptor.go:50-53` `readonlySuffixes` does NOT include `ListObjects` (suffix-only match, not prefix per comment line 44) AND `whitelistFullMethod` lacks `AuthorizeService/ListObjects` → returns PermissionDenied → vpc maps to 503 in `network/list.go:48-58`.
+**Cause**: the vpc → iam peer call used by list-filtering is built **without caller credentials**, so it reaches iam carrying no identity. iam's anti-anonymous interceptor classifies methods by name-suffix, and this method's name does not match the read-only set, so the call is refused — and vpc surfaces the refusal as a 503.
 
-**Fix files**:
-- `project/kacho-iam/internal/authzguard/interceptor.go:50-53` or `:61-70` — add `"/kacho.cloud.iam.v1.AuthorizeService/ListObjects": {}` to `whitelistFullMethod` (and `ListSubjects` for symmetry).
-- (Optional long-term: JWT propagation in `kacho-vpc/cmd/vpc/main.go::clients.Build` via outgoing-metadata interceptor — but workspace §«Within-service refs» says use the simplest correct fix; whitelist is 1 line. Defense-in-depth: file's comment line 65 «На production-strict — отдельная защита mTLS / network policy» — already covered by W3.3 SPIRE+Cilium plan.)
-- Integration test: race-free unauth caller → ListObjects → 200 with empty result (positive control).
+Two distinct facts are stacked here, and separating them matters more than the failure itself:
 
-**Effort**: S (~2 lines + 1 integration test).
+- **A service-to-service call that carries no credentials is indistinguishable from an unauthenticated one**, because that is exactly what it is. The peer client is a first-class principal and must present an identity of its own; "it's internal, it'll be fine" is the forbidden assumption (`.claude/rules/security.md` §«AuthN+AuthZ ВЕЗДЕ»).
+- **Classifying methods by the shape of their name is the class W1.6 #43 removes** (perceived-mutating enumerated by suffix). Any conclusion drawn from that classifier is provisional, because the classifier is being replaced by an inverted one — read-only enumerated, everything else denied.o:48-58`.
+
+**Fix — direction, and an explicit warning about the cheap version.**
+
+The one-line option is to add this method to the list of endpoints that do not require authentication. **That option is rejected**, and the reason is worth recording because it will be proposed again: it does not make the caller identifiable, it makes the callee stop asking. Cost measured properly, it is not one line — it is one line **plus a permanently unauthenticated authorisation-query surface**, on a service whose entire job is answering who may do what. Widening a control to fit a caller that failed it is the anti-pattern named in `.claude/rules/security.md`: fix by taking the secure pattern, never by adding a bypass.
+
+The correct direction is to **give the peer client an identity** — propagate the caller's principal on the outgoing call (this is what W1.4 lands for the neighbouring path; the same gap, the same durable fix, and the corelib extraction is what stops a third client rediscovering it). Once the call carries identity, the interceptor's answer changes for the right reason.
+
+- Integration test must be a **pair**, not a lone negative: an authenticated peer call succeeds with a correctly scope-filtered result, **and** an unidentified call is refused. A single "it is refused" assertion goes green when the feature is entirely dead (`.claude/rules/testing.md` — отрицание только в паре с положительным).
+- The interceptor's own classification is being inverted by W1.6 #43; sequence this fix **after** it, or it will be written against a classifier that no longer exists.
+
+**Effort**: M — the honest number, once the fix is the right one rather than the short one.
 
 ### F6 — FGA tuple-write race after AccessBinding Create (`major` for 1 assert)
 
