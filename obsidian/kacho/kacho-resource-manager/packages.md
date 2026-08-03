@@ -2,14 +2,22 @@
 title: "kacho-resource-manager — package graph"
 category: repo-doc
 repo: kacho-resource-manager
+status: deprecated
 tags:
   - kacho-rm
   - packages
   - organization
   - folder
+  - deprecated
 ---
 
-# kacho-resource-manager — package graph
+> [!warning] Репозиторий снят целиком (KAC-124) — исторический след
+> Всё ниже описывает **бывший** сервис: его в дереве продукта нет. Схема пакетов,
+> перечень методов и поведение начального посева оставлены как след, а не как
+> описание действующего. Организация, облако и папка заменены аккаунтом и
+> проектом в iam. Обзор — [[README]], тикет — [[../KAC/KAC-124]].
+
+# kacho-resource-manager — package graph (снят, KAC-124)
 
 ```mermaid
 graph TD
@@ -58,16 +66,21 @@ graph TD
 - `CloudService.{Get, List, Create, Update, Delete, ListAccessBindings, SetAccessBindings, UpdateAccessBindings, ListOperations}`
 - `FolderService.{Get, List, Create, Update, Delete, ListAccessBindings, SetAccessBindings, UpdateAccessBindings, ListOperations, Exists}`
 
-## Bootstrap behaviour
+## Bootstrap behaviour (историческое)
 
-`internal/bootstrap.EnsureDefaults` создаёт **default** Organization + Cloud + Folder при первом старте если их нет в БД (поиск по name = `"default"` через `OrganizationService.List`). Это нужно для tests/dev без manual setup.
+Начальный посев создавал организацию, облако и папку по умолчанию при первом
+старте, если их не было в базе; идентификаторы были случайные, и чёрный ящик
+находил их списком. Ни посева, ни маршрута, которым он находился, в дереве нет —
+имена файла, функции и маршрута сняты, чтобы не читаться как координаты.
 
-ID'ы рандомные — newman/integration tests discover их через `treq GET /organization-manager/v1/organizations`.
+## Cross-repo runtime edges (исторические)
 
-## Cross-repo runtime edges
+- **In-bound**: сеть, вычисления, шлюз и интерфейс звали сервис папок для
+  проверки владельца.
+- **Out-bound**: не звал никого — был листом графа обращений.
 
-- **In-bound**: vpc/compute/api-gateway/ui → `FolderService.Get` / `Exists` (validation peers).
-- **Out-bound**: никого не зовёт (leaf-owner).
+Обе роли перешли к iam: проверка владельца идёт на проект
+([[../edges/vpc-to-iam-project-exists]]).
 
 ## Build-зависимости
 

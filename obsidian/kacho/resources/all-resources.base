@@ -47,16 +47,18 @@ views:
       - formula.folder_label
       - visibility
 
+  # Здесь стоял именной срез по снятому домену — он показывал его наравне с
+  # действующими. Заменён на срез по статусу: снятое находится по канону статуса,
+  # какой бы домен ни сняли следующим, а мёртвый домен перестаёт быть фасетом.
   - type: table
-    name: ResourceManager
+    name: Deprecated
     filters:
-      or:
-        - 'domain == "resourcemanager"'
-        - 'domain == "organizationmanager"'
+      and:
+        - 'status == "deprecated"'
     order:
       - file.name
-      - id_prefix
-      - owner_table
+      - domain
+      - status
 
   - type: cards
     name: Cards

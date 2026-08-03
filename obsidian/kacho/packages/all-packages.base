@@ -8,6 +8,8 @@ properties:
     displayName: Repo
   layer:
     displayName: Layer
+  status:
+    displayName: Status
 
 views:
   - type: table
@@ -67,11 +69,15 @@ views:
       - file.name
       - layer
 
+  # Здесь стоял именной срез по снятому репозиторию — он показывал его наравне с
+  # действующими. Заменён на срез по статусу: снятое находится по канону статуса,
+  # что бы ни сняли следующим, а мёртвый репозиторий перестаёт быть фасетом.
   - type: table
-    name: kacho-resource-manager
+    name: Deprecated
     filters:
       and:
-        - 'repo == "kacho-resource-manager"'
+        - 'status == "deprecated"'
     order:
       - file.name
+      - repo
       - layer

@@ -13,7 +13,8 @@ tags:
 
 **Path**: `kacho-corelib/ids/`
 **Imports**: `crypto/rand`, `encoding/binary`, `strings`
-**Imported by**: `kacho-vpc` (97 files), `kacho-resource-manager` (7), `kacho-api-gateway` (1)
+**Imported by**: `kacho-vpc` (97 files), `kacho-api-gateway` (1)
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 ID generator + validator: префикс домена (`enp`/`e9b`/`apl`/`b1g`/`bpf`/...) + base32-crockford от crypto/rand.
 

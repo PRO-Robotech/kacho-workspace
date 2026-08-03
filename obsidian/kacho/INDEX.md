@@ -156,7 +156,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/proto-loadbalancer|cloud/nlb proto (legacy 1.0, frozen) — current repo kacho-nlb]]
 - [[packages/proto-maintenance|cloud/maintenance/v2]]
 - [[packages/proto-operation|cloud/operation — LRO envelope]]
-- [[packages/proto-organizationmanager|cloud/organizationmanager/v1]]
+- [[packages/proto-organizationmanager|cloud/organizationmanager/v1 (deprecated)]]
 - [[packages/proto-reference|cloud/reference]]
 - [[packages/proto-rm|cloud/resourcemanager/v1 (deprecated)]]
 - [[packages/proto-root|proto root + google + common]]

@@ -25,7 +25,8 @@ tags:
 - `internal_address_service.proto` — IPAM Allocate/Free
 - `internal_address_pool_service.proto` — AddressPool admin
 - `internal_network_service.proto` — Network admin (default-SG management)
-- `internal_cloud_service.proto` — Cloud pool selector
+- (здесь стоял внутренний сервис выбора пула по облаку — снят целиком в
+  [[../KAC/KAC-266]] вместе со своим ресурсом; см. [[../rpc/vpc-internal-cloud-service]])
 - `internal_watch_service.proto` — outbox stream (LISTEN/NOTIFY)
 - `internal_region_service.proto` / `internal_zone_service.proto` — Geography (до KAC-15 — была здесь).
 
@@ -41,18 +42,15 @@ tags:
 - `zone.proto / zone_service.proto` (после KAC-15 — здесь)
 - + reference resources, snapshot schedules, host groups, placement groups, attach RPCs, network_interfaces (compute-side adapter).
 
-## ResourceManager (5 proto-файлов)
+## ResourceManager и OrganizationManager — сняты (KAC-124)
 
-`proto/kacho/cloud/resourcemanager/v1/`:
-- `cloud.proto / cloud_service.proto`
-- `folder.proto / folder_service.proto`
-- `transitions.proto`
-
-## OrganizationManager (3 proto-файла)
-
-`proto/kacho/cloud/organizationmanager/v1/`:
-- `organization.proto / organization_service.proto`
-- `user_account.proto / user_account_service.proto`
+> [!warning] Здесь стояли два домена, которых в дереве нет
+> Оба перечислялись наравне с действующими: каталоги, файлы, число файлов. Ни
+> одного из этих каталогов в дереве продукта не существует, объявлений их
+> сервисов в proto тоже. Организация, облако и папка заменены аккаунтом и
+> проектом в домене iam — иерархия сократилась с трёх уровней до двух.
+> След — [[../packages/proto-rm]], [[../packages/proto-organizationmanager]],
+> [[../KAC/KAC-124]].
 
 ## Loadbalancer (6 proto-файлов)
 

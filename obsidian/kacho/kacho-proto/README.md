@@ -29,8 +29,8 @@ tags:
 | `vpc` | 22 | Network, Subnet, Address, RouteTable, SecurityGroup, Gateway, PrivateEndpoint, NetworkInterface + Internal* (AddressPool, Region, Zone, Network, Watch, Cloud) |
 | `compute` | 41 | Instance, Disk, Image, Snapshot, DiskType, Region, Zone (Geography — owner после KAC-15) |
 | `loadbalancer` | 6 | NetworkLoadBalancer, TargetGroup (frozen в 1.0) |
-| `resourcemanager` | 5 | Cloud, Folder |
-| `organizationmanager` | 3 | Organization (top-level) |
+| ~~resourcemanager~~ | — | снят в KAC-124: Cloud/Folder → Project в iam ([[../packages/proto-rm]]) |
+| ~~organizationmanager~~ | — | снят в KAC-124: Organization → Account в iam ([[../packages/proto-organizationmanager]]) |
 | `operation` | 3 | LRO envelope (`Operation` message, OperationService.Get) |
 | `access` | 1 | AAA-stub (auth, access bindings) |
 | `api` | 1 | api-listing (cross-domain) |
@@ -68,7 +68,7 @@ gen/go/kacho/cloud/<domain>/v1/
 ## Зависимости
 
 - **Внутрь**: ни от чего (центр графа).
-- **Из вне**: импортируется всеми сервисами (`kacho-corelib`, `kacho-vpc`, `kacho-compute`, `kacho-resource-manager`, `kacho-api-gateway`, `kacho-loadbalancer`).
+- **Из вне**: импортируется всеми сервисами (`kacho-corelib`, `kacho-vpc`, `kacho-compute`, `kacho-api-gateway`, `kacho-loadbalancer`). Потребитель из снятого домена убран — KAC-124.
 
 См. [[../architecture]] для cross-repo графа.
 

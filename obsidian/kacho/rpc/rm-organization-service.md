@@ -3,58 +3,47 @@ title: OrganizationService
 aliases:
   - OrganizationService (rm)
   - OrganizationService (organizationmanager)
-proto_file: kacho/cloud/organizationmanager/v1/organization_service.proto
 category: rpc
 backend: kacho-resource-manager
-backend_port: 9090
 visibility: public
 domain: organizationmanager
+status: deprecated
 related_resource: "[[resources/rm-organization]]"
-methods_count: 13
-async_methods: 5
 tags:
   - rpc
   - kacho-rm
   - organization
+  - deprecated
 ---
 
-# OrganizationService (organizationmanager)
+> [!warning] Сервис снят вместе со своим доменом (KAC-124)
+> Ни этого сервиса, ни домена organizationmanager в дереве продукта нет:
+> объявления сервиса в proto не существует, каталога домена тоже. REST-префикс,
+> который он занимал, шлюзом не обслуживается. Преемник — AccountService в iam.
 
-**Proto**: `kacho-proto/proto/kacho/cloud/organizationmanager/v1/organization_service.proto`
-**Backend**: `kacho-resource-manager:9090`
-**Public/Internal**: public
+# OrganizationService — снят (KAC-124)
 
-## Methods
+Сервис корня прежней иерархии арендатора. Жил в собственном proto-домене, но
+обслуживался тем же снятым бэкендом, что Cloud и Folder — отсюда парная записка
+[[om-organization-service]].
 
-| Method | Request | Response | Sync/Async | Note |
-|---|---|---|---|---|
-| Get | GetOrganizationRequest | Organization | sync | |
-| List | ListOrganizationsRequest | ListOrganizationsResponse | sync | |
-| Create | CreateOrganizationRequest | operation.Operation | **async** | |
-| Update | UpdateOrganizationRequest | operation.Operation | **async** | |
-| Delete | DeleteOrganizationRequest | operation.Operation | **async** | RESTRICT если есть Cloud |
-| ListOperations | ListOrganizationOperationsRequest | ListOrganizationOperationsResponse | sync | |
-| ListAccessBindings | (access.) | (access.) | sync | IAM — placeholder |
-| SetAccessBindings | (access.) | operation.Operation | **async** | IAM — placeholder |
-| UpdateAccessBindings | (access.) | operation.Operation | **async** | IAM — placeholder |
-| ListAccessPolicyBindings / BindAccessPolicy / UnbindAccessPolicy / UpdateAccessPolicyBindingParameters | (access.) | sync/async | placeholders для `kacho-iam` (blocked) |
+## Чем заменён
 
-## REST mapping
+Organization / Cloud / Folder → Account / Project в iam (KAC-124); организация и
+облако свелись в один аккаунт.
 
-| HTTP | Method |
-|---|---|
-| `GET /organization-manager/v1/organizations/{organization_id}` | Get |
-| `GET /organization-manager/v1/organizations` | List |
-| `POST /organization-manager/v1/organizations` | Create |
-| `PATCH /organization-manager/v1/organizations/{organization_id}` | Update |
-| `DELETE /organization-manager/v1/organizations/{organization_id}` | Delete |
-| `GET /organization-manager/v1/organizations/{organization_id}/operations` | ListOperations |
-| `GET /organization-manager/v1/organizations/{resource_id}:listAccessBindings` | ListAccessBindings |
-| `POST /organization-manager/v1/organizations/{resource_id}:setAccessBindings` | SetAccessBindings |
-| `POST /organization-manager/v1/organizations/{resource_id}:updateAccessBindings` | UpdateAccessBindings |
+## Что снято из этой записки
+
+Таблица методов и таблица соответствия REST удалены вместе с полями шапки,
+называвшими файл proto и адрес бэкенда. Отдельно снята часть про заготовки
+привязок доступа: она описывала нереализованные заглушки снятого сервиса и к
+нынешней модели прав отношения не имеет — та живёт в iam
+([[../resources/iam-access-binding]]).
 
 ## See also
 
-[[../packages/rm-service]] [[../resources/rm-organization]]
+[[om-organization-service]] [[../resources/rm-organization]]
+[[../packages/proto-organizationmanager]] [[../resources/iam-access-binding]]
+[[../KAC/KAC-124]]
 
-#rpc #kacho-rm #organization
+#rpc #kacho-rm #organization #deprecated

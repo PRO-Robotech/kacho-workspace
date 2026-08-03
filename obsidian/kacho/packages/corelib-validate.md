@@ -13,7 +13,8 @@ tags:
 
 **Path**: `kacho-corelib/validate/`
 **Imports**: `corelib/errors`, `grpc/codes`, `grpc/status`, `net`, `regexp`, `unicode/utf8`
-**Imported by**: `kacho-vpc` (72 files — service-layer), `kacho-resource-manager` (6)
+**Imported by**: `kacho-vpc` (72 files — service-layer)
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 Field-level validators YC-стиля. Каждый возвращает `error` уже как gRPC `InvalidArgument` с `BadRequest`-details (через [[corelib-errors]]).
 

@@ -14,7 +14,8 @@ tags:
 
 **Path**: `kacho-corelib/errors/`
 **Imports**: `google.golang.org/genproto/googleapis/rpc/errdetails`, `google.golang.org/grpc/codes`, `google.golang.org/grpc/status`
-**Imported by**: `kacho-resource-manager` (11), `kacho-vpc` (5), `kacho-corelib/validate`
+**Imported by**: `kacho-vpc` (5), `kacho-corelib/validate`
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 YC-style typed error builder → gRPC `status.Status` + `google.rpc.errdetails.BadRequest`.
 

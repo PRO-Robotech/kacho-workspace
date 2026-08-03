@@ -14,7 +14,8 @@ tags:
 
 **Path**: `kacho-corelib/operations/`
 **Imports**: `corelib/baggage`, `corelib/ids`, `pgx/v5`, `pgxpool`, `genproto/googleapis/rpc/status`, `grpc/codes`, `grpc/status`, `protobuf/proto`, `anypb`
-**Imported by**: `kacho-vpc` (65 files), `kacho-resource-manager` (8)
+**Imported by**: `kacho-vpc` (65 files)
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 Long-Running Operations (LRO) — Operation table (per-service) + Worker (queue + workers pool) + Repo. Каждая мутация в Kachō возвращает `Operation` и поллится клиентом.
 

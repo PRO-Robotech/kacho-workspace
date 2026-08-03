@@ -7,7 +7,7 @@ caller_repo: kacho-compute
 callee_repo: kacho-resource-manager
 sync_async: async
 protocol: grpc-cluster-internal
-status: removed
+status: deprecated
 tags:
   - edge
   - cross-service

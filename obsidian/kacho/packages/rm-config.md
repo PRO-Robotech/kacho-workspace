@@ -3,32 +3,34 @@ title: rm-config
 category: package
 repo: kacho-resource-manager
 layer: config
+status: deprecated
 tags:
   - packages
   - kacho-rm
   - config
+  - deprecated
 ---
 
-# kacho-resource-manager/internal/config
+> [!warning] Пакет снят вместе со своим репозиторием (KAC-124)
+> Репозитория resource-manager не существует; в монорепо продукта каталога этого
+> сервиса нет. Ниже — след, а не описание действующего пакета.
 
-**Path**: `kacho-resource-manager/internal/config/`
-**Imports**: [[corelib-config]]
+# rm-config — снят (KAC-124)
 
-rm config struct.
+Настройки снятого сервиса: строка подключения к БД, адрес слушателя, число
+рабочих для операций и переключатель начального посева.
 
-## Env vars (selected)
+## Что снято из этой записки
 
-- `KACHO_RM_PG_DSN`
-- `KACHO_RM_GRPC_ADDR` (default `:9090`)
-- `KACHO_RM_BOOTSTRAP_DEFAULTS` (true) — seed на startup
-- `KACHO_RM_OPERATIONS_WORKER_COUNT`
-
-## Files
-
-- `config.go` — единственный (~50 LOC).
+Перечень переменных окружения удалён. Ни одна из них не читается ничем в дереве:
+их префикс принадлежал снятому сервису, и записанные полными именами они
+опознавались как объявление действующей настройки — четыре штуки числились
+расхождением у проверки свежести. Настройки действующих сервисов описаны на своих
+пакетах.
 
 ## See also
 
-[[corelib-config]] [[rm-cmd]]
+[[corelib-config]] [[rm-cmd]] [[../kacho-resource-manager/README]]
+[[../KAC/KAC-124]]
 
-#packages #kacho-rm #config
+#packages #kacho-rm #config #deprecated
