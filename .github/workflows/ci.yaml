@@ -35,6 +35,27 @@ jobs:
       - name: гейт доказан инъекцией — дефект краснеет, законный близнец молчит
         run: bash scripts/tooling-gate/inject.sh
 
+  hook-proofs:
+    name: доказательства хуков инъекцией исполняются, а не лежат текстом
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      # Обоим доказательствам нужно НАСТОЯЩЕЕ дерево продукта рядом: они гоняют
+      # пробы по живым фрагментам, а не по выдуманным строкам. Без него docfresh
+      # честно отказывается работать (и это одна из его же проб), но остальные
+      # пробы стали бы «НЕ ВЫПОЛНИЛОСЬ» — то есть набор ничего бы не доказал.
+      - name: checkout monorepo into project/kacho
+        uses: actions/checkout@v4
+        with:
+          repository: PRO-Robotech/kacho
+          path: project/kacho
+      - name: shellcheck hook scripts (strict)
+        run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
+      - name: hook-proofs
+        run: bash scripts/hook-proofs.sh
+
   doc-commands:
     name: quoted make commands run from the monorepo root
     runs-on: ubuntu-latest
