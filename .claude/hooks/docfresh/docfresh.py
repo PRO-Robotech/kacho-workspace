@@ -336,6 +336,19 @@ ENV_PATHSPECS = [
 
 COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 
+# Основание истины НЕ читает доказательства самих хуков.
+#
+# Иначе способ проверки портится собственным утверждением: проба (+) содержит
+# координату, которой в дереве быть не должно, — и тем самым СОЗДАЁТ её в
+# основании, после чего перестаёт краснеть. Поймано исполнением сразу после
+# посадки: `KACHO_API_GATEWAY_AUTHZ_ENABLE` стал резолвиться из тела собственной
+# пробы, и доказательство разошлось. Отсюда же правило: доказательство гоняется
+# ПОСЛЕ коммита, а не только до, — до него этих файлов в индексе ещё нет.
+#
+# Граница честная: `.claude/hooks/` — оснастка разработки, а не продукт; читателем
+# ручки продукта файл оттуда не является ни при каком раскладе.
+TRUTH_EXCLUDE = ":(exclude).claude/hooks/"
+
 
 def _code_part(line: str) -> str:
     """Грубое снятие комментария со строки основания истины.
@@ -431,7 +444,8 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
     for root in (ws, mono):
         if root is None:
             continue
-        for line in git(root, "grep", "-h", "-I", "-E", RE_ENVNAME.pattern, "--", *ENV_PATHSPECS):
+        for line in git(root, "grep", "-h", "-I", "-E", RE_ENVNAME.pattern, "--",
+                        *ENV_PATHSPECS, TRUTH_EXCLUDE):
             envs.update(RE_ENVNAME.findall(_code_part(line)))
 
     return {
@@ -758,8 +772,13 @@ def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
         for root in (truth.ws, truth.mono):
             if root is None:
                 continue
-            hits = git(root, "grep", "-h", "-I", "-w", "--", coord, *ENV_PATHSPECS)
-            if any(_code_part(h).find(coord) >= 0 for h in hits):
+            hits = git(root, "grep", "-h", "-I", "-w", "--", coord, *ENV_PATHSPECS, TRUTH_EXCLUDE)
+            # Сравнение — по ЦЕЛОМУ имени, а не подстрокой. `find(coord) >= 0`
+            # засчитывал бы `KACHO_..._ENABLE` внутри `KACHO_..._ENABLED`: референт
+            # на одну букву длиннее, и несуществующая ручка выглядела бы живой.
+            # Класс известен по корпусу — на нём уже разошлись две переписи, и
+            # именно эта пара имён была их предметом.
+            if any(coord in RE_ENVNAME.findall(_code_part(h)) for h in hits):
                 return False
         return True
     if kind == "make":

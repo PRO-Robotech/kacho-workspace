@@ -145,6 +145,11 @@ expect_silent "ручка, определённая в bootstrap ВОРКСПЕ�
   'Легаси клонируются по `KACHO_CLONE_LEGACY_POLYREPOS=1`.' 'KACHO_CLONE_LEGACY_POLYREPOS'
 expect_silent "обрезанное семейство — не имя" f3.md \
   'Группа `KACHO_VPC_TLS_SERVER_` задаёт сертификаты.' 'KACHO_VPC_TLS_SERVER_'
+# Пара на РЕФЕРЕНТ-ПРЕФИКС: настоящее имя на одну букву длиннее. Подстрочный поиск
+# засчитал бы несуществующую ручку за живую; на этой самой паре имён уже разошлись
+# две переписи корпуса.
+expect_silent "настоящее имя (на букву длиннее) молчит" f4.md \
+  'Гейт `KACHO_API_GATEWAY_AUTHZ_ENABLED=false` снимает фильтр.' 'KACHO_API_GATEWAY_AUTHZ_ENABLED'
 
 echo
 echo "== F. исполняемая часть документа: пример ≠ утверждение =="
