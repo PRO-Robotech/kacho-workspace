@@ -91,6 +91,17 @@ hooks (дисциплина). Принцип: **структурно, не из�
 - `proto-api-reviewer` — proto-изменения: package naming, flat-resource envelope, `Get/List` sync + `Create/Update/Delete`→Operation, buf lint/breaking/validate, Internal-vs-public.
 - `qa-test-engineer` — расширяет regression-suite (Newman) против acceptance/спеки как источника истины; находки → GitHub Issue + регрессионный тест.
 
+**До кода и после прогона (две границы задачи):**
+- `class-exposure-analyst` — запускается ПЕРЕД первой строкой кода по APPROVED-приёмке или
+  сформулированному замыслу: читает намерение и отвечает двумя списками — какие классы дефектов
+  оно может задеть и что должно быть верно в коде, чтобы не задело; плюс какие числа о дереве
+  надо измерить. Кода не пишет и готовый дифф не ревьюит — его предмет то, чего ещё нет.
+- `landing-reviewer` — запускается ПЕРЕД посадкой (коммит, мёрж, squash, cherry-pick, push,
+  закрытие тикета) и при чтении вердикта прогона: разделяет три категории исхода
+  (зелёный · красный · «не выполнилось»), устанавливает область зелёного, сверяет применённое
+  против исходника, доказывает сохранность работы содержимым, проверяет публичный текст на
+  восстановимость.
+
 **Domain-specific (в `project/kacho/.claude/agents/`) — только узкая экспертиза:**
 - домен vpc: `vpc-cidr-specialist`, `vpc-outbox-watch-engineer`, `vpc-newman-author`, `vpc-load-testing`, `vpc-conventions-auditor` (аудит конвенций Kachō: error-format/regex/status-mapping/timestamp/update_mask/sync-vs-async — НЕ сравнение с чужими облаками).
 - домен compute: domain-specialists по аналогии (instance-lifecycle, disk-image, conventions-auditor, newman-author, load-testing).
