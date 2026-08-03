@@ -106,6 +106,24 @@ def git(root: Path, *args: str) -> list[str]:
     return [ln for ln in out.stdout.split("\n") if ln]
 
 
+def git_ok(root: Path, *args: str) -> bool:
+    """Исход команды, а не её вывод.
+
+    `git()` отдаёт пустой список и на успехе-без-вывода, и на отказе, поэтому
+    команды-предикаты (`cat-file -e`, `grep -q`) через неё неотличимы от провала:
+    «нет вывода» читалось бы как «нет предмета». Это ровно тот класс, который
+    хук ловит, — поэтому у исхода отдельная функция.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), *args],
+            capture_output=True, text=True, timeout=GIT_TIMEOUT_S, check=False,
+        )
+    except Exception:  # noqa: BLE001
+        return False
+    return out.returncode == 0
+
+
 # ═══ 2. Корпус LIVE ══════════════════════════════════════════════════════════
 #
 # LIVE-документ описывает дерево КАК ОНО ЕСТЬ. Датированная запись (приёмка, план,
@@ -369,6 +387,152 @@ def _code_part(line: str) -> str:
     return line
 
 
+# ═══ 4a. Провенанс основания и вторая полоса — вершина ствола ════════════════
+#
+# ВЫБОР ОБЪЯВЛЕН: основание истины строится ПО ВЫПИСАННОЙ РАБОЧЕЙ КОПИИ
+# (`git ls-files` + чтение с диска). Это осознанно — только рабочая копия несёт
+# ЕЩЁ НЕ ЗАКОММИЧЕННОЕ, ради чего хук и стоит на `PostToolUse`.
+#
+# Цена выбора названа и закрыта, а не умолчана. У продукта МНОГО рабочих копий
+# на разных ветках (worktree на задачу), и та, что лежит в `project/kacho`,
+# может стоять на сотню коммитов позади линии интеграции. Тогда путь, ЖИВУЩИЙ в
+# стволе, читается как несуществующий — и гейт краснеет ровно на свежей работе,
+# то есть объявляет несуществующим то, что продукт только что посадил. Ложный
+# срабат здесь дороже пропуска: он учит читателя себя игнорировать, и тогда
+# гейт не поймает ничего.
+#
+# Поэтому: (а) провенанс ЗАЯВЛЯЕТСЯ в переписи — какая копия, на какой ветке,
+# на какой ревизии и насколько позади ствола; (б) ствол читается ВТОРОЙ полосой,
+# и координата, живая только в нём, — не находка, а отдельный СЧИТАЕМЫЙ исход
+# «резолвится только в стволе». Приравнять её к отсутствующей значило бы выдать
+# «смотрел не туда» за «этого нет».
+#
+# История НЕ читается — только ВЕРШИНА ствола. Иначе ось удалений умирает
+# целиком: удалённый файл существует в истории всегда, и всякое удаление стало
+# бы молчанием.
+
+INTEGRATION_REF_CANDIDATES = ("redesign/integration", "main", "master")
+
+
+def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
+    """Ствол ВЫВОДИТСЯ из дерева, а не назначается именем.
+
+    Из объявленных кандидатов берётся тот, у кого больше всего коммитов,
+    которых нет в HEAD, — наиболее продвинутая линия интеграции. Правило
+    измеримое, поэтому оно переживает смену ствола само: когда линия редизайна
+    вольётся в принимающую ветку, счёт перевесит в её пользу. Назначенное имя
+    при той же смене стало бы ложью молча — ровно тот класс, который хук ловит
+    в чужой прозе.
+
+    → (имя ссылки, короткая ревизия, на сколько коммитов копия позади).
+    """
+    best: tuple[str | None, str | None, int] = (None, None, -1)
+    for cand in INTEGRATION_REF_CANDIDATES:
+        rev = git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
+        if not rev:
+            continue
+        cnt = git(root, "rev-list", "--count", f"HEAD..{cand}")
+        behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
+        if behind > best[2]:
+            best = (cand, rev[0][:8], behind)
+    return best
+
+
+def _provenance(root: Path) -> dict:
+    ref, rev, behind = _resolve_integration_ref(root)
+    head = git(root, "rev-parse", "--short=8", "HEAD")
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
+    return {"head": head[0] if head else "?", "branch": branch[0] if branch else "?",
+            "trunk_ref": ref, "trunk_rev": rev, "behind": behind}
+
+
+def _dirs_of(files) -> set[str]:
+    d: set[str] = set()
+    for f in files:
+        parts = f.split("/")
+        for i in range(1, len(parts)):
+            d.add("/".join(parts[:i]))
+    return d
+
+
+def _ref_routes(root: Path, ref: str) -> set[str]:
+    routes: set[str] = set()
+    for line in git(root, "grep", "-h", "-I", "-E", "-e",
+                    r'(get|put|post|patch|delete)[[:space:]]*:[[:space:]]*"', ref, "--", "proto"):
+        for route in RE_HTTP_RULE.findall(line):
+            routes |= _route_forms(route)
+    for line in git(root, "grep", "-h", "-I", "-E", "-e",
+                    r'"/[a-z][a-z0-9-]*/v[0-9]+', ref, "--", "*.go"):
+        for lit in RE_GOROUTE.findall(_code_part(line)):
+            routes |= _route_forms(lit)
+    return routes
+
+
+def _ref_rpcs(root: Path, ref: str) -> set[str]:
+    # Пары service/rpc обязаны группироваться ПО ФАЙЛУ и идти в порядке строк,
+    # иначе метод припишется к сервису из соседнего файла.
+    per: dict[str, list[tuple[int, str]]] = {}
+    for line in git(root, "grep", "-n", "-I", "-E", "-e",
+                    r'^[[:space:]]*(service|rpc)[[:space:]]+', ref, "--", "proto"):
+        parts = line.split(":", 3)
+        if len(parts) < 4 or not parts[2].isdigit():
+            continue
+        per.setdefault(parts[1], []).append((int(parts[2]), parts[3]))
+    rpcs: set[str] = set()
+    for rows in per.values():
+        svc = None
+        for _, content in sorted(rows):
+            mm = RE_SERVICE.match(content)
+            if mm:
+                svc = mm.group(1)
+                continue
+            mm = RE_RPCDECL.match(content)
+            if mm and svc:
+                rpcs.add(f"{svc}.{mm.group(1)}")
+    return rpcs
+
+
+def _ref_targets(root: Path, ref: str) -> set[str]:
+    targets: set[str] = set()
+    for line in git(root, "grep", "-h", "-I", "-E", "-e",
+                    r'^([a-zA-Z][a-zA-Z0-9_.%-]*[[:space:]]*:|\.PHONY:)',
+                    ref, "--", "Makefile", "*/Makefile", "*.mk"):
+        mm = RE_TARGET.match(line)
+        if mm:
+            targets.add(mm.group(1))
+        elif line.startswith(".PHONY:"):
+            targets.update(line.split(":", 1)[1].split())
+    return targets
+
+
+def _ref_envs(root: Path, ref: str) -> set[str]:
+    envs: set[str] = set()
+    for line in git(root, "grep", "-h", "-I", "-E", "-e", RE_ENVNAME.pattern, ref, "--",
+                    *ENV_PATHSPECS, TRUTH_EXCLUDE):
+        envs.update(RE_ENVNAME.findall(_code_part(line)))
+    return envs
+
+
+def _truth_at_ref(root: Path, ref: str) -> dict:
+    """Основание истины по ВЕРШИНЕ ствола — ТЕМИ ЖЕ предикатами, что по копии.
+
+    Читается через `git ls-tree <ref>` и `git grep <ref>`: рабочее дерево не
+    трогается вовсе, поэтому полоса не зависит от того, что кто-то выписал и в
+    каком состоянии оставил.
+
+    Тождество извлечения с чтением файлов проверено на одной ревизии в обе
+    стороны: симметрическая разность по маршрутам и по методам пуста (181 и
+    298). Полоса, собранная другим способом, обязана давать тот же ответ на том
+    же входе — иначе она измеряла бы не то же свойство.
+    """
+    files = set(git(root, "ls-tree", "-r", "--name-only", ref))
+    return {"files": sorted(files), "dirs": sorted(_dirs_of(files)),
+            "routes": sorted(_ref_routes(root, ref)),
+            "rpcs": sorted(_ref_rpcs(root, ref)),
+            "targets": sorted(_ref_targets(root, ref)),
+            "envs": sorted(_ref_envs(root, ref))}
+
+
 def build_truth(ws: Path, mono: Path | None) -> dict:
     t0 = time.time()
     tracked: dict[str, set[str]] = {}
@@ -448,6 +612,16 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
                         *ENV_PATHSPECS, TRUTH_EXCLUDE):
             envs.update(RE_ENVNAME.findall(_code_part(line)))
 
+    # Провенанс и полоса ствола — по КАЖДОМУ корню отдельно: у воркспейса и у
+    # продукта разные линии интеграции и разное отставание.
+    prov: dict[str, dict] = {}
+    trunk: dict[str, dict | None] = {}
+    roots = [("ws", ws)] + ([("mono", mono)] if mono is not None and mono != ws else [])
+    for tag, root in roots:
+        prov[tag] = _provenance(root)
+        ref = prov[tag]["trunk_ref"]
+        trunk[tag] = _truth_at_ref(root, ref) if ref else None
+
     return {
         "tracked_ws": sorted(tracked["ws"]),
         "tracked_mono": sorted(tracked["mono"]),
@@ -457,6 +631,8 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         "rpcs": sorted(rpcs),
         "targets": sorted(targets),
         "envs": sorted(envs),
+        "provenance": prov,
+        "trunk": trunk,
         "build_ms": int((time.time() - t0) * 1000),
     }
 
@@ -491,6 +667,19 @@ class Truth:
         self._by_base: dict[str, list[str]] | None = None
         self._live_files: dict[str, set[str]] = {}
         self._domains: set[str] | None = None
+        # --- вторая полоса: вершина ствола ---------------------------------
+        self.prov = raw.get("provenance") or {}
+        tr = raw.get("trunk") or {}
+        t_ws, t_mono = tr.get("ws") or {}, tr.get("mono") or {}
+        self.trunk_on = bool(t_ws or t_mono)
+        self.t_files = set(t_ws.get("files", [])) | set(t_mono.get("files", []))
+        self.t_all = self.t_files | set(t_ws.get("dirs", [])) | set(t_mono.get("dirs", []))
+        self.t_routes = set(t_ws.get("routes", [])) | set(t_mono.get("routes", []))
+        self.t_rpcs = set(t_ws.get("rpcs", [])) | set(t_mono.get("rpcs", []))
+        self.t_targets = set(t_ws.get("targets", [])) | set(t_mono.get("targets", []))
+        self.t_envs = set(t_ws.get("envs", [])) | set(t_mono.get("envs", []))
+        self._t_by_base: dict[str, list[str]] | None = None
+        self._t_live: dict = {}
 
     # --- предпосылки предикатов -------------------------------------------
     def enabled(self) -> tuple[list[str], list[tuple[str, str]]]:
@@ -542,6 +731,122 @@ class Truth:
         if self._domains is None:
             self._domains = {r.split("/")[1] for r in self.routes if r.count("/") >= 2}
         return self._domains
+
+    # --- четыре исхода на координату ---------------------------------------
+    #
+    # Было три (резолвится · не резолвится · основание не покрывает). Четвёртый
+    # заведён по той же причине, что и третий: приравнять «смотрел не туда» к
+    # «этого нет» — значит обвинить на пустом месте. Выписанная копия может
+    # стоять на сотню коммитов позади ствола, и тогда путь, живущий в стволе,
+    # читается как несуществующий.
+    def classify(self, kind: str, coord: str) -> str:
+        """→ resolved · uncovered · trunk_only · missing."""
+        if self.resolve(kind, coord):
+            return "resolved"
+        if self.out_of_coverage(kind, coord):
+            return "uncovered"
+        if self.trunk_has(kind, coord):
+            return "trunk_only"
+        return "missing"
+
+    def trunk_has(self, kind: str, coord: str) -> bool:
+        if not self.trunk_on:
+            return False
+        if kind == "path":
+            return self._path_in_trunk(coord)
+        if kind == "rest":
+            n = re.sub(r"\{[^}]*\}", "*", coord).rstrip("/")
+            return n in self.t_routes or n.split(":", 1)[0] in self.t_routes
+        return coord in {"rpc": self.t_rpcs, "make": self.t_targets,
+                         "env": self.t_envs}.get(kind, set())
+
+    def _path_in_trunk(self, c: str) -> bool:
+        cands = {c}
+        if c.startswith("project/kacho/"):
+            cands.add(c[len("project/kacho/"):])
+        if self._t_by_base is None:
+            self._t_by_base = {}
+            for p in self.t_all:
+                self._t_by_base.setdefault(p.rsplit("/", 1)[-1], []).append(p)
+        for cand in cands:
+            if cand in self.t_all:
+                return True
+            if "*" in cand:
+                import fnmatch
+                if any(fnmatch.fnmatch(p, cand) for p in self.t_files) or \
+                   any(fnmatch.fnmatch(p, "*/" + cand) for p in self.t_files):
+                    return True
+                continue
+            if "/" not in cand:
+                if self._t_by_base.get(cand):
+                    return True
+                continue
+            tail = "/" + cand
+            for p in self._t_by_base.get(cand.rsplit("/", 1)[-1], ()):
+                if p.endswith(tail):
+                    return True
+        return False
+
+    def trunk_live_has(self, kind: str, coord: str) -> bool:
+        """Живая перепроверка полосы ствола — на случай, когда ствол уехал
+        вперёд уже ПОСЛЕ сборки индекса (кэш ключуется коммитом ВЫПИСАННОЙ
+        копии и подтягивания ствола не видит).
+
+        Для путей полоса читается целиком и один раз за прогон, поэтому она
+        РАВНОСИЛЬНА кэшированной (включая хвостовое совпадение). Для остальных
+        видов проверка идёт покоординатно грепом и наследует его точность.
+        """
+        if not self.trunk_on:
+            return False
+        for tag, root in (("ws", self.ws), ("mono", self.mono)):
+            if root is None:
+                continue
+            ref = (self.prov.get(tag) or {}).get("trunk_ref")
+            if not ref:
+                continue
+            if kind == "path":
+                # Список ствола перечитывается ОДИН РАЗ за прогон, а не по
+                # координате: `cat-file -e` на каждую находку стоил 476 вызовов
+                # git на полном обходе (обход 5,4 → 10,9 с) и при этом НЕ ловил
+                # хвостовое совпадение, то есть был и дороже, и слабее.
+                key = (str(root), "path")
+                if key not in self._t_live:
+                    files = set(git(root, "ls-tree", "-r", "--name-only", ref))
+                    allp = files | _dirs_of(files)
+                    by: dict[str, list[str]] = {}
+                    for p in allp:
+                        by.setdefault(p.rsplit("/", 1)[-1], []).append(p)
+                    self._t_live[key] = (allp, by)
+                allp, by = self._t_live[key]
+                cands = {coord}
+                if coord.startswith("project/kacho/"):
+                    cands.add(coord[len("project/kacho/"):])
+                for c in cands:
+                    if c in allp:
+                        return True
+                    tail = "/" + c
+                    if any(p.endswith(tail) for p in by.get(c.rsplit("/", 1)[-1], ())):
+                        return True
+                continue
+            # Набор строится ОДИН РАЗ на (корень, вид), а не на координату:
+            # покоординатный греп по дереву-ссылке стоил 232 запуска git и 7,0 с
+            # на полном обходе. Один греп на вид даёт тот же ответ и делает живую
+            # полосу РАВНОСИЛЬНОЙ кэшированной — она строится теми же функциями.
+            key = (str(root), kind)
+            if key not in self._t_live:
+                self._t_live[key] = {
+                    "env": _ref_envs, "make": _ref_targets,
+                    "rest": _ref_routes, "rpc": _ref_rpcs,
+                }[kind](root, ref)
+            live = self._t_live[key]
+            if kind == "rest":
+                n = re.sub(r"\{[^}]*\}", "*", coord).rstrip("/")
+                if n in live or n.split(":", 1)[0] in live:
+                    return True
+                continue
+            if coord in live:
+                return True
+        return False
 
     # --- резолверы ---------------------------------------------------------
     def resolve(self, kind: str, coord: str) -> bool:
@@ -716,15 +1021,57 @@ def load_allow() -> list[dict]:
         return []
 
 
-def stale_allow(entries: list[dict], reverse: dict) -> list[dict]:
+def stale_allow(entries: list[dict], reverse: dict, ws: Path, mono: Path | None,
+                claims: "DocClaims | None" = None) -> list[dict]:
     """Запись, которой больше нечего исключать, — находка.
 
     Предикат снятия привязан к ВНЕШНЕМУ факту: координата больше не упоминается
     ни одним LIVE-документом. Он не может стать тождественно истинным от правки
     самого послабления — только от правки корпуса.
+
+    Обратный индекс кэшируется коммитом, поэтому КАНДИДАТ по нему — только
+    кандидат: документ мог назвать координату уже после сборки индекса, и
+    объявление «ей больше нечего исключать» оказалось бы утверждением о
+    нынешнем корпусе, сделанным по прошлому. Кандидат подтверждается живым
+    чтением; полный обход не нужен — литерал сперва ищется грепом, и точное
+    членство решается разбором только у попавших файлов.
     """
-    return [e for e in entries
-            if f"{e.get('kind')}\t{e.get('coordinate')}" not in reverse]
+    cands = [e for e in entries
+             if f"{e.get('kind')}\t{e.get('coordinate')}" not in reverse]
+    if not cands:
+        return cands
+    claims = claims or DocClaims(ws, mono)
+    out = []
+    for e in cands:
+        if not _allow_subject_live(e.get("kind", ""), e.get("coordinate", ""),
+                                   ws, mono, claims):
+            out.append(e)
+    return out
+
+
+def _allow_subject_live(kind: str, coord: str, ws: Path, mono: Path | None,
+                        claims: DocClaims) -> bool:
+    """Называет ли координату ХОТЬ ОДИН LIVE-документ ПРЯМО СЕЙЧАС."""
+    if not coord:
+        return False
+    names: set[str] = set()
+    for root, pats in ((ws, LIVE_WS), (mono, LIVE_MONO)):
+        if root is None:
+            continue
+        for rel in git(root, "grep", "-l", "-I", "--untracked", "-F", "-e", coord,
+                       "--", "*.md", "*.mdx"):
+            if not _is_live(rel, pats):
+                continue
+            names.add("project/kacho/" + rel if (root is mono and mono != ws) else rel)
+    extra = os.environ.get("DOCFRESH_DOC_ROOT")
+    if extra and Path(extra).is_dir():
+        for p in Path(extra).rglob("*.md"):
+            try:
+                if coord in p.read_text(encoding="utf-8", errors="replace"):
+                    names.add(str(p.relative_to(Path(extra))))
+            except OSError:
+                continue
+    return any(claims.still_claims(n, kind, coord) for n in names)
 
 
 def allowed(entries: list[dict], kind: str, coord: str) -> dict | None:
@@ -735,6 +1082,79 @@ def allowed(entries: list[dict], kind: str, coord: str) -> dict | None:
 
 
 # ═══ 8. Живое подтверждение перед обвинением ═════════════════════════════════
+#
+# Обвинение состоит из ДВУХ половин: «документ говорит X» и «X в дереве нет».
+# Живой перепроверке подлежат ОБЕ. Прежняя редакция проверяла живьём только
+# вторую (`confirm_missing`), а первую брала из кэша индекса — и это давало
+# ровно тот класс, который хук заведён ловить: утверждение о нынешнем состоянии,
+# сделанное по прошлому. Кэш ключуется коммитом (см. `cache_key`) и правку
+# рабочего дерева не видит вовсе, поэтому между двумя коммитами хук докладывал
+# то, что документ говорил ВЧЕРА.
+
+def doc_abs(name: str, ws: Path, mono: Path | None) -> Path | None:
+    """Координатное имя документа → абсолютный путь. Обратное к `rel_of`."""
+    cands: list[Path] = []
+    extra = os.environ.get("DOCFRESH_DOC_ROOT")
+    if extra:
+        cands.append(Path(extra) / name)
+    if mono is not None and mono != ws and name.startswith("project/kacho/"):
+        cands.append(mono / name[len("project/kacho/"):])
+    else:
+        cands.append(ws / name)
+    for c in cands:
+        try:
+            if c.is_file():
+                return c
+        except OSError:
+            continue
+    return None
+
+
+class DocClaims:
+    """Что документ утверждает СЕЙЧАС — читается с диска, не из кэша.
+
+    Зеркало `confirm_missing`: та перепроверяет живьём сторону ДЕРЕВА, эта —
+    сторону ДОКУМЕНТА. Документа нет или он нечитаем ⇒ он ничего не утверждает
+    ⇒ находки нет: несуществующий документ не может пережить свой предмет.
+
+    Стоимость ограничена ЧИСЛОМ НАХОДОК, а не размером корпуса: читается только
+    тот документ, о котором вот-вот прозвучит обвинение, и один раз за прогон.
+    """
+
+    def __init__(self, ws: Path, mono: Path | None):
+        self.ws, self.mono = ws, mono
+        self._cache: dict[str, dict[str, set[str]]] = {}
+
+    def of(self, name: str) -> dict[str, set[str]]:
+        if name not in self._cache:
+            p = doc_abs(name, self.ws, self.mono)
+            try:
+                text = p.read_text(encoding="utf-8", errors="replace") if p else ""
+            except OSError:
+                text = ""
+            self._cache[name] = extract(text, os.path.dirname(name)) if text else {}
+        return self._cache[name]
+
+    def still_claims(self, name: str, kind: str, coord: str) -> bool:
+        return coord in self.of(name).get(kind, ())
+
+
+def confirm_live(truth: Truth, kind: str, coord: str) -> str | None:
+    """Живая перепроверка стороны ДЕРЕВА перед обвинением — обе полосы.
+
+    → None — предмета нет нигде, обвинение стоит;
+      "дерево" — предмет появился в выписанной копии уже после сборки индекса;
+      "ствол"  — предмет живёт в вершине ствола, а копия стоит не на той ревизии.
+
+    Два основания закрытия РАЗНЫЕ и не сливаются в одно число: «починили дерево»
+    и «копия отстала» — разные события с разными последствиями.
+    """
+    if not confirm_missing(truth, kind, coord):
+        return "дерево"
+    if truth.trunk_live_has(kind, coord):
+        return "ствол"
+    return None
+
 
 def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
     """Перепроверить нерезолвящуюся координату по ЖИВОМУ дереву.
@@ -799,34 +1219,55 @@ def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
 # ═══ 9. Проверка документа ═══════════════════════════════════════════════════
 
 def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
-               ws: Path, mono: Path | None, fresh: dict[str, dict] | None = None
-               ) -> tuple[list[tuple[str, str, str]], int, int, int]:
-    """→ ([(документ, вид, координата)], документов, координат, вне покрытия)"""
+               ws: Path, mono: Path | None, fresh: dict[str, dict] | None = None,
+               claims: DocClaims | None = None) -> tuple[list[tuple[str, str, str]], dict]:
+    """→ ([(документ, вид, координата)], счётчики переписи)."""
     on, _ = truth.enabled()
+    claims = claims or DocClaims(ws, mono)
     findings: list[tuple[str, str, str]] = []
-    seen_docs = 0
-    seen_coords = 0
-    uncovered = 0
+    c = {"docs": 0, "coords": 0, "uncovered": 0, "trunk_only": 0,
+         "closed_claim": 0, "closed_tree": 0}
     for name in names:
-        coords = (fresh or {}).get(name) or idx["per_doc"].get(name)
+        # `or` здесь был ловушкой: пустой словарь ЛОЖЕН, поэтому правка, снявшая
+        # у документа ПОСЛЕДНЮЮ координату, молча проваливалась в кэш и хук
+        # докладывал снятое. Отсутствие свежего разбора («не читали») и пустой
+        # свежий разбор («прочитали, координат нет») — разные состояния.
+        fr = (fresh or {}).get(name)
+        coords = idx["per_doc"].get(name) if fr is None else fr
         if coords is None:
             continue
-        seen_docs += 1
+        c["docs"] += 1
         for kind, lst in coords.items():
             if kind not in on:
                 continue
             for coord in lst:
-                seen_coords += 1
-                if truth.resolve(kind, coord):
+                c["coords"] += 1
+                verdict = truth.classify(kind, coord)
+                if verdict == "resolved":
                     continue
-                if truth.out_of_coverage(kind, coord):
-                    uncovered += 1
+                if verdict == "uncovered":
+                    c["uncovered"] += 1
+                    continue
+                if verdict == "trunk_only":
+                    c["trunk_only"] += 1
                     continue
                 if allowed(entries, kind, coord):
                     continue
-                if confirm_missing(truth, kind, coord):
-                    findings.append((name, kind, coord))
-    return findings, seen_docs, seen_coords, uncovered
+                # СТОРОНА ДОКУМЕНТА, живьём. Список координат мог прийти из
+                # кэша; утверждение о том, что документ говорит СЕЙЧАС, из кэша
+                # браться не вправе.
+                if not claims.still_claims(name, kind, coord):
+                    c["closed_claim"] += 1
+                    continue
+                live = confirm_live(truth, kind, coord)
+                if live == "дерево":
+                    c["closed_tree"] += 1
+                    continue
+                if live == "ствол":
+                    c["trunk_only"] += 1
+                    continue
+                findings.append((name, kind, coord))
+    return findings, c
 
 
 # ═══ 10. Журнал хода и счётчик ═══════════════════════════════════════════════
@@ -916,25 +1357,118 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
     return bad
 
 
+def corpus_preconditions(idx: dict) -> list[str]:
+    """Отказы, видимые ТОЛЬКО после сборки индекса.
+
+    `preconditions` исполняется до `load_index` и потому про объём корпуса знать
+    не может. Без этой второй половины пустой корпус давал код 0 и печать
+    «осмотрено документов 0» — то есть «ноль прочитанного» было НЕОТЛИЧИМО от
+    «ноль находок», ровно тот класс, который хук и заведён ловить. Шаблоны LIVE
+    зашиты путями, а корпус переезжает: промах шаблона обваливает предмет молча.
+    """
+    bad = []
+    ndocs, ncoords = len(idx.get("docs") or {}), len(idx.get("reverse") or {})
+    if ndocs == 0:
+        bad.append(
+            "ни один документ не опознан как LIVE — шаблоны LIVE_WS/LIVE_MONO разошлись "
+            "с корпусом. «Ноль находок» здесь означает «ноль прочитанного»: привести "
+            "шаблоны в соответствие с деревом"
+        )
+    elif ncoords == 0:
+        bad.append(
+            f"опознано LIVE-документов {ndocs}, но ни одной координаты из них не извлечено — "
+            "извлечение потеряло предмет. Осматривать нечего, и это не «чисто»"
+        )
+    return bad
+
+
 # ═══ 12. Печать ══════════════════════════════════════════════════════════════
 
-def census_line(idx: dict, truth: Truth, ndocs: int, ncoords: int,
-                warm: bool, ms: int, stats: dict, carried: int,
-                uncovered: int = 0) -> str:
+def tree_provenance(truth: "Truth") -> str:
+    """Ревизия, ОТНОСИТЕЛЬНО КОТОРОЙ вынесен вердикт, и отставание от ствола.
+
+    Резолв идёт по ВЫПИСАННОЙ рабочей копии, а у продукта их много — worktree на
+    задачу. Замер 2026-08-04: копия в `project/kacho` отставала от линии
+    интеграции на 147 коммитов, и пять координат одного документа были названы
+    мёртвыми, хотя все пять живы на стволе. Без этой строки вердикт не несёт
+    своей ревизии и неотличим от вердикта о продукте.
+
+    Следствие с тех пор ДРУГОЕ, и текст обязан это отражать: живая-на-стволе
+    координата больше НЕ читается мёртвой — её ловит вторая полоса и относит в
+    отдельный исход «резолвится только в стволе» (см. `Truth.classify`). Строка
+    осталась потому, что провенанс нужен и без находок: она отвечает на «по чему
+    судили», а не только «почему покраснело». Читается из основания истины, а не
+    доспрашивается у git на каждом прогоне.
+    """
+    prov = truth.prov
+    if not prov:
+        return "провенанс не установлен"
+    out = []
+    for tag, human in (("mono", "дерево продукта"), ("ws", "воркспейс")):
+        p = prov.get(tag)
+        if not p:
+            continue
+        s = f"{human} {p['head']}@{p['branch']}"
+        if not p.get("trunk_ref"):
+            s += (" — ствол НЕ НАЙДЕН среди "
+                  + "/".join(INTEGRATION_REF_CANDIDATES)
+                  + ": полоса ствола не прогонялась, «не резолвится» здесь может "
+                    "означать «копия отстала»")
+        elif p.get("behind"):
+            s += (f" — ОТСТАЁТ от {p['trunk_ref']} {p['trunk_rev']} на {p['behind']}; "
+                  f"координаты, живые на стволе, вынесены в отдельный исход и "
+                  f"находкой НЕ считаются")
+        else:
+            s += f" — вровень со стволом {p['trunk_ref']} {p['trunk_rev']}"
+        out.append(s)
+    return " · ".join(out)
+
+
+def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
+                stats: dict, carried: dict | None = None) -> str:
     on, off = truth.enabled()
-    t = truth.raw
-    parts = [
-        f"осмотрено документов {ndocs} из {len(idx['docs'])} LIVE",
-        f"координат рассмотрено {ncoords}, вне покрытия основания {uncovered}",
+    prov = tree_provenance(truth)
+    parts = ([prov] if prov else []) + [
+        f"осмотрено документов {c.get('docs', 0)} из {len(idx['docs'])} LIVE",
+        f"координат рассмотрено {c.get('coords', 0)}, "
+        f"вне покрытия основания {c.get('uncovered', 0)}, "
+        f"резолвится только в стволе {c.get('trunk_only', 0)}",
         f"предикатов прогнано {len(on)} ({','.join(on)}), отказано {len(off)} ({','.join(k for k, _ in off)})",
         f"основание: путей {len(truth.tracked_ws) + len(truth.tracked_mono)}, "
         f"маршрутов {len(truth.routes)}, методов {len(truth.rpcs)}, "
-        f"целей {len(truth.targets)}, переменных {len(truth.envs)}",
+        f"целей {len(truth.targets)}, переменных {len(truth.envs)}"
+        + (f" (+ствол: путей {len(truth.t_files)}, маршрутов {len(truth.t_routes)}, "
+           f"методов {len(truth.t_rpcs)}, целей {len(truth.t_targets)}, "
+           f"переменных {len(truth.t_envs)})" if truth.trunk_on else " (полоса ствола ПУСТА)"),
         f"индекс {len(idx['reverse'])} координат, кэш {'тёплый' if warm else 'холодный'}",
         f"{ms} мс",
     ]
-    if carried:
-        parts.append(f"с прошлого хода не закрыто {carried}")
+    closed = c.get("closed_claim", 0) + c.get("closed_tree", 0)
+    if closed:
+        # Основания названы РАЗДЕЛЬНО: слить «убрали упоминание» и «предмет
+        # нашёлся в дереве» в одно число значило бы потерять, что именно
+        # произошло, — а это разные события с разными последствиями.
+        #
+        # Второе НЕ называется «появилось в дереве»: живая перепроверка для
+        # `rpc`/`rest` ШИРЕ кэшированного предиката (ищет имя метода, а не пару
+        # сервис-метод), поэтому часть этого числа — не появление предмета, а
+        # прощение более слабой проверкой. Замер 2026-08-04: из 27 таких
+        # координат корпуса появившихся не было НИ ОДНОЙ. Назвать их
+        # «появившимися» значило бы соврать числом. В переносимом состоянии
+        # (ниже) формулировка другая и там она точна: та координата уже была
+        # признана отсутствующей прошлым ходом.
+        parts.insert(1 if prov else 0,
+                     f"закрыто на месте {closed} (снято утверждение "
+                     f"{c.get('closed_claim', 0)}, снято живой перепроверкой "
+                     f"дерева {c.get('closed_tree', 0)})")
+    if carried and (carried["open"] or any(carried[k] for k in ("claim", "tree", "trunk", "allow"))):
+        gone = carried["claim"] + carried["tree"] + carried["trunk"] + carried["allow"]
+        line = f"с прошлого хода не закрыто {carried['open']}"
+        if gone:
+            line += (f", закрыто {gone} (снято утверждение {carried['claim']}, "
+                     f"появилось в дереве {carried['tree']}, живёт в стволе "
+                     f"{carried['trunk']}, послаблением {carried['allow']})")
+        parts.append(line)
     return "docfresh: " + " · ".join(parts)
 
 
@@ -1056,7 +1590,11 @@ def vanished_since_snapshot(idx: dict, truth: Truth, ws: Path, mono: Path | None
     for g in sorted(gone):
         for cand in (g, g[len("project/kacho/"):] if g.startswith("project/kacho/") else g):
             for d in idx["reverse"].get("path\t" + cand, []):
-                if not truth.resolve("path", cand) and not truth.out_of_coverage("path", cand):
+                # `classify`, а не `resolve`: путь может исчезнуть из ВЫПИСАННОЙ
+                # копии просто оттого, что она переехала на другую ветку, — а в
+                # стволе он жив. Переключение веток иначе давало бы залп находок
+                # на всё, чего нет на этой ветке.
+                if truth.classify("path", cand) == "missing":
                     out.append((d, "path", cand))
     return out, True, len(gone)
 
@@ -1077,13 +1615,19 @@ def sweep() -> int:
             sys.stderr.write("[VOID] docfresh: " + b + "\n")
         return 2
     idx, warm = load_index(ws, mono)
+    bad = corpus_preconditions(idx)
+    if bad:
+        for b in bad:
+            sys.stderr.write("[VOID] docfresh: " + b + "\n")
+        return 2
     truth = Truth(idx["truth"], ws, mono)
     entries = load_allow()
     _, refusals = truth.enabled()
-    findings, nd, nc, unc = check_docs(idx["docs"], idx, truth, entries, ws, mono)
-    stales = stale_allow(entries, idx["reverse"])
+    claims = DocClaims(ws, mono)
+    findings, cnt = check_docs(idx["docs"], idx, truth, entries, ws, mono, claims=claims)
+    stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     ms = int((time.time() - t0) * 1000)
-    census = census_line(idx, truth, nd, nc, warm, ms, {}, 0, unc)
+    census = census_line(idx, truth, cnt, warm, ms, {})
     if findings or stales:
         sys.stdout.write(render(findings, stales, refusals, census, {}) + "\n")
         sys.stdout.write(f"[CENSUS] документов с расхождением "
@@ -1120,6 +1664,14 @@ def main() -> int:
         return 2
 
     idx, warm = load_index(ws, mono)
+    bad = corpus_preconditions(idx)
+    if bad:
+        lines = ["\u2554\u2550\u2550 docfresh \u041e\u0422\u041a\u0410\u0417\u042b\u0412\u0410\u0415\u0422\u0421\u042f \u0420\u0410\u0411\u041e\u0422\u0410\u0422\u042c \u2550\u2550\u2550"]
+        for b in bad:
+            lines.append("\u2551 " + b)
+        lines.append("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550")
+        sys.stderr.write("\n".join(lines) + "\n")
+        return 2
     truth = Truth(idx["truth"], ws, mono)
     entries = load_allow()
     _, refusals = truth.enabled()
@@ -1181,12 +1733,13 @@ def main() -> int:
             fresh[rel] = idx["per_doc"].get(rel, {})
         targets = [rel]
 
-    findings, nd, nc, unc = check_docs(targets, idx, truth, entries, ws, mono, fresh)
-    stales = stale_allow(entries, idx["reverse"]) if rel in live_names else []
-    carried = _carried_count()
+    claims = DocClaims(ws, mono)
+    findings, cnt = check_docs(targets, idx, truth, entries, ws, mono, fresh, claims)
+    stales = stale_allow(entries, idx["reverse"], ws, mono, claims) if rel in live_names else []
+    carried = adjudicate_pending(truth, entries, claims)
     stats = bump_stats(bool(findings or stales))
     ms = int((time.time() - t0) * 1000)
-    census = census_line(idx, truth, nd, nc, warm, ms, stats, carried, unc)
+    census = census_line(idx, truth, cnt, warm, ms, stats, carried)
 
     if findings or stales:
         sys.stderr.write(render(findings, stales, refusals, census, stats) + "\n")
@@ -1195,14 +1748,60 @@ def main() -> int:
     return 0
 
 
-def _carried_count() -> int:
+def adjudicate_pending(truth: Truth, entries: list[dict], claims: DocClaims) -> dict:
+    """Переносимое состояние САМОИСТЕКАЕТ — и называет, ЧЕМ закрыта позиция.
+
+    Запись, которой больше нечего переносить, — не находка, а закрытая позиция:
+    тот же принцип, который хук применяет к послаблениям. Без него счётчик «с
+    прошлого хода не закрыто N» жил бы вечно и повторял починенное — а гейт,
+    повторяющий починенное, учит читателя себя игнорировать.
+
+    Основания закрытия РАЗДЕЛЬНЫЕ, и слить их в одно число нельзя: «убрали
+    упоминание», «предмет появился в дереве», «копия догнала ствол» и «выдано
+    послабление» — четыре разных события с разными последствиями. Одно общее
+    «закрыто N» скрывало бы, чем именно.
+    """
     p = _state_file("pending.json")
-    if not p.is_file():
-        return 0
+    st = {"open": 0, "claim": 0, "tree": 0, "trunk": 0, "allow": 0}
     try:
-        return len(json.loads(p.read_text(encoding="utf-8")))
+        carried = json.loads(p.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
-        return 0
+        return st
+    still: list[list[str]] = []
+    for item in carried:
+        try:
+            d, k, coord = item[0], item[1], item[2]
+        except Exception:  # noqa: BLE001
+            continue
+        if not claims.still_claims(d, k, coord):
+            st["claim"] += 1
+            continue
+        if allowed(entries, k, coord):
+            st["allow"] += 1
+            continue
+        verdict = truth.classify(k, coord)
+        if verdict in ("resolved", "uncovered"):
+            st["tree"] += 1
+            continue
+        if verdict == "trunk_only":
+            st["trunk"] += 1
+            continue
+        live = confirm_live(truth, k, coord)
+        if live == "дерево":
+            st["tree"] += 1
+            continue
+        if live == "ствол":
+            st["trunk"] += 1
+            continue
+        still.append([d, k, coord])
+    st["open"] = len(still)
+    if len(still) != len(carried):
+        try:
+            STATE.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(still), encoding="utf-8")
+        except OSError:
+            pass
+    return st
 
 
 def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
@@ -1242,24 +1841,40 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
         else:
             targets.update(docs_naming(idx, rel))
 
-    findings, nd, nc, unc = check_docs(sorted(targets), idx, truth, entries, ws, mono)
+    claims = DocClaims(ws, mono)
+    findings, cnt = check_docs(sorted(targets), idx, truth, entries, ws, mono, claims=claims)
 
     # Исчезнувшее — отдельная ось: удаление и переименование не приходят ни одним
     # событием инструмента, поэтому ищутся сверкой СНИМКА дерева с нынешним.
     vanished, had_snap, ngone = vanished_since_snapshot(idx, truth, ws, mono)
-    vanished = [(d, k, c) for d, k, c in vanished
-                if not allowed(entries, k, c) and confirm_missing(truth, k, c)]
     known = {(d, k, c) for d, k, c in findings}
-    for f in vanished:
-        if f not in known:
-            findings.append(f)
-            nc += 1
+    for d, k, c in vanished:
+        if allowed(entries, k, c):
+            continue
+        # Та же половина обвинения, что и в `check_docs`: список «кто называет
+        # исчезнувший путь» берётся из ОБРАТНОГО ИНДЕКСА, то есть из кэша.
+        # Документ мог снять упоминание уже после сборки индекса.
+        if not claims.still_claims(d, k, c):
+            cnt["closed_claim"] += 1
+            continue
+        live = confirm_live(truth, k, c)
+        if live == "дерево":
+            cnt["closed_tree"] += 1
+            continue
+        if live == "ствол":
+            cnt["trunk_only"] += 1
+            continue
+        if (d, k, c) not in known:
+            findings.append((d, k, c))
+            cnt["coords"] += 1
 
-    stales = stale_allow(entries, idx["reverse"])
+    stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     _, refusals = truth.enabled()
     stats = bump_stats(bool(findings or stales))
     ms = int((time.time() - t0) * 1000)
-    census = census_line(idx, truth, nd or len({d for d, _, _ in findings}), nc, warm, ms, stats, 0, unc)
+    if not cnt["docs"]:
+        cnt["docs"] = len({d for d, _, _ in findings})
+    census = census_line(idx, truth, cnt, warm, ms, stats)
     census += (f" · за ход затронуто {len(touched)}, мимо Write/Edit {len(unaccounted)}"
                f", исчезло из дерева {ngone}"
                + ("" if had_baseline and had_snap else " (базовая линия установлена этим прогоном)"))
