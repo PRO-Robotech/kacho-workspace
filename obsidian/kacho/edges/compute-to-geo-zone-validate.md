@@ -7,7 +7,7 @@ caller_repo: kacho-compute
 callee_repo: kacho-geo
 sync_async: async
 protocol: grpc-cluster-internal
-status: in-progress
+status: active
 related_tickets:
   - "[[KAC/EPIC-geo-extraction]]"
 tags:
@@ -17,6 +17,12 @@ tags:
   - kacho-geo
   - geography
 ---
+
+> [!note] Landed (сверено 2026-08-05, дерево `96b2879a`): клиент в дереве — `services/compute/internal/clients/geo_client.go` (`GetZone` + `RegionOfZone`).
+> Статус `in-progress` снят. Связь «зона → её регион» берётся **резолвом у владельца**, а не
+> разбором имени: строковая деривация запрещена директивой владельца (она молча возвращает
+> пустую строку на ресурсе без зоны и превращает проверку когерентности в тождественно
+> истинную).
 
 > [!note] New edge (эпик #82)
 > До extract'а compute «владел» зонами и валидировал `Instance.zone_id` по собственной таблице

@@ -19,6 +19,12 @@ tags:
   - sso
 ---
 
+> [!warning] Предмет снят из продукта, а не «отложен» (сверено 2026-08-05)
+> `jackson` — **ноль** вхождений в монорепо, и сам домен SAML снят миграцией
+> `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql`. То есть это не
+> «планируется», а «было и удалено вместе со схемой». Записка ценна как история решения;
+> как план — вводит в заблуждение.
+
 # iam → jackson: SAML bridge
 
 **Caller**: `kacho-iam` (port 9094 SAML SP endpoints — [[../rpc/iam-saml-sp]]).

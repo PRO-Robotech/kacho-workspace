@@ -97,8 +97,9 @@ follow-up), worst-case revoke ≤ 10s.
 - **2026-05-24** (W1.4, [[../KAC/KAC-140]]): principal propagated через
   `auth.PropagateOutgoing` — iam Check теперь видит caller Principal, не
   `user:bootstrap`. Closes round-3 finding из [[../KAC/KAC-127]]. Bonus:
-  14 peer-call sites в `vpc_client.go` тоже обернуты (Subnet/SG/NIC/Address
-  lookups).
+  peer-вызовы к vpc тоже обёрнуты. Координата прежнего единого клиента здесь намеренно не
+  воспроизводится: сегодня это два файла — `internal/clients/{vpc_nic_client.go,vpc_subnet_client.go}`
+  ([[compute-to-vpc-nic-validate]]).
 - 2026-05-17 (E3, [[../KAC/KAC-108]]): edge initial, kacho-compute PR#23.
 
 ## See also

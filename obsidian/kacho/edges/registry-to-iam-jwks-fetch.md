@@ -8,7 +8,7 @@ caller_repo: kacho-registry
 callee_repo: kacho-iam
 sync_async: sync
 protocol: HTTPS GET (OIDC well-known JWKS)
-status: in-progress
+status: active
 related_tickets:
   - "[[KAC-registry-iam-jwks-unify]]"
 tags:
@@ -18,6 +18,14 @@ tags:
   - kacho-iam
   - security
 ---
+
+> [!note] Landed (сверено 2026-08-05, дерево `96b2879a`)
+> Статус был `in-progress`; в дереве ребро провязано и защищено стартом:
+> `KACHO_REGISTRY_IAM_JWKS_URL` **обязателен** для data-plane (иначе отказ в старте), а в
+> production-режиме обязан быть `https://`. Верификатор — `internal/clients/jwks/verifier.go`;
+> его пробы отдельно фиксируют, что **источник ключей — iam-зеркало, а издатель остаётся
+> Hydra** (две разные вещи, и смешение их было бы регрессом), плюс fail-closed при
+> недоступности.
 
 > [!note] Изменение — только распределение ключей верификации
 > data-plane скачивает JWKS **из iam**, а НЕ из Hydra напрямую. **Hydra остаётся issuer'ом и

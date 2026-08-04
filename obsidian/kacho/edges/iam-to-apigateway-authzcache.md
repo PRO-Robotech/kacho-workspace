@@ -8,7 +8,7 @@ caller_repo: kacho-iam
 callee_repo: kacho-api-gateway
 sync_async: async
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-223]]"
 tags:
@@ -18,6 +18,16 @@ tags:
   - cross-service
   - authz
 ---
+
+> [!warning] Две записки об ОДНОМ предмете — эта каноническая, соседняя историческая
+> `iam → api-gateway (инвалидация кэша решений)` описана здесь **и** в
+> [[iam-to-apigw-cache-invalidation]]. Расходиться они уже начали: соседняя перечисляет
+> четыре источника события, которых в контракте нет (сервисы срочного доступа и
+> временных прав), эта — нет. Канон держим здесь, потому что она описывает провязку, которая
+> в дереве есть: `services/iam/cmd/kacho-iam/subject_change_wiring.go`, и адрес шлюза
+> **обязателен** — без него сервис не стартует (не «выключено по умолчанию»).
+>
+> Статус `planned` снят: ребро живое (сверено 2026-08-05, дерево `96b2879a`).
 
 # iam → api-gateway: subject_change push (authz-cache invalidation)
 

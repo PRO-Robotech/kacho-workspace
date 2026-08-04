@@ -20,6 +20,11 @@ tags:
   - audit
 ---
 
+> [!warning] Предмета нет в дереве (сверено 2026-08-05)
+> `splunk` — **ноль** вхождений во всём монорепо, переменной включения тоже нет (её назвал
+> хук свежести как нерезолвящуюся координату). Очередь аудита пишется и не дренится никем
+> ([[iam-to-kafka-audit]]). Записка — намерение.
+
 # iam → siem-splunk: HEC forwarder
 
 **Caller**: kacho-iam SIEM forwarder (alternative to / paired with [[iam-to-siem-datadog]]).

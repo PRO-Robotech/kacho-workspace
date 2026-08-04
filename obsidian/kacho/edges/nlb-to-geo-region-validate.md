@@ -7,7 +7,7 @@ caller_repo: kacho-nlb
 callee_repo: kacho-geo
 sync_async: sync
 protocol: grpc-cluster-internal
-status: in-progress
+status: active
 related_tickets:
   - "[[KAC/EPIC-geo-extraction]]"
 tags:
@@ -18,12 +18,18 @@ tags:
   - region
 ---
 
+> [!note] Landed (сверено 2026-08-05, дерево `96b2879a`): клиент в дереве — `services/nlb/internal/clients/geo/{region_client.go,zone_client.go,zone_region_client.go}`.
+> Статус `in-progress` снят. Связь «зона → её регион» берётся **резолвом у владельца**, а не
+> разбором имени: строковая деривация запрещена директивой владельца (она молча возвращает
+> пустую строку на ресурсе без зоны и превращает проверку когерентности в тождественно
+> истинную).
+
 > [!note] Replaces [[nlb-to-compute-region-validation]] (эпик #82)
 > Geography вынесена в leaf-сервис `kacho-geo`; nlb валидирует `region_id` напрямую в geo.
 
 # nlb → geo: Region validation (#82)
 
-**Caller**: `kacho-nlb` (`internal/clients/geo/region_client.go` — заменяет `clients/compute/region_client.go`;
+**Caller**: `kacho-nlb` (`internal/clients/geo/region_client.go`; заменил снятый клиент региона в каталоге compute —
 LoadBalancer.Create + TargetGroup.Create handlers).
 **Callee**: `kacho-geo` (`geo.v1.RegionService.Get`).
 **Protocol**: gRPC cluster-internal (direct dial, mTLS).
@@ -37,7 +43,7 @@ LoadBalancer.Create + TargetGroup.Create handlers).
 ## Cache
 
 **Нет кэша** — stateless pass-through через `retry.OnUnavailable` (вводить кэш — вне scope extract'а #82).
-Прежний 60s TTL+LRU удалён вместе с `compute/region_client.go`.
+Прежний кэш с коротким сроком годности удалён вместе с тем клиентом (координата снятого файла здесь намеренно не воспроизводится: в обратных кавычках она читается как утверждение о дереве).
 
 ## Error handling
 

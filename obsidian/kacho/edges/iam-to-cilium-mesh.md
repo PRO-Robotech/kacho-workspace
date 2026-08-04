@@ -19,6 +19,13 @@ tags:
   - mtls
 ---
 
+> [!warning] Предмета нет: ни mesh, ни его стороны в iam (сверено 2026-08-05)
+> `cilium` встречается в дереве продукта в **5** файлах, и ни один не относится к mTLS-mesh.
+> Транспортная аутентификация между сервисами сегодня делается **клиентскими
+> сертификатами** на самих gRPC-рёбрах (внутренний УЦ, SPIFFE-имена в SAN), а не сеткой.
+> Смежное: [[vpc-operator-to-cilium-realization]] — там cilium предполагается как дата-плейн,
+> и его тоже нет.
+
 # iam ↔ cilium-mesh: mTLS via SPIFFE
 
 **Provider**: Cilium Service Mesh (with WireGuard / IPSec / mTLS-via-SPIFFE).

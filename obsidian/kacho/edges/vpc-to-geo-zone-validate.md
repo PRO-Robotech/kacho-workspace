@@ -7,7 +7,7 @@ caller_repo: kacho-vpc
 callee_repo: kacho-geo
 sync_async: async
 protocol: grpc-cluster-internal
-status: in-progress
+status: active
 related_tickets:
   - "[[KAC/EPIC-geo-extraction]]"
 tags:
@@ -18,12 +18,18 @@ tags:
   - geography
 ---
 
+> [!note] Landed (сверено 2026-08-05, дерево `96b2879a`): клиент в дереве — `services/vpc/internal/clients/{geo_client.go,geo_region_client.go}`.
+> Статус `in-progress` снят. Связь «зона → её регион» берётся **резолвом у владельца**, а не
+> разбором имени: строковая деривация запрещена директивой владельца (она молча возвращает
+> пустую строку на ресурсе без зоны и превращает проверку когерентности в тождественно
+> истинную).
+
 > [!note] Replaces [[vpc-to-compute-zone-validate]] (эпик #82)
 > Geography вынесена в leaf-сервис `kacho-geo`; vpc валидирует `zone_id` напрямую в geo.
 
 # vpc → geo: zone_id validation (#82)
 
-**Caller**: `kacho-vpc` (`internal/clients/geo_client.go` — заменяет `GetZone`/`ListZones` из `compute_client.go`).
+**Caller**: `kacho-vpc` (`internal/clients/geo_client.go`; плюс `geo_region_client.go` — резолв региона зоны. Заменил чтение зон из снятого клиента compute).
 **Callee**: `kacho-geo` (`geo.v1.ZoneService.Get`).
 **Protocol**: gRPC cluster-internal (direct dial, mTLS).
 **Sync/Async**: async (внутри Operation worker'а Subnet.Create) / sync precheck для AddressPool.

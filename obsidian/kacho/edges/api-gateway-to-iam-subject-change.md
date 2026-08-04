@@ -8,7 +8,7 @@ caller_repo: kacho-api-gateway
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-WS23]]"
 tags:
@@ -25,7 +25,7 @@ tags:
 **Callee**: `kacho-iam` `InternalIAMService.PollSubjectChanges` ([[../rpc/iam-internal-iam-service]]) — `kacho-iam:9091` (internal-only).
 **Protocol**: gRPC, cluster-internal. Reuses the existing `iamInternal` backend conn — **no DB access on the gateway**.
 **Sync/Async**: sync; background ticker (`KACHO_API_GATEWAY_SUBJECT_CHANGE_POLL_INTERVAL`, default 2s).
-**Status**: WS-2.3 ([[KAC-WS23]]) — PRs open.
+**Status**: живое (сверено 2026-08-05): `gateway/internal/watcher/subject_change_watcher.go` + `gateway/internal/clients/subject_change_client.go`, а на стороне iam — `PollSubjectChanges` в `InternalIAMService` с провязанным обработчиком.
 
 ## Зачем
 

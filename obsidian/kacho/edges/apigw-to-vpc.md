@@ -31,8 +31,11 @@ tags:
 | `RouteTableService` | `RegisterRouteTableServiceHandlerFromEndpoint` | `/vpc/v1/routeTables` |
 | `SecurityGroupService` | `RegisterSecurityGroupServiceHandlerFromEndpoint` | `/vpc/v1/securityGroups` |
 | `GatewayService` | `RegisterGatewayServiceHandlerFromEndpoint` | `/vpc/v1/gateways` |
-| `PrivateEndpointService` | `pepb.RegisterPrivateEndpointServiceHandlerFromEndpoint` | `/vpc/v1/endpoints` |
 | `NetworkInterfaceService` | `RegisterNetworkInterfaceServiceHandlerFromEndpoint` | `/vpc/v1/networkInterfaces` |
+
+> [!note] Снята строка `PrivateEndpointService` → `/vpc/v1/endpoints` (сверено 2026-08-05)
+> Ресурса нет во всём монорепо (`git grep -il private_endpoint` → 0): ни proto, ни типа в
+> модели прав, ни маршрута. Строка в таблице регистраций читается как «этот маршрут работает».
 
 (Backend addr `vpcAddr` = `vpc.kacho.svc.cluster.local:9090` — см. `mux.go` `addrs[]`.)
 
@@ -45,7 +48,11 @@ tags:
 
 (`InternalCloudService` + `/vpc/v1/clouds/{id}/poolSelector` удалены в [[../KAC/KAC-266]].)
 
-Director (`internal/proxy/director.go`) роутит requests на internal-port (`vpcInternalAddr`) или public-port (`vpcAddr`) в зависимости от пути.
+Выбор порта (внутренний `vpcInternalAddr` против публичного `vpcAddr`) делает шлюз при
+регистрации маршрутов; отдельного файла-директора в дереве нет — прежняя координата
+`internal/proxy/director.go` не резолвится (маршрутизация живёт в
+`gateway/internal/restmux/{mux.go,internal_routes.go}` и `gateway/internal/proxy/shimproxy.go`;
+отказ внешнему origin'у — в `gateway/internal/proxy/route_refusal.go`).
 
 ## Identity forwarding (production auth contract)
 

@@ -65,8 +65,13 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
   default-on `KACHO_COMPUTE_FGA_REGISTER_DRAINER_ENABLED`), channel/table
   `compute_fga_register_outbox`. Applier — `internal/clients/iam_register_applier.go`
   (`RegisterResource`/`UnregisterResource`). CAS-claim/advisory-lock → exactly-once across replicas.
-- **Error-маппинг**: `InvalidArgument` → poison (no retry); прочее (Unavailable/mTLS-mismatch)
-  → transient retry с backoff. IAM down → intent durable, Operation не падает (tuple не теряется).
+- **Error-маппинг (сверено 2026-08-05)**: `InvalidArgument` **и** `PermissionDenied` → poison
+  (повтор идентичного запроса не может пройти — решение зависит от (вызывающий, отношение,
+  объект); держать отказ по правам временным значило бы заклинить голову партиции на всё окно
+  повторов). Прочее (Unavailable / дедлайн / mTLS-mismatch / транспорт) → transient retry с
+  backoff. IAM down → intent durable, Operation не падает (tuple не теряется). Отравленные
+  строки переигрывает периодический `RedrivePoisoned` (`cmd/compute/backstop.go`) — иначе
+  отравление означало бы объект, навсегда невидимый в authz-фильтрованном списке.
 - **mTLS**: per-edge `cfg.IAMRegisterMTLS` (`grpcclient.TLSClient`). Server-listener creds —
   `PUBLIC_SERVER_MTLS`/`INTERNAL_SERVER_MTLS` (`grpcsrv.TLSServer`).
   > [!warning] По этому ребру передаются ЗАПИСИ О ПРАВАХ — mTLS здесь не опция
@@ -78,38 +83,45 @@ mTLS client-cert SAN `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-compute` →
   > SAN'ов законных отправителей на принимающей стороне: пустой список означает «не сужаем»,
   > а не «запрещаем» (`security.md` §AuthN+AuthZ ВЕЗДЕ п.1 и п.5). Тот же инвариант —
   > [[nlb-to-iam-fga-register]], [[storage-to-iam-fgaproxy]], [[vpc-to-iam-fgaproxy]].
-- **Удалено**: `internal/clients/openfga_write_client.go`, `internal/fgawrite/` (прямой HTTP-write FGA).
+- **Удалено**: клиент прямой записи в FGA и пакет-эмиттер кортежей создателя (имена снятых
+  файлов здесь намеренно не воспроизводятся в кавычках — так они читались бы как координаты
+  в дереве). Проверяется тем же способом, что и всё остальное: у compute не должно быть
+  импорта FGA-клиента, и это держит проба `internal/clients/no_direct_fga_test.go`.
 
-## owner-tuple op-gating (P4) — Create-op ждёт read-after-register confirm
+## Барьера на видимость НЕТ — механизм снят целиком
 
-owner-tuple-opgate (`docs/specs/sub-phase-owner-tuple-opgate-acceptance.md`, APPROVED): Instance/Disk
-`Create`-Operation достигает `done=true,result=response` **только после** read-after-register confirm
-owner-tuple в FGA (нет окна 403 «no direct relations granted» на немедленной мутации создателем).
+> [!warning] Здесь стоял раздел про confirm-gate — в дереве его нет (перепись 2026-08-05)
+> Прежняя редакция описывала как действующее: `Create`-операция достигает успеха **только
+> после** подтверждающего чтения владельческого кортежа, с отдельным дедлайном
+> подтверждения и ссылкой на приёмку. Перепись по монорепо `96b2879a`: ни `RunWithConfirm`,
+> ни `OwnerConfirmer`, ни `WithConfirmationDeadline`, ни переменная дедлайна, ни интеграционная проба гейта — **ноль
+> вхождений** (предикат: `git grep` по каждому из пяти имён; сами имена здесь не
+> воспроизводятся в кавычках, чтобы разбор не стал новой ложной координатой). Снят по system-design-review как нарушение ban #9:
+> `Operation.done` — durability предмета мутации, а не видимость downstream-эффекта; на
+> fail-closed барьер рождает фантом (строка закоммичена, имя занято, операция — ошибка).
 
-- **Confirm** — reuse существующего `InternalIAMService.Check` (тот же authz-conn, [[compute-to-iam-check]]);
-  **нового ребра нет** (OTG-08). `check(subject=creator, relation=v_update, object=compute_<kind>:<id>)`:
-  owner-tuple `project #project @compute_<kind>:<id>` — единый parent-pointer, каскадящий всю verb-связку,
-  поэтому confirm `v_update` подтверждает эффективность и для Delete. Порт `ports.OwnerConfirmer`,
-  impl — `internal/check/IAMCheckClient`, wiring — `cmd/compute` (только когда authzConn сконфигурирован).
-- **Sync-registrar (NEW, compute его раньше НЕ имел)** — `internal/clients/iam_sync_registrar.go`
-  (`ports.OwnerRegistrar`): post-commit синхронно регистрирует тот же owner-tuple через `RegisterResource`
-  (тот же fga-proxy edge/creds, что drainer), чтобы confirm-gate happy-path'а резолвился немедленно, не
-  ожидая poll'а register-drainer'а. Best-effort: ошибка → WARN, durable outbox-intent + drainer — backstop.
-- **Gate-механизм** — corelib P1 `pkg/operations.RunWithConfirm` + `WithConfirmationDeadline`
-  (env `KACHO_COMPUTE_OWNER_CONFIRM_DEADLINE`, default 30s ≪ opTimeout 4m). Timeout → `op.error(codes.Unavailable,
-  "owner-tuple registration not confirmed")` (fail-closed, FIX-1; НЕ DeadlineExceeded). resource-ref в
-  `Create<R>Metadata` durable на ВСЕХ терминалах вкл. error (FIX-3, orphan-guard). `Update`/`Delete`
-  существующего — НЕ gated (нового owner-tuple не создают, OTG-16). **Supersede SEC-D-11**: timeout-ветка
-  теперь `op.error`, durability ресурса/intent сохранена (drainer добивает at-least-once).
+**Синхронный регистратор остался и работает** (`internal/clients/iam_sync_registrar.go`) —
+но как **ускоритель**, а не как условие успеха: он сокращает окно, в котором создатель ещё
+не видит свой ресурс, а его ошибка даёт WARN и никогда не проваливает Operation. Остаточный
+лаг закрывается ограниченным клиентским повтором, а не серверным подтверждением. Что делает
+приёмная сторона с этими двумя доставками — [[iam-register-resource-callee-contract]].
 
 ## History
 
 - **SEC-D** ([[../KAC/SEC-D-services-fga-via-iam-mtls]]): caller-сторона реализована — прямой FGA
   удалён, transactional-outbox + register-drainer + opt-in mTLS. Закрыт dual-write баг N5.
-- **owner-tuple-opgate P4** (compute Instance/Disk): Create-op gated на read-after-register confirm
-  (reuse `Check`, sync-registrar добавлен) — окно 403 «no direct relations» на немедленной мутации закрыто.
-  Тесты: `internal/service/owner_opgate_integration_test.go` (OTG-03/-04/-05/-05b/-16, testcontainers),
-  `internal/clients/iam_sync_registrar_test.go`.
+- **owner-tuple-opgate (заведён, затем снят целиком)**: Create какое-то время гейтился на
+  подтверждающем чтении владельческого кортежа; снят по system-design-review (ban #9).
+  Из той работы в дереве остался **синхронный регистратор** — уже без роли барьера.
+- **раскол блочного хранения доведён**: у compute больше нет собственных Disk/Image/Snapshot
+  (миграция `0021_drop_block_storage_duplicates.sql`, связующая таблица снята `0013`).
+  Поэтому набор регистрируемых объектов этого ребра сегодня — **`compute_instance`**
+  (предикат: литералы FGA-типов в `internal/fgaintent/`, `internal/check/permission_map.go`,
+  `internal/authzfilter/actions.go` — `compute_instance` и только он). Абзацы ниже,
+  называющие Disk/Image/Snapshot, описывают состояние ДО раскола.
+- **2026-08-05** — записка приведена к дереву `96b2879a`: снят раздел про confirm-gate,
+  дополнена классификация отказов (отказ по правам терминален), добавлена ссылка на
+  контракт приёмной стороны.
 - **T3.1 / #113** ([[../KAC/sub-phase-T3.1-cross-service-label-revoke]], PR kacho-compute#62):
   Update-on-labels emit достроен на Disk/Image/Snapshot (раньше — только Instance) → ARM_LABELS
   revoke на снятие/смену метки. G-3 upsert-not-unregister. Create-эмит compute уже нёс labels
@@ -117,6 +129,8 @@ owner-tuple в FGA (нет окна 403 «no direct relations granted» на н�
 
 ## See also
 
+[[iam-register-resource-callee-contract]] (приёмная сторона: зеркало, гашение повторной
+доставки, пост-коммитный форвард, счётчик)
 [[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[compute-to-iam-check]] [[vpc-to-iam-fgaproxy]] [[iam-to-openfga-grant-write]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
 
 > [!note] iam применяет тот же owner-tuple-co-commit к СВОИМ ресурсам (sub-phase 1.4 S2)

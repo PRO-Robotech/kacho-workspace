@@ -24,12 +24,12 @@ tags:
 > [!warning] Superseded by [[nlb-to-geo-region-validate]] (эпик #82)
 > Geography вынесена из `kacho-compute` в leaf-сервис `kacho-geo`. region-валидация теперь
 > `nlb → geo` (`geo.v1.RegionService.Get`). Ложное ребро `nlb→compute (region)` удалено;
-> `clients/compute/region_client.go` заменён на `clients/geo/region_client.go`. Ребро
+> клиент региона в каталоге compute заменён на `internal/clients/geo/region_client.go`. Ребро
 > `nlb → compute` остаётся **только** для Instance-таргетов (см. [[nlb-to-compute-instance-resolve]]).
 
 # nlb → compute: Region validation — SUPERSEDED
 
-**Caller**: `kacho-nlb` (`internal/clients/compute/region_client.go` — *удалён*; LoadBalancer.Create + TargetGroup.Create handlers)
+**Caller**: `kacho-nlb` — клиент региона в каталоге compute, удалён (LoadBalancer.Create + TargetGroup.Create handlers)
 **Callee**: `kacho-compute.RegionService.Get` (Geography domain — KAC-15)
 **Protocol**: gRPC cluster-internal
 **Sync/Async**: **sync** на request-path (soft precheck до `ops.Insert`)
@@ -42,7 +42,7 @@ tags:
 
 ## Cache
 
-TTL+LRU 60s (regions редко меняются), реализован в `regions_cache.go` (pattern из kacho-vpc/clients/compute_client.go).
+TTL+LRU с коротким сроком годности (регионы меняются редко) — в отдельном файле кэша рядом с клиентом; удалён вместе с ним.
 
 ## Error handling
 

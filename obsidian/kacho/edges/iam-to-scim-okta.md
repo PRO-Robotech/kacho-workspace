@@ -19,6 +19,12 @@ tags:
   - sso
 ---
 
+> [!warning] Домен SCIM снят из продукта (сверено 2026-08-05)
+> Входящая синхронизация пользователей снята миграцией
+> `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql`; остальные вхождения
+> `scim` в дереве — сама эта миграция, её соседи и гейт удалений. Записка — история решения,
+> не план и не описание. То же у [[iam-to-scim-google]] и [[iam-to-scim-azure]].
+
 # okta → iam: inbound SCIM 2.0
 
 **Caller**: Okta SCIM 2.0 Test App / Provisioning Service.

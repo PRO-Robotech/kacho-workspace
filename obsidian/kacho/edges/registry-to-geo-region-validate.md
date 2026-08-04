@@ -7,7 +7,7 @@ caller_repo: kacho-registry
 callee_repo: kacho-geo
 sync_async: sync
 protocol: grpc-cluster-internal
-status: in-progress
+status: active
 related_tickets:
   - "[[KAC/redesign-2026]]"
 tags:
@@ -17,6 +17,9 @@ tags:
   - kacho-geo
   - geography
 ---
+
+> [!note] Landed (сверено 2026-08-05): клиент — `services/registry/internal/clients/geo/region_client.go`,
+> провязан в `cmd/kacho-registry/serve.go`. Статус `in-progress` снят.
 
 > [!note] New edge (REG-1 F4, redesign-2026)
 > Registry-редизайн сделал реестр **region-pinned**: `regionId` — required на Create, `placementType`
