@@ -19,6 +19,7 @@ tags:
   - operation
   - lro
   - async
+verified_against: "карта маршрутизации операций края сверена 2026-08-05 (gateway/internal/opsproxy)"
 ---
 
 # Operation (LRO envelope)

@@ -10,12 +10,14 @@ backend_port: 9090
 visibility: public
 domain: nlb
 related_resource: "[[resources/nlb-load-balancer]]"
-methods_count: 12
-async_methods: 8
+methods_count: 8
+async_methods: 5
+status: stable
 tags:
   - rpc
   - kacho-nlb
   - loadbalancer
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # NetworkLoadBalancerService (nlb)
@@ -24,7 +26,11 @@ tags:
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 
-## Methods (12)
+## Methods — таблица ниже описывает СНЯТУЮ поверхность (12 строк вместо восьми)
+
+> Четыре строки — `Start`, `Stop`, `AttachTargetGroup`, `DetachTargetGroup` — контракту
+> ствола не соответствуют; разбор и замена — в §«Сверка со стволом» ниже. Таблица
+> оставлена как история решения, а не как перечень доступных вызовов.
 
 | Method | Request | Response | Sync/Async | Note |
 |---|---|---|---|---|
@@ -100,11 +106,18 @@ Get вне гранта → 404 via per-RPC Check). Toggle `authz.list-filter.en
   решения в iam — миграция `0059_nlb_operator_drop_start_stop.sql`, снимающая
   соответствующие права.
 
-Заодно `NetworkLoadBalancer` зарезервировал `listeners` (слушатель стал самостоятельным
-ресурсом), пер-зональные поля 15/18 как несовместимые с anycast, и `network_id`,
-`security_group_ids`, `address_v4`, `address_v6`, `ip_families` (сеть выводится, группы
-безопасности живут на таргетах, VIP описывается `VipSource`). Записка, называющая любое
-из них полем балансировщика, пережила свой предмет.
+Заодно `NetworkLoadBalancer` зарезервировал по **имени** `listeners` (слушатель стал
+самостоятельным ресурсом), `allow_zonal_shift`, `disable_zone_statuses`, `network_id`,
+`attached_target_groups`, `address_v4`, `address_v6`, `ip_families`, а пер-зональные слоты
+15/18 — как несовместимые с anycast. Сеть выводится, VIP описывается `VipSource`.
+
+> [!important] Два поля вернулись под НОВЫМИ номерами — не считать их снятыми
+> `cross_zone_enabled` жив полем **42**, `security_group_ids` — полем **43**
+> (возврат закреплён миграцией `0020_load_balancer_security_group_ids_revival.sql`).
+> Их прежние слоты в диапазоне 19–23 зарезервированы, но **имена** этих двух в списке
+> `reserved "…"` не значатся — именно потому, что они переиспользуются. Вывод «имя
+> упомянуто в комментарии про снятое ⇒ поля нет» здесь неверен: смотреть надо на
+> действующие объявления, а не на прозу рядом с ними.
 
 `List` объявлен `<exempt>` в каталоге прав: край не делает per-RPC project-scope Check,
 отбор идёт на уровне данных по идентификаторам страницы.

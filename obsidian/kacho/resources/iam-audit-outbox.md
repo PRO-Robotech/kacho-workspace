@@ -15,6 +15,7 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # audit_outbox (iam)

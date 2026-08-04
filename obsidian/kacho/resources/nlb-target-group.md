@@ -28,6 +28,13 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 > девять RPC, включая `AddTargets` / `RemoveTargets` (мутация состава — отдельными
 > глаголами, не через `Update`) и `Move`.
 >
+> **Исправлено в строке `region_id`**: там стояло «cross-service ref → compute.Region».
+> Разница здесь существенна, поэтому точная формулировка: **сообщения** `Region` в
+> контракте compute нет ни в одной ревизии — то есть межсервисной ссылки «на
+> compute.Region» не существовало никогда, читать её было нечем. А вот **таблицы**
+> `regions`/`zones` у compute были: заведены `0003_geography_owner.sql`, дропнуты
+> `0011_drop_geography.sql`. Владелец — geo, см. [[geo-region]].
+>
 > Порт таргет-группы заведён миграцией `0015_target_group_port.sql`. Регион для
 > instance-таргетов резолвится у geo (`ZoneService.Get` → регион зоны), а для nic/ip-таргетов
 > берётся из авторитетного `Subnet.RegionID` в ответе vpc — **никогда** не выводится
@@ -46,7 +53,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 |---|---|---|---|
 | `id` | TEXT PK | `ids.IsValid("tgr")` | |
 | `project_id` | TEXT NOT NULL | cross-service ref → iam.Project | **immutable** |
-| `region_id` | TEXT NOT NULL | cross-service ref → compute.Region | **immutable** |
+| `region_id` | TEXT NOT NULL | cross-service ref → **geo**.Region (`geo.v1.RegionService.Get`, ребро `nlb → geo`) | **immutable** |
 | `name`, `description`, `labels` | TEXT/JSONB | DNS-1123, ≤256, ≤64 labels | partial UNIQUE per project |
 | `health_check` | JSONB | embedded, см. ниже | mutable (oneof-replace дисциплина) |
 | `port` | INT | `1..65535` (CHECK), required | **LIVE-mutable** (NLB-1c); echoed by `Listener.resolved_backend_port°` |

@@ -21,6 +21,7 @@ tags:
   - kacho-iam
   - iam
   - cross-service
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # ResourceMirror (kacho_iam.resource_mirror)

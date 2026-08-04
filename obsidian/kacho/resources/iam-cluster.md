@@ -24,7 +24,18 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сверка со стволом (2026-08-05): два входящих FK ниже больше не существуют
+> - **`cluster_break_glass_grants.cluster_id → clusters(id)`** — таблица дропнута
+>   `0006_drop_scim_saml_break_glass.sql` (см. [[iam-cluster-break-glass-grant]]).
+> - **`organizations.cluster_id → clusters(id)`** — таблица дропнута
+>   `0008_drop_organizations.sql` (см. [[iam-organization]]).
+>
+> Живой вход остаётся один — `cluster_admin_grants` ([[iam-cluster-admin-grant]]).
+> Сам `kacho_iam.clusters` жив, как и `message Cluster` и `InternalClusterService`
+> (`Get` / `GrantAdmin` / `RevokeAdmin` / `ListAdmins` на :9091).
 
 # Cluster
 

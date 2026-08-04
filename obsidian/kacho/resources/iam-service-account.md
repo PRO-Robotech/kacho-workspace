@@ -24,6 +24,7 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # ServiceAccount

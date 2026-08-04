@@ -23,7 +23,24 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сверка со стволом (2026-08-05): три ссылки ниже пережили свой предмет
+> - **`organization_id`** (колонка и её FK на `organizations`) — **дропнута** миграцией
+>   `0008_drop_organizations.sql` вместе с индексом `accounts_organization_idx`, самой
+>   таблицей `organizations` и многоскоуповым CHECK, который на неё смотрел. Уровня
+>   «организация» в иерархии нет: аккаунт — верхний уровень тенантности,
+>   см. [[iam-organization]].
+> - **`caep_subscribers.account_id → accounts(id)`** — таблицы нет: весь конвейер
+>   (`caep_subscribers`, `caep_outbox`, `caep_event_delivery`) дропнут
+>   `0007_drop_caep_pipeline.sql`.
+> - Той же миграцией 0008 снята и колонка `audit_outbox.tenant_organization_id` — она,
+>   по формулировке самой миграции, **всегда была NULL**.
+>
+> Остальное описание аккаунта сверено и соответствует дереву: таблица
+> `kacho_iam.accounts` жива, аккаунт — структурный источник прав своего владельца
+> (`security.md` §«Три уровня супер-доступа»).
 
 # Account
 

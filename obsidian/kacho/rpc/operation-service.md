@@ -14,6 +14,7 @@ tags:
   - rpc
   - operation
   - lro
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # OperationService

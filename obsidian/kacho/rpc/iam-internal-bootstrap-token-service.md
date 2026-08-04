@@ -3,6 +3,7 @@ tags: [rpc, iam, internal, authn, done]
 service: kacho-iam
 listener: ":9091 (cluster-internal, mTLS)"
 status: implemented
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalBootstrapTokenService (implemented — #58)
