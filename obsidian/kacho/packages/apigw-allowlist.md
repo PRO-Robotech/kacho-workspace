@@ -9,20 +9,31 @@ tags:
   - security
 ---
 
-# kacho-api-gateway/internal/allowlist
+# gateway/internal/allowlist — что вообще выставлено наружу
 
-**Path**: `kacho-api-gateway/internal/allowlist/`
+**Каталог**: `gateway/internal/allowlist/`
+**Прежде** (полирепо): `kacho-api-gateway/internal/allowlist`.
 
-Allowlist для public TLS endpoint — какие RPC'ы могут попадать на edge. Защита от случайного засвечивания `Internal*` методов наружу (CLAUDE.md «Запреты» #6).
+Перечень методов, допущенных на внешний слушатель. Защита от случайной публикации
+внутренних поверхностей (core §Non-negotiables, п. 6).
 
-## Files
+## Экспортируемое API (снято с дерева)
 
-- `list.go` — allowed proto-method strings (например `/kacho.cloud.vpc.v1.NetworkService/Create`); deny-by-default.
-- `list_test.go`.
+```go
+var AllowedMethods map[string]struct{}          // deny-by-default
+func IsAllowed(methodPath string) bool
+func HasInternalSuffix(methodPath string) bool
+```
 
-## Pattern
+Файл один — `list.go`; вокруг него **шесть** отдельных проб (соответствие перечню
+доменов, именованные поверхности, паритет, а также по одной на geo, registry и
+storage). Такое соотношение объёмов само по себе сообщение: содержание списка
+проверяется многими независимыми предикатами, потому что молчаливое добавление
+строки сюда — и есть способ вынести наружу лишнее.
 
-При получении requests на TLS-listener — director проверяет method-string vs allowlist. Если нет — `Unimplemented` (или 404 на REST).
+Запрос на внешнем слушателе сверяется с перечнем; несовпадение — отказ (для REST
+это отсутствие маршрута). Отдельно и сильнее: внутренний метод, попавший на внешний
+слушатель, **отвергается явно** перехватчиком в [[apigw-proxy]].
 
 **Deny-by-default — несущее свойство, а не деталь.** Список решает, что попадает наружу; пустой список здесь означает «наружу не выставлено ничего», то есть отказ. Это ровно **обратная** семантика пустоты по сравнению с allow-list доверенных форвардеров в [[corelib-grpcsrv]], где пустой список значит «не сужаем» и потому доверяет всем. Два разных списка, два противоположных смысла пустоты — не переносить рассуждение с одного на другой.
 

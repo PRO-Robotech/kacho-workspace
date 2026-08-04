@@ -2,43 +2,82 @@
 title: apigw-restmux
 category: package
 repo: kacho-api-gateway
+path: gateway/internal/restmux
 layer: handler
+status: stable
 tags:
   - packages
   - kacho-apigw
   - restmux
 ---
 
-# kacho-api-gateway/internal/restmux
+# gateway/internal/restmux — транскодирование REST → gRPC
 
-**Path**: `kacho-api-gateway/internal/restmux/`
+**Каталог**: `gateway/internal/restmux/`
+**Прежде** (полирепо): `kacho-api-gateway/internal/restmux`.
 
-REST → gRPC mux (grpc-gateway). Регистрирует HandlerFromEndpoint для каждого сервиса.
+## Точка входа
 
-## Files
+```go
+func NewMux(ctx context.Context,
+            addrs map[string]string,
+            conns map[string]*grpc.ClientConn,
+            dialOpts map[string]grpc.DialOption) (http.Handler, error)
+```
 
-- `mux.go` — `Build(ctx, addrs map[string]string) (*runtime.ServeMux, error)` — единственная точка регистрации всех `RegisterXxxServiceHandlerFromEndpoint`.
-- `mux_test.go` — smoke routes.
+Прежняя редакция называла функцию `Build` с одним параметром адресов — такой
+сигнатуры нет. Соединения и параметры набора приходят из композиционного корня:
+учётные данные **на каждое ребро** обязательны, потому что при требовании
+проверенного клиентского сертификата у домена единый незащищённый набор оборвался бы
+на рукопожатии и наружу это выглядело бы как недоступность.
 
-## Registered services (см. подробно)
+## ДВА мультиплексора, а не один: публичный и внутренний
 
-- VPC public: см. [[../edges/apigw-to-vpc]].
-- VPC internal: `InternalAddressPoolService`, `InternalNetworkService` (только при `vpcInternalAddr != ""`; `InternalCloudService` удалён в [[../KAC/KAC-266]]).
-- RM: см. [[../edges/apigw-to-rm]].
-- OrganizationManager.
-- Compute public + Internal (если `computeInternalAddr != ""`): см. [[../edges/apigw-to-compute]].
-- OperationService — **локальный** handler (`RegisterOperationServiceHandlerServer`) через [[apigw-opsproxy]] (без dial — proxy сам решает per-domain).
+Ключевое устройство узла, о котором прежняя редакция не знала: строятся **два**
+мультиплексора, и внутренние маршруты живут только во втором. Таблица внутренних
+маршрутов **выводится из дескрипторов контрактов**, а не выписывается руками.
 
-## Path routing для internal
+**Пустая таблица — отказ в старте.** Если дескрипторы не слинкованы, таблица пуста,
+и административные поверхности молча уехали бы на публичный мультиплексор. Край
+отказывается обслуживать вместо того, чтобы работать без изоляции. Это образцовая
+форма: гейт проверяет **свою предпосылку**, а не полагается на то, что она
+выполняется.
 
-Implemented в [[apigw-proxy]] `director.go`:
-1. `/vpc/v1/addressPools[/...|:...]` → internal.
-2. `/vpc/v1/networks/{id}/addressPoolBinding` → internal.
+## Форма ответа и разбор тела
 
-(`/vpc/v1/addresses/{id}/addressPoolOverride` + `/vpc/v1/clouds/{id}/poolSelector` удалены в [[../KAC/KAC-266]].)
+- Маршаллеры публичного и внутреннего мультиплексоров отличаются **только** тем,
+  выводятся ли незаполненные поля.
+- В разборе тела два разных «неизвестных», и у библиотеки на них один флаг: **ключ**
+  отбрасывается, **значение перечисления** отвергается — второе отделено собственным
+  проходом. Это осознанное различие, а не недосмотр.
 
-## See also
+## Отображение кода ошибки в статус HTTP — библиотечное, своего обработчика НЕТ
 
-[[apigw-proxy]] [[apigw-opsproxy]] [[../edges/apigw-internal-vs-tls]] [[../edges/apigw-to-vpc]] [[../edges/apigw-to-compute]] [[../edges/apigw-to-rm]]
+Мультиплексоры собираются **без** собственного обработчика ошибок, поэтому статус
+выбирает библиотека транскодирования, детерминированно и независимо от домена. Самое
+частое заблуждение: `FAILED_PRECONDITION` — это **400**, а не 412; 412 краем не
+производится **ни для одного** кода, поэтому у кейса, ожидающего 412, нет
+производителя (полная таблица — `api-conventions.md` §gRPC-код → HTTP-статус).
+
+Если край когда-нибудь заведёт свой обработчик, таблица обязана переехать за ним в
+том же коммите — иначе останутся два места об одном предмете, из которых верно одно.
+
+## Личность идёт от края, а не от клиента
+
+Заголовки личности собираются здесь из **проверенного** токена, а всё, что прислал
+клиент под теми же именами, вырезается. Поэтому у края измерение «круг отправителей
+сужен» ложно by construction: он личность не пересылает, а чеканит
+([[corelib-observability]]).
+
+## Соседняя таблица: путь REST → полное имя метода
+
+Средний слой держит **сгенерённую** таблицу соответствия маршрута и метода
+(`middleware/rest_route_table_gen.go`, источник — аннотации HTTP в контрактах). Без
+неё запрос REST не находит запись в каталоге прав, и каждый аутентифицированный
+вызов отвергается. Регенерировать после **любой** правки правил HTTP.
+
+## См. также
+
+[[apigw-proxy]] [[apigw-opsproxy]] [[apigw-middleware]] [[api-gateway-middleware-authz]]
 
 #packages #kacho-apigw #restmux

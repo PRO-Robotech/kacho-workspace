@@ -2,7 +2,9 @@
 title: apigw-proxy
 category: package
 repo: kacho-api-gateway
+path: gateway/internal/proxy
 layer: handler
+status: stable
 tags:
   - packages
   - kacho-apigw
@@ -10,27 +12,55 @@ tags:
   - grpc
 ---
 
-# kacho-api-gateway/internal/proxy
+# gateway/internal/proxy — сквозной gRPC-прокси края
 
-**Path**: `kacho-api-gateway/internal/proxy/`
+**Каталог**: `gateway/internal/proxy/`
+**Прежде** (полирепо): `kacho-api-gateway/internal/proxy`.
 
-Generic gRPC reverse-proxy для бинарных gRPC-клиентов (помимо grpc-gateway REST из [[apigw-restmux]]).
+Прозрачная передача gRPC для бинарных клиентов — в дополнение к транскодированию
+REST ([[apigw-restmux]]).
 
-## Files
+## Экспортируемое API (снято с дерева)
 
-| File | Содержание |
-|---|---|
-| `server.go` | proxy gRPC server — принимает client connections, передаёт upstream через director |
-| `director.go` | per-RPC routing logic — выбирает backend (vpc/compute/rm/internal) по proto-method или path |
-| `director_test.go` | |
+```go
+type Backends map[string]*grpc.ClientConn
+type MethodResolver = func(fullMethod string) (string, grpc.ClientConnInterface, bool)
 
-## Routing logic
+func RoutableDomain(fullMethod string) (string, bool)
+func Resolver(backends Backends) MethodResolver
+func NewServer(resolve MethodResolver, opts ...grpc.ServerOption) *grpc.Server
+func Handler(resolve MethodResolver) grpc.StreamHandler
 
-Director смотрит на RPC method-string (`/kacho.cloud.vpc.v1.NetworkService/Create`) → выбирает upstream (vpc public 9090).
-Для internal RPC'ов (`/kacho.cloud.vpc.v1.InternalAddressPoolService/*`) — vpcInternal addr — но **только если** заявка пришла на cluster-internal listener (не на TLS edge); см. [[../edges/apigw-internal-vs-tls]].
+func IsInternalRoute(fullMethod string) bool
+func UnaryRefuseInternalRoute() grpc.UnaryServerInterceptor
+func StreamRefuseInternalRoute() grpc.StreamServerInterceptor
+```
 
-## See also
+Файлы — `server.go`, `shimproxy.go`, `route_refusal.go`. Файла-«директора», вокруг
+которого была построена прежняя редакция, в дереве нет вовсе (мёртвое имя здесь
+намеренно не цитируется координатой); маршрутизацию делает резолвер метода.
 
-[[apigw-restmux]] [[apigw-cmd]] [[../edges/apigw-internal-vs-tls]]
+## Внутреннее не публикуется — ОТКАЗОМ, а не отсутствием регистрации
+
+Ключевая часть узла — `route_refusal.go`: внутренний метод, пришедший на **внешний**
+слушатель, **отвергается явно** отдельным перехватчиком (unary и stream). Это
+сильнее, чем «не зарегистрировали»: отсутствие регистрации — свойство сборки, которое
+следующий контрибьютор нечаянно меняет обычным добавлением, а явный отказ виден и
+проверяем.
+
+Тот же смысл на стороне транскодирования REST: там есть свои проверки внутренних
+маршрутов и отдельные пробы на форму отказа и на изоляцию внешнего слушателя.
+
+## Класс методов остаётся закрытым
+
+Резолвер определяет домен по строке метода. Незамапленный метод — **отказ**, а не
+догадка; и решение «этот метод внутренний» не выводится из имени эвристикой, а
+задаётся перечнем. Эвристика по имени однажды уже давала пропуск любому новому
+методу, попавшему под шаблон, — и в диффе это выглядело обычной фичей
+(см. [[corelib-authz]]).
+
+## См. также
+
+[[apigw-restmux]] [[apigw-cmd]] [[apigw-opsproxy]] [[apigw-allowlist]]
 
 #packages #kacho-apigw #proxy #grpc

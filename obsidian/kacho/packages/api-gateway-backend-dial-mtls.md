@@ -16,24 +16,29 @@ tags:
 
 # api-gateway backend-dial mTLS (per-edge)
 
-**Where**: `cmd/api-gateway/mtls_config.go` + `internal/config/config.go` (SEC-E).
-**Layer**: composition-root (cmd) + config. Transport creds only — orthogonal to
-JWT/principal/Check (epic invariant I2: client-cert = модуль, principal = пользователь).
+**Где**: `gateway/cmd/api-gateway/mtls_config.go` + `gateway/internal/config/config.go`.
+**Слой**: композиционный корень плюс конфигурация. Только транспортные учётные
+данные — они **ортогональны** личности вызывающего: сертификат отвечает «какой это
+модуль», личность — «за кого он говорит». Одно не заменяет другого.
 
-## Per-edge model
+## Модель: одна личность модуля, включение и имя сервера — по ребру
 
-Один shared «api-gateway» client-cert/key/CA для всех рёбер (одна модульная
-identity, OQ-SEC-E-3). Независимый **enable** + **server-name** per edge даёт
-rollback per-edge (SEC-E-09).
+Общая для всех рёбер пара «сертификат и ключ края» плюс общий корень доверия; на
+каждом ребре — **своё** включение и **своё** ожидаемое имя сервера, что даёт
+независимый откат по ребру.
 
-| Edge | backend keys | env enable | server-name override |
-|---|---|---|---|
-| vpc | `vpc`, `vpcInternal` | `KACHO_API_GATEWAY_MTLS_VPC_ENABLE` | `..._VPC_SERVER_NAME` |
-| compute | `compute`, `computeInternal` | `..._COMPUTE_ENABLE` | `..._COMPUTE_SERVER_NAME` |
-| iam | `iam`, `iamInternal`, iam-subject(:9091), iam-authorize | `..._IAM_ENABLE` | `..._IAM_SERVER_NAME` |
-| nlb | `loadbalancer`, `loadbalancerInternal` | `..._NLB_ENABLE` | `..._NLB_SERVER_NAME` |
+**Семь рёбер** (по `backendEdge` на ревизии `96b2879a`): vpc · compute · iam · nlb ·
+**geo** · **registry** · **storage**. Каждое накрывает пару ключей — публичный и
+внутренний адрес домена. Прежняя редакция знала четыре: geo, registry и storage
+появились позже и в таблицу не попали, то есть три ребра выглядели незащищаемыми.
 
-Shared material: `KACHO_API_GATEWAY_MTLS_CLIENT_CERT_FILE` / `_KEY_FILE` / `_CA_FILE`.
+Имена переменных строятся единообразно: включение mTLS и переопределение имени
+сервера **на домен**, плюс общие сертификат, ключ и корень (полный перечень групп —
+[[apigw-config]]; сами имена там намеренно не выписаны, они менялись).
+
+Ключ, не попавший ни в одно ребро (например петля к самому себе для операций),
+получает пустое имя ребра, и сборка учётных данных его **отвергает** — то есть
+будущий дрейф карты падает громко, а не тихо уезжает в незащищённый набор.
 
 ## Exported / key funcs
 
@@ -56,10 +61,18 @@ Shared material: `KACHO_API_GATEWAY_MTLS_CLIENT_CERT_FILE` / `_KEY_FILE` / `_CA_
 - opsLoopback (`operation` domain) — никогда не mTLS.
 - creds-слой ⊥ principal-metadata: `x-kacho-principal-*` пробрасывается director'ом поверх mTLS.
 
-## Imports
+## Импортирует
 
-- `github.com/PRO-Robotech/kacho-corelib/grpcclient` — `TLSClient` + `TLSClientCreds` (SEC-B).
-- `internal/config` (EdgeTLSClient), `internal/proxy` (Backends).
+- [[corelib-grpcclient]] — `TLSClient` + `TLSClientCreds` (единственный законный
+  способ собрать учётные данные для межсервисного gRPC; прямая сборка мимо него
+  ловится стражем);
+- `gateway/internal/config` (сборка значения по ребру), `gateway/internal/proxy`
+  (карта соединений).
+
+> [!note] `enable=false` — фикстурный режим, а не эксплуатационный
+> Нулевое значение даёт незашифрованное ребро. На развёрнутом стенде посадка всегда
+> production (core §16), и boot-guard обязан отказать в старте на insecure-конфигурации.
+> Именно этот путь маскирует всё, что здесь защищается.
 
 ## See also
 

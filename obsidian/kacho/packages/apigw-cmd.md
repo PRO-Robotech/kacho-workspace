@@ -2,7 +2,9 @@
 title: apigw-cmd
 category: package
 repo: kacho-api-gateway
+path: gateway/cmd/api-gateway
 layer: cmd
+status: stable
 tags:
   - packages
   - kacho-apigw
@@ -10,26 +12,59 @@ tags:
   - composition-root
 ---
 
-# kacho-api-gateway/cmd/api-gateway
+# gateway/cmd/api-gateway — композиционный корень края
 
-**Path**: `kacho-api-gateway/cmd/api-gateway/main.go`
+**Каталог**: `gateway/cmd/api-gateway/`
+**Прежде** (полирепо): `kacho-api-gateway/cmd/api-gateway`.
 
-Composition root для api-gateway binary.
+Прежняя редакция называла один файл `main.go`. В дереве **одиннадцать** файлов, и их
+имена сами описывают, из чего собран край:
 
-## Responsibilities
+| Файл | Что собирает |
+|---|---|
+| `main.go` | сборка целиком, порядок запуска |
+| `mtls_config.go` | клиентские учётные данные к каждому домену |
+| `internal_grpc_listener.go` · `internal_grpc_security.go` | внутренний слушатель и его сужение по именам сертификатов |
+| `external_grpc_services.go` | что вообще выставлено наружу |
+| `cmux_firstbyte.go` | разделение протоколов на одном порту по первому байту |
+| `authz_validation.go` · `revocation_validation.go` · `stepup_validation.go` | **boot-guard'ы**: отказ в старте при несогласованной посадке |
+| `admin_hop_client.go` | административный переход к эмитенту |
+| `bootposture.go` | самоотчёт процесса о принятой посадке |
 
-1. [[corelib-config]] `Load` → [[apigw-config]].
-2. Init slogger (без OTEL в gw обычно, или минимально).
-3. Build addr-map (`addrs["rm"]`, `addrs["vpc"]`, `addrs["vpcInternal"]`, `addrs["compute"]`, `addrs["computeInternal"]`).
-4. Build [[apigw-restmux]] (grpc-gateway REST mux, регистрация HandlerFromEndpoint).
-5. Build [[apigw-proxy]] (gRPC pass-through proxy для бинарных клиентов).
-6. Build [[apigw-opsproxy]] (per-domain operation routing).
-7. Wrap middleware-chain ([[apigw-middleware]]).
-8. Start 2 listeners: TLS edge (public) + cluster-internal listener.
-9. [[corelib-shutdown]] graceful.
+## Три отдельных boot-guard'а — и это не избыточность
 
-## See also
+Каждый отвечает за свою ручку: авторизация, окно отзыва, повышение уровня. Разделены
+потому, что **отказ обязан называть конкретную ручку и причину** — оператор читает
+текст падения и по нему поднимает стенд. Общий guard «что-то не так с
+безопасностью» этой задачи не решает.
 
-[[apigw-config]] [[apigw-restmux]] [[apigw-proxy]] [[../edges/apigw-internal-vs-tls]]
+Отказ в старте — то самое место, которое **выведено из-под** запрета на подробности
+в публичных артефактах: текст обязан называть предмет прямо (`security.md`
+§Проверяемый признак, три исключения).
+
+## Самоотчёт о посадке — обязательная часть корня
+
+`bootposture.go` пишет единственную строку, которую читает гейт посадки: режим
+аутентификации, шифрование к БД, mTLS на обоих слушателях, наличие проверки прав,
+суженность круга отправителей. Заполняется **после** boot-guard'ов и **до** старта
+слушателей — то есть отражает исход, а не намерение ([[corelib-observability]]).
+
+У края поле «круг отправителей сужен» ложно **по построению**: он личность не
+передаёт, а чеканит из проверенного токена и вырезает клиентские заголовки. Свой
+круг имён сертификатов у него при этом есть — но это другое измерение, и гейт обязан
+различать эти два случая.
+
+## Порядок сборки
+
+конфигурация → логгер → соединения к доменам (с mTLS по каждому ребру) →
+транскодирование REST ([[apigw-restmux]]) → сквозной gRPC ([[apigw-proxy]]) →
+маршрутизация операций ([[apigw-opsproxy]]) → цепочка middleware
+([[apigw-middleware]]) → boot-guard'ы → самоотчёт → слушатели (внешний TLS,
+внутренние REST и gRPC).
+
+## См. также
+
+[[apigw-config]] [[apigw-restmux]] [[apigw-proxy]] [[api-gateway-backend-dial-mtls]]
+[[corelib-observability]]
 
 #packages #kacho-apigw #cmd #composition-root
