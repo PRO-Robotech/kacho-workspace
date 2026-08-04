@@ -13,7 +13,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/api/listener
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/listener/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/listener/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/listener/`)
 **Implements**: [[../rpc/nlb-listener-service|ListenerService]]
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]], [[nlb-clients-vpc]], [[nlb-internal-fgawrite]]
 

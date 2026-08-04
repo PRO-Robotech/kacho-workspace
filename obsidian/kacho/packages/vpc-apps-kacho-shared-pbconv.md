@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/shared/pbconv
 
-**Path**: `kacho-vpc/internal/apps/kacho/shared/pbconv/`
+**Каталог**: `services/vpc/internal/apps/kacho/shared/pbconv/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/shared/pbconv/`)
 
 Shared proto-conversion хелперы для transport-слоя (создан KAC-261 при дедупе).
 

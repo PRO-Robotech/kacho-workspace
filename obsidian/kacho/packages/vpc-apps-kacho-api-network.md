@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/network
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/network/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/network/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/network/`)
 **Implements**: [[../rpc/vpc-network-service|NetworkService]]
 **Imports**: [[vpc-domain]], [[vpc-repo-kacho]], [[corelib-operations]], [[corelib-outbox]], [[vpc-clients]] (project existence check)
 

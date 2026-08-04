@@ -15,7 +15,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/jobs
 
-**Path**: `kacho-nlb/internal/apps/kacho/jobs/`
+**Каталог**: `services/nlb/internal/apps/kacho/jobs/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/jobs/`)
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]]
 
 Background workers — periodic jobs running в отдельных goroutines от main API loop.

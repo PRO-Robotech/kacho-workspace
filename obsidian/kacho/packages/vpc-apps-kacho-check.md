@@ -88,10 +88,10 @@ trusted-principal extract.
 
 - `github.com/PRO-Robotech/kacho-corelib/authz` — port `CheckClient`,
   `Interceptor`, `RPCMap`, `Cache`, `StaticExtractor`.
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/iam/v1` —
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1` —
   `InternalIAMServiceClient`, `CheckRequest`.
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/vpc/v1` (+ `privatelink`) — request stubs для extractor'ов.
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/operation` — `OperationService` request stubs.
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/vpc/v1` (+ `privatelink`) — request stubs для extractor'ов.
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/operation` — `OperationService` request stubs.
 
 ## See also
 

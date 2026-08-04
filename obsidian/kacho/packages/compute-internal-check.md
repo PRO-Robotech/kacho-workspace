@@ -103,9 +103,9 @@ Internal-листенер собирается **той же** цепочкой,
 ## Imports
 
 - `github.com/PRO-Robotech/kacho-corelib/authz`
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/iam/v1` (InternalIAMServiceClient).
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/compute/v1` (request stubs).
-- `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/operation`.
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1` (InternalIAMServiceClient).
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/compute/v1` (request stubs).
+- `github.com/PRO-Robotech/github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/operation`.
 
 ## See also
 

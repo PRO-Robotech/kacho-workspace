@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/services/networkinternal
 
-**Path**: `kacho-vpc/internal/apps/kacho/services/networkinternal/`
+**Каталог**: `services/vpc/internal/apps/kacho/services/networkinternal/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/services/networkinternal/`)
 **Implements**: [[../rpc/vpc-internal-network-service|InternalNetworkService]] (SetDefaultSecurityGroupId).
 
 Internal admin для Network — admin/admin-UI only. Сейчас тонкий — один RPC. Прежние data-plane-id-related RPC'ы (kube-ovn-эпоха) удалены в KAC-36/79/80 (см. миграция 0023).

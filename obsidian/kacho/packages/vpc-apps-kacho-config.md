@@ -11,31 +11,41 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/config
 
-**Path**: `kacho-vpc/internal/apps/kacho/config/`
-**Imports**: [[corelib-config]]
+**Каталог**: `services/vpc/internal/apps/kacho/config/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/config/`)
+**Импортирует**: [[corelib-config]] (в частности `LoadPrefixed` — ради независимых
+переменных **на каждое ребро**), [[corelib-grpcsrv]] / [[corelib-grpcclient]]
+(структуры TLS).
 
-VPC-specific config struct + defaults + validation.
+Конфигурация сервиса, умолчания, режим и **boot-guard**.
 
-## Files
+## Эталонный элемент: режим и отказ в старте
 
-| File | Содержание |
-|---|---|
-| `config.go` | top-level struct `Config{ PG, GRPC, Operations, IPAM, ... }` с env-тегами |
-| `defaults.go` | sensible defaults (timeouts, pool sizes) |
-| `load.go` | `Load() (*Config, error)` — обёртка над [[corelib-config]] `Load` |
-| `validate.go` | post-load validation (DSN reachable, port conflicts) |
-| `mode.go` | runtime-mode enum (dev / prod / migrator) |
-| `config_test.go` | |
+Этот пакет — образец, на который ссылается норма: он несёт разделение режимов
+(разработка / production / строгий production) и валидацию посадки, которая в
+production-режиме **отказывает в старте** при незашифрованном соединении к БД,
+выключенном mTLS на любом живом ребре, отсутствующем перехватчике проверки прав
+или включённой ручке обхода.
 
-## Env вars (selected)
+Ключевое требование, выведенное из реального дефекта: **объявленный, но никем не
+читаемый режим — это мёртвый гейт**. Сервис поднимается в небезопасной посадке,
+называя себя production, и отделывается одним предупреждением. Отличать надо не
+«поле есть» от «поля нет», а «значение меняет исход старта» от «не меняет».
 
-- `KACHO_VPC_PG_DSN`
-- `KACHO_VPC_GRPC_PUBLIC_ADDR` (default `:9090`)
-- `KACHO_VPC_GRPC_INTERNAL_ADDR` (default `:9091`)
-- `KACHO_VPC_DEFAULT_SG_INLINE` (true) — inline default-SG в Network.Create
-- `KACHO_VPC_OPERATIONS_WORKER_COUNT` (default N)
-- `KACHO_VPC_RM_ADDR` — peer rm endpoint
-- `KACHO_VPC_COMPUTE_ADDR` — peer compute endpoint (KAC-15)
+## Переменные — по группам, не поимённо
+
+Прежняя редакция перечисляла семь имён, включая адрес снятого домена и адрес ребра к
+машинам за зоной (ребро удалено — зону резолвит geo). Действующие группы: соединение
+с БД, адреса двух слушателей, воркер операций, адреса и mTLS **по каждому ребру**
+(проверка прав, проект, регистрация, ось размещения) и mTLS обоих серверных
+слушателей.
+
+Имена ребёрных переменных **выводятся из имени поля** через префиксную загрузку —
+поэтому два экземпляра одной и той же структуры TLS под разными полями получают
+независимые переменные, и ребро именует сервис, а не общая структура фундамента.
+
+> [!note] Незашифрованное ребро — фикстурный режим
+> Нулевое значение флага включения даёт незащищённое соединение. На развёрнутом
+> стенде это запрещено (core §16); допустимо только в пробах внутри процесса.
 
 ## See also
 

@@ -13,7 +13,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/api/loadbalancer
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/loadbalancer/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/loadbalancer/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/loadbalancer/`)
 **Implements**: [[../rpc/nlb-network-load-balancer-service|NetworkLoadBalancerService]]
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]], [[nlb-clients-iam]], [[nlb-clients-compute]], [[nlb-internal-fgawrite]]
 

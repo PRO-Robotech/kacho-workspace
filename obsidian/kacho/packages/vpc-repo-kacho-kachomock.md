@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/repo/kacho/kachomock
 
-**Path**: `kacho-vpc/internal/repo/kacho/kachomock/`
+**Каталог**: `services/vpc/internal/repo/kacho/kachomock/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/repo/kacho/kachomock/`)
 **Imported by**: service-layer unit-тесты (`internal/apps/kacho/api/<resource>/usecase_test.go`)
 
 Mock-реализации port-интерфейсов из [[vpc-repo-kacho]] — для unit-тестов service-layer без БД (skill `evgeniy` rule).

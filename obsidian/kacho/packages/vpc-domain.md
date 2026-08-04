@@ -11,40 +11,50 @@ tags:
 
 # kacho-vpc/internal/domain
 
-**Path**: `kacho-vpc/internal/domain/`
-**Imports**: stdlib + `kacho-corelib/ids`/`validate` + `kacho-proto` (только для константных enum mapping)
-**Imported by**: всё в `kacho-vpc/internal/{service,repo,apps,clients}` (entities — единые)
+**Каталог**: `services/vpc/internal/domain/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/domain/`)
+**Импортирует**: стандартную библиотеку + [[corelib-ids]] / [[corelib-validate]] +
+сгенерённые стабы (только ради константного отображения перечислений).
+**Импортируют**: все слои сервиса — сущности единые.
 
-Чистые domain-entities + newtype'ы + конструкторы + `Equal`-методы. Self-validating: конструктор отвергает invalid state (skill `evgeniy` rule).
+Чистые сущности домена, собственные типы-обёртки, конструкторы и методы сравнения.
+Самовалидирующиеся: конструктор отвергает недопустимое состояние (правило скила
+`evgeniy`).
 
-## Files
+## Экспортируемые типы (снято с дерева, `96b2879a`)
 
-| File | Содержание |
-|---|---|
-| `types.go` | newtypes: `RcNameVPC`, `RcDescription`, `RcLabels`, `RcID(prefix)`, `CIDR`, `MacAddress`, … |
-| `types_test.go` | unit-тесты конструкторов newtype'ов |
-| `constants.go` | enum/string constants (статусы, kind'ы) |
-| `network.go` | `Network` struct + `NewNetwork` ctor + `(*Network).Equal` |
-| `subnet.go` | `Subnet` + ctor + Equal |
-| `address.go` | `Address` + ctor + Equal |
-| `route_table.go` | `RouteTable` |
-| `security_group.go` | `SecurityGroup` + Equal |
-| `security_group_builders.go` | rule-builders |
-| `security_group_builders_test.go` | |
-| `gateway.go` | `Gateway` |
-| `private_endpoint.go` | `PrivateEndpoint` |
-| `network_interface.go` | `NetworkInterface` |
-| `address_pool.go` | `AddressPool` |
-| ~~`cloud_pool_selector.go`~~ | `CloudPoolSelector` — удалён в [[../KAC/KAC-266]] (InternalCloudService removed) |
-| `geography.go` | helpers (после KAC-15 — read-only mirror types) |
-| `persistence.go` | shared persistence-side types (created_at truncate, jsonb wrappers) |
-| `equal_test.go` | unit-тесты `.Equal` для всех entity |
+**Ресурсы**: `Network` · `Subnet` · `Address` · `RouteTable` · `SecurityGroup` ·
+`SecurityGroupRule` · `Gateway` · `NetworkInterface` · `AddressPool` · `StaticRoute` ·
+`DhcpOptions`.
+**Обёртки и перечисления**: `RcNameVPC` · `RcDescription` · `RcLabels` (`LabelKey`,
+`LabelVal`) · `AddressType` · `IpVersion` · `AddressPoolKind` ·
+`NetworkInterfaceStatus` · `GatewayType` · `SecurityGroupRuleDirection` ·
+**`SubnetPlacementType`**.
+**Спецификации адреса**: `InternalIpv4Spec` · `InternalIpv6Spec` ·
+`ExternalIpv4Spec` · `ExternalIpv6Spec` · `AddressRequirements` ·
+`AddressReference` · `AllocateResult`.
+**Зеркала соседей** (только чтение): `Region` · `Zone`.
+**Ошибки**: `ValidationError` · `FieldViolation`.
 
-## Rules (skill `evgeniy`)
+Прежняя редакция называла таблицей файлов сущность приватной точки подключения,
+селектор пула уровня облака, тип `MacAddress` и конструктор сети — ни одного из этих
+имён в дереве нет. Перечень выше — по типам, а не по файлам: файлы переименовываются,
+типы переживают.
 
-- Newtypes вместо bare-string — `RcNameVPC` не принимает `validate.NameVPC` invalid.
-- `New<Entity>(...)` — единственный путь создания; нет `&Entity{}` снаружи pkg.
-- `.Equal(other)` для diff'ов / OCC checks.
+## `SubnetPlacementType` — якорь размещения всего домена
+
+Подсеть несёт дискриминатор «зональная либо региональная», взаимоисключающе, и это
+закреплено проверкой на уровне БД. Сетевой интерфейс и адрес зоны **не несут** —
+наследуют через подсеть; у региональной (эникаст) подсети зоны нет, поэтому её
+адреса регион-областные и из зональной проверки исключены by construction
+(`data-integrity.md` §Placement-coherence).
+
+## Правила слоя
+
+- Обёртка вместо голой строки: имя ресурса не принимает недопустимое значение.
+- Конструктор — единственный путь создания; собирать структуру снаружи пакета нельзя.
+- Сравнение — для расчёта разницы и проверок при конкурентной записи.
+- Слой **не** импортирует ни драйвер БД, ни транспорт: это то, что делает его
+  проверяемым без стенда.
 
 ## See also
 

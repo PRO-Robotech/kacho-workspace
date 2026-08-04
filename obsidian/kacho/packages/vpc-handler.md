@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/handler
 
-**Path**: `kacho-vpc/internal/handler/`
+**Каталог**: `services/vpc/internal/handler/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/handler/`)
 
 Internal admin handlers (внутренний listener 9091) + общие gRPC-side компоненты (interceptors, error mapping, operation-handler).
 

@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/cmd/migrator
 
-**Path**: `kacho-vpc/cmd/migrator/main.go`
+**Каталог**: `services/vpc/cmd/migrator/main.go` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/cmd/migrator/main.go`)
 
 Standalone binary для применения SQL миграций (goose-формат) — отдельный entrypoint от основного `vpc` (skill `evgeniy` правило «separate cmd для миграций»).
 

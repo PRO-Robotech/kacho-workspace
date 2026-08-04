@@ -14,7 +14,7 @@ tags:
 
 # kacho-nlb/tests/newman
 
-**Path**: `kacho-nlb/tests/newman/`
+**Каталог**: `services/nlb/tests/newman/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/tests/newman/`)
 **Tooling**: Python `cases/*.py` → `gen.py` → newman collection JSON → `newman run` against api-gateway.
 **Pattern**: Adopted from kacho-vpc/tests/newman (declarative case-py → collection generator).
 

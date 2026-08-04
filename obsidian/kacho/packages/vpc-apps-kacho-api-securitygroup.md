@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/securitygroup
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/securitygroup/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/securitygroup/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/securitygroup/`)
 **Implements**: [[../rpc/vpc-securitygroup-service|SecurityGroupService]]
 
 ## Files

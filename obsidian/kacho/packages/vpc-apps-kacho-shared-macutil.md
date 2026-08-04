@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/shared/macutil
 
-**Path**: `kacho-vpc/internal/apps/kacho/shared/macutil/`
+**Каталог**: `services/vpc/internal/apps/kacho/shared/macutil/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/shared/macutil/`)
 
 MAC-address utilities — генерация / валидация / canonical-form.
 

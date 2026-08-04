@@ -15,7 +15,7 @@ tags:
 
 # kacho-nlb/tests/k6
 
-**Path**: `kacho-nlb/tests/k6/`
+**Каталог**: `services/nlb/tests/k6/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/tests/k6/`)
 **Tooling**: k6 (HTTP/gRPC scripts) + ghz (gRPC-specific). Run against deployed kacho-nlb (real Postgres + peer-services).
 
 ## Files

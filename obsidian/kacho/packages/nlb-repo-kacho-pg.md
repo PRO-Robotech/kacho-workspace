@@ -15,7 +15,7 @@ tags:
 
 # kacho-nlb/internal/repo/kacho/pg
 
-**Path**: `kacho-nlb/internal/repo/kacho/pg/`
+**Каталог**: `services/nlb/internal/repo/kacho/pg/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/repo/kacho/pg/`)
 **Imports**: pgx/v5, [[nlb-domain]], [[nlb-dto]], [[corelib-db]]
 **Imported by**: [[nlb-apps-kacho-api-loadbalancer]], [[nlb-apps-kacho-api-listener]], [[nlb-apps-kacho-api-targetgroup]], [[nlb-apps-kacho-api-operation]], [[nlb-apps-kacho-api-internal-lifecycle]]
 

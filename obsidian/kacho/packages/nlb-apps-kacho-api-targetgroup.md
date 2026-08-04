@@ -13,7 +13,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/api/targetgroup
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/targetgroup/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/targetgroup/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/targetgroup/`)
 **Implements**: [[../rpc/nlb-target-group-service|TargetGroupService]]
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]], [[nlb-clients-vpc]], [[nlb-clients-compute]], [[nlb-internal-fgawrite]]
 

@@ -12,7 +12,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/api/operation
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/operation/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/operation/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/operation/`)
 **Implements**: `OperationService` (3 methods: `Get`, `List`, `Cancel`)
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]]
 

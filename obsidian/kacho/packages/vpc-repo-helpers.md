@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/repo/helpers
 
-**Path**: `kacho-vpc/internal/repo/helpers/`
+**Каталог**: `services/vpc/internal/repo/helpers/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/repo/helpers/`)
 **Imported by**: [[vpc-repo-kacho-pg]] (все pg-репозитории)
 
 Общие SQL helpers — переиспользуются между entity-repo'шками.

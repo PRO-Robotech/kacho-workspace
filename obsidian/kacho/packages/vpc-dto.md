@@ -11,7 +11,7 @@ tags:
 
 # kacho-vpc/internal/dto
 
-**Path**: `kacho-vpc/internal/dto/`
+**Каталог**: `services/vpc/internal/dto/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/dto/`)
 **Imported by**: handler-layer + service-layer как table-driven маппинги
 
 `Transferrable` table — мост между proto-stubs и [[vpc-domain]] entity. Skill `evgeniy` rule: «table-driven DTO, не ручные `assign field by field`».

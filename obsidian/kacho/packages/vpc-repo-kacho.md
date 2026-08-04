@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/repo/kacho
 
-**Path**: `kacho-vpc/internal/repo/kacho/`
+**Каталог**: `services/vpc/internal/repo/kacho/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/repo/kacho/`)
 **Imported by**: service-layer ([[vpc-apps-kacho-api-network]] и т.п.), [[vpc-cmd-vpc]] для wiring.
 
 CQRS-разделённые **port-интерфейсы** для всех VPC ресурсов. Skill `evgeniy`: «service зависит от Reader+Writer интерфейсов, не от concrete repo».

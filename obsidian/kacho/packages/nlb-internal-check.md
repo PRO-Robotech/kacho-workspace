@@ -72,9 +72,9 @@ LISTEN-invalidate `kacho_iam_subjects` через `ListenInvalidator.Run` (corel
 ## Imports
 
 - `kacho-corelib/authz` — `Interceptor`, `RPCMap`, `Cache`, `StaticExtractor`, `CheckClient`, `ErrNoPath`.
-- `kacho-proto/gen/go/kacho/cloud/iam/v1` — `InternalIAMServiceClient`, `CheckRequest`.
-- `kacho-proto/gen/go/kacho/cloud/loadbalancer/v1` — request stubs для extractor'ов.
-- `kacho-proto/gen/go/kacho/cloud/operation` — `OperationService` request stubs.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1` — `InternalIAMServiceClient`, `CheckRequest`.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/loadbalancer/v1` — request stubs для extractor'ов.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/operation` — `OperationService` request stubs.
 
 ## See also
 

@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/subnet
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/subnet/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/subnet/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/subnet/`)
 **Implements**: [[../rpc/vpc-subnet-service|SubnetService]]
 
 ## Files

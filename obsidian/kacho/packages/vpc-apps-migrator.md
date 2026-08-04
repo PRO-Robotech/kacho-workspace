@@ -11,7 +11,7 @@ tags:
 
 # kacho-vpc/internal/apps/migrator
 
-**Path**: `kacho-vpc/internal/apps/migrator/`
+**Каталог**: `services/vpc/internal/apps/migrator/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/migrator/`)
 **Imported by**: [[vpc-cmd-migrator]] (bin entrypoint)
 
 Migration runner — dialect-aware (Postgres + CockroachDB).

@@ -13,7 +13,7 @@ tags:
 
 # kacho-nlb/internal/apps/kacho/api/internal_lifecycle
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/internal_lifecycle/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/internal_lifecycle/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/internal_lifecycle/`)
 **Implements**: [[../rpc/nlb-internal-resource-lifecycle-service|InternalResourceLifecycleService]]
 **Imports**: [[nlb-repo-kacho-pg]] (outbox + watch_cursors), [[corelib-grpcsrv]]
 

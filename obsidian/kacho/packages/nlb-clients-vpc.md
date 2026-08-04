@@ -13,8 +13,8 @@ tags:
 
 # kacho-nlb/internal/clients/vpc
 
-**Path**: `kacho-nlb/internal/clients/vpc/`
-**Imports**: `kacho-proto/gen/go/kacho/cloud/vpc/v1`, [[corelib-retry]]
+**Каталог**: `services/nlb/internal/clients/vpc/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/clients/vpc/`)
+**Imports**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/vpc/v1`, [[corelib-retry]]
 **Imported by**: [[nlb-apps-kacho-api-loadbalancer]] (VIP acquire/release + subnet/SG peer-validate), [[nlb-apps-kacho-api-targetgroup]] (Subnet + NIC resolve), `jobs/free_ip_runner.go` (release-backstop)
 
 Typed peer-service gRPC client adapters для kacho-vpc.

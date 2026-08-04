@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/routetable
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/routetable/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/routetable/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/routetable/`)
 **Implements**: [[../rpc/vpc-routetable-service|RouteTableService]]
 
 ## Files

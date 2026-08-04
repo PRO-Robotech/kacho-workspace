@@ -13,8 +13,8 @@ tags:
 
 # kacho-nlb/internal/clients/iam
 
-**Path**: `kacho-nlb/internal/clients/iam/`
-**Imports**: `kacho-proto/gen/go/kacho/cloud/iam/v1`, [[corelib-retry]]
+**Каталог**: `services/nlb/internal/clients/iam/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/clients/iam/`)
+**Imports**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1`, [[corelib-retry]]
 **Imported by**: [[nlb-apps-kacho-api-loadbalancer]] (Project check), [[nlb-internal-check]] (Check client), [[nlb-internal-fgawrite]] (WriteCreatorTuple)
 
 Typed peer-service gRPC client adapters для kacho-iam.
@@ -43,7 +43,7 @@ Cache TTL 30s (projects редко создаются/удаляются), posit
 
 ## Imports
 
-- `kacho-proto/gen/go/kacho/cloud/iam/v1`
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1`
 - `kacho-corelib/retry`
 
 ## See also

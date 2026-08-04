@@ -11,7 +11,7 @@ tags:
 
 # kacho-vpc/internal/dto/toproto
 
-**Path**: `kacho-vpc/internal/dto/toproto/`
+**Каталог**: `services/vpc/internal/dto/toproto/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/dto/toproto/`)
 **Imported by**: handler-layer (build proto-ответы)
 
 Domain entity → proto-stub конвертеры. Отдельный sub-пакет, чтобы service-слой не зависел от proto (Clean Architecture — domain free of proto).
@@ -34,7 +34,7 @@ func Network(d *domain.Network) *pb.Network {
 ## Constraints
 
 - Public projection — БЕЗ инфра-полей (см. CLAUDE.md «Инфра-чувствительные данные»).
-- Timestamp всегда truncate-to-seconds (YC parity style).
+- Timestamp всегда truncate-to-seconds (контрактное требование конвенций).
 - Internal projection — отдельные функции (`InternalNetwork(...)`), вызываются только в internal-handler'ах.
 
 ## See also

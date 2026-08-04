@@ -11,7 +11,7 @@ tags:
 
 # kacho-nlb/internal/domain
 
-**Path**: `kacho-nlb/internal/domain/`
+**Каталог**: `services/nlb/internal/domain/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/domain/`)
 **Imports**: stdlib only (`net/netip`, `time`, `regexp`) + corelib `dict`/`option`/`ids`
 **Imported by**: [[nlb-apps-kacho-api-loadbalancer]], [[nlb-apps-kacho-api-listener]], [[nlb-apps-kacho-api-targetgroup]], [[nlb-repo-kacho-pg]], [[nlb-dto]]
 

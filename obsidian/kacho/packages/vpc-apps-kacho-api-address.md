@@ -14,7 +14,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/address
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/address/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/address/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/address/`)
 **Implements**: [[../rpc/vpc-address-service|AddressService]]
 
 ## Files

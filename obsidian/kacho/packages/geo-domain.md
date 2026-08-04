@@ -14,8 +14,8 @@ tags:
 
 # kacho-geo/internal/domain
 
-**Path**: `kacho-geo/internal/domain/`
-**Imports**: stdlib + `kacho-proto/gen/go/kacho/cloud/geo/v1` (clean-arch: domain без pgx/grpc).
+**Каталог**: `services/geo/internal/domain/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-geo/internal/domain/`)
+**Imports**: stdlib + `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/geo/v1` (clean-arch: domain без pgx/grpc).
 **Imported by**: use-case (`internal/apps`/`internal/service`), repo, handler.
 
 Self-validating domain-entities leaf-сервиса Geography (вынесен из `kacho-compute` эпиком #82).

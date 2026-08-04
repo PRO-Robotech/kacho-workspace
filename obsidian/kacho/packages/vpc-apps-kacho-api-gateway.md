@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/gateway
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/gateway/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/gateway/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/gateway/`)
 **Implements**: [[../rpc/vpc-gateway-service|GatewayService]]
 
 ## Files

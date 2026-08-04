@@ -12,7 +12,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/networkinterface
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/networkinterface/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/networkinterface/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/networkinterface/`)
 **Implements**: [[../rpc/vpc-networkinterface-service|NetworkInterfaceService]]
 
 ## Files

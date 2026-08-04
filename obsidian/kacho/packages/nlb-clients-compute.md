@@ -13,8 +13,8 @@ tags:
 
 # kacho-nlb/internal/clients/compute
 
-**Path**: `kacho-nlb/internal/clients/compute/`
-**Imports**: `kacho-proto/gen/go/kacho/cloud/compute/v1`, [[corelib-retry]]
+**Каталог**: `services/nlb/internal/clients/compute/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/clients/compute/`)
+**Imports**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/compute/v1`, [[corelib-retry]]
 **Imported by**: [[nlb-apps-kacho-api-targetgroup]] (Instance resolve)
 
 Typed peer-service gRPC client adapters для kacho-compute.
@@ -41,7 +41,7 @@ Port-interface в service-layer; adapter реализует через gRPC stub
 
 ## Imports
 
-- `kacho-proto/gen/go/kacho/cloud/compute/v1`
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/compute/v1`
 - `kacho-corelib/retry`
 
 ## See also

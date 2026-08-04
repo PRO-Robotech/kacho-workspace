@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/apps/kacho/api/addresspool
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/addresspool/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/addresspool/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/addresspool/`)
 **Implements**: [[../rpc/vpc-internal-address-pool-service|InternalAddressPoolService]]
 
 Admin-only — все RPC только на internal-listener (9091).

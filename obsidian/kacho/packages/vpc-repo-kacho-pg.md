@@ -13,7 +13,7 @@ tags:
 
 # kacho-vpc/internal/repo/kacho/pg
 
-**Path**: `kacho-vpc/internal/repo/kacho/pg/`
+**Каталог**: `services/vpc/internal/repo/kacho/pg/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/repo/kacho/pg/`)
 **Imports**: pgxpool, [[vpc-repo-helpers]], [[vpc-repo-kacho]] (entities + ports), [[vpc-domain]]
 **Imported by**: [[vpc-cmd-vpc]] (wiring), integration-тесты
 
