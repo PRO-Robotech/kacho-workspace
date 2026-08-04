@@ -1,15 +1,16 @@
 ---
-title: "nlb → iam: AuthorizeService.ListObjects"
+title: "nlb → iam: сужение страницы списка пакетной проверкой"
 aliases:
   - nlb listobjects
   - nlb fga listobjects
   - nlb list-filter
+  - nlb batchcheck
 category: edge
 caller_repo: kacho-nlb
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: done
+status: active
 related_tickets:
   - "[[rbac-rules-model-2026-subphase-D-nlb-consumer]]"
 tags:
@@ -20,69 +21,71 @@ tags:
   - fga
 ---
 
-# nlb → iam: AuthorizeService.ListObjects
+# nlb → iam: сужение страницы списка пакетной проверкой
 
-**Caller**: `kacho-nlb` List use-cases (NetworkLoadBalancer / Listener / TargetGroup — 3 public List* RPCs).
-**Callee**: `kacho-iam` AuthorizeService.ListObjects ([[../rpc/iam-authorize-service]]) — **public** listener (:9090), reuse `iamPublicConn` (тот же, которым nlb зовёт `ProjectService.Get`).
+> [!info] Имя файла — координата, а не описание
+> Файл называется `…-listobjects` ради стабильности ссылок; перечислением ребро
+> больше не пользуется. Та же оговорка — в [[vpc-to-iam-listobjects]].
+
+**Caller**: `kacho-nlb` — 6 списочных методов в 3 ресурсах: `loadbalancer.List`,
+`loadbalancer.ListOperations`, `listener.List`, `listener.ListOperations`,
+`targetgroup.List`, `targetgroup.ListOperations`. Cluster-scoped среди них нет —
+все шесть тенантские.
+**Callee**: `kacho-iam` `AuthorizeService.BatchCheck` ([[../rpc/iam-authorize-service]]),
+по тому же соединению, которым nlb зовёт `ProjectService.Get`.
 **Protocol**: gRPC, sync, request-path.
-**Status**: **DONE** (RBAC sub-phase D §11, GitHub workspace issue [#111](https://github.com/PRO-Robotech/kacho-workspace/issues/111) — D-consumer; ≠ YouTrack KAC-111 vpc-squash). Mirror of [[compute-to-iam-listobjects]] для nlb-домена.
+**Реализация**: `services/nlb/internal/authzfilter/`.
 
-## Object types + action (D-consumer)
+## Типы объектов
 
-Consumer передаёт `(subject, resource_type, action)` — iam-сервер сам резолвит action в FGA relation (`v_list`, каскадит из `viewer`/`scope_grant`, та же tuple-база, что per-RPC Check). Consumer НЕ передаёт relation напрямую.
+FGA-префикс типов — **`lb_`**, не `nlb_`: `lb_network_load_balancer`,
+`lb_listener`, `lb_target_group`. Совпадает с моделью прав.
 
-| Object type (`resource_type`) | action (`<domain>.<resource>.list`) |
-|---|---|
-| `lb_network_load_balancer` | `loadbalancer.networkLoadBalancers.list` |
-| `lb_listener` | `loadbalancer.listeners.list` |
-| `lb_target_group` | `loadbalancer.targetGroups.list` |
+## Механика
 
-> [!important] verb=`list` ⇒ read==enforce
-> action-verb — **`list`** (НЕ `read`): iam мапит на ту же relation-семантику, что per-RPC Check на `Get` (relation `viewer`/`v_list`, одна materialized tuple-база) ⇒ **read==enforce** паритет (D-45). FGA object-type префикс — `lb_` (НЕ `nlb_`), совпадает с `fga_model.fga` (KAC-178 §2).
+Страница читается курсором из своей БД, затем `BatchCheck` батчами ≤100 на
+предикат `viewer ∪ v_list` — тот же, которым гейтится `Get`, поэтому
+**read == enforce**: видимый набор равен Check-allow набору.
 
-## Flow per-request
-
-1. List use-case извлекает subject из ctx (`operations.PrincipalFromContext` → `domain.FGASubjectFromPrincipal` → `user:…`/`service_account:…`). **Неопознанный вызывающий отсекается безусловно** — см. предупреждение в §«Config / cache».
-2. `authzfilter.Resolve(ctx, filter, resourceType, action)` → `iam.AuthorizeService.ListObjects` (ctx обёрнут `auth.PropagateOutgoing` — иначе iam видит `system:bootstrap` и отбивает).
-3. Decision → `filter.AllowedIDs` → repo `WHERE id = ANY($allowed)` **ВНУТРИ SQL ДО LIMIT** → pagination плотная по отфильтрованному набору (D-46, LST-6).
-4. Empty grant → `[]` (no-leak, не ошибка). `wildcard_grant=true` (KAC-214) → bypass (все строки).
-
-## Failure modes
-
-- **iam down / ListObjects error** → `UNAVAILABLE` (fail-closed, D-47; `FailOpen=false` default, security.md). НЕ нефильтрованный список.
-- **Get вне гранта** → `NOT_FOUND` (no-leak, D-44) — обеспечивается **существующим** per-RPC Check ([[nlb-to-iam-check]], relation `viewer`, `no-path`→DecisionNoPath→404), НЕ этим ребром. List-фильтр и Get-Check используют одну tuple-базу ⇒ read==enforce.
-
-## Config / cache
-
-- Включатель `authz.list-filter.enabled` — по умолчанию **включён**. См. предупреждение ниже:
-  выключенное состояние — переходная форма и долг, а не рабочий режим.
-- In-proc decision-cache 5s TTL keyed `(subject, resourceType, action)`, bound 10000, MaxResults cap 10000.
-- mTLS — через `mtls.iam-project` (тот же conn, что ProjectService.Get).
-- CI-гейт `make audit-list-filter` (`tools/audit-list-filter.sh`) — каждый `<res>/list.go` обязан нести `authzfilter.Filter` + `authzfilter.Resolve(`.
+- **Пустой субъект отсекается безусловно** — не «когда фильтр подключён».
+- **Ошибка резолва** — `UNAVAILABLE` (fail-closed), не пустая и не полная страница.
+- **`Get` вне гранта** → `NOT_FOUND` (hide-existence), и это обеспечивает
+  per-RPC Check ([[nlb-to-iam-check]]), а не это ребро.
 
 > [!warning] У этого List фильтр — ЕДИНСТВЕННЫЙ носитель авторизации
-> Per-RPC Check остаётся на `Get` ([[nlb-to-iam-check]]), но за `List` его нет: отката,
-> который «подстрахует», не существует. Отсюда три следствия, и они не взаимозаменяемы:
-> (а) пустой субъект отсекается **безусловно**, а не «когда фильтр подключён»; (б) ошибка
-> резолва — **fail-closed** `UNAVAILABLE` (`FailOpen=false`), никогда не нефильтрованный
-> список и не молча пустой; (в) состояние «фильтр выключен» — **долг**: метод помечается
-> `ScopeFiltered`, и production boot-guard отказывается стартовать без рабочего фильтра
-> (эталон — [[../rpc/vpc-internal-network-interface-service]]). На развёрнутом стенде
-> посадка всегда production.
+> Per-RPC Check остаётся на `Get`, но за `List` его нет: отката, который
+> «подстрахует», не существует. Три следствия, и они не взаимозаменяемы:
+> (а) пустой субъект отсекается **безусловно**; (б) ошибка резолва — **fail-closed**
+> `UNAVAILABLE`, никогда не нефильтрованный список и не молча пустой; (в) состояние
+> «фильтр выключен» — **долг**: метод помечается `ScopeFiltered`, production
+> boot-guard отказывается стартовать без рабочего фильтра.
 >
-> Отдельно про шаг 4 потока: ветка «широкий грант ⇒ отдать все строки» обязана опираться на
-> отношение, которое **нельзя выполнить подстановочным субъектом**. Отношение уровня кластера,
-> выполнимое `user:*`, означает «аутентифицирован», а не «уполномочен», и в роли выключателя
-> фильтрации открыло бы список любому — `security.md` §«Отношение, выполнимое подстановочным
-> знаком, не сужает НИЧЕГО». Проверять надо не наличие ветки, а то, какие tuple её выполняют.
+> Отдельно: любая ветка «широкий грант ⇒ отдать все строки» обязана опираться на
+> отношение, которое **нельзя выполнить подстановочным субъектом**. Отношение
+> уровня кластера, выполнимое `user:*`, означает «аутентифицирован», а не
+> «уполномочен», и в роли выключателя фильтрации открыло бы список любому —
+> `security.md` §«Отношение, выполнимое подстановочным знаком, не сужает НИЧЕГО».
+> Проверять надо не наличие ветки, а то, какие tuple её выполняют.
+
+## History
+
+- **2026-08-02** — механизм переведён с перечисления на пакетную проверку
+  страницы; число списочных методов приведено к дереву `a373c599` (6, не 3 —
+  единица счёта сменилась вместе с предметом: судятся все списочные методы, а не
+  только названные ровно `List`).
+- Sub-phase D-consumer — первая посадка per-object фильтрации (перечислением).
 
 ## Notes
 
-- **НЕ новое cross-service ребро**: `nlb → iam` уже существует ([[nlb-to-iam-check]] / [[nlb-to-iam-fga-register]]); это расширение по тому же `iamPublicConn`. Цикла нет (iam не зовёт nlb обратно по этому пути; D-13 lifecycle — отдельный iam→nlb subscribe).
-- Package: `internal/authzfilter/` (Filter port + FGAFilter + BypassFilter + iam_authorize_client + actions + subject; зеркало `kacho-compute/internal/authzfilter`).
+- **НЕ новое cross-service ребро**: `nlb → iam` уже существует
+  ([[nlb-to-iam-check]] / [[nlb-to-iam-fga-register]]); это то же соединение.
+  Цикла нет — iam не зовёт nlb обратно по этому пути.
 
 ## See also
 
-[[compute-to-iam-listobjects]] [[vpc-to-iam-listobjects]] [[nlb-to-iam-check]] [[api-gateway-to-iam-authorize]] [[../rpc/iam-authorize-service]] [[../rpc/nlb-network-load-balancer-service]] [[../KAC/rbac-rules-model-2026-subphase-D-iam]] [[../KAC/rbac-rules-model-2026-subphase-D-nlb-consumer]]
+[[compute-to-iam-listobjects]] [[vpc-to-iam-listobjects]] [[nlb-to-iam-check]]
+[[api-gateway-to-iam-authorize]] [[../rpc/iam-authorize-service]]
+[[../rpc/nlb-network-load-balancer-service]]
+[[../KAC/rbac-rules-model-2026-subphase-D-nlb-consumer]]
 
 #edge #kacho-nlb #cross-service #authz #fga
