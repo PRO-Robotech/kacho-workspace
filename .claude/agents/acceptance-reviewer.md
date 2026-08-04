@@ -58,7 +58,8 @@ per-repo `project/<repo>/docs/specs/`) и пометил «Draft, на ревь�
 - [ ] Async-контракт: каждая мутация возвращает `Operation`; сценарий поллит `OperationService.Get(id)`
       до `done=true` и проверяет `result` (response либо `google.rpc.Status` error). `Get`/`List` — sync.
 - [ ] Cross-service (если применимо): ref-валидация через прямой вызов `Get` у сервиса-владельца
-      (Project → kacho-iam; Zone → kacho-compute; Subnet/SG → kacho-vpc) + грациозный dangling-ref на чтении.
+      + грациозный dangling-ref на чтении. Кто чей владелец — `data-integrity.md`
+      §«Cross-domain ссылки», п.5 (карта владельцев); здесь она не переписывается.
 
 ### 4.3 Формат
 - [ ] У каждого сценария явные **Given** / **When** / **Then** + уникальный ID (A1, A2, B1…) для трассировки.

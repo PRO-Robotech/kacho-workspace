@@ -7,7 +7,7 @@ caller_repo: kacho-api-gateway
 callee_repo: kacho-resource-manager
 sync_async: sync
 protocol: grpc-gateway
-status: removed
+status: deprecated
 tags:
   - edge
   - cross-service

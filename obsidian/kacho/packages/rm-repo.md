@@ -3,36 +3,33 @@ title: rm-repo
 category: package
 repo: kacho-resource-manager
 layer: repo
+status: deprecated
 tags:
   - packages
   - kacho-rm
   - repo
-  - pg
+  - deprecated
 ---
 
-# kacho-resource-manager/internal/repo
+> [!warning] Пакет снят вместе со своим репозиторием (KAC-124)
+> Репозитория resource-manager не существует; в монорепо продукта каталога этого
+> сервиса нет. Ниже — след, а не описание действующего пакета.
 
-**Path**: `kacho-resource-manager/internal/repo/`
-**Implements**: ports из [[rm-service]]
+# rm-repo — снят (KAC-124)
 
-pgxpool-реализация repo'шек + sqlc-generated queries.
+Слой хранилища снятого сервиса поверх пула соединений: реализация портов,
+отображение кодов ошибок БД в коды ответа, общие сканеры строк.
 
-## Files
+## Что снято из этой записки
 
-| File | Содержание |
-|---|---|
-| `organization_repo.go` | `OrganizationRepo` impl |
-| `cloud_repo.go` | `CloudRepo` impl |
-| `folder_repo.go` | `FolderRepo` impl |
-| `helpers.go` | error mapping (SQLSTATE→gRPC), shared scanners |
-| `queries/` | sqlc-input SQL queries (если используется sqlc; иначе .gitkeep'd плейсхолдер) |
-
-## sqlc
-
-Каталог `queries/` намекает на sqlc-based query generation. `sqlc.yaml` в корне `kacho-resource-manager/` определяет схему + plugin.
+Перечень файлов удалён — он называл исходники, которых в дереве нет. Абзац про
+генерацию запросов снят отдельно: он был не наблюдением, а догадкой по имени
+каталога («каталог намекает на…») и утверждал существование файла настройки,
+которого никто не проверял. Догадка о снятом дереве не проверяема в принципе.
 
 ## See also
 
 [[rm-service]] [[corelib-db]] [[corelib-errors]]
+[[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
 
-#packages #kacho-rm #repo #pg
+#packages #kacho-rm #repo #deprecated

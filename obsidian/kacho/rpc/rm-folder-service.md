@@ -3,58 +3,49 @@ title: FolderService
 aliases:
   - FolderService (rm)
   - FolderService (resourcemanager)
-proto_file: kacho/cloud/resourcemanager/v1/folder_service.proto
 category: rpc
 backend: kacho-resource-manager
-backend_port: 9090
 visibility: public
 domain: resourcemanager
+status: deprecated
 related_resource: "[[resources/rm-folder]]"
-methods_count: 11
-async_methods: 4
 tags:
   - rpc
   - kacho-rm
   - folder
-  - leaf-owner
+  - deprecated
 ---
 
-# FolderService (resourcemanager)
+> [!warning] Сервис снят вместе со своим доменом (KAC-124)
+> Ни этого сервиса, ни его домена в дереве продукта нет: объявления сервиса в
+> proto не существует, каталога домена тоже. REST-префикс, который он занимал,
+> шлюзом не обслуживается. Преемник — ProjectService в iam
+> ([[iam-project-service]]).
 
-**Proto**: `kacho-proto/proto/kacho/cloud/resourcemanager/v1/folder_service.proto`
-**Backend**: `kacho-resource-manager:9090`
-**Public/Internal**: public
+# FolderService — снят (KAC-124)
 
-Folder — leaf-owner в edge-графе: его зовут все доменные сервисы (`vpc/compute/nlb`) для folder-validation, он сам никуда не зовёт. См. [[../edges/vpc-to-rm-folder-exists]].
+Читающий сервис нижнего уровня прежней иерархии арендатора. Его звали доменные
+сервисы (сеть, вычисления, балансировщик), чтобы проверить существование
+владельца ресурса; сам он не звал никого — был листом графа обращений.
 
-## Methods
+## Чем заменён
 
-| Method | Request | Response | Sync/Async | Note |
-|---|---|---|---|---|
-| Get | GetFolderRequest | Folder | sync | используется peer-сервисами как validation |
-| List | ListFoldersRequest | ListFoldersResponse | sync | |
-| Create | CreateFolderRequest | operation.Operation | **async** | cloud_id required |
-| Update | UpdateFolderRequest | operation.Operation | **async** | |
-| Delete | DeleteFolderRequest | operation.Operation | **async** | best-effort dangling check — peer-сервисы могут продолжать reference deleted folder |
-| ListOperations | ListFolderOperationsRequest | ListFolderOperationsResponse | sync | |
-| Access* | access.* | access.*/operation.Operation | mixed | IAM placeholders |
+Проверка владельца ушла на проект в iam: тот же рисунок вызова (сверка
+существования у владельца на пути запроса, отказ закрытым при недоступности),
+другой домен. См. [[../edges/vpc-to-iam-project-exists]] и, как исторический
+след прежнего ребра, [[../edges/vpc-to-rm-folder-exists]].
 
-## REST mapping
+## Что снято из этой записки
 
-| HTTP | Method |
-|---|---|
-| `GET /resource-manager/v1/folders/{folder_id}` | Get |
-| `GET /resource-manager/v1/folders` | List |
-| `POST /resource-manager/v1/folders` | Create |
-| `PATCH /resource-manager/v1/folders/{folder_id}` | Update |
-| `DELETE /resource-manager/v1/folders/{folder_id}` | Delete |
-| `GET /resource-manager/v1/folders/{folder_id}/operations` | ListOperations |
-| `GET /resource-manager/v1/folders/{resource_id}:listAccessBindings` | ListAccessBindings |
-| `POST /resource-manager/v1/folders/{resource_id}:setAccessBindings` | SetAccessBindings |
-| `POST /resource-manager/v1/folders/{resource_id}:bindAccessPolicy` | BindAccessPolicy |
+Таблица методов и таблица соответствия REST удалены вместе с полями шапки,
+называвшими файл proto и адрес бэкенда. Они описывали поверхность, которой в
+дереве нет, и читались как утверждение о действующем API. Числа методов из шапки
+убраны по той же причине: пересчитать их не по чему.
 
 ## See also
 
-[[../packages/rm-service]] [[../resources/rm-folder]] [[../edges/vpc-to-rm-folder-exists]] [[../edges/compute-to-rm-folder-check]]
+[[iam-project-service]] [[../resources/rm-folder]] [[../packages/rm-service]]
+[[../edges/vpc-to-rm-folder-exists]] [[../edges/compute-to-rm-folder-check]]
+[[../KAC/KAC-124]]
 
-#rpc #kacho-rm #folder #leaf-owner
+#rpc #kacho-rm #folder #deprecated

@@ -80,7 +80,10 @@ writer.Notify(ctx, pool)                 // ПОСЛЕ commit
 - [ ] Статус ресурса меняется атомарно с outbox-событием (тот же tx).
 
 ### 3.6 Cross-service коммуникация
-- [ ] Граф сервисных зависимостей — ациклический (см. `polyrepo.md`): `kacho-iam` — leaf-owner; `kacho-vpc → kacho-compute` (zone); `kacho-compute → kacho-vpc` (NIC/IPAM); если A→B, то B↛A.
+- [ ] Граф сервисных зависимостей — ациклический: если A зовёт B, то B не зовёт A. Действующий
+      перечень рёбер — `polyrepo.md` §«Runtime cross-domain edges»; здесь он не дублируется, и
+      сверять ребро надо по нему. Дублировать нельзя не из аккуратности: копия графа пережила
+      удаление ребра `vpc → compute`, вынесенного в geo, и продолжала предъявлять его как норму.
 - [ ] Синхронные cross-service вызовы — только валидация существования/состояния через `Get` владельца (`internal/clients/<owner>_client.go`); peer недоступен → `UNAVAILABLE` (fail-closed для мутаций).
 - [ ] Нет broker'а (Kafka/NATS) — ban #7, пока справляется in-process.
 - [ ] Cross-service FK запрещён — ban #4/#8; ссылка хранится как `TEXT` без FK, целостность — software-validation + грациозный dangling-ref.

@@ -14,7 +14,8 @@ tags:
 
 **Path**: `kacho-corelib/observability/`
 **Imports**: `context`, `io`, `log/slog`, `os`
-**Imported by**: `kacho-vpc` (2), `kacho-resource-manager` (1)
+**Imported by**: `kacho-vpc` (2)
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 `slog`-logger + OpenTelemetry init helper.
 

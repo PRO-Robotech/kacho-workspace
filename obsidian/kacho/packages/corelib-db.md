@@ -14,7 +14,8 @@ tags:
 
 **Path**: `kacho-corelib/db/`
 **Imports**: `context`, `github.com/jackc/pgx/v5`, `github.com/jackc/pgx/v5/pgxpool`
-**Imported by**: `kacho-vpc` (27 files), `kacho-resource-manager` (2)
+**Imported by**: `kacho-vpc` (27 files)
+(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
 
 `pgxpool.Pool` factory + Transactor для composable transactions.
 

@@ -21,6 +21,11 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/class-guard.sh\"",
             "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/docfresh.sh\"",
+            "timeout": 120
           }
         ]
       }
@@ -31,6 +36,11 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/vault-stop-check.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/docfresh.sh\"",
+            "timeout": 120
           }
         ]
       }

@@ -17,8 +17,8 @@ naming / non-negotiables вынесены в `@.claude/rules/00-kacho-core.md`.
 
 AI-оснастка (rules / agents / skills / hooks / settings) живёт **только** в
 `kacho-workspace/.claude/`. Копий в рабочих копиях продукта **не заводится**, и раскатки
-как механизма **не существует** (решение владельца 2026-08-02, `sync-tooling.sh` снят
-вместе с вызовами из `bootstrap.sh` и `sync-all.sh`). Работа ведётся из воркспейса —
+как механизма **не существует** (решение владельца 2026-08-02: скрипт раскатки снят вместе
+с вызовами из скриптов начальной установки и обновления). Работа ведётся из воркспейса —
 оттуда оснастка достаёт и до `project/kacho`.
 
 > [!note] Почему прежняя модель дублирования снята — и почему её обоснование было ложным
@@ -63,8 +63,8 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 ## Локальная разработка
 
 - Стенд: `cd project/kacho/deploy && make dev-up` / `make dev-down`
-  (здесь стоял `project/kacho-deploy` — каталог, которого нет; все пять целей проверены
-  в `project/kacho/deploy/Makefile`)
+  (здесь стоял путь к отдельному каталогу развёртывания времён полирепо — такого каталога
+  нет; все пять целей проверены в `project/kacho/deploy/Makefile`)
 - Перезапуск сервиса: `make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
 - Обновить рабочие копии (git pull): `./sync-all.sh` — делает ровно это и ничего больше
 - Спека (5 docs): `docs/specs/0{0..4}-*.md`
@@ -72,8 +72,10 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 ## Permissions
 
 `.claude/settings.json` — `bypassPermissions` (локальная dev-машина) + hooks:
-vault-discipline (`UserPromptSubmit` / `Stop`) и `class-guard` (`PostToolUse`, советует
-в момент записи файла). Пути через `$CLAUDE_PROJECT_DIR`. Файл существует **в одном
+vault-discipline (`UserPromptSubmit` / `Stop`), `class-guard` (`PostToolUse`, советует
+в момент записи файла) и `docfresh` (`PostToolUse` + `Stop`) — сверяет координаты, которые
+документ называет, с деревом, и печатает объём осмотренного, чтобы «ноль находок» было
+отличимо от «ноль прочитанного». Пути через `$CLAUDE_PROJECT_DIR`. Файл существует **в одном
 экземпляре**; в репозитории продукта его нет и не должно быть — `bypassPermissions`,
 закоммиченный в публичный репозиторий, принимал бы решение про чужую машину за каждого
 клонирующего.

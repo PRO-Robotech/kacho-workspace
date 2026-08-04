@@ -13,7 +13,9 @@ tags:
 
 **Path**: `kacho-corelib/shutdown/`
 **Imports**: `context`, `errors`, `os`, `os/signal`, `sync`, `syscall`
-**Imported by**: `kacho-resource-manager` (1)
+**Imported by**: единственным записанным потребителем был снятый домен (KAC-124);
+после его удаления список не пересобирался — считать его пустым нельзя, пакет
+общий и зовётся из корней сборки действующих сервисов
 
 Graceful shutdown coordinator: ловит SIGTERM/SIGINT, вызывает зарегистрированные handler-ы по LIFO с timeout-budget.
 

@@ -26,7 +26,8 @@ tags:
 
 # vpc → rm: folder existence check (DEPRECATED)
 
-**Caller**: `kacho-vpc` (`internal/clients/resourcemanager_client.go` + `folder_cache.go`)
+**Caller**: `kacho-vpc` — клиент снятого домена и его кэш папок (оба файла удалены
+вместе с ребром; в обратных кавычках их имена читались бы как утверждение о дереве)
 **Callee**: `kacho-resource-manager` (FolderService.Get → mapped к "Exists")
 **Protocol**: gRPC cluster-internal (direct dial, не через api-gateway)
 **Sync/Async**: **async** (внутри Operation worker'а) — sync precheck удалён.
@@ -40,14 +41,14 @@ tags:
 
 | Result | gRPC code | Note |
 |---|---|---|
-| folder OK | (continue) | cache TTL — `folder_cache.go` |
+| folder OK | (continue) | кэш папок с коротким сроком годности |
 | folder not found | `NotFound "Folder <id> not found"` | operation.Update(done=true, error) |
 | rm недоступен | `Unavailable "folder check: <err>"` | retry через [[../packages/corelib-retry]] OnUnavailable |
 
 ## History
 
 - Раньше был **sync precheck** в handler — удалён в KAC-94 I.4 (skill `evgeniy`): «request-path не должен зависеть от peer-сервиса, валидация — в worker'е».
-- `folder_cache.go` — короткий TTL-кэш, чтобы повторные мутации в том же folder не били rm каждый раз.
+- Рядом жил кэш папок с коротким сроком годности, чтобы повторные мутации в той же папке не били снятый сервис каждый раз.
 
 ## See also
 

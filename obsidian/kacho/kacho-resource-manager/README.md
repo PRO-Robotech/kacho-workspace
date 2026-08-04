@@ -8,7 +8,7 @@ repo: kacho-resource-manager
 go_module: github.com/PRO-Robotech/kacho-resource-manager
 service_type: control-plane
 domain: resourcemanager
-status: removed
+status: deprecated
 related_packages:
   - "[[packages/rm-domain]]"
   - "[[packages/rm-service]]"

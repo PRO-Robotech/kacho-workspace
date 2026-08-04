@@ -3,29 +3,30 @@ title: rm-bootstrap
 category: package
 repo: kacho-resource-manager
 layer: bootstrap
+status: deprecated
 tags:
   - packages
   - kacho-rm
   - bootstrap
-  - seed
+  - deprecated
 ---
 
-# kacho-resource-manager/internal/bootstrap
+> [!warning] Пакет снят вместе со своим репозиторием (KAC-124)
+> Репозитория resource-manager не существует; в монорепо продукта каталога этого
+> сервиса нет. Ниже — след, а не описание действующего пакета.
 
-**Path**: `kacho-resource-manager/internal/bootstrap/`
+# rm-bootstrap — снят (KAC-124)
 
-Seed defaults для dev/test-стенда — создать дефолтные Organization/Cloud/Folder, если БД пустая.
+Начальный посев снятого сервиса: создавал организацию, облако и папку по
+умолчанию, если база пуста. Посев был идемпотентным и звался корнем сборки на
+старте.
 
-## Files
+## Что снято из этой записки
 
-- `defaults.go` — `EnsureDefaults(ctx, repo) error`; idempotent (если уже есть — skip).
-
-## Used by
-
-[[rm-cmd]] на startup (dev mode); в prod — может быть disabled через `rm-config` flag.
+Имя файла и имя функции посева удалены как координаты: их в дереве нет.
 
 ## See also
 
-[[rm-cmd]] [[rm-repo]]
+[[rm-cmd]] [[rm-repo]] [[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
 
-#packages #kacho-rm #bootstrap #seed
+#packages #kacho-rm #bootstrap #deprecated

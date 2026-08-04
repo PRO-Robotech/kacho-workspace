@@ -70,7 +70,9 @@ cross-domain ссылки соблюдают регламент peer-API. Ист
 - [ ] Чужой id хранится как `TEXT` без FK; валидация — через peer-API владельца на request-path (gRPC-клиент `internal/clients/<owner>_client.go`), не на DB-уровне.
 - [ ] Денормализованные зеркала чужих атрибутов — output-only, помечены «source of truth = `<owner>.<Resource>`», не на вход Create/Update.
 - [ ] Нет cross-service CASCADE; consumer грациозно переживает dangling-ref (деградированный статус, не паника).
-- [ ] Карта владельцев соблюдена (Geography→kacho-compute, IAM/Project→kacho-iam, Network/Subnet/SG/RT/Address/Gateway/NIC→kacho-vpc, Instance/Disk/Image/Snapshot→kacho-compute).
+- [ ] Карта владельцев соблюдена. Сама карта — в `data-integrity.md` §«Cross-domain ссылки», п.5;
+      сверяй по ней, а не по копии здесь: копия карты в файле агента устаревает молча, без
+      конфликта при мёрже и без единой красной проверки (гейт `scripts/tooling-gate/` это и запрещает).
 
 ### 4.5 Гигиена миграций / схемы
 - [ ] Только новые goose-файлы с новым номером; применённые миграции не редактируются (ban #5).

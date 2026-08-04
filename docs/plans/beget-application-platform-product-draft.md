@@ -11,6 +11,12 @@
 > тот же JWT, проекты, UUID, `CloudService`, фильтрация, SDK и модель ошибок. Детали
 > внутреннего control plane не должны попадать во внешний wire-контракт.
 
+> [!warning] Часть решений этого черновика отменена
+> `docs/plans/beget-application-platform-poc-design.md` (2026-07-28) вводит первоклассные
+> окружения внутри приложения, фиксирует цепочку выкатки, DSL, тенантирование и границы
+> POC. Отменённые места помечены по тексту; полный список — §11 того документа. Разделы
+> без пометки остаются в силе.
+
 ## 0. Резюме
 
 Платформа приложений Beget принимает исходный код из Git или tarball, определяет способ
@@ -84,6 +90,7 @@ Kubernetes `Service`.
 flowchart TB
     Project[Beget Project]
     CloudService[CloudService / Application]
+    Environment[Environment]
     Component[Component]
     Source[Source]
     Build[Build]
@@ -94,13 +101,15 @@ flowchart TB
     Operation[Operation]
 
     Project --> CloudService
+    CloudService --> Environment
     CloudService --> Component
     Component --> Source
     Source --> Build
     Build --> Artifact
     Artifact --> Deployment
-    Component --> Variables
-    Component --> Domain
+    Environment --> Deployment
+    Environment --> Variables
+    Environment --> Domain
     CloudService --> Operation
     Operation -. tracks .-> Build
     Operation -. tracks .-> Deployment
@@ -109,15 +118,20 @@ flowchart TB
 
 ### 1.4 Инварианты модели
 
-1. Один `Application` соответствует одному Beget `CloudService` и одному deployable
-   environment.
+1. Один `Application` соответствует одному Beget `CloudService`. Приложение содержит
+   одно или несколько `Environment`; по умолчанию создается ровно одно — `production`.
+   Форма компонентов (набор, тип, порт, проба, команда) общая для всех окружений,
+   различаются только конфигурация, реплики, размер, домены и ветка источника.
+   *(Отменяет прежнюю формулировку «одно приложение = одно окружение», см. POC-дизайн §1.)*
 2. `Build` immutable: source revision, builder, build plan, logs и artifact digest после
-   завершения не меняются.
+   завершения не меняются. **`Build` принадлежит приложению и окружения не знает.**
 3. `Deployment` immutable: artifact digest и config revision не меняются; изменение
-   создает новый Deployment.
-4. Один Component имеет не более одного `ACTIVE` Deployment.
+   создает новый Deployment. `Deployment` принадлежит окружению.
+4. Один Component имеет не более одного `ACTIVE` Deployment **в каждом окружении**
+   (DB-инвариант: partial UNIQUE по паре компонент+окружение).
 5. Rollback создает новый Deployment на основе старого Artifact/config revision, а не
-   меняет историю.
+   меняет историю. Promotion между окружениями — тот же механизм: новый Deployment в
+   целевом окружении с **тем же** digest и конфигурацией целевого окружения.
 6. `Operation` не является source of truth ресурса: после завершения состояние читается
    из Application/Component/Build/Deployment/DomainBinding.
 7. Kubernetes resources — детали реализации и не являются публичными идентификаторами.
@@ -311,6 +325,7 @@ Heavy mutation response использует Beget-форму `oneof result`. У
 | Capability | MVP contract |
 |---|---|
 | Application | Создание как `CloudService`, Project binding, name/description, region, status, price projection |
+| Environment | Модель с первого дня; автоматически создается ровно одно `production`; `environment_id` — всегда необязательный параметр (по умолчанию основное окружение). Мультиокружения в UI — Phase 3, контракт при этом не меняется |
 | Component | Один тип `WEB`: command/args, `$PORT`, CPU/RAM, replicas, health checks |
 | Source | Git repository + ref/context, SSH deploy key или HTTPS token reference, webhook HMAC secret; либо tarball upload через presigned S3 URL |
 | Detection | `Dockerfile` имеет приоритет; без него Cloud Native Buildpacks autodetect через kpack |
@@ -364,7 +379,8 @@ Application не дублирует `CloudService`: внешний `service_id` 
 
 | Ресурс | Назначение | Ключевые поля |
 |---|---|---|
-| `Application` | Product-specific проекция `CloudService` | `service_id`, `runtime`, `status`, `default_domain`, `load_balancer_mode`, `active_deployment_count` |
+| `Application` | Product-specific проекция `CloudService` | `service_id`, `runtime`, `status`, `default_domain`, `load_balancer_mode`, `active_deployment_count`, `default_environment_id` |
+| `Environment` | Область конфигурации внутри приложения | `id`, `name`, `is_default`, `status`, `default_domain`, необязательный `source_ref` override, `ttl` для эфемерных |
 | `Component` | Отдельно развертываемый процесс | `id`, `name`, `type`, `command`, `port`, resources, replicas, autoscaling, health checks, status |
 | `Source` | Настройка получения исходников | `type`, Git `repository/ref/context` или `upload_id`, credential reference |
 | `Build` | Неизменяемый запуск сборки | `id`, `component_id`, source revision, builder, status, timings, artifact digest, failure |
@@ -377,15 +393,42 @@ Application не дублирует `CloudService`: внешний `service_id` 
 
 ### 6.1 Окружения
 
-В MVP один Application `CloudService` является одним deployable environment. Для
-`development`, `staging` и `production` клиент создает отдельные Application в одном
-Beget Project. Это сохраняет независимые billing/quota, domains, secrets и lifecycle и
-не вводит второй уровень между существующим Project и `CloudService`.
+> [!warning] Раздел переписан 2026-07-28
+> Прежняя позиция «одно приложение = одно окружение, для dev/staging/prod заводи
+> отдельные Application» **отменена**. Обоснование и полная модель —
+> `beget-application-platform-poc-design.md` §1.
 
-First-class `Environment` в MVP не вводится. Preview environments после MVP создаются
-как отдельные временные Application с TTL, собственными quota/secrets/domains и ссылкой
-на исходную Application. Это сохраняет совместимость с `CloudService` и не добавляет
-вложенный billing scope.
+`Environment` — первоклассная область **внутри** приложения. При создании Application
+автоматически создается ровно одно окружение `production`; пока оно единственное, в UI
+и публичном API оно не показывается, поэтому простой клиент не получает ни одного
+дополнительного тумблера. Дополнительные окружения появляются только по явному действию.
+
+Решающий довод — **продвижение артефакта**. При модели «окружение = отдельное
+приложение» у каждого приложения свой Source и свой Build, поэтому в production уезжает
+не тот образ, который проверяли на staging: второй прогон сборки даст другие байты.
+Окружения дают `promote(staging → production)` — тот же digest, конфигурация целевого
+окружения, без пересборки. Это невозможно в принципе без первоклассных окружений и
+дороже, чем экономия на дубликатах конфигурации.
+
+Границы модели:
+
+- **Форма компонентов общая для всех окружений** (набор, тип, порт, проба, команда).
+  Различаются переменные, секреты, домены, число реплик, размер и необязательное
+  переопределение ветки источника. Кому нужна принципиально другая форма — заводит
+  второе Application, и это правильный ответ, а не недоработка.
+- **Окружение не является вторым биллинговым уровнем.** Один `service_id` — один тариф —
+  один счет; окружения делят включенную квоту. Непрод получает потолок доли квоты и
+  низкий `PriorityClass`, чтобы dev не вытеснял prod.
+- **`environment_id` — всегда необязательный параметр** (отсутствует → основное окружение
+  приложения). Обязательным он не становится никогда, иначе включение мультиокружений
+  позже оказалось бы ломающим изменением.
+- **Секреты не наследуются** с уровня приложения в непрод по умолчанию; обычные
+  переменные наследуются. Наследование секретов «за компанию» — типовой способ увезти
+  боевой ключ в окружение с более широким доступом.
+- **Namespace создается на пару (приложение, окружение)**, а не на приложение.
+
+Preview environments перестают быть «отдельным Application с TTL» и становятся
+эфемерным окружением с TTL — почти бесплатно, когда модель уже есть.
 
 ### 6.2 Статусы
 
@@ -635,8 +678,11 @@ Application control plane не хранит Kubernetes manifests как публ
 
 Кластеры являются internal-only ресурсами платформы. MVP использует shared
 multi-tenant runtime clusters; базовая граница арендатора — отдельный namespace на
-Application. На каждый namespace обязательны ResourceQuota, LimitRange, Pod Security,
-NetworkPolicy, отдельные service accounts и Istio authorization policy. Dedicated
+**пару (Application, Environment)**, а не на Application: иначе шумный dev ест квоту
+production и делит с ним сетевую политику. На каждый namespace обязательны ResourceQuota,
+LimitRange, Pod Security, NetworkPolicy, отдельные service accounts и Istio authorization
+policy. Тенантские нагрузки размещаются на выделенном пуле узлов с taint и запускаются с
+пространствами имен пользователей (`hostUsers: false`) — см. POC-дизайн §4. Dedicated
 runtime cluster не входит в MVP: повышенная сетевая изоляция достигается namespace и
 policy boundaries, а dedicated compute может появиться позднее как отдельный тариф.
 Kubernetes определяет namespace как механизм изоляции групп namespaced resources и
@@ -723,7 +769,9 @@ Deployment, доступный для rollback.
 
 ### 10.4 L7 и NLB
 
-Istio управляет HTTP/HTTPS routing, retries/timeouts и backend health. Публичный вход
+Контракт маршрутизации — **Gateway API (`HTTPRoute`)**, Istio выступает реализацией
+шлюза: стандартный контракт развязывает продукт от вендора сетки. Istio управляет
+HTTP/HTTPS routing, retries/timeouts и backend health. Публичный вход
 создается через `Service type=LoadBalancer`; Beget LB controller заказывает и
 сопровождает NLB в Beget. Application control plane не вызывает NLB API напрямую и не
 дублирует lifecycle load balancer.
@@ -772,6 +820,16 @@ substring, limit и cursor.
 
 VictoriaMetrics аналогично отдает фиксированный каталог агрегатов. Произвольный
 PromQL/MetricsQL в публичном MVP отсутствует из-за isolation и cardinality risk.
+
+**Изоляция арендаторов — структурная, а не по метке.** Арендатор VictoriaMetrics и
+VictoriaLogs — **аккаунт Beget** (`accountID`), проект — `projectID`; внутри арендатора
+данные разделяются метками приложения, окружения, компонента и релиза. При разделении
+одними метками единственное, что стоит между арендаторами, — правильность построения
+запроса в фасаде: одна ошибка показывает чужие данные. При разделении арендаторами чужих
+данных в этом арендаторе физически нет. Цена — платформенные сводные запросы идут в
+отдельный служебный арендатор. Метки принадлежности ставит оператор на под,
+`honor_labels: false`, любые метки нагрузки в зарезервированном пространстве имен
+отбрасываются на relabeling: **нагрузка не может подделать свою принадлежность**.
 
 ### 10.7 Домены и сертификаты
 
@@ -1010,6 +1068,15 @@ rollback не скрывает ошибку новой версии.
    существование ресурса.
 4. Namespace не является security boundary сам по себе: обязательны NetworkPolicy,
    Pod Security, ResourceQuota, service account per Application и Istio mTLS.
+   Профиль — PSS `baseline` плюс собственный жесткий набор по умолчанию
+   (`allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`,
+   `seccompProfile: RuntimeDefault`, запрет `hostPath`/`hostNetwork`/`hostPID`/`hostIPC`)
+   плюс **пространства имен пользователей** (`hostUsers: false`). Прямолинейный
+   `restricted` требует `runAsNonRoot` и отверг бы большую часть реальных клиентских
+   `Dockerfile`; пространства имен пользователей дают тот же результат сильнее — root в
+   контейнере отображается на непривилегированный uid узла. Предусловие: Kubernetes ≥ 1.33
+   и containerd ≥ 2.0; при их отсутствии — откат на `restricted` + `runAsNonRoot` с явной
+   диагностической ошибкой, но **не молчаливое понижение безопасности**. Детали — POC-дизайн §4.1.
 5. Vault — source of truth secret values. Канонический logical path:
    `kv/cloud/projects/{project_id}/applications/{service_id}/components/{component_id}`.
    Application DB хранит только key metadata, version и Vault reference; secret никогда
@@ -1050,7 +1117,6 @@ MVP запускает тот же metering pipeline в shadow mode, но сче
 недоступной capacity возвращает стабильную quota/capacity error, а не оставляет pods в
 Pending. Dedicated NLB, дополнительные build minutes и расширенная log retention
 учитываются отдельными line items.
-l failure и cross-service authz failure.
 
 ## 15. Этапы разработки
 
@@ -1061,8 +1127,12 @@ l failure и cross-service authz failure.
 - добавить общий `beget.cloud.v1.operation.Operation` и typed
   `Accepted { resource, operation }` responses для новых Cloud API нашей разработки;
 - зафиксировать Git deploy key/token reference/webhook HMAC и tarball upload contracts;
-- зафиксировать hybrid billing, namespace tenancy, shared/dedicated NLB modes,
-  Vault/ESO layout и Cloud Domain owner API;
+- зафиксировать **модель окружений** (`Environment` внутри Application,
+  `environment_id` — всегда необязательный параметр, promotion между окружениями):
+  добавление этого измерения после публикации API — ломающее изменение, поэтому решение
+  принадлежит именно этой фазе;
+- зафиксировать hybrid billing, namespace tenancy на пару (Application, Environment),
+  shared/dedicated NLB modes, Vault/ESO layout и Cloud Domain owner API;
 - сгенерировать SDK и пройти backward-compatibility check до начала реализации.
 
 ### Phase 1 — Runtime foundation
@@ -1091,8 +1161,9 @@ l failure и cross-service authz failure.
 ### Phase 3 — Developer workflow
 
 - provider-specific Git OAuth/webhook integrations;
-- vulnerability policy, SBOM, signing и provenance;
-- preview environments, worker и cron workload;
+- vulnerability policy и проверка подписи на допуске (сама подпись и SBOM переехали в POC);
+- мультиокружения в UI (модель и контракт уже заморожены в Phase 0);
+- preview environments **как эфемерные окружения с TTL**, worker и cron workload;
 - request-driven scale-to-zero через activator/KEDA;
 - canary/blue-green rollout policies.
 
