@@ -20,7 +20,7 @@ tags:
 
 # InternalAddressPoolService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_address_pool_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/internal_address_pool_service.proto`
 **Backend**: `kacho-vpc:9091`
 **Public/Internal**: **cluster-internal-only** (admin); kacho-only ресурс (нет в YC).
 

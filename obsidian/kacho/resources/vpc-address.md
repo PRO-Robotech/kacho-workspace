@@ -5,11 +5,12 @@ aliases:
   - vpc Address
 category: resource
 domain: vpc
-id_prefix: e9b
+id_prefix: adr
 owner_table: kacho_vpc.addresses
 owner_db: kacho_vpc
-folder_level: true
+project_level: true
 status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-address-service]]"
   - "[[rpc/vpc-internal-address-service]]"
@@ -25,57 +26,132 @@ tags:
 
 # Address
 
-**Domain**: vpc
-**ID prefix**: `e9b` (общий с Subnet — см. CLAUDE.md)
-**Owner table**: `kacho_vpc.addresses`
-**Folder-level**: yes
+**Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
+**ID prefix**: `adr` (`ids.PrefixAddress`, `pkg/ids/ids.go`)
+**Owner table**: `kacho_vpc.addresses` (+ `kacho_vpc.address_references`)
+**Scope**: project
 
-## Fields (domain — упрощено)
+**Контракт**: `proto/kacho/cloud/vpc/v1/address.proto`
+**Схема**: `services/vpc/internal/migrations/0001_initial.sql` + 0013, 0023, 0025, 0026
 
-| Field | Type | Note |
+> [!note] ID prefix здесь стоял неверный
+> Прежняя редакция объявляла `e9b` «общим с Subnet». Общего prefix у vpc-ресурсов нет:
+> `pkg/ids/ids.go` даёт каждому свой (`net`/`sub`/`adr`/`rtb`/`sgr`/`gtw`/`nic`/`apl`).
+> `e9b` числится в общем каталоге `KnownPrefixes` как legacy-значение, а `enp` — это
+> **op-root vpc** (`PrefixOperationVPC`), то есть prefix идентификатора `Operation`,
+> а не ресурса. Комментарий в самом `ids.go` про «Subnet/Address делят `e9b`» тоже
+> пережил свои константы — при сверке смотреть на константы, а не на комментарий рядом.
+
+## Поля публичной проекции (`message Address`)
+
+| Поле | Тип | Заметка |
 |---|---|---|
-| `id` | TEXT PK | |
-| `project_id` | TEXT | |
-| `name`, `description`, `labels` | TEXT/JSONB | |
-| `external_ipv4` | JSONB `{address, address_pool_id}` | nullable; v4 public |
-| `internal_ipv4` | JSONB `{address, subnet_id}` | nullable |
-| `internal_ipv6` | JSONB `{address, subnet_id}` | nullable (0009/0013) |
-| `external_ipv6` | JSONB | nullable (0021 → inline в baseline 0001) |
-| `internal_subnet_id` | TEXT | derived (FK target) |
-| `used_by` | TEXT, kind+id | `SetAddressReference`/`ClearAddressReference` |
-| `is_ephemeral` | BOOL | true = released after `used_by` clear |
-| `reserved` | BOOL | tenant-controlled |
+| `id` | string | `adr<17>`; immutable |
+| `project_id` | string | ссылка → **iam** `Project` |
+| `created_at` | Timestamp | truncate до секунд |
+| `name`, `description`, `labels` | | `UNIQUE (project_id, name)` partial |
+| `address` | **oneof**, `exactly_one` | ровно одна из четырёх веток (ниже) |
+| `reserved` | bool | тенантский флаг |
+| `used` | bool | output-only признак занятости |
+| `type` | enum `Type` | `INTERNAL` \| `EXTERNAL` |
+| `ip_version` | enum `IpVersion` | `IPV4` \| `IPV6` |
+| `deletion_protection` | bool | |
+| `used_by` | repeated `reference.Reference` | output-only зеркало, кто ссылается |
 
-CHECK (0027 → inline в baseline 0001): хотя бы один из `external_ipv4`/`internal_ipv4`/`internal_ipv6` не пуст.
+Ветки `oneof address` (номера полей 7, 8, 22, 23):
+`external_ipv4_address`, `internal_ipv4_address`, `internal_ipv6_address`,
+`external_ipv6_address`. Опция `exactly_one` делает выбор обязательным на уровне контракта.
 
-## Constraints (uniqueness, partial)
+> [!warning] `dns_records` снят с контракта
+> `reserved 20; reserved "dns_records";` — домена DNS в сервисе нет вовсе, поэтому поле
+> удалено, а не оставлено «на будущее». Прецедент из `api-conventions.md`
+> §«Принято-и-проигнорировано»: молча принять и выбросить — не исход.
+> Также `reserved 9 to 14`.
 
-- `addresses_external_ip_uniq` — partial UNIQUE на (external_ipv4->>address) WHERE … <> '' — один IP может принадлежать одному Address.
-- `addresses_external_pool_ip_uniq` — UNIQUE (pool_id, ip).
-- `addresses_internal_subnet_ip_uniq` — UNIQUE (subnet_id, ip).
-- `addresses_internal_subnet_fkey` — `internal_subnet_id → subnets(id) ON DELETE RESTRICT`.
+## Таблица: JSONB-ветки + generated FK
 
-## IPAM lifecycle
+Колонки `external_ipv4`, `internal_ipv4`, `external_ipv6`, `internal_ipv6` — `jsonb`
+(каждая несёт свой `{address, subnet_id|address_pool_id}`); плюс скаляры `addr_type`,
+`ip_version`, `reserved`, `used`, `deletion_protection`.
 
-1. Tenant Create → `external_ipv4` from AddressPool (CAS-allocate из free-list, historical migration 0015 (свёрнуто в baseline 0001 — KAC-111)).
-2. Compute NIC bind → `InternalAddressService.SetAddressReference(address_id, used_by={kind=instance, id=...})` — CAS на `used_by` пустой/наш.
-3. Detach → `ClearAddressReference` → если `is_ephemeral=true` → row deleted.
-4. Tenant Delete → FailedPrecondition если `used_by != ''`.
+Ключевой приём — **generated-колонка как якорь FK**:
 
-## Gotchas
+```sql
+internal_subnet_id text GENERATED ALWAYS AS (
+    CASE WHEN internal_ipv4 ? 'subnet_id' AND length(internal_ipv4->>'subnet_id') > 0
+         THEN internal_ipv4->>'subnet_id'
+         WHEN internal_ipv6 ? 'subnet_id' AND length(internal_ipv6->>'subnet_id') > 0
+         THEN internal_ipv6->>'subnet_id'
+         ELSE NULL END
+) STORED REFERENCES kacho_vpc.subnets(id) ON DELETE RESTRICT
+```
 
-- `used_by` — CAS, software-check **запрещён** (см. CLAUDE.md «Запреты» #10 и within-service refs).
-- Address pool freelist (0015 → inline в baseline 0001) — `FOR UPDATE SKIP LOCKED LIMIT 1` для concurrent allocate.
-- Split v4/v6 pools (0022, KAC-71).
+То есть внутренний адрес (v4 или v6) **блокирует свою подсеть** обычным FK, хотя сам
+живёт в JSONB. `0025_addresses_read_path.sql` добавила CHECK
+`addresses_single_internal_family` (одновременно v4 и v6 internal — запрещено) и индекс
+по `internal_ipv4->>'address'` для read-path.
 
+## Уникальность (partial UNIQUE — по DDL)
 
-> [!note] После KAC-111 (squash migrations)
-> Specific migration numbers (0001–0034) свёрнуты в single baseline `0001_initial.sql`.
-> Ссылки на исторические migration N сохраняются как archeology, но физически их нет —
-> весь финальный state в `internal/migrations/0001_initial.sql` (kacho-vpc PR #97).
+- `addresses_project_id_name_key` — (project_id, name)
+- `addresses_external_ip_uniq` — глобальная уникальность внешнего v4
+- `addresses_external_pool_ip_uniq` — (pool_id, ip) для внешнего v4
+- `addresses_internal_subnet_ip_uniq` — (subnet_id, ip) для внутреннего v4
+- `addresses_internal_subnet_ipv6_uniq` — то же для v6
+- `addresses_external_v6_pool_ip_uniq` — (pool_id, ip) для внешнего v6
+- `addresses_external_v6_ip_uniq` (0026) — глобальная уникальность внешнего v6
 
-## See also
+## Referrer-трекинг — отдельная таблица, а не колонка
 
-[[../packages/vpc-apps-kacho-api-address]] [[../packages/vpc-apps-kacho-services-addressref]] [[../rpc/vpc-address-service]] [[../rpc/vpc-internal-address-service]]
+```sql
+CREATE TABLE kacho_vpc.address_references (
+    address_id    text PRIMARY KEY REFERENCES kacho_vpc.addresses(id) ON DELETE CASCADE,
+    referrer_type text NOT NULL,
+    referrer_id   text NOT NULL,
+    referrer_name text NOT NULL DEFAULT '',
+    attached_at   timestamptz NOT NULL DEFAULT now(),
+    owned         boolean NOT NULL DEFAULT false   -- миграция 0013
+);
+```
+
+`owned` — **несущее различие**, а не флажок удобства:
+
+- `owned = true` — адрес заказан ссылающимся неявно, его жизненный цикл привязан к
+  ссылающемуся; освобождение = `ClearReference` **и** удаление адреса;
+- `owned = false` (умолчание) — тенант создал адрес заранее и лишь залинковал;
+  освобождение = только `ClearReference`, адрес остаётся за тенантом.
+
+Прежняя редакция описывала это булевой колонкой `is_ephemeral` на самом адресе —
+такой колонки в схеме нет; семантика живёт на строке ссылки.
+
+## IPAM: путь адреса
+
+1. Тенант создаёт Address → внешний IP берётся из [[vpc-addresspool]] через
+   CAS-аллокацию из free-list (`FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING`).
+2. Потребитель (NIC/инстанс) ставит ссылку — `InternalAddressService.SetAddressReference`
+   с `owned`; CAS «свободно ИЛИ уже наш» ⇒ идемпотентно.
+3. Отцепление — `ClearAddressReference`; при `owned=true` инициатор доудаляет адрес.
+4. Эфемерный путь — `MarkAddressEphemeralInUse` (internal), когда адрес выдан «под задачу».
+5. `Delete` адреса под живой ссылкой → `FailedPrecondition`.
+
+Возврат lease в free-list на **каждом** пути высвобождения — часть контракта Delete
+(`data-integrity.md` §Lease-recycle-on-delete), иначе пул исчерпывается под параллельным
+e2e и рождает фантомные ресурсы.
+
+## Gotcha
+
+- **`used_by` — не software check-then-act.** Смена владения только атомарным CAS в одном
+  UPDATE (ban #10).
+- **Зону адрес не несёт** — наследует через `subnet_id`. У REGIONAL-подсети зоны нет,
+  адреса region-scoped (anycast).
+- **`GetByValue`** — отдельный RPC (`GetAddressByValue`), потому что искать по значению IP
+  через `Get(id)` нельзя: адресация ресурса — по `id` (ban #15).
+
+> [!note] История: миграции до baseline
+> Номера ниже `0001_initial.sql` — археология. Живые номера — 0002 и выше.
+
+## См. также
+
+[[vpc-subnet]] · [[vpc-addresspool]] · [[vpc-networkinterface]] · [[../rpc/vpc-address-service]] · [[../rpc/vpc-internal-address-service]]
 
 #resource #vpc #address #ipam

@@ -19,7 +19,7 @@ tags:
 
 # ListenerService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 

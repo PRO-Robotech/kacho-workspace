@@ -27,7 +27,7 @@ tags:
 
 # PermissionCatalogService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
+**Proto**: `proto/kacho/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
 **Backend**: `kacho-iam:9090` (**public** listener; `registerPublicServices` in `cmd/kacho-iam/grpc_register.go`).
 **Visibility**: **public** — grantable-token platform metadata, NOT infra-sensitive (`security.md` §infra-sensitive; G-D3). Authenticated-floor; anonymous fail-closed.
 **Status**: test (branch `rbac-docs-site`).

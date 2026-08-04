@@ -5,11 +5,12 @@ aliases:
   - vpc Network
 category: resource
 domain: vpc
-id_prefix: enp
+id_prefix: net
 owner_table: kacho_vpc.networks
 owner_db: kacho_vpc
-folder_level: true
+project_level: true
 status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-network-service]]"
   - "[[rpc/vpc-internal-network-service]]"
@@ -24,60 +25,95 @@ tags:
 
 # Network
 
-**Domain**: vpc
-**ID prefix**: `enp`
-**Owner table**: `kacho_vpc.networks` (database `kacho_vpc`)
-**Folder-level**: yes (per-folder unique name)
+**Домен**: vpc · **владелец**: сервис `kacho-vpc` (каталог монорепо `services/vpc/`)
+**ID prefix**: `net` (`ids.PrefixNetwork`, `pkg/ids/ids.go`)
+**Owner table**: `kacho_vpc.networks` (БД `kacho_vpc`)
+**Scope**: project — `UNIQUE (project_id, name) WHERE name <> ''`
 
-## Fields (domain)
+**Контракт**: `proto/kacho/cloud/vpc/v1/network.proto`
+**Схема**: `services/vpc/internal/migrations/0001_initial.sql` + 0007, 0015, 0016, 0017
 
-| Field | Type | Validation | Note |
-|---|---|---|---|
-| `id` | TEXT PK | `ids.IsValid("enp")` | |
-| `project_id` | TEXT | cross-service ref → rm.Folder | dangling-ref грациозен |
-| `name` | TEXT | `validate.NameVPC` (regex) | UNIQUE (project_id, name) |
-| `description` | TEXT | `<=256` chars | |
-| `labels` | JSONB | `validate.Labels` (`<=64` pairs) | CHECK constraint (0025 → inline в baseline 0001) |
-| `created_at` | TIMESTAMP | server-set | truncated to seconds (YC parity) |
-| `default_security_group_id` | TEXT | nullable | `InternalNetworkService.SetDefaultSecurityGroupId` |
-| `vrf_id` | BIGINT | UNIQUE, CHECK 1..4294967295, sequence DEFAULT | **CIL0**: SRv6 VRF id (uint32). Инфра-чувствительный → только `InternalNetworkService.GetNetwork`, НЕ на public. Immutable, без reuse. migration 0007. |
+## Поля публичной проекции (`message Network`)
 
-(Бывшее поле `vpn_id` — часть kube-ovn-эпохи data-plane-модели — **удалено** historical migration 0023 (свёрнуто в baseline 0001 — KAC-111), эпики KAC-36/79/80.)
+| Поле | Тип | Заметка |
+|---|---|---|
+| `id` | string | `net<17-crockford-base32>`; immutable на всю жизнь ресурса (ban #15) |
+| `project_id` | string | cross-service ссылка → **iam** `Project`; без FK через границу сервиса |
+| `created_at` | Timestamp | в ответе truncate до секунд |
+| `name` | string | косметический project-scoped label, меняется свободно |
+| `description` | string | ≤ 256 символов (DB CHECK) |
+| `labels` | map<string,string> | ≤ 64 пар (DB CHECK `kacho_labels_valid`) |
+| `default_security_group_id` | string | для тенанта output-only; ставится только internal-ручкой |
+| `ipv4_cidr_blocks` | repeated string | **объявленный супернет** сети — чистый НАБОР блоков; primary на уровне сети нет |
+| `ipv6_cidr_blocks` | repeated string | зеркало v4 |
+| `default_route_table_id` | string | output-only; системная RT, создаётся на `Network.Create` и авто-ассоциируется к каждой новой Subnet |
 
-## Constraints / indexes
+**Супернет (VPC-1 F2/F3; миграции 0015 → 0016 → 0017).** Каждый `Subnet.ipv4_cidr_primary`
+обязан быть подмножеством одного из блоков сети. Блоки меняются **только** парой глаголов
+`:add-cidr-blocks` / `:remove-cidr-blocks`; через `Update` они неизменяемы.
+
+## Инфра-чувствительное поле `vrf_id` — НЕ на публичной поверхности
+
+Колонка `networks.vrf_id bigint` (миграция `0007_network_vrf_id.sql`): `NOT NULL`, `UNIQUE`,
+значение выдаёт последовательность `kacho_vpc.networks_vrf_seq` — аллокация атомарна на
+INSERT, а не software check-then-act (ban #10). Это SRv6-идентификатор data-plane, то есть
+ровно тот класс, который `security.md` §«Инфра-чувствительные данные» держит только в
+`Internal*`-API: читается **исключительно** через `InternalNetworkService.GetNetwork` на
+:9091 (`uint32 vrf_id` в `GetInternalNetworkResponse`), в `message Network` его нет.
+Две проекции одного ресурса — задокументированный приём, а не дубль.
+
+Колонка `route_distinguisher` из baseline в таблице осталась и в публичный контракт не
+входит.
+
+## Constraints / indexes (по DDL, не по памяти)
 
 - `networks_pkey` PRIMARY KEY (id)
-- `networks_project_id_name_key` UNIQUE (project_id, name)
-- `networks_vrf_id_key` UNIQUE (vrf_id) + `networks_vrf_id_range` CHECK (CIL0, migration 0007); аллокация `networks_vrf_id_seq` (атомарно на INSERT, ban #10)
-- Labels CHECK (0025 → inline в baseline 0001)
-- Name CHECK (0025 → inline в baseline 0001)
+- `networks_project_id_name_key` — UNIQUE (project_id, name), partial `WHERE name <> ''`
+- `networks_name_check`, `networks_description_check`, `networks_labels_valid` — inline CHECK в baseline
+- `networks_vrf_id_key` UNIQUE (vrf_id) + диапазонный CHECK (0007)
 
-## FK contract (in-bound: что ссылается на Network)
+## FK-контракт (кто ссылается на Network внутри той же БД)
 
-- `subnets.network_id → networks(id)` (default — без cascade override)
-- `route_tables.network_id → networks(id)` (default)
+- `subnets.network_id → networks(id)` — без CASCADE
+- `route_tables.network_id → networks(id)` — без CASCADE
 - `security_groups.network_id → networks(id) ON DELETE RESTRICT`
 - `address_pool_network_default.network_id → networks(id) ON DELETE CASCADE`
+- `subnet_cidr_blocks.network_id` — денормализованный ключ scope у EXCLUDE (миграция 0010), не FK
 
-→ Delete Network → `FailedPrecondition "network is not empty"` если есть Subnet/RT/SG (FK без CASCADE).
+Следствие: `Delete` непустой сети → `FailedPrecondition "network is not empty"`.
+Через границу сервиса каскада нет by construction (ban #4).
 
-## Lifecycle
+## Жизненный цикл
 
-Single state — нет `status` enum'а (после kube-ovn нет провизионинг-стадии). Сразу ACTIVE после `Create`.
+Состояние одно; `status`-поля у Network нет — провизионинг-стадии не существует.
+Мутации всё равно возвращают `Operation` (ban #9), и `done=true` означает «строка
+закоммичена», и только это.
 
-## Gotchas
+## Gotcha
 
-- `default_security_group_id` управляется через [[../rpc/vpc-internal-network-service]] (admin); tenant не может менять напрямую.
-- Cross-folder/cross-project **Move удалён** в [[KAC-266]] (contract-removal): RPC `NetworkService.Move` + `MoveNetworkRequest`/`MoveNetworkMetadata` сняты. project_id неизменяем после Create.
+- **`default_security_group_id` тенант не меняет.** Ручка живёт на internal-листенере
+  (`SetDefaultSecurityGroupId`, требует `system_admin`). При `Network.Create` дефолтная SG
+  создаётся inline (`services/vpc/internal/apps/kacho/api/network/create.go`).
+- **`default_route_table_id` до 0017 был объявлен, но никем не писался** — тенант видел
+  пустую строку, хотя 0015 уже называла колонку источником истины. Поучительный экземпляр
+  класса «поле объявлено, писателя нет»: `api-conventions.md` §«Принято-и-проигнорировано».
+- **`NetworkService.Move` не существует** — снят как contract-removal ([[KAC-266]]);
+  `project_id` неизменяем после Create.
+- **`List` сети объявлен `<exempt>`** в каталоге прав (см. [[../rpc/vpc-network-service]]) —
+  это не «без авторизации», а «без project-scope Check на крае»; отбор всё равно идёт
+  фильтром по данным.
 
+> [!note] История: миграции до baseline
+> Номера ниже `0001_initial.sql` — археология: физически их нет, финальное состояние
+> свёрнуто в baseline. Номера **0002 и выше** в `services/vpc/internal/migrations/` —
+> живые, применяются поверх.
 
-> [!note] После KAC-111 (squash migrations)
-> Specific migration numbers (0001–0034) свёрнуты в single baseline `0001_initial.sql`.
-> Ссылки на исторические migration N сохраняются как archeology, но физически их нет —
-> весь финальный state в `internal/migrations/0001_initial.sql` (kacho-vpc PR #97).
+> [!note] История: kube-ovn-эпоха
+> Поле `vpn_id` и data-plane-модель kube-ovn удалены до свёртки. Оставлено как история,
+> а не как описание сегодняшнего дня.
 
-## See also
+## См. также
 
-[[../packages/vpc-domain]] [[../packages/vpc-repo-kacho-pg]] [[../rpc/vpc-network-service]] [[../rpc/vpc-internal-network-service]]
+[[vpc-subnet]] · [[vpc-securitygroup]] · [[vpc-routetable]] · [[../rpc/vpc-network-service]] · [[../rpc/vpc-internal-network-service]]
 
 #resource #vpc #network

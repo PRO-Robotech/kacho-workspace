@@ -3,7 +3,8 @@ title: InternalNetworkInterfaceService (vpc)
 aliases:
   - InternalNetworkInterfaceService (vpc)
   - Internal NIS
-proto_file: proto/kacho/cloud/vpc/v1/network_interface_service.proto
+proto_file: kacho/cloud/vpc/v1/internal_network_interface_service.proto
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 category: rpc
 backend: kacho-vpc
 backend_port: 9091
@@ -22,6 +23,12 @@ tags:
 
 # InternalNetworkInterfaceService (vpc) — :9091
 
+**Контракт**: `proto/kacho/cloud/vpc/v1/internal_network_interface_service.proto` —
+отдельный файл, **не** `network_interface_service.proto` (там публичный CRUD;
+frontmatter указывал на него по ошибке, исправлено 2026-08-05).
+**Провязка**: `services/vpc/internal/handler/internal_network_interface_handler.go`,
+логика — `services/vpc/internal/apps/kacho/services/nicinternal/`.
+
 Координация привязки NIC↔Instance на стороне владельца. Инициатор — compute; vpc
 валидирует **свои** строки и **никогда не зовёт compute обратно** (ацикличность).
 
@@ -33,7 +40,8 @@ tags:
 
 `Attach` — атомарный CAS на `used_by_id` с проверкой когерентности размещения
 (зона NIC = зона инстанса; REGIONAL/anycast-подсеть из зональной полосы исключена
-by construction). Контракт-тексты отказов — в `services/nicinternal/service.go`.
+by construction). Контракт-тексты отказов — в
+`services/vpc/internal/apps/kacho/services/nicinternal/`.
 
 ## ListByInstance — почему авторизация не per-RPC
 
@@ -45,8 +53,8 @@ by construction). Контракт-тексты отказов — в `services/
 `user:*`. То есть проверка пропускала **любого аутентифицированного субъекта**, хотя
 ответ метода справочными данными не является. Самодельный админ-гейт перед листенером
 этого не ловил: он классифицировал по **уровню** отношения, а не по предмету ответа.
-Класс — [[../../../.claude/rules/security.md|отношение, выполнимое
-подстановкой, не сужает ничего]].
+Класс описан в правилах воркспейса: `.claude/rules/security.md`,
+§«Отношение, выполнимое подстановочным знаком, не сужает НИЧЕГО».
 
 Сейчас: страница читается курсором из своей БД, затем модель спрашивается про
 идентификаторы **этой** страницы (`viewer ∪ v_list` на `vpc_network_interface:<id>`,

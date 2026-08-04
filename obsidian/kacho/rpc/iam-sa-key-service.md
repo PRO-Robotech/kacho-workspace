@@ -25,7 +25,7 @@ tags:
 
 # SAKeyService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/sa_key_service.proto` (Phase 5).
+**Proto**: `proto/kacho/cloud/iam/v1/sa_key_service.proto` (Phase 5).
 **Backend**: `kacho-iam:9090`. Public — workload owner управляет своими SA OAuth clients.
 **Status**: **Phase 5 planned**. Class A static credentials через Hydra OAuth2 client. `ServiceAccountOAuthClient` 1:1 c ServiceAccount.
 

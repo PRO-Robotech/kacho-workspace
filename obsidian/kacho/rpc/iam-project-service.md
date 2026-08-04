@@ -23,7 +23,7 @@ tags:
 
 # ProjectService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/project_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/project_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]]; proto-stubs смержены в E0 ([[KAC-105]]).

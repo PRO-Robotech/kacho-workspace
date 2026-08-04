@@ -20,7 +20,7 @@ tags:
 
 # NetworkInterfaceService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/network_interface_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/network_interface_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 

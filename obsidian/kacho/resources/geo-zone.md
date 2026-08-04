@@ -8,8 +8,9 @@ domain: geo
 id_prefix: none
 owner_table: kacho_geo.zones
 owner_db: kacho_geo
-folder_level: false
-status: in-progress
+project_level: false
+status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05 (proto + services/geo/internal/migrations/0001..0004)"
 related_rpc:
   - "[[rpc/geo-zone-service]]"
 related_packages:
@@ -69,9 +70,25 @@ Admin создаёт явным slug через `InternalZoneService.Create` →
 
 ## Cross-domain refs (consumer-side, без cross-service FK)
 
-- `kacho-compute` `Instance.zone_id`/`disks.zone_id`, `kacho-vpc` `Subnet.zone_id` — TEXT,
-  валидируются `geo.v1.ZoneService.Get` (existence). Consumer-side placement-gate на
-  `open_for_placement°` — отдельные под-фазы (out-of-scope GEO-1).
+Кто ссылается на зону — перепись по стволу 2026-08-05:
+
+- **vpc** — `Subnet.zone_id` (задан ⟺ `placement_type == ZONAL`); плюс `AddressPool.zone_id`
+  (без FK — владелец зоны в другой БД);
+- **compute** — `Instance.zone_id`;
+- **storage** — `Volume`/`Snapshot` зональны; регион образа сверяется резолвом
+  `RegionOfZone` внутри insert-CAS;
+- **nlb** — зона таргета резолвится в регион через `ZoneService.Get`.
+
+Все ссылки — TEXT без FK (через границу сервиса FK невозможен, ban #4/#8); существование
+проверяется peer-вызовом `geo.v1.ZoneService.Get`, недоступность владельца ⇒ `UNAVAILABLE`
+(fail-closed для мутаций).
+
+> [!warning] `disks.zone_id` больше не ссылается сюда — таблицы нет
+> Прежняя редакция называла `compute.disks.zone_id`. Блочное хранение вынесено в **storage**,
+> а дубль в compute ретайрен: в `services/compute/internal/migrations/` таблицы
+> `disks`, `images`, `snapshots`, `disk_types`, `attached_disks` **дропнуты** (плюс
+> `regions`/`zones` — геграфия ушла в geo). Живых таблиц у compute семь.
+
 - См. [[../edges/compute-to-geo-zone-validate]] · [[../edges/vpc-to-geo-zone-validate]].
 
 ## See also

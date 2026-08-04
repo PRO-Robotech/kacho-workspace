@@ -20,7 +20,7 @@ tags:
 
 # AddressService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/address_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/address_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 

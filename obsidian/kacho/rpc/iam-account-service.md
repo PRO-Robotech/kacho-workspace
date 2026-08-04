@@ -23,7 +23,7 @@ tags:
 
 # AccountService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/account_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/account_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC) + `:9091` (internal)
 **Visibility**: public (registered на обоих listener'ах api-gateway)
 **Status**: реализован в [[KAC-105]] (E0).

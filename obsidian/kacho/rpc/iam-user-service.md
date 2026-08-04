@@ -26,7 +26,7 @@ tags:
 
 # UserService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/user_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/user_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public — read (`Get`/`List`) + label-write `Update` (DIVERGENCE-A); identity-mirror write — через [[iam-internal-user-service]].
 **Status**: backend в [[KAC-112]]; `Update` (label-write) merged DIVERGENCE-A (proto#89 / iam#249 `b4164e0f` / api-gateway#102).

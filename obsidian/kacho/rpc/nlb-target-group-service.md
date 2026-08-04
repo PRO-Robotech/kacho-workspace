@@ -19,7 +19,7 @@ tags:
 
 # TargetGroupService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/target_group_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/target_group_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 

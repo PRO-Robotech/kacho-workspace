@@ -27,7 +27,7 @@ tags:
 
 # AccessBindingService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/access_binding_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/access_binding_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]]. E0 хранит binding'и, **не** enforce'ит authz — E3 ([[KAC-108]]) добавит Check-interceptor.

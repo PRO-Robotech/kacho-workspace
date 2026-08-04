@@ -24,6 +24,10 @@ tags:
 > Домена resource-manager в дереве продукта нет: ни каталога proto, ни объявления
 > сервиса, ни схемы БД. Преемник — Project в iam ([[iam-project]]). Ниже — след,
 > а не описание действующего ресурса.
+>
+> **Снятие закреплено проверкой на крае** (сверено по стволу 2026-08-05):
+> `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` —
+> `/kacho.cloud.resourcemanager.v1.FolderService/Get` обязан **не резолвиться**.
 
 # Folder — снят (KAC-124)
 

@@ -20,7 +20,7 @@ tags:
 
 # NetworkLoadBalancerService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/network_load_balancer_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/network_load_balancer_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 

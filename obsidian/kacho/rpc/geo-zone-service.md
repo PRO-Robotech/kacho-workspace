@@ -24,7 +24,7 @@ tags:
 
 # ZoneService + InternalZoneService (geo)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/geo/v1/zone_service.proto` (public) +
+**Proto**: `proto/kacho/cloud/geo/v1/zone_service.proto` (public) +
 `internal_catalog_service.proto` (`InternalZoneService`, admin).
 **Backend**: `kacho-geo:9090` (public read) · `kacho-geo:9091` (Internal admin).
 **Domain**: geo. **Catalog-паттерн (GEO-1 two-projection)**: public read отдаёт **lean**

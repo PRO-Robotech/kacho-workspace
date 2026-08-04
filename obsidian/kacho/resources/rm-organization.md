@@ -23,6 +23,10 @@ tags:
 > нет: каталога proto, объявления сервиса и схемы БД не существует. Преемник —
 > Account в iam ([[iam-account]]). Ниже — след, а не описание действующего
 > ресурса.
+>
+> **Снятие закреплено проверкой на крае** (сверено по стволу 2026-08-05):
+> `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` —
+> `/kacho.cloud.organizationmanager.v1.OrganizationService/List` обязан **не резолвиться**.
 
 # Organization — снят (KAC-124)
 

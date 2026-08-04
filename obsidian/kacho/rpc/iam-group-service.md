@@ -23,7 +23,7 @@ tags:
 
 # GroupService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/group_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/group_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]].

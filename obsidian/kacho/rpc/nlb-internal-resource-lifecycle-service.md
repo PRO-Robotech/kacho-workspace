@@ -21,7 +21,7 @@ tags:
 
 # InternalResourceLifecycleService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto`
 **Backend**: `kacho-nlb:9091` (cluster-internal gRPC)
 **Visibility**: **internal-only** (workspace CLAUDE.md запрет #6 — НЕ на external TLS listener)
 

@@ -20,7 +20,7 @@ tags:
 
 # InternalAddressService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_address_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/internal_address_service.proto`
 **Backend**: `kacho-vpc:9091` (internal-port)
 **Public/Internal**: **cluster-internal-only** (не на TLS edge, см. CLAUDE.md «Запреты» #6)
 

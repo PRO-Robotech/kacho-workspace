@@ -26,7 +26,7 @@ tags:
 
 # InternalIAMService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_iam_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/internal_iam_service.proto`
 **Backend**: `kacho-iam:9091` (**internal-only**; запрет #6 — НЕ публиковать на external TLS `api.kacho.local:443`)
 **Visibility**: internal — REST зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/...`.
 **Status**: backend в [[KAC-112]].

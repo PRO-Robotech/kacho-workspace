@@ -20,7 +20,7 @@ tags:
 
 # InternalNetworkService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_network_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/internal_network_service.proto`
 **Backend**: `kacho-vpc:9091`
 **Public/Internal**: **cluster-internal-only**
 

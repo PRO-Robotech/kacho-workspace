@@ -25,7 +25,7 @@ tags:
 
 # InternalAuthorizeService (iam, internal)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_authorize_service.proto` (Phase 3).
+**Proto**: `proto/kacho/cloud/iam/v1/internal_authorize_service.proto` (Phase 3).
 **Backend**: `kacho-iam:9091` — cluster-internal listener.
 **Visibility**: **Internal** — admin / control-plane only (workspace `CLAUDE.md` §Запреты #6). НЕ exposed на public TLS / api.kacho.cloud.
 **Status**: **Phase 3 planned**. Write-path FGA tuple management + model lifecycle + Rego policy lifecycle.

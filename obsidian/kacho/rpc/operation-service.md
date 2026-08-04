@@ -18,7 +18,7 @@ tags:
 
 # OperationService
 
-**Proto**: `kacho-proto/proto/kacho/cloud/operation/operation_service.proto`
+**Proto**: `proto/kacho/cloud/operation/operation_service.proto`
 **Backend**: per-domain (каждый сервис ведёт свои operations; api-gateway проксирует к нужному backend по префиксу).
 
 ## Methods
