@@ -9,8 +9,8 @@ domain: iam
 id_prefix: cond
 owner_table: kacho_iam.access_binding_conditions
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-access-binding-service]]"
 related_packages:
@@ -22,7 +22,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.access_binding_conditions` **дропнута** миграцией `0075_retire_tenant_condition_surface.sql`. Разбор в самой миграции стоит прочесть: наложение никогда не было соединено с ресурсом — `access_bindings.condition_id` ссылалось на `access_binding_conditions(id)` с идентификаторами одной формы, а ресурс жил в `conditions(id)` с идентификаторами другой; два дизайна, два пространства идентификаторов, пути между ними нет. Производственного писателя у таблицы не было вовсе: каждый INSERT в неё в репозитории — в тесте.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # AccessBindingCondition
 

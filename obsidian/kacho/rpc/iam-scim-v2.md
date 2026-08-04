@@ -22,7 +22,15 @@ tags:
   - iam
   - scim
   - sso
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Ни маршрутов `/scim`, ни выделенного листенера в `services/iam/` и `gateway/` нет; таблицы `scim_user_mappings`, `scim_groups`, `scim_group_members` дропнуты `0006_drop_scim_saml_break_glass.sql`. Пользователи заводятся через `UserService.Invite` и апсерт по внешней личности (`InternalUserService.UpsertFromIdentity`), а не синхронизацией каталога.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # SCIM 2.0 (iam)
 

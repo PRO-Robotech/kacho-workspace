@@ -4,7 +4,7 @@ category: resource
 domain: iam
 id_prefix: evt
 owner_table: kacho_iam.audit_outbox
-folder_level: outbox
+project_level: outbox
 status: stable
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"

@@ -9,8 +9,8 @@ domain: iam
 id_prefix: jite
 owner_table: kacho_iam.access_bindings_jit_eligibility
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-access-binding-service]]"
 related_packages:
@@ -22,7 +22,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблицы `access_bindings_jit_eligibility` в `services/iam/internal/migrations/` нет ни в одной миграции; идентификатора `JITEligibility` в дереве — ноль вхождений. Единственный след — `0013_drop_jit_breakglass_condition_whitelist.sql`, снявшая вид условия `jit_window` из белого списка с формулировкой «сирота после удаления JIT/PIM-конвейера: ни один поток не выставляет контекст, который предикату нужен».
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # AccessBindingJITEligibility
 

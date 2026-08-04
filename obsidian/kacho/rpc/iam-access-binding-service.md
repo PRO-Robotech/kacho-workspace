@@ -136,6 +136,27 @@ tags:
   - **`ListByRole(ListAccessBindingsByRoleRequest{role_id,page,include_revoked}) → ListAccessBindingsResponse` (sync read, E-33)** — audit «кто несёт роль R». repo keyset `(created_at,id) ASC`; authz: authenticated floor + per-row scope-filter через `requireGrantAuthority`. REST `GET /iam/v1/accessBindings:listByRole`; perm `iam.access_bindings_by_roles.listByRole`.
   - **group-amplification guard (E-32/Q#4)** — admin/editor + GROUP требует `requireGrantAuthority` на scopeRef (Create вызывает его для ЛЮБОГО create → guard by construction). Оба новых RPC — **public** (external endpoint, gateway public mux); НЕ Internal. См. [[../KAC/rbac-rules-model-2026-subphase-E-iam]].
 
+
+## Сверка со стволом (2026-08-05)
+
+Перепись по `proto/kacho/cloud/iam/v1/access_binding_service.proto`: у сервиса **14** RPC.
+
+**Есть в контракте, но записка о нём молчала**: `Revoke` (`POST
+/iam/v1/accessBindings/{access_binding_id}:revoke`, → `Operation`). Отзыв — отдельный
+глагол, а не `Delete`: строка остаётся, проставляется `revoked_at`, и она **выходит** из
+частичного UNIQUE активного гранта (`WHERE revoked_at IS NULL`), поэтому повторная
+идентичная выдача после отзыва создаёт **новую** активную строку.
+
+**Названы в записке, но в контракте отсутствуют** — то есть утверждения, пережившие свой
+предмет: `AddTargetResources`, `RemoveTargetResources`, `ReplaceTargetSelector`,
+`ListGrantableResources`. Их предмет — прежняя схема выбора объектов под привязкой
+(таблицы `access_binding_targets` и `access_binding_selector` **дропнуты** миграцией
+`0030_drop_legacy_target_selector.sql`). Сегодня выбор выражен полем `target` самой
+привязки (`0055_access_binding_target.sql`): `{"allInScope":true}` либо
+`{"resources":[{"type":…,"id":…}]}` плюс детерминированный `target_digest`, который
+входит **ключом** в частичный UNIQUE активного гранта — одинаковый набор в любом порядке
+коллизирует, разные наборы сосуществуют.
+
 ## See also
 
 [[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/epic-100-resource-scoped-access-binding]] [[../KAC/rbac-rules-model-2026-subphase-E-iam]]

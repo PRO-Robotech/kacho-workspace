@@ -9,8 +9,8 @@ domain: iam
 id_prefix: gdpr
 owner_table: kacho_iam.gdpr_erasure_requests
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -21,7 +21,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблицы `gdpr_erasure_requests` в миграциях iam нет; идентификатора `GDPRErasure` в дереве — ноль вхождений. Из живого рядом — `kacho_iam.recovery_completions` ([[iam-recovery-completions]]) и `session_revocations`, но это другие предметы.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # GDPRErasureRequest
 

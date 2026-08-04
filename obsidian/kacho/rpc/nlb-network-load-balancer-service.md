@@ -78,6 +78,37 @@ tuple-база), fail-closed (iam down → UNAVAILABLE), no-leak (empty grant �
 Get вне гранта → 404 via per-RPC Check). Toggle `authz.list-filter.enabled`
 (default true). Детали — [[../edges/nlb-to-iam-listobjects]] / [[../KAC/rbac-rules-model-2026-subphase-D-nlb-consumer]].
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте `proto/kacho/cloud/loadbalancer/v1/network_load_balancer_service.proto` —
+**восемь** RPC: `Get`, `List`, `Create`, `Update`, `Delete`, `Move`, `GetTargetStates`,
+`ListOperations`. Мутации возвращают `Operation`; `Move` **жив** (в отличие от домена vpc,
+где все `Move` сняты).
+
+**Названы в записке, но в контракте отсутствуют**: `Start`, `Stop`, `AttachTargetGroup`,
+`DetachTargetGroup`. Каждое снято осознанно, и proto это фиксирует резервированием:
+
+- **`attached_target_groups`** — слот 13 в `message NetworkLoadBalancer`, зарезервирован
+  и номером, и именем. Прежний M:N-снимок на балансировщике снят: авторитетная привязка
+  теперь **на `Listener`** (`target_group_id`), а не на балансировщике и не парой глаголов.
+  Таблица `kacho_nlb.attached_target_groups` дропнута. Один источник истины вместо снимка
+  плюс глаголов, которые могли с ним разъехаться.
+- **`Start` / `Stop`** — вместе с ними из `enum Status` вычеркнуты `STARTING(2)`,
+  `STOPPING(4)`, `STOPPED(5)` (`reserved 2, 4, 5`). Административное включение/выключение
+  выражено полем `admin_state`, то есть **состоянием**, а не парой команд. Отзвук того же
+  решения в iam — миграция `0059_nlb_operator_drop_start_stop.sql`, снимающая
+  соответствующие права.
+
+Заодно `NetworkLoadBalancer` зарезервировал `listeners` (слушатель стал самостоятельным
+ресурсом), пер-зональные поля 15/18 как несовместимые с anycast, и `network_id`,
+`security_group_ids`, `address_v4`, `address_v6`, `ip_families` (сеть выводится, группы
+безопасности живут на таргетах, VIP описывается `VipSource`). Записка, называющая любое
+из них полем балансировщика, пережила свой предмет.
+
+`List` объявлен `<exempt>` в каталоге прав: край не делает per-RPC project-scope Check,
+отбор идёт на уровне данных по идентификаторам страницы.
+
 ## See also
 
 [[../packages/nlb-apps-kacho-api-loadbalancer]] [[../resources/nlb-load-balancer]] [[nlb-listener-service]] [[nlb-target-group-service]] [[../edges/nlb-to-iam-listobjects]]

@@ -8,7 +8,7 @@ domain: iam
 id_prefix: prj
 owner_table: kacho_iam.projects
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-project-service]]"

@@ -3,7 +3,7 @@ title: recovery_completions
 category: resource
 domain: iam
 owner_table: kacho_iam.recovery_completions
-folder_level: ledger
+project_level: ledger
 status: done
 related_rpc:
   - "[[rpc/iam-internal-user-service]]"

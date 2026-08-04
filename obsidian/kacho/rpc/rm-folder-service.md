@@ -14,7 +14,15 @@ tags:
   - kacho-rm
   - folder
   - deprecated
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Домена resource-manager в дереве нет. Снятие закреплено той же проверкой края: `/kacho.cloud.resourcemanager.v1.FolderService/Get` обязан не резолвиться (`TestResolver_RemovedResourceManagerBlocked`). Преемник — `ProjectService` ([[iam-project-service]]).
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 > [!warning] Сервис снят вместе со своим доменом (KAC-124)
 > Ни этого сервиса, ни его домена в дереве продукта нет: объявления сервиса в

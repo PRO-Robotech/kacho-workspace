@@ -7,7 +7,7 @@ category: resource
 domain: nlb
 owner_table: kacho_nlb.targets
 owner_db: kacho_nlb
-folder_level: false
+project_level: false
 status: stable
 related_rpc:
   - "[[rpc/nlb-target-group-service]]"
@@ -17,7 +17,15 @@ tags:
   - resource
   - kacho-nlb
   - target
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> `message Target` живёт **внутри** `proto/kacho/cloud/loadbalancer/v1/target_group.proto`
+> (отдельного `target.proto` нет), таблица `kacho_nlb.targets` жива. Состав меняется
+> глаголами `TargetGroupService.AddTargets` / `RemoveTargets`, оба возвращают `Operation`.
+> Наблюдаемое состояние таргетов читается синхронно через
+> `NetworkLoadBalancerService.GetTargetStates` (`GET /nlb/v1/networkLoadBalancers/{id}/targetStates`).
 
 # Target (nlb)
 

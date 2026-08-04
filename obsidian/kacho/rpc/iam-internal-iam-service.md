@@ -58,6 +58,29 @@ tags:
 - `PollSubjectChanges` (WS-2.3) — read-only, по слоям Clean Arch: port `service.SubjectChangeReader` + pg-адаптер `internal/repo/kacho/pg/subject_change_repo.go`. Источник строк — `subject_change_outbox`, куда пишут `AccessBinding.Create/Delete` (см. [[../resources/iam-access-binding]]). Потребитель — [[../edges/api-gateway-to-iam-subject-change]].
 - `RegisterResource`/`UnregisterResource` ([[SEC-A-proto-fga-proxy]]) — proto + buf в SEC-A; **handler реализован в SEC-C** ([[../KAC/SEC-C-iam-fga-proxy-sa-roles]]). FGA-proxy: vpc/compute/nlb перестают писать owner-tuple в OpenFGA напрямую (эпик #6) и декларируют намерение через IAM. Handler (`internal/apps/kacho/api/internal_iam/register_resource.go` + `handler.go`) валидирует tuple (`<type>:<id>` грамматика, no `#`/whitespace) → эмитит в `kacho_iam.fga_outbox` в одной writer-tx (`RegisterResourceUseCase`) → drainer (`clients/fga_applier.go`) применяет к OpenFGA. **Идемпотентность — контракт drainer'а**: write `already_exists`→OK (не AlreadyExists), delete absent→OK (не NotFound). **authz-гейт SEC-C** — `authzguard.FGAProxyGate`: mTLS client-cert SAN (`spiffe://kacho.cloud/ns/<ns>/sa/kacho-<svc>`, SEC-B extractor) → детерминированный `sva`-id → ReBAC `Check(service_account:<sva>, fga_writer, iam_fgaproxy:system)`; dev-mode insecure → allow (backward-compat), prod-mode → fail-closed. Internal listener получил `UnaryCertIdentityExtract` (cmd serve.go). transactional-outbox drainer в модулях (at-least-once) — SEC-D. Вызывающие рёбра: [[../edges/vpc-to-iam-fgaproxy]], [[../edges/compute-to-iam-fgaproxy]] (SEC-D). Эпик: [[../KAC/EPIC-SEC-mtls-iam-authz]].
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **восемь** RPC: `LookupSubject`, `Check`, `WriteCreatorTuple`,
+`RegisterResource`, `UnregisterResource`, `ForceLogout`, `PollSubjectChanges`,
+`GetRoleCompiled`.
+
+**Не был назван в записке**: `GetRoleCompiled` — скомпилированное представление роли для
+потребителя.
+
+**Назван, но в контракте отсутствует**: `GetJWKSStatus`. Ключи iam не чеканит — он
+**зеркалит** публичный JWKS Hydra коротким кэшем на отдельном внутреннем HTTPS-эндпоинте
+`GET /.well-known/jwks.json` (:9097); это HTTP-маршрут, а не RPC этого сервиса, и он
+задокументированное исключение из «authN на каждом листенере» (`security.md`). Таблица
+`oidc_jwks_keys` дропнута `0065_drop_oidc_jwks_keys.sql`.
+
+> [!important] `RegisterResource` / `UnregisterResource` — контракт ПРИНИМАЮЩЕЙ стороны
+> Постановка и снятие регистрации гейтятся **закрытым набором принимаемых отношений**,
+> проверяемым до записи; отношение вне набора отвергает запрос целиком. Отказ в правах
+> от владельца — **терминальный**, а не временный: повтор идентичного запроса пройти не
+> может, и классификация его как временного заклинивает партицию очереди на всё окно
+> повторов. Разбор класса — `data-integrity.md` §«Межсервисное намерение».
+
 ## See also
 
 [[../packages/iam-domain]] [[../resources/iam-access-binding]] [[../resources/iam-user]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]]

@@ -12,13 +12,21 @@ domain: iam
 related_resource: "[[resources/iam-condition]]"
 methods_count: 6
 async_methods: 3
-status: experimental
+status: deprecated
 tags:
   - rpc
   - kacho-iam
   - iam
   - authz
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Сервиса `ConditionsService` в `proto/kacho/cloud/iam/v1/` нет; тенант-facing Condition-поверхность снята миграцией `0075_retire_tenant_condition_surface.sql` вместе с ресурсом, полем-ссылкой и authz-типом. Утверждение записки «mounted on the api-gateway external mux and in the gRPC allowlist» на этом дереве **неверно**. Живо другое, одноимённое: условия НА КОРТЕЖЕ (`TupleCondition`, внутренний листенер) и перечисление `BuiltinCondition`.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # ConditionsService (iam)
 

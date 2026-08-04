@@ -9,7 +9,7 @@ domain: iam
 id_prefix: acb
 owner_table: kacho_iam.access_bindings
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-access-binding-service]]"

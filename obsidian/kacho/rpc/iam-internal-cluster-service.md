@@ -63,6 +63,22 @@ tags:
 - Все методы — `Internal*` per workspace §запрет #6: cluster-admin enforcement — не tenant-facing.
 - Break-glass требует 2-person approve: Phase 7 service-CHECK `approver_b ∉ {requested_by, approver_a}`.
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **четыре** RPC: `Get` (`GET /iam/v1/internal/cluster`), `GrantAdmin`
+(`POST …/cluster/admins` → `Operation`), `RevokeAdmin`
+(`DELETE …/cluster/admins/{subject_id}` → `Operation`), `ListAdmins` (`GET …/cluster/admins`).
+
+**Названы в записке, но в контракте отсутствуют**: `RequestBreakGlass`, `ApproveBreakGlass`,
+`DenyBreakGlass`, `ListBreakGlass`, `RevokeBreakGlass`. Их предмет снят целиком: таблицы
+`cluster_break_glass_grants` и `break_glass_post_incident_reviews` **дропнуты** миграцией
+`0006_drop_scim_saml_break_glass.sql`, а вид условия `break_glass_window` вычищен из
+белого списка `0013_drop_jit_breakglass_condition_whitelist.sql` как неисполнимый.
+Аварийный доступ сегодня выражен **каскадом трёх верхних уровней супер-доступа**
+(`security.md` §«Три уровня супер-доступа»), а не отдельным потоком согласования.
+См. [[../resources/iam-cluster-break-glass-grant]].
+
 ## See also
 
 [[../resources/iam-cluster]] [[../resources/iam-cluster-admin-grant]] [[../resources/iam-cluster-break-glass-grant]] [[../resources/iam-audit-outbox]] [[../packages/iam-seed]] [[../KAC/KAC-127]]

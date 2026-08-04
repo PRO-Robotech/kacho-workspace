@@ -8,7 +8,7 @@ domain: iam
 id_prefix: scim
 owner_table: kacho_iam.scim_user_mappings
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: deprecated
 related_rpc:
   - "[[rpc/iam-organization-service]]"
@@ -21,7 +21,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.scim_user_mappings` **дропнута** миграцией `0006_drop_scim_saml_break_glass.sql` (вместе с `scim_groups`, `scim_group_members`, `saml_sessions`, `cluster_break_glass_grants`, `break_glass_post_incident_reviews`). Идентификатора `ScimUserMapping` в непробном коде — ноль вхождений; SCIM-маршрутов в `gateway/` и `services/iam/` нет.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # SCIMUserMapping
 

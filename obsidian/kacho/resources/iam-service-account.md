@@ -9,7 +9,7 @@ domain: iam
 id_prefix: sva
 owner_table: kacho_iam.service_accounts
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-service-account-service]]"

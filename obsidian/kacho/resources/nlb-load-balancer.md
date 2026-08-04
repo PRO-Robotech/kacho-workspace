@@ -8,7 +8,7 @@ domain: nlb
 id_prefix: nlb
 owner_table: kacho_nlb.load_balancers
 owner_db: kacho_nlb
-folder_level: true
+project_level: true
 status: stable
 related_rpc:
   - "[[rpc/nlb-network-load-balancer-service]]"
@@ -21,7 +21,28 @@ tags:
   - resource
   - kacho-nlb
   - loadbalancer
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Контракт — `proto/kacho/cloud/loadbalancer/v1/network_load_balancer.proto`, схема —
+> `services/nlb/internal/migrations/` (двадцать девять миграций). Описание выше сверено и
+> **соответствует** дереву: `placement` как единственный авторитетный вход режима (0017),
+> `admin_state` вместо снятых `:start`/`:stop` (0016), `vip_origin_v4/v6` со значением
+> `linked` вместо прежнего `byo` (0011), `security_group_ids` (0020), партийные UNIQUE на
+> VIP в регионе с самолечением прерванного `CONCURRENTLY`-построения (0012).
+>
+> Что стоит держать в голове при чтении proto: у `NetworkLoadBalancer` **много
+> зарезервированных слотов**, и часть имён вернулась под другими номерами. Так,
+> `cross_zone_enabled` жив полем 42, а не слотом 19 (тот зарезервирован); `security_group_ids`
+> — поле 43. Слоты 30–39 отложены под будущий составной слой. Из `enum Status` вычеркнуты
+> `STARTING`/`STOPPING`/`STOPPED` вместе с глаголами старта и остановки.
+>
+> **Привязка групп таргетов ушла с балансировщика на слушателя**: слот 13
+> (`attached_target_groups`) зарезервирован, авторитетная ссылка — `Listener.target_group_id`
+> (миграции `0018_listener_target_group_direct_fk.sql`,
+> `0022_drop_attached_tg_pivot_and_transitional_statuses.sql`,
+> `0023_listener_target_group_same_project_fk.sql`). Таблица-связка дропнута.
 
 # NetworkLoadBalancer (nlb)
 

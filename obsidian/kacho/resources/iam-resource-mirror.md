@@ -8,7 +8,7 @@ domain: iam
 id_prefix: "(none — PK object_type+object_id)"
 owner_table: kacho_iam.resource_mirror
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-internal-iam-service]]"

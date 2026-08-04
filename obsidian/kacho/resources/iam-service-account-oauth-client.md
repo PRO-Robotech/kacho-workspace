@@ -9,7 +9,7 @@ domain: iam
 id_prefix: soc
 owner_table: kacho_iam.service_account_oauth_clients
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: planned
 related_rpc:
   - "[[rpc/iam-service-account-service]]"

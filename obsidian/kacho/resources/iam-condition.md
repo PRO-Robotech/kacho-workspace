@@ -9,8 +9,8 @@ domain: iam
 id_prefix: cnd
 owner_table: kacho_iam.conditions
 owner_db: kacho_iam
-folder_level: false
-status: experimental
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-conditions-service]]"
 related_packages:
@@ -21,7 +21,14 @@ tags:
   - kacho-iam
   - iam
   - authz
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.conditions` **дропнута** миграцией `0075_retire_tenant_condition_surface.sql` вместе с сервисом ресурса и полем-ссылкой. **Важно не спутать два разных предмета, делящих слово «условие»**: условия НА КОРТЕЖЕ, объявленные в модели прав и передаваемые по внутреннему листенеру (`TupleCondition` в `internal_authorize_service.proto`), — **живы**; снята именно тенант-facing Condition-поверхность. Живо и перечисление `BuiltinCondition` (`proto/kacho/cloud/iam/v1/builtin_condition.proto`).
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # Condition (iam)
 

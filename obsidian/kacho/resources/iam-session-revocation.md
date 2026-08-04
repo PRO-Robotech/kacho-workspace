@@ -9,7 +9,7 @@ domain: iam
 id_prefix: (token_jti)
 owner_table: kacho_iam.session_revocations
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: planned
 related_rpc: []
 related_packages:

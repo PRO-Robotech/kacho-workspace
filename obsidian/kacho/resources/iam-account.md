@@ -8,7 +8,7 @@ domain: iam
 id_prefix: acc
 owner_table: kacho_iam.accounts
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-account-service]]"

@@ -59,6 +59,22 @@ tags:
 - Phase 3 + Phase 8 связка: ReloadModel emit'ит CAEP `iam.fga.model.changed` event subscribers'у ([[../resources/iam-caep-subscriber]]).
 - Прав: только `cluster:cluster_kacho_root#system_admin` может вызывать model write/reload.
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **четыре** RPC: `WriteTuples` (→ `Operation`), `ReadTuples`, `ReloadModel`,
+`GetFGAStoreInfo`. REST-отображения нет ни у одного — сервис живёт только по gRPC на
+внутреннем листенере.
+
+**Не был назван в записке**: `GetFGAStoreInfo` — сведения о хранилище модели прав.
+
+**Названы, но в контракте отсутствуют**: `DeleteTuples`, `WriteAuthorizationModel`,
+`RunRegoTest`. Удаление кортежей выражено внутри `WriteTuples` (запрос несёт и записи, и
+снятия), модель перечитывается `ReloadModel`, а Rego в продукте нет вовсе — решение о
+доступе принимает модель отношений, а не политика на Rego
+(`security.md` §«Авторизация живёт в МОДЕЛИ»); одноимённый бандл-сервис снят, см.
+[[iam-opa-bundle-service]].
+
 ## See also
 
 [[iam-authorize-service]] [[iam-opa-bundle-service]] [[iam-conditions-service]] [[../packages/iam-jobs]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-127]]

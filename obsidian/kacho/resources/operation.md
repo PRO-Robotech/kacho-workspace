@@ -7,7 +7,7 @@ category: resource
 domain: operation
 id_prefix: per-service
 owner_table: per-service.operations
-folder_level: false
+project_level: false
 status: stable
 related_rpc:
   - "[[rpc/operation-service]]"
@@ -24,9 +24,39 @@ tags:
 # Operation (LRO envelope)
 
 **Domain**: per-service (каждый сервис ведёт свою `operations` таблицу)
-**ID prefix**: domain-specific (vpc → `enp`, rm → `b1g`, compute → `epd`) + `oper`-суффикс не нужен — id берётся из domain ([[../packages/corelib-ids]]).
-**Owner table**: `<service-schema>.operations`
-**Proto**: `kacho.cloud.operation.v1.Operation`
+**Owner table**: `<schema сервиса>.operations`
+**Контракт**: `proto/kacho/cloud/operation/operation.proto` (пакет `kacho.cloud.operation`)
+
+## ID-префикс операции — per-домен, и он ДЕКАПЛЕН от префикса ресурса
+
+Край маршрутизирует `Operation.Get` по **первым трём символам** идентификатора, поэтому
+op-префикс обязан быть стабилен для домена целиком, а не зависеть от того, какой ресурс
+мутировали. Авторитетная таблица — карта маршрутизации края
+`gateway/internal/opsproxy/proxy.go` (`prefixToBackend`), сверено 2026-08-05:
+
+| Префикс | Домен | Заметка |
+|---|---|---|
+| `enp` | vpc | op-root домена: Network / RouteTable / SecurityGroup / Gateway |
+| `e9b` | vpc | Subnet / Address — второй vpc-префикс, именная локальная константа края |
+| `epd` | compute | все операции compute (Instance и MachineType делят op-префикс) |
+| `iop` | iam | все операции iam (Account/Project/User/SA/Group/Role/AccessBinding) |
+| `nlb` | loadbalancer | все операции nlb |
+| `rop` | registry | все операции registry |
+| `sop` | storage | все операции storage (декаплен от `vol`) |
+| `geo` | geo | админский CRUD Region/Zone |
+
+Состав карты удерживается пробой `gateway/internal/opsproxy/prefix_routing_test.go`: она
+сверяет **количество и состав** ключей и падает, если префикс добавили или сняли, не
+обновив стража. Рядом живёт `legacyPrefixToBackend` — старая форма `<сервис>_<uuid>`,
+допустимая **только на чтение** (могла осесть в долгоживущих клиентах) и не используемая
+при создании новых операций.
+
+> [!warning] Здесь стояло `rm → b1g` — домена нет
+> Домен resource-manager снят (`security.md`-независимо: проверка края
+> `TestResolver_RemovedResourceManagerBlocked` требует, чтобы его методы не резолвились).
+> Константа `PrefixCloud = "b1g"` в `pkg/ids/ids.go` **жива** как легаси-значение — и это
+> ровно тот случай, когда резолв имени доказывает существование **имени**, а не домена.
+> В карте маршрутизации края `b1g` отсутствует.
 
 ## Fields (proto + DB)
 

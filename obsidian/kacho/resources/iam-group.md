@@ -8,7 +8,7 @@ domain: iam
 id_prefix: grp
 owner_table: kacho_iam.groups
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-group-service]]"

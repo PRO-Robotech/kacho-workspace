@@ -8,7 +8,7 @@ domain: nlb
 id_prefix: tgr
 owner_table: kacho_nlb.target_groups
 owner_db: kacho_nlb
-folder_level: true
+project_level: true
 status: stable
 related_rpc:
   - "[[rpc/nlb-target-group-service]]"
@@ -19,7 +19,19 @@ tags:
   - resource
   - kacho-nlb
   - targetgroup
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Контракт — `proto/kacho/cloud/loadbalancer/v1/target_group.proto` (там же `message Target`),
+> таблицы `kacho_nlb.target_groups` и `kacho_nlb.targets` живы. `TargetGroupService` несёт
+> девять RPC, включая `AddTargets` / `RemoveTargets` (мутация состава — отдельными
+> глаголами, не через `Update`) и `Move`.
+>
+> Порт таргет-группы заведён миграцией `0015_target_group_port.sql`. Регион для
+> instance-таргетов резолвится у geo (`ZoneService.Get` → регион зоны), а для nic/ip-таргетов
+> берётся из авторитетного `Subnet.RegionID` в ответе vpc — **никогда** не выводится
+> разбором имени зоны (снятая деривация `regionFromZone` — прецедент в `data-integrity.md`).
 
 # TargetGroup (nlb)
 

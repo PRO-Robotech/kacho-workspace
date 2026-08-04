@@ -9,8 +9,8 @@ domain: iam
 id_prefix: (kid)
 owner_table: kacho_iam.oidc_jwks_keys
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -22,7 +22,14 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.oidc_jwks_keys` **дропнута** миграцией `0065_drop_oidc_jwks_keys.sql`. Издатель и подписант — Hydra; iam её ключи только зеркалит через JWKS-прокси на :9097 и сам ничего не чеканит. **Дубль**: тот же предмет описан в [[iam-jwks-key]].
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # OIDCJwksKey
 

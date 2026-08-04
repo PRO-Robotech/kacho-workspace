@@ -8,7 +8,7 @@ domain: iam
 id_prefix: usr
 owner_table: kacho_iam.users
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 visibility: mirror
 status: done
 related_rpc:

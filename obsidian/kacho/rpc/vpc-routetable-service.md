@@ -48,6 +48,20 @@ tags:
 > [!note] Move удалён в KAC-266
 > RPC `Move` + `POST /vpc/v1/routeTables/{route_table_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **девять** RPC. **Не были названы в записке** три глагола мутации маршрутов:
+
+| Метод | Ответ | REST |
+|---|---|---|
+| `AddRoutes` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:add-routes` |
+| `RemoveRoutes` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:remove-routes` |
+| `UpdateRoute` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:update-route` |
+
+Набор маршрутов через общий `Update` **не меняется** — только этими глаголами (та же
+дисциплина, что у CIDR-блоков сети и подсети). Суффикс глагола — kebab-case.
+
 ## See also
 
 [[../packages/vpc-apps-kacho-api-routetable]] [[../resources/vpc-routetable]]

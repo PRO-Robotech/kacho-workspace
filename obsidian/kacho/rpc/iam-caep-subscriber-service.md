@@ -11,7 +11,7 @@ domain: iam
 related_resource: "[[resources/iam-caep-subscriber]]"
 methods_count: 6
 async_methods: 4
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -20,7 +20,15 @@ tags:
   - iam
   - internal
   - caep
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Контракта `internal_caep_subscriber_service.proto` в дереве нет; все три таблицы конвейера дропнуты `0007_drop_caep_pipeline.sql`.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # CAEPSubscriberService (iam, internal)
 

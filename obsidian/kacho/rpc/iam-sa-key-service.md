@@ -72,6 +72,29 @@ Hydra → token_hook ([[../packages/iam-handler-iamhooks]]) → final access_tok
 - Rotation: новый secret valid immediately; старый remains valid 1h grace (configurable) → soft-rotation для CI/CD.
 - Revoke → CAEP push `iam.token.revoked` → ≤10s downstream invalidation.
 
+
+## Сверка со стволом (2026-08-05)
+
+В контракте `proto/kacho/cloud/iam/v1/sa_key_service.proto` — **три** RPC:
+
+| Метод | Ответ | Sync/Async | REST |
+|---|---|---|---|
+| `Issue` | `Operation` | async | `POST /iam/v1/serviceAccounts/{service_account_id}/keys` |
+| `List` | `ListSAKeysResponse` | sync | `GET /iam/v1/serviceAccounts/{service_account_id}/keys` |
+| `Revoke` | `Operation` | async | `DELETE /iam/v1/serviceAccounts/{service_account_id}/keys/{key_id}` |
+
+`IssueSAKeyRequest` несёт `TrustedSubject` — это **федерация «внутрь»** (доверенный
+внешний субъект), а внешняя аудитория в запросе — федерация «наружу». Отдельного
+сервиса федерации в дереве нет (см. [[iam-federation-service]]).
+
+**Названы в записке, но в контракте отсутствуют**: `CreateOAuthClient`, `GetOAuthClient`,
+`ListOAuthClients`, `UpdateOAuthClient`, `RevokeOAuthClient`, `RotateSecret`.
+OAuth-клиент сервисной учётки — **ресурс**, а не набор RPC этого сервиса: он живёт
+сообщением `ServiceAccountOAuthClient`
+(`proto/kacho/cloud/iam/v1/service_account_oauth_client.proto`) и таблицей
+`kacho_iam.service_account_oauth_clients`; его жизненным циклом у Hydra управляет iam как
+единый фасад. См. [[../resources/iam-service-account-oauth-client]].
+
 ## See also
 
 [[iam-federation-exchange-service]] [[../resources/iam-service-account-oauth-client]] [[../resources/iam-service-account]] [[../edges/iam-to-hydra-admin]] [[../packages/iam-service-federation]] [[../KAC/KAC-127]]

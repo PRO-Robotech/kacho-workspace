@@ -9,7 +9,7 @@ domain: iam
 id_prefix: cag
 owner_table: kacho_iam.cluster_admin_grants
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
