@@ -83,7 +83,12 @@ Production-ready IAM в 13 фазах. Key vault entries:
     - vpc (27): [[packages/vpc-domain]], [[packages/vpc-repo-kacho-pg]], [[packages/vpc-apps-kacho-api-network]], …
     - rm (7): [[packages/rm-service]], [[packages/rm-handler]], …
     - apigw (8): [[packages/apigw-restmux]], [[packages/apigw-proxy]], …
-- **Edges** (12) — cross-service gRPC runtime-ребра. Напр. [[edges/vpc-to-rm-folder-exists]], [[edges/compute-to-vpc-nic-validate]], [[edges/apigw-internal-vs-tls]], [[edges/iam-to-zitadel-oidc|iam → zitadel (planned)]], [[edges/iam-to-openfga-check|iam ↔ openfga (planned)]], [[edges/vpc-to-iam-project-exists|vpc → iam (planned)]].
+- **Edges** (74 на 2026-08-05, предикат `git ls-files obsidian/kacho/edges | wc -l`) — рёбра
+  рантайма между сервисами и с внешними компонентами. Число здесь названо предикатом
+  намеренно: прежняя редакция говорила «(12)» и три ребра называла планируемыми, при том что
+  два из трёх давно работают, а третье — снято вместе со своим компонентом. Начинать стоит с
+  [[edges/iam-register-resource-callee-contract]] (общая приёмная сторона регистраций пяти
+  сервисов), [[edges/compute-to-vpc-nic-validate]] и [[edges/apigw-internal-vs-tls]].
 - **KAC tickets** — trail работы по YouTrack-тикетам. Каждый эпик/feature/fix получает свой `KAC/KAC-<N>.md`. См. [[KAC/README]], шаблон [[KAC/_TEMPLATE]], пример [[KAC/KAC-94]].
 
 > [!important] Обязательное правило для Claude

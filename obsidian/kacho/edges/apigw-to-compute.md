@@ -21,17 +21,19 @@ tags:
 **Callee**: `kacho-compute:9090` (public) + `kacho-compute:9091` (internal)
 **Protocol**: grpc-gateway HandlerFromEndpoint
 
-## Registered services (public)
+> [!warning] Пять из семи маршрутов больше не принадлежат compute (сверено 2026-08-05)
+> Таблица перечисляла диски, образы, снимки, типы дисков, зоны и регионы как поверхность
+> compute. Ни один из этих маршрутов у compute не резолвится: блочное хранение уехало в
+> **storage** (`/storage/v1/*`), география — в **geo** (`/geo/v1/{regions,zones}`), а
+> compute-дубль снят миграцией `0021_drop_block_storage_duplicates.sql`. Механическая
+> перепись хука свежести по этой записке дала шесть несуществующих REST-координат.
+
+## Registered services (public) — по `gateway/internal/restmux/mux.go`
 
 | Proto service | REST префикс |
 |---|---|
-| `DiskService` | `/compute/v1/disks` |
-| `ImageService` | `/compute/v1/images` |
-| `SnapshotService` | `/compute/v1/snapshots` |
 | `InstanceService` | `/compute/v1/instances` |
-| `DiskTypeService` | `/compute/v1/diskTypes` |
-| `ZoneService` | `/compute/v1/zones` (после KAC-15 — owner = compute) |
-| `RegionService` | `/compute/v1/regions` |
+| `MachineTypeService` | `/compute/v1/machineTypes` |
 
 (Backend addr `computeAddr` = `compute.kacho.svc.cluster.local:9090`.)
 
@@ -39,11 +41,10 @@ tags:
 
 | Proto service | Notes |
 |---|---|
-| `InternalDiskTypeService` | admin DiskType CRUD |
-| `InternalZoneService` | admin Zone CRUD (KAC-15) |
-| `InternalRegionService` | admin Region CRUD (KAC-15) |
+| `InternalMachineTypeService` | админский CRUD каталога типов машин |
 
-См. [[apigw-internal-vs-tls]] про разделение.
+Прежние `InternalDiskType/Zone/Region` здесь — это поверхность **других** сервисов
+(storage и geo); см. [[apigw-internal-vs-tls]] про разделение слушателей.
 
 ## Identity forwarding (production auth contract)
 

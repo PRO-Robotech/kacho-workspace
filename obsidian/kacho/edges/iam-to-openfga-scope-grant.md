@@ -50,7 +50,11 @@ onto its own object type** within the scope.
 - `lb_listener` (nested under `lb_network_load_balancer`) gets pass-through resolvers
   from its parent's project chain.
 
-## Emit (kacho-iam `access_binding/scope_grant_tuples.go`)
+## Emit (kacho-iam, `internal/apps/kacho/api/access_binding/tuples.go`)
+
+> [!note] Координата поправлена по дереву 2026-08-05
+> Файла `scope_grant_tuples.go` нет; эмиссия живёт в `tuples.go` того же каталога (рядом —
+> `scope_coordinate.go` и `role_tuple_reconciler.go`).
 
 `rulesBindingTuples(b, role)` dispatched from `buildBindingTuples` when `role.Rules`
 is non-empty (legacy permission-only roles keep the old path). Per rule, per arm:
@@ -75,9 +79,11 @@ ledger (`access_binding_emitted_tuples`) — no re-derive.
 
 ## Deploy
 
-FGA model must be **re-bootstrapped** (new model id) on deploy: `kacho-deploy`
-`make openfga-model-json` regenerated the configmap (`.fga` + transformed `model.json`),
-the bootstrap job re-writes the model. Old anchor-tier relations stay valid in the
+FGA model must be **re-bootstrapped** (new model id) on deploy: цель `make openfga-model-json`
+(она живёт в `deploy/Makefile` монорепо, а не в отдельном репозитории развёртывания)
+перегенерирует configmap из канонического `.fga`, и bootstrap-job перезаписывает модель.
+Отдельного отслеживаемого `model.json` в дереве нет — он **производится**, поэтому ссылаться
+на него как на файл нельзя (`git ls-files | grep -c model.json` → 0). Old anchor-tier relations stay valid in the
 rollback window (additive).
 
 ## See also

@@ -20,6 +20,12 @@ tags:
   - planned
 ---
 
+> [!warning] Zitadel УДАЛЁН из продукта — консоль ходит в Ory (сверено 2026-08-05)
+> Чарт и конфигурация Zitadel сняты (KAC-127); ярус входа — **Ory Kratos + Hydra**. В коде
+> консоли остались файлы с именем `auth`, но точка входа — сессия Kratos через край, а не
+> редирект в Zitadel. Маршруты `/iam/v1/auth/{login,callback,logout}`, названные ниже, в
+> дереве не резолвятся (перепись хука свежести). Записка — история решения.
+
 # ui → zitadel: OIDC redirect (signup-flow)
 
 **Caller**: `kacho-ui` (header `LoginButton` + `/auth/callback`)

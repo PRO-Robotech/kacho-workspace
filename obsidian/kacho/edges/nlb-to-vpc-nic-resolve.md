@@ -24,7 +24,7 @@ tags:
 
 # nlb → vpc: NIC resolve (Target.nic_id)
 
-**Caller**: `kacho-nlb` (`internal/clients/vpc/nic_client.go`; TargetGroup.AddTargets worker, per-target peer-validate)
+**Caller**: `kacho-nlb` (`internal/clients/vpc/network_interface_client.go`; TargetGroup.AddTargets worker, per-target peer-validate)
 **Callee**: `kacho-vpc.NetworkInterfaceService.Get`
 **Protocol**: gRPC cluster-internal
 **Sync/Async**: **async** (внутри AddTargets worker'а)

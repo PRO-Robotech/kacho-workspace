@@ -43,13 +43,26 @@ tags:
 
 ## Tuple-набор (one row = весь набор ресурса, OQ-SEC-D-2)
 
-| Ресурс | register-intent |
-|---|---|
-| NetworkLoadBalancer | `project:<pid> #project @lb_network_load_balancer:<id>` + (если не system) `<subject> #admin @lb_network_load_balancer:<id>` |
-| Listener | `<subject> #admin @lb_listener:<id>` + parent-link `lb_network_load_balancer:<lbId> #load_balancer @lb_listener:<id>` |
-| TargetGroup | `project:<pid> #project @lb_target_group:<id>` + (если не system) `<subject> #admin @lb_target_group:<id>` |
+> [!warning] Таблица описывала набор, который приёмная сторона ОТВЕРГАЛА (исправлено 2026-08-05)
+> Здесь перечислялись `admin`-кортеж создателя и родительский указатель `load_balancer`.
+> Закрытый набор iam принимает **только** связи владения `{project, account, parent, owner}`
+> — привилегии выписывает флоу AccessBinding, — поэтому оба отвергались **на каждой
+> доставке**. Сегодня в дереве (`internal/domain/fga_intent.go`) эмитируется **только**
+> `project`, и godoc это прямо оговаривает. Имена `admin`/`load_balancer` в коде остались,
+> потому что это реальные отношения модели, просто пишет их не модуль.
+>
+> Из этого класса стоит унести не факт, а признак: **эмиссия ≠ применение**. Тест
+> «намерение эмитировано» оставался зелёным ровно на этом дефекте; утверждать надо то, что
+> принимающая сторона **примет** (`data-integrity.md` §«Межсервисное намерение»).
 
-Delete → симметричный `fga.unregister` (project-hierarchy / parent-link; creator оставлен IAM-side GC, OQ-SEC-D-4).
+| Ресурс | register-intent (сегодня) |
+|---|---|
+| NetworkLoadBalancer | `project:<pid> #project @lb_network_load_balancer:<id>` |
+| Listener | `project:<pid> #project @lb_listener:<id>` |
+| TargetGroup | `project:<pid> #project @lb_target_group:<id>` |
+
+Доступ создателя материализуется **не** этим кортежем, а реконсайлером iam по привязкам —
+пообъектно (`data-integrity.md` §flat Contract-A). Delete → симметричный `fga.unregister`.
 
 ## Mirror-feed payload (epic-rsab T3 / D4, T3-02)
 
@@ -68,7 +81,17 @@ Delete → симметричный `fga.unregister` (project-hierarchy / parent
 | OK (incl. идемпотентный повтор, SEC-A) | mark `sent_at` | applied; replay не дублирует |
 | `AlreadyExists` (defensive) | `ErrAlreadyApplied` → sent | idempotent success |
 | `InvalidArgument` | `ErrPermanent` → poison | malformed tuple, без бесконечного retry (SEC-D-14) |
-| `Unavailable`/`Deadline`/`PermissionDenied` | raw → transient retry | IAM down → intent durable, добивается после recover (SEC-D-11) |
+| `PermissionDenied` | `ErrPermanent` → poison | **исправлено 2026-08-05**: отказ по правам зависит от (вызывающий, отношение, объект) — идентичный повтор пройти не может. Прежняя редакция объявляла его transient; в дереве (`register_applier.go`, `case codes.InvalidArgument, codes.PermissionDenied`) он терминален, как и у vpc/compute/storage/registry (5 из 5) |
+| `Unavailable`/`Deadline`/транспорт | raw → transient retry | IAM down → intent durable, добивается после recover (SEC-D-11) |
+
+> [!note] Почему «временный» здесь был опаснее, чем выглядел
+> Дренаж держит временную строку на единицу **ниже** порога отравления, поэтому она никогда
+> не покидает блокирующий набор claim-запроса, и ни одна последующая строка её партиции не
+> клеймится. То есть один отвергнутый intent глушил бы **все** последующие намерения того же
+> объекта на всё окно повторов — и одинаково для выдачи и для **снятия** прав, причём
+> «работает» и «не отозвано» выглядят снаружи одинаково (`data-integrity.md` §«Межсервисное
+> намерение»). Отравление вместо этого даёт ограниченную паузу: периодический
+> `RedrivePoisoned` (`cmd/kacho-loadbalancer/backstop.go`) переигрывает такие строки.
 
 ## mTLS (S3)
 
@@ -119,18 +142,26 @@ register-drainer remain the at-least-once backstop.
 - **BEST-EFFORT (ban #9):** `SyncRegistrar` error is logged (`slog.Warn`) and
   **swallowed** by the use-case — NEVER fails the Operation, NEVER gates `done`.
   Residual visibility lag covered by bounded client-retry, not a server barrier.
-- **Non-short-circuit + benign proxy-rejection:** iterates all tuples; the
-  containment `project`-tuple (first) is what materialises the creator's
-  project-scoped grant. `admin`/`load_balancer` relations are rejected by iam's
-  `allowedProxyRelations={project,account,parent,owner}` — `classifySyncRegisterErr`
-  treats `PermissionDenied`/`InvalidArgument` as **benign** (async drainer poisons
-  them identically), surfacing only transient (`Unavailable`/…) for the best-effort log.
-- **vs vpc:** vpc's sync-registrar is **fail-closed** (`return nil, err` on
-  RegisterResource failure) — a latent phantom-risk; nlb is deliberately best-effort
-  (the correct ban #9 posture). vpc not modified here.
+- **Про «доброкачественный отказ прокси» (устарело как описание причины):** синхронный путь
+  и сейчас не считает `PermissionDenied`/`InvalidArgument` поводом шуметь, но **предмета
+  этого послабления больше нет** — отвергаемые `admin`/`load_balancer` не эмитируются вовсе
+  (см. предупреждение к таблице). Послабление, которому нечего исключать, — само по себе
+  находка: если такой отказ снова начнёт приходить, он теперь означает **настоящую**
+  поломку прав, а не известную мелочь.
+- **vs vpc (сверено 2026-08-05 — расхождение УСТРАНЕНО):** здесь стояло «у vpc
+  sync-registrar fail-closed — латентный риск фантома». Сегодня vpc ведёт себя так же, как
+  nlb: `api/*/create.go` логируют предупреждение и продолжают, объясняя это ровно тем же
+  доводом (провалить операцию после коммита значит отдать вызывающему код узла прав на уже
+  созданный ресурс, чьё имя/CIDR уже заняты, — фантом). Расходится только **godoc**
+  `SyncRegistrar` в vpc, который всё ещё обещает fail-closed; верен код.
 
 ## See also
 
-[[nlb-to-iam-creator-tuple]] (deprecated direct path) · [[../rpc/iam-internal-iam-service]] · [[vpc-to-iam-fgaproxy]] · [[compute-to-iam-fgaproxy]] · [[iam-to-nlb-resource-lifecycle]] · [[iam-openfga-confirm-read-consistency]] · [[../KAC/SEC-D-services-fga-via-iam-mtls]]
+[[iam-register-resource-callee-contract]] (приёмная сторона: закрытый набор отношений,
+гашение повторной доставки, пост-коммитный форвард) · [[nlb-to-iam-creator-tuple]]
+(deprecated direct path) · [[../rpc/iam-internal-iam-service]] · [[vpc-to-iam-fgaproxy]] ·
+[[compute-to-iam-fgaproxy]] · [[storage-to-iam-fgaproxy]] · [[registry-to-iam-fga-register]] ·
+[[iam-to-nlb-resource-lifecycle]] · [[iam-openfga-confirm-read-consistency]] ·
+[[../KAC/SEC-D-services-fga-via-iam-mtls]]
 
 #edge #kacho-nlb #kacho-iam #cross-service #fga #internal #security

@@ -42,23 +42,45 @@ CLAUDE.md «Запреты» #6: `Internal*` методы **никогда** н�
 
 | Listener | Network exposure | Регистрируется |
 |---|---|---|
-| **public** (TLS) | `api.kacho.local:443` | tenant-facing RPCs (Network, Subnet, Address, …, RouteTable, SG, Gateway, PE, NI, + Folder/Cloud/Org/Operation/Instance/Disk/…) |
-| **internal** (cluster) | `api-gateway.kacho.svc.cluster.local:80` или alias | + `Internal*` RPCs (AddressPool, InternalNetwork, InternalDiskType/Zone/Region для KAC-15; `InternalCloud` удалён KAC-266) |
+| **public** (TLS) | `api.kacho.local:443` | tenant-facing RPC семи доменов: vpc (Network/Subnet/Address/RouteTable/SecurityGroup/Gateway/NetworkInterface), compute (Instance/MachineType), storage (Volume/Snapshot/Image/DiskType), geo (Region/Zone — read), nlb (LoadBalancer/Listener/TargetGroup), registry, iam (Account/Project/User/SA/Group/Role/AccessBinding/…), плюс Operation |
+| **internal** (cluster) | `api-gateway.kacho.svc.cluster.local:80` или alias | + `Internal*` RPC: `InternalAddressPool`/`InternalNetwork` (vpc), `InternalMachineType` (compute), `InternalVolume`/`InternalDiskType`/`InternalImage` (storage), `InternalRegion`/`InternalZone` (geo), `InternalRegistry`, `InternalCluster`/`InternalIAM`/`InternalUser`/`InternalOperations`/`InternalInteractiveClient` (iam), `InternalResourceLifecycle` (nlb) |
 
-## Routing logic (director.go)
+> [!note] Строки `Folder`/`Cloud`/`Org` сняты — предмета нет
+> Домен управления ресурсами упразднён, его поверхность заменена `Project`/`Account` у iam
+> ([[apigw-to-rm]]). Перечень выше выведен из `grep -o "Register[A-Za-z]*ServiceHandler"` по
+> `gateway/internal/restmux/` (46 регистраций), а не выписан по памяти.
+
+## Routing logic (сверено 2026-08-05)
+
+> [!note] Координата `internal/proxy/director.go` не резолвится
+> Файла с таким именем в дереве нет. Разделение живёт в
+> `gateway/internal/restmux/{mux.go,internal_routes.go}` (какой RPC на какой адрес
+> зарегистрирован) и `gateway/internal/proxy/{shimproxy.go,route_refusal.go}` (отказ
+> внутреннему пути, пришедшему на внешний listener).
 
 REST path → выбор backend addr (`vpcAddr` vs `vpcInternalAddr`):
 1. `/vpc/v1/addressPools[/...|:...]` → internal.
 2. `/vpc/v1/networks/{id}/addressPoolBinding` → internal.
 3. Всё остальное `/vpc/v1/...` → public vpc (9090).
 
-(`/vpc/v1/addresses/{id}/addressPoolOverride` + `/vpc/v1/clouds/{cloud_id}/poolSelector` удалены в [[../KAC/KAC-266]].)
+(`/vpc/v1/addresses/{id}/addressPoolOverride` + `/vpc/v1/clouds/{cloud_id}/poolSelector` удалены в [[../KAC/KAC-266]] — здесь они оставлены как снятые, а не как маршруты.)
 
-Аналогично для compute: `/compute/v1/regions`, `/compute/v1/zones`, `/compute/v1/diskTypes` админ-RPC → computeInternalAddr; остальные `/compute/v1/...` → computeAddr (9090).
+Аналогично для остальных доменов: у каждого свой публичный и внутренний адрес backend'а
+(`{compute,iam,nlb,geo,registry,storage}{,Internal}Addr` в `gateway/internal/config`).
+**Прежняя строка про `/compute/v1/{regions,zones,diskTypes}` неверна дважды**: этих маршрутов
+нет, и владеют предметом другие сервисы — география у geo (`/geo/v1/*`), типы дисков у
+storage (`/storage/v1/*`).
 
 ## Operation proxy
 
-`/operations/{operation_id}` — local handler ([[../packages/apigw-opsproxy]]) определяет по prefix-у id (vpc=enp, rm=b1g, compute=epd) backend и проксирует туда.
+`/operations/{operation_id}` — локальный обработчик ([[../packages/apigw-opsproxy]]) выбирает
+backend по префиксу id. Таблица префиксов **выведена из corelib там, где константа
+экспортирована**, и продублирована именованными константами там, где нет (`e9b` — вторичный
+префикс vpc, `iop` — iam, `geo` — geo); расхождение ловится пробой `TestPrefixToBackend_*`.
+Префикс `b1g` снятого домена управления ресурсами backend'а **не имеет** и отвечает
+`INVALID_ARGUMENT` — это закреплено пробой (`TestOpsProxy_Get_RmPrefixIs_InvalidArgument`), а
+не подразумевается ([[apigw-to-rm]]). Единственный legacy-fallback в таблице — старая форма
+id самого vpc.
 
 ## See also
 

@@ -20,6 +20,10 @@ tags:
   - sso
 ---
 
+> [!warning] Домен SCIM снят из продукта (сверено 2026-08-05)
+> См. [[iam-to-scim-okta]]: входящая синхронизация снята миграцией `0006`, живого приёмника
+> в дереве нет. Записка — история решения.
+
 # google-workspace → iam: inbound SCIM 2.0
 
 **Caller**: Google Workspace Identity Platform (Cloud Identity premium).

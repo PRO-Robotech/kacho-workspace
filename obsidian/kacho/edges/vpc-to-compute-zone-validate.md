@@ -23,11 +23,11 @@ tags:
 > [!warning] Superseded by [[vpc-to-geo-zone-validate]] (эпик #82)
 > Geography вынесена из `kacho-compute` в leaf-сервис `kacho-geo`. vpc больше не зовёт compute
 > «ради zone» — валидация теперь `vpc → geo` (`geo.v1.ZoneService.Get`). Ложное ребро `vpc→compute`
-> удалено; `compute_client.go` `GetZone`/`ListZones` заменены на `geo_client.go`.
+> удалено; чтение зон из клиента compute заменено на `internal/clients/geo_client.go`.
 
 # vpc → compute: zone_id validation (KAC-15) — SUPERSEDED
 
-**Caller**: `kacho-vpc` (`internal/clients/compute_client.go`) — *удалён, см. [[vpc-to-geo-zone-validate]]*
+**Caller**: `kacho-vpc` — клиент compute, удалён вместе с ребром (см. [[vpc-to-geo-zone-validate]]; имя снятого файла не воспроизводим как координату)
 **Callee**: `kacho-compute` (`compute.v1.ZoneService.Get`)
 **Protocol**: gRPC cluster-internal
 **Sync/Async**: async (внутри Operation worker'а)
@@ -53,7 +53,7 @@ tags:
 ## History
 
 - **2026-06-17** (эпик #82, [[KAC/EPIC-geo-extraction]]): Geography вынесена в `kacho-geo`; это ребро
-  удалено, заменено на [[vpc-to-geo-zone-validate]] (`vpc → geo`). vpc больше не зависит от compute.
+  удалено, заменено на [[vpc-to-geo-zone-validate]] (`vpc → geo`). vpc больше не зависит от compute (проверено 2026-08-05: ноль вызовов compute из vpc).
 - 2026-… (KAC-15): Geography перенесена vpc → compute, ребро развёрнуто на `vpc → compute`.
 
 ## See also

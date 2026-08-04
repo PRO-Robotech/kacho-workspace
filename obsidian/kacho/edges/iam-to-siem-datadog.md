@@ -19,6 +19,11 @@ tags:
   - audit
 ---
 
+> [!warning] Предмета нет в дереве (сверено 2026-08-05)
+> `datadog` — **ноль** вхождений во всём монорепо; ни файла пересыльщика, ни переменной
+> включения (обе координаты названы хуком свежести как нерезолвящиеся). Очередь аудита
+> пишется и не дренится никем ([[iam-to-kafka-audit]]). Записка — намерение.
+
 # iam → siem-datadog: log forwarder
 
 **Caller**: kacho-iam SIEM forwarder (`internal/service/siem_forwarder.go`).

@@ -26,8 +26,14 @@ tags:
 > Соответствие фич: Multus multi-NIC → SRv6 multi-VRF endpoint; `Vpc.staticRoutes`/BGP →
 > SRv6 SID-policy + BGP L3VPN; kube-ovn Subnet → IPAM-пул scoped к VRF.
 
-Data-plane sibling оператора (`github.com/PRO-Robotech/kacho-vpc-operator`,
-kubebuilder/controller-runtime). Control-plane его не касается — он **читает**
+> [!warning] Репозитория оператора не существует (проверено 2026-08-05)
+> Ниже он назван по адресу, как будто его можно склонировать. `gh repo view
+> PRO-Robotech/kacho-vpc-operator` отвечает `Could not resolve to a Repository`, и в монорепо
+> нет ни одного файла оператора. То есть заморожен не только kube-ovn-трек — отсутствует
+> **сам вызывающий**. Подробнее и про то, что от него живо на стороне платформы, —
+> [[vpc-operator-to-vpc-mtls]].
+
+Data-plane sibling оператора (kubebuilder/controller-runtime). Control-plane его не касается — он **читает**
 VPC-ресурсы из `kacho-vpc` по gRPC и **материализует** их в kube-ovn + Multus.
 kube-ovn — **NON_PRIMARY** (secondary CNI; primary — kindnet/Cilium).
 

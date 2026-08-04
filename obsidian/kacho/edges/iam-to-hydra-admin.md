@@ -8,7 +8,7 @@ caller_repo: kacho-iam
 callee_repo: ory-hydra
 sync_async: sync
 protocol: REST/JSON (Hydra Admin API v2)
-status: planned
+status: active
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -17,6 +17,24 @@ tags:
   - cross-service
   - oauth
 ---
+
+> [!warning] Ребро ЖИВОЕ — статус `planned` и разбивка «Phase 2 / Phase 5» устарели (сверено 2026-08-05)
+> В дереве `96b2879a` у iam **шесть** файлов клиента Hydra
+> (`services/iam/internal/clients/hydra_{admin_client,interactive_clients,login_sessions,oauth_clients,token_exchange,trust_grants}.go`).
+> Фактически используемые административные пути — `/admin/clients`, `/admin/clients/{client_id}`,
+> `/admin/oauth2/auth/sessions/login`, `/admin/trust/grants`,
+> `/admin/trust/grants/jwt-bearer/issuers` (предикат: перечисление литералов путей по этим
+> шести файлам). То есть **создание и жизненный цикл OAuth-клиентов — landed**, а не «Phase 5
+> planned»; появилось то, чего в записке не было вовсе, — доверительные гранты
+> (`jwt-bearer` issuer'ы) для обмена утверждениями.
+>
+> Что осталось верным и несущим: **iam — единственный фасад к Hydra**. Клиенты, сервисы и
+> e2e идут в iam (зеркало JWKS, выпуск токенов, docker-токен), а не в Hydra напрямую;
+> `iam → Hydra` внутри фасада законно. Единственное допустимо-прямое — финальный обмен
+> `client_assertion → JWT` (`security.md` §Production-mode п.4).
+>
+> Раздел «Phase 8 CAEP push … → CAEP subscribers» опирается на исходящую доставку событий,
+> которой нет ([[iam-caep-to-subscriber]]).
 
 # iam → hydra-admin: OAuth2 client lifecycle
 

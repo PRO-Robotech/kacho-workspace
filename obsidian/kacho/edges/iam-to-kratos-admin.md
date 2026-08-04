@@ -18,6 +18,25 @@ tags:
   - identity
 ---
 
+> [!warning] Направление ребра ОБРАТНОЕ тому, что описано (сверено 2026-08-05)
+> Записка описывает `iam → Kratos Admin API`. В дереве `96b2879a` **клиента Kratos у iam нет
+> вовсе**: единственное упоминание Kratos в `services/iam` — обработчик **входящего** webhook'а
+> `services/iam/internal/handler/iamhooks/provision_hook_handler.go` (`POST
+> /iam/v1/hooks/provision`). Живых рёбер два, и оба не описаны нигде в этом разделе:
+>
+> - **kratos → iam** — Kratos после регистрации/входа зовёт webhook подготовки, iam
+>   зеркалит личность и заводит стартовые аккаунт/проект/привязку;
+> - **край → kratos** — шлюз проверяет сессию SPA (значение `KACHO_API_GATEWAY_KRATOS_PUBLIC_URL`,
+>   sentinel `disabled` выключает эту полосу целиком).
+>
+> Поучительное в истории самого webhook'а — не «где он», а как он молчал: до починки хуки
+> били по REST-подобному пути на **чисто gRPC** слушателе, где такого пути не существует,
+> поэтому **каждый** вызов тихо падал — пользователь регистрировался и никогда не появлялся
+> в iam. Отказ приёмной стороны, который никто не считает, неотличим от отсутствия событий.
+>
+> Раздел «Phase 6 (SCIM bridge)» предмета не имеет: домен SCIM снят миграцией `0006`
+> ([[iam-to-scim-okta]]).
+
 # iam → kratos-admin: Identity / Session lifecycle
 
 **Caller**: `kacho-iam` (SCIM provisioner + invite + admin handler + session-revoke).

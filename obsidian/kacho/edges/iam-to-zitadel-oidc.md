@@ -19,6 +19,13 @@ tags:
   - planned
 ---
 
+> [!warning] Zitadel УДАЛЁН из продукта — заменён Ory (сверено 2026-08-05)
+> Это не «planned»: чарт и конфигурация Zitadel сняты (KAC-127), и профили развёртывания
+> говорят это прямым текстом — identity/OIDC-ярус переведён на **Ory Kratos + Hydra**
+> (`deploy/helm/umbrella/values.dev.yaml`, пять мест). Живые рёбра сегодня: край → Kratos
+> (сессия), Kratos → iam (webhook подготовки пользователя), iam → Hydra
+> ([[iam-to-hydra-admin]]). Записку держим как решение и его отмену, а не как план.
+
 # iam → zitadel: OIDC identity
 
 **Caller**: `kacho-iam` (E2: `InternalUserService.UpsertFromIdentity` вызывается из api-gateway OIDC-callback handler)

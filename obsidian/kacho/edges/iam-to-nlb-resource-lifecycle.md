@@ -8,7 +8,7 @@ caller_repo: kacho-iam
 callee_repo: kacho-nlb
 sync_async: async
 protocol: grpc-cluster-internal-stream
-status: active
+status: planned
 related_tickets:
   - "[[KAC-141]]"
   - "[[KAC-157]]"
@@ -22,8 +22,26 @@ tags:
   - d13
 ---
 
-> [!success] Active since 2026-05-24 (KAC-141, kacho-nlb PR#12)
-> Edge активен; kacho-iam subscribes `nlb.InternalResourceLifecycleService.Subscribe` (server-stream) для maintenance FGA hierarchy tuples (cleanup на DELETED, ensure tuples на CREATED race-window).
+> [!warning] Сервер есть, ПОДПИСЧИКА НЕТ — ребро наполовину построено (замер 2026-08-05)
+> Записка объявляла ребро активным: «kacho-iam подписывается…». В дереве `96b2879a`:
+>
+> - **сервер жив** — `services/nlb/internal/apps/kacho/api/internal_lifecycle/handler.go`
+>   реализует `Subscribe`, включая семафор слотов, выделенное соединение под LISTEN и
+>   догоняющее чтение; его godoc прямо называет потребителем kacho-iam;
+> - **клиента нет** — в `services/iam` **ноль** упоминаний lifecycle-подписки (предикат:
+>   `grep -rn "ResourceLifecycle" services/iam` → 0 не-тестовых вхождений; единственный
+>   вызывающий `Subscribe(` во всём дереве — сам обработчик nlb).
+>
+> То есть поток событий производится и **никем не потребляется**. Ошибиться тут легко в
+> обе стороны: «ребро работает» неверно, но и «этого нет» неверно — половина построена,
+> оплачивается ресурсами (соединение, семафор, курсоры) и проходит гейты старта.
+>
+> **Функцию, ради которой ребро задумывалось, сегодня несёт другое ребро**:
+> синхронизацию владельческих кортежей делает [[nlb-to-iam-fga-register]] — durable-намерение
+> в writer-транзакции ресурса + дренаж + периодический переигрыш отравленных строк, — и
+> направление там обратное (nlb → iam), то есть ацикличность не зависит от того, поднимется
+> ли эта подписка. Прежде чем достраивать подписчика, надо ответить, что он добавит
+> сверх регистрации; иначе появятся два механизма об одном предмете.
 
 # iam → nlb: D-13 lifecycle subscribe
 
@@ -40,11 +58,19 @@ tags:
   - `UPDATED` → no-op (relationship tuples не меняются; FGA не индексирует атрибуты).
   - `DELETED` → cleanup всех tuples для `<object_type>:<resource_id>` (idempotent).
 
-## Implementation (iam side)
+## Implementation — что РЕАЛЬНО есть (сторона nlb)
 
-- Per-stream semaphore `KACHO_NLB_LIFECYCLE_MAX_STREAMS=32` (nlb-side).
-- Dedicated pgx connection (nlb-side) → `LISTEN nlb_outbox` → `WaitForNotification` loop (30s timeout).
-- Catchup batch при resume (`nlb_watch_cursors` отслеживает subscriber position).
+- Ограничение числа одновременных стримов — настройка `internal-lifecycle.max-streams`
+  (в дереве это ключ конфигурации, а не переменная окружения; boot-guard требует `> 0`).
+  Слот не выдан → `RESOURCE_EXHAUSTED`.
+- Выделенное соединение (вне пула) → `LISTEN` на канал `nlb_outbox` → цикл ожидания с
+  периодическим перечитыванием (30 с) на случай пропущенного уведомления.
+- Догоняющее чтение батчами при подключении; позиция подписчика — `nlb_watch_cursors`.
+- Допустимые виды ресурса ограничены белым списком (`nlb_load_balancer`, `nlb_listener`,
+  `nlb_target_group`); неизвестный вид → `INVALID_ARGUMENT`.
+
+Стороны iam (подписчика, курсора, применения событий) в дереве **нет** — см. предупреждение
+выше. Всё, что ниже про поведение iam, — замысел, а не описание.
 
 ## At-least-once semantics
 

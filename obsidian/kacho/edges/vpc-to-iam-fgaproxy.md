@@ -6,9 +6,9 @@ aliases:
 category: edge
 caller_repo: kacho-vpc
 callee_repo: kacho-iam
-sync_async: sync
+sync_async: mixed
 protocol: grpc-cluster-internal
-status: planned
+status: active
 related_tickets:
   - "[[../KAC/SEC-A-proto-fga-proxy]]"
   - "[[../KAC/SEC-C-iam-fga-proxy-sa-roles]]"
@@ -21,16 +21,24 @@ tags:
   - internal
 ---
 
-> [!note] Callee-сторона готова в SEC-C; caller-сторона — SEC-D
-> `kacho-iam.InternalIAMService.RegisterResource/UnregisterResource` реализован
-> ([[../KAC/SEC-C-iam-fga-proxy-sa-roles]]). kacho-vpc начнёт вызывать это ребро в
-> SEC-D (удаление прямого OpenFGA-клиента → outbox-intent в writer-tx ресурса →
-> drainer→IAM.RegisterResource по mTLS). Контракт «FGA за IAM» (эпик #6).
+> [!warning] Записка стояла в статусе «planned» — ребро живое (сверено 2026-08-05, дерево `96b2879a`)
+> Прежний заголовок обещал будущее: «kacho-vpc **начнёт** вызывать это ребро в SEC-D».
+> В дереве обе половины на месте: `services/vpc/internal/clients/iam_sync_registrar.go`
+> (синхронный путь) и `iam_register_applier.go` + `internal/apps/kacho/fgaregister/`
+> (durable-намерение и дренаж). Обещание, пережившее собственное исполнение, читается как
+> «ещё не сделано» и заставляет делать заново.
 
 # vpc → iam: FGA-proxy owner-tuple write/delete
 
 **Protocol**: gRPC cluster-internal :9091 (Internal-only, ban #6; нет на external).
 **Direction**: усиление существующего `vpc → iam` (ацикличность: iam не зовёт vpc).
+**Synchronicity**: **обе половины**. Синхронный регистратор зовёт `RegisterResource` сразу
+после коммита ресурса (per-call 5 с на кортеж), и **та же** регистрация durable лежит в
+`fga_register_outbox` той же writer-транзакции — её доставляет дренаж. Обе доставки несут
+**одну и ту же** версию, проштампованную БД внутри writer-tx: приёмная сторона гасит вторую
+строгим монотонным сравнением, и при равных версиях порядок прибытия перестаёт что-либо
+значить. Свежие часы на синхронной стороне это гашение снимали ровно тогда, когда дренаж
+выигрывал гонку.
 
 ## Контракт
 
@@ -59,30 +67,38 @@ labels → селектор не матчит, under-show). На Update — `lab
 re-emit с обновлёнными labels (revoke при снятии метки). `parent_project_id` =
 собственный ProjectID ресурса.
 
-## op-gating: Create-op ждёт read-after-register confirm (owner-tuple opgate P3)
+## Барьера на видимость больше НЕТ — и это решение, а не упущение
 
-Create-op **Network/SecurityGroup/Subnet** достигает `done=true, response` **только
-после** read-after-register confirm owner-tuple: sync-registrar регистрирует tuple
-внутри worker-fn (post-commit), затем worker прогоняет `InternalIAMService.Check`
-(`subject=creator(op.Principal)`, `relation=v_update`, `object=vpc_<type>:<id>`) до
-ALLOW. Так закрыто окно 403 «no direct relations granted» на **немедленной** мутации
-создателя (op-done обгонял видимость tuple в FGA).
+> [!warning] Здесь стоял раздел про confirm-gate — механизма нет в дереве
+> Прежняя редакция описывала как действующее: Create-операция сети/группы/подсети
+> достигает успеха **только после** подтверждающего чтения владельческого кортежа, с
+> отдельным дедлайном подтверждения. Механизм **снят целиком** по system-design-review как
+> нарушение ban #9. Перепись 2026-08-05 по дереву `96b2879a`: ни `RunWithConfirm`, ни
+> `OwnerConfirmer`, ни `WithConfirmationDeadline`, ни переменная дедлайна подтверждения, ни
+> текст отказа «owner-tuple registration not confirmed» — **ноль вхождений** во всём
+> монорепо (предикат: `git grep` по каждому из пяти имён).
 
-- **Confirm-ребро — REUSE** существующего `vpc→iam Check` (:9091, тот же `authzConn`,
-  `check.OwnerConfirmer` поверх `IAMCheckClient`). **Нового cross-service ребра нет**
-  (ацикличность: iam не зовёт vpc). `relation=v_update` — canonical mutate-relation;
-  owner-tuple (project-parent-pointer) резолвит все `v_*` сразу → и immediate Delete не 403.
-- **fail-closed**: confirm не достигнут за `KACHO_VPC_OWNER_CONFIRM_DEADLINE` (default 30s,
-  ≪ op-timeout 4m ≪ OrphanGrace 5m) → `op.error(Unavailable, "owner-tuple registration
-  not confirmed")` (**не** `DeadlineExceeded`); success-done без confirm **никогда**.
-- **supersede SEC-D-11** (осознанно): op-completion теперь gated на confirm — при IAM/FGA
-  outage дольше deadline op завершается error, а **не** ложным success. **Durability
-  SEC-D-11 сохранена**: ресурс-строка + register-intent durable во всех ветках,
-  register-drainer добивает tuple at-least-once (resource-ref в `Create<R>Metadata` на
-  всех терминалах, вкл. error → клиент повторяет мутацию, не пере-создаёт).
-- Confirm-gate активен только когда есть sync-registrar И `authzConn` (production);
-  dev/no-iam → gate off (прежнее поведение). Update/Delete существующего ресурса **не**
-  gated (нового owner-tuple не создаётся).
+`Operation.done` означает **durability предмета мутации** и ничего больше. Гейтить его на
+видимость downstream-эффекта запрещено, и запрет выведен из последствий, а не из вкуса:
+на fail-closed он рождает **фантом** (строка закоммичена, имя занято уникальным
+ограничением, а операция — ошибка), и он превращает ограниченный лаг чтения-своих-записей
+в неограниченный жёсткий отказ под нагрузкой на downstream.
+
+Что стоит вместо барьера:
+
+- **синхронный регистратор** сокращает окно видимости, но **не является условием успеха**:
+  его ошибка — WARN, а не отказ мутации. Провалить операцию здесь значило бы отдать
+  вызывающему код узла прав на **уже созданную** подсеть, чей CIDR уже занят
+  EXCLUDE-ограничением, — то есть фантом с другой стороны;
+- **durable-намерение + дренаж** доводят кортеж at-least-once;
+- **остаточный лаг** закрывается ограниченным клиентским повтором (`testing.md`
+  §e2e-инварианты), а не серверным подтверждением.
+
+> [!note] Расхождение внутри самого дерева, зафиксировано как наблюдение
+> godoc `SyncRegistrar` в vpc до сих пор говорит «любая ошибка пробрасывается наверх →
+> create-Operation fail-closed». Вызывающие use-case'ы делают **не это**: они логируют
+> предупреждение и продолжают (см. `api/subnet/create.go` и сиблинги). Верен код,
+> устарел комментарий; здесь описано поведение, а не комментарий.
 
 ## History
 
@@ -94,15 +110,32 @@ ALLOW. Так закрыто окно 403 «no direct relations granted» на *
   Create + `labelsInMask`-gated re-emit на Update. proto/схема без изменений.
   PR [kacho-vpc#11](https://github.com/PRO-Robotech/kacho-vpc/pull/11). См.
   [[../KAC/sub-phase-T3.2-vpc-residual-label-feed]].
-- **owner-tuple opgate P3 (монорепо)**: Network/SG/Subnet Create переведены на
-  `operations.RunWithConfirm` — success-done gated на read-after-register confirm
-  owner-tuple (reuse `Check`, без нового ребра). fail-closed Unavailable по
-  `KACHO_VPC_OWNER_CONFIRM_DEADLINE`. Acceptance
-  `docs/specs/sub-phase-owner-tuple-opgate-acceptance.md` (OTG-03/04/05/05b/13/16).
-  Фундамент P1 — `pkg/operations` confirm-gate (commit 25a047f).
+- **owner-tuple opgate (заведён, затем снят)**: Create сети/группы/подсети какое-то время
+  гейтился на подтверждающем чтении владельческого кортежа. Снят целиком по
+  system-design-review как нарушение ban #9 — см. §«Барьера на видимость больше НЕТ».
+  Оставлено здесь как история: механизм существовал, и записки соседних сервисов на него
+  ссылались.
+- **2026-08-05** — записка приведена к дереву `96b2879a`: статус `planned` → `active`
+  (обе половины ребра давно в дереве), снят раздел про confirm-gate, добавлены
+  классификация отказов и ссылка на контракт приёмной стороны.
+
+## Что происходит при отказе
+
+| Что отказало | Синхронный путь | Путь очереди (дренаж) |
+|---|---|---|
+| iam недоступен, дедлайн, транспорт | WARN, мутация успешна | ретрай с задержкой, намерение durable (`sent_at IS NULL`) |
+| `INVALID_ARGUMENT` — кривой кортеж | WARN | **отравление** строки: повтор не починит |
+| `PERMISSION_DENIED` — отношение вне закрытого набора iam либо нет права писать | WARN | **отравление**, а НЕ ретрай: решение зависит от (вызывающий, отношение, объект), и повтор не меняет ни одного из трёх; временная классификация навсегда заклинила бы голову партиции |
+| неизвестный тип события / нечитаемый payload | — | **отравление** |
+
+Отравление — ограниченная пауза, а не потеря: периодический `RedrivePoisoned` возвращает
+такие строки в доставляемое состояние (`cmd/vpc/backstop.go`; тот же backstop у compute,
+nlb, storage, registry).
 
 ## See also
 
+[[iam-register-resource-callee-contract]] (что делает приёмная сторона: зеркало, гашение
+повторной доставки, пост-коммитный форвард, счётчик)
 [[../rpc/iam-internal-iam-service]] [[../resources/iam-service-account]] [[vpc-to-iam-check]] [[compute-to-iam-fgaproxy]] [[iam-to-openfga-grant-write]] [[../KAC/EPIC-SEC-mtls-iam-authz]] [[../KAC/sub-phase-T3.2-vpc-residual-label-feed]]
 
 #edge #kacho-vpc #kacho-iam #cross-service #security #internal

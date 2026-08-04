@@ -226,7 +226,12 @@ Alphabetical index всех узких файлов. Использовать д
 
 - [[packages/rm-bootstrap]] [[packages/rm-cmd]] [[packages/rm-config]] [[packages/rm-domain]] [[packages/rm-handler]] [[packages/rm-repo]] [[packages/rm-service]]
 
-## Cross-service edges (~30)
+## Cross-service edges (74 записки; перечислены не все)
+
+> [!note] Перечень ниже — не полный и не является переписью (сверено 2026-08-05)
+> Отслеживаемых записок в `edges/` — **74** (`git ls-files obsidian/kacho/edges | wc -l`), в
+> этом списке — около сорока. Пометки фаз у внешних интеграций ниже описывают **замысел**;
+> живость каждой сверена внутри самой записки, а не здесь.
 
 ### Backbone
 
@@ -237,7 +242,10 @@ Alphabetical index всех узких файлов. Использовать д
 
 ### kacho-iam (KAC-127)
 
-- [[edges/iam-to-openfga-check]] — iam ↔ openfga: tuple sync + Check
+- [[edges/iam-to-openfga-check]] — iam ↔ openfga: чтение вердикта + применение кортежей
+- [[edges/iam-register-resource-callee-contract]] — приёмная сторона `RegisterResource`:
+  зеркало, гашение повторной доставки, пост-коммитный форвард, счётчик шагов
+- [[edges/registry-to-iam-fga-register]] — registry → iam: владение и публичность репозитория
 - [[edges/iam-to-zitadel-oidc]] — iam → zitadel (deprecated; replaced by Kratos/Hydra)
 - [[edges/iam-to-hydra-admin]] — iam → Hydra Admin (Phase 2 + 5)
 - [[edges/iam-to-kratos-admin]] — iam → Kratos Admin (Phase 2 + 6)

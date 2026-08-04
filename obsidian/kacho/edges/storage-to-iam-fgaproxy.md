@@ -53,8 +53,25 @@ delete absent→OK), at-least-once через transactional-outbox (SEC-D).
 ## Authz (least-priv, SEC-C)
 
 mTLS client-cert identity storage-SA → ReBAC `Check(service_account:<sva-storage>,
-fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → drainer трактует
-как **transient** (grant fga_writer мог ещё не осесть → ретрай, intent durable), НЕ poison.
+fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied`.
+
+> [!warning] Классификация отказа по правам ПЕРЕВЁРНУТА — записка утверждала обратное
+> Здесь было: «`PermissionDenied` → drainer трактует как **transient** (грант мог ещё не
+> осесть → ретрай), НЕ poison». В дереве (`96b2879a`,
+> `internal/clients/iam_register_applier.go`) — ровно наоборот: `InvalidArgument` **и**
+> `PermissionDenied` → `ErrPermanent`, отравление строки. Так же у vpc, compute, nlb и
+> registry — **5 из 5** (предикат: `case codes.InvalidArgument, codes.PermissionDenied:` в
+> каждом `*register_applier*.go`).
+>
+> Перевёрнуто оно не из аккуратности: отказ по правам зависит от (вызывающий, отношение,
+> объект), и повтор не меняет ни одного из трёх — то есть «временный» здесь не покупает
+> будущего успеха. Хуже: дренаж держит временную строку на единицу **ниже** порога
+> отравления, поэтому она никогда не покидает блокирующий набор claim-запроса, и **ни одна
+> последующая строка её партиции не клеймится**. Класс наблюдался вживую: очередь, из
+> которой ни одна строка никогда не была доставлена, при внешне исправном поведении
+> (`data-integrity.md` §«Межсервисное намерение»). Отравление же — ограниченная пауза:
+> периодический `RedrivePoisoned` (`cmd/storage/redrive_backstop.go`) переигрывает такие
+> строки, и постоянная причина видна как повторяющееся отравление, а не как тишина.
 
 ## Caller-side mechanics (CS-1 GAP-D, kacho-storage)
 
@@ -78,8 +95,9 @@ fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → dr
 - **Sync-registrar** (immediate анти-BOLA): `internal/clients/iam_sync_registrar.go` —
   Create-flow после commit синхронно регистрирует owner-tuple (best-effort; ошибка → WARN,
   drainer подхватит at-least-once). Wired `volumeUC/snapshotUC.WithRegistrar(...)`.
-- **Error-маппинг**: `InvalidArgument` → poison (no retry); PermissionDenied/Unavailable/транспорт
-  → transient retry с backoff. IAM down → intent durable, Operation не падает (tuple не теряется).
+- **Error-маппинг (сверено 2026-08-05)**: `InvalidArgument` **и** `PermissionDenied` → poison
+  (см. предупреждение выше); Unavailable / дедлайн / транспорт → transient retry с backoff.
+  IAM down → intent durable, Operation не падает (tuple не теряется).
 
 ## Tests (CS-1 GAP-D, TDD RED→GREEN)
 
@@ -88,7 +106,8 @@ fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → dr
   **end-to-end** — corelib drainer забирает intent и вызывает `RegisterResource` (fake IAM), строка
   помечается sent.
 - `internal/clients/iam_register_applier_test.go` (fake IAM): Register/Unregister-роутинг,
-  classify (InvalidArgument→permanent, Unavailable/PermissionDenied→transient), decode-poison.
+  `TestClassifyRegisterErr` (InvalidArgument и PermissionDenied → permanent; Unavailable →
+  transient), decode-poison.
 - `internal/fgaregister/fgaregister_test.go`: tuple-форма + Payload round-trip.
 
 ## History
@@ -132,7 +151,14 @@ fga_writer, iam_fgaproxy:system)`. Нет relation → `PermissionDenied` → dr
 
 ## See also
 
+[[iam-register-resource-callee-contract]] (приёмная сторона)
 [[../rpc/iam-internal-iam-service]] [[vpc-to-iam-fgaproxy]] [[compute-to-iam-fgaproxy]]
-[[storage-to-iam-project-validate]] [[iam-to-openfga-grant-write]]
+[[registry-to-iam-fga-register]] [[iam-to-openfga-grant-write]]
+
+> [!note] Записки `storage → iam (project validate)` в vault нет
+> Ссылка на неё висела здесь и не резолвилась. Само ребро существует
+> (`services/storage/internal/clients/iam_client.go` — проверка проекта у владельца), но
+> описано оно не было; заводить его надо отдельной запиской, а не ссылкой на пустоту.
+> Соседние клиенты storage: `geo_client.go` (зона→регион, существование зоны и региона).
 
 #edge #kacho-storage #kacho-iam #cross-service #security #internal

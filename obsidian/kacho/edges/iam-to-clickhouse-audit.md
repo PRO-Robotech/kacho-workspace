@@ -19,6 +19,11 @@ tags:
   - audit
 ---
 
+> [!warning] Предмета нет в дереве (сверено 2026-08-05)
+> `clickhouse` — **ноль** вхождений во всём монорепо. Очередь аудита при этом пишется и не
+> дренится никем ([[iam-to-kafka-audit]]), поэтому «витрина аудита» сегодня не имеет ни
+> источника, ни приёмника. Записка — проектное намерение, не описание.
+
 # iam ↔ clickhouse: audit query interface
 
 **Producer-side**: ClickHouse Kafka Engine consumes from `kacho.iam.audit` topic (см. [[iam-to-kafka-audit]]).

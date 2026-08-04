@@ -38,16 +38,26 @@ tags:
 
 - На каждом публичном RPC kacho-vpc: NetworkService, SubnetService,
   AddressService, RouteTableService, SecurityGroupService, GatewayService,
-  PrivateEndpointService, NetworkInterfaceService, OperationService.Get/Cancel
-  (60+ RPC, см. [[../packages/vpc-apps-kacho-check]] permission_map).
-- На каждый stream RPC (Watch / Subscribe) — auth-decision до открытия stream.
-- `Internal*` RPC — bypass (admin :9091 listener, запрет workspace #6).
+  NetworkInterfaceService, OperationService.Get/Cancel
+  (см. [[../packages/vpc-apps-kacho-check]] permission_map).
+- `Internal*` RPC — **не** bypass: внутренний листенер несёт свой гейт
+  (`security.md` §AuthN+AuthZ ВЕЗДЕ п.2 — «internal = trusted» запрещённое допущение).
+  Прежняя редакция называла это bypass'ом со ссылкой на ban #6; ban #6 — про **поверхность
+  методов** (Internal не публикуется наружу), а не про освобождение от проверки.
+
+> [!note] Снято две вещи, которых нет в дереве (сверено 2026-08-05)
+> — **`PrivateEndpointService` / тип `vpc_private_endpoint`**: во всём монорепо ноль
+> вхождений `private_endpoint` (предикат: `git grep -il private_endpoint` → 0). Ресурса нет.
+> — **«На каждый stream RPC (Watch / Subscribe)»**: у vpc нет ни одного стримового RPC
+> (`grep "stream " proto/kacho/cloud/vpc/v1/*.proto` → пусто), и Watch как механизм в
+> продукте не существует вовсе (`api-conventions.md`: полл списка либо `Operation.Get`).
+> Строка описывала защиту поверхности, которой нет, — то есть выглядела как покрытие.
 
 ## Object types
 
 `vpc_network`, `vpc_subnet`, `vpc_address`, `vpc_route_table`,
-`vpc_security_group`, `vpc_gateway`, `vpc_private_endpoint`,
-`vpc_network_interface`, `vpc_operation`, `project`.
+`vpc_security_group`, `vpc_gateway`, `vpc_network_interface`, `vpc_operation`, `project`
+(источник — константы `objectType*` в `internal/apps/kacho/check/permission_map.go`).
 
 ## Cache
 
@@ -117,6 +127,12 @@ authz:
 > сконфигурирована. Проверяется декларативным тестом, читающим файлы значений (а не
 > отрендеренный шаблон — иначе тест пропускается вместе с шаблоном). Ноль срабатываний гейта
 > за всю жизнь — повод для разбора, а не признак здоровья.
+>
+> **Требование выполнено (сверено 2026-08-05):** `internal/apps/kacho/config/validate.go`
+> держит отказы старта в production-режиме на всех трёх ручках — пустой адрес iam, пустой
+> адрес фильтра списков, включённый аварийный обход, и отдельно на неверифицированном
+> транспорте ребра. Тексты отказов называют ручку и причину — это рантайм-диагностика
+> оператору, и она намеренно не выхолащивается.
 
 **CLIENT mTLS (SEC-I)**: the `authzConn` dial (this Check edge, :9091) — **shared** by
 the per-RPC gate AND the project-level list-filter ([[vpc-to-iam-listobjects]] /

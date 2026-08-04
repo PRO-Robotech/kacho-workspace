@@ -20,6 +20,10 @@ tags:
   - sso
 ---
 
+> [!warning] Домен SCIM снят из продукта (сверено 2026-08-05)
+> См. [[iam-to-scim-okta]]: входящая синхронизация снята миграцией `0006`, живого приёмника
+> в дереве нет. Записка — история решения.
+
 # azure-ad → iam: inbound SCIM 2.0
 
 **Caller**: Microsoft Entra ID (Azure AD) Enterprise Apps SCIM provisioning.

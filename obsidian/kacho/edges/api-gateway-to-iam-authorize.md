@@ -8,7 +8,7 @@ caller_repo: kacho-api-gateway
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -25,9 +25,16 @@ tags:
 **Callee**: `kacho-iam` AuthorizeService.Check ([[../rpc/iam-authorize-service]]) — `kacho-iam:9090`.
 **Protocol**: gRPC. Cluster-internal — НЕ via api.kacho.cloud (avoids token-loop).
 **Sync/Async**: sync per-request.
-**Status**: **Phase 3 planned**.
 
-## Flow per-request (Phase 3)
+> [!warning] «Phase 3 planned» и «Phase 1-2: NO per-RPC Check» — ложь о сегодняшнем дне
+> Шапка стояла в статусе `planned`, при том что вся `History` ниже — это разбор **живых**
+> дефектов уже работающего гейта (потерянное требование отношения, полиморфный scope,
+> mTLS-переключение). В дереве `96b2879a` гейт провязан: `gateway/internal/middleware/authz.go`
+> + адаптер `gateway/internal/clients/iam_authorize_checker.go`, конструктор **отказывает**
+> без проверяющего и без журнала. Строка «Phase 1-2: NO per-RPC Check» читается как описание
+> текущего стенда и учит противоположному тому, что верно.
+
+## Flow per-request
 
 ```
 1. Client → POST /vpc/v1/networks (api.kacho.cloud)
@@ -45,9 +52,17 @@ tags:
    allowed=false → respond 403 PermissionDenied + audit log
 ```
 
-## Cache key
+## Cache key и окно отзыва
 
-`hash(subject || relation || object || condition_params_hash || jwt_aal)` → 5s TTL.
+Ключ решения — `(субъект, действие, тип:идентификатор объекта, acr, момент MFA, IP источника)`,
+хранилище — LRU на 10 000 записей.
+
+**Срок жизни положительного вердикта — это и есть окно отзыва края**: столько снятое право
+продолжает работать, если упреждающий сброс не доехал. Поэтому величина берётся **из
+объявленной политики** (`pkg/authz`, `RevocationPolicy.Default`), а не литералом в
+конструкторе: пока она была безымянным числом на строке, у края был **второй,
+необъявленный источник** одного и того же параметра безопасности, и его изменение ничего не
+красило.
 
 ## Cache invalidation
 
@@ -84,9 +99,13 @@ tags:
 
 ## Notes
 
-- Phase 1-2: NO per-RPC Check (auth-interceptor only verifies DPoP/JWT). Phase 3 adds Check.
-- Phase 4 — ListObjects integration ([[vpc-to-iam-listobjects]] / [[compute-to-iam-listobjects]]) — backend itself queries ListObjects для List handlers; api-gateway не пред-фильтрует.
-- API-gateway side cache shared across requests on same node (sync.Map). Cold cache p95 +5ms.
+- Сужение списков делает **backend**, а не край: страница читается курсором из своей БД и
+  проверяется пакетно ([[vpc-to-iam-listobjects]] / [[compute-to-iam-listobjects]] /
+  [[nlb-to-iam-listobjects]]). Край не пред-фильтрует. Прежняя формулировка называла это
+  «ListObjects integration» — перечисление как механизм снято (у него жёсткий серверный
+  предел и нет продолжения).
+- Кэш решения — на узле, общий для запросов этого процесса; сброс приходит толчком от iam
+  ([[iam-to-apigw-cache-invalidation]]) и подстраховывается опросом.
 
 ## History
 
