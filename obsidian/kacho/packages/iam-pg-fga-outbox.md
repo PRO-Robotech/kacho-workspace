@@ -1,6 +1,7 @@
 ---
 title: "kacho-iam · internal/repo/kacho/pg/fga_outbox"
 category: packages
+path: services/iam/internal/repo/kacho/pg/fga_outbox
 repo: kacho-iam
 layer: repo
 tags:

@@ -1,56 +1,62 @@
 ---
-title: "ui src/pages/auth + components/auth + contexts/AuthContext"
+title: ui — страницы входа и контекст личности
 aliases:
   - ui auth
   - signup flow files
-category: packages
+category: package
 repo: kacho-ui
+path: ui-future
 layer: ui-pages
+status: legacy
 tags:
   - packages
   - kacho-ui
-  - planned
+  - legacy
 ---
 
-# ui — auth pages + context
+# ui: вход и контекст личности — раскладка сменилась на многоприложенческую
 
-**Repo**: `kacho-ui`
-**Layer**: UI pages + React-context
-**Status**: реализован в kacho-ui#41 ([[../KAC/KAC-109]] DoD #1). Backend `/iam/v1/auth/*` — pending [[../KAC/KAC-107]].
+**Где искать сейчас**: каталог `ui-future/` монорепо. Прежде — отдельный репозиторий
+`kacho-ui`, откуда и взят тег.
 
-## Файлы
+> [!warning] Единого приложения с одним `src/` больше НЕТ
+> Прежняя редакция перечисляла семь файлов от одного корня. По дереву на ревизии
+> `96b2879a` интерфейс разложен на **несколько приложений** (панель, хост-оболочка и
+> по приложению на домен: iam, vpc, compute, nlb), и одноимённые части живут **у
+> каждого своим** — контекст личности, помощники обращения к API, страницы возврата
+> после входа. То есть путь из прежней записки не «переехал», а **размножился**, и
+> искать «тот самый файл» бессмысленно: их несколько, и они могут разойтись.
+>
+> Отсюда практический вывод, который стоит проверить прежде, чем править: **сколько
+> копий у той части, которую вы меняете**. Разошедшиеся копии одного и того же
+> поведения — типичный источник расхождения между приложениями (реальный случай
+> соседнего слоя: общий путь правки имел шесть живых копий, а не две).
 
-| Path | Назначение |
-|---|---|
-| `src/api/auth.ts` | fetch helpers (login/callback/me/logout) с `credentials: 'include'` |
-| `src/contexts/AuthContext.tsx` | `AuthProvider` + `useAuth()` hook, hydrate через GET /me на mount |
-| `src/components/auth/LoginButton.tsx` | AntD primary button, `window.location.assign('/iam/v1/auth/login')` |
-| `src/components/auth/UserMenu.tsx` | Dropdown в header: avatar-initials + {Профиль, Выйти} |
-| `src/components/auth/HeaderAuth.tsx` | switch loading/user → LoginButton vs UserMenu |
-| `src/pages/auth/AuthCallback.tsx` | landing `/auth/callback`, extract code+state, POST /callback, refresh /me, navigate / |
-| `src/pages/auth/Logout.tsx` | `/logout` route — clear session + redirect |
+## Что из прежней записки остаётся нормой
 
-## Exported API
+- **Контекст личности гидратируется запросом «кто я» при монтировании**; отказ или
+  сетевой сбой означает «не вошли», а не ошибку приложения.
+- **Вход — полностраничный переход, а не запрос из скрипта**: нужен настоящий
+  редирект от эмитента.
+- **Страница возврата защищена от повторной обработки**: код одноразовый, а среда
+  разработки монтирует компонент дважды.
+- **Проверка права на элемент интерфейса — косметика, а не контроль.** Скрытая
+  кнопка не защищает: решение принимает сервер на каждом запросе. Особенно это
+  касается подстановочного права «всё разрешено» — в интерфейсе оно допустимо как
+  упрощение показа, но опираться на него как на модель прав нельзя
+  (`security.md` §«Отношение, выполнимое подстановочным знаком»).
 
-- `AuthProvider` (wrap App)
-- `useAuth()` → `{user, loading, login, logout, refresh, hasPermission}`
-- `authApi.{login, callback, me, logout}`
-- `hasPermission(user, perm)` — поддерживает `*` admin wildcard
+## Что проверить перед доверием этой записке
 
-## Поведение
+Имя внешнего эмитента в прежней редакции (и в связанных ссылках на рёбра)
+относится к более раннему решению; действующий фасад выдачи и проверки токенов —
+**iam**, а прямой поход в обход него запрещён (`security.md` §Production-mode, п. 4).
+Прежде чем повторять здешние ссылки на рёбра, установите, к какому эмитенту ходит
+интерфейс сегодня.
 
-- На mount `AuthProvider` зовёт `authApi.me()`; 401/network → `user=null` (grace).
-- `LoginButton` — full-page redirect (не XHR — нужен 302 на Zitadel).
-- `AuthCallback` — `useRef`-guard от двойного callback (Strict-Mode, code одноразовый).
-- `ServiceSidebar` — IAM-кнопка hidden пока `!user || !hasPermission('iam.read')`; Profile-кнопка — только когда залогинены.
+## См. также
 
-## See also
+[[api-gateway-middleware-dpop]] [[api-gateway-middleware-authz]]
+[[../KAC/KAC-104]] [[../KAC/KAC-107]] [[../KAC/KAC-109]]
 
-[[../edges/ui-to-zitadel-redirect]] [[../edges/iam-to-zitadel-oidc]] [[../KAC/KAC-104]] [[../KAC/KAC-107]] [[../KAC/KAC-109]]
-
-#packages #kacho-ui #planned
-
-
-## 2026-05-17 nginx resolver fix
-
-`deploy/05-resolver-from-resolvconf.sh` + `deploy/default.conf.template` (был `nginx.conf`) — на startup нгинкс читает nameserver из /etc/resolv.conf и подставляет в `resolver`-директиву. Cluster-agnostic, без env-vars.
+#packages #kacho-ui #legacy

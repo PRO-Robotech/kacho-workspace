@@ -3,6 +3,7 @@ title: iam authzguard
 repo: kacho-iam
 layer: internal
 category: packages
+path: services/iam/internal/authzguard
 related_tickets:
   - "[[../KAC/IAM-INT-1-interactive-login]]"
 tags:

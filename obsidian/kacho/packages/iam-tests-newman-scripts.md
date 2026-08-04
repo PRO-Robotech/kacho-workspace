@@ -1,6 +1,7 @@
 ---
 title: "tests/newman/scripts (kacho-iam)"
 category: packages
+path: services/iam/tests/newman/scripts
 repo: kacho-iam
 layer: tests
 tags:

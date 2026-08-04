@@ -6,6 +6,7 @@ aliases:
   - refresh hook
   - caep ingress
 category: packages
+path: services/iam/internal/handler/iamhooks
 repo: kacho-iam
 layer: handler
 status: done

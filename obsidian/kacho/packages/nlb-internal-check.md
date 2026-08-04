@@ -4,6 +4,7 @@ aliases:
   - nlb check package
   - nlb authz interceptor
 category: packages
+path: services/nlb/internal/check
 repo: kacho-nlb
 layer: composition
 tags:

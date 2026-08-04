@@ -6,6 +6,7 @@ aliases:
   - bootstrap admin
   - permissions registry
 category: packages
+path: services/iam/internal/apps/kacho/seed
 repo: kacho-iam
 layer: app
 status: done

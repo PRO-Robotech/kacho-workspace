@@ -4,6 +4,7 @@ aliases:
   - apigw backend dial mtls
   - api-gateway per-edge dial creds
 category: packages
+path: gateway/cmd/api-gateway
 repo: kacho-api-gateway
 layer: cmd
 tags:
@@ -40,26 +41,31 @@ tags:
 получает пустое имя ребра, и сборка учётных данных его **отвергает** — то есть
 будущий дрейф карты падает громко, а не тихо уезжает в незащищённый набор.
 
-## Exported / key funcs
+## Ключевые функции (снято с дерева, `96b2879a`)
 
-- `config.EdgeTLSClient(edge, dialAddr) (grpcclient.TLSClient, error)` — собирает
-  per-edge value-struct; **fail-fast** при enable без cert-материала (SEC-E-03);
-  server-name = override или derive из dial-host.
-- `backendEdge(backendKey) string` — backend-domain key → edge name.
-- `buildBackendDialCreds(cfg) (map[key]grpc.DialOption, error)` — per-edge creds-map.
-- `loopbackDialCreds() grpc.DialOption` — **всегда insecure** (operation self-loopback,
-  in-process, не cross-pod — SEC-E-07).
-- `iamEdgeDialCreds(cfg, addr)` — для двух standalone iam-dial (subject + authorize).
-- `dialBackends(cfg) (proxy.Backends, cleanup, error)` — открывает ClientConn per-edge
-  (+ keepalive 10s/3s + round-robin, сохранены) + opsLoopback insecure.
+- `cfg.EdgeTLSClient(edge, dialAddr)` — собирает значение TLS **по ребру**; при
+  включении без сертификатного материала — ошибка, а не тихий откат; ожидаемое имя
+  сервера берётся из переопределения либо выводится из адреса набора.
+- `backendEdge(backendKey)` — ключ домена → имя ребра; неизвестный ключ даёт пустое
+  имя и **отвергается** дальше по сборке.
+- `buildBackendDialCreds(cfg)` — карта учётных данных по ключам доменов;
+  **fail-fast целиком**: если хотя бы одно включённое ребро без материала, сборка
+  возвращает ошибку — процесс не должен стартовать наполовину защищённым.
+- `loopbackDialCreds()` — **всегда без шифрования**: это петля к самому себе внутри
+  процесса, а не соединение между подами.
+- `iamEdgeDialCreds(cfg, addr)` — для двух отдельных соединений к домену прав.
+- `dialBackends(cfg)` — открывает соединения по рёбрам (с удержанием соединения и
+  балансировкой) плюс петлю операций.
 
-## Contract / invariants
+## Инварианты
 
-- `enable=false` (default) ⇒ `insecure.NewCredentials()`, идентично pre-SEC-E (dev backward-compat).
-- `enable=true` без cert/key/ca ⇒ ошибка → `log.Fatalf` в main (НЕ тихий insecure-fallback, epic §6.7).
-- mTLS-client vs insecure-server / untrusted-CA ⇒ handshake fail → `Unavailable` (fail-closed, §3.9/§3.11).
-- opsLoopback (`operation` domain) — никогда не mTLS.
-- creds-слой ⊥ principal-metadata: `x-kacho-principal-*` пробрасывается director'ом поверх mTLS.
+- Включение без сертификата, ключа или корня — **ошибка сборки** и отказ в старте, а
+  не молчаливый переход на незащищённое соединение.
+- Клиент с mTLS против сервера без него (или с чужим корнем) — обрыв рукопожатия,
+  наружу «недоступно»: **fail-closed**, без тихого понижения.
+- Петля операций никогда не идёт по mTLS.
+- Слой учётных данных **ортогонален** личности: заголовки личности пробрасывает
+  край поверх защищённого соединения, и сертификат про них ничего не утверждает.
 
 ## Импортирует
 

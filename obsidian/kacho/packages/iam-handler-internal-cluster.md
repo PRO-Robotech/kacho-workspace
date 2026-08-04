@@ -3,6 +3,7 @@ title: iam handler internal_cluster
 repo: kacho-iam
 layer: handler
 category: packages
+path: services/iam/internal/apps/kacho/api/cluster
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_tickets:

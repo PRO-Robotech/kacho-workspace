@@ -4,6 +4,7 @@ aliases:
   - iam domain
   - iam-domain
 category: packages
+path: services/iam/internal/domain
 repo: kacho-iam
 layer: domain
 status: done

@@ -4,80 +4,68 @@ aliases:
   - vpc cilium compiler
   - cilium-vpc-module
   - srv6 vrf manager
-category: packages
+category: package
 repo: cilium
 layer: operator-cell
-status: experimental
-repo_url: "https://github.com/PRO-Robotech/kacho-vpc-cilium"
+status: planned
 tags:
   - packages
   - kacho-vpc
-  - experimental
   - planned
 ---
 
-# kacho-vpc-cilium compiler
+# Компилятор сетевого намерения в датаплейн — предмет ВНЕ дерева и не резолвится
 
-> [!check] CIL1 реализован (2026-06-13) — репо `PRO-Robotech/kacho-vpc-cilium` (genesis на main)
-> CRD `KachoVPC` spec (`apis/vpc.kacho.cloud/v1`) + чистый `compiler.CompileVRF`
-> (KachoVPC+endpoints → `[]VRFEntry`, per-family, overlapping CIDR безопасны через
-> VRFID = тенантинг). stdlib-only, unit-тесты CIL1-01..07 `-race` зелёные. `pkg/srv6adapter`
-> — задокументированная граница (VRFEntry→`srv6map.VRFKey/VRFValue`), **gated на SRv6-ядро**
-> (CIL1b). Hive-cell/reconciler — CIL2. Acceptance: `docs/specs/sub-phase-CIL1-…`.
+> [!warning] Репозитория, на который ссылалась записка, не существует
+> Замер 2026-08-05: запрос к GitHub по имени этого репозитория отвечает «не удалось
+> найти репозиторий»; в дереве монорепо файлов Go по этому имени **ноль**. Проверить
+> ни одно утверждение ниже **нечем** — ни состав каталогов, ни «реализовано, пробы
+> зелёные», ни точку встраивания.
+>
+> Это тот же класс, что у прежде объявленного оператора сети: компонент описан как
+> действующий, а его дом не резолвится. Записка сохранена как **замысел** — проектное
+> решение и его границы поучительны, — но читать её как описание существующего кода
+> нельзя, и планировать по ней тоже, пока не установлено, где предмет живёт.
+>
+> Прежняя редакция несла отметку «реализовано, пробы зелёные» с датой. Такая отметка —
+> самое дорогое в устаревшей записке: она закрывает вопрос «а есть ли это вообще» и
+> переводит разговор к деталям.
+>
+> Координаты внутри чужого проекта (имена пакетов и файлов сетевого агента) ниже
+> **сняты**: в нашем дереве они не резолвятся by construction, а в записке читаются
+> как утверждение о нём. Восстанавливать их можно только вместе с ссылкой на конкретную
+> ревизию чужого репозитория.
 
-Встраиваемый модуль в Cilium: компиляция CRD `vpc.kacho.cloud/v1` → нативный
-**SRv6 L3VPN датаплейн**. Не форк — отдельный Go-модуль, подмешиваемый в Hive
-(operator-cell + agent-cell).
+## Замысел (сохранён как решение, не как факт)
 
-## Что делает (control plane для существующего SRv6-датаплейна)
+Встраиваемый модуль сетевого агента: компиляция объявленного намерения сети
+(собственные ресурсы группы `vpc.kacho.cloud`) в **нативный датаплейн L3VPN поверх
+сегментной маршрутизации**. Не форк агента — отдельный модуль Go, подмешиваемый в
+его композицию, чтобы удаление сводилось к снятию одного узла и своих ресурсов.
 
-OSS Cilium имеет SRv6 BPF + map'ы (`pkg/maps/srv6map`, cell `srv6map.Cell`,
-`enable-srv6`), но **не имеет** control-surface, который их populating. Модуль —
-этот недостающий control plane:
+Ключевое разделение ответственности, ради которого замысел и стоит помнить:
 
-- берёт **VRF_ID** (uint32) из `KachoVPC.vrfId` — аллоцирован control-plane
-  (`kacho_vpc.networks.vrf_id`, mesh-global-уникально); модуль НЕ аллоцирует;
-- assignment endpoint→VRF по метке `vpc.kacho.cloud/network`;
-- аллоцирует **SID** (locator) на VPC/subnet;
-- пишет `cilium_srv6_vrf_v4/v6`, `cilium_srv6_sid`, `cilium_srv6_policy` через
-  провайдеры `srv6map.Cell` (не открывает map'ы напрямую, не трогает `bpf/`);
-- driving BGP CP (OSS) для анонса SID/VPN-маршрутов кросс-ДЦ.
+- **идентификатор виртуального маршрутизатора аллоцирует control plane** (наша
+  сторона, глобально уникально в пределах сети), а модуль его только **читает**;
+  благодаря этому пересекающиеся адресные диапазоны разных арендаторов безопасны;
+- модуль **не открывает низкоуровневые структуры ядра напрямую** и ничего не меняет
+  в самом агенте — пишет через уже существующих провайдеров;
+- компилирующая часть — **чистые функции** (намерение → описание датаплейна),
+  полностью проверяемые без кластера; связующая часть тонкая.
 
-## Точка встраивания
+## Что из этого нормативно **независимо** от судьбы модуля
 
-```go
-// cilium-operator + cilium-agent hive composition
-cell.Group(
-    srv6map.Cell,             // существующий OSS-провайдер map'ов
-    ipam.Cell(), bgp.Cell(),
-    kachovpc.Cell(),          // ← единственная строка интеграции
-)
-```
+- **Аллокация идентификатора — у control plane, не у датаплейна.** Датаплейн,
+  аллоцирующий сам, делает два источника истины и рассинхронизацию заметной только
+  по последствиям.
+- **Граница «чистая компиляция ↔ применение»** — то, что делает такой компонент
+  проверяемым вообще: без неё каждая проба требует кластера, и в итоге проб нет.
+- **Обратимость**: снятие модуля возвращает датаплейн в покой, а не в
+  полусконфигурированное состояние.
 
-Паттерн как у `operator/pkg/ipam/cell.go` / `pkg/maps/srv6map/cell.go`.
-
-## Layout
-
-```
-kacho-vpc-cilium/
-  apis/vpc.kacho.cloud/v1/   # KachoVPC/Subnet/SecurityGroup/RouteTable/NIC
-  pkg/compiler/              # чистые функции intent→datapath-намерение (unit без кластера)
-    vpc_to_vrf.go            # KachoVPC → VRF_ID + SID alloc (фаза 1)
-    subnet_to_ippool.go      # IPAM-пул scoped к VRF (ф2)
-    sg_to_policy.go          # CNP intra-VRF (ф3)
-    routetable_to_srv6.go    # SID-policy + BGP L3VPN (ф4)
-  pkg/manager/               # agent-side SRv6/VRF manager (populating srv6map)
-  pkg/cell/cell.go           # watch vpc.* → reconcile VRF/SID/policy + cilium.io CRD
-```
-
-## Гарантии «модуль, не переработка»
-
-- 0 изменений в `bpf/`/`pkg/maps/srv6map` ядра — используем существующие провайдеры map'ов.
-- `compiler/` — чистые функции, полное unit-покрытие без кластера; `manager`/`cell` — тонкие.
-- Удаление модуля = удаление cell'а + CRD; SRv6-датаплейн возвращается в idle (никто не пишет VRF-map).
-
-## See also
+## См. также
 
 [[../resources/cilium-kachovpc]] [[../edges/vpc-operator-to-cilium-realization]]
+[[vpc-domain]]
 
-#packages #kacho-vpc #experimental #planned
+#packages #kacho-vpc #planned

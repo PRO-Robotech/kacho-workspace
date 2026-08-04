@@ -4,6 +4,7 @@ aliases:
   - iam repo pg
   - iam-repo-kacho-pg
 category: packages
+path: services/iam/internal/repo/kacho/pg
 repo: kacho-iam
 layer: repo
 status: done

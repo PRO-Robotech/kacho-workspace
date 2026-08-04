@@ -4,6 +4,7 @@ aliases:
   - compute check package
   - compute authz interceptor
 category: packages
+path: services/compute/internal/check
 repo: kacho-compute
 layer: composition
 tags:

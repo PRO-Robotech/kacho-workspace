@@ -4,6 +4,7 @@ aliases:
   - vpc check package
   - vpc authz interceptor
 category: packages
+path: services/vpc/internal/apps/kacho/check
 repo: kacho-vpc
 layer: composition
 tags:
