@@ -19,11 +19,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # GroupService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/group_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/group_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]].

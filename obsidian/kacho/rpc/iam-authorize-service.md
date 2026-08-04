@@ -21,7 +21,26 @@ tags:
   - iam
   - fga
   - authz
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Сервис жив: `proto/kacho/cloud/iam/v1/authorize_service.proto`, шесть RPC —
+> `Check`, `BatchCheck`, `ListObjects`, `ListSubjects`, `ExpandRelations`, `WhoAmI`
+> (имена сверены по контракту). Там же живут `message ResourceRef` (закрытая таблица
+> целей авторизации, **без** поля имени — least-info) и `AccountMembership`.
+>
+> **Две ссылки в подвале ведут к снятым предметам**: `iam-conditions-service` и
+> `iam-access-binding-condition` — тенант-facing Condition-поверхность снята миграцией
+> `0075_retire_tenant_condition_surface.sql`. Ссылки оставлены намеренно (обе записки
+> живы как история и несут предикат переписи), но принимать их за действующие соседние
+> сервисы нельзя. Условия **на кортеже** — другой предмет, они живы и лежат на внутреннем
+> листенере (`TupleCondition` в `internal_authorize_service.proto`).
+>
+> Ссылка `edges/iam-to-opa` описывает подкладку, которой в дереве нет: решение о доступе
+> принимает модель отношений, а не политика в сайдкаре
+> (`security.md` §«Авторизация живёт в МОДЕЛИ»); одноимённый бандл-сервис снят —
+> см. [[iam-opa-bundle-service]].
 
 # AuthorizeService (iam)
 

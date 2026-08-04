@@ -8,7 +8,7 @@ domain: iam
 id_prefix: usr
 owner_table: kacho_iam.users
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 visibility: mirror
 status: done
 related_rpc:
@@ -25,6 +25,7 @@ tags:
   - kacho-iam
   - iam
   - mirror
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # User

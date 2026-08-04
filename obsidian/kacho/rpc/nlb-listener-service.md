@@ -15,11 +15,12 @@ tags:
   - rpc
   - kacho-nlb
   - listener
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # ListenerService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 

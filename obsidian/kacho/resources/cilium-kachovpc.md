@@ -5,9 +5,9 @@ aliases:
   - vpc.kacho.cloud KachoVPC
 category: resource
 domain: vpc
-id_prefix: enp
+id_prefix: net
 owner_table: "n/a (k8s CRD, не Postgres)"
-folder_level: false
+project_level: false
 status: planned
 related_packages:
   - "[[packages/kacho-vpc-cilium-compiler]]"
@@ -17,7 +17,26 @@ tags:
   - network
   - experimental
   - planned
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Оператора, который это рендерит, в дереве НЕТ — читать как замысел
+> Сверено 2026-08-05: репозиторий `kacho-vpc-operator` **не резолвится на GitHub** (404),
+> и в дереве монорепо по этому имени ноль файлов. Само слово `cilium` встречается ровно
+> в двух местах — комментарий миграции `services/vpc/internal/migrations/0007_network_vrf_id.sql`
+> и `deploy/Makefile`; ни CRD, ни компилятора, ни контроллера нет. Правила воркспейса
+> (`polyrepo.md`) держат рёбра этого компонента как **контракт на случай его появления**,
+> прямо оговаривая, что проверять по ним живой стенд нечего.
+>
+> **Что от записки верно и сегодня**: `vrf_id` действительно аллоцируется control-plane
+> и живёт колонкой `kacho_vpc.networks.vrf_id` (миграция 0007, `UNIQUE`, значение из
+> последовательности), и он **инфра-чувствителен** — читается только через
+> `InternalNetworkService.GetNetwork` на :9091, на публичной поверхности Network его нет.
+>
+> **Что неверно**: `id_prefix` сети — `net` (`ids.PrefixNetwork`), а не `enp`; `enp` это
+> op-root домена vpc (`ids.PrefixOperationVPC`), то есть префикс идентификатора операции.
+> Исправлено в шапке; в тексте ниже прежняя форма `enp…` оставлена нетронутой там, где она
+> часть цитаты замысла.
 
 # KachoVPC (cilium CRD)
 

@@ -9,7 +9,7 @@ domain: iam
 id_prefix: cag
 owner_table: kacho_iam.cluster_admin_grants
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
@@ -27,6 +27,7 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # ClusterAdminGrant

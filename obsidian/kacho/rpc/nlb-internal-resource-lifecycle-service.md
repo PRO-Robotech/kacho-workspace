@@ -17,11 +17,12 @@ tags:
   - kacho-nlb
   - internal
   - lifecycle
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalResourceLifecycleService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto`
 **Backend**: `kacho-nlb:9091` (cluster-internal gRPC)
 **Visibility**: **internal-only** (workspace CLAUDE.md запрет #6 — НЕ на external TLS listener)
 

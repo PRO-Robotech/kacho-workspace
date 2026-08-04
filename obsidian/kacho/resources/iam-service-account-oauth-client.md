@@ -9,7 +9,7 @@ domain: iam
 id_prefix: soc
 owner_table: kacho_iam.service_account_oauth_clients
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: planned
 related_rpc:
   - "[[rpc/iam-service-account-service]]"
@@ -22,6 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # ServiceAccountOAuthClient

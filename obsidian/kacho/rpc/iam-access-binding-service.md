@@ -23,11 +23,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # AccessBindingService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/access_binding_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/access_binding_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]]. E0 хранит binding'и, **не** enforce'ит authz — E3 ([[KAC-108]]) добавит Check-interceptor.
@@ -135,6 +136,27 @@ tags:
   - **`ExpandAccess(ExpandAccessRequest{object_type,object_id,relation,max_results}) → ExpandAccessResponse{principals[],truncated}` (sync read, **per-object grant-authority**, E-31/R-6)** — разворот в concrete principals (USER/SERVICE_ACCOUNT). **Механизм: OpenFGA `POST /list-users` (graph-traversing), НЕ плоский Read** (fix `rbac-rules-e-iam`, поверх 6ca2c71). Плоский filtered-Read `ListSubjects` видел только литеральные tuple'ы на `<object>#<relation>` и НЕ обходил граф → rules-model гранты через индирекцию (computed-userset каскад `admin⇒editor⇒viewer`, `scope_grant`-pull-up `g_*_<type>`, group#member) резолвились в ПУСТО (`RBACSUBJ-EXPAND-GROUP-OK` red). `OpenFGAHTTPClient.ListUsers(objectType,objectID,relation,[user,service_account])` нативно обходит ВЕСЬ граф (группы разворачивает сервер, server-side limits — нет client cycle-guard/depth/paging); dedup (E-30), truncation-flag, fail-closed (FGA-ошибка → фикс. INTERNAL). OpenFGA v1.8.4: `user_filters` ровно 1 элемент → 1 запрос на тип, merge. (`ListSubjects` сохранён для `AuthorizeService.ListSubjects` — там нужны direct-subjects.) **Authz (security review E, В3, fix `rbac-rules-e-iam`):** read==enforce — caller ОБЯЗАН иметь grant-authority/admin на target object/scope (тот же `requireGrantAuthority`, что `ListByResource`/`ListByRole`) ДО разворота; чужой объект → `PERMISSION_DENIED` (НЕ только anti-anon floor — иначе любой authenticated раскрывал authz-топологию/членство на ЛЮБОМ объекте). **relation closed-set (В2):** валидируется против `authzmap.IsExpandableRelation` (per-verb `v_*` + tier viewer/editor/admin + member); unknown → `INVALID_ARGUMENT` (нет probe произвольных FGA-relation строк). REST `GET /iam/v1/accessBindings:expandAccess`; perm `iam.access_bindings_by_resources.expandAccess`.
   - **`ListByRole(ListAccessBindingsByRoleRequest{role_id,page,include_revoked}) → ListAccessBindingsResponse` (sync read, E-33)** — audit «кто несёт роль R». repo keyset `(created_at,id) ASC`; authz: authenticated floor + per-row scope-filter через `requireGrantAuthority`. REST `GET /iam/v1/accessBindings:listByRole`; perm `iam.access_bindings_by_roles.listByRole`.
   - **group-amplification guard (E-32/Q#4)** — admin/editor + GROUP требует `requireGrantAuthority` на scopeRef (Create вызывает его для ЛЮБОГО create → guard by construction). Оба новых RPC — **public** (external endpoint, gateway public mux); НЕ Internal. См. [[../KAC/rbac-rules-model-2026-subphase-E-iam]].
+
+
+## Сверка со стволом (2026-08-05)
+
+Перепись по `proto/kacho/cloud/iam/v1/access_binding_service.proto`: у сервиса **14** RPC.
+
+**Есть в контракте, но записка о нём молчала**: `Revoke` (`POST
+/iam/v1/accessBindings/{access_binding_id}:revoke`, → `Operation`). Отзыв — отдельный
+глагол, а не `Delete`: строка остаётся, проставляется `revoked_at`, и она **выходит** из
+частичного UNIQUE активного гранта (`WHERE revoked_at IS NULL`), поэтому повторная
+идентичная выдача после отзыва создаёт **новую** активную строку.
+
+**Названы в записке, но в контракте отсутствуют** — то есть утверждения, пережившие свой
+предмет: `AddTargetResources`, `RemoveTargetResources`, `ReplaceTargetSelector`,
+`ListGrantableResources`. Их предмет — прежняя схема выбора объектов под привязкой
+(таблицы `access_binding_targets` и `access_binding_selector` **дропнуты** миграцией
+`0030_drop_legacy_target_selector.sql`). Сегодня выбор выражен полем `target` самой
+привязки (`0055_access_binding_target.sql`): `{"allInScope":true}` либо
+`{"resources":[{"type":…,"id":…}]}` плюс детерминированный `target_digest`, который
+входит **ключом** в частичный UNIQUE активного гранта — одинаковый набор в любом порядке
+коллизирует, разные наборы сосуществуют.
 
 ## See also
 

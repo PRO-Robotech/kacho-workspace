@@ -9,7 +9,7 @@ domain: registry
 id_prefix: none
 owner_table: kacho_registry.repository_configs
 owner_db: kacho_registry
-folder_level: false
+project_level: false
 status: in-progress
 related_rpc:
   - "[[rpc/registry-registry-service]]"
@@ -19,7 +19,29 @@ tags:
   - resource
   - kacho-registry
   - registry
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Ресурс жив: `message Repository` объявлен в `proto/kacho/cloud/registry/v1/registry.proto`
+> (рядом `Registry`, `Tag`, `Referrer`), таблица `repository_configs` создаётся
+> `services/registry/internal/migrations/` в схеме `kacho_registry`. Живых таблиц у
+> registry семь: `registries`, `repository_configs`, `registry_repository_registration`,
+> `registry_push_grant`, `registry_pending_blob`, `registry_outbox`, `operations`.
+>
+> **Ресурс верхнего уровня называется `Registry`, а не `Namespace`** — заход на
+> переименование откачен решением владельца. Слово «namespace» ниже и в самом proto
+> употреблено как **описание роли** («тенант-namespace над общим zot-бэкендом»), а не
+> как имя ресурса или сообщения: `message Namespace` в дереве отсутствует. Не принимать
+> это словоупотребление за имя типа.
+>
+> `Registry` несёт `region_id` + `placement_type` (единственное живое значение —
+> `REGIONAL`, anycast): реестр региональный и зоне-независим, поэтому из зональной
+> проверки когерентности исключён by construction.
+>
+> **Записки `rpc/registry-registry-service` в участке нет** — ссылка выше висит в пустоту.
+> Заведение отнесено в остаток волны; контракт — `registry_service.proto` (17 RPC) плюс
+> `internal_registry_service.proto` (2 RPC на :9091).
 
 # Repository (registry)
 

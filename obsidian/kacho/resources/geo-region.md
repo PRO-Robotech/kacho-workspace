@@ -8,8 +8,9 @@ domain: geo
 id_prefix: none
 owner_table: kacho_geo.regions
 owner_db: kacho_geo
-folder_level: false
-status: in-progress
+project_level: false
+status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05 (proto + services/geo/internal/migrations/0001..0004)"
 related_rpc:
   - "[[rpc/geo-region-service]]"
 related_packages:

@@ -16,11 +16,12 @@ tags:
   - kacho-vpc
   - internal
   - ipam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalAddressService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_address_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/internal_address_service.proto`
 **Backend**: `kacho-vpc:9091` (internal-port)
 **Public/Internal**: **cluster-internal-only** (не на TLS edge, см. CLAUDE.md «Запреты» #6)
 
@@ -41,6 +42,26 @@ IPAM allocate-API для **эфемерных** адресов + reference-manag
 ## REST mapping
 
 Internal-mux пробрасывает на `/vpc/v1/internalAddresses:*` (только cluster-internal listener). См. [[../edges/apigw-internal-vs-tls]].
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте `proto/kacho/cloud/vpc/v1/internal_address_service.proto` — **восемь** RPC.
+**Не был назван в записке**: `AllocateExternalIPv6` — внешний v6 выделяется отдельным
+глаголом, как и внутренний (`AllocateInternalIP` / `AllocateInternalIPv6`), а не флагом
+семейства в одном запросе.
+
+Полный набор: `AllocateInternalIP`, `AllocateInternalIPv6`, `AllocateExternalIP`,
+`AllocateExternalIPv6`, `SetAddressReference`, `ClearAddressReference`,
+`GetAddressReference`, `MarkAddressEphemeralInUse`.
+
+`AllocateIPResponse` несёт `already_allocated` — идемпотентность повтора выражена **полем
+ответа**, а не молчаливым «как будто выделили заново».
+
+`SetAddressReferenceRequest` несёт `owned`: `true` — ссылающийся владеет адресом
+(освобождение = снять ссылку **и** удалить адрес), `false` (умолчание) — тенант создал
+адрес заранее и лишь залинковал (освобождение = только снять ссылку). Колонка
+`address_references.owned` заведена миграцией `0013_address_reference_owned.sql`.
 
 ## See also
 

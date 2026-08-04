@@ -19,11 +19,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # RoleService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/role_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/role_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend custom-CRUD в [[KAC-112]]; system-роли seed-нуты миграцией E0 ([[KAC-105]]).

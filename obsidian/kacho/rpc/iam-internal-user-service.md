@@ -21,11 +21,12 @@ tags:
   - iam
   - internal
   - mirror
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalUserService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_user_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/internal_user_service.proto`
 **Backend**: `kacho-iam:9091` (**internal-only**; запрет #6)
 **Visibility**: internal — частично через api-gateway internal mux.
 **Status**: backend в [[KAC-112]]; реальный заполнятель — OIDC-callback в E2.

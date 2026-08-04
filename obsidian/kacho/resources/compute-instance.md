@@ -6,11 +6,12 @@ aliases:
   - instances
 category: resource
 domain: compute
-id_prefix: ins
+id_prefix: "ins- (hyphen-канон B3; NewHyphenID)"
 owner_table: kacho_compute.instances
 owner_db: kacho_compute
-folder_level: false
-status: planned
+project_level: false
+status: in-progress
+verified_against: "ствол redesign/integration, сверено 2026-08-05 (instance.proto + services/compute/internal/migrations/0001..0026)"
 related_rpc:
   - "[[rpc/compute-instance-service]]"
 related_tickets:
@@ -28,7 +29,23 @@ tags:
 
 # Instance (compute) — пересборка 2026
 
-Унифицированный compute-unit: `instanceKind ∈ {VM | CONTAINER | BAREMETAL°growth}`. Держит **intent + read-only зеркала**; attach-state НЕ владеет. Полный дизайн: `docs/plans/compute-module-redesign-2026.md`.
+Унифицированный compute-unit: `instanceKind ∈ {VM | CONTAINER | BAREMETAL°growth}`. Держит **intent + read-only зеркала**; attach-state НЕ владеет. Полный дизайн: `docs/plans/compute-module-redesign-2026.md` (воркспейс).
+
+> [!note] Как читать эту записку (сверка со стволом 2026-08-05)
+> Она смешивает **замысел** (разделы «reference law», «5 дефектов», two-projection) и
+> **сделанное** (раздел «Реализация — COMP-1 core»). Сверено по дереву:
+> `proto/kacho/cloud/compute/v1/instance.proto` живой, `services/compute/internal/migrations/`
+> дошли до `0026`, `message Instance` несёт `instance_kind`, `machine_type_id`,
+> `boot_source`, `effective_resources`, `placement_group_id`, `status_reason` и
+> `oneof {vm_spec | container_spec}` — то есть COMP-1 действительно приземлён.
+>
+> **Из замысла НЕ приземлено и предмета в дереве не имеет**: `InternalInstanceService`
+> (его нет ни в proto, ни в карте RPC — из compute-internal живы
+> `InternalMachineTypeService` и `InternalWatchService`), а также `PlacementGroup`
+> как ресурс (см. предупреждение в [[compute-placementgroup]]).
+>
+> **Ссылки `[[rpc/compute-instance-service]]` и `[[rpc/compute-machinetype-service]]`
+> заведены этой волной** (до неё они висели в пустоту).
 
 > [!important] Alignment-doc (ban #1) — НЕ код
 > Перед реализацией — `acceptance-author` → `acceptance-reviewer` (Given-When-Then APPROVED). Замещает `storage-compute-iaas-overview.md §1` (compute) и разбирает YC-derived cruft текущего `instance.proto` (`platform_id`, `host_affinity_rules{yc.hostId}`, `MetadataOptions{gce_*/aws_*}`, free-form `Resources` — ban #2).
@@ -74,7 +91,39 @@ Public — lean (id/name/labels/bindings/intent/`status(11-state)`). **Internal\
 - Create rests **PROVISIONING** (durable). Update mutability-классы (LIVE / next-boot deferred `statusReason "takes effect on next boot"` / immutable camelCase / Reinstall-only bootSource / **STOPPED-gate always-reject** — STOPPED недостижим до COMP-2 `Stop`). Delete **hard-delete + name-recycle** (partial `UNIQUE(project,name) WHERE name<>''`). id-prefix `ins-` (B3).
 - **compute НЕ реализует storage внутри себя**: 0 новых Image/Volume-таблиц, 0 новых зависимостей на legacy compute-owned `fd8`-Image; ссылки на storage/registry/iam — только Referrer.
 
-**Deferred**: COMP-2 (attach-саги/materialize/power-ops/Reinstall), COMP-3 (PlacementGroup spread + ImageCatalog/VolumeType discovery + validateOnly), COMP-4 (Internal\* infra-проекции + legacy-RPC retire + `fd8`-Image full retire). Легаси power-ops (Start/Stop/AttachDisk/…) сохранены рабочими до COMP-2/4.
+**Deferred**: COMP-2 (attach-саги/materialize/power-ops/Reinstall), COMP-3 (PlacementGroup spread + ImageCatalog/VolumeType discovery + validateOnly), COMP-4 (Internal\* infra-проекции + legacy-RPC retire). Легаси power-ops (Start/Stop/AttachDisk/…) сохранены рабочими.
+
+## Блочное хранение в compute — РЕТАЙРЕНО, и это удерживается гейтом
+
+> [!important] Дубля Volume/Snapshot/Image/DiskType в compute больше нет
+> Перепись по стволу 2026-08-05. Миграции, снявшие дубль:
+> `0013_drop_attached_disks.sql`, `0021_drop_block_storage_duplicates.sql`,
+> `0022_drop_disk_types.sql`. Живых таблиц у compute **семь**: `instances`,
+> `machine_types`, `instance_network_interfaces`, `operations`, `compute_outbox`,
+> `compute_fga_register_outbox`, `compute_watch_cursors`.
+>
+> Удерживает ретайр **гейт** `services/compute/internal/check/retired_block_storage_test.go`
+> (и парный в iam). Он проверяет **обе половины**, потому что каждая по отдельности
+> оставляет продукт хуже, чем если бы не начинали:
+>
+> - **достижимость** — ни один REST-маршрут, ни одна запись каталога прав (в **обеих**
+>   встроенных копиях), ни один allowlist края, ни один proto-сервис, ни один
+>   сгенерённый стаб и ничто в compute не называет снятые authz-типы объектов;
+> - **хранилище** — ни один непробный путь compute не шлёт SQL к `disks` / `images` /
+>   `snapshots` / `disk_types`.
+>
+> Формулировка самого гейта стоит цитирования как правило: «поверхность без таблицы
+> обещает вызывающему то, чего продукт не может выполнить; таблица без поверхности —
+> данные, до которых никто не дотянется и которые никто не поддерживает». История
+> миграций из «хранилищной» половины **намеренно исключена** — применённую миграцию не
+> редактируют, поэтому `CREATE TABLE` в baseline остаётся и находкой не является.
+>
+> Раздел «карта владельцев» в `data-integrity.md` несёт предупреждение о незавершённом
+> расколе, датированное 2026-07-25; по этому дереву раскол **завершён**. Владелец
+> блочного хранения — **storage**.
+>
+> Также сняты `regions`/`zones` (`0003_geography_owner.sql` → `0011_drop_geography.sql`):
+> Geography принадлежит **geo**, и message `Region`/`Zone` в compute-контракте нет.
 
 Trail: [[KAC/compute-redesign-2026]]. Acceptance: `docs/specs/sub-phase-COMP-1-instance-machinetype-acceptance.md`.
 

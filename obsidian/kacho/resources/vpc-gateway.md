@@ -5,11 +5,12 @@ aliases:
   - vpc Gateway
 category: resource
 domain: vpc
-id_prefix: enp
+id_prefix: gtw
 owner_table: kacho_vpc.gateways
 owner_db: kacho_vpc
-folder_level: true
+project_level: true
 status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-gateway-service]]"
 related_packages:
@@ -22,34 +23,48 @@ tags:
 
 # Gateway
 
-**Domain**: vpc
-**ID prefix**: `enp` (общий VPC prefix)
+**Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
+**ID prefix**: `gtw` (`ids.PrefixGateway`) — **не** `enp`
 **Owner table**: `kacho_vpc.gateways`
-**Folder-level**: yes
+**Scope**: project
 
-## Fields
+**Контракт**: `proto/kacho/cloud/vpc/v1/gateway.proto`
+**Схема**: `services/vpc/internal/migrations/0001_initial.sql`
 
-| Field | Type | Note |
+## Поля (`message Gateway`)
+
+| Поле | Тип | Заметка |
 |---|---|---|
-| `id` | TEXT PK | |
-| `project_id` | TEXT | |
+| `id` | string | `gtw<17>` |
+| `project_id` | string | ссылка → **iam** `Project` |
+| `created_at` | Timestamp | |
 | `name`, `description`, `labels` | | |
-| `type` | enum | `SHARED_EGRESS_GATEWAY` (только tier-1 на момент индексации) |
-| `shared_egress_gateway` | nested JSONB | type-specific config |
+| `gateway` | **oneof** | сейчас ровно одна ветка: `shared_egress_gateway` (`message SharedEgressGateway` — пустой) |
 
-CHECK (0030).
+В таблице тип живёт скаляром `gateway_type text NOT NULL DEFAULT 'shared_egress'`; в
+контракте это `oneof`, то есть при появлении второго типа шлюза добавляется ветка, а не
+флаг. Значение дискриминатора и его конфигурация неразделимы — новый тип нельзя ввести,
+не сказав, чем он сконфигурирован.
 
-## FK (in-bound)
+`SharedEgressGateway` сегодня **пуст** — у общего egress-шлюза настраиваемых полей нет.
+Это не заглушка: ветка oneof несёт сам факт выбора типа.
 
-- `route_tables.static_routes[].gateway_id → gateways(id)` — валидируется в pre-update SQL (JSONB), не строгий FK.
+## Ссылки внутри домена
 
-## Gotchas
+- `route_tables.static_routes[].gateway_id` — ссылка из JSONB-массива [[vpc-routetable]].
+  Строгого FK на массив в JSONB нет (Postgres такого не выражает), поэтому существование
+  шлюза проверяется на мутации маршрута. Это **не** обход ban #10: within-service
+  ссылочная целостность на массив JSONB не выражается FK, и проверка выполняется
+  в той же writer-транзакции.
 
-- Delete Gateway → FailedPrecondition если используется в RouteTable static_route.
-- Cross-folder/cross-project **Move удалён** в [[KAC-266]] (RPC `GatewayService.Move` снят).
+## Gotcha
 
-## See also
+- `Delete` шлюза, на который смотрит статический маршрут, → `FailedPrecondition`.
+- `GatewayService.Move` не существует ([[KAC-266]]); `project_id` неизменяем.
+- Зоны/региона шлюз не несёт.
 
-[[../packages/vpc-apps-kacho-api-gateway]] [[../rpc/vpc-gateway-service]] [[vpc-routetable]]
+## См. также
+
+[[vpc-routetable]] · [[vpc-network]] · [[../rpc/vpc-gateway-service]]
 
 #resource #vpc #gateway

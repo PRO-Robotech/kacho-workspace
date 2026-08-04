@@ -23,11 +23,12 @@ tags:
   - authz
   - usecase
   - handler
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # PermissionCatalogService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
+**Proto**: `proto/kacho/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
 **Backend**: `kacho-iam:9090` (**public** listener; `registerPublicServices` in `cmd/kacho-iam/grpc_register.go`).
 **Visibility**: **public** — grantable-token platform metadata, NOT infra-sensitive (`security.md` §infra-sensitive; G-D3). Authenticated-floor; anonymous fail-closed.
 **Status**: test (branch `rbac-docs-site`).

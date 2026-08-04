@@ -19,11 +19,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # ServiceAccountService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/service_account_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/service_account_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]].
@@ -56,6 +57,18 @@ tags:
 
 - Без E2 SA остаётся identity-stub: не может «логиниться» (нет credentials).
 - Delete SA с активной GroupMember/AccessBinding — на E0 sentinel `FailedPrecondition` от service-слоя.
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **восемь** RPC. **Не были названы в записке**: `Disable`
+(`POST /iam/v1/serviceAccounts/{service_account_id}:disable` → `Operation`) и `Enable`
+(`…:enable` → `Operation`), с парными метаданными `DisableServiceAccountMetadata` /
+`EnableServiceAccountMetadata`.
+
+Отключение — **действие**, а не поле в `Update`: у него свой глагол, своя операция и свои
+метаданные, поэтому «выключить учётку» нельзя выполнить незаметно через частичное
+обновление, и в истории операций оно видно отдельной записью.
 
 ## See also
 

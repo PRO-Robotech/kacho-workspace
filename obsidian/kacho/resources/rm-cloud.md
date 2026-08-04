@@ -21,6 +21,14 @@ tags:
 > Домена resource-manager в дереве продукта нет: ни каталога proto, ни объявления
 > сервиса, ни схемы БД. Преемник — Account в iam ([[iam-account]]). Ниже — след,
 > а не описание действующего ресурса.
+>
+> **Снятие закреплено проверкой, а не только отсутствием файлов** (сверено по стволу
+> 2026-08-05): `gateway/internal/proxy/resolver_test.go`,
+> `TestResolver_RemovedResourceManagerBlocked` требует, чтобы
+> `/kacho.cloud.resourcemanager.v1.CloudService/List`,
+> `…FolderService/Get` и `/kacho.cloud.organizationmanager.v1.OrganizationService/List`
+> **не резолвились** на краю. То есть возвращение домена не «просто не сделано» —
+> оно покраснеет.
 
 # Cloud — снят (KAC-124)
 

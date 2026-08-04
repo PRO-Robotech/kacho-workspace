@@ -9,8 +9,8 @@ domain: iam
 id_prefix: ftp
 owner_table: kacho_iam.federation_trust_policies
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-federation-service]]"
 related_packages:
@@ -22,7 +22,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблицы `federation_trust_policies` в миграциях iam нет; идентификатора `FederationTrustPolicy` в дереве — ноль вхождений. **Федерация при этом частично жива, но выражена иначе**: доверенные внешние субъекты живут полем `TrustedSubjects` на `ServiceAccountOAuthClient` (федерация «внутрь»), а внешняя аудитория — параметром выдачи ключа сервисной учётки (федерация «наружу»). Отдельного ресурса политики доверия нет.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # FederationTrustPolicy
 

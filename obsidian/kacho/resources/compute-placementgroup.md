@@ -7,11 +7,12 @@ aliases:
   - compute placement
 category: resource
 domain: compute
-id_prefix: plg
-owner_table: kacho_compute.placement_groups
+id_prefix: "plg (заявлен планом; NewID его не эмитит)"
+owner_table: "нет — таблицы placement_groups в дереве не существует"
 owner_db: kacho_compute
-folder_level: false
+project_level: false
 status: planned
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/compute-instance-service]]"
 related_tickets:
@@ -23,9 +24,36 @@ tags:
   - planned
 ---
 
-# PlacementGroup + Vocabularies (compute) — пересборка 2026
+# PlacementGroup + Vocabularies (compute) — ЗАМЫСЕЛ, не дерево
 
-Tenant placement-**intent** над непрозрачными failure-domain. Заменяет single-`oneof{spread|partition}` текущего `placement_group.proto`. Полный дизайн: `docs/plans/compute-module-redesign-2026.md §1.4-1.6, §4`.
+> [!warning] Ресурса `PlacementGroup` в продукте НЕТ — читать как проект, а не как описание
+> Сверено по стволу 2026-08-05, три независимых предиката:
+>
+> 1. **Схема**: в `services/compute/internal/migrations/` таблицы `placement_groups` нет
+>    (живых таблиц compute семь: `instances`, `machine_types`, `instance_network_interfaces`,
+>    `operations`, `compute_outbox`, `compute_fga_register_outbox`, `compute_watch_cursors`).
+> 2. **Контракт**: файла `placement_group.proto` в `proto/kacho/cloud/compute/v1/` нет;
+>    сообщение `PlacementPolicy` **отозвано целиком** — комментарий в `instance.proto`
+>    объясняет почему: оно несло `placement_group_id`, `host_affinity_rules`,
+>    `placement_group_partition`, и **ни одно поле ни одного message ни в одном пакете
+>    не имело этого типа** — сирота. Плюс правило hosts/host-groups — инфра-чувствительная
+>    поверхность, которой на публичном контракте не место (`security.md`).
+> 3. **Замок в обе стороны**: `pkg/api/kacho/cloud/compute/v1/placement_contract_test.go`
+>    несёт `TestWithdrawnPlacementMessagesAreGone` (отозванное не вернулось) **и**
+>    `TestLivePlacementGroupIdSurvives` (живое не снесли заодно).
+>
+> **Что живо и это омоним, а не тот же предмет**: `Instance.placement_group_id` (поле 41) —
+> **непрозрачный slug-passthrough** COMP-1; существование и когерентность отложены до COMP-3.
+> Он не ссылается ни на какой ресурс и ресурсом не управляет. Плюс отдельный
+> `DiskPlacementPolicy`, доступный через `Relocate`, — тоже другой предмет.
+>
+> Ниже — **проектная запись** (замысел пересборки), а не контракт. Ни одна её координата не
+> должна использоваться как утверждение о нынешнем состоянии: ни `kacho_compute.placement_groups`,
+> ни `InternalPlacementGroupService`, ни словари `capability`/`topology` в дереве не заведены.
+
+Tenant placement-**intent** над непрозрачными failure-domain. Задумывался как замена
+single-`oneof{spread|partition}` из снятого `placement_group.proto`. Полный дизайн —
+`docs/plans/compute-module-redesign-2026.md §1.4-1.6, §4` (в воркспейсе).
 
 ## PlacementGroup (`plg`) — композируемые constraints (фикс defect 3)
 `constraints[]` — **конъюнктивный** список (ANDed), а не одна стратегия:

@@ -5,11 +5,12 @@ aliases:
   - vpc Subnet
 category: resource
 domain: vpc
-id_prefix: e9b
+id_prefix: sub
 owner_table: kacho_vpc.subnets
 owner_db: kacho_vpc
-folder_level: true
+project_level: true
 status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-subnet-service]]"
 related_packages:
@@ -24,58 +25,127 @@ tags:
 
 # Subnet
 
-**Domain**: vpc
-**ID prefix**: `e9b`
+**Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
+**ID prefix**: `sub` (`ids.PrefixSubnet`, `pkg/ids/ids.go`)
 **Owner table**: `kacho_vpc.subnets`
-**Folder-level**: yes (через Network → Folder)
+**Scope**: project (`project_id`), сеть — через `network_id`
 
-## Fields (domain)
+**Контракт**: `proto/kacho/cloud/vpc/v1/subnet.proto`
+**Схема**: `services/vpc/internal/migrations/0001_initial.sql` + 0010 (`subnet_cidr_blocks`), 0012 (placement)
 
-| Field | Type | Validation | Note |
-|---|---|---|---|
-| `id` | TEXT PK | `ids.IsValid("e9b")` | |
-| `project_id` | TEXT | cross-service ref → rm.Folder | |
-| `network_id` | TEXT | within-service FK → networks(id) | |
-| `zone_id` | TEXT | cross-service ref → compute.Zone (KAC-15) | |
-| `name`, `description`, `labels` | TEXT/JSONB | `validate.Name*` | |
-| `v4_cidr_primary` | inet | CHECK (0026 → inline в baseline 0001) | optional (можно v6-only) |
-| `v4_cidr_blocks` | inet[] | extra CIDRs (KAC-71) | |
-| `v6_cidr_primary` | inet | CHECK (0026 → inline в baseline 0001) | optional |
-| `v6_cidr_blocks` | inet[] | | |
-| `route_table_id` | TEXT | within-service ref → route_tables | nullable, auto-association (0019/0020) |
+Subnet — **канонический якорь размещения** всего домена: NIC и Address зону не несут, а
+наследуют её через `subnet_id` (`data-integrity.md` §Placement-coherence).
 
-## Constraints
+## Поля публичной проекции (`message Subnet`)
+
+| Поле | Тип | Заметка |
+|---|---|---|
+| `id` | string | `sub<17>`; immutable |
+| `project_id` | string | cross-service ссылка → **iam** `Project` |
+| `created_at` | Timestamp | truncate до секунд |
+| `name`, `description`, `labels` | | `UNIQUE (project_id, name) WHERE name <> ''` |
+| `network_id` | string | within-service FK → `networks(id)` |
+| `placement_type` | enum `SubnetPlacementType` | **ZONAL** \| **REGIONAL**; required, immutable |
+| `zone_id` | string | задан ⟺ `placement_type == ZONAL`; ссылка → **geo** `Zone` |
+| `region_id` | string | задан ⟺ `placement_type == REGIONAL`; ссылка → **geo** `Region` |
+| `route_table_id` | string | within-service ссылка → `route_tables(id) ON DELETE SET NULL` |
+| `ipv4_cidr_primary` | string | **immutable**, задаётся на Create; подмножество супернет-блока сети; мин /28, макс /16; пусто у v6-only |
+| `ipv4_cidr_blocks` | repeated string | дополнительные диапазоны сверх primary; мутируются **только** `:add-cidr-blocks` / `:remove-cidr-blocks` |
+| `ipv6_cidr_primary` | string | immutable; пусто у v4-only |
+| `ipv6_cidr_blocks` | repeated string | зеркало v4 |
+
+> [!warning] Имена CIDR-полей сменились — прежние СНЯТЫ с контракта
+> В `message Subnet` объявлено `reserved 9, 10, 11, 13` и `reserved "dhcp_options"`.
+> Слоты 10/11 — прежние `v4_cidr_blocks` / `v6_cidr_blocks`: плоский массив «все блоки»
+> разбит на явный immutable-якорь плюс дополнительные диапазоны (VPC-1 F7). Слот 9 —
+> прежний `route_table` oneof, слот 13 — `dhcp_options` (DHCP/DNS-ручки уровня сети сняты
+> по дизайну, VPC-1 F9). Записка, называющая `v4_cidr_blocks` полем **контракта**, описывает
+> состояние до этой правки.
+>
+> Отдельно и важно: **в БД имена другие, и другими остались.** Таблица `subnets`
+> по-прежнему несёт `v4_cidr_blocks text[]` / `v6_cidr_blocks text[]` и **generated**
+> колонки `v4_cidr_primary` / `v6_cidr_primary` (`GENERATED ALWAYS AS … STORED`, берут
+> первый элемент массива). Механическая замена имени по всему тексту сделала бы описание
+> схемы уверенно неверным: wire-имя и имя колонки здесь разошлись намеренно.
+
+## Placement — дискриминатор, а не пара ad-hoc полей
+
+`0012_subnet_placement.sql` добавила `placement_type text NOT NULL DEFAULT 'ZONAL'` и
+`region_id text NOT NULL DEFAULT ''` и закрепила взаимоисключение DB-CHECK'ом:
+ZONAL ⇒ `zone_id <> '' AND region_id = ''`; REGIONAL ⇒ `zone_id = '' AND region_id <> ''`.
+
+REGIONAL-подсеть — **anycast**: зоны у неё нет by construction, поэтому из зональной
+проверки когерентности она исключена, а региональная остаётся. Это и есть «исключение
+эникаст» из `data-integrity.md`.
+
+## Constraints (по DDL)
 
 - `subnets_pkey` PRIMARY KEY (id)
-- `subnets_no_overlap_v4` EXCLUDE USING gist (network_id WITH =, v4_cidr_primary inet_ops WITH &&) — никаких пересечений в одной Network.
-- `subnets_no_overlap_v6` аналогично для v6.
-- Subnet CHECK (0026 → inline в baseline 0001): name+CIDR-формат.
-- `subnets_network_id_fkey` (default — без CASCADE).
+- `subnets_project_id_name_key` — UNIQUE (project_id, name) partial `WHERE name <> ''`
+- `subnets_no_overlap_v4` — `EXCLUDE USING gist (network_id WITH =, v4_cidr_primary inet_ops WITH &&) WHERE (v4_cidr_primary IS NOT NULL)`
+- `subnets_no_overlap_v6` — то же для v6
+- `subnets_name_check`, `subnets_description_check`, `subnets_labels_valid`
+- FK: `network_id → networks(id)` (без CASCADE); `route_table_id → route_tables(id) ON DELETE SET NULL`
 
-## FK contract (in-bound)
+### Почему одного EXCLUDE на таблице не хватило (миграция 0010)
 
-- `addresses.internal_subnet_id → subnets(id) ON DELETE RESTRICT`
-- `network_interfaces.subnet_id → subnets(id) ON DELETE RESTRICT` (0012 → inline в baseline 0001)
+Оба baseline-EXCLUDE смотрят только на **primary**-блок семейства — generated-колонку из
+первого элемента массива. Вторичные блоки, добавляемые `:add-cidr-blocks`, под них не
+попадали: пересечение вторичных диапазонов двух подсетей ОДНОЙ сети проходило, и IPAM мог
+выдать один internal-IP дважды.
 
-→ Delete Subnet → FailedPrecondition если есть Address или NIC.
+Решение — нормализованная дочерняя таблица:
 
-## Lifecycle
+```sql
+CREATE TABLE kacho_vpc.subnet_cidr_blocks (
+    subnet_id  text NOT NULL REFERENCES kacho_vpc.subnets(id) ON DELETE CASCADE,
+    network_id text NOT NULL,
+    block      cidr NOT NULL,
+    PRIMARY KEY (subnet_id, block),
+    CONSTRAINT subnet_cidr_blocks_no_overlap
+        EXCLUDE USING gist (network_id WITH =, block inet_ops WITH &&)
+);
+```
 
-Single ACTIVE state.
+Ключ исключения — `network_id`: подсети **разных** сетей пересекаться вправе (изоляция
+per-network), поэтому network денормализуется в дочернюю строку ради scope-ключа. v4 и v6
+в одной колонке ложных пересечений не дают (`inet &&` между семействами — false). Строки
+поддерживаются репозиторием в **той же writer-транзакции**, что и DML подсети; удаление
+подсети снимает их FK-каскадом внутри одной БД.
 
-## Gotchas
+## FK-контракт (кто ссылается на Subnet)
 
-- При Create — EXCLUDE-constraint ловит overlap'ы (SQLSTATE 23P01) → mapped to `AlreadyExists`/`FailedPrecondition` (см. `helpers.go` mapErr).
-- Subnet может быть v6-only (KAC-71); validation в [[../packages/vpc-domain]].
+- `addresses.internal_subnet_id → subnets(id) ON DELETE RESTRICT` — причём сам
+  `internal_subnet_id` **generated** из JSONB `internal_ipv4`/`internal_ipv6`
+- `network_interfaces.subnet_id → subnets(id) ON DELETE RESTRICT`
+- `subnet_cidr_blocks.subnet_id → subnets(id) ON DELETE CASCADE`
 
+Следствие: `Delete` подсети, на которой висит адрес или NIC → `FailedPrecondition`.
 
-> [!note] После KAC-111 (squash migrations)
-> Specific migration numbers (0001–0034) свёрнуты в single baseline `0001_initial.sql`.
-> Ссылки на исторические migration N сохраняются как archeology, но физически их нет —
-> весь финальный state в `internal/migrations/0001_initial.sql` (kacho-vpc PR #97).
+## Жизненный цикл
 
-## See also
+Одно состояние, `status` отсутствует. Мутации async через `Operation`.
 
-[[../packages/vpc-domain]] [[../rpc/vpc-subnet-service]] [[vpc-network]]
+## Gotcha
+
+- **Зону валидирует geo, а не compute.** `zone_id` резолвится peer-вызовом
+  `geo.v1.ZoneService.Get`; ребро `vpc → geo`. Прежняя редакция называла владельцем
+  `compute.Zone`: таблицы `zones`/`regions` в compute действительно были — и **дропнуты**,
+  а message `Zone` в compute-контракте нет ни одного.
+- **Регион зоны НИКОГДА не выводится из имени** — только резолв у владельца либо
+  авторитетное поле `Subnet.region_id`. Разбор запрета — `data-integrity.md`.
+- **Пересечение ловит EXCLUDE (SQLSTATE 23P01)** → `FailedPrecondition`; software-проверка
+  «сначала посмотреть, потом вставить» запрещена (ban #10).
+- **Подсеть бывает v6-only и v4-only**; пустыми оба семейства быть не могут.
+- **REST-глаголы в kebab-case**: `POST /vpc/v1/subnets/{subnet_id}:add-cidr-blocks`
+  (не `:addCidrBlocks`) — сверено по `google.api.http` в `subnet_service.proto`.
+
+> [!note] История: миграции до baseline
+> Номера ниже `0001_initial.sql` — археология; физически их нет. Номера **0002 и выше** в
+> `services/vpc/internal/migrations/` — живые, применяются поверх baseline.
+
+## См. также
+
+[[vpc-network]] · [[vpc-address]] · [[vpc-networkinterface]] · [[geo-zone]] · [[../rpc/vpc-subnet-service]]
 
 #resource #vpc #subnet #cidr

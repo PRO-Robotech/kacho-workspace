@@ -13,7 +13,15 @@ tags:
   - kacho-rm
   - organization
   - deprecated
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Домена organizationmanager в дереве нет; проверка края `TestResolver_RemovedResourceManagerBlocked` требует, чтобы `/kacho.cloud.organizationmanager.v1.OrganizationService/List` не резолвился. Преемник — `AccountService` ([[iam-account-service]]).
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 > [!warning] Снят вместе со своим доменом (KAC-124)
 > Псевдоним записки о сервисе, которого в дереве продукта нет. Прежний статус

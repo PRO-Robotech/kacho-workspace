@@ -4,8 +4,8 @@ category: resource
 domain: vpc
 id_prefix: n/a
 owner_table: n/a (k8s CRD, не Postgres)
-folder_level: cluster
-status: experimental
+project_level: cluster
+status: planned
 related_rpc: []
 related_packages:
   - kacho-vpc-operator-controller
@@ -14,7 +14,15 @@ tags:
   - kacho-vpc-operator
   - kube-ovn
   - experimental
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Оператора в дереве НЕТ — записка оставлена как замысел
+> Сверено 2026-08-05: репозиторий `kacho-vpc-operator` не резолвится на GitHub (404),
+> в монорепо ноль файлов по этому имени, и **само имя `KachoRouteTable` не встречается
+> в дереве ни разу** — даже в документации (в отличие от `KachoSubnet`, который хотя бы
+> упомянут на страницах docs-site). Источник истины по таблице маршрутов —
+> [[vpc-routetable]] (`kacho_vpc.route_tables`, prefix `rtb`).
 
 # KachoRouteTable — промежуточный CRD vpc-operator'а
 

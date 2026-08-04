@@ -6,53 +6,56 @@ aliases:
   - PE
 category: resource
 domain: vpc
-id_prefix: enp
-owner_table: kacho_vpc.private_endpoints
+id_prefix: "нет — ресурс отсутствует в дереве"
+owner_table: "нет — таблицы private_endpoints не существует"
 owner_db: kacho_vpc
-folder_level: true
-status: stable
+project_level: true
+status: deprecated
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-privateendpoint-service]]"
-related_packages:
-  - "[[packages/vpc-apps-kacho-api-privateendpoint]]"
 tags:
   - resource
   - kacho-vpc
   - privateendpoint
-  - privatelink
+  - deprecated
 ---
 
-# PrivateEndpoint
+> [!warning] Ресурса в дереве продукта НЕТ — записка оставлена как след
+> Предикат переписи (сверено 2026-08-05, ствол `redesign/integration`):
+> `grep -ril 'private_endpoint\|PrivateEndpoint\|privatelink'` по каталогам
+> `proto/`, `services/`, `gateway/`, `pkg/` даёт **ноль** файлов. Ни контракта, ни
+> таблицы, ни сервиса, ни миграции. Живых таблиц у vpc двадцать, `private_endpoints`
+> среди них нет.
+>
+> Прежняя редакция объявляла `status: stable` и ссылалась на миграцию
+> «0024 private_endpoint_fks» и на интеграционный тест внешних ключей — ни того, ни
+> другого в дереве нет. Это ровно тот класс, ради которого записки и сверяют:
+> **уверенное описание отсутствующего** хуже очевидного легаси, потому что читается как
+> факт.
 
-**Domain**: vpc
-**ID prefix**: `enp` (общий VPC prefix)
-**Owner table**: `kacho_vpc.private_endpoints`
-**Folder-level**: yes (через Subnet → Network → Folder)
+# PrivateEndpoint — снят (история)
 
-## Fields
+Замысел: приватная точка входа тенанта к платформенным сервисам (объектное хранилище,
+реестр образов) **внутри** его подсети, без выхода в публичную сеть. Ресурс должен был
+занимать адрес из подсети и держать вид сервиса, к которому подключается.
 
-| Field | Type | Note |
-|---|---|---|
-| `id` | TEXT PK | |
-| `project_id` | TEXT | |
-| `subnet_id` | TEXT | FK → subnets(id) RESTRICT |
-| `address_id` | TEXT | FK → addresses(id) RESTRICT (0024) |
-| `name`, `description`, `labels` | | |
-| `service_kind` | enum | object-storage, container-registry, ... (Kachō-only список) |
+## Что от замысла осталось верным
 
-## FK contract (0024 private_endpoint_fks)
+- **Адрес как отдельный ресурс** — приём прижился и живёт в [[vpc-address]]: любая привязка
+  IP выражается ссылкой на Address, а не «сырым» полем.
+- **Ссылка держит владельца** — `ON DELETE RESTRICT` на подсеть и адрес: нельзя удалить то,
+  на чём висит потребитель. Этот контракт живёт у [[vpc-networkinterface]] и
+  [[vpc-address]].
 
-- `private_endpoints.subnet_id → subnets(id) ON DELETE RESTRICT`.
-- `private_endpoints.address_id → addresses(id) ON DELETE RESTRICT` — нельзя удалить Address, пока есть PE.
+## Если ресурс когда-нибудь заведут заново
 
-См. `private_endpoint_fk_integration_test.go`.
+Он попадёт под общие правила, а не под эту записку: якорь размещения — подсеть
+([[vpc-subnet]]), зона наследуется, `id` immutable и адресует ресурс во внешних ссылках,
+мутации возвращают `Operation`, приёмка Given-When-Then до первой строки кода.
 
-## Lifecycle
+## См. также
 
-PROVISIONING → ACTIVE (sync — после bind address) → DELETING. State enum в proto, но в БД может быть упрощённо.
+[[vpc-address]] · [[vpc-subnet]] · [[../rpc/vpc-privateendpoint-service]]
 
-## See also
-
-[[../packages/vpc-apps-kacho-api-privateendpoint]] [[../rpc/vpc-privateendpoint-service]] [[vpc-address]] [[vpc-subnet]]
-
-#resource #vpc #privateendpoint #privatelink
+#resource #vpc #privateendpoint #deprecated

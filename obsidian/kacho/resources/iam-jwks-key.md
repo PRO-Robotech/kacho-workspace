@@ -9,8 +9,8 @@ domain: iam
 id_prefix: (kid)
 owner_table: kacho_iam.oidc_jwks_keys
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -22,7 +22,14 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.oidc_jwks_keys` **дропнута** миграцией `0065_drop_oidc_jwks_keys.sql`. Ключи Kachō не чеканит: издатель и подписант — Hydra, а iam выступает **кэширующим зеркалом** её публичного JWKS на внутреннем HTTPS-эндпоинте `GET /.well-known/jwks.json` (:9097) — задокументированное исключение из «authN на каждом листенере» (`security.md`). **Про этот предмет в участке было ДВЕ записки** — вторая [[iam-oidc-jwks-key]]; два места об одном предмете, и верно из них ни одно.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # JWKS Key (iam)
 

@@ -12,7 +12,7 @@ domain: iam
 related_resource: "[[resources/iam-federation-trust-policy]]"
 methods_count: 1
 async_methods: 0
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -20,7 +20,15 @@ tags:
   - kacho-iam
   - iam
   - federation
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Контракта `federation_exchange_service.proto` в дереве нет. Единственный допустимо-прямой обмен на стенде — стандартный OAuth2 `client_assertion → JWT` у Hydra; всё остальное идёт через iam как единый фасад (`security.md` §«iam — единый фасад»). См. [[iam-federation-service]] о том, что от федерации живо.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # FederationExchangeService (iam)
 

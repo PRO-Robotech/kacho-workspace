@@ -20,11 +20,12 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalClusterService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
+**Proto**: `proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
 **Backend**: `kacho-iam:9091` (**internal-only**; workspace §запрет #6 — НЕ публиковать на external TLS endpoint).
 **Visibility**: **internal** — зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/cluster/...` (KAC-196 PR #44).
 **Status**: **Phase 2 — DONE** (cluster-admin enforcement, [[../KAC/KAC-196]]). Phase 7 (break-glass `RequestBreakGlass` / `Approve/Deny/RevokeBreakGlass`) — planned.
@@ -62,6 +63,22 @@ tags:
 - Phase 1 не реализует RPC; bootstrap-seed создаёт singleton row через [[../packages/iam-seed]] `bootstrap_admin.go`.
 - Все методы — `Internal*` per workspace §запрет #6: cluster-admin enforcement — не tenant-facing.
 - Break-glass требует 2-person approve: Phase 7 service-CHECK `approver_b ∉ {requested_by, approver_a}`.
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **четыре** RPC: `Get` (`GET /iam/v1/internal/cluster`), `GrantAdmin`
+(`POST …/cluster/admins` → `Operation`), `RevokeAdmin`
+(`DELETE …/cluster/admins/{subject_id}` → `Operation`), `ListAdmins` (`GET …/cluster/admins`).
+
+**Названы в записке, но в контракте отсутствуют**: `RequestBreakGlass`, `ApproveBreakGlass`,
+`DenyBreakGlass`, `ListBreakGlass`, `RevokeBreakGlass`. Их предмет снят целиком: таблицы
+`cluster_break_glass_grants` и `break_glass_post_incident_reviews` **дропнуты** миграцией
+`0006_drop_scim_saml_break_glass.sql`, а вид условия `break_glass_window` вычищен из
+белого списка `0013_drop_jit_breakglass_condition_whitelist.sql` как неисполнимый.
+Аварийный доступ сегодня выражен **каскадом трёх верхних уровней супер-доступа**
+(`security.md` §«Три уровня супер-доступа»), а не отдельным потоком согласования.
+См. [[../resources/iam-cluster-break-glass-grant]].
 
 ## See also
 

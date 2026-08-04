@@ -6,11 +6,12 @@ aliases:
   - machine_types
 category: resource
 domain: compute
-id_prefix: mt
+id_prefix: "mt- (hyphen-канон B3; NewHyphenID)"
 owner_table: kacho_compute.machine_types
 owner_db: kacho_compute
-folder_level: false
+project_level: false
 status: done
+verified_against: "ствол redesign/integration, сверено 2026-08-05 (machine_type.proto, machine_type_service.proto, internal_machine_type_service.proto, migrations 0015/0017)"
 related_rpc:
   - "[[rpc/compute-machinetype-service]]"
 related_tickets:

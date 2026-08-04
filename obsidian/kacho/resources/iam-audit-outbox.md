@@ -4,7 +4,7 @@ category: resource
 domain: iam
 id_prefix: evt
 owner_table: kacho_iam.audit_outbox
-folder_level: outbox
+project_level: outbox
 status: stable
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
@@ -15,6 +15,7 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # audit_outbox (iam)

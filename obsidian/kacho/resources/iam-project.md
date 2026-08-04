@@ -8,7 +8,7 @@ domain: iam
 id_prefix: prj
 owner_table: kacho_iam.projects
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-project-service]]"
@@ -22,6 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # Project

@@ -22,11 +22,12 @@ tags:
   - kacho-iam
   - iam
   - mirror
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # UserService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/user_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/user_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public — read (`Get`/`List`) + label-write `Update` (DIVERGENCE-A); identity-mirror write — через [[iam-internal-user-service]].
 **Status**: backend в [[KAC-112]]; `Update` (label-write) merged DIVERGENCE-A (proto#89 / iam#249 `b4164e0f` / api-gateway#102).
@@ -60,6 +61,27 @@ tags:
 - GroupMember и AccessBinding на user — soft-ref, не блокируют delete на DB-уровне; service-слой блокирует sentinel'ом (см. acceptance §7.5).
 - **ListOperations (sub-phase 1.2, iam #160)** — `WithListOperations` mirror существующих 5 ресурсов; фильтрует `operations` по `resource_id`. Privacy: per-scope-viewer, не per-creator (см. `docs/architecture/operations-visibility-privacy.md`). См. [[sub-phase-1.2-iam-operations]].
 - **Привилегии-таб (sub-phase 1.3)** — детальная страница User в kacho-ui получила таб «Привилегии» через [[iam-access-binding-service]] `ListSubjectPrivileges` (subject=этот user) + кнопку «добавить привилегии» → AccessBindingCreatePage с locked subject. См. [[sub-phase-1.3-subject-privileges]].
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **восемь** RPC. **Не были названы в записке** три глагола, и все три —
+действия со своими метаданными, а не поля `Update`:
+
+| Метод | Ответ | REST | Метаданные |
+|---|---|---|---|
+| `Invite` | `Operation` | `POST /iam/v1/users` | `InviteUserMetadata` |
+| `Block` | `Operation` | `POST /iam/v1/users/{user_id}:block` | `BlockUserMetadata` |
+| `Unblock` | `Operation` | `POST /iam/v1/users/{user_id}:unblock` | `UnblockUserMetadata` |
+
+Пользователь **не создаётся** обычным `Create` — он приглашается (`Invite`) либо
+заводится апсертом по внешней личности через `InternalUserService.UpsertFromIdentity`.
+
+> [!note] Отказ на заблокированном — `FAILED_PRECONDITION`, и это **400**, а не 412
+> Состояние ресурса не позволяет операцию ⇒ `FAILED_PRECONDITION` с текстом вида
+> `"... is not active"`. Край не несёт своего отображения ошибок, поэтому HTTP выбирает
+> `runtime.HTTPStatusFromCode`, а он даёт **400**. 412 не производится краем ни для одного
+> кода. Таблица кодов — `api-conventions.md` §«gRPC-код → HTTP-статус».
 
 ## See also
 

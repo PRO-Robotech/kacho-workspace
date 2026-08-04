@@ -8,7 +8,7 @@ domain: nlb
 id_prefix: lst
 owner_table: kacho_nlb.listeners
 owner_db: kacho_nlb
-folder_level: true
+project_level: true
 status: stable
 related_rpc:
   - "[[rpc/nlb-listener-service]]"
@@ -19,7 +19,25 @@ tags:
   - resource
   - kacho-nlb
   - listener
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Контракт — `proto/kacho/cloud/loadbalancer/v1/listener.proto`; таблица
+> `kacho_nlb.listeners` жива. Слушатель — **самостоятельный ресурс**, а не вложенный
+> список балансировщика (у `NetworkLoadBalancer` слот `listeners` зарезервирован).
+>
+> **Слушатель стал авторитетным носителем ссылки на группу таргетов**
+> (`target_group_id`, прямой FK — миграции 0018 и 0023, последняя требует совпадения
+> проекта). Прежняя таблица-связка на стороне балансировщика дропнута (0022).
+>
+> В `message Listener` зарезервированы `region_id`, `ip_version`, `address_id`,
+> `allocated_address`, `subnet_id` — вместе с именами, то есть переиспользовать их нельзя.
+> Колонки адреса сняты и в схеме (`0028_drop_dead_listener_address_columns.sql`),
+> а `0025_drop_dead_listener_vip_uniq.sql` убрала уникальность, потерявшую предмет.
+> Записка, называющая любое из этих полей полем слушателя, пережила свой предмет.
+> Живой внутренний дискриминатор источника VIP — колонка `listeners.vip_origin`
+> (`0005_listener_vip_origin.sql`), в публичную проекцию она не выходит.
 
 # Listener (nlb)
 

@@ -4,8 +4,8 @@ category: resource
 domain: vpc
 id_prefix: n/a
 owner_table: n/a (k8s CRD, не Postgres)
-folder_level: cluster
-status: experimental
+project_level: cluster
+status: planned
 related_rpc: []
 related_packages:
   - kacho-vpc-operator-controller
@@ -14,7 +14,15 @@ tags:
   - kacho-vpc-operator
   - kube-ovn
   - experimental
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Оператора в дереве НЕТ — записка оставлена как замысел
+> Сверено 2026-08-05: репозиторий `kacho-vpc-operator` не резолвится на GitHub (404),
+> в монорепо ноль файлов по этому имени. Имя `KachoSubnet` встречается только в **страницах
+> документации** vpc (`services/vpc/docs-site/…`, включая собранный `build/`) — то есть
+> в описании, а не в определении типа. Ни CRD, ни контроллера, ни generated-типов нет.
+> Источник истины по подсети — [[vpc-subnet]] (`kacho_vpc.subnets`, prefix `sub`).
 
 # KachoSubnet — промежуточный CRD vpc-operator'а
 

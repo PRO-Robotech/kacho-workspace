@@ -16,11 +16,12 @@ tags:
   - kacho-vpc
   - internal
   - network
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalNetworkService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_network_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/internal_network_service.proto`
 **Backend**: `kacho-vpc:9091`
 **Public/Internal**: **cluster-internal-only**
 

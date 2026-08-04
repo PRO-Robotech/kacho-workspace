@@ -16,11 +16,12 @@ tags:
   - kacho-vpc
   - address
   - ipam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # AddressService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/address_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/address_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 

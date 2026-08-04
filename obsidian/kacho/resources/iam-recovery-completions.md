@@ -3,7 +3,7 @@ title: recovery_completions
 category: resource
 domain: iam
 owner_table: kacho_iam.recovery_completions
-folder_level: ledger
+project_level: ledger
 status: done
 related_rpc:
   - "[[rpc/iam-internal-user-service]]"
@@ -14,6 +14,7 @@ tags:
   - iam
   - internal
   - migrations
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # recovery_completions (iam)

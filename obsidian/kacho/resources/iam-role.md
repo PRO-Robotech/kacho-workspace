@@ -8,7 +8,7 @@ domain: iam
 id_prefix: rol
 owner_table: kacho_iam.roles
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-role-service]]"
@@ -23,7 +23,23 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сверка со стволом (2026-08-05): область роли — три уровня, не четыре
+> Строка «`roles_org_custom_unique` partial UNIQUE (`organization_id`, …)» ниже пережила
+> свой предмет: колонка `roles.organization_id`, её индекс `roles_organization_idx` и
+> многоскоуповый CHECK, который на неё смотрел, **дропнуты** миграцией
+> `0008_drop_organizations.sql` вместе с самой таблицей `organizations`. Живых якорей
+> области у роли три — кластер, аккаунт, проект.
+>
+> Отдельно и важно для нынешней модели прав: у роли живут **правила**
+> (`0025_role_rules_and_cap_raise.sql`) и **селекторы правил**
+> (`0026_role_rule_selectors.sql`, дополненные 0034/0038/0039/0053/0060), и именно
+> они решают, «на какой объект» действуют глаголы, — прежние плечи на стороне привязки
+> сняты (см. [[iam-access-binding]]). Селекторы обязаны существовать для **всех**
+> материализующих системных ролей, иначе привязка невидима поиску и глаголы не
+> материализуются вовсе.
 
 # Role
 

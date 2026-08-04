@@ -17,11 +17,12 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalOperationsService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_operations_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/internal_operations_service.proto`
 **Backend**: `kacho-iam:9091` (internal-only gRPC — **ban #6**, never external).
 **Visibility**: internal — cluster-wide admin operations feed for the admin UI.
 **Status**: ✅ done — sub-phase 1.2 (IAM operations visibility, §B / D-4b / D-10); merged + live `fe3455` helm rev13. См. [[sub-phase-1.2-iam-operations]].
