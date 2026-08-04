@@ -1,6 +1,6 @@
 ---
 title: rm-config
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: config
 status: deprecated
@@ -30,7 +30,7 @@ tags:
 
 ## See also
 
-[[corelib-config]] [[rm-cmd]] [[../kacho-resource-manager/README]]
+[[corelib-config]] [[rm-cmd]] [[legacy/repo-kacho-resource-manager]]
 [[../KAC/KAC-124]]
 
 #packages #kacho-rm #config #deprecated

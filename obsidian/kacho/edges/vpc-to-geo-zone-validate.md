@@ -16,6 +16,7 @@ tags:
   - kacho-vpc
   - kacho-geo
   - geography
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Landed (сверено 2026-08-05, дерево `96b2879a`): клиент в дереве — `services/vpc/internal/clients/{geo_client.go,geo_region_client.go}`.

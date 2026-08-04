@@ -13,6 +13,7 @@ tags:
   - cross-service
   - kacho-apigw
   - kacho-compute
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 # api-gateway → compute (proxy)

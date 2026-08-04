@@ -16,6 +16,7 @@ tags:
   - repo
   - domain
   - race-fix
+category: kac
 ---
 
 # RBAC-2026 review fixes — Pass 1: ledger / revoke / backfill / verify

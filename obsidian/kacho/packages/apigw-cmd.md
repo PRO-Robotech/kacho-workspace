@@ -1,6 +1,6 @@
 ---
 title: apigw-cmd
-category: package
+category: packages
 repo: kacho-api-gateway
 path: gateway/cmd/api-gateway
 layer: cmd
@@ -10,6 +10,7 @@ tags:
   - kacho-apigw
   - cmd
   - composition-root
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # gateway/cmd/api-gateway — композиционный корень края

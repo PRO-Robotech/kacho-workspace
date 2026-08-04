@@ -19,6 +19,7 @@ tags:
   - usecase
   - repo
   - migrations
+category: kac
 ---
 
 # RBAC Contract-A fix — iam-native content forward-materialization

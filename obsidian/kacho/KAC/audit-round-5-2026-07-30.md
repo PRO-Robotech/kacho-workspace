@@ -1,7 +1,9 @@
 ---
+title: "Аудит-раунд 5 — критический (2026-07-30)"
 tags: [kacho, audit, hardening, trail]
 status: done
 date: 2026-07-30
+category: kac
 ---
 
 # Аудит-раунд 5 — критический (2026-07-30)

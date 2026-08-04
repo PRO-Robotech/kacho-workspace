@@ -17,6 +17,7 @@ tags:
   - kacho-iam
   - handler
   - oauth
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # iam `internal/handler/iamhooks`

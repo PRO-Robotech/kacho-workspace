@@ -16,6 +16,7 @@ tags:
   - kacho-nlb
   - kacho-geo
   - region
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Landed (сверено 2026-08-05, дерево `96b2879a`): клиент в дереве — `services/nlb/internal/clients/geo/{region_client.go,zone_client.go,zone_region_client.go}`.

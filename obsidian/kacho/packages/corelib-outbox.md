@@ -1,6 +1,6 @@
 ---
 title: corelib-outbox
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/outbox
 layer: shared
@@ -10,6 +10,7 @@ tags:
   - kacho-corelib
   - outbox
   - postgres
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/outbox — запись намерения в той же транзакции

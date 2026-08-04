@@ -20,6 +20,7 @@ tags:
   - kacho-iam
   - security
   - architecture
+category: kac
 ---
 
 # kacho-iam production-readiness sweep (2026-06-16)

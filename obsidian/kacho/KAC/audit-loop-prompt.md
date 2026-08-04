@@ -1,7 +1,9 @@
 ---
+title: "Массированный аудит-рефакторинг — промт-контур (loop-until-dry)"
 tags: [kac, methodology, audit, security]
 type: methodology
 status: reference
+category: kac
 ---
 
 # Массированный аудит-рефакторинг — промт-контур (loop-until-dry)

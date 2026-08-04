@@ -40,10 +40,10 @@ tags:
 
 ## Затронутые сущности vault
 
-- [[../resources/<X>]] — что изменилось
-- [[../packages/<repo>-<pkg>]] — что добавлено/удалено
-- [[../edges/<edge>]] — runtime изменения
-- [[../rpc/<service>]] — RPC изменения
+- `[[resources/<X>]]` — что изменилось
+- `[[packages/<repo>-<pkg>]]` — что добавлено/удалено
+- `[[edges/<edge>]]` — runtime изменения
+- `[[rpc/<service>]]` — RPC изменения
 
 ## Acceptance / Definition of Done
 
@@ -57,7 +57,7 @@ tags:
 
 ## Связанные тикеты
 
-- [[KAC-<N-prev>]] (предусловие)
-- [[KAC-<N-next>]] (follow-up)
+- `[[KAC-<N-prev>]]` (предусловие)
+- `[[KAC-<N-next>]]` (follow-up)
 
 #kac

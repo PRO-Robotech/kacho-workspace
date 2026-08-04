@@ -20,6 +20,7 @@ tags:
   - fga
   - internal
   - security
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!success] Active since SEC-D (2026-06-11) · payload расширен epic-rsab T3/D4 (2026-06-20)

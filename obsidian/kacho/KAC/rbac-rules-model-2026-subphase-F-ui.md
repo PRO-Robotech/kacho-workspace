@@ -12,6 +12,7 @@ tags:
   - kac
   - kacho-ui
   - feature
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase F (UI — F-22)

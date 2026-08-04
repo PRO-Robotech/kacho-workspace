@@ -1,6 +1,6 @@
 ---
 title: "kacho-iam → OpenFGA (grant/revoke write)"
-category: edges
+category: edge
 caller_repo: kacho-iam
 callee_repo: openfga
 sync_async: sync
@@ -17,6 +17,7 @@ tags:
   - kacho-iam
   - kacho-deploy
   - kacho-corelib
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Что здесь верно, а что читать с поправкой (сверено 2026-08-05, дерево `96b2879a`)

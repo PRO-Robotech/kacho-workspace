@@ -1,6 +1,6 @@
 ---
 title: corelib-errors
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/errors
 layer: shared
@@ -10,6 +10,7 @@ tags:
   - kacho-corelib
   - errors
   - grpc
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/errors — типизированный билдер gRPC-ошибок

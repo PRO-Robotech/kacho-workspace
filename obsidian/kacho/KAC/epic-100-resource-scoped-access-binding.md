@@ -1,4 +1,5 @@
 ---
+title: "epic-100 — Resource-scoped AccessBinding (target-в-binding)"
 ticket_id: epic-100
 status: done
 type: epic
@@ -23,6 +24,7 @@ tags:
   - epic
   - kacho-iam
   - feature
+category: kac
 ---
 
 # epic-100 — Resource-scoped AccessBinding (target-в-binding)

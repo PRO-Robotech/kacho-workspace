@@ -1,5 +1,5 @@
 ---
-title: CI — детерминизм: пины версий и честные exit-коды
+title: "CI — детерминизм: пины версий и честные exit-коды"
 category: packages
 repo: kacho
 layer: ci

@@ -3,7 +3,7 @@ title: api-gateway-middleware-dpop
 aliases:
   - apigw dpop middleware
   - подтверждение владения ключом
-category: package
+category: packages
 repo: kacho-api-gateway
 path: gateway/internal/middleware
 layer: middleware
@@ -16,6 +16,7 @@ tags:
   - middleware
   - dpop
   - oauth
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # Привязка токена к ключу и к сертификату — на крае

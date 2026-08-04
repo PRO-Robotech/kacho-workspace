@@ -1,3 +1,13 @@
+---
+title: "KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke"
+category: kac
+ticket_id: KAC-WS23
+status: in-progress
+type: feature
+tags:
+  - kac
+---
+
 # KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke
 
 **Status**: in-progress

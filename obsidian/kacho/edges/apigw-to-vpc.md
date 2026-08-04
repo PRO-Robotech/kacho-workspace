@@ -13,6 +13,7 @@ tags:
   - cross-service
   - kacho-apigw
   - kacho-vpc
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 # api-gateway → vpc (proxy + REST routing)

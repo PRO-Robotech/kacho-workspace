@@ -1,6 +1,6 @@
 ---
 title: "SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом"
-category: KAC
+category: kac
 ticket_id: SEC-HAT
 status: test
 type: fix

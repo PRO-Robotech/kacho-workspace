@@ -1,6 +1,8 @@
 ---
+title: "Каскад супер-доступа: что он перезарядил задним числом"
 tags: [kacho-iam, kac, kacho/authz, fix]
 status: done
+category: kac
 ---
 
 # Каскад супер-доступа: что он перезарядил задним числом
@@ -61,4 +63,4 @@ project` / `from cluster` на этих типах не резолвится н�
 ## Затронутые сущности vault
 
 [[iam-access-binding]] · [[iam-role]] · [[rbac-explicit-model-2026]] ·
-[[iam-access-binding-condition]] · [[vpc-address-pool]]
+[[iam-access-binding-condition]] · [[resources/vpc-addresspool]]

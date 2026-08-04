@@ -1,3 +1,12 @@
+---
+title: "sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero"
+category: kac
+status: test
+type: fix
+tags:
+  - kac
+---
+
 # sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero
 
 **Status**: test
@@ -46,7 +55,7 @@
 - [[../resources/nlb-load-balancer]] — Move guard (NOT EXISTS attach), DeleteIfUnprotected
 - [[../resources/nlb-target-group]] — cumulative cap на AddTargets + ListTargets LIMIT
 - [[../resources/nlb-target]] — cap enforcement
-- [[../rpc/nlb-load-balancer-service]] — Move/Delete: FailedPrecondition по DB-гварду (contract same)
+- [[rpc/nlb-network-load-balancer-service]] — Move/Delete: FailedPrecondition по DB-гварду (contract same)
 
 ## Acceptance / DoD
 

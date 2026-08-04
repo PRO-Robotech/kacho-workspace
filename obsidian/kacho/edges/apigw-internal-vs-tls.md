@@ -16,6 +16,7 @@ tags:
   - kacho-api-gateway
   - internal
   - security
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 # api-gateway: listener split (TLS edge vs cluster-internal)

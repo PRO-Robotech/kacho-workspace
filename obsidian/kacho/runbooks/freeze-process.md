@@ -1,3 +1,12 @@
+---
+title: "Freeze process (W3.4 / KAC-178)"
+category: runbook
+status: active
+tags:
+  - runbook
+  - operations
+---
+
 # Freeze process (W3.4 / KAC-178)
 
 Daily automated freeze-gate sweep, plus the human escalation flow when a check

@@ -1,6 +1,6 @@
 ---
 title: rm-repo
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: repo
 status: deprecated
@@ -30,6 +30,6 @@ tags:
 ## See also
 
 [[rm-service]] [[corelib-db]] [[corelib-errors]]
-[[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
+[[legacy/repo-kacho-resource-manager]] [[../KAC/KAC-124]]
 
 #packages #kacho-rm #repo #deprecated

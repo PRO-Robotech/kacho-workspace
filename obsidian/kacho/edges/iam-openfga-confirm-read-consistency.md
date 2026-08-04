@@ -1,6 +1,6 @@
 ---
 title: "owner-tuple confirm-read → OpenFGA HIGHER_CONSISTENCY"
-category: edges
+category: edge
 caller_repo: kacho-iam
 callee_repo: openfga
 sync_async: sync

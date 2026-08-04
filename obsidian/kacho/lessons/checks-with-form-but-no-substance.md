@@ -3,7 +3,7 @@ title: "Форма без содержания — проверка, не спо
 aliases:
   - форма без содержания
   - checks with form but no substance
-category: kac
+category: lesson
 tags:
   - kac
   - hub

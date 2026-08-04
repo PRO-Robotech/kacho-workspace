@@ -10,6 +10,7 @@ tags:
   - kacho-iam
   - feature
   - done
+category: kac
 ---
 
 # sub-phase T3.3 — unify IAM label-scope (chunk 2: role + access_binding)

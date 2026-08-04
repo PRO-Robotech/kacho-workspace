@@ -1,6 +1,6 @@
 ---
 title: proto-vpc
-category: package
+category: packages
 repo: kacho-proto
 path: proto/kacho/cloud/vpc/v1
 layer: proto
@@ -8,6 +8,7 @@ status: stable
 tags:
   - proto
   - kacho-vpc
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # proto/kacho/cloud/vpc/v1 — контракты сетевого домена

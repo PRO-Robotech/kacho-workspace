@@ -4,7 +4,7 @@ aliases:
   - vpc cilium compiler
   - cilium-vpc-module
   - srv6 vrf manager
-category: package
+category: packages
 repo: cilium
 layer: operator-cell
 status: planned

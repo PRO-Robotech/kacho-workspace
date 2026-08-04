@@ -19,6 +19,7 @@ tags:
   - cross-service
   - authz
   - e3
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!success] Active since 2026-05-17 (KAC-108 E3, kacho-vpc PR#101)

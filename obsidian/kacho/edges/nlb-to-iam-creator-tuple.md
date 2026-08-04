@@ -21,6 +21,7 @@ tags:
   - cross-service
   - fga
   - d11
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!warning] Deprecated by SEC-D (2026-06-11) → [[nlb-to-iam-fga-register]]

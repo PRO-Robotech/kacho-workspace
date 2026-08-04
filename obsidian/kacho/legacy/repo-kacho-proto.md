@@ -2,7 +2,7 @@
 title: kacho-proto (сегодня — каталог proto/ монорепо)
 aliases:
   - kacho-proto
-category: repo
+category: legacy
 repo: kacho-proto
 service_type: proto-stubs
 status: legacy

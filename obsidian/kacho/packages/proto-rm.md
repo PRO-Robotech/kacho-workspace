@@ -1,6 +1,6 @@
 ---
 title: proto-rm
-category: package
+category: packages
 repo: kacho-proto
 layer: proto
 status: deprecated

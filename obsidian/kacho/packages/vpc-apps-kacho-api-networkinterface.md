@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-api-networkinterface
-category: package
+category: packages
 repo: kacho-vpc
 layer: use-case
 tags:
@@ -8,6 +8,8 @@ tags:
   - kacho-vpc
   - handler
   - ni
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/api/networkinterface

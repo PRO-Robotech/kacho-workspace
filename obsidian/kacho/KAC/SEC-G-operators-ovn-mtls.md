@@ -87,7 +87,7 @@ fga_writer tuple; AccessBinding cluster-scope) + cert→SA mapping для SAN о
 
 - [[../edges/vpc-operator-to-vpc-mtls]] — новая записка: operator→{vpc,iam} mTLS + least-priv SA
 - [[../edges/vpc-operator-to-kubeovn]] — mTLS-граница + webhook internal-CA (History)
-- [[../resources/iam-serviceaccount]] / [[../rpc/iam-service-account-service]] — operator SA seed (SEC-C, ссылка)
+- [[resources/iam-service-account]] / [[../rpc/iam-service-account-service]] — operator SA seed (SEC-C, ссылка)
 - `.claude/rules/polyrepo.md` — operator→{vpc,iam} mTLS runtime-edges (S4-03)
 
 ## Definition of Done

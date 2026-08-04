@@ -2,7 +2,7 @@
 title: kacho-vpc (сегодня — каталог services/vpc/ монорепо)
 aliases:
   - kacho-vpc
-category: repo
+category: legacy
 repo: kacho-vpc
 service_type: control-plane
 domain: vpc

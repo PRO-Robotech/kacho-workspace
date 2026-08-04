@@ -4,7 +4,7 @@ aliases:
   - iam jobs
   - iam-jobs
   - fga_outbox_drainer
-category: package
+category: packages
 repo: kacho-iam
 layer: app
 status: deprecated

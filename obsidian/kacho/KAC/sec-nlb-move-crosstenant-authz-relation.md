@@ -59,7 +59,7 @@ design-decision → зафиксировать в `docs/architecture/nlb` или
 (Побочно: SA `editor` без `v_create` даже на HOME — понять, намеренно ли role-set SA.)
 
 ## Затронутые сущности vault
-- [[in-service-gateway-authz-scope-parity]] · move: [[resources/nlb-loadbalancer]] / [[resources/nlb-targetgroup]]
+- [[in-service-gateway-authz-scope-parity]] · move: [[resources/nlb-load-balancer]] / [[resources/nlb-target-group]]
 
 ## Статус
 - [x] RED-flag → adversarial refute → **wire-confirmed: no bypass** (fixture-bug)

@@ -1,6 +1,6 @@
 ---
 title: corelib-validate
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/validate
 layer: shared
@@ -9,6 +9,7 @@ tags:
   - packages
   - kacho-corelib
   - validation
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/validate — общие валидаторы полей

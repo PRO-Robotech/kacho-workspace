@@ -1,6 +1,6 @@
 ---
 title: rm-cmd
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: cmd
 status: deprecated
@@ -31,6 +31,6 @@ tags:
 ## See also
 
 [[rm-config]] [[rm-handler]] [[rm-service]] [[rm-repo]] [[rm-bootstrap]]
-[[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
+[[legacy/repo-kacho-resource-manager]] [[../KAC/KAC-124]]
 
 #packages #kacho-rm #cmd #composition-root #deprecated

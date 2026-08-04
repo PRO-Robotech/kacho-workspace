@@ -18,6 +18,7 @@ tags:
   - repo
   - migrations
   - race-fix
+category: kac
 ---
 
 # RBAC explicit-model 2026 #224 — owner `*.*` per-object content (contract-blocker)

@@ -16,6 +16,7 @@ tags:
   - kacho-iam
   - cross-service
   - oauth
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!warning] Ребро ЖИВОЕ — статус `planned` и разбивка «Phase 2 / Phase 5» устарели (сверено 2026-08-05)

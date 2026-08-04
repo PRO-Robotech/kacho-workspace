@@ -8,6 +8,8 @@ tags:
   - packages
   - kacho-iam
   - test
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # tests/newman/scripts

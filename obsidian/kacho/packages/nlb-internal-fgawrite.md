@@ -3,7 +3,7 @@ title: nlb-internal-fgawrite
 aliases:
   - nlb регистрация ресурса у владельца прав
   - nlb hierarchy tuple writer
-category: package
+category: packages
 repo: kacho-nlb
 path: services/nlb/internal/clients/iam
 layer: clients
@@ -13,6 +13,7 @@ tags:
   - kacho-nlb
   - fga
   - clients
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # nlb: регистрация ресурса у владельца прав

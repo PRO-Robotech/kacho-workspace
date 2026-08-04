@@ -1,7 +1,9 @@
 ---
+title: "NLB-1c — TargetGroup HealthCheck redesign"
 tags: [kac, kacho-nlb, redesign, targetgroup]
 status: done
 type: sub-phase
+category: kac
 ---
 
 # NLB-1c — TargetGroup HealthCheck redesign

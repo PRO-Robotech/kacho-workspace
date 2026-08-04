@@ -1,6 +1,6 @@
 ---
 title: "kacho-iam → kacho-api-gateway (authz-cache invalidation push)"
-category: edges
+category: edge
 caller_repo: kacho-iam
 callee_repo: kacho-api-gateway
 sync_async: async
@@ -15,6 +15,7 @@ tags:
   - kacho-iam
   - kacho-apigw
   - kacho-corelib
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Канон этого ребра — [[iam-to-apigateway-authzcache]]

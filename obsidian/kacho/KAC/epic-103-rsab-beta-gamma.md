@@ -1,4 +1,5 @@
 ---
+title: "epic-103 — Resource-scoped AccessBinding β/γ/condition/δ"
 ticket_id: epic-103
 status: done
 type: epic
@@ -23,6 +24,7 @@ tags:
   - epic
   - kacho-iam
   - feature
+category: kac
 ---
 
 # epic-103 — Resource-scoped AccessBinding β/γ/condition/δ

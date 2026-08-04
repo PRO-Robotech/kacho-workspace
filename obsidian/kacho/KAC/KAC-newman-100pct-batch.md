@@ -1,3 +1,13 @@
+---
+title: "KAC batch: Newman 100% green push (2026-05-26)"
+category: kac
+ticket_id: KAC-newman
+status: in-progress
+type: batch
+tags:
+  - kac
+---
+
 # KAC batch: Newman 100% green push (2026-05-26)
 
 **Status**: in-progress

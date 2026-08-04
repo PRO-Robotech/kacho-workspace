@@ -11,6 +11,8 @@ tags:
   - repo
   - cqrs
   - pg
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/repo/kacho/pg

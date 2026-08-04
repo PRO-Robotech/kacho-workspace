@@ -1,8 +1,10 @@
 ---
+title: "SEC-acr-stepup-refinement — narrow required_acr_min to 41-set"
 tags: [kac, security, iam, gateway, authz, phase-c]
 status: done
 type: security-model-refinement
 repos: [kacho (redesign/integration)]
+category: kac
 ---
 
 # SEC-acr-stepup-refinement — narrow required_acr_min to 41-set

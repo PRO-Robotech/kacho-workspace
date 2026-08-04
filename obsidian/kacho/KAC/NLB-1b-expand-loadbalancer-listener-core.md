@@ -1,7 +1,9 @@
 ---
+title: "NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)"
 tags: [kac, nlb, redesign, expand-contract]
 status: done
 type: sub-phase
+category: kac
 ---
 
 # NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)

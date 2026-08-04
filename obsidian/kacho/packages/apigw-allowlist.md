@@ -1,12 +1,14 @@
 ---
 title: apigw-allowlist
-category: package
+category: packages
 repo: kacho-api-gateway
 layer: handler
 tags:
   - packages
   - kacho-apigw
   - security
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # gateway/internal/allowlist — что вообще выставлено наружу
