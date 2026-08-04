@@ -2,32 +2,63 @@
 title: proto-reference
 category: package
 repo: kacho-proto
+path: proto/kacho/cloud/reference
 layer: proto
+status: stable
 tags:
   - proto
   - reference
 ---
 
-# proto/reference
+# proto/kacho/cloud/reference — общая ссылка на чужой ресурс
 
-**Path**: `kacho-proto/proto/kacho/cloud/reference/reference.proto`
-**Package**: `kacho.cloud.reference`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/reference`
+**Каталог**: `proto/kacho/cloud/reference/reference.proto`
+**Пакет контракта**: `kacho.cloud.reference`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/reference`
+**Импортируют** (`go list` на `96b2879a`, non-test): vpc 2 · storage 1 · compute 1 +
+сгенерённые пакеты трёх доменов.
 
-Shared `Reference` message — переиспользуемый pointer на typed-resource (id + type) для cross-domain ссылок (например, target в NLB TargetGroup может быть `Reference{type=instance, id=ef3xxx}`).
-
-## Files
-
-- `reference.proto` — `Reference` message.
-
-## Usage
+## Два сообщения, а не одно
 
 ```protobuf
-import "kacho/cloud/reference/reference.proto";
+message Referrer {          // ссылающийся: дескриптор зависимости
+  string type = 1;          // точечное "домен.ресурс" из общего каталога
+  string id   = 2;
+  string name = 3;          // только на выход, зеркало на момент привязки
+}
 
-message Target {
-  kacho.cloud.reference.Reference target = 1;
+message Reference {         // обратная сторона
+  Referrer referrer = 1;
+  ... type (MANAGED_BY | USED_BY)
+  bool owned = 3;
 }
 ```
+
+Прежняя редакция знала только `Reference` и описывала его как «указатель id + тип».
+`Referrer` — как раз тот тип, который несут поля вида «кем используется» у сетевого
+интерфейса, адреса, группы безопасности и тома.
+
+## Класс C: висящая ссылка деградирует, а не роняет
+
+Это **дескриптор зависимости через границу владельца**. Владелец не спрашивает
+потребителей на удалении (межсервисного каскада нет), поэтому потребитель обязан
+грациозно переживать оборвавшуюся ссылку — отсоединённым состоянием, а не паникой
+(`data-integrity.md`, п. 4). Поле имени — **выходное** и лучшее-возможное: это
+зеркало на момент привязки, а не источник истины и не вход на создание.
+
+## Три разные ссылки — три разных типа, а не один перегруженный
+
+- **`reference.Referrer`** — дескриптор зависимости (этот пакет);
+- **`iam.v1.ResourceRef{type,id}`** — цель проверки прав из закрытого словаря,
+  **без имени** (наименьшая информация, против оракула существования);
+- **`OciReferrer`/`ArtifactRef`** — граф артефактов реестра (подпись, состав, аттестация).
+
+Правило выбора: дескриптор зависимости → `Referrer`; цель прав → `ResourceRef`; граф
+артефактов → `OciReferrer`. Один и тот же идентификатор в разных ролях — разные
+типы (`api-conventions.md` §Reference-типы).
+
+## См. также
+
+[[proto-root]] [[nlb-domain]] [[vpc-domain]]
 
 #proto #reference

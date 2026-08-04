@@ -2,46 +2,70 @@
 title: proto-compute
 category: package
 repo: kacho-proto
+path: proto/kacho/cloud/compute/v1
 layer: proto
+status: stable
 tags:
   - proto
   - kacho-compute
 ---
 
-# proto/compute
+# proto/kacho/cloud/compute/v1 — контракты домена машин
 
-**Path**: `kacho-proto/proto/kacho/cloud/compute/v1/`
-**Package**: `kacho.cloud.compute.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/compute/v1`
-**Owner service**: `kacho-compute` (вне scope этой 6-репо индексации, но proto тут)
+**Каталог**: `proto/kacho/cloud/compute/v1/`
+**Пакет контракта**: `kacho.cloud.compute.v1`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/compute/v1`
+**Владелец**: домен compute — каталог `services/compute/` монорепо.
 
-## Resource protos (compute domain)
+## Что здесь есть на самом деле (замер `96b2879a`) — одиннадцать файлов
 
-- `instance.proto` — Instance (VM)
-- `disk.proto`, `disk_type.proto`, `disk_placement_group.proto`
-- `image.proto`, `snapshot.proto`, `snapshot_schedule.proto`
-- `filesystem.proto`, `gpu_cluster.proto`
-- `host_group.proto`, `host_type.proto`, `placement_group.proto`
-- `reserved_instance_pool.proto`
-- `instance_group.proto` — Compute IG (autoscaling)
-- `application.proto`, `hardware_generation.proto`, `kek.proto`, `maintenance.proto`
+Ресурсы: `instance.proto` · `machine_type.proto` · `application.proto` ·
+`hardware_generation.proto` · `kek.proto` · `maintenance.proto`.
+Службы: `InstanceService` · `MachineTypeService` · `InternalMachineTypeService` ·
+`InternalWatchService`. Плюс `package_options.proto`.
 
-## Geography — ВЫНЕСЕНА в `kacho-geo` (эпик #82)
+> [!warning] Прежний перечень был неверен на две трети
+> Записка называла блочное хранение (диск, тип диска, группа размещения дисков,
+> образ, снимок, расписание снимков), файловую систему, кластер ускорителей, группу
+> и тип хостов, группу размещения, пул зарезервированных машин, группу машин с
+> автомасштабированием и внутреннюю службу каталога — **ничего из этого в дереве
+> нет**. Такой список опаснее пустого: по нему принимают решения о том, где искать
+> контракт, и находят «ничего», после чего ищут дефект в сборке.
 
-> [!warning] Region/Zone больше не в `compute.v1`
-> Geography (Region/Zone + RegionService/ZoneService + InternalRegion/ZoneService) вынесена в новый
-> leaf-домен `kacho.cloud.geo.v1` (см. [[proto-geo]]). На S7 эпика #82 эти proto удаляются из `compute.v1`
-> (намеренный `buf breaking`, ПОСЛЕ перевода всех consumer'ов). REST `/compute/v1/regions`/`/compute/v1/zones`
-> → `/geo/v1/regions`/`/geo/v1/zones`. zone-валидация compute теперь [[../edges/compute-to-geo-zone-validate]].
+## Раскол блочного хранения — по этому дереву ЗАВЕРШЁН
 
-## Internal services
+Замер на ревизии `96b2879a`, три независимых предиката:
 
-- `internal_catalog_service.proto` — admin для DiskType/HostType. (Region/Zone-ветки вынесены в geo, эпик #82;
-  прежний internal-only `Hypervisor`-ресурс удалён в KAC-36/79/80.)
-- `internal_watch_service.proto` — LISTEN/NOTIFY (deprecated с 1.0).
+1. в контрактах compute **нет** служб тома, образа, снимка и типа диска — эти
+   службы объявлены в контрактах домена storage;
+2. в `services/compute/internal/apps/kacho/api/` **ровно два** каталога — машина и
+   тип машины;
+3. в шлюзе **нет** маршрутов блочного хранения под префиксом compute.
 
-## Service protos
+Это стоит знать, потому что документ уровня правил всё ещё несёт предупреждение о
+«живом дублировании по четырём типам» — оно описывает более раннее состояние.
+Проверять надо по дереву, а не по документу; см. residual этой волны.
 
-Полный per-resource: `<resource>_service.proto` для каждого ресурса (Get/List/Create/Update/Delete). NIC валидируется через vpc, см. [[../edges/compute-to-vpc-nic-validate]].
+## Geography — в домене geo, и уже не отсюда
+
+Регион и зона живут в `kacho.cloud.geo.v1` ([[proto-geo]]); в контрактах compute их
+**нет вовсе** — ни ресурсов, ни служб. Прежняя редакция описывала вынос как
+предстоящий шаг («на S7 будут удалены»), тогда как он состоялся. Зону машины
+валидирует ребро к geo.
+
+## Что стоит знать, открывая эти контракты
+
+- **Зональная когерентность интерфейса.** Подсеть каждого сетевого интерфейса
+  машины обязана быть в зоне самой машины — проверка **на пути запроса**, а не
+  отложенная в запуск; региональная (эникаст) подсеть из зональной проверки
+  исключена by construction.
+- **Поле запроса без читателя запрещено.** Принятое и выброшенное поле — не исход:
+  либо читается, либо отвергается явно, либо снимается с контракта с
+  резервированием номера и имени (`api-conventions.md`).
+
+## См. также
+
+[[proto-geo]] [[proto-root]] [[compute-internal-check]]
+[[../edges/compute-to-vpc-nic-validate]]
 
 #proto #kacho-compute

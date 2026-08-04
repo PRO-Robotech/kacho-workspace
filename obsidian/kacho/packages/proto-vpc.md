@@ -2,55 +2,63 @@
 title: proto-vpc
 category: package
 repo: kacho-proto
+path: proto/kacho/cloud/vpc/v1
 layer: proto
+status: stable
 tags:
   - proto
   - kacho-vpc
 ---
 
-# proto/vpc
+# proto/kacho/cloud/vpc/v1 — контракты сетевого домена
 
-**Path**: `kacho-proto/proto/kacho/cloud/vpc/v1/`
-**Package**: `kacho.cloud.vpc.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/vpc/v1`
-**Owner service**: [[../README#kacho-vpc|kacho-vpc]]
+**Каталог**: `proto/kacho/cloud/vpc/v1/`
+**Пакет контракта**: `kacho.cloud.vpc.v1`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/vpc/v1`
+**Владелец**: домен vpc — каталог `services/vpc/` монорепо.
 
-## Resource protos
+## Ресурсы (по дереву, `96b2879a`)
 
-- `network.proto` — [[../resources/vpc-network|Network]]
-- `subnet.proto` — [[../resources/vpc-subnet|Subnet]]
-- `address.proto` — [[../resources/vpc-address|Address]]
-- `route_table.proto` — [[../resources/vpc-routetable|RouteTable]]
-- `security_group.proto` — [[../resources/vpc-securitygroup|SecurityGroup]]
-- `gateway.proto` — [[../resources/vpc-gateway|Gateway]]
-- `private_endpoint.proto` — [[../resources/vpc-privateendpoint|PrivateEndpoint]]
-- `network_interface.proto` — [[../resources/vpc-networkinterface|NetworkInterface]]
+`network.proto` · `subnet.proto` · `address.proto` · `route_table.proto` ·
+`security_group.proto` · `gateway.proto` · `network_interface.proto`.
+Плюс `package_options.proto`.
 
-## Service protos (public)
+## Публичные службы
 
-- [[../rpc/vpc-network-service]] — `network_service.proto`
-- [[../rpc/vpc-subnet-service]] — `subnet_service.proto`
-- [[../rpc/vpc-address-service]] — `address_service.proto`
-- [[../rpc/vpc-routetable-service]] — `route_table_service.proto`
-- [[../rpc/vpc-securitygroup-service]] — `security_group_service.proto`
-- [[../rpc/vpc-gateway-service]] — `gateway_service.proto`
-- [[../rpc/vpc-privateendpoint-service]] — `private_endpoint_service.proto`
-- [[../rpc/vpc-networkinterface-service]] — `network_interface_service.proto`
+`NetworkService` · `SubnetService` · `AddressService` · `RouteTableService` ·
+`SecurityGroupService` · `GatewayService` · `NetworkInterfaceService`.
 
-## Service protos (Internal — admin / cluster-internal only)
+## Внутренние (:9091, admin / cluster-internal)
 
-- [[../rpc/vpc-internal-address-service]] — `internal_address_service.proto` (IPAM allocate ephemeral)
-- [[../rpc/vpc-internal-address-pool-service]] — `internal_address_pool_service.proto` (AddressPool CRUD)
-- [[../rpc/vpc-internal-network-service]] — `internal_network_service.proto` (admin Network: default-SG management)
-- [[../rpc/vpc-internal-cloud-service]] — `internal_cloud_service.proto` (cloud-level admin)
-- [[../rpc/vpc-internal-watch-service]] — `internal_watch_service.proto` (LISTEN/NOTIFY stream; deprecated с 1.0)
+`InternalNetworkService` · `InternalNetworkInterfaceService` ·
+`InternalAddressService` · `InternalAddressPoolService`.
 
-> [!warning] Внимание
-> Прежний Internal NIS (NIC-dataplane-проекция, writeback-RPC) — часть kube-ovn-эпохи data-plane-модели, **удалён в KAC-36/79/80** и в proto никогда не commit'нут. См. [[../rpc/vpc-internal-network-interface-service]].
+`InternalNetworkInterfaceService` в дереве **есть** — прежняя редакция утверждала
+обратное («удалён, в контракт никогда не попадал»). Утверждение об отсутствии
+пережило появление своего предмета, и это худший вид устаревания: оно закрывает
+вопрос, вместо того чтобы его открыть.
 
-## Shared
+> [!warning] Здесь были перечислены четыре несуществующих файла
+> Прежняя редакция называла ресурс приватной точки подключения и его службу,
+> внутреннюю службу уровня облака, поток изменений и подкаталог для будущих
+> расширений. Ни одного из них в дереве нет; мёртвые имена здесь намеренно не
+> воспроизводятся в форме координаты. Записка про приватную точку подключения в
+> этой категории удалена той же правкой.
 
-- `package_options.proto` — `option go_package = "...";` для всех файлов.
-- `privatelink/` — sub-package для будущих PE-extensions (zonal endpoints).
+## Что стоит знать, открывая эти контракты
+
+- **Якорь размещения — подсеть.** Она несёт дискриминатор (зональная либо
+  региональная), закреплённый проверкой на уровне БД; сетевой интерфейс и адрес
+  зоны **не несут** и наследуют её через подсеть. У региональной (эникаст) подсети
+  зоны нет — адреса становятся регион-областными.
+- **Адресация — по неизменяемому идентификатору.** Имя — косметическая метка в
+  пределах проекта; в ссылки, гранты и пути оно не попадает никогда.
+- **Мутации возвращают `Operation`**, чтение синхронно; поток наблюдения за
+  изменениями как отдельная возможность не существует — опрос списка либо
+  чтение операции.
+
+## См. также
+
+[[vpc-domain]] [[vpc-handler]] [[proto-root]] [[../resources/vpc-network]]
 
 #proto #kacho-vpc

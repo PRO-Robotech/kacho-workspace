@@ -2,8 +2,9 @@
 title: proto-geo
 category: package
 repo: kacho-proto
+path: proto/kacho/cloud/geo/v1
 layer: proto
-status: in-progress
+status: stable
 tags:
   - proto
   - kacho-geo
@@ -11,39 +12,61 @@ tags:
   - geography
 ---
 
-# proto/geo
+# proto/kacho/cloud/geo/v1 — ось размещения, домен-лист
 
-**Path**: `kacho-proto/proto/kacho/cloud/geo/v1/`
-**Package**: `kacho.cloud.geo.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/geo/v1` (`geov1`)
-**Owner service**: `kacho-geo` (leaf-домен Geography, эпик #82).
+**Каталог**: `proto/kacho/cloud/geo/v1/`
+**Пакет контракта**: `kacho.cloud.geo.v1`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/geo/v1` (`geov1`)
+**Владелец**: домен geo — каталог `services/geo/` монорепо.
+**Импортируют** (`go list` на `96b2879a`, non-test): geo 6 · по одному пакету у vpc,
+storage, registry, nlb, compute и шлюза. Ровно то, чего ждёшь от домена-листа: его
+зовут все, он не зовёт никого, кроме проверки прав.
 
-## Resource protos
+## Файлы (по дереву)
 
-- `region.proto` — Region (id literal, name, created_at)
-- `zone.proto` — Zone (id literal, region_id, status enum UP/DOWN/UNSPECIFIED, name, created_at)
+`region.proto` · `zone.proto` · `geo_common.proto` · `region_service.proto` ·
+`zone_service.proto` · `internal_catalog_service.proto` · `package_options.proto`.
 
-## Service protos
+## Две проекции каждого ресурса — это и есть суть домена
 
-- `region_service.proto` — `RegionService.Get/List` (public, **sync**)
-- `zone_service.proto` — `ZoneService.Get/List` (public, **sync**)
-- `internal_catalog_service.proto` — `InternalRegionService` / `InternalZoneService` admin-CRUD
-  (Create/Update/Delete, возвращают ресурс **синхронно**, не `Operation` — catalog-паттерн).
+```
+Region / Zone            → публичная проекция (арендаторская)
+RegionInfra / ZoneInfra  → инфраструктурные поля
+InternalRegion / InternalZone → внутренняя проекция (:9091)
+enum GeoStatus, PlacementBlockedReason (geo_common.proto)
+```
 
-## Происхождение (эпик #82)
+Разделение не косметическое: сырое состояние и инфраструктурные подробности живут
+**только** во внутренней проекции. Публичная поверхность показывает намерение и
+результат, а «как разложено по железу» на неё не попадает
+(`security.md` §Инфра-чувствительные данные). Прежняя редакция записки знала лишь
+публичные сообщения и о второй проекции не упоминала.
 
-Форма перенесена 1-в-1 из `compute.v1` (region/zone + 4 сервиса). На S1 добавление `geo.v1` —
-additive (`buf breaking` зелёный); удаление geography из `compute.v1` отложено в S7 (намеренный
-breaking, ПОСЛЕ перевода всех consumer'ов). Опечатки List-permission'ов `compute.{regionses,zoneses}.list`
-исправлены на `geo.{regions,zones}.list`.
+## Публичное чтение — задокументированное исключение из проверки прав
 
-## Consumers (proto-stubs)
+Четыре читающих RPC (получить и перечислить регион, получить и перечислить зону)
+объявлены освобождёнными от проверки прав в области проекта: справочник обязан
+читать **каждый** аутентифицированный арендатор, иначе арендатор без единой выдачи
+не смог бы узнать, где вообще создавать ресурсы. **Аутентификация при этом
+обязательна** — анонимный доступ отвергается. Административные операции над
+справочником живут во внутренней службе и требуют кластерного уровня.
 
-`kacho-compute` (Instance.zone_id), `kacho-vpc` (Subnet/AddressPool zone_id), `kacho-nlb`
-(region_id), `kacho-api-gateway` (REST `/geo/v1/*`). См. [[../edges/compute-to-geo-zone-validate]]
-[[../edges/vpc-to-geo-zone-validate]] [[../edges/nlb-to-geo-region-validate]].
+## Связь «зона → её регион» — только резолвом, никогда разбором имени
 
-## See also
+Имена региона и зоны — произвольные строки, отношения между ними не гарантировано.
+Регион берётся из ответа службы зон либо из уже полученного авторитетного поля
+ресурса. Запрещены: отрезание суффикса, срез по последнему дефису, префиксное
+сравнение. Причина не косметическая: строковый вывод **молча** возвращает пустую
+строку на ресурсе без зоны, и проверка когерентности становится тождественно
+истинной — выглядит исполненной и не отвергает ничего
+(`data-integrity.md` §Placement-coherence).
+
+## Происхождение
+
+Форма перенесена из домена машин (эпик #82) и там **уже удалена** — см.
+[[proto-compute]]. Прежняя редакция описывала удаление как предстоящий шаг.
+
+## См. также
 
 [[geo-domain]] [[proto-compute]] [[../rpc/geo-region-service]] [[../rpc/geo-zone-service]]
 
