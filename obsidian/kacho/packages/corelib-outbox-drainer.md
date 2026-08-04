@@ -1,8 +1,10 @@
 ---
-title: "outbox/drainer (kacho-corelib)"
-category: packages
+title: corelib-outbox-drainer
+category: package
 repo: kacho-corelib
+path: pkg/outbox/drainer
 layer: infrastructure
+status: stable
 tags:
   - packages
   - kacho-corelib
@@ -10,99 +12,132 @@ tags:
   - race-fix
 ---
 
-# outbox/drainer
+# pkg/outbox/drainer — доставка намерений с сохранением порядка
 
-Generic LISTEN/NOTIFY outbox-drainer in `kacho-corelib/outbox/drainer/`, sub-package расширяющий
-существующий writer-side `outbox/` (`emit.go` / `event.go` / `writer.go`). Драинер — generic,
-переиспользуется W1.2 для `subject_change_outbox` cache-invalidation.
+**Каталог**: `pkg/outbox/drainer/` · импорт
+`github.com/PRO-Robotech/kacho/pkg/outbox/drainer`
+**Прежде** (полирепо): `kacho-corelib/outbox/drainer`.
+**Импортирует**: `context`, `errors`, `fmt`, `log/slog`, `time`, `crypto/rand`,
+`pgx/v5`, `pgxpool`, `grpc/codes`, `grpc/status`.
+**Импортируют** (`go list` на `96b2879a`, non-test): **шесть** сервисов, по два
+пакета в каждом — композиционный корень и клиентский пакет: iam · vpc · compute ·
+nlb · storage · registry. (Прежняя редакция называла одного потребителя — iam.)
 
-## Exported API
+Обобщённый дренаж очереди намерений: `LISTEN`/`NOTIFY` + периодический опрос,
+атомарный захват строк, применение, пометка исхода. Параметризован типом полезной
+нагрузки.
+
+## Экспортируемое API (снято с дерева)
 
 ```go
-type Config struct {
-    Table        string         // table name to claim from
-    Channel      string         // pg NOTIFY channel
-    BatchSize    int            // default 32
-    PollFallback time.Duration  // default 30s — wakes if no NOTIFY (catch missed events)
-    MaxAttempts  int            // default 10 — после force-poison row
-    BackoffMin   time.Duration  // default 1s
-    BackoffMax   time.Duration  // default 30s
-    ApplyTimeout time.Duration  // default 5s — per-row apply + DB-mark deadline
-}
+func New[T any](pool *pgxpool.Pool, cfg Config, dec Decoder[T], app Applier[T], log *slog.Logger, opts ...Option[T]) (*Drainer[T], error)
+func (d *Drainer[T]) Run(ctx context.Context) error       // блокирует до отмены
 
 type Decoder[T any] func(payload []byte) (T, error)
 type Applier[T any] func(ctx context.Context, eventType string, payload T) error
+type Option[T any]  func(*Drainer[T])
+func WithClaimObserver[T any](fn func()) Option[T]
+func WithPoisonObserver[T any](fn func()) Option[T]
+func WithWedgeObserver[T any](fn func(partition string, oldestUnsentAge time.Duration)) Option[T]
 
-type Drainer[T any] struct { /* private */ }
-
-func New[T any](pool *pgxpool.Pool, cfg Config, dec Decoder[T], app Applier[T], log *slog.Logger) (*Drainer[T], error)
-func (d *Drainer[T]) Run(ctx context.Context) error  // blocking until ctx-done
-
-var ErrAlreadyApplied = errors.New("drainer: row already applied")  // idempotent success
-var ErrPermanent      = errors.New("drainer: permanent error")      // poison row (force MaxAttempts)
+func Classify(err error) Class      // единственная точка решения об исходе
+type Class int                      // ClassSuccess | ClassAlreadyApplied | ClassPermanent | ClassTransient
+var ErrAlreadyApplied = errors.New("drainer: target reports already-applied (idempotent)")
+var ErrPermanent      = errors.New("drainer: permanent error, no retry")
 ```
 
-## Mechanics (acceptance §4)
+`Config`: `Table` · `Channel` · `BatchSize` (32) · `PollFallback` (30s) ·
+`MaxAttempts` (10) · `BackoffMin`/`BackoffMax` (1s/30s) · `ApplyTimeout` (5s) ·
+**`ApplyConcurrency`** · **`PartitionColumn`** · `WedgeWarnAfter`.
+Последние три прежней редакции записки не были известны — а они и есть то, ради
+чего пакет переписывался.
 
-- **Atomic CAS-claim в одной tx** (per CLAUDE.md §запрет #10):
-  `BEGIN → SELECT … FOR UPDATE SKIP LOCKED ORDER BY attempt_count, id LIMIT N → UPDATE attempt_count++ → apply → markSuccess/markFailure/markPoisoned → COMMIT`.
-  Row-lock держится до commit'а → HA exactly-once (W1.1-10 verified).
-  - **Claim-order `ORDER BY attempt_count, id`** (sub-phase 1.4, corelib #26) — НЕ просто `ORDER BY id`.
-    Иначе backlog transient-застрявших low-id rows навечно затеняет свежие higher-id intent'ы
-    (head-of-line starvation → at-least-once нарушен). См. ниже инцидент A07.
-- **LISTEN/NOTIFY conn** — `pool.Acquire().Hijack()` (separate from pool, не возвращается).
-  Auto-reconnect с exp-backoff при conn drop (W1.1-08).
-- **Startup catch-up** — `drainBatch(ctx)` ДО main select-loop (W1.1-02, W1.1-15).
-- **Graceful shutdown** — in-flight apply + mark защищены `context.WithoutCancel + WithTimeout(ApplyTimeout)`.
-  `tx.Commit/Rollback` используют bounded `shutdownCtx` (защита от unreachable Postgres).
+## Классификация чужого отказа — без корзины «прочее → отравить»
 
-## Error semantics
-
-| Applier return | Drainer action |
+| Исход применения | Действие |
 |---|---|
-| `nil` | `markSuccess` (sent_at = now, last_error = NULL) |
-| `errors.Is(err, ErrAlreadyApplied)` | `markSuccess` (idempotent — target уже has change) |
-| `errors.Is(err, ErrPermanent)` | `markPoisoned` (force attempt_count = MaxAttempts, continue) |
-| other (transient) | `markFailure` + exp-backoff retry на следующей claim итерации |
+| `nil` | помечена доставленной |
+| `ErrAlreadyApplied` (цель говорит «уже применено») | помечена доставленной — идемпотентный успех |
+| `ErrPermanent`, `InvalidArgument`, отказ разбора, `PermissionDenied` | **отравлена**: повтор идентичного запроса не пройдёт никогда |
+| временное (`Unavailable`, истёкший срок, отказ соединения, конфликт) | повтор **без предела**, с ростом паузы; в отравленные не уходит никогда |
 
-## Imports
+Два момента, каждый из которых уже стоил инцидента:
 
-stdlib (`context`, `errors`, `fmt`, `log/slog`, `time`, `crypto/rand`) + `github.com/jackc/pgx/v5` + `pgxpool`.
+- **Отказ в правах — терминальный.** Классификация его как временного давала
+  бесконечный повтор, из-за которого строка навсегда блокировала свою партицию, и
+  очередь не доставила **ни одной** строки за всю жизнь — при том что синхронный
+  путь рядом работал и всё выглядело исправным.
+- **Конфликт цели — временный, а не «уже применено».** Конфликт означает, что
+  транзакция цели откатилась и не применила **ничего**; пометить такую строку
+  доставленной значит тихо потерять намерение.
 
-## S0 hardening (sub-phase 1.4, corelib #25 — at-least-once гарантии)
+## Порядок: гарантируется ТОЛЬКО ключом партиции
 
-- **transient-no-poison** — `markTransientFailure` кэпит `attempt_count` на `MaxAttempts-1`,
-  чтобы transient-сбой (peer `Unavailable`) НИКОГДА сам по себе не достигал poison-порога;
-  poison — только явный `ErrPermanent`. Закрывает «outage дольше MaxAttempts → intent отравлен → tuple потерян».
-- **reconciler** — `RedrivePoisoned` / `BackfillFromState` / `GCOrphans` (фон-задача целостности outbox↔state).
-- **fail-closed bootgate** — drainer не стартует, если outbox в несогласованном состоянии (метрики + bootgate).
+Захват идёт `ORDER BY (attempt_count, id)`, поэтому даже при последовательном
+применении подтянутый повтором предшественник уступает свежему преемнику — и
+попадает в **более поздний** пакет. То есть порядок не сохраняется и без
+конкурентности; `ApplyConcurrency` — ручка пропускной способности, а не причина
+перестановки.
 
-## ⚠️ Инцидент A07 — head-of-line starvation (sub-phase 1.4, corelib #26)
+Для цели, чувствительной к порядку, перестановка — не «неаккуратность», а прямой
+дефект прав: пара «выдать → отозвать» одного ключа, применённая наоборот, оставляет
+отношение живым.
 
-> [!warning] Регрессия at-least-once от S0 attempt_count-cap + `ORDER BY id`
-> S0-кэп (transient row застревает с высоким `attempt_count`, но НЕ poison) в паре со старым
-> claim-`ORDER BY id` дал **starvation**: backlog transient-застрявших **low-id** строк
-> навсегда затенял свежие **higher-id** intent'ы → под длительным outage новый intent НЕ доставлялся
-> → **нарушение at-least-once**. Поймано как red `kacho-iam/TestRegisterResource_A07_FGADownIntentPersistsAcrossRestart` на main.
-> **Фикс (corelib #26)**: claim `ORDER BY attempt_count, id` — свежие (низкий attempt_count) идут первыми.
-> Гард: новый тест `Test_1_4_24_TransientBacklog_DoesNotStarveFreshIntent`.
+`PartitionColumn` закрывает это **на уровне захвата**, а не пере-сортировкой при
+применении (которая бессильна, если предшественник в другом пакете): строка не
+клеймится, пока в её партиции есть **доставляемый** предшественник с меньшим
+идентификатором. Следствия: пофартиционный FIFO держится и между пакетами, и между
+репликами; в любом снимке клеймится максимум одна строка партиции, поэтому
+внутрипакетная перестановка невозможна by construction, а группировка при
+применении не нужна (была бы vestigial).
 
-## Imported by (current)
+### Ширина ключа — самая узкая, на которой события НЕ коммутируют
 
-- `kacho-iam/internal/clients/fga_applier.go` — concrete consumer для `fga_outbox` (W1.1 KAC-137; idempotent FGA-409→success). Также применяет owner/hierarchy-tuple для **собственных** iam-ресурсов (sub-phase 1.4 S2 — co-commit через `Writer.EmitFGARelationWrite`, см. [[../edges/iam-to-openfga-grant-write]]).
+Ключ выбирается **по некоммутативности**, а не «по ресурсу». Шире нужного — чистая
+пересериализация: событие ждёт события, до которого ему нет дела, и радиус
+блокировки растёт. Уже нужного — расщепление одной единицы состояния на две
+партиции, то есть настоящая потеря порядка. При сомнении в рендеринге ключа
+выбирают тот, который может только **склеить** две единицы, а не расщепить одну.
 
-## Planned (по master plan)
+Составной ключ материализуется **колонкой** (миграция + триггер как единственный
+источник для всех писателей), а не выражением: разъехавшийся рендеринг у одного из
+писателей молча расщепит партицию.
 
-- W1.2: `subject_change_outbox` drainer (cache invalidation на revoke)
+### Индексы — ровно два, и «ровно» так же важно, как «два»
 
-## Связано
+Оба частичные, по непоставленным строкам: `(<ключ партиции>, id)` — для поиска
+предшественника, и `(attempt_count, id)` — для упорядоченного внешнего скана.
+Первый **без** второго — не «чуть медленнее», а инверсия пропускной способности с
+положительной обратной связью: чем глубже очередь, тем медленнее захват.
 
-- [[../KAC/KAC-137]] — W1.1 implementation
-- [[../KAC/KAC-136]] — W1 parent
-- [[../KAC/KAC-134]] — epic
-- [[sub-phase-1.4-tuple-resource-guarantee]] — S0/S2/S3 (100% tuple↔resource при Create)
-- [[corelib-outbox]] — writer-side (`Emit` в TX)
-- [[iam-pg-fga-outbox]] — iam concrete fga_outbox emitter
-- [[../edges/iam-to-openfga-grant-write]] — usage
+Любой **третий** частичный индекс в другом порядке — приманка для планировщика:
+очередь почти всегда пуста, статистика снята на пустой, и в наплыв планировщик
+выбирает дешёвый скан в неверном порядке с последующей сортировкой всего набора.
+Правило не «добавь индекс, хуже не будет», а «каждый лишний порядок над
+непоставленными строками — это план, который выберут именно тогда, когда очередь
+глубокая».
 
-#packages #kacho-corelib #outbox
+## Осознанный размен: безопасность выше живости партиции
+
+Пока голова партиции застряла на временной ошибке, её преемники ждут. Это
+**временно**: временная строка никогда не отравляется, поэтому применится, как
+только сосед оживёт. **Отравленный** предшественник из блокирующего набора исключён
+— он не применится никогда, и вечная блокировка им была бы бессмысленной.
+
+Блокировка обязана быть наблюдаемой: возраст самой старой непоставленной строки по
+таблице — метрика; атрибуция конкретной партиции — необязательный наблюдатель с
+порогом и потолком числа сообщений (без потолка выпадение соседа даёт тысячи строк
+предупреждений, которые хоронят собственно атрибуцию).
+
+## Проверка этого класса обязана быть МЕЖПАКЕТНОЙ
+
+Внутрипакетный тест перестановки не ловит: подтянутый предшественник и свежий
+преемник попадают в **разные** пакеты. Проба строится так, чтобы предшественник
+имел ненулевой счётчик попыток, преемник — нулевой, и между ними стояло достаточно
+наполнителя.
+
+## См. также
+
+[[corelib-outbox]] [[corelib-operations]] [[iam-pg-fga-outbox]] [[corelib-authz]]
+
+#packages #kacho-corelib #outbox #race-fix

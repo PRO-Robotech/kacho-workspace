@@ -1,12 +1,12 @@
 ---
-title: "corelib authz/listobjects"
+title: corelib-authz-listobjects
 aliases:
   - corelib listobjects
-  - authz listobjects shared
-category: packages
+  - общий клиент перечисления объектов
+category: package
 repo: kacho-corelib
 layer: service
-status: planned
+status: wontfix
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -14,110 +14,77 @@ tags:
   - kacho-corelib
   - authz
   - fga
+  - wontfix
 ---
 
-# corelib `authz/listobjects`
+# Общий клиент «перечисли видимые объекты» — спроектирован и НЕ построен
 
-Phase 4 — shared client + cache + cursor utility для AuthorizeService.ListObjects, переиспользуемое kacho-vpc / kacho-compute / kacho-loadbalancer (когда появится).
+> [!warning] Пакета нет, и это решение, а не отставание
+> Замер 2026-08-05 по ревизии `96b2879a`: подкаталога перечисления объектов внутри
+> общего пакета проверки прав в дереве **нет** — поиск по имени даёт ноль файлов.
+> Мёртвая координата здесь намеренно не воспроизводится в виде пути: цитата пути
+> читается как живое утверждение о дереве (и справедливо считается им хуком
+> свежести), поэтому разбор ошибки сам стал бы её повторением. Записка сохранена
+> **как история**,
+> потому что объясняет действующее решение: подход, который она описывала, был
+> заменён на противоположный после реального дефекта видимости, и понимать, почему
+> именно, важнее, чем помнить несостоявшееся API.
 
-## Exported API
+## Что предлагалось (фаза 4, `KAC-127`)
 
-```go
-package authz
+Общий клиент к «перечисли объекты, видимые субъекту» + кэш с TTL и вытеснением +
+подписанный курсор постраничности, переиспользуемый всеми потребляющими сервисами.
+Фильтрация списка мыслилась как «получить вселенную видимых идентификаторов →
+пересечь со своей страницей».
 
-type ListObjectsClient interface {
-    ListObjects(ctx context.Context, req ListObjectsRequest) (ListObjectsResult, error)
-}
+## Почему это отменено — два независимых довода
 
-type ListObjectsRequest struct {
-    Subject     string             // user:usr_xxx или service_account:sva_xxx
-    Relation    string             // "vpc.network.read"
-    ObjectType  string             // "network"
-    Parent      *ParentFilter      // {Type: "project", ID: "prj_xxx"} — optional
-    Cursor      string             // opaque pagination cursor
-    PageSize    int                // default 1000, max 10000
-}
+**1. Перечисление видимого имеет жёсткий серверний предел и не имеет продолжения.**
+Запрос вообще не несёт поля размера, поэтому «лимит» на стороне клиента — лишь
+обрезка **уже усечённого** ответа: просить больше не расширяет ответ. Наблюдалось
+вживую: ресурсы сверх предела становились владельцу **невидимы навсегда** при живых
+правах (мутации при этом работали — они идут через прямую проверку), а предел
+оказался **общим на тип**, а не по-арендаторным, то есть величиной, на которую в
+многоарендной системе закладываться нельзя вовсе. Детектор усечения при этом был
+всегда ложным — сравнивал длину с собственной обрезкой.
 
-type ListObjectsResult struct {
-    IDs       []string             // visible object IDs
-    NextCursor string              // empty = exhausted
-    Cardinality int64              // total est (для page-size hint)
-}
+**2. Мягкий проход на отказе (`FailOpenReads` в том проекте) противоречит норме.**
+Ошибка проверки прав — **fail-closed**: недоступный ответ модели не есть «да».
+Мягкий проход защитим только пока отказ действительно временный и обязан отличать
+неверную настройку от сбоя, иначе постоянная ошибка конфигурации навсегда
+становится штатным режимом (`security.md` §Hardening-инварианты, п. 8).
 
-type ParentFilter struct {
-    Type string  // "project", "account", "organization"
-    ID   string
-}
-```
+## Что живёт вместо — «страница → проверка страницы»
 
-## Cache layer
+- `Get` по идентификатору **вообще не задаёт списочного вопроса** — только прямая
+  проверка одного объекта, её уже делает перехватчик со скрытием существования.
+- `List` читает страницу курсором из **своей** БД и спрашивает модель про
+  идентификаторы **этой** страницы — пакетами, с потолком на пакет.
+- Реализация — **пофасадно у каждого сервиса** (`services/<svc>/internal/authzfilter`
+  у vpc, nlb, compute, storage), а принимающая сторона — пакетная проверка в iam.
+  Общего пакета в фундаменте нет намеренно: разделяемым сделан **протокол** и
+  дисциплина, а не клиент.
+- Бюджет времени принадлежит **запросу**, а не пакету, и пакеты не выполняются
+  последовательно: иначе на максимальном размере страницы (часть контракта!)
+  проверка не укладывается в срок и даёт отказ на **положительном** пути. Сужать
+  размер страницы ради бюджета запрещено.
+- Известный и задокументированный размен: курсор следующей страницы может кодировать
+  строку, недоступную вызывающему (идентификатор и метка времени; содержимое всё
+  равно закрыто) — цена курсорной семантики, при которой ни одна строка не
+  пропускается.
 
-```go
-type CachedListObjects struct {
-    Inner   ListObjectsClient
-    TTL     time.Duration         // default 5s
-    MaxSize int                   // default 1000 entries
-}
+## Побочный урок, который стоит помнить отдельно
 
-// Key: hash(subject || relation || object_type || parent || cursor)
-// Storage: github.com/hashicorp/golang-lru/v2
-// LISTEN-invalidate hook: subscribe pg_notify('kacho_iam_fga_outbox') → on event, clear cache
-```
+В фильтре видимости когда-то существовал сквозной пропуск для «доверенного
+системного вызова», опознаваемый по значению, которое вызывающий пишет себе сам, и
+которое платформа вдобавок использует как **ярлык анонимности**. Ни один законный
+путь его не производил. Сейчас третьего состояния нет: субъект либо назван, либо
+не назван (пустой результат) — пропускать нечего. Пустой субъект отсекается
+**безусловно**, а не «когда фильтр подключён».
 
-## Pagination cursor format
+## См. также
 
-Opaque signed:
-```
-<base64(payload).<hmac-sha256>>
-payload = { last_id, page_n, issued_at }
-```
+[[corelib-authz]] [[api-gateway-middleware-authz]] [[../rpc/iam-authorize-service]]
+[[../KAC/KAC-127]]
 
-- HMAC key: per-instance random (rotated на restart) — cursors not portable across instances → forces re-list on instance switch (acceptable cost для consistency).
-- TTL within cursor: 5min → expired → invalid_cursor → restart from beginning.
-
-## Helper: filter SQL set
-
-```go
-func FilterIDs(ctx context.Context, repo Repo, visible []string, parentID string) ([]Resource, error) {
-    if len(visible) == 0 { return nil, nil }
-    return repo.ListByIDs(ctx, parentID, visible)
-}
-```
-
-## Fail policy
-
-```go
-type FailPolicy int
-const (
-    FailClosed FailPolicy = iota  // return Unavailable
-    FailOpenReads                 // proceed without filter (audit-logged)
-)
-```
-
-## Configuration
-
-| ENV | Default | Description |
-|---|---|---|
-| `KACHO_AUTHZ_LISTOBJECTS_CACHE_TTL_MS` | 5000 | per-entry TTL |
-| `KACHO_AUTHZ_LISTOBJECTS_CACHE_SIZE` | 1000 | LRU entries |
-| `KACHO_AUTHZ_LISTOBJECTS_PAGE_DEFAULT` | 1000 | default PageSize |
-| `KACHO_AUTHZ_LISTOBJECTS_PAGE_MAX` | 10000 | server-enforced cap |
-| `KACHO_AUTHZ_LISTOBJECTS_FAIL_POLICY` | `closed` | `closed` / `open_reads` |
-
-## Imports
-
-- `github.com/hashicorp/golang-lru/v2`
-- `crypto/hmac`, `crypto/sha256`, `encoding/base64`
-- `kacho-proto/.../iam/v1` — AuthorizeService gRPC stubs
-
-## Imported by
-
-- `kacho-vpc/internal/apps/kacho/api/*` — List handlers
-- `kacho-compute/internal/apps/kacho/api/*`
-- `kacho-loadbalancer/...` (Phase 4 follow-up, blocked by baseline service — KAC-127 "Out of scope")
-
-## See also
-
-[[../edges/vpc-to-iam-listobjects]] [[../edges/compute-to-iam-listobjects]] [[../rpc/iam-authorize-service]] [[../KAC/KAC-127]]
-
-#packages #kacho-corelib #authz #fga
+#packages #kacho-corelib #authz #fga #wontfix

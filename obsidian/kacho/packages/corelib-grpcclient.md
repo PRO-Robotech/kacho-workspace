@@ -9,20 +9,39 @@ tags:
   - grpc
 ---
 
-# corelib/grpcclient
+# pkg/grpcclient — клиентская сборка соединения к соседу
 
-**Path**: `kacho-corelib/grpcclient/`
-**Imports**: `google.golang.org/grpc`, `.../keepalive`, `.../credentials`, `.../credentials/insecure`, `crypto/tls`, `crypto/x509`
-**Imported by**: dial-сайты сервисов (compute→iam/vpc, vpc→iam/compute, iam drainer, api-gateway→backend); SEC-E/G подключат TLS client-creds
+**Каталог**: `pkg/grpcclient/` · импорт `github.com/PRO-Robotech/kacho/pkg/grpcclient`
+**Прежде** (полирепо): `kacho-corelib/grpcclient`.
+**Импортирует**: `crypto/tls`, `crypto/x509`, `google.golang.org/grpc` +
+`keepalive`, `credentials`, `credentials/insecure`.
+**Импортируют** (`go list` на `96b2879a`, non-test): vpc 3 · storage 2 · registry 2 ·
+nlb 2 · geo 2 · gateway 2 · compute 2 · iam 1 — то есть **все семь** сервисов и шлюз.
+Прежняя редакция перечисляла рёбра прозой, включая уже снятое ребро vpc→compute.
 
-Горизонтальные helper'ы для client-side gRPC dial: keepalive (KAC-244) и SEC-B opt-in mTLS client-credentials.
+Горизонтальная сборка исходящего соединения: удержание соединения и клиентские
+учётные данные TLS.
 
-## Exported functions
+## Экспортируемое API (снято с дерева)
 
-### Keepalive (KAC-244)
+```go
+func KeepaliveParams(permitWithoutStream bool) keepalive.ClientParameters
+func KeepaliveDialOption(permitWithoutStream bool) grpc.DialOption
+func TLSClientCreds(cfg TLSClient) (grpc.DialOption, error)
+func TLSClientTransportCreds(cfg TLSClient) (credentials.TransportCredentials, error)
+type TLSClient struct{ Enable bool; CertFile, KeyFile string; CAFiles []string; ServerName string }
+```
 
-- `KeepaliveParams(permitWithoutStream bool) keepalive.ClientParameters` — Time 10s, Timeout ~3.3s.
-- `KeepaliveDialOption(permitWithoutStream bool) grpc.DialOption`.
+`TLSClientTransportCreds` — вторая точка, нужная там, где соединение собирается не
+через параметр набора, а напрямую (например, HTTP-клиентом); прежняя редакция её не
+называла.
+
+> [!important] Срок на КАЖДОМ внешнем вызове — не заменяется удержанием соединения
+> Удержание соединения замечает мёртвого пира на уровне транспорта, но не спасает от
+> отвечающего слишком долго. Каждый вызов к соседу обязан нести собственный срок:
+> без него неотвечающий пир подвешивает горутину навсегда, и особенно опасно это на
+> проверке прав — перехватчик не доходит до ветки fail-closed, горутины копятся
+> (`architecture.md` §Concurrency).
 
 ### SEC-B — opt-in mTLS client-creds (`tls.go`)
 

@@ -2,7 +2,9 @@
 title: corelib-errors
 category: package
 repo: kacho-corelib
+path: pkg/errors
 layer: shared
+status: stable
 tags:
   - packages
   - kacho-corelib
@@ -10,37 +12,70 @@ tags:
   - grpc
 ---
 
-# corelib/errors
+# pkg/errors — типизированный билдер gRPC-ошибок
 
-**Path**: `kacho-corelib/errors/`
-**Imports**: `google.golang.org/genproto/googleapis/rpc/errdetails`, `google.golang.org/grpc/codes`, `google.golang.org/grpc/status`
-**Imported by**: `kacho-vpc` (5), `kacho-corelib/validate`
-(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
+**Каталог**: `pkg/errors/` · импорт `github.com/PRO-Robotech/kacho/pkg/errors`
+(в сервисах обычно под алиасом `coreerrors`).
+**Прежде** (полирепо): `kacho-corelib/errors`.
+**Импортирует**: `google.golang.org/genproto/googleapis/rpc/errdetails`, `grpc/codes`,
+`grpc/status`.
+**Импортируют** (`go list` на `96b2879a`, non-test): nlb 2 · registry 1 · compute 1 ·
+`pkg/validate` 1 · `pkg/operations` 1.
 
-YC-style typed error builder → gRPC `status.Status` + `google.rpc.errdetails.BadRequest`.
+> [!note] Прямых потребителей мало — но пакет не узкий
+> Большинство сервисов доходит сюда **транзитивно**, через [[corelib-validate]]:
+> валидатор строит свою ошибку этим билдером. Считать востребованность по числу
+> прямых импортов здесь неверно — предикат врёт в меньшую сторону.
 
-## Builders (return `*Builder`)
+## Экспортируемое API (снято с дерева)
 
-- `NotFound(kind, id string)` → gRPC `NotFound`, message `"<Kind> <id> not found"`.
-- `AlreadyExists(kind, id string)` → `AlreadyExists`.
-- `InvalidArgument()` → `InvalidArgument` (chain `.Field("name", "<reason>")`).
-- `FailedPrecondition(msg string)` → `FailedPrecondition`.
-- `Aborted(msg string)` → `Aborted` (для CAS-conflicts).
-- `Unavailable(msg string)` → `Unavailable` (peer-service down).
-- `Internal(msg string)` → `Internal`.
-- `Gone(msg string)` → 410 (RPC-mapped).
+```go
+func NotFound(kind, id string) *Builder        // "<Kind> <id> not found"
+func AlreadyExists(kind, id string) *Builder
+func InvalidArgument() *Builder                // дефолтный message "invalid argument"
+func FailedPrecondition(msg string) *Builder
+func Aborted(msg string) *Builder              // CAS-конфликты
+func Unavailable(msg string) *Builder          // peer недоступен, fail-closed мутации
+func Internal(msg string) *Builder
 
-## Builder methods
+func (b *Builder) AddFieldViolation(field, desc string) *Builder
+func (b *Builder) WithLocale(locale string) *Builder
+func (b *Builder) Err() error
+```
 
-- `.Field(name, reason)` — добавляет `errdetails.BadRequest_FieldViolation`.
-- `.Build() error` — финальная конверсия в `error`.
-- `.Status() *status.Status` — без .Err() для inspection.
+Финализатор — **`Err()`**. Прежняя редакция называла `.Field(...)`, `.Build()`,
+`.Status()` и билдер `Gone(msg)`; ни одного из этих имён в дереве нет — записка
+пережила свой предмет, а пример кода из неё не скомпилировался бы.
 
-## YC parity (style only — не структура)
+## Тон сообщений — часть контракта, а не косметика
 
-Текст сообщений и regex error-format остаются YC-совместимыми: `<Resource> %s not found`, `<field> is immutable after <Resource>.Create`, `Illegal argument <thing>`, etc. См. workspace CLAUDE.md «YC-стилистика — да, структура методов 1-в-1 — нет».
+`"<Resource> %s not found"`, `"<field> is immutable after <Resource>.Create"`,
+`"Illegal argument <thing>"`, `"network is not empty"`. Тексты меняются только
+осознанно, через тикет: на них завязаны e2e-утверждения и, важнее, byte-identity
+скрытия существования — текст отказа в доступе обязан **дословно** совпадать с
+настоящим ответом владельца об отсутствии, иначе само различие становится способом
+отличить «нет доступа» от «нет ресурса» (`security.md` §Hardening-инварианты, п. 6).
 
-## See also
+Отсюда же понятно, почему `NotFound(kind, id)` принимает **и** вид ресурса, **и**
+id: форма сообщения фиксирована конструкцией, а не собирается заново каждым
+вызывающим.
+
+> [!note] Здесь стоял раздел про паритет с чужим облаком — он снят
+> Прежняя редакция объясняла форму сообщений совместимостью с чужим облаком (называя
+> его сокращением в четырёх местах) и ссылалась на строку воркспейса, которой там
+> больше нет. Конвенции Kachō —
+> собственные (core §Non-negotiables, п. 2: никаких упоминаний чужих облаков), а
+> стабильность тона обоснована тем, что на него опирается скрытие существования, а
+> не чьим-то паритетом.
+
+## Дефолтная ветка маппера — фиксированный текст
+
+`Internal(msg)` вызывается с **определённым** текстом. Эхо `err.Error()` в
+`codes.Internal` запрещено: незамапленная ошибка драйвера уносит наружу параметры
+подключения. Регрессия на такой фикс утверждает **сообщение**, а не только код
+(`testing.md` §Regression-lock).
+
+## См. также
 
 [[corelib-validate]] [[vpc-apps-kacho-shared-serviceerr]]
 

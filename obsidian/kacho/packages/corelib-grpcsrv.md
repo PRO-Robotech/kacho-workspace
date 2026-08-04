@@ -9,17 +9,29 @@ tags:
   - grpc
 ---
 
-# corelib/grpcsrv
+# pkg/grpcsrv — серверная сборка, личность пира и граница доверия
 
-**Path**: `kacho-corelib/grpcsrv/`
-**Imports**: `google.golang.org/grpc`, `.../health`, `.../health/grpc_health_v1`, `.../reflection`, `.../credentials`, `.../credentials/insecure`, `.../peer`, `crypto/tls`, `crypto/x509`, `github.com/PRO-Robotech/kacho-corelib/operations`
-**Imported by**: `kacho-vpc/cmd/vpc`, `kacho-iam/cmd/*`, `kacho-api-gateway` (NewServer); SEC-D/E/G подключат TLS-creds + cert-identity interceptors
+**Каталог**: `pkg/grpcsrv/` · импорт `github.com/PRO-Robotech/kacho/pkg/grpcsrv`
+**Прежде** (полирепо): `kacho-corelib/grpcsrv`.
+**Импортирует**: `crypto/tls`, `crypto/x509`, `log/slog`, `google.golang.org/grpc` +
+`health`, `health/grpc_health_v1`, `reflection`, `credentials`,
+`credentials/insecure`, `keepalive`, `peer`, а также `pkg/operations` (тип личности).
+**Импортируют** (`go list` на `96b2879a`, non-test): iam 5 · compute 3 · vpc 2 ·
+storage 2 · registry 2 · nlb 2 · geo 2 · gateway 2 · `pkg/auth` 1. То есть **все семь**
+сервисов и шлюз — по два потребителя у большинства (композиционный корень плюс
+слой проверки).
 
-Bootstrap-helper для gRPC-server с дефолтным набором: health-service (`grpc.health.v1.Health`), server reflection, recovery interceptor.
+Сборка gRPC-сервера с обязательным набором: служба здоровья, рефлексия,
+восстановление после паники, — плюс всё, что относится к вопросу «кто на том конце
+и за кого ему позволено говорить».
 
-## Exported functions
+## Экспортируемое API (снято с дерева)
 
-- `NewServer(opts ...grpc.ServerOption) *grpc.Server` — создаёт `*grpc.Server`, регистрирует health-svc (`SERVING`) и reflection. Принимает доп. `ServerOption` (TLS creds, interceptor chains).
+```go
+func NewServer(opts ...grpc.ServerOption) *grpc.Server
+func DefaultKeepaliveEnforcement() keepalive.EnforcementPolicy
+const PrincipalTypeServiceAccount = "service_account"
+```
 
 ### SEC-B — opt-in mTLS server-creds (`tls.go`)
 
@@ -53,16 +65,32 @@ Bootstrap-helper для gRPC-server с дефолтным набором: health
 - `MDKeyTokenACR = "x-kacho-token-acr"` — trusted metadata-ключ с validated JWT `acr` (api-gateway forwards на mTLS-verified gateway→iam re-dial, рядом с `x-kacho-principal-*`).
 - `UnaryTrustedPrincipalExtract` доп. читает `acr` и кладёт в trusted-carrier **только когда trusted** (тот же FD-4 boundary): на untrusted/unverified peer `acr` отбрасывается вместе с principal (anti-spoof). `acr` едет по той же границе, что и личность, — иначе шаг-ап подделывался бы отдельно от того, за кого говорят.
 - `TrustedACRFromContext(ctx) (acr string, trusted bool)` — accessor. `WithTrustedACR(ctx, acr, trusted)` — test-support helper (mirror `WithCertIdentity`).
-- `ACRRank(acr) int` (`""/"0"<"1"<"2"<"3"`, unknown ⇒ 0) + `ACRSatisfies(presented, required) bool` (`required==""/"0"` ⇒ no-op) — **единая** ranking-точка, общая для api-gateway StepUpGate и iam ACRFloor (no drift). Imported-by: `kacho-iam/internal/authzguard` (ACRFloor), `kacho-api-gateway/internal/restmux` (forwards acr).
+- `ACRRank(acr) int` (`""/"0"<"1"<"2"<"3"`, неизвестное ⇒ 0) + `ACRSatisfies(presented, required) bool` (`required==""/"0"` ⇒ пропуск) — **единая** точка ранжирования, общая для гейта повышения уровня на крае и порога в iam, чтобы две стороны не разъехались.
+- `EvaluateStepUp(in StepUpInput) StepUpVerdict` (+ типы `StepUpInput`/`StepUpVerdict`) — само правило повышения уровня, вынесенное в фундамент отдельно от места применения. Прежней редакции записки эта тройка известна не была.
 
-## Convention
+### Извлечение личности без привязки к доверию (`principal_extract.go`)
+
+- `UnaryPrincipalExtract(opts...)` / `StreamPrincipalExtract(opts...)` +
+  `WithPrincipalDebug(bool)` / `WithPrincipalDebugLogger(*slog.Logger)`;
+  `WithTrustedPrincipal(ctx, p, trusted)` — вспомогательная установка для проб.
+- Ключи метаданных: `MDKeyPrincipalType`, `MDKeyPrincipalID`, `MDKeyPrincipalDisplay`
+  (их же реэкспортирует [[corelib-auth]], чтобы вызывающему не тащить весь этот пакет
+  ради трёх строк).
+
+Это **не** trust-aware пара: у `*PrincipalExtract` нет требования проверенного
+сертификата. На развёрнутом сервисе принимать переданную личность полагается
+**только** парой `*CertIdentityExtract` → `*TrustedPrincipalExtract`.
+
+## Конвенция
 
 - Каждый сервис в `cmd/<svc>/main.go` зовёт `grpcsrv.NewServer(...)` для public-listener (9090) и отдельно для internal-listener (9091).
 - Interceptor chain (UnaryInterceptor) дополняется в самом сервисе: `recovery`, `logging`, `validate`, `auth`. Порядок на **обоих** листенерах: `UnaryCertIdentityExtract` → `UnaryTrustedPrincipalExtract(WithTrustedForwarders(...))` → authz-Check → бизнес. Internal (:9091) от authz **не освобождён**.
 - `enable=false` (insecure-транспорт) — состояние периода внедрения SEC-B, а **не** режим эксплуатации: любой развёрнутый стенд, включая локальный, работает в production-posture (core rule #16). Insecure-путь допустим только в in-process unit/integration-фикстурах, потому что именно он маскирует всё, что этот узел защищает: неверифицированный пир доходит как доверенный форвардер.
 
-## See also
+## См. также
 
-[[corelib-grpcclient]] [[corelib-config]] [[corelib-auth]] [[vpc-cmd-vpc]] [[rm-cmd]] [[../KAC/EPIC-SEC-mtls-iam-authz]]
+[[corelib-grpcclient]] [[corelib-config]] [[corelib-auth]] [[corelib-observability]]
+(поле самоотчёта о суженном круге отправителей) [[vpc-cmd-vpc]]
+[[../KAC/EPIC-SEC-mtls-iam-authz]]
 
 #packages #kacho-corelib #grpc

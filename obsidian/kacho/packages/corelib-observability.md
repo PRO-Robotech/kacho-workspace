@@ -2,7 +2,9 @@
 title: corelib-observability
 category: package
 repo: kacho-corelib
+path: pkg/observability
 layer: shared
+status: stable
 tags:
   - packages
   - kacho-corelib
@@ -10,31 +12,73 @@ tags:
   - otel
 ---
 
-# corelib/observability
+# pkg/observability — логгер, трассировка и самоотчёт о посадке
 
-**Path**: `kacho-corelib/observability/`
-**Imports**: `context`, `io`, `log/slog`, `os`
-**Imported by**: `kacho-vpc` (2)
-(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
+**Каталог**: `pkg/observability/` · импорт
+`github.com/PRO-Robotech/kacho/pkg/observability`
+**Прежде** (полирепо): `kacho-corelib/observability`.
+**Импортируют** (`go list` на `96b2879a`, non-test): по одному пакету у каждого из
+семи сервисов и у шлюза — восемь потребителей, ровно те композиционные корни,
+которые обязаны отчитаться о посадке.
 
-`slog`-logger + OpenTelemetry init helper.
-
-## Exported
-
-- `NewSlogger(w io.Writer) *slog.Logger` — JSON-handler с дефолтными атрибутами (`service`, level, ts), пишет в `w` (обычно `os.Stdout`).
-- `ShutdownFn func(context.Context) error` — type alias для graceful shutdown OTEL.
-- `InitOtel(ctx context.Context, serviceName string) (ShutdownFn, error)` — устанавливает global tracer + meter providers, OTLP-exporter (env `OTEL_EXPORTER_OTLP_ENDPOINT`); вернёт `ShutdownFn` — вызвать в [[corelib-shutdown]] на SIGTERM.
-
-## Usage
+## Экспортируемое API (снято с дерева)
 
 ```go
-log := observability.NewSlogger(os.Stdout)
-otelShut, _ := observability.InitOtel(ctx, "kacho-vpc")
-defer otelShut(ctx)
+func NewSlogger(w io.Writer) *slog.Logger
+func NewSloggerLevel(w io.Writer, level slog.Leveler) *slog.Logger
+func InitOtel(ctx context.Context, serviceName string) (ShutdownFn, error)
+type ShutdownFn func(context.Context) error
+
+const BootPostureMsg          = "boot security posture"
+const DBSSLModeNotApplicable  = "n/a"
+type BootPosture struct{ Service, AuthMode, DBSSLMode string; PublicMTLS, InternalMTLS, AuthZCheck, TrustedForwarders bool }
+func LogBootPosture(logger *slog.Logger, p BootPosture)
 ```
 
-## See also
+## `BootPosture` — не логирование, а контракт гейта посадки
 
-[[corelib-shutdown]] [[vpc-cmd-vpc]]
+Это главная часть пакета, и прежняя редакция записки о ней не знала вовсе.
+
+Предыстория (она объясняет форму): гейт production-посадки читал **хранимую**
+настройку и рапортовал успех, пока сервис на том же стенде работал в dev-посадке с
+незашифрованным соединением к своей БД. Настройки приезжали через ссылку на
+конфигурацию, читаются они **один раз при старте**, а правка конфигурации шаблон
+пода не меняла — значит перезапуска не было, а вместе с ним не было и срабатывания
+boot-guard'а. Контроль присутствовал, был написан верно и полностью обойдён.
+
+Отсюда конструкция:
+
+- утверждать надо **самоотчёт живого процесса**, а не намерение из хранимой
+  настройки;
+- строка одна, `msg` и имена полей парсит гейт — это **жёсткий контракт**:
+  переименование ключа молча ослепляет проверку, менять только вместе с гейтом;
+- поля заполняются **тем, что процесс реально принял** (провалидированная
+  структура конфигурации, уже собранная проводка), а не сырым окружением;
+- заполняется в композиционном корне **после** boot-guard'ов и **до** старта
+  листенеров;
+- сервису без БД пишется литерал `"n/a"`, а не пустая строка, — чтобы «базы нет»
+  было отличимо от «поле не заполнено».
+
+### `TrustedForwarders` — отдельное измерение, а не следствие mTLS
+
+Поле отвечает на **узкий** вопрос: непуст ли круг отправителей, которым процесс
+разрешает передавать личность конечного пользователя. Оно нужно отдельно, потому
+что «mTLS есть» **не влечёт** «личность нельзя подменить»: сужение работает только
+на непустом списке, а на пустом любой проверенный пир может представиться кем
+угодно. Поэтому `false` при `PublicMTLS=true` — осмысленное сочетание, а не
+противоречие.
+
+Читать `false` нужно аккуратно, и гейт обязан различать два случая:
+
+1. сервис принимает переданную личность и никого не пинит — **дефект**;
+2. сервис переданную личность не принимает вовсе — сужать нечего (так у шлюза: он
+   личность не форвардит, а чеканит из проверенного токена и вырезает клиентские
+   заголовки; собственный список SPIFFE у него есть, но это другое измерение).
+
+Гейт, не различающий эти два случая, покрасит сервис, у которого измерения нет.
+
+## См. также
+
+[[corelib-grpcsrv]] [[corelib-db]] [[corelib-operations]] [[vpc-cmd-vpc]]
 
 #packages #kacho-corelib #observability #otel

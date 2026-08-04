@@ -2,53 +2,89 @@
 title: corelib-ids
 category: package
 repo: kacho-corelib
+path: pkg/ids
 layer: shared
+status: stable
 tags:
   - packages
   - kacho-corelib
   - ids
 ---
 
-# corelib/ids
+# pkg/ids — генератор и каталог префиксов идентификаторов
 
-**Path**: `kacho-corelib/ids/`
-**Imports**: `crypto/rand`, `encoding/binary`, `strings`
-**Imported by**: `kacho-vpc` (97 files), `kacho-api-gateway` (1)
-(потребитель из снятого домена убран — KAC-124; счётчики полирепо-эры не пересчитывались)
+**Каталог**: `pkg/ids/` · импорт `github.com/PRO-Robotech/kacho/pkg/ids`
+**Прежде** (полирепо): `kacho-corelib/ids`.
+**Импортирует**: `crypto/rand`, `encoding/binary`, `os`, `strings`.
+**Импортируют** (`go list` на `96b2879a`, non-test): iam 11 · vpc 10 · nlb 6 ·
+storage 3 · registry 3 · compute 3 · gateway 1 · `pkg/validate` 1 ·
+`pkg/operations` 1.
 
-ID generator + validator: префикс домена (`enp`/`e9b`/`apl`/`b1g`/`bpf`/...) + base32-crockford от crypto/rand.
+Идентификатор — **единственная внешне-адресуемая** идентичность ресурса
+(core §Non-negotiables, п. 15): он попадает в публичные URL и пути выкачки, в
+межсервисные ссылки, в область гранта и в цель проверки прав; он неизменяем на всю
+жизнь ресурса и глобально уникален by construction. Человекочитаемое имя —
+косметическая метка в пределах проекта и в адресацию не попадает никогда.
 
-## Constants (domain prefixes)
+## Экспортируемое API (снято с дерева)
 
-```
-PrefixCloud         = "b1g"   // resource-manager Cloud
-PrefixFolder        = "b1f"   // resource-manager Folder
-PrefixOrganization  = "bpf"   // organization-manager
-PrefixNetwork       = "enp"   // vpc Network
-PrefixSubnet        = "e9b"   // vpc Subnet
-PrefixAddress       = "e9a"
-PrefixGateway       = "enpg"
-PrefixSG            = "enpsg"
-PrefixRouteTable    = "enprt"
-PrefixPE            = "enpe"
-PrefixNI            = "enpni"
-PrefixAddressPool   = "apl"
-PrefixOperation     = "oper"
-PrefixInstance      = "ef3"   // compute
-PrefixDisk          = "ef4"
+```go
+func NewID(prefix string) string          // legacy слитная форма: <prefix><17 crockford-base32>
+func NewHyphenID(prefix string) string    // going-forward: <prefix>-<crockford-base32>
+func NewUID() string                      // без префикса (курсоры, ключи идемпотентности)
+func IsValid(id, prefix string) bool
+func HasKnownPrefix(id string) bool       // строгая форма: длина + 3-символьный префикс + алфавит тела
+func KnownPrefixes() map[string]struct{}
+func KnownHyphenPrefixes() map[string]struct{}
 ```
 
-(Полный список — `ids.go`; не дублируй наизусть, читай файл.)
+`KnownPrefixes`/`KnownHyphenPrefixes` — **единый источник** каталога; расширение под
+новый домен без релиза фундамента идёт через env-добавку, которую читает
+[[corelib-validate]].
 
-## Exported functions
+> [!warning] Список префиксов в этой записке был неверен целиком
+> Прежняя редакция называла `PrefixNetwork = "enp"`, `PrefixSubnet = "e9b"`,
+> `PrefixAddress = "e9a"`, `PrefixInstance = "ef3"`, `PrefixDisk = "ef4"`, а также
+> имена `PrefixSG`/`PrefixNI`/`PrefixPE`. В дереве нет **ни одного** из этих значений
+> и ни одного из этих имён. Это опаснее пустого места: контрибьютор, сверявший id
+> по записке, получил бы «префикс не совпал» и пошёл бы искать дефект в коде.
+> Ниже — значения на ревизии `96b2879a`; при расхождении верен `pkg/ids/ids.go`.
 
-- `NewID(prefix string) string` — `<prefix><base32-крипто-rand>`.
-- `NewUID() string` — opaque без префикса (для page-token, idempotency-key).
-- `IsValid(id, prefix string) bool` — проверяет, что строка начинается с `prefix` и хвост — валидная base32.
-- `HasKnownPrefix(id string) bool` — true если префикс зарегистрирован в const-блоке.
+## Действующие префиксы (по дереву, `96b2879a`)
 
-## See also
+| Домен | Константы |
+|---|---|
+| vpc | `PrefixNetwork "net"` · `PrefixSubnet "sub"` · `PrefixAddress "adr"` · `PrefixRouteTable "rtb"` · `PrefixSecurityGroup "sgr"` · `PrefixGateway "gtw"` · `PrefixNetworkInterface "nic"` · `PrefixAddressPool "apl"` · `PrefixAnycastPool "aap"` |
+| compute (legacy-дубль) | `PrefixInstance "epd"` · `PrefixDisk "epd"` · `PrefixImage "fd8"` · `PrefixSnapshot "fd8"` |
+| storage | `PrefixVolume "vol"` · `PrefixStorageSnapshot "snp"` · `PrefixStorageImage "img"` |
+| nlb | `PrefixLoadBalancer "nlb"` · `PrefixListener "lst"` · `PrefixTargetGroup "tgr"` |
+| registry | `PrefixRegistry "reg"` · `PrefixOperationReg "rop"` |
+| прочее | `PrefixApplication "app"` · `PrefixCloud`/`PrefixFolder "b1g"` · `PrefixOrganization "bpf"` |
+| корни операций | `PrefixOperationVPC "enp"` · `PrefixOperationApps "aop"` · `PrefixOperationStorage "sop"` · `PrefixOperationCompute`/`NLB`/`RM` — алиасы соответствующих ресурсных |
+| дефисные (B3) | `PrefixMachineTypeHyphen "mt"` · `PrefixInstanceHyphen "ins"` · `PrefixInteractiveClientHyphen "ic"` |
 
-[[corelib-validate]] (`ResourceID`)
+Совпадения значений — намеренные: `PrefixInstance` и `PrefixDisk` делят `epd`, как и
+`PrefixImage` с `PrefixSnapshot` — `fd8`; `PrefixCloud` и `PrefixFolder` — `b1g`.
+Это не опечатка записки, а состояние дерева: **тип ресурса по префиксу однозначно
+не восстанавливается**, и никакая проверка не вправе на это закладываться.
+
+## Две формы и почему приём аддитивен
+
+Слитная форма — legacy и остаётся валидной; дефисная (`ins-…`, `mt-…`, `ic-…`) —
+going-forward, сервисы мигрируют свой префикс поодиночке. Крокфордово тело дефиса не
+содержит, поэтому дефис — однозначный дискриминатор. Существенно: **генерация ещё не
+мигрирована** — `NewID` продолжает эмитить слитную форму, а `NewHyphenID` заведён
+вперёд миграции сервисов, чтобы маршрутизатор уже принимал обе.
+
+## `HasKnownPrefix` строже, чем `validate.ResourceID`
+
+`HasKnownPrefix` требует точной длины, трёхсимвольного префикса из каталога и
+корректного алфавита тела — это приёмка на крае без знания типа ресурса.
+`validate.ResourceID` мягче (family-agnostic, пустую строку пропускает) и живёт на
+входе RPC. Разные предикаты — разные места; не подменять один другим.
+
+## См. также
+
+[[corelib-validate]] [[corelib-operations]]
 
 #packages #kacho-corelib #ids

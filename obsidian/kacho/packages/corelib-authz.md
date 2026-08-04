@@ -14,46 +14,80 @@ tags:
   - e3
 ---
 
-# kacho-corelib/authz
+# pkg/authz — перехватчик проверки прав
 
-Cross-cutting authz пакет: gRPC unary+stream interceptor поверх внешнего
-`CheckClient`-port'а (реализуется per-service adapter'ом к
-`kacho-iam.InternalIAMService.Check`).
+**Каталог**: `pkg/authz/` · импорт `github.com/PRO-Robotech/kacho/pkg/authz`
+**Прежде** (полирепо): `kacho-corelib/authz`.
+**Импортируют** (`go list` на `96b2879a`, non-test): nlb 6 · vpc 2 · registry 2 ·
+compute 2 · storage 1 · geo 1 · gateway 1 · собственный подпакет сверки каталога 1.
+**iam в этом списке НЕТ**: у него собственная стража (`services/iam/internal/authzguard`),
+а не общий перехватчик. Прежняя редакция называла iam потребителем, а nlb —
+«будущим» (`TODO, KAC-108`); в дереве всё наоборот, и nlb — **самый крупный**
+потребитель.
 
-**Layer:** corelib (shared across kacho-vpc / kacho-compute / kacho-loadbalancer / kacho-iam).
+Перехватчик unary и stream поверх внешнего порта проверки, который каждый сервис
+реализует своим адаптером к внутреннему RPC проверки прав в iam.
 
-## Файлы
+## Состав
 
 | Файл | Назначение |
 |---|---|
-| `doc.go` | overview + ASCII-схема pipeline. |
-| `types.go` | `RPCMap`, `RPCEntry`, `ObjectExtractor`, `StaticExtractor`, `Decision`, sentinel-errors, `FormatObject`, `FormatSubject`. |
-| `cache.go` | `Cache` — TTL=5s positive-only кеш + `InvalidateBySubject` + `InvalidateAll` + thread-safe. |
-| `check_client.go` | port `CheckClient`, helper `CheckClientFunc`, port `CreatorTupleWriter` (D-11). |
-| `subject_extract.go` | `defaultSubjectExtractor` через `operations.PrincipalFromContext` (E2). |
-| `interceptor.go` | `Interceptor` + `NewInterceptor` + `Unary()` / `Stream()` + lock-free Metrics + `EvictInactiveSubjects`. |
-| `rate_limiter.go` | token-bucket per-principal на denied-storm (I10). |
-| `listen_invalidate.go` | `ListenInvalidator.Run(ctx)` — pgx LISTEN-loop `kacho_iam_subjects` → `Cache.InvalidateBySubject`. |
+| `doc.go` | обзор конвейера решения |
+| `types.go` | `RPCMap`, `RPCEntry`, `ObjectExtractor`, `StaticExtractor`, `Decision`, sentinel-ошибки, `FormatObject`, `FormatSubject` |
+| `cache.go` | `Cache` — кэш **только положительных** вердиктов + `InvalidateBySubject`/`InvalidateAll`, потолок числа записей |
+| `check_client.go` | порт `CheckClient` + `CheckClientFunc` |
+| `subject_extract.go` | извлечение субъекта из личности вызывающего |
+| `interceptor.go` | `Interceptor`, `NewInterceptor`, `Unary()`/`Stream()`, метрики, вытеснение неактивных субъектов |
+| `rate_limiter.go` | ведро токенов на субъекта — против шторма отказов |
+| `listen_invalidate.go` | слушатель на выделенном соединении (см. предупреждение ниже) |
+| `hide_existence.go` | скрытие существования объекта при отказе |
+| `revocation_policy.go` | **объявленная** политика окна отзыва |
+| `catalogparity/` | сверка каталога прав между сторонами |
 
-## API (порты, экспортируется наружу)
+## Порты и типы (снято с дерева)
 
 ```go
-type CheckClient interface {
-    Check(ctx, subjectID, relation, object) (bool, error)
-}
-type CreatorTupleWriter interface {
-    WriteCreatorTuple(ctx, subjectID, relation, object) error
-}
+type CheckClient interface{ Check(ctx, subjectID, relation, object string) (bool, error) }
+type CheckClientFunc func(ctx, subjectID, relation, object string) (bool, error)
 type ObjectExtractor func(req any) (objectType, objectID string, err error)
 func StaticExtractor(objectType string, extractID func(req any) (string, error)) ObjectExtractor
 type RPCMap map[string]RPCEntry
-type RPCEntry struct { Relation string; Extract ObjectExtractor; Public bool }
+func (m RPCMap) Lookup(fullMethod string) (RPCEntry, bool)
 
-// Sentinel errors (KAC-133):
-var ErrUnmapped   = errors.New("authz: RPC not mapped in PermissionMap")
-var ErrUnavailable = errors.New("authz: check service unavailable")
-var ErrNoPath     = errors.New("authz: no FGA path to resource")  // → DecisionNoPath passthrough
+type RPCEntry struct {
+    Relation      string          // отношение, требуемое на объекте
+    Extract       ObjectExtractor // (тип, id) объекта из запроса
+    Public        bool            // явное освобождение от per-RPC проверки
+    ScopeFiltered bool            // авторизация на уровне данных, а не одним вопросом
+    Permission    string          // строка каталога прав; перехватчик её ПОКА не читает
+}
+
+var ErrUnmapped      = errors.New("authz: RPC not mapped in PermissionMap")
+var ErrUnavailable   = errors.New("authz: check service unavailable")
+var ErrNoPath        = errors.New("authz: no FGA path to resource")
+var ErrPermissionDenied = errors.New("authz: permission denied")
+var ErrHideExistence = errors.New("authz: hide existence (deny on existing object)")
 ```
+
+Порта `CreatorTupleWriter` в дереве **нет** — прежняя редакция называла его и в
+таблице файлов, и в блоке API; запись пережила свой предмет.
+
+### `Public` и `ScopeFiltered` — разные вещи, и путать их опасно
+
+- **`Public`** — «вообще вне арендаторской авторизации», разрешение отдаётся **до**
+  чтения субъекта. Применимо только там, где авторизация есть в другом месте
+  (предикат владельца прямо в запросе к БД) либо где ответ — глобальный справочник,
+  который обязан читать каждый аутентифицированный.
+- **`ScopeFiltered`** — единичная проверка снимается, но **аутентификация
+  обязательна**: RPC авторизует на уровне данных (страница → вопрос про её
+  идентификаторы пакетом). Субъект извлекается **до** ветвления на это поле, и
+  запрос, который никого не называет, отбивается безусловно — второго рубежа за
+  такой полосой нет по построению.
+- Имя `Public` историческое: оно означает «не требует арендаторской проверки», а не
+  «доступен извне».
+
+Спрашивать «перечисли все объекты, которые субъекту можно» для полосы фильтрации
+**запрещено** — почему именно, разобрано в [[corelib-authz-listobjects]].
 
 ## Decision pipeline (interceptor.authorize)
 
@@ -134,12 +168,13 @@ var ErrNoPath     = errors.New("authz: no FGA path to resource")  // → Decisio
 corelib НЕ импортирует kacho-proto stubs — adapter (`<service>/internal/.../check_client.go`)
 живёт в сервисе и импортирует `iamv1.InternalIAMServiceClient`.
 
-## Used by
+## Кто подключает (по дереву, `96b2879a`)
 
-- [[vpc-apps-kacho-check]] (kacho-vpc)
-- [[compute-internal-check]] (kacho-compute)
-- kacho-loadbalancer (TODO, KAC-108)
-- kacho-iam (self-check для AccessBindingService action)
+- [[vpc-apps-kacho-check]] · [[compute-internal-check]] · [[nlb-internal-check]] —
+  сервисные адаптеры порта проверки;
+- аналогичные пакеты проверки у geo, storage, registry;
+- middleware шлюза;
+- подпакет сверки каталога прав — держит обе стороны каталога согласованными.
 
 ## See also
 
