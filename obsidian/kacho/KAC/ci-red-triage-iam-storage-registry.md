@@ -3,13 +3,20 @@ title: CI e2e-newman red-triage — iam/storage/registry (post geo-seed)
 category: kac
 tags: [kacho-iam, kacho-storage, kacho-registry, kacho-deploy, kac, fix, testing]
 ticket_id: TBD
-status: in-progress
+status: done
 type: fix
 repos: [kacho (monorepo)]
 opened: 2026-07-24
 ---
 
 # CI red-triage iam/storage/registry — 6 root-cause категорий (после geo-seed win)
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Разбор закрыт своим коммитом с шестью починками без маскировки; сам разбор шести корневых причин оставлен целиком — он ценнее вердикта. Отдельно из него в правила уехало требование, чтобы прогонщик не терял код возврата.
 
 > [!success] Контекст: geo-seed разблокировал 4 домена
 > CI run 30063062957 (redesign/integration): geo-seed фикс → **vpc/compute/nlb/geo GREEN**.

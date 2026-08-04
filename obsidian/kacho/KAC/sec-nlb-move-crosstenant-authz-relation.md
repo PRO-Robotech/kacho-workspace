@@ -3,7 +3,7 @@ title: nlb :move cross-tenant deny — FIXTURE bug (NOT a bypass) + design-note
 category: kac
 tags: [kacho-nlb, kac, fix, architecture]
 ticket_id: TBD
-status: in-progress
+status: done
 type: fix
 repos: [kacho-nlb]
 prs: []
@@ -11,6 +11,13 @@ opened: 2026-07-23
 ---
 
 # nlb `:move` cross-tenant deny — RED-flagged → adversarially RETRACTED
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Исход записки — **отозванная находка**: враждебная проверка показала, что обхода между тенантами нет, а красный кейс дала фикстура. Ценность именно в хронологии отказа принять вывод ревьюера на слово. Работы не осталось.
 
 > [!success] Итог: NO product cross-tenant bypass. Fixture-bug (test-only) + design-note.
 > Adversarial-verification (HOLD+wire-probe координатора + self-refute пира) отсекла

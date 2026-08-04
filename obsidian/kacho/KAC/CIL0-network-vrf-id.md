@@ -6,7 +6,7 @@ aliases:
 ticket_id: CIL0
 tracker: obsidian
 category: kac
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-proto
@@ -31,7 +31,14 @@ tags:
 
 # CIL0: Network vrf_id alloc + InternalNetworkService.GetNetwork
 
-**Status**: in-progress (acceptance ✅ APPROVED; код + тесты зелёные; PR'ы открыты)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Обе половины в дереве: инфра-идентификатор объявлен в контракте **внутреннего** сервиса сети (не на публичной поверхности — как и требует правило про инфра-чувствительные данные), и `InternalNetworkService.GetNetwork` существует. Публичная форма сети не изменилась.
+
+**Status**: done · было при заведении: acceptance ✅ APPROVED; код + тесты зелёные; PR'ы открыты
 **Type**: feature (трек **CIL** — Cilium SRv6 data-plane realization)
 **Repos**: kacho-proto → kacho-vpc → kacho-iam → kacho-api-gateway
 **Трекер**: **Obsidian** (этот файл — источник истины; YouTrack не используется).

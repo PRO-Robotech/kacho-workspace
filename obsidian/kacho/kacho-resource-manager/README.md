@@ -21,8 +21,28 @@ tags:
   - deprecated
 ---
 
-> [!warning] Removed by KAC-124 (E5 sub-phase 2.0) — historical tombstone
-> `kacho-resource-manager` **упразднён**: backend, Postgres-инстанс и proto-пакеты `resourcemanager.v1` / `organizationmanager.v1` удалены полностью. Organization / Cloud / Folder заменены на **Account / Project** в `kacho-iam` ([[../resources/iam-account]], [[../resources/iam-project]]). Peer-валидация owner-scope теперь через `kacho-iam.ProjectService.Get` ([[../edges/vpc-to-iam-project-exists]]). Эта заметка оставлена как исторический след. Остальное ниже — описание **бывшего** сервиса.
+> [!warning] Снят в KAC-124 (E5 sub-phase 2.0) — надгробие, а не описание действительности
+> `kacho-resource-manager` **упразднён**: backend, Postgres-инстанс и proto-пакеты
+> `resourcemanager.v1` / `organizationmanager.v1` удалены полностью. Organization / Cloud /
+> Folder заменены на **Account / Project** в `kacho-iam` ([[../resources/iam-account]],
+> [[../resources/iam-project]]). Peer-валидация owner-scope — через
+> `kacho-iam.ProjectService.Get`. Заметка оставлена как исторический след; **всё ниже —
+> описание бывшего сервиса**, а не сегодняшнего дерева.
+>
+> **Проверено на `kacho@96b2879a`:** каталогов `resourcemanager` / `organizationmanager` в
+> `proto/kacho/cloud/` нет; иерархия сократилась с трёх уровней (организация → облако →
+> папка) до двух (аккаунт → проект).
+>
+> **И это касается самого понятия «организация» дважды.** После KAC-124 организация
+> вернулась было в iam как ресурс корпоративного уровня (эпик KAC-127), но и оттуда снята:
+> в цепочке миграций iam лежит отдельная миграция, дропающая таблицу организаций, рядом с
+> такими же снятиями SCIM / SAML / break-glass и конвейера событий безопасности. То есть
+> запись «Organization (B2B tier) в iam», встречающаяся в старых частях vault, пережила
+> свой предмет **второй раз подряд** — при чтении любых упоминаний организации сверяйся с
+> деревом, а не с соседней запиской.
+>
+> Соседний `packages.md` **удалён**: входящих ссылок ноль, а описывал он пакеты
+> несуществующего репозитория. Пакетные записки живут в категории `packages/`.
 
 # kacho-resource-manager (REMOVED — KAC-124)
 

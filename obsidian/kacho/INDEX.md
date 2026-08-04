@@ -9,7 +9,32 @@ tags:
 
 # INDEX
 
-Alphabetical index всех узких файлов. Использовать для quick-lookup — открой нужный, не загружай README/architecture.
+Указатель на записки vault. Открывай нужную; большие обзоры не загружай.
+
+> [!warning] Это НЕ полный указатель — измерено, 2026-08-05
+> Заголовок обещал «алфавитный индекс **всех** узких файлов». Проверено в **обе** стороны,
+> и стороны отвечают по-разному:
+> - **ссылки → файлы:** из 220 ссылок не резолвится **ноль** — но только после того,
+>   как из указателя убраны 12 строк, ведших на удалённые записки. Проверка только этой стороны
+>   даёт «указатель в порядке» — и это её главная ловушка;
+> - **файлы → ссылки:** в четырёх категориях (`resources`, `rpc`, `packages`, `edges`)
+>   отслеживается **295** файлов, из них здесь **не упомянуто 112** — packages 59, edges 32,
+>   resources 14, rpc 7. То есть **38 %** корпуса указателем не покрыто.
+>
+> Практический вывод: **не делай вывода «записки нет» из того, что её нет здесь.**
+> Ищи в дереве (`git ls-files obsidian/kacho/<категория>`) или через виды-таблицы ниже —
+> они строятся из frontmatter и разойтись с файлами не могут by construction.
+>
+> Указатель не переписан целиком намеренно: его тело правят параллельные волны по
+> категориям, и массовая правка здесь затёрла бы их работу. Это **открытый долг с числом**,
+> а не «всё в порядке».
+
+> [!note] Домены, которых в указателе нет вовсе
+> `storage` — **ноль** записок в `resources/`, при том что это домен-владелец Volume /
+> Snapshot / Image / DiskType; `registry` — одна. Разделы ниже нарезаны по эпохе полирепо
+> (`kacho-iam` / `kacho-vpc` / `kacho-corelib` / «legacy RM repo»), а не по семи сегодняшним
+> сервисам. Имена разделов оставлены как есть, чтобы не разъехаться с волнами, которые
+> сейчас правят сами записки; читать их надо как «домен», а не как «репозиторий».
 
 ## Bases (table views)
 
@@ -25,12 +50,12 @@ Alphabetical index всех узких файлов. Использовать д
 ## Hub / catalog
 
 - [[README]] — categorical hub
-- [[architecture]] — text architecture (Mermaid graphs Phase 1-12)
+- [[architecture]] — топология, граф сборки, рёбра рантайма (перемерено 2026-08-05)
 - [[runbooks/README]] — operational runbooks index
 
-## Resources (~35)
+## Resources — по доменам
 
-### Core (legacy)
+### Общее и снятое (история)
 
 - [[resources/operation|Operation (LRO envelope)]]
 - [[resources/rm-cloud|Cloud (rm, deprecated)]]
@@ -82,7 +107,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[resources/geo-region|Region (geo)]]
 - [[resources/geo-zone|Zone (geo)]]
 
-## RPCs (~40)
+## RPCs — по доменам
 
 ### kacho-iam (KAC-127)
 
@@ -109,7 +134,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/iam-trust-policy-service|TrustPolicyService (Phase 5, internal)]]
 - [[rpc/iam-user-service|UserService]]
 
-### Legacy / deprecated
+### Снятое (история)
 
 - [[rpc/operation-service|OperationService]]
 - [[rpc/om-organization-service|OrganizationService (om alias)]]
@@ -140,21 +165,20 @@ Alphabetical index всех узких файлов. Использовать д
 - [[rpc/geo-region-service|RegionService + InternalRegionService]]
 - [[rpc/geo-zone-service|ZoneService + InternalZoneService]]
 
-## Packages — монорепа (4)
+## Packages — монорепо
 
 - [[packages/kacho-monorepo|kacho — монорепа (замещает polyrepo)]]
 - [[packages/kacho-ci-runners|CI: ранеры и раскладка job'ов (beget-runner / ubuntu-latest)]]
 - [[packages/kacho-ci-determinism|CI: детерминизм — пины версий и честные exit-коды]]
 - [[packages/kacho-newman-gate|newman: гейт, known-RED и загрязнение фикстур]]
 
-## Packages — proto (11)
+## Packages — proto (сегодня каталог `proto/`)
 
 - [[packages/proto-access|cloud/access — IAM shared]]
 - [[packages/proto-api|cloud/api — legacy]]
 - [[packages/proto-compute|cloud/compute/v1]]
 - [[packages/proto-geo|cloud/geo/v1 (эпик #82)]]
 - [[packages/proto-loadbalancer|cloud/nlb proto (legacy 1.0, frozen) — current repo kacho-nlb]]
-- [[packages/proto-maintenance|cloud/maintenance/v2]]
 - [[packages/proto-operation|cloud/operation — LRO envelope]]
 - [[packages/proto-organizationmanager|cloud/organizationmanager/v1 (deprecated)]]
 - [[packages/proto-reference|cloud/reference]]
@@ -162,7 +186,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/proto-root|proto root + google + common]]
 - [[packages/proto-vpc|cloud/vpc/v1]]
 
-## Packages — kacho-corelib (16)
+## Packages — общий фундамент (сегодня каталог `pkg/`)
 
 - [[packages/corelib-authz|authz]]
 - [[packages/corelib-authz-listobjects|authz/listobjects (Phase 4)]]
@@ -178,38 +202,36 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/corelib-operations|operations (LRO)]]
 - [[packages/corelib-outbox|outbox]]
 - [[packages/corelib-retry|retry]]
-- [[packages/corelib-selector|selector]]
 - [[packages/corelib-shutdown|shutdown]]
 - [[packages/corelib-validate|validate]]
 
-## Packages — kacho-iam (KAC-127, ~15)
+## Packages — iam (`services/iam/`)
 
-- [[packages/iam-clients-hsm-pkcs11|clients/hsm_pkcs11 (Phase 8/9)]]
-- [[packages/iam-clients-idp-jwks-cache|clients/idp_jwks_cache (Phase 5)]]
-- [[packages/iam-clients-jackson|clients/jackson (Phase 6)]]
+> [!note] Отсюда убраны 12 строк — их записок больше нет в дереве
+> Одиннадцать вели на пакеты подсистем, **снятых с продукта** (SCIM, SAML-мост, JIT,
+> break-glass, ревью доступа, GDPR, конвейер push-событий, работа с аппаратным модулем
+> ключей, кэш ключей внешнего провайдера, федерация), двенадцатая — на общий пакет
+> селектора меток и на снятый домен обслуживания. Записки удалены параллельной волной
+> по категории `packages/`; указатель на них остался бы ссылкой в никуда.
+> Проверка, которой это найдено, — **обратная**: не «резолвится ли ссылка», а «есть ли
+> файл у каждой ссылки». Первая сторона до этого отвечала «ноль проблем».
+
 - [[packages/iam-domain|internal/domain]]
 - [[packages/iam-handler-iamhooks|handler/iamhooks (Phase 2)]]
 - [[packages/iam-jobs|internal/apps/kacho/jobs]]
 - [[packages/iam-repo-kacho-pg|repo/kacho/pg]]
 - [[packages/iam-seed|seed (bootstrap)]]
-- [[packages/iam-service-access-review|service/access_review (Phase 7)]]
-- [[packages/iam-service-breakglass|service/breakglass (Phase 7)]]
-- [[packages/iam-service-caep|service/caep (Phase 8)]]
-- [[packages/iam-service-federation|service/federation (Phase 5)]]
-- [[packages/iam-service-gdpr|service/gdpr (Phase 7)]]
-- [[packages/iam-service-jit|service/jit (Phase 7)]]
-- [[packages/iam-service-scim|service/scim (Phase 6)]]
 
-## Packages — kacho-vpc (~27)
+## Packages — vpc (`services/vpc/`)
 
 См. категориальный список в [[README#Категории-детальных-файлов]] либо `obsidian/kacho/packages/vpc-*.md` glob.
 
-## Packages — kacho-geo (эпик #82)
+## Packages — geo (`services/geo/`)
 
 - [[packages/proto-geo|proto/geo (kacho-proto)]]
 - [[packages/geo-domain|internal/domain]]
 
-## Packages — kacho-api-gateway (10)
+## Packages — край (сегодня каталог `gateway/`)
 
 - [[packages/apigw-allowlist|allowlist]]
 - [[packages/apigw-cmd|cmd]]
@@ -222,11 +244,11 @@ Alphabetical index всех узких файлов. Использовать д
 - [[packages/apigw-proxy|proxy]]
 - [[packages/apigw-restmux|restmux]]
 
-## Packages — legacy RM repo (replaced by kacho-iam, KAC-124)
+## Packages — снятый менеджер ресурсов (замещён iam, KAC-124) — история
 
 - [[packages/rm-bootstrap]] [[packages/rm-cmd]] [[packages/rm-config]] [[packages/rm-domain]] [[packages/rm-handler]] [[packages/rm-repo]] [[packages/rm-service]]
 
-## Cross-service edges (~30)
+## Cross-service edges — рёбра рантайма
 
 ### Backbone
 
@@ -277,7 +299,7 @@ Alphabetical index всех узких файлов. Использовать д
 - [[edges/nlb-to-compute-region-validation]] — nlb → compute: Region validation (**superseded** by nlb→geo, эпик #82)
 - [[edges/vpc-to-rm-folder-exists]] — vpc → rm: folder check (deprecated)
 
-## Public docs (KAC-127 Phase 13)
+## Public docs
 
 - [[docs/user-iam-guide]] — User onboarding (Passkey, projects, role assignment)
 - [[docs/admin-iam-guide]] — Admin guide (SCIM, SAML, audit, PIM/JIT, break-glass)

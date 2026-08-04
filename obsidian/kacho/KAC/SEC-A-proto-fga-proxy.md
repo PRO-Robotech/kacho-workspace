@@ -5,7 +5,7 @@ aliases:
   - SEC-A-proto-fga-proxy
 ticket_id: SEC-A
 category: kac
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-proto
@@ -23,7 +23,14 @@ tags:
 
 # SEC-A: proto Internal IAM FGA-proxy (RegisterResource / UnregisterResource)
 
-**Status**: in-progress (proto+buf готовы, закоммичены на ветку; ждёт push/PR/merge оркестратором)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Оба RPC в дереве: `RegisterResource` и `UnregisterResource` объявлены во внутреннем сервисе iam, без REST-привязки — то есть внутренними, как и задумано. Ветка и её PR как единицы работы больше не существуют (полирепо), контракт существует.
+
+**Status**: done · было при заведении: proto+buf готовы, закоммичены на ветку; ждёт push/PR/merge оркестратором
 **Type**: feature (proto + buf only — без Go-handler)
 **Repos**: kacho-proto
 **Branch**: `SEC-A-proto-fga-proxy`

@@ -1,7 +1,7 @@
 ---
 title: "GEO-1 — Region/Zone redesign (two-projection, sync Operation)"
 ticket_id: GEO-1
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-geo
@@ -18,7 +18,14 @@ tags:
 
 # GEO-1 — Region/Zone redesign
 
-**Status**: in-progress (core owner-side landed; gateway/newman/UI follow-on).
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Владельческая сторона в дереве: единственный сигнал пригодности к размещению объявлен и у региона, и у зоны, а две проекции разведены — публичные контракты отдельно, `internal_catalog_service.proto` отдельно. Публичное чтение Region/Zone с тех пор стало **задокументированным исключением** из проверки прав по проекту (аутентификация при этом обязательна) — оно записано в `security.md`, то есть доехало и до нормы.
+
+**Status**: done · было при заведении: core owner-side landed; gateway/newman/UI follow-on).
 **Repo**: `project/kacho` (монорепо), ветка `redesign/geo-region-zone`.
 **Acceptance**: `docs/specs/sub-phase-GEO-1-region-zone-redesign-acceptance.md` (APPROVED, 39
 сценариев GEO-1-01..39).

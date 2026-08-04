@@ -4,7 +4,13 @@ filters:
     - 'file.ext == "md"'
 
 formulas:
-  status_icon: 'if(status == "done", "[done]", if(status == "in-progress", "[wip]", if(status == "test", "[test]", if(status == "wontfix", "[wontfix]", "[?]"))))'
+  # Статусы, которые формула НЕ знает, показываются как "[?]" и — что важнее —
+  # проходят фильтр вида "Active" (он исключает только done/wontfix). То есть
+  # запиской с неизвестным статусом вид отчитывается как об открытой работе.
+  # Поэтому набор здесь и набор в §"Active" ниже обязаны меняться ВМЕСТЕ.
+  # superseded — предмет поглощён другой работой или снят с продукта решением;
+  # reference  — отчёт раунда / методика: не единица работы, закрывать нечего.
+  status_icon: 'if(status == "done", "[done]", if(status == "in-progress", "[wip]", if(status == "test", "[test]", if(status == "wontfix", "[wontfix]", if(status == "superseded", "[superseded]", if(status == "reference", "[reference]", if(status == "to-do", "[to-do]", if(status == "planned", "[planned]", "[?]")))))))'
   repo_count: 'if(repos, repos.length, 0)'
 
 properties:
@@ -39,12 +45,19 @@ views:
       property: status
       direction: ASC
 
+  # "Active" = то, по чему кто-то обязан двигаться. Всё, у чего исхода уже не будет,
+  # исключается ЯВНО: done (сделано) · wontfix (отказались) · superseded (предмет
+  # поглощён/снят) · reference (отчёт раунда, не единица работы). Заводя новый
+  # статус — впиши его и сюда, и в formulas.status_icon, иначе вид молча начнёт
+  # называть закрытое открытым.
   - type: table
     name: Active
     filters:
       and:
         - 'status != "done"'
         - 'status != "wontfix"'
+        - 'status != "superseded"'
+        - 'status != "reference"'
       not:
         - 'file.name == "_TEMPLATE"'
         - 'file.name == "README"'

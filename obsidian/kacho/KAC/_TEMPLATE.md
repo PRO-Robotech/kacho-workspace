@@ -17,8 +17,19 @@ tags:
 
 # KAC-<N>: <one-line summary>
 
-**Status**: in-progress | test | done | wontfix
+**Status**: in-progress | test | done | wontfix | superseded | reference
 **Type**: feature | fix | refactor | docs | epic
+
+> [!note] Какой статус выбирать, чтобы вид `KAC/all-tickets.base` не солгал
+> Вид «Active» показывает всё, что **не** `done`/`wontfix`/`superseded`/`reference` —
+> то есть неверно выбранный статус читается как «по этому кто-то работает».
+> - `done` — работа доехала (проверяется по дереву продукта, а не по списку пунктов);
+> - `wontfix` — отказались, с обоснованием;
+> - `superseded` — предмет поглощён другой работой или снят с продукта решением;
+> - `reference` — отчёт раунда / методика: единицей работы никогда не была, закрывать нечего.
+>
+> Заводя новый статус — впиши его в `all-tickets.base` в **оба** места (формулу значка и
+> фильтр «Active»), иначе вид перестанет отличать закрытое от открытого.
 **Repos**: kacho-vpc, kacho-deploy
 **PRs**: PRO-Robotech/kacho-vpc#<N>, ...
 **YT**: https://prorobotech.youtrack.cloud/issue/KAC-<N>

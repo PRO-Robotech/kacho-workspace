@@ -5,7 +5,7 @@ aliases:
   - RG-1-repository-overlay
 ticket_id: RG-1-registry-repository-overlay
 category: kac
-status: in-progress
+status: done
 type: feature
 repos:
   - kacho-proto
@@ -26,6 +26,13 @@ tags:
 ---
 
 # RG-1 — Registry Repository config-overlay
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Наложение над репозиторием доехало целиком: `CreateRepository` / `UpdateRepository` / `DeleteRepository` / `RenameRepository` / `ListReferrers` объявлены в контракте, видимость и её значение по умолчанию у реестра — тоже, а строка настроек живёт в `services/registry/internal/apps/kacho/api/registry/repository_config.go`.
 
 Эпик: kacho-workspace#132. Acceptance: `docs/specs/sub-phase-RG-1-registry-repository-overlay-acceptance.md`
 (✅ APPROVED r2). Cross-repo порядок: proto → iam → registry → api-gateway → deploy → docs.

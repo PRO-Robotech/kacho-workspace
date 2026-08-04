@@ -1,7 +1,7 @@
 ---
 title: "[trail] kacho-iam production-readiness sweep (2026-06-16)"
 ticket_id: PROD-READINESS-iam-2026-06
-status: in-progress
+status: done
 type: fix
 repos:
   - kacho-iam
@@ -23,6 +23,13 @@ tags:
 ---
 
 # kacho-iam production-readiness sweep (2026-06-16)
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Записка — **отчёт закрытого прохода** (девятнадцать мёржей, четыре витка аудита), а не открытая работа. Часть закрытых ею поверхностей позже снята редизайном (SCIM/SAML/JIT — отдельными миграциями), что отчёту не противоречит: он верен на свою дату. Оставлен как разбор.
 
 Автономный sweep: аудит (RLM + спец-ревьюеры, 4 витка) → волнами фиксы строгим TDD →
 CI-gate (kind+helm newman + gosec + golangci) → merge. Backlog = GitHub issue

@@ -1,114 +1,89 @@
 ---
-title: kacho-api-gateway
+title: kacho-api-gateway (сегодня — каталог gateway/ монорепо)
 aliases:
   - kacho-apigw
   - kacho-api-gateway
 category: repo
 repo: kacho-api-gateway
-go_module: github.com/PRO-Robotech/kacho-api-gateway
 service_type: edge
-status: stable
-related_packages:
-  - "[[packages/apigw-restmux]]"
-  - "[[packages/apigw-proxy]]"
-  - "[[packages/apigw-opsproxy]]"
+status: legacy
 tags:
   - kacho
   - kacho-apigw
   - grpc
   - rest
   - edge
+  - legacy
 ---
 
-# kacho-api-gateway
+# kacho-api-gateway — сегодня это `gateway/` в монорепо
 
-Edge-сервис Kachō — **gRPC-proxy + grpc-gateway REST mux** перед back-end сервисами.
+> [!warning] Предмет записки — отдельный репозиторий — существует, но разработка в нём не ведётся
+> Край живёт в **`gateway/`** монорепо `PRO-Robotech/kacho`. Записка сохранена как точка
+> перехода для входящих ссылок (их 3). Прежняя редакция описывала край **пятимесячной
+> давности** и по существу расходилась с деревом почти в каждом пункте — расхождения
+> выписаны ниже, потому что тихая правка имён превратила бы устаревшую запись в уверенно
+> неверную.
 
-- Repo: `github.com/PRO-Robotech/kacho-api-gateway`
-- Тип: edge (stateless).
+## Где это сегодня
 
-## Назначение
+| Тогда | Сегодня |
+|---|---|
+| репозиторий `github.com/PRO-Robotech/kacho-api-gateway` | каталог `gateway/` монорепо |
+| зависимости `kacho-proto` + `kacho-corelib` пинами | `proto/` → `pkg/` → `gateway/` в одном модуле |
 
-1. **gRPC proxy** — клиент → api-gateway → backend (vpc/compute/iam) по prefix-routing id (rm removed KAC-124).
-2. **REST mux** через `grpc-gateway` — REST → gRPC проброс с `:verb` action-suffixes (YC-style).
-3. **Listener split** (KAC-50):
-   - `:8080` plain HTTP/gRPC (cluster-internal + UI + admin tooling — admin paths exposed)
-   - TLS listener (optional) для `yc` CLI compat (admin paths filtered out)
-4. **Operation routing** — `OperationService.Get(id)` маршрутизируется по первым 3 chars id'а в правильный backend.
+## Что стоит знать про край сегодня (замер `kacho@96b2879a`)
 
-## Структура пакетов
+**Три листенера, а не два.** `KACHO_API_GATEWAY_LISTEN_ADDR` (по умолчанию `:8080`),
+`KACHO_API_GATEWAY_TLS_LISTEN_ADDR` (пусто ⇒ TLS не поднимается) и отдельный
+`KACHO_API_GATEWAY_INTERNAL_REST_ADDR` (по умолчанию `:8081`) — **единственный**,
+обёрнутый признаком internal-происхождения. Прежняя редакция знала два и объясняла
+разделение совместимостью с CLI **чужого облака** — такое обоснование запрещено (запрет #2)
+и, кроме того, неверно: разделение существует ради того, чтобы `Internal.*` не попадали
+на внешнюю поверхность (запрет #6).
 
-```
-cmd/
-└── api-gateway/main.go        — bootstrap + listener-split
+**Бэкендов семь, а не три.** В конфигурации края объявлены пары «публичный :9090 /
+внутренний :9091» для `vpc`, `compute`, `iam`, `nlb`, `geo` и далее по составу сервисов —
+прежний перечень `vpc/compute/iam` описывает состояние до появления geo, storage, registry
+и nlb-редизайна.
 
-internal/
-├── config/                  — viper YAML config.
-├── proxy/                   — gRPC-proxy (Unknown service handler передаёт unknown methods в backend).
-├── restmux/                 — grpc-gateway REST mux registration:
-│   ├── mux.go                  registers VPC/Compute/IAM services + Internal* under vpcInternalAddr block (RM removed KAC-124).
-│   └── mux_test.go             contract tests для allowlist.
-├── opsproxy/                — OperationService.Get prefix-routing logic.
-├── allowlist/               — public RPC allowlist (НЕ публиковать Internal.* на TLS endpoint).
-├── middleware/              — gRPC/HTTP interceptors:
-│   ├── access_log.go           structured access log.
-│   ├── recovery.go             panic recovery → INTERNAL.
-│   ├── request_id.go           per-request UUID + propagation.
-│   ├── idempotency.go          Idempotency-Key support.
-│   ├── auth_noop.go            placeholder AAA (always allow).
-│   └── middleware_test.go
-├── health/                  — `/healthz` endpoint.
-└── gateway_test/            — integration tests.
-```
+**`auth_noop.go` («placeholder AAA, always allow») в дереве НЕТ.** На его месте — слой
+проверок из трёх десятков файлов: проверка JWT и JWKS, привязка к mTLS, DPoP с защитой от
+повтора, сессии, step-up, отзыв, per-RPC authz с кэшем вердиктов и каталогом прав,
+публичный allowlist, ограничение тела запроса, идемпотентность. Утверждение «AAA — заглушка,
+пропускает всё» — самое опасное из устаревших здесь: оно описывает край как незащищённый,
+тогда как режим «неаутентифицированный запрос получает полный доступ» **упразднён**
+(`.claude/rules/security.md`).
 
-## Routing
+**Отображение gRPC-кода в HTTP-статус край НЕ переопределяет** — `runtime.NewServeMux`
+собирается без своего обработчика ошибок, статус выбирает grpc-gateway. Таблица кодов —
+`.claude/rules/api-conventions.md` §«gRPC-код → HTTP-статус»; здесь не дублируется.
 
-| HTTP path | gRPC method | Backend |
-|---|---|---|
-| `/vpc/v1/networks` | `kacho.cloud.vpc.v1.NetworkService` | vpc:9090 |
-| `/vpc/v1/addressPools` | `InternalAddressPoolService` | vpc:9091 (internal) |
-| `/compute/v1/instances` | `kacho.cloud.compute.v1.InstanceService` | compute:9090 |
-| `/compute/v1/regions` | `RegionService` (после KAC-15) | compute:9091 |
-| ~~`/resource-manager/v1/folders`~~ | ~~`FolderService`~~ | removed (KAC-124; → `/iam/v1/projects` `ProjectService` на iam) |
-| ~~`/organization-manager/v1/organizations`~~ | ~~`OrganizationService`~~ | removed (KAC-124; Account/Project в iam) |
-| `/operations/{id}` | `OperationService.Get` (proxy by prefix) | by id-prefix |
+**Маршрут `/compute/v1/regions` больше не существует** — Geography вынесена в `geo`
+(эпик #82), админ-CRUD Region/Zone живёт на `InternalRegionService`/`InternalZoneService`
+сервиса geo, а публичное чтение Region/Zone — задокументированное исключение из
+project-scope authz (authN при этом обязателен).
 
-## Internal mux block
+**Маршрутизация `OperationService.Get` по первым трём символам id** — верна только для
+legacy-формы. Действующий канон id — дефисная форма `<prefix>-<crockford-base32>`, где
+prefix бывает длиннее трёх символов; классификация обеих форм аддитивна.
 
-`internal/restmux/mux.go::if vpcInternalAddr != ""` — регистрирует Internal RPC только если задан адрес internal-listener'а (9091). Эти paths exposed на **cluster-internal listener** (для UI/admin), но **НЕ** на external TLS (для `yc` CLI).
+## Что осталось верным
 
-Текущие internal paths:
-- `/vpc/v1/addressPools*` (InternalAddressPoolService)
-- `/vpc/v1/networks/*/addressPoolBinding`
-- (после KAC-15) `/compute/v1/regions*`, `/compute/v1/zones*`
+- край — stateless gRPC-proxy + REST-mux поверх `grpc-gateway`, с suffix-действиями `:verb`;
+- `Internal.*` регистрируются **только** на cluster-internal поверхности, не на внешней;
+- `/vpc/v1/addressPools*` — админский ресурс vpc на внутреннем порту;
+- снятое в KAC-266 (`:explainResolution`, `:check`, `poolSelector`, `addressPoolOverride`)
+  снято и сегодня — см. [[../KAC/KAC-266]];
+- за регистрацию нового публичного RPC отвечает агент `api-gateway-registrar`.
 
-> [!note] Удалено в KAC-266
-> `/vpc/v1/addresses/*/addressPoolOverride`, `/vpc/v1/clouds/*/poolSelector`,
-> `/vpc/v1/addressPools:explainResolution`, `:check` сняты (InternalCloudService удалён,
-> AddressPool override/check/explain удалены). См. [[../KAC/KAC-266]].
+Соседний `packages.md` **удалён**: входящих ссылок ноль, а перечень пакетов края разошёлся
+с деревом; per-package записки живут в категории `packages/`.
 
-См. [[../kacho-vpc/README#admin-paths|kacho-vpc/README]] §16.x для полного списка admin paths.
+## См. также
 
-## Build-зависимости
+- [[../README|vault hub]] · [[../architecture|архитектура]]
+- `.claude/rules/security.md` — Internal-vs-external, authN+authZ на каждом листенере
+- `.claude/rules/api-conventions.md` — REST-пути, коды ошибок, пагинация
 
-- `kacho-proto` — все proto-stubs services которые проксирует.
-- `kacho-corelib` — `grpcsrv`, `observability`.
-
-## Cross-repo runtime edges
-
-```
-client (yc CLI / curl / UI)
-  → api-gateway:8080
-    → vpc:9090 / vpc:9091
-    → compute:9090 / compute:9091
-    → iam:9090 / iam:9091     (Account/Project; resource-manager removed в KAC-124)
-```
-
-См. [[../architecture]] для полного графа.
-
-## Эпики
-
-- **KAC-50** — listener split (public/TLS vs cluster-internal).
-- **api-gateway-registrar** агент — регистрирует новые RPC в restmux после rpc-implementer.
-
-#kacho #kacho-apigw #grpc #rest #edge
+#kacho #kacho-apigw #grpc #rest #edge #legacy

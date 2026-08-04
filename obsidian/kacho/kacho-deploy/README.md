@@ -1,110 +1,73 @@
 ---
-title: kacho-deploy
+title: kacho-deploy (сегодня — каталог deploy/ монорепо)
 aliases:
   - kacho-deploy
 category: repo
 repo: kacho-deploy
 service_type: deployment-artifacts
-status: stable
+status: legacy
 tags:
   - kacho
   - kacho-deploy
   - helm
-  - docker-compose
   - ci
   - kind
+  - legacy
 ---
 
-# kacho-deploy
+# kacho-deploy — сегодня это `deploy/` в монорепо
 
-Deployment + dev/CI стенды Kachō — Helm umbrella chart + docker-compose CI stack + k8s manifests.
+> [!warning] Предмет записки — отдельный репозиторий — существует, но разработка в нём не ведётся
+> Стенд и чарты живут в **`deploy/`** монорепо `PRO-Robotech/kacho`. Записка сохранена как
+> точка перехода для входящих ссылок (их 4). Ниже — только то, что проверено по дереву;
+> прежний состав каталогов и целей Makefile разошёлся с ним настолько, что перечислять его
+> как действующий было бы уверенной неправдой.
 
-- Repo: `github.com/PRO-Robotech/kacho-deploy`
-- Тип: deployment artifacts (не Go binary).
+## Где это сегодня
 
-## Структура
-
-```
-helm/
-├── umbrella/                  — top-level helm chart (зависит от sibling charts):
-│   ├── Chart.yaml                — ingress-nginx + postgresql×3 + 5 service-charts.
-│   ├── values.dev.yaml           — dev-config (in-memory pg, no persistence).
-│   ├── values.prod.yaml          — prod-config (TLS, persistent storage).
-│   └── templates/                — NetworkPolicies, ConfigMaps, env-overrides.
-└── (subchart-stubs)           — каждый sibling-сервис имеет свой `deploy/Chart.yaml` в своём репо.
-
-ci/
-├── docker-compose.yml         — CI stack: pg×3 + 3 services + api-gateway (без helm/k8s).
-├── seed.sh                    — fixtures: default Org/Cloud/Folder/zones/AddressPool/Network/Subnet/SG.
-└── .seeded-ids.env            — output для newman test runs.
-
-e2e/
-├── 0.1/                       — kind-cluster smoke tests (E1 dev-up, E5 secrets, E6 ingress, E7-E9, F1-F2).
-└── geography-move.sh          — integration test cross-service ref-validation.
-    (cp-resource-model.sh для kube-ovn-эпохи data-plane-модели удалён в KAC-36/79/80.)
-
-kind/
-├── kind-config.yaml           — kind cluster config (hostPort 80/443 for ingress).
-└── create-cluster.sh
-
-load-tests/                    — k6 load test jobs.
-
-argo-apps/                     — ArgoCD applications (production GitOps).
-├── kacho-vpc-operator/
-├── kube-ovn/
-└── multus/
-
-scripts/                       — bootstrap + helper scripts.
-docs/                          — deploy-specific documentation.
-```
-
-## Makefile targets
-
-| Target | Action |
+| Тогда | Сегодня |
 |---|---|
-| `make dev-up` | `kind create cluster` + `helm upgrade --install kacho-umbrella ./helm/umbrella --wait --timeout 10m`. |
-| `make dev-down` | `kind delete cluster kacho`. |
-| `make reload-svc SVC=vpc` | helm upgrade одного sibling-chart'а. |
-| `make logs-svc SVC=vpc` | `kubectl logs` deployment'а. |
-| `make psql SVC=vpc` | `kubectl exec` в pg pod + psql. |
-| `make ci-up` | `docker compose up -d` (CI stack без kind). |
-| `make ci-down` | `docker compose down -v`. |
-| `make ci-seed` | re-run seed.sh against running stack. |
-| `make preflight` | проверка наличия `docker`/`kind`/`kubectl`/`helm`. |
+| репозиторий `github.com/PRO-Robotech/kacho-deploy` | каталог `deploy/` монорепо |
+| субчарты по `file://../../../kacho-<svc>/deploy` | субчарты внутри одного дерева |
+| образы собирались `COPY ../kacho-*`, контекст = родительский каталог | контекст сборки — само монорепо |
 
-## CI workflows
+Рабочие команды стенда — в корневом `CLAUDE.md` воркспейса §«Локальная разработка»
+(`cd project/kacho/deploy && make dev-up` / `dev-down`, `reload-svc`, `logs-svc`, `psql`).
+Здесь они не дублируются, чтобы два места об одном предмете не разошлись снова.
 
-- **`helm-lint`** — `helm dep update && helm lint .` на каждом push/PR.
-- **`e2e-on-kind`** — nightly (schedule + workflow_dispatch only): full kind-cluster + e2e/0.1/E*.sh suite + integration tests. Помечен `continue-on-error: true` (kind infra-bound).
+## Чего в дереве НЕТ, а прежняя редакция называла действующим
 
-## Helm chart dependencies (umbrella)
+- **`ci/docker-compose.yml`, `ci/seed.sh`, `.seeded-ids.env`** и цели `ci-up` / `ci-down` /
+  `ci-seed` — каталога `ci/` нет. Стенд поднимается на kind, не на docker-compose.
+- **`argo-apps/`** (ArgoCD applications, в т.ч. `kube-ovn/`, `multus/`,
+  `kacho-vpc-operator/`) — каталога нет. `kacho-vpc-operator` вдобавок **не резолвится на
+  GitHub** (404) и в дереве монорепо не представлен ни одним файлом.
+- **`e2e/0.1/`, `geography-move.sh`** — прежней раскладки нет; e2e живёт иначе.
+- **Перечень «postgresql × N (pg-iam, pg-vpc, pg-compute)»** — сегодня инстансов больше:
+  к ним добавились как минимум `pg-geo`, `pg-nlb`, `pg-openfga`, часть — под условием
+  включения. Database-per-service (запрет #8) держится, но число не то.
 
-```yaml
-dependencies:
-  - ingress-nginx (community)
-  - postgresql (bitnami) × N (pg-iam, pg-vpc, pg-compute)   # pg-resource-manager удалён в KAC-124
-  - iam               (file://../../../kacho-iam/deploy)          # заменил resource-manager (KAC-124)
-  - vpc               (file://../../../kacho-vpc/deploy)
-  - compute           (file://../../../kacho-compute/deploy)
-  - api-gateway       (file://../../../kacho-api-gateway/deploy)
-  - ui                (file://../../../kacho-ui/deploy)         — private repo (best-effort checkout)
-```
+## Что стоит знать про стенд сегодня
 
-**Удалены** (Phase 2):
-- `pg-netbox` + NetBox subchart (IPAM перенесён в kacho-vpc inline).
-- `pg-loadbalancer` (kacho-loadbalancer frozen).
+**Развёрнутый стенд работает в production-посадке — всегда, включая локальный.**
+Отдельная цель `dev-prod-up` поднимает kind в боевой посадке, и рядом с ней стоит не одна
+проверка, а целая группа гейтов: готовность выката, состояние джобов, посадка процесса,
+сужение круга доверенных отправителей личности, автоочистка очередей, самопроверка самих
+гейтов. Это прямое следствие правила «`values.prod` обязан реально подниматься, а не только
+рендериться» и разбора ложного зелёного, когда гейт читал настройки вместо живого процесса —
+`.claude/rules/security.md` §«Production-mode обязателен ВЕЗДЕ», п. 2а.
 
-## Build-зависимости
+**Обвязка внешних систем едет из этого же каталога** — бутстрап хранилища прав, выгрузка
+модели, бутстрап и ротация доверенного домена идентичностей рабочих нагрузок, сухой прогон
+сетевых политик. Прежняя редакция ничего этого не знала.
 
-`kacho-deploy` — **не Go-binary**, нет `go.mod`. Зависит от исходников всех сервисов:
-- Dockerfile'ы сервисов делают `COPY ../kacho-*` → build context = parent dir.
-- `kacho-deploy/Makefile` собирает images через `docker buildx build -f kacho-<svc>/Dockerfile -t kacho-<svc>:dev ..`.
+Соседний `stack.md` **удалён**: входящих ссылок ноль, а описанный им состав стенда
+(compose-стек, NetBox, замороженный балансировщик) в дереве отсутствует целиком.
 
-См. [[../architecture]] для cross-repo графа.
+## См. также
 
-## Эпики
+- [[../README|vault hub]] · [[../architecture|архитектура]]
+- `.claude/rules/security.md` — production-mode, гейт посадки, boot-guard'ы
+- `.claude/rules/testing.md` — e2e-дисциплина и вердикт по числам
 
-- **KAC-94 (часть)** — `ci/seed.sh` fixes для warmup + KAC-71 cidrBlocks + kacho-migrator binary.
-- **KAC-96** — kacho-migrator init-container в deployment templates.
-
-#kacho #deploy #helm #docker-compose #ci #kind
+#kacho #kacho-deploy #helm #ci #kind #legacy

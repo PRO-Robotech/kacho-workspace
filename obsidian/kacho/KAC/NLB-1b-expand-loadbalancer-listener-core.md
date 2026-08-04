@@ -1,12 +1,19 @@
 ---
 tags: [kac, nlb, redesign, expand-contract]
-status: in-progress
+status: done
 type: sub-phase
 ---
 
 # NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)
 
-**Status:** in-progress (EXPAND phase committed on branch; MIGRATE/CONTRACT pending)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Расширяющая фаза доехала и перестала быть отдельной: балансировщик и слушатель живут в контракте (`network_load_balancer*.proto`, `listener*.proto`, шесть RPC у слушателя). Ветка `redesign/nlb-1b`, к которой привязана записка, разошлась со стволом по модели внешнего адреса ещё тогда — судить по ней нельзя.
+
+**Status**: done · было при заведении: EXPAND phase committed on branch; MIGRATE/CONTRACT pending
 **Type:** sub-phase (carve of KAC-NLB-1, redesign of `kacho-nlb`)
 **Repo:** `project/kacho` (monorepo `github.com/PRO-Robotech/kacho`), `services/nlb`
 **Branch:** `redesign/nlb-1b` (continues from F6 commit `25f0e82`)

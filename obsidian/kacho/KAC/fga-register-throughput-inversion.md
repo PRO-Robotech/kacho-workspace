@@ -3,13 +3,20 @@ title: FGA register-pipeline throughput inversion + drainer false-poison
 category: kac
 tags: [kacho-iam, kacho-corelib, kac, fix, architecture, race-fix]
 ticket_id: TBD
-status: in-progress
+status: done
 type: fix
 repos: [kacho-corelib, kacho-iam]
 opened: 2026-07-23
 ---
 
 # FGA register-pipeline throughput inversion (+ drainer false-poison)
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Обе половины закрыты в дереве: захват строк очереди умеет не брать те, у которых в своей секции есть недоставленный предшественник, и умеет **исключать отравленные** из блокирующего набора — `pkg/outbox/drainer/`. Класс целиком выведен в `data-integrity.md` §«Outbox-drainer concurrency», включая требование, чтобы проба была меж-пакетной.
 
 > [!warning] Production-readiness finding — measured, не гипотеза
 > Owner-tuple материализация НЕ держит темп под write-нагрузкой → тенант не видит

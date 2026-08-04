@@ -5,7 +5,7 @@ aliases:
   - KAC-registry-iam-jwks-unify
 ticket_id: TBD
 category: kac
-status: in-progress
+status: done
 type: feat
 repos:
   - kacho-iam
@@ -31,7 +31,14 @@ tags:
 
 # registry-iam-jwks-unify
 
-**Status**: in-progress (S1 iam + S2 registry PR-open; S3 deploy pending; S4 docs/vault — this PR)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Единый путь распространения ключей проверки существует: у iam есть отдельный внутренний слушатель под зеркало публичного набора ключей, он объявлен в чарте вместе со своим сертификатом и режимом, а у registry — свой клиент проверки. Правило «iam — единственный фасад» с тех пор внесено в `security.md` как норма.
+
+**Status**: done · было при заведении: S1 iam + S2 registry PR-open; S3 deploy pending; S4 docs/vault — this PR
 **Type**: feat + config (новый internal HTTPS-листенер iam + registry config-rename; authN
 key-distribution wiring) — **не** новый ресурс/RPC/proto/схема-БД
 **Repos**: kacho-iam (code+chart) · kacho-registry (config+tests) · kacho-deploy (helm/env) ·

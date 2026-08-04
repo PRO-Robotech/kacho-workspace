@@ -1,83 +1,83 @@
 ---
-title: kacho-proto
+title: kacho-proto (сегодня — каталог proto/ монорепо)
 aliases:
   - kacho-proto
 category: repo
 repo: kacho-proto
-go_module: github.com/PRO-Robotech/kacho-proto
 service_type: proto-stubs
-status: stable
+status: legacy
 tags:
   - kacho
   - proto
   - grpc
+  - legacy
 ---
 
-# kacho-proto
+# kacho-proto — сегодня это `proto/` в монорепо
 
-Центральная директория **всех** `.proto`-определений Kachō + сгенерированные Go-stubs.
+> [!warning] Предмет записки — отдельный репозиторий — существует, но разработка в нём не ведётся
+> `PRO-Robotech/kacho-proto` не заархивирован на GitHub, последний push — середина июля
+> 2026. Все `.proto` живут в **`proto/`** монорепо `PRO-Robotech/kacho`; прежние полирепо
+> клонируются только по `KACHO_CLONE_LEGACY_POLYREPOS=1`. Записка сохранена как **точка
+> перехода** для входящих ссылок (их 4) и как след топологии — не как описание сегодняшнего дня.
 
-- Repo: `github.com/PRO-Robotech/kacho-proto`
-- Структура: `proto/kacho/cloud/<domain>/v1/*.proto`
-- Generated Go: `gen/go/kacho/cloud/<domain>/v1/*.pb.go` (commit'ятся в repo)
-- Import path: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1`
+## Где это сегодня
 
-## Domains (proto-файлы)
+| Тогда | Сегодня |
+|---|---|
+| репозиторий `github.com/PRO-Robotech/kacho-proto` | каталог `proto/` монорепо |
+| `proto/kacho/cloud/<domain>/v1/*.proto` | **тот же путь** внутри монорепо |
+| `gen/go/...`, коммитились в repo | `pkg/api/...` — сгенерённые стабы, **руками не править** |
+| import `…/kacho-proto/gen/go/…` | import `github.com/PRO-Robotech/kacho/pkg/api/…` |
+| отдельный Go-модуль, versioned require | **один** `go.mod` на дерево, ноль `replace` |
 
-| Domain | Proto-файлов | Назначение |
-|---|---|---|
-| `vpc` | 22 | Network, Subnet, Address, RouteTable, SecurityGroup, Gateway, PrivateEndpoint, NetworkInterface + Internal* (AddressPool, Region, Zone, Network, Watch, Cloud) |
-| `compute` | 41 | Instance, Disk, Image, Snapshot, DiskType, Region, Zone (Geography — owner после KAC-15) |
-| `loadbalancer` | 6 | NetworkLoadBalancer, TargetGroup (frozen в 1.0) |
-| ~~resourcemanager~~ | — | снят в KAC-124: Cloud/Folder → Project в iam ([[../packages/proto-rm]]) |
-| ~~organizationmanager~~ | — | снят в KAC-124: Organization → Account в iam ([[../packages/proto-organizationmanager]]) |
-| `operation` | 3 | LRO envelope (`Operation` message, OperationService.Get) |
-| `access` | 1 | AAA-stub (auth, access bindings) |
-| `api` | 1 | api-listing (cross-domain) |
-| `maintenance` | 1 | maintenance windows |
-| `reference` | 1 | shared reference types |
-| `validation.proto` | 1 (root) | buf.validate annotations |
+Правило «новый `.proto` — **всегда** в `proto/`, сервисные каталоги `.proto` не содержат»
+живёт в `.claude/rules/polyrepo.md`, здесь не дублируется.
 
-## Структура одного domain
+## Домены в `proto/kacho/cloud/` — замер `kacho@96b2879a`, единица счёта: файл `.proto`
 
-```
-proto/kacho/cloud/<domain>/v1/
-├── <resource>.proto                — message + service definition
-├── <resource>_service.proto        — RPC list (Create/Get/Update/Delete/List + custom)
-├── internal_<resource>_service.proto — admin-only / cross-service RPC
-└── ...
-```
+| Домен | Файлов | Что внутри |
+|---|---:|---|
+| `iam` | 34 | Account / Project / User / ServiceAccount / Group / Role / AccessBinding + `Internal*` |
+| `vpc` | 19 | Network / Subnet / Address / RouteTable / SecurityGroup / Gateway / NetworkInterface + `Internal*` |
+| `compute` | 11 | Instance / MachineType (+ живой дубль блочного хранения — раскол не завершён) |
+| `storage` | 11 | Volume / Snapshot / Image / DiskType |
+| `loadbalancer` | 10 | домен **nlb**; каталог proto по-прежнему `loadbalancer/`, код — `services/nlb/` |
+| `geo` | 7 | Region / Zone — leaf-owner оси размещения |
+| `registry` | 4 | Registry / Repository / Tag (OCI) |
+| `operation` | 3 | LRO-конверт `Operation` + `OperationService.Get` |
+| `access` · `api` · `apigateway` · `reference` | по 1 | + корневой `validation.proto` |
 
-Package в proto: `package kacho.cloud.<domain>.v1` (всегда `kacho`, не `yandex`).
+Каталог proto и имя сервиса совпадают не везде (`loadbalancer/` ↔ `services/nlb/`) — это
+факт дерева, а не опечатка; проверяй по каталогу, а не по имени домена.
 
-## Generated stubs
+## Что в прежней редакции было НЕВЕРНО
 
-```
-gen/go/kacho/cloud/<domain>/v1/
-├── *.pb.go              — message structs + getters
-├── *_grpc.pb.go         — gRPC client + server interfaces
-└── *.pb.gw.go           — grpc-gateway REST handlers
-```
+Выписано, чтобы ошибка не воспроизвелась при чтении старых копий:
 
-## Tooling
+- **«Envelope: `metadata` + `spec` + `status`»** — прямо противоположно действующей
+  конвенции. Ресурс Kachō — **плоский** message с domain-полями на верхнем уровне,
+  K8s-конверт запрещён (`.claude/rules/api-conventions.md` §«Форма ресурса»).
+- **«Standard 4 RPCs per resource: `Upsert/Delete/List/Watch`»** — такого набора нет.
+  Стандартный: `Get`/`List` синхронно + `Create`/`Update`/`Delete` через `Operation`.
+  **`Upsert` не существует**; публичного `Watch` тоже — единственный `rpc Watch` в дереве
+  живёт в `compute/v1/internal_watch_service.proto` и cluster-internal.
+- **Домены `resourcemanager` / `organizationmanager`** — сняты (KAC-124), каталогов нет.
+- **Домены `maintenance`, `common`** — в дереве отсутствуют.
+- **`compute` как владелец Geography** — Geography вынесена в `geo` (эпик #82); в
+  `proto/kacho/cloud/compute/v1/` нет ни region-, ни zone-контракта.
+- **`PrivateEndpoint` в составе vpc** — в дереве ноль файлов по этому имени (снят).
+- **Числа файлов** (vpc 22 / compute 41 / loadbalancer 6) не сходятся ни с одним каталогом;
+  таблица выше перемерена по индексу git.
 
-- `buf` — lint + breaking-change detection. Конфиг: `buf.yaml` + `buf.gen.yaml`.
-- `make gen` — `buf generate` запускает protoc plugins (`protoc-gen-go`, `protoc-gen-go-grpc`, `protoc-gen-grpc-gateway`).
-- Commit changes both proto AND generated Go (для удобства import без `protoc` у consumer'ов).
+Соседний `domains.md` (поимённый перечень proto-файлов) **удалён**: входящих ссылок ноль,
+а перечень расходился с деревом по всем трём осям — состав доменов, состав файлов, их число.
+Действующий состав читается из дерева одной командой — дешевле, чем держать его копию.
 
-## Зависимости
+## См. также
 
-- **Внутрь**: ни от чего (центр графа).
-- **Из вне**: импортируется всеми сервисами (`kacho-corelib`, `kacho-vpc`, `kacho-compute`, `kacho-api-gateway`, `kacho-loadbalancer`). Потребитель из снятого домена убран — KAC-124.
+- [[../README|vault hub]] · [[../architecture|архитектура]]
+- `.claude/rules/polyrepo.md` — раскладка монорепо и порядок работы
+- `.claude/rules/api-conventions.md` — форма ресурса, шаблон сервиса, error-format
 
-См. [[../architecture]] для cross-repo графа.
-
-## Конвенции
-
-- Envelope: `metadata` (read-only) + `spec` (mutable) + `status` (computed).
-- Reserved field numbers — для backward-compat.
-- `buf.validate` annotations для regex/range/required.
-- Standard 4 RPCs per resource: `Upsert/Delete/List/Watch` (плюс domain-specific).
-- `InternalService` отдельно от public (cluster-internal-only).
-
-#kacho #proto #grpc
+#kacho #proto #grpc #legacy

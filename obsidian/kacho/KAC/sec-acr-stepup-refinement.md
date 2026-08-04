@@ -1,6 +1,6 @@
 ---
 tags: [kac, security, iam, gateway, authz, phase-c]
-status: landed
+status: done
 type: security-model-refinement
 repos: [kacho (redesign/integration)]
 ---

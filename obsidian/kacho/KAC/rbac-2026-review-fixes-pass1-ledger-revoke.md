@@ -1,7 +1,7 @@
 ---
 title: "RBAC-2026 review fixes — Pass 1: ledger revoke-correctness (#1/#7/#15/#16)"
 ticket_id: rbac-2026-review-fixes-pass1
-status: in-progress
+status: done
 type: fix
 repos:
   - kacho-iam
@@ -20,7 +20,14 @@ tags:
 
 # RBAC-2026 review fixes — Pass 1: ledger / revoke / backfill / verify
 
-**Status**: in-progress (branch `rbac-2026-review-fixes` in kacho-iam, NOT pushed — passes 2/3 assembled separately)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Ветка, на которую ссылается записка, была в отдельном репозитории и не публиковалась — но предмет доехал: журнальная часть подсистемы выдач живёт в `services/iam/internal/apps/kacho/api/access_binding/` (создание, удаление, реконсиляция), вместе с пробами на разбираемые здесь случаи. Судить по судьбе ветки нельзя — только по дереву.
+
+**Status**: done · было при заведении: branch `rbac-2026-review-fixes` in kacho-iam, NOT pushed — passes 2/3 assembled separately
 **Type**: fix — confirmed code-review findings (RBAC-2026 final sweep), ledger/revoke subsystem
 **Scope**: review findings #1 (BLOCKER), #7 / #15 / #16 (IMPORTANT/NIT). No proto/schema migration; no api-gateway.
 

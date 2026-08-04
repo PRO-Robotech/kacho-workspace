@@ -13,7 +13,14 @@ tags:
 
 # redesign-2026 — 7-сервисный редизайн (эпик)
 
-**Status**: in-progress · **Type**: epic · **Repo**: монорепо `project/kacho` (`github.com/PRO-Robotech/kacho`)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **in-progress.** Эпик редизайна семи доменов **ведётся**: ствол `redesign/integration` — живая линия работы, `main` заморожен. Статус подтверждён, а не унаследован.
+
+**Status**: in-progress · было при заведении: · **Type**: epic · **Repo**: монорепо `project/kacho` (`github.com/PRO-Robotech/kacho`
 **Ветка интеграции**: `redesign/integration` · **Trail деталей**: `docs/plans/kacho-redesign-2026/integration-status.md`
 
 ## Что и зачем

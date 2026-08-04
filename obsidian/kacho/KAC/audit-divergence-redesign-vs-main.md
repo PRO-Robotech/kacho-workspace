@@ -3,13 +3,20 @@ title: Аудит расхождения redesign/integration vs main — рау
 category: kac
 tags: [kacho-iam, kacho-nlb, kacho-storage, kacho-registry, kacho-api-gateway, kac, fix, architecture]
 ticket_id: TBD
-status: in-progress
+status: reference
 type: fix
 repos: [kacho (monorepo)]
 opened: 2026-07-24
 ---
 
 # Аудит расхождения `redesign/integration` vs `main` — раунд 1
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **reference.** Отчёт первого раунда сверки ствола редизайна с замороженной веткой. Не единица работы. Оставлен как разбор.
 
 Scope: **230 коммитов, 1024 файла, +127k/−55k** (весь 7-доменный редизайн). Harness —
 skill `hardening-audit-loop`, адаптированный под монорепо: 8 per-area finder'ов × 6 дименсий

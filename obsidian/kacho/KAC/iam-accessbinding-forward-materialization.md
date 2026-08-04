@@ -3,7 +3,7 @@ title: iam AccessBinding forward-fast-path materialization
 category: kac
 tags: [kacho-iam, kac, refactor, architecture, cqrs]
 ticket_id: TBD
-status: in-progress
+status: done
 type: refactor
 repos: [kacho-iam]
 prs: []
@@ -11,6 +11,13 @@ opened: 2026-07-23
 ---
 
 # iam AccessBinding forward-fast-path materialization
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Быстрый прямой путь материализации в дереве — `services/iam/internal/apps/kacho/api/access_binding/reconcile/forward.go` вместе с пробами на то, что готовность операции им **не гейтится**. Оба свойства (разделяемая блокировка вместо исключительной; различение создания и правки) с тех пор внесены в `testing.md` как норма параллельного прогона.
 
 > [!note] Decision A (owner-delegated 2026-07-23)
 > Owner делегировал выбор с вектором «максимально перспективно (best-practices 2026)

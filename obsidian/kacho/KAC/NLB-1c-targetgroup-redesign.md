@@ -1,12 +1,19 @@
 ---
 tags: [kac, kacho-nlb, redesign, targetgroup]
-status: in-progress
+status: done
 type: sub-phase
 ---
 
 # NLB-1c — TargetGroup HealthCheck redesign
 
-**Status:** in-progress (F6 landed + tested + committed on `redesign/integration`; F7-inline N/A on integration; NLB-1d newman migrated)
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Группа целей и её проверка здоровья в дереве: отдельный `health_check.proto`, у типа проверки четыре ветви взаимоисключающего выбора — то самое, ради чего заводилась подфаза.
+
+**Status**: done · было при заведении: F6 landed + tested + committed on `redesign/integration`; F7-inline N/A on integration; NLB-1d newman migrated
 **Type:** sub-phase (carve of KAC-NLB-1, redesign of `kacho-nlb`)
 **Repo:** `project/kacho` (monorepo `github.com/PRO-Robotech/kacho`), `services/nlb`
 **Branch:** `redesign/integration`

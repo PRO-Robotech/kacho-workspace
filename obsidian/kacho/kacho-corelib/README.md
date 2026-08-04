@@ -1,72 +1,84 @@
 ---
-title: kacho-corelib
+title: kacho-corelib (сегодня — каталог pkg/ монорепо)
 aliases:
   - kacho-corelib
 category: repo
 repo: kacho-corelib
-go_module: github.com/PRO-Robotech/kacho-corelib
 service_type: shared-library
-status: stable
+status: legacy
 tags:
   - kacho
   - kacho-corelib
   - shared
   - go
+  - legacy
 ---
 
-# kacho-corelib
+# kacho-corelib — сегодня это `pkg/` в монорепо
 
-Общая Go-библиотека Kachō — переиспользуемые **горизонтальные** компоненты (cross-cutting concerns).
+> [!warning] Предмет записки — отдельный репозиторий — существует, но разработка в нём не ведётся
+> Общий фундамент живёт в **`pkg/`** монорепо `PRO-Robotech/kacho`. Записка сохранена как
+> точка перехода для входящих ссылок (их 3); описанием сегодняшнего дня она не является —
+> состав пакетов читается из дерева.
 
-- Repo: `github.com/PRO-Robotech/kacho-corelib`
-- Import: `github.com/PRO-Robotech/kacho-corelib/<pkg>`
+## Где это сегодня
 
-## Пакеты (15)
-
-| Package | Назначение |
+| Тогда | Сегодня |
 |---|---|
-| **`backoff/`** | Exponential backoff helpers для retry-loops. |
-| **`baggage/`** | `Extract(ctx)` через `context.WithoutCancel` — propagation trace/request-id/slog-attrs в operation worker (closes skill evgeniy I.3). |
-| **`config/`** | Базовые config-helpers (DSN-парсеры, secret loading). |
-| **`db/`** | pgxpool wrapper + `Transactor` для unit-of-work. |
-| **`errors/`** | Sentinel errors + gRPC-status mapping helpers. |
-| **`filter/`** | YC-syntax `name="value"` filter-parser с whitelist полей (`Parse`, `ToSQL`). |
-| **`grpcsrv/`** | gRPC server bootstrap (interceptors, listener, shutdown). |
-| **`ids/`** | `NewID(prefix)` — crockford-base32 + 3-char prefix. Источник истины для prefix-routing api-gateway. |
-| **`observability/`** | structured logging (slog) + OTel boilerplate. |
-| **`operations/`** | LRO support: `Operation` struct, `Run(ctx, repo, opID, fn)` worker с baggage propagation, repo для `operations` таблицы. |
-| **`outbox/`** | Transactional outbox helpers (emit-в-той-же-TX + LISTEN/NOTIFY consumer). |
-| **`retry/`** | gRPC retry-on-Unavailable helpers. |
-| **`selector/`** | Label-selector parser (k8s-style). |
-| **`shutdown/`** | Graceful-shutdown helpers (signal handling, drain). |
-| **`validate/`** | YC-стилистические validators: `NameVPC`, `NameGateway`, `Description`, `Labels`, `ResourceID`, `UpdateMask`, `ZoneId`, `PageSize`, `IPAddress`, `DhcpDomainName`, `DdosProvider`, `SmtpCapability`. |
-| **`migrations/common/`** | Общие goose-миграции (`operations`, `operations_sequence`). Sync через `make sync-migrations` в каждое сервисное репо. |
+| репозиторий `github.com/PRO-Robotech/kacho-corelib` | каталог `pkg/` монорепо |
+| import `…/kacho-corelib/<pkg>` | import `github.com/PRO-Robotech/kacho/pkg/<pkg>` |
+| отдельный модуль, бамп пина на каждый релиз | один `go.mod`, порядок = порядок импортов |
+| `make sync-migrations` — копия общих миграций в каждое сервисное репо | `pkg/migrations/common/` читается напрямую, копий нет |
 
-## Принцип переиспользования
+## Состав `pkg/` — замер `kacho@96b2879a`, единица счёта: каталог первого уровня (22)
 
-> [!quote] workspace CLAUDE.md
-> «Всё, что может быть вынесено в общий компонент для переиспользования в нескольких сервисах — выносится в `kacho-corelib/<package>/`.»
+`api` (сгенерённые стабы — **руками не править**) · `auth` · `authz` · `backoff` ·
+`baggage` · `config` · `db` · `dbready` · `errors` · `filter` · `grpcclient` · `grpcsrv` ·
+`ids` · `internal` · `migrations` · `observability` · `operations` · `outbox` · `retry` ·
+`safeconv` · `shutdown` · `validate`.
 
-**Исключения** (НЕ в corelib):
-- Бизнес-логика конкретного домена (VPC ref-validation, NLB target-deregister, Compute reconciler).
-- Audit-log skeleton (`audit/`) — no-op в текущей фазе.
+Что изменилось против прежней таблицы «Пакеты (15)»:
 
-## Зависимости
+- **появились** и в ней не значились: `api` (дом сгенерённых стабов — прежде отдельный
+  репозиторий), `auth`, `authz` (per-RPC Check и list-фильтрация), `grpcclient`
+  (единый builder peer-клиентов), `dbready`, `safeconv`, `internal`;
+- **исчезли**: `selector/` (label-selector парсер) и `audit/` — в дереве их нет. Про
+  `audit/` прежняя редакция писала «no-op в текущей фазе»: фаза кончилась удалением,
+  и запись про исключение пережила свой предмет;
+- **`validate/`** живёт и экспортирует `Name`, `NameVPC`, `NameCompute`, `NameGateway`,
+  `Description`, `Labels`, `ResourceID`, `UpdateMask`, `ZoneId`, `PageSize`, `IPAddress`,
+  `DhcpDomainName`, `DdosProvider`, `SmtpCapability` — прежний перечень сошёлся, кроме
+  добавившегося `Name`/`NameCompute`. Определение «стилистические валидаторы чужого
+  облака» снято: это **собственные** конвенции Kachō (запрет #2), и описывать их через
+  чужой продукт значит воспроизводить ровно то, что запрещено;
+- **`filter/`** — парсер `name="value"` с whitelist полей; та же правка формулировки;
+- **`ids/`** — `NewID(prefix)`; **prefix уже не всегда 3 символа**: действующий канон —
+  дефисная форма `<prefix>-<crockford-base32>` для новых ресурсов, слитная 3-символьная
+  остаётся валидной для legacy. Единый источник — `ids.KnownHyphenPrefixes()`. Прежняя
+  формулировка «3-char prefix» описывала половину действительности.
 
-- **Внутрь**: `kacho-proto` (импортирует `Operation`-message из `kacho.cloud.operation.v1`).
-- **Из вне**: импортируется всеми сервисами:
-  - [[../kacho-vpc/README|kacho-vpc]] — `ids`, `operations`, `db`, `validate`, `filter`, `outbox`, `baggage`, `grpcsrv`.
-  - `kacho-iam` — `ids`, `operations`, `db`, `validate`, `grpcsrv` (заменил `kacho-resource-manager`, удалённый в KAC-124).
-  - [[../kacho-api-gateway/README|kacho-api-gateway]] — `grpcsrv`, `observability`.
-  - kacho-compute, kacho-loadbalancer — аналогично.
+Действующий канон переиспользования — `.claude/rules/architecture.md` §«Переиспользование»;
+здесь он не дублируется, чтобы два места об одном предмете не разошлись.
 
-## Связь с corlib (H-BF)
+## Связь с `corlib` (H-BF) — по-прежнему живая
 
-Skill evgeniy ссылается на **внешнюю** библиотеку `github.com/H-BF/corlib` (newtypes, option, parallel, grpc client-builder, dict). Это **другой** пакет — не путать с `kacho-corelib`.
+`github.com/H-BF/corlib` — **внешняя** библиотека, не путать с `pkg/`. Проверено на
+`kacho@96b2879a`: пин `v1.2.31-dev` в `go.mod`, 36 Go-файлов дерева её импортируют.
 
-- `H-BF/corlib/pkg/dict.HDict[K,V]` — для `RcLabels` в domain.
-- `H-BF/corlib/pkg/option.ValueOf[T]` — для optional newtypes.
-- `H-BF/corlib/pkg/parallel.ExecAbstract` — для cmd/vpc serve+migrate-runner (KAC-94 K.4/K.5).
-- `H-BF/corlib/client/grpc` — единый builder gRPC-клиентов с retries/LB/TLS (KAC-94 K.6).
+- `H-BF/corlib/pkg/dict.HDict[K,V]` — для `RcLabels` в domain;
+- `H-BF/corlib/pkg/option.ValueOf[T]` — для optional newtypes;
+- `H-BF/corlib/pkg/parallel.ExecAbstract` — для composition root (serve + migrate-runner);
+- `H-BF/corlib/client/grpc` — builder gRPC-клиентов с retries/LB/TLS.
 
-#kacho #kacho-corelib #shared #go
+Скил `evgeniy` ссылается на неё как на часть канонического Go-стиля.
+
+Соседний `packages.md` **удалён**: входящих ссылок ноль, перечень пакетов расходился с
+деревом, а per-package записки живут в категории `packages/` (127 файлов) — это её предмет.
+
+## См. также
+
+- [[../README|vault hub]] · [[../architecture|архитектура]]
+- `.claude/rules/architecture.md` — слои, dependency rule, переиспользование
+- `.claude/rules/polyrepo.md` — раскладка монорепо
+
+#kacho #kacho-corelib #shared #go #legacy

@@ -1,7 +1,7 @@
 ---
 title: "[EPIC] SEC — mTLS + IAM-fronted authz + least-privilege identities"
 ticket_id: EPIC-SEC
-status: in-progress
+status: done
 type: epic
 repos:
   - kacho-proto
@@ -24,6 +24,13 @@ tags:
 ---
 
 # [EPIC] SEC — mTLS + IAM-fronted authz + least-privilege identities
+
+> [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
+> Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
+> Прежний статус — `in-progress`; он пережил свой предмет и держался на списке
+> пунктов, часть которых больше не существует как единица работы.
+>
+> **done.** Все шесть подфаз доехали: контракт посредника к хранилищу прав (`RegisterResource`/`UnregisterResource`) в proto; mTLS и извлечение личности из сертификата — в общем фундаменте и провязаны во всех сервисах; прямой доступ к хранилищу прав из модулей снят в пользу очереди намерений; край ходит в бэкенды по mTLS; чарты несут внутренний удостоверяющий центр и по паре сертификатов на сервис. Требование «модули не ходят в хранилище прав напрямую» держится сегодня как норма.
 
 > YouTrack-номер присвоить (MCP youtrack). Пока trail-ID `EPIC-SEC`.
 
