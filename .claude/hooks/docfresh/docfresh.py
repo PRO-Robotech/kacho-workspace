@@ -31,9 +31,18 @@ authz») предмета для резолва не имеет и состав�
 покрывает только пакеты двух репозиториев, поэтому `time.Sleep` и `pgx.ErrNoRows`
 попали бы в «не резолвится».
 
-Код возврата: 0 — сказать нечего (перепись на stdout); 2 — есть что сказать
-(stderr доезжает до автора). Запись не блокируется ни в одном случае; на `Stop`
-код всегда 0 — блокировать конец хода хук не вправе.
+Код возврата: 0 — сказать нечего; 2 — есть что сказать (`PostToolUse`) либо хук
+сломан (любое событие). Запись не блокируется ни в одном случае; на `Stop` код
+всегда 0 — блокировать конец хода хук не вправе.
+
+КАНАЛ ЗАВИСИТ ОТ ИСХОДА, а не только от события. `additionalContext` поднимает
+агента заново, поэтому им отдаётся ТОЛЬКО находка. Перепись «сказать нечего» на
+`PostToolUse` идёт плоским текстом в stdout, а на `Stop` — в stderr и в журнал
+`.state/census.log`: отданная каналом впрыска, она замыкала бы петлю «ход →
+впрыск → ход», и конец хода не наступал бы вовсе. Перепись при этом не
+отменяется ни на одном пути — «ноль находок» обязано быть отличимо от «ноль
+прочитанного» (`testing.md` §«Гейт на класс», п. 3); сменён адресат, а не
+утверждение.
 """
 
 from __future__ import annotations
@@ -61,6 +70,9 @@ GIT_TIMEOUT_S = 30
 # ни разу за столько прогонов, обязан сказать это сам: молчание должно быть
 # подозрительным, а не успокаивающим.
 SILENT_LIFETIME_ALARM = 300
+# Сколько строк переписи держать в журнале. Журнал — наблюдаемость, а не архив:
+# он пишется на КАЖДОМ конце хода, поэтому расти без предела не вправе.
+CENSUS_LOG_KEEP = 500
 # Совет длиной в аудит не читают. Сверх этого числа документов отчёт называет
 # остаток числом и командой полного обхода, а не печатает его целиком.
 MAX_DOCS_SHOWN = 8
@@ -1310,6 +1322,33 @@ def journal_read_and_clear() -> list[str]:
     return sorted(set(out))
 
 
+def census_append(line: str) -> bool:
+    """Перепись конца хода уезжает в ПОСТОЯННЫЙ журнал, а не в контекст агента.
+
+    `additionalContext` — канал, который поднимает агента заново. Перепись,
+    отданная им на КАЖДОМ конце хода, замыкает петлю «ход → впрыск → ход»:
+    наблюдалось семь ходов подряд с одинаковым текстом и «за ход затронуто 0».
+    Отменить перепись при этом нельзя — «ноль находок» обязано быть отличимо от
+    «ноль прочитанного» (`testing.md` §«Гейт на класс», п. 3). Поэтому сменён
+    КАНАЛ, а не снято утверждение: stderr виден при прямом прогоне, журнал
+    переживает ход и делает объём осмотренного проверяемым после факта.
+
+    Возвращает False, если записать не удалось. «Журнал не пишется» — само по
+    себе состояние, о котором обязано быть слышно: иначе наблюдаемость держится
+    на одном stderr, который при коде 0 может не показываться вовсе.
+    """
+    try:
+        STATE.mkdir(parents=True, exist_ok=True)
+        p = _state_file("census.log")
+        prev = ([x for x in p.read_text(encoding="utf-8").split("\n") if x.strip()]
+                if p.is_file() else [])
+        prev.append(time.strftime("%Y-%m-%dT%H:%M:%S") + " " + line)
+        p.write_text("\n".join(prev[-CENSUS_LOG_KEEP:]) + "\n", encoding="utf-8")
+        return True
+    except OSError:
+        return False
+
+
 def bump_stats(fired: bool) -> dict:
     p = _state_file("stats.json")
     st = {"runs": 0, "fired": 0}
@@ -1478,11 +1517,19 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
                      f"появилось в дереве {carried['tree']}, живёт в стволе "
                      f"{carried['trunk']}, послаблением {carried['allow']})")
         parts.append(line)
+    if stats.get("runs", 0) >= SILENT_LIFETIME_ALARM and stats.get("fired", 0) == 0:
+        # Самотревога живёт ЗДЕСЬ, а не в отчёте о находках, потому что там её
+        # условие недостижимо by construction: отчёт печатается только когда
+        # находка есть, а счётчик срабатываний увеличивается раньше — значит на
+        # входе в отчёт `fired` уже ≥ 1. Гейт, не сработавший ни разу, обязан
+        # сказать это на том пути, по которому он и молчит, — на переписи.
+        parts.append(f"ВНИМАНИЕ: прогнан {stats['runs']} раз и не сработал НИ РАЗУ — "
+                     f"проверь предикаты инъекцией (prove.sh), молчание подозрительно")
     return "docfresh: " + " · ".join(parts)
 
 
 def render(findings: list[tuple[str, str, str]], stales: list[dict],
-           refusals: list[tuple[str, str]], census: str, stats: dict) -> str:
+           refusals: list[tuple[str, str]], census: str) -> str:
     KIND = {"path": "путь", "rest": "маршрут", "env": "переменная",
             "make": "цель make", "rpc": "метод"}
     out = ["╔══ docfresh ═════════════════════════════════════════════════════"]
@@ -1508,10 +1555,11 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
         out.append("║ Резолв доказывает существование ИМЕНИ, не истинность абзаца вокруг.")
     for kind, why in refusals:
         out.append(f"║ предикат `{kind}` НЕ прогонялся: {why}")
+    # Самотревога «не сработал ни разу» здесь НЕ повторяется: она встроена в
+    # саму перепись (`census_line`), потому что в отчёте о находках её условие
+    # недостижимо — отчёт печатается только тогда, когда срабатывание УЖЕ
+    # засчитано. Дубль означал бы две строки об одном предмете.
     out.append("║ " + census)
-    if stats.get("runs", 0) >= SILENT_LIFETIME_ALARM and stats.get("fired", 0) == 0:
-        out.append(f"║ ВНИМАНИЕ: прогнан {stats['runs']} раз и не сработал НИ РАЗУ — "
-                   f"проверь предикаты инъекцией (prove.sh), молчание подозрительно.")
     out.append("╚═════════════════════════════════════════════════════════════════")
     return "\n".join(out)
 
@@ -1638,7 +1686,7 @@ def sweep() -> int:
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, {})
     if findings or stales:
-        sys.stdout.write(render(findings, stales, refusals, census, {}) + "\n")
+        sys.stdout.write(render(findings, stales, refusals, census) + "\n")
         sys.stdout.write(f"[CENSUS] документов с расхождением "
                          f"{len({d for d, _, _ in findings})}, расхождений {len(findings)}\n")
         return 1
@@ -1751,7 +1799,7 @@ def main() -> int:
     census = census_line(idx, truth, cnt, warm, ms, stats, carried)
 
     if findings or stales:
-        sys.stderr.write(render(findings, stales, refusals, census, stats) + "\n")
+        sys.stderr.write(render(findings, stales, refusals, census) + "\n")
         return 2
     sys.stdout.write(census + "\n")
     return 0
@@ -1895,15 +1943,32 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
     except OSError:
         pass
 
-    text = render(findings, stales, refusals, census, stats) if (findings or stales) else census
     # На `Stop` код всегда 0: код 2 не даёт ходу закончиться, то есть мешает работе.
-    # Канал — additionalContext (не-ошибочная обратная связь). Текст дублируется в
-    # stderr, чтобы находка не пропала, если канал не поддержан этой версией.
+    # Собственная поломка хука сюда не доходит — отказы предпосылок выходят кодом 2
+    # выше по `main`, и это остаётся громким.
+    #
+    # КАНАЛ РАЗНЫЙ ПО ИСХОДУ, и это не косметика:
+    #   есть что сказать → `additionalContext` (агент обязан увидеть находку) плюс
+    #                      дубль в stderr, чтобы она не пропала, если канал не
+    #                      поддержан этой версией харнеса;
+    #   сказать нечего   → перепись в stderr И в журнал `.state/census.log`,
+    #                      stdout МОЛЧИТ.
+    # Причина второго: `additionalContext` поднимает агента заново, поэтому перепись,
+    # отданная им на КАЖДОМ конце хода, замыкает петлю «ход → впрыск → ход» — ход
+    # перестаёт заканчиваться вообще. Само утверждение при этом НЕ снимается: «ноль
+    # находок» обязано быть отличимо от «ноль прочитанного» (`testing.md` §«Гейт на
+    # класс», п. 3), поэтому перепись остаётся — сменён её адресат.
+    journaled = census_append(census)
     if findings or stales:
+        text = render(findings, stales, refusals, census)
         sys.stderr.write(text + "\n")
-    sys.stdout.write(json.dumps({
-        "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}
-    }, ensure_ascii=False) + "\n")
+        sys.stdout.write(json.dumps({
+            "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}
+        }, ensure_ascii=False) + "\n")
+        return 0
+    if not journaled:
+        census += " · ЖУРНАЛ ПЕРЕПИСИ НЕ ПИШЕТСЯ: каталог .state недоступен"
+    sys.stderr.write(census + "\n")
     return 0
 
 
