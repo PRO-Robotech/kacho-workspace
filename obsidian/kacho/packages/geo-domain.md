@@ -10,7 +10,7 @@ tags:
   - domain
   - geo
   - geography
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты записки (composition root, каталог миграций, раскладка модуля) сверены с деревом продукта 1653387b (2026-08-06); состав сущностей и инварианты построчно не пересматривались"
 ---
 
 # kacho-geo/internal/domain
@@ -33,9 +33,18 @@ Self-validating domain-entities leaf-сервиса Geography (вынесен и
 
 ## Layering
 
-Leaf-сервис: `go.mod` имеет **только** `replace ../kacho-corelib` + `replace ../kacho-proto`
-(НЕ зависит от iam/vpc/compute/nlb по build — как iam). Composition root — `cmd/geo/main.go`;
-миграции — `cmd/migrator`. Audit admin-мутаций — `geo_outbox` в writer-TX.
+Leaf-сервис: по build не зависит от iam/vpc/compute/nlb (как iam). Composition root —
+`services/geo/cmd/kacho-geo/main.go` — прежняя координата называла каталог бинаря коротким
+именем домена, которого в дереве нет: каталог назван по имени сервиса целиком (сам мёртвый
+адрес здесь не воспроизводится, иначе разбор снова читался бы как живое утверждение).
+Миграции — `services/geo/cmd/migrator/main.go`. Audit admin-мутаций — `geo_outbox` в writer-TX.
+
+> [!note] Подстановок модулей больше нет — предмета у прежней формулировки нет (1653387b, 2026-08-06)
+> Она описывала раскладку полирепо, где у geo был собственный модуль с подстановками на
+> соседние. Сегодня на всю платформу **один** Go-модуль
+> (`github.com/PRO-Robotech/kacho`), поэтому подстановок нет ни одной, и «зависит только
+> от двух соседей» выражается не файлом модуля, а графом импортов. Канон — `polyrepo.md`
+> §«Build-граф — ОДИН Go-модуль».
 
 ## See also
 

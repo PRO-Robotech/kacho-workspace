@@ -17,12 +17,16 @@ tags:
   - resource
   - kacho-nlb
   - target
-verified_against: "ствол redesign/integration, сверено 2026-08-05"
+verified_against: "координаты записки (файл контракта, таблица-владелец, глаголы состава) сверены с деревом продукта 1653387b (2026-08-06); поля ресурса построчно не пересматривались"
 ---
 
-> [!note] Сверка со стволом (2026-08-05)
-> `message Target` живёт **внутри** `proto/kacho/cloud/loadbalancer/v1/target_group.proto`
-> (отдельного `target.proto` нет), таблица `kacho_nlb.targets` жива. Состав меняется
+> [!note] Сверка с деревом продукта (1653387b, 2026-08-06)
+> `message Target` живёт **внутри** `proto/kacho/cloud/loadbalancer/v1/target_group.proto` —
+> отдельного файла контракта под этот ресурс нет, и его гипотетическое имя здесь не
+> приводится координатой: цитата несуществующего файла в обратных кавычках читается как
+> утверждение, что он есть. (Заодно: каталога proto с именем домена `nlb` тоже нет —
+> контракты балансировщика лежат под `proto/kacho/cloud/loadbalancer/v1/`.)
+> Таблица `kacho_nlb.targets` жива. Состав меняется
 > глаголами `TargetGroupService.AddTargets` / `RemoveTargets`, оба возвращают `Operation`.
 > Наблюдаемое состояние таргетов читается синхронно через
 > `NetworkLoadBalancerService.GetTargetStates` (`GET /nlb/v1/networkLoadBalancers/{id}/targetStates`).

@@ -10,7 +10,7 @@ tags:
   - mock
   - testing
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов каталога против перечня портов пакета-владельца; текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/repo/kacho/kachomock
@@ -24,7 +24,22 @@ Mock-реализации port-интерфейсов из [[vpc-repo-kacho]] �
 
 Per-entity mock structs:
 - `repository.go` — aggregator mock implementing full `Repository`.
-- `network.go`, `subnet.go`, `address.go`, `route_table.go`, `security_group.go`, `gateway.go`, `private_endpoint.go`, `network_interface.go`, `address_pool.go`, `address_pool_binding.go`, `cloud_pool_selector.go`.
+- `network.go`, `subnet.go`, `address.go`, `route_table.go`, `security_group.go`,
+  `gateway.go`, `network_interface.go`, `address_pool.go`, `address_pool_binding.go`.
+- `pagination.go` — общий помощник постраничного обхода для моков.
+
+Итого **одиннадцать** файлов: агрегатор + девять per-entity + помощник пагинации.
+
+> [!note] Двух моков из прежней редакции нет, потому что нет и портов под них
+> Записка перечисляла моки приватной конечной точки и выбора пула. Их нет — и не может
+> быть: мок реализует **порт**, а обоих портов в [[vpc-repo-kacho]] тоже нет (там же
+> разобрано, почему: одно снято миграцией вместе с таблицей, второго нет в дереве вовсе).
+> Снятые имена здесь не воспроизводятся в обратных кавычках, иначе разбор находки сам
+> стал бы её повторением.
+>
+> Полезное свойство этого пакета: он **не может** молча отстать от портов — мок, потерявший
+> свой интерфейс, не собирается. Отстала именно записка, и ровно потому, что перечисляла
+> набор по памяти, а не выводила его из каталога.
 
 ## Pattern
 

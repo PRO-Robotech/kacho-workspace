@@ -10,7 +10,7 @@ tags:
   - pg
   - postgres
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов реализации, имена и расположение четырёх гоночных integration-тестов; текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/repo/kacho/pg
@@ -32,21 +32,32 @@ pgxpool-реализация всех CQRS port-интерфейсов из [[vp
 | `route_table.go` | RouteTableReader/Writer |
 | `security_group.go` | SG + OCC (xmin) |
 | `gateway.go` | |
-| `private_endpoint.go` | |
-| `network_interface.go` | NIC + CAS (Attach/Detach) |
+| `network_interface.go` | NIC + CAS (`AttachToInstance` / `DetachFromInstance`) |
 | `address_pool.go` | AddressPool + freelist (`FOR UPDATE SKIP LOCKED`) |
-| `address_pool_binding.go` | network-default + address-override |
-| `cloud_pool_selector.go` | |
+| `address_pool_binding.go` | network-default |
+| `existence_probe.go` | проба существования строки без раскрытия содержимого |
+| `fga_reconcile_adapter.go` | адаптер реконсиляции owner-tuple |
 | `repository_slave_test.go` | read-replica routing smoke |
 | `<entity>_integration_test.go` | testcontainers — concurrent race scenarios для CAS/UNIQUE/EXCLUDE |
 
+Итого **двенадцать** файлов реализации. Пары под приватную конечную точку и под выбор
+пула здесь нет — предметы сняты, разбор не дублируется, он в [[vpc-repo-kacho]] (снятые
+имена там намеренно не цитируются координатой, и здесь тоже).
+
 ## Integration tests
 
-Каждый entity имеет integration_test.go (testcontainers Postgres). Critical race-tests находятся в `internal/repo/`:
-- `network_interface_attach_race_integration_test.go` — CAS attach (KAC-52).
-- `address_pool_freelist_integration_test.go` — concurrent allocate.
-- `address_repo_set_reference_race_integration_test.go` — used_by CAS.
-- `security_group_occ_integration_test.go` — xmin OCC.
+Каждый entity имеет свой `*_integration_test.go` (testcontainers Postgres). Четыре
+гоночных теста, и **лежат они в двух разных местах** — это стоит знать до поиска:
+
+- **в этом пакете**, `services/vpc/internal/repo/kacho/pg/network_interface_attach_integration_test.go`
+  — CAS привязки интерфейса (KAC-52): конкурентные горутины на общем барьере, не `time.Sleep`,
+  под `-race`; там же соседний `network_interface_attach_region_integration_test.go` про
+  региональную когерентность. **В имени нет слова про гонку** — прежняя редакция вставляла
+  его и потому не резолвилась;
+- **уровнем выше**, в `services/vpc/internal/repo/` — `address_pool_freelist_integration_test.go`
+  (конкурентная аллокация), `address_repo_set_reference_race_integration_test.go`
+  (CAS `used_by`), `security_group_occ_integration_test.go` (OCC по `xmin`). Для этих трёх
+  прежнее утверждение «лежат уровнем выше» **верно** — неверным было только четвёртое имя.
 
 ## See also
 

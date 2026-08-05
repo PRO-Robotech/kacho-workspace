@@ -19,7 +19,7 @@ tags:
   - operation
   - lro
   - async
-verified_against: "карта маршрутизации операций края сверена 2026-08-05 (gateway/internal/opsproxy)"
+verified_against: "карта маршрутизации операций края сверена 2026-08-05 (gateway/internal/opsproxy); координата общей миграции `account_id` пересверена с деревом продукта 1653387b (2026-08-06); пер-сервисные номера миграций построчно не пересматривались"
 ---
 
 # Operation (LRO envelope)
@@ -81,7 +81,8 @@ E0 stub: `('system', 'bootstrap', 'kacho-iam-bootstrap')`. E2+ заполняе�
 реальным subject из JWT через [[../packages/corelib-operations]]
 `PrincipalFromContext(ctx)` + `Repo.CreateWithPrincipal`.
 
-**`account_id`-колонка** (sub-phase 1.2, corelib `migrations/common/0003`) —
+**`account_id`-колонка** (sub-phase 1.2, общая миграция фундамента
+`pkg/migrations/common/0003_operations_account_id.sql`) —
 денормализация для account-scoped / cluster-wide operations-фидов IAM. Т.к.
 каждый сервис **владеет своей копией** `operations`-DDL и НЕ применяет
 corelib `migrations/common` автоматически, колонка добавляется per-service:

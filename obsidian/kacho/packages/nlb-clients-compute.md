@@ -10,7 +10,7 @@ tags:
   - cross-service
   - compute
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов каталога и отсутствие кэша в клиентах nlb; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/clients/compute
@@ -22,9 +22,15 @@ verified_against: "каталог пакета есть в дереве прод
 Typed peer-service gRPC client adapters для kacho-compute.
 
 > [!note] Region-валидация ушла в geo (эпик #82)
-> `region_client.go`/`region_cache.go` удалены — region-валидация теперь `nlb → geo` через
-> `internal/clients/geo/region_client.go` (без кэша). См. [[../edges/nlb-to-geo-region-validate]].
-> Этот пакет остаётся **только** для Instance-таргет-resolve ([[../edges/nlb-to-compute-instance-resolve]]).
+> Пары файлов под резолв региона и его кэш в этом каталоге больше нет — region-валидация
+> теперь ребро `nlb → geo` через `services/nlb/internal/clients/geo/region_client.go`
+> (без кэша). См. [[../edges/nlb-to-geo-region-validate]]. Этот пакет остаётся **только**
+> для Instance-таргет-resolve ([[../edges/nlb-to-compute-instance-resolve]]).
+>
+> Снятые имена здесь намеренно не воспроизводятся в обратных кавычках: цитата мёртвого
+> адреса читается как живое утверждение о дереве, и разбор собственной находки сам стал
+> бы её повторением. Одно из двух имён при этом «резолвилось» бы — но **у соседа**, в
+> geo-клиенте, то есть проверка молчала бы на верной строке по неверной причине.
 
 ## Files
 

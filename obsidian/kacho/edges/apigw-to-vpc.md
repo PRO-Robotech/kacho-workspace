@@ -13,7 +13,7 @@ tags:
   - cross-service
   - kacho-apigw
   - kacho-vpc
-verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
+verified_against: "координаты записки (файлы маршрутизации, REST-маршруты обоих listener'ов) сверены с деревом продукта 1653387b (2026-08-06); контракт форварда личности построчно не пересматривался"
 ---
 
 # api-gateway → vpc (proxy + REST routing)
@@ -34,9 +34,11 @@ verified_against: "отметка сверки с деревом продукт�
 | `GatewayService` | `RegisterGatewayServiceHandlerFromEndpoint` | `/vpc/v1/gateways` |
 | `NetworkInterfaceService` | `RegisterNetworkInterfaceServiceHandlerFromEndpoint` | `/vpc/v1/networkInterfaces` |
 
-> [!note] Снята строка `PrivateEndpointService` → `/vpc/v1/endpoints` (сверено 2026-08-05)
+> [!note] Снята строка `PrivateEndpointService` и её маршрут (сверено 1653387b, 2026-08-06)
 > Ресурса нет во всём монорепо (`git grep -il private_endpoint` → 0): ни proto, ни типа в
-> модели прав, ни маршрута. Строка в таблице регистраций читается как «этот маршрут работает».
+> модели прав, ни маршрута. Строка в таблице регистраций читается как «этот маршрут
+> работает», поэтому и сам адрес здесь не воспроизводится координатой — цитата мёртвого
+> маршрута в обратных кавычках остаётся живым утверждением о дереве.
 
 (Backend addr `vpcAddr` = `vpc.kacho.svc.cluster.local:9090` — см. `mux.go` `addrs[]`.)
 
@@ -47,13 +49,16 @@ verified_against: "отметка сверки с деревом продукт�
 - `InternalAddressPoolService` — `/vpc/v1/addressPools*` + `/vpc/v1/networks/{id}/addressPoolBinding`
 - `InternalNetworkService` — internal Network admin
 
-(`InternalCloudService` + `/vpc/v1/clouds/{id}/poolSelector` удалены в [[../KAC/KAC-266]].)
+(`InternalCloudService` вместе со своим маршрутом выбора пула удалён в [[../KAC/KAC-266]];
+сам адрес здесь не воспроизводится — цитата снятого маршрута координатой читается как
+утверждение, что он есть.)
 
 Выбор порта (внутренний `vpcInternalAddr` против публичного `vpcAddr`) делает шлюз при
-регистрации маршрутов; отдельного файла-директора в дереве нет — прежняя координата
-`internal/proxy/director.go` не резолвится (маршрутизация живёт в
-`gateway/internal/restmux/{mux.go,internal_routes.go}` и `gateway/internal/proxy/shimproxy.go`;
-отказ внешнему origin'у — в `gateway/internal/proxy/route_refusal.go`).
+регистрации маршрутов. Отдельного файла-«директора» в дереве нет: прежняя координата под
+слоем прокси не резолвится и потому здесь не цитируется. Маршрутизация живёт в
+`gateway/internal/restmux/mux.go` и `gateway/internal/restmux/internal_routes.go`,
+проксирование — в `gateway/internal/proxy/shimproxy.go`, отказ внешнему origin'у — в
+`gateway/internal/proxy/route_refusal.go`.
 
 ## Identity forwarding (production auth contract)
 

@@ -16,7 +16,7 @@ tags:
   - rpc
   - kacho-vpc
   - ni
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); координата пробы CAS-гонки пересверена с деревом продукта 1653387b (2026-08-06); поля запросов и семантика построчно не пересматривались"
 status: stable
 ---
 
@@ -58,7 +58,12 @@ NIC — first-class ресурс (AWS-ENI-стиль, **расходимся** �
 > `materializeNICs` удалён, см. [[../edges/compute-to-vpc-nic-validate]]). NIC остаётся
 > first-class CRUD-ресурсом. CAS-история ниже — archeology.
 
-См. `internal/repo/network_interface_attach_race_integration_test.go` (KAC-52). Старый софт-`if used_by_id != ""` был race-prone — заменялся на single-statement CAS:
+См. `services/vpc/internal/repo/kacho/pg/network_interface_attach_integration_test.go`
+(KAC-52) — гонку CAS держат `TestNICAttach_InUse_Concurrent` и
+`TestNICAttach_AutoIndex_Concurrent`. Прежняя координата называла файл со словом «race» в
+имени под плоским слоем репозитория; ни такого имени, ни такой раскладки в дереве нет —
+пробы лежат в pg-подпакете и слова «race» в имени не несут. Старый софт-`if used_by_id != ""`
+был race-prone — заменялся на single-statement CAS:
 ```sql
 UPDATE network_interfaces SET used_by_id = $new
  WHERE id = $id AND (used_by_id = '' OR used_by_id = $new)

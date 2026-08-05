@@ -16,7 +16,7 @@ tags:
   - kacho-vpc
   - internal
   - ipam
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); координата логики аллокации пересверена с деревом продукта 1653387b (2026-08-06); поля запросов и семантика построчно не пересматривались"
 status: stable
 ---
 
@@ -26,7 +26,11 @@ status: stable
 **Backend**: `kacho-vpc:9091` (internal-port)
 **Public/Internal**: **cluster-internal-only** (не на TLS edge, см. CLAUDE.md «Запреты» #6)
 
-IPAM allocate-API для **эфемерных** адресов + reference-management. Сама логика аллокации IP — **in-process в kacho-vpc** (request-path, `internal/service/address.go`; нет отдельного data-plane/IPAM-сервиса). Этот gRPC `InternalAddressService`-endpoint — лишь cluster-internal-фасад над той же in-process логикой, **потребляется compute** (NIC primary IP, см. [[../edges/compute-to-vpc-nic-validate]]), NLB (target-binding), api-gateway-restmux только на internal-listener.
+IPAM allocate-API для **эфемерных** адресов + reference-management. Сама логика аллокации IP — **in-process в kacho-vpc** (request-path,
+`services/vpc/internal/apps/kacho/api/address/allocate.go` +
+`services/vpc/internal/apps/kacho/api/address/alloc_shared.go`; нет отдельного
+data-plane/IPAM-сервиса). Прежняя координата называла файл под плоским слоем сервисов —
+такой раскладки у vpc нет: use-case'ы лежат по ресурсу под `apps/kacho/api/`. Этот gRPC `InternalAddressService`-endpoint — лишь cluster-internal-фасад над той же in-process логикой, **потребляется compute** (NIC primary IP, см. [[../edges/compute-to-vpc-nic-validate]]), NLB (target-binding), api-gateway-restmux только на internal-listener.
 
 ## Methods
 

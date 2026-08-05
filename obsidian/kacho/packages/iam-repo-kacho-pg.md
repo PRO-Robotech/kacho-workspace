@@ -17,7 +17,7 @@ tags:
   - packages
   - kacho-iam
   - repo
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "перечень файлов пакета сверен с деревом продукта 1653387b (2026-08-06) переписью non-test файлов каталога; DB-инварианты и CAS-разделы построчно не пересматривались"
 ---
 
 # iam `internal/repo/kacho/pg`
@@ -39,24 +39,54 @@ CQRS Repository / Reader / Writer adapter — реализация port-инте
 - `service_account_repo.go` + `service_account_integration_test.go`
 - `group_repo.go` + `group_integration_test.go`
 - `role_repo.go` + `role_integration_test.go`
-- `access_binding_repo.go` + `access_binding_integration_test.go`
-- `operations_repo.go`
+- `access_binding_repo.go` + `access_binding_integration_test.go` — сюда же переехал
+  emit в очередь FGA: `INSERT INTO kacho_iam.fga_outbox` идёт прямо из writer-TX этого
+  файла (см. [[iam-pg-fga-outbox]])
 
-### KAC-127 Phase 1 (4 new repo files + integration tests)
-- **`kac127_repos.go`** — Cluster + Organization + ClusterAdminGrant + ClusterBreakGlassGrant + AccessBindingCondition + JITEligibility repos (migration 0011-0012 tables).
-- **`kac127_federation_repos.go`** — FederationTrustPolicy + ServiceAccountOAuthClient repos (migration 0012).
-- **`kac127_audit_caep_repos.go`** — AuditOutboxEntry + AuditSigningBatch + CAEPSubscriber + CAEPOutboxEntry + SessionRevocation repos (migration 0013).
-- **`kac127_scim_gdpr_reviews_repos.go`** — SCIMUserMapping + GDPRErasureRequest + AccessReview + AccessReviewItem + OIDCJwksKey repos (migration 0014).
-- **`kac127_repos_integration_test.go`** — concurrent CAS + partial UNIQUE race tests.
-- **`migrations_kac127_integration_test.go`** — verifies migrations 0011-0014 apply cleanly + idempotent re-apply.
+### Что стало с блоком «KAC-127 Phase 1» — шести файлов нет, предмет разошёлся (1653387b, 2026-08-06)
+
+Перепись `git ls-files` по каталогу даёт **ноль** файлов с прежним префиксом имени, и
+поиск этого префикса по всему дереву тоже даёт ноль. Мёртвые имена здесь не
+воспроизводятся координатой — цитата в обратных кавычках читается как живое утверждение
+о дереве. Куда разошёлся предмет:
+
+- **Cluster + ClusterAdminGrant** — живы: `iam_core_repos.go` (синглтон Cluster +
+  общий сканер строки гранта), `cluster_reader.go`, `cluster_admin_grant_reader.go`,
+  `cluster_admin_grant_writer.go`.
+- **ServiceAccountOAuthClient** — жив: `iam_extension_repos.go`. Шапка этого файла сама
+  фиксирует убыль соседей: репозиториев федерации, пригодности к JIT и условия привязки
+  «больше не существует».
+- **AuditOutbox + SessionRevocation** — живы: `audit_session_revocation_repos.go`.
+- **Organization · FederationTrustPolicy · JITEligibility · AccessBindingCondition ·
+  BreakGlass · CAEP · SCIM · GDPRErasure · AccessReview · OIDCJwksKey** — сняты
+  вместе со своими таблицами, каждый своей миграцией:
+  `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql`,
+  `0007_drop_caep_pipeline.sql`, `0008_drop_organizations.sql`,
+  `0013_drop_jit_breakglass_condition_whitelist.sql`,
+  `0065_drop_oidc_jwks_keys.sql`.
+- **Операции (LRO)** — отдельного репозитория операций у iam нет: общая таблица и её
+  репозиторий живут в фундаменте (`pkg/operations/repo.go`,
+  `pkg/migrations/common/0001_operations.sql`); iam-специфика — надстройки
+  `ops_response_redactor.go` / `ops_secret_sweeper.go`.
+- **Заглушки нереализованных методов** — предмета нет: сентинела «не реализовано» в
+  слое репозитория iam не осталось ни одного вхождения.
+
+> [!warning] Номера миграций 0011-0014 в прежней редакции указывали не туда
+> Она привязывала эти файлы к «таблицам миграций 0011-0014». Сегодня под этими номерами
+> в iam стоит совсем другое: `0011_users_drop_global_email_uniqueness.sql`,
+> `0012_user_token_revocations.sql`, `0013_drop_jit_breakglass_condition_whitelist.sql`,
+> `0014_reader_sa_system_viewer.sql`. Номер миграции — не устойчивая ссылка на предмет:
+> нумерация продолжается, а прежние DDL могут быть сняты более поздней миграцией.
 
 ### Helpers
 - `repository.go` — Repository struct + constructor.
 - `tx.go` — Writer-TX wrapper (`Repository.RunInTx(ctx, func(WriterCtx) error)`).
 - `helpers.go` — shared dto-mapping utilities.
 - `maperr.go` — SQLSTATE → sentinel mapping (23503 → FailedPrecondition, 23505 → AlreadyExists/FailedPrecondition по контексту, 23514 → InvalidArgument, 23P01 → FailedPrecondition).
-- `stubs.go` — нереализованные методы (returns ErrNotImplemented).
 - `dto/` — DTO row-types (1:1 с DB columns).
+
+(Файла-заглушки с нереализованными методами в каталоге больше нет; сентинел «не
+реализовано» в слое репозитория iam не встречается ни разу — см. разбор выше.)
 
 ## DB-уровень enforcement (KAC-127 highlights)
 

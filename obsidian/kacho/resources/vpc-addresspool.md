@@ -11,7 +11,7 @@ owner_db: kacho_vpc
 project_level: false
 visibility: internal
 status: stable
-verified_against: "ствол redesign/integration, сверено 2026-08-05"
+verified_against: "координаты записки (файл контракта, таблицы-владельцы, миграции схемы) сверены с деревом продукта 1653387b (2026-08-06); поля ресурса построчно не пересматривались"
 related_rpc:
   - "[[rpc/vpc-internal-address-pool-service]]"
 related_packages:
@@ -32,8 +32,10 @@ tags:
 **Scope**: **не** project — админский ресурс уровня кластера/зоны
 **Видимость**: только `Internal*` (:9091), ban #6
 
-**Контракт**: `proto/kacho/cloud/vpc/v1/internal_address_pool_service.proto`
-(и сам `message AddressPool` живёт там же — отдельного `address_pool.proto` нет)
+**Контракт**: `proto/kacho/cloud/vpc/v1/internal_address_pool_service.proto` — и сам
+`message AddressPool` живёт там же; отдельного файла контракта под этот ресурс нет, и его
+гипотетическое имя здесь не приводится координатой (цитата несуществующего файла в
+обратных кавычках читается как утверждение, что он есть)
 **Схема**: `0001_initial.sql` + 0004 (`address_pool_cidrs`), 0011, 0023
 
 ## Поля (`message AddressPool`)

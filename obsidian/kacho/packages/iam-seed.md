@@ -16,7 +16,7 @@ tags:
   - packages
   - kacho-iam
   - bootstrap
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "состав каталога `embedded/` сверен с деревом продукта 1653387b (2026-08-06); поток bootstrap-админа и перечень permissions построчно не пересматривались"
 ---
 
 # iam `internal/apps/kacho/seed`
@@ -27,7 +27,23 @@ Startup-time bootstrap пакет: permissions registry + cluster admin seed. З
 
 - **`bootstrap_admin.go`** — startup-time bootstrap admin grant + fga_outbox enqueue.
 - **`permissions.go`** — generated permissions registry (`<module>.<resource>.<verb>` enumeration from proto annotations).
-- **`embedded/`** — embedded `permissions.json` + `system_roles.json` (Phase 1 inputs).
+- **`embedded/`** — ровно **один** отслеживаемый файл:
+  `services/iam/internal/apps/kacho/seed/embedded/permission_catalog.json`,
+  вшиваемый директивой `go:embed` из `permissions.go`. Это **генерируемый** каталог
+  прав, и у него есть вторая embedded-копия на крае
+  (`gateway/internal/middleware/embed/permission_catalog.json`); байт-идентичность
+  двух копий и их свежесть относительно proto стережёт цель `permission-catalog-check`
+  в `gateway/Makefile`.
+
+> [!note] Прежние два имени входов Phase 1 — координаты сняты (1653387b, 2026-08-06)
+> Ни одного из них в каталоге нет; здесь они намеренно не воспроизводятся в обратных
+> кавычках, иначе разбор снова читался бы как живое утверждение о дереве. Предмет
+> разошёлся по двум разным местам: перечень прав — это тот самый каталог выше (имя
+> другое), а **системные роли вообще не сеются из встроенного JSON** — их содержимое
+> задаётся и правится миграциями (`0031_reseed_system_roles_rules.sql`,
+> `0053_system_role_rule_selectors.sql`, `0057_storage_sa_least_priv.sql`,
+> `0060_storage_system_role_selectors.sql` и соседние), а backfill живёт в
+> `services/iam/internal/apps/kacho/seed/migrate_backfill.go`.
 
 ## Bootstrap admin flow (`bootstrap_admin.go`)
 

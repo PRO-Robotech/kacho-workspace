@@ -10,7 +10,7 @@ tags:
   - outbox
   - race-fix
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты записки (пути импортёров) сверены с деревом продукта 1653387b (2026-08-06); текст записки построчно не пересматривался"
 ---
 
 # `internal/repo/kacho/pg/fga_outbox`
@@ -46,10 +46,29 @@ fire-and-forget вне transaction-границы.
 
 ## Imported by
 
-- `internal/repo/kacho/pg/access_binding/writer.go` — Create/Delete emit
-- `internal/service/jit/jit_service.go` (или соотв. writer) — auto-grant, Approve, Expire emit
-- `internal/service/breakglass/bg_service.go` — ApproveB emit
-- own-resource writers (Account/Project/Group/SA/Role + bootstrap) — owner/hierarchy-tuple co-commit (sub-phase 1.4 S2)
+Перепись импортёров пакета по дереву 1653387b (non-test) даёт **три** файла, все —
+соседи по слою репозитория, а не отдельные сервисные пакеты:
+
+- `services/iam/internal/repo/kacho/pg/fga_outbox_emitter.go`
+- `services/iam/internal/repo/kacho/pg/reconcile_adapter.go`
+- `services/iam/internal/repo/kacho/pg/tx.go` — через writer-TX; отсюда emit достаётся
+  own-resource writer'ам (Account/Project/Group/SA/Role + bootstrap) для owner/hierarchy-tuple
+  co-commit (sub-phase 1.4 S2)
+
+AccessBinding Create/Delete кладут строку в очередь **сам**, плоским файлом
+`services/iam/internal/repo/kacho/pg/access_binding_repo.go` (прямой
+`INSERT INTO kacho_iam.fga_outbox` в writer-TX) — прежняя координата называла подкаталог
+`access_binding/` со своим writer'ом, а раскладка слоя плоская, подкаталогов там нет.
+
+> [!warning] Две строки прежних импортёров сняты — предмета нет ни в каком виде (1653387b, 2026-08-06)
+> Они называли сервисные пакеты JIT и break-glass. Оба механизма **удалены из продукта**
+> целиком, вместе со своей поверхностью: миграции
+> `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql` и
+> `services/iam/internal/migrations/0013_drop_jit_breakglass_condition_whitelist.sql`.
+> Сами снятые адреса здесь не воспроизводятся координатой: цитата мёртвого пути в
+> обратных кавычках читается как живое утверждение о дереве. Строки таблицы
+> «Текущее runtime-поведение» в [[../edges/iam-to-openfga-grant-write]], описывающие
+> emit из этих путей, — про тот же снятый предмет.
 
 ## Контракт идемпотентности
 

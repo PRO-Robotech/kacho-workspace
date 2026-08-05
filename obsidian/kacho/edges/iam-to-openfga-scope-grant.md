@@ -19,6 +19,7 @@ tags:
   - cross-service
   - rebac
   - done
+verified_against: "координаты записки (файл эмиссии, канонический .fga, цель регенерации) сверены с деревом продукта 1653387b (2026-08-06); состав отношений модели построчно не пересматривался — канон читать в proto"
 ---
 
 # iam → openfga: type-scoped `scope_grant` + per-verb (fix #177)
@@ -52,9 +53,12 @@ onto its own object type** within the scope.
 
 ## Emit (kacho-iam, `internal/apps/kacho/api/access_binding/tuples.go`)
 
-> [!note] Координата поправлена по дереву 2026-08-05
-> Файла `scope_grant_tuples.go` нет; эмиссия живёт в `tuples.go` того же каталога (рядом —
-> `scope_coordinate.go` и `role_tuple_reconciler.go`).
+> [!note] Координата поправлена по дереву (1653387b, 2026-08-06)
+> Отдельного файла под эмиссию scope-grant'ов нет; его прежнее имя здесь не
+> воспроизводится в обратных кавычках — цитата несуществующего файла читается как живое
+> утверждение о дереве и потому сама числится находкой хука свежести. Эмиссия живёт в
+> `tuples.go` того же каталога (рядом — `scope_coordinate.go` и
+> `role_tuple_reconciler.go`).
 
 `rulesBindingTuples(b, role)` dispatched from `buildBindingTuples` when `role.Rules`
 is non-empty (legacy permission-only roles keep the old path). Per rule, per arm:
@@ -79,12 +83,14 @@ ledger (`access_binding_emitted_tuples`) — no re-derive.
 
 ## Deploy
 
-FGA model must be **re-bootstrapped** (new model id) on deploy: цель `make openfga-model-json`
+FGA model must be **re-bootstrapped** (new model id) on deploy: цель `openfga-model-json`
 (она живёт в `deploy/Makefile` монорепо, а не в отдельном репозитории развёртывания)
-перегенерирует configmap из канонического `.fga`, и bootstrap-job перезаписывает модель.
-Отдельного отслеживаемого `model.json` в дереве нет — он **производится**, поэтому ссылаться
-на него как на файл нельзя (`git ls-files | grep -c model.json` → 0). Old anchor-tier relations stay valid in the
-rollback window (additive).
+перегенерирует configmap из канонического `proto/kacho/cloud/iam/v1/fga_model.fga`, и
+bootstrap-job перезаписывает модель. JSON модели — **производный** артефакт: отслеживаемого
+файла с этим именем в дереве нет (`git ls-files | grep -c model.json` → 0), поэтому и само
+имя здесь координатой не приводится — иначе строка, объясняющая «файла нет», сама читалась
+бы как утверждение, что он есть. Old anchor-tier relations stay valid in the rollback window
+(additive).
 
 ## See also
 

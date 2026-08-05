@@ -9,7 +9,7 @@ tags:
   - handler
   - internal
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов каталога и место, где реально лежат три названные прежде единицы; текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/handler
@@ -23,19 +23,30 @@ Internal admin handlers (внутренний listener 9091) + общие gRPC-s
 | File | Содержание |
 |---|---|
 | `internal_address_allocate_handler.go` | gRPC adapter для [[../rpc/vpc-internal-address-service]] (Allocate* RPCs) — пробрасывает в [[vpc-apps-kacho-services-addressref]] |
-| `internal_cloud_handler.go` | adapter для [[../rpc/vpc-internal-cloud-service]] |
 | `internal_network_handler.go` | adapter для [[../rpc/vpc-internal-network-service]] (SetDefaultSecurityGroupId) → [[vpc-apps-kacho-services-networkinternal]] |
-| `internal_watch_handler.go` | deprecated stub для [[../rpc/vpc-internal-watch-service]] (Watch выкинут с 1.0) |
+| `internal_network_interface_handler.go` | adapter внутренних RPC интерфейса |
 | `internal_maperr.go` | internal-side error mapping |
 | `operation_handler.go` | [[../rpc/operation-service]] adapter — `Get` / `Cancel` |
-| `operation_handler_test.go` | |
-| `address_handler_test.go` | |
-| `mapping.go` | common type-mapping helpers (proto ↔ domain) |
-| `handler_test.go` | |
-| `mock_test.go` | |
-| `tenant_interceptor.go` | gRPC unary-interceptor: extract tenant-context из metadata (auth-shim) |
-| `tenant_interceptor_test.go` | |
-| `SECURITY.md` | заметки про tenant isolation auditor |
+| `authn_interceptor.go` | gRPC unary-interceptor: извлечение личности вызывающего из метаданных, trust-aware |
+| `deadline_interceptor.go` | per-call deadline на входящих вызовах |
+| `recovery_interceptor.go` | recovery; наружу — фиксированный opaque-текст, без утечки внутренней ошибки |
+| `*_test.go` | `handler_test.go`, `mock_test.go`, тесты каждого интерсептора, `forged_system_principal_test.go`, `internal_listener_authorization_test.go` |
+| `SECURITY.md` | заметки про изоляцию арендаторов |
+
+> [!warning] Три единицы из прежней редакции здесь не лежат — и две из них вообще не vpc
+> - Адаптер внутреннего «облачного» сервиса **снят вместе со своим предметом**: RPC
+>   выбора пула убраны из proto и реализации, а обе их таблицы дропнуты миграцией
+>   `services/vpc/internal/migrations/0002_drop_override_and_cloud_pool_selector.sql`.
+>   Снятый адрес здесь намеренно не цитируется в обратных кавычках — цитата мёртвого
+>   имени читается как живое утверждение о дереве.
+> - Интерсептор арендатора и его тест, а также заглушка снятого стримингового RPC —
+>   **существуют, но в другом сервисе**: `services/compute/internal/handler/`. У vpc
+>   соответствующую роль играет `authn_interceptor.go`. Это худший вид расхождения из
+>   трёх: имя в дереве **резолвится**, поэтому автоматическая проверка на нём молчит, а
+>   неверен — адрес владельца. Ловится только переписью по каталогу, чем и был получен
+>   этот перечень.
+> - Отдельного теста адресного адаптера в каталоге нет; покрытие лежит в общих
+>   `handler_test.go` / `internal_address_allocate_handler_test.go`.
 
 ## Position
 

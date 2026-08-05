@@ -17,7 +17,7 @@ tags:
   - kacho-nlb
   - internal
   - lifecycle
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); ручка предела стримов пересверена с деревом продукта 1653387b (2026-08-06); поля запросов и семантика построчно не пересматривались"
 status: stable
 ---
 
@@ -49,12 +49,24 @@ message LifecycleEvent {
 
 ## D-13 lifecycle stream flow
 
-1. Acquire per-stream semaphore (`KACHO_NLB_LIFECYCLE_MAX_STREAMS=32`)
+1. Acquire per-stream semaphore (ключ конфигурации `internal-lifecycle.max-streams`,
+   умолчание **32**, `services/nlb/internal/apps/kacho/config/defaults.go`; ноль отвергается
+   на старте — `validate.go`, плюс backstop-паника в конструкторе handler'а)
 2. Dedicated `pgx.Connect` → `LISTEN nlb_outbox`
 3. **Catchup batch** (100 rows): SELECT FROM nlb_outbox WHERE sequence_no > $cursor ORDER BY sequence_no
 4. `WaitForNotification` loop (timeout 30s)
 5. Stream `LifecycleEvent` к client (типично kacho-iam — D-13 hierarchy tuple sync)
 6. `nlb_watch_cursors` сохраняет subscriber position для resume
+
+> [!note] Переменной окружения под этот предел НЕТ — координата снята (1653387b, 2026-08-06)
+> Прежняя редакция называла её переменной с потолком 32. Такого имени в дереве нет ни в
+> одном читателе (Go, чарты, скрипты, Makefile), и появиться оно не может: nlb биндит
+> окружение через viper с заменой только точки на двойное подчёркивание, а сегменты этого
+> ключа содержат **дефис**, который в имя переменной окружения не переносится. То есть
+> предел задаётся YAML-ключом (или умолчанием), а не окружением. Общая форма для nlb —
+> `KACHO_NLB_<ПУТЬ_КЛЮЧА>` с разделителем `__`
+> (`services/nlb/internal/apps/kacho/config/load.go`), и она применима лишь к ключам без
+> дефисов.
 
 ## Outbox channel
 

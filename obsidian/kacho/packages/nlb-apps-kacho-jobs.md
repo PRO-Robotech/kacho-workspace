@@ -12,7 +12,7 @@ tags:
   - jobs
   - worker
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов, ручки периода тиков и их значения по умолчанию, место дренажа outbox; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/apps/kacho/jobs
@@ -27,10 +27,17 @@ Background workers — periodic jobs running в отдельных goroutines о
 | File | Содержание |
 |---|---|
 | `doc.go` | overview + scheduling pattern |
-| `target_drain_runner.go` | **Phase B of 2-phase RemoveTargets**: periodic (~5s) `DELETE FROM targets WHERE status='DRAINING' AND drain_started_at < now() - <tg.dereg_delay>::interval` → outbox.Emit UPDATED. Tick configurable via `KACHO_NLB_JOBS__DRAIN_TICK=5s`. |
+| `target_drain_runner.go` | **Phase B of 2-phase RemoveTargets**: периодически удаляет `DRAINING`-таргеты, у которых истёк `deregistration_delay` группы, → outbox.Emit UPDATED. Период — ключ конфига `jobs.target-drain.interval`, default **10s** |
 | `target_drain_runner_integration_test.go` | testcontainers integration test — RemoveTargets Phase A → wait → drain-runner deletes |
-| `free_ip_runner.go` (future) | retry-runner для failed `vpc.FreeIP` calls (compensation) |
-| `outbox_drainer.go` | corelib `outbox.Drainer` wired для nlb_outbox table (lifecycle subscribers consume через D-13 stream, не нужен active drainer — но для metrics/back-pressure используется) |
+| `free_ip_runner.go` | **живой**, не «future»: реконсайлер застрявших балансировщиков — create-сирота в `CREATING` и незавершённый Delete в `DELETING`. Ключи `jobs.free-ip.interval` (default 30s) и `jobs.free-ip.age-threshold` (default 5m — свежий in-flight не трогается, пока легитимный worker дорабатывает). Сканирует только балансировщики |
+| `testmain_pgtest_test.go` | общий TestMain под testcontainers |
+
+> [!note] Дренажа outbox в этом пакете нет — он корелибовый и провязан в composition root
+> Прежняя редакция называла здесь отдельный файл-дренажер. Его нет: дренаж — общий
+> `pkg/outbox/drainer` из corelib, а провязывается он в composition root
+> (`services/nlb/cmd/kacho-loadbalancer/`), вместе с backstop'ом и bootgate.
+> Дренится при этом **очередь регистраций** (`fga_register_outbox`), а не тот outbox,
+> из которого читает lifecycle-стрим, — это две разные таблицы с разной судьбой.
 
 ## Drain-runner SQL
 
@@ -45,7 +52,16 @@ RETURNING t.id, t.target_group_id;
 
 ## Scheduling
 
-`tick := time.NewTicker(cfg.Jobs.DrainTick)` → for-loop с context cancellation. Метрики: `nlb_drain_runner_deleted_total`, `nlb_drain_runner_tick_duration_seconds`.
+`time.NewTicker(r.interval)` → for-loop с context cancellation; период приезжает из
+`cfg.Jobs.TargetDrain.Interval` (и, для второго раннера, `cfg.Jobs.FreeIP.Interval`).
+Обе величины валидируются как `> 0` в `Config.Validate()`.
+
+Своих метрик у drain-runner'а нет — он ведёт только structured-log. Из счётчиков nlb
+к фоновым путям относятся `nlb_free_ip_poisoned_total`, `nlb_outbox_poisoned_total` и
+`nlb_outbox_oldest_pending_age_seconds`; пара «сколько удалено за тик» в дереве **не
+заведена**, и прежняя редакция называла два счётчика, которых нет. Это не косметика:
+на такую пару естественно завести алерт, а алерт на несуществующий счётчик молчит
+всегда — форма наблюдаемости без содержания.
 
 ## Test pattern
 

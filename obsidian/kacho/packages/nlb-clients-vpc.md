@@ -10,7 +10,7 @@ tags:
   - cross-service
   - vpc
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов каталога и отсутствие кэша в клиентах nlb; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/clients/vpc
@@ -25,11 +25,22 @@ Typed peer-service gRPC client adapters для kacho-vpc.
 
 | File | Содержание |
 |---|---|
-| `address_client.go` | wraps `vpcpb.AddressServiceClient.Get` + `InternalAddressServiceClient.{AllocateExternalIP, AllocateInternalIP, FreeIP, SetReference, ClearReference}` |
+| `address_client.go` | wraps `vpcpb.AddressServiceClient.Get` — публичное чтение адреса |
+| `internal_address_client.go` | wraps `InternalAddressServiceClient` — аллокация/освобождение и CAS-привязка (internal-only, :9091) |
 | `subnet_client.go` | wraps `vpcpb.SubnetServiceClient.Get` — для INTERNAL Listener + Target ip_ref CIDR check |
-| `nic_client.go` | wraps `vpcpb.NetworkInterfaceServiceClient.Get` — для Target.nic_id resolve → primary IP |
-| `subnet_cache.go` | LRU cache (positive 30s) |
-| `*_test.go` | unit-tests (CAS race, FreeIP idempotent, NIC NotFound mapping) |
+| `network_interface_client.go` | wraps `vpcpb.NetworkInterfaceServiceClient.Get` — для Target.nic_id resolve → primary IP |
+| `security_group_client.go` | wraps `vpcpb.SecurityGroupServiceClient.Get` — peer-validate SG балансировщика |
+| `doc.go` | overview пакета |
+| `*_test.go` | unit-tests (полосы own/peer-видимости, zone-independent alloc, идемпотентность, маппинг отказов) |
+
+> [!warning] Кэша подсетей в пакете нет — прежняя редакция называла файл под LRU
+> Записка перечисляла отдельный файл с LRU-кэшем подсети на 30s. Его нет, и кэша нет
+> **ни в одном** клиенте nlb: перепись по каталогу `services/nlb/internal/clients/`
+> даёт ноль упоминаний. То же и у соседа — [[nlb-clients-iam]], [[nlb-clients-compute]];
+> для geo это прямо записано нормой («sync precheck на request-path, кэша нет»).
+> Утверждение о кэше опасно тем, что объясняет собой чужой симптом: расхождение
+> «создал → сразу не видно» приходит из eventually-consistent материализации прав, а
+> не из TTL, которого нет, — и поиск ушёл бы не туда.
 
 ## Pattern
 

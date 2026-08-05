@@ -16,13 +16,15 @@ tags:
   - kacho-api-gateway
   - internal
   - security
-verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
+verified_against: "координаты записки (файлы маршрутизации, REST-маршруты обоих listener'ов) сверены с деревом продукта 1653387b (2026-08-06); перечень регистраций и разбор SEC-L построчно не пересматривались"
 ---
 
 # api-gateway: listener split (TLS edge vs cluster-internal)
 
 **Repo**: `kacho-api-gateway`
-**File**: `internal/restmux/mux.go` + `internal/proxy/director.go`
+**Files**: `gateway/internal/restmux/mux.go` + `gateway/internal/restmux/internal_routes.go`
+(регистрация: какой RPC на какой адрес) · `gateway/internal/proxy/shimproxy.go` +
+`gateway/internal/proxy/route_refusal.go` (отказ внутреннему пути с внешнего listener'а)
 **KAC**: KAC-50 (initial split), KAC-15 (Geography move)
 
 ## Why two listeners
@@ -53,24 +55,34 @@ CLAUDE.md «Запреты» #6: `Internal*` методы **никогда** н�
 
 ## Routing logic (сверено 2026-08-05)
 
-> [!note] Координата `internal/proxy/director.go` не резолвится
-> Файла с таким именем в дереве нет. Разделение живёт в
-> `gateway/internal/restmux/{mux.go,internal_routes.go}` (какой RPC на какой адрес
-> зарегистрирован) и `gateway/internal/proxy/{shimproxy.go,route_refusal.go}` (отказ
-> внутреннему пути, пришедшему на внешний listener).
+> [!note] Отдельного файла-«директора» в дереве нет (сверено 1653387b, 2026-08-06)
+> Прежняя редакция называла такой файл под слоем прокси; его в дереве нет, и сам мёртвый
+> адрес здесь не воспроизводится в обратных кавычках — цитата читается как живое
+> утверждение о дереве, и хук свежести справедливо считает её находкой. Разделение живёт
+> там, где перечислены файлы в шапке: регистрация маршрутов — в `restmux`, отказ
+> внешнему origin'у — в `proxy`. Non-test файлов в `gateway/internal/proxy` ровно три
+> (`route_refusal.go`, `server.go`, `shimproxy.go`).
 
 REST path → выбор backend addr (`vpcAddr` vs `vpcInternalAddr`):
 1. `/vpc/v1/addressPools[/...|:...]` → internal.
 2. `/vpc/v1/networks/{id}/addressPoolBinding` → internal.
 3. Всё остальное `/vpc/v1/...` → public vpc (9090).
 
-(`/vpc/v1/addresses/{id}/addressPoolOverride` + `/vpc/v1/clouds/{cloud_id}/poolSelector` удалены в [[../KAC/KAC-266]] — здесь они оставлены как снятые, а не как маршруты.)
+(Ещё два внутренних vpc-маршрута — переопределение пула у адреса и выбор пула у облака —
+удалены в [[../KAC/KAC-266]]. Их адреса здесь **не воспроизводятся**: сказать «маршрут снят»
+и тут же процитировать его координатой значит оставить в записке живое утверждение о дереве —
+именно так они и попадали в находки хука свежести.)
 
 Аналогично для остальных доменов: у каждого свой публичный и внутренний адрес backend'а
 (`{compute,iam,nlb,geo,registry,storage}{,Internal}Addr` в `gateway/internal/config`).
-**Прежняя строка про `/compute/v1/{regions,zones,diskTypes}` неверна дважды**: этих маршрутов
-нет, и владеют предметом другие сервисы — география у geo (`/geo/v1/*`), типы дисков у
-storage (`/storage/v1/*`).
+
+> [!warning] Строка про каталог размещения под доменом compute была неверна дважды
+> Она называла регионы, зоны и типы дисков поверхностью compute. Ни одного такого маршрута
+> в дереве нет (перепись аннотаций `google.api.http` по `proto/` — ноль вхождений), и
+> предметом владеют **другие** сервисы: география — geo (`/geo/v1/regions`,
+> `/geo/v1/zones`, плюс админские `/geo/v1/internal/regions` и `/geo/v1/internal/zones`),
+> блочное хранение — storage. Прежние адреса не воспроизводятся здесь координатой по той
+> же причине, что и выше.
 
 ## Operation proxy
 

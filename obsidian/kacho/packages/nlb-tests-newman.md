@@ -11,7 +11,7 @@ tags:
   - tests
   - newman
 status: stable
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): имя и триггеры рабочего процесса e2e, число коллекций суиты nlb; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/tests/newman
@@ -55,7 +55,11 @@ verified_against: "каталог пакета есть в дереве прод
 
 ## CI integration
 
-`.github/workflows/newman-e2e.yml` — docker-compose стенд (Postgres + iam + vpc + compute + api-gateway + nlb) → seed → `newman run`. Gating для merge в main.
+`.github/workflows/e2e-newman.yml` (имя именно в таком порядке — прежняя редакция
+переставляла половины местами, и координата не резолвилась) — стенд поднимается **в kind**,
+не docker-compose: шардированная матрица, 82 коллекции восьми суит, из них **9 — nlb**.
+Триггеры: `pull_request` в `main`, `push` в `redesign/integration`, ручной запуск. То есть
+gating для merge в `main` — да, но стенд и раскладка другие, чем описывала записка.
 
 ## See also
 

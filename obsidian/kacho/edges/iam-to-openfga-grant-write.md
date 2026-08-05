@@ -17,15 +17,17 @@ tags:
   - kacho-iam
   - kacho-deploy
   - kacho-corelib
-verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
+verified_against: "координаты записки (чарты bootstrap'а, артефакты модели, цель регенерации) сверены с деревом продукта 1653387b (2026-08-06); таблица runtime-поведения и журнал изменений построчно не пересматривались — про снятые JIT и break-glass см. поправку в [[../packages/iam-pg-fga-outbox]]"
 ---
 
 > [!note] Что здесь верно, а что читать с поправкой (сверено 2026-08-05, дерево `96b2879a`)
 > Записка ведётся как журнал изменений и в этом качестве полезна. Три поправки по координатам:
 >
 > - раскладка чартов названа по репозиторию времён полирепо; сегодня это `deploy/helm/umbrella/`
->   **того же** монорепо, а `model.json` — **производимый** артефакт, отслеживаемого файла с
->   таким именем в дереве нет (`git ls-files | grep -c model.json` → 0);
+>   **того же** монорепо. Второй артефакт модели, который записка называет ниже рядом с
+>   `model.fga`, — **производимый**: отслеживаемого файла с таким именем в дереве нет
+>   (`git ls-files | grep -c model.json` → 0), поэтому его имя здесь и ниже не
+>   воспроизводится координатой в обратных кавычках;
 > - строка про `ComplianceReport foreign-deny — 4 intentional RED, починим в W1.6` объявляет
 >   красноту, у которой сегодня нет предъявителя: сервиса отчётов о соответствии в контракте
 >   нет. Договорённость «известное красное» обязана истекать сама (`testing.md`);
@@ -42,8 +44,12 @@ verified_against: "отметка сверки с деревом продукт�
 
 Store + AuthorizationModel поднимаются **умbrellой** (не kacho-iam):
 
-- `kacho-deploy/helm/umbrella/templates/openfga-bootstrap-job.yaml` — post-install/post-upgrade Job (hook-weight 10). sha256-DSL fast-path: если sha256(model.fga) == annotation `kacho-deploy/last-applied-dsl-sha256` на `openfga-model-id` Secret → skip-write (идемпотентно).
-- `openfga-model-stub-configmap.yaml` — `model.fga` + `model.json` inline (регенерация: `make openfga-model-json` из `kacho-proto/.../fga_model.fga`).
+- `deploy/helm/umbrella/charts/openfga-bootstrap/templates/openfga-bootstrap-job.yaml` — post-install/post-upgrade Job (hook-weight 10). sha256-DSL fast-path: если sha256(model.fga) == annotation `kacho-deploy/last-applied-dsl-sha256` на `openfga-model-id` Secret → skip-write (идемпотентно). (Прежняя координата вела в подкаталог шаблонов самой umbrella и была написана по раскладке полирепо; чарт bootstrap'а — отдельный сабчарт.)
+- `openfga-model-stub-configmap.yaml` — inline несёт `model.fga` и **производный** из него
+  JSON модели (имя второго намеренно не приводится координатой — отслеживаемого файла с ним
+  нет, см. поправку выше). Регенерация — цель `openfga-model-json` в `deploy/Makefile`,
+  источник — канонический `proto/kacho/cloud/iam/v1/fga_model.fga`, генератор —
+  `deploy/scripts/gen-openfga-model-configmap.py`.
 - `openfga-model-id-secret.yaml` — Secret c `store_id` + `current` model_id (patches by bootstrap-job).
 - `openfga-bootstrap-rbac.yaml`, `openfga-postgres-init-job.yaml` (pre-install DB init, gated `initDatabase`), `openfga-pdb.yaml` (≥3 replicas в prod).
 
