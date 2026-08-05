@@ -1,6 +1,19 @@
 # Sub-phase W3.4 — Freeze Checklist (product-completion-freeze-plan Part 4) — Acceptance
 
-> **Status**: DRAFT (awaiting `acceptance-reviewer` per workspace `CLAUDE.md` §Запреты #1).
+> **Статус:** SUPERSEDED — механизм, описанный этим документом, **снят из дерева
+> 2026-08-05** (разбор — [[KAC-186]]). Документ сохранён как проектный след и
+> новую работу **не открывает**.
+>
+> Здесь же — урок, ради которого он и сохранён: приёмка так и осталась DRAFT
+> («awaiting `acceptance-reviewer`»), а машина по ней была построена, влита и
+> ежедневно отчитывалась успехом больше двух месяцев. То есть запрет #1 был
+> нарушен ровно тем документом, который сам этот запрет цитирует, и заметить это
+> было нечем: механической проверки запрета #1 в дереве не существовало ни одной.
+> Теперь есть — `scripts/docs-gate/check-01-acceptance-verdict.py` (вердикт
+> читается машинно; на 2026-08-05: приёмок 133, из них APPROVED 47, DRAFT 82,
+> SUPERSEDED 3, WITHDRAWN 1).
+
+> **Status (историч.)**: DRAFT (awaiting `acceptance-reviewer` per workspace `CLAUDE.md` §Запреты #1).
 > **Date**: 2026-05-24
 > **YouTrack**: [KAC-170](https://prorobotech.youtrack.cloud/issue/KAC-170) (parent bundle); subtask of master epic [KAC-134](https://prorobotech.youtrack.cloud/issue/KAC-134).
 > **Author agent**: inline (`claude` main session)

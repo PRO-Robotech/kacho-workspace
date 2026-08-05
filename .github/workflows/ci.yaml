@@ -12,9 +12,6 @@ jobs:
         # вовсе». Существование каждого из этих трёх имён утверждает отдельно
         # job `tooling-gate`, поэтому исчезновение файла остаётся громким.
         run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
-      - name: shellcheck freeze-gate scripts (strict)
-        working-directory: scripts/freeze-gate
-        run: shellcheck -x -- *.sh
       - name: shellcheck tooling-gate scripts (strict)
         working-directory: scripts/tooling-gate
         run: shellcheck -x -- *.sh
@@ -23,7 +20,7 @@ jobs:
         # перестаёт исполняться, и суита остаётся зелёной с меньшим объёмом.
         # Явное имя ломается заметно, а существование каждого имени отдельно
         # утверждает tooling-gate (job `tooling-gate` ниже).
-        run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats
+        run: bats tests/bootstrap.bats tests/sync-all.bats
 
   tooling-gate:
     name: конвейер и агенты не утверждают о дереве того, чего в нём нет
@@ -46,10 +43,18 @@ jobs:
       # пробы по живым фрагментам, а не по выдуманным строкам. Без него docfresh
       # честно отказывается работать (и это одна из его же проб), но остальные
       # пробы стали бы «НЕ ВЫПОЛНИЛОСЬ» — то есть набор ничего бы не доказал.
-      - name: checkout monorepo into project/kacho
+      #
+      # `ref:` пиннит sibling к ИНТЕГРАЦИОННОМУ СТВОЛУ по той же причине, что и у
+      # `vault-gate` ниже: разработка идёт в `redesign/integration`, а `main`
+      # продукта заморожен позади него. Без пина пробы сверялись бы с деревом,
+      # которого никто не правит, и отвечали бы про вчерашний день, оставаясь на
+      # вид исправными. Снять пин ОДНОВРЕМЕННО со слиянием ствола в main
+      # (`.claude/rules/polyrepo.md` §Порядок работы: после merge — ref: main).
+      - name: checkout монорепо в project/kacho
         uses: actions/checkout@v4
         with:
           repository: PRO-Robotech/kacho
+          ref: redesign/integration
           path: project/kacho
       - name: shellcheck hook scripts (strict)
         run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
@@ -98,13 +103,42 @@ jobs:
       # real Makefiles under project/kacho and asserts every make command quoted in
       # docs/ resolves against them. Without it there is nothing to check against,
       # and the script says so instead of passing vacuously.
-      - name: checkout monorepo into project/kacho
+      #
+      # `ref:` пиннит sibling к ИНТЕГРАЦИОННОМУ СТВОЛУ. Без пина проверка читала
+      # бы Makefile'ы замороженного `main` и отвечала бы про них: замер
+      # 2026-08-05 — 31 находка против `main` и 44 против ствола, общих всего 3.
+      # То есть 28 из 31 названных были ложными (цель в стволе существует), а 41
+      # настоящая не называлась вовсе. У ствола вдобавок есть КОРНЕВОЙ Makefile,
+      # которого на `main` нет, — а на его отсутствии держится целая ветка
+      # рассуждения в самом скрипте. Снять пин ОДНОВРЕМЕННО со слиянием ствола
+      # в main (`.claude/rules/polyrepo.md` §Порядок работы: после merge — ref: main).
+      - name: checkout монорепо в project/kacho
         uses: actions/checkout@v4
         with:
           repository: PRO-Robotech/kacho
+          ref: redesign/integration
           path: project/kacho
       - name: docs quote commands that exist
         run: python3 scripts/check-doc-commands.py
+
+  docs-gate:
+    name: документы объявляют то, чем их измеряют
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with: { python-version: '3.12' }
+      - name: install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      - name: shellcheck docs-gate (strict)
+        run: shellcheck -x -- scripts/docs-gate/*.sh
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      # Гейт, чью работоспособность не доказали, отчитывается зелёным одинаково
+      # и когда всё хорошо, и когда он сломан.
+      - name: docs-gate доказывает свою работоспособность
+        run: ./scripts/docs-gate/inject.sh
+      - name: вердикт приёмки и состояние записки читаются машинно
+        run: ./scripts/docs-gate/run-all.sh
 
   authz-fixtures-lint:
     name: authz-fixtures bootstrap — lint (KAC-122)

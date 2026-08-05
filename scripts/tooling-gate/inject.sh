@@ -114,6 +114,53 @@ run 0 "$b" "близнец: ссылка на норму без выписанн
 b="$(mksandbox .claude/agents)"
 run 2 "$b" "предпосылка: агентов нет — VOID, а не успех" check-03-agents-no-module-substitution.sh
 
+echo "== check-04: «не проверено» засчитано прогонщиком за «пройдено» =="
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-04-runner-void-is-not-pass.sh
+
+# Инъекция — НАСТОЯЩИЙ прогонщик той же формы, что и живые: тот же глоб
+# `check-*.sh`, тот же разбор кодов; отличается ровно тем, что «проверить не
+# удалось» не участвует в предикате выхода. Это дословно та конструкция, что
+# держала ежедневный прогон зелёным при нуле пройденных проверок.
+mkrunner() {
+    local box="$1" name="$2" verdict="$3"
+    mkdir -p "$box/scripts/$name"
+    {
+        printf '#!/usr/bin/env bash\nset -uo pipefail\n'
+        printf 'here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n'
+        printf 'ok=0; bad=0; void=0\n'
+        printf 'for c in "$here"/check-*.sh; do\n'
+        printf '    [ -f "$c" ] || continue\n'
+        printf '    bash "$c"\n'
+        printf '    case $? in 0) ok=$((ok+1));; 2) void=$((void+1));; *) bad=$((bad+1));; esac\n'
+        printf 'done\n'
+        printf 'echo "%s: пройдено $ok, провалено $bad, без предмета $void"\n' "$name"
+        printf '%s\n' "$verdict"
+    } > "$box/scripts/$name/run-all.sh"
+    chmod +x "$box/scripts/$name/run-all.sh"
+    git -C "$box" add -A -f >/dev/null 2>&1
+}
+
+b="$(mksandbox)"
+mkrunner "$b" "injected-gate" '[ "$bad" -eq 0 ]'
+run 1 "$b" "инъекция: прогонщик судит только по провалам — краснеет" check-04-runner-void-is-not-pass.sh
+
+# Законный близнец ТОЙ ЖЕ формы: тот же глоб, тот же разбор, та же печать —
+# отличается только тем, что «не удалось» входит в предикат выхода. Без него
+# проверка ловила бы «в дереве появился ещё один прогонщик», а не существо.
+b="$(mksandbox)"
+mkrunner "$b" "injected-gate" '[ "$bad" -eq 0 ] && [ "$void" -eq 0 ]'
+run 0 "$b" "близнец: тот же прогонщик, «не удалось» в предикате выхода — молчит" check-04-runner-void-is-not-pass.sh
+
+# Прогонщик, который не отвечает нулём даже на единственной ПРОЙДЕННОЙ проверке,
+# к отрицательной пробе непригоден: она прошла бы на нём тождественно. Такой
+# исход обязан быть VOID, а не «доказано».
+b="$(mksandbox)"
+mkrunner "$b" "injected-gate" 'false'
+run 2 "$b" "положительный контроль сорван — VOID, а не «доказано»" check-04-runner-void-is-not-pass.sh
+
+b="$(mksandbox scripts)"
+run 2 "$b" "предпосылка: прогонщиков нет — VOID, а не успех" check-04-runner-void-is-not-pass.sh
+
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
