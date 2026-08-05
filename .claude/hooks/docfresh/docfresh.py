@@ -156,11 +156,15 @@ LIVE_WS = [
     # LIVE-утверждение о дереве. Прежняя редакция исключала оба каталога «их
     # держит соседний гейт», и это исключение было ШИРЕ своего основания:
     # skills-gate судит утверждения скила О СЕБЕ (форма ссылки на раздел, части
-    # записи, совпадение перечня с деревом) и координат не резолвит вовсе.
-    # Проверено исполнением: скил `doc-truthfulness` называет держателем своей
-    # формы `scripts/skills-gate/check-05-doc-truth-record-parts.sh`, которого в
-    # дереве нет, — и ни одна из четырёх проверок skills-gate этого не видит.
-    # Делегировать можно ПРЕДИКАТ, а не каталог.
+    # записи, совпадение перечня с деревом) и координат не резолвит вовсе —
+    # проверено чтением всех его проверок. Делегировать можно ПРЕДИКАТ, а не
+    # каталог: у соседнего гейта другой предмет, и «его держит кто-то ещё»
+    # означало бы, что координаты скилов не читает НИКТО.
+    #
+    # Здесь стоял пример: скил называл держателем своей формы проверку
+    # skills-gate, которой на тот момент в дереве не было. Пример сняли, когда
+    # проверку завели (2026-08-06) — сам вывод от этого не изменился, но пример,
+    # переживший свой предмет, доказывал бы обратное тому, что написано выше.
     re.compile(r"^\.claude/agents/[^/]+\.md$"),
     # README хука — тоже утверждение о дереве в настоящем времени, и хук обязан
     # держать собственные утверждения тем же предикатом, что чужие.
@@ -185,11 +189,79 @@ def _is_live(path: str, pats: list[re.Pattern[str]]) -> bool:
     return any(p.search(path) for p in pats)
 
 
-def live_docs(ws: Path, mono: Path | None) -> list[tuple[str, Path]]:
-    """(координатное имя, абсолютный путь) для каждого LIVE-документа."""
+# ═══ 2a. Записка хранилища объявляет своё состояние — и оно решает, LIVE ли она ══
+#
+# У записки vault поле `status:` ОБЯЗАТЕЛЬНО и берётся из ЗАКРЫТОГО словаря
+# (`obsidian/kacho/CLAUDE.md` §«Оболочка записки»; форму держит
+# `scripts/vault-gate/check-03-note-shell.sh`). Словарь разложен на три ведра, и
+# первое из них определено дословно так: «предмет есть в дереве СЕГОДНЯ». Значит
+# записка, объявившая себя историей («предмет снят или заменён») или работой
+# («предмета ещё нет либо он не проверен»), утверждения о нынешнем дереве не
+# делает — и обвинять её в нём нельзя: она ровно за тем и заведена, чтобы назвать
+# отсутствующее по имени.
+#
+# Почему это не выхолащивание. Замер 2026-08-06 на b978f2c3: из 64 записок с
+# находками 29 объявлены не-живыми, и в них 54 из 130 координат — имена того,
+# чего нет НАМЕРЕННО (планируемое ребро, снятый RPC, чужой репозиторий оператора).
+# Альтернатива — переписать 29 записок так, чтобы имя будущего или снятого предмета
+# не стояло в обратных кавычках; это уничтожило бы их предмет и вернулось бы с
+# первой же новой запиской «planned».
+#
+# Три границы, без которых послабление стало бы дырой:
+#   (а) действует ТОЛЬКО на записки хранилища — только у них состояние обязательно,
+#       машинно и из закрытого словаря;
+#   (б) НЕИЗВЕСТНОЕ значение — LIVE (fail-closed): опечатка в статусе не вправе
+#       выводить записку из-под проверки, даже если `check-03` временно молчит;
+#   (в) число выведенных ПЕЧАТАЕТСЯ в переписи с разбивкой по вёдрам — «ноль
+#       находок» обязано оставаться отличимым от «не смотрели».
+# Самоистечение: вернули записке живое состояние — её координаты судятся снова, в
+# тот же прогон. Предикат снятия внешний (правка записки), правкой самого хука
+# тождественно истинным не становится.
+
+VAULT_NOTE = re.compile(r"^obsidian/kacho/(resources|rpc|packages|edges)/[^/]+\.md$")
+STATUS_LIVE = {"stable", "active", "done"}
+STATUS_HISTORY = {"deprecated", "legacy", "superseded", "wontfix"}
+STATUS_PENDING = {"in-progress", "test", "to-do", "planned", "experimental", "reference"}
+RE_FM_STATUS = re.compile(r"^status:\s*[\"']?([A-Za-z0-9_-]+)[\"']?\s*$", re.M)
+
+
+def declared_not_current(rel: str, path: Path) -> str | None:
+    """Записка объявила себя НЕ описывающей нынешнее дерево → ведро, иначе None."""
+    if not VAULT_NOTE.match(rel):
+        return None
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    end = text.find("\n---", 3)
+    m = RE_FM_STATUS.search(text[: end if end > 0 else 4000])
+    if not m:
+        return None
+    st = m.group(1)
+    if st in STATUS_HISTORY:
+        return "история"
+    if st in STATUS_PENDING:
+        return "в работе"
+    return None  # `живо` И неизвестное значение — судим (fail-closed)
+
+
+def live_docs(ws: Path, mono: Path | None,
+              skipped: dict[str, int] | None = None) -> list[tuple[str, Path]]:
+    """(координатное имя, абсолютный путь) для каждого LIVE-документа.
+
+    `skipped` (если передан) наполняется счётчиком записок, выведенных из корпуса
+    ПО ОБЪЯВЛЕННОМУ СОСТОЯНИЮ, по вёдрам — это число печатается в переписи.
+    """
     out: list[tuple[str, Path]] = []
     for rel in git(ws, "ls-files", "--cached", "--others", "--exclude-standard"):
         if _is_live(rel, LIVE_WS):
+            bucket = declared_not_current(rel, ws / rel)
+            if bucket:
+                if skipped is not None:
+                    skipped[bucket] = skipped.get(bucket, 0) + 1
+                continue
             out.append((rel, ws / rel))
     if mono is not None:
         for rel in git(mono, "ls-files"):
@@ -205,7 +277,16 @@ def live_docs(ws: Path, mono: Path | None) -> list[tuple[str, Path]]:
     if extra and Path(extra).is_dir():
         root = Path(extra)
         for p in sorted(root.rglob("*.md")):
-            out.append((str(p.relative_to(root)), p))
+            rel = str(p.relative_to(root))
+            # Знак равенства с настоящим корпусом полный и здесь: пробная записка
+            # хранилища подчиняется тому же правилу объявленного состояния, иначе
+            # инъекция доказывала бы правило, которого на пробах нет.
+            bucket = declared_not_current(rel, p)
+            if bucket:
+                if skipped is not None:
+                    skipped[bucket] = skipped.get(bucket, 0) + 1
+                continue
+            out.append((rel, p))
     return out
 
 
@@ -1007,7 +1088,8 @@ def load_index(ws: Path, mono: Path | None) -> tuple[dict, bool]:
 def build_index(ws: Path, mono: Path | None) -> dict:
     t0 = time.time()
     truth = build_truth(ws, mono)
-    docs = live_docs(ws, mono)
+    skipped: dict[str, int] = {}
+    docs = live_docs(ws, mono, skipped)
     per_doc: dict[str, dict[str, list[str]]] = {}
     reverse: dict[str, list[str]] = {}
     ncoord = 0
@@ -1027,6 +1109,7 @@ def build_index(ws: Path, mono: Path | None) -> dict:
         "per_doc": per_doc,
         "reverse": reverse,
         "docs": [n for n, _ in docs],
+        "skipped_state": skipped,
         "index_ms": int((time.time() - t0) * 1000),
     }
 
@@ -1082,6 +1165,11 @@ def _allow_subject_live(kind: str, coord: str, ws: Path, mono: Path | None,
         for rel in git(root, "grep", "-l", "-I", "--untracked", "-F", "-e", coord,
                        "--", "*.md", "*.mdx"):
             if not _is_live(rel, pats):
+                continue
+            # Записка, объявившая себя историей или работой, из корпуса выведена
+            # (см. `declared_not_current`) — значит она и предмета послаблению не
+            # даёт: иначе запись жила бы за счёт документа, который хук не читает.
+            if root is ws and declared_not_current(rel, root / rel):
                 continue
             names.add("project/kacho/" + rel if (root is mono and mono != ws) else rel)
     extra = os.environ.get("DOCFRESH_DOC_ROOT")
@@ -1476,8 +1564,13 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
                 stats: dict, carried: dict | None = None) -> str:
     on, off = truth.enabled()
     prov = tree_provenance(truth)
+    skipped = idx.get("skipped_state") or {}
     parts = ([prov] if prov else []) + [
-        f"осмотрено документов {c.get('docs', 0)} из {len(idx['docs'])} LIVE",
+        f"осмотрено документов {c.get('docs', 0)} из {len(idx['docs'])} LIVE"
+        + (" · вне LIVE по объявленному состоянию записки "
+           + str(sum(skipped.values()))
+           + " (" + ", ".join(f"{k} {v}" for k, v in sorted(skipped.items())) + ")"
+           if skipped else ""),
         f"координат рассмотрено {c.get('coords', 0)}, "
         f"вне покрытия основания {c.get('uncovered', 0)}, "
         f"резолвится только в стволе {c.get('trunk_only', 0)}",
@@ -1745,6 +1838,17 @@ def main() -> int:
     journal_append([rel])
 
     live_names = set(idx["docs"])
+    # Членство записки хранилища в корпусе решает её ОБЪЯВЛЕННОЕ СОСТОЯНИЕ, а оно
+    # только что могло быть правлено — кэш ключуется коммитом и правки рабочего
+    # дерева не видит. Спрашивать кэш здесь значило бы судить по прошлому: записка,
+    # которой ВЕРНУЛИ живое состояние, осталась бы непроверенной до первого коммита,
+    # а записка, ставшая историей, — обвинённой. Поэтому обе стороны перечитываются
+    # живьём, и ровно для того вида документов, где состояние обязательно.
+    if VAULT_NOTE.match(rel) and _is_live(rel, LIVE_WS):
+        if declared_not_current(rel, Path(fpath)):
+            live_names.discard(rel)
+        else:
+            live_names.add(rel)
     fresh: dict[str, dict] = {}
     if rel not in live_names:
         # РЕЖИМ B — правлен файл дерева, не документ.

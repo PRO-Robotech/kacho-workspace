@@ -124,13 +124,49 @@ expect_fires "тот же хвост под НЕВЕРНЫМ корнем всё
   'Скрипт `bin/sync-tooling.sh` синхронизирует копии.' 'sync-tooling.sh'
 
 echo
+echo "== A''. записка хранилища судится по ОБЪЯВЛЕННОМУ состоянию =="
+# Записка vault обязана нести `status:` из закрытого словаря, и первое ведро словаря
+# определено как «предмет есть в дереве СЕГОДНЯ». Значит записка, объявившая себя
+# историей или работой, утверждения о нынешнем дереве не делает — обвинять её нельзя.
+# Пара доказывается на ОДНОМ И ТОМ ЖЕ теле: меняется только объявленное состояние,
+# поэтому проба меряет именно его, а не форму текста.
+note() { # note <status> → тело записки, называющей снятый скрипт
+  printf -- '---\ntitle: проба\ncategory: packages\nstatus: %s\n---\n\n' "$1"
+  printf '%s\n' 'Копии генерирует `sync-tooling.sh`.'
+}
+expect_fires "живая записка (stable) — координата судится" \
+  obsidian/kacho/packages/p-live.md "$(note stable)" 'sync-tooling.sh'
+expect_silent "та же координата в записке-истории (deprecated)" \
+  obsidian/kacho/packages/p-hist.md "$(note deprecated)" 'sync-tooling.sh'
+expect_silent "та же координата в записке «в работе» (planned)" \
+  obsidian/kacho/edges/p-plan.md "$(note planned)" 'sync-tooling.sh'
+# fail-closed: неизвестное значение НЕ выводит записку из-под проверки. Иначе опечатка
+# в статусе становилась бы способом снять проверку молча, а `check-03` мог бы в этот
+# момент не гоняться вовсе.
+expect_fires "неизвестное состояние не освобождает (fail-closed)" \
+  obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh'
+# граница послабления: оно про записки хранилища, а не про любой документ с frontmatter.
+expect_fires "то же поле в НЕ-записке освобождения не даёт" \
+  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh'
+
+echo
 echo "== B. маршрут =="
 expect_fires "маршрут, снятый вместе с доменом размещения" c1.md \
   'Internal admin-ресурсы: `/compute/v1/regions`, `/compute/v1/zones`.' '/compute/v1/regions'
 expect_silent "тот же ресурс по нынешнему домену" c2.md \
   'Каталог размещения: `/geo/v1/regions`, `/geo/v1/zones`.' '/geo/v1/zones'
-expect_silent "маршрут, зарегистрированный шлюзом РУКАМИ (не из proto)" c3.md \
-  'Вход пользователя — `/iam/v1/auth/login`.' '/iam/v1/auth/login'
+# Вход (−) этой пары ЖИВЁТ В КОДЕ КРАЯ, а не в proto, поэтому он и проверяет, что
+# основание читает строковые литералы Go. Он же и портится молча, когда край снимает
+# ручной маршрут: прежняя редакция называла `/iam/v1/auth/login`, которого в дереве
+# больше нет, — и проба падала «ложным срабатом» на координате, по которой хук был ПРАВ.
+# Поэтому живость входа устанавливается по дереву, а «предмета больше нет» — третий исход.
+HAND_ROUTE="/iam/v1/auth/me"
+if git -C "$WS/project/kacho" grep -qF -- "\"$HAND_ROUTE\"" -- '*.go' 2>/dev/null; then
+  expect_silent "маршрут, зарегистрированный шлюзом РУКАМИ (не из proto)" c3.md \
+    "Личность сессии — \`$HAND_ROUTE\`." "$HAND_ROUTE"
+else
+  notrun "рукописный маршрут '$HAND_ROUTE' в коде края не найден — близнец (−) не настоящий, заменить вход"
+fi
 
 echo
 echo "== C. метод =="
@@ -321,8 +357,14 @@ seed_snapshot() { # seed_snapshot <строка-путь>
   printf '%s\n' "$1" >> "$ST/tracked-snapshot.txt"
   rm -f "$ST/turn.jsonl"
 }
+# Документ-производитель входа пишется ПРОБОЙ, а не берётся из корпуса. Прежняя
+# редакция опиралась на то, что снятый скрипт называет какой-нибудь живой документ
+# воркспейса, — и умерла в тот день, когда это утверждение оттуда законно убрали:
+# проба падала «ось удалений мертва», хотя мертва была её собственная подпорка.
+mkdir -p "$DOCS"
+printf '%s\n' 'Копии генерируются `sync-tooling.sh`.' > "$DOCS/j1.md"
 seed_snapshot "sync-tooling.sh"
-out="$(printf '{"hook_event_name":"Stop"}' | DOCFRESH_STATE="$ST" bash "$HOOK" 2>&1)"
+out="$(printf '{"hook_event_name":"Stop"}' | DOCFRESH_DOC_ROOT="$DOCS" DOCFRESH_STATE="$ST" bash "$HOOK" 2>&1)"
 # Сверяются ОБА: и координата в отчёте, и счётчик в переписи. Одной координаты
 # мало — она могла бы прийти другой полосой (затронутый за ход документ).
 if printf '%s' "$out" | grep -qF 'sync-tooling.sh' && printf '%s' "$out" | grep -qE 'исчезло из дерева 1'; then
@@ -331,13 +373,15 @@ else
   echo "  ✘ (+) исчезновение пути не поймано — ось удалений мертва"; FAIL=$((FAIL+1))
   printf '%s\n' "$out" | sed 's/^/      /' | head -4
 fi
+printf '%s\n' 'Рабочие копии обновляет `sync-all.sh`.' > "$DOCS/j1.md"
 seed_snapshot "sync-all.sh"
-out="$(printf '{"hook_event_name":"Stop"}' | DOCFRESH_STATE="$ST" bash "$HOOK" 2>&1)"
+out="$(printf '{"hook_event_name":"Stop"}' | DOCFRESH_DOC_ROOT="$DOCS" DOCFRESH_STATE="$ST" bash "$HOOK" 2>&1)"
 if printf '%s' "$out" | grep -qE 'исчезло из дерева 0'; then
   echo "  ✔ (−) путь, оставшийся в дереве, исчезновением не считается"; PASS=$((PASS+1))
 else
   echo "  ✘ (−) живой путь засчитан за исчезнувший"; FAIL=$((FAIL+1))
 fi
+rm -f "$DOCS/j1.md"
 
 echo
 echo "== K. Stop не блокирует конец хода =="
