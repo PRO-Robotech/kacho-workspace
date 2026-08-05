@@ -5,58 +5,43 @@
 Архитектура из `01-architecture-and-services.md` (gRPC control plane, async
 `Operation`, transactional outbox) и конвенции из `02-data-model-and-conventions.md`
 (flat-ресурсы, error-format, ID-prefix) собираются в один развёртываемый стенд. Эта
-глава описывает физику: polyrepo-структуру, шаблон сервисного репо, локальную
+глава описывает физику: топологию репозитория, раскладку сервиса, локальную
 разработку на kind, helm, Postgres-per-service, CI и наблюдаемость.
 
-## 1. Polyrepo: структура и build-граф
+## 1. Топология: одно монорепо и его раскладка
 
-Все репо живут в `github.com/PRO-Robotech/`. Workspace (`kacho-workspace`) — корневой
-git-репо; sibling-репо клонируются в `./project/` через `bootstrap.sh` (`project/` под
-gitignore, у каждого собственный `.git`). Сервисы — самостоятельные модули: склонировал
-→ собрал, между собой связаны только runtime-API.
+> [!warning] Здесь стояла таблица из одиннадцати репозиториев и build-граф на `replace ../` —
+> ни того, ни другого нет (сверено с деревом 1653387b, 2026-08-06)
+> Разработка ведётся в **одном** репозитории `PRO-Robotech/kacho`: `go.mod` в дереве один,
+> `replace` на внутренний модуль — ноль, и `replace github.com/PRO-Robotech/...` в
+> закоммиченном `go.mod` прямо **запрещён** (`.claude/rules/polyrepo.md` §«Правило
+> зависимостей»). Прежняя редакция описывала polyrepo-топологию как действительность и
+> называла порядок раскатки по репозиториям как процедуру — обе вещи пережили свой предмет.
+> Раскладку каталогов держит **один** дом — `.claude/rules/polyrepo.md` §«Раскладка монорепо»;
+> здесь она намеренно не воспроизводится, чтобы два места об одном предмете не разошлись
+> снова.
 
-| Репо | Роль |
-|---|---|
-| `kacho-workspace` | корень: CLAUDE.md/rules, общие агенты, спеки, `bootstrap.sh`, `sync-tooling.sh` |
-| `kacho-proto` | **единственный** дом всех `.proto` (`proto/kacho/cloud/<domain>/v1/`) + commit-нутые Go-stubs (`gen/go/...`) |
-| `kacho-corelib` | горизонтальные Go-пакеты (ids / errors / config / observability / db / operations / outbox / …) |
-| `kacho-api-gateway` | edge: gRPC-proxy + grpc-gateway REST. БД нет, бизнес-логики нет |
-| `kacho-iam` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding (`kacho_iam`) |
-| `kacho-vpc` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface (`kacho_vpc`) |
-| `kacho-compute` | Instance / Disk / Image / Snapshot / DiskType + Geography Region/Zone (`kacho_compute`) |
-| `kacho-nlb` *(планируется)* | NetworkLoadBalancer / TargetGroup (`kacho_nlb`) |
-| `kacho-deploy` | dev-стенд (kind + helm + Postgres + ingress) + e2e |
-| `kacho-ui` | Vite + React SPA control plane |
-| `kacho-vpc-operator` | data-plane sibling VPC — spec-only, вне build-графа control plane |
+Всё живёт в `github.com/PRO-Robotech/kacho` (публичный, BUSL-1.1). Воркспейс
+`PRO-Robotech/kacho-workspace` — отдельный репозиторий: CLAUDE.md и правила, агенты, спека,
+приёмки, vault; дерево продукта клонируется в `project/kacho` через `bootstrap.sh`
+(`project/` под gitignore). Это единственная оставшаяся кросс-репозиторная граница, и
+связь через неё — ссылкой на коммит, а не пином модуля.
 
-**Build-граф** (источник истины — `replace github.com/PRO-Robotech/…` в `*/go.mod`):
+**Порядок работы над кросс-доменной фичей** остаётся топосортом зависимостей, но это порядок
+**каталогов внутри одного изменения**, а не последовательность merge в разные репозитории:
+`proto/` → `pkg/` → `services/<svc>/` → `gateway/` → `deploy/` → docs воркспейса.
+Новый `.proto` всегда заводится в `proto/`; каталоги сервисов `.proto` не держат — только
+Go-импорт сгенерированного из `pkg/api/`.
 
-```
-kacho-proto                 ← ни от чего внутри проекта не зависит
-  └─ kacho-corelib          ← replace ../kacho-proto
-       ├─ kacho-iam         ┐ каждый сервис: replace ../kacho-corelib + ../kacho-proto
-       ├─ kacho-vpc         │ между собой сервисы НЕ зависят по build (DB-per-service,
-       ├─ kacho-compute     │ общение только по runtime-API)
-       └─ kacho-api-gateway ┘ (api-gateway импортирует proto-stubs всех доменов)
-kacho-deploy   ← Dockerfile'ы COPY ../kacho-*; build-context = parent dir
-kacho-ui       ← зависит от REST api-gateway в runtime (не build)
-```
-
-`replace ../` — осознанный выбор для polyrepo-dev в одном дереве; переход на versioned
-modules зарезервирован под релизную фазу. Новый `.proto` всегда заводится в `kacho-proto`;
-сервисные репо `.proto` не держат, только Go-импорт сгенерированных stubs.
-
-Кросс-репо фича катится топосортом графа: `kacho-proto` → `kacho-corelib` → сервис(ы) →
-`kacho-api-gateway` → `kacho-deploy` → `kacho-workspace` (docs). Подробности — в
-`.claude/rules/polyrepo.md`.
-
-## 2. Шаблон сервисного репо
+## 2. Раскладка сервисного каталога
 
 Каждый доменный сервис следует Clean Architecture (`.claude/rules/architecture.md`):
 `domain ← use-case ← repo/clients/handler`, единственная точка wiring — `cmd`.
+Ниже — форма каталога `services/<svc>/` (одинаковая у всех семи; прежде каждый такой
+каталог был отдельным репозиторием, отсюда прежнее имя «шаблон репо»).
 
 ```
-kacho-<svc>/
+services/<svc>/
 ├── cmd/
 │   ├── <svc>/main.go               ← composition root: serve (gRPC :9090 + :9091, health :8080)
 │   └── migrator/main.go            ← отдельный CLI миграций (goose, cobra)
@@ -67,13 +52,14 @@ kacho-<svc>/
 │   ├── repo/                       ← adapter: pgx + sqlc (queries/*.sql → gen/), CQRS Reader/Writer
 │   ├── clients/                    ← adapter: gRPC-клиенты к peer-сервисам (iam/vpc/compute)
 │   ├── handler/                    ← тонкий gRPC transport: parse → use-case → format
-│   ├── tenant/                     ← нейтральный носитель caller-identity (для authz)
 │   └── migrations/                 ← goose .sql (embed.FS); схема kacho_<domain>
+     (плюс носитель caller-identity — он есть у каждого сервиса, но ЕДИНОГО имени
+      у него в дереве нет: у одних он в страже прав, у других в транспорте, у третьих
+      в use-case; требование — к свойству, не к каталогу, см. architecture.md)
 ├── deploy/
 │   ├── Chart.yaml + values.yaml + values.dev.yaml
 │   └── templates/                  ← deployment (initContainer migrate + serve), service, configmap, secret
 ├── tests/newman/                   ← cases/*.py → gen.py → коллекции (black-box через api-gateway)
-├── go.mod / go.sum
 ├── Dockerfile                      ← multi-stage builder + минимальный runtime-образ
 ├── Makefile
 └── .github/workflows/ci.yaml
@@ -323,8 +309,8 @@ hooks не достают до воркспейса из вложенного к
 - **`/metrics`** — Prometheus-формат через OpenTelemetry SDK: RPC-латентности/коды,
   pgx-pool, длина и лаг outbox/operations-воркера.
 
-**Логи** — структурный `slog` (JSON в кластере), с request-id и caller-identity из
-`internal/tenant`. **Трейсы** — OpenTelemetry SDK (gRPC + pgx инструментированы); spans
+**Логи** — структурный `slog` (JSON в кластере), с request-id и caller-identity
+(носитель личности у каждого сервиса свой — единого пакета с общим именем в дереве нет). **Трейсы** — OpenTelemetry SDK (gRPC + pgx инструментированы); spans
 сшиваются по runtime-edges между сервисами. `INTERNAL`-ошибки наружу отдают фиксированный
 текст без leak'а pgx/SQL (`.claude/rules/data-integrity.md`), детальная причина — только в
 логах/трейсах.

@@ -258,9 +258,19 @@ api-gateway — единственная edge-поверхность; backend к
   port-forward).
 
 `Internal.*` методы и `Internal*`-сервисы регистрируются **только** на internal mux
-(ban #6). Текущие Internal admin-ресурсы: `AddressPool` (`/vpc/v1/addressPools`),
-`Region`/`Zone`/`DiskType` (`/compute/v1/regions`, `/zones`, `/diskTypes`).
+(ban #6). Текущие Internal admin-ресурсы: `AddressPool` (`/vpc/v1/addressPools`, vpc) и
+админ-CRUD каталога размещения — `InternalRegionService`/`InternalZoneService` сервиса
+**geo** (`/geo/v1/internal/regions`, `/geo/v1/internal/zones`).
 Ответственность за корректную регистрацию — агент `api-gateway-registrar`.
+
+> [!note] Здесь стояли Region/Zone/DiskType как ресурсы compute — владелец другой, и часть
+> из них не Internal (сверено с proto дерева 1653387b, 2026-08-06)
+> Каталог размещения вынесен в **geo** (KAC-эпик #82), и его **чтение публично** —
+> `RegionService`/`ZoneService` объявлены project-scope EXEMPT (authN обязателен,
+> `.claude/rules/security.md` §«AuthN+AuthZ ВЕЗДЕ», задокументированное исключение).
+> `DiskType` принадлежит **storage** и тоже читается публично (`/storage/v1/diskTypes`).
+> Прежняя редакция была неверна трижды — в сервисе-владельце, в маршрутах и в том, что
+> объявляла эти ресурсы Internal.
 
 ## 5. Асинхронное исполнение (Operation + outbox + polling)
 
