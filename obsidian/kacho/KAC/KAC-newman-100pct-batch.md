@@ -10,9 +10,16 @@ tags:
 
 # KAC batch: Newman 100% green push (2026-05-26)
 
-**Status**: in-progress
+> [!note] Строка «Где ведётся» переписана 2026-08-05: это адрес РАБОТЫ, а не история
+> Здесь стояли имена репозиториев полирепо-эпохи. По незакрытой записке эта строка читается
+> как указание, куда идти, — и отправляла бы в репозиторий, которого нет. Домены и их
+> каталоги сохранены один-в-один; прежние имена оставлены в скобках, чтобы связь со старыми
+> PR и разборами не потерялась. В остальном тексте записки имена НЕ трогались — там они
+> история и верны как история.
+
+**Состояние на момент записи**: in-progress
 **Type**: batch fix
-**Repos**: kacho-iam, kacho-api-gateway, kacho-proto, kacho-deploy
+**Где ведётся**: `PRO-Robotech/kacho` — `services/iam/`, `gateway/`, `proto/`, `deploy/` (прежние имена: `kacho-iam`, `kacho-api-gateway`, `kacho-proto`, `kacho-deploy`)
 **PRs**: (pending push)
 **YT**: pending (token expired locally; create retrospectively)
 

@@ -10,9 +10,21 @@ tags:
 
 # KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke
 
-**Status**: in-progress
+> [!note] Строка «Где ведётся» переписана 2026-08-05: это адрес РАБОТЫ, а не история
+> Здесь стояли имена репозиториев полирепо-эпохи. По незакрытой записке эта строка читается
+> как указание, куда идти, — и отправляла бы в репозиторий, которого нет. Домены и их
+> каталоги сохранены один-в-один; прежние имена оставлены в скобках, чтобы связь со старыми
+> PR и разборами не потерялась. В остальном тексте записки имена НЕ трогались — там они
+> история и верны как история.
+
+> [!warning] План, на который ссылается записка, из дерева выведен (сверено 2026-08-05)
+> `docs/superpowers/plans/` в воркспейсе нет. Сам предмет — инвалидация кэша решений о доступе —
+> в дереве продукта живой (`services/iam/internal/clients/cache_invalidation_applier.go`), поэтому
+> записка остаётся `in-progress` по существу, а не по ссылке.
+
+**Состояние на момент записи**: in-progress
 **Type**: feature
-**Repos**: kacho-proto, kacho-iam, kacho-api-gateway
+**Где ведётся**: `PRO-Robotech/kacho` — `proto/`, `services/iam/`, `gateway/` (прежние имена: `kacho-proto`, `kacho-iam`, `kacho-api-gateway`)
 **PRs**: PRO-Robotech/kacho-proto#21 · PRO-Robotech/kacho-iam#18 · PRO-Robotech/kacho-api-gateway#21 (открыты, CI идёт)
 **YT**: https://prorobotech.youtrack.cloud/issue/KAC-124 (subtask of KAC-123 / эпик vault-label KAC-127)
 

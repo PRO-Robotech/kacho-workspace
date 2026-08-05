@@ -26,7 +26,7 @@ category: kac
 
 # rbac-2026 BUG-2 — read-deny hide-existence (gateway 403→404)
 
-**Status**: done — gw#100 + iam#248 merged; api-gateway image `main-22b43201` live via fe3455
+**Состояние на момент записи**: done — gw#100 + iam#248 merged; api-gateway image `main-22b43201` live via fe3455
 ([kacho-deploy#134](https://github.com/PRO-Robotech/kacho-deploy/pull/134)). Cross-repo TEMP-PIN
 ревёрнут на `ref: main` на обоих main ([api-gateway#101](https://github.com/PRO-Robotech/kacho-api-gateway/pull/101)
 + [iam#250](https://github.com/PRO-Robotech/kacho-iam/pull/250)); обе BUG-2 feature-ветки удалены

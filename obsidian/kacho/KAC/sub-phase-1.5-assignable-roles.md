@@ -25,7 +25,7 @@ tags:
 > [!note] Трек без KAC-номера
 > Acceptance-док `docs/specs/sub-phase-1.5-assignable-roles-acceptance.md` (✅ APPROVED); YouTrack-тикет не заводился (MCP недоступен).
 
-**Status**: ✅ done — все 4 репо в `main` (proto#63 · gw#86 · iam#163 · ui#94).
+**Состояние на момент записи**: ✅ done — все 4 репо в `main` (proto#63 · gw#86 · iam#163 · ui#94).
 **Type**: feature
 
 > [!note] Merge-цепочка (2026-06-19, build-граф proto→gw→iam)

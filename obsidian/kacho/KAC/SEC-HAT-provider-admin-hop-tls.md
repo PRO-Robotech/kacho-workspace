@@ -2,7 +2,8 @@
 title: "SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом"
 category: kac
 ticket_id: SEC-HAT
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos: [kacho-deploy, kacho-iam, kacho-api-gateway]
 prs: []
@@ -14,7 +15,10 @@ tags: [kac, fix, kacho-deploy, kacho-iam, kacho-api-gateway, cross-service, test
 
 # SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом
 
-**Status**: **реализовано и посажено на стенд**; ждёт ревью (ветка `agent/sec-hat-admin-hop-terminator`)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `deploy/helm/umbrella/templates/_hydra-admin-tls.tpl` + `hydra-admin-certificate.yaml`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: **реализовано и посажено на стенд**; ждёт ревью (ветка `agent/sec-hat-admin-hop-terminator`)
 **Type**: infra / транспорт перехода
 **Repos**: `kacho` (`deploy/helm/umbrella`, `deploy/scripts`, `deploy/tests/helm`, `gateway/deploy`)
 **Branch**: `agent/sec-hat-admin-hop-terminator`

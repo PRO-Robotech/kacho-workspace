@@ -12,6 +12,10 @@ opened: 2026-07-23
 
 # nlb `:move` cross-tenant deny — RED-flagged → adversarially RETRACTED
 
+> [!note] Координата уточнена 2026-08-05
+> Каталог решений nlb в дереве — `services/nlb/docs/architecture/` (17 файлов). Формы
+> `docs/architecture/nlb` в дереве нет: домен задаётся каталогом сервиса, а не суффиксом.
+
 > [!important] Статус приведён к дереву продукта — волна сверки vault 2026-08-05
 > Сверено с `PRO-Robotech/kacho@96b2879a` (ствол `redesign/integration` — её предок).
 > Прежний статус — `in-progress`; он пережил свой предмет и держался на списке

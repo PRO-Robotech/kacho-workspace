@@ -1,7 +1,8 @@
 ---
 title: "RBAC explicit-model 2026 #224 — owner *.* materializes per-object content + verify-gate owner-content check"
 ticket_id: rbac-2026-224
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos:
   - kacho-iam
@@ -23,7 +24,10 @@ category: kac
 
 # RBAC explicit-model 2026 #224 — owner `*.*` per-object content (contract-blocker)
 
-**Status**: test (branch `rbac-224-owner-wildcard-content` in kacho-iam)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `proto/kacho/cloud/iam/v1/fga_model.fga` — 47 вхождений отношения владельца, каскад трёх верхних уровней объявлен в шапке модели.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (branch `rbac-224-owner-wildcard-content` in kacho-iam)
 **Type**: fix — contract-phase BLOCKER for the RBAC explicit-model 2026 expand→migrate→contract sequencing
 **Acceptance**: `docs/specs/rbac-explicit-model-2026-acceptance.md` — D-8a / C-01b (owner per-object content forward), КФ-4 / H-06 (verify-gate forward-aware), D-3 (bounded vs GLOBAL `*.*`), D-9 (cluster short-circuit)
 **Issue**: PRO-Robotech/kacho-iam#224

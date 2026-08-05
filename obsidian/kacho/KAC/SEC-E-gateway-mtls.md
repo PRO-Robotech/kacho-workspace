@@ -5,7 +5,8 @@ aliases:
   - SEC-E-gateway-mtls
 ticket_id: SEC-E
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-api-gateway
@@ -22,7 +23,10 @@ tags:
 
 # SEC-E: api-gateway backend-dial mTLS (per-edge)
 
-**Status**: test (код готов, Go-тесты зелёные, ждёт ревью + merge оркестратором)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `gateway/internal/config/config.go` — 48 вхождений mTLS-настроек края; клиенты `gateway/internal/clients/iam_*`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, Go-тесты зелёные, ждёт ревью + merge оркестратором)
 **Type**: feature
 **Repos**: kacho-api-gateway
 **Branch**: `SEC-E-gateway-mtls`

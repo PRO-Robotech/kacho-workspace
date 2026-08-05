@@ -40,7 +40,7 @@ category: kac
 
 # [EPIC] kacho-geo: extract Geography (Region/Zone) into a leaf-service
 
-**Status**: done (2026-06-17 — all stages S1–S8 merged; live cutover on fe3455 verified; fresh-kind newman e2e green)
+**Состояние на момент записи**: done (2026-06-17 — all stages S1–S8 merged; live cutover on fe3455 verified; fresh-kind newman e2e green)
 **Type**: epic
 **GitHub epic**: [PRO-Robotech/kacho-workspace#82](https://github.com/PRO-Robotech/kacho-workspace/issues/82)
 **YouTrack**: KAC-<N> (присвоить)

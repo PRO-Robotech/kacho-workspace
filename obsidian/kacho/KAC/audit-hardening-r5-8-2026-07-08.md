@@ -20,7 +20,7 @@ type: fix
 
 # Массированный аудит-рефакторинг — раунды 5-9 (2026-07-08/09)
 
-**Status**: DONE — сошлось на раунде 9 (0 confirmed) → «хватит и 100% выполнено»
+**Состояние на момент записи**: DONE — сошлось на раунде 9 (0 confirmed) → «хватит и 100% выполнено»
 **Type**: batch fix (security/leak/structure/readability/LEAN/concurrency)
 **Repos**: corelib, iam, vpc, compute, geo, nlb, api-gateway, registry
 

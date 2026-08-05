@@ -5,7 +5,8 @@ aliases:
   - SEC-D-services-fga-via-iam-mtls
 ticket_id: SEC-D
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-compute
@@ -25,7 +26,10 @@ tags:
 
 # SEC-D: services FGA via IAM (transactional-outbox) + opt-in mTLS
 
-**Status**: test (kacho-compute код готов, тесты зелёные; vpc/nlb — параллельно)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): очереди регистраций в дереве — 44 файла по `fga_outbox`/`fga_register_outbox`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (kacho-compute код готов, тесты зелёные; vpc/nlb — параллельно)
 **Type**: feature
 **Repos**: kacho-compute, kacho-vpc, kacho-nlb
 **Branch**: `SEC-D-kacho-compute-fga-via-iam-mtls` (compute)

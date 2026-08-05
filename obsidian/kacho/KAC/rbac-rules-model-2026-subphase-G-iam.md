@@ -32,7 +32,7 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui
 
-**Status**: **done** — merged to main + **deployed to fe3455** 2026-06-22. Cross-repo chain (topo): proto **#78** → iam **#208** → api-gateway **#94** → ui **#106**.
+**Состояние на момент записи**: **done** — merged to main + **deployed to fe3455** 2026-06-22. Cross-repo chain (topo): proto **#78** → iam **#208** → api-gateway **#94** → ui **#106**.
 
 ## Deploy — fe3455-client (2026-06-22)
 

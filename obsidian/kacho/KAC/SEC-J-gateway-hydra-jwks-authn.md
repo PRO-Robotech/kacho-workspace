@@ -5,7 +5,8 @@ aliases:
   - SEC-J-gateway-hydra-jwks-authn
 ticket_id: SEC-J
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: bugfix
 repos:
   - kacho-api-gateway
@@ -24,7 +25,10 @@ tags:
 
 # SEC-J: gateway Hydra-JWKS authN (principal path)
 
-**Status**: test (код готов, Go-тесты + helm render-тест зелёные; ждёт ревью + merge)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `gateway/internal/middleware/{jwk,jwt_verifier}.go` + `auth_jwks_test.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, Go-тесты + helm render-тест зелёные; ждёт ревью + merge)
 **Type**: bugfix + config (authN wiring, не новый ресурс/RPC)
 **Repos**: kacho-api-gateway (код), kacho-deploy (helm env)
 **Branch**: `SEC-J-gateway-hydra-jwks-authn`

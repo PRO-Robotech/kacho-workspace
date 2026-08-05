@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase C (iam)
 ticket_id: gh-kacho-iam-189
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-iam
@@ -21,7 +22,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase C (iam)
 
-**Status**: test (code-complete on branch `rbac-rules-c-iam`, not committed)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `services/iam/internal/migrations/0027_target_members_rule_rekey.sql`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (code-complete on branch `rbac-rules-c-iam`, not committed)
 **Type**: feature (epic «RBAC rules-model 2026», sub-phase C — ARM_LABELS materialization)
 **Repos**: kacho-iam (this); no proto/FGA-model change (scope_grant + v_* already from B)
 **Issue**: PRO-Robotech/kacho-iam#189

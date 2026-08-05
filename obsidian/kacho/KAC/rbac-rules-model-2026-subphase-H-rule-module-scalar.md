@@ -31,7 +31,7 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase H (Rule.module scalar)
 
-**Status**: **done** — proto **#80** + iam **#210** + gateway **#95** + ui **#107** merged + **deployed to fe3455** 2026-06-22.
+**Состояние на момент записи**: **done** — proto **#80** + iam **#210** + gateway **#95** + ui **#107** merged + **deployed to fe3455** 2026-06-22.
 **Type**: feature (breaking core-model refinement). Acceptance `docs/specs/rbac-rules-model-2026-H-rule-module-scalar-acceptance.md` (✅ APPROVED, round 3).
 
 ## Deploy — fe3455-client (2026-06-22)

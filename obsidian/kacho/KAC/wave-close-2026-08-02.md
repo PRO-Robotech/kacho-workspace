@@ -9,7 +9,7 @@ repos:
   - kacho-workspace
 opened: 2026-08-02
 tags:
-  - KAC
+  - kac
   - authz
   - security
   - listauthz

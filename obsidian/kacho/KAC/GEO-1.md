@@ -26,7 +26,7 @@ category: kac
 >
 > **done.** Владельческая сторона в дереве: единственный сигнал пригодности к размещению объявлен и у региона, и у зоны, а две проекции разведены — публичные контракты отдельно, `internal_catalog_service.proto` отдельно. Публичное чтение Region/Zone с тех пор стало **задокументированным исключением** из проверки прав по проекту (аутентификация при этом обязательна) — оно записано в `security.md`, то есть доехало и до нормы.
 
-**Status**: done · было при заведении: core owner-side landed; gateway/newman/UI follow-on).
+**Состояние на момент записи**: done · было при заведении: core owner-side landed; gateway/newman/UI follow-on).
 **Repo**: `project/kacho` (монорепо), ветка `redesign/geo-region-zone`.
 **Acceptance**: `docs/specs/sub-phase-GEO-1-region-zone-redesign-acceptance.md` (APPROVED, 39
 сценариев GEO-1-01..39).

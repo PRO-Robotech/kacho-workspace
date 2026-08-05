@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase D-consumer (kacho-vpc)
 ticket_id: rbac-rules-model-2026-D-consumer-vpc
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-vpc
@@ -22,7 +23,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase D-consumer (kacho-vpc)
 
-**Status**: test (code-complete on branch `rbac-rules-d-consumer`, NOT committed/pushed)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `services/vpc/internal/authzfilter/{filter,actions}.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (code-complete on branch `rbac-rules-d-consumer`, NOT committed/pushed)
 **Type**: feature (epic «RBAC rules-model 2026», sub-phase D — per-object filtered `List`, §11)
 **Repo**: kacho-vpc (consumer track; iam-core track = [[rbac-rules-model-2026-subphase-D-iam]])
 **Acceptance**: `docs/specs/rbac-rules-model-2026-acceptance.md` (APPROVED раунд 2) — D-40..D-47 (LST-1..6)

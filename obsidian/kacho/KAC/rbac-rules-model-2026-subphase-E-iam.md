@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)
 ticket_id: rbac-rules-model-2026-E-iam
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-proto
@@ -26,7 +27,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)
 
-**Status**: test (code-complete on branches `rbac-rules-e-proto` / `rbac-rules-e-iam` / `rbac-rules-e-gateway`, NOT committed)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `repeated Subject subjects = 19` в `proto/kacho/cloud/iam/v1/access_binding.proto`; `rpc ExpandAccess` в `access_binding_service.proto`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (code-complete on branches `rbac-rules-e-proto` / `rbac-rules-e-iam` / `rbac-rules-e-gateway`, NOT committed)
 **Type**: feature (epic «RBAC rules-model 2026», sub-phase E — multi-subject bindings + effective-principal/role audit)
 **Acceptance**: `docs/specs/rbac-rules-model-2026-acceptance.md` §«ПОД-ФАЗА E» E-30..E-34 (APPROVED раунд 2)
 

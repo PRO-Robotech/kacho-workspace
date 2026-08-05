@@ -26,10 +26,16 @@ tags:
 
 # 100% tuple↔resource-create guarantee (sub-phase 1.4)
 
+> [!note] Названная проба в дереве есть, но под другим адресом (сверено 2026-08-05)
+> Пробы регистрации ресурса живут в
+> `services/iam/cmd/kacho-iam/register_resource_internal_only_test.go` и
+> `services/iam/internal/apps/kacho/api/internal_iam/register_resource_concurrency_integration_test.go`.
+> Записанная форма `kacho-iam/<ИмяТеста>` адресом не является — это имя пробы эпохи полирепо.
+
 > [!note] Трек без KAC-номера
 > Acceptance-док `docs/specs/sub-phase-1.4-*-acceptance.md`; YouTrack-тикет не заводился.
 
-**Status**: ✅ done — merged на `main` + live `fe3455` (helm rev13, 2026-06-18).
+**Состояние на момент записи**: ✅ done — merged на `main` + live `fe3455` (helm rev13, 2026-06-18).
 **Type**: feature (at-least-once hardening)
 **Repos / PRs**: kacho-corelib [#25](https://github.com/PRO-Robotech/kacho-corelib/pull/25) (S0), [#26](https://github.com/PRO-Robotech/kacho-corelib/pull/26) (starvation fix); kacho-iam [#161](https://github.com/PRO-Robotech/kacho-iam/pull/161) (S2); kacho-vpc [#158](https://github.com/PRO-Robotech/kacho-vpc/pull/158), kacho-compute [#57](https://github.com/PRO-Robotech/kacho-compute/pull/57), kacho-nlb [#32](https://github.com/PRO-Robotech/kacho-nlb/pull/32) (S3 backstop).
 

@@ -1,7 +1,8 @@
 ---
 title: "RBAC Contract-B — full removal of B2B Organization (proto/iam/deploy)"
 ticket_id: rbac-2026-contract-b
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: refactor
 repos:
   - kacho-proto
@@ -26,7 +27,10 @@ category: kac
 
 # RBAC Contract-B — full removal of B2B Organization
 
-**Status**: test (3 PRs open; iam/deploy CI pin proto@`rbac-contract-b-org-removal` until proto merges)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `service OrganizationService` в `proto/` — 0 вхождений.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (3 PRs open; iam/deploy CI pin proto@`rbac-contract-b-org-removal` until proto merges)
 **Type**: refactor / breaking removal — RBAC-2026 epic #109, **contract phase** (Contract-A flat model already in main of all repos)
 **Acceptance**: `docs/specs/rbac-explicit-model-2026-acceptance.md` — D-12 / **D-12a (Q-1 full-removal, variant A)** / G-01 / G-02 / G-03 / G-05 / P1 / P1b
 

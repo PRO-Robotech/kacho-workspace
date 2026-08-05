@@ -26,7 +26,7 @@ tags:
 
 # OP2-P-BGP: subnet routing via kube-ovn-speaker BGP
 
-**Status**: test (код + envtest RED→GREEN + golangci-lint зелёные; live-PoC подтверждён на
+**Состояние на момент записи**: test (код + envtest RED→GREEN + golangci-lint зелёные; live-PoC подтверждён на
 kind-kacho; KAC# присваивает orchestrator).
 **Type**: feature
 **Repos**: kacho-vpc-operator (BGP-аннотация на kube-ovn Subnet), kacho-deploy (speaker DS +

@@ -5,7 +5,8 @@ aliases:
   - rbac-explicit-2026-P11
 ticket_id: "(epic — acceptance-anchored, MCP youtrack unavail)"
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-ui
@@ -18,11 +19,14 @@ tags:
 
 # RBAC explicit-model 2026 — sub-phase P11 (kacho-ui)
 
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): защита от удаления читается в `ui-future/iam/src/registerExtensions.tsx`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
 > [!note] Anchor
 > Epic: [[rbac-explicit-model-2026]]. Acceptance: `docs/specs/rbac-explicit-model-2026-acceptance.md` §0 D-10/D-12, §3 B-01/B-02, §10 P11.
 > PR: https://github.com/PRO-Robotech/kacho-ui/pull/114 (ветка `rbac-2026-ui-org-removal-selector`).
 
-**Status**: 🧪 test — код-комплит на ветке; vitest (+18) + CI playwright (35) зелёные; typecheck + build зелёные. НЕ смёржено (на проверке владельца).
+**Состояние на момент записи**: 🧪 test — код-комплит на ветке; vitest (+18) + CI playwright (35) зелёные; typecheck + build зелёные. НЕ смёржено (на проверке владельца).
 **Type**: feature
 
 ## Что и зачем

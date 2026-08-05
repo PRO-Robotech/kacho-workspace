@@ -5,7 +5,8 @@ aliases:
   - rbac-explicit-2026-P6
 ticket_id: "(epic — acceptance-anchored, MCP youtrack unavail)"
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-proto
@@ -21,10 +22,13 @@ tags:
 
 # RBAC explicit-model 2026 — sub-phase P6 (iam)
 
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `deletion_protection` в `proto/kacho/cloud/iam/v1/access_binding*.proto`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
 > [!note] Anchor
 > Epic: [[rbac-explicit-model-2026]]. Acceptance: `docs/specs/rbac-explicit-model-2026-acceptance.md` §0 D-8/D-8a/D-10, §4 C-01/C-01b/C-02/C-03/C-04, §10 P6.
 
-**Status**: 🧪 test — код-комплит на ветках; integration (testcontainers) зелёные; unit зелёные; newman happy+neg добавлены. Pending: db-architect + system-design + go-style ревью → merge.
+**Состояние на момент записи**: 🧪 test — код-комплит на ветках; integration (testcontainers) зелёные; unit зелёные; newman happy+neg добавлены. Pending: db-architect + system-design + go-style ревью → merge.
 **Type**: feature
 
 ## Что и зачем

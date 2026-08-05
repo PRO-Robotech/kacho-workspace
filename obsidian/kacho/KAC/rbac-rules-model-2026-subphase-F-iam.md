@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase F clean-cut (iam + proto)
 ticket_id: rbac-rules-model-2026-F-iam
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-proto
@@ -27,7 +28,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase F clean-cut (iam + proto)
 
-**Status**: test (branches `rbac-rules-f-cleancut` in kacho-proto + kacho-iam; PRs proto#77 / iam#200)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `services/iam/internal/apps/kacho/api/role/rules_catalog.go` и каталог правил в `data-model.mdx` сервиса.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (branches `rbac-rules-f-cleancut` in kacho-proto + kacho-iam; PRs proto#77 / iam#200)
 **Type**: feature — epic «RBAC rules-model 2026», sub-phase F = **clean-cut / hard-cut (O-9)**, pre-prod, no live data
 **Acceptance**: `docs/specs/rbac-rules-model-2026-acceptance.md` §«ПОД-ФАЗА F» F-50..F-54 (APPROVED 2026-06-21)
 

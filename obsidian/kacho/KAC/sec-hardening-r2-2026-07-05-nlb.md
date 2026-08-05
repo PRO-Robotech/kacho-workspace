@@ -1,7 +1,8 @@
 ---
 title: "sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero"
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 tags:
   - kac
@@ -9,7 +10,10 @@ tags:
 
 # sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero
 
-**Status**: test
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `services/nlb` в дереве монорепо, свои кейсы newman и гейты repohygiene зелёные.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test
 **Type**: fix / security-hardening (batch)
 **Repos**: kacho-nlb
 **Branch**: `sec-hardening-r2-2026-07-05`

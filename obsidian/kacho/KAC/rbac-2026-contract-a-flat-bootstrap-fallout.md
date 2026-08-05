@@ -1,7 +1,8 @@
 ---
 title: "RBAC Contract-A flat — bootstrap signup owner-binding fallout (ROOT flat-403)"
 ticket_id: rbac-2026-contract-a-flat-fallout
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos:
   - kacho-iam
@@ -22,7 +23,10 @@ category: kac
 
 # RBAC Contract-A flat — bootstrap signup owner-binding fallout
 
-**Status**: test (iam branch `rbac-contract-a-flat-fallout` → PR #230; deploy PR #122 flat-configmap pin)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): плоский набор глаголов в `proto/kacho/cloud/iam/v1/fga_model.fga` (55 вхождений `v_update`/`v_delete`).
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (iam branch `rbac-contract-a-flat-fallout` → PR #230; deploy PR #122 flat-configmap pin)
 **Type**: fix — ROOT of remaining flat-403 (~90%); continues [[rbac-2026-contract-a-fix-iam-content-forward]] / [[rbac-2026-224-owner-wildcard-content]]
 **Acceptance**: `docs/specs/rbac-explicit-model-2026-acceptance.md` — D-4 / D-8a / C-01 / C-01b
 **Commit**: `685b1ad`

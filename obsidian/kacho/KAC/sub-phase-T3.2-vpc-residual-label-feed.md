@@ -24,10 +24,15 @@ tags:
 
 # vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)
 
+> [!warning] Документ приёмки, на который опирается записка, из дерева выведен (сверено 2026-08-05)
+> `docs/specs/sub-phase-T3.2-vpc-residual-label-feed-acceptance.md` в воркспейсе отсутствует —
+> 0 совпадений по `git ls-files docs/specs`. Разбор ниже верен как прошлое; опоры в виде
+> действующей приёмки у него нет.
+
 > [!note] Трек
 > GitHub issue `PRO-Robotech/kacho-vpc#10` (bug). Закрывает явно отложенный «остаточный gap» родительского T3.1 §3.1. Acceptance ✅ APPROVED (`acceptance-reviewer`, 2026-06-25): `docs/specs/sub-phase-T3.2-vpc-residual-label-feed-acceptance.md`. Найдено живым прогоном fe3455 (under-show).
 
-**Status**: ✅ done — vpc PR [kacho-vpc#11](https://github.com/PRO-Robotech/kacho-vpc/pull/11) merged; image `main-4987b56e` live via fe3455 ([kacho-deploy#134](https://github.com/PRO-Robotech/kacho-deploy/pull/134)). Все 7 vpc-типов теперь питают labels+parent в IAM mirror (4 остаточных типа закрыты).
+**Состояние на момент записи**: ✅ done — vpc PR [kacho-vpc#11](https://github.com/PRO-Robotech/kacho-vpc/pull/11) merged; image `main-4987b56e` live via fe3455 ([kacho-deploy#134](https://github.com/PRO-Robotech/kacho-deploy/pull/134)). Все 7 vpc-типов теперь питают labels+parent в IAM mirror (4 остаточных типа закрыты).
 **Type**: fix
 
 ## Что и зачем

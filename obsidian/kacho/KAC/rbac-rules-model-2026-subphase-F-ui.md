@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase F (UI — F-22 rules-editor + thin grant-form)
 ticket_id: rbac-rules-model-2026-F-ui
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-ui
@@ -17,7 +18,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase F (UI — F-22)
 
-**Status**: test (code-complete на ветке `rbac-rules-f-cleancut`, НЕ закоммичено)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): форма выдачи и расширения в `ui-future/iam/src/components/organisms/iam/`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (code-complete на ветке `rbac-rules-f-cleancut`, НЕ закоммичено)
 **Type**: feature (эпик «RBAC rules-model 2026», sub-phase F — clean-cut UI)
 **Acceptance**: `docs/specs/rbac-rules-model-2026-acceptance.md` §«ПОД-ФАЗА F» F-22 (APPROVED)
 

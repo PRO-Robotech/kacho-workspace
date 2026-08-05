@@ -1,6 +1,6 @@
 ---
 title: "Локальный цикл e2e — что он вскрыл за один день"
-tags: [kacho/e2e, kacho/authz, kacho/nlb, kacho/iam, kacho/testing]
+tags: [kac, kacho/e2e, kacho/authz, kacho/nlb, kacho/iam, kacho/testing]
 status: reference
 category: kac
 ---

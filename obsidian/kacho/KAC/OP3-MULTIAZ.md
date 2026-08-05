@@ -4,7 +4,8 @@ aliases:
   - OP3-MULTIAZ
 ticket_id: KAC-PENDING
 category: kac
-status: test
+status: superseded
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-vpc-operator
@@ -25,7 +26,15 @@ tags:
 
 # OP3-MULTIAZ: cross-zone within-VPC L3 + isolation
 
-**Status**: test (live end-to-end PROVEN; envtest+lint green; KAC# присваивает orchestrator).
+> [!warning] Предмет проверен по дереву 2026-08-05 (`PRO-Robotech/kacho@58913d0e`) — записка переведена в историю
+> в дереве монорепо нет ни операторного каталога (0 файлов по имени компонента), ни его CRD
+> (0 вхождений `KachoVpc`/`KachoRouteTable`), ни описания зональных кластеров оператора. След
+> оператора в правах снят миграцией
+> `services/iam/internal/migrations/0076_retire_operator_dead_fanout.sql`. Тот же замер — у
+> [[SEC-G-operators-ovn-mtls]] и [[OP2-P2-routetable]]. Текст ниже оставлен как есть: разбор верен как прошлое.
+> Правило закрытия — [[KAC/README]].
+
+**Состояние на момент записи**: test (live end-to-end PROVEN; envtest+lint green; KAC# присваивает orchestrator).
 **Repos**: kacho-vpc-operator (zone-aware operator + direct-OVN cross-routes), kacho-deploy (zonal clusters + operator bring-up).
 **Branch**: `OP3-MULTIAZ` (оба репо). **Acceptance**: `docs/specs/sub-phase-OP3-MULTIAZ-cross-zone-vpc-acceptance.md` (APPROVED).
 

@@ -5,7 +5,8 @@ aliases:
   - OP2-P2-routetable
 ticket_id: KAC-PENDING
 category: kac
-status: test
+status: superseded
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-vpc-operator
@@ -24,7 +25,14 @@ tags:
 
 # OP2-P2: KachoRouteTable CRD + RouteTable → Vpc.staticRoutes
 
-**Status**: test (код готов, `go test ./... -race` + golangci-lint + envtest зелёные; KAC#
+> [!warning] Предмет проверен по дереву 2026-08-05 (`PRO-Robotech/kacho@58913d0e`) — записка переведена в историю
+> в дереве монорепо нет ни операторного каталога (0 файлов по имени компонента), ни CRD
+> `KachoRouteTable`/`KachoVpc` (0 вхождений). След оператора в правах снят миграцией
+> `services/iam/internal/migrations/0076_retire_operator_dead_fanout.sql`. Тот же замер — у
+> [[SEC-G-operators-ovn-mtls]] и [[OP3-MULTIAZ]]. Текст ниже оставлен как есть: разбор верен как прошлое.
+> Правило закрытия — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, `go test ./... -race` + golangci-lint + envtest зелёные; KAC#
 присваивает orchestrator).
 **Type**: feature
 **Repos**: kacho-vpc-operator (код CRD + ingress + egress), kacho-deploy (CRD/RBAC install — out-of-band).

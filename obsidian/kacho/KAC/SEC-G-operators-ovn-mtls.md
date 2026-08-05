@@ -5,7 +5,8 @@ aliases:
   - SEC-G-operators-ovn-mtls
 ticket_id: SEC-G
 category: kac
-status: test
+status: superseded
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-vpc-operator
@@ -24,7 +25,11 @@ tags:
 
 # SEC-G: operators + kube-ovn on mTLS, least-priv operator SA
 
-**Status**: test (код готов, Go + helm-assertion тесты зелёные; ждёт ревью + merge)
+> [!warning] Предмет проверен по дереву 2026-08-05 (`PRO-Robotech/kacho@58913d0e`) — записка переведена в историю
+> операторного компонента в дереве монорепо **0 файлов**, CRD `KachoVpc`/`KachoRouteTable` — 0 вхождений; его след в правах снят миграцией `services/iam/internal/migrations/0076_retire_operator_dead_fanout.sql`. Текст ниже оставлен как есть: разбор верен как прошлое.
+> Правило закрытия — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, Go + helm-assertion тесты зелёные; ждёт ревью + merge)
 **Type**: feature
 **Repos**: kacho-vpc-operator, kacho-deploy
 **Branch**: `SEC-G-operator-mtls` (оба репо)

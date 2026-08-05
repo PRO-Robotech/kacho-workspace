@@ -1,6 +1,6 @@
 ---
 title: "Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens"
-tags: [kac/finding, domain/iam, area/authz, area/testing]
+tags: [kac, kac/finding, domain/iam, area/authz, area/testing]
 status: in-progress
 category: kac
 ---

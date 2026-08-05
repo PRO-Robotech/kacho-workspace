@@ -5,7 +5,8 @@ aliases:
   - SEC-B-corelib-mtls
 ticket_id: SEC-B
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-corelib
@@ -22,7 +23,10 @@ tags:
 
 # SEC-B: corelib mTLS transport (grpcsrv/grpcclient + identity-extractor)
 
-**Status**: test (код готов, тесты зелёные, ждёт ревью + merge оркестратором)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `pkg/grpcsrv/cert_identity.go` несёт `WithTrustedForwarders`; `pkg/grpcclient/tls.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, тесты зелёные, ждёт ревью + merge оркестратором)
 **Type**: feature
 **Repos**: kacho-corelib
 **Branch**: `SEC-B-corelib-mtls`

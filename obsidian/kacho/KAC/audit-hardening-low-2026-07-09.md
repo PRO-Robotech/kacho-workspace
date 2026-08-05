@@ -22,7 +22,7 @@ type: fix
 
 # Массированный аудит-рефакторинг — LOW-inclusive прогон (2026-07-09)
 
-**Status**: DONE — 8 раундов петли + auth-default-production финализация. Phase закрыта по команде на r8.
+**Состояние на момент записи**: DONE — 8 раундов петли + auth-default-production финализация. Phase закрыта по команде на r8.
 **Type**: batch fix (security/leak/structure/readability/LEAN/concurrency) + auth-posture
 **Repos**: corelib, iam, vpc, compute, geo, nlb, api-gateway, registry (8 code-heavy)
 **Trigger**: `/hardening-audit-loop` + директива «учитывай и LOW» + «фиксим сразу всё в рамках круга» (fix-all-in-round) + финализация «мержи всё в master; зелёный пайп в каждом репо; authN+authZ по дефолту production; все тесты тестируют production».

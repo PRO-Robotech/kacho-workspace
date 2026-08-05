@@ -1,7 +1,8 @@
 ---
 title: "RBAC — v_delete co-materialized with v_update on leaf objects (edit@project delete-403)"
 ticket_id: rbac-2026-edit-leaf-delete
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos:
   - kacho-iam
@@ -17,7 +18,10 @@ category: kac
 
 # RBAC — leaf-editor `v_delete` co-materialization (BUG #1) + account-owner content check (BUG #2)
 
-**Status**: test (branch `qa/iam-acb-fixture-green`, not pushed)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): набор глаголов и их со-материализация проверяются в `services/iam/internal/apps/kacho/api/access_binding/expand_access_authz_test.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (branch `qa/iam-acb-fixture-green`, not pushed)
 **Type**: fix — materialization-logic defect in the reconciler tuple builder.
 **Continues**: [[rbac-2026-contract-a-fix-iam-content-forward]], [[rbac-2026-224-owner-wildcard-content]]
 

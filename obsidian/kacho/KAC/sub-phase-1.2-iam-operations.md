@@ -27,7 +27,7 @@ tags:
 > [!note] Трек без KAC-номера
 > Работа ведётся по acceptance-доку `docs/specs/sub-phase-1.2-iam-operations-acceptance.md` (✅ APPROVED rev 5), YouTrack-тикет не заводился.
 
-**Status**: ✅ done — merged на `main` + live на внешнем кластере `fe3455` (helm **rev14**, 2026-06-18; включает backfill 0017).
+**Состояние на момент записи**: ✅ done — merged на `main` + live на внешнем кластере `fe3455` (helm **rev14**, 2026-06-18; включает backfill 0017).
 **Type**: feature
 **Repos / PRs**: kacho-proto (merged), kacho-corelib [#24](https://github.com/PRO-Robotech/kacho-corelib/pull/24), kacho-iam [#160](https://github.com/PRO-Robotech/kacho-iam/pull/160), kacho-api-gateway [#85](https://github.com/PRO-Robotech/kacho-api-gateway/pull/85), kacho-ui [#81](https://github.com/PRO-Robotech/kacho-ui/pull/81). **Backfill**: kacho-iam [#162](https://github.com/PRO-Robotech/kacho-iam/pull/162) (migration 0017).
 

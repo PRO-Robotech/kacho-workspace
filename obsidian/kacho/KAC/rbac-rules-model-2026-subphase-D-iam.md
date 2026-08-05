@@ -1,7 +1,8 @@
 ---
 title: RBAC rules-model 2026 — sub-phase D (iam-core)
 ticket_id: rbac-rules-model-2026-D-iam
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: feature
 repos:
   - kacho-iam
@@ -22,7 +23,10 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase D (iam-core)
 
-**Status**: test (code-complete on branches `rbac-rules-d-iam` / `rbac-rules-d-proto`, NOT committed)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `role_rule_selectors` — 13 вхождений в миграциях iam, начиная с `0026_role_rule_selectors.sql`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (code-complete on branches `rbac-rules-d-iam` / `rbac-rules-d-proto`, NOT committed)
 **Type**: feature (epic «RBAC rules-model 2026», sub-phase D — per-object filtered `List`, §11, КРИТИЧНО)
 **Repos**: kacho-iam (this) + kacho-proto (`ListRolesRequest.account_id=4`, append-only)
 **Acceptance**: `docs/specs/rbac-rules-model-2026-acceptance.md` (APPROVED раунд 2) — D-40..D-47 (LST-1..6), design §11

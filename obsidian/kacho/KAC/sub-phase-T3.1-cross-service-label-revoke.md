@@ -35,7 +35,7 @@ tags:
 > [!note] Трек
 > GitHub issue `PRO-Robotech/kacho-workspace#113` (bug). Закрытие долга эпика T3-D4 «Resource-scoped AccessBinding selectors». Acceptance ✅ APPROVED (`acceptance-reviewer` раунд 2, 2026-06-23): `docs/specs/sub-phase-T3.1-cross-service-label-revoke-acceptance.md`. Найдено живым прогоном на fe3455.
 
-**Status**: done · было при заведении: 🔧 in-progress — **T3.1 4 PR замержены в main** (vpc `47d707d`, compute `4a0b010`, nlb `3cf783e`, iam `3ecf7ec`); параллельно #211 замержен (iam `299bbbb`). Остаётся: kacho-deploy newman e2e (в работе), #212-фикс (в работе), deploy fe3455, vault post-merge trail.
+**Состояние на момент записи**: done · было при заведении: 🔧 in-progress — **T3.1 4 PR замержены в main** (vpc `47d707d`, compute `4a0b010`, nlb `3cf783e`, iam `3ecf7ec`); параллельно #211 замержен (iam `299bbbb`). Остаётся: kacho-deploy newman e2e (в работе), #212-фикс (в работе), deploy fe3455, vault post-merge trail.
 **Type**: fix (cross-repo)
 
 ## Что и зачем

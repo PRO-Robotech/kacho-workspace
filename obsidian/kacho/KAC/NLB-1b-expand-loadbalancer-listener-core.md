@@ -15,7 +15,7 @@ category: kac
 >
 > **done.** Расширяющая фаза доехала и перестала быть отдельной: балансировщик и слушатель живут в контракте (`network_load_balancer*.proto`, `listener*.proto`, шесть RPC у слушателя). Ветка `redesign/nlb-1b`, к которой привязана записка, разошлась со стволом по модели внешнего адреса ещё тогда — судить по ней нельзя.
 
-**Status**: done · было при заведении: EXPAND phase committed on branch; MIGRATE/CONTRACT pending
+**Состояние на момент записи**: done · было при заведении: EXPAND phase committed on branch; MIGRATE/CONTRACT pending
 **Type:** sub-phase (carve of KAC-NLB-1, redesign of `kacho-nlb`)
 **Repo:** `project/kacho` (monorepo `github.com/PRO-Robotech/kacho`), `services/nlb`
 **Branch:** `redesign/nlb-1b` (continues from F6 commit `25f0e82`)

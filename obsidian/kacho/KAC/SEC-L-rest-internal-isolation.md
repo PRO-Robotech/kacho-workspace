@@ -5,7 +5,8 @@ aliases:
   - SEC-L-rest-internal-isolation
 ticket_id: SEC-L
 category: kac
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos:
   - kacho-api-gateway
@@ -23,7 +24,10 @@ tags:
 
 # SEC-L: REST Internal* external-isolation + allowlist priv-esc
 
-**Status**: test (код готов, Go-тесты RED→GREEN зелёные, gosec=0 на changed pkgs; ждёт ревью + CI + merge)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): 29 файлов `gateway/internal/restmux`, среди них пробы изоляции внутреннего слушателя.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (код готов, Go-тесты RED→GREEN зелёные, gosec=0 на changed pkgs; ждёт ревью + CI + merge)
 **Type**: fix (P0 security — без нового ресурса/RPC/поля)
 **Repos**: kacho-api-gateway
 **Branch**: `fix/rest-internal-isolation`

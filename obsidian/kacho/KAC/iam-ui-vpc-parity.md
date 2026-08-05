@@ -32,7 +32,7 @@ tags:
 > YouTrack по решению владельца не заводился; ветка во всех затронутых репо =
 > `feature/iam-ui-vpc-parity`.
 
-**Status**: ✅ done — merged to `main` (kacho-ui `9059e3a`, kacho-workspace `760512a`) + deployed to external cluster `fe3455-client` (UI `prorobotech/kacho-ui:main-9059e3ad`, rollout rev 3, pod Ready).
+**Состояние на момент записи**: ✅ done — merged to `main` (kacho-ui `9059e3a`, kacho-workspace `760512a`) + deployed to external cluster `fe3455-client` (UI `prorobotech/kacho-ui:main-9059e3ad`, rollout rev 3, pod Ready).
 **Acceptance (APPROVED)**: `docs/specs/sub-phase-2.1-iam-ui-vpc-parity-acceptance.md` (73 сценария §A–§J, `acceptance-reviewer` round 3).
 **Дизайн-источник**: `docs/specs/sub-phase-1.x-ui-yc-redesign-plan.md` (VPC облик).
 

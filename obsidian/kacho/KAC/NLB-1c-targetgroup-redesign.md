@@ -15,7 +15,7 @@ category: kac
 >
 > **done.** Группа целей и её проверка здоровья в дереве: отдельный `health_check.proto`, у типа проверки четыре ветви взаимоисключающего выбора — то самое, ради чего заводилась подфаза.
 
-**Status**: done · было при заведении: F6 landed + tested + committed on `redesign/integration`; F7-inline N/A on integration; NLB-1d newman migrated
+**Состояние на момент записи**: done · было при заведении: F6 landed + tested + committed on `redesign/integration`; F7-inline N/A on integration; NLB-1d newman migrated
 **Type:** sub-phase (carve of KAC-NLB-1, redesign of `kacho-nlb`)
 **Repo:** `project/kacho` (monorepo `github.com/PRO-Robotech/kacho`), `services/nlb`
 **Branch:** `redesign/integration`

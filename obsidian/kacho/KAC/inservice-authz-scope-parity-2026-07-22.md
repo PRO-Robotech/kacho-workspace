@@ -13,7 +13,7 @@ type: fix
 
 # In-service authz map must mirror gateway catalog scope+relation (2026-07-22)
 
-**Status**: DONE — production-mode newman (#59). GitHub #62 (storage) + registry-Create + #61 (Image BVA) closed.
+**Состояние на момент записи**: DONE — production-mode newman (#59). GitHub #62 (storage) + registry-Create + #61 (Image BVA) closed.
 **Type**: fix (authz-scope parity + sync BVA)
 **Repos**: kacho (monorepo, `redesign/integration`) — services/storage, services/registry
 **Trigger**: production-mode newman found a project-scoped `editor` SA got 403 on storage List/Create in its OWN project while VPC/compute honored it.

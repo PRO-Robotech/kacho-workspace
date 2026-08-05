@@ -9,7 +9,7 @@ tags:
 
 # sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes
 
-**Status**: merged (все 12 репо в main; запускается 2-й полный аудит для сходимости)
+**Состояние на момент записи**: merged (все 12 репо в main; запускается 2-й полный аудит для сходимости)
 **Type**: refactor / security-hardening (batch)
 **Repos**: all 12 code repos (proto/corelib/vpc/compute/iam/nlb/api-gateway/geo/registry/ui/ui-future/deploy)
 **Branch**: `sec-hardening-2026-07-05` (per repo)

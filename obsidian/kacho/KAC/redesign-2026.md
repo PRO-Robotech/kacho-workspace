@@ -6,7 +6,7 @@ type: epic
 repos:
   - kacho (монорепо)
 tags:
-  - KAC
+  - kac
   - epic
   - redesign
 ---
@@ -20,7 +20,7 @@ tags:
 >
 > **in-progress.** Эпик редизайна семи доменов **ведётся**: ствол `redesign/integration` — живая линия работы, `main` заморожен. Статус подтверждён, а не унаследован.
 
-**Status**: in-progress · было при заведении: · **Type**: epic · **Repo**: монорепо `project/kacho` (`github.com/PRO-Robotech/kacho`
+**Состояние на момент записи**: in-progress · было при заведении: · **Type**: epic · **Repo**: монорепо `project/kacho` (`github.com/PRO-Robotech/kacho`
 **Ветка интеграции**: `redesign/integration` · **Trail деталей**: `docs/plans/kacho-redesign-2026/integration-status.md`
 
 ## Что и зачем

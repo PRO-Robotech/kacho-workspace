@@ -1,7 +1,8 @@
 ---
 title: "RBAC Contract-A fix — forward-materialize owner/creator access on iam-native content (flat FGA no-access-loss)"
 ticket_id: rbac-2026-contract-a-fix
-status: test
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
 type: fix
 repos:
   - kacho-iam
@@ -24,7 +25,10 @@ category: kac
 
 # RBAC Contract-A fix — iam-native content forward-materialization
 
-**Status**: test (iam branch `rbac-contract-a-fix` → PR #228; deploy PR #122 pins `REF_IAM`)
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `ReconcileObjectForward` зовётся из `services/iam/internal/apps/kacho/api/access_binding/create.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (iam branch `rbac-contract-a-fix` → PR #228; deploy PR #122 pins `REF_IAM`)
 **Type**: fix — Contract-A no-access-loss BLOCKER (continues [[rbac-2026-224-owner-wildcard-content]])
 **Acceptance**: `docs/specs/rbac-explicit-model-2026-acceptance.md` — D-4 / D-8a / C-01b (forward-materialization), D-5 (flat model), D-7/D-9
 

@@ -28,7 +28,7 @@ category: kac
 >
 > **done.** Ветка, на которую ссылается записка, была в отдельном репозитории и не публиковалась — но предмет доехал: журнальная часть подсистемы выдач живёт в `services/iam/internal/apps/kacho/api/access_binding/` (создание, удаление, реконсиляция), вместе с пробами на разбираемые здесь случаи. Судить по судьбе ветки нельзя — только по дереву.
 
-**Status**: done · было при заведении: branch `rbac-2026-review-fixes` in kacho-iam, NOT pushed — passes 2/3 assembled separately
+**Состояние на момент записи**: done · было при заведении: branch `rbac-2026-review-fixes` in kacho-iam, NOT pushed — passes 2/3 assembled separately
 **Type**: fix — confirmed code-review findings (RBAC-2026 final sweep), ledger/revoke subsystem
 **Scope**: review findings #1 (BLOCKER), #7 / #15 / #16 (IMPORTANT/NIT). No proto/schema migration; no api-gateway.
 

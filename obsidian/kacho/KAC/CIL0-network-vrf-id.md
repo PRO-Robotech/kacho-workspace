@@ -38,7 +38,7 @@ tags:
 >
 > **done.** Обе половины в дереве: инфра-идентификатор объявлен в контракте **внутреннего** сервиса сети (не на публичной поверхности — как и требует правило про инфра-чувствительные данные), и `InternalNetworkService.GetNetwork` существует. Публичная форма сети не изменилась.
 
-**Status**: done · было при заведении: acceptance ✅ APPROVED; код + тесты зелёные; PR'ы открыты
+**Состояние на момент записи**: done · было при заведении: acceptance ✅ APPROVED; код + тесты зелёные; PR'ы открыты
 **Type**: feature (трек **CIL** — Cilium SRv6 data-plane realization)
 **Repos**: kacho-proto → kacho-vpc → kacho-iam → kacho-api-gateway
 **Трекер**: **Obsidian** (этот файл — источник истины; YouTrack не используется).

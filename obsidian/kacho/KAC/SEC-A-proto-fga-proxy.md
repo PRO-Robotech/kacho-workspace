@@ -30,7 +30,7 @@ tags:
 >
 > **done.** Оба RPC в дереве: `RegisterResource` и `UnregisterResource` объявлены во внутреннем сервисе iam, без REST-привязки — то есть внутренними, как и задумано. Ветка и её PR как единицы работы больше не существуют (полирепо), контракт существует.
 
-**Status**: done · было при заведении: proto+buf готовы, закоммичены на ветку; ждёт push/PR/merge оркестратором
+**Состояние на момент записи**: done · было при заведении: proto+buf готовы, закоммичены на ветку; ждёт push/PR/merge оркестратором
 **Type**: feature (proto + buf only — без Go-handler)
 **Repos**: kacho-proto
 **Branch**: `SEC-A-proto-fga-proxy`

@@ -23,7 +23,12 @@ category: kac
 
 # compute List label-scope over-show leak — subject-source mismatch
 
-**Status**: done — PR [`kacho-compute#65`](https://github.com/PRO-Robotech/kacho-compute/pull/65) merged; image `main-e5634e60` live via fe3455 ([kacho-deploy#134](https://github.com/PRO-Robotech/kacho-deploy/pull/134)). List subject теперь из `operations.PrincipalFromContext`, fail-closed на пустом subject.
+> [!note] Координаты сверены 2026-08-05: файл на месте, приёмка из дерева выведена
+> `services/compute/internal/handler/list_filter.go` в дереве есть. Документа приёмки
+> `docs/specs/sub-phase-compute-list-leak-fix-acceptance.md` в воркспейсе нет — 0 совпадений
+> по `git ls-files docs/specs`. Ссылаться на него как на источник нельзя.
+
+**Состояние на момент записи**: done — PR [`kacho-compute#65`](https://github.com/PRO-Robotech/kacho-compute/pull/65) merged; image `main-e5634e60` live via fe3455 ([kacho-deploy#134](https://github.com/PRO-Robotech/kacho-deploy/pull/134)). List subject теперь из `operations.PrincipalFromContext`, fail-closed на пустом subject.
 **Type**: fix — критический security (over-show leak), найден live-E2E на ревизии fe3455
 **Acceptance**: `docs/specs/sub-phase-compute-list-leak-fix-acceptance.md` (✅ APPROVED, CLL-01..07)
 

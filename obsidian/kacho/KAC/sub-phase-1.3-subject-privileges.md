@@ -25,7 +25,7 @@ tags:
 > [!note] Трек без KAC-номера
 > Acceptance-док `docs/specs/sub-phase-1.3-*-acceptance.md`; YouTrack-тикет не заводился.
 
-**Status**: ✅ done — merged на `main` + live `fe3455` (helm **rev14**, 2026-06-18; 1.3b group support).
+**Состояние на момент записи**: ✅ done — merged на `main` + live `fe3455` (helm **rev14**, 2026-06-18; 1.3b group support).
 **Type**: feature
 **Repos / PRs**: kacho-proto (merged), kacho-iam [#159](https://github.com/PRO-Robotech/kacho-iam/pull/159), kacho-api-gateway [#84](https://github.com/PRO-Robotech/kacho-api-gateway/pull/84), kacho-ui [#80](https://github.com/PRO-Robotech/kacho-ui/pull/80). **1.3b**: kacho-iam [#162](https://github.com/PRO-Robotech/kacho-iam/pull/162), kacho-ui [#82](https://github.com/PRO-Robotech/kacho-ui/pull/82).
 
