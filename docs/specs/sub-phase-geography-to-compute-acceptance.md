@@ -1,5 +1,17 @@
 # sub-phase: Region/Zone → kacho-compute + регламент кросс-доменных ссылок — acceptance (Given-When-Then)
 
+> **Статус:** SUPERSEDED — перенос Region/Zone в compute выполнен ([[KAC-15]], done),
+> но затем **отменён**: Geography вынесена из compute в отдельный leaf-домен `geo`
+> (`docs/specs/sub-phase-6.0-kacho-geo-extraction-acceptance.md`, ✅ APPROVED
+> 2026-06-17). Владелец Region/Zone сегодня — **geo**, см. карту владельцев в
+> `.claude/rules/data-integrity.md` §«Cross-domain ссылки», п.5. Вторая половина
+> документа — регламент owner/consumer-взаимодействия — пережила свой перенос и
+> живёт нормой в том же правиле; здесь она историческая. Новую работу этот
+> документ **не открывает**. Строка состояния добавлена 2026-08-05: до неё у
+> документа не было объявления вердикта ни в одной форме (в шапке стояло
+> «APPROVE — `KAC-17`», то есть имя ревьюерской задачи, а не вердикт), и его
+> нельзя было прочитать машинно (`scripts/docs-gate/check-01-acceptance-verdict.py`).
+
 | | |
 |---|---|
 | Эпик | `KAC-15` |

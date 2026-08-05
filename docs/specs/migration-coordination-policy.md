@@ -73,7 +73,22 @@ for f in $(ls *.sql | sort); do
 done
 ```
 
-This script must exist in every service repo that ships migrations. Tracking: enforced by `scripts/freeze-gate/check-11-migrations-lint.sh` (W3.4 freeze gate).
+This script must exist in every service repo that ships migrations.
+
+> [!warning] Здесь стояла ссылка на энфорсер, которого не существовало НИКОГДА
+> Прежняя редакция называла координатой скрипт «check-11-migrations-lint» в наборе
+> заморозки. Проверки с таким именем в дереве не было ни одного дня: одиннадцатая
+> проверка того набора спрашивала про манифесты развёртывания, а не про нумерацию
+> миграций, а сам набор снят 2026-08-05. Мёртвая координата здесь намеренно не
+> воспроизводится в форме пути — иначе разбор ошибки сам стал бы её повторением.
+>
+> То есть правило объявляло себя обеспеченным механически, будучи обеспеченным
+> ничем, — и это худший вид ссылки, чем протухшая: протухшая когда-то работала.
+>
+> Сегодня уникальность номеров миграций держит **продукт, в дереве которого они
+> живут**: `internal/repohygiene` монорепо несёт `migrationversionunique_test.go`
+> и `migration_versions_unique_test.go`. Проверять это из воркспейса значило бы
+> заводить второе место об одном предмете.
 
 ## Sketch for in-flight W2/W3 docs (non-binding)
 
@@ -125,4 +140,4 @@ This has not happened yet; the procedure exists to keep it that way.
 - workspace `CLAUDE.md` §«Запреты» #11 (no TODO / tech-debt)
 - `docs/specs/02-data-model-and-conventions.md` §11-§12 (migration conventions — JSONB, resource_version triggers, advisory locks)
 - `docs/specs/KAC-170-acceptance-review-report.md` §«Migration number coordination» (origin doc)
-- `scripts/freeze-gate/check-11-migrations-lint.sh` (W3.4 freeze gate enforcement)
+- `internal/repohygiene/migrationversionunique_test.go` в монорепо `PRO-Robotech/kacho` — гейт уникальности номеров живёт в дереве миграций, а не в воркспейсе
