@@ -15,6 +15,7 @@ tags:
   - authz
   - usecase
   - race-fix
+category: kac
 ---
 
 # IAM invite/grant FGA fix (anchor-grant + invite-activation + every-user default account)

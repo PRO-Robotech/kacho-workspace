@@ -1,6 +1,7 @@
 ---
 title: "Runbook: включить SRv6 в Cilium через AddonValue (infra-кластер)"
 category: runbook
+status: active
 tags:
   - runbook
   - kacho-vpc

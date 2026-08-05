@@ -3,7 +3,7 @@ title: kacho-resource-manager
 aliases:
   - kacho-rm
   - kacho-resource-manager
-category: repo
+category: legacy
 repo: kacho-resource-manager
 go_module: github.com/PRO-Robotech/kacho-resource-manager
 service_type: control-plane
@@ -86,7 +86,7 @@ internal/
 ## Cross-repo runtime edges
 
 - **Leaf — никого не зовёт.** Только in-bound: vpc/compute/... → `FolderService.Get`/`Exists` для validation.
-- folder.Exists race-prone — skill evgeniy I.4 запретил sync precheck; теперь only async (closes [[../kacho-vpc/README|kacho-vpc]] PR #78).
+- folder.Exists race-prone — skill evgeniy I.4 запретил sync precheck; теперь only async (closes [[legacy/repo-kacho-vpc|kacho-vpc]] PR #78).
 
 ## Известные расхождения от skill evgeniy
 

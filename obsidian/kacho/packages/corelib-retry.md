@@ -1,6 +1,6 @@
 ---
 title: corelib-retry
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/retry
 layer: shared
@@ -10,6 +10,7 @@ tags:
   - kacho-corelib
   - retry
   - grpc
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/retry — повторы вызовов к соседнему сервису

@@ -22,6 +22,7 @@ tags:
   - migrations
   - handler
   - breaking
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase F clean-cut (iam + proto)

@@ -17,6 +17,7 @@ tags:
   - usecase
   - repo
   - proto
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase D (iam-core)

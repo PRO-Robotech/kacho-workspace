@@ -1,5 +1,8 @@
 ---
+title: "registry data-plane → публичный TLS (docker login/push/pull)"
 tags: [kacho/edge, kacho/registry, kacho/deploy]
+category: edge
+status: active
 ---
 
 # registry data-plane → публичный TLS (docker login/push/pull)
@@ -69,4 +72,4 @@ helm **усыновляет** серт без перевыпуска (LE duplica
 `helm upgrade` его снесёт, и упадёт то, что «работало месяцами». Любое живое состояние обязано
 быть выразимо чартом; если чарт не умеет — правится **чарт**, а не кластер.
 
-Связано: [[registry-to-iam-jwks-fetch]], [[registry-iam-jwks-unify]].
+Связано: [[registry-to-iam-jwks-fetch]], [[KAC/KAC-registry-iam-jwks-unify]].

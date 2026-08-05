@@ -1,6 +1,6 @@
 ---
 title: proto-loadbalancer
-category: package
+category: packages
 repo: kacho-proto
 path: proto/kacho/cloud/loadbalancer/v1
 layer: proto
@@ -8,6 +8,7 @@ status: stable
 tags:
   - proto
   - kacho-nlb
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # proto/kacho/cloud/loadbalancer/v1 — контракты домена балансировки

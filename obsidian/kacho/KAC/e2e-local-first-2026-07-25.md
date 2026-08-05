@@ -1,6 +1,8 @@
 ---
+title: "Локальный цикл e2e — что он вскрыл за один день"
 tags: [kacho/e2e, kacho/authz, kacho/nlb, kacho/iam, kacho/testing]
 status: reference
+category: kac
 ---
 
 # Локальный цикл e2e — что он вскрыл за один день
@@ -95,7 +97,7 @@ Registry-симптом диагностичен: собственная оче�
 
 ## Затронутые сущности vault
 
-[[nlb-load-balancer]] · [[nlb-listener]] · [[nlb-to-vpc-vip-allocation]] · [[vpc-address-pool]] ·
+[[nlb-load-balancer]] · [[nlb-listener]] · [[nlb-to-vpc-vip-allocation]] · [[resources/vpc-addresspool]] ·
 [[iam-access-binding]] · [[packages-outbox-drainer]]
 
 ## Сквозной урок — определяющий класс сессии

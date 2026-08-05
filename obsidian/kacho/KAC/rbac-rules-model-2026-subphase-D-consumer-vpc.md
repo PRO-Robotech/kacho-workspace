@@ -17,6 +17,7 @@ tags:
   - authz
   - fga
   - cross-service
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase D-consumer (kacho-vpc)

@@ -1,12 +1,14 @@
 ---
 title: corelib-grpcsrv
-category: package
+category: packages
 repo: kacho-corelib
 layer: shared
 tags:
   - packages
   - kacho-corelib
   - grpc
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/grpcsrv — серверная сборка, личность пира и граница доверия

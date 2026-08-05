@@ -1,6 +1,6 @@
 ---
 title: rm-service
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: service
 status: deprecated
@@ -30,6 +30,6 @@ tags:
 ## See also
 
 [[rm-repo]] [[rm-handler]] [[rm-domain]] [[corelib-operations]]
-[[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
+[[legacy/repo-kacho-resource-manager]] [[../KAC/KAC-124]]
 
 #packages #kacho-rm #service #deprecated

@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-shared-pbconv
-category: package
+category: packages
 repo: kacho-vpc
 layer: handler
 tags:
@@ -9,6 +9,8 @@ tags:
   - shared
   - handler
   - dto
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/shared/pbconv

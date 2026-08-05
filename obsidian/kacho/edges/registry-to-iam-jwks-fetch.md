@@ -17,6 +17,7 @@ tags:
   - kacho-registry
   - kacho-iam
   - security
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Landed (сверено 2026-08-05, дерево `96b2879a`)

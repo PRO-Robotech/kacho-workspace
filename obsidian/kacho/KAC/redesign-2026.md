@@ -1,6 +1,6 @@
 ---
 title: "redesign-2026 — 7-сервисный UX-конвергентный редизайн"
-category: KAC
+category: kac
 status: in-progress
 type: epic
 repos:

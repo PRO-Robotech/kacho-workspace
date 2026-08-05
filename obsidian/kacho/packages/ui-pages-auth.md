@@ -3,7 +3,7 @@ title: ui — страницы входа и контекст личности
 aliases:
   - ui auth
   - signup flow files
-category: package
+category: packages
 repo: kacho-ui
 path: ui-future
 layer: ui-pages
@@ -12,6 +12,7 @@ tags:
   - packages
   - kacho-ui
   - legacy
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # ui: вход и контекст личности — раскладка сменилась на многоприложенческую

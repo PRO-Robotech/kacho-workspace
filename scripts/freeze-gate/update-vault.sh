@@ -49,6 +49,11 @@ mkdir -p "$(dirname "$vault")"
 {
     echo "---"
     echo "title: \"Freeze gate status\""
+    # Оболочка записки хранилища (obsidian/kacho/CLAUDE.md §«Оболочка записки»):
+    # генерируемый файл обязан нести те же поля, что рукописный, иначе он выпадает
+    # из срезов и из проверки оболочки — молча и навсегда.
+    echo "category: hub"
+    echo "status: reference"
     echo "generated_at: $generated_at"
     echo "freeze_ready: $ready"
     echo "---"

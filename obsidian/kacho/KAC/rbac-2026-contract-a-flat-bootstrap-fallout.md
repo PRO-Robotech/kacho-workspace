@@ -17,6 +17,7 @@ tags:
   - domain
   - usecase
   - repo
+category: kac
 ---
 
 # RBAC Contract-A flat — bootstrap signup owner-binding fallout

@@ -1,6 +1,6 @@
 ---
 title: corelib-ids
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/ids
 layer: shared
@@ -9,6 +9,7 @@ tags:
   - packages
   - kacho-corelib
   - ids
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/ids — генератор и каталог префиксов идентификаторов

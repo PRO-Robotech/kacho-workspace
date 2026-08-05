@@ -20,6 +20,7 @@ tags:
   - kacho-deploy
   - feature
   - done
+category: kac
 ---
 
 # DIVERGENCE-A — unify IAM label-scope

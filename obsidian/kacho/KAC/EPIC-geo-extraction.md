@@ -35,6 +35,7 @@ tags:
   - kacho-compute
   - architecture
   - geography
+category: kac
 ---
 
 # [EPIC] kacho-geo: extract Geography (Region/Zone) into a leaf-service

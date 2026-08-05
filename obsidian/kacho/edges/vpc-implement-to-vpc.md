@@ -14,6 +14,7 @@ tags:
   - kacho-vpc
   - kacho-vpc-implement
   - deprecated
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 # vpc-implement → vpc: ReportNiDataplane (DEPRECATED)

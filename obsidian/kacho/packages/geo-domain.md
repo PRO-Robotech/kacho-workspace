@@ -1,6 +1,6 @@
 ---
 title: geo-domain
-category: package
+category: packages
 repo: kacho-geo
 layer: domain
 status: in-progress
@@ -10,6 +10,7 @@ tags:
   - domain
   - geo
   - geography
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-geo/internal/domain

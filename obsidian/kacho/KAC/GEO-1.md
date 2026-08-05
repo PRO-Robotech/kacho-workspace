@@ -14,6 +14,7 @@ tags:
   - feature
   - kacho-geo
   - geo
+category: kac
 ---
 
 # GEO-1 — Region/Zone redesign

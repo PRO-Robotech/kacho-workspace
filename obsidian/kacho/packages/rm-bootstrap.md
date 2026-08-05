@@ -1,6 +1,6 @@
 ---
 title: rm-bootstrap
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: bootstrap
 status: deprecated
@@ -27,6 +27,6 @@ tags:
 
 ## See also
 
-[[rm-cmd]] [[rm-repo]] [[../kacho-resource-manager/README]] [[../KAC/KAC-124]]
+[[rm-cmd]] [[rm-repo]] [[legacy/repo-kacho-resource-manager]] [[../KAC/KAC-124]]
 
 #packages #kacho-rm #bootstrap #deprecated

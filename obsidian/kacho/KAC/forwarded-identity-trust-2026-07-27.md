@@ -1,6 +1,8 @@
 ---
+title: "Кто вправе говорить за пользователя — класс и его закрытие"
 tags: [kacho/authz, kacho-storage, kacho-registry, kacho-vpc, kacho-iam, kac]
 status: done
+category: kac
 ---
 
 # Кто вправе говорить за пользователя — класс и его закрытие

@@ -2,7 +2,7 @@
 title: kacho-corelib (сегодня — каталог pkg/ монорепо)
 aliases:
   - kacho-corelib
-category: repo
+category: legacy
 repo: kacho-corelib
 service_type: shared-library
 status: legacy

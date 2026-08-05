@@ -1,6 +1,6 @@
 ---
 title: proto-geo
-category: package
+category: packages
 repo: kacho-proto
 path: proto/kacho/cloud/geo/v1
 layer: proto
@@ -10,6 +10,7 @@ tags:
   - kacho-geo
   - geo
   - geography
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # proto/kacho/cloud/geo/v1 — ось размещения, домен-лист

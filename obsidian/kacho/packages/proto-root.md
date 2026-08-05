@@ -1,6 +1,6 @@
 ---
 title: proto-root
-category: package
+category: packages
 repo: kacho-proto
 path: proto
 layer: proto
@@ -9,6 +9,7 @@ tags:
   - proto
   - buf
   - common
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # proto/ — единственный дом контрактов

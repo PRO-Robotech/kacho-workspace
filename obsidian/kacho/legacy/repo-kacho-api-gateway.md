@@ -3,7 +3,7 @@ title: kacho-api-gateway (сегодня — каталог gateway/ монор�
 aliases:
   - kacho-apigw
   - kacho-api-gateway
-category: repo
+category: legacy
 repo: kacho-api-gateway
 service_type: edge
 status: legacy

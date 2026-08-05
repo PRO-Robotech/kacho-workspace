@@ -16,6 +16,7 @@ tags:
   - kacho-registry
   - kacho-geo
   - geography
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!note] Landed (сверено 2026-08-05): клиент — `services/registry/internal/clients/geo/region_client.go`,

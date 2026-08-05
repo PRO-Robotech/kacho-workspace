@@ -18,6 +18,7 @@ tags:
   - fga
   - handler
   - race-fix
+category: kac
 ---
 
 # compute List label-scope over-show leak — subject-source mismatch

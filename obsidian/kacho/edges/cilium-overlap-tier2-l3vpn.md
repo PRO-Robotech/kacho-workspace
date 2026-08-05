@@ -1,6 +1,7 @@
 ---
 title: "VPC overlap на Cilium — решение (Tier 2 / real L3VPN)"
 category: edge
+status: experimental
 tags:
   - edge
   - kacho-vpc

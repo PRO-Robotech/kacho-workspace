@@ -1,6 +1,6 @@
 ---
 title: corelib-backoff
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/backoff
 layer: shared
@@ -8,6 +8,7 @@ status: stable
 tags:
   - packages
   - kacho-corelib
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/backoff — обёртка над экспоненциальным backoff

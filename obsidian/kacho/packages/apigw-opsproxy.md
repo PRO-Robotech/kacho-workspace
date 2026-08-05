@@ -1,12 +1,14 @@
 ---
 title: apigw-opsproxy
-category: package
+category: packages
 repo: kacho-api-gateway
 layer: handler
 tags:
   - packages
   - kacho-apigw
   - operation
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # gateway/internal/opsproxy — маршрутизация операции по её префиксу

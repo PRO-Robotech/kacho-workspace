@@ -1,6 +1,6 @@
 ---
 title: apigw-config
-category: package
+category: packages
 repo: kacho-api-gateway
 path: gateway/internal/config
 layer: config
@@ -9,6 +9,7 @@ tags:
   - packages
   - kacho-apigw
   - config
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # gateway/internal/config — конфигурация края

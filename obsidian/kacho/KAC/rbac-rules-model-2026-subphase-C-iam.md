@@ -16,6 +16,7 @@ tags:
   - migrations
   - usecase
   - repo
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase C (iam)

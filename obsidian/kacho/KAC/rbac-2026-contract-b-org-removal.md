@@ -21,6 +21,7 @@ tags:
   - proto
   - domain
   - migrations
+category: kac
 ---
 
 # RBAC Contract-B — full removal of B2B Organization

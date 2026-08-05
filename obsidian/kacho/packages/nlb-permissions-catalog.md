@@ -5,6 +5,8 @@ aliases:
 category: packages
 repo: kacho-iam
 layer: seed
+status: stable
+verified_against: "пространство прав `loadbalancer.*` есть в дереве продукта b4edc5d5 (`services/iam/internal/authzmap/fga_types.go`); файл `permission_catalog.go`, названный ниже источником истины, по этому пути НЕ резолвится — координата требует сверки"
 tags:
   - packages
   - kacho-iam

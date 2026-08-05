@@ -34,7 +34,7 @@ proto→corelib→сервисы→gateway. Кросс-доменная фича
 
 1. **Ни один сервис не реализовывал `operations.OwnedOperationRepo.ListOwned`** — все
    запинены на старый corelib. geo/nlb — ошибка сборки, registry — **паника** через
-   `AsOwned`. → [[kacho-corelib-operations]]
+   `AsOwned`. → [[packages/corelib-operations]]
 2. **H-BF/corlib**: сервисы жили на `v1.2.31-dev`, `go mod tidy` разрешил `v0.0.12`
    (corelib его не требовал) → `WithKeepAlive undefined`.
 3. **Локальный `kacho-proto` отставал на 2 коммита** от origin/main: код iam использует

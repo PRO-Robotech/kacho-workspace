@@ -3,7 +3,7 @@ title: corelib-authz-listobjects
 aliases:
   - corelib listobjects
   - общий клиент перечисления объектов
-category: package
+category: packages
 repo: kacho-corelib
 layer: service
 status: wontfix

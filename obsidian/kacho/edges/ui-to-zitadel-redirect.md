@@ -18,6 +18,7 @@ tags:
   - kacho-ui
   - cross-service
   - planned
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 > [!warning] Zitadel УДАЛЁН из продукта — консоль ходит в Ory (сверено 2026-08-05)

@@ -1,6 +1,6 @@
 ---
 title: apigw-middleware
-category: package
+category: packages
 repo: kacho-api-gateway
 path: gateway/internal/middleware
 layer: handler
@@ -9,6 +9,7 @@ tags:
   - packages
   - kacho-apigw
   - middleware
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # gateway/internal/middleware — цепочка края

@@ -1,3 +1,12 @@
+---
+title: "sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes"
+category: kac
+status: done
+type: refactor
+tags:
+  - kac
+---
+
 # sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes
 
 **Status**: merged (все 12 репо в main; запускается 2-й полный аудит для сходимости)

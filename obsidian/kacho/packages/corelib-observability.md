@@ -1,6 +1,6 @@
 ---
 title: corelib-observability
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/observability
 layer: shared
@@ -10,6 +10,7 @@ tags:
   - kacho-corelib
   - observability
   - otel
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/observability — логгер, трассировка и самоотчёт о посадке

@@ -3,7 +3,7 @@ title: iam-extensions-retired
 aliases:
   - iam Phase 5-9 extensions
   - снятые расширения iam
-category: package
+category: packages
 repo: kacho-iam
 layer: service
 status: deprecated

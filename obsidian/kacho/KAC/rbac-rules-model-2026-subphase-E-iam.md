@@ -21,6 +21,7 @@ tags:
   - proto
   - migrations
   - handler
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)

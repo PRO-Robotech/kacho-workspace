@@ -12,6 +12,7 @@ tags:
   - kacho-iam
   - fix
   - usecase
+category: kac
 ---
 
 # RBAC — leaf-editor `v_delete` co-materialization (BUG #1) + account-owner content check (BUG #2)

@@ -1,7 +1,9 @@
 ---
+title: "Аудит-раунд 2 — 2026-07-29"
 tags: [kacho, audit, hardening, trail]
 status: reference
 date: 2026-07-29
+category: kac
 ---
 
 # Аудит-раунд 2 — 2026-07-29

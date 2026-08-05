@@ -1,6 +1,6 @@
 ---
 title: corelib-db
-category: package
+category: packages
 repo: kacho-corelib
 path: pkg/db
 layer: shared
@@ -10,6 +10,7 @@ tags:
   - kacho-corelib
   - db
   - postgres
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # pkg/db — пул pgx и транзактор

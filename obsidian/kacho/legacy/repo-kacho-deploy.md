@@ -2,7 +2,7 @@
 title: kacho-deploy (сегодня — каталог deploy/ монорепо)
 aliases:
   - kacho-deploy
-category: repo
+category: legacy
 repo: kacho-deploy
 service_type: deployment-artifacts
 status: legacy

@@ -21,6 +21,7 @@ tags:
   - kacho-api-gateway
   - kacho-iam
   - authz
+category: kac
 ---
 
 # rbac-2026 BUG-2 — read-deny hide-existence (gateway 403→404)

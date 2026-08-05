@@ -1,6 +1,6 @@
 ---
 title: proto-operation
-category: package
+category: packages
 repo: kacho-proto
 path: proto/kacho/cloud/operation
 layer: proto
@@ -9,6 +9,7 @@ tags:
   - proto
   - operation
   - lro
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # proto/kacho/cloud/operation — конверт длящейся операции

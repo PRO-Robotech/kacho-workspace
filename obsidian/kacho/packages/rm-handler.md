@@ -1,6 +1,6 @@
 ---
 title: rm-handler
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: handler
 status: deprecated

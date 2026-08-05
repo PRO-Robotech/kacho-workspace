@@ -1,6 +1,6 @@
 ---
 title: rm-domain
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: domain
 status: deprecated

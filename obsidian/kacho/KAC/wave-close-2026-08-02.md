@@ -1,7 +1,7 @@
 ---
 ticket_id: wave-close-2026-08-02
 title: "Волна закрытия: девять предметов, сверенных с деревом a373c599"
-category: KAC
+category: kac
 status: reference
 type: trail
 repos:

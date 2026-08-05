@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-api-address
-category: package
+category: packages
 repo: kacho-vpc
 layer: use-case
 tags:
@@ -10,6 +10,8 @@ tags:
   - address
   - ipam
   - race-fix
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/api/address

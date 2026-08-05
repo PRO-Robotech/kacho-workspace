@@ -1,4 +1,5 @@
 ---
+title: "epic-107 — RSAB selectors all-services + type-dedup + role-grouping"
 ticket_id: epic-107
 status: done
 type: epic
@@ -21,6 +22,7 @@ tags:
   - epic
   - kacho-iam
   - feature
+category: kac
 ---
 
 # epic-107 — RSAB selectors all-services + type-dedup + role-grouping

@@ -27,6 +27,7 @@ tags:
   - proto
   - authz
   - done
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui

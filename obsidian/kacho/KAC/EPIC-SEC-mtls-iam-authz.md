@@ -21,6 +21,7 @@ tags:
   - kacho-corelib
   - architecture
   - security
+category: kac
 ---
 
 # [EPIC] SEC — mTLS + IAM-fronted authz + least-privilege identities

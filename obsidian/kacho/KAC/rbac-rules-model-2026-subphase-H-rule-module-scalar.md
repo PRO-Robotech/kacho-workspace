@@ -26,6 +26,7 @@ tags:
   - migrations
   - domain
   - authz
+category: kac
 ---
 
 # RBAC rules-model 2026 — sub-phase H (Rule.module scalar)

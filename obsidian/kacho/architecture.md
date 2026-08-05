@@ -3,6 +3,7 @@ title: "Архитектура — одно монорепо, семь серв�
 aliases:
   - architecture
 category: hub
+status: active
 tags:
   - architecture
   - dependencies
