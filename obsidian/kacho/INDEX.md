@@ -91,13 +91,13 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | gRPC-сервисы | `rpc/` | 53 |
 | Рёбра рантайма | `edges/` | 74 |
 | Пакеты | `packages/` | 114 |
-| Журнал работ (KAC) | `KAC/` | 207 |
+| Журнал работ (KAC) | `KAC/` | 206 |
 | Уроки — классы дефектов | `lessons/` | 1 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
-| Операционные процедуры | `runbooks/` | 2 |
+| Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
-| Точки входа и полотно | `(корень)` | 5 |
-| **Всего** | | **520** |
+| Точки входа и полотно | `(корень)` | 4 |
+| **Всего** | | **517** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -648,33 +648,33 @@ Image · DiskType плюс таблица привязки томов) — пр�
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (207)
+### Журнал работ (KAC) — `KAC/` (206)
 
 | Записка | Состояние |
 |---|---|
-| [[KAC/5.1-iam-internal-reads-system-viewer-floor\|[trail] 5.1 — system_viewer-floor on kacho-iam internal-read RPCs (:9091)]] | в работе (test) |
+| [[KAC/5.1-iam-internal-reads-system-viewer-floor\|[trail] 5.1 — system_viewer-floor on kacho-iam internal-read RPCs (:9091)]] | живо (done) |
 | [[KAC/CIL0-network-vrf-id\|CIL0: Network vrf_id alloc + InternalNetworkService.GetNetwork]] | живо (done) |
 | [[KAC/DIVERGENCE-A-unify-iam-label-scope\|DIVERGENCE-A — unify IAM label-scope (all iam-types label-selectable)]] | живо (done) |
 | [[KAC/EPIC-SEC-mtls-iam-authz\|[EPIC] SEC — mTLS + IAM-fronted authz + least-privilege identities]] | живо (done) |
 | [[KAC/EPIC-geo-extraction\|[EPIC] kacho-geo: extract Geography (Region/Zone) into a leaf-service]] | живо (done) |
 | [[KAC/GEO-1\|GEO-1 — Region/Zone redesign (two-projection, sync Operation)]] | живо (done) |
 | [[KAC/IAM-INT-1-interactive-login\|[trail] IAM-INT-1 — интерактивный вход человека (S1+S2 посажены, церемония исполняется)]] | в работе (in-progress) |
-| [[KAC/KAC-104\|KAC-104: Kachō IAM — Account/Project + Zitadel + OpenFGA (REBAC)]] | в работе (to-do) |
+| [[KAC/KAC-104\|KAC-104: Kachō IAM — Account/Project + Zitadel + OpenFGA (REBAC)]] | история (superseded) |
 | [[KAC/KAC-105\|KAC-105: E0 — kacho-iam skeleton + Account/Project/User/SA/Group/Role CRUD]] | живо (done) |
 | [[KAC/KAC-106\|KAC-106: E1 — folder_id → project_id migration (hard rename)]] | живо (done) |
-| [[KAC/KAC-107\|KAC-107: E2 — Zitadel OIDC deploy + auth-interceptor + Principal in ctx]] | в работе (test) |
+| [[KAC/KAC-107\|KAC-107: E2 — Zitadel OIDC deploy + auth-interceptor + Principal in ctx]] | история (superseded) |
 | [[KAC/KAC-108\|KAC-108: E3 — OpenFGA REBAC + Check-interceptor + реактивность ≤10s]] | живо (done) |
-| [[KAC/KAC-109\|KAC-109: E4 — IAM UI block (CRUD 7 ресурсов) + Operations principal column]] | в работе (test) |
-| [[KAC/KAC-110\|KAC-110: E5 — Deprecate kacho-resource-manager + cleanup]] | в работе (to-do) |
+| [[KAC/KAC-109\|KAC-109: E4 — IAM UI block (CRUD 7 ресурсов) + Operations principal column]] | история (superseded) |
+| [[KAC/KAC-110\|KAC-110: E5 — Deprecate kacho-resource-manager + cleanup]] | история (superseded) |
 | [[KAC/KAC-111\|KAC-111: Squash kacho-vpc migrations 0001..0034 → 0001 (greenfield)]] | живо (done) |
 | [[KAC/KAC-112\|KAC-112: E0 follow-up — IAM resources backend (Project/User/SA/Group/Role/AccessBinding)]] | живо (done) |
 | [[KAC/KAC-113\|KAC-113: E0 follow-up — sync principal_* в kacho-vpc/compute/rm/loadbalancer]] | живо (done) |
-| [[KAC/KAC-115\|KAC-115: Migrate Zitadel + OpenFGA → Ory stack (Kratos + Hydra + Keto)]] | в работе (test) |
+| [[KAC/KAC-115\|KAC-115: Migrate Zitadel + OpenFGA → Ory stack (Kratos + Hydra + Keto)]] | живо (done) |
 | [[KAC/KAC-116\|KAC-116: Ory stack follow-up — Keto AuthZ + Kratos session + DoD#3/4/5]] | живо (done) |
 | [[KAC/KAC-122\|KAC-122: AuthZ default-deny matrix newman tests (6 subjects × full CRUD × 3 services)]] | живо (done) |
-| [[KAC/KAC-123\|KAC-123: Group default-deny + UI AccessBindings visibility + AccountCrumb fix]] | в работе (test) |
-| [[KAC/KAC-124\|KAC-124: Полное удаление kacho-resource-manager (E5 closeout)]] | в работе (test) |
-| [[KAC/KAC-125\|KAC-125: User per-Account + Invite-flow + Cascader UI]] | в работе (test) |
+| [[KAC/KAC-123\|KAC-123: Group default-deny + UI AccessBindings visibility + AccountCrumb fix]] | живо (done) |
+| [[KAC/KAC-124\|KAC-124: Полное удаление kacho-resource-manager (E5 closeout)]] | живо (done) |
+| [[KAC/KAC-125\|KAC-125: User per-Account + Invite-flow + Cascader UI]] | живо (done) |
 | [[KAC/KAC-126\|KAC-126: IAM Newman Test Coverage — оживить мёртвые iam-*.py сюиты]] | в работе (in-progress) |
 | [[KAC/KAC-127\|KAC-127 (vault-label) / YT KAC-123: Production-Ready Next-Gen IAM (FULL)]] | живо (done) |
 | [[KAC/KAC-128\|KAC-128: AccessBinding.Create idempotency — metadata returns existing id on 5-tuple conflict]] | живо (done) |
@@ -695,25 +695,25 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-163\|KAC-163: W1.5 — Remediation Chunk 1 (DB/FGA grant-write desync)]] | живо (done) |
 | [[KAC/KAC-164\|KAC-164: W1.6 — Remediation Chunk 2 (in-service authz + closeout)]] | живо (done) |
 | [[KAC/KAC-165\|KAC-165: VPC Newman 100% coverage по Testing Model]] | история (superseded) |
-| [[KAC/KAC-169\|KAC-169: opsproxy.Get/Cancel drops principal metadata → backend NotFound]] | в работе (test) |
-| [[KAC/KAC-170\|KAC-170: W2/W3 acceptance docs bundle (8 docs) for kacho-iam prod-ready]] | в работе (test) |
+| [[KAC/KAC-169\|KAC-169: opsproxy.Get/Cancel drops principal metadata → backend NotFound]] | живо (done) |
+| [[KAC/KAC-170\|KAC-170: W2/W3 acceptance docs bundle (8 docs) for kacho-iam prod-ready]] | живо (done) |
 | [[KAC/KAC-174\|KAC-174: kacho-nlb config DSN — expand $(VAR) placeholder for postgres password]] | живо (done) |
 | [[KAC/KAC-175\|KAC-175: kacho-deploy — Kratos/Hydra port-portable auth flow]] | живо (done) |
 | [[KAC/KAC-176\|KAC-176: newman-e2e — kacho-iam authz suite assertions fail (regression, post-KAC-141)]] | в работе (to-do) |
-| [[KAC/KAC-178\|KAC-178: Stand prod-readiness — закрыть 5 backend gaps после KAC-171/175]] | в работе (test) |
-| [[KAC/KAC-179\|KAC-179: kacho-api-gateway — fix 3 pre-existing failed unit tests]] | в работе (test) |
-| [[KAC/KAC-180\|KAC-180: Test plans for 7 APPROVED W2/W3 acceptance docs]] | в работе (test) |
+| [[KAC/KAC-178\|KAC-178: Stand prod-readiness — закрыть 5 backend gaps после KAC-171/175]] | живо (done) |
+| [[KAC/KAC-179\|KAC-179: kacho-api-gateway — fix 3 pre-existing failed unit tests]] | живо (done) |
+| [[KAC/KAC-180\|KAC-180: Test plans for 7 APPROVED W2/W3 acceptance docs]] | живо (done) |
 | [[KAC/KAC-181\|KAC-181: Hybrid-mode docs batch — 3.7b sync + migration coord + newman finding]] | живо (done) |
-| [[KAC/KAC-182\|KAC-182: Wave 2A — F2/F3/F6 newman regression fixes (test-only)]] | в работе (test) |
-| [[KAC/KAC-183\|KAC-183: F1 — MinIO StatefulSet for dev compliance reports]] | в работе (test) |
-| [[KAC/KAC-184\|KAC-184: F5 — whitelist AuthorizeService.ListObjects/ListSubjects in kacho-iam authzguard]] | в работе (test) |
-| [[KAC/KAC-185\|KAC-185: F4 — Internal IAM RPCs lack google.api.http annotation]] | в работе (test) |
-| [[KAC/KAC-186\|KAC-178: W3.4 freeze gate + workspace CI fix]] | в работе (test) |
-| [[KAC/KAC-188\|KAC-188: newman iam main → GREEN — iterative epic]] | в работе (test) |
+| [[KAC/KAC-182\|KAC-182: Wave 2A — F2/F3/F6 newman regression fixes (test-only)]] | живо (done) |
+| [[KAC/KAC-183\|KAC-183: F1 — MinIO StatefulSet for dev compliance reports]] | живо (done) |
+| [[KAC/KAC-184\|KAC-184: F5 — whitelist AuthorizeService.ListObjects/ListSubjects in kacho-iam authzguard]] | живо (done) |
+| [[KAC/KAC-185\|KAC-185: F4 — Internal IAM RPCs lack google.api.http annotation]] | живо (done) |
+| [[KAC/KAC-186\|KAC-178: W3.4 freeze gate + workspace CI fix]] | история (superseded) |
+| [[KAC/KAC-188\|KAC-188: newman iam main → GREEN — iterative epic]] | живо (done) |
 | [[KAC/KAC-189\|KAC-189: kacho-iam — RoleReadAdapter.Get SELECT 10 cols vs scanRole 7 cols]] | живо (done) |
 | [[KAC/KAC-190\|KAC-190: InternalIAMService.ListPermissions 501 — DUPLICATE of KAC-188 PR #43]] | живо (done) |
-| [[KAC/KAC-191\|KAC-191: kacho-iam — permission_catalog.json mirror has empty `permission` fields]] | в работе (test) |
-| [[KAC/KAC-192\|KAC-192: kacho-iam — w1-nm-closeout newman cases use unregistered REST paths]] | в работе (to-do) |
+| [[KAC/KAC-191\|KAC-191: kacho-iam — permission_catalog.json mirror has empty `permission` fields]] | живо (done) |
+| [[KAC/KAC-192\|KAC-192: kacho-iam — w1-nm-closeout newman cases use unregistered REST paths]] | история (superseded) |
 | [[KAC/KAC-193\|KAC-193: [EPIC] kacho-iam production-cleanup refactor (5 waves)]] | история (superseded) |
 | [[KAC/KAC-194\|KAC-194: Wave A — kacho-iam cleanup (comments + KAC + phase markers + file/folder renames)]] | живо (done) |
 | [[KAC/KAC-196\|KAC-196: InternalClusterService — cluster admin RBAC]] | живо (done) |
@@ -730,8 +730,8 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-219\|KAC-219 [W6 RBAC v2] kacho-vpc + kacho-compute: list-filter audit + CI gate]] | живо (done) |
 | [[KAC/KAC-220\|KAC-220 [W7 RBAC v2] kacho-deploy: helm cleanup + newman list-filter regression]] | живо (done) |
 | [[KAC/KAC-221\|KAC-221 [W8 RBAC v2] vault refresh + epic close]] | живо (done) |
-| [[KAC/KAC-222\|kacho-iam — final skeleton / no-op / mock-instead-of-real cleanup]] | в работе (test) |
-| [[KAC/KAC-223\|kacho-iam production-strict cleanup — no dev-disable, dead Org/SCIM/SAML + dead config removed]] | в работе (test) |
+| [[KAC/KAC-222\|kacho-iam — final skeleton / no-op / mock-instead-of-real cleanup]] | живо (done) |
+| [[KAC/KAC-223\|kacho-iam production-strict cleanup — no dev-disable, dead Org/SCIM/SAML + dead config removed]] | живо (done) |
 | [[KAC/KAC-224\|KAC-224: [kacho-ui] RBAC v2 adaptation — scope column + drop dead resource_type]] | живо (done) |
 | [[KAC/KAC-225\|KAC-225: gateway WhoAmI GET /iam/v1/me отсутствует в route-table → 403]] | живо (done) |
 | [[KAC/KAC-226\|KAC-226: UI NLB список пуст — payloadKey load_balancers vs network_load_balancers]] | живо (done) |
@@ -745,7 +745,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-241\|KAC-241 — kacho-ui: унификация Create/Edit форм + UX-уплифт (ResourceFormBody)]] | живо (done) |
 | [[KAC/KAC-242\|KAC-242 — kacho-ui: действия из таба «Обзор» в шапку detail-страницы]] | в работе (test) |
 | [[KAC/KAC-243\|KAC-243 — SG↔Network: обязательна + immutable; правила SG→SG только в одной сети]] | живо (done) |
-| [[KAC/KAC-244\|KAC-244 — gRPC keepalive отсутствует на части inter-service dial → authz Check зависает ~30с]] | в работе (test) |
+| [[KAC/KAC-244\|KAC-244 — gRPC keepalive отсутствует на части inter-service dial → authz Check зависает ~30с]] | живо (done) |
 | [[KAC/KAC-245\|KAC-245 — UI: Name+ID первые две колонки во всех таблицах по умолчанию]] | в работе (test) |
 | [[KAC/KAC-246\|KAC-246: kacho-ui визуальный апгрейд — Фаза 1 (фундамент премиум-UI)]] | в работе (in-progress) |
 | [[KAC/KAC-248\|KAC-248: kacho-docs — публичный документационный портал]] | история (superseded) |
@@ -755,11 +755,11 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-255\|KAC-255: kacho-docs контент + IA + persona-tabs]] | живо (done) |
 | [[KAC/KAC-256\|KAC-256: kacho-docs Dockerfile + nginx + Helm + запуск]] | живо (done) |
 | [[KAC/KAC-257\|KAC-257: kacho-docs AI-native + OperationEnvelope]] | живо (done) |
-| [[KAC/KAC-266\|KAC-266: contract-removal — Move / NIC attach-detach / AddressPool override+selector / no auto-NIC]] | в работе (test) |
-| [[KAC/KAC-268\|KAC-268: SG status removal + docs-UX + data-plane purge]] | в работе (test) |
+| [[KAC/KAC-266\|KAC-266: contract-removal — Move / NIC attach-detach / AddressPool override+selector / no auto-NIC]] | живо (done) |
+| [[KAC/KAC-268\|KAC-268: SG status removal + docs-UX + data-plane purge]] | живо (done) |
 | [[KAC/KAC-269\|KAC-269: AddressPool CIDR-управление как у Subnet]] | живо (done) |
 | [[KAC/KAC-271\|KAC-271: per-resource VPC id-prefixes (net/sub/adr/rtb/sgr/gtw/nic/apl)]] | живо (done) |
-| [[KAC/KAC-272\|KAC-272: AddressPool DB-level CIDR overlap prevention (EXCLUDE gist)]] | в работе (test) |
+| [[KAC/KAC-272\|KAC-272: AddressPool DB-level CIDR overlap prevention (EXCLUDE gist)]] | живо (done) |
 | [[KAC/KAC-273\|KAC-273: addresses-tab пула — колонки имя/идентификатор/IP-адрес/дата создания]] | в работе (test) |
 | [[KAC/KAC-50\|KAC-50: api-gateway listener split (public/TLS vs cluster-internal)]] | живо (done) |
 | [[KAC/KAC-52\|KAC-52: NIC attach race fix (atomic CAS)]] | живо (done) |
@@ -775,21 +775,20 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/NLB-1b-expand-loadbalancer-listener-core\|NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)]] | живо (done) |
 | [[KAC/NLB-1c-targetgroup-redesign\|NLB-1c — TargetGroup HealthCheck redesign]] | живо (done) |
 | [[KAC/OP2-P-BGP\|OP2-P-BGP: subnet routing via kube-ovn-speaker BGP (replaces stripped Vpc.staticRoutes)]] | живо (done) |
-| [[KAC/OP2-P2-routetable\|OP2-P2: KachoRouteTable CRD + RouteTable → Vpc.staticRoutes materialization]] | в работе (test) |
-| [[KAC/OP3-MULTIAZ\|OP3-MULTIAZ: cross-zone pod L3 within a VPC across 2 zonal kind clusters + isolation]] | в работе (test) |
+| [[KAC/OP2-P2-routetable\|OP2-P2: KachoRouteTable CRD + RouteTable → Vpc.staticRoutes materialization]] | история (superseded) |
+| [[KAC/OP3-MULTIAZ\|OP3-MULTIAZ: cross-zone pod L3 within a VPC across 2 zonal kind clusters + isolation]] | история (superseded) |
 | [[KAC/PROD-READINESS-iam-2026-06\|[trail] kacho-iam production-readiness sweep (2026-06-16)]] | живо (done) |
 | [[KAC/RG-1-registry-repository-overlay\|[trail] RG-1 — Registry Repository config-overlay + visibility + referrers]] | живо (done) |
 | [[KAC/SEC-A-proto-fga-proxy\|SEC-A: proto Internal IAM FGA-proxy (RegisterResource / UnregisterResource)]] | живо (done) |
-| [[KAC/SEC-B-corelib-mtls\|SEC-B: corelib mTLS transport (grpcsrv/grpcclient + identity-extractor)]] | в работе (test) |
-| [[KAC/SEC-C-iam-fga-proxy-sa-roles\|SEC-C: IAM FGA-proxy (Register/UnregisterResource) + least-priv SA-roles (ReBAC) + cert→SA]] | в работе (test) |
-| [[KAC/SEC-D-services-fga-via-iam-mtls\|SEC-D: vpc/compute/nlb — FGA via IAM (transactional-outbox) + opt-in mTLS]] | в работе (test) |
-| [[KAC/SEC-E-gateway-mtls\|SEC-E: api-gateway backend-dial mTLS (per-edge), JWT/principal/Check preserved]] | в работе (test) |
-| [[KAC/SEC-G-operators-ovn-mtls\|SEC-G: operators on mTLS (operator→{vpc,iam} client-cert) + least-priv SA + full-stack]] | в работе (test) |
-| [[KAC/SEC-HAT-provider-admin-hop-tls\|SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом]] | в работе (test) |
-| [[KAC/SEC-J-gateway-hydra-jwks-authn\|SEC-J: api-gateway validates real Hydra RS256 access JWTs in the principal path]] | в работе (test) |
-| [[KAC/SEC-L-rest-internal-isolation\|SEC-L: isolate Internal* REST from the external listener + drop Internal* FQNs from public allowlist]] | в работе (test) |
+| [[KAC/SEC-B-corelib-mtls\|SEC-B: corelib mTLS transport (grpcsrv/grpcclient + identity-extractor)]] | живо (done) |
+| [[KAC/SEC-C-iam-fga-proxy-sa-roles\|SEC-C: IAM FGA-proxy (Register/UnregisterResource) + least-priv SA-roles (ReBAC) + cert→SA]] | живо (done) |
+| [[KAC/SEC-D-services-fga-via-iam-mtls\|SEC-D: vpc/compute/nlb — FGA via IAM (transactional-outbox) + opt-in mTLS]] | живо (done) |
+| [[KAC/SEC-E-gateway-mtls\|SEC-E: api-gateway backend-dial mTLS (per-edge), JWT/principal/Check preserved]] | живо (done) |
+| [[KAC/SEC-G-operators-ovn-mtls\|SEC-G: operators on mTLS (operator→{vpc,iam} client-cert) + least-priv SA + full-stack]] | история (superseded) |
+| [[KAC/SEC-HAT-provider-admin-hop-tls\|SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом]] | живо (done) |
+| [[KAC/SEC-J-gateway-hydra-jwks-authn\|SEC-J: api-gateway validates real Hydra RS256 access JWTs in the principal path]] | живо (done) |
+| [[KAC/SEC-L-rest-internal-isolation\|SEC-L: isolate Internal* REST from the external listener + drop Internal* FQNs from public allowlist]] | живо (done) |
 | [[KAC/_TEMPLATE\|KAC-<N>: <one-line summary>]] | в работе (in-progress) |
-| [[KAC/all-tickets\|Все тикеты — витрина категории]] | живо (active) |
 | [[KAC/api-ux-review-redesign\|API-UX ревью редизайна — панель критиков (раунд 1)]] | в работе (reference) |
 | [[KAC/audit-divergence-redesign-vs-main\|Аудит расхождения redesign/integration vs main — раунд 1]] | в работе (reference) |
 | [[KAC/audit-hardening-low-2026-07-09\|audit-hardening-low-2026-07-09]] | живо (done) |
@@ -822,32 +821,32 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | в работе (in-progress) |
 | [[KAC/queued-behind-a-dead-label-2026-08-04\|Ожидание за несуществующим исполнителем — не отказ, а вид работы (2026-08-04)]] | живо (done) |
-| [[KAC/rbac-2026-224-owner-wildcard-content\|RBAC explicit-model 2026 #224 — owner *.* materializes per-object content + verify-gate owner-content check]] | в работе (test) |
+| [[KAC/rbac-2026-224-owner-wildcard-content\|RBAC explicit-model 2026 #224 — owner *.* materializes per-object content + verify-gate owner-content check]] | живо (done) |
 | [[KAC/rbac-2026-bug2-hide-existence-read-deny\|rbac-2026 BUG-2 — read-deny hide-existence (gateway 403→404)]] | живо (done) |
-| [[KAC/rbac-2026-contract-a-fix-iam-content-forward\|RBAC Contract-A fix — forward-materialize owner/creator access on iam-native content (flat FGA no-access-loss)]] | в работе (test) |
-| [[KAC/rbac-2026-contract-a-flat-bootstrap-fallout\|RBAC Contract-A flat — bootstrap signup owner-binding fallout (ROOT flat-403)]] | в работе (test) |
-| [[KAC/rbac-2026-contract-b-org-removal\|RBAC Contract-B — full removal of B2B Organization (proto/iam/deploy)]] | в работе (test) |
-| [[KAC/rbac-2026-edit-leaf-delete-comaterialization\|RBAC — v_delete co-materialized with v_update on leaf objects (edit@project delete-403)]] | в работе (test) |
+| [[KAC/rbac-2026-contract-a-fix-iam-content-forward\|RBAC Contract-A fix — forward-materialize owner/creator access on iam-native content (flat FGA no-access-loss)]] | живо (done) |
+| [[KAC/rbac-2026-contract-a-flat-bootstrap-fallout\|RBAC Contract-A flat — bootstrap signup owner-binding fallout (ROOT flat-403)]] | живо (done) |
+| [[KAC/rbac-2026-contract-b-org-removal\|RBAC Contract-B — full removal of B2B Organization (proto/iam/deploy)]] | живо (done) |
+| [[KAC/rbac-2026-edit-leaf-delete-comaterialization\|RBAC — v_delete co-materialized with v_update on leaf objects (edit@project delete-403)]] | живо (done) |
 | [[KAC/rbac-2026-review-fixes-pass1-ledger-revoke\|RBAC-2026 review fixes — Pass 1: ledger revoke-correctness (#1/#7/#15/#16)]] | живо (done) |
 | [[KAC/rbac-2026-super-admin-cascade-fallout\|Каскад супер-доступа: что он перезарядил задним числом]] | живо (done) |
-| [[KAC/rbac-explicit-model-2026-subphase-P11-ui\|RBAC explicit-model 2026 — sub-phase P11 (owner/deletion_protection UX + org-removal + 403 content-access) ui]] | в работе (test) |
-| [[KAC/rbac-explicit-model-2026-subphase-P6-iam\|RBAC explicit-model 2026 — sub-phase P6 (owner role + auto-binding + deletion_protection) iam]] | в работе (test) |
+| [[KAC/rbac-explicit-model-2026-subphase-P11-ui\|RBAC explicit-model 2026 — sub-phase P11 (owner/deletion_protection UX + org-removal + 403 content-access) ui]] | живо (done) |
+| [[KAC/rbac-explicit-model-2026-subphase-P6-iam\|RBAC explicit-model 2026 — sub-phase P6 (owner role + auto-binding + deletion_protection) iam]] | живо (done) |
 | [[KAC/rbac-explicit-model-2026\|Explicit RBAC model 2026 (epic)]] | живо (done) |
-| [[KAC/rbac-rules-model-2026-subphase-A-iam\|RBAC rules-model 2026 — sub-phase A (iam)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-C-iam\|RBAC rules-model 2026 — sub-phase C (iam)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-D-consumer-vpc\|RBAC rules-model 2026 — sub-phase D-consumer (kacho-vpc)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-D-iam\|RBAC rules-model 2026 — sub-phase D (iam-core)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-D-nlb-consumer\|RBAC rules-model 2026 — sub-phase D (nlb consumer list-filter)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-E-iam\|RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-F-iam\|RBAC rules-model 2026 — sub-phase F clean-cut (iam + proto)]] | в работе (test) |
-| [[KAC/rbac-rules-model-2026-subphase-F-ui\|RBAC rules-model 2026 — sub-phase F (UI — F-22 rules-editor + thin grant-form)]] | в работе (test) |
+| [[KAC/rbac-rules-model-2026-subphase-A-iam\|RBAC rules-model 2026 — sub-phase A (iam)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-C-iam\|RBAC rules-model 2026 — sub-phase C (iam)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-D-consumer-vpc\|RBAC rules-model 2026 — sub-phase D-consumer (kacho-vpc)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-D-iam\|RBAC rules-model 2026 — sub-phase D (iam-core)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-D-nlb-consumer\|RBAC rules-model 2026 — sub-phase D (nlb consumer list-filter)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-E-iam\|RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-F-iam\|RBAC rules-model 2026 — sub-phase F clean-cut (iam + proto)]] | живо (done) |
+| [[KAC/rbac-rules-model-2026-subphase-F-ui\|RBAC rules-model 2026 — sub-phase F (UI — F-22 rules-editor + thin grant-form)]] | живо (done) |
 | [[KAC/rbac-rules-model-2026-subphase-G-iam\|RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui]] | живо (done) |
 | [[KAC/rbac-rules-model-2026-subphase-H-rule-module-scalar\|RBAC rules-model 2026 — sub-phase H (Rule.module scalar) — proto/iam/gateway/ui]] | живо (done) |
 | [[KAC/redesign-2026\|redesign-2026 — 7-сервисный UX-конвергентный редизайн]] | в работе (in-progress) |
 | [[KAC/revocation-not-enforced-at-edge-2026-07-28\|Проверка отзыва на краю ведёт в никуда и проглатывает отказ (2026-07-28)]] | живо (done) |
 | [[KAC/sec-acr-stepup-refinement\|SEC-acr-stepup-refinement — narrow required_acr_min to 41-set]] | живо (done) |
 | [[KAC/sec-hardening-2026-07-05\|sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes]] | живо (done) |
-| [[KAC/sec-hardening-r2-2026-07-05-nlb\|sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero]] | в работе (test) |
+| [[KAC/sec-hardening-r2-2026-07-05-nlb\|sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero]] | живо (done) |
 | [[KAC/sec-nlb-move-crosstenant-authz-relation\|nlb :move cross-tenant deny — FIXTURE bug (NOT a bypass) + design-note]] | живо (done) |
 | [[KAC/sub-phase-1.2-iam-operations\|IAM operations visibility (sub-phase 1.2)]] | живо (done) |
 | [[KAC/sub-phase-1.3-subject-privileges\|Subject privileges (sub-phase 1.3)]] | живо (done) |
@@ -877,12 +876,11 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[legacy/repo-kacho-resource-manager\|kacho-resource-manager]] | история (deprecated) |
 | [[legacy/repo-kacho-vpc\|kacho-vpc (сегодня — каталог services/vpc/ монорепо)]] | история (legacy) |
 
-### Операционные процедуры — `runbooks/` (2)
+### Операционные процедуры — `runbooks/` (1)
 
 | Записка | Состояние |
 |---|---|
 | [[runbooks/cilium-enable-srv6-addonvalue\|Runbook: включить SRv6 в Cilium через AddonValue (infra-кластер)]] | живо (active) |
-| [[runbooks/freeze-process\|Freeze process (W3.4 / KAC-178)]] | живо (active) |
 
 ### Руководства (эпоха KAC-127) — `docs/` (3)
 
@@ -892,7 +890,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[docs/dev-iam-integration\|Developer IAM integration]] | история (legacy) |
 | [[docs/user-iam-guide\|User IAM guide]] | история (legacy) |
 
-### Точки входа и полотно — корень хранилища (5)
+### Точки входа и полотно — корень хранилища (4)
 
 | Файл | Состояние |
 |---|---|
@@ -900,7 +898,6 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[INDEX\|INDEX — полный перечень записок]] | живо (active) |
 | [[README\|Kachō — точка входа в хранилище знаний]] | живо (active) |
 | [[architecture\|Архитектура — одно монорепо, семь сервисов, рёбра рантайма]] | живо (active) |
-| [[freeze-gate-status\|Freeze gate status]] | в работе (reference) |
 
 <!-- GENERATED:vault-index END -->
 
