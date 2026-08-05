@@ -738,7 +738,7 @@ Negative-тестов должно быть **больше**, чем positive.
 
 ### 9.2 Selective test running
 
-При изменении только в `internal/service/subnet.go` — гоняем не
+При изменении только в одном пакете сервиса (скажем, срез use-case подсети) — гоняем не
 все 5000 тестов, а только те, что покрывают этот файл (через
 build-tag selection или dependency analysis).
 
@@ -903,7 +903,7 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 
 | Документ | Контекст |
 |---|---|
-| `kacho-workspace/CLAUDE.md` | Архитектурные правила полирепо |
+| `CLAUDE.md` воркспейса + `@import`-ы `.claude/rules/*.md` | Архитектурные правила и запреты |
 | `kacho-vpc/CLAUDE.md §14` | Уровни тестирования в VPC |
 | `kacho-vpc/docs/ARCHITECTURE.md §XII` | Тестирование VPC в общей картине |
 | `kacho-vpc/tests/newman/README.md` | Newman quota-aware pipeline |

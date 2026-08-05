@@ -606,7 +606,7 @@ acceptance Given-When-Then.
 Любой прогон reproducible:
 - Seed для random — фиксированный per-run.
 - Время мокируется, если влияет.
-- Окружение описано в `local.postman_environment.json` / `staging.postman_environment.json` (per-стенд Kachō).
+- Окружение описано шаблоном окружения per-стенд: `services/<svc>/tests/newman/environments/local.postman_environment.template.json` (шаблон в git, заполненный файл — локальный).
 
 ### 8.5 Flake handling
 
@@ -758,8 +758,8 @@ Conformance проверяется против канон-контракта Ka
   `docs/architecture/<svc>/` (а не «баг»).
 
 Соответствующие admin/kacho-only кейсы:
-- хранятся в отдельной internal-коллекции
-  (`kacho-vpc-internal.postman_collection.json`),
+- хранятся в отдельной internal-коллекции сервиса
+  (`services/<svc>/tests/newman/collections/`, имя коллекции говорит про internal),
 - не прогоняются в unified public-suite (чтобы не зашумлять),
 - задокументированы в `docs/architecture/<svc>/` с обоснованием.
 
@@ -780,7 +780,7 @@ Conformance проверяется против канон-контракта Ka
 
 ### 11.5 Conformance против канон-контракта Kachō
 
-Conformance-кейсы в `kacho-vpc.postman_collection.json` асертят, что ответ
+Conformance-кейсы в коллекциях сервиса (`services/<svc>/tests/newman/collections/*.postman_collection.json`) асертят, что ответ
 сервиса держит зафиксированный контракт Kachō:
 - фиксированный текст ошибки (byte-level, как описано в `docs/architecture/`
   и конвенциях API),
@@ -811,7 +811,7 @@ Conformance-кейсы в `kacho-vpc.postman_collection.json` асертят, ч
 - [ ] UpdateMask (если есть Update RPC).
 - [ ] AuthZ cross-project (если project-scoped).
 - [ ] Кейсы добавлены в master Newman-collection.
-- [ ] Suite-сборка (RO / LIGHT / SEQ) пересобрана через `build-suite.py`.
+- [ ] Коллекции пересобраны из деклараций: `services/<svc>/tests/newman/scripts/validate-cases.py` (уникальность + индекс кейсов) → `gen.py`.
 - [ ] `docs/architecture/<svc>/` обновлён, если введено осознанное by-design отклонение.
 
 ### 12.2 Чек-лист релизного тестирования
@@ -918,7 +918,7 @@ Conformance-кейсы в `kacho-vpc.postman_collection.json` асертят, ч
 | "Explore It!" (Hendrickson) | Exploratory testing methodology |
 | "How Google Tests Software" (Whittaker/Arbon/Carollo) | Test pyramid в большом масштабе |
 | "The Art of Software Testing" (Myers) | ECP/BVA/Cause-Effect Graphing |
-| `kacho-workspace/docs/TESTING.md` | Парный документ — тестирование кода |
-| `kacho-vpc/tests/newman/docs/TAXONOMY.md` | Class taxonomy конкретно для Kachō |
-| `kacho-vpc/docs/architecture/` | Registry осознанных by-design дизайн-решений Kachō |
+| `docs/TESTING.md` воркспейса | Парный документ — тестирование кода |
+| `services/<svc>/tests/newman/docs/TAXONOMY.md` | Class taxonomy конкретно для Kachō (есть не у каждого сервиса) |
+| `services/<svc>/docs/architecture/` | Registry осознанных by-design дизайн-решений Kachō |
 | GitHub Issues (`PRO-Robotech/kacho-vpc`) | Найденные баги / tech-debt из тестов |

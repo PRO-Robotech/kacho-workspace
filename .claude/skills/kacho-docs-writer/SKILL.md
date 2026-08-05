@@ -1,6 +1,6 @@
 ---
 name: kacho-docs-writer
-description: Регламент написания/правки документации Kachō — per-service docs-site (Docusaurus 3), спека-книга docs/specs/00-04, per-repo docs/architecture, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
+description: Регламент написания/правки документации Kachō — per-service docs-site (Docusaurus 3), спека-книга docs/specs 00…04, per-repo docs/architecture, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
 ---
 
 # Skill: kacho-docs-writer — документация Kachō
@@ -32,7 +32,7 @@ godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); 
 
 | Слой | Где | Роль | Источник истины для |
 |---|---|---|---|
-| Спека-книга | `kacho-workspace/docs/specs/00-04` | замысел: scope, контракт-намерения, процесс | продукт/scope/конвенции |
+| Спека-книга | `docs/specs/0{0..4}-*.md` воркспейса | замысел: scope, контракт-намерения, процесс | продукт/scope/конвенции |
 | Acceptance-трейл | `docs/specs/*-acceptance.md` | point-in-time APPROVED гейты | историю решений — **НЕ редактировать** |
 | docs-site | `project/<svc>/docs-site/` (Docusaurus 3) | публичная дока сервиса: API + архитектура + install | внешнее описание сервиса |
 | docs/architecture | `project/<svc>/docs/architecture/` | внутренние by-design решения сервиса | «почему так сделано» |
@@ -76,7 +76,7 @@ per-repo копии agents разъехались и обросли мусоро
 
 ## 4. docs-site (Docusaurus 3) — регламент
 
-Эталон — `project/kacho-vpc/docs-site/`. Новый сервисный docs-site строить по нему.
+Эталон — `services/vpc/docs-site/` в монорепо (прежде, в полирепо, тот же сайт лежал в репозитории vpc). Новый сервисный docs-site строить по нему. Сайтов в дереве **восемь**: семь сервисных плюс `gateway/docs-site/` (замер `git ls-files` на 1653387b, 2026-08-06).
 
 ### 4.1 Структура
 ```
@@ -120,7 +120,7 @@ Build ловит сломанный MDX/JSX, незакрытый mermaid и б�
 Внутренние ссылки — только на существующие страницы (карта = `sidebars.ts`).
 `build/` и `.docusaurus/` — в gitignore, не коммитить.
 
-## 5. Спека-книга `docs/specs/00-04` — регламент
+## 5. Спека-книга `docs/specs/0{0..4}-*.md` — регламент
 
 Роли глав фиксированы (single source of truth, дубли запрещены):
 - **00** обзор/scope/принципы · **01** сервисы+API-контракт · **02** модель

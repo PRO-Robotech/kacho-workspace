@@ -103,7 +103,7 @@ return w.Commit(ctx)
 После commit'а — wake-up consumer'ов outbox (LISTEN/NOTIFY), как принято в сервисе.
 
 ### Шаг 8. GREEN
-`make integration-test` + `go test ./...` → все зелёные. Падает — чинишь **реализацию**,
+`make test-integration` (корневой Makefile монорепо) + `go test ./...` → все зелёные. Падает — чинишь **реализацию**,
 не тест (тест правишь только если в нём реальная ошибка). В отчёте/PR — пара «RED → GREEN».
 
 ### Шаг 9. Рефактор + регистрация

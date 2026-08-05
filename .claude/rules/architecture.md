@@ -34,16 +34,20 @@ e2e через api-gateway. Если service-тест требует Postgres �
 Каноничный Go-style ruleset — skill **`evgeniy`** (UseCase pattern, CQRS-порты,
 self-validating domain, DTO-таблицы, YAML-config через viper/koanf, отдельный `cmd/migrator`).
 
-## Переиспользование через `kacho-corelib`
+## Переиспользование через общий фундамент `pkg/`
 
-Всё горизонтальное (нужное 2+ сервисам) — в `kacho-corelib/<package>/`, не дублировать per-service.
-Что там живёт: `ids/`, `errors/`, `config/`, `observability/`, `db/` (pgx pool + transactor),
-`grpcsrv/`, `grpcclient/`, `outbox/`, `selector/`, `operations/` (LRO table + Worker + Repo),
-`retry/`, `shutdown/`, `backoff/`, `validate/`, `auth/`, `authz/`, `filter/`, `migrations/common/`, `audit/`.
+Всё горизонтальное (нужное 2+ сервисам) — в `pkg/<package>/` монорепо (прежде — отдельный репозиторий `kacho-corelib`, отсюда это имя в старых записках), не дублировать per-service.
+Что там живёт (замер `ls -d pkg/*/` на 1653387b, 2026-08-06 — **21** каталог): `api/` (стабы,
+руками не править), `auth/`, `authz/`, `backoff/`, `baggage/`, `config/`, `db/` (pgx pool +
+transactor), `dbready/`, `errors/`, `filter/`, `grpcclient/`, `grpcsrv/`, `ids/`, `internal/`,
+`migrations/` (в т.ч. `common/`), `observability/`, `operations/` (LRO table + Worker + Repo),
+`outbox/`, `retry/`, `safeconv/`, `shutdown/`, `validate/`. Перечень **выписан**, а не выведен,
+поэтому сверяй его тем же `ls`, а не памятью: прежняя редакция называла два каталога, которых в
+дереве нет (`selector/`, `audit/`), и молчала о четырёх существующих.
 
-Перед написанием новой утилиты в сервисе — проверь corelib. Будет нужно 2+ сервисам →
-сразу в corelib. **Исключение**: доменная бизнес-логика (VPC ref-validation, Compute
-reconciler) живёт в сервисном репо.
+Перед написанием новой утилиты в сервисе — проверь `pkg/`. Будет нужно 2+ сервисам →
+сразу в `pkg/`. **Исключение**: доменная бизнес-логика (VPC ref-validation, Compute
+reconciler) живёт в каталоге своего сервиса.
 
 ## Concurrency / lifecycle / читаемость (выведено из audit-раундов)
 

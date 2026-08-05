@@ -756,24 +756,32 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
 
   **Usage:** invoke `evgeniy` first on any refactor / new service / new resource / new domain type to confirm the design respects the rules; invoke `godzila` second for the concrete templates. On conflict, `evgeniy` wins.
 
-### 20.2 Companion vault — pattern catalogue with real code
+### 20.2 Companion vault — narrow notes per package, resource, RPC and edge
 
-- **`obsidian/kacho/kacho-vpc/patterns/`** — 8 pattern files + a synthesis, with real code excerpts from `kacho-vpc`:
-  - `SYNTHESIS.md` — deduplicated catalogue of unique cross-cutting patterns (the base from which this skill was distilled).
-  - `api-network-subnet.md` — slice-per-RPC pilot (use-case structure as it actually looks on disk).
-  - `api-address-nic.md` — IPAM cascade, atomic CAS for attach/detach, MAC retry-on-collision, cardinality CHECK.
-  - `api-addresspool-sg.md` — 5-step cascade resolver with family-aware filter; OCC via `xmin` for split-endpoint Update.
-  - `api-gw-rt-pe.md` — CRUD-only resources (parity-style, minimal business logic).
-  - `domain-shared-config.md` — newtypes / builders / status enums / sentinel registry / viper-based config.
-  - `repo-pg-cqrs.md` — Reader/Writer split, SQL templates, SQLSTATE → sentinel mapping, partial UNIQUE / EXCLUDE / FK contracts.
-  - `clients-dto-handler.md` — `clients.Build`, cached peer-clients, generic DTO registry, tenant interceptor, `InternalWatch` LISTEN/NOTIFY.
-  - `cmd-tests-sdk.md` — `cmd/migrator` (cobra), declarative newman cases, k6 scenarios, Makefile + Dockerfile.
+> **The per-repo pattern catalogue this section used to name no longer exists.** It was a
+> directory of eight pattern files plus a synthesis, keyed to the pre-monorepo `kacho-vpc`
+> repository; it was retired on 2026-08-05 when the vault was brought in line with the
+> monorepo, and its addresses are deliberately not reproduced here — a dead coordinate in
+> backticks reads as a live claim about the tree and is treated as one by the freshness hook.
 
-  **Usage:** when `godzila` says "register the converter in `init()`" and you need to see exactly *how* it is done in this codebase, open the matching vault file. The vault is the bridge between this skill's placeholders and the actual project names.
+- **`obsidian/kacho/`** — the vault is the bridge between this skill's placeholders and the
+  actual project names. Entry point is `obsidian/kacho/INDEX.md`; the categories are
+  `packages/` (exported API, imports, imported-by, per Go package), `resources/` (FK contract,
+  lifecycle, id prefix), `rpc/` (methods, REST mapping, sync vs async), `edges/` (cross-service
+  protocol, error contract, history), plus `KAC/`, `lessons/`, `runbooks/`, `docs/`, `legacy/`.
+
+  **Usage:** when `godzila` says "register the converter in `init()`" and you need to see how it
+  is done in this codebase, open the note for the package or resource you are touching — a note
+  states which revision it was verified against, so you can tell a fresh fact from a stale one.
+  Read one or two narrow notes, not the whole category (`.claude/rules/vault.md`: more than
+  three vault files means the scope is wrong).
 
 ### 20.3 Companion sub-agents — delegate narrow subtasks
 
-When the work fits a specialist, delegate to them instead of doing it inline. Project-level agents (visible from any `project/<repo>/` via parent-walkup discovery):
+When the work fits a specialist, delegate to them instead of doing it inline. All agents live in
+a single place — `.claude/agents/` of the workspace; there are no copies inside the product
+checkout, and no rollout mechanism that would put them there (`.claude/rules/ai-tooling.md`
+§«Модель распространения»). The roster below is the generic half of it:
 
 - **Acceptance / planning:** `acceptance-author`, `acceptance-reviewer` — the gate to start coding (no implementation without an approved Given-When-Then doc).
 - **Implementation:** `rpc-implementer` (end-to-end RPC), `service-scaffolder` (new repo), `migration-writer` (new goose migration), `api-gateway-registrar` (register a public RPC on the gateway).
@@ -781,21 +789,33 @@ When the work fits a specialist, delegate to them instead of doing it inline. Pr
 - **Review:** `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`.
 - **Tests:** `integration-tester`, `qa-test-engineer`.
 
-VPC-specific agents (in the `kacho-vpc` repo): `vpc-yc-parity-auditor`, `vpc-cidr-specialist`, `vpc-outbox-watch-engineer`, `vpc-newman-author`, `vpc-load-testing`.
+Domain-specific agents are named after the domain (`vpc-*`, `compute-*`, `<svc>-load-testing`)
+and are meant to sit next to the generic ones. **None of them exists in the tree today** — the
+count is 15 tracked agent files, all generic — so do not plan a step around one; the canonical
+roster is `.claude/rules/ai-tooling.md` §«Канонические агенты», which derives the domain list
+from the service directories rather than writing it out. (The name this line used to carry was
+retired for a different reason: it compared us to another cloud, which ban #2 forbids.)
 
   **Usage:** when `godzila` says "write a new migration with FK / CHECK / EXCLUDE / partial UNIQUE", delegate to `migration-writer` and then to `db-architect-reviewer`; when it says "register the new RPC on the gateway", invoke `api-gateway-registrar`; when it says "write a concurrent-race test", let `integration-tester` produce the failing test first (TDD red phase).
 
 ### 20.4 Workspace-wide rules that always apply
 
-- **Workspace `CLAUDE.md`** (kacho-workspace root) — bans #1–#11 (acceptance gate, no yandex/orm/cross-service-cascade, hard-delete, DB-only refs, tests in same PR, etc.) — these win over everything below.
-- **Service `CLAUDE.md`** (e.g. `kacho-vpc/CLAUDE.md`) — service-specific conventions (id prefixes, hard-immutable fields, IPAM, NIC, migrations baseline). Wins over `godzila` on conflict.
+- **Workspace `CLAUDE.md`** plus the rule modules it `@import`s (`.claude/rules/*.md`) — the
+  non-negotiables live in `.claude/rules/00-kacho-core.md` and there are **16** of them, not the
+  eleven this line used to promise: the list grew, and a count written out by hand does not grow
+  with it. Read the file, do not trust a number quoted about it — including this one.
+- **Per-service `CLAUDE.md` inside the product** — there is exactly one (`deploy/CLAUDE.md`), and
+  it is about the local stand, not about a service's conventions. Service-level conventions live
+  in that service's `docs/architecture/`. On conflict the rule modules win over `godzila`.
 
 ### 20.5 Loading order in a fresh session
 
-1. Workspace + service `CLAUDE.md` are loaded automatically via parent-walkup discovery.
+1. The workspace `CLAUDE.md` and its `@import`-ed rule modules load automatically.
 2. Invoke `evgeniy` to refresh normative rules.
 3. Invoke `godzila` to load templates.
-4. Read the one or two vault files (1–3 KB narrow notes; see `obsidian/kacho/INDEX.md`) that match the resource you are touching.
+4. Read the one or two vault notes (see `obsidian/kacho/INDEX.md`) that match the resource you are
+   touching. There is no size ceiling on a note any more — the "1–3 KB" one was lifted by the
+   owner on 2026-08-05; what is still normative is one subject per note.
 5. Delegate the narrow steps to the specialist sub-agents listed in §20.3.
 
 This pair-loading is the standard kachō-workspace flow — neither skill is meant to be used alone in this project.

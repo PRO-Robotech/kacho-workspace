@@ -60,7 +60,7 @@ confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm
 - **Стандартные методы ресурса**: `Get`/`List` (sync) + `Create`/`Update`/`Delete` (async Operation).
   Доп. действия — отдельные RPC с `:verb`-путём.
 - **Timestamps**: в proto-ответе truncate до **секунд** (`CreatedAt.Truncate(time.Second)`); БД хранит микросекунды.
-- **ID**: `kacho-corelib/ids.NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix.
+- **ID**: `pkg/ids`.`NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix. (Имя `kacho-corelib` — прежний репозиторий фундамента; в монорепо это каталог `pkg/`.)
 - **Адресация — по `id`, не по `name` (core, ban #15).** `id` — единственная **внешне-адресуемая** идентичность: попадает в публичные URL / pull-пути (`$domain/$registryId/$repo:$tag`), cross-service ссылки, grant-scope, authz-target. **immutable на всю жизнь ресурса** (нет «rename id»), глобально-уникален by construction. `name` — косметический project-scoped label (`UNIQUE(project,name)`), может меняться, **НИКОГДА не в URL/ссылке**. Запрещена деривация глобального человекочитаемого слага в URL вместо id (name-в-URL через заднюю дверь + rename-ломкость).
 - **id-prefix — hyphen-канон (going-forward, B3)**: **новые** ресурсы адресуются формой
   `<prefix>-<crockford-base32>` (`ins-…`, `ns-…`, `mt-…`) — дефис-разделитель, prefix бывает
@@ -264,7 +264,7 @@ code) — тон message остаётся стабильным контракт�
 - Cursor-based: `(created_at, id)` ORDER BY ASC; `page_token` — opaque base64 `{created_at,id}`.
 - `page_size` через `corevalidate.PageSize` (0 → default 50, max 1000); garbage token → `InvalidArgument`.
   page_size вне `[0..1000]` → `InvalidArgument` (**отвергается, не clamp'ится**).
-- `filter` — `kacho-corelib/filter.Parse` с whitelist полей (текущая фаза — `name=`).
+- `filter` — `pkg/filter`.`Parse` с whitelist полей (текущая фаза — `name=`).
 - **Валидация pagination — ДО listauthz empty-grant short-circuit** (см. Gotcha ниже).
 
 ## Gotcha'и (выведены из audit-раундов — частые нарушения конвенций)

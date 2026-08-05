@@ -33,22 +33,27 @@ update_mask, pagination). Размещение и порядок работы �
 - `kacho-proto/proto/kacho/cloud/operation/` — `Operation` + `OperationService` (reuse).
 - Кросс-доменные общие типы: `kacho/cloud/reference/`, `kacho/cloud/access/`,
   `kacho/cloud/api/` — переиспользовать, не дублировать.
-- `kacho-proto/buf.yaml` + `buf.gen.yaml` (buf v2; lint STANDARD; gen в `gen/go` +
-  `gen/permission_catalog.json` через `protoc-gen-kacho-permissions`).
+- `proto/buf.yaml` + `proto/buf.gen.yaml` (buf v2; lint STANDARD; сгенерированные Go-стабы
+  уезжают в `pkg/api/`, руками их не правят). Каталог прав — **отдельный** артефакт: он
+  генерируется целью `permission-catalog` края и лежит в ДВУХ байт-идентичных копиях —
+  `gateway/internal/middleware/embed/permission_catalog.json` и
+  `services/iam/internal/apps/kacho/seed/embedded/permission_catalog.json`; дрейф между ними
+  роняет `make -C gateway permission-catalog-check`.
 
 ## 4. Процедура
 
 1. Прочитай исходные файлы — выпиши все `package`, `import`, `option go_package`, состав message/service.
 2. Прочитай целевой домен в `kacho-proto` и общие типы — составь маппинг `исходный_тип → kacho_тип`.
 3. Применяй правила трансформации (§5), сохраняя совместимость номеров полей.
-4. Прогони buf-гейт (§6); коммить `.proto` + регенерированный `gen/` только при зелёном.
+4. Прогони buf-гейт (§6); коммить `.proto` + регенерированное (`pkg/api/`, при затронутых
+   аннотациях прав — обе копии каталога) только при зелёном.
 
 ## 5. Правила трансформации (kacho-specific)
 
 **Package / go_package** (точный паттерн из репо):
 ```protobuf
 package kacho.cloud.<domain>.v1;
-option go_package = "github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/<domain>/v1;<domain>v1";
+option go_package = "github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/<domain>/v1;<domain>v1";
 ```
 Каждый пакет держит `package_options.proto` (syntax + package + go_package). Импорты — на
 `kacho/cloud/<domain>/v1/*.proto` и общие `kacho/cloud/{operation,reference,access,api}/...`.
@@ -85,14 +90,16 @@ service <Resource>Service {
 ## 6. Гейт (всё с кодом 0, иначе не коммитить)
 
 ```bash
-cd project/kacho-proto
+cd project/kacho/proto
 buf lint
 buf breaking --against ".git#branch=main"
 buf generate
 grep -rin 'yandex\|/upsert\|rpc Upsert\|rpc Watch\|resourceVersion\|finalizers' proto/   # должно быть пусто
 ```
-`gen/` (Go-stubs + `permission_catalog.json`) commit-ится. Если плагин
-`protoc-gen-kacho-permissions` не на PATH — `make install-plugins` перед `buf generate`.
+Сгенерированное commit-ится (`pkg/api/` — стабы; каталог прав — обе embedded-копии). Если
+плагин `protoc-gen-kacho-permissions` не на PATH — поставь его целью `proto-install-plugins`
+Makefile'а своего сервиса (`make -C services/<svc> proto-install-plugins`) перед
+`buf generate`.
 
 ## 7. Запреты
 

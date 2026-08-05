@@ -161,7 +161,7 @@ contention на UNIQUE constraint. `runId` + `vu_id` в name.
 ### 7.2 Naming runs
 
 `<service>-<scenario>-<version>-<timestamp>.json`
-Например: `kacho-vpc-write-heavy-v1.0.3-2026-05-15T10-00.json`.
+Например: vpc-write-heavy-v1.0.3-2026-05-15T10-00.json (образец имени, а не файл в дереве).
 
 ### 7.3 What to commit
 
