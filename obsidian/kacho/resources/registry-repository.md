@@ -39,9 +39,11 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 > `REGIONAL`, anycast): реестр региональный и зоне-независим, поэтому из зональной
 > проверки когерентности исключён by construction.
 >
-> **Записки `rpc/registry-registry-service` в участке нет** — ссылка выше висит в пустоту.
-> Заведение отнесено в остаток волны; контракт — `registry_service.proto` (17 RPC) плюс
-> `internal_registry_service.proto` (2 RPC на :9091).
+> **Записка `rpc/registry-registry-service` заведена 2026-08-06** — ссылка выше больше не
+> висит в пустоту. Здесь же стояло число, которое не сходилось: контракт
+> `registry_service.proto` несёт **15** RPC, а не 17; 17 — это сумма по домену, вместе с
+> `internal_registry_service.proto` ([[rpc/registry-internal-registry-service]], 2 RPC на
+> :9091). Прежняя редакция складывала домен с файлом и получала 19.
 
 # Repository (registry)
 

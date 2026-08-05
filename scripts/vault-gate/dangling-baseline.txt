@@ -10,7 +10,9 @@
 # trail. Опускать число, переписывая ссылки в простой текст, — запрещено: так
 # исчезает единственный след того, что предмет кто-то считал описанным.
 #
-# Замер 2026-08-05: 218 целей, 341 ссылка. Переписать после честной починки:
+# Замер 2026-08-06: 217 целей, 340 ссылок (было 218/341 — закрыта
+# `rpc/registry-registry-service`: записку написали, а не ссылку переименовали).
+# Переписать после честной починки:
 #   ./scripts/vault-gate/check-02-dangling-wikilinks.sh --write-baseline
 2	../KAC/KAC-261
 1	../edges/api-gateway-to-iam-access-binding
@@ -222,7 +224,6 @@
 1	response-shape-changed-check-did-not
 2	rounds-discover-classes-gates-hold-them
 1	rpc/<service>
-1	rpc/registry-registry-service
 1	sec-hat-provider-admin-hop-terminator
 1	self-expiry-made-vacuous-by-its-own-change
 1	shared-stand-single-writer
