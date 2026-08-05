@@ -10,7 +10,9 @@
 > [!warning] Здесь была описана топология из 15 отдельных репозиториев — её нет
 > Прежняя редакция этого раздела перечисляла `kacho-proto` / `kacho-corelib` / `kacho-<svc>` /
 > `kacho-api-gateway` / `kacho-deploy` / `kacho-ui` / `kacho-test` / `kacho-vpc-implement` как
-> действующую структуру, и на неё опирались `bootstrap.sh`, `sync-all.sh`, `sync-tooling.sh` —
+> действующую структуру, и на неё опирались `bootstrap.sh`, `sync-all.sh` и снятый вместе с
+> раскаткой третий скрипт (его имя здесь не воспроизводится: файла в дереве нет, а цитата в
+> обратных кавычках читается как координата — хук свежести справедливо считает её находкой) —
 > тремя рукописными копиями одного списка, которые к тому же **разошлись между собой** (в
 > `sync-all.sh` не хватало `kacho-geo`). Замер 2026-08-02: в `project/` склонирован **один**
 > репозиторий продукта, и **ни одно** имя из этих списков с ним не пересекалось. Следствие —
@@ -34,7 +36,7 @@
 | `gateway/` | edge: gRPC-proxy + grpc-gateway REST | `kacho-api-gateway` |
 | `services/iam/` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding | `kacho-iam` |
 | `services/vpc/` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface | `kacho-vpc` |
-| `services/compute/` | Instance / MachineType (+ **живой дубль** Disk/Image/Snapshot/DiskType — раскол не завершён, см. `data-integrity.md` карта владельцев) | `kacho-compute` |
+| `services/compute/` | Instance / MachineType (раскол блочного хранения завершён — дубля нет, см. `data-integrity.md` карта владельцев) | `kacho-compute` |
 | `services/storage/` | Volume / Snapshot / Image / DiskType — блочное хранение; владелец `volume_attachments` | — |
 | `services/nlb/` | LoadBalancer / Listener / TargetGroup / Target | `kacho-nlb` |
 | `services/registry/` | Registry / Repository / Tag (OCI) | — |
