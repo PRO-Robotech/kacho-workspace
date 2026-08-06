@@ -31,11 +31,15 @@ go.work.sum
 # Obsidian vault internal state
 obsidian/kacho/.obsidian/
 kubeconfig*
-tests/authz-fixtures/__pycache__/
-# Байткод импортируемого `_lib.py` проверок docs-gate — артефакт запуска, не
-# исходник. Игнор заведён вместе с самими проверками, а не после того, как
-# байткод однажды уедет в коммит.
-scripts/docs-gate/__pycache__/
+# Байткод импортируемых модулей проверок — артефакт запуска, не исходник.
+# Правило одно на дерево, а НЕ перечень каталогов: перечень был рукописным, отстал от
+# дерева и пропустил третий каталог проверок, чей байткод из-за этого уехал в коммит и
+# менялся при каждом прогоне. Единица здесь — свойство файла, а не его адрес, поэтому
+# следующий каталог проверок покрыт по построению и заводить строку не придётся.
+__pycache__/
+*.py[cod]
+# Журнал интерактивного запуска в корне — артефакт сеанса, не исходник.
+cli.log
 # Agent scratch worktrees (EnterWorktree / subagent isolation)
 .claude/worktrees/
 # Credentials that land in the repo root during local registry/SA-key debugging.
