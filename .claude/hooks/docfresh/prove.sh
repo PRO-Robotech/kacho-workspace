@@ -441,16 +441,29 @@ echo "== M. полоса ствола: живое на стволе — НЕ н�
 # и тогда путь, живущий в стволе, читается как несуществующий: гейт краснеет
 # ровно на свежей работе. Пара обязана быть двусторонней — иначе «молчит» было бы
 # неотличимо от мёртвого предиката.
-TRUNK_ALIVE="tools/knownfailingsubject/unsupervised.go"   # есть в стволе, нет в копии
+# Вход (−) ВЫВОДИТСЯ ИЗ ДЕРЕВА, а не выписывается. Прежде здесь стоял конкретный путь, и
+# проба перестала исполняться в тот день, когда он появился в выписанной копии: вход был
+# верен для дерева, которого больше нет. Выписанный вход у пробы стареет ровно так же, как
+# выписанный перечень у обходчика, — и оба раза это замечает не автор, а красный набор.
+# Теперь берётся ПЕРВЫЙ по порядку дерева путь, живой в стволе и отсутствующий в копии:
+# порядок `ls-tree` детерминирован, поэтому вход воспроизводим, а не случаен. Кандидатов
+# нет — проба честно не исполняется (копия вровень со стволом; проверять полосу не на чем).
 DEAD_BOTH="sync-tooling.sh"                                # нет ни там, ни там
 trunk_ref="$(cd "$WS/project/kacho" && for r in redesign/integration main master; do
   git rev-parse --verify --quiet "$r" >/dev/null && { echo "$r"; break; }; done)"
+TRUNK_ALIVE=""
+TRUNK_ONLY_N=0
+if [ -n "$trunk_ref" ]; then
+  while IFS= read -r p; do
+    [ -e "$WS/project/kacho/$p" ] && continue
+    TRUNK_ONLY_N=$((TRUNK_ONLY_N+1))
+    [ -z "$TRUNK_ALIVE" ] && TRUNK_ALIVE="$p"
+  done < <(cd "$WS/project/kacho" && git ls-tree -r --name-only "$trunk_ref")
+fi
 if [ -z "$trunk_ref" ]; then
   notrun "в дереве продукта нет ни одного кандидата ствола — полосу проверять не на чем"
-elif ! (cd "$WS/project/kacho" && git cat-file -e "$trunk_ref:$TRUNK_ALIVE" 2>/dev/null); then
-  notrun "'$TRUNK_ALIVE' исчез из ствола — вход (−) больше не настоящий, заменить"
-elif [ -e "$WS/project/kacho/$TRUNK_ALIVE" ]; then
-  notrun "'$TRUNK_ALIVE' появился в выписанной копии — расхождения копии со стволом больше нет, вход (−) не настоящий"
+elif [ -z "$TRUNK_ALIVE" ]; then
+  notrun "в стволе нет ни одного пути, отсутствующего в выписанной копии — копия вровень со стволом, вход (−) взять неоткуда"
 elif (cd "$WS/project/kacho" && git cat-file -e "$trunk_ref:$DEAD_BOTH" 2>/dev/null); then
   notrun "'$DEAD_BOTH' появился в стволе — вход (+) больше не настоящий, заменить"
 else
