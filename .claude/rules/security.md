@@ -249,16 +249,24 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
 7. **Валидация формата ДО authz-short-circuit на read-path.** `List`/`Get` обязаны валидировать
    `page_size`/`page_token`/id-формат (→ `InvalidArgument`) **ДО** listauthz empty-grant
    short-circuit: иначе caller без грантов получает `200 empty` (или authz-403) на garbage-token/
-   `page_size>max` вместо `400` — маскирует контракт и расходится между сервисами.
-   Порядок: format-validate → authz → repo. **Эталон — vpc**, и эталонное здесь именно
-   утверждение, а не валидатор: 7 из 7 List-хендлеров несут
-   `TestListPaginationFormatCheckedBeforeIdentityShortCircuit` (неопознанный вызывающий +
-   мусорный курсор ⇒ `InvalidArgument`, плюс положительный контроль — законная страница
-   проходит). Tree-wide энфорсмент — AST-гейт `internal/repohygiene`
-   `TestEmptyPageNeverPrecedesPaginationValidation`, обходящий все List-образные функции.
-   Прежняя редакция ссылалась на `DecodePageToken`-юнит и называла nlb «подогнанным» — оба
-   утверждения предмета не имели (декод-юнит порядка не проверяет; у nlb нет ни одного
-   хендлера с этим замыканием, и его собственный тест это прямо оговаривает).
+   `page_size>max` вместо `400` — то есть ответ на один и тот же некорректный ввод зависит от
+   того, что вызывающему выдано. Порядок: format-validate → authz → repo.
+   **Проверка формата обязана стоять в ТОЙ ЖЕ функции, которая замыкает пустой грант:**
+   «валидирует репозиторий» верно ровно для того пути, который до репозитория доходит, —
+   а замыкание до него не доходит по определению.
+
+   **Держит это гейт, а не звание эталона.** AST-гейт `internal/repohygiene`
+   `TestEmptyPageNeverPrecedesPaginationValidation` (`listpaginationorder_test.go:94`) обходит
+   прод-дерево по синтаксическому признаку и требует свойство от каждой функции формы
+   `([]T, string, error)` — то есть от кода, которого ещё нет. Название сервиса эталоном
+   проверкой НЕ является: оно ничего не роняет и переживает то, что им обозначалось.
+
+   Замер 2026-08-07 по дереву `main` (для ориентира, не как гейт): пообъектную пробу
+   `TestListPaginationFormatCheckedBeforeIdentityShortCircuit` несут vpc — **7** файлов
+   (address, gateway, network, networkinterface, securitygroup, subnet, routetable) и
+   iam — **6**; у geo, compute, storage, nlb, registry — **0**. Числа названы, чтобы
+   «покрыто» не читалось шире, чем есть: tree-wide свойство держит гейт, а перечисленные
+   пробы — его пообъектное подтверждение там, где они написаны.
 8. **Мягкий проход при отказе обязан ОТЛИЧАТЬ настройку от сбоя — иначе контроль открыт навсегда
    и молча.** Проверка, которая на недоступности зависимости логирует и продолжает («graceful
    degradation»), защитима **только** пока отказ действительно временный. Если она не различает
@@ -297,12 +305,25 @@ secure-by-default boot-guards, HS256 stand-in вместо Hydra-RS256. Инва
 
 1. **Каждый сервис ОБЯЗАН иметь production boot-guard (`Config.Validate()` fail-closed).** В production-mode
    config-валидация ОБЯЗАНА **refuse-to-start** (fatal), если: `sslmode=disable` (нужен require|verify-ca|verify-full),
-   mTLS off на любом live-ребре, authz-interceptor не в цепочке, breakglass on. Эталон — vpc `config/mode.go`
-   (Mode{Dev,Production,ProductionStrict}+IsProduction) + geo/vpc `validateSecurityConfig`. **`AuthMode`
-   declared-but-never-read = ЗАПРЕЩЕНО**: объявленный, но нечитаемый режим — это **мёртвый guard**,
-   при котором сервис поднимается в insecure-посадке, называя себя production, и отделывается одним
-   WARN. Отличать надо не «поле есть» от «поля нет», а «значение меняет исход старта» от «не меняет».
-   Новый сервис БЕЗ production-guard не мёржится.
+   mTLS off на любом live-ребре, authz-interceptor не в цепочке, breakglass on.
+
+   **Где это лежит (координаты перепроверены 2026-08-07 на `main`):** vpc —
+   `services/vpc/internal/apps/kacho/config/mode.go` (`Mode{Dev,Production,ProductionStrict}` +
+   `IsProduction`) и `.../config/validate.go` (`Config.Validate`, `ValidateBoot`,
+   `ValidateServerMTLS`, `ValidatePeerTransport`, `ValidateListFilter`); geo —
+   `services/geo/cmd/kacho-geo/serve.go:361` (`validateSecurityConfig`).
+
+   > [!note] Прежняя редакция приписывала `validateSecurityConfig` и vpc — такой функции там нет
+   > Предикат: `git grep -l validateSecurityConfig -- services/vpc` → **пусто**; функция живёт в
+   > geo (6 файлов), storage (2), registry (5), в vpc — **0**. Ссылка на несуществующую точку
+   > входа посылает читателя искать защиту не там, а найдя пустоту — заключить, что защиты нет
+   > вовсе. Ошибка сама по себе мелкая; поучительно, что она пережила несколько правок этого
+   > абзаца, потому что «geo/vpc» читается как одно имя и глазом не разбирается на два.
+
+   **`AuthMode` declared-but-never-read = ЗАПРЕЩЕНО**: объявленный, но нечитаемый режим — это
+   **мёртвый guard**, при котором сервис поднимается в insecure-посадке, называя себя production,
+   и отделывается одним WARN. Отличать надо не «поле есть» от «поля нет», а «значение меняет исход
+   старта» от «не меняет». Новый сервис БЕЗ production-guard не мёржится.
 2. **Локальный/dev стенд поднимается в production-mode** (`values.prod`-posture: authMode=production + mTLS ВЕЗДЕ
    через cert-manager internal-CA + sslmode=require + Hydra-RS256). Эталон адаптации под kind — `values.dev-prod.yaml`
    (production posture + local images/hostPort/issuer). dev-insecure overlay (`AUTH_MODE=dev`, anonymous, HS256-only) на
