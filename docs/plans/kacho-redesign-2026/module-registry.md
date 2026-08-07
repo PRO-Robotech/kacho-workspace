@@ -1,5 +1,32 @@
 # Kachō Registry — Target Tenant-Facing API Design
 
+> [!caution] ЭТОТ ДОКУМЕНТ ОПИСЫВАЕТ ОТКАЧЕННЫЙ ДИЗАЙН — НЕ ДЕЙСТВОВАТЬ ПО НЕМУ
+> Замер 2026-08-07 на `1653387b`. Документ построен вокруг ресурса **`Namespace`** с
+> префиксом `ns-` и вокруг **`globalSlug°`** — человекочитаемого первого сегмента
+> pull-пути. **Оба решения отменены**, и второе сегодня — прямое нарушение
+> non-negotiable.
+>
+> | Что говорит документ | Что в дереве | Предикат |
+> |---|---|---|
+> | ресурс `Namespace` | `message Registry` | `grep -c 'Namespace' proto/kacho/cloud/registry/` → **0** совпадений, ни одного токена |
+> | префикс `ns`, «`reg-` retired» | `PrefixRegistry = "reg"` | `pkg/ids/ids.go:108`. Утверждение документа **перевёрнуто**: retired оказался `ns`, а не `reg` |
+> | `ListNamespaces`, `RenameNamespace` | `rpc List(ListRegistriesRequest)` | `grep -rc 'RenameNamespace' proto/` → **0** |
+> | `globalSlug°` в pull-пути | `$domain/$registryId/$repo:$tag` | core rule #15 **прямо запрещает** «деривацию глобального человекочитаемого слага в URL вместо id» — это name-в-URL через заднюю дверь и rename-ломкость |
+> | `GetEffectiveAccess` как обязательный шаг готовности в §«Getting started» | нет нигде | `grep -rl 'GetEffectiveAccess' --include=*.proto --include=*.go` → **0 файлов** |
+>
+> **Откат — решение владельца от 2026-07-20** (зафиксировано в `integration-status.md`:
+> «Namespace-rename ОТКАЧЕН owner-decision»; там же корректная id-модель). То есть про один
+> предмет в этом каталоге лежат **два документа, и верен более старый** — а неверный
+> подробнее, длиннее и потому убедительнее. Расхождение прожило **18 дней** молча: проза
+> не даёт конфликта при мёрже, а последняя правка файла (2026-07-28) откату не следовала.
+>
+> **Что делать с документом.** Он остаётся как запись проектного хода — там есть живая
+> работа (docker access-control, two-projection, overlay⟂projection у `Repository`),
+> которая от отката не зависела. Но **переписывать его под действующую модель нужно
+> целиком**, а не строчкой: `Namespace` встречается в нём 40 раз и несёт `globalSlug°`
+> сквозь примеры. До переписки читать его можно только вместе с этой шапкой, а
+> действующая форма registry — `integration-status.md` + `00-unified-system-design.md` §2.
+
 *Один продукт, форма-якорь = compute: flat resource + async `Operation`, sync-каталоги рядом с launch, reference-law, two-projection, единый тон ошибок. Домен registry ощущается тем же API, что iam/vpc/compute/nlb — узнаваемость знакомой ФОРМОЙ (OCI push/pull), не брендом (ban #2: «registry engine», не имя движка). **Терминология выровнена под индустрию:** группирующая единица образов = **Namespace** (ресурс, prefix `ns`); слово **registry** зарезервировано за serving-host'ом (`endpoint = registry.in-cloud.io`). FGA-объекты (`registry_registry`/`registry_repository`) и модуль `kacho-registry` сохранены как есть (deployed, stability) — переименовано только tenant-facing понятие; leak типа на iam-шве гасится Rosetta-у-каждого-сниппета + inline-аннотацией в echo (см. Правила п.16, cross-module governance в `data-integrity.md`). **`Referrer` в этом домене = ТОЛЬКО OCI-1.1 граф артефактов** (индустриальный immovable-термин); generic reference-law wrapper переименован в **`ResourceRef`** product-wide (НЕ-однокоренной с Referrer — снимает mislabel-риск на шве `Tag.pushedBy`=ResourceRef ⟷ соседний `Referrer`=OCI-граф). **Rename `ResourceRef` — pending cross-module governance** (Правила п.4): приземляется в `data-integrity.md` + compute-vault ОДНИМ change-set ДО объявления registry conformant; до landing — термин помечен pending, не settled.*
 
 ## Ментальная модель
