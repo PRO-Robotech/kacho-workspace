@@ -142,6 +142,19 @@ def commands(snippet):
         cd = re.match(r"cd\s+([^\s]+)\s*$", head)
         if cd:
             cwd = cd.group(1).strip("\"'").rstrip("/")
+            # Путь может быть записан ОТ ВОРКСПЕЙСА, а не от корня монорепо:
+            # рецепты для человека пишутся `cd project/kacho/deploy`, потому что
+            # именно там читатель и стоит. Гейт же сверяет каталоги относительно
+            # монорепо, и без этой нормализации верная команда объявлялась бы
+            # неисполнимой — ложное срабатывание, которое приучает снимать гейт,
+            # а не документ.
+            for prefix in ("project/kacho/", "./project/kacho/"):
+                if cwd.startswith(prefix):
+                    cwd = cwd[len(prefix):]
+                    break
+            else:
+                if cwd in ("project/kacho", "./project/kacho"):
+                    cwd = "."
             continue
         if not re.match(r"make\s", head):
             continue
@@ -185,11 +198,20 @@ def main():
                 for directory, target, raw in commands(snippet):
                     if target is None:
                         continue
-                    if directory is None:
-                        failures.append((shown, lineno, lang, raw,
-                                         "no -C and no cd — the monorepo root has no Makefile"))
-                        continue
-                    for one in expand_braces(directory):
+                    # Команда без `-C` и без `cd` исполняется ИЗ КОРНЯ монорепо.
+                    #
+                    # Прежде эта ветка отвечала отказом безусловно — «у корня нет
+                    # Makefile», — и была верна ровно до того дня, когда корневой
+                    # Makefile появился. С 2026-08-07 (ствол опубликован в main) он
+                    # есть, и безусловный отказ стал ЛОЖНЫМ СРАБАТЫВАНИЕМ: гейт
+                    # объявлял неисполнимой команду, которая исполняется. Утверждение
+                    # пережило свой предмет — тот самый класс, который гейт и ловит,
+                    # только в нём самом.
+                    #
+                    # Теперь корень — обычный каталог с ключом ".", и цель в нём
+                    # проверяется наравне с остальными. Если корневого Makefile нет,
+                    # ключа "." не будет и отказ вернётся сам, но уже по факту дерева.
+                    for one in expand_braces(directory if directory is not None else "."):
                         if one not in targets:
                             failures.append((shown, lineno, lang, raw,
                                              "no Makefile in %r" % one))

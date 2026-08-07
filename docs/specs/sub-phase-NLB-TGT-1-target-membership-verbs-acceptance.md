@@ -929,7 +929,7 @@ the runner reports what newman reports»). Под-фаза его **не воз�
 - [ ] `permission_map_verb_bearing_test.go` обновлён (покраснел на Ф2 и обновлён вместе с ней — это часть изменения, не поломка)
 - [ ] Гейт чётности каталога зелёный, реестр расхождений **не пополнился**
 - [ ] Newman: все **12** сценариев исполняются, ни один не замаскирован и ни один не ослаблен до `oneOf` там, где объект доказано существует; вердикт назван числами (коллекций/запросов/утверждений/**упавших**/**неотвеченных**)
-- [ ] `go test ./services/nlb/... -race` (полный, **не** `-short`), `golangci-lint run`, `govulncheck`, `make audit-list-filter`
+- [ ] `go test ./services/nlb/... -race` (полный, **не** `-short`), `golangci-lint run`, `govulncheck`, `make -C services/nlb audit-list-filter`
 - [ ] vault обновлён: `rpc/nlb-target-group-service.md` (раздел прав сегодня **устарел** — говорит `editor`, тогда как обе точки требуют `v_*`), `resources/nlb-target-group.md`, `packages/nlb-permissions-catalog.md`, KAC-trail
 - [ ] Сообщение коммита проходит признак восстановимости (`security.md`)
 
