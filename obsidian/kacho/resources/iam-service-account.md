@@ -43,7 +43,7 @@ verified_against: "таблица-владелец подтверждена жи
 | `project_id` | TEXT NULL | FK → projects(id) RESTRICT (KAC-127) | optional, preferred scope |
 | `name` | TEXT | `^[a-z][-a-z0-9]{2,62}$` | UNIQUE (account_id, name) |
 | `description` | TEXT | `<=256` chars | |
-| `enabled` | BOOL | default `true` (KAC-127) | false → SA не может authenticate |
+| `enabled` | BOOL | default `true` (KAC-127) | false → SA не может authenticate. Пишется **только** действиями `Disable`/`Enable`; в `update_mask` не входит |
 | `labels` | JSONB | `kacho_labels_valid` (mig 0041) | tenant-facing метки; **mutable** через Update; делают SA label-selectable |
 | `created_at` | TIMESTAMPTZ | server-set | |
 
@@ -66,7 +66,15 @@ verified_against: "таблица-владелец подтверждена жи
 ## Lifecycle
 
 - **Create / Update / Delete** — все async через `Operation`.
-- **Disable (KAC-127)**: `enabled=false` → AuthN-interceptor (Phase 2) запретит `client_credentials` grant; existing tokens продолжают работать до natural `exp` (или revoke через [[iam-session-revocation]]).
+- **Disable / Enable** — отдельные действия (`:disable` / `:enable`), async Operation,
+  идемпотентные, `v_update` + `required_acr_min=2`, аудит `iam.service_account.{disabled,enabled}`.
+  `enabled=false` закрывает ВСЕ пути чеканки нового токена/ключа: token-hook (`client_credentials`
+  и федеративная ассерция), `SAKeyService.Issue` (sync `FailedPrecondition`), docker-token
+  (`401`). Уже выданные access-токены продолжают работать до natural `exp` (или revoke через
+  [[iam-session-revocation]]) — это осознанная разница, важная в инциденте.
+  **История:** колонка читалась пятью местами и решала в четырёх с момента KAC-127, но писателя
+  не имела ни одного — держала умолчание всю жизнь строки, и защита срабатывала только через
+  прямой SQL. Писатель (`SetEnabled`) и действия landed 2026-07-29.
 - **Key-credentials** — KAC-127 Phase 5 через [[iam-service-account-oauth-client]] (Class A static Hydra client).
 - **Federation** — KAC-127 Phase 5 через [[iam-federation-trust-policy]] (Class B OIDC federation).
 
