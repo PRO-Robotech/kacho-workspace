@@ -14,10 +14,10 @@
 > | `globalSlug°` в pull-пути, bare-global opt-in, `UNIQUE(global_slug)` | поля нет ни в контракте, ни в схеме; pull-путь `$domain/$registryId/$repo:$tag` | `grep -rn 'global_slug' proto/ services/registry/internal --include=*.proto --include=*.go` → **0**; `grep -rn 'UNIQUE' services/registry/internal/migrations/*.sql` |
 > | `RenameNamespace` → `:rename` на реестре | RPC нет; единственный rename — `RenameRepository` | `grep -o '^  rpc [A-Za-z]*' proto/kacho/cloud/registry/v1/registry_service.proto` |
 > | `name` immutable | `name` **mutable** через `Update`; immutable-набор — `id`/`projectId`/`regionId`/`placementType` | `services/registry/internal/apps/kacho/api/registry/validate.go` (`immutableUpdateFields`) |
-> | 21 public RPC, включая `GetEffectiveAccess`, `ListRepositoryGrants`, `ListEffectiveSubjects`, `GetImage`, `DeleteImage` | **15** public RPC; ни одного из перечисленных пяти | `grep -c '^  rpc ' …/registry_service.proto` → **15**; `grep -rl 'EffectiveAccess' --include=*.proto --include=*.go .` → **0** |
-> | REST-база `/registry/v1/namespaces/…` | `/registry/v1/registries/…` | `grep -o '"/registry/v1/[^"]*"' …/registry_service.proto` |
+> | 21 public RPC, включая `GetEffectiveAccess`, `ListRepositoryGrants`, `ListEffectiveSubjects`, `GetImage`, `DeleteImage` | **15** public RPC; ни одного из перечисленных пяти | `grep -c '^  rpc ' proto/kacho/cloud/registry/v1/registry_service.proto` → **15**; `grep -rl 'EffectiveAccess' --include=*.proto --include=*.go .` → **0** |
+> | REST-база на снятом имени ресурса (мёртвый маршрут здесь не воспроизводится — цитата адреса читается как живое утверждение) | `/registry/v1/registries/…`; сегмента со снятым именем нет ни в одном маршруте | `grep -o '"/registry/v1/[^"]*"' proto/kacho/cloud/registry/v1/registry_service.proto` |
 > | операции с префиксом `epd`, поллинг `/registry/v1/operations/{id}` | префикс `rop`; поллинг единого края `/operations/{id}` | `grep -n PrefixOperationReg pkg/ids/ids.go`; `proto/kacho/cloud/operation/operation_service.proto` |
-> | «Все RPC несут `scope_extractor`» | `scope_extractor` у **5** из 15; у **10** край объявлен `<exempt>`, Check и существование-скрытие делает handler | `grep -c '"<exempt>"' …/registry_service.proto` → **10** |
+> | «Все RPC несут `scope_extractor`» | `scope_extractor` у **5** из 15; у **10** край объявлен `<exempt>`, Check и существование-скрытие делает handler | `grep -c '"<exempt>"' proto/kacho/cloud/registry/v1/registry_service.proto` → **10** |
 > | роли `registry.repoCreator`/`puller`/`pusher`/`admin` | таких ролей в дереве нет; доступ выдаётся каталожными системными ролями и глаголами `v_*` | `grep -rn 'repoCreator' --include=*.go --include=*.sql .` → **0** |
 >
 > **Что уцелело и переписано не было** (эта работа от отката не зависела): docker
@@ -104,7 +104,7 @@ Flat, prefix `reg`, project-scoped, **REGIONAL**. Async CRUD → `Operation`.
   "id": "reg7h9x2k4m8p0q1r5",          // ⊘ prefix 'reg' + crockford-base32 (слитная legacy-форма).
                                        //   Immutable PK и ЕДИНСТВЕННАЯ внешняя адресация (core rule #15):
                                        //   операции смены id не существует — ни ':rename', ни 'rename id'.
-  "projectId": "prj-7h3n9k2m5p8q1",    // ⊘ scope-координата; peer-validate iam (fail-closed)
+  "projectId": "prj7h3n9k2m5p8q1r5",    // ⊘ scope-координата; peer-validate iam (fail-closed)
   "regionId": "eu-north-1",            // ⊘ REGIONAL-якорь: пинит locality блобов. ОБЯЗАТЕЛЕН на Create,
                                        //   peer-validate geo.v1.RegionService.Get (промах → FAILED_PRECONDITION,
                                        //   geo недоступен → UNAVAILABLE). Immutable — перенос региона сломал бы locality.
@@ -131,11 +131,16 @@ Flat, prefix `reg`, project-scoped, **REGIONAL**. Async CRUD → `Operation`.
   "endpoint": "registry.in-cloud.io/reg7h9x2k4m8p0q1r5",  // ° derived ПО id: "<serving-host>/<id>".
                                        //   Стабилен через любую смену name — это и есть проверяемое следствие #15.
   "repositoryCount": 12,               // ° проекция движка
-  "status": "ACTIVE"                   // ° ACTIVE | DELETING (DELETING терминален: forward-only delete,
-                                       //   иначе partial-UNIQUE конфликтует с повторным Create того же имени)
+  "status": "REGISTRY_STATUS_ACTIVE"   // ° REGISTRY_STATUS_ACTIVE | REGISTRY_STATUS_DELETING.
+                                       //   DELETING терминален (forward-only delete): возврат в ACTIVE конфликтовал бы
+                                       //   с партиальным UNIQUE при повторном Create того же (project,name).
+                                       //   NB: значения этого enum на wire несут префикс типа, в отличие от
+                                       //   Visibility / PlacementType / RepositoryLifecycle — те проецируются голыми
+                                       //   (PRIVATE / REGIONAL / DURABLE). Расхождение реально, сверено e2e-кейсами.
 
-  // Internal-only (:9091, НИКОГДА на public): engine-namespace, bucket, storage-driver,
-  //   blob-layout, числовой инфра-id — см. InternalRegistryService.
+  // Инфра-полей на этой поверхности НЕТ и не будет: engine-namespace, bucket, storage-driver,
+  //   blob-layout, числовой инфра-id живут ТОЛЬКО на :9091. Сегодня их не эмитит ни одна проекция —
+  //   инвариант выполняется отсутствием, а не фильтрацией; вводить их можно только в Internal*.
 }
 ```
 
@@ -240,7 +245,7 @@ Mutable указатель внутри репозитория (SoT = движо
                                        //   для не-контейнерного артефакта — пусто
   "createdAt": "2026-07-19T11:46:58Z", // ° из конфига образа (build-time); пусто, если конфиг его не несёт
   "lastPulledAt": "2026-07-19T12:20:10Z", // ° нулевая отметка — тег ещё не скачивался
-  "pushedBy": "sva-4k9m2n7p3q1r5t8w6", // ° субъект последнего push, если известен движку
+  "pushedBy": "sva4k9m2n7p3q1r5t8", // ° субъект последнего push, если известен движку
   "downloadCount": 512                 // °
 }
 ```
@@ -307,13 +312,22 @@ GET /geo/v1/regions
 # → { "regions": [ { "id": "eu-north-1", … }, { "id": "eu-central-1", … } ] }
 
 # ── Шаг 2: iam — ServiceAccount + ключ доступа (долгоживущий credential робота) ─
-POST /iam/v1/serviceAccounts   { "projectId": "prj-7h3n9k2m5p8q1", "name": "ci-pusher" }
-POST /iam/v1/serviceAccounts/{id}:createAccessKey
-# → { keyId, secret }   # keyId = docker-username, secret = docker-password (секрет виден ОДИН раз)
+POST /iam/v1/serviceAccounts   { "projectId": "prj7h3n9k2m5p8q1r5", "name": "ci-pusher" }
+POST /iam/v1/serviceAccounts/{serviceAccountId}/keys
+# → Operation (мутация, как все прочие) → поллить → result.response:
+#     { clientId, keyId, privateKeyPem, publicKeyPem, algorithm }
+#   docker-username = clientId       (идентификатор клиента у провайдера токенов)
+#   docker-password = privateKeyPem  (PKCS#8 EC-ключ; отдаётся ОДИН раз и не хранится)
+#   ВНИМАНИЕ, читаемое поле НЕ ТО, которое подсказывает интуиция: `keyId` — это id
+#   ресурса ключа в Kachō, а НЕ имя пользователя; поля `secret` в ответе нет вовсе
+#   (`clientSecret` объявлен deprecated и всегда пуст — общего секрета при подписи
+#   клиентским утверждением не существует).
+#   Шаг несёт повышенный порог аутентификации: выпуск credential меняет посадку
+#   безопасности, поэтому обычного токена уровня AAL1 здесь недостаточно.
 
 # ── Шаг 3: registry — Create (async → поллить Operation до done) ──────────────
 POST /registry/v1/registries
-     { "projectId": "prj-7h3n9k2m5p8q1", "name": "payments", "regionId": "eu-north-1" }
+     { "projectId": "prj7h3n9k2m5p8q1r5", "name": "payments", "regionId": "eu-north-1" }
 # → Operation { "id": "rop7h9x2k4m8p0q1r5", "done": false,
 #               "metadata": { "registryId": "reg7h9x2k4m8p0q1r5" } }   ← id доступен СРАЗУ, до done
 
@@ -329,7 +343,10 @@ GET /operations/rop7h9x2k4m8p0q1r5     # единый край операций;
 #   Точная схема запроса — module-iam.md; глаголы, которые нужны, — таблица в §«Права» ниже.
 
 # ── Шаг 5: docker — login + push (одна login-команда покрывает push и pull) ───
-docker login registry.in-cloud.io -u <keyId> -p <secret>
+docker login registry.in-cloud.io -u <clientId> -p "$(cat sa-key.pem)"
+#   Пароль — содержимое privateKeyPem из шага 2. Клиент реестра предъявляет его
+#   шиму выпуска токенов, тот подписывает им клиентское утверждение и меняет на
+#   короткоживущий Bearer; сам ключ на wire к движку не уходит.
 docker tag  localbuild:latest registry.in-cloud.io/reg7h9x2k4m8p0q1r5/backend/api:v1.4.2
 docker push                   registry.in-cloud.io/reg7h9x2k4m8p0q1r5/backend/api:v1.4.2
 #   Средний сегмент — immutable id реестра. Смена name реестра его НЕ меняет.
@@ -340,7 +357,8 @@ docker push                   registry.in-cloud.io/reg7h9x2k4m8p0q1r5/backend/ap
 > **0 файлов**), и рецепт не вправе ссылаться на несуществующий шаг: обязательный шаг готовности,
 > которого нельзя выполнить, делает весь рецепт неисполнимым, а «его же кто-то напишет» — не
 > состояние продукта. **Выбрано: шаг снят из рецепта**, а сама идея вынесена в §«Не построено» как
-> предложение без владельца. Что стоит на этом месте сегодня — ниже, в §«Read-your-writes»:
+> предложение без владельца. Что стоит на этом месте сегодня — ниже, в §«Docker access-control», абзац
+> «Read-your-writes для машинного клиента»:
 > собственный pull толкавшего разведён мостом на стороне сервиса, а не ожиданием на стороне
 > клиента.
 
@@ -362,11 +380,16 @@ id). Watch не существует.
 
 ### `RegistryService` — public :9090 / REST `/registry/v1/…`
 
+*В колонке REST путь дан от базы `/registry/v1`; `…` в repository-строках раскрывается как
+`/registries/{registryId}` — то есть полный путь репозитория есть
+`/registry/v1/registries/{registryId}/repositories/…`. Сокращение здесь только ради ширины
+таблицы, и оно названо, чтобы `…` не читалось как часть адреса.*
+
 | RPC | Тип | REST | authz на крае |
 |---|---|---|---|
 | `Get` | sync | `GET /registries/{registryId}` | `v_get@registry_registry`, `scope_extractor` |
 | `List` | sync | `GET /registries` | `<exempt>` — scope-filtered: страница фильтруется в handler'е |
-| `Create` | async→Op | `POST /registries` | `v_create` на родителе-проекте (объекта реестра ещё нет) |
+| `Create` | async→Op | `POST /registries` | `editor` на **родителе-проекте** (`scope_extractor` берёт `project_id`) — объекта реестра ещё нет, спрашивать не о чем |
 | `Update` | async→Op | `PATCH /registries/{registryId}` | `v_update`, `scope_extractor`, hide-existence |
 | `Delete` | async→Op | `DELETE /registries/{registryId}` | `v_delete`, `scope_extractor`, hide-existence |
 | `ListOperations` | sync | `GET /registries/{registryId}/operations` | `v_list@registry_registry`, `scope_extractor`; фильтр по `resourceId = registryId` |
@@ -502,10 +525,19 @@ child реестра: `super_admin` наследуется от родителя
 даёт право заводить новые имена в реестре. Радиус поражения при утечке ключа CI поэтому разный, и
 это ровно тот выбор, который выдающий должен делать сознательно.
 
-**Отказ на push нового имени говорящий** — он называет недостающую способность и объект, на
-который её надо выдать, чтобы вызывающий чинил выдачу, а не гадал. То же на переводе видимости в
-`PUBLIC`: сообщение называет требуемый уровень (`registry admin`), а не отделывается словом
-«запрещено». Тексты отказов — часть контракта (см. Правила п.7).
+**Насколько отказ говорящий — зависит от поверхности, и это не небрежность, а размен.**
+На **control-plane** отказ называет недостающую способность: перевод видимости в `PUBLIC` без прав
+отвечает `PERMISSION_DENIED` с текстом, который называет требуемый уровень (`registry admin`), —
+вызывающий уже доказал доступ к объекту, поэтому подробность ничего не раскрывает. На
+**data-plane** push-отказ, наоборот, **единообразен и нем**: `403 DENIED` с одним и тем же текстом,
+существует цель или нет. Существование-скрытие здесь держится именно единообразием, поэтому
+дописать в этот ответ «выдай такую-то способность на такой-то объект» **нельзя** — сообщение стало
+бы различать «нет прав» и «нет такого». Тексты отказов — часть контракта (см. Правила п.7).
+
+> Практическое следствие для того, кто настраивает CI: диагностика push-отказа живёт на
+> control-plane (прочитать реестр и репозиторий, посмотреть свою выдачу), а не в теле ответа
+> data-plane. Записать сюда «сделать 403 говорящим» было бы предложением ослабить анти-оракул —
+> поэтому оно здесь не записано.
 
 > **Здесь стояли роли `registry.repoCreator` / `registry.puller` / `registry.pusher` /
 > `registry.admin` — таких ролей в дереве нет** (`grep -rn 'repoCreator'` → 0). Сегодня доступ
@@ -590,10 +622,12 @@ child реестра: `super_admin` наследуется от родителя
    конкурентный create → ровно один побеждает.
 
 7. **Единый тон ошибок (часть контракта).** `"<Resource> <id> not found"`;
-   `"<field> is immutable after Registry.Create"`; `"repository is not empty"`; отказ на видимость
-   называет требуемую способность. Коды: `INVALID_ARGUMENT`, `NOT_FOUND`, `FAILED_PRECONDITION`,
+   `"<field> is immutable after Registry.Create"`; `"registry is not empty"` /
+   `"repository is not empty"`; отказ на видимость называет требуемую способность. Коды:
+   `INVALID_ARGUMENT`, `NOT_FOUND`, `FAILED_PRECONDITION`,
    `ALREADY_EXISTS`, `PERMISSION_DENIED`, `UNAVAILABLE` (peer/движок недоступны — fail-closed для
-   мутаций), `INTERNAL` (**фиксированный opaque-текст, без утечки драйвера/SQL/движка**).
+   мутаций), `INTERNAL` (**фиксированный opaque-текст, без утечки драйвера/SQL/движка**;
+   сегодня — `"internal database error"`).
    Malformed id — **первым стейтментом RPC** до обращения к хранилищу → `INVALID_ARGUMENT
    "invalid registry id '<X>'"`; well-formed-но-нет → `NOT_FOUND`. Клиент различает линии по
    `reason`-токену в деталях статуса, не парся прозу.
