@@ -29,7 +29,7 @@
 # НЕ был нулём.
 set -euo pipefail
 
-# shellcheck source=scripts/tooling-gate/_lib.sh
+# shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 WS="$(tooling_gate_workspace_root)"

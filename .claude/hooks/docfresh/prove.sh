@@ -419,7 +419,7 @@ else
 fi
 # Предупреждение об отставании обязано появляться ТОЛЬКО когда отставание есть,
 # иначе оно шум и его перестанут читать.
-behind="$(git -C "$WS/project/kacho" rev-list --count HEAD..redesign/integration 2>/dev/null || echo 0)"
+behind="$(git -C "$WS/project/kacho" rev-list --count HEAD..main 2>/dev/null || echo 0)"
 if [ "${behind:-0}" -gt 0 ]; then
   if printf '%s' "$out" | grep -qF 'ОТСТАЁТ от'; then
     echo "  ✔ (+) дерево отстаёт на $behind — перепись предупреждает"; PASS=$((PASS+1))
@@ -449,16 +449,45 @@ echo "== M. полоса ствола: живое на стволе — НЕ н�
 # порядок `ls-tree` детерминирован, поэтому вход воспроизводим, а не случаен. Кандидатов
 # нет — проба честно не исполняется (копия вровень со стволом; проверять полосу не на чем).
 DEAD_BOTH="sync-tooling.sh"                                # нет ни там, ни там
-trunk_ref="$(cd "$WS/project/kacho" && for r in redesign/integration main master; do
-  git rev-parse --verify --quiet "$r" >/dev/null && { echo "$r"; break; }; done)"
+
+# ВХОД ПРОБА СТРОИТ САМА, а не ищет в чужом дереве.
+#
+# Прежде здесь брался первый путь, живой в стволе и отсутствующий в рабочей копии.
+# Такой вход существует ровно пока копия ОТСТАЁТ, и 2026-08-07 он исчез: ствол
+# опубликован прямо в main, копия догнала его, полоса перестала исполняться — а
+# «не выполнилось» месяцами вперёд неотличимо от «нечего проверять никогда».
+# Теперь строится временная ветка = HEAD + один коммит, добавляющий путь, которого
+# в рабочей копии нет. Ветка живёт только на время пробы и снимается в любом исходе;
+# рабочее дерево не мутируется вовсе (git commit-tree поверх текущего дерева).
+PROVE_TRUNK="docfresh-prove-trunk"
 TRUNK_ALIVE=""
 TRUNK_ONLY_N=0
-if [ -n "$trunk_ref" ]; then
-  while IFS= read -r p; do
-    [ -e "$WS/project/kacho/$p" ] && continue
-    TRUNK_ONLY_N=$((TRUNK_ONLY_N+1))
-    [ -z "$TRUNK_ALIVE" ] && TRUNK_ALIVE="$p"
-  done < <(cd "$WS/project/kacho" && git ls-tree -r --name-only "$trunk_ref")
+trunk_ref=""
+_prove_trunk_cleanup() {
+  [ -n "${PROVE_TRUNK:-}" ] || return 0
+  (cd "$WS/project/kacho" 2>/dev/null && git update-ref -d "refs/heads/$PROVE_TRUNK" 2>/dev/null) || true
+}
+trap _prove_trunk_cleanup EXIT
+
+if [ -d "$WS/project/kacho/.git" ]; then
+  TRUNK_ALIVE="docfresh-prove-only-in-trunk.md"
+  if [ ! -e "$WS/project/kacho/$TRUNK_ALIVE" ]; then
+    # blob → дерево поверх HEAD → коммит → ссылка. Индекс и рабочее дерево не трогаются.
+    if (cd "$WS/project/kacho" && \
+        blob=$(printf 'проба docfresh: путь существует только в стволе\n' | git hash-object -w --stdin) && \
+        base=$(git rev-parse HEAD^{tree}) && \
+        tree=$(git mktree < <(git ls-tree "$base"; printf '100644 blob %s\t%s\n' "$blob" "$TRUNK_ALIVE")) && \
+        commit=$(git commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
+        git update-ref "refs/heads/$PROVE_TRUNK" "$commit") 2>/dev/null; then
+      trunk_ref="$PROVE_TRUNK"
+      TRUNK_ONLY_N=1
+      export DOCFRESH_INTEGRATION_REF="$PROVE_TRUNK"
+    else
+      TRUNK_ALIVE=""
+    fi
+  else
+    TRUNK_ALIVE=""   # имя занято настоящим файлом — вход не построить, честно скажем
+  fi
 fi
 if [ -z "$trunk_ref" ]; then
   notrun "в дереве продукта нет ни одного кандидата ствола — полосу проверять не на чем"

@@ -504,7 +504,13 @@ def _code_part(line: str) -> str:
 # целиком: удалённый файл существует в истории всегда, и всякое удаление стало
 # бы молчанием.
 
-INTEGRATION_REF_CANDIDATES = ("redesign/integration", "main", "master")
+# `redesign/integration` СНЯТА 2026-08-07 и из кандидатов выведена. Правило
+# «ствол выводится из дерева» её пережило и сработало ровно как обещано: после
+# публикации ствола прямо в main у снятой ветки стало НОЛЬ коммитов, которых нет
+# в HEAD, — то есть перевес честно ушёл. Имя убрано не поэтому, а потому что
+# кандидат, которого больше не существует как линии работы, каждый раз стоит
+# одного лишнего `rev-parse` и читается следующим как действующая альтернатива.
+INTEGRATION_REF_CANDIDATES = ("main", "master")
 
 
 def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
@@ -519,6 +525,20 @@ def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
 
     → (имя ссылки, короткая ревизия, на сколько коммитов копия позади).
     """
+    # Проба вправе НАЗНАЧИТЬ ствол — иначе её вход зависит от того, отстала ли
+    # сегодня рабочая копия, а это не свойство гейта, а состояние чужого дерева.
+    # 2026-08-07 полоса перестала исполняться ровно так: копия догнала ствол, и
+    # путей, живых в стволе и отсутствующих в копии, не осталось by construction —
+    # проба честно отчиталась «не выполнилось», но проверять было нечего месяцами
+    # вперёд. В бою переменная не задаётся, поэтому поведение прежнее.
+    forced = os.environ.get("DOCFRESH_INTEGRATION_REF")
+    if forced:
+        rev = git(root, "rev-parse", "--verify", "--quiet", forced + "^{commit}")
+        if rev:
+            cnt = git(root, "rev-list", "--count", f"HEAD..{forced}")
+            behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
+            return (forced, rev[0][:8], behind)
+
     best: tuple[str | None, str | None, int] = (None, None, -1)
     for cand in INTEGRATION_REF_CANDIDATES:
         rev = git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
