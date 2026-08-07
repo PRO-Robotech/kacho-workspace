@@ -105,15 +105,15 @@ Image · DiskType плюс таблица привязки томов) — пр�
 |---|---|---:|
 | Ресурсы | `resources/` | 55 |
 | gRPC-сервисы | `rpc/` | 62 |
-| Рёбра рантайма | `edges/` | 74 |
+| Рёбра рантайма | `edges/` | 75 |
 | Пакеты | `packages/` | 114 |
-| Журнал работ (KAC) | `KAC/` | 206 |
+| Журнал работ (KAC) | `KAC/` | 211 |
 | Уроки — классы дефектов | `lessons/` | 2 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **527** |
+| **Всего** | | **533** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -341,7 +341,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[rpc/vpc-securitygroup-service\|SecurityGroupService]] | живо (stable) |
 | [[rpc/vpc-subnet-service\|SubnetService]] | живо (stable) |
 
-### Рёбра рантайма — `edges/` (74)
+### Рёбра рантайма — `edges/` (75)
 
 **вызывающий: (не указан)**
 
@@ -419,6 +419,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[edges/iam-to-openfga-check\|iam ↔ openfga: чтение вердикта и применение кортежей]] | живо (active) |
 | [[edges/iam-to-openfga-grant-write\|kacho-iam → OpenFGA (grant/revoke write)]] | живо (active) |
 | [[edges/iam-to-openfga-scope-grant\|iam → openfga: type-scoped scope_grant + per-verb (fix #177)]] | живо (done) |
+| [[edges/iam-to-openfga-sync-revoke\|kacho-iam → OpenFGA (отзыв применяется синхронно)]] | живо (stable) |
 | [[edges/iam-to-s3-audit\|iam → s3-audit: archival sink + Glacier]] | в работе (planned) |
 | [[edges/iam-to-siem-datadog\|iam → siem-datadog: log forwarder]] | в работе (planned) |
 | [[edges/iam-to-siem-splunk\|iam → siem-splunk: HEC forwarder]] | в работе (planned) |
@@ -683,7 +684,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (206)
+### Журнал работ (KAC) — `KAC/` (211)
 
 | Записка | Состояние |
 |---|---|
@@ -790,6 +791,11 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-255\|KAC-255: kacho-docs контент + IA + persona-tabs]] | живо (done) |
 | [[KAC/KAC-256\|KAC-256: kacho-docs Dockerfile + nginx + Helm + запуск]] | живо (done) |
 | [[KAC/KAC-257\|KAC-257: kacho-docs AI-native + OperationEnvelope]] | живо (done) |
+| [[KAC/KAC-261\|KAC-261: kacho-vpc — чистка мёртвого кода + squash миграций + evgeniy + зелёный CI]] | в работе (test) |
+| [[KAC/KAC-262\|KAC-262: kacho-vpc — продуктовая документация (Docusaurus)]] | в работе (test) |
+| [[KAC/KAC-263\|KAC-263: test-infra — zero-manual self-provisioning + бессрочный токен]] | в работе (test) |
+| [[KAC/KAC-264\|KAC-264: выпилить PrivateEndpointService (unused)]] | живо (done) |
+| [[KAC/KAC-265\|KAC-265: выпил мёртвого kube-ovn data-plane-легаси из доков/кода/obsidian]] | живо (done) |
 | [[KAC/KAC-266\|KAC-266: contract-removal — Move / NIC attach-detach / AddressPool override+selector / no auto-NIC]] | живо (done) |
 | [[KAC/KAC-268\|KAC-268: SG status removal + docs-UX + data-plane purge]] | живо (done) |
 | [[KAC/KAC-269\|KAC-269: AddressPool CIDR-управление как у Subnet]] | живо (done) |
@@ -804,7 +810,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-94\|KAC-94: Skill evgeniy 100% эталон в kacho-vpc]] | живо (done) |
 | [[KAC/KAC-WS23\|KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke]] | в работе (in-progress) |
 | [[KAC/KAC-XC-2\|KAC-XC-2: единая библиотека интеграции с правами]] | в работе (planned) |
-| [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (planned) |
+| [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (in-progress) |
 | [[KAC/KAC-newman-100pct-batch\|KAC batch: Newman 100% green push (2026-05-26)]] | в работе (in-progress) |
 | [[KAC/KAC-registry-iam-jwks-unify\|registry-iam-jwks-unify: registry verifies via iam INTERNAL Hydra-JWKS proxy]] | живо (done) |
 | [[KAC/NLB-1b-expand-loadbalancer-listener-core\|NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)]] | живо (done) |

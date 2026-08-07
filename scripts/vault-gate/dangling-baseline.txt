@@ -14,7 +14,6 @@
 # `rpc/registry-registry-service`: записку написали, а не ссылку переименовали).
 # Переписать после честной починки:
 #   ./scripts/vault-gate/check-02-dangling-wikilinks.sh --write-baseline
-2	../KAC/KAC-261
 1	../edges/api-gateway-to-iam-access-binding
 1	../edges/api-gateway-to-vpc-opsproxy
 1	../edges/api-gw-to-hydra
@@ -165,8 +164,6 @@
 2	KAC-258
 2	KAC-259
 4	KAC-260
-1	KAC-264
-1	KAC-265
 1	KAC-<N-next>
 1	KAC-<N-prev>
 3	KAC/CS-1-storage-network-disk
