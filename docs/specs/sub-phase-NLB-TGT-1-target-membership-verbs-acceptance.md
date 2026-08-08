@@ -1,5 +1,31 @@
 # Sub-phase NLB-TGT-1 (глаголы управления составом группы целей) — Acceptance
 
+> [!important] Предмет ПРИЗЕМЛЁН целиком. Статус документа остаётся DRAFT (перемерено 2026-08-08)
+> Приёмка в состоянии черновика читается как «работа не начиналась» — а роль
+> `loadbalancer.target_manager` уже управляет целями. Дерево `project/kacho` @ `6b1293713`:
+>
+> - **модель прав** — `proto/kacho/cloud/iam/v1/fga_model.fga`, тип `nlb_target_group` несёт
+>   `define v_addtargets: [user, service_account, group#member] or v_update` и такую же строку для
+>   `v_removetargets`. Надмножество `v_update` — ровно как проектировала §Обзор: переключение
+>   гейтинга не требует ре-материализации ни одной выдачи;
+> - **каталог прав** — обе встроенные копии гейтят `TargetGroupService/AddTargets` на
+>   `required_relation: "v_addtargets"` и `RemoveTargets` на `"v_removetargets"`, оба со
+>   `scope_extractor {nlb_target_group, target_group_id}`;
+> - **имена не выбраны, а выведены** — реконсайлер собирает `"v_" + NormalizeVerb(<глагол>)`,
+>   поэтому `addTargets` даёт `v_addtargets`. Предикат по «красивой» форме этого не находит:
+>   `git grep -rn 'v_add_targets\|v_remove_targets'` → **0**, тогда как поиск по слитной форме
+>   находит и модель, и каталог. Пустой вывод здесь означал бы неверный шаблон, а не отсутствие
+>   работы.
+>
+> Предпосылка документа («блокируется XC-3 стадией S1») выполнена: S1 приземлена — см. врезку в
+> `sub-phase-XC-3-verb-set-belongs-to-type-acceptance.md`. Комментарий у самого типа в модели это
+> подтверждает с другой стороны: `nlb_target_group` назван первым типом платформы, чей набор
+> глаголов шире канонического CRUD, и сверяется потипово гейтом
+> `TestDrift_TypeVerbSetsMatchModelExactly`.
+>
+> **Почему статус не меняется:** APPROVED ставит `acceptance-reviewer` и никто другой (ban #1).
+> Врезка снимает ложное «не начиналось», вердикта не выносит.
+
 > **Статус:** DRAFT
 > **Дата:** 2026-08-01
 > **Ревьюер:** `acceptance-reviewer` (единственный approve-gate, ban #1)

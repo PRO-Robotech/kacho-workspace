@@ -1,5 +1,35 @@
 # Sub-phase XC-3 (набор глаголов принадлежит типу) — Acceptance
 
+> [!important] Стадия S1 ПРИЗЕМЛЕНА, S2 — нет. Статус документа остаётся DRAFT (перемерено 2026-08-08)
+> Приёмка в состоянии черновика читается как «работа не начиналась», и по этому документу можно
+> было завести её заново. Дерево `project/kacho` @ `6b1293713` говорит иначе — но **только про S1**.
+>
+> **Приземлено (S1):** набор глаголов стал атрибутом типа —
+> `services/iam/internal/authzmap/fga_types.go:281` (`typeVerbRelations`, потиповая карта) и
+> `services/iam/internal/domain/role_effective_verbs.go` (`TypeVerbLookup`, читают `AuthoredVerbs`/
+> `EffectiveVerbs`/`VerbNotes`); ось связана с моделью гейтом дрейфа
+> `services/iam/internal/authzmap/fga_model_drift_test.go:317`
+> (`TestDrift_TypeVerbSetsMatchModelExactly`); парная эмиссия литерального пути —
+> `services/iam/internal/apps/kacho/api/access_binding/reconcile/tuples.go:104`. Артефакты фаз лежат
+> в самом продукте: `docs/plans/xc-3/s1f0-baseline.md`, `docs/plans/xc-3/s1f3-recount.md`,
+> `docs/plans/xc-3/evidence/` (**17** файлов при `git ls-files docs/plans/xc-3/evidence/ | wc -l`,
+> включая пары «красный до / зелёный после» и отрицательный контроль инъекции).
+>
+> **НЕ приземлено (S2):** сегмент глагола словарём по-прежнему не закрыт, и код это сам заявляет —
+> `services/iam/internal/apps/kacho/api/role/rules_catalog.go:13`: словарь «вводится отдельной
+> под-фазой (XC-3 S2), и до тех пор глагол вне набора своего типа просто не материализуется —
+> молча, без сигнала автору роли».
+>
+> **Предикат и его контроль.** Искать надо по **файлам**, а не по сообщениям коммитов:
+> `git log --oneline HEAD --grep='XC-3'` → **0** (метку в заголовки не ставили), тогда как
+> `git grep -rln 'XC-3' -- internal/ services/ pkg/ gateway/ proto/` → **5** файлов. Предикат по
+> коммитам здесь дал бы уверенный ноль и подтвердил бы ровно то заблуждение, ради которого написана
+> эта врезка.
+>
+> **Почему статус не меняется.** APPROVED ставит `acceptance-reviewer` и никто другой (ban #1); к
+> тому же документ покрывает **обе** стадии, а вторая не сделана. Врезка снимает ложное «не
+> начиналось», а не выносит вердикт.
+
 > **Статус:** DRAFT
 > **Дата:** 2026-08-01
 > **Ревьюер:** `acceptance-reviewer` (единственный approve-gate, ban #1)
