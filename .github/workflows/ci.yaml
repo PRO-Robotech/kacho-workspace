@@ -60,6 +60,13 @@ jobs:
           repository: PRO-Robotech/kacho
           ref: main
           path: project/kacho
+      # Разборщик YAML — ПРЕДПОСЫЛКА одной из проб, а не удобство. Без него
+      # страж классов честно объявляет пропуск («разборщик недоступен»), и проба,
+      # которая ждёт от него находки, докладывает «дефект прошёл». То есть в
+      # чистом окружении конвейера эта проверка не срабатывала НИ РАЗУ, а её
+      # красный вердикт читался как дефект стража — хотя стражу нечем было читать.
+      - name: разборщик YAML для стража классов
+        run: python3 -m pip install --quiet PyYAML
       - name: shellcheck hook scripts (strict)
         run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
       - name: hook-proofs

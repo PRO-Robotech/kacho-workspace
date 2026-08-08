@@ -471,12 +471,18 @@ trap _prove_trunk_cleanup EXIT
 if [ -d "$WS/project/kacho/.git" ]; then
   TRUNK_ALIVE="docfresh-prove-only-in-trunk.md"
   if [ ! -e "$WS/project/kacho/$TRUNK_ALIVE" ]; then
+    # Личность задаётся ЛОКАЛЬНО для одной команды и намеренно не выдаёт себя за
+    # владельца: объект живёт в служебной ссылке пробы и сносится по выходу, в
+    # историю репозитория он не попадает. Без неё `commit-tree` отказывает
+    # («Author identity unknown») — и проба честно объявляла «не выполнилось», то
+    # есть в чистом окружении конвейера полоса ствола не строилась НИ РАЗУ.
     # blob → дерево поверх HEAD → коммит → ссылка. Индекс и рабочее дерево не трогаются.
     if (cd "$WS/project/kacho" && \
         blob=$(printf 'проба docfresh: путь существует только в стволе\n' | git hash-object -w --stdin) && \
         base=$(git rev-parse "HEAD^{tree}") && \
         tree=$(git mktree < <(git ls-tree "$base"; printf '100644 blob %s\t%s\n' "$blob" "$TRUNK_ALIVE")) && \
-        commit=$(git commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
+        commit=$(git -c user.name='docfresh probe' -c user.email='probe@invalid' \
+                     commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
         git update-ref "refs/heads/$PROVE_TRUNK" "$commit") 2>/dev/null; then
       trunk_ref="$PROVE_TRUNK"
       export DOCFRESH_INTEGRATION_REF="$PROVE_TRUNK"
