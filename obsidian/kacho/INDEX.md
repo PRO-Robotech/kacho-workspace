@@ -462,7 +462,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | Записка | Состояние |
 |---|---|
 | [[edges/ui-to-apigw-cluster-admins\|kacho-ui → kacho-api-gateway cluster-admins REST]] | живо (done) |
-| [[edges/ui-to-zitadel-redirect\|ui → zitadel: OIDC redirect (signup-flow)]] | в работе (planned) |
+| [[edges/ui-to-zitadel-redirect\|ui → zitadel: OIDC redirect (signup-flow)]] | история (superseded) |
 
 **вызывающий: kacho-vpc**
 
@@ -754,7 +754,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-194\|KAC-194: Wave A — kacho-iam cleanup (comments + KAC + phase markers + file/folder renames)]] | живо (done) |
 | [[KAC/KAC-196\|KAC-196: InternalClusterService — cluster admin RBAC]] | живо (done) |
 | [[KAC/KAC-197\|KAC-197: Phase 3c — Federation OUT (kacho as OIDC IdP)]] | в работе (in-progress) |
-| [[KAC/KAC-198\|KAC-198: Phase 4 — drop JIT + simplify GDPR (keep break-glass)]] | в работе (in-progress) |
+| [[KAC/KAC-198\|KAC-198: Phase 4 — drop JIT + simplify GDPR (keep break-glass)]] | история (superseded) |
 | [[KAC/KAC-199\|KAC-199: UI auth — sidebar login button broken + missing RequireAuth guard]] | живо (done) |
 | [[KAC/KAC-2\|KAC-2: NetworkInterface first-class ресурс + control-plane resource model]] | история (superseded) |
 | [[KAC/KAC-201\|KAC-201: [EPIC] Internal-tier authz hardening — 44 unguarded Internal.* methods]] | живо (done) |
@@ -808,7 +808,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/KAC-56\|KAC-56: RouteTable ↔ Subnet auto-association (DB triggers)]] | живо (done) |
 | [[KAC/KAC-71\|KAC-71: AddressPool v4/v6 split + cascade family-filter]] | живо (done) |
 | [[KAC/KAC-94\|KAC-94: Skill evgeniy 100% эталон в kacho-vpc]] | живо (done) |
-| [[KAC/KAC-WS23\|KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke]] | в работе (in-progress) |
+| [[KAC/KAC-WS23\|KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke]] | живо (done) |
 | [[KAC/KAC-XC-2\|KAC-XC-2: единая библиотека интеграции с правами]] | в работе (planned) |
 | [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (in-progress) |
 | [[KAC/KAC-newman-100pct-batch\|KAC batch: Newman 100% green push (2026-05-26)]] | в работе (in-progress) |
@@ -860,7 +860,7 @@ Image · DiskType плюс таблица привязки томов) — пр�
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
-| [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | в работе (in-progress) |
+| [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
 | [[KAC/queued-behind-a-dead-label-2026-08-04\|Ожидание за несуществующим исполнителем — не отказ, а вид работы (2026-08-04)]] | живо (done) |
 | [[KAC/rbac-2026-224-owner-wildcard-content\|RBAC explicit-model 2026 #224 — owner *.* materializes per-object content + verify-gate owner-content check]] | живо (done) |
 | [[KAC/rbac-2026-bug2-hide-existence-read-deny\|rbac-2026 BUG-2 — read-deny hide-existence (gateway 403→404)]] | живо (done) |
