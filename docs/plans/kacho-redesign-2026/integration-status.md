@@ -26,22 +26,89 @@ Ground-truth снимок сведения feature-веток редизайна
 
 ## Инвентарь первых под-фаз
 
+> [!warning] Столбец «Первая под-фаза» перечислял РЕСУРСЫ ДОМЕНА, а не предмет приёмки
+> (перемерено 2026-08-08 на `6b1293713`). Рядом стоит «✅ green», поэтому строка читалась как
+> «эти ресурсы переделаны», — а две строки называли ресурсы, которые их же APPROVED-приёмка
+> **выносит в следующие под-фазы**. Файл читают как инвентарь сделанного, и это делало ложное
+> утверждение самым доступным в корпусе.
+>
+> Хуже всего на vpc: строка перечисляла семь ресурсов, тогда как
+> `docs/specs/sub-phase-VPC-1-network-subnet-acceptance.md` (§Обзор, §Out-of-scope) покрывает
+> **Network + Subnet** и раскладывает остальное по VPC-2 (SecurityGroup + RouteTable),
+> VPC-3 (Address + AddressPool + sweeper), VPC-4 (Gateway + NIC). Дерево подтверждает приёмку,
+> а не таблицу:
+>
+> | Что приземлило бы отсутствующую под-фазу | Предикат над `project/kacho` | Итог |
+> |---|---|---|
+> | VPC-2 снимает `SecurityGroup.defaultForNetwork°` | `git grep -c default_for_network -- proto/kacho/cloud/vpc/v1/` | **1** — поле живо |
+> | VPC-3 переводит Address на `retention`/производное `scope°` | `git grep -n 'Retention\|EPHEMERAL' -- proto/kacho/cloud/vpc/v1/` | **пусто**; Address несёт легаси-пару `bool reserved` / `bool used` |
+> | VPC-4 вводит однократный `external_address_spec` и `AssociateAddress` | `git grep -rn 'external_address_spec\|AssociateAddress' -- proto` | **0** и **0** |
+> | коммиты под-фазы вообще | `git log --oneline HEAD --grep='VPC-<N>'` | VPC-1 — **21**; VPC-2/VPC-3/VPC-4 — **0** каждая |
+>
+> Контроль предиката (иначе ноль неотличим от негодного шаблона): `--grep='VPC-9'` → **0**,
+> `--grep='VPC-1'` → 21. То же по storage: `--grep='STOR-1'` → **4**, `--grep='STOR-2'` → **0**,
+> поэтому `Snapshot` в строке storage — тоже предмет следующей под-фазы, а не сделанное.
+>
+> Столбец теперь называет **предмет приёмки**. «✅ green» относится к тому, что в нём написано,
+> и ни к чему больше; про непройденные под-фазы этот файл не утверждает ничего.
+
 | Сервис | Ветка | Первая под-фаза | Статус |
 |---|---|---|---|
 | geo | (folded в base) | GEO-1 Region/Zone | ✅ green |
-| storage | `redesign/storage-1` | STOR-1 Volume/Image/Snapshot | ✅ green |
+| storage | `redesign/storage-1` | STOR-1 Volume + Image (`Snapshot` — предмет STOR-2) | ✅ green |
 | iam | `redesign/iam-1` | IAM-1 tenancy+authz (F1-F11) | ✅ green |
-| vpc | `redesign/vpc-1` | VPC-1 Network/Subnet/SG/RT/GW/NIC/Address | ✅ green |
+| vpc | `redesign/vpc-1` | VPC-1 Network + Subnet (placement-anchor); SG/RT — VPC-2, Address/AddressPool — VPC-3, Gateway/NIC — VPC-4 | ✅ green |
 | compute | `redesign/compute-1` | COMP-1 Instance core + MachineType | ✅ green |
 | registry | `redesign/registry-1` | REG-1 Registry+Repository (id-model, **Namespace-rename ОТКАЧЕН** owner-decision) | ✅ green (re-grind) |
-| nlb | `redesign/nlb-1a` | NLB-1a FGA rename `lb_*`→`nlb_*` | ✅ green (1b-1d pending) |
+| nlb | `redesign/nlb-1a` | NLB-1a FGA rename `lb_*`→`nlb_*` | ✅ green; **1b/1c/1d тоже приземлены** (см. ниже) |
+
+> [!note] «1b-1d pending» пережило свой предмет — перемерено 2026-08-08 на `6b1293713`
+> Все три под-фазы приземлены, и это видно с двух сторон.
+>
+> Коммиты в предках `HEAD` (`git log --oneline HEAD --grep='NLB-1<x>'`): 1a — **3**, 1b — **10**,
+> 1c — **7**, 1d — **1**; контроль `--grep='NLB-1z'` → **0**.
+>
+> Приёмки называют, что должно было измениться, и дерево это несёт: NLB-1b снимает `:start`/`:stop`
+> (`git grep -n 'rpc Start\|rpc Stop' -- proto/kacho/cloud/loadbalancer/` → **пусто**), возвращает
+> `security_group_ids` и добавляет производные `resolved_backend_port°`/`substatus°`
+> (`listener.proto:113`/`:117`, `network_load_balancer.proto:156` — каждое помечено «NLB-1b»);
+> NLB-1c переделывает `HealthCheck` и переводит окна на `Duration`
+> (`health_check.proto:25`/`:89`, `target_group.proto:26`/`:67`/`:71`).
+>
+> Замечание о единице счёта: proto-домен nlb лежит в `proto/kacho/cloud/loadbalancer/`, а не в
+> `proto/kacho/cloud/nlb/` — предикат по второму пути даёт ноль по **всем** шаблонам и читается
+> как «ничего не приземлилось». Пустой вывод по такому пути сперва проверяй наличием каталога.
 
 **Registry — corrected id-модель** (owner-decision 2026-07-20, core rule #15): `Registry` (не Namespace), pull `$domain/$registryId/$repo:$tag`, id immutable, БЕЗ globalSlug/`:rename`; F4 region + F5 defaultRepositoryVisibility + F7 lifecycle сохранены. Namespace-impl архивирован `redesign/registry-1-namespace-archived`. Commits 89685f5/33d1637/6c8ee83/a282c90.
 
 **Hardening round** (adversarial-review 6 CONFIRMED, все green TDD, ждут re-merge): storage `082265c` (images CHECK at-most-one), vpc `8d789f3`/`4cc2e25`/`7fb2f4a` (CIDR pagination/supernet/primary-anchor), iam `deb47e1`/`ff453f4` (target.resources[] least-priv over-grant + account-role→nested-project).
 
 ## Cross-cutting deferred (не блокирует под-фазы, но зафиксировать)
-- **`google.rpc.ErrorInfo` reason-token plumbing отсутствует во ВСЕЙ базе** (`serviceerr` мапит sentinel→code; токена нет нигде). api-conventions.md предписывает reason-token (`INVALID_RESOURCE_ID`/`PEER_RESOURCE_MISSING`/…) в `details` — но by-lane **code+contract-text split реализован**, отсутствует только машинно-читаемый токен. Pre-existing (не введён редизайном), cross-cutting (все сервисы). → отдельная под-фаза/issue, не red-tree каждого сервиса.
+
+- **`google.rpc.ErrorInfo` reason-token — ОДИН эмитент, а не «нигде»** (перемерено 2026-08-08 на
+  `6b1293713`). Прежняя редакция утверждала «токена нет нигде»; утверждение пережило свой предмет.
+
+  Предикат — по тому, кто **прикрепляет** деталь, а не по тому, кто её называет:
+  `git grep -rln 'errdetails.ErrorInfo' -- services gateway pkg | grep -v _test` → **три** файла.
+  Из них by-lane-токен `api-conventions.md` несёт **один**:
+  `services/nlb/internal/apps/kacho/api/loadbalancer/peer_errors.go:171` —
+  `PEER_RESOURCE_MISSING`, `domain = "nlb.kacho.cloud"`. Форма не мёртвая: живой вызывающий
+  `.../loadbalancer/create.go:335`, проба `linked_address_visibility_lane_test.go:79` утверждает
+  именно токен. Два остальных файла эмитят **не** by-lane-словарь, а authz-причины края
+  (`AUTHZ_DENIED`/`AUTHN_REQUIRED`) — их в этот счёт не берём.
+
+  Почему грубый греп по имени токена тут врёт: `git grep -ln PEER_RESOURCE_MISSING` даёт **13**
+  файлов, но в registry (`internal/apps/kacho/api/registry/create.go:71,166`,
+  `internal/clients/geo/region_client.go:90`) это **проза godoc**, а не эмиссия — весь сервис
+  не импортирует `errdetails` ни в одном не-тестовом файле (**0**). Считать надо импорт и
+  прикрепление, не упоминание.
+
+  Остаток долга: `PEER_RESOURCE_STATE` — **0** файлов вообще; `RESOURCE_NOT_FOUND` и
+  `INVALID_RESOURCE_ID` в прод-коде сервисов — **0** (встречаются только в кейсе
+  `services/iam/tests/newman/cases/iam-interactive-client.py` и одном integration-тесте
+  registry). By-lane **code + contract-text split** реализован; машинного токена нет у всех
+  полос, кроме названной. → отдельная под-фаза/issue (`docs/specs/sub-phase-XC-1-error-reason-token-acceptance.md`),
+  не red-tree каждого сервиса. Формулировка «нигде» снимала бы регрессию, которая уже написана.
 
 ## Интеграционная поверхность (verified)
 
@@ -70,9 +137,17 @@ Ground-truth снимок сведения feature-веток редизайна
 
 ## Следующие шаги интеграции
 
-1. registry REG-1 green → merge `redesign/registry-1` в `redesign/integration` (self-contained, ожидается zero-conflict).
-2. nlb: grind 1a→1b→1c→1d поверх integration (ветка ребейзится на новую vpc-proto), затем merge.
+> [!note] Шаги 1 и 2 исполнены — список читается как история, а не как задание (2026-08-08)
+> Оба были сформулированы как merge названных веток; веток нет, а содержимое в стволе:
+> `git log --oneline HEAD --grep='REG-1'` → **9**, `--grep='NLB-1b'` → **10**, `--grep='NLB-1c'` → **7**,
+> `--grep='NLB-1d'` → **1** (контроль `--grep='NLB-1z'` → **0**). Шаги оставлены дословно, потому
+> что по ним прослеживаются коммиты; выполнять их заново нечего.
+
+1. ~~registry REG-1 green → merge `redesign/registry-1` в `redesign/integration`~~ — исполнено.
+2. ~~nlb: grind 1a→1b→1c→1d поверх integration, затем merge~~ — исполнено.
 3. Полный `go test ./... -race -timeout 30m -p 1` на integration (pg-пакеты тяжёлые — `-p 1`).
+   Этот файл его исхода **не утверждает**: числа §Валидация относятся к прогону `-short` на
+   `redesign/integration`, а не к сегодняшнему стволу.
 4. Далее — поздние под-фазы (COMP-2/3/4, STOR-2/3, VPC-2/3/4, IAM-2/3/4, REG-2/3, NLB-2/3/4),
    per-service gateway registration + newman (общая схема) + UI (ui-future).
 
