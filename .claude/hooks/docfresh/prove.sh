@@ -461,7 +461,6 @@ DEAD_BOTH="sync-tooling.sh"                                # нет ни там,
 # рабочее дерево не мутируется вовсе (git commit-tree поверх текущего дерева).
 PROVE_TRUNK="docfresh-prove-trunk"
 TRUNK_ALIVE=""
-TRUNK_ONLY_N=0
 trunk_ref=""
 _prove_trunk_cleanup() {
   [ -n "${PROVE_TRUNK:-}" ] || return 0
@@ -475,12 +474,11 @@ if [ -d "$WS/project/kacho/.git" ]; then
     # blob → дерево поверх HEAD → коммит → ссылка. Индекс и рабочее дерево не трогаются.
     if (cd "$WS/project/kacho" && \
         blob=$(printf 'проба docfresh: путь существует только в стволе\n' | git hash-object -w --stdin) && \
-        base=$(git rev-parse HEAD^{tree}) && \
+        base=$(git rev-parse "HEAD^{tree}") && \
         tree=$(git mktree < <(git ls-tree "$base"; printf '100644 blob %s\t%s\n' "$blob" "$TRUNK_ALIVE")) && \
         commit=$(git commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
         git update-ref "refs/heads/$PROVE_TRUNK" "$commit") 2>/dev/null; then
       trunk_ref="$PROVE_TRUNK"
-      TRUNK_ONLY_N=1
       export DOCFRESH_INTEGRATION_REF="$PROVE_TRUNK"
     else
       TRUNK_ALIVE=""

@@ -6,7 +6,9 @@ PROJECT_DIR="$SCRIPT_DIR/project"
 
 # kacho-workspace — сам корень, синкаем отдельно первым.
 if [ -d "$SCRIPT_DIR/.git" ]; then
-  cd "$SCRIPT_DIR"
+  # Переход обязан быть проверен: не удайся он, следующие строки выполнили бы
+  # git-операции в ЧУЖОМ каталоге — не там, где их ждут, и молча.
+  cd "$SCRIPT_DIR" || { echo "ОТКАЗ: не удалось перейти в $SCRIPT_DIR" >&2; exit 1; }
   before="$(git rev-parse HEAD 2>/dev/null)"
   if git fetch --quiet && git pull --ff-only --quiet 2>/dev/null; then
     after="$(git rev-parse HEAD)"
@@ -51,7 +53,7 @@ done < <(kacho_discover_worktrees "$PROJECT_DIR")
 if [ "$pulled" -eq 0 ]; then
   {
     echo "ОТКАЗ: в $PROJECT_DIR нет ни одной рабочей копии репозитория продукта — обновлять нечего."
-    echo "       Осмотрено каталогов: $(ls -1d "$PROJECT_DIR"/*/ 2>/dev/null | wc -l | tr -d ' '). См. repos.sh."
+    echo "       Осмотрено каталогов: $(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' '). См. repos.sh."
   } >&2
   exit 1
 fi
