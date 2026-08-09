@@ -99,11 +99,25 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
 > направления и запрет циклов остаются нормой: сервисы общаются по API и не импортируют
 > друг друга по коду независимо от того, в скольких репозиториях они лежат.
 >
-> **Исключение — `kacho-vpc-operator`:** репозиторий не резолвится на GitHub (404), в дереве
-> монорепо ноль файлов по этому имени. Два ребра ниже (`→ kacho-vpc`, `→ kacho-iam`) описывают
-> компонент, которого в текущем дереве **нет**. Оставлены как контракт на случай его появления
-> (SEC-G), но проверять по ним живой стенд нечего — при работе с ними сперва установить, что
-> предмет существует.
+> [!note] Здесь стояли два ребра оператора сети — сняты решением владельца 2026-08-09
+> Прежняя редакция держала их «как контракт на случай появления компонента», честно оговаривая,
+> что репозиторий не резолвится, а в дереве ноль файлов по этому имени. Оговорка не спасала:
+> место под несуществующий компонент **держалось не только здесь**. Его SPIFFE-имя стояло в
+> кругах доверенных отправителей четырёх профилей и двух чартов, а тест круга этих записей
+> **требовал** — то есть проверка безопасности защищала не фактического отправителя, а бронь
+> под будущее. Круг, объявленный шире фактического, разрешает говорить за пользователя
+> предъявителю сертификата, которого мы не выпускаем; `security.md` требует пинить его по
+> **фактическим** отправителям, найденным по графу рёбер.
+>
+> Что сделано: записи сняты из шести мест, тест круга **перевёрнут** — он больше не требует
+> брони, а падает на любой записи, которой в дереве не соответствует ни один чарт. Появится
+> компонент со своим чартом — его сертификат отрендерится и проверка пройдёт сама; послабление
+> истекает от появления предмета, а не от чьей-то памяти.
+>
+> **Что осталось и почему это отдельный предмет:** служебная учётка оператора и выданные ей
+> права заведены применёнными миграциями, которые править нельзя (ban #5) — их снятие требует
+> новой миграции и идёт своим изменением. Здесь снят только круг отправителей: «кто вправе
+> говорить за пользователя» и «что этой учётке разрешено» — разные вопросы.
 
 - `kacho-vpc → kacho-geo` — валидация `zone_id` Subnet/AddressPool (`geo.v1.ZoneService.Get`); Geography — домен geo (KAC-эпик #82). Заменяет прежнее ложное ребро `vpc→compute (zone)`.
 - `kacho-compute → kacho-geo` — валидация `Instance.zone_id` (`geo.v1.ZoneService.Get`). Geography больше не «своя» таблица compute — теперь peer-валидация через geo-client (KAC-эпик #82).
@@ -144,14 +158,6 @@ checkout (CI/Docker) → `reading ../kacho-corelib/go.mod: no such file` → п�
   scope_extractor'ы `{storage_volume,volume_id}`/`{storage_snapshot,snapshot_id}` резолвили target→project (анти-BOLA).
   Internal-only :9091, идемпотентно, at-least-once через transactional-outbox (`kacho_storage.fga_register_outbox`) +
   register-drainer, fgaproxy least-priv `fga_writer` @ `iam_fgaproxy:system`. Одностороннее (storage не зовётся обратно).
-- `kacho-vpc-operator → kacho-vpc` (SEC-G) — sync-poll read: `SubnetService.List` / `NetworkService.Get` /
-  `NetworkInterfaceService.Get` / `AddressService.Get`. **mTLS** (отдельный operator client-cert, SAN
-  `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`); per-edge `enable` (`enable=false` → insecure
-  back-compat). Least-priv: персональный SA оператора с **read-only ReBAC viewer**-tuples (SEC-C seed), без editor/мутаций.
-  Оператор — **вне build-графа** control-plane (sibling, не импортируется по build).
-- `kacho-vpc-operator → kacho-iam` (SEC-G) — sync-poll read (ns-operator fan-out): exempt `AccountService.List`
-  (membership scope-filter) → viewer-scoped `ProjectService.List`. **mTLS** (тот же operator client-cert);
-  per-edge `enable`. SA освобождён от `required_acr_min` (service→service, §4.1.2).
 - `kacho-registry → kacho-iam` (jwks-fetch) — **HTTPS GET публичного JWKS** с cluster-internal iam-эндпоинта
   (`:9097` `GET /.well-known/jwks.json`), **sync** на request-path (data-plane верифицирует подпись
   docker-Bearer'а), **fail-closed** (iam недоступен/5xx и в кэше нет пригодного ключа → verify reject →
