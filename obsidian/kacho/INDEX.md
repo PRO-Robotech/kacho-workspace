@@ -123,14 +123,14 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Ресурсы | `resources/` | 55 |
 | gRPC-сервисы | `rpc/` | 62 |
 | Рёбра рантайма | `edges/` | 75 |
-| Пакеты | `packages/` | 114 |
+| Пакеты | `packages/` | 116 |
 | Журнал работ (KAC) | `KAC/` | 212 |
 | Уроки — классы дефектов | `lessons/` | 10 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **542** |
+| **Всего** | | **544** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -520,7 +520,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (114)
+### Пакеты — `packages/` (116)
 
 **домен: cilium**
 
@@ -580,7 +580,9 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[packages/corelib-operations\|corelib-operations]] | живо (stable) |
 | [[packages/corelib-outbox-drainer\|corelib-outbox-drainer]] | живо (stable) |
 | [[packages/corelib-outbox\|corelib-outbox]] | живо (stable) |
+| [[packages/corelib-peer\|pkg/peer — полоса ответа соседа: единственное место, где чужой отказ становится нашим]] | живо (stable) |
 | [[packages/corelib-retry\|corelib-retry]] | живо (stable) |
+| [[packages/corelib-servicehost\|pkg/servicehost + pkg/servicecontract — носитель контура работы сервиса с моделью прав]] | живо (stable) |
 | [[packages/corelib-shutdown\|corelib-shutdown]] | история (wontfix) |
 | [[packages/corelib-validate\|corelib-validate]] | живо (stable) |
 
