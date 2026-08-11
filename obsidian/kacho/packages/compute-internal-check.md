@@ -66,24 +66,19 @@ permission map + IAM client adapter + factory.
 `compute_disk`, `compute_image`, `compute_snapshot`, `compute_instance`,
 `compute_operation`, `system`, `project`.
 
-## Wiring
+## Как звено решения попадает в цепочку (носитель контура)
 
-```go
-// cmd/compute/main.go
-authzIntr, err := check.NewInterceptor(check.Options{
-    ServiceName: "kacho-compute",
-    IAMConn:     authzConn,   // gRPC к kacho-iam:9091
-    Breakglass:  cfg.AuthZBreakglass,
-    Logger:      logger,
-})
-if authzIntr != nil {
-    publicUnary = append(publicUnary, authzIntr.Unary())
-    publicStream = append(publicStream, authzIntr.Stream())
-}
-```
+Сборка перехватчика в композиционном корне СНЯТА — вместе с фабрикой пакета и её ручкой
+аварийного пропуска. Сервис ОБЪЯВЛЯЕТ участие дескриптором, а звено решения ставит общий
+носитель (`pkg/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
+внутреннюю. Поля, способного снять звено, в дескрипторе не существует.
 
-Internal-листенер собирается **той же** цепочкой, что публичный: `authzIntr` навешивается
-на ОБА.
+Карта прав приезжает туда же выводом из аннотаций (`pkg/authz/catalogderive`), а не
+литералом: `PermissionMap()` этого пакета — тонкая обёртка над выводом, и она читается
+теми, кому нужен перечень типов.
+
+Разбор — в [[packages/corelib-servicehost]].
+
 
 > [!important] «Internal = trusted, mTLS достаточно» — запрещённое допущение
 > mTLS доказывает ровно одно: пир предъявил сертификат нашего CA. Он не говорит, **кто**

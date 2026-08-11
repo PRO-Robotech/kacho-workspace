@@ -49,21 +49,18 @@ Composition-root пакет, который превращает corelib `authz`
   (`Public=false`/`ScopeFiltered`), а не выводится из имени метода. Незамапленный RPC
   отказывает (см. [[corelib-authz]] §Decision pipeline).
 
-## Wiring
+## Как звено решения попадает в цепочку (носитель контура)
 
-```go
-// cmd/vpc/main.go
-authzIntr, err := check.NewInterceptor(check.Options{
-    ServiceName: "kacho-vpc",
-    IAMConn:     authzConn,   // gRPC к kacho-iam:9091
-    Breakglass:  cfg.AuthZ.Breakglass,
-    Logger:      logger,
-})
-if authzIntr != nil {
-    publicUnary = append(publicUnary, authzIntr.Unary())
-    publicStream = append(publicStream, authzIntr.Stream())
-}
-```
+Сборка перехватчика в композиционном корне СНЯТА — вместе с фабрикой пакета и её ручкой
+аварийного пропуска. Сервис ОБЪЯВЛЯЕТ участие дескриптором, а звено решения ставит общий
+носитель (`pkg/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
+внутреннюю. Поля, способного снять звено, в дескрипторе не существует.
+
+Карта прав приезжает туда же выводом из аннотаций (`pkg/authz/catalogderive`), а не
+литералом: `PermissionMap()` этого пакета — тонкая обёртка над выводом, и она читается
+теми, кому нужен перечень типов.
+
+Разбор — в [[packages/corelib-servicehost]].
 
 Internal-листенер собирается **той же** цепочкой, что публичный: `authzIntr` навешивается
 на ОБА (`internalUnary`/`internalStream` в `cmd/vpc/main.go`), плюс cert-identity и

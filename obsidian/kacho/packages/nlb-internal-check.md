@@ -44,20 +44,18 @@ Composition-root пакет — превращает corelib `authz`-interceptor
   Незамапленный RPC отказывает (см. [[corelib-authz]] §Decision pipeline). `drift_test.go`
   это и держит: RPC без записи роняет сборку.
 
-## Wiring (cmd/kacho-loadbalancer/main.go)
+## Как звено решения попадает в цепочку (носитель контура)
 
-```go
-authzIntr, err := check.NewInterceptor(check.Options{
-    ServiceName: "kacho-nlb",
-    IAMConn:     authzConn,   // gRPC к kacho-iam:9091
-    Breakglass:  cfg.AuthZ.Breakglass,
-    Logger:      logger,
-})
-if authzIntr != nil {
-    publicUnary = append(publicUnary, authzIntr.Unary())
-    publicStream = append(publicStream, authzIntr.Stream())
-}
-```
+Сборка перехватчика в композиционном корне СНЯТА — вместе с фабрикой пакета и её ручкой
+аварийного пропуска. Сервис ОБЪЯВЛЯЕТ участие дескриптором, а звено решения ставит общий
+носитель (`pkg/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
+внутреннюю. Поля, способного снять звено, в дескрипторе не существует.
+
+Карта прав приезжает туда же выводом из аннотаций (`pkg/authz/catalogderive`), а не
+литералом: `PermissionMap()` этого пакета — тонкая обёртка над выводом, и она читается
+теми, кому нужен перечень типов (например, вычисление пообъектных типов в самоотчёте).
+
+Разбор — в [[packages/corelib-servicehost]].
 
 Internal-листенер собирается **той же** цепочкой, что публичный: `wiring.go` строит две
 цепочки, и `authzIntr.Unary()`/`.Stream()` стоят в обеих.
