@@ -5,7 +5,7 @@ aliases:
   - XC-11
 ticket_id: KAC-XC-11
 category: kac
-status: to-do
+status: in-progress
 type: feature
 repos:
   - kacho-vpc
@@ -27,7 +27,9 @@ tags:
 
 # KAC-XC-11: конформанс участия сервиса в контракте прав
 
-**Status**: to-do — приёмка в состоянии DRAFT, работа не начата
+**Status**: in-progress — приёмка DRAFT; восемь кейсов из пятнадцати уже держатся
+артефактами (перечень с координатами — во врезке приёмки, §«Состояние исполнения»), из них
+четыре закрыты новым гейтом конформанса участия (`63132d35`)
 **Приёмка**: `docs/specs/sub-phase-XC-11-participation-conformance-acceptance.md` (воркспейс)
 **Монорепо**: `project/kacho`, база сверки приёмки — `b0de60a05`
 
@@ -62,6 +64,8 @@ tags:
 
 ## DoD
 
+- [x] участие доказывается подъёмом: у всех шести участников проба, перечень выводится
+      (гейт `TestEveryCarrierParticipantIsRaisedByAProbe`, инъекция в обе стороны)
 - [ ] приёмка проведена через `acceptance-reviewer` до APPROVED
 - [ ] тикет заведён в трекере, номер проставлен в `yt_url`
 - [ ] набор параметризуется дескриптором, а не перечнем сервисов в теле пробы

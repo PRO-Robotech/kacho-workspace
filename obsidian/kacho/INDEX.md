@@ -828,7 +828,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/KAC-71\|KAC-71: AddressPool v4/v6 split + cascade family-filter]] | живо (done) |
 | [[KAC/KAC-94\|KAC-94: Skill evgeniy 100% эталон в kacho-vpc]] | живо (done) |
 | [[KAC/KAC-WS23\|KAC-124 (vault-label WS23): WS-2.3 — AuthZ decision-cache invalidation on grant/revoke]] | живо (done) |
-| [[KAC/KAC-XC-11\|KAC-XC-11: конформанс участия сервиса в контракте прав]] | в работе (to-do) |
+| [[KAC/KAC-XC-11\|KAC-XC-11: конформанс участия сервиса в контракте прав]] | в работе (in-progress) |
 | [[KAC/KAC-XC-2\|KAC-XC-2: единая библиотека интеграции с правами]] | в работе (planned) |
 | [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (in-progress) |
 | [[KAC/KAC-newman-100pct-batch\|KAC batch: Newman 100% green push (2026-05-26)]] | в работе (in-progress) |
