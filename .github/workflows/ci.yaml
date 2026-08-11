@@ -4,7 +4,7 @@ jobs:
   bats-and-shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install bats-core + shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y bats shellcheck
       - name: shellcheck core bash scripts
@@ -26,7 +26,7 @@ jobs:
     name: конвейер и агенты не утверждают о дереве того, чего в нём нет
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: tooling-gate
         run: bash scripts/tooling-gate/run-all.sh
       - name: гейт доказан инъекцией — дефект краснеет, законный близнец молчит
@@ -36,8 +36,8 @@ jobs:
     name: доказательства хуков инъекцией исполняются, а не лежат текстом
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # Обоим доказательствам нужно НАСТОЯЩЕЕ дерево продукта рядом: они гоняют
       # пробы по живым фрагментам, а не по выдуманным строкам. Без него docfresh
@@ -55,7 +55,7 @@ jobs:
       # корневой Makefile на месте (на нём держится ветка рассуждения в самом скрипте).
       # То есть сверять теперь есть с чем, и пин стал бы указывать в никуда.
       - name: checkout монорепо в project/kacho
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: PRO-Robotech/kacho
           ref: main
@@ -76,7 +76,7 @@ jobs:
     name: записки хранилища знаний сверены с деревом продукта
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
       # анализаторов сужения списков. Без монорепо выводить не из чего, и гейт
       # отвечает VOID (код 2), а не «чисто»: неразличение этих исходов и есть тот
@@ -87,7 +87,7 @@ jobs:
       # 18 на стволе»), исчерпан замером: на main их 18. Ранний снос пина не «прошёл бы
       # тихо» — гейт сказал бы VOID и уронил джобу, поэтому снятие безопасно проверяемо.
       - name: checkout монорепо в project/kacho
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: PRO-Robotech/kacho
           ref: main
@@ -106,8 +106,8 @@ jobs:
     name: quoted make commands run from the monorepo root
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # Needs the monorepo checked out beside the workspace: the check reads the
       # real Makefiles under project/kacho and asserts every make command quoted in
@@ -124,7 +124,7 @@ jobs:
       # Отдельно проверено то, на чём держится целая ветка рассуждения в скрипте, —
       # КОРНЕВОЙ Makefile: на main он теперь есть.
       - name: checkout монорепо в project/kacho
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: PRO-Robotech/kacho
           ref: main
@@ -136,8 +136,8 @@ jobs:
     name: документы объявляют то, чем их измеряют
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: install shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
@@ -155,8 +155,8 @@ jobs:
     name: authz-fixtures bootstrap — lint (KAC-122)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: smoke JWT minter
         run: |
