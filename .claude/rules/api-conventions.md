@@ -163,7 +163,7 @@ Precondition Failed` — про условные заголовки запрос
   > позже» на ввод, который валидным не станет никогда, и (2) ложного `"<res> <X> not found"` —
   > контракт-тона **отсутствия ресурса** на строку, которая ресурсом быть не может. Плюс явный мусор не
   > оплачивается вызовом к соседу. Landed: nlb `v4Source/v6Source.subnetId`/`.addressId`
-  > (`services/nlb/docs/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»);
+  > (`services/nlb/docs/engineering/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»);
   > прочие чужие id nlb (`projectId`/`regionId`/`securityGroupIds`/instance/nic) — existence-only.
   > **Молчаливое** отступление (проверка есть, записи нет) остаётся нарушением B4.
 - **`corevalidate.ResourceID` пустую строку ПРОПУСКАЕТ** — required-проверка это **отдельная**

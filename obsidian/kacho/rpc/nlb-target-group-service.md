@@ -98,7 +98,7 @@ status: stable
 - `nlb_target_group` — **первый** тип платформы с набором глаголов шире канонического
   CRUD; словарь, общий для всех ресурсов, это не задело (он — пересечение наборов).
 
-См. `services/nlb/docs/architecture/09-fga-model.md` §«Управление составом группы целей».
+См. `services/nlb/docs/engineering/architecture/09-fga-model.md` §«Управление составом группы целей».
 
 ## See also
 

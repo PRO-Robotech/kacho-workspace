@@ -33,7 +33,7 @@
       "kind": "path",
       "coordinate": "_test.go",
       "reason": "СУФФИКС имени файла, а не файл: так его пишут и реестр классов гейта ('Go: `_test.go` и testdata — объявленная предпосылка', колонка законного близнеца инъекции), и разбор расхождений сервиса ('обёртку loadCfg(t, env) в `_test.go`'). Резолвить нечего — файла с именем '_test.go' в дереве нет и быть не должно, поэтому послабление верно ГЛОБАЛЬНО, а не для одного документа",
-      "ground": ".claude/hooks/class-guard/README.md (таблица предпосылок) и services/compute/docs/architecture/07-known-divergences.md в дереве продукта — два независимых документа одного вида употребления"
+      "ground": ".claude/hooks/class-guard/README.md (таблица предпосылок) и services/compute/docs/engineering/architecture/07-known-divergences.md в дереве продукта — два независимых документа одного вида употребления"
     },
     {
       "kind": "path",

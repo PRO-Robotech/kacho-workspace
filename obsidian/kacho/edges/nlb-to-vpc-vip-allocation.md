@@ -92,7 +92,7 @@ addressId"`) и **никогда** own-полосой `NOT_FOUND` — та оз�
 Это **записанное узкое исключение** из `api-conventions.md` B4 («foreign id — existence-only»),
 а не молчаливое отступление: мотив — терминальный 400 на явно-не-id вместо retryable `UNAVAILABLE`
 при недоступном vpc и вместо ложного `"subnet <X> not found"`. Границы и обоснование —
-`services/nlb/docs/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»;
+`services/nlb/docs/engineering/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»;
 carve-out записан в самом B4. Прочие чужие id nlb (`projectId`/`regionId`/`securityGroupIds`/
 instance/nic-таргеты) остаются existence-only, без format-check.
 
