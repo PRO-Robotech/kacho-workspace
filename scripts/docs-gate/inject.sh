@@ -164,6 +164,95 @@ run 1 "$b" "слепая зона глубины: вложенная запис�
 b="$(mksandbox obsidian/kacho/KAC)"
 run 2 "$b" "предпосылка: записок нет — VOID, а не успех" check-02-kac-trail-status.py
 
+echo "== check-03: строка Scope приёмки без сценария =="
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-03-scope-row-scenario.py
+
+# Вход у проб ниже ПОЛНОСТЬЮ под контролем пробы: каталог приёмок выброшен и
+# заменён своим документом. Иначе вердикт был бы заложником сегодняшнего состава
+# корпуса, а не свойства, о котором проба утверждает.
+SCOPE_ROWS=$'## Scope\n\n| # | Фича | Traceability |\n|---|---|---|\n| F1 | первая фича | — |\n'
+
+# Инъекция настоящим дефектом: строка перечня есть, раздела со сценарием нет.
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+printf '# Приёмка со строкой Scope без сценария\n\n%s\n' "$SCOPE_ROWS" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: строка Scope без раздела — краснеет и называет координату" \
+    check-03-scope-row-scenario.py "F1: раздела"
+
+# Законный близнец №1 — ТА ЖЕ строка перечня, отличается только тем, что сценарий
+# написан. Без него гейт ловил бы «в приёмке есть таблица», а не отсутствие
+# сценария.
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+{
+    printf '# Приёмка со сценарием\n\n%s\n' "$SCOPE_ROWS"
+    printf '## F1 — первая фича\n\n### Сценарий X-01\n\n'
+    printf '**When** вызов\n\n**Then** отказ\n'
+} > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 0 "$b" "близнец: раздел со сценарием — молчит" check-03-scope-row-scenario.py
+
+# Законный близнец №2 — раздел БЕЗ сценария, но с передачей в дочернюю приёмку,
+# где сценарии того же идентификатора живут. Форма та же, что у дефекта, поэтому
+# без этой пробы гейт запрещал бы законную композицию родитель/ребёнок.
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+{
+    printf '# Родительская приёмка\n\n%s\n' "$SCOPE_ROWS"
+    printf '## F1 — первая фича\n\n'
+    printf '> Given-When-Then живут в `sub-phase-injected-child-…` §F1.\n'
+} > "$b/$SPEC"
+{
+    printf '# Дочерняя приёмка\n\n## F1 — первая фича\n\n'
+    printf '**When** вызов\n\n**Then** отказ\n'
+} > "$b/docs/specs/sub-phase-injected-child-acceptance.md"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 0 "$b" "близнец: передача в дочернюю приёмку резолвится — молчит" \
+    check-03-scope-row-scenario.py "передано в дочернюю приёмку 1"
+
+# Послабление обязано истекать САМО: у той же передачи выпотрошен ребёнок —
+# сценариев там больше нет. Ссылка цела, предмета у неё нет, и это находка.
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+{
+    printf '# Родительская приёмка\n\n%s\n' "$SCOPE_ROWS"
+    printf '## F1 — первая фича\n\n'
+    printf '> Given-When-Then живут в `sub-phase-injected-child-…` §F1.\n'
+} > "$b/$SPEC"
+printf '# Дочерняя приёмка\n\n## F1 — первая фича\n\nОписание без сценария.\n' \
+    > "$b/docs/specs/sub-phase-injected-child-acceptance.md"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "самоистечение: ребёнок без сценария — передача перестаёт покрывать" \
+    check-03-scope-row-scenario.py "раздела F1 со сценарием в ней нет"
+
+# Различение соседних идентификаторов: `F7` и `F7a` — РАЗНЫЕ строки, и раздел
+# одного не закрывает другую. Ровно этим отличается перечень с буквенным
+# суффиксом от перечня без него.
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+{
+    printf '# Приёмка с уточняющей строкой\n\n## Scope\n\n| # | Фича |\n|---|---|\n'
+    printf '| F7 | базовая |\n| F7a | уточнение |\n\n'
+    printf '## F7 — базовая\n\n**When** вызов\n\n**Then** отказ\n'
+} > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "суффикс: раздел F7 не закрывает строку F7a — краснеет" \
+    check-03-scope-row-scenario.py "F7a: раздела"
+
+b="$(mksandbox docs/specs)"
+run 2 "$b" "предпосылка: приёмок нет — VOID, а не успех" check-03-scope-row-scenario.py
+
+# Предмет теряется и вторым способом — перечень перестал объявляться строками
+# `| F<N> |`. «Находок ноль» здесь означало бы «прочитано ноль».
+b="$(mksandbox docs/specs)"
+mkdir -p "$b/docs/specs"
+printf '# Приёмка без перечня фич\n\n## Scope\n\n| ID | Решение |\n|---|---|\n| D1 | что-то |\n' \
+    > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 2 "$b" "предпосылка: состав объявлен не фичами — VOID, а не успех" \
+    check-03-scope-row-scenario.py
+
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
