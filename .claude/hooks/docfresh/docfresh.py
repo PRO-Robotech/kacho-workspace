@@ -172,15 +172,102 @@ LIVE_WS = [
     re.compile(r"^\.claude/skills/[^/]+/[^/]+\.md$"),
 ]
 
-LIVE_MONO = [
+# Часть корпуса дерева продукта, у которой НЕТ конфигурации, откуда её вывести:
+# эти документы лежат где угодно и объявляют себя только именем. Их шаблоны
+# выписаны — и каждый обязан иметь предмет в дереве (проверяется `preconditions`).
+# Всё, что относится к САЙТАМ документации, отсюда выведено: раскладка сайтов
+# читается из их конфигов (см. `doc_roots`), потому что она переезжает.
+LIVE_MONO_FIXED = [
     re.compile(r"(^|/)README\.md$"),
+    re.compile(r"(^|/)CLAUDE\.md$"),
     re.compile(r"(^|/)docs/architecture/[^/]+\.md$"),
-    re.compile(r"(^|/)docs/components/[^/]+\.md$"),
-    re.compile(r"(^|/)docs-site/docs/.+\.mdx?$"),
     re.compile(r"(^|/)tests/newman/docs/[^/]+\.md$"),
-    re.compile(r"^CLAUDE\.md$"),
 ]
 
+# Датированная запись под корнем документации — решение НА ДАТУ, а не утверждение
+# о нынешнем дереве (та же граница, что у `docs/specs` воркспейса: приёмка
+# называет по имени снятое, и обвинять её в этом нельзя). Каталог называется
+# именем, а не путём, поэтому исключение переживает любую раскладку. Оно
+# САМОИСТЕКАЕТ: не осталось ни одной такой записи — проба Q докладывает, что
+# исключать больше нечего, и его надлежит снять.
+NOT_LIVE_MONO = [
+    re.compile(r"(^|/)acceptance/"),
+]
+
+# ── раскладка документации ВЫВОДИТСЯ из дерева ───────────────────────────────
+#
+# Прежняя редакция выписывала сюда `docs-site/docs/`, `docs/architecture/`,
+# `docs/components/`. Каталог документации компонентов переехал — и все три
+# шаблона стали совпадать с раскладкой, которой больше нет: корпус дерева продукта
+# обвалился с 260 документов до 68, а хук продолжал печатать «находок нет» честно,
+# не читая документации сервисов вовсе. Это ровно тот класс, который он заведён
+# ловить, — поэтому перечень больше не выписывается.
+#
+# ПРИЗНАК КОРНЯ ДОКУМЕНТАЦИИ — ЕГО КОНФИГ, а каталог страниц — ключ `path` внутри
+# конфига. Тот же принцип, которым в дереве продукта опознаёт сайты гейт их сборки
+# (`.github/scripts/build-docs-sites.py`): он там записан теми же словами и по той
+# же причине — имя каталога переживёт не всякий рефактор, конфиг переедет вместе с
+# сайтом. Регистр в ключе значим: `sidebarPath`/`routeBasePath` под `\bpath:` не
+# попадают.
+DOCUSAURUS_CONFIG = "docusaurus.config.ts"
+DOCS_PAGES_RE = re.compile(r"\bpath:\s*['\"]([^'\"]+)['\"]")
+DOCS_PAGES_DEFAULT = "docs"  # умолчание Docusaurus, когда ключ не задан
+
+_MONO_PATS_CACHE: dict[str, list[re.Pattern[str]]] = {}
+_DOC_ROOTS_CACHE: dict[str, list[tuple[str, str]]] = {}
+
+
+def doc_roots(root: Path) -> list[tuple[str, str]]:
+    """(каталог сайта, каталог его страниц) — по одному на найденный конфиг.
+
+    Оба элемента читаются из дерева: первый — расположением конфига, второй — его
+    содержимым. Ни одно имя каталога здесь не выписано, поэтому переименование
+    каталога документации не выводит его документы из корпуса молча.
+    """
+    key = str(root)
+    if key not in _DOC_ROOTS_CACHE:
+        out: list[tuple[str, str]] = []
+        for rel in git(root, "ls-files", "*" + DOCUSAURUS_CONFIG):
+            if "node_modules/" in rel:
+                continue
+            site = os.path.dirname(rel)
+            try:
+                cfg = (root / rel).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                cfg = ""
+            m = DOCS_PAGES_RE.search(cfg)
+            out.append((site, m.group(1).strip("/") if m else DOCS_PAGES_DEFAULT))
+        _DOC_ROOTS_CACHE[key] = sorted(set(out))
+    return _DOC_ROOTS_CACHE[key]
+
+
+def live_mono_patterns(mono: Path | None) -> list[re.Pattern[str]]:
+    """Шаблоны LIVE дерева продукта: выписанная часть + выведенная из раскладки.
+
+    Под корнем документации живым считается ВЕСЬ документ — и страница сайта, и
+    инженерная записка рядом с ней: инженерная часть переехала внутрь того же
+    корня, и разделять их значило бы снова закладываться на раскладку. Собранный
+    результат сайта и его зависимости из корпуса исключены — это не документы.
+    """
+    if mono is None:
+        return []
+    key = str(mono)
+    if key not in _MONO_PATS_CACHE:
+        pats = list(LIVE_MONO_FIXED)
+        for site, _pages in doc_roots(mono):
+            pats.append(re.compile(
+                r"^" + re.escape(site) + r"/(?!build/|node_modules/).+\.mdx?$"))
+        _MONO_PATS_CACHE[key] = pats
+    return _MONO_PATS_CACHE[key]
+
+
+def is_live_mono(rel: str, mono: Path | None) -> bool:
+    """LIVE ли документ дерева продукта — с учётом выведенной раскладки."""
+    if mono is None:
+        return False
+    if any(p.search(rel) for p in NOT_LIVE_MONO):
+        return False
+    return _is_live(rel, live_mono_patterns(mono))
 
 
 def _is_live(path: str, pats: list[re.Pattern[str]]) -> bool:
@@ -247,14 +334,25 @@ def declared_not_current(rel: str, path: Path) -> str | None:
     return None  # `живо` И неизвестное значение — судим (fail-closed)
 
 
+TREE_WS = "воркспейс"
+TREE_MONO = "дерево продукта"
+
+
 def live_docs(ws: Path, mono: Path | None,
-              skipped: dict[str, int] | None = None) -> list[tuple[str, Path]]:
+              skipped: dict[str, int] | None = None,
+              by_tree: dict[str, int] | None = None) -> list[tuple[str, Path]]:
     """(координатное имя, абсолютный путь) для каждого LIVE-документа.
 
     `skipped` (если передан) наполняется счётчиком записок, выведенных из корпуса
     ПО ОБЪЯВЛЕННОМУ СОСТОЯНИЮ, по вёдрам — это число печатается в переписи.
+
+    `by_tree` (если передан) наполняется числом живых документов ПО ДЕРЕВЬЯМ, и
+    считаются только настоящие деревья: пробные документы инъекции в счёт не идут,
+    иначе базовая линия объёма поднималась бы пробами и следующий обычный прогон
+    читался бы как обвал корпуса.
     """
     out: list[tuple[str, Path]] = []
+    n_ws = 0
     for rel in git(ws, "ls-files", "--cached", "--others", "--exclude-standard"):
         if _is_live(rel, LIVE_WS):
             bucket = declared_not_current(rel, ws / rel)
@@ -263,10 +361,17 @@ def live_docs(ws: Path, mono: Path | None,
                     skipped[bucket] = skipped.get(bucket, 0) + 1
                 continue
             out.append((rel, ws / rel))
+            n_ws += 1
+    if by_tree is not None:
+        by_tree[TREE_WS] = n_ws
     if mono is not None:
+        n_mono = 0
         for rel in git(mono, "ls-files"):
-            if _is_live(rel, LIVE_MONO):
+            if is_live_mono(rel, mono):
                 out.append(("project/kacho/" + rel if mono != ws else rel, mono / rel))
+                n_mono += 1
+        if by_tree is not None:
+            by_tree[TREE_MONO] = n_mono
     # Каталог пробных документов. Знак равенства с настоящим корпусом полный:
     # координатное имя берётся ОТНОСИТЕЛЬНО этого корня, поэтому проба, лежащая в
     # `<root>/services/nlb/docs/architecture/`, разрешает свои `../`-ссылки против
@@ -1046,6 +1151,16 @@ class Truth:
 def cache_key(ws: Path, mono: Path | None) -> str:
     import hashlib
     h = hashlib.sha256()
+    # СОБСТВЕННАЯ РЕДАКЦИЯ ХУКА — часть ключа. Индекс хранит РЕЗУЛЬТАТ
+    # классификации, а решает её этот файл: правка шаблонов LIVE не меняла ни
+    # одного коммита, поэтому новый классификатор подавался из кэша старым до
+    # ближайшего коммита в любом из двух репозиториев — то есть проверка судила
+    # по правилам, которых в ней уже нет.
+    try:
+        st = Path(__file__).stat()
+        h.update(f"self:{st.st_size}:{st.st_mtime_ns}|".encode())
+    except OSError:
+        h.update(b"self:?|")
     for root in (ws, mono):
         if root is None:
             h.update(b"none|")
@@ -1109,7 +1224,8 @@ def build_index(ws: Path, mono: Path | None) -> dict:
     t0 = time.time()
     truth = build_truth(ws, mono)
     skipped: dict[str, int] = {}
-    docs = live_docs(ws, mono, skipped)
+    by_tree: dict[str, int] = {}
+    docs = live_docs(ws, mono, skipped, by_tree)
     per_doc: dict[str, dict[str, list[str]]] = {}
     reverse: dict[str, list[str]] = {}
     ncoord = 0
@@ -1130,6 +1246,8 @@ def build_index(ws: Path, mono: Path | None) -> dict:
         "reverse": reverse,
         "docs": [n for n, _ in docs],
         "skipped_state": skipped,
+        "live_by_tree": by_tree,
+        "doc_roots": [s for s, _ in doc_roots(mono)] if mono is not None else [],
         "index_ms": int((time.time() - t0) * 1000),
     }
 
@@ -1179,12 +1297,13 @@ def _allow_subject_live(kind: str, coord: str, ws: Path, mono: Path | None,
     if not coord:
         return False
     names: set[str] = set()
-    for root, pats in ((ws, LIVE_WS), (mono, LIVE_MONO)):
+    for root, live in ((ws, lambda r: _is_live(r, LIVE_WS)),
+                       (mono, lambda r: is_live_mono(r, mono))):
         if root is None:
             continue
         for rel in git(root, "grep", "-l", "-I", "--untracked", "-F", "-e", coord,
                        "--", "*.md", "*.mdx"):
-            if not _is_live(rel, pats):
+            if not live(rel):
                 continue
             # Записка, объявившая себя историей или работой, из корпуса выведена
             # (см. `declared_not_current`) — значит она и предмета послаблению не
@@ -1484,12 +1603,14 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
     ложью. Поэтому факт проверяется, а не подразумевается.
     """
     bad = []
+    ws_files = git(ws, "ls-files", "--cached", "--others", "--exclude-standard")
     if mono is None:
         bad.append(
             "дерево продукта не найдено (ожидалось project/kacho/services): основание "
             "истины для маршрутов, методов и большей части путей ПУСТО. «Ноль находок» "
             "здесь означало бы «ноль прочитанного»"
         )
+    bad += orphan_patterns("воркспейса", LIVE_WS, ws_files)
     # Словарь корневых сегментов решает, ЧТО ВООБЩЕ считается координатой-путём.
     # Имя, которому в дереве больше нет предмета, — это не безобидный лишний
     # элемент: он молча расширяет извлечение на прозу («project/delete»), а
@@ -1497,8 +1618,12 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
     # оставляя ноль находок неотличимым от ноля прочитанного.
     if mono is not None:
         dirs = set()
-        for root in (ws, mono):
-            for f in git(root, "ls-files"):
+        # Перечень воркспейса берётся ТОТ ЖЕ, по которому собирается корпус
+        # (`live_docs`): иначе шаблон судился бы по одному составу дерева, а
+        # применялся к другому — и «нет предмета» означало бы «смотрели не там».
+        mono_files: list[str] = git(mono, "ls-files")
+        for files in (ws_files, mono_files):
+            for f in files:
                 parts = f.split("/")
                 for i in range(1, len(parts)):
                     dirs.add(parts[i - 1])
@@ -1510,6 +1635,98 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
                 + ". Пока имя в словаре, оно расширяет извлечение на прозу; пока его нет — "
                 "каталог не осматривается вовсе. Привести словарь в соответствие"
             )
+        bad += orphan_patterns("дерева продукта", LIVE_MONO_FIXED, mono_files)
+        bad += doc_root_preconditions(mono, mono_files)
+        # Исключение живёт, пока у него есть предмет: датированных записей больше
+        # нет — снимать исключение, иначе следующий вид документов молча уедет
+        # под него. Предикат снятия ВНЕШНИЙ (состав дерева), правкой самого хука
+        # тождественно истинным не становится.
+        if mono_files:
+            for p in NOT_LIVE_MONO:
+                if not any(p.search(f) for f in mono_files
+                           if f.endswith((".md", ".mdx"))):
+                    bad.append(
+                        f"исключению '{p.pattern}' больше нечего исключать — ни один "
+                        f"документ дерева продукта под него не подпадает. Снять его: "
+                        f"мёртвое исключение унаследует следующая слепая зона"
+                    )
+    return bad
+
+
+def orphan_patterns(tree: str, pats: list[re.Pattern[str]],
+                    files: list[str]) -> list[str]:
+    """Выписанный шаблон, которому нечего опознавать, — находка.
+
+    Часть корпуса выводится из раскладки, часть выписана — и выписанная стареет
+    ровно так же, как стареет документ: каталог переехал, шаблон остался, и целый
+    вид документов перестал читаться, не подав ни одного признака. Проверка
+    отвечает на это единственным способом, который не зависит от чьей-либо памяти:
+    у каждого шаблона обязан быть предмет в дереве СЕГОДНЯ.
+
+    Пустой перечень файлов означает «дерево не прочитано», а не «предметов нет», и
+    находкой не считается — иначе отказ о непрочитанном дереве получил бы вдогонку
+    залп ложных обвинений.
+    """
+    if not files:
+        return []
+    return [
+        f"шаблон LIVE {tree} '{p.pattern}' не опознаёт ни одного файла — предмет "
+        f"переехал или снят. Пока шаблон стоит, он создаёт вид покрытия; целый вид "
+        f"документов при этом не читается"
+        for p in pats if not any(_is_live(f, [p]) for f in files)
+    ]
+
+
+def doc_root_preconditions(mono: Path, files: list[str]) -> list[str]:
+    """Каждый корень документации обязан давать документы — иначе хук ослеп.
+
+    СТРУКТУРНАЯ половина самопроверки: она не помнит ничего и потому работает на
+    свежей копии, где базовой линии объёма ещё нет. Ловит ровно то состояние, в
+    котором хук уже побывал: раскладка переехала, шаблоны остались от прежней,
+    документы компонента перестали читаться — а перепись продолжала печатать
+    честный ноль находок.
+
+    Тавтологией это не становится: шаблон выводится из РАСПОЛОЖЕНИЯ конфига, а
+    проверка спрашивает про КАТАЛОГ СТРАНИЦ, объявленный ВНУТРИ него, и про
+    фактический результат классификации. Каталог страниц, которого нет, и корень,
+    не давший ни одного документа, — разные отказы, и оба наблюдались в дереве.
+    """
+    bad: list[str] = []
+    roots = doc_roots(mono)
+    if not roots:
+        return ["корней документации не найдено ни одного (признак — конфиг "
+                + DOCUSAURUS_CONFIG + "): раскладку выводить не из чего, и весь корпус "
+                "документации компонентов остаётся непрочитанным. Пустой перечень — "
+                "ОТКАЗ, а не «сайтов нет»"]
+    # Две половины корня считаются РАЗДЕЛЬНО, и это не педантизм: страницы сайта и
+    # инженерные записки переезжали по-разному, а одинокий README рядом с ними
+    # делал корень «покрытым» целиком, пока обе половины уже не читались.
+    pages_of: dict[str, list[str]] = {s: [] for s, _ in roots}
+    rest_of: dict[str, list[str]] = {s: [] for s, _ in roots}
+    for f in files:
+        if not f.endswith((".md", ".mdx")) or "node_modules/" in f:
+            continue
+        for site, pages in roots:
+            if f.startswith(f"{site}/{pages}/"):
+                pages_of[site].append(f)
+            elif f.startswith(site + "/"):
+                rest_of[site].append(f)
+    for site, pages in roots:
+        if not (mono / site / pages).is_dir():
+            bad.append(
+                f"корень документации {site}: каталог страниц '{pages}', объявленный в "
+                f"{DOCUSAURUS_CONFIG}, в дереве не существует — обход прочитал бы ноль "
+                f"файлов и промолчал"
+            )
+        for half, docs in (("страниц сайта", pages_of[site]),
+                           ("документов рядом со страницами", rest_of[site])):
+            live = [f for f in docs if is_live_mono(f, mono)]
+            if docs and not live:
+                bad.append(
+                    f"корень документации {site}: {half} {len(docs)}, опознано живыми 0 — "
+                    f"классификатор разошёлся с раскладкой. «Ноль находок» по этой части "
+                    f"компонента означал бы «ноль прочитанного»"
+                )
     return bad
 
 
@@ -1519,14 +1736,14 @@ def corpus_preconditions(idx: dict) -> list[str]:
     `preconditions` исполняется до `load_index` и потому про объём корпуса знать
     не может. Без этой второй половины пустой корпус давал код 0 и печать
     «осмотрено документов 0» — то есть «ноль прочитанного» было НЕОТЛИЧИМО от
-    «ноль находок», ровно тот класс, который хук и заведён ловить. Шаблоны LIVE
-    зашиты путями, а корпус переезжает: промах шаблона обваливает предмет молча.
+    «ноль находок», ровно тот класс, который хук и заведён ловить. Часть шаблонов
+    LIVE зашита путями, а корпус переезжает: промах шаблона обваливает предмет молча.
     """
     bad = []
     ndocs, ncoords = len(idx.get("docs") or {}), len(idx.get("reverse") or {})
     if ndocs == 0:
         bad.append(
-            "ни один документ не опознан как LIVE — шаблоны LIVE_WS/LIVE_MONO разошлись "
+            "ни один документ не опознан как LIVE — шаблоны LIVE разошлись "
             "с корпусом. «Ноль находок» здесь означает «ноль прочитанного»: привести "
             "шаблоны в соответствие с деревом"
         )
@@ -1535,6 +1752,68 @@ def corpus_preconditions(idx: dict) -> list[str]:
             f"опознано LIVE-документов {ndocs}, но ни одной координаты из них не извлечено — "
             "извлечение потеряло предмет. Осматривать нечего, и это не «чисто»"
         )
+    bad += live_baseline(idx.get("live_by_tree") or {})
+    return bad
+
+
+# Во сколько раз должен упасть корпус дерева, чтобы это считалось обвалом.
+# «В разы», а не «на сколько-то»: обычная убыль документов — рабочее событие,
+# кратная — признак того, что читать перестали целый вид предмета.
+LIVE_DROP_FACTOR = 2
+
+
+def live_baseline(cur: dict[str, int]) -> list[str]:
+    """ИСТОРИЧЕСКАЯ половина самопроверки: корпус дерева упал в разы — это находка.
+
+    Структурная половина (`doc_root_preconditions`) знает только ту дорогу к
+    слепоте, которую уже проходили: переезд каталога сайта. Эта не знает дороги
+    вовсе — она сравнивает нынешний объём с наибольшим когда-либо наблюдавшимся
+    и потому ловит обвал, пришедший любым путём: снятым шаблоном, сломавшимся
+    обходом, ошибкой в исключении. Взамен она слепа на свежей копии, где базовой
+    линии ещё нет, — там работает структурная. Каждая закрывает слепое пятно другой.
+
+    Базовая линия — ВНЕШНИЙ факт: она наблюдалась прогоном, а не выведена из кода,
+    поэтому правка самого хука не делает предикат тождественно истинным. Линия
+    поднимается сама, когда корпус растёт, и НЕ опускается на обвале — иначе
+    тревога погасила бы себя на первом же прогоне после ослепления.
+
+    Законная убыль корпуса вдвое (сняли целый компонент) закрывается снятием файла
+    базовой линии — явным действием, а не молчанием со временем; отказ прямо это
+    называет.
+    """
+    if not cur:
+        return []
+    p = _state_file("live-baseline.json")
+    base: dict[str, dict] = {}
+    try:
+        if p.is_file():
+            base = json.loads(p.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        base = {}
+    bad, changed = [], False
+    for tree, n in sorted(cur.items()):
+        rec = base.get(tree) or {}
+        high = int(rec.get("high", 0))
+        if high and n * LIVE_DROP_FACTOR <= high:
+            bad.append(
+                f"живых документов дерева «{tree}» {n}, а наибольшее наблюдавшееся — {high}"
+                + (f" (отмечено {rec.get('at')})" if rec.get("at") else "")
+                + f": корпус упал в разы (порог кратности — {LIVE_DROP_FACTOR}). "
+                  f"Либо классификатор разошёлся с раскладкой "
+                  f"и целый вид документов больше не читается, либо корпус действительно "
+                  f"сократился — тогда снять файл {p} и линия возьмётся заново. Пока этого "
+                  f"не сделано, «ноль находок» по этому дереву означает «ноль прочитанного»"
+            )
+            continue
+        if n > high:
+            base[tree] = {"high": n, "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+            changed = True
+    if changed:
+        try:
+            STATE.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(base, ensure_ascii=False), encoding="utf-8")
+        except OSError:
+            pass
     return bad
 
 
@@ -1585,12 +1864,18 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
     on, off = truth.enabled()
     prov = tree_provenance(truth)
     skipped = idx.get("skipped_state") or {}
+    by_tree = idx.get("live_by_tree") or {}
     parts = ([prov] if prov else []) + [
         f"осмотрено документов {c.get('docs', 0)} из {len(idx['docs'])} LIVE"
+        + (" (" + ", ".join(f"{k} {v}" for k, v in sorted(by_tree.items())) + ")"
+           if by_tree else "")
         + (" · вне LIVE по объявленному состоянию записки "
            + str(sum(skipped.values()))
            + " (" + ", ".join(f"{k} {v}" for k, v in sorted(skipped.items())) + ")"
            if skipped else ""),
+        # Раскладка ВЫВЕДЕНА, значит объём этого вывода — тоже утверждение: корней
+        # ноль читалось бы как «сайтов нет», а не как «поиск сломан».
+        f"корней документации дерева продукта {len(idx.get('doc_roots') or [])}",
         f"координат рассмотрено {c.get('coords', 0)}, "
         f"вне покрытия основания {c.get('uncovered', 0)}, "
         f"резолвится только в стволе {c.get('trunk_only', 0)}",
@@ -1642,14 +1927,25 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
 
 
 def render(findings: list[tuple[str, str, str]], stales: list[dict],
-           refusals: list[tuple[str, str]], census: str) -> str:
+           refusals: list[tuple[str, str]], census: str,
+           limit: int | None = MAX_DOCS_SHOWN) -> str:
+    """`limit=None` — печатать всё. Ровно это и означает «полный список» ниже.
+
+    Прежде обрезка стояла на ОБОИХ путях, а строка обрезки отсылала за полным
+    списком к полному обходу — то есть к себе же: совет вёл туда, где показывали
+    то же самое. Хук ловит утверждения, пережившие свой предмет, и не вправе
+    держать такое в собственном отчёте.
+    """
     KIND = {"path": "путь", "rest": "маршрут", "env": "переменная",
             "make": "цель make", "rpc": "метод"}
     out = ["╔══ docfresh ═════════════════════════════════════════════════════"]
     by_doc: dict[str, list[tuple[str, str]]] = {}
     for doc, kind, coord in findings:
         by_doc.setdefault(doc, []).append((kind, coord))
-    shown, hidden = sorted(by_doc)[:MAX_DOCS_SHOWN], max(0, len(by_doc) - MAX_DOCS_SHOWN)
+    if limit is None:
+        shown, hidden = sorted(by_doc), 0
+    else:
+        shown, hidden = sorted(by_doc)[:limit], max(0, len(by_doc) - limit)
     for doc in shown:
         out.append(f"║ {doc}")
         for kind, coord in sorted(by_doc[doc]):
@@ -1799,7 +2095,10 @@ def sweep() -> int:
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, {})
     if findings or stales:
-        sys.stdout.write(render(findings, stales, refusals, census) + "\n")
+        # Полный обход — единственный читатель, которому обрезка не полагается:
+        # его и зовут за перечнем. Обрезанный «полный список» был бы ровно тем
+        # утверждением без предмета, которое хук ищет у других.
+        sys.stdout.write(render(findings, stales, refusals, census, limit=None) + "\n")
         sys.stdout.write(f"[CENSUS] документов с расхождением "
                          f"{len({d for d, _, _ in findings})}, расхождений {len(findings)}\n")
         return 1
