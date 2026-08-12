@@ -20,6 +20,7 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/.claude"
 cp -r "$WS/.claude/skills" "$TMP/.claude/skills"
 cp -r "$WS/.claude/rules"  "$TMP/.claude/rules"
+cp -r "$WS/.claude/agents" "$TMP/.claude/agents"
 # .gitignore едет вместе: без него временное дерево «отслеживает» и посторонние
 # скилы, и перепись гейта 03 разойдётся с настоящей по причине, к предмету
 # отношения не имеющей.
@@ -27,19 +28,33 @@ cp "$WS/.gitignore" "$TMP/.gitignore"
 git -C "$TMP" init -q
 git -C "$TMP" add -A >/dev/null 2>&1
 
+# Дерево продукта — предмет проб гейта 06 (у остальных его нет). Оно под игнором,
+# поэтому в индекс временной копии не попадает и `restore` его не трогает.
+MONO_SRC="${KACHO_MONOREPO:-$WS/project/kacho}"
+if [ -d "$MONO_SRC" ]; then
+    mkdir -p "$TMP/project"
+    ln -s "$MONO_SRC" "$TMP/project/kacho"
+    HAVE_MONO=1
+else
+    HAVE_MONO=0
+fi
+
 CA="$TMP/.claude/skills/code-authoring/SKILL.md"
 GA="$TMP/.claude/skills/gate-authoring/SKILL.md"
 SS="$TMP/.claude/skills/security-surface/SKILL.md"
 DT="$TMP/.claude/skills/doc-truthfulness/SKILL.md"
 AT="$TMP/.claude/rules/ai-tooling.md"
+DW="$TMP/.claude/skills/kacho-docs-writer/SKILL.md"
 
 pass=0
 fail=0
+void=0
 
-# run <ожидаемый-код> <имя-пробы> <скрипт>
+# run <ожидаемый-код> <имя-пробы> <скрипт> [ПЕРЕМЕННАЯ=значение …]
 run() {
     local want="$1" label="$2" script="$3" out got
-    out="$(SKILLS_GATE_ROOT="$TMP" bash "$SCRIPT_DIR/$script" 2>&1)"; got=$?
+    shift 3
+    out="$(env "$@" SKILLS_GATE_ROOT="$TMP" bash "$SCRIPT_DIR/$script" 2>&1)"; got=$?
     if [ "$got" -eq "$want" ]; then
         pass=$((pass + 1)); printf '  [ok]   %-58s код %s\n' "$label" "$got"
     else
@@ -250,5 +265,58 @@ run 0 "законный близнец: маркер в преамбуле, но
 
 restore
 echo
-echo "итог инъекций: проб пройдено $pass, провалено $fail"
-[ "$fail" -eq 0 ]
+echo "== гейт 06 — объявленная раскладка документации сходится с деревом =="
+
+if [ "$HAVE_MONO" -eq 0 ]; then
+    void=$((void + 1))
+    printf '  [VOID] пробы гейта 06 НЕ ВЫПОЛНЯЛИСЬ: дерева продукта нет (%s).\n' "$MONO_SRC"
+    printf '         Это не «зелено» — предмет проб недоступен. Укажите KACHO_MONOREPO.\n'
+else
+    restore
+    run 0 "чистое дерево (законный близнец: объявление = дерево)" check-06-docs-layout-matches-tree.sh
+
+    restore
+    # Инъекция настоящим входом: имя каталога сайта, снятое в дереве продукта.
+    sed -i 's/^| каталог сайта у компонента | `docs` |/| каталог сайта у компонента | `docs-site` |/' "$DW"
+    run 1 "инъекция: объявлен каталог сайта, которого в дереве нет" check-06-docs-layout-matches-tree.sh
+    grep -q 'kacho-docs-writer/SKILL.md' <<<"${LAST_OUT:-}" \
+        && printf '  [ok]   инъекция названа координатой\n' && pass=$((pass + 1)) \
+        || { printf '  [БЕДА] гейт покраснел, но координату не назвал\n'; fail=$((fail + 1)); }
+
+    restore
+    # ЗАКОННЫЙ БЛИЗНЕЦ той же формы: то же снятое имя, но в исторической прозе, а не
+    # в объявлении. Без этой половины гейт ловил бы встречаемость строки — и запретил
+    # бы разбирать собственную ошибку, то есть ровно то письмо, ради которого он есть.
+    printf '\n> Историческая справка: прежде каталог сайта назывался `docs-site`.\n' >> "$DW"
+    run 0 "законный близнец: снятое имя в исторической прозе ⇒ молчание" check-06-docs-layout-matches-tree.sh
+
+    restore
+    sed -i 's/^| сайтов в дереве | `8` |/| сайтов в дереве | `7` |/' "$DW"
+    run 1 "инъекция: объявленное число сайтов разошлось с деревом" check-06-docs-layout-matches-tree.sh
+
+    restore
+    sed -i 's|^cd services/vpc/docs \&\& npm run build.*|cd services/vpc/docs-site \&\& npm run build|' "$DW"
+    run 1 "инъекция: сборка процитирована из каталога, которого нет" check-06-docs-layout-matches-tree.sh
+    grep -q 'docs-site' <<<"${LAST_OUT:-}" \
+        && printf '  [ok]   инъекция названа каталогом\n' && pass=$((pass + 1)) \
+        || { printf '  [БЕДА] гейт покраснел, но каталог не назвал\n'; fail=$((fail + 1)); }
+
+    restore
+    # ЗАКОННЫЙ БЛИЗНЕЦ: цитата той же формы из СУЩЕСТВУЮЩЕГО каталога.
+    sed -i 's|^cd services/vpc/docs \&\& npm run build.*|cd gateway/docs \&\& npm run build|' "$DW"
+    run 0 "законный близнец: сборка из существующего каталога ⇒ молчание" check-06-docs-layout-matches-tree.sh
+
+    restore
+    # Послабление не выдаётся удалением предмета: снятый блок — находка, а не VOID.
+    perl -0pi -e 's/^<!-- РАСКЛАДКА-ДОКУМЕНТАЦИИ.*?\n(\|[^\n]*\n)+//ms' "$DW"
+    run 1 "снятие объявления — находка, а не тихое отключение гейта" check-06-docs-layout-matches-tree.sh
+
+    restore
+    run 2 "предпосылка: дерева продукта нет ⇒ VOID, не успех" \
+        check-06-docs-layout-matches-tree.sh KACHO_MONOREPO="$TMP/dereva-net"
+fi
+
+restore
+echo
+echo "итог инъекций: проб пройдено $pass, провалено $fail, не выполнялось $void"
+[ "$fail" -eq 0 ] && [ "$void" -eq 0 ]

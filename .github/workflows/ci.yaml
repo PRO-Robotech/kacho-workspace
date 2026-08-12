@@ -137,6 +137,40 @@ jobs:
       - name: docs quote commands that exist
         run: python3 scripts/check-doc-commands.py
 
+  skills-gate:
+    name: оснастка не утверждает о дереве того, чего в нём нет
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Набор существовал, но не звался НИОТКУДА: ни один job его не запускал, и
+      # шесть проверок утверждений оснастки о дереве не исполнялись ни разу в
+      # конвейере. Проверка, которую никто не гоняет, отличается от отсутствующей
+      # только тем, что создаёт уверенность.
+      #
+      # Дерево продукта нужно `check-06`: он выводит раскладку каталогов
+      # документации из ЧУЖОГО дерева. Без него проверка честно отвечает VOID, а
+      # run-all считает VOID провалом набора — то есть тихо зелёным это не станет.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      - name: install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      # Порог — `warning`: у набора есть замечания уровня info (кавычки вокруг
+      # регулярных выражений, `A && B || C`), и они здесь намеренные. Порог назван
+      # прямо, а не спрятан за `|| true`: глушение кода возврата скрыло бы и
+      # «файла нет вовсе».
+      - name: shellcheck skills-gate
+        working-directory: scripts/skills-gate
+        run: shellcheck -x --severity=warning -- *.sh
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      - name: skills-gate доказывает свою работоспособность
+        run: bash scripts/skills-gate/inject.sh
+      - name: утверждения оснастки сверены с деревом
+        run: bash scripts/skills-gate/run-all.sh
+
   docs-gate:
     name: документы объявляют то, чем их измеряют
     runs-on: ubuntu-latest
