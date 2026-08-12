@@ -41,8 +41,23 @@ NLB) наследуют зону/регион через `subnetId` — поэт
 | F5 | Network: Delete непустой → `FAILED_PRECONDITION "network is not empty"`; `projectId` immutable; `name` UNIQUE(project,name) → `ALREADY_EXISTS` (+ concurrent-race) | module-vpc §Network, §Правила 12/13; unified §5 инв-6 |
 | F6 | Subnet: единственный placement-anchor; `placementType°` **server-derived** (unwritable) из `zoneId` XOR `regionId`; explicit reject (оба/ни одного; `placementType` в теле write) | module-vpc §Subnet, §Правила 5/11; unified §2 vpc, §5 инв-2 |
 | F7 | Subnet CIDR: `ipv4CidrPrimary` (immutable anchor ⊆ **одного** супернет-блока) + `ipv4CidrBlocks[]`; CIDR ∉ супернет → `INVALID_ARGUMENT`; no-overlap EXCLUDE → `FAILED_PRECONDITION "subnet CIDRs can not overlap"` (+ concurrent-race) | module-vpc §Subnet (CIDR-роль), §Правила 12/13; unified §5 инв-6 |
+| F7a | **Уточнение F7:** вложенность из F7 действует **безусловно** — сеть, не объявившая супернет семейства, подсеть этого семейства НЕ принимает: `INVALID_ARGUMENT "network declares no IPv4 supernet: add blocks via :add-cidr-blocks (ipv4CidrBlocks) before creating an IPv4 subnet"` (v6 — зеркально). Поле супернета опционально на `Network.Create`, поэтому сеть без адресного плана — штатное состояние, а не край; путь вперёд назван в самом отказе. Отсутствие супернета **чужого** семейства подсети не касается | module-vpc §Subnet (CIDR-роль), §Network (declared супернет); unified §5 инв-6 |
 | F8 | Subnet: zone/region coherence — существование `zoneId`/`regionId` peer-validate geo (fail-closed `UNAVAILABLE`); auto-associate `routeTableId = network.defaultRouteTableId°`; immutables | module-vpc §Subnet, §Правила 4/5/11; unified §4 (vpc→geo), §5 инв-2 |
 | F9 | Subnet: op-in-response; within-service absent-network → `NOT_FOUND` (ungated, pre-flight); peer-validate zone/region → target `FAILED_PRECONDITION` **[PHASE-0-GATED conv-11]**; malformed sync-reject; DhcpOptions сняты by design; List-filter `zoneId=`/`networkId=`; v6-only edge | module-vpc §Subnet, by-design omissions, §Правила 13; unified §1 conv-11 **[peer-validate/reason-token PHASE-0-GATED]** |
+
+> **Как читать идентификаторы фич (введено вместе с F7a).** Номер без буквы — самостоятельная
+> фича. **Буквенный суффикс — уточнение своей базовой фичи**, и строка с ним стоит **сразу
+> после** базовой, а не перед ней. Отсюда однозначность обеих форм ссылки: `F7` означает
+> базовую строку и ровно её (вложенность CIDR подсети в объявленный блок + непересечение) —
+> смысл этой ссылки не менялся, и все существующие упоминания `F7` в коде, пробах и записках
+> остаются верны; `F7a` означает уточнение и называется полностью там, где речь именно о нём.
+> Ссылка «F7 и его уточнения» пишется словами, а не подразумевается порядком строк.
+>
+> **Нумерация сценариев — только вперёд.** Новые сценарии получают следующие свободные номера
+> (`VPC-1-47` и далее) и **никогда** не вклиниваются в занятый диапазон: `VPC-1-NN` — живая
+> координата в аннотациях `# verifies …` newman-кейсов и в именах integration-проб, поэтому
+> перенумерация сделала бы неверными ссылки, которые уже кем-то написаны. Раздел фичи при этом
+> вправе стоять рядом со своей базовой, даже если его сценарии по номеру идут последними.
 
 ## Out-of-scope (явно НЕ в VPC-1)
 
@@ -580,6 +595,111 @@ derived-эхо, **explicit reject** для write-feedback полей вроде 
 
 ---
 
+## F7a — вложенность из F7 безусловна: сеть без объявленного супернета семейства не принимает подсеть этого семейства
+
+> `→ module-vpc` §Subnet (CIDR-роль), §Network (declared супернет) · `→ unified §5 инв-6`
+>
+> **Отношение к F7 — чтобы обе формы ссылки читались однозначно.** F7 говорит, ЧТО обязано быть
+> верно про принятую подсеть: её CIDR лежит внутри одного из объявленных блоков сети. F7a
+> отвечает на вопрос, который F7 оставлял открытым: что происходит, когда объявленных блоков
+> нет. Ответ — ограничение действует **безусловно** и не пропускается ни при каком состоянии
+> сети. Ссылки на `F7` продолжают означать вложенность и непересечение; F7a ничего в них не
+> переопределяет и ничего у них не отнимает.
+>
+> **Почему отказ, а не приём.** Супернет **опционален** на `Network.Create` (F2), поэтому сеть
+> без объявленного адресного плана — не редкий край, а штатное состояние целого класса сетей.
+> Пока проверка на пустом наборе блоков пропускалась, контракт заявлял вложенность безусловно,
+> а на этом классе она не значила ничего: два места об одном предмете, из которых верно одно.
+> Ослабить текст контракта было нельзя, потому что нарезать не из чего: без объявленного блока
+> подсеть перестаёт быть частью чего-либо и остаётся произвольным диапазоном, у которого с
+> соседями по сети нет отношения, кроме непересечения. Именно ради этого отношения супернет и
+> объявляется.
+>
+> **Отказ обучающий, а не тупиковый: путь вперёд назван в самом его тексте** — `:add-cidr-blocks`,
+> тот же глагол, которым супернет растят (F2/VPC-1-08). Тенанту не нужно ни пересоздавать сеть,
+> ни угадывать, чего не хватило.
+>
+> **Где стоит проверка.** Дважды, одним и тем же предикатом: синхронно **до** `Operation` — по
+> строке сети, прочитанной в том же Reader-TX; и backstop'ом в writer-TX — по актуальной строке
+> под share-lock'ом, потому что супернет мог измениться между чтением и вставкой. Тон один,
+> доставка разная: sync-путь отвечает немедленно, backstop кладёт отказ в `result.error` уже
+> созданной `Operation`.
+>
+> **Уровни проверки (обязательство DoD, названное прямо, чтобы не осталось непроверяемых
+> сценариев).** VPC-1-47/48/49 наблюдаемы через api-gateway и обязаны нести newman-кейс;
+> VPC-1-50 и VPC-1-51 через публичную поверхность **не конструируются** (см. их «And») и
+> закрепляются пробами уровня use-case и integration соответственно.
+
+### Сценарий VPC-1-47 (negative): сеть без объявленного супернета семейства → sync INVALID_ARGUMENT
+
+**ID:** VPC-1-47
+
+**Given** сеть `net-…` создана **без** `ipv4CidrBlocks` и `ipv6CidrBlocks` (оба поля опциональны на `Network.Create`, F2) — у сети нет объявленного адресного плана ни одного семейства
+
+**When** `SubnetService.Create` с `zoneId="ru-central1-a"`, `ipv4CidrPrimary="10.77.7.0/24"`
+
+**Then** **синхронный** `INVALID_ARGUMENT "network declares no IPv4 supernet: add blocks via :add-cidr-blocks (ipv4CidrBlocks) before creating an IPv4 subnet"` — отказ приходит **до** создания `Operation` (отвергнут ввод, а не состояние уже начатой мутации)
+
+**And** пара, которую утверждает кейс: на крае HTTP **400** (`api-conventions.md` §«gRPC-код → HTTP-статус»: `INVALID_ARGUMENT` → 400) **и** `code` в `google.rpc.Status` — `INVALID_ARGUMENT`. Один без другого не утверждается: только HTTP не отличил бы валидацию от состояния ресурса, только код не заметил бы смены отображения на крае
+
+**And** текст называет **семейство** (`IPv4`) и **имя поля** (`ipv4CidrBlocks`) — иначе непонятно, какие блоки объявлять; v6-зеркало: сеть без `ipv6CidrBlocks` на v6-подсеть отвечает тем же с `IPv6`/`ipv6CidrBlocks`
+
+### Сценарий VPC-1-48 (edge, положительный контроль): отсутствие супернета ЧУЖОГО семейства подсети не касается
+
+**ID:** VPC-1-48
+
+**Given** сеть `net-…` объявила **только** `ipv4CidrBlocks=["10.20.0.0/16"]`; `ipv6CidrBlocks` пуст
+
+**When** `SubnetService.Create` с `zoneId="ru-central1-a"`, `ipv4CidrPrimary="10.20.0.0/24"` (v6 не запрашивается вовсе)
+
+**Then** `Operation{done:true}`, подсеть создана — пустой v6-план к запросу отношения не имеет, и отказ был бы про то, чего не просили
+
+**And** зеркало: сеть, объявившая только `ipv6CidrBlocks`, принимает v6-only подсеть (VPC-1-46) при пустом v4-плане
+
+**And** этот сценарий — **обязательный** положительный контроль рядом с VPC-1-47: без него «отказ» зеленел бы и на реализации, отвергающей любую подсеть по любой причине. Отрицание засчитывается только в паре с положительным
+
+### Сценарий VPC-1-49: путь вперёд — объявить блоки тем глаголом, который назван в отказе
+
+**ID:** VPC-1-49
+
+**Given** сеть `net-…` и подсеть из VPC-1-47 — та же самая, только что отвергнутая
+
+**When** `NetworkService.AddCidrBlocks` (`POST /vpc/v1/networks/net-…:add-cidr-blocks`) с `ipv4CidrBlocks=["10.77.0.0/16"]`, затем **повтор того же** `SubnetService.Create` с `ipv4CidrPrimary="10.77.7.0/24"`
+
+**Then** `Operation{done:true}`; подсеть создана; `ipv4CidrPrimary` тот же, что был отвергнут минуту назад — отказ снимается ровно тем действием, которое он назвал, и ничем сверх него (ни пересозданием сети, ни сменой CIDR подсети)
+
+**And** оба шага живут в **одном** e2e-кейсе: отказ и снятие отказа проверяются на одной и той же подсети, иначе «путь вперёд» остаётся утверждением документа, а не свойством продукта
+
+### Сценарий VPC-1-50 (edge): объявленные блоки есть, но ни один из них не читается
+
+**ID:** VPC-1-50
+
+**Given** строка сети несёт **непустой** `ipv4CidrBlocks`, ни один элемент которого не разбирается в префикс
+
+**When** `SubnetService.Create` с `ipv4CidrPrimary="10.77.7.0/24"`
+
+**Then** отказ контрактным тоном F7 — `INVALID_ARGUMENT "subnet CIDR 10.77.7.0/24 is not within any network CIDR block"`. Проверка **не отвечает «да»** оттого, что сравнивать оказалось не с чем: пустой разобранный набор — то же отсутствие плана, что и пустой объявленный
+
+**And** разница между «план не объявлен» и «план объявлен нечитаемым» касается того, **кто это чинит**, а не того, можно ли из этого нарезать: и там и там у сети нет адресного плана
+
+**And** **уровень проверки, названный честно:** через публичную поверхность это состояние не построить — формат супернет-блоков валидируется на `Network.Create` и на `:add-cidr-blocks` (VPC-1-09), поэтому newman-кейса у сценария нет и быть не может; он закрепляется пробой уровня use-case. Требование от этого не слабее: ветка обязана отвергать, иначе первый же путь, приносящий блоки мимо этой валидации (восстановление из резервной копии, импорт, правка строки в обход API), вернёт молчаливый приём — и вернёт его невидимо, потому что снаружи такой сети не отличить от исправной
+
+### Сценарий VPC-1-51 (concurrent-race): супернет опустошён между sync-проверкой и вставкой
+
+**ID:** VPC-1-51
+
+**Given** (integration, testcontainers, concurrent goroutines) сеть `net-…` с `ipv4CidrBlocks=["10.1.0.0/16"]`; конкурентный `NetworkService.RemoveCidrBlocks` снимает **последний** блок семейства. Его ∉-guard (VPC-1-10) защищает только **живые** подсети, а создаваемая ещё не закоммичена — окно двустороннее и реально
+
+**When** `SubnetService.Create` с `ipv4CidrPrimary="10.1.5.0/24"` доезжает до writer-TX после коммита удаления
+
+**Then** backstop под share-lock на строке сети перечитывает **актуальный** набор и отвергает: `Operation{done:true}` c `result.error` `INVALID_ARGUMENT "network declares no IPv4 supernet: …"`. Подсети вне адресного плана в БД не появляется — решение принимается по актуальной строке, а не по устаревшему снимку (ban #10, не software check-then-act)
+
+**And** порядок блокировок единый — network → subnet (тот же, что у `Network.Delete`), поэтому инверсии с конкурентной мутацией супернета нет
+
+**And** через api-gateway этот сценарий не воспроизводится (нужны две транзакции с управляемым перекрытием) — закрепляется integration-пробой под `-race`, детерминированно: writer держит лок, а не `time.Sleep`
+
+---
+
 ## F8 — Subnet zone/region coherence (peer-validate geo); auto-associate default-RT; immutables
 
 > `→ module-vpc` §Subnet, §Правила 4/5/11 · `→ unified §4 (vpc→geo), §5 инв-2`
@@ -785,7 +905,9 @@ VPC-1 готова к merge только при выполнении ВСЕГО 
 - [ ] **Subnet write-контракт:** `placement_type` из **writable-required** → **derived/unwritable**
   (server выводит из `zoneId` XOR `regionId`; explicit reject `placementType`-в-теле); `v4_cidr_blocks[]`
   → **explicit** `ipv4CidrPrimary` (immutable anchor) + `ipv4CidrBlocks[]`; net-new валидация
-  `ipv4CidrPrimary ⊆ network supernet` (writer-TX против network-строки).
+  `ipv4CidrPrimary ⊆ network supernet` (sync по строке сети + backstop в writer-TX против
+  актуальной строки) — **безусловная**: пустой либо нечитаемый набор блоков даёт отказ, а не
+  пропуск проверки (F7a, VPC-1-47..51).
 - [ ] **AS-IS удаления (breaking proto-changes):** снят `DhcpOptions` (subnet); `v4_/v6_`-именование
   proto → `ipv4…/ipv6…` (module-vpc §Правила 14 дрейф). Op-in-response: Create/Update/Delete
   Network/Subnet возвращают `Operation{done:true}` + полное тело в `.response` (worker-fn синхронно
@@ -842,6 +964,10 @@ VPC-1 готова к merge только при выполнении ВСЕГО 
 - **F7** CIDR: explicit `ipv4CidrPrimary` anchor ⊆ супернет (net-new validation) + `ipv4CidrBlocks[]`;
   no-overlap `FAILED_PRECONDITION "subnet CIDRs can not overlap"`; per-network изоляция;
   concurrent-race (VPC-1-29..34).
+- **F7a** уточнение F7: вложенность **безусловна** — сеть без объявленного супернета семейства
+  отвергает подсеть этого семейства (`INVALID_ARGUMENT`, текст называет семейство, поле и глагол
+  `:add-cidr-blocks`); чужое семейство не задевается; нечитаемый объявленный план равен
+  необъявленному; backstop writer-TX ловит опустошение супернета под гонкой (VPC-1-47..51).
 - **F8** zone/region coherence peer-validate geo (fail-closed `UNAVAILABLE`); auto-associate default-RT;
   `networkId` immutable; self-describing derived `zoneId°`/`regionId°` (VPC-1-35..39).
 - **F9** Subnet op-in-response; by-lane absent-network → `NOT_FOUND` **ungated** (уже landed via
