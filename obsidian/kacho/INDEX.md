@@ -122,15 +122,15 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|---:|
 | Ресурсы | `resources/` | 55 |
 | gRPC-сервисы | `rpc/` | 62 |
-| Рёбра рантайма | `edges/` | 75 |
-| Пакеты | `packages/` | 116 |
+| Рёбра рантайма | `edges/` | 76 |
+| Пакеты | `packages/` | 117 |
 | Журнал работ (KAC) | `KAC/` | 213 |
 | Уроки — классы дефектов | `lessons/` | 15 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **550** |
+| **Всего** | | **552** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -358,7 +358,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/vpc-securitygroup-service\|SecurityGroupService]] | живо (stable) |
 | [[rpc/vpc-subnet-service\|SubnetService]] | живо (stable) |
 
-### Рёбра рантайма — `edges/` (75)
+### Рёбра рантайма — `edges/` (76)
 
 **вызывающий: (не указан)**
 
@@ -366,6 +366,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/cilium-overlap-tier2-l3vpn\|VPC overlap на Cilium — решение (Tier 2 / real L3VPN)]] | в работе (experimental) |
 | [[edges/registry-dataplane-public-tls\|registry data-plane → публичный TLS (docker login/push/pull)]] | живо (active) |
+| [[edges/terraform-provider-to-gateway\|terraform-провайдер → api-gateway (REST)]] | живо (active) |
 
 **вызывающий: cilium**
 
@@ -520,7 +521,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (116)
+### Пакеты — `packages/` (117)
+
+**домен: (не указан)**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: cilium**
 

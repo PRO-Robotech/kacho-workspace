@@ -1,7 +1,7 @@
 ---
 title: "terraform — провайдер Kachō для Terraform и OpenTofu"
 category: packages
-status: current
+status: active
 tags:
   - packages
   - terraform

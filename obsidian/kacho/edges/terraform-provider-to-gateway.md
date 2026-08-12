@@ -1,7 +1,7 @@
 ---
 title: "terraform-провайдер → api-gateway (REST)"
-category: edges
-status: current
+category: edge
+status: active
 tags:
   - edges
   - terraform
