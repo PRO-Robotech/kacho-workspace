@@ -83,15 +83,93 @@ expect_silent() { # expect_silent <метка> <проба-путь> <тело> 
 
 notrun() { echo "  ⊘ НЕ ВЫПОЛНИЛОСЬ: $1"; NOTRUN=$((NOTRUN+1)); }
 
+# --- предпосылка объявляется РЯДОМ с пробой и проверяется ПЕРЕД ней -----------
+#
+# Проба, чей исход объясняется не только формой, но и ЖИВОСТЬЮ названной
+# координаты, обязана эту живость объявить. Иначе переезд файла в чужом дереве
+# читается как поломка хука — и читается громко: 2026-08-11 глава `ARCHITECTURE.md`
+# уехала на уровень ниже, и отрицательная проба относительной ссылки отчиталась
+# «ЛОЖНЫЙ СРАБАТ на законной конструкции» при полностью исправном хуке, который
+# назвал координату верно. Ствол воркспейса простоял красным пять прогонов, и ни
+# один PR в это время не был судим — «сломал я» стало неотличимо от «было сломано».
+#
+# Мёртвая предпосылка — ТРЕТИЙ исход («не выполнилось»), а не разошедшаяся проба:
+# она называет, что переанкерить, и не обвиняет механизм в чужом переезде. Зелёной
+# она при этом НЕ считается: вердикт требует нуля и по этой категории тоже.
+PREMISE_SEEN=0; PREMISE_DEAD=0
+premise_live() { # premise_live <координата> → 0, если координата ЖИВА в дереве
+  PREMISE_SEEN=$((PREMISE_SEEN+1))
+  present_path "$1" && return 0
+  PREMISE_DEAD=$((PREMISE_DEAD+1)); return 1
+}
+premise_dead() { # premise_dead <координата> → 0, если координаты в дереве НЕТ
+  PREMISE_SEEN=$((PREMISE_SEEN+1))
+  absent_path "$1" && return 0
+  PREMISE_DEAD=$((PREMISE_DEAD+1)); return 1
+}
+expect_silent_live() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ЖИТЬ>
+  if premise_live "$5"; then expect_silent "$1" "$2" "$3" "$4"
+  else notrun "вход (−) «$1» мёртв: '$5' в дереве не резолвится — близнец больше не законный. Переанкерить пробу на нынешнюю координату (не ослаблять утверждение и не заносить в исключения)"; fi
+}
+expect_silent_dead() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ОТСУТСТВОВАТЬ>
+  if premise_dead "$5"; then expect_silent "$1" "$2" "$3" "$4"
+  else notrun "вход (−) «$1» испорчен: '$5' появился в дереве — молчание объяснялось бы живостью координаты, а не проверяемой формой. Переанкерить пробу"; fi
+}
+expect_fires_dead() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ОТСУТСТВОВАТЬ>
+  if premise_dead "$5"; then expect_fires "$1" "$2" "$3" "$4"
+  else notrun "вход (+) «$1» починен: '$5' появился в дереве — расхождение больше не настоящее. Переанкерить пробу на живое расхождение (не ослаблять утверждение)"; fi
+}
+
+# Общие входы объявляются здесь ОДИН раз — они несут не одну пробу, а целые разделы
+# ниже (ловушка момента, полоса ствола, воспроизводимость находки, канал Stop). Пробы,
+# у которых вход СВОЙ, объявляют его сами, рядом с собой: общий список для них был бы
+# местом, куда забывают дописать, — что и случилось с относительной ссылкой.
 echo "== предпосылки проб (живость входа) =="
 for dead in sync-tooling.sh tests/sync-tooling.bats; do
-  if absent_path "$dead"; then echo "  ✔ вход (+) жив: '$dead' в дереве отсутствует"
+  if premise_dead "$dead"; then echo "  ✔ вход (+) жив: '$dead' в дереве отсутствует"
   else notrun "'$dead' появился в дереве — проба (+) по нему больше не настоящая, заменить вход"; fi
 done
 for alive in sync-all.sh .claude/rules/vault.md pkg/ids/ids.go; do
-  if present_path "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
+  if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
+
+# Инъекция в САМ механизм предпосылки, в обе стороны. Без неё «мёртвый вход
+# отличим от поломки хука» остаётся объявлением: проверка, которую не проверили,
+# отчитывается одинаково и когда работает, и когда сломана.
+echo "  — инъекция в механизм предпосылки:"
+inj="$(expect_silent_live "инъекция: мёртвая предпосылка" pi1.md \
+        'Живой путь — `sync-all.sh`.' 'sync-all.sh' 'pkg/ids/ids-never-existed.go' 2>&1)"
+PASS=$((PASS+1)); if grep -qF 'мёртв' <<<"$inj" && ! grep -qF 'ЛОЖНЫЙ СРАБАТ' <<<"$inj" && ! grep -qF '✔' <<<"$inj"; then
+  echo "    ✔ (+) мёртвая предпосылка (−)-пробы названа мёртвой, а не ложным сработом"
+else
+  echo "    ✘ (+) мёртвая предпосылка (−)-пробы НЕ отличена от поломки хука"; PASS=$((PASS-1)); FAIL=$((FAIL+1))
+  printf '%s\n' "$inj" | sed 's/^/        /'
+fi
+inj="$(expect_silent_live "инъекция: живая предпосылка" pi2.md \
+        'Живой путь — `sync-all.sh`.' 'sync-all.sh' 'sync-all.sh' 2>&1)"
+PASS=$((PASS+1)); if grep -qF '✔ (−)' <<<"$inj"; then
+  echo "    ✔ (−) живая предпосылка пробу не задерживает — она исполняется как обычно"
+else
+  echo "    ✘ (−) живая предпосылка задержала пробу — механизм ловит форму, а не существо"; PASS=$((PASS-1)); FAIL=$((FAIL+1))
+  printf '%s\n' "$inj" | sed 's/^/        /'
+fi
+inj="$(expect_fires_dead "инъекция: воскресшая предпосылка" pi3.md \
+        'Копии генерируются `sync-tooling.sh`.' 'sync-tooling.sh' 'sync-all.sh' 2>&1)"
+PASS=$((PASS+1)); if grep -qF 'починен' <<<"$inj" && ! grep -qF 'НЕ сработал' <<<"$inj"; then
+  echo "    ✔ (+) ожившая координата (+)-пробы названа починкой входа, а не пропуском хука"
+else
+  echo "    ✘ (+) ожившая координата (+)-пробы прочиталась как пропуск хука"; PASS=$((PASS-1)); FAIL=$((FAIL+1))
+  printf '%s\n' "$inj" | sed 's/^/        /'
+fi
+inj="$(expect_fires_dead "инъекция: мёртвая координата" pi4.md \
+        'Копии генерируются `sync-tooling.sh`.' 'sync-tooling.sh' 'sync-tooling.sh' 2>&1)"
+PASS=$((PASS+1)); if grep -qF '✔ (+)' <<<"$inj"; then
+  echo "    ✔ (−) настоящее расхождение той же формы по-прежнему ловится"
+else
+  echo "    ✘ (−) настоящее расхождение той же формы перестало ловиться"; PASS=$((PASS-1)); FAIL=$((FAIL+1))
+  printf '%s\n' "$inj" | sed 's/^/        /'
+fi
 
 echo
 echo "== A. путь =="
@@ -100,36 +178,47 @@ expect_fires "снятый скрипт раскатки" a1.md \
 expect_silent "живой скрипт того же каталога" a2.md \
   'Обновить рабочие копии — `sync-all.sh`.' 'sync-all.sh'
 # Пара отличается ОДНОЙ буквой расширения — обе формы реальны, обе встречаются в
-# конвейерах, и различить их можно только обращением к дереву.
-expect_fires "workflow с расширением, которого в дереве нет" a3.md \
-  'Конвейер — `.github/workflows/ci.yml`.' '.github/workflows/ci.yml'
-expect_silent "тот же workflow с нынешним расширением" a4.md \
-  'Конвейер — `.github/workflows/ci.yaml`.' '.github/workflows/ci.yaml'
+# конвейерах, и различить их можно только обращением к дереву. Обе стороны объявляют
+# свою предпосылку: переименуй конвейер — и без объявления (+) молча перестала бы
+# краснеть, а (−) покраснела бы «ложным сработом» на правоте хука.
+expect_fires_dead "workflow с расширением, которого в дереве нет" a3.md \
+  'Конвейер — `.github/workflows/ci.yml`.' '.github/workflows/ci.yml' \
+  '.github/workflows/ci.yml'
+expect_silent_live "тот же workflow с нынешним расширением" a4.md \
+  'Конвейер — `.github/workflows/ci.yaml`.' '.github/workflows/ci.yaml' \
+  '.github/workflows/ci.yaml'
 
 echo
 echo "== A'. регрессии нормализации пути =="
 # `lstrip("./")` снимает точку КАК СИМВОЛ КЛАССА и превращает `.claude/rules/x`
 # в `claude/rules/x`. Воспроизведено трижды подряд при написании предиката,
 # поэтому проба стоит отдельно и с обеих сторон.
-expect_silent "ведущая точка каталога оснастки не съедена" b1.md \
-  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md'
-expect_silent "маркер импорта @ не часть пути" b2.md \
-  'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md'
-# Путь фикстуры пережил свод `docs-site` → `docs`: каталога `docs/architecture` больше
-# нет, а `ARCHITECTURE.md` уехал в `docs/engineering/`. Проба продолжала класть документ
-# по мёртвому адресу, поэтому `../ARCHITECTURE.md` резолвился в несуществующий файл, и
-# ЗАКОННАЯ конструкция объявлялась находкой. Координаты в документах тем сводом привели к
-# дереву (`a994b2b`), а фикстуру собственной пробы — нет: она в глаза не бросается, потому
-# что живёт в оснастке, а не в документации.
-# Нынешняя пара существует в дереве целиком: каталог `docs/engineering/architecture/`
-# наполнен главами, и `../ARCHITECTURE.md` от него ведёт в реальный файл.
-expect_silent "относительная ссылка вверх — от каталога документа" \
+expect_silent_live "ведущая точка каталога оснастки не съедена" b1.md \
+  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md' \
+  '.claude/rules/vault.md'
+expect_silent_live "маркер импорта @ не часть пути" b2.md \
+  'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md' \
+  '.claude/rules/security.md'
+# Обе стороны относительной ссылки вверх — на ОДНОЙ конструкции и на ОДНОМ имени
+# главы: различает их только каталог документа, то есть ровно то, что проверяется.
+# Пара переанкерена 2026-08-12: глава уехала на уровень `engineering/`, и прежний
+# близнец (−) перестал резолвиться — это и уронило ствол. Прежняя координата не
+# выброшена, а стала входом стороны (+): она и есть настоящее расхождение той же
+# формы. Живость обеих сторон теперь объявлена и проверяется ПЕРЕД пробой.
+expect_silent_live "относительная ссылка вверх — от каталога документа" \
   services/vpc/docs/engineering/architecture/b3.md \
-  'Соседняя глава — `../ARCHITECTURE.md`.' 'ARCHITECTURE.md'
-expect_silent "относительный путь под подразумеваемым корнем" b4.md \
-  'Хук напоминания — `hooks/vault-reminder.sh`.' 'hooks/vault-reminder.sh'
-expect_fires "тот же хвост под НЕВЕРНЫМ корнем всё равно краснеет" b5.md \
-  'Скрипт `bin/sync-tooling.sh` синхронизирует копии.' 'sync-tooling.sh'
+  'Соседняя глава — `../ARCHITECTURE.md`.' 'ARCHITECTURE.md' \
+  services/vpc/docs/engineering/ARCHITECTURE.md
+expect_fires_dead "она же вверх — на цель, которой в дереве нет" \
+  services/vpc/docs/architecture/b3neg.md \
+  'Соседняя глава — `../ARCHITECTURE.md`.' 'services/vpc/docs/ARCHITECTURE.md' \
+  services/vpc/docs/ARCHITECTURE.md
+expect_silent_live "относительный путь под подразумеваемым корнем" b4.md \
+  'Хук напоминания — `hooks/vault-reminder.sh`.' 'hooks/vault-reminder.sh' \
+  '.claude/hooks/vault-reminder.sh'
+expect_fires_dead "тот же хвост под НЕВЕРНЫМ корнем всё равно краснеет" b5.md \
+  'Скрипт `bin/sync-tooling.sh` синхронизирует копии.' 'sync-tooling.sh' \
+  'sync-tooling.sh'
 
 echo
 echo "== A''. записка хранилища судится по ОБЪЯВЛЕННОМУ состоянию =="
@@ -142,20 +231,24 @@ note() { # note <status> → тело записки, называющей сн�
   printf -- '---\ntitle: проба\ncategory: packages\nstatus: %s\n---\n\n' "$1"
   printf '%s\n' 'Копии генерирует `sync-tooling.sh`.'
 }
-expect_fires "живая записка (stable) — координата судится" \
-  obsidian/kacho/packages/p-live.md "$(note stable)" 'sync-tooling.sh'
-expect_silent "та же координата в записке-истории (deprecated)" \
-  obsidian/kacho/packages/p-hist.md "$(note deprecated)" 'sync-tooling.sh'
-expect_silent "та же координата в записке «в работе» (planned)" \
-  obsidian/kacho/edges/p-plan.md "$(note planned)" 'sync-tooling.sh'
+# Живость координаты объявлена у ОБЕИХ сторон: молчание записки-истории обязано
+# объясняться её состоянием, а не тем, что путь снова появился в дереве. Без этого
+# воскресший `sync-tooling.sh` зазеленил бы (−)-стороны и покраснил (+)-стороны —
+# и всё это читалось бы как поведение хука.
+expect_fires_dead "живая записка (stable) — координата судится" \
+  obsidian/kacho/packages/p-live.md "$(note stable)" 'sync-tooling.sh' 'sync-tooling.sh'
+expect_silent_dead "та же координата в записке-истории (deprecated)" \
+  obsidian/kacho/packages/p-hist.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
+expect_silent_dead "та же координата в записке «в работе» (planned)" \
+  obsidian/kacho/edges/p-plan.md "$(note planned)" 'sync-tooling.sh' 'sync-tooling.sh'
 # fail-closed: неизвестное значение НЕ выводит записку из-под проверки. Иначе опечатка
 # в статусе становилась бы способом снять проверку молча, а `check-03` мог бы в этот
 # момент не гоняться вовсе.
-expect_fires "неизвестное состояние не освобождает (fail-closed)" \
-  obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh'
+expect_fires_dead "неизвестное состояние не освобождает (fail-closed)" \
+  obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh' 'sync-tooling.sh'
 # граница послабления: оно про записки хранилища, а не про любой документ с frontmatter.
-expect_fires "то же поле в НЕ-записке освобождения не даёт" \
-  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh'
+expect_fires_dead "то же поле в НЕ-записке освобождения не даёт" \
+  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
 
 echo
 echo "== B. маршрут =="
@@ -208,23 +301,24 @@ echo
 echo "== F. исполняемая часть документа: пример ≠ утверждение =="
 # Огороженный блок — иллюстрация. Утверждение о дереве живёт вне блока. Гейт,
 # читающий сырой текст, нашёл бы координату ВНУТРИ примера, который её объясняет.
-expect_silent "координата внутри огороженного блока не утверждение" g1.md \
+expect_silent_dead "координата внутри огороженного блока не утверждение" g1.md \
   '# Пример устаревшей ссылки
 
 ```bash
 ./sync-tooling.sh --check
 ```
-' 'sync-tooling.sh'
-expect_silent "координата в HTML-комментарии не утверждение" g2.md \
+' 'sync-tooling.sh' 'sync-tooling.sh'
+expect_silent_dead "координата в HTML-комментарии не утверждение" g2.md \
   '<!-- было: `sync-tooling.sh` -->
-Текст.' 'sync-tooling.sh'
-expect_fires "она же вне блока — утверждение" g3.md \
-  'Гейт `sync-tooling.sh` держит копии.' 'sync-tooling.sh'
+Текст.' 'sync-tooling.sh' 'sync-tooling.sh'
+expect_fires_dead "она же вне блока — утверждение" g3.md \
+  'Гейт `sync-tooling.sh` держит копии.' 'sync-tooling.sh' 'sync-tooling.sh'
 
 echo
 echo "== G. граница покрытия: чужое не приравнивается к отсутствующему =="
-expect_silent "путь в полирепо, которого нет в дереве, — не находка" h1.md \
-  'Идентификаторы — `kacho-corelib/ids/ids.go`.' 'kacho-corelib/ids/ids.go'
+expect_silent_dead "путь в полирепо, которого нет в дереве, — не находка" h1.md \
+  'Идентификаторы — `kacho-corelib/ids/ids.go`.' 'kacho-corelib/ids/ids.go' \
+  'kacho-corelib/ids/ids.go'
 expect_silent "квалифицированный символ Go — предикат gosym отказан" h2.md \
   'Маппер — `internal/apps/kacho/shared/serviceerr.MapRepoErr`.' 'serviceerr.MapRepoErr'
 expect_silent "чужой домен REST не судится" h3.md \
@@ -427,20 +521,49 @@ else
 fi
 # Предупреждение об отставании обязано появляться ТОЛЬКО когда отставание есть,
 # иначе оно шум и его перестанут читать.
-behind="$(git -C "$WS/project/kacho" rev-list --count HEAD..main 2>/dev/null || echo 0)"
-if [ "${behind:-0}" -gt 0 ]; then
-  if printf '%s' "$out" | grep -qF 'ОТСТАЁТ от'; then
-    echo "  ✔ (+) дерево отстаёт на $behind — перепись предупреждает"; PASS=$((PASS+1))
-  else
-    echo "  ✘ (+) дерево отстаёт на $behind, а перепись молчит"; FAIL=$((FAIL+1))
+#
+# И спрашивать надо ПРО ТО ЖЕ ДЕРЕВО, про которое меришь. Прежняя редакция мерила
+# отставание ОДНОГО дерева (продукта), а искала предупреждение во ВСЕЙ строке
+# провенанса — где их два, продукта и воркспейса. На любой ветке, отставшей от
+# ствола воркспейса (то есть на каждой рабочей ветке между синхронизациями), проба
+# краснела при полностью исправном хуке. Теперь у каждого дерева спрашивается его
+# СОБСТВЕННЫЙ отрезок строки — утверждение и измерение снова об одном предмете.
+prov_segment() { # prov_segment <строка переписи> <mono|ws> → отрезок провенанса дерева
+  local line="$1" tag="$2" head tail
+  head="${line%%· воркспейс *}"
+  tail="${line#*· воркспейс }"
+  if [ "$tag" = mono ]; then printf '%s' "$head"
+  elif [ "$tail" != "$line" ]; then printf '%s' "${tail%%· осмотрено документов*}"
   fi
-else
-  if printf '%s' "$out" | grep -qF 'ОТСТАЁТ от'; then
-    echo "  ✘ (−) дерево не отстаёт, а перепись предупреждает — предупреждение всегда"; FAIL=$((FAIL+1))
+}
+behind_of() { # behind_of <корень> → на сколько коммитов копия позади ствола
+  local root="$1" n
+  n="$(git -C "$root" rev-list --count HEAD..main 2>/dev/null)" || n=0
+  printf '%s' "${n:-0}"
+}
+for tree in mono ws; do
+  case "$tree" in
+    mono) root="$WS/project/kacho"; human="дерево продукта" ;;
+    ws)   root="$WS";               human="воркспейс" ;;
+  esac
+  seg="$(prov_segment "$out" "$tree")"
+  behind="$(behind_of "$root")"
+  if [ -z "$seg" ]; then
+    notrun "провенанс не назвал отрезок «$human» — сверять предупреждение не с чем"
+  elif [ "$behind" -gt 0 ]; then
+    if printf '%s' "$seg" | grep -qF 'ОТСТАЁТ от'; then
+      echo "  ✔ (+) $human отстаёт на $behind — перепись предупреждает"; PASS=$((PASS+1))
+    else
+      echo "  ✘ (+) $human отстаёт на $behind, а перепись молчит"; FAIL=$((FAIL+1))
+    fi
   else
-    echo "  ✔ (−) дерево не отстаёт — предупреждения нет"; PASS=$((PASS+1))
+    if printf '%s' "$seg" | grep -qF 'ОТСТАЁТ от'; then
+      echo "  ✘ (−) $human не отстаёт, а перепись предупреждает — предупреждение всегда"; FAIL=$((FAIL+1))
+    else
+      echo "  ✔ (−) $human не отстаёт — предупреждения нет"; PASS=$((PASS+1))
+    fi
   fi
-fi
+done
 
 echo
 echo "== M. полоса ствола: живое на стволе — НЕ находка (обе стороны) =="
@@ -760,6 +883,9 @@ else
 fi
 
 echo
+# Объём осмотренного печатается отдельной строкой: «ни одна предпосылка не умерла»
+# обязано быть отличимо от «предпосылок никто не объявлял».
+echo "══ предпосылок объявлено и проверено: $PREMISE_SEEN · мёртвых: $PREMISE_DEAD ══"
 echo "══ проб: $((PASS+FAIL)) · сошлось: $PASS · разошлось: $FAIL · НЕ ВЫПОЛНИЛОСЬ: $NOTRUN ══"
 # «Не выполнилось» НЕ вычитается из вердикта и НЕ засчитывается за успех:
 # проба, чей вход перестал быть настоящим, ничего не доказала.
