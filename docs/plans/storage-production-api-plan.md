@@ -139,9 +139,9 @@ peer-вызовом владельца на пути запроса, fail-closed
 | | **`ChangeDiskType`** `+` | `POST /storage/v1/volumes/{volumeId}:changeDiskType` | async | `v_update` | `{storage_volume, volume_id}` |
 | SnapshotService | `Get`/`List`/`Create`/`Update`/`Delete` `есть` | `/storage/v1/snapshots…` | sync/async | как у тома | `{storage_snapshot, snapshot_id}` / `{project,…}` |
 | | **`ListOperations`** `+` | `GET /storage/v1/snapshots/{snapshotId}/operations` | sync | `v_list` | `{storage_snapshot, snapshot_id}` |
-| | **`Copy`** `+` | `POST /storage/v1/snapshots/{snapshotId}:copy` | async | `v_get` на источник + `editor` на проект цели | оба |
+| | **`Copy`** `+` | `POST /storage/v1/snapshots/{snapshotId}:copy` | async | `editor` @ `project` (из `projectId` тела) | `{project, project_id}` |
 | ImageService | `Get`/`List`/`Create`/`Update`/`Delete`/`ListOperations` `есть` | `/storage/v1/images…` | sync/async | как у тома | `{storage_image, image_id}` |
-| | **`Copy`** `+` | `POST /storage/v1/images/{imageId}:copy` | async | как у снимка | оба |
+| | **`Copy`** `+` | `POST /storage/v1/images/{imageId}:copy` | async | как у снимка | `{project, project_id}` |
 | DiskTypeService | `Get`/`List` `есть` | `/storage/v1/diskTypes…` | sync | `viewer` @ `cluster` | глобальный каталог |
 
 **Почему `ChangeDiskType` — отдельный глагол, а не поле в `Update`.** Это перемещение
@@ -284,6 +284,19 @@ POST /storage/v1/volumes/vol0a7b3c9d2e5f8g1hj:changeDiskType
 | **`usedBy[]`** `+` | output-only | какие тома засеяны этим снимком — нужно **до** удаления |
 | **`ListOperations`** `+` | RPC | есть у тома и образа, у снимка нет |
 | **`Copy`** `+` | RPC | единственный законный путь переноса данных между зонами/регионами |
+
+> [!important] Права `Copy`: `editor@project`, а не чтение источника
+> Первая редакция плана гейтила копирование чтением источника — «кто вправе
+> читать, тот вправе снять копию». Это неверно, и разница не косметическая:
+> копия есть НОВЫЙ ресурс (квота, имя, деньги), а роль наблюдателя материализует
+> чтение на каждый объект проекта. Такой гейт отдал бы наблюдателю право
+> неограниченно порождать ресурсы — повышение привилегии из чтения в запись,
+> неотличимое в дифе от обычной строки каталога.
+>
+> Пообъектного «создать» в платформе нет by construction: этот вопрос всегда
+> задают РОДИТЕЛЮ. Отсюда обязательный `projectId` в теле обоих запросов — он и
+> есть объект вопроса, — и сверка его с проектом источника тоном промаха: чужая
+> строка обязана быть неотличима от отсутствующей.
 
 ```json
 POST /storage/v1/snapshots/snp5t8y2v4j7q1p3a6bc:copy
