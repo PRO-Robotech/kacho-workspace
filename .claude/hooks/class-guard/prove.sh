@@ -892,7 +892,14 @@ tree_expect() { # tree_expect <класс> <путь от корня kacho> <fir
   if [ "$3" = fires ]; then expect_fires "$1" Write "$TREE/$2" "$4"; else expect_silent "$1" Write "$TREE/$2" "$4"; fi
 }
 tree_expect B5 deploy/scripts/remeasure-provider-listener-tls.sh   fires  "авторитета нет"
-tree_expect B5 deploy/helm/umbrella/cutover-fe3455.sh              fires  "авторитета нет"
+# Здесь стояло `fires`: файл пинил цель по ИМЕНИ контекста и авторитета рядом не имел.
+# Его починили (`9db8028e`) — теперь он читает адрес apiserver, называет имя контекста
+# «convenience filter and never the authority» и отказывается работать, если адрес не
+# прочитан. Дефекта нет, и ожидание срабатывания стало ПРОБОЙ, ТРЕБУЮЩЕЙ ДЕФЕКТА: она
+# краснела от починки продукта — то есть требовала вернуть дыру ради зелёного гейта.
+# Переведена в законный близнец: имя присутствует, авторитет рядом ⇒ хук обязан молчать.
+# Положительная сторона класса не потеряна — её держит проба строкой выше.
+tree_expect B5 deploy/helm/umbrella/cutover-fe3455.sh              silent "имя есть, авторитет рядом"
 tree_expect B5 deploy/Makefile                                     silent "guard-kind-context + guard-destructive"
 tree_expect B5 deploy/scripts/assert-admin-hop-transport.sh        silent "имя первым отсевом, решает адрес"
 tree_expect B5 deploy/scripts/inject-admin-hop-defects.sh          silent "имя первым отсевом, решает адрес"
