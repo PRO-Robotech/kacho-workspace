@@ -4,7 +4,7 @@
 > Дата: 2026-06-12
 > Ревьюер: acceptance-reviewer (gate перед кодом, ban #1)
 
-### Привязка к тикету (ban #1 + git-youtrack — обязательна ДО APPROVED-for-code)
+### Привязка к тикету (ban #1 + git-issues — обязательна ДО APPROVED-for-code)
 
 > [!important] Pre-APPROVAL gate (reviewer change #6)
 > Этот acceptance-док НЕ может быть APPROVED-for-code, пока не заполнены поля ниже

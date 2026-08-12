@@ -43,7 +43,7 @@
 | **G-D9** | **Каталог НЕ несёт compiled `permissions[]` / FGA-relation-имён** (G-Q3 закрыт): только tenant-facing grantable-токены (`(module,resource)` + verbs) + редакторские/политические флаги. Compiled-форма (`module.resource.verb`-permission-строки), FGA-relation-имена (`v_*`/`scope_grant`/`sg_*`), внутренняя машинерия модели — НЕ на публичной поверхности (`security.md`, паритет R-7/§infra-sensitive). | §2.1, G-01 |
 | **G-D10** | **Internal `InternalIAMService.ListPermissions`-stub — ВНЕ scope G** (G-Q4 закрыт): фиксится/удаляется отдельным тикетом; НОВЫЙ публичный каталог его НЕ замещает (разные таксономии: rule-токены `(module,resource)` vs `module.resource.verb`-permission-строки RPC-enforcement; разные листенеры :9091 vs public). G лишь не зависит от stub'а и не дублирует его на external. | §3, §6 |
 
-> **Hand-off-флаг (gate).** `KAC-<N>`/`[EPIC]`-placeholder (шапка) ОБЯЗАН быть заменён реальным номером Subtask «sub-phase G» до `superpowers:writing-plans` / старта кода (`git-youtrack.md`: тикет + ветка + KAC-trail). Это единственный незакрытый organizational-блокер; технических открытых вопросов в сценариях нет (G-Q1..G-Q4 закрыты → G-D7..G-D10).
+> **Hand-off-флаг (gate).** `KAC-<N>`/`[EPIC]`-placeholder (шапка) ОБЯЗАН быть заменён реальным номером Subtask «sub-phase G» до `superpowers:writing-plans` / старта кода (`git-issues.md`: тикет + ветка + KAC-trail). Это единственный незакрытый organizational-блокер; технических открытых вопросов в сценариях нет (G-Q1..G-Q4 закрыты → G-D7..G-D10).
 
 ---
 
