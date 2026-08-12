@@ -122,15 +122,15 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|---:|
 | Ресурсы | `resources/` | 55 |
 | gRPC-сервисы | `rpc/` | 62 |
-| Рёбра рантайма | `edges/` | 75 |
-| Пакеты | `packages/` | 116 |
+| Рёбра рантайма | `edges/` | 76 |
+| Пакеты | `packages/` | 117 |
 | Журнал работ (KAC) | `KAC/` | 214 |
-| Уроки — классы дефектов | `lessons/` | 15 |
+| Уроки — классы дефектов | `lessons/` | 17 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **551** |
+| **Всего** | | **555** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -358,7 +358,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/vpc-securitygroup-service\|SecurityGroupService]] | живо (stable) |
 | [[rpc/vpc-subnet-service\|SubnetService]] | живо (stable) |
 
-### Рёбра рантайма — `edges/` (75)
+### Рёбра рантайма — `edges/` (76)
 
 **вызывающий: (не указан)**
 
@@ -366,6 +366,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/cilium-overlap-tier2-l3vpn\|VPC overlap на Cilium — решение (Tier 2 / real L3VPN)]] | в работе (experimental) |
 | [[edges/registry-dataplane-public-tls\|registry data-plane → публичный TLS (docker login/push/pull)]] | живо (active) |
+| [[edges/terraform-provider-to-gateway\|terraform-провайдер → api-gateway (REST)]] | живо (active) |
 
 **вызывающий: cilium**
 
@@ -520,7 +521,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (116)
+### Пакеты — `packages/` (117)
+
+**домен: (не указан)**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: cilium**
 
@@ -922,12 +929,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
-### Уроки — классы дефектов — `lessons/` (15)
+### Уроки — классы дефектов — `lessons/` (17)
 
 | Записка | Состояние |
 |---|---|
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
+| [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
@@ -935,6 +943,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[lessons/merging-parallel-work-is-its-own-defect-source\|Сведение параллельных работ — отдельный источник дефектов, которого не видит ни один исполнитель]] | — |
 | [[lessons/metric-that-does-not-separate-the-two-states\|Метрика, чьи распределения перекрываются, не различает состояния — ни при каком пороге]] | — |
 | [[lessons/probe-premise-unsatisfiable-in-its-environment\|Предпосылка проверки едет вместе с записью в реестре, а окружение — нет]] | — |
+| [[lessons/probe-that-pins-someone-elses-tree-state\|Проба закрепила состояние чужого дерева — его починка прочиталась как поломка]] | — |
 | [[lessons/production-profile-cannot-bootstrap-from-scratch\|Профиль, который поднимается только поверх однажды поднятого]] | — |
 | [[lessons/rule-true-for-one-resolver-applied-to-all-addresses\|Правило, верное для одного резолвера, применённое ко всем адресам]] | — |
 | [[lessons/sentinel-that-replaces-its-cause-costs-the-next-hour\|Sentinel, подменяющий причину, стоит следующего часа: наружу — фиксированный текст, в журнал — что ответила сеть]] | живо (stable) |

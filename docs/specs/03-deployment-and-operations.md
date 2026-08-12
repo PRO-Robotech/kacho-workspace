@@ -265,10 +265,18 @@ jobs:
       - run: make -C gateway permission-catalog-check
       - run: make -C gateway rest-route-table-check
       - run: make -C services/{compute,nlb,storage,vpc} audit-list-filter
-  helm:                  # lint + template dev/prod
+  helm:                  # lint + template dev/prod + офлайновые стражи рендера
     steps:
-      - run: make -C deploy check-mtls-off-complete
+      - run: make -C services/vpc helm-render-guard
+      - run: make -C services/nlb helm-render-guard
 ```
+
+> Здесь стояла цель `deploy`, проверявшая полноту списка подчартов с выключенным
+> mTLS. Она снята вместе со своим предметом: подъём перестал быть двухфазным,
+> cert-manager ставится отдельным релизом ДО продукта, поэтому фазы с выключенным
+> mTLS не существует и защищать полноту её списка не от чего. Цитата пережила
+> предмет и была бы командой, которая не исполнится ни у кого, — её ловит job
+> `quoted make commands run from the monorepo root`.
 
 Публикацию образов ведёт отдельный workflow (`docker-build.yml`), не джоба `build` выше.
 Ярус proto гоняет `buf lint` + `buf breaking` против `main`
