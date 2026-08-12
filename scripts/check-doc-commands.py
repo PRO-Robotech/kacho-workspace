@@ -28,7 +28,12 @@ A cd is still checked when it decides where a make citation would run.
 There is no exception list. If something here cannot be made to run, the document
 should say so in prose instead of quoting a command that does not exist.
 
-Exit code 0 when every citation resolves, 1 otherwise (each failure printed).
+Three outcomes, not two: 0 — every citation resolves (and their number is printed);
+1 — at least one does not (each failure printed); 2 — VOID, no make citation was found
+at all, which means the extractor or the docs root moved rather than that the prose is
+clean. A census line (documents read · citations examined · Makefiles and targets in the
+ground truth) is printed before the verdict in every case, so "no findings" can be told
+apart from "nothing read".
 """
 import collections
 import os
@@ -188,16 +193,20 @@ def main():
         print("cannot check: no Makefile found under %s" % MONO, file=sys.stderr)
         return 1
     failures = []
+    docs_read = 0
+    citations = 0
     for dirpath, _, filenames in os.walk(DOCS):
         for name in sorted(filenames):
             if not name.endswith(".md"):
                 continue
             path = os.path.join(dirpath, name)
             shown = os.path.relpath(path, REPO)
+            docs_read += 1
             for lineno, snippet, lang in snippets(path):
                 for directory, target, raw in commands(snippet):
                     if target is None:
                         continue
+                    citations += 1
                     # Команда без `-C` и без `cd` исполняется ИЗ КОРНЯ монорепо.
                     #
                     # Прежде эта ветка отвечала отказом безусловно — «у корня нет
@@ -218,6 +227,15 @@ def main():
                         elif target not in targets[one]:
                             failures.append((shown, lineno, lang, raw,
                                              "%s/Makefile does not declare %r" % (one, target)))
+    # Объём осмотренного печатается ВСЕГДА и ДО вердикта: «ноль находок» обязано быть
+    # отличимо от «ноль прочитанного». Без этой строки сломавшийся разборчик цитат
+    # (переехал каталог документов, изменилась разметка) отчитывался бы тем же
+    # успехом, что и чистое дерево, — и класс, который гейт ловит в чужой прозе,
+    # завёлся бы в нём самом.
+    census = ("census: документов прочитано %d, цитат make рассмотрено %d, "
+              "каталогов с Makefile в основании %d, целей объявлено %d"
+              % (docs_read, citations, len(targets), sum(len(v) for v in targets.values())))
+    print(census)
     for shown, lineno, lang, raw, why in failures:
         print("%s:%d: [%s] %s  <-  %s" % (shown, lineno, lang, raw, why))
     if failures:
@@ -225,8 +243,16 @@ def main():
         print("Name the directory (`make -C <dir> <target>`), or say in prose that the")
         print("target does not exist instead of quoting it as a command.")
         return 1
-    print("all make citations in %s run from the monorepo root"
-          % os.path.relpath(DOCS, REPO))
+    # Ноль цитат — не «чисто», а VOID: предмета у проверки не нашлось. Эти документы
+    # цитируют make десятками, поэтому ноль означает сломанный разбор, а не идеальную
+    # прозу. Проверка, оставшаяся без предмета, обязана сказать это вслух.
+    if citations == 0:
+        print("VOID: ни одной цитаты make не нашлось в %s — проверять нечего, "
+              "предпосылка гейта не выполняется" % os.path.relpath(DOCS, REPO),
+              file=sys.stderr)
+        return 2
+    print("all %d make citations in %s run from the monorepo root"
+          % (citations, os.path.relpath(DOCS, REPO)))
     return 0
 
 
