@@ -16,7 +16,7 @@ description: Регламент написания/правки документ
 
 **НЕ сюда**: vault-записки (`obsidian/kacho/` — правила в `.claude/rules/vault.md`);
 godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); commit-messages
-(`.claude/rules/git-youtrack.md`); acceptance-доки (`acceptance-author` — это gate-артефакт,
+(`.claude/rules/git-issues.md`); acceptance-доки (`acceptance-author` — это gate-артефакт,
 а не документация).
 
 **Шов с `doc-truthfulness` (назван с обеих сторон).** Я владею **формой**: какой должна быть

@@ -62,17 +62,17 @@ newman-кейсов. Newman/integration-тест, написанный уже П
 - **Newman-кейс** (`tests/newman/cases/*.py` → `gen.py`) — black-box через api-gateway, ≥1 happy + ≥1 negative.
 
 «out of scope / follow-up / TBD» как обоснование отсутствия тестов — запрещено. Единственное
-исключение: PR ссылается на **уже открытый** KAC-тикет под эти тесты (`Tests-followup: KAC-N`),
+исключение: PR ссылается на **уже открытый** issue под эти тесты (`Tests-followup: #<N>`),
 заведённый и привязанный к эпику ДО merge. Reviewer/агент reject'ит PR без тестов.
 
 ## Test-only PR (ban #13)
 
 Задача «дописать тесты под существующий функционал»:
-- **Прод-код НЕ трогаем** — только `tests/`/`docs/`. Любой `internal/`/`cmd/`/`migrations/`-фикс → отдельный PR со своим KAC.
+- **Прод-код НЕ трогаем** — только `tests/`/`docs/`. Любой `internal/`/`cmd/`/`migrations/`-фикс → отдельный PR со своим issue.
 - **TODO/FIXME/`pm.test.skip`/закомментированный assert — запрещены** в тестах так же строго, как в проде.
 - **TDD-red против реального бага прода** = finding, не tech-debt: (a) GitHub Issue (`bug` + `verified-by:test`);
   (b) в кейсе `# verifies <issue-url>` (без skip); (c) кейс остаётся красным до фикса прода —
-  допустимое исключение из «100% pass» с декларацией в `RESULTS.md` «Known failing — product bugs» + KAC-trail.
+  допустимое исключение из «100% pass» с декларацией в `RESULTS.md` «Known failing — product bugs» + trail в vault.
 
 ## Пирамида и инфраструктура
 
