@@ -1,18 +1,20 @@
 ---
 name: kacho-docs-writer
-description: Регламент написания/правки документации Kachō — per-service docs-site (Docusaurus 3), спека-книга docs/specs 00…04, per-repo docs/architecture, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
+description: Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
 ---
 
 # Skill: kacho-docs-writer — документация Kachō
 
-Выработан на полном цикле приведения доков к продакшн-виду (de-YC всей оснастки,
-перепись спеки 00–04, два прогона вычитки `kacho-vpc/docs-site`). Это нормативный
-регламент: пиши документацию ТАК, отклонение — осознанно и с обоснованием.
+Выработан на полном цикле приведения доков к продакшн-виду: снятие сравнений с чужими
+облаками по всей оснастке, перепись спеки 00–04 и два прогона вычитки сайта vpc — тогда
+он ещё лежал в отдельном репозитории сервиса. Это нормативный регламент: пиши
+документацию ТАК, отклонение — осознанно и с обоснованием.
 
 ## 0. Когда применять / когда НЕТ
 
-**Применять**: любая работа над `docs-site/` (Docusaurus), `docs/specs/`,
-`docs/architecture/` сервиса, README репо; вычитка/актуализация существующих доков.
+**Применять**: любая работа над сайтом документации компонента (Docusaurus, §4), его
+инженерной частью, `docs/specs/` воркспейса, README; вычитка/актуализация существующих
+доков.
 
 **НЕ сюда**: vault-записки (`obsidian/kacho/` — правила в `.claude/rules/vault.md`);
 godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); commit-messages
@@ -34,14 +36,22 @@ godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); 
 |---|---|---|---|
 | Спека-книга | `docs/specs/0{0..4}-*.md` воркспейса | замысел: scope, контракт-намерения, процесс | продукт/scope/конвенции |
 | Acceptance-трейл | `docs/specs/*-acceptance.md` | point-in-time APPROVED гейты | историю решений — **НЕ редактировать** |
-| docs-site | `project/<svc>/docs-site/` (Docusaurus 3) | публичная дока сервиса: API + архитектура + install | внешнее описание сервиса |
-| docs/architecture | `project/<svc>/docs/architecture/` | внутренние by-design решения сервиса | «почему так сделано» |
-| Vault | `obsidian/kacho/` | узкие 1-3KB записки для AI-контекста | cross-repo связи (см. vault.md) |
-| README | корень репо | вход: что это, как поднять | onboarding |
+| Сайт документации компонента | `project/kacho/gateway/docs/content/` и `project/kacho/services/<svc>/docs/content/` (Docusaurus 3) | публичная дока компонента: API + архитектура + install | внешнее описание компонента |
+| Инженерная часть компонента | `project/kacho/gateway/docs/engineering/` и `project/kacho/services/<svc>/docs/engineering/` | внутренние by-design решения | «почему так сделано» |
+| Vault | `obsidian/kacho/` | узкие записки для AI-контекста | cross-repo связи (см. vault.md) |
+| README | корень репо и корень компонента | вход: что это, как поднять | onboarding |
 
 **Не дублировать между слоями** — ссылаться. Дубль = будущий drift (доказано:
-per-repo копии agents разъехались и обросли мусором; `docs/architecture` workspace
-удалён именно как дубль specs+vault).
+per-repo копии agents разъехались и обросли мусором; каталог архитектуры в воркспейсе
+удалён именно как дубль specs+vault — сегодня в `docs/` воркспейса его нет).
+
+> [!note] Публичная и инженерная части живут ПОД ОДНИМ каталогом сайта — это не описка
+> Прежняя редакция разводила их по разным местам (`docs-site/` для публичной,
+> `docs/architecture/` для инженерной) и обе координаты называла отдельно от компонента.
+> Сегодня у компонента один каталог документации, и внутри него — `content/` (то, что
+> собирается и публикуется) и `engineering/` (то, что читает разработчик и что сборка
+> не трогает). Правило «не дублировать» от этого только жёстче: одна и та же вещь,
+> объяснённая в обоих подкаталогах, теперь лежит в одном дереве и расходится быстрее.
 
 ## 2. Непреложные принципы
 
@@ -52,8 +62,11 @@ per-repo копии agents разъехались и обросли мусоро
    «расхождение с эталоном». Паттерн: страница «Особенности дизайна Kachō VPC»
    (таблица «Решение → Почему так»), а не «Known divergences from …».
 2. **Факты — только из ground-truth.** Не выдумывать и не писать по памяти. Источники
-   по приоритету: per-repo `CLAUDE.md` → `.claude/rules/*` → код/миграции/proto.
-   Неизвестно → не писать (точность > полнота).
+   по приоритету: `.claude/rules/*` воркспейса → proto/код/миграции дерева продукта →
+   `deploy/CLAUDE.md` для всего, что про стенд. Неизвестно → не писать (точность > полнота).
+   **Корневого `CLAUDE.md` у дерева продукта нет** — прежняя редакция отправляла сюда
+   за фактами именно туда, и читатель находил пустоту вместо нормы. Единственный
+   `CLAUDE.md` в дереве продукта — `deploy/CLAUDE.md`; предикат: `git ls-files '*CLAUDE.md'`.
 3. **Терминология единая**: project / `projectId` / project-level (НЕ folder);
    иерархия Account → Project; flat-resource (без envelope `metadata/spec/status`);
    мутации → async `Operation` + поллинг `OperationService.Get` (Watch не существует);
@@ -67,32 +80,62 @@ per-repo копии agents разъехались и обросли мусоро
 ## 3. Workflow правки (любой слой)
 
 1. **Scope**: какой слой, какие страницы, что триггер (новый RPC / ресурс / рефактор).
-2. **Ground-truth первым**: прочитай per-repo `CLAUDE.md` (+ узкий vault-файл ресурса,
-   если он есть) ДО открытия дока. Факты собираются здесь, не сочиняются в процессе.
+2. **Ground-truth первым**: прочитай нормативное правило домена из `.claude/rules/`
+   (+ узкий vault-файл ресурса, если он есть) ДО открытия дока. Факты собираются здесь,
+   не сочиняются в процессе.
 3. **Пиши/правь** по принципам §2 и слойному регламенту (§4–§6). Правки в выверенный
    текст — точечные (Edit), не переписывание целиком без необходимости.
-4. **Self-check** (обязателен, см. §7) + валидация слоя (§4.5 для docs-site).
+4. **Self-check** (обязателен, см. §7) + валидация слоя (§4.5 для сайта документации).
 5. **Коммит**: `docs(<scope>): …` (Conventional Commits, без attribution-trailers).
 
-## 4. docs-site (Docusaurus 3) — регламент
+## 4. Сайт документации компонента (Docusaurus 3) — регламент
 
-Эталон — `services/vpc/docs-site/` в монорепо (прежде, в полирепо, тот же сайт лежал в репозитории vpc). Новый сервисный docs-site строить по нему. Сайтов в дереве **восемь**: семь сервисных плюс `gateway/docs-site/` (замер `git ls-files` на 1653387b, 2026-08-06).
+Сайт лежит **у компонента**, в его каталоге `docs/`: `project/kacho/gateway/docs/` и
+`project/kacho/services/<svc>/docs/`. Образец, по которому строится новый, —
+`project/kacho/services/vpc/docs/`.
+
+**Признак сайта — его `docusaurus.config.ts`, а не имя каталога.** Имя каталога уже
+однажды переезжало, и всё, что было выписано именем, после переезда указывало в никуда —
+включая этот раздел. Поэтому и сборщик сайтов в дереве продукта, и гейт ниже опознают
+сайт по конфигу.
+
+<!-- РАСКЛАДКА-ДОКУМЕНТАЦИИ: сверяется scripts/skills-gate/check-06-docs-layout-matches-tree.sh -->
+| Уровень | Объявлено | Признак в дереве продукта |
+|---|---|---|
+| каталог сайта у компонента | `docs` | родитель файла `docusaurus.config.ts` |
+| каталог страниц внутри сайта | `content` | ключ `path` пресета docs в конфиге |
+| каталог инженерной части | `engineering` | подкаталог каталога сайта |
+| сайтов в дереве | `8` | число файлов `docusaurus.config.ts` |
+
+Таблица выше — не пересказ, а **объявление**: гейт выводит те же четыре значения из
+дерева продукта и роняет прогон на расхождении, называя координату. Переехала раскладка —
+правь строку здесь; не поправишь, покраснеет само.
 
 ### 4.1 Структура
 ```
-docs-site/
-├── docusaurus.config.ts        # title 'Kachō <Svc>', RU locale
+project/kacho/<component>/docs/     # <component> — gateway | services/<svc>
+├── docusaurus.config.ts        # title 'Kachō <Svc>', RU locale, onBrokenLinks/onBrokenAnchors: 'throw'
 ├── sidebars.ts                 # единственный источник навигации
-├── docs/
-│   ├── intro.mdx               # что за сервис, ресурсы, ID-префиксы, статус миграций
+├── package.json                # scripts: build / start / typecheck
+├── Dockerfile                  # образ сайта
+├── content/                    # СТРАНИЦЫ сайта (ключ `path` конфига), routeBasePath '/'
+│   ├── intro.mdx               # что за компонент, ресурсы, ID-префиксы, статус миграций
+│   ├── getting-started.mdx     # первый сценарий целиком
 │   ├── api/                    # overview + страница на КАЖДЫЙ ресурс + operations
 │   ├── architecture/           # overview, data-model, operations, ipam?, authz
 │   ├── install/                # deploy, configuration
-│   └── advanced/               # observability, design-decisions
-└── src/
-    ├── components/commonBlocks/  # ApiOperation, Codes, Restrictions, StatusTable
-    └── constants/                # codes.ts, restrictions.ts, dictionary.ts, database-schema.ts
+│   └── advanced/               # observability, осознанные дизайн-решения (есть не у каждого)
+├── engineering/                # ВНУТРЕННЯЯ часть: architecture/NN-*.md, ER-диаграмма
+├── src/
+│   ├── components/commonBlocks/  # ApiOperation, Codes, Restrictions, StatusTable, DbSchemaDiagram
+│   └── constants/                # codes.ts, restrictions.ts, dictionary.ts, database-schema.ts
+├── static/
+└── deploy/                     # helm-чарт публикации сайта
 ```
+
+`content/` собирается и публикуется, `engineering/` — нет: сборка его не видит, и битая
+ссылка оттуда гейтом §4.5 **не ловится**. Это не повод писать там небрежно — это повод
+не переносить туда то, что обязано быть проверяемым.
 
 ### 4.2 Данные — через `src/constants`, не инлайн
 Коды ошибок, ограничения полей, словарь терминов, схема БД — в TS-константах,
@@ -105,7 +148,8 @@ Frontmatter (`id`, `title`, `sidebar_position`) → 1-2 строки «что з
 поля (таблица: имя / тип / mutable?/output-only) → методы через `<ApiOperation/>`
 (Get/List sync; Create/Update/Delete + `:verb` → Operation) → ограничения
 (`<Restrictions/>`) → ошибки (`<Codes/>`, канонические тексты — точные строки из
-CLAUDE.md, они часть контракта) → preconditions/FK (что блокирует Delete).
+`.claude/rules/api-conventions.md` §Error-format, они часть контракта) →
+preconditions/FK (что блокирует Delete).
 
 ### 4.4 mermaid
 Парные `subgraph`/`end`; id нод — латиница без пробелов/кавычек; клиенты в
@@ -114,11 +158,22 @@ CLAUDE.md, они часть контракта) → preconditions/FK (что б
 
 ### 4.5 Гейт перед коммитом (обязателен)
 ```bash
-cd docs-site && npm run build   # зелёный + 0 broken links — иначе не коммитить
+make docs-sites                          # из корня дерева продукта: ВСЕ сайты разом
+cd services/vpc/docs && npm run build    # один сайт — из его каталога
 ```
-Build ловит сломанный MDX/JSX, незакрытый mermaid и битые внутренние ссылки.
-Внутренние ссылки — только на существующие страницы (карта = `sidebars.ts`).
-`build/` и `.docusaurus/` — в gitignore, не коммитить.
+Первая команда — тот же скрипт, который зовёт конвейер продукта, поэтому человек и гейт
+прогоняют одно и то же. **Вердикт — код возврата, а не наличие `build/`:** провалившаяся
+сборка Docusaurus оставляет полный каталог результата, и конвейер, копирующий его «раз он
+есть», опубликует непроверенное.
+
+Build ловит сломанный MDX/JSX, незакрытый mermaid и битые внутренние ссылки — но только
+пока конфиг держит `onBrokenLinks` и `onBrokenAnchors` на `'throw'`: понизить их до
+`'warn'` можно одной строкой, и тогда гейт останется зелёным, проверяя воздух.
+**«0 битых ссылок» покрывает меньше, чем звучит:** сырой `<a href="/чего-нет">` в MDX —
+обычный HTML-атрибут, до роутера он не доходит и собирается молча; такие якори сверяет
+уже сборщик сайтов, а не Docusaurus. Внутренние ссылки — только на существующие страницы
+(карта = `sidebars.ts`). `build/`, `.docusaurus/` и `node_modules/` — в `.gitignore` сайта,
+не коммитить.
 
 ## 5. Спека-книга `docs/specs/0{0..4}-*.md` — регламент
 
@@ -134,16 +189,20 @@ Build ловит сломанный MDX/JSX, незакрытый mermaid и б�
 
 ## 6. Чек-лист сверки фактов (что чаще всего врёт)
 
+Столбец «сверять с» — координата, а не жанр: прежняя редакция посылала за пятью фактами
+из восьми в корневой `CLAUDE.md` дерева продукта, которого там нет (§2 п.2).
+
 | Факт | Сверять с |
 |---|---|
-| ID-префиксы (vpc: `net/sub/adr/rtb/sgr/gtw/nic/apl`, Operation `enp`; compute: `epd`/`fd8`; iam: `acc/prj/usr/sva/grp/rol/acb`, Operation `iop`) | per-repo CLAUDE.md §prefixes |
-| Канонические error-тексты (`"<Resource> %s not found"`, `"Subnet CIDRs can not overlap"`, …) | CLAUDE.md §error-mapping — цитировать ТОЧНО |
-| Статус-enum'ы ресурсов | CLAUDE.md / proto |
-| FK/RESTRICT-цепочки (vpc: NIC → Address → Subnet → Network) | CLAUDE.md §FK contract |
-| REST-пути и `:verb`-actions | api-conventions.md |
-| Номера/состав миграций | `internal/migrations/` |
-| Env-переменные (`KACHO_<SVC>_*`) | config сервиса |
-| Internal-vs-public поверхность (AddressPool, Region/Zone — только :9091) | security.md |
+| ID-префиксы ресурса | `pkg/ids/ids.go` — единственный источник (`KnownPrefixes`, `KnownHyphenPrefixes`); словами — `.claude/rules/api-conventions.md` §Naming / формат |
+| Канонические error-тексты (`"<Resource> %s not found"`, …) | `.claude/rules/api-conventions.md` §Error-format — цитировать ТОЧНО |
+| gRPC-код → HTTP-статус | `.claude/rules/api-conventions.md` §gRPC-код → HTTP-статус (таблица края) — не угадывать по имени кода |
+| Статус-enum'ы ресурсов | `proto/kacho/cloud/<domain>/v1/` |
+| FK/RESTRICT-цепочки | `services/<svc>/internal/migrations/` |
+| REST-пути и `:verb`-actions | `.claude/rules/api-conventions.md` + `gateway/internal/restmux/` |
+| Номера/состав миграций | `services/<svc>/internal/migrations/` |
+| Env-переменные (`KACHO_<SVC>_*`) | config сервиса в его `internal/` |
+| Internal-vs-public поверхность | `.claude/rules/security.md` §Internal-vs-external |
 
 ## 7. Self-check перед коммитом (любой слой)
 
@@ -151,27 +210,44 @@ Build ловит сломанный MDX/JSX, незакрытый mermaid и б�
 # запрещённое (допустим только CI-гейт verify-no-yandex и имена исторических миграций):
 grep -rniE 'yandex|\bYC\b|yc-|\bAWS\b|parity|verbatim|\bfolder\b|upsert|resourceVersion|finalizer|Watch Hub' <изменённые файлы>
 ```
-Плюс: неявные сравнения (§2.1) глазами; внутренние ссылки существуют; для docs-site — §4.5.
+Плюс: неявные сравнения (§2.1) глазами; внутренние ссылки существуют; для сайта
+документации — §4.5.
 
 ## 8. Анти-паттерны (реально пойманные в Kachō)
 
 - **Рамка сравнения** («Known divergences from X», «verbatim-X контракт» в JSDoc
   компонента) — переосмыслить как собственные решения, включая комментарии в коде сайта.
-- **Выдуманные факты**: в `intro.mdx` стояли НЕВЕРНЫЕ ID-префиксы (`enp/e9b` вместо
-  `net/sub/…`) — написаны по памяти, не по CLAUDE.md. Всегда §6.
+- **Выдуманные факты**: во вводной странице сайта стояли НЕВЕРНЫЕ ID-префиксы — написаны
+  по памяти, а не по каталогу префиксов. Всегда §6.
+- **Координата, пережившая переезд**: этот самый раздел объявлял каталог документации
+  именем, снятым в дереве продукта, и предписывал работу над ним. Регламент читается
+  чаще любого другого текста, поэтому его устаревшая координата дороже всех прочих:
+  следующий исполнитель идёт по ней и находит пустоту. Отсюда объявление раскладки в §4
+  и гейт, который его сверяет.
 - **Stale-глава при живом соседе**: 00 переписали, 01–04 остались со старым контрактом
   (upsert/Watch/envelope) — книга противоречила сама себе. Правишь контракт → проходи
   ВСЕ главы/страницы, где он упомянут (grep по ключам §7).
 - **Битая ссылка на удалённую страницу** (`/architecture/conventions`) — после любого
   удаления/переименования страницы: grep по старому пути + build.
-- **Дубль overview между слоями** (workspace docs/architecture дублировал specs) —
-  один владелец, остальные ссылаются.
+- **Дубль overview между слоями** (каталог архитектуры воркспейса дублировал specs; он
+  снят) — один владелец, остальные ссылаются.
 - **50KB README** — разбивать; вход должен читаться за минуты.
 - **Правка acceptance-доков задним числом** — запрещено, это трейл.
 
 ## 9. Смежные роли
 
-Generic-методология doc-систем — skill `code-documenter` (Docusaurus/MkDocs справка).
-Канонические error-тексты и REQ-* — `<svc>-conventions-auditor` (аудит) и
-`tests/newman/docs/PRODUCT-REQUIREMENTS.md` (нормативный реестр). Тестовая
-документация (RESULTS.md, CASES-INDEX) — `<svc>-newman-author`.
+- **Истинность написанного во времени** — skill `doc-truthfulness` (шов назван в §0).
+- **Канонические error-тексты и коды** — `.claude/rules/api-conventions.md`; нормативный
+  реестр требований продукта — `services/<svc>/tests/newman/docs/PRODUCT-REQUIREMENTS.md`.
+  Он есть **не у каждого** сервиса: предикат — `git ls-files '*PRODUCT-REQUIREMENTS.md'`
+  в дереве продукта, и «файла нет» здесь означает «реестра нет», а не «ищи в другом месте».
+- **Тестовая документация** (отчёт прогона, указатель кейсов) живёт рядом с самими
+  кейсами — `services/<svc>/tests/newman/docs/`.
+
+> [!note] Здесь стояли три имени, которых в дереве нет
+> Прежняя редакция отправляла за generic-методологией к скилу, отсутствующему в перечне
+> канонических (`.claude/rules/ai-tooling.md` §Канонические скилы), а за аудитом и
+> тестовой документацией — к двум доменным агентам вида `<svc>-*`. Ни одного доменного
+> агента в дереве нет: `git ls-files .claude/agents/` даёт только generic-набор, а
+> `.claude/` дерева продукта агентов не содержит вовсе. Ссылка на роль, которую некому
+> исполнить, читается как «это чужая забота» — и работа не делается никем.
