@@ -46,7 +46,8 @@ storage, vpc.
 
 ## Граф сборки: один модуль, ноль `replace`
 
-`go.mod` в дереве **1**, модуль `github.com/PRO-Robotech/kacho`; `replace` на внутренний
+`go.mod` в дереве **2** (продукт `github.com/PRO-Robotech/kacho` и Terraform-провайдер
+`…/terraform`, который модуль продукта не импортирует); `replace` на внутренний
 модуль — **0**. Порядок `proto/` → `pkg/` → `services/*` / `gateway/` — это порядок
 **импортов**, а не пинов версий.
 
