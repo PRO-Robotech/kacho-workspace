@@ -164,94 +164,131 @@ run 1 "$b" "слепая зона глубины: вложенная запис�
 b="$(mksandbox obsidian/kacho/KAC)"
 run 2 "$b" "предпосылка: записок нет — VOID, а не успех" check-02-kac-trail-status.py
 
-echo "== check-03: строка Scope приёмки без сценария =="
-b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-03-scope-row-scenario.py
+echo "== check-03: «этот кейс держится» без проверяемой координаты =="
 
-# Вход у проб ниже ПОЛНОСТЬЮ под контролем пробы: каталог приёмок выброшен и
-# заменён своим документом. Иначе вердикт был бы заложником сегодняшнего состава
-# корпуса, а не свойства, о котором проба утверждает.
-SCOPE_ROWS=$'## Scope\n\n| # | Фича | Traceability |\n|---|---|---|\n| F1 | первая фича | — |\n'
+# Монорепо для check-03 берётся ОТДЕЛЬНО от песочницы: песочница подменяет
+# документ, а судьёй остаётся настоящее дерево продукта. Иначе инъекция
+# доказывала бы разбор markdown, а не сверку с деревом.
+REPO="${KACHO_MONOREPO:-$WS/project/kacho}"
+if [ ! -d "$REPO/.git" ]; then
+    echo "  ПРОПУСК check-03 — монорепо не найдено; пробы этой проверки НЕ исполнены" >&2
+    echo "  (это не «ноль находок»: непрогнанные пробы в число исполненных не входят, и итог" >&2
+    echo "   ниже назовёт меньшее число — «провалов 0» на них ничего не утверждает)" >&2
+else
+# Путь к дереву ПЕРЕДАЁТСЯ проверке явно: она запускается с рабочим каталогом
+# песочницы, где `project/kacho` не лежит и лежать не может. Без передачи проверка
+# честно отвечает «без предмета» (код 2), а проба ждёт отказа (код 1) — и десять
+# сценариев проваливаются по причине, к предмету не относящейся.
+export KACHO_MONOREPO="$REPO"
 
-# Инъекция настоящим дефектом: строка перечня есть, раздела со сценарием нет.
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
-printf '# Приёмка со строкой Scope без сценария\n\n%s\n' "$SCOPE_ROWS" > "$b/$SPEC"
+# Реальные координаты дерева продукта. Они обязаны существовать — иначе законный
+# близнец краснел бы по причине, к предмету не относящейся.
+REAL_FILE="internal/repohygiene/participationconformance_test.go"
+REAL_TEST="TestEveryCarrierParticipantIsRaisedByAProbe"
+
+# spec <состояние-строки> — приёмка с одним сценарием и одной строкой таблицы.
+# Вход полностью под контролем пробы: каталог приёмок выброшен, поэтому вердикт
+# читается как «эта строка отнесена к этой корзине», а не как заложник корпуса.
+spec() {
+    printf '# Инъекция\n\n> **Статус:** DRAFT\n\n## §4 Сценарии\n\n'
+    printf '**XC-99-01 — проба инъекции**\n- **Then** наблюдаемо\n\n'
+    printf '#### Состояние исполнения\n\n| кейс | состояние | чем держится |\n|---|---|---|\n'
+    printf '%s\n' "$1"
+}
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`$REAL_FILE\` :: \`$REAL_TEST\` |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
-run 1 "$b" "инъекция: строка Scope без раздела — краснеет и называет координату" \
-    check-03-scope-row-scenario.py "F1: раздела"
+run 0 "$b" "близнец: файл и имя проверки резолвятся — молчит" check-03-holding-claim-resolves.py
 
-# Законный близнец №1 — ТА ЖЕ строка перечня, отличается только тем, что сценарий
-# написан. Без него гейт ловил бы «в приёмке есть таблица», а не отсутствие
-# сценария.
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`internal/repohygiene/nosuchgate_test.go\` :: \`$REAL_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: файла нет в индексе монорепо — краснеет и называет путь" \
+    check-03-holding-claim-resolves.py "nosuchgate_test.go"
+
+# Предмет всей проверки: файл СУЩЕСТВУЕТ, а названной в нём проверки нет. Именно
+# так выглядела строка, объявлявшая кейс держащимся файлом, в котором требуемого
+# утверждения не было. Проба на существование файла эту строку пропускает.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`$REAL_FILE\` :: \`TestNoSuchProbeInThatFile\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: файл есть, проверки в нём нет — краснеет и называет имя" \
+    check-03-holding-claim-resolves.py "TestNoSuchProbeInThatFile"
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`$REAL_FILE\` — участник без пробы назван поимённо |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: назван только файл, без имени проверки — краснеет" \
+    check-03-holding-claim-resolves.py "не называет ПРОВЕРКУ"
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | не начат | \`$REAL_FILE\` :: \`$REAL_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: «не начат» с координатой — строка противоречит себе" \
+    check-03-holding-claim-resolves.py "противоречит себе"
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | не начат | предмет Ф2 |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 0 "$b" "близнец: «не начат» без координаты — молчит" check-03-holding-claim-resolves.py
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | почти готов | \`$REAL_FILE\` :: \`$REAL_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 1 "$b" "инъекция: состояние вне закрытого набора — краснеет" \
+    check-03-holding-claim-resolves.py "вне закрытого набора"
+
+# Обе стороны перечня. Сценарий без строки уходит из счёта молча — ровно это и
+# дало «восемь исполнено» там, где кейсов пятнадцать.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 {
-    printf '# Приёмка со сценарием\n\n%s\n' "$SCOPE_ROWS"
-    printf '## F1 — первая фича\n\n### Сценарий X-01\n\n'
-    printf '**When** вызов\n\n**Then** отказ\n'
+    spec "| XC-99-01 | держится | \`$REAL_FILE\` :: \`$REAL_TEST\` |"
+    printf '\n**XC-99-02 — сценарий без строки**\n- **Then** наблюдаемо\n'
 } > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
-run 0 "$b" "близнец: раздел со сценарием — молчит" check-03-scope-row-scenario.py
+run 1 "$b" "инъекция: сценарий без строки таблицы — краснеет" \
+    check-03-holding-claim-resolves.py "XC-99-02"
 
-# Законный близнец №2 — раздел БЕЗ сценария, но с передачей в дочернюю приёмку,
-# где сценарии того же идентификатора живут. Форма та же, что у дефекта, поэтому
-# без этой пробы гейт запрещал бы законную композицию родитель/ребёнок.
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 {
-    printf '# Родительская приёмка\n\n%s\n' "$SCOPE_ROWS"
-    printf '## F1 — первая фича\n\n'
-    printf '> Given-When-Then живут в `sub-phase-injected-child-…` §F1.\n'
-} > "$b/$SPEC"
-{
-    printf '# Дочерняя приёмка\n\n## F1 — первая фича\n\n'
-    printf '**When** вызов\n\n**Then** отказ\n'
-} > "$b/docs/specs/sub-phase-injected-child-acceptance.md"
-git -C "$b" add -A -f >/dev/null 2>&1
-run 0 "$b" "близнец: передача в дочернюю приёмку резолвится — молчит" \
-    check-03-scope-row-scenario.py "передано в дочернюю приёмку 1"
-
-# Послабление обязано истекать САМО: у той же передачи выпотрошен ребёнок —
-# сценариев там больше нет. Ссылка цела, предмета у неё нет, и это находка.
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
-{
-    printf '# Родительская приёмка\n\n%s\n' "$SCOPE_ROWS"
-    printf '## F1 — первая фича\n\n'
-    printf '> Given-When-Then живут в `sub-phase-injected-child-…` §F1.\n'
-} > "$b/$SPEC"
-printf '# Дочерняя приёмка\n\n## F1 — первая фича\n\nОписание без сценария.\n' \
-    > "$b/docs/specs/sub-phase-injected-child-acceptance.md"
-git -C "$b" add -A -f >/dev/null 2>&1
-run 1 "$b" "самоистечение: ребёнок без сценария — передача перестаёт покрывать" \
-    check-03-scope-row-scenario.py "раздела F1 со сценарием в ней нет"
-
-# Различение соседних идентификаторов: `F7` и `F7a` — РАЗНЫЕ строки, и раздел
-# одного не закрывает другую. Ровно этим отличается перечень с буквенным
-# суффиксом от перечня без него.
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
-{
-    printf '# Приёмка с уточняющей строкой\n\n## Scope\n\n| # | Фича |\n|---|---|\n'
-    printf '| F7 | базовая |\n| F7a | уточнение |\n\n'
-    printf '## F7 — базовая\n\n**When** вызов\n\n**Then** отказ\n'
+    spec "| XC-99-01 | держится | \`$REAL_FILE\` :: \`$REAL_TEST\` |"
+    printf '| XC-99-07 | не начат | предмет Ф2 |\n'
 } > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
-run 1 "$b" "суффикс: раздел F7 не закрывает строку F7a — краснеет" \
-    check-03-scope-row-scenario.py "F7a: раздела"
+run 1 "$b" "инъекция: строка таблицы без сценария — краснеет" \
+    check-03-holding-claim-resolves.py "XC-99-07"
 
-b="$(mksandbox docs/specs)"
-run 2 "$b" "предпосылка: приёмок нет — VOID, а не успех" check-03-scope-row-scenario.py
-
-# Предмет теряется и вторым способом — перечень перестал объявляться строками
-# `| F<N> |`. «Находок ноль» здесь означало бы «прочитано ноль».
-b="$(mksandbox docs/specs)"
-mkdir -p "$b/docs/specs"
-printf '# Приёмка без перечня фич\n\n## Scope\n\n| ID | Решение |\n|---|---|\n| D1 | что-то |\n' \
-    > "$b/$SPEC"
+# Законный близнец ЧУЖОЙ формы: таблица с колонкой «чем держится», где речь о
+# механизме, а не о кейсе. Такие в корпусе есть (слои, цена плана), и проверка
+# обязана на них молчать — иначе она ловит форму, а не существо.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+{
+    printf '# Инъекция\n\n> **Статус:** DRAFT\n\n'
+    printf '| Слой | Предмет | Чем держится |\n|---|---|---|\n'
+    printf '| C1 | входящий запрос | компилятор и отказ старта |\n'
+} > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
-run 2 "$b" "предпосылка: состав объявлен не фичами — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+run 2 "$b" "близнец: таблица о механизме, а не о кейсе — предметом не является (VOID)" \
+    check-03-holding-claim-resolves.py "предмет не найден"
+
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+printf '# Приёмка без таблицы состояния\n\n> **Статус:** DRAFT\n' > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+run 2 "$b" "предпосылка: таблиц состояния нет — VOID, а не успех" \
+    check-03-holding-claim-resolves.py
+
+# Предпосылка второго рода: без дерева продукта координату проверять не по чему.
+probes=$((probes + 1))
+out="$(DOCS_GATE_ROOT="$b" KACHO_MONOREPO="$TMP/нет-такого" "$HERE/check-03-holding-claim-resolves.py" 2>&1)"
+if [ $? -eq 2 ]; then
+    echo "  ok   предпосылка: монорепо не найдено — VOID, а не успех (код 2)"
+else
+    echo "  ПРОВАЛ предпосылка: монорепо не найдено — ждали код 2" >&2
+    printf '%s\n' "$out" >&2
+    failed=$((failed + 1))
+fi
+fi
 
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
