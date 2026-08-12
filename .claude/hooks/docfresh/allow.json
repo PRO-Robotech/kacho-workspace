@@ -42,6 +42,12 @@
       "ground": "git check-ignore -v .claude/hooks/class-guard/.state/class-guard.stats.json → '.claude/hooks/class-guard/.gitignore:16:.state/' (код 0 = игнор намеренный и закоммичен)"
     },
     {
+      "kind": "path",
+      "coordinate": ".state/live-baseline.json",
+      "reason": "тот же второй класс, что и у статистики соседнего гейта: артефакт ВРЕМЕНИ ИСПОЛНЕНИЯ, намеренно не отслеживаемый. Файл существует на диске (его пишет сам хук, когда корпус растёт) и накрыт закоммиченным .claude/hooks/docfresh/.gitignore, поэтому в `git ls-files` его нет, а основание истины строится из него. Документ прав, а хук смотрит на другое множество",
+      "ground": "git check-ignore -v .claude/hooks/docfresh/.state/live-baseline.json → '.claude/hooks/docfresh/.gitignore:8:.state/' (код 0 = игнор намеренный и закоммичен)"
+    },
+    {
       "kind": "make",
       "coordinate": "target",
       "reason": "тот же заполнитель из той же клетки: 'make target' называет ФОРМУ цитаты команды, а не цель сборки. Настоящая цель здесь не подразумевается",
