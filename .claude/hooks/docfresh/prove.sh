@@ -115,8 +115,16 @@ expect_silent "ведущая точка каталога оснастки не 
   'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md'
 expect_silent "маркер импорта @ не часть пути" b2.md \
   'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md'
+# Путь фикстуры пережил свод `docs-site` → `docs`: каталога `docs/architecture` больше
+# нет, а `ARCHITECTURE.md` уехал в `docs/engineering/`. Проба продолжала класть документ
+# по мёртвому адресу, поэтому `../ARCHITECTURE.md` резолвился в несуществующий файл, и
+# ЗАКОННАЯ конструкция объявлялась находкой. Координаты в документах тем сводом привели к
+# дереву (`a994b2b`), а фикстуру собственной пробы — нет: она в глаза не бросается, потому
+# что живёт в оснастке, а не в документации.
+# Нынешняя пара существует в дереве целиком: каталог `docs/engineering/architecture/`
+# наполнен главами, и `../ARCHITECTURE.md` от него ведёт в реальный файл.
 expect_silent "относительная ссылка вверх — от каталога документа" \
-  services/vpc/docs/architecture/b3.md \
+  services/vpc/docs/engineering/architecture/b3.md \
   'Соседняя глава — `../ARCHITECTURE.md`.' 'ARCHITECTURE.md'
 expect_silent "относительный путь под подразумеваемым корнем" b4.md \
   'Хук напоминания — `hooks/vault-reminder.sh`.' 'hooks/vault-reminder.sh'
