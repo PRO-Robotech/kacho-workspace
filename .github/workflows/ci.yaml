@@ -129,6 +129,11 @@ jobs:
           repository: PRO-Robotech/kacho
           ref: main
           path: project/kacho
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть, способен смолчать и
+      # способен отличить «предмета нет» от «всё чисто». Гейт, чью работоспособность
+      # не доказали, печатает один и тот же успех в обоих случаях.
+      - name: гейт цитат доказывает свою работоспособность
+        run: bash scripts/check-doc-commands-inject.sh
       - name: docs quote commands that exist
         run: python3 scripts/check-doc-commands.py
 
