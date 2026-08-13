@@ -5,7 +5,7 @@
 > Ревьюер: acceptance-reviewer (gate перед кодом, ban #1) — ✅ APPROVED, см. §«Acceptance Review» внизу
 > Трек: **CIL** (Cilium SRv6 L3VPN data-plane realization) — control-plane prerequisite
 
-### Привязка к тикету (ban #1 + git-youtrack — обязательна ДО APPROVED-for-code)
+### Привязка к тикету (ban #1 + git-issues — обязательна ДО APPROVED-for-code)
 
 > [!important] Pre-APPROVAL gate
 > Док НЕ может быть APPROVED-for-code, пока поля ниже не заполнены **реальным** KAC-номером

@@ -5,7 +5,7 @@
 > Ревьюер: acceptance-reviewer (gate перед кодом, ban #1)
 > Скилы: `k8s-operator-workflow` (dev-loop / RBAC / kind-only safety), `k8s-quality-checklist` (controller / RBAC / safety / idempotency), `evgeniy` (Go-стиль для operator-кода)
 
-### Привязка к тикету (ban #1 + git-youtrack — обязательна ДО APPROVED-for-code)
+### Привязка к тикету (ban #1 + git-issues — обязательна ДО APPROVED-for-code)
 
 > [!important] Pre-APPROVAL gate
 > Этот acceptance-док НЕ может быть APPROVED-for-code, пока поля ниже не заполнены

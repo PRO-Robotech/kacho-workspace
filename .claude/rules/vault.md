@@ -38,7 +38,7 @@ MCP-сервер пишет в собственную vault-директорию
 | Меняем RPC | `rpc/<repo>-<service>.md` — методы, REST mapping, sync/async |
 | Меняем пакет | `packages/<repo>-<pkg>.md` — exported API, imports, imported-by |
 | Cross-service interaction | `edges/<caller>-to-<callee>-<purpose>.md` — protocol, sync/async, error, history |
-| KAC-тикет в работе | `KAC/KAC-<N>.md` (создать если нет) |
+| Задача (issue) в работе | `KAC/issue-<N>.md` (создать если нет) |
 | Не знаю с чего начать | `INDEX.md` / `README.md` |
 
 Нужно > 3 vault-файлов → остановись и переосмысли scope.
@@ -47,16 +47,23 @@ MCP-сервер пишет в собственную vault-директорию
 
 - Изменилась структура ресурса (поле/status/FK/immutable) → `resources/<X>.md`.
 - Добавлен/изменён/удалён RPC → `rpc/<service>.md`. Изменился exported API пакета → `packages/<pkg>.md`.
-- Изменилось cross-service runtime поведение → `edges/<edge>.md` + запись в "History" с KAC-номером.
+- Изменилось cross-service runtime поведение → `edges/<edge>.md` + запись в "History" с номером issue.
 - Затронуто поведение, которого нет в vault → создай **новую** узкую запись (1-3KB).
-- KAC-тикет → `KAC/KAC-<N>.md`: «Затронутые сущности vault» + PR-URL + status. Формат — см. `obsidian/kacho/CLAUDE.md`.
+- Задача → `KAC/issue-<N>.md`: «Затронутые сущности vault» + PR-URL + status. Формат — см. `obsidian/kacho/CLAUDE.md`.
 
-## KAC-trail (обязателен для каждого тикета)
+## Trail задачи (обязателен для каждой)
 
-`obsidian/kacho/KAC/KAC-<N>.md` создаётся при первом упоминании тикета / создании ветки.
-Содержит: Status (in-progress|test|done|wontfix), Type, Repos, PRs, YT-ссылку, «Что и зачем»,
-«Затронутые сущности vault» (wikilinks на resources/packages/edges/rpc), DoD-чеклист, связанные тикеты.
-Обновлять после каждого merge и смены status в YT.
+`obsidian/kacho/KAC/issue-<N>.md` создаётся при первом упоминании задачи / создании ветки.
+Содержит: Status (in-progress|test|done|wontfix), Type, затронутые каталоги, PR'ы, ссылку на
+issue, «Что и зачем», «Затронутые сущности vault» (wikilinks на resources/packages/edges/rpc),
+DoD-чеклист, связанные задачи. Обновлять после каждого merge и смены состояния.
+
+> [!note] Каталог называется `KAC/` по историческому трекеру — это НЕ указание на него
+> До 2026-08-12 задачи вели в отдельном трекере (проект `KAC`), и в каталоге лежат 214 его
+> записок вида `KAC-<N>.md`. Переименовывать их нельзя: они свидетельствуют о сделанном, а
+> не предписывают. Проверка `scripts/docs-gate/check-02-kac-trail-status.py` обходит
+> **каталог**, а не префикс имени, поэтому новые записки лежат там же под именем по номеру
+> issue и ничего не ломают. Полное решение о смене трекера — `git-issues.md`.
 
 ## Запреты
 

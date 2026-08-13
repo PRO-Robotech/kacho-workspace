@@ -37,7 +37,8 @@ tags:
   `[[../KAC/KAC-94]]` — исторический хвост, она работает, но ломается при переносе файла
   в другой каталог. Новые ссылки пишем от корня.
 - **Tags** для группировки: `#kac`, `#kacho-vpc`, `#resource`, `#rpc`, `#edge`, `#packages`.
-- **KAC-trail** обязателен для каждого тикета.
+- **Trail задачи** обязателен для каждой (`KAC/issue-<N>.md`; каталог сохраняет
+  историческое имя — см. `.claude/rules/git-issues.md`).
 - Source of truth для прямых ссылок на код — путь в `kacho-workspace/project/<repo>/...`.
 
 ## Канонические теги (consolidated)
@@ -108,7 +109,9 @@ tags:
 - **packages/**: `repo` (домен, наследие полирепо-словаря), `layer`, `path` (каталог в
   монорепо — машинно проверяемый).
 - **edges/**: `caller_repo`, `callee_repo`, `sync_async`, `protocol`, `related_tickets[]`.
-- **KAC/**: `ticket_id`, `type`, `repos[]`, `prs[]`, `yt_url`, `opened`, `closed`.
+- **KAC/**: `ticket_id`, `type`, `repos[]`, `prs[]`, `issue_url`, `opened`, `closed`.
+  (`yt_url` — поле прежнего трекера; в записках, заведённых до 2026-08-12, оно остаётся
+  как история и не переписывается.)
 
 Inline `#tag`-строка в конце файла остаётся синхронной с `tags:` (kepano best practice: один источник, две локации).
 

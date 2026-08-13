@@ -124,13 +124,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | gRPC-сервисы | `rpc/` | 62 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 214 |
+| Журнал работ (KAC) | `KAC/` | 217 |
 | Уроки — классы дефектов | `lessons/` | 17 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **555** |
+| **Всего** | | **558** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -710,7 +710,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (214)
+### Журнал работ (KAC) — `KAC/` (217)
 
 | Записка | Состояние |
 |---|---|
@@ -838,6 +838,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/KAC-XC-11\|KAC-XC-11: конформанс участия сервиса в контракте прав]] | в работе (in-progress) |
 | [[KAC/KAC-XC-2\|KAC-XC-2: единая библиотека интеграции с правами]] | в работе (planned) |
 | [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (in-progress) |
+| [[KAC/KAC-XC-7\|KAC-XC-7: единый контур работы с iam — носитель]] | в работе (in-progress) |
 | [[KAC/KAC-newman-100pct-batch\|KAC batch: Newman 100% green push (2026-05-26)]] | в работе (in-progress) |
 | [[KAC/KAC-registry-iam-jwks-unify\|registry-iam-jwks-unify: registry verifies via iam INTERNAL Hydra-JWKS proxy]] | живо (done) |
 | [[KAC/NLB-1b-expand-loadbalancer-listener-core\|NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)]] | живо (done) |
@@ -856,7 +857,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/SEC-HAT-provider-admin-hop-tls\|SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом]] | живо (done) |
 | [[KAC/SEC-J-gateway-hydra-jwks-authn\|SEC-J: api-gateway validates real Hydra RS256 access JWTs in the principal path]] | живо (done) |
 | [[KAC/SEC-L-rest-internal-isolation\|SEC-L: isolate Internal* REST from the external listener + drop Internal* FQNs from public allowlist]] | живо (done) |
-| [[KAC/_TEMPLATE\|KAC-<N>: <one-line summary>]] | в работе (in-progress) |
+| [[KAC/_TEMPLATE\|#<N>: <one-line summary>]] | в работе (in-progress) |
 | [[KAC/api-ux-review-redesign\|API-UX ревью редизайна — панель критиков (раунд 1)]] | в работе (reference) |
 | [[KAC/audit-divergence-redesign-vs-main\|Аудит расхождения redesign/integration vs main — раунд 1]] | в работе (reference) |
 | [[KAC/audit-hardening-low-2026-07-09\|audit-hardening-low-2026-07-09]] | живо (done) |
@@ -886,6 +887,8 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
+| [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
+| [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |

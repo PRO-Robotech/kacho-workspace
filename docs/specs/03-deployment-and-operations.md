@@ -292,7 +292,7 @@ Kachō разрабатывается, тестируется и сопрово�
 это «команда» из четырёх слоёв:
 
 - **rules** (`.claude/rules/*.md`) — нормативные правила (naming, api-conventions, polyrepo,
-  architecture, data-integrity, security, testing, git-youtrack, vault).
+  architecture, data-integrity, security, testing, git-issues, vault).
 - **agents** (`.claude/agents/*.md`) — роли: task-execution (acceptance-author, rpc-implementer,
   migration-writer, api-gateway-registrar, …) и specialist-review (db-architect-reviewer,
   go-style-reviewer, proto-api-reviewer, …); плюс domain-specific (`vpc-*`, `compute-*`).

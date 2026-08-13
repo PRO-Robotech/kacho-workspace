@@ -170,7 +170,7 @@ Fix-all-in-round (§1) действует и на LOW: включил LOW → ч
 - Фикс-агент трогает **только прод-код своего репо**; cross-repo-фикс (proto/corelib) —
   `action=skipped-needs-cross-repo`, отдельным раундом по build-графу (`polyrepo.md`).
 - Никаких `Co-Authored-By`/attribution-трейлеров; никакого прямого push в `main`
-  (`git-youtrack.md`).
+  (`git-issues.md`).
 
 ## 7. Single-repo режим (standalone-клон)
 

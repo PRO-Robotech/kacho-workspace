@@ -229,7 +229,7 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
 4. **Permission-catalog полон и в синхроне.** Каждый выставленный RPC обязан иметь запись в
    каталоге — отсутствие → `catalog: no entry for method` = AUTHZ_DENIED (fail-closed) в
    рантайме. Каталог **генерируется** из proto (`make permission-catalog`), обе embedded-копии
-   (iam seed + api-gateway middleware) **byte-identical**; CI-гейт `make permission-catalog-check`
+   (iam seed + api-gateway middleware) **byte-identical**; CI-гейт `make -C gateway permission-catalog-check`
    роняет сборку при staleness/дрейфе. Генератор привязан к proto-дереву — при
    (ре)централизации proto чинить `gen-permission-catalog.sh` + anchor.
 5. **Misleading comment про security = ловушка.** Комментарий/док, противоречащий коду
@@ -416,7 +416,7 @@ high-level. Правило касается ВСЕХ агентов/субаге
 > такого заявления нет — непубличных мест в git нет, и «сделаем приватным» не является планом,
 > на который можно писать сегодня.
 >
-> **Что из этого следует для письма.** Acceptance-док, KAC-trail, `docs/architecture/` и записка
+> **Что из этого следует для письма.** Acceptance-док, trail задачи, `docs/architecture/` и записка
 > vault пишутся так, чтобы **выдерживать публикацию**: предмет, решение, следствие для контракта —
 > да; координата + условие + следствие в одной сборке — нет. Разбор, который иначе не написать,
 > **не коммитится вовсе** — ни в коммит, ни в vault, ни в приёмку: он живёт в **рабочем каталоге

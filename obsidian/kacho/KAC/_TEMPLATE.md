@@ -1,8 +1,8 @@
 ---
-title: "KAC-<N>: <one-line summary>"
+title: "#<N>: <one-line summary>"
 aliases:
-  - KAC-<N>
-ticket_id: KAC-<N>
+  - issue-<N>
+ticket_id: <N>
 category: kac
 status: in-progress
 type: feature
@@ -11,13 +11,13 @@ repos:
 areas:
   - services/vpc
 prs: []
-yt_url: https://prorobotech.youtrack.cloud/issue/KAC-<N>
+issue_url: https://github.com/PRO-Robotech/kacho/issues/<N>
 opened: 2026-MM-DD
 tags:
   - kac
 ---
 
-# KAC-<N>: <one-line summary>
+# #<N>: <one-line summary>
 
 **Type**: feature | fix | refactor | docs | epic
 
@@ -30,6 +30,13 @@ tags:
 > зелено, чего ждали), пиши это отдельной строкой и датируй:
 > `**Состояние на момент записи**: test (код готов, ждёт ревью) — 2026-MM-DD`.
 > Это факт о прошлом, он не устаревает.
+
+> [!note] Имя файла — по номеру issue (`issue-<N>.md`), каталог остаётся `KAC/`
+> Трекер сменён на GitHub Issues (2026-08-12, `git-issues.md`). Каталог сохраняет
+> историческое имя: в нём 214 записок прежнего трекера, а проверка
+> `scripts/docs-gate/check-02-kac-trail-status.py` обходит **каталог**, не префикс
+> имени, — новые записки лежат там же и ничего не ломают. Старые `KAC-<N>.md` не
+> переименовываются: они свидетельствуют о сделанном.
 
 > [!note] Какой статус выбирать, чтобы вид `KAC/all-tickets.base` не солгал
 > Вид «Active» показывает всё, что **не** `done`/`wontfix`/`superseded`/`reference` —
@@ -44,7 +51,7 @@ tags:
 **Где ведётся**: `PRO-Robotech/kacho` — каталоги `services/<домен>` / `proto` / `pkg` /
 `gateway` / `deploy` / `ui-future`; журнал и приёмка — `PRO-Robotech/kacho-workspace`.
 **PRs**: PRO-Robotech/kacho#<N>, ...
-**YT**: https://prorobotech.youtrack.cloud/issue/KAC-<N>
+**Issue**: https://github.com/PRO-Robotech/kacho/issues/<N>
 
 > [!warning] Не выписывай сюда имена `kacho-<часть>` как адреса сегодняшней работы
 > Полирепо-эпоха кончилась: разработка идёт в **одном** репозитории продукта. Имена
