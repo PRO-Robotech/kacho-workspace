@@ -24,7 +24,7 @@ A credential (UserToken/SAKey Issue+Revoke, 4) · B AccessBinding Create/Update/
 ## Реализация (TDD RED→GREEN)
 
 - proto: 332 routine методов → явный `="1"`; 40 sensitive-с-permission → `="2"`; `AccessBindingService/Create` → `="2"` ADDED (permission остаётся `<exempt>` — ортогонально).
-- каталог: regen обеих копий byte-identical; `make permission-catalog-check` green.
+- каталог: regen обеих копий byte-identical; `make -C gateway permission-catalog-check` green.
 - 3 godoc-truthfulness фикса: `stepup_gate.go` (fail-open на пустом, не «default ACR=2»), `acr_floor.go` («SAME» → два отдельных table'а), `pkg/grpcsrv/acr.go` («SHARED … never drift» → iam-side only).
 - lock-тесты: catalog 41-set invariant+complement+counts+byte-identity; routine-unblock/AAL1-floor/sensitive-blocks wiring; verdict-parity двух реальных entrypoint'ов (StepUpGate.Check ↔ grpcsrv.ACRSatisfies) над полной матрицей; iam floor Get=1/GrantAdmin=2; generator exempt→empty vs non-exempt→"2".
 - Верификация: `go test` (authoritative, на deployed каталоге) + vet + golangci-lint + `-race` — все green.

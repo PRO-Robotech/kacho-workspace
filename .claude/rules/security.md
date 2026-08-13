@@ -229,7 +229,7 @@ id, name/labels, привязки (project/network/subnet/instance), выдел�
 4. **Permission-catalog полон и в синхроне.** Каждый выставленный RPC обязан иметь запись в
    каталоге — отсутствие → `catalog: no entry for method` = AUTHZ_DENIED (fail-closed) в
    рантайме. Каталог **генерируется** из proto (`make permission-catalog`), обе embedded-копии
-   (iam seed + api-gateway middleware) **byte-identical**; CI-гейт `make permission-catalog-check`
+   (iam seed + api-gateway middleware) **byte-identical**; CI-гейт `make -C gateway permission-catalog-check`
    роняет сборку при staleness/дрейфе. Генератор привязан к proto-дереву — при
    (ре)централизации proto чинить `gen-permission-catalog.sh` + anchor.
 5. **Misleading comment про security = ловушка.** Комментарий/док, противоречащий коду

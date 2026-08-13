@@ -63,7 +63,7 @@ tags:
 Мутации записей `permission`/`required_relation` в самом proto не несут — их гейт
 описан записями каталога прав на стороне сервиса и края
 (`services/compute/internal/…/permission_map.go` и встроенная копия каталога у gateway;
-`make permission-catalog-check` роняет сборку при расхождении копий).
+`make -C gateway permission-catalog-check` роняет сборку при расхождении копий).
 
 ## Соседи по рантайму
 
