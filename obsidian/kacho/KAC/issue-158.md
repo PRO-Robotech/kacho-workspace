@@ -5,7 +5,7 @@ aliases:
   - issue-158
 ticket_id: issue-158
 category: kac
-status: in-progress
+status: done
 verified_against: "предмет сверен с PRO-Robotech/kacho@ccc6918e (origin/main, 2026-08-13)"
 type: epic
 repos:
@@ -154,4 +154,7 @@ tags:
 - [x] финальная верификация: 267 пакетов ok, линт 0, уязвимости 0 в своём коде,
       каталог и маршруты сходятся, фильтр списков OK, vault 4/4
 - [x] MR в ствол одним изменением с перечнем накопленного —
-      https://github.com/PRO-Robotech/kacho/pull/284 (16 коммитов, 186 файлов)
+      https://github.com/PRO-Robotech/kacho/pull/284 — **СЛИТ** 2026-08-13,
+      схлопнут в `65024482`; ветка удалена. Конвейер зелёный целиком, кроме
+      `buf breaking`, который краснеет по построению на ломающем релизе и
+      позеленел вместе со стволом.

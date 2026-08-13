@@ -891,7 +891,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
-| [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | в работе (in-progress) |
+| [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
