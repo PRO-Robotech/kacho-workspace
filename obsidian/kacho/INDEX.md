@@ -120,27 +120,28 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Категория | Каталог | Записок |
 |---|---|---:|
-| Ресурсы | `resources/` | 55 |
-| gRPC-сервисы | `rpc/` | 62 |
+| Ресурсы | `resources/` | 56 |
+| gRPC-сервисы | `rpc/` | 65 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 217 |
-| Уроки — классы дефектов | `lessons/` | 17 |
+| Журнал работ (KAC) | `KAC/` | 218 |
+| Уроки — классы дефектов | `lessons/` | 19 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **558** |
+| **Всего** | | **565** |
 
-### Ресурсы — `resources/` (55)
+### Ресурсы — `resources/` (56)
 
 **домен: compute**
 
 | Записка | Состояние |
 |---|---|
-| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | в работе (in-progress) |
+| [[resources/compute-guestaccesskey\|GuestAccessKey (compute) — ключ входа в машину]] | живо (done) |
+| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | живо (done) |
 | [[resources/compute-machinetype\|MachineType (compute) — sync sizing catalog]] | живо (done) |
-| [[resources/compute-placementgroup\|PlacementGroup + Vocabularies (compute) — пересборка 2026]] | в работе (planned) |
+| [[resources/compute-placementgroup\|PlacementGroup (compute) — правило взаимного размещения машин]] | живо (done) |
 
 **домен: geo**
 
@@ -239,7 +240,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[resources/all-resources\|Все ресурсы — указатель]] | — |
 
-### gRPC-сервисы — `rpc/` (62)
+### gRPC-сервисы — `rpc/` (65)
 
 **домен: (не указан)**
 
@@ -251,8 +252,11 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Записка | Состояние |
 |---|---|
+| [[rpc/compute-guest-access-key-service\|GuestAccessKeyService (compute)]] | живо (done) |
 | [[rpc/compute-instance-service\|InstanceService]] | живо (stable) |
+| [[rpc/compute-internal-node-and-realization\|InternalNodeOwnershipService + InternalRealizationService (compute)]] | живо (done) |
 | [[rpc/compute-machinetype-service\|MachineTypeService + InternalMachineTypeService]] | живо (stable) |
+| [[rpc/compute-placement-group-service\|PlacementGroupService (compute)]] | живо (done) |
 
 **домен: geo**
 
@@ -710,7 +714,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (217)
+### Журнал работ (KAC) — `KAC/` (218)
 
 | Записка | Состояние |
 |---|---|
@@ -887,6 +891,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
+| [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | в работе (in-progress) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
@@ -932,14 +937,16 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
-### Уроки — классы дефектов — `lessons/` (17)
+### Уроки — классы дефектов — `lessons/` (19)
 
 | Записка | Состояние |
 |---|---|
+| [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
 | [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
+| [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
 | [[lessons/known-failing-declaration-outlives-the-fix\|Запись «известное красное» переживает свой фикс и становится ложным утверждением о продукте]] | — |
