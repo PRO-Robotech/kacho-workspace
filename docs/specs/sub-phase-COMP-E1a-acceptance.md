@@ -130,7 +130,7 @@ E1a закрывает разрыв между объявленным и раб�
 сужение до кода и схемы — `grep -rni 'audit' --include='*.go' --include='*.sql' services/compute | grep -v _test.go`
 — даёт **22**. Оба числа названы вместе с **точной** командой, потому что число без команды
 невоспроизводимо, а команда без числа не проверяется. Все 22 — омоним: гейт фильтрации списков (`services/compute/tools/auditlistfilter/…`,
-`make audit-list-filter`) и слово в прозе. Годный предикат — по **предмету**:
+`make -C services/compute audit-list-filter`) и слово в прозе. Годный предикат — по **предмету**:
 `grep -rnE '(audit_events|auditEvent|AuditEvent|CREATE TABLE[^;]*audit)' --include='*.go' --include='*.sql' services/compute | grep -v _test.go`
 → **0**. Именно это число обосновывает волну 2, и именно его обязан воспроизвести ревьюер.
 
@@ -1552,7 +1552,7 @@ COMP-E1a-05, отличается предметом: тот проверяет,
    перепись COMP-E1a-07 печатает 12 файлов и семь механизмов. `typecheck` держателем снятия
    значений союза **не является** (`| string`, §2.8).
 6. Каждый гейт класса доказан **инъекцией в обе стороны** и печатает **объём осмотренного**.
-7. `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` ·
+7. `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/compute audit-list-filter` ·
    newman зелёные.
 8. **Документация сервиса приведена тем же изменением** (COMP-E1a-37): ни одно снятое имя не
    описано живым в `services/compute/docs/`; сборка сайта зелёная с нулём битых ссылок; перепись
