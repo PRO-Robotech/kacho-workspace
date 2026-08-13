@@ -120,8 +120,8 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Категория | Каталог | Записок |
 |---|---|---:|
-| Ресурсы | `resources/` | 55 |
-| gRPC-сервисы | `rpc/` | 62 |
+| Ресурсы | `resources/` | 56 |
+| gRPC-сервисы | `rpc/` | 65 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
 | Журнал работ (KAC) | `KAC/` | 217 |
@@ -130,17 +130,18 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **560** |
+| **Всего** | | **564** |
 
-### Ресурсы — `resources/` (55)
+### Ресурсы — `resources/` (56)
 
 **домен: compute**
 
 | Записка | Состояние |
 |---|---|
-| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | в работе (in-progress) |
+| [[resources/compute-guestaccesskey\|GuestAccessKey (compute) — ключ входа в машину]] | живо (done) |
+| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | живо (done) |
 | [[resources/compute-machinetype\|MachineType (compute) — sync sizing catalog]] | живо (done) |
-| [[resources/compute-placementgroup\|PlacementGroup + Vocabularies (compute) — пересборка 2026]] | в работе (planned) |
+| [[resources/compute-placementgroup\|PlacementGroup (compute) — правило взаимного размещения машин]] | живо (done) |
 
 **домен: geo**
 
@@ -239,7 +240,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[resources/all-resources\|Все ресурсы — указатель]] | — |
 
-### gRPC-сервисы — `rpc/` (62)
+### gRPC-сервисы — `rpc/` (65)
 
 **домен: (не указан)**
 
@@ -251,8 +252,11 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Записка | Состояние |
 |---|---|
+| [[rpc/compute-guest-access-key-service\|GuestAccessKeyService (compute)]] | живо (done) |
 | [[rpc/compute-instance-service\|InstanceService]] | живо (stable) |
+| [[rpc/compute-internal-node-and-realization\|InternalNodeOwnershipService + InternalRealizationService (compute)]] | живо (done) |
 | [[rpc/compute-machinetype-service\|MachineTypeService + InternalMachineTypeService]] | живо (stable) |
+| [[rpc/compute-placement-group-service\|PlacementGroupService (compute)]] | живо (done) |
 
 **домен: geo**
 

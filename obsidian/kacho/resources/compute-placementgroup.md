@@ -1,88 +1,84 @@
 ---
-title: PlacementGroup + Vocabularies (compute) — пересборка 2026
+title: PlacementGroup (compute) — правило взаимного размещения машин
 aliases:
   - PlacementGroup (compute)
-  - CapabilityVocabulary
-  - TopologyVocabulary
   - compute placement
 category: resource
 domain: compute
-id_prefix: "plg (заявлен планом; NewID его не эмитит)"
-owner_table: "нет — таблицы placement_groups в дереве не существует"
+id_prefix: "plg-<crockford-base32>"
+owner_table: placement_groups
 owner_db: kacho_compute
-project_level: false
-status: planned
-verified_against: "ствол redesign/integration, сверено 2026-08-05"
+project_level: true
+status: done
+verified_against: "ветка release/compute-production-api @ 451a56cd, сверено 2026-08-13 (placement_group.proto + миграция 0033)"
 related_rpc:
+  - "[[rpc/compute-placement-group-service]]"
   - "[[rpc/compute-instance-service]]"
 related_tickets:
-  - "[[KAC/compute-redesign-2026]]"
+  - "[[KAC/issue-158]]"
 tags:
   - resource
   - kacho-compute
   - compute
-  - planned
+  - done
 ---
 
-# PlacementGroup + Vocabularies (compute) — ЗАМЫСЕЛ, не дерево
+# PlacementGroup (compute)
 
-> [!warning] Ресурса `PlacementGroup` в продукте НЕТ — читать как проект, а не как описание
-> Сверено по стволу 2026-08-05, три независимых предиката:
->
-> 1. **Схема**: в `services/compute/internal/migrations/` таблицы `placement_groups` нет
->    (живых таблиц compute семь: `instances`, `machine_types`, `instance_network_interfaces`,
->    `operations`, `compute_outbox`, `compute_fga_register_outbox`, `compute_watch_cursors`).
-> 2. **Контракт**: файла `placement_group.proto` в `proto/kacho/cloud/compute/v1/` нет;
->    сообщение `PlacementPolicy` **отозвано целиком** — комментарий в `instance.proto`
->    объясняет почему: оно несло `placement_group_id`, `host_affinity_rules`,
->    `placement_group_partition`, и **ни одно поле ни одного message ни в одном пакете
->    не имело этого типа** — сирота. Плюс правило hosts/host-groups — инфра-чувствительная
->    поверхность, которой на публичном контракте не место (`security.md`).
-> 3. **Замок в обе стороны**: `pkg/api/kacho/cloud/compute/v1/placement_contract_test.go`
->    несёт `TestWithdrawnPlacementMessagesAreGone` (отозванное не вернулось) **и**
->    `TestLivePlacementGroupIdSurvives` (живое не снесли заодно).
->
-> **Что живо и это омоним, а не тот же предмет**: `Instance.placement_group_id` (поле 41) —
-> **непрозрачный slug-passthrough** COMP-1; существование и когерентность отложены до COMP-3.
-> Он не ссылается ни на какой ресурс и ресурсом не управляет. Плюс отдельный
-> `DiskPlacementPolicy`, доступный через `Relocate`, — тоже другой предмет.
->
-> Ниже — **проектная запись** (замысел пересборки), а не контракт. Ни одна её координата не
-> должна использоваться как утверждение о нынешнем состоянии: ни `kacho_compute.placement_groups`,
-> ни `InternalPlacementGroupService`, ни словари `capability`/`topology` в дереве не заведены.
+**Назначение.** Правило взаимного расположения машин: **разнести** (отказ одного куска
+железа не унесёт всю группу) либо **сблизить** (машины видят друг друга коротким путём).
+Ровно два намерения, и оба выразимы без единого числа.
 
-Tenant placement-**intent** над непрозрачными failure-domain. Задумывался как замена
-single-`oneof{spread|partition}` из снятого `placement_group.proto`. Полный дизайн —
-`docs/plans/compute-module-redesign-2026.md §1.4-1.6, §4` (в воркспейсе).
+> [!note] Здесь стояло «ресурса в продукте НЕТ — читать как проект»
+> Утверждение было верным до 2026-08-13 и пережило свой предмет в тот день, когда ресурс
+> приземлился. Записка переписана целиком, а не помечена: три её предиката («таблицы нет»,
+> «файла контракта нет», «сообщение отозвано») сегодня дают обратный ответ.
 
-## PlacementGroup (`plg`) — композируемые constraints (фикс defect 3)
-`constraints[]` — **конъюнктивный** список (ANDed), а не одна стратегия:
-```jsonc
-{ "placementType": "REGIONAL", "regionId": "ru-1",   // ⊘ ZONAL|REGIONAL coherence-дискриминатор
-  "constraints": [
-    { "topologyKey": "availability",     "mode": "SPREAD", "maxSkew": 1, "enforcement": "REQUIRED"  },
-    { "topologyKey": "network-locality", "mode": "PACK",                 "enforcement": "PREFERRED" } ] }
-```
-- `topologyKey` — **A: FK → topology_vocabulary** (opaque curated, тенант видит абстракцию, не rack/switch).
-- `mode ∈ {SPREAD (anti-affinity), PACK (affinity)}`; `maxSkew` (SPREAD); PARTITION = SPREAD+maxSkew=k (не отдельная стратегия).
-- `enforcement ∈ {REQUIRED (hard, reject), PREFERRED (soft, weights)}`.
-- «spread-зоны + pack-стойка» = **один PG, два constraint'а**.
-- Instance вступает: `Instance.placementGroupId` (class-A FK, SET NULL).
+## Форма
 
-**Что видит тенант** — `status ∈ {SATISFIED|DEGRADED|PENDING}` + `constraintStatus[]` **ТОЛЬКО счётчики** (`spreadWidth`/`packedInto`), НИКОГДА идентичности домена. `members[]` = C-reverse Reference. Реальные домены+ноды — `InternalPlacementGroupService.GetInternal.memberAssignments` (:9091).
+| Поле | Смысл |
+|---|---|
+| `id` | `plg-…`, неизменяем на всю жизнь |
+| `project_id` | владелец |
+| `name` | косметическое, `UNIQUE(project_id, name)` |
+| `description`, `labels` | описание и метки; метки участвуют в выдаче прав |
+| `strategy` | `SPREAD` \| `PACK` — что группа делает с машинами |
+| `placement_type` | `ZONAL` \| `REGIONAL` — **взаимоисключающий** якорь |
+| `zone_id` / `region_id` | ровно одна координата, вторая пуста |
 
-## CapabilityVocabulary (slug key, Mixed) — фикс defect 4
-Admin-curated allow-list абстрактных capability, которые тенант может *требовать* через `Instance.capabilityRequirements[]`. `{key, kind(GPU|ACCELERATOR|STORAGE_CLASS|CPU_ARCH|FEATURE), valueType(ENUM|QUANTITY|BOOL), allowedValues[], operators[]}`. Секрет `capability→host-label` (`nvidia.com/gpu.product`) — **Internal-only**. Тенант узнаёт лишь match/no-match (`FAILED_PRECONDITION "insufficient capacity for capability %s in zone %s"`), никогда host-label/node-id.
+**Числового параметра разнесения НЕТ и не будет.** Он описывает нашу раскладку железа, а
+не намерение арендатора: опубликовав его, мы обязались бы держать раскладку неизменной и
+потеряли бы право менять собственную инфраструктуру, ничего не сломав снаружи. Прежнее
+поле `placement_group_partition` снято с контракта с резервированием номера и имени.
 
-## TopologyVocabulary (slug key, Mixed)
-**Ортогональная** плоскость (топология ≠ capability — привито от cloud-native-линзы). Curated opaque failure-domain *tier*-ключи для PlacementGroup: `{key, tier, spreadSupported, packSupported}`. Секрет `topologyKey→real-axis` (rack/power-feed) — **Internal-only**.
+## Что держит инварианты
 
-## NodePool / NodePoolBinding — Internal\* only (mold AddressPool)
-Нет публичного API. `system_admin` + `required_acr_min=2` + `scope object_type='cluster'`. Тенант тянет слот вслепую: `FOR UPDATE SKIP LOCKED LIMIT 1` + capacity-CAS `UPDATE…SET used=used+1 WHERE free>0 RETURNING`. `NodePoolBinding` confine project→pool label-каскадом (project_default → zone_default → global). Growth-seam: reconciler `ClaimWork`/`ReportStatus`.
+- **Взаимоисключающий якорь** — `CHECK` схемы: строки, где заполнены обе координаты (или
+  ни одной), существовать не может. Use-case проверяет то же самое ДО записи, но ради
+  имени поля в отказе, а не вместо схемы.
+- **Когерентность машины и группы** — условие САМОЙ ВСТАВКИ машины (и её правки), не
+  вопрос перед ней: строка появляется либо когерентной, либо не появляется вовсе.
+  Зональная группа требует ту же зону, региональная — тот же регион; регион зоны машины
+  резолвится у владельца Geography и никогда не выводится из имени.
+- **Один ответ на четыре исхода** — группы нет · группа чужого проекта · не та зона · не
+  тот регион отвечают ОДНИМ текстом. Различимость любой пары читалась бы как справочник
+  по чужому проекту.
+- **Снятие занятой группы запрещено** ссылочной целостностью (`ON DELETE RESTRICT`), а
+  отказ называет машины поимённо: арендатор видит радиус до, а не после.
+- **Ссылка машины — NULL, а не пустая строка.** Пустая строка как «нет ссылки» есть
+  значение, притворяющееся отсутствием, и внешний ключ искал бы группу с пустым
+  идентификатором.
 
-## DB-инварианты (ban #10)
-`placement_type` CHECK биконд. `(ZONAL∧zone_id<>''∧region_id='')∨(REGIONAL∧…)` · SPREAD `EXCLUDE (placement_group_id WITH =, failure_domain WITH =)` · `capability_requirements` FK значение∈vocab · `topology_key` FK→topology_vocabulary · Instance⇄PlacementGroup zone-coherence в link-CAS predicate. Concurrent-race integration-тест обязателен (ban #12).
+## Права
 
-**Рост = curated-data:** новое железо → строка в vocab (без proto-изменений); новый constraint-`mode`/`enforcement` — additive; `placementBindings[]` (multi-policy) — growth-hook.
+Пообъектный тип модели — `compute_placement_group`, глаголы канонические. Тип нужен
+потому, что запрос на чтение, правку и снятие несёт ТОЛЬКО идентификатор группы: без него
+край принимал бы проект от вызывающего, то есть спрашивал бы разрешения у проверяемого.
+Форма скрытия существования — `"PlacementGroup %s not found"`, дословно как у промаха.
 
-#resource #kacho-compute #compute #planned
+## Связи
+
+- Сервис — [[rpc/compute-placement-group-service]]
+- Ссылается машина — [[resources/compute-instance]]
+- Якорь подтверждается у владельца Geography — [[edges/compute-to-geo-zone-validate]]
+- Задача — [[KAC/issue-158]]

@@ -102,6 +102,16 @@ tags:
 отсутствующим по нулю находок **в одном каталоге** — гейт существовал в другом, 45 КБ,
 читает всё дерево. «Ноль находок» в ожидаемом месте не означает «предмета нет в дереве».
 
+## Затронутые сущности vault (обновлено 2026-08-13)
+
+- Новые: [[resources/compute-guestaccesskey]], [[rpc/compute-guest-access-key-service]],
+  [[rpc/compute-placement-group-service]], [[rpc/compute-internal-node-and-realization]].
+- Переписаны: [[resources/compute-placementgroup]] (объявляла ресурс несуществующим —
+  утверждение пережило свой предмет в день его появления),
+  [[rpc/compute-instance-service]] (23 метода → 15), [[resources/compute-instance]]
+  (сверка отставала на восемь миграций).
+- Дополнено: [[edges/compute-to-geo-zone-validate]] — третий вопрос владельцу Geography.
+
 ## Что держит работу
 
 Приёмки: `docs/specs/sub-phase-COMP-E1a-acceptance.md` (39 сценариев, три круга ревью),

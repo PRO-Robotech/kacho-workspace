@@ -10,10 +10,10 @@ backend_port: 9090
 visibility: public
 domain: compute
 related_resource: "[[resources/compute-instance]]"
-methods_count: 23
+methods_count: 15
 async_methods: 17
 status: stable
-verified_against: "ствол redesign/integration, сверено 2026-08-05"
+verified_against: "ветка release/compute-production-api @ 451a56cd, сверено 2026-08-13"
 tags:
   - rpc
   - kacho-compute
@@ -38,20 +38,24 @@ tags:
 | `Create` | `Operation` | async | `POST /compute/v1/instances` |
 | `Update` | `Operation` | async | `PATCH /compute/v1/instances/{instance_id}` |
 | `Delete` | `Operation` | async | `DELETE /compute/v1/instances/{instance_id}` |
-| `UpdateMetadata` | `Operation` | async | `POST …/{id}/updateMetadata` |
 | `GetSerialPortOutput` | `GetInstanceSerialPortOutputResponse` | sync | `GET …/{id}:serialPortOutput` |
 | `Stop` / `Start` / `Restart` | `Operation` | async | `POST …/{id}:stop` \| `:start` \| `:restart` |
 | `AttachDisk` / `DetachDisk` | `Operation` | async | `POST …/{id}:attachDisk` \| `:detachDisk` |
 | `AttachNetworkInterface` / `DetachNetworkInterface` | `Operation` | async | `POST …/{id}:attachNetworkInterface` \| `:detachNetworkInterface` |
-| `AddOneToOneNat` / `RemoveOneToOneNat` | `Operation` | async | `POST …/{id}/addOneToOneNat` \| `/removeOneToOneNat` |
-| `UpdateNetworkInterface` | `Operation` | async | `PATCH …/{id}/updateNetworkInterface` |
-| `Relocate` | `Operation` | async | `POST …/{id}:relocate` |
 | `SimulateMaintenanceEvent` | `Operation` | async | `POST …/{id}:simulateMaintenanceEvent` |
 | `ListOperations` | `ListInstanceOperationsResponse` | sync | `GET …/{id}/operations` |
-| `ListAccessBindings` | `access.ListAccessBindingsResponse` | sync | `GET …/{resource_id}:listAccessBindings` |
-| `SetAccessBindings` / `UpdateAccessBindings` | `Operation` | async | `POST …/{resource_id}:setAccessBindings` \| `:updateAccessBindings` |
 
 Форма выдержана: чтение синхронно, **любая** мутация возвращает `Operation` (ban #9).
+
+> [!note] Восемь методов СНЯТЫ с контракта волной 1 (2026-08-13) — их здесь больше нет
+> Прежняя редакция перечисляла 23 метода, включая правку карты данных, две операции NAT,
+> правку интерфейса, перенос и тройку выдачи прав. Их нет ни в proto, ни в маршрутах, ни
+> в дескрипторе сервиса: вызывающий получает не отказ, а отсутствие метода. Основание
+> снятия — владелец возможности: адрес, NAT и группы безопасности принадлежат **vpc**,
+> перенос тянет тома **storage**, права выдаёт **iam** своими привязками.
+>
+> Резервирование номера для метода невыразимо грамматикой контракта, поэтому свойство
+> держит перепись `RetiredRPC` в `internal/repohygiene` — 13 записей.
 
 ## Отношения и scope (из `kacho.iam.authz.v1` в том же proto)
 
@@ -75,16 +79,18 @@ internal-ручку vpc), `compute → storage` (boot-источник, attach/d
 ## Gotcha
 
 - **`InternalInstanceService` не существует.** Из internal-поверхности compute живы
-  `InternalMachineTypeService` и `InternalWatchService`. Двухпроекционный
+  `InternalMachineTypeService`, `InternalWatchService`, а с 2026-08-13 —
+  `InternalRealizationService` и `InternalNodeOwnershipService`
+  ([[compute-internal-node-and-realization]]). Двухпроекционный
   `GetInternal` для Instance — замысел COMP-4, а не контракт.
-- **`Relocate` и `SimulateMaintenanceEvent`** живут на публичной поверхности; их
-  метаданные — `RelocateInstanceMetadata`, `SimulateInstanceMaintenanceEventMetadata`.
+- **`SimulateMaintenanceEvent`** живёт на публичной поверхности; её метаданные —
+  `SimulateInstanceMaintenanceEventMetadata`. Перенос машины снят с контракта.
 - **Attach-состояние принадлежит владельцу**, а не compute: том — у storage
   (`volume_attachments`), NIC — у vpc (`network_interfaces.used_by_*`). На Instance это
   read-only зеркало, которое обязано грациозно переживать висячую ссылку.
 
 ## См. также
 
-[[../resources/compute-instance]] · [[compute-machinetype-service]] · [[vpc-internal-network-interface-service]] · [[../resources/vpc-networkinterface]]
+[[../resources/compute-instance]] · [[compute-guest-access-key-service]] · [[compute-placement-group-service]] · [[compute-internal-node-and-realization]] · [[compute-machinetype-service]] · [[vpc-internal-network-interface-service]] · [[../resources/vpc-networkinterface]]
 
 #rpc #kacho-compute #compute

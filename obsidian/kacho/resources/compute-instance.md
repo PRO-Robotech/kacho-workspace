@@ -10,21 +10,23 @@ id_prefix: "ins- (hyphen-канон B3; NewHyphenID)"
 owner_table: kacho_compute.instances
 owner_db: kacho_compute
 project_level: false
-status: in-progress
-verified_against: "ствол redesign/integration, сверено 2026-08-05 (instance.proto + services/compute/internal/migrations/0001..0026)"
+status: done
+verified_against: "ветка release/compute-production-api @ 451a56cd, сверено 2026-08-13 (instance.proto + миграции 0001..0034)"
 related_rpc:
   - "[[rpc/compute-instance-service]]"
 related_tickets:
   - "[[KAC/compute-redesign-2026]]"
+  - "[[KAC/issue-158]]"
 related_edges:
   - "[[edges/compute-to-registry-image-resolve]]"
   - "[[edges/compute-to-vpc-nic-validate]]"
   - "[[edges/compute-to-geo-zone-validate]]"
+  - "[[edges/compute-to-storage-volume-resolve]]"
 tags:
   - resource
   - kacho-compute
   - compute
-  - planned
+  - done
 ---
 
 # Instance (compute) — пересборка 2026
@@ -125,6 +127,31 @@ Public — lean (id/name/labels/bindings/intent/`status(11-state)`). **Internal\
 > Также сняты `regions`/`zones` (`0003_geography_owner.sql` → `0011_drop_geography.sql`):
 > Geography принадлежит **geo**, и message `Region`/`Zone` в compute-контракте нет.
 
-Trail: [[KAC/compute-redesign-2026]]. Acceptance: `docs/specs/sub-phase-COMP-1-instance-machinetype-acceptance.md`.
+## Что изменилось волнами 1-3 (2026-08-13, ветка release/compute-production-api)
 
-#resource #kacho-compute #compute #planned
+**Снято с контракта** (номера И имена зарезервированы, буф-ломающее намеренно): восемь
+методов — правка интерфейса, две операции NAT, перенос, правка карты данных, три метода
+выдачи прав; девять полей машины; поле представления у чтения; **свободная карта
+`metadata`** (принималась, писалась в базу и не возвращалась НИКОГДА — читателя ей сняла
+волна 1, а приём остался); ручка обязательности сессионного токена (ручка, которой можно
+отключить защиту, однажды будет отключена); числовой параметр разнесения.
+
+**Заведено:**
+
+- `guest_access_key_ids` — ссылки на [[resources/compute-guestaccesskey]] по неизменяемым
+  идентификаторам; набор заменяется целиком и НЕ входит в состав полей полной правки;
+- `placement_group_id` стал настоящей ссылкой на [[resources/compute-placementgroup]]
+  (внешний ключ, `ON DELETE RESTRICT`, отсутствие — NULL, а не пустая строка);
+  когерентность якоря проверяется ВНУТРИ вставки и правки;
+- **наблюдаемое состояние** — отдельные колонки от намерения (`observed_state`,
+  `observed_sequence_no`, `observed_at`, `observed_reason`), заполняются только отчётом
+  узла на внутреннем слушателе; на публичную проекцию не выходят;
+- **владение узлом** — таблица привязки с атомарным обменом и арендой;
+- **журнал действий** в той же транзакции, что мутация;
+- **предел числа машин на проект** — списывается тем же стейтментом, что вставляет машину.
+
+Trail: [[KAC/compute-redesign-2026]], [[KAC/issue-158]].
+Acceptance: `docs/specs/sub-phase-COMP-1-instance-machinetype-acceptance.md`,
+`sub-phase-COMP-E1a-acceptance.md`, `sub-phase-COMP-E1b-acceptance.md`.
+
+#resource #kacho-compute #compute #done
