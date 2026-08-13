@@ -598,7 +598,7 @@
 ### STOR-P-68 (positive) `гейт` — обе копии каталога прав байт-идентичны
 **Then** генерация из proto воспроизводима, гейт дрейфа зелёный
 
-**Исполнитель:** `internal/repohygiene/catalogparity_test.go` :: **`TestCatalogMatchesTheAnnotationsItWasGeneratedFrom`** (генерация из аннотаций воспроизводима) + `catalogreachability_test.go` :: `TestCatalogReachability_EveryRowResolvesToAServedMethod` и `TestCatalogReachability_InertRowsAreExactlyTheAllowedServices`; цель сборки — `make permission-catalog-check`.
+**Исполнитель:** `internal/repohygiene/catalogparity_test.go` :: **`TestCatalogMatchesTheAnnotationsItWasGeneratedFrom`** (генерация из аннотаций воспроизводима) + `catalogreachability_test.go` :: `TestCatalogReachability_EveryRowResolvesToAServedMethod` и `TestCatalogReachability_InertRowsAreExactlyTheAllowedServices`; цель сборки — `make -C gateway permission-catalog-check` (она объявлена у края, а не в корне).
 
 ### STOR-P-69 (negative) `гейт` — публичная поверхность без инфра-лексики **по значениям**
 **Given** в ответ подставлено значение из инфра-словаря
@@ -665,7 +665,7 @@
 - [ ] Все 75 сценариев реализованы тестами и зелёные — **сегодня: 42 с исполнителем, 19
       частично, 14 без исполнителя** (перепись §0.-1). Это и есть точная величина остатка
       по этому пункту, а не «почти всё»
-- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` зелёные
+- [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/vpc audit-list-filter` зелёные (цель объявлена в каталогах сервисов, не в корне; у storage своей нет — его список сужается тем же фильтром, но проверяется гейтом `internal/repohygiene`)
 - [ ] newman-суита storage зелёная, отчёт печатает числа (коллекций, запросов, утверждений, упавших, неотвеченных)
 - [x] **INV-P1: ни одного маркера отложенной работы в ветке** — гейт прогнан, зелёный
 - [x] **INV-P2: ни один пункт роста не требует ломающего изменения** — см. таблицу выше
