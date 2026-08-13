@@ -917,7 +917,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sec-hardening-2026-07-05\|sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes]] | живо (done) |
 | [[KAC/sec-hardening-r2-2026-07-05-nlb\|sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero]] | живо (done) |
 | [[KAC/sec-nlb-move-crosstenant-authz-relation\|nlb :move cross-tenant deny — FIXTURE bug (NOT a bypass) + design-note]] | живо (done) |
-| [[KAC/stor-p-plan-acceptance-reconciled-2026-08-13\|STOR-P: план и приёмка сведены с деревом ветки — 13 недоставленных предметов и 14 сценариев без исполнителя]] | в работе (reference) |
+| [[KAC/stor-p-plan-acceptance-reconciled-2026-08-13\|STOR-P: план и приёмка сведены с деревом ветки — 13 недоставленных предметов и 10 сценариев без исполнителя]] | в работе (reference) |
 | [[KAC/sub-phase-1.2-iam-operations\|IAM operations visibility (sub-phase 1.2)]] | живо (done) |
 | [[KAC/sub-phase-1.3-subject-privileges\|Subject privileges (sub-phase 1.3)]] | живо (done) |
 | [[KAC/sub-phase-1.4-tuple-resource-guarantee\|100% tuple↔resource-create guarantee (sub-phase 1.4)]] | живо (done) |
