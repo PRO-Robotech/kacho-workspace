@@ -1447,7 +1447,7 @@ internal-слушатель от этого **не** освобождён
   с каждым дропом;
 - запись каталога прав на каждый новый метод, обе встроенные копии **байт-идентичны**;
 - trail в vault: `resources/` · `rpc/` · `edges/` затронутых сущностей + записка задачи;
-- `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make audit-list-filter` — зелёные.
+- `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/compute audit-list-filter` — зелёные.
 
 | Стадия | Гейт выхода |
 |---|---|
