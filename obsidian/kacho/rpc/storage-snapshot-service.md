@@ -28,7 +28,7 @@ tags:
 Точечный слепок тома. Владелец — storage; compute своих снимков **не** держит
 (про незавершённый раскол см. §«Чужой снимок»).
 
-## Методы (5)
+## Методы (7)
 
 | Метод | Ответ | Sync/Async | REST |
 |---|---|---|---|
@@ -37,14 +37,24 @@ tags:
 | `Create` | `Operation` | async | `POST /storage/v1/snapshots` |
 | `Update` | `Operation` | async | `PATCH /storage/v1/snapshots/{snapshot_id}` |
 | `Delete` | `Operation` | async | `DELETE /storage/v1/snapshots/{snapshot_id}` |
+| `Copy` | `Operation` | async | `POST …/{snapshot_id}:copy` |
+| `ListOperations` | `ListSnapshotOperationsResponse` | sync | `GET …/{snapshot_id}/operations` |
 
-**`ListOperations` у снимка НЕТ** — и это единственный из трёх арендаторских ресурсов
-storage без него (у [[storage-volume-service]] и [[storage-image-service]] он есть).
-Форму «у всех ресурсов одинаково» здесь ожидать нельзя; при добавлении сверяйтесь с
-proto, а не с соседом.
+> [!note] Здесь стояло «`ListOperations` у снимка НЕТ» — утверждение пережило свой предмет
+> Оно было верным и объясняло, что паритета между ресурсами storage ожидать нельзя. Целевой
+> вид API (2026-08-13) паритет **ввёл**: у снимка появились и `ListOperations`, и `Copy`.
+> Совет, ради которого абзац написан, остаётся в силе и потому сохранён: **сверяйтесь с
+> proto, а не с соседом** — теперь по обратной причине.
 
 Метаданные — `CreateSnapshotMetadata{snapshot_id, source_volume_id}` (несёт **оба** id,
 в отличие от соседей), `Update/DeleteSnapshotMetadata{snapshot_id}`.
+
+**`Copy` переносит снимок в ДРУГУЮ зону и гейтится `editor` на проекте** (копия — новый
+ресурс, а не чтение источника). `targetZoneId` и `projectId` обязательны.
+
+**Копия называет родителя** — `sourceSnapshotId` (output-only, ставит только `Copy`,
+неизменяемо), взаимоисключающий с `sourceVolumeId`: снимок либо снят с тома, либо скопирован
+со снимка. До 2026-08-13 второй вид происхождения не был признан, и глагол не работал ни разу.
 
 ## Ресурс
 
