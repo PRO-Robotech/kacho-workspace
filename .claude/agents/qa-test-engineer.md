@@ -50,13 +50,13 @@ API regression-suite (Newman) так, чтобы каждое поведение
 ## 4. Жёсткие ограничения
 
 - **Прод-код не трогаем** — PR содержит только `tests/`/`docs/`. Любой `internal/`/`cmd/`/
-  `migrations/`/`*.go`-фикс → отдельный PR со своим KAC (ban #13).
+  `migrations/`/`*.go`-фикс → отдельный PR со своим issue (ban #13).
 - **TODO/FIXME/`pm.test.skip`/закомментированный assert — запрещены** в тестах так же строго,
   как в проде (ban #11).
 - **TDD-red против реального бага прода** = finding, не tech-debt: (a) GitHub Issue в репо
   продукта (`bug` + `verified-by:test`); (b) в кейсе `# verifies <issue-url>` (без skip);
   (c) кейс остаётся красным до фикса — допустимое исключение из «100% pass» с декларацией в
-  `RESULTS.md` под «Known failing — product bugs» + KAC-trail.
+  `RESULTS.md` под «Known failing — product bugs» + trail задачи в vault.
 - **Test-first** даже для тестов: кейс должен сначала падать по нужной причине (RED), потом
   зеленеть (`@.claude/rules/testing.md`, ban #12). Кейс, написанный после ручной проверки
   «вижу что зелёный» без RED-фазы, — нарушение.
@@ -112,7 +112,7 @@ timestamp truncate-to-seconds). Расходится → finding-кандида�
 2. `scripts/gen.py` (регенерация коллекций).
 3. `scripts/run.sh --service <name>` — целевая коллекция; затем `scripts/run.sh` — полный прогон.
 4. Match/спорный — зелёные; bug-кейс — красный (документировано в `RESULTS.md`). Полный прогон не роняет ранее зелёное.
-5. Commit `test(qa): <case-id> <title>` (`KAC-<N>` в теле, без attribution-trailers — `@.claude/rules/git-youtrack.md`).
+5. Commit `test(qa): <case-id> <title>` (`#<N>` в теле, без attribution-trailers — `@.claude/rules/git-issues.md`).
 
 ## 6. Координация
 

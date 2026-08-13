@@ -4,7 +4,7 @@
 > **Дата:** 2026-06-16
 > **Автор:** `acceptance-author`
 > **Ревьюер:** `acceptance-reviewer` — APPROVED (round 1/2 → CHANGES REQUESTED, замечания учтены)
-> **Эпик/тикет:** KAC-TBD (epic «IAM UI — VPC parity»; per-repo subtask в `kacho-ui`). **Номер тикета проставляется до старта `writing-plans`** (фича → тикет СНАЧАЛА, `git-youtrack.md`); в финальном APPROVED-артефакте `KAC-TBD` не остаётся.
+> **Эпик/тикет:** KAC-TBD (epic «IAM UI — VPC parity»; per-repo subtask в `kacho-ui`). **Номер тикета проставляется до старта `writing-plans`** (фича → тикет СНАЧАЛА, `git-issues.md`); в финальном APPROVED-артефакте `KAC-TBD` не остаётся.
 > **Scope:** **`kacho-ui` only.** Backend контракты (proto / RPC / IAM-сервис) **не меняются**. Любое отсутствующее поле/RPC, которого нет в текущем публичном API, — отдельный кросс-репо тикет, **вне этого скоупа** (см. §13 Out-of-scope).
 > **Источник дизайна:** `docs/specs/sub-phase-1.x-ui-yc-redesign-plan.md` (APPROVED YC-console look, которому уже следует VPC); конвенции UI — `project/kacho-ui/CLAUDE.md`; образцы формата — `docs/specs/sub-phase-0.3-vpc-acceptance.md`, `sub-phase-2.0-iam-KAC-121/-KAC-125-*-acceptance.md`.
 
