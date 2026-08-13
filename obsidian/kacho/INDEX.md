@@ -124,13 +124,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | gRPC-сервисы | `rpc/` | 62 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 216 |
+| Журнал работ (KAC) | `KAC/` | 217 |
 | Уроки — классы дефектов | `lessons/` | 17 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **557** |
+| **Всего** | | **558** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -710,7 +710,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (216)
+### Журнал работ (KAC) — `KAC/` (217)
 
 | Записка | Состояние |
 |---|---|
@@ -887,6 +887,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
+| [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | в работе (in-progress) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
