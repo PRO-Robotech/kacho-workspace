@@ -124,13 +124,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | gRPC-сервисы | `rpc/` | 62 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 213 |
+| Журнал работ (KAC) | `KAC/` | 214 |
 | Уроки — классы дефектов | `lessons/` | 17 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **554** |
+| **Всего** | | **555** |
 
 ### Ресурсы — `resources/` (55)
 
@@ -710,7 +710,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (213)
+### Журнал работ (KAC) — `KAC/` (214)
 
 | Записка | Состояние |
 |---|---|
@@ -917,6 +917,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sec-hardening-2026-07-05\|sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes]] | живо (done) |
 | [[KAC/sec-hardening-r2-2026-07-05-nlb\|sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero]] | живо (done) |
 | [[KAC/sec-nlb-move-crosstenant-authz-relation\|nlb :move cross-tenant deny — FIXTURE bug (NOT a bypass) + design-note]] | живо (done) |
+| [[KAC/stor-p-plan-acceptance-reconciled-2026-08-13\|STOR-P: план и приёмка сведены с деревом ветки — 13 недоставленных предметов и 14 сценариев без исполнителя]] | в работе (reference) |
 | [[KAC/sub-phase-1.2-iam-operations\|IAM operations visibility (sub-phase 1.2)]] | живо (done) |
 | [[KAC/sub-phase-1.3-subject-privileges\|Subject privileges (sub-phase 1.3)]] | живо (done) |
 | [[KAC/sub-phase-1.4-tuple-resource-guarantee\|100% tuple↔resource-create guarantee (sub-phase 1.4)]] | живо (done) |
