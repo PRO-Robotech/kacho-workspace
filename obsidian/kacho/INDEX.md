@@ -120,19 +120,19 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Категория | Каталог | Записок |
 |---|---|---:|
-| Ресурсы | `resources/` | 56 |
-| gRPC-сервисы | `rpc/` | 65 |
-| Рёбра рантайма | `edges/` | 76 |
+| Ресурсы | `resources/` | 57 |
+| gRPC-сервисы | `rpc/` | 66 |
+| Рёбра рантайма | `edges/` | 77 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 222 |
+| Журнал работ (KAC) | `KAC/` | 224 |
 | Уроки — классы дефектов | `lessons/` | 25 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **575** |
+| **Всего** | | **580** |
 
-### Ресурсы — `resources/` (56)
+### Ресурсы — `resources/` (57)
 
 **домен: compute**
 
@@ -171,6 +171,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[resources/iam-group\|Group]] | живо (done) |
 | [[resources/iam-jit-eligibility\|AccessBindingJITEligibility]] | история (deprecated) |
 | [[resources/iam-jwks-key\|JWKS Key (alias)]] | история (deprecated) |
+| [[resources/iam-limit\|Limit]] | живо (done) |
 | [[resources/iam-oidc-jwks-key\|OIDCJwksKey]] | история (deprecated) |
 | [[resources/iam-organization\|Organization]] | история (deprecated) |
 | [[resources/iam-project\|Project]] | живо (done) |
@@ -240,7 +241,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[resources/all-resources\|Все ресурсы — указатель]] | — |
 
-### gRPC-сервисы — `rpc/` (65)
+### gRPC-сервисы — `rpc/` (66)
 
 **домен: (не указан)**
 
@@ -280,6 +281,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/iam-internal-authorize-service\|InternalAuthorizeService]] | в работе (planned) |
 | [[rpc/iam-internal-cluster-service\|InternalClusterService]] | живо (done) |
 | [[rpc/iam-internal-iam-service\|InternalIAMService]] | в работе (planned) |
+| [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
 | [[rpc/iam-opa-bundle-service\|OPABundleService]] | история (deprecated) |
@@ -362,7 +364,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/vpc-securitygroup-service\|SecurityGroupService]] | живо (stable) |
 | [[rpc/vpc-subnet-service\|SubnetService]] | живо (stable) |
 
-### Рёбра рантайма — `edges/` (76)
+### Рёбра рантайма — `edges/` (77)
 
 **вызывающий: (не указан)**
 
@@ -495,6 +497,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[edges/vpc-to-geo-zone-validate\|vpc → geo: zone_id validation (#82)]] | живо (active) |
 | [[edges/vpc-to-iam-check\|vpc → iam: per-RPC OpenFGA Check (E3)]] | живо (active) |
 | [[edges/vpc-to-iam-fgaproxy\|vpc → iam: FGA-proxy RegisterResource/UnregisterResource (SEC)]] | живо (active) |
+| [[edges/vpc-to-iam-limit-resolve\|vpc → iam — разрешение действующего потолка и его дельта]] | в работе (planned) |
 | [[edges/vpc-to-iam-listobjects\|vpc → iam: сужение страницы списка пакетной проверкой]] | живо (active) |
 | [[edges/vpc-to-iam-project-exists\|vpc → iam: project existence check (replaces folder_id check)]] | живо (active) |
 | [[edges/vpc-to-rm-folder-exists\|vpc → rm: folder existence check (DEPRECATED)]] | история (deprecated) |
@@ -709,7 +712,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (222)
+### Журнал работ (KAC) — `KAC/` (224)
 
 | Записка | Состояние |
 |---|---|
@@ -891,6 +894,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
+| [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
 | [[KAC/issue-296\|[trail] issue-296 — состояние применения выведено в публичный контракт vpc]] | в работе (test) |
 | [[KAC/issue-307\|#307: шаг сквозной пробы, захватывающий переменную, не утверждал исход]] | в работе (test) |
