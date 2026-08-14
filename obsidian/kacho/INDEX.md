@@ -891,6 +891,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
+| [[KAC/issue-307\|#307: шаг сквозной пробы, захватывающий переменную, не утверждал исход]] | в работе (test) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
