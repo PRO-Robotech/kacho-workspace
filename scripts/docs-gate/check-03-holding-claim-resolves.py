@@ -84,10 +84,19 @@ SCRIPTISH = (".sh", ".py")
 
 
 def monorepo(ws):
-    """Путь монорепо: KACHO_MONOREPO, иначе project/kacho. None — нет."""
+    """Путь монорепо: KACHO_MONOREPO, иначе project/kacho. None — нет.
+
+    `.git` признаётся и КАТАЛОГОМ, и ФАЙЛОМ: у рабочего дерева (`git worktree`)
+    это файл-указатель на общий каталог репозитория. Требование «только каталог»
+    делало проверку VOID ровно там, где ведётся работа, — то есть проверка,
+    неспособная упасть, выглядела пройденной. Предикат тот же, что у vault-gate
+    (`scripts/vault-gate/_lib.sh`: `-d … || -f …`), чтобы два обходчика одного
+    дерева не расходились в том, что считать репозиторием.
+    """
     env = os.environ.get("KACHO_MONOREPO")
     cand = env if env else os.path.join(ws, "project", "kacho")
-    return cand if os.path.isdir(os.path.join(cand, ".git")) else None
+    dot = os.path.join(cand, ".git")
+    return cand if (os.path.isdir(dot) or os.path.isfile(dot)) else None
 
 
 def repo_index(repo):

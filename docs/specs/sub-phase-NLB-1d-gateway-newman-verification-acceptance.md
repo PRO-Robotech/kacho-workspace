@@ -190,7 +190,7 @@ Production-complete в границах интеграции/верификац�
 **Проектные гейты (финальная верификация всего NLB-1, `ai-tooling.md` §lifecycle 7):**
 - [ ] `go test ./... -race` · `golangci-lint run` · `govulncheck` · `make -C services/nlb audit-list-filter` · `make -C gateway permission-catalog-check` зелёные (агрегатно по репо).
 - [ ] newman зелёные — **все** `NLB-1a-NN` + `NLB-1-01..58` (1b/1c) + `NLB-1d-NN` (umbrella).
-- [ ] Trail: обновить vault (`resources/nlb-*`, `rpc/nlb-*`, `edges/nlb-to-*`, `KAC/KAC-NLB-1`) + перевести тикет Test→Done с артефактами (`vault.md`, `git-youtrack.md`).
+- [ ] Trail: обновить vault (`resources/nlb-*`, `rpc/nlb-*`, `edges/nlb-to-*`, `KAC/KAC-NLB-1`) + перевести тикет Test→Done с артефактами (`vault.md`, `git-issues.md`).
 
 **Заказчик (шаг 7):** только финальный smoke / e2e (`make -C deploy e2e-test` / `grpcurl`) — G4/G5 на реальном стенде.
 

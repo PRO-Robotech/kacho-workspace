@@ -55,8 +55,10 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/architecture.md
 @.claude/rules/data-integrity.md
 @.claude/rules/security.md
-@.claude/rules/git-youtrack.md
+@.claude/rules/git-issues.md
+@.claude/rules/multi-agent-flow.md
 @.claude/rules/testing.md
+@.claude/rules/ui.md
 @.claude/rules/vault.md
 @.claude/rules/ai-tooling.md
 

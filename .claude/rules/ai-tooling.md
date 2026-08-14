@@ -40,7 +40,7 @@ hooks (дисциплина). Принцип: **структурно, не из�
 - **Единица счёта — ОТСЛЕЖИВАЕМЫЙ git-элемент, не то, что лежит на диске.** Наборы берутся
   через `git ls-files`, поэтому объявление, `.gitignore` и поведение не могут разъехаться
   молча. Предикаты (сверяй ими, а не памятью):
-  `git ls-files .claude/rules/ | cut -d/ -f3 | sort -u | wc -l` (**10**, из них едет **9**),
+  `git ls-files .claude/rules/ | cut -d/ -f3 | sort -u | wc -l` (**11**, из них едет **10**),
   `git ls-files .claude/agents/ | wc -l` (**15**),
   `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | wc -l` (**13**).
   На диске скилов больше — сторонние, установленные рядом, объявлены чужими в `.gitignore`
@@ -181,13 +181,13 @@ hooks (дисциплина). Принцип: **структурно, не из�
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
 
 1. **Acceptance-first** — новая работа (вне `kacho-vpc-implement`) начинается с APPROVED Given-When-Then (`acceptance-author` → `acceptance-reviewer`). Без APPROVED — не кодить (ban #1).
-2. **Тикет + ветка** — фича → KAC-тикет + ветка `KAC-<N>` + KAC-trail в vault (см. `git-youtrack.md`, `vault.md`).
+2. **Issue + ветка** — фича → issue + ветка `issue-<N>` + trail в vault (см. `git-issues.md`, `vault.md`).
 3. **Контекст из vault** — перед кодом прочитать узкий `resources/`/`rpc/`/`edges/` файл (`vault.md`).
 4. **Кросс-репо порядок** — proto → corelib → сервис → api-gateway → deploy → docs (`polyrepo.md`).
 5. **TDD** — RED до кода, integration + newman в том же PR (`testing.md`, ban #12/#13).
 6. **Ревью ролями** — perRPC через `proto-api-reviewer`/`db-architect-reviewer`/`go-style-reviewer`/`system-design-reviewer`; конвенции — `<svc>-conventions-auditor`.
 7. **Финальная верификация** — `go test ./... -race` + `golangci-lint run` + `govulncheck` + `make audit-list-filter` + newman зелёные.
-8. **Trail** — обновить vault (resources/rpc/packages/edges/KAC) + перевести тикет в Test→Done с артефактами (`vault.md`, `git-youtrack.md`).
+8. **Trail** — обновить vault (resources/rpc/packages/edges + записка задачи) + закрыть issue с артефактами (`vault.md`, `git-issues.md`).
 
 ## Сторонние агенты/скилы (использовать, не пересоздавать)
 

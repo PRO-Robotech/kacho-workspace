@@ -21,7 +21,7 @@ acceptance-first + строгий TDD lifecycle, уровни тестов, те
   feature-ветке; после merge — обратно на `ref: main`.
 - **Кросс-репо эпик** ведётся как tracking-issue в `kacho-workspace` (метка `epic`)
   + per-repo issue с `Blocked by PRO-Robotech/<repo>#<n>`. В трекере KAC — `[EPIC]`
-  + Subtask-иерархия (`.claude/rules/git-youtrack.md`).
+  + Subtask-иерархия (`.claude/rules/git-issues.md`).
 - **Каждая под-итерация замкнута**: APPROVED acceptance-док → ветка `KAC-<N>` → RED →
   GREEN → review ролями → integration + newman зелёные → trail в vault + перевод
   тикета в `Done`. Без этого под-итерация не считается завершённой.

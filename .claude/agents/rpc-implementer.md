@@ -155,4 +155,4 @@ Dependency rule: `handler → use-case → domain`; `repo`/`clients` реали�
 - `internal/handler/<resource>.go`
 - `internal/repo/...` (sqlc-запросы + сгенерированный код)
 - `internal/migrations/<NNNN>_<desc>.sql` (если новая схема)
-- vault-trail: обновить `resources/`/`rpc/`/`packages/`/`edges/` + `KAC/KAC-<N>.md`
+- vault-trail: обновить `resources/`/`rpc/`/`packages/`/`edges/` + записку задачи в `KAC/`

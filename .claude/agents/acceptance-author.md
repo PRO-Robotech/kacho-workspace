@@ -63,7 +63,7 @@ lifecycle и gotchas.
 > Статус: DRAFT | APPROVED
 > Дата: YYYY-MM-DD
 > Ревьюер: <acceptance-reviewer>
-> Эпик/тикет: KAC-<N>
+> Эпик/issue: #<N>
 
 ## Обзор
 

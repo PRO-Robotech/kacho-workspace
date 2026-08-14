@@ -120,27 +120,28 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Категория | Каталог | Записок |
 |---|---|---:|
-| Ресурсы | `resources/` | 55 |
-| gRPC-сервисы | `rpc/` | 62 |
+| Ресурсы | `resources/` | 56 |
+| gRPC-сервисы | `rpc/` | 65 |
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 213 |
-| Уроки — классы дефектов | `lessons/` | 22 |
+| Журнал работ (KAC) | `KAC/` | 218 |
+| Уроки — классы дефектов | `lessons/` | 20 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **559** |
+| **Всего** | | **566** |
 
-### Ресурсы — `resources/` (55)
+### Ресурсы — `resources/` (56)
 
 **домен: compute**
 
 | Записка | Состояние |
 |---|---|
-| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | в работе (in-progress) |
+| [[resources/compute-guestaccesskey\|GuestAccessKey (compute) — ключ входа в машину]] | живо (done) |
+| [[resources/compute-instance\|Instance (compute) — пересборка 2026]] | живо (done) |
 | [[resources/compute-machinetype\|MachineType (compute) — sync sizing catalog]] | живо (done) |
-| [[resources/compute-placementgroup\|PlacementGroup + Vocabularies (compute) — пересборка 2026]] | в работе (planned) |
+| [[resources/compute-placementgroup\|PlacementGroup (compute) — правило взаимного размещения машин]] | живо (done) |
 
 **домен: geo**
 
@@ -239,7 +240,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[resources/all-resources\|Все ресурсы — указатель]] | — |
 
-### gRPC-сервисы — `rpc/` (62)
+### gRPC-сервисы — `rpc/` (65)
 
 **домен: (не указан)**
 
@@ -251,8 +252,11 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Записка | Состояние |
 |---|---|
+| [[rpc/compute-guest-access-key-service\|GuestAccessKeyService (compute)]] | живо (done) |
 | [[rpc/compute-instance-service\|InstanceService]] | живо (stable) |
+| [[rpc/compute-internal-node-and-realization\|InternalNodeOwnershipService + InternalRealizationService (compute)]] | живо (done) |
 | [[rpc/compute-machinetype-service\|MachineTypeService + InternalMachineTypeService]] | живо (stable) |
+| [[rpc/compute-placement-group-service\|PlacementGroupService (compute)]] | живо (done) |
 
 **домен: geo**
 
@@ -523,6 +527,12 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 ### Пакеты — `packages/` (117)
 
+**домен: (не указан)**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
+
 **домен: cilium**
 
 | Записка | Состояние |
@@ -538,7 +548,6 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
-| [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
 
@@ -705,7 +714,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (213)
+### Журнал работ (KAC) — `KAC/` (218)
 
 | Записка | Состояние |
 |---|---|
@@ -833,6 +842,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/KAC-XC-11\|KAC-XC-11: конформанс участия сервиса в контракте прав]] | в работе (in-progress) |
 | [[KAC/KAC-XC-2\|KAC-XC-2: единая библиотека интеграции с правами]] | в работе (planned) |
 | [[KAC/KAC-XC-3\|KAC-XC-3: набор глаголов принадлежит типу]] | в работе (in-progress) |
+| [[KAC/KAC-XC-7\|KAC-XC-7: единый контур работы с iam — носитель]] | в работе (in-progress) |
 | [[KAC/KAC-newman-100pct-batch\|KAC batch: Newman 100% green push (2026-05-26)]] | в работе (in-progress) |
 | [[KAC/KAC-registry-iam-jwks-unify\|registry-iam-jwks-unify: registry verifies via iam INTERNAL Hydra-JWKS proxy]] | живо (done) |
 | [[KAC/NLB-1b-expand-loadbalancer-listener-core\|NLB-1b EXPAND — LoadBalancer + Listener core (parallel-change)]] | живо (done) |
@@ -851,7 +861,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/SEC-HAT-provider-admin-hop-tls\|SEC-HAT: административный переход к провайдеру личности — TLS терминатором-соседом]] | живо (done) |
 | [[KAC/SEC-J-gateway-hydra-jwks-authn\|SEC-J: api-gateway validates real Hydra RS256 access JWTs in the principal path]] | живо (done) |
 | [[KAC/SEC-L-rest-internal-isolation\|SEC-L: isolate Internal* REST from the external listener + drop Internal* FQNs from public allowlist]] | живо (done) |
-| [[KAC/_TEMPLATE\|KAC-<N>: <one-line summary>]] | в работе (in-progress) |
+| [[KAC/_TEMPLATE\|#<N>: <one-line summary>]] | в работе (in-progress) |
 | [[KAC/api-ux-review-redesign\|API-UX ревью редизайна — панель критиков (раунд 1)]] | в работе (reference) |
 | [[KAC/audit-divergence-redesign-vs-main\|Аудит расхождения redesign/integration vs main — раунд 1]] | в работе (reference) |
 | [[KAC/audit-hardening-low-2026-07-09\|audit-hardening-low-2026-07-09]] | живо (done) |
@@ -881,6 +891,9 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
+| [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
+| [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
+| [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
@@ -912,6 +925,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sec-hardening-2026-07-05\|sec-hardening-2026-07-05: cross-repo security/architecture/quality audit + fixes]] | живо (done) |
 | [[KAC/sec-hardening-r2-2026-07-05-nlb\|sec-hardening-r2-2026-07-05 (kacho-nlb): 2-й аудит — contract-safe medium/low → zero]] | живо (done) |
 | [[KAC/sec-nlb-move-crosstenant-authz-relation\|nlb :move cross-tenant deny — FIXTURE bug (NOT a bypass) + design-note]] | живо (done) |
+| [[KAC/stor-p-plan-acceptance-reconciled-2026-08-13\|STOR-P: план и приёмка сведены с деревом ветки — 13 недоставленных предметов и 10 сценариев без исполнителя]] | в работе (reference) |
 | [[KAC/sub-phase-1.2-iam-operations\|IAM operations visibility (sub-phase 1.2)]] | живо (done) |
 | [[KAC/sub-phase-1.3-subject-privileges\|Subject privileges (sub-phase 1.3)]] | живо (done) |
 | [[KAC/sub-phase-1.4-tuple-resource-guarantee\|100% tuple↔resource-create guarantee (sub-phase 1.4)]] | живо (done) |
@@ -923,19 +937,16 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
-### Уроки — классы дефектов — `lessons/` (22)
+### Уроки — классы дефектов — `lessons/` (20)
 
 | Записка | Состояние |
 |---|---|
-| [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
+| [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
-| [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
 | [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
-| [[lessons/computed-immutable-field-replaces-on-every-edit\|Вычисляемое неизменяемое поле пересоздаёт ресурс от правки чего угодно]] | — |
-| [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
-| [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
+| [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
 | [[lessons/known-failing-declaration-outlives-the-fix\|Запись «известное красное» переживает свой фикс и становится ложным утверждением о продукте]] | — |
@@ -945,6 +956,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[lessons/probe-that-pins-someone-elses-tree-state\|Проба закрепила состояние чужого дерева — его починка прочиталась как поломка]] | — |
 | [[lessons/production-profile-cannot-bootstrap-from-scratch\|Профиль, который поднимается только поверх однажды поднятого]] | — |
 | [[lessons/rule-true-for-one-resolver-applied-to-all-addresses\|Правило, верное для одного резолвера, применённое ко всем адресам]] | — |
+| [[lessons/second-copy-of-a-tool-in-path-fakes-drift\|Второй экземпляр инструмента в PATH подделывает дрейф порождённого]] | живо (active) |
 | [[lessons/sentinel-that-replaces-its-cause-costs-the-next-hour\|Sentinel, подменяющий причину, стоит следующего часа: наружу — фиксированный текст, в журнал — что ответила сеть]] | живо (stable) |
 | [[lessons/setup-step-that-checks-its-own-mark-not-its-subject\|Шаг установки, спрашивающий про свою отметку, а не про предмет]] | — |
 | [[lessons/two-consistency-windows-in-one-case\|Два независимых окна согласованности в одном кейсе — первое заслоняет второе]] | — |

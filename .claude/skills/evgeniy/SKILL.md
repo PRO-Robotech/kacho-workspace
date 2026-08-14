@@ -811,11 +811,11 @@ for _, f := range updates { /* применить только masked поля *
 
 ## §12. Step-by-step migration plan для kacho-vpc
 
-Большой рефакторинг. Декомпозирован на 11 фаз. Каждая фаза — отдельный YT-эпик / отдельный PR. Зависимости — строгие (фаза N+1 не стартует до merge N).
+Большой рефакторинг. Декомпозирован на 11 фаз. Каждая фаза — отдельный issue-эпик / отдельный PR. Зависимости — строгие (фаза N+1 не стартует до merge N).
 
 ### Фаза 1 — Domain types: newtypes + Validate (правила D.2–D.10)
 
-**KAC-N1**:
+**Задача 1**:
 1. Создать `internal/domain/types.go` с newtypes: `LabelKey`, `LabelVal`, `RcLabels`, `RcName`, `RcNameVPC`, `RcNameCompute`, `RcDescription`, `RcNameOpt`.
 2. Добавить `Validate() error` на каждый newtype (переносим логику из `corevalidate.NameVPC`/`Description`/`Labels`).
 3. Поменять поля domain-типов (Network, Subnet, Address, SG, RT, Gateway, PE, NIC) с `string`/`map` → newtypes.
@@ -828,7 +828,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 2 — Domain builders + constants (правила D.7–D.9, AP-2/4)
 
-**KAC-N2**:
+**Задача 2**:
 1. Создать `internal/domain/security_group_builders.go`:
    - `NewDefaultSecurityGroup(net Network) SecurityGroup`
    - `NewDefaultSecurityGroupRules() []SecurityGroupRule`
@@ -840,7 +840,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 3 — UseCases вместо Services (правила B.1–B.4)
 
-**KAC-N3** (per resource → 8 субтасков):
+**Задача 3** (по ресурсу → 8 дочерних задач):
 1. Создать `internal/apps/kacho/api/<resource>/` директорию.
 2. Перенести логику из `internal/service/<resource>.go` в:
    - `internal/apps/kacho/api/<resource>/handler.go` — gRPC transport (тонкий)
@@ -854,7 +854,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 4 — DTO table-driven (правила C.1–C.6)
 
-**KAC-N4**:
+**Задача 4**:
 1. Создать `internal/dto/base.go` с generic Interface, RegTransfer, FindTransfer (из PR #52).
 2. Создать `internal/dto/type2pb/` (или `internal/repo/kacho/pg/dto/` для pg-mapping):
    - `network.go` с `network{}.toPb` (по образцу из PR #52).
@@ -866,7 +866,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 5 — Ports → CQRS Repository (правила G.1–G.7)
 
-**KAC-N5**:
+**Задача 5**:
 1. Создать новые интерфейсы:
    - `internal/repo/kacho/iface.go` с `Repository`, `RepositoryReader`, `RepositoryWriter`.
    - `internal/repo/kacho/<resource>/iface.go` с `XxxReaderIface` / `XxxWriterIface`.
@@ -878,7 +878,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 6 — Config: YAML + viper (правила J.1–J.7)
 
-**KAC-N6**:
+**Задача 6**:
 1. Создать `internal/apps/kacho/config/`:
    - `config.go` — типы config с `mapstructure`-тегами.
    - `defaults.go` — `func RegisterDefaults(v *viper.Viper)`.
@@ -891,7 +891,7 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 7 — Отделить cmd/migrator (правила K.1–K.3)
 
-**KAC-N7**:
+**Задача 7**:
 1. Создать `cmd/migrator/main.go` с cobra: `migrator up|down|status|create --dialect=postgres --dsn=...`.
 2. `internal/apps/migrator/` — бизнес-логика, обёртка над goose.
 3. `cmd/<svc>/main.go` оставить **только** `serve`. Subcommand `migrate` удалить.
@@ -899,28 +899,28 @@ for _, f := range updates { /* применить только masked поля *
 
 ### Фаза 8 — Параллельные серверы через ExecAbstract (правила K.4–K.5)
 
-**KAC-N8**:
+**Задача 8**:
 1. Импорт `H-BF/corlib/pkg/parallel`.
 2. `runServe` в `cmd/<svc>/main.go`: `parallel.ExecAbstract(ctx, publicServer, internalServer, shutdownWaiter)`.
 3. Failure isolation: если internal упал — public останавливается через ctx cancel.
 
 ### Фаза 9 — grpc client-builder (правило K.6)
 
-**KAC-N9**:
+**Задача 9**:
 1. Импорт `H-BF/corlib/client/grpc`.
 2. Все clients (`folderClient`, `geographyClient`, ...) через `client-builder.Build(...)` — единый паттерн с retries/LB/TLS/metrics.
 3. Удалить `dialResourceManager` / `dialCompute` / ... — заменить.
 
 ### Фаза 10 — operations.Run — preserve context metadata (правило I.3)
 
-**KAC-N10** — затрагивает `kacho-corelib`:
+**Задача 10** — затрагивает `kacho-corelib`:
 1. В `kacho-corelib/operations/run.go`: workerCtx наследует `trace-id`, `request-id`, `slog-attrs` из callerCtx (через явный copy of context.Values).
 2. Timeout остаётся независимым от caller-deadline (worker может пережить request).
 3. Все use-cases используют новый Run без изменений (signature та же).
 
 ### Фаза 11 — ER-diagrams + architecture docs (правило E.6)
 
-**KAC-N11** (для каждого сервиса):
+**Задача 11** (для каждого сервиса):
 1. `docs/architecture/er-diagram.md` — mermaid ER-diagram таблиц.
 2. Обновление `kacho-vpc/CLAUDE.md` §2 (Domain model) с ссылкой на диаграмму.
 
@@ -938,7 +938,7 @@ for _, f := range updates { /* применить только masked поля *
 Фаза 10 (corelib/operations) — независимо, влияет на все фазы 3+.
 ```
 
-**Оценка**: 11 фаз × ~3 дня каждая = ~33 рабочих дня (~6-7 недель). Декомпозируется в эпик KAC-N с 11 subtask'ами + per-resource sub-subtask'и.
+**Оценка**: 11 фаз × ~3 дня каждая = ~33 рабочих дня (~6-7 недель). Декомпозируется в эпик-issue с 11 дочерними задачами + по одной на ресурс внутри них.
 
 ---
 

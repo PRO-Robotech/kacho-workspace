@@ -6,11 +6,11 @@ ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}
 VAULT="$ROOT/obsidian/kacho"
 PROJ="$ROOT/project"
 
-# 1. Активные KAC-тикеты в vault — напоминание про status update
+# 1. Активные записки задач в vault — напоминание про status update
 INPROG=$(grep -rlE "^status: (in-progress|test)" "$VAULT/KAC/" 2>/dev/null | head -5)
 if [ -n "$INPROG" ]; then
   echo
-  echo "⚠️  АКТИВНЫЕ KAC-ТИКЕТЫ В VAULT (status: in-progress|test):"
+  echo "⚠️  АКТИВНЫЕ ЗАДАЧИ В VAULT (status: in-progress|test):"
   echo "$INPROG" | xargs -I{} basename {} .md | sed 's/^/   • /'
   echo "   → Если PR merged: переведи status: done + обнови «Затронутые сущности vault»."
 fi
@@ -38,7 +38,7 @@ try:
       print(f'   • $repo#{n}: {t}')
 except: pass
 " 2>/dev/null)
-      [ -n "$OPEN" ] && { [ -z "$HEADER_SHOWN" ] && echo && echo "📂 OPEN PR'Ы С KAC-ТИКЕТАМИ:" && HEADER_SHOWN=1; echo "$OPEN"; }
+      [ -n "$OPEN" ] && { [ -z "$HEADER_SHOWN" ] && echo && echo "📂 OPEN PR'Ы С ЗАДАЧАМИ:" && HEADER_SHOWN=1; echo "$OPEN"; }
     fi
   done
 fi

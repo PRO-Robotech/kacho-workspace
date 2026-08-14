@@ -36,7 +36,7 @@ per-repo `project/<repo>/docs/specs/`) и пометил «Draft, на ревь�
   Architecture, запреты), `@.claude/rules/data-integrity.md` (within-service инварианты на
   DB-уровне), `@.claude/rules/security.md` (Internal-vs-public, инфра-данные),
   `@.claude/rules/testing.md` (TDD, integration+newman), `@.claude/rules/polyrepo.md`
-  (proto-центр, кросс-репо порядок), `@.claude/rules/git-youtrack.md`.
+  (proto-центр, кросс-репо порядок), `@.claude/rules/git-issues.md`.
 - Существующий код репо (опционально, через grep) — понять, что уже есть.
 
 ## 4. Чек-лист ревью
