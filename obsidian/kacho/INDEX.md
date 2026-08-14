@@ -125,12 +125,12 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Рёбра рантайма | `edges/` | 76 |
 | Пакеты | `packages/` | 117 |
 | Журнал работ (KAC) | `KAC/` | 219 |
-| Уроки — классы дефектов | `lessons/` | 20 |
+| Уроки — классы дефектов | `lessons/` | 25 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **567** |
+| **Всего** | | **572** |
 
 ### Ресурсы — `resources/` (56)
 
@@ -527,12 +527,6 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 ### Пакеты — `packages/` (117)
 
-**домен: (не указан)**
-
-| Записка | Состояние |
-|---|---|
-| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
-
 **домен: cilium**
 
 | Записка | Состояние |
@@ -548,6 +542,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
+| [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
 
@@ -938,15 +933,20 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
-### Уроки — классы дефектов — `lessons/` (20)
+### Уроки — классы дефектов — `lessons/` (25)
 
 | Записка | Состояние |
 |---|---|
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
+| [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
+| [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
 | [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
+| [[lessons/computed-immutable-field-replaces-on-every-edit\|Вычисляемое неизменяемое поле пересоздаёт ресурс от правки чего угодно]] | — |
+| [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
+| [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
 | [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
