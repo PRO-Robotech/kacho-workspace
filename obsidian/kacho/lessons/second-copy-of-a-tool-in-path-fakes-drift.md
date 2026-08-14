@@ -63,6 +63,6 @@ opened: 2026-08-14
 ## Связано
 
 - [[absence-of-finding-versus-absence-of-inspection]] — «ноль расхождений» и «сравнивали не тем».
-- [[packages/terraform-provider]] — пакет, на котором это наблюдалось.
+- [[packages/kacho-terraform-provider]] — пакет, на котором это наблюдалось.
 
 #lesson #conventions #kacho-proto
