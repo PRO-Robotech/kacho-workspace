@@ -43,11 +43,45 @@ Lifecycle ресурсов — детерминированная server-side st
 
 - **Реальный data plane**: гипервизоры, VXLAN, eBPF, BGP, SRv6, dataplane-агенты
   (data-plane sibling `kacho-vpc-operator` — вне build-графа control-plane).
-- **Биллинг, квоты, monitoring-стек, DNS, Object Storage, Managed Databases,
-  Functions, Container Registry** — отдельные домены, отдельные фазы.
+- **Биллинг, monitoring-стек, DNS, Object Storage, Managed Databases,
+  Functions** — отдельные домены, отдельные фазы.
 - **Multi-region active-active, multi-cluster federation** — single region в текущей фазе.
 - **Внешний message broker (Kafka/NATS)** — заменён транзакционным outbox; не вводится,
   пока in-process реализация справляется.
+
+> [!note] Отсюда выведены ДВА пункта, и оба — по факту, а не по свежести
+> **Квоты.** Требование владельца назвало их предметом работы: «при создании проекта
+> должна создаваться квота по всем ресурсам с базовыми значениями; управлять размерами
+> должен только администратор облака». Требование **позже** этой строки и её отменяет —
+> смена охвата есть заявление владельца, а не вывод, который документ делает за него.
+> Предмет заведён приёмкой `sub-phase-quota-v2-materialised-usage-acceptance.md`
+> (APPROVED) и предшественником `sub-phase-vpc-quota-resource-count-acceptance.md`;
+> величина сдана в `kacho_iam.limits`, каталог видов с носителями учёта — стадией S1.
+> Пока строка стояла здесь, APPROVED-спека запрещала ровно то, что предписывает
+> APPROVED-приёмка, — два места об одном предмете, из которых верно одно.
+>
+> **Container Registry.** Пункт пережил свой предмет: `services/registry/` — живой
+> сервис. Предикат: `git ls-tree -d --name-only HEAD services/registry` (непусто),
+> `git ls-tree --name-only HEAD proto/kacho/cloud/registry/v1/` (контракты на месте),
+> `grep -c registry gateway/internal/restmux/mux.go` → **25** маршрутных вхождений на
+> крае. Он снят не заодно, а потому, что перечень, часть которого стала ложью, читается
+> как действующее ограничение целиком.
+>
+> Остальные шесть членов перечня проверены и **верны**: каталога сервиса нет ни у
+> одного (предикат: `ls -d services/*/` → семь имён, среди них ни billing, ни
+> monitoring, ни dns, ни object storage, ни mdb, ни functions).
+>
+> **Предикат закрытия читает ПУНКТЫ ПЕРЕЧНЯ, а не главу и не раздел.** Эта врезка
+> стоит внутри §3 и слово «квоты» содержит — она о том, что они в охвате. Предикат,
+> читающий раздел целиком, нашёл бы её и был бы прочитан как незакрытый:
+> ```sh
+> awk '/^## 3\. Non-goals/,/^## 4\./' docs/specs/00-overview-and-scope.md \
+>   | grep '^- ' | grep -icE 'квот|quota'        # → 0
+> awk '/^## 3\. Non-goals/,/^## 4\./' docs/specs/00-overview-and-scope.md \
+>   | grep '^- ' | grep -icE 'биллинг'           # контроль → 1, предикат не слеп
+> awk '/^## 3\. Non-goals/,/^## 4\./' docs/specs/00-overview-and-scope.md \
+>   | grep -c '^- '                              # перепись → 4 пункта прочитано
+> ```
 
 > **Дизайн-философия.** API проектируется в чистой, удобной форме под нужды Kachō.
 > Структура методов и состав ресурсов — собственные (например, `NetworkInterface` —
