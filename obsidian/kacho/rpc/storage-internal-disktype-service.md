@@ -27,13 +27,14 @@ tags:
 **Backend**: сервис `kacho-storage`, **cluster-internal** листенер **:9091**
 **Public/Internal**: админский CRUD каталога, никогда на внешнем TLS-крае (ban #6)
 
-## Методы (3)
+## Методы (4)
 
 | Метод | Ответ | Sync/Async | REST | отношение |
 |---|---|---|---|---|
 | `Create` | **`DiskType`** | sync | `POST /storage/v1/diskTypes` | `system_admin` на синглтоне кластера |
 | `Update` | **`DiskType`** | sync | `PATCH /storage/v1/diskTypes/{disk_type_id}` | `system_admin` на синглтоне кластера |
 | `Delete` | `DeleteDiskTypeResponse` | sync | `DELETE /storage/v1/diskTypes/{disk_type_id}` | `system_admin` на синглтоне кластера |
+| `SetLifecycle` | `Operation` | async | `PATCH …/diskTypes/{disk_type_id}:setLifecycle` | `system_admin` на синглтоне кластера |
 
 > [!important] Мутации возвращают РЕСУРС синхронно, а не `Operation` — задокументированное отступление
 > Конвенция `api-conventions.md` требует от мутаций `Operation` (ban #9). Здесь её нет, и

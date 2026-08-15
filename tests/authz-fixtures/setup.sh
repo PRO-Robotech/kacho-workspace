@@ -416,8 +416,12 @@ ROLE_ADMIN="rol21232f297a57a5a74"   # md5('admin')[:17]  — global super-admin
 ROLE_EDIT="rolde95b43bceeb4b998"    # md5('edit')[:17]   — global edit-only
 ROLE_VIEW="rol1bda80f2be4d3658e"    # md5('view')[:17]   — global read-only
 
-# PA1 — project-A1 editor. Grantor = AAA (owns A → A1).
+# PA1 — project-A1 editor (home project). Grantor = AAA (owns A → A1).
 ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A1" "$JWT_AAA"
+# PA1 — project-A2 editor (cross-project в том же account A). KAC-263 zero-manual:
+# vpc/compute newman гоняют Move/cross-сценарии на existingProjectCrossId=projectA2;
+# без editor там Move-кейсы → 403. Окружение должно быть достаточным из-под фикстуры.
+ensure_binding "$USER_PA1" "$ROLE_EDIT" "project" "$PROJECT_A2" "$JWT_AAA"
 # AAA — account-A admin. Grantor = AAA (owner of A — self-grant on own account).
 ensure_binding "$USER_AAA" "$ROLE_ADMIN" "account" "$ACCOUNT_A" "$JWT_AAA"
 # AAB — account-B admin. Grantor = AAB (owner of B).
@@ -441,6 +445,33 @@ ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 # reconciler retries on a 10s interval and converges shortly after. We poll the
 # FGA tuple's effect via a cluster-scope readiness probe so the cluster newman
 # cases don't race the reconciler.
+# 5a) Deterministic bootstrap: seed system_admin@cluster via fga_outbox so the
+# authz suites do not race the ≤180s product bootstrap reconciler on a
+# resource-starved single-node kind (the fga_outbox→drainer→OpenFGA propagation
+# lag that made iam-access-binding/authz-sa-apitoken/... flaky-red). The product
+# RunBootstrapAdmin reconciler still runs and idempotently reconciles the SAME
+# tuple — this only removes the readiness race, mirroring 5c's system_viewer seed.
+SA_NS="${SETUP_NS:-kacho}"
+SA_PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+SA_PG_PW=$(kubectl -n "$SA_NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$SA_PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  kubectl -n "$SA_NS" exec "$SA_PG_POD" -- env PGPASSWORD="$SA_PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
+    SELECT 'fga.tuple.write',
+           jsonb_build_object('user','user:$USER_BOOT','relation','system_admin','object','cluster:cluster_kacho_root'),
+           now()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM kacho_iam.fga_outbox
+       WHERE payload->>'user'='user:$USER_BOOT'
+         AND payload->>'relation'='system_admin'
+         AND payload->>'object'='cluster:cluster_kacho_root'
+    );
+  " >/dev/null 2>&1 || log "    WARN: system_admin seed failed (idempotent or schema mismatch)"
+  log "5a/10 BOOT($USER_BOOT) → system_admin@cluster:cluster_kacho_root (fga_outbox deterministic seed)"
+else
+  log "5a/10 WARN: skipping deterministic system_admin seed (PG access or USER_BOOT empty) — falling back to reconciler wait"
+fi
+
 log "5b/10 awaiting product bootstrap reconciler (system_admin@cluster via fga_outbox)"
 if [ -n "$JWT_BOOTSTRAP" ] && [ -n "$ACCOUNT_A" ]; then
   boot_ok=""
