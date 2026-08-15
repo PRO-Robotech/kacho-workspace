@@ -123,14 +123,14 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Ресурсы | `resources/` | 57 |
 | gRPC-сервисы | `rpc/` | 66 |
 | Рёбра рантайма | `edges/` | 77 |
-| Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 225 |
+| Пакеты | `packages/` | 118 |
+| Журнал работ (KAC) | `KAC/` | 230 |
 | Уроки — классы дефектов | `lessons/` | 25 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **581** |
+| **Всего** | | **587** |
 
 ### Ресурсы — `resources/` (57)
 
@@ -528,7 +528,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (117)
+### Пакеты — `packages/` (118)
+
+**домен: (не указан)**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: cilium**
 
@@ -712,7 +718,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (225)
+### Журнал работ (KAC) — `KAC/` (230)
 
 | Записка | Состояние |
 |---|---|
@@ -891,14 +897,18 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
+| [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
+| [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
 | [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
 | [[KAC/issue-296\|[trail] issue-296 — состояние применения выведено в публичный контракт vpc]] | в работе (test) |
 | [[KAC/issue-307\|#307: шаг сквозной пробы, захватывающий переменную, не утверждал исход]] | в работе (test) |
 | [[KAC/issue-352\|issue-352 — compute: предел числа машин не назначается ни одному проекту]] | в работе (in-progress) |
+| [[KAC/issue-364-quota-console\|Витрина квот в консоли: арендатор видит предел, занято и источник (#364)]] | в работе (in-progress) |
+| [[KAC/issue-411-quota-unity\|Единство квот: что едино, что не будет, и где записаны решения]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
@@ -938,6 +948,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sub-phase-T3.1-cross-service-label-revoke\|Cross-service ARM_LABELS revoke on label change (T3.1 / #113)]] | живо (done) |
 | [[KAC/sub-phase-T3.2-vpc-residual-label-feed\|vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)]] | живо (done) |
 | [[KAC/sub-phase-T3.3-unify-iam-label-scope-role-ab\|sub-phase T3.3 — unify IAM label-scope (role + access_binding, chunk 2)]] | живо (done) |
+| [[KAC/ui-console-fixes-wave-2026-08-15\|Волна правок консоли: путь до машины, границы отказа, форк, тексты, имена (2026-08-15)]] | в работе (test) |
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
