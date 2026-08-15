@@ -123,14 +123,14 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Ресурсы | `resources/` | 57 |
 | gRPC-сервисы | `rpc/` | 66 |
 | Рёбра рантайма | `edges/` | 77 |
-| Пакеты | `packages/` | 117 |
-| Журнал работ (KAC) | `KAC/` | 225 |
-| Уроки — классы дефектов | `lessons/` | 27 |
+| Пакеты | `packages/` | 118 |
+| Журнал работ (KAC) | `KAC/` | 229 |
+| Уроки — классы дефектов | `lessons/` | 25 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **583** |
+| **Всего** | | **586** |
 
 ### Ресурсы — `resources/` (57)
 
@@ -528,7 +528,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (117)
+### Пакеты — `packages/` (118)
+
+**домен: (не указан)**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: cilium**
 
@@ -712,7 +718,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (225)
+### Журнал работ (KAC) — `KAC/` (229)
 
 | Записка | Состояние |
 |---|---|
@@ -889,16 +895,19 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
-| [[KAC/issue-138-f5\|XC-12 Ф5: перезамер стоимости полномодельной формы на сегодняшнем дереве]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
+| [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | в работе (in-progress) |
+| [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
 | [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
 | [[KAC/issue-296\|[trail] issue-296 — состояние применения выведено в публичный контракт vpc]] | в работе (test) |
 | [[KAC/issue-307\|#307: шаг сквозной пробы, захватывающий переменную, не утверждал исход]] | в работе (test) |
+| [[KAC/issue-364-quota-console\|Витрина квот в консоли: арендатор видит предел, занято и источник (#364)]] | в работе (in-progress) |
+| [[KAC/issue-411-quota-unity\|Единство квот: что едино, что не будет, и где записаны решения]] | в работе (in-progress) |
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
@@ -938,17 +947,17 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sub-phase-T3.1-cross-service-label-revoke\|Cross-service ARM_LABELS revoke on label change (T3.1 / #113)]] | живо (done) |
 | [[KAC/sub-phase-T3.2-vpc-residual-label-feed\|vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)]] | живо (done) |
 | [[KAC/sub-phase-T3.3-unify-iam-label-scope-role-ab\|sub-phase T3.3 — unify IAM label-scope (role + access_binding, chunk 2)]] | живо (done) |
+| [[KAC/ui-console-fixes-wave-2026-08-15\|Волна правок консоли: путь до машины, границы отказа, форк, тексты, имена (2026-08-15)]] | в работе (test) |
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
-### Уроки — классы дефектов — `lessons/` (27)
+### Уроки — классы дефектов — `lessons/` (25)
 
 | Записка | Состояние |
 |---|---|
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
-| [[lessons/a-ratio-of-two-stand-quantities-is-not-a-property-of-the-code\|Отношение двух стендовых величин — не свойство кода, и оно устаревает за сутки]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
 | [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
@@ -965,7 +974,6 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[lessons/metric-that-does-not-separate-the-two-states\|Метрика, чьи распределения перекрываются, не различает состояния — ни при каком пороге]] | — |
 | [[lessons/probe-premise-unsatisfiable-in-its-environment\|Предпосылка проверки едет вместе с записью в реестре, а окружение — нет]] | — |
 | [[lessons/probe-that-pins-someone-elses-tree-state\|Проба закрепила состояние чужого дерева — его починка прочиталась как поломка]] | — |
-| [[lessons/probe-varies-one-axis-while-cost-has-two\|Проба варьирует одну ось, а у стоимости их две — и вторая невидима by construction]] | — |
 | [[lessons/production-profile-cannot-bootstrap-from-scratch\|Профиль, который поднимается только поверх однажды поднятого]] | — |
 | [[lessons/rule-true-for-one-resolver-applied-to-all-addresses\|Правило, верное для одного резолвера, применённое ко всем адресам]] | — |
 | [[lessons/second-copy-of-a-tool-in-path-fakes-drift\|Второй экземпляр инструмента в PATH подделывает дрейф порождённого]] | живо (active) |
