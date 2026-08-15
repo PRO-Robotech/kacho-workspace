@@ -124,13 +124,13 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | gRPC-сервисы | `rpc/` | 66 |
 | Рёбра рантайма | `edges/` | 77 |
 | Пакеты | `packages/` | 118 |
-| Журнал работ (KAC) | `KAC/` | 226 |
+| Журнал работ (KAC) | `KAC/` | 227 |
 | Уроки — классы дефектов | `lessons/` | 25 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 3 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **583** |
+| **Всего** | | **584** |
 
 ### Ресурсы — `resources/` (57)
 
@@ -718,7 +718,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (226)
+### Журнал работ (KAC) — `KAC/` (227)
 
 | Записка | Состояние |
 |---|---|
@@ -945,6 +945,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sub-phase-T3.1-cross-service-label-revoke\|Cross-service ARM_LABELS revoke on label change (T3.1 / #113)]] | живо (done) |
 | [[KAC/sub-phase-T3.2-vpc-residual-label-feed\|vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)]] | живо (done) |
 | [[KAC/sub-phase-T3.3-unify-iam-label-scope-role-ab\|sub-phase T3.3 — unify IAM label-scope (role + access_binding, chunk 2)]] | живо (done) |
+| [[KAC/ui-console-fixes-wave-2026-08-15\|Волна правок консоли: путь до машины, границы отказа, форк, тексты, имена (2026-08-15)]] | в работе (test) |
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
