@@ -5,12 +5,7 @@ aliases:
   - om Organization
 category: resource
 domain: organizationmanager
-id_prefix: bpf
-owner_table: kacho_rm.organizations
-owner_db: kacho_rm
-folder_level: false
-hierarchy: root
-status: stable
+status: deprecated
 related_rpc:
   - "[[rpc/rm-organization-service]]"
   - "[[rpc/om-organization-service]]"
@@ -20,40 +15,45 @@ tags:
   - resource
   - kacho-rm
   - organization
-  - root
+  - deprecated
 ---
 
-# Organization
+> [!warning] Ресурс снят вместе со своим доменом (KAC-124)
+> Ни домена organizationmanager, ни обслуживавшего его сервиса в дереве продукта
+> нет: каталога proto, объявления сервиса и схемы БД не существует. Преемник —
+> Account в iam ([[iam-account]]). Ниже — след, а не описание действующего
+> ресурса.
+>
+> **Снятие закреплено проверкой на крае** (сверено по стволу 2026-08-05):
+> `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` —
+> `/kacho.cloud.organizationmanager.v1.OrganizationService/List` обязан **не резолвиться**.
 
-**Domain**: organizationmanager (обслуживается `kacho-resource-manager`)
-**ID prefix**: `bpf`
-**Owner table**: `kacho_rm.organizations`
-**Hierarchy**: root уровня — родительский для Cloud.
+# Organization — снят (KAC-124)
 
-## Fields
+Корень прежней иерархии арендатора, родитель облака. Жил в собственном
+proto-домене, но обслуживался тем же снятым сервисом, что Cloud и Folder.
 
-| Field | Type | Note |
-|---|---|---|
-| `id` | TEXT PK | `bpf<…>` |
-| `name` | TEXT | uniqueness — global per platform |
-| `description` | TEXT | |
-| `labels` | JSONB | |
-| `created_at` | TIMESTAMP | |
+## Чем заменён
 
-## FK (out-bound)
+Organization / Cloud / Folder → Account / Project в iam (KAC-124). Организация и
+облако свелись в один аккаунт ([[iam-account]]).
 
-- `clouds.organization_id → organizations(id)` — RESTRICT (в same DB `kacho_rm`).
+> [!note] Префикс идентификатора пережил ресурс
+> Константа префикса этого ресурса в дереве продукта **жива** — осталась
+> легаси-константой в пакете идентификаторов. Резолв имени доказывает
+> существование **имени**, а не ресурса.
 
-## Lifecycle
+## Что снято из этой записки
 
-ACTIVE. Delete → FailedPrecondition если есть Cloud.
-
-## IAM placeholders
-
-В proto есть `SetAccessBindings`/`BindAccessPolicy`/... — это placeholders для `kacho-iam` (blocked). Сейчас RPC возвращают `Unimplemented` (или скелетная реализация без enforcement).
+Таблица полей, контракт внешних ключей, жизненный цикл и абзац про заготовки
+доступа удалены: они называли таблицы, которых в дереве нет, и описывали
+поведение сервиса, которого не существует. Заготовки доступа, о которых там шла
+речь, к нынешней модели прав отношения не имеют — она живёт в iam
+([[iam-access-binding]]).
 
 ## See also
 
-[[../packages/proto-organizationmanager]] [[../rpc/rm-organization-service]]
+[[iam-account]] [[iam-access-binding]] [[../rpc/rm-organization-service]]
+[[../packages/proto-organizationmanager]] [[rm-cloud]] [[../KAC/KAC-124]]
 
-#resource #kacho-rm #organization #root
+#resource #kacho-rm #organization #deprecated

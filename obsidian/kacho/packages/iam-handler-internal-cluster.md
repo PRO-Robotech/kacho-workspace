@@ -3,6 +3,7 @@ title: iam handler internal_cluster
 repo: kacho-iam
 layer: handler
 category: packages
+path: services/iam/internal/apps/kacho/api/cluster
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_tickets:
@@ -12,6 +13,8 @@ tags:
   - kacho-iam
   - handler
   - internal
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # `kacho-iam/internal/apps/kacho/api/cluster/`

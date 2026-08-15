@@ -8,7 +8,24 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/.claude/hooks/vault-reminder.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/vault-reminder.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/class-guard.sh\"",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/docfresh.sh\"",
+            "timeout": 120
           }
         ]
       }
@@ -18,7 +35,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/.claude/hooks/vault-stop-check.sh"
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/vault-stop-check.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/docfresh.sh\"",
+            "timeout": 120
           }
         ]
       }

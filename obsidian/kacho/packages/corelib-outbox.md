@@ -1,44 +1,73 @@
 ---
 title: corelib-outbox
-category: package
+category: packages
 repo: kacho-corelib
+path: pkg/outbox
 layer: shared
+status: stable
 tags:
   - packages
   - kacho-corelib
   - outbox
   - postgres
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# corelib/outbox
+# pkg/outbox — запись намерения в той же транзакции
 
-**Path**: `kacho-corelib/outbox/`
-**Imports**: `context`, `encoding/json`, `fmt`, `pgx/v5`, `pgxpool`
-**Imported by**: `kacho-vpc` (4 files)
+**Каталог**: `pkg/outbox/` · импорт `github.com/PRO-Robotech/kacho/pkg/outbox`
+**Прежде** (полирепо): `kacho-corelib/outbox`.
+**Импортирует**: `context`, `encoding/json`, `fmt`, `regexp`, `pgx/v5`.
+**Импортируют** (`go list` на `96b2879a`, non-test): vpc · geo · compute, плюс
+собственные подпакеты. Дренаж — отдельный подпакет с **шестью** потребителями
+(см. [[corelib-outbox-drainer]]).
 
-Atomic outbox-в-TX: события пишутся в таблицу `outbox` той же транзакцией, что и domain-изменение → consumer-у транслируется через LISTEN/NOTIFY.
-
-## Exported
-
-- `Emit(ctx, tx pgx.Tx, table, kind, id, eventType string, payload any) error` — INSERT в `<schema>.outbox(table,kind,id,event_type,payload)`. **Требует** `tx` (атомарность — точка дизайна).
-- `Event struct{ ID, Table, Kind, ResourceID, EventType string; Payload json.RawMessage; CreatedAt time.Time }` — read-out при поллинге.
-- `Writer struct{ ... }` — listener на `LISTEN <channel>` + поллер outbox (catch-up если NOTIFY потерян).
-  - `NewWriter(channel string) *Writer`
-  - `(*Writer).Run(ctx, pool, handler func(Event) error) error`
-
-## Atomicity rule
+## Экспортируемое API — две функции, и это весь пакет
 
 ```go
-err := tx.Do(ctx, func(ctx context.Context) error {
-    repo.UpdateNetwork(ctx, n)  // domain change
-    outbox.Emit(ctx, tx, "networks", "network", n.ID, "network.updated", n)
-    return nil
-})
-// Either both committed or both rolled back. NOTIFY is async after commit.
+func Emit(ctx context.Context, tx pgx.Tx, table, kind, id, eventType string, payload map[string]any) error
+func SanitizeTable(table string) string
 ```
 
-## See also
+> [!warning] `Event`, `Writer`, `NewWriter`, `(*Writer).Run` — таких имён нет
+> Прежняя редакция описывала читающую сторону (структуру события и слушателя
+> `LISTEN`) как часть этого пакета. Читающая сторона живёт в подпакетах:
+> `outbox/drainer` (claim + применение), `outbox/reconciler` (целостность),
+> `outbox/bootgate` (отказ старта при несогласованном состоянии),
+> `outbox/metrics`. Записка описывала «пакет» шире, чем он есть, — и следующий
+> читатель искал бы слушателя не там.
 
-[[corelib-db]] [[vpc-apps-kacho-api-network]] (writer wiring)
+## Почему `tx` — обязательный аргумент, а не «возьмём из контекста»
+
+Атомарность «доменная строка + намерение» — несущее свойство: либо закоммичены оба,
+либо ни одного. Транзакция передаётся **явным параметром**, поэтому «забыли передать»
+не компилируется, а не превращается в тихую потерю намерения. То же соображение,
+что у `Transactor.InTx` ([[corelib-db]]).
+
+Уведомление после коммита — асинхронно и **не** является гарантией доставки:
+гарантию даёт сама строка плюс дренаж с повторами (at-least-once).
+
+## `SanitizeTable` — имя таблицы приходит от вызывающего
+
+Имя цели подставляется в запрос, поэтому пакет несёт собственную нормализацию, а не
+полагается на то, что все вызывающие передают литерал. Это правильная форма защиты:
+она не зависит от предположения о единственном законном производителе входа.
+
+## Что обязано быть верно у КАЖДОЙ такой очереди
+
+- **Отказ в правах от принимающей стороны — терминальный, а не временный.** Повтор
+  идентичного запроса не пройдёт, а «временная» классификация приводит к тому, что
+  строка навсегда блокирует свою партицию.
+- **«Ноль доставленных строк за всю жизнь очереди» обязано быть заметно.** Реальный
+  случай: весь очередной путь был мёртв, а наблюдаемое поведение выглядело исправным,
+  потому что синхронный путь рядом работал (`data-integrity.md` §Межсервисное
+  намерение).
+- **Компенсация саги живёт у инициатора** и эмитится в его собственную очередь **до**
+  пометки операции ошибкой — не «best-effort в горутине», потому что процесс может
+  умереть между отказом и уборкой.
+
+## См. также
+
+[[corelib-db]] [[corelib-outbox-drainer]] [[corelib-operations]] [[iam-pg-fga-outbox]]
 
 #packages #kacho-corelib #outbox #postgres

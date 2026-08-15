@@ -9,11 +9,13 @@ tags:
   - handler
   - usecase
   - listener
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/apps/kacho/api/listener
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/listener/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/listener/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/listener/`)
 **Implements**: [[../rpc/nlb-listener-service|ListenerService]]
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]], [[nlb-clients-vpc]], [[nlb-internal-fgawrite]]
 
@@ -25,16 +27,18 @@ tags:
 | `iface.go` | port-интерфейсы (Repo, AddressClient, SubnetClient, Emitter) |
 | `helpers.go` | shared validation + mapErr |
 | `get.go` / `list.go` | sync reads |
-| `create.go` | `CreateListenerUseCase` — Validate + LB.Get + spawn worker (VIP alloc) |
-| `create_worker.go` | worker: BYO ([[nlb-clients-vpc]] SetReference CAS) OR auto-alloc (AllocateExternal/InternalIP) → listeners.Insert → outbox.Emit (CREATED + LB UPDATED) → ops.MarkDone → fga.Emit 2 tuples. Defer FreeIP compensation. |
-| `update.go` | UpdateMask; immutable: lb_id/protocol/port/ip_version/address_id |
-| `delete.go` | spawn worker: free VIP (auto → FreeIP, BYO → ClearReference) → listeners.Delete → outbox.Emit DELETED |
+| `create.go` | `CreateListenerUseCase` — LB.Get + TG-precheck + Validate + spawn worker (чистый INSERT) |
+| `create.go` (worker) | одна writer-TX: listeners.Insert (`ACTIVE`) → outbox (CREATED + LB UPDATED) → FGA-register-intent → Commit. Внешних side-effect'ов и компенсации нет. |
+| `update.go` | UpdateMask; immutable: lb_id/protocol/port |
+| `delete.go` | spawn worker: listeners.Delete → outbox DELETED. VIP не освобождает (принадлежит LB); legacy release-ветка по `listeners.address_id` мертва — колонка всегда пуста |
 | `list_operations.go` | per-resource history |
-| `*_test.go` | unit-tests (BYO/auto/compensation/immutable update reject) |
+| `*_test.go` | unit-tests (TG-wiring, immutable update reject, malformed id, port BVA) |
 
-## VIP allocation worker flow
+## VIP — не здесь
 
-См. [[../edges/nlb-to-vpc-vip-allocation]] (auto) + [[../edges/nlb-to-vpc-byo-address]] (BYO).
+Аллокация/release VIP живут в `apps/kacho/api/loadbalancer` (+ `jobs/free_ip_runner.go`):
+[[../edges/nlb-to-vpc-vip-allocation]]. Порт `AddressClient` в этом пакете остался только под
+мёртвую legacy-release-ветку `delete.go` — прод-путь его не задействует.
 
 ## See also
 

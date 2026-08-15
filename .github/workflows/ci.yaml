@@ -4,23 +4,209 @@ jobs:
   bats-and-shellcheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: install bats-core + shellcheck
         run: sudo apt-get update -qq && sudo apt-get install -y bats shellcheck
       - name: shellcheck core bash scripts
+        # `|| true` глушит ЗАМЕЧАНИЯ линта — и вместе с ними глушил бы «файла нет
+        # вовсе». Существование каждого из этих трёх имён утверждает отдельно
+        # job `tooling-gate`, поэтому исчезновение файла остаётся громким.
         run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
-      - name: shellcheck freeze-gate scripts (strict)
-        working-directory: scripts/freeze-gate
+      - name: shellcheck tooling-gate scripts (strict)
+        working-directory: scripts/tooling-gate
         run: shellcheck -x -- *.sh
       - name: run bats tests
-        run: bats tests/bootstrap.bats tests/sync-all.bats tests/freeze-gate.bats
+        # Перечень явный, а не `tests/*.bats`: под маской исчезнувший файл просто
+        # перестаёт исполняться, и суита остаётся зелёной с меньшим объёмом.
+        # Явное имя ломается заметно, а существование каждого имени отдельно
+        # утверждает tooling-gate (job `tooling-gate` ниже).
+        run: bats tests/bootstrap.bats tests/sync-all.bats
+
+  tooling-gate:
+    name: конвейер и агенты не утверждают о дереве того, чего в нём нет
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: tooling-gate
+        run: bash scripts/tooling-gate/run-all.sh
+      - name: гейт доказан инъекцией — дефект краснеет, законный близнец молчит
+        run: bash scripts/tooling-gate/inject.sh
+
+  hook-proofs:
+    name: доказательства хуков инъекцией исполняются, а не лежат текстом
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      # Обоим доказательствам нужно НАСТОЯЩЕЕ дерево продукта рядом: они гоняют
+      # пробы по живым фрагментам, а не по выдуманным строкам. Без него docfresh
+      # честно отказывается работать (и это одна из его же проб), но остальные
+      # пробы стали бы «НЕ ВЫПОЛНИЛОСЬ» — то есть набор ничего бы не доказал.
+      #
+      # `ref: main` — ствол продукта. Пин на долгоживущую интеграционную ветку снят
+      # 2026-08-07 ОДНОВРЕМЕННО со слиянием, ровно как предписывал стоявший здесь
+      # комментарий: ствол опубликован прямо в main (1306 коммитов, fast-forward),
+      # ветка снята, и checkout по ней начал падать — три job'а воркспейса краснели
+      # не по существу, а потому что sibling нечем было выложить.
+      #
+      # Предпосылка снятия ПРОВЕРЕНА, а не предположена: анализаторов сужения списков
+      # на main — 18 файлов (прежний довод «0 против 18 на стволе» больше не держится),
+      # корневой Makefile на месте (на нём держится ветка рассуждения в самом скрипте).
+      # То есть сверять теперь есть с чем, и пин стал бы указывать в никуда.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      # Разборщик YAML — ПРЕДПОСЫЛКА одной из проб, а не удобство. Без него
+      # страж классов честно объявляет пропуск («разборщик недоступен»), и проба,
+      # которая ждёт от него находки, докладывает «дефект прошёл». То есть в
+      # чистом окружении конвейера эта проверка не срабатывала НИ РАЗУ, а её
+      # красный вердикт читался как дефект стража — хотя стражу нечем было читать.
+      - name: разборщик YAML для стража классов
+        run: python3 -m pip install --quiet PyYAML
+      - name: shellcheck hook scripts (strict)
+        run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
+      - name: hook-proofs
+        run: bash scripts/hook-proofs.sh
+
+  vault-gate:
+    name: записки хранилища знаний сверены с деревом продукта
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
+      # анализаторов сужения списков. Без монорепо выводить не из чего, и гейт
+      # отвечает VOID (код 2), а не «чисто»: неразличение этих исходов и есть тот
+      # класс, который он ловит.
+      #
+      # `ref: main` — пин на интеграционную ветку снят 2026-08-07 вместе со слиянием.
+      # Довод, ради которого он стоял («на main анализаторов ЕЩЁ НЕТ: 0 файлов против
+      # 18 на стволе»), исчерпан замером: на main их 18. Ранний снос пина не «прошёл бы
+      # тихо» — гейт сказал бы VOID и уронил джобу, поэтому снятие безопасно проверяемо.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      - name: shellcheck vault-gate (strict)
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck && shellcheck -x -- scripts/vault-gate/*.sh
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      # Гейт, чью работоспособность не доказали, отчитывается зелёным одинаково
+      # и когда всё хорошо, и когда он сломан.
+      - name: vault-gate доказывает свою работоспособность
+        run: KACHO_MONOREPO="$PWD/project/kacho" ./scripts/vault-gate/inject.sh
+      - name: записки не выдают снятый механизм за текущий
+        run: KACHO_MONOREPO="$PWD/project/kacho" ./scripts/vault-gate/run-all.sh
+
+  doc-commands:
+    name: quoted make commands run from the monorepo root
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      # Needs the monorepo checked out beside the workspace: the check reads the
+      # real Makefiles under project/kacho and asserts every make command quoted in
+      # docs/ resolves against them. Without it there is nothing to check against,
+      # and the script says so instead of passing vacuously.
+      #
+      # `ref: main` — пин на интеграционную ветку снят 2026-08-07 вместе со слиянием.
+      #
+      # Довод, ради которого он стоял, стоит сохранить: пока `main` был заморожен
+      # позади ствола, проверка читала ЕГО Makefile'ы и отвечала про них — замер
+      # 2026-08-05 давал 31 находку против `main` и 44 против ствола при трёх общих,
+      # то есть 28 из 31 названных были ложными, а 41 настоящая не называлась вовсе.
+      # Это и есть цена сверки не с тем деревом: гейт остаётся на вид исправным.
+      # Отдельно проверено то, на чём держится целая ветка рассуждения в скрипте, —
+      # КОРНЕВОЙ Makefile: на main он теперь есть.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть, способен смолчать и
+      # способен отличить «предмета нет» от «всё чисто». Гейт, чью работоспособность
+      # не доказали, печатает один и тот же успех в обоих случаях.
+      - name: гейт цитат доказывает свою работоспособность
+        run: bash scripts/check-doc-commands-inject.sh
+      - name: docs quote commands that exist
+        run: python3 scripts/check-doc-commands.py
+
+  skills-gate:
+    name: оснастка не утверждает о дереве того, чего в нём нет
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # Набор существовал, но не звался НИОТКУДА: ни один job его не запускал, и
+      # шесть проверок утверждений оснастки о дереве не исполнялись ни разу в
+      # конвейере. Проверка, которую никто не гоняет, отличается от отсутствующей
+      # только тем, что создаёт уверенность.
+      #
+      # Дерево продукта нужно `check-06`: он выводит раскладку каталогов
+      # документации из ЧУЖОГО дерева. Без него проверка честно отвечает VOID, а
+      # run-all считает VOID провалом набора — то есть тихо зелёным это не станет.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      - name: install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      # Порог — `warning`: у набора есть замечания уровня info (кавычки вокруг
+      # регулярных выражений, `A && B || C`), и они здесь намеренные. Порог назван
+      # прямо, а не спрятан за `|| true`: глушение кода возврата скрыло бы и
+      # «файла нет вовсе».
+      - name: shellcheck skills-gate
+        working-directory: scripts/skills-gate
+        run: shellcheck -x --severity=warning -- *.sh
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      - name: skills-gate доказывает свою работоспособность
+        run: bash scripts/skills-gate/inject.sh
+      - name: утверждения оснастки сверены с деревом
+        run: bash scripts/skills-gate/run-all.sh
+
+  docs-gate:
+    name: документы объявляют то, чем их измеряют
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      - name: install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      - name: shellcheck docs-gate (strict)
+        run: shellcheck -x -- scripts/docs-gate/*.sh
+      # Дерево продукта выкладывается ЗДЕСЬ, потому что check-03 сверяет координату,
+      # на которую ссылается держащее утверждение приёмки, — а координата живёт в
+      # продукте. Без этого шага проверка объявляет «без предмета» на КАЖДОМ прогоне:
+      # она присутствует, исполняется и не может ни подтвердить, ни опровергнуть
+      # ничего. Предпосылке полагается СВОЁ УСЛОВИЕ, а не послабление проверке.
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
+      # Гейт, чью работоспособность не доказали, отчитывается зелёным одинаково
+      # и когда всё хорошо, и когда он сломан.
+      - name: docs-gate доказывает свою работоспособность
+        run: ./scripts/docs-gate/inject.sh
+      - name: вердикт приёмки и состояние записки читаются машинно
+        run: ./scripts/docs-gate/run-all.sh
 
   authz-fixtures-lint:
     name: authz-fixtures bootstrap — lint (KAC-122)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: smoke JWT minter
         run: |

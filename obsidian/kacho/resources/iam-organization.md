@@ -8,8 +8,8 @@ domain: iam
 id_prefix: org
 owner_table: kacho_iam.organizations
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-organization-service]]"
 related_packages:
@@ -21,7 +21,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.organizations` **дропнута** миграцией `0008_drop_organizations.sql`; `message Organization` в `proto/kacho/cloud/iam/v1/` отсутствует. Снятие домена вдобавок **закреплено проверкой на крае**: `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` требует, чтобы `/kacho.cloud.organizationmanager.v1.OrganizationService/List` не резолвился. Преемник — Account ([[iam-account]]).
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # Organization
 

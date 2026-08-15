@@ -1,68 +1,72 @@
 ---
-title: kacho-nlb/internal/fgawrite
+title: nlb-internal-fgawrite
 aliases:
-  - nlb fgawrite
+  - nlb регистрация ресурса у владельца прав
   - nlb hierarchy tuple writer
 category: packages
 repo: kacho-nlb
-layer: composition
+path: services/nlb/internal/clients/iam
+layer: clients
+status: stable
 tags:
   - packages
   - kacho-nlb
   - fga
-  - d11
-  - composition-root
+  - clients
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# kacho-nlb/internal/fgawrite
+# nlb: регистрация ресурса у владельца прав
 
-D-11 sync hierarchy tuple writer для kacho-nlb. Wraps `kacho-iam.InternalIAMService.WriteCreatorTuple` в типизированные helpers, которые вызываются из Create UseCase worker'ов.
+**Где живёт сейчас**: `services/nlb/internal/clients/iam/` — `register_applier.go`
+(применение намерения), `sync_registrar.go` (сужение окна), `check_client.go`,
+`project_client.go`; форма намерения — в `services/nlb/internal/domain/fga_intent.go`,
+порт очереди — в `services/nlb/internal/repo/kacho/`.
 
-**Layer**: composition (импортирует kacho-proto stubs + corelib/retry).
+> [!warning] Отдельного пакета-писателя НЕТ, и подход другой
+> Прежняя редакция описывала пакет-эмиттер с четырьмя типизированными методами,
+> собранный вокруг **синхронной** записи отношения, и объявляла его отказ
+> **некритичным**: «записать предупреждение и продолжить, страховкой служит подписка
+> на события». В дереве нет ни такого пакета, ни такого режима отказа. Подход
+> заменён на очередь намерений с доставкой не менее одного раза — и это не
+> косметика: при мягком проходе право владельца могло **не появиться вовсе**, а
+> выглядело бы это как исправная работа.
 
-## Файлы
+## Как устроено сейчас
 
-| File | Содержание |
-|---|---|
-| `doc.go` | overview + D-11 pattern reference (KAC-108) |
-| `emitter.go` | `Emitter` interface + `iamEmitter` impl (gRPC adapter) |
-| `noop.go` | `NoopEmitter` для dev/test без iam |
-| `factory.go` | `New(Options)` с retry + LRU subject-cache |
-| `emitter_test.go` | unit-tests (success/retry/noop/cache hit) |
+1. **Намерение** — значение домена (`FGARegisterIntent`, `FGATuple`, ссылка на
+   объект, субъект из личности вызывающего) — пишется в собственную очередь **той же
+   транзакцией**, что и сам ресурс.
+2. **Синхронный регистратор** пробует применить его сразу: это **сужение окна**, а
+   не гарантия.
+3. **Дренаж** ([[corelib-outbox-drainer]]) доставляет не менее одного раза, с ключом
+   партиции по ресурсу — потому что «зарегистрировать» и «снять регистрацию» одного
+   объекта **не коммутируют**, и переставленная пара воскрешает запись удалённого
+   ресурса.
+4. **Классификация отказа** — отдельная функция: отказ в правах и неверный аргумент
+   **терминальны**, недоступность и истёкший срок — временны. Корзины «прочее →
+   повторим вечно» нет: временная классификация терминального отказа приводит к тому,
+   что строка навсегда блокирует свою партицию.
 
-## Interface
+## Контракт принимающей стороны важнее факта эмиссии
 
-```go
-type Emitter interface {
-    EmitLoadBalancerCreated(ctx context.Context, lbID, projectID string) error
-    EmitListenerCreated(ctx context.Context, listenerID, lbID, projectID string) error
-    EmitTargetGroupCreated(ctx context.Context, tgID, projectID string) error
-    EmitResourceDeleted(ctx context.Context, objectType, objectID string) error
-}
-```
+Регистрация гейтится **закрытым набором принимаемых отношений** на стороне владельца
+прав; отношение вне набора отвергается целиком. Поэтому проба обязана утверждать, что
+эмитировано отношение, которое владелец **примет**, — слабое «намерение эмитировано»
+остаётся зелёным ровно на этом дефекте (`data-integrity.md` §Межсервисное намерение).
 
-## Usage в Create workers
+Вторая, более тихая сторона класса: **снятие** регистрации отвергается тем же
+способом, что и постановка. Отзыв прав не доезжает так же, как выдача, — только без
+единого видимого симптома, потому что «работает» и «не отозвано» выглядят одинаково.
 
-```go
-// internal/apps/kacho/api/loadbalancer/create.go (worker stage)
-if err := uc.fga.EmitLoadBalancerCreated(ctx, lb.ID, lb.ProjectID); err != nil {
-    uc.logger.Warn("fga emit failed; rely on D-13 lifecycle subscribe", "err", err)
-    // non-fatal: D-13 stream (iam → nlb subscribe) catches up
-}
-```
+## Личность субъекта
 
-## Non-fatal failure mode
+Субъект выводится из личности вызывающего; у неопознанного — **отдельный маркер**,
+чтобы «не назвался» никогда не выглядело как обычный субъект и не получало прав.
 
-iam недоступен → log WARN + continue. Worker НЕ возвращает error пользователю (нельзя блокировать success на FGA). Safety-net = [[../edges/iam-to-nlb-resource-lifecycle]] D-13 subscribe — iam catches up на reconnect.
+## См. также
 
-## Imports
+[[corelib-outbox-drainer]] [[corelib-authz]] [[nlb-clients-iam]]
+[[../edges/nlb-to-iam-creator-tuple]] [[../KAC/KAC-108]]
 
-- `kacho-proto/gen/go/kacho/cloud/iam/v1` — `InternalIAMServiceClient.WriteCreatorTuple`.
-- `kacho-corelib/authz` — port `CreatorTupleWriter`.
-- `kacho-corelib/retry` — `OnUnavailable` wrapper.
-
-## See also
-
-[[../edges/nlb-to-iam-creator-tuple]] [[corelib-authz]] [[../KAC/KAC-108]] [[../KAC/KAC-141]]
-
-#packages #kacho-nlb #fga #d11 #composition-root
+#packages #kacho-nlb #fga #clients

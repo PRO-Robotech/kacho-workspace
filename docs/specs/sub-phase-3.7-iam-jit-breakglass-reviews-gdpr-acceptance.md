@@ -1973,13 +1973,13 @@ Vault updates (см. §«Predecessors» list). KAC-127 note updated с Phase 7 P
   - Auto-expire jobs: insert near-expiry rows, advance clock (or short TTL in test), verify EXPIRED transition + outbox emits.
 - [ ] **kacho-iam Rego tests** (если расширяются OPA rules): `opa test policies/` зелёный (Phase 3 baseline already has `break-glass max 2h` rule; Phase 7 might add `jit_window present` validation).
 - [ ] **kacho-deploy** — `helm template` golden tests pass; secrets templates validate (sealed-secrets / external-secrets CRD).
-- [ ] **Newman cases** (`tests/newman/cases/iam_jit_*.py`, `iam_break_glass_*.py`, `iam_access_review_*.py`, `iam_gdpr_*.py`) — happy + negative per RPC, generated via `gen.py`, run в `make e2e-test`:
+- [ ] **Newman cases** (`tests/newman/cases/iam_jit_*.py`, `iam_break_glass_*.py`, `iam_access_review_*.py`, `iam_gdpr_*.py`) — happy + negative per RPC, generated via `gen.py`, run в `make -C deploy e2e-test`:
   - JIT: create eligibility / activate happy / activate without step-up / duplicate ALREADY_EXISTS / duration > max INVALID_ARGUMENT / disabled FAILED_PRECONDITION.
   - Break-glass (via internal-port-forward in test setup): request happy + duration > 2h rejection + approve-A + approve-B with separation of duties + deny + auto-expire.
   - Access review: list pending + confirm + revoke + double-decision rejected.
   - GDPR: request happy + cancel + duplicate ALREADY_EXISTS + owner-block + processor full pipeline (with cool-off shortened for tests via env).
 - [ ] **Notification mocks** — tests use recorded HTTP/SMTP backends (no real PagerDuty/Slack/SMTP calls in CI).
-- [ ] **CI integration** — `make test-integration && make e2e-test` зелёный.
+- [ ] **CI integration** — `make -C services/iam test && make -C deploy e2e-test` зелёный.
 
 ### Operational
 

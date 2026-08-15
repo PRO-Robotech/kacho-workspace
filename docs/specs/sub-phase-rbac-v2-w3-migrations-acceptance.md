@@ -128,6 +128,6 @@ WHERE EXISTS (
 
 - [ ] Branch `KAC-216-rbac-v2-migrations` exists; commits per Plan §Wave 3 tasks 3.1..3.4.
 - [ ] Integration tests cover scenarios S3.1..S3.11; PR body shows the RED→GREEN pair (test fails first with migration-missing, passes after migration body added) for at least S3.1, S3.3, S3.5, S3.6, S3.11 per workspace CLAUDE.md §«Запреты» #12.
-- [ ] PR `PRO-Robotech/kacho-iam#<N>` open; CI green (`make test` + lint).
+- [ ] PR `PRO-Robotech/kacho-iam#<N>` open; CI green (`make -C services/iam test` + lint).
 - [ ] PR URL added to [[KAC-216]] frontmatter `prs:`.
 - [ ] [[KAC-216]] → `In Progress` at PR-open; → `Done` after merge.

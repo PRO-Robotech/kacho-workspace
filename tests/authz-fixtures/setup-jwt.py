@@ -56,7 +56,7 @@ def mint(secret: str, sub: str, exp_seconds: int | None = None, extra_claims: di
 
 
 def bulk(secret: str) -> dict:
-    """6 основных user-токенов — БЕССРОЧНЫЕ (exp_seconds=None, KAC-263)."""
+    """6 основных user-токенов + step-up вариант — БЕССРОЧНЫЕ (exp_seconds=None, KAC-263)."""
     subjects = {
         # external_id ↔ JWT env-var name. external_id = `sub` claim, который
         # api-gateway пробросит на InternalIAMService.LookupByExternalID для
@@ -71,7 +71,22 @@ def bulk(secret: str) -> dict:
         "jwtAccountAdminB": "auth-test-account-admin-b@example.com",
         "jwtInvitee": "auth-test-invitee@example.com",
     }
-    return {name: mint(secret, sub) for name, sub in subjects.items()}
+    out = {name: mint(secret, sub) for name, sub in subjects.items()}
+    # Step-up (acr=2) variant of the account-admin-A session. Some RPCs carry a
+    # catalog `required_acr_min` (RFC 9470 step-up) — e.g. SAKeyService.Issue /
+    # Revoke, where issuing/revoking long-lived SA OAuth credentials demands a
+    # re-auth ceremony. The api-gateway step-up gate denies a normal acr<2
+    # session for those, so a suite exercising them must present a token minted
+    # from a step-up'd session. `auth_time` is set fresh so any `mfa_max_age`
+    # freshness window passes too. Same `sub` as jwtAccountAdminA → same User
+    # principal, only the authentication strength differs. БЕССРОЧНЫЙ, как и
+    # остальные пять (KAC-263) — freshness несёт `auth_time`, не `exp`.
+    out["jwtAccountAdminAStepUp"] = mint(
+        secret,
+        subjects["jwtAccountAdminA"],
+        extra_claims={"acr": "2", "auth_time": int(time.time())},
+    )
+    return out
 
 
 def mint_sa(secret: str, sva_id: str, exp_seconds: int | None = None) -> str:

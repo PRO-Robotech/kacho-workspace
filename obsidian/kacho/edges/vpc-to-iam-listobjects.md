@@ -1,16 +1,18 @@
 ---
-title: "vpc → iam: AuthorizeService.ListObjects (List filtering)"
+title: "vpc → iam: сужение страницы списка пакетной проверкой"
 aliases:
   - vpc listobjects
   - vpc fga listobjects
+  - vpc batchcheck
 category: edge
 caller_repo: kacho-vpc
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-127]]"
+  - "[[rbac-rules-model-2026-subphase-D-consumer-vpc]]"
 tags:
   - edge
   - kacho-vpc
@@ -19,83 +21,69 @@ tags:
   - fga
 ---
 
-# vpc → iam: AuthorizeService.ListObjects
+# vpc → iam: сужение страницы списка пакетной проверкой
 
-**Caller**: `kacho-vpc` List handlers (14 List* RPCs — networks, subnets, security_groups, route_tables, addresses, gateways, private_endpoints, network_interfaces, …).
-**Callee**: `kacho-iam` AuthorizeService.ListObjects ([[../rpc/iam-authorize-service]]).
-**Protocol**: gRPC.
-**Sync/Async**: sync per-request.
-**Status**: **Phase 4 planned**. SLO ListObjects p95 ≤100ms (Phase 4 DoD).
+> [!info] Имя файла — координата, а не описание
+> Файл называется `…-listobjects`, потому что на него ссылаются десятки записок, а
+> ссылка обязана пережить смену механизма. Само ребро перечислением больше не
+> пользуется: имя стабильно, заголовок говорит правду. То же правило, что ban #15
+> для ресурсов — адресуемся по неизменной координате, а не по мутабельной метке.
 
-## Flow per-request (Phase 4)
+**Caller**: `kacho-vpc` — 21 списочный метод в 8 ресурсах (`network`, `subnet`,
+`security_group`, `route_table`, `address`, `gateway`, `network_interface`,
+`address_pool`), плюс 1 на внутреннем слушателе. Из них 2 объявлены
+cluster-scoped (`addresspool.List`, `addresspool.ListAddresses`) — админский
+ресурс, не тенантский.
+**Callee**: `kacho-iam` `AuthorizeService.BatchCheck` ([[../rpc/iam-authorize-service]]).
+**Protocol**: gRPC, sync, per-request.
+**Реализация**: `services/vpc/internal/authzfilter/` (порт `UseCasePort`,
+`FilterVisibleIDs`); провязка — в композиционном корне.
 
-```
-Client → GET /vpc/v1/networks?folder_id=prj_yyy
-  ↓ api-gateway DPoP/JWT verify + AuthorizeService.Check(user, "vpc.networks.list", project:prj_yyy)
-  ↓ Forward к kacho-vpc Network.List(folder_id=prj_yyy)
-  ↓
-kacho-vpc Network.List:
-  ↓ Call iam.AuthorizeService.ListObjects(
-        user=user:usr_xxx,
-        relation="vpc.network.read",
-        object_type="network",
-        ParentFilter=project:prj_yyy)
-      ↓ Returns visible network IDs: ["net_aaa", "net_bbb", "net_ccc"]
-  ↓ SQL: SELECT * FROM networks WHERE folder_id=$1 AND id = ANY($2)
-  ↓ Return filtered list to api-gateway
-```
+## Механика
 
-## Pagination strategy
+Use-case читает **страницу** строк из своей БД курсором и спрашивает iam, какие
+id **этой страницы** видимы вызывающему: батчами ≤100 (контрактный предел
+`BatchCheck`). Предикат видимости — `viewer ∪ v_list`: сначала батч на `viewer`,
+затем `v_list` для тех, кому `viewer` отказал.
 
-- ListObjects supports pagination cursor (opaque, signed).
-- kacho-vpc passes opaque cursor to client unchanged.
-- На каждый page request — new ListObjects call (no client-side cursor mutation).
+- **Стоимость пропорциональна СТРАНИЦЕ**, а не популяции типа.
+- **read == enforce**: видимый набор равен Check-allow набору.
+- **`Get` по id в этот порт не заходит вовсе** — единичное чтение авторизуется
+  прямым per-object Check в интерсепторе, как `Update`/`Delete`.
+- **Неопознанный вызывающий отсекается безусловно**, а не «когда фильтр
+  подключён»: за scope-filtered `List` нет per-RPC Check, на который можно
+  откатиться.
+- **Ошибка резолва — fail-closed** (`UNAVAILABLE`), не пустая и не полная страница.
+- **Формат страницы судится ДО прав**: `page_token`/`page_size` валидируются
+  раньше, чем short-circuit по пустому гранту.
 
-## Cache strategy
+## Почему не перечисление (механизм снят)
 
-- 5s TTL keyed on `(user, relation, project_id)` — shared with [[api-gateway-to-iam-authorize]] cache.
-- Bigger page-set (≥1k items) → bypass cache (always fresh).
-- LISTEN invalidation same as api-gateway.
+Прежде фильтр спрашивал «перечисли ВСЕ объекты типа, которые субъекту можно», и
+сужал SQL до полученного набора. У перечисления в хранилище прав **жёсткий
+серверный предел и нет продолжения**: ответ — произвольный префикс, а предел
+общий на тип для всего кластера, а не на тенанта. Следствие было не отказом, а
+**молчаливой потерей видимости**: строка есть, грант есть, `Update`/`Delete`
+работают (они задают прямой per-object вопрос), а `List` ресурс не показывает.
+Просьба о большем лимите предела не поднимает — это обрезка уже усечённого ответа.
 
-## Fail-closed behavior
+Лечится не поднятием предела (он внешний и всё равно конечен), а **формой
+вопроса**. Ослабления авторизации нет: предикат тот же, запрос другой.
 
-ListObjects unavailable → 503 (можно return empty list = false positive denial, дешевле fail-closed).
+Имена `ListObjects`/`ListAllowedIDs` **запрещены анализатором сужения** в дереве
+каждого сервиса-потребителя — запрет исполняем, а не записан абзацем.
 
-## SLO budget per List RPC
+## History
 
-| Component | Budget |
-|---|---|
-| api-gateway DPoP/JWT | 5ms p95 |
-| api-gateway authz.Check (top-level list permission) | 20ms p95 |
-| kacho-vpc → iam.ListObjects | **100ms p95** |
-| kacho-vpc SQL SELECT + filter | 30ms p95 |
-| Total p95 end-to-end | ≤200ms |
-
-## Cardinality consideration
-
-ListObjects returns FULL set of visible IDs (no streaming). For user with access к 1M networks:
-- Cap ListObjects response 10k items (server-enforced).
-- For >10k → require explicit `parent` filter (project_id) — Phase 4 DoD test.
-- > 10k AND no parent → 400 InvalidArgument "result set too large; specify project_id".
-
-## Implementation pattern
-
-```go
-// kacho-vpc internal/apps/kacho/api/network/list.go (Phase 4)
-visible, err := authzClient.ListObjects(ctx, authz.ListObjectsRequest{
-    Subject:    callerSubject(ctx),
-    Relation:   "vpc.network.read",
-    ObjectType: "network",
-    Parent:     &authz.ParentFilter{Type: "project", ID: folderID},
-})
-if err != nil { return nil, mapAuthzErr(err) }
-
-rows, _ := repo.ListByFolderAndIDs(ctx, folderID, visible.IDs)
-return rows, nil
-```
+- **2026-08-02** — ребро переведено с перечисления на пакетную проверку страницы;
+  записка приведена к дереву `a373c599`. Прежняя редакция описывала перечисление
+  как активный механизм и приводила под него бюджет SLO.
+- Sub-phase D-consumer — первая посадка per-object фильтрации (перечислением).
 
 ## See also
 
-[[compute-to-iam-listobjects]] [[api-gateway-to-iam-authorize]] [[iam-to-openfga-check]] [[../rpc/iam-authorize-service]] [[../packages/corelib-authz-listobjects]] [[../KAC/KAC-127]]
+[[compute-to-iam-listobjects]] [[nlb-to-iam-listobjects]] [[api-gateway-to-iam-authorize]]
+[[iam-to-openfga-check]] [[../rpc/iam-authorize-service]] [[../packages/corelib-authz-listobjects]]
+[[../KAC/KAC-127]]
 
 #edge #kacho-vpc #cross-service #authz #fga

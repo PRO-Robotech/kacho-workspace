@@ -1,12 +1,13 @@
 ---
-title: "api-gateway internal/middleware/authz"
+title: api-gateway-middleware-authz
 aliases:
   - apigw authz middleware
   - per-rpc authz
 category: packages
 repo: kacho-api-gateway
+path: gateway/internal/middleware
 layer: middleware
-status: planned
+status: stable
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -15,110 +16,79 @@ tags:
   - middleware
   - authz
   - fga
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# api-gateway `internal/middleware/authz`
+# Проверка прав на крае — по каталогу, а не по имени метода
 
-Phase 3 — per-RPC authorization-gate middleware. Extracts caller identity from DPoP-bound JWT, calls iam.AuthorizeService.Check, enforces deny.
+**Где живёт**: `gateway/internal/middleware/` — файлы `authz.go`, `authz_cache.go`,
+`authz_metrics.go`, `authz_overrides.go`, `authz_public_allowlist.go`,
+`authz_util.go`, `permission_catalog.go`, `permission_catalog_embed.go`,
+`permission_denied_response.go`. **Отдельного подпакета `authz` нет** — всё в общем
+пакете middleware.
 
-## Exported API
+> [!warning] Прежняя редакция описывала проект, а не реализацию
+> Записка была помечена «планируется» и описывала выведение глагола из имени метода
+> отдельным реестром, разбор объекта по форме запроса и **мягкий проход на чтении**
+> как настраиваемую политику. Реализация пошла иначе по всем трём пунктам, а
+> названные типы, файл реестра и шесть переменных окружения из её таблицы в дереве
+> отсутствуют. Мягкий проход на чтении вдобавок противоречит норме: ошибка проверки
+> прав — **fail-closed**, недоступный ответ модели не есть «да».
 
-```go
-type AuthzMiddleware struct {
-    Client       authz.AuthorizeServiceClient   // → kacho-iam:9090
-    Cache        *Cache                          // 5s TTL LRU
-    FailPolicy   FailPolicy                      // mutation=closed; read=open_reads (configurable)
-    AuditEmitter AuditEmitter
-}
-
-func (m *AuthzMiddleware) Unary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error)
-```
-
-## Verb extraction
-
-Per-RPC verb derived from gRPC method full name:
-```
-/kacho.cloud.vpc.v1.NetworkService/Create → "vpc.networks.create"
-/kacho.cloud.compute.v1.InstanceService/Get → "compute.instances.read"
-/kacho.cloud.iam.v1.AccessBindingService/Create → "iam.access_bindings.create"
-```
-
-Mapping defined в `internal/middleware/authz/verb_registry.go` (generated from proto descriptor + acceptance §"Verb taxonomy").
-
-## Object resolution
-
-Object id для Check — extracted from request:
-- `GetXxxRequest{id}` → object = `<type>:{id}`.
-- `CreateXxxRequest{folder_id|project_id|account_id}` → object = `<parent_type>:{parent_id}` (нельзя check самого ресурса — он ещё не существует).
-- `ListXxxRequest{folder_id}` → object = `project:{folder_id}` (для top-level list permission; per-item filtering — отдельно через ListObjects [[corelib-authz-listobjects]]).
-
-## Fail policy
+## Экспортируемое API (снято с дерева)
 
 ```go
-type FailPolicy struct {
-    MutationFailMode FailMode  // closed
-    ReadFailMode     FailMode  // open_reads or closed (configurable)
-}
-type FailMode int
-const (
-    FailClosed FailMode = iota  // return Unavailable
-    FailOpenLogged              // proceed but audit-log (reads only)
-)
+type AuthzMiddlewareConfig struct{ ... }
+func NewAuthzMiddleware(cfg AuthzMiddlewareConfig) (*AuthzMiddleware, error)
+func (m *AuthzMiddleware) Unary() grpc.UnaryServerInterceptor
+func (m *AuthzMiddleware) Stream() grpc.StreamServerInterceptor
+func (m *AuthzMiddleware) HTTP(next http.Handler) http.Handler
+func (m *AuthzMiddleware) Metrics() *AuthzMetrics
+func (m *AuthzMiddleware) Reload() error
+func (m *AuthzMiddleware) InvalidateCache()
+func (m *AuthzMiddleware) MaybeFlushOnMutation(fqn string, httpStatus int)
+func (m *AuthzMiddleware) AsInvalidator() AuthzInvalidator
+type AuthorizeChecker interface{ ... }   // порт к проверке прав
+type RestRouteResolver interface{ ... }  // путь REST → полное имя метода
 ```
 
-## Implementation snippet
+Три поверхности (`Unary`, `Stream`, `HTTP`) — не дублирование: край принимает и
+gRPC, и REST, и пропуск одной из них сделал бы её обходом другой.
 
-```go
-func (m *AuthzMiddleware) Unary(ctx, req, info, next) (interface{}, error) {
-    subject := callerSubject(ctx)  // extracted from JWT cnf claim
-    verb := verbForMethod(info.FullMethod)
-    object := m.resolveObject(req, info)
-    
-    cacheKey := hashKey(subject, verb, object, callerFreshness(ctx))
-    if v, ok := m.Cache.Get(cacheKey); ok {
-        return m.dispatch(v, ctx, req, next)
-    }
-    
-    resp, err := m.Client.Check(ctx, &authz.CheckRequest{
-        Subject: subject,
-        Relation: verb,
-        Object: object,
-    })
-    if err != nil {
-        return m.handleAuthzError(err, info, ctx, req, next)
-    }
-    m.Cache.Set(cacheKey, resp.Allowed, 5*time.Second)
-    if !resp.Allowed {
-        m.AuditEmitter.Emit(ctx, "iam.authz.denied", subject, verb, object)
-        return nil, status.Error(codes.PermissionDenied, "")
-    }
-    return next(ctx, req)
-}
-```
+## Решение принимает КАТАЛОГ
 
-## Configuration
+`permission_catalog.go` — запись на метод: требуемое отношение, извлечение области
+(`ScopeExtractor`), признак освобождения (`IsExempt`), признак скрытия существования
+при отказе (`HidesExistenceOnDeny`). Каталог **генерируется** из контрактов, встроен
+в двоичный файл, и обе встроенные копии (у края и в первичной загрузке домена прав)
+обязаны быть побайтово равны — гейт роняет сборку при расхождении.
 
-| ENV | Default | Description |
-|---|---|---|
-| `KACHO_API_GATEWAY_AUTHZ_ENABLED` | `true` (Phase 3+) | feature toggle |
-| `KACHO_API_GATEWAY_AUTHZ_FAIL_OPEN_READS` | `false` | enable fail-open для read RPCs |
-| `KACHO_API_GATEWAY_AUTHZ_CACHE_TTL_MS` | 5000 | per-entry TTL |
-| `KACHO_API_GATEWAY_AUTHZ_CACHE_SIZE` | 10000 | LRU |
-| `KACHO_API_GATEWAY_AUTHZ_IAM_ADDR` | `kacho-iam:9090` | target |
-| `KACHO_API_GATEWAY_AUTHZ_IAM_TIMEOUT_MS` | 30 | hard per-call timeout |
+Отсутствие записи о выставленном методе — **отказ** в рантайме, а не пропуск.
 
-## Imports
+### Извлечение области — это анти-BOLA, а не удобство
 
-- `google.golang.org/grpc`, `google.golang.org/grpc/codes/status`
-- `github.com/hashicorp/golang-lru/v2`
-- `kacho-proto/.../iam/v1` — Authorize stubs
+Для метода, оперирующего конкретным объектом по идентификатору из запроса, проверка
+идёт **против целевого объекта**, а не только против права на метод. Иначе
+вызывающий, имеющий право на метод вообще, дотягивается до чужого объекта.
 
-## Imported by
+### Скрытие существования обязано быть побайтово неотличимо
 
-- `cmd/kacho-api-gateway/main.go` — registered as `grpc.ChainUnaryInterceptor(..., authzMiddleware.Unary, ...)`
+Когда край прячет неавторизованный доступ под «не найдено», текст обязан **дословно**
+совпадать с настоящим ответом владельца об отсутствии. Любой различимый текст — это
+способ отличить «нет доступа» от «не существует», то есть ровно то, что скрытие
+закрывало (`security.md` §Hardening-инварианты, п. 6).
 
-## See also
+## Кэш вердиктов — окно отзыва, а не оптимизация
 
-[[api-gateway-middleware-dpop]] [[corelib-authz-listobjects]] [[../rpc/iam-authorize-service]] [[../edges/api-gateway-to-iam-authorize]] [[../KAC/KAC-127]]
+Кэшируются положительные вердикты, поэтому свежая **выдача** видна сразу, а **отзыв**
+ждёт истечения записи. Отсюда `InvalidateCache`, `MaybeFlushOnMutation` (сброс после
+мутаций, меняющих субъект) и `AsInvalidator`. Срок жизни записи **и есть** окно
+отзыва — объявленный параметр безопасности, а не сумма умолчаний ([[corelib-authz]]).
+
+## См. также
+
+[[api-gateway-middleware-dpop]] [[apigw-middleware]] [[corelib-authz]]
+[[../rpc/iam-authorize-service]] [[../edges/api-gateway-to-iam-authorize]]
+[[../KAC/KAC-127]]
 
 #packages #kacho-api-gateway #middleware #authz #fga

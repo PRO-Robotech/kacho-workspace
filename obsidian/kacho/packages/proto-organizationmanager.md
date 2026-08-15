@@ -1,37 +1,42 @@
 ---
 title: proto-organizationmanager
-category: package
+category: packages
 repo: kacho-proto
 layer: proto
+status: deprecated
 tags:
+  - packages
   - proto
   - kacho-rm
-  - organizationmanager
+  - deprecated
 ---
 
-# proto/organizationmanager
+> [!warning] Домен proto снят (KAC-124)
+> Каталога этого домена в дереве продукта нет, объявления его сервиса в proto
+> тоже. Ниже — след, а не описание действующего домена.
 
-**Path**: `kacho-proto/proto/kacho/cloud/organizationmanager/v1/`
-**Package**: `kacho.cloud.organizationmanager.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/organizationmanager/v1`
-**Owner service**: `kacho-resource-manager` (organization-domain — отдельный proto-package, но обслуживается тем же сервисом)
+# proto-organizationmanager — снят (KAC-124)
 
-## Resource protos
+Домен proto корня прежней иерархии арендатора: сообщение и сервис организации.
+Отдельный домен, но обслуживался тем же снятым бэкендом, что облако и папка из
+[[proto-rm]].
 
-- `organization.proto` — [[../resources/rm-organization|Organization]] (`bpf`-id)
+## Чем заменён
 
-## Service protos
+Домен iam: аккаунт вместо организации и облака (KAC-124).
 
-- [[../rpc/om-organization-service]] — `organization_service.proto`
-- [[../rpc/om-user-account-service]] — (proto часто включает UserAccount RPCs; см. файл).
+## Что снято из этой записки
 
-## Hierarchy
+Путь каталога, имя пакета proto и путь импорта Go удалены как координаты: ни
+одна в дереве не резолвится. Перечень файлов proto снят по той же причине — он
+числился расхождением у проверки свежести. Снята и схема иерархии из трёх
+уровней: она изображала действующую структуру платформы, которой нет — уровней
+теперь два, аккаунт и проект.
 
-```
-Organization (bpf, organizationmanager)
-  └─ Cloud (b1g, resourcemanager)
-       └─ Folder (b1f, resourcemanager)
-            └─ <Network/Subnet/Instance/...>
-```
+## See also
 
-#proto #kacho-rm #organizationmanager
+[[proto-rm]] [[../resources/rm-organization]] [[../rpc/rm-organization-service]]
+[[../rpc/om-organization-service]] [[../rpc/om-user-account-service]]
+[[../resources/iam-account]] [[../KAC/KAC-124]]
+
+#packages #proto #kacho-rm #deprecated

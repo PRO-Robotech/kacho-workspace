@@ -11,7 +11,7 @@ domain: iam
 related_resource: "[[resources/iam-federation-trust-policy]]"
 methods_count: 5
 async_methods: 3
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -20,7 +20,15 @@ tags:
   - iam
   - internal
   - federation
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Контракта `internal_trust_policy_service.proto` в дереве нет, и снятие сказано прямым текстом в коде композиции iam (`services/iam/cmd/kacho-iam/grpc_register.go`): «OpaBundleService + TrustPolicyService removed». Край это помнит отдельно — маршруты с префиксом `kacho.cloud.iam.v1.TrustPolicyService/` перечислены в проверке роутера `gateway/internal/middleware/rest_router_test.go` как то, чего быть не должно. Таблицы `federation_trust_policies` тоже нет.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # TrustPolicyService (iam, internal)
 

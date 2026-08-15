@@ -1,33 +1,64 @@
 ---
 title: proto-loadbalancer
-category: package
+category: packages
 repo: kacho-proto
+path: proto/kacho/cloud/loadbalancer/v1
 layer: proto
+status: stable
 tags:
   - proto
-  - kacho-loadbalancer
+  - kacho-nlb
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# proto/loadbalancer
+# proto/kacho/cloud/loadbalancer/v1 — контракты домена балансировки
 
-**Path**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/`
-**Package**: `kacho.cloud.loadbalancer.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/loadbalancer/v1`
-**Owner service**: `kacho-loadbalancer` (вне scope этой индексации, frozen в 1.0)
+**Каталог**: `proto/kacho/cloud/loadbalancer/v1/`
+**Пакет контракта**: `kacho.cloud.loadbalancer.v1`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/loadbalancer/v1`
+**Владелец**: домен nlb — каталог `services/nlb/` монорепо.
+**Импортируют** (`go list` на `96b2879a`, non-test): nlb 10 пакетов · шлюз 1.
 
-## Resource protos
+> [!warning] «Заморожен, бэкенд не написан» — было неверно
+> Прежняя редакция объявляла контракт замороженным, скопированным у чужого облака и
+> ждущим, когда сервис появится. По дереву сервис существует, реализован и является
+> **самым крупным потребителем** общего перехватчика прав; контрактов в каталоге
+> вдвое больше, чем перечисляла записка. Утверждение «вне области» пережило момент,
+> когда область его накрыла.
 
-- `network_load_balancer.proto` — NLB
-- `target_group.proto` — TargetGroup (members → Instance via NIC)
-- `health_check.proto` — HealthCheck spec (HTTP/TCP/HTTPS)
+## Файлы (по дереву, `96b2879a`)
 
-## Service protos
+**Ресурсы**: `network_load_balancer.proto` · `listener.proto` ·
+`target_group.proto` · `health_check.proto`.
+**Публичные службы**: `network_load_balancer_service.proto` ·
+`listener_service.proto` · `target_group_service.proto`.
+**Внутренние (:9091)**: `internal_load_balancer_announce_service.proto` ·
+`internal_resource_lifecycle_service.proto`.
+Плюс `package_options.proto`.
 
-- `network_load_balancer_service.proto` — `NetworkLoadBalancerService`
-- `target_group_service.proto` — `TargetGroupService`
+Слушатель (`Listener`) как отдельный ресурс и обе внутренние службы прежней
+редакции известны не были.
 
-## Status
+## Что важно помнить про этот домен
 
-В 1.0 — proto verbatim YC, backend ещё не переписан с YC-shim. Подключение в Kachō-stack по мере готовности `kacho-loadbalancer` сервиса.
+- **Размещение когерентно.** Зональный балансировщик связывается с подсетью и
+  адресом **своей** зоны (включая пару адресов разных семейств — в одной зоне),
+  региональный — своего региона плюс эникаст. Регион зоны берётся **резолвом у
+  владельца** (geo), а не выводом из имени: строковая деривация молча возвращает
+  пустую строку на ресурсе без зоны, и проверка превращается в тождественно
+  истинную (`data-integrity.md` §Placement-coherence).
+- **Чужие идентификаторы.** Для источников виртуального адреса домен **вправе**
+  прогнать чужой идентификатор через общий синтаксический разбор до обращения к
+  владельцу — это **задокументированное** исключение с тремя границами; остальные
+  чужие ссылки проверяются только на существование у владельца
+  (`api-conventions.md` §By-lane code-split).
+- **Аллокация из ограниченного пула.** Внешний адрес обязан возвращаться в
+  свободный список на **каждом** пути высвобождения, атомарно; иначе параллельный
+  прогон исчерпывает пул.
 
-#proto #kacho-loadbalancer
+## См. также
+
+[[nlb-domain]] [[nlb-apps-kacho-api-loadbalancer]] [[nlb-apps-kacho-api-listener]]
+[[nlb-apps-kacho-api-targetgroup]] [[nlb-apps-kacho-api-internal-lifecycle]]
+
+#proto #kacho-nlb

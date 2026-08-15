@@ -1,5 +1,5 @@
 ---
-title: "iam internal/apps/kacho/jobs"
+title: iam-jobs
 aliases:
   - iam jobs
   - iam-jobs
@@ -7,65 +7,59 @@ aliases:
 category: packages
 repo: kacho-iam
 layer: app
-status: done
+status: deprecated
 related_tickets:
   - "[[KAC-108]]"
 tags:
   - packages
   - kacho-iam
-  - done
   - outbox
+  - deprecated
 ---
 
-# iam `internal/apps/kacho/jobs`
+# Фоновые задачи iam: пакета `jobs` больше нет, дренаж стал общим
 
-Фоновые worker'ы kacho-iam. Запускаются в composition root `cmd/kacho-iam/main.go` как parallel tasks в `parallel.ExecAbstract`.
+> [!warning] Записка описывает СНЯТУЮ раскладку, а не действующую
+> Замер 2026-08-05 по ревизии `96b2879a`: внутри прикладного слоя iam каталога
+> фоновых задач **нет**; там `api`, `config`, `operationresolver`, `secretsweep`,
+> `seed`, `shared`. Собственный дренаж очереди с описанным здесь API (конструктор,
+> настройка интервала и размера пакета, цикл) в дереве отсутствует.
 
-## Worker'ы
+## Куда переехал предмет
 
-### `FGAOutboxDrainer` (KAC-108 closeout)
+- **Дренаж очереди намерений** — в общий [[corelib-outbox-drainer]], который
+  провязывается в композиционном корне; iam — один из **шести** его потребителей.
+  Прикладной код домена больше своего дренажа не пишет.
+- **Уборка секретов** — отдельный прикладной пакет `secretsweep`.
+- **Разрешение операций** — `operationresolver`.
+- **Первичная загрузка** — `seed` ([[iam-seed]]).
 
-Дренирует `kacho_iam.fga_outbox` → openfga.Write/Delete. Реализует acceptance E3 §4.2 / D-5 (atomic AccessBinding write + async FGA tuple-write через outbox-pattern).
+## Что из прежнего контракта пережило переезд — и что изменилось
 
-**Контракт:**
-- LISTEN на `kacho_iam_fga_outbox` (push-wake) + ticker fallback (`KACHO_IAM_FGA_OUTBOX_INTERVAL_MS`, default 100ms).
-- На каждом tick'е / NOTIFY: `FetchPending(limit)` → per row → `openfga.Write/Delete` → `MarkProcessed` или `MarkFailed (attempt_count++)`.
-- Idempotent CAS update: `WHERE sent_at IS NULL` — двойной drainer не делает double-write на одну row (openfga само idempotent).
-- Max 5 immediate retries; дальше skip с warning (production: DLQ + alert).
+Пережило: пробуждение по уведомлению плюс опрос как страховка от потерянного
+уведомления; захват строк с пометкой исхода; идемпотентность повторного применения.
 
-**Env config:**
+**Изменилось существенно** — и именно поэтому старое описание опасно:
 
-| ENV | Default | Effect |
-|---|---|---|
-| `KACHO_IAM_OPENFGA_STORE_ID` | — (drainer disabled) | activate drainer |
-| `KACHO_IAM_OPENFGA_ENDPOINT` | `kacho-umbrella-openfga:8080` | OpenFGA REST URL |
-| `KACHO_IAM_OPENFGA_MODEL_ID` | — | auth-model-id |
-| `KACHO_IAM_FGA_OUTBOX_INTERVAL_MS` | 100 | drainer tick |
-| `KACHO_IAM_FGA_OUTBOX_BATCH_SIZE` | 50 | FetchPending limit |
+- **«Пять попыток, дальше пропустить с предупреждением»** — не действующая
+  дисциплина. Временный отказ (сосед недоступен, истёк срок, конфликт) повторяется
+  **без предела** и в отравленные не уходит **никогда**; отравляется только
+  терминальный (отказ в правах, неверный аргумент, отказ разбора). Прежнее правило
+  теряло намерение при затяжной недоступности соседа.
+- **Появился ключ партиции.** Очередь этого домена несёт **сырое** отношение:
+  выдача и отзыв одного и того же ключа **не коммутируют**, и без упорядочивания на
+  уровне захвата отзыв применяется раньше выдачи — отношение выживает. Ширина ключа
+  выбирается по самой узкой единице состояния; слишком широкий ключ не ломает
+  корректность, но сериализует лишнее.
+- **Числа задержки из этой записки не переносить.** Они снимались на другой
+  раскладке и другом наборе индексов; величина задержки дренажа сегодня определяется
+  индексным набором и глубиной очереди — там, где индексов ровно два нужных, время
+  от глубины не зависит, а любой лишний порядок над непоставленными строками
+  возвращает инверсию.
 
-**Latency** (integration test'ом подтверждена):
-- enqueue → tuple-applied: **6-50ms** обычно, **≤200ms** worst-case (1 tick + 1 HTTP RTT).
-- recovery after fail: 1 tick (~50-100ms).
+## См. также
 
-## Exported API
+[[corelib-outbox-drainer]] [[iam-pg-fga-outbox]] [[iam-seed]] [[corelib-outbox]]
+[[../KAC/KAC-108]]
 
-- `NewFGAOutboxDrainer(pool, drainer, fga, logger) → *FGAOutboxDrainer`
-- `(*FGAOutboxDrainer).WithTickInterval(d time.Duration) → *FGAOutboxDrainer`
-- `(*FGAOutboxDrainer).WithBatchSize(n int) → *FGAOutboxDrainer`
-- `(*FGAOutboxDrainer).Run(ctx) error` — главный цикл (graceful через ctx).
-
-## Imports
-
-- `internal/clients` — `OpenFGAClient` (HTTP-impl или stub)
-- `internal/repo/kacho/outbox` — `DrainerIface` (port)
-- `internal/repo/kacho/pg` — реальный `OutboxDrainer` (adapter)
-
-## Imported by
-
-- `cmd/kacho-iam/main.go` — composition root (4-й parallel task)
-
-## See also
-
-[[../edges/iam-to-openfga-check]] [[../resources/iam-access-binding]] [[../KAC/KAC-108]]
-
-#packages #kacho-iam #outbox
+#packages #kacho-iam #outbox #deprecated

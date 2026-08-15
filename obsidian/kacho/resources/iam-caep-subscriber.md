@@ -9,8 +9,8 @@ domain: iam
 id_prefix: cps
 owner_table: kacho_iam.caep_subscribers
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc:
   - "[[rpc/iam-organization-service]]"
 related_packages:
@@ -22,7 +22,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Все три таблицы конвейера — `caep_subscribers`, `caep_outbox`, `caep_event_delivery` — **дропнуты** миграцией `0007_drop_caep_pipeline.sql`. Идентификатора `CaepSubscriber` в дереве нет.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # CAEPSubscriber
 

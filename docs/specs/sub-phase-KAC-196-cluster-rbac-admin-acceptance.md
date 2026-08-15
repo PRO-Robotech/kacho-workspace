@@ -369,7 +369,7 @@ Filter: `WHERE granted_until IS NULL` (только активные).
 
 - [ ] `internal/middleware/embed/permission_catalog.json` — 4 entries (см. §2.3), все с `required_relation=admin`.
 - [ ] `internal/restmux/mux.go` — регистрация InternalClusterService под `/iam/v1/internal/cluster/*` в `iamInternalAddr` блоке. **НЕ** в `gw.go` (public TLS endpoint) — workspace §«Запреты» #6.
-- [ ] `make sync-permission-catalog` зелёный.
+- [ ] `make -C services/iam sync-permission-catalog` зелёный.
 - [ ] Newman кейс `CLUSTER-ADMIN-INTERNAL-NOT-ON-EXTERNAL-TLS` (mirror existing `iam-internal-only-check`) — POST на `https://api.kacho.local/iam/v1/internal/cluster/admins` отвечает 404 (не registered) на public listener.
 
 ### 5.4 UI (`kacho-ui`)

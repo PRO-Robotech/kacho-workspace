@@ -947,7 +947,7 @@ grpcurl ... AccessBinding.Delete && sleep 1 && grpcurl … Check` → expect DEN
 to `project/kacho-iam/tests/newman/cases/authz-deny.py` as RED-first in W1.2; case **не
 существует** на main 2026-05-23, becomes GREEN after this sub-phase lands)
 
-**Given** helm umbrella deployment (kind cluster через `kacho-deploy/make dev-up`) с W1.1+W1.2 fix:
+**Given** helm umbrella deployment (kind cluster через `kacho-deploy/make -C deploy dev-up`) с W1.1+W1.2 fix:
   kacho-iam + api-gateway + OpenFGA HA bootstrap
 **And** root token имеет `kacho.cloud.iam.v1.AccessBindingService/*` permission
 **And** test creates AccessBinding {subject: user:usr_test, role: viewer, resource: project:prj_a}

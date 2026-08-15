@@ -958,7 +958,7 @@ Per Запрет #12 strict test-first. PR description must include for each fin
 - [ ] Anti-leak property tests (§7.4) GREEN
 - [ ] Cross-suite coverage check (§7.5) `coverage.py --min 100` GREEN
 - [ ] All 6 findings closed per remediation plan §1.3 Chunk 5 (items 5.1, 5.2, 5.3, 5.4, 5.5, 5.8 — items 5.6 [#41 → W2.B] / 5.7 [#20 → W3.3] / 5.9 [#24 → future OPA-VERIFY chunk] excluded per §0.1)
-- [ ] `make e2e` smoke on dev-kind shows: cluster-admin can ReloadModel; non-admin cannot; SAML SSO works against test fixture; CAEP ingress correctly verifies via trusted IdP JWKS and rejects forged SETs
+- [ ] `make -C deploy e2e-test` smoke on dev-kind shows: cluster-admin can ReloadModel; non-admin cannot; SAML SSO works against test fixture; CAEP ingress correctly verifies via trusted IdP JWKS and rejects forged SETs
 - [ ] kacho-iam CI green (unit + integration + race + newman e2e)
 - [ ] kacho-proto CI green (`buf lint`, `buf breaking` — additive only on `RunRegoTest` request/response)
 - [ ] No new TODO / FIXME in diff (per Запрет #11; reviewer rejects on any)

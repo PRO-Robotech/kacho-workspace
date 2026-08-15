@@ -1,6 +1,19 @@
 # Sub-phase W3.4 — Freeze Checklist (product-completion-freeze-plan Part 4) — Acceptance
 
-> **Status**: DRAFT (awaiting `acceptance-reviewer` per workspace `CLAUDE.md` §Запреты #1).
+> **Статус:** SUPERSEDED — механизм, описанный этим документом, **снят из дерева
+> 2026-08-05** (разбор — [[KAC-186]]). Документ сохранён как проектный след и
+> новую работу **не открывает**.
+>
+> Здесь же — урок, ради которого он и сохранён: приёмка так и осталась DRAFT
+> («awaiting `acceptance-reviewer`»), а машина по ней была построена, влита и
+> ежедневно отчитывалась успехом больше двух месяцев. То есть запрет #1 был
+> нарушен ровно тем документом, который сам этот запрет цитирует, и заметить это
+> было нечем: механической проверки запрета #1 в дереве не существовало ни одной.
+> Теперь есть — `scripts/docs-gate/check-01-acceptance-verdict.py` (вердикт
+> читается машинно; на 2026-08-05: приёмок 133, из них APPROVED 47, DRAFT 82,
+> SUPERSEDED 3, WITHDRAWN 1).
+
+> **Status (историч.)**: DRAFT (awaiting `acceptance-reviewer` per workspace `CLAUDE.md` §Запреты #1).
 > **Date**: 2026-05-24
 > **YouTrack**: [KAC-170](https://prorobotech.youtrack.cloud/issue/KAC-170) (parent bundle); subtask of master epic [KAC-134](https://prorobotech.youtrack.cloud/issue/KAC-134).
 > **Author agent**: inline (`claude` main session)
@@ -82,7 +95,7 @@ W3.4 — **gate-итерация**: не реализует фичи, **пров
 
 | ID | Вопрос | Рекомендация |
 |---|---|---|
-| OQ-W3.4-1 | Item #5 «Блок C: Compute Internal admin Lists готовы» — kacho-compute has internal Hypervisor list? Per master plan «kacho-loadbalancer вне scope» — confirmed. | Verify proto файлы in `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` exist + have List RPC. |
+| OQ-W3.4-1 | Item #5 «Блок C: Compute Internal admin Lists готовы» — kacho-compute internal admin Lists (Region/Zone/DiskType)? Per master plan «kacho-loadbalancer вне scope» — confirmed. | Verify proto файлы in `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` exist + have List RPC. |
 | OQ-W3.4-2 | Item #9 «Postgres+бэкапы» — backup automation product (pgbackrest? wal-g? CronJob+pg_dump?) уже в kacho-deploy? | Verify `kacho-deploy/helm/postgres-backup/` chart; если нет — это finding на отдельный KAC-deploy ticket, blocks freeze. |
 | OQ-W3.4-3 | Item #11 «Observability: metrics/logs/traces/alerts/dashboards/runbooks» — runbooks где живут? Vault `observability/runbooks-iam.md`? | Recommend per-service runbook: `obsidian/kacho/observability/runbook-<svc>.md`. Gate проверяет existence per-service + last-edited не >90 days. |
 | OQ-W3.4-4 | Item #13 «(рекомендуется) внешний pentest пройден» — gate-state? | По решению W3.4-D3: pending — informational, не блокирует freeze. Vault dashboard показывает «pentest pending — not required». |
@@ -208,7 +221,7 @@ Exit 0 на success; exit 1 с list of found.
 
 **When** `scripts/freeze-checks/04-block-c-compute-internal.sh`.
 **Then**:
-- Verify `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` имеет `Hypervisor`, `InternalInstance`, `InternalDisk` services с List RPC
+- Verify `kacho-proto/proto/kacho/cloud/compute/v1/internal_*` имеет `InternalInstance`, `InternalDisk` services с List RPC
 - Verify `kacho-compute/internal/apps/.../internal_*/` implementations exist
 - Verify `kacho-workspace/CLAUDE.md` mentions «kacho-loadbalancer вне scope» (already does — verify still present)
 
@@ -225,7 +238,7 @@ Exit 0 на success; exit 1 с list of found.
 
 **When** `scripts/freeze-checks/06-newman-100pct.sh`.
 **Then**:
-- `cd project/kacho-iam && ./tests/newman/scripts/coverage.py --min 100` exit 0
+- `cd services/iam && ./tests/newman/scripts/coverage.py --min 100` exit 0
 - Same для kacho-vpc, kacho-compute, kacho-api-gateway (если applicable)
 
 ### Item 07: «Все newman-сюиты в run.sh, генерируются gen.py, зелёные в CI»

@@ -1,6 +1,6 @@
 ---
 title: vpc-cmd-vpc
-category: package
+category: packages
 repo: kacho-vpc
 layer: cmd
 tags:
@@ -8,11 +8,13 @@ tags:
   - kacho-vpc
   - cmd
   - composition-root
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/cmd/vpc
 
-**Path**: `kacho-vpc/cmd/vpc/main.go`
+**Каталог**: `services/vpc/cmd/vpc/main.go` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/cmd/vpc/main.go`)
 
 Composition root (binary entrypoint). Wiring всех слоёв: config → DB pool → repo → service → handler → gRPC server (public 9090 + internal 9091). Здесь — единственное место, где импортируются конкретные реализации port-интерфейсов.
 

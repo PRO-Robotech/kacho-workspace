@@ -1,48 +1,35 @@
 ---
 title: rm-service
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: service
+status: deprecated
 tags:
   - packages
   - kacho-rm
   - service
-  - usecase
+  - deprecated
 ---
 
-# kacho-resource-manager/internal/service
+> [!warning] Пакет снят вместе со своим репозиторием (KAC-124)
+> Репозитория resource-manager не существует; в монорепо продукта каталога этого
+> сервиса нет. Ниже — след, а не описание действующего пакета.
 
-**Path**: `kacho-resource-manager/internal/service/`
-**Imports**: [[rm-domain]], [[corelib-errors]], [[corelib-validate]], [[corelib-operations]]
-**Imported by**: [[rm-handler]]
+# rm-service — снят (KAC-124)
 
-Use-cases — бизнес-логика. Port-интерфейсы для Repo определены здесь.
+Слой сценариев снятого сервиса: бизнес-логика для организации, облака и папки,
+здесь же объявлялись порты к хранилищу. Преемник роли — слой сценариев iam.
 
-## Files
+## Что снято из этой записки
 
-| File | Содержание |
-|---|---|
-| `organization.go` | `OrganizationUseCase` (Create/Update/Delete/Get/List) |
-| `cloud.go` | `CloudUseCase` |
-| `folder.go` | `FolderUseCase` |
-| `ports.go` | `Port`-интерфейсы `OrganizationRepo`, `CloudRepo`, `FolderRepo` (Reader+Writer, CQRS) |
-| `validate.go` | rm-specific validation helpers |
-| `organization_test.go` / `cloud_test.go` / `folder_test.go` | unit-тесты с mock-репо |
-| `helpers_test.go` | |
-| `async_test.go` | LRO testing helpers |
-| `integration_test.go` | end-to-end use-case через real repo |
-| `organization_cloud_delete_race_integration_test.go` | concurrent Delete race coverage |
-
-## Pattern
-
-```go
-type FolderRepo interface { Get(ctx, id) (*Folder, error); Create(...); ... }
-type FolderUseCase struct { repo FolderRepo; tx *db.Transactor; opsRepo operations.Repo; ... }
-func (u *FolderUseCase) Create(ctx, ...) (*operations.Operation, error) { ... }
-```
+Перечень файлов пакета и образец кода удалены: они называли исходники, которых в
+дереве нет. Пример был иллюстрацией общего для платформы рисунка (сценарий
+поверх порта, мутация через запись операции) — сам рисунок жив и описан на
+действующих пакетах, отдельный мёртвый пример его не добавляет.
 
 ## See also
 
-[[rm-repo]] [[rm-handler]] [[corelib-operations]]
+[[rm-repo]] [[rm-handler]] [[rm-domain]] [[corelib-operations]]
+[[legacy/repo-kacho-resource-manager]] [[../KAC/KAC-124]]
 
-#packages #kacho-rm #service #usecase
+#packages #kacho-rm #service #deprecated

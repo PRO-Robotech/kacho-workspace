@@ -828,14 +828,15 @@ See DoD §8.
 
 **Phases**:
 
-1. **Setup**: `make dev-up` (bring up kind + helm umbrella with SPIRE + Cilium + kacho-iam W3.3-enabled)
+1. **Setup**: `make -C deploy dev-up` (bring up kind + helm umbrella with SPIRE + Cilium + kacho-iam W3.3-enabled)
 2. **Wait**: pods Ready (`kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=spire-server -n spire-system`, same for `spire-agent`, `kacho-iam`)
 3. **Register test-driver SVID**: create `SpiffeRegistration` `test-driver-as-api-gateway` mapping to `spiffe://kacho.cloud/ns/kacho-system/sa/kacho-api-gateway` with selectors matching a test-driver Deployment
 4. **Deploy test-driver pod**: tiny Go binary using `go-spiffe` + kacho-iam-proto, calls `InternalIAMService.Check` against `kacho-iam:9091`
 5. **Run scenarios** W3.3-POS-01..03, W3.3-NEG-01..03, W3.3-EDGE-01..06, W3.3-PROP-01
-6. **Teardown**: `make dev-down`
+6. **Teardown**: `make -C deploy dev-down`
 
-**CI integration**: gate on `make spire-iam-mtls-test` Make target; runs in PR CI for kacho-iam, kacho-deploy, and peer-service PRs that touch `internal/clients/iam*.go`.
+**CI integration**: gate on a `spire-iam-mtls-test` target — **not landed**; `deploy/Makefile` carries
+`spire-bootstrap`, `spire-rotate-trust-domain` and `spire-lint`, none of which asserts a live mTLS handshake; runs in PR CI for kacho-iam, kacho-deploy, and peer-service PRs that touch `internal/clients/iam*.go`.
 
 ### 7.2 Unit tests (go test, fakesource-based)
 
@@ -880,7 +881,7 @@ mTLS handshake adds ~1-3ms latency per new connection (well-known TLS handshake 
 ### 8.2 Test coverage
 
 - [ ] All §6 scenarios implemented and GREEN in CI
-- [ ] Integration test `make spire-iam-mtls-test` GREEN in kacho-deploy CI
+- [ ] Integration test `spire-iam-mtls-test` — **цели нет**, гейт не заведён
 - [ ] Unit tests (W3.3-NEG-02, W3.3-EDGE-04) GREEN in kacho-iam CI
 - [ ] **RED phase commit evidence**: PR description shows for each scenario a "RED (before impl)" output (test name + failure message — e.g. `Test_SpireServerCreds_RejectsInsecurePeer FAIL: dial succeeded but expected TLS error`) + "GREEN (after impl)" success line. Per запрет #12.
 - [ ] Coverage of new `internal/spire/` package ≥ 80% per `go test -cover`

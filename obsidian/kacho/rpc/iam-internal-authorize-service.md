@@ -21,11 +21,12 @@ tags:
   - iam
   - internal
   - fga
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # InternalAuthorizeService (iam, internal)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_authorize_service.proto` (Phase 3).
+**Proto**: `proto/kacho/cloud/iam/v1/internal_authorize_service.proto` (Phase 3).
 **Backend**: `kacho-iam:9091` — cluster-internal listener.
 **Visibility**: **Internal** — admin / control-plane only (workspace `CLAUDE.md` §Запреты #6). НЕ exposed на public TLS / api.kacho.cloud.
 **Status**: **Phase 3 planned**. Write-path FGA tuple management + model lifecycle + Rego policy lifecycle.
@@ -58,6 +59,22 @@ tags:
 - Model + Rego артефакты подписываются cosign в CI (Phase 11 supply-chain); ReloadModel валидирует подпись прежде чем switch.
 - Phase 3 + Phase 8 связка: ReloadModel emit'ит CAEP `iam.fga.model.changed` event subscribers'у ([[../resources/iam-caep-subscriber]]).
 - Прав: только `cluster:cluster_kacho_root#system_admin` может вызывать model write/reload.
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **четыре** RPC: `WriteTuples` (→ `Operation`), `ReadTuples`, `ReloadModel`,
+`GetFGAStoreInfo`. REST-отображения нет ни у одного — сервис живёт только по gRPC на
+внутреннем листенере.
+
+**Не был назван в записке**: `GetFGAStoreInfo` — сведения о хранилище модели прав.
+
+**Названы, но в контракте отсутствуют**: `DeleteTuples`, `WriteAuthorizationModel`,
+`RunRegoTest`. Удаление кортежей выражено внутри `WriteTuples` (запрос несёт и записи, и
+снятия), модель перечитывается `ReloadModel`, а Rego в продукте нет вовсе — решение о
+доступе принимает модель отношений, а не политика на Rego
+(`security.md` §«Авторизация живёт в МОДЕЛИ»); одноимённый бандл-сервис снят, см.
+[[iam-opa-bundle-service]].
 
 ## See also
 

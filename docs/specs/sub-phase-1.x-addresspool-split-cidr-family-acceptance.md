@@ -72,7 +72,7 @@
 **Given** файл `kacho-proto/proto/kacho/cloud/vpc/v1/internal_address_pool_service.proto` отрефакторен под KAC-71
 **And** baseline ветка `main` имеет старое поле `repeated string cidr_blocks = 7;` в `AddressPool`
 
-**When** разработчик собирает proto-stubs через `make proto` в `kacho-proto`
+**When** разработчик собирает proto-stubs через `cd proto && buf generate`
 
 **Then** в `message AddressPool` присутствуют поля:
 - `reserved 7; reserved "cidr_blocks";`
@@ -112,7 +112,7 @@
 **REQ:** REQ-IPL-PROTO-03
 **Newman:** N/A
 
-**Given** proto перегенерирован (`make proto` в `kacho-proto`)
+**Given** proto перегенерирован (`cd proto && buf generate`)
 **And** `kacho-vpc` уже импортирует `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/vpc/v1` (alias `vpcv1`)
 
 **When** в `kacho-vpc` выполняется `go build ./...`
@@ -121,7 +121,7 @@
 **And** старые ссылки на `vpcv1.AddressPool{...CidrBlocks: ...}` в `kacho-vpc/internal/handler/*.go` или `internal/service/*.go` — отсутствуют (заменены на `V4CidrBlocks` / `V6CidrBlocks`)
 **And** старые ссылки на `vpcv1.CreateAddressPoolRequest{...CidrBlocks: ...}` в тестах / unit-stubs — отсутствуют
 
-*Трассируемость:* `go vet ./...` + `make build` в `kacho-vpc` CI; unit-тест handler-шейпа.
+*Трассируемость:* `go vet ./...` + `make -C services/vpc build` в CI; unit-тест handler-шейпа.
 
 ---
 
@@ -807,7 +807,7 @@
 **ID:** 1.x-G1
 **REQ:** REQ-SMOKE-01
 
-**Given** `make dev-up` (kind cluster, kacho-vpc/api-gateway/ui собраны на KAC-71)
+**Given** `make -C deploy dev-up` (kind cluster, kacho-vpc/api-gateway/ui собраны на KAC-71)
 **And** port-forward на `api-gateway:8080 → localhost:18080`
 
 **When** оператор гоняет smoke:
@@ -978,7 +978,7 @@ PR-серия в репозиториях (порядок merge — тополо
      - `AddressPool`: `reserved 7; reserved "cidr_blocks";` + `repeated string v4_cidr_blocks = 13;` + `repeated string v6_cidr_blocks = 14;`
      - `CreateAddressPoolRequest`: `reserved 5; reserved "cidr_blocks";` + `v4_cidr_blocks=11`, `v6_cidr_blocks=12`
      - `UpdateAddressPoolRequest`: `reserved 6; reserved "cidr_blocks";` + `v4_cidr_blocks=13`, `v6_cidr_blocks=14` + флаги `replace_v4_cidr_blocks=15`, `replace_v6_cidr_blocks=16`
-   - `make proto` регенерит stubs; `gen/go/kacho/cloud/vpc/v1/*.pb.go` коммитятся
+   - `cd proto && buf generate` регенерит stubs; `pkg/api/kacho/cloud/vpc/v1/*.pb.go` коммитятся
    - `buf lint` зелёный (REQ-IPL-PROTO-01)
    - `buf breaking` ожидаемо красный против baseline (REQ-IPL-PROTO-02) — explicit-override в PR
 
@@ -1005,7 +1005,7 @@ PR-серия в репозиториях (порядок merge — тополо
    - `tests/newman/docs/PRODUCT-REQUIREMENTS.md` — REQ-IPL-PROTO-01..03, REQ-IPL-CR-01..06, REQ-IPL-UPD-01..06, REQ-IPL-BIND-FAMILY-AGNOSTIC, REQ-MIG-01..06, REQ-RESOLVE-01..07, REQ-IPL-INVARIANT-01..03, REQ-UI-IPL-01..04, REQ-SMOKE-01..02
    - `tests/newman/docs/RESULTS.md` — новая версия
    - `python3 tests/newman/scripts/gen.py` и `validate-cases.py` зелёные
-   - `make test` (unit + integration testcontainers) зелёный
+   - `make -C services/vpc test` (unit + integration testcontainers) зелёный
    - `tests/newman/scripts/run.sh --service internal-pool` + `--service address` зелёные
 
 3. **`kacho-ui`** — UI-форма + list:

@@ -9,11 +9,13 @@ tags:
   - handler
   - usecase
   - targetgroup
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/apps/kacho/api/targetgroup
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/targetgroup/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/targetgroup/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/targetgroup/`)
 **Implements**: [[../rpc/nlb-target-group-service|TargetGroupService]]
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]], [[corelib-outbox]], [[nlb-clients-vpc]], [[nlb-clients-compute]], [[nlb-internal-fgawrite]]
 

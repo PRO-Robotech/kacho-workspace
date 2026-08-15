@@ -8,7 +8,7 @@ domain: nlb
 id_prefix: lst
 owner_table: kacho_nlb.listeners
 owner_db: kacho_nlb
-folder_level: true
+project_level: true
 status: stable
 related_rpc:
   - "[[rpc/nlb-listener-service]]"
@@ -19,7 +19,25 @@ tags:
   - resource
   - kacho-nlb
   - listener
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!note] Сверка со стволом (2026-08-05)
+> Контракт — `proto/kacho/cloud/loadbalancer/v1/listener.proto`; таблица
+> `kacho_nlb.listeners` жива. Слушатель — **самостоятельный ресурс**, а не вложенный
+> список балансировщика (у `NetworkLoadBalancer` слот `listeners` зарезервирован).
+>
+> **Слушатель стал авторитетным носителем ссылки на группу таргетов**
+> (`target_group_id`, прямой FK — миграции 0018 и 0023, последняя требует совпадения
+> проекта). Прежняя таблица-связка на стороне балансировщика дропнута (0022).
+>
+> В `message Listener` зарезервированы `region_id`, `ip_version`, `address_id`,
+> `allocated_address`, `subnet_id` — вместе с именами, то есть переиспользовать их нельзя.
+> Колонки адреса сняты и в схеме (`0028_drop_dead_listener_address_columns.sql`),
+> а `0025_drop_dead_listener_vip_uniq.sql` убрала уникальность, потерявшую предмет.
+> Записка, называющая любое из этих полей полем слушателя, пережила свой предмет.
+> Живой внутренний дискриминатор источника VIP — колонка `listeners.vip_origin`
+> (`0005_listener_vip_origin.sql`), в публичную проекцию она не выходит.
 
 # Listener (nlb)
 
@@ -34,52 +52,66 @@ tags:
 |---|---|---|---|
 | `id` | TEXT PK | `ids.IsValid("lst")` | |
 | `load_balancer_id` | TEXT NOT NULL | within-service FK → load_balancers(id) RESTRICT | **immutable** |
-| `project_id` / `region_id` | TEXT | denorm from LB | для keyset + VIP UNIQUE |
+| `project_id` | TEXT | denorm from LB — берётся locking-read'ом строки LB, не software-snapshot'ом | keyset + authz-scope |
+| `region_id` | TEXT | denorm from LB | на wire **нет** (proto `reserved 4`) |
 | `name` | TEXT | DNS-1123 regex | partial UNIQUE per LB |
 | `protocol` | TEXT | `TCP` \| `UDP` | **immutable** |
-| `port`, `target_port` | INT | `1..65535` | port **immutable** |
-| `ip_version` | TEXT | `IPV4` \| `IPV6` | **immutable** |
-| `address_id` | TEXT | cross-service ref → vpc.Address (BYO) | **immutable**, опционально |
-| `allocated_address` | TEXT | резолвленный VIP string | для UNIQUE region/vip/port/proto |
-| `subnet_id` | TEXT | cross-service ref → vpc.Subnet (INTERNAL only) | required для INTERNAL LB |
+| `port`, `target_port` | INT | `1..65535` | `port` **immutable** |
 | `proxy_protocol_v2` | BOOL | default `false` | mutable |
-| `default_target_group_id` | TEXT | within-service soft-ref | mutable |
+| `default_target_group_id` | TEXT | within-service FK (0018/0023 — composite `(target_group, project)`) | mutable; на wire дублируется как `target_group_id` |
 | `status` | TEXT | `CREATING/ACTIVE/UPDATING/DELETING` | enum CHECK |
+| `ip_version`, `address_id`, `allocated_address`, `subnet_id`, `vip_origin` | TEXT | — | **vestigial**: колонки живы, прод-код их не пишет; с proto сняты (`reserved 12-15`) |
+
+Derived output-only (не персистятся): `resolved_backend_port°` (эхо `TargetGroup.port`, 0 если TG не
+резолвится) и `substatus°` (`OK` ⟺ TG резолвится, иначе `MISCONFIGURED`).
 
 ## Constraints / indexes
 
 - PK + FK `load_balancer_id` RESTRICT
-- UNIQUE `(load_balancer_id, port, protocol)` (GWT-DB-006)
+- UNIQUE `(load_balancer_id, port, protocol)` (GWT-DB-006) — при одном VIP на семейство у LB это **и есть** уникальность `(VIP, port, protocol)`
 - Partial UNIQUE `(load_balancer_id, name) WHERE name <> ''`
-- Partial UNIQUE `(region_id, allocated_address, port, protocol) WHERE status<>'DELETING' AND allocated_address<>''` (GWT-DB-007 — VIP uniqueness)
-- Keyset `(project_id, created_at DESC, id)`
-- GIN `labels_gin`
-- Trigger `listeners_lb_status_recompute_trg` → пересчёт `LB.status` после INSERT/UPDATE/DELETE
+- Keyset `(project_id, created_at DESC, id)`, GIN `labels_gin`
+- Trigger `lb_status_recompute` → пересчёт `LB.status` после INSERT/UPDATE/DELETE листенера
 
-## VIP allocation flow
+## VIP — НЕ на листенере
 
-См. [[../edges/nlb-to-vpc-vip-allocation]] и [[../edges/nlb-to-vpc-byo-address]]. Два режима:
+Listener адреса не несёт и не аллоцирует: VIP — свойство [[nlb-load-balancer]] (один `vpc.Address` на
+семейство, источник задаётся per-family на `LoadBalancer.Create`). Листенер — это `(port, protocol)` на
+VIP родительского LB и обслуживает **все** его семейства сразу; per-listener выбора семейства нет.
 
-- **Auto**: worker зовёт `vpc.InternalAddressService.AllocateExternalIP/AllocateInternalIP(owner=nlb_listener:<id>)`, получает IP-string → `allocated_address`.
-- **BYO**: client передаёт `address_id` → worker: `AddressService.Get` (same project + used_by пустой OR ours) → `InternalAddressService.SetReference(used_by=nlb_listener:<id>)` atomic CAS.
-
-Compensation: defer `vpc.FreeIP` если repo.Insert упал после allocate.
+- `Listener.Create` — чистый INSERT в одной writer-TX (+ outbox `nlb_listener CREATED` /
+  `nlb_load_balancer UPDATED` + FGA-register-intent), **без** обращения к vpc; статус сразу `ACTIVE`
+  (durable-handle/`CREATING`-фаза не нужна — аллоцировать нечего). INSERT берёт `FOR NO KEY UPDATE` на
+  строке LB → сериализуется с `LoadBalancer.Move` (иначе stale `project_id`, TOCTOU) и с
+  `MarkDeleting` (иначе листенер, вставленный после mark, расклинил бы Delete на FK-RESTRICT).
+- `Listener.Delete` VIP **не освобождает** — адрес принадлежит LB и переживает листенер. Release идёт
+  только на `LoadBalancer.Delete` / компенсации Create-саги / free-ip-reconciler:
+  [[../edges/nlb-to-vpc-vip-allocation]].
+- Vestigial-остаток: `SetAllocatedAddress`/`SetVIP` в repo не имеют прод-вызывающих; `Delete` читает
+  `address_id` в legacy-release-ветке, которая на практике не срабатывает (колонка всегда пуста).
 
 ## Immutability rules
 
-`load_balancer_id`, `protocol`, `port`, `ip_version`, `address_id` — InvalidArgument при попытке Update. Mutable: `name`, `description`, `labels`, `target_port`, `default_target_group_id`, `proxy_protocol_v2`.
+`load_balancer_id`, `protocol`, `port` — `InvalidArgument` при Update (ДО `UpdateMask`).
+Mutable: `name`, `description`, `labels`, `default_target_group_id`/`target_group_id`, `proxy_protocol_v2`.
 
 ## Lifecycle
 
-`CREATING → ACTIVE → (UPDATING → ACTIVE)* → DELETING`. Delete освобождает VIP (free pool или clear BYO `used_by`).
+`ACTIVE → (UPDATING → ACTIVE)* → DELETING`. Create завершается сразу в `ACTIVE`. Delete снимает строку;
+DB-триггер пересчитывает `LB.status` (`ACTIVE → INACTIVE`, если wired-листенеров не осталось).
 
 ## Gotchas
 
-- VIP UNIQUE — region/vip/port/proto: два листенера на одном VIP допустимы только если порт/proto разные.
-- INTERNAL LB обязан иметь `subnet_id` (InvalidArgument иначе).
+- Два листенера на одном VIP допустимы только при разных `(port, protocol)` — держит
+  `UNIQUE (load_balancer_id, port, protocol)`, а не какой-либо VIP-индекс.
+- Listener-level partial-UNIQUE `(region_id, allocated_address, port, protocol)` **снят миграцией 0025**:
+  он энфорсил колонку, которую прод-код не пишет → partial-предикат `allocated_address <> ''` не матчил
+  ни одной строки. История: создан `0001`, снят `0009` (VIP → LB), ошибочно возвращён `0021` под
+  нереализованный listener-VIP-редизайн.
+- `region_id`/`ip_version` у листенера на wire **нет** — берутся с родительского LB.
 
 ## See also
 
-[[../packages/nlb-apps-kacho-api-listener]] [[../rpc/nlb-listener-service]] [[nlb-load-balancer]] [[../edges/nlb-to-vpc-vip-allocation]] [[../edges/nlb-to-vpc-byo-address]]
+[[../packages/nlb-apps-kacho-api-listener]] [[../rpc/nlb-listener-service]] [[nlb-load-balancer]] [[../edges/nlb-to-vpc-vip-allocation]]
 
 #resource #kacho-nlb #listener

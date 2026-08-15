@@ -6,7 +6,9 @@ PROJECT_DIR="$SCRIPT_DIR/project"
 
 # kacho-workspace — сам корень, синкаем отдельно первым.
 if [ -d "$SCRIPT_DIR/.git" ]; then
-  cd "$SCRIPT_DIR"
+  # Переход обязан быть проверен: не удайся он, следующие строки выполнили бы
+  # git-операции в ЧУЖОМ каталоге — не там, где их ждут, и молча.
+  cd "$SCRIPT_DIR" || { echo "ОТКАЗ: не удалось перейти в $SCRIPT_DIR" >&2; exit 1; }
   before="$(git rev-parse HEAD 2>/dev/null)"
   if git fetch --quiet && git pull --ff-only --quiet 2>/dev/null; then
     after="$(git rev-parse HEAD)"
@@ -20,24 +22,43 @@ if [ -d "$SCRIPT_DIR/.git" ]; then
   fi
 fi
 
-REPOS=(kacho-proto kacho-corelib kacho-api-gateway kacho-resource-manager kacho-vpc kacho-vpc-implement kacho-compute kacho-loadbalancer kacho-nlb kacho-deploy)
+# Перечень выводится из дерева. Здесь стоял третий рукописный список тех же имён — и он
+# уже разошёлся с двумя другими: в нём не хватало kacho-geo, то есть репозиторий, который
+# bootstrap.sh клонировал, sync-all.sh молча не обновлял. Один механизм, три копии списка,
+# расхождение никем не замечено — поэтому источник теперь один (repos.sh) и он же дерево.
+# shellcheck source=repos.sh
+. "$SCRIPT_DIR/repos.sh"
 
-for r in "${REPOS[@]}"; do
-  if [ ! -d "$PROJECT_DIR/$r/.git" ]; then
-    echo "[$r] not cloned, skip"
-    continue
-  fi
-  cd "$PROJECT_DIR/$r"
+pulled=0
+while IFS=$'\t' read -r repo identity; do
+  [ -n "$repo" ] || continue
+  pulled=$((pulled + 1))
+  cd "$repo" || continue
   before="$(git rev-parse HEAD 2>/dev/null)"
-  git fetch --quiet || { echo "[$r] fetch failed"; continue; }
+  git fetch --quiet || { echo "[$identity] fetch failed"; continue; }
   if git pull --ff-only --quiet 2>/dev/null; then
     after="$(git rev-parse HEAD)"
     if [ "$before" = "$after" ]; then
-      echo "[$r] up-to-date"
+      echo "[$identity] up-to-date"
     else
-      echo "[$r] updated to $after"
+      echo "[$identity] updated to $after"
     fi
   else
-    echo "[$r] skipped: not fast-forward"
+    echo "[$identity] skipped: not fast-forward"
   fi
-done
+done < <(kacho_discover_worktrees "$PROJECT_DIR")
+
+# Ноль целей — отсутствие предмета, а не «всё актуально». Различать обязательно: именно
+# неразличение этих двух исходов держало модель распространения невыполненной.
+if [ "$pulled" -eq 0 ]; then
+  {
+    echo "ОТКАЗ: в $PROJECT_DIR нет ни одной рабочей копии репозитория продукта — обновлять нечего."
+    echo "       Осмотрено каталогов: $(find "$PROJECT_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' '). См. repos.sh."
+  } >&2
+  exit 1
+fi
+echo "обновлено рабочих копий: $pulled"
+
+# Раскатки оснастки здесь больше нет (решение владельца 2026-08-02): оснастка берётся
+# ТОЛЬКО из воркспейса, копий в рабочих копиях продукта не заводится. Этот скрипт теперь
+# делает ровно одно — обновляет рабочие копии, — и его название это отражает.

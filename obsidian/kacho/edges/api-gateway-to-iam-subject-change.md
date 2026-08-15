@@ -8,7 +8,7 @@ caller_repo: kacho-api-gateway
 callee_repo: kacho-iam
 sync_async: sync
 protocol: gRPC
-status: planned
+status: active
 related_tickets:
   - "[[KAC-WS23]]"
 tags:
@@ -17,6 +17,7 @@ tags:
   - kacho-iam
   - cross-service
   - authz
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
 # api-gateway → iam: PollSubjectChanges (authz-cache invalidation)
@@ -25,7 +26,7 @@ tags:
 **Callee**: `kacho-iam` `InternalIAMService.PollSubjectChanges` ([[../rpc/iam-internal-iam-service]]) — `kacho-iam:9091` (internal-only).
 **Protocol**: gRPC, cluster-internal. Reuses the existing `iamInternal` backend conn — **no DB access on the gateway**.
 **Sync/Async**: sync; background ticker (`KACHO_API_GATEWAY_SUBJECT_CHANGE_POLL_INTERVAL`, default 2s).
-**Status**: WS-2.3 ([[KAC-WS23]]) — PRs open.
+**Status**: живое (сверено 2026-08-05): `gateway/internal/watcher/subject_change_watcher.go` + `gateway/internal/clients/subject_change_client.go`, а на стороне iam — `PollSubjectChanges` в `InternalIAMService` с провязанным обработчиком.
 
 ## Зачем
 
@@ -65,6 +66,10 @@ gRPC-канал. Детерминизм e2e обеспечивает self-flush 
 - WS-2.3 ([[KAC-WS23]] / YT KAC-124, 2026-05-22) — edge создан. До него
   `decisionCache.Invalidate()`/`InvalidateSubject()` и `subject_change_outbox`
   существовали, но не были соединены (мёртвый scaffolding).
+- SEC-E ([[../KAC/SEC-E-gateway-mtls]], 2026-06-11) — transport переключён с insecure
+  на **mTLS client-cert** под `KACHO_API_GATEWAY_MTLS_IAM_ENABLE` (per-edge gateway→iam,
+  тот же флаг, что iam-subject/iam-authorize/iam-backend). `enable=false` (default) =
+  insecure (dev backward-compat). principal/Check поверх mTLS не изменены.
 
 ## See also
 

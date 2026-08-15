@@ -1,6 +1,6 @@
 ---
 title: vpc-clients
-category: package
+category: packages
 repo: kacho-vpc
 layer: clients
 tags:
@@ -8,33 +8,58 @@ tags:
   - kacho-vpc
   - clients
   - cross-service
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/clients
 
-**Path**: `kacho-vpc/internal/clients/`
-**Imports**: kacho-proto stubs (`resourcemanager/v1`, `compute/v1`), [[corelib-retry]]
-**Imported by**: [[vpc-cmd-vpc]] (wiring), service-layer через port-интерфейсы
+**Каталог**: `services/vpc/internal/clients/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/clients/`)
+**Импортирует**: сгенерённые стабы (`iam/v1`, `geo/v1`), [[corelib-retry]],
+[[corelib-auth]] (передача личности инициатора), [[corelib-grpcclient]].
+**Импортируют**: композиционный корень (провязка) и слой use-case — через порты.
 
-Peer-service gRPC clients для cross-service validation (CLAUDE.md «Кросс-доменные ссылки на ресурсы»).
+Клиенты к соседним доменам для проверки чужих ссылок на пути запроса
+(`data-integrity.md` §Cross-domain ссылки).
 
-## Files
+## Состав (по дереву, `96b2879a`) — девять файлов
 
-| File | Содержание |
+| Файл | Что делает |
 |---|---|
-| `builder.go` | factory: dial peer service, applies retry-interceptor, exposes typed clients |
-| `builder_test.go` | |
-| `resourcemanager_client.go` | wraps `rmpb.FolderServiceClient` + `CloudServiceClient` — `FolderExists(ctx, id)` helper |
-| `folder_cache.go` | short-TTL cache (LRU?) для folder-existence (см. [[../edges/vpc-to-rm-folder-exists]]) |
-| `folder_cache_test.go` | |
-| `compute_client.go` | wraps `computepb.ZoneServiceClient` (post-KAC-15) — `ZoneExists(ctx, id)`, `GetZone(ctx, id)` |
+| `builder.go` | сборка соединения: адрес, учётные данные ребра, повторы |
+| `iam_client.go` | проект: существование и аккаунт-владелец |
+| `project_cache.go` · `existence_cache.go` | кэш существования с коротким сроком — **положительные** ответы; отсутствие не кэшируется |
+| `geo_client.go` · `geo_region_client.go` | зона и регион у владельца оси размещения |
+| `iam_authorize_client.go` | порт проверки прав |
+| `iam_register_applier.go` | применение намерения регистрации ресурса у владельца прав |
+| `iam_sync_registrar.go` | синхронный регистратор — оптимизация окна, **не** гарантия |
 
-## Pattern
+Имён `FolderClient` и отдельного клиента записи отношений в дереве нет; клиент к
+домену машин ради зоны снят вместе с самим ребром — зону резолвит geo.
 
-Service-layer определяет port-интерфейс (`FolderClient interface { Exists(ctx, id) (bool, error) }`); adapter в `clients/` реализует, оборачивая typed gRPC-stub + `retry.OnUnavailable`.
+## Что здесь легко сделать неправильно
+
+- **Кэшировать отсутствие нельзя.** Положительный ответ живёт коротко; отрицательный
+  не кэшируется вовсе — иначе только что созданный у соседа ресурс «не существует»
+  ровно в окне, когда его начинают использовать.
+- **Регистрация: синхронный регистратор — не гарантия.** Он сужает окно, а
+  доставку обеспечивает очередь с повторами. Судить о работоспособности по нему
+  нельзя: реальный случай — очередь была мертва целиком, а поведение выглядело
+  исправным именно потому, что синхронный путь работал.
+- **Отказ в правах от владельца — терминальный**, повтор идентичного запроса не
+  пройдёт.
+- **Свой срок на каждом вызове**, отказ соседа на мутации — fail-closed.
+- **Личность инициатора едет с вызовом** ([[corelib-auth]]); служебная личность
+  вместо настоящей ломает проверку прав у соседа.
+
+## Порядок слоёв
+
+Порт объявляется в use-case, адаптер живёт здесь: use-case не знает ни про
+сгенерённые стабы, ни про транспорт. Обратная зависимость была бы утечкой адаптера
+в бизнес-слой.
 
 ## See also
 
-[[../edges/vpc-to-rm-folder-exists]] [[../edges/vpc-to-compute-zone-validate]] [[corelib-retry]]
+[[../edges/vpc-to-iam-project-exists]] [[../edges/vpc-to-geo-zone-validate]] [[corelib-retry]]
 
 #packages #kacho-vpc #clients #cross-service

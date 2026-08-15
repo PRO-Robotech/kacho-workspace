@@ -1,35 +1,42 @@
 ---
 title: proto-rm
-category: package
+category: packages
 repo: kacho-proto
 layer: proto
+status: deprecated
 tags:
+  - packages
   - proto
   - kacho-rm
+  - deprecated
 ---
 
-# proto/resourcemanager
+> [!warning] Домен proto снят (KAC-124)
+> Каталога этого домена в дереве продукта нет, объявлений его сервисов в proto
+> тоже. Ниже — след, а не описание действующего домена.
 
-**Path**: `kacho-proto/proto/kacho/cloud/resourcemanager/v1/`
-**Package**: `kacho.cloud.resourcemanager.v1`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/resourcemanager/v1`
-**Owner service**: [[../README#kacho-resource-manager|kacho-resource-manager]]
+# proto-rm — снят (KAC-124)
 
-## Resource protos
+Домен proto прежней иерархии арендатора: сообщения и сервисы облака и папки.
+Организация жила в соседнем домене — [[proto-organizationmanager]].
 
-- `cloud.proto` — [[../resources/rm-cloud|Cloud]] (b1g-id)
-- `folder.proto` — [[../resources/rm-folder|Folder]] (b1f-id)
+## Чем заменён
 
-(Organization — отдельный proto-domain [[proto-organizationmanager]].)
+Домен iam: аккаунт и проект вместо организации, облака и папки (KAC-124).
 
-## Service protos
+## Что снято из этой записки
 
-- [[../rpc/rm-cloud-service]] — `cloud_service.proto`
-- [[../rpc/rm-folder-service]] — `folder_service.proto`
+Путь каталога, имя пакета proto и путь импорта Go удалены как координаты: ни
+одна в дереве не резолвится. Перечень файлов proto снят по той же причине — он
+числился расхождением у проверки свежести. Абзац про положение домена в графе
+обращений снят как утверждение о действующем рантайме; исторические рёбра
+сохранены ссылками ниже.
 
-## Position в domain-графе
+## See also
 
-- Leaf-owner для **Folder** — leaf-сервис в edge-графе: его зовут (vpc/compute/nlb для folder-validation), он сам никуда не зовёт. См. [[../edges/vpc-to-rm-folder-exists]], [[../edges/compute-to-rm-folder-check]].
-- Cloud — root level; держит cloud_id; используется как parent у Folder.
+[[proto-organizationmanager]] [[../resources/rm-cloud]] [[../resources/rm-folder]]
+[[../rpc/rm-cloud-service]] [[../rpc/rm-folder-service]]
+[[../edges/vpc-to-rm-folder-exists]] [[../edges/compute-to-rm-folder-check]]
+[[../KAC/KAC-124]]
 
-#proto #kacho-rm
+#packages #proto #kacho-rm #deprecated

@@ -15,7 +15,7 @@
 >      - `proto/kacho/cloud/iam/v1/service_account.proto` + `service_account_service.proto` — `project_id` required (drop legacy account-scope option), drop+recreate migration policy applies (#3, KAC-121 §1.1).
 >      - `proto/kacho/cloud/iam/v1/jit_eligibility_service.proto` — declare `ActivateJIT` RPC + `ActivateJITRequest`/`ActivateJITResponse` (#32) — choice per OQ-W2.A-3 ⇒ live in `JITEligibilityService` (one fewer service).
 >      - `cmd/protoc-gen-kacho-permissions/*` (generator plugin) — read `PermissionsCatalogRoot` imports, walk every `(google.api.http)` RPC, emit one `PermissionCatalogEntry` per (FQN, http-binding) pair. Drop ad-hoc per-RPC heuristics; fail-build on missing `(kacho.iam.authz.v1.permission)` option (no silent gaps).
->      - `gen/permission_catalog.json` — regenerated artefact; CI gate `make verify-catalog` ensures byte-for-byte determinism on regen.
+>      - `gen/permission_catalog.json` — regenerated artefact; CI gate `make -C gateway permission-catalog-check` ensures byte-for-byte determinism on regen.
 >      - `Makefile` targets: `sync-permission-catalog`, `verify-permission-catalog` — publish catalog into `kacho-api-gateway` and `kacho-iam` embeds.
 >   2. **`PRO-Robotech/kacho-api-gateway`** — consumer of the unified catalog. Files:
 >      - `internal/middleware/embed/permission_catalog.json` — replaced by sync from kacho-proto (281 entries → catalog-derived; expected ≈310-330 entries post-Chunk 3, exact count determined by regenerated `kacho-proto/gen/permission_catalog.json`).
@@ -64,7 +64,8 @@ W2.A — **первый из четырёх параллельных поток�
 - `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` — **281 entries** (verified 2026-05-24). Тот, что читает per-RPC authz middleware. Перекошен относительно iam-seed → роли «vpc.viewer» в iam-seed имеют permission'ы, которых нет в gateway-каталоге → authz check на gateway отдаёт fail-closed deny для тех permission'ов, которые валидно гранчены в FGA.
 - `kacho-proto/proto/.../permission_catalog.json` (gen-output из proto-source) — нет канонического «root», плагин `protoc-gen-kacho-permissions` обходит whatever `.proto` ему передан per-вызов; реальное число каталогизированных FQN — суперсет (>295 implied; будем точно знать после regen с `PermissionsCatalogRoot`).
 
-Триггерные findings #236/#273/#295 в master plan — три способа считать одну и ту же триаду drift'а. Chunk 3 ставит **ровно один** generator от **ровно одного** proto-root → **ровно один** JSON → **синхронизируется** во ВСЕ embed-локации одним `make sync-permission-catalog` (mirror паттерна `make sync-migrations` из corelib). Любая drift'а ловится `make verify-permission-catalog` в CI и валит build.
+Триггерные findings #236/#273/#295 в master plan — три способа считать одну и ту же триаду drift'а. Chunk 3 ставит **ровно один** generator от **ровно одного** proto-root → **ровно один** JSON → **синхронизируется** во ВСЕ embed-локации одним `make -C services/iam sync-permission-catalog` (mirror паттерна corelib-цели `sync-migrations`). Любая drift'а ловится
+`make -C gateway permission-catalog-check` в CI и валит build.
 
 Вторичные Chunk-3 findings (#19/#28/#29/#30/#31/#32/#44/#49) — все следствия. После unification:
 - #31 (catalog-root missing imports) — нет smysl'а, потому что root-message объявляет авторитетный список catalogued services.
@@ -92,9 +93,9 @@ W2.A — **первый из четырёх параллельных поток�
 | **#44** | P3 | `kacho-proto/proto/.../sa_key_service.proto` (verified permission strings: `iam.issue_s_a_keies.issue`, `iam.s_a_keyses.list`, `iam.revoke_s_a_keies.revoke`) | Кривая protoc-плюрализация → permission'ы засоряют каталог; в RBAC-роле `iam.serviceAccountKeys.issue` (humanly expected) не существует → бессмысленные grant'ы. | Manual override: `iam.serviceAccountKeys.issue`, `iam.serviceAccountKeys.list`, `iam.serviceAccountKeys.revoke`. Breaking для in-flight (но не deployed) ролей. |
 | **#45** | P1 | seed (236) / gateway-embed (281) / gen (implied >295) — все три verified 2026-05-24 | Три расходящихся каталога — root drift, описан выше. | Unified catalog (см. §4.1/§4.4/§4.5). |
 | **#49** | P1 | `kacho-iam/internal/apps/kacho/api/internal_iam/handler.go:122` (verified: `return nil, status.Error(codes.Unimplemented, "ListPermissions is part of E3 (OpenFGA Check)")`) | `InternalIAMService.ListPermissions` — stub. Admin-UI не может «what can this user do?». | Реализация: aggregate from unified catalog filtered by FGA-subject-membership; см. §4.7. |
-| **#1** | P1 | `kacho-iam/internal/apps/kacho/api/role/handler.go:94-99` (verified: `Filter: req.GetFilter()` only; comment `// На E0 не парсим is_system/account_id из YC filter (TODO follow-up)`) | `List` отдаёт system + custom-роли ВСЕХ аккаунтов. TOCTOU-leak. Existing TODO — нарушение §11 root rule. | Парсить `filter=` mini-language (`is_system=true`, `account_id="acc_xxx"`, `AND`); без accountId → system-only; с accountId → system + custom-этого-account. TODO retired. |
+| **#1** | P1 | `kacho-iam/internal/apps/kacho/api/role/handler.go` | **Поле сужения принимается и не применяется — вызывающий получает успех и считает, что список сужен.** Обработчик передаёт `filter` дальше, не разбирая условий, по которым список обязан делиться на общий и принадлежащий аккаунту, поэтому ответ содержит **и то, и другое**. Класс двойной и оба слоя названы в правилах: (а) «принято-и-проигнорировано» (`api-conventions.md`) — поле публичного запроса обязано иметь читателя в прод-коде, иначе продукт обещает возможность, которой нет; (б) список без сужения на границе аккаунта — та же граница тенанта, что и в `List*` вообще. Оставленный рядом TODO — нарушение бана #11 и, что важнее, **след того, что неполнота была известна и пережила ревью**. | Разбирать mini-язык `filter=` (`is_system=true`, `account_id="…"`, `AND`); без аккаунта — только общие роли; с аккаунтом — общие плюс его собственные. Сужение обязано быть **утверждено тестом с положительным и отрицательным случаем** (роль чужого аккаунта отсутствует в ответе; своя — присутствует): одиночное отрицание не отличает «сузили» от «сломали». TODO снимается в том же PR (бан #11). |
 | **#3** | P1 | `kacho-proto/proto/.../service_account.proto` (verified: `string account_id = 2` + `string project_id = 6` dual); `kacho-iam/internal/repo/.../service_account_repo.go` | SA остался account-scoped, KAC-121 §1.1 требует project-scoped (drop dual-mode). | Drop+recreate migration `0026_service_account_project_scoped.sql` (OQ-W2.A-2: greenfield, не prod). `project_id NOT NULL`; old `account_id` column dropped. Handler/Repo/proto sweep. |
-| **#4** | P1 | `kacho-iam/internal/apps/kacho/usecases/account/list.go:32-58` (verified: post-Go filter `string(a.OwnerUserID) == principal.ID`; existing TODO(KAC-126) at `:50`) | `AccountService.List` отдаёт ТОЛЬКО account'ы, owner которых — principal. Приглашённый admin (с FGA-binding admin@account) не видит account. TODO — нарушение §11. | FGA `ListObjects(user=principal, relation∈{admin,member}, type=account)`; result-set → SQL `WHERE id = ANY($ids)`. TODO retired. |
+| **#4** | P1 | `kacho-iam` — use-case списка аккаунтов | **Сужение сделано не тем предикатом и не на том слое.** Список отдаёт только аккаунты, владельцем которых числится сам вызывающий, — поэтому приглашённый администратор, у которого выдача на аккаунт есть, не видит его вовсе. Плюс сужение применяется **после** выборки, в Go: тот же класс, что и в #15 (фильтр после страницы → короткие страницы при непустом `next`). Оставленный рядом TODO — нарушение бана #11 и след того, что неполнота была известна и пережила ревью. | Спрашивать у модели прав объекты, на которых у вызывающего есть `admin`/`member`, и сужать **в SQL** (`WHERE id = ANY($ids)`), а не после выборки — тогда сужение и пагинация перестают спорить. Утверждать **парой** случаев: чужой аккаунт отсутствует, свой (в т.ч. полученный выдачей, а не владением) присутствует — одиночное отрицание не отличает «сузили» от «сломали». TODO снимается в том же PR (бан #11). |
 | **#5** | P2 | `kacho-iam/internal/apps/kacho/usecases/user/list.go` + `internal/repo/.../user_repo.go` | Membership считается single-`user.id=$1` row → не отражает identity / FGA. | Аналогично #4: `ListSubjects(account/project, member)`. |
 | **#6** | P1 | `kacho-iam/internal/apps/kacho/usecases/group/add_member.go:65` (verified: `authzguard.RequireOwnerMatchesPrincipal(ctx, string(acct.OwnerUserID))`); same antipattern в `role/update.go`, `role/delete.go` | Owner-only authority — delegated admin не может добавить member / update / delete роль. | `requireGrantAuthority(ctx, repo, fga, "account", string(acct.ID))` (parity с access_binding helper — W1.6 §4.5 для delete). |
 | **#7** | P1 | DECISION + (`kacho-api-gateway` authz exempt-handling) | Acceptance KAC-121 §5:103 требует `/iam/v1/roles` public-including-anonymous; код требует auth. | **OQ-W2.A-1 решён (см. §3)**: update acceptance (catalog-read требует auth). Anonymous → 401 PermissionDenied. Gateway не меняем; роль `iam.roles.list` уже non-exempt в catalog. Existing newman `authz-deny.py:41` остаётся source-of-truth. |
@@ -149,7 +150,7 @@ W2.A — **первый из четырёх параллельных поток�
 ## 2. Глоссарий
 
 - **`PermissionsCatalogRoot`** (NEW, kacho-proto §4.1) — top-level proto message в `permissions_catalog.proto`, который declarative-listed all iam services to be catalogued. Plugin reads it FIRST, fails build if a service-proto is referenced but file not importable, or if any RPC inside referenced service lacks `(kacho.iam.authz.v1.permission)` option.
-- **Unified catalog** — single `permission_catalog.json` artifact, generated from `PermissionsCatalogRoot` walk, distributed via `make sync-permission-catalog` to (a) `kacho-api-gateway/internal/middleware/embed/`, (b) `kacho-iam/internal/apps/kacho/seed/embedded/`. Byte-for-byte identical; CI gate `make verify-permission-catalog` computes sha256 and fails on drift.
+- **Unified catalog** — single `permission_catalog.json` artifact, generated from `PermissionsCatalogRoot` walk, distributed via `make -C services/iam sync-permission-catalog` to (a) `kacho-api-gateway/internal/middleware/embed/`, (b) `kacho-iam/internal/apps/kacho/seed/embedded/`. Byte-for-byte identical; CI gate `make -C gateway permission-catalog-check` regenerates and diffs both embedded copies, failing on drift.
 - **Catalog superset validation** (NEW, §4.5) — startup-time check в kacho-api-gateway: enumerate every gRPC FQN registered via `grpcSrv.GetServiceInfo()`; for each, `PermissionCatalog.Lookup(fqn)` MUST succeed; missing → `log.Fatalf` (process refuses to start, helm rollout fails). Closes Lookup-degrade-open path on cold start.
 - **`requireGrantAuthority`** — existing helper в `kacho-iam/internal/apps/kacho/api/access_binding/helpers.go`; allow если caller — account-owner ИЛИ FGA-admin на resource. W2.A применяет ВЕЗДЕ, где сейчас `RequireOwnerMatchesPrincipal` (group/role/Account-admin context).
 - **FGA `ListObjects`** — OpenFGA API: «return all objects of `type=T` where `user=U` has `relation=R`». Used #4/#5/#15 для grant-aware listing. Replaces post-Go-filter pattern.
@@ -296,11 +297,14 @@ message ActivateJITRequest {
   5. Emit `gen/permission_catalog.json` (sorted by FQN, deterministic).
   6. **ALSO emit** `gen/rest_route_table.go` — same walk, output `[]restRoute` slice matching shape from `kacho-api-gateway/internal/middleware/rest_route_table_gen.go` (verified `:23-30`).
 - **Makefile targets** (kacho-proto):
-  - `make catalog`: regenerate both artefacts.
-  - `make verify-catalog`: regen to temp dir, diff vs committed; non-zero exit on drift. CI invokes this.
+  - `make -C gateway permission-catalog`: regenerate both artefacts into `gateway/build/`;
+    `make -C gateway permission-catalog-apply` accepts the regeneration as the embedded copy.
+  - `make -C gateway permission-catalog-check`: regen to `gateway/build/`, diff vs committed;
+    non-zero exit on drift. CI invokes this.
 - **Makefile targets** (kacho-api-gateway + kacho-iam):
-  - `make sync-permission-catalog`: `cp ../kacho-proto/gen/permission_catalog.json internal/middleware/embed/` (or `internal/apps/kacho/seed/embedded/` for iam). `cp ../kacho-proto/gen/rest_route_table.go internal/middleware/rest_route_table_gen.go` (gateway only).
-  - `make verify-permission-catalog`: sha256 of embedded copy vs sibling source; non-zero exit on drift.
+  - `make -C services/iam sync-permission-catalog`: `cp ../kacho-proto/gen/permission_catalog.json internal/middleware/embed/` (or `internal/apps/kacho/seed/embedded/` for iam). `cp ../kacho-proto/gen/rest_route_table.go internal/middleware/rest_route_table_gen.go` (gateway only).
+  - the same `make -C gateway permission-catalog-check` also diffs the iam embedded copy against
+    the gateway one; non-zero exit on drift.
 
 ### 4.5 `kacho-api-gateway/internal/middleware/permission_catalog.go` — catalog superset validation
 
@@ -493,7 +497,8 @@ PR (per repo) обязан содержать **в указанном поряд
 2. **GREEN phase commits**: per-finding impl driving each RED test → GREEN. One logical commit per finding (some Chunk-3 findings batch together because they share the regen step).
 3. **Per-finding RED→GREEN evidence** в PR description: для каждой задачи table-row `# / RED-test-name / RED-output-before / GREEN-output-after`. PR без этой таблицы — отказ от `acceptance-reviewer`.
 4. **Newman cases** added к `project/kacho-iam/tests/newman/cases/` (per-domain files + new `w2-a-nm-closeout.py`); regenerate via `gen.py`; verify `run.sh` picks up; verify CI matrix gate still green; verify total cases count grew by ≥ N (where N = §6.5 new-case count).
-5. **Catalog drift gate** (`make verify-permission-catalog`): integral part of CI for ALL three repos. Если drift detected → PR red, нельзя merge.
+5. **Catalog drift gate** (`make -C gateway permission-catalog-check`): integral part of CI. In the
+   monorepo it is **one** gate, not three — it checks both embedded copies in a single run. Если drift detected → PR red, нельзя merge.
 6. **Catalog superset validation gate** (§4.5): integration test stands up real gateway against bufconn-registered all-iam-services, asserts no missing FQN.
 
 ---
@@ -511,13 +516,13 @@ PR (per repo) обязан содержать **в указанном поряд
 **Given** kacho-proto on branch `KAC-170-proto-catalog-unify`
 **And** `PermissionsCatalogRoot.included_files` lists all iam service-proto files (verified §4.1)
 
-**When** `make catalog` is invoked in kacho-proto
-**And** `make sync-permission-catalog` is invoked in kacho-api-gateway (sibling)
-**And** `make sync-permission-catalog` is invoked in kacho-iam (sibling)
+**When** `make -C gateway permission-catalog` is invoked
+**And** `make -C services/iam sync-permission-catalog` is invoked in kacho-api-gateway (sibling)
+**And** `make -C services/iam sync-permission-catalog` is invoked in kacho-iam (sibling)
 
 **Then** `kacho-proto/gen/permission_catalog.json` byte-equals `kacho-api-gateway/internal/middleware/embed/permission_catalog.json`
 **And** byte-equals `kacho-iam/internal/apps/kacho/seed/embedded/permission_catalog.json`
-**And** `make verify-permission-catalog` in all three repos exits 0
+**And** `make -C gateway permission-catalog-check` exits 0 (both embedded copies in sync)
 **And** catalog entry count is ≥ 295 (was 281 in gateway baseline; new entries — AccessReview/JITEligibility/Gdpr/InternalBreakGlass/Conditions/FederationExchange RPCs)
 
 ---
@@ -611,7 +616,7 @@ PR (per repo) обязан содержать **в указанном поряд
 
 **Given** kacho-proto on branch with intentional permission_catalog.json edit (1 entry deleted)
 
-**When** CI runs `make verify-permission-catalog` in kacho-api-gateway
+**When** CI runs `make -C gateway permission-catalog-check`
 
 **Then** non-zero exit; CI fails; PR cannot merge
 **And** error message identifies drift: `permission_catalog: sha256 mismatch (gateway-embed != kacho-proto/gen/...)`
@@ -696,13 +701,13 @@ PR (per repo) обязан содержать **в указанном поряд
 
 ### 6.3 Edge / concurrency scenarios
 
-#### Сценарий W2.A-REGEN-CONCURRENT-13 — concurrent `make catalog` produces deterministic output
+#### Сценарий W2.A-REGEN-CONCURRENT-13 — concurrent `make -C gateway permission-catalog` produces deterministic output
 
 **ID**: W2.A-REGEN-CONCURRENT-13 (closes regen-determinism edge)
 
 **Given** kacho-proto repo on clean checkout
 
-**When** `make catalog` invoked 5 times in parallel (5 goroutines / 5 shell invocations)
+**When** `make -C gateway permission-catalog` invoked 5 times in parallel (5 goroutines / 5 shell invocations)
 
 **Then** all 5 invocations produce byte-identical `gen/permission_catalog.json`
 **And** all 5 produce byte-identical `gen/rest_route_table.go`
@@ -861,10 +866,10 @@ PR (per repo) обязан содержать **в указанном поряд
   - [ ] #27 — Conditions folder→project sweep (RED W2.A-CONDITIONS-PROJECT-SCOPED-17 → GREEN)
   - [ ] #7 — OQ-W2.A-1 follow-up KAC opened (acceptance KAC-121 §5:103 update) — referenced in PR description, NOT in this PR's diff
 - [ ] Catalog coverage gate (`coverage.py --min 100`) GREEN (W2.A-CAT-COVERAGE-19)
-- [ ] `make verify-permission-catalog` GREEN in all three repos (no drift)
+- [ ] `make -C gateway permission-catalog-check` GREEN (no drift in either embedded copy)
 - [ ] Catalog startup validation integration test (W2.A-CAT-MISSING-FQN-08) GREEN — also wired as CI gate in kacho-api-gateway smoke job
 - [ ] Newman cases (§6.5 table) all GREEN; ≥25 new cases; existing failing-suite count unchanged or reduced
-- [ ] `make e2e` smoke on dev-kind shows: Phase 7 RPCs reachable via REST; invited admin sees own account; system roles only when no account_id filter; SA Create rejects missing project_id; group AddMember works for delegated admin
+- [ ] `make -C deploy e2e-test` smoke on dev-kind shows: Phase 7 RPCs reachable via REST; invited admin sees own account; system roles only when no account_id filter; SA Create rejects missing project_id; group AddMember works for delegated admin
 - [ ] kacho-proto CI green (build/lint/buf-lint/buf-breaking/test/`verify-catalog`); kacho-api-gateway CI green (build/lint/gosec/trivy/govulncheck/integration/newman-e2e); kacho-iam CI green (same set + migration test)
 - [ ] All three PRs merged in dependency order (kacho-proto → gateway → iam); CI on dependent repos pinned to feature-branch during the merge train, then unpinned
 - [ ] Branches deleted post-merge in all three repos (`gh pr merge --delete-branch` per CLAUDE.md)

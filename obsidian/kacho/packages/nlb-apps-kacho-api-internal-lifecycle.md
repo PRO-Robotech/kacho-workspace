@@ -9,11 +9,13 @@ tags:
   - handler
   - internal
   - lifecycle
+status: stable
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов, ручка ограничения стримов, имя порта; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/apps/kacho/api/internal_lifecycle
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/internal_lifecycle/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/internal_lifecycle/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/internal_lifecycle/`)
 **Implements**: [[../rpc/nlb-internal-resource-lifecycle-service|InternalResourceLifecycleService]]
 **Imports**: [[nlb-repo-kacho-pg]] (outbox + watch_cursors), [[corelib-grpcsrv]]
 
@@ -23,15 +25,31 @@ Server-streaming D-13 lifecycle service. **Internal-only** (port 9091, workspace
 
 | File | Содержание |
 |---|---|
-| `handler.go` | `Subscribe(req, stream)` server-stream |
-| `subscribe.go` | core loop: semaphore acquire → pgx.Connect (dedicated conn) → catchup batch (100) → LISTEN nlb_outbox → WaitForNotification (30s timeout) → stream LifecycleEvent |
-| `iface.go` | port `OutboxReader` (catchup batch via cursor, NotifyConn factory) |
-| `helpers.go` | event payload marshal (row jsonb → proto LifecycleEvent) |
-| `*_test.go` | integration-tests (testcontainers + concurrent subscribers + reconnect cursor resume) |
+| `handler.go` | `Subscribe(req, stream)` целиком: semaphore acquire → `feed.Open` (dedicated LISTEN-сессия вне pool'а) → catchup батчами → WaitForNotification (30s) → `stream.Send`. Здесь же package-doc с полным алгоритмом |
+| `semaphore.go` | счётный семафор, ограничивающий число одновременных стримов |
+| `*_test.go` | unit + integration (testcontainers): порядок коммита, семафор, resume по курсору |
+
+> [!note] Отдельного файла под цикл подписки в пакете нет
+> Прежняя редакция перечисляла ещё три файла — под цикл подписки, под порт и под
+> маршалинг события. Ни одного из них в каталоге нет, и, судя по всему, не было:
+> цикл живёт целиком в `handler.go`, а порт доступа к фиду вынесен **в repo-слой**
+> (`services/nlb/internal/repo/kacho/iface_lifecycle.go`, интерфейс `LifecycleFeed`;
+> pgx-реализация — `services/nlb/internal/repo/kacho/pg/lifecycle_feed.go`). Это
+> и есть dependency rule: pgx в use-case не поднимается. Имя порта в прежней
+> редакции тоже было своё и в дереве не встречается.
 
 ## Semaphore guard
 
-`KACHO_NLB_LIFECYCLE_MAX_STREAMS=32` (configurable). При превышении — `ResourceExhausted "max subscribers"`. Защищает pgx pool exhaustion (каждый stream — dedicated connection).
+Потолок одновременных `Subscribe`-стримов — ключ YAML-конфига `internal-lifecycle.max-streams`,
+default **32**. При превышении — `ResourceExhausted`. Защищает от исчерпания pgx-пула:
+каждый стрим держит **dedicated** соединение (вне пула), поэтому слот ≈ +1 conn к Postgres.
+`Config.Validate()` требует значение > 0, `NewHandler` панику на `<=0` держит как safety-net.
+
+> [!warning] Ручка задаётся конфигом, а не переменной окружения с отдельным именем
+> Прежняя редакция называла переменную окружения, которой в дереве нет ни в коде, ни в
+> чарте. Конфиг nlb — viper/YAML: canonical-источник — ключ конфигмапа, а переменные
+> окружения биндятся автоматически из **того же** ключа (`SetEnvPrefix` + замена `.` на
+> `__`), поэтому отдельного имени под этот потолок никто не объявлял. Проверять надо ключ.
 
 ## Catchup vs realtime
 

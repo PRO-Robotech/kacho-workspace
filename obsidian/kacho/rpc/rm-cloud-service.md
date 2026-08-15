@@ -3,55 +3,51 @@ title: CloudService
 aliases:
   - CloudService (rm)
   - CloudService (resourcemanager)
-proto_file: kacho/cloud/resourcemanager/v1/cloud_service.proto
 category: rpc
 backend: kacho-resource-manager
-backend_port: 9090
 visibility: public
 domain: resourcemanager
+status: deprecated
 related_resource: "[[resources/rm-cloud]]"
-methods_count: 13
-async_methods: 5
 tags:
   - rpc
   - kacho-rm
   - cloud
+  - deprecated
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
 
-# CloudService (resourcemanager)
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Домена resource-manager в дереве нет. Снятие **закреплено проверкой**: `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` требует, чтобы `/kacho.cloud.resourcemanager.v1.CloudService/List` не резолвился.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
-**Proto**: `kacho-proto/proto/kacho/cloud/resourcemanager/v1/cloud_service.proto`
-**Backend**: `kacho-resource-manager:9090`
-**Public/Internal**: public
+> [!warning] Сервис снят вместе со своим доменом (KAC-124)
+> Ни этого сервиса, ни его домена в дереве продукта нет: объявления сервиса в
+> proto не существует, каталога домена тоже. REST-префикс, который он занимал,
+> шлюзом не обслуживается. Преемник — AccountService в iam.
 
-## Methods
+# CloudService — снят (KAC-124)
 
-| Method | Request | Response | Sync/Async | Note |
-|---|---|---|---|---|
-| Get | GetCloudRequest | Cloud | sync | |
-| List | ListCloudsRequest | ListCloudsResponse | sync | |
-| Create | CreateCloudRequest | operation.Operation | **async** | organization_id required |
-| Update | UpdateCloudRequest | operation.Operation | **async** | |
-| Delete | DeleteCloudRequest | operation.Operation | **async** | RESTRICT если есть Folder |
-| ListOperations | ListCloudOperationsRequest | ListCloudOperationsResponse | sync | |
-| Access* (Set/List/Update/Bind/Unbind/UpdateAccessPolicyBindingParameters) | access.* | access.*/operation.Operation | mixed | IAM placeholders (blocked) |
+Сервис среднего уровня прежней иерархии арендатора. Промежуточного уровня в
+преемнике нет: иерархия сократилась с трёх уровней до двух, поэтому отдельного
+сервиса на его месте не появилось — его роль поглотил аккаунт.
 
-## REST mapping
+## Чем заменён
 
-| HTTP | Method |
-|---|---|
-| `GET /resource-manager/v1/clouds/{cloud_id}` | Get |
-| `GET /resource-manager/v1/clouds` | List |
-| `POST /resource-manager/v1/clouds` | Create |
-| `PATCH /resource-manager/v1/clouds/{cloud_id}` | Update |
-| `DELETE /resource-manager/v1/clouds/{cloud_id}` | Delete |
-| `GET /resource-manager/v1/clouds/{cloud_id}/operations` | ListOperations |
-| `GET /resource-manager/v1/clouds/{resource_id}:listAccessBindings` | ListAccessBindings |
-| `POST /resource-manager/v1/clouds/{resource_id}:setAccessBindings` | SetAccessBindings |
-| ... | ... |
+Organization / Cloud / Folder → Account / Project в iam (KAC-124).
+
+## Что снято из этой записки
+
+Таблица методов и таблица соответствия REST удалены вместе с полями шапки,
+называвшими файл proto и адрес бэкенда: они описывали поверхность, которой в
+дереве нет. Числа методов убраны — пересчитать их не по чему.
 
 ## See also
 
-[[../packages/rm-service]] [[../resources/rm-cloud]]
+[[../resources/rm-cloud]] [[../packages/rm-service]] [[../packages/proto-rm]]
+[[rm-folder-service]] [[../KAC/KAC-124]]
 
-#rpc #kacho-rm #cloud
+#rpc #kacho-rm #cloud #deprecated

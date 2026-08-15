@@ -6,6 +6,7 @@ aliases:
   - refresh hook
   - caep ingress
 category: packages
+path: services/iam/internal/handler/iamhooks
 repo: kacho-iam
 layer: handler
 status: done
@@ -16,6 +17,7 @@ tags:
   - kacho-iam
   - handler
   - oauth
+verified_against: "координаты записки (переменные окружения, пути пакетов) сверены с деревом продукта 1653387b (2026-08-06); текст записки построчно не пересматривался"
 ---
 
 # iam `internal/handler/iamhooks`
@@ -70,10 +72,20 @@ Re-checks user/SA status:
 
 ## DPoP replay cache (Phase 2)
 
-In-memory sharded LRU 64-shard (lock-free per-shard). Persisted на restart через Postgres `dpop_replay_jti` table.
 - Insert `jti` + `cnf.jkt` → если duplicate → reject (replay attack).
-- TTL 5min (configurable `KACHO_IAM_DPOP_REPLAY_TTL`).
-- Sharded by hash(jti) → 64 shards → linear scaling в high-throughput.
+
+> [!note] Кэш повторов живёт НЕ в iam — координата поправлена по дереву (1653387b, 2026-08-06)
+> Переменной окружения с прежним именем в дереве нет ни в одном читателе (Go, чарты,
+> скрипты, Makefile). Энфорсмент повторов `jti` стоит **на крае**, а не в iam:
+> `gateway/internal/middleware/dpop_replay_cache.go` — per-pod LRU с TTL на запись,
+> ручки `KACHO_DPOP_REPLAY_CACHE_TTL_SECONDS` (умолчание **120 c**, вдвое к окну
+> свежести `iat`) и `KACHO_DPOP_REPLAY_CACHE_SIZE` (умолчание 100000) в
+> `gateway/internal/config/config.go`. Прежняя редакция называла и другое значение TTL,
+> и другой дом кэша, и шардирование, которого у этой реализации нет.
+>
+> Таблица `dpop_replay_jti` в `services/iam/internal/migrations/0001_initial.sql`
+> объявлена, но писателя в прод-коде iam у неё нет — то есть «переживает рестарт»
+> сегодня не обеспечено ничем: кэш края переживает ровно жизнь пода.
 
 ## CAEP ingress (Phase 8)
 
@@ -83,14 +95,31 @@ Verify signed SET → process event:
 
 ## Auth
 
-- Hydra → kacho-iam: shared secret (`KACHO_IAM_HYDRA_HOOK_SECRET`); verified `subtle.ConstantTimeCompare` fail-closed.
+- Hydra → kacho-iam: shared secret — ключ конфигурации `authn.hook-shared-secret`,
+  в развёртывании приезжает переменной `KACHO_IAM_HOOK_TOKEN` (Secret `kacho-iam-hook-token`,
+  `deploy/helm/umbrella/charts/kacho-iam/templates/deployment.yaml`); заголовок
+  `X-Kacho-Hook-Token` (либо `Authorization: Bearer`), сверка
+  `subtle.ConstantTimeCompare`, пустой secret → **fail-closed 500**, не bypass
+  (`services/iam/internal/handler/iamhooks/hook_auth.go`).
 - CAEP ingress: SET signature verified против issuer JWKS.
 
 ## Imports
 
 - `net/http`, `encoding/json`, `crypto/subtle` — stdlib
-- `internal/service/session_revocations` — port
-- `internal/clients/openfga` (Phase 3 — `model.changed` propagation)
+- ровно три внутренних пакета продукта (перепись non-test файлов пакета, 1653387b):
+  `services/iam/internal/domain`, `services/iam/internal/errors`,
+  `services/iam/internal/service`
+
+> [!note] Двух прежних строк «Imports» в дереве нет — координаты сняты (1653387b, 2026-08-06)
+> Первая называла подкаталог-порт под слоем сервисов: подкаталогов там нет вовсе,
+> `services/iam/internal/service` — **плоский** пакет. Сам порт при этом жив, но
+> объявлен **самим** пакетом хуков (`UserRevocationLookup` в
+> `services/iam/internal/handler/iamhooks/ports.go`), то есть импортом никогда и не был;
+> use-case отзыва сессий живёт отдельно —
+> `services/iam/internal/apps/kacho/api/session_revocations`.
+> Вторая называла подкаталог клиента OpenFGA как импорт «Phase 3». Клиент существует
+> (`services/iam/internal/clients`, файлы `openfga_*.go`), но подкаталога с таким именем
+> нет, и пакет хуков его **не импортирует** — заявленной работы Phase 3 в дереве нет.
 
 ## Imported by
 

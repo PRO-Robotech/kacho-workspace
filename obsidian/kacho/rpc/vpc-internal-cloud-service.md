@@ -1,50 +1,39 @@
 ---
-title: InternalCloudService
+title: InternalCloudService (removed)
 aliases:
   - InternalCloudService (vpc)
-proto_file: kacho/cloud/vpc/v1/internal_cloud_service.proto
+proto_file: ""
 category: rpc
 backend: kacho-vpc
 backend_port: 9091
 visibility: internal
 domain: vpc
+status: deprecated
 related_resource: "[[resources/vpc-addresspool]]"
-methods_count: 3
+methods_count: 0
 async_methods: 0
 tags:
   - rpc
   - kacho-vpc
   - internal
+  - deprecated
 ---
 
-# InternalCloudService (vpc)
+# InternalCloudService (vpc) — REMOVED
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_cloud_service.proto`
-**Backend**: `kacho-vpc:9091`
-**Public/Internal**: **cluster-internal-only**
+> [!warning] Удалён целиком в KAC-266
+> Сервис управлял cloud-level pool-selector'ом (`SetPoolSelector` / `GetPoolSelector` /
+> `UnsetPoolSelector`) — шаг `cloud_pool_selector` в IPAM resolution chain. В [[KAC-266]] этот
+> шаг убран: cascade сведён к трём шагам (`network_default` → `zone_default` → `global_default`).
+> RPC + proto-сервис `InternalCloudService` + REST-маршруты `/vpc/v1/clouds/{cloud_id}/poolSelector`
+> удалены. Заметка оставлена как tombstone, чтобы wikilinks не ломались.
 
-Cloud-level admin: привязка AddressPool selector'а к Cloud → resolution chain для IPAM (per-Cloud default pool).
-
-## Methods
-
-| Method | Request | Response | Sync/Async | Note |
-|---|---|---|---|---|
-| SetPoolSelector | SetCloudPoolSelectorRequest | SetCloudPoolSelectorResponse | sync | назначить default-pool для cloud |
-| UnsetPoolSelector | UnsetCloudPoolSelectorRequest | UnsetCloudPoolSelectorResponse | sync | сбросить |
-| GetPoolSelector | GetCloudPoolSelectorRequest | GetCloudPoolSelectorResponse | sync | читать |
-
-## REST mapping
-
-| HTTP | Method |
-|---|---|
-| `POST /vpc/v1/clouds/{cloud_id}/poolSelector` | SetPoolSelector |
-| `DELETE /vpc/v1/clouds/{cloud_id}/poolSelector` | UnsetPoolSelector |
-| `GET /vpc/v1/clouds/{cloud_id}/poolSelector` | GetPoolSelector |
-
-(Все только на internal-listener.)
+Прежде (до KAC-266) — internal admin-сервис: привязка AddressPool selector'а к Cloud →
+per-Cloud default pool в resolution chain. См. [[vpc-internal-address-pool-service]] (KEEP:
+`BindAsNetworkDefault` / `UnbindNetworkDefault`).
 
 ## See also
 
-[[vpc-internal-address-pool-service]] [[../resources/vpc-addresspool]]
+[[vpc-internal-address-pool-service]] [[../resources/vpc-addresspool]] [[../KAC/KAC-266]]
 
-#rpc #kacho-vpc #internal
+#rpc #kacho-vpc #internal #deprecated

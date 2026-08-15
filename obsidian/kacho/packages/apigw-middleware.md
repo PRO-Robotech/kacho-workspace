@@ -1,37 +1,73 @@
 ---
 title: apigw-middleware
-category: package
+category: packages
 repo: kacho-api-gateway
+path: gateway/internal/middleware
 layer: handler
+status: stable
 tags:
   - packages
   - kacho-apigw
   - middleware
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# kacho-api-gateway/internal/middleware
+# gateway/internal/middleware — цепочка края
 
-**Path**: `kacho-api-gateway/internal/middleware/`
+**Каталог**: `gateway/internal/middleware/`
+**Прежде** (полирепо): `kacho-api-gateway/internal/middleware`.
+**Размер**: **35** непробных файлов на ревизии `96b2879a` (предикат — перечисление
+файлов Go за вычетом пробных). Прежняя редакция перечисляла семь и была написана до
+большей части того, что здесь сейчас живёт. Это самый плотный по безопасности
+каталог края, поэтому ниже — группы, а не пофайловый пересказ.
 
-HTTP / gRPC middleware-chain для api-gateway.
+## Группы (по дереву)
 
-## Files
-
-| File | Содержание |
+| Группа | Файлы |
 |---|---|
-| `access_log.go` | request-log: method, path, status, duration, request-id |
-| `auth_noop.go` | placeholder для будущей JWT/auth-shim (blocked:kacho-iam) — сейчас no-op |
-| `idempotency.go` | `Idempotency-Key` header handling — каш ответ при retry с тем же ключом |
-| `request_id.go` | inject `X-Request-Id` header (use upstream или generate) |
-| `recovery.go` | panic-recovery middleware |
-| `middleware_test.go` | |
+| личность и подпись | `auth.go` · `jwt_verifier.go` · `jwk.go` · `subject_extractor.go` · `session_identity_handler.go` · `kratos_session.go` |
+| подтверждение владения ключом | `dpop.go` · `dpop_http_middleware.go` · `dpop_replay_cache.go` · `cnf_grpc_interceptor.go` · `mtls_bound.go` |
+| отзыв и повышение уровня | `auth_revocation.go` · `auth_stepup.go` · `stepup_gate.go` |
+| интроспекция токена | `introspection_cache.go` · `introspection_breaker.go` · `introspection_failure_report.go` |
+| авторизация | `authz.go` · `authz_cache.go` · `authz_metrics.go` · `authz_overrides.go` · `authz_public_allowlist.go` · `authz_util.go` · `permission_catalog.go` · `permission_catalog_embed.go` · `permission_denied_response.go` |
+| маршрут и извлечение цели | `rest_router.go` · `rest_route_table_gen.go` · `resource_extractor.go` · `context_extractor.go` |
+| общая гигиена | `access_log.go` · `request_id.go` · `recovery.go` · `idempotency.go` · `http_body_limit.go` |
 
-## Order (LIFO)
+## Порядок (снаружи внутрь)
 
-Обычно: recovery → request_id → access_log → idempotency → auth_noop → handler.
+восстановление после паники → идентификатор запроса → журнал доступа → предел
+размера тела → идемпотентность → личность (подпись, интроспекция, отзыв) →
+подтверждение владения ключом → повышение уровня → авторизация → обработчик.
 
-## See also
+Порядок здесь — часть контракта, а не вкус: отказ в правах на крае **короткозамыкает**
+до валидации домена, и именно поэтому негативные пробы обязаны терпеть отказ по
+правам там, где ждут отказ по формату (`testing.md` §e2e-инварианты).
 
-[[apigw-cmd]] [[apigw-restmux]] [[apigw-allowlist]]
+## Три свойства, которые стоит знать до правки
+
+1. **Плохой токен и недоступный источник ключей — отказ, никогда не анонимность.**
+   Отказ проверки — fail-closed; анонимный вызывающий не получает ничего.
+   Симметрично на обеих поверхностях (gRPC и REST) — иначе одна из них станет
+   обходом другой.
+2. **Каталог прав встроен и обязан быть согласован с другой стороной.** Он
+   генерируется из контрактов, обе встроенные копии должны быть побайтово равны, и
+   гейт роняет сборку при расхождении. Отсутствие записи о методе — **отказ**
+   (fail-closed), а не пропуск.
+3. **Перечень публично разрешённого — список, а не эвристика по имени.** Пропуск
+   выдаётся записью, которую видит проба дрейфа; вывод «внутренний по имени» уже
+   однажды выдавал пропуск каждому новому методу под шаблон.
+
+> [!important] Отношение, выполнимое подстановочным субъектом, не сужает ничего
+> Запись каталога с кластерным отношением, которое выполняется подстановочной
+> выдачей, означает «аутентифицирован», а не «авторизован». Это законно **только**
+> для глобального справочника, который обязан читать каждый арендатор. RPC, чей
+> ответ касается объектов с индивидуальными владельцами, а входы называет сам
+> вызывающий, единого объекта для одного вопроса не имеет — его авторизуют **на
+> уровне данных** (`security.md` §«Отношение, выполнимое подстановочным знаком»).
+
+## См. также
+
+[[apigw-cmd]] [[apigw-restmux]] [[apigw-allowlist]] [[api-gateway-middleware-authz]]
+[[api-gateway-middleware-dpop]] [[corelib-authz]]
 
 #packages #kacho-apigw #middleware

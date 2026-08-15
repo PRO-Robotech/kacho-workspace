@@ -662,7 +662,7 @@ W1.1 **сам по себе не закрывает** findings из `2026-05-21-
 
 **Newman-effect W1.1 в одиночку**: ожидается **частичное снижение** failures из 87 на dev-кластере,
 если bootstrap-admin tuple был ключом для какой-то части тестов; точная цифра — measured post-deploy,
-после Re-run `make e2e-newman` на kind. (Полное закрытие 87 failures — emergent в W1.5/W1.6.)
+после Re-run `make -C deploy e2e-newman` на kind. (Полное закрытие 87 failures — emergent в W1.5/W1.6.)
 
 ---
 

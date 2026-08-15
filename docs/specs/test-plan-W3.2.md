@@ -116,7 +116,7 @@ follow «trigger synthetic event → observe expected signal in stack» pattern.
 ## 6. Coverage gaps observed in acceptance doc
 
 - **Acceptance §5.5 («kacho-iam emit-side additions»)** is conditional («if not yet emitted by W1/W2»). At impl-start, implementer must audit current metric/log/span emits against §5.1-5.4 requirements; if missing, file a sub-task (extra emit work). **Recommended**: implementer creates `tests/observability/coverage_audit.go` that lists required metrics/logs/spans and asserts presence in registry — RED initially, GREEN as §5.5 closes gaps. Not a doc gap, an impl-discovery activity.
-- **DEP-01 fixture (`expected-deps.yaml`)** depends on W1+W2 finalised architecture. If W1.x or W2.x merge late, the fixture must be regenerated. Implementer must add `make refresh-expected-deps` target. Acceptance §6.5 hints but doesn't enumerate.
+- **DEP-01 fixture (`expected-deps.yaml`)** depends on W1+W2 finalised architecture. If W1.x or W2.x merge late, the fixture must be regenerated. Implementer must add a `refresh-expected-deps` target — **not added**: no `Makefile` in the tree declares it. Acceptance §6.5 hints but doesn't enumerate.
 - **W3.2-ISO-01 / ISO-02 enforcement** requires Grafana role-mapping (admin vs viewer) and VL API tenant-token-introspection. Acceptance §6.4 enumerates verification but doesn't enumerate the helm-chart values. Implementer adds.
 - **EDGE-03 (PagerDuty inhibition window 7 days)** — Alertmanager routing config detail; acceptance §6.3 enumerates the requirement; implementer adds to alertmanager.yaml.
 

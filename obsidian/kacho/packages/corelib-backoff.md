@@ -1,34 +1,54 @@
 ---
 title: corelib-backoff
-category: package
+category: packages
 repo: kacho-corelib
+path: pkg/backoff
 layer: shared
+status: stable
 tags:
   - packages
   - kacho-corelib
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# corelib/backoff
+# pkg/backoff — обёртка над экспоненциальным backoff
 
-**Path**: `kacho-corelib/backoff/`
-**Imports**: `github.com/cenkalti/backoff/v4`, `time`
-**Imported by**: `kacho-corelib/retry`
+**Каталог**: `pkg/backoff/` · импорт `github.com/PRO-Robotech/kacho/pkg/backoff`
+**Прежде** (полирепо): `kacho-corelib/backoff`.
+**Импортирует**: `time`, `github.com/cenkalti/backoff/v4`.
+**Импортируют** (`go list` на `96b2879a`, non-test): `pkg/retry`, `pkg/operations`,
+`pkg/dbready` — **только внутри фундамента**. Ни один сервис не зовёт пакет
+напрямую, и это правильная форма: сервисы получают backoff через [[corelib-retry]]
+и через воркер операций, а не настраивают его каждый по-своему.
 
-Тонкая обёртка над `cenkalti/backoff/v4` — exponential builder с дефолтами Kachō.
+## Экспортируемое API (снято с дерева)
 
-## Exported types
+```go
+type Backoff        = backoff.BackOff         // алиасы внешней библиотеки
+type BackOffContext = backoff.BackOffContext
 
-- `Backoff = backoff.BackOff` — alias.
-- `BackOffContext = backoff.BackOffContext` — alias.
+var Stop        = backoff.Stop                // «больше не повторять»
+var WithContext = backoff.WithContext         // context-aware обёртка
 
-## Exported funcs/vars
+func NewConstantBackOff(d time.Duration) Backoff
+func ExponentialBackoffBuilder() exponentialBackoffBuilder
+```
 
-- `var Stop = backoff.Stop` — sentinel «прекратить retry».
-- `ExponentialBackoffBuilder() exponentialBackoffBuilder` — builder с `.WithMaxElapsedTime`, `.WithInitialInterval`, …; default-tuned под gRPC `Unavailable` (см. [[corelib-retry]]).
-- `NewConstantBackOff(d time.Duration) Backoff` — фиксированный интервал.
+Билдер: `.WithInitialInterval` · `.WithMultiplier` · `.WithMaxInterval` ·
+**`.WithMaxElapsedThreshold`** · `.WithRandomizationFactor` · `.Build()`.
+Метод называется `WithMaxElapsedThreshold`, а не `WithMaxElapsedTime` — прежняя
+редакция записки называла второе, такого метода в дереве нет.
 
-## See also
+## `Build()` делает `Reset()` — и это не деталь реализации
 
-[[corelib-retry]]
+Без сброса первый `NextBackOff()` вернул бы дефолт внешней библиотеки (500 мс),
+**молча проигнорировав** сконфигурированный начальный интервал. То есть настройка
+присутствовала бы, читалась бы в коде и не влияла бы на поведение — ровно тот класс
+«форма без содержания», который дороже всего искать. Комментарий у `Build()` это
+называет прямо; при правке пакета сброс не убирать.
+
+## См. также
+
+[[corelib-retry]] [[corelib-operations]]
 
 #packages #kacho-corelib

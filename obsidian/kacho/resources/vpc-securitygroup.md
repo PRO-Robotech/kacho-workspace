@@ -6,11 +6,12 @@ aliases:
   - SG
 category: resource
 domain: vpc
-id_prefix: enp
+id_prefix: sgr
 owner_table: kacho_vpc.security_groups
 owner_db: kacho_vpc
-folder_level: true
+project_level: true
 status: stable
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 related_rpc:
   - "[[rpc/vpc-securitygroup-service]]"
 related_packages:
@@ -23,48 +24,90 @@ tags:
 
 # SecurityGroup
 
-**Domain**: vpc
-**ID prefix**: `enp` (общий VPC prefix)
+**Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
+**ID prefix**: `sgr` (`ids.PrefixSecurityGroup`) — **не** `enp`
 **Owner table**: `kacho_vpc.security_groups`
-**Folder-level**: yes (через Network → Folder)
+**Scope**: project; сеть — через `network_id`
 
-## Fields
+**Контракт**: `proto/kacho/cloud/vpc/v1/security_group.proto`
+**Схема**: `services/vpc/internal/migrations/0001_initial.sql` + 0003 (снят `status`), 0005, 0027 (домен правил)
 
-| Field | Type | Note |
+## Поля публичной проекции (`message SecurityGroup`)
+
+| Поле | Тип | Заметка |
 |---|---|---|
-| `id` | TEXT PK | |
-| `project_id` | TEXT | |
-| `network_id` | TEXT | FK → networks(id) ON DELETE RESTRICT |
+| `id` | string | `sgr<17>`; immutable |
+| `project_id` | string | ссылка → **iam** `Project` |
+| `created_at` | Timestamp | |
 | `name`, `description`, `labels` | | |
-| `rules` | JSONB | список `{direction, ports, protocol, cidr|sg_id, ...}` |
-| `default_for_network` | BOOL | если true — авто-присвоен default-SG на Network |
-| `xmin` (Postgres system) | | OCC version-counter |
+| `network_id` | string | FK → `networks(id) ON DELETE RESTRICT`; **required + immutable** |
+| `rules` | repeated `SecurityGroupRule` | правила группы |
+| `default_for_network` | bool | группа назначена сети дефолтной |
+| `used_by` | repeated `reference.Reference` | output-only, **derived-on-read**: NIC, у которого этот SG в `security_group_ids`, и Network, у которой он `default_security_group_id`. **Не** «правило другой SG ссылается сюда» |
 
-CHECK (0029): name + rules format.
+### `SecurityGroupRule`
 
-## Default-SG flow
+`id` (генерируется сервером), `description`, `labels`, `direction` (`INGRESS`/`EGRESS`,
+required), `ports` (`PortRange{from_port,to_port}` в 0..65535), `protocol_name`,
+`protocol_number`, и **oneof `target`** с опцией `exactly_one`:
+`cidr_blocks` \| `security_group_id` \| `predefined_target`.
 
-При Network Create — inline создаётся default SG (если `KACHO_VPC_DEFAULT_SG_INLINE=true`, по дефолту true). См. `kacho-vpc/internal/apps/kacho/api/network/doCreate`.
+> [!note] `status` снят с контракта — и это зафиксировано резервированием
+> `reserved 8; reserved "status";` в proto, `0003_drop_security_group_status.sql` в схеме
+> (сняты и колонка, и CHECK). Причина, названная в самой миграции: у SG нет
+> провизионинг-стадии, статус никем не наблюдался. Номер и JSON-имя зарезервированы,
+> чтобы их нельзя было переиспользовать.
 
-## network_id — обязателен + immutable (KAC-243)
+## Правила живут JSONB-колонкой, а домен значений — DB-CHECK'ом (0027)
 
-`network_id` **обязателен** при Create (`INVALID_ARGUMENT "network_id required"`) и **неизменяем** после: его нет в Update known-mask {name,description,labels,rule_specs} (в маске → `INVALID_ARGUMENT`); `Move` network-bound SG между проектами → `FAILED_PRECONDITION`. Причина: SG→SG-правила валидны только в пределах одной Network (SG в разных сетях физически не видят друг друга). Откат «optional network_id» (kacho-proto#8). Миграция `0004` (Go goose, transactional) backfill'ит orphan-SG в сеть `default` проекта перед `ALTER ... SET NOT NULL`.
+Колонка `security_groups.rules jsonb NOT NULL DEFAULT '[]'`. Ограничение
+`security_groups_rules_domain` вызывает функцию `kacho_vpc.kacho_sg_rules_domain_valid(rules)`
+(рядом — `kacho_sg_rule_expressible`, `kacho_sg_protocol_name_valid`,
+`kacho_sg_protocol_names`): невыразимое правило в таблицу не попадает — это DB-инвариант,
+а не software-проверка (ban #10).
 
-## OCC (xmin) — только UpdateRules/UpdateRule
+Секция Down у 0027 снимает только проверку и прямо оговаривает, что **обратного заполнения
+нет**: удалённые невыразимые правила восстановить неоткуда. Полезный образец честного
+отката.
 
-Общий `Update` (name/description/labels/rule_specs) — **без OCC** (bare `UPDATE ... WHERE id=$1`). xmin-OCC есть ТОЛЬКО в `UpdateRules`/`UpdateRule`: `UPDATE ... WHERE xmin::text=$expected`, 0 rows → `FAILED_PRECONDITION` (НЕ `Aborted` — маппится через `helpers.ErrFailedPrecondition`). Тест: `security_group_occ_integration_test.go`.
+## `network_id` — обязателен и неизменяем
 
-## FK
+Обязателен на Create; в известное множество маски `Update` не входит, поэтому в маске даёт
+`INVALID_ARGUMENT`. Причина не косметическая: правило SG→SG осмысленно только внутри одной
+сети — группы разных сетей друг друга не видят. Раз `network_id` immutable, проверка цели
+правила не является TOCTOU.
 
-- `security_groups.network_id → networks(id) ON DELETE RESTRICT` (нельзя удалить Network, пока есть SG).
+## OCC через `xmin` — только на правилах
 
-## Gotchas
+- Общий `Update` (name/description/labels/rule_specs) — без OCC.
+- `UpdateRules` / `UpdateRule` — `UPDATE … WHERE xmin::text = $expected`; 0 строк ⇒
+  `FailedPrecondition` (не `Aborted`).
 
-- SG→SG-правило (`rule.security_group_id` → другая SG) валидно ТОЛЬКО если target-SG в той же Network (KAC-243): cross-network/несуществующая target → `INVALID_ARGUMENT` + `BadRequest.field_violations`. Проверяется на Create(rule_specs)/UpdateRules (service-layer; network_id immutable → не TOCTOU). До KAC-243 НЕ валидировалось (был stale-claim в этой заметке).
-- NIC → SG[] (many-to-many) — массив `network_interfaces.security_group_ids` JSONB.
+## FK-контракт
 
-## See also
+- `security_groups.network_id → networks(id) ON DELETE RESTRICT` — сеть с живой SG не удалить
+- NIC ↔ SG — многие-ко-многим через JSONB-массив `network_interfaces.security_group_ids`
+  (через границу таблиц FK тут нет: массив)
 
-[[../packages/vpc-apps-kacho-api-securitygroup]] [[../rpc/vpc-securitygroup-service]] [[vpc-network]] [[vpc-networkinterface]]
+## Жизненный цикл
+
+Состояние одно (см. выше про снятый `status`). Мутации async через `Operation`.
+
+## Gotcha
+
+- **SG→SG-правило валидно только внутри одной сети**: цель из другой сети или
+  несуществующая → `INVALID_ARGUMENT` с `BadRequest.field_violations`.
+- **Дефолтная SG создаётся inline при `Network.Create`**
+  (`services/vpc/internal/apps/kacho/api/network/create.go`), а привязывается к сети
+  internal-ручкой `InternalNetworkService.SetDefaultSecurityGroupId` (`system_admin`).
+- **`used_by` считается на чтении** и является зеркалом, а не источником истины;
+  dangling-ссылку надо переживать грациозно.
+- **`SecurityGroupService.Move` не существует** — снят вместе с прочими Move ([[KAC-266]]).
+- REST правил: `PATCH /vpc/v1/securityGroups/{id}/rules` и
+  `PATCH /vpc/v1/securityGroups/{id}/rules/{rule_id}`.
+
+## См. также
+
+[[vpc-network]] · [[vpc-networkinterface]] · [[../rpc/vpc-securitygroup-service]]
 
 #resource #vpc #securitygroup

@@ -31,7 +31,7 @@ dev-стенд за < 3 минут.
 - 11 project-level субагентов с full system-prompts (~145–243 строк каждый)
 
 **Smoke (Phase 8.1):**
-- `make dev-up` = 179 сек (<5 мин — E1 PASS)
+- `make -C deploy dev-up` = 179 сек (<5 мин — E1 PASS)
 - 5 pods Running: ingress-nginx + 4 Postgres
 - E4 (4 postgres ready), E5 (4 secrets), E6 (ingress 503), E7 (no service pods), E8 (dev-down clean) — все PASS
 - E9 (emptyDir regression) — не прогонялось в smoke (требует dev-down/up цикла, ~6 мин); скрипт готов
@@ -63,7 +63,7 @@ dev-стенд за < 3 минут.
 - `kacho-corelib/grpcsrv`: добавлен `reflection.Register(s)` (для grpcurl).
 
 **Smoke (Phase D 0.2):**
-- `make dev-up`: 5 pods (4 Postgres + ingress) + resource-manager Pod (1/1 Running)
+- `make -C deploy dev-up`: 5 pods (4 Postgres + ingress) + resource-manager Pod (1/1 Running)
 - `grpcurl OrganizationService/List`: возвращает default-org с uid + resourceVersion
 - `grpcurl CloudService/Upsert`: создаёт smoke-test-cloud в default-org
 - `grpcurl CloudService/List`: показывает default + smoke-test-cloud
@@ -85,7 +85,7 @@ dev-стенд за < 3 минут.
 - `kacho-deploy/helm/umbrella` 0.3.0: vpc dep раскомментирован.
 
 **Smoke (Phase D 0.3):**
-- `make dev-up`: 6 pods (4 Postgres + ingress + resource-manager + vpc), все Running 1/1
+- `make -C deploy dev-up`: 6 pods (4 Postgres + ingress + resource-manager + vpc), все Running 1/1
 - vpc + resource-manager оба listening :9090 в кластере
 - `grpcurl NetworkService/Upsert` создаёт smoke-net в default-folder
 - `grpcurl NetworkService/List` показывает созданную сеть с status.state=ACTIVE
@@ -115,7 +115,7 @@ dev-стенд за < 3 минут.
 - Finalizer disk-detach: `compute.kacho.io/disk-detach` cleanup перед физическим DELETE
 
 **Smoke (Phase D 0.4):**
-- `make dev-up`: 7 pods (4 Postgres + ingress + resource-manager + vpc + compute), все Running 1/1
+- `make -C deploy dev-up`: 7 pods (4 Postgres + ingress + resource-manager + vpc + compute), все Running 1/1
 - compute reconciler started; gRPC :9090
 - `grpcurl ImageService/List` возвращает seed-каталог: ubuntu-22.04-lts, ubuntu-20.04-lts, debian-11
 - `grpcurl DiskService/Upsert` создаёт smoke-disk в state=STATE_CREATING
@@ -148,7 +148,7 @@ dev-стенд за < 3 минут.
 **Известное ограничение:** REST мaршруты не активны — proto-файлы Kachō не содержат `google.api.http` аннотаций. Grpc-gateway ServeMux инициализирован, но routes возвращают 404. gRPC через port 8080 полностью работает. REST UX перенесён на phase 1 (требует addition `import "google/api/annotations.proto"` + URL опции в каждый proto RPC).
 
 **FULL STACK SMOKE (Phase D 0.5+0.6):**
-- `make dev-up`: 10 pods (4 Postgres + ingress + 5 services), все Running 1/1
+- `make -C deploy dev-up`: 10 pods (4 Postgres + ingress + 5 services), все Running 1/1
 - HTTP `/healthz` через api-gateway → `{"status":"ok"}`
 - HTTP `/readyz` → `{"status":"ok","backends":{"compute":"SERVING","loadbalancer":"SERVING","resourcemanager":"SERVING","vpc":"SERVING"}}`
 - **gRPC через gateway (с proto-файлами для grpcurl):**
@@ -212,7 +212,7 @@ dev-стенд за < 3 минут.
 
 **Tag:** `v0.7.0`
 
-## 2026-05-04 — Sub-phase 1.0 (flat API + Operations, verbatim YC) завершена
+## 2026-05-04 — Sub-phase 1.0 (flat API + Operations) завершена
 
 **Major version bump.** Полностью переделан API-контракт. Теги 0.x остаются как frozen.
 
@@ -220,19 +220,20 @@ dev-стенд за < 3 минут.
 - K8s-style envelope (`metadata/spec/status`) — больше нет
 - Watch RPC + WebSocket-streaming + `kacho-corelib/watch/` пакет — удалены
 - Custom `Internal*Service` методы — заменены на Operations
-- Hand-written 1.0 (промежуточная итерация) — заменена на verbatim YC sync
+- Hand-written промежуточная итерация — заменена на унифицированный sync-read + async Operations контракт
 
 **Что добавлено:**
 
-### Proto (verbatim YC, namespace `kacho.cloud.*`)
-- 71 .proto файл скопирован verbatim из `yandex-cloud/cloudapi`:
+### Proto (namespace `kacho.cloud.*`)
+- 71 .proto файл заведён под namespace `kacho.cloud.*`:
   - `kacho/cloud/resourcemanager/v1/` (cloud, folder + services)
   - `kacho/cloud/organizationmanager/v1/` (organization + service)
   - `kacho/cloud/vpc/v1/` (network, subnet, address, route_table, security_group, gateway, privatelink + services)
   - `kacho/cloud/compute/v1/` (frozen)
   - `kacho/cloud/loadbalancer/v1/` (frozen)
   - `kacho/cloud/operation/`, `api/`, `access/`, `validation.proto` — extension stack
-- Rewrites: `yandex.cloud` → `kacho.cloud`, `yandex-cloud/go-genproto` → `PRO-Robotech/kacho-proto`, `Yandex` mentions → `Kachō`. `make verify-no-yandex` clean.
+- Все proto package / go import-пути — под `kacho.cloud` / `PRO-Robotech/kacho-proto`; проверка `! grep -ri 'yandex' proto/ pkg/api/` — clean. **Гейта под неё нет:** цели
+  `verify-no-yandex` не объявлено ни в одном `Makefile`, в CI шага тоже нет.
 - 131 сгенерированный .pb / .pb.gw файл
 
 ### kacho-corelib (1.0)
@@ -242,16 +243,16 @@ dev-стенд за < 3 минут.
 - Удалены: `watch/`
 
 ### Backend services (3 active)
-- **kacho-resource-manager** — Get/List/Create/Update/Delete для Organization (organizationmanager.v1) + Cloud + Folder. Hard-delete (verbatim YC, no soft-delete). 75.6% coverage. Default Org/Cloud/Folder bootstrap.
+- **kacho-resource-manager** — Get/List/Create/Update/Delete для Organization (organizationmanager.v1) + Cloud + Folder. Hard-delete (no soft-delete). 75.6% coverage. Default Org/Cloud/Folder bootstrap. *(Домен позже упразднён в KAC-124 → Account/Project в kacho-iam.)*
 - **kacho-vpc** — Get/List/Create/Update/Delete для Network/Subnet/Address/RouteTable. Address с oneof External/Internal. Subnet с `v4_cidr_blocks []string`. RouteTable со `static_routes` JSONB. SecurityGroup/Gateway/PrivateLink — UNIMPLEMENTED stubs. 64.4% coverage.
-- **kacho-api-gateway** — REST mux для 6 services + OpsProxy для OperationService.Get/Cancel (no List у YC). Domain prefix routing. wsproxy удалён (Watch ушёл).
+- **kacho-api-gateway** — REST mux для 6 services + OpsProxy для OperationService.Get/Cancel (List не экспонируется). Domain prefix routing. wsproxy удалён (Watch ушёл).
 
 ### Frozen (не реализованы в 1.0)
-- **kacho-compute** — proto verbatim YC, backend код от 0.x несовместим. Frozen до отдельной фазы.
+- **kacho-compute** — proto заведён, backend код от 0.x несовместим. Frozen до отдельной фазы.
 - **kacho-loadbalancer** — то же самое.
 
 ### kacho-ui — 7 ресурсов
-- Vite + React 19 + TS + Tailwind + shadcn — собран под verbatim YC URLs:
+- Vite + React 19 + TS + Tailwind + shadcn — собран под REST-URL'ы 1.0:
   - `/organization-manager/v1/organizations`, `/resource-manager/v1/clouds`, `/resource-manager/v1/folders`
   - `/vpc/v1/{networks,subnets,addresses,route-tables}`
   - `/operations/{id}` для polling
@@ -269,8 +270,8 @@ dev-стенд за < 3 минут.
 - `verify-no-yandex` — clean во всех репо
 
 **Найденные/исправленные проблемы:**
-- buf STANDARD lint требовал ENUM_VALUE_PREFIX — добавлены в `buf.yaml::lint.except` (YC использует короткие enum values без prefix)
-- DeletedAt soft-delete pattern был у hand-written 1.0 — выкинут (verbatim YC = hard-delete)
+- buf STANDARD lint требовал ENUM_VALUE_PREFIX — добавлены в `buf.yaml::lint.except` (короткие enum values без prefix — осознанный выбор)
+- DeletedAt soft-delete pattern был у hand-written 1.0 — выкинут (контракт 1.0 = hard-delete)
 - Operation.id `UUID PRIMARY KEY` в БД блокировал prefix — поменяли на `TEXT`
 - Worker использовал request-ctx → cross-service gRPC падали с canceled — переключили на `context.Background()`
 

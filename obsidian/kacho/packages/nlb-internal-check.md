@@ -4,6 +4,7 @@ aliases:
   - nlb check package
   - nlb authz interceptor
 category: packages
+path: services/nlb/internal/check
 repo: kacho-nlb
 layer: composition
 tags:
@@ -12,6 +13,8 @@ tags:
   - authz
   - composition-root
   - e3
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/check
@@ -36,24 +39,32 @@ Composition-root пакет — превращает corelib `authz`-interceptor
 - `AddTargets / RemoveTargets` → `editor` на `nlb_target_group:<id>`.
 - `GetTargetStates` → `viewer` на `nlb_load_balancer:<id>`.
 - `OperationService.Get/Cancel` → `viewer/editor` на `nlb_operation:<id>`.
-- `Internal*` (InternalResourceLifecycleService) — bypass (workspace #6).
+- `Internal*` (InternalResourceLifecycleService) — **тоже в карте**; пропуск Check
+  выдаётся записью (`Public=false`/`ScopeFiltered`), а не выводится из имени метода.
+  Незамапленный RPC отказывает (см. [[corelib-authz]] §Decision pipeline). `drift_test.go`
+  это и держит: RPC без записи роняет сборку.
 
-## Wiring (cmd/kacho-loadbalancer/main.go)
+## Как звено решения попадает в цепочку (носитель контура)
 
-```go
-authzIntr, err := check.NewInterceptor(check.Options{
-    ServiceName: "kacho-nlb",
-    IAMConn:     authzConn,   // gRPC к kacho-iam:9091
-    Breakglass:  cfg.AuthZ.Breakglass,
-    Logger:      logger,
-})
-if authzIntr != nil {
-    publicUnary = append(publicUnary, authzIntr.Unary())
-    publicStream = append(publicStream, authzIntr.Stream())
-}
-```
+Сборка перехватчика в композиционном корне СНЯТА — вместе с фабрикой пакета и её ручкой
+аварийного пропуска. Сервис ОБЪЯВЛЯЕТ участие дескриптором, а звено решения ставит общий
+носитель (`pkg/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
+внутреннюю. Поля, способного снять звено, в дескрипторе не существует.
 
-Internal :9091 listener — БЕЗ authz-interceptor (admin-only).
+Карта прав приезжает туда же выводом из аннотаций (`pkg/authz/catalogderive`), а не
+литералом: `PermissionMap()` этого пакета — тонкая обёртка над выводом, и она читается
+теми, кому нужен перечень типов (например, вычисление пообъектных типов в самоотчёте).
+
+Разбор — в [[packages/corelib-servicehost]].
+
+Internal-листенер собирается **той же** цепочкой, что публичный: `wiring.go` строит две
+цепочки, и `authzIntr.Unary()`/`.Stream()` стоят в обеих.
+
+> [!important] «Internal = trusted, mTLS достаточно» — запрещённое допущение
+> mTLS доказывает ровно одно: пир предъявил сертификат нашего CA. Он не говорит, **кто**
+> вызывающий и **на что** у него право, поэтому сам по себе не заменяет per-RPC Check.
+> Ban #6 сужает **поверхность методов**, а не снимает проверку прав на внутреннем порту.
+> См. `security.md` §«AuthN+AuthZ ВЕЗДЕ», п. 2 и 4, и [[corelib-authz]].
 
 ## Cache invalidation
 
@@ -62,9 +73,9 @@ LISTEN-invalidate `kacho_iam_subjects` через `ListenInvalidator.Run` (corel
 ## Imports
 
 - `kacho-corelib/authz` — `Interceptor`, `RPCMap`, `Cache`, `StaticExtractor`, `CheckClient`, `ErrNoPath`.
-- `kacho-proto/gen/go/kacho/cloud/iam/v1` — `InternalIAMServiceClient`, `CheckRequest`.
-- `kacho-proto/gen/go/kacho/cloud/loadbalancer/v1` — request stubs для extractor'ов.
-- `kacho-proto/gen/go/kacho/cloud/operation` — `OperationService` request stubs.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/iam/v1` — `InternalIAMServiceClient`, `CheckRequest`.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/loadbalancer/v1` — request stubs для extractor'ов.
+- `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/operation` — `OperationService` request stubs.
 
 ## See also
 

@@ -10,17 +10,32 @@ model: opus
 
 > *«Я связался посмотреть ресурс Network и попытался его привести "в норму"… Лично от меня есть только субъективные замечания / пожелания»* — @EvgenyGRI
 
-Замечания **не субъективные**, а нормативные. Все 48 правил ниже **обязательны** при любом рефакторинге `kacho-vpc`, `kacho-compute`, `kacho-resource-manager`, новых ресурсах, новых domain-типах. Этот skill **дополняет** workspace-`CLAUDE.md` (он не отменяет ни одного запрета, только усиливает code-style).
+Замечания **не субъективные**, а нормативные. Все 48 правил ниже **обязательны** при любом рефакторинге доменных Go-сервисов, новых ресурсах, новых domain-типах. Этот skill **дополняет** workspace-`CLAUDE.md` (он не отменяет ни одного запрета, только усиливает code-style).
+
+> [!important] Нормативны ПРАВИЛА, а не координаты — дерево с тех пор переехало (сверено 2026-08-06)
+> Файл писался по дереву мая 2026: полирепо, у каждого сервиса свой репозиторий
+> `kacho-<svc>`, внутри — `internal/service/`, `cmd/kacho-<svc>/`. Сегодня продукт живёт в
+> **одном** репозитории (`PRO-Robotech/kacho`), сервис — каталог `services/<svc>/`, use-case'ы
+> лежат в `services/<svc>/internal/apps/kacho/api/<resource>/`, домен — в
+> `services/<svc>/internal/domain/`, мигратор — отдельный бинарь `services/<svc>/cmd/migrator/`.
+> Домен `kacho-resource-manager` **упразднён** (KAC-124), его предмет — в iam.
+>
+> Что из этого следует: любое «сейчас в дереве так-то» ниже читай как **состояние на
+> 2026-05-14**, а не как адрес, по которому надо идти. Правила от переезда не изменились —
+> изменились пути, и §12 «migration plan» описывает работу, которая в основном **исполнена**:
+> `cmd/migrator` отдельным бинарём, `internal/domain/`, `internal/dto/`, срезы use-case на
+> ресурс — всё это в дереве есть. Перед тем как «применить шаг плана», проверь, не применён ли
+> он уже.
 
 ## Когда применять
 
-- Любая работа в `kacho-vpc/internal/` или `kacho-compute/internal/` или `kacho-resource-manager/internal/`.
+- Любая работа в `services/<svc>/internal/` доменного Go-сервиса (vpc, compute, iam, nlb, storage, geo, registry).
 - Создание нового сервиса (`service-scaffolder` → дополнить этим regulation).
 - Создание нового ресурса / domain-типа.
 - Рефакторинг существующего service / repo / handler / config.
 - Создание новой CLI-команды (мигратор, утилита, и т.п.).
 
-Если работа касается `kacho-ui`, `kacho-deploy`, `kacho-api-gateway` (не Go-backend-domain-логика) — этот skill **неприменим**, действуют общие правила сервисов.
+Если работа касается UI, каталога развёртывания или края (`gateway/`) — то есть не доменной Go-логики, — этот skill **неприменим**, действуют общие правила сервисов.
 
 ## Структура skill
 
@@ -88,11 +103,11 @@ internal/
 
 **A.4** — `Makefile` + `Deploy/` на верхнем уровне (как сейчас).
 
-**A.5** — Доменные модели изолированы в `pkg/domains/kacho/` или `internal/domain/`. **Никаких** ссылок на `pgx`, `proto`, `grpc` из domain пакета (workspace `CLAUDE.md` §«Чистая архитектура» — это уже на месте, фиксируем).
+**A.5** — Доменные модели изолированы в `internal/domain/` сервиса (в дереве: `services/vpc/internal/domain/`; вариант «pkg/domains/…» из ревью не прижился и в дереве его нет). **Никаких** ссылок на `pgx`, `proto`, `grpc` из domain пакета (workspace `CLAUDE.md` §«Чистая архитектура» — это уже на месте, фиксируем).
 
 **A.6** — `internal/dto/` (или `internal/repo/kacho/pg/dto/`) — мост между слоями. Не вызывать его из domain (domain не должен знать про DTO).
 
-**A.7** — Текущая структура `kacho-vpc/internal/{repo,service,handler,clients,domain,migrations,ports,protoconv}` — устаревшая. Миграция — §12 plan.
+**A.7** — Плоская раскладка `internal/{repo,service,handler,clients,domain,migrations,ports,protoconv}`, которую ревью застало в kacho-vpc, — устаревшая. Миграция — §12 plan; в дереве она уже проведена (`services/vpc/internal/apps/`).
 
 ---
 
@@ -115,16 +130,16 @@ internal/apps/kacho/api/
 ```
 
 **Запрещено**:
-- Один большой `NetworkService` со всеми методами в одном файле (`internal/service/network.go` — сейчас 250+ строк).
+- Один большой `NetworkService` со всеми методами в одном файле (в дереве ревью это был internal/service/network.go на 250+ строк; сегодня такого файла нет — срезы разъехались по use-case'ам).
 - Параллельные `CreateNetworkReq`, `UpdateNetworkReq` структуры, дублирующие `domain.Network`. Передавать `domain.Network` (или его подмножество через newtype) напрямую в use-case.
 
-**Текущее состояние kacho-vpc**: всё на Services. Миграция — §12 шаг 3.
+**Состояние на момент ревью (2026-05-14)**: всё было на Services. Миграция — §12 шаг 3; в дереве она проведена, срезы лежат в `services/vpc/internal/apps/kacho/api/`.
 
 ---
 
 ## §3. DTO — table-driven, generic-based (C.1–C.6)
 
-Источник: `internal/dto/base.go` + `internal/dto/type2pb/dtos.go` из PR #52 + REVIEW.txt.
+Источник: файлы DTO из PR #52 + REVIEW.txt (тогда — internal/dto/base.go и internal/dto/type2pb/dtos.go). Сегодня реестр DTO живёт в `services/vpc/internal/dto/` (`base.go` + подпакет конвертеров), и правила ниже описывают именно его форму.
 
 **C.1 — Generic DTO interface:**
 
@@ -223,7 +238,7 @@ func (n Network) Validate() error {
 }
 ```
 
-**D.5 — Validate-логика живёт В domain-пакете, НЕ в `service/validate.go`.** Текущий `internal/service/validate.go` (или `corevalidate.NameVPC`/`Description`/`Labels`) — выносится в `internal/domain/network.go` и `domain/types.go`.
+**D.5 — Validate-логика живёт В domain-пакете, НЕ в service-слое.** В дереве ревью она сидела в отдельном файле валидации service-слоя (плюс `corevalidate.NameVPC`/`Description`/`Labels`); её место — `internal/domain/` сервиса, рядом с типом, который она валидирует. Вынос исполнен: в `services/vpc/internal/domain/` типы валидируют себя сами.
 
 **D.6 — `Validate()` вызывается use-case'ом ПЕРЕД repo.Insert/Update**:
 
@@ -499,7 +514,7 @@ err := parallel.ExecAbstract(ctx,
 
 **K.5 — Failure-isolation:** Если internal-server упал, public-server **должен тоже остановиться** (или хотя бы пометить unhealthy). Сейчас один внутри `go func() { ... }()` без error-prop — если он умер, public крутится в нерабочем состоянии. ExecAbstract обеспечивает all-or-nothing.
 
-**K.6 — `dialResourceManager`** заменить на `H-BF/corlib/client/grpc/client-builder.go` — единый паттерн для всех gRPC-клиентов (retries, LB, TLS, metrics).
+**K.6 — `dialResourceManager`** заменить на построитель gRPC-клиента из внешней библиотеки `github.com/H-BF/corlib` (пакет client/grpc) — единый паттерн для всех gRPC-клиентов (retries, LB, TLS, metrics).
 
 **K.7 — `validateAuthMode(cfg, logger)` — вынести в config-пакет** (J.5).
 
@@ -513,7 +528,7 @@ err := parallel.ExecAbstract(ctx,
 
 @EvgenyGRI: *«не понимаю зачем тут плодить какие-то асинхронные операции, когда тут вся работа ведётся в обслуживании репозитория»*.
 
-**L.1 — Архитектурное решение зафиксировано (workspace `CLAUDE.md` §«API contract — flat resources + Operations»):** все мутирующие RPC возвращают `Operation` (long-running async). Это **proto-контракт верхнего уровня** Kachō (verbatim YC), не bug. Менять не предполагается.
+**L.1 — Архитектурное решение зафиксировано (workspace `CLAUDE.md` §«API contract — flat resources + Operations»):** все мутирующие RPC возвращают `Operation` (long-running async). Это **proto-контракт верхнего уровня** Kachō, не bug. Менять не предполагается.
 
 **L.2 — Внутри Operation worker'а — НЕ оторванный контекст.** См. I.3. Это исправляется в `kacho-corelib/operations`, не в каждом сервисе.
 
@@ -741,28 +756,79 @@ type Network struct {
 }
 ```
 
+### AP-13: per-field `update_*`/`replace_*` флаги вместо `FieldMask update_mask`
+
+**Контракт partial-update — ОДИН на весь проект: `google.protobuf.FieldMask update_mask`.**
+Любой `Update`-RPC выражает «какие поля менять» через `update_mask` + дисциплину
+§4.4 (known-set / immutable / empty-mask=full-PATCH). Изобретать булевы флаги
+вида `update_is_default` / `replace_labels` — **запрещено**, ресурсов. Две конвенции partial-update в одном
+API — footgun.
+
+```protobuf
+// ❌ per-field флаги (AddressPool до unify) — отдельная конвенция, рассинхрон с
+//    остальными Update-RPC, и UI/SDK о ней не знает.
+message UpdateAddressPoolRequest {
+  string pool_id = 1;
+  bool   update_is_default = 7;   bool is_default = 8;
+  bool   replace_labels = 4;      map<string,string> labels = 5;
+  bool   update_selector_priority = 11; int32 selector_priority = 12;
+}
+```
+
+```protobuf
+// ✅ FieldMask (parity со всеми VPC/Compute/IAM Update-RPC)
+message UpdateAddressPoolRequest {
+  string pool_id = 1 [(required) = true];
+  google.protobuf.FieldMask update_mask = 17;   // набор изменяемых полей
+  string name = 2;  string description = 3;  map<string,string> labels = 5;
+  bool is_default = 8;  map<string,string> selector_labels = 10;  int32 selector_priority = 12;
+}
+```
+
+```go
+// use-case (parity с SubnetService): immutable в mask → InvalidArgument,
+// unknown → InvalidArgument (corevalidate.UpdateMask), пустой mask → full-PATCH.
+for _, f := range req.UpdateMask {
+    switch f {
+    case "kind", "zone_id", "id", "created_at":
+        return nil, serviceerr.InvalidArg(f, f+" is immutable after <Res>.Create")
+    }
+}
+if err := corevalidate.UpdateMask("update_mask", req.UpdateMask, knownMutable); err != nil { return nil, err }
+updates := req.UpdateMask
+if len(updates) == 0 { updates = allMutableFields }  // full-PATCH
+for _, f := range updates { /* применить только masked поля */ }
+```
+
+> **Реальный инцидент (cautionary tale):** AddressPool жил на per-field флагах,
+> пока остальные 7 VPC-ресурсов — на `update_mask`. UI-форма строила `update_mask`
+> (как для всех), бэкенд молча отбрасывал неизвестное поле + игнорировал
+> `is_default` без `update_is_default` ⇒ `PATCH` отдавал `200`, но переключатель
+> «Default» не применялся (silent no-op). Унифицировано на FieldMask;
+> per-field флаги удалены из proto (`reserved`).
+
 ---
 
 ## §12. Step-by-step migration plan для kacho-vpc
 
-Большой рефакторинг. Декомпозирован на 11 фаз. Каждая фаза — отдельный YT-эпик / отдельный PR. Зависимости — строгие (фаза N+1 не стартует до merge N).
+Большой рефакторинг. Декомпозирован на 11 фаз. Каждая фаза — отдельный issue-эпик / отдельный PR. Зависимости — строгие (фаза N+1 не стартует до merge N).
 
 ### Фаза 1 — Domain types: newtypes + Validate (правила D.2–D.10)
 
-**KAC-N1**:
+**Задача 1**:
 1. Создать `internal/domain/types.go` с newtypes: `LabelKey`, `LabelVal`, `RcLabels`, `RcName`, `RcNameVPC`, `RcNameCompute`, `RcDescription`, `RcNameOpt`.
 2. Добавить `Validate() error` на каждый newtype (переносим логику из `corevalidate.NameVPC`/`Description`/`Labels`).
 3. Поменять поля domain-типов (Network, Subnet, Address, SG, RT, Gateway, PE, NIC) с `string`/`map` → newtypes.
 4. Добавить `Validate()` на каждый domain-тип через `multierr.Combine`.
 5. **CreatedAt вынести в repo-уровень**: `internal/repo/.../entity.go::Entity = struct { domain.X; CreatedAt time.Time }`.
-6. Service-слой: убрать вызовы `corevalidate.*` — заменить на `obj.Validate()`. Удалить `service/validate.go` если становится пустым.
+6. Service-слой: убрать вызовы `corevalidate.*` — заменить на `obj.Validate()`. Опустевший файл валидации service-слоя удалить.
 7. **DB CHECK constraints** (правило E.2): миграции добавляют CHECK для name (regex), description (length), status (enum-set) per resource.
 8. Integration-тесты: для каждого resource — assert DB отбивает invalid INSERT с SQLSTATE 23514.
 9. PR per resource (Network → Subnet → Address → SG → RT → Gateway → PE → NIC) — 8 PR'ов.
 
 ### Фаза 2 — Domain builders + constants (правила D.7–D.9, AP-2/4)
 
-**KAC-N2**:
+**Задача 2**:
 1. Создать `internal/domain/security_group_builders.go`:
    - `NewDefaultSecurityGroup(net Network) SecurityGroup`
    - `NewDefaultSecurityGroupRules() []SecurityGroupRule`
@@ -774,7 +840,7 @@ type Network struct {
 
 ### Фаза 3 — UseCases вместо Services (правила B.1–B.4)
 
-**KAC-N3** (per resource → 8 субтасков):
+**Задача 3** (по ресурсу → 8 дочерних задач):
 1. Создать `internal/apps/kacho/api/<resource>/` директорию.
 2. Перенести логику из `internal/service/<resource>.go` в:
    - `internal/apps/kacho/api/<resource>/handler.go` — gRPC transport (тонкий)
@@ -788,7 +854,7 @@ type Network struct {
 
 ### Фаза 4 — DTO table-driven (правила C.1–C.6)
 
-**KAC-N4**:
+**Задача 4**:
 1. Создать `internal/dto/base.go` с generic Interface, RegTransfer, FindTransfer (из PR #52).
 2. Создать `internal/dto/type2pb/` (или `internal/repo/kacho/pg/dto/` для pg-mapping):
    - `network.go` с `network{}.toPb` (по образцу из PR #52).
@@ -800,7 +866,7 @@ type Network struct {
 
 ### Фаза 5 — Ports → CQRS Repository (правила G.1–G.7)
 
-**KAC-N5**:
+**Задача 5**:
 1. Создать новые интерфейсы:
    - `internal/repo/kacho/iface.go` с `Repository`, `RepositoryReader`, `RepositoryWriter`.
    - `internal/repo/kacho/<resource>/iface.go` с `XxxReaderIface` / `XxxWriterIface`.
@@ -812,49 +878,49 @@ type Network struct {
 
 ### Фаза 6 — Config: YAML + viper (правила J.1–J.7)
 
-**KAC-N6**:
+**Задача 6**:
 1. Создать `internal/apps/kacho/config/`:
    - `config.go` — типы config с `mapstructure`-тегами.
    - `defaults.go` — `func RegisterDefaults(v *viper.Viper)`.
    - `validate.go` — `Config.Validate() + Mode` ENUM (вместо bool).
    - `load.go` — `Load(path string) (Config, error)`.
-2. `cmd/kacho-vpc/main.go` загружает config через viper.
+2. `cmd/<svc>/main.go` загружает config через viper.
 3. ENV variables — через `viper.SetEnvPrefix("KACHO_VPC")` + `SetEnvKeyReplacer(strings.NewReplacer(".", "__"))`.
 4. Удалить `internal/config/config.go` (envconfig).
 5. Helm chart: `values.yaml` → ConfigMap mount `/etc/kacho-vpc/config.yaml`.
 
 ### Фаза 7 — Отделить cmd/migrator (правила K.1–K.3)
 
-**KAC-N7**:
+**Задача 7**:
 1. Создать `cmd/migrator/main.go` с cobra: `migrator up|down|status|create --dialect=postgres --dsn=...`.
 2. `internal/apps/migrator/` — бизнес-логика, обёртка над goose.
-3. `cmd/kacho-vpc/main.go` оставить **только** `serve`. Subcommand `migrate` удалить.
+3. `cmd/<svc>/main.go` оставить **только** `serve`. Subcommand `migrate` удалить.
 4. Docker entrypoint init-container — `kacho-migrator up`, main container — `kacho-vpc serve`.
 
 ### Фаза 8 — Параллельные серверы через ExecAbstract (правила K.4–K.5)
 
-**KAC-N8**:
+**Задача 8**:
 1. Импорт `H-BF/corlib/pkg/parallel`.
-2. `cmd/kacho-vpc/main.go::runServe`: `parallel.ExecAbstract(ctx, publicServer, internalServer, shutdownWaiter)`.
+2. `runServe` в `cmd/<svc>/main.go`: `parallel.ExecAbstract(ctx, publicServer, internalServer, shutdownWaiter)`.
 3. Failure isolation: если internal упал — public останавливается через ctx cancel.
 
 ### Фаза 9 — grpc client-builder (правило K.6)
 
-**KAC-N9**:
+**Задача 9**:
 1. Импорт `H-BF/corlib/client/grpc`.
 2. Все clients (`folderClient`, `geographyClient`, ...) через `client-builder.Build(...)` — единый паттерн с retries/LB/TLS/metrics.
 3. Удалить `dialResourceManager` / `dialCompute` / ... — заменить.
 
 ### Фаза 10 — operations.Run — preserve context metadata (правило I.3)
 
-**KAC-N10** — затрагивает `kacho-corelib`:
+**Задача 10** — затрагивает `kacho-corelib`:
 1. В `kacho-corelib/operations/run.go`: workerCtx наследует `trace-id`, `request-id`, `slog-attrs` из callerCtx (через явный copy of context.Values).
 2. Timeout остаётся независимым от caller-deadline (worker может пережить request).
 3. Все use-cases используют новый Run без изменений (signature та же).
 
 ### Фаза 11 — ER-diagrams + architecture docs (правило E.6)
 
-**KAC-N11** (для каждого сервиса):
+**Задача 11** (для каждого сервиса):
 1. `docs/architecture/er-diagram.md` — mermaid ER-diagram таблиц.
 2. Обновление `kacho-vpc/CLAUDE.md` §2 (Domain model) с ссылкой на диаграмму.
 
@@ -872,7 +938,7 @@ type Network struct {
 Фаза 10 (corelib/operations) — независимо, влияет на все фазы 3+.
 ```
 
-**Оценка**: 11 фаз × ~3 дня каждая = ~33 рабочих дня (~6-7 недель). Декомпозируется в эпик KAC-N с 11 subtask'ами + per-resource sub-subtask'и.
+**Оценка**: 11 фаз × ~3 дня каждая = ~33 рабочих дня (~6-7 недель). Декомпозируется в эпик-issue с 11 дочерними задачами + по одной на ресурс внутри них.
 
 ---
 
@@ -897,6 +963,7 @@ type Network struct {
 - [ ] Нет `XxxReq`/`XxxResp`, дублирующих domain.
 - [ ] `operations.Run` worker получает ctx с copied baggage (trace/request-id/slog-attrs).
 - [ ] Нет race-prone `Exists`-prechecks перед Insert (полагаемся на FK).
+- [ ] `Update`-RPC использует `google.protobuf.FieldMask update_mask` (НЕ per-field `update_*`/`replace_*` флаги — AP-13); known-set/immutable дисциплина §4.4; пустой mask → full-PATCH.
 
 ### DTO
 - [ ] Нет ручных `func ToPb(d domain.X) *pbX` — через `dto.RegTransfer` + `dto.Transfer(dto.FromTo(...))`.

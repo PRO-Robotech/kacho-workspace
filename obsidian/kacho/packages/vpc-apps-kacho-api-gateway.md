@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-api-gateway
-category: package
+category: packages
 repo: kacho-vpc
 layer: use-case
 tags:
@@ -8,11 +8,13 @@ tags:
   - kacho-vpc
   - handler
   - gateway
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/api/gateway
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/gateway/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/gateway/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/gateway/`)
 **Implements**: [[../rpc/vpc-gateway-service|GatewayService]]
 
 ## Files

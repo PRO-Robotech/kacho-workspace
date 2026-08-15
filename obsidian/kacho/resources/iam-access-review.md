@@ -9,8 +9,8 @@ domain: iam
 id_prefix: arv
 owner_table: kacho_iam.access_reviews
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -21,7 +21,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблиц `access_reviews` / `access_review_items` в `services/iam/internal/migrations/` нет ни в одной из 78 миграций; RPC с таким предметом в `proto/kacho/cloud/iam/v1/` нет. Прямое свидетельство из дерева — комментарий в наборе e2e iam (`services/iam/tests/newman/cases/iam-authz-grant-check-propagation.py`): кейс, утверждавший такой RPC, снят с формулировкой «такого RPC не существует».
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # AccessReview
 

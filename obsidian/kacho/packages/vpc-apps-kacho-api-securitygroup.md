@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-api-securitygroup
-category: package
+category: packages
 repo: kacho-vpc
 layer: use-case
 tags:
@@ -9,11 +9,13 @@ tags:
   - handler
   - securitygroup
   - occ
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/api/securitygroup
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/securitygroup/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/securitygroup/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/securitygroup/`)
 **Implements**: [[../rpc/vpc-securitygroup-service|SecurityGroupService]]
 
 ## Files

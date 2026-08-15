@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-project]]"
-methods_count: 7
-async_methods: 4
+methods_count: 6
+async_methods: 3
 status: planned
 related_tickets:
   - "[[KAC-105]]"
@@ -19,11 +19,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # ProjectService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/project_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/project_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]]; proto-stubs смержены в E0 ([[KAC-105]]).
@@ -33,11 +34,10 @@ tags:
 | Method | Request | Response | Sync/Async | Note |
 |---|---|---|---|---|
 | Get | GetProjectRequest | Project | sync | |
-| List | ListProjectsRequest | ListProjectsResponse | sync | filter, page_token |
+| List | ListProjectsRequest | ListProjectsResponse | sync | filter, page_token. **Authz: `<exempt>` — авторитетный gate — in-handler фильтр `viewer ∪ v_list` на `project` (200+filtered, никогда 403; anon→empty; FGA-ошибка→Unavailable). Паритет с User/SA/Role/Group List.** Раньше gateway Check `account#v_list` + step-up `acr=2` → 403 для non-member и by-label `v_list`-only гранта (ломало see-in-selector). Унифицировано #255 (proto#90/iam#269/gw#103). |
 | Create | CreateProjectRequest | operation.Operation | **async** | account_id required |
 | Update | UpdateProjectRequest | operation.Operation | **async** | UpdateMask; `account_id` immutable через Update |
 | Delete | DeleteProjectRequest | operation.Operation | **async** | RESTRICT через FK от vpc/compute resources (E1+) |
-| **Move** | MoveProjectRequest | operation.Operation | **async** | cross-account; атомарный CAS на `account_id` |
 | ListOperations | ListProjectOperationsRequest | ListProjectOperationsResponse | sync | |
 
 ## REST mapping
@@ -49,12 +49,14 @@ tags:
 | `POST /iam/v1/projects` | Create |
 | `PATCH /iam/v1/projects/{id}` | Update |
 | `DELETE /iam/v1/projects/{id}` | Delete |
-| `POST /iam/v1/projects/{id}:move` | Move |
 | `GET /iam/v1/projects/{id}/operations` | ListOperations |
 
 ## Notes
 
-- **Move** — спец-семантика: `UPDATE projects SET account_id=$new WHERE id=$id AND account_id=$expected RETURNING ...` (CAS, запрет #10), плюс UNIQUE (account_id, name) ловит конфликт по new (account_id, name).
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /iam/v1/projects/{id}:move` сняты (contract-removal). `account_id` теперь
+> неизменяем после Create (раньше Move делал атомарный CAS `account_id`). См. [[../KAC/KAC-266]].
+
 - E1 ([[KAC-106]]) переключит `folder_id → project_id` в kacho-vpc/compute/loadbalancer (через peer `ProjectService.Get` — см. [[../edges/vpc-to-iam-project-exists]]).
 
 ## See also

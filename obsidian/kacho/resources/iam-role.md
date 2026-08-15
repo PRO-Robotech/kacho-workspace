@@ -8,7 +8,7 @@ domain: iam
 id_prefix: rol
 owner_table: kacho_iam.roles
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-role-service]]"
@@ -23,7 +23,23 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сверка со стволом (2026-08-05): область роли — три уровня, не четыре
+> Строка «`roles_org_custom_unique` partial UNIQUE (`organization_id`, …)» ниже пережила
+> свой предмет: колонка `roles.organization_id`, её индекс `roles_organization_idx` и
+> многоскоуповый CHECK, который на неё смотрел, **дропнуты** миграцией
+> `0008_drop_organizations.sql` вместе с самой таблицей `organizations`. Живых якорей
+> области у роли три — кластер, аккаунт, проект.
+>
+> Отдельно и важно для нынешней модели прав: у роли живут **правила**
+> (`0025_role_rules_and_cap_raise.sql`) и **селекторы правил**
+> (`0026_role_rule_selectors.sql`, дополненные 0034/0038/0039/0053/0060), и именно
+> они решают, «на какой объект» действуют глаголы, — прежние плечи на стороне привязки
+> сняты (см. [[iam-access-binding]]). Селекторы обязаны существовать для **всех**
+> материализующих системных ролей, иначе привязка невидима поиску и глаголы не
+> материализуются вовсе.
 
 # Role
 
@@ -43,9 +59,12 @@ tags:
 | ~~`organization_id`~~ | — | — | **removed in KAC-223** (migration 0008 — Organization domain dropped) |
 | `name` | TEXT | regex (см. ниже) | UNIQUE per scope (см. partial UNIQUEs) |
 | `description` | TEXT | <=256 chars | |
-| `permissions` | JSONB | `iam_permissions_valid` v2 (regex per item + cardinality 1-256) | array of strings `<module>.<resource>.<resourceName>.<verb>` — strict 4-segment grammar since KAC-216 (migration 0005 promoted 3-seg legacy to `M.R.*.V`) |
+| `permissions` | JSONB | `iam_permissions_valid` v2 (regex per item + cardinality 1-**1024**) | **INTERNAL compiled** form (anchor/names arms) — derived from `rules` (RBAC rules-model 2026, gh#182). **NOT on the public API surface** (empty in Get/List for rules-roles). cap raised 256→1024 (migration 0025, lockstep DB+domain+proto). strict 4-segment `M.R.rn.V` |
+| `rules` | JSONB | `iam_rules_valid` shape CHECK (≤64; each rule **module scalar** + resources/verbs[] 1..16; resourceNames≤256 XOR matchLabels≤16) — sub-phase H: module scalar (was modules[]), migration 0033 | **authored policy + public API surface** (gh#182, migration 0025). `[]` default for legacy permissions-only roles. Compiled → `permissions` by `domain.CompileRules` (matchLabels NOT compiled) |
 | `is_system` | BOOL | | seed-only, immutable |
 | `created_at` | TIMESTAMPTZ | server-set | |
+| `created_by_user_id` | TEXT | proto-only (sub-phase A) | authoring principal; output |
+| `updated_at` | TIMESTAMPTZ | proto-only (sub-phase A) | last-mutation; output |
 
 ## Multi-scope XOR (CHECK `roles_scope_xor`)
 
@@ -79,6 +98,7 @@ KAC-105 (12 system-roles) + KAC-121/KAC-122 (YC-style catalog) + KAC-127 (refact
 
 - `roles/iam.{admin,editor,viewer}`, `roles/vpc.{admin,editor,viewer}`, `roles/compute.{admin,editor,viewer}`, `roles/loadbalancer.{admin,editor,viewer}` — legacy
 - KAC-121 семейство YC-style (`kacho-system.admin`, `viewer`, `editor`, ...)
+- **`owner`** (RBAC explicit-2026 P6 / migration 0035, net-new) — cluster-scoped system-role; id `rol72122ce96bfec66e2` (`rol||md5('owner')[:17]`); rules `[{module:*, resources:[*], verbs:[*]}]` (`*.*.*` selector all), permissions `["*.*.*.*"]` (4-segment grammar). Биндится авто на `Account.Create` @ ACCOUNT:<A> с `deletion_protection=true` (D-8) — см. [[resources/iam-access-binding]].
 
 ## Permission string
 
@@ -96,6 +116,82 @@ Wildcards в permissions **не разворачиваются** при INSERT �
   `fga_type(M,R):<resourceName>`; wildcard-resourceName grants emit a tier tuple
   at the binding's scope anchor (see [[iam-access-binding]] §RBAC v2).
 - See [[../KAC/KAC-214]] for the design + emission matrix.
+- **epic-100 α shift (proto#65 / iam#165):** Role становится **чистым verb-bundle** —
+  конкретный объект-таргет уходит из `permissions.resourceName` в
+  `AccessBinding.target` (oneof). Новые роли несут wildcard `resourceName=*`
+  (`M.R.*.V`); per-object FGA tuple теперь эмитится из `binding.target.resources[]`,
+  не из `role.permissions`. Новый Create-гейт **role-coverage** (D-13): тип объекта в
+  target обязан покрываться типом в `role.permissions`. Legacy concrete-`resourceName`
+  роли продолжают работать (forward-only, D-8). См.
+  [[iam-access-binding]] §Resource-scoped target, [[../KAC/epic-100-resource-scoped-access-binding]].
+
+## RBAC rules-model 2026 — sub-phase A (gh#182, migration 0025)
+
+K8s-style **rules-in-role**: Role становится переиспользуемой allow-only политикой с
+`rules[]` (authority + публичная API-поверхность); `permissions[]` низведён до
+**internal compiled** проекции (не в API-ответе).
+
+- **Rule** (`domain.Rule`, чистый Go): `{module(scalar string), resources[], verbs[]}` —
+  **ровно ОДИН модуль на правило** (sub-phase H, proto Rule.module=6, был `modules[]` над
+  декартовым modules×resources). Роль на несколько модулей = несколько правил. Опц. суженный
+  `resourceNames[]` **XOR** `matchLabels{}`. Self-validating `Validate(systemCtx)` — reject'ит
+  unknown module на request-path (`domain.IsKnownModule`: `iam`/`vpc`/`compute`/`loadbalancer`,
+  domain владеет closed-set; authzmap lockstep-drift-test).
+- **Три арма** (`domain.Arm`): ANCHOR (нет селектора) → `m.r.*.v`; NAMES
+  (`resourceNames`) → `m.r.<id>.v`; LABELS (`matchLabels`) → **НЕ компилируется** в
+  permissions (reconciler-driven, sub-phase C).
+- **Компилятор** `domain.CompileRules(rules)` (детерминированный): anchor+names →
+  4-seg permissions; verb-`*` → проекция держит `*` (`m.r.*.*`), НЕ разворачивает
+  per-verb набор (это sub-phase B); cap ≤1024 (`>1024 → INVALID_ARGUMENT "compiled
+  permissions exceed 1024"`).
+- **Wildcard-политика**: verb-`*` ДОПУСТИМ в custom (R-3); module-`*`/resource-`*`
+  **system-only** (custom → `INVALID_ARGUMENT "wildcard '*' is system-only"`).
+- **Feed-gate (matchLabels)** — `domain.IsLabelSelectableType` (закрытый registry в
+  `domain/feed_registry.go`): mirror-fed compute/vpc/loadbalancer + iam-direct
+  **все iam-типы** — эталон `iam.project`/`iam.account` + **5 content-типов**
+  `iam.user`/`iam.serviceAccount`/`iam.group`/`iam.role`/`iam.accessBinding`
+  (DIVERGENCE-A unify label-scope — O-4 переоткрыт). Не-fed тип → `INVALID_ARGUMENT`.
+  ARM_NAMES gate'у НЕ подлежит.
+- **Own-resource `labels` (T3.3, ≠ Rule.matchLabels)** — `roles.labels` jsonb (migration
+  0041, CHECK `kacho_labels_valid` + GIN `jsonb_path_ops`). Tenant-facing метки САМОГО
+  ресурса Role (делают Role label-selectable наравне с account/project), **НЕ путать** с
+  `Rule.matchLabels` (object-selector внутри грант-правила). mutable через
+  `update_mask=labels`; Create/Update request `labels` несёт полный annotation-set
+  (паритет account/project). Изменение labels co-commit'ит reconcile-event `iam.role`
+  в writer-tx (eager re-материализация iam-direct selector-membership).
+- **API**: Create/Update принимают `rules` (валидируют+компилируют+хранят rules JSONB
+  + compiled permissions в одной writer-tx); `permissions` на входе → `INVALID_ARGUMENT
+  "Illegal argument permissions (compiled/output-only)"` (A-02, первым стейтментом
+  handler'а). Get/List → `Role` с `rules[]`, `permissions` **пустое**. update_mask:
+  `rules`(+name/description) mutable, `permissions` immutable. OCC через `resource_version`
+  (xmin) при mask с `rules`.
+- **Back-compat (F-01)**: legacy permissions-only роли (`rules='[]'`) читаются валидно;
+  backfill rules из permissions — sub-phase F.
+- Осталось на **sub-phase B**: FGA-эмиссия (`scope_grant`-примитив, per-verb relations,
+  arm-tagged emit, verb-`*` разворот в полный per-verb набор). A — только
+  compile/validate/store/serve.
+
+## RBAC rules-model 2026 — sub-phase D (§11 per-object List)
+
+`RoleService.List` стал **scope-filtered per-object** (R-10 / D-40..D-46). Visibility:
+**system-роли** (catalog floor — `RoleService.Get` остаётся `<exempt>`, tenant-wide) видны
+всегда; **custom-роли** фильтруются через FGA `ListObjects(subject,"viewer","iam_role")`
+(#193 — `viewer` tier каскадит из account-tier, поэтому владелец/account-admin видит свои
+роли; read==enforce с Get/Check; чужой account — нет → no-leak). Use-case пушит видимый id-set в repo как
+`ListFilter.VisibleIDs` → `WHERE (is_system OR id = ANY($visible))` → keyset dense over the
+filtered set (pagination ПОСЛЕ фильтра, D-46). `#185 account_id` (proto tag 4) скоупит каталог
+к system + custom этого account (`(is_system OR account_id=$acc)` — чужие custom не видны).
+`#184`: `page_size>1000` → `INVALID_ARGUMENT` (no silent clamp, `effectivePageSize`). Fail-closed
+`UNAVAILABLE` при недоступном FGA (D-47). Trail: [[../KAC/rbac-rules-model-2026-subphase-D-iam]].
+
+## A-16 — Role.Delete RESTRICT (within-DB FK, не TOCTOU)
+
+Delete custom-роли с активными биндингами → `FAILED_PRECONDITION "role is in use by
+active access bindings"` через FK `access_bindings_role_fk` ON DELETE RESTRICT (SQLSTATE
+`23503` → FailedPrecondition в `WrapPgErr`, kindHint `"Role.Delete"`, без leak pgx).
+Прежний software `NOT EXISTS`-pre-check **удалён** (ban #10 — был TOCTOU); `is_system`/
+not-found остаются probe-discrimination (не FK-выразимы). После revoke всех биндингов —
+Delete проходит.
 
 ## Lifecycle
 
@@ -110,8 +206,48 @@ Wildcards в permissions **не разворачиваются** при INSERT �
 - Backwards-compat: legacy custom roles (KAC-105/KAC-112) с `account_id IS NOT NULL` остаются валидными под новой `roles_scope_xor` CHECK (миграция 0011 §6.4 сначала бэк-фильнула `roles.cluster_id` для system-rows ДО добавления CHECK).
 - Org-scoped custom role — доступно ВСЕМ Accounts в этом Organization (поделённый каталог).
 
+## Assignable projection — `isRoleAssignable` / `ScopeGroup` (sub-phase 1.5)
+
+Единый предикат `domain.IsRoleAssignable(role, resource_type, resource_id)`
+(`internal/domain/role_scope.go`) — ОДИН источник истины «какие роли валидны
+для привязки на ресурсе», общий для `AccessBindingService.ListAssignableRoles`
+(SQL-mirror в `Reader.ListAssignable`) и `AccessBinding.Create` (enforcement,
+mis-scoped → `Operation.error` FAILED_PRECONDITION). STRICT-матрица (Q#1):
+
+| resource | SYSTEM | ACCOUNT-роль (`account_id=X`) | PROJECT-роль (`project_id=Y`) |
+|---|---|---|---|
+| `account acc-A` | ✅ | ✅ iff `X==acc-A` | ❌ |
+| `project prj-P` | ✅ | ❌ (нет hierarchy-down) | ✅ iff `Y==prj-P` |
+| `cluster …root` | ✅ | ❌ | ❌ |
+
+- `ScopeGroupOf(role)` → `RoleScopeGroup` {SYSTEM, ACCOUNT, PROJECT} (proto
+  `ScopeGroup`); legacy `organization_id` **игнорируется** (Q#4) — нет
+  ORGANIZATION-значения.
+- **roleCols read-side расширен (1.5):** `role_repo.go` `roleCols` теперь
+  селектит `cluster_id, project_id` (+ `account_id`) — до 1.5 они опускались,
+  `domain.Role.ClusterID`/`ProjectID` оставались пустыми после read. То же в
+  `RoleReadAdapter.Get`. Регресс-тест `TestRole_RoleColsRegression_ScopeFieldsPopulated`.
+- Critical-note (ground-truth): публичный Role API минтит только account-scoped
+  custom-роли; PROJECT-scoped роли существуют лишь схематически (forward-safe —
+  предикат и `scope_group=PROJECT` определены, строка пока пуста в v1).
+
+## Update OCC + FGA tuple reconcile (security #178)
+
+- **xmin-CAS на Role.Update (V2):** `roles` не имеет version-колонки → OCC через
+  системный `xmin::text`. Use-case читает токен на sync-пути (`Roles().GetWithVersion`),
+  эхо-ит в worker-tx (`RolesW().UpdateCAS(r, mask, expectedVersion)` → `UPDATE … WHERE
+  id=$id AND xmin::text=$exp RETURNING`). Конкурентный Role.Update: row-lock сериализует,
+  loser видит бампнутый xmin → 0 rows → `ErrFailedPrecondition` «role was modified
+  concurrently, retry», и его FGA fan-out откатывается (одна writer-tx, ban #10) → нет
+  ledger↔FGA drift. `expectedVersion==""` → unconditional last-writer (back-compat).
+- **FGA fan-out на смену permissions:** Role.Update реконсайлит FGA-tuples активных
+  биндингов роли (`role.TupleReconciler` ⇒ `access_binding.RoleTupleReconciler`) в ТОЙ ЖЕ
+  writer-tx — diff old-ledger vs derive-from-new-role. Покрывает все три target-арма
+  (all_in_scope/resources[]/selector); понижение tier роли снимает orphan-tuples.
+  Детали ledger — [[iam-access-binding]] §«Symmetric revoke + Role.Update reconcile».
+
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-role-service]] [[iam-cluster]] [[iam-organization]] [[iam-account]] [[iam-project]] [[iam-access-binding]] [[../KAC/KAC-105]] [[../KAC/KAC-127]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-role-service]] [[../rpc/iam-access-binding-service]] [[iam-cluster]] [[iam-organization]] [[iam-account]] [[iam-project]] [[iam-access-binding]] [[../KAC/KAC-105]] [[../KAC/KAC-127]]
 
 #resource #kacho-iam #iam

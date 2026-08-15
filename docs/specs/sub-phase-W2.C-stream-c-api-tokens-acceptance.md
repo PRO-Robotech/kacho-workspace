@@ -1329,7 +1329,7 @@ test skipped with explicit `pytest.skip("B.9 audit pipeline not yet merged")`.
 - [ ] kacho-iam CI green (unit + integration + race + lint + gosec + govulncheck)
 - [ ] kacho-api-gateway CI green (same suite)
 - [ ] kacho-proto CI green (buf lint + breaking + gen committed)
-- [ ] `make e2e` smoke on dev-kind:
+- [ ] `make -C deploy e2e-test` smoke on dev-kind:
   - [ ] Create token → use it → GET own account (200)
   - [ ] Use token for out-of-scope RPC → 403
   - [ ] Delete token → use it 2s later → 401 "token revoked"

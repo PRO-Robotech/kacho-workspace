@@ -9,17 +9,19 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-subnet]]"
-methods_count: 11
-async_methods: 7
+methods_count: 9
+async_methods: 5
 tags:
   - rpc
   - kacho-vpc
   - subnet
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+status: stable
 ---
 
 # SubnetService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/subnet_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/subnet_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 
@@ -34,8 +36,6 @@ tags:
 | AddCidrBlocks | AddSubnetCidrBlocksRequest | operation.Operation | **async** | расширить v4/v6 list (KAC-71) |
 | RemoveCidrBlocks | RemoveSubnetCidrBlocksRequest | operation.Operation | **async** | сужение, проверка no-used |
 | Delete | DeleteSubnetRequest | operation.Operation | **async** | RESTRICT если есть Address |
-| Move | MoveSubnetRequest | operation.Operation | **async** | cross-folder |
-| Relocate | RelocateSubnetRequest | operation.Operation | **async** | cross-zone (KAC-15 require) |
 | ListUsedAddresses | ListUsedAddressesRequest | ListUsedAddressesResponse | sync | IPAM-utilization |
 | ListOperations | ListSubnetOperationsRequest | ListSubnetOperationsResponse | sync | |
 
@@ -50,10 +50,11 @@ tags:
 | `POST /vpc/v1/subnets/{subnet_id}:add-cidr-blocks` | AddCidrBlocks |
 | `POST /vpc/v1/subnets/{subnet_id}:remove-cidr-blocks` | RemoveCidrBlocks |
 | `DELETE /vpc/v1/subnets/{subnet_id}` | Delete |
-| `POST /vpc/v1/subnets/{subnet_id}:move` | Move |
-| `POST /vpc/v1/subnets/{subnet_id}:relocate` | Relocate |
 | `GET /vpc/v1/subnets/{subnet_id}/addresses` | ListUsedAddresses |
 | `GET /vpc/v1/subnets/{subnet_id}/operations` | ListOperations |
+
+> [!note] Move + Relocate удалены в KAC-266
+> RPC `Move` (`:move`) и `Relocate` (`:relocate`) сняты (contract-removal). См. [[../KAC/KAC-266]].
 
 ## See also
 

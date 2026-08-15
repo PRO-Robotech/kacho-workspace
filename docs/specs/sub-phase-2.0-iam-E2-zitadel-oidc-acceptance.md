@@ -461,7 +461,7 @@ Backwards-compat:
 ## 5. GWT-сценарии
 
 Минимум 20, разбито на 7 секций по компонентам. Sync-ответ через api-gateway = gRPC
-unary unless указано. Все сценарии запускаются на dev-стенде после `make dev-up`.
+unary unless указано. Все сценарии запускаются на dev-стенде после `make -C deploy dev-up`.
 
 ### 5.1 Zitadel deploy (3 сценария)
 
@@ -476,7 +476,7 @@ unary unless указано. Все сценарии запускаются на
 **And** helm-chart `kacho-deploy/helm/umbrella` содержит template
   `post-install/zitadel-bootstrap-job.yaml`
 
-**When** оператор запускает `make dev-up`
+**When** оператор запускает `make -C deploy dev-up`
 
 **Then** в течение ≤8 минут все pods в статусе `Running`/`Ready`
 **And** Zitadel pod healthy (`/debug/healthz` → 200)
@@ -837,7 +837,7 @@ grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer
 
 | # | DoD                                                                                                                     | GWT verify                       | Smoke / Verification command                                                                                                                       |
 |---|--------------------------------------------------------------------------------------------------------------------------|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1 | `make dev-up` поднимает Zitadel + console доступен через `https://zitadel.kacho.local`                                 | GWT-01, GWT-02                   | `curl -k https://zitadel.kacho.local/.well-known/openid-configuration` → 200 JSON                                                                  |
+| 1 | `make -C deploy dev-up` поднимает Zitadel + console доступен через `https://zitadel.kacho.local`                                 | GWT-01, GWT-02                   | `curl -k https://zitadel.kacho.local/.well-known/openid-configuration` → 200 JSON                                                                  |
 | 2 | Machine-user `kacho-iam@kacho` создан, PAT в Secret                                                                     | GWT-02                           | `kubectl get secret kacho-iam-zitadel-pat -o jsonpath='{.data.pat}' \| base64 -d \| xargs -I{} curl -H "Authorization: Bearer {}" zitadel.kacho.local/management/v1/users/_search` → 200 |
 | 3 | JWT validation в api-gateway работает (mode=production reject without Bearer)                                          | GWT-09, GWT-10, GWT-11, GWT-12   | `grpcurl ... ListUsers` БЕЗ Bearer → `Unauthenticated`; С валидным Bearer → 200                                                                    |
 | 4 | `InternalIamService.LookupSubject` отвечает (gRPC-direct, НЕ через restmux)                                            | GWT-13                           | `grpcurl -plaintext kacho-iam:9091 kacho.cloud.iam.v1.InternalIamService/LookupSubject -d '{"byExternalId":"zit-12345"}'` → 200; та же команда через `api.kacho.local:443` → `Unimplemented` (НЕ зарегистрирован) |

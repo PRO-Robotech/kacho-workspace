@@ -20,12 +20,49 @@ go.work.sum
 
 # Local-only — auto-managed by Claude Code / harness
 .claude/scheduled_tasks.lock
-# Externally-installed skills (not part of project's intentional skill set)
+# Externally-installed skills (not part of project's intentional skill set).
+# Признак принадлежности — предмет, а не происхождение: godzila отсюда выведен
+# (7 упоминаний kacho, §20 «Companion sources for this workspace»), у остальных — ноль.
 .claude/skills/defuddle/
-.claude/skills/godzila/
 .claude/skills/json-canvas/
 .claude/skills/obsidian-bases/
 .claude/skills/obsidian-cli/
 .claude/skills/obsidian-markdown/
 # Obsidian vault internal state
 obsidian/kacho/.obsidian/
+kubeconfig*
+# Байткод импортируемых модулей проверок — артефакт запуска, не исходник.
+# Правило одно на дерево, а НЕ перечень каталогов: перечень был рукописным, отстал от
+# дерева и пропустил третий каталог проверок, чей байткод из-за этого уехал в коммит и
+# менялся при каждом прогоне. Единица здесь — свойство файла, а не его адрес, поэтому
+# следующий каталог проверок покрыт по построению и заводить строку не придётся.
+__pycache__/
+*.py[cod]
+# Журнал интерактивного запуска в корне — артефакт сеанса, не исходник.
+cli.log
+# Agent scratch worktrees (EnterWorktree / subagent isolation)
+.claude/worktrees/
+# Credentials that land in the repo root during local registry/SA-key debugging.
+# `pem` is a real PEM private key (docker login -u <client-id> --password-stdin < pem);
+# secrets never get committed — the vault is git-committed too (rules/vault.md).
+pem
+pem[0-9]*
+*.pem
+*.key
+# Kubeconfigs dropped in the root while switching between the kind stand and a real
+# cluster. They carry cluster CA data and client credentials — the repo is public.
+kubeconfig*
+*.kubeconfig
+foo
+
+# class-guard: записей здесь БОЛЬШЕ НЕТ, и это осознанно.
+#
+# Байткод, журнал срабатываний и счётчик лежат внутри .claude/hooks/class-guard/ и
+# накрыты .gitignore, который лежит ТАМ ЖЕ. Причина — радиус: sync-tooling.sh зеркалит
+# hooks/ целиком в каждое репо, поэтому запись, сделанная здесь, покрывала ровно один
+# репозиторий из всех, куда каталог приезжает (проверено исполнением: три пути были
+# NOT IGNORED в project/kacho). Игнор обязан ехать вместе с тем, что он игнорирует.
+#
+# Держать эти строки «на всякий случай» нельзя: у них не осталось предмета, а
+# исключение без предмета — ложное утверждение о дереве, которое следующий читатель
+# унаследует как слепую зону (тот же предикат снятия, что у allow.json).

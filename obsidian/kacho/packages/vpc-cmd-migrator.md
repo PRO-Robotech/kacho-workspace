@@ -1,6 +1,6 @@
 ---
 title: vpc-cmd-migrator
-category: package
+category: packages
 repo: kacho-vpc
 layer: cmd
 tags:
@@ -8,11 +8,13 @@ tags:
   - kacho-vpc
   - cmd
   - migrations
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/cmd/migrator
 
-**Path**: `kacho-vpc/cmd/migrator/main.go`
+**Каталог**: `services/vpc/cmd/migrator/main.go` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/cmd/migrator/main.go`)
 
 Standalone binary для применения SQL миграций (goose-формат) — отдельный entrypoint от основного `vpc` (skill `evgeniy` правило «separate cmd для миграций»).
 
@@ -37,6 +39,6 @@ Standalone binary для применения SQL миграций (goose-фор
 
 ## See also
 
-[[vpc-apps-migrator]] [[../kacho-deploy/README]]
+[[vpc-apps-migrator]] [[legacy/repo-kacho-deploy]]
 
 #packages #kacho-vpc #cmd #migrations

@@ -75,7 +75,36 @@ tags:
 
 ## Break-glass
 
-`KACHO_NLB_AUTHZ__BREAKGLASS=true` → bypass + WARN-метрика. Dev/emergency only.
+В группе `authz.*` есть аварийный override, снимающий per-RPC Check со **всех** RPC сразу
+(сопровождается WARN-метрикой) — на случай восстановления при недоступном iam.
+
+> [!warning] Включённый override — не «режим», а отказ в старте
+> Ручка отключает авторизацию целиком, поэтому подпадает под `security.md` §Production-mode
+> п.1 наравне с `sslmode=disable` и снятым mTLS: на любом РАЗВЁРНУТОМ стенде production
+> boot-guard обязан **отказывать в старте**, пока она включена, а не ограничиваться
+> предупреждением — «WARN есть, сервис работает» неотличимо от нормы. Допустимая область —
+> только in-process unit/integration-фикстуры. Тот же инвариант и та же формулировка
+> у соседей: [[vpc-to-iam-check]], [[compute-to-iam-check]].
+
+## Transport mTLS (SEC-I)
+
+Check идёт по **internal** iam-conn'у (`iamInternalConn`, :9091), общему с
+register-drainer. SEC-D дал ему client-cert (`cfg.MTLS.IAMRegister`,
+ServerName=`kacho-iam-internal.*`). SEC-I **подтверждает**, что authz/Check-ребро
+покрыто этим же conn'ом (отдельного list-filter-conn у nlb нет — Check для List
+идёт через тот же `iamInternalConn`). Read-ребро ProjectService.Get (:9090,
+[[nlb-to-iam-creator-tuple|public iam-conn]]) получило **отдельное** поле
+`cfg.MTLS.IAMProject` (ServerName=`kacho-iam.*`) — per-listener split (I6), т.к.
+единый ServerName не покрывает оба listener'а под SEC-H. Completeness (SEC-I-07): оба
+iam-conn'а nlb предъявляют `kacho-nlb-client-tls`.
+
+> [!warning] По этому ребру ходят РЕШЕНИЯ О ДОСТУПЕ — включатель здесь переходный
+> Check для `Get` и для List идёт по тому же internal-conn'у, поэтому неаутентифицированный
+> собеседник на нём влияет на исход авторизации, а не только на конфиденциальность канала.
+> Per-edge включатель существует ради поэтапной раскатки PKI и остаётся **переходной формой**:
+> на любом развёрнутом стенде mTLS обязателен, а production boot-guard обязан отказывать в
+> старте, если ребро живое и не защищено (`security.md` §AuthN+AuthZ ВЕЗДЕ п.1 +
+> §Production-mode п.1). Тот же инвариант — [[vpc-to-iam-check]], [[compute-to-iam-check]].
 
 ## See also
 

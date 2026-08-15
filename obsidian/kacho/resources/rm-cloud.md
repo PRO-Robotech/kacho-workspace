@@ -5,13 +5,7 @@ aliases:
   - rm Cloud
 category: resource
 domain: resourcemanager
-id_prefix: b1g
-owner_table: kacho_rm.clouds
-owner_db: kacho_rm
-folder_level: false
-hierarchy: mid
-parent: Organization
-status: stable
+status: deprecated
 related_rpc:
   - "[[rpc/rm-cloud-service]]"
 related_packages:
@@ -20,34 +14,47 @@ tags:
   - resource
   - kacho-rm
   - cloud
+  - deprecated
 ---
 
-# Cloud
+> [!warning] Ресурс снят вместе со своим доменом (KAC-124)
+> Домена resource-manager в дереве продукта нет: ни каталога proto, ни объявления
+> сервиса, ни схемы БД. Преемник — Account в iam ([[iam-account]]). Ниже — след,
+> а не описание действующего ресурса.
+>
+> **Снятие закреплено проверкой, а не только отсутствием файлов** (сверено по стволу
+> 2026-08-05): `gateway/internal/proxy/resolver_test.go`,
+> `TestResolver_RemovedResourceManagerBlocked` требует, чтобы
+> `/kacho.cloud.resourcemanager.v1.CloudService/List`,
+> `…FolderService/Get` и `/kacho.cloud.organizationmanager.v1.OrganizationService/List`
+> **не резолвились** на краю. То есть возвращение домена не «просто не сделано» —
+> оно покраснеет.
 
-**Domain**: resourcemanager (`kacho-resource-manager`)
-**ID prefix**: `b1g`
-**Owner table**: `kacho_rm.clouds`
-**Parent**: Organization
+# Cloud — снят (KAC-124)
 
-## Fields
+Средний уровень прежней иерархии арендатора: принадлежал организации и держал
+папки. Промежуточного уровня в преемнике нет вовсе — иерархия сократилась с трёх
+уровней до двух, аккаунт и проект.
 
-| Field | Type | Note |
-|---|---|---|
-| `id` | TEXT PK | `b1g<…>` |
-| `organization_id` | TEXT | FK → organizations(id) RESTRICT |
-| `name` | TEXT | UNIQUE per organization |
-| `description`, `labels` | | |
-| `created_at` | TIMESTAMP | |
+## Чем заменён
 
-## FK contract
+Organization / Cloud / Folder → Account / Project в iam (KAC-124). Организация и
+облако свелись в один аккаунт ([[iam-account]]), папка — в проект
+([[iam-project]]).
 
-- `clouds.organization_id → organizations(id)` RESTRICT (within `kacho_rm`).
-- In-bound: `folders.cloud_id → clouds(id)` RESTRICT.
+> [!note] Префикс идентификатора пережил ресурс
+> Константа префикса этого ресурса в дереве продукта **жива** — осталась
+> легаси-константой в пакете идентификаторов и делится с Folder. Резолв имени
+> доказывает существование **имени**, а не ресурса.
 
-→ Delete Cloud → FailedPrecondition если есть Folder.
+## Что снято из этой записки
+
+Таблица полей и контракт внешних ключей удалены: они называли таблицы, которых в
+дереве нет, и читались как утверждение о нынешнем состоянии.
 
 ## See also
 
-[[../packages/proto-rm]] [[../rpc/rm-cloud-service]] [[rm-folder]] [[rm-organization]]
+[[iam-account]] [[iam-project]] [[../rpc/rm-cloud-service]] [[../packages/proto-rm]]
+[[rm-folder]] [[rm-organization]] [[../KAC/KAC-124]]
 
-#resource #kacho-rm #cloud
+#resource #kacho-rm #cloud #deprecated

@@ -8,7 +8,7 @@ caller_repo: kacho-iam
 callee_repo: ory-hydra
 sync_async: sync
 protocol: REST/JSON (Hydra Admin API v2)
-status: planned
+status: active
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -16,7 +16,26 @@ tags:
   - kacho-iam
   - cross-service
   - oauth
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
+
+> [!warning] Ребро ЖИВОЕ — статус `planned` и разбивка «Phase 2 / Phase 5» устарели (сверено 2026-08-05)
+> В дереве `96b2879a` у iam **шесть** файлов клиента Hydra
+> (`services/iam/internal/clients/hydra_{admin_client,interactive_clients,login_sessions,oauth_clients,token_exchange,trust_grants}.go`).
+> Фактически используемые административные пути — `/admin/clients`, `/admin/clients/{client_id}`,
+> `/admin/oauth2/auth/sessions/login`, `/admin/trust/grants`,
+> `/admin/trust/grants/jwt-bearer/issuers` (предикат: перечисление литералов путей по этим
+> шести файлам). То есть **создание и жизненный цикл OAuth-клиентов — landed**, а не «Phase 5
+> planned»; появилось то, чего в записке не было вовсе, — доверительные гранты
+> (`jwt-bearer` issuer'ы) для обмена утверждениями.
+>
+> Что осталось верным и несущим: **iam — единственный фасад к Hydra**. Клиенты, сервисы и
+> e2e идут в iam (зеркало JWKS, выпуск токенов, docker-токен), а не в Hydra напрямую;
+> `iam → Hydra` внутри фасада законно. Единственное допустимо-прямое — финальный обмен
+> `client_assertion → JWT` (`security.md` §Production-mode п.4).
+>
+> Раздел «Phase 8 CAEP push … → CAEP subscribers» опирается на исходящую доставку событий,
+> которой нет ([[iam-caep-to-subscriber]]).
 
 # iam → hydra-admin: OAuth2 client lifecycle
 
@@ -73,3 +92,23 @@ tags:
 [[iam-to-kratos-admin]] [[iam-caep-to-subscriber]] [[../packages/iam-handler-iamhooks]] [[../packages/iam-service-federation]] [[../resources/iam-service-account-oauth-client]] [[../rpc/iam-sa-key-service]] [[../KAC/KAC-127]]
 
 #edge #kacho-iam #cross-service #oauth
+
+## Транспорт перехода (2026-07-30, SEC-HAT)
+
+Переход идёт **по TLS через терминатор-соседа в поде провайдера**, а не напрямую
+к его административному листенеру. Потребители адресуют отдельный ClusterIP
+Service терминатора и проверяют его сертификат против внутреннего центра; якорь
+(`ca.crt` того же секрета) не менялся.
+
+Административный листенер провайдера слушает **только петлю** пода, его
+собственный Service снят, а его имена убраны из SAN сертификата — забытый
+потребитель обязан падать на разрешении имени, громко и сразу, а не получать
+однажды действительный сертификат по адресу, который ничего не терминирует.
+
+Готовность пода читается **через терминатор до эндпоинта здоровья провайдера**,
+поэтому она краснеет и когда мёртв терминатор, и когда не отвечает провайдер.
+
+Причина, по которой TLS даёт сосед, а не сам провайдер, записана координатой в
+`deploy/PROVIDER-LISTENER-PREMISE.md` и перемеряется одной командой; гейт посадки
+краснеет на смене версии провайдера и называет её. Trail —
+[[sec-hat-provider-admin-hop-terminator]].

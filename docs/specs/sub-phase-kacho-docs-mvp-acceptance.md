@@ -121,7 +121,8 @@ Operations + verified-snippets + Pagefind/тема + деплой); Phase 2 (Try
 с `protoc-gen-connect-openapi@v0.25.6`
 **And** все `.proto` — `syntax = "proto3"` (editions-2023 отсутствуют)
 
-**When** запускается `make generate-openapi`
+**When** запускается генерация OpenAPI — **цели `generate-openapi` нет**, как нет и
+`proto/buf.gen.openapi.yaml`: сценарий описывает несделанное
 
 **Then** генерируется по одной спеке на домен: `gen/openapi/{vpc,compute,iam,loadbalancer}.openapi.json`
 **And** каждая спека — OpenAPI **3.1** (не Swagger 2.0)
@@ -515,15 +516,19 @@ Address, NetworkInterface, PrivateEndpoint
 **Then** НЕТ ни одного совпадения по: `vpn_id, sid, sid_seq, hv_id, hypervisor, node_index, netns, host_iface, underlay, kube-ovn, 169.254, container_id, kh-, AddressPool, Internal`
 **And** CI зелёный (exit 0) только при нулевом совпадении
 
-## Сценарий H-03: PRIMARY-фильтр — Internal-проекции Region/Zone/Hypervisor недостижимы
+## Сценарий H-03: PRIMARY-фильтр — Internal-проекции Region/Zone недостижимы
 
 **ID:** docs-H-03 · трассировка: §9 PRIMARY
+
+> Токены removed kube-ovn-эпохи data-plane-модели (Hypervisor, placement, SID-схема, underlay)
+> удалены из продукта в KAC-36/79/80, но **сохранены в blocklist** как defense-in-depth guard —
+> чтобы их случайное переписывание в будущем не утекло на публичную поверхность.
 
 **Given** OpenAPI отфильтрован против канонического allowlist на этапе генерации
 
 **When** ревьюер проверяет reference / llms.txt / MCP-индекс
 
-**Then** Internal-проекции (placement, SID-схема, underlay, Hypervisor целиком) не достигают ни одной публичной поверхности
+**Then** Internal-проекции (placement, SID-схема, underlay) не достигают ни одной публичной поверхности
 **And** корректность доказана B-02 (unit RED→GREEN) + B-05 (diff-snapshot)
 
 ## Сценарий H-04: CONTENT-гард — концепты курируются из tenant-полей, vault-инфра не копируется
@@ -607,7 +612,7 @@ Address, NetworkInterface, PrivateEndpoint
 **Given** Helm-чарт зеркало kacho-ui (`name=docs`, `ingress.host=docs.kacho.local`, port 8080), подключён в umbrella `kacho-deploy`
 **And** `kacho-deploy/Makefile` имеет `build-docs` (вызывается из `dev-up` после `build-ui`), `docs` в whitelist `reload-svc`
 
-**When** `make dev-up`
+**When** `make -C deploy dev-up`
 
 **Then** `kacho-docs` собирается, грузится в kind, разворачивается; `docs.kacho.local` резолвится на статический сайт
 **And** umbrella `Chart.yaml` ссылается `file://../../../kacho-docs/deploy`; `values.dev.yaml` задаёт `docs.image`/`ingress.host`

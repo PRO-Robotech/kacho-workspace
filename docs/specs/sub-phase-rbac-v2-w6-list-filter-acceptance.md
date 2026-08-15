@@ -11,7 +11,9 @@
 - Audit every public `List<Resource>` RPC in `internal/apps/` of both repos.
 - Wire `listauthz.Adapter.ListAllowedIDs(subject, action, resource_type)` into every handler missing it.
 - Add the empty / two-ids / wildcard-bypass / unavailable matrix tests per handler.
-- Add CI gate `make audit-list-filter` script (`tools/audit-list-filter.sh`) — fails if any `List<Resource>` handler is unwired.
+- Add CI gate `make -C services/{vpc,compute} audit-list-filter` (script `tools/audit-list-filter.sh`
+  in each service) — fails if any `List<Resource>` handler is unwired. The target lives in the
+  service Makefile; there is no root one.
 
 ## Scope (out)
 
@@ -38,7 +40,6 @@
 - `ImageService.List`
 - `SnapshotService.List`
 - `DiskTypeService.List` (cluster-scoped reference)
-- `HypervisorService.List` (Internal; cluster-scoped)
 
 Inventory commit (Task 6.1) produces the authoritative final list — `docs/audit/2026-05-28-list-handlers-{vpc,compute}.md`.
 
@@ -85,13 +86,13 @@ For each `<Resource>` in the inventory, the following four scenarios MUST hold:
 **Then** the first page contains 3 of those 5 ids; the `next_page_token` is non-empty; the next call returns the remaining 2 ids; the next-next call returns 0 ids + empty token.
 **And** at no point a non-granted id appears in the response.
 
-### S6.B — CI gate `make audit-list-filter` flags an unwired handler
+### S6.B — CI gate `make -C services/{vpc,compute} audit-list-filter` flags an unwired handler
 
 **Given** the repo on the W6 branch with the gate script committed.
 **And** a synthetic handler `Bogus.List` is introduced that returns DB rows without consulting `listauthz`.
-**When** `make audit-list-filter` runs.
+**When** `make -C services/{vpc,compute} audit-list-filter` runs.
 **Then** exit status is non-zero AND the output names `Bogus.List` as missing the filter.
-**And** after the synthetic handler is removed, `make audit-list-filter` exits 0.
+**And** after the synthetic handler is removed, `make -C services/{vpc,compute} audit-list-filter` exits 0.
 
 ### S6.C — All-handlers integration matrix passes per repo
 
@@ -104,7 +105,7 @@ For each `<Resource>` in the inventory, the following four scenarios MUST hold:
 - [ ] Branches `KAC-219-rbac-v2-list-filter` in both `kacho-vpc` and `kacho-compute`.
 - [ ] `docs/audit/2026-05-28-list-handlers-{vpc,compute}.md` checked into the workspace repo with the inventory.
 - [ ] All four matrix tests + pagination test pass for each handler.
-- [ ] `make audit-list-filter` gate added to CI.
+- [ ] `make -C services/{vpc,compute} audit-list-filter` gate added to CI.
 - [ ] PRs `PRO-Robotech/kacho-vpc#<N>` and `PRO-Robotech/kacho-compute#<N>` open; CI green.
 - [ ] PR URLs added to [[KAC-219]] frontmatter `prs:`.
 - [ ] [[KAC-219]] → `In Progress` at PR-open; → `Done` after both merges.

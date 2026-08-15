@@ -1388,7 +1388,9 @@ Integration-test `bootstrap_tx_deferrable_test.go` (testcontainers Postgres) в�
   - [ ] **S-28 OperationsScopedPerAccountRow** — principal_id filter.
   - [ ] **S-29 ReSignupNoBootstrap** (R-5).
   - [ ] **S-30 BootstrapTxDeferrableFKCheck** — `bootstrap_tx_deferrable_test.go`: happy path COMMIT + negative path с `SET CONSTRAINTS IMMEDIATE` падает 23503 (M6).
-- [ ] sqlc queries сгенерированы, `make generate` зелёный.
+- [ ] sqlc queries сгенерированы. Цели `generate` нет ни в одном `Makefile`; sqlc-генерация
+      объявлена только у storage (`make -C services/storage sqlc-gen`, и та выходит нулём, пока
+      нет `sqlc.yaml`) — у iam её нет вовсе.
 
 ### 8.2 Proto (kacho-proto)
 
@@ -1448,7 +1450,8 @@ Integration-test `bootstrap_tx_deferrable_test.go` (testcontainers Postgres) в�
 - [ ] Wipe `kacho_iam` DB на dev cluster e2c825 (greenfield).
 - [ ] Build + push images (api-gateway, kacho-iam, kacho-ui) с tag `kacho-<ts>`.
 - [ ] `helm upgrade` + `kubectl rollout` зелёный.
-- [ ] Smoke (`make smoke-iam`) → S-01, S-02, S-09, S-21 проходят manually либо через Newman runner.
+- [ ] Smoke → S-01, S-02, S-09, S-21 проходят вручную либо через
+      `services/iam/tests/newman/scripts/run.sh` (цели `smoke-iam` не существует).
 - [ ] Заказчик подключается к финальной верификации (workspace CLAUDE.md §«Coordination» — step 7).
 
 ---

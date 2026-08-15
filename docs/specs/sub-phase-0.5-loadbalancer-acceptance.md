@@ -1304,7 +1304,7 @@ grpcurl -plaintext \
 
 **ID:** 0.5-M5
 
-**Given** `kind`-кластер поднят (`make dev-up`)
+**Given** `kind`-кластер поднят (`make -C deploy dev-up`)
 **And** В `kacho-deploy/helm/` присутствует chart для `loadbalancer`
 **And** Image `prorobotech/kacho-loadbalancer:0.5.0` доступен
 
@@ -1334,7 +1334,7 @@ Sub-итерация 0.5 считается **завершённой**, когд
 
 1. **Все сценарии §1–§13** (A1–A5, B1–B7, C1–C6, D1–D6, E1–E3, F1–F4, G1–G4, H1–H8, I1–I4, J1–J6, K1–K6, L1–L16, M1–M6) покрыты исполняемыми тестами:
    - Integration-тесты (testcontainers-Postgres) в `kacho-loadbalancer/internal/service/*_acceptance_test.go` — все зелёные.
-   - E2E bash-скрипты в `kacho-deploy/e2e/0.5/*.sh` — все зелёные при запуске `make e2e-test PHASE=0.5`.
+   - E2E bash-скрипты в `kacho-deploy/e2e/0.5/*.sh` — все зелёные при запуске `make -C deploy e2e-test PHASE=0.5`.
 
 2. **Proto** `kacho-proto/proto/kacho/cloud/loadbalancer/v1/` содержит:
    - `network_load_balancer.proto` — `NetworkLoadBalancerService` с Upsert, Delete, List, Watch; все message-типы включая `Listener`, `AttachedTargetGroup`, `NetworkLoadBalancer.Status.State` enum

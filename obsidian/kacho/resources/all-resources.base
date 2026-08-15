@@ -3,8 +3,13 @@ filters:
     - file.hasTag("resource")
     - 'file.ext == "md"'
 
+# Свойство переименовано folder_level → project_level (2026-08-05): «папки» как
+# уровня иерархии не существует — её преемник проект iam, и колонка-владелец в каждом
+# сервисе называется project_id. Формула переехала вместе со свойством в том же
+# изменении: иначе она молча вычисляла бы «global» для КАЖДОЙ записки, и срез Scope
+# выглядел бы работающим.
 formulas:
-  folder_label: 'if(folder_level, "folder-level", "global")'
+  scope_label: 'if(project_level, "project-level", "global")'
 
 properties:
   domain:
@@ -13,7 +18,7 @@ properties:
     displayName: ID prefix
   owner_table:
     displayName: Owner table
-  formula.folder_label:
+  formula.scope_label:
     displayName: Scope
   visibility:
     displayName: Visibility
@@ -28,7 +33,7 @@ views:
       - domain
       - id_prefix
       - owner_table
-      - formula.folder_label
+      - formula.scope_label
       - visibility
       - status
     groupBy:
@@ -44,19 +49,21 @@ views:
       - file.name
       - id_prefix
       - owner_table
-      - formula.folder_label
+      - formula.scope_label
       - visibility
 
+  # Здесь стоял именной срез по снятому домену — он показывал его наравне с
+  # действующими. Заменён на срез по статусу: снятое находится по канону статуса,
+  # какой бы домен ни сняли следующим, а мёртвый домен перестаёт быть фасетом.
   - type: table
-    name: ResourceManager
+    name: Deprecated
     filters:
-      or:
-        - 'domain == "resourcemanager"'
-        - 'domain == "organizationmanager"'
+      and:
+        - 'status == "deprecated"'
     order:
       - file.name
-      - id_prefix
-      - owner_table
+      - domain
+      - status
 
   - type: cards
     name: Cards
@@ -64,4 +71,4 @@ views:
       - file.name
       - domain
       - id_prefix
-      - formula.folder_label
+      - formula.scope_label

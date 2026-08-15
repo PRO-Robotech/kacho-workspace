@@ -1,33 +1,32 @@
 ---
 title: rm-handler
-category: package
+category: packages
 repo: kacho-resource-manager
 layer: handler
+status: deprecated
 tags:
   - packages
   - kacho-rm
   - handler
+  - deprecated
 ---
 
-# kacho-resource-manager/internal/handler
+> [!warning] Пакет снят вместе со своим репозиторием (KAC-124)
+> Репозитория resource-manager не существует; в монорепо продукта каталога этого
+> сервиса нет. Ниже — след, а не описание действующего пакета.
 
-**Path**: `kacho-resource-manager/internal/handler/`
-**Implements**: gRPC services из [[../packages/proto-rm|proto-resourcemanager]] и [[../packages/proto-organizationmanager|proto-organizationmanager]]
+# rm-handler — снят (KAC-124)
 
-Thin transport-слой: parse request → useCase → format response.
+Транспортный слой снятого сервиса: разбор запроса, вызов сценария, сборка ответа
+для трёх снятых gRPC-сервисов и для операций.
 
-## Files
+## Что снято из этой записки
 
-| File | Содержание |
-|---|---|
-| `organization_handler.go` | [[../rpc/rm-organization-service]] adapter |
-| `cloud_handler.go` | [[../rpc/rm-cloud-service]] adapter |
-| `folder_handler.go` | [[../rpc/rm-folder-service]] adapter |
-| `operation_handler.go` | [[../rpc/operation-service]] adapter — Get/Cancel |
-| `mapping.go` | proto ↔ domain conversion helpers |
+Перечень файлов удалён — он называл исходники, которых в дереве нет.
 
 ## See also
 
-[[rm-service]] [[rm-domain]]
+[[rm-service]] [[rm-domain]] [[../rpc/rm-organization-service]]
+[[../rpc/rm-cloud-service]] [[../rpc/rm-folder-service]] [[../KAC/KAC-124]]
 
-#packages #kacho-rm #handler
+#packages #kacho-rm #handler #deprecated

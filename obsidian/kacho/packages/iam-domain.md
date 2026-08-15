@@ -4,6 +4,7 @@ aliases:
   - iam domain
   - iam-domain
 category: packages
+path: services/iam/internal/domain
 repo: kacho-iam
 layer: domain
 status: done
@@ -15,6 +16,7 @@ tags:
   - packages
   - kacho-iam
   - domain
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # iam `internal/domain`

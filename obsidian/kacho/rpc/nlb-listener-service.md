@@ -15,11 +15,13 @@ tags:
   - rpc
   - kacho-nlb
   - listener
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+status: stable
 ---
 
 # ListenerService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/listener_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 
@@ -29,25 +31,27 @@ tags:
 |---|---|---|---|---|
 | Get | GetListenerRequest | Listener | sync | |
 | List | ListListenersRequest | ListListenersResponse | sync | filter, page_token |
-| Create | CreateListenerRequest | operation.Operation | **async** | VIP alloc: BYO `address_id` OR auto |
+| Create | CreateListenerRequest | operation.Operation | **async** | чистый INSERT: адреса листенер не аллоцирует |
 | Update | UpdateListenerRequest | operation.Operation | **async** | mutable: name/desc/labels/target_port/default_tg_id/proxy_protocol_v2 |
-| Delete | DeleteListenerRequest | operation.Operation | **async** | освобождает VIP (free pool или clear BYO `used_by`) |
+| Delete | DeleteListenerRequest | operation.Operation | **async** | VIP не трогает (принадлежит LB) |
 | ListOperations | ListListenerOperationsRequest | ListListenerOperationsResponse | sync | per-resource history |
 
-## VIP allocation flow (Create)
+## Create flow — без внешних side-effect'ов
 
-1. Sync: FGA `editor on nlb_load_balancer:<lb_id>` → domain.Validate → `LB.Get` (same project, status≠DELETING) → `ops.Insert`
-2. Worker:
-   - **BYO** (`address_id` given): [[../edges/nlb-to-vpc-byo-address]] → `vpc.AddressService.Get` (same project, used_by ours) → `InternalAddressService.SetReference(used_by=nlb_listener:<id>)` atomic CAS.
-   - **Auto**: [[../edges/nlb-to-vpc-vip-allocation]] → `vpc.InternalAddressService.AllocateExternalIP/AllocateInternalIP(owner=nlb_listener:<id>)`.
-3. `listeners.Insert(allocated_address, address_id)` + outbox.Emit (CREATED + LB UPDATED) + `ops.MarkDone`.
-4. `fgawrite.Emit` 2 tuples (project + load_balancer hierarchy).
+VIP — свойство LoadBalancer'а ([[../edges/nlb-to-vpc-vip-allocation]]), листенер открывает на нём порт.
+Поэтому Create не зовёт vpc вовсе:
 
-**Compensation**: defer `vpc.FreeIP` если repo.Insert упал после allocate.
+1. Sync: FGA `editor on nlb_load_balancer:<lb_id>` → `LB.Get` (тот же проект, status≠DELETING) →
+   precheck `targetGroupId` (существует в проекте LB, авторизован, region-coherent) → domain.Validate → `ops.Insert`.
+2. Worker — **одна** writer-TX: `listeners.Insert` (`status=ACTIVE` сразу) + outbox (`CREATED` +
+   `nlb_load_balancer UPDATED`) + FGA-register-intent (creator + parent-link) → Commit.
+   INSERT берёт `FOR NO KEY UPDATE` на строке LB → сериализуется с `Move`/`MarkDeleting`.
+3. Компенсации нет — откатывать нечего (внешний ресурс не захватывался).
 
 ## Immutability rules
 
-`load_balancer_id`, `protocol`, `port`, `ip_version`, `address_id` — InvalidArgument при попытке Update.
+`load_balancer_id`, `protocol`, `port` — InvalidArgument при попытке Update
+(`ip_version`/`address_id`/`subnet_id` у листенера больше нет — сняты с proto).
 
 ## REST mapping
 

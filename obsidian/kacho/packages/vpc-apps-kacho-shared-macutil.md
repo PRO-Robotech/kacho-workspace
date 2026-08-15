@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-shared-macutil
-category: package
+category: packages
 repo: kacho-vpc
 layer: shared
 tags:
@@ -8,11 +8,13 @@ tags:
   - kacho-vpc
   - shared
   - mac
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/shared/macutil
 
-**Path**: `kacho-vpc/internal/apps/kacho/shared/macutil/`
+**Каталог**: `services/vpc/internal/apps/kacho/shared/macutil/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/shared/macutil/`)
 
 MAC-address utilities — генерация / валидация / canonical-form.
 

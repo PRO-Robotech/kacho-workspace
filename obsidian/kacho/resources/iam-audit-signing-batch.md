@@ -9,8 +9,8 @@ domain: iam
 id_prefix: asb
 owner_table: kacho_iam.audit_signing_batches
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -22,7 +22,14 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблицы `audit_signing_batches` в миграциях iam нет (строка `audit_signing` не встречается ни в одной из 78). Живой аудит — `kacho_iam.audit_outbox` ([[iam-audit-outbox]]); подписи партий у него нет.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # AuditSigningBatch
 

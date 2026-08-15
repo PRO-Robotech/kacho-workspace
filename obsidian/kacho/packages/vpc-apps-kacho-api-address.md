@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-api-address
-category: package
+category: packages
 repo: kacho-vpc
 layer: use-case
 tags:
@@ -9,11 +9,14 @@ tags:
   - handler
   - address
   - ipam
+  - race-fix
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/api/address
 
-**Path**: `kacho-vpc/internal/apps/kacho/api/address/`
+**Каталог**: `services/vpc/internal/apps/kacho/api/address/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/api/address/`)
 **Implements**: [[../rpc/vpc-address-service|AddressService]]
 
 ## Files
@@ -31,6 +34,20 @@ tags:
 | `list.go` | filter + list-by-subnet |
 | `move.go` | cross-folder |
 | `usecase_test.go` | |
+
+## Gotcha — nested reader-conn под held writer-TX (race-fix, PR #41)
+
+`AllocateUseCase` больше НЕ держит `SubnetReader`-порт. Internal-IPAM путь
+(`alloc_shared.go` `allocateInternalV{4,6}IntoTx`) читает subnet через **собственную
+TX writer'а** (`w.Subnets().Get`), НЕ через второй pool-conn. Отдельный reader-conn
+под уже-держащимся writer-conn = nested-conn deadlock под нагрузкой: `pool.MaxConns`
+исчерпан writer'ами → каждый ждёт reader-conn, которого нет; `FOR UPDATE` row-lock
+queue → `statement_timeout` (SQLSTATE 57014). Зеркалит external-путь (пул резолвится
+ДО writer-TX). **Не возвращать `SubnetReader` в `AllocateUseCase`.** SubnetReader
+остаётся в `CreateAddressUseCase` (external pre-checks — чтение ДО writer-TX) и
+`ListBySubnetUseCase`. Reproduce: N ≥ pool.MaxConns concurrent `AllocateInternalIP`
+(CI 2-core → MaxConns=4; локально `taskset -c 0,1`). Regression:
+`TestAllocateInternalIP{,v6}_ConcurrentIdempotent` (`-race`).
 
 ## See also
 

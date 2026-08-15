@@ -1,6 +1,7 @@
 ---
 title: "kacho-iam · internal/repo/kacho/pg/fga_outbox"
 category: packages
+path: services/iam/internal/repo/kacho/pg/fga_outbox
 repo: kacho-iam
 layer: repo
 tags:
@@ -8,6 +9,8 @@ tags:
   - kacho-iam
   - outbox
   - race-fix
+status: stable
+verified_against: "координаты записки (пути импортёров) сверены с деревом продукта 1653387b (2026-08-06); текст записки построчно не пересматривался"
 ---
 
 # `internal/repo/kacho/pg/fga_outbox`
@@ -28,6 +31,7 @@ LISTEN/NOTIFY-уведомлением + fallback-polling.
 | `EmitDeleteTx(ctx, tx, ev FGADeleteEvent) error` | INSERT row с `op=delete` (revoke) в той же tx |
 | `FGAWriteEvent` | `{User, Relation, Object}` (FGA tuple-key) + опц. `Condition` |
 | `FGADeleteEvent` | `{User, Relation, Object}` |
+| `Writer.EmitFGARelationWrite` / `EmitFGARelationDelete` (sub-phase 1.4 S2, iam #161) | co-commit **owner/hierarchy**-tuple для СОБСТВЕННЫХ iam-ресурсов (Account/Project/Group/SA/Role + bootstrap `UpsertFromIdentity`) В writer-tx → тот же `fga_outbox`. Перенос с best-effort POST-COMMIT `relationhook.WriteHierarchyTuple` (терялся при крэше). Без новой миграции (fga_outbox в `0001`). |
 
 Оба `Emit*Tx` принимают `pgx.Tx` (не `Conn`) — это контракт «в одной транзакции с domain
 mutation»: writer открывает tx → выполняет domain INSERT/UPDATE/DELETE → выполняет `EmitWriteTx`
@@ -42,9 +46,29 @@ fire-and-forget вне transaction-границы.
 
 ## Imported by
 
-- `internal/repo/kacho/pg/access_binding/writer.go` — Create/Delete emit
-- `internal/service/jit/jit_service.go` (или соотв. writer) — auto-grant, Approve, Expire emit
-- `internal/service/breakglass/bg_service.go` — ApproveB emit
+Перепись импортёров пакета по дереву 1653387b (non-test) даёт **три** файла, все —
+соседи по слою репозитория, а не отдельные сервисные пакеты:
+
+- `services/iam/internal/repo/kacho/pg/fga_outbox_emitter.go`
+- `services/iam/internal/repo/kacho/pg/reconcile_adapter.go`
+- `services/iam/internal/repo/kacho/pg/tx.go` — через writer-TX; отсюда emit достаётся
+  own-resource writer'ам (Account/Project/Group/SA/Role + bootstrap) для owner/hierarchy-tuple
+  co-commit (sub-phase 1.4 S2)
+
+AccessBinding Create/Delete кладут строку в очередь **сам**, плоским файлом
+`services/iam/internal/repo/kacho/pg/access_binding_repo.go` (прямой
+`INSERT INTO kacho_iam.fga_outbox` в writer-TX) — прежняя координата называла подкаталог
+`access_binding/` со своим writer'ом, а раскладка слоя плоская, подкаталогов там нет.
+
+> [!warning] Две строки прежних импортёров сняты — предмета нет ни в каком виде (1653387b, 2026-08-06)
+> Они называли сервисные пакеты JIT и break-glass. Оба механизма **удалены из продукта**
+> целиком, вместе со своей поверхностью: миграции
+> `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql` и
+> `services/iam/internal/migrations/0013_drop_jit_breakglass_condition_whitelist.sql`.
+> Сами снятые адреса здесь не воспроизводятся координатой: цитата мёртвого пути в
+> обратных кавычках читается как живое утверждение о дереве. Строки таблицы
+> «Текущее runtime-поведение» в [[../edges/iam-to-openfga-grant-write]], описывающие
+> emit из этих путей, — про тот же снятый предмет.
 
 ## Контракт идемпотентности
 
@@ -69,6 +93,7 @@ migration 0024 (см. CLAUDE.md §запрет #10: software refcheck запре
 
 - [[../KAC/KAC-163]] (W1.5 — внедрение)
 - [[../KAC/KAC-137]] (W1.1 — drainer foundation)
+- [[../KAC/sub-phase-1.4-tuple-resource-guarantee]] (S2 — own-resource owner-tuple co-commit)
 - [[corelib-outbox-drainer]] (применяет события к FGA)
 - [[../edges/iam-to-openfga-grant-write]] (runtime-edge)
 - [[../packages/iam-authzmap]] (mapping rules для tuple-relation derive)

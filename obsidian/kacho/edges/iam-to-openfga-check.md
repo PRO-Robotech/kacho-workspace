@@ -1,5 +1,5 @@
 ---
-title: "iam ↔ openfga: REBAC tuple sync + Check"
+title: "iam ↔ openfga: чтение вердикта и применение кортежей"
 aliases:
   - iam to openfga
   - openfga check
@@ -7,8 +7,8 @@ category: edge
 caller_repo: kacho-iam
 callee_repo: openfga
 sync_async: mixed
-protocol: gRPC
-status: done
+protocol: http
+status: active
 related_tickets:
   - "[[KAC-104]]"
   - "[[KAC-108]]"
@@ -16,43 +16,99 @@ tags:
   - edge
   - kacho-iam
   - cross-service
-  - done
   - rebac
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
 
-# iam ↔ openfga: REBAC tuple sync + Check
+> [!warning] Записка противоречила сама себе и объявляла авторизацию невключённой
+> В шапке стояло `status: done`, а в теле — «Status: **planned** — появится в E3» и целый
+> раздел «E0/E1/E2 status (текущий)»: «OpenFGA **не деплоится**», «AccessBinding'и **не
+> enforce'ятся**», «любой запрос проходит interceptor без auth-check». Два утверждения об
+> одном предмете, из которых верно одно, — и то, что читается как «сегодня», было ложным.
+> Опасность именно в этой строке: по ней следующий читатель заключает, что проверять права
+> в тестах и на стенде не от чего.
+>
+> Сверено с деревом `96b2879a` (2026-08-05). Ниже — то, что в нём есть.
 
-**Caller(s)**:
-- `kacho-iam` — write-path: sync AccessBinding/Group changes → OpenFGA tuples (Write/Delete API)
-- `kacho-api-gateway` (auth-interceptor) — read-path: `Check(user, verb, resource)` на каждый запрос
-**Callee**: `openfga` (external REBAC; tuple-store + Zanzibar Check-API)
-**Protocol**: gRPC (OpenFGA native API)
-**Sync/Async**: mixed — Check sync (per-request); tuple-sync async (best-effort из outbox)
-**Status**: **planned** — появится в E3 ([[KAC-108]]).
+# iam ↔ openfga: чтение вердикта и применение кортежей
 
-## When invoked (E3)
+**Вызывающий**: `kacho-iam` — единственный, кто ходит в OpenFGA. Модули (vpc, compute, nlb,
+storage, registry) **в FGA не ходят** ни на чтение, ни на запись: их вопросы и их намерения
+проходят через iam.
+**Вызываемый**: OpenFGA (внешнее ReBAC-хранилище кортежей).
+**Транспорт**: HTTP к API хранилища (`/stores/{id}/{check,batch-check,write,read,expand,list-objects}`),
+клиент — `services/iam/internal/clients/openfga_*.go`. Требование production-посадки к
+транспорту, по которому ходят **решения о доступе**, — общее (`security.md`
+§«Production-mode»), и оно относится к этому ребру наравне с остальными.
+**Синхронность**: смешанная — чтение вердикта синхронно на пути запроса, применение
+кортежей асинхронно через durable-очередь.
 
-- **Write-path (KAC-108 closeout, outbox-pattern, async ≤200ms)**: AccessBindingService.Create/Delete в writer-TX enqueue'ит row в `kacho_iam.fga_outbox` (event_type=`fga.tuple.write` или `fga.tuple.delete`) одной транзакцией с `access_bindings` INSERT/DELETE — atomic. trigger AFTER INSERT шлёт `pg_notify('kacho_iam_fga_outbox', id)`. Drainer `internal/apps/kacho/jobs/fga_outbox_drainer.go` дренит pending row'ы → `openfga.Write/Delete` с retry + exponential backoff (max 5 immediate retries). Idempotent (openfga 409 = success). См. [[../packages/iam-jobs]].
-- **Read-path (sync на запрос)**: api-gateway interceptor вызывает `openfga.Check(user=usr<id>, relation=<verb>, object=<resource_type>:<resource_id>)`. На `allowed=false` → `PermissionDenied`.
-- **Реактивность (DoD #5, ≤10s)**: outbox drain ≤200ms + cache TTL=5s + LISTEN-invalidate ≤1s = укладывается в ≤10s.
+## Читающая половина
 
-## Error handling (E3)
+- `InternalIAMService.Check` — вопрос про **один** объект; его задаёт per-RPC гейт каждого
+  сервиса ([[vpc-to-iam-check]], [[compute-to-iam-check]], [[nlb-to-iam-check]],
+  [[geo-to-iam-check]]) и край ([[api-gateway-to-iam-authorize]]).
+- `AuthorizeService.BatchCheck` — вопрос про **страницу** идентификаторов, партиями ≤100;
+  им сужают списки vpc / compute / nlb / storage ([[vpc-to-iam-listobjects]] и сиблинги).
+- Перечисление объектов (`list-objects`) в клиенте есть, но **не является** механизмом
+  сужения списков: у него жёсткий серверный предел и нет продолжения, поэтому ресурсы сверх
+  предела становились владельцу невидимы при живых правах. Механизм заменён на «страница →
+  проверка страницы» (`security.md` §«Фильтрация»).
+- Предпочтение согласованности задаётся явно: подтверждающее чтение просит
+  **HIGHER_CONSISTENCY**, обычная проверка идёт с умолчанием хранилища (минимальная
+  задержка) — см. [[iam-openfga-confirm-read-consistency]].
 
-| Result | gRPC code | Note |
+## Пишущая половина: очередь, а не прямая запись
+
+Каждое изменение прав эмитируется **намерением в `kacho_iam.fga_outbox` внутри той же
+writer-транзакции**, что и доменная строка (ban #10), и применяется дренажом
+(`clients/fga_applier.go`). Идемпотентность — контракт: повтор записи существующего кортежа
+и снятие отсутствующего считаются успехом.
+
+**Порядок принадлежит кортежу, а не объекту.** Очередь несёт И записи, И удаления **одной и
+той же** тройки (субъект, отношение, объект) — они не коммутативны. Партиция claim-запроса —
+**полная тройка** (колонка `tuple_key`, миграция `0067`), а не объект: состояние хранилища
+есть множество троек, поэтому строки, делящие лишь объект, трогают разные записи и могут
+применяться в любом порядке. Прежний ключ по объекту сериализовал снятие права за каждой
+несвязанной выдачей, стоявшей раньше в очереди на том же объекте, — на живом стенде замерено
+8 643 неприменённых строки на 1 439 объектов при 8 641 различной тройке.
+
+Из этого следуют два числа, которые нельзя менять по отдельности: **конкурентность
+применения 16** и **партиция по тройке**. Поднять конкурентность без ключа партиции значит
+переупорядочить некоммутативные строки — снятие права применится раньше своей выдачи, и
+кортеж переживёт отзыв. Ключ без конкурентности оставляет дренаж однопоточным. Потолок
+сегодня — сама OpenFGA: замер на одинаковом синтетическом всплеске 20 000 строк дал
+16 → 448 строк/с и 48 → 403 строк/с, то есть больший веер **хуже**.
+
+## Что происходит при отказе
+
+| Что отказало | Что видит вызывающий | Что происходит с работой |
 |---|---|---|
-| allowed=true | (continue) | |
-| allowed=false | `PermissionDenied` | normal authz reject |
-| OpenFGA недоступен | **fail-closed** → `Unavailable` для мутаций; для read — может fail-open behind flag (TBD в acceptance) | |
-| tuple-sync diverged | reconciliation job (E3 §10) | детектится eventual-consistency проверкой |
+| вердикт «нет» | `PERMISSION_DENIED` | — |
+| OpenFGA недоступен на чтении | `PERMISSION_DENIED` (fail-closed) — недоступный ответ модели **не есть «да»** | — |
+| OpenFGA недоступен на записи | ничего: мутация уже успешна | строка очереди остаётся недоставленной, ретрай с задержкой |
+| строка отравлена (исчерпаны попытки) | ничего | исключается из блокирующего набора, чтобы не заклинить свою партицию; переигрывается отдельно |
+| постоянно-транзиентная голова партиции | ничего | **клин по своей тройке**: преемники ждут восстановления пира. Осознанный размен «безопасность важнее живости», радиус — один кортеж. Чтобы клин не был тихим, дренаж предупреждает о голове старше 60 с, помимо общего показателя возраста очереди |
 
-## E0/E1/E2 status (текущий)
+## История
 
-- OpenFGA **не деплоится**.
-- AccessBinding'и хранятся в `kacho_iam.access_bindings` (см. [[../resources/iam-access-binding]]) — **не enforce'ятся**.
-- Любой запрос проходит interceptor без auth-check.
+- **W1.1** — заведён дренаж: до него ни один кортеж не применялся, и **все** проверки прав
+  отвечали отказом на свежем стенде.
+- **W1.5** — все выдачи/отзывы (привязки, JIT, аварийный доступ) переведены на эмиссию в
+  очередь в одной транзакции с доменной строкой; прямая запись после коммита снята.
+- **sub-phase 1.4 S2** — то же сделано для **собственных** ресурсов iam (аккаунт, проект,
+  группа, служебная учётка, роль): владельческий кортеж больше не теряется при падении
+  между коммитом ресурса и записью кортежа.
+- **claim `ORDER BY (attempt_count, id)`** — снят head-of-line starvation: накопленный
+  транзиентный хвост с малыми id затенял свежие намерения.
+- **миграция 0067** — партиция сужена с объекта до полной тройки; конкурентность применения
+  поднята до 16 вместе с ней, не отдельно.
 
-## See also
+## Смежное
 
-[[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]] [[../resources/iam-access-binding]] [[../KAC/KAC-104]] [[../KAC/KAC-108|KAC-108 (E3)]] [[../KAC/KAC-122]] (authz-deny matrix newman suite)
+[[iam-to-openfga-grant-write]] [[iam-to-openfga-scope-grant]]
+[[iam-register-resource-callee-contract]] [[iam-openfga-confirm-read-consistency]]
+[[../rpc/iam-access-binding-service]] [[../rpc/iam-internal-iam-service]]
+[[../resources/iam-access-binding]] [[../KAC/KAC-104]] [[../KAC/KAC-108|KAC-108 (E3)]]
 
-#edge #kacho-iam #cross-service #planned #rebac
+#edge #kacho-iam #cross-service #rebac

@@ -10,11 +10,13 @@ tags:
   - kacho-nlb
   - tests
   - newman
+status: stable
+verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): имя и триггеры рабочего процесса e2e, число коллекций суиты nlb; текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/tests/newman
 
-**Path**: `kacho-nlb/tests/newman/`
+**Каталог**: `services/nlb/tests/newman/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/tests/newman/`)
 **Tooling**: Python `cases/*.py` → `gen.py` → newman collection JSON → `newman run` against api-gateway.
 **Pattern**: Adopted from kacho-vpc/tests/newman (declarative case-py → collection generator).
 
@@ -24,7 +26,7 @@ tags:
 |---|---|
 | `_helpers.py` | shared utilities: project fixture, auth bootstrap, polling helpers |
 | `load-balancer.py` | NLB-* cases: CRUD + Start/Stop/Move/Attach/Detach + GetTargetStates |
-| `listener.py` | LST-* cases: BYO+auto VIP, immutable Update reject, DELETE VIP-free |
+| `listener.py` | LST-* cases: create/wire targetGroupId, immutable Update reject, port BVA, delete |
 | `target-group.py` | TGR-* cases: CRUD + Move, embedded health_check ranges |
 | `targets.py` | TGT-* cases: AddTargets (4 identity-types × idempotent), RemoveTargets 2-phase drain |
 | `operation.py` | OP-* cases: poll done=true + Cancel idempotent |
@@ -53,7 +55,11 @@ tags:
 
 ## CI integration
 
-`.github/workflows/newman-e2e.yml` — docker-compose стенд (Postgres + iam + vpc + compute + api-gateway + nlb) → seed → `newman run`. Gating для merge в main.
+`.github/workflows/e2e-newman.yml` (имя именно в таком порядке — прежняя редакция
+переставляла половины местами, и координата не резолвилась) — стенд поднимается **в kind**,
+не docker-compose: шардированная матрица, 82 коллекции восьми суит, из них **9 — nlb**.
+Триггеры: `pull_request` в `main`, `push` в `redesign/integration`, ручной запуск. То есть
+gating для merge в `main` — да, но стенд и раскладка другие, чем описывала записка.
 
 ## See also
 

@@ -8,11 +8,13 @@ tags:
   - kacho-nlb
   - handler
   - operation
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-nlb/internal/apps/kacho/api/operation
 
-**Path**: `kacho-nlb/internal/apps/kacho/api/operation/`
+**Каталог**: `services/nlb/internal/apps/kacho/api/operation/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/operation/`)
 **Implements**: `OperationService` (3 methods: `Get`, `List`, `Cancel`)
 **Imports**: [[nlb-domain]], [[nlb-repo-kacho-pg]], [[corelib-operations]]
 

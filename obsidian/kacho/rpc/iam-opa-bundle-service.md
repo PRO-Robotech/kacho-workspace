@@ -11,7 +11,7 @@ domain: iam
 related_resource: "[[resources/iam-cluster]]"
 methods_count: 3
 async_methods: 0
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -20,7 +20,15 @@ tags:
   - iam
   - internal
   - opa
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Снятие сказано прямым текстом в коде композиции iam (`services/iam/cmd/kacho-iam/grpc_register.go`): «OpaBundleService + TrustPolicyService removed». Ни REST-эндпоинта раздачи бандлов, ни OPA-подкладки в дереве нет: решение о доступе принимает **модель прав** (каталог + per-object Check через `InternalIAMService.Check` → ReBAC), а не политика в сайдкаре (`security.md` §«Авторизация живёт в МОДЕЛИ»).
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # OPABundleService (iam, internal)
 

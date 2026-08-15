@@ -4,7 +4,7 @@ aliases:
   - KAC-2
 ticket_id: KAC-2
 category: kac
-status: done
+status: superseded
 type: epic
 repos:
   - kacho-vpc
@@ -14,19 +14,20 @@ yt_url: https://prorobotech.youtrack.cloud/issue/KAC-2
 tags:
   - kac
   - epic
-  - done
+  - deprecated
   - kacho-vpc
   - ni
 ---
 
-# KAC-2: NetworkInterface first-class ресурс + control-plane resource model
+# KAC-2: NetworkInterface first-class ресурс + control-plane resource model (SUPERSEDED)
 
-> [!note] Stub
-> Полный trail закрытого эпика — в YouTrack. Здесь только запись для wikilink-разрешения.
+> [!warning] Superseded — data-plane control-plane-слой удалён в KAC-36/79/80
+> Эта запись — stub для wikilink-разрешения. **Живым** осталось только вариант-А-решение:
+> NIC — first-class публичный ресурс в kacho-vpc (AWS-ENI стиль). **Удалена** kube-ovn-эпохи
+> data-plane control-plane-привязка: internal-only data-plane-id на Network, Hypervisor как
+> internal-ресурс kacho-compute, NIC-dataplane-проекция и writeback из impl-controller.
 
-Эпик: вариант А (NIC — first-class ресурс в kacho-vpc, AWS-ENI стиль; расхождение со YC). Включил `vpn_id` как internal-only field на Network, Hypervisor как internal-ресурс kacho-compute, impl-controller reads from upstream internal API.
-
-Subtasks: KAC-3 ... KAC-11, KAC-14.
+Subtasks: KAC-3 ... KAC-11, KAC-14 (data-plane-части отменены).
 
 ## See also
 

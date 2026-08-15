@@ -1,11 +1,20 @@
-go 1.22
+// go.work — LOCAL cross-repo dev only (git-ignored). Provides the sibling modules
+// so multi-repo work resolves WITHOUT any `replace ../` in the committed go.mod
+// (see .claude/rules/polyrepo.md: versioned modules, replace forbidden). CI checks
+// out a single repo, does not see go.work, and builds against versioned `require`.
+//
+// Setup: `cp go.work.example project/go.work && (cd project && go work sync)`.
+go 1.26.5
 
 use (
 	./kacho-proto
 	./kacho-corelib
 	./kacho-api-gateway
-	./kacho-resource-manager
+	./kacho-iam
+	./kacho-geo
 	./kacho-vpc
 	./kacho-compute
-	./kacho-loadbalancer
+	./kacho-storage
+	./kacho-nlb
+	./kacho-registry
 )

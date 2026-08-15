@@ -1,0 +1,197 @@
+---
+title: "RBAC Contract-A fix — forward-materialize owner/creator access on iam-native content (flat FGA no-access-loss)"
+ticket_id: rbac-2026-contract-a-fix
+status: done
+verified_against: "предмет сверен с PRO-Robotech/kacho@58913d0e (2026-08-05); текст записки построчно не пересматривался"
+type: fix
+repos:
+  - kacho-iam
+  - kacho-deploy
+prs:
+  - https://github.com/PRO-Robotech/kacho-iam/pull/228
+  - https://github.com/PRO-Robotech/kacho-deploy/pull/122
+opened: 2026-06-24
+tags:
+  - kac
+  - kacho-iam
+  - kacho-deploy
+  - fix
+  - domain
+  - usecase
+  - repo
+  - migrations
+category: kac
+---
+
+# RBAC Contract-A fix — iam-native content forward-materialization
+
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `ReconcileObjectForward` зовётся из `services/iam/internal/apps/kacho/api/access_binding/create.go`.
+> Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
+
+**Состояние на момент записи**: test (iam branch `rbac-contract-a-fix` → PR #228; deploy PR #122 pins `REF_IAM`)
+**Type**: fix — Contract-A no-access-loss BLOCKER (continues [[rbac-2026-224-owner-wildcard-content]])
+**Acceptance**: `docs/specs/rbac-explicit-model-2026-acceptance.md` — D-4 / D-8a / C-01b (forward-materialization), D-5 (flat model), D-7/D-9
+
+## Класс потери (из artifact run 28081766667, kacho-deploy)
+
+11 umbrella newman suites red on the flat model: iam-project, iam-group, iam-role, iam-user,
+iam-service-account, iam-access-binding, iam-rbac-subjects, iam-authz-grant-check-propagation,
+authz-deny, label-revoke-vpc, label-revoke-compute. Symptom: `get-confirms` → `expected 403 to
+deeply equal 200` right after Create; deny `lacks relation "viewer/editor" on iam_*:...; no
+direct relations granted`. (sec-c-fga-proxy 9/9 + label-revoke-nlb were pre-existing known-RED,
+whitelisted in `assert-suites-green.sh` via `^SEC-C-A-` / `^T31-LBLREVOKE-NLB-` — NOT regression.)
+
+## Первопричина
+
+Flat model (Contract-A, proto#85, proto main `256383c`) removed `<rel> from account|project|
+cluster` ACCESS cascades on iam leaf types. Per-object materialization replaces the cascade for
+vpc/compute/nlb content via RegisterResource → resource_mirror → resource_reconcile_outbox →
+ReconcileObject. But kacho-iam's OWN content Creates emitted ONLY the now-inert hierarchy
+parent-pointer (`account:<acc>#account@iam_role:<id>`) and NO reconcile trigger → account-owner
+`*.*` binding never re-evaluated against new iam content → creator/owner held no relation → 403.
+Additionally `domain.AllMaterializableTypes()` excluded iam.role/group/serviceAccount/user/
+accessBinding. The .proto model was NOT the problem — it carries every needed relation; the
+task hypothesis "re-add a removed relation" was refuted.
+
+## Фикс (forward, model untouched)
+
+- reconcile-event emit (`mirror.upsert`) co-committed in the writer-tx on each iam-native content
+  Create (role/group/serviceAccount/user/project/accessBinding) — reuses `writeTx.EmitReconcileEvent`.
+- split `AllMaterializableTypes()` (`*.*` expansion) from `labelSelectableTypes` (O-4 feed-gate,
+  unchanged): new `iamContentMaterializableTypes` = the 5 iam content types (ANCHOR/NAMES, NOT labels).
+- extend iam-direct pg scans + `IAMDirectSelectorBindingsMatchingObject` (arm='anchor' match within
+  scope; containment re-asserted by use-case) to the iam content tables.
+- migration 0039: re-seed owner role `role_rule_selectors` anchor row → 21-type object_types
+  (idempotent UPSERT, rule_fp unchanged).
+- fixed stale "<rel> from account cascade resolves" comments.
+
+## #193 test fallout (flat-model) — re-anchored на per-object, НЕ revert каскада
+
+Снятие каскада вскрыло 2 детерминированно-красных integration-теста (объявлены #229 как
+"pre-existing flakiness, unrelated" — ни flaky, ни unrelated):
+`TestIntegration_ListObjects_Role_OwnerViewerCascade_193` и `..._ViewerReadEnforce_193`
+(`internal/apps/kacho/api/access_binding/list_objects_role_owner_fga_integration_test.go`).
+Ассертили viewer-КАСКАД на роль через `viewer from account` (account-tier admin-tuple →
+`ListObjects(viewer, iam_role)` содержит own role). Flat убрал каскад by-design →
+`ListObjects(viewer)` пуст → RED (подтверждено на main: `[]string{} does not contain rol_owner_193`).
+
+Фикс = per-object материализация (НЕ revert каскада): setup теперь пишет ровно тот tuple-set,
+что reconciler материализует для owner `*.*` ARM_ANCHOR над iam.role (tier `admin`
+admin→editor→viewer + закрытые v_* verb-relations — выход `reconcile.ruleObjectTuples`), а НЕ
+inert account-hierarchy-pointer. Суть сохранена: owner видит свою роль (viewer через admin-tier
++ v_list direct per-object); no-leak (чужой owner — ни viewer, ни v_list); read==enforce parity.
+RED на main → GREEN на ветке (real OpenFGA testcontainers, flat fga_model.fga). Также исправлен
+stale-комментарий в `account/create.go` (введён #229) про `viewer/editor from account` cascade на
+owner-binding-OBJECT: под flat доступ к owner-binding-объекту идёт через post-commit
+ReconcileBinding (owner `*.*` ARM_ANCHOR над iam.accessBinding, iam-direct scan access_bindings в
+scope). Без behaviour change.
+
+**Доставка:** ветка `rbac-contract-a-fix` (PR #228) перебазирована на main (`86faefc`, несёт #229)
+без конфликтов; поверх — commit `test(iam): re-anchor #193 ...`. PR #228 = [forward-mat, gofmt,
+#193 re-anchor] на main.
+
+## Затронутые сущности vault
+
+[[iam-access-binding-service]] · [[iam-role-service]] · owner-binding reconciler (D-8a) ·
+[[compute-to-iam-fgaproxy]] (the RegisterResource→reconcile pattern mirrored for iam-native content)
+
+## Валидация
+
+go build / go vet ./... clean; unit tests green; new `reconcile_owner_iam_content_integration_test.go`
+(forward + backfill + scope-boundary + access-binding-forward) GREEN; full
+`internal/repo/kacho/pg` integration suite GREEN (196s). Main gate: deploy PR #122 umbrella
+newman with `REF_IAM=rbac-contract-a-fix`.
+
+## DoD
+
+- [x] diagnosis from artifact (exact class + root cause)
+- [x] forward fix in iam (trigger + materializable set + iam-direct scans + mig 0039)
+- [x] TDD integration tests GREEN
+- [x] iam PR #228 + deploy PR #122 REF_IAM pin
+- [ ] umbrella newman green (owner re-checks) → merge iam#228 then deploy#122
+- [ ] revert REF_IAM to main after iam#228 merges
+
+## Fallout closure — sync per-object materialization (GET-after-create race), PR #230 / branch `rbac-contract-a-flat-fallout`
+
+После #228/#122 (forward-mat аддитивен, не баг) на flat-модели остались красны
+`iam-access-binding` / `iam-rbac-subjects` e2e: `get-confirms → expected 403 to deeply equal 200`
+СРАЗУ после Create. Диагноз (артефакт `nm230`): не over-revoke и не containment-баг —
+**гонка тайминга**. Каждый iam-native Create со-коммитил только АСИНХРОННЫЙ reconcile-event
+(`EmitReconcileEvent`), дренаж воркером ~2с; клиент поллит Operation.Get до done и тут же GET'ит
+объект → опережает дренаж → 403. `iam.role`/`iam.group` get-after-create случайно 200 (быстрее/
+порядок дренажа), `iam.accessBinding` стабильно 403 — но механизм у всех ОДИНАКОВ (async-only).
+
+**Containment не баг** (подтверждено integration-тестом + статикой): `reconcile_adapter.go`
+`parentAccountExpr` (CASE по scope для iam.accessBinding; `o.account_id` для group/sa/user;
+COALESCE через projects для role), `IsContainedIn(account)` и `IAMDirectSelectorBindingsMatchingObject`
+(arm='anchor') корректно находят НЕ-owner account-admin-binding и пропускают containment. Фикс
+containment НЕ требовался.
+
+**Фикс**: каждый iam-native Create теперь СИНХРОННО зовёт `ReconcileObject(<type>, newID)`
+post-commit (best-effort/non-fatal; durable объект + co-committed event + sweep = at-least-once
+backstop). Единый путь материализации, тот же `rsabReconciler`:
+- `group`/`role`/`service_account`/`user(invite)`: новый порт `ObjectReconciler` + `WithObjectReconciler`
+  + helper `reconcileObject` (post-commit, nil-safe, log-on-error).
+- `access_binding`: порт `SelectorReconciler` расширен `ReconcileObject`; `doCreate` добавляет
+  object-reconcile рядом с существующим `ReconcileBinding` (binding сам по себе — объект iam.accessBinding).
+- wiring: `rsabReconciler` инжектится во все (он уже реализует `ReconcileObject`).
+
+**Тесты (TDD RED→GREEN, ban #12)**:
+- unit (RED первым, compile-fail на отсутствующем `WithObjectReconciler`):
+  `internal/apps/kacho/api/group/create_reconcile_test.go` — white-box: group Create обязан
+  синхронно `ReconcileObject("iam.group", id)` post-commit.
+- integration (testcontainers): `internal/repo/kacho/pg/reconcile_admin_iam_content_integration_test.go`
+  — (a) account-admin (НЕ owner) с admin-rules-role над iam.accessBinding+iam.group форвард-материализует
+  admin на созданных в аккаунте binding/group (containment-доказательство НЕ-owner-grantee);
+  (b) async-drain путь через worker-очередь (ClaimReconcileEvents → ReconcileObject → MarkReconcileEventSent)
+  сходится к тому же per-object tuple.
+
+**TEMP-PIN**: `newman-e2e.yml` kacho-deploy → `rbac-contract-a-fga-flat` (flat-configmap + iam forward-mat
+= правильное комбо); revert to main после kacho-deploy#122. PR #230 = #229 + forward-mat (#228) +
+эта sync-fallout-закрывашка. НЕ мержить #230 без coordinated kacho-deploy#122 (flat-configmap):
+cascade-configmap на main должен уйти в тот же момент.
+
+PR: https://github.com/PRO-Robotech/kacho-iam/pull/230 (branch `rbac-contract-a-flat-fallout`, commit `e66f9a2`)
+
+## Продолжение той же линии — ДОКАЗАННЫЙ вход вместо сторожевого (2026-08-08, монорепо)
+
+Форвард-материализация, заведённая выше, получила **два** входа, и пять путей создания
+полтора месяца брали не тот.
+
+**Сторожевой** (`ReconcileObjectForward`) сперва читает, есть ли у объекта члены, и при
+непустом наборе уходит на полный проход с исключительной блокировкой — ради снятия
+устаревших. **Доказанный** (`ReconcileObjectForwardNoStale`) этот вопрос не задаёт: он для
+вызывающего, который может доказать, что устареть нечему.
+
+На создании доказательство даёт сама транзакция: идентификатор выдан в writer-tx, которая
+только что закоммитилась, поэтому прежних фактов у объекта нет. Зато полный проход, куда
+уводил сторож, берёт блокировку на единственной привязке владельца аккаунта — той, которую
+делят ВСЕ объекты аккаунта. Под пачкой параллельных созданий проходы выстраивались на ней
+в очередь: тот самый класс, ради которого форвард и заводился, только этажом ниже.
+
+Доказанный вход в дереве **уже был** и уже применялся в создании привязки и межсервисной
+регистрации; его godoc прямо называет два допустимых доказательства. Пять путей создания
+(группа, проект, роль, служебная учётка, приглашение) под первое подпадали, но звали
+сторожевой — а комментарий в приглашении при этом ЗАЯВЛЯЛ обратное, «объекты не имеют
+прежних членов». Документ описывал желаемое, код делал другое.
+
+**Чем держится.** `create_path_forward_entrypoint_test.go` — гейт по дереву: путь создания
+не вправе звать сторожевой вход. До правки называл пять координат, после зелёный. Дублёры
+в шести пробах научены ОТЛИЧАТЬ входы — прежде оба писали одну метку, то есть проба
+зеленела бы и на неверном.
+
+**Рядом закрылся второй класс.** `materialized_relation_has_reader_test.go` требует, чтобы
+отношение, которое материализация ПРОИЗВОДИТ, кем-то читалось при решении о доступе. Его
+список послаблений нёс 22 пары с `v_create` и объяснял, почему снять их нельзя правкой
+таблицы. Работа, которой он ждал, к тому моменту была сделана — отношение снято с типов,
+единственный носитель `registry_registry`, у которого читатель есть по существу. Список
+пуст. Нашло это **самоистечение самого списка**, а не чтение глазами: гейт роняет запись,
+которой больше нечего исключать. Цена, ради которой всё затевалось (замер на стенде
+2026-08-06): 41087 кортежей из 454031 — 9.05% объёма, который производился, дренился и
+лежал в индексе под каждой проверкой доступа.
+
+Замысел восстановлен из ветки `agent/h-perf` **переносом**, а не переносом коммитов: ствол
+по `reconcile/forward.go` оказался новее той ветки (в нём появилась пакетная запись
+`forwardWriteSet`, которой в ветке нет).
+
+PR: https://github.com/PRO-Robotech/kacho/pull/117

@@ -9,17 +9,19 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-routetable]]"
-methods_count: 7
-async_methods: 4
+methods_count: 6
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
   - routetable
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+status: stable
 ---
 
 # RouteTableService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/route_table_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/route_table_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 
@@ -32,7 +34,6 @@ tags:
 | Create | CreateRouteTableRequest | operation.Operation | **async** | static_routes inline |
 | Update | UpdateRouteTableRequest | operation.Operation | **async** | replace или add/remove routes via update_mask |
 | Delete | DeleteRouteTableRequest | operation.Operation | **async** | FailedPrecondition если ассоциирован с Subnet |
-| Move | MoveRouteTableRequest | operation.Operation | **async** | cross-folder |
 | ListOperations | ListRouteTableOperationsRequest | ListRouteTableOperationsResponse | sync | |
 
 ## REST mapping
@@ -44,8 +45,24 @@ tags:
 | `POST /vpc/v1/routeTables` | Create |
 | `PATCH /vpc/v1/routeTables/{route_table_id}` | Update |
 | `DELETE /vpc/v1/routeTables/{route_table_id}` | Delete |
-| `POST /vpc/v1/routeTables/{route_table_id}:move` | Move |
 | `GET /vpc/v1/routeTables/{route_table_id}/operations` | ListOperations |
+
+> [!note] Move удалён в KAC-266
+> RPC `Move` + `POST /vpc/v1/routeTables/{route_table_id}:move` сняты (contract-removal). См. [[../KAC/KAC-266]].
+
+
+## Сверка со стволом (2026-08-05)
+
+В контракте **девять** RPC. **Не были названы в записке** три глагола мутации маршрутов:
+
+| Метод | Ответ | REST |
+|---|---|---|
+| `AddRoutes` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:add-routes` |
+| `RemoveRoutes` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:remove-routes` |
+| `UpdateRoute` | `Operation` | `POST /vpc/v1/routeTables/{route_table_id}:update-route` |
+
+Набор маршрутов через общий `Update` **не меняется** — только этими глаголами (та же
+дисциплина, что у CIDR-блоков сети и подсети). Суффикс глагола — kebab-case.
 
 ## See also
 

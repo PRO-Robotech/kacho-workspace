@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-services-addressref
-category: package
+category: packages
 repo: kacho-vpc
 layer: service
 tags:
@@ -9,11 +9,13 @@ tags:
   - service
   - internal
   - ipam
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/services/addressref
 
-**Path**: `kacho-vpc/internal/apps/kacho/services/addressref/`
+**Каталог**: `services/vpc/internal/apps/kacho/services/addressref/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/services/addressref/`)
 **Implements**: subset of [[../rpc/vpc-internal-address-service|InternalAddressService]] (SetAddressReference, ClearAddressReference, GetAddressReference, MarkAddressEphemeralInUse).
 
 Внутренний сервис управления `used_by` ссылками Address — IPAM-side. Вызывается из:

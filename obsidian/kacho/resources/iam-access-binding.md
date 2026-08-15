@@ -9,7 +9,7 @@ domain: iam
 id_prefix: acb
 owner_table: kacho_iam.access_bindings
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-access-binding-service]]"
@@ -27,7 +27,44 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Модель выбора объектов ПЕРЕПИСАНА — большие разделы ниже описывают снятую альфу
+> Сверено по стволу `redesign/integration` 2026-08-05. Записка подробно описывает
+> модель epic-100 α/γ (дочерние таблицы `access_binding_targets` и
+> `access_binding_selector`, глаголы `AddTargetResources` / `RemoveTargetResources` /
+> `ReplaceTargetSelector`, наложение условия через `condition_id`). **Ничего из этого в
+> дереве нет.** Что произошло, по миграциям:
+>
+> - **`0030_drop_legacy_target_selector.sql`** дропнула **обе** дочерние таблицы. Её
+>   формулировка называет причину прямо: решение «какой объект» переехало **на РОЛЬ**
+>   (`role.rules[]`, плечи «по имени» и «по меткам», материализуемые реконсайлером), а не
+>   живёт на привязке. Колонок `target`/`selector`/`target_ref` у `access_bindings`
+>   не было никогда — плечи жили только в дочерних таблицах.
+> - **`0055_access_binding_target.sql`** ввела поле `target` **на самой привязке** (JSONB:
+>   `{"allInScope":true}` либо `{"resources":[{"type":…,"id":…}]}`) плюс
+>   `target_digest` — детерминированную канонизацию НАБОРА (`"all"` либо `obj:<хеш>` от
+>   отсортированных `type:id`). Дайджест входит **ключом** в частичный UNIQUE активного
+>   гранта, причём предикат остался `revoked_at IS NULL` и **никогда** не ослабляется до
+>   `status='ACTIVE'`: одинаковый набор в любом порядке коллизирует, разные наборы
+>   сосуществуют, а повторная выдача после отзыва создаёт новую активную строку.
+> - **`0075_retire_tenant_condition_surface.sql`** сняла колонку
+>   `access_bindings.condition_id`, таблицу наложения, триггер синхронизации и сам ресурс
+>   Condition. Разбор в миграции стоит прочесть: наложение **никогда не было соединено**
+>   с ресурсом — идентификаторы в двух таблицах имели разную форму, пути между ними не
+>   было, и производственного писателя у наложения не существовало вовсе.
+>
+> **Что живо рядом и НЕ является легаси** (миграция 0030 оговаривает это отдельно):
+> `kacho_iam.access_binding_target_members` — материализованный состав цели, который
+> реконсайлер пересчитывает и **диффит**, чтобы проверка прав оставалась поиском одного
+> кортежа, а не вычислением отбора на пути запроса; и
+> `kacho_iam.access_binding_subjects` (0028) — до 32 независимых получателей на одну
+> привязку, у каждого своя родословная кортежей, при том что строка привязки хранит
+> первого субъекта как проекцию для чтения и как якорь того самого UNIQUE.
+>
+> Читать разделы про `target`-oneof, дочерние таблицы и селектор как **историю замысла**.
+> Действующая форма — поле `target` + `target_digest` на самой привязке и правила на роли.
 
 # AccessBinding
 
@@ -53,7 +90,21 @@ tags:
 | `granted_by_user_id` | TEXT | length <=64 (KAC-127) | audit — кто выдал |
 | `revoked_at` | TIMESTAMPTZ NULL | (KAC-127) | set когда status → REVOKED |
 | `revoked_by_user_id` | TEXT NULL | length <=64 (KAC-127) | audit — кто отозвал |
+| `deletion_protection` | BOOLEAN NOT NULL DEFAULT false | (RBAC explicit-2026 P6 / migration 0035) | guard от Delete; owner-auto-binding ставит `true` |
 | `created_at` | TIMESTAMPTZ | server-set | |
+
+## deletion_protection (RBAC explicit-model 2026 P6 — D-10)
+
+- Колонка `deletion_protection` (migration 0035) по образцу `vpc.address.deletion_protection`.
+- **Delete на protected** → sync `FAILED_PRECONDITION` `"access binding <id> has deletion_protection enabled; clear it via Update before Delete"` + атомарный CAS-backstop `DELETE … WHERE deletion_protection=false` (`abWriter.DeleteGuarded`) против TOCTOU (C-02/C-04). Не software check-then-act.
+- **Снятие** — `AccessBindingService/Update(update_mask=["deletion_protection"], deletion_protection=false)` (новый RPC, C-03) → repo `SetDeletionProtection` CAS → затем Delete проходит.
+- **owner-auto-binding** (D-8/C-01): `Account.Create` co-commit'ит owner AccessBinding (subject=creator, role=`owner`, scope=ACCOUNT, `deletion_protection=true`) в той же writer-tx; per-object доступ материализуется forward reconciler'ом (C-01b).
+
+## Own-resource `labels` + mutable set (T3.3 unify label-scope)
+
+- Колонка `labels` jsonb (migration 0041, CHECK `kacho_labels_valid` + GIN `jsonb_path_ops`). Tenant-facing метки САМОГО binding-ресурса — делают AccessBinding **label-selectable** (label-грант на `iam.accessBinding` материализует `v_list` на matching-binding'и). Create/Update request `labels` несёт полный annotation-set (паритет account/project).
+- **Mutable set расширен до `{deletion_protection, labels}`** (T3.3-IMM-01). Любой ИНОЙ `update_mask` путь (`role_id`/subject/scope/`resource_*`) → sync `INVALID_ARGUMENT "<field> is immutable after AccessBinding.Create"` (immutable набор НЕ ослаблен). repo `abWriter.UpdateLabels` — single-statement `UPDATE … SET labels=$2 RETURNING` (row-lock, не TOCTOU). Изменение labels co-commit'ит reconcile-event `iam.accessBinding` в writer-tx (eager re-материализация).
+- **List-видимость (D-6)** = `viewer ∪ v_list ∪ self/granted-floor`. `ListByScope`/`ListByAccount`: grant-authority (owner/FGA-admin/cluster-admin) → ВСЕ binding'и на scope (floor НЕ урезан); не-authority caller → только `viewer ∪ v_list`-видимый subset (label-грант), пустой subset → `PermissionDenied` (anti-leak). `ListBySubject` (self) сохранён как floor. FGA ListObjects-ошибка → `UNAVAILABLE` (fail-closed). `Get`: self ∪ grant-authority ∪ `viewer/v_list` (label-грант) — D-6 additive путь, паритет gateway v_get Check.
 
 ## State machine (KAC-127 Phase 1)
 
@@ -85,10 +136,13 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
 ## Lifecycle
 
 - **Create** — async; UNIQUE → идемпотентный (повторный Create на тот же (subject, role, resource) → возвращает existing). **WS-2.3 ([[KAC-WS23]])**: в той же writer-TX пишет `subject_change_outbox` row (`op='binding_upsert'`) → atomic с AccessBinding INSERT (драйвит инвалидацию authz-кэша gateway, см. [[../edges/api-gateway-to-iam-subject-change]]). FGA-tuple grant — отдельным путём (sync `WriteTuples`).
+- **Create-path per-object материализация — forward-fast-path (IAM-FMB, [[iam-accessbinding-forward-materialization]], 2026-07-23):** post-commit hook зовёт `reconciler.ReconcileBindingForward(created.ID)` (**НЕ** FULL `ReconcileBinding`). Create — чисто ADDITIVE (binding новый → stale-tuple'ов нет) → **SHARE**-advisory-lock forward (`AcquireBindingLockShared`), `LoadBindingUnlocked` (без FOR UPDATE), write-missing-only, delete-stale **не** гоняется. Убирает EXCLUSIVE-сериализацию + O(scope) delete-stale recompute на mass-binding burst (throughput-fix). **Defensive-delegation (D-4):** binding с уже-materialized members ⇒ прозрачно → FULL `ReconcileBinding`. **FULL EXCLUSIVE `ReconcileBinding` остаётся** для Role.Update fan-out + sweep. Backstop (D-5): tuple'ы durable в `fga_outbox` (drainer at-least-once) + sweep; `Operation.done` НЕ ждёт видимость (ban #9). Verdict `desiredMemberForObject` **общий** с FULL → byte-identical grant (no over-/under-grant).
 - **Activate (KAC-127 Phase 7)**: PENDING → ACTIVE через CAS UPDATE (conditions met / JIT activate / approver-grant).
 - **Delete / Revoke**: `Delete` физически удаляет row. **WS-2.3 ([[KAC-WS23]])**: в той же writer-TX пишет `subject_change_outbox` row (`op='binding_delete'`) → atomic с удалением. FGA-tuple revoke — отдельным путём (sync `DeleteTuples`, review #8).
 - **Expire (KAC-127 Phase 7 worker)**: scan `WHERE status='ACTIVE' AND expires_at < now()` → CAS UPDATE → REVOKED.
 - **ListByResource** / **ListBySubject** — sync read.
+- **ListOperations** (sub-phase 1.2) — per-AB ops history (sync read, filter `resource_id`). См. [[../KAC/sub-phase-1.2-iam-operations]].
+- **ListSubjectPrivileges** (sub-phase 1.3 + 1.3b) — все привилегии субъекта (effective roles) с `role_name` (LEFT JOIN roles) + `derivation`; `subject_type ∈ {user, service_account, group}` (group добавлен в 1.3b). Питает UI вкладку «Привилегии» на User/SA/Group. См. [[../KAC/sub-phase-1.3-subject-privileges]].
 
 ## Gotchas
 
@@ -120,6 +174,121 @@ DB CHECK `status IN ('PENDING','ACTIVE','REVOKED')`. Transitions через atom
   3-сегментным, тогда как DB CHECK `iam_permissions_valid` (mig0005) — строго
   4-сегментный → create custom Role сломан на RPC-пути (4-seg рубит domain,
   3-seg рубит DB). Open finding; UI RolesPage regex ждёт backend-фикса.
+
+## Create scope-enforcement (sub-phase 1.5, D-2/D-11)
+
+- **Create стал scope-авторитетным.** Был пермиссивен по role-vs-resource scope
+  (только FK `access_bindings_role_fk` existence). 1.5 добавил проверку единого
+  предиката `domain.IsRoleAssignable` (см. [[iam-role]] §isRoleAssignable) в
+  `doCreate` ДО INSERT, в той же writer-tx (роль читается там же для FGA-mapping).
+- Mis-scoped роль → **`Operation.error.code = FAILED_PRECONDITION`** «role <id>
+  is not assignable on <type>:<id>» (async-контракт сохранён — ban #9 / Q#3;
+  одна error-поверхность). Binding НЕ создаётся (tx rollback).
+- **list⇔create parity:** набор `ListAssignableRoles` == набор, который Create
+  принимает (нет обхода через прямой gRPC/deep-link).
+- **Forward-only (D-11):** enforcement гейтит ТОЛЬКО новые Create. Pre-1.5
+  mis-scoped bindings: НЕТ migration-revoke, НЕТ read-hide (видны в
+  `ListByResource`/`ListSubjectPrivileges`), `Delete` отзывает как раньше.
+- Predicate детерминирован per role-row+resource → нет TOCTOU; concurrent
+  integration-тест (1.5-12b, 2 goroutine) подтверждает «оба rejected, 0 bindings».
+- by-design: `kacho-iam/docs/architecture/assignable-roles-scope-enforcement.md`.
+
+## Resource-scoped target (epic-100 α — proto#65 / iam#165 / gateway#88)
+
+- **Новое поле `target` (AccessTarget oneof)** — decides WHICH objects под scope-anchor
+  (`resource_type`/`resource_id`) применяются verb'ы роли: `all_in_scope` (= pre-α
+  wildcard, tier-tuple) | `resources[]` (per-object tuples) | `selector` (forward γ,
+  → `UNIMPLEMENTED` на α). Strict oneof. Role стал **чистым verb-bundle** —
+  `resourceName` ушёл из роли в target (см. [[iam-role]]).
+- **Новая таблица `kacho_iam.access_binding_targets`** (migration 0018): `binding_id`
+  FK → `access_bindings(id)` **ON DELETE CASCADE** (same-DB), `type`, `id`,
+  `UNIQUE(binding_id,type,id)` (идемпотентность add), CHECK `id<>'' AND id<>'*'`.
+  **`all_in_scope` ≡ отсутствие строк** для binding'а (read-time проекция, D-8).
+- **Role-coverage гейт (D-13)** — ТРЕТИЙ независимый детерминированный гейт на
+  Create/Add (ортогонален 1.5 `IsRoleAssignable` scope-tier): `target.resources[].type`
+  обязан покрываться типом в `role.permissions` (`domain.RoleCoversType`, same-DB, нет
+  TOCTOU). Mis → `Operation.error` FAILED_PRECONDITION «role <id> does not grant any
+  verb on <type>».
+- **FGA-эмиссия**: per-object tuple `fga_type(ref.type):<id>#tier(verb)@subject`,
+  источник `resourceName` = `binding.target`, НЕ `role.permissions`. Ref прошедший
+  D-13 но давший 0 tuples → INTERNAL fail-closed (нет target-без-tuple split-brain).
+  Всё в одной writer-tx с INSERT binding + outbox (ban #10).
+- **`target.id` — opaque soft-ref** без existence/containment-валидации (как
+  `resource_id`, запрет #8): IAM не звонит владельцу (НЕТ ребра iam→compute/vpc —
+  цикл; `compute→iam`/`vpc→iam` уже есть). Containment «объект под scope» вынесен в γ
+  (D-14). Dangling переживается graceful.
+- **Last-element guard (D-10)**: `RemoveTargetResources` последнего ref →
+  FAILED_PRECONDITION «use Delete to revoke» (НЕ авто-`all_in_scope`, НЕ пустой target);
+  сериализация concurrent через `CountTargetsForUpdate` (`SELECT … FOR UPDATE` на parent).
+- **Forward-only (D-8)**: legacy bindings (concrete-`resourceName`-в-роли) читаются как
+  `all_in_scope`, без migration-revoke. β = governance IAM Tags; γ = selector+reconciler.
+- by-design: `kacho-iam/docs/architecture/resource-scoped-access-binding-alpha.md`.
+  Эпик: [[../KAC/epic-100-resource-scoped-access-binding]].
+
+## Selector mutable: ReplaceTargetSelector (epic-100 γ — D2/D11)
+
+- **`selector` — единственная mutable часть target'а** (subject/role/scope-anchor
+  immutable; смена ветки oneof `selector⇄resources⇄all_in_scope` = Delete+Create, D10).
+  Меняется async RPC `ReplaceTargetSelector` (atomic **полная замена**, не merge —
+  `access_binding_selector` ON CONFLICT (binding_id) DO UPDATE).
+- **CAS = `xmin::text`** (γ-19, ban #10): `access_bindings` **НЕ имеет** version-колонки
+  (она у `conditions`), поэтому OCC-токен `resource_version` — системный `xmin` строки.
+  Репо `ReplaceSelectorCAS` делает no-op `UPDATE … SET status=status WHERE id AND
+  status='ACTIVE' AND xmin::text=$expected` (бампит xmin под row-lock) → конкурентный
+  replace с тем же expected видит изменённый xmin → 0 rows → `ErrFailedPrecondition`
+  «access binding was modified concurrently, retry». Клиент читает `resource_version`
+  через `GetWithVersion` (`SELECT xmin::text, …`), эхо-ит в replace.
+- **Read-side проекция selector**: `Get` теперь проецирует `selector`-arm (был только
+  resources[]/all_in_scope); `dto.domainTargetToProto` эмитит `AccessTarget_Selector`.
+  Membership пересчёт после CAS — `reconciler.ReconcileBinding` (выпавшие → eager-revoke,
+  новые matched → emit), в отдельной writer-tx post-commit.
+- migrations 0019-0022 (mirror / target_members / reconcile_outbox / selector). См.
+  [[../rpc/iam-access-binding-service]] ReplaceTargetSelector + эпик γ.
+
+## Symmetric revoke + Role.Update reconcile ledger (security #178, iam#42-followup)
+
+- **`kacho_iam.access_binding_emitted_tuples`** (migration 0024) — persisted EXACT
+  FGA tuple-set a binding emitted (PK `(binding_id, fga_user, relation, object)`,
+  FK `binding_id` → `access_bindings(id)` **ON DELETE CASCADE**, non-empty CHECKs).
+  Authoritative «что было эмитировано», co-commit с `EmitRelationWrite` в writer-tx
+  (ban #10). **Revoke реплеит этот ledger** (`SelectEmittedTuples` → `EmitRelationDelete`),
+  НЕ ре-деривит из CURRENT роли → нет orphan-tuple при Role.Update между grant и revoke.
+- **Role.Update fan-out** (`access_binding.RoleTupleReconciler`, port `role.TupleReconciler`):
+  при смене `role.permissions` реконсайлит FGA-tuples активных биндингов роли в ТОЙ ЖЕ
+  writer-tx, что и UPDATE роли (atomic, ban #10). Bounded (`ListActiveByRole`), идемпотентен
+  (diff old-ledger vs new-derive → ∅ при неизменном tier).
+- **Selector arm (γ) ledger-unification (#178 C1/V3):** γ-reconciler теперь co-commit'ит
+  каждый materialized member-tuple в ledger (`RecordEmittedTuples`/`ForgetEmittedTuples` в
+  γ writer-tx). Следствие — **V3**: `Delete` selector-биндинга реплеит ledger ⇒ снимает и
+  per-member tuples (был orphan). **C1**: `RoleTupleReconciler` для selector-арма
+  ре-деривит per-member tuples (ACTIVE `access_binding_target_members` ×
+  НОВЫЙ tier роли — `ListActiveMembers` + `tuplesForTarget`) → diff vs ledger ⇒ снимает
+  stale-tier, пишет new-tier. γ tier-BLIND (диффит по VerificationStatus), поэтому
+  понижение tier роли закрывается ИМЕННО на Role.Update, не γ-проходом.
+- **Две роли-реконсайлера (не путать):** γ `reconcile.Reconciler` = MEMBERSHIP («какие
+  объекты», из mirror label/containment); `RoleTupleReconciler` = ROLE-PERMISSION («на каком
+  tier», на Role.Update). Комплементарны.
+
+## Role OCC (#178 V2) — см. [[iam-role]]
+
+`roles` не имеет version-колонки → Role.Update OCC через `xmin::text`-CAS
+(`GetWithVersion` на sync-пути → `UpdateCAS … WHERE xmin::text=$exp` в worker-tx).
+Конкурентный Role.Update: loser → `FAILED_PRECONDITION` «role was modified
+concurrently, retry», его FGA fan-out откатывается (одна writer-tx) → нет ledger↔FGA drift.
+
+## subjects[] wire-form gotcha (proto enum, не lowercase)
+
+`CreateAccessBindingRequest.subjects[].type` — **proto enum** `SubjectType`
+(`SUBJECT_TYPE_USER`/`_SERVICE_ACCOUNT`/`_GROUP`), в отличие от legacy single
+`subject_type` (tag 2) — plain **string**. REST-клиент (UI) обязан слать
+**enum-ИМЯ** (`"SUBJECT_TYPE_USER"`), не нижне-регистровую строку `"user"`.
+grpc-gateway/protojson c `DiscardUnknown:true` **тихо** схлопывает неизвестную
+enum-строку в `SUBJECT_TYPE_UNSPECIFIED` (НЕ 400 на парсинге) → `subjects[0].type`
+пустой → backend `Subject.Validate()` → `Illegal argument subject_type ""`.
+Backend/use-case (`NormalizeSubjects`) корректен — это был **UI wire-form баг**
+(kacho-ui#113, fe3455 grant-форма). Read-проекция (legacy single `subjectType` =
+первый subject) отдаётся нижним регистром; в `subjects[].type` на read приходит
+enum-имя — клиент нормализует.
 
 ## See also
 

@@ -36,8 +36,9 @@ tags:
 
 - Все публичные RPC: DiskService, ImageService, SnapshotService, InstanceService
   (lifecycle-heavy: Start/Stop/Restart/Attach*/Detach*/AddOneToOneNat/…),
-  DiskTypeService, ZoneService, RegionService, OperationService.Get/Cancel
-  (40+ RPC, см. [[../packages/compute-internal-check]] permission_map).
+  DiskTypeService, OperationService.Get/Cancel
+  (40+ RPC, см. [[../packages/compute-internal-check]] permission_map). Region/Zone-RPC
+  вынесены в `kacho-geo` (эпик #82) — их authz-Check теперь [[geo-to-iam-check]].
 - `Internal*` RPC — bypass (admin :9091 listener).
 
 ## Object types
@@ -47,11 +48,11 @@ tags:
 
 ## Особенность: catalog-resources
 
-`DiskType.{Get,List}`, `Zone.{Get,List}`, `Region.{Get,List}` — глобальные
-read-only справочники без `project_id` в request'е. Резолвятся в один
-well-known FGA-object `system:catalog`. E3-модель выдаёт всем authenticated
-principal'ам `viewer on system:catalog` implicit'но (см. acceptance §4).
-Это эквивалент `Public=true`, но через audit-trail в kacho-iam.
+`DiskType.{Get,List}` — глобальный read-only справочник без `project_id` в request'е.
+Резолвится в well-known FGA-object `system:catalog`. E3-модель выдаёт всем authenticated
+principal'ам `viewer on system:catalog` implicit'но (см. acceptance §4). Это эквивалент
+`Public=true`, но через audit-trail в kacho-iam. (Region/Zone — тот же catalog-паттерн, но
+теперь в `kacho-geo`; см. [[geo-to-iam-check]].)
 
 ## Cache + revoke target
 
@@ -72,21 +73,33 @@ follow-up), worst-case revoke ≤ 10s.
 
 ## Configuration
 
-```bash
-KACHO_COMPUTE_AUTHZ_IAM_GRPC_ADDR=kacho-iam.kacho.svc.cluster.local:9091
-KACHO_COMPUTE_AUTHZ_IAM_TLS=false
-KACHO_COMPUTE_AUTHZ_BREAKGLASS=false
-```
+Группа `authz.*` задаёт адрес iam (:9091), транспорт (mTLS) и аварийный override,
+снимающий per-RPC Check со всех RPC сразу.
 
-Если адрес пуст и breakglass=false → interceptor НЕ навешивается (dev mode).
+> [!warning] Две ручки, каждая из которых способна отключить гейт целиком
+> **Override** отключает авторизацию явно; **незаданный адрес iam** — молча: интерцептор
+> тогда не навешивается вовсе, и сервис поднимается без per-RPC Check. Вторая опаснее
+> первой ровно потому, что её причина — **отсутствие настройки**, а не действие: получить
+> это состояние можно, ничего не сделав, и выглядит оно как нормальный старт. Контроль
+> присутствует в коде, но не отказывает ни разу за всю жизнь стенда.
+>
+> Требование (`security.md` §8/§9 + §Production-mode п.1): адрес задаётся **явно** в каждом
+> профиле, где сервис поднимается; production boot-guard **отказывает в старте**, если гейт
+> объявлен, но его зависимость не сконфигурирована, либо если override включён. Не
+> предупреждение — отказ: «WARN есть, под Ready» неотличимо от нормы, и именно на этом
+> гейт посадки уже давал ложный зелёный (`security.md` §Production-mode п.2а). Проверять
+> **живой процесс** (посадка, объявленная при старте), а не ConfigMap. Допустимая область
+> послаблений — только in-process unit/integration-фикстуры. Тот же инвариант у соседей:
+> [[vpc-to-iam-check]], [[nlb-to-iam-check]].
 
 ## History
 
 - **2026-05-24** (W1.4, [[../KAC/KAC-140]]): principal propagated через
   `auth.PropagateOutgoing` — iam Check теперь видит caller Principal, не
   `user:bootstrap`. Closes round-3 finding из [[../KAC/KAC-127]]. Bonus:
-  14 peer-call sites в `vpc_client.go` тоже обернуты (Subnet/SG/NIC/Address
-  lookups).
+  peer-вызовы к vpc тоже обёрнуты. Координата прежнего единого клиента здесь намеренно не
+  воспроизводится: сегодня это два файла — `internal/clients/{vpc_nic_client.go,vpc_subnet_client.go}`
+  ([[compute-to-vpc-nic-validate]]).
 - 2026-05-17 (E3, [[../KAC/KAC-108]]): edge initial, kacho-compute PR#23.
 
 ## See also

@@ -1,6 +1,6 @@
 ---
 title: vpc-repo-repomock
-category: package
+category: packages
 repo: kacho-vpc
 layer: repo
 tags:
@@ -8,18 +8,32 @@ tags:
   - kacho-vpc
   - repo
   - mock
-  - legacy
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# kacho-vpc/internal/repo/repomock
+# vpc: ручные подделки репозиториев
 
-**Path**: `kacho-vpc/internal/repo/repomock/`
-**Imported by**: тесты, использующие старый aggregate `Repository`-mock (до миграции на kachomock).
+**Каталог**: `services/vpc/internal/repo/repomock/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/repo/repomock/`)
+**Импортируют**: пробы слоя use-case — им нужны порты без Postgres.
 
-Legacy mock — single file `repomock.go`. Постепенно заменяется на [[vpc-repo-kacho-kachomock]] (per-entity моки с handwritten DSL).
+Ручные подделки репозиториев **по одному на сущность** (`NetworkRepo` и соседние с
+конструктором `New<Сущность>Repo()` и полным набором методов порта: чтение, список,
+вставка, правка, удаление, смена владельца).
+
+> [!note] Единого агрегата `Repository` нет — и статус «legacy» снят
+> Прежняя редакция описывала пакет как один файл со старым общим моком, который
+> «постепенно заменяется». В дереве это уже набор подделок по сущностям, то есть
+> замена состоялась, а статус остался от прежнего состояния. Помечать живой,
+> используемый пакет устаревшим — приглашение не трогать его и завести четвёртый
+> способ делать то же самое.
+
+Подделка обязана быть **не снисходительнее продукта**: если порт возвращает
+специальную ошибку в состоянии гонки, подделка возвращает её же — иначе проба
+зеленеет на поведении, которого в проде нет.
 
 ## See also
 
 [[vpc-repo-kacho-kachomock]] [[vpc-repo-cqrsadapter]]
 
-#packages #kacho-vpc #repo #mock #legacy
+#packages #kacho-vpc #repo #mock

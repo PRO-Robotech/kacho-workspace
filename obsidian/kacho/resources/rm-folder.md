@@ -5,13 +5,7 @@ aliases:
   - rm Folder
 category: resource
 domain: resourcemanager
-id_prefix: b1g
-owner_table: kacho_rm.folders
-owner_db: kacho_rm
-folder_level: false
-hierarchy: leaf-owner
-parent: Cloud
-status: stable
+status: deprecated
 related_rpc:
   - "[[rpc/rm-folder-service]]"
 related_packages:
@@ -23,38 +17,48 @@ tags:
   - resource
   - kacho-rm
   - folder
-  - leaf-owner
+  - deprecated
 ---
 
-# Folder
+> [!warning] Ресурс снят вместе со своим доменом (KAC-124)
+> Домена resource-manager в дереве продукта нет: ни каталога proto, ни объявления
+> сервиса, ни схемы БД. Преемник — Project в iam ([[iam-project]]). Ниже — след,
+> а не описание действующего ресурса.
+>
+> **Снятие закреплено проверкой на крае** (сверено по стволу 2026-08-05):
+> `gateway/internal/proxy/resolver_test.go`, `TestResolver_RemovedResourceManagerBlocked` —
+> `/kacho.cloud.resourcemanager.v1.FolderService/Get` обязан **не резолвиться**.
 
-**Domain**: resourcemanager (`kacho-resource-manager`)
-**ID prefix**: `b1g` (shared с Cloud per `corelib/ids/ids.go`)
-**Owner table**: `kacho_rm.folders`
-**Parent**: Cloud
-**Position**: **leaf-owner** в cross-service edge-графе — все доменные сервисы (vpc/compute/nlb) делают `Folder.Get` для validation, **Folder сам никуда не зовёт**.
+# Folder — снят (KAC-124)
 
-## Fields
+Нижний уровень прежней иерархии арендатора (организация → облако → папка): им
+адресовались все размещаемые ресурсы платформы, и доменные сервисы читали его
+для проверки владельца. Сегодня ту же роль несёт проект в iam; колонка-владелец
+в сервисах сохранила прежнее название как легаси-имя, источник истины при этом
+проектный.
 
-| Field | Type | Note |
-|---|---|---|
-| `id` | TEXT PK | |
-| `cloud_id` | TEXT | FK → clouds(id) RESTRICT |
-| `name` | TEXT | UNIQUE per cloud |
-| `description`, `labels` | | |
-| `created_at` | TIMESTAMP | |
+## Чем заменён
 
-## FK contract
+Organization / Cloud / Folder → Account / Project в iam (KAC-124). Проверка
+существования владельца переехала с папки на проект — см.
+[[../edges/vpc-to-iam-project-exists]].
 
-- `folders.cloud_id → clouds(id)` RESTRICT (within `kacho_rm`).
-- In-bound **cross-service** (нет FK — database-per-service): `vpc.networks.folder_id`, `vpc.addresses.folder_id`, `compute.instances.folder_id`, ... — все валидируются peer-API через `FolderService.Get` (см. [[../edges/vpc-to-rm-folder-exists]]).
+> [!note] Префикс идентификатора пережил ресурс
+> Константа префикса, которую этот ресурс делил с Cloud, в дереве продукта
+> **жива** — она осталась легаси-константой в пакете идентификаторов, и рядом с
+> ней стоит отдельная легаси-константа префикса операций того же домена. Резолв
+> имени доказывает существование **имени**, а не ресурса: из живого префикса уже
+> делали вывод, что домен на месте.
 
-## Dangling-ref policy
+## Что снято из этой записки
 
-После `DeleteFolder` peer-сервисы могут продолжать ссылаться на удалённый `folder_id` — это by-design (database-per-service запрещает cross-DB cascade). Чтения деградируют graceful (Network → нет name folder'а на UI; не error). Cleanup — на оператора или future garbage-collector.
+Таблица полей, контракт внешних ключей и политика висячей ссылки удалены: они
+называли таблицу и файлы, которых в дереве нет, и читались как утверждение о
+нынешнем состоянии.
 
 ## See also
 
-[[../packages/proto-rm]] [[../rpc/rm-folder-service]] [[../edges/vpc-to-rm-folder-exists]] [[../edges/compute-to-rm-folder-check]]
+[[iam-project]] [[../rpc/rm-folder-service]] [[../packages/proto-rm]]
+[[../edges/vpc-to-rm-folder-exists]] [[../KAC/KAC-124]]
 
-#resource #kacho-rm #folder #leaf-owner
+#resource #kacho-rm #folder #deprecated

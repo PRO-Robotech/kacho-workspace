@@ -1,6 +1,6 @@
 ---
 title: vpc-apps-kacho-shared-serviceerr
-category: package
+category: packages
 repo: kacho-vpc
 layer: service
 tags:
@@ -8,23 +8,25 @@ tags:
   - kacho-vpc
   - shared
   - errors
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # kacho-vpc/internal/apps/kacho/shared/serviceerr
 
-**Path**: `kacho-vpc/internal/apps/kacho/shared/serviceerr/`
+**Каталог**: `services/vpc/internal/apps/kacho/shared/serviceerr/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-vpc/internal/apps/kacho/shared/serviceerr/`)
 
-VPC-specific error helpers поверх [[corelib-errors]]. Pre-formatted error-builders для типичных VPC-кейсов (`NetworkNotFound(id)`, `SubnetOverlap(cidr)`, `NICAlreadyAttached(ni_id, used_by)`, …).
+Единая точка трансляции repo-ошибок → gRPC status + error-builders (shared-leaf, skill evgeniy §1 A.3).
 
-## Pattern
+## Exported API
 
-```go
-return serviceerr.NetworkNotFound(id)
-// equivalent to:
-// errors.NotFound("Network", id).Build()
-```
+- `MapRepoErr(err) error` — repo-sentinel → gRPC code + дословный контрактный текст (`stripSentinel` снимает sentinel-префикс; неклассифицированный err → `Internal "internal database error"`, no-leak).
+- `InvalidArg(field, desc string) error` — `InvalidArgument` + `BadRequest.field_violations` (дословный контрактный тон). **Добавлено KAC-261** при дедупе 8 локальных `invalidArg`-копий из `api/<resource>/`.
+- Sentinel re-export через `var`-alias `repo.ErrX`: `ErrNotFound` / `ErrAlreadyExists` / `ErrInvalidArg` / `ErrFailedPrecondition` / `ErrInternal` / `ErrPoolNotResolved` / `ErrInvalidIPv4` / `ErrMacCollision` / `ErrPoolExhausted` (так `errors.Is(err, serviceerr.ErrX)` работает на ошибке из repo).
 
-Шорткаты, чтобы handler-код был чище + единый текст сообщений (YC parity style).
+## KAC-261 dedup
+
+8 локальных `mapRepoErr`/`stripSentinel` копий из `api/<resource>/helpers.go` заменены на `serviceerr.MapRepoErr`; 8 `invalidArg` → `serviceerr.InvalidArg`. Byte-identical — дословный контрактный текст сохранён. См. [[../KAC/KAC-261]], [[vpc-apps-kacho-shared-pbconv]].
 
 ## See also
 

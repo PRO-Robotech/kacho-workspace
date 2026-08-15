@@ -1,6 +1,6 @@
 ---
 title: "kacho-iam → kacho-api-gateway (authz-cache invalidation push)"
-category: edges
+category: edge
 caller_repo: kacho-iam
 callee_repo: kacho-api-gateway
 sync_async: async
@@ -15,7 +15,13 @@ tags:
   - kacho-iam
   - kacho-apigw
   - kacho-corelib
+verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
 ---
+
+> [!note] Канон этого ребра — [[iam-to-apigateway-authzcache]]
+> Две записки об одном предмете; эта оставлена как история KAC-138 (как ребро заводилось и
+> какие пути его эмитили). Действующее описание провязки и обязательности адреса шлюза — в
+> канонической. Здесь правится только то, что стало ложью.
 
 # kacho-iam → kacho-api-gateway (authz-cache invalidation)
 
@@ -26,19 +32,26 @@ Async push-drain канал: iam emit'ит row в `subject_change_outbox` пос
 - **Service**: `kacho.cloud.apigateway.v1.InternalAuthzCacheService` (proto KAC-138, [[../KAC/KAC-138]])
 - **RPC**: `InvalidateSubject(InvalidateSubjectRequest) → InvalidateSubjectResponse`
 - **Port**: internal gRPC `:9091` (CLAUDE.md §запрет #6 — НЕ на external TLS). Address конфигурируется через `KACHO_API_GATEWAY_INTERNAL_GRPC_ADDR`.
-- **Auth**: mTLS via SPIRE SVID (production); insecure (dev). Bootstrap follow-up в отдельном KAC.
+- **Auth**: клиентский сертификат внутреннего УЦ (SPIFFE-имя в SAN). SPIRE как компонент в дереве отсутствует — см. [[iam-to-spire]]: у нас SPIFFE-имена, а не агент SPIRE.
 
 ## Trigger paths (iam-side emit)
 
 Каждый revoke path emit'ит `subject_change_outbox` row в той же writer-tx как и DB-delete (atomic per §запрет #10):
 
-| Path | event_type | Wired commit |
+| Path | event_type | Замечание |
 |---|---|---|
-| `AccessBindingService.Delete` | `binding_revoke` | KAC-138 (через legacy EmitSubjectChange shim) |
-| `JitPendingService.DenyJITActivation` | `jit_revoke` | KAC-138 fix-up `be92aa6` |
-| `BreakGlassService.DenyBreakGlass` | `bg_revoke` | KAC-138 fix-up `be92aa6` |
-| `JitPendingExpirerWorker.Tick` (per-row before tx commit) | `jit_revoke` (auto-expired) | KAC-138 fix-up `be92aa6` |
-| `BreakGlassExpirerWorker.Tick` (per-row before tx commit) | `bg_revoke` (auto-expired) | KAC-138 fix-up `be92aa6` |
+| `AccessBindingService.Delete` | `binding_revoke` | живой путь; применитель — `services/iam/internal/clients/cache_invalidation_applier.go` |
+
+> [!warning] Четыре из пяти строк называли RPC, которых в контракте нет (сверено 2026-08-05)
+> Оба названных сервиса — срочного доступа и временных прав — в proto
+> отсутствуют (`ls proto/kacho/cloud/iam/v1/ | grep -i "break\|jit"` → пусто); имена
+> встречаются только в табличной пробе анонимного доступа, то есть как **исторический
+> перечень имён**, а не как поверхность. Соответствующих воркеров-истекателей в дереве тоже
+> нет. Осталась одна работающая полоса — снятие привязки.
+>
+> Само ребро при этом **живое**: `subject_change_outbox` пишется, применитель зовёт
+> `InternalAuthzCacheService.InvalidateSubject` на внутреннем порту шлюза, а у шлюза есть и
+> обработчик, и подстраховочный опрос (`gateway/internal/watcher/subject_change_watcher.go`).
 
 ## Latency promise (acceptance §0 после fix-up #7)
 

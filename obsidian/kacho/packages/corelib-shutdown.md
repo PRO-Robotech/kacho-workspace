@@ -1,41 +1,82 @@
 ---
 title: corelib-shutdown
-category: package
+category: packages
 repo: kacho-corelib
+path: pkg/shutdown
 layer: shared
+status: wontfix
 tags:
   - packages
   - kacho-corelib
   - shutdown
+  - wontfix
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# corelib/shutdown
+# pkg/shutdown — координатор graceful-shutdown, **которого никто не зовёт**
 
-**Path**: `kacho-corelib/shutdown/`
-**Imports**: `context`, `errors`, `os`, `os/signal`, `sync`, `syscall`
-**Imported by**: `kacho-resource-manager` (1)
+**Каталог**: `pkg/shutdown/` · импорт `github.com/PRO-Robotech/kacho/pkg/shutdown`
+**Прежде** (полирепо): `kacho-corelib/shutdown`.
+**Импортирует**: `context`, `errors`, `log/slog`, `os`, `os/signal`, `sync`,
+`syscall`, `time`.
 
-Graceful shutdown coordinator: ловит SIGTERM/SIGINT, вызывает зарегистрированные handler-ы по LIFO с timeout-budget.
+> [!warning] Ноль потребителей во всём модуле — замер, а не впечатление
+> Предикат: `go list ./...` на ревизии `96b2879a`, поиск импорта
+> `github.com/PRO-Robotech/kacho/pkg/shutdown` и в `Imports`, и в `TestImports`
+> **всех 334 пакетов** модуля. Результат — **ноль** прод-импортов и ноль тестовых;
+> контрольный `grep -rn` по всему дереву даёт **одно** вхождение — собственный
+> `manager_test.go` пакета.
+>
+> То есть каждый из семи сервисов и шлюз завершаются **своим** кодом, а этот
+> координатор ими не используется. По правилу LEAN (`architecture.md`
+> §«без vestigial-кода») пакет без прод-импортёров подлежит удалению **вместе с
+> тестами**. Записка оставлена как след решения, но она **не описывает
+> действующий механизм завершения** — не ищите здесь ответа на «как сервис
+> закрывает пул».
+>
+> Прежняя редакция утверждала обратное: «считать список пустым нельзя, пакет общий
+> и зовётся из корней сборки действующих сервисов». Это была догадка, вписанная
+> вместо замера, и она **ровно противоположна** факту. Класс поучителен сам по себе:
+> оговорка «не пересчитывалось» на месте числа читается как «число просто устарело»,
+> хотя настоящий ответ был «потребителей нет».
 
-## Exported
+## Экспортируемое API (снято с дерева — чтобы решение принималось по факту)
 
-- `Manager struct{ ... }`
-  - `New() *Manager`
-  - `(*Manager).Register(h Handler)` — push на стек.
-  - `(*Manager).Wait(ctx context.Context) error` — блокирует до signal-а или ctx.Done; затем поочерёдно зовёт handler-ы (последний-первый), каждый со своим sub-context.
-- `Handler func() error` — handler-функция.
-- `var ErrAlreadyClosed = errors.New("shutdown manager already closed")`.
+```go
+func New(opts ...Option) *Manager
+func WithHandlerTimeout(d time.Duration) Option
+func WithLogger(l *slog.Logger) Option
+func (m *Manager) OnExit(handlers ...Handler)
+func (m *Manager) Wait(ctx context.Context) error
+func (m *Manager) Close() error
+type Handler func() error
+var ErrHandlerTimeout = errors.New("shutdown: handler timed out")
+```
 
-## Order
+Имена в прежней редакции (`Register`, `ErrAlreadyClosed`) не существуют: регистрация
+называется `OnExit`, а объявленная ошибка — про истёкший срок обработчика.
 
-Регистрируй в `cmd/<svc>/main.go` так, чтобы LIFO дал нужный порядок:
-1. `pool.Close` (последний — DB закрываем последним).
-2. `grpcServer.GracefulStop`.
-3. `operationsWorker.Wait`.
-4. `otelShutdown`.
+## Что делать с этой записью
 
-## See also
+Два законных исхода, третьего нет:
 
-[[corelib-operations]] [[corelib-observability]] [[rm-cmd]]
+1. **удалить пакет вместе с записью** — если завершение везде уже своё и общий
+   координатор не нужен;
+2. **провязать в композиционных корнях** — если общий порядок завершения нужен, и
+   тогда запись переписывается под действительность.
 
-#packages #kacho-corelib #shutdown
+Держать «на всякий случай» — не исход: мёртвый пакет выглядит работающим и
+подсказывает следующему контрибьютору, что механизм есть.
+
+## Порядок завершения (нормативное требование, независимо от того, чем оно исполнено)
+
+Обработчики снимаются в порядке, обратном захвату ресурсов; пул БД закрывается
+последним. Отдельное требование к воркерам со счётчиком задач: на остановке счётчик
+обязан закрываться **за каждую** брошенную задачу и enqueue после остановки должен
+отбиваться, иначе ожидание не дойдёт до нуля (`architecture.md` §Concurrency).
+
+## См. также
+
+[[corelib-operations]] [[corelib-observability]]
+
+#packages #kacho-corelib #shutdown #wontfix

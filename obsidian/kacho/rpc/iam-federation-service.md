@@ -12,7 +12,7 @@ domain: iam
 related_resource: "[[resources/iam-federation-trust-policy]]"
 methods_count: 0
 async_methods: 0
-status: planned
+status: deprecated
 related_tickets:
   - "[[KAC-127]]"
 tags:
@@ -20,7 +20,15 @@ tags:
   - kacho-iam
   - iam
   - federation
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
+> Контракта `federation_service.proto` в дереве нет; таблицы `federation_trust_policies` нет. **Сама федерация при этом частично жива, но выражена не сервисом**: доверенные внешние субъекты — поле `TrustedSubjects` на `ServiceAccountOAuthClient` (федерация «внутрь»), внешняя аудитория — параметр `SAKeyService.Issue` (федерация «наружу»). Отдельного RPC обмена токенов нет.
+>
+> Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
+> ни позвать, ни найти код. Читать как след прежнего замысла.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # FederationService (iam)
 

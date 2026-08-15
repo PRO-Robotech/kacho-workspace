@@ -9,7 +9,7 @@ domain: iam
 id_prefix: bgg
 owner_table: kacho_iam.cluster_break_glass_grants
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: deprecated
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
@@ -23,7 +23,14 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> Таблица `kacho_iam.cluster_break_glass_grants` **дропнута** миграцией `0006_drop_scim_saml_break_glass.sql`; парная `break_glass_post_incident_reviews` — там же. Условие `break_glass_window` вычищено из белого списка миграцией `0013_drop_jit_breakglass_condition_whitelist.sql` как неисполнимое: ни один поток не выставлял контекст, который предикат читал. Аварийный доступ сегодня выражается каскадом трёх верхних уровней супер-доступа, а не отдельной таблицей грантов — `security.md` §«Три уровня супер-доступа».
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # ClusterBreakGlassGrant
 

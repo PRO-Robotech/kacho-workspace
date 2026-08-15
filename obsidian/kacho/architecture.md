@@ -1,181 +1,184 @@
 ---
-title: "Архитектура — cross-repo граф"
+title: "Архитектура — одно монорепо, семь сервисов, рёбра рантайма"
 aliases:
   - architecture
 category: hub
+status: active
 tags:
   - architecture
   - dependencies
   - polyrepo
 ---
 
-# Архитектура — cross-repo граф
+# Архитектура
 
-## Build-зависимости (Go-replace + Dockerfile COPY)
+> [!important] Что здесь описано и с какой ревизии
+> Замер: продукт `PRO-Robotech/kacho@96b2879a` (ветка `agent/ci-github-hosted-runners`;
+> ствол редизайна `redesign/integration` — её предок). Единица счёта названа у каждого
+> числа. Записка описывает **топологию и рёбра**; нормативный источник —
+> `.claude/rules/polyrepo.md`, и при расхождении верно оно, а не эта страница.
+
+## Топология: ОДНО репозиторий продукта, а не пятнадцать
+
+Разработка ведётся в монорепо `PRO-Robotech/kacho`. Прежние полирепо (`kacho-proto`,
+`kacho-corelib`, `kacho-vpc`, `kacho-api-gateway`, `kacho-deploy`, …) на GitHub существуют
+и **не заархивированы**, но последний push в каждый — середина июля 2026; клонируются
+только по `KACHO_CLONE_LEGACY_POLYREPOS=1`. Второе живое репо — воркспейс
+`PRO-Robotech/kacho-workspace` (правила, спеки, приёмки, этот vault). **Оба публичны.**
+
+| Каталог монорепо | Роль | Прежний репозиторий |
+|---|---|---|
+| `proto/` | единственный дом всех `.proto` + `buf.yaml` | `kacho-proto` |
+| `pkg/` | общий фундамент: `api/` (стабы, руками не править), `ids/`, `db/`, `authz/`, `outbox/`, `operations/`, … | `kacho-corelib` |
+| `gateway/` | край: gRPC-proxy + REST через grpc-gateway | `kacho-api-gateway` |
+| `services/iam/` | Account / Project / User / ServiceAccount / Group / Role / AccessBinding | `kacho-iam` |
+| `services/vpc/` | Network / Subnet / SecurityGroup / RouteTable / Address / Gateway / NetworkInterface | `kacho-vpc` |
+| `services/compute/` | Instance / MachineType (+ живой дубль блочного хранения) | `kacho-compute` |
+| `services/storage/` | Volume / Snapshot / Image / DiskType; владелец привязок томов | — |
+| `services/nlb/` | LoadBalancer / Listener / TargetGroup / Target | `kacho-nlb` |
+| `services/registry/` | Registry / Repository / Tag (OCI) | — |
+| `services/geo/` | Region / Zone — leaf-owner оси размещения | `kacho-geo` |
+| `deploy/` | стенд (kind, Helm) + e2e | `kacho-deploy` |
+| `ui-future/` | SPA панели управления | `kacho-ui` |
+
+**Сервисов семь** (единица счёта — каталог в `services/`): compute, geo, iam, nlb, registry,
+storage, vpc.
+
+## Граф сборки: один модуль, ноль `replace`
+
+`go.mod` в дереве **2** (продукт `github.com/PRO-Robotech/kacho` и Terraform-провайдер
+`…/terraform`, который модуль продукта не импортирует); `replace` на внутренний
+модуль — **0**. Порядок `proto/` → `pkg/` → `services/*` / `gateway/` — это порядок
+**импортов**, а не пинов версий.
 
 ```mermaid
 graph TD
-    proto[kacho-proto<br/>«центр всех .proto»]
-    corelib[kacho-corelib<br/>ids/operations/db/outbox/authz-listobjects/...]
-    iam[kacho-iam<br/>Account/Project/User/SA/<br/>Group/Role/AccessBinding<br/>+ Cluster/Org/Federation<br/>+ JIT/BreakGlass/CAEP/SCIM/<br/>SAML/GDPR/AccessReviews]
-    vpc[kacho-vpc]
-    compute[kacho-compute]
-    nlb[kacho-loadbalancer]
-    apigw[kacho-api-gateway<br/>+DPoP/JWT/mTLS/step-up<br/>+per-RPC authz Check]
-    deploy[kacho-deploy]
-    ui[kacho-ui]
-    test[kacho-test]
+    proto["proto/ — все .proto"]
+    pkg["pkg/ — общий фундамент (+ pkg/api: стабы)"]
+    svc["services/ — семь сервисов, между собой НЕ импортируются"]
+    gw["gateway/ — край"]
+    deploy["deploy/ — стенд, чарты, e2e"]
+    ui["ui-future/ — SPA"]
 
-    proto --> corelib
-    corelib --> iam
-    corelib --> vpc
-    corelib --> compute
-    corelib --> nlb
-    corelib --> apigw
-    proto --> iam
-    proto --> vpc
-    proto --> compute
-    proto --> nlb
-    proto --> apigw
-
-    iam --> deploy
-    vpc --> deploy
-    compute --> deploy
-    apigw --> deploy
+    proto --> pkg
+    pkg --> svc
+    pkg --> gw
+    svc --> deploy
+    gw --> deploy
     ui --> deploy
-
-    deploy -.runtime.- apigw
-    apigw -.runtime.- ui
-    test -.runtime.- apigw
 ```
 
-Источник истины — `replace github.com/PRO-Robotech/...` в `*/go.mod` + `COPY ../kacho-*` в `*/Dockerfile`.
+> [!warning] Прежняя редакция описывала другой граф — и он был неверен дважды
+> Стояло: «Источник истины — `replace github.com/PRO-Robotech/...` в `*/go.mod` +
+> `COPY ../kacho-*` в `*/Dockerfile`». Во-первых, такого источника нет: модуль один.
+> Во-вторых, `replace` на внутренний модуль **прямо запрещён** правилом `polyrepo.md`
+> (выведено из реального инцидента: локальный `replace ../` не резолвится при клоне одного
+> репозитория ⇒ образ края не собирался). То есть страница называла источником истины
+> конструкцию, которую регламент запрещает. Само правило сохранено в `polyrepo.md` как
+> норма **на случай обратного раскола** и сегодня неприменимо по построению — но именно
+> как норма, а не как описание действительности.
 
-> [!note] KAC-124
-> `kacho-resource-manager` упразднён в KAC-124 (E5 sub-phase 2.0). Organization/Cloud/Folder заменены Account/Project в `kacho-iam`.
+## Рёбра рантайма (gRPC сервис → сервис)
 
-## Runtime cross-domain edges (gRPC service → service)
-
-### Backbone — Phase 1-2 (KAC-104, KAC-127 Phase 1-2)
+Проверено по каталогам `services/<svc>/internal/clients/` на `kacho@96b2879a`.
+Направления однонаправленные, **циклы запрещены**.
 
 ```mermaid
 graph LR
-    apigw[api-gateway:8080/443] --> iam[iam:9090/9091/9092/9093/9094]
-    apigw --> vpc[vpc:9090/9091]
-    apigw --> compute[compute:9090/9091]
-    vpc -.zone validate.-> compute
-    compute -.NIC validate + IPAM.-> vpc
-    vpc -.project exists.-> iam
-    compute -.project exists.-> iam
-    vpcimpl[vpc-implement] -.ReportNiDataplane.-> vpc
+    gw[gateway] --> iam
+    gw --> vpc
+    gw --> compute
+    gw --> storage
+    gw --> nlb
+    gw --> registry
+    gw --> geo
+
+    vpc --> geo
+    compute --> geo
+    nlb --> geo
+    registry --> geo
+    storage --> geo
+
+    compute --> vpc
+    compute --> storage
+    nlb --> vpc
+    nlb --> compute
+
+    vpc --> iam
+    compute --> iam
+    storage --> iam
+    nlb --> iam
+    registry --> iam
+    geo --> iam
+
+    iam --> hydra[(Ory Hydra)]
+    iam --> kratos[(Ory Kratos)]
+    iam --> fga[(OpenFGA)]
+    registry --> oci[(OCI-бэкенд артефактов)]
 ```
 
-### Phase 2 added (AuthN core, KAC-127 Phase 2 implemented)
+- **`geo` — лист.** Зовёт только `iam` (authz-Check), обратно его не зовут. Валидация
+  `zone_id`/`region_id` идёт **к нему** — прежние «ради географии» рёбра `vpc → compute`
+  и `nlb → compute` удалены как ложные.
+- **`iam` — лист-владелец** Account/Project и **единственный фасад к Hydra**. Прямой звонок
+  в Hydra в обход iam — нарушение унификации (`security.md`).
+- **`compute → storage`** — несущее ребро раскола блочного хранения; storage **никогда** не
+  зовёт compute обратно, поэтому ацикличность держится.
+- **`* → iam`** — `ProjectService.Get` (существование + аккаунт) и `InternalIAMService.Check`
+  (authz-гейт на **каждом** RPC обоих листенеров), плюс регистрация и снятие owner-tuple
+  через fgaproxy на внутреннем порту.
+- **`registry → OCI-бэкенд`** — ребро к хранилищу артефактов
+  (`services/registry/internal/clients/`). В перечне `polyrepo.md` его нет: там перечислены
+  рёбра **между доменами Kachō**, а это ребро к внешней системе.
 
-```mermaid
-graph LR
-    apigw -.DPoP/JWT verify.-> jwks[(JWKS endpoint)]
-    iam -.token_hook/refresh_hook.-> hydra[Ory Hydra Admin:4445]
-    iam -.identity/sessions.-> kratos[Ory Kratos Admin:4434]
-    ui -.WebAuthn enroll.-> kratos
-    apigw -.BCL propagate.-> iam
-```
+Поимённый регламент каждого ребра (протокол, срок, поведение при отказе, история) —
+`.claude/rules/polyrepo.md` §«Runtime cross-domain edges» и категория `edges/` этого vault.
 
-### Phase 3 added (AuthZ core)
+## Чего в дереве НЕТ, а прежняя редакция рисовала диаграммами
 
-```mermaid
-graph LR
-    apigw -.per-RPC Check.-> iam-authorize[iam.AuthorizeService.Check]
-    iam-authorize -.REBAC tuple Check.-> openfga[OpenFGA]
-    iam-authorize -.cluster-deny gate.-> opa[OPA sidecar :8181]
-    opa -.bundle poll.-> iam-bundle[iam.OPABundleService]
-```
+Предикат: `git grep -il <имя>` по `services/**`, `proto/**`, `pkg/**` на `kacho@96b2879a`.
+У каждого пункта — доказательство, а не впечатление.
 
-### Phase 4 added (List filtering)
+- **SCIM 2.0 и SAML** — сняты. В цепочке миграций iam есть отдельная миграция, физически
+  дропающая таблицы обеих подсистем; контрактов в `proto/kacho/cloud/iam/v1/` нет. Мост к
+  внешнему SAML-провайдеру (`jackson`) — **ноль** файлов.
+- **Конвейер push-событий безопасности (CAEP)** — снят отдельной миграцией; «не осталось ни
+  одного вызывающего» сказано в её же шапке.
+- **Break-glass** — снят той же миграцией, что SCIM/SAML, как часть упрощения модели прав.
+- **Организация как ресурс** — снята отдельной миграцией. Иерархия сегодня двухуровневая:
+  аккаунт → проект.
+- **Kafka → ClickHouse → S3/SIEM как конвейер аудита** — `clickhouse` **ноль** файлов;
+  `kafka` — **один**, и это доменный тип записи исходящей очереди аудита, а не развёрнутый
+  конвейер. Диаграмма из пяти узлов описывала намерение.
+- **HSM / PKCS#11** — `pkcs11` **ноль** файлов.
+- **Отдельный сводный стенд `kacho-test`** — в дереве не представлен; e2e живут в
+  `deploy/e2e` и `services/<svc>/tests/`.
+- **`kacho-vpc-operator`** — не резолвится на GitHub (404), в дереве ноль файлов. Рёбра к
+  нему в `polyrepo.md` помечены как контракт **на случай появления**, а не как действующие.
 
-```mermaid
-graph LR
-    vpc-list[vpc List handler] -.ListObjects.-> iam-authorize
-    compute-list[compute List handler] -.ListObjects.-> iam-authorize
-```
+Идентичности рабочих нагрузок (SPIFFE) и сетевые политики в дереве **есть** — в `deploy/`
+и в целях его Makefile; здесь они не разворачиваются, это предмет стенда.
 
-### Phase 5 added (Workload Identity Federation)
+## Порядок работы для кросс-доменной фичи
 
-```mermaid
-graph LR
-    github[GitHub Actions / AWS / GCP / GitLab CI / ...] -.RFC 8693 token exchange.-> iam-fed[iam.FederationExchangeService]
-    iam-fed -.JWKS fetch (cached).-> idp[(IdP JWKS)]
-    iam -.SA OAuth client CRUD.-> hydra
-```
+Порядок — про **зависимости**, а не про репозитории: в монорепо это порядок каталогов
+внутри одного PR (или серии зелёных коммитов).
 
-### Phase 6 added (Enterprise SSO)
+1. `proto/` — новый `.proto` + регенерация в `pkg/api/`, `buf lint`/`breaking` зелёные;
+2. `pkg/` — если меняется общий фундамент;
+3. `services/<svc>/` — между собой в любом порядке; листья `iam`/`geo` обычно первыми;
+4. `gateway/` — регистрация RPC (публичный mux / внутренний mux);
+5. `deploy/` — чарты, стенд;
+6. **воркспейс** — спека, приёмка, vault-trail: отдельный репозиторий, отдельный коммит.
 
-```mermaid
-graph LR
-    okta[Okta / Entra / Google] -.SCIM 2.0.-> iam-scim[iam.SCIM endpoints :9093]
-    iam-scim -.identity sync.-> kratos
-    saml-idp[SAML 2.0 IdP] -.SP-init/IdP-init.-> iam-saml[iam.SAML endpoints :9094]
-    iam-saml -.bridge.-> jackson[Boxyhq Jackson]
-    jackson -.session.-> kratos
-```
-
-### Phase 8 added (CAEP push)
-
-```mermaid
-graph LR
-    iam -.outbox.-> caep-drainer[iam CAEP drainer]
-    caep-drainer -.SET signing.-> hsm[(HSM PKCS#11)]
-    caep-drainer -.signed SET POST.-> external-rs[external Resource Servers<br/>Salesforce / Slack / M365]
-```
-
-### Phase 9 added (Audit pipeline)
-
-```mermaid
-graph LR
-    iam -.audit outbox.-> kafka[(Kafka kacho.iam.audit)]
-    kafka -.Kafka Engine.-> ch[ClickHouse]
-    kafka -.S3 sink.-> s3[S3 + Glacier 7y WORM]
-    kafka -.SIEM forwarder.-> dd[Datadog SIEM]
-    kafka -.SIEM forwarder.-> splunk[Splunk HEC]
-    iam -.Merkle batch signing.-> hsm
-```
-
-### Phase 10 added (SPIFFE + Cilium)
-
-```mermaid
-graph LR
-    all-pods[все kacho pods] -.SVID fetch.-> spire[SPIRE Agent unix:///]
-    spire -.attest.-> spire-server[SPIRE Server HA]
-    all-pods -.mTLS transparently.-> cilium[Cilium mesh<br/>eBPF + SPIFFE]
-```
-
-Циклы запрещены (workspace `CLAUDE.md` §«Кросс-доменные ссылки на ресурсы»).
-`kacho-iam` — leaf-owner (Account/Project): в него только звонят.
-
-## Порядок merge'а для cross-repo фичи
-
-Топологическая сортировка build-графа:
-1. `kacho-proto` — proto changes + регенерация Go-stubs (commit `gen/`).
-2. `kacho-corelib` — общие пакеты (если меняются).
-3. Сервисы (`kacho-iam` / `kacho-vpc` / `kacho-compute` / `kacho-loadbalancer`) — в любом порядке между собой (DB-per-service).
-4. `kacho-api-gateway` — регистрация новых RPC.
-5. `kacho-deploy` — helm/compose tweaks.
-6. `kacho-workspace` — docs/specs.
-
-Пока вышестоящие изменения не в `main` — нижестоящий CI **временно пиннит siblings** к feature-веткам (`ref:`-строки в `.github/workflows/ci.yaml`).
-
-## Tracking кросс-репо эпика
-
-Через [[../docs/specs/|spec docs]] + tracking-issue в `PRO-Robotech/kacho-workspace` (метка `epic`). Per-repo issue/PR помечает `Blocked by PRO-Robotech/<repo>#<n>`.
-
-KAC-127 — производный эпик 13 фаз, ссылается на [[KAC/KAC-127]].
+Единственная оставшаяся кросс-**репозиторная** граница — между монорепо и воркспейсом;
+связь по URL коммита/PR, не по пину модуля. Прежний абзац про временный пин sibling-репо к
+feature-ветке снят: пиннить нечего.
 
 ## См. также
 
-- [[README|hub]]
-- [[KAC/KAC-127|KAC-127 — Production IAM (epic, 13 phases)]]
-- [[kacho-vpc/README]] — most active service
-- [[kacho-deploy/README]] — orchestration
-- [[runbooks/README]] — operational runbooks
+- [[README|vault hub]] · [[INDEX|алфавитный индекс]] · [[architecture.canvas|полотно]]
+- `.claude/rules/polyrepo.md` — нормативная топология, рёбра, порядок работы
+- `.claude/rules/data-integrity.md` — кросс-доменные ссылки, компенсация саг, размещение
 
 #architecture #dependencies #polyrepo

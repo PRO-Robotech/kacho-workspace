@@ -8,7 +8,7 @@ domain: iam
 id_prefix: prj
 owner_table: kacho_iam.projects
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: done
 related_rpc:
   - "[[rpc/iam-project-service]]"
@@ -22,6 +22,7 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # Project
@@ -58,12 +59,11 @@ tags:
 ## Lifecycle
 
 - **Create / Update / Delete** — все async через `Operation`.
-- **Move** — спец-операция: атомарный UPDATE `account_id` с CAS-условием на текущий account_id; защита от race и UNIQUE-конфликта по new (account_id, name).
+- **Move удалён** в [[KAC-266]] (contract-removal): RPC `ProjectService.Move` + `MoveProjectRequest`/`MoveProjectMetadata` сняты. `account_id` теперь неизменяем после Create.
 
 ## Gotchas
 
-- Move через границу Account → новый `(account_id, name)` должен быть свободен, иначе `AlreadyExists`.
-- `account_id` immutable через обычный Update (`UpdateMask` rejects); меняется только через `Move`.
+- `account_id` immutable через обычный Update (`UpdateMask` rejects) и не меняется ничем другим (Move удалён, [[KAC-266]]).
 - E1 ([[KAC-106]]) переключит cross-service `folder_id` ссылки в kacho-vpc/compute/loadbalancer; до этого dangling-coexistence с `kacho-resource-manager.Folder` (см. [[../edges/vpc-to-iam-project-exists]]).
 
 ## See also

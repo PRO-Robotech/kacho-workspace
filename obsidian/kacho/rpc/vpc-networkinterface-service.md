@@ -10,17 +10,19 @@ backend_port: 9090
 visibility: public
 domain: vpc
 related_resource: "[[resources/vpc-networkinterface]]"
-methods_count: 8
-async_methods: 5
+methods_count: 6
+async_methods: 3
 tags:
   - rpc
   - kacho-vpc
   - ni
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); координата пробы CAS-гонки пересверена с деревом продукта 1653387b (2026-08-06); поля запросов и семантика построчно не пересматривались"
+status: stable
 ---
 
 # NetworkInterfaceService (vpc)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/network_interface_service.proto`
+**Proto**: `proto/kacho/cloud/vpc/v1/network_interface_service.proto`
 **Backend**: `kacho-vpc:9090`
 **Public/Internal**: public
 
@@ -34,9 +36,7 @@ NIC — first-class ресурс (AWS-ENI-стиль, **расходимся** �
 | List | ListNetworkInterfacesRequest | ListNetworkInterfacesResponse | sync | |
 | Create | CreateNetworkInterfaceRequest | operation.Operation | **async** | subnet+SG validation |
 | Update | UpdateNetworkInterfaceRequest | operation.Operation | **async** | name/labels/desc/sg-list |
-| Delete | DeleteNetworkInterfaceRequest | operation.Operation | **async** | FailedPrecondition если attached |
-| AttachToInstance | AttachNetworkInterfaceRequest | operation.Operation | **async** | **CAS** на `used_by_id` (см. KAC-52, fix 0017 миграция) |
-| DetachFromInstance | DetachNetworkInterfaceRequest | operation.Operation | **async** | CAS back to `used_by_id=''` |
+| Delete | DeleteNetworkInterfaceRequest | operation.Operation | **async** | FailedPrecondition если `used_by_id` непустой |
 | ListOperations | ListNetworkInterfaceOperationsRequest | ListNetworkInterfaceOperationsResponse | sync | |
 
 ## REST mapping
@@ -48,22 +48,31 @@ NIC — first-class ресурс (AWS-ENI-стиль, **расходимся** �
 | `POST /vpc/v1/networkInterfaces` | Create |
 | `PATCH /vpc/v1/networkInterfaces/{network_interface_id}` | Update |
 | `DELETE /vpc/v1/networkInterfaces/{network_interface_id}` | Delete |
-| `POST /vpc/v1/networkInterfaces/{network_interface_id}:attach` | AttachToInstance |
-| `POST /vpc/v1/networkInterfaces/{network_interface_id}:detach` | DetachFromInstance |
 | `GET /vpc/v1/networkInterfaces/{network_interface_id}/operations` | ListOperations |
 
-## Attach race history
+## Attach/Detach RPC — REMOVED (KAC-266)
 
-См. `internal/repo/network_interface_attach_race_integration_test.go`. Старый софт-`if used_by_id != ""` был race-prone — заменён на single-statement CAS:
+> [!warning] `AttachToInstance` / `DetachFromInstance` удалены в [[KAC-266]]
+> Публичные RPC + `:attach`/`:detach` REST-маршруты сняты (contract-removal). `used_by_id`
+> больше **не** выставляется этими методами. Инстанс создаётся **без авто-NIC** (compute
+> `materializeNICs` удалён, см. [[../edges/compute-to-vpc-nic-validate]]). NIC остаётся
+> first-class CRUD-ресурсом. CAS-история ниже — archeology.
+
+См. `services/vpc/internal/repo/kacho/pg/network_interface_attach_integration_test.go`
+(KAC-52) — гонку CAS держат `TestNICAttach_InUse_Concurrent` и
+`TestNICAttach_AutoIndex_Concurrent`. Прежняя координата называла файл со словом «race» в
+имени под плоским слоем репозитория; ни такого имени, ни такой раскладки в дереве нет —
+пробы лежат в pg-подпакете и слова «race» в имени не несут. Старый софт-`if used_by_id != ""`
+был race-prone — заменялся на single-statement CAS:
 ```sql
 UPDATE network_interfaces SET used_by_id = $new
  WHERE id = $id AND (used_by_id = '' OR used_by_id = $new)
 RETURNING ...
 ```
 
-## Internal NIS
+## Internal NIS (removed)
 
-`InternalNetworkInterfaceService.ReportNiDataplane` (write-back из vpc-implement) — **в proto пока не commit'нут**, см. CLAUDE.md (KAC-2 в работе).
+Прежняя internal data-plane-проекция NIC и writeback-RPC (kube-ovn-эпоха) **удалены в KAC-36/79/80** и в proto никогда не commit'нулись. Публичный `NetworkInterfaceService` — живой. См. [[vpc-internal-network-interface-service]].
 
 ## See also
 

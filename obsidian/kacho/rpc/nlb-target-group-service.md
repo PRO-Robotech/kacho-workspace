@@ -15,11 +15,13 @@ tags:
   - rpc
   - kacho-nlb
   - targetgroup
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+status: stable
 ---
 
 # TargetGroupService (nlb)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/loadbalancer/v1/target_group_service.proto`
+**Proto**: `proto/kacho/cloud/loadbalancer/v1/target_group_service.proto`
 **Backend**: `kacho-nlb:9090` (public gRPC)
 **Public/Internal**: public
 
@@ -64,9 +66,39 @@ tags:
 
 ## FGA Permissions
 
-- `Get` / `List` → `viewer` on `nlb_target_group:<id>` или `project`
-- `Create` → `editor` on `project:<project_id>`
-- `Update` / `Delete` / `Move` / `AddTargets` / `RemoveTargets` → `editor` on `nlb_target_group:<id>`
+Перечень снят с карты сервиса (`services/nlb/internal/check/permission_map.go`) и
+совпадает с записями каталога прав шлюза — обе точки решения обязаны называть одно
+и то же, это заперто репо-широким гейтом чётности.
+
+| RPC | отношение | объект |
+|---|---|---|
+| `Get` | `v_get` | `nlb_target_group:<id>` |
+| `ListOperations` | `v_list` | `nlb_target_group:<id>` |
+| `List` | `viewer` | `project:<project_id>` (видимость строк — per-object на странице) |
+| `Create` | `editor` | `project:<project_id>` |
+| `Update` / `Move` | `v_update` | `nlb_target_group:<id>` |
+| `Delete` | `v_delete` | `nlb_target_group:<id>` |
+| `AddTargets` | `v_addtargets` | `nlb_target_group:<id>` |
+| `RemoveTargets` | `v_removetargets` | `nlb_target_group:<id>` |
+
+Прежняя редакция этого раздела объявляла все мутации ярусом `editor`, а чтение —
+`viewer`. Это описывало состояние до перевода объектных RPC на глагольные отношения:
+ярус на группе целей сегодня не проверяет ни одна из двух точек решения.
+
+**Управление составом ≠ правка группы (NLB-TGT-1).** `AddTargets`/`RemoveTargets`
+несут **свои** отношения, объявленные **надмножеством** `v_update`
+(`or v_update` в канонической модели). Следствия, которые стоит помнить:
+
+- право управлять составом **выдаётся отдельно** от права менять саму группу —
+  ради этого платформенная роль `loadbalancer.target_manager` и существует;
+- держатель `v_update` управление составом **не потерял** (та же ветвь), поэтому
+  переключение гейтинга не требовало ре-материализации выдач;
+- надмножество **одностороннее**: держатель управления составом `v_update`/`v_delete`
+  не получает;
+- `nlb_target_group` — **первый** тип платформы с набором глаголов шире канонического
+  CRUD; словарь, общий для всех ресурсов, это не задело (он — пересечение наборов).
+
+См. `services/nlb/docs/engineering/architecture/09-fga-model.md` §«Управление составом группы целей».
 
 ## See also
 

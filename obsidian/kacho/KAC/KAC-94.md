@@ -23,7 +23,7 @@ tags:
 
 # KAC-94: Skill `evgeniy` 100% эталон в kacho-vpc
 
-**Status**: done
+**Состояние на момент записи**: done
 **Type**: epic
 **Repos**: kacho-vpc, kacho-deploy, kacho-compute
 **PRs**: PRO-Robotech/kacho-vpc#71–96 (18 PR'ов) + kacho-deploy#10–26 + kacho-compute#2,#20

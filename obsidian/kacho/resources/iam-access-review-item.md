@@ -8,8 +8,8 @@ domain: iam
 id_prefix: ari
 owner_table: kacho_iam.access_review_items
 owner_db: kacho_iam
-folder_level: false
-status: planned
+project_level: false
+status: deprecated
 related_rpc: []
 related_packages:
   - "[[packages/iam-domain]]"
@@ -20,7 +20,14 @@ tags:
   - resource
   - kacho-iam
   - iam
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
+
+> [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
+> См. [[iam-access-review]]: ни таблицы, ни RPC. Записка описывает элемент кампании, которой в дереве нет.
+>
+> Читать как след прежнего замысла, а не как описание сегодняшнего дня.
+> Сверено по стволу `redesign/integration` 2026-08-05.
 
 # AccessReviewItem
 

@@ -490,7 +490,7 @@ Verify trace span attributes (in `corelib/observability/tracing.go` and iam hand
 
 **ID**: W3.2-DASH-01
 
-**Given** kind cluster with umbrella chart deployed (`make dev-up`) включая observability stack
+**Given** kind cluster with umbrella chart deployed (`make -C deploy dev-up`) включая observability stack
 **And** kacho-iam serving traffic, k6 driving 100 RPS mixed iam workload for 10 minutes
 **And** Grafana UI accessible at `grafana.<domain>` with OIDC admin login
 
@@ -862,7 +862,7 @@ Total budget: ~80min E2E run. Triggered on PR merge to main (separate CI matrix)
 - [ ] Branch `KAC-W3.2` создан в `kacho-deploy` (+ `kacho-iam` if emit additions).
 - [ ] All §5 artifacts merged on `main`.
 - [ ] CI зелёный (helm-lint, dashboard-lint, vmrule-lint, logsql-lint, sampling-config-lint, integration-tests).
-- [ ] `make dev-up` на kind разворачивает stack; smoke verifies dashboards + alerts work.
+- [ ] `make -C deploy dev-up` на kind разворачивает stack; smoke verifies dashboards + alerts work.
 - [ ] PR merged.
 - [ ] Vault updated:
   - [ ] `obsidian/kacho/observability/iam-dashboards.md` — NEW (list of dashboards + uid + tags + key panels)

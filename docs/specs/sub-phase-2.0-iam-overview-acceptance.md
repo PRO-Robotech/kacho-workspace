@@ -471,7 +471,7 @@ Note: для IAM admin-actions object = родительский Account (или
 | 3 | **kacho-iam — отдельный сервис** (не модуль resource-manager)                                    | Чёткая separation of concerns; database-per-service (запрет #8); evgeniy-style scaffolding с нуля без legacy resource-manager долга         | (a) Расширить resource-manager — нарушает DB-per-service (новые IAM-таблицы попадут в `kacho_resource_manager`); (b) IAM как library в каждом сервисе — нарушает single-owner-per-resource |
 | 4 | **Account/Project** заменяют **Organization/Cloud/Folder** (не parallel)                         | Org→Cloud двухуровневая иерархия избыточна; современные IaaS (AWS, GCP, Yandex Cloud в новой модели) сошлись на Account+Project двухуровне | (a) Сохранить Org/Cloud + добавить IAM поверх — два иерархических слоя, double-bookkeeping; (b) Account только (без Project) — теряем scope ресурсов внутри tenant |
 | 5 | **User — mirror в `kacho_iam.users`** (источник истины Zitadel)                                  | Нужен local FK для AccessBinding.subject_id; denormalized display_name/email для UI без round-trip в Zitadel на каждый Operations.list   | (a) Хранить только Zitadel-id в bindings без mirror — каждый List бьёт Zitadel = N+1 round-trips; (b) Полный copy users в kacho_iam без Zitadel — теряем Zitadel signup-flow / MFA |
-| 6 | **Principal в Operations** — расширение **corelib**, не per-service                              | Колонка одинаковая во всех сервисах; миграция через `kacho-corelib/migrations/common/` + `make sync-migrations` уже работает              | (a) В каждом сервисе своя миграция — drift риск; (b) Только в kacho-iam — теряем principal на vpc/compute/lb Operations (DoD #4 не выполнен) |
+| 6 | **Principal в Operations** — расширение **corelib**, не per-service                              | Колонка одинаковая во всех сервисах; миграция через `pkg/migrations/common/` + шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc}) (в монорепо цель устарела: рецепты смотрят в исчезнувший `../kacho-corelib`)              | (a) В каждом сервисе своя миграция — drift риск; (b) Только в kacho-iam — теряем principal на vpc/compute/lb Operations (DoD #4 не выполнен) |
 | 7 | **`Check`-кеш в api-gateway отсутствует**, но subject-кеш есть (30s TTL + NOTIFY-invalidate)    | OpenFGA `Check` уже <20ms p95; кеш `Check`-resultов даст stale-permissions при revoke и противоречит DoD #5; subject-lookup дороже (kacho-iam round-trip + JWKS validation) — оправдан кеш | (a) Кешировать `Check`-результаты — расходится с DoD #5; (b) Без subject-кеша — auth-interceptor добавит ~50ms на каждый RPC |
 | 8 | **Реактивность via NOTIFY** (не TTL и не long-poll Watch)                                        | Patterns уже есть в corelib outbox; точечный invalidate; sub-second propagation; consistent с архитектурным стилем kacho-corelib          | (a) TTL only (≥10min как в YC) — расходится с DoD #5; (b) gRPC server-streaming Watch — выкинут с Phase 1.0 (см. workspace `CLAUDE.md` §«API contract») |
 | 9 | **REBAC computed relations**, не explicit per-resource tuples                                    | `admin from project` — одна tuple для всего project; иначе при создании 100 Network на каждый — еще 100 tuples = O(N*M) blow-up           | (a) Materialize все tuples per-resource — write amplification на каждый ресурс; (b) ABAC (атрибуты в tokens) — heavier; нет ready-made engine с тем же UX |
@@ -551,7 +551,7 @@ Note: для IAM admin-actions object = родительский Account (или
 **ID:** 2.0-E4-GWT-01
 **REQ:** REQ-IAM-SIGNUP-01
 
-**Given** `kacho-deploy` стенд поднят (`make dev-up`), сервисы `kacho-iam`, `kacho-api-gateway`, Zitadel, OpenFGA — healthy
+**Given** `kacho-deploy` стенд поднят (`make -C deploy dev-up`), сервисы `kacho-iam`, `kacho-api-gateway`, Zitadel, OpenFGA — healthy
 **And** в Zitadel и `kacho_iam.users` нет ни одного user (свежий cluster)
 **And** seed-миграция `0003_seed_default_account.sql` применена (`kacho_iam.accounts` содержит row `acc_default`; `kacho_iam.projects` содержит row `prj_default` со ссылкой на `acc_default`; `kacho_iam.roles` содержит `rol_default_admin`, `rol_default_viewer`, `rol_default_editor` + per-module variants — иначе «first user → default-admin binding» нечем выдавать)
 **And** UI-вкладка `/signup` доступна на `https://api.kacho.local/signup`
@@ -747,16 +747,16 @@ Note: для IAM admin-actions object = родительский Account (или
 
 ### 7.6 DoD #6 — Репо `kacho-iam` live в `kacho-deploy`
 
-#### Scenario E0.GWT-01: `make dev-up` поднимает `kacho-iam` pod с `healthy=true`
+#### Scenario E0.GWT-01: `make -C deploy dev-up` поднимает `kacho-iam` pod с `healthy=true`
 
 **ID:** 2.0-E0-GWT-01
 **REQ:** REQ-IAM-DEPLOY-01
 
-**Given** свежий рабочий dev-стенд (`make dev-down` если поднимался ранее)
+**Given** свежий рабочий dev-стенд (`make -C deploy dev-down` если поднимался ранее)
 **And** в `kacho-deploy/helm/umbrella/values.yaml` добавлен `kacho-iam` chart (с image-tag из CI build'а)
 **And** в `kacho-deploy/helm/umbrella` присутствуют sub-charts для Zitadel + OpenFGA + Postgres-instance `kacho_iam`
 
-**When** разработчик выполняет `cd project/kacho-deploy && make dev-up`
+**When** разработчик выполняет `make -C deploy dev-up`
 
 **Then** `kubectl get pods -n kacho` показывает:
 - `kacho-iam-XXX` — `Running`, `Ready 1/1`
@@ -768,7 +768,7 @@ Note: для IAM admin-actions object = родительский Account (или
 - все остальные ранее существовавшие сервисы (`kacho-vpc`, `kacho-compute`, `kacho-loadbalancer`, `kacho-api-gateway`, `kacho-ui`, `kacho-resource-manager`) — `Running`
 **And** `kubectl exec kacho-iam-XXX -- /healthz` → `200 OK`
 **And** `grpcurl -plaintext kacho-iam.kacho.svc.cluster.local:9090 list` показывает `kacho.cloud.iam.v1.AccountService`, `ProjectService`, `UserService`, `ServiceAccountService`, `GroupService`, `RoleService`, `AccessBindingService`
-**And** время от `make dev-up` до полной готовности ≤ 8 минут (на reference-машине)
+**And** время от `make -C deploy dev-up` до полной готовности ≤ 8 минут (на reference-машине)
 
 #### Scenario E0.GWT-02: `bin/kacho-iam-migrator up` создаёт схему `kacho_iam` со всеми таблицами и default-roles
 
@@ -802,7 +802,7 @@ Note: для IAM admin-actions object = родительский Account (или
 | NFR-6 | OpenFGA store-write на AccessBinding.Upsert — sub-200ms p95 | E3 integration-тест |
 | NFR-7 | Subject lookup cache hit-ratio ≥ 95% на steady-state (1000 RPC/s, ~100 active users) | E3 load-тест с k6 |
 | NFR-8 | `kacho-iam` graceful shutdown ≤ 10s | E0 manual test: `kill -TERM`, ждать `Running → Terminating → 0/1`, измерить |
-| NFR-9 | Zitadel + OpenFGA + kacho-iam helm-charts применимы независимо для smoke (можно поднять только Zitadel без OpenFGA для проверки OIDC отдельно), НО на full-stack `make dev-up` есть **жёсткий bootstrap-order**: `Zitadel postgres ready → Zitadel ready → kacho-iam` (config-load в kacho-iam **fails fast**, если `KACHO_IAM_ZITADEL__ISSUER` не отвечает на `/.well-known/openid-configuration` — нельзя поднимать kacho-iam до Zitadel). Этот ordering managed by Helm: chart `kacho-iam` имеет post-install `waitfor`-hook (`helm.sh/hook: post-install,post-upgrade`) с `kubectl wait --for=condition=ready pod -l app=zitadel --timeout=300s` либо аналогом через init-container в `kacho-iam` Deployment, который пингует Zitadel-issuer и не выходит до 200 OK. То же для OpenFGA: `kacho-iam` init-container ждёт OpenFGA HTTP-ready перед startup. | E0/E2/E3 deploy-тесты (cold-start `make dev-up` на чистом cluster) + явный smoke «kacho-iam без Zitadel — fail-fast на startup с понятной ошибкой в логе» |
+| NFR-9 | Zitadel + OpenFGA + kacho-iam helm-charts применимы независимо для smoke (можно поднять только Zitadel без OpenFGA для проверки OIDC отдельно), НО на full-stack `make -C deploy dev-up` есть **жёсткий bootstrap-order**: `Zitadel postgres ready → Zitadel ready → kacho-iam` (config-load в kacho-iam **fails fast**, если `KACHO_IAM_ZITADEL__ISSUER` не отвечает на `/.well-known/openid-configuration` — нельзя поднимать kacho-iam до Zitadel). Этот ordering managed by Helm: chart `kacho-iam` имеет post-install `waitfor`-hook (`helm.sh/hook: post-install,post-upgrade`) с `kubectl wait --for=condition=ready pod -l app=zitadel --timeout=300s` либо аналогом через init-container в `kacho-iam` Deployment, который пингует Zitadel-issuer и не выходит до 200 OK. То же для OpenFGA: `kacho-iam` init-container ждёт OpenFGA HTTP-ready перед startup. | E0/E2/E3 deploy-тесты (cold-start `make -C deploy dev-up` на чистом cluster) + явный smoke «kacho-iam без Zitadel — fail-fast на startup с понятной ошибкой в логе» |
 | NFR-10| FGA-model bootstrap идемпотентен (повторный применение не дублирует tuples / model-version) | E3 integration-тест |
 
 ---
@@ -887,7 +887,7 @@ Note: для IAM admin-actions object = родительский Account (или
 - `kacho-deploy/helm/umbrella/charts/kacho-iam-postgres/`
 - `kacho-deploy/helm/umbrella/charts/zitadel-postgres/`
 - `kacho-deploy/helm/umbrella/charts/openfga-postgres/`
-- `kacho-deploy/Makefile` — добавлены `make psql SVC=iam`, `make reload-svc SVC=iam`, `make logs-svc SVC=iam`.
+- `kacho-deploy/Makefile` — добавлены `make -C deploy psql SVC=iam`, `make -C deploy reload-svc SVC=iam`, `make -C deploy logs-svc SVC=iam`.
 
 ### 11.5 Proto
 
@@ -912,7 +912,7 @@ Note: для IAM admin-actions object = родительский Account (или
 - [ ] NFR-1..NFR-10 — каждая зелёная (load/integration тесты).
 - [ ] Все integration-тесты на каждом из 6 sub-эпиков зелёные в CI (testcontainers Postgres + OpenFGA + Zitadel где нужно).
 - [ ] Все newman-кейсы через api-gateway зелёные (включая negative auth/authz).
-- [ ] `make dev-up` поднимает full stack за ≤ 8 минут (включая Zitadel + OpenFGA + kacho-iam).
+- [ ] `make -C deploy dev-up` поднимает full stack за ≤ 8 минут (включая Zitadel + OpenFGA + kacho-iam).
 
 ### Documentation / artefacts
 - [ ] Все 6 per-эпиковых acceptance-документов в статусе APPROVED.

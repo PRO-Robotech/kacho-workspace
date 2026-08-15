@@ -24,7 +24,7 @@ Projects). RM остаётся «жив-но-неиспользуем» — pod 
 
 | Слой / артефакт                                              | Было (после E4)                                                                 | Становится (после E5)                                                                                                             |
 |--------------------------------------------------------------|---------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| Helm umbrella chart `kacho-deploy`                           | `dependencies[name=resource-manager]`, `dependencies[alias=pg-resource-manager]`| оба removed; `make dev-up` поднимает стенд без RM pod'а и без RM Postgres                                                       |
+| Helm umbrella chart `kacho-deploy`                           | `dependencies[name=resource-manager]`, `dependencies[alias=pg-resource-manager]`| оба removed; `make -C deploy dev-up` поднимает стенд без RM pod'а и без RM Postgres                                                       |
 | Postgres database `kacho_resource_manager`                   | существует; содержит seed `folders.default`                                     | dropped (через `migrator down --all` ИЛИ `DROP DATABASE` — см. D-3)                                                              |
 | Proto package `kacho.cloud.resourcemanager.v1`               | `proto/kacho/cloud/resourcemanager/v1/*.proto` + `gen/go/.../resourcemanager/`  | оба удалены целиком (5 `.proto` + `gen/go/.../resourcemanager/v1/` директория)                                                  |
 | Proto package `kacho.cloud.organizationmanager.v1`           | `proto/kacho/cloud/organizationmanager/v1/*.proto` + `gen/go/...`               | оба удалены целиком (3 `.proto` + `gen/go/.../organizationmanager/v1/`)                                                          |
@@ -40,11 +40,11 @@ Projects). RM остаётся «жив-но-неиспользуем» — pod 
 **E5 НЕ включает** (вынесено явно):
 
 - **Data migration `organizations`+`clouds`+`folders` → `accounts`+`projects`.** На момент E5 в dev
-  ничего ценного нет (заведомо чистый стенд после `make dev-down -v && make dev-up`); в staging /
+  ничего ценного нет (заведомо чистый стенд после `make -C deploy dev-down -v && make -C deploy dev-up`); в staging /
   prod-инсталляций Kachō ещё нет. Если в будущем появятся — отдельная sub-phase ИЛИ runbook
   (out of scope для acceptance).
 - **Backup / snapshot БД `kacho_resource_manager` перед drop.** В dev — нет (PVC уничтожается с
-  `make dev-down -v`); в staging — manual runbook (см. D-3 §«Open Questions»).
+  `make -C deploy dev-down -v`); в staging — manual runbook (см. D-3 §«Open Questions»).
 - **`Gone 410` REST-handler для устаревших путей `/resource-manager/v1/*`.** Сначала рассматривался
   как часть E5 (см. stub §2.1), но **отвергнут** в этом v1 — см. Decision D-1 «full removal vs
   Gone-handler»: дешевле и чище удалить routes полностью; запрос → стандартный 404 default REST mux'а
@@ -160,7 +160,7 @@ bump).
 - `kacho-proto/proto/kacho/cloud/resourcemanager/v1/` — `rm -rf`; 5 `.proto` файлов исчезают.
 - `kacho-proto/proto/kacho/cloud/organizationmanager/v1/` — `rm -rf`; 3 `.proto` файла исчезают.
 - `kacho-proto/gen/go/kacho/cloud/resourcemanager/v1/` — `rm -rf` (генерация перепрогоняется
-  `make proto-gen` — должна быть no-op, поскольку source-protos удалены).
+  `cd proto && buf generate` — должна быть no-op, поскольку source-protos удалены).
 - `kacho-proto/gen/go/kacho/cloud/organizationmanager/v1/` — `rm -rf`.
 - `buf lint` после удаления — зелёный (нет orphan deps).
 - `buf breaking` — добавляется временный exception в `buf.yaml`:
@@ -219,7 +219,7 @@ bump).
    ближе к 1.0 release когда появится first prod tenant).
 
 **Следствия**:
-- В dev — `make dev-down -v` уничтожает PVC; БД исчезает с диском.
+- В dev — `make -C deploy dev-down -v` уничтожает PVC; БД исчезает с диском.
 - В staging / prod (если бы) — manual runbook (выше).
 - `kacho-resource-manager/cmd/migrator/main.go` — НЕ обязан иметь рабочие down-миграции для E5
   (т.к. не используется); если есть — оставлены as-is (репо архивируется, не правится).
@@ -489,10 +489,10 @@ release-binary.
 | `gen/go/kacho/cloud/access/` (directory, D-5)                    | `rm -rf`           |
 | `buf.yaml`                                                       | временный exception (см. D-2 + D-5: 3 пакета в list); **либо** CI env-flag вариант (предпочтительнее, см. D-6) — exception **не попадает** в `buf.yaml` `main`-ветки; после merge — exception removed follow-up PR'ом per D-6 |
 | `buf.gen.yaml`                                                   | проверить — может содержать explicit per-package config; если есть для resourcemanager/organizationmanager/access — удалить |
-| `Makefile`                                                       | `make proto-gen` после удаления должен быть зелёный (no-op) |
+| `Makefile`                                                       | `cd proto && buf generate` после удаления должен быть зелёный (no-op) |
 
 **Acceptance per kacho-proto PR**:
-- [ ] `make proto-gen` runs без ошибок (нет orphan-references).
+- [ ] `cd proto && buf generate` runs без ошибок (нет orphan-references).
 - [ ] `git diff --stat` показывает удаление 8 + N `.proto` + ~16-20 + M `.pb.go` / `.pb.gw.go` файлов в gen/ (где N+M — `kacho.cloud.access.*` per D-5).
 - [ ] `buf lint` зелёный.
 - [ ] `buf breaking --against '.git#branch=main'` падает с `PACKAGE_NO_DELETE` для **трёх** пакетов
@@ -531,13 +531,13 @@ release-binary.
 | `helm/umbrella/values.dev.yaml`                     | удалить любые ссылки `resource-manager: {...}` (image, env, replicas)                                                                                        |
 | `helm/umbrella/values.prod.yaml` (если есть)        | то же, что values.dev.yaml                                                                                                                                   |
 | `helm/umbrella/templates/_helpers.tpl` (если есть)  | проверить, нет ли helper'ов, ссылающихся на `resource-manager` / `pg-resource-manager`                                                                        |
-| `Makefile`                                          | удалить `make psql SVC=rm` / `make logs-svc SVC=rm` / `make reload-svc SVC=rm` shortcuts (если присутствуют — `grep -n "resource-manager\|SVC=rm"` Makefile)  |
+| `Makefile`                                          | удалить `make -C deploy psql SVC=rm` / `make -C deploy logs-svc SVC=rm` / `make -C deploy reload-svc SVC=rm` shortcuts (если присутствуют — `grep -n "resource-manager\|SVC=rm"` Makefile)  |
 | `scripts/` (если содержит RM-specific scripts)      | удалить (или mv в `_archive/`); `grep -rn "resource-manager" scripts/`                                                                                       |
 | `docs/operations/e5-rm-uninstall.md` (новый)        | создать **runbook**: pre-conditions, шаги drop database (D-3 пример выше), helm uninstall, verification grep, prod-specific backup section; **обязательно** включить explicit backup-path step `kubectl cp pg-resource-manager-0:/tmp/rm-backup.sql ./rm-backup-$(date +%F).sql` после `pg_dump` (B4 fix — backup в /tmp/ внутри pod'а ≠ persistent backup; нужно вытащить наружу до helm uninstall) |
 | `e2e/` (если содержит RM-specific e2e tests)        | удалить test cases (`grep -rn "resource-manager\|/folders\|/clouds\|/organizations" e2e/`)                                                                   |
 
 **Acceptance per kacho-deploy PR**:
-- [ ] `make dev-down -v && make dev-up` — стенд поднимается **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods; `kubectl get pods -n kacho` не содержит RM (GWT-05).
+- [ ] `make -C deploy dev-down -v && make -C deploy dev-up` — стенд поднимается **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods; `kubectl get pods -n kacho` не содержит RM (GWT-05).
 - [ ] Никаких failed init-containers / CrashLoopBackOff (GWT-06).
 - [ ] Existing newman e2e suite (`tests/newman/cases/*`) — зелёный; ничего не сломалось от удаления RM.
 - [ ] `docs/operations/e5-rm-uninstall.md` присутствует.
@@ -554,7 +554,7 @@ release-binary.
 | `docs/specs/00-overview-and-scope.md`                            | удалить (или перенести в «Retired services» раздел) упоминания Organization/Cloud/Folder/kacho-resource-manager как активного сервиса                          |
 | `docs/specs/01-architecture-and-services.md`                     | таблица сервисов — RM либо удалён, либо в разделе «Retired (history)»; ASCII-диаграмма сервисов без RM                                                         |
 | `docs/specs/02-data-model-and-conventions.md`                    | если упоминается `Folder` как owner-scope — заменить на `Project`; `Organization`/`Cloud` — удалить                                                            |
-| `docs/specs/03-deployment-and-operations.md`                     | удалить упоминания `make psql SVC=rm`, RM-specific dev-setup steps                                                                                            |
+| `docs/specs/03-deployment-and-operations.md`                     | удалить упоминания `make -C deploy psql SVC=rm`, RM-specific dev-setup steps                                                                                            |
 | `docs/specs/04-roadmap-and-phasing.md`                           | Phase 2.0 → status `done`; добавить итоговый CHANGELOG entry: `KAC-104 — IAM (Account/Project + Zitadel + OpenFGA) — closed`                                  |
 | `docs/specs/sub-phase-2.0-iam-overview-acceptance.md`            | (если ещё в DRAFT) пометить status → APPROVED + closed; иначе — не трогать (уже approved)                                                                     |
 | `obsidian/kacho/_archive/` (новая директория, если не было)      | `mkdir _archive/rm/`                                                                                                                                          |
@@ -700,14 +700,13 @@ helm template kacho . -f values.dev.yaml > /tmp/manifest.yaml
 **And** `grep -c "kind: Deployment.*kacho-resource-manager\|kind: StatefulSet.*pg-resource-manager" /tmp/manifest.yaml` → `0`.
 **And** `grep -c "kind: Deployment.*kacho-iam" /tmp/manifest.yaml` → `>= 1` (sanity: IAM ещё там).
 
-### Сценарий E5.GWT-05 — `make dev-up` стенд без RM pod
+### Сценарий E5.GWT-05 — `make -C deploy dev-up` стенд без RM pod
 
-**Given** локальный kind-cluster (или эквивалент); `make dev-down -v` выполнен; PR'ы E5 merged в kacho-deploy.
+**Given** локальный kind-cluster (или эквивалент); `make -C deploy dev-down -v` выполнен; PR'ы E5 merged в kacho-deploy.
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-deploy
-make dev-up
+make -C deploy dev-up
 sleep 60  # wait for pods to settle
 kubectl get pods -n kacho -o name | sort
 ```
@@ -733,7 +732,7 @@ kubectl get pods -n kacho -o json | jq -r '.items[] | select(.status.phase != "R
 
 **When** CI запускает:
 ```bash
-cd project/kacho-proto
+cd proto
 buf lint
 echo $?
 ```
@@ -774,7 +773,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://api.kacho.local/organization-man
 
 **When** CI запускает:
 ```bash
-cd project/kacho-api-gateway
+cd gateway
 go test ./internal/restmux/... -v -run TestRemovedResourceManagerRoutes
 ```
 
@@ -782,20 +781,19 @@ go test ./internal/restmux/... -v -run TestRemovedResourceManagerRoutes
 **And** test-output показывает: `PASS: TestRemovedResourceManagerRoutes/resource_manager_folders_returns_404`,
 `PASS: .../organization_manager_organizations_returns_404`, etc.
 
-### Сценарий E5.GWT-11 — БД drop: `kacho_resource_manager` больше не существует после `make dev-down -v`
+### Сценарий E5.GWT-11 — БД drop: `kacho_resource_manager` больше не существует после `make -C deploy dev-down -v`
 
 **Given** стенд поднят (GWT-05); `pg-resource-manager` НЕ был развёрнут (per E5 helm changes).
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-deploy
-make dev-down -v   # -v удаляет PVC
+make -C deploy dev-down -v   # -v удаляет PVC
 sleep 5
 kubectl get pvc -n kacho | grep -c "pg-resource-manager"
 ```
 
 **Then** output `0`.
-**And** в новом `make dev-up` — RM не создаётся (GWT-05 повторяемо).
+**And** в новом `make -C deploy dev-up` — RM не создаётся (GWT-05 повторяемо).
 
 ### Сценарий E5.GWT-12 — БД drop runbook (**manual prod-runbook validation, не CI**) — B3 fix
 
@@ -887,8 +885,7 @@ ls obsidian/kacho/_archive/rm/ 2>/dev/null | wc -l
 
 **When** оператор запускает full E2E newman suite:
 ```bash
-cd project/kacho-deploy
-make e2e-test
+make -C deploy e2e-test
 ```
 
 **Then** все newman-cases — зелёные (exit-code 0).
@@ -904,7 +901,7 @@ make e2e-test
 
 **When** оператор запускает:
 ```bash
-cd project/kacho-proto
+cd proto
 grep -c "PACKAGE_NO_DELETE" buf.yaml
 ```
 
@@ -926,7 +923,7 @@ grep -c "PACKAGE_NO_DELETE" buf.yaml
 
 ### Functional DoD
 
-- [ ] **DoD-1** — `make dev-down -v && make dev-up` поднимает стенд **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods (GWT-05, GWT-06).
+- [ ] **DoD-1** — `make -C deploy dev-down -v && make -C deploy dev-up` поднимает стенд **без** `kacho-resource-manager-*` и `pg-resource-manager-*` pods (GWT-05, GWT-06).
 - [ ] **DoD-2** — `gh repo view PRO-Robotech/kacho-resource-manager --json isArchived` → `true` (GWT-13).
 - [ ] **DoD-3** — proto-домены `resourcemanager`, `organizationmanager` **и `access`** удалены из kacho-proto (включая `gen/go/`); `buf lint` зелёный; downstream сервисы build OK (GWT-07, GWT-08; B1 / D-5 fix — access добавлен).
 - [ ] **DoD-4** — `kacho-api-gateway` не маршрутизирует RM-endpoints; regression test проверяет 404 на `/resource-manager/v1/*`, `/organization-manager/v1/*` (GWT-09, GWT-10).
@@ -1027,7 +1024,7 @@ merge'а workspace-PR.
 | # | Question | Default / proposed answer | Resolution |
 |---|----------|---------------------------|------------|
 | ~~Q-1~~ | ~~`kacho.cloud.access.*` cleanup~~ | **RESOLVED v2** → перенесено в **D-5** (cleanup в E5 PR-1) | **RESOLVED v2** (B1 fix) |
-| Q-2 | **Backup БД `kacho_resource_manager` на dev — нужен ли?** | **Нет** (dev — ephemeral; PVC уничтожается `make dev-down -v`); `pg_dump`-команда + `kubectl cp` в runbook — только для prod-flavored инсталляции (см. D-3, B4 fix) | requires reviewer confirm |
+| Q-2 | **Backup БД `kacho_resource_manager` на dev — нужен ли?** | **Нет** (dev — ephemeral; PVC уничтожается `make -C deploy dev-down -v`); `pg_dump`-команда + `kubectl cp` в runbook — только для prod-flavored инсталляции (см. D-3, B4 fix) | requires reviewer confirm |
 | ~~Q-3~~ | ~~Локальный `project/kacho-resource-manager/` после archive~~ | **RESOLVED v2** → объединено с Q-6 в **I5**: `bootstrap.sh` обновлён в E5 PR-4 (workspace) — больше не clone'ит RM; локальный клон gitignored, остаётся у разработчиков as-is (workspace не enforce'ит local state). | **RESOLVED v2** (I5 fix) |
 | ~~Q-4~~ | ~~CHANGELOG entry combine vs split~~ | **RESOLVED v2** → перенесено в **D-7**: отдельная CHANGELOG entry per E1…E5 (5 entries) + closeout summary в KAC-104 epic comment в YouTrack | **RESOLVED v2** (I6 fix) |
 | ~~Q-5~~ | ~~release/tag pre-archive~~ | **RESOLVED v2** → перенесено в **D-8**: нет release/tag pre-archive (no stable release pipeline pre-1.0) | **RESOLVED v2** (I7 fix) |

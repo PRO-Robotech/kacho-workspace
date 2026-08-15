@@ -36,6 +36,22 @@ VERBOSE="${VERBOSE:-false}"
 RESET_FGA="${RESET_FGA:-false}"
 OPENFGA_HTTP="${OPENFGA_HTTP:-http://localhost:18081}"
 OPENFGA_STORE_ID="${OPENFGA_STORE_ID:-}"
+# Cap ожидания готовности bootstrap cluster-admin (system_admin@cluster через
+# fga_outbox-reconciler). На реальном стенде с mTLS реконсайл fga_outbox медленнее
+# kind, поэтому cap конфигурируем: poll идёт с шагом 2s и выходит рано по готовности,
+# так что больший cap не замедляет happy-path, но даёт prod-like стендам сойтись.
+CLUSTER_ADMIN_WAIT_SECS="${CLUSTER_ADMIN_WAIT_SECS:-180}"
+
+# Транспорт для grpcurl к kacho-iam-internal. По умолчанию (kind / mTLS-off CI)
+# — plaintext. На mTLS-стенде (например fe3455, KACHO_IAM_INTERNAL_SERVER_MTLS_ENABLE=true)
+# internal-listener требует client-cert: задай IAM_INTERNAL_GRPC_MTLS_CERT/_KEY
+# (PEM client-cert/key, принимаемые ClientCAFiles internal-листенера) — тогда grpcurl
+# идёт mTLS. -insecure пропускает проверку server-SAN (порт-форвард меняет hostname),
+# client-cert всё равно предъявляется.
+GRPCURL_TLS="-plaintext"
+if [ -n "${IAM_INTERNAL_GRPC_MTLS_CERT:-}" ] && [ -n "${IAM_INTERNAL_GRPC_MTLS_KEY:-}" ]; then
+  GRPCURL_TLS="-insecure -cert ${IAM_INTERNAL_GRPC_MTLS_CERT} -key ${IAM_INTERNAL_GRPC_MTLS_KEY}"
+fi
 
 # require grpcurl for InternalUserService.UpsertFromIdentity (нет REST маппинга — KAC-125)
 if ! command -v grpcurl >/dev/null 2>&1; then
@@ -108,6 +124,9 @@ JWT_PA1=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)
 JWT_AAA=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminA"])')
 JWT_AAB=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminB"])')
 JWT_INV=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtInvitee"])')
+# Step-up (acr=2) variant of account-admin-A — for RPCs gated by the catalog's
+# required_acr_min (RFC 9470), e.g. SAKeyService.Issue/Revoke.
+JWT_AAA_STEPUP=$(echo "$JWTS" | python3 -c 'import json,sys; print(json.load(sys.stdin)["jwtAccountAdminAStepUp"])')
 
 # Helper: curl with bearer; prints body to stdout.
 api() {
@@ -119,6 +138,15 @@ api() {
   else
     vrun curl -sS -X "$method" "${hdrs[@]}" "$BASE_URL$path"
   fi
+}
+
+# api_status — like api() but emits ONLY the numeric HTTP status code (for
+# readiness probes that gate on 200 vs 403). Quiet (no vrun trace).
+api_status() {
+  local method="$1" path="$2" token="${3:-}"
+  local hdrs=(-H "Content-Type: application/json" -H "Accept: application/json")
+  if [ -n "$token" ]; then hdrs+=(-H "Authorization: Bearer $token"); fi
+  curl -sS -o /dev/null -w '%{http_code}' -X "$method" "${hdrs[@]}" "$BASE_URL$path" 2>/dev/null || echo 000
 }
 
 # poll-op — ждёт Operation.done=true и возвращает response.metadata если есть.
@@ -151,23 +179,33 @@ log "2/10 upserting test users via grpcurl → $IAM_INTERNAL_GRPC"
 # чего bootstrap-state юзера (и его FGA-tuple'ы) гарантированно есть.
 upsert_user_grpc() {
   local ext_id="$1" email="$2" display="${3:-$email}"
-  local body resp op_id user_id
+  local body resp op_id user_id attempt
   body=$(printf '{"externalId":"%s","email":"%s","displayName":"%s"}' "$ext_id" "$email" "$display")
-  resp=$(grpcurl -plaintext -d "$body" "$IAM_INTERNAL_GRPC" \
-    kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
-  # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
-  # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
-  op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
-  if [ -n "$op_id" ]; then
-    poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
-  fi
-  user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
-  if [ -z "$user_id" ]; then
-    # PENDING-row может быть активирован — get_by_email через grpc.
-    user_id=$(grpcurl -plaintext -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
-      kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
-      | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
-  fi
+  # RETRY-until-non-empty (openfga-bootstrap restart-race): the openfga-bootstrap
+  # post-install hook rolling-restarts kacho-iam to load the FGA store-id; the
+  # Deployment can report Ready a beat before the new pod's FGA store env is fully
+  # warm, so the first UpsertFromIdentity may transiently error → empty id → FATAL
+  # (flaked the fleet-wide newman-e2e). UpsertFromIdentity is idempotent by
+  # externalId/email, so retrying is safe; ~12×3s ≈ 36s absorbs the warm-up window.
+  for attempt in $(seq 1 12); do
+    resp=$(grpcurl $GRPCURL_TLS -d "$body" "$IAM_INTERNAL_GRPC" \
+      kacho.cloud.iam.v1.InternalUserService/UpsertFromIdentity 2>&1)
+    # Дождаться завершения upsert-Operation — её worker создаёт bootstrap-Account
+    # и пишет FGA-tuple'ы. Без этого Account.Create ниже ловит authz race.
+    op_id=$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("id",""))' 2>/dev/null || true)
+    if [ -n "$op_id" ]; then
+      poll_op "$op_id" "$JWT_BOOTSTRAP" >/dev/null 2>&1 || true
+    fi
+    user_id=$(echo "$resp" | python3 -c 'import sys,json; d=json.load(sys.stdin); print(((d.get("metadata") or {}).get("userId","")))' 2>/dev/null || true)
+    if [ -z "$user_id" ]; then
+      # PENDING-row может быть активирован — get_by_email через grpc.
+      user_id=$(grpcurl $GRPCURL_TLS -d "{\"email\":\"$email\"}" "$IAM_INTERNAL_GRPC" \
+        kacho.cloud.iam.v1.InternalIAMService/LookupSubject 2>/dev/null \
+        | python3 -c 'import sys,json; d=json.load(sys.stdin); print(d.get("subjectId",""))' 2>/dev/null || true)
+    fi
+    [ -n "$user_id" ] && break
+    sleep 3
+  done
   echo "$user_id"
 }
 
@@ -391,39 +429,89 @@ ensure_binding "$USER_AAB" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 # INV — owner-of-B (his home) — admin in account-B. Grantor = AAB (owner of B).
 ensure_binding "$USER_INV" "$ROLE_ADMIN" "account" "$ACCOUNT_B" "$JWT_AAB"
 
-# 5b) BOOT — cluster-admin via SQL backdoor (fixture-only).
+# 5b) BOOT — cluster-admin via the PRODUCT bootstrap reconciler (no SQL backdoor).
 #
 # AccessBindingService.Create requires the caller to already hold `system_admin`
-# on the cluster scope (CLAUDE.md §«Запреты» #10 — atomic CAS). Bootstrap
-# (the very first cluster-admin) is therefore chicken-and-egg via the public
-# API; the production path is `seed.RunBootstrapAdmin` which is NOT yet wired
-# from `cmd/kacho-iam/serve.go` (task #10 in batch backlog — auto-call
-# RunBootstrapAdmin on kacho-iam startup).
+# on the cluster scope (CLAUDE.md §«Запреты» #10 — atomic CAS). Bootstrap (the
+# very first cluster-admin) is chicken-and-egg via the public API; the
+# production path is `seed.RunBootstrapAdmin`, now WIRED from
+# `cmd/kacho-iam/serve.go` as a startup reconciler driven by
+# KACHO_IAM_BOOTSTRAP_ROOT_EMAIL=admin@prorobotech.ru (Bug B fix). It grants
+# `system_admin@cluster_kacho_root` and enqueues the FGA tuple through the
+# transactional fga_outbox → drainer → OpenFGA, the same path every
+# AccessBinding uses (no raw INSERT that bypasses the drainer).
 #
-# Until that product fix lands, the IAM-ACB-CR-CLUSTER-OK newman case (which
-# exercises `Create cluster-scope AccessBinding as bootstrap admin`) fails 17×
-# because BOOT lacks `system_admin@cluster_kacho_root`. We grant it here via
-# direct INSERT — same as the cluster_admin_grant_backfill_integration_test.go
-# pattern. This is fixture-side (setup.sh is not product code).
-log "5b/10 SQL-seeding BOOT cluster-admin binding (RunBootstrapAdmin backdoor)"
-PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
-NS="${SETUP_NS:-kacho}"
-PG_PW=$(kubectl -n "$NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
-if [ -n "$PG_PW" ] && [ -n "$USER_BOOT" ]; then
-  CLUSTER_ACB_ID="acbboot$(date +%s | sha256sum | head -c 13)"
-  kubectl -n "$NS" exec "$PG_POD" -- env PGPASSWORD="$PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
-    INSERT INTO kacho_iam.access_bindings
-      (id, subject_type, subject_id, role_id, resource_type, resource_id, created_at, granted_by_user_id)
-    SELECT '$CLUSTER_ACB_ID', 'user', '$USER_BOOT', '$ROLE_ADMIN', 'cluster', 'cluster_kacho_root', now(), '$USER_BOOT'
+# The bootstrap user row appears only after the upsert above (step ~4); the
+# reconciler retries on a 10s interval and converges shortly after. We poll the
+# FGA tuple's effect via a cluster-scope readiness probe so the cluster newman
+# cases don't race the reconciler.
+# 5a) Deterministic bootstrap: seed system_admin@cluster via fga_outbox so the
+# authz suites do not race the ≤180s product bootstrap reconciler on a
+# resource-starved single-node kind (the fga_outbox→drainer→OpenFGA propagation
+# lag that made iam-access-binding/authz-sa-apitoken/... flaky-red). The product
+# RunBootstrapAdmin reconciler still runs and idempotently reconciles the SAME
+# tuple — this only removes the readiness race, mirroring 5c's system_viewer seed.
+SA_NS="${SETUP_NS:-kacho}"
+SA_PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+SA_PG_PW=$(kubectl -n "$SA_NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$SA_PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  kubectl -n "$SA_NS" exec "$SA_PG_POD" -- env PGPASSWORD="$SA_PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
+    SELECT 'fga.tuple.write',
+           jsonb_build_object('user','user:$USER_BOOT','relation','system_admin','object','cluster:cluster_kacho_root'),
+           now()
     WHERE NOT EXISTS (
-      SELECT 1 FROM kacho_iam.access_bindings
-       WHERE subject_id='$USER_BOOT' AND subject_type='user' AND role_id='$ROLE_ADMIN'
-         AND resource_type='cluster' AND resource_id='cluster_kacho_root' AND revoked_at IS NULL
+      SELECT 1 FROM kacho_iam.fga_outbox
+       WHERE payload->>'user'='user:$USER_BOOT'
+         AND payload->>'relation'='system_admin'
+         AND payload->>'object'='cluster:cluster_kacho_root'
     );
-  " >/dev/null 2>&1 || log "    WARN: SQL seed cluster-admin failed (idempotent or schema mismatch)"
-  log "    BOOT($USER_BOOT) → admin@cluster:cluster_kacho_root (acb=$CLUSTER_ACB_ID, SQL-seed)"
+  " >/dev/null 2>&1 || log "    WARN: system_admin seed failed (idempotent or schema mismatch)"
+  log "5a/10 BOOT($USER_BOOT) → system_admin@cluster:cluster_kacho_root (fga_outbox deterministic seed)"
 else
-  log "    WARN: skipping cluster-admin SQL-seed (PG_PW or USER_BOOT empty)"
+  log "5a/10 WARN: skipping deterministic system_admin seed (PG access or USER_BOOT empty) — falling back to reconciler wait"
+fi
+
+log "5b/10 awaiting product bootstrap reconciler (system_admin@cluster via fga_outbox)"
+if [ -n "$JWT_BOOTSTRAP" ] && [ -n "$ACCOUNT_A" ]; then
+  boot_ok=""
+  boot_iters=$(( CLUSTER_ADMIN_WAIT_SECS / 2 )); [ "$boot_iters" -lt 1 ] && boot_iters=1
+  for i in $(seq 1 "$boot_iters"); do
+    # listByResource(cluster) by the bootstrap admin returns 200 once the
+    # reconciler's system_admin@cluster tuple has propagated to OpenFGA.
+    code=$(api_status GET "/iam/v1/accessBindings:listByResource?resourceType=cluster&resourceId=cluster_kacho_root" "$JWT_BOOTSTRAP" 2>/dev/null || echo 000)
+    if [ "$code" = "200" ]; then boot_ok=1; log "    bootstrap cluster-admin ready (${i}x2s, code=200)"; break; fi
+    sleep 2
+  done
+  [ -z "$boot_ok" ] && log "    WARN: bootstrap cluster-admin not ready after ${CLUSTER_ADMIN_WAIT_SECS}s (last code=$code) — cluster cases may fail"
+else
+  log "    WARN: skipping bootstrap readiness probe (JWT_BOOTSTRAP or ACCOUNT_A empty)"
+fi
+
+# 5c) CIL0: super-admin фикстуры должен держать и system_viewer@cluster.
+# `system_viewer` (cluster-system read) НЕ выводится из `system_admin` в FGA-модели
+# (намеренно: без wildcard user:*), продуктового reconciler'а для него нет — сидим
+# fixture-side через fga_outbox (drainer применит). Нужно для internal-RPC,
+# гейтящихся read-tier system_viewer (vpc InternalNetworkService.GetNetwork → vrf_id).
+SV_NS="${SETUP_NS:-kacho}"
+SV_PG_POD="${PG_POD:-kacho-umbrella-pg-iam-0}"
+SV_PG_PW=$(kubectl -n "$SV_NS" get secret kacho-umbrella-pg-iam -o jsonpath='{.data.password}' 2>/dev/null | base64 -d || true)
+if [ -n "$SV_PG_PW" ] && [ -n "$USER_BOOT" ]; then
+  kubectl -n "$SV_NS" exec "$SV_PG_POD" -- env PGPASSWORD="$SV_PG_PW" psql -h localhost -U iam -d kacho_iam -tAc "
+    INSERT INTO kacho_iam.fga_outbox (event_type, payload, created_at)
+    SELECT 'fga.tuple.write',
+           jsonb_build_object('user','user:$USER_BOOT','relation','system_viewer','object','cluster:cluster_kacho_root'),
+           now()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM kacho_iam.fga_outbox
+       WHERE payload->>'user'='user:$USER_BOOT'
+         AND payload->>'relation'='system_viewer'
+         AND payload->>'object'='cluster:cluster_kacho_root'
+    );
+  " >/dev/null 2>&1 || log "    WARN: system_viewer seed failed (idempotent or schema mismatch)"
+  log "    BOOT($USER_BOOT) → system_viewer@cluster:cluster_kacho_root (fga_outbox seed)"
+else
+  log "    WARN: skipping system_viewer seed (PG access or USER_BOOT empty)"
 fi
 
 # 6) INV invite-flow (KAC-125): AAA invites INV into account-A as editor on project-A1.
@@ -589,6 +677,7 @@ cat > "$OUT_DIR/authz-fixtures.json" <<EOF
   "jwtNoBindings": "$JWT_NO_BINDINGS",
   "jwtProjectAdminA1": "$JWT_PA1",
   "jwtAccountAdminA": "$JWT_AAA",
+  "jwtAccountAdminAStepUp": "$JWT_AAA_STEPUP",
   "jwtAccountAdminB": "$JWT_AAB",
   "jwtInvitee": "$JWT_INV",
   "accountAId": "$ACCOUNT_A",

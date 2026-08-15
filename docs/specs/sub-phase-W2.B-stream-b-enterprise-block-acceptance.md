@@ -200,7 +200,7 @@ Per-feature PR обязан содержать **в указанном поря�
     - `iam-gdpr.py` (B.7; existing extended)
     - `iam-caep.py` (B.8; NEW)
     - `iam-audit.py` (B.9; NEW — read-side assertion against VL)
-    - B.10 — newman not appropriate (mTLS infra); covered by `make e2e` smoke instead
+    - B.10 — newman not appropriate (mTLS infra); covered by `make -C deploy e2e-test` smoke instead
 5. **Each feature**: minimum 2 positive + 2 negative + 1 edge GWT scenario (per §6.X).
 6. **No TODO/FIXME/skip in diff** (workspace §11/§13).
 7. **No yandex** (§2).
@@ -373,7 +373,7 @@ Format per feature:
 - [ ] No TODO/FIXME in diff (501-guard is **boundary** not TODO — see §1 Запрет #11)
 - [ ] vault notes updated (5 entries listed above)
 - [ ] PR merged
-- [ ] `make e2e` smoke: ACS endpoint reachable and returns 501 on kind
+- [ ] `make -C deploy e2e-test` smoke: ACS endpoint reachable and returns 501 on kind
 - [ ] **W3.1 #40 cross-reference**: PR description explicitly links to `sub-phase-W3.1-remediation-chunk5-federation-internals-acceptance.md` §40 (SAML verify) as the W3.1 fix that turns 501 → 302
 
 ---
@@ -1584,7 +1584,7 @@ Format per feature:
 | **W2.B-B10-IT-01** | `Test_SPIFFE_WorkloadAPIClient_FetchSVID` | unit (with mock workload API) | B10-01 |
 | **W2.B-B10-IT-02** | `Test_SPIFFE_TLSConfig_FromSVID` | unit | B10-01 |
 | **W2.B-B10-IT-03** | `Test_SPIFFE_RotationReloadsTLS` | unit | B10-05 |
-| **W2.B-B10-E2E-01** | `make e2e-mtls` on kind: gateway→iam Check succeeds, unauthorized pod rejected | e2e (manual smoke) | B10-02..04 |
+| **W2.B-B10-E2E-01** | цели `e2e-mtls` не существует; ближайшее посаженное — `make -C deploy assert-production-posture` on kind: gateway→iam Check succeeds, unauthorized pod rejected | e2e (manual smoke) | B10-02..04 |
 | **No newman** | mTLS infra-level — newman over plain HTTP cannot exercise mTLS handshake | — | — |
 
 #### Vault entries to update
@@ -1676,7 +1676,7 @@ Within each group, sequential per author-bandwidth; between groups, parallel.
 - [ ] vector.dev sidecar shipping to VL on kind cluster (verify via `curl http://vlogs:9428/select/logsql/query?query=event_type:iam.*`)
 - [ ] kacho-iam pod serves internal listener with SPIFFE SVID (kind cluster with SPIRE up, B.10 flag enabled)
 - [ ] Cilium AuthorizationPolicy enforced (unauthorized pod cannot connect to iam:9091)
-- [ ] `make e2e` smoke on dev-kind passes:
+- [ ] `make -C deploy e2e-test` smoke on dev-kind passes:
   - SAML ACS endpoint returns 501 (scaffolding scope; W3.1 #40 flips to 302)
   - SCIM POST /Users provisions user
   - JIT activate → grant → expire flow
@@ -1689,7 +1689,7 @@ Within each group, sequential per author-bandwidth; between groups, parallel.
   - mTLS internal listener (gateway → iam Check works)
 - [ ] kacho-iam CI green (unit + integration + race) across all 10 feature branches
 - [ ] kacho-proto: `buf lint`/`buf breaking` zero issues; gen/ regenerated and committed
-- [ ] kacho-deploy: `helm template` valid; `make dev-up` succeeds with all B.* features wired
+- [ ] kacho-deploy: `helm template` valid; `make -C deploy dev-up` succeeds with all B.* features wired
 - [ ] **Запрет #5 verification**: `git log --all -- 'project/kacho-iam/internal/migrations/000{1..25}*.sql'` shows NO new commits in W2.B PR series (only NEW migration files added per §3 table)
 - [ ] **Запрет #11 verification**: `! git diff main -- '*.go' '*.sql' '*.proto' | grep -E '(TODO|FIXME|XXX)\(.*KAC'` returns empty across all 10 PRs (B.1 501-guard is boundary, not TODO — explicit DOCSTRING marker `// W3.1 #40: replace 501 with verify-callback`, which is documentation, not TODO action)
 - [ ] **Newman closing**: post-W2.B baseline ≥ 1300/1300 GREEN (W1.6 closed 87, W2.B adds ~30 cases per features = ~270 new cases all GREEN); W2.D adds remainder

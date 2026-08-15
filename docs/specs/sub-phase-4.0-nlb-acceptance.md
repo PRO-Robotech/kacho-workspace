@@ -1,5 +1,21 @@
 # Sub-phase 4.0 — kacho-nlb (L4 Network Load Balancer control-plane, production rewrite) — Acceptance
 
+> [!warning] Часть VIP-контракта этого документа СУПЕРСЕЖЕНА (VIP переехал Listener → LoadBalancer)
+> Документ описывает исходную модель `kacho-nlb`, в которой **VIP был свойством Listener'а**
+> (`listeners.address_id`/`allocated_address`/`subnet_id`/`ip_version`, аллокация в `Listener.Create`,
+> partial-UNIQUE `(region_id, allocated_address, port, protocol)`, освобождение в `Listener.Delete`).
+> Эта модель **больше не действует**: VIP консолидирован на **NetworkLoadBalancer** — один
+> `vpc.Address` на семейство, источник задаётся per-family на `LoadBalancer.Create`
+> (`v4Source`/`v6Source`), уникальность — `(region_id, address_v4/_v6)` на `load_balancers`,
+> освобождение — на `LoadBalancer.Delete`. Listener адресных полей не несёт вовсе.
+>
+> **Действующий контракт:** `docs/plans/kacho-redesign-2026/module-nlb.md` §«VIP — свойство
+> LoadBalancer'а» и `sub-phase-NLB-1b-loadbalancer-listener-core-acceptance.md` §F5.
+> Сценарии этого документа, которые ниже помечены **[СУПЕРСЕЖЕН]**, сохранены как исторический
+> record принятой под-фазы 4.0 (не редактируются задним числом) — но **проверяемым контрактом не
+> являются**: перепривязанные версии живут в NLB-1b §F5. Остальная часть документа (Operation-LRO,
+> FGA, outbox, targets, TargetGroup) действует.
+>
 > **Status**: DRAFT v1 — awaiting `acceptance-reviewer`
 > **Date**: 2026-05-23
 > **YouTrack**: KAC-NLB (epic to be created; ~21 subtasks per design §8.2)
@@ -22,7 +38,7 @@
 - **outbox + LISTEN/NOTIFY** для resource-lifecycle events (D-13 stream к `kacho-iam` для tuple-sync);
 - **DB-уровень FK / CHECK / UNIQUE / EXCLUDE / atomic-CAS** для within-service инвариантов (запрет #10);
 - **3-char-prefix + 17 base32** id-формат (`kacho-corelib/ids`): `nlb` / `lst` / `tgr`, reserved `glb`;
-- **VIP allocation** — auto через `vpc.InternalAddressService` ИЛИ BYO существующий `vpc.Address` (cross-service, sync precheck + `SetReference` atomic CAS);
+- **VIP allocation** — auto через `vpc.InternalAddressService` ИЛИ BYO существующий `vpc.Address` (cross-service, sync precheck + `SetReference` atomic CAS). **[СУПЕРСЕЖЕНО в части якоря: аллокация висит на `LoadBalancer.Create`, per-family `v4Source`/`v6Source`; Listener адреса не аллоцирует]**;
 - **4-way Target identity oneof** — `instance_id` | `nic_id` | `ip_ref` (in-cloud raw IP) | `external_ip` (out-of-cloud);
 - **same-region constraint** — LB и каждая прикреплённая TG обязаны быть в одном `region_id`;
 - **FK RESTRICT** на каждом ребре — удаление снизу вверх (Target → AttachedTG → Listener → TargetGroup → LoadBalancer);
@@ -581,7 +597,7 @@ deletion_protection = false
 
 ## 4. Listener scenarios (LST-*)
 
-### GWT-LST-001 — Create Listener EXTERNAL (auto VIP allocation)
+### GWT-LST-001 — Create Listener EXTERNAL (auto VIP allocation) **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-28]**
 
 **Given**
 - LB `<nlb-id>` EXTERNAL, region `ru-central1`, project `<prj-id>`; subject `editor` on LB.
@@ -606,7 +622,7 @@ proxy_protocol_v2 = false
 - Outbox: `nlb_listener:<lst-id> CREATED` + `nlb_load_balancer:<nlb-id> UPDATED`.
 - FGA tuple D-11 sync write before commit: `nlb_listener:<lst-id>#owner@<subject>` + via D-13 `nlb_listener:<lst-id>#load_balancer@nlb_load_balancer:<nlb-id>`.
 
-### GWT-LST-002 — Create Listener BYO address (sync CAS SetReference)
+### GWT-LST-002 — Create Listener BYO address (sync CAS SetReference) **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-27]**
 
 **Given**
 - LB EXTERNAL; subject editor.
@@ -621,7 +637,7 @@ proxy_protocol_v2 = false
 
 Outbox + FGA as LST-001.
 
-### GWT-LST-003 — Create Listener BYO: address already used → FAILED_PRECONDITION
+### GWT-LST-003 — Create Listener BYO: address already used → FAILED_PRECONDITION **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-30]**
 
 **Given** Address `<addr-id>` `used_by="nlb_listener:lst000...other"` (другая listener).
 
@@ -629,7 +645,7 @@ Outbox + FGA as LST-001.
 
 **Then** `FAILED_PRECONDITION`; verbatim `"address <addr-id> is already in use by nlb_listener:lst000...other"`. Listener не создана.
 
-### GWT-LST-004 — Create Listener BYO: ip_version mismatch → INVALID_ARGUMENT
+### GWT-LST-004 — Create Listener BYO: ip_version mismatch → INVALID_ARGUMENT **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-32]**
 
 **Given** Address `<addr-id>` `ip_version=IPV6`; Create с `ip_version=IPV4`.
 
@@ -637,7 +653,7 @@ Outbox + FGA as LST-001.
 
 **Then** `INVALID_ARGUMENT`; `"address ip_version IPV6 does not match listener ip_version IPV4"`.
 
-### GWT-LST-005 — Create Listener BYO: cross-project → INVALID_ARGUMENT
+### GWT-LST-005 — Create Listener BYO: cross-project → INVALID_ARGUMENT **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-32]**
 
 **Given** Address `<addr-id>` в `project=<prj-other>`; LB в `project=<prj-id>`.
 
@@ -645,7 +661,7 @@ Outbox + FGA as LST-001.
 
 **Then** `INVALID_ARGUMENT`; `"address project_id does not match listener load_balancer project_id"`.
 
-### GWT-LST-006 — Create Listener INTERNAL: requires subnet_id
+### GWT-LST-006 — Create Listener INTERNAL: requires subnet_id **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-28]**
 
 **Given** LB type=INTERNAL.
 
@@ -653,7 +669,7 @@ Outbox + FGA as LST-001.
 
 **Then** `INVALID_ARGUMENT`; `"subnet_id is required for INTERNAL load balancer"`.
 
-### GWT-LST-007 — Create Listener INTERNAL: subnet_id valid + auto-alloc internal IP
+### GWT-LST-007 — Create Listener INTERNAL: subnet_id valid + auto-alloc internal IP **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-28]**
 
 **Given** LB INTERNAL; subnet `<subnet-id>` в `vpc.Network` того же project + region; subject editor.
 
@@ -681,7 +697,7 @@ Outbox + FGA as LST-001.
 
 **Then** `ALREADY_EXISTS`; verbatim `"listener with port 80 and protocol TCP already exists on this load balancer"`. SQL UNIQUE `(load_balancer_id, port, protocol)` enforces.
 
-### GWT-LST-011 — Create Listener: duplicate (region, vip, port, protocol) across LBs → ALREADY_EXISTS
+### GWT-LST-011 — Create Listener: duplicate (region, vip, port, protocol) across LBs → ALREADY_EXISTS **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-30]**
 
 **Given** Listener `lst-A` на LB-A с `allocated_address=203.0.113.42, port=80, protocol=TCP`. BYO same `address_id`.
 
@@ -705,7 +721,7 @@ Outbox + FGA as LST-001.
 
 **Then** OK; LB.status remains `STOPPED` (trigger preserves explicit transitions). Outbox events emitted.
 
-### GWT-LST-014 — Create Listener: VIP alloc fails → operation error + compensation
+### GWT-LST-014 — Create Listener: VIP alloc fails → operation error + compensation **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-28/NLB-1-55]**
 
 **Given** AddressPool exhausted; subject editor.
 
@@ -713,7 +729,7 @@ Outbox + FGA as LST-001.
 
 **Then** Operation worker: `vpc.InternalAddressService.AllocateExternalIP` returns `RESOURCE_EXHAUSTED`. Worker `ops.MarkDone(error)`. No listener row in БД. **No** outbox events. Subject sees `done=true` with `error.code=RESOURCE_EXHAUSTED`.
 
-### GWT-LST-015 — Create Listener: INSERT fails after VIP allocated → defer FreeIP compensation
+### GWT-LST-015 — Create Listener: INSERT fails after VIP allocated → defer FreeIP compensation **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-55]**
 
 **Given** VIP allocated (sync) successfully; subsequent INSERT fails (e.g. CHECK constraint on health_check schema validation if added to default_target_group_id refs).
 
@@ -751,7 +767,7 @@ Outbox + FGA as LST-001.
 
 **Then** `INVALID_ARGUMENT`; `"load_balancer_id is immutable after Listener.Create"`.
 
-### GWT-LST-020 — Update Listener: immutable protocol/port/ip_version/address_id → INVALID_ARGUMENT
+### GWT-LST-020 — Update Listener: immutable protocol/port/ip_version/address_id → INVALID_ARGUMENT **[ЧАСТИЧНО СУПЕРСЕЖЕН — `ip_version`/`address_id` у Listener'а больше нет; действует только `protocol`/`port` → NLB-1-24]**
 
 **Same as LST-019** для каждого immutable field. Each tested individually (4 sub-cases).
 
@@ -763,7 +779,7 @@ Outbox + FGA as LST-001.
 
 **Then** `FAILED_PRECONDITION`; `"default target group region <ru-central2> does not match listener region <ru-central1>"`.
 
-### GWT-LST-022 — Delete Listener (auto VIP-alloc): free VIP back to pool
+### GWT-LST-022 — Delete Listener (auto VIP-alloc): free VIP back to pool **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-55]**
 
 **Given** Listener `<lst-id>` created via auto-alloc (LST-001); `allocated_address=203.0.113.42`, `address_id=<addr-id>`.
 
@@ -771,7 +787,7 @@ Outbox + FGA as LST-001.
 
 **Then** OK; worker: (1) UPDATE listener status='DELETING' (outbox UPDATED); (2) call `vpc.InternalAddressService.FreeIP(<addr-id>)` — returns IP к pool; (3) DELETE listener row; outbox `DELETED` + `nlb_load_balancer:<nlb-id> UPDATED`. trigger `listeners_lb_status_recompute` may transition LB `ACTIVE → INACTIVE`.
 
-### GWT-LST-023 — Delete Listener (BYO address): clear used_by, do NOT free
+### GWT-LST-023 — Delete Listener (BYO address): clear used_by, do NOT free **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-55]**
 
 **Given** Listener created via BYO (`address_id=<addr-id>` from external Address).
 
@@ -779,7 +795,7 @@ Outbox + FGA as LST-001.
 
 **Then** OK; worker calls `vpc.InternalAddressService.SetReference(<addr-id>, used_by="")` — clears reference; Address itself remains in `vpc` (BYO лежит к tenant'у — not nlb's to free). Listener row DELETE'd.
 
-### GWT-LST-024 — Delete Listener: vpc.FreeIP fails → outbox FAILED + retry job
+### GWT-LST-024 — Delete Listener: vpc.FreeIP fails → outbox FAILED + retry job **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-55]**
 
 **Given** Auto-alloc listener; `vpc` unavailable when Delete worker runs.
 
@@ -1575,9 +1591,11 @@ Integration test verifies one of these branches occurs deterministically (no tor
 
 (See LST-010.)
 
-### GWT-DB-007 — UNIQUE `(region_id, allocated_address, port, protocol) WHERE status!='DELETING'` on listeners
+### GWT-DB-007 — UNIQUE `(region_id, allocated_address, port, protocol) WHERE status!='DELETING'` on listeners **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-30]**
 
 (See LST-011.)
+
+> Индекс **снят из схемы**: `listeners.allocated_address` ни один прод-путь не пишет, поэтому partial-предикат `allocated_address <> ''` не матчил ни одной строки и инвариант не энфорсился. Действующая VIP-уникальность — `load_balancers_region_v4_uniq`/`_v6_uniq` на `load_balancers` (+ CAS single-VIP-per-LB).
 
 ### GWT-DB-008 — Partial UNIQUE NULLS NOT DISTINCT for 4-way target identity
 
@@ -1671,7 +1689,7 @@ Integration test verifies one of these branches occurs deterministically (no tor
 
 **Then** Worker catch-up: SELECT `nlb_outbox WHERE sequence_no > last_event_id ORDER BY sequence_no LIMIT 100`. Replay batch; transition to NOTIFY-loop.
 
-### GWT-FAIL-004 — vpc transient unavailability during Listener.Create
+### GWT-FAIL-004 — vpc transient unavailability during Listener.Create **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-32]**
 
 **Given** Worker mid-VIP-alloc; `vpc` returns `UNAVAILABLE`.
 
@@ -1679,7 +1697,7 @@ Integration test verifies one of these branches occurs deterministically (no tor
 
 **Then** If still UNAVAILABLE → `ops.MarkDone(error UNAVAILABLE)`. No listener row; no VIP held (no successful alloc).
 
-### GWT-FAIL-005 — vpc returns success but worker crashes before INSERT → orphan VIP
+### GWT-FAIL-005 — vpc returns success but worker crashes before INSERT → orphan VIP **[СУПЕРСЕЖЕН — VIP на LoadBalancer; перепривязан → NLB-1-55]**
 
 **Given** VIP allocated; worker pod OOM-killed before INSERT listener row.
 
@@ -1886,7 +1904,7 @@ This document is **APPROVED** by `acceptance-reviewer` before implementation beg
 - [ ] **D-6**: All 30 permissions in `loadbalancer.*` catalog registered in `kacho-iam/internal/authzmap/permission_catalog.go`; drift-test validates uniqueness + regex + map coverage.
 - [ ] **D-7**: 5 system roles seeded in `kacho-iam` migrations: `roles/loadbalancer.{admin,editor,viewer,operator,targetManager}`.
 - [ ] **D-8**: api-gateway routes `/nlb/v1/*` registered (NLB/Listener/TG/OperationService public; opsproxy `nlb` prefix). `InternalResourceLifecycleService` exposed only on cluster-internal mux.
-- [ ] **D-9**: Helm deployable end-to-end via `kacho-deploy make dev-up` from a clean cluster; init-container `kacho-migrator up` applies 0001_initial; main container `kacho-loadbalancer serve` starts < NFR-10.
+- [ ] **D-9**: Helm deployable end-to-end via `kacho-deploy make -C deploy dev-up` from a clean cluster; init-container `kacho-migrator up` applies 0001_initial; main container `kacho-loadbalancer serve` starts < NFR-10.
 - [ ] **D-10**: D-13 stream subscriber wired in `kacho-iam` (lifecycle-subscriber worker); FGA tuple-sync verified end-to-end (NLB.Create → kacho-iam consumes within ≤5s → openfga.Write succeeds).
 - [ ] **D-11**: Vault notes (~28) created/updated: `KAC/KAC-NLB.md` (epic trail) + `resources/nlb-load-balancer.md` + `resources/nlb-listener.md` + `resources/nlb-target-group.md` + `resources/nlb-target.md` + `rpc/nlb-network-load-balancer-service.md` + `rpc/nlb-listener-service.md` + `rpc/nlb-target-group-service.md` + `rpc/nlb-operation-service.md` + `edges/nlb-to-vpc-address.md` + `edges/nlb-to-vpc-subnet.md` + `edges/nlb-to-vpc-nic.md` + `edges/nlb-to-compute-instance.md` + `edges/nlb-to-compute-region.md` + `edges/nlb-to-iam-project.md` + `edges/nlb-to-iam-check.md` + `edges/iam-to-nlb-lifecycle.md` + `packages/nlb-*` (~12 internal package notes).
 - [ ] **D-12**: `docs/architecture/12-future-cross-region.md` (GlobalLoadBalancer reservation doc) created in `kacho-nlb/docs/architecture/`; proto reserves field-numbers 30-39 / 10-19; `ids.PrefixGlobalLoadBalancer="glb"` defined.
@@ -1905,8 +1923,11 @@ This document is **APPROVED** by `acceptance-reviewer` before implementation beg
 
 Test naming convention: `Test<Resource>_<ScenarioID>_<ShortDescription>`. Например:
 - `TestLoadBalancer_GWT_NLB_009_DuplicateNameAlreadyExists`
-- `TestListener_GWT_LST_011_VIPRegionUniqueAcrossLBs_Race`
 - `TestTarget_GWT_TGT_011_RemoveTargetsPhaseAImmediate`
+
+VIP-race для listener'а (`TestListener_GWT_LST_011_VIPRegionUniqueAcrossLBs_Race`) **снят** вместе с
+listener-VIP-моделью: гонка за VIP разыгрывается на `load_balancers` и покрыта
+`TestLB_AttachVIP_Concurrent*` (per-region double-claim, single-VIP-per-LB CAS, cross-region scope).
 
 Acceptance — **источник истины** для тестов. Изменения контракта **сначала** в этом документе → re-review → APPROVED → потом в коде.
 

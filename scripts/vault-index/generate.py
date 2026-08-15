@@ -1,0 +1,225 @@
+#!/usr/bin/env python3
+"""Собирает машинную часть obsidian/kacho/INDEX.md из самого дерева хранилища.
+
+Зачем генератор, а не рукописный список. Рукописный указатель расходится с
+деревом молча и ровно в одну сторону: файл заводят, строку в указатель добавить
+забывают. Замер 2026-08-05 на рукописной редакции: из 295 записок четырёх
+фактических категорий в указателе не упомянуто 112 — 38 % корпуса. При этом
+обратная сторона (ссылки указателя резолвятся) была чистой, поэтому проверка
+только одной стороны показывала «указатель в порядке».
+
+Генератор снимает класс by construction: перечень выводится из дерева, а
+`--check` роняет сборку, когда файл отстал. Рукописная часть указателя — всё,
+что вне маркеров, — генератором не трогается.
+
+Единица счёта — файл `*.md`, отслеживаемый git ЛИБО ещё не добавленный, но не
+игнорируемый (`git ls-files --cached --others --exclude-standard`). Причина: с
+диска читаются и посторонние файлы, из индекса — не читается записка ровно в тот
+день, когда её пишут.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+
+BEGIN = "<!-- GENERATED:vault-index BEGIN — правится генератором, руками не трогать -->"
+END = "<!-- GENERATED:vault-index END -->"
+
+VAULT = "obsidian/kacho"
+
+# Категории машинной части: каталог → (заголовок, поле группировки, подпись группы).
+CATEGORIES = [
+    ("resources", "Ресурсы", "domain", "домен"),
+    ("rpc", "gRPC-сервисы", "domain", "домен"),
+    ("edges", "Рёбра рантайма", "caller_repo", "вызывающий"),
+    ("packages", "Пакеты", "repo", "домен"),
+    ("KAC", "Журнал работ (KAC)", None, None),
+    ("lessons", "Уроки — классы дефектов", None, None),
+    ("legacy", "Записки-переходы прежних репозиториев", None, None),
+    ("runbooks", "Операционные процедуры", None, None),
+    ("docs", "Руководства (эпоха KAC-127)", None, None),
+]
+
+
+def workspace_root() -> str:
+    here = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(here, "..", ".."))
+
+
+def tracked_notes(root: str) -> list[str]:
+    out = subprocess.run(
+        ["git", "-C", root, "ls-files", "--cached", "--others", "--exclude-standard", f"{VAULT}/*.md"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    return sorted(set(out))
+
+
+def frontmatter(path: str) -> dict[str, str]:
+    """Плоский разбор скаляров frontmatter. Списки и вложенность не нужны —
+    генератору хватает title/category/status/domain, и собственный разбор
+    избавляет от зависимости, которой в среде может не оказаться."""
+    try:
+        text = open(path, encoding="utf-8").read()
+    except OSError:
+        return {}
+    if not text.startswith("---\n"):
+        return {}
+    end = text.find("\n---", 3)
+    if end < 0:
+        return {}
+    fm: dict[str, str] = {}
+    for line in text[4:end].splitlines():
+        m = re.match(r"^([a-z_]+):\s*(.*)$", line)
+        if not m:
+            continue
+        value = m.group(2).strip().strip('"')
+        if value:
+            fm[m.group(1)] = value
+    if "title" not in fm:
+        h1 = re.search(r"^#\s+(.+)$", text[end + 4 :], re.M)
+        if h1:
+            fm["title"] = h1.group(1).strip()
+    return fm
+
+
+# Как читать `status`: три ведра, а не пятнадцать значений. Словарь выведен из
+# того, что в корпусе уже используется, — новых синонимов генератор не вводит.
+LIVE = {"stable", "active", "done", "implemented"}
+HISTORY = {"deprecated", "legacy", "superseded", "removed", "wontfix"}
+PLANNED = {"planned", "experimental", "in-progress", "test", "to-do", "reference"}
+
+
+def bucket(status: str) -> str:
+    if status in LIVE:
+        return "живо"
+    if status in HISTORY:
+        return "история"
+    if status in PLANNED:
+        return "в работе"
+    return "—"
+
+
+def render(root: str) -> str:
+    notes = tracked_notes(root)
+    by_dir: dict[str, list[tuple[str, dict[str, str]]]] = {}
+    for rel in notes:
+        parts = rel.split("/")
+        sub = parts[2] if len(parts) > 3 else "(корень)"
+        by_dir.setdefault(sub, []).append((rel, frontmatter(os.path.join(root, rel))))
+
+    lines: list[str] = [BEGIN, ""]
+    lines.append(
+        "Ниже — **полный** перечень записок, собранный из дерева хранилища. "
+        "Предикат счёта — `git ls-files --cached --others --exclude-standard "
+        "'obsidian/kacho/*.md'`; пересобрать — `./scripts/vault-index/generate.py`, "
+        "проверить свежесть — `--check`."
+    )
+    lines.append("")
+
+    total = 0
+    summary = []
+    for sub, heading, group_key, group_label in CATEGORIES:
+        items = sorted(by_dir.get(sub, []), key=lambda x: x[0])
+        items = [(r, f) for r, f in items if not r.endswith("/README.md")]
+        total += len(items)
+        summary.append((heading, sub, len(items)))
+    root_items = sorted(by_dir.get("(корень)", []), key=lambda x: x[0])
+    total += len(root_items)
+
+    lines.append("| Категория | Каталог | Записок |")
+    lines.append("|---|---|---:|")
+    for heading, sub, n in summary:
+        lines.append(f"| {heading} | `{sub}/` | {n} |")
+    lines.append(f"| Точки входа и полотно | `(корень)` | {len(root_items)} |")
+    lines.append(f"| **Всего** | | **{total}** |")
+    lines.append("")
+
+    for sub, heading, group_key, group_label in CATEGORIES:
+        items = [(r, f) for r, f in sorted(by_dir.get(sub, []), key=lambda x: x[0]) if not r.endswith("/README.md")]
+        if not items:
+            continue
+        lines.append(f"### {heading} — `{sub}/` ({len(items)})")
+        lines.append("")
+        if group_key:
+            groups: dict[str, list[tuple[str, dict[str, str]]]] = {}
+            for rel, fm in items:
+                base = os.path.basename(rel)
+                key = "витрина категории" if base.startswith(("all-", "_")) else fm.get(group_key, "(не указан)")
+                groups.setdefault(key, []).append((rel, fm))
+            for gname in sorted(groups):
+                lines.append(f"**{group_label}: {gname}**")
+                lines.append("")
+                lines.append("| Записка | Состояние |")
+                lines.append("|---|---|")
+                for rel, fm in groups[gname]:
+                    link = rel[len(VAULT) + 1 : -3]
+                    title = fm.get("title", os.path.basename(link)).replace("|", "\\|")
+                    st = fm.get("status", "")
+                    lines.append(f"| [[{link}\\|{title}]] | {bucket(st)}{f' ({st})' if st else ''} |")
+                lines.append("")
+        else:
+            lines.append("| Записка | Состояние |")
+            lines.append("|---|---|")
+            for rel, fm in items:
+                link = rel[len(VAULT) + 1 : -3]
+                title = fm.get("title", os.path.basename(link)).replace("|", "\\|")
+                st = fm.get("status", "")
+                lines.append(f"| [[{link}\\|{title}]] | {bucket(st)}{f' ({st})' if st else ''} |")
+            lines.append("")
+
+    if root_items:
+        lines.append(f"### Точки входа и полотно — корень хранилища ({len(root_items)})")
+        lines.append("")
+        lines.append("| Файл | Состояние |")
+        lines.append("|---|---|")
+        for rel, fm in root_items:
+            link = rel[len(VAULT) + 1 : -3]
+            title = fm.get("title", link).replace("|", "\\|")
+            st = fm.get("status", "")
+            lines.append(f"| [[{link}\\|{title}]] | {bucket(st)}{f' ({st})' if st else ''} |")
+        lines.append("")
+
+    lines.append(END)
+    return "\n".join(lines)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="не писать, а упасть, если указатель отстал от дерева")
+    args = ap.parse_args()
+
+    # VAULT_GATE_ROOT — тем же способом, что у проверок набора: инъекция гоняет
+    # генератор по временному дереву и не трогает рабочее.
+    root = os.environ.get("VAULT_GATE_ROOT") or workspace_root()
+    index_path = os.path.join(root, VAULT, "INDEX.md")
+    text = open(index_path, encoding="utf-8").read()
+
+    if BEGIN not in text or END not in text:
+        print(f"[VOID] в {VAULT}/INDEX.md нет маркеров генератора — вставлять машинную часть некуда", file=sys.stderr)
+        return 2
+
+    head, rest = text.split(BEGIN, 1)
+    _, tail = rest.split(END, 1)
+    new = head + render(root) + tail
+
+    if args.check:
+        if new != text:
+            print("[FAIL] INDEX.md отстал от дерева — пересобрать: ./scripts/vault-index/generate.py", file=sys.stderr)
+            return 1
+        n = len(tracked_notes(root))
+        print(f"[PASS] INDEX.md совпадает с деревом — рассмотрено записок {n}")
+        return 0
+
+    open(index_path, "w", encoding="utf-8").write(new)
+    print(f"INDEX.md пересобран; записок в дереве {len(tracked_notes(root))}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

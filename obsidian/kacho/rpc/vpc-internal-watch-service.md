@@ -1,15 +1,16 @@
 ---
-title: InternalWatchService
+title: InternalWatchService (vpc — снят; у compute живёт)
 aliases:
   - InternalWatchService (vpc)
-proto_file: kacho/cloud/vpc/v1/internal_watch_service.proto
+proto_file: "нет для vpc; у compute — kacho/cloud/compute/v1/internal_watch_service.proto"
 category: rpc
 backend: kacho-vpc
 backend_port: 9091
 visibility: internal
 domain: vpc
 status: deprecated
-methods_count: 1
+verified_against: "ствол redesign/integration, сверено 2026-08-05"
+methods_count: 0
 async_methods: 0
 tags:
   - rpc
@@ -18,30 +19,39 @@ tags:
   - deprecated
 ---
 
-# InternalWatchService (vpc) — DEPRECATED
+# InternalWatchService (vpc) — снят целиком
 
-**Proto**: `kacho-proto/proto/kacho/cloud/vpc/v1/internal_watch_service.proto`
-**Backend**: `kacho-vpc:9091`
-**Public/Internal**: **cluster-internal-only**
-**Status**: **deprecated с 1.0** — Watch выкинут (см. workspace CLAUDE.md «API contract — flat resources + Operations»).
+> [!warning] У vpc не осталось ни реализации, ни контракта
+> Сверено по стволу 2026-08-05, два предиката:
+>
+> - **Контракт**: файла `proto/kacho/cloud/vpc/v1/internal_watch_service.proto` **нет**.
+>   Прежняя редакция утверждала, что «proto-файл остался для backward-compat» — на этом
+>   дереве это уже неверно: он снят вместе с реализацией.
+> - **Код**: в `services/vpc/` вне тестов нет ни одного упоминания `WatchService`;
+>   в `services/vpc/internal/handler/` обработчика watch нет.
+>
+> **Одноимённый сервис ЖИВ у другого домена**: `InternalWatchService` объявлен в
+> `proto/kacho/cloud/compute/v1/internal_watch_service.proto` (`rpc Watch` →
+> `stream Event`). Это **другой** предмет — совпадение имени, а не выживание vpc-шного.
+> Из-за этого совпадения записку и стоит держать: без неё следующий читатель, увидев
+> живой compute-watch, решит, что и vpc-шный на месте.
 
-## Methods
+## Почему Watch у vpc нет — это дизайн, а не недоделка
 
-| Method | Request | Response | Note |
-|---|---|---|---|
-| Watch | WatchRequest | stream Event | server-streaming; больше не используется |
+Kachō не выставляет Watch как способ следить за ресурсами: чтение — синхронное
+`List`/`Get`, in-flight мутация — поллинг `OperationService.Get(id)` до `done=true`
+(`api-conventions.md`: «Watch RPC не существует»). UI опрашивает список раз в 2–5 секунд.
 
-## Migration
+## Что от эпохи Watch осталось живым — и это не сервис
 
-Клиенты, использовавшие `Watch`:
-- UI → List-polling 2–5s.
-- Async-workers → `OperationService.Get(id)` для in-flight.
-- impl-controller → upstream-read on-demand + ReportNiDataplane (KAC-2).
+Таблица `kacho_vpc.vpc_outbox` и записи в неё **живы**: каждая мутация эмитит событие в
+outbox в той же writer-транзакции. Живёт и `kacho_vpc.vpc_watch_cursors`. Это транспорт
+дренажа/реконсиляции, а не поверхность API — по нему никто не «смотрит» снаружи. Не
+принимать существование этих таблиц за доказательство существования RPC: тот же класс
+вывода, из-за которого живой префикс идентификатора когда-то приняли за живой домен.
 
-`kacho-corelib/watch/` package удалён в 1.0. Proto-файл остался для backward-compat, но его регистрация в api-gateway убрана (см. [[apigw-restmux]]).
+## См. также
 
-## See also
-
-[[../packages/corelib-operations]] [[../rpc/operation-service]]
+[[operation-service]] · [[../packages/corelib-operations]] · [[compute-instance-service]]
 
 #rpc #kacho-vpc #internal #deprecated

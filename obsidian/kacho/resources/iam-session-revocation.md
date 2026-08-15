@@ -9,7 +9,7 @@ domain: iam
 id_prefix: (token_jti)
 owner_table: kacho_iam.session_revocations
 owner_db: kacho_iam
-folder_level: false
+project_level: false
 status: planned
 related_rpc: []
 related_packages:
@@ -22,6 +22,7 @@ tags:
   - kacho-iam
   - iam
   - internal
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
 ---
 
 # SessionRevocation

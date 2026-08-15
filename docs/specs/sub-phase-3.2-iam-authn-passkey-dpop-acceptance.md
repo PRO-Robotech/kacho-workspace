@@ -1494,7 +1494,7 @@ RFC 6749 §10.4 + OAuth 2.1 §6.1:
 - [ ] `eslint` + TypeScript `tsc --strict` проходят на kacho-ui новых компонентах.
 - [ ] OWASP ZAP baseline scan на `https://app.kacho.cloud` dev стенде — 0 High/Critical findings (Phase 12 — full pentest; Phase 2 — automated scan only).
 
-### 7.3 Smoke checklist на dev стенд (kacho-deploy `make dev-up` clean baseline)
+### 7.3 Smoke checklist на dev стенд (kacho-deploy `make -C deploy dev-up` clean baseline)
 
 - [ ] User signup через kacho-ui `https://app.kacho.cloud/auth/registration` с Passkey → succeeds (verified visually + browser console clean).
 - [ ] User signin через Conditional UI autofill → JWT issued с `acr=2, cnf.jkt=<thumbprint>, ext_claims.kacho_active_account=acc_<id>`.

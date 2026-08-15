@@ -1,28 +1,50 @@
 ---
 title: proto-access
-category: package
+category: packages
 repo: kacho-proto
+path: proto/kacho/cloud/access
 layer: proto
+status: legacy
 tags:
   - proto
   - access
   - iam
+  - legacy
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# proto/access
+# proto/kacho/cloud/access — остаточный общий тип привязки
 
-**Path**: `kacho-proto/proto/kacho/cloud/access/access.proto`
-**Package**: `kacho.cloud.access`
-**Go import**: `github.com/PRO-Robotech/kacho-proto/gen/go/kacho/cloud/access`
+**Каталог**: `proto/kacho/cloud/access/access.proto`
+**Пакет контракта**: `kacho.cloud.access`
+**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/access`
+**Импортируют** (`go list` на `96b2879a`): **ровно один** сгенерённый пакет —
+`compute/v1`; в контрактах файл импортируется **одним** — сервисом машин.
 
-Shared types для IAM-binding messages (`AccessBinding`, `Subject`, `RoleId`). Используются протоколами разных доменов, когда добавляется IAM-инвокация (`SetAccessBindings`/`ListAccessBindings`).
+Сообщения `Subject{id,type}` и `AccessBinding{role_id,subject}`.
 
-## Status
+## Почему статус «остаточный», а не «скелет на будущее»
 
-Скелет; реальная IAM-логика появится в `kacho-iam` (вне scope). Сейчас файл нужен только для compile-completeness тех файлов, которые могут добавлять `.access`-rpc'ы (например, `Folder.SetAccessBindings`).
+Прежняя редакция объявляла файл скелетом, у которого «реальная логика появится в
+iam, вне области». Область с тех пор закрыта: домен прав живёт в `iam/v1` со
+своими собственными `AccessBinding`, `Role`, `ResourceRef` и закрытым словарём типов
+объектов. То есть предмет реализован — **в другом месте и другой формы**, а этот
+файл остался единственным потребителем-приложением у одного домена.
 
-## See also
+Практическое следствие для того, кто сюда попал: **не начинайте новую работу с прав
+отсюда**. Действующая модель — `iam/v1` (`access_binding.proto`,
+`authorize_service.proto`, `fga_model.fga`).
 
-[[../README#blocked-iam|blocked:kacho-iam labels в GitHub Issues]]
+## Что здесь стоит поправить (замечено при сверке, не правится этой запиской)
 
-#proto #access #iam
+Комментарии полей описывают перечень видов субъекта и специальные группы вроде
+«все аутентифицированные»; часть формулировок унаследована и ссылается на
+несуществующие разделы документации. Отдельно стоит помнить: отношение, выполнимое
+подстановочным субъектом, **не сужает ничего** и годится только для глобального
+справочника (`security.md` §«Отношение, выполнимое подстановочным знаком»).
+
+## См. также
+
+[[proto-root]] [[iam-domain]] [[corelib-authz]]
+
+#proto #access #iam #legacy

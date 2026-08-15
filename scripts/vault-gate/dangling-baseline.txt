@@ -1,0 +1,239 @@
+# Основание храповика проверки check-02: перечень висячих wikilink-целей и число
+# ссылок на каждую. Перечень, а не одно число: суммарное сходится случайно —
+# завели одну висячую ссылку, починили другую, итог тот же и гейт зелен.
+#
+# Что это на самом деле. Висячая ссылка бывает двух родов, и путать их нельзя:
+# опечатка в имени (чинится правкой ссылки) и НЕНАПИСАННАЯ записка (чинится
+# только тем, что её напишут). Второй род здесь преобладает, поэтому список —
+# это перечень ненаписанного: записки пакетов и рёбер снятой эпохи
+# производственного IAM, уроки, на которые ссылаются по имени, и номера KAC без
+# trail. Опускать число, переписывая ссылки в простой текст, — запрещено: так
+# исчезает единственный след того, что предмет кто-то считал описанным.
+#
+# Замер 2026-08-09: 213 целей, 335 ссылок (было 214/336 — закрыт урок
+# `known-failing-declaration-outlives-the-fix`: записку написали, а не ссылку
+# переименовали; имя выбрано ровно тем, которым на класс уже ссылались, поэтому
+# прежняя ссылка ожила сама).
+#
+# ВНИМАНИЕ на строку выше: до 2026-08-09 здесь стояло «Замер 2026-08-06: 217
+# целей, 340 ссылок», тогда как перечень ниже нёс 214 записей. Комментарий отстал
+# от собственного файла на три цели и четыре ссылки — то есть ЧИСЛО В ШАПКЕ
+# ПЕРЕЖИЛО СВОЙ ПРЕДМЕТ, ровно тот класс, который храповик и стережёт. Правя
+# основание, правь и эту строку: `--write-baseline` переписывает перечень, но не
+# прозу над ним.
+#
+# Переписать после честной починки:
+#   ./scripts/vault-gate/check-02-dangling-wikilinks.sh --write-baseline
+1	../edges/api-gateway-to-iam-access-binding
+1	../edges/api-gateway-to-vpc-opsproxy
+1	../edges/api-gw-to-hydra
+1	../edges/api-gw-to-kratos
+1	../edges/api-gw-to-kratos-whoami
+2	../edges/apigw-to-backend-allowlist
+1	../edges/apigw-to-backends-operation-readback
+1	../edges/apigw-to-iam
+1	../edges/apigw-to-iam-auth
+2	../edges/apigw-to-iam-check
+1	../edges/apigw-to-iam-lookup-subject
+1	../edges/apigw-to-openfga-check
+1	../edges/compute-to-iam-authz-check
+2	../edges/compute-to-iam-project-exists
+1	../edges/compute-to-iam-resource-lifecycle
+1	../edges/compute-to-rm-folder-exists
+1	../edges/iam-anti-anon-interceptor
+1	../edges/iam-to-compliance-scope-provider
+2	../edges/iam-to-keto
+1	../edges/iam-to-openfga-check-write
+1	../edges/iam-to-openfga-write
+1	../edges/lb-to-iam-project-exists
+1	../edges/loadbalancer-to-iam-check
+1	../edges/loadbalancer-to-iam-resource-lifecycle
+1	../edges/nlb-to-iam-authz
+1	../edges/ui-to-apigw-nlb-list
+1	../edges/ui-to-kratos-auth
+1	../edges/vpc-to-iam-authorize-listobjects
+1	../edges/vpc-to-iam-resource-lifecycle
+2	../packages/api-gateway-middleware
+2	../packages/api-gateway-proxy
+1	../packages/api-gateway-restmux
+1	../packages/apigw-internal-opsproxy
+1	../packages/apigw-middleware-embed-permission-catalog
+1	../packages/apigw-permission-catalog
+3	../packages/compute-cmd-main
+1	../packages/corelib-resourcelifecycle
+1	../packages/iam-apps-kacho-api-access-binding
+2	../packages/iam-apps-kacho-api-account
+1	../packages/iam-apps-kacho-api-group
+1	../packages/iam-apps-kacho-api-internal-iam
+1	../packages/iam-apps-kacho-api-jit-eligibility
+1	../packages/iam-apps-kacho-api-user
+1	../packages/iam-authz-fixtures-setup
+2	../packages/iam-authzmap
+3	../packages/iam-clients
+3	../packages/iam-clients-hsm-pkcs11
+3	../packages/iam-clients-idp-jwks-cache
+3	../packages/iam-clients-jackson
+1	../packages/iam-clients-ops-response-redactor
+1	../packages/iam-cmd-iam
+2	../packages/iam-cmd-kacho-iam
+1	../packages/iam-cmd-migrator
+1	../packages/iam-cmd-wiring
+1	../packages/iam-dto
+1	../packages/iam-dto-toproto
+1	../packages/iam-handler
+2	../packages/iam-internal-apps-kacho-api
+1	../packages/iam-internal-authzguard
+1	../packages/iam-internal-clients
+1	../packages/iam-internal-clients-hydra
+2	../packages/iam-internal-handler
+1	../packages/iam-internal-jobs-fga-tuple-writer
+1	../packages/iam-internal-jobs-resource-lifecycle-subscriber
+1	../packages/iam-internal-jobs-subject-change-notifier
+3	../packages/iam-internal-repo-kacho-pg
+3	../packages/iam-internal-service
+1	../packages/iam-keto-client
+1	../packages/iam-openfga-model
+2	../packages/iam-repo-kacho
+1	../packages/iam-repo-kacho-kachomock
+1	../packages/iam-service-access-review
+2	../packages/iam-service-breakglass
+6	../packages/iam-service-caep
+6	../packages/iam-service-federation
+1	../packages/iam-service-gdpr
+2	../packages/iam-service-jit
+7	../packages/iam-service-scim
+1	../packages/iam-tests-newman
+1	../packages/kacho-deploy-helm-umbrella
+1	../packages/nlb-apps-kacho-config
+2	../packages/proto-apisurface
+2	../packages/proto-iam
+1	../packages/proto-iam-fga-model
+1	../packages/ui-deploy-nginx
+1	../packages/ui-iam
+1	../packages/ui-pages
+1	../packages/ui-pages-iam-access
+2	../packages/vpc-apps-kacho-services-listauthz
+1	../packages/vpc-migrations
+1	../resources/iam-compliance-report
+1	../resources/iam-gdpr-erasure
+1	../resources/iam-jit-grant
+1	../resources/iam-jit-pending
+1	../resources/iam-sa-key
+1	../resources/loadbalancer-lb-listener
+1	../rpc/api-gateway-authz
+1	../rpc/compute-internal-resource-lifecycle-service
+1	../rpc/iam-compliance-report-service
+1	../rpc/iam-erasure-service
+1	../rpc/iam-iam-hooks-service
+2	../rpc/iam-jit-pending-service
+1	../rpc/iam-jit-service
+1	../rpc/loadbalancer-internal-resource-lifecycle-service
+1	../rpc/vpc-internal-resource-lifecycle-service
+2	197
+2	198
+1	KAC-114
+1	KAC-117
+4	KAC-119
+1	KAC-120
+5	KAC-121
+1	KAC-151
+3	KAC-152
+1	KAC-153
+2	KAC-154
+1	KAC-156
+1	KAC-157
+1	KAC-158
+3	KAC-171
+1	KAC-172
+1	KAC-173
+3	KAC-177
+2	KAC-187
+1	KAC-195
+1	KAC-202
+1	KAC-203
+1	KAC-204
+1	KAC-205
+1	KAC-206
+1	KAC-207
+1	KAC-208
+1	KAC-209
+1	KAC-210
+1	KAC-211
+1	KAC-212
+1	KAC-213
+1	KAC-232
+1	KAC-233
+1	KAC-234
+2	KAC-235
+2	KAC-236
+2	KAC-237
+2	KAC-238
+1	KAC-249
+2	KAC-250
+2	KAC-254
+2	KAC-258
+2	KAC-259
+4	KAC-260
+1	KAC-<N-next>
+1	KAC-<N-prev>
+3	KAC/CS-1-storage-network-disk
+1	SEC-K-restmux-mtls
+2	a-check-that-requires-the-defect
+1	acceptance-required-an-unconstructible-scenario
+1	anonymity-must-not-be-an-identity
+2	bg-test-jobs-killed
+1	cascade-enabler-sits-on-the-eventual-path
+1	class-fix-with-asymmetric-predicate
+1	compute-storage-split-concept
+2	defect-that-hides-under-the-load-it-guards
+1	doc-truthfulness
+1	drainer-applyconcurrency-ordering
+1	ec-under-load-measure-throughput
+1	edges/<edge>
+1	edges/compute-to-vpc-nic-ipam
+1	edges/vpc-to-compute-zone
+2	empty-allowlist-means-trust-any
+3	expand-contract-per-resource-migrate-gap
+1	false-green-suite-not-executed
+5	fe3455-production-deploy
+1	fga-authorization-model
+1	fga-write-conflict-untyped
+1	full-suite-not-short-gate
+1	gate-reads-its-own-nondeterminism-as-the-property
+1	gate-whose-input-has-no-producer
+3	grant-materialization-omirror-root
+2	green-applies-to-less-than-you-think
+1	grpc-gateway-silent-drop-renamed-field
+2	guard-checked-context-name-not-cluster
+3	in-service-gateway-authz-scope-parity
+10	internal-vault-is-public
+2	isolation-worktree-base-branch
+1	kacho-iam-InternalAuthorizeService
+1	kacho-iam-InternalIAMService
+1	kacho-iam-InternalUserService
+1	kacho-workspace
+2	killed-run-masquerades-as-a-red-verdict
+2	negative-assertion-needs-a-paired-positive
+1	newman-runners-print-green-while-red
+1	nlb-clients-geo
+4	nlb-dto
+2	no-security-bypass-flag-use-prod-pattern
+1	openfga-replica-lag-flaky-authz
+2	opgate-eventual-consistency-lesson
+1	packages-outbox-drainer
+1	packages/<repo>-<pkg>
+2	parallel-agents-shared-worktree-collision
+1	prod-posture-gate-checks-intent-not-outcome
+4	production-mode-everywhere-even-local
+3	rbac-rules-model-2026-subphase-B-iam
+1	resources/<X>
+1	response-shape-changed-check-did-not
+2	rounds-discover-classes-gates-hold-them
+1	rpc/<service>
+1	sec-hat-provider-admin-hop-terminator
+1	self-expiry-made-vacuous-by-its-own-change
+1	shared-stand-single-writer
+5	step-up-acr-sensitive-only
+1	sub-phase-T3.3-unify-iam-label-scope-acceptance
+1	tests-that-pin-the-defect
+1	wildcard-satisfiable-relation-is-no-gate

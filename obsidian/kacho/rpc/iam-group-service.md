@@ -19,11 +19,12 @@ tags:
   - rpc
   - kacho-iam
   - iam
+verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
 ---
 
 # GroupService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/group_service.proto`
+**Proto**: `proto/kacho/cloud/iam/v1/group_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]].
@@ -33,9 +34,9 @@ tags:
 | Method           | Request                    | Response                    | Sync/Async | Note                             |
 | ---------------- | -------------------------- | --------------------------- | ---------- | -------------------------------- |
 | Get              | GetGroupRequest            | Group                       | sync       |                                  |
-| List             | ListGroupsRequest          | ListGroupsResponse          | sync       |                                  |
-| Create           | CreateGroupRequest         | operation.Operation         | **async**  |                                  |
-| Update           | UpdateGroupRequest         | operation.Operation         | **async**  | UpdateMask; account_id immutable |
+| List             | ListGroupsRequest          | ListGroupsResponse          | sync       | **`viewer ∪ v_list`** (эталон role.List; DIVERGENCE-A): anonymous→empty, FGA error→`Unavailable`, admin/owner/cluster-admin через viewer-tier. `Get == List` resolver. (Раньше — голый repo-passthrough.) **#255:** call-gate `account#v_list`+step-up снят, List стал `<exempt>` (паритет project/user/SA/role; фильтр — единственный gate). |
+| Create           | CreateGroupRequest         | operation.Operation         | **async**  | принимает own-resource `labels` (DIVERGENCE-A; полный annotation-set) |
+| Update           | UpdateGroupRequest         | operation.Operation         | **async**  | UpdateMask; account_id immutable; `labels` mutable (DIVERGENCE-A) — label-change co-commit'ит reconcile-event `iam.group` |
 | Delete           | DeleteGroupRequest         | operation.Operation         | **async**  | CASCADE по `group_members`       |
 | **AddMember**    | AddGroupMemberRequest      | operation.Operation         | **async**  | проверка member через триггер    |
 | **RemoveMember** | RemoveGroupMemberRequest   | operation.Operation         | **async**  | idempotent                       |

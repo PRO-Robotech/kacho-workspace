@@ -50,7 +50,7 @@ E1 переключает все 3 backend-сервиса с `folder_id`/`Folder
   тестовые клиенты могли продолжать использовать RM до E5; единственная разница — peer-сервисы
   больше его не зовут.
 - **Реальную миграцию данных** `kacho_resource_manager.folders → kacho_iam.projects` —
-  это тоже E5. В E1 на dev-стенде `make dev-up` пересоздаёт обе БД с нуля; в prod —
+  это тоже E5. В E1 на dev-стенде `make -C deploy dev-up` пересоздаёт обе БД с нуля; в prod —
   prod-strategy для миграции данных пишется в E5-acceptance.
 - **Auth / authz / Zitadel / OpenFGA** — это E2/E3.
 - **Operation.principal** заполнение реальным user'ом — E4. В E1 `principal_type='system'`
@@ -106,7 +106,7 @@ E5 закрывает финальный аккорд (RM gone).
    - двойные backfill-триггеры,
    - тесты «и так и эдак».
    Удалить всё это в E5 — больше работы, чем сделать один hard-rename сейчас.
-3. **Нет prod-data на момент E1**. Dev-стенд пересоздаётся `make dev-down -v && make dev-up`
+3. **Нет prod-data на момент E1**. Dev-стенд пересоздаётся `make -C deploy dev-down -v && make -C deploy dev-up`
    при каждом значимом изменении; прод-релизов backend-сервисов VPC/CMP/LB не было.
 4. **Migration path data**. Если в будущем появится prod-инсталляция с данными — миграция данных
    `folders → projects` будет одна, в E5, по single-shot стратегии (`INSERT INTO projects
@@ -289,7 +289,7 @@ JSON-path workable, но требует index per metadata-type, неудобн�
 **Backward-compat**: default `''` — старые insert'ы без `projectID` работают; UI фильтрует
 WHERE `project_id <> ''`.
 
-**Sync через `make sync-migrations`** в каждый из 4 потребителей corelib `operations` (vpc, compute,
+**Sync через шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc})** в каждый из 4 потребителей corelib `operations` (vpc, compute,
 loadbalancer, resource-manager — последний нужен ровно до E5, потом drop).
 
 ### Decision D-7 — Все 3 backend-сервиса используют kacho-iam.ProjectService.Get (НЕ Exists)
@@ -387,7 +387,7 @@ UPDATE `networks.project_id`. То есть `Network.Move(prj-A → prj-B)` ос
 ### Decision D-9 — Defense-in-depth: immutable parent.project_id на DB-уровне
 
 **Дополнение к D-5 (BLOCKER 5 из v1 review)**: помимо запрета Move с children (D-8), напрямую
-защищаем consistency — `parent.project_id` (Network/Hypervisor-equivalent в других сервисах)
+защищаем consistency — `parent.project_id` (Network/Instance-equivalent в других сервисах)
 может меняться **только через worker-path** (через Move RPC). Прямое `UPDATE networks SET project_id='...'`
 через admin psql — запрещено.
 
@@ -607,8 +607,7 @@ PR-chain (повторяет workspace `CLAUDE.md` §«Кросс-репо за�
 | snapshots   | да                | `snapshots_folder_name_uniq`   | `snapshots_folder_idx` |
 | instances   | да                | `instances_folder_name_uniq`   | `instances_folder_idx` |
 
-`hypervisors` — admin-only ресурс, **не имеет** folder_id (см. compute 0006 migration).
-`zones`/`regions` — geography, тоже без folder_id (admin-scope).
+`zones`/`regions` — geography, admin-scope, без folder_id.
 
 #### kacho-loadbalancer (2 ресурса)
 
@@ -662,7 +661,7 @@ crockford-base32) представим как UUID-like, но это форма�
 | **kacho-loadbalancer/internal/migrations/** | `0004_operations_principal.sql` (after 0001-0003) | `0005_operations_project_id.sql` (synced) | `0006_rename_folder_to_project.sql` + UUID→TEXT |
 | **kacho-resource-manager/internal/migrations/** | `0002_operations_principal.sql` | `0003_operations_project_id.sql` (synced — needed для consistency corelib-sync; column unused в RM до E5; см. §16.3 resolved) | n/a (RM out of E1 rename-scope per D-X / §10 «не выключаем, но peers не зовут») |
 
-**Правило применения**: в каждом из 4 backend-сервисов (corelib потребители) `make sync-migrations`
+**Правило применения**: в каждом из 4 backend-сервисов (corelib потребители) шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc})
 копирует **новый** `0003_operations_project_id.sql` из `kacho-corelib/migrations/common/` в
 `internal/migrations/` под per-сервисным номером (см. таблицу выше). После этого создаётся
 **отдельная** rename-миграция следующим номером.
@@ -706,7 +705,11 @@ merge'м PR» — каждый PR с миграцией обязан содер�
 - `operations/repo_test.go` (integration, testcontainers) — testInsertWithProjectID:
   insert op с `projectID="prj-abc"` → SELECT и проверить колонку, проверить index используется.
 
-**Sync**: `make sync-migrations` в каждый из 4 потребителей: vpc, compute, loadbalancer, resource-manager.
+**Sync**: шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc}) в каждый из 4 потребителей: vpc, compute,
+loadbalancer, resource-manager. **В монорепо этот шаг мёртв:** corelib переехал в `pkg/`, а рецепты
+целей всё ещё смотрят в исчезнувший sibling `../kacho-corelib/migrations/common` — у vpc и iam цель
+объявлена как no-op (печатает сообщение), у compute и nlb копирование упало бы, у registry молча
+выходит нулём, у storage — падает. Шаг описывает polyrepo-эпоху, а не текущее дерево.
 
 **Acceptance**: Сценарий E1.COR-01 (см. §7).
 
@@ -750,7 +753,7 @@ proto/kacho/cloud/loadbalancer/v1/*service.proto:        folder_id → project_i
 
 **Regen**:
 ```bash
-make gen   # buf generate → gen/go/kacho/cloud/{vpc,compute,loadbalancer}/v1/*.pb.go обновляются
+cd proto && buf generate   # → pkg/api/kacho/cloud/{vpc,compute,loadbalancer}/v1/*.pb.go обновляются
 ```
 
 **Тесты**:
@@ -949,7 +952,8 @@ CREATE TRIGGER networks_project_id_immutable_trg
     FOR EACH ROW EXECUTE FUNCTION kacho_vpc.enforce_parent_move_via_worker();
 
 -- Sync corelib operations.project_id: предполагается ОТДЕЛЬНАЯ миграция 0003_operations_project_id.sql
--- (synced из corelib через `make sync-migrations` ДО этой 0004_rename-миграции; см. §5.0 таблица).
+-- (synced из corelib через шаг синхронизации миграций (снятая цель sync-migrations, services/vpc) ДО этой 0004_rename-миграции;
+-- см. §5.0 таблица. В монорепо цель — объявленный no-op.)
 
 COMMIT;
 
@@ -1044,7 +1048,7 @@ type Config struct {
 Все `WHERE folder_id = $1` → `WHERE project_id = $1`. Все `ORDER BY folder_id, ...` → `project_id`.
 Все `INSERT (... folder_id ...) VALUES (... $1 ...)` → `... project_id ...`.
 
-Для sqlc — перегенерить через `make sqlc-gen` после переименования колонок в migration + перегенерации
+Для sqlc — перегенерить через `make -C services/storage sqlc-gen` после переименования колонок в migration + перегенерации
 schema-snapshot. (kacho-vpc использует не sqlc, а handwritten pgx — упрощает.)
 
 #### 5.3.5 Newman cases
@@ -1176,8 +1180,8 @@ env:
 **ID**: E1.MIG-01
 **Тип**: Happy path / fresh install
 
-**Given** новый dev-стенд: `make dev-down -v && make dev-up`
-**And** `kacho_vpc` БД создана с пустыми таблицами после `0001_initial.sql`, `0002_operations_principal.sql`, и `0003_operations_project_id.sql` (последняя — corelib-synced из `make sync-migrations`)
+**Given** новый dev-стенд: `make -C deploy dev-down -v && make -C deploy dev-up`
+**And** `kacho_vpc` БД создана с пустыми таблицами после `0001_initial.sql`, `0002_operations_principal.sql`, и `0003_operations_project_id.sql` (последняя — corelib-synced из шаг синхронизации миграций (снятая цель sync-migrations, services/vpc))
 **And** миграция `0004_rename_folder_to_project.sql` ещё не применена
 
 **When** запускается `kacho-vpc-migrator up` (либо при старте через embedded migrator)
@@ -1281,7 +1285,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 
 **Given** все 22 .proto файла vpc/compute/loadbalancer переименованы
 
-**When** запускается `make gen` (`buf generate`)
+**When** запускается `cd proto && buf generate`
 
 **Then** в `gen/go/kacho/cloud/vpc/v1/network.pb.go` существует поле `ProjectId string` в struct `Network`
 **And** **отсутствует** поле `FolderId`
@@ -1855,7 +1859,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 - Down-миграция предлагает только symmetrical RENAME (project_id → folder_id) без type-cast — но
   это **оставит TEXT-колонку под именем folder_id**, что нарушит существующую схему `UUID`-типа
   старого кода. Поэтому down-flow для loadbalancer-rename **запрещён** в production-flavored
-  использовании; для dev — приемлемо использовать `make dev-down -v && make dev-up` для full
+  использовании; для dev — приемлемо использовать `make -C deploy dev-down -v && make -C deploy dev-up` для full
   recreate БД.
 - В down-секции миграции добавляется `RAISE EXCEPTION 'down migration not supported for type-change
   UUID→TEXT; recreate DB instead'` (или эквивалент в goose down-stub).
@@ -1921,7 +1925,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 
 ### 6.12 Сценарии smoke (deploy)
 
-#### Сценарий E1.SMK-01: make dev-up поднимает обновлённые сервисы
+#### Сценарий E1.SMK-01: make -C deploy dev-up поднимает обновлённые сервисы
 
 **ID**: E1.SMK-01
 **Тип**: Smoke deploy
@@ -1929,7 +1933,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
 **Given** все 7 PR'ов смержены в main соответствующих репо
 **And** kacho-deploy/values.yaml обновлены (KACHO_*_IAM__ENDPOINT, no RM endpoints)
 
-**When** запускается `cd kacho-deploy && make dev-down -v && make dev-up`
+**When** запускается `make -C deploy dev-down -v && make -C deploy dev-up`
 
 **Then** все pods становятся `Ready`:
   - `kacho-iam-0` Ready (E0 baseline)
@@ -1939,7 +1943,7 @@ Note: в dev мы переиспользуем строки `fld-XXX` как `pr
   - `kacho-resource-manager-0` Ready (live, но peer-сервисы не зовут)
   - `kacho-api-gateway-0` Ready
 **And** `curl http://api-gateway:18080/healthz` → 200
-**And** `make psql SVC=vpc` → `\d kacho_vpc.networks` показывает `project_id`, не `folder_id`
+**And** `make -C deploy psql SVC=vpc` → `\d kacho_vpc.networks` показывает `project_id`, не `folder_id`
 
 #### Сценарий E1.SMK-02: end-to-end smoke — создать project, создать network, создать subnet, создать instance
 
@@ -2027,11 +2031,11 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 - [ ] **DoD-12**: Все newman cases во всех 3 сервисах зелёные с `projectId` payload (E1.NEW-01/02/03).
 - [ ] **DoD-13**: corelib operations integration-test (E1.COR-01) зелёный.
 - [ ] **DoD-14**: Concurrent-race test для cross-project trigger: parallel Subnet.Create в Network А и моментальный Move(Network А → другой project) — проверить, что D-5 trigger катчит inconsistency.
-- [ ] **DoD-15**: `make e2e-test` smoke (E1.SMK-02) проходит чисто.
+- [ ] **DoD-15**: `make -C deploy e2e-test` smoke (E1.SMK-02) проходит чисто.
 
 ### 7.3 Deploy & operations
 
-- [ ] **DoD-16**: `make dev-up` поднимает все обновлённые сервисы; healthz зелёный на каждом (E1.SMK-01).
+- [ ] **DoD-16**: `make -C deploy dev-up` поднимает все обновлённые сервисы; healthz зелёный на каждом (E1.SMK-01).
 - [ ] **DoD-17**: kacho-resource-manager остаётся live в стенде, но Prometheus counter `kacho_resource_manager_grpc_server_handled_total` от peer-сервисов = 0 (verified в течение 5 минут после smoke).
 - [ ] **DoD-18**: Env vars `KACHO_*_RM__ENDPOINT` / `RESOURCE_MANAGER_GRPC_ADDR` удалены из helm values трёх сервисов; добавлены `KACHO_*_IAM__ENDPOINT` + `KACHO_*_PROJECT_CACHE_*`.
 
@@ -2104,7 +2108,7 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 | Cross-project triggers (D-5) ломают legitimate test cases                       | Low        | High     | Concurrent-race integration-test (DoD-14); внимательное review trigger логики                                              |
 | Loadbalancer UUID → TEXT type change ломает existing data                       | Low        | High     | E1.LB-04 verification; в dev данные пересоздаются, в prod — пока нет данных                                                |
 | kacho-iam перегружается под burst из peer-кешей (cold start)                    | Low        | Medium   | TTL+LRU кеш с positive 30s — 95%+ hit rate под нагрузкой; pre-warm не требуется                                            |
-| `make sync-migrations` забывает скопировать новый corelib `0002_operations_project_id.sql` в один из 4 потребителей | Medium | Medium | Make-target обязателен в DoD-10; CI check `find migrations/common -name '*.sql' \| count` равен `find project/<svc>/migrations -name '*operations*' \| count` |
+| шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc}) забывает скопировать новый corelib `0002_operations_project_id.sql` в один из 4 потребителей | Medium | Medium | Make-target обязателен в DoD-10; CI check `find migrations/common -name '*.sql' \| count` равен `find project/<svc>/migrations -name '*operations*' \| count` |
 | Регресс existing newman cases из-за переименования env-var `existingFolderId` → `existingProjectId` | Medium | Low | Поддерживать ENV-alias `existingFolderId=existingProjectId` ВРЕМЕННО (один спринт), затем удалить |
 | kacho-ui не успевает мигрировать на projectId payload в этом же эпике           | Low        | High     | UI работа — параллельно в E4; до E4 — minimal UI patch для смены `folderId` → `projectId` в API-calls + ENV-alias в gateway |
 | Race-condition: Project удалён в kacho-iam пока worker peer создаёт ресурс под него | Medium | Low      | Cache TTL 30s покрывает; eventual consistency window. Worker fail = Operation failed (OK)                                  |
@@ -2256,8 +2260,8 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 Каждый из 7 PR обязан в описании содержать:
 - Ссылка на этот acceptance: `Closes part of KAC-106 (acceptance §<N>)`.
 - Список затронутых GWT-сценариев: `Verifies E1.MIG-01, E1.MIG-02, E1.CLI-01...`.
-- Лог `make test` (integration + newman) — pass-fail tally в комментарии.
-- Лог `make dev-up` smoke (для PR #7) — все pods Ready.
+- Лог `make -C services/{compute,iam,vpc} test` (integration + newman) — pass-fail tally в комментарии.
+- Лог `make -C deploy dev-up` smoke (для PR #7) — все pods Ready.
 
 ---
 
@@ -2313,7 +2317,7 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
   Также явно перечислены 5 D-5 child-project-matches triggers + D-8/D-9 triggers.
 - **13** (loadbalancer down-migration policy): добавлена policy в E1.LB-04 — down НЕ
   поддерживается для type-change UUID→TEXT; goose down stub содержит RAISE EXCEPTION либо
-  ссылку на `make dev-down -v`.
+  ссылку на `make -C deploy dev-down -v`.
 - **14** (E1.NEW-03 «follow-up»): заменено `«out-of-scope skip»` на `«follow-up KAC-N issue
   заведён ДО merge с обязательством добавить тесты в том же спринте»`; формулировка
   «out-of-scope skip» явно ЗАПРЕЩЕНА в commit-message / PR-description (запрет #11).
@@ -2344,7 +2348,7 @@ GRP-01..02 / NEW-01..03 / LB-04) — без изменений по сущест
    достаточно? Если один — какие два child-types выбрать?
 
 3. **Operations.project_id в kacho-resource-manager** — **RESOLVED v2** (IMPORTANT 10 v1 review):
-   sync ДО E5 (RM остаётся live, peers не зовут, но колонка `project_id` добавляется в `kacho_resource_manager.operations` через `make sync-migrations` для consistency с corelib source-of-truth);
+   sync ДО E5 (RM остаётся live, peers не зовут, но колонка `project_id` добавляется в `kacho_resource_manager.operations` через шаг синхронизации миграций (снятая цель sync-migrations, services/{compute,nlb,vpc}) для consistency с corelib source-of-truth);
    default `''`, никогда не заполняется (RM не имеет concept of project — он управляет Folder'ами).
    Drop колонки — при E5 в одной миграции с drop всей RM-БД. Зафиксировано в §5.0 таблица
    (last column: «n/a (RM out of E1 rename-scope)») и §10 Out-of-scope item #14.

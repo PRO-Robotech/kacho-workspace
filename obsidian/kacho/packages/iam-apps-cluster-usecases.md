@@ -3,6 +3,7 @@ title: iam apps cluster use-cases
 repo: kacho-iam
 layer: usecase
 category: packages
+path: services/iam/internal/apps/kacho/api/cluster
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_tickets:
@@ -12,6 +13,8 @@ tags:
   - kacho-iam
   - usecase
   - internal
+status: stable
+verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
 # `kacho-iam` cluster use-cases (KAC-196)

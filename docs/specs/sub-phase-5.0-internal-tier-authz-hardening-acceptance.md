@@ -7,7 +7,7 @@
 > **Reviewer agent**: `acceptance-reviewer` (gate per Запрет #1).
 > **Target repos**:
 >   - **Primary**: `PRO-Robotech/kacho-iam` — permission catalog enrichment (44 `Internal.*` entries get non-empty `permission` / `required_relation` / `scope_extractor`); FGA-model + seed for `system_admin` / `viewer` / `service_account` on `cluster:cluster_kacho_root`.
->   - **Primary**: `PRO-Robotech/kacho-api-gateway` — fail-closed on empty-permission entries (currently authz-mw treats `Permission==""` as anonymous-allowed by §«Lookup» comment in `permission_catalog.go:23-26`); admin-mux gate that strips `Internal*` paths from the public TLS-listener; principal-type discrimination (`user` vs `service_account`) at decision-point.
+>   - **Primary**: `PRO-Robotech/kacho-api-gateway` — незаполненная запись каталога трактуется как **отказ**, а не как «требования нет» (§0, пункт 2); admin-mux-гейт, снимающий `Internal*`-пути с публичного TLS-листенера; различение вида принципала (`user` / `service_account`) в точке решения.
 >   - **Primary**: `PRO-Robotech/kacho-corelib` — `auth/principal.go` extension: subject-type enum (`user|service_account|system`) + JWT claim parser (`kacho_principal_type`). Service-side authzguard refuses Cat-B FQN when `principal_type != service_account`.
 >   - **Touched**: `PRO-Robotech/kacho-proto` — no new RPCs; only the catalog plugin (`protoc-gen-kacho-permissions`) emits the now-non-empty fields. Drift-test fixtures updated.
 >   - **Touched**: `PRO-Robotech/kacho-vpc`, `PRO-Robotech/kacho-compute`, `PRO-Robotech/kacho-nlb` — Cat-B peer-clients (vpc → iam Check, compute → vpc InternalAddress, nlb → vpc/compute) acquire SA-token from k8s service-account / SPIRE SVID (already plumbed for some; verify and document).
@@ -27,26 +27,56 @@
 
 ## 0. Преамбула — что эта sub-итерация (précis)
 
-KAC-201 закрывает доказанную уязвимость: `permission_catalog.json` содержит **264 RPC-записи**, у которых **все 264** имеют пустые `permission` / `required_relation` / `scope_extractor` поля (см. §1.1). 44 из них — **`Internal.*`**-сервисы (admin / peer-RPC), которые проксируются api-gateway либо на internal-listener (admin-UI / admin-tooling), либо вообще не должны быть видимы извне. С пустыми catalog-полями authz-middleware считает entry «no-requirement» (см. `permission_catalog.go:23-26`, «callers default to no requirement (anonymous-allowed)»), и тогда даже под `authz.enabled=true, failOpen=false` любой authenticated user проходит к `InternalAddressPoolService.List` / `InternalIAMService.Check` / `InternalNetworkService.SetDefaultSecurityGroupId`.
+KAC-201 закрывает подтверждённый класс: **запись каталога прав, у которой требование не заполнено,
+трактовалась как «требования нет»** — то есть отсутствие данных читалось как разрешение. На момент
+обследования (§1.1) требование не было заполнено **ни у одной** из 264 записей каталога, 44 из них —
+`Internal.*`-сервисы (admin / peer-RPC). Поэтому включённая и корректно настроенная authz-прослойка
+шлюза (`authz.enabled=true`, `failOpen=false`) выносила «разрешено» **не отказав** — она честно
+исполняла каталог, а каталог ничего не требовал.
 
-Доказательство компрометации (воспроизводимо на dev-стенде):
+Почему это стоит понять как класс, а не как один промах в данных:
 
-```bash
-# В контексте обычного юзера usr_tenant_alice (логин + cookie через Kratos):
-curl -b 'ory_kratos_session=<regular-user-cookie>' \
-     http://api-gateway.kacho.svc.cluster.local:9092/vpc/v1/addressPools
-# Ожидаем: 403 PermissionDenied (AddressPool — kacho-only admin resource,
-# см. kacho-vpc/CLAUDE.md §16, workspace CLAUDE.md §Запреты #6).
-# Фактически: 200 OK + полный листинг pools, включая default infrastructure pool.
-```
+- **Незаполненное поле — не «пусто», а значение.** У любого отсутствующего требования есть
+  трактовка по умолчанию, и она либо «запретить», либо «разрешить». Здесь была вторая, и потому
+  каждый пробел в данных автоматически становился дырой в контроле. Тот же класс, что «пустой
+  список форвардеров значит не сужаем» и «отношение, выполнимое подстановкой, не сужает ничего»
+  (`.claude/rules/security.md`): форма контроля присутствует, а сторона, в которую он ошибается, —
+  открытая.
+- **Проверка исполнялась и не отказывала ни разу за всё время жизни.** Провязанность прослойки,
+  зелёный старт и отсутствие ошибок в логах — не свидетельства работы контроля. «Ноль отказов за
+  всю жизнь» обязано быть заметно ровно так же, как «ноль доставленных строк за всю жизнь очереди»
+  (`.claude/rules/data-integrity.md`).
+- **Настройка выглядела правильной, и она была правильной.** Ручки стояли в безопасных положениях;
+  пусто было в **данных**, которыми ручки распоряжаются. Аудит конфигурации такой дефект не
+  находит — его находит вопрос «на скольких записях этот контроль хоть раз что-то потребовал».
+
+> Пошаговое воспроизведение (какой запрос, от чьего имени, с каким наблюдаемым ответом) велось в
+> рабочем каталоге задачи и **в git не идёт**: оба репозитория публичны, а связка «координата +
+> условие + следствие» — восстановимый рецепт (`.claude/rules/security.md` §«Публичные артефакты»).
+> Здесь достаточно того, что дефект был воспроизведён на стенде до правки и перестал
+> воспроизводиться после — что и закрепляют сценарии §6.
 
 KAC-201 закрывает три отдельных дыры одной hardening-pass:
 
 1. **Permission-catalog content gap** — все 44 `Internal.*` записи получают корректные `permission` (`<domain>.<resource>.<verb>`-нотация) + `required_relation` (`system_admin` / `viewer` / `service_account`) + `scope_extractor` (`object_type=cluster, from_request_field='*'` для cluster-singleton, `object_type=project, from_request_field='project_id'` для project-scoped peer-RPC). Drift-test из W2.A гарантирует, что catalog не уйдёт обратно в empty-state.
 
-2. **Gateway empty-entry fail-closed** — `permission_catalog.go:23-26` («empty → anonymous-allowed») переписывается на «empty → fail-closed deny», parity с поведением `!found` (см. `authz.go:536-568`). Этот шаг даёт **defence-in-depth** на случай, если позже в catalog снова попадёт пустая запись из-за плагин-бага. Tightening документируется в `permission_catalog.go` doc-comment.
+2. **Gateway empty-entry fail-closed** — трактовка незаполненной записи меняется с «требования нет»
+   на **отказ**, в паритет с уже существующим поведением для записи, которой в каталоге нет вовсе.
+   Это ключевая часть правки, и она **не заменяется** пунктом 1: заполнить каталог — значит убрать
+   сегодняшние пробелы, а развернуть умолчание — значит сделать так, что **завтрашний** пробел
+   станет отказом, а не дырой. Первое чинит экземпляры, второе чинит класс; порядок обязателен
+   именно такой, потому что развернуть умолчание **до** заполнения каталога значит закрыть доступ
+   всем сразу. Ужесточение фиксируется doc-комментарием у самого места решения — комментарий обязан
+   называть, что именно он запрещает, иначе следующий снимет его как непонятную проверку.
 
-3. **Subject-type discrimination** — `kacho-corelib/auth/principal.go` уже знает про subject-id (`usr_*` / `sva_*` / `system`), но catalog не использует это для **per-RPC** ограничения по типу субъекта. Cat-B методы (`InternalIAMService.Check`, `InternalAddressService.AllocateInternalIP`, …) требуют, чтобы **subject_type == service_account**, потому что user-token не должен получать peer-RPC доступа даже если user — `system_admin`. Новый catalog-флаг `required_subject_type` (enum: `any|user|service_account`) добавляется в `CatalogEntry` (см. §4.5).
+3. **Subject-type discrimination** — corelib уже различает вид принципала, но каталог этого не
+   использовал, поэтому требование можно было выразить только как «какой уровень прав», но не как
+   «кому этот путь вообще предназначен». Различие содержательное: межсервисные peer-RPC —
+   поверхность **для машин**, и человек с достаточным уровнем прав всё равно не должен на неё
+   попадать. Причина не в недоверии к человеку, а в том, что у пользовательского токена другой
+   жизненный цикл, другой радиус при утечке и другой способ отзыва. Поэтому в запись каталога
+   добавляется требование к **виду** субъекта (`any|user|service_account`, §4.5) — уровень прав и
+   вид принципала становятся двумя независимыми осями, и повышение по одной не заменяет другую.
 
 KAC-201 — это не «новая фича», а **гигиена**: catalog-content + gateway-config + corelib-helpers + tuple-seed. Реализация распадается ровно на 8 chain-of-dependency subtasks (см. §13).
 
@@ -173,25 +203,53 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
   - **IAM** (6): `InternalIAMService.{Check,LookupSubject,WriteCreatorTuple,ListPermissions}`, `InternalUserService.{Get,UpsertFromIdentity}`.
   - **LoadBalancer** (1): `InternalResourceLifecycleService.Subscribe`.
   - **VPC** (26): `InternalAddressPoolService.{Create,Get,List,Update,Delete,BindAsNetworkDefault,UnbindNetworkDefault,BindAsAddressOverride,UnbindAddressOverride,Check,ExplainResolution,ListAddresses,GetUtilization}` (13), `InternalAddressService.{AllocateExternalIP,AllocateInternalIP,AllocateInternalIPv6,GetAddressReference,SetAddressReference,ClearAddressReference,MarkAddressEphemeralInUse}` (7), `InternalCloudService.{GetPoolSelector,SetPoolSelector,UnsetPoolSelector}` (3), `InternalNetworkService.SetDefaultSecurityGroupId` (1), `InternalResourceLifecycleService.Subscribe` (1), `InternalWatchService.Watch` (1).
-- **Расхождение с запросом**: запрос упоминает `InternalNetworkService.GetNetwork` (exposes `vpn_id`) — этот FQN **отсутствует** в catalog. В реальном catalog присутствует `InternalNetworkService.SetDefaultSecurityGroupId`. `vpn_id` exposure живёт в `NetworkService.GetInternal` или отдельной internal-проекции под path `/vpc/v1/networks/{id}/internal` (см. `restmux/mux.go:113` `isInternalPath`). KAC-201 покрывает существующие 44 FQN; добавление новых internal-методов — отдельный issue per repo (см. §13 RT-1).
+- **Расхождение с запросом**: запрос упоминает `InternalNetworkService.GetNetwork` — этот FQN **отсутствует** в catalog. В реальном catalog присутствует `InternalNetworkService.SetDefaultSecurityGroupId`. (Прежняя internal-проекция Network с data-plane-идентификатором и её REST-path `/vpc/v1/networks/{id}/internal` — kube-ovn-эпохи — удалены в KAC-36/79/80.) KAC-201 покрывает существующие 44 FQN; добавление новых internal-методов — отдельный issue per repo (см. §13 RT-1).
 
 ### 1.2 Gateway catalog-loading behaviour
 
-- `project/kacho-api-gateway/internal/middleware/permission_catalog.go:23-26` — комментарий явно фиксирует текущее «empty → anonymous-allowed»:
+Разбор, важный **как класс** (пошаговая механика прохода велась в рабочем каталоге задачи и в git
+не идёт — `.claude/rules/security.md` §«Публичные артефакты»):
 
-  > Method-not-found returns ok=false; callers default to "no requirement" (anonymous-allowed) which the AuthZ middleware then treats either as allowed-through (public allowlist) or denied (fail-closed default) per its own policy configuration.
+- **«Записи нет» и «запись есть, но пустая» — разные состояния, и обрабатывались они по-разному.**
+  Комментарий в загрузчике каталога описывает трактовку **отсутствующей** записи; ветка явного
+  освобождения от проверки срабатывает **только** на специальном литерале-маркере. Незаполненная
+  запись не попадает ни туда, ни туда: она не отсутствует, поэтому «не найдено» к ней не
+  применяется, и она не помечена освобождённой, поэтому идёт дальше по конвейеру — в третье,
+  никем не спроектированное состояние.
 
-  Это про **method-not-found** (`!ok`). Но `IsExempt()` (line 106-108) возвращает `true` **только** при `Permission == "<exempt>"` — пустая строка `""` не считается exempt, она просто проходит дальше по pipeline.
+- **Класс: третье состояние, которого нет в модели автора.** Проектировались два случая («есть
+  требование» / «требования нет по решению»), а реальность добавила третий («требование должно
+  быть, но его не записали»), и он унаследовал поведение от того из двух, что оказался ближе по
+  коду, — а не от того, что безопаснее. Это же объясняет, почему комментарий рядом **не лгал** и
+  всё равно вводил в заблуждение: он верно описывал случай, о котором говорил, и молчал о случае,
+  которого автор не предполагал. Проверять надо не согласие комментария с кодом, а **полноту
+  разбора значений**.
 
-- `authz.go:504-535` — `entry, found := m.cfg.Catalog.Lookup(dr.FQN); if found && entry.IsExempt()` — exempt-ветка работает только при literal `"<exempt>"`. Если entry found но Permission `""`, выполнение продолжается на line 568 → subject-extraction → resource-extraction → cache-lookup → `Checker.Check(... Action="", ResourceType="project", ResourceID="*")`. Iam.AuthorizeService на запрос с пустым `Action` либо вернёт `PermissionDenied`+«unscoped permission», либо `InvalidArgument`+«action required». **На практике** (как доказано в reproduction-curl §0): запрос проходит на backend, потому что resource-extraction даёт `ResourceID="*"`, который substitute'ится на `cluster_kacho_root` (line 617-619), но FGA-tuple для `cluster:cluster_kacho_root#allow@user:usr_*` не существует → Check возвращает `allowed=false` с reason «no path». **Тогда почему 200 OK у tenant?** — потому что в production helm `values.dev.yaml:37-55` у dev-стенда `authz.enabled: true, failOpen: false`, но backend (`kacho-vpc:9091` internal port) НЕ за authz-middleware — он за TLS-listener gateway, но методы `Internal*` через REST-mux идут в internal-mux (line 113 `isInternalPath` → True), который… **тоже** через authz-middleware (mounted on httpMux root, see `cmd/api-gateway/main.go`). Финальная гипотеза (требует §3.2 verification): authz-mw decides ALLOW потому что `entry.Permission == ""` и Checker.Check **не вызывается вообще**, а fallback line 700-705 («empty entry → no requirement → pass-through») активен. **§3.1 RED-test G1 финализирует это.**
+- **Гипотеза о точном пути прохода не принимается на веру.** На момент написания дока
+  окончательный механизм был предположением, и это фиксируется прямо: он **устанавливается
+  прогоном** RED-теста G1 (§3.1) и проверкой §3.2, а не рассуждением по исходникам. Предположение,
+  выглядящее как вывод, — отдельный способ ошибиться; правка не зависит от того, какая из версий
+  верна, потому что закрывает **все** три состояния разом (§0, пункт 2).
 
 ### 1.3 Gateway mux split
 
-- `project/kacho-api-gateway/internal/restmux/mux.go:43-91` — комментарий documents split-mux:
-  - `public mux` (EmitUnpopulated=true) — tenant-facing.
-  - `internal mux` (EmitUnpopulated=false) — admin / data-plane.
-  - Path-based dispatch: `/vpc/v1/addressPools`, `/vpc/v1/networks/{id}/addressPoolBinding`, `/vpc/v1/clouds/{id}/poolSelector`, `/compute/v1/hypervisors`, любой `*/internal/*` → internal mux.
-- **Однако**: оба mux'а навешены на ОДИН `httpMux` (composition root), и authz-mw (`AuthzMiddleware.HTTP`) — это wrapper над `httpMux`. То есть один и тот же authz-mw обслуживает оба mux'а. Различие между internal vs public — только маршалинг JSON, **не authorization-уровень**. Это **частично-корректно**: internal mux зарегистрирован только на cluster-internal listener (port 9092 без TLS из `api.kacho.cloud`), значит external client не видит `/vpc/v1/addressPools` (TLS-frontend `api.kacho.cloud:443` отбрасывает path, которого нет в public mux). **Но** на cluster-internal port (9092) authenticated через Kratos cookie tenant-user проходит — это и есть compromise. Reproduction `curl -b 'ory_kratos_session=...' http://127.0.0.1:9092/vpc/v1/addressPools` подтверждает.
+- `internal/restmux/mux.go` — разделение на два mux'а задокументировано: публичный (tenant-facing) и
+  внутренний (admin / data-plane), с маршрутизацией по пути.
+- **Однако разделение проходит не там, где кажется.** Оба mux'а смонтированы на один корневой
+  HTTP-обработчик, и authz-прослойка оборачивает именно его — то есть она **одна на оба**. Различие
+  между «внутренним» и «публичным» здесь — это различие в **маршалинге JSON и в том, на каком
+  листенере зарегистрирован маршрут**, но **не уровень авторизации**.
+
+  Отсюда общий вывод, ради которого этот пункт и написан: **«внутренний» — свойство сетевой
+  досягаемости, а не полномочий**. Оно ограничивает, **откуда** можно постучаться, и ничего не
+  говорит о том, **кому** отвечать. Пока каждый RPC не несёт собственного требования (§0, пункт 1),
+  всякий, кто оказался внутри периметра, для такой поверхности неотличим от администратора. Это
+  ровно запрещённое допущение «internal = trusted» из `.claude/rules/security.md` §«AuthN+AuthZ
+  ВЕЗДЕ»: внутренний периметр не доверенный, и правила для обоих листенеров одинаковые.
+
+  Частичная защита при этом реально существует и её не надо путать с полной: внешний TLS-фронт не
+  знает admin-маршрутов, поэтому снаружи они не видны. Именно эта частичность и продлевала жизнь
+  дефекту — поверхность выглядела закрытой ровно с той стороны, с которой её обычно проверяют.
 
 ### 1.4 Service-account subject-type — current corelib state
 
@@ -282,7 +340,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 
   *Note:* `InternalRegionService/InternalZoneService/InternalDiskTypeService.{Get,List}` НЕТ в catalog (только Create/Update/Delete есть). Read paths Geography (`Region/Zone/DiskType.Get/List`) — это **public** `compute.v1.RegionService` etc., НЕ Internal. Они получают свой permission в **другом** эпике (public-RPC backfill, out-of-scope KAC-201). Если они тоже хотим зафиксировать в 5.0 — это **scope-расширение**: см. §13 OQ-1.
 
-- Output: `internal/apps/kacho/seed/embedded/permission_catalog.json` regenerated; commit'ится в git (mirror W2.A pattern). `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` синхронизируется через `make sync-permission-catalog`.
+- Output: `internal/apps/kacho/seed/embedded/permission_catalog.json` regenerated; commit'ится в git (mirror W2.A pattern). `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` синхронизируется через `make -C services/iam sync-permission-catalog`.
 
 ### 2.3 `kacho-corelib` — Subject-type discrimination в authzguard
 
@@ -379,7 +437,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 **And** все 44 Internal.*-метода в `kacho-proto/proto/kacho/cloud/<domain>/v1/internal_*.proto` имеют annotation согласно policy-таблицы §2.2 (cat-A/B/C)
 **And** plugin regenerates `permission_catalog.json` + drift-mirror в `kacho-api-gateway/internal/middleware/embed/`
 
-**When** запускается `cd project/kacho-iam && go test ./tests/drift/... -run TestCatalogCoversAllProtoMethods -v`
+**When** запускается `cd services/iam && go test ./tests/drift/... -run TestCatalogCoversAllProtoMethods -v`
 
 **Then** test passes (RED → GREEN compared to baseline §1.6 where assertion was `entry exists`)
 **And** для каждого из 44 Internal.* FQN: `entry.Permission != ""`, `entry.RequiredRelation != ""`, `entry.ScopeExtractor.ObjectType != ""`, `entry.RequiredSubjectType ∈ {"user","service_account"}`
@@ -395,7 +453,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 **Given** Сценарий 01 passes (catalog enriched)
 **And** разработчик добавляет в proto новый RPC `InternalFooService.Bar` БЕЗ `(kacho.permission)` annotation
 
-**When** запускается `make generate` + drift-test
+**When** запускается `make -C gateway permission-catalog-apply` + drift-test
 
 **Then** plugin генерирует entry с `permission: ""`
 **And** drift-test FAILS со строкой `Internal FQN has empty permission: kacho.cloud.foo.v1.InternalFooService/Bar`
@@ -418,24 +476,28 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 **And** structured-log emit'ит `level=WARN msg="authz catalog malformed: empty permission, denying" fqn="test.v1.FooService/Bar"`
 **And** metric `kacho_authz_decisions_total{outcome="deny",reason="catalog_malformed"}` increments by 1
 
-**Сценарий 04: Reproduction-test — direct curl pre-fix vs post-fix (RED → GREEN)**
+**Сценарий 04: Регрессия на исходный дефект — обычный тенант против admin-поверхности (RED → GREEN)**
 
 **ID:** 5.0-04
 
-**Given** Pre-KAC-201 baseline: catalog содержит `InternalAddressPoolService.List` с empty fields (current state §1.1)
-**And** dev-стенд поднят (`make dev-up`), regular user `usr_tenant_alice` зарегистрирован через signup-flow
+> Сценарий описан **утверждением о требуемом свойстве**, а не готовой последовательностью вызовов:
+> точная команда вместе с состоянием «до» — это воспроизведение, а репозитории публичны
+> (`.claude/rules/security.md` §«Публичные артефакты»). Исполняемая форма живёт в самом newman-кейсе
+> (§«Артефакты»), где ей и место: там она — проверка, а не инструкция.
 
-**When** клиент выполняет:
-```bash
-TOKEN=$(curl -sS http://api-gateway.kacho.svc.cluster.local:9092/iam/v1/auth/login \
-  -d '{"email":"alice@test","password":"..."}' | jq -r .token)
-curl -i -H "Authorization: Bearer $TOKEN" \
-  http://api-gateway.kacho.svc.cluster.local:9092/vpc/v1/addressPools
-```
+**Given** базовое состояние до KAC-201 (каталог не заполнен, §1.1)
+**And** поднят dev-стенд, в нём заведён **обычный** тенант — без каких-либо кластерных полномочий
 
-**Then** **(pre-fix, RED)**: HTTP 200 OK + JSON listing of pools (включая default infrastructure pool). Это документированный bug.
-**And** **(post-fix, GREEN)**: HTTP 403 PermissionDenied + body `{"code":7,"message":"...","details":[{"reasons":["no path: subject user:usr_tenant_alice has no system_admin on cluster:cluster_kacho_root"]}]}`
-**And** audit-log пишет deny event с `risk_level=HIGH` (Internal.* — высокий risk).
+**When** этот тенант обращается к admin-поверхности (`Internal.*`, ресурс уровня кластера) со своим
+законным пользовательским токеном — то есть **аутентифицирован, но не авторизован**
+
+**Then** **(до фикса, RED)** запрос **не отвергается** — ровно тот дефект, ради которого написан
+KAC-201: аутентификация состоялась, авторизация не потребовала ничего. Значение теста в том, что он
+**красный до правки**: проверка, не умеющая упасть, хуже отсутствующей.
+**And** **(после фикса, GREEN)** — `403 PermissionDenied`; в теле ответа причина отказа в
+`google.rpc.Status.details`, без раскрытия существования ресурса.
+**And** в audit-log пишется событие отказа с `risk_level=HIGH` (обращение к `Internal.*` — высокий
+риск **независимо** от исхода: важен сам факт попытки).
 
 ### 3.3 Subject-type discrimination (Cat-B service_account-only)
 
@@ -561,7 +623,7 @@ fga tuple read --store-id $STORE_ID 'cluster:cluster_kacho_root#service_account@
 
 **Given** Production-like overlay (`values.prod.yaml`)
 **And** TLS-listener bound on `api.kacho.cloud:443` обслуживает только **public** mux
-**And** Internal-mux paths (`/vpc/v1/addressPools*`, `/compute/v1/hypervisors*`, `*/internal/*`) registered ТОЛЬКО на cluster-internal listener (port 9092)
+**And** Internal-mux paths (`/vpc/v1/addressPools*`, `*/internal/*`) registered ТОЛЬКО на cluster-internal listener (port 9092)
 
 **When** external attacker hits `https://api.kacho.cloud/vpc/v1/addressPools` с valid user-token
 
@@ -577,7 +639,8 @@ fga tuple read --store-id $STORE_ID 'cluster:cluster_kacho_root#service_account@
 **Given** Newman fixture (`tests/newman/cases/internal-tier-authz/`) генерируется через `gen.py`-pattern (parity с W2.D 100% coverage)
 **And** 3 personae setup'ятся в fixture: `usr_tenant_alice` (regular user, no cluster-grants), `usr_admin_root` (cluster system_admin), `sva_kacho_test_peer` (service_account with `service_account@cluster:cluster_kacho_root`)
 
-**When** запускается newman suite `make newman-internal-tier-authz`
+**When** запускается newman-набор `make -C deploy e2e-newman SVC=iam` (отдельной цели
+`newman-internal-tier-authz` не существует)
 
 **Then** для каждого из 44 FQN:
   - **Cat-A** (26 методов): `alice → 403` (PermissionDenied, reason "no path"), `admin → 200/202` (allow), `peer → 403` (subject_type mismatch: required user)
@@ -595,8 +658,14 @@ fga tuple read --store-id $STORE_ID 'cluster:cluster_kacho_root#service_account@
 
 **When** suite runs (CI on every PR + nightly)
 
-**Then** case asserts: `curl -b cookie http://api-gw:9092/vpc/v1/addressPools` returns 403, NOT 200
-**And** GitHub Issue [link TBD] (cross-referenced via `# verifies <issue-url>` per CLAUDE.md §13) считается closed by green-test.
+**Then** кейс утверждает **исход**, а не факт выполнения: обычный тенант против admin-поверхности
+получает `403` — и **никогда** `200`. Отрицание здесь идёт в паре с положительным (кластерный
+администратор на той же поверхности проходит, сценарии 05–13): одиночное «отвергнуто» зеленеет
+сильнее всего именно тогда, когда сломано всё.
+**And** кейс обязан быть **воспроизведённо красным** на состоянии до правки — иначе он проверяет не
+дефект, а собственную формулировку.
+**And** GitHub Issue (перекрёстная ссылка `# verifies <issue-url>`, CLAUDE.md §13) закрывается этим
+зелёным тестом — закрытие issue обязано опираться на code-артефакт, а не на слово.
 
 ---
 
@@ -776,7 +845,7 @@ enum SubjectType {
 | Запрет #10 (within-service refs via DB) | n/a (no schema-changes in 5.0) |
 | Запрет #11 (no TODO/tech-debt) | §0.1 explicitly enumerates out-of-scope (boundary), not TODO |
 | Запрет #12 (test-first) | RED→GREEN pairs in §3.1, §3.2 (G1-RED for `entry exists`-only baseline), §3.6 (FGA model-RED) |
-| §«Инфра-чувствительные данные» | §3.7 + §4.5 (`vpn_id` exposure path = `Internal*` only, never public) |
+| §«Инфра-чувствительные данные» | §3.7 + §4.5 (инфра-поля exposed только через `Internal*`, never public) |
 | §«Кросс-доменные ссылки на ресурсы» | §2.7 (peer-clients via SA-token; no FK across services) |
 | §«Obsidian vault trail» | §7 DoD checkbox + §13 RT-1 (vault entries) |
 | Cross-epic coordination (KAC-178/KAC-196) | §0.5 Prerequisites — explicit scope-split table + ordering DAG |
