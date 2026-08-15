@@ -28,7 +28,7 @@ tags:
 Арендаторский CRUD блочного тома. **Привязка тома к машине здесь не живёт** — она у
 [[storage-internal-volume-service]] на :9091 и инициируется compute.
 
-## Методы (6)
+## Методы (7)
 
 | Метод | Ответ | Sync/Async | REST |
 |---|---|---|---|
@@ -38,6 +38,7 @@ tags:
 | `Update` | `Operation` | async | `PATCH /storage/v1/volumes/{volume_id}` |
 | `Delete` | `Operation` | async | `DELETE /storage/v1/volumes/{volume_id}` |
 | `ListOperations` | `ListVolumeOperationsResponse` | sync | `GET …/{volume_id}/operations` |
+| `ChangeDiskType` | `Operation` | async | `POST …/{volume_id}:changeDiskType` |
 
 Метаданные операций — `Create/Update/DeleteVolumeMetadata{volume_id}`.
 Префикс операции storage — **`sop`** (по нему край маршрутизирует `OperationService.Get`).
