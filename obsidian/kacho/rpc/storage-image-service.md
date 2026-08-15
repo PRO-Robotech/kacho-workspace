@@ -29,7 +29,7 @@ tags:
 домене registry, адресуется натуральным ключом и к этому контракту отношения не имеет
 (см. [[registry-registry-service]]).
 
-## Методы (6)
+## Методы (7)
 
 | Метод | Ответ | Sync/Async | REST |
 |---|---|---|---|
@@ -38,9 +38,19 @@ tags:
 | `Create` | `Operation` | async | `POST /storage/v1/images` |
 | `Update` | `Operation` | async | `PATCH /storage/v1/images/{image_id}` |
 | `Delete` | `Operation` | async | `DELETE /storage/v1/images/{image_id}` |
+| `Copy` | `Operation` | async | `POST …/{image_id}:copy` |
 | `ListOperations` | `ListImageOperationsResponse` | sync | `GET …/{image_id}/operations` |
 
-Метаданные — `Create/Update/DeleteImageMetadata{image_id}`.
+Метаданные — `Create/Update/Delete/CopyImageMetadata{image_id}`.
+
+**`Copy` переносит образ в ДРУГОЙ регион и гейтится `editor` на проекте**, а не чтением
+источника: копия — новый ресурс (квота, имя, деньги), и гейт на чтение отдал бы наблюдателю
+право порождать ресурсы. `targetRegionId` обязателен, `projectId` обязателен.
+
+**Копия называет своего родителя** — поле `sourceImageId` (output-only, ставит только `Copy`,
+неизменяемо). Происхождение образа — РОВНО ОДНО из трёх: снимок либо том (снятие, вход
+`Create`) либо образ (копирование). До 2026-08-13 третий вид не признавали ни домен, ни
+контракт, ни путь чтения, и глагол не работал ни разу с момента заведения.
 
 ## Ресурс
 
