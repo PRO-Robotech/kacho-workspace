@@ -15,7 +15,9 @@ category: kac
 
 **Status:** test — фикс в [PR #511](https://github.com/PRO-Robotech/kacho/pull/511), в `main`
 ещё не влит. **Задача:** [#498](https://github.com/PRO-Robotech/kacho/issues/498).
-**Ветка:** `issue-498`, база `origin/main` (`cd7bcc5c`).
+**Ветка:** `issue-498`, отведена от `origin/main` (`cd7bcc5c`); **база PR — накопительная
+ветка** `release/gates-and-findings`, а не ствол: в `main` работа попадёт вместе с релизной
+линией одним MR.
 
 ## Что и зачем
 
@@ -131,5 +133,6 @@ category: kac
 - [x] все восемь типов-черновиков называют каждое поле своего сообщения
 - [x] прогоны: vpc 1715 · iam 1647 · system 1596 · nlb 116 · compute 101 · storage 100 ·
       registry 91 — зелёные; typecheck всех модулей
-- [ ] PR #511 влит в `main`
+- [ ] PR #511 влит в `release/gates-and-findings`
+- [ ] релизная линия влита в `main`
 - [ ] задача #498 закрыта артефактом
