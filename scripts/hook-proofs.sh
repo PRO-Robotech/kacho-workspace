@@ -35,6 +35,7 @@ cd "$WS" || exit 2
 DECLARED="
 .claude/hooks/class-guard/prove.sh
 .claude/hooks/docfresh/prove.sh
+.claude/hooks/hooks-wiring-notice/prove.sh
 "
 
 FOUND="$(git ls-files --cached --others --exclude-standard '.claude/hooks/*/prove.sh' | sort -u)"
