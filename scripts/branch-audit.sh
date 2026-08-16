@@ -129,6 +129,36 @@ merge_delta_empty() { # $1 = ref → 0 если дельта пуста
   [ "$(printf '%s\n' "$out" | head -1)" = "$TRUNK_TREE" ]
 }
 
+# ЧТО ИМЕННО ветка добавит стволу. Без этого перечень «снимать нельзя» — стена
+# из имён, и человек, которому нечем отличить сданную работу от сгенерированной
+# строки указателя, перестаёт его читать. Замер 2026-08-16 на этом репозитории:
+# из 24 веток с непустой дельтой у 14 она состояла ТОЛЬКО из машинно-собираемого
+# obsidian/kacho/INDEX.md, то есть авторской работы в них нет вовсе.
+# Список НЕ фильтруется: подавлять «заведомо генерируемые» пути значит завести
+# маску, которая однажды скроет настоящую работу. Имена печатаются — судит человек.
+delta_files() { # $1 = ref → «N файл(ов): a b c» либо «КОНФЛИКТ по: …»
+  local ref=$1 out mt files n cf cn rc=0
+  out=$(git merge-tree --write-tree "$TRUNK" "$ref" 2>/dev/null) || rc=$?
+  mt=$(printf '%s\n' "$out" | head -1)
+
+  if [ "$rc" -ne 0 ]; then
+    # Ненулевой код — конфликт слияния. Тогда честный ответ не «нечем
+    # установить», а ИМЕНА спорных путей: они и есть то, что решает человек.
+    cf=$(printf '%s\n' "$out" | sed -n '2,/^$/p' |
+         awk -F'\t' 'NF>1{print $2}' | sort -u)
+    cn=$(printf '%s\n' "$cf" | grep -c . || true)
+    printf 'КОНФЛИКТ по %s пути(ям): %s' "$cn" "$(printf '%s\n' "$cf" | head -3 | tr '\n' ' ')"
+    [ "$cn" -gt 3 ] && printf '…'
+    return 0
+  fi
+
+  files=$(git diff --name-only "$TRUNK_TREE" "$mt" 2>/dev/null || true)
+  n=$(printf '%s\n' "$files" | grep -c . || true)
+  printf '%s файл(ов): %s' "$n" "$(printf '%s\n' "$files" | head -3 | tr '\n' ' ')"
+  [ "$n" -gt 3 ] && printf '…'
+  return 0
+}
+
 fresh_mark() { # $1 = ref → метка, если ветка двигалась только что
   local ref=$1 ct age_min
   ct=$(git log -1 --format=%ct "$ref" 2>/dev/null || echo 0)
@@ -172,7 +202,7 @@ while read -r b; do
       merged_local+=("$b — +$ahead коммит(ов), но ДЕЛЬТА СЛИЯНИЯ ПУСТА${pr}${occ}${fresh}")
     fi
   elif [ "$on_origin" = 0 ]; then
-    only_local+=("$b (+$ahead коммит(ов), НЕТ на origin, дельта НЕ пуста)${pr}${occ}${fresh}")
+    only_local+=("$b (+$ahead коммит(ов), НЕТ на origin) — добавит стволу: $(delta_files "$b")${pr}${occ}${fresh}")
   else
     alive+=("$b (+$ahead)${pr}${occ}${fresh}")
   fi
@@ -181,7 +211,7 @@ while read -r b; do
   if [ "$empty" = 0 ] && [ -n "${PRSTATE[$b]+x}" ]; then
     case "${PRSTATE[$b]}" in
       *MERGED*|*CLOSED*)
-        split_work+=("$b — ${PRSTATE[$b]}, но дельта слияния НЕ пуста: часть работы вне ствола") ;;
+        split_work+=("$b — ${PRSTATE[$b]}, но дельта НЕ пуста: $(delta_files "$b")") ;;
     esac
   fi
 done < <(git branch --format='%(refname:short)')
