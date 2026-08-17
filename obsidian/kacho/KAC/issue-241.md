@@ -1,21 +1,21 @@
 ---
 title: "issue-241 — ветки: влитая локальная ветка не снимается и не видна"
 tags: [kac, tooling, fix]
-status: test
+status: done
 type: fix
 ticket_id: "241"
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/241
 opened: 2026-08-17
 repos: [kacho-workspace]
-prs: []
+prs: ["https://github.com/PRO-Robotech/kacho-workspace/pull/245"]
 category: kac
 ---
 
 # issue-241 — ветки: влитая локальная ветка не снимается и не видна
 
-**Status:** test — оснастка влита в ствол коммитом `d245993` (пришла через чужой
-[PR #244](https://github.com/PRO-Robotech/kacho-workspace/pull/244), см. ниже), правила идут
-своим PR. **Задача:**
+**Status:** done — оснастка влита в ствол коммитом `d245993` (пришла через чужой
+[PR #244](https://github.com/PRO-Robotech/kacho-workspace/pull/244), см. ниже), нормы и trail —
+[PR #245](https://github.com/PRO-Robotech/kacho-workspace/pull/245), влит в `main` `b5426dc`. **Задача:**
 [#241](https://github.com/PRO-Robotech/kacho-workspace/issues/241). Заведена вместе с
 [[KAC/issue-240]] (перепись врала в обе стороны) и
 [PRO-Robotech/kacho#537](https://github.com/PRO-Robotech/kacho/issues/537) (накопившийся
@@ -83,4 +83,8 @@ PR **на origin** и о локальных копиях не знает by cons
 - [x] хук заметности провязан (`UserPromptSubmit`, 7 провязок)
 - [x] инъекция в обе стороны у переписи и у хука
 - [x] нормы в `git-issues.md` и `multi-agent-flow.md` приведены к шести признакам
-- [ ] прогон `--prune-merged` на обоих репозиториях (после того как #537 разберёт остаток)
+- [x] норма применена к собственной ветке: перепись перед снятием дала пустую дельту,
+      ветка снята с origin (настройкой) и локально
+- [ ] прогон `--prune-merged` на обоих репозиториях — **необратим**, требует показа перечня
+      владельцу до, и осмысленнее после разбора остатка в
+      [PRO-Robotech/kacho#537](https://github.com/PRO-Robotech/kacho/issues/537)

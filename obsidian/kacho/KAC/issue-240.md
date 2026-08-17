@@ -1,20 +1,21 @@
 ---
 title: "issue-240 — перепись веток принимает отставание за расщеплённую работу"
 tags: [kac, tooling, fix]
-status: test
+status: done
 type: fix
 ticket_id: "240"
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/240
 opened: 2026-08-17
 repos: [kacho-workspace]
-prs: []
+prs: ["https://github.com/PRO-Robotech/kacho-workspace/pull/245"]
 category: kac
 ---
 
 # issue-240 — перепись веток принимает отставание за расщеплённую работу
 
-**Status:** test — фикс влит в ствол коммитом `d245993`; нормы идут своим PR вместе с
-[[KAC/issue-241]]. **Задача:**
+**Status:** done — фикс влит в ствол коммитом `d245993`; нормы и trail —
+[PR #245](https://github.com/PRO-Robotech/kacho-workspace/pull/245), влит в `main` `b5426dc`,
+вместе с [[KAC/issue-241]]. **Задача:**
 [#240](https://github.com/PRO-Robotech/kacho-workspace/issues/240).
 
 ## Признак
