@@ -544,7 +544,7 @@ RE_TARGET = re.compile(r"^([a-zA-Z][a-zA-Z0-9_.%-]*)\s*:(?!=)")
 RE_GOROUTE = re.compile(r'"(/[a-z][a-z0-9-]*/v[0-9]+[^"]*)"')
 RE_ENVNAME = re.compile(r"\bKACHO_[A-Z0-9_]{2,}")
 
-ENV_PATHSPECS = [
+_ENV_PATHSPECS_DEFAULT = [
     "*.go", "*.yaml", "*.yml", "*.tpl", "*.sh", "*.json", "*.ts", "*.tsx",
     "*.py", "*.sql", "*.proto", "*.env", "*.mk", "Makefile", "*/Makefile",
     "Dockerfile*", "*/Dockerfile*", "*.bats", "*.tf",
@@ -558,6 +558,15 @@ ENV_PATHSPECS = [
     # находку форматированием, прежде чем прочитал этот перечень.
     "scripts/hooks/*", "*/scripts/hooks/*", ".githooks/*", "*/.githooks/*",
 ]
+
+# `DOCFRESH_ENV_PATHSPECS` СУЖАЕТ перечень ТОЛЬКО для инъекции. Иначе «вне
+# покрытия измеряется, а не подразумевается» доказуемо лишь привязкой к
+# конкретному редкому расширению — и проба умирает в день, когда его вносят в
+# перечень, не сказав об этом ни слова. Сужение — вход, а не режим работы: в бою
+# переменная не задаётся, и поведение прежнее.
+_EP_ENV = os.environ.get("DOCFRESH_ENV_PATHSPECS")
+ENV_PATHSPECS = ([spec.strip() for spec in _EP_ENV.split(",") if spec.strip()]
+                 if _EP_ENV else _ENV_PATHSPECS_DEFAULT)
 
 COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 
@@ -573,6 +582,20 @@ COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 # Граница честная: `.claude/hooks/` — оснастка разработки, а не продукт; читателем
 # ручки продукта файл оттуда не является ни при каком раскладе.
 TRUTH_EXCLUDE = ":(exclude).claude/hooks/"
+
+# Поиск «имя объявлено в дереве, но В ВИДЕ ФАЙЛА, которого основание не читает».
+# Исключается ровно то, что читать НЕ надо: сами покрытые виды (иначе имя,
+# встречающееся под покрытием только в комментарии, прощалось бы в обход
+# `_code_part` — а комментарий читателем не является), документы (проза тоже не
+# читатель) и доказательства хуков (их тела намеренно несут имена, которых в
+# дереве быть не должно, — см. TRUTH_EXCLUDE выше).
+#
+# Перечень ВЫВОДИТСЯ из ENV_PATHSPECS, а не выписывается рядом: две рукописные
+# копии одного перечня разойдутся молча, и разойдутся они именно там, где
+# расхождение не видно.
+ENV_UNCOVERED_EXCLUDE = [f":(exclude){spec}" for spec in ENV_PATHSPECS] + [
+    ":(exclude)*.md", ":(exclude)*.mdx", TRUTH_EXCLUDE,
+]
 
 
 def _code_part(line: str) -> str:
@@ -624,10 +647,49 @@ def _code_part(line: str) -> str:
 # в HEAD, — то есть перевес честно ушёл. Имя убрано не поэтому, а потому что
 # кандидат, которого больше не существует как линии работы, каждый раз стоит
 # одного лишнего `rev-parse` и читается следующим как действующая альтернатива.
-INTEGRATION_REF_CANDIDATES = ("main", "master")
+# Кандидаты ствола — и ОПУБЛИКОВАННАЯ линия, и локальная.
+#
+# Локальная `main` — такой же артефакт рабочей копии, как и сам checkout: она
+# двигается, только когда в ЭТОЙ копии кто-то сделал fetch, и о посаженном в
+# ствол не знает ничего. Замер 2026-08-18 по `project/kacho`: HEAD `7ebb670d`,
+# локальная `main` `1278df74`, `origin/main` `dfd2c027`. То есть «ствол», по
+# которому выносился вердикт, сам отставал от ствола на 536 коммитов, а HEAD —
+# на 296; две координаты, влитые в этот промежуток, были объявлены
+# несуществующими, и в той же строке стояло «вровень».
+#
+# Локальные имена ОСТАЮТСЯ и идут после: клон без remote (распакованный архив,
+# standalone-проверка) обязан судиться по тому, что у него есть, а не остаться
+# без полосы ствола вовсе. Порядок при этом ничего не решает — выбирает ЗАМЕР
+# (`_resolve_integration_ref`), поэтому перечень здесь множество, а не приоритет.
+#
+# `DOCFRESH_INTEGRATION_CANDIDATES` переопределяет перечень ТОЛЬКО для инъекции:
+# «ствол не читается» иначе недоказуемо — пришлось бы портить ссылки дерева.
+# Пустое значение означает «кандидатов нет» и является законным входом.
+_CAND_ENV = os.environ.get("DOCFRESH_INTEGRATION_CANDIDATES")
+INTEGRATION_REF_CANDIDATES = (
+    tuple(c.strip() for c in _CAND_ENV.split(",") if c.strip())
+    if _CAND_ENV is not None else
+    ("origin/main", "origin/master", "main", "master")
+)
 
 
-def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
+def _count(root: Path, spec: str) -> int:
+    out = git(root, "rev-list", "--count", spec)
+    return int(out[0]) if out and out[0].strip().isdigit() else 0
+
+
+def _gap(root: Path, ref: str) -> tuple[int, int]:
+    """Расхождение копии со ссылкой — В ОБЕ СТОРОНЫ: (позади, впереди).
+
+    Одного «позади» мало. Копия, ушедшая ВПЕРЁД своей локальной `main`, имеет
+    ноль позади при РАЗНЫХ ревизиях — и прежняя редакция печатала на этом
+    «вровень», то есть называла расхождение согласованностью. Ровно эта
+    комбинация и наблюдалась в дереве продукта 2026-08-18.
+    """
+    return _count(root, f"HEAD..{ref}"), _count(root, f"{ref}..HEAD")
+
+
+def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int, int]:
     """Ствол ВЫВОДИТСЯ из дерева, а не назначается именем.
 
     Из объявленных кандидатов берётся тот, у кого больше всего коммитов,
@@ -637,7 +699,11 @@ def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
     при той же смене стало бы ложью молча — ровно тот класс, который хук ловит
     в чужой прозе.
 
-    → (имя ссылки, короткая ревизия, на сколько коммитов копия позади).
+    → (имя ссылки, ПОЛНАЯ ревизия, позади коммитов, впереди коммитов).
+
+    Ревизия отдаётся полной, а не обрезанной: «вровень» решается РАВЕНСТВОМ
+    ревизий, а сравнение обрезанных префиксов на неоднозначном сокращении
+    ответило бы по-разному у двух корней.
     """
     # Проба вправе НАЗНАЧИТЬ ствол — иначе её вход зависит от того, отстала ли
     # сегодня рабочая копия, а это не свойство гейта, а состояние чужого дерева.
@@ -649,28 +715,30 @@ def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
     if forced:
         rev = git(root, "rev-parse", "--verify", "--quiet", forced + "^{commit}")
         if rev:
-            cnt = git(root, "rev-list", "--count", f"HEAD..{forced}")
-            behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
-            return (forced, rev[0][:8], behind)
+            behind, ahead = _gap(root, forced)
+            return (forced, rev[0], behind, ahead)
 
-    best: tuple[str | None, str | None, int] = (None, None, -1)
+    best: tuple[str | None, str | None, int, int] = (None, None, -1, 0)
     for cand in INTEGRATION_REF_CANDIDATES:
         rev = git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
         if not rev:
             continue
-        cnt = git(root, "rev-list", "--count", f"HEAD..{cand}")
-        behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
+        behind, ahead = _gap(root, cand)
         if behind > best[2]:
-            best = (cand, rev[0][:8], behind)
-    return best
+            best = (cand, rev[0], behind, ahead)
+    return best if best[0] else (None, None, 0, 0)
 
 
 def _provenance(root: Path) -> dict:
-    ref, rev, behind = _resolve_integration_ref(root)
-    head = git(root, "rev-parse", "--short=8", "HEAD")
+    ref, rev, behind, ahead = _resolve_integration_ref(root)
+    head = git(root, "rev-parse", "HEAD")
     branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
-    return {"head": head[0] if head else "?", "branch": branch[0] if branch else "?",
-            "trunk_ref": ref, "trunk_rev": rev, "behind": behind}
+    head_full = head[0] if head else ""
+    return {"head": head_full[:8] if head_full else "?",
+            "head_full": head_full,
+            "branch": branch[0] if branch else "?",
+            "trunk_ref": ref, "trunk_rev": rev[:8] if rev else None,
+            "trunk_rev_full": rev or "", "behind": behind, "ahead": ahead}
 
 
 def _dirs_of(files) -> set[str]:
@@ -899,6 +967,14 @@ class Truth:
         tr = raw.get("trunk") or {}
         t_ws, t_mono = tr.get("ws") or {}, tr.get("mono") or {}
         self.trunk_on = bool(t_ws or t_mono)
+        # Полоса ПОЛНА, только если ствол нашёлся у КАЖДОГО корня. Ствол у одного
+        # и отсутствие у другого — не «полоса есть»: координата второго корня
+        # судилась бы по чужой линии интеграции, а её отсутствие ТАМ не значит
+        # ничего. Отрицательный вердикт на непрочитанном основании — ровно тот
+        # мягкий проход, который хук ловит в чужом коде.
+        self.trunk_full = bool(self.prov) and all(
+            (pr or {}).get("trunk_ref") for pr in self.prov.values())
+        self._env_uncov: dict[str, bool] = {}
         self.t_files = set(t_ws.get("files", [])) | set(t_mono.get("files", []))
         self.t_all = self.t_files | set(t_ws.get("dirs", [])) | set(t_mono.get("dirs", []))
         self.t_routes = set(t_ws.get("routes", [])) | set(t_mono.get("routes", []))
@@ -951,7 +1027,41 @@ class Truth:
             svc = coord.split("/")[1] if coord.count("/") >= 2 else ""
             if svc and svc not in self.rest_domains:
                 return "домен вне REST-поверхности продукта"
+        if kind == "env" and self._env_outside_coverage(coord):
+            return "объявлено в виде файла, которого основание не читает"
         return None
+
+    def _env_outside_coverage(self, coord: str) -> bool:
+        """Имя объявлено в дереве, но В ВИДЕ ФАЙЛА, которого основание не читает.
+
+        Без этого вопроса «не нашёл» неотличимо от «не искал». Основание
+        переменных — ЗАКРЫТЫЙ перечень видов файлов; всё, что вне него,
+        объявлялось несуществующим, а в той же строке переписи печаталось «вне
+        покрытия основания 0» — то есть УТВЕРЖДЕНИЕ ПОЛНОТЫ, которой нет.
+        Первый экземпляр (ручка обхода хука отправки, объявленная в каталоге
+        хуков git — файлы там расширений не имеют) закрыт добавлением вида в
+        перечень; КЛАСС этим не закрывается, и следующий вид повторил бы его так
+        же молча. Замер 2026-08-18 по дереву продукта: имён `KACHO_*` — 701, под
+        покрытием — 693, вне него — 8.
+
+        Ответ кэшируется: вопрос задаётся только по НЕРЕЗОЛЬВЯЩЕЙСЯ координате,
+        то есть его цена ограничена числом кандидатов в находки, а не размером
+        дерева.
+        """
+        hit = self._env_uncov.get(coord)
+        if hit is not None:
+            return hit
+        hit = False
+        for root in (self.ws, self.mono):
+            if root is None or hit:
+                continue
+            for line in git(root, "grep", "-h", "-I", "-w", "-e", coord, "--",
+                            ".", *ENV_UNCOVERED_EXCLUDE):
+                if coord in RE_ENVNAME.findall(_code_part(line)):
+                    hit = True
+                    break
+        self._env_uncov[coord] = hit
+        return hit
 
     @property
     def rest_domains(self) -> set[str]:
@@ -967,13 +1077,22 @@ class Truth:
     # стоять на сотню коммитов позади ствола, и тогда путь, живущий в стволе,
     # читается как несуществующий.
     def classify(self, kind: str, coord: str) -> str:
-        """→ resolved · uncovered · trunk_only · missing."""
+        """→ resolved · uncovered · trunk_only · unadjudicated · missing.
+
+        Пятый исход — «вердикт НЕ ВЫНЕСЕН»: ствола не было, значит второй полосы
+        не было тоже, и утверждение «этого нет» здесь недоказуемо. Произнести
+        его всё равно значило бы выдать «смотрел не туда» за «не существует» —
+        то же приравнивание чужого к отсутствующему, ради которого заведён
+        третий исход, только основанием тут служит целая непрочитанная полоса.
+        """
         if self.resolve(kind, coord):
             return "resolved"
         if self.out_of_coverage(kind, coord):
             return "uncovered"
-        if self.trunk_has(kind, coord):
+        if self.trunk_on and self.trunk_has(kind, coord):
             return "trunk_only"
+        if not self.trunk_full:
+            return "unadjudicated"
         return "missing"
 
     def trunk_has(self, kind: str, coord: str) -> bool:
@@ -1855,11 +1974,20 @@ def tree_provenance(truth: "Truth") -> str:
         s = f"{human} {p['head']}@{p['branch']}"
         if not p.get("trunk_ref"):
             s += (" — ствол НЕ НАЙДЕН среди "
-                  + "/".join(INTEGRATION_REF_CANDIDATES)
-                  + ": полоса ствола не прогонялась, «не резолвится» здесь может "
-                    "означать «копия отстала»")
-        elif p.get("behind"):
-            s += (f" — ОТСТАЁТ от {p['trunk_ref']} {p['trunk_rev']} на {p['behind']}; "
+                  + ("/".join(INTEGRATION_REF_CANDIDATES) or "пустого перечня")
+                  + ": полосы ствола не было, поэтому вердикт «в дереве нет» "
+                    "здесь НЕ ВЫНОСИТСЯ вовсе")
+        elif not p.get("head_full") or not p.get("trunk_rev_full"):
+            s += (f" — ствол {p['trunk_ref']} {p['trunk_rev']}, но сверить ревизии "
+                  f"не удалось: git не отдал одну из них")
+        elif p["head_full"] != p["trunk_rev_full"]:
+            # «Вровень» — слово о РАВЕНСТВЕ, и произносится оно только при нём.
+            # Прежняя редакция ставила его на нулевое ОТСТАВАНИЕ, а копия, ушедшая
+            # вперёд своей локальной `main`, имеет ноль позади при разных ревизиях:
+            # расхождение печаталось как согласованность (замер 2026-08-18 —
+            # `7ebb670d` против `1278df74`, и в строке стояло «вровень»).
+            s += (f" — РАСХОДИТСЯ со стволом {p['trunk_ref']} {p['trunk_rev']}: "
+                  f"позади {p.get('behind', 0)}, впереди {p.get('ahead', 0)}; "
                   f"координаты, живые на стволе, вынесены в отдельный исход и "
                   f"находкой НЕ считаются")
         else:
