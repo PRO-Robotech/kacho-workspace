@@ -3,6 +3,7 @@ on: [push, pull_request]
 jobs:
   bats-and-shellcheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - name: install bats-core + shellcheck
@@ -25,6 +26,7 @@ jobs:
   tooling-gate:
     name: конвейер и агенты не утверждают о дереве того, чего в нём нет
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - name: tooling-gate
@@ -35,6 +37,7 @@ jobs:
   hook-proofs:
     name: доказательства хуков инъекцией исполняются, а не лежат текстом
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -75,6 +78,7 @@ jobs:
   vault-gate:
     name: записки хранилища знаний сверены с деревом продукта
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
@@ -105,6 +109,7 @@ jobs:
   doc-commands:
     name: quoted make commands run from the monorepo root
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -140,6 +145,7 @@ jobs:
   skills-gate:
     name: оснастка не утверждает о дереве того, чего в нём нет
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       # Набор существовал, но не звался НИОТКУДА: ни один job его не запускал, и
@@ -156,7 +162,16 @@ jobs:
           repository: PRO-Robotech/kacho
           ref: main
           path: project/kacho
+      # СЕТЕВАЯ УСТАНОВКА — СО СВОИМ ПРЕДЕЛОМ (#278).
+      #
+      # Загрузка либо мгновенна, либо виснет насмерть: этот шаг однажды провисел
+      # ДВА ЧАСА и держал запрос на слияние, а сводка показывала «идёт» —
+      # неотличимо от честной очереди. Предел джобы такого не ловит, если его нет,
+      # а без предела ШАГА не видно, что именно встало.
       - name: install shellcheck
+        timeout-minutes: 3
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
       # Порог — `warning`: у набора есть замечания уровня info (кавычки вокруг
       # регулярных выражений, `A && B || C`), и они здесь намеренные. Порог назван
@@ -174,11 +189,21 @@ jobs:
   docs-gate:
     name: документы объявляют то, чем их измеряют
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
+      # СЕТЕВАЯ УСТАНОВКА — СО СВОИМ ПРЕДЕЛОМ (#278).
+      #
+      # Загрузка либо мгновенна, либо виснет насмерть: этот шаг однажды провисел
+      # ДВА ЧАСА и держал запрос на слияние, а сводка показывала «идёт» —
+      # неотличимо от честной очереди. Предел джобы такого не ловит, если его нет,
+      # а без предела ШАГА не видно, что именно встало.
       - name: install shellcheck
+        timeout-minutes: 3
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
       - name: shellcheck docs-gate (strict)
         run: shellcheck -x -- scripts/docs-gate/*.sh
@@ -204,6 +229,7 @@ jobs:
   authz-fixtures-lint:
     name: authz-fixtures bootstrap — lint (KAC-122)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
