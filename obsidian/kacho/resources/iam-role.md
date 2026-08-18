@@ -246,6 +246,21 @@ mis-scoped → `Operation.error` FAILED_PRECONDITION). STRICT-матрица (Q#
   (all_in_scope/resources[]/selector); понижение tier роли снимает orphan-tuples.
   Детали ledger — [[iam-access-binding]] §«Symmetric revoke + Role.Update reconcile».
 
+> [!important] `expectedVersion==""` — это НЕ мелкая оговорка, а открытая потеря правки
+> Пункт выше называет её верно и первым: пустой токен даёт безусловного последнего
+> писателя. Практическое следствие стоит проговорить, потому что оно не про
+> совместимость, а про доступ: `rules` правится **заменой набора целиком**, поэтому два
+> вызывающих, правящих разные правила одной роли с общего снимка и **не приславших**
+> токен, оба получают успех, и одно правило исчезает. Потерянное правило означает
+> потерянный доступ либо оставшийся доступ, который считали снятым.
+>
+> Перепись класса по дереву (`origin/main` @ `007e3e99`, 2026-08-18) нашла **два**
+> носителя такой семантики: `Role.rules` — здесь, и `RouteTable.static_routes`
+> ([[vpc-routetable]]), у которого рычага нет вовсе. Роль от соседа отличается тем, что
+> механизм уже есть и уже работает; закрыть надо **необязательность** — либо требовать
+> токен на изменение `rules`, либо объявить умолчание решением и записать его.
+> Предмет — PRO-Robotech/kacho#584, трейл [[../KAC/issue-584]].
+
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-role-service]] [[../rpc/iam-access-binding-service]] [[iam-cluster]] [[iam-organization]] [[iam-account]] [[iam-project]] [[iam-access-binding]] [[../KAC/KAC-105]] [[../KAC/KAC-127]]

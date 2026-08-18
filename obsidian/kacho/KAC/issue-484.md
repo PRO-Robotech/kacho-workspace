@@ -99,3 +99,6 @@ tags: [kacho/task, kacho/quota]
 ## PR
 
 - продукт: PRO-Robotech/kacho#629 → `release/quota-domain`
+- линия в ствол: PRO-Robotech/kacho#657 (`release/quota-domain` → `main`, открыт
+  2026-08-17; закрывает эту задачу вместе с `kacho#412` и `kacho#353`). Трейл линии —
+  [[issue-657]].
