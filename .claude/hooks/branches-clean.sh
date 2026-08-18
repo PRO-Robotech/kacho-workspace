@@ -49,6 +49,7 @@ ws="${CLAUDE_PROJECT_DIR:-}"
 findings=()
 examined_repos=0
 examined_branches=0
+held_by_worktree=0
 unreadable=()
 
 check_repo() { # $1 = путь, $2 = как называть в выводе
@@ -60,7 +61,10 @@ check_repo() { # $1 = путь, $2 = как называть в выводе
 
   examined_repos=$((examined_repos + 1))
 
-  # Ветку, занятую рабочей копией, снимать нельзя, и звать о ней бессмысленно.
+  # Ветку, занятую рабочей копией, этот хук не считает: снять её `branch -D` нельзя,
+  # и звать о ней здесь было бы советом без исполнимого действия. Но пропуск
+  # НАЗЫВАЕТСЯ числом — иначе целый вид влитых веток исчезал бы из вывода молча,
+  # а именно он и копится: копия агента переживает агента, и держит ветку вечно.
   while read -r br; do
     [ -n "$br" ] && occupied+=("$br")
   done < <(git -C "$path" worktree list --porcelain 2>/dev/null |
@@ -72,7 +76,7 @@ check_repo() { # $1 = путь, $2 = как называть в выводе
     examined_branches=$((examined_branches + 1))
     local skip=0 o
     for o in ${occupied[@]+"${occupied[@]}"}; do [ "$o" = "$b" ] && skip=1; done
-    [ "$skip" = 1 ] && continue
+    if [ "$skip" = 1 ]; then held_by_worktree=$((held_by_worktree + 1)); continue; fi
     git -C "$path" merge-base --is-ancestor "$b" "$trunk" 2>/dev/null && n=$((n + 1))
   done < <(git -C "$path" branch --format='%(refname:short)' 2>/dev/null)
 
@@ -90,8 +94,15 @@ if [ "${#findings[@]}" -ne 0 ]; then
   echo "   пофайлово находит перепись — она же их снимает:"
   echo "     ./scripts/branch-audit.sh [project/kacho]                 # посмотреть"
   echo "     ./scripts/branch-audit.sh --prune-merged [project/kacho]  # снять влитые"
-  echo "   Перепись НИКОГДА не трогает работу в единственном экземпляре и занятые"
-  echo "   рабочей копией ветки; её вердикт устаревает за минуты — гони перед снятием."
+  if [ "$held_by_worktree" -gt 0 ]; then
+    echo "   Сверх того ${held_by_worktree} локальных веток держат рабочие копии — здесь они НЕ"
+    echo "   сосчитаны: занятую ветку git снять не даёт. Копия агента переживает агента,"
+    echo "   поэтому часть из них держат БРОШЕННЫЕ копии; перепись их различает и"
+    echo "   освобождает по отдельному явному ключу:"
+    echo "     ./scripts/branch-audit.sh --prune-merged --release-abandoned-worktrees [путь]"
+  fi
+  echo "   Перепись НИКОГДА не трогает работу в единственном экземпляре и ветки под ЖИВОЙ"
+  echo "   рабочей копией; её вердикт устаревает за минуты — гони перед снятием."
 fi
 
 if [ "$examined_repos" -eq 0 ]; then
