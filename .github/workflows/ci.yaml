@@ -172,7 +172,16 @@ jobs:
         timeout-minutes: 3
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+        run: |
+          # СТАВИМ, ТОЛЬКО ЕСЛИ НЕТ. Образ ранера несёт shellcheck сам; шаг
+          # существовал на случай, когда не несёт, и платил за это обращением к
+          # зеркалам ПРИ КАЖДОМ прогоне — а зеркала и есть то, что виснет.
+          if command -v shellcheck > /dev/null; then
+            echo "shellcheck уже в образе: $(shellcheck --version | awk '/^version:/{print $2}')"
+            exit 0
+          fi
+          echo "shellcheck в образе нет — ставлю"
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
       # Порог — `warning`: у набора есть замечания уровня info (кавычки вокруг
       # регулярных выражений, `A && B || C`), и они здесь намеренные. Порог назван
       # прямо, а не спрятан за `|| true`: глушение кода возврата скрыло бы и
@@ -204,7 +213,16 @@ jobs:
         timeout-minutes: 3
         env:
           DEBIAN_FRONTEND: noninteractive
-        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck
+        run: |
+          # СТАВИМ, ТОЛЬКО ЕСЛИ НЕТ. Образ ранера несёт shellcheck сам; шаг
+          # существовал на случай, когда не несёт, и платил за это обращением к
+          # зеркалам ПРИ КАЖДОМ прогоне — а зеркала и есть то, что виснет.
+          if command -v shellcheck > /dev/null; then
+            echo "shellcheck уже в образе: $(shellcheck --version | awk '/^version:/{print $2}')"
+            exit 0
+          fi
+          echo "shellcheck в образе нет — ставлю"
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
       - name: shellcheck docs-gate (strict)
         run: shellcheck -x -- scripts/docs-gate/*.sh
       # Дерево продукта выкладывается ЗДЕСЬ, потому что check-03 сверяет координату,
