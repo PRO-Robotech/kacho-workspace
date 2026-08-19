@@ -10,7 +10,8 @@ repos:
   - kacho-workspace
 areas:
   - docs/specs
-prs: []
+prs:
+  - PRO-Robotech/kacho-workspace#296
 issue_url: https://github.com/PRO-Robotech/kacho/issues/727
 opened: 2026-08-19
 tags:
@@ -26,7 +27,8 @@ tags:
 **пройден**: работа по стадиям S1…S6 может начинаться. Кода по под-фазе **пока нет** — задача
 #727 остаётся открытой, потому что её предмет **реализация**, а не приёмка.
 
-**Где ведётся**: `PRO-Robotech/kacho-workspace` — ветка `acc/roles-new-727`, файл
+**Где ведётся**: `PRO-Robotech/kacho-workspace` — ветка `acc/roles-new-727`, PR
+**[#296](https://github.com/PRO-Robotech/kacho-workspace/pull/296)**, файл
 `docs/specs/sub-phase-R7-1-constant-check-linear-materialization-acceptance.md`.
 **Issue**: https://github.com/PRO-Robotech/kacho/issues/727 · **Эпик**: #729 (`release:roles-new`)
 
@@ -125,6 +127,7 @@ production-complete в своих границах; §2 (6 пунктов) пе�
 ## DoD записки
 
 - [x] APPROVED от `acceptance-reviewer` — одиннадцатый раунд, 2026-08-19
-- [ ] PR в `kacho-workspace` влит, номер записан сюда
+- [ ] PR `PRO-Robotech/kacho-workspace#296` влит в `main` (открыт, накопил весь ход ревью:
+      девять коммитов, восемь редакций, одиннадцать раундов)
 - [ ] `class-exposure-analyst` прогнан по APPROVED-замыслу (следующий шаг после APPROVED)
 - [ ] состояние переведено в `done` вместе с закрытием #727
