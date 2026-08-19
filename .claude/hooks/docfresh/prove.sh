@@ -331,6 +331,110 @@ else
 fi
 
 echo
+echo "== G1. вид координаты: имя ветки — НЕ путь (issue #242) =="
+# У пути в дереве и у имени ветки ОДНА форма. Пока вид не различался, имена
+# ветвей судились молча и ВСЕГДА отрицательно: автор правила трижды переписывал
+# ВЕРНОЕ утверждение, подгоняя его под хук. Пара стоит на ОДНОМ И ТОМ ЖЕ токене
+# — меняется только слово перед ним, то есть проба меряет именно вид координаты,
+# а не форму строки.
+REFNAME="docs/terraform-provider-trail"
+expect_silent_dead "имя ветки под маркером «Ветка» — не находка" r1.md \
+  "Ветка \`$REFNAME\` несла записку о провайдере." "$REFNAME" "$REFNAME"
+expect_fires_dead "тот же токен БЕЗ маркера — путь судится по-прежнему" r2.md \
+  "Скрипт \`$REFNAME\` лежит рядом." "$REFNAME" "$REFNAME"
+# Сужение маркера до ЦЕЛОГО слова: «legacy-release-ветку `X`» — про развилку
+# кода, а не про git. Без взгляда назад правило снимало бы с проверки настоящий
+# путь; на корпусе это был ЕДИНСТВЕННЫЙ срабат вида `ref`, то есть без сужения
+# оно работало бы только на ложном входе.
+expect_fires_dead "составное определение маркером не является" r3.md \
+  'Прод-путь не задействует legacy-release-ветку `sync-tooling.sh`.' \
+  'sync-tooling.sh' 'sync-tooling.sh'
+out="$(run_doc r4.md "Ветка \`$REFNAME\` несла записку.")"
+if printf '%s' "$out" | grep -qE 'ref 1/1'; then
+  echo "  ✔ имя ветки СЧИТАЕТСЯ и печатается в переписи, а не исчезает молча"; PASS=$((PASS+1))
+else
+  echo "  ✘ имя ветки не попало в перепись — снятие с проверки стало невидимым"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | tr '·' '\n' | grep -a -i 'покрыти' | sed 's/^/      /'
+fi
+
+echo
+echo "== G2. граница покрытия названа ПО ВИДАМ (issue #242) =="
+# Прежде граница печаталась ОДНИМ числом, и оно читалось как «границу учли, за
+# ней ничего нет». Выражена она была у двух видов из пяти; по остальным ноль
+# означал «не искали». Это и есть класс, который хук ищет у чужой прозы, —
+# внутри самого хука.
+out="$(run_doc s1.md 'Живой путь — `sync-all.sh`.')"
+if printf '%s' "$out" | grep -qF 'граница НЕ ВЫРАЖЕНА у видов'; then
+  echo "  ✔ (+) невыраженная граница НАЗВАНА словами, а не подана нулём"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) ноль по невыраженной границе снова читается как полнота"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | tr '·' '\n' | grep -a -i 'покрыти' | sed 's/^/      /'
+fi
+if printf '%s' "$out" | grep -qE 'вне покрытия основания [0-9]+ из рассмотренных: path [0-9]+/[0-9]+'; then
+  echo "  ✔ (−) у вида с ВЫРАЖЕННОЙ границей печатается число из рассмотренных"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) выраженная граница потеряла своё число — раздельность исходов мнимая"; FAIL=$((FAIL+1))
+fi
+# Зеркало: перечень видов в COVERAGE_MODEL обязан совпадать с KINDS. Вид без
+# записи молча получил бы «границы нет», и это не было бы видно.
+out="$(python3 - "$GUARD" <<'PY' 2>&1
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print("РАСХОЖДЕНИЕ:", sorted(set(m.KINDS) ^ set(m.COVERAGE_MODEL)) or "<нет>")
+PY
+)"
+if printf '%s' "$out" | grep -qF 'РАСХОЖДЕНИЕ: <нет>'; then
+  echo "  ✔ каждый вид координаты имеет запись о своей границе"; PASS=$((PASS+1))
+else
+  echo "  ✘ вид без записи о границе — его ноль ничем не объяснён: $out"; FAIL=$((FAIL+1))
+fi
+
+echo
+echo "== G3. переменная вне перечня основания — граница ИНСТРУМЕНТА (issue #242) =="
+# Вход обеих сторон — НАСТОЯЩИЕ: реальное имя ручки и реальный файл дерева.
+# (+) воспроизводит историческое состояние перечня путей, при котором хук
+# объявлял живую ручку несуществующей и в том же выводе печатал «вне покрытия 0».
+out="$(python3 - "$GUARD" <<'PY' 2>&1
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+mono = m.monorepo_root(ws)
+NAME = "KACHO_SKIP_PREPUSH"
+t = m.Truth(m.build_truth(ws, mono), ws, mono)
+print("СЕЙЧАС:", t.classify_with_reason("env", NAME)[0])
+print("ВЫДУМАННОЕ:", t.classify_with_reason("env", "KACHO_VYDUMANNAYA_PEREMENNAYA_XYZ")[0])
+m.ENV_PATHSPECS[:] = [p for p in m.ENV_PATHSPECS if "hooks" not in p]
+t2 = m.Truth(m.build_truth(ws, mono), ws, mono)
+v, why = t2.classify_with_reason("env", NAME)
+print("БЕЗ-ХУКОВ:", v, "|", why or "")
+print("ТОЛЬКО-В-ДОКЕ:", t2.classify_with_reason("env", "KACHO_GEO_AUTHZ_BREAKGLASS")[0])
+PY
+)"
+if printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered .*scripts/hooks/pre-push'; then
+  echo "  ✔ (+) имя, живущее в файле вне перечня, — ГРАНИЦА, и файл НАЗВАН"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) имя вне перечня по-прежнему объявляется несуществующим"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | sed 's/^/      /'
+fi
+if printf '%s' "$out" | grep -qF 'СЕЙЧАС: resolved'; then
+  echo "  ✔ (−) с нынешним перечнем та же ручка просто резолвится"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) вход (+) больше не настоящий: ручка не резолвится и с полным перечнем"; FAIL=$((FAIL+1))
+fi
+if printf '%s' "$out" | grep -qF 'ВЫДУМАННОЕ: missing'; then
+  echo "  ✔ (−) выдуманное имя — по-прежнему НАХОДКА, а не граница"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) детектор границы проглотил выдуманное имя — предикат выхолощен"; FAIL=$((FAIL+1))
+fi
+if printf '%s' "$out" | grep -qF 'ТОЛЬКО-В-ДОКЕ: missing'; then
+  echo "  ✔ (−) ручка, названная ТОЛЬКО документом, — находка: корпус утверждений покрытием не считается"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) документ засчитан себе же в покрытие — предикат замкнулся сам на себя"; FAIL=$((FAIL+1))
+fi
+
+echo
 echo "== H. послабление самоистекает =="
 ALLOWDIR="$TMP/allow"; mkdir -p "$ALLOWDIR"
 cat > "$ALLOWDIR/live.json" <<'JSON'

@@ -77,6 +77,29 @@ CENSUS_LOG_KEEP = 500
 # остаток числом и командой полного обхода, а не печатает его целиком.
 MAX_DOCS_SHOWN = 8
 
+# ═══ 0. Виды координат и граница покрытия по КАЖДОМУ виду ════════════════════
+#
+# ПОЧЕМУ ЭТО ОТДЕЛЬНОЕ ОБЪЯВЛЕНИЕ, А НЕ ЧИСЛО В ПЕРЕПИСИ (issue #242).
+# Прежде граница покрытия печаталась ОДНИМ числом — «вне покрытия основания N».
+# Число читалось как «границу учли, за ней ничего нет», хотя выражена она была
+# ровно у двух видов из пяти: у `env`, `make` и `rpc` детектора границы не
+# существовало вовсе, и ноль по ним означал «не искали», а не «не нашли». Это и
+# есть класс, ради которого хук написан, — только внутри самого хука.
+#
+# Отсюда норма: у каждого вида граница либо ВЫРАЖЕНА (значение — чем именно),
+# либо ОБЪЯВЛЕНА НЕВЫРАЖЕННОЙ (`None`), и перепись печатает это словами. Ноль по
+# невыраженной границе больше не выдаётся за полноту: он назван «не искали».
+KINDS = ("path", "rest", "env", "make", "rpc", "ref")
+
+COVERAGE_MODEL: dict[str, str | None] = {
+    "path": "имя предшествующего полирепо, которого нет в дереве",
+    "rest": "домен вне REST-поверхности продукта",
+    "env": "имя объявлено в файле, вид которого не входит в перечень ENV_PATHSPECS",
+    "ref": "ссылка снята после вливания — история ссылок не читается by construction",
+    "make": None,
+    "rpc": None,
+}
+
 # ═══ 1. Корни ════════════════════════════════════════════════════════════════
 
 def workspace_root() -> Path:
@@ -421,6 +444,49 @@ RE_BARE_FILE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*\.[A-Za-z0-9]{1,5}$")
 # основание истины их не покрывает и судить о них не вправе (см. out_of_coverage).
 RE_LEGACY_REPO = re.compile(r"^kacho-[a-z0-9-]+$")
 
+# ВИД КООРДИНАТЫ. У пути в дереве и у имени ветки ОДНА форма, и различить их
+# дерево не может: `docs/terraform-provider-trail` — законное имя ветки и
+# синтаксически безупречный путь. Пока вид не различался, имена ветвей судились
+# молча и ВСЕГДА отрицательно: автор правила трижды переписывал ВЕРНОЕ
+# утверждение, подгоняя его под хук, — то есть находка обвиняла документ там,
+# где ошибался инструмент (issue #242).
+#
+# Маркер обязан стоять ВПЛОТНУЮ перед координатой: «ветка `X`», «тег `Y`».
+# Узость условия намеренная: широкое превратило бы слово «ветка» в любом месте
+# абзаца в способ снять проверку с настоящего пути — то есть в маску.
+RE_REF_MARKER = re.compile(
+    # Маркер — ЦЕЛОЕ слово. Взгляд назад отсекает составные определения
+    # («legacy-release-ветку `delete.go`»): там речь о развилке кода, а не о
+    # git-ссылке, и без отсечения правило сняло бы с проверки настоящий путь.
+    # Поймано на корпусе: ровно один такой случай, и он был единственным
+    # срабатыванием вида `ref` — то есть без сужения правило работало бы ТОЛЬКО
+    # на ложном входе.
+    r"(?<![\w\-–—])"
+    r"(?:ветк[аиуеой]|ветками|веток|ветв[ьием]|ветвью|ветвей|"
+    r"branch(?:es)?|тег[аиуеом]?|tags?)"
+    r"[\s:—–,-]*[«\"'(\[]?\s*$", re.I)
+
+
+def _is_refname(tok: str, body: str, pos: int) -> bool:
+    """Названа ли эта координата ИМЕНЕМ ССЫЛКИ, а не путём.
+
+    Решается КОНТЕКСТОМ фразы, потому что сама строка ответа не несёт: обе формы
+    совпадают by construction. Окно узкое (40 символов слева) и требует маркера
+    ВПЛОТНУЮ — иначе получилась бы маска на весь абзац.
+
+    ЗОВЁТСЯ ТОЛЬКО ТАМ, ГДЕ ПУТЕВАЯ ПОЛОСА УЖЕ ГОТОВА СУДИТЬ, и это не
+    оптимизация, а граница маски. Слово «ветка» в этом корпусе перегружено:
+    «ветка `oneof`», «ветка `protocol`», «ветка `error`» — про варианты
+    контракта и развилки кода, а не про git. Замер по корпусу при широком
+    применении: 64 координаты вида `ref`, из них ссылками не были 50 — то есть
+    правило начало бы снимать с проверки то, чего оно не касается. Судить эти
+    токены путевая полоса всё равно не бралась (нет ни слэша, ни известного
+    расширения), поэтому withdrawal им не нужен, а шум в переписи — вреден.
+    """
+    if not tok or " " in tok or tok.startswith(("http://", "https://", "/")):
+        return False
+    return bool(RE_REF_MARKER.search(body[max(0, pos - 40):pos]))
+
 
 def strip_noncontent(text: str) -> str:
     text = HTML_COMMENT.sub(" ", text)
@@ -467,13 +533,13 @@ def _is_placeholder(tok: str) -> bool:
 
 def extract(text: str, doc_dir: str = "") -> dict[str, set[str]]:
     body = strip_noncontent(text)
-    found: dict[str, set[str]] = {k: set() for k in ("path", "rest", "env", "make", "rpc")}
+    found: dict[str, set[str]] = {k: set() for k in KINDS}
     for name in BARE_ENV.findall(body):
         # Хвостовое подчёркивание — обрезанное семейство (`KACHO_VPC_DB_*`), а не имя.
         if not name.endswith("_"):
             found["env"].add(name)
-    for raw in INLINE.findall(body):
-        tok = raw.strip()
+    for mi in INLINE.finditer(body):
+        tok = mi.group(1).strip()
         if not tok:
             continue
         m = RE_MAKE.match(tok)
@@ -494,11 +560,20 @@ def extract(text: str, doc_dir: str = "") -> dict[str, set[str]]:
             continue
         if _is_placeholder(tok.replace("*", "")):
             continue
+        # ВИД КООРДИНАТЫ решается ровно здесь — на пороге путевой полосы. Имя
+        # ветки и путь в дереве неразличимы по форме, поэтому единственное, что
+        # их различает, — как о координате говорит сама фраза.
         if "/" in tok:
             if RE_PATHY.match(tok) and _looks_like_repo_path(tok):
-                found["path"].add(_norm_path(tok, doc_dir))
+                if _is_refname(tok, body, mi.start()):
+                    found["ref"].add(tok)
+                else:
+                    found["path"].add(_norm_path(tok, doc_dir))
         elif RE_BARE_FILE.match(tok) and any(tok.endswith(e) for e in KNOWN_EXT):
-            found["path"].add(tok)
+            if _is_refname(tok, body, mi.start()):
+                found["ref"].add(tok)
+            else:
+                found["path"].add(tok)
     return found
 
 
@@ -673,6 +748,24 @@ def _provenance(root: Path) -> dict:
             "trunk_ref": ref, "trunk_rev": rev, "behind": behind}
 
 
+def _refnames(root: Path) -> set[str]:
+    """Имена локальных ссылок корня: ветки, ссылки слежения, теги.
+
+    ЭТО И ЕСТЬ ГРАНИЦА ПОКРЫТИЯ для вида `ref`: ссылка, снятая при вливании,
+    здесь отсутствует by construction, и её отсутствие доказывает вливание, а не
+    расхождение документа. Поэтому нерезолвящееся имя ветки уходит в «вне
+    покрытия», а не в находку, — и это записано в COVERAGE_MODEL.
+    """
+    out: set[str] = set()
+    for ln in git(root, "for-each-ref", "--format=%(refname)"):
+        out.add(ln)
+        for pref in ("refs/heads/", "refs/tags/", "refs/remotes/"):
+            if ln.startswith(pref):
+                out.add(ln[len(pref):])
+                break
+    return out
+
+
 def _dirs_of(files) -> set[str]:
     d: set[str] = set()
     for f in files:
@@ -839,6 +932,11 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
                         *ENV_PATHSPECS, TRUTH_EXCLUDE):
             envs.update(RE_ENVNAME.findall(_code_part(line)))
 
+    refs: set[str] = set()
+    for root in (ws, mono):
+        if root is not None:
+            refs |= _refnames(root)
+
     # Провенанс и полоса ствола — по КАЖДОМУ корню отдельно: у воркспейса и у
     # продукта разные линии интеграции и разное отставание.
     prov: dict[str, dict] = {}
@@ -858,6 +956,7 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         "rpcs": sorted(rpcs),
         "targets": sorted(targets),
         "envs": sorted(envs),
+        "refs": sorted(refs),
         "provenance": prov,
         "trunk": trunk,
         "build_ms": int((time.time() - t0) * 1000),
@@ -890,7 +989,10 @@ class Truth:
         self.rpcs = set(raw["rpcs"])
         self.targets = set(raw["targets"])
         self.envs = set(raw["envs"])
+        self.refnames = set(raw.get("refs") or [])
         self.raw = raw
+        self._live_refs: dict[str, set[str]] = {}
+        self._cov: dict[tuple[str, str], str | None] = {}
         self._by_base: dict[str, list[str]] | None = None
         self._live_files: dict[str, set[str]] = {}
         self._domains: set[str] | None = None
@@ -923,6 +1025,7 @@ class Truth:
             ("rpc", self.rpcs, "в proto не найдено ни одной пары service/rpc"),
             ("make", self.targets, "не найдено ни одной цели Makefile"),
             ("env", self.envs, "не найдено ни одного имени KACHO_* в коде и конфигурации"),
+            ("ref", self.refnames, "ни в одном из корней нет ни одной локальной ссылки"),
         ):
             (on if base else off).append(kind if base else (kind, why))
         off.append((
@@ -951,6 +1054,42 @@ class Truth:
             svc = coord.split("/")[1] if coord.count("/") >= 2 else ""
             if svc and svc not in self.rest_domains:
                 return "домен вне REST-поверхности продукта"
+        if kind == "ref":
+            # Ссылка, снятая в момент вливания, — НОРМА этого репозитория
+            # (`delete_branch_on_merge` включён в обоих). Её отсутствие в дереве
+            # ссылок доказывает ровно то, что она была влита, и находкой быть не
+            # может. Судить о ней нечем: истории ссылок основание не читает.
+            return ("имя ветки/тега: локальной ссылки нет — ветка снята при вливании "
+                    "либо заведена в другой копии; история ссылок не читается")
+        if kind == "env":
+            return self._env_outside_base(coord)
+        return None
+
+    # Детектор границы для переменной: имя ЕСТЬ в дереве, но в файле, вид
+    # которого основание не читает.
+    #
+    # Ради этого случая задача #242 и заведена. Ручка обхода хука отправки жила
+    # в `scripts/hooks/pre-push` — файле БЕЗ РАСШИРЕНИЯ (git ищет хуки по точному
+    # имени), поэтому `*.sh` её не покрывал. Хук объявлял ручку несуществующей и
+    # в том же выводе печатал «вне покрытия основания 0». Автор правила трижды
+    # пробовал обойти находку форматированием, прежде чем прочитал перечень путей:
+    # находка выглядела как ложь документа, а лгал инструмент.
+    #
+    # Корпус утверждений (`*.md`/`*.mdx`) покрытием НЕ считается — иначе всякая
+    # выдуманная документом ручка объявляла бы себя же границей, и предикат
+    # выхолостился бы целиком. Читателем ручки документ не является.
+    def _env_outside_base(self, name: str) -> str | None:
+        excl = [":(exclude)" + spec for spec in ENV_PATHSPECS]
+        excl += [":(exclude)*.md", ":(exclude)*.mdx", TRUTH_EXCLUDE]
+        for root in (self.ws, self.mono):
+            if root is None:
+                continue
+            hits = git(root, "grep", "-l", "-I", "-w", "--", name, ".", *excl)
+            if hits:
+                where = ", ".join(hits[:3]) + (" …" if len(hits) > 3 else "")
+                return (f"объявлено в {where} — вид файла в перечень основания "
+                        f"(ENV_PATHSPECS) не входит; чинится расширением перечня "
+                        f"в docfresh.py, а НЕ правкой документа")
         return None
 
     @property
@@ -968,13 +1107,30 @@ class Truth:
     # читается как несуществующий.
     def classify(self, kind: str, coord: str) -> str:
         """→ resolved · uncovered · trunk_only · missing."""
+        return self.classify_with_reason(kind, coord)[0]
+
+    def classify_with_reason(self, kind: str, coord: str) -> tuple[str, str | None]:
+        """Тот же вердикт, но с ПРИЧИНОЙ границы.
+
+        Причина нужна отчёту: «вне покрытия» без неё неотличимо от молчания, а
+        читателю надо знать, что чинить — документ или сам инструмент.
+        """
+        key = (kind, coord)
+        if key in self._cov:
+            return self._cov[key]
+        out: tuple[str, str | None]
         if self.resolve(kind, coord):
-            return "resolved"
-        if self.out_of_coverage(kind, coord):
-            return "uncovered"
-        if self.trunk_has(kind, coord):
-            return "trunk_only"
-        return "missing"
+            out = ("resolved", None)
+        else:
+            why = self.out_of_coverage(kind, coord)
+            if why:
+                out = ("uncovered", why)
+            elif self.trunk_has(kind, coord):
+                out = ("trunk_only", None)
+            else:
+                out = ("missing", None)
+        self._cov[key] = out
+        return out
 
     def trunk_has(self, kind: str, coord: str) -> bool:
         if not self.trunk_on:
@@ -1153,6 +1309,25 @@ class Truth:
 
     def _r_env(self, c: str) -> bool:
         return c in self.envs
+
+    def _r_ref(self, c: str) -> bool:
+        """Ссылка резолвится по ЖИВЫМ ссылкам, а не только по кэшу.
+
+        Индекс ключуется коммитом, а ветка заводится и снимается БЕЗ коммита —
+        кэш её появления не увидел бы вовсе. Живая полоса стоит одного
+        `for-each-ref` на корень за прогон и делает ответ верным в обе стороны.
+        """
+        if c in self.refnames:
+            return True
+        for root in (self.ws, self.mono):
+            if root is None:
+                continue
+            key = str(root)
+            if key not in self._live_refs:
+                self._live_refs[key] = _refnames(root)
+            if c in self._live_refs[key]:
+                return True
+        return False
 
 
 # ═══ 6. Кэш индекса ══════════════════════════════════════════════════════════
@@ -1482,8 +1657,16 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
     on, _ = truth.enabled()
     claims = claims or DocClaims(ws, mono)
     findings: list[tuple[str, str, str]] = []
-    c = {"docs": 0, "coords": 0, "uncovered": 0, "trunk_only": 0,
-         "closed_claim": 0, "closed_tree": 0}
+    c: dict = {"docs": 0, "coords": 0, "uncovered": 0, "trunk_only": 0,
+               "closed_claim": 0, "closed_tree": 0,
+               # Граница считается ПО ВИДАМ: одно общее число не отличает
+               # «за границей ничего нет» от «границы у этого вида нет вовсе».
+               "uncovered_by_kind": {k: 0 for k in KINDS},
+               "coords_by_kind": {k: 0 for k in KINDS},
+               # Граница, которую чинят В ИНСТРУМЕНТЕ, а не в документе. Она
+               # печатается отдельным разделом отчёта: иначе читатель идёт
+               # править верное утверждение (issue #242).
+               "toolgaps": []}
     for name in names:
         # `or` здесь был ловушкой: пустой словарь ЛОЖЕН, поэтому правка, снявшая
         # у документа ПОСЛЕДНЮЮ координату, молча проваливалась в кэш и хук
@@ -1499,11 +1682,18 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
                 continue
             for coord in lst:
                 c["coords"] += 1
-                verdict = truth.classify(kind, coord)
+                c["coords_by_kind"][kind] = c["coords_by_kind"].get(kind, 0) + 1
+                verdict, why = truth.classify_with_reason(kind, coord)
                 if verdict == "resolved":
                     continue
                 if verdict == "uncovered":
                     c["uncovered"] += 1
+                    c["uncovered_by_kind"][kind] = c["uncovered_by_kind"].get(kind, 0) + 1
+                    # Граница вида `env` — это дыра в САМОМ ОСНОВАНИИ: имя в
+                    # дереве есть, а перечень путей его не читает. Молча
+                    # посчитать такое значило бы оставить инструмент сломанным.
+                    if kind == "env" and why:
+                        c["toolgaps"].append((name, kind, coord, why))
                     continue
                 if verdict == "trunk_only":
                     c["trunk_only"] += 1
@@ -1868,6 +2058,28 @@ def tree_provenance(truth: "Truth") -> str:
     return " · ".join(out)
 
 
+def coverage_line(c: dict) -> str:
+    """Граница покрытия — ПО ВИДАМ, и невыраженная называется невыраженной.
+
+    Прежде здесь стояло одно число. Оно читалось как «границу учли», хотя
+    выражена она была у двух видов из пяти, а по остальным ноль означал «не
+    искали». Разница между «не нашёл» и «не искал» — предмет issue #242 и
+    ровно тот класс, который хук ищет у чужой прозы; печатать его собственным
+    нулём было бы двойным стандартом.
+    """
+    by = c.get("uncovered_by_kind") or {}
+    seen = c.get("coords_by_kind") or {}
+    modelled, blind = [], []
+    for kind in KINDS:
+        cell = f"{kind} {by.get(kind, 0)}/{seen.get(kind, 0)}"
+        (modelled if COVERAGE_MODEL.get(kind) else blind).append(cell)
+    out = f"вне покрытия основания {c.get('uncovered', 0)} из рассмотренных: " + ", ".join(modelled)
+    if blind:
+        out += (" · граница НЕ ВЫРАЖЕНА у видов: " + ", ".join(blind)
+                + " — ноль здесь означает «не искали», а не «за границей пусто»")
+    return out
+
+
 def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
                 stats: dict, carried: dict | None = None) -> str:
     on, off = truth.enabled()
@@ -1886,8 +2098,8 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
         # ноль читалось бы как «сайтов нет», а не как «поиск сломан».
         f"корней документации дерева продукта {len(idx.get('doc_roots') or [])}",
         f"координат рассмотрено {c.get('coords', 0)}, "
-        f"вне покрытия основания {c.get('uncovered', 0)}, "
         f"резолвится только в стволе {c.get('trunk_only', 0)}",
+        coverage_line(c),
         f"предикатов прогнано {len(on)} ({','.join(on)}), отказано {len(off)} ({','.join(k for k, _ in off)})",
         f"основание: путей {len(truth.tracked_ws) + len(truth.tracked_mono)}, "
         f"маршрутов {len(truth.routes)}, методов {len(truth.rpcs)}, "
@@ -1937,7 +2149,8 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
 
 def render(findings: list[tuple[str, str, str]], stales: list[dict],
            refusals: list[tuple[str, str]], census: str,
-           limit: int | None = MAX_DOCS_SHOWN) -> str:
+           limit: int | None = MAX_DOCS_SHOWN,
+           gaps: list[tuple[str, str, str, str]] | None = None) -> str:
     """`limit=None` — печатать всё. Ровно это и означает «полный список» ниже.
 
     Прежде обрезка стояла на ОБОИХ путях, а строка обрезки отсылала за полным
@@ -1946,7 +2159,7 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
     держать такое в собственном отчёте.
     """
     KIND = {"path": "путь", "rest": "маршрут", "env": "переменная",
-            "make": "цель make", "rpc": "метод"}
+            "make": "цель make", "rpc": "метод", "ref": "имя ветки/тега"}
     out = ["╔══ docfresh ═════════════════════════════════════════════════════"]
     by_doc: dict[str, list[tuple[str, str]]] = {}
     for doc, kind, coord in findings:
@@ -1962,6 +2175,15 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
     if hidden:
         out.append(f"║ … и ещё {hidden} документ(ов) с расхождением — полный список: "
                    f"`python3 .claude/hooks/docfresh/docfresh.py --sweep`")
+    # Граница инструмента печатается ОТДЕЛЬНО и называется своим именем. Слить
+    # её с находками нельзя: находка означает «документ утверждает лишнее», а
+    # это — «основание не читает целый вид носителя». Чинятся они в разных
+    # файлах, и путать их дорого: на смешении трижды подряд правили ВЕРНОЕ
+    # утверждение вместо перечня путей (issue #242).
+    for doc, kind, coord, why in (gaps or []):
+        out.append("║ ВНЕ ПОКРЫТИЯ ОСНОВАНИЯ — это НЕ ложь документа, а граница инструмента:")
+        out.append(f"║     {doc}: {KIND.get(kind, kind)} `{coord}`")
+        out.append(f"║     {why}")
     for e in stales:
         out.append(f"║ ПОСЛАБЛЕНИЕ БЕЗ ПРЕДМЕТА: allow.json → {e.get('kind')} "
                    f"`{e.get('coordinate')}` больше не упоминается ни одним LIVE-документом.")
@@ -1996,15 +2218,30 @@ def rel_of(path: str, ws: Path, mono: Path | None) -> str | None:
             return str(p.relative_to(Path(extra).resolve()))
         except (ValueError, OSError):
             pass
-    if mono is not None and mono != ws:
-        try:
-            return "project/kacho/" + str(p.relative_to(mono))
-        except ValueError:
-            pass
-    try:
-        return str(p.relative_to(ws))
-    except ValueError:
-        return None
+    # Корни сверяются И как объявлены, И как разрешены. Путь события приходит
+    # разрешённым (`Path.resolve`), а дерево продукта в рабочей копии сплошь и
+    # рядом лежит символической ссылкой — тогда `relative_to` не совпадал ни с
+    # одним корнем, `rel_of` возвращал None, и хук выходил НУЛЁМ. Со стороны это
+    # неотличимо от «сказать нечего»: режим B (правка кода поднимает документы,
+    # которые её называют) молча не исполнялся вовсе. Тот же класс, что и вся
+    # задача #242, — «не искал» подан как «не нашёл».
+    for prefix, root in ((("project/kacho/", mono) if mono is not None and mono != ws
+                          else (None, None)), ("", ws)):
+        if root is None:
+            continue
+        # Порядок баз ФИКСИРОВАН, а не выведен множеством: у проверки не может
+        # быть недетерминированного входа — иначе её вердикт зависит от того,
+        # как лёг перебор, и разойдётся между прогонами молча.
+        bases = [root]
+        real = Path(os.path.realpath(root))
+        if real != root:
+            bases.append(real)
+        for base in bases:
+            try:
+                return prefix + str(p.relative_to(base))
+            except (ValueError, OSError):
+                continue
+    return None
 
 
 def docs_naming(idx: dict, rel: str) -> list[str]:
@@ -2103,11 +2340,12 @@ def sweep() -> int:
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, {})
-    if findings or stales:
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
         # Полный обход — единственный читатель, которому обрезка не полагается:
         # его и зовут за перечнем. Обрезанный «полный список» был бы ровно тем
         # утверждением без предмета, которое хук ищет у других.
-        sys.stdout.write(render(findings, stales, refusals, census, limit=None) + "\n")
+        sys.stdout.write(render(findings, stales, refusals, census, limit=None, gaps=gaps) + "\n")
         sys.stdout.write(f"[CENSUS] документов с расхождением "
                          f"{len({d for d, _, _ in findings})}, расхождений {len(findings)}\n")
         return 1
@@ -2226,12 +2464,13 @@ def main() -> int:
     findings, cnt = check_docs(targets, idx, truth, entries, ws, mono, fresh, claims)
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims) if rel in live_names else []
     carried = adjudicate_pending(truth, entries, claims)
-    stats = bump_stats(bool(findings or stales))
+    stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, stats, carried)
 
-    if findings or stales:
-        sys.stderr.write(render(findings, stales, refusals, census) + "\n")
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
+        sys.stderr.write(render(findings, stales, refusals, census, gaps=gaps) + "\n")
         return 2
     sys.stdout.write(census + "\n")
     return 0
@@ -2359,7 +2598,7 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
 
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     _, refusals = truth.enabled()
-    stats = bump_stats(bool(findings or stales))
+    stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
     if not cnt["docs"]:
         cnt["docs"] = len({d for d, _, _ in findings})
@@ -2391,8 +2630,9 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
     # находок» обязано быть отличимо от «ноль прочитанного» (`testing.md` §«Гейт на
     # класс», п. 3), поэтому перепись остаётся — сменён её адресат.
     journaled = census_append(census)
-    if findings or stales:
-        text = render(findings, stales, refusals, census)
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
+        text = render(findings, stales, refusals, census, gaps=gaps)
         sys.stderr.write(text + "\n")
         sys.stdout.write(json.dumps({
             "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}
