@@ -271,6 +271,72 @@ on:
 $WF_JOB"
 run 2 "$b" "предпосылка: ни одного триггера по ветке — VOID, а не «находок 0»" check-05-workflow-triggers-narrowed.sh
 
+echo "== check-06: версия анализатора не пиннится / объявлена дважды =="
+
+# Настоящий процесс из песочницы ВЫБРАСЫВАЕТСЯ: проверка читает весь каталог, и
+# без изоляции проба судила бы сумму «внедрённый + живой», то есть отвечала бы на
+# другой вопрос. Ровно этот промах и дал три ложных провала при первом заходе.
+mk6() { # mk6 <тело процесса> → путь песочницы, где ЕДИНСТВЕННЫЙ процесс — он
+    local box; box="$(mksandbox .github/workflows)"
+    mkdir -p "$box/.github/workflows"
+    printf '%s' "$1" > "$box/$INJ_REL"
+    git -C "$box" add -A -f >/dev/null 2>&1
+    printf '%s' "$box"
+}
+
+PIN_STEP='      - name: shellcheck пиннутой версии
+        run: |
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version'
+
+WF_PINNED="env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - run: shellcheck -x a.sh
+"
+
+# (−) законный близнец: пин поставлен, версия напечатана
+run 0 "$(mk6 "$WF_PINNED")" "близнец: пин поставлен и версия напечатана — молчит" \
+    check-06-shellcheck-version-pinned.sh
+
+# (+) зовёт анализатор, не поставив пин — исполнится версия образа ранера
+run 1 "$(mk6 'env:
+  SHELLCHECK_VERSION: "0.11.0"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: shellcheck -x a.sh
+')" "зовёт анализатор без пина — находка" check-06-shellcheck-version-pinned.sh
+
+# (+) значение объявлено ДВАЖДЫ — задания разойдутся молча
+run 1 "$(mk6 "$WF_PINNED  env:
+      SHELLCHECK_VERSION: \"0.9.0\"
+")" "два объявления версии — находка" check-06-shellcheck-version-pinned.sh
+
+# (+) пин ставится, но версия не печатается: вердикт не несёт с собой, чем получен
+run 1 "$(mk6 'env:
+  SHELLCHECK_VERSION: "0.11.0"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+      - run: shellcheck -x a.sh
+')" "пин без печати версии — находка" check-06-shellcheck-version-pinned.sh
+
+# (−) процессов нет вовсе — проверять нечего, и это НЕ успех
+run 2 "$(mksandbox .github/workflows)" "предпосылка: процессов нет — VOID, а не успех" \
+    check-06-shellcheck-version-pinned.sh
+
+
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then

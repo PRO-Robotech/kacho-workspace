@@ -18,6 +18,14 @@ name: ci
 #
 # `workflow_dispatch` — законный способ прогнать конвейер по релизной ветке руками,
 # когда это действительно нужно. Он не тратит ранер сам по себе.
+# Версия анализатора объявлена ОДИН РАЗ на весь процесс. Прежде её выбирал образ
+# ранера (`apt-get install shellcheck`), и вердикт принадлежал не дереву, а
+# картинке: локальная 0.11 давала SC2329 на объявлении функции под `trap`,
+# ранерная — SC2317 на каждой строке её тела. Одно объявление означает, что
+# расхождение между заданиями невозможно by construction, а не проверяется.
+env:
+  SHELLCHECK_VERSION: "0.11.0"
+
 on:
   push:
     branches: [main]
@@ -30,8 +38,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - name: install bats-core + shellcheck
-        run: sudo apt-get update -qq && sudo apt-get install -y bats shellcheck
+      - name: install bats-core
+        run: sudo apt-get update -qq && sudo apt-get install -y bats
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          # Версия печатается в вердикт: без неё «зелено» не несёт с собой, чем
+          # именно оно получено, и следующее расхождение снова будет невидимым.
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - name: shellcheck core bash scripts
         # `|| true` глушит ЗАМЕЧАНИЯ линта — и вместе с ними глушил бы «файла нет
         # вовсе». Существование каждого из этих трёх имён утверждает отдельно
@@ -117,6 +133,14 @@ jobs:
       # красный вердикт читался как дефект стража — хотя стражу нечем было читать.
       - name: разборщик YAML для стража классов
         run: python3 -m pip install --quiet PyYAML
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          # Версия печатается в вердикт: без неё «зелено» не несёт с собой, чем
+          # именно оно получено, и следующее расхождение снова будет невидимым.
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - name: shellcheck hook scripts (strict)
         run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
       - name: hook-proofs
@@ -128,6 +152,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
       # анализаторов сужения списков. Без монорепо выводить не из чего, и гейт
       # отвечает VOID (код 2), а не «чисто»: неразличение этих исходов и есть тот
@@ -195,6 +225,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       # Набор существовал, но не звался НИОТКУДА: ни один job его не запускал, и
       # шесть проверок утверждений оснастки о дереве не исполнялись ни разу в
       # конвейере. Проверка, которую никто не гоняет, отличается от отсутствующей
@@ -248,6 +284,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # СЕТЕВАЯ УСТАНОВКА — СО СВОИМ ПРЕДЕЛОМ (#278).
@@ -310,6 +352,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: smoke JWT minter
