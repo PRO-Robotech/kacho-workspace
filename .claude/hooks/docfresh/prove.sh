@@ -815,11 +815,13 @@ mp_seg() { # mp_seg <назначенный ствол> → отрезок пр�
   # в силу, — хук получил бы ствол из окружения, а не назначенный. Проба при этом
   # осталась бы зелёной, доказывая не то.
   local ref="$1" out
+  # shellcheck disable=SC2030  # export в подоболочке намеренный — причина выше
   out="$( export DOCFRESH_INTEGRATION_REF="$ref"; run_doc mp.md 'Пробный документ без координат.' )"
   prov_segment "$out" mono
 }
 mp_run() { # mp_run <назначенный ствол> <имя документа> <тело> → вывод хука
   local ref="$1" doc="$2" body="$3"
+  # shellcheck disable=SC2030,SC2031  # изоляция намеренная: см. разбор у mp_seg
   ( export DOCFRESH_INTEGRATION_REF="$ref"; run_doc "$doc" "$body" )
 }
 MP_MONO="$WS/project/kacho"
@@ -910,6 +912,7 @@ else
     rm -f "$MPST/turn.jsonl" "$MPST/pending.json"
   }
   mp_stop() { # mp_stop <назначенный ствол> → вывод хука на конце хода
+    # shellcheck disable=SC2030,SC2031  # изоляция намеренная: см. разбор у mp_seg
     ( export DOCFRESH_INTEGRATION_REF="$1"
       printf '{"hook_event_name":"Stop"}' \
         | DOCFRESH_DOC_ROOT="$DOCS" DOCFRESH_STATE="$MPST" bash "$HOOK" 2>&1 )
@@ -1103,6 +1106,9 @@ else
   notrun "изолированный репозиторий с управляемыми часами не создан — возраст вершины ствола не проверен"
 fi
 
+# Восстановление НАРУЖНОГО значения: изоляция подоболочек выше — намеренная,
+# поэтому «change might be lost» здесь и есть требуемое поведение.
+# shellcheck disable=SC2031
 if [ -n "$MP_SAVED_REF" ]; then export DOCFRESH_INTEGRATION_REF="$MP_SAVED_REF"; else unset DOCFRESH_INTEGRATION_REF; fi
 
 echo

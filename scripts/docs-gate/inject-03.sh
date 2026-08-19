@@ -171,12 +171,33 @@ if [ -z "$BASE_SHA" ]; then
 else
     git clone -q --shared --no-checkout "$KACHO_MONOREPO" "$SIDE" 2>/dev/null
     git -C "$SIDE" update-ref refs/remotes/origin/main "$BASE_SHA"
-    OFFSHOOT="$(git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main')"
-    OFFSHOOT_SHORT="$(git -C "$SIDE" rev-parse --short=9 "$OFFSHOOT")"
+    # Подпись — В КОНФИГЕ ВЫБРОШЕННОГО КЛОНА, а не через `-c`/`GIT_AUTHOR_*`: правило
+    # про подпись владельца связывает коммиты РЕПОЗИТОРИЯ, а этот клон живёт до конца
+    # пробы и на origin не попадает НИКОГДА. Без подписи `commit-tree` отказывает
+    # (`empty ident name`) везде, где нет глобального конфига, — то есть на ранере,
+    # где `actions/checkout` подменяет HOME на временный. Локально проба при этом
+    # зеленела: там подпись брали из ~/.gitconfig разработчика.
+    git -C "$SIDE" config user.name  'docs-gate probe'
+    git -C "$SIDE" config user.email 'probe@invalid'
+    OFFSHOOT="$(git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main' 2>/dev/null || true)"
+    OFFSHOOT_SHORT="$(git -C "$SIDE" rev-parse --short=9 "$OFFSHOOT" 2>/dev/null || true)"
+fi
+
+# Вход проверяется НА НЕПУСТОТУ отдельно от подмены: пустая ревизия подставляется
+# без ошибки, а `grep -q ""` истинен ВСЕГДА — то есть проверка подготовки ниже её
+# бы не заметила и обе пробы (11)(12) судили бы о строке без ревизии вместо
+# недостижимости. Ровно так это и наблюдалось на ранере.
+if [ -n "$BASE_SHA" ] && [ -z "$OFFSHOOT_SHORT" ]; then
+    echo "  ПРОПУСК (11)(12) — коммит в сторону не создан (нет подписи?): вход" >&2
+    echo "  произвести НЕЧЕМ. Две пробы НЕ исполнены и в итог не входят" >&2
+    BASE_SHA=""
+fi
+
+if [ -n "$BASE_SHA" ]; then
 
     b="$(mksandbox)"
     sed -i "s#^| \*\*Д15\*\* | экземпляров файла каталога прав (П14) | \`ccc6918ef\` |#| **Д15** | экземпляров файла каталога прав (П14) | \`$OFFSHOOT_SHORT\` |#" "$b/$DOC"
-    grep -q "$OFFSHOOT_SHORT" "$b/$DOC" \
+    { [ -n "$OFFSHOOT_SHORT" ] && grep -q "$OFFSHOOT_SHORT" "$b/$DOC"; } \
         || { echo "  ПРОВАЛ подготовки (11): ревизия Д15 не подменилась" >&2; failed=$((failed + 1)); }
     git -C "$b" add -A -f >/dev/null 2>&1
     run 1 "$b" "$SIDE" "ревизия резолвится, но недостижима из main — находка, а не тишина" \
