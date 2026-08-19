@@ -10,7 +10,7 @@
 # падать не умеет. Проверка «ноль находок» имеет смысл, только если рядом
 # показано, что на настоящей находке она краснеет И называет имя.
 #
-# Проверяется двадцать пять утверждений (A, A2, B, C, D, E, F, G, H, I, J, K, L,
+# Проверяется двадцать восемь утверждений (A, A2, B, C, D, E, F, G, H, I, J, K, L,
 # M, N, O, P, Q, R, S, T, U, V, W, X):
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
@@ -206,6 +206,34 @@ printf 'работа, до которой ствол не дотрагивалс
 git add untouched-by-trunk.txt && git commit -qm "второй предмет ветки, не доехавший никуда"
 git checkout -q main
 
+# --- Y/Z. машинно собираемый файл не делает работу расщеплённой -----------------
+# Указатель хранилища пересобирается в каждой ветке, поэтому его дельта со
+# стволом непуста ВСЕГДА. Перечень такого выводится опросом генераторов, а не
+# выписывается: здесь заводится настоящий генератор с ключом `--outputs`.
+mkdir -p scripts/vault-index
+cat > scripts/vault-index/generate.py <<'GEN'
+import sys
+if "--outputs" in sys.argv:
+    print("machine/INDEX.md")
+    raise SystemExit(0)
+raise SystemExit(0)
+GEN
+mkdir -p machine
+printf 'собрано машинно\n' > machine/INDEX.md
+git add scripts/vault-index/generate.py machine/INDEX.md
+git commit -qm "генератор и его выход"
+
+git checkout -qb gen-only-delta main
+printf 'пересобрано в ветке\n' > machine/INDEX.md
+git add machine/INDEX.md && git commit -qm "указатель пересобран веткой"
+git checkout -q main
+
+git checkout -qb gen-plus-author main
+printf 'пересобрано в ветке\n' > machine/INDEX.md
+printf 'авторская работа\n' > authored-here.txt
+git add machine/INDEX.md authored-here.txt && git commit -qm "указатель и авторский файл"
+git checkout -q main
+
 # --- U. законный близнец к T -----------------------------------------------------
 # Тот же силуэт: PR влит, байты не совпали, перепись нашла отсутствующую строку.
 # Разница ровно одна — ствол ЭТОТ ПУТЬ ПРАВИЛ, то есть содержимое через него
@@ -240,6 +268,10 @@ git checkout -q main
 PRFILE="$TMP/pr-state.tsv"
 printf 'pr-closed-work-left\t101\tMERGED\n' >  "$PRFILE"
 printf 'pr-merged-early-draft\t102\tMERGED\n' >> "$PRFILE"
+# Обеим веткам Y/Z дана запись PR, иначе они уходят в другой раздел и различие
+# между ними перестаёт быть различием ДЕЛЬТЫ — а проверяется именно оно.
+printf 'gen-only-delta\t103\tMERGED\n'  >> "$PRFILE"
+printf 'gen-plus-author\t104\tMERGED\n' >> "$PRFILE"
 export BRANCH_AUDIT_PR_STATE_FILE="$PRFILE"
 
 # --- E. резервная ссылка -------------------------------------------------------
@@ -421,6 +453,28 @@ else
   say "❌ V" "перепись не называет объём: ноль находок неотличим от ноля прочитанного"; fail=1
 fi
 
+# Ищем ИМЕННО в разделе расщеплённой работы: по всему выводу ветка попадётся и
+# в других разделах (её нет на origin), и предикат стал бы шире предмета.
+SPLIT_SECTION="$(awk '/работа в стволе НЕ ВСЯ/{f=1} f&&/^branch-audit: осмотрено/{f=0} f' <<<"$OUT")"
+if grep -q 'gen-only-delta' <<<"$SPLIT_SECTION"; then
+  say "❌ Y" "ветка, чья дельта — только машинно собираемый файл, названа расщеплённой"; fail=1
+else
+  say "✅ Y" "машинно собираемое из дельты отсеяно — авторской работы в такой ветке нет"
+fi
+
+# Парный положительный: без него отсев был бы неотличим от «раздел вообще молчит».
+if grep -q 'gen-plus-author' <<<"$SPLIT_SECTION"; then
+  say "✅ Z" "авторский файл рядом с машинно собираемым перепись всё равно называет"
+else
+  say "❌ Z" "отсев проглотил ветку с авторской работой — маска вместо различения"; fail=1
+fi
+
+if grep -qE 'отсеяно машинно собираемых файлов [1-9]' <<<"$OUT"; then
+  say "✅ Y2" "число отсеянного напечатано — отсев отличим от «находок не было»"
+else
+  say "❌ Y2" "отсев молчит: ноль находок неотличим от ноля прочитанного"; fail=1
+fi
+
 # --- контроль в другую сторону: репозиторий БЕЗ находок -----------------------
 # --- O/P. РЕЖИМ СНЯТИЯ: снимает влитое и НЕ трогает всё остальное --------------
 # Порядок важен: снятие проверяется ДО того, как контроль G удалит находки, —
@@ -472,6 +526,11 @@ git -C "$TMP/work" branch -D pr-closed-work-left >/dev/null
 git -C "$TMP/work" branch -D pr-merged-early-draft >/dev/null
 git -C "$TMP/work" branch -D draft-absorbed-by-lines >/dev/null
 git -C "$TMP/work" branch -D work-of-common-lines >/dev/null
+# gen-only-delta к этому моменту уже снята штатной чисткой: её дельта состоит
+# только из машинно собираемого, значит работа поглощена. Терпимость здесь —
+# не маска: снятие этой ветки И ЕСТЬ проверяемое свойство.
+git -C "$TMP/work" branch -D gen-only-delta >/dev/null 2>&1 || true
+git -C "$TMP/work" branch -D gen-plus-author >/dev/null
 set +e
 OUT2=$("$AUDIT" "$TMP/work" 2>&1); RC2=$?
 set -e
@@ -484,7 +543,7 @@ fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "branch-audit-inject: 25 утверждений, все выполнены — перепись способна упасть И смолчать"
+  echo "branch-audit-inject: 28 утверждений, все выполнены — перепись способна упасть И смолчать"
 else
   echo "branch-audit-inject: есть невыполненные утверждения" >&2
 fi
