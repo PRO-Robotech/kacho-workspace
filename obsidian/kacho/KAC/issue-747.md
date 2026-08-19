@@ -14,6 +14,8 @@ areas:
   - services/iam
   - proto
   - deploy
+prs:
+  - PRO-Robotech/kacho-workspace#306
 issue_url: https://github.com/PRO-Robotech/kacho/issues/747
 opened: 2026-08-20
 tags:
@@ -28,7 +30,8 @@ tags:
 `acceptance-reviewer`. Гейт ban #1 **не пройден**: до APPROVED кодить по линии нельзя, и это
 первая работа эпика.
 
-**Где ведётся**: `PRO-Robotech/kacho-workspace` — ветка `issue-747`, файл
+**Где ведётся**: `PRO-Robotech/kacho-workspace` — ветка `issue-747`, PR
+**[#306](https://github.com/PRO-Robotech/kacho-workspace/pull/306)**, файл
 `docs/specs/sub-phase-R7-3-authz-engine-retirement-acceptance.md`.
 **Issue**: https://github.com/PRO-Robotech/kacho/issues/747 · **Эпик линии**: #729
 (`release:roles-new`)
@@ -103,7 +106,7 @@ tags:
 ## DoD записки
 
 - [ ] APPROVED от `acceptance-reviewer`
-- [ ] PR в `PRO-Robotech/kacho-workspace` влит в `main`
+- [ ] PR `PRO-Robotech/kacho-workspace#306` влит в `main`
 - [ ] `class-exposure-analyst` прогнан по APPROVED-замыслу, до первой строки кода
 - [ ] **S1** — перепись и полнота
 - [ ] **S2** — потолок стоимости
