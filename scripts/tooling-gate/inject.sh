@@ -25,19 +25,24 @@ WS="$(cd "$HERE/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-sandbox_seq=0
-
 # mksandbox [путь-который-выбросить] — печатает путь свежей песочницы.
 #
 # Состав берётся ровно тем же предикатом, что и у самих проверок:
 # `--cached --others --exclude-standard`. Ещё не закоммиченный, но и не
 # игнорируемый файл обязан попасть в песочницу — иначе проба доказывала бы
 # свойство дерева, которого в момент правки не существует.
+# Каталог берётся `mktemp`, а НЕ счётчиком: `b="$(mksandbox)"` исполняет функцию в
+# ПОДОБОЛОЧКЕ, поэтому счётчик в ней увеличивался и терялся — все пробы получали
+# одну и ту же песочницу `s1`. Разворачивание архива поверх чинило только
+# ОТСЛЕЖИВАЕМЫЕ файлы, а внесённый пробой НОВЫЙ файл переживал её и приезжал в
+# следующую. Обнаружено 2026-08-19 первой же пробой, которая вносит дефект новым
+# файлом (check-05): она получала находку предыдущей пробы и падала на исправном
+# дереве. Шапка при этом обещала обратное — «каждая проба получает СВОЮ свежую
+# песочницу»: комментарий против кода, и верным был комментарий.
 mksandbox() {
     local drop="${1:-}"
-    sandbox_seq=$((sandbox_seq + 1))
-    local dir="$TMP/s$sandbox_seq"
-    mkdir -p "$dir"
+    local dir
+    dir="$(mktemp -d "$TMP/sXXXXXX")"
     ( cd "$WS" && git ls-files --cached --others --exclude-standard -z ) \
         | ( cd "$WS" && xargs -0 tar cf - ) \
         | ( cd "$dir" && tar xf - )
@@ -51,6 +56,11 @@ probes=0
 failed=0
 
 # run <ожидаемый-код> <песочница> <имя-пробы> <скрипт>
+#
+# `TOOLING_GATE_REQUIRED_CONTEXTS` пробрасывается из окружения вызова: сетевую
+# половину check-05 доказываем ОФЛАЙН, задав перечень контекстов извне. Ходить за
+# ним в сеть из доказательства нельзя — у токена ранера нет права читать защиту
+# ветки, и проба стала бы «не выполнилось», поданным как зелёное.
 run() {
     local want="$1" box="$2" name="$3" script="$4" got out
     probes=$((probes + 1))
@@ -160,6 +170,106 @@ run 2 "$b" "положительный контроль сорван — VOID, �
 
 b="$(mksandbox scripts)"
 run 2 "$b" "предпосылка: прогонщиков нет — VOID, а не успех" check-04-runner-void-is-not-pass.sh
+
+echo "== check-05: триггер не сужен по ветке / контекст ствола перестал производиться =="
+INJ_REL=".github/workflows/injected.yaml"
+
+# Дефект вносится ОТДЕЛЬНЫМ процессом той же формы, а не правкой ci.yaml: так
+# дефект и его законный близнец отличаются РОВНО объявлением триггера, а не
+# соседним текстом.
+mkwf() {
+    local box="$1" body="$2"
+    printf '%s' "$body" > "$box/$INJ_REL"
+    git -C "$box" add -A -f >/dev/null 2>&1
+}
+
+WF_JOB='jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: "true"
+'
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-05-workflow-triggers-narrowed.sh
+
+# Дословно та форма, что стояла здесь до 2026-08-19 и стоила 142 прогонов из 200.
+b="$(mksandbox)"
+mkwf "$b" "name: injected
+on: [push, pull_request]
+$WF_JOB"
+run 1 "$b" "инъекция: on: [push, pull_request] без сужения — краснеет" check-05-workflow-triggers-narrowed.sh
+
+# ЗАКОННЫЙ БЛИЗНЕЦ: тот же процесс, те же два события, та же позиция —
+# отличается ровно сужением по ветке. Без него гейт ловил бы «в дереве появился
+# ещё один процесс», а не отсутствие сужения.
+b="$(mksandbox)"
+mkwf "$b" "name: injected
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+$WF_JOB"
+run 0 "$b" "близнец: те же два события, сужены по main — молчит" check-05-workflow-triggers-narrowed.sh
+
+# Второй близнец — про ИСПОЛНЯЕМОЕ против ТЕКСТА: слова `on: [push, pull_request]`
+# стоят в комментарии, триггеров по ветке у процесса нет вовсе. Текстовый предикат
+# покраснел бы здесь — и покраснел бы на комментарии самого ci.yaml.
+b="$(mksandbox)"
+mkwf "$b" "name: injected
+# Здесь когда-то стояло on: [push, pull_request] — теперь только расписание.
+on:
+  schedule:
+    - cron: \"0 3 * * *\"
+  workflow_dispatch:
+$WF_JOB"
+run 0 "$b" "близнец: та же строка в КОММЕНТАРИИ, триггер — расписание — молчит" check-05-workflow-triggers-narrowed.sh
+
+# Сужение есть, но ствол в него не попадает: контексты на MR в main не появятся,
+# а защита ветки требует их поимённо — слияние встанет навсегда.
+b="$(mksandbox)"
+mkwf "$b" "name: injected
+on:
+  pull_request:
+    branches: [\"release/**\"]
+$WF_JOB"
+run 1 "$b" "инъекция: pull_request мимо main — краснеет" check-05-workflow-triggers-narrowed.sh
+
+# Сужение по путям: контекст не начинается, поэтому он не зелёный и не красный —
+# он «ожидается», и это блокирует слияние, а не сообщает о дефекте.
+b="$(mksandbox)"
+mkwf "$b" "name: injected
+on:
+  pull_request:
+    branches: [main]
+    paths: [\"docs/**\"]
+$WF_JOB"
+run 1 "$b" "инъекция: pull_request сужен по paths — краснеет" check-05-workflow-triggers-narrowed.sh
+
+# Контроль в обратную сторону, обе половины — офлайн, перечень задан извне.
+b="$(mksandbox)"
+TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
+такого job'"'"'а ни один процесс не производит' \
+    run 1 "$b" "инъекция: защита требует контекст, которого нет — краснеет" check-05-workflow-triggers-narrowed.sh
+
+b="$(mksandbox)"
+TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
+документы объявляют то, чем их измеряют' \
+    run 0 "$b" "близнец: все требуемые контексты производятся — молчит" check-05-workflow-triggers-narrowed.sh
+
+b="$(mksandbox .github/workflows)"
+run 2 "$b" "предпосылка: файлов конвейера нет — VOID, а не успех" check-05-workflow-triggers-narrowed.sh
+
+# Предпосылка второго рода: файлы есть, а триггеров ПО ВЕТКЕ в них ноль. Тогда
+# предикат остался без предмета, и это тоже VOID, а не «находок 0».
+b="$(mksandbox .github/workflows)"
+mkdir -p "$b/.github/workflows"
+mkwf "$b" "name: injected
+on:
+  schedule:
+    - cron: \"0 3 * * *\"
+$WF_JOB"
+run 2 "$b" "предпосылка: ни одного триггера по ветке — VOID, а не «находок 0»" check-05-workflow-triggers-narrowed.sh
 
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
