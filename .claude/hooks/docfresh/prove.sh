@@ -968,11 +968,29 @@ fi
 if [ ! -d "$MP_MONO/.git" ]; then
   notrun "дерева продукта нет — сравнивать локальную ветку с веткой слежения не в чем"
 else
-  mp_gap="$(git -C "$MP_MONO" rev-list --count main..origin/main 2>/dev/null || echo 0)"
-  if [ "${mp_gap:-0}" -eq 0 ]; then
-    notrun "локальный main догнал origin/main — вход «локальная ветка отстала» взять неоткуда"
+  # Вход СТРОИТСЯ, а не берётся из состояния чужого дерева. Прежняя редакция ждала,
+  # что локальная ветка окажется отставшей сама: на машине разработчика так бывает,
+  # на ранере — никогда (свежий клон, локальная ветка совпадает с веткой слежения),
+  # поэтому в конвейере проба не исполнялась НИ РАЗУ и свойство не проверялось.
+  #
+  # Клон свой (`--shared`, объекты общие, запись — своя), поэтому чужое дерево не
+  # трогается: откат локальной ветки происходит в копии, живущей до конца пробы.
+  # Тот же приём уже применяет законный близнец ниже — он заводит своё дерево
+  # `git init`, вместо того чтобы искать подходящее.
+  mp_behind="$TMP/mono-behind"
+  if git clone -q --shared --no-checkout "$MP_MONO" "$mp_behind" 2>/dev/null &&
+     git -C "$mp_behind" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null; then
+    git -C "$mp_behind" update-ref refs/remotes/origin/main "$(git -C "$mp_behind" rev-parse HEAD)"
+    git -C "$mp_behind" update-ref refs/heads/main "$(git -C "$mp_behind" rev-parse 'HEAD~1')"
+    MP_MONO_CASE="$mp_behind"
   else
-    mp_pick="$(unset DOCFRESH_INTEGRATION_REF; python3 - "$GUARD" "$MP_MONO" <<'PY' 2>/dev/null
+    MP_MONO_CASE="$MP_MONO"
+  fi
+  mp_gap="$(git -C "$MP_MONO_CASE" rev-list --count main..origin/main 2>/dev/null || echo 0)"
+  if [ "${mp_gap:-0}" -eq 0 ]; then
+    notrun "отставшую ветку не построить: у дерева продукта нет предка вершины — вход взять неоткуда"
+  else
+    mp_pick="$(unset DOCFRESH_INTEGRATION_REF; python3 - "$GUARD" "$MP_MONO_CASE" <<'PY' 2>/dev/null
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfc", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
@@ -1019,7 +1037,15 @@ mp_key="$TMP/cachekey"; mkdir -p "$mp_key"
 mp_key_build() {
   cd "$mp_key" || return 1
   git init -q -b main . || return 1
-  git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m a || return 1
+  # Подпись задаётся В КОНФИГЕ репозитория, а не флагом одной команды: ствол ниже
+  # двигает `commit-tree` изнутри python, и разовый `-c` до него не доезжает. Без
+  # подписи он отказывает всюду, где нет глобального конфига, — то есть на ранере,
+  # где `actions/checkout` подменяет HOME. Проба тогда объявляла «ключ кэша не
+  # вычислен» и не исполнялась ни разу; локально она проходила, потому что подпись
+  # бралась из настроек разработчика.
+  git config user.name p || return 1
+  git config user.email p@invalid || return 1
+  git commit -q --allow-empty -m a || return 1
   git checkout -q --detach || return 1
 }
 if (mp_key_build) 2>/dev/null; then
