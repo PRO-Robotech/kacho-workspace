@@ -1,13 +1,53 @@
 name: ci
-on: [push, pull_request]
+# ТРИГГЕРЫ СУЖЕНЫ ПО ВЕТКЕ — это исполнение решения владельца 2026-08-12, а не
+# оптимизация по вкусу (#282). До 2026-08-19 здесь стояло `on: [push, pull_request]`,
+# а `.claude/rules/git-issues.md` §«Накопительная релизная ветка» в трёх местах
+# обещало обратное: «PR ВНУТРЬ релизной ветки конвейером не проверяется». Обещание
+# было верно для монорепо (там `push`/`pull_request` сужены по `main` во всех
+# процессах) и ложно здесь. Цена измерена: за 200 последних прогонов (окно с
+# 2026-08-16T20:58Z) на не-`main` ветках — 142 прогона по 8 job'ов, при обещанном
+# нуле; каждая ветка оплачивалась ДВАЖДЫ, событием `push` и событием
+# `pull_request`.
+#
+# КОНТРОЛЬ В ОБРАТНУЮ СТОРОНУ. Защита ветки `main` требует ВОСЕМЬ контекстов
+# поимённо — ровно восемь job'ов ниже. `pull_request` обязан нести `main` в
+# `branches` и НЕ обязан сужаться по `paths`: контекст, который не начался, не
+# зеленеет и не краснеет, а остаётся «ожидается» — и слияние блокируется навсегда.
+# Оба условия держит `scripts/tooling-gate/check-05-workflow-triggers-narrowed.sh`,
+# доказанный инъекцией в обе стороны; это не комментарий, а проверка.
+#
+# `workflow_dispatch` — законный способ прогнать конвейер по релизной ветке руками,
+# когда это действительно нужно. Он не тратит ранер сам по себе.
+# Версия анализатора объявлена ОДИН РАЗ на весь процесс. Прежде её выбирал образ
+# ранера (`apt-get install shellcheck`), и вердикт принадлежал не дереву, а
+# картинке: локальная 0.11 давала SC2329 на объявлении функции под `trap`,
+# ранерная — SC2317 на каждой строке её тела. Одно объявление означает, что
+# расхождение между заданиями невозможно by construction, а не проверяется.
+env:
+  SHELLCHECK_VERSION: "0.11.0"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   bats-and-shellcheck:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - name: install bats-core + shellcheck
-        run: sudo apt-get update -qq && sudo apt-get install -y bats shellcheck
+      - name: install bats-core
+        run: sudo apt-get update -qq && sudo apt-get install -y bats
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          # Версия печатается в вердикт: без неё «зелено» не несёт с собой, чем
+          # именно оно получено, и следующее расхождение снова будет невидимым.
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - name: shellcheck core bash scripts
         # `|| true` глушит ЗАМЕЧАНИЯ линта — и вместе с ними глушил бы «файла нет
         # вовсе». Существование каждого из этих трёх имён утверждает отдельно
@@ -29,6 +69,14 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      # Разборщик YAML — ПРЕДПОСЫЛКА `check-05`: он читает объявление триггеров
+      # разобранным, а не подстрокой (упоминание `pull_request` в комментарии
+      # триггером не является). Без разборщика проверка честно отвечает VOID, а
+      # `run-all.sh` считает VOID провалом набора — тихо зелёным это не станет.
+      - name: разборщик YAML для check-05
+        run: python3 -m pip install --quiet PyYAML
       - name: tooling-gate
         run: bash scripts/tooling-gate/run-all.sh
       - name: гейт доказан инъекцией — дефект краснеет, законный близнец молчит
@@ -39,7 +87,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # `fetch-depth: 0` — ПРЕДПОСЫЛКА, а не запас: хук свежести строит полосу
+      # ствола ОБОИХ деревьев и, не найдя её у воркспейса, честно отказывается
+      # выносить вердикт по нерезолвящимся координатам. Мелкий клон одной ветки
+      # ссылки `origin/main` не создаёт вовсе, поэтому 18 инъекций переставали
+      # срабатывать — и попадали в «разошлось» вместо «не выполнилось», то есть
+      # набор краснел не по существу. Локально проба этого не показывает никогда:
+      # там ствол в клоне есть.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # Обоим доказательствам нужно НАСТОЯЩЕЕ дерево продукта рядом: они гоняют
@@ -63,6 +120,12 @@ jobs:
           repository: PRO-Robotech/kacho
           ref: main
           path: project/kacho
+          # Тоже ПРЕДПОСЫЛКА: три пробы строят вход из ИСТОРИИ дерева продукта
+          # (предок вершины, отставшая локальная ветка, ключ кэша по вершине).
+          # Мелкий клон её не несёт, и пробы честно объявляли «не выполнилось» —
+          # то есть доказательство было неполным, а выглядело как расхождение.
+          # Локально этого не видно: там клон полный, и все 103 пробы сходятся.
+          fetch-depth: 0
       # Разборщик YAML — ПРЕДПОСЫЛКА одной из проб, а не удобство. Без него
       # страж классов честно объявляет пропуск («разборщик недоступен»), и проба,
       # которая ждёт от него находки, докладывает «дефект прошёл». То есть в
@@ -70,6 +133,14 @@ jobs:
       # красный вердикт читался как дефект стража — хотя стражу нечем было читать.
       - name: разборщик YAML для стража классов
         run: python3 -m pip install --quiet PyYAML
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          # Версия печатается в вердикт: без неё «зелено» не несёт с собой, чем
+          # именно оно получено, и следующее расхождение снова будет невидимым.
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - name: shellcheck hook scripts (strict)
         run: shellcheck -x scripts/hook-proofs.sh .claude/hooks/*.sh .claude/hooks/*/prove.sh
       - name: hook-proofs
@@ -81,6 +152,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       # Гейт выводит запрещённые потребителю механизмы ИЗ ДЕРЕВА монорепо — из
       # анализаторов сужения списков. Без монорепо выводить не из чего, и гейт
       # отвечает VOID (код 2), а не «чисто»: неразличение этих исходов и есть тот
@@ -148,6 +225,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       # Набор существовал, но не звался НИОТКУДА: ни один job его не запускал, и
       # шесть проверок утверждений оснастки о дереве не исполнялись ни разу в
       # конвейере. Проверка, которую никто не гоняет, отличается от отсутствующей
@@ -201,6 +284,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # СЕТЕВАЯ УСТАНОВКА — СО СВОИМ ПРЕДЕЛОМ (#278).
@@ -230,17 +319,30 @@ jobs:
       # продукте. Без этого шага проверка объявляет «без предмета» на КАЖДОМ прогоне:
       # она присутствует, исполняется и не может ни подтвердить, ни опровергнуть
       # ничего. Предпосылке полагается СВОЁ УСЛОВИЕ, а не послабление проверке.
+      # `fetch-depth: 0` — не запас, а предпосылка: check-03-acceptance-tree-claims
+      # меряет числа приёмки НА НАЗВАННЫХ ЕЮ РЕВИЗИЯХ, а они историчны и с каждым
+      # днём уезжают дальше от вершины (замер 2026-08-19: от 714 до 965 коммитов;
+      # число тут ОРИЕНТИР — оно растёт само, предпосылка от него не зависит).
+      # Выкладка по умолчанию несёт ОДИН коммит, и на ней не резолвится ни одна из
+      # них — проверено прогоном на клоне глубины 1: находок 16 из 16. Полная
+      # история резолвит все, потому что каждая — предок `main`.
       - name: checkout монорепо в project/kacho
         uses: actions/checkout@v7
         with:
           repository: PRO-Robotech/kacho
           ref: main
+          fetch-depth: 0
           path: project/kacho
       # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать.
       # Гейт, чью работоспособность не доказали, отчитывается зелёным одинаково
       # и когда всё хорошо, и когда он сломан.
       - name: docs-gate доказывает свою работоспособность
         run: ./scripts/docs-gate/inject.sh
+      # Доказательства разложены по проверкам, как в наборе vault-gate. Шаг стоит
+      # ЗДЕСЬ, а не в отчёте на словах: проба, которую не прогоняет никто, — та же
+      # форма без содержания, что и гейт, чью работоспособность не доказали.
+      - name: закрепления приёмки — гейт доказан инъекцией
+        run: KACHO_MONOREPO="$PWD/project/kacho" ./scripts/docs-gate/inject-03.sh
       - name: вердикт приёмки и состояние записки читаются машинно
         run: ./scripts/docs-gate/run-all.sh
 
@@ -250,6 +352,12 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      - name: shellcheck пиннутой версии (local == CI)
+        run: |
+          curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
+            | tar -xJf - -C /tmp
+          sudo install "/tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          shellcheck --version | sed -n 's/^version: /установлен shellcheck /p'
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: smoke JWT minter

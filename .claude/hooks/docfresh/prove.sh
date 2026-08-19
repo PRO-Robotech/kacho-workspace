@@ -32,7 +32,14 @@ if [ -n "${DOCFRESH_PROVE_HOOK:-}" ]; then
   echo "!! Вердикт относится к нему, а не к тому, что провязан в settings.json."
 fi
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-GUARD="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/docfresh.py"
+# Разбор ВЫВОДИТСЯ ИЗ ХУКА, а не из места этого файла. Пробы, зовущие модуль
+# напрямую (списки кандидатов, провенанс, предпосылки), иначе грузят разбор
+# рядом с собой — и подмена `DOCFRESH_PROVE_HOOK` их не касается: набор,
+# наведённый на ревизию ДО починки, отчитывается по ним зелёным, доказывая не то.
+# Замер 2026-08-19: из девяти проб секции M' три остались зелёными на дофиксовом
+# хуке ровно по этой причине. Один предикат «какой разбор исполняется» — и на
+# страж, и на пробу; координата берётся так же, как её берёт сам `docfresh.sh`.
+GUARD="$(cd "$(dirname "$HOOK")" && pwd)/docfresh/docfresh.py"
 export CLAUDE_PROJECT_DIR="$WS"
 
 TMP="$(mktemp -d)"
@@ -331,6 +338,110 @@ else
 fi
 
 echo
+echo "== G1. вид координаты: имя ветки — НЕ путь (issue #242) =="
+# У пути в дереве и у имени ветки ОДНА форма. Пока вид не различался, имена
+# ветвей судились молча и ВСЕГДА отрицательно: автор правила трижды переписывал
+# ВЕРНОЕ утверждение, подгоняя его под хук. Пара стоит на ОДНОМ И ТОМ ЖЕ токене
+# — меняется только слово перед ним, то есть проба меряет именно вид координаты,
+# а не форму строки.
+REFNAME="docs/terraform-provider-trail"
+expect_silent_dead "имя ветки под маркером «Ветка» — не находка" r1.md \
+  "Ветка \`$REFNAME\` несла записку о провайдере." "$REFNAME" "$REFNAME"
+expect_fires_dead "тот же токен БЕЗ маркера — путь судится по-прежнему" r2.md \
+  "Скрипт \`$REFNAME\` лежит рядом." "$REFNAME" "$REFNAME"
+# Сужение маркера до ЦЕЛОГО слова: «legacy-release-ветку `X`» — про развилку
+# кода, а не про git. Без взгляда назад правило снимало бы с проверки настоящий
+# путь; на корпусе это был ЕДИНСТВЕННЫЙ срабат вида `ref`, то есть без сужения
+# оно работало бы только на ложном входе.
+expect_fires_dead "составное определение маркером не является" r3.md \
+  'Прод-путь не задействует legacy-release-ветку `sync-tooling.sh`.' \
+  'sync-tooling.sh' 'sync-tooling.sh'
+out="$(run_doc r4.md "Ветка \`$REFNAME\` несла записку.")"
+if printf '%s' "$out" | grep -qE 'ref 1/1'; then
+  echo "  ✔ имя ветки СЧИТАЕТСЯ и печатается в переписи, а не исчезает молча"; PASS=$((PASS+1))
+else
+  echo "  ✘ имя ветки не попало в перепись — снятие с проверки стало невидимым"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | tr '·' '\n' | grep -a -i 'покрыти' | sed 's/^/      /'
+fi
+
+echo
+echo "== G2. граница покрытия названа ПО ВИДАМ (issue #242) =="
+# Прежде граница печаталась ОДНИМ числом, и оно читалось как «границу учли, за
+# ней ничего нет». Выражена она была у двух видов из пяти; по остальным ноль
+# означал «не искали». Это и есть класс, который хук ищет у чужой прозы, —
+# внутри самого хука.
+out="$(run_doc s1.md 'Живой путь — `sync-all.sh`.')"
+if printf '%s' "$out" | grep -qF 'граница НЕ ВЫРАЖЕНА у видов'; then
+  echo "  ✔ (+) невыраженная граница НАЗВАНА словами, а не подана нулём"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) ноль по невыраженной границе снова читается как полнота"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | tr '·' '\n' | grep -a -i 'покрыти' | sed 's/^/      /'
+fi
+if printf '%s' "$out" | grep -qE 'вне покрытия основания [0-9]+ из рассмотренных: path [0-9]+/[0-9]+'; then
+  echo "  ✔ (−) у вида с ВЫРАЖЕННОЙ границей печатается число из рассмотренных"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) выраженная граница потеряла своё число — раздельность исходов мнимая"; FAIL=$((FAIL+1))
+fi
+# Зеркало: перечень видов в COVERAGE_MODEL обязан совпадать с KINDS. Вид без
+# записи молча получил бы «границы нет», и это не было бы видно.
+out="$(python3 - "$GUARD" <<'PY' 2>&1
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print("РАСХОЖДЕНИЕ:", sorted(set(m.KINDS) ^ set(m.COVERAGE_MODEL)) or "<нет>")
+PY
+)"
+if printf '%s' "$out" | grep -qF 'РАСХОЖДЕНИЕ: <нет>'; then
+  echo "  ✔ каждый вид координаты имеет запись о своей границе"; PASS=$((PASS+1))
+else
+  echo "  ✘ вид без записи о границе — его ноль ничем не объяснён: $out"; FAIL=$((FAIL+1))
+fi
+
+echo
+echo "== G3. переменная вне перечня основания — граница ИНСТРУМЕНТА (issue #242) =="
+# Вход обеих сторон — НАСТОЯЩИЕ: реальное имя ручки и реальный файл дерева.
+# (+) воспроизводит историческое состояние перечня путей, при котором хук
+# объявлял живую ручку несуществующей и в том же выводе печатал «вне покрытия 0».
+out="$(python3 - "$GUARD" <<'PY' 2>&1
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+mono = m.monorepo_root(ws)
+NAME = "KACHO_SKIP_PREPUSH"
+t = m.Truth(m.build_truth(ws, mono), ws, mono)
+print("СЕЙЧАС:", t.classify_with_reason("env", NAME)[0])
+print("ВЫДУМАННОЕ:", t.classify_with_reason("env", "KACHO_VYDUMANNAYA_PEREMENNAYA_XYZ")[0])
+m.ENV_PATHSPECS[:] = [p for p in m.ENV_PATHSPECS if "hooks" not in p]
+t2 = m.Truth(m.build_truth(ws, mono), ws, mono)
+v, why = t2.classify_with_reason("env", NAME)
+print("БЕЗ-ХУКОВ:", v, "|", why or "")
+print("ТОЛЬКО-В-ДОКЕ:", t2.classify_with_reason("env", "KACHO_GEO_AUTHZ_BREAKGLASS")[0])
+PY
+)"
+if printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered .*scripts/hooks/pre-push'; then
+  echo "  ✔ (+) имя, живущее в файле вне перечня, — ГРАНИЦА, и файл НАЗВАН"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) имя вне перечня по-прежнему объявляется несуществующим"; FAIL=$((FAIL+1))
+  printf '%s\n' "$out" | sed 's/^/      /'
+fi
+if printf '%s' "$out" | grep -qF 'СЕЙЧАС: resolved'; then
+  echo "  ✔ (−) с нынешним перечнем та же ручка просто резолвится"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) вход (+) больше не настоящий: ручка не резолвится и с полным перечнем"; FAIL=$((FAIL+1))
+fi
+if printf '%s' "$out" | grep -qF 'ВЫДУМАННОЕ: missing'; then
+  echo "  ✔ (−) выдуманное имя — по-прежнему НАХОДКА, а не граница"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) детектор границы проглотил выдуманное имя — предикат выхолощен"; FAIL=$((FAIL+1))
+fi
+if printf '%s' "$out" | grep -qF 'ТОЛЬКО-В-ДОКЕ: missing'; then
+  echo "  ✔ (−) ручка, названная ТОЛЬКО документом, — находка: корпус утверждений покрытием не считается"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) документ засчитан себе же в покрытие — предикат замкнулся сам на себя"; FAIL=$((FAIL+1))
+fi
+
+echo
 echo "== H. послабление самоистекает =="
 ALLOWDIR="$TMP/allow"; mkdir -p "$ALLOWDIR"
 cat > "$ALLOWDIR/live.json" <<'JSON'
@@ -537,8 +648,21 @@ prov_segment() { # prov_segment <строка переписи> <mono|ws> → о
   fi
 }
 behind_of() { # behind_of <корень> → на сколько коммитов копия позади ствола
+  # Отставание спрашивается У САМОГО ХУКА, а не считается второй раз своей
+  # командой. Прежняя редакция мерила `HEAD..main` — локальную ветку, — тогда как
+  # хук с 2026-08-19 берёт наиболее продвинутого кандидата, включая ветки
+  # слежения. Два предиката об одном предмете разошлись бы ровно там, где
+  # расхождение и опасно: на копии, чей локальный `main` отстал, проба говорила
+  # «отставания нет», а перепись — «отстаёт на 302», и красным оказался бы
+  # исправный хук. Один предикат на страж, самоотчёт и пробу — норма корпуса.
   local root="$1" n
-  n="$(git -C "$root" rev-list --count HEAD..main 2>/dev/null)" || n=0
+  n="$(python3 - "$GUARD" "$root" <<'PY' 2>/dev/null
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfb", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m._provenance(pathlib.Path(sys.argv[2]))["behind"])
+PY
+)" || n=0
   printf '%s' "${n:-0}"
 }
 for tree in mono ws; do
@@ -593,11 +717,40 @@ DEAD_BOTH="sync-tooling.sh"                                # нет ни там,
 PROVE_TRUNK="docfresh-prove-trunk"
 TRUNK_ALIVE=""
 trunk_ref=""
+# Ссылки секции M' объявлены ЗДЕСЬ, потому что уборка одна: второй `trap EXIT`
+# отменил бы первый молча, и служебная ссылка пережила бы прогон в общей копии
+# продукта. Список — единственное место, где эти имена перечислены.
+PROVE_REFS="$PROVE_TRUNK docfresh-prove-level docfresh-prove-behind"
+# shellcheck disable=SC2329,SC2317  # зовётся косвенно: trap ... EXIT ниже.
+# Оба кода — про одно и то же непонимание анализатором косвенного вызова, но
+# приходят от РАЗНЫХ версий: локальная 0.11 даёт SC2329 на объявлении, ранерная
+# — SC2317 на каждой строке тела. Глушить надо оба, иначе вердикт зависит от
+# того, чей shellcheck исполнился.
 _prove_trunk_cleanup() {
-  [ -n "${PROVE_TRUNK:-}" ] || return 0
-  (cd "$WS/project/kacho" 2>/dev/null && git update-ref -d "refs/heads/$PROVE_TRUNK" 2>/dev/null) || true
+  local r root
+  for root in "$WS/project/kacho" "$WS"; do
+    for r in $PROVE_REFS; do
+      (cd "$root" 2>/dev/null && git update-ref -d "refs/heads/$r" 2>/dev/null) || true
+    done
+  done
+  # Уборка временного каталога переезжает СЮДА, а не остаётся вторым `trap`:
+  # `trap … EXIT` заменяет предыдущий обработчик молча, поэтому ранний
+  # `rm -rf "$TMP"` этой строкой отменялся, и каждый прогон оставлял каталог
+  # в `/tmp`. Ровно тот класс, который набор проверяет в чужом коде.
+  rm -rf "$TMP"
 }
 trap _prove_trunk_cleanup EXIT
+
+# Назначенный ствол виден ОБОИМ корням, и ссылка обязана существовать в КАЖДОМ.
+# Иначе у воркспейса полоса ствола не строится, все координаты становятся
+# «вердикт не вынесен» — и весь набор ниже зеленеет на молчащем хуке, доказывая
+# не то. Класс тот же, что ловит сам хук: непостроенное основание, выданное за
+# чистоту. Ссылка воркспейса — простой синоним его HEAD: пробам этой секции
+# важен лишь ФАКТ построенной полосы, содержимое сверяется по дереву продукта.
+_prove_ws_alias() { # _prove_ws_alias <имя ссылки>
+  git -C "$WS" rev-parse --verify --quiet "refs/heads/$1" >/dev/null && return 0
+  git -C "$WS" update-ref "refs/heads/$1" "$(git -C "$WS" rev-parse HEAD)" 2>/dev/null || true
+}
 
 if [ -d "$WS/project/kacho/.git" ]; then
   TRUNK_ALIVE="docfresh-prove-only-in-trunk.md"
@@ -616,6 +769,7 @@ if [ -d "$WS/project/kacho/.git" ]; then
                      commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
         git update-ref "refs/heads/$PROVE_TRUNK" "$commit") 2>/dev/null; then
       trunk_ref="$PROVE_TRUNK"
+      _prove_ws_alias "$PROVE_TRUNK"
       export DOCFRESH_INTEGRATION_REF="$PROVE_TRUNK"
     else
       TRUNK_ALIVE=""
@@ -647,6 +801,346 @@ else
     echo "  ✘ объём полосы ствола не назван — ноль находок неотличим от непрогнанной полосы"; FAIL=$((FAIL+1))
   fi
 fi
+
+echo
+echo "== M'. по чему судили: ствол — линия интеграции, «вровень» — равенство =="
+# Задача #280. Хук судил по ЛОКАЛЬНОЙ ветке `main`, отставшей в общей копии
+# продукта на 302 коммита от `origin/main`, и печатал при этом
+# `7ebb670d@HEAD — вровень со стволом main 1278df74` — две РАЗНЫЕ ревизии,
+# названные согласованностью. Из-за второго первое было неотличимо от исправной
+# работы: читатель видел «вровень» и принимал вердикт за свойство дерева.
+#
+# Пробы этой секции работают ЧЕРЕЗ НАЗНАЧЕННЫЙ ствол, а не ждут, пока копия
+# отстанет: вход, зависящий от чужого дерева, исчезает в день, когда копию
+# подтянут (так уже умирала полоса M 2026-08-07).
+MP_SAVED_REF="${DOCFRESH_INTEGRATION_REF:-}"
+mp_seg() { # mp_seg <назначенный ствол> → отрезок провенанса дерева продукта
+  # Назначение идёт ЧЕРЕЗ ПОДОБОЛОЧКУ с `export`, а не префиксом перед вызовом:
+  # префикс `VAR=x cmd "$(…)"` подставляет вывод РАНЬШЕ, чем присваивание вступает
+  # в силу, — хук получил бы ствол из окружения, а не назначенный. Проба при этом
+  # осталась бы зелёной, доказывая не то.
+  local ref="$1" out
+  # shellcheck disable=SC2030  # export в подоболочке намеренный — причина выше
+  out="$( export DOCFRESH_INTEGRATION_REF="$ref"; run_doc mp.md 'Пробный документ без координат.' )"
+  prov_segment "$out" mono
+}
+mp_run() { # mp_run <назначенный ствол> <имя документа> <тело> → вывод хука
+  local ref="$1" doc="$2" body="$3"
+  # shellcheck disable=SC2030,SC2031  # изоляция намеренная: см. разбор у mp_seg
+  ( export DOCFRESH_INTEGRATION_REF="$ref"; run_doc "$doc" "$body" )
+}
+MP_MONO="$WS/project/kacho"
+if [ ! -d "$MP_MONO/.git" ]; then
+  notrun "дерева продукта нет — назначать ствол не в чем"
+elif ! git -C "$MP_MONO" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null; then
+  notrun "у дерева продукта нет предка HEAD~1 — вход «копия впереди ствола» не построить"
+else
+  git -C "$MP_MONO" update-ref refs/heads/docfresh-prove-level "$(git -C "$MP_MONO" rev-parse HEAD)"
+  git -C "$MP_MONO" update-ref refs/heads/docfresh-prove-behind "$(git -C "$MP_MONO" rev-parse HEAD~1)"
+  _prove_ws_alias docfresh-prove-level
+  _prove_ws_alias docfresh-prove-behind
+
+  # (+) ствол — ПРЕДОК HEAD: `HEAD..ствол` даёт ноль, ревизии при этом РАЗНЫЕ.
+  # Ровно эта пара чисел и стояла в бою; на ней прежняя редакция печатала
+  # «вровень».
+  seg="$(mp_seg docfresh-prove-behind)"
+  if [ -z "$seg" ]; then
+    notrun "перепись не назвала отрезок дерева продукта — сверять нечего"
+  elif printf '%s' "$seg" | grep -qF 'вровень'; then
+    echo "  ✘ (+) ствол-предок назван «вровень» — разные ревизии выданы за согласованность"; FAIL=$((FAIL+1))
+    printf '%s\n' "$seg" | sed 's/^/      /'
+  elif printf '%s' "$seg" | grep -qE 'опережает ствол [^ ]+ [0-9a-f]+ на [1-9]'; then
+    echo "  ✔ (+) ствол-предок: расхождение НАЗВАНО числом, «вровень» не сказано"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) ствол-предок: расхождение не названо числом"; FAIL=$((FAIL+1))
+    printf '%s\n' "$seg" | sed 's/^/      /'
+  fi
+
+  # (−) ЗАКОННЫЙ БЛИЗНЕЦ той же формы: ссылка ствола указывает НА ТОТ ЖЕ коммит.
+  # Без него «не говори вровень» выродилось бы в «не говори вровень никогда», и
+  # слово перестало бы что-либо значить.
+  seg="$(mp_seg docfresh-prove-level)"
+  if [ -z "$seg" ]; then
+    notrun "перепись не назвала отрезок дерева продукта — сверять нечего"
+  elif printf '%s' "$seg" | grep -qF 'вровень со стволом docfresh-prove-level'; then
+    echo "  ✔ (−) ствол на том же коммите — «вровень» сказано"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) настоящее равенство не названо «вровень» — слово выхолощено"; FAIL=$((FAIL+1))
+    printf '%s\n' "$seg" | sed 's/^/      /'
+  fi
+
+  # (+) ПОЛОСА СТВОЛА НЕ ПОСТРОЕНА → вердикт НЕ ВЫНЕСЕН, а не отрицательный.
+  # Назначаем ссылку, которой в дереве нет: ни одна координата не может быть
+  # проверена по стволу, и обвинять на таком основании нельзя.
+  #
+  # Вход обеих сторон — координата, мёртвая И в копии, И в стволе. Её живость
+  # проверяется, а не предполагается: в день, когда `$DEAD_BOTH` появится в
+  # дереве, пара начнёт зеленеть, доказывая не то.
+  if ! absent_path "$DEAD_BOTH" || \
+     git -C "$MP_MONO" cat-file -e "docfresh-prove-level:$DEAD_BOTH" 2>/dev/null; then
+    notrun "'$DEAD_BOTH' появился в дереве — вход пары «вердикт не вынесен» больше не настоящий"
+  else
+  out="$(mp_run docfresh-ствола-с-таким-именем-нет mp2.md "Копии генерируются \`$DEAD_BOTH\`.")"
+  if printf '%s' "$out" | grep -qF "$DEAD_BOTH"; then
+    echo "  ✘ (+) без полосы ствола координата ОБВИНЕНА — «смотрел не туда» выдано за «этого нет»"; FAIL=$((FAIL+1))
+  elif printf '%s' "$out" | grep -qE 'вердикт не вынесен [1-9]'; then
+    echo "  ✔ (+) без полосы ствола вердикт НЕ ВЫНЕСЕН, и это СЧИТАЕТСЯ в переписи"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) без полосы ствола хук промолчал, не назвав причины — неотличимо от чистоты"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -4
+  fi
+  if printf '%s' "$out" | grep -qF 'вердикт по нерезолвящимся координатам НЕ ВЫНЕСЕН'; then
+    echo "  ✔ (+) провенанс называет, ПОЧЕМУ вердикта нет"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) провенанс молчит о непостроенной полосе"; FAIL=$((FAIL+1))
+  fi
+
+  # (−) ЗЕРКАЛО: с построенной полосой та же координата — находка. Без него
+  # «не обвинять без полосы» было бы неотличимо от «не обвинять никогда».
+  out="$(mp_run docfresh-prove-level mp3.md "Копии генерируются \`$DEAD_BOTH\`.")"
+  if printf '%s' "$out" | grep -qF "$DEAD_BOTH"; then
+    echo "  ✔ (−) с построенной полосой та же координата ОБВИНЕНА — предикат жив"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) с построенной полосой координата не обвинена — предикат мёртв в обе стороны"; FAIL=$((FAIL+1))
+  fi
+
+  # ОСЬ УДАЛЕНИЙ — ТОТ ЖЕ порог основания. Две оси одного хука не вправе
+  # расходиться в том, что считают годным основанием: без полосы ствола
+  # «исчезло из дерева» неотличимо от «копия переехала на другую ревизию».
+  # Инъекция идёт ЧЕРЕЗ СНИМОК (состояние хука), а не удалением файла из общего
+  # клона, — как и в секции J'.
+  MPST="$TMP/mpstate"; mkdir -p "$MPST"
+  mp_seed_snapshot() { # mp_seed_snapshot <строка-путь>
+    git -C "$WS" ls-files > "$MPST/tracked-snapshot.txt"
+    git -C "$WS/project/kacho" ls-files | sed 's#^#project/kacho/#' >> "$MPST/tracked-snapshot.txt"
+    printf '%s\n' "$1" >> "$MPST/tracked-snapshot.txt"
+    rm -f "$MPST/turn.jsonl" "$MPST/pending.json"
+  }
+  mp_stop() { # mp_stop <назначенный ствол> → вывод хука на конце хода
+    # shellcheck disable=SC2030,SC2031  # изоляция намеренная: см. разбор у mp_seg
+    ( export DOCFRESH_INTEGRATION_REF="$1"
+      printf '{"hook_event_name":"Stop"}' \
+        | DOCFRESH_DOC_ROOT="$DOCS" DOCFRESH_STATE="$MPST" bash "$HOOK" 2>&1 )
+  }
+  printf '%s\n' "Копии генерируются \`$DEAD_BOTH\`." > "$DOCS/mp4.md"
+  mp_seed_snapshot "$DEAD_BOTH"
+  out="$(mp_stop docfresh-prove-level)"
+  # Считаются СТРОКИ ОТЧЁТА (`^║ …`), а не все вхождения: на конце хода находка
+  # выходит ДВУМЯ каналами — рамкой в stderr и тем же текстом в `additionalContext`
+  # на stdout, — и `grep -cF` по слитому потоку насчитал бы два при исправном хуке.
+  # Тот же класс, что ловит сам набор: считать надо предмет, а не совпадения.
+  mp_hits="$(printf '%s\n' "$out" | grep -cE "^║ .*$DEAD_BOTH")"
+  if [ "${mp_hits:-0}" -eq 1 ]; then
+    echo "  ✔ (−) ось удалений с построенной полосой ОБВИНЯЕТ — вход настоящий, координата названа ОДИН раз"; PASS=$((PASS+1))
+  elif [ "${mp_hits:-0}" -eq 0 ]; then
+    echo "  ✘ (−) ось удалений не сработала и с построенной полосой — вход не настоящий"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -4
+  else
+    # Число тоже утверждение: та же координата, названная дважды, удваивает и
+    # счётчик «координат рассмотрено». Отчёт, врущий о собственном числе, —
+    # тот же класс, что ловит хук.
+    echo "  ✘ (−) координата названа $mp_hits раза — отчёт двоит находку и её счёт"; FAIL=$((FAIL+1))
+  fi
+  mp_seed_snapshot "$DEAD_BOTH"
+  out="$(mp_stop docfresh-ствола-с-таким-именем-нет)"
+  if printf '%s' "$out" | grep -qF "$DEAD_BOTH"; then
+    echo "  ✘ (+) ось удалений обвиняет БЕЗ полосы ствола — две оси разошлись в основании"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -4
+  elif printf '%s' "$out" | grep -qE 'вердикт не вынесен [1-9]'; then
+    echo "  ✔ (+) ось удалений без полосы ствола: вердикт НЕ ВЫНЕСЕН и СЧИТАЕТСЯ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) ось удалений промолчала, не назвав причины — неотличимо от чистоты"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -4
+  fi
+  rm -f "$DOCS/mp4.md"
+  fi
+
+  for r in docfresh-prove-level docfresh-prove-behind; do
+    git -C "$MP_MONO" update-ref -d "refs/heads/$r" 2>/dev/null || true
+    git -C "$WS" update-ref -d "refs/heads/$r" 2>/dev/null || true
+  done
+fi
+
+# Ствол — ЛИНИЯ ИНТЕГРАЦИИ, а не локальная ветка с этим именем.
+# (+) вход берётся из НАСТОЯЩЕГО дерева и потому проверяется на живость: если
+# локальная ветка догнала ветку слежения, различить их нечем и проба честно не
+# исполняется.
+if [ ! -d "$MP_MONO/.git" ]; then
+  notrun "дерева продукта нет — сравнивать локальную ветку с веткой слежения не в чем"
+else
+  # Вход СТРОИТСЯ, а не берётся из состояния чужого дерева. Прежняя редакция ждала,
+  # что локальная ветка окажется отставшей сама: на машине разработчика так бывает,
+  # на ранере — никогда (свежий клон, локальная ветка совпадает с веткой слежения),
+  # поэтому в конвейере проба не исполнялась НИ РАЗУ и свойство не проверялось.
+  #
+  # Клон свой (`--shared`, объекты общие, запись — своя), поэтому чужое дерево не
+  # трогается: откат локальной ветки происходит в копии, живущей до конца пробы.
+  # Тот же приём уже применяет законный близнец ниже — он заводит своё дерево
+  # `git init`, вместо того чтобы искать подходящее.
+  mp_behind="$TMP/mono-behind"
+  if git clone -q --shared --no-checkout "$MP_MONO" "$mp_behind" 2>/dev/null &&
+     git -C "$mp_behind" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null; then
+    git -C "$mp_behind" update-ref refs/remotes/origin/main "$(git -C "$mp_behind" rev-parse HEAD)"
+    git -C "$mp_behind" update-ref refs/heads/main "$(git -C "$mp_behind" rev-parse 'HEAD~1')"
+    MP_MONO_CASE="$mp_behind"
+  else
+    MP_MONO_CASE="$MP_MONO"
+  fi
+  mp_gap="$(git -C "$MP_MONO_CASE" rev-list --count main..origin/main 2>/dev/null || echo 0)"
+  if [ "${mp_gap:-0}" -eq 0 ]; then
+    notrun "отставшую ветку не построить: у дерева продукта нет предка вершины — вход взять неоткуда"
+  else
+    mp_pick="$(unset DOCFRESH_INTEGRATION_REF; python3 - "$GUARD" "$MP_MONO_CASE" <<'PY' 2>/dev/null
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfc", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m._provenance(pathlib.Path(sys.argv[2]))["trunk_ref"] or "")
+PY
+)"
+    if printf '%s' "$mp_pick" | grep -qE '^[^/]+/(main|master)$'; then
+      echo "  ✔ (+) локальная ветка отстала на $mp_gap — стволом выбрана ветка СЛЕЖЕНИЯ ($mp_pick)"; PASS=$((PASS+1))
+    else
+      echo "  ✘ (+) локальная ветка отстала на $mp_gap, а стволом выбрано «$mp_pick» — судим по отставшей ссылке"; FAIL=$((FAIL+1))
+    fi
+  fi
+fi
+# (−) ЗАКОННЫЙ БЛИЗНЕЦ: в клоне БЕЗ веток слежения кандидатом обязана остаться
+# локальная ветка — иначе «предпочитаем слежение» выродилось бы в «локальные не
+# рассматриваем», и у свежего клона ствола не стало бы вовсе.
+mp_solo="$TMP/solo"; mkdir -p "$mp_solo"
+if (cd "$mp_solo" && git init -q -b main . && \
+    git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m init) 2>/dev/null; then
+  mp_cands="$(unset DOCFRESH_INTEGRATION_REF; python3 - "$GUARD" "$mp_solo" <<'PY' 2>/dev/null
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfd", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(",".join(m._trunk_candidates(pathlib.Path(sys.argv[2]))))
+PY
+)"
+  if [ "$mp_cands" = "main" ]; then
+    echo "  ✔ (−) в клоне без веток слежения кандидатом остаётся локальная main"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) в клоне без веток слежения кандидаты = «$mp_cands» — ствола не стало бы вовсе"; FAIL=$((FAIL+1))
+  fi
+else
+  notrun "изолированный репозиторий не создан — сверять список кандидатов не на чем"
+fi
+# ВЕРШИНА СТВОЛА ВХОДИТ В КЛЮЧ КЭША. `git fetch` двигает `origin/main`, НЕ трогая
+# ни HEAD, ни индекс, — а вторая полоса (`ls-tree` по стволу) лежит В КЭШЕ. Без
+# вершины в ключе полоса замерзала бы на той, что была в момент сборки, и
+# координата, посаженная после неё, объявлялась бы несуществующей: тот же дефект
+# #280 этажом ниже — «судили по стволу, но по вчерашнему».
+#
+# Вход строится в ИЗОЛИРОВАННОМ репозитории: двигать ствол в общей копии значило
+# бы менять чужое состояние ради пробы.
+mp_key="$TMP/cachekey"; mkdir -p "$mp_key"
+mp_key_build() {
+  cd "$mp_key" || return 1
+  git init -q -b main . || return 1
+  # Подпись задаётся В КОНФИГЕ репозитория, а не флагом одной команды: ствол ниже
+  # двигает `commit-tree` изнутри python, и разовый `-c` до него не доезжает. Без
+  # подписи он отказывает всюду, где нет глобального конфига, — то есть на ранере,
+  # где `actions/checkout` подменяет HOME. Проба тогда объявляла «ключ кэша не
+  # вычислен» и не исполнялась ни разу; локально она проходила, потому что подпись
+  # бралась из настроек разработчика.
+  git config user.name p || return 1
+  git config user.email p@invalid || return 1
+  git commit -q --allow-empty -m a || return 1
+  git checkout -q --detach || return 1
+}
+if (mp_key_build) 2>/dev/null; then
+  mp_key_out="$(unset DOCFRESH_INTEGRATION_REF DOCFRESH_DOC_ROOT; python3 - "$GUARD" "$mp_key" <<'PYKEY' 2>/dev/null
+import importlib.util, subprocess, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfk", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+root = pathlib.Path(sys.argv[2])
+def sh(*a):
+    return subprocess.run(["git", "-C", str(root), *a], capture_output=True,
+                          text=True, check=True).stdout.strip()
+head_before = sh("rev-parse", "HEAD")
+print("BEFORE", m.cache_key(root, None))
+print("SAME", m.cache_key(root, None))          # ничего не двигали
+tree = sh("rev-parse", "HEAD^{tree}")
+sh("update-ref", "refs/heads/main",
+   sh("commit-tree", tree, "-p", "HEAD", "-m", "ствол уехал"))
+print("AFTER", m.cache_key(root, None))
+print("HEADSTILL", "да" if sh("rev-parse", "HEAD") == head_before else "нет")
+PYKEY
+)"
+  mp_k_before="$(printf '%s' "$mp_key_out" | awk '$1=="BEFORE"{print $2}')"
+  mp_k_same="$(printf '%s' "$mp_key_out" | awk '$1=="SAME"{print $2}')"
+  mp_k_after="$(printf '%s' "$mp_key_out" | awk '$1=="AFTER"{print $2}')"
+  mp_k_head="$(printf '%s' "$mp_key_out" | awk '$1=="HEADSTILL"{print $2}')"
+  if [ -z "$mp_k_before" ] || [ -z "$mp_k_after" ]; then
+    notrun "ключ кэша не вычислен — сверять нечего"
+  elif [ "$mp_k_head" != "да" ]; then
+    notrun "HEAD в пробном репозитории сдвинулся — вход «уехал только ствол» не построен"
+  elif [ "$mp_k_before" != "$mp_k_after" ]; then
+    echo "  ✔ (+) ствол уехал при неподвижном HEAD — ключ кэша ИЗМЕНИЛСЯ, полоса пересоберётся"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) ствол уехал, а ключ кэша тот же — полоса ствола замерзает на вчерашней вершине"; FAIL=$((FAIL+1))
+  fi
+  # (−) ЗАКОННЫЙ БЛИЗНЕЦ: ничего не двигали — ключ обязан СОВПАСТЬ. Без него
+  # «ключ меняется» выродилось бы в «ключ меняется всегда», то есть в отказ от
+  # кэша, и проба зеленела бы на выключенном кэшировании.
+  if [ -n "$mp_k_same" ] && [ "$mp_k_before" = "$mp_k_same" ]; then
+    echo "  ✔ (−) ничего не двигали — ключ кэша ТОТ ЖЕ, кэш не выключен"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) ключ кэша меняется сам по себе — кэш выключён, а не уточнён"; FAIL=$((FAIL+1))
+  fi
+else
+  notrun "изолированный репозиторий для ключа кэша не создан — вершина в ключе не проверена"
+fi
+
+# ВОЗРАСТ САМОЙ ССЫЛКИ СТВОЛА. Хук её не подтягивает (сеть, время, запись в чужой
+# репозиторий), поэтому никогда не тянутая ветка слежения воспроизводит тот же
+# класс этажом выше. Вход строится в ИЗОЛИРОВАННОМ репозитории с управляемыми
+# часами: брать «что-нибудь старое» из настоящего дерева значило бы поставить
+# пробу в зависимость от того, когда в него последний раз коммитили.
+mp_age="$TMP/agerepo"; mkdir -p "$mp_age"
+# Раскладка: ссылка `stale` остаётся на коммите 2020 года, `main` уезжает на
+# сегодняшний. Первая редакция строила её наоборот — обе ссылки оказывались на
+# свежем коммите, — и (+) честно покраснела на СВОЕЙ фикстуре, а не на хуке.
+mp_age_build() {
+  cd "$mp_age" || return 1
+  git init -q -b main . || return 1
+  GIT_AUTHOR_DATE='2020-01-01T00:00:00Z' GIT_COMMITTER_DATE='2020-01-01T00:00:00Z' \
+    git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m old || return 1
+  git branch -q stale || return 1
+  git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m now || return 1
+}
+if (mp_age_build) 2>/dev/null; then
+  mp_age_out="$(python3 - "$GUARD" "$mp_age" <<'PY' 2>/dev/null
+import importlib.util, os, sys, pathlib, types
+spec = importlib.util.spec_from_file_location("dfe", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+root = pathlib.Path(sys.argv[2])
+for ref, tag in (("stale", "СТАРАЯ"), ("main", "СВЕЖАЯ")):
+    os.environ["DOCFRESH_INTEGRATION_REF"] = ref
+    stub = types.SimpleNamespace(prov={"mono": m._provenance(root)})
+    print(tag, "::", m.tree_provenance(stub))
+PY
+)"
+  if printf '%s' "$mp_age_out" | grep '^СТАРАЯ' | grep -qE 'вершина ствола [^ ]+ старше [0-9]+ дн\.'; then
+    echo "  ✔ (+) вершина ствола старше порога — перепись говорит, что вердикт не свежее её"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) вершина ствола от 2020 года, а перепись молчит — «по чему судили» неполно"; FAIL=$((FAIL+1))
+    printf '%s
+' "$mp_age_out" | sed 's/^/      /'
+  fi
+  if printf '%s' "$mp_age_out" | grep '^СВЕЖАЯ' | grep -qF 'старше'; then
+    echo "  ✘ (−) свежая вершина тоже помечена старой — предупреждение печатается всегда"; FAIL=$((FAIL+1))
+  else
+    echo "  ✔ (−) свежая вершина ствола предупреждения НЕ вызывает"; PASS=$((PASS+1))
+  fi
+else
+  notrun "изолированный репозиторий с управляемыми часами не создан — возраст вершины ствола не проверен"
+fi
+
+# Восстановление НАРУЖНОГО значения: изоляция подоболочек выше — намеренная,
+# поэтому «change might be lost» здесь и есть требуемое поведение.
+# shellcheck disable=SC2031
+if [ -n "$MP_SAVED_REF" ]; then export DOCFRESH_INTEGRATION_REF="$MP_SAVED_REF"; else unset DOCFRESH_INTEGRATION_REF; fi
 
 echo
 echo "== N. находка воспроизводится по НЫНЕШНЕМУ содержимому документа =="
@@ -889,4 +1383,13 @@ echo "══ предпосылок объявлено и проверено: $P
 echo "══ проб: $((PASS+FAIL)) · сошлось: $PASS · разошлось: $FAIL · НЕ ВЫПОЛНИЛОСЬ: $NOTRUN ══"
 # «Не выполнилось» НЕ вычитается из вердикта и НЕ засчитывается за успех:
 # проба, чей вход перестал быть настоящим, ничего не доказала.
-[ "$FAIL" -eq 0 ] && [ "$NOTRUN" -eq 0 ]
+#
+# Исходов ТРИ, и код возврата их различает: 0 — сошлось; 1 — РАЗОШЛОСЬ (дефект
+# в том, что доказывается); 2 — НЕ ВЫПОЛНИЛОСЬ (вход не построить в этой среде).
+# Без различения вызывающий сообщал «доказательство разошлось» там, где
+# расхождений ноль, и читатель шёл искать дефект вместо непостроенной
+# предпосылки. Наблюдалось на ранере: три предпосылки требуют истории
+# репозитория, которой мелкий клон не несёт.
+if [ "$FAIL" -ne 0 ]; then exit 1; fi
+if [ "$NOTRUN" -ne 0 ]; then exit 2; fi
+exit 0
