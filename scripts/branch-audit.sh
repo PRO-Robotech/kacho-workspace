@@ -247,6 +247,38 @@ while read -r br path; do
 done < <(git worktree list --porcelain 2>/dev/null |
          awk '/^worktree /{p=$2} /^branch /{b=$2; sub("refs/heads/","",b); print b" "p}')
 
+# --- копия ЖИВАЯ или БРОШЕННАЯ: перепись обязана их различать -----------------
+#
+# Рабочая копия агента переживает самого агента. Замер воркспейса 2026-08-19: 26
+# копий, возраст от 16 до 56 часов, большинство — от сеансов, которых уже нет.
+# Пока перепись видела в них одно «занято», влитые ветки не снимались НИКОГДА:
+# `оставлено 31 из 31`, и штатная чистка становилась бесполезной.
+#
+# Живость решается ДВУМЯ признаками сразу, и оба нужны:
+#   (1) держит ли копию чей-то рабочий каталог — читается из /proc, то есть от
+#       ФАКТА, а не от догадки. Процесс может ничего не писать часами и при этом
+#       быть живым;
+#   (2) трогали ли содержимое копии за последние KACHO_WORKTREE_STALE_H часов
+#       (по умолчанию 6) — на случай, если /proc недоступен (чужой пользователь,
+#       контейнер), и признак (1) промолчит.
+#
+# Перепись НИЧЕГО не снимает сама даже у брошенной копии: удалить чужое
+# состояние — необратимо, а решение принимает человек. Она называет копию,
+# основание и готовую команду.
+STALE_H="${KACHO_WORKTREE_STALE_H:-6}"
+worktree_abandoned() { # $1 = путь копии → 0, если копия выглядит брошенной
+  local path=$1 age d
+  [ -d "$path" ] || return 0                     # каталога нет — держать нечего
+  for d in /proc/[0-9]*; do
+    [ -L "$d/cwd" ] || continue
+    case "$(readlink -f "$d/cwd" 2>/dev/null)" in
+      "$path"|"$path"/*) return 1 ;;             # кто-то в ней работает
+    esac
+  done
+  age=$(( ( $(date +%s) - $(stat -c %Y "$path" 2>/dev/null || echo 0) ) / 3600 ))
+  [ "$age" -ge "$STALE_H" ]
+}
+
 # --- что РЕАЛЬНО есть на origin: прямой запрос, не refs/remotes ---------------
 declare -A ON_ORIGIN=()
 remote_ok=0
@@ -728,10 +760,18 @@ if [ "$PRUNE" = 1 ]; then
   echo
   echo "── СНЯТИЕ влитых локальных ссылок (--prune-merged)"
   head_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
-  pruned=0; kept=0
+  pruned=0; kept=0; abandoned=0
   for b in ${prunable[@]+"${prunable[@]}"}; do
     if [ -n "${OCCUPIED[$b]+x}" ]; then
-      echo "   оставлена $b — занята рабочей копией ${OCCUPIED[$b]}"; kept=$((kept+1)); continue
+      if worktree_abandoned "${OCCUPIED[$b]}"; then
+        echo "   оставлена $b — держится БРОШЕННОЙ копией ${OCCUPIED[$b]}"
+        echo "      (в ней никто не работает и её не трогали ≥${STALE_H}ч; снять — своим заходом:"
+        echo "       git worktree remove --force ${OCCUPIED[$b]} && git branch -D $b)"
+        abandoned=$((abandoned+1))
+      else
+        echo "   оставлена $b — занята ЖИВОЙ рабочей копией ${OCCUPIED[$b]}"
+      fi
+      kept=$((kept+1)); continue
     fi
     if [ "$b" = "$head_branch" ]; then
       echo "   оставлена $b — это текущая ветка HEAD"; kept=$((kept+1)); continue
@@ -747,6 +787,8 @@ if [ "$PRUNE" = 1 ]; then
       echo "   НЕ снята $b — git отказал"; kept=$((kept+1))
     fi
   done
+  echo "branch-audit: из оставленных держатся БРОШЕННЫМИ копиями ${abandoned}" \
+       "(порог тишины ${STALE_H}ч; ноль здесь значит «все занятые копии живы», а не «не смотрели»)"
   echo "branch-audit: снято ${pruned}, оставлено ${kept} из ${#prunable[@]} влитых;" \
        "разделы «единственный экземпляр» и «живые» не трогались by construction"
 fi
