@@ -21,7 +21,8 @@ areas:
   - services/registry
   - internal/repohygiene
 prs:
-  - PRO-Robotech/kacho#PENDING
+  - PRO-Robotech/kacho#769
+  - PRO-Robotech/kacho-workspace#311
 issue_url: https://github.com/PRO-Robotech/kacho/issues/759
 opened: 2026-08-20
 tags:
