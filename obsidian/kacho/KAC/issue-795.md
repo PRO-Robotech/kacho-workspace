@@ -10,7 +10,8 @@ repos:
   - kacho
 areas:
   - services/iam
-prs: []
+prs:
+  - PRO-Robotech/kacho#815
 issue_url: https://github.com/PRO-Robotech/kacho/issues/795
 opened: 2026-08-20
 tags:
@@ -63,6 +64,11 @@ tags:
       (канал со слушателем цел, таблица аудита цела); RED без миграции доказан
 - [x] предмет предъявлен в дереве продукта:
       `services/iam/internal/migrations/795001_audit_event_channel_retires_with_its_drainer.sql`
+
+## Артефакты
+
+- PR продукта: PRO-Robotech/kacho#815 → `release/roles-new`, схлопнуто в `6ecbb131`
+- локальный прогон перед отправкой: проверок исполнено 9, отказов 0, не выполнено 0
 
 ## Связанные тикеты
 

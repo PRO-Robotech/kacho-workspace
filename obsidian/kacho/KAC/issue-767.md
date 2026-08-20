@@ -10,7 +10,8 @@ repos:
   - kacho
 areas:
   - tools/authzformbench
-prs: []
+prs:
+  - PRO-Robotech/kacho#815
 issue_url: https://github.com/PRO-Robotech/kacho/issues/767
 opened: 2026-08-20
 tags:
@@ -74,6 +75,11 @@ tags:
       предмет; три законных близнеца молчат
 - [x] писатель и читатель штампа сошлись — проверено настоящей шапкой, обе стороны
 - [x] предмет предъявлен в дереве продукта: `tools/authzformbench/freshness_test.go`
+
+## Артефакты
+
+- PR продукта: PRO-Robotech/kacho#815 → `release/roles-new`, схлопнуто в `6ecbb131`
+- локальный прогон перед отправкой: проверок исполнено 9, отказов 0, не выполнено 0
 
 ## Связанные тикеты
 

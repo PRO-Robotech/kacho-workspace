@@ -11,7 +11,8 @@ repos:
 areas:
   - services/iam
   - pkg/outbox
-prs: []
+prs:
+  - PRO-Robotech/kacho#815
 issue_url: https://github.com/PRO-Robotech/kacho/issues/757
 opened: 2026-08-20
 tags:
@@ -68,6 +69,12 @@ tags:
       в `services/iam/cmd/kacho-iam/outbox_metrics_wiring.go`
 - [x] гейт класса знает категорию «наблюдается без дренажа», инъекция в обе стороны
 - [x] integration-пробы формы очереди зелёные (`pkg/outbox/metrics`)
+
+## Артефакты
+
+- PR продукта: PRO-Robotech/kacho#815 → `release/roles-new`, схлопнуто в `6ecbb131`
+- локальный прогон перед отправкой: проверок исполнено 9, отказов 0, не выполнено 0
+- преемница: PRO-Robotech/kacho#812 «у журнала аудита нет приёмника»
 
 ## Связанные тикеты
 
