@@ -408,18 +408,59 @@ spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
 mono = m.monorepo_root(ws)
-NAME = "KACHO_SKIP_PREPUSH"
+# УСЛОВИЕ СОЗДАЁТСЯ, А НЕ БЕРЁТСЯ ИЗ ДЕРЕВА. Проба доказывает, что имя,
+# живущее ТОЛЬКО в файле вне перечня оснований, объявляется ГРАНИЦЕЙ
+# инструмента, а не находкой.
+#
+# Прежняя редакция называла имя константой и вычёркивала из перечня пути со
+# словом `hooks`. Она была верна в день написания и стала ложной, когда рядом
+# завели второй файл с тем же именем: он подпадает под шаблон `*.sh`, покрытие
+# не снялось, и проба краснела на исправном инструменте.
+#
+# Теперь предмет берётся из дерева, а из перечня вычёркивается ровно то, что
+# покрывает ЕГО источники — сколько бы их ни было и где бы они ни лежали.
+import fnmatch, re, subprocess
+
+def _pick_subject(ws):
+    """Имя переменной и множество файлов, где она живёт."""
+    files = subprocess.run(["git", "-C", str(ws), "ls-files", "scripts/hooks"],
+                           capture_output=True, text=True).stdout.split()
+    for rel in files:
+        try:
+            body = (ws / rel).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for name in sorted(set(re.findall(r"\bKACHO_[A-Z0-9_]{3,}\b", body))):
+            hits = subprocess.run(["git", "-C", str(ws), "grep", "-l", "-w", name],
+                                  capture_output=True, text=True).stdout.split()
+            if hits:
+                return name, hits
+    return None, None
+
+NAME, SOURCES = _pick_subject(ws)
+if NAME is None:
+    print("НЕТ-ПРЕДМЕТА: в каталоге хуков нет ни одной переменной")
+    raise SystemExit(0)
+print("ПРЕДМЕТ:", NAME, "| источников:", len(SOURCES))
+print("ИСТОЧНИК:", SOURCES[0])
+
 t = m.Truth(m.build_truth(ws, mono), ws, mono)
 print("СЕЙЧАС:", t.classify_with_reason("env", NAME)[0])
 print("ВЫДУМАННОЕ:", t.classify_with_reason("env", "KACHO_VYDUMANNAYA_PEREMENNAYA_XYZ")[0])
-m.ENV_PATHSPECS[:] = [p for p in m.ENV_PATHSPECS if "hooks" not in p]
+def _covers(spec, rel):
+    return fnmatch.fnmatch(rel, spec) or fnmatch.fnmatch("/" + rel, "*/" + spec.lstrip("*/"))
+
+m.ENV_PATHSPECS[:] = [spec for spec in m.ENV_PATHSPECS
+                      if not any(_covers(spec, rel) for rel in SOURCES)]
 t2 = m.Truth(m.build_truth(ws, mono), ws, mono)
 v, why = t2.classify_with_reason("env", NAME)
 print("БЕЗ-ХУКОВ:", v, "|", why or "")
 print("ТОЛЬКО-В-ДОКЕ:", t2.classify_with_reason("env", "KACHO_GEO_AUTHZ_BREAKGLASS")[0])
 PY
 )"
-if printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered .*scripts/hooks/pre-push'; then
+if printf '%s' "$out" | grep -qE '^НЕТ-ПРЕДМЕТА:'; then
+  notrun "в каталоге хуков нет переменной с единственным источником — доказывать не на чем"
+elif printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered '; then
   echo "  ✔ (+) имя, живущее в файле вне перечня, — ГРАНИЦА, и файл НАЗВАН"; PASS=$((PASS+1))
 else
   echo "  ✘ (+) имя вне перечня по-прежнему объявляется несуществующим"; FAIL=$((FAIL+1))
