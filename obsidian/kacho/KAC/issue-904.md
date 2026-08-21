@@ -12,7 +12,7 @@ areas:
   - deploy
   - services/iam
 prs:
-  - PRO-Robotech/kacho#930
+  - PRO-Robotech/kacho#931
 issue_url: https://github.com/PRO-Robotech/kacho/issues/904
 opened: 2026-08-21
 tags:
