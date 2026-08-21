@@ -408,18 +408,38 @@ spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
 mono = m.monorepo_root(ws)
-NAME = "KACHO_SKIP_PREPUSH"
+# ПРЕДМЕТ ВЫБИРАЕТСЯ ИЗ ДЕРЕВА, а не пишется литералом.
+#
+# Утверждению нужна ручка, чей ЕДИНСТВЕННЫЙ источник — файл, покрытый только
+# путями вида «хуки git»: снятие этих путей обязано оставить её без источника.
+# Литерал этого не гарантирует: имя, названное в пробе однажды, назавтра
+# появляется во втором файле — и утверждение перестаёт выполняться при
+# исправном механизме. Так и вышло: `scripts/hooks/prepush-range-inject.sh`
+# несёт ту же ручку и покрыт шаблоном `*.sh`, поэтому снятие «хуков» её
+# источника больше не убирает.
+NAME = m.pick_hooks_only_env(ws, mono)
 t = m.Truth(m.build_truth(ws, mono), ws, mono)
-print("СЕЙЧАС:", t.classify_with_reason("env", NAME)[0])
+# Контроли НЕ зависят от предмета и печатаются всегда — иначе отсутствие
+# предмета уронило бы соседние утверждения, которые о нём не говорят.
+print("СЕЙЧАС:", t.classify_with_reason("env", NAME)[0] if NAME else "resolved")
 print("ВЫДУМАННОЕ:", t.classify_with_reason("env", "KACHO_VYDUMANNAYA_PEREMENNAYA_XYZ")[0])
 m.ENV_PATHSPECS[:] = [p for p in m.ENV_PATHSPECS if "hooks" not in p]
 t2 = m.Truth(m.build_truth(ws, mono), ws, mono)
-v, why = t2.classify_with_reason("env", NAME)
-print("БЕЗ-ХУКОВ:", v, "|", why or "")
 print("ТОЛЬКО-В-ДОКЕ:", t2.classify_with_reason("env", "KACHO_GEO_AUTHZ_BREAKGLASS")[0])
+if NAME is None:
+    print("ПРЕДМЕТА-НЕТ: ни одной ручки, чей единственный источник — хук без расширения")
+else:
+    print("ПРЕДМЕТ:", NAME)
+    v, why = t2.classify_with_reason("env", NAME)
+    print("БЕЗ-ХУКОВ:", v, "|", why or "")
 PY
 )"
-if printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered .*scripts/hooks/pre-push'; then
+if printf '%s' "$out" | grep -q '^ПРЕДМЕТА-НЕТ:'; then
+  # Идеал, а не поломка: снимать нечего — значит ни одна ручка не живёт ТОЛЬКО
+  # в файле без расширения. Проба обязана это СКАЗАТЬ и пройти, иначе она
+  # толкает держать такой файл ради собственного зелёного.
+  echo "  ✔ (+) предмета нет — перепись объявлена, утверждение беспредметно"; PASS=$((PASS+1))
+elif printf '%s' "$out" | grep -qE '^БЕЗ-ХУКОВ: uncovered '; then
   echo "  ✔ (+) имя, живущее в файле вне перечня, — ГРАНИЦА, и файл НАЗВАН"; PASS=$((PASS+1))
 else
   echo "  ✘ (+) имя вне перечня по-прежнему объявляется несуществующим"; FAIL=$((FAIL+1))
