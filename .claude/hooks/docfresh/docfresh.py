@@ -660,6 +660,43 @@ COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 # ручки продукта файл оттуда не является ни при каком раскладе.
 TRUTH_EXCLUDE = ":(exclude).claude/hooks/"
 
+def pick_hooks_only_env(ws, mono):
+    """Ручка, чей ЕДИНСТВЕННЫЙ источник — файл, покрытый ТОЛЬКО путями хуков.
+
+    Нужна доказательству границы инструмента: снятие этих путей обязано оставить
+    такую ручку без источника, и хук обязан НАЗВАТЬ файл, а не объявить имя
+    несуществующим. Предмет ВЫВОДИТСЯ, потому что литерал живёт ровно до того
+    дня, когда то же имя появится во втором файле, — и утверждение перестанет
+    выполняться при исправном механизме. Так и вышло: ручку обхода отправки
+    подхватил соседний файл с расширением `.sh`, покрытый общим шаблоном.
+
+    Возвращает None, если такой ручки нет. Это НЕ отказ: пустой ответ означает,
+    что ни одна ручка не живёт только в файле без расширения, — и проба обязана
+    сказать это вслух, а не падать на достижении собственной цели.
+    """
+    hook_specs = [p for p in ENV_PATHSPECS if "hooks" in p]
+    other_specs = [p for p in ENV_PATHSPECS if "hooks" not in p]
+    if not hook_specs:
+        return None
+
+    def names(root, specs):
+        out: set[str] = set()
+        if root is None or not specs:
+            return out
+        for line in git(root, "grep", "-h", "-I", "-E", "-e", RE_ENVNAME.pattern,
+                        "--", *specs, TRUTH_EXCLUDE):
+            out.update(RE_ENVNAME.findall(_code_part(line)))
+        return out
+
+    in_hooks: set[str] = set()
+    in_other: set[str] = set()
+    for root in (ws, mono):
+        in_hooks |= names(root, hook_specs)
+        in_other |= names(root, other_specs)
+
+    only = sorted(in_hooks - in_other)
+    return only[0] if only else None
+
 
 def _code_part(line: str) -> str:
     """Грубое снятие комментария со строки основания истины.
