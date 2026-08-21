@@ -4,6 +4,11 @@ aliases:
   - снятие движка прав
   - R7-3
 category: kac
+ticket_id: 747
+status: test
+type: feature
+repos:
+  - kacho
 tags:
   - kac
   - iam
