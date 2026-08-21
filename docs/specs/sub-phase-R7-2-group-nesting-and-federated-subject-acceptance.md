@@ -95,7 +95,7 @@ R7-2 допущение обосновано согласием трёх мес�
 | **П17** | гейт, сверяющий словарь модели со словарём базы | `git grep -rniE 'directly_related_user_types\|directlyRelated' <rev> -- 'services/iam/**' 'deploy/**'` вне конфигмапа | **0** — такого гейта нет; разбор модели в `fga_model_drift_test.go` читает **имена** типов и отношений, список в квадратных скобках не читает вовсе |
 | **П18** | запросов на вложенность групп в трекере | `gh issue list -R PRO-Robotech/kacho --state all --limit 300 --search "nested group"` и то же для «вложенност» | **0** по предмету. Широкая форма даёт **1** попадание — `#353` «квоты: предел на дочерние строки задаётся и не действует», к вложенности **групп** отношения не имеющее (совпало слово «дочерние»/`nested`); вторая форма даёт **0**. Адъюдикация названа, чтобы читатель не получил «1» и не заключил, что документ ошибся |
 | **П19** | запросов на федеративный субъект в трекере | то же со `--search federated` | **1** — сама задача #734 |
-| **П20** | три производные канонического текста и их гейты | `git show <rev>:deploy/Makefile \| sed -n '1193,1218p'` | канон → конфигмап чарта (`make -C deploy openfga-model-json`) → вшитая копия (`make -C deploy fga-model-embed`); побайтовое равенство держат `TestModelConfigMap_DSLBlockIsByteIdenticalToCanonical`, `TestModelConfigMap_AppliedJSONMatchesCanonicalStructure`, `TestEmbeddedModelIsByteIdenticalToCanonical` |
+| **П20** | три производные канонического текста и их гейты | `git show <rev>:deploy/Makefile \| sed -n '1193,1218p'` | канон → конфигмап чарта (цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876) → вшитая копия (`make -C deploy fga-model-embed`); побайтовое равенство держат `TestModelConfigMap_DSLBlockIsByteIdenticalToCanonical`, `TestModelConfigMap_AppliedJSONMatchesCanonicalStructure`, `TestEmbeddedModelIsByteIdenticalToCanonical` |
 | **П21** | drift-гейт уже ловит исключение, потерявшее предмет | `git show <rev>:services/iam/internal/authzmap/fga_model_drift_test.go \| sed -n '386,390p'` | `nonGrantableModelTypes lists %q but the canonical model no longer declares that type (stale exemption)` |
 | **П22** | рекурсия в прод-коде службы: где она есть и по чему | `git grep -n 'WITH RECURSIVE' <rev> -- 'services/iam/**/*.go' \| grep -v _test.go` | **4** места; из них **3** возглавляют CTE цепи областей и **самоссылаются** (законная рекурсия по областям), **1** (`list.go:125`) возглавляет CTE говорящего, который самоссылки **не имеет** — то есть объявлен под ключевым словом, но рекурсией не является |
 
@@ -752,7 +752,7 @@ R7-1.** Разбор — §1.3; он и оказался решающим.
 
 **Given** канон изменён сценарием 10
 
-**When** исполняются `make -C deploy openfga-model-json` и `make -C deploy fga-model-embed`
+**When** исполняются цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 и `make -C deploy fga-model-embed`
 
 **Then** блок DSL конфигмапа чарта побайтово равен канону
   (`TestModelConfigMap_DSLBlockIsByteIdenticalToCanonical` — зелёный)
@@ -997,7 +997,7 @@ R7-1.** Разбор — §1.3; он и оказался решающим.
   зелены и тогда, когда руками правили **все три** согласованно)
 
 **And** предикат исполним: после правки канона прогон обоих порождений не даёт диффа
-  (`make -C deploy openfga-model-json && make -C deploy fga-model-embed && git diff --exit-code`)
+  (цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876, затем `make -C deploy fga-model-embed` и `git diff --exit-code`)
 
 ---
 
@@ -1237,7 +1237,7 @@ R7-1.** Разбор — §1.3; он и оказался решающим.
 | # | шаг | почему здесь |
 |---|---|---|
 | 1 | правится **канон** `proto/kacho/cloud/iam/v1/fga_model.fga` (одна строка + снятие типа) | производные порождаются из него, не наоборот (R7-2-62) |
-| 2 | `make -C deploy openfga-model-json` — конфигмап чарта (оба блока) | блок JSON порождается образом инструмента на этапе фиксации, а не в контейнере запуска |
+| 2 | цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 — конфигмап чарта (оба блока) | блок JSON порождается образом инструмента на этапе фиксации, а не в контейнере запуска |
 | 3 | `make -C deploy fga-model-embed` — вшиваемая копия | `go:embed` вверх по дереву не ходит; копия обязана лежать рядом с кодом |
 | 4 | снимается запись `federated_subject` из перечня не-выдаваемых типов drift-гейта | **тем же изменением**: иначе существующий гейт краснеет исключением без предмета (П21) |
 | 5 | **перепись кортежей стенда** (R7-2-13) — до всего остального на стенде | ненулевой исход = стоп-условие; узнавать об этом после мятия нового идентификатора поздно |

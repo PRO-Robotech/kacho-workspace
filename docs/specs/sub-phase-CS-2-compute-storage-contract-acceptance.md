@@ -925,7 +925,7 @@ URL-формы GitHub-issue. Форма `CS-2-NN` в дереве не встр�
 | CS2-S5-24 | integration-тест (+ конкурентный) | **нов.** `services/compute/internal/repo/orphan_operations_terminalize_integration_test.go` |
 | CS2-S5-25 | Go unit хендлера | **нов.** `services/compute/internal/handler/internal_watch_handler_test.go` (сегодня у `internal_watch_handler.go` теста нет вовсе) |
 | CS2-S5-26 | сборка + полный `go test` + grep | **сущ.** CI-джобы `.github/workflows/ci.yaml` (`lint`, тестовый джоб compute) |
-| CS2-S6-27 | CI-гейт дрейфа модели | **сущ.** `make -C deploy openfga-model-json` (цель живёт в `deploy/Makefile:452`; из корня не исполняется) + гейт дрейфа конфигмапа |
+| CS2-S6-27 | CI-гейт дрейфа модели | **сущ.** цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 (цель живёт в `deploy/Makefile:452`; из корня не исполняется) + гейт дрейфа конфигмапа |
 | CS2-S6-28 | integration-тест миграции iam | **нов.** `services/iam/internal/repo/kacho/pg/drop_disk_roles_migration_integration_test.go` |
 | CS2-S6-29 | Go unit + integration iam | **сущ.** `services/iam/internal/domain/feed_registry_materializable_test.go` (`AllMaterializableTypes()` живёт в `feed_registry.go:124`) + **сущ.** `compile_parity_test.go` с golden `testdata/compile_parity_golden.json`. Файла `feed_registry_test.go` в дереве нет — прежняя строка вела в пустоту |
 | CS2-S6-30 | CI-гейт | **нов.** `tools/assert-retired.sh` (сам себя) |
@@ -1771,7 +1771,7 @@ proto/kacho/cloud/compute/v1/internal_watch_service.proto` — **0** попад�
 **Given** из `proto/kacho/cloud/iam/v1/fga_model.fga` удалены `type compute_disk`,
 `type compute_image`, `type compute_snapshot`
 
-**When** выполняется `make -C deploy openfga-model-json` и применяется модель
+**When** выполняется цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 и применяется модель
 
 **Then** конфигмап `deploy/helm/umbrella/charts/openfga-bootstrap/templates/openfga-model-stub-configmap.yaml`
 пересобран из канонического файла, гейт дрейфа зелёный
@@ -2223,8 +2223,8 @@ exit-код 0». **Этот скрипт зелёным чеком не явля
 
 ### DoD S6 — модель прав и системные роли
 
-- [ ] `proto/kacho/cloud/iam/v1/fga_model.fga` — **3** типа удалены; **`make -C deploy openfga-model-json`**
-      выполнен (цель живёт в `deploy/Makefile:452`; из корня `make -C deploy openfga-model-json` падает «нет
+- [ ] `proto/kacho/cloud/iam/v1/fga_model.fga` — **3** типа удалены; **цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876**
+      выполнен (цель живёт в `deploy/Makefile:452`; из корня цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 падает «нет
       такой цели»); гейт дрейфа конфигмапа — exit-код **0**; модель применена **один раз** на
       свободном стенде
 - [ ] Новая миграция iam **`0071`**: `role_rule_selectors` пересеяны на **23** типа;
