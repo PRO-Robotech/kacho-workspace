@@ -74,7 +74,7 @@ tags:
 
 - [[issue-901]] — транспорт тех же полос, предшественник
 - [[checks-with-form-but-no-substance]] — класс
-- [[prod-posture-gate-checks-intent-not-outcome]] — родственный класс: гейт проверял намерение, а не исход
+- [[dead-twin-gate-survives-a-merge-and-kills-the-step]] — родственный класс: проверка есть, предмета у неё нет
 
 ## DoD
 
