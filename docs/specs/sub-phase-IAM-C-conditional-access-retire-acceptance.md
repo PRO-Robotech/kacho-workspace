@@ -444,7 +444,7 @@ unit-тест; интеграционный тест `migrations_iam_extensions_
 | Артефакт | Что |
 |---|---|
 | `proto/kacho/cloud/iam/v1/fga_model.fga` | 6 блоков `condition {...}`; `type iam_condition` целиком; отношения `cluster#console`, `compute_instance#ssh`, `compute_instance#console` (R4) |
-| `deploy/helm/umbrella/charts/openfga-bootstrap/templates/openfga-model-stub-configmap.yaml` | перегенерировать: **`cd deploy && make -C deploy openfga-model-json`** (цель — `deploy/Makefile:452`, генератор — `deploy/scripts/gen-openfga-model-configmap.py`; из корня монорепо цели нет — корневого `Makefile` не существует вовсе). Блоки `model.fga` и `model.json` обязаны сойтись с каноном — гейты **C-1/C-2** в `services/iam/internal/authzmap/fga_model_configmap_identity_test.go` |
+| `deploy/helm/umbrella/charts/openfga-bootstrap/templates/openfga-model-stub-configmap.yaml` | перегенерировать: **цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876** (цель — `deploy/Makefile:452`, генератор — `deploy/scripts/gen-openfga-model-configmap.py`; из корня монорепо цели нет — корневого `Makefile` не существует вовсе). Блоки `model.fga` и `model.json` обязаны сойтись с каноном — гейты **C-1/C-2** в `services/iam/internal/authzmap/fga_model_configmap_identity_test.go` |
 | `services/iam/internal/authzmap/fga_types.go` | `"iam_condition"` из `objectTypes`; `"iam.condition" → "iam_condition"` из точечного реестра |
 | `services/iam/internal/service/authorize_service.go` | passthrough-ветка `case "ssh", "console", "admin", "editor", "viewer":` (`:835`) — убрать `ssh`/`console`, оставить `admin`/`editor`/`viewer` (после удаления отношений эти два глагола обязаны падать в fail-closed `""`, а не резолвиться в несуществующее отношение). **Второй элемент того же файла — `"evaluate"` из viewer-ветки `:829` — снимается в S1** (см. §4 S1, строка «iam · authorize»); здесь он назван, чтобы обе правки одного файла были видны рядом |
 | **НОВЫЙ артефакт** — предполётный гейт условных кортежей (R14) | `services/iam/cmd/kacho-iam/` — подкоманда `authz preflight-model-change`; см. R14 ниже |
@@ -646,7 +646,7 @@ retirement-записок vault:
 | proto-lint | **`cd proto && buf lint`** | job `buf lint · breaking · generate-diff`, шаг `buf lint`, `working-directory: proto` (`ci.yaml:126-128`) |
 | proto-breaking | **`cd proto && buf breaking --against "https://github.com/<repo>.git#branch=main,subdir=proto"`** | тот же job, шаг `buf breaking (vs main)` — **исполняется только на `pull_request`** (`if: github.event_name == 'pull_request'`, `ci.yaml:130-133`). Значит заявленный набор нарушений (§5.4) сверяется **в PR**, а не на push-в-ветку |
 | стабы | generate-diff — из корня | тот же job, шаг `generate-diff (стабы в синхроне с .proto)` (`ci.yaml:138`) |
-| модель прав | **`cd deploy && make -C deploy openfga-model-json`** + `go test ./services/iam/internal/authzmap/...` | C-1/C-2 (`fga_model_configmap_identity_test.go`), D-1..D-4 / R-1..R-3 (`fga_model_drift_test.go`) — оба в job'е тестов |
+| модель прав | **цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876** + `go test ./services/iam/internal/authzmap/...` | C-1/C-2 (`fga_model_configmap_identity_test.go`), D-1..D-4 / R-1..R-3 (`fga_model_drift_test.go`) — оба в job'е тестов |
 
 Проверяется, что обе **tracked**-копии каталога байт-идентичны и не содержат
 `iam.conditions.*`: `gateway/internal/middleware/embed/permission_catalog.json` и
