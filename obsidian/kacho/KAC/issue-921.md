@@ -1,8 +1,21 @@
 ---
-назначение: trail задачи #921 — номер новой миграции стал меткой времени
-категория: KAC
-состояние: test
-чем сверено: перепись 302 миграций по семи сервисам, 2026-08-22
+title: "#921: номер новой миграции стал меткой времени"
+aliases:
+  - issue-921
+ticket_id: 921
+category: kac
+status: test
+type: bug
+repos:
+  - kacho
+areas:
+  - platform
+prs:
+  - PRO-Robotech/kacho#959
+issue_url: https://github.com/PRO-Robotech/kacho/issues/921
+opened: 2026-08-22
+tags:
+  - kac
 ---
 
 # #921 — номер миграции: метка времени вместо номера задачи

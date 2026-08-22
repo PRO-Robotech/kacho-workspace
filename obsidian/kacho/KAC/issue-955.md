@@ -1,8 +1,21 @@
 ---
-назначение: trail задачи #955 — объявление сбора величин сведено к одному механизму
-категория: KAC
-состояние: test
-чем сверено: замер по дереву и кластеру 2026-08-22, ствол 54d8fdf40
+title: "#955: объявление сбора величин сведено к одному механизму"
+aliases:
+  - issue-955
+ticket_id: 955
+category: kac
+status: test
+type: enhancement
+repos:
+  - kacho
+areas:
+  - deploy
+prs:
+  - PRO-Robotech/kacho#959
+issue_url: https://github.com/PRO-Robotech/kacho/issues/955
+opened: 2026-08-22
+tags:
+  - kac
 ---
 
 # #955 — объявление сбора величин: один механизм вместо двух
@@ -34,6 +47,6 @@
 
 ## Затронутые сущности vault
 
-[[packages-corelib-grpcsrv]] · [[fingerprint-wider-than-the-measurement]]
+
 
 PR: PRO-Robotech/kacho#959
