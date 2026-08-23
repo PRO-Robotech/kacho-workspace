@@ -33,7 +33,42 @@ storage 2 · registry 2 · nlb 2 · geo 2 · gateway 2 · `pkg/auth` 1. То е�
 func NewServer(opts ...grpc.ServerOption) *grpc.Server
 func DefaultKeepaliveEnforcement() keepalive.EnforcementPolicy
 const PrincipalTypeServiceAccount = "service_account"
+
+// задержка обслуженного вызова (#695, 2026-08-22)
+type ServerLatency struct{ /* … */ }
+type Listener string
+const ListenerPublic, ListenerInternal Listener = "public", "internal"
+func NewServerLatency(reg prometheus.Registerer) (*ServerLatency, error)
+func (l *ServerLatency) UnaryServerInterceptor(on Listener) grpc.UnaryServerInterceptor
+func (l *ServerLatency) StreamServerInterceptor(on Listener) grpc.StreamServerInterceptor
 ```
+
+### Задержка обслуженного вызова (`latency.go`, #695)
+
+Три серии, и различия между ними не косметические:
+
+| серия | что меряет | метки |
+|---|---|---|
+| `kacho_grpc_server_handling_seconds` | задержку ОДИНОЧНОГО вызова | `grpc_service`, `grpc_method`, `listener`, `outcome` |
+| `kacho_grpc_server_stream_seconds` | СРОК ЖИЗНИ подписки — другая величина, своя сетка корзин | те же |
+| `kacho_grpc_server_handled_total` | число обслуженных, включая оборванные подписки | `grpc_service`, `grpc_method`, `listener`, `grpc_code` |
+
+- **`outcome` из двух значений, а не полный код**: смешивать отказ с успехом
+  нельзя (быстрый отказ занижает хвост, медленный завышает), но код в метке
+  ГИСТОГРАММЫ умножил бы число рядов на шестнадцать. Полный код живёт у счётчика,
+  где ряд дёшев.
+- **`listener` — не украшение**: один и тот же метод служится обоими слушателями
+  (`OperationService`, пара `Internal*`), и слитый ряд был бы средним двух разных
+  величин. Значение вне словаря схлопывается в `unknown`: метка обязана
+  оставаться ограниченной по числу значений.
+- **`NewServerLatency` возвращает ошибку, а не паникует**: повторная регистрация —
+  ошибка вызывающего. У носителя входящего пути и у края она превращается в отказ
+  подъёма.
+- **Нулевой измеритель прозрачен** — законное состояние для проб, которым метрики
+  не нужны, и НЕ для развёрнутого слушателя: там его отсутствие проверяется
+  отдельно (`servicecontract` О13 для шести сервисов, defensive-отказ сборки у
+  края, обход дерева `internal/repohygiene.TestEveryGRPCListenerObservesItsLatency`
+  для всех восьми поверхностей).
 
 ### SEC-B — opt-in mTLS server-creds (`tls.go`)
 
