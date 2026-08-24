@@ -32,6 +32,23 @@ verified_against: "перечень RPC сверен с proto ствола redes
 **Visibility**: public — read (`Get`/`List`) + label-write `Update` (DIVERGENCE-A); identity-mirror write — через [[iam-internal-user-service]].
 **Status**: backend в [[KAC-112]]; `Update` (label-write) merged DIVERGENCE-A (proto#89 / iam#249 `b4164e0f` / api-gateway#102).
 
+
+> [!note] Линия `release/identity-3` добавляет глагол исключения из аккаунта — В СТВОЛЕ ЕГО ЕЩЁ НЕТ
+> Глагол исключения человека из аккаунта заведён задачей
+> [`kacho#1127`](https://github.com/PRO-Robotech/kacho/issues/1127) и лежит **в накопительной
+> ветке**, не в стволе. Имя метода здесь намеренно не пишется координатой: проверка свежести
+> резолвит имена методов по **стволу**, и координата ещё не существующего глагола читалась бы
+> как ложное утверждение о дереве. Предикат, которым имя восстанавливается:
+> ```sh
+> git grep -n RemoveFromAccount origin/release/identity-3 -- proto/kacho/cloud/iam/v1/user_service.proto
+> ```
+> Глагол про **членство**, а не про личность: круг тех, кто вправе вывести, равен кругу тех,
+> кто вправе ввести.
+>
+> Та же линия сужает круг чтения перечня токенов и истории сессий человека до «сам человек +
+> надзор облака». Числа, предикаты и гейты — [[KAC/identity-stewardship-boundary-2026-08]];
+> здесь они не пересказываются, чтобы два места об одном предмете не разошлись.
+
 ## Methods
 
 | Method | Request | Response | Sync/Async | Note |
