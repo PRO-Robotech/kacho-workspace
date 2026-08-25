@@ -19,6 +19,7 @@ tags:
   - kac
   - kacho-iam
   - kacho-api-gateway
+  - handler
 ---
 
 # #1156: шапка полосы отзыва утверждала, что вызывающего нет
@@ -60,6 +61,7 @@ tags:
 - [[lessons/report-was-false-when-written-not-stale]] — родственный класс: утверждение, неверное с момента написания
 - [[lessons/revocation-that-binds-at-issue-not-at-presentation]] — про ту же полосу, но другой предмет
 - [[KAC/issue-1128]] — сдано тем же изменением
+- [[packages/apigw-middleware]] — решение принимается в слое аутентификации края
 
 ## Связанные задачи
 

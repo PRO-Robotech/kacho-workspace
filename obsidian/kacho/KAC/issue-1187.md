@@ -4,12 +4,15 @@ aliases:
   - issue-1187
 ticket_id: 1187
 category: kac
-status: in-progress
+status: done
 type: fix
 repos:
   - kacho
 areas:
   - deploy
+  - ci
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/1203
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1187
 opened: 2026-08-24
 tags:
@@ -69,6 +72,10 @@ PR не заведён — работа в единственном экземп
 - [[lessons/invalid-run-arrives-as-a-red-verdict]] — третья категория исхода без своего кода
 - [[lessons/checks-with-form-but-no-substance]] — вакуумное отрицание рядом с молчанием
 - [[KAC/issue-1195]] — тот же класс, замеренный по каталогу: закрыт один экземпляр из семи
+
+Записки под каталог гейтов развёртывания в хранилище **нет**, и выдумывать цель ради ссылки
+нельзя. Ближайшее по предмету — [[KAC/identity-provider-retirement-2026-08]] (линия, по дороге
+к задачам которой предмет найден).
 
 ## Связанные задачи
 

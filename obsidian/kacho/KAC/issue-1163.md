@@ -2,6 +2,7 @@
 title: "#1163: словарь направления не читал оборот «НЕ получает»"
 aliases:
   - issue-1163
+  - словарь направления кейса
 ticket_id: 1163
 category: kac
 status: done
@@ -10,6 +11,7 @@ repos:
   - kacho
 areas:
   - ci
+  - tools
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/1166
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1163
@@ -19,6 +21,7 @@ tags:
   - kac
   - kacho-iam
   - testing
+  - kacho-test
 ---
 
 # #1163: словарь направления не читал оборот «НЕ получает»
@@ -75,6 +78,8 @@ tags:
 - [[KAC/issue-1197]] — та же нехватка словаря, но по кодам 5xx
 - [[lessons/absence-of-finding-versus-absence-of-inspection]] — пустая корзина означает «не осматривали», а не «чисто»
 - [[lessons/checks-with-form-but-no-substance]] — без записи словаря смешивающее утверждение уходит в молчание
+- [[packages/kacho-newman-gate]] — гейты над корпусом сквозных кейсов
+- [[packages/iam-tests-newman-scripts]] — корпус, в котором живут читаемые заголовки
 
 ## Связанные задачи
 
