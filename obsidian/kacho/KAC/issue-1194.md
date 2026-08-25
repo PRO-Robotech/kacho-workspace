@@ -11,6 +11,8 @@ repos:
 areas:
   - gateway
   - iam
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/1203
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1194
 opened: 2026-08-24
 tags:
@@ -18,6 +20,7 @@ tags:
   - kacho-api-gateway
   - fix
   - handler
+  - kacho-iam
 ---
 
 # #1194: недоступность источника ключей — 503, а не 401
@@ -108,6 +111,8 @@ tags:
 - [[lessons/failure-shape-lives-in-the-connection-not-the-error]] — признак различения отказа лежит не в самой ошибке
 - [[lessons/swallowed-refusal-stacks-in-layers]] — соседний класс: отказ, проглоченный слоями
 - [[KAC/issue-1244]] — поверхность, которую эта сюита после разбора перестала покрывать
+- [[packages/apigw-middleware]] — слой, в котором принимается решение
+- [[resources/iam-oidc-jwks-key]] — источник набора, чья недоступность классифицируется
 
 ## DoD
 
