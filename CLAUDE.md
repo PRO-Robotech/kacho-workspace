@@ -58,6 +58,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/git-issues.md
 @.claude/rules/multi-agent-flow.md
 @.claude/rules/testing.md
+@.claude/rules/e2e-flow.md
 @.claude/rules/ui.md
 @.claude/rules/vault.md
 @.claude/rules/ai-tooling.md

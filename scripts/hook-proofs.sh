@@ -61,20 +61,33 @@ if [ -n "$missing" ]; then
     rc=1
 fi
 
-ran=0; bad=0
+ran=0; bad=0; void=0
 while IFS= read -r proof; do
     [ -n "$proof" ] || continue
     ran=$((ran + 1))
     echo "── $proof"
-    if bash "$proof"; then :; else
-        echo "[FAIL] $proof — доказательство инъекцией разошлось" >&2
-        bad=$((bad + 1))
-    fi
+    # Исход читается ПО КОДУ, а не по факту «не ноль»: 1 — расхождение (дефект
+    # в доказываемом), 2 — «не выполнилось» (вход не построить). Назвать второе
+    # первым значит послать читателя искать дефект там, где его нет.
+    prc=0; bash "$proof" || prc=$?
+    case "$prc" in
+        0) : ;;
+        2) echo "[VOID] $proof — часть входов в этой среде не построена: доказательство НЕПОЛНО" >&2
+           void=$((void + 1)) ;;
+        *) echo "[FAIL] $proof — доказательство инъекцией разошлось" >&2
+           bad=$((bad + 1)) ;;
+    esac
 done <<< "$FOUND"
 
 echo "[CENSUS] hook-proofs: объявлено $(printf '%s\n' "$DECL_SORTED" | wc -l), найдено $(printf '%s\n' "$FOUND" | wc -l), исполнено $ran, разошлось $bad"
 if [ "$rc" -ne 0 ] || [ "$bad" -ne 0 ]; then
-    echo "[FAIL] hook-proofs — набор красный" >&2
+    echo "[FAIL] hook-proofs — набор красный: расхождений $bad" >&2
     exit 1
+fi
+# Неполное доказательство зелёным не бывает: гейт, часть входов которого не
+# построена, не доказан — но и дефектом это не является, поэтому исход отдельный.
+if [ "$void" -ne 0 ]; then
+    echo "[VOID] hook-proofs — доказательств неполных $void из $ran: гейт НЕ доказан" >&2
+    exit 2
 fi
 echo "[PASS] hook-proofs — исполнено $ran, все доказательства сошлись"

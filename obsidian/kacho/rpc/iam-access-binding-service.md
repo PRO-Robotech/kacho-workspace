@@ -158,8 +158,27 @@ verified_against: "перечень RPC сверен с proto ствола redes
 входит **ключом** в частичный UNIQUE активного гранта — одинаковый набор в любом порядке
 коллизирует, разные наборы сосуществуют.
 
+## `List` — страница набирается ПОСЛЕ учёта прав; отказ слоя видимости больше не молчит
+
+**В линии `release/identity-decoupling`, в `main` ещё нет** (PR PRO-Robotech/kacho#662,
+влит в линию 2026-08-18; трейл [[../KAC/issue-645]]).
+
+Прежде страница набиралась курсором глобально и фильтровалась по владению и грантам
+**после** набора — арендатор, чья строка лежала дальше размера страницы, получал `200` с
+пустым телом при живых правах и прямом чтении по `id`, отвечающем разрешением. Теперь
+принадлежность учитывается **при наборе**.
+
+Изменение контракта, которое надо знать вызывающему: при отказе слоя видимости `List`
+отдаёт **`UNAVAILABLE`**, а не пустой `200`. Молча сужённая страница нарушала fail-closed
+тише, чем явный отказ, и была неотличима от «у вас ничего нет». Записано в реестр
+расхождений iam §13.
+
+Тот же порядок восстановлен на всех **семи** списочных поверхностях домена
+(`access_binding`, `account`, `group`, `project`, `role`, `service_account`, `user`) —
+класс чинился по механизму, а не по ресурсу, на котором его заметили.
+
 ## See also
 
-[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/epic-100-resource-scoped-access-binding]] [[../KAC/rbac-rules-model-2026-subphase-E-iam]]
+[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[iam-role-service]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[../KAC/issue-645]] [[../KAC/epic-100-resource-scoped-access-binding]] [[../KAC/rbac-rules-model-2026-subphase-E-iam]]
 
 #rpc #kacho-iam #iam

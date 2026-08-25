@@ -73,9 +73,43 @@ SILENT_LIFETIME_ALARM = 300
 # Сколько строк переписи держать в журнале. Журнал — наблюдаемость, а не архив:
 # он пишется на КАЖДОМ конце хода, поэтому расти без предела не вправе.
 CENSUS_LOG_KEEP = 500
+# Сверх этого возраста ВЕРШИНЫ ствола перепись говорит, что вердикт не свежее её.
+# Ссылка слежения не подтягивается хуком (сеть, время, запись в чужой репозиторий),
+# поэтому «origin/main, который никто не тянул месяц» воспроизводит тот же класс
+# этажом выше — и обязан быть виден, а не подразумеваться.
+#
+# Величина выбрана не «на глаз»: в ствол вливается по нескольку линий за смену,
+# поэтому суточный порог печатал бы предупреждение почти всегда, а печатающееся
+# всегда перестают читать (класс известен по журналу корпуса). Трое суток —
+# столько, чтобы предупреждение означало «никто не подтягивал», а не «сегодня
+# ещё не успели».
+TRUNK_REF_STALE_DAYS = 3
 # Совет длиной в аудит не читают. Сверх этого числа документов отчёт называет
 # остаток числом и командой полного обхода, а не печатает его целиком.
 MAX_DOCS_SHOWN = 8
+
+# ═══ 0. Виды координат и граница покрытия по КАЖДОМУ виду ════════════════════
+#
+# ПОЧЕМУ ЭТО ОТДЕЛЬНОЕ ОБЪЯВЛЕНИЕ, А НЕ ЧИСЛО В ПЕРЕПИСИ (issue #242).
+# Прежде граница покрытия печаталась ОДНИМ числом — «вне покрытия основания N».
+# Число читалось как «границу учли, за ней ничего нет», хотя выражена она была
+# ровно у двух видов из пяти: у `env`, `make` и `rpc` детектора границы не
+# существовало вовсе, и ноль по ним означал «не искали», а не «не нашли». Это и
+# есть класс, ради которого хук написан, — только внутри самого хука.
+#
+# Отсюда норма: у каждого вида граница либо ВЫРАЖЕНА (значение — чем именно),
+# либо ОБЪЯВЛЕНА НЕВЫРАЖЕННОЙ (`None`), и перепись печатает это словами. Ноль по
+# невыраженной границе больше не выдаётся за полноту: он назван «не искали».
+KINDS = ("path", "rest", "env", "make", "rpc", "ref")
+
+COVERAGE_MODEL: dict[str, str | None] = {
+    "path": "имя предшествующего полирепо, которого нет в дереве",
+    "rest": "домен вне REST-поверхности продукта",
+    "env": "имя объявлено в файле, вид которого не входит в перечень ENV_PATHSPECS",
+    "ref": "ссылка снята после вливания — история ссылок не читается by construction",
+    "make": None,
+    "rpc": None,
+}
 
 # ═══ 1. Корни ════════════════════════════════════════════════════════════════
 
@@ -421,6 +455,49 @@ RE_BARE_FILE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@-]*\.[A-Za-z0-9]{1,5}$")
 # основание истины их не покрывает и судить о них не вправе (см. out_of_coverage).
 RE_LEGACY_REPO = re.compile(r"^kacho-[a-z0-9-]+$")
 
+# ВИД КООРДИНАТЫ. У пути в дереве и у имени ветки ОДНА форма, и различить их
+# дерево не может: `docs/terraform-provider-trail` — законное имя ветки и
+# синтаксически безупречный путь. Пока вид не различался, имена ветвей судились
+# молча и ВСЕГДА отрицательно: автор правила трижды переписывал ВЕРНОЕ
+# утверждение, подгоняя его под хук, — то есть находка обвиняла документ там,
+# где ошибался инструмент (issue #242).
+#
+# Маркер обязан стоять ВПЛОТНУЮ перед координатой: «ветка `X`», «тег `Y`».
+# Узость условия намеренная: широкое превратило бы слово «ветка» в любом месте
+# абзаца в способ снять проверку с настоящего пути — то есть в маску.
+RE_REF_MARKER = re.compile(
+    # Маркер — ЦЕЛОЕ слово. Взгляд назад отсекает составные определения
+    # («legacy-release-ветку `delete.go`»): там речь о развилке кода, а не о
+    # git-ссылке, и без отсечения правило сняло бы с проверки настоящий путь.
+    # Поймано на корпусе: ровно один такой случай, и он был единственным
+    # срабатыванием вида `ref` — то есть без сужения правило работало бы ТОЛЬКО
+    # на ложном входе.
+    r"(?<![\w\-–—])"
+    r"(?:ветк[аиуеой]|ветками|веток|ветв[ьием]|ветвью|ветвей|"
+    r"branch(?:es)?|тег[аиуеом]?|tags?)"
+    r"[\s:—–,-]*[«\"'(\[]?\s*$", re.I)
+
+
+def _is_refname(tok: str, body: str, pos: int) -> bool:
+    """Названа ли эта координата ИМЕНЕМ ССЫЛКИ, а не путём.
+
+    Решается КОНТЕКСТОМ фразы, потому что сама строка ответа не несёт: обе формы
+    совпадают by construction. Окно узкое (40 символов слева) и требует маркера
+    ВПЛОТНУЮ — иначе получилась бы маска на весь абзац.
+
+    ЗОВЁТСЯ ТОЛЬКО ТАМ, ГДЕ ПУТЕВАЯ ПОЛОСА УЖЕ ГОТОВА СУДИТЬ, и это не
+    оптимизация, а граница маски. Слово «ветка» в этом корпусе перегружено:
+    «ветка `oneof`», «ветка `protocol`», «ветка `error`» — про варианты
+    контракта и развилки кода, а не про git. Замер по корпусу при широком
+    применении: 64 координаты вида `ref`, из них ссылками не были 50 — то есть
+    правило начало бы снимать с проверки то, чего оно не касается. Судить эти
+    токены путевая полоса всё равно не бралась (нет ни слэша, ни известного
+    расширения), поэтому withdrawal им не нужен, а шум в переписи — вреден.
+    """
+    if not tok or " " in tok or tok.startswith(("http://", "https://", "/")):
+        return False
+    return bool(RE_REF_MARKER.search(body[max(0, pos - 40):pos]))
+
 
 def strip_noncontent(text: str) -> str:
     text = HTML_COMMENT.sub(" ", text)
@@ -467,13 +544,13 @@ def _is_placeholder(tok: str) -> bool:
 
 def extract(text: str, doc_dir: str = "") -> dict[str, set[str]]:
     body = strip_noncontent(text)
-    found: dict[str, set[str]] = {k: set() for k in ("path", "rest", "env", "make", "rpc")}
+    found: dict[str, set[str]] = {k: set() for k in KINDS}
     for name in BARE_ENV.findall(body):
         # Хвостовое подчёркивание — обрезанное семейство (`KACHO_VPC_DB_*`), а не имя.
         if not name.endswith("_"):
             found["env"].add(name)
-    for raw in INLINE.findall(body):
-        tok = raw.strip()
+    for mi in INLINE.finditer(body):
+        tok = mi.group(1).strip()
         if not tok:
             continue
         m = RE_MAKE.match(tok)
@@ -494,11 +571,20 @@ def extract(text: str, doc_dir: str = "") -> dict[str, set[str]]:
             continue
         if _is_placeholder(tok.replace("*", "")):
             continue
+        # ВИД КООРДИНАТЫ решается ровно здесь — на пороге путевой полосы. Имя
+        # ветки и путь в дереве неразличимы по форме, поэтому единственное, что
+        # их различает, — как о координате говорит сама фраза.
         if "/" in tok:
             if RE_PATHY.match(tok) and _looks_like_repo_path(tok):
-                found["path"].add(_norm_path(tok, doc_dir))
+                if _is_refname(tok, body, mi.start()):
+                    found["ref"].add(tok)
+                else:
+                    found["path"].add(_norm_path(tok, doc_dir))
         elif RE_BARE_FILE.match(tok) and any(tok.endswith(e) for e in KNOWN_EXT):
-            found["path"].add(tok)
+            if _is_refname(tok, body, mi.start()):
+                found["ref"].add(tok)
+            else:
+                found["path"].add(tok)
     return found
 
 
@@ -548,6 +634,15 @@ ENV_PATHSPECS = [
     "*.go", "*.yaml", "*.yml", "*.tpl", "*.sh", "*.json", "*.ts", "*.tsx",
     "*.py", "*.sql", "*.proto", "*.env", "*.mk", "Makefile", "*/Makefile",
     "Dockerfile*", "*/Dockerfile*", "*.bats", "*.tf",
+    # Хуки git РАСШИРЕНИЯ НЕ ИМЕЮТ — git ищет их по точному имени (`pre-push`,
+    # `pre-commit`, …), поэтому `*.sh` их не покрывает, хотя это те же shell-скрипты.
+    #
+    # Пойман исполнением 2026-08-17: правило называло переменную обхода хука
+    # отправки, объявленную в `scripts/hooks/pre-push` тремя вхождениями, а проверка
+    # объявляла её несуществующей — и в том же выводе печатала «вне покрытия
+    # основания 0», то есть УТВЕРЖДАЛА полноту. Автор правила трижды пробовал обойти
+    # находку форматированием, прежде чем прочитал этот перечень.
+    "scripts/hooks/*", "*/scripts/hooks/*", ".githooks/*", "*/.githooks/*",
 ]
 
 COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
@@ -564,6 +659,43 @@ COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 # Граница честная: `.claude/hooks/` — оснастка разработки, а не продукт; читателем
 # ручки продукта файл оттуда не является ни при каком раскладе.
 TRUTH_EXCLUDE = ":(exclude).claude/hooks/"
+
+def pick_hooks_only_env(ws, mono):
+    """Ручка, чей ЕДИНСТВЕННЫЙ источник — файл, покрытый ТОЛЬКО путями хуков.
+
+    Нужна доказательству границы инструмента: снятие этих путей обязано оставить
+    такую ручку без источника, и хук обязан НАЗВАТЬ файл, а не объявить имя
+    несуществующим. Предмет ВЫВОДИТСЯ, потому что литерал живёт ровно до того
+    дня, когда то же имя появится во втором файле, — и утверждение перестанет
+    выполняться при исправном механизме. Так и вышло: ручку обхода отправки
+    подхватил соседний файл с расширением `.sh`, покрытый общим шаблоном.
+
+    Возвращает None, если такой ручки нет. Это НЕ отказ: пустой ответ означает,
+    что ни одна ручка не живёт только в файле без расширения, — и проба обязана
+    сказать это вслух, а не падать на достижении собственной цели.
+    """
+    hook_specs = [p for p in ENV_PATHSPECS if "hooks" in p]
+    other_specs = [p for p in ENV_PATHSPECS if "hooks" not in p]
+    if not hook_specs:
+        return None
+
+    def names(root, specs):
+        out: set[str] = set()
+        if root is None or not specs:
+            return out
+        for line in git(root, "grep", "-h", "-I", "-E", "-e", RE_ENVNAME.pattern,
+                        "--", *specs, TRUTH_EXCLUDE):
+            out.update(RE_ENVNAME.findall(_code_part(line)))
+        return out
+
+    in_hooks: set[str] = set()
+    in_other: set[str] = set()
+    for root in (ws, mono):
+        in_hooks |= names(root, hook_specs)
+        in_other |= names(root, other_specs)
+
+    only = sorted(in_hooks - in_other)
+    return only[0] if only else None
 
 
 def _code_part(line: str) -> str:
@@ -615,53 +747,145 @@ def _code_part(line: str) -> str:
 # в HEAD, — то есть перевес честно ушёл. Имя убрано не поэтому, а потому что
 # кандидат, которого больше не существует как линии работы, каждый раз стоит
 # одного лишнего `rev-parse` и читается следующим как действующая альтернатива.
-INTEGRATION_REF_CANDIDATES = ("main", "master")
+#
+# ЛОКАЛЬНОЙ ветки с этим именем НЕДОСТАТОЧНО, и это не мелочь настройки.
+# `refs/heads/main` двигает только тот, кто его подтянул; в общей копии продукта
+# он стоял на 302 коммита позади `refs/remotes/origin/main` (замер 2026-08-19,
+# предикат `git rev-list --count main..origin/main`). Полоса ствола, прочитанная
+# по такой ссылке, объявляет несуществующим ВСЁ, что посажено за это время, —
+# то есть ровно свежую работу, ради которой вторая полоса и заводилась. Поэтому
+# ветки слежения входят в кандидаты наравне с локальными и при равном перевесе
+# выигрывают: линия интеграции — то, к чему сходится работа ВСЕХ, а не копия
+# имени в одном клоне.
+TRUNK_BRANCH_NAMES = ("main", "master")
+
+
+def _trunk_candidates(root: Path) -> list[str]:
+    """Кандидаты ствола ВЫВОДЯТСЯ из ссылок дерева, а не выписываются.
+
+    Ветки слежения перечисляются `for-each-ref` по образцу `refs/remotes/*/<имя>`,
+    а не собираются из выписанного имени удалённого: «наверное origin» разошлось
+    бы с деревом молча — ровно тот класс, который хук ловит в чужой прозе.
+    Порядок (сначала слежение, потом локальные) задаёт разрешение ничьей.
+
+    Назначенный ствол (`DOCFRESH_INTEGRATION_REF`) резолвится ЗДЕСЬ, а не
+    отдельной веткой выше: перечень кандидатов печатается в переписи, когда ствол
+    не найден, и обязан называть то, что искали НА САМОМ ДЕЛЕ. Два места об одном
+    предмете разошлись бы на первой же правке — назначенный ствол искали бы по
+    одному списку, а в отказе называли другой.
+    """
+    forced = os.environ.get("DOCFRESH_INTEGRATION_REF")
+    if forced:
+        return [forced]
+    remote = git(root, "for-each-ref", "--format=%(refname:short)",
+                 *[f"refs/remotes/*/{n}" for n in TRUNK_BRANCH_NAMES])
+    local = [n for n in TRUNK_BRANCH_NAMES
+             if git(root, "rev-parse", "--verify", "--quiet", n + "^{commit}")]
+    return remote + local
 
 
 def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
     """Ствол ВЫВОДИТСЯ из дерева, а не назначается именем.
 
-    Из объявленных кандидатов берётся тот, у кого больше всего коммитов,
-    которых нет в HEAD, — наиболее продвинутая линия интеграции. Правило
-    измеримое, поэтому оно переживает смену ствола само: когда линия редизайна
-    вольётся в принимающую ветку, счёт перевесит в её пользу. Назначенное имя
-    при той же смене стало бы ложью молча — ровно тот класс, который хук ловит
-    в чужой прозе.
+    Из кандидатов берётся тот, у кого больше всего коммитов, которых нет в HEAD,
+    — наиболее продвинутая линия интеграции. Правило измеримое, поэтому оно
+    переживает смену ствола само: когда линия редизайна вольётся в принимающую
+    ветку, счёт перевесит в её пользу. Назначенное имя при той же смене стало бы
+    ложью молча.
 
-    → (имя ссылки, короткая ревизия, на сколько коммитов копия позади).
+    Ничья разрешается ПОРЯДКОМ кандидатов, а не случайно: `>` вместо `>=`
+    оставляет победу первому, а первыми идут ветки слежения. На копии, где
+    локальный `main` совпал с HEAD, прежняя редакция брала именно его — и
+    объявляла себя «вровень со стволом», не спросив ствол вовсе.
+
+    Ссылка слежения ЗДЕСЬ НЕ ПОДТЯГИВАЕТСЯ: `fetch` — сеть, время и запись в
+    чужой репозиторий, а хук стоит на каждой записи файла. Вместо этого её
+    возраст называется в переписи (см. `_provenance`), чтобы «ствол сам не
+    обновлялся» было видно, а не подразумевалось.
+
+    → (имя ссылки, ПОЛНАЯ ревизия, на сколько коммитов копия позади).
     """
-    # Проба вправе НАЗНАЧИТЬ ствол — иначе её вход зависит от того, отстала ли
-    # сегодня рабочая копия, а это не свойство гейта, а состояние чужого дерева.
+    # Проба вправе НАЗНАЧИТЬ ствол (`DOCFRESH_INTEGRATION_REF`, см.
+    # `_trunk_candidates`) — иначе её вход зависит от того, отстала ли сегодня
+    # рабочая копия, а это не свойство гейта, а состояние чужого дерева.
     # 2026-08-07 полоса перестала исполняться ровно так: копия догнала ствол, и
     # путей, живых в стволе и отсутствующих в копии, не осталось by construction —
     # проба честно отчиталась «не выполнилось», но проверять было нечего месяцами
     # вперёд. В бою переменная не задаётся, поэтому поведение прежнее.
-    forced = os.environ.get("DOCFRESH_INTEGRATION_REF")
-    if forced:
-        rev = git(root, "rev-parse", "--verify", "--quiet", forced + "^{commit}")
-        if rev:
-            cnt = git(root, "rev-list", "--count", f"HEAD..{forced}")
-            behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
-            return (forced, rev[0][:8], behind)
-
     best: tuple[str | None, str | None, int] = (None, None, -1)
-    for cand in INTEGRATION_REF_CANDIDATES:
+    for cand in _trunk_candidates(root):
         rev = git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
         if not rev:
             continue
         cnt = git(root, "rev-list", "--count", f"HEAD..{cand}")
         behind = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
         if behind > best[2]:
-            best = (cand, rev[0][:8], behind)
+            best = (cand, rev[0], behind)
     return best
 
 
 def _provenance(root: Path) -> dict:
+    """Ревизия, по которой судили, и её расхождение со стволом — ЧИСЛОМ.
+
+    «Вровень» — утверждение о РАВЕНСТВЕ КОММИТОВ, а не о нуле в одном счётчике.
+    Прежняя редакция выводила его из `behind == 0`, а ноль там означает лишь
+    «ствол не содержит ничего, чего нет у меня»: копия, ушедшая вперёд, и копия,
+    судившая по отставшей ссылке, дают тот же ноль. На общей копии продукта это
+    и печаталось — `7ebb670d@HEAD — вровень со стволом main 1278df74`, две РАЗНЫЕ
+    ревизии, названные согласованностью. Ложное утверждение о собственной
+    предпосылке хуже пропуска: оно делает пропуск неотличимым от исправной работы.
+
+    Поэтому считаются ОБА направления, а равенство проверяется сравнением
+    ревизий. `behind` и `ahead` не выводятся друг из друга: расхождение (оба
+    больше нуля) — законное состояние рабочей ветки, и молчать о нём нельзя.
+    """
     ref, rev, behind = _resolve_integration_ref(root)
-    head = git(root, "rev-parse", "--short=8", "HEAD")
+    head = git(root, "rev-parse", "HEAD")
+    head_full = head[0] if head else ""
     branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
-    return {"head": head[0] if head else "?", "branch": branch[0] if branch else "?",
-            "trunk_ref": ref, "trunk_rev": rev, "behind": behind}
+    ahead, age = 0, None
+    if ref:
+        cnt = git(root, "rev-list", "--count", f"{ref}..HEAD")
+        ahead = int(cnt[0]) if cnt and cnt[0].strip().isdigit() else 0
+        # Возраст ВЕРШИНЫ ствола — то есть основания, по которому вынесен
+        # вердикт. Ссылка не подтягивается (см. `_resolve_integration_ref`),
+        # поэтому «по чему судили» обязано включать «насколько это старо»: иначе
+        # никогда не тянутая ветка слежения воспроизводит тот же класс этажом
+        # выше и так же молча.
+        #
+        # Меряется дата КОММИТА вершины, а не время последнего обновления
+        # ссылки, — и говорится ровно это. Journal ссылки (`log -g`) отвечал бы
+        # на «когда тянули», но его может не быть вовсе (обрезан, отключён), и
+        # тогда молчание было бы неотличимо от свежести. Дата вершины отвечает
+        # на нужный вопрос напрямую: вердикт не свежее того, с чем сравнивали.
+        ts = git(root, "log", "-1", "--format=%ct", ref)
+        if ts and ts[0].strip().isdigit():
+            age = max(0, int((time.time() - int(ts[0])) // 86400))
+    return {"head": head_full[:8] or "?", "head_full": head_full,
+            "branch": branch[0] if branch else "?",
+            "trunk_ref": ref, "trunk_rev": rev[:8] if rev else None,
+            "trunk_rev_full": rev,
+            "behind": behind if ref else 0, "ahead": ahead,
+            "trunk_age_days": age,
+            "candidates": None if ref else _trunk_candidates(root)}
+
+
+def _refnames(root: Path) -> set[str]:
+    """Имена локальных ссылок корня: ветки, ссылки слежения, теги.
+
+    ЭТО И ЕСТЬ ГРАНИЦА ПОКРЫТИЯ для вида `ref`: ссылка, снятая при вливании,
+    здесь отсутствует by construction, и её отсутствие доказывает вливание, а не
+    расхождение документа. Поэтому нерезолвящееся имя ветки уходит в «вне
+    покрытия», а не в находку, — и это записано в COVERAGE_MODEL.
+    """
+    out: set[str] = set()
+    for ln in git(root, "for-each-ref", "--format=%(refname)"):
+        out.add(ln)
+        for pref in ("refs/heads/", "refs/tags/", "refs/remotes/"):
+            if ln.startswith(pref):
+                out.add(ln[len(pref):])
+                break
+    return out
 
 
 def _dirs_of(files) -> set[str]:
@@ -830,6 +1054,11 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
                         *ENV_PATHSPECS, TRUTH_EXCLUDE):
             envs.update(RE_ENVNAME.findall(_code_part(line)))
 
+    refs: set[str] = set()
+    for root in (ws, mono):
+        if root is not None:
+            refs |= _refnames(root)
+
     # Провенанс и полоса ствола — по КАЖДОМУ корню отдельно: у воркспейса и у
     # продукта разные линии интеграции и разное отставание.
     prov: dict[str, dict] = {}
@@ -849,6 +1078,7 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         "rpcs": sorted(rpcs),
         "targets": sorted(targets),
         "envs": sorted(envs),
+        "refs": sorted(refs),
         "provenance": prov,
         "trunk": trunk,
         "build_ms": int((time.time() - t0) * 1000),
@@ -881,7 +1111,10 @@ class Truth:
         self.rpcs = set(raw["rpcs"])
         self.targets = set(raw["targets"])
         self.envs = set(raw["envs"])
+        self.refnames = set(raw.get("refs") or [])
         self.raw = raw
+        self._live_refs: dict[str, set[str]] = {}
+        self._cov: dict[tuple[str, str], str | None] = {}
         self._by_base: dict[str, list[str]] | None = None
         self._live_files: dict[str, set[str]] = {}
         self._domains: set[str] | None = None
@@ -890,6 +1123,15 @@ class Truth:
         tr = raw.get("trunk") or {}
         t_ws, t_mono = tr.get("ws") or {}, tr.get("mono") or {}
         self.trunk_on = bool(t_ws or t_mono)
+        # Доступность полосы ПО КАЖДОМУ корню, а не одним флагом на оба.
+        # Флаг «хоть где-то прочиталось» судил координаты продукта по стволу
+        # воркспейса — то есть выносил отрицательный вердикт основанием, которое
+        # предмета не покрывает. Пустой список файлов здесь ЗНАЧИМ: `ls-tree` по
+        # несуществующей ссылке отдаёт ноль строк, а словарь при этом непустой,
+        # поэтому «полоса построена» проверяется ОБЪЁМОМ, а не наличием ключа.
+        self.trunk_missing_roots = [
+            tag for tag in self.prov if not (tr.get(tag) or {}).get("files")]
+        self.trunk_all_on = bool(self.prov) and not self.trunk_missing_roots
         self.t_files = set(t_ws.get("files", [])) | set(t_mono.get("files", []))
         self.t_all = self.t_files | set(t_ws.get("dirs", [])) | set(t_mono.get("dirs", []))
         self.t_routes = set(t_ws.get("routes", [])) | set(t_mono.get("routes", []))
@@ -914,6 +1156,7 @@ class Truth:
             ("rpc", self.rpcs, "в proto не найдено ни одной пары service/rpc"),
             ("make", self.targets, "не найдено ни одной цели Makefile"),
             ("env", self.envs, "не найдено ни одного имени KACHO_* в коде и конфигурации"),
+            ("ref", self.refnames, "ни в одном из корней нет ни одной локальной ссылки"),
         ):
             (on if base else off).append(kind if base else (kind, why))
         off.append((
@@ -942,6 +1185,42 @@ class Truth:
             svc = coord.split("/")[1] if coord.count("/") >= 2 else ""
             if svc and svc not in self.rest_domains:
                 return "домен вне REST-поверхности продукта"
+        if kind == "ref":
+            # Ссылка, снятая в момент вливания, — НОРМА этого репозитория
+            # (`delete_branch_on_merge` включён в обоих). Её отсутствие в дереве
+            # ссылок доказывает ровно то, что она была влита, и находкой быть не
+            # может. Судить о ней нечем: истории ссылок основание не читает.
+            return ("имя ветки/тега: локальной ссылки нет — ветка снята при вливании "
+                    "либо заведена в другой копии; история ссылок не читается")
+        if kind == "env":
+            return self._env_outside_base(coord)
+        return None
+
+    # Детектор границы для переменной: имя ЕСТЬ в дереве, но в файле, вид
+    # которого основание не читает.
+    #
+    # Ради этого случая задача #242 и заведена. Ручка обхода хука отправки жила
+    # в `scripts/hooks/pre-push` — файле БЕЗ РАСШИРЕНИЯ (git ищет хуки по точному
+    # имени), поэтому `*.sh` её не покрывал. Хук объявлял ручку несуществующей и
+    # в том же выводе печатал «вне покрытия основания 0». Автор правила трижды
+    # пробовал обойти находку форматированием, прежде чем прочитал перечень путей:
+    # находка выглядела как ложь документа, а лгал инструмент.
+    #
+    # Корпус утверждений (`*.md`/`*.mdx`) покрытием НЕ считается — иначе всякая
+    # выдуманная документом ручка объявляла бы себя же границей, и предикат
+    # выхолостился бы целиком. Читателем ручки документ не является.
+    def _env_outside_base(self, name: str) -> str | None:
+        excl = [":(exclude)" + spec for spec in ENV_PATHSPECS]
+        excl += [":(exclude)*.md", ":(exclude)*.mdx", TRUTH_EXCLUDE]
+        for root in (self.ws, self.mono):
+            if root is None:
+                continue
+            hits = git(root, "grep", "-l", "-I", "-w", "--", name, ".", *excl)
+            if hits:
+                where = ", ".join(hits[:3]) + (" …" if len(hits) > 3 else "")
+                return (f"объявлено в {where} — вид файла в перечень основания "
+                        f"(ENV_PATHSPECS) не входит; чинится расширением перечня "
+                        f"в docfresh.py, а НЕ правкой документа")
         return None
 
     @property
@@ -950,22 +1229,53 @@ class Truth:
             self._domains = {r.split("/")[1] for r in self.routes if r.count("/") >= 2}
         return self._domains
 
-    # --- четыре исхода на координату ---------------------------------------
+    # --- пять исходов на координату ----------------------------------------
     #
     # Было три (резолвится · не резолвится · основание не покрывает). Четвёртый
     # заведён по той же причине, что и третий: приравнять «смотрел не туда» к
     # «этого нет» — значит обвинить на пустом месте. Выписанная копия может
     # стоять на сотню коммитов позади ствола, и тогда путь, живущий в стволе,
     # читается как несуществующий.
+    #
+    # Пятый (#280) — та же лестница ступенью ниже: полоса ствола не построена
+    # ВОВСЕ, то есть посмотреть было НЕЧЕМ. Отрицательный вердикт на таком
+    # основании невозможен, и «вердикт не вынесен» — не синоним «резолвится»,
+    # а отдельное, СЧИТАЕМОЕ состояние.
     def classify(self, kind: str, coord: str) -> str:
-        """→ resolved · uncovered · trunk_only · missing."""
+        """→ resolved · uncovered · trunk_only · unjudged · missing."""
+        return self.classify_with_reason(kind, coord)[0]
+
+    def classify_with_reason(self, kind: str, coord: str) -> tuple[str, str | None]:
+        """Тот же вердикт, но с ПРИЧИНОЙ границы.
+
+        Причина нужна отчёту: «вне покрытия» без неё неотличимо от молчания, а
+        читателю надо знать, что чинить — документ или сам инструмент.
+
+        Исходов ПЯТЬ, и последние три — ступени одной лестницы «не искал против
+        не нашёл»: `uncovered` — вид координаты вне основания; `trunk_only` —
+        есть в стволе, нет здесь; `unjudged` — смотреть НЕ УДАЛОСЬ ВОВСЕ, у
+        одного из корней не построена полоса ствола. Отсутствие вердикта —
+        отдельное состояние, а не отрицательный вердикт (задачи #242 и #280,
+        сведены при сборке релиза: предметы разные, лестница одна).
+        """
+        key = (kind, coord)
+        if key in self._cov:
+            return self._cov[key]
+        out: tuple[str, str | None]
         if self.resolve(kind, coord):
-            return "resolved"
-        if self.out_of_coverage(kind, coord):
-            return "uncovered"
-        if self.trunk_has(kind, coord):
-            return "trunk_only"
-        return "missing"
+            out = ("resolved", None)
+        else:
+            why = self.out_of_coverage(kind, coord)
+            if why:
+                out = ("uncovered", why)
+            elif self.trunk_has(kind, coord):
+                out = ("trunk_only", None)
+            elif not self.trunk_all_on:
+                out = ("unjudged", None)
+            else:
+                out = ("missing", None)
+        self._cov[key] = out
+        return out
 
     def trunk_has(self, kind: str, coord: str) -> bool:
         if not self.trunk_on:
@@ -1145,6 +1455,25 @@ class Truth:
     def _r_env(self, c: str) -> bool:
         return c in self.envs
 
+    def _r_ref(self, c: str) -> bool:
+        """Ссылка резолвится по ЖИВЫМ ссылкам, а не только по кэшу.
+
+        Индекс ключуется коммитом, а ветка заводится и снимается БЕЗ коммита —
+        кэш её появления не увидел бы вовсе. Живая полоса стоит одного
+        `for-each-ref` на корень за прогон и делает ответ верным в обе стороны.
+        """
+        if c in self.refnames:
+            return True
+        for root in (self.ws, self.mono):
+            if root is None:
+                continue
+            key = str(root)
+            if key not in self._live_refs:
+                self._live_refs[key] = _refnames(root)
+            if c in self._live_refs[key]:
+                return True
+        return False
+
 
 # ═══ 6. Кэш индекса ══════════════════════════════════════════════════════════
 
@@ -1189,6 +1518,33 @@ def cache_key(ws: Path, mono: Path | None) -> str:
         h.update(b"|")
         rev = git(root, "rev-parse", "HEAD")
         h.update((rev[0] if rev else "?").encode())
+        # ВЕРШИНА СТВОЛА — тоже часть ключа, и это не симметрия ради красоты.
+        # Индекс хранит ВТОРУЮ ПОЛОСУ (`ls-tree` по стволу), а `git fetch`
+        # двигает `origin/main`, НЕ трогая ни HEAD, ни индекс. Без этой строки
+        # полоса ствола замерзала на вершине, бывшей актуальной в момент сборки
+        # кэша, и координата, посаженная после неё, объявлялась несуществующей —
+        # ровно тот дефект (#280), ради которого полоса и правится, только
+        # этажом ниже: судили бы по стволу, но по ВЧЕРАШНЕМУ.
+        #
+        # Имя ссылки входит наравне с ревизией: смена линии интеграции меняет
+        # основание так же, как её продвижение.
+        #
+        # Хешируются ВСЕ кандидаты одним `for-each-ref`, а не выбранный ствол:
+        # выбор стоит пяти процессов на корень (`rev-parse` и `rev-list --count`
+        # на каждого кандидата), и на ключе, который считается при КАЖДОЙ записи
+        # файла, это меряется — тёплый прогон дорожал вдвое, с 45 до 90 мс.
+        # Набор кандидатов строго шире выбранного: движение любого из них меняет
+        # ключ, поэтому свойство сохраняется, а цена — один процесс.
+        h.update(b"|trunk:")
+        forced = os.environ.get("DOCFRESH_INTEGRATION_REF")
+        if forced:
+            frev = git(root, "rev-parse", "--verify", "--quiet", forced + "^{commit}")
+            h.update(f"{forced}@{frev[0] if frev else '?'}".encode())
+        else:
+            for line in git(root, "for-each-ref", "--format=%(refname) %(objectname)",
+                            *[f"refs/remotes/*/{n}" for n in TRUNK_BRANCH_NAMES],
+                            *[f"refs/heads/{n}" for n in TRUNK_BRANCH_NAMES]):
+                h.update(line.encode() + b";")
         # Ключ намеренно НЕ включает mtime индекса: `git status` его переписывает,
         # и кэш инвалидировался бы по чужому чтению. Цена — устаревание в пределах
         # коммита; она снята живой доперепроверкой перед КАЖДОЙ находкой (confirm).
@@ -1473,8 +1829,16 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
     on, _ = truth.enabled()
     claims = claims or DocClaims(ws, mono)
     findings: list[tuple[str, str, str]] = []
-    c = {"docs": 0, "coords": 0, "uncovered": 0, "trunk_only": 0,
-         "closed_claim": 0, "closed_tree": 0}
+    c: dict = {"docs": 0, "coords": 0, "uncovered": 0, "trunk_only": 0,
+               "unjudged": 0, "closed_claim": 0, "closed_tree": 0,
+               # Граница считается ПО ВИДАМ: одно общее число не отличает
+               # «за границей ничего нет» от «границы у этого вида нет вовсе».
+               "uncovered_by_kind": {k: 0 for k in KINDS},
+               "coords_by_kind": {k: 0 for k in KINDS},
+               # Граница, которую чинят В ИНСТРУМЕНТЕ, а не в документе. Она
+               # печатается отдельным разделом отчёта: иначе читатель идёт
+               # править верное утверждение (issue #242).
+               "toolgaps": []}
     for name in names:
         # `or` здесь был ловушкой: пустой словарь ЛОЖЕН, поэтому правка, снявшая
         # у документа ПОСЛЕДНЮЮ координату, молча проваливалась в кэш и хук
@@ -1490,14 +1854,27 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
                 continue
             for coord in lst:
                 c["coords"] += 1
-                verdict = truth.classify(kind, coord)
+                c["coords_by_kind"][kind] = c["coords_by_kind"].get(kind, 0) + 1
+                verdict, why = truth.classify_with_reason(kind, coord)
                 if verdict == "resolved":
                     continue
                 if verdict == "uncovered":
                     c["uncovered"] += 1
+                    c["uncovered_by_kind"][kind] = c["uncovered_by_kind"].get(kind, 0) + 1
+                    # Граница вида `env` — это дыра в САМОМ ОСНОВАНИИ: имя в
+                    # дереве есть, а перечень путей его не читает. Молча
+                    # посчитать такое значило бы оставить инструмент сломанным.
+                    if kind == "env" and why:
+                        c["toolgaps"].append((name, kind, coord, why))
                     continue
                 if verdict == "trunk_only":
                     c["trunk_only"] += 1
+                    continue
+                if verdict == "unjudged":
+                    # Вердикт НЕ ВЫНЕСЕН: полоса ствола не построена, а копия
+                    # могла отстать. Обвинять на таком основании нельзя —
+                    # координата считается и называется в переписи.
+                    c["unjudged"] += 1
                     continue
                 if allowed(entries, kind, coord):
                     continue
@@ -1844,19 +2221,61 @@ def tree_provenance(truth: "Truth") -> str:
         if not p:
             continue
         s = f"{human} {p['head']}@{p['branch']}"
+        behind, ahead = p.get("behind") or 0, p.get("ahead") or 0
+        same = bool(p.get("head_full")) and p.get("head_full") == p.get("trunk_rev_full")
         if not p.get("trunk_ref"):
-            s += (" — ствол НЕ НАЙДЕН среди "
-                  + "/".join(INTEGRATION_REF_CANDIDATES)
-                  + ": полоса ствола не прогонялась, «не резолвится» здесь может "
-                    "означать «копия отстала»")
-        elif p.get("behind"):
-            s += (f" — ОТСТАЁТ от {p['trunk_ref']} {p['trunk_rev']} на {p['behind']}; "
-                  f"координаты, живые на стволе, вынесены в отдельный исход и "
-                  f"находкой НЕ считаются")
+            cands = p.get("candidates") or []
+            s += (" — ствол НЕ НАЙДЕН среди кандидатов ["
+                  + (", ".join(cands) if cands else "кандидатов нет")
+                  + "]: полоса ствола не построена, вердикт по нерезолвящимся "
+                    "координатам НЕ ВЫНЕСЕН")
         else:
-            s += f" — вровень со стволом {p['trunk_ref']} {p['trunk_rev']}"
+            ref, rev = p["trunk_ref"], p["trunk_rev"]
+            if same:
+                s += f" — вровень со стволом {ref} {rev}"
+            elif behind and ahead:
+                s += (f" — РАСХОДИТСЯ со стволом {ref} {rev}: позади {behind}, "
+                      f"впереди {ahead}")
+            elif behind:
+                s += f" — ОТСТАЁТ от ствола {ref} {rev} на {behind}"
+            elif ahead:
+                s += f" — опережает ствол {ref} {rev} на {ahead}"
+            else:
+                # Ревизии разные, а оба счётчика нулевые. Так не бывает при
+                # исправном git, поэтому это НЕ повод сказать «вровень»: молчание
+                # здесь вернуло бы ровно тот дефект, ради которого пункт написан.
+                s += f" — расхождение со стволом {ref} {rev} НЕ ИЗМЕРЕНО"
+            if not same:
+                s += ("; координаты, живые на стволе, вынесены в отдельный исход "
+                      "и находкой НЕ считаются")
+            age = p.get("trunk_age_days")
+            if age is not None and age >= TRUNK_REF_STALE_DAYS:
+                s += (f"; вершина ствола {ref} старше {age} дн. — вердикт не "
+                      f"свежее её; ссылка хуком не подтягивается, сделай fetch")
         out.append(s)
     return " · ".join(out)
+
+
+def coverage_line(c: dict) -> str:
+    """Граница покрытия — ПО ВИДАМ, и невыраженная называется невыраженной.
+
+    Прежде здесь стояло одно число. Оно читалось как «границу учли», хотя
+    выражена она была у двух видов из пяти, а по остальным ноль означал «не
+    искали». Разница между «не нашёл» и «не искал» — предмет issue #242 и
+    ровно тот класс, который хук ищет у чужой прозы; печатать его собственным
+    нулём было бы двойным стандартом.
+    """
+    by = c.get("uncovered_by_kind") or {}
+    seen = c.get("coords_by_kind") or {}
+    modelled, blind = [], []
+    for kind in KINDS:
+        cell = f"{kind} {by.get(kind, 0)}/{seen.get(kind, 0)}"
+        (modelled if COVERAGE_MODEL.get(kind) else blind).append(cell)
+    out = f"вне покрытия основания {c.get('uncovered', 0)} из рассмотренных: " + ", ".join(modelled)
+    if blind:
+        out += (" · граница НЕ ВЫРАЖЕНА у видов: " + ", ".join(blind)
+                + " — ноль здесь означает «не искали», а не «за границей пусто»")
+    return out
 
 
 def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
@@ -1877,8 +2296,11 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
         # ноль читалось бы как «сайтов нет», а не как «поиск сломан».
         f"корней документации дерева продукта {len(idx.get('doc_roots') or [])}",
         f"координат рассмотрено {c.get('coords', 0)}, "
-        f"вне покрытия основания {c.get('uncovered', 0)}, "
-        f"резолвится только в стволе {c.get('trunk_only', 0)}",
+        f"резолвится только в стволе {c.get('trunk_only', 0)}, "
+        f"вердикт не вынесен {c.get('unjudged', 0)}"
+        + (" (полоса ствола не построена: " + ", ".join(truth.trunk_missing_roots) + ")"
+           if truth.trunk_missing_roots else ""),
+        coverage_line(c),
         f"предикатов прогнано {len(on)} ({','.join(on)}), отказано {len(off)} ({','.join(k for k, _ in off)})",
         f"основание: путей {len(truth.tracked_ws) + len(truth.tracked_mono)}, "
         f"маршрутов {len(truth.routes)}, методов {len(truth.rpcs)}, "
@@ -1928,7 +2350,8 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
 
 def render(findings: list[tuple[str, str, str]], stales: list[dict],
            refusals: list[tuple[str, str]], census: str,
-           limit: int | None = MAX_DOCS_SHOWN) -> str:
+           limit: int | None = MAX_DOCS_SHOWN,
+           gaps: list[tuple[str, str, str, str]] | None = None) -> str:
     """`limit=None` — печатать всё. Ровно это и означает «полный список» ниже.
 
     Прежде обрезка стояла на ОБОИХ путях, а строка обрезки отсылала за полным
@@ -1937,7 +2360,7 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
     держать такое в собственном отчёте.
     """
     KIND = {"path": "путь", "rest": "маршрут", "env": "переменная",
-            "make": "цель make", "rpc": "метод"}
+            "make": "цель make", "rpc": "метод", "ref": "имя ветки/тега"}
     out = ["╔══ docfresh ═════════════════════════════════════════════════════"]
     by_doc: dict[str, list[tuple[str, str]]] = {}
     for doc, kind, coord in findings:
@@ -1953,6 +2376,15 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
     if hidden:
         out.append(f"║ … и ещё {hidden} документ(ов) с расхождением — полный список: "
                    f"`python3 .claude/hooks/docfresh/docfresh.py --sweep`")
+    # Граница инструмента печатается ОТДЕЛЬНО и называется своим именем. Слить
+    # её с находками нельзя: находка означает «документ утверждает лишнее», а
+    # это — «основание не читает целый вид носителя». Чинятся они в разных
+    # файлах, и путать их дорого: на смешении трижды подряд правили ВЕРНОЕ
+    # утверждение вместо перечня путей (issue #242).
+    for doc, kind, coord, why in (gaps or []):
+        out.append("║ ВНЕ ПОКРЫТИЯ ОСНОВАНИЯ — это НЕ ложь документа, а граница инструмента:")
+        out.append(f"║     {doc}: {KIND.get(kind, kind)} `{coord}`")
+        out.append(f"║     {why}")
     for e in stales:
         out.append(f"║ ПОСЛАБЛЕНИЕ БЕЗ ПРЕДМЕТА: allow.json → {e.get('kind')} "
                    f"`{e.get('coordinate')}` больше не упоминается ни одним LIVE-документом.")
@@ -1976,7 +2408,19 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
 # ═══ 13. Режимы ══════════════════════════════════════════════════════════════
 
 def rel_of(path: str, ws: Path, mono: Path | None) -> str | None:
-    """Абсолютный путь → координатное имя, как его пишут документы."""
+    """Абсолютный путь → координатное имя, как его пишут документы.
+
+    ОБЕ стороны сравнения разыменовываются. Вход уже проходил `resolve()`, а
+    корень дерева продукта — нет, и `project/kacho` сплошь и рядом СИМВОЛИЧЕСКАЯ
+    ССЫЛКА: рабочие копии агентов заводятся `git worktree`, дерево продукта в них
+    не выписывается, и его подставляют ссылкой на общую копию. Тогда вход
+    разыменовывался в настоящий путь, корень оставался ссылкой, `relative_to`
+    не совпадал — и режим B («правлен файл дерева → назвать документы, которые
+    его называют») МОЛЧА не срабатывал ни разу: хук выходил нулём, не сказав ни
+    слова. Ровно тот класс, который он ловит, — мягкий проход, неотличимый от
+    чистоты. Найдено пробами секции J, красневшими в рабочей копии при исправном
+    хуке (#280).
+    """
     try:
         p = Path(path).resolve()
     except OSError:
@@ -1987,15 +2431,30 @@ def rel_of(path: str, ws: Path, mono: Path | None) -> str | None:
             return str(p.relative_to(Path(extra).resolve()))
         except (ValueError, OSError):
             pass
-    if mono is not None and mono != ws:
-        try:
-            return "project/kacho/" + str(p.relative_to(mono))
-        except ValueError:
-            pass
-    try:
-        return str(p.relative_to(ws))
-    except ValueError:
-        return None
+    # Корни сверяются И как объявлены, И как разрешены. Путь события приходит
+    # разрешённым (`Path.resolve`), а дерево продукта в рабочей копии сплошь и
+    # рядом лежит символической ссылкой — тогда `relative_to` не совпадал ни с
+    # одним корнем, `rel_of` возвращал None, и хук выходил НУЛЁМ. Со стороны это
+    # неотличимо от «сказать нечего»: режим B (правка кода поднимает документы,
+    # которые её называют) молча не исполнялся вовсе. Тот же класс, что и вся
+    # задача #242, — «не искал» подан как «не нашёл».
+    for prefix, root in ((("project/kacho/", mono) if mono is not None and mono != ws
+                          else (None, None)), ("", ws)):
+        if root is None:
+            continue
+        # Порядок баз ФИКСИРОВАН, а не выведен множеством: у проверки не может
+        # быть недетерминированного входа — иначе её вердикт зависит от того,
+        # как лёг перебор, и разойдётся между прогонами молча.
+        bases = [root]
+        real = Path(os.path.realpath(root))
+        if real != root:
+            bases.append(real)
+        for base in bases:
+            try:
+                return prefix + str(p.relative_to(base))
+            except (ValueError, OSError):
+                continue
+    return None
 
 
 def docs_naming(idx: dict, rel: str) -> list[str]:
@@ -2054,13 +2513,26 @@ def vanished_since_snapshot(idx: dict, truth: Truth, ws: Path, mono: Path | None
     gone = prev - cur
     out = []
     for g in sorted(gone):
-        for cand in (g, g[len("project/kacho/"):] if g.startswith("project/kacho/") else g):
+        # `dict.fromkeys`, а не кортеж: у пути ВНЕ `project/kacho/` обе формы
+        # совпадают, и прежняя редакция обходила его ДВАЖДЫ — координата
+        # попадала в отчёт двумя строками, а `координат рассмотрено` считало её
+        # за две. Отчёт, врущий о собственном числе, — тот же класс, что ловит
+        # хук. Найдено пробой оси удалений (#280).
+        for cand in dict.fromkeys(
+                (g, g[len("project/kacho/"):] if g.startswith("project/kacho/") else g)):
             for d in idx["reverse"].get("path\t" + cand, []):
                 # `classify`, а не `resolve`: путь может исчезнуть из ВЫПИСАННОЙ
                 # копии просто оттого, что она переехала на другую ветку, — а в
                 # стволе он жив. Переключение веток иначе давало бы залп находок
                 # на всё, чего нет на этой ветке.
-                if truth.classify("path", cand) == "missing":
+                #
+                # `unjudged` проходит СЮДА, а не отсеивается здесь: вердикта по
+                # нему нет, и решение о нём принимает `stop_mode` — там же, где
+                # он СЧИТАЕТСЯ. Отсев в этой точке был бы молчаливым: координата
+                # исчезла бы из отчёта, не попав ни в находки, ни в перепись, и
+                # «не судили» стало бы неотличимо от «чисто» — ровно тот класс,
+                # который хук ловит.
+                if truth.classify("path", cand) in ("missing", "unjudged"):
                     out.append((d, "path", cand))
     return out, True, len(gone)
 
@@ -2094,11 +2566,12 @@ def sweep() -> int:
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, {})
-    if findings or stales:
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
         # Полный обход — единственный читатель, которому обрезка не полагается:
         # его и зовут за перечнем. Обрезанный «полный список» был бы ровно тем
         # утверждением без предмета, которое хук ищет у других.
-        sys.stdout.write(render(findings, stales, refusals, census, limit=None) + "\n")
+        sys.stdout.write(render(findings, stales, refusals, census, limit=None, gaps=gaps) + "\n")
         sys.stdout.write(f"[CENSUS] документов с расхождением "
                          f"{len({d for d, _, _ in findings})}, расхождений {len(findings)}\n")
         return 1
@@ -2217,12 +2690,13 @@ def main() -> int:
     findings, cnt = check_docs(targets, idx, truth, entries, ws, mono, fresh, claims)
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims) if rel in live_names else []
     carried = adjudicate_pending(truth, entries, claims)
-    stats = bump_stats(bool(findings or stales))
+    stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, stats, carried)
 
-    if findings or stales:
-        sys.stderr.write(render(findings, stales, refusals, census) + "\n")
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
+        sys.stderr.write(render(findings, stales, refusals, census, gaps=gaps) + "\n")
         return 2
     sys.stdout.write(census + "\n")
     return 0
@@ -2344,13 +2818,22 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
         if live == "ствол":
             cnt["trunk_only"] += 1
             continue
+        # ТОТ ЖЕ порог основания, что у `check_docs`. Две оси одного хука не
+        # вправе расходиться в том, что считают годным основанием: без полосы
+        # ствола «исчезло из дерева» неотличимо от «копия переехала на другую
+        # ревизию», и обвинять на этом нельзя. Проверка стоит ПОСЛЕ живой
+        # перепроверки — предмет, найденный в дереве живьём, закрывается
+        # своим, более сильным основанием и до сюда не доходит.
+        if not truth.trunk_all_on:
+            cnt["unjudged"] += 1
+            continue
         if (d, k, c) not in known:
             findings.append((d, k, c))
             cnt["coords"] += 1
 
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     _, refusals = truth.enabled()
-    stats = bump_stats(bool(findings or stales))
+    stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
     if not cnt["docs"]:
         cnt["docs"] = len({d for d, _, _ in findings})
@@ -2382,8 +2865,9 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
     # находок» обязано быть отличимо от «ноль прочитанного» (`testing.md` §«Гейт на
     # класс», п. 3), поэтому перепись остаётся — сменён её адресат.
     journaled = census_append(census)
-    if findings or stales:
-        text = render(findings, stales, refusals, census)
+    gaps = cnt.get("toolgaps") or []
+    if findings or stales or gaps:
+        text = render(findings, stales, refusals, census, gaps=gaps)
         sys.stderr.write(text + "\n")
         sys.stdout.write(json.dumps({
             "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}

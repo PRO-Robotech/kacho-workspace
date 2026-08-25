@@ -12,7 +12,6 @@ project_level: true
 status: stable
 related_rpc:
   - "[[rpc/nlb-network-load-balancer-service]]"
-  - "[[rpc/nlb-internal-resource-lifecycle-service]]"
 related_packages:
   - "[[packages/nlb-domain]]"
   - "[[packages/nlb-repo-kacho-pg]]"
@@ -136,10 +135,20 @@ CAS-guard сохраняет explicit-transitions (CREATING/STARTING/STOPPING/ST
 - VIP-конфликт — **не** `ALREADY_EXISTS`, а generic `FAILED_PRECONDITION` (анти-oracle).
 - `region_id` immutable (`InvalidArgument`); Move меняет только `project_id`.
 - `Move` blocked если есть attached TG (`FailedPrecondition`).
-- Outbox-event `nlb_load_balancer:<id> UPDATED` эмитится триггером recompute (D-13 stream).
+- Событие журнала `nlb_load_balancer:<id> UPDATED` эмитится триггером пересчёта состояния.
+
+> [!note] Читателя у этого журнала сегодня НЕТ — прежняя редакция называла его «D-13 stream»
+> Перемерено на дереве продукта 16f3313f (2026-08-24). Частный поток изменений домена снят
+> задачей [`kacho#1043`](https://github.com/PRO-Robotech/kacho/issues/1043): снят **читатель**
+> и его контракт, писатель остался. Формат подписки стал общим для платформы — контракт
+> [[rpc/subscription-service]], механизм [[packages/corelib-subscription]], линия работ
+> [[KAC/watch-unified-change-stream-2026-08]]. Домен подключится к общему серверу отдельной
+> задачей; до тех пор журнал наполняется и не читается, и это состояние названо, а не скрыто.
 
 ## See also
 
-[[../packages/nlb-domain]] [[../packages/nlb-repo-kacho-pg]] [[../rpc/nlb-network-load-balancer-service]] [[nlb-listener]] [[nlb-target-group]] [[../edges/nlb-to-vpc-vip-allocation]]
+[[packages/nlb-domain]] · [[packages/nlb-repo-kacho-pg]] · [[rpc/nlb-network-load-balancer-service]] ·
+[[resources/nlb-listener]] · [[resources/nlb-target-group]] · [[edges/nlb-to-vpc-vip-allocation]] ·
+[[rpc/subscription-service]] · [[KAC/watch-unified-change-stream-2026-08]]
 
 #resource #kacho-nlb #loadbalancer
