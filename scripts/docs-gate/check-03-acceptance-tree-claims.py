@@ -250,11 +250,17 @@ CLAIMS = {
 
 
 def monorepo(root):
+    # `.git` РАБОЧЕЙ КОПИИ — ФАЙЛ, А НЕ КАТАЛОГ, и требовать каталог значит не
+    # признавать рабочую копию монорепо ВОВСЕ. Проверка объявляла, что ищет
+    # монорепо «так же, как vault-gate», а тот принимает обе формы
+    # (`scripts/vault-gate/_lib.sh`). Расхождение делало проверку беспредметной
+    # у всякого, кто работает из рабочей копии, — то есть у всех, — и набор
+    # выходил кодом 1 при НУЛЕ находок, останавливая отправку любой ветки.
     env = os.environ.get("KACHO_MONOREPO")
-    if env and os.path.isdir(os.path.join(env, ".git")):
+    if env and os.path.exists(os.path.join(env, ".git")):
         return env
     guess = os.path.join(root, "project", "kacho")
-    if os.path.isdir(os.path.join(guess, ".git")):
+    if os.path.exists(os.path.join(guess, ".git")):
         return guess
     return None
 
