@@ -8,7 +8,7 @@ status: stable
 tags:
   - proto
   - kacho-nlb
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "перечень файлов каталога пересверен с деревом продукта 16f3313f (2026-08-24, вровень с origin/main) командой git ls-tree по каталогу: внутренняя служба потока жизненного цикла снята, служба пределов добавлена; остальной текст записки построчно не пересматривался"
 ---
 
 # proto/kacho/cloud/loadbalancer/v1 — контракты домена балансировки
@@ -26,18 +26,29 @@ verified_against: "каталог пакета есть в дереве прод
 > вдвое больше, чем перечисляла записка. Утверждение «вне области» пережило момент,
 > когда область его накрыла.
 
-## Файлы (по дереву, `96b2879a`)
+## Файлы (по дереву, `16f3313f`)
 
 **Ресурсы**: `network_load_balancer.proto` · `listener.proto` ·
 `target_group.proto` · `health_check.proto`.
 **Публичные службы**: `network_load_balancer_service.proto` ·
-`listener_service.proto` · `target_group_service.proto`.
-**Внутренние (:9091)**: `internal_load_balancer_announce_service.proto` ·
-`internal_resource_lifecycle_service.proto`.
+`listener_service.proto` · `target_group_service.proto` · `quota_service.proto`.
+**Внутренние (:9091)**: `internal_load_balancer_announce_service.proto` — **одна**.
 Плюс `package_options.proto`.
 
-Слушатель (`Listener`) как отдельный ресурс и обе внутренние службы прежней
-редакции известны не были.
+Слушатель (`Listener`) как отдельный ресурс прежней редакции известен не был.
+
+> [!note] Внутренних служб было ДВЕ, стало ОДНА — вторая снята (перемерено 16f3313f, 2026-08-24)
+> Здесь стоял контракт частного потока жизненного цикла, и на момент прежней записи он
+> существовал. Он снят задачей [`kacho#1043`](https://github.com/PRO-Robotech/kacho/issues/1043)
+> вместе со своим сервером: формат подписки сделан общим для платформы, а частные
+> реализации сняты — [[KAC/watch-unified-change-stream-2026-08]]. История контракта —
+> [[rpc/nlb-internal-resource-lifecycle-service]], общий контракт — [[rpc/subscription-service]].
+>
+> Предикат перечня, которым эта строка перепроверяется целиком:
+> ```sh
+> git ls-tree -r origin/main --name-only proto/kacho/cloud/loadbalancer/v1/
+> ```
+> Им же в перечень добавлена служба пределов, которой в прежней редакции не было.
 
 ## Что важно помнить про этот домен
 
