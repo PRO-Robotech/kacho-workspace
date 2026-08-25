@@ -2,6 +2,7 @@
 title: "#1128: словарь глаголов по ресурсу — иначе глагол не снять ни с одного типа"
 aliases:
   - issue-1128
+  - словарь глаголов по ресурсу
 ticket_id: 1128
 category: kac
 status: done
@@ -10,6 +11,8 @@ repos:
   - kacho
 areas:
   - iam
+  - proto
+  - ui-future
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/1196
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1128
@@ -17,6 +20,8 @@ opened: 2026-08-23
 tags:
   - kac
   - kacho-iam
+  - kacho-ui
+  - migrations
 ---
 
 # #1128: словарь глаголов по ресурсу

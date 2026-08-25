@@ -11,6 +11,8 @@ repos:
 areas:
   - ci
   - iam
+  - deploy
+  - tests/authz-fixtures
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/1203
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1179
@@ -19,6 +21,7 @@ closed: 2026-08-24
 tags:
   - kac
   - kacho-iam
+  - kacho-deploy
 ---
 
 # #1179: полоса обмена у прежнего издателя мертва, а проза зовёт её живой
@@ -82,6 +85,8 @@ tags:
 - [[lessons/known-failing-declaration-outlives-the-fix]] — послабление обязано иметь
   предикат снятия, иначе переживает свой предмет
 - [[lessons/report-was-false-when-written-not-stale]] — проза, называвшая мёртвое живым
+- [[resources/iam-service-account-oauth-client]] — зеркало клиента прежнего издателя
+- [[edges/iam-to-hydra-admin]] — ребро к прежнему издателю, чей машинный путь опустел
 
 ## Связанные задачи
 
