@@ -46,7 +46,7 @@
 **Given** the FGA model currently defines `emergency_admin: [user with break_glass_window]` and `any_admin: system_admin or emergency_admin`.
 **When** both are removed and `any_admin: system_admin` substituted.
 **Then** `openfga model validate --file fga_model.fga` exits 0 — there is no `openfga-model-validate` target; the committed model is kept in sync by
-`make -C deploy openfga-model-json`, which regenerates the chart configmap from the canonical file.
+цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876, which regenerates the chart configmap from the canonical file.
 **And** no other relation in the file references `emergency_admin` or `break_glass_window` (grep yields zero lines).
 
 ### S2.4 — Proto deletions are visible and intentional

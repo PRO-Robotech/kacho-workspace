@@ -19,7 +19,14 @@ verified_against: "каталог пакета есть в дереве прод
 
 **Каталог**: `services/nlb/internal/repo/kacho/pg/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/repo/kacho/pg/`)
 **Imports**: pgx/v5, [[nlb-domain]], [[nlb-dto]], [[corelib-db]]
-**Imported by**: [[nlb-apps-kacho-api-loadbalancer]], [[nlb-apps-kacho-api-listener]], [[nlb-apps-kacho-api-targetgroup]], [[nlb-apps-kacho-api-operation]], [[nlb-apps-kacho-api-internal-lifecycle]]
+**Imported by**: [[nlb-apps-kacho-api-loadbalancer]], [[nlb-apps-kacho-api-listener]], [[nlb-apps-kacho-api-targetgroup]], [[nlb-apps-kacho-api-operation]]
+
+> [!note] Пятым в этом перечне стоял пакет частного потока изменений — он СНЯТ (16f3313f, 2026-08-24)
+> Пакет снят задачей [`kacho#1043`](https://github.com/PRO-Robotech/kacho/issues/1043);
+> формат подписки стал общим для платформы — [[KAC/watch-unified-change-stream-2026-08]].
+> Ссылка на его записку-надгробие: [[packages/nlb-apps-kacho-api-internal-lifecycle]].
+> Порт доступа к фиду журнала и его pgx-реализация, лежавшие в этом repo-слое, сняты вместе
+> с ним; **писатель журнала остался** — событие по-прежнему кладётся в той же транзакции.
 
 CQRS Repository implementation (evgeniy §G — Reader/Writer split). pgx-based, no ORM. Per-resource sub-packages: `loadbalancer/`, `listener/`, `targetgroup/`, `outbox/`.
 

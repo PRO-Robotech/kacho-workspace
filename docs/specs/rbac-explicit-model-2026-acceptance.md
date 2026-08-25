@@ -80,7 +80,7 @@ Ground-truth: системной роли `owner` НЕ существует (own
 
 **D-12. ПОЛНОЕ удаление folder/organization из authz-модели.**
 - FGA-модель: удалить `type organization` (canonical `fga_model.fga` L315–323) + 5 org-фрагментов на `type account` (L328 `define organization`, L330 `admin from organization`, L331 `editor from organization`, L341 `viewer from organization`, L342 `billing_admin from organization`). После — `grep -i organization` по `fga_model.fga` = 0.
-- configmap `openfga-model-stub-configmap.yaml` регенерируется из canonical (`make -C deploy openfga-model-json`) — руками не правим (D-13).
+- configmap `openfga-model-stub-configmap.yaml` регенерируется из canonical (цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876) — руками не правим (D-13).
 - `folder` как FGA-тип НЕ существует (Project заменил Folder, `project.proto`); остаются только legacy `folder_id` field-names/comments — их зачистка **ВНЕ scope** (Q-5 закрыт, см. §12 / §«Что НЕ входит»), не блокирует authz-модель.
 
 **D-12a. Судьба B2B-ресурса `Organization` — закрыто (Q-1): FULL-REMOVAL (вариант A).**
@@ -556,7 +556,7 @@ kacho-iam authz переходит с **ReBAC-каскадной модели** 
 
 **ID:** rbac-G-02
 
-**When** `make -C deploy openfga-model-json` (после правки canonical)
+**When** цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 (после правки canonical)
 
 **Then** `openfga-model-stub-configmap.yaml` (DSL + JSON блоки) синхронен canonical; `grep -i organization` configmap → 0 (D-13)
 
@@ -683,7 +683,7 @@ kacho-iam authz переходит с **ReBAC-каскадной модели** 
 |---|---|---|---|---|
 | **P1** | proto: scope/deletion_protection/owner+cluster-admin role + drop org (Q-1) | `kacho-proto` | `AccessBinding.deletion_protection`; verb-relations account/project в `fga_model.fga` (expand); seed-форма owner-роли (`*.*.*` @ ACCOUNT) + cluster-admin роли (`*.*.*` @ GLOBAL); (contract-фаза, Q-1 full-removal) drop `type organization` + 5 account-фрагментов + `organization.proto`/`OrganizationService` + `account.organization_id`(f7) + `Role.organization_id`(f9) | — |
 | **P1b** | iam: org-decommission (Q-1 full-removal — НЕ только proto) | `kacho-iam` | зачистка iam compliance org-scope, hooks `organization_id` session-claim, org-сиды; DoD: `grep -rEi 'organization(_id)?'` по iam/deploy/seed → 0 | P1 |
-| **P2** | FGA-модель flat (expand→contract) | `kacho-proto` + `kacho-deploy` | canonical `fga_model.fga`: add прямые `v_*`; (contract) drop каскад+scope_grant+org; регенерация configmap `make -C deploy openfga-model-json` | P1 |
+| **P2** | FGA-модель flat (expand→contract) | `kacho-proto` + `kacho-deploy` | canonical `fga_model.fga`: add прямые `v_*`; (contract) drop каскад+scope_grant+org; регенерация configmap цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876 | P1 |
 | **P3** | iam: authzmap verb-bearing account/project | `kacho-iam` | `TypeHasVerbRelations` → true для account/project; relation-sets; expandable-relations | P1,P2 |
 | **P4** | iam: ЕДИНЫЙ reconciler ALL-selectors × scope; УДАЛИТЬ binding-time scope_grant-эмиссию (КФ-3) | `kacho-iam` | расширить `desiredMembers`/feed с ARM_LABELS на ARM_ANCHOR(all)+ARM_NAMES × scope-границу; emit/revoke прямых tuple; **удалить `scope_grant_tuples.go`/`buildBindingTuples` scope_grant-путь ЦЕЛИКОМ**; forward-materialization (D-4); Q-2 GLOBAL+all validation (A-05 reject) | P3 |
 | **P5** | iam: Check flat + cluster-admin short-circuit (Check И write-authz, КФ-2) | `kacho-iam` | `authorize_service.Check` short-circuit (D-9); **short-circuit также в `requireGrantAuthority`/`fgaHoldsAdmin`/`RelationChecker`** (КФ-2); плоский резолв; ListUsers по прямым tuple; public Create(role=cluster-admin@GLOBAL) → D-9 cluster-relation (D-11a) | P3 |
@@ -756,7 +756,7 @@ kacho-iam authz переходит с **ReBAC-каскадной модели** 
 > Сверено с кодом ДО написания (3 параллельных explore-агента). Перечислено явно, чтобы ревьюер видел, где документ корректирует/уточняет исходную формулировку — НЕ молча.
 
 1. **owner-роль НЕ существует** сейчас (owner = `Account.owner_user_id` FK + FGA-tuple, не seeded-роль). D-8 создаёт её net-new. (Владелец предполагал «системная cluster-роль owner» — её надо завести.)
-2. **Canonical FGA = `kacho-proto/.../fga_model.fga`**, configmap — build-артефакт (генерируется `make -C deploy openfga-model-json`). Правки модели — в proto-репо первым (D-13). (Владелец указал configmap как ground-truth — он верен как зеркало, но не источник.)
+2. **Canonical FGA = `kacho-proto/.../fga_model.fga`**, configmap — build-артефакт (генерируется цель openfga-model-json каталога deploy, снятая вместе с движком прав kacho#876). Правки модели — в proto-репо первым (D-13). (Владелец указал configmap как ground-truth — он верен как зеркало, но не источник.)
 3. **`organization` — реальный proto-ресурс**, не только «мёртвые FGA-relations» (Q-1). Объём удаления зависит от развилки A/B.
 4. **`folder` как FGA-тип НЕ существует** (Project заменил Folder, `project.proto`); остаются только legacy `folder_id` field-names (Q-5).
 5. **AccessBinding `selector` НЕ на binding** — оно полностью переехало в `role.rules` (ARM_ANCHOR/NAMES/LABELS); на binding `reserved "target","target_ref","selector"` (sub-phase F clean-cut). Селекторы (req владельца #3) сохранены — но как role.rules-концепт. Согласуется.

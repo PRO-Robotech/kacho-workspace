@@ -1,87 +1,104 @@
 ---
-title: InternalResourceLifecycleService (nlb)
+title: InternalResourceLifecycleService (nlb) — снят, заменён общим контрактом подписки
 aliases:
   - InternalResourceLifecycleService (nlb)
   - nlb lifecycle stream
-proto_file: kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto
+proto_file: "нет — контракт снят; общий контракт живёт в proto/kacho/cloud/subscription"
 category: rpc
 backend: kacho-nlb
 backend_port: 9091
 visibility: internal
 domain: nlb
 related_resource: "[[resources/nlb-load-balancer]]"
-methods_count: 1
+methods_count: 0
 async_methods: 0
 tags:
   - rpc
   - kacho-nlb
   - internal
   - lifecycle
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); ручка предела стримов пересверена с деревом продукта 1653387b (2026-08-06); поля запросов и семантика построчно не пересматривались"
-status: stable
+  - deprecated
+verified_against: "перечень контрактов домена сверен с деревом продукта 16f3313f (2026-08-24, вровень с origin/main): файла контракта в каталоге домена НЕТ; общий контракт подписки в дереве есть"
+status: superseded
 ---
+> [!warning] СЕРВИС СНЯТ 2026-08-22 — записка оставлена как свидетельство, а не описание
+> Поток снят вместе с контрактом задачей #814 (PR PRO-Robotech/kacho#962): вызывающих вне
+> сгенерированных стабов не было ни одного — в дереве оставались только реализация и её
+> собственная интеграционная проба.
+>
+> **Ниже описан механизм, которого в дереве больше нет.** Записка не удалена намеренно:
+> она объясняет, что именно снималось и почему, и связывает предмет с решением. Искать
+> перечисленные здесь координаты в дереве не нужно — их там нет by construction.
+>
+> Снято вместе с ним: срок жизни подписки (стал изъятием — серверных стримов у сервиса
+> не осталось), запись каталога прав, маршрут края и переменная его внутреннего адреса.
+>
+> Смежное: [[issue-814]].
 
-# InternalResourceLifecycleService (nlb)
 
-**Proto**: `proto/kacho/cloud/loadbalancer/v1/internal_resource_lifecycle_service.proto`
-**Backend**: `kacho-nlb:9091` (cluster-internal gRPC)
-**Visibility**: **internal-only** (workspace CLAUDE.md запрет #6 — НЕ на external TLS listener)
+# InternalResourceLifecycleService (nlb) — контракта больше нет
 
-## Methods (1 server-stream)
+> [!warning] Записка описывает ПРОШЛОЕ. Контракт снят вместе с реализацией
+> Прежняя редакция называла файл контракта в каталоге домена балансировки координатой
+> живого предмета. **Файла нет**: контракт снят вместе с сервером, который его
+> реализовывал, задачей [`kacho#814`](https://github.com/PRO-Robotech/kacho/issues/814)
+> (PR `kacho#962`, коммит `77e3d05`, 2026-08-22) — тем же изменением, о котором говорит
+> выноска выше. Задача [`kacho#1043`](https://github.com/PRO-Robotech/kacho/issues/1043)
+> (PR `kacho#1150`, коммит `a7adbbe`) сняла позже **читателя** уже снятого потока, а не
+> контракт; MR #1151 (`release/watch`) каталога домена балансировки не касался вовсе.
+>
+> Атрибуция исправлена при сведении веток 2026-08-25: прежняя редакция называла снявшим
+> контракт #1043 и MR #1151. Перемерено на дереве продукта `origin/main`:
+> `git log -S'InternalResourceLifecycleService' -- proto/` даёт `77e3d05`, а
+> `git show --stat 16f3313f -- proto/kacho/cloud/loadbalancer/` — пусто.
+>
+> Предикат (ожидание — пусто):
+> ```sh
+> git ls-tree -r origin/main --name-only proto/kacho/cloud/loadbalancer/v1/ | grep lifecycle
+> ```
+>
+> Перечень контрактов домена, действительный на этой ревизии, — в
+> [[packages/proto-loadbalancer]]; внутренний слушатель домена сегодня несёт **одну**
+> службу — объявления балансировщика, — а не две.
 
-| Method | Request | Response | Note |
-|---|---|---|---|
-| Subscribe | SubscribeRequest | stream LifecycleEvent | server-stream; LISTEN `nlb_outbox` on dedicated pgx-conn |
+## Что объявлял этот контракт
 
-### LifecycleEvent payload
+Одну серверную потоковую службу с методом `Subscribe`: подписчик присылал позицию,
+сервер отдавал поток событий жизненного цикла ресурсов nlb (виды —
+балансировщик · слушатель · целевая группа; действия — создан · изменён · удалён).
+Событие несло позицию в журнале, вид и идентификатор ресурса, проект, отметку времени
+и снимок состояния. Видимость — **только внутренняя** (:9091), на внешний слушатель
+такие службы не публикуются (запрет #6, `security.md` §Internal-vs-external).
 
-```protobuf
-message LifecycleEvent {
-  int64 sequence_no = 1;
-  string resource_type = 2;   // nlb_load_balancer | nlb_listener | nlb_target_group
-  string resource_id = 3;
-  string project_id = 4;
-  string action = 5;          // CREATED | UPDATED | DELETED
-  google.protobuf.Timestamp emitted_at = 6;
-  bytes payload = 7;          // jsonb (полная row snapshot)
-}
-```
+Реализация описана историей в [[packages/nlb-apps-kacho-api-internal-lifecycle]].
 
-## D-13 lifecycle stream flow
+## Чем заменён
 
-1. Acquire per-stream semaphore (ключ конфигурации `internal-lifecycle.max-streams`,
-   умолчание **32**, `services/nlb/internal/apps/kacho/config/defaults.go`; ноль отвергается
-   на старте — `validate.go`, плюс backstop-паника в конструкторе handler'а)
-2. Dedicated `pgx.Connect` → `LISTEN nlb_outbox`
-3. **Catchup batch** (100 rows): SELECT FROM nlb_outbox WHERE sequence_no > $cursor ORDER BY sequence_no
-4. `WaitForNotification` loop (timeout 30s)
-5. Stream `LifecycleEvent` к client (типично kacho-iam — D-13 hierarchy tuple sync)
-6. `nlb_watch_cursors` сохраняет subscriber position для resume
+Общим контрактом подписки платформы — [[rpc/subscription-service]], каталог
+`proto/kacho/cloud/subscription/`. Замена не переименование: изменились два несущих
+свойства, и оба меняют то, как подписчик ведёт СВОЁ состояние.
 
-> [!note] Переменной окружения под этот предел НЕТ — координата снята (1653387b, 2026-08-06)
-> Прежняя редакция называла её переменной с потолком 32. Такого имени в дереве нет ни в
-> одном читателе (Go, чарты, скрипты, Makefile), и появиться оно не может: nlb биндит
-> окружение через viper с заменой только точки на двойное подчёркивание, а сегменты этого
-> ключа содержат **дефис**, который в имя переменной окружения не переносится. То есть
-> предел задаётся YAML-ключом (или умолчанием), а не окружением. Общая форма для nlb —
-> `KACHO_NLB_<ПУТЬ_КЛЮЧА>` с разделителем `__`
-> (`services/nlb/internal/apps/kacho/config/load.go`), и она применима лишь к ключам без
-> дефисов.
+| ось | снятый частный контракт | общий контракт |
+|---|---|---|
+| где живёт позиция | на сервере, в таблице курсоров по подписчику | **у клиента**; сервер stateless |
+| следствие | возобновление работало только к той же реплике | поток возобновляется **к другой реплике** и после перезапуска сервера |
+| область | один домен, свой формат события | один формат на платформу |
 
-## Outbox channel
+Почему первое несущее: серверная таблица курсоров по подписчику **выглядит указанием**
+хранить позицию на сервере, и следующий читатель схемы отменяет решение не спором, а
+тем, что схема выглядела приглашением. Разбор — в [[KAC/watch-unified-change-stream-2026-08]].
 
-`pg_notify('nlb_outbox', sequence_no::text)` — triggered `nlb_outbox_notify_trg` на каждом INSERT в `nlb_outbox` table. Outbox events emit'ятся в той же TX, что и mutation (write-after-write atomicity via `RepositoryWriter.Outbox().Emit(...)`).
+## Что от этого домена ОСТАЛОСЬ и это не хвост
 
-## REST mapping
+Журнал изменений nlb (таблица событий и уведомление по каналу) **пишется по-прежнему** —
+его наполняют мутирующие пути домена в своей же транзакции. Снят **читатель**, а не
+писатель. Открытый остаток по журналу и по таблице курсоров, пережившей своего
+читателя, назван числом в [[KAC/watch-unified-change-stream-2026-08]].
 
-Internal-only — НЕ на TLS endpoint (`api.kacho.local:443`). Может быть зарегистрирован через api-gateway REST mux на cluster-internal listener (но используется напрямую kacho-iam через gRPC stream).
+## См. также
 
-## Consumers
+[[packages/nlb-apps-kacho-api-internal-lifecycle]] · [[rpc/subscription-service]] ·
+[[packages/corelib-subscription]] · [[edges/iam-to-nlb-resource-lifecycle]] ·
+[[resources/nlb-load-balancer]] · [[KAC/watch-unified-change-stream-2026-08]]
 
-- **kacho-iam** — D-13 lifecycle subscriber для maintenance FGA hierarchy tuples (`nlb_load_balancer:<id>#project@project:<project_id>`). См. [[../edges/iam-to-nlb-resource-lifecycle]].
-
-## See also
-
-[[../packages/nlb-apps-kacho-api-internal-lifecycle]] [[../resources/nlb-load-balancer]] [[../edges/iam-to-nlb-resource-lifecycle]]
-
-#rpc #kacho-nlb #internal #lifecycle
+#rpc #kacho-nlb #internal #lifecycle #deprecated

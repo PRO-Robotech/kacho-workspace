@@ -99,6 +99,9 @@ registry 3/2. Чтение отвечает только про проектны
 ## PR
 
 - продукт: PRO-Robotech/kacho#606 → `release/quota-domain`
+- линия в ствол: PRO-Robotech/kacho#657 (`release/quota-domain` → `main`, открыт
+  2026-08-17; закрывает эту задачу вместе с `kacho#484` и `kacho#353`). Трейл линии —
+  [[issue-657]].
 
 ## Связанные задачи
 
