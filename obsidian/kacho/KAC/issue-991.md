@@ -4,7 +4,7 @@ aliases:
   - issue-991
 ticket_id: 991
 category: kac
-status: test
+status: done
 type: tech-debt
 repos:
   - kacho
@@ -14,6 +14,7 @@ areas:
   - ui
 prs:
   - PRO-Robotech/kacho-workspace#371
+  - PRO-Robotech/kacho#992
 issue_url: https://github.com/PRO-Robotech/kacho/issues/991
 opened: 2026-08-22
 tags:
@@ -95,5 +96,5 @@ tags:
 - [x] правка по разбору, с доказательством неприкосновенности строк и комментариев
 - [x] два гейта, оба доказаны инъекцией в обе стороны
 - [x] правило записано в ядро (non-negotiable #17)
-- [ ] PR продукта влит
-- [ ] PR воркспейса влит
+- [x] PR продукта влит — `fc9631e55`, 51 проверка зелёная, красных ноль
+- [x] PR воркспейса влит
