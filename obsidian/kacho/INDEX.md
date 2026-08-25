@@ -123,16 +123,16 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | Категория | Каталог | Записок |
 |---|---|---:|
 | Ресурсы | `resources/` | 57 |
-| gRPC-сервисы | `rpc/` | 66 |
+| gRPC-сервисы | `rpc/` | 67 |
 | Рёбра рантайма | `edges/` | 77 |
-| Пакеты | `packages/` | 119 |
-| Журнал работ (KAC) | `KAC/` | 443 |
+| Пакеты | `packages/` | 120 |
+| Журнал работ (KAC) | `KAC/` | 449 |
 | Уроки — классы дефектов | `lessons/` | 49 |
 | Записки-переходы прежних репозиториев | `legacy/` | 6 |
 | Операционные процедуры | `runbooks/` | 1 |
 | Руководства (эпоха KAC-127) | `docs/` | 4 |
 | Точки входа и полотно | `(корень)` | 4 |
-| **Всего** | | **826** |
+| **Всего** | | **834** |
 
 ### Ресурсы — `resources/` (57)
 
@@ -243,7 +243,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[resources/all-resources\|Все ресурсы — указатель]] | — |
 
-### gRPC-сервисы — `rpc/` (66)
+### gRPC-сервисы — `rpc/` (67)
 
 **домен: (не указан)**
 
@@ -302,7 +302,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Записка | Состояние |
 |---|---|
-| [[rpc/nlb-internal-resource-lifecycle-service\|InternalResourceLifecycleService (nlb)]] | живо (stable) |
+| [[rpc/nlb-internal-resource-lifecycle-service\|InternalResourceLifecycleService (nlb) — снят, заменён общим контрактом подписки]] | история (superseded) |
 | [[rpc/nlb-listener-service\|ListenerService]] | живо (stable) |
 | [[rpc/nlb-network-load-balancer-service\|NetworkLoadBalancerService]] | живо (stable) |
 | [[rpc/nlb-target-group-service\|TargetGroupService]] | живо (stable) |
@@ -347,6 +347,12 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/storage-snapshot-service\|SnapshotService]] | живо (stable) |
 | [[rpc/storage-volume-service\|VolumeService]] | живо (stable) |
 
+**домен: subscription**
+
+| Записка | Состояние |
+|---|---|
+| [[rpc/subscription-service\|InternalSubscriptionService — общий контракт потока изменений]] | живо (stable) |
+
 **домен: vpc**
 
 | Записка | Состояние |
@@ -358,7 +364,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[rpc/vpc-internal-cloud-service\|InternalCloudService (removed)]] | история (deprecated) |
 | [[rpc/vpc-internal-network-interface-service\|InternalNetworkInterfaceService (vpc)]] | живо (stable) |
 | [[rpc/vpc-internal-network-service\|InternalNetworkService]] | живо (stable) |
-| [[rpc/vpc-internal-watch-service\|InternalWatchService (vpc — снят; у compute живёт)]] | история (deprecated) |
+| [[rpc/vpc-internal-watch-service\|InternalWatchService (снят и у vpc, и у compute — заменён общей подпиской)]] | история (deprecated) |
 | [[rpc/vpc-network-service\|NetworkService]] | живо (stable) |
 | [[rpc/vpc-networkinterface-service\|NetworkInterfaceService]] | живо (stable) |
 | [[rpc/vpc-privateendpoint-service\|PrivateEndpointService (снят)]] | история (deprecated) |
@@ -440,7 +446,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[edges/iam-to-jackson-saml\|iam → jackson: SAML bridge]] | история (deprecated) |
 | [[edges/iam-to-kafka-audit\|iam → kafka: audit event producer]] | в работе (planned) |
 | [[edges/iam-to-kratos-admin\|iam → kratos-admin: Identity / Session lifecycle]] | в работе (planned) |
-| [[edges/iam-to-nlb-resource-lifecycle\|iam → nlb: D-13 lifecycle subscribe (outbox stream)]] | в работе (planned) |
+| [[edges/iam-to-nlb-resource-lifecycle\|iam → nlb: D-13 lifecycle subscribe (outbox stream)]] | история (superseded) |
 | [[edges/iam-to-opa\|iam ↔ opa: sidecar policy evaluation]] | в работе (planned) |
 | [[edges/iam-to-openfga-check\|iam ↔ openfga: чтение вердикта и применение кортежей]] | живо (active) |
 | [[edges/iam-to-openfga-grant-write\|kacho-iam → OpenFGA (grant/revoke write)]] | живо (active) |
@@ -530,7 +536,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[edges/iam-to-scim-okta\|iam ← okta: inbound SCIM 2.0 (Okta SCIM 2.0 Test App)]] | история (deprecated) |
 
-### Пакеты — `packages/` (119)
+### Пакеты — `packages/` (120)
 
 **домен: (не указан)**
 
@@ -602,6 +608,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[packages/corelib-retry\|corelib-retry]] | живо (stable) |
 | [[packages/corelib-servicehost\|pkg/servicehost + pkg/servicecontract — носитель контура работы сервиса с моделью прав]] | живо (stable) |
 | [[packages/corelib-shutdown\|corelib-shutdown]] | история (wontfix) |
+| [[packages/corelib-subscription\|corelib-subscription]] | живо (stable) |
 | [[packages/corelib-validate\|corelib-validate]] | живо (stable) |
 
 **домен: kacho-geo**
@@ -631,7 +638,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 
 | Записка | Состояние |
 |---|---|
-| [[packages/nlb-apps-kacho-api-internal-lifecycle\|nlb-apps-kacho-api-internal-lifecycle]] | живо (stable) |
+| [[packages/nlb-apps-kacho-api-internal-lifecycle\|nlb-apps-kacho-api-internal-lifecycle (снят — механизм переехал в pkg/subscription)]] | история (superseded) |
 | [[packages/nlb-apps-kacho-api-listener\|nlb-apps-kacho-api-listener]] | живо (stable) |
 | [[packages/nlb-apps-kacho-api-loadbalancer\|nlb-apps-kacho-api-loadbalancer]] | живо (stable) |
 | [[packages/nlb-apps-kacho-api-operation\|nlb-apps-kacho-api-operation]] | живо (stable) |
@@ -721,7 +728,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 |---|---|
 | [[packages/all-packages\|all-packages]] | — |
 
-### Журнал работ (KAC) — `KAC/` (443)
+### Журнал работ (KAC) — `KAC/` (449)
 
 | Записка | Состояние |
 |---|---|
@@ -897,6 +904,8 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/iam-accessbinding-forward-materialization\|iam AccessBinding forward-fast-path materialization]] | живо (done) |
 | [[KAC/iam-invite-grant-fga-fix\|IAM invite/grant FGA — anchor-grant emits 0 + invite-activation no member-tuple + every-user default account]] | живо (done) |
 | [[KAC/iam-ui-vpc-parity\|IAM UI ↔ VPC parity (sub-phase 2.1) — UI-only epic]] | живо (done) |
+| [[KAC/identity-provider-retirement-2026-08\|Отказ от внешнего поставщика личности: свои полосы чеканки и своя таблица доверия]] | в работе (test) |
+| [[KAC/identity-stewardship-boundary-2026-08\|Граница распорядителя аккаунта: права выдают, личностью не распоряжаются]] | в работе (test) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/issue-1015\|#1015: долг iam сведён в одну линию с общим предикатом готовности]] | живо (done) |
 | [[KAC/issue-1085\|#1085: чтение членств разграничено тем, кто смотрит]] | в работе (in-progress) |
@@ -942,11 +951,11 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/issue-1180\|#1180: направление кейса берётся из идентификатора и перебивает заголовок]] | живо (done) |
 | [[KAC/issue-1181\|#1181: текст автора садился в порождаемый скрипт вклейкой, а не сериализатором]] | живо (done) |
 | [[KAC/issue-1184\|#1184: адресат удостоверения брался из запроса и не сверялся ни с чем]] | живо (done) |
-| [[KAC/issue-1187\|#1187: гейт рендера умирал молча — ноль байт вывода при коде 1]] | в работе (test) |
+| [[KAC/issue-1187\|#1187: гейт рендера умирал молча — ноль байт вывода и код 1]] | в работе (in-progress) |
 | [[KAC/issue-1188\|#1188: вход, устойчивый к посреднику — размен, названный предметом]] | история (superseded) |
-| [[KAC/issue-1189\|#1189: глагол снятия у ресурса человека объявлен без читателя — выдача не даёт ничего]] | в работе (to-do) |
+| [[KAC/issue-1189\|#1189: глагол удаления у типа личности без читателя — и перемер поправил сам предмет]] | в работе (in-progress) |
 | [[KAC/issue-1192\|#1192: федеративная выдача SA-ключа роняла часть записи доверия с провода]] | живо (done) |
-| [[KAC/issue-1194\|#1194: недоступность источника вердикта отвечала как негодное удостоверение]] | живо (done) |
+| [[KAC/issue-1194\|#1194: недоступность источника ключей — 503, а не 401]] | живо (done) |
 | [[KAC/issue-1195\|#1195: ещё шесть проверок посадки умирают молча — тот же класс]] | в работе (test) |
 | [[KAC/issue-1197\|#1197: словарь направления не читал отказ, объявленный кодом 5xx]] | в работе (test) |
 | [[KAC/issue-1198\|#1198: семь списочных утверждений fail-closed зеленели не своей полосой]] | в работе (test) |
@@ -965,12 +974,15 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/issue-1219\|#1219: над собственной строкой узкий выход не был назван]] | в работе (test) |
 | [[KAC/issue-1220\|#1220: значение вызывающего подставляется в ИМЯ, а не в литерал]] | в работе (test) |
 | [[KAC/issue-1221\|#1221: заполнение кэша не выведено серией; гейт накопителей судил перечень]] | в работе (test) |
-| [[KAC/issue-1222\|#1222: посадка без доменного имени невыразима — вход сломался бы при монтировании конфига личности]] | в работе (test) |
+| [[KAC/issue-1222\|#1222: посадка без доменного имени невыразима — вход сломался бы при монтировании конфига личности]] | живо (done) |
 | [[KAC/issue-1223\|#1223: шаг, снимающий предмет кейса, не утверждает исход — гейт был слеп к форме захвата]] | в работе (test) |
 | [[KAC/issue-1224\|#1224: два счётчика вердиктного разбора никто не читает]] | в работе (test) |
 | [[KAC/issue-1225\|#1225: страницы церемоний личности не монтировал ни один маршрут]] | в работе (test) |
 | [[KAC/issue-1227\|#1227: у одиннадцати читаемых полей удостоверения не был назван источник]] | в работе (test) |
+| [[KAC/issue-1236\|#1236: наш конфиг снимал схему, на которую ссылаются заведённые учётные записи]] | живо (done) |
 | [[KAC/issue-1237\|#1237: ключ служебной учётки неприменим под самой служебной учёткой]] | в работе (test) |
+| [[KAC/issue-1238\|#1238: список разрешённых адресов возврата замещается целиком — 9 записей из 10 исчезают молча]] | в работе (to-do) |
+| [[KAC/issue-1239\|#1239: третья копия тела схемы личности объявлена выше своего читателя и мертва]] | в работе (to-do) |
 | [[KAC/issue-1243\|#1243: четыре проверки посадки различают исход своими средствами, контракта не объявляя]] | в работе (test) |
 | [[KAC/issue-1244\|#1244: fail-closed слоя прав не покрыт поверхностной пробой]] | в работе (test) |
 | [[KAC/issue-1245\|#1245: полоса токенов принимает поле ответственного и выбрасывает молча]] | в работе (test) |
@@ -1165,6 +1177,7 @@ trail 73). За 2026-08-09 перечень сократился ровно на
 | [[KAC/sub-phase-T3.2-vpc-residual-label-feed\|vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)]] | живо (done) |
 | [[KAC/sub-phase-T3.3-unify-iam-label-scope-role-ab\|sub-phase T3.3 — unify IAM label-scope (role + access_binding, chunk 2)]] | живо (done) |
 | [[KAC/ui-console-fixes-wave-2026-08-15\|Волна правок консоли: путь до машины, границы отказа, форк, тексты, имена (2026-08-15)]] | в работе (test) |
+| [[KAC/watch-unified-change-stream-2026-08\|Поток изменений — один на платформу: контракт, общий сервер, снос двух частных реализаций]] | живо (done) |
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
