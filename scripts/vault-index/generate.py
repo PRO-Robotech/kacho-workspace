@@ -31,6 +31,45 @@ END = "<!-- GENERATED:vault-index END -->"
 
 VAULT = "obsidian/kacho"
 
+# Машинная часть живёт в СВОЁМ файле, прозаическая — в своём.
+#
+# Почему разделено (решение 2026-08-18, задачи #215 и #230). Пока обе части
+# лежали одним файлом, каждая параллельная линия правила один и тот же перечень,
+# и git обязан был спросить, чью версию взять — при том что верного ответа среди
+# двух НЕТ ВОВСЕ: верна третья, полученная пересборкой после слияния. Замер на
+# синтетике: две ветки от одной базы, по записке в каждой, — слияние падало
+# конфликтом; в форме, где конфликта не возникало (записки в разных категориях),
+# указатель молча оставался НЕВЕРНЫМ: «Всего» 650 там, где в дереве 651.
+#
+# Разделение само по себе конфликт не снимает — оно снимает СМЕШЕНИЕ: посадка
+# слияния задаётся файлу целиком, поэтому пока в одном файле лежала и проза, и
+# перечень, машинной половине нельзя было назначить посадку, не назначив её
+# заодно человеческому тексту, где конфликт осмыслен и обязан остаться. Саму
+# посадку несёт `.gitattributes` (`merge=union`), а её действенность проверяет
+# `scripts/vault-gate/check-05-index-split-holds.sh`.
+INDEX_PROSE = f"{VAULT}/INDEX.md"
+INDEX_NOTES = f"{VAULT}/INDEX-notes.md"
+
+# Шапка машинного файла — часть генерируемого текста, а не рукописная преамбула.
+# Рукописной строки здесь быть не должно: файл слит посадкой `union`, которая
+# человеческий текст молча склеила бы обеими версиями.
+HEADER = """---
+title: "INDEX-notes — перечень записок, собранный из дерева"
+category: hub
+status: active
+tags:
+  - hub
+  - index
+---
+
+# Перечень записок
+
+> [!warning] Файл собран машиной — правки руками не переживут ближайшую пересборку
+> Собирает `./scripts/vault-index/generate.py`, сверяет `--check` (гейт
+> `vault-gate` `check-04`). Прозаическая часть указателя — [[INDEX]]; правки
+> вводного текста идут туда.
+"""
+
 # Категории машинной части: каталог → (заголовок, поле группировки, подпись группы).
 CATEGORIES = [
     ("resources", "Ресурсы", "domain", "домен"),
@@ -57,7 +96,12 @@ def tracked_notes(root: str) -> list[str]:
         text=True,
         check=True,
     ).stdout.split()
-    return sorted(set(out))
+    # Сам перечень в перепись не входит: иначе его содержимое зависело бы от его
+    # же существования, и первая сборка не была бы неподвижной точкой — файла
+    # ещё нет, значит записок 654, а сразу после записи их уже 655, и вторая
+    # сборка дала бы другой текст. Самоописание тут ничего не сообщает читателю
+    # и стоило бы вечной второй пересборки.
+    return sorted(set(out) - {INDEX_NOTES})
 
 
 def frontmatter(path: str) -> dict[str, str]:
@@ -118,33 +162,32 @@ def render(root: str) -> str:
         "Ниже — **полный** перечень записок, собранный из дерева хранилища. "
         "Предикат счёта — `git ls-files --cached --others --exclude-standard "
         "'obsidian/kacho/*.md'`; пересобрать — `./scripts/vault-index/generate.py`, "
-        "проверить свежесть — `--check`."
+        "проверить свежесть — `--check`; сам этот файл в перепись не входит. Сколько записок рассмотрено, печатает гейт на каждом прогоне — здесь это число намеренно не записано: хранимое число устаревает молча, измеряемое — нет."
     )
     lines.append("")
 
-    total = 0
-    summary = []
-    for sub, heading, group_key, group_label in CATEGORIES:
-        items = sorted(by_dir.get(sub, []), key=lambda x: x[0])
-        items = [(r, f) for r, f in items if not r.endswith("/README.md")]
-        total += len(items)
-        summary.append((heading, sub, len(items)))
     root_items = sorted(by_dir.get("(корень)", []), key=lambda x: x[0])
-    total += len(root_items)
 
-    lines.append("| Категория | Каталог | Записок |")
-    lines.append("|---|---|---:|")
-    for heading, sub, n in summary:
-        lines.append(f"| {heading} | `{sub}/` | {n} |")
-    lines.append(f"| Точки входа и полотно | `(корень)` | {len(root_items)} |")
-    lines.append(f"| **Всего** | | **{total}** |")
-    lines.append("")
+    # СВОДНЫХ ЧИСЕЛ ЗДЕСЬ НЕТ, и это решение, а не упущение (2026-08-18, #215).
+    #
+    # Счётчик по категории и «Всего» — единственные строки файла, которые меняет
+    # ЛЮБАЯ записка в ЛЮБОЙ категории. Поэтому две линии, никак не пересекавшиеся
+    # по предмету, сталкивались на них при каждом слиянии: перечень оказывался
+    # либо конфликтным, либо — что хуже — молча неверным. Замер пяти
+    # последовательных слияний ствола в ветку на настоящем генераторе: со
+    # сводными числами гейт свежести краснел 5 раз из 5, без них — 0 из 5. Строки
+    # записок так не сталкиваются: они лежат в разных местах файла, и слияние
+    # сводит их само.
+    #
+    # Перепись не потеряна: её печатает гейт на КАЖДОМ прогоне
+    # (`[PASS] … рассмотрено записок N`), и это число всегда свежее любого
+    # записанного в текст — потому что оно измеряется, а не хранится.
 
     for sub, heading, group_key, group_label in CATEGORIES:
         items = [(r, f) for r, f in sorted(by_dir.get(sub, []), key=lambda x: x[0]) if not r.endswith("/README.md")]
         if not items:
             continue
-        lines.append(f"### {heading} — `{sub}/` ({len(items)})")
+        lines.append(f"### {heading} — `{sub}/`")
         lines.append("")
         if group_key:
             groups: dict[str, list[tuple[str, dict[str, str]]]] = {}
@@ -174,7 +217,7 @@ def render(root: str) -> str:
             lines.append("")
 
     if root_items:
-        lines.append(f"### Точки входа и полотно — корень хранилища ({len(root_items)})")
+        lines.append("### Точки входа и полотно — корень хранилища")
         lines.append("")
         lines.append("| Файл | Состояние |")
         lines.append("|---|---|")
@@ -186,7 +229,7 @@ def render(root: str) -> str:
         lines.append("")
 
     lines.append(END)
-    return "\n".join(lines)
+    return HEADER + "\n" + "\n".join(lines) + "\n"
 
 
 def main() -> int:
@@ -200,33 +243,61 @@ def main() -> int:
     # Спрашивать об этом перечнем в чужом скрипте значит завести второе место об
     # одном предмете: добавится второй выход — чужой перечень отстанет молча.
     if args.outputs:
-        print(f"{VAULT}/INDEX.md")
+        # С 2026-08-18 машинно производится ИМЕННО перечень, а не страница:
+        # `INDEX.md` стала прозой и правится человеком, поэтому объявлять её
+        # выходом значило бы велеть переписи считать её изменения машинными —
+        # то есть списывать со счёта авторскую работу. Ровно тот случай, о
+        # котором предупреждает комментарий выше: «добавится второй выход».
+        print(f"{INDEX_NOTES}")
         return 0
 
     # VAULT_GATE_ROOT — тем же способом, что у проверок набора: инъекция гоняет
     # генератор по временному дереву и не трогает рабочее.
     root = os.environ.get("VAULT_GATE_ROOT") or workspace_root()
-    index_path = os.path.join(root, VAULT, "INDEX.md")
-    text = open(index_path, encoding="utf-8").read()
+    notes_path = os.path.join(root, INDEX_NOTES)
 
-    if BEGIN not in text or END not in text:
-        print(f"[VOID] в {VAULT}/INDEX.md нет маркеров генератора — вставлять машинную часть некуда", file=sys.stderr)
+    # Ноль записок — НЕ «чисто». Пустая перепись означает, что предмета не
+    # нашлось вовсе (каталог переехал, git не отвечает, корень указан не тот), и
+    # тогда любое сравнение тривиально сходится: генератор произвёл бы пустой
+    # перечень, файл содержал бы пустой перечень, вердикт был бы зелёным. Это и
+    # есть «ноль находок», неотличимый от «ноль прочитанного».
+    seen = len(tracked_notes(root))
+    if seen == 0:
+        print(
+            f"[VOID] в {root}/{VAULT} не прочитано НИ ОДНОЙ записки — "
+            "сверять перечень не с чем; это предпосылка, а не чистое хранилище",
+            file=sys.stderr,
+        )
         return 2
 
-    head, rest = text.split(BEGIN, 1)
-    _, tail = rest.split(END, 1)
-    new = head + render(root) + tail
+    new = render(root)
 
     if args.check:
-        if new != text:
-            print("[FAIL] INDEX.md отстал от дерева — пересобрать: ./scripts/vault-index/generate.py", file=sys.stderr)
+        try:
+            have = open(notes_path, encoding="utf-8").read()
+        except OSError:
+            # Отсутствие файла — расхождение, а не отсутствие предмета: предмет
+            # (записки) прочитан, а его перечня нет. Молчать здесь значило бы
+            # зеленеть ровно на удалении машинной половины указателя.
+            print(
+                f"[FAIL] {INDEX_NOTES} в дереве нет, а записок прочитано {seen} — "
+                "пересобрать: ./scripts/vault-index/generate.py",
+                file=sys.stderr,
+            )
             return 1
-        n = len(tracked_notes(root))
-        print(f"[PASS] INDEX.md совпадает с деревом — рассмотрено записок {n}")
+        if new != have:
+            print(
+                f"[FAIL] {INDEX_NOTES} отстал от дерева (прочитано записок {seen}) — "
+                "пересобрать: ./scripts/vault-index/generate.py",
+                file=sys.stderr,
+            )
+            return 1
+        print(f"[PASS] {INDEX_NOTES} совпадает с деревом — рассмотрено записок {seen}")
         return 0
 
-    open(index_path, "w", encoding="utf-8").write(new)
-    print(f"INDEX.md пересобран; записок в дереве {len(tracked_notes(root))}")
+    os.makedirs(os.path.dirname(notes_path), exist_ok=True)
+    open(notes_path, "w", encoding="utf-8").write(new)
+    print(f"{INDEX_NOTES} пересобран; записок в дереве {seen}")
     return 0
 
 
