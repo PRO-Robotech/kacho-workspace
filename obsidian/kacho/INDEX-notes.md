@@ -443,6 +443,7 @@ tags:
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
+| [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
@@ -883,6 +884,7 @@ tags:
 | [[KAC/issue-1294\|#1294: объявленный уборщик целей nlb — дубль живой уборки раннера]] | в работе (test) |
 | [[KAC/issue-1302\|#1302: уборка идемпотентности брала постоянную партию при внешнем темпе]] | в работе (test) |
 | [[KAC/issue-1303\|#1303: страница защиты от повтора описывала полосу, не действующую в боевой посадке]] | в работе (test) |
+| [[KAC/issue-1367\|#1367: newman — 25 идентичных помощников генератора в восьми копиях]] | в работе (test) |
 | [[KAC/issue-138-f5\|XC-12 Ф5: перезамер стоимости полномодельной формы на сегодняшнем дереве]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
