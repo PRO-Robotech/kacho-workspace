@@ -1077,6 +1077,7 @@ tags:
 | Записка | Состояние |
 |---|---|
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
+| [[lessons/a-map-that-restates-instead-of-pointing\|Карта, которая пересказывает решение вместо адреса, расходится с телом при первой же правке]] | — |
 | [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
 | [[lessons/a-ratio-of-two-stand-quantities-is-not-a-property-of-the-code\|Отношение двух стендовых величин — не свойство кода, и оно устаревает за сутки]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
@@ -1086,9 +1087,11 @@ tags:
 | [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
 | [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
+| [[lessons/claim-wider-than-what-was-done\|Заявление шире сделанного: чего не видно в диффе и что находит только опыт]] | — |
 | [[lessons/comparing-two-places-needs-proof-they-are-the-two\|Расхождение двух мест доказывается тем, что это ТЕ САМЫЕ два места]] | живо (stable) |
 | [[lessons/computed-immutable-field-replaces-on-every-edit\|Вычисляемое неизменяемое поле пересоздаёт ресурс от правки чего угодно]] | — |
 | [[lessons/db-refusal-in-open-tx-wedges-the-probe\|Отказ базы внутри открытой транзакции вешает пробу вместо падения]] | — |
+| [[lessons/dead-code-is-not-code-without-callers\|«Мёртвый код» и «код без вызывающих» — разные вещи, и путают их в обе стороны]] | — |
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
