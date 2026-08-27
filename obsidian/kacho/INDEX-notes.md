@@ -58,6 +58,7 @@ tags:
 | [[resources/iam-jit-eligibility\|AccessBindingJITEligibility]] | история (deprecated) |
 | [[resources/iam-jwks-key\|JWKS Key (alias)]] | история (deprecated) |
 | [[resources/iam-limit\|Limit]] | живо (done) |
+| [[resources/iam-membership\|Membership]] | в работе (in-progress) |
 | [[resources/iam-oidc-jwks-key\|OIDCJwksKey]] | история (deprecated) |
 | [[resources/iam-organization\|Organization]] | история (deprecated) |
 | [[resources/iam-project\|Project]] | живо (done) |
@@ -170,6 +171,7 @@ tags:
 | [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
+| [[rpc/iam-membership-service\|MembershipService]] | в работе (in-progress) |
 | [[rpc/iam-opa-bundle-service\|OPABundleService]] | история (deprecated) |
 | [[rpc/iam-organization-service\|OrganizationService]] | история (deprecated) |
 | [[rpc/iam-permission-catalog-service\|PermissionCatalogService]] | в работе (test) |
@@ -792,7 +794,7 @@ tags:
 | [[KAC/identity-stewardship-boundary-2026-08\|Граница распорядителя аккаунта: права выдают, личностью не распоряжаются]] | в работе (test) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/issue-1015\|#1015: долг iam сведён в одну линию с общим предикатом готовности]] | живо (done) |
-| [[KAC/issue-1085\|#1085: чтение членств разграничено тем, кто смотрит]] | в работе (in-progress) |
+| [[KAC/issue-1085\|#1085: чтение членств разграничено тем, кто смотрит]] | в работе (test) |
 | [[KAC/issue-1087\|#1087: домен описывается манифестом — права, роли и модель из одного YAML]] | в работе (in-progress) |
 | [[KAC/issue-1102\|#1102: распоряжение строкой личности — не право аккаунта]] | живо (done) |
 | [[KAC/issue-1114\|#1114: отношение биллинга объявлено под домен, которого нет]] | живо (done) |
