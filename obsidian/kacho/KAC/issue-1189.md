@@ -4,12 +4,14 @@ aliases:
   - issue-1189
 ticket_id: 1189
 category: kac
-status: in-progress
+status: done
 type: refactor
 repos:
   - kacho
 areas:
   - services/iam
+prs:
+  - https://github.com/PRO-Robotech/kacho/pull/1203
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1189
 opened: 2026-08-24
 tags:
@@ -99,6 +101,7 @@ tags:
 - класс: [[lessons/checks-with-form-but-no-substance]]
 - класс: [[lessons/report-was-false-when-written-not-stale]] — заголовок называл несуществующую роль
 - класс: [[lessons/known-failing-declaration-outlives-the-fix]] — перечни обязаны самоистекать
+- [[rpc/iam-permission-catalog-service]] — словарь, из которого глагол предлагается
 
 ## Связанные задачи
 

@@ -10,6 +10,7 @@ repos:
   - kacho
 areas:
   - ci
+  - tools
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/1203
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1180
@@ -19,6 +20,7 @@ tags:
   - kac
   - kacho-iam
   - testing
+  - kacho-test
 ---
 
 # #1180: направление кейса берётся из идентификатора
@@ -77,6 +79,8 @@ tags:
 - [[KAC/issue-1197]] — следующий предмет того же механизма: словарь и коды 5xx
 - [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently]] — предикат исполним и уверен, а читает не то, о чём утверждает
 - [[lessons/known-failing-declaration-outlives-the-fix]] — поимённый перечень обязан истекать сам, иначе переживёт свой предмет
+- [[packages/kacho-newman-gate]] — гейт, у которого правится единица чтения
+- [[packages/iam-tests-newman-scripts]] — генерация, где предложено держать вторую проверку
 
 ## Связанные задачи
 
