@@ -205,7 +205,6 @@ by construction. С двумя артефактами прогон даёт ро
 
 - [x] APPROVED от `acceptance-reviewer` — шестой раунд, 2026-08-19; вердикт вынесен прогоном
 - [x] решение записано в приёмке (§1, §2) с предикатом пересмотра (§1.5)
-- [ ] PR `PRO-Robotech/kacho-workspace#300` влит в `main`
 - [x] PR `PRO-Robotech/kacho-workspace#300` влит в `main` (файл приёмки резолвится на `origin/main`)
 - [x] решение записано в `services/iam/docs/engineering/architecture/` (сценарий R7-2-22) —
       `group-membership-is-one-level.md`, 2026-08-20

@@ -1,5 +1,5 @@
 ---
-title: nlb-apps-kacho-api-internal-lifecycle
+title: nlb-apps-kacho-api-internal-lifecycle (снят — механизм переехал в pkg/subscription)
 category: packages
 repo: kacho-nlb
 layer: use-case
@@ -9,60 +9,74 @@ tags:
   - handler
   - internal
   - lifecycle
-status: stable
-verified_against: "координаты пакета сверены с деревом продукта 1653387b (2026-08-06): перечень файлов, ручка ограничения стримов, имя порта; текст записки построчно не пересматривался"
+  - deprecated
+status: superseded
+verified_against: "координаты пересверены с деревом продукта 16f3313f (2026-08-24, вровень с origin/main): каталога пакета, порта фида и его pgx-реализации в дереве НЕТ ни одного; текст записки переписан под это состояние"
 ---
 
-# kacho-nlb/internal/apps/kacho/api/internal_lifecycle
+# kacho-nlb: пакет частного потока жизненного цикла — СНЯТ
 
-**Каталог**: `services/nlb/internal/apps/kacho/api/internal_lifecycle/` — монорепо `PRO-Robotech/kacho` (прежде, в полирепо: `kacho-nlb/internal/apps/kacho/api/internal_lifecycle/`)
-**Implements**: [[../rpc/nlb-internal-resource-lifecycle-service|InternalResourceLifecycleService]]
-**Imports**: [[nlb-repo-kacho-pg]] (outbox + watch_cursors), [[corelib-grpcsrv]]
+> [!warning] Записка описывает ПРОШЛОЕ. Пакета в дереве нет ни в одном файле
+> Прежняя редакция описывала живой пакет и называла четыре координаты: каталог
+> `…/api/internal_lifecycle/`, файл семафора, порт доступа к фиду в repo-слое и его
+> pgx-реализацию. **В дереве не резолвится ни одна** — пакет снят целиком задачей
+> [`kacho#1043`](https://github.com/PRO-Robotech/kacho/issues/1043), влитой в ствол
+> через MR #1151.
+>
+> Предикат, которым это перепроверяется за секунду (ожидание — пусто):
+> ```sh
+> git ls-tree -r origin/main --name-only | grep -i internal_lifecycle
+> ```
+>
+> Записка не удалена намеренно: без неё следующий читатель, найдя ссылки на этот
+> пакет в исторических трейлах ([[KAC/KAC-141]]) и в ребре [[edges/iam-to-nlb-resource-lifecycle]],
+> заведёт снятое заново.
 
-Server-streaming D-13 lifecycle service. **Internal-only** (port 9091, workspace #6).
+## Что здесь было
 
-## Files
+Server-streaming обработчик подписки на изменения ресурсов nlb, **внутренний**
+(слушатель :9091). Один метод `Subscribe`: слот семафора → выделенное соединение вне
+пула → `LISTEN` на канал журнала → догоняющее чтение батчами → ожидание уведомления →
+отправка события в поток. Позиция подписчика хранилась **на сервере**, в таблице
+курсоров по подписчику. Потолок одновременных потоков — ключ конфигурации
+`internal-lifecycle.max-streams`, умолчание 32; превышение отвечало `RESOURCE_EXHAUSTED`.
 
-| File | Содержание |
+Контракт этого потока описан историей в [[rpc/nlb-internal-resource-lifecycle-service]].
+
+## Почему снят — потребителя не было НИ ОДНОГО
+
+Механизм был написан целиком, оплачивался ресурсами (соединение вне пула, слот
+семафора, таблица курсоров) и проходил гейты старта — **и никем не потреблялся**.
+Замер зафиксирован ещё до снятия, в [[edges/iam-to-nlb-resource-lifecycle]]: сервер
+жив, клиента ноль. Провязать подписку в остальных доменах копированием значило бы
+завести очередную копию одного механизма.
+
+Решение владельца: формат подписки один на всех, определённый в фундаменте как
+переиспользуемый механизм; частные реализации снимаются и переводятся на него.
+
+## Куда переехало
+
+| что было здесь | где живёт сегодня |
 |---|---|
-| `handler.go` | `Subscribe(req, stream)` целиком: semaphore acquire → `feed.Open` (dedicated LISTEN-сессия вне pool'а) → catchup батчами → WaitForNotification (30s) → `stream.Send`. Здесь же package-doc с полным алгоритмом |
-| `semaphore.go` | счётный семафор, ограничивающий число одновременных стримов |
-| `*_test.go` | unit + integration (testcontainers): порядок коммита, семафор, resume по курсору |
+| сервер потока (слоты, выделенное соединение, догоняющее чтение) | [[packages/corelib-subscription]] — `pkg/subscription/` |
+| форма события и оси подписки | [[rpc/subscription-service]] — `proto/kacho/cloud/subscription/` |
+| позиция подписчика | **у клиента**, а не в таблице сервера — см. разбор в [[KAC/watch-unified-change-stream-2026-08]] |
 
-> [!note] Отдельного файла под цикл подписки в пакете нет
-> Прежняя редакция перечисляла ещё три файла — под цикл подписки, под порт и под
-> маршалинг события. Ни одного из них в каталоге нет, и, судя по всему, не было:
-> цикл живёт целиком в `handler.go`, а порт доступа к фиду вынесен **в repo-слой**
-> (`services/nlb/internal/repo/kacho/iface_lifecycle.go`, интерфейс `LifecycleFeed`;
-> pgx-реализация — `services/nlb/internal/repo/kacho/pg/lifecycle_feed.go`). Это
-> и есть dependency rule: pgx в use-case не поднимается. Имя порта в прежней
-> редакции тоже было своё и в дереве не встречается.
+Перенос сверен **переписью по механизму**, а не впечатлением: каждый отличительный
+приём снятого потока предъявлен аналогом в общем сервере. Числа и предикат переписи —
+в [[KAC/watch-unified-change-stream-2026-08]]; здесь они не воспроизводятся, чтобы два
+места об одном предмете не разошлись.
 
-## Semaphore guard
+## Чем удержано, что копия не заведётся снова
 
-Потолок одновременных `Subscribe`-стримов — ключ YAML-конфига `internal-lifecycle.max-streams`,
-default **32**. При превышении — `ResourceExhausted`. Защищает от исчерпания pgx-пула:
-каждый стрим держит **dedicated** соединение (вне пула), поэтому слот ≈ +1 conn к Postgres.
-`Config.Validate()` требует значение > 0, `NewHandler` панику на `<=0` держит как safety-net.
+Гейтом дерева на **единственность** сервера потока (`internal/repohygiene`, набор
+`subscriptionserversingularity*`): второй самодельный сервер подписки в дереве —
+находка, а не стиль. То есть запрет держится проверкой, а не этой запиской.
 
-> [!warning] Ручка задаётся конфигом, а не переменной окружения с отдельным именем
-> Прежняя редакция называла переменную окружения, которой в дереве нет ни в коде, ни в
-> чарте. Конфиг nlb — viper/YAML: canonical-источник — ключ конфигмапа, а переменные
-> окружения биндятся автоматически из **того же** ключа (`SetEnvPrefix` + замена `.` на
-> `__`), поэтому отдельного имени под этот потолок никто не объявлял. Проверять надо ключ.
+## См. также
 
-## Catchup vs realtime
+[[rpc/nlb-internal-resource-lifecycle-service]] · [[edges/iam-to-nlb-resource-lifecycle]] ·
+[[packages/corelib-subscription]] · [[KAC/watch-unified-change-stream-2026-08]] ·
+[[packages/nlb-repo-kacho-pg]]
 
-1. **Catchup batch**: `SELECT FROM nlb_outbox WHERE sequence_no > $cursor ORDER BY sequence_no LIMIT 100` — sends to client as `LifecycleEvent`s.
-2. **Realtime**: dedicated pgx-conn `LISTEN nlb_outbox` → `WaitForNotification` 30s; on notification → read row by `sequence_no` → send event.
-3. **Cursor save**: `nlb_watch_cursors (subscriber_id, last_sequence_no)` — persisted resume position.
-
-## Consumer
-
-Primarily [[../edges/iam-to-nlb-resource-lifecycle|kacho-iam]] для D-13 FGA hierarchy tuple maintenance.
-
-## See also
-
-[[../rpc/nlb-internal-resource-lifecycle-service]] [[../edges/iam-to-nlb-resource-lifecycle]] [[nlb-repo-kacho-pg]] [[corelib-outbox]]
-
-#packages #kacho-nlb #handler #internal #lifecycle
+#packages #kacho-nlb #handler #internal #lifecycle #deprecated
