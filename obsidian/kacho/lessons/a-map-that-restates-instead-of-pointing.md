@@ -71,6 +71,11 @@ grep -nE 'снят|возвращён|переписан|отозван|приз
 соседние документы, где то же решение может быть пересказано. Правка по найденной строке
 закрывает находку и оставляет класс.
 
-Связано: [[doc-next-to-the-code-outranks-the-gate]],
-[[radius-from-the-diff-instead-of-the-mechanism-name]],
-[[claim-wider-than-what-was-done]].
+Связано: [[claim-wider-than-what-was-done]].
+
+Рядом лежат два класса, записок под которыми в хранилище **нет**:
+`doc-next-to-the-code-outranks-the-gate` (документ рядом с кодом перевешивает гейт, стоящий
+поодаль) и `radius-from-the-diff-instead-of-the-mechanism-name` (радиус правки взят из
+диффа, а не по имени механизма). Оба названы текстом, а не ссылкой: новая висячая цель
+роняет храповик `check-02` (`scripts/vault-gate/dangling-baseline.txt`). Имена сохранены
+дословно — заведут записки под ними, и ссылки встанут без переименования.

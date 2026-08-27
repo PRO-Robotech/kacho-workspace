@@ -63,5 +63,10 @@ opened: 2026-08-23
 удалением; «техника `X` живёт в `Y`» выполняется только переносом. Разница видна лишь тогда,
 когда её записали.
 
-Связано: [[a-fix-propagates-exactly-as-far-as-its-gate]],
-[[claim-wider-than-what-was-done]], [[checks-with-form-but-no-substance]].
+Связано: [[claim-wider-than-what-was-done]], [[checks-with-form-but-no-substance]].
+
+Рядом лежит класс `a-fix-propagates-exactly-as-far-as-its-gate` — починка расходится ровно
+настолько, насколько хватает её гейта. Записки под этим именем в хранилище **нет**, поэтому
+он назван текстом, а не ссылкой: новая висячая цель роняет храповик `check-02`
+(`scripts/vault-gate/dangling-baseline.txt`). Имя сохранено дословно — заведут записку под
+ним, и ссылка встанет без переименования.
