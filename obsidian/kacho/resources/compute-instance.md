@@ -100,9 +100,24 @@ Public — lean (id/name/labels/bindings/intent/`status(11-state)`). **Internal\
 > [!important] Дубля Volume/Snapshot/Image/DiskType в compute больше нет
 > Перепись по стволу 2026-08-05. Миграции, снявшие дубль:
 > `0013_drop_attached_disks.sql`, `0021_drop_block_storage_duplicates.sql`,
-> `0022_drop_disk_types.sql`. Живых таблиц у compute **семь**: `instances`,
-> `machine_types`, `instance_network_interfaces`, `operations`, `compute_outbox`,
-> `compute_fga_register_outbox`, `compute_watch_cursors`.
+> `0022_drop_disk_types.sql`. Перечень живых таблиц, снятый в тот день, был **семь**:
+> `instances`, `machine_types`, `instance_network_interfaces`, `operations`,
+> `compute_outbox`, `compute_fga_register_outbox`, `compute_watch_cursors`.
+>
+> > [!warning] Этот перечень УСТАРЕЛ — перемерено 2026-08-28, и в обе стороны
+> > `compute_watch_cursors` **снята** — таблица серверных курсоров подписки, у которой
+> > не было ни одного прод-читателя за всю жизнь; миграция
+> > `20260823221500_drop_watch_cursors.sql`, задача `kacho#1046`, **влито в ствол**.
+> > Снята она не за то, что мертва: позиция подписки принадлежит клиенту, и таблица
+> > курсоров *по подписчику* читается как указание обратного. Три её сестры у vpc, nlb
+> > и iam снимаются задачей [[KAC/issue-1148]].
+> >
+> > В другую сторону перечень тоже разошёлся: домен с 5 августа вырос. Обход
+> > Up-секций миграций на стволе `a9be7df26` даёт **13** живых таблиц — число здесь
+> > **ориентир, а не гейт**, предикат грубый (считает `CREATE TABLE` / `DROP TABLE` в
+> > Up-секциях цепочки) и назван затем, чтобы его можно было повторить и опровергнуть.
+> > Перечень поимённо здесь не переписывается: он не предмет этой записки и разойдётся
+> > снова — предмет записки ниже, и он про ретайр блочного хранения.
 >
 > Удерживает ретайр **гейт** `services/compute/internal/check/retired_block_storage_test.go`
 > (и парный в iam). Он проверяет **обе половины**, потому что каждая по отдельности
