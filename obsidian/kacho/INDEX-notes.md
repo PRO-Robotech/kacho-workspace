@@ -443,6 +443,7 @@ tags:
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
+| [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
@@ -893,8 +894,11 @@ tags:
 | [[KAC/issue-1353\|#1353: четыре места об одном предмете — состав служб на внутреннем слушателе]] | в работе (to-do) |
 | [[KAC/issue-1354\|#1354: перечень привилегий субъекта отдаётся целиком — решено сузить построчно]] | в работе (to-do) |
 | [[KAC/issue-1356\|#1356: таблицу с внешним темпом без ограничителя не находит ни один гейт]] | в работе (to-do) |
+| [[KAC/issue-1367\|#1367: newman — 25 идентичных помощников генератора в восьми копиях]] | в работе (test) |
+| [[KAC/issue-1369\|#1369: арендаторская полоса операции объявлена семь раз]] | в работе (test) |
 | [[KAC/issue-138-f5\|XC-12 Ф5: перезамер стоимости полномодельной формы на сегодняшнем дереве]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
+| [[KAC/issue-1380\|#1380: посадка судится в четырёх местах, и двое до общей не доходят]] | в работе (test) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
 | [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
@@ -1114,6 +1118,7 @@ tags:
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
+| [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
 | [[lessons/guard-whose-concurrency-domain-is-narrower-than-the-fleet\|Защита, чей домен параллелизма уже домена флота]] | живо (stable) |
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
