@@ -461,6 +461,7 @@ tags:
 | [[packages/apigw-opsproxy\|apigw-opsproxy]] | живо (stable) |
 | [[packages/apigw-proxy\|apigw-proxy]] | живо (stable) |
 | [[packages/apigw-restmux\|apigw-restmux]] | живо (stable) |
+| [[packages/gateway-subscriptionstream\|gateway-subscriptionstream]] | в работе (in-progress) |
 
 **домен: kacho-compute**
 
@@ -793,6 +794,9 @@ tags:
 | [[KAC/identity-stewardship-boundary-2026-08\|Граница распорядителя аккаунта: права выдают, личностью не распоряжаются]] | в работе (test) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/issue-1015\|#1015: долг iam сведён в одну линию с общим предикатом готовности]] | живо (done) |
+| [[KAC/issue-1020\|#1020: край проецирует поток изменений в браузер одной ручкой]] | в работе (in-progress) |
+| [[KAC/issue-1053\|#1053: чтение журнала ограничено сверху границей устоявшегося]] | в работе (test) |
+| [[KAC/issue-1072\|#1072: подписка опознаётся свойством объявления, а не именем сообщения]] | в работе (test) |
 | [[KAC/issue-1085\|#1085: чтение членств разграничено тем, кто смотрит]] | в работе (in-progress) |
 | [[KAC/issue-1087\|#1087: домен описывается манифестом — права, роли и модель из одного YAML]] | в работе (in-progress) |
 | [[KAC/issue-1102\|#1102: распоряжение строкой личности — не право аккаунта]] | живо (done) |
@@ -818,6 +822,7 @@ tags:
 | [[KAC/issue-1142\|#1142: базового токена доступа не существует — есть только ключевая пара]] | в работе (test) |
 | [[KAC/issue-1143\|#1143: докер-полоса перестаёт принимать ключевой материал как пароль]] | в работе (test) |
 | [[KAC/issue-1146\|#1146: контроль надмножества у перечня личных токенов красен на накопительной ветке]] | живо (done) |
+| [[KAC/issue-1148\|#1148: три таблицы серверных курсоров подписки сняты (vpc, nlb, iam)]] | в работе (in-progress) |
 | [[KAC/issue-1152\|#1152: ведомость предела закрытий пула отстала на единицу — красно на релизной ветке]] | живо (done) |
 | [[KAC/issue-1156\|#1156: шапка полосы отзыва утверждала, что вызывающего нет — он есть]] | живо (done) |
 | [[KAC/issue-1161\|#1161: цепочка профилей стенда объявлена, а раскатывать её нечем]] | в работе (test) |
@@ -1077,7 +1082,7 @@ tags:
 | [[KAC/sub-phase-T3.2-vpc-residual-label-feed\|vpc residual label-feed: routeTable/address/gateway/NIC (T3.2 / #113-residual)]] | живо (done) |
 | [[KAC/sub-phase-T3.3-unify-iam-label-scope-role-ab\|sub-phase T3.3 — unify IAM label-scope (role + access_binding, chunk 2)]] | живо (done) |
 | [[KAC/ui-console-fixes-wave-2026-08-15\|Волна правок консоли: путь до машины, границы отказа, форк, тексты, имена (2026-08-15)]] | в работе (test) |
-| [[KAC/watch-unified-change-stream-2026-08\|Поток изменений — один на платформу: контракт, общий сервер, снос двух частных реализаций]] | живо (done) |
+| [[KAC/watch-unified-change-stream-2026-08\|Поток изменений — один на платформу: контракт, общий сервер, снос двух частных реализаций]] | в работе (in-progress) |
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wave-platform-2026-08-22\|Волна 2026-08-22 — линия platform, семь предметов и два несовместимых гейта]] | в работе (in-progress) |
@@ -1128,6 +1133,7 @@ tags:
 | [[lessons/probe-varies-one-axis-while-cost-has-two\|Проба варьирует одну ось, а у стоимости их две — и вторая невидима by construction]] | — |
 | [[lessons/production-profile-cannot-bootstrap-from-scratch\|Профиль, который поднимается только поверх однажды поднятого]] | — |
 | [[lessons/projection-fed-by-one-producer-of-many\|Проекция, которую наполняет один производитель из многих, отвечает «нет» на всё — и выглядит рабочей]] | — |
+| [[lessons/recognizer-boundary-is-part-of-its-contract\|Граница распознавателя — часть его контракта: названная слепота отличима от отсутствия предмета]] | — |
 | [[lessons/red-gate-on-a-tree-check-the-base-first\|Красное на гейте, читающем дерево: сперва проверь СВЕЖЕСТЬ базы, а не предмет]] | — |
 | [[lessons/report-was-false-when-written-not-stale\|Отчёт был ложным в момент написания — это не устаревание]] | — |
 | [[lessons/revocation-that-binds-at-issue-not-at-presentation\|Отзыв, действующий на выдаче, но не на предъявлении]] | — |
