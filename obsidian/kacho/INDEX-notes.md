@@ -887,6 +887,7 @@ tags:
 | [[KAC/issue-1367\|#1367: newman — 25 идентичных помощников генератора в восьми копиях]] | в работе (test) |
 | [[KAC/issue-138-f5\|XC-12 Ф5: перезамер стоимости полномодельной формы на сегодняшнем дереве]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
+| [[KAC/issue-1380\|#1380: geo объявлял посадочные ручки и не читал ни одной]] | в работе (test) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
 | [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
@@ -1106,6 +1107,7 @@ tags:
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
+| [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
 | [[lessons/guard-whose-concurrency-domain-is-narrower-than-the-fleet\|Защита, чей домен параллелизма уже домена флота]] | живо (stable) |
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |

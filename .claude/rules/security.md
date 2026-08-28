@@ -335,14 +335,25 @@ secure-by-default boot-guards, HS256 stand-in вместо Hydra-RS256. Инва
    `services/vpc/internal/apps/kacho/config/mode.go` (`Mode{Dev,Production,ProductionStrict}` +
    `IsProduction`) и `.../config/validate.go` (`Config.Validate`, `ValidateBoot`,
    `ValidateServerMTLS`, `ValidatePeerTransport`, `ValidateListFilter`); geo —
-   `services/geo/cmd/kacho-geo/serve.go:361` (`validateSecurityConfig`).
+   `services/geo/internal/apps/kacho/config/validate.go` (`Config.Validate`).
 
-   > [!note] Прежняя редакция приписывала `validateSecurityConfig` и vpc — такой функции там нет
-   > Предикат: `git grep -l validateSecurityConfig -- services/vpc` → **пусто**; функция живёт в
-   > geo (6 файлов), storage (2), registry (5), в vpc — **0**. Ссылка на несуществующую точку
-   > входа посылает читателя искать защиту не там, а найдя пустоту — заключить, что защиты нет
-   > вовсе. Ошибка сама по себе мелкая; поучительно, что она пережила несколько правок этого
-   > абзаца, потому что «geo/vpc» читается как одно имя и глазом не разбирается на два.
+   > [!note] Здесь дважды стояло имя `validateSecurityConfig` — и оба раза мимо (перемерено 2026-08-28)
+   > Прежняя редакция приписывала функцию vpc; поправка приписала её geo. **Верны обе половины
+   > отрицания и неверна утвердительная**: предикат `git grep -l validateSecurityConfig --
+   > services/` даёт **только registry**, у geo и vpc — ноль. Правка исправила одно ложное имя
+   > на другое ложное, потому что перемерялось опровержение, а не утверждение.
+   >
+   > Сильнее того: **у geo стража не было вовсе** до задачи продукта #1380. Он объявлял
+   > `AUTH_MODE`, `DB_SSLMODE` (умолчание `disable`) и обе ручки круга отправителей — и не читал
+   > ни одну; самоотчёт о посадке существовал и создавал видимость контроля. То есть строка
+   > этого правила два круга подряд утверждала наличие защиты там, где её не было, и посылала
+   > читателя к несуществующей координате — ровно тот исход, о котором предупреждает сама
+   > заметка.
+   >
+   > Ссылка на точку входа обязана перемеряться **предикатом на утверждение**, а не только на
+   > опровержение: «функции нет у vpc» не доказывает, что она есть у geo. Держится это сегодня
+   > гейтом продукта `internal/repohygiene` `TestServiceDeclaringPostureKnobsHasABootGuard` —
+   > сервис, объявляющий посадочные ручки, обязан нести стража **и звать его**.
 
    **`AuthMode` declared-but-never-read = ЗАПРЕЩЕНО**: объявленный, но нечитаемый режим — это
    **мёртвый guard**, при котором сервис поднимается в insecure-посадке, называя себя production,
