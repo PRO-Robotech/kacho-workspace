@@ -443,6 +443,7 @@ tags:
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
+| [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
@@ -792,6 +793,7 @@ tags:
 | [[KAC/identity-stewardship-boundary-2026-08\|Граница распорядителя аккаунта: права выдают, личностью не распоряжаются]] | в работе (test) |
 | [[KAC/inservice-authz-scope-parity-2026-07-22\|inservice-authz-scope-parity-2026-07-22]] | живо (done) |
 | [[KAC/issue-1015\|#1015: долг iam сведён в одну линию с общим предикатом готовности]] | живо (done) |
+| [[KAC/issue-1019\|#1019: compute и nlb — общий сервер потока изменений провязан]] | в работе (test) |
 | [[KAC/issue-1085\|#1085: чтение членств разграничено тем, кто смотрит]] | в работе (in-progress) |
 | [[KAC/issue-1087\|#1087: домен описывается манифестом — права, роли и модель из одного YAML]] | в работе (in-progress) |
 | [[KAC/issue-1102\|#1102: распоряжение строкой личности — не право аккаунта]] | живо (done) |
@@ -875,8 +877,10 @@ tags:
 | [[KAC/issue-1248\|#1248: порядок правил раздачи уводит ресурсы службы личности в запасной путь]] | в работе (test) |
 | [[KAC/issue-1249\|#1249: свежий клон консоли недопроверяется молча]] | в работе (test) |
 | [[KAC/issue-1250\|#1250: пять шагов уборки состязательных кейсов vpc не утверждают исход]] | в работе (test) |
+| [[KAC/issue-1367\|#1367: newman — 25 идентичных помощников генератора в восьми копиях]] | в работе (test) |
 | [[KAC/issue-138-f5\|XC-12 Ф5: перезамер стоимости полномодельной формы на сегодняшнем дереве]] | живо (done) |
 | [[KAC/issue-138\|XC-12: ролевая модель внутри iam — перенос остановлен после Ф5 (#138)]] | в работе (in-progress) |
+| [[KAC/issue-1380\|#1380: geo объявлял посадочные ручки и не читал ни одной]] | в работе (test) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
 | [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
@@ -947,6 +951,7 @@ tags:
 | [[KAC/issue-523\|issue-523 — ci: гейт чтения исходников консоли краснеет на синтетике соседа]] | в работе (test) |
 | [[KAC/issue-524\|issue-524 — ci: ведомость закрытий пула отстала на три места]] | в работе (test) |
 | [[KAC/issue-530\|#530 (R1): гейты и пригодность вердикта — релиз влит]] | в работе (in-progress) |
+| [[KAC/issue-533\|#533: R4 deforking — линия сведения форка консоли к общему]] | в работе (in-progress) |
 | [[KAC/issue-537\|issue-537 — git: работа семи веток оказалась в стволе, потерь ноль]] | живо (done) |
 | [[KAC/issue-550\|issue-550 — vpc: ветку владения при снятии аренды проверяет проба владельца]] | в работе (test) |
 | [[KAC/issue-556\|issue-556 — ui: второе дерево маршрутов vpc снято вместе со своей пробой]] | в работе (test) |
@@ -1095,6 +1100,7 @@ tags:
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
+| [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
 | [[lessons/guard-whose-concurrency-domain-is-narrower-than-the-fleet\|Защита, чей домен параллелизма уже домена флота]] | живо (stable) |
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
