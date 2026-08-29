@@ -288,6 +288,7 @@ tags:
 | [[edges/apigw-internal-rest-listener\|api-gateway public cmux vs internal-rest]] | живо (stable) |
 | [[edges/apigw-internal-vs-tls\|api-gateway: TLS edge vs cluster-internal listener]] | живо (active) |
 | [[edges/apigw-to-compute\|api-gateway → compute (proxy)]] | живо (active) |
+| [[edges/apigw-to-owner-subscription-stream\|край → владелец журнала: поток изменений (Subscribe, #1020)]] | в работе (in-progress) |
 | [[edges/apigw-to-rm\|api-gateway → rm (proxy)]] | история (deprecated) |
 | [[edges/apigw-to-vpc\|api-gateway → vpc (proxy + REST routing)]] | живо (active) |
 
@@ -322,8 +323,8 @@ tags:
 |---|---|
 | [[edges/iam-caep-to-subscriber\|iam → caep-subscriber: outbound SET push]] | в работе (planned) |
 | [[edges/iam-openfga-confirm-read-consistency\|owner-tuple confirm-read → OpenFGA HIGHER_CONSISTENCY]] | в работе (experimental) |
-| [[edges/iam-to-apigateway-authzcache\|iam → api-gateway: subject_change push (authz-cache invalidation)]] | живо (active) |
-| [[edges/iam-to-apigw-cache-invalidation\|kacho-iam → kacho-api-gateway (authz-cache invalidation push)]] | в работе (experimental) |
+| [[edges/iam-to-apigateway-authzcache\|iam → api-gateway: subject_change push (authz-cache invalidation)]] | история (superseded) |
+| [[edges/iam-to-apigw-cache-invalidation\|kacho-iam → kacho-api-gateway (authz-cache invalidation push)]] | история (superseded) |
 | [[edges/iam-to-clickhouse-audit\|iam ↔ clickhouse: audit query interface]] | в работе (planned) |
 | [[edges/iam-to-hsm\|iam → hsm: PKCS#11 signing]] | в работе (planned) |
 | [[edges/iam-to-hydra-admin\|iam → hydra-admin: OAuth2 client lifecycle]] | живо (active) |
@@ -964,6 +965,8 @@ tags:
 | [[KAC/issue-1462\|#1462: журнал смены субъекта пишет две колонки, которых не читает никто]] | в работе (to-do) |
 | [[KAC/issue-1463\|#1463: счётчик неназываемых субъектов смешивает норму с дефектом производителя]] | в работе (to-do) |
 | [[KAC/issue-1465\|#1465: сайты шести сервисов и края называют прежние репозитории домом кода]] | в работе (to-do) |
+| [[KAC/issue-1481\|#1481: адрес потока подписки стоит литералом в трёх спеках консоли]] | в работе (to-do) |
+| [[KAC/issue-1482\|#1482: дублёр владельца журнала паникует на втором открытии потока]] | в работе (to-do) |
 | [[KAC/issue-158\|[trail] issue-158 — вычисления: production-модуль]] | живо (done) |
 | [[KAC/issue-201\|Сцепка пользователя с аккаунтом: аккаунт по умолчанию неудаляем (#201)]] | в работе (in-progress) |
 | [[KAC/issue-208\|issue-208 — ci: три накопителя без не-тестового читателя]] | в работе (test) |
@@ -1178,6 +1181,7 @@ tags:
 | [[lessons/claim-wider-than-what-was-done\|Заявление шире сделанного: чего не видно в диффе и что находит только опыт]] | — |
 | [[lessons/comparing-two-places-needs-proof-they-are-the-two\|Расхождение двух мест доказывается тем, что это ТЕ САМЫЕ два места]] | живо (stable) |
 | [[lessons/computed-immutable-field-replaces-on-every-edit\|Вычисляемое неизменяемое поле пересоздаёт ресурс от правки чего угодно]] | — |
+| [[lessons/connection-string-fit-for-one-consumer-not-all\|Строка подключения, годная для одного потребителя, негодна для другого — а метод один]] | — |
 | [[lessons/db-refusal-in-open-tx-wedges-the-probe\|Отказ базы внутри открытой транзакции вешает пробу вместо падения]] | — |
 | [[lessons/dead-code-is-not-code-without-callers\|«Мёртвый код» и «код без вызывающих» — разные вещи, и путают их в обе стороны]] | — |
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
@@ -1200,6 +1204,7 @@ tags:
 | [[lessons/orchestrator-and-its-own-agent-mistake-each-other-for-strangers\|Оркестратор и его собственный исполнитель принимают друг друга за постороннюю сессию]] | — |
 | [[lessons/own-command-checked-a-different-project\|Своя команда проверки судила о другом проекте: «ошибок 0» на файле, который не разбирался вовсе]] | живо (stable) |
 | [[lessons/predicate-by-name-measures-the-naming-convention\|Предикат верен для СВОЕЙ величины — и применён к соседней]] | — |
+| [[lessons/premise-expressed-as-a-proxy-breaks-before-its-subject\|Предпосылка, выраженная через прокси-величину, ломается раньше своего предмета]] | — |
 | [[lessons/probe-inherits-the-mechanism-own-variables\|Проба наследует переменные своего механизма — и обвиняет исправного производителя]] | — |
 | [[lessons/probe-premise-unsatisfiable-in-its-environment\|Предпосылка проверки едет вместе с записью в реестре, а окружение — нет]] | — |
 | [[lessons/probe-that-pins-someone-elses-tree-state\|Проба закрепила состояние чужого дерева — его починка прочиталась как поломка]] | — |
@@ -1208,12 +1213,14 @@ tags:
 | [[lessons/projection-fed-by-one-producer-of-many\|Проекция, которую наполняет один производитель из многих, отвечает «нет» на всё — и выглядит рабочей]] | — |
 | [[lessons/recognizer-boundary-is-part-of-its-contract\|Граница распознавателя — часть его контракта: названная слепота отличима от отсутствия предмета]] | — |
 | [[lessons/red-gate-on-a-tree-check-the-base-first\|Красное на гейте, читающем дерево: сперва проверь СВЕЖЕСТЬ базы, а не предмет]] | — |
+| [[lessons/registration-by-import-side-effect-has-no-declared-edge\|Регистрация побочным эффектом импорта — ребро, которого нет в графе сборки]] | — |
 | [[lessons/report-was-false-when-written-not-stale\|Отчёт был ложным в момент написания — это не устаревание]] | — |
 | [[lessons/revocation-that-binds-at-issue-not-at-presentation\|Отзыв, действующий на выдаче, но не на предъявлении]] | — |
 | [[lessons/rule-true-for-one-resolver-applied-to-all-addresses\|Правило, верное для одного резолвера, применённое ко всем адресам]] | — |
 | [[lessons/second-copy-of-a-tool-in-path-fakes-drift\|Второй экземпляр инструмента в PATH подделывает дрейф порождённого]] | живо (active) |
 | [[lessons/sentinel-that-replaces-its-cause-costs-the-next-hour\|Sentinel, подменяющий причину, стоит следующего часа: наружу — фиксированный текст, в журнал — что ответила сеть]] | живо (stable) |
 | [[lessons/setup-step-that-checks-its-own-mark-not-its-subject\|Шаг установки, спрашивающий про свою отметку, а не про предмет]] | — |
+| [[lessons/start-up-refusal-is-public-output\|Диагностика отказа старта — публичный вывод: она наследует всё, что ей передали]] | — |
 | [[lessons/swallowed-refusal-stacks-in-layers\|Проглоченный отказ копится слоями: каждая починка вскрывает следующий]] | живо (stable) |
 | [[lessons/two-consistency-windows-in-one-case\|Два независимых окна согласованности в одном кейсе — первое заслоняет второе]] | — |
 | [[lessons/typed-census-split-across-universes-understates\|Типизированная перепись, собранная по частям: тождество типов теряется, и счёт занижается молча]] | — |
