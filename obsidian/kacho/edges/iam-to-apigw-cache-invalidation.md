@@ -5,7 +5,7 @@ caller_repo: kacho-iam
 callee_repo: kacho-api-gateway
 sync_async: async
 protocol: grpc
-status: experimental
+status: superseded
 related_tickets:
   - KAC-138
   - KAC-136
@@ -15,8 +15,17 @@ tags:
   - kacho-iam
   - kacho-apigw
   - kacho-corelib
-verified_against: "отметка сверки с деревом продукта стоит в тексте записки (96b2879a, 2026-08-05)"
+verified_against: "перемерено 2026-08-29 на линии `release/watch-2` (f205e60c2): механизм снят целиком — контракта, применителя iam и принимающего обработчика края на линии нет. На стволе `origin/main` ещё есть. Текст ниже верен как прошлое"
 ---
+
+> [!warning] МЕХАНИЗМ СНЯТ линией `release/watch-2` — записка верна как ПРОШЛОЕ
+> Толчок из iam в край снят задачей [[KAC/issue-1024]] в составе эпика
+> [[KAC/issue-1016]]: направление развёрнуто на «потребитель открывает соединение».
+> Перемерено 2026-08-29 (`f205e60c2` против `origin/main`): прод-файлов iam, знающих
+> контракт края, — на стволе 3, на линии **0**; контракта, принимающего обработчика
+> края и его опросчика на линии нет. Метод стоит в надгробии снятой поверхности.
+> Заменившее направление — [[edges/apigw-to-owner-subscription-stream]].
+> В стволе механизм ещё живёт: MR PRO-Robotech/kacho#1457 открыт и не влит.
 
 > [!note] Канон этого ребра — [[iam-to-apigateway-authzcache]]
 > Две записки об одном предмете; эта оставлена как история KAC-138 (как ребро заводилось и
@@ -75,5 +84,9 @@ WS-2.3 poll-loop ([[../KAC/KAC-127]]) запущен в gateway каждые 30s
 
 - 2026-05-23 (KAC-127 WS-2.3): poll-loop primary (2s interval), `decisionCache.InvalidateSubject` exists, `EmitSubjectChange` writer exists.
 - 2026-05-23 (W1.2, [[../KAC/KAC-138]]): **push-drain через gRPC**. 4 новых emit-sites (JIT/BG/expirers). Latency 30s → <1s sticky / ≤30s convergence. Migration 0023 (payload jsonb).
+
+## См. также — куда ушёл предмет
+
+[[edges/apigw-to-owner-subscription-stream]] · [[edges/iam-to-apigateway-authzcache]] (канон) · [[KAC/issue-1024]] · [[KAC/issue-1016]]
 
 #edge #kacho-iam #kacho-apigw #kacho-corelib
