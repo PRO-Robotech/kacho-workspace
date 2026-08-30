@@ -4,7 +4,7 @@ aliases:
   - issue-1397
 ticket_id: 1397
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho
@@ -51,7 +51,7 @@ tags:
 
 ## Состояние
 
-Открыта, `status:test`.
+Закрыта 2026-08-30: решение записано в дереве продукта (`docs/architecture/subject-change-journal-is-not-a-resource-stream.md`), предикат прогнан на стволе `63bf4cda3` после вливания линии #1523.
 
 ## Затронутые сущности vault
 
