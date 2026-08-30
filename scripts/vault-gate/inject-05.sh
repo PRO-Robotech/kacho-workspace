@@ -96,6 +96,38 @@ out="$(run_on "$d")"; code=$?
 expect_code "именованный драйвер (держится установкой) — пойман" 1 "$code" "$out"
 expect_names "именованный драйвер назван по имени" "vaultindex" "$out"
 
+# Ловушка ИСТОЧНИКА: посадка объявлена, `check-attr` отвечает «union», драйвер
+# встроенный — и всё-таки её везёт не дерево, а файл ЭТОГО клона. У всякого, кто
+# клонирует, посадки нет вовсе. Замер 2026-08-30: до пятого утверждения гейт на
+# этом дереве печатал «находок 0».
+d="$(setup_tree infoattrs)"
+rm -f "$d/.gitattributes"; git -C "$d" rm -q --cached .gitattributes >/dev/null 2>&1
+git -C "$d" commit -qm "посадка снята из дерева" >/dev/null 2>&1
+mkdir -p "$d/.git/info"
+echo 'obsidian/kacho/INDEX-notes.md merge=union' > "$d/.git/info/attributes"
+out="$(run_on "$d")"; code=$?
+expect_code "посадку везёт .git/info/attributes, а не дерево — поймано" 1 "$code" "$out"
+expect_names "источник назван оператору" ".git/info/attributes" "$out"
+expect_names "источниковая находка названа координатой" "obsidian/kacho/INDEX-notes.md" "$out"
+
+# Тот же класс вторым источником: `core.attributesFile`. Проверка, ключующаяся на
+# ОДНО имя файла, прошла бы здесь мимо — а посадка так же принадлежит клону.
+d="$(setup_tree attrfile)"
+rm -f "$d/.gitattributes"; git -C "$d" rm -q --cached .gitattributes >/dev/null 2>&1
+git -C "$d" commit -qm "посадка снята из дерева" >/dev/null 2>&1
+echo 'obsidian/kacho/INDEX-notes.md merge=union' > "$d/clone-attrs"
+git -C "$d" config core.attributesFile "$d/clone-attrs"
+out="$(run_on "$d")"; expect_code "посадку везёт core.attributesFile — поймано" 1 "$?" "$out"
+
+# Законный близнец ИСТОЧНИКА: файл клона есть, но он лишь ПОВТОРЯЕТ объявленное
+# деревом. Свежий клон получит ту же посадку — находки нет. Без этого контроля
+# пятое утверждение ловило бы наличие `.git/info/attributes`, а не расхождение
+# источников, и краснело бы на клоне, где кто-то продублировал посадку себе.
+d="$(setup_tree infoattrs_same)"
+mkdir -p "$d/.git/info"
+echo 'obsidian/kacho/INDEX-notes.md merge=union' > "$d/.git/info/attributes"
+out="$(run_on "$d")"; expect_code "законный близнец: файл клона повторяет дерево — молчит" 0 "$?" "$out"
+
 d="$(setup_tree orphan)"
 python3 - "$d" <<'PY'
 import re, sys
