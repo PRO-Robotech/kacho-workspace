@@ -1193,6 +1193,7 @@ tags:
 | [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
 | [[lessons/checker-keyed-on-a-layout-goes-blind-when-it-moves\|Проверка, ключующаяся на раскладку, слепнет при переезде — и её «ноль находок» остаётся честным]] | — |
 | [[lessons/checks-with-form-but-no-substance\|Форма без содержания — проверка, не способная произвести отказ]] | — |
+| [[lessons/claim-wider-than-the-work\|Заявление шире сделанного — класс, который не ловит ни один гейт]] | живо (stable) |
 | [[lessons/claim-wider-than-what-was-done\|Заявление шире сделанного: чего не видно в диффе и что находит только опыт]] | — |
 | [[lessons/comparing-two-places-needs-proof-they-are-the-two\|Расхождение двух мест доказывается тем, что это ТЕ САМЫЕ два места]] | живо (stable) |
 | [[lessons/computed-immutable-field-replaces-on-every-edit\|Вычисляемое неизменяемое поле пересоздаёт ресурс от правки чего угодно]] | — |
