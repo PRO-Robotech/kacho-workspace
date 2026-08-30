@@ -1,5 +1,13 @@
 ---
-tags: [kacho, lesson, gates]
+title: "Переименование ключа выводит его из-под каждого отбирающего"
+aliases:
+  - переименование выводит из-под отбора
+  - rename moves a key out from under every selector
+category: lesson
+tags:
+  - kac
+  - conventions
+  - gates
 ---
 
 # Переименование ключа выводит его из-под КАЖДОГО отбирающего — и они не краснеют, а замолкают
@@ -8,7 +16,7 @@ tags: [kacho, lesson, gates]
 **Категория.** lessons.
 **Состояние.** действующий.
 **Чем сверено.** Линия `release:client-truth`, 2026-08-30; четыре экземпляра в одном изменении.
-**Связи.** [[checks-with-form-but-no-substance]] · [[a-check-that-requires-the-defect]] · [[absence-of-finding-vs-absence-of-inspection]]
+**Связи.** [[checks-with-form-but-no-substance]] · [[checks-with-form-but-no-substance]] · [[absence-of-finding-versus-absence-of-inspection]]
 
 ## Признак
 

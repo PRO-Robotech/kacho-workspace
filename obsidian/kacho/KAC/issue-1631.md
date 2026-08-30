@@ -1,4 +1,11 @@
 ---
+title: "#1631: R7 — клиентские поверхности сходятся между собой"
+aliases:
+  - issue-1631
+ticket_id: 1631
+category: kac
+status: test
+type: fix
 tags: [kacho, trail, release]
 ---
 
@@ -8,7 +15,7 @@ tags: [kacho, trail, release]
 **Категория.** KAC (записка задачи).
 **Состояние.** test (линия сведена, ждёт вливания).
 **Чем сверено.** Дерево продукта `PRO-Robotech/kacho`, ствол на момент заведения линии — `439383d7`.
-**Связи.** [[checks-with-form-but-no-substance]] · [[doc-truthfulness]] · [[a-quote-proves-existence-not-distribution]]
+**Связи.** [[checks-with-form-but-no-substance]] · [[rename-moves-a-key-out-from-under-every-selector]]
 
 ## Что и зачем
 
