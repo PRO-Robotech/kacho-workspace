@@ -212,7 +212,6 @@
 1	kacho-iam-InternalIAMService
 1	kacho-iam-InternalUserService
 1	kacho-workspace
-2	killed-run-masquerades-as-a-red-verdict
 2	negative-assertion-needs-a-paired-positive
 1	newman-runners-print-green-while-red
 1	nlb-clients-geo
@@ -232,7 +231,6 @@
 1	rpc/<service>
 1	sec-hat-provider-admin-hop-terminator
 1	self-expiry-made-vacuous-by-its-own-change
-1	shared-stand-single-writer
 5	step-up-acr-sensitive-only
 1	sub-phase-T3.3-unify-iam-label-scope-acceptance
 1	tests-that-pin-the-defect

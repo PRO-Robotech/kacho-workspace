@@ -61,6 +61,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/e2e-flow.md
 @.claude/rules/ui.md
 @.claude/rules/vault.md
+@.claude/rules/writing.md
 @.claude/rules/ai-tooling.md
 
 ## Локальная разработка
