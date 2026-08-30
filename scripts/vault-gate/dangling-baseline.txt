@@ -212,7 +212,6 @@
 1	kacho-iam-InternalIAMService
 1	kacho-iam-InternalUserService
 1	kacho-workspace
-2	killed-run-masquerades-as-a-red-verdict
 2	negative-assertion-needs-a-paired-positive
 1	newman-runners-print-green-while-red
 1	nlb-clients-geo
