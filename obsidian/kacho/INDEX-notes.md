@@ -1195,6 +1195,7 @@ tags:
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
 | [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
+| [[lessons/gate-that-judges-your-change-lives-in-another-package\|Гейт, судящий твою правку, живёт в ДРУГОМ пакете — выборочный прогон его не зовёт]] | живо (stable) |
 | [[lessons/guard-whose-concurrency-domain-is-narrower-than-the-fleet\|Защита, чей домен параллелизма уже домена флота]] | живо (stable) |
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
