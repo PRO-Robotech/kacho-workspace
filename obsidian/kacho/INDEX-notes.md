@@ -1239,6 +1239,7 @@ tags:
 | [[lessons/second-copy-of-a-tool-in-path-fakes-drift\|Второй экземпляр инструмента в PATH подделывает дрейф порождённого]] | живо (active) |
 | [[lessons/sentinel-that-replaces-its-cause-costs-the-next-hour\|Sentinel, подменяющий причину, стоит следующего часа: наружу — фиксированный текст, в журнал — что ответила сеть]] | живо (stable) |
 | [[lessons/setup-step-that-checks-its-own-mark-not-its-subject\|Шаг установки, спрашивающий про свою отметку, а не про предмет]] | — |
+| [[lessons/shared-stand-single-writer\|Общее состояние — один писатель за раз]] | — |
 | [[lessons/start-up-refusal-is-public-output\|Диагностика отказа старта — публичный вывод: она наследует всё, что ей передали]] | — |
 | [[lessons/swallowed-refusal-stacks-in-layers\|Проглоченный отказ копится слоями: каждая починка вскрывает следующий]] | живо (stable) |
 | [[lessons/two-consistency-windows-in-one-case\|Два независимых окна согласованности в одном кейсе — первое заслоняет второе]] | — |
