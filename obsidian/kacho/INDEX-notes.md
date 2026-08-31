@@ -1244,6 +1244,7 @@ tags:
 | [[lessons/registration-by-import-side-effect-has-no-declared-edge\|Регистрация побочным эффектом импорта — ребро, которого нет в графе сборки]] | — |
 | [[lessons/rename-moves-a-key-out-from-under-every-selector\|Переименование ключа выводит его из-под каждого отбирающего]] | — |
 | [[lessons/report-was-false-when-written-not-stale\|Отчёт был ложным в момент написания — это не устаревание]] | — |
+| [[lessons/reserved-name-answers-yes-to-existence\|Зарезервированное имя отвечает «есть» на вопрос о существовании]] | живо (active) |
 | [[lessons/revocation-that-binds-at-issue-not-at-presentation\|Отзыв, действующий на выдаче, но не на предъявлении]] | — |
 | [[lessons/rule-true-for-one-resolver-applied-to-all-addresses\|Правило, верное для одного резолвера, применённое ко всем адресам]] | — |
 | [[lessons/second-copy-of-a-tool-in-path-fakes-drift\|Второй экземпляр инструмента в PATH подделывает дрейф порождённого]] | живо (active) |
