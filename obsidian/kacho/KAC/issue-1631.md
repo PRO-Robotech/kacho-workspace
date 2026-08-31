@@ -4,7 +4,7 @@ aliases:
   - issue-1631
 ticket_id: 1631
 category: kac
-status: test
+status: done
 type: fix
 tags: [kacho, trail, release]
 ---
@@ -13,7 +13,7 @@ tags: [kacho, trail, release]
 
 **Назначение.** Trail релизной линии `release:client-truth`.
 **Категория.** KAC (записка задачи).
-**Состояние.** test (линия сведена, ждёт вливания).
+**Состояние.** done (влита `52f45704f`, PR #1705, схлопыванием; эпик закрыт).
 **Чем сверено.** Дерево продукта `PRO-Robotech/kacho`, ствол на момент заведения линии — `439383d7`.
 **Связи.** [[checks-with-form-but-no-substance]] · [[rename-moves-a-key-out-from-under-every-selector]]
 
