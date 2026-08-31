@@ -1163,6 +1163,7 @@ tags:
 | [[KAC/rbac-rules-model-2026-subphase-G-iam\|RBAC rules-model 2026 — sub-phase G (Permission Catalog) — proto/iam/gateway/ui]] | живо (done) |
 | [[KAC/rbac-rules-model-2026-subphase-H-rule-module-scalar\|RBAC rules-model 2026 — sub-phase H (Rule.module scalar) — proto/iam/gateway/ui]] | живо (done) |
 | [[KAC/redesign-2026\|redesign-2026 — 7-сервисный UX-конвергентный редизайн]] | в работе (in-progress) |
+| [[KAC/release-identity-lines-2026-08-31\|релиз identity: две накопительные линии за смену — 11 и 12]] | в работе (in-progress) |
 | [[KAC/release-identity\|Релиз identity: закрытие долга службы личности]] | в работе (in-progress) |
 | [[KAC/revocation-not-enforced-at-edge-2026-07-28\|Проверка отзыва на краю ведёт в никуда и проглатывает отказ (2026-07-28)]] | живо (done) |
 | [[KAC/sec-acr-stepup-refinement\|SEC-acr-stepup-refinement — narrow required_acr_min to 41-set]] | живо (done) |
@@ -1219,6 +1220,7 @@ tags:
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
 | [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
+| [[lessons/injection-outlives-its-analyzer\|Переустройство анализатора обесценивает его инъекцию — и молча]] | живо (done) |
 | [[lessons/invalid-run-arrives-as-a-red-verdict\|Недействительный прогон приходит красным — и его чинят как дефект]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
 | [[lessons/killed-run-masquerades-as-a-red-verdict\|Оборванный прогон выдаёт себя за красный вердикт]] | — |
