@@ -1259,6 +1259,7 @@ tags:
 | [[lessons/two-consistency-windows-in-one-case\|Два независимых окна согласованности в одном кейсе — первое заслоняет второе]] | — |
 | [[lessons/typed-census-split-across-universes-understates\|Типизированная перепись, собранная по частям: тождество типов теряется, и счёт занижается молча]] | — |
 | [[lessons/update-mask-set-knows-one-form-of-the-name\|Набор маски знает одну форму имени — и поле не изменить ни при каком входе]] | — |
+| [[lessons/verdict-is-a-function-of-machine-speed\|Вердикт пробы оказался функцией скорости машины]] | живо (done) |
 | [[lessons/verdict-of-a-tool-belongs-to-its-version\|Вердикт инструмента принадлежит его версии: «локально чисто» не утверждает ничего о конвейере]] | живо (stable) |
 
 ### Записки-переходы прежних репозиториев — `legacy/`
