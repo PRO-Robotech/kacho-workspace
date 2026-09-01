@@ -1,0 +1,114 @@
+type vpc_network
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_subnet
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define use: [user, service_account] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_security_group
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_route_table
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_address
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define use: [user, service_account] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_gateway
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_network_interface
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_cidr_group
+  relations
+    define project: [project]
+    define super_admin: super_admin from project
+    define admin: [user, service_account, group#member] or super_admin
+    define editor: [user, service_account, group#member] or admin
+    define viewer: [user, service_account, group#member] or editor
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin
+
+type vpc_address_pool
+  relations
+    # kacho:latent — cluster-anchored admin resource; its RPCs gate on
+    # cluster:cluster_kacho_root#system_admin directly, so no module registers an
+    # address pool and nothing writes this pointer today. Declared ahead of that
+    # producer deliberately: the type is admin-curated and the anchor is what the
+    # super-admin cascade below derives over. The marker expires by itself — the
+    # moment a producer appears, the gate demands it be removed.
+    define cluster: [cluster]
+    define super_admin: any_admin from cluster
+    define admin: [user, service_account] or super_admin
+    define viewer: [user, service_account] or admin
+    define v_get: [user, service_account, group#member] or super_admin
+    define v_list: [user, service_account, group#member] or super_admin
+    define v_update: [user, service_account, group#member] or super_admin
+    define v_delete: [user, service_account, group#member] or super_admin

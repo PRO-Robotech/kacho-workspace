@@ -1,0 +1,64 @@
+module: storage
+resources:
+  - name: diskType
+    parent: cluster
+    actions:
+      - {name: get, class: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalSetLifecycle, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+      - {name: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+  - name: diskTypeBinding
+    parent: cluster
+    actions:
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalList, class: update, internal: true}
+  - name: image
+    parent: cluster
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: copy, class: create}
+      - {name: internalGetInternal, class: list, internal: true}
+      - {name: internalRegister, class: update, internal: true}
+      - {name: listOperations, class: list}
+  - name: quota
+    parent: project
+    actions: [list]
+  - name: snapshot
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: copy, class: create}
+      - {name: listOperations, class: list}
+  - name: storageBackend
+    parent: cluster
+    actions:
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalList, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+  - name: volume
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: changeDiskType, class: update}
+      - {name: internalAttach, class: create, internal: true}
+      - {name: internalDetach, class: create, internal: true}
+      - {name: internalGetInternal, class: list, internal: true}
+      - {name: internalListAttachments, class: list, internal: true}
+      - {name: listOperations, class: list}

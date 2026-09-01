@@ -1,0 +1,191 @@
+module: iam
+resources:
+  - name: accessBinding
+    parent: cluster
+    actions:
+      - get
+      - list
+      - {name: create, class: operate, exempt: HANDLER_DECIDES, acr: 2}
+      - {name: delete, acr: 2}
+      - {name: listOperationsOperationses, class: list}
+      - {name: revoke, class: delete, acr: 2}
+      - {name: update, acr: 2}
+  - name: accessBindingsByAccount
+    parent: account
+    actions:
+      - {name: listByAccount, class: list}
+  - name: accessBindingsByResource
+    parent: project
+    actions:
+      - {name: expandAccess, class: list}
+      - {name: listAssignableRoles, class: list}
+      - {name: listByScope, class: list}
+  - name: accessBindingsByRole
+    parent: project
+    actions:
+      - {name: listByRole, class: list}
+  - name: accessBindingsBySubject
+    parent: project
+    actions:
+      - {name: listBySubject, class: list}
+      - {name: listSubjectPrivileges, class: list}
+  - name: account
+    parent: cluster
+    actions:
+      - get
+      - list
+      - update
+      - {name: create, class: operate, exempt: SELF_SERVICE}
+      - {name: delete, acr: 2}
+  - name: accountOperation
+    parent: account
+    actions:
+      - {name: listAllOperations, class: list}
+      - {name: listOperations, class: list}
+  - name: authorize
+    parent: cluster
+    actions:
+      - {name: batchCheck, class: list}
+      - {name: check, class: list}
+      - {name: expandRelations, class: list}
+      - {name: listSubjects, class: list}
+      - {name: whoAmI, class: operate, exempt: SELF_SERVICE}
+  - name: bootstrapToken
+    parent: cluster
+    actions:
+      - {name: internalMintBootstrapToken, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+  - name: clusterAdmin
+    parent: cluster
+    actions:
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalGrantAdmin, class: update, internal: true, acr: 2}
+      - {name: internalListAdmins, class: update, internal: true}
+      - {name: internalRevokeAdmin, class: update, internal: true, acr: 2}
+  - name: group
+    parent: project
+    actions:
+      - create
+      - get
+      - list
+      - update
+      - {name: addMemberMembers, class: update, acr: 2}
+      - {name: delete, acr: 2}
+      - {name: listMembersMemberses, class: list}
+      - {name: listOperationsOperationses, class: list}
+      - {name: removeMemberMembers, class: update, acr: 2}
+  - name: iAM
+    parent: cluster
+    actions:
+      - {name: internalCheck, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalForceLogout, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalGetRoleCompiled, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalLookupSubject, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalPollSubjectChanges, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalRegisterResource, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalUnregisterResource, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+  - name: interactiveClient
+    parent: cluster
+    actions:
+      - {name: internalCreate, class: update, internal: true, acr: 2}
+      - {name: internalDelete, class: update, internal: true, acr: 2}
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalList, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true, acr: 2}
+  - name: issueSAKey
+    parent: project
+    actions:
+      - {name: issue, class: update, acr: 2}
+  - name: issueUserToken
+    parent: project
+    actions:
+      - {name: issue, class: update, acr: 2}
+  - name: limit
+    parent: cluster
+    actions:
+      - {name: create, class: update, acr: 2}
+      - {name: delete, class: update, acr: 2}
+      - {name: get, class: update}
+      - {name: internalCreate, class: update, internal: true, acr: 2}
+      - {name: internalDelete, class: update, internal: true, acr: 2}
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalList, class: update, internal: true}
+      - {name: internalListChangedSince, class: operate, internal: true}
+      - {name: internalResolve, class: operate, internal: true}
+      - {name: internalUpdate, class: update, internal: true, acr: 2}
+      - {name: list, class: update}
+      - {name: update, acr: 2}
+  - name: operation
+    parent: cluster
+    actions:
+      - {name: internalListIamOperations, class: update, internal: true}
+  - name: permission
+    parent: cluster
+    actions:
+      - {name: listPermissionCatalog, class: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+  - name: project
+    parent: account
+    actions:
+      - create
+      - get
+      - list
+      - update
+      - {name: delete, acr: 2}
+  - name: projectOperation
+    parent: project
+    actions:
+      - {name: listOperations, class: list}
+  - name: revokeSAKey
+    parent: project
+    actions:
+      - {name: revoke, class: update, acr: 2}
+  - name: revokeUserToken
+    parent: project
+    actions:
+      - {name: revoke, class: update, acr: 2}
+  - name: role
+    parent: account
+    actions:
+      - create
+      - list
+      - {name: delete, acr: 2}
+      - {name: get, class: list}
+      - {name: listOperationsOperationses, class: list}
+      - {name: update, acr: 2}
+  - name: sAKey
+    parent: project
+    actions: [list]
+  - name: serviceAccount
+    parent: account
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: disable, class: update, acr: 2}
+      - {name: enable, class: update, acr: 2}
+      - {name: listOperationsOperationses, class: list}
+  - name: sessionRevocation
+    parent: project
+    actions:
+      - {name: internalListByUser, class: list, internal: true, hideExistence: true}
+  - name: sessionRevocations
+    parent: cluster
+    actions:
+      - {name: internalIsRevoked, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalRevoke, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+  - name: user
+    parent: cluster
+    actions:
+      - delete
+      - get
+      - list
+      - update
+      - {name: block, class: update, acr: 2}
+      - {name: internalGet, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalOnRecoveryCompleted, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: internalUpsertFromIdentity, class: operate, exempt: INTERNAL_LISTENER, internal: true}
+      - {name: invite, class: create, acr: 2}
+      - {name: listOperationsOperationses, class: list}
+      - {name: listTokens, class: list}
+      - {name: unblock, class: update, acr: 2}

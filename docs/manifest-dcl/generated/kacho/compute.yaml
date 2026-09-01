@@ -1,0 +1,53 @@
+module: compute
+resources:
+  - name: guestAccessKey
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+  - name: instance
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: attachDiskDisks, class: update}
+      - {name: attachNetworkInterfaceNetworkInterfaces, class: update}
+      - {name: detachDiskDisks, class: update}
+      - {name: detachNetworkInterfaceNetworkInterfaces, class: update}
+      - {name: getSerialPortOutputSerialPortOutputs, class: get}
+      - {name: internalClaimInstance, class: operate, internal: true}
+      - {name: internalReleaseInstance, class: operate, internal: true}
+      - {name: internalRenewLease, class: operate, internal: true}
+      - {name: internalReportInstanceRealization, class: operate, internal: true}
+      - {name: listOperationsOperationses, class: list}
+      - {name: restart, class: update}
+      - {name: simulateMaintenanceEventMaintenanceEvents, class: update}
+      - {name: start, class: update}
+      - {name: stop, class: update}
+  - name: machineType
+    parent: cluster
+    actions:
+      - {name: get, class: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+      - {name: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+  - name: placementGroup
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+  - name: quota
+    parent: project
+    actions: [list]

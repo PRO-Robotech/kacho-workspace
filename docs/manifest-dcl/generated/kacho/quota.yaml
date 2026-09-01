@@ -1,0 +1,6 @@
+module: quota
+resources:
+  - name: identityQuota
+    parent: cluster
+    actions:
+      - {name: list, class: operate, exempt: SELF_SERVICE}

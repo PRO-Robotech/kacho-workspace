@@ -1,0 +1,129 @@
+module: vpc
+resources:
+  - name: address
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: internalAllocateExternalIp, class: update, internal: true}
+      - {name: internalAllocateExternalIpv6, class: update, internal: true}
+      - {name: internalAllocateInternalIp, class: update, internal: true}
+      - {name: internalAllocateInternalIpv6, class: update, internal: true}
+      - {name: internalClearAddressReference, class: update, internal: true}
+      - {name: internalCreateOwnedAddress, class: create, internal: true}
+      - {name: internalGetAddressReference, class: get, internal: true}
+      - {name: internalMarkAddressEphemeralInUse, class: update, internal: true}
+      - {name: internalReleaseOwnedAddress, class: create, internal: true}
+      - {name: internalSetAddressReference, class: update, internal: true}
+      - {name: listOperations, class: list}
+  - name: addressPool
+    parent: cluster
+    actions:
+      - update
+      - {name: addCidrBlocks, class: update}
+      - {name: bindAsNetworkDefault, class: update}
+      - {name: create, class: update}
+      - {name: delete, class: update}
+      - {name: get, class: update}
+      - {name: getUtilization, class: update}
+      - {name: internalAddCidrBlocks, class: update, internal: true}
+      - {name: internalBindAsNetworkDefault, class: update, internal: true}
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalGet, class: update, internal: true}
+      - {name: internalGetUtilization, class: update, internal: true}
+      - {name: internalList, class: update, internal: true}
+      - {name: internalListAddresses, class: update, internal: true}
+      - {name: internalRemoveCidrBlocks, class: update, internal: true}
+      - {name: internalUnbindNetworkDefault, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+      - {name: list, class: update}
+      - {name: listAddresses, class: update}
+      - {name: removeCidrBlocks, class: update}
+      - {name: unbindNetworkDefault, class: update}
+  - name: cidrGroup
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: addCidrBlocks, class: update}
+      - {name: listOperations, class: list}
+      - {name: removeCidrBlocks, class: update}
+  - name: gateway
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+  - name: network
+    parent: cluster
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: addCidrBlocks, class: update}
+      - {name: internalGetNetwork, class: list, internal: true}
+      - {name: internalSetDefaultSecurityGroupId, class: update, internal: true}
+      - {name: listOperations, class: list}
+      - {name: removeCidrBlocks, class: update}
+  - name: networkInterface
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: internalAttach, class: create, internal: true}
+      - {name: internalDetach, class: create, internal: true}
+      - {name: internalListByInstance, class: list, internal: true}
+      - {name: listOperations, class: list}
+  - name: quota
+    parent: project
+    actions: [list]
+  - name: routeTable
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+  - name: securityGroup
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+      - {name: updateRuleRules, class: update}
+      - {name: updateRules, class: update}
+  - name: subnet
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: addCidrBlocks, class: update}
+      - {name: listOperations, class: list}
+      - {name: removeCidrBlocks, class: update}
+  - name: usedAddress
+    parent: project
+    actions:
+      - {name: listUsedAddresses, class: list}
