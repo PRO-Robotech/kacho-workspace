@@ -1,0 +1,20 @@
+module: geo
+resources:
+  - name: region
+    parent: cluster
+    actions:
+      - {name: get, class: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalGetInternal, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+      - {name: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+  - name: zone
+    parent: cluster
+    actions:
+      - {name: get, class: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}
+      - {name: internalCreate, class: update, internal: true}
+      - {name: internalDelete, class: update, internal: true}
+      - {name: internalGetInternal, class: update, internal: true}
+      - {name: internalUpdate, class: update, internal: true}
+      - {name: list, readableByAnyTenant: "глобальный справочник, читаемый каждым арендатором"}

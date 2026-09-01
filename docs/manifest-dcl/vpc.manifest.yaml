@@ -1,0 +1,587 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  vpc — 95 записей каталога, 10 ресурсов.
+#
+#  Схема после эмуляции на 508 операциях API и 50 действующих системных ролях.
+#  Ключей одиннадцать: module · resources · name · objectType · parent · verbs ·
+#  class · internal · catalog · acr · exempt.
+#  Всё остальное выводится:
+#    class     — точным совпадением с get|list|create|update|delete
+#    scope     — из class (create и list → на родителе, прочее → на объекте)
+#    тип модели— как <module>_<resource>, автору не принадлежит
+#    роли      — viewer=get,list · editor=+create,update · admin=всё кроме dataAccess
+#
+#  ─ ИМЯ ДЕЙСТВИЯ: два правила, оба выведены сверкой с каталогом ────────────
+#  1. НЕ ПОВТОРЯЕТ имя своего ресурса. RPC зовётся ClearAddressReference,
+#     но право живёт на ресурсе address, и `address.clearAddressReference`
+#     заикается. Здесь — `internalClearReference`. По тому же правилу
+#     listUsedAddresses стоит на subnet, а не на выдуманном ресурсе
+#     usedAddress, который каталог завёл ради одного глагола.
+#  2. НЕ ТЕРЯЕТ предмет. Каталог сократил BindAsNetworkDefault до `bind` —
+#     и «привязать пул как умолчание сети» стало неотличимо от любой другой
+#     привязки. Здесь имя полное. Жаргон не наследуется тоже: `setDefaultSg`
+#     развёрнуто в setDefaultSecurityGroup.
+#  Правила спорят между собой ровно там, где спорит каталог, и разрешаются
+#  вопросом: что теряет читающий выданное право.
+#
+#  ─ Почему НЕТ ключей `assignableAt` и `clusterOnly` ──────────────────────
+#  Оба были заведены и оба сняты: у них не нашлось читателя.
+#
+#  `assignableAt` объявлял, на каком уровне роль вправе быть выдана. Для
+#  системных ролей — а манифест описывает именно их — правило продукта
+#  записано в применённой миграции дословно: «a SYSTEM role is assignable
+#  anywhere». Ограничение есть только у КАСТОМНЫХ ролей: роль аккаунта
+#  выдаётся на своём аккаунте и на вложенном в него проекте, роль проекта —
+#  только на своём. Манифест таких не заводит, значит поле описывало запрет,
+#  которого для его ролей не существует.
+#
+#  `clusterOnly` помечал действие, доступное только роли уровня облака.
+#  Все 22 его вхождения стояли у ОДНОГО ресурса — адресного пула, — и у него
+#  `parent: cluster`. То есть поле дословно повторяло родителя ресурса.
+#  А проверка, которую оно питало, опиралась на `assignableAt` — то есть на
+#  ограничение, которого нет.
+#
+#  Что при этом ОСТАЁТСЯ ВЕРНЫМ и почему это не дыра: роль на ресурсы уровня
+#  облака, выданная на проекте, найдёт под этим якорем НОЛЬ объектов —
+#  адресных пулов в проекте не бывает. Это пустая выдача, а не расширение
+#  доступа: она не даёт ничего, потому что давать нечего.
+#
+#  ─ objectType: имя РЕСУРСА против имени ТИПА ──────────────────────────────
+#  Тип объекта модели прав выводится из имени ресурса и обычно ему равен. Где
+#  не равен — объявляется дословно ключом objectType, иначе селектор роли
+#  адресует тип, которого нет, и не даёт НИ ОДНОГО пообъектного права: молча,
+#  при действующей на вид привязке. Замер на живой базе: каталог типов несёт
+#  27 имён, из них 19 в единственном числе и 8 во множественном
+#  (loadbalancer.listeners, registry.registries, storage.volumes и др.) —
+#  два соглашения в одном словаре. Для vpc расхождений нет: все девять
+#  адресуемых ресурсов названы каталогом так же, поэтому ключ здесь не стоит
+#  ни разу. Десятый ресурс — quota — типа объекта не имеет вовсе: право на
+#  него проверяется на проекте, пообъектной адресации у квоты нет.
+# ═══════════════════════════════════════════════════════════════════════════
+
+apiVersion: iam/v1
+module: vpc
+
+resources:
+
+  # ── Сеть ────────────────────────────────────────────────────────────────
+  - name: network
+    parent: project
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      # блоки CIDR — не подресурс со своей идентичностью, а действия сети:
+      # право проверяется на самой сети
+      - {name: addCidrBlocks,                 class: update}
+      - {name: removeCidrBlocks,              class: update}
+      # внутренние: имя РАЗЛИЧАЕТСЯ, иначе публичный get и внутренний
+      # делят одно право (в каталоге таких склеек было 50)
+      - {name: internalGet,                   class: get,    internal: true}
+      - {name: internalSetDefaultSecurityGroup, class: update, internal: true}
+
+  # ── Подсеть ─────────────────────────────────────────────────────────────
+  - name: subnet
+    parent: project
+    # Отношение, не выводимое ни из одного действия: RPC под него нет.
+    # Объявляется дословно, иначе перегенерация модели его СНИМЕТ.
+    relations:
+      - {name: use, definition: "[user, service_account] or editor"}
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      - {name: addCidrBlocks,                 class: update}
+      - {name: removeCidrBlocks,              class: update}
+      # было used_addresses.listUsedAddresses — глагол дублировал ресурс
+      - {name: listUsedAddresses,             class: list}
+
+  # ── Адрес ───────────────────────────────────────────────────────────────
+  - name: securityGroup
+    parent: project
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      # два РАЗНЫХ RPC: одно правило против всего набора. Каталог даёт им
+      # одно отношение v_update, но имена обязаны различаться —
+      # иначе право «поправить одно правило» равно «переписать все»
+      - {name: updateRule,                    class: update}
+      - {name: updateRules,                   class: update}
+
+  # ── Таблица маршрутизации ───────────────────────────────────────────────
+  - name: routeTable
+    parent: project
+    verbs: [get, list, create, update, delete, listOperations]
+
+  # ── Шлюз ────────────────────────────────────────────────────────────────
+  - name: address
+    parent: project
+    relations:
+      - {name: use, definition: "[user, service_account] or editor"}
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      # плоскость исполнения: аллокация и ссылки — только внутрь
+      - {name: internalAllocateExternalIp,    class: update, internal: true}
+      - {name: internalAllocateExternalIpv6,  class: update, internal: true}
+      - {name: internalAllocateInternalIp,    class: update, internal: true}
+      - {name: internalAllocateInternalIpv6,  class: update, internal: true}
+      - {name: internalCreateOwned,           class: create, internal: true}
+      - {name: internalReleaseOwned,          class: create, internal: true}
+      - {name: internalGetReference,          class: get,    internal: true}
+      - {name: internalSetReference,          class: update, internal: true}
+      - {name: internalClearReference,        class: update, internal: true}
+      - {name: internalMarkEphemeralInUse,    class: update, internal: true}
+
+  # ── Сетевой интерфейс ───────────────────────────────────────────────────
+  - name: gateway
+    parent: project
+    verbs: [get, list, create, update, delete, listOperations]
+
+  # ── Именованный набор префиксов ─────────────────────────────────────────
+  - name: networkInterface
+    parent: project
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      # attach/detach — внутренние: их зовёт compute на пути запуска машины
+      - {name: internalAttach,                class: update, internal: true}
+      - {name: internalDetach,                class: update, internal: true}
+      # список сужается пообъектно, вызов по объекту не гейтится
+      - {name: internalListByInstance,        class: list,   internal: true}
+
+  # ── Группа безопасности ─────────────────────────────────────────────────
+  - name: cidrGroup
+    parent: project
+    verbs:
+      - get
+      - list
+      - create
+      - update
+      - delete
+      - listOperations
+      - {name: addCidrBlocks,                 class: update}
+      - {name: removeCidrBlocks,              class: update}
+
+  # ── Адресный пул: административный ресурс кластера ──────────────────────
+  # parent: cluster + отсутствие catalog означает «управляет только облако».
+  # catalog: true здесь НЕ ставится: пул не справочник, читать его арендатору
+  # незачем — в отличие от типов машин или зон.
+  - name: addressPool
+    parent: cluster
+    # Комментарий блока модели — воспроизводится ДОСЛОВНО. Он несёт
+    # самоистекающий маркер, который стережёт гейт продукта: появится
+    # производитель указателя — маркер обязан быть снят. Потерять его
+    # при перегенерации значило бы снять условие, о котором не решали.
+    doc: |
+      kacho:latent — cluster-anchored admin resource; its RPCs gate on
+      cluster:cluster_kacho_root#system_admin directly, so no module registers an
+      address pool and nothing writes this pointer today. Declared ahead of that
+      producer deliberately: the type is admin-curated and the anchor is what the
+      super-admin cascade below derives over. The marker expires by itself — the
+      moment a producer appears, the gate demands it be removed.
+    # Состав субъектов и набор ярусов у административного ресурса УЖЕ общего:
+    # группы среди субъектов нет, яруса editor нет вовсе — viewer наследуется
+    # прямо от admin. Умолчание здесь расширило бы доступ молча.
+    subjects: [user, service_account]
+    tiers: [admin, viewer]
+    verbs:
+      - {name: get,                           class: get}
+      - {name: list,                          class: list}
+      - {name: create,                        class: create}
+      - {name: update,                        class: update}
+      - {name: delete,                        class: delete}
+      - {name: addCidrBlocks,                 class: update}
+      - {name: removeCidrBlocks,              class: update}
+      - {name: bindAsNetworkDefault,          class: update}
+      - {name: unbindNetworkDefault,          class: update}
+      - {name: getUtilization,                class: get}
+      - {name: listAddresses,                 class: list}
+      # ВНИМАНИЕ: в каталоге каждое из одиннадцати действий стоит ДВАЖДЫ —
+      # публичный RPC и внутренний, с одним и тем же system_admin @ cluster.
+      # 22 записи на 11 предметов. Здесь внутренние объявлены отдельно,
+      # потому что делить одно право между двумя поверхностями нельзя.
+      - {name: internalGet,                   class: get,    internal: true}
+      - {name: internalList,                  class: list,   internal: true}
+      - {name: internalCreate,                class: create, internal: true}
+      - {name: internalUpdate,                class: update, internal: true}
+      - {name: internalDelete,                class: delete, internal: true}
+      - {name: internalAddCidrBlocks,         class: update, internal: true}
+      - {name: internalRemoveCidrBlocks,      class: update, internal: true}
+      - {name: internalBindAsNetworkDefault,  class: update, internal: true}
+      - {name: internalUnbindNetworkDefault,  class: update, internal: true}
+      - {name: internalGetUtilization,        class: get,    internal: true}
+      - {name: internalListAddresses,         class: list,   internal: true}
+
+  # ── Квота ───────────────────────────────────────────────────────────────
+  - name: quota
+    parent: project
+    verbs: [list]
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  СОВМЕСТИМОСТЬ: глаголы, которые манифест ПРИНИМАЕТ, но не производит
+#
+#  Уже выданные права называют глаголы, которых в контракте нет. Отвергнуть их
+#  значит осиротить действующие выдачи; производить новые — тиражировать то,
+#  от чего уходим. Поэтому третий исход: принимаем на чтении, не производим на
+#  записи, и каждый несёт ПРЕДИКАТ СНЯТИЯ — иначе список переживёт свой предмет.
+#
+#  Замер на живой базе (18 системных ролей vpc): `read` встречается 6 раз, по
+#  разу в каждой view-роли, и НЕ адресует ни одной операции — в каталоге края
+#  его ноль из 86 глаголов. Проецируется он в то же отношение чтения, что `get`
+#  и `list`, стоящие в той же роли рядом. То есть из трёх записей каждой
+#  view-роли содержательна одна, а две — эхо.
+# ═══════════════════════════════════════════════════════════════════════════
+
+deprecatedVerbs:
+  read:
+    class: get
+    since: 2026-08-23
+    reason: >
+      Синоним чтения из прежней грамматики. Ни одного RPC не адресует;
+      проецируется в отношение чтения наравне с get и list.
+    removeWhen: >
+      Ни одна выданная привязка не ссылается на роль, чьи права содержат
+      сегмент `.read`. Предикат: выдач с таким правом ноль.
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  РОЛИ
+#
+#  Роль повторяет поля контракта — module · resource · verb, и КАЖДОЕ
+#  отдельным полем. Прежняя редакция писала `vpc.network.*` строкой; строка
+#  есть второй язык поверх манифеста, и ломается он молча: снял глагол —
+#  строка осталась годной по форме и пустой по существу. Поля сверяются с
+#  перечнем ресурсов без разбора текста, поэтому «сегодня глагол есть, завтра
+#  нет» становится отказом валидации, а не тихой потерей права.
+#
+#  ─ Три способа назвать права, и они РАЗНЫЕ по риску роста ────────────────
+#    verbs:   [a, b]   перечисление поимённо. Не растёт. Новый глагол в роль
+#                      не попадёт, пока его не впишут — и это верно там, где
+#                      расширение прав обязано быть решением человека.
+#    classes: [get]    по классу действия. Растёт вместе с модулем: новое
+#                      чтение попадёт наблюдателю само. Верно для чтения,
+#                      опасно для admin — поэтому admin перечисляет поимённо.
+#    resource: "*"     все ресурсы модуля. Сочетается только с classes.
+#
+#  ─ Что НЕ попадает в роль автоматически, ни при каком способе ────────────
+#    · действия с internal: true  — плоскость исполнения, не арендатора;
+#      берутся ТОЛЬКО поимённым перечислением, и роль обязана это объявить;
+#    · действия с clusterOnly: true     — только в роли с уровнем cluster.
+#    Оба правила проверяются, а не подразумеваются: без них `classes: [get]`
+#    выдал бы наблюдателю internalGetReference вместе с обычным чтением.
+#
+#  ─ Что заводит УСТАНОВКА модуля: раздел seed ─────────────────────────────
+#  Прежде здесь стоял `seedTo: [group: X]` — одна строка, которая не отвечала
+#  ни на один из трёх вопросов: где живёт группа · откуда она берётся · кто
+#  в ней состоит. Ответы были в комментарии, то есть их не было: манифест —
+#  данные для машины, а не текст для человека.
+#
+#  Устройство платформенных субъектов, замеренное по живой базе:
+#    · системный аккаунт `kacho-system` держит СЕМЬ служебных записей —
+#      ровно по одной на модуль (api-gateway, bootstrap-admin, compute, nlb,
+#      registry, storage, vpc);
+#    · группы объединяют записи ПО ПРЕДМЕТУ ПРАВА: `module-quota-readers`
+#      несёт пять из семи — тех, кто читает пределы;
+#    · членство добавляется ПОЗЖЕ создания группы: у эталона четыре члена
+#      из пяти вписаны после неё.
+#
+#  Отсюда три раздела, и каждый отвечает своему вопросу:
+#
+#    seed.serviceAccounts — свои служебные записи. Заводит установка ЭТОГО
+#                           модуля; под этими личностями он ходит к соседям.
+#    seed.groups          — группы, которые заводит ЭТОТ модуль для своих
+#                           потребителей. Создаются ПУСТЫМИ: кто войдёт,
+#                           решает не он. `openTo` объявляет, кому вступать
+#                           дозволено, — без этого вступление в чужую группу
+#                           было бы односторонним и никем не разрешённым.
+#    seed.joins           — ЧУЖИЕ группы, в которые вступает запись этого
+#                           модуля. Вот здесь и появляется «кто член внутри»:
+#                           не перечислением у владельца группы, а заявлением
+#                           у вступающего. Владелец группы своих потребителей
+#                           не знает и знать не должен.
+#
+#  ─ Форма выдачи — ДОСЛОВНО ПО КОНТРАКТУ `CreateAccessBinding` ────────────
+#  Имена полей не выдумываются: посев делает ровно то, что делает API выдачи,
+#  и обязан называть вещи так же. Иначе манифест заводит второй словарь для
+#  того же предмета, и он разойдётся с первым.
+#
+#    subjects[]   1..32; каждый даёт НЕЗАВИСИМЫЙ набор кортежей и свою линию
+#                 отзыва. Один субъект — частный случай, а не отдельная форма.
+#    roleId       роль (в манифесте — её `id` из раздела roles).
+#    scopeType    ЯКОРЬ ОБЛАСТИ в точечной форме: `iam.cluster` | `iam.account`
+#                 | `iam.project`. Обязателен; вывод типа из id закрыт гейтом.
+#    scopeId      id якоря: `cluster_kacho_root` | `acc…` | `prj…`.
+#    target       НА КАКИЕ ОБЪЕКТЫ под якорем распространяется выдача.
+#                 ОБЯЗАТЕЛЕН по контракту: создание без него отвергается
+#                 синхронно — «target is required; use target.allInScope{} to
+#                 grant all objects under the anchor». Две ветви:
+#                   resources:  закрытый перечень ResourceRef{type,id}
+#                   allInScope: ВСЕ объекты под якорем, включая будущие —
+#                               «самая широкая выдача, никогда не умолчание»
+#
+#  Прежняя редакция писала одно слово `appliesTo: cluster` — оно склеивало
+#  scopeType, scopeId и target в один токен и молчало о самом важном: что
+#  выдача покрывает все объекты под якорем И БУДУЩИЕ ТОЖЕ. Контракт требует
+#  сказать это вслух, и манифест теперь говорит.
+#
+#  ─ Ловушка YAML, поймана здесь же ────────────────────────────────────────
+#  Ключ `on` — БУЛЕВ ЛИТЕРАЛ, наравне с `yes`, `no`, `off`, `y`, `n`. Разбор
+#  превращает его в `True`, словарь получает ключ-логическое вместо строки,
+#  файл при этом валиден и глазом читается верно. Правило: ключ схемы обязан
+#  остаться строкой после разбора, и это проверяется, а не подразумевается.
+#
+#  Аккаунт пишется явно (`account: system`), хотя вариант сегодня один:
+#  «выводится» без указания, кем именно, — это то же умолчание, из-за
+#  которого и возник вопрос.
+#
+#  ─ Аудитория: кому право доступно ДО всякой выдачи ───────────────────────
+#  Анонимного доступа в продукте НЕТ, и это не умолчание, а решение. Три
+#  состояния, и путать их нельзя:
+#
+#    (по умолчанию)          нужна личность И выдача
+#    audience: authenticated нужна личность, выдача НЕ нужна: глобальный
+#                            справочник, который обязан читать каждый
+#                            арендатор, иначе он не запустит ни одного
+#                            ресурса. Материализуется ОДНИМ подстановочным
+#                            кортежем `user:* → viewer @ cluster`; замер: в
+#                            живой базе он ровно один, и его выполняют 9
+#                            записей каталога из 339.
+#    exempt: <причина>       снят authZ, authN ОСТАЁТСЯ. Причин в дереве три
+#                            и все объявлены: INTERNAL_LISTENER (13 записей),
+#                            HANDLER_DECIDES (3), SELF_SERVICE (3) —
+#                            самообслуживание, когда объекта, на котором
+#                            спрашивать право, ещё нет.
+#
+#  Анонимный вход (без личности вовсе) выражается ТОЛЬКО парой
+#  `audience: anonymous` + `internal: true` + причина, и в vpc он не стоит
+#  нигде: во всём продукте такая поверхность одна — раздача публичных ключей
+#  проверки подписи, где на проводе только открытый материал.
+#
+#  Почему подстановка требует обоснования: отношение, выполнимое кортежем
+#  `user:*`, отвечает «да» КАЖДОМУ аутентифицированному. Это верно для
+#  справочника и неверно ни для чего больше — а по форме записи неотличимо
+#  от настоящего гейта. Здесь же, в vpc, ни одного такого права нет: все
+#  ресурсы принадлежат проекту.
+# ═══════════════════════════════════════════════════════════════════════════
+
+roles:
+
+  # ── Наблюдатель ─────────────────────────────────────────────────────────
+  - id: vpc.viewer
+    name: Наблюдатель сети
+    description: Читает топологию проекта целиком, не меняет ничего.
+    grants:
+      - module: vpc
+        resource: "*"
+        classes: [get, list]
+
+  # ── Редактор ────────────────────────────────────────────────────────────
+  - id: vpc.editor
+    name: Редактор сети
+    description: >
+      Ведёт сетевые ресурсы проекта. Удаление входит: тот, кто заводит
+      подсеть, обязан уметь её снять — иначе за ним ходит администратор.
+    grants:
+      - module: vpc
+        resource: "*"
+        classes: [get, list, create, update, delete]
+
+  # ── Сетевик без охранного контура ───────────────────────────────────────
+  # Разделение обязанностей: топологию ведёт один, правила доступа другой.
+  # Здесь перечисление ПОИМЁННОЕ, потому что смысл роли — в границе, а
+  # классами границу не выразить: новый глагол securityGroup попал бы сюда.
+  - id: vpc.networkOperator
+    name: Сетевой инженер
+    description: >
+      Правит топологию — сети, подсети, маршруты, шлюзы, адреса. Группы
+      безопасности только читает.
+    grants:
+      - module: vpc
+        resource: network
+        verbs: [get, list, create, update, delete, listOperations,
+                addCidrBlocks, removeCidrBlocks]
+      - module: vpc
+        resource: subnet
+        verbs: [get, list, create, update, delete, listOperations,
+                addCidrBlocks, removeCidrBlocks, listUsedAddresses]
+      - module: vpc
+        resource: routeTable
+        verbs: [get, list, create, update, delete, listOperations]
+      - module: vpc
+        resource: gateway
+        verbs: [get, list, create, update, delete, listOperations]
+      - module: vpc
+        resource: address
+        verbs: [get, list, create, update, delete, listOperations]
+      - module: vpc
+        resource: networkInterface
+        verbs: [get, list, create, update, delete, listOperations]
+      - module: vpc
+        resource: cidrGroup
+        verbs: [get, list, create, update, delete, listOperations,
+                addCidrBlocks, removeCidrBlocks]
+      - module: vpc
+        resource: securityGroup
+        verbs: [get, list]
+      - module: vpc
+        resource: quota
+        verbs: [list]
+
+  # ── Охранный контур ─────────────────────────────────────────────────────
+  - id: vpc.securityOperator
+    name: Инженер сетевой безопасности
+    description: >
+      Ведёт группы безопасности и их правила. Топологию только читает —
+      сменить подсеть в обход сетевого инженера нельзя.
+    grants:
+      - module: vpc
+        resource: securityGroup
+        verbs: [get, list, create, update, delete, listOperations,
+                updateRule, updateRules]
+      - module: vpc
+        resource: network
+        verbs: [get, list]
+      - module: vpc
+        resource: subnet
+        verbs: [get, list]
+      - module: vpc
+        resource: networkInterface
+        verbs: [get, list]
+
+  # ── Администратор адресного пространства (уровень облака) ───────────────
+  # Единственная роль с admin-действиями. Перечисление поимённое: молчаливый
+  # рост прав уровня облака недопустим — новое действие пула обязано попасть
+  # сюда решением человека, а не выводом.
+  - id: vpc.addressPoolAdmin
+    name: Администратор адресных пулов
+    description: >
+      Ведёт адресные пулы кластера: блоки, привязку к сетям как умолчания,
+      утилизацию. Ресурсов арендатора не касается.
+    grants:
+      - module: vpc
+        resource: addressPool
+        verbs: [get, list, create, update, delete,
+                addCidrBlocks, removeCidrBlocks,
+                bindAsNetworkDefault, unbindNetworkDefault,
+                getUtilization, listAddresses]
+
+  # ── Плоскость исполнения ────────────────────────────────────────────────
+  # Не человеческая роль: её носитель — служебная учётка соседнего модуля.
+  # Внутренние действия берутся ПОИМЁННО и объявляются явно — ни classes, ни
+  # resource:"*" их не захватывают.
+  - id: vpc.internalConsumer
+    name: Смежный модуль
+    description: >
+      Что compute и nlb вправе делать в vpc на пути запроса: аллокация
+      адресов, ссылки, привязка интерфейсов. Выдаётся служебным учётным
+      записям модулей, не людям.
+    includesInternal: true
+    grants:
+      - module: vpc
+        resource: address
+        verbs: [internalAllocateInternalIp, internalAllocateInternalIpv6,
+                internalAllocateExternalIp, internalAllocateExternalIpv6,
+                internalCreateOwned, internalReleaseOwned,
+                internalGetReference, internalSetReference,
+                internalClearReference, internalMarkEphemeralInUse]
+      - module: vpc
+        resource: networkInterface
+        verbs: [internalAttach, internalDetach, internalListByInstance]
+      - module: vpc
+        resource: network
+        verbs: [internalGet]
+      - module: vpc
+        resource: subnet
+        verbs: [get]
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  SEED — что заводит установка модуля
+# ═══════════════════════════════════════════════════════════════════════════
+
+seed:
+
+  # ── Личности самого модуля ───────────────────────────────────────────────
+  # Под ними vpc ходит к соседям. Заводятся установкой ЭТОГО модуля. Список,
+  # а не одна запись: сегодня у каждого из семи модулей она ровно одна, но
+  # запрета на вторую в схеме нет. Каждая обязана нести `description` —
+  # так же, как группа: разное требование к однородным вещам само по себе
+  # расхождение. Поле названо как в продукте (`service_accounts.description`),
+  # а не выдуманным синонимом.
+  serviceAccounts:
+    - name: kacho-vpc
+      account: system
+      description: >
+        Личность модуля на пути запроса: под ней vpc ходит в geo за зонами,
+        в iam за пределами квот и правами.
+
+  # ── Группы, которые заводит vpc для своих потребителей ───────────────────
+  # Создаются ПУСТЫМИ и без прав: группа — это только имя и состав. Что она
+  # получает, сказано ниже в accessBindings, где субъект назван явно.
+  #
+  # Здесь стоял ключ `openTo`, объявлявший, «кому вступать дозволено». Он был
+  # ВЫДУМАН: контракт группы такого поля не несёт, в дереве понятия нет, а
+  # вступление гейтится обычным правом — `iam.group_members.addMember`
+  # требует `v_update` на объекте `iam_group`. То есть кто вправе править
+  # группу, тот и вписывает членов; отдельного разрешения не существует.
+  # Хуже того, валидатор требовал это поле заполнять — то есть заставлял
+  # писать пустышку. Снято.
+  #
+  # Кто окажется внутри: посев складывает членство из деклараций `joins`
+  # ВСЕХ манифестов — он видит их все и потому может это сделать одной
+  # операцией. Модулю-потребителю право править чужую группу НЕ выдаётся:
+  # он только заявляет вступление у себя.
+  groups:
+    - name: vpc-internal-consumers
+      account: system
+      description: >
+        Смежные модули, ходящие в vpc на пути запроса: аллокация адресов,
+        ссылки, привязка интерфейсов.
+
+    - name: cloud-network-admins
+      account: system
+      description: Администраторы адресного пространства облака.
+
+  # ── Выдачи: форма ДОСЛОВНО по CreateAccessBinding ────────────────────────
+  # Субъект называется ЯВНО и связывается по имени с тем, что заведено выше.
+  # Прежде выдача лежала внутри группы, и субъект подразумевался вложенностью
+  # — из-за чего было непонятно, как соединить её со служебной записью,
+  # которую тот же посев создал. Теперь соединяет имя.
+  accessBindings:
+    - subjects:
+        - {type: group, name: vpc-internal-consumers}
+      roleId: vpc.internalConsumer
+      scopeType: iam.cluster
+      scopeId: cluster_kacho_root
+      target: allInScope        # и будущие интерфейсы с адресами тоже
+
+    - subjects:
+        - {type: group, name: cloud-network-admins}
+      roleId: vpc.addressPoolAdmin
+      scopeType: iam.cluster
+      scopeId: cluster_kacho_root
+      target: allInScope        # и будущие пулы тоже
+
+  # ── Чужие группы, в которые вступает служебная запись vpc ────────────────
+  # Вступающий назван по имени: при одной записи это очевидно, при двух —
+  # уже нет, а схема не вправе зависеть от того, сколько их сегодня.
+  joins:
+    - serviceAccount: {account: system, name: kacho-vpc}
+      group:          {account: system, name: module-quota-readers}
+      why: читает пределы квот на пути мутации, перед списанием
