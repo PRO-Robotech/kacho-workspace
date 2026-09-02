@@ -32,6 +32,44 @@ GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
 
+sys.path.insert(0, GATE_DIR)
+from cglib import registry as registry_module  # noqa: E402
+
+
+def declared_case_count():
+    """Сколько кейсов осматривает prove.py. Число ВЫВОДИТСЯ, а не выписано.
+
+    Имя утверждения B1 несёт перепись осмотренного, поэтому меняется вместе с
+    деревом: положили модуль семейства — число выросло. Выписанное здесь
+    число было бы вторым местом об одном предмете и разошлось бы с деревом
+    молча, а расхождение выглядело бы недоказанной инъекцией, то есть
+    находкой о механизме там, где менялся только его предмет. Ровно это и
+    случилось при заведении семейств cg.tdd/cg.review/cg.class/cg.design:
+    ведомость называла 17 при 50 в дереве.
+
+    Считается тем же обходом, что и в prove.py: каталог testdata, чьё
+    семейство испытуемый объявил.
+    """
+    families = set(registry_module.load())
+    testdata = os.path.join(GATE_DIR, "tests", "testdata")
+    total = 0
+    for case_id in os.listdir(testdata):
+        if not os.path.isdir(os.path.join(testdata, case_id)):
+            continue
+        try:
+            family = registry_module.family_of(case_id)
+        except Exception:
+            continue
+        if family in families:
+            total += 1
+    return total
+
+
+B1_ASSERTION = (
+    "B1 все %d объявленных кейса дали объявленную тройку И совпавший код"
+    % declared_case_count()
+)
+
 # (имя, относительный путь, что заменить, на что, какие утверждения обязаны пасть)
 INJECTIONS = [
     (
@@ -42,7 +80,7 @@ INJECTIONS = [
         # Проба обязана НАЗВАТЬ координату, а не только объявить итог, поэтому
         # среди ожидаемого стоит и поимённая строка кейса.
         ["B SDD-1-BOOT-02",
-         "B1 все 17 объявленных кейса дали объявленную тройку И совпавший код",
+         B1_ASSERTION,
          "C1 SDD-1-BOOT-01: дефектный мир под положительным ID даёт "
          "CG_BOOTSTRAP_NOT_UNIQUE"],
     ),
@@ -76,6 +114,57 @@ INJECTIONS = [
         "    if unread:",
         "    if False and unread:",
         ["D8 непрочитанный факт внутри предмета -> собственный отказ"],
+    ),
+    # I6..I9 — по одной инъекции на семейство этой полосы. Предмет у них общий:
+    # предикат, переставший судить мир, обязан быть НАЙДЕН, а не пережить
+    # прогон молча. Инъекция снимает ТОЛЬКО решение и сохраняет чтение фактов:
+    # снятое чтение уронило бы прогон собственным отказом «факт не прочитан», и
+    # краснота пришла бы от ядра, а не от проверяемого правила (п. 2в
+    # `testing.md` §«Гейт на класс»).
+    (
+        "I6 cg.tdd перестал отличать unexpected GREEN от честного красного",
+        "cglib/families/tdd.py",
+        '    return world.read("initial_holder.category") == outcome.CATEGORY_GREEN',
+        '    world.read("initial_holder.category")\n    return False',
+        ["B SDD-1-TDD-03",
+         B1_ASSERTION,
+         "C1 SDD-1-TDD-02: дефектный мир под положительным ID даёт "
+         "CG_RED_PROOF_UNEXPECTED_GREEN"],
+    ),
+    (
+        "I7 cg.review перестал сверять artifact с событием",
+        "cglib/families/review.py",
+        "    return artifact != mirrored",
+        "    return False",
+        ["B SDD-1-REVIEW-06",
+         B1_ASSERTION,
+         "C1 SDD-1-REVIEW-01: дефектный мир под положительным ID даёт "
+         "CG_BOOTSTRAP_ACTOR_SPOOFED"],
+    ),
+    (
+        "I8 cg.class перестал требовать mapping каждого exposure item",
+        "cglib/families/klass.py",
+        "    return any(\n"
+        "        _absent(mapping.get(item)) for item in REGISTERED_INITIAL_ITEM_IDS\n"
+        "    )",
+        "    return False",
+        ["B SDD-1-CLASS-05",
+         B1_ASSERTION,
+         "C1 SDD-1-CLASS-04: дефектный мир под положительным ID даёт "
+         "CG_CLASS_ITEM_UNMAPPED"],
+    ),
+    (
+        "I9 cg.design перестал требовать пройденных applicable reviews",
+        "cglib/families/design.py",
+        "    return any(\n"
+        "        declared.get(review) != VERIFIED\n"
+        "        for review in REGISTERED_PRECODE_REVIEWS\n"
+        "    )",
+        "    return False",
+        ["B SDD-1-DESIGN-03",
+         B1_ASSERTION,
+         "C1 SDD-1-DESIGN-01: дефектный мир под положительным ID даёт "
+         "CG_PRECODE_REVIEW_MISSING"],
     ),
     (
         "I5 перечень признаков выписан списком вместо обхода дерева",

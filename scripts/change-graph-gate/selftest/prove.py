@@ -223,11 +223,19 @@ def section_cases():
 # --- C. Вердикт есть функция МИРА, а не идентификатора -----------------------
 def section_world_decides():
     sys.stdout.write("\n== C. Решает мир, а не идентификатор кейса ==\n")
+    # По паре на объявленное семейство: утверждение проверяется там, где оно
+    # может быть неверно, а не там, где его удобно проверить. Семейство без
+    # своей пары осталось бы доказанным лишь односторонне — матрицей, которая
+    # спрашивает «совпала ли тройка» и не спрашивает, ЧТО её произвело.
     pairs = [
         ("SDD-1-BOOT-01", "SDD-1-BOOT-02", "CG_BOOTSTRAP_NOT_UNIQUE"),
         ("SDD-1-NONEMPTY-01", "SDD-1-NONEMPTY-02", "CG_ACCEPTANCE_IDS_EMPTY"),
         ("SDD-1-HASH-01", "SDD-1-HASH-03", "CG_APPROVAL_SUBJECT_STALE"),
         ("SDD-1-TRUTH-01", "SDD-1-TRUTH-04", "CG_HUMAN_TASKS_TRACKER"),
+        ("SDD-1-TDD-02", "SDD-1-TDD-03", "CG_RED_PROOF_UNEXPECTED_GREEN"),
+        ("SDD-1-REVIEW-01", "SDD-1-REVIEW-06", "CG_BOOTSTRAP_ACTOR_SPOOFED"),
+        ("SDD-1-CLASS-04", "SDD-1-CLASS-05", "CG_CLASS_ITEM_UNMAPPED"),
+        ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
     ]
     for positive, negative, diagnostic in pairs:
         _, lines = run_sut(
