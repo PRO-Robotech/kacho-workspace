@@ -1,0 +1,527 @@
+# Versioned policy Change Graph — корень доверия ПОСЛЕ cutover.
+#
+# Приёмка: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md (§4, §5, §8).
+# До cutover действует единственное bootstrap-исключение Issue #480; с момента
+# cutover оно недействительно, и вся authority читается ОТСЮДА.
+#
+# Роль в этом файле — КООРДИНАТА, а не доказательство личности: actor обязан быть
+# подтверждён внешним GitHub-событием при каждой проверке. Список ниже сужает
+# «кому позволено», но сам по себе никого не аутентифицирует.
+schema_version: 1
+schema: docs/changes/policy.schema.json
+
+# --- 1. Две координаты repository: у каждого DAG свой cutover ---------------
+#
+# SHA привязан к repo НАМЕРЕННО: одинаково валидный по форме SHA другого repo
+# обязан отвергаться (SDD-1-POLICY-05). Проверено в обе стороны при записи —
+# каждый существует в своём repo и отсутствует в соседнем.
+repositories:
+  - repo: PRO-Robotech/kacho-workspace
+    cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+    verified:
+      method: GET /repos/{repo}/commits/{sha}
+      exists_in_named_repo: true
+      absent_in_sibling_repo: true
+      checked_at: '2026-09-02T11:05:48Z'
+  - repo: PRO-Robotech/kacho
+    cutover_commit: c2d573654cd755c6bbc6755ff0874c8c83501004
+    verified:
+      method: GET /repos/{repo}/commits/{sha}
+      exists_in_named_repo: true
+      absent_in_sibling_repo: true
+      checked_at: '2026-09-02T11:05:48Z'
+
+# --- 2. Реестр полномочий --------------------------------------------------
+#
+# Разрешённый actor — необходимое условие, не достаточное: gate обязан получить
+# внешнее событие через API и сверить digest тела и subject. Самообъявленная
+# роль без события authority не даёт (приёмка §4).
+review_authority:
+  # единственный, кто выпускает effective approval приёмки
+  acceptance-reviewer: [pointpu]
+  # initial analysis и revalidation exposure items
+  class-exposure-analyst: [pointpu]
+  # вердикт по design
+  design-reviewer: [pointpu]
+  # specialist post-diff: схема и миграции
+  db-architect-reviewer: [pointpu]
+  # specialist post-diff: Go
+  go-style-reviewer: [pointpu]
+  # specialist post-diff: контракт
+  proto-api-reviewer: [pointpu]
+  # specialist post-diff: распределённые свойства
+  system-design-reviewer: [pointpu]
+  # владелец tests/**, fixtures и первого прогона
+  integration-tester: [pointpu]
+  # единственный, кто выпускает final durable record
+  convergence-reviewer: [pointpu]
+  # сверяет applied content и записывает landed SHA
+  landing-reviewer: [pointpu]
+
+# --- 3. Реестр применимости ------------------------------------------------
+#
+# N/A законен ТОЛЬКО по id отсюда и ТОЛЬКО с evidence, удовлетворяющим предикату
+# (приёмка §5). Свободный текст evidence не является. Предикат машинно проверяем:
+# назван путь в evidence и условие на его значение — иначе «выполнен» решался бы
+# чтением прозы, а это ровно то, что реестр и запрещает.
+applicability_predicates:
+  - id: no-migrations-in-change
+    role: db-architect-reviewer
+    evidence_field: migrations_touched
+    satisfied_when: equals
+    value: 0
+  - id: no-proto-in-change
+    role: proto-api-reviewer
+    evidence_field: proto_files_touched
+    satisfied_when: equals
+    value: 0
+  - id: no-acceptance-document-in-change
+    role: acceptance-reviewer
+    evidence_field: acceptance_documents_referenced
+    satisfied_when: equals
+    value: 0
+    note: >-
+      Предмет — legacy-изменение, заведённое ДО Change Graph и не несущее приёмки
+      (правка, тех-долг, batch). Предикат существует, чтобы отсутствие приёмки было
+      ЗАЯВЛЕНО и проверяемо, а не изображено пустой строкой в acceptance_path.
+
+# --- 4. Перепись наследия --------------------------------------------------
+legacy_census:
+  path: docs/changes/census/1c85491a8335882c7abc47a690a267d0464f19623348e15f552e2644a89a45b0.yaml
+  sha256: 1c85491a8335882c7abc47a690a267d0464f19623348e15f552e2644a89a45b0
+
+# --- 5. Реестр наследия: exact-set со снимком переписи ----------------------
+#
+# Ровно 60 координат — столько же, сколько в snapshot переписи. Лишняя запись и
+# пропущенная активная — обе RED (SDD-1-CENSUS-08/09).
+#
+# Route у всех legacy, и это не умолчание: пакета Change Graph нет ни у одного
+# из этих изменений, потому что на момент cutover формата пакета ещё не
+# существует. Legacy-маршрут ровно для того и заведён. Route migrate выбирается
+# ОСОЗНАННО и требует пакета (SDD-1-CENSUS-12/13); изменение observable contract
+# на legacy-маршруте — RED (SDD-1-CENSUS-11).
+#
+# acceptance_repo назван отдельно от пути: приёмки живут в ВОРКСПЕЙСЕ, поэтому у
+# задачи ПРОДУКТА путь резолвится в соседнем дереве. Путь без repo двусмыслен.
+legacy_changes_count: 60
+legacy_changes:
+  - issue: https://github.com/PRO-Robotech/kacho/issues/693
+    coordinate: PRO-Robotech/kacho#693
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/695
+    coordinate: PRO-Robotech/kacho#695
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/707
+    coordinate: PRO-Robotech/kacho#707
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1031
+    coordinate: PRO-Robotech/kacho#1031
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1441
+    coordinate: PRO-Robotech/kacho#1441
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/pull/1732
+    coordinate: PRO-Robotech/kacho#1732
+    kind: open-pr
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1737
+    coordinate: PRO-Robotech/kacho#1737
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1740
+    coordinate: PRO-Robotech/kacho#1740
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1754
+    coordinate: PRO-Robotech/kacho#1754
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1758
+    coordinate: PRO-Robotech/kacho#1758
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1764
+    coordinate: PRO-Robotech/kacho#1764
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1765
+    coordinate: PRO-Robotech/kacho#1765
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1767
+    coordinate: PRO-Robotech/kacho#1767
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1768
+    coordinate: PRO-Robotech/kacho#1768
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1769
+    coordinate: PRO-Robotech/kacho#1769
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1770
+    coordinate: PRO-Robotech/kacho#1770
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1771
+    coordinate: PRO-Robotech/kacho#1771
+    kind: live-issue
+    acceptance_repo: PRO-Robotech/kacho-workspace
+    acceptance_path: docs/specs/sub-phase-ID-MAIL-1-mail-delivery-acceptance.md
+    acceptance_contract_sha256: c85b7ef7c26ec5a9de8e8cc49c50a95dc4f1eae35bce69d1c652716fc5fb9501
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1772
+    coordinate: PRO-Robotech/kacho#1772
+    kind: live-issue
+    acceptance_repo: PRO-Robotech/kacho-workspace
+    acceptance_path: docs/specs/sub-phase-ID-MAIL-1-mail-delivery-acceptance.md
+    acceptance_contract_sha256: c85b7ef7c26ec5a9de8e8cc49c50a95dc4f1eae35bce69d1c652716fc5fb9501
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1776
+    coordinate: PRO-Robotech/kacho#1776
+    kind: live-issue
+    acceptance_repo: PRO-Robotech/kacho-workspace
+    acceptance_path: docs/specs/sub-phase-ID-MAIL-1-mail-delivery-acceptance.md
+    acceptance_contract_sha256: c85b7ef7c26ec5a9de8e8cc49c50a95dc4f1eae35bce69d1c652716fc5fb9501
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1777
+    coordinate: PRO-Robotech/kacho#1777
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1779
+    coordinate: PRO-Robotech/kacho#1779
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1780
+    coordinate: PRO-Robotech/kacho#1780
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1781
+    coordinate: PRO-Robotech/kacho#1781
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1782
+    coordinate: PRO-Robotech/kacho#1782
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1783
+    coordinate: PRO-Robotech/kacho#1783
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1784
+    coordinate: PRO-Robotech/kacho#1784
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1785
+    coordinate: PRO-Robotech/kacho#1785
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1786
+    coordinate: PRO-Robotech/kacho#1786
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1787
+    coordinate: PRO-Robotech/kacho#1787
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1788
+    coordinate: PRO-Robotech/kacho#1788
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1789
+    coordinate: PRO-Robotech/kacho#1789
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1790
+    coordinate: PRO-Robotech/kacho#1790
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1791
+    coordinate: PRO-Robotech/kacho#1791
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1792
+    coordinate: PRO-Robotech/kacho#1792
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1794
+    coordinate: PRO-Robotech/kacho#1794
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1795
+    coordinate: PRO-Robotech/kacho#1795
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1797
+    coordinate: PRO-Robotech/kacho#1797
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1798
+    coordinate: PRO-Robotech/kacho#1798
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1800
+    coordinate: PRO-Robotech/kacho#1800
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1801
+    coordinate: PRO-Robotech/kacho#1801
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1802
+    coordinate: PRO-Robotech/kacho#1802
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1803
+    coordinate: PRO-Robotech/kacho#1803
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1804
+    coordinate: PRO-Robotech/kacho#1804
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1805
+    coordinate: PRO-Robotech/kacho#1805
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1806
+    coordinate: PRO-Robotech/kacho#1806
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1807
+    coordinate: PRO-Robotech/kacho#1807
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1808
+    coordinate: PRO-Robotech/kacho#1808
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1809
+    coordinate: PRO-Robotech/kacho#1809
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1810
+    coordinate: PRO-Robotech/kacho#1810
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1816
+    coordinate: PRO-Robotech/kacho#1816
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1825
+    coordinate: PRO-Robotech/kacho#1825
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1864
+    coordinate: PRO-Robotech/kacho#1864
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1879
+    coordinate: PRO-Robotech/kacho#1879
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1880
+    coordinate: PRO-Robotech/kacho#1880
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1881
+    coordinate: PRO-Robotech/kacho#1881
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/issues/1887
+    coordinate: PRO-Robotech/kacho#1887
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho/pull/1888
+    coordinate: PRO-Robotech/kacho#1888
+    kind: open-pr
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho-workspace/issues/459
+    coordinate: PRO-Robotech/kacho-workspace#459
+    kind: live-issue
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho-workspace/pull/476
+    coordinate: PRO-Robotech/kacho-workspace#476
+    kind: open-pr
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
+  - issue: https://github.com/PRO-Robotech/kacho-workspace/pull/477
+    coordinate: PRO-Robotech/kacho-workspace#477
+    kind: open-pr
+    acceptance_repo: null
+    acceptance_path: null
+    acceptance_absence_predicate: no-acceptance-document-in-change
+    route: legacy
