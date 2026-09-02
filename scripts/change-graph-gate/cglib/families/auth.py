@@ -53,6 +53,59 @@ authority задаёт версионированный allowlist, и permission
 имеет (§4: «с момента cutover ... используют только versioned policy
 authority»).
 
+**И нет ТРЕТЬЕГО сравнения, которого §4 требует прямо, — это названо здесь
+находкой, а не решением** (задача воркспейса #492). §4 объявляет пару
+«артефакт ↔ событие» сходящейся по ТРЁМ величинам: «event body/subject digests
+И VERDICT совпадают». Семейство сравнивает две: `auth.body-digest` и
+`auth.subject-digest`. Вердикт стоит в `EVENT_CITATION_COORDINATES` — то есть
+проверяется на НЕПУСТОТУ у события и не сравнивается ни с чем; со стороны это
+читается как «вердикт учтён», и ровно поэтому пропуск себя не выдаёт.
+
+**Пропуск не выбран, а вынужден, и цена названа с обеих сторон.** Приёмка
+говорит об одном предмете двумя голосами:
+
+    §4  и §7 : артефакт несёт body digest, subject digest, timestamp И VERDICT
+    §13 Given SDD-1-AUTH-01 : «... body/subject digests и timestamp» — без него
+
+Фикстуры следуют §13, и это измеримо: post-cutover миров восемь, координата
+`artifact.verdict` есть у НУЛЯ из них, `event.verdict` — у всех восьми
+(предикат ниже). Bootstrap-половина того же §4 вердикт сравнивает — но не
+своим правилом, а целиком отображением артефакта на событие
+(`review.artifact-mirrors-event`, `ARTIFACT_MIRRORS_EVENT`), и расхождение
+одного лишь вердикта получило бы там имя `CG_BOOTSTRAP_ACTOR_SPOOFED`.
+
+Написать `auth.verdict-mirror` здесь нечем: диагностики расхождения вердикта
+приёмка не объявляет, а заводить свою значило бы повторить отступление, уже
+названное ценой в `families/driver.py` (задача воркспейса #494). Разрешает
+расхождение §4 против §13 только новый круг рецензии — правка приёмки отзывает
+её вердикт, привязанный к отпечатку файла.
+
+**Предикат снятия — КОМАНДОЙ, чтобы его не проверял каждый читатель по-своему:**
+
+    python3 - <<'PY'
+    import glob, os, yaml
+    with_verdict = []
+    post = []
+    for path in sorted(glob.glob(
+            "scripts/change-graph-gate/tests/testdata/*/world.yaml")):
+        world = yaml.safe_load(open(path, encoding="utf-8")) or {}
+        if world.get("epoch") != "post-cutover":
+            continue
+        post.append(os.path.basename(os.path.dirname(path)))
+        artifact = world.get("artifact")
+        if isinstance(artifact, dict) and "verdict" in artifact:
+            with_verdict.append(post[-1])
+    print("post-cutover миров", len(post),
+          "· с artifact.verdict", len(with_verdict))
+    PY
+
+Второе число перестало быть нулём — круг состоялся по исходу «§13 догоняет
+§4», и правило пишется ТЕМ ЖЕ изменением. Исчезло `verdict` из фразы §4 —
+круг состоялся по исходу «§4 сужается до §13», и тогда снимается этот абзац,
+а `verdict` уходит из `EVENT_CITATION_COORDINATES` в собственное правило
+присутствия: сегодня он там не по адресу — узнаётся-то событие по `node_id` и
+`url`, а вердикт есть его СОДЕРЖАНИЕ.
+
 **Отсутствующая координата спрашивается через `has`, а не через `read`.**
 `read` по несуществующему пути — собственный отказ испытуемого, то есть «мир не
 описывает предмет»; а здесь отсутствие координаты и есть ФАКТ, о котором

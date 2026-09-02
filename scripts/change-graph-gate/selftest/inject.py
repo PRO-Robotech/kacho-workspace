@@ -117,6 +117,15 @@ DERIVED_MARKERS = {
     EVERY_CORE_READ_OUTSIDE_SUBJECT: prove_module.CLASS_CORE_READ_OUTSIDE_SUBJECT,
 }
 
+# Раскрытие маркера в перечень имён живёт ТОЛЬКО в `expand_markers` — включая
+# ветвь «раскрывать нечего», которая объявляет инъекцию беспредметной. Прежний,
+# ОДИНОЧНЫЙ маркер имел собственное раскрытие рядом с контрольным прогоном; при
+# переходе к этой ведомости оно осталось в дереве, потеряв оба своих имени, и
+# прогон падал `NameError` ДО первой инъекции — то есть доказательство падучести
+# `prove.py` не запускалось вовсе, а перепись «инъекций 38 · доказано 38»
+# описывала ревизию, которой уже нет. Мёртвая ветвь снята; второго раскрытия
+# здесь заводить нельзя — оно разойдётся с первым молча.
+
 # Сводное утверждение прогона кейсов. Числа в имени нет НАМЕРЕННО: счёт кейсов
 # растёт от каждого нового семейства, а ожидания инъекций перечисляют имена
 # дословно — то есть счёт в имени сталкивал бы параллельные полосы by
@@ -956,12 +965,6 @@ def main():
         else:
             broken += 1
         control_seconds = time.monotonic() - started
-        # Перечень утверждений о собственном отказе ВЫВОДИТСЯ отсюда: на чистом
-        # дереве они все зелёные, поэтому именно контрольный прогон и знает их
-        # состав. Пустой перечень — находка, а не «нечего разворачивать».
-        self_failure_assertions = sorted(
-            name for name in control_passed if SELF_FAILURE_MARK in name
-        )
         if code == 0 and not failed:
             passed += 1
             say("  OK   контроль: нетронутое дерево зелено (%.0f с)\n"
@@ -998,14 +1001,6 @@ def main():
                 sys.stdout.write("  FAIL %s: %s\n" % (name, trouble))
                 continue
             seconds = time.monotonic() - started
-            if EVERY_SELF_FAILURE in expected:
-                if not self_failure_assertions:
-                    broken += 1
-                    say("  FAIL %s: перечень утверждений о собственном отказе "
-                        "ПУСТ — раскрывать нечего, инъекция беспредметна\n" % name)
-                    continue
-                expected = [item for item in expected if item != EVERY_SELF_FAILURE]
-                expected = expected + self_failure_assertions
             missing = [item for item in expected if item not in failed]
             extra = [item for item in failed if item not in expected]
             if code == 1 and not missing and not extra:
