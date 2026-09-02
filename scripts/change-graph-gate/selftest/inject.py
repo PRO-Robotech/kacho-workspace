@@ -263,6 +263,20 @@ INJECTIONS = [
         ["B SDD-1-EVID-05", B1],
     ),
     (
+        # Снимается ТОЛЬКО решение: оба чтения (эпоха и валидность package)
+        # остаются на месте, иначе прогон упал бы собственным отказом «факт не
+        # прочитан» и краснота пришла бы от учёта фактов, а не от снятого
+        # предиката (п. 2в `testing.md` §«Гейт на класс»).
+        "cg.dag перестал требовать package после cutover",
+        "cglib/families/dag.py",
+        "    return _cutover_before_base(world) and missing",
+        "    _cutover_before_base(world)\n    return False",
+        ["B SDD-1-DAG-05",
+         B1,
+         "C1 SDD-1-DAG-04: дефектный мир под положительным ID даёт "
+         "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"],
+    ),
+    (
         "evidence перестало проверяться на выполнение predicate",
         "cglib/families/na.py",
         "    return evidence[coordinate] != satisfying_value",

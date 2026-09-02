@@ -252,6 +252,7 @@ def section_world_decides():
         ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
         ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
         ("SDD-1-POLICY-01", "SDD-1-POLICY-02", "CG_POLICY_REPOSITORY_MISSING"),
+        ("SDD-1-DAG-04", "SDD-1-DAG-05", "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -570,6 +571,84 @@ def section_rule_pairing():
         and verdict == "RED · CG_NA_PREDICATE_FALSE · exit 10",
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
+
+    # cg.dag: две ветви §8, у которых среди fixtures НЕТ отрицательного мира.
+    # DAG-01 — единственный pre-cutover мир, и он предъявляет registered legacy;
+    # DAG-02/03 — единственные миры с exact-mapping, и оно там истинно. Ветвь,
+    # у которой нет производителя входа, неотличима от мёртвой: она не краснеет
+    # и не зеленеет, она молчит. Производитель заводится здесь — миром, собранным
+    # на месте, — и рядом ставится законный близнец, отличающийся ОДНИМ фактом:
+    # без него утверждение зеленело бы на правиле, краснящем на всём подряд.
+    # Идентификатор кейса тут вторичен намеренно: он выбирает семейство, а
+    # отвечает мир.
+    with tempfile.TemporaryDirectory(prefix="cg-dag-") as dag_work:
+        base_of_pre_cutover = {
+            "candidate": {
+                "repo": "PRO-Robotech/kacho-workspace",
+                "base_sha": "1" * 40,
+                "head_sha": "2" * 40,
+            },
+            "cutover_commit": "0123456789abcdef0123456789abcdef01234567",
+            "relation": "base-is-ancestor-of-cutover",
+            "registered_route": "migrate",
+            "legacy_registry": {"PRO-Robotech/kacho-workspace#400": "legacy"},
+            "package_present": False,
+        }
+        path = write_world(dag_work, "dag-off-legacy.yaml", base_of_pre_cutover)
+        completed, lines = run_sut(
+            ["--case-world", path, "--case", "SDD-1-DAG-01"]
+        )
+        check(
+            "F-DAG-1 pre-cutover без registered legacy route требует package",
+            bool(lines)
+            and lines[-1] == "RED · CG_PACKAGE_REQUIRED_AT_CUTOVER · exit 10"
+            and "dag.package-required-at-cutover" in completed.stderr,
+            "вердикт %r; stderr=%s"
+            % (lines[-1] if lines else None, completed.stderr.strip()[:400]),
+        )
+        twin_of_pre_cutover = dict(base_of_pre_cutover, registered_route="legacy")
+        path = write_world(dag_work, "dag-on-legacy.yaml", twin_of_pre_cutover)
+        _, lines = run_sut(["--case-world", path, "--case", "SDD-1-DAG-01"])
+        check(
+            "F-DAG-2-близнец тот же pre-cutover мир с registered legacy route "
+            "молчит",
+            bool(lines) and lines[-1] == "GREEN · CG_OK · exit 0",
+            "получено %r" % (lines[-1] if lines else None),
+        )
+
+        cutover_sha = "0123456789abcdef0123456789abcdef01234567"
+        base_at_boundary = {
+            "candidate": {
+                "repo": "PRO-Robotech/kacho-workspace",
+                "base_sha": cutover_sha,
+                "head_sha": "2" * 40,
+            },
+            "cutover_commit": cutover_sha,
+            "relation": "base-equals-cutover",
+            "package_present": True,
+            "package_diff_exact_mapped": False,
+        }
+        path = write_world(dag_work, "dag-package-not-exact.yaml", base_at_boundary)
+        completed, lines = run_sut(
+            ["--case-world", path, "--case", "SDD-1-DAG-02"]
+        )
+        check(
+            "F-DAG-3 package, не отображающий diff точно, требования границы не "
+            "удовлетворяет",
+            bool(lines)
+            and lines[-1] == "RED · CG_PACKAGE_REQUIRED_AT_CUTOVER · exit 10"
+            and "dag.package-required-at-cutover" in completed.stderr,
+            "вердикт %r; stderr=%s"
+            % (lines[-1] if lines else None, completed.stderr.strip()[:400]),
+        )
+        twin_at_boundary = dict(base_at_boundary, package_diff_exact_mapped=True)
+        path = write_world(dag_work, "dag-package-exact.yaml", twin_at_boundary)
+        _, lines = run_sut(["--case-world", path, "--case", "SDD-1-DAG-02"])
+        check(
+            "F-DAG-4-близнец тот же мир с exact-mapped package молчит",
+            bool(lines) and lines[-1] == "GREEN · CG_OK · exit 0",
+            "получено %r" % (lines[-1] if lines else None),
+        )
 
 
 def main():
