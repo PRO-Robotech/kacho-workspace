@@ -256,6 +256,10 @@ def section_world_decides():
         ("SDD-1-DAG-04", "SDD-1-DAG-05", "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"),
         ("SDD-1-DIFF-01", "SDD-1-DIFF-02", "CG_DIFF_PATH_UNCLAIMED"),
         ("SDD-1-PCI-01", "SDD-1-PCI-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-TRACE-01", "SDD-1-TRACE-03", "CG_TRACE_ID_ORPHAN"),
+        ("SDD-1-LIFE-01", "SDD-1-LIFE-02", "CG_LIFECYCLE_TRANSITION_INVALID"),
+        ("SDD-1-TASKS-01", "SDD-1-TASKS-02",
+         "CG_WRITING_PLANS_HANDOFF_MISSING"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -743,6 +747,195 @@ def section_rule_pairing():
         "нарушений 1" in stderr
         and "auth.api-available" in stderr
         and verdict == "NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    section_trace_life_tasks_pairing()
+
+
+# --- F (продолжение). Полосы трассы, жизненного цикла и задач ----------------
+def section_trace_life_tasks_pairing():
+    """То же, что F выше, для cg.trace / cg.life / cg.tasks.
+
+    Три диагностики трассы производит ОДИН и тот же вид мира — набор
+    идентификаторов, — поэтому «тройка сошлась» ещё не значит, что различение
+    направлений живо: правило, краснящее на всяком расхождении, дало бы ту же
+    тройку на своём кейсе и молчаливо неверную на соседнем. Здесь спрашивается
+    перепись — ИМЕНА сработавших правил, — чего матрица спросить не может.
+
+    Отдельно доказывается способность упасть у тех правил, под которые в
+    приёмке нет отрицательного кейса: держатели одного ID. Без синтетического
+    входа они были бы правилами, зелёными по построению.
+    """
+    sys.stdout.write(
+        "\n== F (продолжение). Полосы трассы, жизненного цикла и задач ==\n"
+    )
+
+    def judge_world(path, case_id):
+        completed, lines = run_sut(["--case-world", path, "--case", case_id])
+        return completed.stderr, (lines[-1] if lines else "(без вывода)")
+
+    # Направление расхождения, а не его мощность: набор, потерявший ОДИН ID и
+    # добавивший ОДИН чужой, обязан назваться двусторонним расхождением, и
+    # односторонние правила при этом обязаны молчать.
+    stderr, verdict = _judge("SDD-1-TRACE-04")
+    check(
+        "F-TRACE-1 двустороннее расхождение краснит только своё правило",
+        "нарушений 1" in stderr
+        and "trace.downstream-set-mismatch" in stderr
+        and "trace.downstream-id-missing" not in stderr
+        and "trace.downstream-id-orphan" not in stderr
+        and verdict == "RED · CG_TRACE_SET_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-TRACE-1 зеленел бы на правиле, краснящем на всяком
+    # расхождении вообще.
+    stderr, verdict = _judge("SDD-1-TRACE-02")
+    check(
+        "F-TRACE-2-близнец односторонняя потеря краснит только правило о потере",
+        "нарушений 1" in stderr
+        and "trace.downstream-id-missing" in stderr
+        and "trace.downstream-set-mismatch" not in stderr
+        and "trace.downstream-id-orphan" not in stderr
+        and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Граница предмета названа переписью, а не подразумевается, и названа
+    # ИЗМЕРЕННО: координата ровно одна и она поимённая. Утверждение о числе
+    # стоит рядом с именем намеренно — без него «названа поимённо» осталось бы
+    # верным и на мире, где вне предмета оказались бы заодно и множества
+    # идентификаторов, то есть при молчаливо сузившемся предмете трассы.
+    stderr, verdict = _judge("SDD-1-TRACE-01")
+    check(
+        "F-TRACE-3 вне предмета трассы ровно одна координата и она названа",
+        "вне предмета семейства 1" in stderr
+        and "вне предмета cg.trace (судит другое семейство): "
+            "driver_birth.actual_triple" in stderr
+        and verdict == "GREEN · CG_OK · exit 0",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    with tempfile.TemporaryDirectory(prefix="cg-selftest-tlt-") as work:
+        # У полосы держателей отрицательного кейса в приёмке нет: §9 объявляет
+        # разрешение («одному ID разрешены несколько независимых holders»), а
+        # не запрет. Правило без синтетического входа осталось бы зелёным по
+        # построению, поэтому вход подаётся здесь.
+        holderless = yaml.safe_load(
+            open(fixture_world("SDD-1-TRACE-05"), encoding="utf-8")
+        )
+        holderless["holders_for_id"] = {}
+        stderr, verdict = judge_world(
+            write_world(work, "trace-no-holder.yaml", holderless),
+            "SDD-1-TRACE-05",
+        )
+        check(
+            "F-TRACE-4 объявленный ID без единого держателя — находка",
+            "trace.id-without-holder" in stderr
+            and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+
+        collapsed = yaml.safe_load(
+            open(fixture_world("SDD-1-TRACE-05"), encoding="utf-8")
+        )
+        holders = collapsed["holders_for_id"]
+        shared = holders[sorted(holders)[0]]
+        for name in holders:
+            holders[name] = shared
+        stderr, verdict = judge_world(
+            write_world(work, "trace-collapsed.yaml", collapsed),
+            "SDD-1-TRACE-05",
+        )
+        check(
+            "F-TRACE-5 два держателя на одной координате доказательства — "
+            "находка",
+            "trace.holder-evidence-not-own" in stderr
+            and verdict
+            == "RED · CG_HOLDER_EVIDENCE_COORDINATE_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # Близнец обеих находок: тот же мир нетронутым обязан молчать, иначе
+        # обе предыдущие проверки зеленели бы на правилах, краснящих на всём.
+        stderr, verdict = _judge("SDD-1-TRACE-05")
+        check(
+            "F-TRACE-6-близнец два независимо названных держателя с раздельным "
+            "доказательством сохранены: нарушений 0",
+            "нарушений 0" in stderr and verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+
+        # Жизненный цикл: состоятельность текущей стадии и законность шага —
+        # разные находки, и каждая обязана краснить своё правило, а не оба.
+        stderr, verdict = _judge("SDD-1-LIFE-03")
+        check(
+            "F-LIFE-1 нехватка артефакта краснит только правило об артефактах",
+            "нарушений 1" in stderr
+            and "life.required-artifact-missing" in stderr
+            and "life.transition-not-adjacent" not in stderr
+            and verdict == "RED · CG_REQUIRED_ARTIFACT_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        stderr, verdict = _judge("SDD-1-LIFE-02")
+        check(
+            "F-LIFE-2-близнец пропуск обязательной стадии краснит только "
+            "правило о смежности",
+            "нарушений 1" in stderr
+            and "life.transition-not-adjacent" in stderr
+            and "life.required-artifact-missing" not in stderr
+            and verdict == "RED · CG_LIFECYCLE_TRANSITION_INVALID · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # §5 называет WITHDRAWN и SUPERSEDED БОКОВЫМИ состояниями: они лежат вне
+        # линейной цепочки, и мерить их шагом по ней значило бы отвергать то,
+        # что приёмка разрешает. Пара с F-LIFE-2 показывает, что правило
+        # отличает боковое состояние от пропуска, а не пропускает всё подряд.
+        aside = yaml.safe_load(
+            open(fixture_world("SDD-1-LIFE-01"), encoding="utf-8")
+        )
+        aside["requested_transition"] = "WITHDRAWN"
+        stderr, verdict = judge_world(
+            write_world(work, "life-aside.yaml", aside), "SDD-1-LIFE-01"
+        )
+        check(
+            "F-LIFE-3 боковое терминальное состояние не судится смежностью",
+            "нарушений 0" in stderr and verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # Стадия, для которой перечень обязательного не объявлен, — «не знаю», и
+        # оно никогда не выдаётся за «нет»: вердикта о предмете нет вовсе.
+        unknown_stage = yaml.safe_load(
+            open(fixture_world("SDD-1-LIFE-01"), encoding="utf-8")
+        )
+        unknown_stage["stage"] = "IMPLEMENTING"
+        unknown_stage["requested_transition"] = "CONVERGED"
+        expect_self_failure(
+            "F-LIFE-4 стадия без объявленного перечня -> собственный отказ, а "
+            "НЕ vacuous GREEN",
+            ["--case-world",
+             write_world(work, "life-unknown-stage.yaml", unknown_stage),
+             "--case", "SDD-1-LIFE-01"],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+
+    # Задачи: порядок и производитель — разные находки. Без пары «порядок»
+    # зеленел бы на правиле, краснящем на всяком мире с задачами.
+    stderr, verdict = _judge("SDD-1-TASKS-03")
+    check(
+        "F-TASKS-1 задачи до утверждения design краснят только правило о порядке",
+        "нарушений 1" in stderr
+        and "tasks.before-design-approval" in stderr
+        and "tasks.writing-plans-handoff-missing" not in stderr
+        and verdict == "RED · CG_TASKS_BEFORE_DESIGN_APPROVAL · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-TASKS-02")
+    check(
+        "F-TASKS-2-близнец отсутствие проверенного handoff краснит только "
+        "правило о производителе",
+        "нарушений 1" in stderr
+        and "tasks.writing-plans-handoff-missing" in stderr
+        and "tasks.before-design-approval" not in stderr
+        and verdict == "RED · CG_WRITING_PLANS_HANDOFF_MISSING · exit 10",
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
 
