@@ -14,7 +14,7 @@ TOTAL=0
 GOOD=0
 
 run_case_of_injection() {
-  local label="$1" mode="$2" want_failed="$3" want_named="$4"
+  local label="$1" mode="$2" want_failed="$3" want_named="$4" want_phrase="${5-}"
   local tmp; tmp="$(mktemp -d)"
   cp -r "$TESTS_DIR" "$tmp/tests"
   find "$tmp/tests" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
@@ -47,17 +47,58 @@ edits = {
         "        if len(differences) != 1:",
         "        if False and len(differences) != 1:",
     ),
+    "unpinned-cap": (
+        '  env KACHO_CG_SUT="$ABSENT_SUT" python3 "$DRIVER" --case SDD-1-BOOT-01 --quiet',
+        '  python3 "$DRIVER" --case SDD-1-BOOT-01 --quiet',
+    ),
     "allow-stub": (
         '        if stub is not None and case_id not in STUB_PERMITTED_CASES:',
         '        if False and stub is not None and case_id not in STUB_PERMITTED_CASES:',
     ),
+    # Три инъекции ниже возвращают дефект секции J: перечень под верным числом
+    # обрывается молча. Предмет у каждой свой, поэтому и падать они обязаны
+    # порознь — иначе краснота приходила бы от соседа, а утверждение секции
+    # оставалось бы вакуумным.
+    "truncate-harness": (
+        "HARNESS_LIST_CAP = None",
+        "HARNESS_LIST_CAP = 20",
+    ),
+    "silent-listing": (
+        "    if rows:\n        lines.append(",
+        "    if False:\n        lines.append(",
+    ),
+    "stray-listing-print": (
+        "    for line in render_listing(\n"
+        "            mismatched, MISMATCH_LIST_CAP, mismatch_row, \"расхождений\"):\n"
+        "        sys.stdout.write(line)",
+        "    for case_id, expected_line, actual_line, code in mismatched[:20]:\n"
+        "        sys.stdout.write(\n"
+        "            \"  РАСХОЖДЕНИЕ %s: ждали %r, получили %r (код %d)\\n\"\n"
+        "            % (case_id, expected_line, actual_line, code)\n"
+        "        )",
+    ),
+}
+# Файл, в который бьёт инъекция. Умолчание — driver; секция J судит прогонщик
+# матрицы, поэтому её цели названы здесь явно, а не угаданы по имени режима.
+targets = {
+    "allow-stub": "/tests/caselib/fixture.py",
+    "truncate-harness": "/tests/run_matrix.py",
+    "silent-listing": "/tests/run_matrix.py",
+    "stray-listing-print": "/tests/run_matrix.py",
 }
 old, new = edits[mode]
 if old is not None:
     target = path
+    if mode == "unpinned-cap":
+        # Предмет этой инъекции — сам prove.sh: страж класса обязан уметь упасть.
+        target = tmp + "/tests/selfcheck/prove.sh"
+        source = open(target, encoding="utf-8").read()
     if mode == "allow-stub":
         target = tmp + "/tests/caselib/fixture.py"
+    if mode in targets:
+        target = tmp + targets[mode]
         source = open(target, encoding="utf-8").read()
+    if mode == "allow-stub":
         old = old.strip()
         new = new.strip()
         old = "    " + old
@@ -79,6 +120,11 @@ PY
   if [ -n "$want_named" ]; then
     printf '%s\n' "$out" | grep -q "FAIL $want_named" || ok=0
   fi
+  # Находка, называющая симптом вместо причины, посылает читателя искать не там,
+  # поэтому инъекция сверяет и ТЕКСТ отказа, а не только его наличие.
+  if [ -n "$want_phrase" ]; then
+    printf '%s\n' "$out" | grep -q -- "$want_phrase" || ok=0
+  fi
   if [ "$ok" = "1" ]; then
     GOOD=$((GOOD + 1))
     printf '  OK   %-46s провалено %s\n' "$label" "$failed"
@@ -97,6 +143,12 @@ run_case_of_injection "компаратор слеп к diagnostic"           bl
 run_case_of_injection "компаратор слеп к exit"                 blind-exit        2  "F4"
 run_case_of_injection "проверка one-fact delta отключена"      blind-delta       1  "C1"
 run_case_of_injection "stub разрешён любому кейсу"             allow-stub        1  "D1"
+run_case_of_injection "ожидание CAP_MISSING без seam-пина" unpinned-cap 1 "A1" "не наводит seam"
+
+# Секция J: перечень обязан называть свою полноту, поломки harness — не усекаться.
+run_case_of_injection "поломки harness снова усекаются"        truncate-harness    3 "J3 перечень поломок harness НЕ усекается"
+run_case_of_injection "перечень молчит о своей полноте"        silent-listing      3 "J1 усечённый перечень расхождений называет обрезку"
+run_case_of_injection "перечень печатается мимо печатника"     stray-listing-print 1 "J5 в main перечни печатает только печатник"
 
 echo
 echo "=== перепись инъекций ==="
