@@ -1231,6 +1231,7 @@ tags:
 | [[lessons/manifest-field-without-a-reader\|Поле схемы, у которого нет читателя — семь штук за один день]] | живо (stable) |
 | [[lessons/merging-parallel-work-is-its-own-defect-source\|Сведение параллельных работ — отдельный источник дефектов, которого не видит ни один исполнитель]] | — |
 | [[lessons/metric-that-does-not-separate-the-two-states\|Метрика, чьи распределения перекрываются, не различает состояния — ни при каком пороге]] | — |
+| [[lessons/one-diagnostic-many-worlds-lanes-diverge-invisibly\|Одна диагностика на несколько миров: полосы заводят свои предикаты, и расхождение невидимо]] | — |
 | [[lessons/one-trick-five-forms-only-a-run-tells-them-apart\|Один приём, пять форм: правило переезжает, а не чинится — различает только прогон]] | — |
 | [[lessons/orchestrator-and-its-own-agent-mistake-each-other-for-strangers\|Оркестратор и его собственный исполнитель принимают друг друга за постороннюю сессию]] | — |
 | [[lessons/own-command-checked-a-different-project\|Своя команда проверки судила о другом проекте: «ошибок 0» на файле, который не разбирался вовсе]] | живо (stable) |
