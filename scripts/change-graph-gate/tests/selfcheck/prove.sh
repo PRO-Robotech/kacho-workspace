@@ -86,9 +86,41 @@ fresh_testdata() {
 }
 
 echo "== A. Честный acceptance RED: SUT отсутствует =="
-expect "A1 production SUT отсутствует -> capability RED" \
+# Отсутствие СТРОИТСЯ: seam наводится на путь, которого нет на диске. Прежняя
+# редакция полагалась на то, что production SUT ещё не написан, — и утверждение
+# умерло вместе с этой предпосылкой (#485).
+expect "A1 SUT отсутствует -> capability RED" \
   "$CAP_MISSING" 10 -- \
-  python3 "$DRIVER" --case SDD-1-BOOT-01 --quiet
+  env KACHO_CG_SUT="$ABSENT_SUT" python3 "$DRIVER" --case SDD-1-BOOT-01 --quiet
+
+# Переопределение seam в A1 законно ровно потому, что БЕЗ него seam указывает на
+# production-координату. Без этой пары A1 доказывал бы поведение подставленного
+# пути и молчал бы о том, куда driver ходит в матрице.
+#
+# Сверяется ХВОСТ пути, а не путь целиком: дерево проб копируют в сторону
+# (`selfcheck/inject.sh` делает ровно это), и корень репозитория в копии другой,
+# тогда как относительная координата испытуемого — свойство контракта §6 и от
+# места копии не зависит. Обе стороны: без переопределения — production-хвост,
+# с переопределением — дословно переданный путь.
+ASSERTIONS=$((ASSERTIONS + 1))
+seam_path_of() {
+  ( cd "$TESTS_DIR" && "$@" python3 -c \
+      'import sys; sys.path.insert(0, "."); from caselib import seam; print(seam.sut_path())' )
+}
+SEAM_DEFAULT="$(seam_path_of env -u KACHO_CG_SUT)"
+SEAM_OVERRIDDEN="$(seam_path_of env KACHO_CG_SUT="$ABSENT_SUT")"
+seam_default_ok=0
+case "$SEAM_DEFAULT" in
+  */scripts/change-graph-gate/run.py) seam_default_ok=1 ;;
+esac
+if [ "$seam_default_ok" = "1" ] && [ "$SEAM_OVERRIDDEN" = "$ABSENT_SUT" ]; then
+  PASSED=$((PASSED + 1))
+  echo "  OK   A2 seam: без переопределения — production-координата, с ним — переданный путь"
+else
+  FAILED=$((FAILED + 1))
+  printf '  FAIL A2 seam ведёт не туда\n       без переопределения: %s (ждали хвост */scripts/change-graph-gate/run.py)\n       с переопределением: %s (ждали %s)\n' \
+    "$SEAM_DEFAULT" "$SEAM_OVERRIDDEN" "$ABSENT_SUT"
+fi
 
 echo
 echo "== B. Собственная поломка driver'а НЕ выдаёт себя за capability RED =="
@@ -147,10 +179,15 @@ expect "C2 один факт, но не объявленный -> HARNESS" \
   "HARNESS · HARNESS_TWIN_DELTA_UNDECLARED · exit 40" 40 -- \
   env KACHO_CG_TESTDATA="$TD" python3 "$DRIVER" --case SDD-1-BOOT-02 --quiet
 
+# Близнец C1/C2: нетронутая fixture проходит проверку дельты и ДОХОДИТ до пробы
+# capability. Что она там увидит, к предмету не относится, поэтому seam наводится
+# на отсутствующий SUT — исход детерминирован и не зависит ни от объявленных
+# семейств, ни от правил живого семейства boot.
 TD="$(fresh_testdata c3)"
 expect "C2-близнец нетронутая fixture молчит о дельте" \
   "$CAP_MISSING" 10 -- \
-  env KACHO_CG_TESTDATA="$TD" python3 "$DRIVER" --case SDD-1-BOOT-02 --quiet
+  env KACHO_CG_TESTDATA="$TD" KACHO_CG_SUT="$ABSENT_SUT" \
+  python3 "$DRIVER" --case SDD-1-BOOT-02 --quiet
 
 echo
 echo "== D. Пиновать фактическую тройку вправе только три birth fixtures =="
@@ -166,10 +203,15 @@ expect "D1 stub на обычном кейсе -> HARNESS, матрица не �
   "HARNESS · HARNESS_STUB_NOT_PERMITTED · exit 40" 40 -- \
   env KACHO_CG_TESTDATA="$TD" python3 "$DRIVER" --case SDD-1-BOOT-01 --quiet
 
+# Близнец D1: stub на DRIVER-01 принят, HARNESS_STUB_NOT_PERMITTED не выдан —
+# fixture загрузилась и driver дошёл до пробы capability (шаг 5), тогда как сам
+# stub читается позже (шаг 6). Seam наведён на отсутствующий SUT ровно затем,
+# чтобы предметом осталась законность stub, а не тройка семейства driver.
 TD="$(fresh_testdata d2)"
 expect "D1-близнец stub на DRIVER-01 законен" \
   "$CAP_MISSING" 10 -- \
-  env KACHO_CG_TESTDATA="$TD" python3 "$DRIVER" --case SDD-1-DRIVER-01 --quiet
+  env KACHO_CG_TESTDATA="$TD" KACHO_CG_SUT="$ABSENT_SUT" \
+  python3 "$DRIVER" --case SDD-1-DRIVER-01 --quiet
 
 echo
 echo "== E. Присутствующий SUT: сломанная проба НЕ есть отсутствие capability =="
@@ -265,6 +307,17 @@ if [ "$FAKES" = "0" ]; then
   PASSED=$((PASSED + 1)); echo "  OK   H2 ни одна из 196 fixtures не ссылается на подделку"
 else
   FAILED=$((FAILED + 1)); echo "  FAIL H2 подделка упомянута в $FAKES fixtures"
+fi
+
+echo
+echo "== I. Предмет стража класса непуст =="
+ASSERTIONS=$((ASSERTIONS + 1))
+if [ "$CAP_EXPECTATIONS" -ge 1 ]; then
+  PASSED=$((PASSED + 1))
+  echo "  OK   I1 ожиданий CAP_MISSING: $CAP_EXPECTATIONS, каждое наводит seam"
+else
+  FAILED=$((FAILED + 1))
+  echo "  FAIL I1 ожиданий CAP_MISSING ноль — страж класса беспредметен"
 fi
 
 echo
