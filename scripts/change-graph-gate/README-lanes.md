@@ -98,7 +98,7 @@ gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
 
 ```sh
 bash scripts/change-graph-gate/run-all.sh     # дешёвая полоса, ~1 мин
-bash scripts/change-graph-gate/inject.sh      # доказательство падучести набора, ~7 с
+bash scripts/change-graph-gate/inject.sh      # доказательство падучести набора, 21 утверждение, ~7 с
 bash scripts/change-graph-gate/prove-all.sh   # дорогая полоса, ~17 мин
 python3 scripts/change-graph-gate/lanes.py --list   # ведомость полос
 ```

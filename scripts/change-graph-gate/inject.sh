@@ -90,6 +90,23 @@ run() {
     echo $?
 }
 
+# no_yaml_root — каталог, при котором `import yaml` отказывает. Строится, а не
+# отыскивается: снять разборщик из окружения нельзя, а VOID «нет разборщика» —
+# самый вероятный исход в свежем клоне, и он обязан приходить кодом 2, а не 1.
+no_yaml_root() {
+    local dir="$TMP/noyaml"
+    mkdir -p "$dir/yaml"
+    printf 'raise ImportError("разборщик снят инъекцией")\n' > "$dir/yaml/__init__.py"
+    echo "$dir"
+}
+
+# run_without_yaml <каталог> <проверка>
+run_without_yaml() {
+    ( cd "$1" && CG_GATE_ROOT="$1" PYTHONPATH="$(no_yaml_root)" \
+        bash "$1/scripts/change-graph-gate/$2" > /dev/null 2>&1 )
+    echo $?
+}
+
 # assert <ожидаемый код> <фактический> <утверждение>
 assert() {
     if [ "$1" = "$2" ]; then
@@ -126,6 +143,9 @@ assert 1 "$(run "$d" "$C1")" "находка РЯДОМ с беспредмет�
 d="$(sandbox c1-crash)"
 stub "$d" "${HOOK_PROBES[1]}" 3
 assert 1 "$(run "$d" "$C1")" "проба упала посторонним кодом (класс ws#503) -> находка, а не 'без предмета'"
+
+d="$(sandbox c1-noyaml)"
+assert 2 "$(run_without_yaml "$d" "$C1")" "разборщика YAML нет -> без предмета (самый вероятный исход свежего клона)"
 
 d="$(sandbox c1-missing)"
 rm -f "$d/scripts/change-graph-gate/${HOOK_PROBES[1]}"
@@ -224,6 +244,9 @@ d="$(sandbox c3-noscript)"
 rm -f "$d/scripts/change-graph-gate/prove-all.sh"
 git -C "$d" add -A > /dev/null 2>&1
 assert 1 "$(run "$d" "$C3")" "конвейер называет скрипт, которого в дереве нет -> краснеет"
+
+d="$(sandbox c3-noyaml)"
+assert 2 "$(run_without_yaml "$d" "$C3")" "разборщика YAML нет -> объявление читать нечем, без предмета"
 
 d="$(sandbox c3-void)"
 rm -rf "$d/.github/workflows"
