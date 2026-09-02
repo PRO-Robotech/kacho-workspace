@@ -240,6 +240,14 @@ def section_world_decides():
         ("SDD-1-TRUTH-01", "SDD-1-TRUTH-04", "CG_HUMAN_TASKS_TRACKER"),
         ("SDD-1-ADAPTER-01", "SDD-1-ADAPTER-02", "CGA_DERIVED_DRIFT"),
         ("SDD-1-WIRE-01", "SDD-1-WIRE-02", "CG_CALLER_WORKSPACE_PRE_PUSH_MISSING"),
+        # Вызывающие семейства и advisory hook — §13 «Authoritative callers и
+        # advisory hooks». У двух первых отрицательный близнец несёт ОДНУ и ту
+        # же диагностику, и это не совпадение: приёмка требует от каждого
+        # реального caller сохранять UNDERLYING находку графа, а не заводить
+        # свою.
+        ("SDD-1-WSPP-01", "SDD-1-WSPP-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-WSCI-01", "SDD-1-WSCI-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-ADV-01", "SDD-1-ADV-02", "CG_AUTHORITATIVE_GATE_BLOCKED"),
         ("SDD-1-SUPER-01", "SDD-1-SUPER-04", "CG_SUPERSEDE_CYCLE"),
         ("SDD-1-HOLDER-01", "SDD-1-HOLDER-06",
          "CG_HOLDER_SUBJECT_HASH_MISMATCH"),
@@ -940,6 +948,203 @@ def section_trace_life_tasks_pairing():
     )
 
 
+# --- G. Вызывающие семейства и advisory hook --------------------------------
+def _world_of(case_id):
+    """Копия мира фикстуры, пригодная к правке."""
+    with open(fixture_world(case_id), encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _verdict_at(path, case_id):
+    _, lines = run_sut(["--case-world", path, "--case", case_id])
+    return lines[-1] if lines else "(без вывода)"
+
+
+def section_callers_and_advisory(work):
+    """Что B и C спросить НЕ МОГУТ: знаки предикатов, которых нет в фикстурах.
+
+    Фикстуры этих трёх семейств предъявляют по одному знаку на правило, и
+    молчание остальных знаков неотличимо от их отсутствия: правило, не
+    предъявленное ни одной фикстурой, мёртвым и рабочим выглядит одинаково.
+    Здесь спрашивается ровно то, чего в фикстурах нет, — второй знак advisory,
+    половина предиката о четырёх вызывающих, правило о local SHA, нулевая
+    перепись mapping — и главное: что вердикт о mapping есть функция СТРУКТУРЫ
+    поданного, а не совпадения с идентификатором кейса.
+    """
+    sys.stdout.write(
+        "\n== G. Вызывающие и advisory: знаки, которых нет в фикстурах ==\n"
+    )
+
+    # --- cg.adv: вердикт не меняется от advisory НИ В ОДНУ сторону -----------
+    # Фикстуры дают только advisory=GREEN (ADV-01, ADV-02) и его отсутствие
+    # (ADV-03). Второй знак — advisory, объявивший RED, — не предъявлен ни
+    # одной, поэтому «advisory не блокирует» ими не доказано.
+    advisory_red = _world_of("SDD-1-ADV-01")
+    advisory_red["advisory_hook_outcome"] = "RED"
+    path = write_world(work, "adv-advisory-red.yaml", advisory_red)
+    check(
+        "G-ADV-1 advisory RED при чистой authority НЕ блокирует",
+        _verdict_at(path, "SDD-1-ADV-01") == "GREEN · CG_OK · exit 0",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+    no_advisory_dirty = _world_of("SDD-1-ADV-02")
+    del no_advisory_dirty["advisory_hook_outcome"]
+    path = write_world(work, "adv-no-advisory-dirty.yaml", no_advisory_dirty)
+    check(
+        "G-ADV-2-близнец снятый advisory НЕ отменяет находку authority",
+        _verdict_at(path, "SDD-1-ADV-01")
+        == "RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+    # Половина предиката о ЧЕТЫРЁХ вызывающих ни одной фикстурой не
+    # предъявлена: ADV-02 портит только graph fact. Без этого утверждения
+    # правило судило бы одну свою половину, и это было бы незаметно.
+    caller_short = _world_of("SDD-1-ADV-01")
+    del caller_short["authoritative_callers"]["project/kacho/.github/workflows/ci.yaml"]
+    path = write_world(work, "adv-caller-short.yaml", caller_short)
+    check(
+        "G-ADV-3 недостающий authoritative caller блокирует так же, как "
+        "грязный graph fact",
+        _verdict_at(path, "SDD-1-ADV-01")
+        == "RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+
+    # --- cg.wspp: правило о local SHA и ДОРОГА ссылки ------------------------
+    # Диагностику CG_PRE_PUSH_LOCAL_REF_MISSING приёмка объявляет (SDD-1-PPRE-04),
+    # а фикстуры ЭТОГО семейства не предъявляют: §11 требует от pre-push обеих
+    # ссылок, и правило о второй иначе осталось бы кодом без пробы.
+    no_local = _world_of("SDD-1-WSPP-01")
+    del no_local["stdin_ref_line"]["local_sha"]
+    path = write_world(work, "wspp-no-local.yaml", no_local)
+    check(
+        "G-WSPP-1 снятый local SHA даёт NOT_EXECUTED, а не молчание",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_LOCAL_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+    local_not_delivered = _world_of("SDD-1-WSPP-01")
+    local_not_delivered["workspace"]["head_sha"] = "3" * 40
+    path = write_world(work, "wspp-local-not-delivered.yaml", local_not_delivered)
+    check(
+        "G-WSPP-2 ссылка, прочитанная со stdin и НЕ доехавшая до диапазона, "
+        "для гейта отсутствует",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_LOCAL_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+    no_repository = _world_of("SDD-1-WSPP-01")
+    del no_repository["workspace"]["repo"]
+    path = write_world(work, "wspp-no-repo.yaml", no_repository)
+    check(
+        "G-WSPP-3 граница словаря приёмки названа: без идентичности "
+        "репозитория ссылку негде разрешать",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_REMOTE_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+
+    # --- cg.wsci: граница словаря и НЕ-таблица соответствий ------------------
+    head_unresolved = _world_of("SDD-1-WSCI-01")
+    head_unresolved["ref_lookup"]["head"] = "unavailable"
+    path = write_world(work, "wsci-head-unresolved.yaml", head_unresolved)
+    check(
+        "G-WSCI-1 граница словаря приёмки названа: неразрешённая head отвечает "
+        "единственной объявленной диагностикой о ссылке",
+        _verdict_at(path, "SDD-1-WSCI-01")
+        == "NOT_EXECUTED · CG_WORKSPACE_CI_BASE_REF_UNAVAILABLE · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    empty_mapping = _world_of("SDD-1-WSCI-01")
+    empty_mapping["package_tasks_mapping"] = []
+    path = write_world(work, "wsci-empty-mapping.yaml", empty_mapping)
+    check(
+        "G-WSCI-2 нулевая перепись mapping — потеря, а не vacuous GREEN",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    # Несущее: mapping ЧУЖОГО семейства, полный по структуре, обязан молчать, а
+    # неполный — краснеть. Пара доказывает, что судится структура поданного, а
+    # не совпадение с идентификатором кейса; таблица соответствий «ID -> ответ»
+    # обе эти пробы провалила бы.
+    foreign_complete = _world_of("SDD-1-WSCI-01")
+    foreign_complete["package_tasks_mapping"] = ["SDD-1-BOOT-01", "SDD-1-BOOT-02"]
+    path = write_world(work, "wsci-foreign-complete.yaml", foreign_complete)
+    check(
+        "G-WSCI-3-близнец полная пара ЧУЖОГО семейства в mapping молчит",
+        _verdict_at(path, "SDD-1-WSCI-01") == "GREEN · CG_OK · exit 0",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    foreign_partial = _world_of("SDD-1-WSCI-01")
+    foreign_partial["package_tasks_mapping"] = [
+        "SDD-1-BOOT-01", "SDD-1-BOOT-02", "SDD-1-TRACE-01",
+    ]
+    path = write_world(work, "wsci-foreign-partial.yaml", foreign_partial)
+    check(
+        "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по семействам",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    # Вторая половина инверсии рождения: фикстуры теряют ПРОИЗВОДНЫЙ кейс, а
+    # потерю БАЗОВОГО не предъявляет ни одна. Без этого утверждения половина
+    # предиката была бы мертва незаметно.
+    base_lost = _world_of("SDD-1-WSCI-01")
+    base_lost["package_tasks_mapping"] = ["SDD-1-CENSUS-02", "SDD-1-CENSUS-03"]
+    path = write_world(work, "wsci-base-lost.yaml", base_lost)
+    check(
+        "G-WSCI-5 потерянный базовый кейс серии найден так же, как потерянный "
+        "производный",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+
+    # --- предикат о mapping ОДИН на оба вызывающих семейства -----------------
+    # Диагностика `CG_TRACE_ID_MISSING` предъявляется четырьмя вызывающими
+    # семействами, эталонного набора ID в их мирах нет ни одной координатой, и
+    # каждая полоса вынуждена ввести свой инвариант под одно и то же имя.
+    # Расхождение между двумя семействами ЭТОЙ полосы сведение волны не нашло
+    # бы: кейсы зелёные у обоих. Поэтому оно закрыто не обещанием общего
+    # помощника, а пробой, подающей ОДИН и тот же mapping обоим.
+    for name, mapping, expected in (
+        ("неполный", ["SDD-1-CENSUS-02", "SDD-1-CENSUS-03"],
+         "RED · CG_TRACE_ID_MISSING · exit 10"),
+        ("полный", ["SDD-1-CENSUS-01", "SDD-1-CENSUS-02"],
+         "GREEN · CG_OK · exit 0"),
+    ):
+        ci_world = _world_of("SDD-1-WSCI-01")
+        ci_world["package_tasks_mapping"] = list(mapping)
+        ci_path = write_world(work, "callers-ci-%s.yaml" % name, ci_world)
+        pp_world = _world_of("SDD-1-WSPP-01")
+        pp_world["package_tasks_mapping"] = list(mapping)
+        pp_path = write_world(work, "callers-pp-%s.yaml" % name, pp_world)
+        ci_verdict = _verdict_at(ci_path, "SDD-1-WSCI-01")
+        pp_verdict = _verdict_at(pp_path, "SDD-1-WSPP-01")
+        check(
+            "G-CALLERS %s mapping судится ОДИНАКОВО у cg.wsci и cg.wspp"
+            % name,
+            ci_verdict == expected and pp_verdict == expected,
+            "cg.wsci дал %r, cg.wspp дал %r, ждали %r"
+            % (ci_verdict, pp_verdict, expected),
+        )
+
+    # Якорь семейства: мир, не описывающий вызов, вердикта не получает вовсе.
+    # Без этого утверждения правила вызывающих семейств (все применимы всегда,
+    # чтобы находить НЕНАЗВАННУЮ координату) отвечали бы тройкой на любой мир,
+    # включая чужой, — то есть выдавали бы «не знаю» за «нет».
+    for case_id in ("SDD-1-WSCI-01", "SDD-1-WSPP-01"):
+        expect_self_failure(
+            "G-ANCHOR %s: чужой мир под ID вызывающего даёт собственный отказ, "
+            "а НЕ вердикт" % case_id,
+            ["--case-world", fixture_world("SDD-1-BOOT-01"), "--case", case_id],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+    expect_subject_verdict(
+        "G-ANCHOR-близнец свой мир под своим ID вердикт о предмете даёт",
+        ["--case-world", fixture_world("SDD-1-WSCI-01"), "--case",
+         "SDD-1-WSCI-01"],
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -948,6 +1153,7 @@ def main():
         section_self_failure(work)
         section_census()
         section_rule_pairing()
+        section_callers_and_advisory(work)
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")

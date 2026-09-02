@@ -97,7 +97,15 @@ INJECTIONS = [
         "cglib/rules.py",
         "    if not applicable:",
         "    if False and not applicable:",
-        ["D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN"],
+        ["D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN",
+         # Якорь вызывающих семейств утверждает ровно ту же половину
+         # различения, что D1..D9: «не знаю» не выдаётся за «нет».
+         # Инъекция, стирающая это различение, обязана уронить и его —
+         # иначе список ожидаемого был бы у́же того, что она ломает.
+         "G-ANCHOR SDD-1-WSCI-01: чужой мир под ID вызывающего даёт "
+         "собственный отказ, а НЕ вердикт",
+         "G-ANCHOR SDD-1-WSPP-01: чужой мир под ID вызывающего даёт "
+         "собственный отказ, а НЕ вердикт"],
     ),
     (
         "непрочитанный факт мира перестал быть находкой",
@@ -395,6 +403,62 @@ INJECTIONS = [
          "CG_WRITING_PLANS_HANDOFF_MISSING",
          "F-TASKS-2-близнец отсутствие проверенного handoff краснит только "
          "правило о производителе"],
+    ),
+    # --- по инъекции на семейство полосы вызывающих и advisory ---------------
+    # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ: инъекция, убравшая
+    # заодно чтение, роняла бы испытуемого собственным отказом
+    # (CG_SELF_WORLD_FACT_UNREAD), и краснота приходила бы от учёта фактов, а не
+    # от снятого предиката (`testing.md` §«Гейт на класс», п. 2в).
+    (
+        "потерянный в поданном графе acceptance ID перестал судиться (workspace CI)",
+        "cglib/families/wsci.py",
+        "    return tasksmapping.lost_acceptance_id(\n"
+        "        world.read_all(PACKAGE_TASKS_MAPPING)\n"
+        "    )",
+        "    tasksmapping.lost_acceptance_id(\n"
+        "        world.read_all(PACKAGE_TASKS_MAPPING)\n"
+        "    )\n"
+        "    return False",
+        # Среди ожидаемого стоит и G-CALLERS: снятие предиката у ОДНОГО из двух
+        # вызывающих семейств обязано быть найдено пробой, которая подаёт им
+        # общий mapping, — иначе расхождение между ними осталось бы
+        # неизмеренным ровно так, как описано в шапке `cglib/tasksmapping.py`.
+        ["B SDD-1-WSCI-02",
+         B1,
+         "C1 SDD-1-WSCI-01: дефектный мир под положительным ID даёт "
+         "CG_TRACE_ID_MISSING",
+         "G-WSCI-2 нулевая перепись mapping — потеря, а не vacuous GREEN",
+         "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по семействам",
+         "G-WSCI-5 потерянный базовый кейс серии найден так же, как потерянный "
+         "производный",
+         "G-CALLERS неполный mapping судится ОДИНАКОВО у cg.wsci и cg.wspp"],
+    ),
+    (
+        "дорога remote-ссылки от stdin до диапазона перестала судиться",
+        "cglib/families/wspp.py",
+        "    return not (repository and remote_sha and remote_sha == base_sha)",
+        "    return False and not (\n"
+        "        repository and remote_sha and remote_sha == base_sha\n"
+        "    )",
+        # C1 этого семейства опирается на правило о графе и потому обязан
+        # остаться зелёным: инъекция роняет ТОЛЬКО проверяемое.
+        ["B SDD-1-WSPP-04",
+         B1,
+         "G-WSPP-3 граница словаря приёмки названа: без идентичности "
+         "репозитория ссылку негде разрешать"],
+    ),
+    (
+        "authoritative evidence перестала складываться в вердикт",
+        "cglib/families/adv.py",
+        "    return callers_short or facts_dirty",
+        "    return False and (callers_short or facts_dirty)",
+        ["B SDD-1-ADV-02",
+         B1,
+         "C1 SDD-1-ADV-01: дефектный мир под положительным ID даёт "
+         "CG_AUTHORITATIVE_GATE_BLOCKED",
+         "G-ADV-2-близнец снятый advisory НЕ отменяет находку authority",
+         "G-ADV-3 недостающий authoritative caller блокирует так же, как "
+         "грязный graph fact"],
     ),
 ]
 
