@@ -1,0 +1,32 @@
+schema_version: 1
+kind: bootstrap_acceptance_review
+
+subject:
+  path: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  sha256: 47f5f98fe1f01611a70ae1c2a5187b54d88dfd9cfb5c8566d74b5e5783d19c28
+  static_status: DRAFT
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+
+authority:
+  mode: github_repository_admin_bootstrap
+  repository: PRO-Robotech/kacho-workspace
+  issue_number: 480
+  authorized_actor: pointpu
+  verified_permission: admin
+  permission_endpoint: https://api.github.com/repos/PRO-Robotech/kacho-workspace/collaborators/pointpu/permission
+  verified_at: 2026-09-02T00:12:41Z
+
+event:
+  type: issue_comment
+  database_id: 5502359141
+  node_id: IC_kwDOSVvpIM8AAAABR_dWZQ
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/480#issuecomment-5502359141
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5502359141
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/480
+  actor: pointpu
+  author_association: MEMBER
+  created_at: 2026-09-02T00:12:17Z
+  updated_at: 2026-09-02T00:12:17Z
+  body_sha256: 9fee0947fe74131ff39fff2349a763623691b9969326848968dd5de661d087be
