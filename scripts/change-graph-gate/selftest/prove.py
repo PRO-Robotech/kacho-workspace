@@ -13,6 +13,10 @@
     бы таблицей соответствий, зелёной по построению);
   * собственный отказ испытуемого НИКОГДА не выдаётся за вердикт о предмете,
     и обе стороны этого различения доказаны инъекцией;
+  * КАЖДЫЙ собственный отказ ядра проверен утверждением с законным близнецом —
+    включая тот, у которого нет производителя среди фикстур (правило, читающее
+    вне объявленного предмета своего семейства): его вход производится здесь,
+    прямым вызовом ядра, и это названо, а не подразумевается;
   * перепись объёма печатается, поэтому «нарушений ноль» отличимо от
     «не прочитано ничего»;
   * объявление признаков ВЫВОДИТСЯ из дерева, а не выписано списком.
@@ -49,6 +53,45 @@ TRIPLE = re.compile(r"^(GREEN|RED|NOT_EXECUTED) · ([A-Z0-9_]+) · exit (\d+)$")
 sys.path.insert(0, GATE_DIR)
 from cglib import outcome as outcome_module  # noqa: E402
 from cglib import registry as registry_module  # noqa: E402
+from cglib import rules as rules_module  # noqa: E402
+from cglib import world as world_module  # noqa: E402
+
+# --- признаки КЛАССА утверждения, ставимые помощником ------------------------
+# Инъекция, снимающая ветвь ЯДРА, роняет утверждения всех полос, которые на эту
+# ветвь опираются, — и перечень ожидаемого у неё обязан ВЫВОДИТЬСЯ, а не
+# выписываться именами (`multi-agent-flow.md` §14, четвёртый вид столкновения).
+#
+# Признак живёт в имени утверждения, потому что инъекция видит от прогона ровно
+# имена: строки `  OK   <имя>` и `  FAIL <имя>`. Но признаком служит НЕ проза
+# имени, а метка, которую ставит САМ ПОМОЩНИК — тот же, что делает проверку.
+# Разница несущая и оплачена: прежний признак был прозаическим («собственный
+# отказ» внутри имени), и он одинаково накрывал утверждения, проверяющие РАЗНОЕ,
+# — вердикт испытуемого на stdout и отказ ядра внутри процесса. Метка,
+# производимая помощником, разойтись с тем, что помощник проверяет, не может
+# by construction: забыть её нельзя, потому что её никто не пишет руками.
+#
+# Метки обязаны быть ВЗАИМНО РАЗЛИЧИМЫ: если одна оказывается подстрокой
+# другой, перечень одного класса поглощает перечень второго, и две инъекции
+# начинают ожидать одного и того же. Различимость проверяется опытом в
+# `selftest/inject.py` — структурно (ни одна не подстрока другой) и поведенчески
+# (раскрытия попарно не равны и ни одно не пусто).
+CLASS_SUT_SELF_FAILURE = "[класс: отказ испытуемого]"
+CLASS_CORE_WORLD_NOT_JUDGED = "[класс: мир не судим]"
+CLASS_CORE_FACT_UNREAD = "[класс: факт не прочитан]"
+CLASS_CORE_READ_OUTSIDE_SUBJECT = "[класс: чтение вне предмета]"
+
+# Отличительная часть разбора ЯДРА. Диагностика для различения производителя не
+# годится: `CG_SELF_WORLD_NOT_JUDGED` поднимает и ядро (`cglib/rules.py`), и
+# семейство жизненного цикла (`cglib/families/life.py`) — на стадии, которой нет
+# в его таблице. Утверждения о них ломаются РАЗНЫМИ инъекциями, поэтому в один
+# класс их сводить нельзя, а разводит их именно текст разбора.
+CORE_NOT_JUDGED_DETAIL = "не применимо к миру"
+CORE_FACT_UNREAD_DETAIL = "не прочитало ни одно применимое правило"
+
+CORE_CLASS_BY_DETAIL = (
+    (CORE_NOT_JUDGED_DETAIL, CLASS_CORE_WORLD_NOT_JUDGED),
+    (CORE_FACT_UNREAD_DETAIL, CLASS_CORE_FACT_UNREAD),
+)
 
 # Закрытый список кейсов, чья fixture вправе пиновать тройку, принадлежит
 # harness'у и здесь только ЧИТАЕТСЯ. Своя копия списка была бы вторым местом об
@@ -421,17 +464,132 @@ def section_world_decides():
 
 
 # --- D. Собственный отказ НИКОГДА не выдаётся за вердикт ---------------------
-def expect_self_failure(name, argv, marker=None):
+def core_class_omitted(name, stderr):
+    """Классы отказа ЯДРА, которые разбор показывает, а имя не называет.
+
+    Метку ставит помощник, но ВЫБИРАЕТ помощника автор — и вот этот выбор
+    проверяется здесь, по разбору, который печатает само ядро. Иначе «возьми
+    своего помощника» осталось бы пожеланием: забывший его получил бы зелёное
+    утверждение, выпавшее из выведенного перечня своего класса, и инъекция ядра
+    снова отчиталась бы «покраснело лишнее» — тот самый класс, ради которого
+    перечни и выводятся.
+
+    Судит разбор, а не диагностика: `CG_SELF_WORLD_NOT_JUDGED` поднимают и ядро,
+    и семейство жизненного цикла, и утверждения о них ломаются разными
+    инъекциями.
+    """
+    return sorted(
+        mark for detail, mark in CORE_CLASS_BY_DETAIL
+        if detail in stderr and mark not in name
+    )
+
+
+def expect_self_failure(name, argv, marker=None, detail=None):
+    """Испытуемый не отвечает о предмете: stdout пуст, код 40, разбор назван.
+
+    Метку класса ставит помощник: утверждение проверяет ВЫВОД ИСПЫТУЕМОГО, и
+    именно это ломает инъекция, подменяющая собственный отказ вердиктом. Проба,
+    зовущая ядро в своём процессе, до run.py не доходит и потому такой метки не
+    получает — иначе она попала бы в чужое ожидание и объявила его невыполненным.
+    """
     completed, lines = run_sut(argv)
     stdout_empty = not lines
     right_code = completed.returncode == SELF_FAILURE_EXIT
     named = marker is None or marker in completed.stderr
+    explained = detail is None or detail in completed.stderr
+    omitted = core_class_omitted(name, completed.stderr)
     check(
-        name,
-        stdout_empty and right_code and named,
-        "код %d, stdout=%r, stderr=%s"
-        % (completed.returncode, completed.stdout[:120],
+        "%s %s" % (name, CLASS_SUT_SELF_FAILURE),
+        stdout_empty and right_code and named and explained and not omitted,
+        "код %d, stdout=%r, класс не назван %s, stderr=%s"
+        % (completed.returncode, completed.stdout[:120], omitted,
            completed.stderr.strip()[:240]),
+    )
+
+
+def expect_core_world_not_judged(name, argv):
+    """Мир, к которому НИ ОДНО правило семейства не применимо, вердикта не даёт.
+
+    Помощник сверяет не только диагностику, но и разбор ядра: ту же диагностику
+    поднимает семейство жизненного цикла на незнакомой стадии, а её утверждения
+    роняет другая инъекция. Утверждение, ошибочно взявшее этого помощника,
+    покраснеет на разборе — то есть признак класса ЭНФОРСИТСЯ, а не обещается.
+    """
+    expect_self_failure(
+        "%s %s" % (name, CLASS_CORE_WORLD_NOT_JUDGED),
+        argv,
+        outcome_module.SELF_WORLD_NOT_JUDGED,
+        CORE_NOT_JUDGED_DETAIL,
+    )
+
+
+def expect_core_fact_unread(name, argv):
+    """Факт мира внутри предмета семейства, не прочитанный ни одним правилом."""
+    expect_self_failure(
+        "%s %s" % (name, CLASS_CORE_FACT_UNREAD),
+        argv,
+        outcome_module.SELF_WORLD_FACT_UNREAD,
+        CORE_FACT_UNREAD_DETAIL,
+    )
+
+
+def judge_synthetic_subject(subject_keys):
+    """Прогон ЯДРА на синтетическом правиле: предмет объявлен, чтения заданы.
+
+    ПРОИЗВОДИТЕЛЬ ВХОДА У ЭТОГО ОТКАЗА ТОЛЬКО ЗДЕСЬ, и это факт дерева, а не
+    удобство: ни одно правило ни одного семейства вне своего предмета не
+    читает — координаты их чтений записаны литералами, а две динамические
+    (`birth_runs.%s`, `event.%s`) верхний сегмент не меняют. Значит подать
+    испытуемому такой мир нельзя НИ ОДНОЙ фикстурой: правило пришлось бы
+    переписать, то есть внести инъекцию, а инъекция утверждением не является.
+    Поэтому ядро зовётся напрямую — и поэтому же метки класса «отказ
+    испытуемого» это утверждение не несёт: run.py в нём не участвует.
+
+    Правило объявляет предметом `subject_keys`, а читает ОБЕ координаты мира.
+    Сузив объявление, получаем чтение вне предмета; объявив обе — законного
+    близнеца, на котором ядро обязано молчать.
+    """
+    def predicate(world):
+        world.read("own")
+        world.read("foreign")
+        return False
+
+    rule = rules_module.Rule(
+        rule_id="probe.subject-boundary",
+        diagnostic="CG_PROBE_SUBJECT_BOUNDARY",
+        subject_keys=subject_keys,
+        requires=("own",),
+        predicate=predicate,
+        why="проба границы предмета: правило читает шире, чем объявило",
+    )
+    world = world_module.World({"own": "значение", "foreign": "значение"})
+    return rules_module.evaluate("probe", [rule], world)
+
+
+def expect_core_read_outside_subject(name, subject_keys, coordinate):
+    """Правило прочитало вне предмета семейства — ядро вердикта не выносит.
+
+    Предмет — собственный отказ `CG_SELF_RULE_READ_OUTSIDE_SUBJECT`. Диагностика
+    названа в комментарии, а сверяется по константе: комментарий у проверки
+    обязан называть то, что она стережёт, иначе её снимут как непонятную, — а
+    вторая исполняемая копия строки разошлась бы со словарём молча.
+
+    Проверяется не только диагностика, но и то, что отказ НАЗЫВАЕТ прочитанную
+    координату: без неё читатель прогона знает, что вердикта нет, и не знает,
+    какое чтение его отняло.
+    """
+    raised = None
+    try:
+        judge_synthetic_subject(subject_keys)
+    except outcome_module.SelfFailure as failure:
+        raised = failure
+    check(
+        "%s %s" % (name, CLASS_CORE_READ_OUTSIDE_SUBJECT),
+        raised is not None
+        and raised.diagnostic == outcome_module.SELF_RULE_READ_OUTSIDE_SUBJECT
+        and coordinate in raised.detail,
+        "поднято %r"
+        % ((raised.diagnostic, raised.detail) if raised is not None else None,),
     )
 
 
@@ -497,10 +655,9 @@ def section_self_failure(work):
     inactive = yaml.safe_load(open(fixture_world("SDD-1-NONEMPTY-01"), encoding="utf-8"))
     inactive["package_state"] = "archived"
     inactive_path = write_world(work, "inactive.yaml", inactive)
-    expect_self_failure(
+    expect_core_world_not_judged(
         "D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN",
         ["--case-world", inactive_path, "--case", "SDD-1-NONEMPTY-01"],
-        "CG_SELF_WORLD_NOT_JUDGED",
     )
     expect_subject_verdict(
         "D7-близнец тот же мир в состоянии active даёт вердикт о предмете",
@@ -513,10 +670,9 @@ def section_self_failure(work):
     unread = yaml.safe_load(open(fixture_world("SDD-1-HASH-01"), encoding="utf-8"))
     unread["design_content_digest"] = "sha256:fixture-design-v1"
     unread_path = write_world(work, "unread.yaml", unread)
-    expect_self_failure(
+    expect_core_fact_unread(
         "D8 непрочитанный факт внутри предмета -> собственный отказ",
         ["--case-world", unread_path, "--case", "SDD-1-HASH-01"],
-        "CG_SELF_WORLD_FACT_UNREAD",
     )
     expect_subject_verdict(
         "D8-близнец тот же мир без лишнего факта даёт вердикт о предмете",
@@ -541,6 +697,94 @@ def section_self_failure(work):
     expect_subject_verdict(
         "D9-близнец разрешимая роль даёт вердикт о предмете",
         ["--case-world", resolvable_path, "--case", "SDD-1-HASH-01"],
+    )
+
+    # Третий собственный отказ ядра. Он ловит правило, которое вынесло бы
+    # суждение о том, чего его семейство не касается: предмет объявлен, а
+    # прочитано шире объявленного. До этой пары отказ не был проверен НИЧЕМ —
+    # снятие его ветви не роняло ни одного утверждения (перемерено: код 0,
+    # находок 0), то есть он мог быть мёртв, и заметить это было неоткуда:
+    # собственный отказ печатает на stdout ноль строк, поэтому его отсутствие
+    # неотличимо от его молчания.
+    expect_core_read_outside_subject(
+        "D10 правило прочитало вне объявленного предмета -> собственный отказ, "
+        "а НЕ вердикт о том, чего семейство не касается",
+        ("own",),
+        "foreign",
+    )
+    # Законный близнец: то же чтение, но предмет объявлен целиком. Без него
+    # D10 зеленело бы и на ядре, которое отвергает ВСЯКОЕ чтение, — то есть
+    # утверждало бы форму отказа, а не его существо.
+    twin_verdict = None
+    twin_census = None
+    twin_failure = None
+    try:
+        twin_verdict, twin_census = judge_synthetic_subject(("own", "foreign"))
+    except outcome_module.SelfFailure as failure:
+        twin_failure = failure
+    check(
+        "D10-близнец то же чтение при объявленном предмете даёт вердикт, а "
+        "прочитанным считается ровно осмотренное",
+        twin_failure is None
+        and twin_verdict == outcome_module.green()
+        and twin_census.facts_read == 2
+        and twin_census.facts_outside == 0,
+        "отказ %r; вердикт %r; прочитано %r; вне предмета %r"
+        % (
+            twin_failure and twin_failure.diagnostic,
+            twin_verdict and twin_verdict.render(),
+            twin_census and twin_census.facts_read,
+            twin_census and twin_census.facts_outside,
+        ),
+    )
+
+    # Признак класса ЭНФОРСИТСЯ, а не обещается. Разбор берётся ЖИВЫМ прогоном:
+    # выписанная сюда строка была бы вторым местом об одном предмете и разошлась
+    # бы с ядром молча — а расхождение здесь означает, что дискриминатор
+    # перестал срабатывать, то есть перечень класса тихо усох.
+    # Метку класса эти двое несут САМИ, и это не оговорка, а следствие: их вход
+    # производит та же ветвь ядра, поэтому её снятие обязано их ронять — как
+    # роняет D7 и якоря вызывающих. Помощника у них нет (они судят не вывод
+    # испытуемого, а дискриминатор), значит класс объявляет автор; проверено
+    # опытом — без метки инъекция ядра отчитывалась о них «покраснело лишнее».
+    core_refusal, _ = run_sut(
+        ["--case-world", inactive_path, "--case", "SDD-1-NONEMPTY-01"]
+    )
+    check(
+        "D11 отказ ЯДРА при имени без метки класса — находка, а не молчание %s"
+        % CLASS_CORE_WORLD_NOT_JUDGED,
+        core_class_omitted("утверждение без метки", core_refusal.stderr)
+        == [CLASS_CORE_WORLD_NOT_JUDGED],
+        "разбор=%s" % core_refusal.stderr.strip()[:240],
+    )
+    check(
+        "D11-близнец тот же разбор при названном классе находкой не является %s"
+        % CLASS_CORE_WORLD_NOT_JUDGED,
+        core_class_omitted(
+            "утверждение %s" % CLASS_CORE_WORLD_NOT_JUDGED, core_refusal.stderr
+        )
+        == [],
+        "разбор=%s" % core_refusal.stderr.strip()[:240],
+    )
+    # Второй близнец, и он несущий: ту же диагностику поднимает СЕМЕЙСТВО
+    # жизненного цикла на стадии, которой нет в его таблице. Её утверждения
+    # роняет другая инъекция, поэтому дискриминатор обязан на ней МОЛЧАТЬ —
+    # иначе классы слились бы, и два ожидания стали бы одним.
+    family_stage = yaml.safe_load(
+        open(fixture_world("SDD-1-LIFE-01"), encoding="utf-8")
+    )
+    family_stage["stage"] = "IMPLEMENTING"
+    family_stage["requested_transition"] = "CONVERGED"
+    family_refusal, _ = run_sut(
+        ["--case-world", write_world(work, "life-family-refusal.yaml", family_stage),
+         "--case", "SDD-1-LIFE-01"],
+    )
+    check(
+        "D11-близнец-2 ту же диагностику от СЕМЕЙСТВА дискриминатор классом "
+        "ядра не объявляет",
+        outcome_module.SELF_WORLD_NOT_JUDGED in family_refusal.stderr
+        and core_class_omitted("утверждение без метки", family_refusal.stderr) == [],
+        "разбор=%s" % family_refusal.stderr.strip()[:240],
     )
 
 
@@ -1249,11 +1493,10 @@ def section_callers_and_advisory(work):
     # чтобы находить НЕНАЗВАННУЮ координату) отвечали бы тройкой на любой мир,
     # включая чужой, — то есть выдавали бы «не знаю» за «нет».
     for case_id in ("SDD-1-WSCI-01", "SDD-1-WSPP-01"):
-        expect_self_failure(
+        expect_core_world_not_judged(
             "G-ANCHOR %s: чужой мир под ID вызывающего даёт собственный отказ, "
             "а НЕ вердикт" % case_id,
             ["--case-world", fixture_world("SDD-1-BOOT-01"), "--case", case_id],
-            "CG_SELF_WORLD_NOT_JUDGED",
         )
     expect_subject_verdict(
         "G-ANCHOR-близнец свой мир под своим ID вердикт о предмете даёт",
@@ -1334,11 +1577,10 @@ def section_lane_rule_pairing():
         )
         stranger["event"]["actor"] = "outsider-not-owner"
         stranger_path = write_world(work, "withdraw-stranger.yaml", stranger)
-        expect_self_failure(
+        expect_core_world_not_judged(
             "F-WITHDRAW-1 отзыв не от владельца даёт собственный отказ, а НЕ "
             "зелёный вердикт",
             ["--case-world", stranger_path, "--case", "SDD-1-WITHDRAW-01"],
-            "CG_SELF_WORLD_NOT_JUDGED",
         )
         expect_subject_verdict(
             "F-WITHDRAW-2-близнец тот же мир с владельцем из списка даёт "
