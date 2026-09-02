@@ -232,6 +232,162 @@ else
 fi
 
 echo
+echo "== J. Перепись перечней run_matrix: обрезка НАЗВАНА, поломки не усекаются =="
+#
+# Предмет: перечень под верным числом обрывается, и «конец списка» читателем не
+# отличается от «дальше обрезано». Грепнув вывод и не найдя своего кейса, читатель
+# принимает артефакт обрезки за факт. У перечня поломок harness цена выше: поломка —
+# третья категория исхода (вердикта нет ни у одного такого кейса), и этот перечень
+# остаётся единственным местом, где виден их состав.
+#
+# Проверяется в трёх плоскостях, и это НЕ дублирование:
+#   * ОТВЕТ печатника — прямым вызовом на синтетических перечнях (J1..J4);
+#   * МЕСТО — разбором: перечни печатаются только через него (J5);
+#   * СКВОЗНО — настоящим прогоном матрицы на сломанных fixtures (J6).
+# Один лишь вызов печатника закрепил бы ОТВЕТ функции и молчал бы о том, зовут ли
+# её вообще; один лишь разбор — наоборот.
+
+CENSUS_PROBE="$WORK/census_probe.py"
+cat > "$CENSUS_PROBE" <<'PY'
+"""Печатает перечни run_matrix на синтетических записях заданной длины."""
+import sys
+
+sys.path.insert(0, sys.argv[1])
+import run_matrix
+
+mismatched = [
+    ("SDD-1-SYNTH-%02d" % index, "ждали X", "получили Y", 10)
+    for index in range(int(sys.argv[2]))
+]
+harness = [
+    ("SDD-1-HARN-%02d" % index, "HARNESS · HARNESS_FIXTURE_MALFORMED · exit 40")
+    for index in range(int(sys.argv[3]))
+]
+for line in run_matrix.render_listing(
+        mismatched, run_matrix.MISMATCH_LIST_CAP,
+        run_matrix.mismatch_row, "расхождений"):
+    sys.stdout.write(line)
+for line in run_matrix.render_listing(
+        harness, run_matrix.HARNESS_LIST_CAP,
+        run_matrix.harness_row, "поломок harness"):
+    sys.stdout.write(line)
+PY
+
+PLACE_PROBE="$WORK/place_probe.py"
+cat > "$PLACE_PROBE" <<'PY'
+"""Разбирает run_matrix.py: перечни обязаны печататься только через печатник.
+
+Строка перечня, попавшая в main напрямую, — второй печатник: он обойдёт перепись
+и вернёт ровно тот дефект, ради которого секция заведена. Судится узел разбора,
+а не подстрока: слова «РАСХОЖДЕНИЕ» и «HARNESS» стоят и в комментариях файла.
+"""
+import ast
+import sys
+
+source = open(sys.argv[1] + "/run_matrix.py", encoding="utf-8").read()
+tree = ast.parse(source)
+main = next(
+    node for node in tree.body
+    if isinstance(node, ast.FunctionDef) and node.name == "main"
+)
+calls = [
+    node for node in ast.walk(main)
+    if isinstance(node, ast.Call)
+    and isinstance(node.func, ast.Name)
+    and node.func.id == "render_listing"
+]
+stray = [
+    node for node in ast.walk(main)
+    if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    and ("РАСХОЖДЕНИЕ" in node.value or "HARNESS %s" in node.value)
+]
+sys.stdout.write(
+    "печатник зовётся %d раз(а); строк перечня мимо печатника %d\n"
+    % (len(calls), len(stray))
+)
+PY
+
+# contains <имя> <ожидаемая строка целиком> -- <команда...>
+#
+# `expect` выше читает ПОСЛЕДНЮЮ строку и здесь не годится: предмет — строка
+# ВНУТРИ вывода. Сравнение дословное по целой строке (`grep -qxF`), а не по
+# подстроке: «показано 20 из 25» нашлось бы и внутри «не показано 20 из 25».
+contains() {
+  local name="$1" want="$2"; shift 3
+  ASSERTIONS=$((ASSERTIONS + 1))
+  local out rc
+  out="$("$@" 2>&1)"; rc=$?
+  if printf '%s\n' "$out" | grep -qxF -- "$want"; then
+    PASSED=$((PASSED + 1)); printf '  OK   %s\n' "$name"
+  else
+    FAILED=$((FAILED + 1))
+    printf '  FAIL %s\n       нет строки: %s\n       вывод (код %s):\n%s\n' \
+      "$name" "$want" "$rc" "$out"
+  fi
+}
+
+# counts <имя> <образец> <сколько строк> -- <команда...>
+counts() {
+  local name="$1" pattern="$2" want="$3"; shift 4
+  ASSERTIONS=$((ASSERTIONS + 1))
+  local out rc got
+  out="$("$@" 2>&1)"; rc=$?
+  got="$(printf '%s\n' "$out" | grep -c -- "$pattern")"
+  if [ "$got" = "$want" ]; then
+    PASSED=$((PASSED + 1)); printf '  OK   %s (строк %s)\n' "$name" "$got"
+  else
+    FAILED=$((FAILED + 1))
+    printf '  FAIL %s: строк по образцу %s — %s, ждали %s (код %s)\n' \
+      "$name" "$pattern" "$got" "$want" "$rc"
+  fi
+}
+
+contains "J1 усечённый перечень расхождений называет обрезку" \
+  "  расхождений показано 20 из 25" -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 25 0
+
+counts "J1-объём усечённый перечень печатает ровно предел" \
+  '^  РАСХОЖДЕНИЕ ' 20 -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 25 0
+
+# Законный близнец J1: строка переписи стоит и там, где обрезки НЕТ. Иначе её
+# отсутствие означало бы сразу и «список полон», и «печатник до неё не дошёл».
+contains "J1-близнец неусечённый перечень называет свою полноту" \
+  "  расхождений показано 3 из 3" -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 3 0
+
+# Пустой перечень молчит: его полноту уже назвало число выше («не совпало: 0»),
+# а «показано 0 из 0» было бы лишней строкой на каждом зелёном прогоне.
+counts "J2 пустые перечни не печатают ни строки переписи" \
+  '^  .* показано ' 0 -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 0 0
+
+contains "J3 перечень поломок harness НЕ усекается" \
+  "  поломок harness показано 25 из 25" -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 0 25
+
+counts "J3-близнец все 25 поломок названы поимённо" \
+  '^  HARNESS SDD-1-HARN-' 25 -- \
+  python3 "$CENSUS_PROBE" "$TESTS_DIR" 0 25
+
+contains "J4 предел расхождений и отсутствие предела у поломок объявлены" \
+  "предел расхождений 20; предел поломок harness None" -- \
+  python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import run_matrix;
+sys.stdout.write("предел расхождений %s; предел поломок harness %s\n"
+                 % (run_matrix.MISMATCH_LIST_CAP, run_matrix.HARNESS_LIST_CAP))' \
+  "$TESTS_DIR"
+
+contains "J5 в main перечни печатает только печатник" \
+  "печатник зовётся 2 раз(а); строк перечня мимо печатника 0" -- \
+  python3 "$PLACE_PROBE" "$TESTS_DIR"
+
+# СКВОЗНОЕ утверждение — на НАСТОЯЩЕМ прогоне матрицы, и оно живёт ОТДЕЛЬНО:
+# `selfcheck/prove_matrix_listing.sh`. Один такой прогон стоит ~40 с, а inject.sh
+# гоняет prove.sh по разу на инъекцию — то есть утверждение, поставленное здесь,
+# умножилось бы на число инъекций и подорожало бы обе пробы в полтора десятка
+# раз. Своя способность падать доказана там же, внутри того скрипта.
+
+echo
 echo "=== перепись проб harness'а ==="
 echo "утверждений: $ASSERTIONS · прошло: $PASSED · провалено: $FAILED"
 if [ "$ASSERTIONS" = "0" ]; then
