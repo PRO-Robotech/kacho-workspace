@@ -1,0 +1,8 @@
+# моделируемый мир кейса SDD-1-WITHDRAW-02; вход SUT через стабильный seam
+event:
+  actor: pointpu
+  reason: владелец снял предмет до реализации
+  subject_digest: sha256:fixture-change-v1
+source_state: LANDED
+policy_allowlist:
+  owner: pointpu

@@ -1,0 +1,10 @@
+{
+ "schema_version": 1,
+ "kind": "modelled_github_event",
+ "case_id": "SDD-1-TRUTH-01",
+ "role": "human-semantic-reviewer",
+ "actor": "pointpu",
+ "node_id": "FIXTURE_SDD_1_TRUTH_01",
+ "subject_sha256": "sha256-fixture-subject-sdd-1-truth-01",
+ "note": "модель события; настоящий GitHub API здесь не вызывается"
+}

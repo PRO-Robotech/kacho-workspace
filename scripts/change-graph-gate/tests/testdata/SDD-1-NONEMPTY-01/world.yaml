@@ -1,0 +1,8 @@
+# моделируемый мир кейса SDD-1-NONEMPTY-01; вход SUT через стабильный seam
+package_state: active
+acceptance_ids:
+  SDD-1-NONEMPTY-01: declared
+required_holders:
+  process-gate: GREEN
+holder_subjects:
+  process-gate: sha256:fixture-subject-v1

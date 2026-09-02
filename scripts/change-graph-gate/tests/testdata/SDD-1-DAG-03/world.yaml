@@ -1,0 +1,9 @@
+# моделируемый мир кейса SDD-1-DAG-03; вход SUT через стабильный seam
+candidate:
+  repo: PRO-Robotech/kacho-workspace
+  base_sha: 0123456789abcdef0123456789abcdef01234567
+  head_sha: '2222222222222222222222222222222222222222'
+cutover_commit: 0123456789abcdef0123456789abcdef01234567
+relation: base-equals-cutover
+package_present: false
+package_diff_exact_mapped: true

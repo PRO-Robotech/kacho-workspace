@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-POST-04; вход SUT через стабильный seam
+content_digest: sha256:fixture-content-v2
+distributed_surface: true
+post_diff_records:
+  system-design-reviewer: reviews/post-diff/system-design-reviewer/fixture-content-v2.yaml

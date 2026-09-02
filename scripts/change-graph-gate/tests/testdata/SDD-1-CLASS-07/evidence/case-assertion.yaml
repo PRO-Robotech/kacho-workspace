@@ -1,0 +1,21 @@
+# evidence plan holder case-assertion для SDD-1-CLASS-07
+schema_version: 1
+case_id: SDD-1-CLASS-07
+holder: case-assertion
+owner: integration-tester
+driver_command: python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-CLASS-07
+driver_assertion:
+  category: RED
+  diagnostic: CG_CLASS_REVALIDATION_STALE
+  exit: 10
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+captured_category: null
+note: 'captured_category пуст намеренно: до появления SUT capability фактический исход
+  не снят, и записывать сюда ожидание значило бы выдать намерение за наблюдение'

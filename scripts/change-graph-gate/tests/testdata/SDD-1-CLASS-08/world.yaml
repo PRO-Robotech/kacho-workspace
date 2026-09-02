@@ -1,0 +1,16 @@
+# моделируемый мир кейса SDD-1-CLASS-08; вход SUT через стабильный seam
+design_content_digest: sha256:fixture-design-v1
+records:
+  class-exposure-revalidation: reviews/class-exposure/revalidation/fixture-design-v1.yaml
+revalidation_bound_design_hash: sha256:fixture-design-v1
+revalidation_role: class-exposure-analyst
+exposure_items:
+  exposure-1: design-decision-1
+  exposure-2: design-decision-2
+external_calls:
+  geo-zone-get: mapped
+  new-peer-call: unmapped
+async_paths:
+  outbox-drainer: mapped
+sentinels:
+  err-no-rows: mapped

@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-DAG-03; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-DAG-03
+title: base ровно cutover без package
+section: Policy, dual-DAG cutover и legacy census
+positive_twin: SDD-1-DAG-02
+holder_type: machine
+required_capability: cg.dag
+expected_sut:
+  category: RED
+  diagnostic: CG_PACKAGE_REQUIRED_AT_CUTOVER
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_PACKAGE_REQUIRED_AT_CUTOVER
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: package_present
+  fact: package снят при base, равном cutover_commit

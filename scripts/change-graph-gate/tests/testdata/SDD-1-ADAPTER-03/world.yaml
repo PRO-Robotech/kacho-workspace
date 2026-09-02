@@ -1,0 +1,38 @@
+# моделируемый мир кейса SDD-1-ADAPTER-03; вход SUT через стабильный seam
+manifest_path: .claude/adapters.yaml
+manifest_owned_outputs:
+  AGENTS.md: owned
+  .agents/skills/evgeniy/SKILL.md: owned
+  .codex/agents/evgeniy.toml: owned
+  .codex/hooks.json: owned
+canonical_inputs:
+- CLAUDE.md
+- .claude/adapters.yaml
+- .claude/agents
+- .claude/hooks
+- .claude/rules
+- .claude/skills
+- .claude/settings.json
+generated_coordinates:
+- AGENTS.md
+- .agents/skills/evgeniy/SKILL.md
+- .codex/agents/evgeniy.toml
+- .codex/hooks.json
+tracked_outputs:
+  AGENTS.md: sha256:fixture-adapter-out-1
+  .agents/skills/evgeniy/SKILL.md: sha256:fixture-adapter-out-2
+  .codex/agents/evgeniy.toml: sha256:fixture-adapter-out-3
+  .codex/hooks.json: sha256:fixture-adapter-out-4
+regenerated_outputs:
+  AGENTS.md: sha256:fixture-adapter-out-1
+  .agents/skills/evgeniy/SKILL.md: sha256:fixture-adapter-out-2
+  .codex/agents/evgeniy.toml: sha256:fixture-adapter-out-3
+  .codex/hooks.json: sha256:fixture-adapter-out-4
+second_regeneration_outputs:
+  AGENTS.md: sha256:fixture-adapter-out-1
+  .agents/skills/evgeniy/SKILL.md: sha256:fixture-adapter-out-2
+  .codex/agents/evgeniy.toml: sha256:fixture-adapter-out-3
+  .codex/hooks.json: sha256:fixture-adapter-out-4
+nested_assets:
+  .agents/skills/hardening-audit-loop/references/audit-round.workflow.js: present
+design_decision_outputs: tracked

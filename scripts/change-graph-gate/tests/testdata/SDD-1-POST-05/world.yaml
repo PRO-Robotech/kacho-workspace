@@ -1,0 +1,4 @@
+# моделируемый мир кейса SDD-1-POST-05; вход SUT через стабильный seam
+content_digest: sha256:fixture-content-v2
+distributed_surface: true
+post_diff_records: {}

@@ -1,0 +1,8 @@
+# моделируемый мир кейса SDD-1-POST-02; вход SUT через стабильный seam
+content_digest: sha256:fixture-content-v1
+applicable_roles:
+  go-style-reviewer: applicable
+  db-architect-reviewer: applicable
+post_diff_records:
+  go-style-reviewer: reviews/post-diff/go-style-reviewer/fixture-content-v1.yaml
+convergence_aggregator_specialists: none

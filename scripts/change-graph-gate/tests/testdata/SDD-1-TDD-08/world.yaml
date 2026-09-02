@@ -1,0 +1,9 @@
+# моделируемый мир кейса SDD-1-TDD-08; вход SUT через стабильный seam
+stage: pre-RED
+test_diff_owner: integration-tester
+harness_contains_implementation: false
+diff_paths:
+  scripts/change-graph-gate/tests/run_case.py: test
+  scripts/change-graph-gate/tests/testdata/SDD-1-TDD-01/case.yaml: fixture
+  scripts/change-graph-gate/tests/caselib/production_rule.py: implementation
+evidence_plan_present: true

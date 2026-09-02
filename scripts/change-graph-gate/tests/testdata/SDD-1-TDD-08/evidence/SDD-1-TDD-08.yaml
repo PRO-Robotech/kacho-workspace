@@ -1,0 +1,11 @@
+# evidence machine holder для SDD-1-TDD-08
+schema_version: 1
+case_id: SDD-1-TDD-08
+subject: world.yaml
+expected_sut:
+  category: RED
+  diagnostic: CG_TEST_HARNESS_CONTAINS_IMPLEMENTATION
+  exit: 10
+captured_outcome: null
+note: 'captured_outcome пуст, пока SUT не отвечает: пустое поле означает «не снято»,
+  а не «снято пустым»'

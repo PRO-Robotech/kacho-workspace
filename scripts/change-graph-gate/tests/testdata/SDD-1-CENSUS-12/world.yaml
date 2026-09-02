@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-CENSUS-12; вход SUT через стабильный seam
+legacy_change:
+  route: migrate
+package_present: true
+package_exact_maps_candidate_diff: true

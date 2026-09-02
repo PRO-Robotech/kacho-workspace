@@ -1,0 +1,11 @@
+# evidence machine holder для SDD-1-CENSUS-11
+schema_version: 1
+case_id: SDD-1-CENSUS-11
+subject: world.yaml
+expected_sut:
+  category: RED
+  diagnostic: CG_LEGACY_CONTRACT_CHANGED
+  exit: 10
+captured_outcome: null
+note: 'captured_outcome пуст, пока SUT не отвечает: пустое поле означает «не снято»,
+  а не «снято пустым»'

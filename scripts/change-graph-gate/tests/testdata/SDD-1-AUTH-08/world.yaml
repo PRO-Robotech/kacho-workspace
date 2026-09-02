@@ -1,0 +1,22 @@
+# моделируемый мир кейса SDD-1-AUTH-08; вход SUT через стабильный seam
+epoch: post-cutover
+required_role: acceptance-reviewer
+policy_allowlist:
+  acceptance-reviewer: pointpu
+  convergence-reviewer: pointpu
+artifact:
+  role: acceptance-reviewer
+  event_coordinate: PRRC_fixtureAuthorityNodeV1
+  body_sha256: sha256:fixture-body-v1
+  subject_sha256: sha256:fixture-design-v1
+event:
+  node_id: PRRC_fixtureAuthorityNodeV1
+  url: https://github.com/PRO-Robotech/kacho-workspace/pull/1#pullrequestreview-fixture
+  actor: pointpu
+  role: acceptance-reviewer
+  verdict: APPROVED
+  body_sha256: sha256:fixture-body-v1
+  subject_sha256: sha256:fixture-design-v1
+  timestamp: '2026-09-02T00:00:00Z'
+api:
+  availability: unavailable

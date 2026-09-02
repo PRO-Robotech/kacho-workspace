@@ -1,0 +1,9 @@
+# моделируемый мир кейса SDD-1-BOOT-01; вход SUT через стабильный seam
+bootstrap:
+  change_id: SDD-1
+  issue: PRO-Robotech/kacho-workspace#480
+  epoch: pre-cutover
+  recorded_exception: true
+subject:
+  static_form: DRAFT
+self_package_present: false

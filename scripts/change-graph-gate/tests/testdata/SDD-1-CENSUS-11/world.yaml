@@ -1,0 +1,8 @@
+# моделируемый мир кейса SDD-1-CENSUS-11; вход SUT через стабильный seam
+legacy_change:
+  route: legacy
+  acceptance_hash: sha256:fixture-legacy-v1
+  observable_contract_hash: sha256:fixture-contract-v1
+post_cutover_observed:
+  acceptance_hash: sha256:fixture-legacy-v1
+  observable_contract_hash: sha256:fixture-contract-v2

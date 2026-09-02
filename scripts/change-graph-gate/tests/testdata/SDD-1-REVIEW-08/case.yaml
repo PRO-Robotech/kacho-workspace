@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-REVIEW-08; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-REVIEW-08
+title: bootstrap permission lookup недоступен
+section: External verdict
+positive_twin: SDD-1-REVIEW-01
+holder_type: human-external
+required_capability: cg.review
+expected_sut:
+  category: NOT_EXECUTED
+  diagnostic: CG_BOOTSTRAP_PERMISSION_UNAVAILABLE
+  exit: 20
+driver_assertion:
+  category: NOT_EXECUTED
+  diagnostic: CG_BOOTSTRAP_PERMISSION_UNAVAILABLE
+  exit: 20
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: permission.lookup
+  fact: GitHub permission lookup недоступен

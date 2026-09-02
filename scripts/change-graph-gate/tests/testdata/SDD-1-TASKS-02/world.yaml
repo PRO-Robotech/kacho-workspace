@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-TASKS-02; вход SUT через стабильный seam
+design_stage: DESIGN_APPROVED
+handoff:
+  produces: tasks.md
+tasks_present: true

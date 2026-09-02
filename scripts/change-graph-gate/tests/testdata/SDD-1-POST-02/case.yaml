@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-POST-02; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-POST-02
+title: applicable specialist отсутствует
+section: Diff ownership, post-diff review и convergence
+positive_twin: SDD-1-POST-01
+holder_type: machine
+required_capability: cg.post
+expected_sut:
+  category: RED
+  diagnostic: CG_POST_DIFF_REVIEW_MISSING
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_POST_DIFF_REVIEW_MISSING
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: remove
+  path: post_diff_records.db-architect-reviewer
+  fact: снят post-diff record одного applicable role

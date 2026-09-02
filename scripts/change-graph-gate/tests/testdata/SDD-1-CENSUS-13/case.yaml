@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-CENSUS-13; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-CENSUS-13
+title: explicit migration без package
+section: Policy, dual-DAG cutover и legacy census
+positive_twin: SDD-1-CENSUS-12
+holder_type: machine
+required_capability: cg.census
+expected_sut:
+  category: RED
+  diagnostic: CG_MIGRATION_PACKAGE_MISSING
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_MIGRATION_PACKAGE_MISSING
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: package_present
+  fact: у change с route migrate снят Change Graph package

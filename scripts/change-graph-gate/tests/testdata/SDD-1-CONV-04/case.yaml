@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-CONV-04; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-CONV-04
+title: convergence event API недоступен
+section: Diff ownership, post-diff review и convergence
+positive_twin: SDD-1-CONV-01
+holder_type: human-external
+required_capability: cg.conv
+expected_sut:
+  category: NOT_EXECUTED
+  diagnostic: CG_CONVERGENCE_EVENT_UNAVAILABLE
+  exit: 20
+driver_assertion:
+  category: NOT_EXECUTED
+  diagnostic: CG_CONVERGENCE_EVENT_UNAVAILABLE
+  exit: 20
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: api.availability
+  fact: GitHub API response недоступен

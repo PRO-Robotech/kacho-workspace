@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-PCI-06; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-PCI-06
+title: product ledger не содержит change_id
+section: Authoritative callers и advisory hooks
+positive_twin: SDD-1-PCI-01
+holder_type: machine
+required_capability: cg.pci
+expected_sut:
+  category: RED
+  diagnostic: CG_PRODUCT_LEDGER_CHANGE_ID_MISSING
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_PRODUCT_LEDGER_CHANGE_ID_MISSING
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: remove
+  path: product_ledger.change_id
+  fact: снят change_id из product ledger

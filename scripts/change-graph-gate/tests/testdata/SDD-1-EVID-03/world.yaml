@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-EVID-03; вход SUT через стабильный seam
+required_holders:
+  process-gate: RED
+  adapter-contract: GREEN
+captured_outputs:
+  process-gate: evidence/process-gate/fixture-out-1.yaml
+  adapter-contract: evidence/adapter-contract/fixture-out-2.yaml
+provenance:
+  process-gate: valid
+  adapter-contract: valid

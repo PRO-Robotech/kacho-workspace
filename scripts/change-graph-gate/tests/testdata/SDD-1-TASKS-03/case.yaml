@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-TASKS-03; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-TASKS-03
+title: tasks готовы до design approval
+section: Design and tasks
+positive_twin: SDD-1-TASKS-01
+holder_type: machine
+required_capability: cg.tasks
+expected_sut:
+  category: RED
+  diagnostic: CG_TASKS_BEFORE_DESIGN_APPROVAL
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_TASKS_BEFORE_DESIGN_APPROVAL
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: design_stage
+  fact: design stage не утверждена, а tasks уже произведены

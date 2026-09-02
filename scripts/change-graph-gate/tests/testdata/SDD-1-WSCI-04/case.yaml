@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-WSCI-04; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-WSCI-04
+title: workspace base ref недоступен
+section: Authoritative callers и advisory hooks
+positive_twin: SDD-1-WSCI-01
+holder_type: machine
+required_capability: cg.wsci
+expected_sut:
+  category: NOT_EXECUTED
+  diagnostic: CG_WORKSPACE_CI_BASE_REF_UNAVAILABLE
+  exit: 20
+driver_assertion:
+  category: NOT_EXECUTED
+  diagnostic: CG_WORKSPACE_CI_BASE_REF_UNAVAILABLE
+  exit: 20
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: ref_lookup.base
+  fact: lookup base ref недоступен

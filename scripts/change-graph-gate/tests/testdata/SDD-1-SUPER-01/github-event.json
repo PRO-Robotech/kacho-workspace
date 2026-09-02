@@ -1,0 +1,10 @@
+{
+ "schema_version": 1,
+ "kind": "modelled_github_event",
+ "case_id": "SDD-1-SUPER-01",
+ "role": "landing-reviewer",
+ "actor": "pointpu",
+ "node_id": "FIXTURE_SDD_1_SUPER_01",
+ "subject_sha256": "sha256-fixture-subject-sdd-1-super-01",
+ "note": "модель события; настоящий GitHub API здесь не вызывается"
+}

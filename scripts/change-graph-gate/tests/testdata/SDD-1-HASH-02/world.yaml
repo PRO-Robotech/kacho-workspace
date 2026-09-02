@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-HASH-02; вход SUT через стабильный seam
+manifest_hashes:
+  acceptance: sha256:fixture-acceptance-v1
+  design: sha256:fixture-design-v9
+content_hashes:
+  acceptance: sha256:fixture-acceptance-v1
+  design: sha256:fixture-design-v1
+approval_bound_subject:
+  acceptance-reviewer: sha256:fixture-acceptance-v1
+  design-reviewer: sha256:fixture-design-v1

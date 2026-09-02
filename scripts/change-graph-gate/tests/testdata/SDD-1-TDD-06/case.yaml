@@ -1,0 +1,24 @@
+# манифест кейса SDD-1-TDD-06; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-TDD-06
+title: implementation разрешён после RED_PROVEN
+section: Pre-RED и implementation boundary
+positive_twin: null
+holder_type: machine
+required_capability: cg.tdd
+expected_sut:
+  category: GREEN
+  diagnostic: CG_OK
+  exit: 0
+driver_assertion:
+  category: GREEN
+  diagnostic: CG_OK
+  exit: 0
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10

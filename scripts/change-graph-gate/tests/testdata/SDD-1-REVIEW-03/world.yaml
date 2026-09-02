@@ -1,0 +1,12 @@
+# моделируемый мир кейса SDD-1-REVIEW-03; вход SUT через стабильный seam
+history_mode: append-only
+review_history:
+  sha-3f1d9196: sha256:fixture-record-changes-requested-1
+  sha-aaeffb0a: sha256:fixture-record-changes-requested-2
+  sha-d1a0ee80: sha256:fixture-record-changes-requested-3
+  sha-47f5f98f: sha256:fixture-record-approved-4
+recorded_content:
+  sha-3f1d9196: sha256:fixture-record-changes-requested-1
+  sha-aaeffb0a: sha256:fixture-record-changes-requested-2
+  sha-d1a0ee80: sha256:fixture-record-changes-requested-3
+  sha-47f5f98f: sha256:fixture-record-approved-4

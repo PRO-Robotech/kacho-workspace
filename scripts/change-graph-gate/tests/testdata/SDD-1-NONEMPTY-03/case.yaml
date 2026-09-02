@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-NONEMPTY-03; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-NONEMPTY-03
+title: ноль required holders
+section: Non-vacuity
+positive_twin: SDD-1-NONEMPTY-01
+holder_type: machine
+required_capability: cg.nonempty
+expected_sut:
+  category: RED
+  diagnostic: CG_REQUIRED_HOLDERS_EMPTY
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_REQUIRED_HOLDERS_EMPTY
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: remove
+  path: required_holders.process-gate
+  fact: required holder set очищен

@@ -1,0 +1,6 @@
+# моделируемый мир кейса SDD-1-TASKS-03; вход SUT через стабильный seam
+design_stage: DESIGN_DRAFT
+handoff:
+  event: writing-plans-handoff-verified
+  produces: tasks.md
+tasks_present: true

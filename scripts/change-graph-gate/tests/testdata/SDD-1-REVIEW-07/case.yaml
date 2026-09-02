@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-REVIEW-07; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-REVIEW-07
+title: bootstrap event принадлежит другому Issue
+section: External verdict
+positive_twin: SDD-1-REVIEW-01
+holder_type: human-external
+required_capability: cg.review
+expected_sut:
+  category: RED
+  diagnostic: CG_BOOTSTRAP_ISSUE_MISMATCH
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_BOOTSTRAP_ISSUE_MISMATCH
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: event.issue
+  fact: 'parent Issue coordinate event сменена с #480 на #481'

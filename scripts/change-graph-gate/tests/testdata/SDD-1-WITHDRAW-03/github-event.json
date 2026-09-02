@@ -1,0 +1,10 @@
+{
+ "schema_version": 1,
+ "kind": "modelled_github_event",
+ "case_id": "SDD-1-WITHDRAW-03",
+ "role": "landing-reviewer",
+ "actor": "pointpu",
+ "node_id": "FIXTURE_SDD_1_WITHDRAW_03",
+ "subject_sha256": "sha256-fixture-subject-sdd-1-withdraw-03",
+ "note": "модель события; настоящий GitHub API здесь не вызывается"
+}

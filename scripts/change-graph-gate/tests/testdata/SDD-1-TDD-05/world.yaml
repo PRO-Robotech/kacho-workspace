@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-TDD-05; вход SUT через стабильный seam
+driver:
+  assertion_valid: true
+  seam: stable
+  synthesizes_expected_triple: false
+initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+captured_outcome: unrelated-driver-infrastructure-crash

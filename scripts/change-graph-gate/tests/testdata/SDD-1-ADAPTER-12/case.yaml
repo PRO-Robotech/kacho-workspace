@@ -1,0 +1,24 @@
+# манифест кейса SDD-1-ADAPTER-12; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-ADAPTER-12
+title: current nested variants сохранены
+section: Tracked adapter
+positive_twin: null
+holder_type: machine
+required_capability: cg.adapter
+expected_sut:
+  category: GREEN
+  diagnostic: CG_OK
+  exit: 0
+driver_assertion:
+  category: GREEN
+  diagnostic: CG_OK
+  exit: 0
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10

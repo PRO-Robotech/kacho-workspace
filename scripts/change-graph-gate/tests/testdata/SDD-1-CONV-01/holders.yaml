@@ -1,0 +1,9 @@
+# required holder set кейса SDD-1-CONV-01
+schema_version: 1
+case_id: SDD-1-CONV-01
+required_holders:
+  external-verdict:
+    kind: human-external
+    role: convergence-reviewer
+    event_coordinate: github-event.json
+    review_coordinate: reviews/convergence-reviewer/sha256-fixture-subject-sdd-1-conv-01.yaml
