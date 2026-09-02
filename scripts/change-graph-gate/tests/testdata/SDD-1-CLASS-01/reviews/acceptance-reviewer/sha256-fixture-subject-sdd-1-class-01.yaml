@@ -1,0 +1,9 @@
+# review record кейса SDD-1-CLASS-01
+schema_version: 1
+kind: modelled_review_record
+case_id: SDD-1-CLASS-01
+reviewer_role: acceptance-reviewer
+subject_sha256: sha256-fixture-subject-sdd-1-class-01
+verdict: APPROVED
+event_coordinate: github-event.json
+note: модель review record внутри fixture; production-координат не утверждает

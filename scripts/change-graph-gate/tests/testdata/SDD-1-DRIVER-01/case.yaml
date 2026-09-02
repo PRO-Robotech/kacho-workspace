@@ -1,0 +1,32 @@
+# манифест кейса SDD-1-DRIVER-01; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-DRIVER-01
+title: assertion category не совпала
+section: Hash invalidation, trace и evidence
+positive_twin: SDD-1-EVID-02
+holder_type: machine
+required_capability: cg.driver
+expected_sut:
+  category: GREEN
+  diagnostic: CG_TRACE_ID_ORPHAN
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_TRACE_ID_ORPHAN
+  exit: 10
+expected_final_holder:
+  category: RED
+  diagnostic: CASE_ASSERTION_CATEGORY_MISMATCH
+  exit: 10
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: driver_birth.actual_triple
+  fact: фактическая тройка отличается от driver assertion только категорией
+sut_stub:
+  category: GREEN
+  diagnostic: CG_TRACE_ID_ORPHAN
+  exit: 10

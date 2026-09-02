@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-BIRTH-03; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-BIRTH-03
+title: injected defect не краснеет
+section: Machine-holder provenance и birth inversion
+positive_twin: SDD-1-BIRTH-01
+holder_type: machine
+required_capability: cg.birth
+expected_sut:
+  category: RED
+  diagnostic: CG_BIRTH_DEFECT_NOT_DETECTED
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_BIRTH_DEFECT_NOT_DETECTED
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: birth_runs.one-fact-injected-defect
+  fact: однофактный injected defect перестал давать ожидаемый RED

@@ -1,0 +1,7 @@
+# моделируемый мир кейса SDD-1-CLASS-03; вход SUT через стабильный seam
+acceptance_content_digest: sha256:fixture-acceptance-v2
+records:
+  class-exposure-initial: reviews/class-exposure/initial/fixture-acceptance-v1.yaml
+initial_bound_acceptance_hash: sha256:fixture-acceptance-v1
+initial_role: class-exposure-analyst
+initial_item_ids: exposure-1,exposure-2

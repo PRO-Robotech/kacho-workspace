@@ -1,0 +1,12 @@
+# моделируемый мир кейса SDD-1-PCI-05; вход SUT через стабильный seam
+product_ledger:
+  change_id: SDD-1
+  workspace_revision: 0123456789abcdef0123456789abcdef01234567
+workspace_fetch:
+  outcome: available
+  revision_resolves: available
+github_event:
+  head_sha: '2222222222222222222222222222222222222222'
+package_tasks_mapping:
+- SDD-1-PCI-01
+- SDD-1-PCI-02

@@ -1,0 +1,9 @@
+# required holder set кейса SDD-1-DESIGN-02
+schema_version: 1
+case_id: SDD-1-DESIGN-02
+required_holders:
+  external-verdict:
+    kind: human-external
+    role: acceptance-reviewer
+    event_coordinate: github-event.json
+    review_coordinate: reviews/acceptance-reviewer/sha256-fixture-subject-sdd-1-design-02.yaml

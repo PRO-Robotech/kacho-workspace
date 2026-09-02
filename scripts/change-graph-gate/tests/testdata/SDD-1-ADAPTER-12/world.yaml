@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-ADAPTER-12; вход SUT через стабильный seam
+manifest_skills:
+  evgeniy: full-package
+  hardening-audit-loop: full-package
+  obsidian-markdown: full-package
+package_contents:
+  .agents/skills/hardening-audit-loop/references/audit-round.workflow.js: present
+  .agents/skills/evgeniy/references/EXAMPLES.md: present
+  .agents/skills/obsidian-markdown/references/obsidian-syntax.md: present
+matches_actual_tree: true

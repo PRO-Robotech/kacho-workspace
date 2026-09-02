@@ -1,0 +1,17 @@
+# моделируемый мир кейса SDD-1-CONV-03; вход SUT через стабильный seam
+convergence:
+  reviewer_role: convergence-reviewer
+  actor: pointpu
+  content_digest: sha256:fixture-content-v1
+change_hashes:
+  acceptance: sha256:fixture-acceptance-v1
+  design: sha256:fixture-design-v1
+repos:
+  workspace_base_sha: '1111111111111111111111111111111111111111'
+  workspace_source_sha: '2222222222222222222222222222222222222222'
+  product_base_sha: '3333333333333333333333333333333333333333'
+  product_source_sha: 89abcdef0123456789abcdef0123456789abcdef
+policy_allowlist:
+  convergence-reviewer: pointpu
+api:
+  availability: available

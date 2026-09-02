@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-DAG-10; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-DAG-10
+title: иной change просит bootstrap на boundary
+section: Policy, dual-DAG cutover и legacy census
+positive_twin: SDD-1-DAG-09
+holder_type: machine
+required_capability: cg.dag
+expected_sut:
+  category: RED
+  diagnostic: CG_BOOTSTRAP_NOT_UNIQUE
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_BOOTSTRAP_NOT_UNIQUE
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: change_coordinate
+  fact: 'change coordinate bootstrap сменена с #480 на другой change'

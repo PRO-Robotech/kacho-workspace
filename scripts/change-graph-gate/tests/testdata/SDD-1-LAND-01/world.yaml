@@ -1,0 +1,8 @@
+# моделируемый мир кейса SDD-1-LAND-01; вход SUT через стабильный seam
+convergence_content_digest: sha256:fixture-content-v1
+landed:
+  commit_sha: '1111111111111111111111111111111111111111'
+  canonical_content_digest: sha256:fixture-content-v1
+landed_blobs:
+  scripts/change-graph-gate/run.py: sha256:fixture-blob-1
+  docs/changes/SDD-1/change.yaml: sha256:fixture-blob-2

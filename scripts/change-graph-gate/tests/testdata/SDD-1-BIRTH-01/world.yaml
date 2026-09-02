@@ -1,0 +1,7 @@
+# моделируемый мир кейса SDD-1-BIRTH-01; вход SUT через стабильный seam
+holder_version: process-gate@fixture-v1
+birth_runs:
+  known-good-input: GREEN
+  one-fact-injected-defect: RED
+census_entry_count: 2
+birth_verdict: GREEN

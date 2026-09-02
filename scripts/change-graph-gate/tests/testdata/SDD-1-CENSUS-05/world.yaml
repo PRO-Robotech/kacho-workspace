@@ -1,0 +1,11 @@
+# моделируемый мир кейса SDD-1-CENSUS-05; вход SUT через стабильный seam
+producer: independent
+coverage:
+  product-open-prs: query=repo:PRO-Robotech/kacho+is:pr+is:open result=pr-1500
+  live-in-progress-issues: query=label:status:in-progress+is:open result=issue-480
+etag: W/fixture-census-etag-v1
+timestamp: '2026-09-02T00:00:00Z'
+freshness_predicate: captured-within-24h
+response_digest: sha256:fixture-census-v1
+api:
+  availability: available

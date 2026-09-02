@@ -1,0 +1,21 @@
+# моделируемый мир кейса SDD-1-HOLDER-10; вход SUT через стабильный seam
+holder:
+  id: process-gate
+  owner: integration-tester
+  executable: python3 scripts/change-graph-gate/run.py
+  predicate: acceptance-id-set-equals-evidence-plan-id-set
+  subject_sha256: sha256:fixture-subject-v1
+  input_sha256: sha256:fixture-input-v1
+  output_sha256: sha256:fixture-output-v1
+  stdout_digest: sha256:fixture-stdout-v1
+  stderr_digest: sha256:fixture-stderr-v1-divergent
+  captured_category: GREEN
+  evidence_coordinate: evidence/process-gate/fixture-subject-v1.yaml
+observed_content:
+  subject_sha256: sha256:fixture-subject-v1
+  input_sha256: sha256:fixture-input-v1
+  output_sha256: sha256:fixture-output-v1
+  stdout_digest: sha256:fixture-stdout-v1
+  stderr_digest: sha256:fixture-stderr-v1
+registered_commands:
+  python3 scripts/change-graph-gate/run.py: registered

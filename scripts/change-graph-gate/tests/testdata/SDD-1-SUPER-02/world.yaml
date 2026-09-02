@@ -1,0 +1,13 @@
+# моделируемый мир кейса SDD-1-SUPER-02; вход SUT через стабильный seam
+event:
+  actor: pointpu
+  verdict: SUPERSEDED
+old_change:
+  id: SDD-1
+  state: active
+  ancestors: SDD-0
+successor:
+  id: SDD-2
+  backlink: SDD-1
+  evidence_coordinate: evidence/SDD-2/fixture-successor-v1.yaml
+old_evidence_coordinate: evidence/SDD-1/fixture-old-v1.yaml

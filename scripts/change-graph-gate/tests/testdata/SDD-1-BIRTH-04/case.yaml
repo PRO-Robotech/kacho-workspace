@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-BIRTH-04; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-BIRTH-04
+title: zero census объявлен GREEN
+section: Machine-holder provenance и birth inversion
+positive_twin: SDD-1-BIRTH-01
+holder_type: machine
+required_capability: cg.birth
+expected_sut:
+  category: RED
+  diagnostic: CG_BIRTH_ZERO_CENSUS
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_BIRTH_ZERO_CENSUS
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: census_entry_count
+  fact: census birth-run обнулён при сохранённом GREEN verdict

@@ -1,0 +1,14 @@
+# моделируемый мир кейса SDD-1-TRACE-02; вход SUT через стабильный seam
+acceptance_ids:
+- SDD-1-TRACE-01
+- SDD-1-TRACE-05
+design_ids:
+- SDD-1-TRACE-01
+- SDD-1-TRACE-05
+tasks_ids:
+- SDD-1-TRACE-01
+- SDD-1-TRACE-05
+evidence_plan_ids:
+- SDD-1-TRACE-01
+driver_birth:
+  actual_triple: RED · CG_TRACE_ID_ORPHAN · exit 10

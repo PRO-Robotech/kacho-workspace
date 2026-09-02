@@ -1,0 +1,11 @@
+# evidence machine holder для SDD-1-WSPP-04
+schema_version: 1
+case_id: SDD-1-WSPP-04
+subject: world.yaml
+expected_sut:
+  category: NOT_EXECUTED
+  diagnostic: CG_PRE_PUSH_REMOTE_REF_MISSING
+  exit: 20
+captured_outcome: null
+note: 'captured_outcome пуст, пока SUT не отвечает: пустое поле означает «не снято»,
+  а не «снято пустым»'

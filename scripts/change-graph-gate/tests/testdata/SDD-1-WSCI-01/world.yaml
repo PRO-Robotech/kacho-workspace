@@ -1,0 +1,12 @@
+# моделируемый мир кейса SDD-1-WSCI-01; вход SUT через стабильный seam
+workspace:
+  repo: PRO-Robotech/kacho-workspace
+  base_sha: '1111111111111111111111111111111111111111'
+  head_sha: '2222222222222222222222222222222222222222'
+sibling_product_coordinate: project/kacho
+ref_lookup:
+  base: available
+  head: available
+package_tasks_mapping:
+- SDD-1-WSCI-01
+- SDD-1-WSCI-02

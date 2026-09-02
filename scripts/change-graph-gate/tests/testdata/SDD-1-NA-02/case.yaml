@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-NA-02; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-NA-02
+title: N/A predicate не зарегистрирован
+section: Design and tasks
+positive_twin: SDD-1-NA-01
+holder_type: machine
+required_capability: cg.na
+expected_sut:
+  category: RED
+  diagnostic: CG_NA_PREDICATE_UNREGISTERED
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_NA_PREDICATE_UNREGISTERED
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: applicability.predicate_id
+  fact: predicate ID отсутствует в versioned applicability registry

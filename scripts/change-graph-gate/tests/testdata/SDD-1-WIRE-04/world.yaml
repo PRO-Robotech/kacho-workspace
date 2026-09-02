@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-WIRE-04; вход SUT через стабильный seam
+blocking_callers:
+  workspace/scripts/hooks/pre-push: calls-gate
+  workspace/.github/workflows/ci.yaml: calls-gate
+  project/kacho/.github/workflows/ci.yaml: calls-gate

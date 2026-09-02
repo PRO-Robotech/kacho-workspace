@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-TDD-07; вход SUT через стабильный seam
+acceptance_ids:
+  SDD-1-TDD-06: declared
+stage: TASKS_READY
+red_proof_valid: true

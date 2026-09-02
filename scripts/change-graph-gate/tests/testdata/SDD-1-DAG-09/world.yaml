@@ -1,0 +1,5 @@
+# моделируемый мир кейса SDD-1-DAG-09; вход SUT через стабильный seam
+change_coordinate: SDD-1 / PRO-Robotech/kacho-workspace#480
+bootstrap_recorded: true
+creates_cutover_coordinates: true
+self_package_present: false

@@ -1,0 +1,25 @@
+# моделируемый мир кейса SDD-1-REVIEW-10; вход SUT через стабильный seam
+bootstrap:
+  issue: PRO-Robotech/kacho-workspace#480
+  epoch: post-cutover
+subject:
+  static_form: DRAFT
+  sha256: sha256:fixture-subject-v4
+event:
+  issue: PRO-Robotech/kacho-workspace#480
+  actor: pointpu
+  node_id: IC_fixtureBootstrapNodeV4
+  role: acceptance-reviewer
+  verdict: APPROVED
+  body_sha256: sha256:fixture-body-v4
+  subject_sha256: sha256:fixture-subject-v4
+  lookup: available
+permission:
+  actor: pointpu
+  level: ADMIN
+  lookup: available
+artifact:
+  authorized_actor: pointpu
+  reviewer_role: acceptance-reviewer
+  subject_sha256: sha256:fixture-subject-v4
+  verdict: APPROVED

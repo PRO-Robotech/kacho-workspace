@@ -1,0 +1,361 @@
+# Независимая перепись наследия Change Graph — снимок, а не суждение.
+#
+# Имя файла — и есть response_digest: артефакт самоидентифицируется, поэтому
+# подменить содержимое, сохранив координату, нельзя. Перепись фиксирует ТО, ЧТО
+# ОТВЕТИЛ API, и ничего не решает про route: решение живёт в policy.yaml.
+#
+# Приёмка SDD-1 §8. Снят актором pointpu (ADMIN подтверждён API на обоих repo).
+schema_version: 1
+producer: independent
+producer_run:
+  actor: pointpu
+  transport: GitHub REST API v3
+  window_start: '2026-09-02T11:05:58Z'
+  window_end: '2026-09-02T11:06:27Z'
+timestamp: '2026-09-02T11:06:27Z'
+freshness_predicate: captured-within-24h
+response_digest: sha256:1c85491a8335882c7abc47a690a267d0464f19623348e15f552e2644a89a45b0
+digest_definition: >-
+  sha256 по сырым телам ответов, склеенным в каноническом порядке ИМЁН запросов
+  (не порядка выполнения): для каждого имени — utf8(имя) NUL тело NUL.
+api:
+  availability: available
+coverage:
+  workspace-open-prs:
+    # открытые PR воркспейса
+    repo: PRO-Robotech/kacho-workspace
+    queries:
+      - query: '/repos/PRO-Robotech/kacho-workspace/pulls?state=open&per_page=100'
+        etag: W/"ab4d6ce86f16d27d6dbd74d16d41f26592487a3a1587ff277aaf7520b6b2a492"
+        paginated: false
+    result_count: 2
+    result:
+      - PRO-Robotech/kacho-workspace#476
+      - PRO-Robotech/kacho-workspace#477
+  product-open-prs:
+    # открытые PR продукта
+    repo: PRO-Robotech/kacho
+    queries:
+      - query: '/repos/PRO-Robotech/kacho/pulls?state=open&per_page=100'
+        etag: W/"8ea296dbc5056af11a7a89130f333a78f4a3e642528b775edae9ca445fe222f7"
+        paginated: false
+    result_count: 2
+    result:
+      - PRO-Robotech/kacho#1732
+      - PRO-Robotech/kacho#1888
+  live-in-progress-issues:
+    # открытые задачи с живой меткой состояния; PR из выдачи /issues исключены по полю pull_request
+    repo: <оба>
+    queries:
+      - query: '/repos/PRO-Robotech/kacho-workspace/issues?state=open&labels=status:in-progress&per_page=100'
+        etag: "299c264a93bc040cf9b922050aaaad8ee13060923668d935b2caba1c4432fb72"
+        paginated: false
+      - query: '/repos/PRO-Robotech/kacho-workspace/issues?state=open&labels=status:test&per_page=100'
+        etag: W/"c7fad6dcbe7f2795151446f972dc1ec32445b9f2bd4a12bd4179f4eea0ef0cb8"
+        paginated: false
+      - query: '/repos/PRO-Robotech/kacho/issues?state=open&labels=status:in-progress&per_page=100'
+        etag: W/"b53ca64e9b9c2a34a151543611a33baeba345476ac368db18ee956346a30364e"
+        paginated: false
+      - query: '/repos/PRO-Robotech/kacho/issues?state=open&labels=status:test&per_page=100'
+        etag: W/"587aaed76a62a3dae89b82a27bc840a565611850b009eefd5599ea7389e99a98"
+        paginated: false
+    result_count: 56
+    result:
+      - PRO-Robotech/kacho#693
+      - PRO-Robotech/kacho#695
+      - PRO-Robotech/kacho#707
+      - PRO-Robotech/kacho#1031
+      - PRO-Robotech/kacho#1441
+      - PRO-Robotech/kacho#1737
+      - PRO-Robotech/kacho#1740
+      - PRO-Robotech/kacho#1754
+      - PRO-Robotech/kacho#1758
+      - PRO-Robotech/kacho#1764
+      - PRO-Robotech/kacho#1765
+      - PRO-Robotech/kacho#1767
+      - PRO-Robotech/kacho#1768
+      - PRO-Robotech/kacho#1769
+      - PRO-Robotech/kacho#1770
+      - PRO-Robotech/kacho#1771
+      - PRO-Robotech/kacho#1772
+      - PRO-Robotech/kacho#1776
+      - PRO-Robotech/kacho#1777
+      - PRO-Robotech/kacho#1779
+      - PRO-Robotech/kacho#1780
+      - PRO-Robotech/kacho#1781
+      - PRO-Robotech/kacho#1782
+      - PRO-Robotech/kacho#1783
+      - PRO-Robotech/kacho#1784
+      - PRO-Robotech/kacho#1785
+      - PRO-Robotech/kacho#1786
+      - PRO-Robotech/kacho#1787
+      - PRO-Robotech/kacho#1788
+      - PRO-Robotech/kacho#1789
+      - PRO-Robotech/kacho#1790
+      - PRO-Robotech/kacho#1791
+      - PRO-Robotech/kacho#1792
+      - PRO-Robotech/kacho#1794
+      - PRO-Robotech/kacho#1795
+      - PRO-Robotech/kacho#1797
+      - PRO-Robotech/kacho#1798
+      - PRO-Robotech/kacho#1800
+      - PRO-Robotech/kacho#1801
+      - PRO-Robotech/kacho#1802
+      - PRO-Robotech/kacho#1803
+      - PRO-Robotech/kacho#1804
+      - PRO-Robotech/kacho#1805
+      - PRO-Robotech/kacho#1806
+      - PRO-Robotech/kacho#1807
+      - PRO-Robotech/kacho#1808
+      - PRO-Robotech/kacho#1809
+      - PRO-Robotech/kacho#1810
+      - PRO-Robotech/kacho#1816
+      - PRO-Robotech/kacho#1825
+      - PRO-Robotech/kacho#1864
+      - PRO-Robotech/kacho#1879
+      - PRO-Robotech/kacho#1880
+      - PRO-Robotech/kacho#1881
+      - PRO-Robotech/kacho#1887
+      - PRO-Robotech/kacho-workspace#459
+snapshot_count: 60
+snapshot:
+  - coordinate: PRO-Robotech/kacho#693
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/693
+    labels: [P1, bug, release:platform, size:M, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#695
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/695
+    labels: [P1, release:platform, size:L, status:in-progress, tech-debt]
+  - coordinate: PRO-Robotech/kacho#707
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/707
+    labels: [P1, area:nlb, release:platform, size:M, status:in-progress, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1031
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1031
+    labels: [P0, area:iam, release:modules, size:M, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1441
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1441
+    labels: [P3, area:ui, bug, release:identity, status:test]
+  - coordinate: PRO-Robotech/kacho#1732
+    kind: open-pr
+    url: https://github.com/PRO-Robotech/kacho/pull/1732
+    labels: []
+  - coordinate: PRO-Robotech/kacho#1737
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1737
+    labels: [P2, area:iam, enhancement, release:identity, status:test]
+  - coordinate: PRO-Robotech/kacho#1740
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1740
+    labels: [P1, area:ui, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1754
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1754
+    labels: [P1, area:iam, bug, release:identity, status:test]
+  - coordinate: PRO-Robotech/kacho#1758
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1758
+    labels: [P2, area:iam, release:identity, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1764
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1764
+    labels: [P1, area:iam, bug, release:identity, size:M, status:test]
+  - coordinate: PRO-Robotech/kacho#1765
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1765
+    labels: [P3, area:ui, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1767
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1767
+    labels: [P2, area:iam, release:identity, size:M, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1768
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1768
+    labels: [P3, area:iam, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1769
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1769
+    labels: [P2, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1770
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1770
+    labels: [P3, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1771
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1771
+    labels: [P1, area:deploy, enhancement, release:identity, size:M, status:in-progress, status:test]
+  - coordinate: PRO-Robotech/kacho#1772
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1772
+    labels: [P1, area:deploy, enhancement, release:identity, size:L, status:test]
+  - coordinate: PRO-Robotech/kacho#1776
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1776
+    labels: [P1, area:iam, enhancement, release:identity, size:L, status:test]
+  - coordinate: PRO-Robotech/kacho#1777
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1777
+    labels: [P1, area:deploy, bug, release:identity, size:M, status:test]
+  - coordinate: PRO-Robotech/kacho#1779
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1779
+    labels: [P3, area:iam, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1780
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1780
+    labels: [P3, area:ci, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1781
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1781
+    labels: [P3, area:ci, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1782
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1782
+    labels: [P3, area:ui, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1783
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1783
+    labels: [P3, area:ui, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1784
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1784
+    labels: [P2, area:iam, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1785
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1785
+    labels: [P2, area:iam, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1786
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1786
+    labels: [P0, area:deploy, bug, release:identity, size:M, status:test]
+  - coordinate: PRO-Robotech/kacho#1787
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1787
+    labels: [P1, area:ci, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1788
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1788
+    labels: [P2, area:ui, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1789
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1789
+    labels: [P3, area:ui, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1790
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1790
+    labels: [P2, area:ci, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1791
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1791
+    labels: [P2, area:iam, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1792
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1792
+    labels: [P3, area:iam, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1794
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1794
+    labels: [P2, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1795
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1795
+    labels: [P3, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1797
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1797
+    labels: [P2, area:iam, bug, release:identity, size:M, status:test]
+  - coordinate: PRO-Robotech/kacho#1798
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1798
+    labels: [P3, area:iam, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1800
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1800
+    labels: [P2, area:ui, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1801
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1801
+    labels: [P3, area:ui, release:identity, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1802
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1802
+    labels: [P2, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1803
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1803
+    labels: [P1, area:deploy, bug, release:identity, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1804
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1804
+    labels: [P1, area:iam, bug, release:identity, size:M, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1805
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1805
+    labels: [P3, area:iam, release:identity, size:S, status:in-progress, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1806
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1806
+    labels: [P2, area:ui, bug, release:identity, size:S, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1807
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1807
+    labels: [P3, area:ci, release:identity, size:S, status:in-progress, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1808
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1808
+    labels: [P1, area:iam, bug, release:identity, size:S, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1809
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1809
+    labels: [P2, area:iam, release:identity, size:L, status:in-progress, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1810
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1810
+    labels: [P0, area:ci, bug, release:identity, size:M, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1816
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1816
+    labels: [P2, area:iam, blocked, release:modules, size:L, status:test]
+  - coordinate: PRO-Robotech/kacho#1825
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1825
+    labels: [P1, area:iam, release:modules, size:M, status:in-progress]
+  - coordinate: PRO-Robotech/kacho#1864
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1864
+    labels: [P1, area:ci, bug, release:gates, status:test]
+  - coordinate: PRO-Robotech/kacho#1879
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1879
+    labels: [P3, area:iam, release:modules, size:S, status:test, tech-debt]
+  - coordinate: PRO-Robotech/kacho#1880
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1880
+    labels: [P2, area:iam, bug, release:modules, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1881
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1881
+    labels: [P3, area:iam, bug, release:modules, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1887
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho/issues/1887
+    labels: [P2, area:iam, bug, release:modules, size:S, status:test]
+  - coordinate: PRO-Robotech/kacho#1888
+    kind: open-pr
+    url: https://github.com/PRO-Robotech/kacho/pull/1888
+    labels: []
+  - coordinate: PRO-Robotech/kacho-workspace#459
+    kind: live-issue
+    url: https://github.com/PRO-Robotech/kacho-workspace/issues/459
+    labels: [P3, area:tooling, release:gates, size:M, status:test]
+  - coordinate: PRO-Robotech/kacho-workspace#476
+    kind: open-pr
+    url: https://github.com/PRO-Robotech/kacho-workspace/pull/476
+    labels: []
+  - coordinate: PRO-Robotech/kacho-workspace#477
+    kind: open-pr
+    url: https://github.com/PRO-Robotech/kacho-workspace/pull/477
+    labels: []

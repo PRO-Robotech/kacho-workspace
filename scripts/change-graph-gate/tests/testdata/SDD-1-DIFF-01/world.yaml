@@ -1,0 +1,11 @@
+# моделируемый мир кейса SDD-1-DIFF-01; вход SUT через стабильный seam
+actual_changed_paths:
+  scripts/change-graph-gate/run.py: sha256:fixture-blob-1
+  docs/changes/SDD-1/change.yaml: sha256:fixture-blob-2
+approved_diff_paths:
+  scripts/change-graph-gate/run.py: sha256:fixture-blob-1
+  docs/changes/SDD-1/change.yaml: sha256:fixture-blob-2
+reviewed_diff_blobs:
+  scripts/change-graph-gate/run.py: sha256:fixture-blob-1
+  docs/changes/SDD-1/change.yaml: sha256:fixture-blob-2
+second_active_change_claims: {}

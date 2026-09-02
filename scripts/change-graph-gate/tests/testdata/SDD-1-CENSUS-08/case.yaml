@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-CENSUS-08; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-CENSUS-08
+title: active legacy change пропущен
+section: Policy, dual-DAG cutover и legacy census
+positive_twin: SDD-1-CENSUS-07
+holder_type: machine
+required_capability: cg.census
+expected_sut:
+  category: RED
+  diagnostic: CG_LEGACY_REGISTRY_MISSING_ACTIVE
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_LEGACY_REGISTRY_MISSING_ACTIVE
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: remove
+  path: policy_registry.PRO-Robotech/kacho-workspace#481
+  fact: из policy registry снят один active snapshot change

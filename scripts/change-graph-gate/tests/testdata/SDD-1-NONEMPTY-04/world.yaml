@@ -1,0 +1,7 @@
+# моделируемый мир кейса SDD-1-NONEMPTY-04; вход SUT через стабильный seam
+package_state: active
+acceptance_ids:
+  SDD-1-NONEMPTY-01: declared
+required_holders:
+  process-gate: GREEN
+holder_subjects: {}

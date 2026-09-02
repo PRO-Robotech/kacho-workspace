@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-HASH-02; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-HASH-02
+title: manifest hash подменён
+section: Hash invalidation, trace и evidence
+positive_twin: SDD-1-HASH-01
+holder_type: machine
+required_capability: cg.hash
+expected_sut:
+  category: RED
+  diagnostic: CG_CONTENT_HASH_MISMATCH
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_CONTENT_HASH_MISMATCH
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: manifest_hashes.design
+  fact: manifest hash одного artifact разошёлся с его content hash

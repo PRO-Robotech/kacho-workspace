@@ -1,0 +1,10 @@
+# required holder set кейса SDD-1-NA-01
+schema_version: 1
+case_id: SDD-1-NA-01
+required_holders:
+  case-assertion:
+    kind: machine
+    owner: integration-tester
+    executable: python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-NA-01
+    predicate: фактическая тройка SUT равна driver assertion по трём полям
+    evidence_coordinate: evidence/SDD-1-NA-01.yaml

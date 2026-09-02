@@ -1,0 +1,6 @@
+# моделируемый мир кейса SDD-1-DESIGN-03; вход SUT через стабильный seam
+design:
+  content_digest: sha256:fixture-design-v1
+  open_decision_markers: none
+applicable_precode_reviews:
+  proto-api-reviewer: verified

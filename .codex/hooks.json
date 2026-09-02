@@ -1,0 +1,65 @@
+{
+  "_generated": [
+    "ПОРОЖДЁННЫЙ ФАЙЛ — РУКАМИ НЕ ПРАВИТЬ.",
+    "Источник: канонические входы .claude/ и корневой CLAUDE.md.",
+    "Владение: .claude/adapters.yaml. Генератор: scripts/adapter/generate.py.",
+    "Правка уедет при следующей регенерации; предмет правки — во входе."
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/class-guard.sh\"",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/docfresh.sh\"",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/change-graph-reminder.sh\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/vault-stop-check.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/docfresh.sh\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/vault-reminder.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/hooks-wired.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/branches-clean.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

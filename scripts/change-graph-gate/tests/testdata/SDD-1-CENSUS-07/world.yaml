@@ -1,0 +1,7 @@
+# моделируемый мир кейса SDD-1-CENSUS-07; вход SUT через стабильный seam
+snapshot:
+  PRO-Robotech/kacho-workspace#481: open-pr
+  PRO-Robotech/kacho#1500: open-pr
+policy_registry:
+  PRO-Robotech/kacho-workspace#481: issue+acceptance_path+route
+  PRO-Robotech/kacho#1500: issue+acceptance_path+route

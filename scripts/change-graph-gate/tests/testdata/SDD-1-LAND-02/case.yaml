@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-LAND-02; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-LAND-02
+title: squash изменил applied content
+section: Landing и terminal states
+positive_twin: SDD-1-LAND-01
+holder_type: machine
+required_capability: cg.land
+expected_sut:
+  category: RED
+  diagnostic: CG_LANDED_CONTENT_DRIFT
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_LANDED_CONTENT_DRIFT
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: landed_blobs['scripts/change-graph-gate/run.py']
+  fact: один landed blob разошёлся с convergence content digest

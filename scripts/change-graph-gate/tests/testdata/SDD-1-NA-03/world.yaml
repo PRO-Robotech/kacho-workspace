@@ -1,0 +1,9 @@
+# моделируемый мир кейса SDD-1-NA-03; вход SUT через стабильный seam
+applicability:
+  role: db-architect-reviewer
+  predicate_id: no-migrations-in-change
+policy_predicates:
+  no-migrations-in-change: registered
+  no-proto-in-change: registered
+evidence:
+  migrations_touched: 3

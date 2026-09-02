@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-POLICY-06; вход SUT через стабильный seam
+policy_schema_version: 1
+repositories:
+  PRO-Robotech/kacho-workspace: 0123456789abcdef0123456789abcdef01234567
+  PRO-Robotech/kacho: 89abcdef0123456789abcdef0123456789abcdef
+commit_exists_in:
+  0123456789abcdef0123456789abcdef01234567: PRO-Robotech/kacho-workspace
+  89abcdef0123456789abcdef0123456789abcdef: PRO-Robotech/kacho
+api:
+  commit_lookup: unavailable

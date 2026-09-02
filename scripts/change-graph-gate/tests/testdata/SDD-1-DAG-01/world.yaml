@@ -1,0 +1,11 @@
+# моделируемый мир кейса SDD-1-DAG-01; вход SUT через стабильный seam
+candidate:
+  repo: PRO-Robotech/kacho-workspace
+  base_sha: '1111111111111111111111111111111111111111'
+  head_sha: '2222222222222222222222222222222222222222'
+cutover_commit: 0123456789abcdef0123456789abcdef01234567
+relation: base-is-ancestor-of-cutover
+registered_route: legacy
+legacy_registry:
+  PRO-Robotech/kacho-workspace#400: legacy
+package_present: false

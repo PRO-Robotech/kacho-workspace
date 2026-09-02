@@ -1,0 +1,9 @@
+# review record кейса SDD-1-CENSUS-10
+schema_version: 1
+kind: modelled_review_record
+case_id: SDD-1-CENSUS-10
+reviewer_role: landing-reviewer
+subject_sha256: sha256-fixture-subject-sdd-1-census-10
+verdict: APPROVED
+event_coordinate: github-event.json
+note: модель review record внутри fixture; production-координат не утверждает

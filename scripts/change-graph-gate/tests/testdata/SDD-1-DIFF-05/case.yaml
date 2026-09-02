@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-DIFF-05; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-DIFF-05
+title: final diff set отличается от reviewed set
+section: Diff ownership, post-diff review и convergence
+positive_twin: SDD-1-DIFF-01
+holder_type: machine
+required_capability: cg.diff
+expected_sut:
+  category: RED
+  diagnostic: CG_REVIEWED_DIFF_SET_MISMATCH
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_REVIEWED_DIFF_SET_MISMATCH
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: reviewed_diff_blobs['scripts/change-graph-gate/run.py']
+  fact: один final blob разошёлся с reviewed diff set

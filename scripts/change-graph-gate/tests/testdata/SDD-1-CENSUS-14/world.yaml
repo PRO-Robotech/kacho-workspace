@@ -1,0 +1,7 @@
+# моделируемый мир кейса SDD-1-CENSUS-14; вход SUT через стабильный seam
+acceptance:
+  state: closed
+  closed_before_census: true
+snapshot_open_prs: {}
+snapshot_live_issues: {}
+backfill_required: false

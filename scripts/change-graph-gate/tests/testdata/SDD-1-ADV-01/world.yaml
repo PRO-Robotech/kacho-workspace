@@ -1,0 +1,10 @@
+# моделируемый мир кейса SDD-1-ADV-01; вход SUT через стабильный seam
+advisory_hook_outcome: GREEN
+authoritative_callers:
+  workspace/scripts/hooks/pre-push: valid-graph
+  workspace/.github/workflows/ci.yaml: valid-graph
+  project/kacho/scripts/hooks/pre-push: valid-graph
+  project/kacho/.github/workflows/ci.yaml: valid-graph
+graph_facts:
+  trace-exact-set: ok
+  holders-complete: ok

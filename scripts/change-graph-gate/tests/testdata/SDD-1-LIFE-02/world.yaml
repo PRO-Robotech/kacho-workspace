@@ -1,0 +1,13 @@
+# моделируемый мир кейса SDD-1-LIFE-02; вход SUT через стабильный seam
+stage: DESIGN_APPROVED
+requested_transition: LANDED
+required_artifacts:
+  acceptance: present
+  design: present
+  class-exposure-initial: present
+  class-exposure-revalidation: present
+  change-yaml: present
+  holders-yaml: present
+verdicts:
+  acceptance: APPROVED
+  design: APPROVED

@@ -1,0 +1,15 @@
+# моделируемый мир кейса SDD-1-TRUTH-06; вход SUT через стабильный seam
+owners:
+  issue: why/priority/owner/live-status
+  acceptance: observable-behavior-and-case-ids
+  design: technical-decisions
+  tasks: approved-execution-route
+  change_yaml: coordinates-and-hashes
+  roadmap: normative-lifecycle-consumer
+roadmap_copies_observable_scope: false
+tasks_contains_live_status: false
+change_yaml_contains_requirement_prose: false
+duplicated_observable_requirement: none
+second_owner_conflict: none
+required_holders:
+  process-gate: GREEN

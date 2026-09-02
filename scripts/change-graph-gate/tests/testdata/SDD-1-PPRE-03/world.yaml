@@ -1,0 +1,13 @@
+# моделируемый мир кейса SDD-1-PPRE-03; вход SUT через стабильный seam
+stdin_ref_line:
+  remote_sha: '1111111111111111111111111111111111111111'
+  local_sha: '2222222222222222222222222222222222222222'
+product:
+  repo: PRO-Robotech/kacho
+  base_sha: '1111111111111111111111111111111111111111'
+  head_sha: '2222222222222222222222222222222222222222'
+sibling_workspace:
+  pinned_policy_revision: 0123456789abcdef0123456789abcdef01234567
+package_tasks_mapping:
+- SDD-1-PPRE-01
+- SDD-1-PPRE-02

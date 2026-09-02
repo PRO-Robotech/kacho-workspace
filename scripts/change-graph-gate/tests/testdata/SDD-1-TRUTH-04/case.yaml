@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-TRUTH-04; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-TRUTH-04
+title: tasks стали live tracker
+section: Truth ownership
+positive_twin: SDD-1-TRUTH-01
+holder_type: human-external
+required_capability: cg.truth
+expected_sut:
+  category: RED
+  diagnostic: CG_HUMAN_TASKS_TRACKER
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_HUMAN_TASKS_TRACKER
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: tasks_contains_live_status
+  fact: в tasks добавлен live status, то есть tasks стал tracker'ом

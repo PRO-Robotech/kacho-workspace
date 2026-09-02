@@ -1,0 +1,6 @@
+# моделируемый мир кейса SDD-1-TRACE-05; вход SUT через стабильный seam
+acceptance_ids:
+- SDD-1-TRACE-05
+holders_for_id:
+  process-gate: evidence/process-gate/fixture-subject-v1.yaml
+  adapter-contract: evidence/adapter-contract/fixture-subject-v2.yaml

@@ -1,0 +1,11 @@
+# evidence machine holder для SDD-1-DAG-01
+schema_version: 1
+case_id: SDD-1-DAG-01
+subject: world.yaml
+expected_sut:
+  category: GREEN
+  diagnostic: CG_OK
+  exit: 0
+captured_outcome: null
+note: 'captured_outcome пуст, пока SUT не отвечает: пустое поле означает «не снято»,
+  а не «снято пустым»'

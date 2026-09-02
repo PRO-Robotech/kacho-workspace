@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-ADAPTER-02; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-ADAPTER-02
+title: tracked generated output drift
+section: Tracked adapter
+positive_twin: SDD-1-ADAPTER-01
+holder_type: machine
+required_capability: cg.adapter
+expected_sut:
+  category: RED
+  diagnostic: CGA_DERIVED_DRIFT
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CGA_DERIVED_DRIFT
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: tracked_outputs['AGENTS.md']
+  fact: один байт tracked adapter-owned output разошёлся с регенерацией

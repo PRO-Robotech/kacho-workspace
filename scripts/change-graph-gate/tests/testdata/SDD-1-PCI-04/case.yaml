@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-PCI-04; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-PCI-04
+title: pinned workspace revision недоступна
+section: Authoritative callers и advisory hooks
+positive_twin: SDD-1-PCI-01
+holder_type: machine
+required_capability: cg.pci
+expected_sut:
+  category: NOT_EXECUTED
+  diagnostic: CG_PRODUCT_CI_WORKSPACE_REVISION_UNAVAILABLE
+  exit: 20
+driver_assertion:
+  category: NOT_EXECUTED
+  diagnostic: CG_PRODUCT_CI_WORKSPACE_REVISION_UNAVAILABLE
+  exit: 20
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: change
+  path: workspace_fetch.revision_resolves
+  fact: pinned workspace revision не резолвится

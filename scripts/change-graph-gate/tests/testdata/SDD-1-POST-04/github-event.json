@@ -1,0 +1,10 @@
+{
+ "schema_version": 1,
+ "kind": "modelled_github_event",
+ "case_id": "SDD-1-POST-04",
+ "role": "convergence-reviewer",
+ "actor": "pointpu",
+ "node_id": "FIXTURE_SDD_1_POST_04",
+ "subject_sha256": "sha256-fixture-subject-sdd-1-post-04",
+ "note": "модель события; настоящий GitHub API здесь не вызывается"
+}
