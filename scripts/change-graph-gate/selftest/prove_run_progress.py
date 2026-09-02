@@ -43,6 +43,9 @@ GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 sys.path.insert(0, HERE)
 
 import inject as inject_module  # noqa: E402
+# Разрешение пути приёмки берётся у того, кто его объявляет, — своей копии
+# обхода здесь не заводится: второе место об одном предмете разошлось бы молча.
+import prove as prove_module  # noqa: E402
 
 # Окно, внутри которого ни один прогон prove.py завершиться не может: он идёт
 # порядка двадцати секунд. Всё, что видно в файле раньше, напечатано ДО прогона.
@@ -156,7 +159,11 @@ def launch(root, selector, out_path):
     терминала нет. И `PYTHONUNBUFFERED` снимается из окружения — с ней зелёным
     оказалось бы и дерево без сброса, то есть проба измеряла бы окружение.
     """
-    environment = dict(os.environ)
+    # Путь приёмки разрешается ЗДЕСЬ, пока мы ещё в настоящем дереве: ниже по
+    # цепочке песочница вложена в песочницу (`inject.py` в копии кладёт свою
+    # копию), и на втором этаже выводить путь неоткуда. Без этого секция I
+    # вложенного `prove.py` объявляла бы «диагностик приёмки 0».
+    environment = prove_module.acceptance_environment()
     environment.pop("PYTHONUNBUFFERED", None)
     handle = open(out_path, "w", encoding="utf-8")
     process = subprocess.Popen(
