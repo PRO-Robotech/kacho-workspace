@@ -32,6 +32,25 @@ GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
 
+sys.path.insert(0, HERE)
+import prove as prove_module  # noqa: E402
+
+
+def aggregate_case_assertion():
+    """Текст сводного утверждения B1 — ВЫВОДИТСЯ, а не выписывается.
+
+    Он несёт ЧИСЛО объявленных кейсов, и число это растёт с каждым новым
+    семейством. Выписанное здесь, оно устаревало бы молча: полоса, добавившая
+    семейство, не правит эту ведомость и узнаёт о расхождении только тогда,
+    когда инъекция объявляет недоказанной саму себя — то есть находка приходит
+    от соседа, а проверяемое свойство остаётся неизмеренным. Так и случилось на
+    первом же сведении полос: ведомость называла 17 при 40 в дереве.
+    """
+    return (
+        "B1 все %d объявленных кейса дали объявленную тройку И совпавший код"
+        % len(prove_module.declared_cases())
+    )
+
 # (имя, относительный путь, что заменить, на что, какие утверждения обязаны пасть)
 INJECTIONS = [
     (
@@ -42,7 +61,7 @@ INJECTIONS = [
         # Проба обязана НАЗВАТЬ координату, а не только объявить итог, поэтому
         # среди ожидаемого стоит и поимённая строка кейса.
         ["B SDD-1-BOOT-02",
-         "B1 все 17 объявленных кейса дали объявленную тройку И совпавший код",
+         aggregate_case_assertion(),
          "C1 SDD-1-BOOT-01: дефектный мир под положительным ID даёт "
          "CG_BOOTSTRAP_NOT_UNIQUE"],
     ),
@@ -83,6 +102,50 @@ INJECTIONS = [
         "    return sorted(capability_token(family) for family in load())",
         '    load()\n    return ["cg.boot", "cg.hash", "cg.nonempty", "cg.truth"]',
         ["A5 снятие модуля семейства снимает признак — перечень выведен из дерева"],
+    ),
+    # --- по инъекции на семейство полосы адаптера/провязки/замещения ---------
+    # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ. Инъекция, убравшая
+    # заодно и чтение, роняла бы испытуемого собственным отказом
+    # (CG_SELF_WORLD_FACT_UNREAD) — то есть краснота приходила бы от учёта
+    # фактов, а не от снятого предиката, и проверяемое свойство осталось бы
+    # неизмеренным (`testing.md` §«Гейт на класс», п. 2в).
+    (
+        "I6 расхождение производного перестало судиться",
+        "cglib/families/adapter.py",
+        "    for coordinate in sorted(owned):\n"
+        "        if _is_foreign(coordinate, foreign):",
+        "    for coordinate in []:\n"
+        "        if _is_foreign(coordinate, foreign):",
+        ["B SDD-1-ADAPTER-02",
+         "B SDD-1-ADAPTER-13",
+         aggregate_case_assertion(),
+         "C1 SDD-1-ADAPTER-01: дефектный мир под положительным ID даёт "
+         "CGA_DERIVED_DRIFT"],
+    ),
+    (
+        "I7 отсутствие обязательного вызывающего перестало судиться",
+        "cglib/families/wire.py",
+        "        declared = world.read_all(BLOCKING_CALLERS)\n"
+        "        return declared.get(coordinate) != CALLS_GATE",
+        "        declared = world.read_all(BLOCKING_CALLERS)\n"
+        "        return False and declared.get(coordinate) != CALLS_GATE",
+        ["B SDD-1-WIRE-02",
+         "B SDD-1-WIRE-03",
+         "B SDD-1-WIRE-04",
+         "B SDD-1-WIRE-05",
+         aggregate_case_assertion(),
+         "C1 SDD-1-WIRE-01: дефектный мир под положительным ID даёт "
+         "CG_CALLER_WORKSPACE_PRE_PUSH_MISSING"],
+    ),
+    (
+        "I8 цикл замещения перестал судиться",
+        "cglib/families/super.py",
+        "    return coordinate in ancestry or coordinate == old_id",
+        "    return False and (coordinate in ancestry or coordinate == old_id)",
+        ["B SDD-1-SUPER-04",
+         aggregate_case_assertion(),
+         "C1 SDD-1-SUPER-01: дефектный мир под положительным ID даёт "
+         "CG_SUPERSEDE_CYCLE"],
     ),
 ]
 
