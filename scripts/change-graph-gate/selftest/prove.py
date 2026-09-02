@@ -253,6 +253,8 @@ def section_world_decides():
         ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
         ("SDD-1-POLICY-01", "SDD-1-POLICY-02", "CG_POLICY_REPOSITORY_MISSING"),
         ("SDD-1-DAG-04", "SDD-1-DAG-05", "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"),
+        ("SDD-1-DIFF-01", "SDD-1-DIFF-02", "CG_DIFF_PATH_UNCLAIMED"),
+        ("SDD-1-PCI-01", "SDD-1-PCI-02", "CG_TRACE_ID_MISSING"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -461,9 +463,12 @@ def section_rule_pairing():
     ИМЕНА сработавших правил, — поэтому «правило есть» отличимо от «правило
     судит», а объявленный порядок отличим от порядка, получившегося случайно.
     """
-    sys.stdout.write(
-        "\n== F. Парность правил и объявленный порядок (holder/birth/evid/na) ==\n"
-    )
+    # Перечня семейств в заголовке нет НАМЕРЕННО: он был бы вторым местом об
+    # одном предмете и старел бы от каждой новой полосы молча — перечисление
+    # «holder/birth/evid/na» пережило появление diff и pci ровно так, как этот
+    # класс и описан в корпусе. Что здесь проверяется, видно по именам
+    # утверждений, и они выводятся из самих проверок, а не из заголовка.
+    sys.stdout.write("\n== F. Парность правил и объявленный порядок ==\n")
 
     # Тривиальная команда незарегистрирована и потому краснит ОБА правила об
     # executable. Вердикт обязан быть взят по объявленному порядку, а не по
@@ -649,6 +654,61 @@ def section_rule_pairing():
             bool(lines) and lines[-1] == "GREEN · CG_OK · exit 0",
             "получено %r" % (lines[-1] if lines else None),
         )
+    # Владение и сходимость — разные предметы, и лишний фактический путь
+    # нарушает ОБА сразу: его не заявлял никто, и в отрецензированном наборе его
+    # быть не могло. Вердикт обязан браться по объявленному порядку (владение
+    # раньше сходимости), а не по тому, какое правило сработало первым случайно.
+    stderr, verdict = _judge("SDD-1-DIFF-02")
+    check(
+        "F-DIFF-1 незаявленный путь краснит владение И сходимость, вердикт — "
+        "по объявленному порядку",
+        "нарушений 2" in stderr
+        and "diff.path-unclaimed" in stderr
+        and "diff.reviewed-set-mismatch" in stderr
+        and "по первому нарушению в объявленном порядке: "
+            "diff.path-unclaimed" in stderr
+        and verdict == "RED · CG_DIFF_PATH_UNCLAIMED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-DIFF-1 зеленел бы на правиле владения, краснящем на
+    # всяком мире вообще. Здесь заявка и дерево совпадают, а разошлась ТОЛЬКО
+    # рецензия — краснеть обязано ровно правило сходимости.
+    stderr, verdict = _judge("SDD-1-DIFF-05")
+    check(
+        "F-DIFF-2-близнец при дрейфе одной рецензии краснеет только правило "
+        "сходимости",
+        "нарушений 1" in stderr
+        and "diff.reviewed-set-mismatch" in stderr
+        and "diff.path-unclaimed" not in stderr
+        and verdict == "RED · CG_REVIEWED_DIFF_SET_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Правило о GitHub event читает ЗАПИСЬ целиком (отсутствующую координату не
+    # прочитать), и это чтение не вправе цеплять чужие находки: краснеть обязано
+    # ровно оно одно.
+    stderr, verdict = _judge("SDD-1-PCI-05")
+    check(
+        "F-PCI-1 событие без base краснит ровно правило о base, чтение записи "
+        "целиком чужих находок не порождает",
+        "нарушений 1" in stderr
+        and "pci.base-ref-missing" in stderr
+        and verdict == "NOT_EXECUTED · CG_PRODUCT_CI_BASE_REF_MISSING · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-PCI-1 зеленел бы на правиле, краснящем на всяком
+    # событии. Здесь событие полное, а снят change_id — «не выполнилось» не
+    # подменяет красного и наоборот.
+    stderr, verdict = _judge("SDD-1-PCI-06")
+    check(
+        "F-PCI-2-близнец при полном событии правило о base молчит, а ledger "
+        "даёт RED, а не NOT_EXECUTED",
+        "нарушений 1" in stderr
+        and "pci.ledger-change-id-missing" in stderr
+        and "pci.base-ref-missing" not in stderr
+        and verdict == "RED · CG_PRODUCT_LEDGER_CHANGE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
 
 
 def main():
