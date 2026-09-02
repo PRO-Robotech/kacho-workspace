@@ -191,9 +191,22 @@ def section_capabilities(work):
         ["--capabilities"], sut=os.path.join(copy_root, "run.py")
     )
     injected = json.loads(injected_completed.stdout or "[]")
+    # Половины разведены поимённо, и это не косметика. Одной строкой
+    # «cg.boot объявлен И после снятия исчез» краснота приходит с ДВУХ сторон:
+    # от перечня, переживающего снятие (проверяемое свойство), и от перечня,
+    # где cg.boot не объявлен ВОВСЕ (чужая причина). Второе делает инъекцию
+    # вакуумной при исправном виде: она отчитывается «покраснело ожидаемое»,
+    # ничего не измерив. Разведённые половины различают эти случаи машинно —
+    # подмена, потерявшая cg.boot, роняет КОНТРОЛЬ, и прогонщик инъекций
+    # сообщает «покраснело лишнее».
+    check(
+        "A5-контроль снимаемое семейство объявлено ДО снятия",
+        "cg.boot" in parsed,
+        "объявлено %r" % (parsed,),
+    )
     check(
         "A5 снятие модуля семейства снимает признак — перечень выведен из дерева",
-        "cg.boot" in parsed and "cg.boot" not in injected,
+        "cg.boot" not in injected,
         "было %r, стало %r" % (parsed, injected),
     )
 
@@ -1198,7 +1211,7 @@ def section_callers_and_advisory(work):
     ]
     path = write_world(work, "wsci-foreign-partial.yaml", foreign_partial)
     check(
-        "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по семействам",
+        "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по сериям",
         _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
         "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
     )
@@ -1212,6 +1225,36 @@ def section_callers_and_advisory(work):
         "G-WSCI-5 потерянный базовый кейс серии найден так же, как потерянный "
         "производный",
         _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    # Серия — не то же самое, что семейство, и путать их нельзя. У семейства
+    # `post` серий ДВЕ: `SDD-1-POST-NN` и `SDD-1-POST-NA-NN`; правила у них
+    # общие, а инверсия рождения — своя у каждой. Перечень из двух БАЗОВЫХ
+    # кейсов разных серий несёт два известно-хороших входа и ни одного
+    # производного, то есть неполон; сложенные в одну группу, они выглядят
+    # парой «база + производный», и потеря производного не находится.
+    #
+    # Пара обязательна: одно отрицание зеленело бы на разборе, который
+    # отвергает суффикс серии целиком, — тогда законная пара второй серии
+    # объявлялась бы неполной. Поэтому близнец подаёт базу и производный
+    # ИМЕННО серии с суффиксом.
+    mixed_bases = _world_of("SDD-1-WSCI-01")
+    mixed_bases["package_tasks_mapping"] = ["SDD-1-POST-01", "SDD-1-POST-NA-01"]
+    path = write_world(work, "wsci-mixed-series-bases.yaml", mixed_bases)
+    check(
+        "G-WSCI-6 два базовых кейса РАЗНЫХ серий одного семейства — неполнота, "
+        "а не пара",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    suffixed_pair = _world_of("SDD-1-WSCI-01")
+    suffixed_pair["package_tasks_mapping"] = [
+        "SDD-1-POST-NA-01", "SDD-1-POST-NA-02",
+    ]
+    path = write_world(work, "wsci-suffixed-series-pair.yaml", suffixed_pair)
+    check(
+        "G-WSCI-7-близнец база и производный ОДНОЙ серии с суффиксом молчат",
+        _verdict_at(path, "SDD-1-WSCI-01") == "GREEN · CG_OK · exit 0",
         "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
     )
 
