@@ -4,7 +4,7 @@ aliases:
   - issue-491-ws
 ticket_id: 491
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace

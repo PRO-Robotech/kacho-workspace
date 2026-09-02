@@ -4,7 +4,7 @@ aliases:
   - issue-490-ws
 ticket_id: 490
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace

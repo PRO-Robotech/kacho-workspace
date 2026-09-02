@@ -4,7 +4,7 @@ aliases:
   - issue-488-ws
 ticket_id: 488
 category: kac
-status: test
+status: done
 type: docs
 repos:
   - kacho-workspace
