@@ -1335,8 +1335,8 @@ def section_lane_rule_pairing():
         stranger["event"]["actor"] = "outsider-not-owner"
         stranger_path = write_world(work, "withdraw-stranger.yaml", stranger)
         expect_self_failure(
-            "F-WITHDRAW-1 отзыв не от владельца НЕ судится и не объявляется "
-            "зелёным",
+            "F-WITHDRAW-1 отзыв не от владельца даёт собственный отказ, а НЕ "
+            "зелёный вердикт",
             ["--case-world", stranger_path, "--case", "SDD-1-WITHDRAW-01"],
             "CG_SELF_WORLD_NOT_JUDGED",
         )
