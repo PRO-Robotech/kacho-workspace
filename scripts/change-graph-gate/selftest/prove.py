@@ -47,7 +47,16 @@ SUBJECT_EXIT_CODES = (0, 10, 20)
 TRIPLE = re.compile(r"^(GREEN|RED|NOT_EXECUTED) · ([A-Z0-9_]+) · exit (\d+)$")
 
 sys.path.insert(0, GATE_DIR)
+from cglib import outcome as outcome_module  # noqa: E402
 from cglib import registry as registry_module  # noqa: E402
+
+# Закрытый список кейсов, чья fixture вправе пиновать тройку, принадлежит
+# harness'у и здесь только ЧИТАЕТСЯ. Своя копия списка была бы вторым местом об
+# одном предмете и разошлась бы молча; а без независимого сигнала исключение из
+# секции B стало бы маскируемым — расширь его, и B перестала бы спрашивать
+# испытуемого, оставаясь зелёной.
+sys.path.insert(0, os.path.join(GATE_DIR, "tests"))
+from caselib import fixture as harness_fixture_module  # noqa: E402
 
 PASSED = []
 FAILED = []
@@ -87,14 +96,31 @@ def fixture_world(case_id):
     return os.path.join(TESTDATA, case_id, "world.yaml")
 
 
-def fixture_expectation(case_id):
+def fixture_manifest(case_id):
     path = os.path.join(TESTDATA, case_id, "case.yaml")
     with open(path, encoding="utf-8") as handle:
-        manifest = yaml.safe_load(handle)
-    expected = manifest["expected_sut"]
+        return yaml.safe_load(handle)
+
+
+def render_triple(declared):
     return "%s · %s · exit %d" % (
-        expected["category"], expected["diagnostic"], expected["exit"]
+        declared["category"], declared["diagnostic"], declared["exit"]
     )
+
+
+def fixture_expectation(case_id):
+    return render_triple(fixture_manifest(case_id)["expected_sut"])
+
+
+def triple_producible(declared):
+    """Может ли испытуемый вообще напечатать такую тройку.
+
+    Код возврата выводится ИЗ категории (`cglib/outcome.py`), поэтому пара
+    «GREEN · exit 10» невыразима by construction. Тройка, которую испытуемый
+    напечатать не может, утверждением о его поведении не является.
+    """
+    expected = outcome_module.SUBJECT_EXIT_CODES.get(declared["category"])
+    return expected is not None and expected == declared["exit"]
 
 
 def declared_cases():
@@ -186,12 +212,41 @@ def section_capabilities(work):
 
 # --- B. Birth inversion по каждому объявленному кейсу ------------------------
 def section_cases():
+    """Тройка испытуемого равна объявленной приёмкой — у кейсов, которых СПРАШИВАЮТ.
+
+    Посылка секции («колонка `expected_sut` есть утверждение о поведении
+    испытуемого») верна не для всех рядов, и это сказано самой приёмкой §14:
+    «Три `DRIVER-*` birth fixtures меняют ровно одно поле actual triple». У этих
+    рядов колонка — тройка, СКОРМЛЕННАЯ компаратору драйвера, а не ответ
+    испытуемого; драйвер их мира испытуемому не передаёт вовсе (замер обёрткой,
+    считающей вызовы: у fixture без пина вызовов два — `--capabilities` и
+    `--case-world`, у пиновавшей один — только `--capabilities`).
+
+    Ровно поэтому две из трёх таких троек испытуемый НАПЕЧАТАТЬ НЕ МОЖЕТ:
+    `GREEN · … · exit 10` и `RED · … · exit 0` невыразимы by construction. Ждать
+    их от него значило бы требовать невозможного и объявлять это находкой.
+
+    **Исключение выведено из ФИКСТУРЫ, а не из перечня идентификаторов**: оно
+    самоистекает — сними пин из fixture, и кейс вернётся под B1 и обязан будет
+    совпасть. Перечень имён здесь не выписывается намеренно: он разошёлся бы с
+    деревом молча.
+    """
     sys.stdout.write("\n== B. Тройка испытуемого равна объявленной приёмкой ==\n")
     cases = declared_cases()
     if not cases:
         return 0
-    matched = 0
+
+    asked = []
+    pinned = []
     for case_id in cases:
+        manifest = fixture_manifest(case_id)
+        if manifest.get("sut_stub") is None:
+            asked.append(case_id)
+        else:
+            pinned.append(case_id)
+
+    matched = 0
+    for case_id in asked:
         expected = fixture_expectation(case_id)
         completed, lines = run_sut(
             ["--case-world", fixture_world(case_id), "--case", case_id]
@@ -219,8 +274,59 @@ def section_cases():
     check(
         "B1 каждый объявленный кейс дал объявленную приёмкой тройку И совпавший "
         "код",
-        matched == len(cases),
-        "совпало %d из %d" % (matched, len(cases)),
+        matched == len(asked),
+        "совпало %d из %d" % (matched, len(asked)),
+    )
+
+    # Пин обязан быть ТОЙ ЖЕ тройкой, что названа приёмкой: fixture вправе
+    # избавить испытуемого от опроса, но не вправе подменить объявленное.
+    mismatched_pins = []
+    for case_id in pinned:
+        pin = fixture_manifest(case_id).get("sut_stub")
+        # Пин, не являющийся тройкой, — тоже расхождение, а не повод упасть:
+        # проба обязана НАЗВАТЬ находку, а не оборваться на ней.
+        if not isinstance(pin, dict) or render_triple(pin) != fixture_expectation(
+            case_id
+        ):
+            mismatched_pins.append(case_id)
+    check(
+        "B2 скормленная тройка дословно равна объявленной приёмкой",
+        not mismatched_pins,
+        "разошлись: %s" % (", ".join(mismatched_pins) or "нет"),
+    )
+
+    # Причина исключения названа числом, а не прозой: тройка, которую испытуемый
+    # напечатать не может, утверждением о его поведении не является.
+    impossible = [
+        case_id for case_id in pinned
+        if not triple_producible(fixture_manifest(case_id)["expected_sut"])
+    ]
+    check(
+        "B3 среди исключённых есть тройки, невыразимые испытуемым by "
+        "construction",
+        not pinned or impossible,
+        "исключено %d, из них невыразимых %d" % (len(pinned), len(impossible)),
+    )
+
+    # Исключение обязано быть НЕМАСКИРУЕМЫМ: расширь его — и B перестанет
+    # спрашивать испытуемого вовсе, оставаясь зелёной. Поэтому состав
+    # исключённых сверяется с ЗАКРЫТЫМ списком самого harness'а — сигналом,
+    # который эта секция не производит и потому не может подделать.
+    outside_closed_list = sorted(
+        set(pinned) - set(harness_fixture_module.STUB_PERMITTED_CASES)
+    )
+    check(
+        "B4 исключены только кейсы из закрытого списка harness'а — "
+        "исключение немаскируемо",
+        asked and not outside_closed_list,
+        "опрошено %d; исключено вне списка: %s"
+        % (len(asked), ", ".join(outside_closed_list) or "нет"),
+    )
+
+    sys.stdout.write(
+        "       перепись B: объявленных кейсов %d · опрошен SUT %d · "
+        "тройка скормлена fixture %d (из них невыразимых испытуемым %d)\n"
+        % (len(cases), len(asked), len(pinned), len(impossible))
     )
     return len(cases)
 
@@ -268,6 +374,14 @@ def section_world_decides():
         ("SDD-1-LIFE-01", "SDD-1-LIFE-02", "CG_LIFECYCLE_TRANSITION_INVALID"),
         ("SDD-1-TASKS-01", "SDD-1-TASKS-02",
          "CG_WRITING_PLANS_HANDOFF_MISSING"),
+        ("SDD-1-CONV-01", "SDD-1-CONV-02", "CG_CONVERGENCE_OWNER_UNAUTHORIZED"),
+        ("SDD-1-WITHDRAW-01", "SDD-1-WITHDRAW-02", "CG_WITHDRAW_AFTER_LANDING"),
+        # У cg.driver это ЕДИНСТВЕННОЕ место, где его правила вообще
+        # исполняются: матрица трёх его кейсов испытуемого о мире не
+        # спрашивает (см. §B и `cglib/families/driver.py`). Пара взята внутри
+        # семейства: мир DRIVER-02 несёт согласованную тройку, мир DRIVER-01 —
+        # тройку, чей код не следует из категории.
+        ("SDD-1-DRIVER-02", "SDD-1-DRIVER-01", "CG_DRIVER_BIRTH_TRIPLE_INVALID"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -1143,6 +1257,125 @@ def section_callers_and_advisory(work):
         ["--case-world", fixture_world("SDD-1-WSCI-01"), "--case",
          "SDD-1-WSCI-01"],
     )
+    section_lane_rule_pairing()
+
+
+def section_lane_rule_pairing():
+    """То же для conv/withdraw/driver: «не знаю» не становится «нет».
+
+    Секция C доказывает, что вердикт даёт МИР; здесь спрашивается то, чего она
+    спросить не может: КАКОЕ правило сработало и почему вердикт взят именно им.
+    Три несущих свойства этой полосы:
+
+      * недоступность авторитета события отвечает NOT_EXECUTED и НЕ подменяется
+        красным — в том числе на мире, где события заодно и нет;
+      * отзыв, не запрошенный уполномоченным владельцем, семейство не судит
+        вовсе и говорит это громко, а не отвечает GREEN;
+      * birth-запись драйвера с диагностикой собственного отказа — находка, и
+        эта ветвь предиката не предъявляется ни одним кейсом матрицы.
+    """
+    sys.stdout.write(
+        "\n== F'. Парность правил полосы (conv/withdraw/driver) ==\n"
+    )
+
+    stderr, verdict = _judge("SDD-1-CONV-04")
+    check(
+        "F-CONV-1 недоступный авторитет даёт NOT_EXECUTED, и правило об "
+        "отсутствии события молчит",
+        "нарушений 1" in stderr
+        and "conv.event-unavailable" in stderr
+        and "conv.event-missing" not in stderr
+        and verdict == "NOT_EXECUTED · CG_CONVERGENCE_EVENT_UNAVAILABLE · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-CONV-03")
+    check(
+        "F-CONV-2-близнец отвечающий авторитет и отсутствующее событие краснят "
+        "правило о событии — и только его",
+        "нарушений 1" in stderr
+        and "conv.event-missing" in stderr
+        and "conv.event-unavailable" not in stderr
+        and verdict == "RED · CG_CONVERGENCE_EVENT_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    work = tempfile.mkdtemp(prefix="cg-lane-")
+    try:
+        # Оба дефекта сразу: авторитет молчит И координаты события нет. Без
+        # объявленного порядка вердикт стал бы красным, то есть неполученный
+        # ответ был бы выдан за отрицательный.
+        silent = yaml.safe_load(
+            open(fixture_world("SDD-1-CONV-04"), encoding="utf-8")
+        )
+        silent["convergence"].pop("event_coordinate")
+        silent_path = write_world(work, "conv-silent.yaml", silent)
+        completed, lines = run_sut(
+            ["--case-world", silent_path, "--case", "SDD-1-CONV-01"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-CONV-3 при молчащем авторитете отсутствие события не становится "
+            "находкой",
+            "нарушений 1" in completed.stderr
+            and "conv.event-unavailable" in completed.stderr
+            and "conv.event-missing" not in completed.stderr
+            and verdict
+            == "NOT_EXECUTED · CG_CONVERGENCE_EVENT_UNAVAILABLE · exit 20",
+            "вердикт %r; stderr=%s" % (verdict, completed.stderr.strip()[:400]),
+        )
+
+        # Отзыв, запрошенный не владельцем: семейство его не судит и говорит
+        # это громко. GREEN здесь объявил бы неавторизованный отзыв законным.
+        stranger = yaml.safe_load(
+            open(fixture_world("SDD-1-WITHDRAW-01"), encoding="utf-8")
+        )
+        stranger["event"]["actor"] = "outsider-not-owner"
+        stranger_path = write_world(work, "withdraw-stranger.yaml", stranger)
+        expect_self_failure(
+            "F-WITHDRAW-1 отзыв не от владельца НЕ судится и не объявляется "
+            "зелёным",
+            ["--case-world", stranger_path, "--case", "SDD-1-WITHDRAW-01"],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+        expect_subject_verdict(
+            "F-WITHDRAW-2-близнец тот же мир с владельцем из списка даёт "
+            "вердикт о предмете",
+            ["--case-world", fixture_world("SDD-1-WITHDRAW-01"), "--case",
+             "SDD-1-WITHDRAW-01"],
+        )
+
+        # Ветвь предиката драйвера, которой нет ни у одного кейса матрицы:
+        # записанная тройка несёт диагностику СОБСТВЕННОГО отказа, то есть
+        # объявляет поломку испытуемого свойством мира.
+        self_named = yaml.safe_load(
+            open(fixture_world("SDD-1-DRIVER-02"), encoding="utf-8")
+        )
+        self_named["driver_birth"]["actual_triple"] = (
+            "RED · CG_SELF_WORLD_MALFORMED · exit 10"
+        )
+        self_named_path = write_world(work, "driver-self.yaml", self_named)
+        _, lines = run_sut(
+            ["--case-world", self_named_path, "--case", "SDD-1-DRIVER-02"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-DRIVER-1 birth-запись с диагностикой собственного отказа — "
+            "находка",
+            verdict == "RED · CG_DRIVER_BIRTH_TRIPLE_INVALID · exit 10",
+            "вердикт %r" % (verdict,),
+        )
+        _, lines = run_sut(
+            ["--case-world", fixture_world("SDD-1-DRIVER-02"), "--case",
+             "SDD-1-DRIVER-02"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-DRIVER-2-близнец согласованная birth-запись молчит",
+            verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r" % (verdict,),
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def main():
