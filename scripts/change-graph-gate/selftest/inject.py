@@ -31,6 +31,30 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
+# Имя утверждения берётся ЦЕЛИКОМ. Первая редакция отсекала хвост после «->»
+# — форма была перенесена из вывода ЭТОГО прогонщика, где стрелка и правда
+# хвост («имя -> покраснело ровно N»). У prove.py стрелка стоит ВНУТРИ имени
+# («D1 мира по пути нет -> собственный отказ»), поэтому перечень выводился
+# обрезанным, а сравнивался с полными именами из FAIL — и все тринадцать
+# утверждений объявлялись «лишними». Читать чужой вывод своей формой нельзя.
+OK_LINE = re.compile(r"^  OK   (.+)$")
+
+# Маркер «все утверждения о собственном отказе», раскрываемый по КОНТРОЛЬНОМУ
+# прогону, а не выписанный именами.
+#
+# Инъекция, подменяющая собственный отказ вердиктом, обязана уронить КАЖДОЕ
+# утверждение этого класса, а класс растёт: своё утверждение о собственном
+# отказе заводит всякая полоса, которой оно нужно. Рукописный перечень делал
+# ожидание вторым местом об одном предмете — и ломал инъекцию у следующей же
+# полосы: она отчитывалась «покраснело лишнее» о том, что покраснеть было
+# ОБЯЗАНО, то есть находка приходила о механизме там, где менялся его предмет.
+#
+# Признак класса — в самом имени утверждения: «собственный отказ». Это не
+# эвристика, а контракт ядра: три собственных отказа названы так дословно, и
+# всякое утверждение о них обязано это слово нести, иначе читатель прогона не
+# отличит их от вердиктов о предмете.
+EVERY_SELF_FAILURE = "<все утверждения о собственном отказе>"
+SELF_FAILURE_MARK = "собственный отказ"
 
 # Сводное утверждение прогона кейсов. Числа в имени нет НАМЕРЕННО: счёт кейсов
 # растёт от каждого нового семейства, а ожидания инъекций перечисляют имена
@@ -72,22 +96,26 @@ INJECTIONS = [
         '    sys.stderr.flush()\n'
         '    sys.stdout.write("GREEN · CG_OK · exit 0\\n")\n'
         '    return 0',
-        ["D1 мира по пути нет -> собственный отказ, stdout пуст",
-         "D2 мир не разбирается как YAML -> собственный отказ",
-         "D3 мир не отображение -> собственный отказ",
-         "D4 идентификатор кейса не разбирается -> собственный отказ",
-         "D5 семейство кейса не объявлено -> собственный отказ, НЕ вердикт",
-         "D6 без обязательных аргументов -> собственный отказ",
-         "D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN",
-         "D8 непрочитанный факт внутри предмета -> собственный отказ",
-         "D9 роль вердикта не приводится к artifact -> собственный отказ"],
+        [EVERY_SELF_FAILURE],
     ),
     (
         "неосмотренный мир объявляется чистым",
         "cglib/rules.py",
         "    if not applicable:",
         "    if False and not applicable:",
-        ["D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN"],
+        ["D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN",
+         # Якорь вызывающих семейств утверждает ровно ту же половину
+         # различения, что D1..D9: «не знаю» не выдаётся за «нет».
+         # Инъекция, стирающая это различение, обязана уронить и его —
+         # иначе список ожидаемого был бы у́же того, что она ломает.
+         "G-ANCHOR SDD-1-WSCI-01: чужой мир под ID вызывающего даёт "
+         "собственный отказ, а НЕ вердикт",
+         "G-ANCHOR SDD-1-WSPP-01: чужой мир под ID вызывающего даёт "
+         "собственный отказ, а НЕ вердикт",
+         "D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous "
+         "GREEN",
+         "F-WITHDRAW-1 отзыв не от владельца даёт собственный отказ, а НЕ "
+         "зелёный вердикт"],
     ),
     (
         "непрочитанный факт мира перестал быть находкой",
@@ -121,6 +149,22 @@ INJECTIONS = [
          B1,
          "C1 SDD-1-REVIEW-01: дефектный мир под положительным ID даёт "
          "CG_BOOTSTRAP_ACTOR_SPOOFED"],
+    ),
+    (
+        # Снимается ОДНО решение — сверка actor'а с versioned policy allowlist,
+        # — а чтения таблицы, требуемой роли и actor'а события остаются выше по
+        # телу предиката. Инъекция, убравшая заодно и чтение, уронила бы прогон
+        # собственным отказом «факт не прочитан», и краснота пришла бы от учёта
+        # фактов, а не от снятого предиката (п. 2в `testing.md` §«Гейт на класс»).
+        "cg.auth перестал сверять actor с versioned policy allowlist",
+        "cglib/families/auth.py",
+        "    return required not in _roles_allowing(allowlist, actor)",
+        "    _roles_allowing(allowlist, actor)\n    return False",
+        ["B SDD-1-AUTH-03",
+         B1,
+         "C1 SDD-1-AUTH-01: дефектный мир под положительным ID даёт "
+         "CG_REVIEW_ACTOR_UNAUTHORIZED",
+         "F-AUTH-1 чужой actor при верной роли краснит только правило о допуске"],
     ),
     (
         "cg.class перестал требовать mapping каждого exposure item",
@@ -262,6 +306,108 @@ INJECTIONS = [
         "    _holders_without_usable_output(world)\n    return False",
         ["B SDD-1-EVID-05", B1],
     ),
+    # --- по инъекции на семейство полосы сходимости/отзыва/драйвера ---------
+    # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ: снятое чтение уронило
+    # бы испытуемого собственным отказом «факт не прочитан», и краснота пришла бы
+    # от учёта фактов, а не от снятого предиката (п. 2в `testing.md` §«Гейт на
+    # класс»).
+    (
+        "сходимость перестала сверять актора со списком его роли",
+        "cglib/families/conv.py",
+        "    return actor not in allowed",
+        "    actor not in allowed\n    return False",
+        ["B SDD-1-CONV-02",
+         B1,
+         "C1 SDD-1-CONV-01: дефектный мир под положительным ID даёт "
+         "CG_CONVERGENCE_OWNER_UNAUTHORIZED"],
+    ),
+    (
+        "отзыв приземлённого изменения перестал быть находкой",
+        "cglib/families/withdraw.py",
+        "    return str(world.read(SOURCE_STATE)).strip() == LANDED_STATE",
+        "    str(world.read(SOURCE_STATE)).strip()\n    return False",
+        ["B SDD-1-WITHDRAW-02",
+         B1,
+         "C1 SDD-1-WITHDRAW-01: дефектный мир под положительным ID даёт "
+         "CG_WITHDRAW_AFTER_LANDING"],
+    ),
+    (
+        # Ожидаемая краснота здесь ОДНА, и это само по себе измерение: матрица
+        # трёх кейсов cg.driver испытуемого о мире не спрашивает (fixture пинует
+        # тройку), поэтому снятие его предиката матрицу не трогает вовсе.
+        # Единственный, кто это видит, — пара секции C.
+        "birth-запись драйвера перестала сверять код возврата с категорией",
+        "cglib/families/driver.py",
+        "    if exit_code != outcome.SUBJECT_EXIT_CODES[category]:\n"
+        "        return True\n",
+        "",
+        ["C1 SDD-1-DRIVER-02: дефектный мир под положительным ID даёт "
+         "CG_DRIVER_BIRTH_TRIPLE_INVALID"],
+    ),
+    (
+        # Исключение из секции B обязано быть немаскируемым: расширь его — и B
+        # перестанет спрашивать испытуемого вовсе, оставаясь зелёной, потому что
+        # «совпало 0 из 0» есть истина. Ловит это только сверка с закрытым
+        # списком harness'а — сигналом, которого секция не производит сама.
+        "исключение из секции B расширено за пределы закрытого списка",
+        "selftest/prove.py",
+        '        if manifest.get("sut_stub") is None:',
+        "        if False:",
+        ["B2 скормленная тройка дословно равна объявленной приёмкой",
+         "B4 исключены только кейсы из закрытого списка harness'а — "
+         "исключение немаскируемо"],
+    ),
+    (
+        # Снимается ТОЛЬКО решение: оба чтения (эпоха и валидность package)
+        # остаются на месте, иначе прогон упал бы собственным отказом «факт не
+        # прочитан» и краснота пришла бы от учёта фактов, а не от снятого
+        # предиката (п. 2в `testing.md` §«Гейт на класс»).
+        "cg.dag перестал требовать package после cutover",
+        "cglib/families/dag.py",
+        "    return _cutover_before_base(world) and missing",
+        "    _cutover_before_base(world)\n    return False",
+        ["B SDD-1-DAG-05",
+         B1,
+         "C1 SDD-1-DAG-04: дефектный мир под положительным ID даёт "
+         "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"],
+    ),
+    (
+        # Владение diff'ом перестало судиться. Инъекция снимает ТОЛЬКО решение и
+        # сохраняет оба чтения: сняв их, она уронила бы прогон собственным
+        # отказом «факт не прочитан», и краснота пришла бы от учёта фактов, а не
+        # от снятого предиката (п. 2в `testing.md` §«Гейт на класс»).
+        "cg.diff перестал судить принадлежность фактического содержимого",
+        "cglib/families/diff.py",
+        "    return any(approved.get(path) != blob for path, blob in actual.items())",
+        "    [approved.get(path) for path in actual]\n    return False",
+        # Мир с лишним путём краснит и владение, и сходимость. Со снятым
+        # владением вердикт съезжает на сходимость — то есть тройка меняется,
+        # а объявленный порядок перестаёт быть наблюдаемым.
+        ["B SDD-1-DIFF-02",
+         B1,
+         "C1 SDD-1-DIFF-01: дефектный мир под положительным ID даёт "
+         "CG_DIFF_PATH_UNCLAIMED",
+         "F-DIFF-1 незаявленный путь краснит владение И сходимость, вердикт — "
+         "по объявленному порядку"],
+    ),
+    (
+        # Покрытие пары кейсов перестало судиться. Снимается ровно решение о
+        # незакрытой паре; ветки «перечень пуст» и «запись не идентификатор»
+        # остаются на месте, поэтому краснеет то и только то, что предъявляет
+        # кейс с изъятым acceptance-кейсом.
+        "cg.pci перестал требовать обеих половин birth inversion от tasks",
+        "cglib/families/pci.py",
+        "        if len(ordinals) < 2 or BASE_CASE_ORDINAL not in ordinals:\n"
+        "            return True",
+        "        if False and (\n"
+        "            len(ordinals) < 2 or BASE_CASE_ORDINAL not in ordinals\n"
+        "        ):\n"
+        "            return True",
+        ["B SDD-1-PCI-02",
+         B1,
+         "C1 SDD-1-PCI-01: дефектный мир под положительным ID даёт "
+         "CG_TRACE_ID_MISSING"],
+    ),
     (
         "evidence перестало проверяться на выполнение predicate",
         "cglib/families/na.py",
@@ -272,6 +418,149 @@ INJECTIONS = [
          "CG_NA_PREDICATE_FALSE",
          "F-NA-2-близнец зарегистрированный, но невыполненный предикат краснит "
          "правило о evidence"],
+    ),
+    # --- по инъекции на семейство полосы трассы/жизненного цикла/задач -------
+    # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ: инъекция, убравшая
+    # заодно и чтение, роняла бы испытуемого собственным отказом
+    # (CG_SELF_WORLD_FACT_UNREAD), то есть краснота приходила бы от учёта
+    # фактов, а не от снятого предиката, и проверяемое свойство осталось бы
+    # неизмеренным (`testing.md` §«Гейт на класс», п. 2в).
+    (
+        "cg.trace перестал различать направление расхождения множеств",
+        "cglib/families/trace.py",
+        "    return any(\n"
+        "        missing and orphan for missing, orphan in "
+        "_divergence(world).values()\n"
+        "    )",
+        "    _divergence(world)\n    return False",
+        # Односторонние правила при этом целы, поэтому C1 (сирота) остаётся
+        # зелёной — и видно, что покраснело именно различение направлений, а
+        # не полоса трассы целиком.
+        ["B SDD-1-TRACE-04", B1,
+         "F-TRACE-1 двустороннее расхождение краснит только своё правило"],
+    ),
+    (
+        "cg.life перестал отвергать пропуск обязательной стадии",
+        "cglib/families/life.py",
+        "    return requested != successor",
+        "    return False",
+        ["B SDD-1-LIFE-02", B1,
+         "C1 SDD-1-LIFE-01: дефектный мир под положительным ID даёт "
+         "CG_LIFECYCLE_TRANSITION_INVALID",
+         "F-LIFE-2-близнец пропуск обязательной стадии краснит только правило "
+         "о смежности"],
+    ),
+    (
+        "cg.tasks перестал требовать проверенного writing-plans handoff",
+        "cglib/families/tasks.py",
+        '    if record.get("event") != VERIFIED_HANDOFF_EVENT:\n'
+        "        return True\n"
+        '    return record.get("produces") != HANDOFF_PRODUCT',
+        '    record.get("event")\n'
+        '    record.get("produces")\n'
+        "    return False",
+        ["B SDD-1-TASKS-02", B1,
+         "C1 SDD-1-TASKS-01: дефектный мир под положительным ID даёт "
+         "CG_WRITING_PLANS_HANDOFF_MISSING",
+         "F-TASKS-2-близнец отсутствие проверенного handoff краснит только "
+         "правило о производителе"],
+    ),
+    # --- по инъекции на семейство полосы вызывающих и advisory ---------------
+    # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ: инъекция, убравшая
+    # заодно чтение, роняла бы испытуемого собственным отказом
+    # (CG_SELF_WORLD_FACT_UNREAD), и краснота приходила бы от учёта фактов, а не
+    # от снятого предиката (`testing.md` §«Гейт на класс», п. 2в).
+    (
+        "потерянный в поданном графе acceptance ID перестал судиться (workspace CI)",
+        "cglib/families/wsci.py",
+        "    return tasksmapping.lost_acceptance_id(\n"
+        "        world.read_all(PACKAGE_TASKS_MAPPING)\n"
+        "    )",
+        "    tasksmapping.lost_acceptance_id(\n"
+        "        world.read_all(PACKAGE_TASKS_MAPPING)\n"
+        "    )\n"
+        "    return False",
+        # Среди ожидаемого стоит и G-CALLERS: снятие предиката у ОДНОГО из двух
+        # вызывающих семейств обязано быть найдено пробой, которая подаёт им
+        # общий mapping, — иначе расхождение между ними осталось бы
+        # неизмеренным ровно так, как описано в шапке `cglib/tasksmapping.py`.
+        ["B SDD-1-WSCI-02",
+         B1,
+         "C1 SDD-1-WSCI-01: дефектный мир под положительным ID даёт "
+         "CG_TRACE_ID_MISSING",
+         "G-WSCI-2 нулевая перепись mapping — потеря, а не vacuous GREEN",
+         "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по семействам",
+         "G-WSCI-5 потерянный базовый кейс серии найден так же, как потерянный "
+         "производный",
+         "G-CALLERS неполный mapping судится ОДИНАКОВО у cg.wsci и cg.wspp"],
+    ),
+    (
+        "дорога remote-ссылки от stdin до диапазона перестала судиться",
+        "cglib/families/wspp.py",
+        "    return not (repository and remote_sha and remote_sha == base_sha)",
+        "    return False and not (\n"
+        "        repository and remote_sha and remote_sha == base_sha\n"
+        "    )",
+        # C1 этого семейства опирается на правило о графе и потому обязан
+        # остаться зелёным: инъекция роняет ТОЛЬКО проверяемое.
+        ["B SDD-1-WSPP-04",
+         B1,
+         "G-WSPP-3 граница словаря приёмки названа: без идентичности "
+         "репозитория ссылку негде разрешать"],
+    ),
+    (
+        "authoritative evidence перестала складываться в вердикт",
+        "cglib/families/adv.py",
+        "    return callers_short or facts_dirty",
+        "    return False and (callers_short or facts_dirty)",
+        ["B SDD-1-ADV-02",
+         B1,
+         "C1 SDD-1-ADV-01: дефектный мир под положительным ID даёт "
+         "CG_AUTHORITATIVE_GATE_BLOCKED",
+         "G-ADV-2-близнец снятый advisory НЕ отменяет находку authority",
+         "G-ADV-3 недостающий authoritative caller блокирует так же, как "
+         "грязный graph fact"],
+    ),
+    # --- по инъекции на семейство полосы вызывающего/review/landing ---------
+    # Каждая снимает ОДНО решение и сохраняет ЧТЕНИЯ фактов: снятое чтение
+    # уронило бы прогон собственным отказом «факт не прочитан», и краснота
+    # пришла бы от учёта фактов, а не от снятого предиката, — проверяемое
+    # свойство осталось бы неизмеренным (п. 2в `testing.md` §«Гейт на класс»).
+    (
+        "cg.ppre перестал требовать трассировки зарегистрированной задачи",
+        "cglib/families/ppre.py",
+        "    return not series or bool(incomplete)",
+        "    series, incomplete\n    return False",
+        ["B SDD-1-PPRE-02",
+         B1,
+         "C1 SDD-1-PPRE-01: дефектный мир под положительным ID даёт "
+         "CG_TRACE_ID_MISSING",
+         "G-PPRE-2-близнец при полных координатах дефект графа даёт RED, а не "
+         "NOT_EXECUTED"],
+    ),
+    (
+        "cg.post перестал требовать записи от applicable role",
+        "cglib/families/post.py",
+        "    return bool(unreviewed)",
+        "    unreviewed\n    return False",
+        ["B SDD-1-POST-02",
+         B1,
+         "C1 SDD-1-POST-01: дефектный мир под положительным ID даёт "
+         "CG_POST_DIFF_REVIEW_MISSING",
+         "G-POST-2-близнец отсутствующую запись ловит правило о ней — и "
+         "правило ownership на ней молчит"],
+    ),
+    (
+        "cg.land перестал сверять применённое содержимое с одобренным",
+        "cglib/families/land.py",
+        "    return dict(applied) != canonical",
+        "    dict(applied)\n    return False",
+        ["B SDD-1-LAND-02",
+         B1,
+         "C1 SDD-1-LAND-01: дефектный мир под положительным ID даёт "
+         "CG_LANDED_CONTENT_DRIFT",
+         "G-LAND-2-близнец уехавший blob при том же заявленном отпечатке даёт "
+         "RED"],
     ),
 ]
 
@@ -293,20 +582,64 @@ def run_prove(root):
         [sys.executable, os.path.join(root, "selftest", "prove.py")],
         capture_output=True, text=True, timeout=600,
     )
-    failed = []
+    failed, passed = [], []
     for line in completed.stdout.split("\n"):
         match = FAIL_LINE.match(line)
         if match:
             failed.append(match.group(1).strip())
-    return completed.returncode, failed, completed.stdout
+            continue
+        match = OK_LINE.match(line)
+        if match:
+            passed.append(match.group(1).strip())
+    return completed.returncode, failed, passed
+
+
+def check_ledger_shape():
+    """Форма ведомости инъекций: ровно пять полей у каждой записи.
+
+    Заведено ценой прогона. Сведение волны склеило две записи в одну, потеряв
+    разделитель между ними, и РАЗБОР ЭТО ПРОПУСТИЛ: кортеж из десяти элементов
+    синтаксически безупречен. Ошибка проявилась только распаковкой в цикле —
+    то есть после того, как контрольный прогон уже отработал впустую.
+
+    Склейка, случайно давшая пять полей, не проявилась бы и там. Поэтому форма
+    проверяется здесь, до первого прогона, а не подразумевается.
+    """
+    wrong = [
+        (index, len(entry))
+        for index, entry in enumerate(INJECTIONS)
+        if not isinstance(entry, tuple) or len(entry) != 5
+    ]
+    if wrong:
+        sys.stdout.write(
+            "  FAIL форма ведомости: записей с числом полей, отличным от пяти "
+            "— %d %s\n" % (len(wrong), wrong)
+        )
+        return False
+    sys.stdout.write(
+        "  OK   форма ведомости: записей %d, у каждой ровно пять полей\n"
+        % len(INJECTIONS)
+    )
+    return True
 
 
 def main():
     passed = 0
     broken = 0
+    if check_ledger_shape():
+        passed += 1
+    else:
+        broken += 1
+        return 1
     with tempfile.TemporaryDirectory(prefix="cg-inject-") as work:
         control_root = prepare(work, "control")
-        code, failed, _ = run_prove(control_root)
+        code, failed, control_passed = run_prove(control_root)
+        # Перечень утверждений о собственном отказе ВЫВОДИТСЯ отсюда: на чистом
+        # дереве они все зелёные, поэтому именно контрольный прогон и знает их
+        # состав. Пустой перечень — находка, а не «нечего разворачивать».
+        self_failure_assertions = sorted(
+            name for name in control_passed if SELF_FAILURE_MARK in name
+        )
         if code == 0 and not failed:
             passed += 1
             sys.stdout.write("  OK   контроль: нетронутое дерево зелено\n")
@@ -317,8 +650,26 @@ def main():
                 % (code, failed)
             )
 
+        # Отбор по подстроке имени. Полный прогон — 38 инъекций, каждая с
+        # собственным прогоном доказательств, то есть больше часа; проверить
+        # правку ОДНОЙ инъекции иначе нельзя, и это толкает не проверять её
+        # вовсе. Перепись при отборе печатает, сколько инъекций осмотрено из
+        # скольких объявленных, — «доказано 1 из 1» не должно читаться как
+        # «доказаны все».
+        global selected_count
+        selected = [
+            entry for entry in INJECTIONS
+            if not sys.argv[1:] or sys.argv[1] in entry[0]
+        ]
+        selected_count = selected
+        if sys.argv[1:] and not selected:
+            sys.stdout.write(
+                "  FAIL отбор %r не совпал ни с одной инъекцией из %d\n"
+                % (sys.argv[1], len(INJECTIONS))
+            )
+            return 1
         for index, (name, relpath, needle, replacement, expected) in enumerate(
-            INJECTIONS
+            selected
         ):
             root = prepare(work, "inject-%d" % index)
             target = os.path.join(root, relpath)
@@ -334,7 +685,17 @@ def main():
             with open(target, "w", encoding="utf-8") as handle:
                 handle.write(source.replace(needle, replacement, 1))
 
-            code, failed, output = run_prove(root)
+            code, failed, _ = run_prove(root)
+            if EVERY_SELF_FAILURE in expected:
+                if not self_failure_assertions:
+                    broken += 1
+                    sys.stdout.write(
+                        "  FAIL %s: перечень утверждений о собственном отказе "
+                        "ПУСТ — раскрывать нечего, инъекция беспредметна\n" % name
+                    )
+                    continue
+                expected = [item for item in expected if item != EVERY_SELF_FAILURE]
+                expected = expected + self_failure_assertions
             missing = [item for item in expected if item not in failed]
             extra = [item for item in failed if item not in expected]
             if code == 1 and not missing and not extra:
@@ -356,6 +717,12 @@ def main():
         "инъекций с контролем: %d · доказано: %d · не доказано: %d\n"
         % (total, passed, broken)
     )
+    if sys.argv[1:]:
+        sys.stdout.write(
+            "ОТБОР %r: осмотрено инъекций %d из %d объявленных — вердикт "
+            "относится к отобранным, не ко всем\n"
+            % (sys.argv[1], len(selected_count), len(INJECTIONS))
+        )
     if total == 0:
         sys.stdout.write("проба беспредметна: инъекций ноль\n")
         return 2

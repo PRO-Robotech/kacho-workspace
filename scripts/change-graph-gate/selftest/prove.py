@@ -47,7 +47,16 @@ SUBJECT_EXIT_CODES = (0, 10, 20)
 TRIPLE = re.compile(r"^(GREEN|RED|NOT_EXECUTED) · ([A-Z0-9_]+) · exit (\d+)$")
 
 sys.path.insert(0, GATE_DIR)
+from cglib import outcome as outcome_module  # noqa: E402
 from cglib import registry as registry_module  # noqa: E402
+
+# Закрытый список кейсов, чья fixture вправе пиновать тройку, принадлежит
+# harness'у и здесь только ЧИТАЕТСЯ. Своя копия списка была бы вторым местом об
+# одном предмете и разошлась бы молча; а без независимого сигнала исключение из
+# секции B стало бы маскируемым — расширь его, и B перестала бы спрашивать
+# испытуемого, оставаясь зелёной.
+sys.path.insert(0, os.path.join(GATE_DIR, "tests"))
+from caselib import fixture as harness_fixture_module  # noqa: E402
 
 PASSED = []
 FAILED = []
@@ -87,14 +96,31 @@ def fixture_world(case_id):
     return os.path.join(TESTDATA, case_id, "world.yaml")
 
 
-def fixture_expectation(case_id):
+def fixture_manifest(case_id):
     path = os.path.join(TESTDATA, case_id, "case.yaml")
     with open(path, encoding="utf-8") as handle:
-        manifest = yaml.safe_load(handle)
-    expected = manifest["expected_sut"]
+        return yaml.safe_load(handle)
+
+
+def render_triple(declared):
     return "%s · %s · exit %d" % (
-        expected["category"], expected["diagnostic"], expected["exit"]
+        declared["category"], declared["diagnostic"], declared["exit"]
     )
+
+
+def fixture_expectation(case_id):
+    return render_triple(fixture_manifest(case_id)["expected_sut"])
+
+
+def triple_producible(declared):
+    """Может ли испытуемый вообще напечатать такую тройку.
+
+    Код возврата выводится ИЗ категории (`cglib/outcome.py`), поэтому пара
+    «GREEN · exit 10» невыразима by construction. Тройка, которую испытуемый
+    напечатать не может, утверждением о его поведении не является.
+    """
+    expected = outcome_module.SUBJECT_EXIT_CODES.get(declared["category"])
+    return expected is not None and expected == declared["exit"]
 
 
 def declared_cases():
@@ -186,12 +212,41 @@ def section_capabilities(work):
 
 # --- B. Birth inversion по каждому объявленному кейсу ------------------------
 def section_cases():
+    """Тройка испытуемого равна объявленной приёмкой — у кейсов, которых СПРАШИВАЮТ.
+
+    Посылка секции («колонка `expected_sut` есть утверждение о поведении
+    испытуемого») верна не для всех рядов, и это сказано самой приёмкой §14:
+    «Три `DRIVER-*` birth fixtures меняют ровно одно поле actual triple». У этих
+    рядов колонка — тройка, СКОРМЛЕННАЯ компаратору драйвера, а не ответ
+    испытуемого; драйвер их мира испытуемому не передаёт вовсе (замер обёрткой,
+    считающей вызовы: у fixture без пина вызовов два — `--capabilities` и
+    `--case-world`, у пиновавшей один — только `--capabilities`).
+
+    Ровно поэтому две из трёх таких троек испытуемый НАПЕЧАТАТЬ НЕ МОЖЕТ:
+    `GREEN · … · exit 10` и `RED · … · exit 0` невыразимы by construction. Ждать
+    их от него значило бы требовать невозможного и объявлять это находкой.
+
+    **Исключение выведено из ФИКСТУРЫ, а не из перечня идентификаторов**: оно
+    самоистекает — сними пин из fixture, и кейс вернётся под B1 и обязан будет
+    совпасть. Перечень имён здесь не выписывается намеренно: он разошёлся бы с
+    деревом молча.
+    """
     sys.stdout.write("\n== B. Тройка испытуемого равна объявленной приёмкой ==\n")
     cases = declared_cases()
     if not cases:
         return 0
-    matched = 0
+
+    asked = []
+    pinned = []
     for case_id in cases:
+        manifest = fixture_manifest(case_id)
+        if manifest.get("sut_stub") is None:
+            asked.append(case_id)
+        else:
+            pinned.append(case_id)
+
+    matched = 0
+    for case_id in asked:
         expected = fixture_expectation(case_id)
         completed, lines = run_sut(
             ["--case-world", fixture_world(case_id), "--case", case_id]
@@ -219,8 +274,59 @@ def section_cases():
     check(
         "B1 каждый объявленный кейс дал объявленную приёмкой тройку И совпавший "
         "код",
-        matched == len(cases),
-        "совпало %d из %d" % (matched, len(cases)),
+        matched == len(asked),
+        "совпало %d из %d" % (matched, len(asked)),
+    )
+
+    # Пин обязан быть ТОЙ ЖЕ тройкой, что названа приёмкой: fixture вправе
+    # избавить испытуемого от опроса, но не вправе подменить объявленное.
+    mismatched_pins = []
+    for case_id in pinned:
+        pin = fixture_manifest(case_id).get("sut_stub")
+        # Пин, не являющийся тройкой, — тоже расхождение, а не повод упасть:
+        # проба обязана НАЗВАТЬ находку, а не оборваться на ней.
+        if not isinstance(pin, dict) or render_triple(pin) != fixture_expectation(
+            case_id
+        ):
+            mismatched_pins.append(case_id)
+    check(
+        "B2 скормленная тройка дословно равна объявленной приёмкой",
+        not mismatched_pins,
+        "разошлись: %s" % (", ".join(mismatched_pins) or "нет"),
+    )
+
+    # Причина исключения названа числом, а не прозой: тройка, которую испытуемый
+    # напечатать не может, утверждением о его поведении не является.
+    impossible = [
+        case_id for case_id in pinned
+        if not triple_producible(fixture_manifest(case_id)["expected_sut"])
+    ]
+    check(
+        "B3 среди исключённых есть тройки, невыразимые испытуемым by "
+        "construction",
+        not pinned or impossible,
+        "исключено %d, из них невыразимых %d" % (len(pinned), len(impossible)),
+    )
+
+    # Исключение обязано быть НЕМАСКИРУЕМЫМ: расширь его — и B перестанет
+    # спрашивать испытуемого вовсе, оставаясь зелёной. Поэтому состав
+    # исключённых сверяется с ЗАКРЫТЫМ списком самого harness'а — сигналом,
+    # который эта секция не производит и потому не может подделать.
+    outside_closed_list = sorted(
+        set(pinned) - set(harness_fixture_module.STUB_PERMITTED_CASES)
+    )
+    check(
+        "B4 исключены только кейсы из закрытого списка harness'а — "
+        "исключение немаскируемо",
+        asked and not outside_closed_list,
+        "опрошено %d; исключено вне списка: %s"
+        % (len(asked), ", ".join(outside_closed_list) or "нет"),
+    )
+
+    sys.stdout.write(
+        "       перепись B: объявленных кейсов %d · опрошен SUT %d · "
+        "тройка скормлена fixture %d (из них невыразимых испытуемым %d)\n"
+        % (len(cases), len(asked), len(pinned), len(impossible))
     )
     return len(cases)
 
@@ -240,6 +346,14 @@ def section_world_decides():
         ("SDD-1-TRUTH-01", "SDD-1-TRUTH-04", "CG_HUMAN_TASKS_TRACKER"),
         ("SDD-1-ADAPTER-01", "SDD-1-ADAPTER-02", "CGA_DERIVED_DRIFT"),
         ("SDD-1-WIRE-01", "SDD-1-WIRE-02", "CG_CALLER_WORKSPACE_PRE_PUSH_MISSING"),
+        # Вызывающие семейства и advisory hook — §13 «Authoritative callers и
+        # advisory hooks». У двух первых отрицательный близнец несёт ОДНУ и ту
+        # же диагностику, и это не совпадение: приёмка требует от каждого
+        # реального caller сохранять UNDERLYING находку графа, а не заводить
+        # свою.
+        ("SDD-1-WSPP-01", "SDD-1-WSPP-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-WSCI-01", "SDD-1-WSCI-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-ADV-01", "SDD-1-ADV-02", "CG_AUTHORITATIVE_GATE_BLOCKED"),
         ("SDD-1-SUPER-01", "SDD-1-SUPER-04", "CG_SUPERSEDE_CYCLE"),
         ("SDD-1-HOLDER-01", "SDD-1-HOLDER-06",
          "CG_HOLDER_SUBJECT_HASH_MISMATCH"),
@@ -248,10 +362,29 @@ def section_world_decides():
         ("SDD-1-NA-01", "SDD-1-NA-03", "CG_NA_PREDICATE_FALSE"),
         ("SDD-1-TDD-02", "SDD-1-TDD-03", "CG_RED_PROOF_UNEXPECTED_GREEN"),
         ("SDD-1-REVIEW-01", "SDD-1-REVIEW-06", "CG_BOOTSTRAP_ACTOR_SPOOFED"),
+        ("SDD-1-AUTH-01", "SDD-1-AUTH-03", "CG_REVIEW_ACTOR_UNAUTHORIZED"),
         ("SDD-1-CLASS-04", "SDD-1-CLASS-05", "CG_CLASS_ITEM_UNMAPPED"),
         ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
         ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
         ("SDD-1-POLICY-01", "SDD-1-POLICY-02", "CG_POLICY_REPOSITORY_MISSING"),
+        ("SDD-1-DAG-04", "SDD-1-DAG-05", "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"),
+        ("SDD-1-DIFF-01", "SDD-1-DIFF-02", "CG_DIFF_PATH_UNCLAIMED"),
+        ("SDD-1-PCI-01", "SDD-1-PCI-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-TRACE-01", "SDD-1-TRACE-03", "CG_TRACE_ID_ORPHAN"),
+        ("SDD-1-LIFE-01", "SDD-1-LIFE-02", "CG_LIFECYCLE_TRANSITION_INVALID"),
+        ("SDD-1-TASKS-01", "SDD-1-TASKS-02",
+         "CG_WRITING_PLANS_HANDOFF_MISSING"),
+        ("SDD-1-CONV-01", "SDD-1-CONV-02", "CG_CONVERGENCE_OWNER_UNAUTHORIZED"),
+        ("SDD-1-WITHDRAW-01", "SDD-1-WITHDRAW-02", "CG_WITHDRAW_AFTER_LANDING"),
+        # У cg.driver это ЕДИНСТВЕННОЕ место, где его правила вообще
+        # исполняются: матрица трёх его кейсов испытуемого о мире не
+        # спрашивает (см. §B и `cglib/families/driver.py`). Пара взята внутри
+        # семейства: мир DRIVER-02 несёт согласованную тройку, мир DRIVER-01 —
+        # тройку, чей код не следует из категории.
+        ("SDD-1-DRIVER-02", "SDD-1-DRIVER-01", "CG_DRIVER_BIRTH_TRIPLE_INVALID"),
+        ("SDD-1-PPRE-01", "SDD-1-PPRE-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-POST-01", "SDD-1-POST-02", "CG_POST_DIFF_REVIEW_MISSING"),
+        ("SDD-1-LAND-01", "SDD-1-LAND-02", "CG_LANDED_CONTENT_DRIFT"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -460,9 +593,12 @@ def section_rule_pairing():
     ИМЕНА сработавших правил, — поэтому «правило есть» отличимо от «правило
     судит», а объявленный порядок отличим от порядка, получившегося случайно.
     """
-    sys.stdout.write(
-        "\n== F. Парность правил и объявленный порядок (holder/birth/evid/na) ==\n"
-    )
+    # Перечня семейств в заголовке нет НАМЕРЕННО: он был бы вторым местом об
+    # одном предмете и старел бы от каждой новой полосы молча — перечисление
+    # «holder/birth/evid/na» пережило появление diff и pci ровно так, как этот
+    # класс и описан в корпусе. Что здесь проверяется, видно по именам
+    # утверждений, и они выводятся из самих проверок, а не из заголовка.
+    sys.stdout.write("\n== F. Парность правил и объявленный порядок ==\n")
 
     # Тривиальная команда незарегистрирована и потому краснит ОБА правила об
     # executable. Вердикт обязан быть взят по объявленному порядку, а не по
@@ -571,6 +707,815 @@ def section_rule_pairing():
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
 
+    # cg.dag: две ветви §8, у которых среди fixtures НЕТ отрицательного мира.
+    # DAG-01 — единственный pre-cutover мир, и он предъявляет registered legacy;
+    # DAG-02/03 — единственные миры с exact-mapping, и оно там истинно. Ветвь,
+    # у которой нет производителя входа, неотличима от мёртвой: она не краснеет
+    # и не зеленеет, она молчит. Производитель заводится здесь — миром, собранным
+    # на месте, — и рядом ставится законный близнец, отличающийся ОДНИМ фактом:
+    # без него утверждение зеленело бы на правиле, краснящем на всём подряд.
+    # Идентификатор кейса тут вторичен намеренно: он выбирает семейство, а
+    # отвечает мир.
+    with tempfile.TemporaryDirectory(prefix="cg-dag-") as dag_work:
+        base_of_pre_cutover = {
+            "candidate": {
+                "repo": "PRO-Robotech/kacho-workspace",
+                "base_sha": "1" * 40,
+                "head_sha": "2" * 40,
+            },
+            "cutover_commit": "0123456789abcdef0123456789abcdef01234567",
+            "relation": "base-is-ancestor-of-cutover",
+            "registered_route": "migrate",
+            "legacy_registry": {"PRO-Robotech/kacho-workspace#400": "legacy"},
+            "package_present": False,
+        }
+        path = write_world(dag_work, "dag-off-legacy.yaml", base_of_pre_cutover)
+        completed, lines = run_sut(
+            ["--case-world", path, "--case", "SDD-1-DAG-01"]
+        )
+        check(
+            "F-DAG-1 pre-cutover без registered legacy route требует package",
+            bool(lines)
+            and lines[-1] == "RED · CG_PACKAGE_REQUIRED_AT_CUTOVER · exit 10"
+            and "dag.package-required-at-cutover" in completed.stderr,
+            "вердикт %r; stderr=%s"
+            % (lines[-1] if lines else None, completed.stderr.strip()[:400]),
+        )
+        twin_of_pre_cutover = dict(base_of_pre_cutover, registered_route="legacy")
+        path = write_world(dag_work, "dag-on-legacy.yaml", twin_of_pre_cutover)
+        _, lines = run_sut(["--case-world", path, "--case", "SDD-1-DAG-01"])
+        check(
+            "F-DAG-2-близнец тот же pre-cutover мир с registered legacy route "
+            "молчит",
+            bool(lines) and lines[-1] == "GREEN · CG_OK · exit 0",
+            "получено %r" % (lines[-1] if lines else None),
+        )
+
+        cutover_sha = "0123456789abcdef0123456789abcdef01234567"
+        base_at_boundary = {
+            "candidate": {
+                "repo": "PRO-Robotech/kacho-workspace",
+                "base_sha": cutover_sha,
+                "head_sha": "2" * 40,
+            },
+            "cutover_commit": cutover_sha,
+            "relation": "base-equals-cutover",
+            "package_present": True,
+            "package_diff_exact_mapped": False,
+        }
+        path = write_world(dag_work, "dag-package-not-exact.yaml", base_at_boundary)
+        completed, lines = run_sut(
+            ["--case-world", path, "--case", "SDD-1-DAG-02"]
+        )
+        check(
+            "F-DAG-3 package, не отображающий diff точно, требования границы не "
+            "удовлетворяет",
+            bool(lines)
+            and lines[-1] == "RED · CG_PACKAGE_REQUIRED_AT_CUTOVER · exit 10"
+            and "dag.package-required-at-cutover" in completed.stderr,
+            "вердикт %r; stderr=%s"
+            % (lines[-1] if lines else None, completed.stderr.strip()[:400]),
+        )
+        twin_at_boundary = dict(base_at_boundary, package_diff_exact_mapped=True)
+        path = write_world(dag_work, "dag-package-exact.yaml", twin_at_boundary)
+        _, lines = run_sut(["--case-world", path, "--case", "SDD-1-DAG-02"])
+        check(
+            "F-DAG-4-близнец тот же мир с exact-mapped package молчит",
+            bool(lines) and lines[-1] == "GREEN · CG_OK · exit 0",
+            "получено %r" % (lines[-1] if lines else None),
+        )
+    # Владение и сходимость — разные предметы, и лишний фактический путь
+    # нарушает ОБА сразу: его не заявлял никто, и в отрецензированном наборе его
+    # быть не могло. Вердикт обязан браться по объявленному порядку (владение
+    # раньше сходимости), а не по тому, какое правило сработало первым случайно.
+    stderr, verdict = _judge("SDD-1-DIFF-02")
+    check(
+        "F-DIFF-1 незаявленный путь краснит владение И сходимость, вердикт — "
+        "по объявленному порядку",
+        "нарушений 2" in stderr
+        and "diff.path-unclaimed" in stderr
+        and "diff.reviewed-set-mismatch" in stderr
+        and "по первому нарушению в объявленном порядке: "
+            "diff.path-unclaimed" in stderr
+        and verdict == "RED · CG_DIFF_PATH_UNCLAIMED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-DIFF-1 зеленел бы на правиле владения, краснящем на
+    # всяком мире вообще. Здесь заявка и дерево совпадают, а разошлась ТОЛЬКО
+    # рецензия — краснеть обязано ровно правило сходимости.
+    stderr, verdict = _judge("SDD-1-DIFF-05")
+    check(
+        "F-DIFF-2-близнец при дрейфе одной рецензии краснеет только правило "
+        "сходимости",
+        "нарушений 1" in stderr
+        and "diff.reviewed-set-mismatch" in stderr
+        and "diff.path-unclaimed" not in stderr
+        and verdict == "RED · CG_REVIEWED_DIFF_SET_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Правило о GitHub event читает ЗАПИСЬ целиком (отсутствующую координату не
+    # прочитать), и это чтение не вправе цеплять чужие находки: краснеть обязано
+    # ровно оно одно.
+    stderr, verdict = _judge("SDD-1-PCI-05")
+    check(
+        "F-PCI-1 событие без base краснит ровно правило о base, чтение записи "
+        "целиком чужих находок не порождает",
+        "нарушений 1" in stderr
+        and "pci.base-ref-missing" in stderr
+        and verdict == "NOT_EXECUTED · CG_PRODUCT_CI_BASE_REF_MISSING · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-PCI-1 зеленел бы на правиле, краснящем на всяком
+    # событии. Здесь событие полное, а снят change_id — «не выполнилось» не
+    # подменяет красного и наоборот.
+    stderr, verdict = _judge("SDD-1-PCI-06")
+    check(
+        "F-PCI-2-близнец при полном событии правило о base молчит, а ledger "
+        "даёт RED, а не NOT_EXECUTED",
+        "нарушений 1" in stderr
+        and "pci.ledger-change-id-missing" in stderr
+        and "pci.base-ref-missing" not in stderr
+        and verdict == "RED · CG_PRODUCT_LEDGER_CHANGE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Допуск лица и допуск роли — РАЗНЫЕ находки, и различить их может только
+    # пара: мир, где лицо чужое при верной роли, и мир, где лицо своё при чужой
+    # роли. Правило, срабатывающее на обоих, «работало» бы одинаково зелено в
+    # матрице — она сверяет тройку и слепа к тому, чем тройка получена.
+    stderr, verdict = _judge("SDD-1-AUTH-03")
+    check(
+        "F-AUTH-1 чужой actor при верной роли краснит только правило о допуске",
+        "нарушений 1" in stderr
+        and "auth.actor-allowed" in stderr
+        and "auth.role-authorized" not in stderr
+        and verdict == "RED · CG_REVIEW_ACTOR_UNAUTHORIZED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-AUTH-07")
+    check(
+        "F-AUTH-2-близнец допущенный actor при чужой роли краснит только "
+        "правило о роли",
+        "нарушений 1" in stderr
+        and "auth.role-authorized" in stderr
+        and "auth.actor-allowed" not in stderr
+        and verdict == "RED · CG_REVIEW_ROLE_UNAUTHORIZED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # «Не выполнилось» этого семейства: недоступный API не есть находка о
+    # предмете. Обратная сторона утверждения стоит выше — F-AUTH-1 и F-AUTH-2
+    # показывают, что то же семейство умеет отвечать краснотой; без них это
+    # зеленело бы и на семействе, отвечающем одним лишь NOT_EXECUTED.
+    stderr, verdict = _judge("SDD-1-AUTH-08")
+    check(
+        "F-AUTH-3 недоступный API даёт NOT_EXECUTED, а не RED",
+        "нарушений 1" in stderr
+        and "auth.api-available" in stderr
+        and verdict == "NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    section_trace_life_tasks_pairing()
+
+
+# --- F (продолжение). Полосы трассы, жизненного цикла и задач ----------------
+def section_trace_life_tasks_pairing():
+    """То же, что F выше, для cg.trace / cg.life / cg.tasks.
+
+    Три диагностики трассы производит ОДИН и тот же вид мира — набор
+    идентификаторов, — поэтому «тройка сошлась» ещё не значит, что различение
+    направлений живо: правило, краснящее на всяком расхождении, дало бы ту же
+    тройку на своём кейсе и молчаливо неверную на соседнем. Здесь спрашивается
+    перепись — ИМЕНА сработавших правил, — чего матрица спросить не может.
+
+    Отдельно доказывается способность упасть у тех правил, под которые в
+    приёмке нет отрицательного кейса: держатели одного ID. Без синтетического
+    входа они были бы правилами, зелёными по построению.
+    """
+    sys.stdout.write(
+        "\n== F (продолжение). Полосы трассы, жизненного цикла и задач ==\n"
+    )
+
+    def judge_world(path, case_id):
+        completed, lines = run_sut(["--case-world", path, "--case", case_id])
+        return completed.stderr, (lines[-1] if lines else "(без вывода)")
+
+    # Направление расхождения, а не его мощность: набор, потерявший ОДИН ID и
+    # добавивший ОДИН чужой, обязан назваться двусторонним расхождением, и
+    # односторонние правила при этом обязаны молчать.
+    stderr, verdict = _judge("SDD-1-TRACE-04")
+    check(
+        "F-TRACE-1 двустороннее расхождение краснит только своё правило",
+        "нарушений 1" in stderr
+        and "trace.downstream-set-mismatch" in stderr
+        and "trace.downstream-id-missing" not in stderr
+        and "trace.downstream-id-orphan" not in stderr
+        and verdict == "RED · CG_TRACE_SET_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-TRACE-1 зеленел бы на правиле, краснящем на всяком
+    # расхождении вообще.
+    stderr, verdict = _judge("SDD-1-TRACE-02")
+    check(
+        "F-TRACE-2-близнец односторонняя потеря краснит только правило о потере",
+        "нарушений 1" in stderr
+        and "trace.downstream-id-missing" in stderr
+        and "trace.downstream-set-mismatch" not in stderr
+        and "trace.downstream-id-orphan" not in stderr
+        and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Граница предмета названа переписью, а не подразумевается, и названа
+    # ИЗМЕРЕННО: координата ровно одна и она поимённая. Утверждение о числе
+    # стоит рядом с именем намеренно — без него «названа поимённо» осталось бы
+    # верным и на мире, где вне предмета оказались бы заодно и множества
+    # идентификаторов, то есть при молчаливо сузившемся предмете трассы.
+    stderr, verdict = _judge("SDD-1-TRACE-01")
+    check(
+        "F-TRACE-3 вне предмета трассы ровно одна координата и она названа",
+        "вне предмета семейства 1" in stderr
+        and "вне предмета cg.trace (судит другое семейство): "
+            "driver_birth.actual_triple" in stderr
+        and verdict == "GREEN · CG_OK · exit 0",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    with tempfile.TemporaryDirectory(prefix="cg-selftest-tlt-") as work:
+        # У полосы держателей отрицательного кейса в приёмке нет: §9 объявляет
+        # разрешение («одному ID разрешены несколько независимых holders»), а
+        # не запрет. Правило без синтетического входа осталось бы зелёным по
+        # построению, поэтому вход подаётся здесь.
+        holderless = yaml.safe_load(
+            open(fixture_world("SDD-1-TRACE-05"), encoding="utf-8")
+        )
+        holderless["holders_for_id"] = {}
+        stderr, verdict = judge_world(
+            write_world(work, "trace-no-holder.yaml", holderless),
+            "SDD-1-TRACE-05",
+        )
+        check(
+            "F-TRACE-4 объявленный ID без единого держателя — находка",
+            "trace.id-without-holder" in stderr
+            and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+
+        collapsed = yaml.safe_load(
+            open(fixture_world("SDD-1-TRACE-05"), encoding="utf-8")
+        )
+        holders = collapsed["holders_for_id"]
+        shared = holders[sorted(holders)[0]]
+        for name in holders:
+            holders[name] = shared
+        stderr, verdict = judge_world(
+            write_world(work, "trace-collapsed.yaml", collapsed),
+            "SDD-1-TRACE-05",
+        )
+        check(
+            "F-TRACE-5 два держателя на одной координате доказательства — "
+            "находка",
+            "trace.holder-evidence-not-own" in stderr
+            and verdict
+            == "RED · CG_HOLDER_EVIDENCE_COORDINATE_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # Близнец обеих находок: тот же мир нетронутым обязан молчать, иначе
+        # обе предыдущие проверки зеленели бы на правилах, краснящих на всём.
+        stderr, verdict = _judge("SDD-1-TRACE-05")
+        check(
+            "F-TRACE-6-близнец два независимо названных держателя с раздельным "
+            "доказательством сохранены: нарушений 0",
+            "нарушений 0" in stderr and verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+
+        # Жизненный цикл: состоятельность текущей стадии и законность шага —
+        # разные находки, и каждая обязана краснить своё правило, а не оба.
+        stderr, verdict = _judge("SDD-1-LIFE-03")
+        check(
+            "F-LIFE-1 нехватка артефакта краснит только правило об артефактах",
+            "нарушений 1" in stderr
+            and "life.required-artifact-missing" in stderr
+            and "life.transition-not-adjacent" not in stderr
+            and verdict == "RED · CG_REQUIRED_ARTIFACT_MISSING · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        stderr, verdict = _judge("SDD-1-LIFE-02")
+        check(
+            "F-LIFE-2-близнец пропуск обязательной стадии краснит только "
+            "правило о смежности",
+            "нарушений 1" in stderr
+            and "life.transition-not-adjacent" in stderr
+            and "life.required-artifact-missing" not in stderr
+            and verdict == "RED · CG_LIFECYCLE_TRANSITION_INVALID · exit 10",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # §5 называет WITHDRAWN и SUPERSEDED БОКОВЫМИ состояниями: они лежат вне
+        # линейной цепочки, и мерить их шагом по ней значило бы отвергать то,
+        # что приёмка разрешает. Пара с F-LIFE-2 показывает, что правило
+        # отличает боковое состояние от пропуска, а не пропускает всё подряд.
+        aside = yaml.safe_load(
+            open(fixture_world("SDD-1-LIFE-01"), encoding="utf-8")
+        )
+        aside["requested_transition"] = "WITHDRAWN"
+        stderr, verdict = judge_world(
+            write_world(work, "life-aside.yaml", aside), "SDD-1-LIFE-01"
+        )
+        check(
+            "F-LIFE-3 боковое терминальное состояние не судится смежностью",
+            "нарушений 0" in stderr and verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+        )
+        # Стадия, для которой перечень обязательного не объявлен, — «не знаю», и
+        # оно никогда не выдаётся за «нет»: вердикта о предмете нет вовсе.
+        unknown_stage = yaml.safe_load(
+            open(fixture_world("SDD-1-LIFE-01"), encoding="utf-8")
+        )
+        unknown_stage["stage"] = "IMPLEMENTING"
+        unknown_stage["requested_transition"] = "CONVERGED"
+        expect_self_failure(
+            "F-LIFE-4 стадия без объявленного перечня -> собственный отказ, а "
+            "НЕ vacuous GREEN",
+            ["--case-world",
+             write_world(work, "life-unknown-stage.yaml", unknown_stage),
+             "--case", "SDD-1-LIFE-01"],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+
+    # Задачи: порядок и производитель — разные находки. Без пары «порядок»
+    # зеленел бы на правиле, краснящем на всяком мире с задачами.
+    stderr, verdict = _judge("SDD-1-TASKS-03")
+    check(
+        "F-TASKS-1 задачи до утверждения design краснят только правило о порядке",
+        "нарушений 1" in stderr
+        and "tasks.before-design-approval" in stderr
+        and "tasks.writing-plans-handoff-missing" not in stderr
+        and verdict == "RED · CG_TASKS_BEFORE_DESIGN_APPROVAL · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-TASKS-02")
+    check(
+        "F-TASKS-2-близнец отсутствие проверенного handoff краснит только "
+        "правило о производителе",
+        "нарушений 1" in stderr
+        and "tasks.writing-plans-handoff-missing" in stderr
+        and "tasks.before-design-approval" not in stderr
+        and verdict == "RED · CG_WRITING_PLANS_HANDOFF_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+
+# --- G. Вызывающие семейства и advisory hook --------------------------------
+def _world_of(case_id):
+    """Копия мира фикстуры, пригодная к правке."""
+    with open(fixture_world(case_id), encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _verdict_at(path, case_id):
+    _, lines = run_sut(["--case-world", path, "--case", case_id])
+    return lines[-1] if lines else "(без вывода)"
+
+
+def section_callers_and_advisory(work):
+    """Что B и C спросить НЕ МОГУТ: знаки предикатов, которых нет в фикстурах.
+
+    Фикстуры этих трёх семейств предъявляют по одному знаку на правило, и
+    молчание остальных знаков неотличимо от их отсутствия: правило, не
+    предъявленное ни одной фикстурой, мёртвым и рабочим выглядит одинаково.
+    Здесь спрашивается ровно то, чего в фикстурах нет, — второй знак advisory,
+    половина предиката о четырёх вызывающих, правило о local SHA, нулевая
+    перепись mapping — и главное: что вердикт о mapping есть функция СТРУКТУРЫ
+    поданного, а не совпадения с идентификатором кейса.
+    """
+    sys.stdout.write(
+        "\n== G. Вызывающие и advisory: знаки, которых нет в фикстурах ==\n"
+    )
+
+    # --- cg.adv: вердикт не меняется от advisory НИ В ОДНУ сторону -----------
+    # Фикстуры дают только advisory=GREEN (ADV-01, ADV-02) и его отсутствие
+    # (ADV-03). Второй знак — advisory, объявивший RED, — не предъявлен ни
+    # одной, поэтому «advisory не блокирует» ими не доказано.
+    advisory_red = _world_of("SDD-1-ADV-01")
+    advisory_red["advisory_hook_outcome"] = "RED"
+    path = write_world(work, "adv-advisory-red.yaml", advisory_red)
+    check(
+        "G-ADV-1 advisory RED при чистой authority НЕ блокирует",
+        _verdict_at(path, "SDD-1-ADV-01") == "GREEN · CG_OK · exit 0",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+    no_advisory_dirty = _world_of("SDD-1-ADV-02")
+    del no_advisory_dirty["advisory_hook_outcome"]
+    path = write_world(work, "adv-no-advisory-dirty.yaml", no_advisory_dirty)
+    check(
+        "G-ADV-2-близнец снятый advisory НЕ отменяет находку authority",
+        _verdict_at(path, "SDD-1-ADV-01")
+        == "RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+    # Половина предиката о ЧЕТЫРЁХ вызывающих ни одной фикстурой не
+    # предъявлена: ADV-02 портит только graph fact. Без этого утверждения
+    # правило судило бы одну свою половину, и это было бы незаметно.
+    caller_short = _world_of("SDD-1-ADV-01")
+    del caller_short["authoritative_callers"]["project/kacho/.github/workflows/ci.yaml"]
+    path = write_world(work, "adv-caller-short.yaml", caller_short)
+    check(
+        "G-ADV-3 недостающий authoritative caller блокирует так же, как "
+        "грязный graph fact",
+        _verdict_at(path, "SDD-1-ADV-01")
+        == "RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-ADV-01"),
+    )
+
+    # --- cg.wspp: правило о local SHA и ДОРОГА ссылки ------------------------
+    # Диагностику CG_PRE_PUSH_LOCAL_REF_MISSING приёмка объявляет (SDD-1-PPRE-04),
+    # а фикстуры ЭТОГО семейства не предъявляют: §11 требует от pre-push обеих
+    # ссылок, и правило о второй иначе осталось бы кодом без пробы.
+    no_local = _world_of("SDD-1-WSPP-01")
+    del no_local["stdin_ref_line"]["local_sha"]
+    path = write_world(work, "wspp-no-local.yaml", no_local)
+    check(
+        "G-WSPP-1 снятый local SHA даёт NOT_EXECUTED, а не молчание",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_LOCAL_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+    local_not_delivered = _world_of("SDD-1-WSPP-01")
+    local_not_delivered["workspace"]["head_sha"] = "3" * 40
+    path = write_world(work, "wspp-local-not-delivered.yaml", local_not_delivered)
+    check(
+        "G-WSPP-2 ссылка, прочитанная со stdin и НЕ доехавшая до диапазона, "
+        "для гейта отсутствует",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_LOCAL_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+    no_repository = _world_of("SDD-1-WSPP-01")
+    del no_repository["workspace"]["repo"]
+    path = write_world(work, "wspp-no-repo.yaml", no_repository)
+    check(
+        "G-WSPP-3 граница словаря приёмки названа: без идентичности "
+        "репозитория ссылку негде разрешать",
+        _verdict_at(path, "SDD-1-WSPP-01")
+        == "NOT_EXECUTED · CG_PRE_PUSH_REMOTE_REF_MISSING · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSPP-01"),
+    )
+
+    # --- cg.wsci: граница словаря и НЕ-таблица соответствий ------------------
+    head_unresolved = _world_of("SDD-1-WSCI-01")
+    head_unresolved["ref_lookup"]["head"] = "unavailable"
+    path = write_world(work, "wsci-head-unresolved.yaml", head_unresolved)
+    check(
+        "G-WSCI-1 граница словаря приёмки названа: неразрешённая head отвечает "
+        "единственной объявленной диагностикой о ссылке",
+        _verdict_at(path, "SDD-1-WSCI-01")
+        == "NOT_EXECUTED · CG_WORKSPACE_CI_BASE_REF_UNAVAILABLE · exit 20",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    empty_mapping = _world_of("SDD-1-WSCI-01")
+    empty_mapping["package_tasks_mapping"] = []
+    path = write_world(work, "wsci-empty-mapping.yaml", empty_mapping)
+    check(
+        "G-WSCI-2 нулевая перепись mapping — потеря, а не vacuous GREEN",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    # Несущее: mapping ЧУЖОГО семейства, полный по структуре, обязан молчать, а
+    # неполный — краснеть. Пара доказывает, что судится структура поданного, а
+    # не совпадение с идентификатором кейса; таблица соответствий «ID -> ответ»
+    # обе эти пробы провалила бы.
+    foreign_complete = _world_of("SDD-1-WSCI-01")
+    foreign_complete["package_tasks_mapping"] = ["SDD-1-BOOT-01", "SDD-1-BOOT-02"]
+    path = write_world(work, "wsci-foreign-complete.yaml", foreign_complete)
+    check(
+        "G-WSCI-3-близнец полная пара ЧУЖОГО семейства в mapping молчит",
+        _verdict_at(path, "SDD-1-WSCI-01") == "GREEN · CG_OK · exit 0",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    foreign_partial = _world_of("SDD-1-WSCI-01")
+    foreign_partial["package_tasks_mapping"] = [
+        "SDD-1-BOOT-01", "SDD-1-BOOT-02", "SDD-1-TRACE-01",
+    ]
+    path = write_world(work, "wsci-foreign-partial.yaml", foreign_partial)
+    check(
+        "G-WSCI-4 неполная пара среди полных найдена — счёт идёт по семействам",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+    # Вторая половина инверсии рождения: фикстуры теряют ПРОИЗВОДНЫЙ кейс, а
+    # потерю БАЗОВОГО не предъявляет ни одна. Без этого утверждения половина
+    # предиката была бы мертва незаметно.
+    base_lost = _world_of("SDD-1-WSCI-01")
+    base_lost["package_tasks_mapping"] = ["SDD-1-CENSUS-02", "SDD-1-CENSUS-03"]
+    path = write_world(work, "wsci-base-lost.yaml", base_lost)
+    check(
+        "G-WSCI-5 потерянный базовый кейс серии найден так же, как потерянный "
+        "производный",
+        _verdict_at(path, "SDD-1-WSCI-01") == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
+    )
+
+    # --- предикат о mapping ОДИН на оба вызывающих семейства -----------------
+    # Диагностика `CG_TRACE_ID_MISSING` предъявляется четырьмя вызывающими
+    # семействами, эталонного набора ID в их мирах нет ни одной координатой, и
+    # каждая полоса вынуждена ввести свой инвариант под одно и то же имя.
+    # Расхождение между двумя семействами ЭТОЙ полосы сведение волны не нашло
+    # бы: кейсы зелёные у обоих. Поэтому оно закрыто не обещанием общего
+    # помощника, а пробой, подающей ОДИН и тот же mapping обоим.
+    for name, mapping, expected in (
+        ("неполный", ["SDD-1-CENSUS-02", "SDD-1-CENSUS-03"],
+         "RED · CG_TRACE_ID_MISSING · exit 10"),
+        ("полный", ["SDD-1-CENSUS-01", "SDD-1-CENSUS-02"],
+         "GREEN · CG_OK · exit 0"),
+    ):
+        ci_world = _world_of("SDD-1-WSCI-01")
+        ci_world["package_tasks_mapping"] = list(mapping)
+        ci_path = write_world(work, "callers-ci-%s.yaml" % name, ci_world)
+        pp_world = _world_of("SDD-1-WSPP-01")
+        pp_world["package_tasks_mapping"] = list(mapping)
+        pp_path = write_world(work, "callers-pp-%s.yaml" % name, pp_world)
+        ci_verdict = _verdict_at(ci_path, "SDD-1-WSCI-01")
+        pp_verdict = _verdict_at(pp_path, "SDD-1-WSPP-01")
+        check(
+            "G-CALLERS %s mapping судится ОДИНАКОВО у cg.wsci и cg.wspp"
+            % name,
+            ci_verdict == expected and pp_verdict == expected,
+            "cg.wsci дал %r, cg.wspp дал %r, ждали %r"
+            % (ci_verdict, pp_verdict, expected),
+        )
+
+    # Якорь семейства: мир, не описывающий вызов, вердикта не получает вовсе.
+    # Без этого утверждения правила вызывающих семейств (все применимы всегда,
+    # чтобы находить НЕНАЗВАННУЮ координату) отвечали бы тройкой на любой мир,
+    # включая чужой, — то есть выдавали бы «не знаю» за «нет».
+    for case_id in ("SDD-1-WSCI-01", "SDD-1-WSPP-01"):
+        expect_self_failure(
+            "G-ANCHOR %s: чужой мир под ID вызывающего даёт собственный отказ, "
+            "а НЕ вердикт" % case_id,
+            ["--case-world", fixture_world("SDD-1-BOOT-01"), "--case", case_id],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+    expect_subject_verdict(
+        "G-ANCHOR-близнец свой мир под своим ID вердикт о предмете даёт",
+        ["--case-world", fixture_world("SDD-1-WSCI-01"), "--case",
+         "SDD-1-WSCI-01"],
+    )
+    section_lane_rule_pairing()
+
+
+def section_lane_rule_pairing():
+    """То же для conv/withdraw/driver: «не знаю» не становится «нет».
+
+    Секция C доказывает, что вердикт даёт МИР; здесь спрашивается то, чего она
+    спросить не может: КАКОЕ правило сработало и почему вердикт взят именно им.
+    Три несущих свойства этой полосы:
+
+      * недоступность авторитета события отвечает NOT_EXECUTED и НЕ подменяется
+        красным — в том числе на мире, где события заодно и нет;
+      * отзыв, не запрошенный уполномоченным владельцем, семейство не судит
+        вовсе и говорит это громко, а не отвечает GREEN;
+      * birth-запись драйвера с диагностикой собственного отказа — находка, и
+        эта ветвь предиката не предъявляется ни одним кейсом матрицы.
+    """
+    sys.stdout.write(
+        "\n== F'. Парность правил полосы (conv/withdraw/driver) ==\n"
+    )
+
+    stderr, verdict = _judge("SDD-1-CONV-04")
+    check(
+        "F-CONV-1 недоступный авторитет даёт NOT_EXECUTED, и правило об "
+        "отсутствии события молчит",
+        "нарушений 1" in stderr
+        and "conv.event-unavailable" in stderr
+        and "conv.event-missing" not in stderr
+        and verdict == "NOT_EXECUTED · CG_CONVERGENCE_EVENT_UNAVAILABLE · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-CONV-03")
+    check(
+        "F-CONV-2-близнец отвечающий авторитет и отсутствующее событие краснят "
+        "правило о событии — и только его",
+        "нарушений 1" in stderr
+        and "conv.event-missing" in stderr
+        and "conv.event-unavailable" not in stderr
+        and verdict == "RED · CG_CONVERGENCE_EVENT_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    work = tempfile.mkdtemp(prefix="cg-lane-")
+    try:
+        # Оба дефекта сразу: авторитет молчит И координаты события нет. Без
+        # объявленного порядка вердикт стал бы красным, то есть неполученный
+        # ответ был бы выдан за отрицательный.
+        silent = yaml.safe_load(
+            open(fixture_world("SDD-1-CONV-04"), encoding="utf-8")
+        )
+        silent["convergence"].pop("event_coordinate")
+        silent_path = write_world(work, "conv-silent.yaml", silent)
+        completed, lines = run_sut(
+            ["--case-world", silent_path, "--case", "SDD-1-CONV-01"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-CONV-3 при молчащем авторитете отсутствие события не становится "
+            "находкой",
+            "нарушений 1" in completed.stderr
+            and "conv.event-unavailable" in completed.stderr
+            and "conv.event-missing" not in completed.stderr
+            and verdict
+            == "NOT_EXECUTED · CG_CONVERGENCE_EVENT_UNAVAILABLE · exit 20",
+            "вердикт %r; stderr=%s" % (verdict, completed.stderr.strip()[:400]),
+        )
+
+        # Отзыв, запрошенный не владельцем: семейство его не судит и говорит
+        # это громко. GREEN здесь объявил бы неавторизованный отзыв законным.
+        stranger = yaml.safe_load(
+            open(fixture_world("SDD-1-WITHDRAW-01"), encoding="utf-8")
+        )
+        stranger["event"]["actor"] = "outsider-not-owner"
+        stranger_path = write_world(work, "withdraw-stranger.yaml", stranger)
+        expect_self_failure(
+            "F-WITHDRAW-1 отзыв не от владельца даёт собственный отказ, а НЕ "
+            "зелёный вердикт",
+            ["--case-world", stranger_path, "--case", "SDD-1-WITHDRAW-01"],
+            "CG_SELF_WORLD_NOT_JUDGED",
+        )
+        expect_subject_verdict(
+            "F-WITHDRAW-2-близнец тот же мир с владельцем из списка даёт "
+            "вердикт о предмете",
+            ["--case-world", fixture_world("SDD-1-WITHDRAW-01"), "--case",
+             "SDD-1-WITHDRAW-01"],
+        )
+
+        # Ветвь предиката драйвера, которой нет ни у одного кейса матрицы:
+        # записанная тройка несёт диагностику СОБСТВЕННОГО отказа, то есть
+        # объявляет поломку испытуемого свойством мира.
+        self_named = yaml.safe_load(
+            open(fixture_world("SDD-1-DRIVER-02"), encoding="utf-8")
+        )
+        self_named["driver_birth"]["actual_triple"] = (
+            "RED · CG_SELF_WORLD_MALFORMED · exit 10"
+        )
+        self_named_path = write_world(work, "driver-self.yaml", self_named)
+        _, lines = run_sut(
+            ["--case-world", self_named_path, "--case", "SDD-1-DRIVER-02"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-DRIVER-1 birth-запись с диагностикой собственного отказа — "
+            "находка",
+            verdict == "RED · CG_DRIVER_BIRTH_TRIPLE_INVALID · exit 10",
+            "вердикт %r" % (verdict,),
+        )
+        _, lines = run_sut(
+            ["--case-world", fixture_world("SDD-1-DRIVER-02"), "--case",
+             "SDD-1-DRIVER-02"]
+        )
+        verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-DRIVER-2-близнец согласованная birth-запись молчит",
+            verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r" % (verdict,),
+        )
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def section_caller_and_landing(work):
+    """Что B спросить НЕ МОЖЕТ у полос вызывающего, review и landing.
+
+    B сверяет тройку и слеп к тому, ЧЕМ она получена: тройка сошлась бы и у
+    правила, срабатывающего на всём подряд, и у семейства, где две находки
+    предъявляются одной. Здесь спрашивается перепись — имена сработавших правил
+    и объём прочитанного, — поэтому «правило есть» отличимо от «правило судит».
+    """
+    sys.stdout.write(
+        "\n== G. Категория отказа, парность правил и прочитанное "
+        "(ppre/post/land) ==\n"
+    )
+
+    # Гейт, которому не хватило координат, о графе не высказывался вовсе.
+    # Категория здесь несущая: RED обвинил бы граф в том, чего никто не смотрел.
+    stderr, verdict = _judge("SDD-1-PPRE-03")
+    check(
+        "G-PPRE-1 нехватка координат даёт NOT_EXECUTED, а не RED о графе",
+        "нарушений 1" in stderr
+        and "ppre.workspace-repo-missing" in stderr
+        and "ppre.trace-id-missing" not in stderr
+        and verdict
+        == "NOT_EXECUTED · CG_PRODUCT_PRE_PUSH_WORKSPACE_REPO_MISSING · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него G-PPRE-1 зеленел бы на семействе, отвечающем одной
+    # категорией на всё.
+    stderr, verdict = _judge("SDD-1-PPRE-02")
+    check(
+        "G-PPRE-2-близнец при полных координатах дефект графа даёт RED, а не "
+        "NOT_EXECUTED",
+        "нарушений 1" in stderr
+        and "ppre.trace-id-missing" in stderr
+        and "ppre.workspace-repo-missing" not in stderr
+        and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Отсутствие записи и её чужое владение — РАЗНЫЕ дефекты, и каждое правило
+    # ловит ровно тот, который второе обязано пропустить. Ни одно поодиночке их
+    # не различает, а вместе они не имеют права удваивать одну находку.
+    stderr, verdict = _judge("SDD-1-POST-03")
+    check(
+        "G-POST-1 запись, принадлежащую другой роли, ловит правило ownership — "
+        "и только оно",
+        "нарушений 1" in stderr
+        and "post.review-overwritten" in stderr
+        and "post.review-missing" not in stderr
+        and verdict == "RED · CG_POST_DIFF_REVIEW_OVERWRITTEN · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-POST-02")
+    check(
+        "G-POST-2-близнец отсутствующую запись ловит правило о ней — и правило "
+        "ownership на ней молчит",
+        "нарушений 1" in stderr
+        and "post.review-missing" in stderr
+        and "post.review-overwritten" not in stderr
+        and verdict == "RED · CG_POST_DIFF_REVIEW_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Граница предмета названа переписью, а не подразумевается: состав
+    # aggregator'а судит семейство convergence.
+    stderr, _ = _judge("SDD-1-POST-01")
+    check(
+        "G-POST-3 не судимые этим семейством координаты названы переписью "
+        "поимённо",
+        "вне предмета cg.post" in stderr
+        and "convergence_aggregator_specialists" in stderr,
+        "stderr=%s" % stderr.strip()[:400],
+    )
+
+    # Новое ИМЯ записи при прежнем содержимом дрейфом не является. Утверждение
+    # без переписи было бы вакуумным: «нарушений 0» получилось бы и у правила,
+    # которое commit SHA вообще не читало, — поэтому проверяется, что мир
+    # прочитан ЦЕЛИКОМ и при этом вердикт зелёный.
+    stderr, verdict = _judge("SDD-1-LAND-03")
+    check(
+        "G-LAND-1 сменившийся commit SHA прочитан и вердикт stale НЕ делает",
+        "нарушений 0" in stderr
+        and "фактов мира 5 · прочитано 5" in stderr
+        and verdict == "GREEN · CG_OK · exit 0",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-LAND-02")
+    check(
+        "G-LAND-2-близнец уехавший blob при том же заявленном отпечатке даёт "
+        "RED",
+        "нарушений 1" in stderr
+        and "land.content-drift" in stderr
+        and verdict == "RED · CG_LANDED_CONTENT_DRIFT · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Обе полосы опираются на ЗАРЕГИСТРИРОВАННЫЙ эталон (канонический набор
+    # landing, реестр предикатов освобождения), и у обеих есть ветвь «эталона
+    # для этого входа у меня нет». Ни один кейс приёмки её не предъявляет —
+    # значит без этих двух утверждений она была бы кодом без пробы, а её
+    # молчание неотличимо от исправной работы. Спрашивается ровно то, что
+    # отличает «не знаю» от «нет»: stdout пуст, код 40, вердикт НЕ вынесен.
+    unknown_digest = write_world(
+        work,
+        "land-unknown-digest.yaml",
+        {
+            "convergence_content_digest": "sha256:fixture-content-неизвестный",
+            "landed": {
+                "commit_sha": "1" * 40,
+                "canonical_content_digest": "sha256:fixture-content-неизвестный",
+            },
+            "landed_blobs": {"scripts/change-graph-gate/run.py": "sha256:blob"},
+        },
+    )
+    expect_self_failure(
+        "G-LAND-3 нераскрываемый отпечаток -> собственный отказ, а НЕ «дрейфа "
+        "нет»",
+        ["--case-world", unknown_digest, "--case", "SDD-1-LAND-01"],
+        "CG_SELF_INTERNAL",
+    )
+    unknown_predicate = write_world(
+        work,
+        "post-unknown-predicate.yaml",
+        {
+            "role": "db-architect-reviewer",
+            "declared_predicate_id": "предиката-такого-нет-в-коде",
+            "policy_predicates": {"предиката-такого-нет-в-коде": "registered"},
+            "evidence": {"migrations_touched": 0},
+        },
+    )
+    expect_self_failure(
+        "G-POST-4 зарегистрированный, но невычислимый предикат -> собственный "
+        "отказ, а НЕ «освобождение принято»",
+        ["--case-world", unknown_predicate, "--case", "SDD-1-POST-NA-01"],
+        "CG_SELF_INTERNAL",
+    )
+
 
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
@@ -580,6 +1525,8 @@ def main():
         section_self_failure(work)
         section_census()
         section_rule_pairing()
+        section_callers_and_advisory(work)
+        section_caller_and_landing(work)
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")
