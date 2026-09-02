@@ -1217,6 +1217,7 @@ tags:
 | [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
 | [[lessons/gate-that-judges-your-change-lives-in-another-package\|Гейт, судящий твою правку, живёт в ДРУГОМ пакете — выборочный прогон его не зовёт]] | живо (stable) |
 | [[lessons/guard-whose-concurrency-domain-is-narrower-than-the-fleet\|Защита, чей домен параллелизма уже домена флота]] | живо (stable) |
+| [[lessons/handwritten-ledger-in-a-shared-file-collides-parallel-lanes\|Рукописная ведомость в общем файле сталкивает параллельные полосы by construction]] | — |
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
 | [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
