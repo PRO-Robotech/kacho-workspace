@@ -248,6 +248,7 @@ def section_world_decides():
         ("SDD-1-NA-01", "SDD-1-NA-03", "CG_NA_PREDICATE_FALSE"),
         ("SDD-1-TDD-02", "SDD-1-TDD-03", "CG_RED_PROOF_UNEXPECTED_GREEN"),
         ("SDD-1-REVIEW-01", "SDD-1-REVIEW-06", "CG_BOOTSTRAP_ACTOR_SPOOFED"),
+        ("SDD-1-AUTH-01", "SDD-1-AUTH-03", "CG_REVIEW_ACTOR_UNAUTHORIZED"),
         ("SDD-1-CLASS-04", "SDD-1-CLASS-05", "CG_CLASS_ITEM_UNMAPPED"),
         ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
         ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
@@ -461,7 +462,9 @@ def section_rule_pairing():
     судит», а объявленный порядок отличим от порядка, получившегося случайно.
     """
     sys.stdout.write(
-        "\n== F. Парность правил и объявленный порядок (holder/birth/evid/na) ==\n"
+        # Перечня семейств в заголовке нет намеренно: он стареет молча с каждой
+        # новой полосой, а имена семейств называют сами утверждения ниже.
+        "\n== F. Парность правил и объявленный порядок ==\n"
     )
 
     # Тривиальная команда незарегистрирована и потому краснит ОБА правила об
@@ -568,6 +571,42 @@ def section_rule_pairing():
         and "na.predicate-false" in stderr
         and "na.predicate-unregistered" not in stderr
         and verdict == "RED · CG_NA_PREDICATE_FALSE · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Допуск лица и допуск роли — РАЗНЫЕ находки, и различить их может только
+    # пара: мир, где лицо чужое при верной роли, и мир, где лицо своё при чужой
+    # роли. Правило, срабатывающее на обоих, «работало» бы одинаково зелено в
+    # матрице — она сверяет тройку и слепа к тому, чем тройка получена.
+    stderr, verdict = _judge("SDD-1-AUTH-03")
+    check(
+        "F-AUTH-1 чужой actor при верной роли краснит только правило о допуске",
+        "нарушений 1" in stderr
+        and "auth.actor-allowed" in stderr
+        and "auth.role-authorized" not in stderr
+        and verdict == "RED · CG_REVIEW_ACTOR_UNAUTHORIZED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-AUTH-07")
+    check(
+        "F-AUTH-2-близнец допущенный actor при чужой роли краснит только "
+        "правило о роли",
+        "нарушений 1" in stderr
+        and "auth.role-authorized" in stderr
+        and "auth.actor-allowed" not in stderr
+        and verdict == "RED · CG_REVIEW_ROLE_UNAUTHORIZED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # «Не выполнилось» этого семейства: недоступный API не есть находка о
+    # предмете. Обратная сторона утверждения стоит выше — F-AUTH-1 и F-AUTH-2
+    # показывают, что то же семейство умеет отвечать краснотой; без них это
+    # зеленело бы и на семействе, отвечающем одним лишь NOT_EXECUTED.
+    stderr, verdict = _judge("SDD-1-AUTH-08")
+    check(
+        "F-AUTH-3 недоступный API даёт NOT_EXECUTED, а не RED",
+        "нарушений 1" in stderr
+        and "auth.api-available" in stderr
+        and verdict == "NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20",
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
 
