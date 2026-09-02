@@ -4,7 +4,7 @@ aliases:
   - issue-503-ws
 ticket_id: 503
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace
