@@ -514,6 +514,47 @@ INJECTIONS = [
          "G-ADV-3 недостающий authoritative caller блокирует так же, как "
          "грязный graph fact"],
     ),
+    # --- по инъекции на семейство полосы вызывающего/review/landing ---------
+    # Каждая снимает ОДНО решение и сохраняет ЧТЕНИЯ фактов: снятое чтение
+    # уронило бы прогон собственным отказом «факт не прочитан», и краснота
+    # пришла бы от учёта фактов, а не от снятого предиката, — проверяемое
+    # свойство осталось бы неизмеренным (п. 2в `testing.md` §«Гейт на класс»).
+    (
+        "cg.ppre перестал требовать трассировки зарегистрированной задачи",
+        "cglib/families/ppre.py",
+        "    return not series or bool(incomplete)",
+        "    series, incomplete\n    return False",
+        ["B SDD-1-PPRE-02",
+         B1,
+         "C1 SDD-1-PPRE-01: дефектный мир под положительным ID даёт "
+         "CG_TRACE_ID_MISSING",
+         "G-PPRE-2-близнец при полных координатах дефект графа даёт RED, а не "
+         "NOT_EXECUTED"],
+    ),
+    (
+        "cg.post перестал требовать записи от applicable role",
+        "cglib/families/post.py",
+        "    return bool(unreviewed)",
+        "    unreviewed\n    return False",
+        ["B SDD-1-POST-02",
+         B1,
+         "C1 SDD-1-POST-01: дефектный мир под положительным ID даёт "
+         "CG_POST_DIFF_REVIEW_MISSING",
+         "G-POST-2-близнец отсутствующую запись ловит правило о ней — и "
+         "правило ownership на ней молчит"],
+    ),
+    (
+        "cg.land перестал сверять применённое содержимое с одобренным",
+        "cglib/families/land.py",
+        "    return dict(applied) != canonical",
+        "    dict(applied)\n    return False",
+        ["B SDD-1-LAND-02",
+         B1,
+         "C1 SDD-1-LAND-01: дефектный мир под положительным ID даёт "
+         "CG_LANDED_CONTENT_DRIFT",
+         "G-LAND-2-близнец уехавший blob при том же заявленном отпечатке даёт "
+         "RED"],
+    ),
 ]
 
 

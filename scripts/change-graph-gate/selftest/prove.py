@@ -382,6 +382,9 @@ def section_world_decides():
         # семейства: мир DRIVER-02 несёт согласованную тройку, мир DRIVER-01 —
         # тройку, чей код не следует из категории.
         ("SDD-1-DRIVER-02", "SDD-1-DRIVER-01", "CG_DRIVER_BIRTH_TRIPLE_INVALID"),
+        ("SDD-1-PPRE-01", "SDD-1-PPRE-02", "CG_TRACE_ID_MISSING"),
+        ("SDD-1-POST-01", "SDD-1-POST-02", "CG_POST_DIFF_REVIEW_MISSING"),
+        ("SDD-1-LAND-01", "SDD-1-LAND-02", "CG_LANDED_CONTENT_DRIFT"),
     ]
     # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
     # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
@@ -1378,6 +1381,142 @@ def section_lane_rule_pairing():
         shutil.rmtree(work, ignore_errors=True)
 
 
+def section_caller_and_landing(work):
+    """Что B спросить НЕ МОЖЕТ у полос вызывающего, review и landing.
+
+    B сверяет тройку и слеп к тому, ЧЕМ она получена: тройка сошлась бы и у
+    правила, срабатывающего на всём подряд, и у семейства, где две находки
+    предъявляются одной. Здесь спрашивается перепись — имена сработавших правил
+    и объём прочитанного, — поэтому «правило есть» отличимо от «правило судит».
+    """
+    sys.stdout.write(
+        "\n== G. Категория отказа, парность правил и прочитанное "
+        "(ppre/post/land) ==\n"
+    )
+
+    # Гейт, которому не хватило координат, о графе не высказывался вовсе.
+    # Категория здесь несущая: RED обвинил бы граф в том, чего никто не смотрел.
+    stderr, verdict = _judge("SDD-1-PPRE-03")
+    check(
+        "G-PPRE-1 нехватка координат даёт NOT_EXECUTED, а не RED о графе",
+        "нарушений 1" in stderr
+        and "ppre.workspace-repo-missing" in stderr
+        and "ppre.trace-id-missing" not in stderr
+        and verdict
+        == "NOT_EXECUTED · CG_PRODUCT_PRE_PUSH_WORKSPACE_REPO_MISSING · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него G-PPRE-1 зеленел бы на семействе, отвечающем одной
+    # категорией на всё.
+    stderr, verdict = _judge("SDD-1-PPRE-02")
+    check(
+        "G-PPRE-2-близнец при полных координатах дефект графа даёт RED, а не "
+        "NOT_EXECUTED",
+        "нарушений 1" in stderr
+        and "ppre.trace-id-missing" in stderr
+        and "ppre.workspace-repo-missing" not in stderr
+        and verdict == "RED · CG_TRACE_ID_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Отсутствие записи и её чужое владение — РАЗНЫЕ дефекты, и каждое правило
+    # ловит ровно тот, который второе обязано пропустить. Ни одно поодиночке их
+    # не различает, а вместе они не имеют права удваивать одну находку.
+    stderr, verdict = _judge("SDD-1-POST-03")
+    check(
+        "G-POST-1 запись, принадлежащую другой роли, ловит правило ownership — "
+        "и только оно",
+        "нарушений 1" in stderr
+        and "post.review-overwritten" in stderr
+        and "post.review-missing" not in stderr
+        and verdict == "RED · CG_POST_DIFF_REVIEW_OVERWRITTEN · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-POST-02")
+    check(
+        "G-POST-2-близнец отсутствующую запись ловит правило о ней — и правило "
+        "ownership на ней молчит",
+        "нарушений 1" in stderr
+        and "post.review-missing" in stderr
+        and "post.review-overwritten" not in stderr
+        and verdict == "RED · CG_POST_DIFF_REVIEW_MISSING · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Граница предмета названа переписью, а не подразумевается: состав
+    # aggregator'а судит семейство convergence.
+    stderr, _ = _judge("SDD-1-POST-01")
+    check(
+        "G-POST-3 не судимые этим семейством координаты названы переписью "
+        "поимённо",
+        "вне предмета cg.post" in stderr
+        and "convergence_aggregator_specialists" in stderr,
+        "stderr=%s" % stderr.strip()[:400],
+    )
+
+    # Новое ИМЯ записи при прежнем содержимом дрейфом не является. Утверждение
+    # без переписи было бы вакуумным: «нарушений 0» получилось бы и у правила,
+    # которое commit SHA вообще не читало, — поэтому проверяется, что мир
+    # прочитан ЦЕЛИКОМ и при этом вердикт зелёный.
+    stderr, verdict = _judge("SDD-1-LAND-03")
+    check(
+        "G-LAND-1 сменившийся commit SHA прочитан и вердикт stale НЕ делает",
+        "нарушений 0" in stderr
+        and "фактов мира 5 · прочитано 5" in stderr
+        and verdict == "GREEN · CG_OK · exit 0",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-LAND-02")
+    check(
+        "G-LAND-2-близнец уехавший blob при том же заявленном отпечатке даёт "
+        "RED",
+        "нарушений 1" in stderr
+        and "land.content-drift" in stderr
+        and verdict == "RED · CG_LANDED_CONTENT_DRIFT · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Обе полосы опираются на ЗАРЕГИСТРИРОВАННЫЙ эталон (канонический набор
+    # landing, реестр предикатов освобождения), и у обеих есть ветвь «эталона
+    # для этого входа у меня нет». Ни один кейс приёмки её не предъявляет —
+    # значит без этих двух утверждений она была бы кодом без пробы, а её
+    # молчание неотличимо от исправной работы. Спрашивается ровно то, что
+    # отличает «не знаю» от «нет»: stdout пуст, код 40, вердикт НЕ вынесен.
+    unknown_digest = write_world(
+        work,
+        "land-unknown-digest.yaml",
+        {
+            "convergence_content_digest": "sha256:fixture-content-неизвестный",
+            "landed": {
+                "commit_sha": "1" * 40,
+                "canonical_content_digest": "sha256:fixture-content-неизвестный",
+            },
+            "landed_blobs": {"scripts/change-graph-gate/run.py": "sha256:blob"},
+        },
+    )
+    expect_self_failure(
+        "G-LAND-3 нераскрываемый отпечаток -> собственный отказ, а НЕ «дрейфа "
+        "нет»",
+        ["--case-world", unknown_digest, "--case", "SDD-1-LAND-01"],
+        "CG_SELF_INTERNAL",
+    )
+    unknown_predicate = write_world(
+        work,
+        "post-unknown-predicate.yaml",
+        {
+            "role": "db-architect-reviewer",
+            "declared_predicate_id": "предиката-такого-нет-в-коде",
+            "policy_predicates": {"предиката-такого-нет-в-коде": "registered"},
+            "evidence": {"migrations_touched": 0},
+        },
+    )
+    expect_self_failure(
+        "G-POST-4 зарегистрированный, но невычислимый предикат -> собственный "
+        "отказ, а НЕ «освобождение принято»",
+        ["--case-world", unknown_predicate, "--case", "SDD-1-POST-NA-01"],
+        "CG_SELF_INTERNAL",
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -1387,6 +1526,7 @@ def main():
         section_census()
         section_rule_pairing()
         section_callers_and_advisory(work)
+        section_caller_and_landing(work)
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")
