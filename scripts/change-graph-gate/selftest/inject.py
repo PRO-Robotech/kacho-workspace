@@ -31,6 +31,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
+OK_LINE = re.compile(r"^  OK   (.+?)(?: ->.*)?$")
+
+# Маркер «все утверждения о собственном отказе», раскрываемый по КОНТРОЛЬНОМУ
+# прогону, а не выписанный именами.
+#
+# Инъекция, подменяющая собственный отказ вердиктом, обязана уронить КАЖДОЕ
+# утверждение этого класса, а класс растёт: своё утверждение о собственном
+# отказе заводит всякая полоса, которой оно нужно. Рукописный перечень делал
+# ожидание вторым местом об одном предмете — и ломал инъекцию у следующей же
+# полосы: она отчитывалась «покраснело лишнее» о том, что покраснеть было
+# ОБЯЗАНО, то есть находка приходила о механизме там, где менялся его предмет.
+#
+# Признак класса — в самом имени утверждения: «собственный отказ». Это не
+# эвристика, а контракт ядра: три собственных отказа названы так дословно, и
+# всякое утверждение о них обязано это слово нести, иначе читатель прогона не
+# отличит их от вердиктов о предмете.
+EVERY_SELF_FAILURE = "<все утверждения о собственном отказе>"
+SELF_FAILURE_MARK = "собственный отказ"
 
 # Сводное утверждение прогона кейсов. Числа в имени нет НАМЕРЕННО: счёт кейсов
 # растёт от каждого нового семейства, а ожидания инъекций перечисляют имена
@@ -72,22 +90,7 @@ INJECTIONS = [
         '    sys.stderr.flush()\n'
         '    sys.stdout.write("GREEN · CG_OK · exit 0\\n")\n'
         '    return 0',
-        ["D1 мира по пути нет -> собственный отказ, stdout пуст",
-         "D2 мир не разбирается как YAML -> собственный отказ",
-         "D3 мир не отображение -> собственный отказ",
-         "D4 идентификатор кейса не разбирается -> собственный отказ",
-         "D5 семейство кейса не объявлено -> собственный отказ, НЕ вердикт",
-         "D6 без обязательных аргументов -> собственный отказ",
-         "D7 ни одно правило не применимо -> собственный отказ, а НЕ vacuous GREEN",
-         "D8 непрочитанный факт внутри предмета -> собственный отказ",
-         "D9 роль вердикта не приводится к artifact -> собственный отказ",
-         # Утверждение семейства жизненного цикла принадлежит ТОМУ ЖЕ классу и
-         # потому стоит здесь: оно тоже требует, чтобы собственный отказ не
-         # печатал тройки. Каждое новое утверждение о собственном отказе, откуда
-         # бы оно ни пришло, обязано попадать в этот перечень — иначе инъекция
-         # объявляет «покраснело лишнее» на том, что покраснеть было ОБЯЗАНО.
-         "F-LIFE-4 стадия без объявленного перечня -> собственный отказ, а "
-         "НЕ vacuous GREEN"],
+        [EVERY_SELF_FAILURE],
     ),
     (
         "неосмотренный мир объявляется чистым",
@@ -298,6 +301,8 @@ INJECTIONS = [
          B1,
          "C1 SDD-1-DAG-04: дефектный мир под положительным ID даёт "
          "CG_PACKAGE_REQUIRED_AFTER_CUTOVER"],
+    ),
+    (
         # Владение diff'ом перестало судиться. Инъекция снимает ТОЛЬКО решение и
         # сохраняет оба чтения: сняв их, она уронила бы прогон собственным
         # отказом «факт не прочитан», и краснота пришла бы от учёта фактов, а не
@@ -411,20 +416,64 @@ def run_prove(root):
         [sys.executable, os.path.join(root, "selftest", "prove.py")],
         capture_output=True, text=True, timeout=600,
     )
-    failed = []
+    failed, passed = [], []
     for line in completed.stdout.split("\n"):
         match = FAIL_LINE.match(line)
         if match:
             failed.append(match.group(1).strip())
-    return completed.returncode, failed, completed.stdout
+            continue
+        match = OK_LINE.match(line)
+        if match:
+            passed.append(match.group(1).strip())
+    return completed.returncode, failed, passed
+
+
+def check_ledger_shape():
+    """Форма ведомости инъекций: ровно пять полей у каждой записи.
+
+    Заведено ценой прогона. Сведение волны склеило две записи в одну, потеряв
+    разделитель между ними, и РАЗБОР ЭТО ПРОПУСТИЛ: кортеж из десяти элементов
+    синтаксически безупречен. Ошибка проявилась только распаковкой в цикле —
+    то есть после того, как контрольный прогон уже отработал впустую.
+
+    Склейка, случайно давшая пять полей, не проявилась бы и там. Поэтому форма
+    проверяется здесь, до первого прогона, а не подразумевается.
+    """
+    wrong = [
+        (index, len(entry))
+        for index, entry in enumerate(INJECTIONS)
+        if not isinstance(entry, tuple) or len(entry) != 5
+    ]
+    if wrong:
+        sys.stdout.write(
+            "  FAIL форма ведомости: записей с числом полей, отличным от пяти "
+            "— %d %s\n" % (len(wrong), wrong)
+        )
+        return False
+    sys.stdout.write(
+        "  OK   форма ведомости: записей %d, у каждой ровно пять полей\n"
+        % len(INJECTIONS)
+    )
+    return True
 
 
 def main():
     passed = 0
     broken = 0
+    if check_ledger_shape():
+        passed += 1
+    else:
+        broken += 1
+        return 1
     with tempfile.TemporaryDirectory(prefix="cg-inject-") as work:
         control_root = prepare(work, "control")
-        code, failed, _ = run_prove(control_root)
+        code, failed, control_passed = run_prove(control_root)
+        # Перечень утверждений о собственном отказе ВЫВОДИТСЯ отсюда: на чистом
+        # дереве они все зелёные, поэтому именно контрольный прогон и знает их
+        # состав. Пустой перечень — находка, а не «нечего разворачивать».
+        self_failure_assertions = sorted(
+            name for name in control_passed if SELF_FAILURE_MARK in name
+        )
         if code == 0 and not failed:
             passed += 1
             sys.stdout.write("  OK   контроль: нетронутое дерево зелено\n")
@@ -452,7 +501,17 @@ def main():
             with open(target, "w", encoding="utf-8") as handle:
                 handle.write(source.replace(needle, replacement, 1))
 
-            code, failed, output = run_prove(root)
+            code, failed, _ = run_prove(root)
+            if EVERY_SELF_FAILURE in expected:
+                if not self_failure_assertions:
+                    broken += 1
+                    sys.stdout.write(
+                        "  FAIL %s: перечень утверждений о собственном отказе "
+                        "ПУСТ — раскрывать нечего, инъекция беспредметна\n" % name
+                    )
+                    continue
+                expected = [item for item in expected if item != EVERY_SELF_FAILURE]
+                expected = expected + self_failure_assertions
             missing = [item for item in expected if item not in failed]
             extra = [item for item in failed if item not in expected]
             if code == 1 and not missing and not extra:
