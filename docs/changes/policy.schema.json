@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PRO-Robotech/kacho-workspace/docs/changes/policy.schema.json",
+  "title": "Kacho Change Graph policy",
+  "description": "Форма docs/changes/policy.yaml. Схема судит ФОРМУ и не судит ИСТИННОСТЬ: существование cutover-коммита именно в названном repo, подтверждение actor внешним событием и совпадение legacy-реестра со снимком переписи проверяются гейтом через GitHub API, а не здесь. Схема, объявляющая эти свойства проверенными, была бы формой без содержания.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "repositories", "review_authority", "applicability_predicates", "legacy_census", "legacy_changes_count", "legacy_changes"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "schema": { "type": "string" },
+    "repositories": {
+      "description": "Ровно две координаты: у каждого DAG свой cutover. Не массив произвольной длины — вторая координата не опциональна (SDD-1-POLICY-02).",
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repo", "cutover_commit", "verified"],
+        "properties": {
+          "repo": { "enum": ["PRO-Robotech/kacho-workspace", "PRO-Robotech/kacho"] },
+          "cutover_commit": {
+            "description": "40 строчных hex. Форма — необходимое условие; существование проверяет гейт (SDD-1-POLICY-03 против -04).",
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "verified": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["method", "exists_in_named_repo", "absent_in_sibling_repo", "checked_at"],
+            "properties": {
+              "method": { "type": "string" },
+              "exists_in_named_repo": { "const": true },
+              "absent_in_sibling_repo": { "const": true },
+              "checked_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    "review_authority": {
+      "description": "Роль -> непустой список GitHub-акторов. Пустой список означал бы «никого», а не «любого»: разрешающий перечень, в отличие от круга доверия, пустым не сужает, а закрывает.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": { "type": "string", "minLength": 1 }
+      }
+    },
+    "applicability_predicates": {
+      "description": "Реестр предикатов N/A. Каждый машинно проверяем: назван путь в evidence и условие на значение.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "role", "evidence_field", "satisfied_when", "value"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "role": { "type": "string" },
+          "evidence_field": { "type": "string", "minLength": 1 },
+          "satisfied_when": { "enum": ["equals"] },
+          "value": {},
+          "note": { "type": "string" }
+        }
+      }
+    },
+    "legacy_census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "type": "string", "pattern": "^docs/changes/census/[0-9a-f]{64}\\.yaml$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "legacy_changes_count": { "type": "integer", "minimum": 0 },
+    "legacy_changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["issue", "coordinate", "kind", "route"],
+        "properties": {
+          "issue": { "type": "string", "pattern": "^https://github\\.com/" },
+          "coordinate": { "type": "string", "pattern": "^[^#]+#[0-9]+$" },
+          "kind": { "enum": ["open-pr", "live-issue"] },
+          "route": { "enum": ["legacy", "migrate"] },
+          "acceptance_repo": { "type": ["string", "null"] },
+          "acceptance_path": { "type": ["string", "null"] },
+          "acceptance_contract_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "acceptance_absence_predicate": { "type": "string" }
+        },
+        "oneOf": [
+          {
+            "title": "приёмка есть — назван repo, путь и хеш наблюдаемого контракта",
+            "required": ["acceptance_repo", "acceptance_path", "acceptance_contract_sha256"],
+            "properties": {
+              "acceptance_repo": { "type": "string", "minLength": 1 },
+              "acceptance_path": { "type": "string", "minLength": 1 }
+            },
+            "not": { "required": ["acceptance_absence_predicate"] }
+          },
+          {
+            "title": "приёмки нет — отсутствие ЗАЯВЛЕНО предикатом, а не изображено пустой строкой",
+            "required": ["acceptance_repo", "acceptance_path", "acceptance_absence_predicate"],
+            "properties": {
+              "acceptance_repo": { "type": "null" },
+              "acceptance_path": { "type": "null" }
+            },
+            "not": { "required": ["acceptance_contract_sha256"] }
+          }
+        ]
+      }
+    }
+  }
+}
