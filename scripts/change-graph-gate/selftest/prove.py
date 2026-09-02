@@ -211,9 +211,14 @@ def section_cases():
                 False,
                 "ждали %r, имеем %r (код %d)" % (expected, actual, completed.returncode),
             )
+    # Число осмотренных кейсов стоит в ДЕТАЛИ и в итоговой переписи, но НЕ в
+    # имени утверждения. Имя, несущее число, меняется от каждого нового
+    # семейства, а `selftest/inject.py` перечисляет ожидаемые имена дословно —
+    # то есть счёт в имени сталкивал бы параллельные полосы by construction, и
+    # столкновение выглядело бы как недоказанная инъекция.
     check(
-        "B1 все %d объявленных кейса дали объявленную тройку И совпавший код"
-        % len(cases),
+        "B1 каждый объявленный кейс дал объявленную приёмкой тройку И совпавший "
+        "код",
         matched == len(cases),
         "совпало %d из %d" % (matched, len(cases)),
     )
@@ -223,12 +228,46 @@ def section_cases():
 # --- C. Вердикт есть функция МИРА, а не идентификатора -----------------------
 def section_world_decides():
     sys.stdout.write("\n== C. Решает мир, а не идентификатор кейса ==\n")
+    # По паре на объявленное семейство: утверждение проверяется там, где оно
+    # может быть неверно. Семейство без своей пары осталось бы доказанным лишь
+    # односторонне — матрицей, которая спрашивает «совпала ли тройка» и не
+    # спрашивает, ЧТО её произвело; молчание такой матрицы неотличимо от
+    # таблицы соответствий «ID -> ответ».
     pairs = [
         ("SDD-1-BOOT-01", "SDD-1-BOOT-02", "CG_BOOTSTRAP_NOT_UNIQUE"),
         ("SDD-1-NONEMPTY-01", "SDD-1-NONEMPTY-02", "CG_ACCEPTANCE_IDS_EMPTY"),
         ("SDD-1-HASH-01", "SDD-1-HASH-03", "CG_APPROVAL_SUBJECT_STALE"),
         ("SDD-1-TRUTH-01", "SDD-1-TRUTH-04", "CG_HUMAN_TASKS_TRACKER"),
+        ("SDD-1-ADAPTER-01", "SDD-1-ADAPTER-02", "CGA_DERIVED_DRIFT"),
+        ("SDD-1-WIRE-01", "SDD-1-WIRE-02", "CG_CALLER_WORKSPACE_PRE_PUSH_MISSING"),
+        ("SDD-1-SUPER-01", "SDD-1-SUPER-04", "CG_SUPERSEDE_CYCLE"),
+        ("SDD-1-HOLDER-01", "SDD-1-HOLDER-06",
+         "CG_HOLDER_SUBJECT_HASH_MISMATCH"),
+        ("SDD-1-BIRTH-01", "SDD-1-BIRTH-03", "CG_BIRTH_DEFECT_NOT_DETECTED"),
+        ("SDD-1-EVID-01", "SDD-1-EVID-03", "CG_REQUIRED_HOLDER_RED"),
+        ("SDD-1-NA-01", "SDD-1-NA-03", "CG_NA_PREDICATE_FALSE"),
+        ("SDD-1-TDD-02", "SDD-1-TDD-03", "CG_RED_PROOF_UNEXPECTED_GREEN"),
+        ("SDD-1-REVIEW-01", "SDD-1-REVIEW-06", "CG_BOOTSTRAP_ACTOR_SPOOFED"),
+        ("SDD-1-CLASS-04", "SDD-1-CLASS-05", "CG_CLASS_ITEM_UNMAPPED"),
+        ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
+        ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
+        ("SDD-1-POLICY-01", "SDD-1-POLICY-02", "CG_POLICY_REPOSITORY_MISSING"),
     ]
+    # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
+    # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
+    # оно стареет; поэтому его согласие с деревом проверяется здесь же.
+    # Семейство, объявленное испытуемым и не получившее пары, доказано лишь
+    # односторонне, и без этой проверки о нём никто не узнал бы: перечень
+    # рукописный, а его расхождение с деревом ничем не читалось. Наблюдалось
+    # на сведении волны — 7 пар при 9 признаках, и каждая следующая полоса
+    # добавляла молчаливый пропуск.
+    covered = {registry_module.family_of(positive) for positive, _, _ in pairs}
+    orphans = sorted(set(registry_module.load()) - covered)
+    check(
+        "C0 у каждого объявленного семейства есть своя пара",
+        not orphans,
+        "без пары: %s" % (", ".join(orphans) or "нет"),
+    )
     for positive, negative, diagnostic in pairs:
         _, lines = run_sut(
             ["--case-world", fixture_world(negative), "--case", positive]
@@ -404,6 +443,135 @@ def section_census():
     )
 
 
+# --- F. Парность правил и объявленный порядок -------------------------------
+def _judge(case_id):
+    """Прогон испытуемого на мире кейса. Возвращает (stderr, последняя строка)."""
+    completed, lines = run_sut(
+        ["--case-world", fixture_world(case_id), "--case", case_id]
+    )
+    return completed.stderr, (lines[-1] if lines else "(без вывода)")
+
+
+def section_rule_pairing():
+    """Что B спросить НЕ МОЖЕТ: какое правило дало вердикт и почему именно оно.
+
+    B сверяет тройку и слепо к тому, чем она получена: тройка сошлась бы и у
+    правила, срабатывающего на всём подряд. Здесь спрашивается перепись —
+    ИМЕНА сработавших правил, — поэтому «правило есть» отличимо от «правило
+    судит», а объявленный порядок отличим от порядка, получившегося случайно.
+    """
+    sys.stdout.write(
+        "\n== F. Парность правил и объявленный порядок (holder/birth/evid/na) ==\n"
+    )
+
+    # Тривиальная команда незарегистрирована и потому краснит ОБА правила об
+    # executable. Вердикт обязан быть взят по объявленному порядку, а не по
+    # тому, какое сработало первым случайно.
+    stderr, verdict = _judge("SDD-1-HOLDER-03")
+    check(
+        "F-HOLDER-1 на команде true краснеют оба правила, вердикт — по "
+        "объявленному порядку",
+        "нарушений 2" in stderr
+        and "holder.executable-trivial" in stderr
+        and "holder.executable-unregistered" in stderr
+        and "по первому нарушению в объявленном порядке: "
+            "holder.executable-trivial" in stderr
+        and verdict == "RED · CG_HOLDER_EXECUTABLE_TRIVIAL · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Близнец: без него F-HOLDER-1 зеленел бы на правиле, краснящем на всякой
+    # команде вообще.
+    stderr, verdict = _judge("SDD-1-HOLDER-04")
+    check(
+        "F-HOLDER-2-близнец на незарегистрированной команде краснеет только "
+        "правило о ней",
+        "нарушений 1" in stderr
+        and "holder.executable-unregistered" in stderr
+        and "holder.executable-trivial" not in stderr
+        and verdict == "RED · CG_HOLDER_EXECUTABLE_UNKNOWN · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # Ядро замысла рождения: держатель, который краснеет на всём, и держатель,
+    # который зелен на всём, — РАЗНЫЕ дефекты, и каждое правило ловит ровно тот,
+    # который второе пропускает. Ни одно поодиночке их не различает.
+    stderr, verdict = _judge("SDD-1-BIRTH-02")
+    check(
+        "F-BIRTH-1 держателя, краснеющего на всём, ловит правило known-good — и "
+        "только оно",
+        "нарушений 1" in stderr
+        and "birth.known-good-failed" in stderr
+        and "birth.defect-not-detected" not in stderr
+        and verdict == "RED · CG_BIRTH_GOOD_INPUT_FAILED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-BIRTH-03")
+    check(
+        "F-BIRTH-2 держателя, зелёного на всём, ловит правило injected defect — "
+        "и только оно",
+        "нарушений 1" in stderr
+        and "birth.defect-not-detected" in stderr
+        and "birth.known-good-failed" not in stderr
+        and verdict == "RED · CG_BIRTH_DEFECT_NOT_DETECTED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-BIRTH-01")
+    check(
+        "F-BIRTH-3-близнец держатель, показавший ОБА исхода, рождён: нарушений 0",
+        "нарушений 0" in stderr and verdict == "GREEN · CG_OK · exit 0",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+    # «Не выполнилось» не подменяется красным и наоборот: обе стороны сразу,
+    # иначе утверждение зеленело бы на семействе, отвечающем одной категорией.
+    stderr, verdict = _judge("SDD-1-EVID-04")
+    check(
+        "F-EVID-1 неисполненный держатель даёт NOT_EXECUTED, а не RED",
+        verdict == "NOT_EXECUTED · CG_REQUIRED_HOLDER_NOT_EXECUTED · exit 20",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-EVID-03")
+    check(
+        "F-EVID-2-близнец держатель, ответивший RED, даёт RED, а не NOT_EXECUTED",
+        verdict == "RED · CG_REQUIRED_HOLDER_RED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    # Граница предмета названа переписью, а не подразумевается: трассу design и
+    # tasks судит семейство трассы, birth-запись драйвера — его собственное.
+    stderr, verdict = _judge("SDD-1-EVID-02")
+    check(
+        "F-EVID-3 не судимые этим семейством координаты названы переписью "
+        "поимённо",
+        "вне предмета cg.evid" in stderr
+        and "design_ids" in stderr
+        and "tasks_ids" in stderr
+        and "driver_birth.actual_triple" in stderr,
+        "stderr=%s" % stderr.strip()[:400],
+    )
+
+    # Незарегистрированный предикат вычислять не над чем — одна находка не
+    # предъявляется двумя диагностиками.
+    stderr, verdict = _judge("SDD-1-NA-02")
+    check(
+        "F-NA-1 незарегистрированный предикат даёт ОДНУ находку, а не две",
+        "нарушений 1" in stderr
+        and "na.predicate-unregistered" in stderr
+        and "na.predicate-false" not in stderr
+        and verdict == "RED · CG_NA_PREDICATE_UNREGISTERED · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    stderr, verdict = _judge("SDD-1-NA-03")
+    check(
+        "F-NA-2-близнец зарегистрированный, но невыполненный предикат краснит "
+        "правило о evidence",
+        "нарушений 1" in stderr
+        and "na.predicate-false" in stderr
+        and "na.predicate-unregistered" not in stderr
+        and verdict == "RED · CG_NA_PREDICATE_FALSE · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -411,6 +579,7 @@ def main():
         section_world_decides()
         section_self_failure(work)
         section_census()
+        section_rule_pairing()
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")
