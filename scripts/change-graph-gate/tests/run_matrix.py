@@ -25,6 +25,56 @@ from caselib import spec as spec_module  # noqa: E402
 EXPECTED_PHASE_INITIAL = "initial"
 EXPECTED_PHASE_FINAL = "final"
 
+# Перечень расхождений усекается, и обрезка НАЗЫВАЕТСЯ строкой переписи. Число
+# над перечнем верно, а конец списка от обрезки читателем не отличается: грепнув
+# вывод и не найдя своего кейса, он принимает артефакт обрезки за факт. Это тот
+# же класс, что «tail уничтожает имя падения» — вердикт остаётся, разбор
+# невозможен.
+MISMATCH_LIST_CAP = 20
+
+# Поломки harness НЕ усекаются, и это решение, а не недосмотр. Поломка — третья
+# категория исхода: вердикта нет ни у одного такого кейса, а перечень здесь
+# остаётся единственным местом, где виден их состав. Обрезать его значило бы
+# скрыть часть кейсов, оставшихся без вердикта, при верном числе над ними —
+# ровно то, чего третья категория не терпит. Верхняя граница перечня и так
+# конечна: она равна числу кейсов матрицы.
+HARNESS_LIST_CAP = None
+
+
+def mismatch_row(row):
+    """Строка перечня расхождений."""
+    case_id, expected_line, actual_line, code = row
+    return (
+        "  РАСХОЖДЕНИЕ %s: ждали %r, получили %r (код %d)\n"
+        % (case_id, expected_line, actual_line, code)
+    )
+
+
+def harness_row(row):
+    """Строка перечня поломок harness."""
+    case_id, actual_line = row
+    return "  HARNESS %s: %s\n" % (case_id, actual_line)
+
+
+def render_listing(rows, cap, render_row, subject):
+    """Строки перечня плюс перепись «<предмет> показано X из Y».
+
+    Перепись печатается ровно тогда, когда перечень НЕПУСТ: у пустого полнота
+    уже названа числом выше («не совпало с ожидаемым: 0»), и строка
+    «показано 0 из 0» была бы лишней на каждом зелёном прогоне. Как только
+    читать есть что — читателю сказано, всё ли он видит.
+
+    Предмет назван в самой строке, потому что перечней два подряд: голое
+    «показано X из Y» дважды не отличило бы расхождения от поломок harness.
+
+    `cap is None` означает «не усекать» — см. HARNESS_LIST_CAP.
+    """
+    shown = rows if cap is None else rows[:cap]
+    lines = [render_row(row) for row in shown]
+    if rows:
+        lines.append("  %s показано %d из %d\n" % (subject, len(shown), len(rows)))
+    return lines
+
 
 def main():
     phase = sys.argv[1] if len(sys.argv) > 1 else EXPECTED_PHASE_INITIAL
@@ -65,13 +115,12 @@ def main():
     sys.stdout.write("не совпало с ожидаемым: %d\n" % len(mismatched))
     sys.stdout.write("поломок harness (exit 40, verdict НЕ выдан): %d\n" % len(harness))
 
-    for case_id, expected_line, actual_line, code in mismatched[:20]:
-        sys.stdout.write(
-            "  РАСХОЖДЕНИЕ %s: ждали %r, получили %r (код %d)\n"
-            % (case_id, expected_line, actual_line, code)
-        )
-    for case_id, actual_line in harness[:20]:
-        sys.stdout.write("  HARNESS %s: %s\n" % (case_id, actual_line))
+    for line in render_listing(
+            mismatched, MISMATCH_LIST_CAP, mismatch_row, "расхождений"):
+        sys.stdout.write(line)
+    for line in render_listing(
+            harness, HARNESS_LIST_CAP, harness_row, "поломок harness"):
+        sys.stdout.write(line)
 
     return 0 if not mismatched and not harness else 1
 
