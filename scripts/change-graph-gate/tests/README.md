@@ -75,11 +75,26 @@ verdict не выдан.
 ## Прогон и доказательства
 
 ```sh
-python3 scripts/change-graph-gate/tests/run_matrix.py initial   # все 196
+python3 scripts/change-graph-gate/tests/run_matrix.py final     # живая фаза, все 196
 bash    scripts/change-graph-gate/tests/selfcheck/prove.sh      # birth inversion harness'а
 bash    scripts/change-graph-gate/tests/selfcheck/inject.sh     # доказательство, что prove.sh падает
 bash    scripts/change-graph-gate/tests/selfcheck/prove_matrix_listing.sh  # перечни матрицы, сквозной прогон (~45 с)
 ```
+
+> [!warning] Фаза `initial` СЕГОДНЯ КРАСНА — и это её исправная работа, а не поломка
+> Здесь стояло `run_matrix.py initial`, и это было верно до посадки ядра: фаза
+> объявляет ожидания **до** реализации испытуемого (`RED · CASE_CAPABILITY_MISSING`).
+> Ядро приземлилось, и с тех пор `initial` даёт **196 расхождений из 196**, а живой
+> фазой стала `final` (замер `61fddcc`: `final` — 0 расхождений, 0 поломок harness,
+> код 0; `initial` — 196 расхождений, код 1).
+>
+> Строка не удалена, а исправлена вместе с объяснением: читатель, набравший команду
+> из README и получивший 196 красных, не может отличить «фаза историческая» от
+> «дерево сломано», а фаза `initial` остаётся законным и нужным вопросом — когда
+> проверяют, что pre-RED ожидания приёмки вообще разбираются.
+>
+> Живую фазу гоняет полоса `hook` набора (`scripts/change-graph-gate/lanes.py`),
+> и ведомость там — единственное место, где это записано.
 
 ## Перечень под числом называет свою полноту
 
