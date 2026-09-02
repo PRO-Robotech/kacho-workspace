@@ -92,6 +92,8 @@ CORE_CLASS_BY_DETAIL = (
     (CORE_NOT_JUDGED_DETAIL, CLASS_CORE_WORLD_NOT_JUDGED),
     (CORE_FACT_UNREAD_DETAIL, CLASS_CORE_FACT_UNREAD),
 )
+from cglib import tasksmapping as tasksmapping_module  # noqa: E402
+import laneparity  # noqa: E402
 
 # Закрытый список кейсов, чья fixture вправе пиновать тройку, принадлежит
 # harness'у и здесь только ЧИТАЕТСЯ. Своя копия списка была бы вторым местом об
@@ -1502,13 +1504,14 @@ def section_callers_and_advisory(work):
         "получено %r" % _verdict_at(path, "SDD-1-WSCI-01"),
     )
 
-    # --- предикат о mapping ОДИН на оба вызывающих семейства -----------------
-    # Диагностика `CG_TRACE_ID_MISSING` предъявляется четырьмя вызывающими
-    # семействами, эталонного набора ID в их мирах нет ни одной координатой, и
-    # каждая полоса вынуждена ввести свой инвариант под одно и то же имя.
-    # Расхождение между двумя семействами ЭТОЙ полосы сведение волны не нашло
-    # бы: кейсы зелёные у обоих. Поэтому оно закрыто не обещанием общего
-    # помощника, а пробой, подающей ОДИН и тот же mapping обоим.
+    # --- предикат о mapping ОДИН на ЧЕТЫРЕ вызывающих семейства -------------
+    # Здесь один и тот же mapping подаётся ДВУМ вызывающим — через край, то
+    # есть вместе с их порядком правил и якорями семейства. Полнота этого
+    # сравнения ограничена по построению и названа прямо: вызывающих ЧЕТЫРЕ, а
+    # полос диагностики ШЕСТЬ, и два семейства из шести полос молчат ровно там,
+    # где расхождение и завелось — у двух других. Сверку ВСЕХ полос ведёт
+    # секция H (`selftest/laneparity.py`), выводя их обходом реестра; здесь
+    # остаётся то, чего она не даёт: проверка сквозь край, с вердиктом целиком.
     for name, mapping, expected in (
         ("неполный", ["SDD-1-CENSUS-02", "SDD-1-CENSUS-03"],
          "RED · CG_TRACE_ID_MISSING · exit 10"),
@@ -1802,6 +1805,244 @@ def section_caller_and_landing(work):
     )
 
 
+def _ledger_with(ledger, world_class, entry):
+    """Копия ведомости с добавленной записью. Ключ — кортеж, не строка."""
+    extended = dict(ledger)
+    extended[world_class] = entry
+    return extended
+
+
+def section_lane_parity():
+    """Полосы одной диагностики сверяются МЕЖДУ СОБОЙ, а не каждая отдельно.
+
+    `architecture.md` §«Параллельные полосы одного механизма обязаны сверяться
+    МЕЖДУ СОБОЙ»: проба каждой полосы требует знать, каким свойство ДОЛЖНО
+    быть, — а это и есть спорный вопрос. Сравнение спрашивает другое: решал ли
+    кто-нибудь, что полосы различаются.
+
+    Секция G выше уже подавала один и тот же mapping ДВУМ вызывающим. Этого
+    мало по построению: вызывающих ЧЕТЫРЕ, а полос диагностики ШЕСТЬ, и
+    сравнение двух из шести молчит ровно там, где расхождение и завелось — у
+    двух других. Здесь полосы ВЫВОДЯТСЯ обходом реестра, поэтому новое
+    семейство попадает в сверку само, а не по чьей-то памяти.
+    """
+    sys.stdout.write("\n== H. Полосы одной диагностики сверяются между собой ==\n")
+
+    findings, census = laneparity.audit()
+    check(
+        "H-PARITY-1 полосы одного класса отвечают ОДИНАКОВО на выведенном из "
+        "дерева корпусе",
+        not findings,
+        "находки: %s" % "; ".join(findings),
+    )
+    # Перепись: «находок ноль» обязано быть отличимо от «сравнено ноль».
+    check(
+        "H-PARITY-2 перепись сверки непуста: сравнивать было что",
+        census["полос"] >= 2
+        and census["сравнено полос"] >= 2
+        and census["входов корпуса"] > 0,
+        "перепись: %s" % laneparity.census_line(census),
+    )
+    sys.stdout.write("       перепись сверки полос: %s\n"
+                     % laneparity.census_line(census))
+
+    # --- способность упасть доказывается СИНТЕТИКОЙ ------------------------
+    # На настоящем дереве расхождения больше нет by construction: у четырёх
+    # вызывающих судья ОДИН. Значит красноту сверки нельзя доказать деревом —
+    # только поданными полосами. Ниже по каждой оси стоит пара: дефект и
+    # законный близнец, на котором сверка обязана молчать.
+    synthetic_class = ("package_tasks_mapping",)
+    synthetic_ledger = {
+        synthetic_class: laneparity.ClassEntry(
+            why="синтетический класс пробы",
+            corpus=laneparity.mapping_corpus,
+        ),
+    }
+
+    def strict(world):
+        return tasksmapping_module.lost_acceptance_id(
+            world.read_all("package_tasks_mapping")
+        )
+
+    def strict_other_code(world):
+        # Тот же ответ, ДРУГОЙ код: сверка обязана судить поведение, а не текст.
+        mapping = list(world.read_all("package_tasks_mapping"))
+        verdict = tasksmapping_module.lost_acceptance_id(mapping)
+        return True if verdict else False
+
+    def lenient(world):
+        # Расходится ровно на неразбираемой записи: находка вместо отказа.
+        try:
+            return tasksmapping_module.lost_acceptance_id(
+                world.read_all("package_tasks_mapping")
+            )
+        except outcome_module.SelfFailure:
+            return True
+
+    def lane(rule_id, predicate):
+        return laneparity.Lane("wspp", rule_id, synthetic_class, predicate)
+
+    diverging = [lane("проба.строгая", strict), lane("проба.мягкая", lenient)]
+    findings, census = laneparity.audit(
+        found_lanes=diverging, ledger=synthetic_ledger
+    )
+    named_input = any("неразбираемая запись" in item for item in findings)
+    named_answers = any(
+        "проба.строгая ->" in item and "проба.мягкая ->" in item
+        for item in findings
+    )
+    check(
+        "H-PARITY-3 разошедшиеся полосы найдены, и находка называет вход И "
+        "ответ КАЖДОЙ полосы",
+        bool(findings) and named_input and named_answers,
+        "находки: %s" % "; ".join(findings),
+    )
+    check(
+        "H-PARITY-3-близнец полосы с РАЗНЫМ кодом и одинаковым поведением "
+        "сверку не роняют",
+        not laneparity.audit(
+            found_lanes=[lane("проба.первая", strict),
+                         lane("проба.вторая", strict_other_code)],
+            ledger=synthetic_ledger,
+        )[0],
+        "находки: %s" % "; ".join(
+            laneparity.audit(
+                found_lanes=[lane("проба.первая", strict),
+                             lane("проба.вторая", strict_other_code)],
+                ledger=synthetic_ledger,
+            )[0]
+        ),
+    )
+
+    # Третий ответ не схлопнут во второй: полоса, ОТКАЗАВШАЯСЯ отвечать,
+    # отличима от молчащей. Без этого утверждения сверка была бы слепа ровно
+    # там, где расхождение нашлось при заведении, — на неразбираемой записи.
+    #
+    # Имя утверждения намеренно НЕ несёт зарезервированной пометки класса
+    # «собственный отказ». Пометка принадлежит утверждениям, наблюдающим отказ
+    # ИСПЫТУЕМОГО через вердикт — их разворачивает по контрольному прогону
+    # инъекция, подменяющая отказ вердиктом. Здесь предмет другой: сверка
+    # классифицирует ответ ПОЛОСЫ, предикат зовётся напрямую, и engine в этом
+    # не участвует, — поэтому та инъекция это утверждение не роняет и ронять не
+    # обязана. Носи оно пометку, инъекция ждала бы красноты, которой неоткуда
+    # взяться.
+    answers = {
+        laneparity.answer(lane("проба.строгая", strict),
+                          {"package_tasks_mapping": ["не идентификатор"]}),
+        laneparity.answer(lane("проба.мягкая", lenient),
+                          {"package_tasks_mapping": ["не идентификатор"]}),
+    }
+    check(
+        "H-PARITY-4 полоса, ОТКАЗАВШАЯСЯ отвечать, отличима от молчащей и от "
+        "нашедшей",
+        len(answers) == 2
+        and any(item.startswith(laneparity.ANSWER_REFUSAL) for item in answers)
+        and laneparity.ANSWER_FINDING in answers,
+        "ответы: %s" % sorted(answers),
+    )
+
+    # --- ведомость классов истекает сама, в обе стороны ---------------------
+    unknown_class = ("выдуманная_координата",)
+    findings, _ = laneparity.audit(
+        found_lanes=[laneparity.Lane("wspp", "проба.новая", unknown_class, strict)],
+        ledger=synthetic_ledger,
+    )
+    check(
+        "H-PARITY-5 класс мира, произведённый и НЕ объявленный, — находка: "
+        "расхождение возникло, а не было решено",
+        any("НЕ объявлен" in item for item in findings),
+        "находки: %s" % "; ".join(findings),
+    )
+    findings, _ = laneparity.audit(
+        found_lanes=[lane("проба.строгая", strict), lane("проба.вторая", strict_other_code)],
+        ledger=_ledger_with(
+            synthetic_ledger,
+            ("никем_не_судимая",),
+            laneparity.ClassEntry(why="запись без предмета"),
+        ),
+    )
+    check(
+        "H-PARITY-6 объявленный класс без единого производителя — находка: "
+        "записи нечего объяснять",
+        any("не производит ни одна полоса" in item for item in findings),
+        "находки: %s" % "; ".join(findings),
+    )
+    findings, _ = laneparity.audit(
+        found_lanes=diverging,
+        ledger={synthetic_class: laneparity.ClassEntry(why="без корпуса")},
+    )
+    check(
+        "H-PARITY-7 две полосы одного класса без корпуса сравнения — находка, "
+        "а не тишина",
+        any("корпуса сравнения не объявлено" in item for item in findings),
+        "находки: %s" % "; ".join(findings),
+    )
+    findings, _ = laneparity.audit(
+        found_lanes=diverging,
+        ledger={synthetic_class: laneparity.ClassEntry(
+            why="пустой корпус", corpus=lambda: []
+        )},
+    )
+    check(
+        "H-PARITY-8 пустой корпус — находка «сверка беспредметна», а НЕ "
+        "«расхождений нет»",
+        any("сверка беспредметна" in item for item in findings),
+        "находки: %s" % "; ".join(findings),
+    )
+
+    # Поломка предиката не есть согласие. Без этого утверждения ветвь была бы
+    # кодом без пробы, а её предмет — самый тихий из возможных: полосы, упавшие
+    # ОДИНАКОВО, сравнение проходят, потому что ответы у них совпали.
+    def broken(world):
+        raise ValueError("предикат синтетической полосы упал намеренно")
+
+    findings, _ = laneparity.audit(
+        found_lanes=[lane("проба.первая", broken), lane("проба.вторая", broken)],
+        ledger=synthetic_ledger,
+    )
+    check(
+        "H-PARITY-10 полосы, упавшие ОДИНАКОВО, дают находку «поломка не есть "
+        "согласие», а не тишину",
+        any("УПАЛА" in item for item in findings)
+        and not any("РАЗОШЛИСЬ" in item for item in findings),
+        "находки: %s" % "; ".join(findings),
+    )
+    check(
+        "H-PARITY-10-близнец полосы, которые НЕ падают, находки о поломке не "
+        "дают",
+        not any("УПАЛА" in item for item in laneparity.audit(
+            found_lanes=[lane("проба.первая", strict),
+                         lane("проба.вторая", strict_other_code)],
+            ledger=synthetic_ledger,
+        )[0]),
+        "находки о поломке там, где никто не падал",
+    )
+
+    # --- корпус ВЫВОДИТСЯ из дерева, а не выписан --------------------------
+    # Выписанный корпус не содержал бы входа, на котором расхождение и
+    # нашлось: серию с добавочным сегментом надо придумать, а вывести —
+    # достаточно. Считается независимым обходом каталога фикстур.
+    series = {}
+    for case_id in os.listdir(TESTDATA):
+        if not os.path.isdir(os.path.join(TESTDATA, case_id)):
+            continue
+        head, _, tail = case_id.rpartition("-")
+        if head and tail.isdigit():
+            series.setdefault(head, []).append(case_id)
+    pairable = [name for name in series if len(series[name]) >= 2]
+    corpus = laneparity.mapping_corpus()
+    extra_segment = [name for name in pairable if name.count("-") > 2]
+    check(
+        "H-PARITY-11 корпус ВЫВЕДЕН из дерева: входов ровно по числу серий, и "
+        "среди них есть серия с добавочным сегментом",
+        len(corpus) == 2 * len(pairable) + 2
+        and bool(extra_segment)
+        and any(extra_segment[0] in name for name, _ in corpus),
+        "входов корпуса %d при %d парных сериях; серии с добавочным сегментом: %s"
+        % (len(corpus), len(pairable), extra_segment),
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -1812,6 +2053,7 @@ def main():
         section_rule_pairing()
         section_callers_and_advisory(work)
         section_caller_and_landing(work)
+    section_lane_parity()
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")

@@ -53,11 +53,20 @@ package tasks mapping — свойство, которое §7 требует о
 предикат чтением дерева нельзя: полный набор кейсов приёмки содержит все 196
 идентификаторов, и пакет одного вызывающего не покрывает и не обязан покрывать
 их все.
+
+**Судья при этом ОДИН на все четыре вызывающих семейства, и своей копии здесь
+нет.** Инвариант выше — общий для WSPP, WSCI, PPRE и PCI, а исполняет его
+`tasksmapping.lost_acceptance_id` в единственном экземпляре. Причина измерена, а
+не предположена: четыре независимые реализации одного инварианта были заведены
+и разошлись, причём прежняя ЗДЕШНЯЯ копия расходилась с остальными по двум осям
+сразу — разбору идентификатора и ответу на неразбираемую запись, — и обе
+разницы были невидимы. Довод, числа замера и границы инварианта — в шапке
+общего судьи; здесь они не пересказываются, чтобы два места об одном предмете
+снова не разошлись. Сверку полос между собой ведёт `selftest/laneparity.py`.
 """
 
-import re
-
 from .. import outcome
+from .. import tasksmapping
 from ..rules import Rule
 
 FAMILY = "pci"
@@ -74,13 +83,6 @@ MAPPING = "package_tasks_mapping"
 SUBJECT_KEYS = (LEDGER, FETCH, EVENT, MAPPING)
 
 AVAILABLE = "available"
-
-# Идентификатор acceptance-кейса: change, серия, порядковый номер.
-_ACCEPTANCE_ID = re.compile(
-    r"^(?P<change>[A-Z]+-\d+)-(?P<series>[A-Z]+)-(?P<ordinal>\d+)$"
-)
-# Базовый кейс серии — тот, от которого производятся однофактные дефекты.
-BASE_CASE_ORDINAL = "01"
 
 ABSENT_MARKERS = (None, "", "none", "—")
 
@@ -151,34 +153,17 @@ def _ledger_change_id_missing(world):
 def _tasks_mapping_leaves_case_uncovered(world):
     """Package tasks mapping не покрывает существующий acceptance-кейс.
 
+    Судья ОБЩИЙ на все четыре вызывающих семейства
+    (`tasksmapping.lost_acceptance_id`) — своей копии инварианта здесь нет
+    намеренно, и почему, сказано в шапке модуля числами замера.
+
     Перечень читается целиком: покрытие — свойство набора, а не записи.
-
-    Что именно судится (полное обоснование — в шапке модуля): §7 требует от
-    machine holder ОБЕ половины birth inversion, поэтому в каждой серии, которую
-    пакет называет, обязаны быть покрыты базовый кейс и хотя бы один
-    производный. Серия с одним кейсом доказывает ровно половину, а вторая
-    половина — существующий acceptance-кейс, оставшийся вне tasks.
-
-    Пустой перечень покрывает ноль кейсов и потому попадает сюда же: §7 прямо
-    запрещает vacuous GREEN на пакете с нулём acceptance IDs.
-
-    Запись, не являющаяся идентификатором acceptance-кейса, не покрывает ни
-    одного кейса — она лишь занимает строку перечня.
+    Отсутствие перечня — тоже непокрытие, а не чистота: §7 прямо запрещает
+    vacuous GREEN на пакете с нулём acceptance IDs.
     """
-    mapping = world.read_all(MAPPING)
-    if not mapping:
+    if not world.has(MAPPING):
         return True
-    series = {}
-    for entry in mapping:
-        match = _ACCEPTANCE_ID.match(str(entry).strip())
-        if match is None:
-            return True
-        key = (match.group("change"), match.group("series"))
-        series.setdefault(key, set()).add(match.group("ordinal"))
-    for ordinals in series.values():
-        if len(ordinals) < 2 or BASE_CASE_ORDINAL not in ordinals:
-            return True
-    return False
+    return tasksmapping.lost_acceptance_id(world.read_all(MAPPING))
 
 
 RULES = [
