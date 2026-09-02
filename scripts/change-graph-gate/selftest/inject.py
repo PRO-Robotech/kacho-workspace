@@ -123,6 +123,22 @@ INJECTIONS = [
          "CG_BOOTSTRAP_ACTOR_SPOOFED"],
     ),
     (
+        # Снимается ОДНО решение — сверка actor'а с versioned policy allowlist,
+        # — а чтения таблицы, требуемой роли и actor'а события остаются выше по
+        # телу предиката. Инъекция, убравшая заодно и чтение, уронила бы прогон
+        # собственным отказом «факт не прочитан», и краснота пришла бы от учёта
+        # фактов, а не от снятого предиката (п. 2в `testing.md` §«Гейт на класс»).
+        "cg.auth перестал сверять actor с versioned policy allowlist",
+        "cglib/families/auth.py",
+        "    return required not in _roles_allowing(allowlist, actor)",
+        "    _roles_allowing(allowlist, actor)\n    return False",
+        ["B SDD-1-AUTH-03",
+         B1,
+         "C1 SDD-1-AUTH-01: дефектный мир под положительным ID даёт "
+         "CG_REVIEW_ACTOR_UNAUTHORIZED",
+         "F-AUTH-1 чужой actor при верной роли краснит только правило о допуске"],
+    ),
+    (
         "cg.class перестал требовать mapping каждого exposure item",
         "cglib/families/klass.py",
         "    return any(\n"
