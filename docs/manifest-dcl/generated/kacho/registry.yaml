@@ -1,0 +1,28 @@
+module: registry
+resources:
+  - name: quota
+    parent: project
+    actions: [list]
+  - name: registry
+    parent: cluster
+    actions:
+      - create
+      - get
+      - list
+      - {name: delete, hideExistence: true}
+      - {name: internalGetRegistryStats, class: list, internal: true}
+      - {name: internalTriggerGarbageCollection, class: update, internal: true}
+      - {name: listOperations, class: list}
+      - {name: update, hideExistence: true}
+  - name: repository
+    parent: project
+    actions:
+      - {name: createRepository, class: list}
+      - {name: deleteRepository, class: list}
+      - {name: deleteTag, class: list}
+      - {name: getRepository, class: list}
+      - {name: listReferrers, class: list}
+      - {name: listRepositories, class: list}
+      - {name: listTags, class: list}
+      - {name: renameRepository, class: list}
+      - {name: updateRepository, class: list}

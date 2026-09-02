@@ -1,0 +1,39 @@
+module: loadbalancer
+resources:
+  - name: listener
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: listOperations, class: list}
+  - name: networkLoadBalancer
+    parent: cluster
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: getTargetStates, class: get}
+      - {name: internalGetAnnounceState, class: list, internal: true}
+      - {name: internalReportAnnounceState, class: operate, internal: true}
+      - {name: listOperations, class: list}
+      - {name: move, class: update}
+  - name: quota
+    parent: project
+    actions: [list]
+  - name: targetGroup
+    parent: project
+    actions:
+      - create
+      - delete
+      - get
+      - list
+      - update
+      - {name: addTargets, class: operate}
+      - {name: listOperations, class: list}
+      - {name: move, class: update}
+      - {name: removeTargets, class: operate}

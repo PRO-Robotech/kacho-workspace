@@ -1,0 +1,272 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  Схема раздела `seed` манифеста домена — что заводит УСТАНОВКА модуля.
+#
+#  Имена полей выдачи взяты ДОСЛОВНО у контракта `CreateAccessBinding`
+#  (proto/kacho/cloud/iam/v1/access_binding_service.proto). Не потому, что
+#  так короче, а потому, что иначе манифест заводит второй словарь для того
+#  же предмета — и он разойдётся с первым.
+#
+#  ─ ЧТО ЭТА СХЕМА ПРОВЕРИТЬ НЕ МОЖЕТ, и это не недоделка ────────────────────
+#  Схема судит ФОРМУ одного документа. Четыре свойства она выразить не
+#  способна by construction, их держит валидатор `roles.py`:
+#
+#    1. субъект выдачи ЗАВЕДЁН ЭТИМ ЖЕ посевом (кросс-ссылка внутри файла);
+#    2. `roleId` существует в разделе `roles` того же манифеста;
+#    3. заведённая группа кому-то ВЫДАНА — иначе это имя без предмета;
+#    4. ключ остался СТРОКОЙ после разбора YAML. `on`, `off`, `yes`, `no`,
+#       `y`, `n` — булевы литералы: разбор даёт ключ `True`, схема видит
+#       «неизвестное свойство», а автор — верный на вид текст. Поймано
+#       вживую на `grant.on`.
+#
+#  Ссылаться на эту схему как на «проверку манифеста» — ошибка того же рода,
+#  что «эталон вместо гейта»: она проверяет, что документ правильной формы,
+#  и молчит о том, что он бессмыслен.
+# ═══════════════════════════════════════════════════════════════════════════
+
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://kacho.cloud/schema/module-manifest-seed.yaml"
+title: Раздел seed манифеста домена
+type: object
+additionalProperties: false
+
+# Ни один из четырёх разделов не обязателен: модуль без своих групп и без
+# вступлений — законный случай, а не неполный манифест.
+properties:
+
+  # ── Личности самого модуля ────────────────────────────────────────────────
+  serviceAccounts:
+    type: array
+    minItems: 1
+    maxItems: 16
+    uniqueItems: true
+    description: >
+      Служебные записи, которые заводит установка ЭТОГО модуля. Под ними он
+      ходит к соседям. Сегодня у каждого из семи модулей она ровно одна, но
+      запрета на вторую в схеме продукта нет, поэтому здесь список.
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, account, description]
+      properties:
+        name:
+          type: string
+          pattern: "^[a-z][a-z0-9-]{0,61}[a-z0-9]$"
+          description: Имя записи; DNS-label, как у всякого имени в продукте.
+        account:
+          const: system
+          description: >
+            Платформенные субъекты живут в системном аккаунте — другого дома
+            у них нет. Пишется явно: «выводится» без указания, кем именно,
+            есть то же умолчание, из-за которого и путались.
+        description:
+          type: string
+          minLength: 16
+          description: >
+            Под что ИМЕННО эта личность. Обязателен всегда, а не только когда
+            записей две: у групп он обязателен, и разное требование к
+            однородным вещам — само по себе расхождение. Здесь стоял ключ
+            `purpose` — выдуманный синоним: у таблиц groups, roles и
+            service_accounts поле называется `description`, и второе слово
+            для того же предмета разошлось бы с первым.
+
+  # ── Группы, которые заводит этот модуль ───────────────────────────────────
+  groups:
+    type: array
+    maxItems: 32
+    uniqueItems: true
+    description: >
+      Группы для потребителей этого модуля. Создаются ПУСТЫМИ и без прав:
+      группа — это имя, дом и назначение. Что она получает, сказано в
+      `accessBindings`, где субъект назван явно; кто в неё войдёт — складывает
+      посев из деклараций `joins` всех манифестов.
+    items:
+      type: object
+      additionalProperties: false
+      required: [name, account, description]
+      properties:
+        name:
+          type: string
+          pattern: "^[a-z][a-z0-9-]{0,61}[a-z0-9]$"
+        account:
+          const: system
+        description:
+          type: string
+          minLength: 16
+          description: >
+            Чем эта группа отличается от соседней. Без него группа неотличима
+            от чужой, а снять её потом не решится никто.
+
+  # ── Выдачи: форма CreateAccessBinding ─────────────────────────────────────
+  accessBindings:
+    type: array
+    maxItems: 64
+    description: >
+      Выдачи, которые делает установка модуля. Только платформенные: выдачи на
+      аккаунт и проект заводит iam при создании этих объектов, а не посев —
+      арендаторов на момент установки не существует.
+    items:
+      type: object
+      additionalProperties: false
+      required: [subjects, roleId, scopeType, scopeId, target]
+      properties:
+
+        subjects:
+          type: array
+          minItems: 1
+          maxItems: 32
+          uniqueItems: true
+          description: >
+            1..32 по контракту. Каждый субъект даёт НЕЗАВИСИМЫЙ набор кортежей
+            и свою линию отзыва — один субъект есть частный случай списка,
+            а не отдельная форма.
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, name]
+            properties:
+              type:
+                enum: [group, serviceAccount, user]
+                description: Закрытый набор из контракта `SubjectType`.
+              name:
+                type: string
+                description: >
+                  Имя субъекта в этом манифесте, не id: идентификаторы
+                  присваивает запись, манифест их знать не может.
+
+        roleId:
+          type: string
+          pattern: "^[a-z][a-zA-Z0-9]*\\.[a-zA-Z][a-zA-Z0-9]*$"
+          description: "Роль вида `<модуль>.<имя>` из раздела `roles`."
+
+        scopeType:
+          const: iam.cluster
+          description: >
+            Якорь области в точечной форме. Посев выдаёт ТОЛЬКО на кластере;
+            `iam.account` и `iam.project` контрактом допустимы, но заводятся
+            не установкой модуля, а созданием самих аккаунта и проекта.
+
+        scopeId:
+          const: cluster_kacho_root
+          description: >
+            Единственный объект уровня кластера. Замер: выдач на этом уровне
+            35 штук — все на него.
+
+        target:
+          enum: [allInScope, resources]
+          description: >
+            ОБЯЗАТЕЛЕН по контракту: создание без него отвергается синхронно —
+            «target is required; use target.allInScope{} to grant all objects
+            under the anchor». `allInScope` покрывает и БУДУЩИЕ объекты, это
+            самая широкая выдача и никогда не умолчание.
+
+        resources:
+          type: array
+          minItems: 1
+          description: "Закрытый перечень объектов, когда `target: resources`."
+          items:
+            type: object
+            additionalProperties: false
+            required: [type, id]
+            properties:
+              type:
+                type: string
+                pattern: "^[a-z][a-z0-9]*\\.[a-zA-Z][a-zA-Z0-9]*$"
+                description: "Точечный тип из каталога, например `vpc.network`."
+              id:
+                type: string
+
+      # Ветвь `resources` без перечня — выдача, которая ничего не покрывает.
+      if:
+        properties:
+          target: {const: resources}
+        required: [target]
+      then:
+        required: [subjects, roleId, scopeType, scopeId, target, resources]
+      else:
+        not:
+          required: [resources]
+
+  # ── Вступления в чужие группы ─────────────────────────────────────────────
+  joins:
+    type: array
+    maxItems: 32
+    description: >
+      Чужие группы, в которые входит служебная запись этого модуля. Здесь
+      появляется «кто член внутри» — заявлением вступающего, а не перечислением
+      у владельца: владелец своих потребителей не знает и знать не должен.
+
+      И запись, и группа адресуются ПАРОЙ (аккаунт, имя) — так они уникальны
+      в продукте: `groups_account_name_unique` и
+      `service_accounts_account_name_unique`. Прежняя редакция писала
+      `iam/module-quota-readers`, смешивая МОДУЛЬ (кто завёл) с АККАУНТОМ
+      (где лежит), — и не отвечала, из какого аккаунта запись и в чей аккаунт
+      она вступает.
+
+      Аккаунты СМЕЮТ различаться: `group_members` не несёт связи с аккаунтом
+      вовсе, то есть межаккаунтное членство схемой продукта разрешено.
+      Фактически все шесть членств сегодня внутриаккаунтные, но полагаться
+      на это нельзя — потому оба аккаунта пишутся, а не выводятся.
+
+      Здесь стоял ключ `declaredBy` — «манифест какого модуля заводит эту
+      группу». Снят: посев применяет ВСЕ манифесты и находит группу по паре
+      (аккаунт, имя) без подсказки. Поле было вторым ключом к тому же адресу
+      и могло с ним разойтись. Порядок установки — единственное, что оно
+      могло бы дать, — тоже ВЫВОДИТСЯ: раз этот модуль вступает в группу,
+      объявленную чужим манифестом, тот идёт раньше.
+    items:
+      type: object
+      additionalProperties: false
+      required: [serviceAccount, group, why]
+      properties:
+        serviceAccount:
+          type: object
+          additionalProperties: false
+          required: [account, name]
+          description: "КТО вступает: пара (аккаунт, имя)."
+          properties:
+            account:
+              const: system
+            name:
+              type: string
+              pattern: "^[a-z][a-z0-9-]{0,61}[a-z0-9]$"
+        group:
+          type: object
+          additionalProperties: false
+          required: [account, name]
+          description: "КУДА вступает: пара (аккаунт, имя) чужой группы."
+          properties:
+            account:
+              type: string
+              pattern: "^[a-z][a-z0-9-]{0,61}[a-z0-9]$"
+              description: >
+                Аккаунт группы. Не `const: system`: группа может лежать в
+                аккаунте арендатора, и запретить это схема продукта не берётся.
+            name:
+              type: string
+              pattern: "^[a-z][a-z0-9-]{0,61}[a-z0-9]$"
+        why:
+          type: string
+          minLength: 12
+          description: >
+            Зачем вступаем. Членство без причины некому снять: следующий не
+            знает, действует ли ещё основание.
+
+# ── Снятые ключи: названы поимённо, чтобы отказ был понятен ─────────────────
+# `additionalProperties: false` отвергнет их и так, но сообщением «неизвестное
+# свойство» — а автор возвращает их не по злому умыслу, а потому что они
+# выглядят понятными. Отказ обязан называть причину.
+not:
+  anyOf:
+    - required: [serviceAccount]   # стало списком serviceAccounts
+    - required: [seedTo]           # выдачи переехали в accessBindings
+    - required: [bindings]         # то же
+    - properties:
+        serviceAccounts:
+          contains:
+            required: [purpose]
+      required: [serviceAccounts]  # purpose → description, поле продукта
+    - properties:
+        joins:
+          contains:
+            required: [declaredBy]
+      required: [joins]            # declaredBy снят: выводится из joins

@@ -1,0 +1,7 @@
+module: operation
+resources:
+  - name: operation
+    parent: cluster
+    actions:
+      - {name: cancel, class: operate, exempt: HANDLER_DECIDES}
+      - {name: get, class: operate, exempt: HANDLER_DECIDES}

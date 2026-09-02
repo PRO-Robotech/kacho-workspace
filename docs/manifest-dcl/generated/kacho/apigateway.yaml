@@ -1,0 +1,6 @@
+module: apigateway
+resources:
+  - name: authzCache
+    parent: cluster
+    actions:
+      - {name: internalInvalidateSubject, class: operate, exempt: NOT_IN_CATALOG, internal: true}
