@@ -2043,6 +2043,319 @@ def section_lane_parity():
     )
 
 
+# --- I. Диагностика берётся из ПРИЁМКИ, а не заводится реализацией ----------
+#
+# Норма контура: диагностику правила объявляет ПРИЁМКА. Реализация своей не
+# заводит — иначе контракт пишет исполнитель, а рецензент судит то, чего не
+# утверждал. До ws#502 норму не держала НИ ОДНА проверка: ни эта проба, ни
+# `inject.py`, ни `tests/caselib` не сверяли два множества, и единственное
+# отступление в дереве (ws#494) нашла честность автора полосы, а не механизм.
+#
+# Класс тихий by construction: код, которого приёмка не объявляет, матрица
+# кейсов НЕ ПРЕДЪЯВЛЯЕТ — её кейсы выводятся из приёмки, — поэтому такой код не
+# краснеет ничем и от законного неотличим.
+
+# Имя файла приёмки, а НЕ путь: путь выводится. Проба живёт и в песочнице
+# инъекций, где над каталогом оснастки корня воркспейса нет вовсе, и выписанный
+# `../../docs/...` там указывал бы в пустоту — то есть проба объявляла бы
+# «диагностик приёмки 0» и краснела на собственной раскладке.
+ACCEPTANCE_BASENAME = "sub-phase-SDD-1-kacho-change-graph-acceptance.md"
+
+# Ручка для песочницы: дочерний прогон в копии дерева получает путь приёмки
+# готовым, потому что вывести его сам он не может. Ставит её тот, кто песочницу
+# создал (`inject.py`, `prove_run_progress.py`), — через `acceptance_environment`.
+ACCEPTANCE_ENV = "CG_ACCEPTANCE_DOC"
+
+# Диагностика — токен `CG_…` либо `CGA_…`. Образец взят дословно из тела задач
+# #494/#502, чтобы число этой пробы воспроизводилось их предикатом, а не
+# расходилось с ним молча на второй форме записи.
+DIAGNOSTIC_TOKEN = re.compile(r"\bCGA?_[A-Z0-9_]+")
+
+# ── ВЕДОМОСТЬ ОТСТУПЛЕНИЙ ────────────────────────────────────────────────────
+#
+# Код, который правила объявляют, а приёмка — нет. Ключ — диагностика, значение
+# — причина и ПРЕДИКАТ СНЯТИЯ командой, а не словами.
+#
+# Ведомость САМОИСТЕКАЕТ: запись, которой нечего исключать, — находка
+# (`testing.md` §«Гейт на класс», п. 5). Идеал ведомости — ПУСТОТА, и пустая она
+# проходит: превращать достигнутую цель в поломку значило бы подталкивать
+# держать запись ради зелёного (§«Проба не имеет права падать на ДОСТИЖЕНИИ
+# СВОЕЙ ЦЕЛИ»).
+SPEC_DIAGNOSTIC_EXEMPTIONS = {
+    # ws#494. Приёмка для `cg.driver` не объявляет НИ ОДНОЙ диагностики: коды в
+    # её рядах `DRIVER-*` принадлежат соседям, а взять чужой значило бы завести
+    # второго производителя одного кода и назвать находку неверным именем.
+    # Автор полосы завёл свой и назвал цену в модуле — прощение стоит здесь
+    # ровно потому, что цена названа, а не потому, что код удобен.
+    #
+    # ПРЕДИКАТ СНЯТИЯ — командой, а не словами:
+    #
+    #   grep -c CG_DRIVER_BIRTH_TRIPLE_INVALID \
+    #     docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+    #
+    # Не ноль — предмет прощения исчез, и ЭТА запись обязана покраснеть здесь
+    # утверждением I2 как запись без предмета. Снятие идёт кругом рецензии по
+    # приёмке (правка приёмки отзывает её вердикт), а не правкой реализации.
+    "CG_DRIVER_BIRTH_TRIPLE_INVALID":
+        "ws#494: у семейства cg.driver собственной диагностики приёмка не "
+        "объявляет; снимается кругом рецензии по приёмке",
+}
+
+
+def acceptance_path():
+    """Путь приёмки, выведенный, а не выписанный. None — приёмка недосягаема.
+
+    Порядок: ручка окружения (её ставит создавший песочницу) → обход вверх от
+    каталога оснастки. Обратный порядок сделал бы ручку недействующей ровно
+    там, где она единственный источник.
+    """
+    override = os.environ.get(ACCEPTANCE_ENV)
+    if override:
+        return override if os.path.isfile(override) else None
+    node = GATE_DIR
+    while True:
+        candidate = os.path.join(node, "docs", "specs", ACCEPTANCE_BASENAME)
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(node)
+        if parent == node:
+            return None
+        node = parent
+
+
+def acceptance_environment(base=None):
+    """Окружение для дочернего прогона в песочнице: путь приёмки разрешён здесь.
+
+    Песочница инъекций — копия ОДНОГО каталога оснастки; воркспейса над ней нет,
+    поэтому обход вверх в ней не находит ничего. Разрешение делает тот, кто ещё
+    стоит в настоящем дереве, и передаёт готовый путь вниз. Ручка, уже стоящая в
+    окружении, ПЕРЕЖИВАЕТ вложение: `prove_run_progress.py` кладёт песочницу в
+    песочницу, и на втором этаже выводить путь неоткуда.
+    """
+    env = dict(os.environ if base is None else base)
+    resolved = acceptance_path()
+    if resolved:
+        env[ACCEPTANCE_ENV] = resolved
+    return env
+
+
+def rule_diagnostics():
+    """Диагностики, которые объявляют ПРАВИЛА — обходом реестра, не перечнем."""
+    return {
+        rule.diagnostic
+        for rules in registry_module.load().values()
+        for rule in rules
+    }
+
+
+def spec_diagnostics(path):
+    """Диагностики, которые объявляет ПРИЁМКА. Приёмки нет — пустое множество."""
+    if not path:
+        return set()
+    with open(path, encoding="utf-8") as handle:
+        return set(DIAGNOSTIC_TOKEN.findall(handle.read()))
+
+
+def audit_spec_diagnostics(codes, spec, exemptions):
+    """Сверка двух множеств. Возвращает (находки, перепись).
+
+    Находка — пара (вид, текст): вид нужен, чтобы утверждения были отдельными и
+    инъекция роняла НАЗВАННОЕ, а не «что-нибудь из секции».
+
+    НАПРАВЛЕНИЯ РАЗВЕДЕНЫ, и это несущее решение. `codes - spec` — находка:
+    контракт написала реализация. `spec - codes` — СТРОКА ПЕРЕПИСИ, но не
+    находка: `CG_OK` производителя не имеет by construction (это исход «правило
+    не нарушено», а не правило), и смешение двух направлений дало бы проверку,
+    красную ВСЕГДА, — то есть её отключили бы первой.
+    """
+    findings = []
+    undeclared = sorted(codes - spec)
+    unproduced = sorted(spec - codes)
+    unexcused = [code for code in undeclared if code not in exemptions]
+    stale = sorted(code for code in exemptions if code not in undeclared)
+
+    # Пустой обход — НАХОДКА «беспредметно», а не «чисто»: без этой ветви
+    # недосягаемая приёмка дала бы `codes - spec` величиной во весь реестр, а
+    # непрочитанный реестр — ноль находок, то есть зелёное на непрочитанном.
+    if not codes or not spec:
+        findings.append((
+            "беспредметно",
+            "обход беспредметен: диагностик правил %d, диагностик приёмки %d — "
+            "о предмете прочитано не всё, и это НЕ «нарушений нет»"
+            % (len(codes), len(spec)),
+        ))
+    for code in unexcused:
+        findings.append((
+            "мимо приёмки",
+            "%s — правило объявляет диагностику, которой приёмка НЕ объявляет: "
+            "контракт написала реализация, и рецензент судил бы то, чего не "
+            "утверждал" % code,
+        ))
+    for code in stale:
+        findings.append((
+            "прощение без предмета",
+            "%s — записи ведомости нечего исключать: либо приёмка код объявила, "
+            "либо правило его больше не производит. Прощение пережило свой "
+            "предмет — снимите запись" % code,
+        ))
+
+    census = {
+        "диагностик правил": len(codes),
+        "диагностик приёмки": len(spec),
+        "мимо приёмки": len(undeclared),
+        "из них прощено ведомостью": len(undeclared) - len(unexcused),
+        "без производителя": len(unproduced),
+    }
+    return findings, census
+
+
+def spec_census_line(census):
+    """Перепись ОБЕИМИ величинами.
+
+    Одно число скрывает ровно тот случай, ради которого проверка заведена:
+    множества разошлись, а размер не изменился — на стволе их было 134 и 134.
+    """
+    return " · ".join("%s %d" % (key, census[key]) for key in (
+        "диагностик правил", "диагностик приёмки", "мимо приёмки",
+        "из них прощено ведомостью", "без производителя",
+    ))
+
+
+def _findings_of(findings, kind):
+    return [text for found_kind, text in findings if found_kind == kind]
+
+
+def section_spec_diagnostics():
+    """Диагностика правил объявлена приёмкой — сверкой двух множеств.
+
+    Способность упасть доказана здесь же СИНТЕТИКОЙ: на настоящем дереве
+    отступление одно и оно прощено, поэтому красноту нельзя показать деревом —
+    только поданными множествами. По каждой оси стоит пара: дефект и законный
+    близнец, на котором сверка обязана МОЛЧАТЬ. Односторонняя проба зеленела бы
+    на сверке, которая отвергает всё.
+
+    Инъекцией по НАСТОЯЩЕМУ дереву та же способность доказана отдельно —
+    `selftest/inject.py`, отбор «диагностика мимо приёмки».
+    """
+    sys.stdout.write(
+        "\n== I. Диагностика берётся из приёмки, а не из реализации ==\n"
+    )
+
+    path = acceptance_path()
+    codes = rule_diagnostics()
+    spec = spec_diagnostics(path)
+    findings, census = audit_spec_diagnostics(
+        codes, spec, SPEC_DIAGNOSTIC_EXEMPTIONS
+    )
+    sys.stdout.write("       перепись сверки диагностик: %s\n"
+                     % spec_census_line(census))
+
+    check(
+        "I1 каждая диагностика правил объявлена приёмкой либо прощена "
+        "ведомостью с предикатом снятия",
+        not _findings_of(findings, "мимо приёмки"),
+        "; ".join(_findings_of(findings, "мимо приёмки")),
+    )
+    check(
+        "I2 у каждой записи ведомости есть предмет: прощение не переживает "
+        "своей причины",
+        not _findings_of(findings, "прощение без предмета"),
+        "; ".join(_findings_of(findings, "прощение без предмета")),
+    )
+    check(
+        "I3 обход непуст: приёмка найдена, реестр прочитан",
+        not _findings_of(findings, "беспредметно")
+        and census["диагностик правил"] > 0
+        and census["диагностик приёмки"] > 0,
+        "приёмка=%s; перепись: %s" % (path, spec_census_line(census)),
+    )
+
+    # --- способность упасть: пара «дефект / законный близнец» по каждой оси ---
+    defect, _ = audit_spec_diagnostics(
+        {"CG_MADE_UP_BY_IMPLEMENTATION"}, {"CG_OK"}, {}
+    )
+    named = [
+        text for text in _findings_of(defect, "мимо приёмки")
+        if "CG_MADE_UP_BY_IMPLEMENTATION" in text
+    ]
+    check(
+        "I4 дефект: код мимо приёмки — находка, и находка НАЗЫВАЕТ код",
+        len(named) == 1,
+        "находки: %s" % defect,
+    )
+    twin, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {}
+    )
+    check(
+        "I4-близнец код, приёмкой объявленный, — молчание",
+        not twin,
+        "находки: %s" % twin,
+    )
+
+    stale, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"},
+        {"CG_DECLARED_BY_ACCEPTANCE": "прощение, у которого предмет исчез"},
+    )
+    named = [
+        text for text in _findings_of(stale, "прощение без предмета")
+        if "CG_DECLARED_BY_ACCEPTANCE" in text
+    ]
+    check(
+        "I5 дефект: записи ведомости нечего исключать — находка с именем кода",
+        len(named) == 1,
+        "находки: %s" % stale,
+    )
+    live, _ = audit_spec_diagnostics(
+        {"CG_MADE_UP_BY_IMPLEMENTATION"}, {"CG_OK"},
+        {"CG_MADE_UP_BY_IMPLEMENTATION": "прощение с живым предметом"},
+    )
+    check(
+        "I5-близнец запись, у которой предмет ЖИВ, — молчание",
+        not live,
+        "находки: %s" % live,
+    )
+    empty_ledger, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {}
+    )
+    check(
+        "I5-близнец ПУСТАЯ ведомость — молчание, а не поломка: пустота и есть "
+        "её цель",
+        not empty_ledger,
+        "находки: %s" % empty_ledger,
+    )
+
+    absent, absent_census = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"},
+        {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {},
+    )
+    check(
+        "I6 «без производителя» — строка переписи, а НЕ находка: иначе сверка "
+        "красна всегда, потому что CG_OK правилом не производится",
+        not absent and absent_census["без производителя"] == 1,
+        "находки=%s; перепись: %s" % (absent, spec_census_line(absent_census)),
+    )
+
+    void_codes, _ = audit_spec_diagnostics(set(), {"CG_OK"}, {})
+    void_spec, _ = audit_spec_diagnostics({"CG_DECLARED_BY_ACCEPTANCE"}, set(), {})
+    check(
+        "I7 пустой обход — находка «беспредметно» с ОБЕИХ сторон, а не «чисто»",
+        len(_findings_of(void_codes, "беспредметно")) == 1
+        and len(_findings_of(void_spec, "беспредметно")) == 1,
+        "реестр пуст -> %s; приёмка пуста -> %s" % (void_codes, void_spec),
+    )
+    check(
+        "I7-близнец непустые множества беспредметности не объявляют",
+        not _findings_of(
+            audit_spec_diagnostics(
+                {"CG_DECLARED_BY_ACCEPTANCE"},
+                {"CG_DECLARED_BY_ACCEPTANCE"}, {},
+            )[0],
+            "беспредметно",
+        ),
+        "непустой вход объявлен беспредметным",
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -2054,6 +2367,7 @@ def main():
         section_callers_and_advisory(work)
         section_caller_and_landing(work)
     section_lane_parity()
+    section_spec_diagnostics()
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")
