@@ -228,9 +228,11 @@ def section_cases():
 # --- C. Вердикт есть функция МИРА, а не идентификатора -----------------------
 def section_world_decides():
     sys.stdout.write("\n== C. Решает мир, а не идентификатор кейса ==\n")
-    # По паре на объявленное семейство: односторонний перечень доказывал бы
-    # свойство для одних семейств и молчал бы о других — а молчание здесь
-    # неотличимо от таблицы соответствий «ID -> ответ».
+    # По паре на объявленное семейство: утверждение проверяется там, где оно
+    # может быть неверно. Семейство без своей пары осталось бы доказанным лишь
+    # односторонне — матрицей, которая спрашивает «совпала ли тройка» и не
+    # спрашивает, ЧТО её произвело; молчание такой матрицы неотличимо от
+    # таблицы соответствий «ID -> ответ».
     pairs = [
         ("SDD-1-BOOT-01", "SDD-1-BOOT-02", "CG_BOOTSTRAP_NOT_UNIQUE"),
         ("SDD-1-NONEMPTY-01", "SDD-1-NONEMPTY-02", "CG_ACCEPTANCE_IDS_EMPTY"),
@@ -244,7 +246,28 @@ def section_world_decides():
         ("SDD-1-BIRTH-01", "SDD-1-BIRTH-03", "CG_BIRTH_DEFECT_NOT_DETECTED"),
         ("SDD-1-EVID-01", "SDD-1-EVID-03", "CG_REQUIRED_HOLDER_RED"),
         ("SDD-1-NA-01", "SDD-1-NA-03", "CG_NA_PREDICATE_FALSE"),
+        ("SDD-1-TDD-02", "SDD-1-TDD-03", "CG_RED_PROOF_UNEXPECTED_GREEN"),
+        ("SDD-1-REVIEW-01", "SDD-1-REVIEW-06", "CG_BOOTSTRAP_ACTOR_SPOOFED"),
+        ("SDD-1-CLASS-04", "SDD-1-CLASS-05", "CG_CLASS_ITEM_UNMAPPED"),
+        ("SDD-1-DESIGN-01", "SDD-1-DESIGN-03", "CG_PRECODE_REVIEW_MISSING"),
+        ("SDD-1-CENSUS-01", "SDD-1-CENSUS-03", "CG_CENSUS_STALE"),
+        ("SDD-1-POLICY-01", "SDD-1-POLICY-02", "CG_POLICY_REPOSITORY_MISSING"),
     ]
+    # Перечень ОБЪЯВЛЕН, а не выведен: выведенный шёл бы за деревом и потому
+    # молчал бы ровно тогда, когда признак тихо сужается. Цена объявления —
+    # оно стареет; поэтому его согласие с деревом проверяется здесь же.
+    # Семейство, объявленное испытуемым и не получившее пары, доказано лишь
+    # односторонне, и без этой проверки о нём никто не узнал бы: перечень
+    # рукописный, а его расхождение с деревом ничем не читалось. Наблюдалось
+    # на сведении волны — 7 пар при 9 признаках, и каждая следующая полоса
+    # добавляла молчаливый пропуск.
+    covered = {registry_module.family_of(positive) for positive, _, _ in pairs}
+    orphans = sorted(set(registry_module.load()) - covered)
+    check(
+        "C0 у каждого объявленного семейства есть своя пара",
+        not orphans,
+        "без пары: %s" % (", ".join(orphans) or "нет"),
+    )
     for positive, negative, diagnostic in pairs:
         _, lines = run_sut(
             ["--case-world", fixture_world(negative), "--case", positive]
