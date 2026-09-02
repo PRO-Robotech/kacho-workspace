@@ -32,6 +32,12 @@ GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
 
+# Сводное утверждение прогона кейсов. Имя вынесено в константу, потому что оно
+# повторяется в ожиданиях нескольких инъекций; числа в нём нет намеренно —
+# счёт кейсов меняется от каждого нового семейства, и имя со счётом сталкивало
+# бы параллельные полосы by construction (см. комментарий у B1 в prove.py).
+B1 = "B1 каждый объявленный кейс дал объявленную приёмкой тройку И совпавший код"
+
 # (имя, относительный путь, что заменить, на что, какие утверждения обязаны пасть)
 INJECTIONS = [
     (
@@ -42,7 +48,7 @@ INJECTIONS = [
         # Проба обязана НАЗВАТЬ координату, а не только объявить итог, поэтому
         # среди ожидаемого стоит и поимённая строка кейса.
         ["B SDD-1-BOOT-02",
-         "B1 все 17 объявленных кейса дали объявленную тройку И совпавший код",
+         B1,
          "C1 SDD-1-BOOT-01: дефектный мир под положительным ID даёт "
          "CG_BOOTSTRAP_NOT_UNIQUE"],
     ),
@@ -83,6 +89,69 @@ INJECTIONS = [
         "    return sorted(capability_token(family) for family in load())",
         '    load()\n    return ["cg.boot", "cg.hash", "cg.nonempty", "cg.truth"]',
         ["A5 снятие модуля семейства снимает признак — перечень выведен из дерева"],
+    ),
+    (
+        "I6 отпечаток манифеста перестал сверяться с содержимым",
+        "cglib/families/holder.py",
+        "        return declared != observed",
+        "        declared != observed\n        return False",
+        # Читать координаты правило продолжает — иначе краснота пришла бы от
+        # переписи непрочитанного, а не от снятой сверки.
+        ["B SDD-1-HOLDER-06", "B SDD-1-HOLDER-07", "B SDD-1-HOLDER-08",
+         "B SDD-1-HOLDER-09", "B SDD-1-HOLDER-10", B1,
+         "C1 SDD-1-HOLDER-01: дефектный мир под положительным ID даёт "
+         "CG_HOLDER_SUBJECT_HASH_MISMATCH"],
+    ),
+    (
+        "I7 команда, не умеющая отказать, перестала быть находкой",
+        "cglib/families/holder.py",
+        "    return str(executable).strip() in TRIVIAL_EXECUTABLES",
+        "    str(executable).strip()\n    return False",
+        ["B SDD-1-HOLDER-03", B1,
+         "F-HOLDER-1 на команде true краснеют оба правила, вердикт — по "
+         "объявленному порядку"],
+    ),
+    (
+        "I8 держатель перестал быть обязан краснеть на injected defect",
+        "cglib/families/birth.py",
+        '    return world.read("birth_runs.%s" % RUN_INJECTED_DEFECT) '
+        "!= FAIL_OUTCOME",
+        '    world.read("birth_runs.%s" % RUN_INJECTED_DEFECT)\n    return False',
+        # Ровно тот дефект, ради которого рождение и заведено: держатель,
+        # который не может упасть, становится неотличим от молчавшего.
+        ["B SDD-1-BIRTH-03", B1,
+         "C1 SDD-1-BIRTH-01: дефектный мир под положительным ID даёт "
+         "CG_BIRTH_DEFECT_NOT_DETECTED",
+         "F-BIRTH-2 держателя, зелёного на всём, ловит правило injected "
+         "defect — и только оно"],
+    ),
+    (
+        "I9 «не выполнилось» подменяется красным вердиктом",
+        "cglib/families/evid.py",
+        '        diagnostic="CG_REQUIRED_HOLDER_NOT_EXECUTED",\n'
+        "        category=outcome.CATEGORY_NOT_EXECUTED,",
+        '        diagnostic="CG_REQUIRED_HOLDER_NOT_EXECUTED",\n'
+        "        category=outcome.CATEGORY_RED,",
+        ["B SDD-1-EVID-04", B1,
+         "F-EVID-1 неисполненный держатель даёт NOT_EXECUTED, а не RED"],
+    ),
+    (
+        "I10 отсутствующий вывод держателя перестал быть находкой",
+        "cglib/families/evid.py",
+        "    return bool(_holders_without_usable_output(world))",
+        "    _holders_without_usable_output(world)\n    return False",
+        ["B SDD-1-EVID-05", B1],
+    ),
+    (
+        "I11 evidence перестало проверяться на выполнение predicate",
+        "cglib/families/na.py",
+        "    return evidence[coordinate] != satisfying_value",
+        "    evidence[coordinate]\n    return False",
+        ["B SDD-1-NA-03", B1,
+         "C1 SDD-1-NA-01: дефектный мир под положительным ID даёт "
+         "CG_NA_PREDICATE_FALSE",
+         "F-NA-2-близнец зарегистрированный, но невыполненный предикат краснит "
+         "правило о evidence"],
     ),
 ]
 
