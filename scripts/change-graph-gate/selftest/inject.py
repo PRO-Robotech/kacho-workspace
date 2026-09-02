@@ -26,9 +26,42 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GATE_DIR = os.path.abspath(os.path.join(HERE, ".."))
+
+# Прогон идёт десятки минут: инъекций три с лишним десятка, и каждая — полный
+# прогон prove.py. Печать «всё разом в конце» делает «идёт» и «повис»
+# неотличимыми, а долгое молчание провоцирует снять прогон своим пределом —
+# и снятый прогон даёт третью категорию исхода («не выполнилось»), которую легко
+# прочесть как красное.
+#
+# Строки печатаются ПО МЕРЕ прохождения и со сбросом буфера. Сброс обязателен
+# именно потому, что вывод обычно перенаправляют: у неинтерактивного stdout
+# буферизация блочная, и без сброса первые ~8 КБ строк сидят в буфере невидимо,
+# сколько бы их ни написали.
+#
+# Объявление печатается ДО прогона, а не после: остановка тогда видна НА ИМЕНИ
+# инъекции. Строка, напечатанная после, о зависшей инъекции не скажет ничего —
+# её просто не будет.
+HEADER_LINE = "=== инъекции: объявлено %d, к прогону %d ===\n"
+HEADER_NOTE = (
+    "каждая — полный прогон prove.py; строка ИДЁТ печатается ДО прогона,\n"
+    "поэтому остановка видна на имени инъекции, а не в молчании\n"
+)
+CONTROL_LINE = "  ИДЁТ [контроль] нетронутое дерево\n"
+PROGRESS_LINE = "  ИДЁТ [%d/%d] %s\n"
+
+
+def say(text):
+    """Печатает текст и СБРАСЫВАЕТ буфер.
+
+    Без сброса строка видна только после того, как наберётся блок либо
+    завершится процесс, — то есть ровно тогда, когда она уже не нужна.
+    """
+    sys.stdout.write(text)
+    sys.stdout.flush()
 
 FAIL_LINE = re.compile(r"^  FAIL (.+)$")
 # Имя утверждения берётся ЦЕЛИКОМ. Первая редакция отсекала хвост после «->»
@@ -611,29 +644,42 @@ def check_ledger_shape():
         if not isinstance(entry, tuple) or len(entry) != 5
     ]
     if wrong:
-        sys.stdout.write(
-            "  FAIL форма ведомости: записей с числом полей, отличным от пяти "
-            "— %d %s\n" % (len(wrong), wrong)
-        )
+        say("  FAIL форма ведомости: записей с числом полей, отличным от пяти "
+            "— %d %s\n" % (len(wrong), wrong))
         return False
-    sys.stdout.write(
-        "  OK   форма ведомости: записей %d, у каждой ровно пять полей\n"
-        % len(INJECTIONS)
-    )
+    say("  OK   форма ведомости: записей %d, у каждой ровно пять полей\n"
+        % len(INJECTIONS))
     return True
 
 
 def main():
     passed = 0
     broken = 0
+    # Отбор считается ДО контрольного прогона, а не после: во-первых, шапка
+    # обязана назвать, сколько инъекций к прогону, во-вторых, негодный отбор
+    # больше не оплачивается полным контрольным прогоном, чтобы затем сообщить,
+    # что совпадений ноль.
+    selected = [
+        entry for entry in INJECTIONS
+        if not sys.argv[1:] or sys.argv[1] in entry[0]
+    ]
+    say(HEADER_LINE % (len(INJECTIONS), len(selected)))
+    say(HEADER_NOTE)
     if check_ledger_shape():
         passed += 1
     else:
         broken += 1
         return 1
+    if sys.argv[1:] and not selected:
+        say("  FAIL отбор %r не совпал ни с одной инъекцией из %d\n"
+            % (sys.argv[1], len(INJECTIONS)))
+        return 1
     with tempfile.TemporaryDirectory(prefix="cg-inject-") as work:
         control_root = prepare(work, "control")
+        say(CONTROL_LINE)
+        started = time.monotonic()
         code, failed, control_passed = run_prove(control_root)
+        control_seconds = time.monotonic() - started
         # Перечень утверждений о собственном отказе ВЫВОДИТСЯ отсюда: на чистом
         # дереве они все зелёные, поэтому именно контрольный прогон и знает их
         # состав. Пустой перечень — находка, а не «нечего разворачивать».
@@ -642,57 +688,40 @@ def main():
         )
         if code == 0 and not failed:
             passed += 1
-            sys.stdout.write("  OK   контроль: нетронутое дерево зелено\n")
+            say("  OK   контроль: нетронутое дерево зелено (%.0f с)\n"
+                % control_seconds)
         else:
             broken += 1
-            sys.stdout.write(
-                "  FAIL контроль: нетронутое дерево дало код %d и находки %s\n"
-                % (code, failed)
-            )
+            say("  FAIL контроль: нетронутое дерево дало код %d и находки %s\n"
+                % (code, failed))
 
-        # Отбор по подстроке имени. Полный прогон — 38 инъекций, каждая с
-        # собственным прогоном доказательств, то есть больше часа; проверить
-        # правку ОДНОЙ инъекции иначе нельзя, и это толкает не проверять её
-        # вовсе. Перепись при отборе печатает, сколько инъекций осмотрено из
-        # скольких объявленных, — «доказано 1 из 1» не должно читаться как
-        # «доказаны все».
-        global selected_count
-        selected = [
-            entry for entry in INJECTIONS
-            if not sys.argv[1:] or sys.argv[1] in entry[0]
-        ]
-        selected_count = selected
-        if sys.argv[1:] and not selected:
-            sys.stdout.write(
-                "  FAIL отбор %r не совпал ни с одной инъекцией из %d\n"
-                % (sys.argv[1], len(INJECTIONS))
-            )
-            return 1
+        # Отбор по подстроке имени посчитан выше. Перепись при отборе печатает,
+        # сколько инъекций осмотрено из скольких объявленных, — «доказано 1 из
+        # 1» не должно читаться как «доказаны все».
         for index, (name, relpath, needle, replacement, expected) in enumerate(
             selected
         ):
+            say(PROGRESS_LINE % (index + 1, len(selected), name))
+            started = time.monotonic()
             root = prepare(work, "inject-%d" % index)
             target = os.path.join(root, relpath)
             with open(target, encoding="utf-8") as handle:
                 source = handle.read()
             if needle not in source:
                 broken += 1
-                sys.stdout.write(
-                    "  FAIL %s: подстановка не состоялась — образец не найден в %s\n"
-                    % (name, relpath)
-                )
+                say("  FAIL %s: подстановка не состоялась — образец не найден в %s\n"
+                    % (name, relpath))
                 continue
             with open(target, "w", encoding="utf-8") as handle:
                 handle.write(source.replace(needle, replacement, 1))
 
             code, failed, _ = run_prove(root)
+            seconds = time.monotonic() - started
             if EVERY_SELF_FAILURE in expected:
                 if not self_failure_assertions:
                     broken += 1
-                    sys.stdout.write(
-                        "  FAIL %s: перечень утверждений о собственном отказе "
-                        "ПУСТ — раскрывать нечего, инъекция беспредметна\n" % name
-                    )
+                    say("  FAIL %s: перечень утверждений о собственном отказе "
+                        "ПУСТ — раскрывать нечего, инъекция беспредметна\n" % name)
                     continue
                 expected = [item for item in expected if item != EVERY_SELF_FAILURE]
                 expected = expected + self_failure_assertions
@@ -700,31 +729,23 @@ def main():
             extra = [item for item in failed if item not in expected]
             if code == 1 and not missing and not extra:
                 passed += 1
-                sys.stdout.write(
-                    "  OK   %s -> покраснело ровно %d ожидаемых утверждений\n"
-                    % (name, len(expected))
-                )
+                say("  OK   %s -> покраснело ровно %d ожидаемых утверждений (%.0f с)\n"
+                    % (name, len(expected), seconds))
             else:
                 broken += 1
-                sys.stdout.write(
-                    "  FAIL %s: код %d; не покраснело %s; покраснело лишнее %s\n"
-                    % (name, code, missing, extra)
-                )
+                say("  FAIL %s: код %d; не покраснело %s; покраснело лишнее %s\n"
+                    % (name, code, missing, extra))
 
     total = passed + broken
-    sys.stdout.write("\n=== перепись инъекций ===\n")
-    sys.stdout.write(
-        "инъекций с контролем: %d · доказано: %d · не доказано: %d\n"
-        % (total, passed, broken)
-    )
+    say("\n=== перепись инъекций ===\n")
+    say("инъекций с контролем: %d · доказано: %d · не доказано: %d\n"
+        % (total, passed, broken))
     if sys.argv[1:]:
-        sys.stdout.write(
-            "ОТБОР %r: осмотрено инъекций %d из %d объявленных — вердикт "
+        say("ОТБОР %r: осмотрено инъекций %d из %d объявленных — вердикт "
             "относится к отобранным, не ко всем\n"
-            % (sys.argv[1], len(selected_count), len(INJECTIONS))
-        )
+            % (sys.argv[1], len(selected), len(INJECTIONS)))
     if total == 0:
-        sys.stdout.write("проба беспредметна: инъекций ноль\n")
+        say("проба беспредметна: инъекций ноль\n")
         return 2
     return 1 if broken else 0
 
