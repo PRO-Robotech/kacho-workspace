@@ -22,11 +22,49 @@ trap 'rm -rf "$WORK"' EXIT
 PASSED=0
 FAILED=0
 ASSERTIONS=0
+CAP_EXPECTATIONS=0
+
+CAP_MISSING="RED · CASE_CAPABILITY_MISSING · exit 10"
+
+# Отсутствующий SUT: путь внутри рабочего каталога, которого НЕТ на диске.
+# Условие «признака у испытуемого нет» СТРОИТСЯ здесь, а не отыскивается среди
+# кейсов, — см. врезку у стража ниже.
+ABSENT_SUT="$WORK/absent-sut.py"
 
 # expect <имя> <ожидаемая строка> <ожидаемый код> -- <команда...>
+#
+# СТРАЖ КЛАССА (задача воркспейса #485). Ожидание `CAP_MISSING` обязано наводить
+# seam на подставленный SUT (`KACHO_CG_SUT=`), а не полагаться на то, что
+# production SUT сегодня чего-то не умеет. Утверждение «у испытуемого этого
+# признака нет», выписанное на кейсе живого семейства, переживает свой предмет в
+# тот самый момент, когда семейство приземляется: за две волны так покраснели
+# три утверждения — A1 и C2-близнец на волне 2 (17 семейств), к ним D1-близнец на
+# волне 3 (33 семейства). Класс НЕ самоисцеляется — он растёт с числом семейств,
+# а красное, приходящее не от дефекта, перестают читать вместе с настоящей
+# находкой.
+#
+# Почему СТРОИТЬ, а не выбирать кейс необъявленного семейства: такого кейса нет
+# и не будет. Замер на этом дереве — семейств в testdata 33, объявлено 33,
+# разность в обе стороны пуста; предикат воспроизводится сравнением
+# `run.py --capabilities` с именами каталогов `tests/testdata`. Выбор кейса
+# отложил бы поломку, а не снял её.
 expect() {
   local name="$1" want_line="$2" want_exit="$3"; shift 4
   ASSERTIONS=$((ASSERTIONS + 1))
+
+  if [ "$want_line" = "$CAP_MISSING" ]; then
+    CAP_EXPECTATIONS=$((CAP_EXPECTATIONS + 1))
+    local argument seam_pinned=0
+    for argument in "$@"; do
+      case "$argument" in KACHO_CG_SUT=*) seam_pinned=1 ;; esac
+    done
+    if [ "$seam_pinned" = "0" ]; then
+      FAILED=$((FAILED + 1))
+      printf '  FAIL %s\n       ожидание CAP_MISSING не наводит seam: нет KACHO_CG_SUT=\n       оно опирается на то, чего production SUT ещё не умеет, и покраснеет,\n       как только семейство приземлится\n' "$name"
+      return
+    fi
+  fi
+
   local out rc last
   out="$("$@" 2>&1)"; rc=$?
   last="$(printf '%s\n' "$out" | grep -v '^$' | tail -1)"
@@ -46,8 +84,6 @@ fresh_testdata() {
   cp -r "$TESTS_DIR/testdata/." "$dest/"
   printf '%s' "$dest"
 }
-
-CAP_MISSING="RED · CASE_CAPABILITY_MISSING · exit 10"
 
 echo "== A. Честный acceptance RED: SUT отсутствует =="
 expect "A1 production SUT отсутствует -> capability RED" \
