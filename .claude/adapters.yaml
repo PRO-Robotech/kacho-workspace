@@ -1,0 +1,107 @@
+# Манифест владения адаптера оснастки — ЕДИНСТВЕННОЕ место, где объявлено,
+# что порождается из канонической оснастки для других агентских сред.
+#
+# ВХОД против ВЫХОДА. `.claude/**` и корневой `CLAUDE.md` — канонические входы;
+# всё, перечисленное в `owned_outputs`, — производное. Правка производного
+# уедет при следующей регенерации, а гейт назовёт её расхождением: предмет
+# правки всегда во входе.
+#
+# ПОЧЕМУ ТОЧНЫЙ ПЕРЕЧЕНЬ, А НЕ ШАБЛОН. Шаблон подхватывает новое молча, и тогда
+# «лишний выход» перестаёт быть отличимым от «выход, о котором никто не решал».
+# Точный перечень стоит одной строки при заведении файла и делает оба состояния
+# видимыми: строка без файла и файл без строки — обе находки.
+#
+# ЧУЖОЙ ПАКЕТ ВЫХОДОМ НЕ ЯВЛЯЕТСЯ. Пакет внутри `.agents/skills/`, которого нет
+# среди `skills`, принадлежит другой установке: генератор его не пишет и не
+# удаляет, гейт не считает его лишним и — несущее требование — чужой пакет
+# НЕ МАСКИРУЕТ расхождение владеемого.
+#
+# Норма — `.claude/rules/change-graph.md` §Оснастка. Гейт —
+# `scripts/adapter-gate/run-all.sh`. Генератор — `scripts/adapter/generate.py`.
+schema_version: 1
+
+# Единственные входы, которые вправе читать генератор. Чтение чего-либо вне
+# этого набора — находка (`CG_ADAPTER_INPUT_NOT_CANONICAL`): производное,
+# зависящее от неканонического входа, перестаёт быть воспроизводимым из
+# оснастки.
+canonical_inputs:
+  - CLAUDE.md
+  - .claude/adapters.yaml
+  - .claude/agents
+  - .claude/hooks
+  - .claude/rules
+  - .claude/skills
+  - .claude/settings.json
+
+# Пространства, внутри которых адаптер отвечает за КАЖДЫЙ отслеживаемый файл.
+# Отслеживаемый файл здесь, не названный в `owned_outputs`, — лишний выход.
+# Пакеты скилов перечислены поимённо (см. «чужой пакет» выше), а не каталогом.
+owned_namespaces:
+  - AGENTS.md
+  - .codex/agents
+  - .codex/hooks
+  - .codex/hooks.json
+
+# Скилы, чьи ПОЛНЫЕ пакеты порождаются: `SKILL.md` и всё вложенное — ссылки,
+# ассеты, скрипты. Потерянный вложенный ресурс — находка
+# (`CG_ADAPTER_NESTED_ASSET_MISSING`), а не «пакет почти целый».
+# Перечень обязан совпадать с отслеживаемыми директориями `.claude/skills/*/`.
+skills:
+  - change-graph
+  - code-authoring
+  - doc-truthfulness
+  - evgeniy
+  - gate-authoring
+  - godzila
+  - hardening-audit-loop
+  - kacho-docs-writer
+  - load-testing-coach
+  - measurement-discipline
+  - security-surface
+  - testing-code-coach
+  - testing-product-coach
+  - verdict-and-landing
+
+# Точный набор владеемых выходов. Сверяется в обе стороны: с деревом и с
+# регенерацией во временный каталог.
+owned_outputs:
+  - AGENTS.md
+  - .agents/skills/change-graph/SKILL.md
+  - .agents/skills/code-authoring/SKILL.md
+  - .agents/skills/doc-truthfulness/SKILL.md
+  - .agents/skills/evgeniy/SKILL.md
+  - .agents/skills/gate-authoring/SKILL.md
+  - .agents/skills/godzila/SKILL.md
+  - .agents/skills/hardening-audit-loop/SKILL.md
+  - .agents/skills/hardening-audit-loop/references/audit-round.workflow.js
+  - .agents/skills/kacho-docs-writer/SKILL.md
+  - .agents/skills/load-testing-coach/SKILL.md
+  - .agents/skills/measurement-discipline/SKILL.md
+  - .agents/skills/security-surface/SKILL.md
+  - .agents/skills/testing-code-coach/SKILL.md
+  - .agents/skills/testing-product-coach/SKILL.md
+  - .agents/skills/verdict-and-landing/SKILL.md
+  - .codex/agents/acceptance-author.toml
+  - .codex/agents/acceptance-reviewer.toml
+  - .codex/agents/api-gateway-registrar.toml
+  - .codex/agents/class-exposure-analyst.toml
+  - .codex/agents/convergence-reviewer.toml
+  - .codex/agents/db-architect-reviewer.toml
+  - .codex/agents/go-style-reviewer.toml
+  - .codex/agents/integration-tester.toml
+  - .codex/agents/landing-reviewer.toml
+  - .codex/agents/migration-writer.toml
+  - .codex/agents/proto-api-reviewer.toml
+  - .codex/agents/proto-sync.toml
+  - .codex/agents/qa-test-engineer.toml
+  - .codex/agents/rpc-implementer.toml
+  - .codex/agents/service-scaffolder.toml
+  - .codex/agents/system-design-reviewer.toml
+  - .codex/hooks.json
+  - .codex/hooks/branches-clean.sh
+  - .codex/hooks/change-graph-reminder.sh
+  - .codex/hooks/class-guard.sh
+  - .codex/hooks/docfresh.sh
+  - .codex/hooks/hooks-wired.sh
+  - .codex/hooks/vault-reminder.sh
+  - .codex/hooks/vault-stop-check.sh

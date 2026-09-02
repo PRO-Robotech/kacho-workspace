@@ -47,6 +47,22 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   `scripts/`, цели Makefile), а не в `.claude/`.
 - Канонический список — `@.claude/rules/ai-tooling.md`.
 
+### Производное для других агентских сред — отслеживаемое, а не временное
+
+Из той же единственной оснастки порождается её проекция для сред, читающих `AGENTS.md`,
+`.agents/skills/` и `.codex/`. Проекция — **выход**, а оснастка — **вход**; владение
+объявлено ровно в одном месте, `.claude/adapters.yaml`.
+
+- **Правишь оснастку → перегенерируй проекцию:** `python3 scripts/adapter/generate.py`.
+- **Проверить, что производное сходится с деревом:** `./scripts/adapter-gate/run-all.sh`
+  (регенерация во временный каталог и побайтовое сравнение).
+- **Проекцию руками не правят** — правка уедет при следующей регенерации, а гейт назовёт
+  её расхождением. Предмет правки всегда во входе.
+
+Почему выход отслеживаемый, а не порождаемый на лету, и почему имя каталога оснастки в
+текстах **не подставляется** на имя второй среды — `@.claude/rules/change-graph.md`
+§«Оснастка — ВХОД контура».
+
 ## Модульные правила (@import)
 
 @.claude/rules/00-kacho-core.md
@@ -57,6 +73,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/security.md
 @.claude/rules/git-issues.md
 @.claude/rules/multi-agent-flow.md
+@.claude/rules/change-graph.md
 @.claude/rules/testing.md
 @.claude/rules/subscription.md
 @.claude/rules/e2e-flow.md

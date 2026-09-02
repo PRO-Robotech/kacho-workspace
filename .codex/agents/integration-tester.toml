@@ -1,8 +1,10 @@
----
-name: integration-tester
-description: Конвертит APPROVED Given-When-Then acceptance-сценарии в падающие integration + e2e тесты (TDD red); не реализует RPC.
----
-
+# ПОРОЖДЁННЫЙ ФАЙЛ — РУКАМИ НЕ ПРАВИТЬ.
+# Источник: канонические входы .claude/ и корневой CLAUDE.md.
+# Владение: .claude/adapters.yaml. Генератор: scripts/adapter/generate.py.
+# Правка уедет при следующей регенерации; предмет правки — во входе.
+name = "integration-tester"
+description = "Конвертит APPROVED Given-When-Then acceptance-сценарии в падающие integration + e2e тесты (TDD red); не реализует RPC."
+developer_instructions = """
 # Агент: integration-tester
 
 ## Роль
@@ -157,3 +159,4 @@ cd project/kacho-<svc> && go test ./internal/repo/ -run Test<Resource>_<ID>   # 
 
 > **Держится:** `scripts/change-graph-gate/tests/caselib/seam.py` (четыре состояния пробы),
 > `run_case.py` (порядок), `caselib/delta.py` (одно-фактность). Все три в дереве **есть**.
+"""

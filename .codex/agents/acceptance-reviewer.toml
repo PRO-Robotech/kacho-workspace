@@ -1,8 +1,10 @@
----
-name: acceptance-reviewer
-description: Единственный gate APPROVED для acceptance-дока (Given-When-Then) ПЕРЕД любым кодом — проверяет покрытие спеки, полноту сценариев (positive/negative/edge), traceability, реализм и scope; возвращает ✅ APPROVED либо ❌ CHANGES REQUESTED. Запускай ПОСЛЕ acceptance-author, до plan/implementation.
----
-
+# ПОРОЖДЁННЫЙ ФАЙЛ — РУКАМИ НЕ ПРАВИТЬ.
+# Источник: канонические входы .claude/ и корневой CLAUDE.md.
+# Владение: .claude/adapters.yaml. Генератор: scripts/adapter/generate.py.
+# Правка уедет при следующей регенерации; предмет правки — во входе.
+name = "acceptance-reviewer"
+description = "Единственный gate APPROVED для acceptance-дока (Given-When-Then) ПЕРЕД любым кодом — проверяет покрытие спеки, полноту сценариев (positive/negative/edge), traceability, реализм и scope; возвращает ✅ APPROVED либо ❌ CHANGES REQUESTED. Запускай ПОСЛЕ acceptance-author, до plan/implementation."
+developer_instructions = """
 # Агент: acceptance-reviewer
 
 ## 1. Роль
@@ -194,3 +196,4 @@ per-repo `project/<repo>/docs/specs/`) и пометил «Draft, на ревь�
 > продукта). Предел назван честно: они судят **объявление**, а не истинность — документ
 > вправе объявить одобрение, не будучи одобренным. Привязку к отпечатку и внешнему событию
 > держит испытуемый контура, которого в дереве ещё нет.
+"""
