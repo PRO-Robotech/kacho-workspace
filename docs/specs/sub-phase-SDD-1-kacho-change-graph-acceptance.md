@@ -81,15 +81,33 @@ docs/changes/<change-id>/
 └── evidence/<holder-id>/<subject-sha256>.yaml
 ~~~
 
-Bootstrap acceptance review хранится отдельно, потому что package ещё не
-существует:
+Review records самого SDD-1 лежат ВНЕ package, и это постоянная координата, а не
+временная. Причина — не «package ещё не создан»: такая причина истекла бы
+cutover'ом, а координата не истекает. Причина в том, что self-package не
+создаётся НИКОГДА (§15), поэтому пакетной координаты у этих записей нет by
+construction. Записей три, и все три объявлены здесь:
 
 ~~~text
 docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-acceptance/<subject-sha256>.yaml
+docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-class-exposure/initial/<subject-sha256>.md
+docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-class-exposure/revalidation/<design-sha256>.md
 ~~~
 
-Этот artifact содержит `subject_sha256`, verdict, `authorized_actor`, а также
-URL, immutable node ID, body SHA-256 и timestamp verdict event в Issue #480.
+Ключуются они ровно тем, чем §5 связывает две записи class exposure, и потому
+первые две несут ОДИН отпечаток — этого subject, — а третья другой: initial
+связан с acceptance hash, revalidation с design hash. Общий ключ на обе сделал бы
+stale revalidation неотличимой от свежей, тогда как §5 инвалидирует её именно
+сменой design bytes.
+
+Acceptance review artifact содержит `subject_sha256`, verdict, `authorized_actor`,
+а также URL, immutable node ID, body SHA-256 и timestamp verdict event в
+Issue #480. Записи class exposure несут items (§5) — это сам разбор, а не
+verdict-only record, поэтому их форма Markdown.
+
+Режим полномочия каждой из трёх записей задаёт §4 по эпохе — здесь он не
+повторяется. Ни этот раздел, ни слово `bootstrap` в истории этих записей, ни имя
+каталога режима не задают: путь — coordinate, не доказательство режима, ровно как
+role name в YAML (§4).
 
 ## 4. External review authority и noncyclic approval
 
