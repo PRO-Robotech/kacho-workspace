@@ -1,0 +1,52 @@
+schema_version: 1
+kind: acceptance_review
+
+# Запись НЕ bootstrap: маршрут полномочия задаёт §4 по эпохе, а эпоха выведена из
+# ancestry базы относительно cutover_commit (§8), а не объявлена полем. Прежняя
+# запись 47f5f98f… несёт kind: bootstrap_acceptance_review — повторять её форму
+# нельзя: на этой эпохе полоса bootstrap отвечает CG_BOOTSTRAP_AUTHORITY_EXPIRED.
+# Прежние records append-only и не удаляются; этот artifact — их sibling.
+
+subject:
+  path: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  sha256: cc021e4e28512667d71f58d7fd430cf457c24f7059efffa37344e1e30e560fb9
+  static_status: DRAFT
+  supersedes_subject_sha256: c455619dd46e835bcca10f6142c41279eac18fc04cb5856b478124ed9abb4121
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    ancestry базы change относительно repo-specific cutover_commit (§4, §8);
+    эвристика имени ветки или стартового коммита не используется
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+
+# Три величины §4, сходящиеся между артефактом и событием. Вердикт стоит здесь
+# как СВЕРЯЕМАЯ величина, а не как координата цитирования: правило
+# auth.verdict-mirrors-event сравнивает именно эту пару.
+event:
+  type: issue_comment
+  database_id: 5518722377
+  node_id: IC_kwDOSVvpIM8AAAABSPEFSQ
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/480#issuecomment-5518722377
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5518722377
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/480
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-03T01:03:37Z'
+  updated_at: '2026-09-03T01:03:37Z'
+  body_sha256: 22173516ce3e9a6f15c8de3b0c4e4967eebbb385b3b19392d29dbf054598915d
+  subject_sha256: cc021e4e28512667d71f58d7fd430cf457c24f7059efffa37344e1e30e560fb9
+  verdict: APPROVED
+
+closes:
+  - PRO-Robotech/kacho-workspace#492
+  - PRO-Robotech/kacho-workspace#494

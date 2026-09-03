@@ -13,7 +13,10 @@
 > aaeffb0ac70d68f737c12eec902a38b9fb80d9ebc45dba186fbb1a81d2c2d8c0.
 > ❌ CHANGES REQUESTED для SHA-256
 > d1a0ee80d108c03d8a39b8e7448a83c4d33421d4d3494c926b9043bc7a6fa251.
-> Все три record append-only и не переносят verdict на эту редакцию.
+> ✅ APPROVED для SHA-256
+> 47f5f98fe1f01611a70ae1c2a5187b54d88dfd9cfb5c8566d74b5e5783d19c28.
+> Все четыре record append-only, и ни один не переносит verdict на эту
+> редакцию: verdict привязан к отпечатку subject, а эта редакция его меняет.
 
 ## 1. Scope и единственный bootstrap
 
@@ -78,15 +81,33 @@ docs/changes/<change-id>/
 └── evidence/<holder-id>/<subject-sha256>.yaml
 ~~~
 
-Bootstrap acceptance review хранится отдельно, потому что package ещё не
-существует:
+Review records самого SDD-1 лежат ВНЕ package, и это постоянная координата, а не
+временная. Причина — не «package ещё не создан»: такая причина истекла бы
+cutover'ом, а координата не истекает. Причина в том, что self-package не
+создаётся НИКОГДА (§15), поэтому пакетной координаты у этих записей нет by
+construction. Записей три, и все три объявлены здесь:
 
 ~~~text
 docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-acceptance/<subject-sha256>.yaml
+docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-class-exposure/initial/<subject-sha256>.md
+docs/specs/reviews/sub-phase-SDD-1-kacho-change-graph-class-exposure/revalidation/<design-sha256>.md
 ~~~
 
-Этот artifact содержит `subject_sha256`, verdict, `authorized_actor`, а также
-URL, immutable node ID, body SHA-256 и timestamp verdict event в Issue #480.
+Ключуются они ровно тем, чем §5 связывает две записи class exposure, и потому
+первые две несут ОДИН отпечаток — этого subject, — а третья другой: initial
+связан с acceptance hash, revalidation с design hash. Общий ключ на обе сделал бы
+stale revalidation неотличимой от свежей, тогда как §5 инвалидирует её именно
+сменой design bytes.
+
+Acceptance review artifact содержит `subject_sha256`, verdict, `authorized_actor`,
+а также URL, immutable node ID, body SHA-256 и timestamp verdict event в
+Issue #480. Записи class exposure несут items (§5) — это сам разбор, а не
+verdict-only record, поэтому их форма Markdown.
+
+Режим полномочия каждой из трёх записей задаёт §4 по эпохе — здесь он не
+повторяется. Ни этот раздел, ни слово `bootstrap` в истории этих записей, ни имя
+каталога режима не задают: путь — coordinate, не доказательство режима, ровно как
+role name в YAML (§4).
 
 ## 4. External review authority и noncyclic approval
 
@@ -106,6 +127,15 @@ node/URL этого event и его body digest. На дату subject actor `po
 Issue/PR review/comment event, gate получает event через API, actor разрешён для
 роли policy allowlist, а event body/subject digests и verdict совпадают.
 
+Post-cutover сверяемое множество ЗАКРЫТО и объявлено здесь ровно тремя
+величинами: body digest, subject digest и verdict. §7 и §13 его читают, а не
+задают: величина, названная одним местом и не названная другим, — находка, а не
+решение, потому что артефакт судился бы по тому, кто его описывает. Bootstrap
+сверяет СВОЙ перечень — actor, роль, subject digest и verdict, — и различие
+намеренное: до cutover policy allowlist ещё нет, поэтому проверяется, кто вправе
+говорить; после cutover личность решает allowlist, и остаётся привязка
+содержания.
+
 Самодекларированное role: без event не даёт authority. Недоступный API или ref —
 NOT_EXECUTED. Старый review artifact не редактируется и не удаляется; новый
 subject получает новый sibling artifact.
@@ -114,6 +144,20 @@ subject получает новый sibling artifact.
 specialist, class-exposure, convergence и landing reviews используют только
 versioned policy authority. Role name в YAML — coordinate, не доказательство
 личности. Недоступность permission, Issue, event или API даёт NOT_EXECUTED.
+
+Authority epoch — ВЫВОДИМАЯ координата, а не самообъявленное поле: её задаёт
+ancestry базы change относительно repo-specific `cutover_commit` (§8), и
+эвристика имени ветки или стартового коммита не используется. Координата epoch в
+мире кейса §13 моделирует РЕЗУЛЬТАТ этого вывода и вторым источником не является:
+мир кейса описывает то, что вывод уже дал, а не заменяет его.
+
+Истечение bootstrap exception связывает и САМ subject SDD-1. Долговечна пара
+«Issue #480 + этот acceptance» как владелец bootstrap SCOPE — что именно является
+единственным bootstrap и чей это observable scope; authority маршрута Issue #480
+долговечной НЕ является и истекает cutover'ом. Поэтому новый круг review по этой
+приёмке, чья база уже содержит собственный cutover commit SDD-1, идёт policy
+authority на общих основаниях: сам subject исключения не имеет. §15 читает эту
+фразу, а не повторяет её.
 
 ## 5. Lifecycle, class exposure и applicability
 
@@ -213,7 +257,9 @@ Executable true, неизвестная команда, отсутствующе
 
 Human semantic holder — verified GitHub event + append-only artifact. Он содержит
 immutable event node/URL, actor из role allowlist, body digest, subject digest,
-timestamp и verdict. API недоступен → NOT_EXECUTED; role: без event → RED.
+timestamp и verdict. Какое подмножество этого содержимого СВЕРЯЕТСЯ с событием,
+задаёт §4 по эпохам; здесь оно не переопределяется. API недоступен →
+NOT_EXECUTED; role: без event → RED.
 
 У required holder ровно один captured outcome: GREEN, RED или NOT_EXECUTED.
 Missing output → NOT_EXECUTED. Active package с 0 acceptance IDs, 0 required
@@ -527,7 +573,7 @@ Planned coordinates не утверждают, что файлы уже суще
 
 **Expected SUT:** GREEN · CG_OK · exit 0
 
-**Given** artifact содержит immutable event URL/node, actor из post-cutover policy allowlist, body/subject digests и timestamp
+**Given** artifact содержит immutable event URL/node, actor из post-cutover policy allowlist, body/subject digests, timestamp и verdict
 
 **When** gate получает event через GitHub API
 
@@ -630,6 +676,20 @@ Planned coordinates не утверждают, что файлы уже суще
 **When** authority проверяется
 
 **Then** SUT возвращает NOT_EXECUTED, не APPROVED.
+
+#### SDD-1-AUTH-09 — artifact verdict не совпал с event verdict
+
+**Positive twin:** SDD-1-AUTH-01
+
+**Holder type:** human-external
+
+**Expected SUT:** RED · CG_REVIEW_VERDICT_MISMATCH · exit 10
+
+**Given** в twin изменён только verdict артефакта, event verdict сохранён
+
+**When** authority проверяется
+
+**Then** SUT отвергает artifact, чей verdict расходится с event.
 
 ### Truth ownership
 #### SDD-1-TRUTH-01 — human holder подтверждает разделение истины
@@ -1458,6 +1518,14 @@ Planned coordinates не утверждают, что файлы уже суще
 **When** driver сравнивает все три поля  
 **Then** final holder возвращает RED с exit-mismatch diagnostic.
 
+#### SDD-1-DRIVER-04 — birth triple не является вердиктом
+**Positive twin:** SDD-1-TRACE-01  
+**Holder type:** machine  
+**Expected SUT:** RED · CG_DRIVER_BIRTH_TRIPLE_INVALID · exit 10  
+**Given** в twin изменена только записанная birth triple: код возврата больше не следует из её категории  
+**When** birth record проверяется как вердикт  
+**Then** SUT отвергает запись, которая исходом не является.
+
 ### Diff ownership, post-diff review и convergence
 
 #### SDD-1-DIFF-01 — actual implementation diff exact-set принадлежит change
@@ -2271,10 +2339,20 @@ coordinates, не утверждая, что production-файлы уже сущ
 До появления соответствующей SUT capability каждый row обязан дать initial
 holder `RED · CASE_CAPABILITY_MISSING · exit 10`. После implementation driver
 сравнивает actual SUT triple с driver assertion и при exact совпадении даёт
-final holder `GREEN · CASE_ASSERTION_MATCHED · exit 0`. Три `DRIVER-*` birth
-fixtures меняют ровно одно поле actual triple и ожидают final holder RED;
-остальные expected SUT RED/NOT_EXECUTED являются ожидаемым поведением fixture,
-а не красным тестом.
+final holder `GREEN · CASE_ASSERTION_MATCHED · exit 0`. Expected SUT
+RED/NOT_EXECUTED является ожидаемым поведением fixture, а не красным тестом.
+
+**Колонка «Expected actual SUT» у трёх рядов НЕ является наблюдением, и они
+названы поимённо, а не числом.** `SDD-1-DRIVER-01`, `SDD-1-DRIVER-02` и
+`SDD-1-DRIVER-03` — birth fixtures: они меняют ровно одно поле записанной actual
+triple и ожидают final holder RED, а их тройка **скормлена fixture**, испытуемому
+мир этих кейсов не передаётся. Две из трёх таких троек испытуемый не мог бы
+напечатать ни при каком мире (`GREEN · … · exit 10` и `RED · … · exit 0`: код
+возврата выводится из категории), третья называет диагностику, которой её мир не
+производит. Это записано здесь, чтобы заголовок колонки не читался как
+утверждение об испытуемом. `SDD-1-DRIVER-04` к этим трём НЕ относится: он
+обычный behavior row — мир передаётся испытуемому, тройка наблюдается, final
+holder GREEN.
 
 | Case ID | Positive twin | Subject holder | Fixture coordinate | Planned holder coordinate | Driver command | Driver assertion | Expected actual SUT category · diagnostic · exit | Expected final holder | Expected initial holder |
 |---|---|---|---|---|---|---|---|---|---|
@@ -2298,6 +2376,7 @@ fixtures меняют ровно одно поле actual triple и ожидаю
 | SDD-1-AUTH-06 | SDD-1-AUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-06/ | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-06/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-06/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-06/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-06/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-AUTH-06 | RED · CG_REVIEW_EVENT_IDENTITY_MISSING · exit 10 | RED · CG_REVIEW_EVENT_IDENTITY_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-AUTH-07 | SDD-1-AUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-07/ | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-07/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-07/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-07/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-07/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-AUTH-07 | RED · CG_REVIEW_ROLE_UNAUTHORIZED · exit 10 | RED · CG_REVIEW_ROLE_UNAUTHORIZED · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-AUTH-08 | SDD-1-AUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-08/ | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-08/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-08/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-08/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-08/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-AUTH-08 | NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20 | NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
+| SDD-1-AUTH-09 | SDD-1-AUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-09/ | scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-09/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-09/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-09/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-AUTH-09/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-AUTH-09 | RED · CG_REVIEW_VERDICT_MISMATCH · exit 10 | RED · CG_REVIEW_VERDICT_MISMATCH · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-TRUTH-01 | — | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-01/ | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-01/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-01/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-01/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-01/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-TRUTH-01 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-TRUTH-02 | SDD-1-TRUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-02/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-02/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-TRUTH-02 | RED · CG_HUMAN_TRUTH_DUPLICATION · exit 10 | RED · CG_HUMAN_TRUTH_DUPLICATION · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-TRUTH-03 | SDD-1-TRUTH-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-03/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-TRUTH-03/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-TRUTH-03 | RED · CG_HUMAN_TRUTH_CONFLICT · exit 10 | RED · CG_HUMAN_TRUTH_CONFLICT · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
@@ -2375,6 +2454,7 @@ fixtures меняют ровно одно поле actual triple и ожидаю
 | SDD-1-DRIVER-01 | SDD-1-EVID-02 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-01/ | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-01/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-01/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-01/evidence/SDD-1-DRIVER-01.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DRIVER-01 | RED · CG_TRACE_ID_ORPHAN · exit 10 | GREEN · CG_TRACE_ID_ORPHAN · exit 10 | RED · CASE_ASSERTION_CATEGORY_MISMATCH · exit 10 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-DRIVER-02 | SDD-1-EVID-02 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-02/evidence/SDD-1-DRIVER-02.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DRIVER-02 | RED · CG_TRACE_ID_ORPHAN · exit 10 | RED · CG_TRACE_ID_MISSING · exit 10 | RED · CASE_ASSERTION_DIAGNOSTIC_MISMATCH · exit 10 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-DRIVER-03 | SDD-1-EVID-02 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-03/evidence/SDD-1-DRIVER-03.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DRIVER-03 | RED · CG_TRACE_ID_ORPHAN · exit 10 | RED · CG_TRACE_ID_ORPHAN · exit 0 | RED · CASE_ASSERTION_EXIT_MISMATCH · exit 10 | RED · CASE_CAPABILITY_MISSING · exit 10 |
+| SDD-1-DRIVER-04 | SDD-1-TRACE-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-04/ | scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-04/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-04/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DRIVER-04/evidence/SDD-1-DRIVER-04.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DRIVER-04 | RED · CG_DRIVER_BIRTH_TRIPLE_INVALID · exit 10 | RED · CG_DRIVER_BIRTH_TRIPLE_INVALID · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-DIFF-01 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-01/ | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-01/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-01/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-01/evidence/SDD-1-DIFF-01.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DIFF-01 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-DIFF-02 | SDD-1-DIFF-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-02/evidence/SDD-1-DIFF-02.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DIFF-02 | RED · CG_DIFF_PATH_UNCLAIMED · exit 10 | RED · CG_DIFF_PATH_UNCLAIMED · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-DIFF-03 | SDD-1-DIFF-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-DIFF-03/evidence/SDD-1-DIFF-03.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-DIFF-03 | RED · CG_DIFF_CLAIM_ORPHAN · exit 10 | RED · CG_DIFF_CLAIM_ORPHAN · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
@@ -2477,21 +2557,24 @@ fixtures меняют ровно одно поле actual triple и ожидаю
 
 ## 15. Definition of Done SDD-1
 
-- Этот subject остаётся `DRAFT`; effective approval может выпустить только
-  acceptance-reviewer через ADMIN-verified Issue #480 event и новый append-only
-  artifact по exact subject SHA. Все три прежних CHANGES REQUESTED records
-  сохранены.
-- Issue #480 и этот acceptance долговечно задают bootstrap scope; self-package
-  не создаётся, второе bootstrap-исключение невозможно.
-- Все 196 case IDs имеют fixtures, exact planned holders и один row matrix;
+- Этот subject остаётся `DRAFT`; effective approval выпускает только
+  acceptance-reviewer, новым append-only artifact по exact subject SHA, и
+  маршрут authority для этой редакции задаёт §4 по её эпохе — здесь он не
+  повторяется. Все четыре прежних record (три CHANGES REQUESTED и APPROVED для
+  SHA-256 `47f5f98f…`) сохранены и на эту редакцию verdict не переносят.
+- Issue #480 и этот acceptance долговечно задают bootstrap SCOPE; self-package
+  не создаётся, второе bootstrap-исключение невозможно. Долговечность authority
+  этого маршрута — вопрос §4, и ответ там: она истекает cutover'ом.
+- Все 198 case IDs имеют fixtures, exact planned holders и один row matrix;
   negative/NOT_EXECUTED fixtures отличаются от существующего positive twin
   ровно одним названным фактом.
 - Integration-tester единолично владеет `tests/**`, fixtures и первым запуском:
   до SUT каждый case даёт exact capability RED; только этот valid RED открывает
   RED_PROVEN. Production SUT, generator и wiring появляются только после него.
-- После implementation все behavior rows завершаются final holder GREEN; три
-  driver-assertion mutation rows завершаются ожидаемым RED отдельно для
-  category, diagnostic и exit. Crash или masked capability не засчитываются.
+- После implementation все behavior rows завершаются final holder GREEN;
+  driver-assertion mutation rows — те, что §14 называет поимённо, — завершаются
+  ожидаемым RED отдельно для category, diagnostic и exit. Crash или masked
+  capability не засчитываются.
 - `holders.yaml` exact-list-ит required machine/human holders. Каждый machine
   holder имеет полный provenance и доказан birth inversion; каждый human holder
   backed verified external event. Zero census и vacuous subject не зелёные.

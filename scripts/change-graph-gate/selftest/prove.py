@@ -141,8 +141,8 @@ def fixture_world(case_id):
     return os.path.join(TESTDATA, case_id, "world.yaml")
 
 
-def fixture_manifest(case_id):
-    path = os.path.join(TESTDATA, case_id, "case.yaml")
+def fixture_manifest(case_id, root=None):
+    path = os.path.join(root or TESTDATA, case_id, "case.yaml")
     with open(path, encoding="utf-8") as handle:
         return yaml.safe_load(handle)
 
@@ -168,12 +168,12 @@ def triple_producible(declared):
     return expected is not None and expected == declared["exit"]
 
 
-def declared_cases():
+def declared_cases(root=None):
     """Кейсы, чьё семейство испытуемый объявил. Перечень ВЫВОДИТСЯ из дерева."""
     families = set(registry_module.load())
     found = []
-    for case_id in sorted(os.listdir(TESTDATA)):
-        if not os.path.isdir(os.path.join(TESTDATA, case_id)):
+    for case_id in sorted(os.listdir(root or TESTDATA)):
+        if not os.path.isdir(os.path.join(root or TESTDATA, case_id)):
             continue
         try:
             family = registry_module.family_of(case_id)
@@ -182,6 +182,36 @@ def declared_cases():
         if family in families:
             found.append(case_id)
     return found
+
+
+def sut_is_asked(manifest):
+    """Спрашивают ли по этому кейсу ИСПЫТУЕМОГО — единственное место решения.
+
+    Fixture, пиновавшая тройку (`sut_stub`), избавляет испытуемого от опроса:
+    секция B её тройку с ним не сверяет, потому что тройка СКОРМЛЕНА, а не
+    наблюдена. Признак нужен ДВУМ читателям — секции B здесь и ведомости
+    радиуса в `selftest/inject.py`, — и потому объявлен один раз: своя копия
+    условия у второго читателя разошлась бы с первым молча, а разошлась бы она
+    именно там, где расхождение и опасно — на фикстуре, которую пин потерял.
+    """
+    return manifest.get("sut_stub") is None
+
+
+def asked_cases_by_family(root=None):
+    """Опрошенные кейсы по семействам — то, ЧТО и есть радиус инъекции семейства.
+
+    Возвращает отображение семейство -> отсортированный перечень кейсов, по
+    которым испытуемого спрашивают. Выводится из дерева тем же обходом, что и
+    `declared_cases`: рукописный перечень был бы вторым местом об одном
+    предмете. Ручка `root` существует ради доказательства падучести — оно
+    подаёт этой функции НАСТОЯЩЕЕ дерево фикстур, изменённое ровно на один
+    факт, и никогда не трогает `tests/`.
+    """
+    grouped = {}
+    for case_id in declared_cases(root):
+        if sut_is_asked(fixture_manifest(case_id, root)):
+            grouped.setdefault(registry_module.family_of(case_id), []).append(case_id)
+    return {family: sorted(ids) for family, ids in grouped.items()}
 
 
 # --- A. Объявление признаков -------------------------------------------------
@@ -298,7 +328,7 @@ def section_cases():
     pinned = []
     for case_id in cases:
         manifest = fixture_manifest(case_id)
-        if manifest.get("sut_stub") is None:
+        if sut_is_asked(manifest):
             asked.append(case_id)
         else:
             pinned.append(case_id)
@@ -1133,6 +1163,40 @@ def section_rule_pairing():
         and verdict == "NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20",
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
+    # Третье сравнение §4 («body/subject digests И verdict»). Пара обязана
+    # различать ДВА молчания, которые матрица не различает: правило молчит на
+    # артефакте БЕЗ вердикта — и обязано молчать на артефакте, чей вердикт
+    # СОВПАЛ. Положительный кейс семейства вердикта не несёт вовсе, поэтому
+    # близнец строится здесь: пара «дефект / кейс-без-координаты» зеленела бы
+    # на правиле, краснящем на всяком ПРИСУТСТВИИ вердикта.
+    stderr, verdict = _judge("SDD-1-AUTH-09")
+    check(
+        "F-AUTH-4 артефакт с чужим вердиктом краснит только правило о вердикте",
+        "нарушений 1" in stderr
+        and "auth.verdict-mirrors-event" in stderr
+        and "auth.body-digest" not in stderr
+        and "auth.subject-digest" not in stderr
+        and verdict == "RED · CG_REVIEW_VERDICT_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    with tempfile.TemporaryDirectory(prefix="cg-prove-auth-") as twin_dir:
+        mirrored = yaml.safe_load(
+            open(fixture_world("SDD-1-AUTH-09"), encoding="utf-8")
+        )
+        mirrored["artifact"]["verdict"] = mirrored["event"]["verdict"]
+        twin_path = write_world(twin_dir, "verdict-mirrored.yaml", mirrored)
+        completed, lines = run_sut(
+            ["--case-world", twin_path, "--case", "SDD-1-AUTH-09"]
+        )
+        twin_verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-AUTH-4-близнец тот же мир с СОВПАВШИМ вердиктом даёт GREEN: "
+            "правило судит равенство пары, а не присутствие координаты",
+            "нарушений 0" in completed.stderr
+            and twin_verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s"
+            % (twin_verdict, completed.stderr.strip()[:400]),
+        )
     section_trace_life_tasks_pairing()
 
 
@@ -2043,6 +2107,449 @@ def section_lane_parity():
     )
 
 
+# --- I. Диагностика берётся из ПРИЁМКИ, а не заводится реализацией ----------
+#
+# Норма контура: диагностику правила объявляет ПРИЁМКА. Реализация своей не
+# заводит — иначе контракт пишет исполнитель, а рецензент судит то, чего не
+# утверждал. До ws#502 норму не держала НИ ОДНА проверка: ни эта проба, ни
+# `inject.py`, ни `tests/caselib` не сверяли два множества, и единственное
+# отступление в дереве (ws#494) нашла честность автора полосы, а не механизм.
+#
+# Класс тихий by construction: код, которого приёмка не объявляет, матрица
+# кейсов НЕ ПРЕДЪЯВЛЯЕТ — её кейсы выводятся из приёмки, — поэтому такой код не
+# краснеет ничем и от законного неотличим.
+#
+# ГРАНИЦА СЕКЦИИ, названная словами. «Объявлена приёмкой» здесь значит ровно
+# «стои́т в ОБЪЯВЛЯЮЩЕЙ ПОЗИЦИИ приёмки» — в вердиктной тройке `<КАТЕГОРИЯ> ·
+# <КОД> · exit <N>` (см. `SPEC_DECLARATION` ниже: форма установлена замером по
+# всем 136 токенам). Упоминание прозой объявлением НЕ является, и абзац вида
+# «здесь стояло …» правило больше не прощает.
+#
+# Чего секция НЕ судит, чтобы заголовок не оказался шире измеряемого: она не
+# читает, что́ проза о коде говорит, и не отличает объявление от его цитаты —
+# только позицию. Свою предпосылку («приёмка объявляет тройкой») она проверяет
+# сама: ноль объявленных — находка «беспредметно» (I3, I7), а число упоминаний
+# вне объявляющей позиции стои́т в переписи на каждом прогоне.
+
+# Имя файла приёмки, а НЕ путь: путь выводится. Проба живёт и в песочнице
+# инъекций, где над каталогом оснастки корня воркспейса нет вовсе, и выписанный
+# `../../docs/...` там указывал бы в пустоту — то есть проба объявляла бы
+# «диагностик приёмки 0» и краснела на собственной раскладке.
+ACCEPTANCE_BASENAME = "sub-phase-SDD-1-kacho-change-graph-acceptance.md"
+
+# Ручка для песочницы: дочерний прогон в копии дерева получает путь приёмки
+# готовым, потому что вывести его сам он не может. Ставит её тот, кто песочницу
+# создал (`inject.py`, `prove_run_progress.py`), — через `acceptance_environment`.
+ACCEPTANCE_ENV = "CG_ACCEPTANCE_DOC"
+
+# Диагностика — токен `CG_…` либо `CGA_…`. Образец взят дословно из тела задач
+# #494/#502, чтобы число этой пробы воспроизводилось их предикатом, а не
+# расходилось с ним молча на второй форме записи.
+#
+# ЭТО ОБРАЗЕЦ УПОМИНАНИЯ, А НЕ ОБЪЯВЛЕНИЯ, и различать их обязательно.
+DIAGNOSTIC_TOKEN = re.compile(r"\bCGA?_[A-Z0-9_]+")
+
+# ── ОБЪЯВЛЯЮЩАЯ ПОЗИЦИЯ ──────────────────────────────────────────────────────
+#
+# Приёмка ОБЪЯВЛЯЕТ диагностику вердиктной тройкой `<КАТЕГОРИЯ> · <КОД> · exit
+# <N>` — в ячейке матрицы кейсов либо в строке исхода сценария (`**Expected
+# SUT:**`, `**Driver assertion:**`). Всё прочее — УПОМИНАНИЕ: проза, разбор,
+# сноска, клауза `**Then**`, ссылающаяся на код, объявленный в другом месте.
+#
+# ФОРМА УСТАНОВЛЕНА ЗАМЕРОМ ПО ВСЕМ ТОКЕНАМ, А НЕ ДОГАДКОЙ (ws#502, приёмка
+# SDD-1 на `release/sdd-closeout`):
+#
+#     вхождений `CG_…`/`CGA_…` всего             602
+#     из них в вердиктной тройке                 598
+#     вне тройки                                   4  (все — клаузы `**Then**`)
+#     уникальных токенов                         136
+#     из них объявлены тройкой хотя бы раз       136
+#     объявлены ТОЛЬКО вне тройки                  0
+#
+# То есть объявляющая позиция выразима ОДНОЗНАЧНО: она покрывает 136 токенов из
+# 136, и ни один код не зависит от тех четырёх упоминаний.
+#
+# ЗАЧЕМ ЭТО ВООБЩЕ. Прежняя редакция считала объявлением упоминание где угодно
+# в файле — то есть заголовок утверждения I1 («объявлена приёмкой») был ШИРЕ
+# измеряемого («токен встречается в файле»), а это `testing.md` §«Гейт на
+# класс», п. 4: гейт судил ТЕКСТ, а не объявление. Живых экземпляров в дереве
+# не было, но дом стиля корпуса именно такой — снятое хранится прозой («здесь
+# стояло …»), — поэтому первый же абзац о снятом коде молча простил бы правило,
+# которое этот код продолжает производить.
+#
+# ГРАНИЦА НАЗВАНА ЧЕСТНО. Распознаватель судит ПОЗИЦИЮ, а не смысл: он не
+# отличает объявление от цитаты объявления и не читает, что́ проза о коде
+# говорит. Его предпосылка — «приёмка объявляет тройкой» — проверяема тут же:
+# перепись печатает «упоминаний вне объявляющей позиции», и её ненулевое
+# значение есть повод посмотреть, не завела ли приёмка второй формы объявления.
+# Полный отказ предпосылки (приёмка перешла на другую форму целиком) ловит I3:
+# объявленных нашлось бы ноль, и это находка «беспредметно», а не «чисто».
+SPEC_DECLARATION = re.compile(
+    r"\b[A-Z][A-Z0-9_]*\s*·\s*(CGA?_[A-Z0-9_]+)\s*·\s*exit\s+\d+"
+)
+
+# ── ВЕДОМОСТЬ ОТСТУПЛЕНИЙ ────────────────────────────────────────────────────
+#
+# Код, который правила объявляют, а приёмка — нет. Ключ — диагностика, значение
+# — причина и ПРЕДИКАТ СНЯТИЯ командой, а не словами.
+#
+# Ведомость САМОИСТЕКАЕТ: запись, которой нечего исключать, — находка
+# (`testing.md` §«Гейт на класс», п. 5). Идеал ведомости — ПУСТОТА, и пустая она
+# проходит: превращать достигнутую цель в поломку значило бы подталкивать
+# держать запись ради зелёного (§«Проба не имеет права падать на ДОСТИЖЕНИИ
+# СВОЕЙ ЦЕЛИ»).
+# ВЕДОМОСТЬ ПУСТА — И ЭТО ЕЁ ДОСТИГНУТАЯ ЦЕЛЬ, А НЕ НЕДОСМОТР.
+#
+# Единственная запись (ws#494, `CG_DRIVER_BIRTH_TRIPLE_INVALID`) прощала код,
+# которого приёмка тогда не объявляла: у семейства `cg.driver` собственной
+# диагностики в её рядах не было, а взять чужую значило бы завести второго
+# производителя одного кода. Запись несла ПРЕДИКАТ СНЯТИЯ командой:
+#
+#   grep -c CG_DRIVER_BIRTH_TRIPLE_INVALID \
+#     docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+#
+# «Не ноль — предмет прощения исчез, и запись обязана покраснеть здесь как
+# запись без предмета». Круг рецензии по приёмке (ws#494) код объявил, предикат
+# ответил **2**, утверждение I2 покраснело на стволе линии — и запись снята
+# ровно тем исходом, который её же предикат и предписывал. Самоистечение
+# сработало как задумано; чинить надо было ведомость, а не проверку.
+SPEC_DIAGNOSTIC_EXEMPTIONS = {}
+
+
+def acceptance_path():
+    """Путь приёмки, выведенный, а не выписанный. None — приёмка недосягаема.
+
+    Порядок: ручка окружения (её ставит создавший песочницу) → обход вверх от
+    каталога оснастки. Обратный порядок сделал бы ручку недействующей ровно
+    там, где она единственный источник.
+    """
+    override = os.environ.get(ACCEPTANCE_ENV)
+    if override:
+        return override if os.path.isfile(override) else None
+    node = GATE_DIR
+    while True:
+        candidate = os.path.join(node, "docs", "specs", ACCEPTANCE_BASENAME)
+        if os.path.isfile(candidate):
+            return candidate
+        parent = os.path.dirname(node)
+        if parent == node:
+            return None
+        node = parent
+
+
+def acceptance_environment(base=None):
+    """Окружение для дочернего прогона в песочнице: путь приёмки разрешён здесь.
+
+    Песочница инъекций — копия ОДНОГО каталога оснастки; воркспейса над ней нет,
+    поэтому обход вверх в ней не находит ничего. Разрешение делает тот, кто ещё
+    стоит в настоящем дереве, и передаёт готовый путь вниз. Ручка, уже стоящая в
+    окружении, ПЕРЕЖИВАЕТ вложение: `prove_run_progress.py` кладёт песочницу в
+    песочницу, и на втором этаже выводить путь неоткуда.
+    """
+    env = dict(os.environ if base is None else base)
+    resolved = acceptance_path()
+    if resolved:
+        env[ACCEPTANCE_ENV] = resolved
+    return env
+
+
+def rule_diagnostics():
+    """Диагностики, которые объявляют ПРАВИЛА — обходом реестра, не перечнем."""
+    return {
+        rule.diagnostic
+        for rules in registry_module.load().values()
+        for rule in rules
+    }
+
+
+def spec_declarations(text):
+    """Разбор приёмки: (ОБЪЯВЛЕННЫЕ, УПОМЯНУТЫЕ-НО-НЕ-ОБЪЯВЛЕННЫЕ).
+
+    Принимает ТЕКСТ, а не путь: различие объявления и упоминания живёт в
+    разборе, поэтому синтетический вход для него — тоже текст. Синтетика из
+    множеств этой оси не касается вовсе и близнеца по ней дать не может.
+    """
+    declared = set(SPEC_DECLARATION.findall(text))
+    return declared, set(DIAGNOSTIC_TOKEN.findall(text)) - declared
+
+
+def spec_diagnostics(path):
+    """Диагностики приёмки: (объявленные, упомянутые вне объявления).
+
+    Приёмки нет — два пустых множества, и пустота ОБЪЯВЛЕННЫХ становится
+    находкой «беспредметно» (I3/I7), а не тихим «нарушений нет».
+    """
+    if not path:
+        return set(), set()
+    with open(path, encoding="utf-8") as handle:
+        return spec_declarations(handle.read())
+
+
+def audit_spec_diagnostics(codes, spec, exemptions, mentioned=None):
+    """Сверка двух множеств. Возвращает (находки, перепись).
+
+    Находка — пара (вид, текст): вид нужен, чтобы утверждения были отдельными и
+    инъекция роняла НАЗВАННОЕ, а не «что-нибудь из секции».
+
+    НАПРАВЛЕНИЯ РАЗВЕДЕНЫ, и это несущее решение. `codes - spec` — находка:
+    контракт написала реализация. `spec - codes` — СТРОКА ПЕРЕПИСИ, но не
+    находка: `CG_OK` производителя не имеет by construction (это исход «правило
+    не нарушено», а не правило), и смешение двух направлений дало бы проверку,
+    красную ВСЕГДА, — то есть её отключили бы первой.
+    """
+    findings = []
+    mentioned = set() if mentioned is None else mentioned
+    undeclared = sorted(codes - spec)
+    unproduced = sorted(spec - codes)
+    unexcused = [code for code in undeclared if code not in exemptions]
+    stale = sorted(code for code in exemptions if code not in undeclared)
+
+    # Пустой обход — НАХОДКА «беспредметно», а не «чисто»: без этой ветви
+    # недосягаемая приёмка дала бы `codes - spec` величиной во весь реестр, а
+    # непрочитанный реестр — ноль находок, то есть зелёное на непрочитанном.
+    if not codes or not spec:
+        findings.append((
+            "беспредметно",
+            "обход беспредметен: диагностик правил %d, диагностик приёмки %d — "
+            "о предмете прочитано не всё, и это НЕ «нарушений нет»"
+            % (len(codes), len(spec)),
+        ))
+    for code in unexcused:
+        # ДВА РАЗНЫХ ДИАГНОЗА под одним утверждением I1, и различать их надо
+        # текстом: «нет вовсе» означает, что контракт написала реализация;
+        # «упомянут, но не объявлен» — что приёмка код СНЯЛА и оставила прозой,
+        # ЛИБО что она завела форму объявления, которой распознаватель не
+        # знает. Обе причины требуют человека, но чинятся в разных местах.
+        findings.append((
+            "мимо приёмки",
+            ("%s — приёмка код УПОМИНАЕТ, но НЕ ОБЪЯВЛЯЕТ: упоминание прозой "
+             "объявлением не является. Либо приёмка код сняла, а правило его "
+             "производит, либо она объявляет его формой, которой эта проба не "
+             "знает" % code)
+            if code in mentioned else
+            ("%s — правило объявляет диагностику, которой приёмка НЕ объявляет: "
+             "контракт написала реализация, и рецензент судил бы то, чего не "
+             "утверждал" % code),
+        ))
+    for code in stale:
+        findings.append((
+            "прощение без предмета",
+            "%s — записи ведомости нечего исключать: либо приёмка код объявила, "
+            "либо правило его больше не производит. Прощение пережило свой "
+            "предмет — снимите запись" % code,
+        ))
+
+    census = {
+        "диагностик правил": len(codes),
+        "диагностик приёмки": len(spec),
+        "мимо приёмки": len(undeclared),
+        "из них прощено ведомостью": len(undeclared) - len(unexcused),
+        # Шестая величина — ГРАНИЦА РАСПОЗНАВАТЕЛЯ, видимая на каждом прогоне.
+        # Ноль значит «ни один производимый код не держится на одной лишь
+        # прозе»; не ноль — повод посмотреть, сняла приёмка код или завела
+        # вторую форму объявления.
+        "из них упоминаний вне объявляющей позиции":
+            len([code for code in undeclared if code in mentioned]),
+        "без производителя": len(unproduced),
+    }
+    return findings, census
+
+
+def spec_census_line(census):
+    """Перепись ОБЕИМИ величинами.
+
+    Одно число скрывает ровно тот случай, ради которого проверка заведена:
+    множества разошлись, а размер не изменился — на стволе их было 134 и 134.
+    """
+    return " · ".join("%s %d" % (key, census[key]) for key in (
+        "диагностик правил", "диагностик приёмки", "мимо приёмки",
+        "из них прощено ведомостью",
+        "из них упоминаний вне объявляющей позиции", "без производителя",
+    ))
+
+
+def _findings_of(findings, kind):
+    return [text for found_kind, text in findings if found_kind == kind]
+
+
+def section_spec_diagnostics():
+    """Диагностика правил объявлена приёмкой — сверкой двух множеств.
+
+    Способность упасть доказана здесь же СИНТЕТИКОЙ: на настоящем дереве
+    отступление одно и оно прощено, поэтому красноту нельзя показать деревом —
+    только поданными множествами. По каждой оси стоит пара: дефект и законный
+    близнец, на котором сверка обязана МОЛЧАТЬ. Односторонняя проба зеленела бы
+    на сверке, которая отвергает всё.
+
+    Инъекцией по НАСТОЯЩЕМУ дереву та же способность доказана отдельно —
+    `selftest/inject.py`, отбор «диагностика мимо приёмки».
+    """
+    sys.stdout.write(
+        "\n== I. Диагностика берётся из приёмки, а не из реализации ==\n"
+    )
+
+    path = acceptance_path()
+    codes = rule_diagnostics()
+    spec, mentioned = spec_diagnostics(path)
+    findings, census = audit_spec_diagnostics(
+        codes, spec, SPEC_DIAGNOSTIC_EXEMPTIONS, mentioned
+    )
+    sys.stdout.write("       перепись сверки диагностик: %s\n"
+                     % spec_census_line(census))
+
+    check(
+        "I1 каждая диагностика правил стоит в ОБЪЯВЛЯЮЩЕЙ ПОЗИЦИИ приёмки либо "
+        "прощена ведомостью с предикатом снятия",
+        not _findings_of(findings, "мимо приёмки"),
+        "; ".join(_findings_of(findings, "мимо приёмки")),
+    )
+    check(
+        "I2 у каждой записи ведомости есть предмет: прощение не переживает "
+        "своей причины",
+        not _findings_of(findings, "прощение без предмета"),
+        "; ".join(_findings_of(findings, "прощение без предмета")),
+    )
+    check(
+        "I3 обход непуст: приёмка найдена, реестр прочитан",
+        not _findings_of(findings, "беспредметно")
+        and census["диагностик правил"] > 0
+        and census["диагностик приёмки"] > 0,
+        "приёмка=%s; перепись: %s" % (path, spec_census_line(census)),
+    )
+
+    # --- способность упасть: пара «дефект / законный близнец» по каждой оси ---
+    defect, _ = audit_spec_diagnostics(
+        {"CG_MADE_UP_BY_IMPLEMENTATION"}, {"CG_OK"}, {}
+    )
+    named = [
+        text for text in _findings_of(defect, "мимо приёмки")
+        if "CG_MADE_UP_BY_IMPLEMENTATION" in text
+    ]
+    check(
+        "I4 дефект: код мимо приёмки — находка, и находка НАЗЫВАЕТ код",
+        len(named) == 1,
+        "находки: %s" % defect,
+    )
+    twin, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {}
+    )
+    check(
+        "I4-близнец код, приёмкой объявленный, — молчание",
+        not twin,
+        "находки: %s" % twin,
+    )
+
+    stale, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"},
+        {"CG_DECLARED_BY_ACCEPTANCE": "прощение, у которого предмет исчез"},
+    )
+    named = [
+        text for text in _findings_of(stale, "прощение без предмета")
+        if "CG_DECLARED_BY_ACCEPTANCE" in text
+    ]
+    check(
+        "I5 дефект: записи ведомости нечего исключать — находка с именем кода",
+        len(named) == 1,
+        "находки: %s" % stale,
+    )
+    live, _ = audit_spec_diagnostics(
+        {"CG_MADE_UP_BY_IMPLEMENTATION"}, {"CG_OK"},
+        {"CG_MADE_UP_BY_IMPLEMENTATION": "прощение с живым предметом"},
+    )
+    check(
+        "I5-близнец запись, у которой предмет ЖИВ, — молчание",
+        not live,
+        "находки: %s" % live,
+    )
+    empty_ledger, _ = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"}, {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {}
+    )
+    check(
+        "I5-близнец ПУСТАЯ ведомость — молчание, а не поломка: пустота и есть "
+        "её цель",
+        not empty_ledger,
+        "находки: %s" % empty_ledger,
+    )
+
+    absent, absent_census = audit_spec_diagnostics(
+        {"CG_DECLARED_BY_ACCEPTANCE"},
+        {"CG_DECLARED_BY_ACCEPTANCE", "CG_OK"}, {},
+    )
+    check(
+        "I6 «без производителя» — строка переписи, а НЕ находка: иначе сверка "
+        "красна всегда, потому что CG_OK правилом не производится",
+        not absent and absent_census["без производителя"] == 1,
+        "находки=%s; перепись: %s" % (absent, spec_census_line(absent_census)),
+    )
+
+    void_codes, _ = audit_spec_diagnostics(set(), {"CG_OK"}, {})
+    void_spec, _ = audit_spec_diagnostics({"CG_DECLARED_BY_ACCEPTANCE"}, set(), {})
+    check(
+        "I7 пустой обход — находка «беспредметно» с ОБЕИХ сторон, а не «чисто»",
+        len(_findings_of(void_codes, "беспредметно")) == 1
+        and len(_findings_of(void_spec, "беспредметно")) == 1,
+        "реестр пуст -> %s; приёмка пуста -> %s" % (void_codes, void_spec),
+    )
+    check(
+        "I7-близнец непустые множества беспредметности не объявляют",
+        not _findings_of(
+            audit_spec_diagnostics(
+                {"CG_DECLARED_BY_ACCEPTANCE"},
+                {"CG_DECLARED_BY_ACCEPTANCE"}, {},
+            )[0],
+            "беспредметно",
+        ),
+        "непустой вход объявлен беспредметным",
+    )
+
+    # --- упоминание — НЕ объявление: пара по оси РАЗБОРА, а не множеств -------
+    #
+    # Синтетика выше подаёт готовые МНОЖЕСТВА и об этой оси не говорит ничего:
+    # различие живёт в разборе текста. Поэтому здесь вход — ТЕКСТ, и обе
+    # стороны различаются ровно позицией одного и того же кода.
+    #
+    # Проза взята в доме стиля корпуса — «здесь стояло …»: именно так это
+    # дерево хранит снятое, и именно этот абзац прежняя редакция принимала за
+    # объявление.
+    mention_only = (
+        "> [!note] Здесь стояла диагностика `CG_RETRACTED_INTO_PROSE` — снята\n"
+        "> Правило её больше производить не должно.\n"
+    )
+    declaration = "**Expected SUT:** RED · CG_RETRACTED_INTO_PROSE · exit 10\n"
+
+    parsed, mentions = spec_declarations(mention_only)
+    prose, prose_census = audit_spec_diagnostics(
+        {"CG_RETRACTED_INTO_PROSE"}, parsed, {}, mentions
+    )
+    named = [
+        text for text in _findings_of(prose, "мимо приёмки")
+        if "CG_RETRACTED_INTO_PROSE" in text and "УПОМИНАЕТ" in text
+    ]
+    check(
+        "I8 дефект: код, лишь УПОМЯНУТЫЙ прозой, объявленным не считается — "
+        "находка НАЗЫВАЕТ код и говорит, что это упоминание",
+        len(named) == 1
+        and parsed == set()
+        and prose_census["из них упоминаний вне объявляющей позиции"] == 1,
+        "разобрано объявленных=%s; находки=%s; перепись: %s"
+        % (sorted(parsed), prose, spec_census_line(prose_census)),
+    )
+
+    parsed, mentions = spec_declarations(mention_only + declaration)
+    twin, twin_census = audit_spec_diagnostics(
+        {"CG_RETRACTED_INTO_PROSE"}, parsed, {}, mentions
+    )
+    check(
+        "I8-близнец тот же код в ОБЪЯВЛЯЮЩЕЙ ПОЗИЦИИ — молчание, и соседняя "
+        "проза объявления не отменяет",
+        not twin
+        and parsed == {"CG_RETRACTED_INTO_PROSE"}
+        and twin_census["из них упоминаний вне объявляющей позиции"] == 0,
+        "разобрано объявленных=%s; находки=%s; перепись: %s"
+        % (sorted(parsed), twin, spec_census_line(twin_census)),
+    )
+
+
 def main():
     with tempfile.TemporaryDirectory(prefix="cg-selftest-") as work:
         declared = section_capabilities(work)
@@ -2054,6 +2561,7 @@ def main():
         section_callers_and_advisory(work)
         section_caller_and_landing(work)
     section_lane_parity()
+    section_spec_diagnostics()
 
     total = len(PASSED) + len(FAILED)
     sys.stdout.write("\n=== перепись проб испытуемого ===\n")
