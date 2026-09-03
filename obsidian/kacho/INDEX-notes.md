@@ -1233,6 +1233,7 @@ tags:
 | [[lessons/homoglyph-identifier-cannot-be-selected\|Имя с омоглифом выглядит латинским и не выбирается инструментом]] | живо (stable) |
 | [[lessons/idempotency-key-without-the-body-makes-rejection-sticky\|Ключ идемпотентности без тела запроса делает отвергнутое создание липким]] | — |
 | [[lessons/identity-column-is-not-immutability\|Столбец, выдающий значение сам, не делает его неизменяемым]] | — |
+| [[lessons/index-reading-check-is-blind-in-a-sandbox\|Проверка по индексу git слепа в песочнице]] | — |
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/injection-outlives-its-analyzer\|Переустройство анализатора обесценивает его инъекцию — и молча]] | живо (done) |
 | [[lessons/invalid-run-arrives-as-a-red-verdict\|Недействительный прогон приходит красным — и его чинят как дефект]] | — |
