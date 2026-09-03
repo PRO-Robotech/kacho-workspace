@@ -1,0 +1,9 @@
+# review record кейса SDD-1-AUTH-09
+schema_version: 1
+kind: modelled_review_record
+case_id: SDD-1-AUTH-09
+reviewer_role: acceptance-reviewer
+subject_sha256: sha256-fixture-subject-sdd-1-auth-09
+verdict: APPROVED
+event_coordinate: github-event.json
+note: модель review record внутри fixture; production-координат не утверждает

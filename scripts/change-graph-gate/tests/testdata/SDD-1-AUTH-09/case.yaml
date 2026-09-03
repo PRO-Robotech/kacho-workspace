@@ -1,0 +1,28 @@
+# манифест кейса SDD-1-AUTH-09; сверяется с приёмкой при каждом запуске
+schema_version: 1
+case_id: SDD-1-AUTH-09
+title: artifact verdict не совпал с event verdict
+section: External authority
+positive_twin: SDD-1-AUTH-01
+holder_type: human-external
+required_capability: cg.auth
+expected_sut:
+  category: RED
+  diagnostic: CG_REVIEW_VERDICT_MISMATCH
+  exit: 10
+driver_assertion:
+  category: RED
+  diagnostic: CG_REVIEW_VERDICT_MISMATCH
+  exit: 10
+expected_final_holder:
+  category: GREEN
+  diagnostic: CASE_ASSERTION_MATCHED
+  exit: 0
+expected_initial_holder:
+  category: RED
+  diagnostic: CASE_CAPABILITY_MISSING
+  exit: 10
+delta:
+  op: add
+  path: artifact.verdict
+  fact: artifact объявил verdict, расходящийся с сохранённым verdict события

@@ -303,8 +303,16 @@ fi
 
 ASSERTIONS=$((ASSERTIONS + 1))
 FAKES="$(grep -rln 'fake_sut' "$TESTS_DIR/testdata" 2>/dev/null | wc -l)"
-if [ "$FAKES" = "0" ]; then
-  PASSED=$((PASSED + 1)); echo "  OK   H2 ни одна из 196 fixtures не ссылается на подделку"
+# Объём осмотренного ВЫВОДИТСЯ, а не выписывается: выписанное число разошлось бы
+# с деревом молча — «ноль находок» стало бы неотличимо от «ноль прочитанного».
+# Состав берётся из ИНДЕКСА ревизии, а не с диска: перечисление диска несёт
+# неотслеживаемое и молча меняет объём осмотренного между машинами.
+FIXTURE_DIRS="$(git -C "$TESTS_DIR" ls-files testdata \
+  | awk -F/ 'NF>1 {print $2}' | sort -u | wc -l)"
+if [ "$FIXTURE_DIRS" = "0" ]; then
+  FAILED=$((FAILED + 1)); echo "  FAIL H2 fixtures не найдены вовсе — проба беспредметна"
+elif [ "$FAKES" = "0" ]; then
+  PASSED=$((PASSED + 1)); echo "  OK   H2 ни одна из $FIXTURE_DIRS fixtures не ссылается на подделку"
 else
   FAILED=$((FAILED + 1)); echo "  FAIL H2 подделка упомянута в $FAKES fixtures"
 fi
