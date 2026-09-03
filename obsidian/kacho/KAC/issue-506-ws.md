@@ -4,7 +4,7 @@ aliases:
   - issue-506-ws
 ticket_id: 506
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace

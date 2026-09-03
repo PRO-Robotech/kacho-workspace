@@ -4,7 +4,7 @@ aliases:
   - issue-502-ws
 ticket_id: 502
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace

@@ -4,7 +4,7 @@ aliases:
   - issue-492-ws
 ticket_id: 492
 category: kac
-status: in-progress
+status: done
 type: test
 repos:
   - kacho-workspace
