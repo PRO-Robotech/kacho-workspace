@@ -4,7 +4,7 @@ aliases:
   - issue-510-ws
 ticket_id: 510
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho-workspace

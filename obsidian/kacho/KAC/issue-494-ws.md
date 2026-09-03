@@ -4,7 +4,7 @@ aliases:
   - issue-494-ws
 ticket_id: 494
 category: kac
-status: in-progress
+status: done
 type: test
 repos:
   - kacho-workspace
