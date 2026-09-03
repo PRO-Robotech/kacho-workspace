@@ -1133,6 +1133,40 @@ def section_rule_pairing():
         and verdict == "NOT_EXECUTED · CG_REVIEW_API_UNAVAILABLE · exit 20",
         "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
     )
+    # Третье сравнение §4 («body/subject digests И verdict»). Пара обязана
+    # различать ДВА молчания, которые матрица не различает: правило молчит на
+    # артефакте БЕЗ вердикта — и обязано молчать на артефакте, чей вердикт
+    # СОВПАЛ. Положительный кейс семейства вердикта не несёт вовсе, поэтому
+    # близнец строится здесь: пара «дефект / кейс-без-координаты» зеленела бы
+    # на правиле, краснящем на всяком ПРИСУТСТВИИ вердикта.
+    stderr, verdict = _judge("SDD-1-AUTH-09")
+    check(
+        "F-AUTH-4 артефакт с чужим вердиктом краснит только правило о вердикте",
+        "нарушений 1" in stderr
+        and "auth.verdict-mirrors-event" in stderr
+        and "auth.body-digest" not in stderr
+        and "auth.subject-digest" not in stderr
+        and verdict == "RED · CG_REVIEW_VERDICT_MISMATCH · exit 10",
+        "вердикт %r; stderr=%s" % (verdict, stderr.strip()[:400]),
+    )
+    with tempfile.TemporaryDirectory(prefix="cg-prove-auth-") as twin_dir:
+        mirrored = yaml.safe_load(
+            open(fixture_world("SDD-1-AUTH-09"), encoding="utf-8")
+        )
+        mirrored["artifact"]["verdict"] = mirrored["event"]["verdict"]
+        twin_path = write_world(twin_dir, "verdict-mirrored.yaml", mirrored)
+        completed, lines = run_sut(
+            ["--case-world", twin_path, "--case", "SDD-1-AUTH-09"]
+        )
+        twin_verdict = lines[-1] if lines else "(без вывода)"
+        check(
+            "F-AUTH-4-близнец тот же мир с СОВПАВШИМ вердиктом даёт GREEN: "
+            "правило судит равенство пары, а не присутствие координаты",
+            "нарушений 0" in completed.stderr
+            and twin_verdict == "GREEN · CG_OK · exit 0",
+            "вердикт %r; stderr=%s"
+            % (twin_verdict, completed.stderr.strip()[:400]),
+        )
     section_trace_life_tasks_pairing()
 
 
