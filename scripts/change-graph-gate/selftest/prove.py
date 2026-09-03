@@ -141,8 +141,8 @@ def fixture_world(case_id):
     return os.path.join(TESTDATA, case_id, "world.yaml")
 
 
-def fixture_manifest(case_id):
-    path = os.path.join(TESTDATA, case_id, "case.yaml")
+def fixture_manifest(case_id, root=None):
+    path = os.path.join(root or TESTDATA, case_id, "case.yaml")
     with open(path, encoding="utf-8") as handle:
         return yaml.safe_load(handle)
 
@@ -168,12 +168,12 @@ def triple_producible(declared):
     return expected is not None and expected == declared["exit"]
 
 
-def declared_cases():
+def declared_cases(root=None):
     """Кейсы, чьё семейство испытуемый объявил. Перечень ВЫВОДИТСЯ из дерева."""
     families = set(registry_module.load())
     found = []
-    for case_id in sorted(os.listdir(TESTDATA)):
-        if not os.path.isdir(os.path.join(TESTDATA, case_id)):
+    for case_id in sorted(os.listdir(root or TESTDATA)):
+        if not os.path.isdir(os.path.join(root or TESTDATA, case_id)):
             continue
         try:
             family = registry_module.family_of(case_id)
@@ -182,6 +182,36 @@ def declared_cases():
         if family in families:
             found.append(case_id)
     return found
+
+
+def sut_is_asked(manifest):
+    """Спрашивают ли по этому кейсу ИСПЫТУЕМОГО — единственное место решения.
+
+    Fixture, пиновавшая тройку (`sut_stub`), избавляет испытуемого от опроса:
+    секция B её тройку с ним не сверяет, потому что тройка СКОРМЛЕНА, а не
+    наблюдена. Признак нужен ДВУМ читателям — секции B здесь и ведомости
+    радиуса в `selftest/inject.py`, — и потому объявлен один раз: своя копия
+    условия у второго читателя разошлась бы с первым молча, а разошлась бы она
+    именно там, где расхождение и опасно — на фикстуре, которую пин потерял.
+    """
+    return manifest.get("sut_stub") is None
+
+
+def asked_cases_by_family(root=None):
+    """Опрошенные кейсы по семействам — то, ЧТО и есть радиус инъекции семейства.
+
+    Возвращает отображение семейство -> отсортированный перечень кейсов, по
+    которым испытуемого спрашивают. Выводится из дерева тем же обходом, что и
+    `declared_cases`: рукописный перечень был бы вторым местом об одном
+    предмете. Ручка `root` существует ради доказательства падучести — оно
+    подаёт этой функции НАСТОЯЩЕЕ дерево фикстур, изменённое ровно на один
+    факт, и никогда не трогает `tests/`.
+    """
+    grouped = {}
+    for case_id in declared_cases(root):
+        if sut_is_asked(fixture_manifest(case_id, root)):
+            grouped.setdefault(registry_module.family_of(case_id), []).append(case_id)
+    return {family: sorted(ids) for family, ids in grouped.items()}
 
 
 # --- A. Объявление признаков -------------------------------------------------
@@ -298,7 +328,7 @@ def section_cases():
     pinned = []
     for case_id in cases:
         manifest = fixture_manifest(case_id)
-        if manifest.get("sut_stub") is None:
+        if sut_is_asked(manifest):
             asked.append(case_id)
         else:
             pinned.append(case_id)
