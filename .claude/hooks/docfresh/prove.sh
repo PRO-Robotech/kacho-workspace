@@ -1540,6 +1540,89 @@ else
   echo "  ✘ код $prc на чистом ходу — хук мешает работе"; FAIL=$((FAIL+1))
 fi
 
+
+# ── §R. Граница «имя снятой миграции» ────────────────────────────────────────
+#
+# Сведение каталога миграций в одну уничтожает ИМЕНА отдельных миграций, а живые
+# документы называют их как исторический след. Граница опирается не на форму
+# имени — иначе выдуманное `<номер>_<имя>.sql` проходило бы молча, и это была бы
+# маска, — а на надгробие, производимое сведением.
+#
+# Проба зовёт РАЗБОР НАПРЯМУЮ и синтетическим надгробием: производитель входа —
+# файл в дереве продукта, и писать его в общий клон ради пробы значило бы менять
+# состояние, которого проба не заводила. Разбор берётся из $GUARD, поэтому
+# подмена DOCFRESH_PROVE_HOOK на дофиксовую ревизию эту секцию тоже разворачивает.
+echo
+echo "§R. граница «имя снятой миграции»"
+if RSEC="$(GUARD="$GUARD" WSROOT="$WS" python3 - <<'PYEOF' 2>&1
+import importlib.util, os, sys, json, tempfile, pathlib
+spec = importlib.util.spec_from_file_location("df", os.environ["GUARD"])
+df = importlib.util.module_from_spec(spec); spec.loader.exec_module(df)
+
+t = df.Truth.__new__(df.Truth)
+t._retired = {"0001_initial.sql": {"services/iam/internal/migrations"}}
+
+res = []
+def case(sign, label, got, want_border):
+    hit = got is not None
+    ok = (hit == want_border)
+    res.append((ok, sign, label))
+
+# (+) три ЗАКОННЫЕ формы записи одного предмета. Форму «относительно корня
+# сервиса» распознаватель сперва не знал, и это стоило одной пропущенной находки:
+# перечень форм выводится из корпуса, а не вспоминается.
+case("+", "полный путь", t._retired_migration("services/iam/internal/migrations/0001_initial.sql"), True)
+case("+", "путь от корня сервиса", t._retired_migration("internal/migrations/0001_initial.sql"), True)
+case("+", "голое имя", t._retired_migration("0001_initial.sql"), True)
+# (−) законные близнецы: граница НЕ объявляется, значит координата остаётся находкой.
+case("-", "имени нет в надгробии", t._retired_migration("services/iam/internal/migrations/9999_nope.sql"), False)
+case("-", "надгробие iam не покрывает каталог vpc", t._retired_migration("services/vpc/internal/migrations/0001_initial.sql"), False)
+case("-", "чужой хвост той же длины", t._retired_migration("services/iam/internal/other/0001_initial.sql"), False)
+
+# Чтение надгробий: дерева продукта нет — пусто, а не падение.
+case("-", "нет дерева продукта", (df.read_retired_ledgers(None) or None), False)
+# Неразобранное надгробие пропускается: без него граница не объявляется, и
+# координаты остаются находками — fail-closed в нужную сторону.
+with tempfile.TemporaryDirectory() as d:
+    md = pathlib.Path(d, "services", "iam", "internal", "migrations"); md.mkdir(parents=True)
+    (md / df.RETIRED_LEDGER_NAME).write_text("{битый", encoding="utf-8")
+    case("-", "битое надгробие не объявляет границы", (df.read_retired_ledgers(pathlib.Path(d)) or None), False)
+    # Самоистечение: запись, которую не называет ни один живой документ.
+    (md / df.RETIRED_LEDGER_NAME).write_text(json.dumps(
+        {"service": "iam", "consolidated_into": "x.sql",
+         "retired": ["zzz_никто_не_цитирует.sql"]}), encoding="utf-8")
+    ws = pathlib.Path(os.environ["WSROOT"])
+    st = df.stale_retired(pathlib.Path(d), ws, df.DocClaims(ws, df.monorepo_root(ws)))
+    res.append((len(st) == 1 and st[0]["coordinate"] == "zzz_никто_не_цитирует.sql",
+                "+", "запись без предмета названа поимённо"))
+    # Законный близнец: имя, которое живой документ называет прямо сейчас.
+    CITED = "0031_reseed_system_roles_rules.sql"
+    (md / df.RETIRED_LEDGER_NAME).write_text(json.dumps(
+        {"service": "iam", "consolidated_into": "x.sql", "retired": [CITED]}), encoding="utf-8")
+    st = df.stale_retired(pathlib.Path(d), ws, df.DocClaims(ws, df.monorepo_root(ws)))
+    if not df.git(ws, "grep", "-l", "-I", "-F", "-e", CITED, "--", "*.md", "*.mdx"):
+        res.append((None, "-", "цитируемое имя молчит"))   # предмет пропал — НЕ ВЫПОЛНИЛОСЬ
+    else:
+        res.append((len(st) == 0, "-", "цитируемое имя молчит"))
+
+for ok, sign, label in res:
+    print(("NOTRUN" if ok is None else ("OK" if ok else "BAD")), sign, label, sep="\t")
+PYEOF
+)"; then
+  while IFS=$'\t' read -r verdict sign label; do
+    [ -z "$verdict" ] && continue
+    case "$verdict" in
+      OK)     echo "  ✔ ($sign) $label"; PASS=$((PASS+1)) ;;
+      BAD)    echo "  ✘ ($sign) $label — разбор судит не то"; FAIL=$((FAIL+1)) ;;
+      NOTRUN) notrun "§R: $label — предмет пробы пропал из корпуса" ;;
+      *)      notrun "§R: неразобранная строка «$verdict $sign $label»" ;;
+    esac
+  done <<< "$RSEC"
+else
+  notrun "§R: разбор не запустился — граница снятых миграций НЕ проверена"
+  printf '%s\n' "$RSEC" | sed 's/^/      /' | head -6
+fi
+
 echo
 # Объём осмотренного печатается отдельной строкой: «ни одна предпосылка не умерла»
 # обязано быть отличимо от «предпосылок никто не объявлял».

@@ -1118,6 +1118,7 @@ class Truth:
         self._by_base: dict[str, list[str]] | None = None
         self._live_files: dict[str, set[str]] = {}
         self._domains: set[str] | None = None
+        self._retired: dict[str, set[str]] | None = None
         # --- вторая полоса: вершина ствола ---------------------------------
         self.prov = raw.get("provenance") or {}
         tr = raw.get("trunk") or {}
@@ -1181,6 +1182,9 @@ class Truth:
                 return "полирепо, которого нет в дереве"
             if first == "kacho-workspace" and not (self.ws / "CLAUDE.md").is_file():
                 return "полирепо, которого нет в дереве"
+            why = self._retired_migration(coord)
+            if why:
+                return why
         if kind == "rest":
             svc = coord.split("/")[1] if coord.count("/") >= 2 else ""
             if svc and svc not in self.rest_domains:
@@ -1442,6 +1446,37 @@ class Truth:
                 return True
         return False
 
+    def _retired_migration(self, c: str) -> str | None:
+        """Имя миграции, снятой сведением каталога, — граница, а не находка.
+
+        Маской это стать НЕ МОЖЕТ по построению: о покрытии спрашивают только
+        после того, как резолв провалился, а пока файл миграции в дереве есть,
+        координата резолвится и до надгробия дело не доходит вовсе. Значит
+        запись, называющая живую миграцию, живую координату не прикрывает.
+        Что она может — пережить свои цитаты; это ловит `stale_retired`.
+        """
+        if self._retired is None:
+            self._retired = read_retired_ledgers(self.mono)
+        dirs = self._retired.get(c.rsplit("/", 1)[-1])
+        if not dirs:
+            return None
+        why = ("имя снятой миграции: каталог сведён в одну миграцию, "
+               "история миграций не читается by construction")
+        if "/" not in c:
+            return why
+        # Граница покрывает РОВНО то, что резолвилось бы до сведения, — поэтому
+        # хвост сравнивается по той же семантике, что и в `_r_path`: координата
+        # есть суффикс полного пути снятой миграции по границе сегмента. Иначе
+        # распознаватель знал бы одну законную форму записи из двух: документы
+        # этого дерева пишут и `services/<svc>/internal/migrations/<файл>`, и
+        # `internal/migrations/<файл>` — второе стоило одной пропущенной находки.
+        base = c.rsplit("/", 1)[-1]
+        for d in dirs:
+            full = d + "/" + base
+            if c == full or full.endswith("/" + c):
+                return why
+        return None
+
     def _r_rest(self, c: str) -> bool:
         n = re.sub(r"\{[^}]*\}", "*", c).rstrip("/")
         return n in self.routes or n.split(":", 1)[0] in self.routes
@@ -1610,6 +1645,51 @@ def build_index(ws: Path, mono: Path | None) -> dict:
 
 # ═══ 7. Послабления, самоистекающие ══════════════════════════════════════════
 
+# Имя надгробия сведённых миграций. У него ДВА читателя — этот хук и гейт дерева
+# продукта, — поэтому в дереве оно объявлено одной константой; разойтись эти два
+# объявления могли бы только молча.
+RETIRED_LEDGER_NAME = "retired.json"
+
+
+def read_retired_ledgers(mono: Path | None) -> dict[str, set[str]]:
+    """Надгробия сведённых миграций: имя снятого файла → каталоги, из которых он снят.
+
+    Сведение каталога миграций в одну уничтожает ИМЕНА отдельных миграций, а
+    живые документы называют их как исторический след: «эту таблицу дропнула
+    такая-то миграция». След верен и переписыванию не подлежит — переписывать
+    его ради тишины инструмента значило бы подгонять документ под инструмент
+    (ровно то, что уже отвергли на именах снятых веток, #242).
+
+    Надгробие есть ВЕДОМОСТЬ ПОСЛАБЛЕНИЯ, а не архив: историю несёт git, состав
+    сведения — заголовок сводной миграции. Решение целиком и обе половины,
+    которыми оно держится, — `docs/architecture/retired-migration-names.md`
+    дерева продукта.
+
+    Неразобранное надгробие пропускается МОЛЧА намеренно, и это fail-closed в
+    нужную сторону: без него граница не объявляется, координаты остаются
+    находками, и отказ виден громко — а не наоборот.
+    """
+    out: dict[str, set[str]] = {}
+    if mono is None:
+        return out
+    services = mono / "services"
+    if not services.is_dir():
+        return out
+    for svc in sorted(d.name for d in services.iterdir() if d.is_dir()):
+        f = services / svc / "internal" / "migrations" / RETIRED_LEDGER_NAME
+        if not f.is_file():
+            continue
+        try:
+            data = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            continue
+        rel = f"services/{svc}/internal/migrations"
+        for name in (data.get("retired") or []):
+            if isinstance(name, str) and name:
+                out.setdefault(name, set()).add(rel)
+    return out
+
+
 def load_allow() -> list[dict]:
     if not ALLOW_PATH.is_file():
         return []
@@ -1676,6 +1756,47 @@ def _allow_subject_live(kind: str, coord: str, ws: Path, mono: Path | None,
             except OSError:
                 continue
     return any(claims.still_claims(n, kind, coord) for n in names)
+
+
+def stale_retired(mono: Path | None, ws: Path,
+                  claims: "DocClaims | None" = None) -> list[dict]:
+    """Запись надгробия, которую не называет ни один LIVE-документ, — находка.
+
+    Тот же предикат снятия, что у `allow.json`, и привязан он к тому же ВНЕШНЕМУ
+    факту: координату больше никто не цитирует. Тождественно истинным от правки
+    самого надгробия он стать не может — только от правки корпуса.
+
+    Обход один на корень, а не греп на запись: надгробие сведённого каталога
+    несёт десятки имён, и запрос на каждое сделал бы проверку дороже хода.
+    """
+    led = read_retired_ledgers(mono)
+    if not led:
+        return []
+    claims = claims or DocClaims(ws, mono)
+    args: list[str] = []
+    for n in sorted(led):
+        args += ["-e", n]
+    cited: set[str] = set()
+    for root, live in ((ws, lambda r: _is_live(r, LIVE_WS)),
+                       (mono, lambda r: is_live_mono(r, mono))):
+        if root is None:
+            continue
+        for rel in git(root, "grep", "-l", "-I", "--untracked", "-F", *args,
+                       "--", "*.md", "*.mdx"):
+            if not live(rel):
+                continue
+            if root is ws and declared_not_current(rel, root / rel):
+                continue
+            name = "project/kacho/" + rel if (root is mono and mono != ws) else rel
+            for n, dirs in led.items():
+                if n in cited:
+                    continue
+                forms = [n] + [d + "/" + n for d in dirs]
+                if any(claims.still_claims(name, "path", f) for f in forms):
+                    cited.add(n)
+    return [{"kind": "path", "coordinate": n,
+             "source": sorted(led[n])[0] + "/" + RETIRED_LEDGER_NAME}
+            for n in sorted(led) if n not in cited]
 
 
 def allowed(entries: list[dict], kind: str, coord: str) -> dict | None:
@@ -2301,6 +2422,12 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
         + (" (полоса ствола не построена: " + ", ".join(truth.trunk_missing_roots) + ")"
            if truth.trunk_missing_roots else ""),
         coverage_line(c),
+        # Надгробия — тоже объём осмотренного. Без этой строки ноль читался бы
+        # как «снятых миграций никто не цитирует», а не как «надгробий в дереве
+        # нет»; разница между «не нашёл» и «не искал» здесь та же, что у видов
+        # координат выше.
+        (lambda led: f"надгробий сведённых миграций {len({d for ds in led.values() for d in ds})}, "
+                     f"имён в них {len(led)}")(read_retired_ledgers(truth.mono)),
         f"предикатов прогнано {len(on)} ({','.join(on)}), отказано {len(off)} ({','.join(k for k, _ in off)})",
         f"основание: путей {len(truth.tracked_ws) + len(truth.tracked_mono)}, "
         f"маршрутов {len(truth.routes)}, методов {len(truth.rpcs)}, "
@@ -2386,8 +2513,9 @@ def render(findings: list[tuple[str, str, str]], stales: list[dict],
         out.append(f"║     {doc}: {KIND.get(kind, kind)} `{coord}`")
         out.append(f"║     {why}")
     for e in stales:
-        out.append(f"║ ПОСЛАБЛЕНИЕ БЕЗ ПРЕДМЕТА: allow.json → {e.get('kind')} "
-                   f"`{e.get('coordinate')}` больше не упоминается ни одним LIVE-документом.")
+        out.append(f"║ ПОСЛАБЛЕНИЕ БЕЗ ПРЕДМЕТА: {e.get('source') or 'allow.json'} → "
+                   f"{e.get('kind')} `{e.get('coordinate')}` больше не упоминается "
+                   f"ни одним LIVE-документом.")
         out.append("║     Запись, которой нечего исключать, — находка: удалить.")
     if findings:
         out.append("║")
@@ -2563,7 +2691,7 @@ def sweep() -> int:
     _, refusals = truth.enabled()
     claims = DocClaims(ws, mono)
     findings, cnt = check_docs(idx["docs"], idx, truth, entries, ws, mono, claims=claims)
-    stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
+    stales = stale_allow(entries, idx["reverse"], ws, mono, claims) + stale_retired(mono, ws, claims)
     ms = int((time.time() - t0) * 1000)
     census = census_line(idx, truth, cnt, warm, ms, {})
     gaps = cnt.get("toolgaps") or []
@@ -2688,7 +2816,8 @@ def main() -> int:
 
     claims = DocClaims(ws, mono)
     findings, cnt = check_docs(targets, idx, truth, entries, ws, mono, fresh, claims)
-    stales = stale_allow(entries, idx["reverse"], ws, mono, claims) if rel in live_names else []
+    stales = (stale_allow(entries, idx["reverse"], ws, mono, claims)
+              + stale_retired(mono, ws, claims)) if rel in live_names else []
     carried = adjudicate_pending(truth, entries, claims)
     stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
@@ -2831,7 +2960,7 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
             findings.append((d, k, c))
             cnt["coords"] += 1
 
-    stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
+    stales = stale_allow(entries, idx["reverse"], ws, mono, claims) + stale_retired(mono, ws, claims)
     _, refusals = truth.enabled()
     stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
