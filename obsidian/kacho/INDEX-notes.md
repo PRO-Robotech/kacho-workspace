@@ -1210,6 +1210,7 @@ tags:
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/a-guard-that-matches-its-own-command-line\|Сторож, совпадающий с собственной командной строкой, отвечает одно и то же всегда]] | живо (stable) |
 | [[lessons/a-map-that-restates-instead-of-pointing\|Карта, которая пересказывает решение вместо адреса, расходится с телом при первой же правке]] | — |
+| [[lessons/a-number-ornamenting-a-sound-finding\|Украшение при верном выводе стоит дороже, чем кажется]] | живо (done) |
 | [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
 | [[lessons/a-ratio-of-two-stand-quantities-is-not-a-property-of-the-code\|Отношение двух стендовых величин — не свойство кода, и оно устаревает за сутки]] | — |
 | [[lessons/a-value-you-choose-may-already-be-derived\|Величина, которую ты выбираешь, могла быть уже ВЫВЕДЕНА приёмкой]] | — |
@@ -1279,6 +1280,7 @@ tags:
 | [[lessons/two-consistency-windows-in-one-case\|Два независимых окна согласованности в одном кейсе — первое заслоняет второе]] | — |
 | [[lessons/typed-census-split-across-universes-understates\|Типизированная перепись, собранная по частям: тождество типов теряется, и счёт занижается молча]] | — |
 | [[lessons/update-mask-set-knows-one-form-of-the-name\|Набор маски знает одну форму имени — и поле не изменить ни при каком входе]] | — |
+| [[lessons/verdict-is-a-function-of-machine-speed\|Вердикт пробы оказался функцией скорости машины]] | живо (done) |
 | [[lessons/verdict-of-a-tool-belongs-to-its-version\|Вердикт инструмента принадлежит его версии: «локально чисто» не утверждает ничего о конвейере]] | живо (stable) |
 
 ### Записки-переходы прежних репозиториев — `legacy/`
