@@ -1,0 +1,26 @@
+# План свидетельства держателя human-class-exposure-revalidation — изменение standalone-iam.
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: standalone-iam
+holder: human-class-exposure-revalidation
+kind: human-external
+owner: class-exposure-analyst
+subject: design.md
+subject_sha256: f5fcc146d6b4d9588290dc613945d882b939f675729c667eea6d310907f4c3bf
+executable: 'внешнее review event на отпечаток design.md'
+predicate: 'каждый пункт первичного разбора отображён в решение замысла, отображение не устарело'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  вердикт выпускает внешнее событие, а не строка в документе; событие не
+  произошло — subject на review не подавался
