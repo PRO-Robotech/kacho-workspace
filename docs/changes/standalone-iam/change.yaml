@@ -43,7 +43,7 @@ coordinates:
 # правились, их отпечатки прежние. Перемер осиротевших планов — design.md §2.3.
 hashes:
   acceptance_sha256: cf4648c29bf93d958c8aaaa2af6ecb45b813a0ca28bda4b84e5b4e979cfe5560
-  design_sha256: ff96e1897c873c47c692d59d146ae1d5510b5ed874ff9632116d5e9f5ab6457a
+  design_sha256: 81081bc299fa181f02abd9a072774e24566fcf7aadee1c0f49246494ef769077
   holders_sha256: d752e1b6e228d1f88aaaa6f89170a11e019d3a093b2b552b2d19cfe1a45dff5e
 
 # --- Ссылки ----------------------------------------------------------------
@@ -67,6 +67,7 @@ links:
     - { id: M9,  issue: [PRO-Robotech/kacho#1109], state: open }
     - { id: M10, issue: [PRO-Robotech/kacho#1110], state: open }
     - { id: M11, issue: [PRO-Robotech/kacho#1111], state: open }
+    - { id: M12, issue: [PRO-Robotech/kacho#2117], state: open, required_before: M11 }
     # Две вехи, возвращённые решением 2026-09-06 — вынос фундамента в corelib и
     # дебрендинг ДЕСЯТИ поверхностей (шесть П3 плюс четыре R10), — здесь
     # ОТСУТСТВУЮТ намеренно: задач у них нет ни одной, а веха без задачи есть
