@@ -38,9 +38,12 @@ coordinates:
 # ПРЕЖНЕЙ редакции. Прежние значения: acceptance 3d1fdd73…, design 9bf78c51….
 # Следствие названо в design.md §2.3: планы свидетельств с текущими предметами
 # больше не сходятся; ни у одного из них исход не был снят.
+# Редакция 3 (2026-09-06): в design.md записаны решения владельца R10-R12.
+# Тронут ТОЛЬКО design.md — прежнее значение a93cf2fc…; acceptance и holders не
+# правились, их отпечатки прежние. Перемер осиротевших планов — design.md §2.3.
 hashes:
   acceptance_sha256: cf4648c29bf93d958c8aaaa2af6ecb45b813a0ca28bda4b84e5b4e979cfe5560
-  design_sha256: a93cf2fc10f2d99b4200df41fe328e5fffcd5e55345d242c622c4ade61d72358
+  design_sha256: ff96e1897c873c47c692d59d146ae1d5510b5ed874ff9632116d5e9f5ab6457a
   holders_sha256: d752e1b6e228d1f88aaaa6f89170a11e019d3a093b2b552b2d19cfe1a45dff5e
 
 # --- Ссылки ----------------------------------------------------------------
@@ -65,8 +68,9 @@ links:
     - { id: M10, issue: [PRO-Robotech/kacho#1110], state: open }
     - { id: M11, issue: [PRO-Robotech/kacho#1111], state: open }
     # Две вехи, возвращённые решением 2026-09-06 — вынос фундамента в corelib и
-    # дебрендинг шести поверхностей, — здесь ОТСУТСТВУЮТ намеренно: задач у них
-    # нет ни одной, а веха без задачи есть координата без предмета (design.md §4.0).
+    # дебрендинг ДЕСЯТИ поверхностей (шесть П3 плюс четыре R10), — здесь
+    # ОТСУТСТВУЮТ намеренно: задач у них нет ни одной, а веха без задачи есть
+    # координата без предмета (design.md §4.0).
   # Решения владельца. Открытое решение запрещает переход к DESIGN_APPROVED.
   decisions:
     - { id: R1, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: false }
@@ -78,6 +82,11 @@ links:
     - { id: R7, issue: PRO-Robotech/kacho#1110, state: open, irreversible: false }
     - { id: R8, issue: null, state: open, irreversible: false }
     - { id: R9, issue: null, state: open, irreversible: true }
+    # R10-R12 — решения владельца 2026-09-06; разборы и отвергнутые варианты в
+    # design.md §7.1-§7.3. Задач у них нет ни одной, поэтому issue: null.
+    - { id: R10, issue: null, state: closed-by-owner, irreversible: true }
+    - { id: R11, issue: null, state: closed-by-owner, irreversible: true }
+    - { id: R12, issue: null, state: closed-by-owner, irreversible: false }
 
 # --- Заявленное множество путей реализации ---------------------------------
 #
