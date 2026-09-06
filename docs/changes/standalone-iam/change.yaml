@@ -1,0 +1,76 @@
+# Манифест изменения standalone-iam — координаты, состояние, отпечатки, ссылки.
+#
+# Манифест НЕ несёт нормативной прозы: требование, внесённое сюда абзацем, —
+# нарушение (CG_HUMAN_MANIFEST_PROSE). Всё, что объясняет решения, живёт в
+# design.md; всё, что описывает наблюдаемое, — в acceptance.md.
+#
+# Формы ключей не задаёт ни приёмка SDD-1, ни испытуемый — она выбрана автором и
+# записана решением в design.md §2.1.
+schema_version: 1
+change_id: standalone-iam
+lifecycle_state: ISSUE_READY
+
+# --- Координаты ------------------------------------------------------------
+#
+# Поля route и epoch здесь ОТСУТСТВУЮТ намеренно: route принадлежит реестру
+# наследия и свойством нового изменения не является, а эпоха ВЫВОДИТСЯ из
+# ancestry базы и вторым источником быть не может (design.md §1).
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho-workspace/issues/382
+  epic: PRO-Robotech/kacho-workspace#382
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 4ed9059f3e17018935f82668a7a69ffd03de1a9a
+      cutover_is_ancestor_of_base: true
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      base_sha: 74eb331234d31aa29a147bea9544d50fff3f2046
+      cutover_is_ancestor_of_base: true
+
+# --- Отпечатки -------------------------------------------------------------
+#
+# Ими же ключуются записи ревью: вердикт относится к содержимому, а не к имени
+# файла. Правка артефакта делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции —
+# это верно, а не досадно.
+hashes:
+  acceptance_sha256: 3d1fdd7302c2761bc6d854807a828367a8db4f7888df8d5bd3b6f9170f3aefd3
+  design_sha256: 9bf78c51a934fb2744e0ed5ede386beecfd743377f9e1924e85f6bb071690c4f
+  holders_sha256: d752e1b6e228d1f88aaaa6f89170a11e019d3a093b2b552b2d19cfe1a45dff5e
+
+# --- Ссылки ----------------------------------------------------------------
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  # Вехи перехода. Каждая — самостоятельное изменение со своим пакетом; этот
+  # пакет описывает переход и связывает их. Пакетов у них ещё нет.
+  milestones:
+    - { id: M0,  issue: [PRO-Robotech/kacho#1093, PRO-Robotech/kacho#1094], state: open }
+    - { id: M1,  issue: [PRO-Robotech/kacho#1103], state: open, blocks: [M8, M9, M10, M11] }
+    - { id: M2,  issue: [PRO-Robotech/kacho#1104], state: closed }
+    - { id: M3,  issue: [PRO-Robotech/kacho#1105], state: open, required_before: M11 }
+    - { id: M4,  issue: [PRO-Robotech/kacho#1024], state: closed }
+    - { id: M5,  issue: [PRO-Robotech/kacho#1106], state: open, blocks: [M9] }
+    - { id: M6,  issue: [PRO-Robotech/kacho#1027, PRO-Robotech/kacho#1087, PRO-Robotech/kacho#1092], state: open }
+    - { id: M7,  issue: [PRO-Robotech/kacho#1107], state: open }
+    - { id: M8,  issue: [PRO-Robotech/kacho#1108], state: open }
+    - { id: M9,  issue: [PRO-Robotech/kacho#1109], state: open }
+    - { id: M10, issue: [PRO-Robotech/kacho#1110], state: open }
+    - { id: M11, issue: [PRO-Robotech/kacho#1111], state: open }
+  # Решения владельца. Открытое решение запрещает переход к DESIGN_APPROVED.
+  decisions:
+    - { id: R1, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: false }
+    - { id: R2, issue: PRO-Robotech/kacho#1103, state: decided-by-orchestrator, irreversible: true }
+    - { id: R3, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: true }
+    - { id: R4, issue: PRO-Robotech/kacho#1107, state: disputed, irreversible: false }
+    - { id: R5, issue: null, state: withdrawn, irreversible: false }
+    - { id: R6, issue: PRO-Robotech/kacho#1763, state: decided-by-orchestrator, irreversible: true }
+    - { id: R7, issue: PRO-Robotech/kacho#1110, state: open, irreversible: false }
+    - { id: R8, issue: null, state: open, irreversible: false }
+
+# --- Заявленное множество путей реализации ---------------------------------
+#
+# Пусто, и это не пропуск: изменение в состоянии ISSUE_READY реализации ещё не
+# имеет. Множество заполняется к фазе сверки и сличается с фактическим ТОЧНО, по
+# паре «путь + содержимое».
+implementation_diff_set: []

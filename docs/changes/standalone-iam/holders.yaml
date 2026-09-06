@@ -1,0 +1,219 @@
+# Точное множество требуемых держателей изменения standalone-iam.
+#
+# Форма ключей — решение автора, записанное в design.md §2.2: её не задаёт ни
+# приёмка SDD-1 (называет предметы и состав фактов, но не ключи), ни испытуемый
+# (называет координаты мира кейса — свой словарь, а не схему файла пакета).
+# Образец взят у фикстуры scripts/change-graph-gate/tests/testdata/*/holders.yaml.
+#
+# Пять величин живут ЗДЕСЬ (объявленные), шесть остальных из §7 приёмки SDD-1 —
+# subject/input/output SHA-256, digest потоков вывода, captured_category — живут
+# в свидетельстве, потому что они СНЯТЫЕ. Записать их здесь значило бы выдать
+# намерение за наблюдение.
+#
+# Множество ТОЧНОЕ: держатель, не названный здесь, вердикта по изменению не даёт,
+# а названный и не отдавший исхода даёт «не выполнилось» — не «наверное прошло».
+schema_version: 1
+change_id: standalone-iam
+
+required_holders:
+
+  # ── машинные: воркспейс ───────────────────────────────────────────────────
+  # Каждый набор различает ТРИ исхода кодом возврата: 0 рассмотрено-без-находок,
+  # 1 находка либо пустой обход, 2 без предмета. Третий не вычитается из вердикта.
+
+  ws-docs-gate:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/docs-gate/run-all.sh
+    predicate: вердикт приёмки этого пакета читается машинно и состояние записок сходится с деревом
+    evidence_coordinate: evidence/ws-docs-gate/
+
+  ws-tooling-gate:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/tooling-gate/run-all.sh
+    predicate: пути в скриптах резолвятся, карта агентов сходится с деревом, триггеры сужены по ветке
+    evidence_coordinate: evidence/ws-tooling-gate/
+
+  ws-adapter-gate:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/adapter-gate/run-all.sh
+    predicate: производное для второй агентской среды побайтово сходится с регенерацией из входа
+    evidence_coordinate: evidence/ws-adapter-gate/
+
+  ws-vault-gate:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/vault-gate/run-all.sh
+    predicate: висячих ссылок нет, оболочка записок цела, указатель свеж
+    evidence_coordinate: evidence/ws-vault-gate/
+
+  ws-skills-gate:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/skills-gate/run-all.sh
+    predicate: перечень скилов сходится с отслеживаемым деревом
+    evidence_coordinate: evidence/ws-skills-gate/
+
+  ws-change-graph-selftest:
+    kind: machine
+    owner: integration-tester
+    executable: ./scripts/change-graph-gate/run-all.sh
+    predicate: испытуемый контура исполняет все кейсы приёмки SDD-1 при нуле несовпадений и нуле поломок оснастки
+    evidence_coordinate: evidence/ws-change-graph-selftest/
+
+  # ── машинные: продукт ─────────────────────────────────────────────────────
+
+  prod-license-subject:
+    kind: machine
+    owner: db-architect-reviewer
+    executable: go test ./internal/repohygiene -run 'TestLicense' -count=1
+    predicate: каждый файл индекса несёт лицензию, отвечающую своему пути, и каждый текст лицензии называет свой предмет
+    evidence_coordinate: evidence/prod-license-subject/
+    note: >-
+      Сегодня гейт держит одну лицензию ЛИТЕРАЛОМ и требует её от каждого файла.
+      Файл с иной лицензией уронит прогон — это столкновение гейта с предметом
+      изменения, а не дефект гейта. Расширение до отображения путь→лицензия —
+      предмет решения Р3 (design.md §7) и веха M1; снимать гейт «как мешающий»
+      запрещено.
+
+  prod-module-knows-no-edge:
+    kind: machine
+    owner: system-design-reviewer
+    executable: go test ./internal/repohygiene -run 'ModuleKnowsNoEdge' -count=1
+    predicate: ни один модуль не знает контракта, ручки и адреса края — тремя половинами, по каждому модулю дерева
+    evidence_coordinate: evidence/prod-module-knows-no-edge/
+
+  prod-boot-guard-presence:
+    kind: machine
+    owner: system-design-reviewer
+    executable: go test ./internal/repohygiene -run 'BootGuard' -count=1
+    predicate: сервис, объявляющий посадочные ручки, несёт стража старта и зовёт его
+    evidence_coordinate: evidence/prod-boot-guard-presence/
+
+  prod-module-manifest:
+    kind: machine
+    owner: proto-api-reviewer
+    executable: go test ./internal/repohygiene -run 'Manifest' -count=1
+    predicate: манифест домена сходится со своей схемой, доставляется и читается на старте
+    evidence_coordinate: evidence/prod-module-manifest/
+
+  prod-ci-local:
+    kind: machine
+    owner: integration-tester
+    executable: scripts/ci-local.sh proto go
+    predicate: контракты порождаются воспроизводимо, дерево собирается, короткие пробы проходят
+    evidence_coordinate: evidence/prod-ci-local/
+    note: >-
+      Прогонщик различает третий исход отдельно — прогон, оборванный исчерпанием
+      ресурса, недействителен и не читается ни как красный, ни как зелёный.
+
+  # ── машинные: заводятся ЭТИМ переходом ────────────────────────────────────
+  # У этих двух производителя сегодня нет. Они объявлены здесь, а не умолчаны,
+  # потому что держатель без производителя обязан быть ВИДЕН: иначе его
+  # отсутствие неотличимо от его молчания.
+
+  sev-standalone-boot:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ПЕРЕХОДОМ: установка чарта отдельного клона в боевой посадке + ожидание готовности'
+    predicate: отдельный клон поднимается без монорепо и без внешнего поставщика и отвечает на публичный RPC
+    evidence_coordinate: evidence/sev-standalone-boot/
+    note: >-
+      Производителя нет: у чарта iam нет боевого профиля — все три в дереве
+      принадлежат зонтичному чарту. Покрывает IAM-SEV-BOOT-01..04. До появления
+      производителя исход держателя — «не выполнилось», и он НЕ вычитается из
+      вердикта.
+
+  sev-name-residue:
+    kind: machine
+    owner: integration-tester
+    executable: 'ЗАВОДИТСЯ ЭТИМ ПЕРЕХОДОМ: предикат остатка имени с названной единицей счёта и объявленной областью'
+    predicate: остатка имени продукта в опубликованном дереве нет, и перепись печатает объём осмотренного
+    evidence_coordinate: evidence/sev-name-residue/
+    note: >-
+      Производителя нет, и нынешнее условие эпика негодно дважды: оно не даёт
+      одного числа (единица счёта не названа) и недостижимо по построению, пока
+      не решена судьба имени схемы (Р5). Покрывает IAM-SEV-NAME-01..03.
+
+  # ── человеческие ──────────────────────────────────────────────────────────
+  # Роль — КООРДИНАТА, а не доказательство личности: вердикт выпускает внешнее
+  # событие, подтверждённое через API. Самообъявленная роль полномочия не даёт.
+  # Применимость: ни один из трёх предикатов освобождения policy.yaml на этом
+  # изменении не выполняется — оно трогает и миграции, и контракты, и несёт
+  # приёмку, — поэтому применимы ВСЕ роли ниже.
+
+  human-acceptance:
+    kind: human-external
+    owner: acceptance-reviewer
+    executable: внешнее review event на отпечаток acceptance.md
+    predicate: наблюдаемое поведение перехода описано полно, у каждого «Тогда» есть производитель, у каждого отрицания — положительный близнец
+    evidence_coordinate: evidence/human-acceptance/
+
+  human-class-exposure-initial:
+    kind: human-external
+    owner: class-exposure-analyst
+    executable: внешнее review event на отпечаток acceptance.md
+    predicate: перечень классов дефектов, которые переход может задеть, назван и сохранён
+    evidence_coordinate: evidence/human-class-exposure-initial/
+
+  human-class-exposure-revalidation:
+    kind: human-external
+    owner: class-exposure-analyst
+    executable: внешнее review event на отпечаток design.md
+    predicate: каждый пункт первичного разбора отображён в решение замысла, отображение не устарело
+    evidence_coordinate: evidence/human-class-exposure-revalidation/
+
+  human-design:
+    kind: human-external
+    owner: design-reviewer
+    executable: внешнее review event на отпечаток design.md
+    predicate: решения и инварианты замысла полны; открытых решений, маркеров отсрочки и неотображённых классов нет
+    evidence_coordinate: evidence/human-design/
+
+  human-post-diff-db:
+    kind: human-external
+    owner: db-architect-reviewer
+    executable: внешнее review event на отпечаток содержимого изменения
+    predicate: схема и миграции отвечают требованиям целостности; применённая миграция не правлена
+    evidence_coordinate: evidence/human-post-diff-db/
+
+  human-post-diff-proto:
+    kind: human-external
+    owner: proto-api-reviewer
+    executable: внешнее review event на отпечаток содержимого изменения
+    predicate: изменение контрактов отвечает конвенциям; внутренняя поверхность не опубликована наружу
+    evidence_coordinate: evidence/human-post-diff-proto/
+
+  human-post-diff-go:
+    kind: human-external
+    owner: go-style-reviewer
+    executable: внешнее review event на отпечаток содержимого изменения
+    predicate: раскладка слоёв цела, транспорт не протёк в use-case, мёртвого кода не заведено
+    evidence_coordinate: evidence/human-post-diff-go/
+
+  human-post-diff-system:
+    kind: human-external
+    owner: system-design-reviewer
+    executable: внешнее review event на отпечаток содержимого изменения
+    predicate: ацикличность графа вызовов сохранена; распределённые свойства перехода не нарушены
+    evidence_coordinate: evidence/human-post-diff-system/
+    note: >-
+      Поверхность изменения распределённая (два репозитория, три артефакта
+      лицензии), поэтому запись этой роли обязательна ПОВТОРНО на текущий
+      отпечаток содержимого, а не только на замысел.
+
+  human-convergence:
+    kind: human-external
+    owner: convergence-reviewer
+    executable: внешнее review event на отпечаток содержимого изменения
+    predicate: множество применимых ролей сверено в обе стороны, повторные ревью собраны, отпечатки базы и источника названы по КАЖДОМУ репозиторию
+    evidence_coordinate: evidence/human-convergence/
+
+  human-landing:
+    kind: human-external
+    owner: landing-reviewer
+    executable: внешнее review event на посаженное содержимое
+    predicate: применённое содержимое совпадает с одобренным; сохранность работы доказана содержимым, а не тождеством коммита
+    evidence_coordinate: evidence/human-landing/
