@@ -1,0 +1,26 @@
+# План свидетельства держателя human-convergence — изменение standalone-iam.
+#
+# Написан ДО прогона. Поля снятого исхода пусты НАМЕРЕННО: записать в них
+# ожидание значило бы выдать намерение за наблюдение. Их заполняет прогон.
+schema_version: 1
+change_id: standalone-iam
+holder: human-convergence
+kind: human-external
+owner: convergence-reviewer
+subject: пакет standalone-iam на состоянии ISSUE_READY
+subject_sha256: 3d1fdd7302c2761bc6d854807a828367a8db4f7888df8d5bd3b6f9170f3aefd3
+executable: 'внешнее review event на отпечаток содержимого изменения'
+predicate: 'множество применимых ролей сверено в обе стороны, повторные ревью собраны, отпечатки базы и источника названы по КАЖДОМУ репозиторию'
+
+# ── снятое: заполняет прогон, не перо ──────────────────────────────────────
+captured_category: null
+input_sha256: null
+output_sha256: null
+stdout_digest: null
+stderr_digest: null
+
+# Исходов ровно три: GREEN · RED · NOT_EXECUTED. Отсутствие вывода — это
+# NOT_EXECUTED, а не «наверное прошло».
+note: >-
+  вердикт выпускает внешнее событие, а не строка в документе; событие не
+  произошло — subject на review не подавался

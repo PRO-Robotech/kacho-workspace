@@ -1,0 +1,110 @@
+# Манифест изменения standalone-iam — координаты, состояние, отпечатки, ссылки.
+#
+# Манифест НЕ несёт нормативной прозы: требование, внесённое сюда абзацем, —
+# нарушение (CG_HUMAN_MANIFEST_PROSE). Всё, что объясняет решения, живёт в
+# design.md; всё, что описывает наблюдаемое, — в acceptance.md.
+#
+# Формы ключей не задаёт ни приёмка SDD-1, ни испытуемый — она выбрана автором и
+# записана решением в design.md §2.1.
+schema_version: 1
+change_id: standalone-iam
+lifecycle_state: ISSUE_READY
+
+# --- Координаты ------------------------------------------------------------
+#
+# Поля route и epoch здесь ОТСУТСТВУЮТ намеренно: route принадлежит реестру
+# наследия и свойством нового изменения не является, а эпоха ВЫВОДИТСЯ из
+# ancestry базы и вторым источником быть не может (design.md §1).
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho-workspace/issues/382
+  epic: PRO-Robotech/kacho-workspace#382
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 4ed9059f3e17018935f82668a7a69ffd03de1a9a
+      cutover_is_ancestor_of_base: true
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      base_sha: 74eb331234d31aa29a147bea9544d50fff3f2046
+      cutover_is_ancestor_of_base: true
+
+# --- Отпечатки -------------------------------------------------------------
+#
+# Ими же ключуются записи ревью: вердикт относится к содержимому, а не к имени
+# файла. Правка артефакта делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции —
+# это верно, а не досадно.
+# Редакция 2 (2026-09-06): решение владельца 2026-09-04 отменено решением
+# 2026-09-06, и оба артефакта переписаны — прежние отпечатки стали отпечатками
+# ПРЕЖНЕЙ редакции. Прежние значения: acceptance 3d1fdd73…, design 9bf78c51….
+# Следствие названо в design.md §2.3: планы свидетельств с текущими предметами
+# больше не сходятся; ни у одного из них исход не был снят.
+# Редакция 3 (2026-09-06): в design.md записаны решения владельца R10-R12.
+# Тронут ТОЛЬКО design.md — прежнее значение a93cf2fc…; acceptance и holders не
+# правились, их отпечатки прежние. Перемер осиротевших планов — design.md §2.3.
+# Редакция 4 (2026-09-06): заведено решение R14 (имя пакета контракта следует за
+# продуктом), R13 внесено в перечень решений, врезка design.md §0.1 приведена к факту.
+# Тронуты ОБА артефакта: design.md — прежнее значение 81081bc2…, acceptance.md —
+# cf4648c2…. Планов свидетельств, ключуемых этими значениями, в пакете ноль, поэтому
+# редакция 4 осиротила НОЛЬ планов — перемер в design.md §2.3.
+hashes:
+  acceptance_sha256: 86c188efbe7e4c888c8bdd3e0b8afa3e28e923d846a0efc18c17cba851159e62
+  design_sha256: 8c550d2737a3b75876682cd845b1e755ce32ff48b39d637093e9aef37fd2cd90
+  holders_sha256: d752e1b6e228d1f88aaaa6f89170a11e019d3a093b2b552b2d19cfe1a45dff5e
+
+# --- Ссылки ----------------------------------------------------------------
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  # Вехи перехода. Каждая — самостоятельное изменение со своим пакетом; этот
+  # пакет описывает переход и связывает их. Пакетов у них ещё нет.
+  # Состояния сняты замером 2026-09-06, а не по памяти:
+  # gh issue view <N> -R PRO-Robotech/kacho --json state
+  milestones:
+    - { id: M0,  issue: [PRO-Robotech/kacho#1093, PRO-Robotech/kacho#1094], state: closed }
+    - { id: M1,  issue: [PRO-Robotech/kacho#1103], state: closed, blocks: [M8, M9, M10, M11] }
+    - { id: M2,  issue: [PRO-Robotech/kacho#1104], state: closed }
+    - { id: M3,  issue: [PRO-Robotech/kacho#1105], state: closed, required_before: M11 }
+    - { id: M4,  issue: [PRO-Robotech/kacho#1024], state: closed }
+    - { id: M5,  issue: [PRO-Robotech/kacho#1106], state: closed, blocks: [M9] }
+    - { id: M6,  issue: [PRO-Robotech/kacho#1027, PRO-Robotech/kacho#1087, PRO-Robotech/kacho#1092], state: closed }
+    - { id: M7,  issue: [PRO-Robotech/kacho#1107], state: closed }
+    - { id: M8,  issue: [PRO-Robotech/kacho#1108], state: closed }
+    - { id: M9,  issue: [PRO-Robotech/kacho#1109], state: open }
+    - { id: M10, issue: [PRO-Robotech/kacho#1110], state: open }
+    - { id: M11, issue: [PRO-Robotech/kacho#1111], state: open }
+    - { id: M12, issue: [PRO-Robotech/kacho#2117], state: open, required_before: M11 }
+    # Две вехи, возвращённые решением 2026-09-06 — вынос фундамента в corelib и
+    # дебрендинг ДЕСЯТИ поверхностей (шесть П3 плюс четыре R10), — здесь
+    # ОТСУТСТВУЮТ намеренно: задач у них нет ни одной, а веха без задачи есть
+    # координата без предмета (design.md §4.0).
+  # Решения владельца. Открытое решение запрещает переход к DESIGN_APPROVED.
+  decisions:
+    - { id: R1, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: false }
+    - { id: R2, issue: PRO-Robotech/kacho#1103, state: decided-by-orchestrator, irreversible: true }
+    - { id: R3, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: true }
+    - { id: R4, issue: PRO-Robotech/kacho#1107, state: disputed, irreversible: false }
+    - { id: R5, issue: null, state: closed-by-owner, irreversible: true }
+    - { id: R6, issue: PRO-Robotech/kacho#1763, state: decided-by-orchestrator, irreversible: true }
+    - { id: R7, issue: PRO-Robotech/kacho#1110, state: open, irreversible: false }
+    - { id: R8, issue: null, state: open, irreversible: false }
+    - { id: R9, issue: null, state: open, irreversible: true }
+    # R10-R12 — решения владельца 2026-09-06; разборы и отвергнутые варианты в
+    # design.md §7.1-§7.3. Задач у них нет ни одной, поэтому issue: null.
+    - { id: R10, issue: null, state: closed-by-owner, irreversible: true }
+    - { id: R11, issue: null, state: closed-by-owner, irreversible: true }
+    - { id: R12, issue: null, state: closed-by-owner, irreversible: false }
+    # R13 существовало разбором design.md §8 и в этом перечне ОТСУТСТВОВАЛО — два места
+    # об одном предмете внутри одного пакета. Внесено редакцией 4; строка таблицы §7
+    # заведена тем же заходом и содержания §8 не пересказывает.
+    - { id: R13, issue: PRO-Robotech/kacho#2117, state: closed-by-owner, irreversible: true }
+    # R14 — решение оркестратора 2026-09-06, разбор design.md §7.4. Оно разрешает спор
+    # двух ДЕЙСТВУЮЩИХ текстов (эпик kacho#2076 против П3 владельца), поэтому записано
+    # решением, а не правкой эпика: правка стёрла бы предмет спора вместе со спором.
+    - { id: R14, issue: PRO-Robotech/kacho#2133, state: decided-by-orchestrator, irreversible: true }
+
+# --- Заявленное множество путей реализации ---------------------------------
+#
+# Пусто, и это не пропуск: изменение в состоянии ISSUE_READY реализации ещё не
+# имеет. Множество заполняется к фазе сверки и сличается с фактическим ТОЧНО, по
+# паре «путь + содержимое».
+implementation_diff_set: []
