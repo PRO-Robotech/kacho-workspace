@@ -58,7 +58,7 @@ links:
     - { id: M0,  issue: [PRO-Robotech/kacho#1093, PRO-Robotech/kacho#1094], state: closed }
     - { id: M1,  issue: [PRO-Robotech/kacho#1103], state: closed, blocks: [M8, M9, M10, M11] }
     - { id: M2,  issue: [PRO-Robotech/kacho#1104], state: closed }
-    - { id: M3,  issue: [PRO-Robotech/kacho#1105], state: open, required_before: M11 }
+    - { id: M3,  issue: [PRO-Robotech/kacho#1105], state: closed, required_before: M11 }
     - { id: M4,  issue: [PRO-Robotech/kacho#1024], state: closed }
     - { id: M5,  issue: [PRO-Robotech/kacho#1106], state: closed, blocks: [M9] }
     - { id: M6,  issue: [PRO-Robotech/kacho#1027, PRO-Robotech/kacho#1087, PRO-Robotech/kacho#1092], state: closed }
