@@ -33,9 +33,14 @@ coordinates:
 # Ими же ключуются записи ревью: вердикт относится к содержимому, а не к имени
 # файла. Правка артефакта делает прежний вердикт вердиктом о ПРЕЖНЕЙ редакции —
 # это верно, а не досадно.
+# Редакция 2 (2026-09-06): решение владельца 2026-09-04 отменено решением
+# 2026-09-06, и оба артефакта переписаны — прежние отпечатки стали отпечатками
+# ПРЕЖНЕЙ редакции. Прежние значения: acceptance 3d1fdd73…, design 9bf78c51….
+# Следствие названо в design.md §2.3: планы свидетельств с текущими предметами
+# больше не сходятся; ни у одного из них исход не был снят.
 hashes:
-  acceptance_sha256: 3d1fdd7302c2761bc6d854807a828367a8db4f7888df8d5bd3b6f9170f3aefd3
-  design_sha256: 9bf78c51a934fb2744e0ed5ede386beecfd743377f9e1924e85f6bb071690c4f
+  acceptance_sha256: cf4648c29bf93d958c8aaaa2af6ecb45b813a0ca28bda4b84e5b4e979cfe5560
+  design_sha256: a93cf2fc10f2d99b4200df41fe328e5fffcd5e55345d242c622c4ade61d72358
   holders_sha256: d752e1b6e228d1f88aaaa6f89170a11e019d3a093b2b552b2d19cfe1a45dff5e
 
 # --- Ссылки ----------------------------------------------------------------
@@ -44,29 +49,35 @@ links:
   contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
   # Вехи перехода. Каждая — самостоятельное изменение со своим пакетом; этот
   # пакет описывает переход и связывает их. Пакетов у них ещё нет.
+  # Состояния сняты замером 2026-09-06, а не по памяти:
+  # gh issue view <N> -R PRO-Robotech/kacho --json state
   milestones:
-    - { id: M0,  issue: [PRO-Robotech/kacho#1093, PRO-Robotech/kacho#1094], state: open }
-    - { id: M1,  issue: [PRO-Robotech/kacho#1103], state: open, blocks: [M8, M9, M10, M11] }
+    - { id: M0,  issue: [PRO-Robotech/kacho#1093, PRO-Robotech/kacho#1094], state: closed }
+    - { id: M1,  issue: [PRO-Robotech/kacho#1103], state: closed, blocks: [M8, M9, M10, M11] }
     - { id: M2,  issue: [PRO-Robotech/kacho#1104], state: closed }
     - { id: M3,  issue: [PRO-Robotech/kacho#1105], state: open, required_before: M11 }
     - { id: M4,  issue: [PRO-Robotech/kacho#1024], state: closed }
-    - { id: M5,  issue: [PRO-Robotech/kacho#1106], state: open, blocks: [M9] }
-    - { id: M6,  issue: [PRO-Robotech/kacho#1027, PRO-Robotech/kacho#1087, PRO-Robotech/kacho#1092], state: open }
-    - { id: M7,  issue: [PRO-Robotech/kacho#1107], state: open }
-    - { id: M8,  issue: [PRO-Robotech/kacho#1108], state: open }
+    - { id: M5,  issue: [PRO-Robotech/kacho#1106], state: closed, blocks: [M9] }
+    - { id: M6,  issue: [PRO-Robotech/kacho#1027, PRO-Robotech/kacho#1087, PRO-Robotech/kacho#1092], state: closed }
+    - { id: M7,  issue: [PRO-Robotech/kacho#1107], state: closed }
+    - { id: M8,  issue: [PRO-Robotech/kacho#1108], state: closed }
     - { id: M9,  issue: [PRO-Robotech/kacho#1109], state: open }
     - { id: M10, issue: [PRO-Robotech/kacho#1110], state: open }
     - { id: M11, issue: [PRO-Robotech/kacho#1111], state: open }
+    # Две вехи, возвращённые решением 2026-09-06 — вынос фундамента в corelib и
+    # дебрендинг шести поверхностей, — здесь ОТСУТСТВУЮТ намеренно: задач у них
+    # нет ни одной, а веха без задачи есть координата без предмета (design.md §4.0).
   # Решения владельца. Открытое решение запрещает переход к DESIGN_APPROVED.
   decisions:
     - { id: R1, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: false }
     - { id: R2, issue: PRO-Robotech/kacho#1103, state: decided-by-orchestrator, irreversible: true }
     - { id: R3, issue: PRO-Robotech/kacho#1103, state: closed-by-owner, irreversible: true }
     - { id: R4, issue: PRO-Robotech/kacho#1107, state: disputed, irreversible: false }
-    - { id: R5, issue: null, state: withdrawn, irreversible: false }
+    - { id: R5, issue: null, state: closed-by-owner, irreversible: true }
     - { id: R6, issue: PRO-Robotech/kacho#1763, state: decided-by-orchestrator, irreversible: true }
     - { id: R7, issue: PRO-Robotech/kacho#1110, state: open, irreversible: false }
     - { id: R8, issue: null, state: open, irreversible: false }
+    - { id: R9, issue: null, state: open, irreversible: true }
 
 # --- Заявленное множество путей реализации ---------------------------------
 #
