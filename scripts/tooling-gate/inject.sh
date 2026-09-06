@@ -526,6 +526,49 @@ b="$(mksandbox scripts/hooks)"
 run 2 "$b" "предпосылка: вызывающего нет — VOID, а не успех" \
     check-08-caller-reads-the-three-outcomes.sh
 
+echo "== check-09: merge-readiness перестал различать три исхода =="
+MR_REL="scripts/merge-readiness.sh"
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+# Инъекция ИСХОДНОГО дефекта (ws#530): сортировка перечня обязательных отдана
+# локали, а сверка осталась байтовой. Ровно это состояние отвечало «сливать
+# нельзя» на каждом открытом PR, не напечатав ни строки вердикта.
+b="$(mksandbox)"
+perl -0pi -e 's/^(required=\$\(jq .*?)\| LC_ALL=C sort -u\)$/$1| sort -u)/m' "$b/$MR_REL"
+run 1 "$b" "инъекция: перечень обязательных отсортирован локалью — краснеет" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+# Инъекция ПРЕДМЕТА ЗАДАЧИ: отказ разбора выходит единицей. Скрипт при этом
+# исправен во всём остальном — меняется ровно один факт, код на выходе из
+# `parse_broken`, — и краснеют ровно две пробы, где разбор ломается.
+b="$(mksandbox)"
+perl -0pi -e 's/(вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' "$b/$MR_REL"
+run 1 "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+# Инъекция ВТОРОГО дефекта той же строки, изолированная от первого: порядок
+# остаётся байтовым (сверка не ломается), но дедупликация идёт по локали и
+# схлопывает имена, различные только длинным тире. Краснеет ровно одна проба —
+# та, ради которой она и написана.
+b="$(mksandbox)"
+perl -0pi -e 's/^(required=\$\(jq .*?)\| LC_ALL=C sort -u\)$/$1| LC_ALL=ru_RU.UTF-8 sort -u | LC_ALL=C sort)/m' "$b/$MR_REL"
+run 1 "$b" "инъекция: имена схлопнуты локалью при байтовом порядке — краснеет" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+# Законный близнец: то же свойство (байтовый порядок плюс дедупликация),
+# записанное иначе. Без него проверка ловила бы строку `LC_ALL=C sort -u`, а не
+# исход, и запрещала бы автору любую другую запись сверки.
+b="$(mksandbox)"
+perl -0pi -e 's/LC_ALL=C sort -u/LC_ALL=C sort | LC_ALL=C uniq/g' "$b/$MR_REL"
+run 0 "$b" "близнец: та же сортировка другой формой — молчит" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
+b="$(mksandbox scripts/merge-readiness.sh)"
+run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
+    check-09-merge-readiness-tells-three-outcomes-apart.sh
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
