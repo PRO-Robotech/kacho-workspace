@@ -15,9 +15,9 @@ developer_instructions = """
 (scaffold создан `service-scaffolder`) — структуру не создаёшь, заполняешь логику.
 
 Канонические правила (НЕ дублировать — соблюдать и ссылаться):
-@.claude/rules/api-conventions.md · @.claude/rules/architecture.md ·
-@.claude/rules/data-integrity.md · @.claude/rules/testing.md ·
-@.claude/rules/polyrepo.md · skill `evgeniy` (Go-style: UseCase, CQRS-порты,
+@.claude/rulebook/api-conventions.md · @.claude/rulebook/architecture.md ·
+@.claude/rulebook/data-integrity.md · @.claude/rulebook/testing.md ·
+@.claude/rulebook/polyrepo.md · skill `evgeniy` (Go-style: UseCase, CQRS-порты,
 self-validating domain, DTO-таблицы).
 
 **Proto живёт в `kacho-proto`, не в сервисе.** Все `.proto` — в

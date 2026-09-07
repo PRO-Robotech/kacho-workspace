@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """check-02 — каждая записка журнала работ объявляет своё состояние.
 
-Что запрещает эта проверка. `.claude/rules/vault.md` требует KAC-trail на каждый
+Что запрещает эта проверка. `.claude/rulebook/vault.md` требует KAC-trail на каждый
 тикет и запрещает stale-данные; `obsidian/kacho/CLAUDE.md` §«Frontmatter
 discipline» называет для записок KAC поле `status` в шапке YAML. Записка без
 состояния неотличима от активной задачи, брошенной и уже решённой в другом

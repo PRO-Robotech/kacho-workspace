@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # skills-gate #03 — перечень канонических скилов сходится с деревом.
 #
-# ЧТО УТВЕРЖДАЕТ. Множество имён, перечисленных в `.claude/rules/ai-tooling.md`
+# ЧТО УТВЕРЖДАЕТ. Множество имён, перечисленных в `.claude/rulebook/ai-tooling.md`
 # §Канонические скилы, побайтово совпадает с множеством **отслеживаемых git**
 # директорий `.claude/skills/*/`. Строка без директории и директория без строки —
 # обе находки, и обе печатаются отдельно.
@@ -25,7 +25,7 @@ source "$SCRIPT_DIR/_lib.sh"
 
 WS="$(skills_gate_workspace_root)"
 NAME="03-roster-matches-tree"
-RULE="$WS/.claude/rules/ai-tooling.md"
+RULE="$WS/.claude/rulebook/ai-tooling.md"
 
 [ -f "$RULE" ] || { skills_gate_void "$NAME" "нет $RULE"; exit 2; }
 

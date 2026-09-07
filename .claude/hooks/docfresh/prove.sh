@@ -211,7 +211,7 @@ for dead in sync-tooling.sh tests/sync-tooling.bats; do
   if premise_dead "$dead"; then echo "  ✔ вход (+) жив: '$dead' в дереве отсутствует"
   else notrun "'$dead' появился в дереве — проба (+) по нему больше не настоящая, заменить вход"; fi
 done
-for alive in sync-all.sh .claude/rules/vault.md pkg/ids/ids.go; do
+for alive in sync-all.sh .claude/rulebook/vault.md pkg/ids/ids.go; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
@@ -276,11 +276,11 @@ echo "== A'. регрессии нормализации пути =="
 # в `claude/rules/x`. Воспроизведено трижды подряд при написании предиката,
 # поэтому проба стоит отдельно и с обеих сторон.
 expect_silent_live "ведущая точка каталога оснастки не съедена" b1.md \
-  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md' \
-  '.claude/rules/vault.md'
+  'Полные правила — `.claude/rulebook/vault.md`.' '.claude/rulebook/vault.md' \
+  '.claude/rulebook/vault.md'
 expect_silent_live "маркер импорта @ не часть пути" b2.md \
-  'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md' \
-  '.claude/rules/security.md'
+  'Модуль подключается как `@.claude/rulebook/security.md`.' '.claude/rulebook/security.md' \
+  '.claude/rulebook/security.md'
 # Обе стороны относительной ссылки вверх — на ОДНОЙ конструкции и на ОДНОМ имени
 # главы: различает их только каталог документа, то есть ровно то, что проверяется.
 # Пара переанкерена 2026-08-12: глава уехала на уровень `engineering/`, и прежний
@@ -330,7 +330,7 @@ expect_fires_dead "неизвестное состояние не освобож
   obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh' 'sync-tooling.sh'
 # граница послабления: оно про записки хранилища, а не про любой документ с frontmatter.
 expect_fires_dead "то же поле в НЕ-записке освобождения не даёт" \
-  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
+  .claude/rulebook/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
 
 echo
 echo "== B. маршрут =="

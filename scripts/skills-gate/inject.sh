@@ -20,6 +20,11 @@ trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/.claude"
 cp -r "$WS/.claude/skills" "$TMP/.claude/skills"
 cp -r "$WS/.claude/rules"  "$TMP/.claude/rules"
+# Свод правил едет ВМЕСТЕ с ядром: у нормы два дома, и гейт 01 резолвит §-имя в
+# обоих, а гейт 03 читает перечень скилов из ai-tooling.md, который лежит здесь.
+# Без этой строки обе половины инъекции гейта 01 мертвы МОЛЧА (ссылка на норму,
+# которой нет в копии, пропускается), а гейт 03 отвечает VOID.
+cp -r "$WS/.claude/rulebook" "$TMP/.claude/rulebook"
 cp -r "$WS/.claude/agents" "$TMP/.claude/agents"
 # .gitignore едет вместе: без него временное дерево «отслеживает» и посторонние
 # скилы, и перепись гейта 03 разойдётся с настоящей по причине, к предмету
@@ -43,7 +48,7 @@ CA="$TMP/.claude/skills/code-authoring/SKILL.md"
 GA="$TMP/.claude/skills/gate-authoring/SKILL.md"
 SS="$TMP/.claude/skills/security-surface/SKILL.md"
 DT="$TMP/.claude/skills/doc-truthfulness/SKILL.md"
-AT="$TMP/.claude/rules/ai-tooling.md"
+AT="$TMP/.claude/rulebook/ai-tooling.md"
 DW="$TMP/.claude/skills/kacho-docs-writer/SKILL.md"
 
 pass=0

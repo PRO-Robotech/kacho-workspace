@@ -96,7 +96,7 @@ proto** и прозы не читают, `check-doc-commands` читает од�
 
 | Режим | Вход | до | после |
 |---|---|---|---|
-| A | `.claude/rules/security.md`, 75 КБ | 66 мс | **66 мс** |
+| A | `.claude/rulebook/security.md`, 75 КБ | 66 мс | **66 мс** |
 | A | `obsidian/kacho/INDEX.md` | 50 мс | **57 мс** |
 | B | `pkg/ids/ids.go` (назван документами) | 47 мс | **57 мс** |
 | B | `go.sum` (не назван никем) | 49 мс | **56 мс** |

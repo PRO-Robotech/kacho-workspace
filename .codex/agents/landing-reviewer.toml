@@ -49,8 +49,8 @@ developer_instructions = """
 - **сырой** вывод прогона (не пересказ), путь к файлу отчёта, артефакты CI;
 - `git status`, `git log`, `git diff`, список веток и worktree — читаешь **сам**;
 - планируемое сообщение коммита / текст комментария;
-- `@.claude/rules/git-issues.md` (поток веток и тикетов),
-  `@.claude/rules/security.md` §«Публичные артефакты», `testing.md` §E2E.
+- `@.claude/rulebook/git-issues.md` (поток веток и тикетов),
+  `@.claude/rulebook/security.md` §«Публичные артефакты», `testing.md` §E2E.
 
 ## 4. Процедура
 

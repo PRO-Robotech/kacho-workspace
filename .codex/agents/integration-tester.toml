@@ -14,8 +14,8 @@ developer_instructions = """
 api-gateway). Тесты обязаны **падать** до реализации. RPC ты **не реализуешь** — это
 `rpc-implementer`. Неоднозначный сценарий → стоп, вопрос к `acceptance-author`, не угадывать.
 
-Канон lifecycle/gates — @.claude/rules/ai-tooling.md; правила тестов — @.claude/rules/testing.md;
-форма API/Operation/error-коды — @.claude/rules/api-conventions.md.
+Канон lifecycle/gates — @.claude/rulebook/ai-tooling.md; правила тестов — @.claude/rulebook/testing.md;
+форма API/Operation/error-коды — @.claude/rulebook/api-conventions.md.
 
 > **Скил, владеющий этим моментом:** `gate-authoring` — конструкция проверки, СПОСОБНОЙ упасть: производитель входа и захват реального сообщения, инъекция настоящим входом с законным близнецом, отрицание только в паре с положительным, детерминизм входа и управляемые часы, фикстура не снисходительнее продукта. Плюс `verdict-and-landing` §«Три категории исхода» на подтверждении RED: «не выполнилось» — не красный.
 >
@@ -84,7 +84,7 @@ func Test<Resource>_<ID>_<Desc>(t *testing.T) {
 
 Concurrent/race-сценарии (CAS/UNIQUE/EXCLUDE/OCC) — обязателен parallel-goroutine кейс,
 проверяющий, что **ровно одна** транзакция прошла, остальные получили sentinel
-(см. @.claude/rules/data-integrity.md). LRO в use-case/handler-тестах дожидаются
+(см. @.claude/rulebook/data-integrity.md). LRO в use-case/handler-тестах дожидаются
 детерминированно (`AwaitOpDone`), не `time.Sleep`.
 
 ### 3. Newman black-box кейс

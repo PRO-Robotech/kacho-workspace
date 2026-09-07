@@ -6,7 +6,7 @@
     python3 scripts/adapter/generate.py --list     # перечислить владеемые выходы
 
 ЧТО ЭТО. Оснастка Kachō живёт в единственном экземпляре — `.claude/` воркспейса
-(`.claude/rules/ai-tooling.md` §Модель распространения). Среды, читающие
+(`.claude/rulebook/ai-tooling.md` §Модель распространения). Среды, читающие
 `AGENTS.md`, `.agents/skills/` и `.codex/`, получают её ПРОЕКЦИЮ. Проекция —
 выход; оснастка — вход; владение объявлено в `.claude/adapters.yaml`.
 

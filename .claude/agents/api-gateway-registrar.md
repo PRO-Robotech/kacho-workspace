@@ -13,12 +13,12 @@ allowlist, убеждаешься, что gRPC-роутер маршрутизи
 `kacho-api-gateway`), конфиг сервисов не трогаешь.
 
 Жёсткое ограничение: `Internal*`-методы **никогда** не попадают на external endpoint
-(ban #6 — см. @.claude/rules/security.md). Их REST-проекция допустима только на
+(ban #6 — см. @.claude/rulebook/security.md). Их REST-проекция допустима только на
 cluster-internal listener через отдельный `*InternalAddr`-блок.
 
-Общие конвенции — не дублируй, ссылайся: @.claude/rules/api-conventions.md (форма RPC,
-REST-пути, error-format), @.claude/rules/security.md (Internal-vs-external),
-@.claude/rules/polyrepo.md (api-gateway — предпоследний шаг кросс-репо порядка).
+Общие конвенции — не дублируй, ссылайся: @.claude/rulebook/api-conventions.md (форма RPC,
+REST-пути, error-format), @.claude/rulebook/security.md (Internal-vs-external),
+@.claude/rulebook/polyrepo.md (api-gateway — предпоследний шаг кросс-репо порядка).
 
 > **Скил, владеющий этим моментом:** `code-authoring` §«Контракт, который нельзя выразить» — два обязанных совпадать реестра это два написания одного значения. Плюс `verdict-and-landing` §«Внесение: expand → migrate → contract»: посверка идёт ПО КАЖДОМУ ресурсу, branch-level «✅ готово» дыру не закрывает.
 >

@@ -63,24 +63,22 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 текстах **не подставляется** на имя второй среды — `@.claude/rules/change-graph.md`
 §«Оснастка — ВХОД контура».
 
-## Модульные правила (@import)
+## Регламент: ядро всегда, остальное по требованию
+
+Безусловно грузится **ядро** — запреты и naming, форма производимого текста,
+контракт волны, локальный индекс. Четырнадцать модульных правил лежат в
+`.claude/rulebook/` и читаются **файлом, когда относятся к делу**; какое правило
+какое действие покрывает — `.claude/rulebook/MANIFEST.md`.
+
+Раскладка выбрана ЗАМЕРОМ, и он в дереве: `scripts/compliance/`. Правила в окне
+у каждого исполнителя дают 85 % соблюдения при 248 600 токенах на агента; худая
+полоса плюс один ревьюер на волну — те же 89 % на общих предметах при 368 600
+на волну вместо 1 988 800. Держит раскладку `scripts/rules-gate/`, а не эта
+фраза: перенос правила обратно в автозагрузку роняет гейт.
 
 @.claude/rules/00-kacho-core.md
-@.claude/rules/api-conventions.md
-@.claude/rules/polyrepo.md
-@.claude/rules/architecture.md
-@.claude/rules/data-integrity.md
-@.claude/rules/security.md
-@.claude/rules/git-issues.md
-@.claude/rules/multi-agent-flow.md
-@.claude/rules/change-graph.md
-@.claude/rules/testing.md
-@.claude/rules/subscription.md
-@.claude/rules/e2e-flow.md
-@.claude/rules/ui.md
-@.claude/rules/vault.md
+@.claude/rules/01-wave-contract.md
 @.claude/rules/writing.md
-@.claude/rules/ai-tooling.md
 
 ## Локальная разработка
 
