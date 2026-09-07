@@ -31,13 +31,34 @@
   P3. состояние — из ЗАКРЫТОГО набора (`держится` · `наполовину` · `не начат`).
       Свободная формулировка вернула бы прозу, которую и заменяет таблица;
   P4. `держится` и `наполовину` называют ≥1 путь и ≥1 проверку; путь обязан
-      быть в индексе монорепо, имя вида `Test…` — обязано находиться в одном из
-      названных файлов `.go` объявлением `func <имя>(`. Путь `.sh`/`.py`
+      быть в СТВОЛЕ дерева продукта, имя вида `Test…` — обязано находиться в
+      одном из названных файлов `.go` объявлением `func <имя>(`. Путь `.sh`/`.py`
       считается проверкой сам: скрипт и есть проба;
   P5. `не начат` не называет координат — иначе строка противоречит себе;
   P6. множество кейсов таблицы совпадает с множеством кейсов, объявленных
       сценариями. Обе стороны — находка: сценарий без строки уходит из счёта
       молча, строка без сценария засчитывает то, чего документ не требует.
+
+ГДЕ СУДИТСЯ — В СТВОЛЕ ПРОДУКТА, А НЕ В РАБОЧЕЙ КОПИИ РЯДОМ
+
+Координата резолвится по `origin/main` продукта, а не по индексу лежащей рядом
+копии. Копия ОБЩАЯ: её ревизию переключает соседняя сессия, не спрашивая
+отправляющего, — и вердикт, прочитанный с неё, есть функция чужого переключения.
+Класс наблюдался целиком (`PRO-Robotech/kacho-workspace#543`): копия стояла на
+релизной линии, где каталог службы переименован, и проверка объявила
+несуществующими шесть координат, которые в стволе ЕСТЬ и в приёмке названы верно.
+Отправка любой ветки блокировалась работой, к которой отправляющий не причастен,
+а «починка» состояла бы в подгонке приёмки под линию — то есть в превращении
+верного документа в ложный ровно к моменту вливания линии.
+
+Тот же выбор и по той же причине сделан у `check-04` и у хука свежести
+(`multi-agent-flow.md` §8): вердикт выносится по стволу, расхождение копии
+называется ЧИСЛОМ — и в ОБЕ стороны. Односторонняя перепись здесь не годится:
+копия на линии отстаёт на 0 и опережает ствол на сотни коммитов, то есть печатала
+бы ровно то же, что копия вровень.
+
+Ствол не резолвится (клон без этой ссылки) — судится индекс копии, и перепись
+говорит это прямо, а не подставляет молча.
 
 Разбор идёт по таблице markdown, а не по прозе: лексиконный предикат над
 естественным языком в этом корпусе уже проверялся и контроль в обе стороны
@@ -46,7 +67,7 @@
 прочтение.
 
 Исходы: 0 — у каждой претензии координата резолвится; 1 — находки, каждая
-названа; 2 — проверять нечего (нет монорепо либо нет ни одной таблицы).
+названа; 2 — проверять нечего (нет дерева продукта либо нет ни одной таблицы).
 """
 import os
 import re
@@ -83,25 +104,20 @@ CHECKISH = re.compile(r"^Test[A-Za-z0-9_]*$")
 SCRIPTISH = (".sh", ".py")
 
 
-def monorepo(ws):
-    """Путь монорепо: KACHO_MONOREPO, иначе project/kacho. None — нет.
-
-    `.git` признаётся и КАТАЛОГОМ, и ФАЙЛОМ: у рабочего дерева (`git worktree`)
-    это файл-указатель на общий каталог репозитория. Требование «только каталог»
-    делало проверку VOID ровно там, где ведётся работа, — то есть проверка,
-    неспособная упасть, выглядела пройденной. Предикат тот же, что у vault-gate
-    (`scripts/vault-gate/_lib.sh`: `-d … || -f …`), чтобы два обходчика одного
-    дерева не расходились в том, что считать репозиторием.
-    """
-    env = os.environ.get("KACHO_MONOREPO")
-    cand = env if env else os.path.join(ws, "project", "kacho")
-    dot = os.path.join(cand, ".git")
-    return cand if (os.path.isdir(dot) or os.path.isfile(dot)) else None
+def _git0(repo, args):
+    """Вывод git, разделённый NUL. `-z` намеренно: без него git ЭКРАНИРУЕТ путь с
+    не-ASCII, и такой путь не совпал бы с координатой документа никогда."""
+    out = subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True)
+    if out.returncode != 0:
+        return []
+    return [p for p in out.stdout.split("\0") if p]
 
 
-def repo_index(repo):
-    out = subprocess.run(["git", "-C", repo, "ls-files"], capture_output=True, text=True)
-    return set(p for p in out.stdout.split("\n") if p)
+def tree_index(repo, ref):
+    """Состав дерева продукта на СТВОЛЕ; без ствола — индекс рабочей копии."""
+    if ref:
+        return set(_git0(repo, ["ls-tree", "-r", "-z", "--name-only", ref]))
+    return set(_git0(repo, ["ls-files", "-z"]))
 
 
 def strip_cell(text):
@@ -162,18 +178,31 @@ def coordinates(cells):
     return paths, checks
 
 
-def declares(repo, rel, name):
-    """Объявлена ли функция `name` в файле `rel` монорепо."""
-    path = os.path.join(repo, rel)
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            body = fh.read()
-    except OSError:
-        return False
+def declares(repo, ref, rel, name):
+    """Объявлена ли функция `name` в файле `rel` НА СТВОЛЕ продукта.
+
+    Содержимое берётся из объекта ссылки, а не с диска: файл рабочей копии
+    принадлежит той ветке, на которую её переключили, и читать его значило бы
+    выносить вердикт о чужом переключении. Без ствола (клон без этой ссылки)
+    читается диск, и перепись говорит это прямо.
+    """
+    if ref:
+        out = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, rel)],
+                             capture_output=True, text=True, errors="replace")
+        if out.returncode != 0:
+            return False
+        body = out.stdout
+    else:
+        try:
+            with open(os.path.join(repo, rel), encoding="utf-8",
+                      errors="replace") as fh:
+                body = fh.read()
+        except OSError:
+            return False
     return re.search(r"^func\s+%s\s*\(" % re.escape(name), body, re.M) is not None
 
 
-def audit(root, repo, index, rel, findings, stats):
+def audit(root, repo, ref, where, index, rel, findings, stats):
     text = _lib.read(root, rel)
     tabs = tables(text)
     if not tabs:
@@ -234,9 +263,9 @@ def audit(root, repo, index, rel, findings, stats):
                     alive.append(p)
                 else:
                     findings.append(
-                        "%s:%d — кейс %s ссылается на %s, которого в индексе монорепо "
-                        "нет: свидетельство не проверяемо"
-                        % (rel, lineno, cid.group(1), p))
+                        "%s:%d — кейс %s ссылается на %s, которого в %s нет: "
+                        "свидетельство не проверяемо"
+                        % (rel, lineno, cid.group(1), p, where))
             scripts = [p for p in alive if p.endswith(SCRIPTISH)]
             if not checks and not scripts:
                 findings.append(
@@ -246,11 +275,11 @@ def audit(root, repo, index, rel, findings, stats):
             for name in checks:
                 stats["checks"] += 1
                 gofiles = [p for p in alive if p.endswith(".go")]
-                if not any(declares(repo, p, name) for p in gofiles):
+                if not any(declares(repo, ref, p, name) for p in gofiles):
                     findings.append(
-                        "%s:%d — кейс %s называет проверку %s, которой нет ни в одном "
-                        "из названных им файлов (%s)"
-                        % (rel, lineno, cid.group(1), name,
+                        "%s:%d — кейс %s называет проверку %s, которой в %s нет ни в "
+                        "одном из названных им файлов (%s)"
+                        % (rel, lineno, cid.group(1), name, where,
                            ", ".join(gofiles) if gofiles else "файлов .go не названо"))
 
     if scenarios:
@@ -267,10 +296,10 @@ def audit(root, repo, index, rel, findings, stats):
 
 def main():
     root = _lib.workspace_root()
-    repo = monorepo(root)
+    repo = _lib.monorepo(root)
     if repo is None:
-        _lib.void(NAME, "монорепо не найдено (ни KACHO_MONOREPO, ни project/kacho) — "
-                        "координату проверить не по чему")
+        _lib.void(NAME, "дерево продукта не найдено (ни KACHO_MONOREPO, ни "
+                        "project/kacho) — координату проверить не по чему")
         return 2
 
     docs = _lib.tracked(root, "docs/specs/*-acceptance.md")
@@ -278,20 +307,26 @@ def main():
         _lib.void(NAME, "отслеживаемых docs/specs/*-acceptance.md нет — читать нечего")
         return 2
 
-    index = repo_index(repo)
-    head = subprocess.run(["git", "-C", repo, "rev-parse", "--short", "HEAD"],
-                          capture_output=True, text=True).stdout.strip()
+    prov = _lib.provenance(repo)
+    ref = prov["ref"]
+    index = tree_index(repo, ref)
+    # Находка обязана называть ТО, ГДЕ искали. «Нет в индексе монорепо» посылало
+    # читателя к рабочей копии — то есть ровно туда, куда смотреть не следует.
+    where = ("стволе продукта %s" % ref) if ref else "индексе рабочей копии продукта"
 
     findings = []
     stats = {"tables": 0, "rows": 0, "paths": 0, "checks": 0}
-    carriers = [rel for rel in docs if audit(root, repo, index, rel, findings, stats)]
+    carriers = [rel for rel in docs
+                if audit(root, repo, ref, where, index, rel, findings, stats)]
 
     _lib.census(
-        "%s: приёмок осмотрено %d; несут таблицу состояния %d (%s); таблиц %d, строк %d; "
-        "дерево продукта %s — путей проверено %d, имён проверок %d"
+        "%s: приёмок осмотрено %d; несут таблицу состояния %d (%s); таблиц %d, строк %d"
         % (NAME, len(docs), len(carriers),
            ", ".join(carriers) if carriers else "ни одной",
-           stats["tables"], stats["rows"], head or "неизвестно",
+           stats["tables"], stats["rows"]))
+    _lib.census(
+        "%s: дерево продукта %s; путей в нём %d — проверено %d, имён проверок %d"
+        % (NAME, _lib.provenance_line(repo, prov), len(index),
            stats["paths"], stats["checks"]))
 
     if not carriers:
