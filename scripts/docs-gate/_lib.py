@@ -147,14 +147,107 @@ def monorepo(root):
     return None
 
 
-def head_and_lag(repo):
-    """(ревизия, отставание от origin/main|None) — чтобы «ноль прочитанного» и
-    «копия отстала» не выглядели одинаково. Общая рабочая копия отстаёт, и
-    приёмка, посаженная вчера, в ней просто отсутствует — молча."""
-    def _git(args):
-        out = subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True)
-        return out.stdout.strip() if out.returncode == 0 else None
+# ── ПО ЧЕМУ СУДИТ НАБОР: СТВОЛ ПРОДУКТА, А НЕ РАБОЧАЯ КОПИЯ РЯДОМ ────────────
+#
+# Копия `project/kacho` ОБЩАЯ: её ревизию переключает соседняя сессия, не
+# спрашивая отправляющего. Проверка, читающая её индекс, выносит вердикт, который
+# есть ФУНКЦИЯ ЧУЖОГО ПЕРЕКЛЮЧЕНИЯ, — и блокирует отправку работой, к которой
+# отправляющий не причастен.
+#
+# Расхождение копии со стволом двустороннее, и обе стороны обязаны быть названы
+# ЧИСЛОМ. Только «отстаёт» недостаточно: копия, стоящая на релизной линии,
+# отстаёт на 0 и опережает ствол на сотни коммитов, а односторонняя перепись на
+# ней печатает ровно то же, что на копии вровень. Ровно этот класс наблюдался у
+# хука свежести — `7ebb670d@HEAD — вровень со стволом main 1278df74`, две РАЗНЫЕ
+# ревизии, названные согласованностью (`multi-agent-flow.md` §8).
+#
+# Ствол — `origin/main` продукта, и это ТА ЖЕ ссылка, что читает `check-04`:
+# второй резолвер разошёлся бы с первым молча. Ссылка здесь НЕ ПОДТЯГИВАЕТСЯ
+# (`fetch` — сеть, время и запись в чужой репозиторий, а набор гоняется на каждой
+# отправке); вместо этого её отсутствие называется прямо, а не подставляется.
+TRUNK_REF = "origin/main"
 
-    head = _git(["rev-parse", "--short", "HEAD"]) or "?"
-    behind = _git(["rev-list", "--count", "HEAD..origin/main"])
-    return head, (int(behind) if behind and behind.isdigit() else None)
+
+def _repo_git(repo, args):
+    out = subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True)
+    return out.stdout.strip() if out.returncode == 0 else None
+
+
+def trunk(repo):
+    """Ссылка ствола продукта, либо None — её в этом клоне нет."""
+    if _repo_git(repo, ["rev-parse", "--verify", "--quiet", TRUNK_REF + "^{commit}"]):
+        return TRUNK_REF
+    return None
+
+
+def provenance(repo):
+    """По чему судили и насколько это расходится с рабочей копией — ЧИСЛОМ.
+
+    «Вровень» — утверждение о РАВЕНСТВЕ РЕВИЗИЙ, а не о нуле в одном счётчике:
+    ноль в `behind` означает лишь «ствол не содержит ничего, чего нет у меня», и
+    копия, ушедшая вперёд, даёт тот же ноль. Поэтому `behind` и `ahead` считаются
+    независимо, а равенство проверяется сравнением полных ревизий.
+    """
+    ref = trunk(repo)
+    head_full = _repo_git(repo, ["rev-parse", "HEAD"]) or ""
+    head_short = _repo_git(repo, ["rev-parse", "--short", "HEAD"]) or "?"
+    branch = _repo_git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]) or "?"
+    rev_full = _repo_git(repo, ["rev-parse", ref]) if ref else None
+    rev_short = _repo_git(repo, ["rev-parse", "--short", ref]) if ref else None
+    behind = ahead = None
+    if ref:
+        b = _repo_git(repo, ["rev-list", "--count", "HEAD..%s" % ref])
+        a = _repo_git(repo, ["rev-list", "--count", "%s..HEAD" % ref])
+        behind = int(b) if b and b.isdigit() else None
+        ahead = int(a) if a and a.isdigit() else None
+    return {
+        "ref": ref,
+        "head": head_short,
+        "head_full": head_full,
+        "branch": branch,
+        "rev": rev_short,
+        "rev_full": rev_full,
+        "behind": behind,
+        "ahead": ahead,
+        "same": bool(head_full) and head_full == rev_full,
+    }
+
+
+def provenance_line(repo, prov):
+    """Строка переписи: что судилось и как рабочая копия с этим расходится.
+
+    ОБА числа печатаются ВСЕГДА, когда они измерены. Печатать только ненулевое
+    значило бы вернуть одностороннюю перепись, на которой «опережает на 407» и
+    «вровень» выглядят одинаково.
+    """
+    where = "%s @ %s (%s)" % (repo, prov["head"], prov["branch"])
+    if not prov["ref"]:
+        return (where + "; ствол %s НЕ РЕЗОЛВИТСЯ — судится ИНДЕКС рабочей копии, "
+                        "и вердикт зависит от того, на что она переключена" % TRUNK_REF)
+    behind, ahead = prov["behind"], prov["ahead"]
+    if behind is None or ahead is None:
+        state = "расхождение с ним НЕ ИЗМЕРЕНО"
+    else:
+        pair = "(позади %d, впереди %d)" % (behind, ahead)
+        if prov["same"]:
+            state = "копия вровень с ним %s" % pair
+        elif behind and ahead:
+            state = "копия РАСХОДИТСЯ с ним %s" % pair
+        elif behind:
+            state = "копия ОТСТАЁТ от него %s" % pair
+        elif ahead:
+            state = "копия ОПЕРЕЖАЕТ его %s" % pair
+        else:
+            state = ("ревизии разные, а оба счётчика нулевые — расхождение НЕ ИЗМЕРЕНО "
+                     "%s" % pair)
+    return where + "; судится ствол %s %s, %s" % (prov["ref"], prov["rev"], state)
+
+
+def head_and_lag(repo):
+    """(ревизия, отставание от ствола|None) — узкий вид на `provenance`.
+
+    Отдельного предиката здесь НЕТ намеренно: две копии одного счёта разошлись бы
+    молча и ровно там, где обе отвечают «расхождение названо».
+    """
+    prov = provenance(repo)
+    return prov["head"], prov["behind"]
