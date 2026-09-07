@@ -33,6 +33,29 @@
 # Код возврата: 0 — сливать можно; 1 — нельзя (сказано, почему);
 #               2 — вопрос беспредметен (нет PR, нет доступа, защита не настроена).
 
+# ПОЧЕМУ СВЕРКА МНОЖЕСТВ ИДЁТ ПОД LC_ALL=C — И НА sort, И НА comm (ws#530).
+#
+# `sort` читает LC_COLLATE, `comm` (в uutils) не читает вовсе и сравнивает
+# байты. Под ru_RU.UTF-8 `sort` ставит кириллицу перед латиницей, а имена
+# обязательных контекстов здесь русские; `comm` объявлял такой вход
+# неупорядоченным, выходил ЕДИНИЦЕЙ, и под `set -e` скрипт умирал, не напечатав
+# ни строки вердикта. Единица — то, чем этот скрипт говорит «сливать нельзя»,
+# поэтому отказ разбора был неотличим от находки: инструмент отвечал «нельзя»
+# на КАЖДОМ открытом PR.
+#
+# Починка стоит на ОБОИХ, и это не перестраховка. На `sort` — потому что
+# `LC_ALL=C` на одном лишь `comm` не помогает: замерено, жалоба та же (comm тут
+# локаль игнорирует). На `comm` — потому что GNU-реализация локаль читает, и
+# байтовый вход при локальном сравнении сломался бы зеркально. Под C оба конца
+# сверки говорят на одном языке при любой реализации.
+#
+# ВТОРОЕ, ЧТО СНИМАЕТ ТА ЖЕ СТРОКА, И ОНО ОПАСНЕЕ ПЕРВОГО. Локальный `sort -u`
+# считает ОДНИМ имена, различающиеся только длинным тире, дефисом или пробелом
+# (`a — b`, `a - b`, `a b` → одна строка), и выбрасывает лишние. Обязательный
+# контекст молча исчезал из перечня, а инструмент отвечал «можно сливать» —
+# ложное зелёное ровно там, ради предотвращения чего он и написан. Байтовое
+# сравнение не схлопывает ничего.
+
 set -euo pipefail
 
 REPO="${1:-}"
@@ -49,8 +72,32 @@ fi
 command -v gh >/dev/null 2>&1 || { echo "merge-readiness: gh не найден" >&2; exit 2; }
 command -v jq >/dev/null 2>&1 || { echo "merge-readiness: jq не найден" >&2; exit 2; }
 
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+# ОТКАЗ РАЗБОРА — ЭТО КОД 2, А НЕ 1. Единственная точка, где скрипт объявляет,
+# что вердикта у него нет. Всё, что не сошлось при чтении ответа соседа или при
+# сверке множеств, обязано приходить сюда: иначе вызывающий прочитает поломку
+# инструмента как «сливать нельзя» и пойдёт искать причину в PR, где её нет.
+parse_broken() {
+  echo "merge-readiness: РАЗБОР СЛОМАН — $1" >&2
+  shift
+  for line in "$@"; do
+    [ -n "$line" ] && echo "                 $line" >&2
+  done
+  echo "                 вердикта нет; это НЕ «сливать нельзя»." >&2
+  exit 2
+}
+
 pr_json=$(gh pr view "$PR" -R "$REPO" --json state,baseRefName,mergeStateStatus,statusCheckRollup 2>/dev/null) || {
   echo "merge-readiness: PR $REPO#$PR недоступен" >&2; exit 2; }
+
+# Ответ соседа проверяется на разбираемость ДО первого чтения поля. Без этого
+# испорченный ответ (страница ошибки, обрыв, чужой формат) ронял `jq` под
+# `set -e`, и наружу уходил его код — ни вердикта, ни объяснения.
+jq -e 'type == "object"' >/dev/null 2>&1 <<<"$pr_json" \
+  || parse_broken "ответ о PR $REPO#$PR не разбирается как объект JSON" \
+                  "сосед вернул не то, что обещает контракт gh."
 
 state=$(jq -r '.state' <<<"$pr_json")
 base=$(jq -r '.baseRefName' <<<"$pr_json")
@@ -71,7 +118,13 @@ if [ -z "$protection" ]; then
   exit 2
 fi
 
-required=$(jq -r '.required_status_checks.contexts[]?' <<<"$protection" | sort -u)
+jq -e 'type == "object"' >/dev/null 2>&1 <<<"$protection" \
+  || parse_broken "ответ о защите ветки '$base' не разбирается как объект JSON" \
+                  "непустой ответ, который не является JSON, — это отказ соседа," \
+                  "а не отсутствие защиты: молча прочитать его как «защиты нет»" \
+                  "значило бы подменить один исход другим."
+
+required=$(jq -r '.required_status_checks.contexts[]?' <<<"$protection" | LC_ALL=C sort -u)
 req_count=$(printf '%s\n' "$required" | grep -c . || true)
 
 if [ "${req_count:-0}" -eq 0 ]; then
@@ -82,13 +135,33 @@ fi
 
 # Исходы на ревизии PR. Один контекст может встретиться дважды (перезапуск),
 # поэтому зелёным считается имя, у которого ЕСТЬ успешный исход.
-green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | sort -u)
-red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | sort -u)
-running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | sort -u)
+green=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="SUCCESS") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
+red=$(jq -r '.statusCheckRollup[]? | select(.conclusion=="FAILURE" or .conclusion=="TIMED_OUT" or .conclusion=="CANCELLED" or .conclusion=="ACTION_REQUIRED") | (.name // .context) + " [" + .conclusion + "]"' <<<"$pr_json" | LC_ALL=C sort -u)
+running=$(jq -r '.statusCheckRollup[]? | select((.conclusion // "")=="") | (.name // .context)' <<<"$pr_json" | LC_ALL=C sort -u)
 
-missing=$(comm -23 <(printf '%s\n' "$required") <(printf '%s\n' "$green"))
+printf '%s\n' "$required" > "$workdir/required"
+printf '%s\n' "$green"    > "$workdir/green"
 
-green_req=$(comm -12 <(printf '%s\n' "$required") <(printf '%s\n' "$green") | grep -c . || true)
+# set_diff <ключ> — разность или пересечение множеств.
+#
+# Недостоверным считается не только ненулевой код, но и ЛЮБАЯ жалоба на stderr:
+# `comm` на неупорядоченном входе печатает предупреждение и всё равно выдаёт
+# строки — то есть отвечает, не имея права отвечать. Такой ответ обязан быть
+# отвергнут целиком, а не разобран.
+set_diff() {
+  local key="$1" out rc
+  out=$(LC_ALL=C comm "$key" "$workdir/required" "$workdir/green" 2>"$workdir/comm.err") && rc=0 || rc=$?
+  if [ "$rc" -ne 0 ] || [ -s "$workdir/comm.err" ]; then
+    parse_broken "сверка множеств (comm $key) не выполнилась:" \
+                 "$(sed 's/^/  /' "$workdir/comm.err" | tr '\n' ' ')" \
+                 "перечень обязательных и перечень зелёных сопоставить не удалось."
+  fi
+  printf '%s' "$out"
+}
+
+missing=$(set_diff -23)
+green_req=$(printf '%s' "$(set_diff -12)" | grep -c . || true)
+
 missing_count=$(printf '%s\n' "$missing" | grep -c . || true)
 red_count=$(printf '%s\n' "$red" | grep -c . || true)
 running_count=$(printf '%s\n' "$running" | grep -c . || true)
