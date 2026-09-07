@@ -643,9 +643,9 @@ git grep -n -A14 'func MandatoryChecks' -- pkg/tokenpolicy/policy.go   # 11 пр
 | KAN-BOOT-01 | I | не начат | проба стража настройки: включённая проверка без материала роняет старт и называет ключ |
 | KAN-BOOT-02 | I | не начат | та же проба, профиль отличается ровно заданной величиной |
 | KAN-BOOT-03 | P | не начат | гейт сверки порождённого перечня обязательных величин с таблицей стража |
-| KAN-FWD-01 | I | держится | `services/iam/cmd/kaname/serve_internal_principal_trust_test.go` · `TestPublicChain_HonorsVerifiedConsumerForwarder` |
-| KAN-FWD-02 | I | держится | `services/iam/cmd/kaname/serve_internal_principal_trust_test.go` · `TestPublicChain_DropsForgedPrincipal_HonorsVerified` |
-| KAN-FWD-03 | P | наполовину | `services/iam/cmd/kaname/trusted_forwarders_wiring_test.go` · `TestServe_ForwarderAllowListComesFromConfig` — держится происхождение круга из конфигурации; **семантика пустого круга своего замка на публичной цепочке не имеет**, он заводится этим переходом |
+| KAN-FWD-01 | I | держится | `services/iam/cmd/kacho-iam/serve_internal_principal_trust_test.go` · `TestPublicChain_HonorsVerifiedConsumerForwarder` |
+| KAN-FWD-02 | I | держится | `services/iam/cmd/kacho-iam/serve_internal_principal_trust_test.go` · `TestPublicChain_DropsForgedPrincipal_HonorsVerified` |
+| KAN-FWD-03 | P | наполовину | `services/iam/cmd/kacho-iam/trusted_forwarders_wiring_test.go` · `TestServe_ForwarderAllowListComesFromConfig` — держится происхождение круга из конфигурации; **семантика пустого круга своего замка на публичной цепочке не имеет**, он заводится этим переходом |
 | KAN-WIRE-01 | P | не начат | страж размещения, читающий композиционный корень; доказан инъекцией в обе стороны |
 | KAN-WIRE-02 | P | не начат | проба тождества: харнесс собирается боевым сборщиком, снятие читателя из него роняет прогон |
 | KAN-POL-01 | I | не начат | проба согласия с единым перечнем по образцу двух существующих носителей |
@@ -655,6 +655,21 @@ git grep -n -A14 'func MandatoryChecks' -- pkg/tokenpolicy/policy.go   # 11 пр
 
 Уровни: **E** — наблюдаемо арендатором либо оператором; **I** — проба компонента или стража;
 **P** — свойство дерева, закрепляемое гейтом.
+
+> [!note] Координаты трёх держащихся строк названы ПО СТВОЛУ продукта, а не по линии
+> Каталог композиционного корня переименован **линией** `release/kaname`, и в её дереве
+> те же файлы лежат под `services/iam/cmd/kaname/` (§1.2). В стволе продукта этого
+> каталога нет: там `services/iam/cmd/kacho-iam/`, и **имена всех трёх проверок в нём
+> те же самые** — перемер: `git ls-tree -r origin/main --name-only | grep
+> serve_internal_principal_trust_test` и `git grep -c 'func TestServe_ForwarderAllowListComesFromConfig(' origin/main`.
+>
+> Свидетельство обязано резолвиться у **читателя**, а читатель этого документа берёт
+> дерево продукта со ствола: гейт `scripts/docs-gate/check-03-holding-claim-resolves.py`
+> сверяет координату с `git ls-files` того клона, который стоит в `project/kacho`, и
+> координата линии давала ему шесть претензий без проверяемого адреса. Координата линии
+> здесь **не** возвращается вместе с переименованием: она вернётся тогда, когда
+> переименование окажется в стволе, и гейт скажет об этом сам — прежний путь исчезнет
+> из индекса.
 
 ---
 
