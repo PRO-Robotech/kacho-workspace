@@ -1203,6 +1203,7 @@ tags:
 | [[KAC/label-grant-revocation-lag-2026-08-04\|Выдача по метке действует сразу, снятие — когда дойдёт очередь (замер 2026-08-04)]] | в работе (in-progress) |
 | [[KAC/mechanism-without-callers-2026-08-04\|Средство есть, потребителей нет — фикс, приехавший без своего радиуса (2026-08-04)]] | живо (done) |
 | [[KAC/prod-newman-seed-acr-stepup-constraint\|Prod-newman seed: step-up/acr gate blocks non-interactive USER tokens]] | живо (done) |
+| [[KAC/promise-vs-behaviour-2026-09-07\|обещание, разошедшееся с поведением: читатель имён и два выписанных перечня]] | живо (done) |
 | [[KAC/queued-behind-a-dead-label-2026-08-04\|Ожидание за несуществующим исполнителем — не отказ, а вид работы (2026-08-04)]] | живо (done) |
 | [[KAC/rbac-2026-224-owner-wildcard-content\|RBAC explicit-model 2026 #224 — owner *.* materializes per-object content + verify-gate owner-content check]] | живо (done) |
 | [[KAC/rbac-2026-bug2-hide-existence-read-deny\|rbac-2026 BUG-2 — read-deny hide-existence (gateway 403→404)]] | живо (done) |
