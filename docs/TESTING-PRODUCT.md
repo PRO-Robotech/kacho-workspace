@@ -6,7 +6,7 @@
 > Kachō, применение к Newman) теперь живёт в каноническом скиле — не дублируется здесь:
 >
 > - **Skill** `.claude/skills/testing-product-coach/SKILL.md` — полная методология.
-> - **Rule** `.claude/rules/testing.md` — e2e/newman как главная regression-инфра.
+> - **Rule** `.claude/rulebook/testing.md` — e2e/newman как главная regression-инфра.
 > - Тестирование **кода** разработчиком — `.claude/skills/testing-code-coach/SKILL.md`.
 >
 > Оснастка живёт в **единственном** экземпляре — `kacho-workspace/.claude/`. Копий в

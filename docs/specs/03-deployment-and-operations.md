@@ -14,10 +14,10 @@
 > ни того, ни другого нет (сверено с деревом 1653387b, 2026-08-06)
 > Разработка ведётся в **одном** репозитории `PRO-Robotech/kacho`: `go.mod` в дереве один,
 > `replace` на внутренний модуль — ноль, и `replace github.com/PRO-Robotech/...` в
-> закоммиченном `go.mod` прямо **запрещён** (`.claude/rules/polyrepo.md` §«Правило
+> закоммиченном `go.mod` прямо **запрещён** (`.claude/rulebook/polyrepo.md` §«Правило
 > зависимостей»). Прежняя редакция описывала polyrepo-топологию как действительность и
 > называла порядок раскатки по репозиториям как процедуру — обе вещи пережили свой предмет.
-> Раскладку каталогов держит **один** дом — `.claude/rules/polyrepo.md` §«Раскладка монорепо»;
+> Раскладку каталогов держит **один** дом — `.claude/rulebook/polyrepo.md` §«Раскладка монорепо»;
 > здесь она намеренно не воспроизводится, чтобы два места об одном предмете не разошлись
 > снова.
 
@@ -35,7 +35,7 @@ Go-импорт сгенерированного из `pkg/api/`.
 
 ## 2. Раскладка сервисного каталога
 
-Каждый доменный сервис следует Clean Architecture (`.claude/rules/architecture.md`):
+Каждый доменный сервис следует Clean Architecture (`.claude/rulebook/architecture.md`):
 `domain ← use-case ← repo/clients/handler`, единственная точка wiring — `cmd`.
 Ниже — форма каталога `services/<svc>/` (одинаковая у всех семи; прежде каждый такой
 каталог был отдельным репозиторием, отсюда прежнее имя «шаблон репо»).
@@ -122,7 +122,7 @@ docker-образы сервисов (build-context = parent dir, Dockerfile `CO
 | `make -C deploy e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
 
 Integration-тесты (testcontainers Postgres) гоняются локально в каждом сервисном репо
-(`make -C services/{compute,geo,iam,nlb,registry,storage,vpc} test`), без kind. Методология тестов — `.claude/rules/testing.md`.
+(`make -C services/{compute,geo,iam,nlb,registry,storage,vpc} test`), без kind. Методология тестов — `.claude/rulebook/testing.md`.
 
 ## 4. kind cluster + helm umbrella
 
@@ -228,7 +228,7 @@ spec:
 
 **Адресация (cluster-internal):** сервисы зовут друг друга напрямую по
 `<svc>.kacho.svc.cluster.local:9090`. Runtime-edges (синхронный gRPC, без циклов;
-`.claude/rules/polyrepo.md`):
+`.claude/rulebook/polyrepo.md`):
 
 - `kacho-vpc → kacho-compute` — валидация `zone_id` (`ZoneService.Get`; Geography — домен compute).
 - `kacho-compute → kacho-vpc` — валидация NIC-spec (Subnet/SecurityGroup) + IPAM-аллокация Address.
@@ -238,7 +238,7 @@ spec:
 cluster-internal листенер (:9091) для UI/admin-tooling. `Internal.*` методы и `Internal*`-
 сервисы (`AddressPool` в kacho-vpc; admin-CRUD `Region`/`Zone`/`DiskType` в kacho-compute)
 проксируются **только** на cluster-internal mux и никогда не светятся на external endpoint
-(ban #6; `.claude/rules/security.md`). Регистрацию public-RPC в gateway-mux ведёт агент
+(ban #6; `.claude/rulebook/security.md`). Регистрацию public-RPC в gateway-mux ведёт агент
 `api-gateway-registrar`.
 
 ## 7. CI
@@ -291,8 +291,11 @@ CI-гейт `make -C services/{compute,nlb,storage,vpc} audit-list-filter`
 Kachō разрабатывается, тестируется и сопровождается автономно через Claude Code. Оснастка —
 это «команда» из четырёх слоёв:
 
-- **rules** (`.claude/rules/*.md`) — нормативные правила (naming, api-conventions, polyrepo,
-  architecture, data-integrity, security, testing, git-issues, vault).
+- **rules** (`.claude/rules/*.md`) — ядро из трёх файлов, читаемое средой **автоматически**:
+  naming и non-negotiables, контракт волны, письмо. Остальные **14** нормативных модулей —
+  свод `.claude/rulebook/*.md` (api-conventions, polyrepo, architecture, data-integrity,
+  security, testing, git-issues, vault, …), он читается **файлом по требованию**; какое
+  правило какое действие покрывает — `.claude/rulebook/MANIFEST.md`.
 - **agents** (`.claude/agents/*.md`) — роли: task-execution (acceptance-author, rpc-implementer,
   migration-writer, api-gateway-registrar, …) и specialist-review (db-architect-reviewer,
   go-style-reviewer, proto-api-reviewer, …); плюс domain-specific (`vpc-*`, `compute-*`).
@@ -306,7 +309,7 @@ Kachō разрабатывается, тестируется и сопрово�
 hooks не достают до воркспейса из вложенного каталога, а журнал hook'а это опровергает —
 срабатывания есть по деревьям без собственных hooks. Полный список ролей и lifecycle-гейты (acceptance-first
 → ticket → vault-context → cross-repo order → TDD → review → verify → trail) — в
-`.claude/rules/ai-tooling.md`; не дублируется здесь.
+`.claude/rulebook/ai-tooling.md`; не дублируется здесь.
 
 ## 9. Health и observability
 
@@ -320,7 +323,7 @@ hooks не достают до воркспейса из вложенного к
 **Логи** — структурный `slog` (JSON в кластере), с request-id и caller-identity
 (носитель личности у каждого сервиса свой — единого пакета с общим именем в дереве нет). **Трейсы** — OpenTelemetry SDK (gRPC + pgx инструментированы); spans
 сшиваются по runtime-edges между сервисами. `INTERNAL`-ошибки наружу отдают фиксированный
-текст без leak'а pgx/SQL (`.claude/rules/data-integrity.md`), детальная причина — только в
+текст без leak'а pgx/SQL (`.claude/rulebook/data-integrity.md`), детальная причина — только в
 логах/трейсах.
 
 Полноценный observability-стек (Loki / Grafana / Tempo / Prometheus) разворачивается в HA/

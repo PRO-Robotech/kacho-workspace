@@ -87,7 +87,7 @@ Lifecycle ресурсов — детерминированная server-side st
 > Структура методов и состав ресурсов — собственные (например, `NetworkInterface` —
 > first-class ресурс домена kacho-vpc; `AddressPool` — admin-only IPAM-ресурс).
 > Стиль сообщений/ошибок/таймстемпов — единые конвенции Kachō
-> (`.claude/rules/api-conventions.md` + глава `02`), проверяемые тестами.
+> (`.claude/rulebook/api-conventions.md` + глава `02`), проверяемые тестами.
 
 ## 4. Принципы дизайна
 
@@ -99,11 +99,11 @@ Lifecycle ресурсов — детерминированная server-side st
    для in-flight задач; серверного Watch-стриминга на публичной поверхности нет.
 4. **Инварианты — на уровне БД.** Ссылочная целостность и инварианты внутри одной БД
    сервиса выражаются конструкциями Postgres (FK / partial-UNIQUE / EXCLUDE / CHECK /
-   атомарный CAS), а не software-side check-then-act (`.claude/rules/data-integrity.md`).
+   атомарный CAS), а не software-side check-then-act (`.claude/rulebook/data-integrity.md`).
 5. **Service autonomy.** Database-per-service, polyrepo; каждое репо самодостаточно
    (склонировал — собрал). Между сервисами — только API, общих БД нет.
 6. **Clean Architecture.** `domain ← use-case ← repo/clients/handler`; `cmd` —
-   composition root (`.claude/rules/architecture.md`).
+   composition root (`.claude/rulebook/architecture.md`).
 7. **Test-first / BDD.** Каждая итерация начинается с приёмочных Given-When-Then в
    markdown, проходит approve до кодирования; затем — строгий TDD (RED → GREEN).
    Кодинг без утверждённого acceptance запрещён (`04-roadmap-and-phasing.md` §3).
