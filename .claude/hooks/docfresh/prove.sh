@@ -618,6 +618,63 @@ else
   echo "  ✘ (−) отказ сработал на здоровом индексе — гейт краснеет всегда"; FAIL=$((FAIL+1))
 fi
 
+# ПОКРЫТИЕ КАТАЛОГОВ ОСНАСТКИ — обратная сторона `orphan_patterns`. Тот страж
+# спрашивает «есть ли у ШАБЛОНА предмет», этот — «есть ли у ПРЕДМЕТА шаблон», и
+# без второго ЧАСТИЧНЫЙ переезд проходит МОЛЧА: 2026-09-07 свод уехал
+# `.claude/rules` → `.claude/rulebook`, в старом каталоге осталось три файла из
+# шестнадцати, шаблон нашёл предмет — и 14 правил вышли из корпуса без единого
+# признака. Инъекция — снятие ОДНОГО шаблона, то есть ровно тот факт, что и был.
+if premise_live ".claude/rulebook/MANIFEST.md"; then
+  out="$(python3 - "$GUARD" <<'PYCOV' 2>&1
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfc", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+files = m.git(ws, "ls-files", "--cached", "--others", "--exclude-standard")
+cut = [p for p in m.LIVE_WS if p.pattern != r"^\.claude/rulebook/[^/]+\.md$"]
+print("ЦЕЛО:", "\n".join(m.uncovered_doc_dirs(m.LIVE_WS, files)) or "<молчит>")
+print("СНЯТ:", " | ".join(m.uncovered_doc_dirs(cut, files)))
+print("ПУСТО:", " | ".join(m.uncovered_doc_dirs(m.LIVE_WS, [])))
+print("СОСЕД:", "\n".join(m.orphan_patterns("воркспейса", cut, files)) or "<молчит>")
+m.LIVE_WS[:] = cut
+print("ПРОВЯЗКА:", " | ".join(m.preconditions(ws, m.monorepo_root(ws))))
+PYCOV
+)"
+  if printf '%s' "$out" | grep -q '^СНЯТ:.*\.claude/rulebook/'; then
+    echo "  ✔ (+) каталог, потерявший шаблон, назван ПО ИМЕНИ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) каталог без шаблона прошёл молча — целый вид документов не читает никто"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -6
+  fi
+  if printf '%s' "$out" | grep -qF 'ЦЕЛО: <молчит>'; then
+    echo "  ✔ (−) целое дерево проходит — отказ не срабатывает всегда"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) ЛОЖНЫЙ СРАБАТ на дереве, где покрыт каждый каталог"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -6
+  fi
+  if printf '%s' "$out" | grep -q '^ПУСТО:.*ПУСТ'; then
+    echo "  ✔ (+) пустой обход — ОТКАЗ, а не «находок 0»"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) пустой обход выдан за отсутствие находок"; FAIL=$((FAIL+1))
+  fi
+  # ПРОТИВОКОНТРОЛЬ: инъекция обязана ронять ТОЛЬКО проверяемое. Сосед на ней
+  # молчит — значит новая проверка не дублирует его, а закрывает его слепую зону.
+  if printf '%s' "$out" | grep -qF 'СОСЕД: <молчит>'; then
+    echo "  ✔ (−) на той же инъекции orphan_patterns молчит — предметы РАЗНЫЕ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) инъекция уронила и соседа — красное пришло не от проверяемого"; FAIL=$((FAIL+1))
+  fi
+  # Провязка доказывается ТЕМ, ЧТО ПРОВЕРКУ ПОЗВАЛИ: объявленная и не вызванная
+  # из `preconditions`, она зелена всегда и не роняет ничего.
+  if printf '%s' "$out" | grep -q '^ПРОВЯЗКА:.*\.claude/rulebook/'; then
+    echo "  ✔ (+) проверка провязана: находка доезжает до отказа хука"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) проверка объявлена, но preconditions её не зовёт"; FAIL=$((FAIL+1))
+  fi
+else
+  notrun "вход (+) «покрытие каталогов оснастки» мёртв: '.claude/rulebook/MANIFEST.md' в дереве не резолвится — снятие шаблона больше не настоящее расхождение. Переанкерить пробу на нынешний каталог свода"
+fi
+
 echo
 echo "== J. ловушка момента: правка КОДА находит документ, который его называет =="
 # Обратный индекс — единственное, что связывает правку в одном месте с
