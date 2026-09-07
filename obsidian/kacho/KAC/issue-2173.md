@@ -4,8 +4,8 @@ aliases:
   - issue-2173
 ticket_id: 2173
 category: kac
-status: done
-type: tech-debt
+status: test
+type: docs
 repos:
   - kacho
   - kacho-workspace
