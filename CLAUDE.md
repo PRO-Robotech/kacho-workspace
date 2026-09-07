@@ -81,6 +81,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/vault.md
 @.claude/rules/writing.md
 @.claude/rules/ai-tooling.md
+@.claude/rules/rag.md
 
 ## Локальная разработка
 

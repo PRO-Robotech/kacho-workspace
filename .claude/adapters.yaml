@@ -102,6 +102,9 @@ owned_outputs:
   - .codex/hooks/change-graph-reminder.sh
   - .codex/hooks/class-guard.sh
   - .codex/hooks/docfresh.sh
+  - .codex/hooks/rag-after-git.sh
+  - .codex/hooks/rag-freshness.sh
+  - .codex/hooks/rag-session-start.sh
   - .codex/hooks/hooks-wired.sh
   - .codex/hooks/vault-reminder.sh
   - .codex/hooks/vault-stop-check.sh
