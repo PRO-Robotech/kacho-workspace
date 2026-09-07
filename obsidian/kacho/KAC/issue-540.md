@@ -7,7 +7,7 @@ ticket_id: "540"
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/540
 opened: 2026-09-06
 repos: [kacho-workspace]
-prs: []
+prs: ["https://github.com/PRO-Robotech/kacho-workspace/pull/552"]
 category: kac
 ---
 
@@ -117,4 +117,4 @@ LC_ALL=C /usr/bin/gnucomm -23 c.add c.tr
 - [x] проба AA–AE доказывает класс инъекцией настоящим (проверенно ломающим) входом,
       в обе стороны (фикс верен / старый подход недостаточен)
 - [ ] полный прогон на дереве продукта (467 веток) досмотрен до конца — идёт
-- [ ] PR отправлен и влит
+- [x] PR отправлен и влит — [#552](https://github.com/PRO-Robotech/kacho-workspace/pull/552), `fdc873ec`, 2026-09-07T12:30Z
