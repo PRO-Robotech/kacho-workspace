@@ -15,9 +15,19 @@
 # проверять», и это ДРУГОЙ исход (VOID), а не успех.
 #
 # ПОЛОЖИТЕЛЬНАЯ ПОЛОВИНА. Гейт не только запрещает номерную форму, но и
-# ПРОВЕРЯЕТ разрешённую: каждое `§<Имя>` при ссылке на `.claude/rules/<f>.md`
-# обязано резолвиться в заголовок этого файла. Без этой половины запрет зеленел бы
-# на дереве, где все ссылки просто исчезли.
+# ПРОВЕРЯЕТ разрешённую: каждое `§<Имя>` при ссылке на норму обязано резолвиться
+# в заголовок этого файла. Без этой половины запрет зеленел бы на дереве, где все
+# ссылки просто исчезли.
+#
+# У НОРМЫ ДВА ДОМА, и искать надо в обоих: `.claude/rules/` (ядро, читается
+# автоматически) и `.claude/rulebook/` (остальные, читает волновой ревьюер). Пока
+# дом был один, отсутствие файла молча пропускалось через `continue`, а перепись
+# считала ссылку осмотренной ДО этой проверки — то есть «142 ссылки, все
+# резолвятся» означало «проверено 2». Заметить это было нельзя ничем: гейт
+# зелёный, число большое, обе половины инъекции мертвы. Поэтому перепись печатает
+# ДВЕ величины — сколько ссылок найдено и сколько из них ПРОВЕРЕНО, — а ссылки на
+# документ вне корпуса норм (сервисный `CLAUDE.md`) называются третьим числом, а
+# не растворяются в первом.
 #
 # Коды выхода: 0 — осмотрено N, находок 0; 1 — находки; 2 — VOID (нечего проверять).
 
@@ -52,7 +62,18 @@ findings=0
 named_refs=0
 numbered_refs=0
 unresolved=0
+checked_refs=0
+offcorpus_refs=0
 report=""
+
+# Путь к норме по её имени: сперва ядро, затем свод. Пусто — документ вне корпуса
+# норм (сервисный CLAUDE.md), и это ТРЕТИЙ исход, а не «проверено».
+rule_path() {
+    local rf="$1"
+    if   [ -f "$WS/.claude/rules/$rf" ];    then printf '%s' "$WS/.claude/rules/$rf"
+    elif [ -f "$WS/.claude/rulebook/$rf" ]; then printf '%s' "$WS/.claude/rulebook/$rf"
+    fi
+}
 
 for rel in "${files[@]}"; do
     f="$WS/$rel"
@@ -74,7 +95,12 @@ for rel in "${files[@]}"; do
         [ -n "${ref:-}" ] || continue
         named_refs=$((named_refs + 1))
         rulefile="$(printf '%s' "$ref" | sed -E 's/^`([A-Za-z0-9_-]+[.]md)`.*/\1/')"
-        [ -f "$WS/.claude/rules/$rulefile" ] || continue
+        rulepath="$(rule_path "$rulefile")"
+        if [ -z "$rulepath" ]; then
+            offcorpus_refs=$((offcorpus_refs + 1))
+            continue
+        fi
+        checked_refs=$((checked_refs + 1))
         section="$(skills_gate_section_token "$ref")"
         # Пустая §-ссылка («см. §») смысла не несёт и резолвиться не может.
         if [ -z "$section" ]; then
@@ -83,7 +109,7 @@ for rel in "${files[@]}"; do
             report+="  $rel  пустая §-ссылка на $rulefile"$'\n'
             continue
         fi
-        if ! skills_gate_section_resolves "$WS/.claude/rules/$rulefile" "$section"; then
+        if ! skills_gate_section_resolves "$rulepath" "$section"; then
             unresolved=$((unresolved + 1))
             findings=$((findings + 1))
             report+="  $rel  §$section не резолвится ни в один заголовок $rulefile"$'\n'
@@ -106,7 +132,7 @@ if [ "$named_refs" -eq 0 ] && [ "$numbered_refs" -eq 0 ]; then
     exit 2
 fi
 
-echo "перепись: прочитано SKILL.md — ${#files[@]}; ссылок по имени раздела — $named_refs; ссылок номером строки — $numbered_refs"
+echo "перепись: прочитано SKILL.md — ${#files[@]}; ссылок по имени раздела — $named_refs, из них ПРОВЕРЕНО $checked_refs (норма найдена в rules/ либо rulebook/), вне корпуса норм $offcorpus_refs; ссылок номером строки — $numbered_refs"
 
 if [ "$findings" -gt 0 ]; then
     printf '%s' "$report" >&2
@@ -114,5 +140,5 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-skills_gate_pass "$NAME" "осмотрено ${#files[@]} файлов, $named_refs ссылок по имени раздела, все резолвятся; номерных 0"
+skills_gate_pass "$NAME" "осмотрено ${#files[@]} файлов, $named_refs ссылок по имени раздела, из них проверено $checked_refs — все резолвятся; вне корпуса норм $offcorpus_refs; номерных 0"
 exit 0

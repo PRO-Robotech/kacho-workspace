@@ -7,9 +7,11 @@
 
 # Kachō — Workspace CLAUDE.md
 
-Корневой индекс монорепо-воркспейса. Тонкий: `@import` модульных правил
-(`.claude/rules/*.md`) + workspace-операционка (dev-стенд, sync). Identity /
-naming / non-negotiables вынесены в `@.claude/rules/00-kacho-core.md`.
+Корневой индекс монорепо-воркспейса. Тонкий: `@import` **ядра**
+(`.claude/rules/*.md`) + workspace-операционка (dev-стенд, sync). Модульные
+правила лежат в `.claude/rulebook/` и автоматически **не** читаются — см.
+§«Регламент» ниже. Identity / naming / non-negotiables вынесены в
+`@.claude/rules/00-kacho-core.md`.
 
 ## Топология: монорепо `PRO-Robotech/kacho` + этот workspace
 
@@ -18,7 +20,7 @@ naming / non-negotiables вынесены в `@.claude/rules/00-kacho-core.md`.
 `kacho-<svc>`, …) существуют на GitHub, но разработка в них не ведётся (последний push —
 середина июля 2026); `bootstrap.sh` клонирует их только по `KACHO_CLONE_LEGACY_POLYREPOS=1`.
 Раскладка каталогов монорепо и что нормативного осталось от полирепо-правил —
-`@.claude/rules/polyrepo.md`.
+`@.claude/rulebook/polyrepo.md`.
 
 ## Модель оснастки: единственный экземпляр в воркспейсе, копий нет
 
@@ -52,7 +54,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   в воркспейсе, а не часть поставки продукта. Проверки, которые обязаны работать в CI
   продукта, живут **в самом продукте** (гейты в `internal/repohygiene`, `tools/`,
   `scripts/`, цели Makefile), а не в `.claude/`.
-- Канонический список — `@.claude/rules/ai-tooling.md`.
+- Канонический список — `@.claude/rulebook/ai-tooling.md`.
 
 ### Производное для других агентских сред — отслеживаемое, а не временное
 
@@ -67,27 +69,25 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   её расхождением. Предмет правки всегда во входе.
 
 Почему выход отслеживаемый, а не порождаемый на лету, и почему имя каталога оснастки в
-текстах **не подставляется** на имя второй среды — `@.claude/rules/change-graph.md`
+текстах **не подставляется** на имя второй среды — `@.claude/rulebook/change-graph.md`
 §«Оснастка — ВХОД контура».
 
-## Модульные правила (@import)
+## Регламент: ядро всегда, остальное по требованию
+
+Безусловно грузится **ядро** — запреты и naming, форма производимого текста,
+контракт волны, локальный индекс. Четырнадцать модульных правил лежат в
+`.claude/rulebook/` и читаются **файлом, когда относятся к делу**; какое правило
+какое действие покрывает — `.claude/rulebook/MANIFEST.md`.
+
+Раскладка выбрана ЗАМЕРОМ, и он в дереве: `scripts/compliance/`. Правила в окне
+у каждого исполнителя дают 85 % соблюдения при 248 600 токенах на агента; худая
+полоса плюс один ревьюер на волну — те же 89 % на общих предметах при 368 600
+на волну вместо 1 988 800. Держит раскладку `scripts/rules-gate/`, а не эта
+фраза: перенос правила обратно в автозагрузку роняет гейт.
 
 @.claude/rules/00-kacho-core.md
-@.claude/rules/api-conventions.md
-@.claude/rules/polyrepo.md
-@.claude/rules/architecture.md
-@.claude/rules/data-integrity.md
-@.claude/rules/security.md
-@.claude/rules/git-issues.md
-@.claude/rules/multi-agent-flow.md
-@.claude/rules/change-graph.md
-@.claude/rules/testing.md
-@.claude/rules/subscription.md
-@.claude/rules/e2e-flow.md
-@.claude/rules/ui.md
-@.claude/rules/vault.md
+@.claude/rules/01-wave-contract.md
 @.claude/rules/writing.md
-@.claude/rules/ai-tooling.md
 
 ## Локальная разработка
 
@@ -113,7 +113,7 @@ vault-discipline (`UserPromptSubmit` / `Stop`), `class-guard` (`PostToolUse`, с
 
 Перечни ВЫВЕДЕНЫ из канонической оснастки при регенерации, а не выписаны: рукописный список расходится с деревом молча.
 
-### Агенты (16)
+### Агенты (17)
 
 - `acceptance-author` — Use FIRST in any new sub-iteration, new RPC, or new feature before any code is written — writes a Given-When-Then acceptance document (markdown only, never code) into kacho-workspace/docs/specs/sub-phase-X.Y-<topic>-acceptance.md; work stops until acceptance-reviewer marks it APPROVED.
 - `acceptance-reviewer` — Единственный gate APPROVED для acceptance-дока (Given-When-Then) ПЕРЕД любым кодом — проверяет покрытие спеки, полноту сценариев (positive/negative/edge), traceability, реализм и scope; возвращает ✅ APPROVED либо ❌ CHANGES REQUESTED. Запускай ПОСЛЕ acceptance-author, до plan/implementation.
@@ -131,6 +131,7 @@ vault-discipline (`UserPromptSubmit` / `Stop`), `class-guard` (`PostToolUse`, с
 - `rpc-implementer` — Use after an acceptance doc is APPROVED to implement one RPC end-to-end by strict TDD. Workflow — write failing integration tests first (RED), then proto-stubs → migration → repo(sqlc/pgx) → use-case → handler → outbox-in-tx (GREEN), then refactor. Calls api-gateway-registrar for public RPC. Never code without an APPROVED acceptance doc.
 - `service-scaffolder` — Use when bootstrapping a brand-new service directory services/<svc>/ inside the kacho monorepo — creates the full Clean-Architecture skeleton (cmd/internal/deploy/Dockerfile/Makefile), stub files only, no business logic. Invoke before rpc-implementer.
 - `system-design-reviewer` — Распределённые аспекты дизайна Kachō — dual-write/атомарность, идемпотентность, OCC/CAS, polling-модель без Watch, координация async-worker'ов и reconciler-реплик, replica state isolation, ацикличность cross-domain графа. Запускать перед мерджем значимого архитектурного изменения или когда rpc-implementer спрашивает про distributed-паттерн.
+- `wave-reviewer` — Единственный держатель ПОЛНОГО регламента в волне. Принимает диффы ВСЕХ полос за один заход, читая `.claude/rulebook/` целиком. Запускать ОДИН раз на волну, после сборки и до отправки. Заводить его на каждую полосу запрещено — это дороже, чем не разделять регламент вовсе.
 
 ### Скилы (14)
 
@@ -141,7 +142,7 @@ vault-discipline (`UserPromptSubmit` / `Stop`), `class-guard` (`PostToolUse`, с
 - `gate-authoring` — Как построить проверку, СПОСОБНУЮ упасть — гейт, страж, CI-чек, регрессионный тест, пробу. Производитель входа и захват реального сообщения; инъекция настоящим входом из дерева с законным близнецом; исход вместо объявления; отрицание только в паре с положительным; отношение, выполнимое подстановкой, не сужает ничего; пустой вход как всеразрешение; детерминизм входа и управляемые часы; самоистечение послаблений; разбор существующего красного до его ослабления; фикстура не снисходительнее продукта. Применять при написании ЛЮБОЙ проверки, при разборе «почему это зелёное», перед снятием или ослаблением существующей и при заведении нового сервиса. НЕ про технику дизайна кейса (testing-*-coach), не про чтение вердикта прогона (verdict-and-landing), не про число о дереве и выбор единицы счёта (measurement-discipline).
 - `godzila` — Use when writing, refactoring, or reviewing a Go API in the "kachō-style" Clean-Architecture stack — slice-per-RPC use-case layout, thin gRPC handler, CQRS Repository with Reader/Writer transaction split, async Operation LRO envelope, atomic Writer-TX with outbox-emit, atomic-CAS / xmin-OCC for within-service invariants, DB-level FK / CHECK / EXCLUDE / partial-UNIQUE instead of software refcheck, UpdateMask discipline, self-validating domain newtypes, sentinel-based error mapping, generic DTO registry, peer-clients with TTL+LRU cache, LISTEN/NOTIFY event streaming on a dedicated connection. Triggers on: new resource, new RPC, new use-case, new migration, new peer-call, refactor of a fat "Service" into use-cases, design review of any of the above.
 - `hardening-audit-loop` — Многоагентный итеративный аудит-рефакторинг kacho-* до сходимости — find → adversarial-verify → TDD-fix → PR/CI/merge → re-check, повторять пока раунд не даст 0 подтверждённых находок. Применять на запрос «массированный/полный аудит», «доведи код до 100% чистого и безопасного», «пройди по безопасности/утечкам/структуре/читаемости», hardening-sweep, security-audit целого репо или всего полирепо. Кодифицирует 6 дименсий (security/leak/structure/readability/LEAN/concurrency), 9 инвариантов Kachō как определение «дефекта», refute-верификацию (отсекает false-positive и LOW), поведенческие regression-тесты. Оркеструется через Workflow (ultracode); есть готовый bundled-скрипт одного раунда. НЕ для точечного багфикса (это обычный TDD-флоу) и НЕ для feature-work (нужен APPROVED acceptance-док).
-- `kacho-docs-writer` — Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
+- `kacho-docs-writer` — Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rulebook/vault.md).
 - `load-testing-coach` — Use when designing or extending performance/load/stress/soak/spike/breakpoint tests using k6 or equivalent tooling. Owns benchmarking methodology, SLO/SLA definition, capacity planning, bottleneck identification (CPU/memory/network/DB-pool/connection-limit), result analysis (p50/p95/p99/error rate/RPS curve), reproducibility, comparison between runs. Separates load testing from functional tests (newman) and from production observability. Defers product-functional tests to testing-product-coach and code-level benchmarking to testing-code-coach.
 - `measurement-discipline` — Как получить число или факт о дереве, стенде и чужой работе, который выдержит проверку. Применять ПЕРЕД тем как назвать число в отчёте, коммите, приёмке или ответе владельцу; при установлении радиуса правки; при выяснении состояния стенда; при пересказе чужого замера; при оценке заявления «мёртво / принято / невозможно / уже проверено». Владею единицей счёта, ревизией, объёмом осмотренного, предикатом с контролем в обе стороны, разбором совпадений по референту, радиусом, переписью по осям, провенансом стенда, живостью предмета, атрибуцией чужого замера. НЕ про конструкцию проверки, способной упасть (gate-authoring), и НЕ про чтение вердикта и посадку изменения (verdict-and-landing).
 - `security-surface` — Поверхность безопасности сервиса — что появляется вместе с новым RPC, списком, слушателем, записью каталога прав, профилем развёртывания, отношением модели, кэшем вердиктов, внешним вызовом, полем со ссылкой на чужой объект, и что ломается при снятии доступа. Каталог классов из корпуса находок за всё время: у каждого признак, противоядие и чем он держится. Применять при ЗАВЕДЕНИИ нового сервиса и при доработке существующего — до первой строки поверхности, а не на ревью. НЕ переизлагает запреты `security.md` (ссылка по названию раздела), не про конструкцию проверки (gate-authoring), не про семантику прод-кода вообще (code-authoring), не про число о дереве (measurement-discipline), не про чтение вердикта и посадку (verdict-and-landing).

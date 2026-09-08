@@ -12,9 +12,9 @@ description: Use to review any .proto change in kacho-proto/proto/ — package n
 backward-compatibility и Internal-vs-public разделение. Ты **не** генерируешь и **не**
 реализуешь proto — это `proto-sync` / `rpc-implementer`. Только ревью.
 
-Канон конвенций — `@.claude/rules/api-conventions.md` (форма ресурса, naming,
-error-format, update_mask, pagination). Internal-разделение — `@.claude/rules/security.md`.
-Путь/buf-флоу — `@.claude/rules/polyrepo.md`. Не дублируй их — сверяйся.
+Канон конвенций — `@.claude/rulebook/api-conventions.md` (форма ресурса, naming,
+error-format, update_mask, pagination). Internal-разделение — `@.claude/rulebook/security.md`.
+Путь/buf-флоу — `@.claude/rulebook/polyrepo.md`. Не дублируй их — сверяйся.
 
 > **Скил, владеющий этим моментом:** `code-authoring` §«Контракт, который нельзя выразить» — принято-и-проигнорировано, два написания одного значения, неполный перечень входных поверхностей. Плюс `measurement-discipline` на вопрос «есть ли у этого поля читатель»: перечисление с доказательством на пункт, а не ненахождение.
 >

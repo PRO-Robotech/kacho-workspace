@@ -19,9 +19,10 @@ Workspace содержит общий `CLAUDE.md`, каноническую AI-�
 
 ```
 kacho-workspace/             ← этот репо (git)
-├── CLAUDE.md                ← тонкий индекс правил (загружает .claude/rules/*)
+├── CLAUDE.md                ← тонкий индекс правил (загружает только .claude/rules/*)
 ├── .claude/                 ← ИСТОЧНИК ИСТИНЫ AI-оснастки:
-│   ├── rules/               ← модульные правила (generic)
+│   ├── rules/               ← ядро: грузится всегда
+│   ├── rulebook/            ← модульные правила: по требованию, чтением файла
 │   ├── agents/              ← generic-субагенты (роли)
 │   ├── skills/              ← generic-скилы (экспертиза)
 │   ├── hooks/               ← дисциплинарные hooks
@@ -46,7 +47,7 @@ kacho-workspace/             ← этот репо (git)
 `project/` под gitignore — каждое sibling-репо имеет собственный `.git/` и
 публикуется отдельно (`git@github.com:PRO-Robotech/<repo>.git`). Список имён —
 в `bootstrap.sh::REPOS`. Build-граф: `kacho-proto → kacho-corelib → сервисы →
-kacho-api-gateway → kacho-deploy` (см. `CLAUDE.md` и `.claude/rules/polyrepo.md`).
+kacho-api-gateway → kacho-deploy` (см. `CLAUDE.md` и `.claude/rulebook/polyrepo.md`).
 
 ## AI-оснастка: единственный экземпляр, копий нет
 

@@ -11,7 +11,7 @@ acceptance-first + строгий TDD lifecycle, уровни тестов, те
 ## 1. Логика фазирования
 
 Платформа растёт **доменами** (отдельный сервис = отдельная Postgres-БД,
-`.claude/rules/polyrepo.md`), а каждый домен — **фазами** под-итераций. Принципы:
+`.claude/rulebook/polyrepo.md`), а каждый домен — **фазами** под-итераций. Принципы:
 
 - **Один домен — один сервис — одна БД.** Новый домен не подмешивается в чужую
   схему; он получает собственное репо `kacho-<part>` и схему `kacho_<domain>`.
@@ -21,7 +21,7 @@ acceptance-first + строгий TDD lifecycle, уровни тестов, те
   feature-ветке; после merge — обратно на `ref: main`.
 - **Кросс-репо эпик** ведётся как tracking-issue в `kacho-workspace` (метка `epic`)
   + per-repo issue с `Blocked by PRO-Robotech/<repo>#<n>`. В трекере KAC — `[EPIC]`
-  + Subtask-иерархия (`.claude/rules/git-issues.md`).
+  + Subtask-иерархия (`.claude/rulebook/git-issues.md`).
 - **Каждая под-итерация замкнута**: APPROVED acceptance-док → ветка `KAC-<N>` → RED →
   GREEN → review ролями → integration + newman зелёные → trail в vault + перевод
   тикета в `Done`. Без этого под-итерация не считается завершённой.
@@ -125,7 +125,7 @@ unit-тестах дожидаются детерминированно (`AwaitO
 уровне Postgres: FK / partial-UNIQUE / EXCLUDE / CHECK / атомарный CAS / xmin-OCC /
 `FOR UPDATE SKIP LOCKED`, не software check-then-act). Каждая мутация атомарно пишет
 запись в `operations` + транзакционный outbox в той же TX; worker исполняет
-state-машину (`.claude/rules/data-integrity.md`).
+state-машину (`.claude/rulebook/data-integrity.md`).
 
 ### 2.5. Шаг 5 — review ролями + рефакторинг
 
@@ -161,7 +161,7 @@ observable behavior, technical design, execution route, evidence, actual diff и
 | предмет | владелец | что там искать |
 |---|---|---|
 | observable scope, case IDs, Given-When-Then | `docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md` | что именно обязано наблюдаться |
-| норма для инженера и чем она держится | `.claude/rules/change-graph.md` | как вести изменение по контуру |
+| норма для инженера и чем она держится | `.claude/rulebook/change-graph.md` | как вести изменение по контуру |
 | **эта глава** | — | что меняется в §2 и с какого момента |
 
 Ни case IDs, ни диагностики, ни перечень гейтов здесь не воспроизводятся: три места об одном
@@ -220,7 +220,7 @@ newman-e2e (один сценарий → один integration-тест + оди
 - Если service-тест требует Postgres — это утечка adapter в use-case (`architecture.md`).
 - Concurrent-race-сценарий для любого CAS/UNIQUE/EXCLUDE-пути обязателен на
   integration-уровне (race не ловится unit-тестом — реальный инцидент NIC-attach
-  2026-05-14, `.claude/rules/data-integrity.md`).
+  2026-05-14, `.claude/rulebook/data-integrity.md`).
 - Newman/integration-тест, написанный уже **после** кода, — нарушение TDD (даже если
   зелёный). Workflow нового кейса: `validate-cases.py` (уникальность + CASES-INDEX) →
   `gen.py`. Коллекции `collections/*.postman_collection.json` руками не правятся.
@@ -330,5 +330,5 @@ acceptance-доки `docs/specs/*-acceptance.md`.
 
 На этом спека замыкается: глава 00 задаёт scope и принципы, 01–03 — архитектуру,
 данные и эксплуатацию, 04 — процесс и дорожную карту. Источник истины по конвенциям
-и инвариантам — `.claude/rules/*` и per-repo `docs/architecture/`; эта глава на них
-ссылается, а не дублирует.
+и инвариантам — `.claude/rules/*` (ядро) и `.claude/rulebook/*` (свод) плюс per-repo
+`docs/architecture/`; эта глава на них ссылается, а не дублирует.

@@ -13,8 +13,8 @@ Helm-chart, Dockerfile, Makefile. **Бизнес-логику не пишешь*
 Ты делаешь анкеры, по которым он наполняет код.
 
 Проектные конвенции бери из правил, не дублируй: архитектура слоёв и dependency rule —
-@.claude/rules/architecture.md; топология и граф зависимостей —
-@.claude/rules/polyrepo.md; форма API — @.claude/rules/api-conventions.md; Go-style
+@.claude/rulebook/architecture.md; топология и граф зависимостей —
+@.claude/rulebook/polyrepo.md; форма API — @.claude/rulebook/api-conventions.md; Go-style
 ruleset — skill `evgeniy` (UseCase pattern, CQRS-порты, self-validating domain,
 DTO-таблицы, YAML-config через viper, отдельный `cmd/migrator`). Образец живой
 структуры — `project/kacho/services/vpc/`.
@@ -22,7 +22,7 @@ DTO-таблицы, YAML-config через viper, отдельный `cmd/migrat
 **Модуль один на всё дерево.** В монорепо ровно один `go.mod` — в корне,
 `github.com/PRO-Robotech/kacho`. Новый сервис **своего `go.mod` не заводит** и потому не
 может нести никакой внутрипроектной подмены модулей: подменять нечего, соседних модулей
-не существует. Запрет на такую подмену в закоммиченном `go.mod` — @.claude/rules/polyrepo.md
+не существует. Запрет на такую подмену в закоммиченном `go.mod` — @.claude/rulebook/polyrepo.md
 §«Правило зависимостей при полирепо-топологии»; там же сказано, почему он сохранён
 дословно и почему сегодня неприменим. Норму читай там, здесь она не переписывается.
 
@@ -93,7 +93,7 @@ services/<SVC>/
 ## Stub-контракт (что кладёшь в каждый слой)
 
 Каждый stub содержит комментарий, фиксирующий dependency rule из
-@.claude/rules/architecture.md:
+@.claude/rulebook/architecture.md:
 
 - `internal/domain/<resource>.go` — пустая self-validating entity; `// чистый Go-тип, импортирует только stdlib + стабы pkg/api`.
 - `internal/apps/kacho/api/<resource>/<resource>.go` — UseCase-struct + конструктор `New(...)`; CQRS-порты (`<Resource>Reader`/`<Resource>Writer`, `<Peer>Client`) объявлены тут как **анкер** для `rpc-implementer`; `// use-case: импортирует domain + порты, не transport`.
@@ -104,7 +104,7 @@ services/<SVC>/
 - `cmd/<svc>/main.go` — единственное место wiring (`pgxpool.New`, `grpc.NewServer`, регистрация, graceful shutdown); `// composition root`.
 - `cmd/migrator/main.go` — отдельный бинарь, прогоняет goose-миграции из `internal/migrations/`.
 
-Все RPC-стабы соблюдают форму контракта (@.claude/rules/api-conventions.md):
+Все RPC-стабы соблюдают форму контракта (@.claude/rulebook/api-conventions.md):
 `Get`/`List` — sync, `Create`/`Update`/`Delete` — возвращают `operation.Operation`.
 
 ## Проектные ограничения

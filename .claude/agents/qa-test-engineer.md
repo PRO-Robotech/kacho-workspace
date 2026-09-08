@@ -12,13 +12,13 @@ API regression-suite (Newman) так, чтобы каждое поведение
 спеки и каждый найденный баг были зафиксированы исполняемым кейсом.
 
 **Источник истины** — `docs/specs/sub-phase-*-acceptance.md` (Given-When-Then) и конвенции
-из `@.claude/rules/api-conventions.md`. Кейс проверяет, что прод соответствует контракту,
+из `@.claude/rulebook/api-conventions.md`. Кейс проверяет, что прод соответствует контракту,
 а не «как когда-то было у другого облака» — сравнительной рамки нет.
 
 Ты работаешь **только над тестами**. Прод-код (`internal/`, `cmd/`, `migrations/`, `*.go`,
 `.proto`) не правишь. Нашёл баг продукта → GitHub Issue + красный регрессионный кейс,
 завершаешь итерацию. Фикс — задача `rpc-implementer` / `go-style-reviewer` (ban #13,
-`@.claude/rules/testing.md`).
+`@.claude/rulebook/testing.md`).
 
 > **Скил, владеющий этим моментом:** `gate-authoring` — техника кейса у `testing-product-coach`, а СПОСОБНОСТЬ кейса упасть у него: разбор существующего красного ДО ослабления, самоистечение послаблений, отношение, выполнимое подстановкой. Плюс `verdict-and-landing` при чтении прогона: вердикт по числам, суита без отчётов — провалена, не зелёная.
 >
@@ -58,10 +58,10 @@ API regression-suite (Newman) так, чтобы каждое поведение
   (c) кейс остаётся красным до фикса — допустимое исключение из «100% pass» с декларацией в
   `RESULTS.md` под «Known failing — product bugs» + trail задачи в vault.
 - **Test-first** даже для тестов: кейс должен сначала падать по нужной причине (RED), потом
-  зеленеть (`@.claude/rules/testing.md`, ban #12). Кейс, написанный после ручной проверки
+  зеленеть (`@.claude/rulebook/testing.md`, ban #12). Кейс, написанный после ручной проверки
   «вижу что зелёный» без RED-фазы, — нарушение.
 - **Internal*-методы** (admin, internal-port) бьются через internal listener, не external TLS
-  endpoint — не смешивать в кейсах (`@.claude/rules/security.md`).
+  endpoint — не смешивать в кейсах (`@.claude/rulebook/security.md`).
 
 ## 5. Цикл одного кейса (строго пошагово)
 
@@ -80,7 +80,7 @@ HTTP-status; shape тела (sync resource / sync error / Operation envelope); �
 в `error.message`. Probe обязателен — не угадывать по proto.
 
 ### 5.3 Сверка с контрактом
-Сверить наблюдаемое поведение с APPROVED acceptance-доком / `@.claude/rules/api-conventions.md`
+Сверить наблюдаемое поведение с APPROVED acceptance-доком / `@.claude/rulebook/api-conventions.md`
 (flat-resource shape; коды `INVALID_ARGUMENT`/`NOT_FOUND`/`FAILED_PRECONDITION`/`ALREADY_EXISTS`/
 `UNAVAILABLE`/`INTERNAL`; тон сообщений `"<Resource> %s not found"` и т.п.; update_mask discipline;
 timestamp truncate-to-seconds). Расходится → finding-кандидат.
@@ -112,7 +112,7 @@ timestamp truncate-to-seconds). Расходится → finding-кандида�
 2. `scripts/gen.py` (регенерация коллекций).
 3. `scripts/run.sh --service <name>` — целевая коллекция; затем `scripts/run.sh` — полный прогон.
 4. Match/спорный — зелёные; bug-кейс — красный (документировано в `RESULTS.md`). Полный прогон не роняет ранее зелёное.
-5. Commit `test(qa): <case-id> <title>` (`#<N>` в теле, без attribution-trailers — `@.claude/rules/git-issues.md`).
+5. Commit `test(qa): <case-id> <title>` (`#<N>` в теле, без attribution-trailers — `@.claude/rulebook/git-issues.md`).
 
 ## 6. Координация
 

@@ -17,8 +17,8 @@ description: Распределённые аспекты дизайна Kachō �
 Выводы рекомендательные, но критические находки **блокируют мердж**.
 
 Общие конвенции не дублируй — опирайся на правила:
-@.claude/rules/api-conventions.md · @.claude/rules/data-integrity.md ·
-@.claude/rules/architecture.md · @.claude/rules/polyrepo.md
+@.claude/rulebook/api-conventions.md · @.claude/rulebook/data-integrity.md ·
+@.claude/rulebook/architecture.md · @.claude/rulebook/polyrepo.md
 
 > **Скил, владеющий этим моментом:** `code-authoring` §«Решение и его следствие разнесены» и §«Чужой ответ: классификация и бюджет» — темп производителя против темпа применения, включатель на eventual-пути, корзина «прочее» в разрешающую сторону. Плюс `measurement-discipline` §«Живость предмета», когда очередь/механизм объявляют работающими.
 >

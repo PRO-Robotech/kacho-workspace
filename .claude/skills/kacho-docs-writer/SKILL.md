@@ -1,6 +1,6 @@
 ---
 name: kacho-docs-writer
-description: Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
+description: Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rulebook/vault.md).
 ---
 
 # Skill: kacho-docs-writer — документация Kachō
@@ -16,9 +16,9 @@ description: Регламент написания/правки документ
 инженерной частью, `docs/specs/` воркспейса, README; вычитка/актуализация существующих
 доков.
 
-**НЕ сюда**: vault-записки (`obsidian/kacho/` — правила в `.claude/rules/vault.md`);
+**НЕ сюда**: vault-записки (`obsidian/kacho/` — правила в `.claude/rulebook/vault.md`);
 godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); commit-messages
-(`.claude/rules/git-issues.md`); acceptance-доки (`acceptance-author` — это gate-артефакт,
+(`.claude/rulebook/git-issues.md`); acceptance-доки (`acceptance-author` — это gate-артефакт,
 а не документация).
 
 **Шов с `doc-truthfulness` (назван с обеих сторон).** Я владею **формой**: какой должна быть
@@ -62,7 +62,8 @@ per-repo копии agents разъехались и обросли мусоро
    «расхождение с эталоном». Паттерн: страница «Особенности дизайна Kachō VPC»
    (таблица «Решение → Почему так»), а не «Known divergences from …».
 2. **Факты — только из ground-truth.** Не выдумывать и не писать по памяти. Источники
-   по приоритету: `.claude/rules/*` воркспейса → proto/код/миграции дерева продукта →
+   по приоритету: `.claude/rulebook/*` и ядро `.claude/rules/*` воркспейса →
+   proto/код/миграции дерева продукта →
    `deploy/CLAUDE.md` для всего, что про стенд. Неизвестно → не писать (точность > полнота).
    **Корневого `CLAUDE.md` у дерева продукта нет** — прежняя редакция отправляла сюда
    за фактами именно туда, и читатель находил пустоту вместо нормы. Единственный
@@ -80,7 +81,7 @@ per-repo копии agents разъехались и обросли мусоро
 ## 3. Workflow правки (любой слой)
 
 1. **Scope**: какой слой, какие страницы, что триггер (новый RPC / ресурс / рефактор).
-2. **Ground-truth первым**: прочитай нормативное правило домена из `.claude/rules/`
+2. **Ground-truth первым**: прочитай нормативное правило домена из `.claude/rulebook/`
    (+ узкий vault-файл ресурса, если он есть) ДО открытия дока. Факты собираются здесь,
    не сочиняются в процессе.
 3. **Пиши/правь** по принципам §2 и слойному регламенту (§4–§6). Правки в выверенный
@@ -148,7 +149,7 @@ Frontmatter (`id`, `title`, `sidebar_position`) → 1-2 строки «что з
 поля (таблица: имя / тип / mutable?/output-only) → методы через `<ApiOperation/>`
 (Get/List sync; Create/Update/Delete + `:verb` → Operation) → ограничения
 (`<Restrictions/>`) → ошибки (`<Codes/>`, канонические тексты — точные строки из
-`.claude/rules/api-conventions.md` §Error-format, они часть контракта) →
+`.claude/rulebook/api-conventions.md` §Error-format, они часть контракта) →
 preconditions/FK (что блокирует Delete).
 
 ### 4.4 mermaid
@@ -194,15 +195,15 @@ Build ловит сломанный MDX/JSX, незакрытый mermaid и б�
 
 | Факт | Сверять с |
 |---|---|
-| ID-префиксы ресурса | `pkg/ids/ids.go` — единственный источник (`KnownPrefixes`, `KnownHyphenPrefixes`); словами — `.claude/rules/api-conventions.md` §Naming / формат |
-| Канонические error-тексты (`"<Resource> %s not found"`, …) | `.claude/rules/api-conventions.md` §Error-format — цитировать ТОЧНО |
-| gRPC-код → HTTP-статус | `.claude/rules/api-conventions.md` §gRPC-код → HTTP-статус (таблица края) — не угадывать по имени кода |
+| ID-префиксы ресурса | `pkg/ids/ids.go` — единственный источник (`KnownPrefixes`, `KnownHyphenPrefixes`); словами — `.claude/rulebook/api-conventions.md` §Naming / формат |
+| Канонические error-тексты (`"<Resource> %s not found"`, …) | `.claude/rulebook/api-conventions.md` §Error-format — цитировать ТОЧНО |
+| gRPC-код → HTTP-статус | `.claude/rulebook/api-conventions.md` §gRPC-код → HTTP-статус (таблица края) — не угадывать по имени кода |
 | Статус-enum'ы ресурсов | `proto/kacho/cloud/<domain>/v1/` |
 | FK/RESTRICT-цепочки | `services/<svc>/internal/migrations/` |
-| REST-пути и `:verb`-actions | `.claude/rules/api-conventions.md` + `gateway/internal/restmux/` |
+| REST-пути и `:verb`-actions | `.claude/rulebook/api-conventions.md` + `gateway/internal/restmux/` |
 | Номера/состав миграций | `services/<svc>/internal/migrations/` |
 | Env-переменные (`KACHO_<SVC>_*`) | config сервиса в его `internal/` |
-| Internal-vs-public поверхность | `.claude/rules/security.md` §Internal-vs-external |
+| Internal-vs-public поверхность | `.claude/rulebook/security.md` §Internal-vs-external |
 
 ## 7. Self-check перед коммитом (любой слой)
 
@@ -237,7 +238,7 @@ grep -rniE 'yandex|\bYC\b|yc-|\bAWS\b|parity|verbatim|\bfolder\b|upsert|resource
 ## 9. Смежные роли
 
 - **Истинность написанного во времени** — skill `doc-truthfulness` (шов назван в §0).
-- **Канонические error-тексты и коды** — `.claude/rules/api-conventions.md`; нормативный
+- **Канонические error-тексты и коды** — `.claude/rulebook/api-conventions.md`; нормативный
   реестр требований продукта — `services/<svc>/tests/newman/docs/PRODUCT-REQUIREMENTS.md`.
   Он есть **не у каждого** сервиса: предикат — `git ls-files '*PRODUCT-REQUIREMENTS.md'`
   в дереве продукта, и «файла нет» здесь означает «реестра нет», а не «ищи в другом месте».
@@ -246,7 +247,7 @@ grep -rniE 'yandex|\bYC\b|yc-|\bAWS\b|parity|verbatim|\bfolder\b|upsert|resource
 
 > [!note] Здесь стояли три имени, которых в дереве нет
 > Прежняя редакция отправляла за generic-методологией к скилу, отсутствующему в перечне
-> канонических (`.claude/rules/ai-tooling.md` §Канонические скилы), а за аудитом и
+> канонических (`.claude/rulebook/ai-tooling.md` §Канонические скилы), а за аудитом и
 > тестовой документацией — к двум доменным агентам вида `<svc>-*`. Ни одного доменного
 > агента в дереве нет: `git ls-files .claude/agents/` даёт только generic-набор, а
 > `.claude/` дерева продукта агентов не содержит вовсе. Ссылка на роль, которую некому

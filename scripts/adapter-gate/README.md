@@ -3,7 +3,7 @@
 ## Предмет
 
 Оснастка Kachō живёт **в единственном экземпляре** — `.claude/` воркспейса плюс корневой
-`CLAUDE.md` (`.claude/rules/ai-tooling.md` §Модель распространения). Среды, читающие
+`CLAUDE.md` (`.claude/rulebook/ai-tooling.md` §Модель распространения). Среды, читающие
 `AGENTS.md`, `.agents/skills/` и `.codex/`, получают её **проекцию**.
 
 Проекция **отслеживаемая**. Это решение, а не умолчание: непроверяемое производное
@@ -14,7 +14,7 @@
 |---|---|
 | владение | `.claude/adapters.yaml` — единственное объявление |
 | генератор | `scripts/adapter/generate.py` |
-| норма | `.claude/rules/change-graph.md` §Оснастка |
+| норма | `.claude/rulebook/change-graph.md` §Оснастка |
 | напоминание в момент | `.claude/hooks/change-graph-reminder.sh` |
 
 ## Три состояния, каждое из которых выглядит как исправное дерево

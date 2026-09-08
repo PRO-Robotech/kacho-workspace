@@ -459,10 +459,103 @@ def audit_ci_declaration():
     return 1 if findings else 0
 
 
+# Манифест владения адаптера — второе место, где живёт тот же предмет, что и в
+# закрытом наборе §10 семейства `cg.adapter`.
+MANIFEST_REL = os.path.join(".claude", "adapters.yaml")
+
+
+def audit_canonical_inputs():
+    """Закрытый набор канонических входов §10 сходится с манифестом дерева.
+
+    ПОЧЕМУ ЭТО ВООБЩЕ НУЖНО. Семейство `cg.adapter` судит МИР ФИКСТУРЫ, а не
+    дерево, — поэтому расхождение закрытого набора с манифестом ему не видно by
+    construction, и весь набор остаётся зелёным. Так и вышло: дом нормы
+    раздвоился (`.claude/rulebook/` рядом с `.claude/rules/`), манифест новый
+    вход объявил, а набор продолжал судить его НЕканоническим. Ни одна проверка
+    обеих сторон не покраснела.
+
+    ЧИТАЕТСЯ ИСПОЛНЯЕМОЕ, А НЕ ТЕКСТ: набор ИМПОРТИРУЕТСЯ из модуля семейства.
+    Разбор его исходника по образцу зеленел бы на комментарии, перечисляющем те
+    же имена, — а такой комментарий там есть.
+
+    РАВЕНСТВО, А НЕ ВКЛЮЧЕНИЕ, и обе стороны печатаются отдельно: имя в наборе
+    без строки манифеста — просроченное объявление, строка манифеста без имени в
+    наборе — вход, который дерево объявило, а контур отвергает.
+
+    ЧЕГО ЭТА ПРОВЕРКА НЕ УТВЕРЖДАЕТ — названо прямо. Базовый мир фикстур
+    (`_ADAPTER_CANONICAL_INPUTS`) здесь не судится: это МОДЕЛЬ законного мира, и
+    подмножество канонического набора остаётся законной моделью. Требовать от
+    модели равенства дереву значило бы связать фикстуру с деревом, от которого
+    её намеренно отвязали.
+    """
+    try:
+        import yaml
+    except ImportError:
+        return void("разборщик YAML недоступен — манифест владения читать нечем")
+
+    manifest_path = os.path.join(ROOT, MANIFEST_REL)
+    if not os.path.isfile(manifest_path):
+        return void("манифеста %s в дереве нет — закрытый набор сверять не с чем"
+                    % MANIFEST_REL)
+    try:
+        with open(manifest_path, encoding="utf-8") as fh:
+            doc = yaml.safe_load(fh)
+    except (OSError, yaml.YAMLError) as exc:
+        return void("манифест %s не разбирается как YAML: %s" % (MANIFEST_REL, exc))
+
+    declared = doc.get("canonical_inputs") if isinstance(doc, dict) else None
+    if not isinstance(declared, list) or not [d for d in declared if str(d).strip()]:
+        return void("в %s нет непустого `canonical_inputs` — предикат остался без "
+                    "предмета" % MANIFEST_REL)
+
+    sys.path.insert(0, os.path.join(ROOT, GATE_RELDIR))
+    try:
+        from cglib.families import adapter as adapter_family
+    except ImportError as exc:
+        return void("семейство cg.adapter не импортируется (%s) — закрытый набор "
+                    "читать неоткуда" % exc)
+
+    registered = [str(name) for name in adapter_family.REGISTERED_CANONICAL_INPUTS]
+    if not registered:
+        return void("закрытый набор §10 пуст — сверять нечего")
+
+    # Регистр приводится ТЕМ ЖЕ способом, каким его приводит само правило
+    # (`_input_not_canonical`): иначе гейт судил бы не то, что судит контур.
+    reg_by_key = {name.lower(): name for name in registered}
+    dec_by_key = {}
+    for item in declared:
+        text = str(item).strip()
+        if text:
+            dec_by_key[text.lower()] = text
+
+    only_registered = sorted(reg_by_key[k] for k in set(reg_by_key) - set(dec_by_key))
+    only_manifest = sorted(dec_by_key[k] for k in set(dec_by_key) - set(reg_by_key))
+
+    census("канонические входы: в закрытом наборе §10 — %d, в манифесте %s — %d, "
+           "расхождений %d"
+           % (len(reg_by_key), MANIFEST_REL, len(dec_by_key),
+              len(only_registered) + len(only_manifest)))
+
+    for name in only_manifest:
+        fail("манифест объявляет вход `%s`, которого нет в закрытом наборе §10 "
+             "(cglib/families/adapter.py, REGISTERED_CANONICAL_INPUTS) — пакет "
+             "изменения, объявивший входы по манифесту, получит "
+             "CG_ADAPTER_INPUT_NOT_CANONICAL по причине, которой в дереве нет"
+             % name)
+    for name in only_registered:
+        fail("закрытый набор §10 несёт вход `%s`, которого манифест %s не "
+             "объявляет — просроченное объявление контура"
+             % (name, MANIFEST_REL))
+
+    return 1 if (only_registered or only_manifest) else 0
+
+
 USAGE = """использование:
   lanes.py --run <hook|ci>   прогнать полосу
   lanes.py --audit           ведомость полос покрывает точки входа дерева
   lanes.py --ci-declares     конвейер объявляет дорогую полосу
+  lanes.py --inputs-match-manifest
+                            закрытый набор §10 сходится с манифестом владения
   lanes.py --list [полоса]   напечатать ведомость
 """
 
@@ -481,6 +574,8 @@ def main(argv):
         return audit_roster()
     if mode == "--ci-declares":
         return audit_ci_declaration()
+    if mode == "--inputs-match-manifest":
+        return audit_canonical_inputs()
     if mode == "--list":
         want = argv[2] if len(argv) > 2 else None
         shown = 0

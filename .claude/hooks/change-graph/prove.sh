@@ -83,7 +83,7 @@ echo "== МОЛЧИТ на каноническом входе, пока про�
 # Предпосылка утверждения: производное действительно сошлось. Иначе «молчит»
 # было бы доказано на дереве, где хук обязан говорить, — то есть не доказано.
 if python3 "$ROOT/scripts/adapter-gate/probe.py" derived-drift >/dev/null 2>&1; then
-    assert 0 "$(speaks .claude/rules/ui.md)" "правка входа при сошедшемся производном"
+    assert 0 "$(speaks .claude/rulebook/ui.md)" "правка входа при сошедшемся производном"
 else
     echo "  [SKIP] производное сейчас РАЗОШЛОСЬ — это утверждение проверять не на чем" >&2
 fi
@@ -93,13 +93,13 @@ echo "== ГОВОРИТ на каноническом входе, когда п�
 BACKUP="$(mktemp)"
 cp "$ROOT/AGENTS.md" "$BACKUP"
 printf '\nвнесённое расхождение\n' >> "$ROOT/AGENTS.md"
-assert 2 "$(speaks .claude/rules/ui.md)" "правка входа при разошедшемся производном"
-assert да "$(says .claude/rules/ui.md 'РАЗОШЛОСЬ')" "названо, что именно не сходится"
+assert 2 "$(speaks .claude/rulebook/ui.md)" "правка входа при разошедшемся производном"
+assert да "$(says .claude/rulebook/ui.md 'РАЗОШЛОСЬ')" "названо, что именно не сходится"
 cp "$BACKUP" "$ROOT/AGENTS.md"
 rm -f "$BACKUP"
 # Откат ДОКАЗЫВАЕТСЯ, а не заявляется: проба, оставившая дерево изменённым,
 # создаёт находку у следующего прогона и выглядит его дефектом.
-assert 0 "$(speaks .claude/rules/ui.md)" "после отката расхождения хук снова молчит"
+assert 0 "$(speaks .claude/rulebook/ui.md)" "после отката расхождения хук снова молчит"
 
 echo
 echo "перепись пробы: утверждений $((pass + fail)); сошлось $pass, разошлось $fail"

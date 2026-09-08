@@ -211,7 +211,7 @@ for dead in sync-tooling.sh tests/sync-tooling.bats; do
   if premise_dead "$dead"; then echo "  ✔ вход (+) жив: '$dead' в дереве отсутствует"
   else notrun "'$dead' появился в дереве — проба (+) по нему больше не настоящая, заменить вход"; fi
 done
-for alive in sync-all.sh .claude/rules/vault.md pkg/ids/ids.go; do
+for alive in sync-all.sh .claude/rulebook/vault.md pkg/ids/ids.go; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
@@ -276,11 +276,11 @@ echo "== A'. регрессии нормализации пути =="
 # в `claude/rules/x`. Воспроизведено трижды подряд при написании предиката,
 # поэтому проба стоит отдельно и с обеих сторон.
 expect_silent_live "ведущая точка каталога оснастки не съедена" b1.md \
-  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md' \
-  '.claude/rules/vault.md'
+  'Полные правила — `.claude/rulebook/vault.md`.' '.claude/rulebook/vault.md' \
+  '.claude/rulebook/vault.md'
 expect_silent_live "маркер импорта @ не часть пути" b2.md \
-  'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md' \
-  '.claude/rules/security.md'
+  'Модуль подключается как `@.claude/rulebook/security.md`.' '.claude/rulebook/security.md' \
+  '.claude/rulebook/security.md'
 # Обе стороны относительной ссылки вверх — на ОДНОЙ конструкции и на ОДНОМ имени
 # главы: различает их только каталог документа, то есть ровно то, что проверяется.
 # Пара переанкерена 2026-08-12: глава уехала на уровень `engineering/`, и прежний
@@ -330,7 +330,7 @@ expect_fires_dead "неизвестное состояние не освобож
   obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh' 'sync-tooling.sh'
 # граница послабления: оно про записки хранилища, а не про любой документ с frontmatter.
 expect_fires_dead "то же поле в НЕ-записке освобождения не даёт" \
-  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
+  .claude/rulebook/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
 
 echo
 echo "== B. маршрут =="
@@ -616,6 +616,63 @@ if printf '%s' "$out" | grep -qF 'ЗДОРОВЫЙ: <молчит>'; then
   echo "  ✔ (−) здоровый индекс проходит — отказ не срабатывает всегда"; PASS=$((PASS+1))
 else
   echo "  ✘ (−) отказ сработал на здоровом индексе — гейт краснеет всегда"; FAIL=$((FAIL+1))
+fi
+
+# ПОКРЫТИЕ КАТАЛОГОВ ОСНАСТКИ — обратная сторона `orphan_patterns`. Тот страж
+# спрашивает «есть ли у ШАБЛОНА предмет», этот — «есть ли у ПРЕДМЕТА шаблон», и
+# без второго ЧАСТИЧНЫЙ переезд проходит МОЛЧА: 2026-09-07 свод уехал
+# `.claude/rules` → `.claude/rulebook`, в старом каталоге осталось три файла из
+# шестнадцати, шаблон нашёл предмет — и 14 правил вышли из корпуса без единого
+# признака. Инъекция — снятие ОДНОГО шаблона, то есть ровно тот факт, что и был.
+if premise_live ".claude/rulebook/MANIFEST.md"; then
+  out="$(python3 - "$GUARD" <<'PYCOV' 2>&1
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfc", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+files = m.git(ws, "ls-files", "--cached", "--others", "--exclude-standard")
+cut = [p for p in m.LIVE_WS if p.pattern != r"^\.claude/rulebook/[^/]+\.md$"]
+print("ЦЕЛО:", "\n".join(m.uncovered_doc_dirs(m.LIVE_WS, files)) or "<молчит>")
+print("СНЯТ:", " | ".join(m.uncovered_doc_dirs(cut, files)))
+print("ПУСТО:", " | ".join(m.uncovered_doc_dirs(m.LIVE_WS, [])))
+print("СОСЕД:", "\n".join(m.orphan_patterns("воркспейса", cut, files)) or "<молчит>")
+m.LIVE_WS[:] = cut
+print("ПРОВЯЗКА:", " | ".join(m.preconditions(ws, m.monorepo_root(ws))))
+PYCOV
+)"
+  if printf '%s' "$out" | grep -q '^СНЯТ:.*\.claude/rulebook/'; then
+    echo "  ✔ (+) каталог, потерявший шаблон, назван ПО ИМЕНИ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) каталог без шаблона прошёл молча — целый вид документов не читает никто"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -6
+  fi
+  if printf '%s' "$out" | grep -qF 'ЦЕЛО: <молчит>'; then
+    echo "  ✔ (−) целое дерево проходит — отказ не срабатывает всегда"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) ЛОЖНЫЙ СРАБАТ на дереве, где покрыт каждый каталог"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -6
+  fi
+  if printf '%s' "$out" | grep -q '^ПУСТО:.*ПУСТ'; then
+    echo "  ✔ (+) пустой обход — ОТКАЗ, а не «находок 0»"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) пустой обход выдан за отсутствие находок"; FAIL=$((FAIL+1))
+  fi
+  # ПРОТИВОКОНТРОЛЬ: инъекция обязана ронять ТОЛЬКО проверяемое. Сосед на ней
+  # молчит — значит новая проверка не дублирует его, а закрывает его слепую зону.
+  if printf '%s' "$out" | grep -qF 'СОСЕД: <молчит>'; then
+    echo "  ✔ (−) на той же инъекции orphan_patterns молчит — предметы РАЗНЫЕ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (−) инъекция уронила и соседа — красное пришло не от проверяемого"; FAIL=$((FAIL+1))
+  fi
+  # Провязка доказывается ТЕМ, ЧТО ПРОВЕРКУ ПОЗВАЛИ: объявленная и не вызванная
+  # из `preconditions`, она зелена всегда и не роняет ничего.
+  if printf '%s' "$out" | grep -q '^ПРОВЯЗКА:.*\.claude/rulebook/'; then
+    echo "  ✔ (+) проверка провязана: находка доезжает до отказа хука"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) проверка объявлена, но preconditions её не зовёт"; FAIL=$((FAIL+1))
+  fi
+else
+  notrun "вход (+) «покрытие каталогов оснастки» мёртв: '.claude/rulebook/MANIFEST.md' в дереве не резолвится — снятие шаблона больше не настоящее расхождение. Переанкерить пробу на нынешний каталог свода"
 fi
 
 echo
