@@ -800,7 +800,8 @@ retired for a different reason: it compared us to another cloud, which ban #2 fo
 
 ### 20.4 Workspace-wide rules that always apply
 
-- **Workspace `CLAUDE.md`** plus the rule modules it `@import`s (`.claude/rules/*.md`) — the
+- **Workspace `CLAUDE.md`** plus the core it `@import`s (`.claude/rules/*.md`); the fourteen
+  modular rules live in `.claude/rulebook/` and are read on demand, not auto-loaded — the
   non-negotiables live in `.claude/rules/00-kacho-core.md` and there are **16** of them, not the
   eleven this line used to promise: the list grew, and a count written out by hand does not grow
   with it. Read the file, do not trust a number quoted about it — including this one.
