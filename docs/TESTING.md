@@ -6,7 +6,7 @@
 > теперь живёт в каноническом скиле и rule-модуле — не дублируется здесь:
 >
 > - **Skill** `.claude/skills/testing-code-coach/SKILL.md` — полная методология.
-> - **Rule** `.claude/rules/testing.md` — строгий TDD (ban #12/#13), пирамида, инфраструктура.
+> - **Rule** `.claude/rulebook/testing.md` — строгий TDD (ban #12/#13), пирамида, инфраструктура.
 > - Black-box / продуктовое тестирование — `.claude/skills/testing-product-coach/SKILL.md`.
 >
 > Оснастка живёт в **единственном** экземпляре — `kacho-workspace/.claude/`. Копий в
