@@ -54,8 +54,62 @@ PASS=0; FAIL=0; NOTRUN=0
 # расхождение починят. Тогда проба (+) начнёт зеленеть на исправленном дереве и
 # будет молча доказывать не то. Поэтому вход каждой (+)-пробы проверяется
 # отдельно, и «предмета больше нет» — ТРЕТИЙ исход, а не успех.
-absent_path() { [ ! -e "$WS/$1" ] && [ ! -e "$WS/project/kacho/$1" ]; }
-present_path() { [ -e "$WS/$1" ] || [ -e "$WS/project/kacho/$1" ]; }
+#
+# ЖИВОСТЬ СПРАШИВАЕТСЯ У ТОГО ЖЕ РАЗБОРА, ЧТО СУДИТ ХУК, а не своим предикатом.
+# Прежде здесь стояло существование файла по двум корням — ВТОРОЙ распознаватель
+# об одном предмете, и он был заведомо слабее хукового: тот резолвит ещё и по
+# индексу git, по каталогам и по ХВОСТОВОМУ совпадению на границе сегмента
+# (`_suffix_hit`). Расхождение двух распознавателей молчит ровно в том случае,
+# ради которого предпосылка и заведена: предмет (+)-пробы чинится не только
+# удалением файла, но и появлением ГДЕ УГОДНО в дереве пути с тем же хвостом.
+# Тогда предпосылка отвечает «расхождение настоящее», хук молчит по существу —
+# и пара краснеет при полностью исправном механизме, обвиняя его в чужой правке.
+#
+# Наблюдалось 2026-09-08: вынесенная служба принесла в дерево продукта
+# собственный конвейер, и координата вида `.github/workflows/ci.yml` стала
+# резолвиться хвостом. Диск её по-прежнему не находил ни по одному корню,
+# поэтому предпосылка промолчала. Один предикат на обе стороны закрывает это
+# by construction: набор и хук отвечают на ОДИН вопрос.
+#
+# Цена названа: разбор поднимается python-процессом на КАЖДУЮ НОВУЮ координату
+# (~0,7 с), поэтому вердикты запоминаются. Отсутствие вердикта — поломка
+# ГРОМКАЯ: молчаливое «считаем отсутствующим» вернуло бы ровно тот класс,
+# который этот блок и чинит.
+declare -A _PATH_VERDICT=()
+CLASSIFY_OUT=""
+classify_path() { # classify_path <координата> → CLASSIFY_OUT = вердикт разбора
+  local c="$1"
+  if [ -z "${_PATH_VERDICT[$c]+x}" ]; then
+    _PATH_VERDICT["$c"]="$(python3 - "$GUARD" "$c" <<'PY' 2>/dev/null
+import importlib.util, pathlib, sys
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+mono = m.monorepo_root(ws)
+t = m.Truth(m.build_truth(ws, mono), ws, mono)
+print(t.classify_with_reason("path", sys.argv[2])[0])
+PY
+)"
+    case "${_PATH_VERDICT[$c]}" in
+      resolved|missing|uncovered|trunk_only|unjudged) ;;
+      *)
+        {
+          echo "╔══ ПРОБА СЛОМАНА ════════════════════════════════════════════════"
+          echo "║ разбор не вынес вердикта о координате '$c'"
+          echo "║ получено: '${_PATH_VERDICT[$c]}'"
+          echo "║ Живость входов НЕ проверена. Это не «чисто»."
+          echo "╚═════════════════════════════════════════════════════════════════"
+        } >&2
+        exit 2 ;;
+    esac
+  fi
+  CLASSIFY_OUT="${_PATH_VERDICT[$c]}"
+}
+# `absent` означает «разбор её НЕ резолвит», а не «файла нет на диске»: прочие
+# исходы (`uncovered`, `trunk_only`, `unjudged`) резолвом не являются и потому
+# попадают сюда — ровно как прежде попадали в «файла нет».
+absent_path()  { classify_path "$1"; [ "$CLASSIFY_OUT" != "resolved" ]; }
+present_path() { classify_path "$1"; [ "$CLASSIFY_OUT" = "resolved" ]; }
 
 run_doc() { # run_doc <относительный путь пробы> <содержимое> → stderr+stdout хука
   local body="$2" abs="$DOCS/$1"
@@ -122,6 +176,18 @@ premise_dead() { # premise_dead <координата> → 0, если коор�
   absent_path "$1" && return 0
   PREMISE_DEAD=$((PREMISE_DEAD+1)); return 1
 }
+# У стороны (+) предпосылка СТРОЖЕ, потому что она спрашивает другое: не «нет ли
+# координаты», а «вынесет ли по ней хук НАХОДКУ». Разбор различает пять исходов,
+# и находкой становится один — `missing`; `uncovered`, `trunk_only`, `unjudged`
+# тоже не резолв, но хук на них молчит ОСОЗНАННО. Проба, чей вход сполз в такой
+# исход, перестала бы краснеть при исправном механизме — то есть доказывала бы
+# не то, оставаясь на вид работающей.
+premise_fireable() { # <координата> → 0, если разбор судит её как находку
+  PREMISE_SEEN=$((PREMISE_SEEN+1))
+  classify_path "$1"
+  [ "$CLASSIFY_OUT" = "missing" ] && return 0
+  PREMISE_DEAD=$((PREMISE_DEAD+1)); return 1
+}
 expect_silent_live() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ЖИТЬ>
   if premise_live "$5"; then expect_silent "$1" "$2" "$3" "$4"
   else notrun "вход (−) «$1» мёртв: '$5' в дереве не резолвится — близнец больше не законный. Переанкерить пробу на нынешнюю координату (не ослаблять утверждение и не заносить в исключения)"; fi
@@ -131,8 +197,8 @@ expect_silent_dead() { # <метка> <док-путь> <тело> <needle> <к�
   else notrun "вход (−) «$1» испорчен: '$5' появился в дереве — молчание объяснялось бы живостью координаты, а не проверяемой формой. Переанкерить пробу"; fi
 }
 expect_fires_dead() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ОТСУТСТВОВАТЬ>
-  if premise_dead "$5"; then expect_fires "$1" "$2" "$3" "$4"
-  else notrun "вход (+) «$1» починен: '$5' появился в дереве — расхождение больше не настоящее. Переанкерить пробу на живое расхождение (не ослаблять утверждение)"; fi
+  if premise_fireable "$5"; then expect_fires "$1" "$2" "$3" "$4"
+  else notrun "вход (+) «$1» починен: разбор судит '$5' как «$CLASSIFY_OUT», а не «missing» — находки по ней хук не вынесет, расхождение больше не настоящее. Переанкерить пробу на живое расхождение (не ослаблять утверждение)"; fi
 }
 
 # --- ПРЕДПОСЫЛКА НАБОРА: хук вообще ВЫНОСИТ вердикт --------------------------
@@ -263,12 +329,57 @@ expect_silent "живой скрипт того же каталога" a2.md \
 # конвейерах, и различить их можно только обращением к дереву. Обе стороны объявляют
 # свою предпосылку: переименуй конвейер — и без объявления (+) молча перестала бы
 # краснеть, а (−) покраснела бы «ложным сработом» на правоте хука.
-expect_fires_dead "workflow с расширением, которого в дереве нет" a3.md \
-  'Конвейер — `.github/workflows/ci.yml`.' '.github/workflows/ci.yml' \
-  '.github/workflows/ci.yml'
-expect_silent_live "тот же workflow с нынешним расширением" a4.md \
-  'Конвейер — `.github/workflows/ci.yaml`.' '.github/workflows/ci.yaml' \
-  '.github/workflows/ci.yaml'
+#
+# ПАРА ВЫВОДИТСЯ ИЗ ДЕРЕВА, а не выписывается — по образцу секции M'. Выписанная
+# умирает молча, и умерла: 2026-09-08 вынесенная служба принесла в дерево продукта
+# свой `.github/workflows/ci.yml`, имя `ci` стало ЕДИНСТВЕННЫМ, у которого живы оба
+# расширения, — и стороне (+) не на чем стало краснеть. Правка одного документа
+# воркспейса тут ни при чём: основание истины у хука — ЧУЖОЕ дерево, оно движется
+# само, и выписанный вход стареет вместе с ним, ничего об этом не сообщая.
+#
+# Берётся первое по порядку дерева имя процесса, у которого одно расширение разбор
+# судит резолвом, а двойника — находкой. Оба вердикта спрашиваются у разбора хука,
+# поэтому предпосылки ниже выполняются by construction, а не по совпадению.
+a_body() { printf 'Конвейер — `%s`.' "$1"; }  # одинарные кавычки: обратные кавычки
+                                              # в двойных исполнились бы подстановкой
+A_PAIR="$(python3 - "$GUARD" <<'PY' 2>/dev/null
+import importlib.util, pathlib, subprocess, sys
+spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+mono = m.monorepo_root(ws)
+t = m.Truth(m.build_truth(ws, mono), ws, mono)
+names = set()
+for root in (ws, mono):
+    if root is None:
+        continue
+    out = subprocess.run(["git", "-C", str(root), "ls-files"],
+                         capture_output=True, text=True, check=False).stdout
+    for rel in out.split("\n"):
+        if "/.github/workflows/" in "/" + rel and rel.rsplit(".", 1)[-1] in ("yml", "yaml"):
+            names.add(rel.rsplit("/", 1)[-1])
+for base in sorted(names):
+    stem, ext = base.rsplit(".", 1)
+    live = ".github/workflows/" + base
+    dead = ".github/workflows/" + stem + (".yaml" if ext == "yml" else ".yml")
+    if t.classify_with_reason("path", live)[0] == "resolved" \
+       and t.classify_with_reason("path", dead)[0] == "missing":
+        print(live)
+        print(dead)
+        break
+PY
+)"
+A_LIVE="$(printf '%s\n' "$A_PAIR" | sed -n 1p)"
+A_DEAD="$(printf '%s\n' "$A_PAIR" | sed -n 2p)"
+if [ -n "$A_LIVE" ] && [ -n "$A_DEAD" ]; then
+  expect_fires_dead "workflow с расширением, которого в дереве нет ($A_DEAD)" a3.md \
+    "$(a_body "$A_DEAD")" "$A_DEAD" "$A_DEAD"
+  expect_silent_live "тот же workflow с нынешним расширением ($A_LIVE)" a4.md \
+    "$(a_body "$A_LIVE")" "$A_LIVE" "$A_LIVE"
+else
+  notrun "пару «живое/мёртвое расширение конвейера» не из чего вывести: в дереве нет имени процесса, чей двойник по расширению судился бы находкой. Сторона (+) не прогнана"
+  notrun "то же для стороны (−): без пары близнец объявить не на чем"
+fi
 
 echo
 echo "== A'. регрессии нормализации пути =="
