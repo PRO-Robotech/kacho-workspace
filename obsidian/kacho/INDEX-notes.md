@@ -1379,6 +1379,7 @@ tags:
 | Записка | Состояние |
 |---|---|
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
+| [[lessons/a-gate-a-pinned-module-cannot-satisfy\|Гейт, которому пиннутый модуль не может ответить by construction]] | живо (stable) |
 | [[lessons/a-guard-that-matches-its-own-command-line\|Сторож, совпадающий с собственной командной строкой, отвечает одно и то же всегда]] | живо (stable) |
 | [[lessons/a-map-that-restates-instead-of-pointing\|Карта, которая пересказывает решение вместо адреса, расходится с телом при первой же правке]] | — |
 | [[lessons/a-number-ornamenting-a-sound-finding\|Украшение при верном выводе стоит дороже, чем кажется]] | живо (done) |
