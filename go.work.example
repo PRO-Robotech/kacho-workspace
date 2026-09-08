@@ -1,6 +1,6 @@
 // go.work — LOCAL cross-repo dev only (git-ignored). Provides the sibling modules
 // so multi-repo work resolves WITHOUT any `replace ../` in the committed go.mod
-// (see .claude/rules/polyrepo.md: versioned modules, replace forbidden). CI checks
+// (see .claude/rulebook/polyrepo.md: versioned modules, replace forbidden). CI checks
 // out a single repo, does not see go.work, and builds against versioned `require`.
 //
 // Setup: `cp go.work.example project/go.work && (cd project && go work sync)`.

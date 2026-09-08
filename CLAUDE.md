@@ -1,8 +1,10 @@
 # Kachō — Workspace CLAUDE.md
 
-Корневой индекс монорепо-воркспейса. Тонкий: `@import` модульных правил
-(`.claude/rules/*.md`) + workspace-операционка (dev-стенд, sync). Identity /
-naming / non-negotiables вынесены в `@.claude/rules/00-kacho-core.md`.
+Корневой индекс монорепо-воркспейса. Тонкий: `@import` **ядра**
+(`.claude/rules/*.md`) + workspace-операционка (dev-стенд, sync). Модульные
+правила лежат в `.claude/rulebook/` и автоматически **не** читаются — см.
+§«Регламент» ниже. Identity / naming / non-negotiables вынесены в
+`@.claude/rules/00-kacho-core.md`.
 
 ## Топология: монорепо `PRO-Robotech/kacho` + этот workspace
 
@@ -11,7 +13,7 @@ naming / non-negotiables вынесены в `@.claude/rules/00-kacho-core.md`.
 `kacho-<svc>`, …) существуют на GitHub, но разработка в них не ведётся (последний push —
 середина июля 2026); `bootstrap.sh` клонирует их только по `KACHO_CLONE_LEGACY_POLYREPOS=1`.
 Раскладка каталогов монорепо и что нормативного осталось от полирепо-правил —
-`@.claude/rules/polyrepo.md`.
+`@.claude/rulebook/polyrepo.md`.
 
 ## Модель оснастки: единственный экземпляр в воркспейсе, копий нет
 
@@ -45,7 +47,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   в воркспейсе, а не часть поставки продукта. Проверки, которые обязаны работать в CI
   продукта, живут **в самом продукте** (гейты в `internal/repohygiene`, `tools/`,
   `scripts/`, цели Makefile), а не в `.claude/`.
-- Канонический список — `@.claude/rules/ai-tooling.md`.
+- Канонический список — `@.claude/rulebook/ai-tooling.md`.
 
 ### Производное для других агентских сред — отслеживаемое, а не временное
 
@@ -60,7 +62,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   её расхождением. Предмет правки всегда во входе.
 
 Почему выход отслеживаемый, а не порождаемый на лету, и почему имя каталога оснастки в
-текстах **не подставляется** на имя второй среды — `@.claude/rules/change-graph.md`
+текстах **не подставляется** на имя второй среды — `@.claude/rulebook/change-graph.md`
 §«Оснастка — ВХОД контура».
 
 ## Регламент: ядро всегда, остальное по требованию

@@ -18,7 +18,7 @@ description: Go clean-code review of any kacho-* service — error wrapping, con
 self-validating domain, DTO-таблицы, YAML-config через viper/koanf, отдельный `cmd/migrator`).
 **Применяй его при каждом ревью** — этот агент = операционная обёртка над ним.
 
-Shared-конвенции — в `@.claude/rules/`: архитектура → `architecture.md`,
+Shared-конвенции — в `@.claude/rulebook/`: архитектура → `architecture.md`,
 форма API/error-format → `api-conventions.md`, переиспользование → `architecture.md` §corelib,
 запреты (no-ORM, no-TODO) → `CLAUDE.md`. Не дублируй их тут — ссылайся.
 
