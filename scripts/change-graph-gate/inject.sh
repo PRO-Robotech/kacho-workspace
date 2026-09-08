@@ -64,9 +64,12 @@ echo "предпосылка: разобрано проб полосы hook — 
 sandbox() {
     local dir="$TMP/s.$1"
     rm -rf "$dir"
-    mkdir -p "$dir/scripts" "$dir/.github"
+    mkdir -p "$dir/scripts" "$dir/.github" "$dir/.claude"
     cp -r "$WS/scripts/change-graph-gate" "$dir/scripts/"
     cp -r "$WS/.github/workflows" "$dir/.github/"
+    # Манифест владения — предмет проб check-04. Без него они отвечали бы VOID, и
+    # обе половины пары были бы мертвы МОЛЧА.
+    cp "$WS/.claude/adapters.yaml" "$dir/.claude/adapters.yaml"
     local rel
     for rel in "${HOOK_PROBES[@]}"; do
         stub "$dir" "$rel" 0
@@ -132,6 +135,9 @@ assert() {
 C1="check-01-hook-lane-probes-are-green.sh"
 C2="check-02-lane-roster-covers-every-entry-point.sh"
 C3="check-03-ci-calls-every-artifact-of-the-set.sh"
+C4="check-04-canonical-inputs-match-manifest.sh"
+MAN=".claude/adapters.yaml"
+FAM="scripts/change-graph-gate/cglib/families/adapter.py"
 
 echo "=== check-01: дешёвая полоса прогоняется, и её исход читается по коду ==="
 
@@ -262,6 +268,96 @@ assert 2 "$(run_without_yaml "$d" "$C3")" "разборщика YAML нет -> �
 d="$(sandbox c3-void)"
 rm -rf "$d/.github/workflows"
 assert 2 "$(run "$d" "$C3")" "файлов конвейера нет -> без предмета"
+
+echo
+echo "=== check-04: закрытый набор §10 сверен с манифестом владения ==="
+
+d="$(sandbox c4-twin)"
+assert 0 "$(run "$d" "$C4")" "законный близнец: набор и манифест совпадают -> молчит"
+
+d="$(sandbox c4-manifest-lost)"
+# НАСТОЯЩИЙ дефект, тот самый, что прожил молча: дом нормы объявлен деревом, а
+# закрытый набор его не знает. Здесь он воспроизводится с другой стороны —
+# строка манифеста снята, — потому что снять её дешевле и один факт при этом
+# меняется ровно один.
+python3 - "$d/$MAN" <<'PY1'
+import re
+import sys
+p = sys.argv[1]
+text = open(p, encoding="utf-8").read()
+text = re.sub(r"^  - \.claude/rulebook\n", "", text, count=1, flags=re.M)
+open(p, "w", encoding="utf-8").write(text)
+PY1
+assert 1 "$(run "$d" "$C4")" "набор несёт вход, которого манифест не объявляет -> краснеет"
+# Вывод снимается В ПЕРЕМЕННУЮ, а не читается через трубу: при `pipefail`
+# ранний выход `grep -q` роняет левую сторону сигналом, код пайпа становится
+# 141, и проба «координата названа» падала бы ВСЕГДА — по причине, к предмету
+# отношения не имеющей. Ровно этот класс здесь и наблюдался.
+c4_out="$( cd "$d" && CG_GATE_ROOT="$d" bash "$d/scripts/change-graph-gate/$C4" 2>&1 )"
+if grep -q 'rulebook' <<<"$c4_out"; then
+    echo "  [OK]   расхождение названо координатой входа"; pass=$((pass + 1))
+else
+    echo "  [FAIL] проверка покраснела, но вход не назвала" >&2; fail=$((fail + 1))
+fi
+
+d="$(sandbox c4-manifest-extra)"
+python3 - "$d/$MAN" <<'PY5'
+import re
+import sys
+p = sys.argv[1]
+text = open(p, encoding="utf-8").read()
+# Строка дописывается В БЛОК `canonical_inputs`, а не в конец файла: в конце
+# лежит СОСЕДНИЙ список, и дописанное туда не было бы предметом проверки вовсе.
+text = re.sub(r"^(canonical_inputs:\n(?:  - [^\n]*\n)+)",
+              r"\1  - .claude/rulebook-vtoroy\n", text, count=1, flags=re.M)
+open(p, "w", encoding="utf-8").write(text)
+PY5
+assert 1 "$(run "$d" "$C4")" "манифест объявил вход вне закрытого набора -> краснеет"
+
+d="$(sandbox c4-case)"
+# ЗАКОННЫЙ БЛИЗНЕЦ ТОЙ ЖЕ ФОРМЫ: имя отличается от канонического ТОЛЬКО
+# регистром. Само правило §10 сравнивает приведёнными к нижнему регистру
+# (`_input_not_canonical`), а регистр — предмет СОСЕДНЕГО правила; проверка
+# обязана судить то же, что судит контур, иначе один дефект стал бы двумя
+# находками в разных местах.
+python3 - "$d/$MAN" <<'PY2'
+import sys
+p = sys.argv[1]
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(text.replace("  - .claude/rules\n",
+                                                 "  - .claude/Rules\n", 1))
+PY2
+assert 0 "$(run "$d" "$C4")" "законный близнец: тот же вход в другом регистре -> молчит"
+
+d="$(sandbox c4-nokey)"
+python3 - "$d/$MAN" <<'PY3'
+import re
+import sys
+p = sys.argv[1]
+text = open(p, encoding="utf-8").read()
+text = re.sub(r"^canonical_inputs:\n(  - [^\n]*\n)+", "", text, count=1, flags=re.M)
+open(p, "w", encoding="utf-8").write(text)
+PY3
+assert 2 "$(run "$d" "$C4")" "в манифесте нет ключа входов -> без предмета, а не 'находок 0'"
+
+d="$(sandbox c4-nomanifest)"
+rm -f "$d/$MAN"
+assert 2 "$(run "$d" "$C4")" "манифеста в дереве нет -> без предмета"
+
+d="$(sandbox c4-emptyset)"
+python3 - "$d/$FAM" <<'PY4'
+import re
+import sys
+p = sys.argv[1]
+text = open(p, encoding="utf-8").read()
+text = re.sub(r"REGISTERED_CANONICAL_INPUTS = frozenset\(\(.*?\)\)",
+              "REGISTERED_CANONICAL_INPUTS = frozenset(())", text, count=1, flags=re.S)
+open(p, "w", encoding="utf-8").write(text)
+PY4
+assert 2 "$(run "$d" "$C4")" "закрытый набор пуст -> без предмета: сверять нечем"
+
+d="$(sandbox c4-noyaml)"
+assert 2 "$(run_without_yaml "$d" "$C4")" "разборщика YAML нет -> манифест читать нечем, без предмета"
 
 echo
 echo "=== перепись инъекций набора change-graph-gate ==="

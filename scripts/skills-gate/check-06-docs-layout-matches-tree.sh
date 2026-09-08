@@ -123,8 +123,17 @@ d_count="$(get_declared 'сайтов в дереве')"
 n_rows="$(printf '%s\n' "$declared" | grep -cE '^\|.*`' || true)"
 
 # ── второй предикат: рабочий каталог процитированной сборки ──────────────────────
+#
+# КОРПУС БЕРЁТСЯ ПО СВОЙСТВУ, А НЕ ПЕРЕЧНЕМ КАТАЛОГОВ. Отслеживаемый markdown под
+# `.claude/` — оснастка, в каком бы каталоге он ни лежал; `*` в pathspec git
+# пересекает `/`, поэтому одна маска покрывает и новый дом нормы. Перечень
+# каталогов здесь стоял и МОЛЧА потерял половину предмета, когда четырнадцать
+# правил переехали из `.claude/rules/` в `.claude/rulebook/`: осмотренное упало
+# 46 → 34, цитат сборки 2 → 1, и гейт остался PASS. Уехавшая цитата — рецепт
+# проверки консоли (`cd project/kacho/ui-future/<модуль> && npm …`), тот самый,
+# ради слепого пятна которого гейт и заведён.
 tooling_files="$(git -C "$WS" ls-files --cached --others --exclude-standard \
-                    '.claude/rules/*.md' '.claude/skills/*/*.md' '.claude/agents/*.md' | sort -u)"
+                    '.claude/*.md' | sort -u)"
 n_files="$(printf '%s\n' "$tooling_files" | grep -c . || true)"
 
 cites="$(cd "$WS" && printf '%s\n' "$tooling_files" | grep . \

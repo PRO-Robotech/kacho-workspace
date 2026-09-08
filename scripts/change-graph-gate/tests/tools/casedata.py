@@ -571,6 +571,7 @@ _ADAPTER_CANONICAL_INPUTS = [
     ".claude/rules",
     ".claude/skills",
     ".claude/settings.json",
+    ".claude/rulebook",
 ]
 
 _ADAPTER_GENERATED_COORDINATES = [
@@ -1182,7 +1183,7 @@ DERIVED = {
         "одна generated coordinate записана machine-absolute путём",
     ),
     "SDD-1-ADAPTER-10": (
-        "add", "canonical_inputs[7]", "docs/extra-non-canonical-input.md",
+        "add", "canonical_inputs[8]", "docs/extra-non-canonical-input.md",
         "добавлен input вне root CLAUDE.md и tracked .claude/**",
     ),
     "SDD-1-ADAPTER-11": (

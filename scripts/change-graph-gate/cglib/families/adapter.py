@@ -85,12 +85,22 @@ PACKAGE_SUBJECT = (MANIFEST_SKILLS, PACKAGE_CONTENTS, MATCHES_ACTUAL_TREE)
 
 # §10: единственные канонические входы. Перечень закрыт — «вход вне набора»
 # определяется членством, а не догадкой о том, что выглядит служебным.
+#
+# ЗАКРЫТЫЙ ПЕРЕЧЕНЬ — ВТОРОЕ МЕСТО ОБ ОДНОМ ПРЕДМЕТЕ, и первое живёт в дереве:
+# `.claude/adapters.yaml` §canonical_inputs. Разойтись они могут МОЛЧА, потому
+# что семейство судит мир фикстуры, а не дерево, — и разошлись: дом нормы
+# раздвоился (`.claude/rulebook/` рядом с `.claude/rules/`), манифест новый вход
+# объявил, а перечень остался прежним. Первый же пакет изменения, объявивший
+# входы ПО МАНИФЕСТУ, получил бы RED по причине, которой в дереве нет.
+# Сходимость двух перечней держит `check-04-canonical-inputs-match-manifest.sh`;
+# правя один, прогоняй его — он назовёт второй.
 REGISTERED_CANONICAL_INPUTS = frozenset((
     "CLAUDE.md",
     ".claude/adapters.yaml",
     ".claude/agents",
     ".claude/hooks",
     ".claude/rules",
+    ".claude/rulebook",
     ".claude/skills",
     ".claude/settings.json",
 ))
@@ -344,7 +354,8 @@ RULES = [
         requires=(MANIFEST_PATH, CANONICAL_INPUTS),
         predicate=_input_not_canonical,
         why="§10 единственные canonical inputs — root CLAUDE.md и tracked "
-            ".claude/{adapters.yaml,agents,hooks,rules,skills,settings.json}",
+            ".claude/{adapters.yaml,agents,hooks,rules,rulebook,skills,"
+            "settings.json}",
     ),
     Rule(
         rule_id="adapter.design-outputs-untracked",
