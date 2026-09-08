@@ -14,15 +14,69 @@
 # Ни одной пробы, меняющей два факта, кроме одной — «пятое правило заведено И
 # объявлено». Это один поступок, и её предмет ровно в том, что он законен.
 
-# Правка §«Ядро» манифеста песочницы. Фикстура трогает ПЕРВЫЙ АБЗАЦ секции — то
-# самое, что гейт считает объявлением. Анкер по прозе («локальный индекс»)
-# привязал бы пробу к тексту, который вправе меняться, и она краснела бы от
-# чужой правки.
-inj01_manifest_edit() {   # <каталог песочницы> <операция>
-    python3 - "$1/.claude/rulebook/MANIFEST.md" "$2" <<'PY'
-import io, sys
-path, op = sys.argv[1], sys.argv[2]
-lines = io.open(path, encoding='utf-8').read().split('\n')
+# ── СТРАЖ ПОДКЛЮЧЕНИЯ: часть НЕ исполняется самостоятельно ───────────────────
+#
+# Своей оснастки (`sandbox`, `capture`, `assert_*`, счётчики) у части нет. В
+# обход `inject.sh` она не просто ничего не доказывает — она ПОРТИТ дерево, из
+# которого запущена: каталог песочницы не определён, поэтому путь вида
+# `"$d/CLAUDE.md"` становится ОТНОСИТЕЛЬНЫМ и правка уезжает в рабочую копию, а
+# `git -C "$d" add -A` стажирует в её индекс чужие незакоммиченные правки.
+# Испорченный индекс делает лживыми ИМЕННО те проверки, что читают дерево:
+# «ноль находок» превращается в «ноль прочитанного» и выглядит настоящей
+# находкой (`rulebook/multi-agent-flow.md` §13 «Неприкосновенность чужого
+# состояния»).
+#
+# ИЗМЕРЕНО ДО СТРАЖА, на изолированной копии с чистым деревом: прямой запуск
+# inject-02 → rc=127 и ` M CLAUDE.md`; прямой запуск inject-03 → rc=0 при НУЛЕ
+# исполненных утверждений и превращал чужое ` M` в `M ` (стажировал). То есть
+# «не выполнилось» отчитывалось успехом, и в том же прогоне портилось дерево.
+#
+# Отказ — код 2, а не 1: ноль исполненных утверждений не является находкой в
+# дереве и не является успехом (`rulebook/testing.md` §«Чтение вердикта»).
+#
+# Бит исполнения намеренно ОСТАВЛЕН: без него `./inject-NN-….sh` отвечал бы
+# «Permission denied» — диагностика хуже, чем у этого отказа, который называет
+# и причину, и команду, которую звать вместо.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — ЧАСТЬ инъекции, а не самостоятельная проба." >&2
+    echo "       Она подключается (\`.\`) из scripts/rules-gate/inject.sh и пользуется его" >&2
+    echo "       оснасткой; самостоятельно не исполнила бы ни одного утверждения и писала бы" >&2
+    echo "       в рабочее дерево. Запускать: bash scripts/rules-gate/inject.sh" >&2
+    exit 2
+fi
+for _inj_fn in sandbox capture assert_code assert_says assert_fixture_changed; do
+    command -v "$_inj_fn" >/dev/null 2>&1 && continue
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: функция" \
+         "«$_inj_fn» не определена; часть подключена не оттуда, доказывать нечем" >&2
+    exit 2
+done
+unset -v _inj_fn
+if [ -z "${WS:-}" ] || [ ! -d "$WS" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — корень дерева \$WS не определён либо не" \
+         "каталог; жертву фикстуры выводить не из чего" >&2
+    exit 2
+fi
+
+# ── ЖЕРТВЫ И ЧИСЛА ВЫВОДЯТСЯ ИЗ ДЕРЕВА, А НЕ ВЫПИСЫВАЮТСЯ ───────────────────
+#
+# Выписанное имя переживает свой предмет МОЛЧА — ровно тот класс, ради которого
+# набор и заведён. Измерено на дереве, где `writing.md` ЗАКОННО переехал в свод
+# (файл в rulebook, имя снято из §«Ядро», строка таблицы заведена, `@`-строка в
+# CLAUDE.md снята; все три проверки на нём зелены): фикстура близнеца
+# «переименование, доехавшее и до манифеста» становилась ПУСТОЙ — её `mv`
+# отвечал «нет такого файла», замена имени в §«Ядро» не находила подстроки, md5
+# манифеста до и после совпадал, — а печатала она дословно то же `[OK]`, что и
+# на нетронутой копии. Соседняя часть набора умела иначе с самого начала: см.
+# `inject-03-manifest-covers-rulebook.sh` §«Жертва берётся ИЗ ДЕРЕВА».
+#
+# ЖЕРТВА — первое правило, которое §«Ядро» манифеста ОБЪЯВЛЯЕТ и которому в
+# каталоге ядра отвечает ФАЙЛ: фикстуры и переименовывают её в манифесте, и
+# двигают на диске, поэтому годится только имя, у которого есть обе стороны.
+inj01_victim="$(python3 - "$WS" <<'PY'
+import io, os, re, sys
+ws = sys.argv[1]
+man = os.path.join(ws, '.claude', 'rulebook', 'MANIFEST.md')
+lines = io.open(man, encoding='utf-8').read().split('\n')
 i = next(k for k, l in enumerate(lines) if l.startswith('## ') and 'Ядро' in l)
 j = i + 1
 while j < len(lines) and not lines[j].strip():
@@ -30,19 +84,88 @@ while j < len(lines) and not lines[j].strip():
 k = j
 while k < len(lines) and lines[k].strip():
     k += 1
-if op == 'declare-fifth':
-    lines[k - 1] = lines[k - 1].rstrip() + ' · `05-newcomer.md` (пятое правило ядра)'
+for line in lines[j:k]:
+    for tok in re.findall(r'`([^`]+)`', line):
+        tok = re.sub(r'^\.claude/rules/', '', tok)
+        if (tok.endswith('.md') and '/' not in tok
+                and os.path.isfile(os.path.join(ws, '.claude', 'rules', tok))):
+            print(tok)
+            raise SystemExit(0)
+PY
+)"
+if [ -z "$inj01_victim" ]; then
+    echo "[VOID] inject-01 — в MANIFEST §«Ядро» нет ни одного объявленного имени," \
+         "которому отвечает файл в .claude/rules/; жертву выводить не из чего" >&2
+    exit 2
+fi
+
+# ПРАВИЛО СВОДА — источник «лишнего» файла и цель ссылок. Берётся имя, которого в
+# ядре НЕТ: иначе фикстура «лишний файл» подменяла бы существующее правило, то
+# есть меняла бы два факта сразу.
+inj01_book=""
+for _inj01_f in "$WS"/.claude/rulebook/*.md; do
+    [ -f "$_inj01_f" ] || continue
+    _inj01_n="$(basename "$_inj01_f")"
+    case "$_inj01_n" in MANIFEST*) continue ;; esac
+    [ -e "$WS/.claude/rules/$_inj01_n" ] && continue
+    inj01_book="$_inj01_n"; break
+done
+unset -v _inj01_f _inj01_n
+if [ -z "$inj01_book" ]; then
+    echo "[VOID] inject-01 — в .claude/rulebook/ нет ни одного правила, имени которого" \
+         "не было бы в ядре; «лишний файл» вносить нечем" >&2
+    exit 2
+fi
+echo "-- жертвы выведены из дерева: ядровая «$inj01_victim», из свода «$inj01_book» --"
+
+# ЧИСЛО ФАЙЛОВ ЯДРА считается ТЕМ ЖЕ населением, что и гейтом: обычные файлы И
+# ссылки, рекурсивно. Выписанное число («прочитано файлов ядра 4») стало бы
+# ложным на первом же ЗАКОННОМ изменении состава ядра, а состав меняться вправе:
+# рост, объявленный человеком, назван законным в шапке самой check-01.
+inj01_core_entries() {   # <каталог песочницы>
+    find "$1/.claude/rules" -mindepth 1 \( -type f -o -type l \) 2>/dev/null | wc -l
+}
+
+# Правка §«Ядро» манифеста песочницы. Фикстура трогает ПЕРВЫЙ АБЗАЦ секции — то
+# самое, что гейт считает объявлением. Анкер по прозе («локальный индекс»)
+# привязал бы пробу к тексту, который вправе меняться, и она краснела бы от
+# чужой правки.
+#
+# ВСЯКАЯ ОПЕРАЦИЯ ОБЯЗАНА ЧТО-ТО ИЗМЕНИТЬ и отказывает, если не изменила: замена
+# по подстроке молча вырождается в no-op, когда имя переехало, — и утверждение,
+# ради которого фикстура ставилась, начинает относиться к нетронутому дереву.
+inj01_manifest_edit() {   # <каталог песочницы> <операция> [аргумент]
+    python3 - "$1/.claude/rulebook/MANIFEST.md" "$2" "${3-}" <<'PY'
+import io, sys
+path, op, arg = sys.argv[1], sys.argv[2], sys.argv[3]
+before = io.open(path, encoding='utf-8').read()
+lines = before.split('\n')
+i = next(k for k, l in enumerate(lines) if l.startswith('## ') and 'Ядро' in l)
+j = i + 1
+while j < len(lines) and not lines[j].strip():
+    j += 1
+k = j
+while k < len(lines) and lines[k].strip():
+    k += 1
+if op == 'declare-extra':
+    lines[k - 1] = lines[k - 1].rstrip() + ' · `%s` (ещё одно правило ядра)' % arg
 elif op == 'gut':
     del lines[j:k]
-elif op == 'rename-writing':
+elif op == 'rename':
     for n in range(j, k):
-        lines[n] = lines[n].replace('`writing.md`', '`writing-local.md`')
+        lines[n] = lines[n].replace('`%s`' % arg, '`%s-local.md`' % arg[:-3])
 elif op == 'prose-names-md':
-    lines[k:k] = ['', 'Раскладку объявляет `MANIFEST.md`; правило `testing.md` живёт '
-                      'в `.claude/rulebook/`, а не здесь.']
+    lines[k:k] = ['', 'Раскладку объявляет `MANIFEST.md`; правило `%s` живёт '
+                      'в `.claude/rulebook/`, а не здесь.' % arg]
 else:
     raise SystemExit('unknown op ' + op)
-io.open(path, 'w', encoding='utf-8').write('\n'.join(lines))
+after = '\n'.join(lines)
+if after == before:
+    raise SystemExit(
+        'ФИКСТУРА ВАКУУМНА: операция «%s» с аргументом «%s» не изменила '
+        'MANIFEST §«Ядро»; утверждение о вердикте гейта относилось бы к '
+        'нетронутому дереву' % (op, arg))
+io.open(path, 'w', encoding='utf-8').write(after)
 PY
 }
 
@@ -50,18 +173,18 @@ C01="check-01-core-does-not-grow.sh"
 
 echo "-- ось: ядро выросло --"
 d01="$(sandbox c01_extra)"
-cp "$d01/.claude/rulebook/testing.md" "$d01/.claude/rules/testing.md"
+cp "$d01/.claude/rulebook/$inj01_book" "$d01/.claude/rules/$inj01_book"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: лишний файл в .claude/rules/"
-assert_says "ЛИШНИЙ в ядре: .claude/rules/testing.md" "  ...и координата названа"
-assert_says "прочитано файлов ядра 4" "  ...и перепись печатается НА НАХОДКЕ: «ноль находок» отличимо от «ноль прочитанного»"
+assert_says "ЛИШНИЙ в ядре: .claude/rules/$inj01_book" "  ...и координата названа"
+assert_says "прочитано файлов ядра $(inj01_core_entries "$d01")" "  ...и перепись печатается НА НАХОДКЕ: «ноль находок» отличимо от «ноль прочитанного»"
 
 echo "-- ось: правило ядра пропало --"
 d01="$(sandbox c01_missing)"
-rm -f "$d01/.claude/rules/writing.md"
+rm -f "$d01/.claude/rules/$inj01_victim"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: объявленного правила нет в каталоге"
-assert_says "НЕДОСТАЁТ в ядре: .claude/rules/writing.md" "  ...и координата названа"
+assert_says "НЕДОСТАЁТ в ядре: .claude/rules/$inj01_victim" "  ...и координата названа"
 
 echo "-- ось: плоское ядро обросло подкаталогом --"
 d01="$(sandbox c01_nested)"
@@ -76,11 +199,11 @@ echo "-- ось: .gitignore не выводит файл ядра из-под н
 # читает загрузчик, а он читает диск: файл, невидимый в свежем клоне, означает,
 # что ядро различается между машинами, и молчать здесь нельзя.
 d01="$(sandbox c01_hidden)"
-cp "$d01/.claude/rulebook/testing.md" "$d01/.claude/rules/testing.md"
-printf '.claude/rules/testing.md\n' >> "$d01/.gitignore"
+cp "$d01/.claude/rulebook/$inj01_book" "$d01/.claude/rules/$inj01_book"
+printf '.claude/rules/%s\n' "$inj01_book" >> "$d01/.gitignore"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: файл ядра скрыт .gitignore — из-под наблюдения не уходит"
-assert_says "СКРЫТ ОТ GIT: .claude/rules/testing.md" "  ...и координата названа"
+assert_says "СКРЫТ ОТ GIT: .claude/rules/$inj01_book" "  ...и координата названа"
 
 echo "-- ось: выпотрошенное объявление — НАХОДКА, а не VOID (антимаска) --"
 # Отдай гейт здесь VOID, и пустая §«Ядро» стала бы способом погасить его, не
@@ -111,37 +234,51 @@ capture "$d01" "$C01"
 assert_code 2 "манифеста нет — источника истины о составе ядра не существует"
 
 echo "-- законные близнецы: гейт обязан смолчать --"
+#
+# У КАЖДОГО БЛИЗНЕЦА ОТДЕЛЬНО УТВЕРЖДАЕТСЯ, ЧТО ЕГО ФИКСТУРА НЕ ПУСТА. Молчание
+# гейта на дереве, которого фикстура не тронула, доказывает ровно ничего, а
+# `[OK]` у него дословно тот же, что на нетронутой копии, — отличить нельзя
+# ничем. Дефектной фикстуре такое утверждение не нужно: она, ничего не изменив,
+# оставит гейт зелёным и уронит собственное `assert_code 1` (вакуумный дефект
+# ГРОМОК by construction, вакуумный близнец МОЛЧАЛИВ).
+
 # Та же форма, что у дефекта «лишний файл» — файл появился, — но в законном месте.
-d01="$(sandbox c01_twin_rulebook)"
-printf '# новое модульное правило\n' > "$d01/.claude/rulebook/observability.md"
+d01="$(sandbox c01_twin_rulebook)"; b01="$(sandbox_digest "$d01")"
+printf '# новое модульное правило\n' > "$d01/.claude/rulebook/inj01-observability.md"
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: правило заведено в rulebook"
 capture "$d01" "$C01"
 assert_code 0 "БЛИЗНЕЦ: правило заведено в rulebook, а не в ядре"
 
-d01="$(sandbox c01_twin_content)"
-printf '\nдописанный абзац\n' >> "$d01/.claude/rules/writing.md"
+d01="$(sandbox c01_twin_content)"; b01="$(sandbox_digest "$d01")"
+printf '\nдописанный абзац\n' >> "$d01/.claude/rules/$inj01_victim"
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: правка содержимого правила ядра"
 capture "$d01" "$C01"
 assert_code 0 "БЛИЗНЕЦ: правка СОДЕРЖИМОГО правила ядра — гейт судит набор, а не текст"
 
 # Ключевой близнец: источник истины — манифест, а не выписанное в скрипт число.
-# Рост ядра, ОБЪЯВЛЕННЫЙ человеком, законен; молчаливый — нет.
-d01="$(sandbox c01_twin_declared)"
-printf '# пятое правило ядра\n' > "$d01/.claude/rules/05-newcomer.md"
-inj01_manifest_edit "$d01" declare-fifth
+# Рост ядра, ОБЪЯВЛЕННЫЙ человеком, законен; молчаливый — нет. Имя новичка
+# синтетическое и с деревом не пересекается намеренно: оно ОБЯЗАНО быть новым.
+d01="$(sandbox c01_twin_declared)"; b01="$(sandbox_digest "$d01")"
+printf '# ещё одно правило ядра\n' > "$d01/.claude/rules/zz-inj01-newcomer.md"
+inj01_manifest_edit "$d01" declare-extra zz-inj01-newcomer.md
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: новое правило ядра вместе с объявлением"
 capture "$d01" "$C01"
-assert_code 0 "БЛИЗНЕЦ: пятое правило ядра ВМЕСТЕ со своим объявлением"
+assert_code 0 "БЛИЗНЕЦ: ещё одно правило ядра ВМЕСТЕ со своим объявлением"
 
-d01="$(sandbox c01_twin_rename)"
-mv "$d01/.claude/rules/writing.md" "$d01/.claude/rules/writing-local.md"
-inj01_manifest_edit "$d01" rename-writing
+d01="$(sandbox c01_twin_rename)"; b01="$(sandbox_digest "$d01")"
+mv "$d01/.claude/rules/$inj01_victim" "$d01/.claude/rules/${inj01_victim%.md}-local.md"
+inj01_manifest_edit "$d01" rename "$inj01_victim"
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: переименование, доехавшее до манифеста"
 capture "$d01" "$C01"
 assert_code 0 "БЛИЗНЕЦ: переименование, доехавшее и до манифеста"
 
 # Проза секции вправе называть координаты `.md`; объявление — первый абзац.
 # Читай гейт всю секцию, эта правка стала бы ложной находкой на законном тексте.
-d01="$(sandbox c01_twin_prose)"
-inj01_manifest_edit "$d01" prose-names-md
+d01="$(sandbox c01_twin_prose)"; b01="$(sandbox_digest "$d01")"
+inj01_manifest_edit "$d01" prose-names-md "$inj01_book"
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: проза §«Ядро» называет координаты"
 capture "$d01" "$C01"
-assert_code 0 "БЛИЗНЕЦ: проза §«Ядро» называет MANIFEST.md и testing.md"
+assert_code 0 "БЛИЗНЕЦ: проза §«Ядро» называет MANIFEST.md и правило свода"
 
 # ── ось: СИМВОЛЬНАЯ ССЫЛКА — тоже запись каталога ────────────────────────────
 #
@@ -152,7 +289,7 @@ assert_code 0 "БЛИЗНЕЦ: проза §«Ядро» называет MANIFE
 # класс `rulebook/testing.md` §«Гейт на класс», п.7.
 #
 # ПЕРВАЯ проба — ОДНО-ФАКТНАЯ (там же, п.2в). Она не заводит новой записи, а
-# снимает у существующей ТОЛЬКО новое свойство: имя `writing.md` объявлено и на месте,
+# снимает у существующей ТОЛЬКО новое свойство: имя жертвы объявлено и на месте,
 # набор по-прежнему сходится с манифестом, изменился один факт — запись перестала
 # быть обычным файлом. Значит краснеет ровно новая ось, и её красное не одолжено
 # у соседней. Проба «завести ещё одну запись» такого не доказывает: новая запись
@@ -186,22 +323,24 @@ inj01_assert_only_gate_lines() {   # <утверждение>
 }
 
 d01="$(sandbox c01_link_declared)"
-rm -f "$d01/.claude/rules/writing.md"
-ln -s ../rulebook/vault.md "$d01/.claude/rules/writing.md"
+rm -f "$d01/.claude/rules/$inj01_victim"
+ln -s "../rulebook/$inj01_book" "$d01/.claude/rules/$inj01_victim"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: объявленное правило ядра подменено ссылкой (снят ОДИН факт)"
-assert_says "ССЫЛКА В ЯДРЕ: .claude/rules/writing.md" "  ...и координата названа"
+assert_says "ССЫЛКА В ЯДРЕ: .claude/rules/$inj01_victim" "  ...и координата названа"
 inj01_assert_lacks "НЕДОСТАЁТ" "  ...и диагноз ОДИН: не «правило пропало» — оно читается"
 
 d01="$(sandbox c01_link_extra)"
-ln -s ../rulebook/testing.md "$d01/.claude/rules/testing.md"
+ln -s "../rulebook/$inj01_book" "$d01/.claude/rules/$inj01_book"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: лишнее правило внесено ССЫЛКОЙ — форма, на которой гейт молчал"
-assert_says "ССЫЛКА В ЯДРЕ: .claude/rules/testing.md" "  ...и координата названа"
-assert_says "прочитано файлов ядра 4" "  ...и перепись считает ссылку записью каталога"
+assert_says "ССЫЛКА В ЯДРЕ: .claude/rules/$inj01_book" "  ...и координата названа"
+assert_says "прочитано файлов ядра $(inj01_core_entries "$d01")" "  ...и перепись считает ссылку записью каталога"
 
+# Цель НАМЕРЕННО синтетическая: ось про то, что ссылка не резолвится, и её
+# предмет исчез бы, начни цель существовать.
 d01="$(sandbox c01_link_dangling)"
-ln -s ../rulebook/no-such-rule.md "$d01/.claude/rules/ghost.md"
+ln -s ../rulebook/inj01-no-such-rule.md "$d01/.claude/rules/inj01-ghost.md"
 capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: битая ссылка в ядре"
 assert_says "цель НЕ резолвится" "  ...и сказано, что правило не читается вовсе"
@@ -209,7 +348,8 @@ inj01_assert_only_gate_lines "  ...и вердикт не оброс сырой 
 
 # Та же форма, что у дефекта, — ссылка появилась, — но в законном месте: rulebook
 # читается файлом по требованию, ссылка там окна волны не трогает.
-d01="$(sandbox c01_twin_link_rulebook)"
-ln -s ./testing.md "$d01/.claude/rulebook/testing-alias.md"
+d01="$(sandbox c01_twin_link_rulebook)"; b01="$(sandbox_digest "$d01")"
+ln -s "./$inj01_book" "$d01/.claude/rulebook/inj01-alias.md"
+assert_fixture_changed "$d01" "$b01" "БЛИЗНЕЦ: ссылка заведена в rulebook"
 capture "$d01" "$C01"
 assert_code 0 "БЛИЗНЕЦ: ссылка заведена в rulebook, а не в ядре"

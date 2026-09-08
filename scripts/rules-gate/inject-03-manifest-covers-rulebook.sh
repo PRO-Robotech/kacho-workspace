@@ -18,11 +18,66 @@
 # ЗАКОННЫЙ БЛИЗНЕЦ той же формы, на котором гейт обязан смолчать. Ни одна проба
 # не меняет двух фактов сразу.
 
+# ── СТРАЖ ПОДКЛЮЧЕНИЯ: часть НЕ исполняется самостоятельно ───────────────────
+#
+# Своей оснастки (`sandbox`, `capture`, `assert_*`, счётчики) у части нет. В
+# обход `inject.sh` она не просто ничего не доказывает — она ПОРТИТ дерево, из
+# которого запущена: каталог песочницы не определён, поэтому путь вида
+# `"$d/CLAUDE.md"` становится ОТНОСИТЕЛЬНЫМ и правка уезжает в рабочую копию, а
+# `git -C "$d" add -A` стажирует в её индекс чужие незакоммиченные правки.
+# Испорченный индекс делает лживыми ИМЕННО те проверки, что читают дерево:
+# «ноль находок» превращается в «ноль прочитанного» и выглядит настоящей
+# находкой (`rulebook/multi-agent-flow.md` §13 «Неприкосновенность чужого
+# состояния»).
+#
+# ИЗМЕРЕНО ДО СТРАЖА, на изолированной копии с чистым деревом: прямой запуск
+# inject-02 → rc=127 и ` M CLAUDE.md`; прямой запуск inject-03 → rc=0 при НУЛЕ
+# исполненных утверждений и превращал чужое ` M` в `M ` (стажировал). То есть
+# «не выполнилось» отчитывалось успехом, и в том же прогоне портилось дерево.
+#
+# Отказ — код 2, а не 1: ноль исполненных утверждений не является находкой в
+# дереве и не является успехом (`rulebook/testing.md` §«Чтение вердикта»).
+#
+# Бит исполнения намеренно ОСТАВЛЕН: без него `./inject-NN-….sh` отвечал бы
+# «Permission denied» — диагностика хуже, чем у этого отказа, который называет
+# и причину, и команду, которую звать вместо.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — ЧАСТЬ инъекции, а не самостоятельная проба." >&2
+    echo "       Она подключается (\`.\`) из scripts/rules-gate/inject.sh и пользуется его" >&2
+    echo "       оснасткой; самостоятельно не исполнила бы ни одного утверждения и писала бы" >&2
+    echo "       в рабочее дерево. Запускать: bash scripts/rules-gate/inject.sh" >&2
+    exit 2
+fi
+for _inj_fn in sandbox capture assert_code assert_says assert_fixture_changed; do
+    command -v "$_inj_fn" >/dev/null 2>&1 && continue
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: функция" \
+         "«$_inj_fn» не определена; часть подключена не оттуда, доказывать нечем" >&2
+    exit 2
+done
+unset -v _inj_fn
+if [ -z "${WS:-}" ] || [ ! -d "$WS" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — корень дерева \$WS не определён либо не" \
+         "каталог; жертву фикстуры выводить не из чего" >&2
+    exit 2
+fi
+
 CH03=check-03-manifest-covers-rulebook.sh
 
-# Жертва берётся ИЗ ДЕРЕВА, а не выписывается: набор правил растёт.
-inj03_victim="$(cd "$WS/.claude/rulebook" && ls -1 ./*.md 2>/dev/null | sed 's|^\./||' \
-    | grep -v '^MANIFEST' | head -1)"
+# Жертва берётся ИЗ ДЕРЕВА, а не выписывается: набор правил растёт. Имя даёт
+# ГЛОБ ОБОЛОЧКИ, а не разбор вывода `ls`: разбор спотыкается на не-алфавитных
+# именах, а корпус русский (shellcheck SC2012).
+inj03_victim=""
+for _inj03_f in "$WS"/.claude/rulebook/*.md; do
+    [ -f "$_inj03_f" ] || continue
+    case "$(basename "$_inj03_f")" in MANIFEST*) continue ;; esac
+    inj03_victim="$(basename "$_inj03_f")"; break
+done
+unset -v _inj03_f
+if [ -z "$inj03_victim" ]; then
+    echo "[VOID] inject-03 — в .claude/rulebook/ нет ни одного правила помимо манифеста;" \
+         "жертву выводить не из чего" >&2
+    exit 2
+fi
 
 # Заменить/снять/переписать строку жертвы в манифесте песочницы.
 inj03_row() {   # <каталог> <имя правила> <операция> [текст]
@@ -58,7 +113,7 @@ assert_code 1 "строка снята, имя осталось лишь при�
 assert_says "$inj03_victim" "находка называет координату правила, а не «строка есть»"
 
 echo "== ось G′: БЛИЗНЕЦ — живая строка на месте, пример рядом =="
-d="$(sandbox c03_fence_twin)"
+d="$(sandbox c03_fence_twin)"; b03="$(sandbox_digest "$d")"
 python3 - "$d/.claude/rulebook/MANIFEST.md" <<'PY'
 import io, sys
 p = sys.argv[1]
@@ -66,6 +121,7 @@ s = io.open(p, encoding='utf-8').read()
 io.open(p, 'w', encoding='utf-8').write(
     s + '\n## Форма строки\n\n```\n| `primer.md` | действие | держатель |\n```\n')
 PY
+assert_fixture_changed "$d" "$b03" "БЛИЗНЕЦ: пример строки в блоке кода"
 capture "$d" "$CH03"
 assert_code 0 "пример в блоке кода сам по себе находкой НЕ является"
 
@@ -77,8 +133,9 @@ assert_code 1 "строка в HTML-комментарии не покрывае
 assert_says "$inj03_victim" "находка называет координату правила"
 
 echo "== ось H′: БЛИЗНЕЦ — комментарий рядом с живой таблицей =="
-d="$(sandbox c03_comment_twin)"
+d="$(sandbox c03_comment_twin)"; b03="$(sandbox_digest "$d")"
 printf '\n<!-- перечень выше выводится из дерева -->\n' >> "$d/.claude/rulebook/MANIFEST.md"
+assert_fixture_changed "$d" "$b03" "БЛИЗНЕЦ: комментарий рядом с живой таблицей"
 capture "$d" "$CH03"
 assert_code 0 "комментарий, не прячущий строк, молчания не отменяет"
 
@@ -90,8 +147,14 @@ assert_code 1 "экранированная труба не скрывает п�
 assert_says "чем соблюдение держится" "находка называет ИМЕННО пустого держателя"
 
 echo "== ось I′: БЛИЗНЕЦ — \\| в ячейке при ПОЛНОЙ строке =="
-d="$(sandbox c03_escpipe_twin)"
+# У близнеца отдельно утверждается, что его правка НЕ ПУСТА: `inj03_row` подменяет
+# ячейку по имени правила, и на переехавшем имени подмена выродилась бы в no-op —
+# тогда `[OK]` относился бы к нетронутому дереву и был бы дословно тем же, что на
+# контроле. Дефектной фикстуре это не нужно: пустая правка оставит гейт зелёным и
+# уронит собственное `assert_code 1`.
+d="$(sandbox c03_escpipe_twin)"; b03="$(sandbox_digest "$d")"
 inj03_row "$d" "$inj03_victim" hold " гейт \`grep -E 'a\\|b'\` "
+assert_fixture_changed "$d" "$b03" "БЛИЗНЕЦ: труба внутри держателя"
 capture "$d" "$CH03"
 assert_code 0 "труба внутри держателя — содержимое ячейки, а не её граница"
 
@@ -109,36 +172,44 @@ for tag in nbsp span todo dash; do
 done
 
 echo "== ось J′: БЛИЗНЕЦ — «держится вниманием» словами =="
-d="$(sandbox c03_hold_words)"
+d="$(sandbox c03_hold_words)"; b03="$(sandbox_digest "$d")"
 inj03_row "$d" "$inj03_victim" hold " держится вниманием ревьюера волны "
+assert_fixture_changed "$d" "$b03" "БЛИЗНЕЦ: держатель назван словами"
 capture "$d" "$CH03"
 assert_code 0 "названный вслух отсутствующий механизм — законный ответ (§11)"
 
 echo "== ось K: сортировка не плодит ложных обвинений =="
-# Одна НАСТОЯЩАЯ находка (`rag.md` без строки) рядом с `README.md`, который есть
-# и назван. На локальной сортировке против байтового `comm` невиновный README.md
+# Одна НАСТОЯЩАЯ находка (правило без строки) рядом с правилом, которое есть и
+# названо. На локальной сортировке против байтового `comm` невиновный сосед
 # получал ДВА взаимно противоречивых обвинения сразу.
+#
+# ИМЕНА СИНТЕТИЧЕСКИЕ и с деревом не пересекаются намеренно: правило-жертва
+# обязано быть НЕПОКРЫТЫМ, а взятое из дерева покрыто по построению. Различие
+# РЕГИСТРА первой буквы — не украшение, а сам предмет оси: локальная сортировка
+# ставит их иначе, чем байтовая, и на этом расхождении рождалось ложное обвинение.
+inj03_orphan="zzz-inj03-orphan.md"
+inj03_witness="ZZZ-inj03-witness.md"
 d="$(sandbox c03_sort)"
-printf '# r\n' > "$d/.claude/rulebook/rag.md"
-printf '# r\n' > "$d/.claude/rulebook/README.md"
+printf '# r\n' > "$d/.claude/rulebook/$inj03_orphan"
+printf '# r\n' > "$d/.claude/rulebook/$inj03_witness"
 git -C "$d" add -A >/dev/null 2>&1
-python3 - "$d/.claude/rulebook/MANIFEST.md" <<'PY'
+python3 - "$d/.claude/rulebook/MANIFEST.md" "$inj03_witness" <<'PY'
 import io, sys
 p = sys.argv[1]
 lines = io.open(p, encoding='utf-8').read().split('\n')
 i = next(k for k, l in enumerate(lines) if l.startswith('| `'))
-lines.insert(i + 2, '| `README.md` | всегда | гейт readme |')
+lines.insert(i + 2, '| `%s` | всегда | гейт-свидетель |' % sys.argv[2])
 io.open(p, 'w', encoding='utf-8').write('\n'.join(lines))
 PY
 capture "$d" "$CH03"
 assert_code 1 "правило без строки — находка"
-assert_says "rag.md" "названо ВИНОВНОЕ правило"
-if printf '%s\n' "$OUT" | grep -q 'README\.md'; then
-    echo "  [FAIL] невиновное README.md не обвиняется" >&2
+assert_says "$inj03_orphan" "названо ВИНОВНОЕ правило"
+if printf '%s\n' "$OUT" | grep -qF -- "$inj03_witness"; then
+    echo "  [FAIL] невиновный $inj03_witness не обвиняется" >&2
     printf '%s\n' "$OUT" | sed 's/^/         | /' >&2
     fail=$((fail + 1))
 else
-    echo "  [OK]   невиновное README.md не обвиняется"; pass=$((pass + 1))
+    echo "  [OK]   невиновный $inj03_witness не обвиняется"; pass=$((pass + 1))
 fi
 if printf '%s\n' "$OUT" | grep -q 'not in sorted order'; then
     echo "  [FAIL] слияние не жалуется на порядок" >&2; fail=$((fail + 1))
