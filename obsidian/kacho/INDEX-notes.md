@@ -1389,6 +1389,7 @@ tags:
 | [[lessons/a-number-ornamenting-a-sound-finding\|Украшение при верном выводе стоит дороже, чем кажется]] | живо (done) |
 | [[lessons/a-pointer-cannot-hold-an-unknown-value\|Указатель на структуру не держит неизвестное значение: законная конфигурация отвергается отказом, который не называет поля]] | — |
 | [[lessons/a-ratio-of-two-stand-quantities-is-not-a-property-of-the-code\|Отношение двух стендовых величин — не свойство кода, и оно устаревает за сутки]] | — |
+| [[lessons/a-state-label-outlives-the-state-it-named\|Метка состояния переживает состояние, которое называла]] | — |
 | [[lessons/a-value-you-choose-may-already-be-derived\|Величина, которую ты выбираешь, могла быть уже ВЫВЕДЕНА приёмкой]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
