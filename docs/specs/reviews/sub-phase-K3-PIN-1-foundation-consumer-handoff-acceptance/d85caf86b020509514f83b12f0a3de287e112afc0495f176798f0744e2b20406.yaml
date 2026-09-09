@@ -1,0 +1,62 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-K3-PIN-1-foundation-consumer-handoff-acceptance.md
+  sha256: d85caf86b020509514f83b12f0a3de287e112afc0495f176798f0744e2b20406
+  revision: 2
+  static_status: DRAFT
+  base_commit: 9138f9d77914a2cc6939a7c6df85780f9b0641ee
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor cutover_commit base_commit in PRO-Robotech/kacho-workspace
+    returned 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 9138f9d77914a2cc6939a7c6df85780f9b0641ee
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+event:
+  type: issue_comment
+  database_id: 5595621333
+  node_id: IC_kwDOTZqgWM8AAAABTYZn1Q
+  url: https://github.com/PRO-Robotech/kacho/issues/2416#issuecomment-5595621333
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5595621333
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2416
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-09T04:06:24Z'
+  updated_at: '2026-09-09T04:06:24Z'
+  body_sha256: be25ec1da40a71f902f44ead470dd224e6cf2472d2dd088307eb300092e1ca55
+  subject_sha256: d85caf86b020509514f83b12f0a3de287e112afc0495f176798f0744e2b20406
+  verdict: APPROVED
+attribution:
+  reviewer_kind: codex_agent
+  assigned_agent: /root/pin_acceptance_review
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  report_sha256: 980077d7ea22c1adbc6df50441403263032fe7c7c9a007ee238ea8dbe39aa264
+scope:
+  reviewed: Revision 2 of K3-PIN-1, nine GWT scenarios for atomic module pin/import/waiver
+    and materialized-reader source transition. Concrete synthetic full-holder own-reader
+    world and all ID-to-holder commands reviewed.
+  product_revision: 8e7394e6af3e675d775b5534e7fd5d7a06019cde
+  full_acceptance_document_read: true
+  candidate_fixture_executed: false
+  implementation_completion_claimed: false
+  full_module_split_completion_claimed: false
+verification:
+  method: GET /repos/PRO-Robotech/kacho/issues/comments/5595621333
+  verified_at: '2026-09-09T04:08:52.839614+00:00'
+  published_body_matches_agent_review_text: true
+  subject_digest_matches_current_document: true
+  body_subject_and_verdict_match: true
+  policy_matches_base_commit: true
