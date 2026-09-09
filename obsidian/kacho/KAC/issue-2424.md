@@ -66,8 +66,7 @@ APPROVED-документа требовали противоположного 
 
 ## Затронутые сущности vault
 
-[[resources-kacho-iam-account]] · [[edges-consumers-to-iam-limits]] ·
-[[checks-with-form-but-no-substance]]
+[[iam-account]] · [[vpc-to-iam-limit-resolve]] · [[checks-with-form-but-no-substance]]
 
 ## DoD
 

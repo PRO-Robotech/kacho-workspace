@@ -75,7 +75,7 @@ tags:
 
 ## Затронутые сущности vault
 
-[[packages-kacho-iam]] · [[legacy-polyrepo-transitions]] · [[a-gate-a-pinned-module-cannot-satisfy]]
+[[iam-domain]] · [[checks-with-form-but-no-substance]]
 
 ## DoD
 
