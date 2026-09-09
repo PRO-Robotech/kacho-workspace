@@ -1,0 +1,61 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance.md
+  sha256: 4236800407a4979811cff74cdb196e69ca02e137899627eeb949979d29147a10
+  revision: 16
+  static_status: DRAFT
+  base_commit: d1b8c8c1581dc366609a1343813385fe9982cea7
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor cutover_commit base_commit in PRO-Robotech/kacho-workspace
+    returned 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: d1b8c8c1581dc366609a1343813385fe9982cea7
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+event:
+  type: issue_comment
+  database_id: 5593954447
+  node_id: IC_kwDOTZqgWM8AAAABTWz4jw
+  url: https://github.com/PRO-Robotech/kacho/issues/2424#issuecomment-5593954447
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5593954447
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2424
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-09T00:37:39Z'
+  updated_at: '2026-09-09T00:37:39Z'
+  body_sha256: 4c397c14fde5f790b9185c7f45de91216dfcef8f8166fa92ba74d0a915ecddcf
+  subject_sha256: 4236800407a4979811cff74cdb196e69ca02e137899627eeb949979d29147a10
+  verdict: APPROVED
+attribution:
+  reviewer_kind: codex_agent
+  assigned_agent: /root/quota_review_final
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  report_sha256: 97916a80c22d2ea25da2324362fa8fde8e2df6c83b52b34d3daeaf19ff104080
+scope:
+  reviewed: Revision 16 corrections for REALISM / PAYLOAD and TRACEABILITY / DoD; section 6.1, S3 DoD
+    item 8, section 26, and compatibility with KAN-Q3-06 through KAN-Q3-08 and the previously reviewed
+    own/foreign authority contract.
+  foreign_consumer_evidence: VPC only; no new Kaname foreign-consumer RPC is required.
+  full_prior_corpus_review_repeated: false
+  new_fixture_seeding_or_tests_executed: false
+  s3_s4_completion_claimed: false
+verification:
+  method: GET /repos/PRO-Robotech/kacho/issues/comments/5593954447
+  verified_at: '2026-09-09T00:43:19Z'
+  published_body_matches_agent_review_text: true
+  subject_digest_matches_current_document: true
+  body_subject_and_verdict_match: true
+  policy_matches_base_commit: true
