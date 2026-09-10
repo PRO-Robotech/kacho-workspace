@@ -25,23 +25,24 @@ authority:
   authorized_actor: pointpu
   allowlisted_for_role: true
 event:
-  status: NOT_PUBLISHED
-  why_no_event: Внешнего события у ЭТОЙ записи ещё нет, и выдумывать его нельзя — роль без события полномочия
-    не даёт (change-graph.md §3). Рецензент есть агент, допущенной политикой личности у него нет. Отсутствие
-    события есть «не выполнилось», третий исход, и оно НИКОГДА не читается как «да». До публикации запись
-    свидетельствует о РАССМОТРЕНИИ, а не о действующем одобрении.
-  what_makes_it_effective: Допущенный политикой актор (pointpu) публикует courier-комментарий в PRO-Robotech/kacho#2540,
-    называющий role, verdict, subject, subject_revision и subject_sha256 из required_body_fields дословно,
-    после чего в это поле вносятся database_id, node_id, created_at и body_sha256 тем же порядком, каким
-    они внесены в запись редакции 16.
-  required_type: issue_comment
-  required_issue: https://github.com/PRO-Robotech/kacho/issues/2540
-  required_body_fields:
-    role: acceptance-reviewer
-    verdict: APPROVED
-    subject: docs/specs/sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance.md
-    subject_revision: 17
-    subject_sha256: e382a7083f0d3ffb0550f1ec3992e156dcd5b12bc264c486dd5a388d86bbf438
+  type: issue_comment
+  database_id: 5613609702
+  node_id: IC_kwDOTZqgWM8AAAABTpji5g
+  url: https://github.com/PRO-Robotech/kacho/issues/2540#issuecomment-5613609702
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5613609702
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2540
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-10T05:22:43Z'
+  updated_at: '2026-09-10T05:22:43Z'
+  body_sha256: 12133818626215fe2e5af9b56f62c7d42ce0fea8db3c004082577d78dec115dd
+  published_by_orchestrator: true
+  publication_note: Запись заведена рецензентом со status NOT_PUBLISHED — роль без события полномочия не даёт.
+    Событие опубликовано допущенным политикой актором тем же порядком, каким внесено в запись редакции 16;
+    прежняя запись не редактировалась и не удалялась. body_sha256 снят с СЫРОГО тела ответа API, без обрезки
+    хвостового перевода строки — первый замер прежнего круга разошёлся именно на этом.
+  required_body_fields_present_verbatim: role, verdict, subject, subject_revision, subject_sha256
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
