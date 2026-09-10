@@ -1,0 +1,217 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance.md
+  sha256: e382a7083f0d3ffb0550f1ec3992e156dcd5b12bc264c486dd5a388d86bbf438
+  revision: 17
+  static_status: DRAFT
+  base_commit: b6cb49f1c67da787bfe39429b0e9c92de2c63726
+  content_commit: 9a63641d4b3ed2f9e607230ec20bbec826947b54
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance.md
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor cutover_commit base_commit в PRO-Robotech/kacho-workspace
+    вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: b6cb49f1c67da787bfe39429b0e9c92de2c63726
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+event:
+  status: NOT_PUBLISHED
+  why_no_event: Внешнего события у ЭТОЙ записи ещё нет, и выдумывать его нельзя — роль без события полномочия
+    не даёт (change-graph.md §3). Рецензент есть агент, допущенной политикой личности у него нет. Отсутствие
+    события есть «не выполнилось», третий исход, и оно НИКОГДА не читается как «да». До публикации запись
+    свидетельствует о РАССМОТРЕНИИ, а не о действующем одобрении.
+  what_makes_it_effective: Допущенный политикой актор (pointpu) публикует courier-комментарий в PRO-Robotech/kacho#2540,
+    называющий role, verdict, subject, subject_revision и subject_sha256 из required_body_fields дословно,
+    после чего в это поле вносятся database_id, node_id, created_at и body_sha256 тем же порядком, каким
+    они внесены в запись редакции 16.
+  required_type: issue_comment
+  required_issue: https://github.com/PRO-Robotech/kacho/issues/2540
+  required_body_fields:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject: docs/specs/sub-phase-KAN-QUOTA-1-limit-authority-leaves-iam-acceptance.md
+    subject_revision: 17
+    subject_sha256: e382a7083f0d3ffb0550f1ec3992e156dcd5b12bc264c486dd5a388d86bbf438
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_record_untouched: 4236800407a4979811cff74cdb196e69ca02e137899627eeb949979d29147a10.yaml
+scope:
+  reviewed: Редакция 17 целиком как дельта к редакции 16 (271 вставка, 18 удалений, один файл). Посадочная
+    половина — вердикт круга редакции 16 в шапке и §26/§27. Содержательная — сценарий KAN-Q3-09, производители
+    П35-П37, предмет ПР-11, строки ведомости 32-35а, DoD S3 п. 9, преамбула и строка §6.1, фикстура F-KAN-Q3-SCOPE,
+    §27.
+  delta_predicate: git diff 166a9664 9a63641d -- <файл>
+  new_or_changed_scenarios: 1
+  new_scenario_ids:
+  - KAN-Q3-09
+  prior_scenarios_gwt_untouched: true
+  prior_scenarios_untouched_predicate: git diff 166a9664 9a63641d -- <файл> | grep -E '^[+-][*][*](Дано|Когда|Тогда)[*][*]'
+    даёт три строки, все внутри блока KAN-Q3-09; добавленных заголовков '^#### KAN-Q' — один
+  product_tree: PRO-Robotech/kacho
+  product_revision: 5d43dcd2fcf6b02ec3ff8b4acfd06d1d032ea00e
+  product_revision_is_line_head: origin/release/kaname-tail
+  full_prior_corpus_review_repeated: false
+  stand_raised: false
+  new_fixture_seeding_or_tests_executed: false
+  s3_s4_completion_claimed: false
+verification:
+  landing_half:
+    prior_fingerprint_matches_revision_16: true
+    prior_fingerprint_predicate: git show 166a9664:<файл> | sha256sum
+    prior_record_declares:
+      revision: 16
+      verdict: APPROVED
+      role: acceptance-reviewer
+    external_event_resolves: true
+    external_event_predicate: GET /repos/PRO-Robotech/kacho/issues/comments/5593954447
+    external_event_actor: pointpu
+    external_event_author_association: MEMBER
+    external_event_created_at: '2026-09-09T00:37:39Z'
+    external_event_body_declares_subject_sha256: true
+    external_event_body_sha256_matches: true
+    body_sha256_predicate: sha256 сырого тела ответа API, БЕЗ обрезки хвостового перевода строки
+    policy_sha256_matches_at_base_commit: true
+    actor_allowlisted_for_role: true
+    cutover_is_ancestor_of_base_commit: true
+    prior_record_added_by_same_commit_as_revision_16: 166a9664
+  producer_census_by_experiment:
+    scenarios_checked: 1
+    producers_declared_present: 4
+    producers_confirmed_present_by_my_own_command: 4
+    producers_declared_absent: 1
+    producers_confirmed_absent_by_my_own_command: 1
+    confirmed:
+      P35_warning_text: git grep -c 'величины областей перестают действовать' origin/release/kaname-tail
+        -- services/iam/internal/migrations даёт 1
+      P35_census_five_numbers: тем же счётом строка RAISE NOTICE даёт 1; пятое число — COALESCE(array_length(scoped,
+        1), 0)
+      P35_line_form: миграция строки 206-213 собирают строку вида ОБЛАСТЬ id вид равно величина ровно
+        объявленной формы
+      P35_on_line_absent_from_trunk: git cat-file -e на обеих ссылках — на линии есть, в стволе нет; линия
+        впереди ствола на 15, позади на 1
+      P36_absent_in_prod: git grep -l 'OnNotice' origin/release/kaname-tail -- '*.go' ':!*_test.go' даёт
+        0, rc=1
+      P36_side_finding: тот же предикат без сужения ДО GO даёт 1, и это комментарий services/vpc/internal/migrations/0029_retired_contract_columns_and_rule_targets.sql
+        строка 99
+      P36_mechanism: pkg/migratorcli/dialect.go строка 79 несёт SQLDriver "pgx", строка 119 несёт sql.Open;
+        pkg/migratorrun/runner.go строка 97 зовёт OpenDB; pgx v5.10.0 pgconn/pgconn.go строки 688-691
+        — ветка по непустому OnNotice; в stdlib/sql.go вхождений OnNotice ноль
+      P36_radius_seven: git grep -ln 'migratorrun[.]' origin/release/kaname-tail -- '*.go' ':!*_test.go'
+        даёт 7 — compute, geo, iam, nlb, registry, storage, vpc
+      P37_posture_values: values.prod.yaml, values.dev.yaml и deploy/helm/umbrella/charts/kaname/values.yaml
+        несут ownCeilings 5, 12 и 24; services/iam/deploy/values.yaml несёт пустой ownCeilings
+      P25_start_guard: services/iam/internal/apps/kaname/config/own_ceilings.go строка 113 — OwnCeilingsConfig.Validate,
+        отказ по каждой незаданной и по отрицательной, multierr
+      P1_refusal: services/iam/internal/apps/kaname/shared/quota.go несёт QUOTA_EXCEEDED и ResourceExhausted
+    clause_level_checks:
+      acting_value_not_prior: миграция обновляет limit_value БЕЗУСЛОВНО и ДО списания, условие «used меньше
+        limit_value» читает уже обновлённый снимок — предел 40 при действующем 24 невыразим
+      all_scopes_removed: миграция строка 223 — DELETE FROM kaname.limits WHERE kind = ANY (posture),
+        без условия на область и без условия на отзыв
+      boundary_two_one_kind_only: domain.accountScopedKinds несёт единственный элемент iam.serviceAccount.credential;
+        согласие с телом списания держит гейт G7 — services/iam/internal/migrations/credential_ceiling_anchor_test.go,
+        сверка множеств В ОБЕ стороны с непустой предпосылкой
+      boundary_one_superset: отбор по «l.scope не равно DEFAULT» идёт без условия на отзыв и включает
+        PROJECT; пятое число переписи считает то же надмножество
+  given_constructibility:
+    method: сверка со схемой, а не посевом — стенд здесь не поднимается
+    result: состояние «Дано» схемой РАЗРЕШЕНО
+    evidence: kaname.limits несёт UNIQUE INDEX limits_scope_kind_uk по (scope, scope_id, kind) WHERE withdrawn_at
+      IS NULL — три строки (DEFAULT, пусто, вид), (ACCOUNT, A, вид) и (ACCOUNT, C, вид) дают три разных
+      ключа и не конфликтуют. limits_scope_ck допускает ACCOUNT. limits_scope_subject_ck требует непустой
+      scope_id при области, отличной от DEFAULT, и «Дано» его называет. limits_value_nonnegative_ck выполнен
+      для 9, 2 и 40.
+    charge_arm_reads_account_scope: миграция строки 397-404 читают DEFAULT либо ACCOUNT по совпадению
+      scope_id с аккаунтом носителя, ORDER BY отдаёт приоритет ACCOUNT
+  no_producer_half_honesty:
+    declared_absent: П36
+    subject_filed: PRO-Robotech/kacho#2544
+    subject_state_at_review: open
+    subject_title: migrator — уведомления миграций не доезжают до оператора, обработчик не задан
+    not_counted_toward_passing_in: 4 места — сценарий KAN-Q3-09, сводка §6 с покрытием «частично», хвост
+      §7 DoD S3, DoD S3 п. 9
+    document_never_claims_operator_sees_it: true
+    contradiction_sweep: шесть вхождений предмета в документе, все шесть согласны
+    probe_precedent_exists: services/vpc/internal/migrations/ migration_0029_retired_contract_integration_test.go
+      строки 92-93 — cfg.OnNotice плюс stdlib.RegisterConnConfig, названный фикстурой F-KAN-Q3-SCOPE
+  referenced_issues_resolve:
+    kacho_2540: open — предмет сценария
+    kacho_2544: open — ПР-11
+    kacho_2455: open — предмет посадочной половины
+    kacho_2424: closed — круг редакций 15-16
+  document_internal_numbers_remeasured:
+    scenarios: 31 — мой счёт grep -c '^#### KAN-Q', совпал с объявленным
+    when_markers: 26 — совпал
+    difference: 5 — совпал
+  bans:
+    ban_2_foreign_clouds_in_delta: 0
+    ban_11_deferral_markers_in_delta: 0
+    ban_5_applied_migration_not_edited: §27.6 объявляет, и дельта это подтверждает
+    ban_1_document_does_not_grant_itself_a_verdict: §27.6 — внесённый APPROVED на редакцию 17 не переносится
+  public_artifact_recoverability:
+    verdict: сборки нет
+    reasoning: 'Третий элемент запрещённой сборки отсутствует — постороннего нет. Ослабление действует
+      внутри собственной установки оператора и в границах собственного аккаунта; ни одной кросс-арендаторской
+      границы, ни обхода аутентификации, ни утечки удостоверения. Названа ЦЕНА принятого решения, чего
+      ban #18 по оси «безопасность» прямо требует.'
+  workspace_docs_gate:
+    command: ./scripts/docs-gate/run-all.sh с KACHO_MONOREPO
+    result: рассмотрено 6, пройдено 6, провалено 0, без предмета 0, rc=0
+    note: без KACHO_MONOREPO тот же набор даёт rc=2 — без предмета 3, находок 0; условие создано, а не
+      принято за вердикт
+non_blocking_remarks:
+- id: NB-1
+  where: шапка, строка 11, область «Реализация П25 этим отпечатком ОТКРЫТА»
+  claim: «семь опубликованных решений ролей до кода … все APPROVED»
+  measured: '6 APPROVED — пять строкой «Verdict: APPROVED», одно, db-architect-reviewer, прозой — и 1
+    CONFIRMED: комментарий 5594572646, запись вида initial-exposure-confirmation'
+  predicate: gh api repos/PRO-Robotech/kacho/issues/2424/comments --paginate, отбор строки Verdict по
+    каждому из семи
+  revision: живая задача kacho#2424 на 2026-09-10
+  why_not_blocking: CONFIRMED есть положительный исход для записи этого вида, а не отказ; вывод «реализация
+    П25 открыта» не меняется. Строка ведомости 33 сформулирована точнее — «называющий роль и вердикт»
+    — и правки не требует.
+- id: NB-2
+  where: ведомость §0.5, строки, добавленные редакцией 17
+  claim: пять новых строк пронумерованы 32, 33, 34, 35а, 35
+  measured: максимальный номер в редакции 16 — 31; предшественника, после которого «а» была бы вставкой,
+    не существует, естественная нумерация — 32-36
+  predicate: git show 166a9664:<файл> | grep -oE '^[|] [0-9]+а? [|]' | sort -n | tail -1
+  revision: воркспейс, коммиты 166a9664 и 9a63641d
+  why_not_blocking: 'косметика нумерации: предмет, предикат и величина каждой из пяти строк верны и проверены.
+    Смежно — шапка называет их «строки ведомости 32-35», что не перечисляет 35а.'
+reviewer_self_refutations:
+- Первый замер body_sha256 дал расхождение — подстановка через $(cat) срезала хвостовой перевод строки.
+  Сырое тело ответа API хешируется ровно в объявленное 4c397c14. Автор прав.
+- Заявил, что предикат без сужения даёт 2, а не 1. «Сужение ДО GO» есть путь '*.go'; снятие только его,
+  с сохранением ':!*_test.go', даёт ровно 1 и ровно комментарий vpc. Второй файл — _test.go, законно исключённый
+  узкой формой. Автор прав.
+- Не нашёл стража П25 и заподозрил мёртвую координату. Путь я выдумал сам; настоящий — services/iam/internal/apps/kaname/config/own_ceilings.go
+  строка 113. Сокращение автора резолвится. Автор прав.
+- Заподозрил, что «гейт G7» в документе не определён. G7 объявлен в godoc продукта у domain.accountScopedKinds
+  и реализован credential_ceiling_anchor_test.go. Замечание снято мной.
+not_covered_by_this_review:
+- 'стенд не поднимался: ни одна проба, фикстура и посев не исполнялись — о РАБОТЕ сценария на живой установке
+  вердикта нет, только о его конструируемости и производителях'
+- конструируемость «Дано» доказана СХЕМОЙ, а не посевом; посев остаётся за фикстурой F-KAN-Q3-SCOPE стадии
+  S3
+- сценарии редакций 1-16 повторно не рецензировались — дельта их GWT не касается, предикат назван в scope
+- 'ствол продукта origin/main не судился намеренно: линия впереди него, координаты П35 в стволе отсутствуют,
+  и это отставание ствола'
+- истинность семи решений ролей до кода не проверялась — проверено их наличие, роль, вердикт и привязка
+  к отпечатку
+- реализация П25, план v4 и его кандидат предметом этого круга не были
