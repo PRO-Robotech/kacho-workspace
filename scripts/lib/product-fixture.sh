@@ -22,6 +22,41 @@
 #   * `scripts/docs-gate/inject.sh`
 #   * `scripts/skills-gate/inject.sh`
 
+# ── СТРАЖ: функция фикстуры НЕ ДЕЙСТВУЕТ НА НАСТОЯЩЕЕ ДЕРЕВО ──────────────────
+#
+# ЗАЧЕМ. Половина функций ниже разрушительна: `checkout --detach`, `clean -qfd`.
+# Путь к фикстуре приходит аргументом, а `git -C ""` МОЛЧА берёт ТЕКУЩИЙ каталог —
+# то есть при пустом аргументе разрушительная операция исполняется в общей рабочей
+# копии. Пустым аргумент становится легко: производитель каталога умер под `set -u`
+# на необъявленной переменной и вернул пустую строку, а вызывающий этого не увидел.
+#
+# ЦЕНА ИЗМЕРЕНА, А НЕ ПРЕДПОЛОЖЕНА (ws#622): ровно так и вышло — `mkprod_lane`
+# ссылался на счётчик, снятый в стволе, отдал пустой путь, и
+# `product_fixture_park_on_trunk ""` выполнил в общей рабочей копии
+# `checkout --detach refs/remotes/origin/main` и `clean -qfd`. Снесло ВОСЕМЬ
+# неотслеживаемых файлов соседней сессии; спасли их байт-копии, снятые заранее.
+#
+# ПОЧЕМУ МАРКЕР, А НЕ ПРОВЕРКА ИМЕНИ. «Не равен корню воркспейса» — предикат по
+# списку известных мест, и он стареет: завтра появится второй корень, о котором
+# страж не знает. Маркер утверждает ПРОИСХОЖДЕНИЕ: каталог сделан этой фикстурой,
+# и только такой она вправе разрушать. Лежит он в `.git/`, поэтому `git add -A`
+# его не подхватывает и состав фикстуры не меняется.
+_PRODUCT_FIXTURE_MARK=".git/product-fixture"
+
+# _product_fixture_assert_own <каталог> — иначе отказ с кодом 2 и внятным текстом.
+_product_fixture_assert_own() {
+    local dir="${1:-}"
+    if [ -z "$dir" ]; then
+        echo "product-fixture: пустой путь фикстуры — производитель каталога умер и вернул пустую строку. Разрушительная операция в ТЕКУЩЕМ каталоге отменена" >&2
+        return 2
+    fi
+    if [ ! -e "$dir/$_PRODUCT_FIXTURE_MARK" ]; then
+        echo "product-fixture: '$dir' не создан product_fixture_init (нет $_PRODUCT_FIXTURE_MARK) — отказываюсь трогать чужое дерево" >&2
+        return 2
+    fi
+    return 0
+}
+
 # product_fixture_init <каталог> — пустое дерево продукта с одним кандидатом ствола.
 #
 # Подпись ставится В КОНФИГ ВЫБРОШЕННОГО дерева, а не через `-c`/`GIT_AUTHOR_*`:
@@ -31,12 +66,18 @@
 # выкладка подменяет HOME; локально проба при этом зеленела бы на подписи
 # разработчика.
 product_fixture_init() {
-    local dir="$1"
+    local dir="${1:-}"
+    if [ -z "$dir" ]; then
+        echo "product-fixture: product_fixture_init вызван с пустым путём" >&2
+        return 2
+    fi
     mkdir -p "$dir"
     git -C "$dir" init -q
     git -C "$dir" config user.name  'product fixture'
     git -C "$dir" config user.email 'fixture@invalid'
     git -C "$dir" config commit.gpgsign false
+    # Маркер происхождения — его требуют все функции ниже (см. страж выше).
+    : > "$dir/$_PRODUCT_FIXTURE_MARK"
     # Имя локальной ветви уводится из набора имён ствола: кандидатом обязана быть
     # ровно одна ссылка, иначе отбор зависит от `init.defaultBranch` чужой машины.
     git -C "$dir" symbolic-ref HEAD refs/heads/parked
@@ -44,7 +85,8 @@ product_fixture_init() {
 
 # product_fixture_seal_trunk <каталог> — то, что сейчас в дереве, становится СТВОЛОМ.
 product_fixture_seal_trunk() {
-    local dir="$1"
+    local dir="${1:-}"
+    _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" add -A -f >/dev/null 2>&1
     git -C "$dir" commit -q -m 'ствол' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main "$(git -C "$dir" rev-parse HEAD)"
@@ -55,7 +97,8 @@ product_fixture_seal_trunk() {
 # остаётся там, где был, поэтому `ls-tree <ствол>` и `ls-files` отвечают РАЗНОЕ —
 # ровно то различие, ради которого фикстура и заведена.
 product_fixture_seal_parked() {
-    local dir="$1"
+    local dir="${1:-}"
+    _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" add -A -f >/dev/null 2>&1
     git -C "$dir" commit -q -m 'припаркованная вершина' >/dev/null 2>&1
     git -C "$dir" checkout -q --detach HEAD
@@ -66,7 +109,8 @@ product_fixture_seal_parked() {
 # ствола не меняется, поэтому вердикт обязан совпасть — это и есть свойство,
 # которое проба заводит.
 product_fixture_park_on_trunk() {
-    local dir="$1"
+    local dir="${1:-}"
+    _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" checkout -q --detach refs/remotes/origin/main
     git -C "$dir" clean -qfd
 }
@@ -75,6 +119,7 @@ product_fixture_park_on_trunk() {
 # Кандидатов не остаётся: ни ветки слежения, ни локальной с именем ствола. Читатель
 # обязан ответить ТРЕТЬЕЙ КАТЕГОРИЕЙ, а не откатиться на индекс молча.
 product_fixture_drop_trunk() {
-    local dir="$1"
+    local dir="${1:-}"
+    _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" update-ref -d refs/remotes/origin/main
 }
