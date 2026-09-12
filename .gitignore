@@ -44,7 +44,7 @@ cli.log
 .claude/worktrees/
 # Credentials that land in the repo root during local registry/SA-key debugging.
 # `pem` is a real PEM private key (docker login -u <client-id> --password-stdin < pem);
-# secrets never get committed — the vault is git-committed too (rules/vault.md).
+# secrets never get committed — the vault is git-committed too (.claude/rulebook/vault.md).
 pem
 pem[0-9]*
 *.pem

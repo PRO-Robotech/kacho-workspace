@@ -90,7 +90,7 @@ print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())
       echo "║ внешнего события и ДОБАВЛЯЕМОЙ записи. Прежнюю не переписывай —"
       echo "║ новая редакция получает соседнюю."
       echo "║"
-      echo "║ Норма: .claude/rules/change-graph.md §Вердикт привязан"
+      echo "║ Норма: .claude/rulebook/change-graph.md §Вердикт привязан"
       echo "╚═════════════════════════════════════════════════════════════════"
     } >&2
     exit 2
@@ -112,7 +112,7 @@ case "$REL" in
       echo "║   ./scripts/adapter-gate/run-all.sh       # сверить с деревом"
       echo "║"
       echo "║ Владение: .claude/adapters.yaml"
-      echo "║ Норма: .claude/rules/change-graph.md §Оснастка"
+      echo "║ Норма: .claude/rulebook/change-graph.md §Оснастка"
       echo "╚═════════════════════════════════════════════════════════════════"
     } >&2
     exit 2
@@ -161,7 +161,7 @@ case "$RC" in
       echo "║ Отслеживаемое производное обязано совпадать с регенерацией"
       echo "║ побайтово: иначе расхождение входа и выхода не обнаруживается"
       echo "║ ничем, а выход читается как утверждение об оснастке."
-      echo "║ Норма: .claude/rules/change-graph.md §Оснастка"
+      echo "║ Норма: .claude/rulebook/change-graph.md §Оснастка"
       echo "╚═════════════════════════════════════════════════════════════════"
     } >&2
     exit 2

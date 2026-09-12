@@ -773,14 +773,14 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
   **Usage:** when `godzila` says "register the converter in `init()`" and you need to see how it
   is done in this codebase, open the note for the package or resource you are touching — a note
   states which revision it was verified against, so you can tell a fresh fact from a stale one.
-  Read one or two narrow notes, not the whole category (`.claude/rules/vault.md`: more than
+  Read one or two narrow notes, not the whole category (`.claude/rulebook/vault.md`: more than
   three vault files means the scope is wrong).
 
 ### 20.3 Companion sub-agents — delegate narrow subtasks
 
 When the work fits a specialist, delegate to them instead of doing it inline. All agents live in
 a single place — `.claude/agents/` of the workspace; there are no copies inside the product
-checkout, and no rollout mechanism that would put them there (`.claude/rules/ai-tooling.md`
+checkout, and no rollout mechanism that would put them there (`.claude/rulebook/ai-tooling.md`
 §«Модель распространения»). The roster below is the generic half of it:
 
 - **Acceptance / planning:** `acceptance-author`, `acceptance-reviewer` — the gate to start coding (no implementation without an approved Given-When-Then doc).
@@ -792,7 +792,7 @@ checkout, and no rollout mechanism that would put them there (`.claude/rules/ai-
 Domain-specific agents are named after the domain (`vpc-*`, `compute-*`, `<svc>-load-testing`)
 and are meant to sit next to the generic ones. **None of them exists in the tree today** — the
 count is 15 tracked agent files, all generic — so do not plan a step around one; the canonical
-roster is `.claude/rules/ai-tooling.md` §«Канонические агенты», which derives the domain list
+roster is `.claude/rulebook/ai-tooling.md` §«Канонические агенты», which derives the domain list
 from the service directories rather than writing it out. (The name this line used to carry was
 retired for a different reason: it compared us to another cloud, which ban #2 forbids.)
 
@@ -800,7 +800,8 @@ retired for a different reason: it compared us to another cloud, which ban #2 fo
 
 ### 20.4 Workspace-wide rules that always apply
 
-- **Workspace `CLAUDE.md`** plus the rule modules it `@import`s (`.claude/rules/*.md`) — the
+- **Workspace `CLAUDE.md`** plus the core it `@import`s (`.claude/rules/*.md`); the fourteen
+  modular rules live in `.claude/rulebook/` and are read on demand, not auto-loaded — the
   non-negotiables live in `.claude/rules/00-kacho-core.md` and there are **16** of them, not the
   eleven this line used to promise: the list grew, and a count written out by hand does not grow
   with it. Read the file, do not trust a number quoted about it — including this one.

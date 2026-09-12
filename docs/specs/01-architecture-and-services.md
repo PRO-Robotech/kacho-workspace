@@ -267,7 +267,7 @@ api-gateway — единственная edge-поверхность; backend к
 > из них не Internal (сверено с proto дерева 1653387b, 2026-08-06)
 > Каталог размещения вынесен в **geo** (KAC-эпик #82), и его **чтение публично** —
 > `RegionService`/`ZoneService` объявлены project-scope EXEMPT (authN обязателен,
-> `.claude/rules/security.md` §«AuthN+AuthZ ВЕЗДЕ», задокументированное исключение).
+> `.claude/rulebook/security.md` §«AuthN+AuthZ ВЕЗДЕ», задокументированное исключение).
 > `DiskType` принадлежит **storage** и тоже читается публично (`/storage/v1/diskTypes`).
 > Прежняя редакция была неверна трижды — в сервисе-владельце, в маршрутах и в том, что
 > объявляла эти ресурсы Internal.

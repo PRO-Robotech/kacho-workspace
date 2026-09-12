@@ -16,7 +16,7 @@
 # удаляет, гейт не считает его лишним и — несущее требование — чужой пакет
 # НЕ МАСКИРУЕТ расхождение владеемого.
 #
-# Норма — `.claude/rules/change-graph.md` §Оснастка. Гейт —
+# Норма — `.claude/rulebook/change-graph.md` §Оснастка. Гейт —
 # `scripts/adapter-gate/run-all.sh`. Генератор — `scripts/adapter/generate.py`.
 schema_version: 1
 
@@ -32,6 +32,7 @@ canonical_inputs:
   - .claude/rules
   - .claude/skills
   - .claude/settings.json
+  - .claude/rulebook
 
 # Пространства, внутри которых адаптер отвечает за КАЖДЫЙ отслеживаемый файл.
 # Отслеживаемый файл здесь, не названный в `owned_outputs`, — лишний выход.
@@ -82,6 +83,7 @@ owned_outputs:
   - .agents/skills/testing-product-coach/SKILL.md
   - .agents/skills/verdict-and-landing/SKILL.md
   - .codex/agents/acceptance-author.toml
+  - .codex/agents/wave-reviewer.toml
   - .codex/agents/acceptance-reviewer.toml
   - .codex/agents/api-gateway-registrar.toml
   - .codex/agents/class-exposure-analyst.toml

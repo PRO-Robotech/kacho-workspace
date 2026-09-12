@@ -16,7 +16,7 @@ tags:
 > Замер: продукт `PRO-Robotech/kacho@96b2879a` (ветка `agent/ci-github-hosted-runners`;
 > ствол редизайна `redesign/integration` — её предок). Единица счёта названа у каждого
 > числа. Записка описывает **топологию и рёбра**; нормативный источник —
-> `.claude/rules/polyrepo.md`, и при расхождении верно оно, а не эта страница.
+> `.claude/rulebook/polyrepo.md`, и при расхождении верно оно, а не эта страница.
 
 ## Топология: ОДНО репозиторий продукта, а не пятнадцать
 
@@ -132,7 +132,7 @@ graph LR
   рёбра **между доменами Kachō**, а это ребро к внешней системе.
 
 Поимённый регламент каждого ребра (протокол, срок, поведение при отказе, история) —
-`.claude/rules/polyrepo.md` §«Runtime cross-domain edges» и категория `edges/` этого vault.
+`.claude/rulebook/polyrepo.md` §«Runtime cross-domain edges» и категория `edges/` этого vault.
 
 ## Чего в дереве НЕТ, а прежняя редакция рисовала диаграммами
 
@@ -178,7 +178,7 @@ feature-ветке снят: пиннить нечего.
 ## См. также
 
 - [[README|vault hub]] · [[INDEX|алфавитный индекс]] · [[architecture.canvas|полотно]]
-- `.claude/rules/polyrepo.md` — нормативная топология, рёбра, порядок работы
-- `.claude/rules/data-integrity.md` — кросс-доменные ссылки, компенсация саг, размещение
+- `.claude/rulebook/polyrepo.md` — нормативная топология, рёбра, порядок работы
+- `.claude/rulebook/data-integrity.md` — кросс-доменные ссылки, компенсация саг, размещение
 
 #architecture #dependencies #polyrepo

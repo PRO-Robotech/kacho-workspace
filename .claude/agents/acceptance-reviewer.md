@@ -31,12 +31,12 @@ per-repo `project/<repo>/docs/specs/`) и пометил «Draft, на ревь�
 - Сам acceptance-документ.
 - `kacho-workspace/docs/specs/00..04` — единый источник истины спеки;
   `04-roadmap-and-phasing.md §3` определяет scope sub-итерации.
-- Канонические правила (НЕ дублируй в отзыве — ссылайся): `@.claude/rules/api-conventions.md`
-  (форма ресурса, error-format, update_mask), `@.claude/rules/architecture.md` (Clean
-  Architecture, запреты), `@.claude/rules/data-integrity.md` (within-service инварианты на
-  DB-уровне), `@.claude/rules/security.md` (Internal-vs-public, инфра-данные),
-  `@.claude/rules/testing.md` (TDD, integration+newman), `@.claude/rules/polyrepo.md`
-  (proto-центр, кросс-репо порядок), `@.claude/rules/git-issues.md`.
+- Канонические правила (НЕ дублируй в отзыве — ссылайся): `@.claude/rulebook/api-conventions.md`
+  (форма ресурса, error-format, update_mask), `@.claude/rulebook/architecture.md` (Clean
+  Architecture, запреты), `@.claude/rulebook/data-integrity.md` (within-service инварианты на
+  DB-уровне), `@.claude/rulebook/security.md` (Internal-vs-public, инфра-данные),
+  `@.claude/rulebook/testing.md` (TDD, integration+newman), `@.claude/rulebook/polyrepo.md`
+  (proto-центр, кросс-репо порядок), `@.claude/rulebook/git-issues.md`.
 - Существующий код репо (опционально, через grep) — понять, что уже есть.
 
 ## 4. Чек-лист ревью

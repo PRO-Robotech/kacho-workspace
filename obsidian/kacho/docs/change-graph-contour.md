@@ -34,7 +34,8 @@ tags:
 (Issue #480 владеет «зачем», приоритетом и живым состоянием).
 
 > [!important] Эта записка — КАРТА, а не норма и не приёмка
-> Норму для инженера держит `.claude/rules/change-graph.md` (`@import` в каждую сессию);
+> Норму для инженера держит `.claude/rulebook/change-graph.md` (свод читается **файлом по
+> требованию**, а не `@import`-ом в каждую сессию);
 > наблюдаемое поведение и перечень кейсов — приёмка
 > `docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md`; что меняется в главе о
 > процессе — `docs/specs/04-roadmap-and-phasing.md` §2.7. Здесь их содержание **не
@@ -54,7 +55,7 @@ tags:
 | перепись legacy | `docs/changes/census/` | там же |
 | испытуемый и его матрица | `scripts/change-graph-gate/` | `git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/ \| wc -l` → **1097** файлов |
 | владение производным оснастки | `.claude/adapters.yaml` | `ls .claude/adapters.yaml` |
-| модуль правил | `.claude/rules/change-graph.md` | `git grep -c change-graph CLAUDE.md` |
+| модуль правил | `.claude/rulebook/change-graph.md` | `git grep -c change-graph CLAUDE.md` |
 
 **Пакетов изменения `docs/changes/<change-id>/` в дереве ноль** — первый заводится первым
 изменением, идущим по контуру. Предикат:
@@ -80,7 +81,7 @@ tags:
   самого SDD-1 §4 говорит отдельной фразой — читать её надо там, здесь она не
   воспроизводится;
 - **обязательность контура начинается с cutover, не раньше** — до него работа идёт прежним
-  укладом (`.claude/rules/git-issues.md`, `.claude/rules/multi-agent-flow.md`). Читать это
+  укладом (`.claude/rulebook/git-issues.md`, `.claude/rulebook/multi-agent-flow.md`). Читать это
   надо из `docs/changes/policy.yaml`, а не из даты записки.
 
 ## Чем контур держится
@@ -96,7 +97,7 @@ tags:
   регенерацией побайтово; владение объявлено в `.claude/adapters.yaml`;
 - **напоминание в момент правки** — хук `change-graph-reminder.sh` (`PostToolUse`), одна из
   **8** провязок `.claude/settings.json` (`grep -c 'hooks/.*\.sh' .claude/settings.json` → 8;
-  то же число называет `.claude/rules/multi-agent-flow.md` §8). Единица здесь — **провязка,
+  то же число называет `.claude/rulebook/multi-agent-flow.md` §8). Единица здесь — **провязка,
   а не скрипт**: различных скриптов **7**
   (`grep -o '\.claude/hooks/[a-z-]*\.sh' .claude/settings.json | sort -u | wc -l`), потому
   что `docfresh.sh` провязан дважды. По порядку в файле этот вызов **шестой** — порядковым

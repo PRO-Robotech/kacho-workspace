@@ -14,7 +14,7 @@ description: Use when a new goose SQL migration is needed for any kacho-* servic
 
 Инварианты целостности — DB-уровень обязателен (ban #10): ссылки/уникальность/range/
 CAS выражаются FK/UNIQUE/EXCLUDE/CHECK/conditional-UPDATE, не software-side TOCTOU.
-Полный регламент — `@.claude/rules/data-integrity.md`. Cross-service FK запрещён
+Полный регламент — `@.claude/rulebook/data-integrity.md`. Cross-service FK запрещён
 (DB-per-service, ban #4/#8) — чужой id хранится как `TEXT` без FK, валидируется
 peer-API в коде сервиса.
 
@@ -97,9 +97,9 @@ CHECK-constraint'ы — **inline с CREATE TABLE**, не post-hoc `ALTER … ADD
 `generation`, `finalizers`. Нет иерархии folder/cloud/organization — единственный
 owner-scope `project_id` (TEXT, cross-service ref → `kacho-iam.Project`, без FK).
 Async-мутации возвращают `Operation` из общей `operations`-таблицы corelib. Конвенции
-API — `@.claude/rules/api-conventions.md`.
+API — `@.claude/rulebook/api-conventions.md`.
 
-### 4.4 DB-инварианты — выбор механизма (`@.claude/rules/data-integrity.md`)
+### 4.4 DB-инварианты — выбор механизма (`@.claude/rulebook/data-integrity.md`)
 
 | Инвариант | Механизм |
 |---|---|
@@ -182,9 +182,9 @@ ON CONFLICT (id) DO NOTHING;
   окне; перепись потребителей снимаемого — по имени механизма, а не по диффу) и числа,
   которые надо получить ДО, потому что применённую миграцию не редактируют (ban #5).
 - `db-architect-reviewer` — ревьюит сложные миграции (новые EXCLUDE/partial-UNIQUE/
-  trigger/CAS-related констрейнты) против `@.claude/rules/data-integrity.md`.
+  trigger/CAS-related констрейнты) против `@.claude/rulebook/data-integrity.md`.
 - Integration-тест на новый инвариант (testcontainers, concurrent-race на спорный путь)
-  обязателен в том же PR (`@.claude/rules/testing.md`, ban #12).
+  обязателен в том же PR (`@.claude/rulebook/testing.md`, ban #12).
 
 ## 8. Проектные правила
 
@@ -194,5 +194,5 @@ ON CONFLICT (id) DO NOTHING;
 - Таблицы — snake_case, множественное (`networks`, `instances`); индексы — `<table>_<cols>_idx`;
   триггеры — `<table>_<desc>_trg`; констрейнты — `<table>_<desc>_{uniq,fk,chk}`.
 - id — `text PRIMARY KEY` (prefix+crockford-base32 из `kacho-corelib/ids`, задаётся приложением).
-- Reference: `@.claude/rules/data-integrity.md`, `@.claude/rules/api-conventions.md`,
+- Reference: `@.claude/rulebook/data-integrity.md`, `@.claude/rulebook/api-conventions.md`,
   `project/<repo>/CLAUDE.md`, vault `resources/<repo>-<X>.md`.

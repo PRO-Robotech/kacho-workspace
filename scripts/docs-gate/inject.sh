@@ -23,16 +23,20 @@ WS="$(cd "$HERE/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-sandbox_seq=0
-
-# mksandbox [путь-который-выбросить] — печатает путь свежей песочницы.
+# mksandbox [путь-который-выбросить] — печатает путь СВЕЖЕЙ песочницы.
 # Состав берётся ровно тем же предикатом, что и у самих проверок:
 # `--cached --others --exclude-standard`.
+#
+# Имя даёт `mktemp`, а НЕ счётчик. Прежняя редакция наращивала переменную внутри
+# функции, а функция зовётся подстановкой команды — то есть в ПОДОБОЛОЧКЕ, где
+# приращение не переживает возврата. Счётчик оставался нулём, и КАЖДЫЙ вызов
+# отдавал один и тот же каталог: песочницы не были изолированы друг от друга, и
+# проба, взявшая свою переменную после чужого `mksandbox`, молча читала ЧУЖОЙ
+# вход. Класс поймался собой же — так упала проба запасного пути ниже. Форма
+# `mktemp -d -p` — та же, что у соседнего `inject-04.sh`.
 mksandbox() {
-    local drop="${1:-}"
-    sandbox_seq=$((sandbox_seq + 1))
-    local dir="$TMP/s$sandbox_seq"
-    mkdir -p "$dir"
+    local drop="${1:-}" dir
+    dir="$(mktemp -d -p "$TMP" s.XXXXXX)"
     ( cd "$WS" && git ls-files --cached --others --exclude-standard -z ) \
         | ( cd "$WS" && xargs -0 tar cf - ) \
         | ( cd "$dir" && tar xf - )
@@ -213,7 +217,7 @@ run 0 "$b" "близнец: файл и имя проверки резолвят
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`internal/repohygiene/nosuchgate_test.go\` :: \`$REAL_TEST\` |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
-run 1 "$b" "инъекция: файла нет в индексе монорепо — краснеет и называет путь" \
+run 1 "$b" "инъекция: файла нет на стволе продукта — краснеет и называет путь" \
     check-03-holding-claim-resolves.py "nosuchgate_test.go"
 
 # Предмет всей проверки: файл СУЩЕСТВУЕТ, а названной в нём проверки нет. Именно
@@ -286,6 +290,122 @@ printf '# Приёмка без таблицы состояния\n\n> **Ста�
 git -C "$b" add -A -f >/dev/null 2>&1
 run 2 "$b" "предпосылка: таблиц состояния нет — VOID, а не успех" \
     check-03-holding-claim-resolves.py
+
+# ── ВЕРДИКТ НЕ ЕСТЬ ФУНКЦИЯ ТОГО, НА ЧТО ПЕРЕКЛЮЧЕНА КОПИЯ (ws#543) ──────────
+#
+# Копия продукта ОБЩАЯ, и её ревизию переключает соседняя сессия. Проверка,
+# читавшая её индекс, объявляла несуществующими координаты, которые в стволе
+# ЕСТЬ: копия стояла на релизной линии, где каталог службы переименован. Отправка
+# блокировалась работой, к которой отправляющий не причастен.
+#
+# Доказывается это ПАРОЙ ПРОГОНОВ НА ОДНОМ ДЕРЕВЕ В ДВУХ СОСТОЯНИЯХ, а не одним:
+# «молчит на стволе» отдельно ничего не утверждает — молчала бы и проверка,
+# читающая копию, если копия и есть ствол. Свойство здесь — РАВЕНСТВО ИСХОДОВ.
+#
+# Дерево синтетическое и строится здесь же: зависеть от того, куда сегодня
+# переключена настоящая копия, эта проба не вправе — иначе её вход есть то самое
+# состояние, независимость от которого она доказывает.
+mkprod() { # → путь к синтетическому дереву продукта, выписанному на ЛИНИИ
+    local dir
+    dir="$(mktemp -d -p "$TMP" prod.XXXXXX)"
+    git -C "$dir" init -q
+    mkdir -p "$dir/internal/repohygiene"
+    printf 'package repohygiene\n\nfunc TestSyntheticTrunkProbe(t *testing.T) {}\n' \
+        > "$dir/internal/repohygiene/probe_test.go"
+    git -C "$dir" add -A -f >/dev/null 2>&1
+    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
+        commit -qm 'синтетический ствол продукта' >/dev/null 2>&1
+    git -C "$dir" update-ref refs/remotes/origin/main HEAD
+    # Линия: каталог переименован — ровно то, что дала линия выноса службы, — и
+    # рядом заведён файл, которого в стволе нет вовсе.
+    git -C "$dir" checkout -q -b line
+    git -C "$dir" mv internal/repohygiene/probe_test.go \
+                     internal/repohygiene/renamed_test.go
+    printf 'package repohygiene\n\nfunc TestSyntheticLineOnly(t *testing.T) {}\n' \
+        > "$dir/internal/repohygiene/lineonly_test.go"
+    git -C "$dir" add -A -f >/dev/null 2>&1
+    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
+        commit -qm 'линия: каталог переименован' >/dev/null 2>&1
+    printf '%s' "$dir"
+}
+
+# runm <монорепо> <ожидаемый-код> <песочница> <имя> <скрипт> [подстрока]
+runm() {
+    local mono="$1" saved="${KACHO_MONOREPO:-}"
+    shift
+    export KACHO_MONOREPO="$mono"
+    run "$@"
+    export KACHO_MONOREPO="$saved"
+}
+
+PROD="$(mkprod)"
+TRUNK_FILE="internal/repohygiene/probe_test.go"
+TRUNK_TEST="TestSyntheticTrunkProbe"
+LINE_FILE="internal/repohygiene/lineonly_test.go"
+LINE_TEST="TestSyntheticLineOnly"
+
+# Вход обеих решающих проб один и тот же — координата ствола.
+b_trunk="$(mksandbox docs/specs)"; mkdir -p "$b_trunk/docs/specs"
+spec "| XC-99-01 | держится | \`$TRUNK_FILE\` :: \`$TRUNK_TEST\` |" > "$b_trunk/$SPEC"
+git -C "$b_trunk" add -A -f >/dev/null 2>&1
+
+runm "$PROD" 0 "$b_trunk" \
+    "решающая (1/2): копия НА ЛИНИИ, координата ствола — молчит" \
+    check-03-holding-claim-resolves.py "копия ОПЕРЕЖАЕТ его"
+
+git -C "$PROD" checkout -q --detach refs/remotes/origin/main
+runm "$PROD" 0 "$b_trunk" \
+    "решающая (2/2): та же копия НА СТВОЛЕ, тот же вход — тот же исход" \
+    check-03-holding-claim-resolves.py "копия вровень с ним"
+git -C "$PROD" checkout -q line
+
+# Обратная сторона: координата, живая ТОЛЬКО в рабочей копии. Без этой пробы
+# «исходы равны» доказывалось бы и проверкой, которая не смотрит никуда.
+b_line="$(mksandbox docs/specs)"; mkdir -p "$b_line/docs/specs"
+spec "| XC-99-01 | держится | \`$LINE_FILE\` :: \`$LINE_TEST\` |" > "$b_line/$SPEC"
+git -C "$b_line" add -A -f >/dev/null 2>&1
+
+runm "$PROD" 1 "$b_line" \
+    "обратная (1/2): координата есть В КОПИИ и нет в стволе — краснеет и называет путь" \
+    check-03-holding-claim-resolves.py "$LINE_FILE"
+git -C "$PROD" checkout -q --detach refs/remotes/origin/main
+runm "$PROD" 1 "$b_line" \
+    "обратная (2/2): та же копия на стволе — тот же красный исход" \
+    check-03-holding-claim-resolves.py "$LINE_FILE"
+git -C "$PROD" checkout -q line
+
+# Содержимое ФАЙЛА тоже берётся со ствола, а не с диска. Файл в копии на линии
+# переименован, то есть по этому пути его на диске НЕТ; проверка, читавшая диск,
+# сказала бы «файлов .go не названо» — диагностика, посылающая искать не там.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`$TRUNK_FILE\` :: \`TestNoSuchNameInTrunkFile\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runm "$PROD" 1 "$b" \
+    "содержимое: файл ствола есть, проверки в нём нет — краснеет и называет ИМЯ" \
+    check-03-holding-claim-resolves.py "TestNoSuchNameInTrunkFile"
+
+# Зеркало против вакуумного молчания: координаты нет НИ в стволе, НИ в копии.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`internal/repohygiene/nowhere_test.go\` :: \`$TRUNK_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runm "$PROD" 1 "$b" \
+    "зеркало: координаты нет нигде — краснеет" \
+    check-03-holding-claim-resolves.py "nowhere_test.go"
+
+# Ствола в клоне нет вовсе — судится индекс копии, и перепись ГОВОРИТ это, а не
+# подставляет молча. Без этой пробы запасной путь был бы невидим.
+NOTRUNK="$(mktemp -d -p "$TMP" notrunk.XXXXXX)"
+git -C "$NOTRUNK" init -q
+mkdir -p "$NOTRUNK/internal/repohygiene"
+printf 'package repohygiene\n\nfunc %s(t *testing.T) {}\n' "$TRUNK_TEST" \
+    > "$NOTRUNK/$TRUNK_FILE"
+git -C "$NOTRUNK" add -A -f >/dev/null 2>&1
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spec "| XC-99-01 | держится | \`$TRUNK_FILE\` :: \`$TRUNK_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runm "$NOTRUNK" 0 "$b" \
+    "запасной путь: ствол не резолвится — судится индекс копии, и это НАЗВАНО" \
+    check-03-holding-claim-resolves.py "НЕ РЕЗОЛВИТСЯ"
 
 # Предпосылка второго рода: без дерева продукта координату проверять не по чему.
 probes=$((probes + 1))
@@ -431,9 +551,18 @@ TRUNK_ONLY_TEST="TestValueOfEmptySliceIsStillADeclaration"
 PARKED_ONLY_FILE="internal/repohygiene/catalogsplicewiring_test.go"
 PARKED_ONLY_TEST="TestCatalogSpliceGateIsCalledByThePipeline"
 
-# mkprod — дерево продукта, где ствол и припаркованная вершина расходятся ОДНИМ
-# фактом на каждой оси. Печатает путь.
-mkprod() {
+# mkprod_lane — дерево продукта, где ствол и припаркованная вершина расходятся
+# ОДНИМ фактом на каждой оси. Печатает путь.
+#
+# ИМЯ ОТЛИЧАЕТСЯ ОТ `mkprod` ВЫШЕ НАМЕРЕННО. При сведении линий ws#622 обе работы
+# принесли в ЭТОТ файл функцию с именем `mkprod`, и git не сказал ничего: куски не
+# перекрывались, конфликта не было, каждая линия по отдельности исполнялась верно.
+# Работало это лишь порядком объявлений — bash определяет функции по ходу, поэтому
+# вызов до второго `mkprod()` получал первое определение, а после — второе. Одно
+# имя с двумя смыслами в одном файле; читатель различить их не может, а первая
+# перестановка блоков сломала бы пробы молча (`multi-agent-flow.md` §14,
+# «столкновение имён»).
+mkprod_lane() {
     sandbox_seq=$((sandbox_seq + 1))
     local dir="$TMP/p$sandbox_seq"
     product_fixture_init "$dir"
@@ -491,7 +620,7 @@ echo "== check-03: полоса чтения дерева продукта — �
 # Копия при этом припаркована в стороне, и в её индексе этого файла нет вовсе:
 # прежняя полоса объявляла такую претензию непроверяемой (ровно 11 претензий
 # приёмки XC-11), новая — молчит.
-prod="$(mkprod)"
+prod="$(mkprod_lane)"
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`$TRUNK_ONLY_FILE\` :: \`$TRUNK_ONLY_TEST\` |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
@@ -506,7 +635,7 @@ runp 0 "$b" "$prod" "то же на копии, ВЕРНУТОЙ на ствол
 # ПРОГОН 2 — ИНЪЕКЦИЯ НОВОГО СВОЙСТВА. Координата есть В ИНДЕКСЕ припаркованной
 # копии и НЕТ на стволе. Прежняя полоса молчала (файл на диске лежит), новая —
 # находка, и находка называет СВОЮ полосу, а прежнее утверждение молчит.
-prod="$(mkprod)"
+prod="$(mkprod_lane)"
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`$PARKED_ONLY_FILE\` :: \`$PARKED_ONLY_TEST\` |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
@@ -516,7 +645,7 @@ runp 1 "$b" "$prod" "инъекция НОВОГО: координата тол�
 # ПРОГОН 3 — ИНЪЕКЦИЯ СУЩЕСТВУЮЩЕГО утверждения. Файл на стволе есть, имени
 # проверки строка не называет. Краснеет ПРЕЖНЕЕ утверждение, полоса ствола молчит:
 # без этого прогона её молчание было бы неотличимо от молчания мёртвой.
-prod="$(mkprod)"
+prod="$(mkprod_lane)"
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`$TRUNK_ONLY_FILE\` — участник назван поимённо |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
@@ -526,7 +655,7 @@ runp 1 "$b" "$prod" "инъекция СТАРОГО: файл на стволе
 # Ось, названная отдельно: координата ВЫДУМАННАЯ — её нет ни на стволе, ни в
 # индексе. Полоса обязана остаться находкой и после выравнивания: иначе «судим по
 # стволу» стало бы способом не судить вовсе.
-prod="$(mkprod)"
+prod="$(mkprod_lane)"
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`pkg/vydumannyy/net_takogo_test.go\` :: \`TestNetTakogo\` |" > "$b/$SPEC"
 git -C "$b" add -A -f >/dev/null 2>&1
@@ -537,7 +666,7 @@ runp 1 "$b" "$prod" "выдуманная координата — находк�
 # находка — объявить претензии непроверяемыми потому, что мы не нашли, у чего
 # спросить, значит выдать «не выполнилось» за вердикт. Индекс копии при этом на
 # месте и координату бы «подтвердил» — тем ценнее, что отката на него нет.
-prod="$(mkprod)"
+prod="$(mkprod_lane)"
 product_fixture_drop_trunk "$prod"
 b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
 spec "| XC-99-01 | держится | \`$PARKED_ONLY_FILE\` :: \`$PARKED_ONLY_TEST\` |" > "$b/$SPEC"

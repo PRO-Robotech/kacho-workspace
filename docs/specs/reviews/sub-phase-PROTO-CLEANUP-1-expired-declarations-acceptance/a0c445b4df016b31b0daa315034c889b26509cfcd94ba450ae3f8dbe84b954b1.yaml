@@ -1,0 +1,65 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-PROTO-CLEANUP-1-expired-declarations-acceptance.md
+  sha256: a0c445b4df016b31b0daa315034c889b26509cfcd94ba450ae3f8dbe84b954b1
+  revision: 2
+  static_status: DRAFT
+  base_commit: a9db2f6c701d65dd18bf1da07d85c07a034b9daa
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor cutover_commit base_commit in PRO-Robotech/kacho-workspace
+    returned 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: a9db2f6c701d65dd18bf1da07d85c07a034b9daa
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+event:
+  type: issue_comment
+  database_id: 5594475212
+  node_id: IC_kwDOTZqgWM8AAAABTXTqzA
+  url: https://github.com/PRO-Robotech/kacho/issues/2410#issuecomment-5594475212
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5594475212
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2410
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-09T01:41:42Z'
+  updated_at: '2026-09-09T01:41:42Z'
+  body_sha256: e584c31b1bb0688886a585d1067a73deb1d5cce5a6451d89044f618d7bd99244
+  subject_sha256: a0c445b4df016b31b0daa315034c889b26509cfcd94ba450ae3f8dbe84b954b1
+  verdict: APPROVED
+attribution:
+  reviewer_kind: codex_agent
+  assigned_agent: /root/break_cleanup_review
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  report_sha256: 6bf30fd60139d078abb305db15b695a16b8ac28a86093ec801753a11ff819c7b
+scope:
+  reviewed: Revision 2 of PROTO-CLEANUP-1; all 13 GWT scenarios, exact ID-to-holder traceability,
+    correction of scenario 13 to distinguish an executed check, a push that does not trigger
+    the workflow, and a direct entrypoint boundary probe. The four obligations of the accepted
+    issue 2410 decision remain covered, including the mandatory red adjudication until merge.
+  product_revision: 8e7394e6af3e675d775b5534e7fd5d7a06019cde
+  full_acceptance_document_read: true
+  prepared_buf_fixture_inputs_unchanged: true
+  fixture_seeding_repeated: false
+  implementation_completion_claimed: false
+  credential_readiness_claimed: false
+  external_smoke_completion_claimed: false
+verification:
+  method: GET /repos/PRO-Robotech/kacho/issues/comments/5594475212
+  verified_at: '2026-09-09T01:43:00Z'
+  published_body_matches_agent_review_text: true
+  subject_digest_matches_current_document: true
+  body_subject_and_verdict_match: true
+  policy_matches_base_commit: true

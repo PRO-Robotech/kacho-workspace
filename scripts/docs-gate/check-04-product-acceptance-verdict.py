@@ -42,10 +42,16 @@ acceptance-дока» — один на весь продукт, а домов �
 (`multi-agent-flow.md` §8): вердикт выносится по стволу, отставание копии
 называется ЧИСЛОМ.
 
-Ствол резолвит ОДИН на оба набора `scripts/lib/product_trunk.py`. Выписанный
-`origin/main` был здесь третьим кодеком об одном предмете и не спрашивал о
-РОДСТВЕ кандидата: у общей копии продукта рядом с `origin` стоит удалённый на
-архив прежнего полирепо, чья история с деревом не пересекается (ws#621).
+Ствол резолвит ОДИН на все читатели — `_lib.trunk` (`_lib.TRUNK_REF`), и это
+ИМЕННО ОДНА ВЫПИСАННАЯ ССЫЛКА, а не отбор среди кандидатов. Отбор здесь был
+(ws#621: «взять кандидата, у которого больше всего коммитов вне HEAD») и снят
+замером: он требовал ещё и фильтра РОДСТВА, потому что у общей копии продукта
+рядом с `origin` стоит удалённый на архив прежнего полирепо, чья история с деревом
+не пересекается, — и без фильтра архив выигрывал отбор тем увереннее, чем дальше
+он от дерева. То есть машинерия отбора решала задачу, которую сама же и завела, и
+сходилась ровно к `origin/main`. Одна ссылка даёт тот же ответ без неё, и это та
+же ссылка, что читают остальные три читателя, — второй резолвер разошёлся бы с
+первым молча.
 
 СТВОЛ НЕ РАЗРЕШЁН — ТРЕТЬЯ КАТЕГОРИЯ, А НЕ ОТКАТ НА ИНДЕКС. Прежняя редакция
 судила тогда индекс копии, говоря это переписью. Довод «сказали прямо» не держит:
@@ -64,7 +70,6 @@ acceptance-дока» — один на весь продукт, а домов �
 объявления (каждая названа); 2 — читать нечего.
 """
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -78,16 +83,10 @@ BY_DIR = "приёмка в каталоге `acceptance/`"
 BY_NAME = "имя `*-acceptance.md`"
 
 
-def _git(repo, args):
-    out = subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True)
-    return out.stdout if out.returncode == 0 else None
-
-
 def product_docs(repo, ref):
     """[(путь, форма)] — приёмки дерева продукта НА СТВОЛЕ."""
-    raw = _git(repo, ["ls-tree", "-r", "--name-only", ref]) or ""
     found = []
-    for rel in sorted(set(p for p in raw.split("\n") if p.endswith(".md"))):
+    for rel in sorted(p for p in _lib.trunk_files(repo, ref) if p.endswith(".md")):
         parts = rel.split("/")
         if "acceptance" in parts[:-1]:
             found.append((rel, BY_DIR))
@@ -99,7 +98,7 @@ def product_docs(repo, ref):
 def _read(repo, ref, rel):
     """Содержимое приёмки НА СТВОЛЕ. Диск не читается: он отвечает о том, на чём
     копия стоит сейчас, а припаркованная копия файла может не нести вовсе."""
-    return _git(repo, ["show", "%s:%s" % (ref, rel)])
+    return _lib.trunk_show(repo, ref, rel)
 
 
 def main():
@@ -110,18 +109,19 @@ def main():
                         "project/kacho) — второй дом приёмок читать не в чем")
         return 2
 
-    t = _lib.trunk(repo)
-    if t.ref is None:
-        _lib.void(NAME, "ствол дерева продукта (%s) не разрешён — искали: %s. Вердикт "
+    prov = _lib.provenance(repo)
+    ref = prov["ref"]
+    if not ref:
+        _lib.void(NAME, "ствол дерева продукта (%s) не резолвится в клоне %s. Вердикт "
                         "второго дома приёмок выносить не по чему; индекс рабочей копии "
                         "полосой НЕ является: припаркованная копия несёт не тот состав, а "
-                        "строка «осмотрено N» выглядит одинаково уверенно при любом N"
-                        % (repo, ", ".join(t.candidates) or "нечего"))
+                        "строка «осмотрено N» выглядит одинаково уверенно при любом N. "
+                        "Условие создаётся так: git -C %s fetch origin main"
+                        % (_lib.TRUNK_REF, repo, repo))
         return 2
 
-    ref = t.ref
     docs = product_docs(repo, ref)
-    where = _lib.where(repo, t)
+    where = _lib.provenance_line(repo, prov)
 
     if not docs:
         _lib.void(NAME, "в дереве продукта (%s) приёмок не найдено ни одной из "

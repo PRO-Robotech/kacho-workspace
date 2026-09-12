@@ -13,6 +13,7 @@ canonical_inputs:
 - .claude/rules
 - .claude/skills
 - .claude/settings.json
+- .claude/rulebook
 generated_coordinates:
 - /home/fixture/absolute/AGENTS.md
 - .agents/skills/evgeniy/SKILL.md

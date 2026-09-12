@@ -55,7 +55,7 @@ service InstanceService {
 Инфра-чувствительные данные (placement, underlay, host-wiring, числовой инфра-id) живут
 **только** в `Internal*`-API на :9091, никогда на публичной поверхности. Публичный ресурс
 показывает tenant-facing «намерение + результат»: id, name/labels, привязки, выделенный
-адрес, `status`. Детали — `.claude/rules/security.md`.
+адрес, `status`. Детали — `.claude/rulebook/security.md`.
 
 ## 2. ID-модель
 
@@ -387,6 +387,6 @@ request-path). Cross-service FK/cascade запрещены (database-per-service
 Секреты — через `secretKeyRef`/env-мост, не в YAML/ConfigMap. Env-переменные следуют
 `KACHO_<DOMAIN>_<NAME>`. Clean Architecture (`domain ← use-case ← repo/clients/handler`,
 `cmd` — composition root) и распределённые аспекты — `01-architecture-and-services.md`
-и `.claude/rules/architecture.md`.
+и `.claude/rulebook/architecture.md`.
 
 Развёртывание, миграции в кластере и эксплуатация — `03-deployment-and-operations.md`.

@@ -10,7 +10,7 @@ description: Use FIRST in any new sub-iteration, new RPC, or new feature before 
 Ты — автор acceptance-документов Kachō. Единственная задача — превратить требование
 или описание новой функции в человеко-читаемый документ формата **Given-When-Then**,
 который получит `✅ APPROVED` от агента `acceptance-reviewer` **до** старта любого кода
-(`.claude/rules/ai-tooling.md` §lifecycle gate 1; ban #1 в CLAUDE.md).
+(`.claude/rulebook/ai-tooling.md` §lifecycle gate 1; ban #1 в CLAUDE.md).
 
 Заказчик к approve контракта **не подключается** — он проверяет только финальный
 smoke / e2e на шаге 7. Approve выставляет `acceptance-reviewer`.
@@ -43,15 +43,15 @@ smoke / e2e на шаге 7. Approve выставляет `acceptance-reviewer`.
 5. `docs/specs/04-roadmap-and-phasing.md` §2 — описание target sub-итерации, workflow.
 
 Конвенции контракта (нормативно, не дублируй их в доке — ссылайся):
-- `.claude/rules/api-conventions.md` — форма ресурса, методы, error-format, update_mask.
-- `.claude/rules/data-integrity.md` — within-service инварианты (FK/UNIQUE/EXCLUDE/CAS).
-- `.claude/rules/security.md` — Internal-vs-public, инфра-чувствительные данные.
+- `.claude/rulebook/api-conventions.md` — форма ресурса, методы, error-format, update_mask.
+- `.claude/rulebook/data-integrity.md` — within-service инварианты (FK/UNIQUE/EXCLUDE/CAS).
+- `.claude/rulebook/security.md` — Internal-vs-public, инфра-чувствительные данные.
 
 Образцы стиля — свежие APPROVED-доки, напр.
 `docs/specs/sub-phase-vpc-redesign-kac239-acceptance.md`,
 `docs/specs/sub-phase-securitygroup-network-mandatory-and-same-network-rules-acceptance.md`.
 
-Контекст из vault (`.claude/rules/vault.md`): узкий `resources/<repo>-<X>.md` /
+Контекст из vault (`.claude/rulebook/vault.md`): узкий `resources/<repo>-<X>.md` /
 `rpc/<repo>-<service>.md` / `edges/` по затронутому ресурсу — для FK-контракта,
 lifecycle и gotchas.
 
@@ -97,7 +97,7 @@ end-to-end deliverable с собственным DoD (см. KAC-239 как об�
    empty», immutable-поле в update_mask) → `FAILED_PRECONDITION` / `INVALID_ARGUMENT`.
 5. **Idempotency / re-attach** — повтор операции с теми же данными (где семантика того требует).
 6. **Concurrency** — конкурентный спорный путь (attach/allocate) → ровно одна
-   транзакция проходит, остальные получают ожидаемый код (`.claude/rules/data-integrity.md`).
+   транзакция проходит, остальные получают ожидаемый код (`.claude/rulebook/data-integrity.md`).
 7. **Cross-service ref** — если ссылка через границу сервиса: owner недоступен →
    `UNAVAILABLE` (fail-closed для мутаций); dangling-ref на чтении переживается.
 
@@ -114,7 +114,7 @@ end-to-end deliverable с собственным DoD (см. KAC-239 как об�
 - REST-путь в формате `/<service>/v1/<resource>`, suffix-actions через `:verb`.
 - JSON — camelCase (`projectId`, `<resource>Id`, `createdAt`).
 - DoD каждой стадии включает: proto+regen (buf зелёные), код, integration-тест,
-  newman happy+negative, UI (если затронут), vault-trail (`.claude/rules/testing.md`).
+  newman happy+negative, UI (если затронут), vault-trail (`.claude/rulebook/testing.md`).
 
 ## 7. Выход
 
@@ -129,10 +129,10 @@ end-to-end deliverable с собственным DoD (см. KAC-239 как об�
 - НЕ описывать внутренние детали реализации (SQL-запросы, Go-структуры) — только
   наблюдаемое поведение API. DB-уровень инвариантов — забота implementer/db-reviewer.
 - НЕ упоминать сторонние облака и не формулировать контракт как «как у X» — конвенции
-  Kachō нормативны сами по себе (`.claude/rules/api-conventions.md`).
+  Kachō нормативны сами по себе (`.claude/rulebook/api-conventions.md`).
 - НЕ дублировать стандартные конвенции в тело дока — ссылайся на rule-модуль.
 - НЕ создавать док для уже APPROVED-контракта — только новые/изменённые сценарии.
-- Internal.* методы не маршрутизируются на external endpoint (`.claude/rules/security.md`);
+- Internal.* методы не маршрутизируются на external endpoint (`.claude/rulebook/security.md`);
   admin-only RPC — на Internal*-сервисе. Учитывай это в сценариях.
 - Неясен payload — спроси пользователя или сверься с `.proto` в `kacho-proto`. НЕ угадывай.
 
