@@ -2088,8 +2088,8 @@ compose.yml` — small Go binary `mock-github-oidc` бинарь housed in `kach
 
 ### Operational
 
-- [ ] **Migration `0015_kac127_federation_rate_limits.sql`** applies cleanly: `make -C services/iam migrate-up`
-  + `make -C services/iam migrate-down` + `make -C services/iam migrate-up` — no errors.
+- [ ] **Migration `0015_kac127_federation_rate_limits.sql`** applies cleanly: в репозитория `PRO-Robotech/kaname` цели `migrate-up`
+  + `migrate-down` + `migrate-up` — no errors.
 - [ ] **Bootstrap behaviour**: при первом запуске kacho-iam — нет issues (нет policies, нет
   keys; tables пустые — sanity test).
 - [ ] **Hydra integration**: dev стенд имеет real Hydra; tests на real Hydra pass (через `make -C deploy e2e-test`).

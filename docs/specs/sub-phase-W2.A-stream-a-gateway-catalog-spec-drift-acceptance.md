@@ -64,7 +64,7 @@ W2.A — **первый из четырёх параллельных поток�
 - `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` — **281 entries** (verified 2026-05-24). Тот, что читает per-RPC authz middleware. Перекошен относительно iam-seed → роли «vpc.viewer» в iam-seed имеют permission'ы, которых нет в gateway-каталоге → authz check на gateway отдаёт fail-closed deny для тех permission'ов, которые валидно гранчены в FGA.
 - `kacho-proto/proto/.../permission_catalog.json` (gen-output из proto-source) — нет канонического «root», плагин `protoc-gen-kacho-permissions` обходит whatever `.proto` ему передан per-вызов; реальное число каталогизированных FQN — суперсет (>295 implied; будем точно знать после regen с `PermissionsCatalogRoot`).
 
-Триггерные findings #236/#273/#295 в master plan — три способа считать одну и ту же триаду drift'а. Chunk 3 ставит **ровно один** generator от **ровно одного** proto-root → **ровно один** JSON → **синхронизируется** во ВСЕ embed-локации одним `make -C services/iam sync-permission-catalog` (mirror паттерна corelib-цели `sync-migrations`). Любая drift'а ловится
+Триггерные findings #236/#273/#295 в master plan — три способа считать одну и ту же триаду drift'а. Chunk 3 ставит **ровно один** generator от **ровно одного** proto-root → **ровно один** JSON → **синхронизируется** во ВСЕ embed-локации одной целью `sync-permission-catalog` репозитория `PRO-Robotech/kaname` (mirror паттерна corelib-цели `sync-migrations`). Любая drift'а ловится
 `make -C gateway permission-catalog-check` в CI и валит build.
 
 Вторичные Chunk-3 findings (#19/#28/#29/#30/#31/#32/#44/#49) — все следствия. После unification:
@@ -150,7 +150,7 @@ W2.A — **первый из четырёх параллельных поток�
 ## 2. Глоссарий
 
 - **`PermissionsCatalogRoot`** (NEW, kacho-proto §4.1) — top-level proto message в `permissions_catalog.proto`, который declarative-listed all iam services to be catalogued. Plugin reads it FIRST, fails build if a service-proto is referenced but file not importable, or if any RPC inside referenced service lacks `(kacho.iam.authz.v1.permission)` option.
-- **Unified catalog** — single `permission_catalog.json` artifact, generated from `PermissionsCatalogRoot` walk, distributed via `make -C services/iam sync-permission-catalog` to (a) `kacho-api-gateway/internal/middleware/embed/`, (b) `kacho-iam/internal/apps/kacho/seed/embedded/`. Byte-for-byte identical; CI gate `make -C gateway permission-catalog-check` regenerates and diffs both embedded copies, failing on drift.
+- **Unified catalog** — single `permission_catalog.json` artifact, generated from `PermissionsCatalogRoot` walk, distributed via the `sync-permission-catalog` target of `PRO-Robotech/kaname` to (a) `kacho-api-gateway/internal/middleware/embed/`, (b) `kacho-iam/internal/apps/kacho/seed/embedded/`. Byte-for-byte identical; CI gate `make -C gateway permission-catalog-check` regenerates and diffs both embedded copies, failing on drift.
 - **Catalog superset validation** (NEW, §4.5) — startup-time check в kacho-api-gateway: enumerate every gRPC FQN registered via `grpcSrv.GetServiceInfo()`; for each, `PermissionCatalog.Lookup(fqn)` MUST succeed; missing → `log.Fatalf` (process refuses to start, helm rollout fails). Closes Lookup-degrade-open path on cold start.
 - **`requireGrantAuthority`** — existing helper в `kacho-iam/internal/apps/kacho/api/access_binding/helpers.go`; allow если caller — account-owner ИЛИ FGA-admin на resource. W2.A применяет ВЕЗДЕ, где сейчас `RequireOwnerMatchesPrincipal` (group/role/Account-admin context).
 - **FGA `ListObjects`** — OpenFGA API: «return all objects of `type=T` where `user=U` has `relation=R`». Used #4/#5/#15 для grant-aware listing. Replaces post-Go-filter pattern.
@@ -302,7 +302,7 @@ message ActivateJITRequest {
   - `make -C gateway permission-catalog-check`: regen to `gateway/build/`, diff vs committed;
     non-zero exit on drift. CI invokes this.
 - **Makefile targets** (kacho-api-gateway + kacho-iam):
-  - `make -C services/iam sync-permission-catalog`: `cp ../kacho-proto/gen/permission_catalog.json internal/middleware/embed/` (or `internal/apps/kacho/seed/embedded/` for iam). `cp ../kacho-proto/gen/rest_route_table.go internal/middleware/rest_route_table_gen.go` (gateway only).
+  - the `sync-permission-catalog` target of `PRO-Robotech/kaname`: `cp ../kacho-proto/gen/permission_catalog.json internal/middleware/embed/` (or `internal/apps/kacho/seed/embedded/` for iam). `cp ../kacho-proto/gen/rest_route_table.go internal/middleware/rest_route_table_gen.go` (gateway only).
   - the same `make -C gateway permission-catalog-check` also diffs the iam embedded copy against
     the gateway one; non-zero exit on drift.
 
@@ -517,8 +517,8 @@ PR (per repo) обязан содержать **в указанном поряд
 **And** `PermissionsCatalogRoot.included_files` lists all iam service-proto files (verified §4.1)
 
 **When** `make -C gateway permission-catalog` is invoked
-**And** `make -C services/iam sync-permission-catalog` is invoked in kacho-api-gateway (sibling)
-**And** `make -C services/iam sync-permission-catalog` is invoked in kacho-iam (sibling)
+**And** the `sync-permission-catalog` target of `PRO-Robotech/kaname` is invoked in kacho-api-gateway (sibling)
+**And** the `sync-permission-catalog` target of `PRO-Robotech/kaname` is invoked in kacho-iam (sibling)
 
 **Then** `kacho-proto/gen/permission_catalog.json` byte-equals `kacho-api-gateway/internal/middleware/embed/permission_catalog.json`
 **And** byte-equals `kacho-iam/internal/apps/kacho/seed/embedded/permission_catalog.json`

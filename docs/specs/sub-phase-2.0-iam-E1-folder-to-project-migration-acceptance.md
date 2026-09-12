@@ -2260,7 +2260,7 @@ grep -rin 'kacho/cloud/resourcemanager' project/{kacho-vpc,kacho-compute,kacho-l
 Каждый из 7 PR обязан в описании содержать:
 - Ссылка на этот acceptance: `Closes part of KAC-106 (acceptance §<N>)`.
 - Список затронутых GWT-сценариев: `Verifies E1.MIG-01, E1.MIG-02, E1.CLI-01...`.
-- Лог `make -C services/{compute,iam,vpc} test` (integration + newman) — pass-fail tally в комментарии.
+- Лог `make -C services/{compute,vpc} test` и цели `test` репозитория `PRO-Robotech/kaname` (integration + newman) — pass-fail tally в комментарии.
 - Лог `make -C deploy dev-up` smoke (для PR #7) — все pods Ready.
 
 ---

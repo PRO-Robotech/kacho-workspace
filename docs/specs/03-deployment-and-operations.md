@@ -122,7 +122,7 @@ docker-образы сервисов (build-context = parent dir, Dockerfile `CO
 | `make -C deploy e2e-test` | newman/grpcurl против REST api-gateway (port-forward → `localhost:18080`) |
 
 Integration-тесты (testcontainers Postgres) гоняются локально в каждом сервисном репо
-(`make -C services/{compute,geo,iam,nlb,registry,storage,vpc} test`), без kind. Методология тестов — `.claude/rulebook/testing.md`.
+(`make -C services/{compute,geo,nlb,registry,storage,vpc} test`; служба доступа — цель `test` репозитория `PRO-Robotech/kaname`), без kind. Методология тестов — `.claude/rulebook/testing.md`.
 
 ## 4. kind cluster + helm umbrella
 

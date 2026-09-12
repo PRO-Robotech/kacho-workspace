@@ -1542,7 +1542,7 @@ COMP-E1a-05, отличается предметом: тот проверяет,
    написанные после кода, — нарушение даже при зелёном (ban #12).
 2. `buf lint` / `buf breaking` зелёные; ломающие изменения волны 1 объявлены в сообщении коммита.
 3. Регенерация: `pkg/api` · `make -C gateway permission-catalog-apply` ·
-   `make -C services/iam sync-permission-catalog` · `make -C gateway rest-route-table-apply`.
+   цель `sync-permission-catalog` репозитория `PRO-Robotech/kaname` · `make -C gateway rest-route-table-apply`.
    Гейты `permission-catalog-check` и `rest-route-table-check` зелёные.
 4. Новые миграции (аудит, наблюдаемое, закрытые словари) — **новыми файлами**; применённые не
    трогаются (ban #5). Счёт стража дропов сдвинут тем же изменением.
