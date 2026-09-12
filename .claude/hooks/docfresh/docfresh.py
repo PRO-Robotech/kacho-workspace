@@ -760,7 +760,18 @@ def _code_part(line: str) -> str:
 TRUNK_BRANCH_NAMES = ("main", "master")
 
 
-def _trunk_candidates(root: Path) -> list[str]:
+def _forced_integration_ref() -> str | None:
+    """ЕДИНСТВЕННЫЙ читатель ручки назначения ствола.
+
+    Ручку читают три места — перечень кандидатов, отбор и предпосылки, — и
+    третьему нужен ответ «назначали ли вообще», чтобы не платить за второй отбор
+    там, где его исход заведомо тот же. Три вызова `os.environ.get` об одном
+    предмете разошлись бы молча на первой же правке имени.
+    """
+    return os.environ.get("DOCFRESH_INTEGRATION_REF") or None
+
+
+def _trunk_candidates(root: Path, ignore_forced: bool = False) -> list[str]:
     """Кандидаты ствола ВЫВОДЯТСЯ из ссылок дерева, а не выписываются.
 
     Ветки слежения перечисляются `for-each-ref` по образцу `refs/remotes/*/<имя>`,
@@ -773,8 +784,12 @@ def _trunk_candidates(root: Path) -> list[str]:
     не найден, и обязан называть то, что искали НА САМОМ ДЕЛЕ. Два места об одном
     предмете разошлись бы на первой же правке — назначенный ствол искали бы по
     одному списку, а в отказе называли другой.
+
+    `ignore_forced` — «своя линия интеграции, что бы ни назначили». Нужен ровно
+    одному вызывающему (`preconditions`) и объявлен параметром, а не вторым
+    чтением окружения: два места об одном предмете разошлись бы молча.
     """
-    forced = os.environ.get("DOCFRESH_INTEGRATION_REF")
+    forced = None if ignore_forced else _forced_integration_ref()
     if forced:
         return [forced]
     remote = git(root, "for-each-ref", "--format=%(refname:short)",
@@ -784,7 +799,9 @@ def _trunk_candidates(root: Path) -> list[str]:
     return remote + local
 
 
-def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
+def _resolve_integration_ref(
+    root: Path, ignore_forced: bool = False,
+) -> tuple[str | None, str | None, int]:
     """Ствол ВЫВОДИТСЯ из дерева, а не назначается именем.
 
     Из кандидатов берётся тот, у кого больше всего коммитов, которых нет в HEAD,
@@ -830,9 +847,9 @@ def _resolve_integration_ref(root: Path) -> tuple[str | None, str | None, int]:
     # Назначенный пробой ствол (`DOCFRESH_INTEGRATION_REF`) фильтр НЕ проходит: его
     # назначают осознанно, и подменять это решение проверкой родства значило бы
     # отменять вход пробы её же основанием.
-    forced_ref = os.environ.get("DOCFRESH_INTEGRATION_REF")
+    forced_ref = None if ignore_forced else _forced_integration_ref()
     best: tuple[str | None, str | None, int] = (None, None, -1)
-    for cand in _trunk_candidates(root):
+    for cand in _trunk_candidates(root, ignore_forced):
         rev = git(root, "rev-parse", "--verify", "--quiet", cand + "^{commit}")
         if not rev:
             continue
@@ -2081,8 +2098,51 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
         # имя, чей предмет создан и ещё не посажен; индекс в одиночку — имя, чей
         # предмет посажен, но не выписан в эту копию (тот самый дефект). Сиротой
         # остаётся то, чего нет НИ ТАМ, НИ ТАМ, и это и есть предмет проверки.
-        mono_files: list[str] = sorted(set(mono_trunk) | set(git(mono, "ls-files"))) \
-            if mono_trunk else []
+        #
+        # ТРЕТЬЯ ЧАСТЬ ОСНОВАНИЯ — СВОЯ ЛИНИЯ ИНТЕГРАЦИИ ДЕРЕВА, ЧТО БЫ НИ
+        # НАЗНАЧИЛИ ВЕРДИКТУ.
+        #
+        # Предпосылка и вердикт отвечают на РАЗНЫЕ вопросы, и это различие
+        # несущее. Вердикт спрашивает «жива ли координата НА СУДИМОЙ РЕВИЗИИ»;
+        # предпосылка — «есть ли у словарного имени и у выписанного шаблона
+        # предмет В ЭТОМ ДЕРЕВЕ ВООБЩЕ». Второй вопрос про репозиторий, а не про
+        # ревизию, поэтому его основание не вправе сужаться от того, что кто-то
+        # назначил вердикту другую линию (`DOCFRESH_INTEGRATION_REF`).
+        #
+        # Без этой части класс, закрытый выше для ВЫВЕДЕННОГО ствола, немедленно
+        # открывался этажом ниже — для НАЗНАЧЕННОГО: линия, где каталог снят,
+        # объявляла словарное имя и исключение мёртвыми, и хук снова требовал
+        # сломать верные проверки. Наблюдалось исполнением 2026-09-12: назначение
+        # ствола пробой гасило шестнадцать осей доказательства сразу, и отказ по
+        # этой ветке был неотличим от находки о дереве.
+        #
+        # Свойство при этом НЕ ослабляется: сиротой остаётся то, чего нет ни в
+        # индексе, ни на судимой ревизии, ни на своей линии интеграции. Имя без
+        # предмета нигде — по-прежнему находка (инъекция: раздел I `prove.sh`
+        # добавляет имя в `ROOT_SEGMENTS`, отказ обязан его назвать).
+        #
+        # ЦЕНА В БОЮ — НОЛЬ, И ЭТО УСЛОВИЕ, А НЕ ОПТИМИЗАЦИЯ.
+        #
+        # Без назначения второй отбор дал бы тот же ответ, поэтому он не
+        # запускается вовсе: сам отбор стоит пяти процессов на корень
+        # (`rev-parse` и `rev-list --count` на каждого кандидата), а хук стоит на
+        # КАЖДОЙ записи файла. Замер тёплого прогона, по шесть подряд: 321–334 мс
+        # с безусловным вторым отбором против 228–231 мс без него, при 230 мс до
+        # всей правки, — то есть безусловный вызов стоил бы около трети времени
+        # хука за ответ, известный заранее, а условный не стоит ничего.
+        #
+        # Ручка читается ОДНИМ читателем (`_forced_integration_ref`), а не
+        # третьим `os.environ.get`: три чтения об одном предмете разошлись бы
+        # молча.
+        native_ref = None
+        if mono_trunk and _forced_integration_ref():
+            native_ref, _n_rev, _n_behind = _resolve_integration_ref(
+                mono, ignore_forced=True)
+        native_trunk = sorted(_files_at_ref(mono, native_ref)) \
+            if native_ref and native_ref != mono_ref else []
+        mono_files: list[str] = sorted(
+            set(mono_trunk) | set(native_trunk) | set(git(mono, "ls-files"))
+        ) if mono_trunk else []
         for files in (ws_files, mono_files):
             for f in files:
                 parts = f.split("/")
