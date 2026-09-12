@@ -699,8 +699,8 @@ Phase 8 разбит на 6 tasks (per plan §477-503). Каждая task име
   - subscriber partial UNIQUE: два concurrent Create'а с same (account_id, endpoint_url, signing_kid) → ровно один win, второй → AlreadyExists (23505);
   - signer kid-cache eviction: rotation in jwks_keys → drainer fetches new key in ≤5min.
 - **DoD**:
-  - сборка `make -C services/iam build` зелёная;
-  - `make -C services/iam test` зелёный (включая race tests);
+  - сборка целью `build` репозитория `PRO-Robotech/kaname` зелёная;
+  - цель `test` репозитория `PRO-Robotech/kaname` зелёная (включая race tests);
   - newman cases (см. §6 / §7) зелёные;
   - drainer survives `SIGTERM` graceful (current claims released back to pending в-flight).
 

@@ -340,7 +340,7 @@ KAC-201 **использует** KAC-196 для grant'а человечески�
 
   *Note:* `InternalRegionService/InternalZoneService/InternalDiskTypeService.{Get,List}` НЕТ в catalog (только Create/Update/Delete есть). Read paths Geography (`Region/Zone/DiskType.Get/List`) — это **public** `compute.v1.RegionService` etc., НЕ Internal. Они получают свой permission в **другом** эпике (public-RPC backfill, out-of-scope KAC-201). Если они тоже хотим зафиксировать в 5.0 — это **scope-расширение**: см. §13 OQ-1.
 
-- Output: `internal/apps/kacho/seed/embedded/permission_catalog.json` regenerated; commit'ится в git (mirror W2.A pattern). `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` синхронизируется через `make -C services/iam sync-permission-catalog`.
+- Output: `internal/apps/kacho/seed/embedded/permission_catalog.json` regenerated; commit'ится в git (mirror W2.A pattern). `kacho-api-gateway/internal/middleware/embed/permission_catalog.json` синхронизируется целью `sync-permission-catalog` репозитория `PRO-Robotech/kaname`.
 
 ### 2.3 `kacho-corelib` — Subject-type discrimination в authzguard
 

@@ -139,6 +139,39 @@ def monorepo_root(ws: Path) -> Path | None:
     return None
 
 
+# ═══ Сегмент раскладки ВОРКСПЕЙСА, а не каталог дерева ═══════════════════════
+#
+# Выписанная копия дерева продукта лежит под `project/kacho`. В индексе НИ ОДНОГО
+# дерева этого сегмента нет и быть не может: `project/` игнорируется git by
+# construction — это чужой клон, а не часть воркспейса. Координаты корпуса при
+# этом называют его законно (`project/kacho/deploy/Makefile`), и хук приводит
+# такую координату к дереву продукта САМ.
+#
+# ПРЕЖДЕ ЭТО ЖИЛО ПЯТЬЮ ЛИТЕРАЛАМИ — три снимали префикс, два добавляли, — то есть
+# пять мест об одном предмете. Расходятся такие места молча: сняв префикс в четырёх
+# и забыв пятое, получаешь координату, которая не резолвится, и отказ о верном
+# дереве. Здесь предикат один, и его поведение спрашивает проверка предпосылок.
+LAYOUT_PREFIX = "project/kacho/"
+LAYOUT_SEGMENT = LAYOUT_PREFIX.split("/", 1)[0]
+
+
+def with_layout_prefix(rel: str, under_mono: bool) -> str:
+    """Имя координаты так, как её называет корпус воркспейса."""
+    return LAYOUT_PREFIX + rel if under_mono else rel
+
+
+def layout_candidates(coord: str) -> set[str]:
+    """Координата и её вид, приведённый к корню дерева продукта.
+
+    Множество, а не одна строка: координата бывает названа и с префиксом, и без
+    него, и оба вида законны — резолвер обязан признать любой.
+    """
+    out = {coord}
+    if coord.startswith(LAYOUT_PREFIX):
+        out.add(coord[len(LAYOUT_PREFIX):])
+    return out
+
+
 def git(root: Path, *args: str) -> list[str]:
     try:
         out = subprocess.run(
@@ -411,7 +444,7 @@ def live_docs(ws: Path, mono: Path | None,
         n_mono = 0
         for rel in git(mono, "ls-files"):
             if is_live_mono(rel, mono):
-                out.append(("project/kacho/" + rel if mono != ws else rel, mono / rel))
+                out.append((with_layout_prefix(rel, mono != ws), mono / rel))
                 n_mono += 1
         if by_tree is not None:
             by_tree[TREE_MONO] = n_mono
@@ -1349,9 +1382,7 @@ class Truth:
                          "env": self.t_envs}.get(kind, set())
 
     def _path_in_trunk(self, c: str) -> bool:
-        cands = {c}
-        if c.startswith("project/kacho/"):
-            cands.add(c[len("project/kacho/"):])
+        cands = layout_candidates(c)
         if self._t_by_base is None:
             self._t_by_base = {}
             for p in self.t_all:
@@ -1406,9 +1437,7 @@ class Truth:
                         by.setdefault(p.rsplit("/", 1)[-1], []).append(p)
                     self._t_live[key] = (allp, by)
                 allp, by = self._t_live[key]
-                cands = {coord}
-                if coord.startswith("project/kacho/"):
-                    cands.add(coord[len("project/kacho/"):])
+                cands = layout_candidates(coord)
                 for c in cands:
                     if c in allp:
                         return True
@@ -1441,9 +1470,7 @@ class Truth:
         return getattr(self, "_r_" + kind)(coord)
 
     def _r_path(self, c: str) -> bool:
-        cands = {c}
-        if c.startswith("project/kacho/"):
-            cands.add(c[len("project/kacho/"):])
+        cands = layout_candidates(c)
         for cand in cands:
             if cand in self.tracked_ws or cand in self.tracked_mono:
                 return True
@@ -1726,7 +1753,7 @@ def _allow_subject_live(kind: str, coord: str, ws: Path, mono: Path | None,
             # даёт: иначе запись жила бы за счёт документа, который хук не читает.
             if root is ws and declared_not_current(rel, root / rel):
                 continue
-            names.add("project/kacho/" + rel if (root is mono and mono != ws) else rel)
+            names.add(with_layout_prefix(rel, root is mono and mono != ws))
     extra = os.environ.get("DOCFRESH_DOC_ROOT")
     if extra and Path(extra).is_dir():
         for p in Path(extra).rglob("*.md"):
@@ -1761,8 +1788,8 @@ def doc_abs(name: str, ws: Path, mono: Path | None) -> Path | None:
     extra = os.environ.get("DOCFRESH_DOC_ROOT")
     if extra:
         cands.append(Path(extra) / name)
-    if mono is not None and mono != ws and name.startswith("project/kacho/"):
-        cands.append(mono / name[len("project/kacho/"):])
+    if mono is not None and mono != ws and name.startswith(LAYOUT_PREFIX):
+        cands.append(mono / name[len(LAYOUT_PREFIX):])
     else:
         cands.append(ws / name)
     for c in cands:
@@ -1829,9 +1856,7 @@ def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
     а не размером дерева.
     """
     if kind == "path":
-        cands = {coord}
-        if coord.startswith("project/kacho/"):
-            cands.add(coord[len("project/kacho/"):])
+        cands = layout_candidates(coord)
         for root in (truth.ws, truth.mono):
             if root is None:
                 continue
@@ -2033,7 +2058,8 @@ def bump_stats(fired: bool) -> dict:
 
 # ═══ 11. Предпосылки самого хука ═════════════════════════════════════════════
 
-def preconditions(ws: Path, mono: Path | None) -> list[str]:
+def preconditions(ws: Path, mono: Path | None,
+                  notices: list[str] | None = None) -> list[str]:
     """Отказы, при которых хук НЕ вправе печатать «находок нет».
 
     Запрет всегда обоснован фактом о дереве; факт меняется — запрет становится
@@ -2165,7 +2191,30 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
         # имена, живущие в дереве продукта, объявились бы сиротами по составу
         # одного воркспейса — то самое «ноль прочитанного», выданное за «ноль
         # находок», против которого написан этот раздел.
-        orphan = sorted(n for n in ROOT_SEGMENTS if n not in dirs) if mono_files else []
+        # СЕГМЕНТ РАСКЛАДКИ НЕ СИРОТА, И ЕГО ЖИВОСТЬ ДОКАЗЫВАЕТСЯ ПОВЕДЕНИЕМ.
+        #
+        # `project` в индексе не встречается НИ В ОДНОМ дереве — `project/` игнорируется
+        # git by construction, это чужой клон. Предикат сирот при этом судит имена,
+        # опознающие путь ДЕРЕВА, а `project` опознаёт путь РАСКЛАДКИ: координата
+        # `project/kacho/deploy/Makefile` в корпусе законна, и хук сам приводит её к
+        # дереву продукта (`layout_candidates`). Сняв имя, теряешь опознание таких
+        # координат — в корпусе их 17 уникальных на день правки, и ни одна не стала бы
+        # находкой: они просто перестали бы считаться путями.
+        #
+        # Наблюдалось исполнением 2026-09-12: вливание #2598 вынесло службу iam, путей с
+        # сегментом `project` в стволе стало 0 против 27 на его родителе, и отказ
+        # потребовал снять живой механизм. Это тот же класс, что ловит сам хук, —
+        # предикат применён ШИРЕ своего предмета.
+        #
+        # ПОСЛАБЛЕНИЕ ПРИВЯЗАНО К ПРЕДМЕТУ, А НЕ К ИМЕНИ: имя выводится из проверки
+        # ровно пока приведение работает. Сними `layout_candidates` — и `project`
+        # немедленно станет сиротой, как всякое другое имя без предмета. Ведомости
+        # прощённых здесь нет: запись одна, она вычисляется, и её условие ВНЕШНЕЕ.
+        layout_live = layout_candidates(LAYOUT_PREFIX + "x") == {
+            LAYOUT_PREFIX + "x", "x"}
+        exempt = {LAYOUT_SEGMENT} if layout_live else set()
+        orphan = sorted(n for n in ROOT_SEGMENTS
+                        if n not in dirs and n not in exempt) if mono_files else []
         if orphan:
             bad.append(
                 "словарь корневых сегментов разошёлся с деревом — предмета нет у: "
@@ -2184,15 +2233,67 @@ def preconditions(ws: Path, mono: Path | None) -> list[str]:
         # нет — снимать исключение, иначе следующий вид документов молча уедет
         # под него. Предикат снятия ВНЕШНИЙ (состав дерева), правкой самого хука
         # тождественно истинным не становится.
+        # У ИСКЛЮЧЕНИЯ И У ШАБЛОНА ПОКРЫТИЯ ВРЕД ПРОТИВОПОЛОЖНЫЙ, ПОЭТОМУ И ПРЕДИКАТ
+        # У НИХ РАЗНЫЙ.
+        #
+        # Мёртвый шаблон LIVE создаёт ВИД покрытия: целый вид документов не читается,
+        # а перепись печатает бодрое число — это и судит `orphan_patterns` выше.
+        # Мёртвое исключение не создаёт вида ничего: оно просто не исключает. Требовать
+        # его снятия по составу дерева СЕГОДНЯ значит требовать снятия защиты от класса,
+        # который в дереве продукта появляется и исчезает вместе со службами: приёмки
+        # живут под `docs/engineering/acceptance/` у компонента, и вынос службы уносит их
+        # все. Наблюдалось 2026-09-12 (#2598): документов под `acceptance/` в стволе стало
+        # 0 против 30 на родителе — и прежний предикат потребовал снять исключение ровно
+        # тогда, когда снимать его опаснее всего: вернись приёмки, датированные записи
+        # пошли бы в живой корпус залпом, и никто бы не вспомнил, почему.
+        #
+        # ПРЕДМЕТ ИСКЛЮЧЕНИЯ — НЕ СОСТАВ ДЕРЕВА, А ЕГО СОБСТВЕННАЯ РАЗЛИЧАЮЩАЯ СИЛА, и
+        # она проверяема без дерева: исключение обязано опознавать датированную запись и
+        # обязано МОЛЧАТЬ на живом документе рядом. Исключение, поймавшее оба, — находка:
+        # оно шире своего предмета и уводит из корпуса то, что читать надо.
+        # МЁРТВОЕ ИСКЛЮЧЕНИЕ — ТРЕТЬЯ КАТЕГОРИЯ, А НЕ ОТКАЗ И НЕ МОЛЧАНИЕ.
+        #
+        # Прежняя редакция писала его в `bad`, то есть ОСТАНАВЛИВАЛА хук целиком:
+        # один мёртвый шаблон гасил вердикт по 515 живым документам. Наблюдалось
+        # исполнением 2026-09-12 — после выноса службы iam (#2598) документов под
+        # `acceptance/` в стволе стало 0 против 30 на родителе, и хук перестал
+        # работать вовсе, требуя снять защиту от класса, который вернётся вместе со
+        # следующей службой.
+        #
+        # Молчать тоже нельзя, и ось набора это прямо оговаривает: «не объявлять
+        # сиротой» неотличимо от «не объявлять никогда», то есть починка сняла бы
+        # проверку вместо дефекта. Поэтому сиротство ОБЪЯВЛЯЕТСЯ, но своим исходом:
+        # оно печатается переписью и не отменяет вердикта, который хук умеет вынести.
         if mono_files:
             for p in NOT_LIVE_MONO:
                 if not any(p.search(f) for f in mono_files
                            if f.endswith((".md", ".mdx"))):
-                    bad.append(
-                        f"исключению '{p.pattern}' больше нечего исключать — ни один "
-                        f"документ дерева продукта под него не подпадает. Снять его: "
-                        f"мёртвое исключение унаследует следующая слепая зона"
+                    msg = (
+                        f"исключению '{p.pattern}' нечего исключать СЕГОДНЯ — ни один "
+                        f"документ дерева продукта под него не подпадает. Предмет "
+                        f"уезжает и возвращается вместе со службой (её приёмки живут "
+                        f"под `docs/engineering/acceptance/`), поэтому это не отказ: "
+                        f"снять исключение, когда станет ясно, что класс не вернётся"
                     )
+                    if notices is None:
+                        bad.append(msg)
+                    else:
+                        notices.append(msg)
+        for p in NOT_LIVE_MONO:
+            subject = "services/svc/docs/engineering/acceptance/a.md"
+            neighbour = "services/svc/docs/content/a.md"
+            if not p.search(subject):
+                bad.append(
+                    f"исключение '{p.pattern}' не опознаёт собственный предмет "
+                    f"({subject}) — оно перестало исключать то, ради чего заведено, "
+                    f"и датированная запись пойдёт в живой корпус"
+                )
+            elif p.search(neighbour):
+                bad.append(
+                    f"исключение '{p.pattern}' ШИРЕ своего предмета: под него подпадает "
+                    f"живой документ ({neighbour}), который обязан читаться. Сузить или "
+                    f"снять"
+                )
     return bad
 
 
@@ -2731,7 +2832,7 @@ def rel_of(path: str, ws: Path, mono: Path | None) -> str | None:
     # неотличимо от «сказать нечего»: режим B (правка кода поднимает документы,
     # которые её называют) молча не исполнялся вовсе. Тот же класс, что и вся
     # задача #242, — «не искал» подан как «не нашёл».
-    for prefix, root in ((("project/kacho/", mono) if mono is not None and mono != ws
+    for prefix, root in (((LAYOUT_PREFIX, mono) if mono is not None and mono != ws
                           else (None, None)), ("", ws)):
         if root is None:
             continue
@@ -2754,9 +2855,7 @@ def docs_naming(idx: dict, rel: str) -> list[str]:
     """Документы, называющие этот путь — сам или как каталог-предок."""
     if rel is None:
         return []
-    cands = {rel}
-    if rel.startswith("project/kacho/"):
-        cands.add(rel[len("project/kacho/"):])
+    cands = layout_candidates(rel)
     # Совпадение — ТОЛЬКО по самому пути, без каталогов-предков.
     #
     # Прежняя редакция поднимала и предков, и это было не «шире, а значит
@@ -2786,7 +2885,7 @@ def vanished_since_snapshot(idx: dict, truth: Truth, ws: Path, mono: Path | None
     """
     snap = _state_file("tracked-snapshot.txt")
     cur: set[str] = set()
-    for tag, root in (("", ws), ("project/kacho/", mono)):
+    for tag, root in (("", ws), (LAYOUT_PREFIX, mono)):
         if root is None:
             continue
         for f in git(root, "ls-files"):
@@ -2811,8 +2910,7 @@ def vanished_since_snapshot(idx: dict, truth: Truth, ws: Path, mono: Path | None
         # попадала в отчёт двумя строками, а `координат рассмотрено` считало её
         # за две. Отчёт, врущий о собственном числе, — тот же класс, что ловит
         # хук. Найдено пробой оси удалений (#280).
-        for cand in dict.fromkeys(
-                (g, g[len("project/kacho/"):] if g.startswith("project/kacho/") else g)):
+        for cand in dict.fromkeys(sorted(layout_candidates(g))):
             for d in idx["reverse"].get("path\t" + cand, []):
                 # `classify`, а не `resolve`: путь может исчезнуть из ВЫПИСАННОЙ
                 # копии просто оттого, что она переехала на другую ветку, — а в
@@ -2892,7 +2990,21 @@ def main() -> int:
     tool = event.get("tool_name") or ""
     fpath = (event.get("tool_input") or {}).get("file_path") or ""
 
-    bad = preconditions(ws, mono)
+    notices: list[str] = []
+    bad = preconditions(ws, mono, notices)
+    if notices:
+        # Третья категория печатается ДО вердикта и не отменяет его: «не выполнилось»
+        # не вычитается из зелёного и не зачитывается в него.
+        #
+        # РЕВИЗИЯ НАЗЫВАЕТСЯ И ЗДЕСЬ, а не только в отказе: сообщение о сиротстве без
+        # основания неотличимо от сообщения о продукте — читатель не знает, о каком
+        # дереве речь. Требование было записано пробой набора для отказа; исход
+        # сменился, требование осталось.
+        basis_v = premise_basis(mono)
+        if basis_v:
+            sys.stderr.write("[VOID] docfresh: " + basis_v + "\n")
+        for n in notices:
+            sys.stderr.write("[VOID] docfresh: " + n + "\n")
     if bad:
         lines = ["╔══ docfresh ОТКАЗЫВАЕТСЯ РАБОТАТЬ ═══════════════════════════════"]
         # Ревизия, по которой судили, — ПЕРВОЙ строкой: отказ, не назвавший своего

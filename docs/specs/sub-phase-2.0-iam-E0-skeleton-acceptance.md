@@ -2160,8 +2160,8 @@ RETURNING id;
 
 | # | Критерий                                                                                                              | Способ проверки                                                          |
 |---|-----------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------|
-| 1 | `make -C services/iam build` — зелёный (бинари `kacho-iam`, `migrator`)                                       | CI job `build` в `.github/workflows/ci.yaml` (matrix go 1.23/1.24)        |
-| 2 | `make -C services/iam test` — зелёный (unit + integration через testcontainers); race-flag активен                                    | CI job `test` (PostgreSQL 16 container)                                  |
+| 1 | цель `build` репозитория `PRO-Robotech/kaname` — зелёная (бинари `kacho-iam`, `migrator`)                                       | CI job `build` в `.github/workflows/ci.yaml` (matrix go 1.23/1.24)        |
+| 2 | цель `test` репозитория `PRO-Robotech/kaname` — зелёная (unit + integration через testcontainers); race-flag активен                                    | CI job `test` (PostgreSQL 16 container)                                  |
 | 3 | `make -C deploy dev-up` — поднимает `kacho-iam` в kind, healthcheck `/healthz` OK                          | вручную smoke в PR-описании / CI job `e2e` (если есть)                   |
 | 4 | `bin/migrator up` создаёт схему `kacho_iam` + 9 таблиц + 12 default-роли                                              | psql `\dt kacho_iam.*` → 9 row; `SELECT count(*) FROM roles WHERE is_system=true` = 12 |
 | 5 | Newman-кейсы (`tests/newman/cases/iam-*.py`) зелёные через api-gateway:18080                                          | CI job `newman` (минимум 10 cases-файлов по §7, каждый ≥ 1 happy + 1 negative) |

@@ -39,6 +39,46 @@
       сценариями. Обе стороны — находка: сценарий без строки уходит из счёта
       молча, строка без сценария засчитывает то, чего документ не требует.
 
+ДОМ КООРДИНАТЫ: РЕПОЗИТОРИЙ ПРЕДМЕТА, А НЕ ТО ДЕРЕВО, ГДЕ ПРОБА ЛЕЖАЛА ПРЕЖДЕ
+
+Предмет пробы переезжает вместе со своим продуктом. Вливание `kacho#2598`
+вынесло службу доступа из монорепо отдельным репозиторием, и координаты трёх
+кейсов `KAN-FWD-*` перестали резолвиться в стволе продукта — при том, что пробы
+ЖИВЫ: они в `PRO-Robotech/kaname`. Исходов у такой строки три, и правка пути
+внутри того же дерева — ровно тот, которого НЕТ: нового пути там не существует.
+
+Поэтому координата вправе назвать СВОЙ ДОМ приставкой `owner/name:`:
+
+    `PRO-Robotech/kaname:cmd/kaname/serve_internal_principal_trust_test.go`
+
+Дом несёт КАЖДАЯ координата, а не строка целиком: строка вправе назвать
+несколько путей (у `XC-11-02` их два), и дом на строку означал бы, что второй
+путь наследует дом первого МОЛЧА. Координата без приставки означает дом по
+умолчанию — дерево продукта, как прежде, — поэтому строки, дома не называющие,
+судятся ровно так, как судились.
+
+ГЕЙТ ОТ ЭТОГО НЕ СЛАБЕЕТ, И ЭТО НЕСУЩЕЕ. Названный дом — адрес, а не
+послабление: координата обязана резолвиться В НЁМ, ненайденная там — по-прежнему
+находка, отката на дерево продукта НЕТ. Доказано это парой проб, где решает
+различение деревьев: путь, лежащий в доме и отсутствующий в продукте, обязан
+молчать, а путь, лежащий в ПРОДУКТЕ и отсутствующий в доме, — краснеть. Читатель
+с молчаливым откатом провалил бы вторую. Ведомости прощённых у проверки нет ни
+одной строки: каждая запись в такой ведомости — место, куда ложь вносят
+незамеченной.
+
+ДОМ НЕ РЕЗОЛВИТСЯ — ТРЕТЬЯ КАТЕГОРИЯ, И ОНА ПЕЧАТАЕТСЯ ОТДЕЛЬНО. «Копии дома
+рядом нет» есть несозданное условие, а не вердикт о документе: такая координата
+выходит строкой `[VOID]`, считается своим числом и в проход НЕ засчитывается
+(код 2). Вердикт по остальным строкам она при этом не гасит — находка
+объявляется ПЕРВОЙ (код 1), тем же порядком, каким это сделано в `run-all.sh` и
+`hook-proofs.sh`. Обратный порядок сделал бы «дома нет» маской: одной такой
+строки хватило бы, чтобы настоящая находка перестала блокировать отправку.
+
+Дом опознаётся ИДЕНТИЧНОСТЬЮ рабочей копии (`owner/name` в `origin`), а не
+именем каталога, и порядок кандидатов закрыт — `_lib.home_tree`. Указатель,
+ведущий в чужой репозиторий, дома не даёт: он даёт третью категорию, а не
+вердикт о чужом дереве.
+
 ГДЕ СУДИТСЯ — В СТВОЛЕ ПРОДУКТА, А НЕ В РАБОЧЕЙ КОПИИ РЯДОМ
 
 Координата резолвится по `origin/main` продукта, а не по индексу лежащей рядом
@@ -132,6 +172,11 @@ CASE_ID = re.compile(r"([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)")
 SCENARIO = re.compile(r"^\s*\*\*([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\d+)\s*[—-]")
 TICK = re.compile(r"`([^`]+)`")
 PATHISH = re.compile(r"^[A-Za-z0-9_./-]+/[A-Za-z0-9_.-]+\.[a-z]+$")
+# Координата с ДОМОМ: `owner/name:<путь>`. Двоеточие здесь то же, что у git в
+# `<ревизия>:<путь>`, и спутать эти две формы нельзя: слева от двоеточия требуется
+# `owner/name` со слэшем, которого у ревизии не бывает.
+HOMED = re.compile(r"^(?P<home>[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*)"
+                   r":(?P<path>.+)$")
 CHECKISH = re.compile(r"^Test[A-Za-z0-9_]*$")
 SCRIPTISH = (".sh", ".py")
 
@@ -182,16 +227,78 @@ def tables(text):
 
 
 def coordinates(cells):
-    """Пути и имена проверок, названные строкой."""
+    """Координаты строки: список `(дом|None, путь)` и имена проверок.
+
+    Дом принадлежит КООРДИНАТЕ, а не строке: строка вправе назвать несколько
+    путей, и дом на строку означал бы, что второй путь наследует дом первого
+    молча. `None` — дом по умолчанию, дерево продукта.
+    """
     paths, checks = [], []
     for c in cells:
         for tok in TICK.findall(c):
             tok = tok.strip()
-            if PATHISH.match(tok):
-                paths.append(tok)
+            homed = HOMED.match(tok)
+            if homed and PATHISH.match(homed.group("path")):
+                paths.append((homed.group("home"), homed.group("path")))
+            elif PATHISH.match(tok):
+                paths.append((None, tok))
             elif CHECKISH.match(tok):
                 checks.append(tok)
     return paths, checks
+
+
+def shown(home, path):
+    """Координата так, как её написал документ, — вместе с домом, если он назван."""
+    return "%s:%s" % (home, path) if home else path
+
+
+def home_slot(homes, root, product, product_ref, identity):
+    """Дерево, в котором судится координата этого дома. Резолвится ОДИН раз.
+
+    Слот несёт либо ствол и его состав, либо причину, по которой судить не по
+    чему. Кеш здесь не оптимизация: без него один и тот же дом резолвился бы на
+    каждой координате, а перепись печатала бы его столько же раз.
+    """
+    key = identity or ""
+    if key in homes:
+        return homes[key]
+    if identity is None:
+        slot = {
+            "ok": True, "repo": product, "ref": product_ref,
+            "index": _lib.trunk_files(product, product_ref),
+            "where": "стволе продукта %s" % product_ref,
+            "say": "дерево продукта, ствол %s" % product_ref,
+            "coords": 0, "reason": None,
+        }
+        homes[key] = slot
+        return slot
+    path, reason = _lib.home_tree(root, identity, product)
+    if path is None:
+        slot = {"ok": False, "coords": 0, "reason": reason,
+                "say": "НЕ РЕЗОЛВИТСЯ — %s" % reason}
+        homes[key] = slot
+        return slot
+    ref = _lib.trunk(path)
+    if not ref:
+        # Та же полоса, что у дерева продукта: молчаливого отката на индекс копии
+        # нет и здесь. Копия дома тоже общая, и её парковку никто не объявляет.
+        reason = ("копия дома %s найдена (%s), но ствол %s в ней НЕ РЕЗОЛВИТСЯ — "
+                  "судить не по чему. Условие создаётся так: git -C %s fetch origin main"
+                  % (identity, path, _lib.TRUNK_REF, path))
+        slot = {"ok": False, "coords": 0, "reason": reason,
+                "say": "НЕ РЕЗОЛВИТСЯ — %s" % reason}
+        homes[key] = slot
+        return slot
+    prov = _lib.provenance(path)
+    slot = {
+        "ok": True, "repo": path, "ref": ref,
+        "index": _lib.trunk_files(path, ref),
+        "where": "стволе дома %s %s" % (identity, ref),
+        "say": _lib.provenance_line(path, prov),
+        "coords": 0, "reason": None,
+    }
+    homes[key] = slot
+    return slot
 
 
 def declares(repo, ref, rel, name):
@@ -208,7 +315,7 @@ def declares(repo, ref, rel, name):
     return re.search(r"^func\s+%s\s*\(" % re.escape(name), body, re.M) is not None
 
 
-def audit(root, repo, ref, where, index, rel, findings, stats):
+def audit(root, repo, ref, homes, rel, findings, voids, stats):
     text = _lib.read(root, rel)
     tabs = tables(text)
     if not tabs:
@@ -250,43 +357,79 @@ def audit(root, repo, ref, where, index, rel, findings, stats):
                 continue
 
             paths, checks = coordinates(cells)
+            if any(home for home, _ in paths):
+                stats["homed"] += 1
             if kind == "none":
                 if paths:
                     findings.append(
                         "%s:%d — кейс %s объявлен не начатым и при этом называет "
                         "координату (%s): строка противоречит себе"
-                        % (rel, lineno, cid.group(1), ", ".join(paths)))
+                        % (rel, lineno, cid.group(1),
+                           ", ".join(shown(h, p) for h, p in paths)))
                 continue
 
             if not paths:
                 findings.append("%s:%d — кейс %s объявлен держащимся и не называет ни "
                                 "одного файла" % (rel, lineno, cid.group(1)))
                 continue
-            alive = []
-            for p in paths:
+            # `alive` — тройки (слот дома, дом, путь): в одной строке пути бывают из
+            # РАЗНЫХ деревьев, и находка обязана назвать то дерево, где искали.
+            alive, blind = [], []
+            for home, p in paths:
+                slot = home_slot(homes, root, repo, ref, home)
+                slot["coords"] += 1
+                if not slot["ok"]:
+                    # Третья категория: дом назван, судить не по чему. Это НЕ находка
+                    # (документ мог быть верен) и НЕ проход (никто ничего не читал).
+                    if home not in blind:
+                        blind.append(home)
+                    voids.append(
+                        "%s:%d — кейс %s называет координату %s, и ДОМ её не "
+                        "резолвится: %s. Вердикт по этой строке НЕ вынесен — это "
+                        "«не выполнилось», и в проход оно не засчитывается"
+                        % (rel, lineno, cid.group(1), shown(home, p), slot["reason"]))
+                    continue
                 stats["paths"] += 1
-                if p in index:
-                    alive.append(p)
+                if p in slot["index"]:
+                    alive.append((slot, home, p))
                 else:
                     findings.append(
                         "%s:%d — кейс %s ссылается на %s, которого в %s нет: "
                         "свидетельство не проверяемо"
-                        % (rel, lineno, cid.group(1), p, where))
-            scripts = [p for p in alive if p.endswith(SCRIPTISH)]
-            if not checks and not scripts:
+                        % (rel, lineno, cid.group(1), p, slot["where"]))
+            scripts = [p for _, _, p in alive if p.endswith(SCRIPTISH)]
+            # Скрипт, названный в НЕрезолвнутом доме, форму «проверка названа»
+            # удовлетворяет: не названа она документом, а не деревом. Иначе строка
+            # получила бы находку о своей форме по причине, к форме не относящейся.
+            blind_scripts = [p for h, p in paths
+                             if h in blind and p.endswith(SCRIPTISH)]
+            if not checks and not scripts and not blind_scripts:
                 findings.append(
                     "%s:%d — кейс %s называет файл, но не называет ПРОВЕРКУ. Файл "
                     "переживает снятие теста, который в нём лежал, поэтому имя файла "
                     "свидетельством не является" % (rel, lineno, cid.group(1)))
             for name in checks:
+                gofiles = [(slot, home, p) for slot, home, p in alive
+                           if p.endswith(".go")]
+                if any(declares(slot["repo"], slot["ref"], p, name)
+                       for slot, _, p in gofiles):
+                    stats["checks"] += 1
+                    continue
+                if blind:
+                    voids.append(
+                        "%s:%d — кейс %s называет проверку %s, и дом её координаты "
+                        "(%s) не резолвится: искать имя НЕ В ЧЕМ. Вердикт по этому "
+                        "имени НЕ вынесен"
+                        % (rel, lineno, cid.group(1), name, ", ".join(blind)))
+                    continue
                 stats["checks"] += 1
-                gofiles = [p for p in alive if p.endswith(".go")]
-                if not any(declares(repo, ref, p, name) for p in gofiles):
-                    findings.append(
-                        "%s:%d — кейс %s называет проверку %s, которой в %s нет ни в "
-                        "одном из названных им файлов (%s)"
-                        % (rel, lineno, cid.group(1), name, where,
-                           ", ".join(gofiles) if gofiles else "файлов .go не названо"))
+                findings.append(
+                    "%s:%d — кейс %s называет проверку %s, которой нет ни в одном из "
+                    "названных им файлов (%s)"
+                    % (rel, lineno, cid.group(1), name,
+                       "; ".join("%s — искали в %s" % (shown(home, p), slot["where"])
+                                 for slot, home, p in gofiles)
+                       if gofiles else "файлов .go не названо"))
 
     if scenarios:
         for cid in sorted(scenarios - listed):
@@ -364,25 +507,43 @@ def main():
                         "создаётся так: git -C %s fetch origin main"
                   % (_lib.TRUNK_REF, repo, repo))
         return 2
-    index = _lib.trunk_files(repo, ref)
-    # Находка обязана называть ТО, ГДЕ искали. «Нет в индексе монорепо» посылало
-    # читателя к рабочей копии — то есть ровно туда, куда смотреть не следует.
-    where = "стволе продукта %s" % ref
-
     findings = []
-    stats = {"tables": 0, "rows": 0, "paths": 0, "checks": 0}
+    voids = []
+    # Дома резолвятся ОДИН раз на прогон. Ключ `""` — дом по умолчанию, дерево
+    # продукта: он заводится здесь, чтобы перепись могла назвать его состав даже
+    # тогда, когда ни одна строка координат не назвала.
+    homes = {}
+    stats = {"tables": 0, "rows": 0, "homed": 0, "paths": 0, "checks": 0}
+    base = home_slot(homes, root, repo, ref, None)
     carriers = [rel for rel in docs
-                if audit(root, repo, ref, where, index, rel, findings, stats)]
+                if audit(root, repo, ref, homes, rel, findings, voids, stats)]
 
     _lib.census(
-        "%s: приёмок осмотрено %d; несут таблицу состояния %d (%s); таблиц %d, строк %d"
+        "%s: приёмок осмотрено %d; несут таблицу состояния %d (%s); таблиц %d, "
+        "строк %d, из них называют дом координаты %d"
         % (NAME, len(docs), len(carriers),
            ", ".join(carriers) if carriers else "ни одной",
-           stats["tables"], stats["rows"]))
+           stats["tables"], stats["rows"], stats["homed"]))
+    # Числа проверенного — СУММА ПО ВСЕМ ДОМАМ, и сказано это в самой строке: стоя
+    # рядом с составом дерева продукта, «проверено 17» читалось бы как «в нём 17»,
+    # тогда как часть из них проверена в другом дереве.
     _lib.census(
-        "%s: дерево продукта %s; путей в нём %d — проверено %d, имён проверок %d"
-        % (NAME, _lib.provenance_line(repo, prov), len(index),
+        "%s: дом по умолчанию — дерево продукта %s; путей в его стволе %d. Проверено "
+        "ВСЕГО, по всем домам: путей %d, имён проверок %d"
+        % (NAME, _lib.provenance_line(repo, prov), len(base["index"]),
            stats["paths"], stats["checks"]))
+    # Дома, названные документами, печатаются ПОИМЁННО и вместе с исходом резолюции.
+    # Без этой строки «дом назван» и «дом прочитан» были бы неотличимы, а перепись
+    # обязана отличать ноль находок от нуля прочитанного.
+    named = sorted(k for k in homes if k)
+    if named:
+        for identity in named:
+            slot = homes[identity]
+            _lib.census("%s: дом %s — %s; координат в нём названо %d"
+                        % (NAME, identity, slot["say"], slot["coords"]))
+    else:
+        _lib.census("%s: домов документы не называют ни одного — все координаты "
+                    "судятся в дереве продукта" % NAME)
     prose_n, prose_docs = prose_scale(root, docs)
     _lib.census(
         "%s: ВНЕ ПРЕДМЕТА — проза приёмок: координат-файлов в инлайн-коде %d "
@@ -397,14 +558,31 @@ def main():
                         "это НЕ «находок ноль»")
         return 2
 
+    # ТРЕТЬЯ КАТЕГОРИЯ ПЕЧАТАЕТСЯ ВСЕГДА И ПЕРВОЙ, но вердикта не решает: находка
+    # ниже объявляется раньше. Обратный порядок сделал бы «дома нет» маской —
+    # одной нерезолвнутой координаты хватило бы, чтобы настоящая находка перестала
+    # блокировать отправку. Тот же порядок у `run-all.sh` и `hook-proofs.sh`.
+    for v in voids:
+        _lib.void(NAME, v)
+
     if findings:
         for f in findings:
             _lib.fail(NAME, f)
-        _lib.fail(NAME, "претензий без проверяемой координаты: %d" % len(findings))
+        _lib.fail(NAME, "претензий без проверяемой координаты: %d%s"
+                        % (len(findings),
+                           "; сверх них координат без резолвимого дома %d — вердикт "
+                           "по ним НЕ вынесен (строки [VOID] выше)" % len(voids)
+                           if voids else ""))
         return 1
 
-    _lib.passed(NAME, "координата резолвится у всех %d строк в %d таблицах"
-                      % (stats["rows"], stats["tables"]))
+    if voids:
+        _lib.void(NAME, "координат, чей дом не резолвится: %d — проверить их НЕ ПО "
+                        "ЧЕМУ, и это НЕ «находок ноль». Остальные проверены: путей %d, "
+                        "имён проверок %d" % (len(voids), stats["paths"], stats["checks"]))
+        return 2
+
+    _lib.passed(NAME, "координата резолвится у всех %d строк в %d таблицах (домов "
+                      "названо %d)" % (stats["rows"], stats["tables"], len(named)))
     return 0
 
 

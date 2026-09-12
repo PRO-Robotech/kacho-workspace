@@ -9,7 +9,7 @@
 
 | GWT id | Scenario summary | Integration test (Go) | Newman case | Manual / e2e |
 |---|---|---|---|---|
-| W2.A-CAT-UNIFIED-01 | Single regen → byte-identical embeds (kacho-proto/gateway/iam) | `kacho-proto/cmd/protoc-gen-kacho-permissions/internal_test.go::Test_Generator_DeterministicOutput` | — (build-time gate) | `make -C gateway permission-catalog-apply && make -C gateway permission-catalog-check` pair (the iam-side `make -C services/iam sync-permission-catalog` is a declared no-op — the iam copy is committed, and the same check diffs it) |
+| W2.A-CAT-UNIFIED-01 | Single regen → byte-identical embeds (kacho-proto/gateway/iam) | `kacho-proto/cmd/protoc-gen-kacho-permissions/internal_test.go::Test_Generator_DeterministicOutput` | — (build-time gate) | `make -C gateway permission-catalog-apply && make -C gateway permission-catalog-check` pair (the iam-side `sync-permission-catalog` target of `PRO-Robotech/kaname` is a declared no-op — the iam copy is committed, and the same check diffs it) |
 | W2.A-CAT-VALIDATE-02 | Gateway startup validates catalog covers all registered FQNs (positive) | `kacho-api-gateway/internal/middleware/permission_catalog_validate_integration_test.go::Test_ValidateAgainstRegisteredServices_AllCovered` | — | helm install passes liveness gate |
 | W2.A-PHASE7-REST-REACHABLE-03 | Phase-7 RPCs reachable via REST (Approve / Activate / Erasure / GetCondition / Exchange) | `kacho-api-gateway/internal/restmux/mux_phase7_integration_test.go::Test_RestMux_Phase7_Reachable` | `iam-access-review.py::REVIEW-RPC-REACHABLE-POST-W2A`, `iam-jit-eligibility.py::JIT-ACTIVATE-RPC-REACHABLE`, `iam-gdpr.py::GDPR-ERASURE-RPC-REACHABLE-POST-W2A`, `iam-conditions.py::CONDITIONS-PROJECT-SCOPED-CRUD`, `iam-federation.py::FED-EXCHANGE-RPC-REACHABLE-POST-W2A` | — |
 | W2.A-LIST-PERMISSIONS-04 | InternalIAM.ListPermissions returns catalog-derived perms per subject | `kacho-iam/internal/apps/kacho/api/internal_iam/list_permissions_integration_test.go::Test_InternalIAM_ListPermissions_CatalogDerived` | `iam-internal-only-check.py::INTERNAL-LISTPERMISSIONS-OK` | — |
@@ -69,7 +69,7 @@
 2. **Newman cases RED first** — `iam-access-review.py`, `iam-gdpr.py`, `iam-federation.py` (NEW files) populated; `run.sh` shows FAIL because restmux registrations missing
 3. **GREEN phase commits (logical commit per finding, ordered by §6 priority)**:
    - Chunk 3 (kacho-proto): `PermissionsCatalogRoot` proto → generator rewrite → scope_extractor proto fixes → `ActivateJIT` RPC → permission strings fix #44 → regen committed
-   - Chunk 3 (kacho-api-gateway): `make -C services/iam sync-permission-catalog` consumed → `permission_catalog.go::Validate()` → `restmux/mux.go` register block → `scope_extractor_dblookup.go` handler
+   - Chunk 3 (kacho-api-gateway): the `sync-permission-catalog` target of `PRO-Robotech/kaname` consumed → `permission_catalog.go::Validate()` → `restmux/mux.go` register block → `scope_extractor_dblookup.go` handler
    - Chunk 4 (kacho-iam): handler/usecase fixes per finding (#1, #4, #5, #6, #14, #15, #27, #46, #55, #49) + migration 0026 + service_account project-scope rewrite
 4. **CI gate (per-PR)**: `make -C gateway permission-catalog-check` must pass before merge (one gate, both copies)
 5. **Cross-repo merge order**: kacho-proto → kacho-api-gateway → kacho-iam (per workspace §«Кросс-репо зависимости»)

@@ -3586,7 +3586,7 @@ RPC распознано, сколько из них публичных, ско�
 8. **vault-trail**: записка `obsidian/kacho/KAC/issue-1085.md` со ссылками на затронутые
    сущности (`resources/`, `rpc/`) и на PR; `./scripts/vault-gate/run-all.sh` зелёный;
 9. **финальная верификация**: `go test ./... -race`, `golangci-lint run`,
-   `make -C services/iam audit-list-filter` (покрывает **новые** глаголы), newman зелёные.
+   цель `audit-list-filter` репозитория `PRO-Robotech/kaname` (покрывает **новые** глаголы), newman зелёные.
 
 Отдельно по стадиям:
 

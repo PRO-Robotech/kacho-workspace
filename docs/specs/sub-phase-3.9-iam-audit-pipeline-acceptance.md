@@ -666,7 +666,7 @@ kacho-deploy/
   - `internal/audit/s3writer_test.go` — MinIO testcontainer + SoftHSM.
   - `internal/audit/verifier_test.go` — Merkle chain tamper detection.
   - `internal/audit/siem_forwarder_test.go` — httptest webhook stub.
-- **DoD:** unit + integration зелёные; `make -C services/iam test` зелёный; vault `resources/iam-siem-subscriber.md` + `packages/iam-audit.md` created.
+- **DoD:** unit + integration зелёные; цель `test` репозитория `PRO-Robotech/kaname` зелёная; vault `resources/iam-siem-subscriber.md` + `packages/iam-audit.md` created.
 
 ### 5.4 kacho-deploy (PR #4, tasks 9.3 + 9.4 + 9.6 + 9.10 + 9.11)
 
