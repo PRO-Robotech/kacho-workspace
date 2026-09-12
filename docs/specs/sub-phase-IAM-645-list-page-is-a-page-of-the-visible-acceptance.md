@@ -128,7 +128,7 @@ git grep -ln "authzfilter.VisibleSet" origin/main -- services/iam | grep -v _tes
 
 - **возвращать перечисление разрешённых объектов** (`ListObjects` / `ListAllowedIDs` и любую
   форму «спроси у модели все видимые идентификаторы → сузь SQL по ним»). Это запрещено
-  `security.md` §AuthN/AuthZ и удерживается гейтом `make -C services/iam audit-list-filter`,
+  `security.md` §AuthN/AuthZ и удерживается гейтом — целью `audit-list-filter` репозитория `PRO-Robotech/kaname`,
   где форма стоит в чёрном списке профиля — в **семи** сервисах, не только в iam. Причина
   названа в `services/iam/internal/authzfilter/visibility.go`: у перечисления **жёсткий
   серверный предел** на тип в сторе и **нет продолжения**, поэтому просьба «дай больше» ответ
@@ -1003,7 +1003,7 @@ super_admin)».
 
 #### 645-29 · Запрещённая форма остаётся запрещённой
 *Given* профиль гейта `services/iam/tools/auditlistfilter/profile.go`
-*When* исполняется `make -C services/iam audit-list-filter`
+*When* исполняется цель `audit-list-filter` репозитория `PRO-Robotech/kaname`
 *Then* перечисление разрешённых объектов остаётся в чёрном списке и гейт краснеет на его
 возвращении
 *And* починка по этому документу гейт **не ослабляет** и исключений в него не вносит.
@@ -1048,7 +1048,7 @@ super_admin)».
 |---|---|---|
 | страница набирается сужённой (C1, C4) | гейт по дереву, 645-27 | AST-обход, инъекция в обе стороны |
 | перечень путей = источники модели **по типам** (§3) | гейт паритета, 645-28 | сверка объявления с `RelationsFor(<тип>)` и с моделью |
-| запрещённая форма не возвращается | `make -C services/iam audit-list-filter` | действующий гейт, чёрный список профиля |
+| запрещённая форма не возвращается | цель `audit-list-filter` репозитория `PRO-Robotech/kaname` | действующий гейт, чёрный список профиля |
 | цена принадлежит запросу | `services/iam/internal/authzfilter/pagecost_gate_test.go` + счётчики 645-16/17, доказанные инъекцией 645-17б | действующие пробы + новая величина |
 | предикат страницы = связь одиночного чтения | `internal/repohygiene/listreadrelationparity_test.go` | действующий гейт |
 | формат раньше прав | 645-22 + гейт `TestEmptyPageNeverPrecedesPaginationValidation` | действующий гейт дерева |

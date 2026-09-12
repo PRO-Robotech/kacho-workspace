@@ -576,7 +576,7 @@ kacho_iam schema (Postgres) — после Phase 1 (миграции 0001..0014 
 **Given** Postgres-инстанс с уже применёнными миграциями `0001..0010` (KAC-105/108/125 baseline);
 данные не содержат строк, которые будут конфликтовать с новыми CHECK constraint'ами.
 
-**When** запускается `kacho-iam-migrator up` (или `make -C services/iam migrate-up`).
+**When** запускается `kacho-iam-migrator up` (или цель `migrate-up` репозитория `PRO-Robotech/kaname`).
 
 **Then** все 4 миграции `0011_kac127_identity_extension.sql`, `0012_kac127_federation_jit_conditions.sql`,
 `0013_kac127_audit_caep_pipeline.sql`, `0014_kac127_scim_gdpr_reviews_jwks.sql` применены без ошибок.
