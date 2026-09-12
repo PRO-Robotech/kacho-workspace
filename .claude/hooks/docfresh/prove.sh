@@ -54,8 +54,46 @@ PASS=0; FAIL=0; NOTRUN=0
 # расхождение починят. Тогда проба (+) начнёт зеленеть на исправленном дереве и
 # будет молча доказывать не то. Поэтому вход каждой (+)-пробы проверяется
 # отдельно, и «предмета больше нет» — ТРЕТИЙ исход, а не успех.
-absent_path() { [ ! -e "$WS/$1" ] && [ ! -e "$WS/project/kacho/$1" ]; }
-present_path() { [ -e "$WS/$1" ] || [ -e "$WS/project/kacho/$1" ]; }
+# ЖИВОСТЬ КООРДИНАТЫ СПРАШИВАЕТСЯ У САМОГО ХУКА, А НЕ У ДИСКА.
+#
+# Прежде обе половины смотрели на файловую систему (`[ -e ]`), тогда как хук судит
+# координату по ДВУМ полосам — рабочему индексу И вершине ствола — и отвечает одним
+# из пяти исходов (`Truth.classify`: resolved · uncovered · trunk_only · unjudged ·
+# missing). Полосы разошлись, и набор стал требовать находку там, где хук честно
+# отвечает `trunk_only`: 2026-09-12 пара «.yml против .yaml» покраснела на полностью
+# исправном хуке, потому что в стволе дерева продукта появился
+# `services/iam/.github/workflows/ci.yml` — хвостовое совпадение, которого на диске
+# рабочей копии нет и быть не может.
+#
+# Второго кодека здесь не заводится намеренно: у вопроса «резолвится ли координата»
+# в дереве ровно один ответчик, и набор обязан СПРАШИВАТЬ его, а не воспроизводить
+# его логику (хвостовые совпадения, необязательный префикс `project/kacho/`, границы
+# покрытия). Воспроизведение разошлось бы молча — ровно тот класс, который хук ловит
+# в чужой прозе.
+#
+# Ответ memo-ируется, и ключ включает НАЗНАЧЕННЫЙ ствол: секция M назначает его на
+# время своих проб, и ответ «жива ли координата» при назначенном стволе другой.
+# Ответ пуст (разбор не запустился, хук сломан) — координата НЕ объявляется ни живой,
+# ни мёртвой: предпосылка не выполнена, и это третий исход, а не тихий пропуск.
+CLASS_MEMO="$TMP/classmemo"; mkdir -p "$CLASS_MEMO"
+hook_path_class() { # hook_path_class <координата> → исход classify (или пусто)
+  local c="$1" key f
+  key="$(printf '%s|%s' "${DOCFRESH_INTEGRATION_REF:-}" "$c" | md5sum | cut -d" " -f1)"
+  f="$CLASS_MEMO/$key"
+  if [ ! -s "$f" ]; then
+    python3 - "$GUARD" "$WS" "$c" > "$f" 2>/dev/null <<'PYCLASS' || true
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfcls", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[2]); mono = m.monorepo_root(ws)
+idx, _warm = m.load_index(ws, mono)
+print(m.Truth(idx["truth"], ws, mono).classify("path", sys.argv[3]))
+PYCLASS
+  fi
+  cat "$f" 2>/dev/null
+}
+absent_path() { [ "$(hook_path_class "$1")" = "missing" ]; }
+present_path() { [ "$(hook_path_class "$1")" = "resolved" ]; }
 
 run_doc() { # run_doc <относительный путь пробы> <содержимое> → stderr+stdout хука
   local body="$2" abs="$DOCS/$1"
@@ -199,7 +237,11 @@ if absent_path sync-tooling.sh; then
     printf '%s\n' "$live_out" | sed 's/^/      /' | head -4
   fi
 else
-  notrun "'sync-tooling.sh' появился в дереве — предпосылку НАБОРА проверять этим входом больше нельзя, заменить вход"
+  # Исход НАЗЫВАЕТСЯ: «появился в дереве» — лишь один из трёх способов потерять
+  # этот вход. Живость спрашивается у самого хука, и он различает `resolved`,
+  # `trunk_only` и пустой ответ (разбор не запустился); все три означают разное,
+  # и молчаливое «появился» посылало бы читателя искать файл, которого нет.
+  notrun "вход предпосылки НАБОРА не мёртв: 'sync-tooling.sh' даёт исход «$(hook_path_class sync-tooling.sh)» вместо «missing» — заменить вход либо создать условие"
 fi
 
 # Общие входы объявляются здесь ОДИН раз — они несут не одну пробу, а целые разделы
@@ -211,7 +253,11 @@ for dead in sync-tooling.sh tests/sync-tooling.bats; do
   if premise_dead "$dead"; then echo "  ✔ вход (+) жив: '$dead' в дереве отсутствует"
   else notrun "'$dead' появился в дереве — проба (+) по нему больше не настоящая, заменить вход"; fi
 done
-for alive in sync-all.sh .claude/rules/vault.md pkg/ids/ids.go; do
+# `pkg/ids/ids.go` выведен из перечня 2026-09-12: на этой копии он `trunk_only`
+# (в стволе есть, в выписанном дереве нет), а (−)-близнец обязан быть живым В ТОЙ
+# ЖЕ полосе, по которой хук отвечает «резолвится». Заменён на `proto/buf.yaml` —
+# координату дерева продукта того же вида, живую в обеих полосах.
+for alive in sync-all.sh .claude/rules/vault.md proto/buf.yaml; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
@@ -263,12 +309,19 @@ expect_silent "живой скрипт того же каталога" a2.md \
 # конвейерах, и различить их можно только обращением к дереву. Обе стороны объявляют
 # свою предпосылку: переименуй конвейер — и без объявления (+) молча перестала бы
 # краснеть, а (−) покраснела бы «ложным сработом» на правоте хука.
+# ВХОД ПЕРЕАНКЕРЕН 2026-09-12, и причина — не переезд файла, а РОСТ ОСНОВАНИЯ.
+# Прежней парой был `ci.yml` против `ci.yaml`; в стволе дерева продукта появился
+# `services/iam/.github/workflows/ci.yml`, и хвостовое совпадение сделало мёртвую
+# половину живой (`trunk_only`) — то есть проба (+) требовала находку там, где хук
+# прав. Пара взята в обратную сторону: `.yml` жив, `.yaml` мёртв. Свойство под
+# проверкой ТО ЖЕ — решает одна буква расширения, и узнать её можно только
+# обращением к дереву; изменилось лишь то, какая из двух форм сегодня мёртвая.
 expect_fires_dead "workflow с расширением, которого в дереве нет" a3.md \
-  'Конвейер — `.github/workflows/ci.yml`.' '.github/workflows/ci.yml' \
-  '.github/workflows/ci.yml'
+  'Конвейер — `.github/workflows/ui.yaml`.' '.github/workflows/ui.yaml' \
+  '.github/workflows/ui.yaml'
 expect_silent_live "тот же workflow с нынешним расширением" a4.md \
-  'Конвейер — `.github/workflows/ci.yaml`.' '.github/workflows/ci.yaml' \
-  '.github/workflows/ci.yaml'
+  'Конвейер — `.github/workflows/ui.yml`.' '.github/workflows/ui.yml' \
+  '.github/workflows/ui.yml'
 
 echo
 echo "== A'. регрессии нормализации пути =="
@@ -572,12 +625,19 @@ echo "== I. предпосылка самого хука =="
 # же входом; изменилось только место, и оно теперь раньше всех, кто от него
 # зависит. Второй копии здесь не заводится: два места об одном предикате
 # разошлись бы молча.
-out="$(python3 - "$GUARD" <<'PY' 2>&1
+# Корень воркспейса ПЕРЕДАЁТСЯ аргументом, а не выводится из пути стража.
+# Вывод «четыре каталога вверх от docfresh.py» верен ровно пока страж лежит в
+# дереве; при подмене (`DOCFRESH_PROVE_HOOK`, наведение на ревизию ДО починки)
+# он указывает НАРУЖУ, `monorepo_root` возвращает None, весь блок предпосылок
+# дерева продукта не исполняется — и проба отчитывалась «осиротевшее имя прошло
+# молча» на полностью исправном коде. То есть механизм, заведённый ради проверки
+# способности набора падать, сам делал одну пробу ложно красной.
+out="$(python3 - "$GUARD" "$WS" <<'PY' 2>&1
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfp", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 m.ROOT_SEGMENTS.add("каталога-с-таким-именем-в-дереве-нет")
-ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
+ws = pathlib.Path(sys.argv[2]).resolve()
 print("\n".join(m.preconditions(ws, m.monorepo_root(ws))))
 PY
 )"
@@ -1538,6 +1598,258 @@ if [ "$prc" -eq 0 ]; then
   echo "  ✔ код 0 на чистом ходу — конец хода не блокируется"; PASS=$((PASS+1))
 else
   echo "  ✘ код $prc на чистом ходу — хук мешает работе"; FAIL=$((FAIL+1))
+fi
+
+echo
+echo "== Q. полоса ПРЕДПОСЫЛОК — та же, что у вердикта (ствол); её отсутствие ≠ находка =="
+# Предпосылки хука — словарь корневых сегментов, выписанные шаблоны LIVE и исключение
+# приёмок — судятся по ПОЛОСЕ СТВОЛА: тем же резолвом (`_resolve_integration_ref`) и
+# тем же перечислителем (`_files_at_ref`), которыми полосу читает вердикт. До
+# 2026-09-12 они судились по рабочему ИНДЕКСУ выписанной копии, и на копии,
+# припаркованной в стороне от ствола, хук ОТКАЗЫВАЛСЯ работать на посылке, ЛОЖНОЙ О
+# ДЕРЕВЕ: требовал снять словарное имя и исключение, предмет у которых есть — просто
+# не в этой копии (0 против 27 путей с сегментом `project`, 0 против 30 приёмок).
+#
+# МИР СТРОИТСЯ, а не ищется в чужом дереве: оси различаются РОВНО ОДНИМ фактом —
+# где стоит HEAD · есть ли предмет в последнем коммите ствола · есть ли ссылки ствола
+# вообще, — поэтому ни одна из них не зависит от состояния общей копии продукта, и
+# ни одна не перестанет исполняться, когда копию переставят.
+QSEGS="services pkg proto gateway deploy internal cmd tools docs tests scripts obsidian .claude .github ui-future project migrations apps collections cases"
+q_git() { local r="$1"; shift; git -C "$r" -c user.name=p -c user.email=p@invalid "$@"; }
+
+q_build() { # q_build <корень> → воркспейс + дерево продукта, всё закоммичено
+  local W="$1" P="$1/project/kacho" seg
+  rm -rf "$W"
+  # У КАЖДОГО шаблона LIVE воркспейса обязан быть предмет — иначе хук откажет по
+  # осиротевшему шаблону воркспейса, то есть не по проверяемой предпосылке.
+  mkdir -p "$W/.claude/rules" "$W/.claude/agents" "$W/.claude/hooks/docfresh" \
+           "$W/.claude/skills/s" "$W/docs/specs" "$W/obsidian/kacho/resources"
+  printf 'Корень воркспейса.\n'            > "$W/CLAUDE.md"
+  printf 'Корень воркспейса.\n'            > "$W/README.md"
+  printf 'Правило. Живое — `README.md`.\n' > "$W/.claude/rules/r.md"
+  printf 'Агент.\n'                        > "$W/.claude/agents/a.md"
+  printf 'Хук.\n'                          > "$W/.claude/hooks/docfresh/README.md"
+  printf 'Скил.\n'                         > "$W/.claude/skills/s/SKILL.md"
+  printf 'Спека.\n'                        > "$W/docs/specs/00-a.md"
+  printf -- '---\nstatus: stable\n---\nЗаписка.\n' > "$W/obsidian/kacho/resources/x.md"
+  printf 'Указатель.\n'                    > "$W/obsidian/kacho/INDEX.md"
+  printf 'project/\n'                      > "$W/.gitignore"
+  q_git "$W" init -q -b main . >/dev/null
+  q_git "$W" add -A >/dev/null && q_git "$W" commit -q -m ws
+  q_git "$W" update-ref refs/remotes/origin/main "$(git -C "$W" rev-parse HEAD)"
+  # У КАЖДОГО имени словаря корневых сегментов обязан быть предмет: иначе отказ
+  # пришёл бы от словаря, а проверяются оси полосы.
+  mkdir -p "$P"
+  for seg in $QSEGS; do mkdir -p "$P/$seg"; printf 'x\n' > "$P/$seg/.keep"; done
+  mkdir -p "$P/docs/architecture" "$P/tests/newman/docs" "$P/gateway/docs/content" \
+           "$P/services/svc/docs/engineering/acceptance"
+  printf 'Продукт.\n'     > "$P/README.md"
+  printf 'Продукт.\n'     > "$P/CLAUDE.md"
+  printf 'Архитектура.\n' > "$P/docs/architecture/a.md"
+  printf 'Кейсы.\n'       > "$P/tests/newman/docs/d.md"
+  printf "export default {presets:[['classic',{docs:{path:'content'}}]]};\n" \
+                          > "$P/gateway/docs/docusaurus.config.ts"
+  printf 'Страница.\n'    > "$P/gateway/docs/content/p.md"
+  q_git "$P" init -q -b main . >/dev/null
+  q_git "$P" add -A >/dev/null && q_git "$P" commit -q -m base
+}
+
+q_acceptance() { # q_acceptance <корень> — ПРЕДМЕТ исключения приёмок, вторым коммитом
+  local P="$1/project/kacho"
+  printf 'Приёмка на дату.\n' > "$P/services/svc/docs/engineering/acceptance/a.md"
+  q_git "$P" add -A >/dev/null && q_git "$P" commit -q -m acceptance
+}
+q_trunk_at_head() { # q_trunk_at_head <корень> — ссылка слежения = вершина
+  local P="$1/project/kacho"
+  q_git "$P" update-ref refs/remotes/origin/main "$(git -C "$P" rev-parse HEAD)"
+}
+q_run() { # q_run <корень> <координата пробного документа> → вывод хука
+  local W="$1"
+  printf 'Проба. Координата — `%s`.\n' "$2" > "$W/.claude/rules/probe.md"
+  # Назначенный ствол и подменённый корпус СНИМАЮТСЯ: секция M назначает их на
+  # время своих проб, а здесь вход — сам синтетический мир.
+  printf '{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"%s/.claude/rules/probe.md"}}' "$W" \
+    | ( unset DOCFRESH_INTEGRATION_REF DOCFRESH_DOC_ROOT
+        CLAUDE_PROJECT_DIR="$W" DOCFRESH_STATE="$W/.state" \
+          DOCFRESH_ALLOW="$W/нет-послаблений.json" bash "$HOOK" 2>&1 )
+}
+QDEAD="services/nosuch/nosuch.go"   # координата, мёртвая во всех мирах секции
+
+# ── ось 1 (−): ствол резолвится, копия ВРОВЕНЬ → предпосылка проходит ────────
+QW1="$TMP/q-level"
+q_build "$QW1"; q_acceptance "$QW1"; q_trunk_at_head "$QW1"
+q1="$(q_run "$QW1" "$QDEAD")"
+if hook_declined "$q1"; then
+  echo "  ✘ (−) копия ВРОВЕНЬ со стволом, а хук отказался — предпосылка ложна о дереве"; FAIL=$((FAIL+1))
+  printf '%s\n' "$q1" | sed 's/^/      /' | head -4
+else
+  echo "  ✔ (−) копия вровень со стволом — предпосылка проходит, сироты не объявлены"; PASS=$((PASS+1))
+fi
+if printf '%s' "$q1" | grep -qF 'вровень со стволом'; then
+  echo "  ✔ (−) перепись называет равенство «вровень» — основание названо"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) равенство не названо «вровень» — по чему судили, не сказано"; FAIL=$((FAIL+1))
+fi
+
+# ── ось 2 (+): копия РАЗОШЛАСЬ, предмет ЖИВ на стволе → сирот нет, лаг ЧИСЛОМ ─
+# Один факт против оси 1: HEAD отведён на коммит назад. Предмет исключения при этом
+# остаётся в стволе и исчезает из индекса копии — ровно состояние, на котором хук
+# отказывался работать.
+QW2="$TMP/q-behind"
+q_build "$QW2"; q_acceptance "$QW2"; q_trunk_at_head "$QW2"
+q_git "$QW2/project/kacho" checkout -q --detach HEAD~1
+if [ "$(git -C "$QW2/project/kacho" ls-files | grep -c 'acceptance/')" -ne 0 ]; then
+  notrun "мир «копия позади» не построен: приёмка осталась в индексе, один факт не изолирован"
+else
+  q2="$(q_run "$QW2" "$QDEAD")"
+  if hook_declined "$q2"; then
+    echo "  ✘ (+) копия позади ствола — хук ОТКАЗАЛСЯ: предпосылка судит не ту полосу"; FAIL=$((FAIL+1))
+    printf '%s\n' "$q2" | sed 's/^/      /' | head -4
+  else
+    echo "  ✔ (+) копия позади ствола — отказа нет: предмет исключения виден в стволе"; PASS=$((PASS+1))
+  fi
+  if printf '%s' "$q2" | grep -qF 'нечего исключать'; then
+    echo "  ✘ (+) живое исключение объявлено сиротой — разошлись полосы предпосылки и вердикта"; FAIL=$((FAIL+1))
+  else
+    echo "  ✔ (+) живое на стволе исключение сиротой НЕ объявлено"; PASS=$((PASS+1))
+  fi
+  if printf '%s' "$q2" | grep -qE 'ОТСТАЁТ от ствола [^·]* на [1-9]'; then
+    echo "  ✔ (+) расхождение копии со стволом названо ЧИСЛОМ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) копия позади, а расхождение числом не названо — вердикт без ревизии"; FAIL=$((FAIL+1))
+    printf '%s' "$q2" | grep -o 'дерево продукта [^·]*' | sed 's/^/      /' | head -2
+  fi
+fi
+
+# ── ось 3 (+): на СТВОЛЕ предмета действительно нет → НАХОДКА (не выхолощено) ─
+# Один факт против оси 1: приёмки нет ни в одном коммите, то есть ни в индексе, ни в
+# стволе. Без этой оси «не объявлять сиротой» было бы неотличимо от «не объявлять
+# никогда» — то есть починка сняла бы проверку вместо дефекта.
+QW3="$TMP/q-orphan"
+q_build "$QW3"; q_trunk_at_head "$QW3"
+q3="$(q_run "$QW3" "$QDEAD")"
+if printf '%s' "$q3" | grep -qF 'нечего исключать'; then
+  echo "  ✔ (+) предмета нет НИ в индексе, НИ в стволе — сиротство названо, свойство живо"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) исключение без предмета прошло молча — сиротство перестало обнаруживаться"; FAIL=$((FAIL+1))
+  printf '%s\n' "$q3" | sed 's/^/      /' | head -4
+fi
+if hook_declined "$q3"; then
+  echo "  ✔ (+) и это ОТКАЗ, а не совет — «находок нет» на такой предпосылке запрещено"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) сиротство названо, но хук продолжил работу — отказ выхолощен"; FAIL=$((FAIL+1))
+fi
+# Отказ обязан НАЗЫВАТЬ ревизию, по которой судил: перепись вердикта до читателя
+# здесь не доезжает вовсе (отказ выходит ДО сборки индекса), и без неё отказ
+# неотличим от отказа о продукте.
+if printf '%s' "$q3" | grep -qF 'предпосылки судили дерево продукта по стволу'; then
+  echo "  ✔ (+) отказ называет ревизию и полосу, по которым судил"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) отказ не назвал своего основания — читатель не знает, о каком дереве речь"; FAIL=$((FAIL+1))
+fi
+
+# ── ось 4 (+): ствол НЕ РЕЗОЛВИТСЯ → третья категория, а НЕ отказ работать ───
+# Один факт против оси 1: ссылок ствола нет вовсе (обрезанная история, свежий клон).
+# Отказ здесь отменял бы вердикт, который хук умеет вынести: у непостроенной полосы
+# есть первоклассный исход `unjudged`, считаемый покоординатно.
+QW4="$TMP/q-notrunk"
+q_build "$QW4"; q_acceptance "$QW4"
+q_git "$QW4/project/kacho" checkout -q --detach HEAD
+q_git "$QW4/project/kacho" update-ref -d refs/heads/main
+if [ -n "$(git -C "$QW4/project/kacho" for-each-ref --format='%(refname)' 'refs/remotes/*/main' 'refs/heads/*')" ]; then
+  notrun "мир «без ствола» не построен: ссылки остались, один факт не изолирован"
+else
+  q4="$(q_run "$QW4" "$QDEAD")"
+  if hook_declined "$q4"; then
+    echo "  ✘ (+) без полосы ствола хук ОТКАЗАЛСЯ работать — вердикт отменён вместо «не вынесен»"; FAIL=$((FAIL+1))
+    printf '%s\n' "$q4" | sed 's/^/      /' | head -4
+  else
+    echo "  ✔ (+) ствол не резолвится — хук РАБОТАЕТ, отказа нет"; PASS=$((PASS+1))
+  fi
+  if printf '%s' "$q4" | grep -qE 'вердикт не вынесен [1-9]'; then
+    echo "  ✔ (+) координата отнесена к «вердикт не вынесен» и СЧИТАЕТСЯ"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) без полосы ствола координата не отнесена к третьей категории"; FAIL=$((FAIL+1))
+  fi
+  if printf '%s' "$q4" | grep -qF 'выписанные шаблоны на этой полосе НЕ СУДИЛИСЬ'; then
+    echo "  ✔ (+) сказано прямо: словарь и шаблоны НЕ судились — это не тишина"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) непросуженный словарь прошёл молча — «не читали» неотличимо от «чисто»"; FAIL=$((FAIL+1))
+  fi
+  if printf '%s' "$q4" | grep -qF 'нечего исключать'; then
+    echo "  ✘ (+) без полосы ствола объявлено сиротство — «смотрел не туда» выдано за «этого нет»"; FAIL=$((FAIL+1))
+  else
+    echo "  ✔ (+) без полосы ствола сироты НЕ объявлены"; PASS=$((PASS+1))
+  fi
+fi
+
+# ── ось 5: ствол — линия РОДСТВЕННАЯ, но счёт коммитов не отменён ────────────
+# Кандидат с НЕСВЯЗНОЙ историей стволом этого дерева не бывает: линия интеграции
+# обязана делить с HEAD хотя бы один коммит. Наблюдалось на общей копии продукта —
+# рядом с `origin` стоял удалённый на архив прежнего полирепо, и отбор «больше всего
+# коммитов вне HEAD» уверенно выбирал ЕГО: чем архив дальше, тем увереннее выигрыш.
+# Близнец обязан доказать, что фильтр РОДСТВА не подменил счёт: среди двух
+# родственных кандидатов по-прежнему выигрывает более продвинутый.
+q_pick() { # q_pick <репозиторий> → имя выбранного ствола
+  ( unset DOCFRESH_INTEGRATION_REF
+    python3 - "$GUARD" "$1" 2>/dev/null <<'PYPICK'
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfpick", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(m._resolve_integration_ref(pathlib.Path(sys.argv[2]))[0] or "")
+PYPICK
+  )
+}
+QW5="$TMP/q-kin"; rm -rf "$QW5"; mkdir -p "$QW5"
+if ! ( q_git "$QW5" init -q -b main . >/dev/null &&
+       printf 'a\n' > "$QW5/a.txt" && q_git "$QW5" add -A >/dev/null &&
+       q_git "$QW5" commit -q -m c1 ) 2>/dev/null; then
+  notrun "изолированный репозиторий оси родства не создан — сверять отбор не на чем"
+else
+  QBASE="$(git -C "$QW5" rev-parse HEAD)"
+  # родственный кандидат: вершина = HEAD + 1 коммит
+  printf 'b\n' > "$QW5/b.txt"; q_git "$QW5" add -A >/dev/null; q_git "$QW5" commit -q -m c2
+  q_git "$QW5" update-ref refs/remotes/origin/main "$(git -C "$QW5" rev-parse HEAD)"
+  # несвязная линия: отдельный корень, коммитов вне HEAD БОЛЬШЕ
+  q_git "$QW5" checkout -q --orphan arch >/dev/null 2>&1
+  q_git "$QW5" rm -q -rf --cached . >/dev/null 2>&1 || true
+  rm -f "$QW5/a.txt" "$QW5/b.txt"
+  for n in 1 2 3 4; do printf 'x%s\n' "$n" > "$QW5/arch$n.txt"
+    q_git "$QW5" add -A >/dev/null; q_git "$QW5" commit -q -m "arch$n"; done
+  q_git "$QW5" update-ref refs/remotes/archive/main "$(git -C "$QW5" rev-parse HEAD)"
+  q_git "$QW5" checkout -q --detach "$QBASE" >/dev/null 2>&1
+  q_git "$QW5" update-ref -d refs/heads/arch
+  q_git "$QW5" update-ref -d refs/heads/main
+  q_behind_o="$(git -C "$QW5" rev-list --count HEAD..refs/remotes/origin/main)"
+  q_behind_a="$(git -C "$QW5" rev-list --count HEAD..refs/remotes/archive/main)"
+  if git -C "$QW5" merge-base HEAD refs/remotes/archive/main >/dev/null 2>&1 ||
+     [ "${q_behind_a:-0}" -le "${q_behind_o:-0}" ]; then
+    notrun "вход оси родства не построен: архивная линия оказалась родственной либо не обогнала родную ($q_behind_a против $q_behind_o)"
+  else
+    q5="$(q_pick "$QW5")"
+    if [ "$q5" = "origin/main" ]; then
+      echo "  ✔ (+) несвязная линия обгоняет родную на $q_behind_a против $q_behind_o — стволом выбрана РОДСТВЕННАЯ"; PASS=$((PASS+1))
+    else
+      echo "  ✘ (+) стволом выбрано «$q5» — судим по линии, не делящей с HEAD ни одного коммита"; FAIL=$((FAIL+1))
+    fi
+    # (−) ЗАКОННЫЙ БЛИЗНЕЦ: два РОДСТВЕННЫХ кандидата — выигрывает продвинутый.
+    # Один факт против (+): вторая линия заведена ОТ HEAD, а не отдельным корнем.
+    q_git "$QW5" update-ref -d refs/remotes/archive/main
+    q_git "$QW5" checkout -q --detach "$QBASE" >/dev/null 2>&1
+    q_git "$QW5" branch -q -f far refs/remotes/origin/main 2>/dev/null || true
+    q_git "$QW5" checkout -q far >/dev/null 2>&1
+    for n in 1 2; do printf 'f%s\n' "$n" > "$QW5/f$n.txt"
+      q_git "$QW5" add -A >/dev/null; q_git "$QW5" commit -q -m "far$n"; done
+    q_git "$QW5" update-ref refs/remotes/far/main "$(git -C "$QW5" rev-parse HEAD)"
+    q_git "$QW5" checkout -q --detach "$QBASE" >/dev/null 2>&1
+    q_git "$QW5" update-ref -d refs/heads/far
+    q5b="$(q_pick "$QW5")"
+    if [ "$q5b" = "far/main" ]; then
+      echo "  ✔ (−) два родственных кандидата — выигрывает более продвинутый: счёт коммитов не отменён"; PASS=$((PASS+1))
+    else
+      echo "  ✘ (−) среди родственных выбрано «$q5b» вместо far/main — фильтр родства подменил счёт"; FAIL=$((FAIL+1))
+    fi
+  fi
 fi
 
 echo
