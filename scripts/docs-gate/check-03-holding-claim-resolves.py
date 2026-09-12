@@ -31,8 +31,8 @@
   P3. состояние — из ЗАКРЫТОГО набора (`держится` · `наполовину` · `не начат`).
       Свободная формулировка вернула бы прозу, которую и заменяет таблица;
   P4. `держится` и `наполовину` называют ≥1 путь и ≥1 проверку; путь обязан
-      быть в индексе монорепо, имя вида `Test…` — обязано находиться в одном из
-      названных файлов `.go` объявлением `func <имя>(`. Путь `.sh`/`.py`
+      быть НА СТВОЛЕ дерева продукта, имя вида `Test…` — обязано находиться в
+      одном из названных файлов `.go` объявлением `func <имя>(`. Путь `.sh`/`.py`
       считается проверкой сам: скрипт и есть проба;
   P5. `не начат` не называет координат — иначе строка противоречит себе;
   P6. множество кейсов таблицы совпадает с множеством кейсов, объявленных
@@ -45,16 +45,49 @@
 структура, объявленная самим документом, поэтому у него есть ровно одно
 прочтение.
 
+ГДЕ СУДИТСЯ — В СТВОЛЕ ПРОДУКТА, А НЕ В ИНДЕКСЕ ЛЕЖАЩЕЙ РЯДОМ КОПИИ
+
+Координата претензии проверяется по СТВОЛУ дерева продукта (`ls-tree <ссылка>`),
+а не по индексу рабочей копии (`ls-files`). Копия общая, её парконули на чужой
+релизной линии — и индекс тогда отвечает о том, на чём копия стоит СЕЙЧАС, а не о
+том, что у продукта есть.
+
+Цена измерена, а не предположена (2026-09-12, ws#621): на копии, припаркованной
+на ревизии, где каталог службы доступа снят, проверка назвала непроверяемыми ОДИН-
+НАДЦАТЬ претензий приёмки XC-11. Все одиннадцать резолвятся на стволе — два файла
+и семь имён проверок стоят там на месте. Вердикт был ложен о продукте и верен лишь
+о состоянии одной копии, а отправку любой ветки воркспейса он при этом остановил.
+
+Полос чтения в наборе было ТРИ (индекс · ствол · оба), и расходились они молча:
+пока копия стоит на стволе, различие ненаблюдаемо. Резолв ствола теперь ОДИН на
+оба набора — `scripts/lib/product_trunk.py`; второй кодек об одном предмете
+разошёлся бы с первым там, где это не видно.
+
+СТВОЛ НЕ РАЗРЕШЁН — ТРЕТЬЯ КАТЕГОРИЯ, А НЕ НАХОДКА
+
+Клон без линии интеграции (свежая выкладка, дерево с одной парковочной ветвью)
+координату проверить НЕ ПО ЧЕМУ. Это **VOID**, а не находка: объявить одиннадцать
+претензий непроверяемыми потому, что мы не нашли, у чего спросить, значит выдать
+«не выполнилось» за вердикт. Молчаливый откат на индекс запрещён тем же доводом —
+он и есть дефект, ради которого полоса выровнена.
+
+Расхождение копии со стволом называется ЧИСЛОМ в переписи: «ноль находок» обязано
+быть отличимо от «ноль прочитанного», а «судили по стволу» — от «судили по копии,
+которая от него ушла».
+
 Исходы: 0 — у каждой претензии координата резолвится; 1 — находки, каждая
-названа; 2 — проверять нечего (нет монорепо либо нет ни одной таблицы).
+названа; 2 — проверять нечего (нет дерева продукта, не разрешён его ствол либо
+нет ни одной таблицы).
 """
 import os
 import re
-import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _HERE)
+sys.path.insert(0, os.path.join(os.path.dirname(_HERE), "lib"))
 import _lib  # noqa: E402
+import product_trunk  # noqa: E402
 
 NAME = "check-03-holding-claim-resolves"
 
@@ -83,25 +116,9 @@ CHECKISH = re.compile(r"^Test[A-Za-z0-9_]*$")
 SCRIPTISH = (".sh", ".py")
 
 
-def monorepo(ws):
-    """Путь монорепо: KACHO_MONOREPO, иначе project/kacho. None — нет.
-
-    `.git` признаётся и КАТАЛОГОМ, и ФАЙЛОМ: у рабочего дерева (`git worktree`)
-    это файл-указатель на общий каталог репозитория. Требование «только каталог»
-    делало проверку VOID ровно там, где ведётся работа, — то есть проверка,
-    неспособная упасть, выглядела пройденной. Предикат тот же, что у vault-gate
-    (`scripts/vault-gate/_lib.sh`: `-d … || -f …`), чтобы два обходчика одного
-    дерева не расходились в том, что считать репозиторием.
-    """
-    env = os.environ.get("KACHO_MONOREPO")
-    cand = env if env else os.path.join(ws, "project", "kacho")
-    dot = os.path.join(cand, ".git")
-    return cand if (os.path.isdir(dot) or os.path.isfile(dot)) else None
-
-
-def repo_index(repo):
-    out = subprocess.run(["git", "-C", repo, "ls-files"], capture_output=True, text=True)
-    return set(p for p in out.stdout.split("\n") if p)
+# Путь дерева продукта и его ствол берутся из `_lib` — по одному резолву на
+# набор. Своя копия жила здесь до ws#621 и была третьей в наборе; копии об одном
+# предмете расходятся молча, и расходятся там, где это не видно.
 
 
 def strip_cell(text):
@@ -162,18 +179,21 @@ def coordinates(cells):
     return paths, checks
 
 
-def declares(repo, rel, name):
-    """Объявлена ли функция `name` в файле `rel` монорепо."""
-    path = os.path.join(repo, rel)
-    try:
-        with open(path, encoding="utf-8", errors="replace") as fh:
-            body = fh.read()
-    except OSError:
+def declares(repo, t, rel, name):
+    """Объявлена ли функция `name` в файле `rel` НА СТВОЛЕ дерева продукта.
+
+    Читается `git show <ствол>:<путь>`, а не файл с диска: диск отвечает о том, на
+    чём копия стоит сейчас. На припаркованной копии файла может не быть вовсе —
+    и тогда чтение с диска молча превращает «этой ревизии не касались» в «проверки
+    не существует».
+    """
+    body = product_trunk.show(repo, t, rel)
+    if body is None:
         return False
     return re.search(r"^func\s+%s\s*\(" % re.escape(name), body, re.M) is not None
 
 
-def audit(root, repo, index, rel, findings, stats):
+def audit(root, repo, t, index, rel, findings, stats):
     text = _lib.read(root, rel)
     tabs = tables(text)
     if not tabs:
@@ -234,8 +254,8 @@ def audit(root, repo, index, rel, findings, stats):
                     alive.append(p)
                 else:
                     findings.append(
-                        "%s:%d — кейс %s ссылается на %s, которого в индексе монорепо "
-                        "нет: свидетельство не проверяемо"
+                        "%s:%d — кейс %s ссылается на %s, которого на стволе дерева "
+                        "продукта нет: свидетельство не проверяемо"
                         % (rel, lineno, cid.group(1), p))
             scripts = [p for p in alive if p.endswith(SCRIPTISH)]
             if not checks and not scripts:
@@ -246,7 +266,7 @@ def audit(root, repo, index, rel, findings, stats):
             for name in checks:
                 stats["checks"] += 1
                 gofiles = [p for p in alive if p.endswith(".go")]
-                if not any(declares(repo, p, name) for p in gofiles):
+                if not any(declares(repo, t, p, name) for p in gofiles):
                     findings.append(
                         "%s:%d — кейс %s называет проверку %s, которой нет ни в одном "
                         "из названных им файлов (%s)"
@@ -267,9 +287,9 @@ def audit(root, repo, index, rel, findings, stats):
 
 def main():
     root = _lib.workspace_root()
-    repo = monorepo(root)
+    repo = _lib.monorepo(root)
     if repo is None:
-        _lib.void(NAME, "монорепо не найдено (ни KACHO_MONOREPO, ни project/kacho) — "
+        _lib.void(NAME, "дерево продукта не найдено (ни KACHO_MONOREPO, ни project/kacho) — "
                         "координату проверить не по чему")
         return 2
 
@@ -278,20 +298,30 @@ def main():
         _lib.void(NAME, "отслеживаемых docs/specs/*-acceptance.md нет — читать нечего")
         return 2
 
-    index = repo_index(repo)
-    head = subprocess.run(["git", "-C", repo, "rev-parse", "--short", "HEAD"],
-                          capture_output=True, text=True).stdout.strip()
+    # Ствол дерева продукта. НЕ разрешён — третья категория: координату проверить
+    # не по чему, и объявить претензии непроверяемыми на этом основании значило бы
+    # выдать «не выполнилось» за вердикт. Откат на индекс копии запрещён — он и
+    # есть дефект, ради которого полоса выровнена (ws#621).
+    t = _lib.trunk(repo)
+    if t.ref is None:
+        _lib.void(NAME, "ствол дерева продукта (%s) не разрешён — искали: %s. Координату "
+                        "проверить не по чему; индекс рабочей копии полосой НЕ является: "
+                        "припаркованная копия объявляет несуществующим то, что на стволе есть"
+                        % (repo, ", ".join(t.candidates) or "нечего"))
+        return 2
+
+    index = product_trunk.files(repo, t)
 
     findings = []
     stats = {"tables": 0, "rows": 0, "paths": 0, "checks": 0}
-    carriers = [rel for rel in docs if audit(root, repo, index, rel, findings, stats)]
+    carriers = [rel for rel in docs if audit(root, repo, t, index, rel, findings, stats)]
 
     _lib.census(
         "%s: приёмок осмотрено %d; несут таблицу состояния %d (%s); таблиц %d, строк %d; "
-        "дерево продукта %s — путей проверено %d, имён проверок %d"
+        "дерево продукта %s — путей на стволе %d, путей проверено %d, имён проверок %d"
         % (NAME, len(docs), len(carriers),
            ", ".join(carriers) if carriers else "ни одной",
-           stats["tables"], stats["rows"], head or "неизвестно",
+           stats["tables"], stats["rows"], _lib.where(repo, t), len(index),
            stats["paths"], stats["checks"]))
 
     if not carriers:
