@@ -9,13 +9,30 @@
 прогонять проверки по временной копии дерева с внесённым дефектом.
 
 Здесь же живёт РАСПОЗНАВАТЕЛЬ ВЕРДИКТА (`verdict`) — один на оба дома приёмок,
-воркспейс и дерево продукта, — и резолюция дерева продукта (`monorepo`). Держать
+воркспейс и дерево продукта, — резолюция ПУТИ дерева продукта (`monorepo`) и
+резолюция его СТВОЛА (`trunk`, `provenance`, `trunk_files`, `trunk_show`). Держать
 их копиями у каждой проверки значило бы завести два места об одном предмете; они
 разошлись бы молча и именно там, где обе отвечают «вердикт прочитан».
+
+РАЗНЫЕ ДЕРЕВЬЯ ЧИТАЮТСЯ РАЗНЫМИ ПОЛОСАМИ, И ЭТО РЕШЕНИЕ. Воркспейс — СВОЁ дерево,
+правится он здесь же, поэтому судится по ИНДЕКСУ: новый документ обязан
+проверяться ровно в тот коммит, где его заводят. Дерево продукта — ЧУЖОЕ, лежит
+рядом клоном, парковку которого никто не объявлял, поэтому судится по СТВОЛУ.
+Смешивать полосы нельзя: вердикт стал бы функцией чужого переключения.
+
+ЧИТАТЕЛИ РЕЗОЛЮЦИИ СТВОЛА (перечень обязан сходиться с деревом; предикат —
+`git grep -ln "_lib" -- scripts/docs-gate scripts/skills-gate`):
+
+  * `scripts/docs-gate/check-03-acceptance-tree-claims.py`;
+  * `scripts/docs-gate/check-03-holding-claim-resolves.py`;
+  * `scripts/docs-gate/check-04-product-acceptance-verdict.py`;
+  * `scripts/skills-gate/check-06-docs-layout-matches-tree.sh` — через режим CLI
+    этого файла (см. `_cli`), а НЕ через свою копию резолюции.
 """
 import os
 import re
 import subprocess
+import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -166,6 +183,10 @@ def monorepo(root):
 # (`fetch` — сеть, время и запись в чужой репозиторий, а набор гоняется на каждой
 # отправке); вместо этого её отсутствие называется прямо, а не подставляется.
 TRUNK_REF = "origin/main"
+# Порог, за которым вершина ствола называется устаревшей. Число здесь
+# ОРИЕНТИР, а не гейт: оно не роняет прогон, а печатается в переписи, чтобы
+# «вердикт не свежее того, с чем сравнивали» было видно.
+TRUNK_STALE_DAYS = 7
 
 
 def _repo_git(repo, args):
@@ -194,12 +215,22 @@ def provenance(repo):
     branch = _repo_git(repo, ["rev-parse", "--abbrev-ref", "HEAD"]) or "?"
     rev_full = _repo_git(repo, ["rev-parse", ref]) if ref else None
     rev_short = _repo_git(repo, ["rev-parse", "--short", ref]) if ref else None
-    behind = ahead = None
+    behind = ahead = age_days = None
     if ref:
         b = _repo_git(repo, ["rev-list", "--count", "HEAD..%s" % ref])
         a = _repo_git(repo, ["rev-list", "--count", "%s..HEAD" % ref])
         behind = int(b) if b and b.isdigit() else None
         ahead = int(a) if a and a.isdigit() else None
+        # Возраст ВЕРШИНЫ ствола — то есть основания, по которому вынесен вердикт.
+        # Ссылка здесь не подтягивается (`fetch` — сеть и запись в чужой
+        # репозиторий, а набор гоняется на каждой отправке), поэтому «ссылку никто
+        # не тянул» обязано быть ВИДНО числом, а не подразумеваться: вердикт не
+        # свежее того, с чем сравнивали. Меряется дата КОММИТА вершины, а не время
+        # обновления ссылки: журнал ссылки может быть обрезан или отключён вовсе, и
+        # тогда молчание было бы неотличимо от свежести.
+        ts = _repo_git(repo, ["log", "-1", "--format=%ct", ref])
+        if ts and ts.isdigit():
+            age_days = max(0, int((time.time() - int(ts)) // 86400))
     return {
         "ref": ref,
         "head": head_short,
@@ -209,6 +240,7 @@ def provenance(repo):
         "rev_full": rev_full,
         "behind": behind,
         "ahead": ahead,
+        "age_days": age_days,
         "same": bool(head_full) and head_full == rev_full,
     }
 
@@ -224,6 +256,9 @@ def provenance_line(repo, prov):
     if not prov["ref"]:
         return (where + "; ствол %s НЕ РЕЗОЛВИТСЯ — судится ИНДЕКС рабочей копии, "
                         "и вердикт зависит от того, на что она переключена" % TRUNK_REF)
+    age = prov.get("age_days")
+    if age is not None and age > TRUNK_STALE_DAYS:
+        where += "; вершина ствола старше %d дн. — ссылку никто не тянул" % age
     behind, ahead = prov["behind"], prov["ahead"]
     if behind is None or ahead is None:
         state = "расхождение с ним НЕ ИЗМЕРЕНО"
@@ -251,3 +286,91 @@ def head_and_lag(repo):
     """
     prov = provenance(repo)
     return prov["head"], prov["behind"]
+
+
+# ── ЧТЕНИЕ ДЕРЕВА ПРОДУКТА НА СТВОЛЕ: одно место, а не копия у читателя ───────
+#
+# Состав и содержимое берутся у СТВОЛА (`ls-tree` / `show <ссылка>:<путь>`), а
+# диск и индекс рабочей копии не читаются вовсе: они отвечают о том, на что копию
+# переключили, а вопрос у этих проверок другой — что есть у продукта.
+#
+# Ствол не разрешён — пусто и None, НИКОГДА молчаливый откат на индекс: этот
+# откат и есть дефект, ради которого полоса выровнена (#543). Читатель обязан
+# увидеть `trunk(...) is None` и ответить ТРЕТЬЕЙ КАТЕГОРИЕЙ сам — своим текстом,
+# потому что «проверять нечего» у каждой проверки своё.
+
+
+def trunk_files(repo, ref, *pathspec):
+    """Состав дерева продукта на стволе. Ствол не разрешён — пустое множество.
+
+    `-z` намеренно: без него git ЭКРАНИРУЕТ путь с не-ASCII (`"docs/\321\201..."`),
+    и такой путь не совпал бы с координатой документа НИКОГДА — то есть целый вид
+    пути молча ушёл бы из-под наблюдения.
+    """
+    if not ref:
+        return set()
+    args = ["ls-tree", "-r", "-z", "--name-only", ref]
+    if pathspec:
+        args += ["--"] + list(pathspec)
+    out = subprocess.run(["git", "-C", repo] + args, capture_output=True, text=True)
+    if out.returncode != 0:
+        return set()
+    return set(p for p in out.stdout.split("\0") if p)
+
+
+def trunk_show(repo, ref, rel):
+    """Содержимое файла на стволе либо None. Ствол не разрешён — None.
+
+    `errors="replace"` — чтобы двоичный или иначе закодированный файл давал текст,
+    а не исключение: отказ здесь означал бы «проверка упала», тогда как вопрос
+    всего лишь «есть ли в файле такое объявление».
+    """
+    if not ref:
+        return None
+    out = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, rel)],
+                         capture_output=True, text=True, errors="replace")
+    return out.stdout if out.returncode == 0 else None
+
+
+# ── РЕЖИМ CLI — для читателей на shell ────────────────────────────────────────
+#
+# `skills-gate` написан на shell и о том же стволе спрашивает то же самое. Своя
+# резолюция там была бы ВТОРЫМ КОДЕКОМ об одном предмете: два кодека расходятся
+# молча и расходятся там, где расхождение не видно — пока копия продукта стоит на
+# стволе, различие полос ненаблюдаемо, а обнаруживается ровно тогда, когда копию
+# парконули. Поэтому shell зовёт ЭТОТ файл, а не повторяет его.
+#
+# Печатается `ключ<TAB>значение` по строке на поле. Поля НЕ склеиваются в строку
+# под `eval`: значение несёт имя ссылки и прозу из чужого дерева, а подстановка
+# чужого текста в исполняемый — тот самый класс, который эти же проверки ловят.
+#
+# Код возврата: 0 — ствол разрешён, 1 — нет. Это НЕ вердикт проверки, а ответ на
+# вопрос «есть ли по чему судить»; третью категорию объявляет вызывающий.
+def _cli(argv):
+    if len(argv) != 2:
+        print("usage: _lib.py <каталог дерева продукта>", file=__import__("sys").stderr)
+        return 2
+    repo = argv[1]
+    prov = provenance(repo)
+    rows = (
+        ("ref", prov["ref"] or ""),
+        ("rev", prov["rev_full"] or ""),
+        ("rev_short", prov["rev"] or ""),
+        ("head", prov["head_full"] or ""),
+        ("head_short", prov["head"] or ""),
+        ("branch", prov["branch"] or ""),
+        ("behind", "" if prov["behind"] is None else prov["behind"]),
+        ("ahead", "" if prov["ahead"] is None else prov["ahead"]),
+        ("age_days", "" if prov["age_days"] is None else prov["age_days"]),
+        ("same", "1" if prov["same"] else ""),
+        ("lag", provenance_line(repo, prov)),
+    )
+    import sys
+    for key, value in rows:
+        sys.stdout.write("%s\t%s\n" % (key, value))
+    return 0 if prov["ref"] else 1
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(_cli(sys.argv))
