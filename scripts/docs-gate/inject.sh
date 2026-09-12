@@ -698,6 +698,246 @@ git -C "$b" add -A -f >/dev/null 2>&1
 runp 2 "$b" "$prod" "ствол не разрешён — ТРЕТЬЯ КАТЕГОРИЯ со своим текстом" \
     "ствол дерева продукта"
 
+# ── ДОМ КООРДИНАТЫ: РЕПОЗИТОРИЙ ПРЕДМЕТА, А НЕ ТО ДЕРЕВО, ГДЕ ПРОБА ЛЕЖАЛА ────
+#
+# Предмет пробы переезжает вместе со своим продуктом: служба доступа вынесена из
+# монорепо отдельным репозиторием, и координаты её проб перестали резолвиться в
+# стволе продукта, оставшись живыми у себя (`e2e-flow.md` §7а). Координата вправе
+# назвать свой дом приставкой `owner/name:`, и полоса эта обязана быть доказана в
+# ОБЕ стороны — иначе «назвал дом» стало бы способом не проверять вовсе.
+#
+# ВХОД ПРОБЫ ПРОИЗВОДЯТ САМИ, двумя синтетическими деревьями, потому что решающее
+# свойство — РАЗЛИЧЕНИЕ деревьев: путь лежит в одном и не лежит в другом. Взять
+# вход у лежащих рядом копий было бы нельзя — там оба дерева настоящие, и
+# «посмотрел не туда» не отличалось бы от «посмотрел туда».
+#
+# Дом опознаётся ИДЕНТИЧНОСТЬЮ (`owner/name` в `origin`), а не именем каталога:
+# каталоги фикстур зовутся `h.XXXXXX`, и ни одна проба ниже не зеленеет от имени.
+HOLDING="check-03-holding-claim-resolves.py"
+HOME_ID="PRO-Robotech/kaname"
+HOME_ALIEN_ID="PRO-Robotech/kacho"
+HOME_FILE="cmd/kaname/serve_internal_principal_trust_test.go"
+HOME_TEST="TestPublicChain_HonorsVerifiedConsumerForwarder"
+ALIEN_TEST="TestNoSuchNameInTheHome"
+
+# mkhome <owner/name> <несёт-файл: yes|no> [несёт-чужое-имя: yes|no] — дерево ДОМА.
+mkhome() {
+    local id="$1" carries="$2" alien="${3:-no}" dir
+    dir="$(mktemp -d -p "$TMP" h.XXXXXX)"
+    product_fixture_init "$dir"
+    product_fixture_set_identity "$dir" "$id"
+    if [ "$carries" = "yes" ]; then
+        mkdir -p "$dir/$(dirname "$HOME_FILE")"
+        { printf 'package main\n\nfunc %s(t *testing.T) {}\n' "$HOME_TEST"
+          [ "$alien" = "yes" ] && printf '\nfunc %s(t *testing.T) {}\n' "$ALIEN_TEST"
+        } > "$dir/$HOME_FILE"
+    else
+        # Дерево не бывает пустым коммитом: кладётся ДРУГОЙ файл, чтобы отсутствие
+        # искомого было отсутствием именно его, а не отсутствием дерева.
+        mkdir -p "$dir/cmd/kaname"
+        printf 'package main\n\nfunc TestSomethingElseEntirely(t *testing.T) {}\n' \
+            > "$dir/cmd/kaname/other_test.go"
+    fi
+    product_fixture_seal_trunk "$dir"
+    printf '%s' "$dir"
+}
+
+# mkprod_home <несёт-файл-дома: yes|no> — дерево ПРОДУКТА для этих проб.
+#
+# `yes` несущий: продукт получает ТОТ ЖЕ путь и ОБА имени. Проба, где дом этого
+# пути не несёт, обязана покраснеть — и краснеет она только у читателя, который
+# смотрит в НАЗВАННЫЙ дом; читатель с откатом на дерево продукта смолчал бы.
+mkprod_home() {
+    local carries="$1" dir
+    dir="$(mktemp -d -p "$TMP" ph.XXXXXX)"
+    product_fixture_init "$dir"
+    if [ "$carries" = "yes" ]; then
+        mkdir -p "$dir/$(dirname "$HOME_FILE")"
+        printf 'package main\n\nfunc %s(t *testing.T) {}\n\nfunc %s(t *testing.T) {}\n' \
+            "$HOME_TEST" "$ALIEN_TEST" > "$dir/$HOME_FILE"
+    fi
+    mkdir -p "$dir/internal/repohygiene"
+    printf 'package repohygiene\n\nfunc TestProductOwnProbe(t *testing.T) {}\n' \
+        > "$dir/internal/repohygiene/own_test.go"
+    product_fixture_seal_trunk "$dir"
+    printf '%s' "$dir"
+}
+
+# spech <строка-таблицы>… — приёмка, где у КАЖДОЙ строки есть свой сценарий.
+#
+# Сценарии выводятся из строк, а не выписываются рядом: проверка сверяет оба
+# множества, и рукописная пара разошлась бы на первой же правке — проба краснела
+# бы по причине, к предмету не относящейся.
+spech() {
+    local row id
+    printf '# Инъекция дома\n\n> **Статус:** DRAFT\n\n## Сценарии\n\n'
+    for row in "$@"; do
+        id="$(printf '%s' "$row" | sed -n 's/^| *\([A-Z][A-Z0-9]*\(-[A-Z0-9]\+\)*-[0-9]\+\).*/\1/p')"
+        printf '**%s — проба дома**\n- **Then** наблюдаемо\n\n' "$id"
+    done
+    printf '#### Состояние исполнения\n\n| кейс | состояние | чем держится |\n|---|---|---|\n'
+    printf '%s\n' "$@"
+}
+
+# runh <дом|-> <код> <песочница> <продукт> <имя> <ЗАПРЕЩЁННОЕ|-> [НУЖНОЕ…]
+#
+# Дом передаётся ПЕРЕМЕННОЙ ОКРУЖЕНИЯ одного вызова, а не экспортом вокруг него:
+# экспорт переживает пробу, и следующая, объявленная «без дома», молча получила бы
+# чужой. Запрещённая подстрока в фиксированном гнезде — этим прогон и различает,
+# ЧТО именно покраснело: «покраснело» само по себе не говорит, что покраснела
+# проверяемая полоса.
+runh() {
+    local home="$1" want="$2" box="$3" prod="$4" name="$5" forbid="$6"
+    shift 6
+    local got out need
+    probes=$((probes + 1))
+    if [ "$home" = "-" ]; then
+        out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" "$HERE/$HOLDING" 2>&1)"; got=$?
+    else
+        out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" KACHO_HOME_KANAME="$home" \
+               "$HERE/$HOLDING" 2>&1)"; got=$?
+    fi
+    if [ "$got" -ne "$want" ]; then
+        echo "  ПРОВАЛ $name — ждали код $want, получили $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+        return
+    fi
+    if [ "$forbid" != "-" ] && [[ "$out" == *"$forbid"* ]]; then
+        echo "  ПРОВАЛ $name — в выводе есть ЗАПРЕЩЁННОЕ «$forbid»: покраснело не то" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+        return
+    fi
+    for need in "$@"; do
+        if [[ "$out" != *"$need"* ]]; then
+            echo "  ПРОВАЛ $name — код $got верен, но в выводе нет «$need»" >&2
+            printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+            failed=$((failed + 1))
+            return
+        fi
+    done
+    echo "  ok   $name (код $got)"
+}
+
+echo "== check-03: координата резолвится в НАЗВАННОМ доме =="
+
+HOME_OK="$(mkhome "$HOME_ID" yes)"
+HOME_EMPTY="$(mkhome "$HOME_ID" no)"
+HOME_WRONG="$(mkhome "$HOME_ALIEN_ID" yes yes)"
+PROD_BARE="$(mkprod_home no)"
+PROD_WITH="$(mkprod_home yes)"
+
+ROW_HOMED="| KAN-99-01 | держится | \`$HOME_ID:$HOME_FILE\` :: \`$HOME_TEST\` |"
+
+# (1) РЕШАЮЩАЯ: путь есть в НАЗВАННОМ доме и НЕТ в дереве продукта — молчит.
+# Прежний читатель краснел здесь шестью претензиями; это и есть предмет правки.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_OK" 0 "$b" "$PROD_BARE" \
+    "решающая: координата живёт в названном доме, в продукте её нет — молчит" \
+    "не проверяемо" "$HOME_ID"
+
+# (2) ОБРАТНАЯ СТОРОНА ТОЙ ЖЕ ОСИ: путь есть в дереве ПРОДУКТА и нет в названном
+# доме. Находка обязана быть, и назвать она обязана ДОМ: читатель с молчаливым
+# откатом на дерево продукта смолчал бы — то есть «назвал дом» стало бы
+# послаблением, а не адресом.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_EMPTY" 1 "$b" "$PROD_WITH" \
+    "координаты в доме нет, а в продукте ЕСТЬ — находка, названная домом" \
+    "-" "$HOME_FILE" "$HOME_ID"
+
+# (3) СОДЕРЖИМОЕ файла тоже берётся из дома: имя объявлено в дереве продукта по
+# тому же пути и не объявлено в доме. Читатель, читающий содержимое не там,
+# смолчал бы — и смолчал бы правдоподобно.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "| KAN-99-01 | держится | \`$HOME_ID:$HOME_FILE\` :: \`$ALIEN_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_OK" 1 "$b" "$PROD_WITH" \
+    "имя есть в продукте и нет в доме — находка, названная именем" \
+    "-" "$ALIEN_TEST"
+
+# (4) Запрет P5 видит координату С ДОМОМ. Без этого «не начат» с домом уезжал бы
+# в тишину: строка противоречит себе ровно так же, как с координатой без дома.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "| KAN-99-01 | не начат | \`$HOME_ID:$HOME_FILE\` :: \`$HOME_TEST\` |" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_OK" 1 "$b" "$PROD_BARE" \
+    "«не начат» с координатой дома — строка противоречит себе" \
+    "-" "противоречит себе"
+
+# (5) ТРЕТЬЯ КАТЕГОРИЯ: копии дома рядом нет вовсе. Это несозданное условие, а не
+# вердикт о документе, — поэтому код 2, отдельная строка VOID и НЕ находка.
+# Текст обязан назвать, ЧЕМ условие создаётся: без этого «не выполнилось»
+# неотличимо от «чинить документ».
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh - 2 "$b" "$PROD_BARE" \
+    "дома рядом нет — ТРЕТЬЯ КАТЕГОРИЯ, а не находка и не проход" \
+    "свидетельство не проверяемо" "[VOID]" "$HOME_ID" "KACHO_HOME_KANAME"
+
+# (6) Третья категория НЕ ГАСИТ вердикт по остальным строкам: рядом со строкой без
+# резолвимого дома стоит настоящая находка дерева продукта. Исход — находка (код 1),
+# и VOID печатается тем же прогоном. Обратный порядок сделал бы «дома нет» маской:
+# одной такой строки хватило бы, чтобы отправка перестала блокироваться.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" \
+      "| KAN-99-02 | держится | \`internal/repohygiene/nowhere_test.go\` :: \`TestProductOwnProbe\` |" \
+      > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh - 1 "$b" "$PROD_WITH" \
+    "дом не резолвится И рядом находка — находка объявляется первой" \
+    "-" "[VOID]" "nowhere_test.go"
+
+# (7) Идентичность дома ПРОВЕРЯЕТСЯ: переменная указывает на дерево, которое
+# несёт и путь, и имя, но принадлежит ДРУГОМУ репозиторию. Читатель, опознающий
+# дом по указателю без проверки, смолчал бы (код 0) — то есть вынес бы вердикт о
+# чужом дереве и назвал бы это свидетельством.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_WRONG" 2 "$b" "$PROD_BARE" \
+    "указатель ведёт в ЧУЖОЙ репозиторий — третья категория, а не тишина" \
+    "-" "[VOID]" "$HOME_ALIEN_ID"
+
+# (8) Дом резолвится, а СТВОЛА в нём нет: та же полоса, что у дерева продукта, —
+# судить не по чему, и это говорится прямо, а не откатом на индекс копии.
+HOME_NOTRUNK="$(mkhome "$HOME_ID" yes)"
+product_fixture_drop_trunk "$HOME_NOTRUNK"
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_NOTRUNK" 2 "$b" "$PROD_BARE" \
+    "дом есть, ствола в нём нет — третья категория со своим текстом" \
+    "свидетельство не проверяемо" "[VOID]" "ствол"
+
+# (9) ЗАКОННЫЙ БЛИЗНЕЦ: в одной таблице строка с домом и строка без него. Обе
+# резолвятся, каждая в СВОЁМ дереве, — то есть дом не отнял дома по умолчанию.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" \
+      "| KAN-99-02 | держится | \`internal/repohygiene/own_test.go\` :: \`TestProductOwnProbe\` |" \
+      > "$b/$SPEC"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh "$HOME_OK" 0 "$b" "$PROD_WITH" \
+    "близнец: строка с домом и строка без него — обе резолвятся в своих деревьях" \
+    "не проверяемо" "$HOME_ID"
+
+# (10) Дом резолвится БЕЗ переменной — клоном в `project/<имя>`, куда его кладёт
+# и `bootstrap.sh`, и выкладка конвейера. Без этой пробы полоса работала бы
+# только там, где кто-то вручную объявил путь.
+b="$(mksandbox docs/specs)"; mkdir -p "$b/docs/specs"
+spech "$ROW_HOMED" > "$b/$SPEC"
+mkdir -p "$b/project"
+cp -a "$HOME_OK" "$b/project/kaname"
+git -C "$b" add -A -f >/dev/null 2>&1
+runh - 0 "$b" "$PROD_BARE" \
+    "дом найден клоном в project/kaname — переменная не нужна" \
+    "не проверяемо" "$HOME_ID"
+
 echo
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then

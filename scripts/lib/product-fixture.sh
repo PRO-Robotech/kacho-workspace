@@ -123,3 +123,25 @@ product_fixture_drop_trunk() {
     _product_fixture_assert_own "$dir" || return 2
     git -C "$dir" update-ref -d refs/remotes/origin/main
 }
+
+# product_fixture_set_identity <каталог> <owner/name> — объявить ИДЕНТИЧНОСТЬ дерева.
+#
+# ЗАЧЕМ. Координата приёмки вправе назвать свой ДОМ — репозиторий предмета
+# (`e2e-flow.md` §7а), — и читатель резолвит дом по идентичности рабочей копии
+# (`owner/name` в `origin`), а не по имени каталога: имя каталога — произвольная
+# метка, и опознание по ней было бы адресацией по мутабельному имени. Значит
+# фикстура, изображающая названный дом, обязана эту идентичность НЕСТИ; без неё
+# она изображает дерево без origin, то есть другой случай.
+#
+# Пробе нужен и этот другой случай — дерево, чья идентичность НЕ та, что назвали, —
+# поэтому имя передаётся аргументом, а не выводится из каталога.
+product_fixture_set_identity() {
+    local dir="${1:-}" id="${2:-}"
+    _product_fixture_assert_own "$dir" || return 2
+    if [ -z "$id" ]; then
+        echo "product-fixture: product_fixture_set_identity вызван без owner/name" >&2
+        return 2
+    fi
+    git -C "$dir" remote remove origin >/dev/null 2>&1
+    git -C "$dir" remote add origin "git@github.com:$id.git"
+}
