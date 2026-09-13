@@ -66,7 +66,7 @@ verified_against: "воркспейс origin/main ab573ef (2026-08-19); моно
 чей `on:` несёт `pull_request` без `branches`.
 
 Обещание стоит в трёх местах: `.claude/rules/git-issues.md` — ячейка «чем держится» шага 2
-и пункт §«Накопительная релизная ветка»; `.claude/rules/multi-agent-flow.md` §8. Задача
+и пункт §«Накопительная релизная ветка»; `.claude/rules/multi-agent-flow-shared-tree.md` §8. Задача
 называла одно.
 
 **Цена.** За 200 последних прогонов воркспейса (окно с 2026-08-16T20:58Z) на не-`main`

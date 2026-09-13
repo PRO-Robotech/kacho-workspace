@@ -98,7 +98,7 @@ tags:
   регенерацией побайтово; владение объявлено в `.claude/adapters.yaml`;
 - **напоминание в момент правки** — хук `change-graph-reminder.sh` (`PostToolUse`), одна из
   **8** провязок `.claude/settings.json` (`grep -c 'hooks/.*\.sh' .claude/settings.json` → 8;
-  то же число называет `.claude/rules/multi-agent-flow.md` §8). Единица здесь — **провязка,
+  то же число называет `.claude/rules/multi-agent-flow-shared-tree.md` §8). Единица здесь — **провязка,
   а не скрипт**: различных скриптов **7**
   (`grep -o '\.claude/hooks/[a-z-]*\.sh' .claude/settings.json | sort -u | wc -l`), потому
   что `docfresh.sh` провязан дважды. По порядку в файле этот вызов **шестой** — порядковым

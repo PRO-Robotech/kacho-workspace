@@ -22,9 +22,20 @@
 | `api-conventions.md` | правка `proto/**`, `gateway/internal/**`, `services/*/internal/handler/**`, `services/*/internal/apps/**/api/**` | `buf lint` · `buf breaking` · гейт каталога разрешений · `corevalidate.ResourceID` |
 | `data-integrity.md` | правка `services/*/internal/migrations/*.sql`, `services/*/internal/repo/**` | интеграционная проба с конкурирующими транзакциями · FK/UNIQUE/EXCLUDE в схеме |
 | `security.md` | новый слушатель · новый RPC · правка `deploy/helm/**/values*.yaml` · публичный текст (коммит, issue, vault) | гейт посадки · boot-guard · признак восстановимости (человеком) |
+| `security-hardening.md` | аудит-раунд · отзыв доступа · правка модели прав · супер-доступ | девять инвариантов раунда · отношение, не выполнимое подстановкой |
+| `security-disclosure.md` | публичный текст: коммит, issue, PR, vault · `squash` · `cherry-pick` | признак восстановимости (человеком) · доказательство сохранности содержимым |
 | `testing.md` | написание пробы, гейта, стража · чтение вердикта прогона · замер под нагрузкой | инъекция настоящим входом · перепись объёма · код возврата |
+| `testing-verdict.md` | чтение вердикта прогона · разбор чужого красного · оценка «зелёного» | область зелёного · код возврата · недействительный прогон отличён от красного |
+| `testing-newman.md` | правка `tests/newman/**` · сквозная проба через край | `assert-suites-green.sh` · реальная задержка поллера · пул под `--jobs` |
+| `testing-load.md` | замер под нагрузкой · сравнение прогонов · заявление о производительности | одна посадка на вопрос · прогрев · потолок по отказам, а не по времени |
 | `git-issues.md` | `git commit` · `git push` · `git merge` · `gh pr` · `gh issue` · снятие ветки | `scripts/branch-audit.sh` · `scripts/merge-readiness.sh` · перепись меток |
+| `git-issues-branch-audit.md` | снятие ветки · вливание · вопрос «не потеряна ли работа» | `scripts/branch-audit.sh` · семь признаков вливания · срок годности вердикта |
+| `git-issues-issue-lifecycle.md` | `gh issue` · закрытие задачи · метка `blocked` · возражение рецензента | перепись меток · авто-закрытие вливанием · отзыв «вопрос закрыт» |
+| `git-issues-ci-runs.md` | чтение вердикта конвейера · порядок предотправочных проверок | `scripts/merge-readiness.sh` · шаг под `bash -e` |
 | `multi-agent-flow.md` | **оркестратор**: раздача волны, захват задачи, работа в общей копии | у каждой полосы назван свой агент · перепись работ в единственном экземпляре |
+| `multi-agent-flow-shared-tree.md` | работа в ОБЩЕЙ машине и общем дереве: заведение ветки, рабочая копия, `tmp/`, `git push` | перепись работ в единственном экземпляре · `scripts/branch-audit.sh` · запрет прямого push в `main` |
+| `multi-agent-flow-orchestration.md` | **оркестратор**: раздача волны, форма задания полосе, сборка волны, приёмка результата | у каждой полосы назван свой агент · эксперимент вместо чтения отчёта |
+| `multi-agent-flow-waiting.md` | заведение наблюдателя · ожидание чужого вердикта | `scripts/compliance/` посадка `watcher` · порог, не срабатывающий на штатном состоянии |
 | `polyrepo.md` | правка `**/go.mod`, `proto/**`, `services/*/internal/clients/**` · новое ребро между репозиториями | `go list -deps ./...` по каждому модулю · `! grep replace github.com/PRO-Robotech -- go.mod` · гейт границы поставки в репозитории службы (`kaname`, каталог `internal/supplyhygiene`) |
 | `architecture.md` | правка `services/*/internal/**`, `pkg/**`, `**/cmd/*/main.go` | гейт импорт-графа · отсутствие pgx/grpc в domain |
 | `ui.md` | правка `ui-future/**` | `npm test` модуля · гейт единого источника · `console-list-filter-declared` |

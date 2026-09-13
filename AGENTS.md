@@ -106,11 +106,22 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
 @.claude/rules/data-integrity.md
 @.claude/rules/e2e-flow.md
 @.claude/rules/git-issues.md
+@.claude/rules/git-issues-branch-audit.md
+@.claude/rules/git-issues-ci-runs.md
+@.claude/rules/git-issues-issue-lifecycle.md
 @.claude/rules/multi-agent-flow.md
+@.claude/rules/multi-agent-flow-orchestration.md
+@.claude/rules/multi-agent-flow-shared-tree.md
+@.claude/rules/multi-agent-flow-waiting.md
 @.claude/rules/polyrepo.md
 @.claude/rules/security.md
+@.claude/rules/security-disclosure.md
+@.claude/rules/security-hardening.md
 @.claude/rules/subscription.md
 @.claude/rules/testing.md
+@.claude/rules/testing-load.md
+@.claude/rules/testing-newman.md
+@.claude/rules/testing-verdict.md
 @.claude/rules/ui.md
 @.claude/rules/vault.md
 
