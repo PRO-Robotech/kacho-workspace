@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # skills-gate #03 — перечни канонической оснастки сходятся с деревом.
 #
-# ЧТО УТВЕРЖДАЕТ. Два перечня `.claude/rulebook/ai-tooling.md` — §Канонические
+# ЧТО УТВЕРЖДАЕТ. Два перечня `.claude/rules/ai-tooling.md` — §Канонические
 # скилы и §Канонические агенты — побайтово совпадают с множествами
 # **отслеживаемых git** директорий `.claude/skills/*/` и файлов
 # `.claude/agents/*.md`. Строка без файла и файл без строки — обе находки, и
@@ -39,7 +39,7 @@ source "$SCRIPT_DIR/_lib.sh"
 
 WS="$(skills_gate_workspace_root)"
 NAME="03-roster-matches-tree"
-RULE="$WS/.claude/rulebook/ai-tooling.md"
+RULE="$WS/.claude/rules/ai-tooling.md"
 
 [ -f "$RULE" ] || { skills_gate_void "$NAME" "нет $RULE"; exit 2; }
 

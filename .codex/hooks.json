@@ -26,6 +26,26 @@
             "timeout": 120
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/rag-after-git.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \".codex/hooks/rag-session-start.sh\""
+          }
+        ]
       }
     ],
     "Stop": [

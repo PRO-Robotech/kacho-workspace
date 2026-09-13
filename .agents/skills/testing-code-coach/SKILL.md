@@ -903,8 +903,7 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 
 | Документ | Контекст |
 |---|---|
-| `CLAUDE.md` воркспейса + `@import`-ы `.claude/rules/*.md` | Запреты и naming (ядро) |
-| `.claude/rulebook/*.md` (по требованию) | Архитектурные правила |
+| `CLAUDE.md` воркспейса + `@import`-ы всего корпуса `.claude/rules/*.md` | Запреты, naming, архитектурные правила — грузятся безусловно |
 | `kacho-vpc/CLAUDE.md §14` | Уровни тестирования в VPC |
 | `kacho-vpc/docs/ARCHITECTURE.md §XII` | Тестирование VPC в общей картине |
 | `kacho-vpc/tests/newman/README.md` | Newman quota-aware pipeline |

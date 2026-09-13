@@ -325,14 +325,16 @@ done
 #     нет). (−)-близнец обязан быть живым В ТОЙ ЖЕ полосе, по которой хук отвечает
 #     «резолвится», поэтому заменён на `proto/buf.yaml` — координату дерева продукта
 #     того же вида, живую в обеих полосах;
-#   * `.claude/rules/vault.md` → `missing`: свод правил переименован в
-#     `.claude/rulebook/` (#572), и наша половина ссылалась на координату, которой в
-#     дереве больше нет. Взята стволовая.
+#   * `.claude/rules/vault.md` → тогда `missing`: переезд #572 унёс свод в
+#     `.claude/rulebook/`, и наша половина ссылалась на координату, которой в
+#     дереве больше не было. Взята стволовая. Переезд отозван 2026-09-13, и та же
+#     координата снова жива — что ровно и доказывает, почему перечень выверяется
+#     ЗАМЕРОМ на каждом прогоне (`premise_live` ниже), а не помнится.
 #
 # То есть верной была не «своя» и не «чужая» сторона, а по одному элементу с каждой.
 # Предикат перемера (гоняй его, а не верь перечню):
 #   python3 -c "…Truth(...).classify('path', '<координата>')" — обязан дать `resolved`.
-for alive in sync-all.sh .claude/rulebook/vault.md proto/buf.yaml; do
+for alive in sync-all.sh .claude/rules/vault.md proto/buf.yaml; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
@@ -451,11 +453,11 @@ echo "== A'. регрессии нормализации пути =="
 # в `claude/rules/x`. Воспроизведено трижды подряд при написании предиката,
 # поэтому проба стоит отдельно и с обеих сторон.
 expect_silent_live "ведущая точка каталога оснастки не съедена" b1.md \
-  'Полные правила — `.claude/rulebook/vault.md`.' '.claude/rulebook/vault.md' \
-  '.claude/rulebook/vault.md'
+  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md' \
+  '.claude/rules/vault.md'
 expect_silent_live "маркер импорта @ не часть пути" b2.md \
-  'Модуль подключается как `@.claude/rulebook/security.md`.' '.claude/rulebook/security.md' \
-  '.claude/rulebook/security.md'
+  'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md' \
+  '.claude/rules/security.md'
 # Обе стороны относительной ссылки вверх — на ОДНОЙ конструкции и на ОДНОМ имени
 # главы: различает их только каталог документа, то есть ровно то, что проверяется.
 # Пара переанкерена 2026-08-12: глава уехала на уровень `engineering/`, и прежний
@@ -505,7 +507,7 @@ expect_fires_dead "неизвестное состояние не освобож
   obsidian/kacho/rpc/p-typo.md "$(note deprecatd)" 'sync-tooling.sh' 'sync-tooling.sh'
 # граница послабления: оно про записки хранилища, а не про любой документ с frontmatter.
 expect_fires_dead "то же поле в НЕ-записке освобождения не даёт" \
-  .claude/rulebook/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
+  .claude/rules/p-rule.md "$(note deprecated)" 'sync-tooling.sh' 'sync-tooling.sh'
 
 echo
 echo "== B. маршрут =="
@@ -854,15 +856,18 @@ fi
 # без второго ЧАСТИЧНЫЙ переезд проходит МОЛЧА: 2026-09-07 свод уехал
 # `.claude/rules` → `.claude/rulebook`, в старом каталоге осталось три файла из
 # шестнадцати, шаблон нашёл предмет — и 14 правил вышли из корпуса без единого
-# признака. Инъекция — снятие ОДНОГО шаблона, то есть ровно тот факт, что и был.
-if premise_live ".claude/rulebook/MANIFEST.md"; then
+# признака. Тот переезд отозван 2026-09-13 (`.claude/rulebook/` снят, корпус
+# снова в одном каталоге), но предмет пробы от этого не исчез: она судит
+# покрытие каталога шаблоном, а не число каталогов.
+# Инъекция — снятие шаблона `.claude/rules/`, то есть ровно тот факт, что и был.
+if premise_live ".claude/rules/MANIFEST.md"; then
   out="$(python3 - "$GUARD" <<'PYCOV' 2>&1
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfc", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ws = pathlib.Path(sys.argv[1]).resolve().parent.parent.parent.parent
 files = m.git(ws, "ls-files", "--cached", "--others", "--exclude-standard")
-cut = [p for p in m.LIVE_WS if p.pattern != r"^\.claude/rulebook/[^/]+\.md$"]
+cut = [p for p in m.LIVE_WS if p.pattern != r"^\.claude/rules/[^/]+\.md$"]
 print("ЦЕЛО:", "\n".join(m.uncovered_doc_dirs(m.LIVE_WS, files)) or "<молчит>")
 print("СНЯТ:", " | ".join(m.uncovered_doc_dirs(cut, files)))
 print("ПУСТО:", " | ".join(m.uncovered_doc_dirs(m.LIVE_WS, [])))
@@ -871,7 +876,7 @@ m.LIVE_WS[:] = cut
 print("ПРОВЯЗКА:", " | ".join(m.preconditions(ws, m.monorepo_root(ws))))
 PYCOV
 )"
-  if printf '%s' "$out" | grep -q '^СНЯТ:.*\.claude/rulebook/'; then
+  if printf '%s' "$out" | grep -q '^СНЯТ:.*\.claude/rules/'; then
     echo "  ✔ (+) каталог, потерявший шаблон, назван ПО ИМЕНИ"; PASS=$((PASS+1))
   else
     echo "  ✘ (+) каталог без шаблона прошёл молча — целый вид документов не читает никто"; FAIL=$((FAIL+1))
@@ -897,13 +902,13 @@ PYCOV
   fi
   # Провязка доказывается ТЕМ, ЧТО ПРОВЕРКУ ПОЗВАЛИ: объявленная и не вызванная
   # из `preconditions`, она зелена всегда и не роняет ничего.
-  if printf '%s' "$out" | grep -q '^ПРОВЯЗКА:.*\.claude/rulebook/'; then
+  if printf '%s' "$out" | grep -q '^ПРОВЯЗКА:.*\.claude/rules/'; then
     echo "  ✔ (+) проверка провязана: находка доезжает до отказа хука"; PASS=$((PASS+1))
   else
     echo "  ✘ (+) проверка объявлена, но preconditions её не зовёт"; FAIL=$((FAIL+1))
   fi
 else
-  notrun "вход (+) «покрытие каталогов оснастки» мёртв: '.claude/rulebook/MANIFEST.md' в дереве не резолвится — снятие шаблона больше не настоящее расхождение. Переанкерить пробу на нынешний каталог свода"
+  notrun "вход (+) «покрытие каталогов оснастки» мёртв: '.claude/rules/MANIFEST.md' в дереве не резолвится — снятие шаблона больше не настоящее расхождение. Переанкерить пробу на нынешний каталог свода"
 fi
 
 echo
@@ -1794,19 +1799,22 @@ q_build() { # q_build <корень> → воркспейс + дерево пр�
   rm -rf "$W"
   # У КАЖДОГО шаблона LIVE воркспейса обязан быть предмет — иначе хук откажет по
   # осиротевшему шаблону воркспейса, то есть не по проверяемой предпосылке.
-  # Свод правил живёт в ДВУХ каталогах (`rules` — ядро, `rulebook` — остальное,
-  # переезд #572), и у ПАРЫ шаблонов предмет обязан быть у КАЖДОГО: страж
-  # самоистечения считает предметом сам шаблон, поэтому пустой `rulebook` роняет
-  # хук по осиротевшему шаблону — то есть НЕ по проверяемой предпосылке. Сведение
-  # ws#622 это и показало: фикстура писалась до переезда, и четыре пробы полосы
-  # ствола покраснели на отказе, к их предмету не относящемся.
-  mkdir -p "$W/.claude/rules" "$W/.claude/rulebook" "$W/.claude/agents" \
+  # Нормативный корпус живёт в ОДНОМ каталоге `.claude/rules` (раскладка в двух
+  # домах, заведённая переездом #572, отозвана 2026-09-13). Каталог обязан быть
+  # НЕПУСТЫМ: страж самоистечения считает предметом сам шаблон, поэтому пустой
+  # `.claude/rules` роняет хук по осиротевшему шаблону — то есть НЕ по
+  # проверяемой предпосылке. Сведение ws#622 это и показало: фикстура писалась до
+  # переезда, и четыре пробы полосы ствола покраснели на отказе, к их предмету не
+  # относящемся.
+  mkdir -p "$W/.claude/rules" "$W/.claude/agents" \
            "$W/.claude/hooks/docfresh" \
            "$W/.claude/skills/s" "$W/docs/specs" "$W/obsidian/kacho/resources"
   printf 'Корень воркспейса.\n'            > "$W/CLAUDE.md"
   printf 'Корень воркспейса.\n'            > "$W/README.md"
   printf 'Правило. Живое — `README.md`.\n' > "$W/.claude/rules/r.md"
-  printf 'Правило свода. Живое — `README.md`.\n' > "$W/.claude/rulebook/b.md"
+  # Второй файл в том же каталоге — не избыточность: `uncovered_doc_dirs` судит
+  # КАТАЛОГ, и на одном файле «покрыт частично» было бы неотличимо от «покрыт».
+  printf 'Второе правило. Живое — `README.md`.\n' > "$W/.claude/rules/b.md"
   printf 'Агент.\n'                        > "$W/.claude/agents/a.md"
   printf 'Хук.\n'                          > "$W/.claude/hooks/docfresh/README.md"
   printf 'Скил.\n'                         > "$W/.claude/skills/s/SKILL.md"

@@ -16,7 +16,7 @@
 # удаляет, гейт не считает его лишним и — несущее требование — чужой пакет
 # НЕ МАСКИРУЕТ расхождение владеемого.
 #
-# Норма — `.claude/rulebook/change-graph.md` §Оснастка. Гейт —
+# Норма — `.claude/rules/change-graph.md` §Оснастка. Гейт —
 # `scripts/adapter-gate/run-all.sh`. Генератор — `scripts/adapter/generate.py`.
 schema_version: 1
 
@@ -32,7 +32,6 @@ canonical_inputs:
   - .claude/rules
   - .claude/skills
   - .claude/settings.json
-  - .claude/rulebook
 
 # Пространства, внутри которых адаптер отвечает за КАЖДЫЙ отслеживаемый файл.
 # Отслеживаемый файл здесь, не названный в `owned_outputs`, — лишний выход.
@@ -104,6 +103,9 @@ owned_outputs:
   - .codex/hooks/change-graph-reminder.sh
   - .codex/hooks/class-guard.sh
   - .codex/hooks/docfresh.sh
+  - .codex/hooks/rag-after-git.sh
+  - .codex/hooks/rag-freshness.sh
+  - .codex/hooks/rag-session-start.sh
   - .codex/hooks/hooks-wired.sh
   - .codex/hooks/vault-reminder.sh
   - .codex/hooks/vault-stop-check.sh
