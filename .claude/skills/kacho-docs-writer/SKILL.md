@@ -113,7 +113,7 @@ per-repo копии agents разъехались и обросли мусоро
 правь строку здесь; не поправишь, покраснеет само.
 
 > [!note] Почему сайтов семь, а не восемь — и почему прежнее «8» ошибкой НЕ было
-> Восьмым был `services/iam/docs`. Служба iam **покинула монорепо** вливанием #2598
+> Восьмым был `PRO-Robotech/kaname:docs`. Служба iam **покинула монорепо** вливанием #2598
 > (`0cc1cd54c3`, «служба и фундамент покидают монорепо»), став отдельным продуктом, и
 > вместе с ней ушёл её сайт: на `0cc1cd54c3^` конфигов `docusaurus.config.ts` восемь, на
 > `0cc1cd54c3` — семь. Единица счёта у обоих замеров ОДНА, разошлись **ревизии**, —
@@ -208,7 +208,7 @@ Build ловит сломанный MDX/JSX, незакрытый mermaid и б�
 
 | Факт | Сверять с |
 |---|---|
-| ID-префиксы ресурса | `pkg/ids/ids.go` — единственный источник (`KnownPrefixes`, `KnownHyphenPrefixes`); словами — `.claude/rules/api-conventions.md` §Naming / формат |
+| ID-префиксы ресурса | `PRO-Robotech/corelib:ids/ids.go` — единственный источник (`KnownPrefixes`, `KnownHyphenPrefixes`); словами — `.claude/rules/api-conventions.md` §Naming / формат |
 | Канонические error-тексты (`"<Resource> %s not found"`, …) | `.claude/rules/api-conventions.md` §Error-format — цитировать ТОЧНО |
 | gRPC-код → HTTP-статус | `.claude/rules/api-conventions.md` §gRPC-код → HTTP-статус (таблица края) — не угадывать по имени кода |
 | Статус-enum'ы ресурсов | `proto/kacho/cloud/<domain>/v1/` |

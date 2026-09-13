@@ -106,7 +106,7 @@ confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm
 - **Стандартные методы ресурса**: `Get`/`List` (sync) + `Create`/`Update`/`Delete` (async Operation).
   Доп. действия — отдельные RPC с `:verb`-путём.
 - **Timestamps**: в proto-ответе truncate до **секунд** (`CreatedAt.Truncate(time.Second)`); БД хранит микросекунды.
-- **ID**: `pkg/ids`.`NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix. (Имя `kacho-corelib` — прежний репозиторий фундамента; в монорепо это каталог `pkg/`.)
+- **ID**: `PRO-Robotech/corelib:ids`.`NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix. (Фундамент — отдельный репозиторий `PRO-Robotech/corelib`; прежние имена `kacho-corelib` и каталог `pkg/` монорепо в старых записках означают его же.)
 - **Адресация — по `id`, не по `name` (core, ban #15).** `id` — единственная **внешне-адресуемая** идентичность: попадает в публичные URL / pull-пути (`$domain/$registryId/$repo:$tag`), cross-service ссылки, grant-scope, authz-target. **immutable на всю жизнь ресурса** (нет «rename id»), глобально-уникален by construction. `name` — косметический project-scoped label (`UNIQUE(project,name)`), может меняться, **НИКОГДА не в URL/ссылке**. Запрещена деривация глобального человекочитаемого слага в URL вместо id (name-в-URL через заднюю дверь + rename-ломкость).
 - **id-prefix — hyphen-канон (going-forward, B3)**: **новые** ресурсы адресуются формой
   `<prefix>-<crockford-base32>` (`ins-…`, `ns-…`, `mt-…`) — дефис-разделитель, prefix бывает
@@ -159,7 +159,7 @@ confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm
 второго правила «а здесь можно иначе». Форма не наша, поэтому не переизобретается при каждом
 новом ресурсе.
 
-**Чем держится.** Гейтом дерева (объявление регулярки имени в `pkg/validate` ровно одно) и
+**Чем держится.** Гейтом дерева (объявление регулярки имени в `PRO-Robotech/corelib:validate` ровно одно) и
 пробой формы, утверждающей **обе** стороны на каждой оси: цифра первой — принимается;
 заглавная, подчёркивание, точка, пустая строка, 64 символа — отвергаются с именем поля.
 Односторонняя проба зеленела бы на валидаторе, отвергающем всё.

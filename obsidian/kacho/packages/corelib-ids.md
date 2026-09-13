@@ -2,7 +2,7 @@
 title: corelib-ids
 category: packages
 repo: kacho-corelib
-path: pkg/ids
+path: PRO-Robotech/corelib:ids
 layer: shared
 status: stable
 tags:
@@ -14,12 +14,12 @@ verified_against: "каталог пакета есть в дереве прод
 
 # pkg/ids — генератор и каталог префиксов идентификаторов
 
-**Каталог**: `pkg/ids/` · импорт `github.com/PRO-Robotech/kacho/pkg/ids`
+**Каталог**: `PRO-Robotech/corelib:ids/` · импорт `github.com/PRO-Robotech/corelib/ids`
 **Прежде** (полирепо): `kacho-corelib/ids`.
 **Импортирует**: `crypto/rand`, `encoding/binary`, `os`, `strings`.
 **Импортируют** (`go list` на `96b2879a`, non-test): iam 11 · vpc 10 · nlb 6 ·
-storage 3 · registry 3 · compute 3 · gateway 1 · `pkg/validate` 1 ·
-`pkg/operations` 1.
+storage 3 · registry 3 · compute 3 · gateway 1 · `PRO-Robotech/corelib:validate` 1 ·
+`PRO-Robotech/corelib:operations` 1.
 
 Идентификатор — **единственная внешне-адресуемая** идентичность ресурса
 (core §Non-negotiables, п. 15): он попадает в публичные URL и пути выкачки, в
@@ -49,7 +49,7 @@ func KnownHyphenPrefixes() map[string]struct{}
 > имена `PrefixSG`/`PrefixNI`/`PrefixPE`. В дереве нет **ни одного** из этих значений
 > и ни одного из этих имён. Это опаснее пустого места: контрибьютор, сверявший id
 > по записке, получил бы «префикс не совпал» и пошёл бы искать дефект в коде.
-> Ниже — значения на ревизии `96b2879a`; при расхождении верен `pkg/ids/ids.go`.
+> Ниже — значения на ревизии `96b2879a`; при расхождении верен `PRO-Robotech/corelib:ids/ids.go`.
 
 ## Действующие префиксы (по дереву, `96b2879a`)
 
