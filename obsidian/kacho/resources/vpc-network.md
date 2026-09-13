@@ -26,7 +26,7 @@ tags:
 # Network
 
 **Домен**: vpc · **владелец**: сервис `kacho-vpc` (каталог монорепо `services/vpc/`)
-**ID prefix**: `net` (`ids.PrefixNetwork`, `pkg/ids/ids.go`)
+**ID prefix**: `net` (`ids.PrefixNetwork`, `PRO-Robotech/corelib:ids/ids.go`)
 **Owner table**: `kacho_vpc.networks` (БД `kacho_vpc`)
 **Scope**: project — `UNIQUE (project_id, name) WHERE name <> ''`
 

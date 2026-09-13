@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # skills-gate #07 — объявленное число ИСПОЛНЯЕТСЯ, а не помнится.
 #
-# ЧТО УТВЕРЖДАЕТ. Каждая процитированная в `.claude/rulebook/ai-tooling.md`
+# ЧТО УТВЕРЖДАЕТ. Каждая процитированная в `.claude/rules/ai-tooling.md`
 # команда `git …`, рядом с которой стоит объявленное число (`(**N**)` либо
 # «**N** … (предикат: `…`)»), ИСПОЛНЯЕТСЯ, и её вывод равен этому числу.
 #
@@ -50,7 +50,7 @@ source "$SCRIPT_DIR/_lib.sh"
 
 WS="$(skills_gate_workspace_root)"
 NAME="07-declared-counts-match-tree"
-RULE_REL=".claude/rulebook/ai-tooling.md"
+RULE_REL=".claude/rules/ai-tooling.md"
 
 [ -f "$WS/$RULE_REL" ] || { skills_gate_void "$NAME" "нет $RULE_REL — объявлять числа некому"; exit 2; }
 

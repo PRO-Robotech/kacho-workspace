@@ -88,10 +88,18 @@ PACKAGE_SUBJECT = (MANIFEST_SKILLS, PACKAGE_CONTENTS, MATCHES_ACTUAL_TREE)
 #
 # ЗАКРЫТЫЙ ПЕРЕЧЕНЬ — ВТОРОЕ МЕСТО ОБ ОДНОМ ПРЕДМЕТЕ, и первое живёт в дереве:
 # `.claude/adapters.yaml` §canonical_inputs. Разойтись они могут МОЛЧА, потому
-# что семейство судит мир фикстуры, а не дерево, — и разошлись: дом нормы
-# раздвоился (`.claude/rulebook/` рядом с `.claude/rules/`), манифест новый вход
-# объявил, а перечень остался прежним. Первый же пакет изменения, объявивший
-# входы ПО МАНИФЕСТУ, получил бы RED по причине, которой в дереве нет.
+# что семейство судит мир фикстуры, а не дерево, — и разошлись 2026-09-08
+# (d8951be8): дом нормы раздвоился, рядом с `.claude/rules/` завёлся
+# `.claude/rulebook/`, манифест новый вход объявил, а перечень остался прежним.
+# Первый же пакет изменения, объявивший входы ПО МАНИФЕСТУ, получил бы RED по
+# причине, которой в дереве нет.
+#
+# ТО РАЗДВОЕНИЕ ОТОЗВАНО 2026-09-13 — весь корпус вернулся в `.claude/rules/`,
+# каталога `.claude/rulebook/` в дереве нет, и строка о нём снята из ОБОИХ
+# перечней. Случай оставлен записью, а не объявлением: он объясняет, зачем
+# заведена check-04, и объявлением входа быть перестал. Устройство раскладки —
+# `.claude/rules/01-wave-contract.md`.
+#
 # Сходимость двух перечней держит `check-04-canonical-inputs-match-manifest.sh`;
 # правя один, прогоняй его — он назовёт второй.
 REGISTERED_CANONICAL_INPUTS = frozenset((
@@ -100,7 +108,6 @@ REGISTERED_CANONICAL_INPUTS = frozenset((
     ".claude/agents",
     ".claude/hooks",
     ".claude/rules",
-    ".claude/rulebook",
     ".claude/skills",
     ".claude/settings.json",
 ))
@@ -354,8 +361,7 @@ RULES = [
         requires=(MANIFEST_PATH, CANONICAL_INPUTS),
         predicate=_input_not_canonical,
         why="§10 единственные canonical inputs — root CLAUDE.md и tracked "
-            ".claude/{adapters.yaml,agents,hooks,rules,rulebook,skills,"
-            "settings.json}",
+            ".claude/{adapters.yaml,agents,hooks,rules,skills,settings.json}",
     ),
     Rule(
         rule_id="adapter.design-outputs-untracked",

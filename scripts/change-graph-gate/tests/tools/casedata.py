@@ -563,6 +563,10 @@ _ADAPTER_TRACKED_OUTPUTS = {
     ".codex/hooks.json": "sha256:fixture-adapter-out-4",
 }
 
+# ДЛИНА СПИСКА СВЯЗАНА С ДЕЛЬТОЙ SDD-1-ADAPTER-10: она добавляет элемент, а
+# `worldpath.apply_add` принимает только индекс, равный длине. Сняв или добавив
+# член здесь, поправь индекс там — иначе построитель откажется собирать fixture
+# и скажет, какой индекс ожидался.
 _ADAPTER_CANONICAL_INPUTS = [
     "CLAUDE.md",
     ".claude/adapters.yaml",
@@ -571,7 +575,6 @@ _ADAPTER_CANONICAL_INPUTS = [
     ".claude/rules",
     ".claude/skills",
     ".claude/settings.json",
-    ".claude/rulebook",
 ]
 
 _ADAPTER_GENERATED_COORDINATES = [
@@ -1183,7 +1186,7 @@ DERIVED = {
         "одна generated coordinate записана machine-absolute путём",
     ),
     "SDD-1-ADAPTER-10": (
-        "add", "canonical_inputs[8]", "docs/extra-non-canonical-input.md",
+        "add", "canonical_inputs[7]", "docs/extra-non-canonical-input.md",
         "добавлен input вне root CLAUDE.md и tracked .claude/**",
     ),
     "SDD-1-ADAPTER-11": (

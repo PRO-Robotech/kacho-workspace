@@ -27,7 +27,7 @@ tags:
 # Address
 
 **Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
-**ID prefix**: `adr` (`ids.PrefixAddress`, `pkg/ids/ids.go`)
+**ID prefix**: `adr` (`ids.PrefixAddress`, `PRO-Robotech/corelib:ids/ids.go`)
 **Owner table**: `kacho_vpc.addresses` (+ `kacho_vpc.address_references`)
 **Scope**: project
 
@@ -36,10 +36,10 @@ tags:
 
 > [!note] ID prefix здесь стоял неверный
 > Прежняя редакция объявляла `e9b` «общим с Subnet». Общего prefix у vpc-ресурсов нет:
-> `pkg/ids/ids.go` даёт каждому свой (`net`/`sub`/`adr`/`rtb`/`sgr`/`gtw`/`nic`/`apl`).
+> `PRO-Robotech/corelib:ids/ids.go` даёт каждому свой (`net`/`sub`/`adr`/`rtb`/`sgr`/`gtw`/`nic`/`apl`).
 > `e9b` числится в общем каталоге `KnownPrefixes` как legacy-значение, а `enp` — это
 > **op-root vpc** (`PrefixOperationVPC`), то есть prefix идентификатора `Operation`,
-> а не ресурса. Комментарий в самом `ids.go` про «Subnet/Address делят `e9b`» тоже
+> а не ресурса. Комментарий в самом `PRO-Robotech/corelib:ids/ids.go` про «Subnet/Address делят `e9b`» тоже
 > пережил свои константы — при сверке смотреть на константы, а не на комментарий рядом.
 
 ## Поля публичной проекции (`message Address`)

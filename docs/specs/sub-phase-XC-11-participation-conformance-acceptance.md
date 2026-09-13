@@ -456,7 +456,7 @@ ID: `XC-11-NN`. Каждый **Then** — наблюдаемое утвержд�
 > | XC-11-05 | `TestO1_UnnarrowedForwarderCircleRefusesStart` · `TestO1_DegenerateValueIsEmptyForAllThree` · `TestO1_DevOptInIsNotHonouredInProduction` | `ae488246a6:servicecontract/refusal_test.go` |
 >
 > **Почему дом назван ЗДЕСЬ, а не в клетке строки.** Дом пробы — репозиторий её ПРЕДМЕТА
-> (`.claude/rulebook/e2e-flow.md` §7а), и для этих семи предмет — семантика самого дескриптора,
+> (`.claude/rules/e2e-flow.md` §7а), и для этих семи предмет — семантика самого дескриптора,
 > а не поведение платформы: пробы дома, переносить их назад не надо. Но клетка читается как
 > свидетельство для читателя ЭТОГО дерева, и её координату сверяет со стволом продукта
 > `scripts/docs-gate/check-03-holding-claim-resolves.py`. Чужого дерева он не знает — и учить

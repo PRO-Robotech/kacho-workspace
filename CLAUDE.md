@@ -1,9 +1,9 @@
 # Kachō — Workspace CLAUDE.md
 
-Корневой индекс монорепо-воркспейса. Тонкий: `@import` **ядра**
-(`.claude/rules/*.md`) + workspace-операционка (dev-стенд, sync). Модульные
-правила лежат в `.claude/rulebook/` и автоматически **не** читаются — см.
-§«Регламент» ниже. Identity / naming / non-negotiables вынесены в
+Корневой индекс воркспейса. `@import` **всего корпуса правил**
+(`.claude/rules/*.md`, девятнадцать файлов, все безусловно) + workspace-операционка
+(dev-стенд, sync). Деления на «ядро» и «свод по требованию» больше нет — см.
+§«Регламент» ниже. Identity / naming / non-negotiables — в
 `@.claude/rules/00-kacho-core.md`.
 
 ## Топология: монорепо `PRO-Robotech/kacho` + этот workspace
@@ -13,7 +13,7 @@
 `kacho-<svc>`, …) существуют на GitHub, но разработка в них не ведётся (последний push —
 середина июля 2026); `bootstrap.sh` клонирует их только по `KACHO_CLONE_LEGACY_POLYREPOS=1`.
 Раскладка каталогов монорепо и что нормативного осталось от полирепо-правил —
-`@.claude/rulebook/polyrepo.md`.
+`@.claude/rules/polyrepo.md`.
 
 ## Модель оснастки: единственный экземпляр в воркспейсе, копий нет
 
@@ -47,7 +47,7 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   в воркспейсе, а не часть поставки продукта. Проверки, которые обязаны работать в CI
   продукта, живут **в самом продукте** (гейты в `internal/repohygiene`, `tools/`,
   `scripts/`, цели Makefile), а не в `.claude/`.
-- Канонический список — `@.claude/rulebook/ai-tooling.md`.
+- Канонический список — `@.claude/rules/ai-tooling.md`.
 
 ### Производное для других агентских сред — отслеживаемое, а не временное
 
@@ -62,25 +62,61 @@ AI-оснастка (rules / agents / skills / hooks / settings) живёт **т
   её расхождением. Предмет правки всегда во входе.
 
 Почему выход отслеживаемый, а не порождаемый на лету, и почему имя каталога оснастки в
-текстах **не подставляется** на имя второй среды — `@.claude/rulebook/change-graph.md`
+текстах **не подставляется** на имя второй среды — `@.claude/rules/change-graph.md`
 §«Оснастка — ВХОД контура».
 
-## Регламент: ядро всегда, остальное по требованию
+## Регламент: весь корпус, всегда — решение владельца 2026-09-13
 
-Безусловно грузится **ядро** — запреты и naming, форма производимого текста,
-контракт волны, локальный индекс. Четырнадцать модульных правил лежат в
-`.claude/rulebook/` и читаются **файлом, когда относятся к делу**; какое правило
-какое действие покрывает — `.claude/rulebook/MANIFEST.md`.
+Грузится **весь корпус**: девятнадцать правил `.claude/rules/`, безусловно, у каждого
+агента. Деления на «ядро» и «свод по требованию» больше нет; каталог
+`.claude/rulebook/` **снят**, а не переименован — его имени в дереве не существует.
 
-Раскладка выбрана ЗАМЕРОМ, и он в дереве: `scripts/compliance/`. Правила в окне
-у каждого исполнителя дают 85 % соблюдения при 248 600 токенах на агента; худая
-полоса плюс один ревьюер на волну — те же 89 % на общих предметах при 368 600
-на волну вместо 1 988 800. Держит раскладку `scripts/rules-gate/`, а не эта
-фраза: перенос правила обратно в автозагрузку роняет гейт.
+**Решение владельца, дословно:** «вернуть все рулы из рулбук в рулес, чтобы каждый
+саб-агент подтаскивал весь набор всегда».
+
+**Цена названа числом, потому что она измерена и решением не отменена.** Предикат,
+вывод и то, что решение покупает, — `@.claude/rules/01-wave-contract.md`
+§«Что стоит „весь корпус каждому“». Здесь число не пересказывается: два места об
+одном предмете расходятся молча, и расходится всегда то, которое не считали.
+
+Какое правило каким действием включается и **каким гейтом держится** —
+`@.claude/rules/MANIFEST.md`. Таблица осталась и нужна по-прежнему: колонка
+«включается действием» перестала быть предписанием «что открыть» и стала указателем
+«что относится к делу», а колонка «чем держится» не зависела от раскладки никогда.
+
+Держит состав `scripts/rules-gate/`: каталог свода, вернувшийся в дерево, и правило,
+не объявленное в манифесте, — обе находки.
 
 @.claude/rules/00-kacho-core.md
 @.claude/rules/01-wave-contract.md
 @.claude/rules/writing.md
+@.claude/rules/rag.md
+@.claude/rules/MANIFEST.md
+@.claude/rules/ai-tooling.md
+@.claude/rules/api-conventions.md
+@.claude/rules/architecture.md
+@.claude/rules/change-graph.md
+@.claude/rules/data-integrity.md
+@.claude/rules/e2e-flow.md
+@.claude/rules/git-issues.md
+@.claude/rules/git-issues-branch-audit.md
+@.claude/rules/git-issues-ci-runs.md
+@.claude/rules/git-issues-issue-lifecycle.md
+@.claude/rules/multi-agent-flow.md
+@.claude/rules/multi-agent-flow-orchestration.md
+@.claude/rules/multi-agent-flow-shared-tree.md
+@.claude/rules/multi-agent-flow-waiting.md
+@.claude/rules/polyrepo.md
+@.claude/rules/security.md
+@.claude/rules/security-disclosure.md
+@.claude/rules/security-hardening.md
+@.claude/rules/subscription.md
+@.claude/rules/testing.md
+@.claude/rules/testing-load.md
+@.claude/rules/testing-newman.md
+@.claude/rules/testing-verdict.md
+@.claude/rules/ui.md
+@.claude/rules/vault.md
 
 ## Локальная разработка
 

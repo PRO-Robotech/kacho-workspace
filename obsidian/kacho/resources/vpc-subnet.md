@@ -26,7 +26,7 @@ tags:
 # Subnet
 
 **Домен**: vpc · **владелец**: сервис `kacho-vpc` (`services/vpc/`)
-**ID prefix**: `sub` (`ids.PrefixSubnet`, `pkg/ids/ids.go`)
+**ID prefix**: `sub` (`ids.PrefixSubnet`, `PRO-Robotech/corelib:ids/ids.go`)
 **Owner table**: `kacho_vpc.subnets`
 **Scope**: project (`project_id`), сеть — через `network_id`
 
