@@ -1,0 +1,73 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-QUOTA-FATE-1-limit-value-is-stated-by-posture-acceptance.md
+  sha256: 8aa89eb6ce604faae5f6eb6407edee47757099031a141a8c78da113cb1f8ee1e
+  revision: 3434c6ab936d2f9cef91107358df2cd989af21fe
+  static_status: APPROVED
+  edition: 4
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-14T23:07:53Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor cutover_commit base_commit в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 1c0bb21d55f867969999a0e18c56ecd37e567722
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actor: pointpu
+  allowlisted_for_role: true
+event:
+  type: issue_comment
+  database_id: 5672027892
+  node_id: IC_kwDOTZqgWM8AAAABUhRG9A
+  url: https://github.com/PRO-Robotech/kacho/issues/2190#issuecomment-5672027892
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5672027892
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2190
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-14T23:07:53Z'
+  updated_at: '2026-09-14T23:07:53Z'
+  body_sha256: a0acf199c82708ca5227637e24b0afc52c46157f2af832aef08e2275c778c6e5
+  subject_sha256: 8aa89eb6ce604faae5f6eb6407edee47757099031a141a8c78da113cb1f8ee1e
+  verdict: APPROVED
+  published_by_orchestrator: true
+  publication_note: >-
+    Вердикт вынесен агентом роли acceptance-reviewer четвёртым кругом и записан врезкой §13.7
+    самого документа. Событие полномочия опубликовано оркестратором под учётной записью,
+    допущенной политикой, по прямому решению владельца (2026-09-14, дословно: «Публикую от
+    вашего имени, помечая это в записи» и «все решения на тебе»). Роль без события полномочия
+    не даёт — поэтому запись заведена ПОСЛЕ публикации, а не до. body_sha256 снят с сырого тела
+    ответа API без обрезки хвостового перевода строки.
+  required_body_fields_present_verbatim: role, verdict, subject, subject_revision, subject_sha256
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+scope:
+  reviewed: полный документ, редакция 4
+  rounds_total: 4
+  blocking_by_round: [1, 1, 1, 0]
+  radius_by_round: [раздел, раздел+стадии, клетка+два числа+абзац, —]
+  cycle_converged: true
+  converged_by: >-
+    перенос класса в форму работы — колонка «чем гейтится на входе ЭТОГО сценария», заведённая
+    третьим кругом, сделала вопрос обязательным для каждой строки перечня
+  first_time_reviewed_this_round: состав стадий S1/S3/S4 по существу
+remainders:
+  - subject: имитация клиента четырьмя направлениями
+    status: остаток с адресом
+    why: >-
+      норма привязывает её к закрытию релизной линии, а не к одобрению приёмки; рецензент не
+      может её провести by construction — он читал документ целиком, а норма требует пустого
+      контекста
