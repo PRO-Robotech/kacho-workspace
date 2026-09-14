@@ -1501,6 +1501,7 @@ tags:
 | [[docs/admin-iam-guide\|Admin IAM guide]] | история (legacy) |
 | [[docs/change-graph-contour\|Change Graph: контур изменения — координаты и состояние]] | в работе (in-progress) |
 | [[docs/dev-iam-integration\|Developer IAM integration]] | история (legacy) |
+| [[docs/external-subject-federation-decision\|Внешняя федерация личностей — что уже построено и что решено]] | живо (active) |
 | [[docs/module-manifest-dcl\|Манифест домена: права, роли и модель доступов из одного YAML]] | в работе (in-progress) |
 | [[docs/user-iam-guide\|User IAM guide]] | история (legacy) |
 
