@@ -30,13 +30,17 @@
 > **Почему правка — три расхождения, и все три названы задачей.** Документ говорил «у края два
 > носителя» — в дереве их три класса. Числа сценария 23 стояли на базе `bb26d905` и стволом не
 > воспроизводятся. Входной гейт S3 не пройден. Продуктовая часть приехала **шире** приёмки и
-> **после** её вердикта — одним вливанием `0dafb250a7` (2026-08-25, задачи #1142, #1201, #1215;
-> `git merge-base --is-ancestor 0dafb250a7 origin/main` — да), — и документ её не догнал.
+> **после** её вердикта — одним вливанием `0dafb250a7` в дерево платформы (2026-08-25, задачи
+> #1142, #1201, #1215; `git merge-base --is-ancestor 0dafb250a7 origin/main` — да), — и документ
+> её не догнал.
 >
 > **Ревизии сверки редакции 2 — ОДНА на каждое дерево, обе суть вершины ствола** (сверено
 > `git ls-remote origin refs/heads/main`): платформа `PRO-Robotech/kacho` @ **`41c75cb678`**,
-> служба доступа `PRO-Robotech/kaname` @ **`6074ac57`**. Числа §1.1–§1.5 и §1.7 остаются
-> числами базы `bb26d905` — они датированы, и редакция 2 их не перемеряла.
+> служба доступа `PRO-Robotech/kaname` @ **`6074ac57`**. Ствол службы за время правки ушёл на
+> один коммит (`3458fcce`); названных здесь путей он не касается — `git diff --stat 6074ac57
+> 3458fcce -- <пути §1.6 и §1.8>` пуст, и таблицу §1.8 гейт документов судил уже на нём. Числа
+> §1.1–§1.5 и §1.7 остаются числами базы `bb26d905` — они датированы, и редакция 2 их не
+> перемеряла.
 >
 > **У координат ДВА дома.** Координата без приставки — дерево платформы: край, его копия
 > каталога, посев, браузерные пробы. Координата службы доступа несёт приставку
@@ -45,6 +49,7 @@
 >
 > | что | редакция 1 | редакция 2 |
 > |---|---|---|
+> | §1, вводный абзац | — | отметка: 1.6 и 1.8 сняты на стволах, остальное — на базе |
 > | §1.6 | «у края два носителя, пол на одном» | три КЛАССА носителей по поверхностям и домам; перепись с командой |
 > | Р3 | исход не зависит от носителя | вердикт зависит от предъявленного УРОВНЯ, а не от класса носителя |
 > | Р9 | одна форма отказа — шлюзовая | вердикт один; форм две, выбор — по признаку «церемония повышения достижима» |
@@ -546,7 +551,8 @@ PY
 исключения строки `**ID:**` и дат в население попадали 26 и 29 — номер сценария в его же строке
 идентификатора — и 32, где «29» оказалось днём даты `2026-07-29`. Предикат считал собственную
 разметку документа — тот же класс, что §1.7 называет у отчёта прогона. После правки перемерено
-всё население, а не дельта.
+всё население, а не дельта. И обратный контроль: на редакции 1 (`git show origin/main:<этот
+файл>` до правки) тот же предикат даёт то же население — оно не подогнано под новый текст.
 
 Правлены **три** сценария — 23, 24, 25. У **трёх** — 12, 14, 22 — перемерена одна клауза, форма
 отказа: их предъявитель получен церемонией, то есть это класс «подписанный предъявитель», у
@@ -562,16 +568,28 @@ PY
 python3 - docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md <<'PY'
 import re, sys, collections
 t = open(sys.argv[1]).read()
+L = t.split('\n')
+H = [i for i, l in enumerate(L) if re.match(r'^\*\*Сценарий \d+', l)]
+P = re.compile(r'insufficient_user_authentication|носител|(?<![-\d])(26|29|305)(?![-\d])')
+pop = set()                     # население A — тем же предикатом, что выше
+for i in H:
+    j = i + 1
+    while j < len(L) and L[j].strip() != '---' and not L[j].startswith('#'):
+        j += 1
+    if any(P.search(l) for l in L[i + 1:j] if not l.startswith('**ID:**')):
+        pop.add(re.match(r'^\*\*Сценарий (\d+)', L[i]).group(1))
 tags = collections.Counter(re.findall(r'\[(\d{2}\.\d)\]', t))
 rows = re.findall(r'^\| `IAM-INT-1-(\d{2})` · (\d{2}\.\d|форма отказа) \|', t, re.M)
 clause_rows = collections.Counter(k for _, k in rows if k != 'форма отказа')
+in_table = {s for s, _ in rows}
 print('клауз', len(tags), '· строк таблицы', len(rows), '(из них клауз', sum(clause_rows.values()), ')',
       '· метка не единожды', sorted(k for k, n in tags.items() if n != 1),
       '· клауза без строки', sorted(set(tags) - set(clause_rows)),
       '· строка без клаузы', sorted(set(clause_rows) - set(tags)),
-      '· сценариев в таблице', sorted({s for s, _ in rows}))
+      '· сценарий населения без строки', sorted(pop - in_table),
+      '· строка вне населения', sorted(in_table - pop))
 PY
-#   клауз 12 · строк таблицы 15 (из них клауз 12 ) · метка не единожды [] · клауза без строки [] · строка без клаузы [] · сценариев в таблице ['12', '14', '22', '23', '24', '25']
+#   клауз 12 · строк таблицы 15 (из них клауз 12 ) · метка не единожды [] · клауза без строки [] · строка без клаузы [] · сценарий населения без строки [] · строка вне населения []
 ```
 
 Сценарии таблицы совпадают с населением A, клаузы — с метками B, в обе стороны. Таблица читается
@@ -591,7 +609,7 @@ PY
 | `IAM-INT-1-23` · 23.3 | копия края `gateway/internal/middleware/embed/permission_catalog.json` | страж over-inclusion в `TestPermissionCatalog_ACR_SetInvariant` (`gateway/internal/middleware/permission_catalog_acr_invariant_test.go`) | держится |
 | `IAM-INT-1-23` · 23.4 | копия службы `PRO-Robotech/kaname:internal/apps/kaname/seed/embedded/permission_catalog.json`; сверку исполняет `PRO-Robotech/kaname:tools/catalogparity/main.go`, цель `make check-permission-catalog` | способность сверки упасть — `TestCatalogParityCatchesChangedEntry` (`PRO-Robotech/kaname:internal/check/catalog_copy_parity_injection_test.go`); сама сверка на ревизиях редакции 2: «записей у края 338 · записей у нас 338 … ЗЕЛЁНЫЙ: копии каталога прав совпадают ПОБАЙТОВО» | держится |
 | `IAM-INT-1-23` · 23.5 | умолчание `DefaultRequiredAcrMin = "2"` (`gateway/cmd/protoc-gen-kacho-permissions/main.go`) | инъекция редакции 2 в собственной копии дерева: у `…/InternalInteractiveClientService/Get` в копии края `"1"` → `"2"` — красные `TestPermissionCatalog_ACR_SetInvariant` («over-inclusion: …/Get»), `TestPermissionCatalog_ACR_ComplementNotTwo` («routine FQN must NOT carry acr=2: …/Get») и `TestPermissionCatalog_ACR_Counts` (27 → 28, 284 → 283) в `gateway/internal/middleware/permission_catalog_acr_invariant_test.go`; после отката все три зелены, копия чиста | держится |
-| `IAM-INT-1-23` · 23.6 | копия края `gateway/internal/middleware/embed/permission_catalog.json` | `TestPermissionCatalog_ACR_Counts` (`gateway/internal/middleware/permission_catalog_acr_invariant_test.go`) — абсолютные числа принадлежат ему | держится |
+| `IAM-INT-1-23` · 23.6 | копия края `gateway/internal/middleware/embed/permission_catalog.json`; величина воспроизводится предикатом §1.1 с ревизией `41c75cb678` вместо `bb26d905` — `338 {'1': 284, '<нет>': 27, '2': 27}` | `TestPermissionCatalog_ACR_Counts` (`gateway/internal/middleware/permission_catalog_acr_invariant_test.go`) — абсолютные числа принадлежат ему | держится |
 | `IAM-INT-1-24` · 24.1 | вердикт один на все полосы — `stepUpVerdictHTTP` (`gateway/internal/middleware/auth_stepup.go`) → общее правило `grpcsrv.EvaluateStepUp` | `TestStepUpLaneParity_EveryLaneAsksTheDeclaredFloor` (`gateway/internal/middleware/stepup_lane_parity_test.go`) — в процессе, три полосы; на стенде с одним человеком не держит ничто (входной гейт S3) | наполовину |
 | `IAM-INT-1-24` · 24.2 | `enforceStepUpHTTP` (`gateway/internal/middleware/auth_stepup.go`), `BuildStepUpChallenge` (`gateway/internal/middleware/stepup_gate.go`) | `TestStepUpAlwaysOn_SensitiveRPC_BelowFloor_Refused` и `TestStepUpAlwaysOn_SessionLane_SensitiveRPC_BelowFloor_Refused` (`gateway/internal/middleware/stepup_alwayson_test.go`) — статус и заголовок, не тело; на стенде — только сессия браузера, `ui-future/e2e/specs/stepup.spec.ts`, тоже статус и заголовок | наполовину |
 | `IAM-INT-1-24` · 24.3 | `tryBasicCredential` (`gateway/internal/middleware/auth.go`) → `basicCredentialRefusalText` (`gateway/internal/middleware/auth_basic_stepup.go`) → `ErrCredentialRefused` (`gateway/internal/middleware/basic_credential_lane.go`) | `TestBasicLaneStepUp_FloorRefusalIsIndistinguishableFromCredentialRefusal_REST` и `TestBasicLaneStepUp_TheComparisonCanSeeADifference` (`gateway/internal/middleware/basic_lane_stepup_oracle_test.go`) — статус, заголовок и тело; на стенде для человека на поле `2` держатель не установлен | наполовину |
@@ -685,9 +703,9 @@ error_description="credential refused"` — побайтово тот же от�
 довода против** распространения шлюзовой формы на него, и каждый решающий сам по себе:
 
 1. **оракул годности.** Вызов RFC 9470 говорит «предъявленное годно и лишь недостаточно
-   сильно» — по глаголу, который вызывающему недоступен. Для угадываемого долгоживущего секрета
-   это подтверждение годности строки даром и без следа в аудите — ровно то, ради закрытия чего
-   все отказы этой полосы сведены в один;
+   сильно» — по глаголу, который вызывающему недоступен. Для долгоживущего предъявительского
+   секрета это даровое подтверждение, что строка годна, — без единого авторизованного действия и
+   без следа в аудите; ровно ради закрытия этого все отказы полосы сведены в один;
 2. **совет невозможного.** `acr_values="2"` предлагает поднять уровень, а у этого носителя
    поднять его нечем: уровень — константа вида. Средство у вызывающего в обоих случаях одно —
    взять интерактивное удостоверение.
@@ -1122,6 +1140,7 @@ different chart, and it was overlooked»). Гейт складывает сте�
 > три полосы, один глагол с полом `2` и один рутинный. Прогоном на стенде с одним человеком оно
 > не держится ничем — это и есть долг. Маска, ослабленное утверждение или «проверим позже» —
 > запрещены (`testing.md`).
+
 ---
 
 **Сценарий 21: второй фактор заводится без человека за экраном**
@@ -1208,6 +1227,7 @@ over-inclusion, дополнение рутины и расклад. Это не
 **And** расклад всего каталога гейт утверждает абсолютными числами, и число принадлежит гейту и
 его ревизии, а не этому сценарию: на ревизии сверки редакции 2 — `27×"2" / 284×"1" / 27×"" = 338`
 записей, где третья полоса — записи **без порога**, а не «освобождённые» [23.6]
+
 ---
 
 **Сценарий 24: вердикт не зависит от класса носителя (отказ)** *(редакция 2)*
@@ -1255,6 +1275,7 @@ over-inclusion, дополнение рутины и расклад. Это не
 > неотличимо от «носитель мёртв» — поэтому клауза 24.4. Одно «принято» неотличимо от «пол не
 > считается» — поэтому клауза 24.1. А отказ базовому удостоверению в клаузе 25.2 неотличим от
 > «полоса сломана», пока рядом нет клаузы 24.4 для того же носителя.
+
 ---
 
 **Сценарий 26: свежесть — заявленное состояние**
