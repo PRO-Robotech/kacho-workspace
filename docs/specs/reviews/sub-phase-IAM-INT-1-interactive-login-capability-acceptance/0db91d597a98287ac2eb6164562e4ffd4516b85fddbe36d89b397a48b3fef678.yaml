@@ -1,0 +1,275 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md
+  sha256: 0db91d597a98287ac2eb6164562e4ffd4516b85fddbe36d89b397a48b3fef678
+  revision: 3
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 2 о РЕДАКЦИИ 1 (433b47f2, SHA-256 053ce2bdc7fb94af…); шапка не
+    правлена намеренно (change-graph.md §2). Машинный читатель docs-gate (`_lib.verdict`) по этой
+    редакции отвечает APPROVED — это его объявленный предел (судит объявление, а не одобрение).
+    Действующий вердикт о редакции 3 — эта запись.
+  base_commit: 9a4b8b0af2bb5dd9c46b1199e60836a3ab92a34b
+  content_commit: 9a4b8b0af2bb5dd9c46b1199e60836a3ab92a34b
+  pull_request: https://github.com/PRO-Robotech/kacho-workspace/pull/644
+  task: https://github.com/PRO-Robotech/kacho/issues/2570
+  fingerprint_predicate: >-
+    git ls-remote origin refs/heads/lane/iam-int1-carriers-2570 → 9a4b8b0a…;
+    git show 9a4b8b0a:<путь> | sha256sum
+  lines: 2021
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-15T14:00:24Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 9a4b8b0a
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 9a4b8b0af2bb5dd9c46b1199e60836a3ab92a34b
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Внешнее событие публикует оркестратор под учётной записью, допущенной
+    политикой, отдельным коммитом, не правя эту запись задним числом. Отказ полномочия не выдаёт
+    и ничего не открывает, поэтому от события не зависит.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Запись круга по редакции 2 (a747e468….yaml) не правлена: её блоб 9a3bf7ad22b9… одинаков на
+      origin/lane/iam-int1-carriers-2570 и на origin/review/int1-round2 (`git rev-parse <ref>:<путь>`).
+      Эта запись — соседняя, по отпечатку редакции 3.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг по редакции 3.
+  editions_by_fingerprint:
+    - {edition: 1, commit: 433b47f2, sha256_prefix: 053ce2bdc7fb94af, verdict: 'APPROVED (круг 2, статика шапки)'}
+    - {edition: 2, commit: 7c9f24c3, sha256_prefix: a747e468411121c4, verdict: CHANGES_REQUESTED (запись a747e468….yaml)}
+    - {edition: 3, commit: 9a4b8b0a, sha256_prefix: 0db91d597a98287a, verdict: CHANGES_REQUESTED (эта запись)}
+
+# ─────────────────────────────────────────────────────────────────────────────
+edition_binding:
+  question: объявлена ли правка и совпадает ли объявленное с диффом
+  answer: ДА, с одним пропуском (N4)
+  evidence:
+    - врезка «РЕДАКЦИЯ 3 … ждёт вердикта» стоит под шапкой, называет прежний вердикт, путь записи
+      круга по редакции 2 и ошибки редакции 2 первыми
+    - '`git diff -U0 7c9f24c3 9a4b8b0a -- <документ>` — 40 ханков, 349 вставок, 62 удаления; каждый
+      ханк лежит в месте, которое врезка называет (§1.6, §1.8, Р9, введение S1, сценарии 16, 23
+      — только врезка, 24, §5, §6 вопрос 1, §9, §10 п. 1), кроме ханка §9 S2 — N4'
+    - в сценариях 12, 14, 22, 23, 25 правлена ни одна клауза — сверено по ханкам
+    - статическая строка шапки не правлена — верно по change-graph.md §2
+  revisions_of_the_edition:
+    platform: PRO-Robotech/kacho @ 41c75cb678 — вершина ствола и сейчас (git ls-remote)
+    service: >-
+      PRO-Robotech/kaname @ 37ee8509; ствол ушёл на 3ac222d2 уже после правки, и
+      `git diff --stat 37ee8509 3ac222d2 -- <15 путей с приставкой PRO-Robotech/kaname:>` пуст;
+      все 15 путей существуют на 3ac222d2
+
+# ─────────────────────────────────────────────────────────────────────────────
+prior_blocking_check:
+  - id: B1
+    status: CLOSED
+    repeated_experiment: >-
+      Тот же опыт, которым B1 найдено: широкая форма рецензента
+      (`…|персональн|UserTokenService|базов|предъявител[ья] края|token validation failed`) по
+      сценариям редакции 3 → 8 сценариев `12 14 16 18 22 23 24 25`; 18 — ложное («базового
+      профиля» helm), 16 — настоящее. Знаменатель A документа, исполненный дословно, → `7 : 12 14
+      16 22 23 24 25` на редакциях 1, 2 и 3. Знаменатель B документа на редакции 2 теперь сам
+      находит прежний дефект — «сценарий населения без строки ['16']», на редакции 3 все списки
+      расхождений пусты (`клауз 17 · строк таблицы 20`).
+    different_result: >-
+      Противоречия о виде SECRET больше нет: §6 вопрос 1 закрыт для SECRET ссылкой на BAT-1 §0 и
+      §2.3 (сверено: BAT-1 APPROVED круг 4, §0 «предъявляется как есть — в Authorization: Bearer на
+      крае», §2.3 «уровень удостоверения — «1»»; после одобрения BAT-1 правлена одной координатой
+      ссылки; #1142 CLOSED; 0dafb250a7 — предок origin/main), строка §5 и 16 называют вид.
+      Пункт (в) прежней записи рецензент круга 2 не перемерял — перемерен здесь СВОИМ опытом:
+      проба в своей копии kacho@41c75cb678 через `alwaysOnAuth` + `serveREST`, предъявитель в форме
+      подписанта службы (утверждения на верхнем уровне, `kaname_acr` пуст, `typ` токена доступа),
+      на RS256 и на ES256 (алгоритм подписанта службы) — E1 401 «token validation failed», до
+      владельца не дошёл · E2 200 · E3 401 insufficient_user_authentication, acr_values="1",
+      «presented ACR 0» · E4 (kaname_acr="1" на верхнем уровне) тот же 401 · E5 401 «token
+      validation failed» · E6 (acr="1") 200. Исходы совпали с таблицей §1.6 на обоих алгоритмах;
+      файл пробы снят, `git status --porcelain` пуст.
+    residue: >-
+      Правка B1 завела новый дефект того же рода — персональный токен вида FEDERATED, которого нет
+      (B3). B1 как сформулировано закрыто; B3 — отдельная находка редакции 3.
+  - id: B2
+    status: CLOSED
+    repeated_experiment: >-
+      Те же две инъекции в своей копии kacho@41c75cb678. Симметричная — текст `ErrCredentialRefused`
+      «credential refused» → «authentication failed»: `go test ./gateway/... -count=1` код 0, `ok`
+      24, `FAIL` 0. Асимметричная — только отказ по полу в `tryBasicCredential`
+      (auth.go:1007) → «authentication failed»:
+      `TestBasicLaneStepUp_FloorRefusalIsIndistinguishableFromCredentialRefusal_REST` FAIL с
+      «различимый заголовок вызова — оракул годности» и «различимое тело — оракул годности»;
+      `…_TheComparisonCanSeeADifference` PASS. Оба отката — `git status --porcelain` пуст.
+    different_result: >-
+      Поведение проб то же, изменилось утверждение документа: клауза 24.3 утверждает равенство
+      (держится — асимметрия краснеет), литерал вынесен клаузой 24.5 со строкой «не начат»
+      (симметрия зелёная — держателя нет), раздел «Чего перепись НЕ покрывает» и DoD S3 это
+      называют, Р9 называет несущей частью равенство. Прежде таблица объявляла держателя литерала,
+      которого инъекция опровергала.
+  - id: CI
+    status: CLOSED
+    repeated_experiment: >-
+      `python3 scripts/check-doc-commands.py` в своей копии воркспейса (project/kacho —
+      ссылка на свою копию kacho@41c75cb678): с содержимым редакции 2 — код 1, три находки ровно на
+      строках 613, 635, 1207 («./Makefile does not declare 'check-permission-catalog'»); с
+      редакцией 3 — код 0, «all 473 make citations». Цель объявлена только
+      PRO-Robotech/kaname:Makefile:580; `make check-permission-catalog EDGE_TREE=<своя копия
+      kacho>` на kaname@37ee8509 — код 0, «записей у края 338 · записей у нас 338 … ЗЕЛЁНЫЙ».
+    different_result: код 1 → код 0; контекст «quoted make commands run from the monorepo root» на PR #644 @ 9a4b8b0a — SUCCESS
+prior_non_blocking_check:
+  checked: >-
+    N1 — `enforceStepUpGRPCAssurance` в auth_stepup.go:206, пробы `…_GRPC` зелены; N2 — предикат
+    §1.6 даёт authorize → 0 · HTTP → 1, и снятие строки вызова даёт HTTP → 0; N3 —
+    `(*DPoPMiddleware).injectVerifiedTokenHeaders` в dpop_http_middleware.go:408, незакомментированных
+    `enableDpop:` 0; N4 — цитаты first-credential.mdx и tokens.mdx на kaname@37ee8509 дословны; N5 —
+    раздел в auth_basic_stepup.go:114; N6 — предикат §1.1: 6ee6c2d581^ и 220d9470a7 — 350
+    {1: 290, <нет>: 27, 2: 33}, 6ee6c2d581 и 41c75cb678 — 338 {1: 284, <нет>: 27, 2: 27}, между
+    ними копию каталога правил только 6ee6c2d581; N7, N8, N9 — внесены. Все девять закрыты.
+
+# ─────────────────────────────────────────────────────────────────────────────
+producers_walk:
+  go_holders:
+    platform: >-
+      16 имён (14 таблицы §1.8 + 2 Р9) на kacho@41c75cb678: `go test ./gateway/internal/middleware/
+      -run '^(<16 имён>)$' -count=1 -v` — код 0, у каждого имени ровно одна строка `--- PASS`,
+      набор прогнанных и названных совпал в обе стороны
+    service: '`go test ./internal/check/ -run ''^TestCatalogParityCatchesChangedEntry$''` на kaname@37ee8509 — PASS'
+  docs_gate: >-
+    `scripts/docs-gate/run-all.sh` с KACHO_MONOREPO и KACHO_HOME_KANAME на свои копии — код 0,
+    «рассмотрено проверок 6; пройдено 6, провалено 0, без предмета 0»; check-03: 89 строк в 4
+    таблицах, координат дома kaname 10 (гейт отметил, что копия kaname отстаёт от ствола на 1
+    коммит — названные пути он не трогает, см. edition_binding)
+  given_axis_checked:
+    - '12 — `ConnContext: listenerorigin.InternalConnContext` в gateway/cmd/api-gateway/main.go:1169, тот же httpSrv на внутреннем админ-слушателе — сверено'
+    - '14 — стадии «2-администратор», «3-клиент» (`POST …/iam/v1/internal/interactiveClients`), докстрока «РАСХОЖДЕНИЕ ЧАРТА СО СТЕНДОМ» в prodseed_ceremony.py — сверено'
+    - '16 — слот `jwtUserTokenPlatformIssuer` (prodseed_matrix.py:779) выпускает ключевую пару без названного вида, то есть KEYPAIR, и обменивает с адресатом края; `exchange_at_platform` принимает адресат параметром; у персонального токена сужения адресата при выдаче нет (`DeclaredAudiences` заводит только служебная учётка), поэтому второй обмен тем же ключом с адресатом докерной полосы конструируем — сверено по audiencepolicy.Resolve'
+    - '22 — `stage_ceremony`: уровень 1 с amr [pwd], уровень 2 с amr [pwd, totp] объявлены посевом — сверено'
+    - '24 — `CEREMONY_ONLY_ENV` 20 записей (19 jwt* + apiTokenExpired) — сверено импортом'
+  then_axis_not_stricter: >-
+    16.2–16.4 перемерены своим опытом (выше): производитель даёт ровно утверждаемое. 16.3 держит
+    кейс `F1B-D-PLATFORM-USER-TOKEN-ACCEPTED` (gateway/tests/newman/cases/authn_edge.py,
+    `GET /iam/v1/accounts` → 200, принципал user) — существует, не прогонялся
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B3
+    class: '[CONSTRUCTIBILITY] редакция 3 заводит персональный токен вида FEDERATED, которого схема не допускает'
+    sign: >-
+      §1.6: «Выдача одна — UserTokenService.Issue … а видов выдачи три — SECRET, KEYPAIR и FEDERATED
+      (приёмка BAT-1, §2.5)» и строка таблицы видов `FEDERATED` («подписанный предъявитель · пуст ·
+      не принято — §6, вопрос 1»); §5: «Персональный токен видов KEYPAIR и FEDERATED как предъявитель
+      края … 311 записей из 338 закрыты уровнем»; §6 вопрос 1: «ОТКРЫТ для видов KEYPAIR и
+      FEDERATED», исход (а) «у FEDERATED — внешнее утверждение засчитывается за уровень 1»; врезка
+      сценария 16: FEDERATED «в сценарий не взят: его не производит ни один посев». Все 10
+      вхождений `FEDERATED` заведены редакцией 3 (`grep -c FEDERATED` на редакциях 1 и 2 — 0).
+    subject: >-
+      У личности вида FEDERATED не бывает by construction, и это держат три места продукта и
+      одобренная приёмка: (1) выдача —
+      `PRO-Robotech/kaname:internal/apps/kaname/api/user_tokens/usecases.go`,
+      `domain.ResolveIssuedKind(in.CredentialKind, false, false)`: FEDERATED отвергается
+      INVALID_ARGUMENT «FEDERATED is not available for this credential — it has no trusted_subjects
+      field»; (2) хранилище — CHECK `user_oauth_clients_credential_kind_ck` в
+      `PRO-Robotech/kaname:internal/migrations/0001_initial.sql` допускает только KEYPAIR, SECRET,
+      LEGACY; (3) федеративная полоса эндпоинта выдачи разрешает пару (издатель, субъект) только в
+      строку `service_account_oauth_clients` (`PRO-Robotech/kaname:internal/repo/kaname/pg/trusted_issuer_repo.go`,
+      `Kind: domain.AssertionClientServiceAccount`) — её принципал служебная учётка, освобождённая
+      от пола, и «уровень пуст» для неё предмета не имеет; (4) BAT-1 §4.1: «федеративного вида у
+      личности нет by construction». Документ прочёл §2.5 BAT-1 (словарь обоих глаголов выдачи) и
+      не прочёл §4.1 (разбиение словаря по таблицам); прочёл производителя ОБМЕНА и не прочёл
+      производителя ВЫДАЧИ. Отсутствие вида в посевах — следствие запрета схемы, а не пробел
+      оснастки. Одобрить значит поставить владельцу в §6 выбор о предмете, которого нет, и
+      приписать в §5 «311 записей закрыто уровнем» виду, чей держатель от пола освобождён.
+    experiment: >-
+      kaname@37ee8509: `go test ./internal/apps/kaname/api/user_tokens/ -run
+      '^TestBAT1_14_ExplicitLegacyKindIsRefusedWithTheFieldName$' -count=1 -v` — PASS. Инъекция:
+      личности допущен FEDERATED (`ResolveIssuedKind(in.CredentialKind, in.CredentialKind ==
+      domain.CredentialKindFederated, true)`) — FAIL «вид FEDERATED выпущен у личности, где его быть
+      не может» (usecase_secret_kind_test.go:220). Откат — `git status --porcelain` пуст.
+    predicate_of_removal: >-
+      В утверждениях о ПЕРСОНАЛЬНОМ токене `FEDERATED` не встречается либо встречается только как
+      «у личности не выдаётся» с координатами (1)–(4): §1.6 называет выдаваемых видов персонального
+      токена два — SECRET и KEYPAIR; §5 и §6 вопрос 1 сужены до KEYPAIR; врезка сценария 16
+      называет причину — запрет схемы. Если федеративная полоса упоминается, её принципал назван
+      служебной учёткой, освобождённой от пола.
+
+non_blocking_findings:
+  - id: N1
+    class: '[TRACEABILITY] §8 не догнал сценарий 16'
+    text: >-
+      Строка §8 «10, 14, 15, 16, 17 | newman, волна церемонии». Клаузы 16.2–16.4 держатся не волной
+      церемонии, а машинным посевом (`tests/authz-fixtures/prodseed_matrix.py`, слот
+      `jwtUserTokenPlatformIssuer`) и набором края (`gateway/tests/newman/cases/authn_edge.py`,
+      `F1B-D-PLATFORM-USER-TOKEN-ACCEPTED`). Предикат: строка §8 для 16 называет оба дома.
+  - id: N2
+    class: '[FORMAT] Given сценария 16 не называет второго предъявителя'
+    text: >-
+      «Given предъявитель из сценария 14», а 16.2–16.4 вводят другого человека (слот посева матрицы,
+      `prodseed-utok-{RID}`) внутри «Тогда/И». Одна строка «And» в Given — ключевая пара человека от
+      нашего издателя. Предикат: Given сценария 16 называет её держателя.
+  - id: N3
+    class: '[CONSISTENCY, вне населения] сценарий 27 против обменных слотов посева'
+    text: >-
+      Отрицательная пара сценария 27: «посев не записывает ни одного значения предъявителя,
+      полученного иначе как церемонией». Слот `jwtUserTokenPlatformIssuer` уже есть в посеве, слот
+      16.2 требует DoD S2 — оба человеческие и получены обменом, а не церемонией. Определение гейта
+      («литерал или ковка харнессом») их, по чтению, не ловит, первая половина фразы абсолютна.
+      Назвать область гейта 27 (слоты церемонии) либо исключение обменных слотов с причиной.
+      Предикат: `grep -n jwtUserTokenPlatformIssuer tests/authz-fixtures/prodseed_matrix.py` непуст,
+      и документ говорит, покрывает ли их гейт 27.
+  - id: N4
+    class: '[EDITION INVENTORY] врезка редакции 3 неполна'
+    text: >-
+      Таблица правок не называет правку DoD S2 (слот для 16.2), хотя называет DoD S3. Фраза §1.8
+      «Имена классов носителей … стоят только в сценариях 24 и 25» устарела на самой редакции 3:
+      «подписанный предъявитель» теперь и в 16 (население не меняется). Предикат: ханк §9 S2 в
+      `git diff -U0 7c9f24c3 9a4b8b0a`; `сесси\w* браузера|подписанн\w* предъявител` по телам
+      сценариев → 16 24 25.
+  - id: N5
+    class: '[COORDINATION] у стадий S1–S4 нет задачи-трекера'
+    text: >-
+      Шапка: «Эпик/тикет: KAC-IAM-INT-1 — завести до старта S1». Контракт S1 посажен
+      (PRO-Robotech/kacho 23145dcd75, 2026-08-03), а задачи, называющей IAM-INT-1, кроме #2570 нет
+      (`gh issue list -R PRO-Robotech/kacho --state all --search 'IAM-INT-1'`). Производители
+      «Тогда» 27 неоткрытых сценариев — стадии без трекера. Документом не чинится; решение
+      оркестратора, задач рецензент не заводит.
+
+remainders:
+  - subject: стенд
+    status: не выполнилось — стенд не поднимался; не исполнены stepup.spec.ts, наборы newman (включая F1B-D-PLATFORM-USER-TOKEN-ACCEPTED), стадии посевов
+  - subject: E1–E6 держателем не являются
+    status: >-
+      опыт — и автора, и рецензента — не закоммичен; 16.2 и 16.4 через слой приёма в дереве не
+      держит ни одна проба (строки «наполовину» это говорят)
+  - subject: 27 сценариев вне населения
+    status: не открывались ни автором, ни рецензентом по оси производителей; прочитаны только на противоречие с §1.6/§6 (найдено N3)
+  - subject: вход S3 и конструируемость 24–25 на стенде
+    status: не пройден (1 класс из 3) — документ запрещает писать 24–25 до гейта; не блокирует, как и в прежних кругах
+
+scope:
+  reviewed: >-
+    дельта редакции 3 целиком (40 ханков); прежние блокирующие B1, B2 и находка конвейера —
+    повтором исходного опыта; ось «Дано» и «Тогда» населения A; места вне дельты, говорящие о
+    персональном токене, его видах и слотах посева (§1.2–§1.3 датированы; сценарий 27 — N3)
+  blocking_count: 1
+  non_blocking_count: 5
+  next: acceptance-author правит B3 одной правкой (виды персонального токена — два), рецензент перечитывает новую редакцию по её отпечатку
