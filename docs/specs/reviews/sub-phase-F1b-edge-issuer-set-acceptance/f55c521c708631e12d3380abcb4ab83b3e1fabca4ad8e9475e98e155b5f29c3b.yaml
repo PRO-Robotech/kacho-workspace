@@ -26,9 +26,28 @@ authority:
   policy_field: review_authority.acceptance-reviewer
   allowlisted_actors_in_policy: [pointpu]
 event:
-  type: none
-  status: not_performed
-  published: false
+  type: issue_comment
+  status: performed
+  published: true
+  database_id: 5679897446
+  node_id: IC_kwDOTZqgWM8AAAABUoxbZg
+  url: https://github.com/PRO-Robotech/kacho/issues/2566#issuecomment-5679897446
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5679897446
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2566
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-15T12:08:06Z'
+  body_sha256: a3e5f871baed170cc805c2e27de96023c0ed8eed5530bf723b8a379a8cd3c546
+  subject_sha256: f55c521c708631e12d3380abcb4ab83b3e1fabca4ad8e9475e98e155b5f29c3b
+  subject_revision_commit: 1f33818552883b05fc6f83709574bcb5cb5556b2
+  verdict: APPROVED
+  published_by_orchestrator: true
+  published_on_issue_note: >-
+    Задача документа (#926) закрыта; событие опубликовано в #2566 — задаче, чей предикат снятия
+    и есть эта рецензия («запись с вердиктом и подтверждающим внешним событием»). Дописано
+    ОТДЕЛЬНЫМ коммитом поверх записи рецензента; сама запись задним числом не правилась.
+    Отпечаток тела снят с сырого ответа API.
   publication_expected_from_orchestrator: true
   rationale: >-
     Вердикт вынесен ролью, но роль без события полномочия не даёт (change-graph.md §3): до
@@ -48,7 +67,7 @@ event:
 attribution:
   reviewer_kind: claude_agent
   assigned_agent: acceptance-reviewer
-  publishing_actor: none
+  publishing_actor: pointpu
   publication_mode: courier_of_agent_verdict
   personal_review_by_publishing_actor_claimed: false
   history_is_appended_not_rewritten: true
