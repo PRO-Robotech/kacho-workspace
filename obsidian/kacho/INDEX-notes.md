@@ -170,6 +170,7 @@ tags:
 | [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
+| [[rpc/iam-membership-service\|MembershipService]] | в работе (test) |
 | [[rpc/iam-opa-bundle-service\|OPABundleService]] | история (deprecated) |
 | [[rpc/iam-organization-service\|OrganizationService]] | история (deprecated) |
 | [[rpc/iam-permission-catalog-service\|PermissionCatalogService]] | в работе (test) |
@@ -997,6 +998,7 @@ tags:
 | [[KAC/issue-1776\|#1776: у доставки письма не было производителя, у наблюдаемости — писателя]] | в работе (test) |
 | [[KAC/issue-1805\|#1805: датировка самоссылкой и предикат устаревания, отвечающий «да» на чужую линию]] | в работе (test) |
 | [[KAC/issue-1808\|#1808: посеянная системная роль показывалась списком и не читалась по своему id]] | в работе (test) |
+| [[KAC/issue-181-kaname\|kaname#181: у членства появился пишущий глагол — MembershipService.Create]] | в работе (test) |
 | [[KAC/issue-1819\|#1819: мёртвая ветвь классификатора читается как поддержка глагола]] | в работе (test) |
 | [[KAC/issue-1820\|#1820: отношение без дома неотличимо от терма вывода]] | в работе (test) |
 | [[KAC/issue-1821\|#1821: тихий близнец досева пережил громкого]] | в работе (test) |
