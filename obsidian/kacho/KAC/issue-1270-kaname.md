@@ -9,7 +9,8 @@ status: test
 type: feat
 repos:
   - kaname
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/196
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1270
 opened: 2026-09-17
 tags:
