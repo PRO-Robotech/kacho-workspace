@@ -94,7 +94,16 @@ out="$(run "$(ledger_repo ПУСТО "$rev")")"; rc=$?
 assert "C  пустая ведомость проходит" 0 "записей ведомости нет" "$out" "$rc"
 
 # D — дерева продукта нет вовсе.
-out="$(KACHO_MONOREPO=/nonexistent-tree-for-injection python3 "$here/check-05-ledger-verdict-reproduces.py" 2>&1)"; rc=$?
+#
+# КОРЕНЬ ПОДМЕНЯЕТСЯ, а не только `KACHO_MONOREPO`: несуществующая переменная
+# резолюцию не заканчивает — `_lib.monorepo` откатывается на `project/kacho`
+# рядом с корнем. В конвейере это дерево ВЫЛОЖЕНО отдельным шагом, поэтому ось
+# без подмены корня утверждала бы «дерева нет» там, где оно есть, и молчала бы
+# ровно о том, ради чего заведена. Приём тот же, что у соседей по набору
+# (`inject-03.sh`, `inject-04.sh`): пустая песочница вместо корня.
+mkdir -p "$box/net-dereva"
+out="$(DOCS_GATE_ROOT="$box/net-dereva" KACHO_MONOREPO=/nonexistent-tree-for-injection \
+    python3 "$here/check-05-ledger-verdict-reproduces.py" 2>&1)"; rc=$?
 assert "D  дерева продукта нет — VOID" 2 "[VOID]" "$out" "$rc"
 
 echo "инъекция check-05: утверждений $((pass+fail)), пройдено $pass, провалено $fail"
