@@ -141,8 +141,23 @@ verified_against: "раздел о переходе к членствам све
 - **get-self под flat-моделью (Contract-A)**: FGA `iam_user.viewer = subject or editor`. User видит сам себя ТОЛЬКО через self-tuple `iam_user:<U>#subject@user:<U>`. Это D-4-класс — НЕ восстановим reconciler'ом, эмитится явно при создании user (bootstrap `bootstrapTuples` + invite-path). См. [[../KAC/rbac-2026-contract-a-flat-bootstrap-fallout]].
 - **bootstrap signup → owner-binding**: signup-юзер получает **owner**-binding (не admin) на свой personal account + post-commit `ReconcileBinding` (forward-mat per-object owner-доступ на project/iam-native/cross-service). Под flat hierarchy-pointer'ы доступа не дают.
 
+## Регистрация нашей полосой (Ф4, kacho#1270)
+
+- Строка человека заводится **одной транзакцией** со строкой способа входа и строкой сессии
+  (`registration.Register` → `user.RegisterMirrorTx`): занятость адреса судит `users_identity_email_uniq`
+  внутри транзакции (Ф1-62 — ровно одна из одновременных проходит), `PENDING` по адресу
+  активируется той же полосой без второго личного аккаунта; истёкшее приглашение держит ключ
+  почты — регистрация этим адресом отвергается тем же единым отказом (паритет с полосой поставщика).
+- `external_id` у заведённых нашей полосой — **отчеканенная нами** идентичность `own:sub-…`
+  (`domain.NewOwnLaneSubject`, F4d Р10): ограничение `users_invite_status_consistency` не ослаблялось.
+- **Носитель ключа темпа заведения** (`identity_admission_windows.carrier_id`): у строк с головой `own:`
+  — `lower(email)`, у поставщика — `external_id` (миграция `20260917120000_…`). Смена почты сбрасывает
+  окно — названо задачей.
+- `email_verified_at` у заведённых регистрацией — `NULL` (адрес числится неподтверждённым);
+  подтверждение и отказ на действии — Ф6 `#1272`.
+
 ## See also
 
-[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-user-service]] [[../rpc/iam-internal-user-service]] [[../edges/iam-to-zitadel-oidc]] [[../KAC/KAC-105]]
+[[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[../rpc/iam-user-service]] [[../rpc/iam-internal-user-service]] [[../rpc/iam-login-lane]] [[../edges/iam-to-zitadel-oidc]] [[../KAC/KAC-105]] [[../KAC/issue-1270-kaname]]
 
 #resource #kacho-iam #iam #mirror

@@ -171,6 +171,7 @@ tags:
 | [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
+| [[rpc/iam-login-lane\|Полоса формы входа и регистрации (kaname)]] | в работе (test) |
 | [[rpc/iam-membership-service\|MembershipService]] | в работе (test) |
 | [[rpc/iam-opa-bundle-service\|OPABundleService]] | история (deprecated) |
 | [[rpc/iam-organization-service\|OrganizationService]] | история (deprecated) |
@@ -905,6 +906,7 @@ tags:
 | [[KAC/issue-1255\|#1255: семейство ограничений полей снято с контрактов целиком]] | живо (done) |
 | [[KAC/issue-1264\|#1264: истёкшее удостоверение занимало место под потолком до явного отзыва]] | живо (done) |
 | [[KAC/issue-1280\|#1280: Ф11 — уровень уверенности объявляет наша сессия: правило, страж, гейты]] | в работе (in-progress) |
+| [[KAC/issue-1270-kaname\|kacho#1270: iam Ф4 — регистрация и её три следствия одним исходом]] | в работе (test) |
 | [[KAC/issue-1271\|kacho#1271: iam Ф5 — восстановление доступа кодом по почте своей полосой]] | в работе (test) |
 | [[KAC/issue-1285\|#1285: гейт дублёра не знал законной формы записи]] | в работе (test) |
 | [[KAC/issue-1287\|#1287: вердикт проб консоли не замечал потерю трассы у упавшей пробы]] | в работе (test) |
