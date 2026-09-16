@@ -68,7 +68,8 @@ assert() { # <ось> <ожидаемый код> <ожидаемая подст
   if [[ "$rc" == "$want" ]] && grep -qF -- "$needle" <<<"$out"; then
     echo "  ok   $axis"; pass=$((pass+1))
   else
-    echo "  FAIL $axis: код $rc (ожидался $want); искали «$needle»"; echo "$out" | sed 's/^/       | /'
+    echo "  FAIL $axis: код $rc (ожидался $want); искали «$needle»"
+    printf '%s\n' "       | ${out//$'\n'/$'\n'       | }"
     fail=$((fail+1))
   fi
 }
