@@ -1,0 +1,201 @@
+# ВЕДОМОСТЬ ПАРНЫХ ФАЙЛОВ МЕЖДУ РЕПОЗИТОРИЯМИ (запрет #20).
+#
+# ЗАЧЕМ ОНА СУЩЕСТВУЕТ
+#
+# Запрет #20 говорит: файл, чей владелец — другой репозиторий, в этом дереве не
+# лежит; нужен предмет — заводится ребро сборки пином, не нужен — файла нет.
+# Правило само называло своего держателя: «сегодня — НИЧЕМ, гейта на парные
+# файлы между репозиториями в дереве нет; он выразим и заводится своим
+# изменением» (`.claude/rules/polyrepo.md`). Это он.
+#
+# ЧТО ЭТО НЕ ЕСТЬ
+#
+# Это НЕ список прощённых. Запись — РЕШЕНИЕ по паре, а не разрешение ей быть.
+# Пара без записи — находка; запись без пары — тоже находка (самоистечение):
+# послабление, которому нечего прощать, не истечёт больше никогда.
+#
+# ТРИ ЗАКОННЫХ РЕШЕНИЯ, ЧЕТВЁРТОГО НЕТ
+#
+#   vendored — владелец ВНЕ наших репозиториев; копия есть форма ввоза, а не
+#              наша копия. Годится ровно для ввезённого чужого;
+#   own      — одноимённость ПО ПОСТРОЕНИЮ: у каждого репозитория свой файл с
+#              этим именем, и предмет у них разный. Совпадает имя, а не предмет;
+#   debt     — копия, и это признано. Обязателен `issue`: за долгом отвечает
+#              названная задача, иначе он ничей.
+#
+# Решение `debt` без задачи — находка гейта. Решение `own` на побайтово
+# СОВПАДАЮЩЕЙ паре — тоже находка: «предмет разный» и «содержимое одинаково»
+# вместе не бывают.
+#
+# ЕДИНИЦА СЧЁТА — ОТСЛЕЖИВАЕМЫЙ ПУТЬ, лежащий более чем в одном стволе. Не
+# «контракт», не «инструмент»: путь. Замер 2026-09-16 по трём стволам
+# (`kacho@45d1719fe8`, `kaname@83ddd08a`, `corelib@1d25468`) — пар 51.
+
+pairs:
+  # ── ввезённое чужое: владелец вне наших репозиториев ─────────────────────────
+  - path: proto/google/api/annotations.proto
+    decision: vendored
+    note: контракт аннотаций gRPC-HTTP; ввозится ради компиляции buf, владелец — upstream
+  - path: proto/google/api/http.proto
+    decision: vendored
+    note: то же дерево ввоза
+  - path: proto/google/rpc/status.proto
+    decision: vendored
+    note: то же дерево ввоза
+  - path: proto/google/LICENSE
+    decision: vendored
+    note: лицензия ввезённого дерева; едет вместе с ним by construction
+  - path: proto/LICENSE
+    decision: vendored
+    note: лицензия дерева контрактов; едет вместе с ввезённым
+
+  # ── одноимённость по построению: у каждого репозитория свой ──────────────────
+  - path: LICENSE
+    decision: own
+    note: лицензии РАЗНЫЕ — BUSL-1.1 у платформы, AGPL-3.0 у службы, Apache-2.0 у фундамента
+  - path: README.md
+    decision: own
+    note: свой у каждого продукта
+  - path: .gitignore
+    decision: own
+    note: состав игнорируемого — свойство своего дерева
+  - path: .dockerignore
+    decision: own
+    note: то же
+  - path: Makefile
+    decision: own
+    note: цели свои у каждого дерева
+  - path: go.mod
+    decision: own
+    note: объявление СВОЕГО модуля; одноимённость обязательна by construction
+  - path: go.sum
+    decision: own
+    note: производное своего go.mod
+  - path: provenance.mk
+    decision: own
+    note: происхождение образа своего продукта
+  - path: .github/golangci.yml
+    decision: own
+    note: набор правил своего дерева
+  - path: .github/workflows/ci.yml
+    decision: own
+    note: состав заданий свой; каждое отличие у фундамента названо его шапкой замером
+  - path: .github/workflows/docker-build.yml
+    decision: own
+    note: образы свои
+  - path: .github/workflows/e2e-newman.yml
+    decision: own
+    note: свой набор сквозных проб и свой стенд
+  - path: proto/buf.yaml
+    decision: own
+    note: модуль контрактов свой
+  - path: proto/buf.gen.yaml
+    decision: own
+    note: входы порождения свои; у платформы корень `kacho`, у службы `kaname`
+  - path: proto/declared-breaks.yaml
+    decision: own
+    note: перечень объявленных разрывов СВОЕГО контракта
+
+  # ── долг: копия, и она признана ─────────────────────────────────────────────
+  - path: proto/corelib/api/v1/operation.proto
+    decision: debt
+    issue: PRO-Robotech/corelib#9
+    note: исходник контракта ФУНДАМЕНТА лежит у двух потребителей при нуле у владельца
+  - path: proto/corelib/authz/v1/authz_options.proto
+    decision: debt
+    issue: PRO-Robotech/corelib#9
+    note: то же
+  - path: proto/corelib/operation/operation.proto
+    decision: debt
+    issue: PRO-Robotech/corelib#9
+    note: то же
+  - path: .github/scripts/go-test-verdict.py
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+    note: три копии, все разные; поведение разошлось
+  - path: .github/scripts/run-python-probes.py
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: .github/scripts/classify-integration-outcome.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: .github/scripts/gosec-gate.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: .github/scripts/run-integration.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: tools/declaredbreak/declaredbreak.go
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+    note: 503 строки различий между копиями
+  - path: tools/declaredbreak/declaredbreak_test.go
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: tools/declaredbreak/ci_wiring_test.go
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: tools/declaredbreak/cmd/adjudicate-declared-breaks/main.go
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: tools/declaredbreak/testdata/buf-breaking-real.jsonl
+    decision: debt
+    issue: PRO-Robotech/kacho#2661
+  - path: tests/newman/kacholib/casesindex.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/kacholib/gen_shared.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/kacholib/stems.sh
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/assert-suites-green.sh
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: побайтово совпадает — расхождение ещё не наступило и наступит молча
+  - path: tests/newman/scripts/case_home_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/coverage.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/coverage_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/exec-coverage.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/exec-coverage-selftest.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: побайтово совпадает
+  - path: tests/newman/scripts/exec_coverage_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/precondition_mark_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/precondition_mark_injection_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/newman/scripts/precondition_outcome_test.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: tests/authz-fixtures/principal_pairings.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: побайтово совпадает
+  - path: internal/release/doc.go
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: предмет у пакетов РАЗНЫЙ, но раскладка порождена копированием — решение надо записать
+  - path: internal/release/consumable_test.go
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: internal/release/consumable_injection_test.go
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+  - path: internal/release/pack_test.go
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
