@@ -61,6 +61,7 @@ tags:
 | [[resources/iam-oidc-jwks-key\|OIDCJwksKey]] | история (deprecated) |
 | [[resources/iam-organization\|Organization]] | история (deprecated) |
 | [[resources/iam-project\|Project]] | живо (done) |
+| [[resources/iam-recovery-code\|recovery_codes]] | живо (done) |
 | [[resources/iam-recovery-completions\|recovery_completions]] | живо (done) |
 | [[resources/iam-resource-mirror\|ResourceMirror]] | живо (done) |
 | [[resources/iam-role\|Role]] | живо (done) |
@@ -903,6 +904,7 @@ tags:
 | [[KAC/issue-1250\|#1250: пять шагов уборки состязательных кейсов vpc не утверждают исход]] | в работе (test) |
 | [[KAC/issue-1255\|#1255: семейство ограничений полей снято с контрактов целиком]] | живо (done) |
 | [[KAC/issue-1264\|#1264: истёкшее удостоверение занимало место под потолком до явного отзыва]] | живо (done) |
+| [[KAC/issue-1271\|kacho#1271: iam Ф5 — восстановление доступа кодом по почте своей полосой]] | в работе (test) |
 | [[KAC/issue-1285\|#1285: гейт дублёра не знал законной формы записи]] | в работе (test) |
 | [[KAC/issue-1287\|#1287: вердикт проб консоли не замечал потерю трассы у упавшей пробы]] | в работе (test) |
 | [[KAC/issue-1288\|#1288: механизм потери трассы жив во второй ветке — той, что берут при удалённом браузере]] | в работе (test) |

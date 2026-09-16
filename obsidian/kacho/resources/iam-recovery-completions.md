@@ -14,7 +14,7 @@ tags:
   - iam
   - internal
   - migrations
-verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); столбец external_id и второй источник сверены с веткой issue-1271-recovery от release/iam-lines@af0ca8f3 (kaname), 2026-09-17"
 ---
 
 # recovery_completions (iam)
@@ -24,18 +24,24 @@ verified_against: "таблица-владелец подтверждена жи
 
 ## Назначение
 
-Idempotency-ledger для Kratos recovery-webhook
-`InternalUserService.OnRecoveryCompleted` (KAC-127 Phase 2 / sub-phase 5.3).
-Ory Kratos доставляет webhook **at-least-once** — дубль НЕ должен повторно
-выполнять side-effects (re-enable / revoke-all cutoff / audit). Дедуп — на
-DB-уровне (запрет #10).
+Idempotency-ledger завершений восстановления доступа. **Источника события два, запись одна**
+(Ф5 Р4, `PRO-Robotech/kacho#1271`):
+
+- webhook поставщика личности `InternalUserService.OnRecoveryCompleted` (KAC-127 Phase 2 /
+  sub-phase 5.3) — доставляется **at-least-once**, дубль НЕ должен повторно выполнять
+  side-effects (revoke-all cutoff / audit); называет внешнего субъекта;
+- наш поток восстановления кодом по почте (Ф5, `humansession`) — ключ потока чеканим мы: это
+  `id` строки [[resources/iam-recovery-code]]; внешнего субъекта поток не несёт (столбец NULL).
+
+Дедуп — на DB-уровне (запрет #10). Снятие блокировки восстановлением **не выполняется** ни
+одним источником: восстановление возвращает учётные данные, а не право ими пользоваться.
 
 ## Колонки
 
 | Column | Type | Notes |
 |---|---|---|
 | `recovery_jti` | text | **PK** — Kratos recovery-flow id (flow-scoped, не per-user). CHECK len 1..128 |
-| `external_id` | text | Kratos sub. CHECK len 1..128 |
+| `external_id` | text | внешний субъект поставщика; **NULL у нашего потока** (миграция `20260917015400`, Ф5 Р4). CHECK len 1..128 на заданном значении |
 | `user_id` | text | детерминированный primary row (first by created_at ASC). CHECK len 1..64 |
 | `revoked_session_count` | int | для idempotent-replay metadata. CHECK >= 0 |
 | `completed_at` | timestamptz | DEFAULT now() |
@@ -54,6 +60,6 @@ DB-уровне (запрет #10).
 
 ## See also
 
-[[rpc/iam-internal-user-service]] · [[resources/iam-user]] · [[KAC/KAC-127]]
+[[rpc/iam-internal-user-service]] · [[resources/iam-user]] · [[resources/iam-recovery-code]] · [[KAC/KAC-127]] · [[KAC/issue-1271]]
 
 #resource #kacho-iam #iam #internal #migrations
