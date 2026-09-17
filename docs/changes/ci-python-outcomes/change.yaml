@@ -16,7 +16,7 @@ coordinates:
       base_sha: b5fa093341f1fdbe96adfc6a9555482690968253
       cutover_is_ancestor_of_base: true
 hashes:
-  transport_interface_sha256: 8d767e35d419662487c8a5a2d02c19050188e551677524ccecda42c15fd12f7b
+  transport_interface_sha256: 6e98466a99871bc2515b969d7607630d2a4cc30fcad2bd64b87e2c8d51deded1
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6

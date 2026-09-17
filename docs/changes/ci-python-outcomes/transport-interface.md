@@ -72,3 +72,12 @@ ID, ожидаемого producer, категорию и согласованн�
 holder исполняет эти тела, а не поддельный аналог цепочки. На baseline новый
 интерфейс проверяется через env и прежний CLI: неизвестный argparse-флаг сам по
 себе не является честным RED отсутствующего поведения.
+
+
+Общий stdlib reader имеет CLI:
+`python3 .github/scripts/ci_outcomes.py read --outcome-file PATH --invocation-id ID --producer gate-self-test`.
+Пригодная запись даёт rc0 и проверенный JSON в stdout; непригодная — rc1 и
+фиксированную диагностику stderr, без JSON и без eval/source. Ожидаемый producer
+задаёт реальный вызывающий. CI11 изменяет запись настоящего gate-self-test;
+CI10 отдельно доказывает полную связь reader → run() → Make. Другая ошибка Make
+после GREEN prerequisite остаётся настоящим отказом.
