@@ -20,8 +20,8 @@ hashes:
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
-  route_sha256: c729b099a6b15471315e707e983b397cf3ccb008c681715d08d160a2dfad8a35
-  holders_sha256: 1a224bd3cf1c3253aeba2e098a2bb1ee824b9ae7c5b9c428f9775b48bb54c06e
+  route_sha256: a3e1d5a6ca725a0dbdc20d92318f0deab29dd803c10a74ed633e24499bd04403
+  holders_sha256: 84fcae9b37d42170d05078c364796968c72238d4a0acda699fbfed3e9c10930f
 links:
   transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
   policy: docs/changes/policy.yaml
@@ -72,3 +72,9 @@ scoped_transitions:
     event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713374865
     record: docs/changes/ci-python-outcomes/reviews/integration-tester/producer-scoped-green-78025a3d10a7ea4eaf86ce4797026e0f76396edc.yaml
     remaining: D4-D7 TESTS_PENDING
+
+routine_revalidations:
+  - record: docs/changes/ci-python-outcomes/routine/execution-route-20260917/record.json
+    subject_sha256: 00f1c9bde19ef48308274c85940ae267f4e0af6220456233b7d6e3f681ce23e3
+    review_sha256: 432485e133b807a7a207068c1a27c88ff4f20fcd8bbdb59d980abb8eefc67429
+    scope: D4-D7 execution placement and budgets; source pending semantic RED

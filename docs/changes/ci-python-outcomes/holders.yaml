@@ -15,6 +15,10 @@ required_holders:
     executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesChain$' -count=1 -json -timeout=30m"
     source_path: tools/pythonprobes/outcomes_test.go
     status: specified-awaiting-independent-red
+    executable_status: superseded-awaiting-delivered-integration-route
+    planned_integration_tag: ci_integration
+    planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"
+    route_revalidation: routine/execution-route-20260917/record.json
     scenarios: [CI-PY-09, CI-PY-10, CI-PY-11, CI-PY-12]
     evidence_coordinate: evidence/python-outcomes-real-chain/
   python-outcomes-callers:
@@ -23,6 +27,10 @@ required_holders:
     executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesCallers$' -count=1 -json -timeout=15m"
     source_path: tools/pythonprobes/outcomes_test.go
     status: specified-awaiting-independent-red
+    executable_status: superseded-awaiting-delivered-integration-route
+    planned_integration_tag: ci_integration
+    planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"
+    route_revalidation: routine/execution-route-20260917/record.json
     scenarios: [CI-PY-13]
     evidence_coordinate: evidence/python-outcomes-callers/
   acceptance-review:

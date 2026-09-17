@@ -90,3 +90,38 @@ workflow и решения D4–D7 остаются TESTS_PENDING до свое�
 разрешает расширять реализацию на D4–D7 до их независимого RED, не подтверждает
 полную цепочку, convergence, main delivery или closure трёх issues. Общий
 lifecycle остаётся TASKS_READY; прежний RED-переход сохранён как история.
+
+
+## Уточнение обязательного длинного прогона, 2026-09-17
+
+Независимая routine revalidation сохранена в
+[routine/execution-route-20260917/record.json](routine/execution-route-20260917/record.json):
+subject 00f1c9bde19ef48308274c85940ae267f4e0af6220456233b7d6e3f681ce23e3,
+review /root/e2e_audit 432485e133b807a7a207068c1a27c88ff4f20fcd8bbdb59d980abb8eefc67429.
+Callers измерен в 733.9 секунды, положительный helm baseline — 465.8 секунды;
+прежние бюджеты Chain 30m / Callers 15m не являются достаточным планом доставки.
+Эти исторические записи выше сохранены, текущий маршрут уточнён ниже.
+
+Producer остаётся в обычном unit составе. Chain и Callers переходят под
+положительный integration build tag; exact tag/test commit закрепляет
+integration-tester при delivery. Tester закрепил тег `ci_integration`; команда
+`GOWORK=off go test -tags=ci_integration ./tools/pythonprobes
+-run '^TestPythonOutcomes' -count=1 -json -timeout=90m`
+выбирает семейство трёх parents, сохраняя пять прежних unit parents отдельно.
+Общий entrypoint запускает три родительских теста и
+13 сценариев с JSONL, таймаут пакета 90m; внутренние бюджеты: Producer 8m,
+Chain 55m, Callers 22m, внешнее задание CI 100m. Это capacity policy, не обещание
+будущего времени. Неполный вывод, missing/skip/unfinished не дают GREEN.
+
+Entry point обязателен из make test, ci-local all, отдельной именованной
+ci-local group и CI с финальным required verdict. ci-local go сохраняет unit
+scope; внутренний ci-local helm не вызывает outer integration lane, чтобы
+fixture не запускала сама себя. Существующие build-tag compile/reach/selection
+guards сохраняются. Exact executable и evidence bindings должны появиться
+вместе с test-only delivery и source wiring, до заявления полной готовности.
+
+Root разрешил tester только placement/budget и исправление holder; source
+D4–D7 по-прежнему требует принятого semantic RED. Approved acceptance/design
+не меняются, глобальный lifecycle не повышается. [Внешнее событие](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713801664)
+подтверждено API readback и SHA тела; оно принимает план размещения и бюджета,
+а не D4–D7 source authorization или уже состоявшийся GREEN.
