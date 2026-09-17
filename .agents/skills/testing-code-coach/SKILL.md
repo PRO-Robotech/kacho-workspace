@@ -1,6 +1,6 @@
 ---
 name: testing-code-coach
-description: Use when designing, writing, or reviewing tests for production code (unit, integration, contract, e2e through bufconn). Applies to Go services in Kachō (kacho-vpc, kacho-api-gateway, kacho-corelib). Knows Clean Architecture layering — which layer gets which test type, what mocks are allowed where, and how to detect adapter leakage into use-cases. Owns test pyramid, time budgets, naming conventions, AAA structure, and 13 anti-patterns. Defers product-level QA (Newman, conformance, exploratory) to testing-product-coach.
+description: Use when designing, writing, or reviewing tests for production code (unit, integration, contract, e2e through bufconn). Applies to Go of the Kachō monorepo — `services/<svc>/`, `gateway/`, `pkg/`, `internal/`. Knows Clean Architecture layering — which layer gets which test type, what mocks are allowed where, and how to detect adapter leakage into use-cases. Owns test pyramid, time budgets, naming conventions, AAA structure, and 13 anti-patterns. Defers product-level QA (Newman, conformance, exploratory) to testing-product-coach.
 ---
 
 # Skill: testing-code-coach
@@ -17,11 +17,23 @@ description: Use when designing, writing, or reviewing tests for production code
 
 ## 2. Когда меня НЕ вызывать
 
-- Расширение Newman regression suite — это `testing-product-coach` или `qa-test-engineer`.
-- Conformance с каноническими Kachō текстами/контрактом ошибок — `vpc-conventions-auditor`.
-- Спорные кейсы в CIDR / EXCLUDE — `vpc-cidr-specialist`.
-- Outbox / Watch testing с реальной БД — `vpc-outbox-watch-engineer` + я.
-- Acceptance-spec — `acceptance-author`.
+Ниже два разных хода, и путать их дорого: **скил** ты берёшь сам инструментом `Skill`, **агента**
+ты не запускаешь — называешь его строкой «нужен следующий» в блоке ВОЗВРАТ, а запускает диспетчер
+(`CLAUDE.md` §«Контракт возврата»).
+
+- Расширение Newman regression suite — скил `testing-product-coach`; полоса — агент `qa-test-engineer`.
+- Conformance с каноническими Kachō текстами и контрактом ошибок — агент `proto-api-reviewer`
+  (за ним закреплено `api-conventions.md`, `.claude/rules/MANIFEST.md`).
+- Спорные кейсы в CIDR / EXCLUDE — агент `db-architect-reviewer` (за ним `data-integrity.md`):
+  предмет спора — инвариант в схеме, а не форма теста.
+- Outbox / Watch с реальной БД — агент `integration-tester` (проба), агент `go-implementer`
+  (инфраструктура подписки и outbox, за ним `subscription.md`); я — про уровень и форму их проб.
+- Acceptance-spec — агент `acceptance-author`.
+
+> **Отозвано 2026-09-17.** До этой даты здесь стояли `vpc-conventions-auditor`,
+> `vpc-cidr-specialist`, `vpc-outbox-watch-engineer`. Доменных агентов в дереве нет ни одного —
+> предикат `ls .claude/agents/` не даёт ни одного файла с доменным префиксом, — а отправка к
+> несуществующему агенту останавливает полосу молча.
 
 ## 3. Что я отдаю на выходе
 
@@ -390,8 +402,8 @@ authz), а не на весь codebase — медленно.
 - **consumer-driven**: consumer описывает свои ожидания → provider
   верифицирует. Pact, gRPC-contract-tools.
 - **provider-driven**: provider определяет proto-контракт, consumer'ы
-  компилируются с тем же proto. У нас именно так — `kacho-proto` как
-  single source.
+  компилируются с тем же proto. У нас именно так — каталог `proto/`
+  монорепо и сгенерированные из него стабы `pkg/api/` как single source.
 
 Provider-driven contract test = "наш сервер удовлетворяет всем
 вызовам, которые consumer теоретически может сделать", обычно через
@@ -790,7 +802,9 @@ CI должен дать обратную связь в течение 10 мин
 ### 10.3 Postman / Newman
 
 Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
-`kacho-vpc/CLAUDE.md §14.3` и `kacho-vpc/tests/newman/README.md`. Ключевое:
+`services/<svc>/tests/newman/README.md` монорепо (предикат в `project/kacho`:
+`git ls-files 'services/*/tests/newman/README.md'`) и нормирован
+`.claude/rules/testing-newman.md`. Ключевое:
 
 - Каждая suite-collection начинается с `00-preflight` и
   заканчивается `99-teardown`.
@@ -903,11 +917,21 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 
 | Документ | Контекст |
 |---|---|
-| `CLAUDE.md` воркспейса + `@import`-ы всего корпуса `.claude/rules/*.md` | Запреты, naming, архитектурные правила — грузятся безусловно |
-| `kacho-vpc/CLAUDE.md §14` | Уровни тестирования в VPC |
-| `kacho-vpc/docs/ARCHITECTURE.md §XII` | Тестирование VPC в общей картине |
-| `kacho-vpc/tests/newman/README.md` | Newman quota-aware pipeline |
-| `kacho-vpc/tests/newman/docs/TAXONOMY.md` | Class taxonomy (CRUD/BVA/VAL/NEG) |
+| `CLAUDE.md` воркспейса | Общий протокол обоих концов: модель загрузки, контракт возврата, топология. Норм продукта в нём нет — корпус правил он не импортирует |
+| `.claude/rules/00-kacho-core.md` | Запреты и naming. Сколько запретов — предикатом `grep -cE '^[0-9]+\. \*\*' .claude/rules/00-kacho-core.md`, не памятью |
+| `.claude/rules/testing.md` · `testing-verdict.md` · `testing-newman.md` · `e2e-flow.md` | Нормы пробы и вердикта. Грузятся **не всем**, а агенту, за которым закреплены: колонка «закреплено за агентами» в `.claude/rules/MANIFEST.md`; предикат строки — `grep -n 'testing.md' .claude/rules/MANIFEST.md` |
+| `services/<svc>/tests/newman/README.md` | Newman quota-aware pipeline (предикат в `project/kacho`: `git ls-files 'services/*/tests/newman/README.md'`) |
+| `services/<svc>/tests/newman/docs/TAXONOMY.md` | Class taxonomy (CRUD/BVA/VAL/NEG) |
+| `docs/architecture/` монорепо | Сервисные договорённости. `CLAUDE.md` внутри продукта ровно один — `deploy/CLAUDE.md`, и он про локальный стенд, а не про конвенции сервиса |
 | Standard book | "xUnit Test Patterns" (Gerard Meszaros) — справочник по test doubles и анти-паттернам |
 | Standard book | "Growing Object-Oriented Software, Guided by Tests" (Freeman & Pryce) — fake vs mock, state-based vs interaction |
 | Standard book | "Working Effectively with Legacy Code" (Michael Feathers) — seams, testability |
+
+> **Отозваны 2026-09-17 (строки таблицы выше, прежняя редакция).** «`CLAUDE.md` воркспейса +
+> `@import`-ы всего корпуса `.claude/rules/*.md` … грузятся безусловно» — верно было для модели
+> 2026-09-13 и ложно с решения владельца 2026-09-17: каталог правил снят с автозагрузки
+> (`.claude/settings.json` → `claudeMdExcludes`), правило доезжает до агента закреплением
+> (`CLAUDE.md` §«Модель загрузки»). Полирепозиторные координаты `kacho-vpc/CLAUDE.md §14`,
+> `kacho-vpc/docs/ARCHITECTURE.md §XII`, `kacho-vpc/tests/newman/**` сняты вместе с полирепо:
+> в дереве продукта их нет (предикат в `project/kacho`: `git ls-files | grep kacho-vpc` — пусто),
+> а адреса монорепо стоят в таблице выше.

@@ -1,0 +1,1 @@
+../../rules/git-issues-issue-lifecycle.md

@@ -374,31 +374,88 @@ def predicate_canonical_inputs(root):
     return len(inputs), lines
 
 
+BINDING_PREDICATE = "symlinked-skill-md"
+
+
 def predicate_skills_roster(root):
     """Перечень пакетов манифеста совпадает с отслеживаемыми скилами дерева.
 
     В обе стороны: имя без директории и директория без имени — обе находки.
     Совпадение ЧИСЛА ничего не доказывает: множества равной мощности бывают
     разными, и именно так перечень расходится с деревом незаметно.
+
+    ПРИВЯЗКИ ПРАВИЛ В ПЕРЕЧЕНЬ НЕ ВХОДЯТ, И ЭТО ЧИТАЕТСЯ ИЗ МАНИФЕСТА, А НЕ ЗАШИТО.
+    Каталог `.claude/skills/rule-<имя>/`, чей `SKILL.md` — символьная ссылка в
+    `.claude/rules/`, есть адрес правила для предзагрузки, а не экспертиза: своего
+    содержимого у него нет ни байта, и пакетом во вторую среду он не едет —
+    проекция удвоила бы текст нормы (манифест, §ПРИВЯЗКИ ПРАВИЛ НЕ ПРОЕЦИРУЮТСЯ).
+    Без вычета этот предикат объявлял бы находкой каждую из тридцати привязок — то
+    есть краснел бы на верном дереве, а такой гейт отключают первым.
+
+    ПРЕДИКАТ — СВОЙСТВО ФАЙЛА, А НЕ ИМЯ КАТАЛОГА, и это ровно та же формулировка,
+    что у `scripts/skills-gate/_lib.sh`. Имя `rule-*` подделывается одним `mkdir`;
+    вычет по имени был бы дырой, через которую экспертиза под зарезервированным
+    именем выпадает из перечня МОЛЧА. Поэтому каталог с зарезервированным именем,
+    чей `SKILL.md` НЕ ссылка, — отдельная находка своим текстом.
+
+    ССЫЛОЧНОСТЬ СПРАШИВАЕТСЯ У ДИСКА. Индекс git хранит её отдельным режимом
+    (120000) и вторым вопросом; здесь дешевле и честнее спросить файл — предмет
+    ведь и есть файл, лежащий в дереве.
     """
     manifest = load_manifest(root)
     declared = set(manifest.get("skills") or [])
     if not declared:
         raise Void("skills пуст — сверять не с чем")
 
+    bindings_decl = manifest.get("skill_bindings")
+    if not isinstance(bindings_decl, dict):
+        raise Void(
+            "в манифесте нет ключа skill_bindings — не объявлено, чем привязка "
+            "правила отличается от скила, и вычитать нечего ПО ОБЪЯВЛЕНИЮ"
+        )
+    if bindings_decl.get("predicate") != BINDING_PREDICATE:
+        raise Void(
+            "skill_bindings.predicate = %r, а гейт умеет только %r — исполнять "
+            "незнакомый предикат он не вправе"
+            % (bindings_decl.get("predicate"), BINDING_PREDICATE)
+        )
+    prefix = str(bindings_decl.get("reserved_prefix") or "")
+    if not prefix:
+        raise Void("skill_bindings.reserved_prefix пуст — имя не занято ничем")
+
     present = set()
+    bindings = set()
+    misuse = []
     for path in tracked(root):
-        if path.startswith(".claude/skills/") and path.endswith("/SKILL.md"):
-            present.add(path.split("/")[2])
-    if not present:
+        if not (path.startswith(".claude/skills/") and path.endswith("/SKILL.md")):
+            continue
+        name = path.split("/")[2]
+        if os.path.islink(os.path.join(root, path)):
+            bindings.add(name)
+            continue
+        if name.startswith(prefix):
+            misuse.append(path)
+        present.add(name)
+    if not present and not bindings:
         raise Void("в дереве нет ни одного .claude/skills/*/SKILL.md")
+    if not present:
+        raise Void(
+            "в дереве только привязки правил (%d) и ни одного скила-экспертизы"
+            % len(bindings)
+        )
 
     lines = []
     for name in sorted(declared - present):
         lines.append("манифест объявляет пакет, которого нет в оснастке: %s" % name)
     for name in sorted(present - declared):
         lines.append("скил оснастки не объявлен пакетом манифеста: %s" % name)
-    return len(declared | present), lines
+    for path in sorted(misuse):
+        lines.append(
+            "каталог под зарезервированным именем %s*, чей SKILL.md НЕ символьная "
+            "ссылка: %s — имя занято привязкой правила, экспертизу под ним не "
+            "перечислит во skills: ни один агент" % (prefix, path)
+        )
+    return len(declared | present | bindings), lines
 
 
 PREDICATES = {
@@ -408,7 +465,7 @@ PREDICATES = {
     "canonical-case": (predicate_canonical_case, "порождённых прочитано"),
     "portable": (predicate_portable, "порождённых прочитано"),
     "canonical-inputs": (predicate_canonical_inputs, "канонических входов"),
-    "skills-roster": (predicate_skills_roster, "имён в объединении"),
+    "skills-roster": (predicate_skills_roster, "имён в объединении (скилы + привязки правил)"),
 }
 
 

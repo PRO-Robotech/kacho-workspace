@@ -289,28 +289,49 @@ CI-гейт `make -C services/{compute,nlb,storage,vpc} audit-list-filter`
 ## 8. AI-оснастка (кратко)
 
 Kachō разрабатывается, тестируется и сопровождается автономно через Claude Code. Оснастка —
-это «команда» из четырёх слоёв:
+это «команда»: диспетчер и четыре слоя под ним.
 
-- **rules** (`.claude/rules/*.md`) — **весь корпус, 19 файлов**, читаемый средой
-  **автоматически** у каждого агента: naming и non-negotiables, контракт волны, письмо,
-  локальный индекс, `MANIFEST.md` и четырнадцать нормативных модулей (api-conventions,
-  polyrepo, architecture, data-integrity, security, testing, git-issues, vault, …).
-  Деления на «ядро, читаемое всегда» и «свод, читаемый файлом по требованию» **больше
-  нет**: каталог `.claude/rulebook/` снят решением владельца 2026-09-13, `CLAUDE.md`
-  объявляет `@import` на каждый файл (`grep -c '^@' CLAUDE.md` → 19 при
-  `ls .claude/rules/*.md | wc -l` → 19). Цена нового устройства измерена и названа числом
-  в одном месте — `.claude/rules/01-wave-contract.md` §«Что стоит „весь корпус каждому“»;
-  здесь она не пересказывается. Какое правило какое действие покрывает —
-  `.claude/rules/MANIFEST.md`.
-- **agents** (`.claude/agents/*.md`) — роли: task-execution (acceptance-author, rpc-implementer,
-  migration-writer, api-gateway-registrar, …) и specialist-review (db-architect-reviewer,
-  go-style-reviewer, proto-api-reviewer, …); плюс domain-specific (`vpc-*`, `compute-*`).
+- **dispatcher** (`.claude/agents/dispatcher.md`, объявлен `.claude/settings.json` →
+  `agent: "dispatcher"`) — **главный поток**. Его тело заменяет системный промпт и является
+  **единственной** базой маршрутизации: кого запустить, в каком порядке, что закрывает
+  сигнал хука. У диспетчера нет ни `Read`, ни `Bash`, ни `Edit` — он ничего не разведывает
+  сам и решает **только** по возврату исполнителя (форма возврата — в корневом `CLAUDE.md`).
+  Решение владельца **2026-09-17**; оно отменяет решение 2026-09-13 «весь корпус каждому
+  агенту, всегда».
+- **rules** (`.claude/rules/*.md`) — корпус: naming и non-negotiables, контракт волны, письмо,
+  `MANIFEST.md` и нормативные модули (api-conventions, polyrepo, architecture, data-integrity,
+  security, testing, git-issues, vault, …); `ls .claude/rules/*.md | wc -l` → 30. Корпус **не
+  грузится сам никому** — ни диспетчеру, ни исполнителю: каталог снят с автозагрузки
+  (`.claude/settings.json` → `claudeMdExcludes: ["**/.claude/rules/**"]`), и `CLAUDE.md` правил
+  не импортирует (`grep -c '^@' CLAUDE.md` → 0). Правило попадает в окно **закреплением за
+  агентом**: скилл-ссылка `.claude/skills/rule-<имя>/SKILL.md → ../../rules/<имя>.md`
+  (`find .claude/skills -name SKILL.md -type l | wc -l` → 30), агент перечисляет свои правила
+  во frontmatter `skills:`, харнесс грузит их при старте целиком; нужное лишь при условии
+  берётся по триггеру инструментом `Skill`. Объявление закрепления — `MANIFEST.md`, колонка
+  «закреплено за агентами»; исполнение — frontmatter агента; сверяет обе стороны
+  `scripts/rules-gate/`. Прежних делений в дереве нет: `.claude/rulebook/` снят 2026-09-13,
+  автозагрузка всего корпуса — 2026-09-17. Цена теперь считается **на агента**, а не на волну,
+  и названа в одном месте — `.claude/rules/01-wave-contract.md` §«Кто какое правило держит»;
+  здесь она не пересказывается.
+- **agents** (`.claude/agents/*.md`) — 31 исполнитель
+  (`ls .claude/agents/*.md | grep -vc dispatcher`) плюс диспетчер: task-execution
+  (acceptance-author, rpc-implementer, migration-writer, api-gateway-registrar, go-implementer,
+  ui-implementer, …), specialist-review (db-architect-reviewer, go-style-reviewer,
+  proto-api-reviewer, ui-reviewer, …) и обслуживание конвейера (scout, git-operator, ci-watcher,
+  deploy-engineer, check-verifier, …). Роли **generic**: доменных агентов в дереве нет
+  (`ls .claude/agents/ | grep -cE '^(vpc|compute)-'` → 0), домен приходит заданием и правилом.
+  Исполнитель **не запускает** исполнителя (`disallowedTools: Agent`) — последовательность
+  выставляет диспетчер по возврату, строкой «нужен следующий».
 - **skills** (`.claude/skills/<name>/SKILL.md`) — экспертиза (`evgeniy` — Go-style, testing-coaches,
-  load-testing-coach).
-- **hooks** (`.claude/settings.json`) — дисциплина исполнения; следуют за сессией.
+  load-testing-coach) и носители правил `rule-<имя>` — символьные ссылки, поэтому адреса самих
+  файлов правил закрепление не трогает.
+- **hooks** (`.claude/settings.json`) — дисциплина исполнения; следуют за сессией. Печатают они
+  **диспетчеру**; что каким агентом закрывается — таблица сигналов в
+  `.claude/agents/dispatcher.md`, здесь не пересказывается.
 
 Модель распространения — **единственный экземпляр, копий нет**: вся оснастка живёт в
-`kacho-workspace/.claude/`, включая domain-агентов и скилы (`vpc-*`, `compute-*`). Прежняя
+`kacho-workspace/.claude/` — и domain-оснастка, когда заведётся, ляжет туда же (сейчас её в
+дереве нет, `ls .claude/skills/ | grep -cE '^(vpc|compute)-'` → 0). Прежняя
 модель дублирования снята вместе со своим обоснованием: она опиралась на допущение, что
 hooks не достают до воркспейса из вложенного каталога, а журнал hook'а это опровергает —
 срабатывания есть по деревьям без собственных hooks. Полный список ролей и lifecycle-гейты (acceptance-first

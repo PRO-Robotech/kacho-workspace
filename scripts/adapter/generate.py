@@ -46,6 +46,10 @@ import yaml
 
 MANIFEST_RELPATH = os.path.join(".claude", "adapters.yaml")
 
+# Единственный предикат привязки, который умеет этот генератор. Сверяется с
+# объявленным в манифесте: разойдутся — отказ, а не подстановка своего понимания.
+BINDING_PREDICATE = "symlinked-skill-md"
+
 # Заголовок, который несёт каждый порождённый текстовый файл. Без него читатель
 # правит производное, а правка уезжает при следующей регенерации — молча.
 BANNER_LINES = [
@@ -95,6 +99,30 @@ class Manifest:
         self.owned_namespaces = list(doc.get("owned_namespaces") or [])
         self.skills = list(doc.get("skills") or [])
         self.owned_outputs = list(doc.get("owned_outputs") or [])
+
+        # Привязки правил: объявление читается, а не подразумевается.
+        #
+        # `.claude/skills/rule-<имя>/SKILL.md` — символьная ссылка в
+        # `.claude/rules/`; такой каталог есть АДРЕС правила для предзагрузки, а не
+        # экспертиза, и пакетом во вторую среду не едет (довод — в манифесте,
+        # §ПРИВЯЗКИ ПРАВИЛ НЕ ПРОЕЦИРУЮТСЯ). Ключ отсутствует или несёт незнакомое
+        # значение — ОТКАЗ: «понял по-своему» здесь означало бы, что генератор
+        # решает за манифест, какой текст удваивать.
+        bindings = doc.get("skill_bindings")
+        if not isinstance(bindings, dict):
+            raise GeneratorError(
+                "в манифесте нет ключа skill_bindings — не объявлено, чем привязка "
+                "правила отличается от скила"
+            )
+        self.binding_predicate = str(bindings.get("predicate") or "")
+        self.binding_prefix = str(bindings.get("reserved_prefix") or "")
+        if self.binding_predicate != BINDING_PREDICATE:
+            raise GeneratorError(
+                "skill_bindings.predicate = %r, а генератор умеет только %r"
+                % (self.binding_predicate, BINDING_PREDICATE)
+            )
+        if not self.binding_prefix:
+            raise GeneratorError("skill_bindings.reserved_prefix пуст — имя не занято ничем")
 
         # Пустой набор — отказ, а не успех: генератор, которому нечего писать,
         # неотличим от исправно отработавшего, и это ровно тот класс, который
@@ -155,6 +183,18 @@ class Reader:
 
     def read_text(self, relpath):
         return _norm(self.read(relpath).decode("utf-8"))
+
+    def islink(self, relpath):
+        """Символьная ли это ссылка — с той же проверкой каноничности.
+
+        Спрашивается ДИСК, а не индекс: «ссылка» есть свойство файла, и именно им
+        отличается привязка правила от экспертизы. Проверка каноничности здесь
+        та же, что у чтения: путь вне набора не должен влиять на выход даже
+        вопросом о своём типе.
+        """
+        if not self.manifest.is_canonical(relpath):
+            raise GeneratorError("неканонический путь: %s" % relpath)
+        return os.path.islink(os.path.join(self.root, relpath))
 
     def listdir(self, relpath):
         """Отсортированный по БАЙТАМ обход каталога канонического входа.
@@ -221,6 +261,158 @@ def split_frontmatter(text, label):
     return head, match.group(2)
 
 
+# ── шапка агента: КАЖДЫЙ ключ назван, ни один не теряется молча ───────────────
+#
+# ЧТО ЗДЕСЬ БЫЛО И ЧЕМ ЭТО СТОИЛО. Прежняя редакция брала из шапки `name` и
+# `description`, а всё остальное роняла БЕЗ СЛОВА. Роняла она при этом несущее:
+# `skills: rule-*` — перечень правил, которые харнесс кладёт агенту в окно ДО
+# первого действия (решение владельца 2026-09-17), и агент во второй среде
+# получал тело, написанное в расчёте на корпус, которого у него нет;
+# `disallowedTools: Agent` — запрет вложенных запусков, то есть ровно то, чем
+# держится «последовательность агентов выставляет только диспетчер».
+#
+# Тихая потеря хуже отказа: её не видно ни в выходе, ни в гейте — производное
+# сходится с регенерацией побайтово, потому что обе стороны теряют одно и то же.
+#
+# ПОЭТОМУ КЛЮЧИ ПЕРЕЧИСЛЕНЫ ПОИМЁННО. Незнакомый ключ — ОТКАЗ генератора: он
+# означает, что в оснастке завелось поведение, о переводе которого никто не
+# решал, и молчание было бы решением «оно неважно», принятым не человеком.
+AGENT_FRONTMATTER_KEYS = (
+    "name",
+    "description",
+    "skills",
+    "tools",
+    "disallowedTools",
+    "omitClaudeMd",
+)
+
+# Элемент списка YAML, свёрнутого разбором шапки в одну строку. Перед дефисом
+# обязан стоять пробел или начало строки, за ним — пробел: иначе выражение резало
+# бы по дефису ВНУТРИ имени (`rule-git-issues-ci-runs`).
+FRONTMATTER_ITEM = re.compile(r"(?:\A|\s)-\s+(\S+)")
+
+
+def frontmatter_list(value, key, label):
+    """Значение-список из свёрнутой шапки.
+
+    Разбор шапки складывает продолжения строк в одну (см. `split_frontmatter`),
+    поэтому список приезжает сюда как «- a - b - c». Пустое значение списком не
+    является: ключ, объявленный без единого элемента, — не «ничего не выбрано», а
+    незаконченная правка, и отказ здесь дешевле тихого пустого перечня.
+    """
+    items = FRONTMATTER_ITEM.findall(value)
+    if not items:
+        raise GeneratorError(
+            "ключ %s в шапке %s объявлен, но не несёт ни одного элемента" % (key, label)
+        )
+    return items
+
+
+def rule_coordinate(name, prefix):
+    """Координата правила по имени его привязки: `rule-<имя>` → `.claude/rules/<имя>.md`.
+
+    Существование файла здесь НЕ перепроверяется намеренно: это предмет
+    `scripts/rules-gate/` (оси `RULE-SKILL-MISSING`, `AGENT-RULE-DANGLING`), и
+    второй кодек об одном предмете разошёлся бы с первым молча.
+    """
+    return ".claude/rules/%s.md" % name[len(prefix):]
+
+
+def render_agent_preamble(head, label, manifest):
+    """Шапка агента, переведённая в ПОРУЧЕНИЕ СЛОВАМИ.
+
+    Среда, читающая `.codex/agents/*.toml`, не применяет ни `skills:`, ни
+    `tools:`: у неё этих настроек нет. Значит выбор ровно один — либо потерять их
+    молча, либо объявить их текстом и оставить держаться чтением агента. Первое
+    уже стоило корпуса в окне исполнителя; второе честно называет, чем оно
+    держится, и потому написано словами «прочитай», «у тебя нет», а не «настроено».
+    """
+    lines = []
+
+    if "skills" in head:
+        names = frontmatter_list(head["skills"], "skills", label)
+        rules, expertise = [], []
+        for name in names:
+            if name.startswith(manifest.binding_prefix):
+                rules.append(rule_coordinate(name, manifest.binding_prefix))
+            else:
+                expertise.append(name)
+        lines.append("## Предзагрузка норм — здесь она твоё первое действие")
+        lines.append("")
+        lines.append(
+            "В канонической оснастке эти нормы приезжают ПРЕДЗАГРУЗКОЙ: их "
+            "перечисляет `skills:` шапки агента, и харнесс кладёт их текст в окно "
+            "до первого твоего действия. Здесь такой настройки нет, поэтому "
+            "предзагрузка — твоё первое действие, а не условие запуска. "
+            "Прочитанное назови в возврате: норма, которую ты не открыл, тобой не "
+            "применена, чем бы ни выглядел результат."
+        )
+        lines.append("")
+        if rules:
+            lines.append(
+                "**При старте прочитай целиком:** %s."
+                % ", ".join("`%s`" % path for path in rules)
+            )
+            lines.append("")
+        if expertise:
+            lines.append(
+                "**Скилы-экспертизы:** %s — пакет каждого лежит в "
+                "`.agents/skills/<имя>/`, источник `.claude/skills/<имя>/`."
+                % ", ".join("`%s`" % name for name in expertise)
+            )
+            lines.append("")
+
+    if "tools" in head or "disallowedTools" in head:
+        lines.append("## Ограничение инструментов — объявлено, а не настроено")
+        lines.append("")
+        lines.append(
+            "В канонической оснастке это ограничение применяет харнесс. Здесь его "
+            "применять нечему, поэтому оно держится твоим чтением: вышел за него — "
+            "прогон недействителен, и объявить это обязан ты сам, а не тот, кто "
+            "будет разбирать последствия."
+        )
+        lines.append("")
+        if "tools" in head:
+            lines.append(
+                "**Разрешено только это (перечень шапки, дословно):** %s."
+                % head["tools"]
+            )
+            lines.append("")
+        if "disallowedTools" in head:
+            lines.append("**Запрещено:** %s." % head["disallowedTools"])
+            lines.append("")
+            # `Agent` назван отдельно: это не один из запретов, а то, чем держится
+            # «последовательность агентов выставляет только диспетчер».
+            if "Agent" in [t.strip() for t in head["disallowedTools"].split(",")]:
+                lines.append(
+                    "Запуска другого агента у тебя НЕТ. Нужен другой — строкой "
+                    "«нужен следующий» в блоке ВОЗВРАТ: это заказ диспетчеру, а не "
+                    "команда, и кого запускать, решает он."
+                )
+                lines.append("")
+
+    if "omitClaudeMd" in head:
+        value = head["omitClaudeMd"].strip().lower()
+        if value not in ("true", "false"):
+            raise GeneratorError(
+                "omitClaudeMd в шапке %s несёт %r — генератор знает только true/false"
+                % (label, head["omitClaudeMd"])
+            )
+        if value == "true":
+            lines.append("## Общий протокол воркспейса тебе НЕ грузится")
+            lines.append("")
+            lines.append(
+                "Шапка агента объявляет `omitClaudeMd: true`: корневой `CLAUDE.md` "
+                "в твоё окно не попадает. Это решение, а не упущение, — и открывать "
+                "его самому тоже не нужно: всё, что тебе положено, в этом файле."
+            )
+            lines.append("")
+
+    if not lines:
+        return ""
+    return "\n".join(lines).rstrip("\n") + "\n\n---\n\n"
+
+
 def toml_basic_string(value):
     """Однострочный TOML-литерал с экранированием по спецификации."""
     out = []
@@ -257,18 +449,39 @@ def toml_multiline_string(value):
 # ─── порождение ───────────────────────────────────────────────────────────────
 
 
+DISPATCHER_RELPATH = ".claude/agents/dispatcher.md"
+
+
 def render_agents_md(reader, manifest):
     """Корневой указатель для сред, читающих AGENTS.md.
 
     Тело — канонический CLAUDE.md ДОСЛОВНО. Именно дословно, а не «адаптировано»:
     подстановка имени каталога оснастки запрещена (см. шапку модуля), а
     пересказ дал бы второе место об одном предмете, которое разойдётся молча.
+
+    БАЗА МАРШРУТИЗАЦИИ ЕДЕТ СЮДА ЖЕ — И ЭТО НЕ УДОБСТВО. В канонической оснастке
+    главный поток есть агент `dispatcher` (`.claude/settings.json` → `agent`), и
+    тело `dispatcher.md` заменяет ему системный промпт. У сред, читающих
+    `AGENTS.md`, настройки `agent` нет вовсе: главный поток там ничем не
+    заменяется и без базы остаётся БЕЗ МАРШРУТИЗАЦИИ — то есть читает общий
+    протокол, где сказано «раздаёт диспетчер», и не имеет ни одного правила, кому
+    что раздавать. Дословно — по тому же доводу, что и `CLAUDE.md`: пересказ базы
+    был бы вторым местом об одном предмете и разошёлся бы с оригиналом молча.
     """
     body = reader.read_text("CLAUDE.md")
 
     agent_files = [
         p for p in reader.listdir(".claude/agents") if p.endswith(".md")
     ]
+    if DISPATCHER_RELPATH not in agent_files:
+        raise GeneratorError(
+            "нет %s — в AGENTS.md нечем заменить базу маршрутизации, а без неё "
+            "главный поток второй среды остаётся без неё вовсе" % DISPATCHER_RELPATH
+        )
+    _, dispatcher_body = split_frontmatter(
+        reader.read_text(DISPATCHER_RELPATH), DISPATCHER_RELPATH
+    )
+
     skill_names = sorted(manifest.skills)
 
     lines = ["<!--"]
@@ -276,6 +489,19 @@ def render_agents_md(reader, manifest):
     lines.append("-->")
     lines.append("")
     lines.append(body.rstrip("\n"))
+    lines.append("")
+    lines.append("## База маршрутизации — тело `%s` ДОСЛОВНО" % DISPATCHER_RELPATH)
+    lines.append("")
+    lines.append(
+        "В канонической оснастке эту базу получает агент `dispatcher`, назначенный "
+        "главным потоком в `.claude/settings.json`. Здесь настройки `agent` нет, "
+        "заменить главному потоку системный промпт нечем — поэтому база лежит "
+        "прямо тут и читается как часть указателя. Правится она **только** в "
+        "`%s`: этот текст порождён из неё и уедет при следующей регенерации."
+        % DISPATCHER_RELPATH
+    )
+    lines.append("")
+    lines.append(dispatcher_body.strip("\n"))
     lines.append("")
     lines.append("## Роли и экспертиза, доступные в этом дереве")
     lines.append("")
@@ -310,20 +536,34 @@ def render_agents_md(reader, manifest):
     return "\n".join(lines) + "\n"
 
 
-def render_agent_toml(reader, relpath):
+def render_agent_toml(reader, relpath, manifest):
     text = reader.read_text(relpath)
     head, body = split_frontmatter(text, relpath)
+
+    # Незнакомый ключ — ОТКАЗ, а не тихая потеря. Проверка стоит ПЕРВОЙ: дальше
+    # генератор читает только знакомое, и незнакомое иначе просто не встретилось
+    # бы ему на пути.
+    unknown = [key for key in head if key not in AGENT_FRONTMATTER_KEYS]
+    if unknown:
+        raise GeneratorError(
+            "в шапке %s ключи, о переводе которых никто не решал: %s "
+            "(известные: %s). Молчаливая потеря ключа не видна ни в выходе, ни в "
+            "гейте — предмет решения во входе"
+            % (relpath, ", ".join(sorted(unknown)), ", ".join(AGENT_FRONTMATTER_KEYS))
+        )
+
     name = str(head.get("name") or "").strip()
     description = " ".join(str(head.get("description") or "").split())
     if not name:
         raise GeneratorError("у агента нет имени: %s" % relpath)
 
+    preamble = render_agent_preamble(head, relpath, manifest)
     banner = "\n".join("# %s" % line for line in BANNER_LINES)
     return "%s\nname = %s\ndescription = %s\ndeveloper_instructions = %s\n" % (
         banner,
         toml_basic_string(name),
         toml_basic_string(description),
-        toml_multiline_string(body.lstrip("\n")),
+        toml_multiline_string(preamble + body.lstrip("\n")),
     )
 
 
@@ -421,6 +661,17 @@ def build(root):
 
     for name in sorted(manifest.skills):
         package = ".claude/skills/%s" % name
+        # Привязка правила пакетом не едет — предикат тот же, что у гейтов:
+        # «SKILL.md является символьной ссылкой» (манифест, §ПРИВЯЗКИ ПРАВИЛ НЕ
+        # ПРОЕЦИРУЮТСЯ). Отказ, а не пропуск: имя привязки в перечне `skills`
+        # означает, что кто-то решил удвоить текст нормы, и решение это надо
+        # отменить во ВХОДЕ, а не обойти молча в генераторе.
+        if reader.islink("%s/SKILL.md" % package):
+            raise GeneratorError(
+                "манифест объявляет пакетом привязку правила: %s "
+                "(SKILL.md — символьная ссылка). Проекция удвоила бы текст нормы, "
+                "а вторая копия расходится с оригиналом молча" % package
+            )
         files = reader.listdir(package)
         if not files:
             raise GeneratorError("пакет скила пуст: %s" % package)
@@ -433,7 +684,7 @@ def build(root):
             continue
         name = os.path.basename(relpath)[: -len(".md")]
         produced[".codex/agents/%s.toml" % name] = render_agent_toml(
-            reader, relpath
+            reader, relpath, manifest
         ).encode("utf-8")
 
     for relpath in reader.listdir(".claude/hooks"):

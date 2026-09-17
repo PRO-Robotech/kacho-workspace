@@ -1,4 +1,8 @@
 {
+  "agent": "dispatcher",
+  "claudeMdExcludes": [
+    "**/.claude/rules/**"
+  ],
   "permissions": {
     "defaultMode": "bypassPermissions"
   },

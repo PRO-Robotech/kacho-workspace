@@ -156,6 +156,22 @@ expect_silent() { # expect_silent <метка> <проба-путь> <тело> 
 
 notrun() { echo "  ⊘ НЕ ВЫПОЛНИЛОСЬ: $1"; NOTRUN=$((NOTRUN+1)); }
 
+# is_git_tree <каталог> — «здесь есть репозиторий», спрошенное У GIT, а не у формы
+# каталога.
+#
+# ЗАЧЕМ ОТДЕЛЬНЫМ ПРЕДИКАТОМ. Четыре пробы ниже брали за признак `[ -d <путь>/.git ]`.
+# Каталогом `.git` бывает только ОБЫЧНЫЙ клон; у ПРИВЯЗАННОГО РАБОЧЕГО ДЕРЕВА
+# (`git worktree add`) и у подмодуля `.git` — ФАЙЛ со строкой `gitdir: …`, и
+# предикат отвечал «дерева продукта нет» на дереве, которое стоит, отслеживается и
+# читается всеми остальными пробами набора. Исход был третьим — «не выполнилось», —
+# то есть тихим: набор оставался 128/128 зелёным, а четыре свойства не проверялись
+# ВОВСЕ. Измерено 2026-09-18: `project/kacho/.git` — файл, `git -C project/kacho
+# rev-parse --git-dir` отвечает, `HEAD~1` резолвится.
+#
+# Предикат не ослаблен, а перенесён на того, кто знает ответ: там, где репозитория
+# правда нет, `rev-parse` отказывает, и «не выполнилось» остаётся честным.
+is_git_tree() { git -C "$1" rev-parse --git-dir >/dev/null 2>&1; }
+
 # Объём осмотренного печатается ОДНОЙ функцией, а не двумя копиями строк: у
 # набора теперь два выхода — обычный конец и ранний отказ по предпосылке, — и
 # две копии разошлись бы молча ровно в том исходе, который случается редко.
@@ -912,6 +928,124 @@ else
 fi
 
 echo
+echo "== I'. псевдоним: ссылка — второе ИМЯ документа, а не второй документ =="
+# Правило живёт в одном экземпляре, но с решения владельца 2026-09-17 у него ДВА
+# адреса: своё имя в `.claude/rules/` и ссылка `.claude/skills/rule-<имя>/SKILL.md`,
+# которую опознаёт шаблон скилов. Пока предиката не было, одно тело входило в корпус
+# дважды — и это не арифметика: удвоенная находка вытесняет чужие документы из
+# обрезанного отчёта, а `../`-ссылка правила разрешалась бы от каталога СКИЛА.
+#
+# Предмет пробы — ПРЕДИКАТ, а не имя `rule-*`: инъекция ставит ссылку и обычный файл
+# РЯДОМ, одинаковыми по телу, и спрашивает, что вошло в корпус. Настоящее дерево при
+# этом остаётся основанием: перечень псевдонимов берётся из него, и если ссылок в нём
+# не станет — это ТРЕТИЙ исход, а не успех.
+out="$(python3 - "$GUARD" "$WS" "$TMP/alias" <<'PYAL' 2>&1
+import importlib.util, sys, pathlib, os
+spec = importlib.util.spec_from_file_location("dfal", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[2]).resolve()
+mono = m.monorepo_root(ws)
+wsf = m.git(ws, "ls-files", "--cached", "--others", "--exclude-standard")
+# «Предиката нет» и «предмета нет» — РАЗНЫЕ отказы, и путать их дорого: первый
+# случается ровно при наведении набора на ревизию ДО починки, и сообщение о втором
+# было бы ложным утверждением о дереве.
+if not hasattr(m, "is_alias"):
+    print("PREDIKAT: NET")
+    raise SystemExit(0)
+links = [f for f in wsf if m._is_live(f, m.LIVE_WS) and m.is_alias(ws / f)]
+print("ПРЕДМЕТ:", len(links))
+
+# Пробная пара: тело ОДНО, имён два. Ни одно имя не названо `rule-*` — проба судит
+# предикат, и совпадение с именем каталога сделало бы её зелёной по другой причине.
+root = pathlib.Path(sys.argv[3]); root.mkdir(parents=True, exist_ok=True)
+(root / "src.md").write_text("Конвейер — `нет-такого-файла-в-дереве.sh`.\n", encoding="utf-8")
+link = root / "link.md"
+if not link.is_symlink():
+    link.symlink_to("src.md")
+os.environ["DOCFRESH_DOC_ROOT"] = str(root)
+
+al = {}
+names = {n for n, _ in m.live_docs(ws, mono, None, None, al)}
+print("ЦЕЛЬ:", "V-KORPUSE" if "src.md" in names else "NET")
+print("SSYLKA:", "NET" if "link.md" not in names else "V-KORPUSE")
+print("SCHET-PROBY:", al.get(m.TREE_PROBE, 0))
+# Счёт по дереву сверяется С ПЕРЕЧНЕМ, а не с выписанным числом: перепись печатает
+# именно его, и разойдись он с деревом — «ноль находок» снова стало бы неотличимо
+# от «не смотрели», только уже с бодрым числом рядом.
+print("SCHET-DEREVA:", "ROVNO" if al.get(m.TREE_WS, 0) == len(links)
+      else f"RAZOSHLOS {al.get(m.TREE_WS, 0)} pri {len(links)}")
+# Правило обязано остаться в корпусе ПОД СВОИМ именем: исключение снимает второе
+# имя, а не документ. Сверка по перечню файлов свода, а не по числу из памяти.
+rules = {f for f in wsf if f.startswith(".claude/rules/") and f.endswith(".md")}
+print("PRAVILA:", "VSE" if rules and rules <= names else "POTERYANY")
+# Законный близнец ТОЙ ЖЕ ФОРМЫ: настоящий `SKILL.md` под тем же шаблоном и в том
+# же каталоге, отличается только тем, что он не ссылка, — он обязан остаться.
+real = {f for f in wsf if f.startswith(".claude/skills/")
+        and f.endswith(".md") and not m.is_alias(ws / f)}
+print("SKILY:", "V-KORPUSE" if real and real <= names else "POTERYANY")
+
+# ДЕФЕКТ: предикат снят — псевдонимы возвращаются в корпус ровно числом ссылок.
+# Без этой стороны проба доказывала бы лишь, что ссылок нет.
+keep = m.is_alias
+m.is_alias = lambda path: False
+back = {n for n, _ in m.live_docs(ws, mono)}
+m.is_alias = keep
+# Ожидание СЧИТАЕТСЯ из дерева (ссылки дерева + одна пробная), а не выписано
+# числом: выписанное устарело бы на первой же новой привязке и позеленело бы не о том.
+grown = len(back) - len(names)
+print("BEZ-PREDIKATA:", "ROVNO" if grown == len(links) + 1 and "link.md" in back
+      else f"RAZOSHLOS {grown} pri ozhidanii {len(links) + 1}")
+
+# СТРАЖ ПОКРЫТИЯ СУДИТ СОСТАВ БЕЗ ПСЕВДОНИМОВ. Инъекция — дерево, где под шаблоном
+# скилов остались ОДНИ ссылки: покрытие формально есть, читать нечего.
+only_links = [f for f in wsf if not (f.startswith(".claude/skills/")
+                                     and f.endswith(".md") and not m.is_alias(ws / f))]
+named = m.orphan_patterns("воркспейса", m.LIVE_WS, m.without_aliases(ws, only_links))
+print("ODNI-SSYLKI:", "NAZVAN" if any("skills" in b for b in named) else "PROMOLCHAL")
+print("CELO:", "\n".join(m.orphan_patterns("воркспейса", m.LIVE_WS,
+                                           m.without_aliases(ws, wsf))) or "<молчит>")
+# ПРОВЯЗКА: объявленный, но не позванный из `preconditions` предикат зелен всегда.
+# Инъекция объявляет псевдонимами ВСЕ документы скилов — отказ обязан их назвать.
+skills_dir = str(ws / ".claude/skills")
+m.is_alias = lambda path: str(path).startswith(skills_dir)
+hit = [b for b in m.preconditions(ws, mono, []) if "skills" in b]
+print("PROVYAZKA:", "NAZVAN" if hit else "PROMOLCHAL")
+m.is_alias = keep
+print("VOSSTANOVLENO:", " | ".join(m.preconditions(ws, mono, [])) or "molchit")
+PYAL
+)"
+PREMISE_SEEN=$((PREMISE_SEEN+1))
+if printf '%s' "$out" | grep -qE '^ПРЕДМЕТ: [1-9]'; then
+  q_axis 'ЦЕЛЬ: V-KORPUSE'      '(+) документ под своим именем в корпусе — исключение не съело тело'
+  q_axis 'SSYLKA: NET'          '(+) второе имя того же тела в корпус НЕ вошло'
+  q_axis 'SCHET-PROBY: 1'       'счётчик выведенных псевдонимов наполняется пробой'
+  q_axis 'SCHET-DEREVA: ROVNO'  'счётчик дерева сходится с перечнем ссылок — числу переписи есть чем держаться'
+  q_axis 'PRAVILA: VSE'         '(−) все правила остались в корпусе под своими именами'
+  q_axis 'SKILY: V-KORPUSE'     '(−) настоящий SKILL.md той же формы — законный близнец — остался'
+  q_axis 'BEZ-PREDIKATA: ROVNO' '(+) предикат снят — корпус растёт ровно на число ссылок дерева и пробы'
+  q_axis 'ODNI-SSYLKI: NAZVAN'  '(+) шаблон, под которым остались одни ссылки, объявлен осиротевшим'
+  q_axis 'CELO: <молчит>'       '(−) на целом дереве страж молчит — отказ не срабатывает всегда'
+  q_axis 'PROVYAZKA: NAZVAN'    '(+) предикат провязан: состав без псевдонимов доезжает до preconditions'
+  q_axis 'VOSSTANOVLENO: molchit' 'оси восстановимы: инъекция не оставляет следа в вердикте'
+  # ИСКЛЮЧЕНИЕ НЕ БЫВАЕТ ТИХИМ: счётчик выше — внутренний, а читатель видит перепись.
+  # Без этой пробы число могло бы считаться и не печататься, и вывод 30 документов
+  # из корпуса остался бы неотличим от «их там и не было».
+  out="$(run_doc alias-census.md 'Живой путь — `sync-all.sh`.')"
+  if printf '%s' "$out" | grep -qF 'вне LIVE псевдонимом'; then
+    echo "  ✔ перепись НАЗЫВАЕТ число выведенных псевдонимов — исключение объявлено читателю"; PASS=$((PASS+1))
+  else
+    echo "  ✘ псевдонимы выведены МОЛЧА — перепись о них не говорит"; FAIL=$((FAIL+1))
+    printf '%s\n' "$out" | sed 's/^/      /' | head -3
+  fi
+elif printf '%s' "$out" | grep -qF 'PREDIKAT: NET'; then
+  PREMISE_DEAD=$((PREMISE_DEAD+1))
+  notrun "в разборе нет предиката 'is_alias' — эта ревизия хука псевдонимы из корпуса не выводит. Если набор наведён на ревизию ДО починки, это ожидаемо; если нет — предикат сняли, и правило считается дважды"
+else
+  PREMISE_DEAD=$((PREMISE_DEAD+1))
+  notrun "предмета нет: ни одной символьной ссылки под шаблонами LIVE воркспейса — исключать нечего, и предикат 'is_alias' пора снимать вместе с этой пробой (проверить: '.claude/skills/rule-*/SKILL.md')"
+fi
+
+echo
 echo "== J. ловушка момента: правка КОДА находит документ, который его называет =="
 # Обратный индекс — единственное, что связывает правку в одном месте с
 # утверждением в другом. Без этой пары хук ловил бы только «правлю документ»,
@@ -946,11 +1080,38 @@ fi
 rm -f "$DOCS/j1.md"
 
 echo
+# ── ПРЕДПОСЫЛКА ПРОБ КОНЦА ХОДА: базовая линия правок ставится ДО инъекции ────
+#
+# `Stop` — единственное событие, на котором хук сверяется ещё и с `git status`:
+# правка, пришедшая мимо Write/Edit, поднимает документ так же, как своя. Базовая
+# линия (`.state/dirty-baseline.json`) заведена ровно ради этого: на ПЕРВОМ конце
+# хода она СТАВИТСЯ, и лишь следующие ходы судят дельту к ней. Хук объявляет это
+# сам, словами переписи «базовая линия установлена этим прогоном».
+#
+# Проба со свежим каталогом состояния получает как раз тот первый ход — который
+# ничего не судит: вся незакоммиченная работа копии, своя ли, соседней ли сессии,
+# приезжает в отчёт разом. Отчёт печатает восемь документов и дописывает «… и ещё
+# N», поэтому координата ИНЪЕКЦИИ уходила за срез — при живом свойстве и при её
+# честном присутствии в находках. Измерено 2026-09-18 на этой копии: находок 60 в
+# 25 документах, инъекция в `.state/pending.json` есть, в напечатанном её нет.
+#
+# ПРОГРЕВ НЕ ОСЛАБЛЯЕТ УТВЕРЖДЕНИЯ, и это разница по существу, а не по вкусу:
+# предикат остался прежним (координата обязана быть в том, что ВИДИТ АГЕНТ),
+# инъекция вносится ПОСЛЕ прогрева и судится как дельта к нему — то есть ровно
+# в том положении, в каком хук работает в живой сессии, где линия уже стоит.
+# Срез отчёта при этом не тронут: сломай ось — и находка не придёт ни одной.
+warm_turn_baseline() { # warm_turn_baseline <каталог-корпуса> <каталог-состояния>
+  printf '{"hook_event_name":"Stop"}' \
+    | DOCFRESH_DOC_ROOT="$1" DOCFRESH_STATE="$2" bash "$HOOK" >/dev/null 2>&1
+  rm -f "$2/turn.jsonl"
+}
+
 echo "== J'. ось удалений: путь исчез из дерева, документ его называет =="
 # Удаление и переименование не приходят НИ ОДНИМ событием инструмента — их ловит
 # только сверка снимка дерева с нынешним состоянием. Инъекция ведётся ЧЕРЕЗ СНИМОК
 # (состояние хука), а не удалением файла из общего клона.
 ST="$TMP/state"; mkdir -p "$ST"
+warm_turn_baseline "$DOCS" "$ST"
 seed_snapshot() { # seed_snapshot <строка-путь>
   git -C "$WS" ls-files > "$ST/tracked-snapshot.txt"
   git -C "$WS/project/kacho" ls-files | sed 's#^#project/kacho/#' >> "$ST/tracked-snapshot.txt"
@@ -1099,7 +1260,7 @@ done
 # `tree_provenance` рендерит — обе половины цепочки прод-кода, а не выдуманная
 # строка.
 prov_behind="$TMP/prov-behind"
-if [ ! -d "$WS/project/kacho/.git" ]; then
+if ! is_git_tree "$WS/project/kacho"; then
   notrun "дерева продукта нет — отставшую копию строить не из чего"
 elif ! { git clone -q --shared --no-checkout "$WS/project/kacho" "$prov_behind" 2>/dev/null &&
          git -C "$prov_behind" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null; }; then
@@ -1219,7 +1380,7 @@ _prove_ws_alias() { # _prove_ws_alias <имя ссылки>
   git -C "$WS" update-ref "refs/heads/$1" "$(git -C "$WS" rev-parse HEAD)" 2>/dev/null || true
 }
 
-if [ -d "$WS/project/kacho/.git" ]; then
+if is_git_tree "$WS/project/kacho"; then
   TRUNK_ALIVE="docfresh-prove-only-in-trunk.md"
   if [ ! -e "$WS/project/kacho/$TRUNK_ALIVE" ]; then
     # Личность задаётся ЛОКАЛЬНО для одной команды и намеренно не выдаёт себя за
@@ -1316,7 +1477,7 @@ mp_run() { # mp_run <назначенный ствол> <имя документ
   ( export DOCFRESH_INTEGRATION_REF="$ref"; run_doc "$doc" "$body" )
 }
 MP_MONO="$WS/project/kacho"
-if [ ! -d "$MP_MONO/.git" ]; then
+if ! is_git_tree "$MP_MONO"; then
   notrun "дерева продукта нет — назначать ствол не в чем"
 elif ! git -C "$MP_MONO" rev-parse --verify --quiet 'HEAD~1^{commit}' >/dev/null; then
   notrun "у дерева продукта нет предка HEAD~1 — вход «копия впереди ствола» не построить"
@@ -1396,6 +1557,9 @@ else
   # Инъекция идёт ЧЕРЕЗ СНИМОК (состояние хука), а не удалением файла из общего
   # клона, — как и в секции J'.
   MPST="$TMP/mpstate"; mkdir -p "$MPST"
+  # Та же поставленная базовая линия, что у секции J': проба судит КОНЕЦ ХОДА, а
+  # он сверяется и с `git status`. Довод целиком — у `warm_turn_baseline`.
+  warm_turn_baseline "$DOCS" "$MPST"
   mp_seed_snapshot() { # mp_seed_snapshot <строка-путь>
     git -C "$WS" ls-files > "$MPST/tracked-snapshot.txt"
     git -C "$WS/project/kacho" ls-files | sed 's#^#project/kacho/#' >> "$MPST/tracked-snapshot.txt"
@@ -1451,7 +1615,7 @@ fi
 # (+) вход берётся из НАСТОЯЩЕГО дерева и потому проверяется на живость: если
 # локальная ветка догнала ветку слежения, различить их нечем и проба честно не
 # исполняется.
-if [ ! -d "$MP_MONO/.git" ]; then
+if ! is_git_tree "$MP_MONO"; then
   notrun "дерева продукта нет — сравнивать локальную ветку с веткой слежения не в чем"
 else
   # Вход СТРОИТСЯ, а не берётся из состояния чужого дерева. Прежняя редакция ждала,
@@ -1888,6 +2052,12 @@ echo "== P. канал Stop по ИСХОДУ: находка впрыскива
 # поэтому пара утверждает ОБЕ стороны: канал впрыска молчит, а сама перепись
 # существует и переживает ход.
 PDOCS="$TMP/pdocs"; PST="$TMP/pstate"; mkdir -p "$PDOCS" "$PST"
+# (+)-сторона этой пары идёт по НАСТОЯЩЕМУ дереву (предмет — канал, а не мир), и
+# потому ей нужна та же поставленная базовая линия, что и оси удалений выше: без
+# неё координата инъекции тонет в незакоммиченной работе копии. Довод целиком — у
+# `warm_turn_baseline`. (−)-сторона ниже линии не требует: её мир строится и
+# коммитится целиком, `git status` в нём пуст by construction.
+warm_turn_baseline "$PDOCS" "$PST"
 p_run() { # p_run <событие-json> <файл-stdout> <файл-stderr> → код возврата хука
   printf '%s' "$1" | DOCFRESH_DOC_ROOT="$PDOCS" DOCFRESH_STATE="$PST" \
     bash "$HOOK" >"$2" 2>"$3"

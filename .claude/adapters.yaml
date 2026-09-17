@@ -42,6 +42,37 @@ owned_namespaces:
   - .codex/hooks
   - .codex/hooks.json
 
+# ПРИВЯЗКИ ПРАВИЛ НЕ ПРОЕЦИРУЮТСЯ — И ЭТО ОБЪЯВЛЕНО, А НЕ ВЫВЕДЕНО ИЗ МОЛЧАНИЯ.
+#
+# Решением владельца 2026-09-17 правило доезжает до агента предзагрузкой: у
+# правила заведён каталог `.claude/skills/rule-<имя>/`, чей `SKILL.md` —
+# СИМВОЛЬНАЯ ССЫЛКА на `../../rules/<имя>.md`. Такой каталог — АДРЕС правила, а не
+# экспертиза: своего содержимого у него нет ни байта.
+#
+# Спроецировать его значило бы записать ТЕКСТ ПРАВИЛА вторым экземпляром — в
+# `.agents/skills/rule-<имя>/SKILL.md`. Вторая копия нормативного текста расходится
+# с оригиналом молча; это ровно тот класс, ради которого заведён весь адаптер. К
+# тому же перечень скилов второй среды объявил бы тридцать правил экспертизами, а
+# корпус во вторую среду едет иначе — телом агента, не пакетом скила.
+#
+# ПРЕДИКАТ — СВОЙСТВО ФАЙЛА, НЕ ИМЯ КАТАЛОГА. Имя `rule-*` подделывается одним
+# `mkdir`; исключение по имени было бы дырой, через которую экспертиза под
+# зарезервированным именем выпадает из перечня молча. Каталог `rule-*`, чей
+# `SKILL.md` НЕ ссылка, привязкой не является и обязан быть НАХОДКОЙ.
+#
+# КЛЮЧ ЧИТАЕТСЯ, А НЕ УКРАШАЕТ. Его берут `scripts/adapter/generate.py` и
+# `scripts/adapter-gate/probe.py` (предикат `skills-roster`); убери ключ либо
+# напиши в `predicate` незнакомое значение — набор ответит БЕЗ ПРЕДМЕТА, а не
+# зелёным. Объявление, которое ничего не держит, стареет молча — это и есть класс,
+# ради которого весь этот манифест существует.
+skill_bindings:
+  # Имя предиката. Единственное известное значение — `symlinked-skill-md`;
+  # всякое другое читатель обязан назвать отказом, а не понять по-своему.
+  predicate: symlinked-skill-md
+  # Зарезервированный префикс имени. Он НЕ предикат: по нему считается лишь то,
+  # у кого имя занято, — привязкой каталог делает ссылка.
+  reserved_prefix: rule-
+
 # Скилы, чьи ПОЛНЫЕ пакеты порождаются: `SKILL.md` и всё вложенное — ссылки,
 # ассеты, скрипты. Потерянный вложенный ресурс — находка
 # (`CG_ADAPTER_NESTED_ASSET_MISSING`), а не «пакет почти целый».
@@ -81,23 +112,41 @@ owned_outputs:
   - .agents/skills/testing-code-coach/SKILL.md
   - .agents/skills/testing-product-coach/SKILL.md
   - .agents/skills/verdict-and-landing/SKILL.md
+  # По одной строке на КАЖДОГО агента `.claude/agents/*.md`, включая `dispatcher`:
+  # у сред, читающих `.codex/`, нет настройки `agent`, и база маршрутизации едет
+  # к ним обычным агентом. Перечень точный, а не шаблоном, — довод в шапке файла.
   - .codex/agents/acceptance-author.toml
-  - .codex/agents/wave-reviewer.toml
   - .codex/agents/acceptance-reviewer.toml
   - .codex/agents/api-gateway-registrar.toml
+  - .codex/agents/check-verifier.toml
+  - .codex/agents/ci-watcher.toml
   - .codex/agents/class-exposure-analyst.toml
+  - .codex/agents/client-simulator.toml
   - .codex/agents/convergence-reviewer.toml
   - .codex/agents/db-architect-reviewer.toml
+  - .codex/agents/deploy-engineer.toml
+  - .codex/agents/dispatcher.toml
+  - .codex/agents/docs-writer.toml
+  - .codex/agents/git-operator.toml
+  - .codex/agents/go-implementer.toml
   - .codex/agents/go-style-reviewer.toml
   - .codex/agents/integration-tester.toml
   - .codex/agents/landing-reviewer.toml
+  - .codex/agents/load-tester.toml
   - .codex/agents/migration-writer.toml
   - .codex/agents/proto-api-reviewer.toml
   - .codex/agents/proto-sync.toml
   - .codex/agents/qa-test-engineer.toml
   - .codex/agents/rpc-implementer.toml
+  - .codex/agents/scout.toml
+  - .codex/agents/security-auditor.toml
   - .codex/agents/service-scaffolder.toml
   - .codex/agents/system-design-reviewer.toml
+  - .codex/agents/tooling-maintainer.toml
+  - .codex/agents/ui-implementer.toml
+  - .codex/agents/ui-reviewer.toml
+  - .codex/agents/vault-scribe.toml
+  - .codex/agents/wave-reviewer.toml
   - .codex/hooks.json
   - .codex/hooks/branches-clean.sh
   - .codex/hooks/change-graph-reminder.sh
