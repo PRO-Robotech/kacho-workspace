@@ -8,7 +8,8 @@ status: test
 type: feature
 repos:
   - kaname
-prs: []
+prs:
+  - https://github.com/PRO-Robotech/kaname/pull/200
 issue_url: https://github.com/PRO-Robotech/kacho/issues/1271
 opened: 2026-09-05
 tags:
@@ -52,7 +53,7 @@ verified_against: "ветка issue-1271-recovery от release/iam-lines@af0ca8f
 - **Ф5-14** — производитель `kacho#1773` (доставка), названо приёмкой; здесь не реализуется.
 - **Ф5-23/24** — держит Ф3 (`ClearPasswordChangeRequired`, отказ края `PASSWORD_CHANGE_REQUIRED` на посеянной сессии); поток Ф5 сессии с требованием **не выдаёт** — см. решение выше и находку в отчёте.
 - **Край** (`kacho`): ретрансляция шести путей полосы формы и профиль чарта с `KANAME_AUTHN__LOGIN__RECOVERY_CODE_TTL` — вместе с посадкой полосы Ф3 у края, которой в стволе платформы ещё нет (`git grep -c 'iam/v1/auth/login' origin/main -- gateway` → 0).
-- **Отчёты R7-1/R7-2/R7-3** пересняты под новую миграцию (гейт свежести считает `REFERENCES kaname.users` в `CREATE TABLE` изменением структуры измеряемой таблицы).
+- **Отчёты R7-1/R7-2/R7-3** пересняты под новую миграцию (гейт свежести считает `REFERENCES kaname.users` в `CREATE TABLE` изменением структуры измеряемой таблицы — `PRO-Robotech/kaname#199`). Находки владельцу: `kacho#2697` (форма завершения), `kacho#2698` (личность без пароля), `kacho#2700` (частота запроса кода), `kacho#2701` (край и чарт).
 
 ## Затронутые сущности vault
 
