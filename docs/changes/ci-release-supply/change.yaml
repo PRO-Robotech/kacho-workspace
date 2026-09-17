@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "change_id": "ci-release-supply",
-  "lifecycle_state": "ISSUE_READY",
-  "status": "DRAFT",
+  "lifecycle_state": "TASKS_READY",
+  "status": "TASKS_READY",
   "coordinates": {
     "issue": "https://github.com/PRO-Robotech/kacho/issues/2588",
     "related_issues": [
@@ -43,7 +43,9 @@
     "tasks": "docs/changes/ci-release-supply/tasks.md",
     "policy_scope": "docs/changes/ci-release-supply/policy-scope.md",
     "interface": "docs/changes/ci-release-supply/interface.md",
-    "result_schema": "docs/changes/ci-release-supply/result.schema.json"
+    "result_schema": "docs/changes/ci-release-supply/result.schema.json",
+    "route": "docs/changes/ci-release-supply/route.md",
+    "source_review": "docs/changes/ci-release-supply/review-history/20260917-independent-review-9e067edd.md"
   },
   "hashes": {
     "acceptance_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
@@ -53,12 +55,51 @@
     "tasks_sha256": "895eb9da7806dc1018c3019d418f2cd5240a27968c875a953201c2e5b4499d50",
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
     "interface_sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
-    "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32"
+    "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
+    "route_sha256": "0db6e048964297f8245ed239422b9464eae6a21adeaeb2a151a6f6516eb07735",
+    "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
   },
-  "reviews": [],
+  "reviews": [
+    "docs/changes/ci-release-supply/reviews/acceptance-reviewer/d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a.yaml",
+    "docs/changes/ci-release-supply/reviews/class-exposure-analyst/initial/d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a.yaml",
+    "docs/changes/ci-release-supply/reviews/class-exposure-analyst/revalidation/0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd.yaml",
+    "docs/changes/ci-release-supply/reviews/design-reviewer/0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd.yaml"
+  ],
   "evidence": [],
   "implementation_diff_set": [],
-  "lifecycle_history": [],
+  "lifecycle_history": [
+    {
+      "state": "ACCEPTANCE_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLC6XQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715835485",
+      "timestamp": "2026-09-17T14:14:21Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_RECORDED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLC8Hw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715835935",
+      "timestamp": "2026-09-17T14:14:23Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_REVALIDATED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLC-Cg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715836426",
+      "timestamp": "2026-09-17T14:14:25Z"
+    },
+    {
+      "state": "DESIGN_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLDALw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715836975",
+      "timestamp": "2026-09-17T14:14:27Z"
+    },
+    {
+      "state": "TASKS_READY",
+      "authority": "root-orchestration-and-independent-integration-tester",
+      "route": "docs/changes/ci-release-supply/route.md",
+      "holders": "docs/changes/ci-release-supply/holders.yaml",
+      "scope": "T1: independent test-only holders; source waits for captured RED and separate root transition"
+    }
+  ],
   "requested_transition": null,
-  "note": "DRAFT author proposal only; independent external reviews and RED are absent; no approval or implementation transition is asserted."
+  "note": "Четыре exact-hash внешних review прочитаны обратно. Разрешён T1 test-only; source TESTS_PENDING до independent RED и отдельного root transition. Исторические DRAFT subjects сохранены."
 }
