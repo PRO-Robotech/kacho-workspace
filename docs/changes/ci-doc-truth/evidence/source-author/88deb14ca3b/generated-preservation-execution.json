@@ -1,0 +1,18 @@
+{
+  "command": [
+    "go",
+    "run",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-author/generated-preservation.go",
+    "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-baseline-usp1cb7l/pkg/api/corelib/subscription",
+    "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-candidate-6ec47lvs/pkg/api/corelib/subscription"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+  "source_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "verifier_sha256": "d2b6cf88a6f70f3ed81802715437799ff4bab170cad721411f1a08a950ee51a5",
+  "rc": 0,
+  "stdout_sha256": "849f824ac7804a4afd0a5cd7f7d3971c3bc9849d851a5514b2eac1fcd3f22461",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "GOWORK": "off",
+  "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+  "git_environment_sanitized": true
+}

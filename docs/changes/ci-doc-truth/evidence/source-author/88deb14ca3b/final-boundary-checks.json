@@ -1,0 +1,7 @@
+{
+  "test_names_equal_to_approved_red": true,
+  "test_count": 75,
+  "canonical_proto_only_exact_four_comment_lines_changed": true,
+  "proto_before_sha256": "a235a81b7dbd18e532d42153491d8e2935a2336b500866ff52ed205c2e0bd639",
+  "proto_after_sha256": "5af9a7bb1eef12a6c2fb2018d3a5eb2521a8c3b9423168fe1ddb0ba9c3f99b40"
+}
