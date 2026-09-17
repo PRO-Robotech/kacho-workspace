@@ -9,16 +9,17 @@ backend_port: 9100
 visibility: cluster-internal
 domain: iam
 related_resource: "[[resources/iam-user]]"
-methods_count: 5
+methods_count: 13
 async_methods: 0
 status: test
 related_tickets:
   - "[[issue-1270-kaname]]"
+  - "[[issue-1281-kaname]]"
 tags:
   - rpc
   - kacho-iam
   - iam
-verified_against: "kaname, ветка issue-1270-registration от release/iam-lines@af0ca8f3: перечень путей — `loginlanehttp.Paths()`; сверен с обработчиком"
+verified_against: "kaname, ветка issue-1281-second-factor на 1d1bd21a: перечень путей — `loginlanehttp.Paths()` (13); сверен с обработчиком и копией края"
 ---
 
 # Полоса формы: вход, выход, смена пароля, признак формы, регистрация
@@ -36,6 +37,18 @@ verified_against: "kaname, ветка issue-1270-registration от release/iam-l
 | `/iam/v1/auth/logout` | POST | `logout` | `humansession.Logout` | `{}`; печенье снято |
 | `/iam/v1/auth/password` | POST | `password` | `humansession.ChangePassword` | `{session}` |
 | `/iam/v1/auth/register` | POST | `register` | `registration.Register` (Ф4) — зеркало · адрес · сессия одной транзакцией | как у входа; `emailVerified=false` |
+| `/iam/v1/auth/recovery` · `/recovery/complete` | POST | `recovery` · `recovery-complete` | восстановление доступа (Ф5) | `{}` · как у входа |
+| `/iam/v1/auth/second-factor` | GET | — | `SecondFactorStatus` (Ф12) | `{totp:{enrolled,pendingUntil|confirmedAt}, backupCodes?:{remaining,total}}` |
+| `/iam/v1/auth/second-factor/enroll` | POST | `second-factor` | `EnrollSecondFactor` — секрет один раз; сессия свежая (Р8) | `{secret, otpauthUri, expiresAt}` |
+| `/iam/v1/auth/second-factor/confirm` | POST | `second-factor` | `ConfirmSecondFactor` — предъявление, коды один раз | `{backupCodes, session, assurance}` + новый `kaname_session` |
+| `/iam/v1/auth/second-factor/remove` | POST | `second-factor` | `RemoveSecondFactor` — код в теле `{method, code}`; прочие сессии сняты | `{session, assurance, backupCodesRemaining?}` |
+| `/iam/v1/auth/second-factor/backup-codes` | POST | `second-factor` | `RegenerateBackupCodes` — код в теле | `{backupCodes, session, assurance}` |
+| `/iam/v1/auth/step-up` | POST | `step-up` | `StepUp` — `method` ∈ `password` · `totp` · `lookup_secret` | `{session, assurance, backupCodesRemaining?}` |
+
+Вход (`/login`) принимает необязательное поле `secondFactor: {method, code}` — сессия сразу «2»
+(Ф12 Р5). Отказы семейства: состояние — `400 FAILED_PRECONDITION` с токенами
+`SECOND_FACTOR_NOT_ENROLLED` / `ENROLLMENT_NOT_PENDING`, «уже заведён» — `409 ALREADY_EXISTS`,
+свежесть — `403 SESSION_NOT_FRESH`, материал не открылся — `503 second factor temporarily unavailable`.
 
 **Отказы** — `google.rpc.Status` JSON фиксированными текстами. Регистрация: занятость адреса,
 активация приглашения конкурентом, истёкшее приглашение, потолок темпа — **один** отказ

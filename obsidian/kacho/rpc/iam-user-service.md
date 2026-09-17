@@ -9,12 +9,13 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-user]]"
-methods_count: 5
+methods_count: 10
 async_methods: 2
 status: done
 related_tickets:
   - "[[KAC-105]]"
   - "[[KAC-112]]"
+  - "[[issue-1281-kaname]]"
   - "[[sub-phase-1.2-iam-operations]]"
   - "[[sub-phase-1.3-subject-privileges]]"
 tags:
@@ -90,6 +91,13 @@ verified_against: "перечень RPC сверен с proto ствола redes
 | `Invite` | `Operation` | `POST /iam/v1/users` | `InviteUserMetadata` |
 | `Block` | `Operation` | `POST /iam/v1/users/{user_id}:block` | `BlockUserMetadata` |
 | `Unblock` | `Operation` | `POST /iam/v1/users/{user_id}:unblock` | `UnblockUserMetadata` |
+| `ResetSecondFactor` | `Operation` | `POST /iam/v1/users/{user_id}:resetSecondFactor` | `ResetSecondFactorMetadata` |
+
+`ResetSecondFactor` (Ф12 Р10, [[KAC/issue-1281-kaname]]) — третий читатель `identity_suspender`
+с полом «2»: снимает у человека `totp` и `lookup_secret`, кроет все его сессии отсечкой
+`second-factor-reset` актором-распорядителем, событие `iam.user.second_factor_reset` с обоими
+акторами; без заведённого фактора (строки нет либо `pending`) — `FAILED_PRECONDITION` с токеном
+`SECOND_FACTOR_NOT_ENROLLED`, `pending` не тронута. Провязан только посадкой `own`.
 
 Пользователь **не создаётся** обычным `Create` — он приглашается (`Invite`) либо
 заводится апсертом по внешней личности через `InternalUserService.UpsertFromIdentity`.
