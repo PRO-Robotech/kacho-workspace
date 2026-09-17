@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-newman-publication",
+  "lifecycle_state": "TASKS_READY",
+  "coordinates": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/1810",
+    "repositories": [
+      {
+        "repo": "PRO-Robotech/kacho-workspace",
+        "role": "package-home",
+        "base_sha": "ab74164eb6078985d7ed7a6b18a577f56f7f20b7",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/kacho",
+        "role": "subject-tree",
+        "base_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/corelib",
+        "role": "common-producer",
+        "base_sha": "34bc8104a832b67e53c868646ab2b1e0ac4c8562"
+      },
+      {
+        "repo": "PRO-Robotech/kaname",
+        "role": "consumer",
+        "base_sha": "39628487099fe44990e9e03b09b725f3d7e37abb"
+      }
+    ]
+  },
+  "hashes": {
+    "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+    "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+    "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
+    "route_sha256": "5a1a49cd2ca6a6879d0140813512e782162fc63451ff7e156b8c9bc17c40c325",
+    "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
+    "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
+    "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
+    "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+    "tasks_sha256": "8662bbe11775280f5722b2cbb3d949f126351ef7dd77cdc033b5a92a55119589",
+    "class_considerations_sha256": "9088f72c3285a05276095e1ece486ce21b0f2a1183b7ec3a640e565d74d850a6"
+  },
+  "links": {
+    "policy": "docs/changes/policy.yaml",
+    "acceptance": "docs/specs/sub-phase-CI-NP-1-newman-publication-acceptance.md",
+    "design": "docs/specs/sub-phase-CI-NP-1-newman-publication-design.md",
+    "holders": "docs/changes/ci-newman-publication/holders.yaml",
+    "route": "docs/changes/ci-newman-publication/route.md",
+    "source_review": "docs/changes/ci-newman-publication/review-history/20260917-approved-review.md",
+    "policy_transition": "docs/changes/ci-newman-publication/policy-transition-20260917.json",
+    "policy_transition_review": "docs/changes/ci-newman-publication/review-history/20260917-policy-review.md",
+    "interface": "docs/changes/ci-newman-publication/interface.md",
+    "tasks": "docs/changes/ci-newman-publication/tasks.md",
+    "class_considerations": "docs/changes/ci-newman-publication/class-considerations.md"
+  },
+  "reviews": [
+    "docs/changes/ci-newman-publication/reviews/acceptance-reviewer/2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400.yaml",
+    "docs/changes/ci-newman-publication/reviews/class-exposure-analyst/initial/2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400.yaml",
+    "docs/changes/ci-newman-publication/reviews/class-exposure-analyst/revalidation/d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181.yaml",
+    "docs/changes/ci-newman-publication/reviews/design-reviewer/d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181.yaml"
+  ],
+  "evidence": [],
+  "implementation_diff_set": [],
+  "lifecycle_history": [
+    {
+      "state": "ACCEPTANCE_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIh-AA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713198592",
+      "timestamp": "2026-09-17T10:56:23Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_RECORDED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIh_7Q",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199085",
+      "timestamp": "2026-09-17T10:56:25Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_REVALIDATED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIiBvw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199551",
+      "timestamp": "2026-09-17T10:56:27Z"
+    },
+    {
+      "state": "DESIGN_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIiDcg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199986",
+      "timestamp": "2026-09-17T10:56:29Z"
+    },
+    {
+      "state": "TASKS_READY",
+      "authority": "root-orchestration-and-independent-integration-tester",
+      "route": "docs/changes/ci-newman-publication/route.md",
+      "holders": "docs/changes/ci-newman-publication/holders.yaml",
+      "scope": "NP-T1 fixtures and independent holders only; NP-T2 waits for RED and root transition"
+    }
+  ]
+}
