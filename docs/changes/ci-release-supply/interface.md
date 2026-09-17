@@ -217,6 +217,19 @@ merged, release/probe — merged. `required-checks` subjects включают р
 не skip/GREEN. Before-effect set и final-phase set различаются явно: будущий
 PR не нужен для проверки кандидата, но нужен для успешного deliver.
 
+Для первого corelib выпуска local frozen producer разрешён только по D8:
+manifest `producer_execution` содержит exact Kachō commit/tree, полный executable
+closure digests, tool/runtime versions, независимые T5 machine/regression/review
+results и отдельную root authorization на тот же subject. Эти записи входят
+в plan digest. `identity` проверяет repo/subject/authority, `input` — clean frozen
+F и actual executed bytes; они не требуют раннего Kachō main landing. Missing,
+неприменимая authorization или drift дают соответственно INVALID_CONFIRMATION,
+REPOSITORY_MISMATCH либо INPUT_CHANGED до remote effect; unreadable records —
+SOURCE_UNAVAILABLE/NOT_EXECUTED. Future consumer/live-release proofs не заменяют
+producer tests. Corelib `pr`/`required-checks`/`main-ancestry` сохраняют точный
+receiving target; локальный Kachō F им не подставляется. Final producer main
+landing проверяется отдельно в T7 до issue closure.
+
 `payload` обязателен в B всегда. Manifest `components` — exact set из
 `CI-NP-1`, `CI-DT-1`, принятый root вместе с candidate diff. Каждый изменённый
 payload path связан с exact approved subject; исключить component при наличии

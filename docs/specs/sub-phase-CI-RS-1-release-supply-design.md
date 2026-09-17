@@ -284,6 +284,62 @@ addendum по его exact subject. T6 требует scoped prerelease proofs i
 Если дельты требуют этих foreign работ по существу, доставка останавливает
 соответствующий payload, а producer и независимые gates продолжают свой scope.
 
+## D8. Первый выпуск и происхождение исполняемого producer
+
+На Kachō `b5fa093341f1fdbe96adfc6a9555482690968253` действующий
+`.github/workflows/e2e-newman.yml` запускается на PR в main и push main; его
+shard step `actions/upload-artifact` с `always()` передаёт raw Newman/log paths.
+Это прочитанный workflow, не утверждение о выполненном новом upload. Поэтому
+ранний отдельный PR только для release producer не является безопасным способом
+получить prerequisite первого corelib выпуска. Он также противоречит правилу
+одного готового aggregate MR из `.claude/rules/git-issues.md`.
+
+Предыдущий порядок создавал цикл:
+
+```text
+T5 Kachō producer main
+  → T6 corelib release/archive
+  → безопасные Kachō NP pin/workflow
+  → допустимый Kachō aggregate main (необходимый уже для T5)
+```
+
+Новый DRAFT порядок разделяет проверенный инструмент и доставляемый module:
+
+```text
+T1 RED → T2–T4 source → T5 independent machine/regression/post-diff proofs
+  → локальная интеграция в Kachō aggregate → frozen producer commit F
+  → отдельная root authorization на F + component prerelease proofs
+  → T6: corelib PR → required checks → corelib main content/ancestry
+  → corelib tag → actual archive probe
+  → T7: consumer pins/materialization/safe workflows + full runtime proofs
+  → один готовый Kachō aggregate MR (включая producer) → main readback/closure
+```
+
+F — точная локальная Git revision Kachō после aggregate integration. До первого
+remote effect сохраняются repo/commit/tree SHA, полный executable source closure
+paths/digests (scripts, Go helpers, go.mod/go.sum и скомпилированный executable
+при его использовании), runtime/tool versions, sanitized command/cwd,
+independent holder/test source и raw results/review hashes, отдельная root
+execution authorization с тем же subject. Все обязательные **producer** проверки
+T5 должны быть завершены; будущие T6 live release и T7 consumer runtime не
+выдаются за уже исполненные. Это provenance записи исполнения, не новый
+способ обойти независимый RED или source transition.
+
+Manifest `producer_execution` и plan digest связывают эти identities; перед
+каждым T6 invocation root/independent verifier сверяет clean frozen checkout
+F, bytes исполняемого closure и применимость authorization. Любой drift требует
+новой проверки/фиксации/authorization; незакоммиченный инструмент не допускается.
+`identity`/`input` evidence различают **producer-source Kachō@F** и
+**receiving-target corelib@accepted-main**. Отсутствующее подтверждение закрывает
+исполнение; нынешний DRAFT не является такой authorization.
+
+Ни F, ни Kachō feature branch не становятся tag target corelib. Receiving
+ownership, full package floor, all mandatory payload proofs, corelib protected
+PR, actual required checks, exact main-content/ancestry и published archive
+остаются без послаблений. Ранний Kachō PR, direct main push, workflow skip или
+raw-upload bypass не предлагаются. Producer/P9/pin gate должны реально войти
+в Kachō main вместе с готовой consumer поставкой T7 до closure #2588/#2258/#2230.
+
 ## Exact-set трассировка
 
 | Решение | Сценарии |
@@ -292,11 +348,11 @@ addendum по его exact subject. T6 требует scoped prerelease proofs i
 | D3 | CI-RS-05, CI-RS-06, CI-RS-07, CI-RS-08, CI-RS-09, CI-RS-21 |
 | D4 | CI-RS-10, CI-RS-11, CI-RS-12, CI-RS-13, CI-RS-19, CI-RS-22 |
 | D5 | CI-RS-14, CI-RS-15, CI-RS-16, CI-RS-17, CI-RS-18 |
-| D6, D7 | Все перечисленные сценарии: evidence boundary и полномочия |
+| D6, D7, D8 | Все перечисленные сценарии: evidence boundary, frozen producer provenance, aggregate delivery и полномочия |
 
 ## Зафиксированные входы design subject
 
-- `docs/changes/ci-release-supply/interface.md` — SHA-256 `855caf63e222db5733b110087107bb0e2e8af5f34cf8c648964c2c25edfa2932`.
+- `docs/changes/ci-release-supply/interface.md` — SHA-256 `2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5`.
 - `docs/changes/ci-release-supply/result.schema.json` — SHA-256 `d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32`.
 
 Их изменение требует новой редакции этого design и независимой пересверки.

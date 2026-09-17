@@ -120,21 +120,33 @@ release orchestrator над её exact tree. Если потребуется п�
 CI caller, сначала отдельный согласованный home/delivery общего инструмента,
 не незаметный scope creep в #2661.
 
-## T5 — independent verification и landing производителя
+## T5 — independent verification и локальная фиксация производителя
 
-**Владельцы:** independent tester, Go/system-design reviewers, root landing.
+**Владельцы:** independent tester, Go/system-design reviewers, root aggregate integration.
 **Зависит:** T2–T4. **Сценарии:** все 22.
 Tester запускает собственные lawful/negative/empty проверки на exact source
 content; worker не редактирует независимые assertions. Review сверяет
 ownership/floor/archives, result classification, remote races, callers и
 полный scope. Нужны actual-diff applicability для DB/proto N/A, а не заранее
-поставленные exemptions. Root доставляет producer в Kachō main штатным PR;
-механическое cherry-pick не называется independent verification.
+поставленные exemptions. Все machine holders candidate-preflight, consumer-imports,
+publisher-protocol и internal-pins и обязательные regression checks T2–T4 должны
+пройти на точном локальном aggregate commit F после механической интеграции.
+Go/system-design post-diff reviews и applicability относятся к F. Live holder
+released-payload принадлежит T6/T7, поэтому его будущий remote результат не
+выдаётся за prerequisite T5. Cherry-pick сам по себе не independent verification.
+
+Root фиксирует F в накопительной Kachō ветке **локально**, без отдельного PR/main
+landing. Первый T6 может исполнить этот frozen producer лишь после отдельной
+root authorization на его exact source/tree/executable hashes и проверенные
+commands/results из D7/interface. Неисполненный/failed mandatory producer test,
+source drift или отсутствующая authorization закрывает вызов. Это разрешение
+исполнить проверенный инструмент, не утверждение, что producer уже в main.
 
 ## T6 — первый bounded corelib выпуск
 
 **Владелец:** root/operator producer; independent verifier. **Зависит:** T5
-landed и **только закрытый prerelease set** interface для включаемых payload:
+independently verified и locally aggregate-integrated frozen F, отдельная
+root authorization исполнения F и **закрытый prerelease set** включаемых payload:
 NP-P01..06, DT-P01..03, плюс DT-A2590-P01/P02 если включён #2590. Exact independent
 source/test/output/scoped-review binding обязателен. NP-T3..T7 и postrelease
 CI-DT-09/A2-04 не prerequisites T6 и здесь не объявляются GREEN.
@@ -150,7 +162,8 @@ CI-DT-09/A2-04 не prerequisites T6 и здесь не объявляются G
    и собственные region/tokens/AST/tests proofs каждого включённого addendum.
    DRAFT не назначает будущую
    версию или будущий commit SHA.
-3. Выполнить producer dry-run; verifier читает exact plan/census. Выполнить
+3. Проверить frozen producer provenance F и root authorization, не создавать
+   ранний Kachō PR. Выполнить producer dry-run; verifier читает exact plan/census. Выполнить
    deliver с repo-exact commit key и plan hash; дождаться штатного PR merge.
 4. Повторить merged-SHA preflight и required checks, выполнить release тем же
    producer, считать tag обратно; выполнить published archive probe. Факт
@@ -180,7 +193,14 @@ Kaname получает real published corelib pin и канонический N
 Kachō → corelib ребро учитывается отдельно, поэтому это DAG, не линейная
 замена одного go.mod. В каждом одиночном checkout `GOWORK=off`, no replace,
 обычный checksum verification; документируются actual resolved modules и
-non-Go payload. Финальный #2230 run проверяет main ancestry всех текущих
+non-Go payload. Проверенный producer, consumer pins и безопасная NP workflow
+провязка сходятся в **один** готовый Kachō aggregate MR в main, после всех
+применимых local checks и parsed-workflow inversions. Отдельного раннего PR
+ради producer нет; raw upload не отключается, не скипается и не объявляется
+безопасным ради разрыва зависимости. Actual Kachō producer main landing —
+только здесь, с отдельным main readback и post-merge obligations. Канонический
+corelib tag уже прошёл свой защищённый main/required-checks/ancestry маршрут.
+Финальный #2230 run проверяет main ancestry всех текущих
 internal pseudo versions и origin reachability.
 
 Closure каждого issue имеет собственное основание: #2588 — landed producer,

@@ -18,7 +18,7 @@ hash. Все держатели в таблице заказаны, их исп�
 | E9 | origin reachability/main ancestry; «Гейт сверяет имя, а не идентичность» | Exact repo mapping, complete fresh refs, peeled commits, repository-bound ancestry; branch-only допускается общим gate и отвергается final mode | D5; internal-pins |
 | E10 | Zero pseudo и empty walk | Ноль pseudo при ненулевом product census законен; ноль modules/internal requirements продукта красный. Leaf corelib имеет отдельный запрет обратных рёбер | D5; internal-pins |
 | E11 | NP non-Go payload и CI-DT generation/addendum | Exact archive payload и закрытые NP-P01..06/DT-P01..03 proofs до release; #2590 добавляет DT-A2590-P01/P02 без изменения accepted exact-set; pin/runtime/retention/main после release остаются обязательными, не образуют цикл | D3/D4/D7; released-payload |
-| E12 | Переиспользование существующей оснастки; «Намеренная узость становится контрактом абстракции» | Service/revision старого publisher не переосмыслен; переиспользуется узкий archive/census код, не копия publisher; #2661 и чужие lanes не внедряются | D1/D7; scope-review |
+| E12 | Переиспользование существующей оснастки и происхождение первого producer; «Намеренная узость становится контрактом абстракции» | Service/revision старого publisher не переосмыслен; переиспользуется узкий archive/census код, не копия publisher; #2661 и чужие lanes не внедряются; exact frozen local producer с independent proofs/root authorization разрывает T5-main cycle, actual main landing остаётся единым T7 aggregate | D1/D7/D8; scope-review |
 
 ## Измеренное и срок наблюдений
 

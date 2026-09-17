@@ -237,6 +237,12 @@ comment-only generated delta. **When** producer проверяет и доста
 **Then** он не вызывает foundation exporter и не запрашивает monorepo revision
 как источник файлов; потребительские proofs относятся к этому candidate.
 Ни foreign lane, ни broad tools unification не становятся скрытой зависимостью.
+**And** первый выпуск допускает independently verified frozen producer из локального
+Kachō aggregate с exact source/executable/test/review provenance и отдельной root
+authorization. Его будущая посадка в Kachō main не prerequisite этого вызова:
+она обязательна в одном готовом T7 aggregate с безопасными consumer workflows
+и pins. Это не меняет corelib protected-main/tag predicate и не разрешает ранний
+Kachō PR. Drift source или отсутствующая authorization запрещает remote effect.
 
 ### CI-RS-21 — состав non-Go инструмента до потребителей
 

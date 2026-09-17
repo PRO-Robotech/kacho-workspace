@@ -53,7 +53,7 @@
         "CI-RS-19",
         "CI-RS-22"
       ],
-      "predicate": "Exact phase/reason/exit and effects; dry-run; repo-bound commit; protected PR; accepted-main snapshot; readback; races; bounded remote uncertainty; typed branch/PR/merge/tag/note PRESENT/ABSENT/UNKNOWN/CONFLICT identities; branch success then PR failure; unknown branch and merge plus single-fact lawful readback twins",
+      "predicate": "Exact phase/reason/exit and effects; dry-run; repo-bound commit; protected PR; accepted-main snapshot; readback; races; bounded remote uncertainty; typed branch/PR/merge/tag/note PRESENT/ABSENT/UNKNOWN/CONFLICT identities; branch success then PR failure; unknown branch and merge plus single-fact lawful readback twins; producer-source identity cannot substitute receiving main; missing authorization/source drift refuses",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/publisher-protocol/"
     },
     "internal-pins": {
@@ -95,7 +95,7 @@
         "CI-RS-21",
         "CI-RS-22"
       ],
-      "predicate": "Actual protected PR, accepted main checks, tag identity/ancestry readback, published zip exact payload, consumer pins and GOWORK-off build; fixture GREEN does not substitute live proof",
+      "predicate": "Actual protected PR, accepted main checks, tag identity/ancestry readback, published zip exact payload, consumer pins and GOWORK-off build; fixture GREEN does not substitute live proof; final producer/P9/pin gate reaches Kacho main only with ready T7 aggregate",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/released-payload/"
     },
     "scope-review": {
@@ -126,7 +126,7 @@
         "CI-RS-21",
         "CI-RS-22"
       ],
-      "predicate": "E1-E12 conditions, declared callers, bounded scope, historical subjects unchanged, no foreign-lane import, no protection weakening; acyclic closed prerelease/postrelease partition; exact separately approved #2590 subject without expanding immutable CI-DT set",
+      "predicate": "E1-E12 conditions, declared callers, bounded scope, historical subjects unchanged, no foreign-lane import, no protection weakening; acyclic closed prerelease/postrelease partition; exact separately approved #2590 subject without expanding immutable CI-DT set; D8 exact frozen local producer provenance/authorization before first corelib release, mandatory T5 tests, no early Kacho PR, one final T7 aggregate",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/scope-review/"
     },
     "acceptance-review": {
