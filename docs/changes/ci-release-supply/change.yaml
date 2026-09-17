@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-release-supply",
+  "lifecycle_state": "ISSUE_READY",
+  "status": "DRAFT",
+  "coordinates": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/2588",
+    "related_issues": [
+      "https://github.com/PRO-Robotech/kacho/issues/2258",
+      "https://github.com/PRO-Robotech/kacho/issues/2230"
+    ],
+    "repositories": [
+      {
+        "repo": "PRO-Robotech/kacho-workspace",
+        "role": "package-home",
+        "base_sha": "3f107bc6372ec0e0e855da90d5aabcb3fcc5788d",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/kacho",
+        "role": "producer-and-subject",
+        "base_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/corelib",
+        "role": "receiving-module",
+        "base_sha": "34bc8104a832b67e53c868646ab2b1e0ac4c8562"
+      },
+      {
+        "repo": "PRO-Robotech/kaname",
+        "role": "consumer",
+        "base_sha": "39628487099fe44990e9e03b09b725f3d7e37abb"
+      }
+    ]
+  },
+  "links": {
+    "policy": "docs/changes/policy.yaml",
+    "acceptance": "docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+    "design": "docs/specs/sub-phase-CI-RS-1-release-supply-design.md",
+    "class_considerations": "docs/changes/ci-release-supply/class-considerations.md",
+    "holders": "docs/changes/ci-release-supply/holders.yaml",
+    "tasks": "docs/changes/ci-release-supply/tasks.md",
+    "policy_scope": "docs/changes/ci-release-supply/policy-scope.md",
+    "interface": "docs/changes/ci-release-supply/interface.md",
+    "result_schema": "docs/changes/ci-release-supply/result.schema.json"
+  },
+  "hashes": {
+    "acceptance_sha256": "31a0aef63bde3dac90e877e26ee90b1df85a7b9b41915388969297e8cf54555f",
+    "design_sha256": "dc30b41ae57cbe1effb3affbd66df55f1a2f4c4c0e184523a515f10f7f1eb5e2",
+    "class_considerations_sha256": "ad448fea72bd7c6e619b9ea1c2956e6bea0cd40a8ca0eb32a8638af67cf2d991",
+    "holders_sha256": "e78c2f8e31525bc29ef47092d691e767f6f378501de735d090a7fc6b26bfaa75",
+    "tasks_sha256": "f52e45080d9b7da2eb95edd374ed6ab4cffa12f17cc93df830a41f3c4131b669",
+    "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
+    "interface_sha256": "990c313d7dfba436d6fe877625caeab7b60998a70e0fc52c2534df82d88be439",
+    "result_schema_sha256": "10a8b1e224050d4d26eb401fe78c3de012132af0c7813fe649bc8647abb28402"
+  },
+  "reviews": [],
+  "evidence": [],
+  "implementation_diff_set": [],
+  "lifecycle_history": [],
+  "requested_transition": null,
+  "note": "DRAFT author proposal only; independent external reviews and RED are absent; no approval or implementation transition is asserted."
+}

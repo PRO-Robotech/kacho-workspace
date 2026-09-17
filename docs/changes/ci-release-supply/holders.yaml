@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-release-supply",
+  "status": "DRAFT",
+  "required_holders": {
+    "candidate-preflight": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "internal/release/supply_candidate_test.go",
+      "executable": "GOWORK=off go test ./internal/release -run '^TestReleaseSupplyCandidatePreflight$' -count=1 -json -timeout=15m",
+      "scenarios": [
+        "CI-RS-03",
+        "CI-RS-04",
+        "CI-RS-05",
+        "CI-RS-06",
+        "CI-RS-20",
+        "CI-RS-21"
+      ],
+      "predicate": "Immutable ready tree; exact receiving ownership; nonempty previous-package floor; no exporter; payload census",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/candidate-preflight/"
+    },
+    "consumer-imports": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "internal/release/consumer_imports_test.go",
+      "executable": "GOWORK=off go test ./internal/release -run '^TestReleaseDeclaredConsumerImports$' -count=1 -json -timeout=15m",
+      "scenarios": [
+        "CI-RS-07",
+        "CI-RS-08",
+        "CI-RS-09"
+      ],
+      "predicate": "Both repository and committed external-program declarations: every import resolves/builds from exact Go zip; empty/partial census fails; working tree cannot fill archive",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/consumer-imports/"
+    },
+    "publisher-protocol": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "scripts/release/publish-module-tree-inject.sh",
+      "executable": "scripts/release/publish-module-tree-inject.sh",
+      "scenarios": [
+        "CI-RS-01",
+        "CI-RS-02",
+        "CI-RS-10",
+        "CI-RS-11",
+        "CI-RS-12",
+        "CI-RS-13",
+        "CI-RS-19",
+        "CI-RS-22"
+      ],
+      "predicate": "Exact phase/reason/exit and effects; dry-run; repo-bound commit; protected PR; accepted-main snapshot; readback; races; bounded remote uncertainty",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/publisher-protocol/"
+    },
+    "internal-pins": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "internal/release/internal_pins_test.go",
+      "executable": "GOWORK=off go test ./internal/release -run '^TestInternalPinsReachability$' -count=1 -json -timeout=15m",
+      "scenarios": [
+        "CI-RS-14",
+        "CI-RS-15",
+        "CI-RS-16",
+        "CI-RS-17",
+        "CI-RS-18"
+      ],
+      "predicate": "Tracked product census, fresh repo-bound origin refs, final main ancestor, lawful zero pseudo, rejected empty scope",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/internal-pins/"
+    },
+    "released-payload": {
+      "kind": "human",
+      "owner": "integration-tester",
+      "status": "proposed-requires-real-remote-captures",
+      "scenarios": [
+        "CI-RS-03",
+        "CI-RS-04",
+        "CI-RS-05",
+        "CI-RS-06",
+        "CI-RS-07",
+        "CI-RS-08",
+        "CI-RS-09",
+        "CI-RS-10",
+        "CI-RS-11",
+        "CI-RS-12",
+        "CI-RS-13",
+        "CI-RS-15",
+        "CI-RS-19",
+        "CI-RS-20",
+        "CI-RS-21",
+        "CI-RS-22"
+      ],
+      "predicate": "Actual protected PR, accepted main checks, tag identity/ancestry readback, published zip exact payload, consumer pins and GOWORK-off build; fixture GREEN does not substitute live proof",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/released-payload/"
+    },
+    "scope-review": {
+      "kind": "human",
+      "owner": "system-design-reviewer",
+      "status": "proposed",
+      "scenarios": [
+        "CI-RS-01",
+        "CI-RS-02",
+        "CI-RS-03",
+        "CI-RS-04",
+        "CI-RS-05",
+        "CI-RS-06",
+        "CI-RS-07",
+        "CI-RS-08",
+        "CI-RS-09",
+        "CI-RS-10",
+        "CI-RS-11",
+        "CI-RS-12",
+        "CI-RS-13",
+        "CI-RS-14",
+        "CI-RS-15",
+        "CI-RS-16",
+        "CI-RS-17",
+        "CI-RS-18",
+        "CI-RS-19",
+        "CI-RS-20",
+        "CI-RS-21",
+        "CI-RS-22"
+      ],
+      "predicate": "E1-E12 conditions, declared callers, bounded scope, historical subjects unchanged, no foreign-lane import, no protection weakening",
+      "evidence_coordinate": "docs/changes/ci-release-supply/evidence/scope-review/"
+    },
+    "acceptance-review": {
+      "kind": "human",
+      "owner": "acceptance-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/acceptance-review/"
+    },
+    "class-initial": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/class-initial/"
+    },
+    "class-revalidation": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/class-revalidation/"
+    },
+    "design-review": {
+      "kind": "human",
+      "owner": "design-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/design-review/"
+    },
+    "convergence-review": {
+      "kind": "human",
+      "owner": "convergence-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/convergence-review/"
+    },
+    "landing-review": {
+      "kind": "human",
+      "owner": "landing-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "docs/changes/ci-release-supply/reviews/landing-review/"
+    }
+  },
+  "applicability": {
+    "db-architect-reviewer": {
+      "predicate": "no-migrations-in-change",
+      "status": "proposed-requires-actual-diff-evidence"
+    },
+    "proto-api-reviewer": {
+      "predicate": "no-proto-in-change",
+      "status": "proposed-requires-actual-diff-evidence",
+      "note": "CI-DT generated payload keeps its own separate proto review; this package does not waive it"
+    }
+  }
+}
