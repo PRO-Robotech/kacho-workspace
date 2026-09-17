@@ -55,6 +55,7 @@ tags:
 | [[resources/iam-federation-trust-policy\|FederationTrustPolicy]] | история (deprecated) |
 | [[resources/iam-gdpr-erasure-request\|GDPRErasureRequest]] | история (deprecated) |
 | [[resources/iam-group\|Group]] | живо (done) |
+| [[resources/iam-human-session\|human_sessions]] | живо (done) |
 | [[resources/iam-jit-eligibility\|AccessBindingJITEligibility]] | история (deprecated) |
 | [[resources/iam-jwks-key\|JWKS Key (alias)]] | история (deprecated) |
 | [[resources/iam-limit\|Limit]] | живо (done) |
@@ -905,9 +906,10 @@ tags:
 | [[KAC/issue-1250\|#1250: пять шагов уборки состязательных кейсов vpc не утверждают исход]] | в работе (test) |
 | [[KAC/issue-1255\|#1255: семейство ограничений полей снято с контрактов целиком]] | живо (done) |
 | [[KAC/issue-1264\|#1264: истёкшее удостоверение занимало место под потолком до явного отзыва]] | живо (done) |
-| [[KAC/issue-1280\|#1280: Ф11 — уровень уверенности объявляет наша сессия: правило, страж, гейты]] | в работе (in-progress) |
+| [[KAC/issue-1269\|kacho#1269: iam Ф3 — полоса входа паролем, наша сессия, отзыв и выход]] | в работе (in-progress) |
 | [[KAC/issue-1270-kaname\|kacho#1270: iam Ф4 — регистрация и её три следствия одним исходом]] | в работе (test) |
 | [[KAC/issue-1271\|kacho#1271: iam Ф5 — восстановление доступа кодом по почте своей полосой]] | в работе (test) |
+| [[KAC/issue-1280\|#1280: Ф11 — уровень уверенности объявляет наша сессия: правило, страж, гейты]] | в работе (in-progress) |
 | [[KAC/issue-1285\|#1285: гейт дублёра не знал законной формы записи]] | в работе (test) |
 | [[KAC/issue-1287\|#1287: вердикт проб консоли не замечал потерю трассы у упавшей пробы]] | в работе (test) |
 | [[KAC/issue-1288\|#1288: механизм потери трассы жив во второй ветке — той, что берут при удалённом браузере]] | в работе (test) |
