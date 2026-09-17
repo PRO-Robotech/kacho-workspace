@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "change_id": "ci-excluding-build-tag",
-  "status": "DRAFT",
+  "status": "DESIGN_APPROVED_TASKS_HANDOFF_PENDING_ROOT_REVIEW",
   "required_holders": {
     "excluding-build-tag-outcomes": {
       "kind": "machine",
@@ -73,14 +73,20 @@
     "class-revalidation": {
       "kind": "human",
       "owner": "class-exposure-analyst",
-      "status": "proposed-no-external-event",
-      "evidence_coordinate": "reviews/class-revalidation/"
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/class-exposure-analyst/revalidation/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256456",
+      "subject_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+      "verdict": "RECORDED"
     },
     "design-review": {
       "kind": "human",
       "owner": "design-reviewer",
-      "status": "proposed-no-external-event",
-      "evidence_coordinate": "reviews/design-review/"
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/design-reviewer/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839",
+      "subject_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+      "verdict": "APPROVED"
     },
     "independent-green": {
       "kind": "human",
@@ -108,7 +114,7 @@
       "DC-02",
       "DC-03"
     ],
-    "status": "construction-root-replayed-holder-not-authorized",
+    "status": "design-approved-holder-not-authorized",
     "unknown_format_and_deadline_coverage_claimed": false
   }
 }

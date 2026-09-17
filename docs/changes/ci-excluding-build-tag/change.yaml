@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "change_id": "ci-excluding-build-tag",
-  "lifecycle_state": "CLASS_EXPOSURE_RECORDED",
-  "status": "ACCEPTANCE_APPROVED_DESIGN_DRAFT",
+  "lifecycle_state": "DESIGN_APPROVED",
+  "status": "DESIGN_APPROVED_TASKS_HANDOFF_PENDING_ROOT_REVIEW",
   "coordinates": {
     "issue": "https://github.com/PRO-Robotech/kacho/issues/2672",
     "repositories": [
@@ -31,7 +31,8 @@
     "class_considerations": "docs/changes/ci-excluding-build-tag/class-considerations.md",
     "route": "docs/changes/ci-excluding-build-tag/route.md",
     "scenario_matrix": "docs/changes/ci-excluding-build-tag/scenario-matrix.json",
-    "diagnostic_controls_proposal": "docs/changes/ci-excluding-build-tag/diagnostic-controls-revision2.md"
+    "diagnostic_controls_proposal": "docs/changes/ci-excluding-build-tag/diagnostic-controls-revision2.md",
+    "writing_plans_handoff": "docs/changes/ci-excluding-build-tag/handoffs/writing-plans-post-design.json"
   },
   "hashes": {
     "policy_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
@@ -39,16 +40,19 @@
     "design_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
     "interface_sha256": "1ef207b6e81f181b6b1f51a18db3e00a58386ac1395caceeae944f7a269aa953",
     "scope_sha256": "1065ee731872759c903e0e0117597f2d831b7efcc9cfa9ce43e2198f648d3b80",
-    "tasks_sha256": "5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea",
-    "holders_sha256": "583d9d18de1b05ee16d162fe1982992e291412612939b08ff3524fa943800707",
+    "tasks_sha256": "554d3336e76df8639da89c369ec8196cfdc8b085e5040034e8d16b31333141b8",
+    "holders_sha256": "a5119bf526dae0a875b872202c4b5db871349fbb363932471e54447a94d6a6a5",
     "class_considerations_sha256": "a89798d8de7c192c3b902cea7c84f54010ce2b8a14950d5b2c7cdb85e5da0137",
-    "route_sha256": "90f4d4da7a6a639ce1d4c357d0f22fd9598dcdf52fe2d745afca9308ae303611",
+    "route_sha256": "3120bc2fdc252c87b79d69f75b7c65e68590c995c24766c67615bf9b7bb9f186",
     "scenario_matrix_sha256": "54f727421ba35ad038ce59e774df1d80c1fb4b52185b298bb1b465a872bd26ea",
-    "diagnostic_controls_proposal_sha256": "3aad4a4935194e926ca5c016b47b0fa22b658fc178d78f2f00d556e65e6b1711"
+    "diagnostic_controls_proposal_sha256": "3aad4a4935194e926ca5c016b47b0fa22b658fc178d78f2f00d556e65e6b1711",
+    "writing_plans_handoff_sha256": "04bfb149ff004ec7298f2633aefcabf3128436fd07bdb723a9b7792c668fb1a0"
   },
   "reviews": [
     "docs/changes/ci-excluding-build-tag/reviews/acceptance-reviewer/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
-    "docs/changes/ci-excluding-build-tag/reviews/class-exposure-analyst/initial/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml"
+    "docs/changes/ci-excluding-build-tag/reviews/class-exposure-analyst/initial/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
+    "docs/changes/ci-excluding-build-tag/reviews/class-exposure-analyst/revalidation/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml",
+    "docs/changes/ci-excluding-build-tag/reviews/design-reviewer/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml"
   ],
   "evidence": [],
   "implementation_diff_set": [],
@@ -66,6 +70,20 @@
       "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888868",
       "timestamp": "2026-09-17T17:54:03Z",
       "record": "docs/changes/ci-excluding-build-tag/reviews/class-exposure-analyst/initial/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml"
+    },
+    {
+      "state": "CLASS_EXPOSURE_REVALIDATED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVOTtiA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256456",
+      "timestamp": "2026-09-17T18:24:34Z",
+      "record": "docs/changes/ci-excluding-build-tag/reviews/class-exposure-analyst/revalidation/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml"
+    },
+    {
+      "state": "DESIGN_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVOTvBw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839",
+      "timestamp": "2026-09-17T18:24:36Z",
+      "record": "docs/changes/ci-excluding-build-tag/reviews/design-reviewer/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml"
     }
   ],
   "diagnostic_bindings": {
@@ -117,6 +135,25 @@
       "design_sha256": "65c258c8a81a4c0b337aaf6cc6150a7286bfdaf78adbcc8abec444c6f564ea2e",
       "diagnostic_controls_path": "docs/changes/ci-excluding-build-tag/diagnostic-controls-proposal.md",
       "diagnostic_controls_sha256": "ead75384a0e2f8aa9441c80798cac9716479acf30ff5d9a46a7e730cc4433f1c"
+    },
+    {
+      "commit": "e7214a798f61eb2b77085fa3515c009a398d7ff7",
+      "tasks_path": "docs/changes/ci-excluding-build-tag/history/tasks-e7214a79.txt",
+      "tasks_sha256": "5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea"
     }
-  ]
+  ],
+  "writing_plans_handoff": {
+    "path": "docs/changes/ci-excluding-build-tag/handoffs/writing-plans-post-design.json",
+    "sha256": "04bfb149ff004ec7298f2633aefcabf3128436fd07bdb723a9b7792c668fb1a0",
+    "status": "SUBMITTED_PENDING_ROOT_READBACK",
+    "tasks_sha256": "554d3336e76df8639da89c369ec8196cfdc8b085e5040034e8d16b31333141b8",
+    "root_readback": null,
+    "holder_authorized": false,
+    "source_authorized": false
+  },
+  "post_design_record_bindings": {
+    "path": "docs/changes/ci-excluding-build-tag/evidence/writing-plans-copy-bindings.json",
+    "sha256": "774b457eff4137ad836f702cbcb55b2f57bb86f2426d54100b4d7b61ae4f5604",
+    "kind": "mechanical-copy-of-independent-root-review-and-events"
+  }
 }

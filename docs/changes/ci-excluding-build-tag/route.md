@@ -34,3 +34,28 @@ Root replay закрыл конструктивность DC-03; его точн
 acceptance, interface, 11 IDs/counters и production deadlines прежние.
 Независимый executable holder, его RED и разрешение исходника ещё отсутствуют.
 Общий TASKS_READY не объявлен, implementation_diff_set остаётся пустым.
+
+
+## Заключительный design review и post-design handoff
+
+Прежний раздел фиксирует состояние e721 до заключительных событий; его payload
+сохранён. Root записал revalidation точного design revision 2 событием
+https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256456
+и утвердил тот же предмет событием
+https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839.
+Независимый review, точные body/request/published/readback и их bindings лежат в
+evidence/design-final-root; reviewer — root, здесь выполнена только запись.
+
+Текущая lifecycle-фаза DESIGN_APPROVED. Автор применил writing-plans после
+опубликованного approval: tasks.md теперь задаёт exact-set, реальные команды,
+роли, файлы, предпосылки и переход RED → source → независимый GREEN → main.
+Старый tasks SHA 5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea
+сохранён побайтно в history/tasks-e7214a79.txt. Accepted subjects, матрица и
+история operational попыток не менялись.
+
+Передача нового tasks зафиксирована как SUBMITTED_PENDING_ROOT_READBACK,
+не как independent approval. До проверки root точного плана нет TASKS_READY,
+разрешения T1, source или product GREEN. Machine holder по-прежнему отсутствует;
+implementation_diff_set пуст. Непроверенные DC-ветви не становятся покрытыми
+после одного 11-case прогона. Полный deadline и child cleanup проверяются
+будущим holder на реальном Go и через публичный gate.
