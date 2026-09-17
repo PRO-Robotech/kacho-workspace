@@ -1,0 +1,1785 @@
+{
+  "scope": "bounded candidate preflight T1 root RED; actual entrypoint refuses unsupported mode, no isolated61 semantic defects",
+  "holder": "5c3293d321f7bd472cfa1c19f3677305eacbfddb",
+  "aggregate": "daae559b40bc18c16798283ea376826adbcf6ea9",
+  "test_source_review": "Full executable holder logic read; embedded notice compressed literal separately bound by exact decoded digest and successful prerequisite.",
+  "source_holder_sha256": "c6eff1bf48c43c2b353daa8bd1d9bec6912b5170ceb72c27f44908703131d80d",
+  "author_manifest_files_verified": 1425,
+  "actual_calls": 61,
+  "result_counts": {
+    "USAGE_ERROR/INVALID_INVOCATION/2": 61
+  },
+  "run": 64,
+  "pass": 1,
+  "fail": 63,
+  "skip": 0,
+  "capture_pairs_verified": 348,
+  "unhandled": 0,
+  "harness_failures": 0,
+  "actual_prerequisites": "Nonempty genuine previous/candidate Go ZIPs, required receiving bytes/modes, real Go consumer builds, 4 old consumability regressions and 3 independent canonical serializers pass. Synthetic authority responses are fixture-only. All results independently closed-schema checked by the frozen holder.",
+  "review": "Exact source inventory and modes, mandatory receiving ownership, baseline floor, full declared component proof IDs, separate NP-only projection twin, actual D8 producer with empty components and recomputed outer E for stale R/closed-record negatives. No hidden target network/cache fallback, mutations forbidden. Prior frozen holders unchanged.",
+  "execution_sha256": "24d6b598b46fa8651d5376833d59d8f2c1ee129b95e9a06a5b932e89e8aa84b3",
+  "ledger_sha256": "aa6cb2f014ed415ff09a06e764ecfc81c017143719d20a45e4adb339a18d3e3a",
+  "records": [
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/174.json",
+      "sha256": "b51c471615bf0dd98e84430d2879d8fdad42156dd30fa81d0e750e04bdbedf39"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/127.json",
+      "sha256": "f4eac975f68c8f53e390b9210dfd01df7fce12921a4db788569417d7a5b540ef"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/041.json",
+      "sha256": "55f92f099f5d7ec332d95fda9ca0f2dcfb6951a1e1199af4840caf2b68482a8d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/113.json",
+      "sha256": "a1a5654ce06a0a04819368ca8cd9a440734811dfb75649ce2db5d735c5a78b9e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/024.json",
+      "sha256": "065ab24de36692219339f1cba51e158698cf61c8c8a5df8aefcc2567bd8e9459"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/181.json",
+      "sha256": "e47b15cebe6ae4587e4f6d4c87ab193d78cb6e4ca73c1d75397cb58735a039e6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/184.json",
+      "sha256": "b4c43f89172b5b58503d3d1a835033fb8440b00a302290e36f5f44c821894a47"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/009.json",
+      "sha256": "5e47739c5922b51a92741d594d59fd503be678402cb53d60ebe9e9419015c3a7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/100.json",
+      "sha256": "a5fd66444aa5eb7e727ef9601552c2b4b0e3fdbdf55088d970596d8ed3f7ecc1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/122.json",
+      "sha256": "3b9a91532a218a869fc0d6e17feeddf8ba58414523de6f3daa5fab1a966a4676"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/195.json",
+      "sha256": "d66cbf3fa3adf073c2a01283606d7a5b9dd87abfc0d17da85c1ad496241f0be7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/203.json",
+      "sha256": "f6ff87ffc1ebefe241a59e591db72217da1a125b4cce7354e9b13d699199bffb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/130.json",
+      "sha256": "450ecf576a42ea61e339bef7fd33bd9159fe9eb05a939aab0b2769c349e52524"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/021.json",
+      "sha256": "0c43fe19a5a189ae2067b2923364dad497e247660d7af09388194efc129f136b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/053.json",
+      "sha256": "ca0a21cfd6a97ace344b7c8fda78373cc938bb9fdae11a1f4df61059737097c2"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/134.json",
+      "sha256": "d513ae3fd775c2f2dc8efba19272ad642800a4785665521439269349cc2d7369"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/003.json",
+      "sha256": "02aaac4ce271badec6448f8403762ee18f750b844c87fc71277b0d05ef89bdaf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/104.json",
+      "sha256": "a70ee779bc34e8ead43fa81eb98a09f4bbdebb3ea6fb8b0c4a9a9799ee8e1aac"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/160.json",
+      "sha256": "5b0fc31bcd942a0115aff73f400abc5d37d0bca4e9f2550446b832e6f9fd9353"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/198.json",
+      "sha256": "9600d30909a68585d90a0071972616c8a4135896edbcc5befc0b8cbe03bc0c0c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/068.json",
+      "sha256": "c8073087666456887809ff5fd314ea50877cd4046945ed67163417da1c128050"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/099.json",
+      "sha256": "1c5179db44d11a201001005a75c40efd54a80da173bfab4b13d532510798f0d7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/023.json",
+      "sha256": "959cfbe6b2266e8bcfdaf93f163fc3e99323f2bef040a113094557502e349833"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/070.json",
+      "sha256": "98cf3fe114490b894d0669861845dfa02a344ca4b86c02a893c4892793bee6d8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/084.json",
+      "sha256": "340bfb1cccd2fd8843201b6140b2b69c4b158cb6d4b509c1b3633d7edc9a5eae"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/071.json",
+      "sha256": "39d58d7ef4edba1512c22f597b2d2f556162f49ec92e33fb098a0f49211007fa"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/022.json",
+      "sha256": "b1b40a73e033cd2b98b23564d0dbc76813777135d343e3eabe7a591ffe7be285"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/123.json",
+      "sha256": "16f6d0e5077f697c688abf9493e24cef5e883d681617208f4f87c13388759040"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/164.json",
+      "sha256": "aa74f605f39555508e21a8d53a2bb65691f7ebeb5edd2e3ad1c4f6a07262afa5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/042.json",
+      "sha256": "8dc3ac06ca5b43cc3a4ec06665a11e02a74e1d462276b56524f83b13b8a10192"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/157.json",
+      "sha256": "54c054911b9baa417bf87e794dadcd656fe23bfaff6a56b2dab320b95fd4ec8f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/191.json",
+      "sha256": "7ff3e0cc7c8e417ad045aa04bd50c9bbd788e1e7e193fcd94a347af6011e6969"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/178.json",
+      "sha256": "5673cb7053f67c0eba1a5019754f577a68d423b299147b724f3c193cc6527ce3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/187.json",
+      "sha256": "ebbc112cd34f1912293c8b83f35dabf0a760b200007adc57b1a0ad048d12d4bc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/056.json",
+      "sha256": "b29ae96a36639e2645d588f7b1ec96c0a79404dd6276e883bec8bf04bf61ea8b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/120.json",
+      "sha256": "9a0a91617e034213cc0ab336b0d89cd58a76c682b7442d8a4b312358131f0e57"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/029.json",
+      "sha256": "403ffbfc7454f0de19b4625f9819ffb7976adc39cd36147f7cdde178a5a9b3ec"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/119.json",
+      "sha256": "4df593514887048cd4131103202ee5394ea6a1e13796cd73500dec7aee795c96"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/050.json",
+      "sha256": "fa973682c351c11853c985b0f378aeabecb6325d4446d197d44cb46b260edda2"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/055.json",
+      "sha256": "31f0df9ae431a431623e7a79850bba45bb436e8629998ff69e0d4cd3b4df2351"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/039.json",
+      "sha256": "67d13a6f61751d896bd5a3119c47c3cdd0c9fac4ec20922a5a30090b7a3d8841"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/180.json",
+      "sha256": "bd93dd25a3c421b895ab38d63da66dfc8ce20485b5b8993a9b7c65588bd89a25"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/148.json",
+      "sha256": "be924c5983a14fdfe4c376cc6b9463ee2434182e4690434aa9c00c82b74db4ff"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/185.json",
+      "sha256": "a4a6bbb92b432fe7748b01b9d61a3dada0e966e38dbd440cbb4cb289ac6fe849"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/112.json",
+      "sha256": "e0c5e61a9387ed5fcde7012e3d11347498be6693c492095050d0f71ca824206a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/139.json",
+      "sha256": "b94cb8c7ab8086be16e2881a8db04c5d74b5068c888ea20d60404e91dca8fc45"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/186.json",
+      "sha256": "cf3cf84622510a31720a6973edb4b70037b8998498c21eadba0d219c24621c78"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/126.json",
+      "sha256": "2941aeecc66c47b670c9493ce6eeba47595388b9464d3c5c385228f7160ab074"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/193.json",
+      "sha256": "3527c3a13e9f08bcc9d819347d77785657d395d3957e8402c601cbb126f0a920"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/057.json",
+      "sha256": "e12f847f0f864d1f65c831515d05efff3b6814f563ef96ef8c4eb661a3a43fe4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/082.json",
+      "sha256": "939a1b89089edfb459a949da586b7023f6ca9a7f7996cf6a1af099d3670e8349"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/045.json",
+      "sha256": "3af861ff17d68c3187637578e3e38c2a7cbd1935f25c15bc04e5c687cee91279"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/002.json",
+      "sha256": "acebad3199bdd20faf052c621b5b4a10c1521228b7ea3ebeed9829369d232b2b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/162.json",
+      "sha256": "ef191ca9104ea24dfe12d63ee885306f8052445af5c8394d32f5fcaf28f74c27"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/008.json",
+      "sha256": "1c17745d96a8b09f11c4eb6f802ba98316cb67187bd423838be4af9e227acf58"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/020.json",
+      "sha256": "614d35ccf4f26828112865a83662bf8f3ee89701e6599674694cbad063259dee"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/172.json",
+      "sha256": "c8ab2f34b596dda2bfd6ff952e256d4222cc4a73a0bb9775bd687f99ed2a0458"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/012.json",
+      "sha256": "9376ffe2c86f42ee466e65ce101b1af41f019064bb409960eedc241e5cf6365f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/179.json",
+      "sha256": "076d5f03df9d3ee19e40172cc4a807d67f1b5e14b763bfd6e63d8e6c1b915831"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/143.json",
+      "sha256": "eb3b8acb56d794a1040743b7c75d3f8fa349dce9b852ee0210e7c4e4ba22e5ae"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/101.json",
+      "sha256": "220cac1f9d669bb7cdd1d0b9bab34d6169a450fae48c343872d16b47b3077277"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/097.json",
+      "sha256": "6f04a29e63d8034e100867844e672dce97871ee811db76b2147060f7d9928836"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/133.json",
+      "sha256": "11cc6362c54c2bdee688279ddab819df09d6c5f32bf6cd43e7f5601dac33f459"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/152.json",
+      "sha256": "af87d3d9f832976783c772a603238dd6bb58560c1812af13f297909db0377d7b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/165.json",
+      "sha256": "95099771cf98dea9b271d14ef2606ee1b01f00ed43419e6c4207164c7ad7be47"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/088.json",
+      "sha256": "4c361bb00c18017b506b948d586b74b08a1bb1c10b3979532d55301215084bfc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/202.json",
+      "sha256": "6c7c0754096f84fc04bb54627eca58f47d0acfd830c157e0d4f9cbd97ec4b881"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/131.json",
+      "sha256": "ebe99ff1e558e1a5fef9211d1f48171d8455e85912ad1bc17265498a761f9dd6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/059.json",
+      "sha256": "f7a90f13524393c5951d452a47d9ea51a64e772c53f435178066363ce0cfa260"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/095.json",
+      "sha256": "9a3fdba7dcf0da37e24ae6495d8bdc504395ea094dd21cb06cb173b1c8b1df39"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/171.json",
+      "sha256": "d3624c955acef7b39683744ecec5120fde09b363feb846ddec362b5f84e056bf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/111.json",
+      "sha256": "d0259622913f8be0cebe0a0a1a87a7e93951718f52060c4a8266c520f83b3039"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/048.json",
+      "sha256": "3766751eb44f6419ad06f5e8b697e0d00c47040201cfa994ec7bddbb41816a54"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/026.json",
+      "sha256": "c20590cb2761a9d66276a97764e2f65c054f96c4a4579e9dcbbe7928193363ad"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/155.json",
+      "sha256": "59d639c6a081e86397dbde68667791a60674f963a9eabd50704c0b4de20fadc0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/087.json",
+      "sha256": "a0822cc1d9fef310192cd675373c443cbd45b45596d27a48742e32734e0060fa"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/006.json",
+      "sha256": "a8e5edfb7dac0cb466b835641397d886feaa1c8fdd1c41bc86a9a124f23cf263"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/129.json",
+      "sha256": "bb791d0b44d6de52a3beb9746c20bee323ad53edc7b384c45527774f558a7f55"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/169.json",
+      "sha256": "a70e1ca68e43ca345f19bc6cc5a89bfeb1d2a16907de0f95fd9a6ee052cdc651"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/047.json",
+      "sha256": "6ad31ef259e7e6c2552c6214898e8420bcd46493c9d37263a55a0f9b14c523c9"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/194.json",
+      "sha256": "2891f8e62e1a4f22223eaa9da9de8740de6d0ef2b73885a66a55b84721410410"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/102.json",
+      "sha256": "1734321470c5ca119abb56a3d0e3bca93a37664a43b0a4d8e8ef9bdd3f711a0b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/072.json",
+      "sha256": "3f34f3dc5b3a5d4c82967789db4446c063810988a65eb234e2b0e532d50d7da7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/081.json",
+      "sha256": "736367acb0f7b7e0acfa65a842ee13616aac002419a7b6b030456c3f3316156b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/105.json",
+      "sha256": "bf9711be50894205cdf9fa5dc4617171ff0d7ac21175d03a009709fa78a254ef"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/004.json",
+      "sha256": "511491c976b46566a3236101caf836a1482aa1c06f894ffff7f8ead9621b7fc1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/016.json",
+      "sha256": "655953403338ba754952beb23b407f7030173784fbe6445babe29d2436b12da4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/001.json",
+      "sha256": "1f95b5d1de1b0ca17fcae165607b84a604e40b011acb925da0b37c3aa399891a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/158.json",
+      "sha256": "a249c1d232d23c3869c45db2b3b06b74205e8a72a88ed7269803d4eec953c4fd"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/136.json",
+      "sha256": "f5ede9f9c321e818c881f3d68ab69bedc2eb16d62cbc5efd27c893f58a45f005"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/094.json",
+      "sha256": "02df15d4f4e3d7aeabe686efd30dc1958885e84515f281a83685bcb21d97023b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/067.json",
+      "sha256": "dbbf1dcc7bf5c34bb4a20dab4c507d8800b3606255b6107a3278a6ab45884af9"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/005.json",
+      "sha256": "7a681822ae4e4969a8b311d9b2f3314e8e52f84cde25094bfd41bbeed0a3ed9d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/038.json",
+      "sha256": "99ba745c331c541b90e74b35934e4dd0a520a2e5cdb24709a8f854b92695a575"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/106.json",
+      "sha256": "7460a5cc1d3d53c423f6fc79696998c18105f8da69e1c1e578b0980f57cf99e9"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/069.json",
+      "sha256": "d5930ec8f973fa353861e402a6eecf90ad3bdc9cb251e99048ada530f8086583"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/061.json",
+      "sha256": "7bf70ce08a484e8fbef0af3c41514e57261e8f43ddd368d7b5857be7d76dd92b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/144.json",
+      "sha256": "d503e43b917fdef5cbdcc8e25c98dee9410be018249272cec3ef0b8161a2d707"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/145.json",
+      "sha256": "3ef95989998a31b6a4e420bc80688377dcf9e2cc57139b4cc001b8c8b7a57897"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/018.json",
+      "sha256": "721a312cde98125a5bc1adff4f35316ae507eb8f30673e99d911d22b1587e9c1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/175.json",
+      "sha256": "108e67931281a19641b1edc051f94bc6bec5191ef1b372ccbae1bcbd1f14c0ad"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/065.json",
+      "sha256": "5143ae1afb22173a1065f1d4b03c809aff35744697baea43d81bbb7ba2a9e365"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/040.json",
+      "sha256": "e3ff7e92d762e88c1a6a945d4cad1dd30ccf67bbc2c6a2717db4da7fe7de7fa1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/063.json",
+      "sha256": "8c9d0cc61194484d2d21cd03cd6fe7eafb264702828a14636efd902add968e74"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/085.json",
+      "sha256": "be908a0c56d7dc4853f201eeb0947c7cea6ae4d077e324299bb0791ddd255fea"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/107.json",
+      "sha256": "40054d7497a6350404b64d1c23a775496eb4ca5658e512e2d824210c9c86e579"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/031.json",
+      "sha256": "55bc3119af7fd24f10aaac1ea24fc562c7cf6cbf4722db83daaf47ea4403346f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/110.json",
+      "sha256": "dbfa48894d1d8ad9cd0919278e0c4591e76b1667f15d60d8d66e6c20316ff5a7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/015.json",
+      "sha256": "af215291390765e3e9609685ae2050b771b9bfc636bfc6201157a031102384a6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/052.json",
+      "sha256": "cdd311ad292ea26d462bf79b0a6ce070e6792ff054879a6bff19e148bb22810c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/043.json",
+      "sha256": "fd665ea88bb9cc2dcecc3afd83d9bd7f638e61c77db45f12750211dba65ea9fa"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/017.json",
+      "sha256": "0498ae54074b1836a1bba885aa0956a82bc31f7ed534750bacc3dad877fcce55"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/028.json",
+      "sha256": "63f91aaec7d74c7561019b6e89c692ab381962c3e4e3e3e66eef9664a4026aa4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/176.json",
+      "sha256": "7d03941dbe92128c4bd8a9c7caca179ef5bc6a896262c50f9abbb99b4ae4f4f6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/060.json",
+      "sha256": "cd85bd429fda37fe398eab9097fdd3d2d406c30e56afa816b65f85711e0226e8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/153.json",
+      "sha256": "fd43b9199678b2267ec4e7067fb7df73a6b57fd097382db1453e5a5f7f5dce3f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/182.json",
+      "sha256": "7743dbb1e7fedfa3414ae3d0d39d50581ae0b700fc3dce374d19ef3fcc923659"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/014.json",
+      "sha256": "da958ea1aa00e5e27d914e6075044f362918588dfd1ed18ddac1dc1407d8ba3a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/093.json",
+      "sha256": "195c1b366f03114940ee8d3b6ab397d341a629fd65e668e71f1866ebcf8faf98"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/032.json",
+      "sha256": "ee9a9176f9b75adcd1a919a1fd5313380d11fd3b622afe39a9971c3c54d78fcb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/075.json",
+      "sha256": "99772cb21b26fd28a938d74b1afcf065d0ef182805d0a3ba96d5871024e9cb95"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/010.json",
+      "sha256": "7360806b064fe189f36d718c511d2f6e6663a42fef29e49a6c1ec746bafa7436"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/049.json",
+      "sha256": "9c5dbd495737568ca638818c7200a0ca7f48e3dbe3d3a83b2e7aa9c513a9f715"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/159.json",
+      "sha256": "ae9ab4bab86a16d8eec927ff14ae6ae1b33cd46f74e38b625b499fbd8ca9e321"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/035.json",
+      "sha256": "408cd57dbf75c6279ea55548974ad90f6d2c41fa5a6d4c5170cc1c90596138ff"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/079.json",
+      "sha256": "56dfa5d208552f245f44771de78ee7565a01bfe11a05b70e0cecdcb0de0be516"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/166.json",
+      "sha256": "84b3884b1baaab90ba9917a9d4cd381ae954fae51d81d1f802494feef2aa6c27"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/205.json",
+      "sha256": "a97218ce025587c1c737fb1909820d9ecd86f731890bb7e0ca281f114edc5027"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/141.json",
+      "sha256": "67e688f1a9bce9361f29a06c993f611f10032fbd04ccd514a2000cc72c6adc9b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/089.json",
+      "sha256": "d0d80bb5a1ab426253c684ef141984589425fed63e3ca79929337b73d2221bdb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/128.json",
+      "sha256": "d23ae57f323e9337ef026a0721bf35393c934c0e17d442df45ca9e54cd012053"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/108.json",
+      "sha256": "d7b58c4a4f50833dc6eda17a809c68b682aff06fefa1bc85256b2d17843a1d65"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/044.json",
+      "sha256": "1e30a5a8bd3bc3cc10a6bc44a437f0226b80aceff21cdeb21901e5a31a4d5ab7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/190.json",
+      "sha256": "3eeeb83ba2dc21108daf3a59d60253df789a5b62e72f2e1c3d6410c4e15a44cd"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/034.json",
+      "sha256": "e3dfe0d3fb6bd31d7b8fba55cafd87841da47f8dd4b625fb71308e2258834158"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/092.json",
+      "sha256": "752f8ae84367fd297491b8d228cbde85798d8e5388c5654ea9aee12887ad1196"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/125.json",
+      "sha256": "6c5eb0394e6e49bc2ad6ebf2c3238fe34fe844fa4dfeff44acccb55bf326b4da"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/117.json",
+      "sha256": "d3dc680b848ceac77e914bdc91b1910faa14368e46465bb00faed00465935f88"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/168.json",
+      "sha256": "53412c3373b1f7dea175db2ae4995dfca39889dbcfdec8be065b36ffecbf3944"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/188.json",
+      "sha256": "30903a6fc48569ac9bac2b5478295708766f69493a8dcd0a5e6d2ab0ba3839ea"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/076.json",
+      "sha256": "aa488b17a45d08bec2167c264a61cacdce01d15b4d6a2efac5d360cedd3c563e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/135.json",
+      "sha256": "21001b8e0cb6dc3c68da93e8e6f9bb33b828693ec2d36884ad6b24a7735ead99"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/189.json",
+      "sha256": "0cb82547548f4526be461bddc87b68fc05521bdf616a430f069fb783bf6016c1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/037.json",
+      "sha256": "9d1701287ec2cdfddf8432b12dfb6242111b6972e671010c9813f2be4cdb8171"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/086.json",
+      "sha256": "b5c3e387bd93e08d00edd363daada452c391d82a2c992a302af08ed25bb03ac0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/151.json",
+      "sha256": "0a5784a80a77f4e4f46a84704fce5463fd19933878e2ee804f0d3e03a6ac7dc4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/154.json",
+      "sha256": "0411699773382c99472d076eaba2f1596a9f7e0b36d3ab15c741222353404cbe"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/197.json",
+      "sha256": "6e454a571e3b3e5bb708a2af91e99e0a9db456283b613d5ce1d9eb23fe913327"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/062.json",
+      "sha256": "866066bed61e5657bbd5b9b0862b429f80d29e6aa391df9718e8225bc75c8a60"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/142.json",
+      "sha256": "8bb3a3da314a79b28eff86430fdfe054c3624b826bfe88c5d6f79ad4f68df932"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/019.json",
+      "sha256": "faf54ef31f1b5b55b1a03f11d66364b62a31b36a742834ecb17f094a3e9c24cf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/147.json",
+      "sha256": "138247aa28122819c2ef9484cd754030e623c4273dee2d27c6dcbf2fe52e0ecc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/066.json",
+      "sha256": "d5652e1dfd95ebd9367cf307d09813edc288d5da6c8322e72f493ff384eee99b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/137.json",
+      "sha256": "f170504a7469fe089c6003fd280116806fc434bb46a67601dd347a6be4ff3b9c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/161.json",
+      "sha256": "103521e92b8f188e9c282f99f9d8927a3e23fec36bf67fab20abc9d763786ba0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/150.json",
+      "sha256": "eef3124c5f9927bef0288fe69fbb9f2bc74b0d707d47ee4a34c140502f5d2de6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/054.json",
+      "sha256": "3ef2e6b18c52185009a4312eeff55a6b41f8c5443e900a4255dcb13484e712f7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/140.json",
+      "sha256": "4b3b8348d7f94725edeb0cc1df308ccce0e4dcd2b394ef78e302ab45a9560e6e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/007.json",
+      "sha256": "3cec1fc0f48064424663f8b4f0cda1589dfcd64d58f7e08241b337f5326e809d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/116.json",
+      "sha256": "971010474a1f61c7956847255baefdc10875b652e0fe6d99db3433d9fe02169e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/204.json",
+      "sha256": "a941a40ada9752b1c43535b7e264c67b16ee9898f09fb2c8ca75f23153b9f81f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/163.json",
+      "sha256": "84c5cc34dc48a39e3a78497310f2abde6c5cc6a8a740950b535f9d2ef95166cb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/132.json",
+      "sha256": "159733ca0e132554f3638d2012f6115ec28b2170bc79daed364cafdb8868985e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/146.json",
+      "sha256": "3104ec0306f3427e6dba15e6962a63f71a1f84c63cd91d715fb2129a9b857898"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/074.json",
+      "sha256": "c0c685670ee2d1b156ad73523d8f71be9cdce23affd69646b8fa34e301042e15"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/138.json",
+      "sha256": "033962769e13c9d276654cbdf530a3dd471a7df83b6b6a813aecdec36b0f8dc8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/118.json",
+      "sha256": "32b544a002757e089600e697d2ad143c5fb7ea6fc54abd8e04aa0ef02fdce546"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/058.json",
+      "sha256": "15bdfb2dd08fc88fa6d70fe887508715a5ecff5965971a9612235e28b770ddbf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/011.json",
+      "sha256": "4b2c6b8cd0527c558fc467f381a5cff17b9b7063e04a45dc2049cfe741c794e3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/077.json",
+      "sha256": "86c3cdc1c58edcdcc840128487b314baa9aebfaf69ba95fb85e84273956fbda5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/196.json",
+      "sha256": "7637ef81bd1fc6fbafbf21f910b201a5e5311faa147c029e54d21ce3e18c01c3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/036.json",
+      "sha256": "d2e4ffccbb7180e771280d588c36b37ee7d6a98f83147c0764a82526beee0ff8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/115.json",
+      "sha256": "71c7f02c6ec00c06c646fed80393d8a45dee804191acbe522a103596c3486665"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/199.json",
+      "sha256": "71bcf833dcc3b45365fd571026b3a7432d77250b038e4b27285b6b8c35ff4bf0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/046.json",
+      "sha256": "a320b91b5e728227d4ff9adab93f8d7b96ebe7884e783b8bc8ca1771bcd5f5aa"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/013.json",
+      "sha256": "fc971e455d1fe3ddb82ffb5674be618fc0731af3237cc669bb0306bc51bbcc59"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/083.json",
+      "sha256": "76ac620ad7ca2b2847f77567cc86a353e9cd584d2763315fd134c2b5c7649f30"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/078.json",
+      "sha256": "6636b7ab11a9ed8ff7fa38865c00ffc6cd8dddce09c1301f74193668d3b1a3fc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/121.json",
+      "sha256": "5961ff114d5df4200c5304dde3a16a93a068f5ea40425fd5ebec4b03813a6218"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/080.json",
+      "sha256": "3952d0d84fd913a5365bc81b347266ac80d0fb118ec1e34f0f0bd0aa45de5215"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/033.json",
+      "sha256": "0b8d16756d0b5b5417b2b190d428a2039fc156ec66ea38e755407807a3f87e41"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/030.json",
+      "sha256": "727c7952d666eb62d4dc996c1d412272bab296365aabc83ff6f9ccae973500fb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/201.json",
+      "sha256": "eb0743562e1779f4d1006acdb3f0ce1781d1b14215593ea9a8850194d90704e5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/156.json",
+      "sha256": "cbb5e8ed055b661c7d13e36a10f60f58f896d80e2f01af20e0673e2d19d6b5d8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/124.json",
+      "sha256": "0cc24d741c37604371b195f92bbf08642cfe5628cbe28785f491ea36233a5091"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/098.json",
+      "sha256": "efeb5f9d7da13bcf6da511cdb112b2fa5328d5b6687fa8a5d117e6b3eca5644d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/073.json",
+      "sha256": "9fc33e6b6a93a6613aee4eff207836cbbeec6f0e05baafb21056b0be88a56964"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/051.json",
+      "sha256": "95c2b012bb40ad40ce7b21ab89289fac3d5be0d7e55b3a98ed8d5008896a9320"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/103.json",
+      "sha256": "c232374d999422d9ea2eb67947290305c19b1ed8e52a459fdd4011fc325de774"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/173.json",
+      "sha256": "74c53ba1bf098874a23870b5b350651b9bfa6ca990db5f83bd1cdc3436ab495d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/025.json",
+      "sha256": "c59c727c12b7d5af8dee88729f779a93c7f848619bbc0386ed26c34b62d3f7f3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/109.json",
+      "sha256": "21eee3e994bd7e17cf6c4c82581ee0beb2eedf50f9d571fef359354037830fe8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/149.json",
+      "sha256": "bb124a862f9508373591dc6265572a25c205a9074ee7b108df2c5e4c0fb6c48b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/192.json",
+      "sha256": "5a6b9f97481a511d879a2a4dfe3a5a8e96a1f667787da2c4ec6b74cae2276301"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/027.json",
+      "sha256": "c1e8f26bfc1ab8ffa11c2089e8f2f23d8f958c8920dd05011fdab46fcf3cbff7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/090.json",
+      "sha256": "c4c182936f31091a3881db8de984ddd88ee03d72d9685573d11526269752c82b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/096.json",
+      "sha256": "2990e1da21429a86c976abb24d6f92dc0c26a74f4d15688c48e04940bcc6a723"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/167.json",
+      "sha256": "d3af578fd8f33595c6aba0be473868109a0a7dece215034931362852e5b6a454"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/114.json",
+      "sha256": "f12966689942a3734d35ee29789fcc919aa6923bb5a6e3fed42bd3d639a51f08"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/091.json",
+      "sha256": "cc7b10095031f55191a2fc50333ed672b0584f093b4b47999b17587f77203fa1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/177.json",
+      "sha256": "7095df27801f88a1815739fe9c0d5732698e6821245d4f3fa0a1a8522bc65869"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/170.json",
+      "sha256": "807a371a9950ced3c428e99bbdc6da8d1925f578ef39e336d19f5ad94e4048ad"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/064.json",
+      "sha256": "807901c6f1c4f9f6b96fb29d4f01501285d912c4730db19f9f14c252388b98dc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/200.json",
+      "sha256": "3cdcf88c89f733087faa8d48f61c9bd3d9924e044a40b9dd0b3cf8f31cdf2180"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/183.json",
+      "sha256": "2349c56fec080551e290097f3ca231d76b32f5fd04e7147f88e56448f4cbe012"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/009.json",
+      "sha256": "ec951fcb848ccea0b67bc2b3ea08688ca170788e86d128c27d028edc2aa7b737"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/021.json",
+      "sha256": "9334b9abeb35e291a64d3198d4f97c171ec8675ed849ba928d485f1cea058458"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/003.json",
+      "sha256": "dd61c907ed430fa50f8ef42b1033e37fcafb302cf6bd138b68ccd5ea0c2b5207"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/002.json",
+      "sha256": "30271732494cf5f77e606a7a76224e6da71dba7faf9da7fab124be8821a634f5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/008.json",
+      "sha256": "d927d99572031761caa4aad950e287e03a54625d354175754e8b856c7394254e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/020.json",
+      "sha256": "3928936989c92a763129a954c3ff9598714742ca1c845b0cda310cf56b614bf9"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/012.json",
+      "sha256": "f85b1e67fdd94c6b45d4b724a3440cfa71948325a0d7de8a9fdacac8d62ff3d7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/006.json",
+      "sha256": "f8c2ad6e9297b2f408982343b9a545f9b18f22ae5e327c9a7b7c7ec27db3647c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/004.json",
+      "sha256": "00160f86e732737755694374fb05f3ce29b6890edc0eadf784bf6a3188bb7931"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/016.json",
+      "sha256": "96d601006548f07426c55419e786fcf666e52fbf9ab71e33d3424667850bba49"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/001.json",
+      "sha256": "6f5b940a9f0a5df05e2448ed1d9c5be5b92939d66515506828c9ea91f01dcf97"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/005.json",
+      "sha256": "3fa903104b77cbf8c8fb33d80d3a4b79ebe710c7aa5ba5c6bedba8b83d1031e8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/018.json",
+      "sha256": "553379a8b128d97ff66887c96ad04f54f543401d2cb0884841ec190689885a28"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/015.json",
+      "sha256": "eec61a1fc4dc1510e4dcf40951374802b2889dc39b44169f63eff6cec789dbea"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/017.json",
+      "sha256": "7d5e735daa796c409589f492fec304a6229788cbb3abc7d9c58cfbc1b2f851c0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/014.json",
+      "sha256": "5c141bc132d2fcfeb3d3f26d447426aac7c73671314346407172ce50235b25b1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/010.json",
+      "sha256": "eafbd539260eee93fd94f6ac0a664d76bcf5e013bedf7cb77dee6c12c9b51834"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/019.json",
+      "sha256": "c56f0c9924d07aeda406714db4563115e2bc24769ab784c0023274dac55c0c0a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/007.json",
+      "sha256": "c304262e1b98d81636357ca2050198cbffac28451f9ceb48797ea7ff8bab5e3d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/011.json",
+      "sha256": "bbbc95d2a41146d5493f35c284e4e87fa0536ec46931f8840cb769616e02d7ba"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__real_archive_floor_prerequisites/013.json",
+      "sha256": "0f311e10c556a065ce534e43846a711a566888d256af9df263bd20ee0afdf658"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-package-census-empty/002.json",
+      "sha256": "dd86a85e36b41d5be918e6270387973847bf2cf4eab5220ebe5457bd9d68f0b5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-package-census-empty/001.json",
+      "sha256": "49d90a0acbccc0f922b125a5dab75162782aa7c3e9b74a7e7b480251a21f472b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-wrong-authority-kind/002.json",
+      "sha256": "bc082d2ef98dbcf469a4d9584b6a8c729f58d8499a58e807515c3001f36fb197"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-wrong-authority-kind/001.json",
+      "sha256": "6a048e71b7440381d1af74bc90249f789c333b293f1aabf5774e5538fffe050b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/payload-digest-mismatch/002.json",
+      "sha256": "7bf76282f48e1bb733552a6bef825bac0c06014335e4b9e126f86decb68c6e36"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/payload-digest-mismatch/001.json",
+      "sha256": "37a1ee242b46d032025889ccae8e7194c45788bb5283a206d33677d667a9d17f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-altered/002.json",
+      "sha256": "62518ec8363de24b3ed035fbcfa9e319fccc037a925f556562a327325dd745bd"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-altered/001.json",
+      "sha256": "c81668077b7dde33ed31d9d55a17ae69b8c673d55fe957d5bfe5dad70f71d7f3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/baseline-stale-newer-tag/002.json",
+      "sha256": "dffd5969ed585369a57fb08db86c2acfbb6b96d86455160da783be26d714bad7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/baseline-stale-newer-tag/001.json",
+      "sha256": "a06d85c3f69d220533de87e60398ee74e9d85c41441ce8498dc7864b2cab65d6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-duplicate-key/002.json",
+      "sha256": "85e8f414574d89109d0cf93b23d7eb182fb23cdc2425cfefde146cc59b298bc1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-duplicate-key/001.json",
+      "sha256": "964d5152c76ccb29fcefee7dfa78e19f8fbd9683e32f37b688ce1c1c6ab94094"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-relocated-same-frozen-content/002.json",
+      "sha256": "853fdc104fef5a5d7622a1faf462185a30086947b4bd620623eaddcea674ade7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-relocated-same-frozen-content/001.json",
+      "sha256": "a2131836fb1a80d1719bc12cc689887815540a038ba2c9ba9c53169bd7145d4a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-unreadable/002.json",
+      "sha256": "1d8648464680608f80962d4da3529cff0add5c67bb9dbf0d4a35e39051d70340"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-unreadable/001.json",
+      "sha256": "17540e3cd489f74e5198ff116d0f2f322a4b7eb2fef97ea8f086d7213b667841"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-actor-mismatch/002.json",
+      "sha256": "547d71f793912560604cc4e9bf9225da26877b83fefa301558b8ce11b3b85369"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-actor-mismatch/001.json",
+      "sha256": "6b6984f5413390aae706c280547acf45140241aac5337fdddc926541c0c212a5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-missing/002.json",
+      "sha256": "88d6f18bf9d2f26f602cd3abd29090de6f218e64a7453975ba2161630a27e1a1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-missing/001.json",
+      "sha256": "3bd0296af3ccae7b9a64d627fa875b039fffde06b8e381fd5675650c6da8012e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-unreadable/002.json",
+      "sha256": "19361a4902c02d6a43d90685c753a90914b6fb0527cf6bdebc3a535151590d15"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-unreadable/001.json",
+      "sha256": "092540e27badff0c3da5db75a6ce83c8aed15298204dcced8b10f79a23e53781"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-altered/002.json",
+      "sha256": "1aabc3bfb7591687e24d132ae4b7dcd3fed21c5c089ba7d1443062ce44eda832"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-altered/001.json",
+      "sha256": "675cb47ed715fb741f2652e98f717cddab1605dbaa742c35898b89afacb7394f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-missing/002.json",
+      "sha256": "c340e253e7ac773df6c5c103ea8b7f270f1bf495ec13a13118622d46d4a06359"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-missing/001.json",
+      "sha256": "0c1267ec955b7f9c9e0696c1ec3171d39f79b3e38994748201055dbe67b2ee9c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/ready-tree-explicit-preserve/002.json",
+      "sha256": "46d1c7498ffa4f2d283258b86ca9aa3f521d6437d97b6b7662d8f5d098b655e7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/ready-tree-explicit-preserve/001.json",
+      "sha256": "25de2edd0ba7cba548bffce45db38ad36b8bb535ec053d5f2040c81b075c5a7e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-missing/002.json",
+      "sha256": "f1cd3c79e8a52d58a005fac9faaa78e0f115132421c80cf75ce3f31741cab77b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-missing/001.json",
+      "sha256": "f3fc2a7f3548844b71402fbd1d3c4726cc417196beb3805e6f7b1bcda5dcac9d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-unreadable/002.json",
+      "sha256": "01e33750c9d9fd0a6bf21f4fdd2270726c8f6d6e34f7b59287d9579b1ccdaaf3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-unreadable/001.json",
+      "sha256": "58d5883439cb5aa654ff4042ce96b58ed83670b9ac1ba236f6157627533b2225"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-unreadable/002.json",
+      "sha256": "34bc9f2a3c376a938b5bf13c3e3f299c2df68de7a7f78a77ee425631993d4e53"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-unreadable/001.json",
+      "sha256": "1ca83d978ba86369d28562c6bd74b0c3bf16137ba5393a4f0afc2b47819afc12"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-stale-E/002.json",
+      "sha256": "8245f7ff1873ce146826f7984f0635be38afd6daa7840d25f0a3188c1d5591d8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-stale-E/001.json",
+      "sha256": "0d61cf2a7a5826095c1714ccfe8662856a647998e7ede3392d223d31804bd319"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-altered/002.json",
+      "sha256": "8ad2055b4225e22ddca9278f4400b41bedb35a376008dd82bdf212b37cef035b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-altered/001.json",
+      "sha256": "bab4abd83ef3a7ef40686ea691141f02dfc810096f4dcdbcb0bc8a096ef8e427"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-missing/002.json",
+      "sha256": "02ac939bf17dce82ce0e88609214d170fd72275f2e88f6733910cd63edc6c734"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-missing/001.json",
+      "sha256": "17065f12e45c208a572eb51664c62aa286d051b295547c90f358a5316aeaf6dc"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-altered/002.json",
+      "sha256": "d2050c68e64eee6c737399bbdaab5860d411d7023dfae72b9918f20c58fc60b0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-altered/001.json",
+      "sha256": "3ba6471ebcc6acb4596b0fbc214c337d548d422e66945d08f8351cbea29b8593"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-missing/002.json",
+      "sha256": "68d9cb603969639aab2272819ebb596d6425f90bb414bd3b7bc5d31c7272f983"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-missing/001.json",
+      "sha256": "602df7474038bdef38f900ced11f5a0130827bfa8ac9d19c08db8444a0dc2a7d"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-archive-unavailable/002.json",
+      "sha256": "eda5c02177a497e1496eeaa5d97de3c801354b34866fd3ee90104b8ad9a277ec"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-archive-unavailable/001.json",
+      "sha256": "5a6959fe8a2899f746699a7f4ee0c28000e3e31539b1fecd1c439d6234a395d2"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-only-projection-insufficient/002.json",
+      "sha256": "1f7ac1b8e012f8748659eb2b57fc1e751bbaf606db2ad1fa470cee8b39826668"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-only-projection-insufficient/001.json",
+      "sha256": "b8b33353239f367324160d57cfbc4ccb3f6734de28e16824440e014df4d16a93"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-stale-R/002.json",
+      "sha256": "19325153c92c0a2e9c7d0d4e01a443d8e94e49c0cbccc9cfc10c6a39ba58434b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-stale-R/001.json",
+      "sha256": "e002fec073c6abb2c0421a67c9b4454eab62fa2eec9738525d0095618e8640bf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-altered/002.json",
+      "sha256": "f4290c03f778008b3a3be68f6500fc9b3f13ecae4db725124daa2f61384c6966"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-altered/001.json",
+      "sha256": "dd9bc9a5d44c9b65b34b25cde5726f083087eb805d8405c959592a3eab392393"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-unreadable/002.json",
+      "sha256": "8d331ac6614f98485776bc105bc3f77b34061cead17f848051868757e3159614"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-unreadable/001.json",
+      "sha256": "f82eadeb84893d063a292f4b599bce92c92affb0b0dac4aba9757000189ae06c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/input-includes-identical-owned-file/002.json",
+      "sha256": "0ee60cced480adade5ce0c25bbcb9eb79a8bc95458d974258e24a1dfe2576d8a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/input-includes-identical-owned-file/001.json",
+      "sha256": "c965b0cfc5de5a193990172b6360de7f476b5b6b8daef600f5f5eaaecfb4b9b3"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-missing/002.json",
+      "sha256": "cf60b72aff7739094d9c2708a1d6260070917f2347b8cf29807e3582bbe1fb15"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-missing/001.json",
+      "sha256": "a2a55aa11ea2925609598759f3bdef3d99a3640e252387506293941e31743dec"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unreadable/002.json",
+      "sha256": "06ded03e09ef88c89558a92e736acc43c1dc0bf971bb4cc4806633a42c13548b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unreadable/001.json",
+      "sha256": "a1e695177ff8ebe3272de9078325b2f0eebc0c9d01a3c7e7b6231daef7ab1d54"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-unreadable/002.json",
+      "sha256": "7a4f3253878cda418c6087ed73ee13bcd281442ca7597eba1280c463272e0730"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-unreadable/001.json",
+      "sha256": "8fbab8355f4b62630692838bc7ec85953d9d7dbc28a7919359629ce4211f2056"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-altered/002.json",
+      "sha256": "298a36d3ccbfdbb8048fb770fd93acf8f910f5a123a01d154a82c4b882db42d0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-altered/001.json",
+      "sha256": "9575d183301bd25f4726759a860b853fdc2a05f7102d591a51e2b6eed8e4ffd0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-missing/002.json",
+      "sha256": "0cac6501af15d79a157303e5315cc70800a4a6d54239110ed3c6639684b8795b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-missing/001.json",
+      "sha256": "3e09b2d077dde4581ef8c0d0310c0318a83eaee645f80b0255f790e24ed6c43c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-unreadable/002.json",
+      "sha256": "d840b6f33a3fcdcf4f8fb5f967b4c0676f255d6919ce88cbf67d5fd8d9205f71"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-unreadable/001.json",
+      "sha256": "39a6efdb89b3fd52984ce658b796721b75778758cc5966c9b0d34c622e4ffcb4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-unreadable/002.json",
+      "sha256": "b0c397e89eeb4f46158474bb11a7d3701eb513749e0a6639e6409b13d77959b4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-unreadable/001.json",
+      "sha256": "418e575b0eeb74d4cf2e88d6bf276bb6b5bddb0de4d1529566c5721fce468246"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-missing/002.json",
+      "sha256": "0fcc887c12ddd92ad5a0341b8919593a25ed8f8b8fe775bbeb5c50bb84b188a6"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-missing/001.json",
+      "sha256": "3ac4d7ffc839bfde8d0a373dd12b3be99857eff0e9c3cfe606240582aff8b086"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-bytes/002.json",
+      "sha256": "d5bb41c3bd80b68b549e67de0217c94347e0da93f8ab9510f97c9ddfca06bd6b"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-bytes/001.json",
+      "sha256": "ab6d586efd9e57979b62a3b09547f3b03f9ac5518ed505df76c13ef308a31c67"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-altered/002.json",
+      "sha256": "ee7b9e17cfbaa19e385e7639d433e3fc8d1e78add1bed9a9401680c070a245cf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-altered/001.json",
+      "sha256": "581d6631f491db3f040e275ebd01b4b251005ca54bceb0b386a1bb37f1ee2f15"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-missing/002.json",
+      "sha256": "38ee605c619a1e3cb3b2bbc93d8bca91b8875706470db73ba5e761d39d6a81b0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-missing/001.json",
+      "sha256": "477c608dd6488e9f9396b02bb04a7b98b3bd1ad93ff53eb06c4f52f79bb0a1da"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-altered/002.json",
+      "sha256": "0c7241a2b485fa3644f242f5e57acc014809622eada109f279fa0a2453278361"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-altered/001.json",
+      "sha256": "3e36b4a51d8039facc953a60fc947f2805593ae701fe34a1be81007fe3d3f2a9"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-DT-1-only/002.json",
+      "sha256": "12a141081ad3f54a5e2784076a29b76641e0a0d2f5610cf03cfc59b96eced479"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-DT-1-only/001.json",
+      "sha256": "7d2bcdaa8ea1297f4ffbcc7e4c4bab8076ffb616c58ba1dba01d1062932334d8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-NP-1-only/002.json",
+      "sha256": "06d8623898034dfa270e33a4b4906a7db646271888fe830f531500a595d5840c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-NP-1-only/001.json",
+      "sha256": "1b1618d1238019cc8b386a9c4a5f32998b3ef6eded548d26880137e7eb1c6182"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/projection-only-is-insufficient/002.json",
+      "sha256": "1ab331cd6da6542b5e43b608f6700e736343f8e6ecdebc972bb137afc8d952be"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/projection-only-is-insufficient/001.json",
+      "sha256": "0a0455112f3a297b977568f4aacc438f9442f251d4a8975b7728f62d95eac4bb"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-missing/002.json",
+      "sha256": "509103c9f8c41e2530c34bcaeb6eb1e8ad8e061861bb071cce90c3d6a6ebf841"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-missing/001.json",
+      "sha256": "3846b4588bde7a3ead500034787584b6b625c0711c19daec05ac736be4af15f8"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-altered/002.json",
+      "sha256": "888b9d018a059b4fb498c4344c77aa2bae7cecba125615b9bbec466733f2c911"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-altered/001.json",
+      "sha256": "1ca165a8b9af43d0a24092a614c30af6f6dbd3034acbb650c49f487fa120d052"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-repository-wrong/002.json",
+      "sha256": "68b685183aa3b315bb4f1f94fcc48c7ca7105ae5913b1da52e2b540776b8c2c0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-repository-wrong/001.json",
+      "sha256": "e5f38e9bc901a78cfcb1cc009f65becd7ed63d62f20411b289c46aee32f4b1ec"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-missing/002.json",
+      "sha256": "8866251199eddc0199509dea0b2c6d65bea7fbd6df24e6f6422e0999c719c8c7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-missing/001.json",
+      "sha256": "aa428de7ad099a43af5f868d494e19a1a9acdf80ed02f125747b40f4d7a20e4f"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-frozen-closure-drift/002.json",
+      "sha256": "512deb0a32032b6348f557e6f1130a14ce8952d9f91ee58adcfc9e408db47da7"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-frozen-closure-drift/001.json",
+      "sha256": "d95ae02f65166242c51db4e12a83c32c63d3ec3a81e200de952850b987789466"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-altered/002.json",
+      "sha256": "428de134d78001c6d626ec9907f3b1c316dca4edae4fa5c3316d9c14c1c8da45"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-altered/001.json",
+      "sha256": "3f297b3bc9fc2fd66b67029a8eddad73bab16c17260398ea5637e3c21aa0cfd5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-mode/002.json",
+      "sha256": "b7409ed3a3b1962f5dd95a8ed783eb6223b5fed77ebdf0d35fd8427c7819c13a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-mode/001.json",
+      "sha256": "d14a8777f4f91e784c5b088e1e830435451a112772e1414cd5a7d63ad4a6dc46"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/directory-is-not-package/002.json",
+      "sha256": "53c5cdde91e3da918a98758075ba3a159c8787c5a5aaf428f9be238867830283"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/directory-is-not-package/001.json",
+      "sha256": "ac9437afccd013435311ead2f43cb34860ee61fe5e3d6e88b17b9e592c992fe4"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/full-prerelease-proofs-postrelease-pending/002.json",
+      "sha256": "6ed57ef36f9dcb148509570c671b29ca155438538303b4c8787e8ad7c02b3942"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/full-prerelease-proofs-postrelease-pending/001.json",
+      "sha256": "c3e1211c9fe7e07697f1073623f657a40df836a5d4695ff87ed252bb777c0406"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unknown-key/002.json",
+      "sha256": "614128b04dd4f13d6e23517783f6e979b8a30d885b18cfcd99241d652de503e2"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unknown-key/001.json",
+      "sha256": "930a0b86ead80b625b188793d774fa6bfb9c5f212d196e0304ebf2a6284b2aef"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-unreadable/002.json",
+      "sha256": "2d113bfa851e3239b2f8d1cd70cec6a6e57a8180eb87820b00f87749f14d17ec"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-unreadable/001.json",
+      "sha256": "81a1ed50372e43e52518509cf0ad91c2e3844303ff42a6ff151b50bdd094ff87"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-unreadable/002.json",
+      "sha256": "89e0b3e904206ee8604e8b3ba6805c079cf43b7c0bbb4d5f01e4dadbd0babfa5"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-unreadable/001.json",
+      "sha256": "815f0a13f21ec522194cff5246cb93de02e114a96e68dc74f963b8f55d54175e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-unreadable/002.json",
+      "sha256": "65b9b1f55a2865392f4c6891ec5cec36d14c46085665d39e615cd53f0b888c40"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-unreadable/001.json",
+      "sha256": "6ef57eeb9db4be43a0de0d9b61687e4cadd0b20dc7ba901c20683063be7e8d1c"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/omitted-github-preserve/002.json",
+      "sha256": "c2b0aea1d865157a6e70c856ee1311a8dd8551f8c0ce7c6363e2cf4388bbba0a"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/omitted-github-preserve/001.json",
+      "sha256": "f48d66bb49fa52d3b067a5a8bde41ad3a3588388afe1dec0461745548b280f47"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-altered/002.json",
+      "sha256": "ae5b9884d5a7170c62e75b147928ca1c01be73af82a06db2f75cb45ac8eb77b1"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-altered/001.json",
+      "sha256": "d27c6f49a7939f3dadbf5871005571a84dae924432be695c67da8a6e2b1189bf"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-missing/002.json",
+      "sha256": "9b25866cb47ecb8886142361e6178828765a428602f133c0b74d633bdb4bc229"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-missing/001.json",
+      "sha256": "1772d2720cec216c9fbad099c4711d21afd8eba26967e4e0f6ece4fbbc6f5124"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-body-mismatch/002.json",
+      "sha256": "0e3bcb80fd6090bad68c4b97b07bfedafe8978fdce707c675f65db763553e7f0"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-body-mismatch/001.json",
+      "sha256": "e4b36d4f21508b8180794eef392ea2a8167983aad0bb7077d1d583cf57761e63"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-unreadable/002.json",
+      "sha256": "fb30555cb1dee9e140205f84b13493889852d736692b49426040175e05cd221e"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-unreadable/001.json",
+      "sha256": "20f94470937d86125377e7ab81bd5169eec454edcc7b5c751afb320f017b35cb"
+    }
+  ],
+  "results": [
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-package-census-empty/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-wrong-authority-kind/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/payload-digest-mismatch/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/baseline-stale-newer-tag/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-duplicate-key/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-relocated-same-frozen-content/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-actor-mismatch/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/ready-tree-explicit-preserve/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-stale-E/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/previous-archive-unavailable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-only-projection-insufficient/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-stale-R/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P05-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/input-includes-identical-owned-file/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P04-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P01-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-bytes/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P06-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P03-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-DT-1-only/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/complete-CI-NP-1-only/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/projection-only-is-insufficient/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P03-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-repository-wrong/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P02-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-frozen-closure-drift/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/receiving-owned-mode/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/directory-is-not-package/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/full-prerelease-proofs-postrelease-pending/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-unknown-key/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/NP-P02-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P02-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/omitted-github-preserve/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-A2590-P01-altered/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/DT-P01-missing/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-review-event-body-mismatch/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    },
+    {
+      "path": "captures/TestReleaseSupplyCandidatePreflight__candidate_contract/producer-authorization-unreadable/sut.stdout",
+      "sha256": "f3776d037fd71ac14565d75b3ca8da82a5ff97d1be29083ff9613612ecedfe8a",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION"
+    }
+  ]
+}

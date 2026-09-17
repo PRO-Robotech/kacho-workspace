@@ -56,7 +56,7 @@
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
     "interface_sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
     "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
-    "route_sha256": "c3861a42a63f08a5921e1c7007fb8e3221f5ab5dfa4d91200925ab4e73066049",
+    "route_sha256": "2e6f80207eb329962d962b41a6d2345f2163130cbf5e0c831a04b01a3a43aaf9",
     "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
   },
   "reviews": [
@@ -144,6 +144,90 @@
       "remaining": [
         "27 cases остаются CAPABILITY_ABSENT, semantic decisions 0",
         "Полный T1 из 22 сценариев, остальной source/P9, runtime/protected release/closure"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "Nested-module correction только archive.go и consumers.go; 2 реальных решения, lawful false RED. Старые 27 cases и schema неизменны."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMVAMQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717180465",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/nested-scoped-red-5717180465.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Bounded consumer/nested implementation: 39 RUN / 39 PASS / 0 SKIP, 29 SUT cases, 221 capture pairs. Остальные режимы отдельны."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMivtg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717405622",
+      "record": "docs/changes/ci-release-supply/reviews/integration-tester/consumer-scoped-green-5717405622.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "14 SUT calls вернули USAGE_ERROR неподдержанного pins mode; разрешены только pins.go, manifest.go, consumers.go. Это не 14 отдельных semantic pin findings."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMi23g",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717407454",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/pins-scoped-red-5717407454.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Producer review R и execution E — отдельные subjects/authority events; exact input_files serialization. Синтетические vectors не дают live D8 authority."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMmnVA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717469012",
+      "record": "docs/changes/ci-release-supply/reviews/system-design-reviewer/serialization-routine-5717469012.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Bounded pins и consumer regression: 56 RUN / 56 PASS / 0 SKIP, 43 SUT reports, 376 capture pairs. Live pins/main этим не утверждаются."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMwRSw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717627211",
+      "record": "docs/changes/ci-release-supply/reviews/integration-tester/pins-scoped-green-5717627211.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Publisher admission и release-note protocol в существующем CLI; read-only probe, bounded readback после потерянного ответа без retry write. Только holder vocabulary, не source/live authorization."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNJXnA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718038428",
+      "record": "docs/changes/ci-release-supply/reviews/system-design-reviewer/publisher-routine-5718038428.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "61 реальный compiled SUT call вернул schema-valid unsupported candidate mode; 64 RUN / 1 PASS / 63 FAIL / 0 SKIP. Разрешены ровно 6 source paths; additive publisher test coordinate отдельно, без publisher source authority."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNN7Pg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718113086",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/candidate-scoped-red-5718113086.yaml",
+      "remaining": [
+        "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
       ]
     }
   ]

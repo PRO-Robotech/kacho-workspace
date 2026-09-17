@@ -1,0 +1,14 @@
+{
+  "status": "BOUNDED_RECOGNITION_CLARIFICATION_ACCEPTED_FOR_INDEPENDENT_HOLDER_ONLY",
+  "author": "/root/release_supply_arch",
+  "reviewer": "/root",
+  "bindings": {
+    "proposal-v1.md": "49bee3107622723e84e4bfb24ec6f36341d41bb9f9821f5086dd006c7cdde213",
+    "grammar-amendment-v2.md": "a00c2aa948704e1c741d6f6a06b4654c55e9a8b1f3af3ea9b37935c6dc160a15",
+    "project_probe.json": "15df847be96dec1241fb2086143cc05bcef9fb32f626b5c88b0577158738a6fa"
+  },
+  "read_scope": "Full proposal+grammar amendment, actual currentcarriers.py, acceptedinterface and design examined",
+  "obligations": "Complete implicit syntax recognition followed by strict original-byte decode; positively introduced malformedobjects refuse; entiretext/remainder scanned; four explicitBasicsourceclasses strictwhole-token; ordinaryBasicwordrequires decodedcredentialshape before canonicalvalidation; no source-specific exceptions. Existing immutable injection and exact node/depth/byte budget holders must remain valid.",
+  "authority": "Independent holder only; no source authorization until capturedRED and newroottransition",
+  "excluded": "binarydecodedrefusals, truecapacity limits, retentionreclassification/actions, consumerdelivery/runtime/main"
+}

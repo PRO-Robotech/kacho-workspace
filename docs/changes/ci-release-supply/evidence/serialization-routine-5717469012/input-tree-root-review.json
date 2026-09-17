@@ -1,0 +1,15 @@
+{
+  "root_recomputed": 7,
+  "vectors": [
+    "lawful",
+    "changed-mode",
+    "changed-path",
+    "changed-content",
+    "omitted-entry",
+    "nonascii-and-html",
+    "unicode-line-separator"
+  ],
+  "addendum_sha256": "8710538ee6d9a2a474f7f77ddd6b8f760fcf81a0583117288023d4b54237389d",
+  "vectors_sha256": "9089de8ee6cf0317abb36229a3971891c290a166e83abc7af62c256a1f3e3d7a",
+  "status": "ROUTINE_BYTES_CONFIRMED_NOT_SUT_VERDICT"
+}

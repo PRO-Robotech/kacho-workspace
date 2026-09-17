@@ -218,3 +218,31 @@ Recorder /root/e2e_audit переносит независимый резуль�
 Global TASKS_READY сохраняется: consumer workflows/pins, полный runtime,
 retention/containment/prelanding, module release, main и closure ещё требуются.
 Реальные retention archives и их содержимое в этот пакет не включены.
+
+
+## Последующие независимые этапы, 2026-09-17
+
+Recorder /root/e2e_audit переносит опубликованные выводы /root. Авторский GREEN
+не заменяет независимый root verdict; прежние события и попытки сохранены побайтно.
+
+Событие [5717201675](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717201675): Finite recognition clarification для отдельного независимого holder; 4 explicit Basic classes, complete spans/remainders и прежние limits. Source этим событием не разрешён.
+Record: reviews/system-design-reviewer/recognizer-grammar-5717201675.yaml.
+
+Событие [5717494801](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717494801): 158 recognition inputs и 14 accounting shapes; оба parents semantic FAIL, 0 ERROR/SKIP. Разрешён только carriers.py, old holders/limits неизменны.
+Record: reviews/landing-reviewer/recognizer-scoped-red-5717494801.yaml.
+
+Событие [5717756590](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717756590): Root воспроизвёл FileExistsError: 1 ERROR, 151 captures, 26 readers. Разрешена одна suffix expression в test_recognizer_boundaries.py; это holder defect, не product RED.
+Record: reviews/landing-reviewer/recognizer-holder-correction-5717756590.yaml.
+
+Событие [5718031900](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5718031900): Root combined replay: 23 Python + 46 SDK PASS, 0 FAIL/SKIP; 5031 capture pairs, 1186 readers. Recognition 158/504, accounting 14/136, все 83 negative pairs установлены.
+Record: reviews/integration-tester/recognizer-scoped-green-5718031900.yaml.
+
+При GREEN 5718031900 root самостоятельно исполнил полный корпус на aggregate
+ce4671772757b2e735ad2764e59bae5882571f1d, tree
+92a53fcbf7d538f9e6fded81f7004932c7fa91ab. Source bb8bdb7 принадлежит
+/root/release_supply_arch; независимые holder ff41e75 и отдельная correction
+035b5ad принадлежат /root/e2e_audit. Исходный RED и FileExistsError сохранены.
+Scanner 461, config 120, historical 28 и прежние limits не менялись.
+Прогон synthetic/local не устанавливает live retention/runtime success.
+Global TASKS_READY сохраняется: consumer workflows/pins, runtime,
+retention/containment/prelanding, module release/main и closure ещё требуются.

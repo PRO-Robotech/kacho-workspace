@@ -33,7 +33,7 @@
     "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
     "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
     "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
-    "route_sha256": "289c1e30252abdf3fc17fa75b17b2849f34639eabeb414f1b7677a90c6bb50da",
+    "route_sha256": "0c5c33c52d266bf86c94c90ecc765f04682608f192e251471246841c2eb1523a",
     "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
     "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
     "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
@@ -295,6 +295,54 @@
         "Consumer workflows/pins",
         "Полный runtime, retention/containment/prelanding",
         "Module release/main и closure"
+      ]
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Finite recognition clarification для отдельного независимого holder; 4 explicit Basic classes, complete spans/remainders и прежние limits. Source этим событием не разрешён."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMWTCw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717201675",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/recognizer-grammar-5717201675.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "158 recognition inputs и 14 accounting shapes; оба parents semantic FAIL, 0 ERROR/SKIP. Разрешён только carriers.py, old holders/limits неизменны."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMoMEQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717494801",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/recognizer-scoped-red-5717494801.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "APPROVED_BOUNDED_TEST_ONLY_CORRECTION",
+      "scope": [
+        "Root воспроизвёл FileExistsError: 1 ERROR, 151 captures, 26 readers. Разрешена одна suffix expression в test_recognizer_boundaries.py; это holder defect, не product RED."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVM4Krg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717756590",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/recognizer-holder-correction-5717756590.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Root combined replay: 23 Python + 46 SDK PASS, 0 FAIL/SKIP; 5031 capture pairs, 1186 readers. Recognition 158/504, accounting 14/136, все 83 negative pairs установлены."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNI-HA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5718031900",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/recognizer-scoped-green-5718031900.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
       ]
     }
   ]

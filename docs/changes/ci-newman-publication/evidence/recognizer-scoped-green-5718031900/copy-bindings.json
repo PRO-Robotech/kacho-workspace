@@ -1,0 +1,58 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/event-body.txt",
+      "sha256": "b99c825cb34c884671a40880899aa2ad189f5a5f9792f08f38c0109c53588503"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/published-event.json",
+      "sha256": "5c61bfa4bab1713652d98e5c0ea4623253bccc056935ba992196cec65b2d9bc6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/api-readback.json",
+      "sha256": "5c61bfa4bab1713652d98e5c0ea4623253bccc056935ba992196cec65b2d9bc6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/request.json",
+      "sha256": "4052f4aa9d7c2228dd1c4ee01284bc7a52328b5d633130e1d69d9b1d75c0ca8b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/root-review.json",
+      "sha256": "81a77546842288da143a424d8dfa64d0b19f173600dd0756d24354b90d96a677"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/input.json",
+      "sha256": "d3ba5824493cd415f7869e838373ed9e35747bb4e7f822c962eef0a1b0933652"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/result.json",
+      "sha256": "851876bd696e5787bb17bab102c5c246fd8bc385153b556cb5af52e0f661818b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/start.json",
+      "sha256": "00be6e1a30510b0a5f48a3d920eabcef24fb3273891f07e26e5e3e7383514b7a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/verified-captures.json",
+      "sha256": "0dccee0ce718dff11036fac4a3fdccc4424ce0e55381f4a117204c0a6a4fa060"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/recognizer-recognition-summary.json",
+      "sha256": "70c28f37fb1fae862cdda4dba7cc3623de2acdb37d57d3fd9325ca9f3fa235da"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/recognizer-accounting-summary.json",
+      "sha256": "fe4d19bd2dd6b22fb7f3555db28b49281cfd8c6165568bfcaf84a60e0f595f4d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/carrier-summary.json",
+      "sha256": "13fcd290bd98cbd40075afe2c8bbedf63bcd6c0f78a62c32a93e39b0aaa71558"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-green-5718031900/historical-summary.json",
+      "sha256": "c10c4bca854d81e663ff8017cb4a96947b4000ed5cde49724e5796111be7acae"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

@@ -1,0 +1,34 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/event-body.txt",
+      "sha256": "30059b72c32791277c8e4980d8b152896aef42824efd5b458942aa272680b273"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/published-event.json",
+      "sha256": "8dd37848b7012271423632ba025a057b1d0eae47be48ca8682874ca43e87e991"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/api-readback.json",
+      "sha256": "8dd37848b7012271423632ba025a057b1d0eae47be48ca8682874ca43e87e991"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/request.json",
+      "sha256": "5828c1955d59ce30bfa20e2bba8635ea647ceaebab9205b2f911221d7f536fd8"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/review.json",
+      "sha256": "7b5aaec98be58ce9b051fd5287e5ed677aaf1c3d71a5a35520ab5a403094504c"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/proposal-v1.txt",
+      "sha256": "49bee3107622723e84e4bfb24ec6f36341d41bb9f9821f5086dd006c7cdde213"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-grammar-5717201675/grammar-amendment-v2.txt",
+      "sha256": "a00c2aa948704e1c741d6f6a06b4654c55e9a8b1f3af3ea9b37935c6dc160a15"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

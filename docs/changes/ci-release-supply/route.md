@@ -82,3 +82,37 @@ Global TASKS_READY, все 22 сценария и accepted subjects неизме
 Полный T1, остальной T2 source, candidate/pins/publisher/P9 wiring, полные
 регрессии, отдельная D8 authority, protected delivery и closure остаются pending.
 Эти записи не объявляют full release-supply GREEN или разрешение live release.
+
+
+## Последующие независимые этапы, 2026-09-17
+
+Recorder /root/e2e_audit переносит опубликованные выводы /root. Авторский GREEN
+не заменяет независимый root verdict; прежние события и попытки сохранены побайтно.
+
+Событие [5717180465](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717180465): Nested-module correction только archive.go и consumers.go; 2 реальных решения, lawful false RED. Старые 27 cases и schema неизменны.
+Record: reviews/landing-reviewer/nested-scoped-red-5717180465.yaml.
+
+Событие [5717405622](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717405622): Bounded consumer/nested implementation: 39 RUN / 39 PASS / 0 SKIP, 29 SUT cases, 221 capture pairs. Остальные режимы отдельны.
+Record: reviews/integration-tester/consumer-scoped-green-5717405622.yaml.
+
+Событие [5717407454](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717407454): 14 SUT calls вернули USAGE_ERROR неподдержанного pins mode; разрешены только pins.go, manifest.go, consumers.go. Это не 14 отдельных semantic pin findings.
+Record: reviews/landing-reviewer/pins-scoped-red-5717407454.yaml.
+
+Событие [5717469012](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717469012): Producer review R и execution E — отдельные subjects/authority events; exact input_files serialization. Синтетические vectors не дают live D8 authority.
+Record: reviews/system-design-reviewer/serialization-routine-5717469012.yaml.
+
+Событие [5717627211](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717627211): Bounded pins и consumer regression: 56 RUN / 56 PASS / 0 SKIP, 43 SUT reports, 376 capture pairs. Live pins/main этим не утверждаются.
+Record: reviews/integration-tester/pins-scoped-green-5717627211.yaml.
+
+Событие [5718038428](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718038428): Publisher admission и release-note protocol в существующем CLI; read-only probe, bounded readback после потерянного ответа без retry write. Только holder vocabulary, не source/live authorization.
+Record: reviews/system-design-reviewer/publisher-routine-5718038428.yaml.
+
+Событие [5718113086](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718113086): 61 реальный compiled SUT call вернул schema-valid unsupported candidate mode; 64 RUN / 1 PASS / 63 FAIL / 0 SKIP. Разрешены ровно 6 source paths; additive publisher test coordinate отдельно, без publisher source authority.
+Record: reviews/landing-reviewer/candidate-scoped-red-5718113086.yaml.
+
+Consumer и pins GREEN относятся к указанным bounded implementations.
+Candidate source допущен отдельно событием 5718113086 только в шести путях;
+publisher routine и additive holder placement не разрешают publisher source.
+Полный T1 из 22 сценариев, producer review/actual D8 authority, P9 wiring,
+protected release и последующие consumer/main predicates ещё не завершены.
+Global TASKS_READY сохраняется. Synthetic authority fixtures не дают live полномочий.

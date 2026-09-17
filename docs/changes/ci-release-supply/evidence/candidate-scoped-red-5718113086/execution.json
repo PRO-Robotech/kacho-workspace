@@ -1,0 +1,15 @@
+{
+  "head": "daae559b40bc18c16798283ea376826adbcf6ea9",
+  "tree": "568df5c607c632ddd0d73675b1a2812ff469f020",
+  "rc": 1,
+  "seconds": 24.810245613043662,
+  "counts": {
+    "run": 64,
+    "pass": 1,
+    "fail": 63,
+    "skip": 0
+  },
+  "source_and_holders_unchanged": true,
+  "stdout_sha256": "f3659c22ff7ca2ebed5869659d9e9a72b32e8a906021d92fb5b9eb64f70a1d67",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

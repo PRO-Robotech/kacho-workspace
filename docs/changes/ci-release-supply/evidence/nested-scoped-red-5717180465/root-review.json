@@ -1,0 +1,244 @@
+{
+  "status": "ROOT_SCOPED_SEMANTIC_RED_SOURCE_CORRECTION_AUTHORIZED",
+  "source_author": "e94b43354d73e4c164d62a70e247fae4757e9b0a",
+  "aggregate": "faba15027a217204950da259bd13bc1857b96e53",
+  "holder": "6b86334c417c281d9968f7138498a88685e22a0b",
+  "holder_sha256": "f0ef2e53afc058b3249f3cc66567c345f3decce7775327833a23902dc53934e2",
+  "all230holder_lines_reviewed": true,
+  "frozen_manifest_entries_verified": 360,
+  "root_execution": {
+    "argv": [
+      "go",
+      "test",
+      "./internal/release",
+      "-run",
+      "^TestReleaseConsumerSeparatelyRequiredNestedModule$",
+      "-count=1",
+      "-json",
+      "-timeout=10m"
+    ],
+    "head": "faba15027a217204950da259bd13bc1857b96e53",
+    "rc": 1,
+    "seconds": 4.170640612021089,
+    "tests": {
+      "run": 3,
+      "output": 54,
+      "fail": 2,
+      "pass": 1
+    },
+    "stdout_sha256": "2539f6a6f1fa12c11bada1b9c4113ab30b71866f7bb196f867ffef81093d7dee",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "failure_lines": [
+      "consumer_nested_module_test.go:198: SEMANTIC_MISMATCH: wantGREEN/OK/0 actual exit1 map[candidate_sha:8bd14e877ed84fc4bfe9defef64a64be7381606a census:map[candidate_packages:<nil> consumer_imports:1 consumers:1 input_files:2 internal_requirements:<nil> modules:<nil> payload_files:<nil> preserved_files:<nil> previous_packages:<nil> pseudo_versions:<nil> required_checks:<nil> resolved_pins:<nil>] checks:[map[examined:1 outcome:GREEN predicate:invocation reason:OK subjects:[consumers]] map[examined:1 outcome:GREEN predicate:identity reason:OK subjects:[PRO-Robotech/corelib 8bd14e877ed84fc4bfe9defef64a64be7381606a]] map[examined:2 outcome:GREEN predicate:input reason:OK subjects:[PRO-Robotech/corelib 8bd14e877ed84fc4bfe9defef64a64be7381606a 34a1fdd68bf0f910c266378ad1b1b8b83818dd24f30d7498fdf36dbc8b9f39d6]] map[examined:1 outcome:GREEN predicate:consumer-census reason:OK subjects:[PRO-Robotech/kacho@bdd4a73f4d307189c4bf07bdd59004f944fba4a4]] map[examined:1 outcome:RED predicate:consumer-archive reason:CONSUMER_I",
+      "consumer_nested_module_test.go:215: SEMANTIC_MISMATCH: lawful predicateconsumer-archive isRED"
+    ],
+    "source_and_original_holder_unchanged": true,
+    "clean": true,
+    "finished_at": "2026-09-17T15:41:19.322049+00:00"
+  },
+  "root_results": [
+    {
+      "case": "missing-parent-package-with-lawful-cache",
+      "outcome": "RED",
+      "reason": "CONSUMER_IMPORT_MISSING",
+      "exit_code": 1,
+      "sha256": "5af039df11cbd3f8af8d699f29e6816178f5c53c32a0d510c64901225c8ba692"
+    },
+    {
+      "case": "lawful-separate-required-nested",
+      "outcome": "RED",
+      "reason": "CONSUMER_IMPORT_MISSING",
+      "exit_code": 1,
+      "sha256": "28e4cd009d34732504d164b668c0ee135aa78c8b8939e86b57c699abe1275410"
+    }
+  ],
+  "root_capture_pairs_verified": 45,
+  "records": [
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/041.json",
+      "sha256": "ca5705a1f6268cb035bfbbbd1bb6f1f736d3a177b458af48a46b2ecae9351421"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/024.json",
+      "sha256": "7291eb89b3f25c4f7921169cdf225d2ed7ed0fa00262707cf3535bc9dae09ce7"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/009.json",
+      "sha256": "8af502d7753a8c11416058f43687606bf51f8a90c7c818841e67cdea89409009"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/021.json",
+      "sha256": "73b94c5be333cbaa797204e0378fe505f6c80e5bacf734b81875e43901697173"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/003.json",
+      "sha256": "b896b9762ed0cdf554694ae435814297947a648126b8afcec20bedf5f684a65f"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/023.json",
+      "sha256": "d740ed86de39b3d5bcc5629a177877a0f616bc625455ce001b68030403edd7bc"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/022.json",
+      "sha256": "f5d6f5406717069c4a08d3c42f27f681710e4286615c7f21e516291f8822bf5d"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/029.json",
+      "sha256": "9b360b97110aad83ffdf859b69d2c0b30ad2be906316fe3f1931d560be79eb8f"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/039.json",
+      "sha256": "40df59ebd5422066b195547ae8f6c2602fe91c97e27b1eab30fa58d545c9c480"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/002.json",
+      "sha256": "d7c6178a6b55802f30f528ddd9a66fa3132edc8d3d011689e0dcec86bc66d31e"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/008.json",
+      "sha256": "4ec12db9abc83d1cca71f41445b69307e4bf7f5d6b9bd5d5e7dc2abb70e0075e"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/020.json",
+      "sha256": "5c955049e60c9698591d945032edb66f9a6891afd0be03bb079b7672d119ee13"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/012.json",
+      "sha256": "f763221d65ba8f7be1ff76a38ac50c384d33c265059ea5e9cc7795b663e55cec"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/026.json",
+      "sha256": "66cb869e7b968efd942953aa3a190f5beeae6bce0a05052fa70527336a81ca42"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/006.json",
+      "sha256": "e614c352be4eef5ebd49c09c8233600c0d500729d190809d8fdfd8d65a21605c"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/004.json",
+      "sha256": "7962e2d0ac058fe395d20dac849cf937cd66d41e3894fa8368dbd1f716978af7"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/016.json",
+      "sha256": "884200ae961ba6d642dad66aa88e5f2c0428cf6ab2b154d4d77364c9df182ea5"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/001.json",
+      "sha256": "442d3b0f104301e5e3480904ba3aa06f512770098f3b8f288f451ba433afc9ff"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/005.json",
+      "sha256": "23b148a2b591b4701b512388264fbb25d6f554f385ec789eaa0b64a4ac92baec"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/038.json",
+      "sha256": "b2499968331984659832f279f4887e529b6bb39a5d1ddaf4551c4fe4a5b697e9"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/018.json",
+      "sha256": "a31290fbe524efb8bc8cf81a644aafcc5c0aa3be83fd0c6c2bd91f8f19c5799e"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/040.json",
+      "sha256": "e5f6da56c53e2ee66965533f276f9a0cb54e714be6e24dd2ad021418122b9375"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/031.json",
+      "sha256": "2a8214957665746d9c1c26fcb23cb75b89f32713a3578af36a3867a64ef6b611"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/015.json",
+      "sha256": "2517cacd808695437960b52a27a8f7d20182605e1b6b8cd21edfed10189898b8"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/017.json",
+      "sha256": "a1587d8fa29ac6114228acb6f16df5dc210d87cd50bc2a88502d6a5235bc7e5e"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/028.json",
+      "sha256": "6a624b4a16260e95fb9a48d0e3f721a345e893d61ab14b1cae2f6309e7019fb6"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/014.json",
+      "sha256": "d0a83442b36ecfe0c85af9979cfa3bcf91101c92d32db654a309493f678c4ec0"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/032.json",
+      "sha256": "9c47e33efeb6fc921b91da8b3e94199d3907ed677a70abca5e9b31ce495ad58b"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/010.json",
+      "sha256": "529adb77fe19eaa2ff7eb3b12582475e54ddbd415a5098b7dd98b71278d95812"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/035.json",
+      "sha256": "f66dad0a59b5930ad0a4c0c3201dc327d144003bc82f13fa5e59cea21686cd99"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/034.json",
+      "sha256": "777838983fc260ff5c401a88ca0e275a175481073cdaecf8260b7816fb892899"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/037.json",
+      "sha256": "23e3d9c07bb7c26ca7370953aa5eca410578f0a83de69ebaf7f11fdc2f9b4ffb"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/019.json",
+      "sha256": "127c480d1ccbbb58e58c8611f78a0cd9b8c7da4e41e5bcd2cd0d51a94a8156fa"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/007.json",
+      "sha256": "ed6c0384c641ebf681e34cca0f08040d3f1bd101dd155567a6c02446b78a16cd"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/011.json",
+      "sha256": "d4445c43e48c5da3b5aef2ae5a68a2cde6f1ec7b6defae6a4773ac0bfded0f0e"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/036.json",
+      "sha256": "4f993468b59df7ae1b759677a8115814d8330c85008de4c4ebc0d7c7105ed3e8"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/013.json",
+      "sha256": "303a31d04d316496496ca3229e44dfbe220a094a1d743b69b3c9556936f297ed"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/033.json",
+      "sha256": "4637588cc9a66c7b15c96810d17d728309a14d5ed8b420301b0de6e9439afe66"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/030.json",
+      "sha256": "f061929eee8b52c811e34ccf5188244864ecefd17dcb4f7c08da9fcb4348c8e4"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/025.json",
+      "sha256": "8c7061ff3f8d816d3f9928781012328595121a1317ca7163d583dc9d33229f32"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/027.json",
+      "sha256": "3490a73b761f921e1328ff0d9d33520c850b4fe49310880bc9a63b6ea465046c"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/missing-parent-package-with-lawful-cache/002.json",
+      "sha256": "9a8d44fd29e307c623a3d005e384a6ea9f8a4375023cea9106dac9967af58068"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/missing-parent-package-with-lawful-cache/001.json",
+      "sha256": "558d3d0864e1d4c67250cdcc38c88e240e2d75fec6bc9d0122de4ad111e537ed"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/lawful-separate-required-nested/002.json",
+      "sha256": "43de58992d85eeda32ca359074ac79843a76033c20cdc8559a04b361a75b5656"
+    },
+    {
+      "path": "captures/TestReleaseConsumerSeparatelyRequiredNestedModule/lawful-separate-required-nested/001.json",
+      "sha256": "7206773a03ceac8799a3dccb50403d11e6229745e1f606229113bf0efaa46300"
+    }
+  ],
+  "observed": "Combined lawful nested-module path returns falseRED; actualGo controls build2modules, parentcensus1. Missingnested ZIP in dependencyproxy observed; two distinctruntime defects not claimed",
+  "allowed_source_paths": [
+    "internal/release/archive.go",
+    "internal/release/consumers.go"
+  ],
+  "preserved": "old27 scenarios, fulllegacy/sourcecontracts, exacttargetarchive identity and no targetcachefallback"
+}

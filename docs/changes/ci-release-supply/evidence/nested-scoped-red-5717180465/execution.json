@@ -1,0 +1,30 @@
+{
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-run",
+    "^TestReleaseConsumerSeparatelyRequiredNestedModule$",
+    "-count=1",
+    "-json",
+    "-timeout=10m"
+  ],
+  "head": "faba15027a217204950da259bd13bc1857b96e53",
+  "rc": 1,
+  "seconds": 4.170640612021089,
+  "tests": {
+    "run": 3,
+    "output": 54,
+    "fail": 2,
+    "pass": 1
+  },
+  "stdout_sha256": "2539f6a6f1fa12c11bada1b9c4113ab30b71866f7bb196f867ffef81093d7dee",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "failure_lines": [
+    "consumer_nested_module_test.go:198: SEMANTIC_MISMATCH: wantGREEN/OK/0 actual exit1 map[candidate_sha:8bd14e877ed84fc4bfe9defef64a64be7381606a census:map[candidate_packages:<nil> consumer_imports:1 consumers:1 input_files:2 internal_requirements:<nil> modules:<nil> payload_files:<nil> preserved_files:<nil> previous_packages:<nil> pseudo_versions:<nil> required_checks:<nil> resolved_pins:<nil>] checks:[map[examined:1 outcome:GREEN predicate:invocation reason:OK subjects:[consumers]] map[examined:1 outcome:GREEN predicate:identity reason:OK subjects:[PRO-Robotech/corelib 8bd14e877ed84fc4bfe9defef64a64be7381606a]] map[examined:2 outcome:GREEN predicate:input reason:OK subjects:[PRO-Robotech/corelib 8bd14e877ed84fc4bfe9defef64a64be7381606a 34a1fdd68bf0f910c266378ad1b1b8b83818dd24f30d7498fdf36dbc8b9f39d6]] map[examined:1 outcome:GREEN predicate:consumer-census reason:OK subjects:[PRO-Robotech/kacho@bdd4a73f4d307189c4bf07bdd59004f944fba4a4]] map[examined:1 outcome:RED predicate:consumer-archive reason:CONSUMER_I",
+    "consumer_nested_module_test.go:215: SEMANTIC_MISMATCH: lawful predicateconsumer-archive isRED"
+  ],
+  "source_and_original_holder_unchanged": true,
+  "clean": true,
+  "finished_at": "2026-09-17T15:41:19.322049+00:00"
+}

@@ -1,0 +1,15 @@
+{
+  "head": "7dba813a5a13a833b8754a50e7a07f219f08e571",
+  "argv": [
+    "python3",
+    "-B",
+    "ci/newman_publication/tests/test_recognizer_boundaries.py"
+  ],
+  "rc": 1,
+  "seconds": 79.58248580701184,
+  "stdout_sha256": "1d65728b6e3fc628aecce558c1ba37fbec48e924e634d290fa29fc27b4fc71e0",
+  "stderr_sha256": "c72f4782eca6bd3228109858413338bcfba939066cb9180ea206c0bf97fa0bff",
+  "source_and_holders_unchanged": true,
+  "clean": true,
+  "finished_at": "2026-09-17T16:04:59.379880+00:00"
+}
