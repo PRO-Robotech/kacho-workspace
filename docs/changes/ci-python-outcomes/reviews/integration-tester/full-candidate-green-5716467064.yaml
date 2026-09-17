@@ -14,7 +14,7 @@
   "recorded_by": "/root/e2e_audit",
   "publication_status": "VERIFIED",
   "authority_policy": "docs/changes/policy.yaml",
-  "event_body_coordinate": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/event-body.md",
+  "event_body_coordinate": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/event-body.txt",
   "subject_repo": "PRO-Robotech/kacho",
   "subject_commit": "0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4",
   "subject_path": "CI-PY-1 D1-D7",
@@ -33,7 +33,7 @@
       "sha256": "f3738f6461da0081e57faf13ea7d2a91290ee65d96934869ef77c2a9e50d8b36"
     },
     {
-      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/event-body.md",
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/event-body.txt",
       "sha256": "a74731e4622d9e0688fd6a3ddad9a4590e8bb1e7169e54476aa60c44d0a2c1f6"
     },
     {

@@ -20,7 +20,7 @@ hashes:
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
-  route_sha256: e5acab8ddc0553bc10668d4d83fbea84cb231ee33cbf72c7b4f6ca35b40badc7
+  route_sha256: 62b2aeac5766c5359d4b882e08112fb45b9de0c121d28ea79f18ad79c906d32f
   holders_sha256: 8610fa303d34a869409e1b23502332e423d33766eed729242c83187b5235f262
 links:
   transport_interface: docs/changes/ci-python-outcomes/transport-interface.md

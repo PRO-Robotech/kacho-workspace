@@ -160,8 +160,10 @@ accepted subjects и остальные сценарии не менялись.
 
 Последующее событие
 [5716467064](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5716467064)
-фиксирует новый независимый root run `make test-python-outcomes-integration`
-на 0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4: 3 parents и 13 scenarios,
+фиксирует новый независимый root run команды make test-python-outcomes-integration
+только на candidate 0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4. Эта цель
+отсутствует в main b5fa093341f1fdbe96adfc6a9555482690968253; запись описывает
+выполненный прогон candidate. Его результат: 3 parents и 13 scenarios,
 16 RUN / 16 PASS / 0 FAIL / 0 SKIP за 2813.318 секунды. Проверены 52 captures
 и 195 файлов доказательств; 11 source/holder hashes неизменны. Actual YAML
 final-step body исполнен с полным events input (rc0) и отсутствующим (rc1).
