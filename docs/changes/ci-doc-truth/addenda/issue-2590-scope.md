@@ -67,17 +67,17 @@ Byte coordinates относятся только к baseline с названны
 // синтетическую цепочку миграций к настоящему Postgres и проверяют порог сессии.
 // `.github/scripts/run-integration.sh` выбирает пакет по импорту `corelib/pgtest`
 // либо `testcontainers` в TestImports/XTestImports и запускает его без `-short`.
-// Скрипт вызывает job `integration` в `.github/workflows/ci.yml`; TestMain из
-// `testmain_pgtest_test.go` через pgtest.Run поднимает Postgres лениво.
+// Job `integration` в `.github/workflows/ci.yml` вызывает этот скрипт.
+// TestMain из `testmain_pgtest_test.go` через pgtest.Run поднимает Postgres лениво.
 //
 // Проверки настоящих миграций платформы принадлежат Kachō (`internal/migratorapply`).
 // Их исполнение и результат этот файл не утверждает.
 ```
 
 New paragraph SHA-256:
-`3991e2b2d542252bf02ecc28c01e9dbbb11ed6bdf6be80d84c827b19c2d80599`.
+`17682f82c425c927438fbef2fcbb026a676e9be33c8f8e3be6e454b97e3834b5`.
 Ожидаемый full-file SHA после ровно этой замены:
-`bd223ac51e5416a5f9bf2ea0edd6d9d215115434fd6b9fa0e0a9c547fbbd0e3e`.
+`c85a8ed9b06a0720fa4050e3537ee90892cb1aa81e84103aba63da7fe6125f96`.
 Hashes рассчитаны in-memory; product source этим предложением не записан.
 
 Copyright/license, название файла, следующий абзац про пары отрицаний и

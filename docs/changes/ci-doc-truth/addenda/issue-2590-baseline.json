@@ -12,13 +12,13 @@
     "last_line_one_based": 12,
     "old_bytes_utf8": "// Живой базы здесь нет по той же причине, что и у соседнего файла: пробу,\n// гейтящуюся кратким режимом, в этом пакете некому гонять (отбор интеграционной\n// джобы до `pkg/migratorcli` не достаёт). Поэтому здесь закреплено то, что\n// проверяется БЕЗ базы, — форма доставки, перепись и предел, — а то, что база\n// нужна по существу (уведомление НАСТОЯЩЕЙ миграции доезжает до вывода\n// процесса), доказывает `internal/migratorapply`, который гоняет цель\n// test-pg-outside-selection.\n",
     "old_sha256": "2417bb6f6a4f2428aeaaa8af6bdc46ed6f7c22fc921f65099147ce15501d6d02",
-    "new_bytes_utf8": "// Здесь без живой базы проверяются форма доставки через NoticeRelay, перепись\n// и предел сообщений. Уровень и текст передаются приёмнику напрямую; эти пробы\n// не доказывают доставку уведомления от настоящего сервера.\n//\n// Интеграционные пробы пакета в `noticethreshold_integration_test.go` применяют\n// синтетическую цепочку миграций к настоящему Postgres и проверяют порог сессии.\n// `.github/scripts/run-integration.sh` выбирает пакет по импорту `corelib/pgtest`\n// либо `testcontainers` в TestImports/XTestImports и запускает его без `-short`.\n// Скрипт вызывает job `integration` в `.github/workflows/ci.yml`; TestMain из\n// `testmain_pgtest_test.go` через pgtest.Run поднимает Postgres лениво.\n//\n// Проверки настоящих миграций платформы принадлежат Kachō (`internal/migratorapply`).\n// Их исполнение и результат этот файл не утверждает.\n",
-    "new_sha256": "3991e2b2d542252bf02ecc28c01e9dbbb11ed6bdf6be80d84c827b19c2d80599"
+    "new_bytes_utf8": "// Здесь без живой базы проверяются форма доставки через NoticeRelay, перепись\n// и предел сообщений. Уровень и текст передаются приёмнику напрямую; эти пробы\n// не доказывают доставку уведомления от настоящего сервера.\n//\n// Интеграционные пробы пакета в `noticethreshold_integration_test.go` применяют\n// синтетическую цепочку миграций к настоящему Postgres и проверяют порог сессии.\n// `.github/scripts/run-integration.sh` выбирает пакет по импорту `corelib/pgtest`\n// либо `testcontainers` в TestImports/XTestImports и запускает его без `-short`.\n// Job `integration` в `.github/workflows/ci.yml` вызывает этот скрипт.\n// TestMain из `testmain_pgtest_test.go` через pgtest.Run поднимает Postgres лениво.\n//\n// Проверки настоящих миграций платформы принадлежат Kachō (`internal/migratorapply`).\n// Их исполнение и результат этот файл не утверждает.\n",
+    "new_sha256": "17682f82c425c927438fbef2fcbb026a676e9be33c8f8e3be6e454b97e3834b5"
   },
   "unchanged_prefix_sha256": "625a97f7a615f6a3b09021c5d39e60526e86e1e5c25c4b941de1c6b318fd5288",
   "unchanged_suffix_sha256": "388fc23ea8785b4c9ca400550af72db177b6e12c541dd97720039b60e0c0a9ef",
-  "expected_candidate_file_sha256": "bd223ac51e5416a5f9bf2ea0edd6d9d215115434fd6b9fa0e0a9c547fbbd0e3e",
-  "expected_candidate_bytes": 10434,
+  "expected_candidate_file_sha256": "c85a8ed9b06a0720fa4050e3537ee90892cb1aa81e84103aba63da7fe6125f96",
+  "expected_candidate_bytes": 10443,
   "program_preservation": "REQUIRED independent complete tokens/position-free AST comparison without whitelist; NOT_EXECUTED by author",
   "candidate_source_written": false,
   "holder_written": false,
