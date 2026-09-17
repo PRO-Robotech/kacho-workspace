@@ -57,7 +57,7 @@
    holder получает существующий список и JSON-прогон из корня Kachō:
 
    ```sh
-   GOWORK=off go test ./internal/repohygiene -list '^Test(SubscriptionFormShape|SubscriptionShape|GRPCMountParity|CatalogReachability)'
+   GOWORK=off go test ./internal/repohygiene -list '^Test(SubscriptionFormShape|SubscriptionShape|GRPCMountParity|CatalogReachability)' -count=1
    GOWORK=off go test ./internal/repohygiene -run '^Test(SubscriptionFormShape|SubscriptionShape|GRPCMountParity|CatalogReachability)' -count=1 -json -timeout=5m
    ```
 
@@ -97,8 +97,9 @@
 
 5. Для DT-09 генератор и verifier каждый используют отдельный staging вне Git:
    точный Kachō source SHA; неизменённый префикс `proto/buf.gen.yaml` до
-   `inputs:`, input directory `corelib/subscription`, module-pinned `go tool buf`
-   из D5. Baseline обязан воспроизвести четыре файла corelib; candidate обязан
+   `inputs:`, input `directory: .` с `paths: [corelib/subscription]`, `buf generate`
+   из staged `proto/`; три плагина запускаются через `go run` с версиями
+   из staged `go.mod`, как в D5. Baseline обязан воспроизвести четыре файла corelib; candidate обязан
    воспроизвести тот же состав. Кроме `subscription.pb.go`, байт-идентичны
    `subscription_service.pb.go`, `subscription_service.pb.gw.go` и
    `subscription_service_grpc.pb.go`. В изменённом файле одинаковы Go program
