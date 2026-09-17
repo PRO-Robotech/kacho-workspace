@@ -16,3 +16,10 @@
 NP-T1 разрешён после effective событий и routine interface agreement. NP-T2
 закрыт до предъявленного RED и отдельного root transition. NP-T3–T7 имеют
 собственные зависимости и не зеленеют от corelib synthetic holders.
+
+
+17 сентября внешний переход 5713435493 открыл только Python projection часть
+NP-T2 после независимого scoped RED на e27d244. Точный scope, executable и
+отложенные части приведены в добавленном разделе route.md и landing record.
+Остальной NP-T1 продолжается независимо; ни один поздний runtime/retention
+результат не выводится из локального projection holder.

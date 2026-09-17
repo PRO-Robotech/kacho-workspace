@@ -68,3 +68,27 @@ review и прежнее routine agreement остаются результата
 истории. Новый tester получил точные документы, SHA interface, настоящие Newman
 fixtures/reader captures и pinned SDK probe. Автор/source worker /root/e2e_audit
 остаётся отделённым от автора RED; NP-T2 по-прежнему закрыт до root transition.
+
+
+## Ограниченный переход NP-T2 после независимого RED
+
+17 сентября root опубликовал и прочитал обратно событие
+https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713435493.
+Точное тело и record находятся в reviews/landing-reviewer/. Независимый reviewer
+/root/hygiene_audit подтвердил holder автора /root/ci_verdict_audit: test-only
+corelib e27d24458cba073fa6a3e0c1843b5543646f96f3, исходный review сохранён
+в review-history/20260917-projection-scoped-red-review.md.
+
+Открыта только часть NP-T2: Python report/log projection, Git-bound manifest и
+связь каталога, положительный file/stdin roundtrip check, перечисленные holder
+отказы missing/malformed/dirty/foreign/symlink/existing-output. Executable:
+`python3 -m unittest discover -s ci/newman_publication/tests -p test_publication.py`
+в указанном corelib commit. Все 20 test/fixture файлов сохраняются без изменений;
+исторический legacy_red.py продолжает судить прежний Kaname target.
+
+Global TASKS_READY и исходные review bindings не меняются: частичный переход
+не объявляет весь holder/scenario выполненным. Полная отрицательная ZIP/scanner/
+encoding/limits матрица, более широкие reader/verdict формы, SDK/upload/workflows,
+полный runtime и retention/containment/prelanding остаются TESTS_PENDING.
+Worker GREEN отдельно подлежит независимому review; это не разрешение upload,
+consumer release, main delivery или закрытия #1810.

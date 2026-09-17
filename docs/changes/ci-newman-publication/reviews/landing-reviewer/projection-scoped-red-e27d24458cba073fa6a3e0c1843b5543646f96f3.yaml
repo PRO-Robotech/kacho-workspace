@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+  "subject_path": "ci/newman_publication/tests/test_publication.py",
+  "subject_sha256": "09f673c9a6dafaf8f413adfdc9ea0122e9dae301c8fc647b365828ecfdfd7fbd",
+  "subject_hash_kind": "scoped-red-manifest",
+  "verdict": "APPROVED_SCOPED_TDD_RED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVIwbZQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713435493",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVIwbZQ",
+  "event_api_id": 5713435493,
+  "body_sha256": "c786eebba86d9a6a3f226c393680fde795df9c45727542f4de00b278c84035e0",
+  "timestamp": "2026-09-17T11:15:14Z",
+  "source_reviewer": "/root/hygiene_audit",
+  "source_review_sha256": "ce3b2b5706f586775e2f6f6b1509c05431be6a7de4ca40907e3bce54b75f585e",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "event-bodies/projection-scoped-red.md",
+  "scope": [
+    "Python report/log projection",
+    "private Git-bound manifest/source relation",
+    "positive file/stdin roundtrip check",
+    "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+  ],
+  "pending": [
+    "full negative ZIP/scanner/encoding/limits matrix",
+    "wider reader and verdict forms",
+    "JS/SDK transport and consumer workflows",
+    "full own identity/all-platform runtime",
+    "retention/containment/prelanding"
+  ]
+}

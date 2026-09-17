@@ -33,12 +33,12 @@
     "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
     "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
     "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
-    "route_sha256": "5a1a49cd2ca6a6879d0140813512e782162fc63451ff7e156b8c9bc17c40c325",
+    "route_sha256": "0a29e470f525b18eab20c1888e771f7d27aab489e2b57bf99009a09c4f9ab181",
     "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
     "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
     "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
     "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
-    "tasks_sha256": "8662bbe11775280f5722b2cbb3d949f126351ef7dd77cdc033b5a92a55119589",
+    "tasks_sha256": "3e916909d5c9a334733c8e81519653558f9a313b1d898464a91e9bcab2a28a0e",
     "class_considerations_sha256": "9088f72c3285a05276095e1ece486ce21b0f2a1183b7ec3a640e565d74d850a6"
   },
   "links": {
@@ -93,6 +93,23 @@
       "route": "docs/changes/ci-newman-publication/route.md",
       "holders": "docs/changes/ci-newman-publication/holders.yaml",
       "scope": "NP-T1 fixtures and independent holders only; NP-T2 waits for RED and root transition"
+    }
+  ],
+  "scoped_transitions": [
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Python report/log projection",
+        "private Git-bound manifest/source relation",
+        "positive file/stdin roundtrip check",
+        "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+      ],
+      "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIwbZQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713435493",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/projection-scoped-red-e27d24458cba073fa6a3e0c1843b5543646f96f3.yaml",
+      "remaining": "Все прочие части NP-T2 и NP-T3–T7 сохраняют свои TESTS_PENDING/зависимости; global lifecycle остаётся TASKS_READY."
     }
   ]
 }
