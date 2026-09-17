@@ -1,0 +1,35 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/event-body.txt",
+      "sha256": "6d0b84993575177558c23edbc451d17b9925b96639738f517cbc5268293b02cd"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/request.json",
+      "sha256": "2516b6e6c7ab0428d0ec7db2e6bfdc7e5e3470235308b0b792fb86111ab3bf1d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/published-event.json",
+      "sha256": "111397036365441f9a51d3d70dbb2e2091c8cb657fef3601aa05383634863148"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/api-readback.json",
+      "sha256": "111397036365441f9a51d3d70dbb2e2091c8cb657fef3601aa05383634863148"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/root-review.json",
+      "sha256": "4aae176669cd7f05296e3ef77a1da4440df2c39bf7ccd12b842b8a25cd8b90ec"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/input.json",
+      "sha256": "8eb6bb862620a1a9376d6e3f7c91ead1c264c46bf8cb016fdedb03d9dd4f6f59"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/foreign-scoped-green-5718644045/execution.json",
+      "sha256": "417a6ccb645f86df2e47e13640951a2ba09ad154759e7016899a41109cc47ce8"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

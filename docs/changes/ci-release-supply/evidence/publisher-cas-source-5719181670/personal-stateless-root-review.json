@@ -1,0 +1,27 @@
+{
+  "kind": "ROOT_OPERATIONAL_CONSTRUCTIBILITY_NOT_PUBLISHER_GREEN",
+  "proposal_sha256": "6d766920b1f8862f149991d816a350c340b676024b83307594ff234925addb90",
+  "producer_snapshot": "39f744a791dfaefe515522c6180b42c6aa634264",
+  "logical_timestamp": 1789666874,
+  "actual_default_personal_identity_preserved": true,
+  "inherited_git_env_removed": true,
+  "identity_env_overrides": false,
+  "configuration_unchanged": true,
+  "commands": 23,
+  "results": [
+    {
+      "commit": "926f78b9365d10811dc79a2451e2c6be490ea69a",
+      "tree": "70eadf45eed4f7ec0710b1817ca8e5b1160e39ab",
+      "base": "34bc8104a832b67e53c868646ab2b1e0ac4c8562",
+      "readback_exact": true
+    },
+    {
+      "commit": "926f78b9365d10811dc79a2451e2c6be490ea69a",
+      "tree": "70eadf45eed4f7ec0710b1817ca8e5b1160e39ab",
+      "base": "34bc8104a832b67e53c868646ab2b1e0ac4c8562",
+      "readback_exact": true
+    }
+  ],
+  "native_git_fsck_strict": true,
+  "remote_effects": 0
+}

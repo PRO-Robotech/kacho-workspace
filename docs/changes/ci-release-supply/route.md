@@ -116,3 +116,28 @@ publisher routine и additive holder placement не разрешают publisher
 Полный T1 из 22 сценариев, producer review/actual D8 authority, P9 wiring,
 protected release и последующие consumer/main predicates ещё не завершены.
 Global TASKS_READY сохраняется. Synthetic authority fixtures не дают live полномочий.
+
+
+## Последующие publisher и checksum события, 2026-09-17
+
+Следующие записи механически сохраняют уже опубликованные и повторно прочитанные
+решения `/root` через actor `pointpu`. Recorder `/root/release_supply_arch`
+не авторизует собственную реализацию и не выполняет новый независимый review.
+Исторические subjects, holders, правила и предыдущие события не переписаны.
+
+| Внешнее событие | Точный ограниченный scope | Record |
+|---|---|---|
+| [5718548000](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718548000) | Candidate: независимые 120/120 PASS. Publisher: 50 подготовленных CAPABILITY_ABSENT, 0 вызовов SUT. Разрешены ровно 9 source paths; CLI/P9 и live authority исключены. | `reviews/landing-reviewer/publisher-source-5718548000.yaml` |
+| [5718644045](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718644045) | Foreign canonical proof: 6 RUN / 6 PASS, 5 фактических решений. Предыдущий прогон 120 тестов отдельный; foreign-only proof не покрывает receiving source. | `reviews/integration-tester/foreign-scoped-green-5718644045.yaml` |
+| [5719181670](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719181670) | Разрешены exact expected-empty CAS собственной ветви, личная snapshot identity и native credential transport. Подготовлено 52 случая, 0 вызовов SUT; cleanup failure сохранён; publisher GREEN не заявлен. | `reviews/landing-reviewer/publisher-cas-source-5719181670.yaml` |
+| [5719582632](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719582632) | После настоящих signed-log prerequisites получены 7 RED: 8 RUN / 8 FAIL с родительским тестом. Для public Go / SumDB разрешён только publisher_release.go; bypass и изменение budgets исключены. | `reviews/landing-reviewer/checksum-scoped-red-5719582632.yaml` |
+| [5719665143](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719665143) | Разрешён только независимый дополнительный holder: 22 профиля / 37 фазовых ячеек и отдельный release resume, actual squash/deletion и numbered PR detail. Product source не разрешён. | `reviews/landing-reviewer/deleted-head-holder-5719665143.yaml` |
+| [5719792493](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719792493) | Checksum: независимые 8 RUN / 8 PASS, 7 фактических Go-вызовов. Неудачная попытка с timestamp сохранена. Авторский прогон 80 узлов отдельный; полный D4/T5, live, CLI и deleted-head остаются незавершёнными. | `reviews/integration-tester/checksum-scoped-green-5719792493.yaml` |
+
+Candidate 120, foreign 5, прежний full 206 на 0fb и checksum 7 — разные
+ревизии и evidence scopes; они не складываются в выдуманный единый полный прогон.
+Событие checksum GREEN отдельно называет авторский прогон 80 узлов, сохраняя
+его отличие от независимого root исполнения. Global TASKS_READY сохраняется.
+Ни одно из этих событий не предоставляет actual D8 live execution authority,
+не утверждает опубликованный corelib tag/archive, main delivery или closure.
+Новые CLI/P9 решения не зарегистрированы до их отдельного внешнего события.

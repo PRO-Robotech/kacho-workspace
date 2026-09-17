@@ -1,0 +1,35 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/event-body.txt",
+      "sha256": "243222f3b4389a1bc2f20728f1f8b29ea784d738a2c7cd7f1e84fad831b6e2cf"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/request.json",
+      "sha256": "d3ccad356c4a8e09cbb547b2fde26cced182b90fdf09efb98046f8b2e4e37b07"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/published-event.json",
+      "sha256": "d44594eef59728867b21ca03019acc957badcd11a99ee7d1631799f40dd521df"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/api-readback.json",
+      "sha256": "d44594eef59728867b21ca03019acc957badcd11a99ee7d1631799f40dd521df"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/root-review.json",
+      "sha256": "4b194ee643f73276744a8bd0574c542e4c1f5c1ed9bf378eee3211b1b014cc33"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/candidate-root-review.json",
+      "sha256": "0e14baca23a7cae933023ef41d8d992d96e1ece039803b3912e00d39ec850a39"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/source-scope-plan.md",
+      "sha256": "2caecc0f45d2b8e15e7c3eec0c0ea206d3279deaca6a144308d7919bbeae3ceb"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

@@ -1,0 +1,25 @@
+{
+  "head": "ca6a958f8fd96b40cb554cd914bc2abe13875e81",
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-run",
+    "^TestReleaseSupplyForeignCanonicalProof$",
+    "-count=1",
+    "-json",
+    "-timeout=15m"
+  ],
+  "rc": 0,
+  "seconds": 13.809337206999771,
+  "tests": {
+    "run": 6,
+    "output": 135,
+    "pass": 6
+  },
+  "failed": [],
+  "unchanged": true,
+  "clean": true,
+  "stdout_sha256": "4c6b1688e2ccd9691e7b435f3d764e008c30db4ede64d733f7c982bddc103e32",
+  "finished_at": "2026-09-17T17:31:17.898521+00:00"
+}

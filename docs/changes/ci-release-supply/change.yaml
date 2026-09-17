@@ -56,7 +56,7 @@
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
     "interface_sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
     "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
-    "route_sha256": "2e6f80207eb329962d962b41a6d2345f2163130cbf5e0c831a04b01a3a43aaf9",
+    "route_sha256": "82722f775112c869e0df39c63282adaaee0375c82eb40de1297c2bc8bcbe65a9",
     "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
   },
   "reviews": [
@@ -228,6 +228,78 @@
       "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/candidate-scoped-red-5718113086.yaml",
       "remaining": [
         "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "Candidate: независимые 120/120 PASS. Publisher: 50 подготовленных CAPABILITY_ABSENT, 0 вызовов SUT. Разрешены ровно 9 source paths; CLI/P9 и live authority исключены."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNoeIA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718548000",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/publisher-source-5718548000.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Foreign canonical proof: 6 RUN / 6 PASS, 5 фактических решений. Предыдущий прогон 120 тестов отдельный; foreign-only proof не покрывает receiving source."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNuVTQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718644045",
+      "record": "docs/changes/ci-release-supply/reviews/integration-tester/foreign-scoped-green-5718644045.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "Разрешены exact expected-empty CAS собственной ветви, личная snapshot identity и native credential transport. Подготовлено 52 случая, 0 вызовов SUT; cleanup failure сохранён; publisher GREEN не заявлен."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVOPJZg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719181670",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/publisher-cas-source-5719181670.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "После настоящих signed-log prerequisites получены 7 RED: 8 RUN / 8 FAIL с родительским тестом. Для public Go / SumDB разрешён только publisher_release.go; bypass и изменение budgets исключены."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVOnnqA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719582632",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/checksum-scoped-red-5719582632.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "BOUNDED_TEST_ONLY_AUTHORIZED",
+      "scope": [
+        "Разрешён только независимый дополнительный holder: 22 профиля / 37 фазовых ячеек и отдельный release resume, actual squash/deletion и numbered PR detail. Product source не разрешён."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVOsp9w",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719665143",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/deleted-head-holder-5719665143.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Checksum: независимые 8 RUN / 8 PASS, 7 фактических Go-вызовов. Неудачная попытка с timestamp сохранена. Авторский прогон 80 узлов отдельный; полный D4/T5, live, CLI и deleted-head остаются незавершёнными."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVO0bbQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719792493",
+      "record": "docs/changes/ci-release-supply/reviews/integration-tester/checksum-scoped-green-5719792493.yaml",
+      "remaining": [
+        "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
       ]
     }
   ]

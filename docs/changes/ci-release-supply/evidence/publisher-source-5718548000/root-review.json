@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "reviewer": "root independent verifier; not holder or product author",
+  "subject": "e9dcab2e3e2d1bdc6c042f3278da6c3a0aa7127d",
+  "reviewed_at": "2026-09-17T17:22:32.798291+00:00",
+  "holder_sha256": {
+    "internal/release/supply_publisher_test.go": "060304307fdb29e6590227ae13d4f898bdb8a06cefa6f15e050ab5faa7716c33",
+    "scripts/release/publish-module-tree-inject.sh": "dfbf0fd763c185b0f737883330c8f5b1bfbd975eafcf39fd6759e9938d202948"
+  },
+  "scope": "50 cases, CI-RS01/02/10/11/12/13/19/22; future union with existing independent candidate/consumer/pins holders",
+  "reviewed_complete_files": true,
+  "author_manifest_bindings_verified": 1883,
+  "independent_execution": {
+    "head": "e9dcab2e3e2d1bdc6c042f3278da6c3a0aa7127d",
+    "argv": [
+      "bash",
+      "scripts/release/publish-module-tree-inject.sh"
+    ],
+    "rc": 1,
+    "seconds": 6.3510713670402765,
+    "tests": {
+      "run": 1,
+      "output": 297,
+      "fail": 1
+    },
+    "failed": [
+      "TestReleaseSupplyPublisherProtocol",
+      "github.com/PRO-Robotech/kacho/internal/release"
+    ],
+    "source_holders_unchanged": true,
+    "clean": true,
+    "stdout_sha256": "412f1915a05791b69fc0788d2682b925ebc43d31a62df9c6a99e192862c54a4d",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "finished_at": "2026-09-17T17:19:30.463722+00:00"
+  },
+  "independent_capture_review": {
+    "verified_at": "2026-09-17T17:21:18.953663+00:00",
+    "capture_files": 1872,
+    "command_capture_pairs": 494,
+    "explicit_stream_hashes_verified": 988,
+    "http_request_response_pairs_verified": 59,
+    "bridges_without_unhandled_or_deadline": 0,
+    "actual_outcomes": {},
+    "joined_forge_processes": 19,
+    "verified_owned_hook_pairs": 6,
+    "capture_manifest_sha256": "b50a324d6f1b589e9727c9238947f6d64634962d1aa3d0842c9b2c20cafcff42",
+    "capability": {
+      "fixture_prerequisites": "actual Git/Go/archive/receiving hooks/forge merge completed; no product verdict",
+      "holder_outcome": "CAPABILITY_ABSENT",
+      "missing_symbols": [
+        "RunSupplyPublisher"
+      ],
+      "prepared_cases": 50,
+      "sut_invocations": 0,
+      "sut_semantic_decisions": 0
+    }
+  },
+  "verdict": "INDEPENDENT_CAPABILITY_ABSENT_WITH_REAL_PREREQUISITES",
+  "sut_calls": 0,
+  "forbidden_claims": [
+    "50 semantic RED",
+    "publisher GREEN",
+    "live GitHub release",
+    "D8 authorization"
+  ],
+  "observations": [
+    "Full future bridge parsed; actual Git option parsers extracted and executed without fake publisher API.",
+    "Actual bare Git refs, Go ZIPs, two consumer builds, guarded owned receive-pack failures, real HTTP response loss, post-PR input changes and merge/tag ancestry controls inspected.",
+    "Initial-admission wrong plan is distinct from post-admission drift. Typed effect oracles preserve observed earlier writes and deny dependent writes after UNKNOWN.",
+    "Complete50 case logic reviewed including bounded read retries, clipped checks polling, protected PR/merge, exact tag/note and explicit no-duplicate recovery.",
+    "Frozen candidate/consumer/pins holders byte-identical; only two added test files."
+  ],
+  "bindings": {
+    "release-supply-tests/publisher-frozen-e9dcab2e/handoff.json": "11ace7a60fef508b690da9ef1184548a00aefbb7664d8d66ab2e300abf53e2aa",
+    "release-supply-publisher-root-red-e9dcab2e/capture-review.json": "d53e93921d50565d9db4ebb63ebaa0329b38d5e33ebdefe5482bc8cb154030f6",
+    "release-supply-publisher-root-red-e9dcab2e/execution.json": "9c7bc55fcaf9b19291d9b6801c3e4561bf36c450302dfb3ceec95fa5de94604f"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/event-body.txt",
+      "sha256": "4d328efafc291e0d28ff6c068e1de83d397f225d220f041aeee165cf4bc41657"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/request.json",
+      "sha256": "5412c31efd0471e0ceb0126a633de36ad43e305011b1ec734e82de67ef687b73"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/published-event.json",
+      "sha256": "ff354b176af08f5ed5c6906790f610d4c39dd51082ca8ddd1105549e4f53d4f2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/api-readback.json",
+      "sha256": "ff354b176af08f5ed5c6906790f610d4c39dd51082ca8ddd1105549e4f53d4f2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/root-review.json",
+      "sha256": "6c219c1c56178e0d61d12b62a3a138b50af2ad57cebcbbdff187d3b2962bb42f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/deleted-head-resume-proposal.md",
+      "sha256": "96a1d775a76872bec5fa75585cebd7c5da7438ae689ce2a1b414f85784c2c69d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/api-detail-amendment.md",
+      "sha256": "f37660b82d42665a6effc537df28feba80f0cc8cffae4652943d41b242fe7022"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

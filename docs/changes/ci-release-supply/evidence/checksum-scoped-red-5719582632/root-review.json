@@ -1,0 +1,207 @@
+{
+  "reviewed_at": "2026-09-17T18:50:37.963732+00:00",
+  "reviewer": "/root",
+  "proposal_sha256": "798d7d263e540ed26fc5fcb1e0033a279f5acf48a6873d4282f4ba7666708a6c",
+  "source_subject": "0fb62a11094a07d99d5ca41e09db6b323655da51",
+  "holder_subject": "6211c63654dab4c194fe892bf7b0683b74949754",
+  "holder_sha256": "99b98cc6156fb3992f7f77cffafec6cff6f0d37981b295e3ca1e83433b0e5656",
+  "script_sha256": "dfdeffd9913562923db4cd19a13417f50a95ca9418b88304a1c97f5eb3ac020c",
+  "execution_sha256": "03d75ae53c1f3508a4eddb1a75905b38c70a280867a3b5546d5171b3ca06b567",
+  "controls": [
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 0,
+      "expected_success": true,
+      "mode": "lawful"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 1,
+      "expected_success": false,
+      "mode": "altered-zip"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 1,
+      "expected_success": false,
+      "mode": "invalid-signature"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 1,
+      "expected_success": false,
+      "mode": "unavailable"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": true,
+      "exact_adapter_used": true,
+      "exit_code": -1,
+      "expected_success": false,
+      "mode": "deadline"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 0,
+      "expected_success": true,
+      "mode": "restored"
+    },
+    {
+      "classification": "ACTUAL_GO_PREREQUISITE_NO_SUT",
+      "deadline_exceeded": false,
+      "exact_adapter_used": true,
+      "exit_code": 0,
+      "expected_success": true,
+      "mode": "signed-altered-content"
+    }
+  ],
+  "subjects": [
+    {
+      "case": "lawful",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "altered-zip",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "invalid-signature",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "unavailable",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "deadline",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "restored",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    },
+    {
+      "case": "signed-altered-content",
+      "meta": {
+        "commands": 164,
+        "deadline_exceeded": false,
+        "exit_code": 0,
+        "harness_deadline_exceeded": false,
+        "sleep_nanoseconds": [],
+        "sut_deadline_exceeded": false,
+        "sut_parent_budget_nanoseconds": 7000000000,
+        "sut_probe_context_applied": true,
+        "unhandled_boundaries": []
+      },
+      "public_go_calls": 0,
+      "result_files": [
+        "bridge-result.json"
+      ]
+    }
+  ],
+  "outcome": "SCOPED_RED",
+  "observed": "Seven actual probe calls returned GREEN ARCHIVE_VERIFIED without mandatory public Go verification; seven actual signed-log prerequisite controls established, no outer deadline or fixture failure",
+  "authorizations": {
+    "source_paths": [
+      "internal/release/publisher_release.go"
+    ],
+    "bounded_proposal": true,
+    "holder_mutation": false,
+    "schema_cli_or_live_execution": false
+  },
+  "limits": "Preserve original52 holder; shared actual Go fixture integration reviewed separately; no D4, release, main or issue closure verdict"
+}
