@@ -1,0 +1,16 @@
+[
+  "github.com/PRO-Robotech/corelib/audit",
+  "github.com/PRO-Robotech/corelib/authz",
+  "github.com/PRO-Robotech/corelib/db",
+  "github.com/PRO-Robotech/corelib/dropguard",
+  "github.com/PRO-Robotech/corelib/migrations/common",
+  "github.com/PRO-Robotech/corelib/migratorcli",
+  "github.com/PRO-Robotech/corelib/operations",
+  "github.com/PRO-Robotech/corelib/outbox",
+  "github.com/PRO-Robotech/corelib/outbox/drainer",
+  "github.com/PRO-Robotech/corelib/outbox/metrics",
+  "github.com/PRO-Robotech/corelib/outbox/reconciler",
+  "github.com/PRO-Robotech/corelib/pgtest",
+  "github.com/PRO-Robotech/corelib/schemaguard",
+  "github.com/PRO-Robotech/corelib/subscription"
+]

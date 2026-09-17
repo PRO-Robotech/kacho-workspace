@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_scope_source_transition",
+  "change_id": "ci-doc-truth",
+  "issue": "https://github.com/PRO-Robotech/kacho/issues/2590",
+  "archive_writer": "/root/e2e_audit",
+  "source_reviewer": "/root",
+  "independent_scope_tester": "/root/e2e_audit",
+  "source_author": "/root/truth_tests",
+  "verdict": "APPROVED_SCOPE_AND_SCOPED_TDD_RED",
+  "subject_path": "docs/changes/ci-doc-truth/addenda/issue-2590-scope.md",
+  "subject_sha256": "0bf009e5c11cf964397bb32274e2492d8aed41fd6901918f4a8e8189587ca105",
+  "baseline_path": "docs/changes/ci-doc-truth/addenda/issue-2590-baseline.json",
+  "baseline_sha256": "cd4732af9c4c939a715d8c17f6bccd25fadb495ebc854d10f1dd151e52668903",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLA-iw",
+  "event_api_id": 5715803787,
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2590#issuecomment-5715803787",
+  "event_author": "pointpu",
+  "timestamp": "2026-09-17T14:12:16Z",
+  "body_sha256": "99ed6f8535d5af0d94a051ceee000b3849d9921e077766df872c5993eda5fc07",
+  "publication_status": "VERIFIED",
+  "event_body_coordinate": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/event.md",
+  "source_review_path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/review.json",
+  "source_review_sha256": "be40f2d9c9019dae11919a1abeed229ffffdf7ef7dad29f910407ea8622836ee",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-lawful.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-lawful.stderr"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-lawful.stdout",
+      "sha256": "65f6104c7112d15c4c4bdc4942d1c4e4cfea6d6cee1530a5a653950153985558",
+      "bytes": 1529,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-lawful.stdout"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-outside-comment.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-outside-comment.stderr"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-outside-comment.stdout",
+      "sha256": "092049ae7b7e3ba49d956cd86cf75529451e982c45a7a1d74992446ac4766021",
+      "bytes": 1525,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-outside-comment.stdout"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-program-token.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-program-token.stderr"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/control-program-token.stdout",
+      "sha256": "875996f58dc2553ecad8aa200bebc60335870509a3020aeb3120033566da1cb9",
+      "bytes": 1527,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/control-program-token.stdout"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/current-header-red.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/current-header-red.stderr"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/current-header-red.stdout",
+      "sha256": "6d7f300b8f9f505a76a89d80cb14a3e90b6d52a1c89c971c2a0a4f7103429917",
+      "bytes": 1525,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/current-header-red.stdout"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/event.md",
+      "sha256": "99ed6f8535d5af0d94a051ceee000b3849d9921e077766df872c5993eda5fc07",
+      "bytes": 2628,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/event.md"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/published.json",
+      "sha256": "62dc8827b4a23c72881eeca70719b70f03d64161e427e9c8cf7213e05ca4410d",
+      "bytes": 4518,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/published.json"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/readback.json",
+      "sha256": "62dc8827b4a23c72881eeca70719b70f03d64161e427e9c8cf7213e05ca4410d",
+      "bytes": 4518,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/readback.json"
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/addendum-2590/root-transition/review.json",
+      "sha256": "be40f2d9c9019dae11919a1abeed229ffffdf7ef7dad29f910407ea8622836ee",
+      "bytes": 9709,
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2590-root-authorization/review.json"
+    }
+  ],
+  "only_path": "migratorcli/notice_test.go",
+  "only_change": "Exact literal replacement of comment paragraph bytes [162,964); every other byte unchanged",
+  "expected_file_sha256": "c85a8ed9b06a0720fa4050e3537ee90892cb1aa81e84103aba63da7fe6125f96",
+  "scenarios": [
+    "CI-DT-A2-01",
+    "CI-DT-A2-02",
+    "CI-DT-A2-03",
+    "CI-DT-A2-04"
+  ],
+  "global_package_state_changed": false,
+  "main_delivery": "PENDING",
+  "closes_issues": false,
+  "base_sha": "34bc8104a832b67e53c868646ab2b1e0ac4c8562",
+  "candidate_green_asserted": false,
+  "independent_review_path": "docs/changes/ci-doc-truth/evidence/addendum-2590/independent-red/review.md",
+  "independent_review_sha256": "1812685d84243d98f46ba640783bcf2fa71283c0db1e98766c17c621f1f753ef",
+  "holder_manifest_path": "docs/changes/ci-doc-truth/evidence/addendum-2590/independent-red/holder-manifest.json",
+  "holder_manifest_sha256": "99f9a2ac82f2eb0fbc7595f267d6e26c7a87f56795cb5aee0c7496f27e335fd1"
+}

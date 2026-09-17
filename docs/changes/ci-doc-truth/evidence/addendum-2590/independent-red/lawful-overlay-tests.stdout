@@ -1,0 +1,28 @@
+{"Time":"2026-09-17T17:07:03.70296332+03:00","Action":"start","Package":"github.com/PRO-Robotech/corelib/migratorcli"}
+{"Time":"2026-09-17T17:07:03.803821995+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestNoticeReachesTheOperatorWithItsLevelAndText"}
+{"Time":"2026-09-17T17:07:03.803866248+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestNoticeReachesTheOperatorWithItsLevelAndText","Output":"=== RUN   TestNoticeReachesTheOperatorWithItsLevelAndText\n"}
+{"Time":"2026-09-17T17:07:03.80387796+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestNoticeReachesTheOperatorWithItsLevelAndText","Output":"--- PASS: TestNoticeReachesTheOperatorWithItsLevelAndText (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.803882589+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestNoticeReachesTheOperatorWithItsLevelAndText","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.803887799+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestLevelIsTakenUnlocalised"}
+{"Time":"2026-09-17T17:07:03.803892838+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestLevelIsTakenUnlocalised","Output":"=== RUN   TestLevelIsTakenUnlocalised\n"}
+{"Time":"2026-09-17T17:07:03.803897337+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestLevelIsTakenUnlocalised","Output":"--- PASS: TestLevelIsTakenUnlocalised (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.803902737+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestLevelIsTakenUnlocalised","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.803905031+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusIsPrintedEvenWhenNothingWasSaid"}
+{"Time":"2026-09-17T17:07:03.803907005+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusIsPrintedEvenWhenNothingWasSaid","Output":"=== RUN   TestCensusIsPrintedEvenWhenNothingWasSaid\n"}
+{"Time":"2026-09-17T17:07:03.803911303+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusIsPrintedEvenWhenNothingWasSaid","Output":"--- PASS: TestCensusIsPrintedEvenWhenNothingWasSaid (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.803913667+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusIsPrintedEvenWhenNothingWasSaid","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.803915962+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusCountsWhatItPrintedAndWhatItDropped"}
+{"Time":"2026-09-17T17:07:03.803917885+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusCountsWhatItPrintedAndWhatItDropped","Output":"=== RUN   TestCensusCountsWhatItPrintedAndWhatItDropped\n"}
+{"Time":"2026-09-17T17:07:03.803982346+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusCountsWhatItPrintedAndWhatItDropped","Output":"--- PASS: TestCensusCountsWhatItPrintedAndWhatItDropped (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.803986224+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestCensusCountsWhatItPrintedAndWhatItDropped","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.803992255+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesToRunWithoutAPlaceToDeliver"}
+{"Time":"2026-09-17T17:07:03.803994419+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesToRunWithoutAPlaceToDeliver","Output":"=== RUN   TestOpenDBRefusesToRunWithoutAPlaceToDeliver\n"}
+{"Time":"2026-09-17T17:07:03.803998116+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesToRunWithoutAPlaceToDeliver","Output":"--- PASS: TestOpenDBRefusesToRunWithoutAPlaceToDeliver (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.804002013+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesToRunWithoutAPlaceToDeliver","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.804005129+03:00","Action":"run","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesADriverThatCannotDeliver"}
+{"Time":"2026-09-17T17:07:03.804007093+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesADriverThatCannotDeliver","Output":"=== RUN   TestOpenDBRefusesADriverThatCannotDeliver\n"}
+{"Time":"2026-09-17T17:07:03.804013064+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesADriverThatCannotDeliver","Output":"--- PASS: TestOpenDBRefusesADriverThatCannotDeliver (0.00s)\n"}
+{"Time":"2026-09-17T17:07:03.804015288+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Test":"TestOpenDBRefusesADriverThatCannotDeliver","Elapsed":0}
+{"Time":"2026-09-17T17:07:03.804028202+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Output":"PASS\n"}
+{"Time":"2026-09-17T17:07:03.805535595+03:00","Action":"output","Package":"github.com/PRO-Robotech/corelib/migratorcli","Output":"ok  \tgithub.com/PRO-Robotech/corelib/migratorcli\t0.102s\n"}
+{"Time":"2026-09-17T17:07:03.80555965+03:00","Action":"pass","Package":"github.com/PRO-Robotech/corelib/migratorcli","Elapsed":0.103}
