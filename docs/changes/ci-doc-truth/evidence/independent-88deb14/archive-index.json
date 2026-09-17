@@ -1,0 +1,626 @@
+{
+  "writer": "/root/docs_truth",
+  "source_frozen_manifest_entries": 71,
+  "artifacts": {
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/author-api-readback.json": {
+      "sha256": "142b46b504eb491c0042892dd6c48053fbfcc7a948cb20e62330ec08bf470355",
+      "bytes": 4078
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/boundary-review.json": {
+      "sha256": "cb11b5eecd0730b9a6277771e35c6f77ec78698eccac8c8114ec431cf0b5e91c",
+      "bytes": 649
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/event-body.md": {
+      "sha256": "cf51cb5c999accb56d4cbf58b737a973c22e3bd28414e8ed9fdaaa29f2795428",
+      "bytes": 2191
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/event-body.request.json": {
+      "sha256": "76d72c7af1ddd2cd86826879b9ea8024f306fcd72ceabb66fa833856eb15ba19",
+      "bytes": 2214
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/event-published.json": {
+      "sha256": "463add0021059f019773a8049f1ee5491936b195ea4edce6b93c84b2b218151b",
+      "bytes": 3840
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/event-readback.json": {
+      "sha256": "463add0021059f019773a8049f1ee5491936b195ea4edce6b93c84b2b218151b",
+      "bytes": 3840
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/execution.json": {
+      "sha256": "1eb059c5edaeb78d7ddf2383f508c94a30e9694580265674b63b0669e9581cec",
+      "bytes": 18241
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/issue-2591-live.json": {
+      "sha256": "41359990e4fd5f4035c2ab497f964f95830c8dcbb5ef8fc526a56088acd79bf3",
+      "bytes": 2212
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/issue-2592-live.json": {
+      "sha256": "ecda2ed4e0cda254a1ab70d14be2eb257749d6bcfdb06f95667bc01bd8851700",
+      "bytes": 2176
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/issue-2696-live.json": {
+      "sha256": "50ec40e4b353433876fb5d78fd28d98afdd99ec96805e9e88ae568403eee205d",
+      "bytes": 11338
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/issue-2711-live.json": {
+      "sha256": "89e2c299bf2b35c4f88f9837a34b7bd7075bef7f35345e7bbaa8f19c224dd4f3",
+      "bytes": 5251
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/list.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/list.stdout": {
+      "sha256": "160cffd4ae30c1b1ab30992b7ea42b09f7e734dcf1bf7eeb69a9546b65090860",
+      "bytes": 1511
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/preservation.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/preservation.stdout": {
+      "sha256": "21ff2ed7b9406c1c9758a1b40aa3ce49de02d1b96f68d5ddefcbca00617820fd",
+      "bytes": 1127
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/review.md": {
+      "sha256": "5ff3917948c272faf9e4847291e93a07f6875f259b30fc2756b2c859f6500b64",
+      "bytes": 2001
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/selection.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/selection.stdout": {
+      "sha256": "9cf2103cfda281b0d572e050a7f3051b9baa9438eddc2697d4f9c72c66005219",
+      "bytes": 187388
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/MANIFEST.sha256": {
+      "sha256": "ea53704c0ba3f62d36e902bc1710f3cae11e66e8818438ebe52c81acb10b0919",
+      "bytes": 6756
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-2711-baseline-handoff.md": {
+      "sha256": "0cc1c4e937d5c5df3fbfcf9beb212ba05384c4048d5f6915fbc88497b79410ae",
+      "bytes": 4441
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-list.json": {
+      "sha256": "1eb0a62740b87cf6a701e09b1bbbb18672bf02b9c6045fd82057fa72cdcb425a",
+      "bytes": 630
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-list.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-list.stdout": {
+      "sha256": "1fc206b943008fd018474c41ef3411115c7784884320e9ca79fc42c17950d95d",
+      "bytes": 645
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-names.txt": {
+      "sha256": "dcf5efe53f313e63b994c5b929904873a9682b28a2f892a935d523ae2650025e",
+      "bytes": 4806
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-selection.json": {
+      "sha256": "0f3f5fa29b7fe6280801243e217bd76442c6d862a9eed555a569b743c5536a5d",
+      "bytes": 661
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-selection.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-baseline-selection.stdout": {
+      "sha256": "e88763b557459c2a9d37f740fb41874c70b8a2922db47b2ad4c048f0a86be6c3",
+      "bytes": 150424
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-birth.json": {
+      "sha256": "c0af2bd1a8ea14e6a104924655f746bbbc2f4f81d6ef54ad32453efbcf436e1c",
+      "bytes": 617
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-birth.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-birth.stdout": {
+      "sha256": "e1fce1a96ff64528e0dd0eebe8f984fe4c0b0b3ad04ca210a6b1f68c4a5666f6",
+      "bytes": 662
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-no-input.json": {
+      "sha256": "bb6bd6f8022be7a394bac75deed8d5de47c9dffe322fe473a9db1f04ff35d9ee",
+      "bytes": 553
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-no-input.stderr": {
+      "sha256": "6335bcc07a5a985c781d251aeeab54af407c6e3858f0209c33010455911d8ab0",
+      "bytes": 29
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-no-input.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-unread-input.json": {
+      "sha256": "d2acf71bfe4acba4c6b2c86be8409fd5de9a01c892074be88ee41d6d5d6637b1",
+      "bytes": 653
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-unread-input.stderr": {
+      "sha256": "c76e191904de462273b2b732375c03639ccd95ef0bef10e4942777e5bb129b8c",
+      "bytes": 57
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/addendum-unread-input.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-descriptor.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-descriptor.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-generation.json": {
+      "sha256": "780aad0cbc2855520ff1c7dac75f672b1766b214d4ec7c3db887fcce458a91ec",
+      "bytes": 1547
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-generation.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-generation.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/baseline-semantic-descriptor.pb": {
+      "sha256": "663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f",
+      "bytes": 16796
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-88deb14-review.md": {
+      "sha256": "635bbf13af1087713edd54a3ff01b91aeec96ccb98017c6e3a8a311f11d033be",
+      "bytes": 6413
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-descriptor.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-descriptor.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-full.diff": {
+      "sha256": "4c5637f81fbc3032ff18b4d2302c9bd353e42c6928a82a2b25dafafce97ba10e",
+      "bytes": 12843
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-independent-generation.json": {
+      "sha256": "b5374767cdf0cc26b096c0cc3cb46010084f4d192e80fbc691948b8b7e9375c6",
+      "bytes": 1612
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-independent-generation.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-independent-generation.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-postdiff-checks.json": {
+      "sha256": "7884cbb47300ca310d71a580c5034bdedf3a163f1b7e52516d9b5e15f069c54a",
+      "bytes": 6303
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-semantic-descriptor.pb": {
+      "sha256": "663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f",
+      "bytes": 16796
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/descriptor-census.json": {
+      "sha256": "d515b4b261b7229b58fcdf4567a3e7167b1dbb0abb3423ff59d0ff3f52cc51d2",
+      "bytes": 856
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/descriptor-census.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/descriptor-census.stdout": {
+      "sha256": "688cb5baae3b9b74600740d0f93e28c14a6c1dbc35b95bef83d0a6e4275caa3c",
+      "bytes": 927
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/descriptorcensus.go": {
+      "sha256": "264bc901818c437554ba3c07b6030c44bc1dbfbdd2c111c79648fbb41851910c",
+      "bytes": 1706
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generate.py": {
+      "sha256": "e022e8071988dcd1e8eb1b956b93393ef3da0f2efd46615871383644c42b1478",
+      "bytes": 2837
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-baseline/subscription.pb.go": {
+      "sha256": "ab804e745c5617ecfb6134dc0db3d1c44d8bf9f5d4356a5943a2efd8f450086f",
+      "bytes": 54987
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-baseline/subscription_service.pb.go": {
+      "sha256": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3",
+      "bytes": 9539
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-baseline/subscription_service.pb.gw.go": {
+      "sha256": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0",
+      "bytes": 6253
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-baseline/subscription_service_grpc.pb.go": {
+      "sha256": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f",
+      "bytes": 16269
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-candidate-independent/subscription.pb.go": {
+      "sha256": "b7904d4d4a68efd8d5ab1f60b10489cc51318ff7f35b1fba35bbc96073a252aa",
+      "bytes": 55006
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-candidate-independent/subscription_service.pb.go": {
+      "sha256": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3",
+      "bytes": 9539
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-candidate-independent/subscription_service.pb.gw.go": {
+      "sha256": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0",
+      "bytes": 6253
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-candidate-independent/subscription_service_grpc.pb.go": {
+      "sha256": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f",
+      "bytes": 16269
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-independent.diff": {
+      "sha256": "5663bbe76970c139dbfca6e367e630699619b908e7487b681e41d112a58e415d",
+      "bytes": 1527
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-strict.json": {
+      "sha256": "82895ba310b9f9ddde3df2a5212045c40b41b7dfc7d8be177d31df76f9244617",
+      "bytes": 795
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-strict.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-strict.stdout": {
+      "sha256": "ada97a73b97e06e558311010bb324f4f1fe0a621233a1a1d0404f0411576182b",
+      "bytes": 1331
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/postdiff.py": {
+      "sha256": "0b583dc3e27f9b397e96710421b6fd9edc02512ea0f55cfbbf28f87bb85b2820",
+      "bytes": 8074
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/preservation.go": {
+      "sha256": "fbaa2f1f049d0f561cf64e2243adc7d240ef396656edf13f5a9cda72501469ee",
+      "bytes": 10738
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/run.py": {
+      "sha256": "6a29179da9fc1ce7331615f8edcc784e3c799524e322df92b642d01c2195da75",
+      "bytes": 1053
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/strict-build.json": {
+      "sha256": "ea8c2c3cd507ead2673836a45b0448de64dc4d0c13d9f7faced2485964606f85",
+      "bytes": 643
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/strict-build.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/strict-build.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/strictpreservation.go": {
+      "sha256": "7d849a4882496c3fe8620c2a5ea76abee4907c01a0934deb9ab7b9585aab81b9",
+      "bytes": 9608
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-baseline-final.json": {
+      "sha256": "eb8df94fbd9c48d9b318123cd807ccb21ed48e50d9da6c3423ac2eab56869657",
+      "bytes": 695
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-baseline-final.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-baseline-final.stdout": {
+      "sha256": "3f80bb0a9a94962d8fa30594df16910ab2e029af0a89d67c92a2e07098ffb476",
+      "bytes": 1127
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-birth-final.json": {
+      "sha256": "2c807eae642802058f1ee3dadfcba3849ba83028ed46a3e11ea228f6b761ec1f",
+      "bytes": 643
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-birth-final.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-birth-final.stdout": {
+      "sha256": "9743e205ebbe57084d104ab6f6c92585e8fde89d514539da806e28089bdf23f9",
+      "bytes": 967
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-candidate.json": {
+      "sha256": "c797f9133f62784c4cb61d4c5cef81b971ed8d2db3eadf292e4d8ba84f454fda",
+      "bytes": 695
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-candidate.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-candidate.stdout": {
+      "sha256": "01d0817280ac5774de2536a9acea5cb83d544f4590144ec6cbd3ef39b17ce384",
+      "bytes": 1127
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-no-input.json": {
+      "sha256": "a9852c2448eefea1af22e4cd72a18fb8913c807da8c510272e4a2ca3ff9ec349",
+      "bytes": 547
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-no-input.stderr": {
+      "sha256": "8cece9fb0e8e7a5fc3f78bae8c95640757bbda559fe9036a25c93408ac0741cb",
+      "bytes": 48
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-no-input.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-unread-input.json": {
+      "sha256": "2385a21ca44ca78cee50ee54d21fd7348e951823c69f5f19ecc1e05d5d33e1aa",
+      "bytes": 696
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-unread-input.stderr": {
+      "sha256": "19a7ac0205eb7fd92baad023beefec815ed853263ed24845505732dcde8d7141",
+      "bytes": 97
+    },
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/verifier-unread-input.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/author-api-readback.json": {
+      "sha256": "17709b51c46804783f83ef0f082b00c780ba1925d41e8543f56f35ef9c9783dc",
+      "bytes": 3333
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/event-body.md": {
+      "sha256": "95d43b6a02dfe19fd081f22c0bdf8c951ad5570fd5e3596450c6e68917d0202d",
+      "bytes": 1450
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/event-published.json": {
+      "sha256": "5e916a49e7e654e8ce95215506422b42f89d32b72e0d82820791748558a2b629",
+      "bytes": 3095
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/event-readback.json": {
+      "sha256": "5e916a49e7e654e8ce95215506422b42f89d32b72e0d82820791748558a2b629",
+      "bytes": 3095
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/event-request.json": {
+      "sha256": "e61d93b27ca111105cf0cce84e9878d1e6a9714c3af8aa569438447226c2f165",
+      "bytes": 1469
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/execution.json": {
+      "sha256": "067ab7760b9c9996dcd68ae84e61a63979c620e233af5a8279220e42eab5c79d",
+      "bytes": 15320
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/preservation.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/preservation.stdout": {
+      "sha256": "ca32f62d81b5641ba16db52c36e1f9d8b959eed623401d6d832bffa880bc3df2",
+      "bytes": 320
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/review.md": {
+      "sha256": "6716e76ca68efab81074f1bb38d84f60bd6a8b094c2e6c8c382e3d30313b4b34",
+      "bytes": 1051
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/selection.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/selection.stdout": {
+      "sha256": "b1230390f44b87857ed53fa94302d5bcf0a71b444df3cae39c0f192d58e95b98",
+      "bytes": 187430
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/birth.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/birth.stdout": {
+      "sha256": "e1fce1a96ff64528e0dd0eebe8f984fe4c0b0b3ad04ca210a6b1f68c4a5666f6",
+      "bytes": 662
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/build.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/build.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/executions.json": {
+      "sha256": "055c4aac06d1ce9c4333783494411c998b7f78b938f15699d80c9fbd8838b12b",
+      "bytes": 4001
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/generated.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/generated.stdout": {
+      "sha256": "ada97a73b97e06e558311010bb324f4f1fe0a621233a1a1d0404f0411576182b",
+      "bytes": 1331
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/issue-live.json": {
+      "sha256": "3860155f91471a3ab8fe1c57b5e3ee24970e78c7ad72608fc2ac8ca7fefb67a4",
+      "bytes": 6680
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/missing.stderr": {
+      "sha256": "408504b2a9a34e8b67d4c1403ebb0391ca78a04dfbf095291ce8d37b91b5a2d8",
+      "bytes": 23
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/missing.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/review.md": {
+      "sha256": "22e5c04b1aa36e9c218d4a01c3ff9c76e34677850842c090e7ec7a15ce9f0242",
+      "bytes": 2616
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/transition-comment.md": {
+      "sha256": "46053c141c406767484645f576f69663d7aa8f444cbf6a583bb591ae99f37c4d",
+      "bytes": 2736
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/transition-readback.json": {
+      "sha256": "2b50e14800cc75e2f49a42e07bef9c529b20e70365e19e6665b468b1a7e2b944",
+      "bytes": 4623
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/unchanged.stderr": {
+      "sha256": "9f1ca0bb6c37e06960848392523045b1635c4e0b85cd5b9e4d8a5b4f347db499",
+      "bytes": 59
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/unchanged.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/unread.stderr": {
+      "sha256": "c3e40a2ce43f2b0bee2950d419afc8d3029ca2d108ab7076804e4686714aa259",
+      "bytes": 72
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/unread.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-census.json": {
+      "sha256": "63350f7a61fd81911c7d245ff05a9fc08456470e285e0f8806fa8b0fdbde4800",
+      "bytes": 14163
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-list.json": {
+      "sha256": "028e844c794ba519785a8d233d7a47f3e07a6f8423e0cd1f69c246698a1a7a62",
+      "bytes": 678
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-list.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-list.stdout": {
+      "sha256": "e53dc23c63786b960c9f6e8a9e3c200dfdc1439f70293f6bb76f4cc7b68375c7",
+      "bytes": 1511
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-names.txt": {
+      "sha256": "8d51298cf25fa512ab49170d0d32015cb18de34c12b5faabe1c94bbc62faf930",
+      "bytes": 6211
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-selection.json": {
+      "sha256": "719bd2f46321a123797bc08ca4efa436d70d5cbe069543083f975850c81d5dbc",
+      "bytes": 710
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-selection.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/broader-selection.stdout": {
+      "sha256": "76ef1ab0cb0c809eabc3b0991fda59d90dddd65294dbdf7c8b34b6c7e4f962a1",
+      "bytes": 187358
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/canonical-docs-gate.json": {
+      "sha256": "e0a0ca865f398e6cdc2b27140682a5cbfd4b5ade0cffa147e9b30c4ee59358a6",
+      "bytes": 715
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/canonical-docs-gate.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/canonical-docs-gate.stdout": {
+      "sha256": "4fb17c8684a8d42b852c9f7803fe6d2348c6fa14ebd69942b19f7ec969009abb",
+      "bytes": 8997
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/observation.md": {
+      "sha256": "371a5f72498200b53847da0a99a70dc5ceafe9818a33b444f1f32f2109cb0fde",
+      "bytes": 4274
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-census.json": {
+      "sha256": "e7c6fdd4db8823af6e9dcbf88ee3615d1f6a52eb6ee5899f31a926e3e2a94524",
+      "bytes": 10993
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-list.json": {
+      "sha256": "2fa9902ec5f301dc9d10d26194000faae0186d270cbfa2c8950abbae2ceae701",
+      "bytes": 642
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-list.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-list.stdout": {
+      "sha256": "1fc206b943008fd018474c41ef3411115c7784884320e9ca79fc42c17950d95d",
+      "bytes": 645
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-names.txt": {
+      "sha256": "dcf5efe53f313e63b994c5b929904873a9682b28a2f892a935d523ae2650025e",
+      "bytes": 4806
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-selection.json": {
+      "sha256": "7a450954a9f8b829c8c0fb75a772161a0aa2abadb18e6aa2fce7730c0cc579cf",
+      "bytes": 674
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-selection.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/shape-selection.stdout": {
+      "sha256": "b5a996807fd1020c4aaabbedec2459f5ac0b5656549e9cf92d72a0e65f1dfa69",
+      "bytes": 150464
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/source-transition-readback.json": {
+      "sha256": "2b50e14800cc75e2f49a42e07bef9c529b20e70365e19e6665b468b1a7e2b944",
+      "bytes": 4623
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/source.diff": {
+      "sha256": "1e929f85f7cc972abfa3b10c1b5009b98337820def0c70c8ad4238d4e5cdc5c7",
+      "bytes": 786
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/source.json": {
+      "sha256": "5ad349f64c1ae084a6d0055cfdb343d582cf2f7648028e8cc960dc18ab3632bf",
+      "bytes": 386
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-build.json": {
+      "sha256": "8c05d5669c3deaf982ee204e2d081cf7eb3b4c557dbd7626466ec27a42911f30",
+      "bytes": 771
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-build.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-build.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-candidate.json": {
+      "sha256": "276b2ce37a3935334bb65896fdccf1710c08f95afc237cce5574eb41ca88b7de",
+      "bytes": 692
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-candidate.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/strict-candidate.stdout": {
+      "sha256": "ca32f62d81b5641ba16db52c36e1f9d8b959eed623401d6d832bffa880bc3df2",
+      "bytes": 320
+    },
+    "docs/changes/ci-doc-truth/evidence/local-integration/author-readback.json": {
+      "sha256": "1f45c76944c08eb67b581d35f600148e939fd5f839033c426e33df71738bcf08",
+      "bytes": 862
+    },
+    "docs/changes/ci-doc-truth/evidence/local-integration/corelib-generated.diff": {
+      "sha256": "81aae855205db20001e95cd0b66db120a270781975542ae7c334dc694a0ab284",
+      "bytes": 1727
+    },
+    "docs/changes/ci-doc-truth/evidence/local-integration/corelib-import.json": {
+      "sha256": "6064cadb9699ed0aa57e2f559e88461af97e2144ade5acb6303d11d531c2cc7a",
+      "bytes": 1383
+    },
+    "docs/changes/ci-doc-truth/evidence/local-integration/kacho-import.json": {
+      "sha256": "f5c54cb85634f393df31af129479a8843ba6c47b3692b4280f6b02aa770aa3cb",
+      "bytes": 1906
+    },
+    "docs/changes/ci-doc-truth/reviews/integration-tester/green-88deb14.yaml": {
+      "sha256": "3a779a28bdcbb0a3d69d1cde26bfe8ee303a66fded1a5c04459060a71bd066a7",
+      "bytes": 2078
+    },
+    "docs/changes/ci-doc-truth/reviews/scope-addendum/2711-c57a9d30.yaml": {
+      "sha256": "9491cee16822d2f309170ca3ecd33bac56f8bb7dc2dd9691d3e185dab65c76c5",
+      "bytes": 1422
+    },
+    "docs/changes/ci-doc-truth/reviews/scope-addendum/2711-green-d248443319f.yaml": {
+      "sha256": "ef113215765817e9cc1655a5dfa08825bf8fda871ab55bf4597b0fc8c7f7eabb",
+      "bytes": 1548
+    },
+    "docs/changes/ci-doc-truth/review-history/20260917-scoped-green-and-2711-transition.md": {
+      "sha256": "daea3280818797d8d1da9d9e0e84536c082477bd1d74a83b72f8cbee6bc35bfa",
+      "bytes": 6050
+    }
+  }
+}

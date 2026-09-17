@@ -1,0 +1,18 @@
+{
+  "command": [
+    "go",
+    "run",
+    "/var/tmp/area-ci-truth-tests/descriptorcensus.go",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/baseline-semantic-descriptor.pb",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/candidate-semantic-descriptor.pb"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth-tests",
+  "head": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "GOWORK": "off",
+  "TMPDIR": "/var/tmp/area-ci-truth-tests",
+  "sanitized_git_env": true,
+  "rc": 0,
+  "elapsed_seconds": 0.1996779441833496,
+  "stdout_sha256": "688cb5baae3b9b74600740d0f93e28c14a6c1dbc35b95bef83d0a6e4275caa3c",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
