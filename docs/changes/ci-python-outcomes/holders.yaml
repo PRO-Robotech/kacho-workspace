@@ -14,7 +14,7 @@ required_holders:
     owner: integration-tester
     executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesChain$' -count=1 -json -timeout=30m"
     source_path: tools/pythonprobes/outcomes_test.go
-    status: specified-awaiting-independent-red
+    status: scoped-semantic-red-implementation-authorized-final-holder-pending
     executable_status: superseded-awaiting-delivered-integration-route
     planned_integration_tag: ci_integration
     planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"
@@ -26,7 +26,7 @@ required_holders:
     owner: integration-tester
     executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesCallers$' -count=1 -json -timeout=15m"
     source_path: tools/pythonprobes/outcomes_test.go
-    status: specified-awaiting-independent-red
+    status: scoped-semantic-red-implementation-authorized-final-holder-pending
     executable_status: superseded-awaiting-delivered-integration-route
     planned_integration_tag: ci_integration
     planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"

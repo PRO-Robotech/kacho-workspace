@@ -20,8 +20,8 @@ hashes:
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
-  route_sha256: a3e1d5a6ca725a0dbdc20d92318f0deab29dd803c10a74ed633e24499bd04403
-  holders_sha256: 84fcae9b37d42170d05078c364796968c72238d4a0acda699fbfed3e9c10930f
+  route_sha256: 8c9de5782955fbdc9266fb1c46354849d50dc30e885bf2d95ac9d1bcb98a12b4
+  holders_sha256: 8610fa303d34a869409e1b23502332e423d33766eed729242c83187b5235f262
 links:
   transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
   policy: docs/changes/policy.yaml
@@ -78,3 +78,12 @@ routine_revalidations:
     subject_sha256: 00f1c9bde19ef48308274c85940ae267f4e0af6220456233b7d6e3f681ce23e3
     review_sha256: 432485e133b807a7a207068c1a27c88ff4f20fcd8bbdb59d980abb8eefc67429
     scope: D4-D7 execution placement and budgets; source pending semantic RED
+
+downstream_transition:
+  state: IMPLEMENTING
+  decisions: [D4, D5, D6, D7-mandatory-wiring]
+  source_base: e9b32abe757f89f3f092928172d9b29536feab35
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713896895
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJMlvw
+  record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/downstream-scoped-red-e9b32abe757.yaml
+  limitation: scoped semantic RED; full corrected-holder GREEN remains required

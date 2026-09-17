@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-python-outcomes",
+  "reviewer_role": "landing-reviewer",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "e9b32abe757f89f3f092928172d9b29536feab35",
+  "subject_path": "tools/pythonprobes/testdata/outcomes_driver.py",
+  "subject_sha256": "f841c926303770e51a24164d8470e09b02010273cd05412920cbe4d21c3e2608",
+  "subject_hash_kind": "independent-scoped-red-review",
+  "verdict": "APPROVED_SCOPED_TDD_RED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJMlvw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713896895",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJMlvw",
+  "event_api_id": 5713896895,
+  "body_sha256": "e1dd72187fc5606ec6eea73a504cbae2b52a0f1bb086f265cbb4bfeaea5b075f",
+  "timestamp": "2026-09-17T11:53:45Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "f841c926303770e51a24164d8470e09b02010273cd05412920cbe4d21c3e2608",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "event-bodies/downstream-scoped-red.md",
+  "authorized_decisions": [
+    "D4",
+    "D5",
+    "D6",
+    "D7 mandatory execution wiring"
+  ],
+  "limitations": "Full Chain 28m NOT_EXECUTED; final GREEN requires corrected holder, all 3 parents/13 scenarios and remaining supplements."
+}

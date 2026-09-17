@@ -125,3 +125,22 @@ D4–D7 по-прежнему требует принятого semantic RED. Ap
 не меняются, глобальный lifecycle не повышается. [Внешнее событие](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713801664)
 подтверждено API readback и SHA тела; оно принимает план размещения и бюджета,
 а не D4–D7 source authorization или уже состоявшийся GREEN.
+
+
+## Ограниченный downstream переход, 2026-09-17T11:53:45Z
+
+[Внешнее событие](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713896895)
+открывает D4–D6 и необходимое D7 wiring: текущий результат через Make/local,
+сохранение finding рядом с unmet, collector и обязательный итог CI, единый
+длинный entrypoint из make test / ci-local all / CI. Worker source base
+e9b32abe757f89f3f092928172d9b29536feab35 содержит принятую реализацию D1–D3
+и исправленный независимый holder. Reviewer /root сверил 58 artifact hashes
+и пять исходных SUT; отдельно повторил CI12. Review SHA
+f841c926303770e51a24164d8470e09b02010273cd05412920cbe4d21c3e2608.
+
+Полный прежний Chain закончился NOT_EXECUTED по бюджету 28m: это не полный RED.
+Текущий переход опирается на завершённые семантические наблюдения и обязательный
+маршрут, не на отсутствие будущего CLI. Полный GREEN потребует последнего
+согласованного независимого holder, всех трёх parents / 13 сценариев, mixed
+finding+unmet, no-result final и полного обязательного исполнения callers.
+Исходные assertions не меняет worker. Глобальный lifecycle пока TASKS_READY.
