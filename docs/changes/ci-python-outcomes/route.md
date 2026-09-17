@@ -144,3 +144,30 @@ f841c926303770e51a24164d8470e09b02010273cd05412920cbe4d21c3e2608.
 согласованного независимого holder, всех трёх parents / 13 сценариев, mixed
 finding+unmet, no-result final и полного обязательного исполнения callers.
 Исходные assertions не меняет worker. Глобальный lifecycle пока TASKS_READY.
+
+
+## CI-PY-09: отдельная коррекция oracle и свежий полный root GREEN
+
+Исторический полный прогон a7f7203a остаётся RED: 16 RUN, 14 PASS, 2 FAIL,
+0 SKIP. Независимый reviewer /root/truth_tests установил ошибку uppercase
+substring assertion; наблюдаемый genuine self-test finding сохранял отказ,
+счётчики и provenance. Событие
+[5715525103](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5715525103)
+отдельно разрешило точную test-only замену одной строки. Commit
+8b51c778e23b2f930c512e101456653540d84277 меняет только этот блок;
+39/39 oracle controls, включая 25 отрицательных, подтверждены. Product logic,
+accepted subjects и остальные сценарии не менялись.
+
+Последующее событие
+[5716467064](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5716467064)
+фиксирует новый независимый root run `make test-python-outcomes-integration`
+на 0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4: 3 parents и 13 scenarios,
+16 RUN / 16 PASS / 0 FAIL / 0 SKIP за 2813.318 секунды. Проверены 52 captures
+и 195 файлов доказательств; 11 source/holder hashes неизменны. Actual YAML
+final-step body исполнен с полным events input (rc0) и отсутствующим (rc1).
+
+Records: reviews/landing-reviewer/ci09-oracle-correction-5715525103.yaml и
+reviews/integration-tester/full-candidate-green-5716467064.yaml. GREEN охватывает
+локальный CI-PY candidate D1–D7. Защищённая доставка в main, итоговая сверка
+predicates и closure трёх issues впереди. Global lifecycle остаётся TASKS_READY;
+прежние attempts и scoped transitions не переписаны.

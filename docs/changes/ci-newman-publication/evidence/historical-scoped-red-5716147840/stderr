@@ -1,0 +1,18 @@
+test_ci_np_08_actual_historical_format (test_historical_zip.HistoricalZip.test_ci_np_08_actual_historical_format) ... FAIL
+
+======================================================================
+FAIL: test_ci_np_08_actual_historical_format (test_historical_zip.HistoricalZip.test_ci_np_08_actual_historical_format)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/test_historical_zip.py", line 144, in test_ci_np_08_actual_historical_format
+    run.execute()
+    ~~~~~~~~~~~^^
+  File "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/test_historical_zip.py", line 352, in execute
+    self.test.assertFalse(failures, "historical profile expectations failed; see evidence; NOT_EXECUTED is not a secret finding")
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ['descriptor-json', 'secret-json', 'descriptor-cli', 'secret-cli', 'descriptor-rc', 'secret-rc', 'descriptor-multiple-members', 'secret-final-member'] is not false : historical profile expectations failed; see evidence; NOT_EXECUTED is not a secret finding
+
+----------------------------------------------------------------------
+Ran 1 test in 3.593s
+
+FAILED (failures=1)

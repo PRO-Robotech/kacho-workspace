@@ -1,0 +1,11 @@
+{
+  "checked_at": "2026-09-17T13:59:37.437245+00:00",
+  "author_commit": "8b51c778e23b2f930c512e101456653540d84277",
+  "imported_commit": "0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4",
+  "tree": "3f0a41f5706b215368037a5b1d2c03e4d72b189f",
+  "only_changed_path": "tools/pythonprobes/testdata/outcomes_driver.py",
+  "exact_reviewed_replacement": true,
+  "other_ten_files_unchanged": true,
+  "new_driver_sha256": "5e2071e25b2e99bfb3eccc0a3deb566eded3c1ac2a612aa6dc8da5a97d9a92cf",
+  "clean": true
+}

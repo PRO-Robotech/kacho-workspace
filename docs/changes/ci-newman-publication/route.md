@@ -149,3 +149,37 @@ convergence и доставка в main остаются незавершённ�
 неподдержанного data descriptor. Это pending покрытия фактического формата,
 не FINDING, не CLEAN и не разрешение удаления. Частные архивы и их содержимое
 в канон не перенесены. Прежние RED и source coordinates сохранены как история.
+
+
+## Отдельные SDK и historical RED, 2026-09-17
+
+Root события [5716089755](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716089755)
+и [5716147840](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716147840)
+разрешили две разные области source после независимых holders. SDK: 46
+проверок отсутствующей возможности при доказанных предпосылках, 0 semantic SUT
+decisions; historical: 28 попыток, 20 ожидаемых проходов и 8 format failures.
+Это история RED, а не результат последующей реализации. Exact review, event,
+readback и capture bindings находятся в evidence/sdk-scoped-red-5716089755
+и evidence/historical-scoped-red-5716147840. Автор holders
+/root/release_supply_arch, reviewer /root, source author /root/e2e_audit.
+
+SDK scope — пять action/package paths. Historical scope — только scan-only
+измеренный signed16 descriptor и UTF-8 .cli/.rc; строгий final check/project,
+пределы и carrier semantics сохраняются. Accepted subjects и старые наблюдения
+не переписаны; глобальный lifecycle остаётся TASKS_READY.
+
+
+## Независимый combined GREEN SDK/historical, 2026-09-17
+
+Событие [5716467460](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716467460)
+фиксирует независимый root replay aggregate 883fc4999b26dab9567689926eb159236f397afb:
+Python 20/20 PASS, SDK 46/46 PASS, 0 FAIL/SKIP; 3472 process captures и
+867 reader records сверены по хешам. Historical subset — 28 ожидаемых исходов,
+включая четыре обнаруженных синтетических FINDING. Exact record:
+reviews/integration-tester/sdk-historical-scoped-green-5716467460.yaml.
+
+Автор реализации /root/e2e_audit записывает чужой независимый результат,
+не выносит собственный approval. Статус прежних RED неизменен. Этот GREEN
+не включает частичный реальный retention scan, consumer workflows/pins,
+full runtime, module release/main или закрытие #1810. Nonempty verdict adapter
+ещё требует своего RED/source/GREEN. Global lifecycle сохраняет TASKS_READY.

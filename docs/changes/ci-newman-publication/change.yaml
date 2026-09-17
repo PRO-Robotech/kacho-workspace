@@ -33,7 +33,7 @@
     "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
     "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
     "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
-    "route_sha256": "eadc118d4d8953aad6aa9edd349a8ac576ccb8050f5fb9cda877d91c837dc531",
+    "route_sha256": "6fbec135ecbeb87759fe5239ce1ebad611e991d4e5f5cac21bc2775b24ac783e",
     "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
     "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
     "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
@@ -218,6 +218,43 @@
       "remaining": "Global lifecycle TASKS_READY; Nonempty verdict adapter и его отдельный RED/GREEN; SDK/action publisher; consumer workflows и pins; Полный runtime и retention/containment/prelanding; Покрытие фактического исторического ZIP data-descriptor формата; Convergence, доставка в main и закрытие #1810",
       "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
       "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e"
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "CI-NP-03/04: publishSnapshot и fixed Node24 action; пять action/package paths",
+        "Private snapshot, all pre-CLEAN effects forbidden, fixed checker/SDK, bounded diagnostics"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLSbmw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716089755",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/sdk-scoped-red-5716089755.yaml",
+      "test_commit": "d880251ebfd21aea68e42f4d71d1c862a9e6cfa9",
+      "remaining": "Global lifecycle TASKS_READY; независимый GREEN, consumer/runtime/retention/main — отдельные этапы."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "CI-NP-08: scan-only signed16 data descriptor flags8/deflate8/localzero",
+        "Строгий UTF-8 .cli/.rc через прежний walker; strict check/project и limits неизменны"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLV-gA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716147840",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/historical-scoped-red-5716147840.yaml",
+      "test_commit": "1c9e6a7908b422799df256ceffe0719bbda32dad",
+      "remaining": "Global lifecycle TASKS_READY; независимый GREEN, consumer/runtime/retention/main — отдельные этапы."
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "SDK snapshot publisher/fixed Node24 action",
+        "Historical scan signed16 descriptor + UTF-8 .cli/.rc",
+        "Полная Python regression и frozen SDK matrix"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLpfBA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716467460",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/sdk-historical-scoped-green-5716467460.yaml",
+      "remaining": "Global TASKS_READY; nonempty verdict adapter, consumer/runtime/retention/main и closure ещё требуются.",
+      "source_commit": "883fc4999b26dab9567689926eb159236f397afb"
     }
   ]
 }

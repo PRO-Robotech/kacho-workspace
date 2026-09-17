@@ -1,0 +1,55 @@
+{
+  "head": "0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4",
+  "returncode": 0,
+  "timed_out": false,
+  "finished_at": "2026-09-17T14:46:30.809665+00:00",
+  "elapsed_seconds": 2813.3184592723846,
+  "source_and_holders_unchanged": true,
+  "end_hashes": {
+    ".github/scripts/run-python-probes.py": "a75d08d4157d4e389b67dd73d254e17a7d40b01dbbc16081cbe0bc294960c3f5",
+    ".github/scripts/ci_outcomes.py": "d1da46a502fecfe5339e6627c09f823fa7bc9fd503eff71118dbe7e699b5aa57",
+    ".github/workflows/ci.yaml": "8fa98fcd800c251fbdd59584c3fd80a7343962d525800751cc4e30cd81dbabf7",
+    "Makefile": "e0aacdcd7611d8fa7f0af78bd1b38271b3b4579d92b02c833949e8c7f08da255",
+    "deploy/Makefile": "bdc155896a53c82bd2cc52fbdb1652333acc853c6501bf812798ecc8fe77f404",
+    "deploy/scripts/run-gate-self-tests.sh": "c24546316c50610fef40c10af1d6a3d376acd23ba9604355fdd233b4a32cb741",
+    "scripts/ci-local.sh": "d8fdef8d0b12bf94e3d1390e19b6c4bbd1048988b09e9d64f3d4deb1a9ca6fa0",
+    "scripts/run-python-outcomes-integration.sh": "27b57ba42aa45e839e9b870644197a7cdcf847b7a41c0db3341eb743e58de61f",
+    "tools/pythonprobes/outcomes_test.go": "76c51fb8ba43502eafa7f9ed89f70e7ee9182ccc686fd8bef2685b30413fb386",
+    "tools/pythonprobes/outcomes_integration_test.go": "6ac2e671d91e5343217b62b222b567fc36bc4fb8bbbf944e521d38be4b47f2ee",
+    "tools/pythonprobes/testdata/outcomes_driver.py": "5e2071e25b2e99bfb3eccc0a3deb566eded3c1ac2a612aa6dc8da5a97d9a92cf"
+  },
+  "git_status": "",
+  "malformed_events": 0,
+  "event_counts": {
+    "run": 16,
+    "output": 48,
+    "pass": 16
+  },
+  "passed_parents": [
+    "TestPythonOutcomesCallers",
+    "TestPythonOutcomesChain",
+    "TestPythonOutcomesProducer"
+  ],
+  "passed_scenarios": [
+    "TestPythonOutcomesCallers/CI_PY_13_all_actual_callers",
+    "TestPythonOutcomesChain/CI_PY_09_selftests_and_make",
+    "TestPythonOutcomesChain/CI_PY_10_full_helm_chain",
+    "TestPythonOutcomesChain/CI_PY_11_record_authenticity",
+    "TestPythonOutcomesChain/CI_PY_12_CI_collector_and_final_verdict",
+    "TestPythonOutcomesProducer/CI_PY_01_missing_pytest",
+    "TestPythonOutcomesProducer/CI_PY_02_complete_green",
+    "TestPythonOutcomesProducer/CI_PY_03_assertion_finding",
+    "TestPythonOutcomesProducer/CI_PY_04_self_test",
+    "TestPythonOutcomesProducer/CI_PY_05_invalid_population",
+    "TestPythonOutcomesProducer/CI_PY_06_junit_unavailable",
+    "TestPythonOutcomesProducer/CI_PY_07_units_and_growth",
+    "TestPythonOutcomesProducer/CI_PY_08_mixed_finding_unmet"
+  ],
+  "failed_tests": [],
+  "skipped_tests": [],
+  "stream_sha256": {
+    "stdout.log": "69049e1b775c14118cf32783eb5e3670a958223306ef84817a862c4995703b50",
+    "stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "events.jsonl": "ab9ad98bc9edcaccca0f5bf8675ccd327c6285927e02bd4da86967ba88496436"
+  }
+}

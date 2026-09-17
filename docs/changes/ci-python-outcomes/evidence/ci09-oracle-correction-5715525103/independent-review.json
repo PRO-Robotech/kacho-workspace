@@ -1,0 +1,44 @@
+{
+  "verdict": "HOLDER_ORACLE_DEFECT_CONFIRMED",
+  "scope": "CI-PY09 literal check at outcomes_driver.py:608 on frozen a7f7203a; no source or holder edits and no independent SUT rerun",
+  "reviewer": "/root/truth_tests",
+  "source_commit": "a7f7203a9b4188ed721d6ed835c8f4fda9ec61de",
+  "driver_sha256": "f637a3d7561014946cefc866aeda96964da574139e8ced6baac5a87c0ae14a8a",
+  "contract_sha256": {
+    "docs/specs/sub-phase-CI-PY-1-python-outcomes-acceptance.md": "427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e",
+    "docs/specs/sub-phase-CI-PY-1-python-outcomes-design.md": "26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d",
+    "docs/changes/ci-python-outcomes/transport-interface.md": "6e98466a99871bc2515b969d7607630d2a4cc30fcad2bd64b87e2c8d51deded1"
+  },
+  "proposal_sha256": "205ffdf1d836282d9d2806a8ee726f82ee494bca57236cddcf390daa396acbe4",
+  "independent_probe": {
+    "controls": 39,
+    "passed": 39,
+    "negative_mutants": 25,
+    "exact_proposal_controls": 39,
+    "exact_proposal_passed": 39
+  },
+  "root_fullrun": {
+    "returncode": 2,
+    "elapsed_seconds": 2854.846933364868,
+    "event_counts": {
+      "run": 16,
+      "output": 49,
+      "fail": 2,
+      "pass": 14
+    },
+    "failed_tests": [
+      "TestPythonOutcomesChain/CI_PY_09_selftests_and_make",
+      "TestPythonOutcomesChain"
+    ],
+    "skipped_tests": [],
+    "status": "RED unchanged",
+    "not_our_execution": true
+  },
+  "preservation": {
+    "all_11_source_and_holder_hashes_match_root_start_and_end": true,
+    "source_edits": false,
+    "holder_edits": false,
+    "root_owned_artifact_edits": false
+  },
+  "next_step": "Root bounded test-only transition required before modifying the holder; fresh mandatory full rerun remains required after correction."
+}

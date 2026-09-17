@@ -1,0 +1,64 @@
+{
+  "status": "SCOPED_CAPABILITY_RED_APPROVED",
+  "reviewer": "/root",
+  "tester": "/root/release_supply_arch",
+  "future_source_author": "/root/e2e_audit",
+  "holder_commit": "d880251ebfd21aea68e42f4d71d1c862a9e6cfa9",
+  "source_aggregate": "5e8c1eefddefecef6c8c8b87bcf39d67b77437e1",
+  "holder_hashes": {
+    "ci/newman_publication/tests/upload.test.mjs": "f49b87a7fca93e40de5c662b287491c87929b9792037ef294837ede7809bf8d0",
+    "ci/newman_publication/tests/upload/README.md": "ff2ba9ebdfa4159d69d2bec9a9e28ab43e9df646d10a4bd94a599f83adc67065",
+    "ci/newman_publication/tests/upload/child.py": "c061f8ad6d964e8097b8a884680d3364b263eb4c32951544bfbe19d7798a792f",
+    "ci/newman_publication/tests/upload/fixture.py": "d98d0c47cf2717344382999b3efce56704fba17e60deba90b1f2f02d0acee80a",
+    "ci/newman_publication/tests/upload/main-driver.mjs": "f273a6de2327f551aa04ca1628bc3ea3911dfcdf01bc3c63e35f56531c6b85fd",
+    "ci/newman_publication/tests/upload/preload.mjs": "d63452a364f4f43a369b5f2df98564f89e94fad1be8fee7d5dcb2a48f59d11b3",
+    "ci/newman_publication/tests/upload/prerequisites.mjs": "64d737f8dfe0cdcf8a98e4081b445f712d5d37fec934d3eeab64c5ae7e347a6b",
+    "ci/newman_publication/tests/upload/sdk.mjs": "4c3f2bb3db5bb6a6682e3d5da34655bbc8e3cf7e6e2c750caf5aa255db3767c0"
+  },
+  "source_hashes": {
+    "ci/newman_publication/scanner.py": "51588839b91ee01b30e7580236dcc537f7ad5febf61889593e11d9c28d72f561",
+    "ci/newman_publication/__init__.py": "0d99b7f818da79f2ea5040eccd12cf7607145cbcf06a77fde189c0e823614f18",
+    "ci/newman_publication/catalogue.py": "022b3290cd01a225ddfb1a832f6508c98f4db498f6b0725f9b34286a8a6b5cd9",
+    "ci/newman_publication/__main__.py": "e5438d03483f21ae67bbd662b806fa819c492797408570e8f41ae1d0a5489ca4",
+    "ci/newman_publication/zip_envelope.py": "c930d053ecc03419c563c0592f542d5f6426af67a5b409adc3137b9416e0b421",
+    "ci/newman_publication/publication.py": "47045b034932d406ad436d65c46236e654c5b5f66cb0bce113d684f1ad5cb27d",
+    "ci/newman_publication/carriers.py": "fa85f7ed4844918ba569a69c32b94c92e138f949d362835b27e128de54f5a8ba",
+    "ci/newman_publication/common.py": "6561f87be0bbaa66abbb5ee4f808fea72b0c4213e13c62cdf947a2d56c340bc1",
+    "ci/newman_publication/projection.py": "5e37249712faab1a6a1747faf1b5b80003d5b5c0514276fb577ece4621811241"
+  },
+  "argv": [
+    "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+    "--test",
+    "ci/newman_publication/tests/upload.test.mjs"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "started_at": "2026-09-17T14:28:38.235642+00:00",
+  "elapsed_seconds": 2.8320489070029,
+  "rc": 1,
+  "stdout_sha256": "1fa7eae846d93f06d2dc72bab8cf8f5048d6869b46a2b3c79eb5f4684b253164",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "prerequisites": {
+    "sdk": "@actions/artifact@6.2.1",
+    "node": "v24.21.0",
+    "bytes": 732,
+    "digest": "7f7b5ae3f3a2b1117d56c2b33d662ede879271ae294199d958f49d9941b8f266",
+    "calls": 3,
+    "networkCalls": 0,
+    "abortObserved": true,
+    "realChildReaped": true,
+    "yamlParser": true
+  },
+  "declared": 46,
+  "executed_capability_checks": 46,
+  "semantic_SUT_decisions": 0,
+  "outcomes": {
+    "PASS": 0,
+    "FAIL": 0,
+    "CAPABILITY_ABSENT": 46,
+    "NOT_EXECUTED": 0
+  },
+  "captures_verified": 49,
+  "reader_records": 8,
+  "scope": "action/publish.mjs, action/main.mjs, action/action.yml, pinned action/package.json and lock only; Python, holders, consumers and limits unchanged",
+  "pending": "implementation then independent scopedGREEN; consumer workflows/pins/runtime/retention/main/closure separate"
+}

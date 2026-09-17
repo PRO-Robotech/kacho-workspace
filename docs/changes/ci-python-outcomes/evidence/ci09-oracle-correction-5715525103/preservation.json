@@ -1,0 +1,16 @@
+{
+  "base": "a7f7203a9b4188ed721d6ed835c8f4fda9ec61de",
+  "changed_paths": [
+    "tools/pythonprobes/testdata/outcomes_driver.py"
+  ],
+  "other_ten_tracked_run_files_match_root_start": true,
+  "entire_original_driver_restored_by_exact_inverse": true,
+  "helpers_AST_unchanged": [
+    "Case",
+    "local_summary",
+    "local_declarations"
+  ],
+  "full_driver_compiles": true,
+  "no_untracked_files": true,
+  "git_diff_check": true
+}

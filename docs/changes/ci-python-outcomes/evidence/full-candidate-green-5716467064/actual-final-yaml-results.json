@@ -1,0 +1,26 @@
+[
+  {
+    "label": "complete",
+    "actual_step_id": "python-outcomes-integration-verdict",
+    "workflow_sha256": "8fa98fcd800c251fbdd59584c3fd80a7343962d525800751cc4e30cd81dbabf7",
+    "run_body": "python3 .github/scripts/ci_outcomes.py integration-verdict --events \"${CI_PY_INTEGRATION_EVENTS:-}\"\n",
+    "events": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/python-outcomes/root-full-0f3f0ede/events.jsonl",
+    "events_sha256": "ab9ad98bc9edcaccca0f5bf8675ccd327c6285927e02bd4da86967ba88496436",
+    "expected_rc": 0,
+    "rc": 0,
+    "stdout": "Python outcomes: родителей 3/3, сценариев 13/13 PASS, пропусков 0\n",
+    "stderr": ""
+  },
+  {
+    "label": "missing",
+    "actual_step_id": "python-outcomes-integration-verdict",
+    "workflow_sha256": "8fa98fcd800c251fbdd59584c3fd80a7343962d525800751cc4e30cd81dbabf7",
+    "run_body": "python3 .github/scripts/ci_outcomes.py integration-verdict --events \"${CI_PY_INTEGRATION_EVENTS:-}\"\n",
+    "events": null,
+    "events_sha256": null,
+    "expected_rc": 1,
+    "rc": 1,
+    "stdout": "",
+    "stderr": "ОТКАЗ: результат отсутствует, непригоден или неполон\n"
+  }
+]

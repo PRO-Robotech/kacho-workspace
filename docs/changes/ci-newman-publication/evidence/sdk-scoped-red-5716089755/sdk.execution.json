@@ -1,0 +1,13 @@
+{
+  "command": [
+    "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload/prerequisites.mjs",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-upload-root-red-d880/fixture.json",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-upload-root-red-d880/prerequisites.json"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "rc": 0,
+  "signal": null,
+  "stdout_sha256": "549375be5f432f70cdf04b85ddbc2857dd3056da9ef787710575c11ba06cfbcd",
+  "stderr_sha256": "ccb42d714c6bb02182a26cd58cf83ad3363b2cffe37bfa68c463d13c0f5001bf"
+}

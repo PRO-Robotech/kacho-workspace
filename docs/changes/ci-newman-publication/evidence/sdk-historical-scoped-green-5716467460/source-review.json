@@ -1,0 +1,56 @@
+{
+  "status": "SOURCE_REVIEW_COMPLETE_COMBINED_RUNTIME_PENDING",
+  "source": "c586d765bb679b8d2bb380490409241604c690ce",
+  "reviewer": "/root",
+  "read_full_text": [
+    "ci/newman_publication/action/publish.mjs",
+    "ci/newman_publication/action/main.mjs",
+    "ci/newman_publication/action/action.yml",
+    "ci/newman_publication/action/package.json"
+  ],
+  "lock_validation": "byte identical to previously verified pinned SDK lock",
+  "files": [
+    {
+      "path": "ci/newman_publication/action/publish.mjs",
+      "sha256": "8922b71ee08aaa468bb4a4339271d9c1690828860f04da7116e1e474668db206",
+      "bytes": 6088
+    },
+    {
+      "path": "ci/newman_publication/action/main.mjs",
+      "sha256": "cb23ff21e2e453cc300ea99b4d523c00e82390536aa43e20cb64c8bc63528144",
+      "bytes": 8299
+    },
+    {
+      "path": "ci/newman_publication/action/action.yml",
+      "sha256": "7b35f77bf18efb0a784df44a013f27120e2e7f2ab51d8ddbfb4144b1564338c1",
+      "bytes": 758
+    },
+    {
+      "path": "ci/newman_publication/action/package.json",
+      "sha256": "88729062ad19ccce51ec4cc4cbec779bcbe7a366f84bc7d3cfed6cf7c2919761",
+      "bytes": 61
+    },
+    {
+      "path": "ci/newman_publication/action/package-lock.json",
+      "sha256": "fcb99bf7fb824e8ddb93269eca3f3537427fdbd13c2e556383d3bda2e39f422c",
+      "bytes": 72243
+    }
+  ],
+  "findings": [],
+  "reviewed_invariants": [
+    "single bounded regular nofollow fd snapshot",
+    "checker receives separate copy and all full digest/count/closed schema checked before transport",
+    "fixed name before await and only snapshot stream exposed",
+    "AbortController plus actual fixed checker SIGKILL and close awaited",
+    "canonical checker environment allowlist no credentials/Python import overrides",
+    "Node24 exact SDK6.2.1 and fixed stream API no file-path re-read",
+    "private bounded diagnostics and closed output",
+    "SDK create/stream/finalize exact name/backend IDs/size/hash, malformed capability/error safe refusal"
+  ],
+  "not_proven_here": [
+    "root independent46 tests",
+    "combined Python20 regression",
+    "module archive/materialization",
+    "consumer workflow/runtime and retention"
+  ]
+}

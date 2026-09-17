@@ -1,0 +1,36 @@
+{
+  "reviewer": "/root",
+  "verdict": "APPROVED_BOUNDED_TEST_ONLY_CORRECTION",
+  "checked_at": "2026-09-17T13:53:24.937341+00:00",
+  "source_commit": "a7f7203a9b4188ed721d6ed835c8f4fda9ec61de",
+  "old_driver_sha256": "f637a3d7561014946cefc866aeda96964da574139e8ced6baac5a87c0ae14a8a",
+  "contract_sha256": {
+    "docs/specs/sub-phase-CI-PY-1-python-outcomes-acceptance.md": "427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e",
+    "docs/specs/sub-phase-CI-PY-1-python-outcomes-design.md": "26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d",
+    "docs/changes/ci-python-outcomes/transport-interface.md": "6e98466a99871bc2515b969d7607630d2a4cc30fcad2bd64b87e2c8d51deded1"
+  },
+  "proposal_sha256": "205ffdf1d836282d9d2806a8ee726f82ee494bca57236cddcf390daa396acbe4",
+  "independent_review_sha256": "6d8defa8a1aec9f50c9a2f7edf53a6383320d674f941fea7be102f020f546640",
+  "independent_manifest_sha256": "c64dac63d5b07b1cbe4f505b4b9fbc74c20267307545109fcecef5c1df2021eb",
+  "observed_fullrun": {
+    "returncode": 2,
+    "elapsed_seconds": 2854.846933364868,
+    "event_counts": {
+      "run": 16,
+      "output": 49,
+      "fail": 2,
+      "pass": 14
+    },
+    "failed_tests": [
+      "TestPythonOutcomesChain/CI_PY_09_selftests_and_make",
+      "TestPythonOutcomesChain"
+    ],
+    "skipped_tests": [],
+    "status": "RED unchanged",
+    "not_our_execution": true
+  },
+  "allowed_path": "tools/pythonprobes/testdata/outcomes_driver.py",
+  "allowed_diff": "Replace exactly one uppercase-substring check with the exact reviewed 20-line assertion block; no product, fixture, helper, other scenario or architecture change.",
+  "verification": "Read exact accepted CI-PY09/10 and transport interface; read frozen Case and genuine-defect fixture; verified all 58 manifest entries and both 39/39 oracle control outputs, including 25 rejecting negative mutations.",
+  "required_next": "Independent root full mandatory make test-python-outcomes-integration on the corrected frozen holder/source; all three parents and thirteen scenarios, zero skips; actual final CI body complete/missing evidence twins. Prior RED remains RED."
+}

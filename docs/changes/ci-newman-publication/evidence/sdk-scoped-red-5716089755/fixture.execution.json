@@ -1,0 +1,12 @@
+{
+  "command": [
+    "python3",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload/fixture.py",
+    "/home/dk/kacho-tmp/area-ci-tools/np-upload-holder-3tX47P/fixture"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "rc": 0,
+  "signal": null,
+  "stdout_sha256": "fb8c3322b1f9495719dcfe8869423592065dbd553284524e14c3e4936452bbc1",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

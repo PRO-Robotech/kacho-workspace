@@ -20,7 +20,7 @@ hashes:
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
-  route_sha256: 8c9de5782955fbdc9266fb1c46354849d50dc30e885bf2d95ac9d1bcb98a12b4
+  route_sha256: e5acab8ddc0553bc10668d4d83fbea84cb231ee33cbf72c7b4f6ca35b40badc7
   holders_sha256: 8610fa303d34a869409e1b23502332e423d33766eed729242c83187b5235f262
 links:
   transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
@@ -72,6 +72,17 @@ scoped_transitions:
     event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713374865
     record: docs/changes/ci-python-outcomes/reviews/integration-tester/producer-scoped-green-78025a3d10a7ea4eaf86ce4797026e0f76396edc.yaml
     remaining: D4-D7 TESTS_PENDING
+
+  - name: ci09-correction
+    state: APPROVED_BOUNDED_TEST_ONLY_CORRECTION
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5715525103
+    event_coordinate: IC_kwDOTZqgWM8AAAABVKv97w
+    record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/ci09-oracle-correction-5715525103.yaml
+  - name: full-candidate-green
+    state: SCOPED_GREEN_APPROVED
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5716467064
+    event_coordinate: IC_kwDOTZqgWM8AAAABVLpdeA
+    record: docs/changes/ci-python-outcomes/reviews/integration-tester/full-candidate-green-5716467064.yaml
 
 routine_revalidations:
   - record: docs/changes/ci-python-outcomes/routine/execution-route-20260917/record.json
