@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "status": "DRAFT_NOT_APPROVED",
+  "subject_repo": "PRO-Robotech/corelib",
+  "source_base": "34bc8104a832b67e53c868646ab2b1e0ac4c8562",
+  "only_path": "migratorcli/notice_test.go",
+  "baseline_file_sha256": "90a9ddd66f9d2aa0bb992010cd4101b769c433f46de7cb37e2229db0e5bb6ee8",
+  "allowed_region": {
+    "start_byte_zero_based": 162,
+    "end_byte_exclusive": 964,
+    "first_line_one_based": 6,
+    "last_line_one_based": 12,
+    "old_bytes_utf8": "// Живой базы здесь нет по той же причине, что и у соседнего файла: пробу,\n// гейтящуюся кратким режимом, в этом пакете некому гонять (отбор интеграционной\n// джобы до `pkg/migratorcli` не достаёт). Поэтому здесь закреплено то, что\n// проверяется БЕЗ базы, — форма доставки, перепись и предел, — а то, что база\n// нужна по существу (уведомление НАСТОЯЩЕЙ миграции доезжает до вывода\n// процесса), доказывает `internal/migratorapply`, который гоняет цель\n// test-pg-outside-selection.\n",
+    "old_sha256": "2417bb6f6a4f2428aeaaa8af6bdc46ed6f7c22fc921f65099147ce15501d6d02",
+    "new_bytes_utf8": "// Здесь без живой базы проверяются форма доставки через NoticeRelay, перепись\n// и предел сообщений. Уровень и текст передаются приёмнику напрямую; эти пробы\n// не доказывают доставку уведомления от настоящего сервера.\n//\n// Интеграционные пробы пакета в `noticethreshold_integration_test.go` применяют\n// синтетическую цепочку миграций к настоящему Postgres и проверяют порог сессии.\n// `.github/scripts/run-integration.sh` выбирает пакет по импорту `corelib/pgtest`\n// либо `testcontainers` в TestImports/XTestImports и запускает его без `-short`.\n// Скрипт вызывает job `integration` в `.github/workflows/ci.yml`; TestMain из\n// `testmain_pgtest_test.go` через pgtest.Run поднимает Postgres лениво.\n//\n// Проверки настоящих миграций платформы принадлежат Kachō (`internal/migratorapply`).\n// Их исполнение и результат этот файл не утверждает.\n",
+    "new_sha256": "3991e2b2d542252bf02ecc28c01e9dbbb11ed6bdf6be80d84c827b19c2d80599"
+  },
+  "unchanged_prefix_sha256": "625a97f7a615f6a3b09021c5d39e60526e86e1e5c25c4b941de1c6b318fd5288",
+  "unchanged_suffix_sha256": "388fc23ea8785b4c9ca400550af72db177b6e12c541dd97720039b60e0c0a9ef",
+  "expected_candidate_file_sha256": "bd223ac51e5416a5f9bf2ea0edd6d9d215115434fd6b9fa0e0a9c547fbbd0e3e",
+  "expected_candidate_bytes": 10434,
+  "program_preservation": "REQUIRED independent complete tokens/position-free AST comparison without whitelist; NOT_EXECUTED by author",
+  "candidate_source_written": false,
+  "holder_written": false,
+  "root_preflight": {
+    "report_sha256": "f2805be0d0654bf0f6ea30c927953e019b5cb5bf2b22a562f297c7f62d0ca24d",
+    "measured_head": "2161e76ea36b0c3249ac274e698d22e27bd5fec8",
+    "notice_equals_current_main": true,
+    "packages_examined": 76,
+    "packages_selected": 14,
+    "selected_migratorcli": true,
+    "real_integration_executed": false,
+    "counts": {
+      "run": 6,
+      "pass": 6,
+      "fail": 0,
+      "skip": 0
+    },
+    "notice_names": [
+      "TestCensusCountsWhatItPrintedAndWhatItDropped",
+      "TestCensusIsPrintedEvenWhenNothingWasSaid",
+      "TestLevelIsTakenUnlocalised",
+      "TestNoticeReachesTheOperatorWithItsLevelAndText",
+      "TestOpenDBRefusesADriverThatCannotDeliver",
+      "TestOpenDBRefusesToRunWithoutAPlaceToDeliver"
+    ],
+    "report_owner": "root; commands not rerun by this author"
+  },
+  "live_issue": {
+    "number": 2590,
+    "state": "OPEN",
+    "updatedAt": "2026-09-11T13:26:14Z",
+    "comments": 0,
+    "body_sha256": "6fde2b4d291ab9fa2434fdf86d911e79488410a99f22464aab0690c0582f1cf7"
+  },
+  "route_source_hashes": {
+    ".github/workflows/ci.yml": "965e03399df3f32fde3f1880a506f9c97906c043a19cdd842563643bf089820c",
+    ".github/scripts/run-integration.sh": "c48888381b2a9637f1e583d4131800308ded067550b971dba265adad05673e0e",
+    "migratorcli/testmain_pgtest_test.go": "e0dd1b8cd5ddda9d9c2728d72a26d4bda02fb74f470a305972784a5a13ed7e2a"
+  }
+}
