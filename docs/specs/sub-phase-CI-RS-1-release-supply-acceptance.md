@@ -164,6 +164,9 @@ required checks на этом SHA: лишь затем разрешается т
 required checks или нужный proxy не ответили в объявленном бюджете. **Then**
 NOT_EXECUTED, имя вопроса и достигнутая стадия; зависящие мутации запрещены.
 **And** тот же вход с ответом источника проходит соответствующий предикат.
+После write потерянный ответ и недоступный readback сохраняют typed UNKNOWN
+именно branch/pr/merge/tag/release-note; последний подтверждённый stage не
+сбрасывается. В частности UNKNOWN merge при PR_OPEN запрещает tag.
 
 ### CI-RS-13 — опубликованный archive до pin
 
@@ -212,11 +215,20 @@ NOT_EXECUTED. Cached/local refs и commit другого repo не дают GREE
 
 ### CI-RS-19 — повтор после частичного исполнения
 
-**Given** ответ на создание PR или тега потерян. **When** повторяется тот же
-repo/version/input digest. **Then** producer сначала читает удалённый результат:
-совпавший объект не создаётся снова; иной объект под тем же именем — RED без
-force/update/delete. Если тег создан, а release note или proxy probe отказали,
-отчёт сохраняет факт созданного тега; восстановление продолжает с readback.
+**Given** ответ на branch/PR creation, PR merge, tag или release-note потерян.
+**When** повторяется тот же repo/version/input/plan digest. **Then** producer
+сначала читает exact typed identity: совпавшее действие не повторяется; иной
+объект под тем же именем — RED без force/update/delete/duplicate PR.
+**And** если branch push подтверждён, но PR creation окончательно отклонён и
+его absence прочитано, result содержит branch PRESENT, pr ABSENT и stage
+BRANCH_PRESENT. При lost branch write/readback остаётся branch UNKNOWN и NONE,
+а не effects=[]; lawful readback той же ref разрешает продолжение без push.
+**And** lost merge/readback сохраняет отдельный merge UNKNOWN при PR_OPEN;
+readback merged=true с тем же PR head даёт actual merge SHA и MERGE_PRESENT,
+затем отдельно проверяется main ancestry/content. Tag до этого запрещён.
+Каждый отрицательный/неисполненный случай имеет однофактный lawful readback
+близнец и полный mutation log. Если tag создан, а note/proxy отказали,
+TAG_PRESENT сохраняется; восстановление продолжает с readback.
 
 ### CI-RS-20 — входом служит готовое receiving tree
 
@@ -231,9 +243,17 @@ comment-only generated delta. **When** producer проверяет и доста
 **Given** release manifest именует проверенный NP payload и CI-DT generated
 delta с точными digests. **When** zip теряет один объявленный Python/JS/lock
 файл или меняет program tokens/descriptor CI-DT. **Then** RED до repin; наличие
-Go packages само по себе не даёт поставку. **And** archive с exact payload и
-приемлемым отдельным CI-DT proof проходит; CI-NP security/retention acceptance
-по-прежнему исполняется в собственном пакете изменений.
+Go packages само по себе не даёт поставку. **And** полный prerelease set
+NP-P01..06 и DT-P01..03 из design/interface с exact source/test/output/review
+binding достаточен до первой published version; projection-only NP недостаточен.
+Удаление, искажение либо недоступность каждого required proof проверяется отдельно.
+**And** включённый отдельно approved #2590 требует ещё DT-A2590-P01/P02:
+exact allowed comment region и неизменные полные program tokens/AST без whitelist,
+existing assertions и шесть notice tests. Это дополнение не меняет CI-DT-01..09
+и не заменяет generated four-file proof; undeclared addendum delta красна.
+**And** pending consumer pins/materialization/runtime/retention/main/closure и
+postrelease часть CI-DT-09 не блокируют первый выпуск при полном prerelease set,
+но остаются обязательными после него и не объявляются исполненными producer.
 
 ### CI-RS-22 — дрейф входа и принимающего дерева
 

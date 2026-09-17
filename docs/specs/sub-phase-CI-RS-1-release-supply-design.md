@@ -70,7 +70,8 @@ Manifest schema version 1 именует:
   result SHA; это отдельный тип ссылки, не строка HEAD или будущий self-SHA
   внутри committed manifest. Другой допустимый source kind — pinned repository
   с явным 40hex revision. Release payload: exact non-Go paths/digests для NP
-  и отдельное свидетельство comment-only CI-DT;
+  и отдельное свидетельство comment-only CI-DT; `components`/`ci_dt_addenda`
+  и полный закрытый набор proof records по interface prerelease table;
 - pinned versions нужных инструментов и конечные бюджеты внешних вопросов.
 
 Чистая snapshot-copy вне Git запечатывает вход, затем producer повторно
@@ -120,9 +121,13 @@ tree может повторять такие bytes; это сверяется �
    fallback в общий cache или сеть запрещён. Синтетическая версия file proxy
    никогда не публикуется. П9 вызывает этот же код, не копию предиката.
 6. Required non-Go payload проверяется по paths/digests **в candidate zip**.
-   Tool/SDK tests, безопасность публикации и CI-DT semantic proof принадлежат
-   своим acceptance; producer требует их exact-subject результаты. Он не
-   превращает их scoped GREEN в общий GREEN CI-NP.
+   Для CI-NP-1 достаточен и обязателен exact prerelease set NP-P01..06 из
+   interface; projection-only не достаточен. Для CI-DT-1 — DT-P01..03, а при
+   включении отдельного approved #2590 ещё DT-A2590-P01/P02. Каждый proof
+   связан с exact source/test/output/scoped-review hashes. Ни actual consumer
+   pin/materialization, ни runtime/retention, ни postrelease CI-DT-09 не
+   требуются до первой публикации; они обязательны после ARCHIVE_VERIFIED.
+   Producer не превращает этот scoped permit в общий GREEN CI-NP/CI-DT.
 
 Для существующего Kachō `publish-version.sh` default П9 получает **реальный
 исходник объявленного probe**, а не несуществующий Kaname→Kachō consumer:
@@ -144,7 +149,8 @@ target repo и SHA. Наличие preserved `.github` само по себе н
 ## D4. Доставка, выпуск, readback
 
 Стадии монотонны и имеют разные результаты:
-`PLANNED → PR_OPEN → MERGED_VERIFIED → TAG_PRESENT → ARCHIVE_VERIFIED`.
+`NONE → BRANCH_PRESENT → PR_OPEN → MERGE_PRESENT → MERGED_VERIFIED → TAG_PRESENT → ARCHIVE_VERIFIED`.
+Локально запечатанный plan не объявляется remote стадией.
 У каждой есть captured outcome GREEN/RED/NOT_EXECUTED, предыдущее remote
 состояние не забывается. Это протокол исполнения producer, не lifecycle
 Change Graph и не второй issue tracker.
@@ -155,6 +161,15 @@ head, required contexts, findings и mergeability — named finite polling;
 missing, skipped, cancelled и stale-head results не становятся success.
 Слияние осуществляется штатным GitHub PR API с expected head SHA, после
 всех действующих правил. `403` не лечится admin bypass или сменой protections.
+Каждая попытка branch/PR/merge/tag/release-note отражается отдельным typed
+`effects` entry по interface/schema. До write она UNKNOWN, после exact readback
+PRESENT/ABSENT/CONFLICT; ABSENT требует terminal rejection и readback.
+Последний stage сохраняется отдельно: успешный branch и rejected PR дают
+BRANCH_PRESENT; потерянный merge/readback — PR_OPEN плюс UNKNOWN merge, без
+tag. Подтверждённый merge object даёт MERGE_PRESENT до проверки ancestry/content.
+Resume начинает с exact repo/ref/PR/plan-marker readback и не повторяет write
+при UNKNOWN, не подменяет branch/mutation запись фиктивным PR. Полная finite
+матрица CI-RS-12/19 и rules отсутствия/конфликта заданы в interface.
 
 После merge `release` заново получает main. При squash его SHA закономерно
 отличается от branch head: сравниваются exact approved content и manifest
@@ -252,14 +267,21 @@ acceptance/design approval. Policy applicability подробно в `policy-sco
 Приёмке подлежат новые observable choices: explicit ownership manifest с
 `.github` floor; обязательный PR-only путь; отказ bootstrap без previous
 release; exact accepted-main tag target; full declared-consumer census; origin и final
-main modes. Они перечислены для независимого review, не представлены
+main modes; закрытый prerelease/postrelease proof partition; typed branch/PR/
+merge/tag/note ledger; включение exact bounded CI-DT addendum #2590 с собственным
+proof сверх generated set. Последнее не меняет immutable CI-DT acceptance и
+не делегирует принятие неизвестных addenda worker. Они перечислены для независимого review, не представлены
 «рутинной convention» уже принятого исторического контракта.
 
 Foreign `lane/w7-homes-lib` и `lane/envelope-neutral` не входят в ready tree.
 Их семантический конфликт подтверждён owner comment #2588, и этот producer
 не разрешает его по отсутствию textual conflict. Актуальная corelib main
 служит базой, поверх неё допускаются только отдельно принятые NP и CI-DT
-дельты. Если они требуют этих foreign работ по существу, доставка останавливает
+дельты, включая только явно перечисленный отдельно approved #2590 comment-only
+addendum по его exact subject. T6 требует scoped prerelease proofs interface,
+а T7 исполняет postrelease CI-NP/CI-DT обязанности; complete component GREEN
+до выпуска не требуется, поэтому цикла T6→NP-T3/CI-DT-09→T6 нет.
+Если дельты требуют этих foreign работ по существу, доставка останавливает
 соответствующий payload, а producer и независимые gates продолжают свой scope.
 
 ## Exact-set трассировка
@@ -274,7 +296,7 @@ Foreign `lane/w7-homes-lib` и `lane/envelope-neutral` не входят в read
 
 ## Зафиксированные входы design subject
 
-- `docs/changes/ci-release-supply/interface.md` — SHA-256 `990c313d7dfba436d6fe877625caeab7b60998a70e0fc52c2534df82d88be439`.
-- `docs/changes/ci-release-supply/result.schema.json` — SHA-256 `10a8b1e224050d4d26eb401fe78c3de012132af0c7813fe649bc8647abb28402`.
+- `docs/changes/ci-release-supply/interface.md` — SHA-256 `855caf63e222db5733b110087107bb0e2e8af5f34cf8c648964c2c25edfa2932`.
+- `docs/changes/ci-release-supply/result.schema.json` — SHA-256 `d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32`.
 
 Их изменение требует новой редакции этого design и независимой пересверки.

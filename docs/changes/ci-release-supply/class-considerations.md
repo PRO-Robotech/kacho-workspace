@@ -14,10 +14,10 @@ hash. Все держатели в таблице заказаны, их исп�
 | E5 | Archive против checkout; «Применённое ≠ исходник» | Target только из candidate zip; отдельные cache/proxy, GOWORK off, replace absent; локальная копия не помогает | D3; consumer-imports |
 | E6 | План и необратимый шаг разделены; «Решение и его следствие разнесены» | Execution bound to repo/base/input/plan digests; fresh checks перед мутацией; новый head отменяет старый permit | D2/D4; publisher-protocol |
 | E7 | GitHub/Go proxy ответ; «Третий исход — не смог спросить» | Ошибка сети/бюджета/источника отдельно от нарушения дерева; ни неизвестный required context, ни skipped не дают GREEN | D4/D6; publisher-protocol |
-| E8 | Merge/tag/release note — разные операции | Readback после uncertain write; remote факт монотонен; force/rewrite и повторный несовпавший tag запрещены; partial state отражён честно | D4; publisher-protocol |
+| E8 | Branch/PR/merge/tag/release note — разные операции | Typed expected/observed identity и PRESENT/ABSENT/UNKNOWN/CONFLICT отдельно от последнего stage; branch success→PR failure и uncertain merge не скрываются; readback до resume, без blind retry/force/delete | D4; publisher-protocol |
 | E9 | origin reachability/main ancestry; «Гейт сверяет имя, а не идентичность» | Exact repo mapping, complete fresh refs, peeled commits, repository-bound ancestry; branch-only допускается общим gate и отвергается final mode | D5; internal-pins |
 | E10 | Zero pseudo и empty walk | Ноль pseudo при ненулевом product census законен; ноль modules/internal requirements продукта красный. Leaf corelib имеет отдельный запрет обратных рёбер | D5; internal-pins |
-| E11 | NP non-Go payload и CI-DT generation | Archive содержит точные non-Go members; comment-only proof связан с generated SHA; положительный Go build не заменяет эти две обязанности | D3/D4/D7; released-payload |
+| E11 | NP non-Go payload и CI-DT generation/addendum | Exact archive payload и закрытые NP-P01..06/DT-P01..03 proofs до release; #2590 добавляет DT-A2590-P01/P02 без изменения accepted exact-set; pin/runtime/retention/main после release остаются обязательными, не образуют цикл | D3/D4/D7; released-payload |
 | E12 | Переиспользование существующей оснастки; «Намеренная узость становится контрактом абстракции» | Service/revision старого publisher не переосмыслен; переиспользуется узкий archive/census код, не копия publisher; #2661 и чужие lanes не внедряются | D1/D7; scope-review |
 
 ## Измеренное и срок наблюдений
@@ -66,7 +66,8 @@ Whole foundation exporter с нулём eligible files — **переданно�
 использования root собирает receiving declaration из actual corelib main и
 передаёт независимому reviewer полный manifest. Все `.github` paths обязательны;
 прочие receiving-owned paths назначаются явно. Default Kachō П9 использует proposed committed reference-consumer program из нынешнего П8 witness; actual downstream из Kaname не выдумывается. Номер новой версии и точный
-NP/CI-DT payload определяются после соответствующих независимых GREEN.
+NP/CI-DT payload определяются после соответствующих независимых prerelease proofs
+из interface; полные component GREEN остаются отдельными postrelease обязанностями.
 Версия `v1.9.0` здесь baseline наблюдения, а не предложение переиздать её.
 
 Независимый tester получает заказы по всем E1–E12 и 22 acceptance IDs. Ни

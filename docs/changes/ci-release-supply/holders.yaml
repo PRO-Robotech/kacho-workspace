@@ -18,7 +18,7 @@
         "CI-RS-20",
         "CI-RS-21"
       ],
-      "predicate": "Immutable ready tree; exact receiving ownership; nonempty previous-package floor; no exporter; payload census",
+      "predicate": "Immutable ready tree; exact receiving ownership; nonempty previous-package floor; no exporter; payload census; exact NP-P01..06/DT-P01..03 set and included #2590 DT-A2590-P01/P02; each missing/altered/unreadable proof refuses, projection-only refuses, pending postrelease lawful",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/candidate-preflight/"
     },
     "consumer-imports": {
@@ -53,7 +53,7 @@
         "CI-RS-19",
         "CI-RS-22"
       ],
-      "predicate": "Exact phase/reason/exit and effects; dry-run; repo-bound commit; protected PR; accepted-main snapshot; readback; races; bounded remote uncertainty",
+      "predicate": "Exact phase/reason/exit and effects; dry-run; repo-bound commit; protected PR; accepted-main snapshot; readback; races; bounded remote uncertainty; typed branch/PR/merge/tag/note PRESENT/ABSENT/UNKNOWN/CONFLICT identities; branch success then PR failure; unknown branch and merge plus single-fact lawful readback twins",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/publisher-protocol/"
     },
     "internal-pins": {
@@ -126,7 +126,7 @@
         "CI-RS-21",
         "CI-RS-22"
       ],
-      "predicate": "E1-E12 conditions, declared callers, bounded scope, historical subjects unchanged, no foreign-lane import, no protection weakening",
+      "predicate": "E1-E12 conditions, declared callers, bounded scope, historical subjects unchanged, no foreign-lane import, no protection weakening; acyclic closed prerelease/postrelease partition; exact separately approved #2590 subject without expanding immutable CI-DT set",
       "evidence_coordinate": "docs/changes/ci-release-supply/evidence/scope-review/"
     },
     "acceptance-review": {

@@ -80,7 +80,9 @@
         "PR_HEAD_CHANGED",
         "VERSION_INVALID",
         "COMPATIBILITY_FAILED",
-        "HARNESS_UNAVAILABLE"
+        "HARNESS_UNAVAILABLE",
+        "REMOTE_WRITE_REJECTED",
+        "EFFECT_IDENTITY_CONFLICT"
       ]
     },
     "exit_code": {
@@ -97,7 +99,9 @@
     "stage": {
       "enum": [
         "NONE",
+        "BRANCH_PRESENT",
         "PR_OPEN",
+        "MERGE_PRESENT",
         "MERGED_VERIFIED",
         "TAG_PRESENT",
         "ARCHIVE_VERIFIED"
@@ -433,7 +437,9 @@
               "PR_HEAD_CHANGED",
               "VERSION_INVALID",
               "COMPATIBILITY_FAILED",
-              "HARNESS_UNAVAILABLE"
+              "HARNESS_UNAVAILABLE",
+              "REMOTE_WRITE_REJECTED",
+              "EFFECT_IDENTITY_CONFLICT"
             ]
           },
           "subjects": {
@@ -460,44 +466,516 @@
     "effects": {
       "type": "array",
       "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "kind",
-          "identity",
-          "state",
-          "sha"
-        ],
-        "properties": {
-          "kind": {
-            "enum": [
-              "pr",
-              "tag",
-              "release-note"
-            ]
-          },
-          "identity": {
-            "type": "string",
-            "minLength": 1
-          },
-          "state": {
-            "enum": [
-              "PRESENT",
-              "UNKNOWN"
-            ]
-          },
-          "sha": {
-            "anyOf": [
-              {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "ref",
+              "expected_sha",
+              "sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "branch"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "expected_sha": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{40}$"
               },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
               {
-                "type": "null"
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "CONFLICT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "head_ref",
+              "base_ref",
+              "expected_head_sha",
+              "pr_number",
+              "sha",
+              "plan_marker"
+            ],
+            "properties": {
+              "kind": {
+                "const": "pr"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "head_ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "base_ref": {
+                "const": "refs/heads/main"
+              },
+              "expected_head_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "pr_number": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "plan_marker": {
+                "type": "string",
+                "pattern": "^CI-RS-1 plan-sha256:[0-9a-f]{64}$"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "pr_number": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "head_ref",
+              "base_ref",
+              "expected_head_sha",
+              "pr_number",
+              "sha",
+              "merge_sha",
+              "main_sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "merge"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "head_ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "base_ref": {
+                "const": "refs/heads/main"
+              },
+              "expected_head_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "pr_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "merge_sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "main_sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "pr_number": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "merge_sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "merge_sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "ref",
+              "expected_sha",
+              "sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "tag"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "^refs/tags/[^\\s]+$"
+              },
+              "expected_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "CONFLICT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "tag_ref",
+              "expected_sha",
+              "sha",
+              "release_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "release-note"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "tag_ref": {
+                "type": "string",
+                "pattern": "^refs/tags/[^\\s]+$"
+              },
+              "expected_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "release_id": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "release_id": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
               }
             ]
           }
-        }
+        ]
       }
     }
   },
@@ -605,6 +1083,28 @@
           "reason": {
             "not": {
               "const": "OK"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "GREEN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "effects": {
+            "items": {
+              "properties": {
+                "state": {
+                  "const": "PRESENT"
+                }
+              }
             }
           }
         }

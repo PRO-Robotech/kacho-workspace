@@ -46,14 +46,14 @@
     "result_schema": "docs/changes/ci-release-supply/result.schema.json"
   },
   "hashes": {
-    "acceptance_sha256": "31a0aef63bde3dac90e877e26ee90b1df85a7b9b41915388969297e8cf54555f",
-    "design_sha256": "dc30b41ae57cbe1effb3affbd66df55f1a2f4c4c0e184523a515f10f7f1eb5e2",
-    "class_considerations_sha256": "ad448fea72bd7c6e619b9ea1c2956e6bea0cd40a8ca0eb32a8638af67cf2d991",
-    "holders_sha256": "e78c2f8e31525bc29ef47092d691e767f6f378501de735d090a7fc6b26bfaa75",
-    "tasks_sha256": "f52e45080d9b7da2eb95edd374ed6ab4cffa12f17cc93df830a41f3c4131b669",
+    "acceptance_sha256": "5ed9375868b2189a28907c044a25c6825bb9eda2e0167cd8a5afddad211f2916",
+    "design_sha256": "4c98e044206efccb508474a093eddc3f742da961d61429205daee8989a109ec4",
+    "class_considerations_sha256": "f23c8f78fbc9adf45124e04a4a1ebeaaec91102234f64edd940d4ad71deb9e6b",
+    "holders_sha256": "c9e218438f14bab4a7bafb785b7e8cecc459049f074cd3303c6bbc596c624bf2",
+    "tasks_sha256": "51533d997b89982aecc4c7756b52887f96489834a001cd75b43c053a39b6ba6d",
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
-    "interface_sha256": "990c313d7dfba436d6fe877625caeab7b60998a70e0fc52c2534df82d88be439",
-    "result_schema_sha256": "10a8b1e224050d4d26eb401fe78c3de012132af0c7813fe649bc8647abb28402"
+    "interface_sha256": "855caf63e222db5733b110087107bb0e2e8af5f34cf8c648964c2c25edfa2932",
+    "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32"
   },
   "reviews": [],
   "evidence": [],

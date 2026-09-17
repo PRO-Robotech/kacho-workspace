@@ -47,7 +47,11 @@ holder ещё не выдаёт разрешения на код.
 Tester делает реальные tiny Git/Go fixtures и lawful twin; считает
 single-fact delta; проверяет harness/tool/fixture; лишь затем спрашивает SUT.
 Отдельно empty inputs, normal semver, no mutation log, remote uncertainty и
-partial completion. Shell driver приводит test set к exact scenario set,
+partial completion. CI-RS-12/19 включают branch PRESENT→PR ABSENT,
+branch UNKNOWN и merge UNKNOWN с exact lawful readback twins из interface;
+CI-RS-21 инвертирует каждый NP-P01..06/DT-P01..03 и оба predicates включённого
+#2590, включая missing/altered/unreadable proof и pending postrelease lawful.
+Shell driver приводит test set к exact scenario set,
 сохраняет captures под holder evidence coordinates. Baseline red не может
 быть только «файл будущего executable не найден»: требуется валидированный
 capability seam, явно различающий отсутствие поведения и незапуск harness.
@@ -130,15 +134,21 @@ ownership/floor/archives, result classification, remote races, callers и
 ## T6 — первый bounded corelib выпуск
 
 **Владелец:** root/operator producer; independent verifier. **Зависит:** T5
-landed, собственные CI-NP и CI-DT acceptance/evidence для включаемых payload.
+landed и **только закрытый prerelease set** interface для включаемых payload:
+NP-P01..06, DT-P01..03, плюс DT-A2590-P01/P02 если включён #2590. Exact independent
+source/test/output/scoped-review binding обязателен. NP-T3..T7 и postrelease
+CI-DT-09/A2-04 не prerequisites T6 и здесь не объявляются GREEN.
 **Сценарии:** CI-RS-01–13,19–22 на реальном receiving repo.
 
 1. Считать свежий corelib main и предыдущую published version. Собрать ready
-   tree от main с **только** принятыми NP additions и CI-DT generated delta.
+   tree от main с **только** принятыми NP additions, CI-DT generated delta и,
+   если отдельно принят и включён в manifest, exact #2590 comment-only addendum.
    Foreign subscription lanes не добавлять даже при clean cherry-pick.
 2. Сделать receiving ownership manifest и declared consumers Kachō/Kaname.
    Проверить исходные `.github` bytes, full previous-package floor, required
-   Python/JS/lock files и CI-DT descriptors/tokens. DRAFT не назначает будущую
+   Python/JS/lock files, полный prerelease proof set, CI-DT descriptors/tokens
+   и собственные region/tokens/AST/tests proofs каждого включённого addendum.
+   DRAFT не назначает будущую
    версию или будущий commit SHA.
 3. Выполнить producer dry-run; verifier читает exact plan/census. Выполнить
    deliver с repo-exact commit key и plan hash; дождаться штатного PR merge.
@@ -147,14 +157,23 @@ landed, собственные CI-NP и CI-DT acceptance/evidence для вкл�
    существующего tag сохраняется при последующем отказе, pin остаётся прежним.
 
 Это первый реальный remote proof producer, не тестовый выпуск ради инъекции.
-Отсутствующий NP GREEN не блокирует разработку producer, но закрывает включение
-соответствующего payload. CI-DT может выпускаться отдельно тем же маршрутом,
-если его собственные зависимости замкнулись.
+Отсутствие любого NP-P01..06 закрывает включение NP payload, но не разработку
+producer. Полный prerelease set при ещё не существующей версии открывает T6;
+projection-only не открывает. CI-DT может выпускаться отдельно при DT-P01..03
+и дополнительных proofs включённого addendum. Ни global CI-NP GREEN, ни
+consumer/retention/runtime/main результаты, зависящие от этого выпуска, не
+требуются для T6: они обязательны в следующей фазе, а не опущены.
 
 ## T7 — потребители и closure
 
 **Владелец:** consumer workers, independent verifier, root. **Зависит:** T6
-ARCHIVE_VERIFIED и собственные CI-NP/CI-DT green transitions.
+ARCHIVE_VERIFIED и отдельные authorizations соответствующих consumer workers;
+полный component GREEN является **выходом**, не входом T7. NP-T3 real pins,
+clean materialization/private-copy removal/parsed workflows; NP-T4 runtime и
+rescan; NP-T5/6 retention/exact containment; NP-T7 fresh revalidation/main/closure
+выполняются по собственному контракту. Для CI-DT-09 обязательны archive equality,
+real Kachō pin и GOWORK-off повтор required tests, для #2590 — собственный A2-04.
+До полного набора этих последующих proofs CI-NP/CI-DT не закрываются.
 
 Kaname получает real published corelib pin и канонический NP caller по своему
 контракту. Затем Kachō получает corelib pin и нужный Kaname main pin; прямое
