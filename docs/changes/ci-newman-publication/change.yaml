@@ -151,6 +151,22 @@
       "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714248971",
       "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/checker-scoped-red-5714248971.yaml",
       "remaining": "Scanner/capacity/SDK/consumers/runtime/retention сохраняют отдельные RED и последующие переходы."
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "task": "NP-T2",
+      "scope": [
+        "Python projection и полный final ZIP envelope",
+        "Полное неперекрывающееся покрытие байтов",
+        "Local/central metadata agreement и regular members",
+        "Сохранение прежних читателей и source binding"
+      ],
+      "source_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+      "test_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJqxIA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714391328",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/checker-scoped-green-5714391328.yaml",
+      "remaining": "Scanner/capacity/SDK/consumers/runtime/retention/convergence и доставка сохраняют собственные обязательные этапы. Global lifecycle остаётся TASKS_READY."
     }
   ]
 }

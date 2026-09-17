@@ -1,0 +1,23 @@
+test_np02_rebound_member_hash_does_not_authorize_opaque_key (test_check_boundaries.FinalArchiveBoundary.test_np02_rebound_member_hash_does_not_authorize_opaque_key) ... ok
+test_np03_changed_public_binding_and_bad_member_hash_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_changed_public_binding_and_bad_member_hash_refused) ... ok
+test_np03_duplicate_unknown_missing_and_unsafe_member (test_check_boundaries.FinalArchiveBoundary.test_np03_duplicate_unknown_missing_and_unsafe_member) ... ok
+test_np03_empty_truncated_and_nonzip_are_not_clean (test_check_boundaries.FinalArchiveBoundary.test_np03_empty_truncated_and_nonzip_are_not_clean) ... ok
+test_np03_metadata_carriers_are_not_ignored (test_check_boundaries.FinalArchiveBoundary.test_np03_metadata_carriers_are_not_ignored) ... ok
+test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) ... ok
+test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) ... ok
+test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) ... ok
+test_real_newman_fixtures_and_three_real_readers (test_publication.FixturePrerequisites.test_real_newman_fixtures_and_three_real_readers) ... ok
+test_np01_real_readers_preserve_all_four_outcomes (test_publication.PublicationProjection.test_np01_real_readers_preserve_all_four_outcomes) ... ok
+test_np02_free_error_text_is_removed_without_changing_finding (test_publication.PublicationProjection.test_np02_free_error_text_is_removed_without_changing_finding) ... ok
+test_np02_opaque_carriers_not_just_recognizable_credentials (test_publication.PublicationProjection.test_np02_opaque_carriers_not_just_recognizable_credentials) ... ok
+test_np02_raw_log_and_private_filename_become_generated_summary (test_publication.PublicationProjection.test_np02_raw_log_and_private_filename_become_generated_summary) ... ok
+test_np03_dirty_catalogue_and_wrong_commit_refused (test_publication.PublicationProjection.test_np03_dirty_catalogue_and_wrong_commit_refused) ... ok
+test_np03_existing_output_never_reused (test_publication.PublicationProjection.test_np03_existing_output_never_reused) ... ok
+test_np03_missing_and_malformed_report_never_publish (test_publication.PublicationProjection.test_np03_missing_and_malformed_report_never_publish) ... ok
+test_np03_symlink_input_refused (test_publication.PublicationProjection.test_np03_symlink_input_refused) ... ok
+test_np06_same_size_stale_fingerprint_refused_before_relabeling (test_publication.PublicationProjection.test_np06_same_size_stale_fingerprint_refused_before_relabeling) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 10.351s
+
+OK
