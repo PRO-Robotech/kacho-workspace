@@ -1,0 +1,66 @@
+{
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "reviewer": "/root",
+  "source_author": "/root/e2e_audit",
+  "independent_holder_author": "/root/newman_carrier_tests",
+  "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "base_commit": "2161e76ea36b0c3249ac274e698d22e27bd5fec8",
+  "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+  "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+  "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+  "worker_manifest_sha256": "b21b2169e6d0cfbbb143a061448d60067ac2554031a39271f90c20b7effbaf94",
+  "root_execution": {
+    "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+    "rc": 0,
+    "seconds": 226.97150683403015,
+    "finished_at": "2026-09-17T14:01:14.886236+00:00",
+    "git_status": "",
+    "hashes_unchanged": true,
+    "stream_sha256": {
+      "stdout": "faa8bf68f5a079d1c8361a66e735ebe6e2806c703e4f41b8df3210d17e326612",
+      "stderr": "5fc4771945af878b19ffbb17a8c54162a06b8b944112167bc6fc86e738a1ac5f"
+    }
+  },
+  "verified_capture_counts": {
+    "processes": 3355,
+    "streams": 6710,
+    "reader_records": 851
+  },
+  "holder_results": {
+    "tests": 19,
+    "passed": 19,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "carrier_prerequisites": 412,
+    "semantic_scan_decisions": 461,
+    "scan_CLEAN": 245,
+    "scan_FINDING": 193,
+    "scan_NOT_EXECUTED": 23,
+    "config_cases": 120
+  },
+  "scope": "CI-NP02/03 complete frozen carrier/scanner/decode/capacity holder plus all 18 existing Python project/check regressions on combined source. Source diff five production paths read; full archive envelope and historical metadata remain strict and complete.",
+  "extra_independent_executions": {
+    "root_reported_duplicate_JSON_bypass_whole_and_fragment": 6,
+    "root_pad_bit_pairs_including_extra_wrapper": 4,
+    "read_and_replayed_author_census_project_check_budget_cases": 10
+  },
+  "source_review": "Read all five changed paths plus common strict decoder, closed CLI and full ZIP envelope; scrutinized representation/depth/node accounting, typed cookie jar scope, implicit base64 grammar/canonical refusal, strict whole/fragment JSON duplicate rejection, cumulative raw/output budgets. No canary names or sensitive diagnostic output. Root found and retested two parser/recognizer faults before approval.",
+  "preservation": {
+    "source_and_holders_unchanged": true,
+    "production_files": 9,
+    "holder_files": 23,
+    "clean_tree": true
+  },
+  "not_claimed": [
+    "verdict adapter for nonempty manifest.verdicts",
+    "JS immutable snapshot publisher and pinned SDK action",
+    "consumer workflows and pins",
+    "real runtime and uploaded-byte rescan",
+    "retention contents or containment",
+    "main delivery",
+    "global CI-NP GREEN or issue1810 closure"
+  ],
+  "checked_at": "2026-09-17T14:04:50.730025+00:00"
+}

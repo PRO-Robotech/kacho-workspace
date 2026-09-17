@@ -1,0 +1,58 @@
+{
+  "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "scope": "root independent execution of synthetic pad-bit differential and exact supplementary author budget script after reading its independent node census and equality predicates",
+  "budget_script_sha256": "658a2895ae284e09dbe908486ba711cf29417dd3b6b76f69d7efa05758054b60",
+  "budget_rc": 0,
+  "pad_bits": [
+    {
+      "wrapped": false,
+      "case": "canonical",
+      "expected_rc": 1,
+      "actual_rc": 1,
+      "status": "FINDING",
+      "code": "SECRET_MATERIAL",
+      "passed": true,
+      "input_sha256": "eb5d8a4ef5a0aafe4c19d79fa6f6fbd045a8fa5e7eb9ab37dfd63cca3d3841ac",
+      "stdout_sha256": "247a6ee85e1df43347b47aa9665b1a9212aa931722799bb32beca0bf8c9e5057",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "wrapped": false,
+      "case": "noncanonical_pad_bits",
+      "expected_rc": 3,
+      "actual_rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "passed": true,
+      "input_sha256": "adfa56d8627d8aaa54268cb338b6355d81837b6e84feff794fac2f2c8f1656fa",
+      "stdout_sha256": "832b69e59b24bc2dad13b9de30d0665ea54c2173d31697a5f32e787a8a462b74",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "wrapped": true,
+      "case": "canonical",
+      "expected_rc": 1,
+      "actual_rc": 1,
+      "status": "FINDING",
+      "code": "SECRET_MATERIAL",
+      "passed": true,
+      "input_sha256": "c4783abe0f6a33207769caf3944442bb7856522c97933e7ffc280e873b5dbfd7",
+      "stdout_sha256": "d5d3da5e9e1702b15ad566bccc0b408d5e3ca0f80c7d1081e3f089ef7affe2e5",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "wrapped": true,
+      "case": "noncanonical_pad_bits",
+      "expected_rc": 3,
+      "actual_rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "passed": true,
+      "input_sha256": "564b1249d04f0881b5da64c33f533fc1d1a04cd39cd8ec4017345f0e9e1bdb7b",
+      "stdout_sha256": "391db9b7f37f1841075ac3d3413c413b0439d00ee4596d8a964be0f827df2c28",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "all_pass": true,
+  "checked_at": "2026-09-17T14:02:45.375483+00:00"
+}

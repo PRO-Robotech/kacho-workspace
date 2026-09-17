@@ -121,3 +121,31 @@ generic credential semantics и прежние projection/checker obligations.
 Recorder `/root/truth_tests` лишь перенёс root review и сверил evidence hashes.
 Global lifecycle остаётся TASKS_READY; SDK, consumer workflows/pins, runtime,
 retention, convergence, main delivery и closure не разрешаются этим RED.
+
+
+## Action names и независимый scoped GREEN scanner
+
+Root опубликовал routine agreement 5715635183 до зависимого upload holder.
+Точные имена семи inputs, Node24 entrypoint, closed result и exit mapping
+связаны с исходным agreement SHA256
+04b04c1c2a259bb48f92f5d1b797a935d6c942843dffac319c0bd89d261af7de
+в `reviews/system-design-reviewer/action-input-names-5715635183.yaml`.
+Acceptance/design/interface не изменены; SDK source требует собственного RED.
+
+Независимый root review и событие 5715691258 подтверждают SCOPED_GREEN_APPROVED
+только для scanner/carrier/decoding/capacity и прежних projection/checker
+на source `3884b882e30a63cee03f371a75a4f4df209e5ffc`.
+Record: `reviews/integration-tester/carrier-scoped-green-5715691258.yaml`.
+Фактически исполнены 19 тестов: 19 PASS, 0 FAIL/ERROR/SKIP; 461 semantic scan
+(245 CLEAN, 193 FINDING, 23 NOT_EXECUTED), 120 config cases, 3355 process captures
+и 851 reader records. Root подтвердил неизменность 9 production и 23 holder
+файлов. Автор source `/root/e2e_audit` лишь записывает этот результат;
+reviewer `/root`, автор frozen holder `/root/newman_carrier_tests`.
+
+Global lifecycle сохраняется TASKS_READY. Nonempty verdict adapter, SDK/action,
+consumer workflows/pins, полный runtime, retention/containment/prelanding,
+convergence и доставка в main остаются незавершёнными. Root отдельно сообщил
+о read-only попытке scan 1030 исторических ZIP: все дали NOT_EXECUTED из-за
+неподдержанного data descriptor. Это pending покрытия фактического формата,
+не FINDING, не CLEAN и не разрешение удаления. Частные архивы и их содержимое
+в канон не перенесены. Прежние RED и source coordinates сохранены как история.
