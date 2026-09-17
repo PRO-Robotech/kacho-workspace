@@ -33,7 +33,7 @@
     "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
     "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
     "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
-    "route_sha256": "0a29e470f525b18eab20c1888e771f7d27aab489e2b57bf99009a09c4f9ab181",
+    "route_sha256": "8b5918c511e480863fc3b2d2b87b8b39b2a950b3ea7e36b0bcceb81853ede599",
     "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
     "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
     "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
@@ -167,6 +167,31 @@
       "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714391328",
       "record": "docs/changes/ci-newman-publication/reviews/integration-tester/checker-scoped-green-5714391328.yaml",
       "remaining": "Scanner/capacity/SDK/consumers/runtime/retention/convergence и доставка сохраняют собственные обязательные этапы. Global lifecycle остаётся TASKS_READY."
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "task": "NP-T1",
+      "scope": [
+        "Одно раскрытие даёт один typed decoded result; JSON object/array parsing входит в тот же шаг.",
+        "Исходные и дополнительные typed representations считаются; parser temporaries не дублируются.",
+        "Только null и empty string служат lawful absence markers текущего holder."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJ8MWw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714676827",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/decoding-typed-result-5714676827.yaml",
+      "remaining": "Ceilings, accepted subjects и global phase неизменны; событие 5714676827 само по себе не разрешает scanner source и не объявляет GREEN."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Полный supported scanner/decoding/capacity CLI в corelib ci/newman_publication.",
+        "Generic credential families и contexts; immutable holders, accepted ceilings и projection/checker regression obligations сохраняются."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVKOGaA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714970216",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/carrier-scoped-red-5714970216.yaml",
+      "remaining": "SDK, consumer workflows/pins, runtime, retention, convergence, main delivery и closure сохраняют отдельные обязательные этапы. Global lifecycle остаётся TASKS_READY."
     }
   ]
 }

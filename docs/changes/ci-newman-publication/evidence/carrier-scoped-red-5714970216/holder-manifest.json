@@ -1,0 +1,15 @@
+{
+  "source_repo": "PRO-Robotech/corelib",
+  "source_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+  "holder_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "holder_author": "/root/newman_carrier_tests",
+  "reviewer": "/root",
+  "recorder": "/root/truth_tests",
+  "files": {
+    "ci/newman_publication/tests/carrier_corpus.py": "b5b46275a3d5d39fde13f6407b43954b4e71706c57090fc153328891c5ed37a9",
+    "ci/newman_publication/tests/test_carrier_scanner.py": "205da4c2a692025bb96611caf573942972670ee62869cbbbbab35a00afbe5820"
+  },
+  "same_after_root_run": true,
+  "recorder_verified_from_git_object": true,
+  "mechanical_import_commit": "2161e76ea36b0c3249ac274e698d22e27bd5fec8"
+}

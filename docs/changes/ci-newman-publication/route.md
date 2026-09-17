@@ -92,3 +92,32 @@ encoding/limits матрица, более широкие reader/verdict фор�
 полный runtime и retention/containment/prelanding остаются TESTS_PENDING.
 Worker GREEN отдельно подлежит независимому review; это не разрешение upload,
 consumer release, main delivery или закрытия #1810.
+
+
+## Carrier/capacity: typed-result clarification и scoped RED
+
+Событие root от 17 сентября 5714676827 уточнило единицу typed-result accounting
+перед замораживанием holder. Точный subject и readback сохранены в
+`conventions/decoding-typed-result-0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a.json`
+и `reviews/system-design-reviewer/decoding-typed-result-5714676827.yaml`.
+Прежний accounting subject, acceptance/design/interface и потолки неизменны;
+само уточнение не открывало scanner implementation.
+
+Следующее событие root 5714970216 открыло только supported scanner/decoding/
+capacity CLI в corelib `ci/newman_publication`. Его основание — независимый
+root review неизменённого holder `/root/newman_carrier_tests`, test-only commit
+3aa95633b5f635847997ce55f590c63d5dfce68e на source
+4d37cfb6ef62d31c09cd65daadf09bdef671d3a5. Record:
+`reviews/landing-reviewer/carrier-scoped-red-5714970216.yaml`.
+
+Root исполнил 412 prerequisites и 828 reader trios; 461 scan attempt вернул
+ноль semantic decisions вследствие отсутствующего dispatch. Это capability
+RED; фактические ответы NOT_EXECUTED не превращаются в FINDING или CLEAN.
+Limits matrix: 120 вызовов, project 40 PASS, check 40 PASS, scan 40 отсутствует.
+Предварительные репетиции с негодными fixtures остаются NOT_EXECUTED.
+
+Автор реализации `/root/e2e_audit` сохраняет frozen holders, accepted limits,
+generic credential semantics и прежние projection/checker obligations.
+Recorder `/root/truth_tests` лишь перенёс root review и сверил evidence hashes.
+Global lifecycle остаётся TASKS_READY; SDK, consumer workflows/pins, runtime,
+retention, convergence, main delivery и closure не разрешаются этим RED.
