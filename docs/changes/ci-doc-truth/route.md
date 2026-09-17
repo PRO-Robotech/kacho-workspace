@@ -1,6 +1,7 @@
-# CI-DT-1 — предлагаемый маршрут
+# CI-DT-1 — маршрут принятого замысла
 
-> DRAFT, 2026-09-17. Маршрут предложен автором, TASKS_READY не объявлен.
+> Планирование 2026-09-17 после четырёх VERIFIED событий.
+> TASKS_READY подготовлен; запуск test-only требует отдельного root readback.
 > Живое состояние принадлежит issues #2696/#2591/#2592.
 
 1. Acceptance-reviewer проверяет exact acceptance SHA и новый scope двух Reason.
@@ -47,3 +48,16 @@ records появятся отдельно с проверенными внешн
 заполненность экземпляра. Runtime контракт не меняется. Полный старый exporter
 на нынешней базе не собирает дерево; проверенный способ узкой регенерации и
 его baseline описаны в design. Отказ exporter не маскируется фиктивным успехом.
+
+## Writing-plans handoff и граница допуска
+
+Root передал APPROVED design независимой planning-роли `/root/truth_tests`
+после design event 5714108091. `tasks.md` содержит exact-set CI-DT-01..09
+и зависимости DT-01..09; `tasks-ready-20260917.json` связывает его отпечаток
+с четырьмя внешними review records и маршрутом. Canonical copies событий
+повторно прочитаны через API перед записью.
+
+TASKS_READY здесь означает готовый маршрут. До отдельного root readback
+тестовый diff не начинается; source закрыт до собственного честного RED
+и отдельного root transition. Approval не переносится изменением шапки
+acceptance/design/class: их bytes сохранены. Живой статус — у issues.

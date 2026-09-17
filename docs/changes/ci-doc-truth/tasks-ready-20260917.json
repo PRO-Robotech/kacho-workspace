@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-doc-truth",
+  "kind": "writing_plans_handoff",
+  "event": "writing-plans-handoff-verified",
+  "produces": "tasks.md",
+  "design_stage": "DESIGN_APPROVED",
+  "design_sha256": "f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047",
+  "design_event_url": "https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714108091",
+  "source_author": "/root/docs_truth",
+  "handoff_authority": "/root",
+  "planner": "/root/truth_tests",
+  "handoff_source": "root task message after VERIFIED design; bounded planning delegated to independent test owner",
+  "state": "TASKS_READY",
+  "tasks_path": "docs/changes/ci-doc-truth/tasks.md",
+  "tasks_sha256": "80cdbbfb3d07c1b701c72e636567ecc3482b240d548660ffa8903d53027e3c9c",
+  "route_path": "docs/changes/ci-doc-truth/route.md",
+  "route_sha256": "45b8eaea897998d8324270c2843d9ccfcd039f2de90adac2ebbc832227389ab1",
+  "acceptance_ids": [
+    "CI-DT-01",
+    "CI-DT-02",
+    "CI-DT-03",
+    "CI-DT-04",
+    "CI-DT-05",
+    "CI-DT-06",
+    "CI-DT-07",
+    "CI-DT-08",
+    "CI-DT-09"
+  ],
+  "review_records": [
+    "docs/changes/ci-doc-truth/reviews/acceptance-reviewer/0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24.yaml",
+    "docs/changes/ci-doc-truth/reviews/class-exposure-analyst/initial/0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24.yaml",
+    "docs/changes/ci-doc-truth/reviews/class-exposure-analyst/revalidation/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml",
+    "docs/changes/ci-doc-truth/reviews/design-reviewer/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml"
+  ],
+  "timestamp": "2026-09-17T12:18:07.088003+00:00",
+  "next_phase": "test-only diagnostic RED after separate root readback",
+  "implementation_authorized": false,
+  "root_readback": "pending; no test changes yet"
+}
