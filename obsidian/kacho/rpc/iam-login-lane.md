@@ -9,19 +9,21 @@ backend_port: 9100
 visibility: cluster-internal
 domain: iam
 related_resource: "[[resources/iam-user]]"
-methods_count: 5
+methods_count: 7
 async_methods: 0
 status: test
 related_tickets:
+  - "[[issue-1269]]"
   - "[[issue-1270-kaname]]"
+  - "[[issue-1271]]"
 tags:
   - rpc
   - kacho-iam
   - iam
-verified_against: "kaname, ветка issue-1270-registration от release/iam-lines@af0ca8f3: перечень путей — `loginlanehttp.Paths()`; сверен с обработчиком"
+verified_against: "kaname release/iam-lines@6acf8f19 (Ф3 kaname#179, Ф4 kaname#196, Ф5 kaname#200 влиты в линию): перечень путей — `loginlanehttp.Paths()`, семь; сверен с обработчиком `internal/handler/loginlanehttp/handler.go` 2026-09-17"
 ---
 
-# Полоса формы: вход, выход, смена пароля, признак формы, регистрация
+# Полоса формы: вход, выход, смена пароля, признак формы, регистрация, восстановление
 
 **Транспорт**: HTTP-слушатель `internal/handler/loginlanehttp` на адресе
 `KANAME_API_SERVER__LOGIN_LANE_ENDPOINT`, поднимается ТОЛЬКО посадкой `authn.identity-provider=own`,
@@ -36,6 +38,8 @@ verified_against: "kaname, ветка issue-1270-registration от release/iam-l
 | `/iam/v1/auth/logout` | POST | `logout` | `humansession.Logout` | `{}`; печенье снято |
 | `/iam/v1/auth/password` | POST | `password` | `humansession.ChangePassword` | `{session}` |
 | `/iam/v1/auth/register` | POST | `register` | `registration.Register` (Ф4) — зеркало · адрес · сессия одной транзакцией | как у входа; `emailVerified=false` |
+| `/iam/v1/auth/recovery` | POST | `recovery` | `humansession.RequestRecovery` (Ф5-01/02) — чеканка кода и письмо одной транзакцией | `200 {}` при **любом** исходе, без печений: адрес не подтверждается ответом |
+| `/iam/v1/auth/recovery/complete` | POST | `recovery-complete` | `humansession.CompleteRecovery` (Ф5-03…08, Ф5-17) — код и новый пароль **одним** обращением, текущий пароль не спрашивается | `{session}` + `kaname_session`; заблокированной личности — учётные данные сменены, сессии нет |
 
 **Отказы** — `google.rpc.Status` JSON фиксированными текстами. Регистрация: занятость адреса,
 активация приглашения конкурентом, истёкшее приглашение, потолок темпа — **один** отказ
