@@ -56,7 +56,7 @@
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
     "interface_sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
     "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
-    "route_sha256": "0db6e048964297f8245ed239422b9464eae6a21adeaeb2a151a6f6516eb07735",
+    "route_sha256": "c3861a42a63f08a5921e1c7007fb8e3221f5ab5dfa4d91200925ab4e73066049",
     "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
   },
   "reviews": [
@@ -101,5 +101,50 @@
     }
   ],
   "requested_transition": null,
-  "note": "Четыре exact-hash внешних review прочитаны обратно. Разрешён T1 test-only; source TESTS_PENDING до independent RED и отдельного root transition. Исторические DRAFT subjects сохранены."
+  "note": "Четыре exact-hash внешних review прочитаны обратно. Разрешён T1 test-only; source TESTS_PENDING до independent RED и отдельного root transition. Исторические DRAFT subjects сохранены.",
+  "scoped_transitions": [
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Имена test interface и evidence/authority records до dependent holder freeze",
+        "22 сценария, D1–D8 и accepted result schema сохраняются"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLcoZQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716256869",
+      "record": "docs/changes/ci-release-supply/reviews/system-design-reviewer/routine-v2-5716256869.yaml",
+      "remaining": [
+        "Само agreement разрешает только T1 test-only",
+        "Source требует отдельного reviewed RED"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "CI-RS-07–09 consumers/preflight engine: manifest.go, archive.go, consumers.go",
+        "CAPABILITY_ABSENT после реальных prerequisite: 27 prepared cases, 0 SUT invocations, 0 semantic decisions"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLw_dQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716590453",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/consumer-scoped-red-5716590453.yaml",
+      "remaining": [
+        "Полный T1 из 22 сценариев",
+        "Остальной T2: candidate/pins/publisher, P9 CLI/wiring/default declaration",
+        "Полные регрессии, D8 producer authority, protected delivery и closure"
+      ]
+    },
+    {
+      "state": "APPROVED_BOUNDED_TEST_ONLY_CORRECTION",
+      "scope": [
+        "Только test Git transport rewrite: canonical identity сохраняется, реальные transport operations перенаправляются",
+        "Существующий bounded source допуск продолжается; дополнительно только package comment doc.go с сохранением license/SPDX/package"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMH2CQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716964873",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/consumer-bridge-correction-5716964873.yaml",
+      "remaining": [
+        "27 cases остаются CAPABILITY_ABSENT, semantic decisions 0",
+        "Полный T1 из 22 сценариев, остальной source/P9, runtime/protected release/closure"
+      ]
+    }
+  ]
 }

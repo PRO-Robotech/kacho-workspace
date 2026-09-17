@@ -1,0 +1,4183 @@
+{
+  "holder": "nonempty-kacho-shard-v1",
+  "provenance": {
+    "repository": "PRO-Robotech/kacho",
+    "revision": "b5fa093341f1fdbe96adfc6a9555482690968253",
+    "files": {
+      "shard-verdict.py": {
+        "source_path": ".github/scripts/shard-verdict.py",
+        "sha256": "632867f73d93e3d5927326bf7c6ddae6a7993efdd74f65c0fbae4246cb00a813"
+      },
+      "aggregate-shard-verdicts.py": {
+        "source_path": ".github/scripts/aggregate-shard-verdicts.py",
+        "sha256": "da5ccdfe224ec9bfb1a35a696822e78615c87e3ec6427390efd65c30bffe5bac"
+      }
+    },
+    "role": "unchanged real producer and direct verdict reader, independent fixture prerequisites"
+  },
+  "routine_sha256": "19a9d04459011d47801d760db8d2d6fdecb84a01a5aca393973e3dc1fd3f0ad0",
+  "prerequisites": [
+    {
+      "id": "green",
+      "source_commit": "a0f160f6cbf1cc7875ba2928f26acabcc081133a",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 0,
+        "category": "ЗЕЛЁНЫЙ",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 0
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3432-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3439-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3435-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3436-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "finding",
+      "source_commit": "73b7af2dc09a66de9cb9dcfaee52dbf818a1d359",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 1,
+        "category": "КРАСНЫЙ",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 1
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 1,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "FAILED"
+        ]
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 1,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "FAILED"
+        ]
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3448-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3455-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3451-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3452-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "019767c38c61c1dca5ae50cc64845e5f499bac9133b1767098627bce0f23bace",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 1,
+              "script_failed": 0
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 1,
+              "script_failed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "precondition",
+      "source_commit": "03538605c5c2e70ac82fe23210500f5be497b78f",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 1,
+        "category": "КРАСНЫЙ",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 2,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 1
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 3,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 2,
+          "assertions": 3,
+          "failed": 1,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "FAILED"
+        ]
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 3,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 2,
+          "assertions": 3,
+          "failed": 1,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "FAILED"
+        ]
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3464-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3471-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3467-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3468-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "bafb8cdf9ca91dbd2bfd31146c97ac538aeca804dfdb7088e0923a5a34e573e8",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 2,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 2,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 1,
+              "script_failed": 0
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 2,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 1,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 2,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 1,
+              "script_failed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "script-error",
+      "source_commit": "7216ec9ea1513adc578715b68cbb878a77d09a55",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 1,
+        "category": "КРАСНЫЙ",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 2,
+          "failed": 0,
+          "script_failed": 1,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 1
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 2,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "UNANSWERED"
+        ]
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 2,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": [
+          "UNANSWERED"
+        ]
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3480-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3487-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3483-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3484-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "ef8fbb22d0d7bb0317fa91c469684c7f88367e12895aa624d876450653a40500",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 2,
+          "failed": 0,
+          "script_failed": 1,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 2,
+              "failed": 0,
+              "script_failed": 1
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 2,
+          "failed": 0,
+          "script_failed": 1,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 2,
+              "failed": 0,
+              "script_failed": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "green-file",
+      "source_commit": "076e0c677e57502210a57c300e4f26fd54017c6c",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 75,
+      "aggregate": {
+        "rc": 1,
+        "category": "НЕ ВЫПОЛНИЛОСЬ · УСЛОВИЕ НЕ СОЗДАНО",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 1,
+          "unexplained": 0
+        },
+        "finding_count": 1
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3496-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3503-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3499-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3500-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "d20f5f2e7dd1c7de846ed4b7bc5e00d5e47b74443ebe9fd29656044b1699cf5c",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          },
+          "precondition": {
+            "unmet": true,
+            "kind": "external-chart-source",
+            "producer": ".github/scripts/stand-up.sh",
+            "detail": "synthetic chart prerequisite unavailable"
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          },
+          "precondition": {
+            "unmet": true,
+            "kind": "external-chart-source"
+          }
+        }
+      ]
+    },
+    {
+      "id": "green-env",
+      "source_commit": "9d1018d538447b8d2f78fd707634cd1507d5198a",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 75,
+      "aggregate": {
+        "rc": 1,
+        "category": "НЕ ВЫПОЛНИЛОСЬ · УСЛОВИЕ НЕ СОЗДАНО",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 0,
+          "precondition": 1,
+          "unexplained": 0
+        },
+        "finding_count": 1
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3512-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3519-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3515-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3516-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "38afb506a0d355ad0d6123b04943bad49cb91e7a6015a6999cd2688b4d265ff0",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          },
+          "precondition": {
+            "unmet": true,
+            "kind": "stand-revision-divergence",
+            "producer": ".github/scripts/stand-revision-verdict.sh",
+            "detail": "стенд поднялся, но исполняет ДРУГОЕ дерево: ревизия контейнеров не сошлась с ожидаемой. Обе величины назвал шаг «провенанс стенда» выше — в журнале работы и в сводке прогона"
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          },
+          "precondition": {
+            "unmet": true,
+            "kind": "stand-revision-divergence"
+          }
+        }
+      ]
+    },
+    {
+      "id": "empty-assertions",
+      "source_commit": "9d1018d538447b8d2f78fd707634cd1507d5198a",
+      "catalogue_sha256": "fa77aabbb52ff6b6352f6e26e8ca895fca5bf5eb1fe377cef19317f174ddb5be",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 1,
+        "category": "НЕ ВЫПОЛНИЛОСЬ",
+        "totals": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 0,
+          "failed": 0,
+          "script_failed": 0,
+          "shards_expected": 1,
+          "shards_reported": 1,
+          "tree": 1,
+          "empty": 1,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 2
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 0,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 1
+        },
+        "live_kinds": [
+          "NOTHING-RAN"
+        ]
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 1,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 0,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 1
+        },
+        "live_kinds": [
+          "NOTHING-RAN"
+        ]
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3528-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3535-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3531-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3532-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "bde765755c216806ab3622f078205bc29715092f767c72ec9ea19d6a1468f7b1",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [
+            "probe/fixture"
+          ],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 0,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 0,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 0,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [
+            "reports/report-000001.json"
+          ],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 0,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "multi",
+      "source_commit": "14e9fc3cfa53064e4c6118f03108d6ee75c4afdf",
+      "catalogue_sha256": "c34857449db371671d2bbd88931361f41d7b96d9ace50d75acac549eedd3b5f2",
+      "producer_rc": 0,
+      "aggregate": {
+        "rc": 0,
+        "category": "ЗЕЛЁНЫЙ",
+        "totals": {
+          "expected": 2,
+          "reported": 2,
+          "requests": 6,
+          "unanswered": 0,
+          "assertions": 6,
+          "failed": 0,
+          "script_failed": 0,
+          "shards_expected": 2,
+          "shards_reported": 2,
+          "tree": 2,
+          "empty": 0,
+          "precondition": 0,
+          "unexplained": 0
+        },
+        "finding_count": 0
+      },
+      "reader_before": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "reader_after_control": {
+        "coverage_rc": 0,
+        "suite_rc": 0,
+        "live_counts": {
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "assertions": 3,
+          "failed": 0,
+          "unanswered": 0,
+          "empty": 0
+        },
+        "live_kinds": []
+      },
+      "aggregate_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3548-actual-aggregate-raw",
+      "authored_reader_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3559-actual-aggregate-authored-fixture",
+      "baseline_project_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3551-project",
+      "baseline_check_capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3552-verdict-check-no-verdict-control",
+      "authored_fixture_sha256": "49eebe5486b65a669f44ae358f3331c4896d91f2cc7a21c67f1802ee02b155be",
+      "raw_verdicts": [
+        {
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "probe/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        },
+        {
+          "shard": "other-shard",
+          "suites": [
+            "other"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "missing": [],
+          "empty": [],
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "per_collection": {
+            "other/fixture": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ],
+      "projected_fixture_verdicts": [
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 0,
+          "shard": "probe-shard",
+          "suites": [
+            "probe"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000001.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        },
+        {
+          "schema_version": 1,
+          "kind": "kacho-shard-v1",
+          "index": 1,
+          "shard": "other-shard",
+          "suites": [
+            "other"
+          ],
+          "expected": 1,
+          "reported": 1,
+          "requests": 3,
+          "unanswered": 0,
+          "assertions": 3,
+          "failed": 0,
+          "script_failed": 0,
+          "missing": [],
+          "empty": [],
+          "per_collection": {
+            "reports/report-000002.json": {
+              "requests": 3,
+              "unanswered": 0,
+              "assertions": 3,
+              "failed": 0,
+              "script_failed": 0
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "green/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 1145,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3560-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3561-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3562-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3563-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "finding/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 1434,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3567-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "finding/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "019767c38c61c1dca5ae50cc64845e5f499bac9133b1767098627bce0f23bace",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3568-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "finding/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3569-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "finding/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3570-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "precondition/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1205,
+        "archive_sha256": "47ede7bb85f2f629e9925110ac7c9f2776f2a1cfdf121a72e614f2bcb57b3fd8",
+        "code": "COMPLETE",
+        "fields_checked": 1248,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3574-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "precondition/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1205,
+        "archive_sha256": "bafb8cdf9ca91dbd2bfd31146c97ac538aeca804dfdb7088e0923a5a34e573e8",
+        "code": "COMPLETE",
+        "fields_checked": 452,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3575-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "precondition/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1205,
+        "archive_sha256": "47ede7bb85f2f629e9925110ac7c9f2776f2a1cfdf121a72e614f2bcb57b3fd8",
+        "code": "COMPLETE",
+        "fields_checked": 452,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3576-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "precondition/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1205,
+        "archive_sha256": "47ede7bb85f2f629e9925110ac7c9f2776f2a1cfdf121a72e614f2bcb57b3fd8",
+        "code": "COMPLETE",
+        "fields_checked": 452,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3577-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "script-error/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1150,
+        "archive_sha256": "f6c9db12430a364a270be3da6cb4ec9e236537e5a75dca2ebd67bf42542cd9fd",
+        "code": "COMPLETE",
+        "fields_checked": 1411,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3581-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "script-error/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1150,
+        "archive_sha256": "ef8fbb22d0d7bb0317fa91c469684c7f88367e12895aa624d876450653a40500",
+        "code": "COMPLETE",
+        "fields_checked": 482,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3582-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "script-error/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1150,
+        "archive_sha256": "f6c9db12430a364a270be3da6cb4ec9e236537e5a75dca2ebd67bf42542cd9fd",
+        "code": "COMPLETE",
+        "fields_checked": 482,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3583-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "script-error/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1150,
+        "archive_sha256": "f6c9db12430a364a270be3da6cb4ec9e236537e5a75dca2ebd67bf42542cd9fd",
+        "code": "COMPLETE",
+        "fields_checked": 482,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3584-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-file/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "11fc8e7353a5638dc718db92a46446da463fdca8367520067debb52d4ad235d9",
+        "code": "COMPLETE",
+        "fields_checked": 1160,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3588-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-file/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "d20f5f2e7dd1c7de846ed4b7bc5e00d5e47b74443ebe9fd29656044b1699cf5c",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3589-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-file/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "11fc8e7353a5638dc718db92a46446da463fdca8367520067debb52d4ad235d9",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3590-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-file/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "11fc8e7353a5638dc718db92a46446da463fdca8367520067debb52d4ad235d9",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3591-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-env/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1138,
+        "archive_sha256": "0886421ff78c95648f184163a5004e7fb13a30e3bbfd61730c15a180df405500",
+        "code": "COMPLETE",
+        "fields_checked": 1160,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3595-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-env/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1138,
+        "archive_sha256": "38afb506a0d355ad0d6123b04943bad49cb91e7a6015a6999cd2688b4d265ff0",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3596-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-env/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1138,
+        "archive_sha256": "0886421ff78c95648f184163a5004e7fb13a30e3bbfd61730c15a180df405500",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3597-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "green-env/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1138,
+        "archive_sha256": "0886421ff78c95648f184163a5004e7fb13a30e3bbfd61730c15a180df405500",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3598-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "empty-assertions/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1111,
+        "archive_sha256": "5d1dee1daf95356b00c50886d3e56f0838a33e7def20ea2819a737af78ffc872",
+        "code": "COMPLETE",
+        "fields_checked": 1132,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3602-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "empty-assertions/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1111,
+        "archive_sha256": "bde765755c216806ab3622f078205bc29715092f767c72ec9ea19d6a1468f7b1",
+        "code": "COMPLETE",
+        "fields_checked": 439,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3603-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "empty-assertions/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1111,
+        "archive_sha256": "5d1dee1daf95356b00c50886d3e56f0838a33e7def20ea2819a737af78ffc872",
+        "code": "COMPLETE",
+        "fields_checked": 439,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3604-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "empty-assertions/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1111,
+        "archive_sha256": "5d1dee1daf95356b00c50886d3e56f0838a33e7def20ea2819a737af78ffc872",
+        "code": "COMPLETE",
+        "fields_checked": 439,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3605-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "multi/project",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1857,
+        "archive_sha256": "c4c7e1c7a793a96f3810a8d5213a0f79231a72fd5a7ef6b3b353ae01de8d6b5c",
+        "code": "COMPLETE",
+        "fields_checked": 2278,
+        "files_checked": 4,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3609-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "multi/authored-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1857,
+        "archive_sha256": "49eebe5486b65a669f44ae358f3331c4896d91f2cc7a21c67f1802ee02b155be",
+        "code": "COMPLETE",
+        "fields_checked": 845,
+        "files_checked": 4,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3610-verdict-check-authored-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "multi/actual-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1857,
+        "archive_sha256": "c4c7e1c7a793a96f3810a8d5213a0f79231a72fd5a7ef6b3b353ae01de8d6b5c",
+        "code": "COMPLETE",
+        "fields_checked": 845,
+        "files_checked": 4,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3611-verdict-check-actual-lawful",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "multi/stdin-check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1857,
+        "archive_sha256": "c4c7e1c7a793a96f3810a8d5213a0f79231a72fd5a7ef6b3b353ae01de8d6b5c",
+        "code": "COMPLETE",
+        "fields_checked": 845,
+        "files_checked": 4,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3612-verdict-stdin-check",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/unknown-shard",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3618-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shard"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/wrong-suites",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3619-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.suites[0]"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/counter-bool",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3620-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.expected"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/counter-negative",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3621-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.requests"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/counter-string",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3622-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.assertions"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/expected-census",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3623-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.expected"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/reported-census",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3624-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.reported"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/requests-drift",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3625-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.requests"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/unanswered-drift",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3626-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.unanswered"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/failed-hidden",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3627-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.failed"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/script-counter-drift",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3628-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.script_failed"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/missing-required-key",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 1352,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3629-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/orphan-per-collection",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1378,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3630-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.synthetic violet private note"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/missing-per-collection",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1354,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3631-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.probe/fixture"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/per-collection-count-drift",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1366,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3632-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.probe/fixture.requests"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/invented-missing",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1367,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3633-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.missing"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/invented-empty",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1367,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3634-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.empty"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/unknown-precondition",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 1372,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3635-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.precondition"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/precondition-bool-type",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 1372,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3636-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.precondition"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/empty",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1328,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3637-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "raw document encoding"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/malformed",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1328,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3638-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "raw document encoding"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/unknown-shape",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 1329,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3639-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "raw document encoding"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/duplicate-json-key",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 1328,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3640-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "raw document encoding"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/unknown-kind",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3641-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts[0].kind"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/index-gap",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 0,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3642-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts[0].index"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/index-bool",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 0,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3643-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts[0].index"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/path-traversal",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSAFE_PATH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 0,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3644-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts[0].path"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/extra-manifest-key",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 0,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3645-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts[0].note"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "manifest/empty-reports",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "EMPTY_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3646-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.reports"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/missing-verdict",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "MISSING_INPUT",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MISSING_INPUT",
+        "fields_checked": 1328,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3647-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "declared file presence"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/missing-report",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "MISSING_INPUT",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MISSING_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3648-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "declared file presence"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "raw/symlink-verdict",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "UNSAFE_PATH",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSAFE_PATH",
+        "fields_checked": 1328,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3649-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "verdict filesystem type"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/opaque-key",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 1436,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3650-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/opaque-key/check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3651-verdict-check-opaque-key",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/opaque-value",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 1436,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3652-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/opaque-value/check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3653-verdict-check-opaque-value",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/secret-carrier",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 1438,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3654-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/secret-carrier/check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1159,
+        "archive_sha256": "35a5a037b1881005004d7addcb6a3c94d56cf53ccc8ef33cd528940538ee0c36",
+        "code": "COMPLETE",
+        "fields_checked": 486,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3655-verdict-check-secret-carrier",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/precondition-free-fields",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "11fc8e7353a5638dc718db92a46446da463fdca8367520067debb52d4ad235d9",
+        "code": "COMPLETE",
+        "fields_checked": 1160,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3656-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "privacy/precondition-free-fields/check",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "11fc8e7353a5638dc718db92a46446da463fdca8367520067debb52d4ad235d9",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3657-verdict-check-precondition-free-fields",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "census/proper-subset",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 2154,
+        "files_checked": 3,
+        "files_declared": 3,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3658-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.verdicts"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "census/other-valid-shard",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 2116,
+        "files_checked": 2,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3659-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shard"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "census/duplicate-shard-and-orphan",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 2192,
+        "files_checked": 3,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3660-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "first verdict identity"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/checkout-drift",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "SOURCE_MISMATCH",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3661-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "catalogue checkout bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/check-checkout-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "SOURCE_MISMATCH",
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3662-verdict-check-dirty-catalogue",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "catalogue checkout bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/missing-catalogue",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "MISSING_INPUT",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3663-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "catalogue checkout presence"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/symlink-catalogue",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "UNSAFE_PATH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3664-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "catalogue filesystem type"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/commit-mismatch",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "SOURCE_MISMATCH",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3665-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.source_commit"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/duplicate-id",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3669-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/check-duplicate-id",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3670-verdict-check-duplicate-id",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/unknown-shard",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 1077,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3677-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards[0].id"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/check-unknown-shard",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 369,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3678-verdict-check-unknown-shard",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards[0].id"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/repeated-suite",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3685-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards[0].suites"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/check-repeated-suite",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3686-verdict-check-repeated-suite",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards[0].suites"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/missing-catalogue-entry",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3693-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "source/check-missing-catalogue-entry",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3694-verdict-check-missing-catalogue-entry",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shards"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/opaque-key",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1189,
+        "archive_sha256": "2def8ffc2e9dff316aa39a99513c0ab3acd1e6565d17cc9baefea46fd419b513",
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 420,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3698-verdict-check-opaque-key",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.synthetic violet private note"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/unknown-schema",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1157,
+        "archive_sha256": "e21d4b361e150aff35d482333602b9705912b00a039c0783f3a8ff7c48c35313",
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3699-verdict-check-unknown-schema",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.schema_version"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/index-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1157,
+        "archive_sha256": "01940de2e1127c5f10fa24137ccb04f53173b8a6ead44a373e0eb8d12b185021",
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3700-verdict-check-index-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.index"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/counter-bool",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1161,
+        "archive_sha256": "494225de7b6a62f2426b0571b0ee75c71e936ea12dccf13db87c16d19e7e71a6",
+        "code": "MALFORMED_INPUT",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3701-verdict-check-counter-bool",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.expected"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/expected-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1160,
+        "archive_sha256": "1c95b7333e7366f911d750d9c1a97765d36bdbc89d6549639af848deff470f6f",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3702-verdict-check-expected-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.expected"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/reported-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1161,
+        "archive_sha256": "9513c7b645cbb659043087fed409553da6bff2cd6ef09241025f3934fd626d92",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3703-verdict-check-reported-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.reported"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/failed-hidden",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1158,
+        "archive_sha256": "fbfd7f03fc6473ebfc6c6679b00a347d501591e8965f5048b0110fbeba09ef87",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3704-verdict-check-failed-hidden",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.failed"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/requests-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1160,
+        "archive_sha256": "4ee2f613f7b7799f2465b9a63e33bfac26fb3744127d25bf871c8f0fb6808bfb",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3705-verdict-check-requests-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.requests"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/unanswered-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1161,
+        "archive_sha256": "28178643eeb90dafe0a1a79b497d8c3e31cd84cf8871f6bd73d8dd346c2062ee",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3706-verdict-check-unanswered-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.unanswered"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/script-counter-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1161,
+        "archive_sha256": "0c640151a55d07dbbf04bceafa55302101fa28ffc8071e9d0adf8c9f7ef714a0",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3707-verdict-check-script-counter-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.script_failed"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/unknown-shard",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1177,
+        "archive_sha256": "7117ce87be8cf86af24a87d64fa52c2632bd8247e9a44a9a73f761d8aeda5024",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3708-verdict-check-unknown-shard",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shard"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/wrong-suites",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1179,
+        "archive_sha256": "ba4ffa10de0fa0ae3670e874a18015633dabd1879456343fc28b7c6026df5256",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3709-verdict-check-wrong-suites",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.suites[0]"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/orphan-report-index",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1167,
+        "archive_sha256": "c29f849ddc77ed6c74af34bf9c6db89f54d4248fdbe36d6abc42197bfb4f3898",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 430,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3710-verdict-check-orphan-report-index",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.reports/report-000002.json"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/missing-per-collection",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1136,
+        "archive_sha256": "cebbca5719513f369a85522e60bdb18340a839ceee268366a0e8b2c3775f62db",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 406,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3711-verdict-check-missing-per-collection",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.reports/report-000001.json"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/invented-missing",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1167,
+        "archive_sha256": "da759a5a5f355c6acfba638a56ce6902046aaa55cc863c9431e54a9f1b943c05",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 419,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3712-verdict-check-invented-missing",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.missing"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/invented-empty",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1167,
+        "archive_sha256": "0c2d9c819c9a461e43fd282247c53faeecbb6bb361eb94e67162d286b5961f2d",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 419,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3713-verdict-check-invented-empty",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.empty"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/per-collection-drift",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1160,
+        "archive_sha256": "09c2effdb05ab0b915af207fbc02abee2e8388904a6fc84d7fc2597b10ed59cb",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 418,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3714-verdict-check-per-collection-drift",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.per_collection.reports/report-000001.json.failed"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/unknown-precondition",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1200,
+        "archive_sha256": "1b427bd28adb1f66463e44439e03f6776d0fa4921b198b6093a4847b22ffb552",
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 424,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3715-verdict-check-unknown-precondition",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.precondition"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/free-precondition",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1218,
+        "archive_sha256": "33bbd5ec7dc54339711c2d3b7a4d40699b27b99d55ceefb9c13198c0e18b0f45",
+        "code": "UNSUPPORTED_INPUT",
+        "fields_checked": 426,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3716-verdict-check-free-precondition",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.precondition"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/other-valid-shard",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1858,
+        "archive_sha256": "bf4240cf6dfb852a22ad744d08b6449b1edd81fc4e9ba690074f8581bb572072",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 677,
+        "files_checked": 2,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3717-verdict-check-other-valid-shard",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "$.shard"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/duplicate-shard-and-orphan",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1856,
+        "archive_sha256": "780f9618483cf9f9a096e695ff872a8869401c12f2bb963597b9ff25eed5bdc0",
+        "code": "SOURCE_MISMATCH",
+        "fields_checked": 759,
+        "files_checked": 3,
+        "files_declared": 4,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3718-verdict-check-duplicate-shard-and-orphan",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "first verdict identity"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/closed-precondition-form",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1135,
+        "archive_sha256": "87741a7d9439735d14784013f565167ce6cbde4a5124f62dd2382f80c4c61815",
+        "code": "COMPLETE",
+        "fields_checked": 448,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3719-verdict-check-closed-precondition-form",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "final/no-raw-reread",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3720-verdict-check-no-raw-reread",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/archive_bytes/equal",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3721-verdict-check-archive_bytes-equal",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/archive_bytes/below",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 0,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3722-verdict-check-archive_bytes-below",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "limit archive_bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/expanded_bytes/equal",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3723-verdict-check-expanded_bytes-equal",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/expanded_bytes/below",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3724-verdict-check-expanded_bytes-below",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "limit expanded_bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/zip_entries/equal",
+      "operation": "check",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "COMPLETE",
+        "fields_checked": 437,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3725-verdict-check-zip_entries-equal",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/zip_entries/below",
+      "operation": "check",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "ed3ab10c440976140d697687e575d98dec2fba10768834309209b2d189526a38",
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 0,
+        "files_checked": 0,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3726-verdict-check-zip_entries-below",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "limit zip_entries"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/input-document_bytes/equal",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 1147,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3727-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/input-document_bytes/below",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 1039,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3728-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "limit document_bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/input-expanded_bytes/equal",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 1147,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3729-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/input-expanded_bytes/below",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 1039,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3730-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "limit expanded_bytes"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/decode-depth/equal",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 1187,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3731-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/decode-depth/above",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 1123,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3732-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "carrier unwrap depth"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/decoded-nodes/lawful",
+      "operation": "project",
+      "expected_status": "CLEAN",
+      "expected_code": null,
+      "actual": {
+        "archive_bytes": 1102,
+        "archive_sha256": "f1465a20957c7d25b8c7d8712602f25fab6b22f844bf8f10428b44cb2760dfd1",
+        "code": "COMPLETE",
+        "fields_checked": 2147,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3733-project",
+      "errors": [],
+      "lawful_pair_passed": null,
+      "single_fact_delta": null,
+      "established_negative": false,
+      "unestablished_negative": false
+    },
+    {
+      "id": "limit/decoded-nodes/overflow",
+      "operation": "project",
+      "expected_status": "NOT_EXECUTED",
+      "expected_code": "LIMIT_EXCEEDED",
+      "actual": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 100530,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/newman-root-combined-056472e/python/captures/np-c3d950b331/3734-project",
+      "errors": [],
+      "lawful_pair_passed": true,
+      "single_fact_delta": [
+        "opaque carrier node count"
+      ],
+      "established_negative": true,
+      "unestablished_negative": false
+    }
+  ],
+  "attempts": 125,
+  "failures": 0,
+  "established_negative_pairs": 76,
+  "unestablished_negative_pairs": 0,
+  "errors": []
+}

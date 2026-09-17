@@ -33,7 +33,7 @@
     "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
     "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
     "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
-    "route_sha256": "6fbec135ecbeb87759fe5239ce1ebad611e991d4e5f5cac21bc2775b24ac783e",
+    "route_sha256": "289c1e30252abdf3fc17fa75b17b2849f34639eabeb414f1b7677a90c6bb50da",
     "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
     "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
     "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
@@ -255,6 +255,47 @@
       "record": "docs/changes/ci-newman-publication/reviews/integration-tester/sdk-historical-scoped-green-5716467460.yaml",
       "remaining": "Global TASKS_READY; nonempty verdict adapter, consumer/runtime/retention/main и closure ещё требуются.",
       "source_commit": "883fc4999b26dab9567689926eb159236f397afb"
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Обычные имена и binding nonempty kacho-shard-v1 в рамках принятого interface",
+        "Exact trusted catalogue/report union; closed numeric/precondition projection без raw history claim"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLsZJw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716515111",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/verdict-routine-v2-5716515111.yaml",
+      "remaining": [
+        "Само routine agreement не разрешает source и не устанавливает GREEN"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "Только catalogue.py, publication.py и новый verdicts.py",
+        "Непустой project/check adapter с exact catalogue/report binding; holders и соседние области неизменны"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVL47JQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716720421",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/verdict-scoped-red-5716720421.yaml",
+      "remaining": [
+        "Независимый combined GREEN",
+        "Потребители, runtime, retention, release/main и closure"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Непустой kacho-shard-v1 adapter и неизменная полная локальная Python/SDK regression"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMN0Pg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717062718",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/verdict-scoped-green-5717062718.yaml",
+      "remaining": [
+        "Consumer workflows/pins",
+        "Полный runtime, retention/containment/prelanding",
+        "Module release/main и closure"
+      ]
     }
   ]
 }

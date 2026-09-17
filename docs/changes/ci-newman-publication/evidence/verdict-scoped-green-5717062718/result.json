@@ -1,0 +1,65 @@
+{
+  "status": "ROOT_SCOPED_COMBINED_GREEN",
+  "head": "afd2b182822beb90d8648ed4c79d5f2ef6e0eb2c",
+  "tree": "5258e9e566f7a793c2c2a07794242a33bdd304e8",
+  "finished_at": "2026-09-17T15:30:37.804231+00:00",
+  "source_and_holders_unchanged": true,
+  "python_tests": 21,
+  "sdk_tests": 46,
+  "failed": 0,
+  "skipped": 0,
+  "historical": {
+    "scope": "historical signed descriptor ZIP + UTF-8 cli/rc; no live retention or SDK delivery",
+    "prerequisites": "PASS",
+    "declared": 28,
+    "attempted": 28,
+    "scan_attempts": 26,
+    "content_decisions": 10,
+    "scope_refusals": 18,
+    "expected_findings": 4,
+    "actual_findings": 4,
+    "failed_expectations": 0,
+    "failures": []
+  },
+  "captures_verified": 3783,
+  "reader_records": 894,
+  "runs": [
+    {
+      "kind": "python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ci/newman_publication/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 248.96451291500125,
+      "stdout_sha256": "ab6d9e0741c89a3e01519a807bd5732b5f13eca93979620a89b886ae66d3894a",
+      "stderr_sha256": "d5f5c186f181ad13ce602d2f9deea48ebdf8273ca823c675e4c9a0d2e565bde3"
+    },
+    {
+      "kind": "sdk",
+      "argv": [
+        "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+        "--test",
+        "ci/newman_publication/tests/upload.test.mjs"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 10.879763002041727,
+      "stdout_sha256": "173725d4dc1d49d5e164f2ed60c7a36e44738e48431f9c41d7167b97ce84eb87",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "pending": [
+    "consumer workflows/pins",
+    "real runtime/retention",
+    "module release/main/closure"
+  ]
+}

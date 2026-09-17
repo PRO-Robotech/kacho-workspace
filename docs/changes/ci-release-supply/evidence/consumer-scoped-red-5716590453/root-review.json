@@ -1,0 +1,385 @@
+{
+  "status": "BOUNDED_TESTS_REVIEWED_CAPABILITY_ABSENT",
+  "holder_author": "/root/truth_tests",
+  "reviewer": "/root",
+  "holder_full_source_read": true,
+  "author_commit": "9e9e9401ab5d133db7045da8c7304b57662ab3cc",
+  "aggregate_commit": "ca825dd0d233f0d23153ec96d0071530f74e5734",
+  "holder_sha256": "1e35f7dd077903968943f174ccb4c1e51d0fb02ce8275793af7ada65afa4cf7b",
+  "execution": {
+    "argv": [
+      "go",
+      "test",
+      "./internal/release",
+      "-run",
+      "^TestReleaseDeclaredConsumerImports$",
+      "-count=1",
+      "-json",
+      "-timeout=15m"
+    ],
+    "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release",
+    "rc": 1,
+    "seconds": 1.616513732005842,
+    "stdout_sha256": "18015afcd60b5d9eb1de9402ad1661b4899d42ebf381b116e9abaa881bd9b1d8",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "worker_manifest_entries_verified": 325,
+    "finished_at": "2026-09-17T15:01:25.396772+00:00"
+  },
+  "independent_capture_hashes": [
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/009.json",
+      "sha256": "e7a4932805c88519ea3d0015180ddc01344f65b471e5008513cf7919a84bdcc6"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/003.json",
+      "sha256": "0df09c0125dd6670ff04a85e0ee4b0a2fa12286c68f5c1269a697cd907502bbf"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/002.json",
+      "sha256": "ce4beec35ebdc1b3e87ace4750d3cd054f766bc46e401c7a672c406962038fcc"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/008.json",
+      "sha256": "0436e741911a7a7f327009e7f3da7c9338bf2616106eac52aa22e2c0e8eefc4b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/012.json",
+      "sha256": "0ca67f10e48aa4aeac7a9dd97bdfd61a8bd51f20e44dc752bfa80a6ae6932b8f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/006.json",
+      "sha256": "730dbae1070e68087297cb9dd51d70d9cf22da27dbf1ea075bdfe3770a743134"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/004.json",
+      "sha256": "16e3eaac33c43018ae6e3bfba7d0166c39093023d2a5514107d5bc2dc3df0543"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/016.json",
+      "sha256": "cfaab8dab2b29bf1d7d30c533d99b25fbb98f0b8b6314449421c13a8d56c8776"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/001.json",
+      "sha256": "e1ffcebe34f91f04a6a43b1205deb62eba0f5eaaf12d01c280a7f78ea9e91dc7"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/005.json",
+      "sha256": "ad1083f13650e4e4c53606a66623b8acc844ef0a66dcfc8d166a5c86d8262055"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/018.json",
+      "sha256": "7a90dbb1fcb5dc3183551c79e229335a4952dd4674ee3cc66bbebb02f9d56558"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/015.json",
+      "sha256": "cffb02c47834088df15c7c20bb7c3e5f19ebe9d8fd3c03c2bfa0538fb0ad8468"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/017.json",
+      "sha256": "da010d318be9bc6f8dd599675b108f3d4a6e72bc9abeea4f47901a99d4b47e6b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/014.json",
+      "sha256": "782a2a6d5f86df7492b7796ebd25a3bf005adc85fe0c767cc5ee4d674ac0a2ff"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/010.json",
+      "sha256": "9adc4f730d6e9d6a1dd09b8ae0f452afaa7c2b400e95a9efb52097ad48e2ac88"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/007.json",
+      "sha256": "77b44d7c40f39388f72ec4a667a526bfdc2fbae7f589c5ab42c3198f8210718f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/011.json",
+      "sha256": "6c5374e49fbabef8b5dc0388f465450d6e802fff5fe3ac65d66779b2648dda49"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__real_archive_prerequisites/013.json",
+      "sha256": "9a6b711c70e60262bd45fc3b8ec6b95738906fa03f90ef0e624fc69899384bfc"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/041.json",
+      "sha256": "73f0520b779dd719951665c7b7899e32d43db1fb841e4a3e3682bdd33770f7bb"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/024.json",
+      "sha256": "1d733f969b1324a6a098c6c362e1f729c696214841a1e424f12661030863fde8"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/009.json",
+      "sha256": "43d86c3522d55c030e471e866a64b2c47c74ad3d445fe8db3adbfea24ad4e5a2"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/021.json",
+      "sha256": "f60493ee28fff57348296a20534974a9bdd09007109a8f80e7206f145d1353ea"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/053.json",
+      "sha256": "a7ea1fddc94b2e53d66fd7d810dfd17a2ea862ebf796f75af2b6fe3221ac2dcc"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/003.json",
+      "sha256": "ed233b134103db6682fd4f5a91c243c7b89c30daa2f91f037968e8de481f0c39"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/023.json",
+      "sha256": "8bb5b0f78eb6756968127c5915fa81aa6a73c909e8a11123306f32a47361e650"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/022.json",
+      "sha256": "d57091fc086e7d7af6a848c9e412ca4a19cf7aa05fe138f2bc95e3df083b9f08"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/042.json",
+      "sha256": "fe9ba9f53ab0962b9b6bc8f1ff00d037580e4e27ca73c274546549d417e52783"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/056.json",
+      "sha256": "56329737ebc4bce3a07fb2bed473353674735b481c812e7c19816ef3a1bcc7c7"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/029.json",
+      "sha256": "0c54e4cb6832d6d1a6325669467d86a9ed613ee36f0572f14aca7ff71d71a243"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/050.json",
+      "sha256": "7968eaca2ef3fd57817f25dcadc24b3e2d3e987f446376df2faf18b2ad556b69"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/055.json",
+      "sha256": "56cb528e94e18a93bf3a059b1863a9de1cee6a2e15169b7a1a3b35eb49b9f733"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/039.json",
+      "sha256": "c699c8d36d667a93ae5d3fb7c71e82a3034f229c2805239fde568a039e5664f2"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/057.json",
+      "sha256": "daa6b1370bee44b2d1a519c958aa15bd5f386516c0de5d954fa1b889bba5165c"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/045.json",
+      "sha256": "06d837b775119519a4465461f17a5e78815e240689e8739fe420f76d72cb096c"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/002.json",
+      "sha256": "93264ccb9424f5cf72e42673567157cee1d06c793f6fcbf6f2846a7aea9b7ae9"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/008.json",
+      "sha256": "c28867d29e7ca2c26db41019979589f0b0f2a5ca53a299e4bf247675f921adc3"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/020.json",
+      "sha256": "fcb844b543720cff81d4df648aee9bb7c2857073df1d5af78dc906d08b38230b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/012.json",
+      "sha256": "ff586c14dd2ec87d5bc59131b9db19e32b2a991b6d4cccf92a1c8ff3d37b5136"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/059.json",
+      "sha256": "6e7f859e97af2a1ed2b556c93526dc17a359faef5a31cab84077fa8ea39c99ea"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/048.json",
+      "sha256": "f8fb6feed5b5d530324d0cdf46f3a8c5226da48fb02a422989f4e0c11da1d139"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/026.json",
+      "sha256": "aa1f8ee42a2b58cbdff1e7c494346962e9a847a4a65006f30b6acdec67d76698"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/006.json",
+      "sha256": "3c764433f08fb77cf3b2c0c1078eba8b31fb6fb889c97f39746bd2720bd3050b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/047.json",
+      "sha256": "8fdd256a9e2a09aadb633db335411e85e651abe4716c8c465595be908806c5ff"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/004.json",
+      "sha256": "d646e119d9a6d75087018d4c2f54e17cbca4e1e302da4b60020ca6c0e3c82709"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/016.json",
+      "sha256": "ddcd7baf1d84fab4ec96026401c11db25889d12bbfef9b1e97503ce3fffddc9e"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/001.json",
+      "sha256": "ccbbbcfed6cd86b30bb6966377bd31806621def05ae3912919bd58ec0d152d7e"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/005.json",
+      "sha256": "82047ac74caf3af89653d019042f48b95fb95f3e9f54b7e937bba067f5ffece9"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/038.json",
+      "sha256": "17af34f75baa47fecddedd55dfd1e99dfb4db5e113dfd1208d0d6a36b9a50330"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/061.json",
+      "sha256": "5ec9d6992369ea9e89d0072cb1d52ac0453b9b1870f81ff431020e457dee8394"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/018.json",
+      "sha256": "493aecdf02e8d3a551f133d9f73e02dd314ce4b8da658c7ac4b8e75b4976e945"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/040.json",
+      "sha256": "ccfbd01e16549b7204b8306e1414b0a12137691684997094f4b702992fa7f434"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/063.json",
+      "sha256": "a0e7a0d4f116c7c7f5e741002a06a9e3d3dcff3603ecb79794c220510c4090c1"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/031.json",
+      "sha256": "4b4afde92e3ddec924f09cca60e6e61f7a454977cbe89e8a70cd09faac8c841f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/015.json",
+      "sha256": "6a2a206b7f23cf7cdaa4b13b3087635a54460a37e225ed6a66521508a0d3fc7b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/052.json",
+      "sha256": "cdcd8bcef1e820913f36c097ff39095ad5eb508492a71cbfa5d749bb97b3e6ec"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/043.json",
+      "sha256": "1095e8ec9656732e2d1a75c91f8d03f4a226d3367c6bca58be71e19dc08bb985"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/017.json",
+      "sha256": "d93a5ef61bb3cbd16b78e76f82516d07e55f0280a8dd27bc5d5278cd50efb2b2"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/028.json",
+      "sha256": "3a056919e55c0472e89d2c1bfddd830dbd85d00064b0f8a0b98360819221b5d9"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/060.json",
+      "sha256": "f6f5be451592dc1c5360e1849c488db88b3c60f2abc2fefb33b7699536b18e9b"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/014.json",
+      "sha256": "6cca089dbf7313662144824afcc58f56d2c25539c07f356db2860cde2aa2dda2"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/032.json",
+      "sha256": "c0c345a7862e3a78f2a764be1a1f3109bc3fd8afd3207cf287301c21d53e4366"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/010.json",
+      "sha256": "4b6f8b8d83dc89b19dbf6e18bf622ce7a038149bf905e1c5cc5476507f35b94f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/049.json",
+      "sha256": "f18d39bf4d3c2ec5f50e6837c36ebc61c73b54cf655c75f0e85d2a04b46293c0"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/035.json",
+      "sha256": "7f78ac39a7f79a939bfdfb3b394ed4641b18c37d1d40be4d0ec63a180b69228f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/044.json",
+      "sha256": "f6aecef6f996d609a922612e425bcbba6b0a6952f34786e87c1e70dda70123cf"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/034.json",
+      "sha256": "cf9cab5a668cf51351991e291fc702fe30f7448edb1c0a814c16028087cc8652"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/037.json",
+      "sha256": "c6efad7b89db2870122811f2145638f392f14133c7b4289ba74e8a4e11821c4f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/062.json",
+      "sha256": "8bea7acb84a371682c45a89496f8da0b1da6b8e5873f9fbd1cf23cd0302beda5"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/019.json",
+      "sha256": "b86b29415f1bb175ff749fafda801c8c14204192e1532811c23256e0eec1a87f"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/054.json",
+      "sha256": "05e4cf269fc69191a44d4a9d33c75268a9b07244a7ed9ea9dda0c7882d461dc9"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/007.json",
+      "sha256": "ee093232307b8fc9b9dae67151077927e1fa73e1932027c493f556af64810691"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/058.json",
+      "sha256": "ef3f406114d58f7a2bd782261dd83da91645302dc22e4d91935fe0628b367842"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/011.json",
+      "sha256": "55f0e5ebcc504896016eb417bd778397712e84d228b978d96a40a6a8f037670d"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/036.json",
+      "sha256": "5cbc0f9cb8493ebe9c64f5718f7d91d6757e8f33388bae78dbbb316fbdbd8c12"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/046.json",
+      "sha256": "b97f544dc7d88de3606dc796732f18c03b9261d7e620465fcd04ee4e9dfde919"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/013.json",
+      "sha256": "d1f718e14bbef57a313fab2ad5cb9f1f1712f3619cdb3fe804947f04bf1aaeb1"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/033.json",
+      "sha256": "fa9340a5c493fdcaef4cb16a3e11a4c0d85c33b7fd50421893f6b4da12866253"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/030.json",
+      "sha256": "cb0a249aa5e4e9c81fad4a20165a7cd6f8342574d77cc6fd18fd389e69d88eec"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/051.json",
+      "sha256": "260ec31bffc383be9a570595bbc7fd8e144bfd470ac2a575c375c6287b1c589c"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/025.json",
+      "sha256": "956c85bbd5ab9f4c182a7c8c44cf321341c2da3f519fc6dd0d0b99fc95176954"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/027.json",
+      "sha256": "61db42cac68464526101e10565683ac03204c8cbb4bc6727224e3294452ce9a8"
+    },
+    {
+      "path": "captures/TestReleaseDeclaredConsumerImports__declared_consumers_contract/064.json",
+      "sha256": "9117008ea768aa087f1420625bc2f79a6d08efb377974a6f246dbe08d627c637"
+    }
+  ],
+  "capability": {
+    "boundary": "supply-entrypoints",
+    "holder_outcome": "CAPABILITY_ABSENT",
+    "missing_symbols": [
+      "RunSupplyPreflight",
+      "SupplyCommand",
+      "SupplyCommandResult",
+      "SupplyDependencies"
+    ],
+    "prepared_cases": 27,
+    "sut_invocations": 0,
+    "sut_semantic_decisions": 0
+  },
+  "old_P8_gap": "actual existing P8 PASS vs full two-import real archive consumerFAIL; lawfulsamearchive3filesPASS, exactly second.go trackeddeletion",
+  "worker_manifest_entries_verified": 325,
+  "source_scope": [
+    "internal/release/manifest.go",
+    "internal/release/archive.go",
+    "internal/release/consumers.go"
+  ],
+  "pending": [
+    "remaining22scenarioT1",
+    "candidate/pins/publisher implementation",
+    "P9CLI/wiring/defaultdeclaration",
+    "whole release regressions",
+    "real delivery/main/closure"
+  ]
+}

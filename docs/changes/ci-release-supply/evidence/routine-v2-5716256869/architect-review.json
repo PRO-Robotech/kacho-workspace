@@ -1,0 +1,15 @@
+{
+  "status": "CONDITIONAL_ROUTINE_AGREEMENT",
+  "proposal_sha256": "a9737bfe68e741be50ba4295be5b31923164a4d46083e435acc6a670f0c1ac37",
+  "report_sha256": "f317057e3ae691438f9551dc147575ea65012f0e0f6b0c686cf2e25b5b677db7",
+  "report_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-tests/architect-routine-review.md",
+  "accepted_subjects_changed": false,
+  "product_source_changed": false,
+  "concrete_design_mismatch": "external-program lost source.kind=candidate",
+  "required_before_dependent_freeze": [
+    "restore closed candidate|repository source union",
+    "close evidence/authority record schema and bind actual root approval route"
+  ],
+  "entrypoints": "routine agreement",
+  "bridge": "test-only isolated go test -c; absent symbols capability, compile failures NOT_EXECUTED"
+}

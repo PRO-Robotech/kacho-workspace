@@ -40,3 +40,45 @@ repo/SHA, непустой census, rc и raw evidence. NOT_EXECUTED отделя
 разрешения live release, consumer pins, main delivery или issue closure
 этот переход не выдаёт. Политика, legacy census, исторические KAN-RELEASE
 subjects, CI-NP и CI-DT остаются прежними.
+
+
+## Последующие routine и bounded source события, 2026-09-17
+
+Начальный handoff выше сохранён как история. Событие
+[5716256869](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716256869)
+зафиксировало consolidated routine v2 с SHA256
+cd0897c91c1a86cf0579fff5b9dd1a5a2c47f00848ed1fb926dff29f5c60f607.
+Первый proposal и замечания архитектора R1–R4 сохранены побайтно рядом.
+Root согласовал exact evidence/authority binding, candidate|repository union,
+реальные Git/Go/archive operations и test-only compile bridge. Это routine
+согласование не разрешало source или D8 producer execution.
+
+Событие [5716590453](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716590453)
+открыло только CI-RS-07–09 consumers/preflight engine в manifest.go, archive.go
+и consumers.go. Root прочитал holder автора /root/truth_tests, commit
+9e9e9401ab5d133db7045da8c7304b57662ab3cc, и независимо повторил его:
+3 RUN / 1 PASS / 2 FAIL / 0 SKIP, 82 capture pairs. После реальных prerequisites
+установлен CAPABILITY_ABSENT: 27 prepared cases, 0 SUT invocations и 0 semantic
+decisions. Отдельно воспроизведён пробел старого P8: неполный архив проходит
+его witness, но полный consumer с двумя импортами отказывает; lawful архив
+проходит. Событие не объявляет 27 семантических RED и не меняет P1–P8.
+
+Событие [5716964873](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716964873)
+приняло отдельную test-only коррекцию Git transport в holder
+d38aa34845a1bcfd0ce6e99ee69a2c3f04553f07. Canonical identity читается без
+fixture rewrite; только реальные transport operations используют test mapping.
+Root независимо подтвердил 16 parser controls, 3 identity controls и 2 transport
+controls; 4 RUN / 2 PASS / 2 FAIL / 0 SKIP, 119 capture pairs. Прежние
+325 evidence bindings сохранены, новые 457 проверены. Состояние 27 cases
+остаётся CAPABILITY_ABSENT с нулём semantic decisions. Ограниченный source
+допуск продолжается на исправленном holder; дополнение касается только
+package comment doc.go с сохранением copyright/SPDX/package.
+
+Exact records находятся в reviews/system-design-reviewer/routine-v2-5716256869.yaml,
+reviews/landing-reviewer/consumer-scoped-red-5716590453.yaml и
+reviews/landing-reviewer/consumer-bridge-correction-5716964873.yaml.
+Recorder /root/e2e_audit только сохраняет независимые выводы /root.
+Global TASKS_READY, все 22 сценария и accepted subjects неизменны.
+Полный T1, остальной T2 source, candidate/pins/publisher/P9 wiring, полные
+регрессии, отдельная D8 authority, protected delivery и closure остаются pending.
+Эти записи не объявляют full release-supply GREEN или разрешение live release.

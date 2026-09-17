@@ -1,0 +1,20 @@
+{
+  "source_before": "883fc4999b26dab9567689926eb159236f397afb",
+  "test_author_commit": "e548f5836ec2326d9ea4b35b90d1a697c5f87c69",
+  "aggregate_commit": "4f5e4e094ae9a30926f20d56906289fd6f321625",
+  "tree": "0e10ad3e7472dbc021243058549749a799ceca8c",
+  "frozen_test_hashes": {
+    "ci/newman_publication/tests/fixtures/shard-consumer/README.md": "cfb3559edc87317d250cdeac8f73d832e75ecb255e6aaf794a0c8ecc90e6e83f",
+    "ci/newman_publication/tests/fixtures/shard-consumer/aggregate-shard-verdicts.py": "da5ccdfe224ec9bfb1a35a696822e78615c87e3ec6427390efd65c30bffe5bac",
+    "ci/newman_publication/tests/fixtures/shard-consumer/provenance.json": "e3ef94ebb9896de724b4722a6db38b9ca69b81a2e1cd14b898ef4d7e75d77505",
+    "ci/newman_publication/tests/fixtures/shard-consumer/shard-verdict.py": "632867f73d93e3d5927326bf7c6ddae6a7993efdd74f65c0fbae4246cb00a813",
+    "ci/newman_publication/tests/shard_support.py": "1534d9b739f73f402475376957a49cf72539251caa28a296dea82e7d5aa75396",
+    "ci/newman_publication/tests/test_verdict_projection.py": "a387af0adac085e8d844d4b69d9fa62ae8370d7194f7e6c770947a0b28030572"
+  },
+  "actual_main_producer_reader_copies_match": true,
+  "argv": [
+    "python3",
+    "-B",
+    "ci/newman_publication/tests/test_verdict_projection.py"
+  ]
+}

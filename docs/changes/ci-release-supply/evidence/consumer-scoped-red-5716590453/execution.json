@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-run",
+    "^TestReleaseDeclaredConsumerImports$",
+    "-count=1",
+    "-json",
+    "-timeout=15m"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release",
+  "rc": 1,
+  "seconds": 1.616513732005842,
+  "stdout_sha256": "18015afcd60b5d9eb1de9402ad1661b4899d42ebf381b116e9abaa881bd9b1d8",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "worker_manifest_entries_verified": 325,
+  "finished_at": "2026-09-17T15:01:25.396772+00:00"
+}

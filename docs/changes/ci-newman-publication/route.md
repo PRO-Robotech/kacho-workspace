@@ -183,3 +183,38 @@ reviews/integration-tester/sdk-historical-scoped-green-5716467460.yaml.
 не включает частичный реальный retention scan, consumer workflows/pins,
 full runtime, module release/main или закрытие #1810. Nonempty verdict adapter
 ещё требует своего RED/source/GREEN. Global lifecycle сохраняет TASKS_READY.
+
+
+## Nonempty verdict: routine, отдельный RED и независимый root GREEN
+
+Событие [5716515111](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716515111)
+зафиксировало routine v2 до зависимого holder: trusted catalogue в exact source
+commit, полное объединение declared reports без дублей и сирот, закрытые
+счётчики и precondition. Исходный v1 сохранён; accepted interface не менялся.
+Точные subjects и root readback находятся в evidence/verdict-routine-v2-5716515111.
+
+Событие [5716720421](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716720421)
+разрешило только catalogue.py, publication.py и новый verdicts.py после
+independent holder e548f5836ec2326d9ea4b35b90d1a697c5f87c69 автора
+/root/release_supply_arch. Root RED: 8 реальных prerequisites, 105 attempts,
+29 ожидаемых CLEAN заблокированы; 76 отрицательных пар ещё UNESTABLISHED.
+Это исходная capability RED, а не успешная отрицательная матрица.
+
+Независимый root review и событие
+[5717062718](https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717062718)
+подтвердили SCOPED_GREEN адаптера на aggregate afd2b182822beb90d8648ed4c79d5f2ef6e0eb2c.
+Source автора /root/e2e_audit — 056472e0d1b7a4261a5592460eecb14eae423453;
+оба имеют tree 5258e9e566f7a793c2c2a07794242a33bdd304e8. Root исполнил
+21 Python и 46 SDK tests: все PASS, 0 FAIL/SKIP. Verdict holder дал
+125 attempts: 49 lawful CLEAN, 76 установленных отрицательных пар, 0
+неустановленных. Дополнительные 20 вызовов стали исполнимы после реализации;
+исходные случаи и frozen holders сохранены. Проверены 3783 capture pairs
+и 894 reader records; scanner 461, config 120 и historical 28 сохраняют
+прежние обязательства. Final check не утверждает историческую подлинность
+raw precondition. Record: reviews/integration-tester/verdict-scoped-green-5717062718.yaml.
+
+Recorder /root/e2e_audit переносит независимый результат /root, а не утверждает
+собственный source. Прежние GREEN/RED остаются историческими записями.
+Global TASKS_READY сохраняется: consumer workflows/pins, полный runtime,
+retention/containment/prelanding, module release, main и closure ещё требуются.
+Реальные retention archives и их содержимое в этот пакет не включены.

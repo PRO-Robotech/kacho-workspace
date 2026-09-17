@@ -1,0 +1,58 @@
+# CI-RS T0/T1 routine input and test seam proposal
+
+Status: PROPOSED, requires root/architect readback. This does not amend frozen acceptance/design/schema or authorize source. Tester owns fixture construction and expected results; source worker owns implementations. Baseline is 7a41adf7b53cbcee1fbddc84b7408299a0832742. Canonical TASKS_READY is 926a76fdd2305e38a8e5ba5b2529eab537ce9be6.
+
+## Exact input data vocabulary
+
+JSON objects reject unknown keys, missing required keys, duplicate keys and wrong types. Paths are slash-separated relative tracked paths except explicitly named local roots. Digests are lowercase SHA256; revisions are full Git SHA1. Arrays representing sets reject duplicates. Stable canonical encoding is UTF-8 JSON with sorted keys, compact separators, no whitespace/newline, and sorted set arrays; ordered contexts remain ordered. Local checkout locations are bindings to immutable revisions, not alternatives to content identity.
+
+Top-level required keys:
+
+- `schema_version`: integer 1.
+- `repository`: exact owner/name; `module_path`: string; `version`: canonical semver string.
+- `candidate_root`: local directory containing the immutable candidate Git clone; `base_sha`: SHA1; `baseline_version`: canonical semver selected before tag creation.
+- `input_tree_digest`: SHA256; `input_files`: sorted array of `{path: string, mode: '100644'|'100755', sha256: SHA256}`. These describe the supplied ready tree, not the receiving candidate after preservation. Empty files are allowed; empty required input is rejected.
+- `receiving_owned`: sorted array of `{path: string, mode: git mode, sha256: SHA256, reason: nonempty string}` bound to exact receiving base. `.github/**` membership is derived from base; the declaration cannot narrow it.
+- `preserve_paths`, `replace_paths`, `remove_paths`: sorted exact relative-path string arrays; no globs, directory umbrellas or overlaps.
+- `consumers`: nonempty array of the closed tagged union below.
+- `product_trees`: array of `{repository: owner/name, root: local directory, revision: SHA1, module_roots: sorted relative paths}` for pins; in pins mode this is nonempty. Candidate/consumers modes retain this field but do not claim pin predicates.
+- `internal_modules`: array of `{module_path: string, repository: owner/name}`; longest matching exact module prefix determines ownership. Mapping does not carry a caller-supplied remote URL.
+- `components`: sorted subset of `['CI-NP-1','CI-DT-1']`; `ci_dt_addenda`: sorted subset of `['2590']`.
+- `payload`: sorted array of `{path: string, mode: git mode, sha256: SHA256, component: component ID}` checked inside the actual candidate ZIP.
+- `proofs`: array of `{id: closed prerelease proof ID, subject_sha256: SHA256, records: nonempty array of {role: 'source'|'test'|'output'|'scoped-review'|'authority', path: local readable file, mode: git mode, sha256: SHA256}}`. Required roles and approved authority are validated; the records are bound data, never executable shell. Exact closed sets remain NP-P01..06, DT-P01..03, and optional DT-A2590-P01/P02. Missing records are not synthetic approvals. Postrelease records are outside this input set.
+- `producer_execution`: `{repository: 'PRO-Robotech/kacho', root: local frozen checkout, commit: SHA1, tree: SHA1, executable_closure: nonempty array of {path, mode, sha256}, tool_versions: array of {tool: string, version: string}, machine_proofs: nonempty proof record array, regression_proofs: nonempty proof record array, review: proof record, authorization: proof record}`. Live authority checking remains mandatory; fixture records are explicitly synthetic and accepted only through test boundary authority input if one is required, never live runtime configuration.
+- `budgets`: `{network_seconds: integer 1..300, checks_seconds: integer 1..7200}`. Fixed Go/context budgets remain contract constants, not new knobs.
+
+Consumer union, all keys required and no others:
+
+- repository: `{type: 'repository', repository: owner/name, root: local immutable clone, revision: SHA1, module_roots: nonempty sorted relative path array, contexts: nonempty context array}`.
+- external program: `{type: 'external-program', repository: owner/name, root: local immutable clone, revision: SHA1, program_paths: nonempty sorted tracked Go paths, contexts: nonempty context array}`.
+- context: `{goos: string, goarch: string, cgo_enabled: boolean, tags: sorted string array}`. Every import from all tracked Go source, including tests/constraints, must be assigned a supported context; no zero-import declaration can pass. Canonical Kacho external program is a real committed source, not an invented downstream repository.
+
+For pin-only mode, receiving/candidate/payload fields above are omitted rather than populated with fabricated values: exact top-level keys are `schema_version`, `product_trees`, `internal_modules`, `budgets`. For consumers-only mode exact keys are `schema_version`, `repository`, `module_path`, `version`, `candidate_root`, `consumers`, `budgets`. Candidate mode uses the complete top-level object. This is proposed routine representation, not permission to drop required predicates from any producer phase.
+
+## Concrete dependency seam
+
+Proposed Go entrypoints in the existing internal/release package:
+
+```
+func RunSupplyPreflight(ctx context.Context, args []string, deps SupplyDependencies, stdout, stderr io.Writer) int
+func RunSupplyPublisher(ctx context.Context, args []string, deps SupplyDependencies, stdout, stderr io.Writer) int
+
+type SupplyDependencies struct {
+    Command func(context.Context, SupplyCommand) SupplyCommandResult
+    HTTP func(context.Context, *http.Request) (*http.Response, error)
+    Now func() time.Time
+    Sleep func(context.Context, time.Duration) error
+}
+type SupplyCommand struct { Program string; Args []string; Dir string; Env []string; Stdin []byte }
+type SupplyCommandResult struct { Stdout, Stderr []byte; ExitCode int; Err error }
+```
+
+The production CLI passes only normal OS/HTTP/clock implementations. There are no runtime environment command overrides, fixture flags, skip checks or trust shortcuts. Test driver calls these exact entrypoints with test-only dependencies; Git and Go commands execute real binaries with all inherited GIT_* removed and GOWORK=off. Git adapter rewrites only declared github.com repository transport coordinates to fixture bare repos, forwarding every other argument and observing actual refs. The adapter cannot manufacture Git result/ancestor/ZIP/build success. Go is never stubbed and target archives never fall back to network/shared target cache. HTTP adapter serves request-identified controlled forge/proxy responses and records every request, including attempted mutations. Unknown request fails the harness. Go ZIP creation and local file/JSON/import parsing are real SUT work and are not boundary replacements. Clock changes only waiting; context cancellation/deadlines remain observed and reported. Every controlled request/response and mutation journal is captured.
+
+No separate injectable 'approved' bool is proposed. Fixture authority records must be proper bound records of the same parser shape; if trusted issuer discovery is a network operation, the HTTP response is test data, scoped to that exact API request. This point needs architect confirmation before proof-heavy holder expectations are frozen.
+
+Before the entrypoints exist, their absence is CAPABILITY_ABSENT after successful real fixture prerequisites, not a fabricated structured SUT RED. Missing tool/broken fixture/compile errors are holder NOT_EXECUTED. Separately the current unmodified P8 can be exercised against a real two-import fixture: first witness builds while full declared consumer fails; a single added tracked package repairs the actual consumer. This is a semantic baseline gap scoped to P9 coverage, not proof of all 22 future failures.
+
+Implementation detail to settle with root before dependent holder: tests referring directly to absent entrypoints will not compile. To keep the baseline holder executable, use a test-only subprocess bridge that is compiled only when the exact entrypoints are present; absent bridge records CAPABILITY_ABSENT, not success. The bridge must call the real entrypoints without a second policy implementation. Alternatively split initial consumer baseline holder from the later full dependency driver under an explicit bounded source transition. Neither choice changes runtime CLI semantics.
