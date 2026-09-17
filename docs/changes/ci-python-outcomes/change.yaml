@@ -1,0 +1,55 @@
+schema_version: 1
+change_id: ci-python-outcomes
+lifecycle_state: TASKS_READY
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/2629
+  related_issues:
+    - https://github.com/PRO-Robotech/kacho/issues/2281
+    - https://github.com/PRO-Robotech/kacho/issues/2705
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: ab74164eb6078985d7ed7a6b18a577f56f7f20b7
+      cutover_is_ancestor_of_base: true
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      base_sha: b5fa093341f1fdbe96adfc6a9555482690968253
+      cutover_is_ancestor_of_base: true
+hashes:
+  transport_interface_sha256: 8d767e35d419662487c8a5a2d02c19050188e551677524ccecda42c15fd12f7b
+  acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
+  design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
+  class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
+  route_sha256: efbef6f738904a7a6eed258fefdc8857f4af47f49575f43eeaede9af61628d7c
+  holders_sha256: a95da4068a08378fb2f742f79511e6c9c4b0bdf7bb8fe71120e3461956bad2e1
+links:
+  transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
+  policy: docs/changes/policy.yaml
+  acceptance: docs/specs/sub-phase-CI-PY-1-python-outcomes-acceptance.md
+  design: docs/specs/sub-phase-CI-PY-1-python-outcomes-design.md
+  class_considerations: docs/changes/ci-python-outcomes/class-considerations.md
+  route: docs/changes/ci-python-outcomes/route.md
+  holders: docs/changes/ci-python-outcomes/holders.yaml
+reviews:
+  - docs/changes/ci-python-outcomes/reviews/acceptance-reviewer/427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e.yaml
+  - docs/changes/ci-python-outcomes/reviews/class-exposure-analyst/initial/427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e.yaml
+  - docs/changes/ci-python-outcomes/reviews/class-exposure-analyst/revalidation/26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d.yaml
+  - docs/changes/ci-python-outcomes/reviews/design-reviewer/26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d.yaml
+evidence: []
+lifecycle_history:
+  - state: ACCEPTANCE_APPROVED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR3xw
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712934855
+    timestamp: '2026-09-17T10:35:02Z'
+  - state: CLASS_EXPOSURE_RECORDED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR5Zg
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712935270
+    timestamp: '2026-09-17T10:35:04Z'
+  - state: DESIGN_APPROVED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR83A
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712936156
+    timestamp: '2026-09-17T10:35:09Z'
+  - state: TASKS_READY
+    authority: root-orchestration-and-independent-integration-tester
+    route: docs/changes/ci-python-outcomes/route.md
+    holders: docs/changes/ci-python-outcomes/holders.yaml

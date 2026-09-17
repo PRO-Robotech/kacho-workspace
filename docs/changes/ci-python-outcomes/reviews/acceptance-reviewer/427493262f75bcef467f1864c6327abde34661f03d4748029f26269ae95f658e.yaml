@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-python-outcomes",
+  "reviewer_role": "acceptance-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-PY-1-python-outcomes-acceptance.md",
+  "subject_sha256": "427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e",
+  "verdict": "APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVIR3xw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712934855",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVIR3xw",
+  "event_api_id": 5712934855,
+  "body_sha256": "1f3b46e2f68692987c37db6f52c63fef686ba60fa66cc31b70e966c7948ef407",
+  "timestamp": "2026-09-17T10:35:02Z",
+  "source_reviewer": "/root/e2e_audit",
+  "source_review_sha256": "e8615cd7e3a4bc7b7a696f4149c554535f91f01d8d0fb4a7e2f908ab1cda5dde",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "event-bodies/01-acceptance.md"
+}
