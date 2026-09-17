@@ -13,7 +13,7 @@
   "handoff_source": "root task message after VERIFIED design; bounded planning delegated to independent test owner",
   "state": "TASKS_READY",
   "tasks_path": "docs/changes/ci-doc-truth/tasks.md",
-  "tasks_sha256": "80cdbbfb3d07c1b701c72e636567ecc3482b240d548660ffa8903d53027e3c9c",
+  "tasks_sha256": "513aebabb0453790ed84f7ff10487e9f04a3f3d54e56b440dfec9892c9ba6a28",
   "route_path": "docs/changes/ci-doc-truth/route.md",
   "route_sha256": "45b8eaea897998d8324270c2843d9ccfcd039f2de90adac2ebbc832227389ab1",
   "acceptance_ids": [

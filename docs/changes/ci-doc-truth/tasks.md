@@ -69,7 +69,7 @@
    `baseShapeForm`, `shapeAudit`, `shapeStandLedger`, `shapeStandAbsent`;
    `shapeAudit` возвращает реальные `SubscriptionShapeFinding` и census.
    Lawful twin исполняется перед каждой одно-фактной мутацией. Для дефектов
-   утверждаются exact Reason/Kind/File/Line; ожидаемый baseline RED ограничен
+   утверждаются exact Reason/Kind/Where/Line; ожидаемый baseline RED ограничен
    Reason. Снятие обёртки и добавление ветви проверяются как отдельные изменения
    исходной Event-части; изменённое и законное сообщения целиком сохраняются
    в evidence. Точные expected строки берутся из принятой приёмки, не из
