@@ -74,3 +74,19 @@ Root открыл только D1–D3: run-python-probes.py и минималь
 не меняется под реализацию. Reader CLI, общий selftest-runner, Make, ci-local,
 workflow и решения D4–D7 остаются TESTS_PENDING до своего RED. Общий lifecycle
 сохраняет TASKS_READY: частичный RED не становится полным RED всего потока.
+
+
+## Независимый GREEN producer, 2026-09-17T11:10:31Z
+
+[Внешнее событие](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713374865)
+фиксирует независимую post-diff проверку CI-PY-01..08 / D1–D3 на source commit
+78025a3d10a7ea4eaf86ce4797026e0f76396edc. Reviewer /root/e2e_audit прочитал оба
+изменённых файла, сверил неизменность holder с test-only 8cc1713 и повторил
+14 RUN / 14 PASS / 0 FAIL / 0 SKIP, включая 17 реальных producer/self-test
+процессов. Отдельный запуск текущего дерева исполнил 40 проб: 34 pytest и
+6 script-main из 8 файлов, без failed/skipped/unmet.
+
+Вердикт APPROVED_SCOPED_GREEN ограничен producer и его self-test. Он не
+разрешает расширять реализацию на D4–D7 до их независимого RED, не подтверждает
+полную цепочку, convergence, main delivery или closure трёх issues. Общий
+lifecycle остаётся TASKS_READY; прежний RED-переход сохранён как история.
