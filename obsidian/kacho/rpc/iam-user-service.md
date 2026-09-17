@@ -9,8 +9,8 @@ backend_port: 9090
 visibility: public
 domain: iam
 related_resource: "[[resources/iam-user]]"
-methods_count: 10
-async_methods: 7
+methods_count: 11
+async_methods: 8
 status: done
 related_tickets:
   - "[[KAC-105]]"
