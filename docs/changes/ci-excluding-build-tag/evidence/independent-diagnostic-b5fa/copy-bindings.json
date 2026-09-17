@@ -1,0 +1,50 @@
+{
+  "kind": "independent-operational-diagnosis-not-approval-not-red",
+  "author": "/root/truth_tests",
+  "source_root": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review",
+  "original_manifest_entries_verified": 95,
+  "copies": [
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/operational-report.md",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/operational-report.txt",
+      "sha256": "9fac1d4bd5faf9c33370ee62a7bae17d21d8657a2fa5ec06ba81ac3d181677e9",
+      "bytes": 5153
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/OPERATIONAL_MANIFEST.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/OPERATIONAL_MANIFEST.json",
+      "sha256": "93d1ffe509d5aafdfad2a405d770281314a2531c1246bb2c65aea50924cc692a",
+      "bytes": 15654
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/summary.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/summary.json",
+      "sha256": "eedf11f7a30e92f247eadc9bae4ddb08671415a583e25566ea977fafdf68efcb",
+      "bytes": 420
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/traversal.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/traversal.json",
+      "sha256": "cac82db8e13c4381309a2d6b8e23ba82d2b8f6a61737b85802860f5429aa5d4a",
+      "bytes": 3087
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/binary-binding.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/binary-binding.json",
+      "sha256": "df74fe7865b63efbb0dfe1ea16d6df576ded4eb3d21cc3e97ce8cd5e081f9127",
+      "bytes": 542
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/execution.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/execution.json",
+      "sha256": "ca0845eb6cc7d842aa0e91e5118116dbca267a27f3db6d7bcc08536617fa5b0e",
+      "bytes": 45697
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/snapshots.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/snapshots.json",
+      "sha256": "f343008fad7df553f617191fe523ebc853e7357a4cc3bcecf12f15758ec118a6",
+      "bytes": 7024
+    }
+  ]
+}

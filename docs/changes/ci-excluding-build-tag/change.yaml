@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-excluding-build-tag",
+  "lifecycle_state": "ISSUE_READY",
+  "status": "DRAFT",
+  "coordinates": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/2672",
+    "repositories": [
+      {
+        "repo": "PRO-Robotech/kacho-workspace",
+        "role": "package-home",
+        "base_sha": "1261a1ead77412a76df8c9e295d40c0b45a66301",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/kacho",
+        "role": "gate-subject",
+        "base_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+        "cutover_is_ancestor_of_base": true
+      }
+    ]
+  },
+  "links": {
+    "policy": "docs/changes/policy.yaml",
+    "acceptance": "docs/specs/sub-phase-CI-EBT-1-excluding-build-tag-acceptance.md",
+    "design": "docs/specs/sub-phase-CI-EBT-1-excluding-build-tag-design.md",
+    "interface": "docs/changes/ci-excluding-build-tag/interface.md",
+    "scope": "docs/changes/ci-excluding-build-tag/scope.md",
+    "tasks": "docs/changes/ci-excluding-build-tag/tasks.md",
+    "holders": "docs/changes/ci-excluding-build-tag/holders.yaml",
+    "class_considerations": "docs/changes/ci-excluding-build-tag/class-considerations.md",
+    "route": "docs/changes/ci-excluding-build-tag/route.md",
+    "scenario_matrix": "docs/changes/ci-excluding-build-tag/scenario-matrix.json",
+    "diagnostic_controls_proposal": "docs/changes/ci-excluding-build-tag/diagnostic-controls-proposal.md"
+  },
+  "hashes": {
+    "policy_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
+    "acceptance_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+    "design_sha256": "65c258c8a81a4c0b337aaf6cc6150a7286bfdaf78adbcc8abec444c6f564ea2e",
+    "interface_sha256": "1ef207b6e81f181b6b1f51a18db3e00a58386ac1395caceeae944f7a269aa953",
+    "scope_sha256": "1065ee731872759c903e0e0117597f2d831b7efcc9cfa9ce43e2198f648d3b80",
+    "tasks_sha256": "5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea",
+    "holders_sha256": "12179ea8b40bab1b7b72d10aff44bbb086d511476598b0416b6ef9969e452617",
+    "class_considerations_sha256": "a89798d8de7c192c3b902cea7c84f54010ce2b8a14950d5b2c7cdb85e5da0137",
+    "route_sha256": "c9a533d913cd666f5aba70c863665649daac85ab151b262f8398ee68c1d521f6",
+    "scenario_matrix_sha256": "54f727421ba35ad038ce59e774df1d80c1fb4b52185b298bb1b465a872bd26ea",
+    "diagnostic_controls_proposal_sha256": "ead75384a0e2f8aa9441c80798cac9716479acf30ff5d9a46a7e730cc4433f1c"
+  },
+  "reviews": [],
+  "evidence": [],
+  "implementation_diff_set": [],
+  "lifecycle_history": [],
+  "diagnostic_bindings": {
+    "path": "docs/changes/ci-excluding-build-tag/evidence/diagnostic-b5fa/copy-bindings.json",
+    "sha256": "79d828a976b3e24293d06373f1103978fe125e43dca10b8d12a6078c01b4e185",
+    "kind": "author-operational-diagnosis-not-independent-red"
+  },
+  "proposed_scenarios": [
+    "CI-EBT-01",
+    "CI-EBT-02",
+    "CI-EBT-03",
+    "CI-EBT-04",
+    "CI-EBT-05",
+    "CI-EBT-06",
+    "CI-EBT-07",
+    "CI-EBT-08",
+    "CI-EBT-09",
+    "CI-EBT-10",
+    "CI-EBT-11"
+  ],
+  "independent_diagnostic_bindings": {
+    "path": "docs/changes/ci-excluding-build-tag/evidence/independent-diagnostic-b5fa/copy-bindings.json",
+    "sha256": "84f01f420fe4ca5925b9649970dcd1f5099b0a391fd51791041dde0e3311a48f",
+    "kind": "independent-operational-diagnosis-not-approval-not-red",
+    "author": "/root/truth_tests",
+    "scenarios": [
+      "CI-EBT-09",
+      "CI-EBT-10",
+      "CI-EBT-11"
+    ],
+    "operational_report_sha256": "9fac1d4bd5faf9c33370ee62a7bae17d21d8657a2fa5ec06ba81ac3d181677e9",
+    "operational_manifest_sha256": "93d1ffe509d5aafdfad2a405d770281314a2531c1246bb2c65aea50924cc692a"
+  }
+}

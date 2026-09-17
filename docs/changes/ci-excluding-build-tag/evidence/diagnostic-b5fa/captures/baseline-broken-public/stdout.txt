@@ -1,0 +1,6 @@
+=== RUN   TestExcludingBuildTagLeavesThePackageBuildable
+=== PAUSE TestExcludingBuildTagLeavesThePackageBuildable
+=== CONT  TestExcludingBuildTagLeavesThePackageBuildable
+    excludingbuildtag_test.go:381: перепись: файлов .go прочитано 3 · с признаком сборки 2 · из них в обычной сборке 2 · исключаемых 2 · исключающих тегов 1 (synthexclude) · отброшено как признаки платформы 0 () · пакетов проверено 1 · из них не собирались и без тега 1 · вызовов сборки 1
+--- PASS: TestExcludingBuildTagLeavesThePackageBuildable (0.07s)
+PASS

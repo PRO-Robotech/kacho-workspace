@@ -1,0 +1,623 @@
+{
+  "head": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "binary_sha256": "7c01648403d9c49a56a1b5fa34c0b5aff41a8638a50f3fff49962ca99a2e652d",
+  "records": [
+    {
+      "label": "toolchain",
+      "argv": [
+        "go",
+        "version"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-diagnostic",
+      "rc": 0,
+      "seconds": 0.0036515119718387723,
+      "stdout_sha256": "7e35a947feee25f89c2649aa041942db786be35c3d6c484ab2ba2da849e3dc00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "original-four",
+      "argv": [
+        "go",
+        "test",
+        "./internal/repohygiene/",
+        "-run",
+        "^TestExcludingBuildTagGate",
+        "-count=1",
+        "-json",
+        "-timeout=10m"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-diagnostic",
+      "rc": 0,
+      "seconds": 1.3800060829962604,
+      "stdout_sha256": "d82fbba92df9c633e238d85b6d9a83322bb97ce5933d6cc4f6a1e872a18635a3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "public-main",
+      "argv": [
+        "go",
+        "test",
+        "./internal/repohygiene/",
+        "-run",
+        "^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-count=1",
+        "-json",
+        "-timeout=10m"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-diagnostic",
+      "rc": 0,
+      "seconds": 1.1547032080125064,
+      "stdout_sha256": "81a89ad1a42391c13c02c6ad2326c651f12ae1e6ffbc7c3eb868781929b91eac",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "lawful-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/lawful",
+      "rc": 0,
+      "seconds": 0.063396982033737,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "lawful-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/lawful",
+      "rc": 0,
+      "seconds": 0.04359994101105258,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "lawful-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/lawful",
+      "rc": 0,
+      "seconds": 0.14955531497253105,
+      "stdout_sha256": "29bbeb207d80dcc643165062311f21ef07d30eb49b0ad62e9438e0f683045671",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "defect-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/defect",
+      "rc": 0,
+      "seconds": 0.06080328696407378,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "defect-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/defect",
+      "rc": 1,
+      "seconds": 0.05946563504403457,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "a9f3ccd3f4b203b35723a6b9a4f6040fc3b1f50ed35e5c9873eb30cf88bbe8f6",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "defect-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/defect",
+      "rc": 1,
+      "seconds": 0.13328525196993724,
+      "stdout_sha256": "3eb7def0781dbe866e7bcb0e4447c6eb6fcc22d86d11b2f14fb7a4c7a3310bf3",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "no-tags-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/no-tags",
+      "rc": 0,
+      "seconds": 0.059567705960944295,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "no-tags-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/no-tags",
+      "rc": 0,
+      "seconds": 0.06238501000916585,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "no-tags-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/no-tags",
+      "rc": 0,
+      "seconds": 0.019033255986869335,
+      "stdout_sha256": "c77dc319abe9bf397540e9c03957455a4458db70d53df9696d2e122242423090",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "empty-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/empty",
+      "rc": 1,
+      "seconds": 0.0187855510157533,
+      "stdout_sha256": "50fbc31860bf16bdbfcd5e624b7e70de826c8dc7ac9ff2ad45a733c1057f0c1e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "baseline-broken-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/baseline-broken",
+      "rc": 1,
+      "seconds": 0.06058643094729632,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5f6c965d412d3ec5e0a83e75db1ebf2e3d99480e19c043a00f6bb9b9aaa2437a",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "baseline-broken-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/baseline-broken",
+      "rc": 0,
+      "seconds": 0.040288297983352095,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "baseline-broken-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/baseline-broken",
+      "rc": 0,
+      "seconds": 0.08776361000491306,
+      "stdout_sha256": "ceebed394de0334f9b175ee6c7e550877e8c687b001ddda731bcca7062e741dc",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "workspace-mismatch-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/workspace-mismatch",
+      "rc": 1,
+      "seconds": 0.008912357967346907,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "8652051fae1e5ee8e511e8b7f7e5fb637bbd26c51cad07eb3e863aa573314bc6",
+      "environment": {
+        "GOWORK": "/var/tmp/area-ci-2672-diag/fixtures/foreign-workspace/go.work",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "workspace-mismatch-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/workspace-mismatch",
+      "rc": 1,
+      "seconds": 0.008790027990471572,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "8652051fae1e5ee8e511e8b7f7e5fb637bbd26c51cad07eb3e863aa573314bc6",
+      "environment": {
+        "GOWORK": "/var/tmp/area-ci-2672-diag/fixtures/foreign-workspace/go.work",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "workspace-mismatch-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/workspace-mismatch",
+      "rc": 0,
+      "seconds": 0.03257231804309413,
+      "stdout_sha256": "62de0308f21fff5a5e5fa5cd6509879f495cfb206fe1816df2bd2edb2c79ac87",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "/var/tmp/area-ci-2672-diag/fixtures/foreign-workspace/go.work",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-present-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-present",
+      "rc": 0,
+      "seconds": 0.059824819036293775,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-present-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-present",
+      "rc": 0,
+      "seconds": 0.050433351018000394,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-present-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-present",
+      "rc": 0,
+      "seconds": 0.14836049900623038,
+      "stdout_sha256": "b4c00ea88cb1491b8ccf12929034a27cc230f197e452174d75df868ae0fee79d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-missing-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-missing",
+      "rc": 0,
+      "seconds": 0.059667813999112695,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-missing-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-missing",
+      "rc": 1,
+      "seconds": 0.009429488971363753,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "382ee500003873d24e0c7ccba53e95a1bc0062d1f75d280cb7e9d6aa08738015",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "tagged-dependency-missing-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/tagged-dependency-missing",
+      "rc": 1,
+      "seconds": 0.09317912597907707,
+      "stdout_sha256": "0cb1979f525391ac5769b5765e5fdd49991d5a82133b4850889ac39bc4d65101",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "platform-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/platform",
+      "rc": 0,
+      "seconds": 0.06047044199658558,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "platform-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/platform",
+      "rc": 0,
+      "seconds": 0.06300174997886643,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "platform-public",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/platform",
+      "rc": 0,
+      "seconds": 0.022803790983743966,
+      "stdout_sha256": "a97c714d12216ec4aa0934c28ff7179c71a226b980ee635e0f1b776c0e6d52fb",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    },
+    {
+      "label": "original-injection-workspace-mismatch",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-design/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagGateRedOnInjectedDefect$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=3m"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-diag/fixtures/workspace-mismatch",
+      "rc": 1,
+      "seconds": 0.04225599498022348,
+      "stdout_sha256": "2d662906d7f51d0c34759f15c77c66eb566aef714dcf4714eb86e79736941678",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "GOWORK": "/var/tmp/area-ci-2672-diag/fixtures/foreign-workspace/go.work",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-diag"
+      }
+    }
+  ]
+}

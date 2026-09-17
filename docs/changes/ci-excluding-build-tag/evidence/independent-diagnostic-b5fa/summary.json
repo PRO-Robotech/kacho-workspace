@@ -1,0 +1,14 @@
+{
+  "classification": "OPERATIONAL_BASELINE_DIAGNOSTIC_NOT_HOLDER",
+  "source_head": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "processes_completed": 40,
+  "capture_hashes_verified": 80,
+  "source_clean": true,
+  "missingtool_exit": 1,
+  "mixed_exit": 1,
+  "mixed_keeps_finding": true,
+  "mixed_keeps_baseline_cause": false,
+  "unreadable_exit": 1,
+  "new_protocol_lines": 0,
+  "no_source_or_holder_changes": true
+}

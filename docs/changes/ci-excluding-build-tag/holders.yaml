@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-excluding-build-tag",
+  "status": "DRAFT",
+  "required_holders": {
+    "excluding-build-tag-outcomes": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-authorized-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "internal/repohygiene/excludingbuildtag_outcomes_test.go",
+      "proposed_parent": "TestExcludingBuildTagOutcomes",
+      "executable": null,
+      "planned_executable": "GOWORK=off go test ./internal/repohygiene/ -run '^TestExcludingBuildTagOutcomes$' -count=1 -json -timeout=10m",
+      "scenarios": [
+        "CI-EBT-01",
+        "CI-EBT-02",
+        "CI-EBT-03",
+        "CI-EBT-04",
+        "CI-EBT-05",
+        "CI-EBT-06",
+        "CI-EBT-07",
+        "CI-EBT-08",
+        "CI-EBT-09",
+        "CI-EBT-10",
+        "CI-EBT-11"
+      ],
+      "evidence_coordinate": "evidence/independent-outcomes/"
+    },
+    "existing-four-and-public-tree": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "existing-diagnostic-pass-not-future-green",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "executable": "GOWORK=off go test ./internal/repohygiene/ -run '^TestExcludingBuildTag(Gate|LeavesThePackageBuildable)' -count=1 -json -timeout=10m",
+      "source_paths": [
+        "internal/repohygiene/excludingbuildtag_test.go",
+        "internal/repohygiene/excludingbuildtag_injection_test.go"
+      ],
+      "scenarios": [
+        "CI-EBT-01",
+        "CI-EBT-02",
+        "CI-EBT-03",
+        "CI-EBT-04",
+        "CI-EBT-05",
+        "CI-EBT-06",
+        "CI-EBT-07",
+        "CI-EBT-08",
+        "CI-EBT-09",
+        "CI-EBT-10",
+        "CI-EBT-11"
+      ],
+      "evidence_coordinate": "evidence/independent-regression/"
+    },
+    "acceptance-review": {
+      "kind": "human",
+      "owner": "acceptance-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/acceptance-review/"
+    },
+    "class-initial": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/class-initial/"
+    },
+    "class-revalidation": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/class-revalidation/"
+    },
+    "design-review": {
+      "kind": "human",
+      "owner": "design-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/design-review/"
+    },
+    "independent-green": {
+      "kind": "human",
+      "owner": "integration-tester",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/independent-green/"
+    },
+    "convergence-review": {
+      "kind": "human",
+      "owner": "convergence-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/convergence-review/"
+    },
+    "landing-review": {
+      "kind": "human",
+      "owner": "landing-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/landing-review/"
+    }
+  },
+  "diagnostic_controls": {
+    "proposal": "diagnostic-controls-proposal.md",
+    "ids": [
+      "DC-01",
+      "DC-02",
+      "DC-03"
+    ],
+    "status": "not-part-of-eleven-not-executed-not-authorized",
+    "unknown_format_and_deadline_coverage_claimed": false
+  }
+}
