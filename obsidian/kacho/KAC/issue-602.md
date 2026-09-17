@@ -8,7 +8,7 @@ status: done
 type: fix
 repos:
   - kacho
-prs: 
+prs:
   - https://github.com/PRO-Robotech/kacho/pull/1732
 issue_url: https://github.com/PRO-Robotech/kacho/issues/602
 opened: 2026-08-17
