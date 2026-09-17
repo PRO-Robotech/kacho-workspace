@@ -1,0 +1,97 @@
+{
+  "author_bindings_verified": 60,
+  "replays": [
+    {
+      "mode": "repeat-read",
+      "proved": true,
+      "runs": [
+        {
+          "name": "regular-baseline",
+          "rc": 0,
+          "timeout": false,
+          "writes": 0,
+          "elapsed": 0.20124487997964025
+        },
+        {
+          "name": "fifo-repeat-writer",
+          "rc": 0,
+          "timeout": false,
+          "writes": 2,
+          "elapsed": 0.20134277502074838
+        },
+        {
+          "name": "fifo-no-writer",
+          "rc": -9,
+          "timeout": true,
+          "writes": 0,
+          "elapsed": 3.0043599130003713
+        },
+        {
+          "name": "fifo-repeat-writer-restored",
+          "rc": 0,
+          "timeout": false,
+          "writes": 2,
+          "elapsed": 0.2011398629983887
+        }
+      ],
+      "cleanup": {
+        "owned_pids": [
+          292194,
+          292208,
+          292221,
+          292253
+        ],
+        "all_owned_pids_absent": true,
+        "fixture_root_absent": true
+      }
+    },
+    {
+      "mode": "traced-repeat-read",
+      "proved": true,
+      "runs": [
+        {
+          "name": "regular-baseline",
+          "rc": 0,
+          "timeout": false,
+          "writes": 0,
+          "elapsed": 0.20328760700067505
+        },
+        {
+          "name": "fifo-repeat-writer",
+          "rc": 0,
+          "timeout": false,
+          "writes": 2,
+          "elapsed": 0.2034458850394003
+        },
+        {
+          "name": "fifo-no-writer",
+          "rc": -9,
+          "timeout": true,
+          "writes": 0,
+          "elapsed": 3.0052349410252646
+        },
+        {
+          "name": "fifo-repeat-writer-restored",
+          "rc": 0,
+          "timeout": false,
+          "writes": 2,
+          "elapsed": 0.20362325996393338
+        }
+      ],
+      "cleanup": {
+        "owned_pids": [
+          292290,
+          292288,
+          292304,
+          292302,
+          292319,
+          292317,
+          292381,
+          292379
+        ],
+        "all_owned_pids_absent": true,
+        "fixture_root_absent": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+CI-EBT-1 independent review, package e8934a3c3ca0cb375f7d31dc8206403e2723354b. Acceptance subject SHA256 5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a. Independent reviewer /root; canonical author /root/e2e_audit. Root review SHA256 94dcc0a44cd10471356114133005664d2b1d4230ff19ca760f9273f46ee04791.
+
+Role acceptance-reviewer: APPROVED on that exact acceptance subject. The11 scenarios preserve lawful silence, actual lost-symbol compiler coordinates, empty-corpus refusal, and distinguish baseline/loader/environment failures from findings. Nonempty zero-candidate input remains lawful; partial findings survive incomplete execution. Original index/header/platform semantics, four existing injections and CI route remain held. Root read the full canonical package and live issue, and verified97 manifest files plus3700 prior tracked blobs/modes unchanged.
+
+This is acceptance approval only. Full design approval waits for the separately declared real-command deadline prerequisite. No holder/source authorization, semantic RED/GREEN, main delivery or closure is asserted.

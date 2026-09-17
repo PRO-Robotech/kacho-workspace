@@ -55,14 +55,20 @@
     "acceptance-review": {
       "kind": "human",
       "owner": "acceptance-reviewer",
-      "status": "proposed-no-external-event",
-      "evidence_coordinate": "reviews/acceptance-review/"
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/acceptance-reviewer/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888294",
+      "subject_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+      "verdict": "APPROVED"
     },
     "class-initial": {
       "kind": "human",
       "owner": "class-exposure-analyst",
-      "status": "proposed-no-external-event",
-      "evidence_coordinate": "reviews/class-initial/"
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/class-exposure-analyst/initial/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888868",
+      "subject_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+      "verdict": "RECORDED"
     },
     "class-revalidation": {
       "kind": "human",
@@ -96,13 +102,13 @@
     }
   },
   "diagnostic_controls": {
-    "proposal": "diagnostic-controls-proposal.md",
+    "proposal": "diagnostic-controls-revision2.md",
     "ids": [
       "DC-01",
       "DC-02",
       "DC-03"
     ],
-    "status": "not-part-of-eleven-not-executed-not-authorized",
+    "status": "construction-root-replayed-holder-not-authorized",
     "unknown_format_and_deadline_coverage_claimed": false
   }
 }

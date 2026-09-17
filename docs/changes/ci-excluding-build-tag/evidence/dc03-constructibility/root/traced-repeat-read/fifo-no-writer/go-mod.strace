@@ -1,0 +1,6 @@
+292319 openat(AT_FDCWD</var/tmp/area-ci-2672-dc03-qc430zq6>, "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod", O_RDONLY|O_CLOEXEC) = ?
+292323 +++ killed by SIGKILL +++
+292322 +++ killed by SIGKILL +++
+292321 +++ killed by SIGKILL +++
+292320 +++ killed by SIGKILL +++
+292319 +++ killed by SIGKILL +++

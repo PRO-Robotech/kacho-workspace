@@ -1,0 +1,87 @@
+{
+  "time_utc": "2026-09-17T17:55:04.308356+00:00",
+  "kind": "author-operational-dc03-prerequisite-not-independent-review",
+  "frozen_canonical_commit": "e8934a3c3ca0cb375f7d31dc8206403e2723354b",
+  "stages": [
+    {
+      "path": ".",
+      "result_sha256": "a4a88665dd7640b147e8e224f523317f030edd029a5efe4be7907cbb0ca8614d",
+      "prerequisite_proved": false
+    },
+    {
+      "path": "repeat-read",
+      "result_sha256": "6b28185a014791609683eeb7b7985b28257416041556a467a31fcfa37fcf6295",
+      "prerequisite_proved": true
+    },
+    {
+      "path": "traced-repeat-read",
+      "result_sha256": "729e848026b596e751464b4a0ee1282e3a1a909f4c5fd724cb043f28f25ee841",
+      "prerequisite_proved": true
+    }
+  ],
+  "actual_go_list_processes": 12,
+  "successful_go_list_processes": 7,
+  "bounded_cancelled_go_list_processes": 5,
+  "strace_wrappers": 4,
+  "go_mod_payload_bytes": 46,
+  "go_mod_payload_sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+  "traced_lawful_eof_proof": [
+    {
+      "path": "traced-repeat-read/fifo-repeat-writer/go-mod.strace",
+      "sha256": "07633ddcfa4425eea81a28840cfca1f9cd4fbfac5c42a69728e737aaaa645c13",
+      "successful_opens": 2,
+      "payload_reads_46_bytes": 2,
+      "eof_reads": 2,
+      "successful_closes": 2
+    },
+    {
+      "path": "traced-repeat-read/fifo-repeat-writer-restored/go-mod.strace",
+      "sha256": "88d79a7455cc2c555c3db52a1fa4759cade6233cb750ca1a0a069d372620d39d",
+      "successful_opens": 2,
+      "payload_reads_46_bytes": 2,
+      "eof_reads": 2,
+      "successful_closes": 2
+    }
+  ],
+  "cleanup": {
+    "all_own_leaders_and_tracee_pids_absent": true,
+    "owned_pid_count": 16,
+    "owned_process_group_count": 12,
+    "remaining_owned_group_members": [],
+    "all_three_fixture_roots_absent": true
+  },
+  "version_captures": [
+    {
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "version"
+      ],
+      "rc": 0,
+      "stdout_sha256": "7e35a947feee25f89c2649aa041942db786be35c3d6c484ab2ba2da849e3dc00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "/usr/bin/strace",
+        "--version"
+      ],
+      "rc": 0,
+      "stdout_sha256": "ad6ab5ec84c6b4547b18865da3bd0597852266a391b21b0d6191ac0f76f19828",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "argv": [
+        "python3",
+        "--version"
+      ],
+      "rc": 0,
+      "stdout_sha256": "63990b3ee50c49ab28d70e29c0f967f0c71330e39243ffeb4d3a8d5878c8a978",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "product_source_edits": 0,
+  "holder_edits": 0,
+  "canonical_edits": 0,
+  "independent_approval": false,
+  "future_public_deadline_coverage_proved": false
+}

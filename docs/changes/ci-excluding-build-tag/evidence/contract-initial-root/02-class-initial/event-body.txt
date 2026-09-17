@@ -1,0 +1,5 @@
+CI-EBT-1 independent review, package e8934a3c3ca0cb375f7d31dc8206403e2723354b. Acceptance subject SHA256 5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a. Independent reviewer /root; canonical author /root/e2e_audit. Root review SHA256 94dcc0a44cd10471356114133005664d2b1d4230ff19ca760f9273f46ee04791.
+
+Role class-exposure-analyst, phase initial: RECORDED. E1 empty subject/empty candidates; E2 lawful/defective exclusion; E3 baseline/environment prerequisites; E4 loader/compiler distinction; E5 exec start failure; E6 partial aggregation; E7 indexed-file read failure; E8 platform/header semantics; E9 public caller reachability; E10 unknown output classification; E11 external-command cancellation; E12 closed result and actual counters. Exact mappings are in the reviewed class-considerations and the independent root review.
+
+DC01/02 remain labeled decoder controls; DC03 real-Go cancellation construction is still open, with its failed single-write FIFO positive attempt retained. This initial exposure record does not claim successful design revalidation, coverage or source permission.

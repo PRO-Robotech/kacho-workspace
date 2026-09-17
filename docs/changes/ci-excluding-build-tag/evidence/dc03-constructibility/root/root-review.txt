@@ -1,0 +1,9 @@
+# Independent root DC03 prerequisite replay
+
+Root independently read the complete author addendum9465cb70877b24eeab4a0dfc049ad63b325d1282d510b993b88e3131739c43f3 and both operational scripts, verified all60 author manifest bindings, then copied exact scripts into this separate root-owned directory. The original failed single-writer attempt remains historical NOT_PROVED; no capture was rewritten.
+
+Both repeat-read and traced-repeat-read sequences passed construction: actual Go1.26.8, ordinary regular-file baseline, lawful repeated-reader FIFO, absent writer, restored same FIFO. Eight actual Go-list invocations completed: six rc0/one complete JSON/zero loader-problem objects; two owned negative commands reached3s deadline and were reaped after SIGKILL. In each traced lawful FIFO case there are two actual46-byte reads, two EOF reads and two closes. Negative traced command blocks in openat until kill. No executable substitute or manufactured tool output was used.
+
+All12 known Go/tracer PID were absent after completion; both fixture roots removed. Raw command streams and traces were independently hash-checked. This confirms the OS-level prerequisite for DC03; cancellation here was performed by the operational parent and does not establish future gate NOT_EXECUTED or120s public deadline application. The independent holder must use the actual agreed command runner and separately reach the public deadline. Production timeout knobs remain unchanged.
+
+Root routine readback: accept the repeated-reader FIFO construction and bounded owned-process cleanup for the pending diagnostic controls. Accept DC01/02 explicitly labeled negative decoder inputs paired with genuine Go process captures. This completes constructibility review; canonical design must bind this addendum before final design revalidation/approval and test-only authorization. No source authorization is given by this record.
