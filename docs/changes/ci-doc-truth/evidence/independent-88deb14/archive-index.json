@@ -621,6 +621,10 @@
     "docs/changes/ci-doc-truth/review-history/20260917-scoped-green-and-2711-transition.md": {
       "sha256": "daea3280818797d8d1da9d9e0e84536c082477bd1d74a83b72f8cbee6bc35bfa",
       "bytes": 6050
+    },
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/canonical-whitespace-review.json": {
+      "sha256": "c7400a88e59644e1e28ef11383a1486926815bcf89e2c945c035656c124967df",
+      "bytes": 1597
     }
   }
 }
