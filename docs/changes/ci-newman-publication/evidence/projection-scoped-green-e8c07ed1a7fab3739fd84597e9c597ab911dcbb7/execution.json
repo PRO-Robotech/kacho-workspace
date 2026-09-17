@@ -1,0 +1,21 @@
+{
+  "source_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+  "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+  "command": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "ci/newman_publication/tests",
+    "-p",
+    "test_publication.py",
+    "-v"
+  ],
+  "started_at": "2026-09-17T11:55:01.546164+00:00",
+  "completed_at": "2026-09-17T11:55:08.271244+00:00",
+  "rc": 0,
+  "source_files_verified": 6,
+  "unchanged_test_files_verified": 20,
+  "worker_manifest_sha256": "bbc2170608ac1ab8f90b605a4b605a76cabee12e7b5b5b805353324fdeaa985f"
+}

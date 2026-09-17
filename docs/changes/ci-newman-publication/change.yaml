@@ -110,6 +110,22 @@
       "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713435493",
       "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/projection-scoped-red-e27d24458cba073fa6a3e0c1843b5543646f96f3.yaml",
       "remaining": "Все прочие части NP-T2 и NP-T3–T7 сохраняют свои TESTS_PENDING/зависимости; global lifecycle остаётся TASKS_READY."
+    },
+    {
+      "state": "APPROVED_SCOPED_GREEN",
+      "task": "NP-T2",
+      "scope": [
+        "Python report/log projection",
+        "private Git-bound manifest/source relation",
+        "positive file/stdin roundtrip check",
+        "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+      ],
+      "source_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+      "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJOxFA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713932564",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7.yaml",
+      "remaining": "Все части вне разрешённой Python projection сохраняют TESTS_PENDING/зависимости. Global lifecycle остаётся TASKS_READY; внешняя публикация и доставка не разрешены."
     }
   ]
 }

@@ -1,0 +1,86 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "integration-tester",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+  "subject_path": "ci/newman_publication/",
+  "subject_sha256": "bbc2170608ac1ab8f90b605a4b605a76cabee12e7b5b5b805353324fdeaa985f",
+  "subject_hash_kind": "worker-revision2-manifest",
+  "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+  "verdict": "APPROVED_SCOPED_GREEN",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJOxFA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713932564",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJOxFA",
+  "event_api_id": 5713932564,
+  "body_sha256": "7976d8cb144fa38b1727ec84999d46a95170cdc7b5ab00feae894fa1ffb9ad1a",
+  "timestamp": "2026-09-17T11:56:24Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "4f999d733dd072c69db836e396cdc593878db2a30df9cf77e5449b5252637b39",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/review.md",
+      "sha256": "4f999d733dd072c69db836e396cdc593878db2a30df9cf77e5449b5252637b39"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/event-body.md",
+      "sha256": "7976d8cb144fa38b1727ec84999d46a95170cdc7b5ab00feae894fa1ffb9ad1a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/published-event.json",
+      "sha256": "a3a41edc3244f1accdae42b2c88c59f9cffda2d73830fe52092685d02363e17b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/api-readback.json",
+      "sha256": "a1b173c2c3eb0321e211b3fdac3bb4795f2fbdad362054c1a41021ba733a8992"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/execution.json",
+      "sha256": "840a45b554ae02ac573531212b07edb54f729d2e7a951a412033c63ff7ba7df3"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/stdout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7/stderr.log",
+      "sha256": "494c01fb001064ab42d60a2f45df6874e82056a959592ab777f10f5677f2136b"
+    }
+  ],
+  "scope": [
+    "Python report/log projection",
+    "private Git-bound manifest/source relation",
+    "positive file/stdin roundtrip check",
+    "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+  ],
+  "result": {
+    "tests": 10,
+    "passed": 10,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "subprocess_captures": 198,
+    "reader_records": 23,
+    "source_files_verified": 6,
+    "unchanged_test_fixture_files_verified": 20
+  },
+  "pending": [
+    "full negative ZIP/check/encoding/limits matrix",
+    "historical scanner",
+    "wider reader/verdict adapters",
+    "JS/SDK transport and consumer workflows",
+    "full identity/all-shard runtime",
+    "downloaded rescans and retention/containment/prelanding"
+  ],
+  "not_authorized": [
+    "external publication",
+    "consumer release",
+    "main delivery",
+    "closure #1810"
+  ]
+}
