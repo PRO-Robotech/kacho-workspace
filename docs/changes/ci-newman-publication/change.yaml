@@ -126,6 +126,31 @@
       "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713932564",
       "record": "docs/changes/ci-newman-publication/reviews/integration-tester/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7.yaml",
       "remaining": "Все части вне разрешённой Python projection сохраняют TESTS_PENDING/зависимости. Global lifecycle остаётся TASKS_READY; внешняя публикация и доставка не разрешены."
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "task": "NP-T1",
+      "scope": [
+        "Единица unwrap depth и cumulative decoded nodes для независимых holders; потолки и approved contracts не меняются."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJaWYg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714122338",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/decoding-routine-5714122338.yaml",
+      "remaining": "Source scanner не разрешён; это точная convention, не security GREEN."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Полное неперекрывающееся покрытие байтов конечного ZIP",
+        "Согласованность local/central metadata",
+        "Регулярность производимых members",
+        "Сохранение 10 projection и 8 checker tests без изменения assertions"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJiFCw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714248971",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/checker-scoped-red-5714248971.yaml",
+      "remaining": "Scanner/capacity/SDK/consumers/runtime/retention сохраняют отдельные RED и последующие переходы."
     }
   ]
 }
