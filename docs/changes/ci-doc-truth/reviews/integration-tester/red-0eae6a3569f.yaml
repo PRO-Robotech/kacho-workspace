@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "kind": "scoped_red_review_record",
+  "change_id": "ci-doc-truth",
+  "reviewer_role": "integration-tester",
+  "verdict": "SCOPED_RED_APPROVED",
+  "authorized_actor": "pointpu",
+  "source_tester": "/root/truth_tests",
+  "source_reviewer": "/root",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJo4-A",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714360568",
+  "event_api_id": 5714360568,
+  "body_sha256": "eae696d06ca2539efa9cba2b14495feef3ca2366e95223a4f1ad79beb1283b0c",
+  "event_body_coordinate": "docs/changes/ci-doc-truth/event-bodies/05-scoped-red.md",
+  "timestamp": "2026-09-17T12:28:54Z",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "policy_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
+  "acceptance_sha256": "0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24",
+  "design_sha256": "f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047",
+  "tasks_sha256": "c87abc9d9a27fe7a9c5a690cfe62877d942f4bc8963ff799d14b7b09fb7a5729",
+  "test_base_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "test_only_commit": "0eae6a3569f062bcdf0c1184c1750b95eea5beb7",
+  "root_repeat_commit": "e58e6f581e858df6a9ffd3c25d93cbfcc1800128",
+  "holder_path": "internal/repohygiene/subscriptionreason_test.go",
+  "holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35",
+  "source_review_sha256": "50ee795ffe30f0959978fe3ab3859937fb79debb20d1c6f39b0d34ff051ce0a3",
+  "scenarios": [
+    "CI-DT-03",
+    "CI-DT-04",
+    "CI-DT-05"
+  ],
+  "counts": {
+    "baseline": {
+      "run": 71,
+      "pass": 71,
+      "fail": 0,
+      "skip": 0
+    },
+    "committed": {
+      "run": 75,
+      "pass": 72,
+      "fail": 3,
+      "skip": 0
+    }
+  },
+  "reason_mismatches": 2,
+  "unchanged_existing_pass": 71,
+  "lawful_twin": "PASS",
+  "kind_where_line": "PASS; carrier-not-a-choice proto/corelib/subscription/subscription.proto:49 for both defective forms",
+  "empty_input_refusal": "PASS; existing three subtests",
+  "artifacts": [
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-census.json",
+      "sha256": "3009b9b745a6e7d64512fc3376ffce107e1e0d0978a7281a2b6587090eb0d4ef",
+      "bytes": 15143
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list-uncached.json",
+      "sha256": "2d0c8fd841299aa45fbd4d7d8c14706f0173105ce6fb3610155c1ab1978bf2f5",
+      "bytes": 667
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list-uncached.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list-uncached.stdout",
+      "sha256": "5b1d33183801e424606ca2107b38facca67a76aba1935c0eadac33c7c032fbe7",
+      "bytes": 1475
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list.json",
+      "sha256": "3e8ae72e19fe6d50b50ed04922713e1c33016f4541b592934bddedc4670f5389",
+      "bytes": 650
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-list.stdout",
+      "sha256": "11465315a651173b563e7dc787681782cb177325e8772dcba5fdc8b8a2b6d5b2",
+      "bytes": 1250
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-module.json",
+      "sha256": "f3366a9864caf1b5f7f849f8d239b2aa3720a3e06c88333afa5b4e4de47ddd67",
+      "bytes": 581
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-module.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-module.stdout",
+      "sha256": "e174a9659f3216766466b7fe8b6aa4e354550a57019d3cd9f7a42b6990a698e7",
+      "bytes": 421
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-selection.json",
+      "sha256": "cb181dd76af46d7f279f3cfca5e9d02be0ce693c9ef5a84cea9ce660a8e753d3",
+      "bytes": 697
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-selection.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/baseline-selection.stdout",
+      "sha256": "e3bcb5ce8e398a256bd7acedca7c56fbbc6682b72c3adf22471a24261e084dc7",
+      "bytes": 130437
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/committed-selection-census.json",
+      "sha256": "cf1e6e11ebb2d24bb2711aa398d4038bddb2ab8b74b71d0ef1d4ddc0e18c89c4",
+      "bytes": 13829
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/committed-selection-red.json",
+      "sha256": "ef672af97c56e8d2f009055ce7a7da829a04ee6cafd0642cc0f4101c63be4919",
+      "bytes": 698
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/committed-selection-red.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/committed-selection-red.stdout",
+      "sha256": "084c8c9718f54a77ceaf242c93db8ef3d81b0ec717dc280b6c4d851cff9eeb52",
+      "bytes": 189623
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-lawful.json",
+      "sha256": "875491fdd7c0bce09275918c0c53dc0cc147b0ad205dc4bdfadcc794757f8860",
+      "bytes": 671
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-lawful.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-lawful.stdout",
+      "sha256": "d889189ffd955289b4dfad5edd6ae8f34ec8ec4de6db5a43050475f947579009",
+      "bytes": 20430
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-red-census.json",
+      "sha256": "559216a9d9913ee99c6dff2ca5939a21aaa7bd7ea93aafe7f3fb4e5ff4821224",
+      "bytes": 530
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-red.json",
+      "sha256": "9dd6ef8ec6ebd8f6a087f0ba2f2042f639d6bea93f0dc20a87202806c8daf105",
+      "bytes": 652
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-red.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/diagnostic-red.stdout",
+      "sha256": "182bd3ba5644999c9c73e44d7c37b3a9713f7d99dc899c20db67e30dda9547b2",
+      "bytes": 59820
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/empty-message-source.go",
+      "sha256": "c4d986b6cff02f44e7a659ae4029b997bedc594ef4ce6cc2ddbe57748bec016b",
+      "bytes": 675
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/independent-empty-message.json",
+      "sha256": "ddf1da8fff6d74cb64d50936b98ebf44e95ad8cde98948218f76c13f7bd13383",
+      "bytes": 571
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/independent-empty-message.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/independent-empty-message.stdout",
+      "sha256": "416a68d0f591e290e1767bf6d3cd82bc2f02a2ac754d5974126af5c0072bee2f",
+      "bytes": 50
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/red-review.md",
+      "sha256": "3da32f53cd0155d23713b3391aeffd70f209848d17de2e14a222a3c601ed089f",
+      "bytes": 2787
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/root-execution.json",
+      "sha256": "81b12e49bf9c8a33d9cc0fd2d5c2fe4b9c28cff510bdbdf74816ff98f129bcc1",
+      "bytes": 14597
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/root-repeat.jsonl",
+      "sha256": "d836f014a78b0c2de5645ad1b72ee11cab2deced087b72a568763753520590d1",
+      "bytes": 189613
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/root-repeat.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f/root-review.md",
+      "sha256": "50ee795ffe30f0959978fe3ab3859937fb79debb20d1c6f39b0d34ff051ce0a3",
+      "bytes": 3058
+    }
+  ],
+  "next_transition": "bounded implementation per D1-D5; GREEN, generation, release/archive/pin, post-diff reviews and landing remain required",
+  "closes_issues": false
+}

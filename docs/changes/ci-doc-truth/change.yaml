@@ -1,6 +1,6 @@
 schema_version: 1
 change_id: ci-doc-truth
-lifecycle_state: TASKS_READY
+lifecycle_state: RED_PROVEN
 subject_status: DRAFT
 coordinates:
   issue: https://github.com/PRO-Robotech/kacho/issues/2696
@@ -79,8 +79,10 @@ reviews:
 - docs/changes/ci-doc-truth/reviews/class-exposure-analyst/initial/0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24.yaml
 - docs/changes/ci-doc-truth/reviews/class-exposure-analyst/revalidation/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml
 - docs/changes/ci-doc-truth/reviews/design-reviewer/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml
-evidence: []
-implementation_authorized: false
+- docs/changes/ci-doc-truth/reviews/integration-tester/red-0eae6a3569f.yaml
+evidence:
+- docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f
+implementation_authorized: true
 lifecycle_history:
 - state: ACCEPTANCE_APPROVED
   event_coordinate: IC_kwDOTZqgWM8AAAABVJZZ7w
@@ -102,3 +104,9 @@ lifecycle_history:
   authority: root writing-plans handoff to /root/truth_tests
   record: docs/changes/ci-doc-truth/tasks-ready-20260917.json
   scope: route ready; test-only waits for root readback; implementation waits for independent RED and root transition
+- state: RED_PROVEN
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJo4-A
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714360568
+  timestamp: '2026-09-17T12:28:54Z'
+  scope: two exact Reason mismatches; unchanged previous71 and lawful twin PASS; implementation limited to approved D1-D5
+implementation_authority: docs/changes/ci-doc-truth/reviews/integration-tester/red-0eae6a3569f.yaml

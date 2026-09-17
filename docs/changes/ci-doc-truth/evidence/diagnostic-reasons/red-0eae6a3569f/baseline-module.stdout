@@ -1,0 +1,10 @@
+{
+	"Path": "github.com/PRO-Robotech/corelib",
+	"Version": "v1.8.0",
+	"Time": "2026-09-15T13:59:05Z",
+	"Dir": "/home/dk/go/pkg/mod/github.com/!p!r!o-!robotech/corelib@v1.8.0",
+	"GoMod": "/home/dk/go/pkg/mod/cache/download/github.com/!p!r!o-!robotech/corelib/@v/v1.8.0.mod",
+	"GoVersion": "1.26.0",
+	"Sum": "h1:WpDC7u6k37KG/vZ4lwSaAyIoaXoCu99gLWWW3yptBl8=",
+	"GoModSum": "h1:q8r4k3+ip391S0T4LHOkcQxz8UbWqUKmmxzXzZP39jA="
+}

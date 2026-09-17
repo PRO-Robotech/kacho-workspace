@@ -1,0 +1,18 @@
+{
+  "command": [
+    "go",
+    "list",
+    "-m",
+    "-json",
+    "github.com/PRO-Robotech/corelib"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth-tests",
+  "head": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "GOWORK": "off",
+  "TMPDIR": "/var/tmp/area-ci-truth-tests",
+  "sanitized_git_env": true,
+  "rc": 0,
+  "elapsed_seconds": 0.00829172134399414,
+  "stdout_sha256": "e174a9659f3216766466b7fe8b6aa4e354550a57019d3cd9f7a42b6990a698e7",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

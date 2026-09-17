@@ -1,0 +1,17 @@
+{
+  "run": [
+    "TestSubscriptionShapeReasonContract",
+    "TestSubscriptionShapeReasonContract/CI-DT-05-lawful",
+    "TestSubscriptionShapeReasonContract/CI-DT-03-without-oneof",
+    "TestSubscriptionShapeReasonContract/CI-DT-04-third-branch"
+  ],
+  "pass": [
+    "TestSubscriptionShapeReasonContract/CI-DT-05-lawful"
+  ],
+  "fail": [
+    "TestSubscriptionShapeReasonContract/CI-DT-03-without-oneof",
+    "TestSubscriptionShapeReasonContract/CI-DT-04-third-branch",
+    "TestSubscriptionShapeReasonContract"
+  ],
+  "skip": []
+}
