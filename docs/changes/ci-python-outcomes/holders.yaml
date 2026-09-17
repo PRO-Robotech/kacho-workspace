@@ -20,7 +20,7 @@ required_holders:
   python-outcomes-callers:
     kind: machine
     owner: integration-tester
-    executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesCallers$' -count=1 -json -timeout=10m"
+    executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesCallers$' -count=1 -json -timeout=15m"
     source_path: tools/pythonprobes/outcomes_test.go
     status: specified-awaiting-independent-red
     scenarios: [CI-PY-13]

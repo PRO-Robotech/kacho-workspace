@@ -49,3 +49,13 @@ Make; старую/чужую запись. Три CI-шага двух конц
 Маршрут принят root orchestration после independent review и согласования имён
 с integration-tester. TASKS_READY допускает создание проб; IMPLEMENTING требует
 отдельного RED_PROVEN и переноса первого test commit. Этим текстом RED не заявлен.
+
+
+## Уточнение бюджета держателя 2026-09-17
+
+Независимый integration-tester измерил полный положительный helm baseline:
+455 секунд, 5/5 проверок, код 0 и чистое дерево. Callers повторяет два настоящих
+YAML Make-пути и прямой Python, поэтому timeout этого родителя увеличен
+с 10 до 15 минут; Chain остаётся 30 минут. Наблюдаемый контракт и approved
+отпечатки не меняются. CI11 читает настоящий gate-self-test outcome для
+границы manifest, ожидаемый producer задан вызывающим явно.
