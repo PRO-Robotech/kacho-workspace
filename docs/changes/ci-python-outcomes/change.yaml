@@ -20,8 +20,8 @@ hashes:
   acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
   design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
   class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
-  route_sha256: 5eb985f35763ffb133b484c44b0ed7ae3816d564863b46b7ec27da983089b193
-  holders_sha256: 33f818263f5c774a0fcdfa4ad89356fb3ef1461d64fd71a3a47cb9e87e986888
+  route_sha256: 70de96ca20cc513d7e5e6ea94ea6062f98e245c5044e92c35109a73216ed8f23
+  holders_sha256: c5bf9309df9de3860949135eedf43b08c794de0f41d9831bb594ef03fde0e3dc
 links:
   transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
   policy: docs/changes/policy.yaml
@@ -53,3 +53,13 @@ lifecycle_history:
     authority: root-orchestration-and-independent-integration-tester
     route: docs/changes/ci-python-outcomes/route.md
     holders: docs/changes/ci-python-outcomes/holders.yaml
+
+scoped_transitions:
+  - state: IMPLEMENTING
+    decisions: [D1, D2, D3]
+    scenarios: [CI-PY-01, CI-PY-02, CI-PY-03, CI-PY-04, CI-PY-05, CI-PY-06, CI-PY-07, CI-PY-08]
+    test_commit: 8cc171365e676f07005bfdde9b97d85d0eaa2452
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIkqbw
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713242735
+    record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/producer-scoped-red-8cc171365e676f07005bfdde9b97d85d0eaa2452.yaml
+    remaining: D4-D7 TESTS_PENDING

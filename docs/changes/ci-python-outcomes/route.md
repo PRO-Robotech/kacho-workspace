@@ -59,3 +59,18 @@ YAML Make-пути и прямой Python, поэтому timeout этого р�
 с 10 до 15 минут; Chain остаётся 30 минут. Наблюдаемый контракт и approved
 отпечатки не меняются. CI11 читает настоящий gate-self-test outcome для
 границы manifest, ожидаемый producer задан вызывающим явно.
+
+
+## Ограниченный переход producer, 2026-09-17T11:00:07Z
+
+[Внешнее событие](https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713242735)
+подтверждает независимый RED CI-PY-01..08 на test-only commit
+8cc171365e676f07005bfdde9b97d85d0eaa2452: 17 реальных вызовов и восемь
+сценариев, исправные положительные близнецы, 0 SKIP. Reviewer /root/e2e_audit
+подтвердил точный manifest d41b0152a6421514b35fc6fe26da44f4fb629427f5d37d3e8ccc22fc5e3619fd.
+
+Root открыл только D1–D3: run-python-probes.py и минимальные stdlib schema/writer
+для результата producer. Test commit перенесён в отдельный worker. Чужой holder
+не меняется под реализацию. Reader CLI, общий selftest-runner, Make, ci-local,
+workflow и решения D4–D7 остаются TESTS_PENDING до своего RED. Общий lifecycle
+сохраняет TASKS_READY: частичный RED не становится полным RED всего потока.
