@@ -1,0 +1,31 @@
+{
+  "source_file": "scripts/release/publish-version-inject.sh",
+  "file_sha256": "52cb8d4a978c7c36e2a4fa75ed7acb489d6d185ee5dbdc65bd40da1b40afd5b8",
+  "assert_all_bytes_sha256": "80da0652f5ad43888fce65fc03fb242161a9e0723e04b6e33dbf7c51956fc659",
+  "assertions": 18,
+  "names": [
+    "A1",
+    "A2",
+    "A3",
+    "A4",
+    "B",
+    "C",
+    "C'",
+    "D",
+    "E",
+    "E'",
+    "E''",
+    "F",
+    "G",
+    "G'",
+    "H",
+    "I",
+    "J",
+    "K"
+  ],
+  "defective_subject_change": "P6 finding to ok at existing exact anchor",
+  "required_defective_failures": [
+    "G"
+  ],
+  "note": "Freeze original oracles for future fixture-only successor; no successor has been written."
+}

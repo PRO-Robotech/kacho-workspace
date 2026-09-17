@@ -141,3 +141,21 @@ Candidate 120, foreign 5, прежний full 206 на 0fb и checksum 7 — р�
 Ни одно из этих событий не предоставляет actual D8 live execution authority,
 не утверждает опубликованный corelib tag/archive, main delivery или closure.
 Новые CLI/P9 решения не зарегистрированы до их отдельного внешнего события.
+
+
+## CLI/P9/pins: внешнее разрешение независимых holders
+
+[Событие 5719922066](https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719922066)
+сохраняет root readback плана: 33 parser cases, 18 исходных legacy assertions,
+точный P5 revision для private P9, явные bootstrap outcomes, reviewed binary
+FileRef для D8 и pins caller с зафиксированным свежим Kaname main SHA.
+
+Разрешено только независимое создание holders и ограниченный fixture successor.
+Source transition требует отдельного actual RED; это событие не даёт product
+GREEN или live authority. Recorder сохраняет уже принятое решение, не проводит
+новый review. Прежние subjects и history, global TASKS_READY остаются прежними.
+
+Точная запись: `reviews/landing-reviewer/cli-holder-5719922066.yaml`.
+Восемь файлов frozen plan и исходный manifest сохранены в
+`evidence/cli-holder-5719922066/plan/`; прежний pending в plan handoff сохранён
+как исторический статус до внешнего readback.

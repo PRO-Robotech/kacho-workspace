@@ -56,7 +56,7 @@
     "policy_scope_sha256": "3d656f16fab5acf2e11a32ba385219d7d3745c1e238d19178c372b7eb3098c6e",
     "interface_sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
     "result_schema_sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
-    "route_sha256": "82722f775112c869e0df39c63282adaaee0375c82eb40de1297c2bc8bcbe65a9",
+    "route_sha256": "332c388b4393a5d7a3b321cafff4fe89f95468b26c4495fade73f1f098edc0bc",
     "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
   },
   "reviews": [
@@ -300,6 +300,18 @@
       "record": "docs/changes/ci-release-supply/reviews/integration-tester/checksum-scoped-green-5719792493.yaml",
       "remaining": [
         "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+      ]
+    },
+    {
+      "state": "ROUTINE_READBACK_ACCEPTED_TEST_ONLY",
+      "scope": [
+        "Root подтвердил routine CLI/P9/pins: 33 parser cases, 18 неизменных legacy assertions, точный P5 revision, bootstrap outcomes, reviewed binary FileRef и captured Kaname main. Разрешено только независимое написание holders; product source закрыт до отдельного RED и transition."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVO8Vkg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719922066",
+      "record": "docs/changes/ci-release-supply/reviews/landing-reviewer/cli-holder-5719922066.yaml",
+      "remaining": [
+        "Actual holder RED, отдельный source transition, независимый caller GREEN и actual D8 execution authority остаются последующими обязательствами. Live release, main и closure не разрешены."
       ]
     }
   ]
