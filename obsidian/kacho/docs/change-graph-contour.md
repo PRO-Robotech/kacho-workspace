@@ -6,17 +6,20 @@ aliases:
   - Change Graph
 category: docs
 status: in-progress
-verified_against: "kacho-workspace@56935d4d (origin/main, 2026-09-03): координаты и числа сняты `git ls-tree -r origin/main`; предикат каждого стоит рядом с ним. Число провязок хуков перемерено на release/sdd-closeout 2026-09-03 (`grep -c 'hooks/.*\\.sh' .claude/settings.json` → 8, различных скриптов 7). Тексты приёмки и модуля правил построчно не пересматривались; границу машинного суждения и режим полномочия записка не излагает, а адресует §2 и §4 приёмки"
+verified_against: "kacho-workspace@b3f75bfc (origin/main, 2026-09-18): ВСЕ числа раздела «Где что лежит» и «Чем контур держится» перемерены заново предикатами, стоящими рядом с ними, — шесть из них разошлись с редакцией 2026-09-03 и исправлены (записи ревью, файлы испытуемого, кейсы, наборы, пакеты изменения, провязки хуков). Тексты приёмки и модуля правил построчно не пересматривались; границу машинного суждения и режим полномочия записка не излагает, а адресует §2 и §4 приёмки. Состояние производного оснастки названо по решению владельца 2026-09-18 и ветке снятия 239afde6 — на ЭТОЙ ревизии ствола оно ещё в дереве"
 related_kac:
   - "[[KAC/issue-504-ws]]"
   - "[[KAC/issue-485]]"
   - "[[KAC/issue-486]]"
   - "[[KAC/issue-488-ws]]"
   - "[[KAC/issue-493]]"
+  - "[[KAC/issue-666-ws]]"
 related_lessons:
   - "[[lessons/checks-with-form-but-no-substance]]"
   - "[[lessons/one-diagnostic-many-worlds-lanes-diverge-invisibly]]"
   - "[[lessons/proof-runner-crashed-and-silence-looked-like-cost]]"
+  - "[[lessons/derived-output-is-retired-by-its-contour-not-its-directory]]"
+  - "[[lessons/acceptance-retires-a-case-while-the-rule-still-produces-it]]"
 tags:
   - docs
   - architecture
@@ -52,17 +55,41 @@ tags:
 | предмет | координата | предикат |
 |---|---|---|
 | приёмка контура | `docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md` | `ls docs/specs/sub-phase-SDD-1-*.md` |
-| bootstrap-записи ревью | `docs/specs/reviews/` | `git ls-tree -r origin/main --name-only \| grep -c 'docs/specs/reviews/'` → **2** |
+| записи ревью | `docs/specs/reviews/` | файлов **20**, предметов **8** — `git ls-tree -r origin/main --name-only -- docs/specs/reviews/ \| awk -F/ '{print $4}' \| sort -u \| wc -l` |
 | замысел | `docs/superpowers/specs/2026-09-02-kacho-change-graph-design.md` | тот же обход по имени |
 | корень доверия и cutover | `docs/changes/policy.yaml` + `docs/changes/policy.schema.json` | `git ls-tree -r origin/main --name-only -- docs/changes/` |
 | перепись legacy | `docs/changes/census/` | там же |
-| испытуемый и его матрица | `scripts/change-graph-gate/` | `git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/ \| wc -l` → **1097** файлов |
-| владение производным оснастки | `.claude/adapters.yaml` | `ls .claude/adapters.yaml` |
+| испытуемый и его матрица | `scripts/change-graph-gate/` | `git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/ \| wc -l` → **1110** файлов |
+| владение производным оснастки | `.claude/adapters.yaml` | `ls .claude/adapters.yaml` — **координата снимается**, см. врезку ниже |
 | модуль правил | `.claude/rules/change-graph.md` | `git grep -c change-graph CLAUDE.md` |
 
-**Пакетов изменения `docs/changes/<change-id>/` в дереве ноль** — первый заводится первым
-изменением, идущим по контуру. Предикат:
-`ls -d docs/changes/*/ 2>/dev/null | grep -v census` → пусто.
+**Пакет изменения в дереве ОДИН — `docs/changes/standalone-iam/`.** Предикат:
+`ls -d docs/changes/*/ 2>/dev/null | grep -v census` → одна строка. Прежняя редакция этой
+записки утверждала «пакетов ноль, первый заводится первым изменением по контуру»; замер
+2026-09-18 её опровергает — первый пакет заведён, и утверждение пережило свой предмет.
+Тот же класс живёт в `.claude/rules/change-graph.md` §0 и заведён предметом
+[ws#671](https://github.com/PRO-Robotech/kacho-workspace/issues/671): правило опровергается
+собственным предикатом, стоящим с ним в одной строке.
+
+> [!warning] Производное оснастки СНИМАЕТСЯ — решение владельца 2026-09-18
+> Дословно: «удали все от codex и все что туда относится». Проекция оснастки для сред,
+> читающих `AGENTS.md`, `.agents/skills/`, `.codex/`, снимается **контуром целиком**:
+> манифест владения, генератор, отслеживаемый выход, сверяющий набор, держатель в ведомости
+> пакета, норма в правилах, строка конвейера.
+>
+> **На ревизии этой записки (`b3f75bfc`) всё перечисленное ещё в стволе** — снятие идёт
+> невлитой веткой (PR [ws#667](https://github.com/PRO-Robotech/kacho-workspace/pull/667),
+> база `main`, `mergedAt` пуст). Писать «снято» здесь было бы ровно тем, за что круг 1
+> рецензии отверг редакцию приёмки.
+>
+> Предикат готовности снятия — ноль по всем координатам сразу:
+> ```sh
+> git ls-tree -r <ревизия> --name-only \
+>   | grep -cE '^\.codex/|^\.agents/|^AGENTS\.md$|^\.claude/adapters\.yaml$|^scripts/adapter/|^scripts/adapter-gate/'
+> # b3f75bfc → 73 · ветка снятия 239afde6 → 0
+> ```
+> Трейл — [[KAC/issue-666-ws]]; класс —
+> [[lessons/derived-output-is-retired-by-its-contour-not-its-directory]].
 
 ## Состояние на ревизии записки
 
@@ -91,20 +118,30 @@ tags:
 
 - **испытуемый** — `scripts/change-graph-gate/`: **33** семейства правил
   (`git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/cglib/families/ | grep -vc __init__`)
-  и **196** кейсов с фикстурами
-  (`git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/tests/testdata/ | awk -F/ '{print $5}' | sort -u | wc -l`);
+  и **198** кейсов с фикстурами
+  (`git ls-tree -r origin/main --name-only -- scripts/change-graph-gate/tests/testdata/ | awk -F/ '{print $5}' | sort -u | wc -l`;
+  то же число даёт перечень драйвера `python3 scripts/change-graph-gate/tests/run_case.py --list | grep -cE '^SDD-1-'`).
+  Редакция приёмки, снимающая семейство `ADAPTER`, уводит вторую величину к **185** —
+  тринадцатью надгробиями, с сохранением номеров;
 - **провязка** — набор `scripts/change-graph-gate/run-all.sh` зовётся хуком отправки вместе
-  с остальными наборами воркспейса (их **6**: `git ls-files 'scripts/*/run-all.sh' | wc -l`)
-  и отдельным заданием конвейера; кто и откуда его зовёт — [[KAC/issue-504-ws]];
-- **производное оснастки** — `scripts/adapter-gate/run-all.sh` сверяет отслеживаемый выход с
-  регенерацией побайтово; владение объявлено в `.claude/adapters.yaml`;
+  с остальными наборами воркспейса (их **8**: `git ls-files 'scripts/*/run-all.sh' | wc -l`;
+  после снятия производного — **7**) и отдельным заданием конвейера; кто и откуда его
+  зовёт — [[KAC/issue-504-ws]];
+- **производное оснастки** — на этой ревизии его сходимость с регенерацией держит
+  `scripts/adapter-gate/run-all.sh`, владение объявлено в `.claude/adapters.yaml`. И то и
+  другое **снимается** решением владельца 2026-09-18 — врезка выше; после снятия у контура
+  этого звена не остаётся вовсе, а проверка соседнего набора, сверявшая закрытый перечень
+  канонических входов с манифестом, снята **вместе с предметом**;
 - **напоминание в момент правки** — хук `change-graph-reminder.sh` (`PostToolUse`), одна из
-  **8** провязок `.claude/settings.json` (`grep -c 'hooks/.*\.sh' .claude/settings.json` → 8;
-  то же число называет `.claude/rules/multi-agent-flow-shared-tree.md` §8). Единица здесь — **провязка,
-  а не скрипт**: различных скриптов **7**
+  **10** провязок `.claude/settings.json` (`grep -c 'hooks/.*\.sh' .claude/settings.json`).
+  Единица здесь — **провязка, а не скрипт**: различных скриптов **9**
   (`grep -o '\.claude/hooks/[a-z-]*\.sh' .claude/settings.json | sort -u | wc -l`), потому
   что `docfresh.sh` провязан дважды. По порядку в файле этот вызов **шестой** — порядковым
-  числительным «восьмой» его называть нельзя ни при какой из двух единиц.
+  числительным ни «десятый», ни «девятый» его называть нельзя.
+  Прежняя редакция называла 8 и 7, и правило
+  `.claude/rules/multi-agent-flow-shared-tree.md` §8 называет 8 до сих пор — предмет заведён
+  [ws#670](https://github.com/PRO-Robotech/kacho-workspace/issues/670); здесь число
+  перемерено, там нет.
 
 ## Чего контур НЕ судит
 
@@ -128,6 +165,7 @@ tags:
 | [[KAC/issue-485]] | предмет пробы, исчезнувший вместе с посаженным семейством |
 | [[KAC/issue-486]], [[KAC/issue-493]] | правки самого испытуемого |
 | [[KAC/issue-488-ws]] | семейство выводится из идентификатора кейса |
+| [[KAC/issue-666-ws]] | производное оснастки снимается — контуром, а не каталогом |
 
 Классы дефектов, найденные по дороге: [[lessons/one-diagnostic-many-worlds-lanes-diverge-invisibly]]
 (одна диагностика на много миров — полосы расходятся невидимо) и
