@@ -72,12 +72,3 @@ foo
 # отрицание внутри него не действует — README остался бы неотслеживаемым.
 tmp/*
 !tmp/README.md
-
-# Проекции СТОРОННИХ скилов: их исходники в .claude/skills/ исключены выше, а
-# манифест адаптера их не объявляет — значит выходом адаптера они не являются
-# (change-graph.md §9). Отслеживать их значило бы вносить в поставку чужой пакет.
-.agents/skills/defuddle/
-.agents/skills/json-canvas/
-.agents/skills/obsidian-bases/
-.agents/skills/obsidian-cli/
-.agents/skills/obsidian-markdown/
