@@ -68,7 +68,6 @@
 1	../packages/iam-apps-kacho-api-jit-eligibility
 1	../packages/iam-apps-kacho-api-user
 1	../packages/iam-authz-fixtures-setup
-2	../packages/iam-authzmap
 3	../packages/iam-clients
 3	../packages/iam-clients-hsm-pkcs11
 3	../packages/iam-clients-idp-jwks-cache

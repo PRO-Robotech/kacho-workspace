@@ -18,12 +18,13 @@ related_tickets:
   - "[[issue-1281-kaname]]"
   - "[[sub-phase-1.2-iam-operations]]"
   - "[[sub-phase-1.3-subject-privileges]]"
+  - "[[issue-254-kaname]]"
 tags:
   - rpc
   - kacho-iam
   - iam
   - mirror
-verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05"
+verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05. AuthZ `ResetSecondFactor` (governingRPCs) — origin/main `internal/authzmap/governing_the_identity_is_not_an_account_right_test.go` прочитан; влитость authz-части (PR #294) — со слов полосы"
 ---
 
 # UserService (iam)
@@ -98,6 +99,17 @@ verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `p
 `second-factor-reset` актором-распорядителем, событие `iam.user.second_factor_reset` с обоими
 акторами; без заведённого фактора (строки нет либо `pending`) — `FAILED_PRECONDITION` с токеном
 `SECOND_FACTOR_NOT_ENROLLED`, `pending` не тронута. Провязан только посадкой `own`.
+
+> [!note] AuthZ `ResetSecondFactor` — под гейтом распоряжения личностью (kaname#254, PR #294)
+> Человек — глобальная личность (одна строка `iam_user` на все аккаунты), поэтому сброс его
+> фактора действует во всех его аккаунтах сразу; распорядитель **одного** аккаунта такое право
+> держать не вправе (директива владельца 2026-08-23: «тот кто пригласил может только удалить/
+> добавить права»). RPC заведён под класс **governingRPCs**: отношение, которым он гейтится,
+> берётся из каталога прав (не литералом), у него нет источников уровня аккаунта и нет прямого
+> списка субъектов, а держатель — администратор облака. Тем же заходом закрыта матрица verb×role
+> и линия держателя. Гейт класса — [[packages/iam-authzmap]]
+> (`governing_the_identity_is_not_an_account_right_test.go`). Влита **authz-часть**; остаток
+> задачи (proto-комментарий, доковка `user.mdx`, самосброс Ф12-45) — [[KAC/issue-254-kaname]].
 
 Пользователь **не создаётся** обычным `Create` — он приглашается (`Invite`) либо
 заводится апсертом по внешней личности через `InternalUserService.UpsertFromIdentity`.

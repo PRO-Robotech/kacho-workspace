@@ -514,7 +514,10 @@ tags:
 | Записка | Состояние |
 |---|---|
 | [[packages/iam-apps-cluster-usecases\|iam apps cluster use-cases]] | живо (stable) |
+| [[packages/iam-apps-humansession\|iam humansession use-cases]] | живо (stable) |
 | [[packages/iam-authzguard\|iam authzguard]] | живо (stable) |
+| [[packages/iam-authzmap\|iam authzmap]] | живо (stable) |
+| [[packages/iam-check\|iam check]] | живо (stable) |
 | [[packages/iam-domain\|iam internal/domain]] | живо (done) |
 | [[packages/iam-extensions-retired\|iam-extensions-retired]] | история (deprecated) |
 | [[packages/iam-handler-iamhooks\|iam internal/handler/iamhooks]] | живо (done) |
@@ -1202,6 +1205,7 @@ tags:
 | [[KAC/issue-243\|#243: имя ветки в кавычках судилось как путь в дереве]] | живо (done) |
 | [[KAC/issue-244\|issue-244 — vpc: production-полнота модуля сети, волны 0-5]] | живо (done) |
 | [[KAC/issue-2455\|#2455: шапка приёмки отрицает вердикт, лежащий рядом с ней — решено НЕ править сейчас]] | в работе (to-do) |
+| [[KAC/issue-254-kaname\|kaname#254: ResetSecondFactor — распоряжение личностью не есть право аккаунта (governingRPCs)]] | в работе (in-progress) |
 | [[KAC/issue-254\|#254: правило называло enforce_admins false, в обоих репозиториях true]] | живо (done) |
 | [[KAC/issue-257\|issue-257 — перепись веток: раздел «работа в стволе не вся» давал ложные находки]] | живо (done) |
 | [[KAC/issue-259\|#259: брошенные рабочие копии держали влитые ветки]] | живо (done) |
@@ -1209,6 +1213,8 @@ tags:
 | [[KAC/issue-2697\|kacho#2697: сессию восстановления с требованием сменить пароль не выдаёт ни один глагол]] | в работе (in-progress) |
 | [[KAC/issue-2699\|kacho#2699: край ретранслирует регистрацию, профили несут её величины (Ф4)]] | в работе (test) |
 | [[KAC/issue-2701\|kacho#2701: край ретранслирует восстановление доступа, профили несут срок кода (Ф5)]] | в работе (test) |
+| [[KAC/issue-275-kaname\|kaname#275: RemoveSecondFactor всегда отдаёт backupCodesRemaining=0]] | живо (done) |
+| [[KAC/issue-278-kaname\|kaname#278: гейт формы ключей судит ДЕЙСТВУЮЩУЮ схему, а не одну базовую миграцию]] | живо (done) |
 | [[KAC/issue-282\|#282: триггеры конвейера воркспейса сужены по ветке — правило стало верным]] | в работе (test) |
 | [[KAC/issue-285\|#285: версию генератора контракта выбирал PATH, а не дерево]] | в работе (test) |
 | [[KAC/issue-287\|#287: перепись читала машинно собираемый файл как расщеплённую работу]] | живо (done) |

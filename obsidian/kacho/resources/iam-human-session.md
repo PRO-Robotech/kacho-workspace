@@ -18,13 +18,14 @@ related_packages:
 related_tickets:
   - "[[KAC/issue-1269]]"
   - "[[KAC/issue-1280]]"
+  - "[[KAC/issue-275-kaname]]"
 tags:
   - resource
   - kacho-iam
   - iam
   - internal
   - migrations
-verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался"
+verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался. Перечень `ended_reason` перемерен по миграциям origin/main 2026-09-19: CHECK допускает `{logout, password-change, second-factor-removed}` (третье значение добавлено миграцией, kaname#275)"
 ---
 
 # human_sessions (iam)
@@ -55,7 +56,7 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 | `assurance_level` | text | обязателен, CHECK `IN ('1','2','3')` — ось Ф11 |
 | `presented_methods` | text[] | непусто, CHECK `<@ {password, totp, lookup_secret, webauthn, recovery_code}` — словарь `assurance.Methods()`, сверяется пробой `TestHumanSessionMethodVocabularyAgreesWithTheRule` |
 | `password_change_required` | boolean | DEFAULT false; прод-производителя `true` нет — предмет [[KAC/issue-2697]] (решение: поле снимается с контракта) |
-| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина ∈ `{logout, password-change}` — те же значения, что пишут писатели отсечки [[resources/iam-session-revocation]] |
+| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина ∈ `{logout, password-change, second-factor-removed}` (CHECK расширен `second-factor-removed` миграцией, kaname#275 — её пишет `RemoveSecondFactor` через `EndOtherSessions` на прочих сессиях человека). Сброс распорядителем (`second-factor-reset`) идёт **иной** отсечкой, не через `ended_reason` (см. [[resources/iam-session-revocation]]) |
 | `created_at` | timestamptz | DEFAULT now() |
 
 Индексы: `human_sessions_user_id_idx (user_id)`, `human_sessions_expires_at_idx (expires_at)` —

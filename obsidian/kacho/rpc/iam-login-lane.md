@@ -17,11 +17,12 @@ related_tickets:
   - "[[issue-1270-kaname]]"
   - "[[issue-1271]]"
   - "[[issue-1281-kaname]]"
+  - "[[issue-275-kaname]]"
 tags:
   - rpc
   - kacho-iam
   - iam
-verified_against: "kaname release/iam-lines@6acf8f19 (Ф3 kaname#179, Ф4 kaname#196, Ф5 kaname#200 влиты в линию) — семь путей Ф3/Ф4/Ф5; Ф12 — ветка issue-1281-second-factor на 1d1bd21a (PR kaname#215): перечень путей `loginlanehttp.Paths()` — 13; сверен с обработчиком и копией края"
+verified_against: "kaname release/iam-lines@6acf8f19 (Ф3 kaname#179, Ф4 kaname#196, Ф5 kaname#200 влиты в линию) — семь путей Ф3/Ф4/Ф5; Ф12 — ветка issue-1281-second-factor на 1d1bd21a (PR kaname#215): перечень путей `loginlanehttp.Paths()` — 13; сверен с обработчиком и копией края. Поле `backupCodesRemaining` пути `/second-factor/remove` — origin/main `internal/apps/kaname/api/humansession/sf_remove.go` (всегда 0, kaname#275, PR #294)"
 ---
 
 # Полоса формы: вход, выход, смена пароля, признак формы, регистрация, восстановление
@@ -44,7 +45,7 @@ verified_against: "kaname release/iam-lines@6acf8f19 (Ф3 kaname#179, Ф4 kaname
 | `/iam/v1/auth/second-factor` | GET | — | `SecondFactorStatus` (Ф12) | `{totp:{enrolled,pendingUntil|confirmedAt}, backupCodes?:{remaining,total}}` |
 | `/iam/v1/auth/second-factor/enroll` | POST | `second-factor` | `EnrollSecondFactor` — секрет один раз; сессия свежая (Р8) | `{secret, otpauthUri, expiresAt}` |
 | `/iam/v1/auth/second-factor/confirm` | POST | `second-factor` | `ConfirmSecondFactor` — предъявление, коды один раз | `{backupCodes, session, assurance}` + новый `kaname_session` |
-| `/iam/v1/auth/second-factor/remove` | POST | `second-factor` | `RemoveSecondFactor` — код в теле `{method, code}`; прочие сессии сняты | `{session, assurance, backupCodesRemaining?}` |
+| `/iam/v1/auth/second-factor/remove` | POST | `second-factor` | `RemoveSecondFactor` — код в теле `{method, code}`; прочие сессии сняты причиной `second-factor-removed` | `{session, assurance, backupCodesRemaining: 0}` — **всегда 0** (kaname#275) |
 | `/iam/v1/auth/second-factor/backup-codes` | POST | `second-factor` | `RegenerateBackupCodes` — код в теле | `{backupCodes, session, assurance}` |
 | `/iam/v1/auth/step-up` | POST | `step-up` | `StepUp` — `method` ∈ `password` · `totp` · `lookup_secret` | `{session, assurance, backupCodesRemaining?}` |
 
@@ -52,6 +53,13 @@ verified_against: "kaname release/iam-lines@6acf8f19 (Ф3 kaname#179, Ф4 kaname
 (Ф12 Р5). Отказы семейства: состояние — `400 FAILED_PRECONDITION` с токенами
 `SECOND_FACTOR_NOT_ENROLLED` / `ENROLLMENT_NOT_PENDING`, «уже заведён» — `409 ALREADY_EXISTS`,
 свежесть — `403 SESSION_NOT_FRESH`, материал не открылся — `503 second factor temporarily unavailable`.
+
+> [!note] `backupCodesRemaining` у `/second-factor/remove` — всегда 0 (kaname#275)
+> Снятие фактора уносит и сам фактор, и его набор запасных кодов, поэтому остатка не остаётся —
+> поле отдаётся `0` даже при снятии запасным кодом. Остаток частично потреблённого набора наружу
+> не выходит: он выдал бы число ещё годных кодов постороннему с одним кодом. Значение поля на
+> **других** путях семейства (`/status`, `/confirm`, `/step-up`) означает иное; сведение семантики
+> `backupCodesRemaining` по всем путям — предмет kaname#297.
 
 **Отказы** — `google.rpc.Status` JSON фиксированными текстами. Регистрация: занятость адреса,
 активация приглашения конкурентом, истёкшее приглашение, потолок темпа — **один** отказ

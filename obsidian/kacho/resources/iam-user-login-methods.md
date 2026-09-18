@@ -19,6 +19,7 @@ related_packages:
   - "[[packages/iam-repo-kacho-pg]]"
 related_tickets:
   - "[[KAC/issue-1281-kaname]]"
+  - "[[KAC/issue-275-kaname]]"
 tags:
   - resource
   - kacho-iam
@@ -64,7 +65,10 @@ verified_against: "ветка issue-1281-second-factor (kaname) на 1d1bd21a: �
   `replace(verifier, ','||$3||',', ',')` по элементу, вычисленному до замка; каждый код
   проходит однажды.
 - **Снятие** — CTE: `totp` в состоянии `active` и `lookup_secret` одной операцией; `pending`
-  не трогается ни снятием, ни сбросом распорядителем.
+  не трогается ни снятием, ни сбросом распорядителем. Ответ `RemoveSecondFactor` несёт
+  `backupCodesRemaining: 0` **всегда** (kaname#275; контракт поля — [[rpc/iam-login-lane]]):
+  набор запасных кодов уходит вместе с фактором, а остаток частично потреблённого набора наружу
+  не выходит.
 - Уборка — предмет реестра `retention` (`second_factor_enrollments`, порог = окно свежести):
   `pending` старше окна `confirm` уже не примет.
 
