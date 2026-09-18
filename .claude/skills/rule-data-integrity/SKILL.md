@@ -1,0 +1,1 @@
+../../rules/data-integrity.md

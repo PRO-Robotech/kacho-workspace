@@ -18,7 +18,7 @@
 
 - Conventional Commits (`feat:`/`fix:`/`chore:`/`docs:`/`test:`/`ci:`/`refactor:`).
 - Подпись — git-config (`user.name`/`user.email` репо). **НЕ добавлять** `Co-Authored-By` или attribution-trailers (локальный проект).
-- **Author И committer — ТОЛЬКО личная учётка владельца** (`pointpu@prorobotech.ru`). Ни субагент, ни оркестратор **НЕ переопределяют** git-identity: запрещены `--author=…`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env, `git -c user.*`, worktree-local `user.*`-override. Коммить дефолтно (config уже указывает на владельца). Дрейф на «Kacho Workspace»/бот-идентичность = ошибка, фиксится `filter-branch --env-filter` на затронутом диапазоне. Касается ВСЕХ репо (монорепо `project/kacho` и workspace).
+- **Author И committer — ТОЛЬКО личная учётка владельца** (`pointpu@prorobotech.ru`). Ни исполнитель, ни диспетчер **НЕ переопределяют** git-identity: запрещены `--author=…`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*` env, `git -c user.*`, worktree-local `user.*`-override. Коммить дефолтно (config уже указывает на владельца). Дрейф на «Kacho Workspace»/бот-идентичность = ошибка, фиксится `filter-branch --env-filter` на затронутом диапазоне. Касается ВСЕХ репо (монорепо `project/kacho` и workspace).
 - **Не пушить в `main` напрямую и не `--force`** (если владелец явно не разрешил) — работа через ветку = номер issue → PR.
 - `--no-verify` (скип pre-commit hooks) — только по явной просьбе.
 
@@ -250,7 +250,8 @@ gh issue list -R <репо> --state closed --label status:in-progress --limit 10
   > Он заведён в монорепо 2026-08-17 (`1e823c72`), а рабочая копия продукта в этом дереве отстаёт:
   > проверка свежести документации читает инлайн-код как координату СВОЕЙ копии и объявила бы
   > верное имя несуществующим (её известный дефект #242 — «в дереве нет» она не отличает от «копия
-  > отстала»), а правило `@import`-ится в каждую сессию, поэтому постоянная ложная находка дороже
+  > отстала»), а правило целиком грузится каждому агенту, за которым закреплено
+  > (`.claude/rules/MANIFEST.md`), поэтому постоянная ложная находка дороже
   > удобства цитаты. Предикат, восстанавливающий имя за секунду:
   > `gh api repos/PRO-Robotech/kacho/contents/.github/workflows --jq '.[].name'` — процесс, чей `on:`
   > несёт `pull_request` без `branches`.

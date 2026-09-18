@@ -51,6 +51,15 @@ run() {
     echo $?
 }
 
+# out <каталог> <проверка> — печать проверки в песочнице.
+#
+# Нужна там, где код возврата один, а причин у него две: «генератор отказал» и
+# «производное разошлось» обе дают единицу, и проба, читающая только код,
+# доказывала бы не то, ради чего стоит.
+out() {
+    ( cd "$1" && ADAPTER_GATE_ROOT="$1" bash "$GATE/$2" 2>&1 )
+}
+
 # assert <ожидаемый код> <фактический> <утверждение>
 assert() {
     if [ "$1" = "$2" ]; then
@@ -255,6 +264,139 @@ assert 0 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
     "БЛИЗНЕЦ: сторонний скил, объявленный чужим в .gitignore, в перечень не входит"
 
 echo
+echo "== ось 8: привязка правила против экспертизы под тем же именем =="
+#
+# Исключение `rule-*` из перечня пакетов держится СВОЙСТВОМ ФАЙЛА («SKILL.md —
+# символьная ссылка»), а не именем каталога. Доказывается только парой: законная
+# привязка обязана молчать, каталог под тем же именем с НАСТОЯЩИМ файлом —
+# краснеть. Одна половина пропустила бы исключение по имени за исключение по
+# свойству, то есть дыру, через которую экспертиза выпадает из перечня молча.
+d="$(sandbox binding)"
+printf '# Временное правило\n\nтело\n' > "$d/.claude/rules/vremennoe.md"
+mkdir -p "$d/.claude/skills/rule-vremennoe"
+ln -sfn ../../rules/vremennoe.md "$d/.claude/skills/rule-vremennoe/SKILL.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 0 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
+    "БЛИЗНЕЦ: новая привязка rule-* (SKILL.md — ссылка) пакетом манифеста не просится"
+
+d="$(sandbox bindingfake)"
+mkdir -p "$d/.claude/skills/rule-poddelka"
+printf -- '---\nname: rule-poddelka\ndescription: экспертиза под зарезервированным именем\n---\n\nтело\n' \
+    > "$d/.claude/skills/rule-poddelka/SKILL.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 1 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
+    "ДЕФЕКТ: каталог rule-*, чей SKILL.md НЕ ссылка, — находка, а не тихий пропуск"
+case "$(out "$d" check-07-skills-roster-matches-tree.sh)" in
+    *rule-poddelka*) assert 0 0 "ДЕФЕКТ назван координатой каталога" ;;
+    *)               assert 0 1 "ДЕФЕКТ назван координатой каталога" ;;
+esac
+
+d="$(sandbox bindingunbound)"
+# Привязка РАСШИТА: ссылка заменена копией текста правила. Имя каталога не
+# тронуто — инъекция бьёт ровно в предикат, и ни во что другое.
+cp --remove-destination "$d/.claude/rules/vault.md" "$d/.claude/skills/rule-vault/SKILL.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 1 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
+    "ДЕФЕКТ: привязка расшита в копию нормы — каталог перестал быть ссылкой"
+
+echo
+echo "== ось 9: ключ шапки агента не теряется молча =="
+#
+# Прежняя редакция генератора брала из шапки `name` и `description`, а `skills`,
+# `tools` и `disallowedTools` роняла БЕЗ СЛОВА — и это не ловилось ничем:
+# производное сходилось с регенерацией побайтово, потому что обе стороны теряли
+# одно и то же. Поэтому незнакомый ключ обязан быть ОТКАЗОМ, а знакомый — доехать.
+d="$(sandbox unknownkey)"
+perl -0pi -e 's/^description:/neizvestnyj_kljuch: значение\ndescription:/m' \
+    "$d/.claude/agents/proto-sync.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 1 "$(run "$d" check-02-derived-matches-regeneration.sh)" \
+    "ДЕФЕКТ: незнакомый ключ шапки — генератор отказывает, а не теряет молча"
+case "$(out "$d" check-02-derived-matches-regeneration.sh)" in
+    *neizvestnyj_kljuch*) assert 0 0 "ДЕФЕКТ назван именем ключа" ;;
+    *)                    assert 0 1 "ДЕФЕКТ назван именем ключа" ;;
+esac
+
+d="$(sandbox knownkey)"
+# БЛИЗНЕЦ: знакомый ключ той же формы. Регенерация обязана пройти, а производное —
+# сойтись; проверяется после регенерации, иначе красное пришло бы от устаревшего
+# выхода, а не от ключа.
+perl -0pi -e 's/^description:/omitClaudeMd: false\ndescription:/m' \
+    "$d/.claude/agents/proto-sync.md"
+( cd "$d" && python3 scripts/adapter/generate.py --quiet >/dev/null 2>&1 )
+git -C "$d" add -A >/dev/null 2>&1
+assert 0 "$(run "$d" check-02-derived-matches-regeneration.sh)" \
+    "БЛИЗНЕЦ: знакомый ключ той же формы генератора не роняет"
+
+d="$(sandbox skillsdrop)"
+# Перечень предзагрузки — НЕСУЩИЙ: правило доезжает до агента им. Снять его из
+# шапки и не перегенерировать значит оставить во второй среде поручение читать
+# нормы, которых агенту больше не назначено. Производное обязано разойтись.
+perl -0pi -e 's/^skills:\n(  - [^\n]*\n)+//m' "$d/.claude/agents/proto-sync.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 1 "$(run "$d" check-02-derived-matches-regeneration.sh)" \
+    "ДЕФЕКТ: перечень предзагрузки снят из шапки — производное разошлось"
+
+echo
+echo "== ось 10: база маршрутизации доезжает в AGENTS.md =="
+#
+# У сред, читающих `AGENTS.md`, нет настройки `agent`: без базы главный поток
+# остаётся без маршрутизации вовсе. Проверяются ОБЕ половины — что база в выходе
+# ЕСТЬ (иначе запрет зеленел бы на дереве, где её просто нет) и что её пропажа
+# роняет генератор, а не проходит молча.
+d="$(sandbox basein)"
+printf '\n<!-- MARKER-BAZY-MARSHRUTIZACII -->\n' >> "$d/.claude/agents/dispatcher.md"
+( cd "$d" && python3 scripts/adapter/generate.py --quiet >/dev/null 2>&1 )
+if grep -qF 'MARKER-BAZY-MARSHRUTIZACII' "$d/AGENTS.md"; then
+    assert 0 0 "ПОЛОЖИТЕЛЬНАЯ ПОЛОВИНА: тело dispatcher.md доехало в AGENTS.md дословно"
+else
+    assert 0 1 "ПОЛОЖИТЕЛЬНАЯ ПОЛОВИНА: тело dispatcher.md доехало в AGENTS.md дословно"
+fi
+
+d="$(sandbox basegone)"
+rm -f "$d/.claude/agents/dispatcher.md"
+git -C "$d" add -A >/dev/null 2>&1
+assert 1 "$(run "$d" check-02-derived-matches-regeneration.sh)" \
+    "ДЕФЕКТ: базы маршрутизации нет — генератор отказывает, а не пишет AGENTS.md без неё"
+
+echo
+echo "== ось 11: объявление привязок читается, а не украшает =="
+#
+# Ключ `skill_bindings` в манифесте — единственное место, где сказано, чем
+# привязка правила отличается от скила. Убери его — набору НЕЧЕМ вычитать, и
+# честный ответ здесь «без предмета», а не зелёный: зелёное молчание означало бы,
+# что тридцать привязок посчитаны скилами и всё сошлось.
+d="$(sandbox nobindings)"
+python3 - "$d/.claude/adapters.yaml" <<'PYEOF'
+import io, sys
+path = sys.argv[1]
+lines = io.open(path, encoding="utf-8").read().split("\n")
+kept = [ln for ln in lines
+        if not (ln == "skill_bindings:"
+                or ln.startswith("  predicate:")
+                or ln.startswith("  reserved_prefix:"))]
+assert len(kept) == len(lines) - 3, "снято не три строки, а %d" % (len(lines) - len(kept))
+io.open(path, "w", encoding="utf-8").write("\n".join(kept))
+PYEOF
+assert 2 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
+    "ДЕФЕКТ: объявление привязок снято — БЕЗ ПРЕДМЕТА (код 2), не зелёное"
+
+d="$(sandbox alienpredicate)"
+# Предикат объявлен незнакомый. Понять его по-своему набор не вправе: «вычитаю по
+# имени каталога» и «вычитаю по ссылке» — разные множества, и молчаливый выбор
+# одного из них был бы решением, принятым не человеком.
+perl -pi -e 's/^  predicate: symlinked-skill-md$/  predicate: po-imeni-kataloga/' \
+    "$d/.claude/adapters.yaml"
+grep -q 'po-imeni-kataloga' "$d/.claude/adapters.yaml" \
+    || { echo "  [FAIL] инъекция НЕ СОСТОЯЛАСЬ: предикат в манифесте не подменён" >&2; fail=$((fail + 1)); }
+assert 2 "$(run "$d" check-07-skills-roster-matches-tree.sh)" \
+    "ДЕФЕКТ: предикат привязок объявлен незнакомым — БЕЗ ПРЕДМЕТА, не зелёное"
+case "$(out "$d" check-07-skills-roster-matches-tree.sh)" in
+    *po-imeni-kataloga*) assert 0 0 "ДЕФЕКТ назван объявленным значением" ;;
+    *)                   assert 0 1 "ДЕФЕКТ назван объявленным значением" ;;
+esac
+
+echo
 echo "== предпосылка: без манифеста набор БЕЗ ПРЕДМЕТА, а не зелёный =="
 d="$(sandbox nomanifest)"
 rm -f "$d/.claude/adapters.yaml"
@@ -264,7 +406,7 @@ assert 2 "$(run "$d" check-01-manifest-matches-tree.sh)" \
 echo
 # Перепись объёма осмотренного — отдельным утверждением, а не подразумеваемым:
 # «утверждений 0, разошлось 0» иначе печаталось бы как успех.
-echo "перепись инъекции: проверок набора осмотрено $checks; осей инъекции 7;" \
+echo "перепись инъекции: проверок набора осмотрено $checks; осей инъекции 11;" \
      "утверждений $((pass + fail)) — сошлось $pass, разошлось $fail"
 if [ "$((pass + fail))" -eq 0 ]; then
     echo "инъекция adapter-gate: не прогнано ни одного утверждения — это НЕ успех" >&2

@@ -1,0 +1,1 @@
+../../rules/00-kacho-core.md

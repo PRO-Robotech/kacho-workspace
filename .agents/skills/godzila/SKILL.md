@@ -26,7 +26,7 @@ The skill is intentionally **implementation-agnostic** — placeholders like `<r
 
 1. **A normative architectural regulation** (e.g. an `evgeniy`-style skill, an `ARCHITECTURE.md`, an ADR set) — the *"what is forbidden / required"* layer.
 2. **A pattern vault / catalogue** with real code excerpts from the codebase — the *"how a concrete service implements each pattern"* reference, useful when adapting `godzila`'s placeholders to the project's actual types.
-3. **A roster of specialist sub-agents** (`migration-writer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`, etc.) — delegate the narrow, well-bounded subtasks to them and keep `godzila` for the design / wiring.
+3. **A roster of specialist sub-agents** (`migration-writer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`, etc.) — the narrow, well-bounded subtasks belong to them, `godzila` keeps the design / wiring. *Who* starts them is the project's business: in **this** workspace you start no one — you name the agent you need in your return block (§20.3).
 
 Priority on conflict: **normative regulation > local CLAUDE.md > godzila**. `godzila` never overrides the project's own rules; it slots in *under* them. See §20 for the concrete cross-references this project uses.
 
@@ -776,52 +776,88 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
   Read one or two narrow notes, not the whole category (`.claude/rules/vault.md`: more than
   three vault files means the scope is wrong).
 
-### 20.3 Companion sub-agents — delegate narrow subtasks
+### 20.3 Companion sub-agents — name the one you need, do not start it
 
-When the work fits a specialist, delegate to them instead of doing it inline. All agents live in
-a single place — `.claude/agents/` of the workspace; there are no copies inside the product
-checkout, and no rollout mechanism that would put them there (`.claude/rules/ai-tooling.md`
-§«Модель распространения»). The roster below is the generic half of it:
+> **Revoked on 2026-09-17: "delegate to them instead of doing it inline".** This section used to
+> tell you to start the specialist yourself. Under the routing model the owner decided on that
+> date, an **executor starts no one**: every agent file in `.claude/agents/` carries
+> `disallowedTools: Agent` (predicate: `grep -rLE '^disallowedTools:.*\bAgent\b' .claude/agents/`
+> — empty), and the main thread is the `dispatcher` agent (`.claude/settings.json` →
+> `"agent": "dispatcher"`). The sequence of agents is set there and nowhere else —
+> `CLAUDE.md` §«Модель загрузки», `.claude/rules/ai-tooling.md` §«Как правило доезжает до агента».
+
+You are running as an **executor**. When a step is not yours, do the part that is and **order**
+the next one in your return block: «нужен следующий: `<agent>` — <the task in one phrase>»
+(the block is `CLAUDE.md` §«Контракт возврата»). It is an order, not a command — whom to start,
+and in what order, the dispatcher decides from your return.
+
+All agents live in a single place — `.claude/agents/` of the workspace; there are no copies
+inside the product checkout, and no rollout mechanism that would put them there
+(`.claude/rules/ai-tooling.md` §«Модель распространения»). The roster below is the generic half
+of it — whom to ask for, by subject (the whole list is `ls .claude/agents/`; no count is written
+out here, because the roster grows and a hand-written number does not):
 
 - **Acceptance / planning:** `acceptance-author`, `acceptance-reviewer` — the gate to start coding (no implementation without an approved Given-When-Then doc).
-- **Implementation:** `rpc-implementer` (end-to-end RPC), `service-scaffolder` (new repo), `migration-writer` (new goose migration), `api-gateway-registrar` (register a public RPC on the gateway).
+- **Implementation:** `rpc-implementer` (end-to-end RPC by an approved acceptance doc), `go-implementer` (any other Go change of the product, strict TDD), `service-scaffolder` (new service directory), `migration-writer` (new goose migration), `api-gateway-registrar` (register a public RPC on the gateway).
 - **Proto:** `proto-sync`, `proto-api-reviewer`.
-- **Review:** `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`.
-- **Tests:** `integration-tester`, `qa-test-engineer`.
+- **Review:** `system-design-reviewer`, `db-architect-reviewer`, `go-style-reviewer`, `proto-api-reviewer`, `security-auditor`.
+- **Tests and verdicts:** `integration-tester`, `qa-test-engineer`, `check-verifier`, `ci-watcher`.
+- **Around the code:** `scout` (a coordinate or a fact you would otherwise go hunting for), `vault-scribe` (the note and the task trail), `docs-writer` (the page), `git-operator` (push, PR, merge, branch removal — never your own step: you commit your work yourself, the rest is his).
 
 Domain-specific agents are named after the domain (`vpc-*`, `compute-*`, `<svc>-load-testing`)
 and are meant to sit next to the generic ones. **None of them exists in the tree today** — the
-predicate is `git ls-files .claude/agents/`, and it names no domain-prefixed file (no count is
-written out here: the roster grows and a hand-written number does not) — so do not plan a step
-around one. The canonical roster is `.claude/rules/ai-tooling.md` §«Канонические агенты», which
-derives the domain list from the service directories rather than writing it out. (The name this
-line used to carry was retired for a different reason: it compared us to another cloud, which
-ban #2 forbids.)
+predicate is `ls .claude/agents/`, and it names no domain-prefixed file — so do not order one.
+The canonical roster is `.claude/rules/ai-tooling.md` §«Канонические агенты», which derives the
+domain list from the service directories rather than writing it out. (The name this line used to
+carry was retired for a different reason: it compared us to another cloud, which ban #2 forbids.)
 
-  **Usage:** when `godzila` says "write a new migration with FK / CHECK / EXCLUDE / partial UNIQUE", delegate to `migration-writer` and then to `db-architect-reviewer`; when it says "register the new RPC on the gateway", invoke `api-gateway-registrar`; when it says "write a concurrent-race test", let `integration-tester` produce the failing test first (TDD red phase).
+  **Usage:** when `godzila` says "write a new migration with FK / CHECK / EXCLUDE / partial UNIQUE", order `migration-writer` and then `db-architect-reviewer`; when it says "register the new RPC on the gateway", order `api-gateway-registrar`; when it says "write a concurrent-race test", order `integration-tester` for the failing test first (TDD red phase) — and say in the same return line that your own step waits on it.
 
-### 20.4 Workspace-wide rules that always apply
+### 20.4 Workspace rules — and how one reaches you
 
-- **Workspace `CLAUDE.md`** and the whole rule corpus it `@import`s: every file under
-  `.claude/rules/` is loaded unconditionally in every session. There is no "core versus
-  read-on-demand book" split any more — the owner removed it on 2026-09-13 (`CLAUDE.md`
-  §«Регламент»), together with the directory that held the second half. The non-negotiables live
-  in `.claude/rules/00-kacho-core.md`; how many of them there are is deliberately **not** written
-  out here, because a count written by hand does not grow with the list — the predicate is
-  `grep -cE '^[0-9]+\. \*\*' .claude/rules/00-kacho-core.md`.
+- **Workspace `CLAUDE.md`** is in your window automatically, and it is now only the protocol both
+  ends share: the loading model, the return contract, the topology, the local stand. It
+  `@import`s **no** rule (predicate: `grep -n '^@' CLAUDE.md` → empty).
+- **The corpus loads itself to nobody.** Since the owner's decision of 2026-09-17 the directory is
+  off autoload (`.claude/settings.json` → `"claudeMdExcludes": ["**/.claude/rules/**"]`), and a
+  rule is in your window only because it was **pinned to you**: `.claude/skills/rule-<name>/SKILL.md`
+  is a symlink to `.claude/rules/<name>.md` (predicate: `readlink .claude/skills/rule-testing/SKILL.md`),
+  and your own frontmatter `skills:` lists it, so the harness loads the whole file at start. Which
+  rule is pinned to whom is declared in `.claude/rules/MANIFEST.md`, column «закреплено за
+  агентами», and `scripts/rules-gate/` checks that declaration against the agents both ways. A
+  rule you need only under a condition is taken by the `Skill rule-<name>` tool, by the trigger
+  named in your own body — `.claude/rules/ai-tooling.md` §«Как правило доезжает до агента».
+  > **This revokes the line this section carried until 2026-09-17** — "every file under
+  > `.claude/rules/` is loaded unconditionally in every session". It was true of the 2026-09-13
+  > model (one corpus, `@import`-ed whole) and is false under this one.
+- **The practical consequence for `godzila`:** a rule is not in your window because it exists, but
+  because it is pinned to *you* — so do not quote a rule from memory. Your set is your `skills:`;
+  what is outside it you read from git on the working revision
+  (`git show <rev>:.claude/rules/<file>.md`) and say where you got it.
+- **The non-negotiables** live in `.claude/rules/00-kacho-core.md`; how many of them there are is
+  deliberately **not** written out here, because a count written by hand does not grow with the
+  list — the predicate is `grep -cE '^[0-9]+\. \*\*' .claude/rules/00-kacho-core.md`.
 - **Per-service `CLAUDE.md` inside the product** — there is exactly one (`deploy/CLAUDE.md`), and
   it is about the local stand, not about a service's conventions. Service-level conventions live
-  in that service's `docs/architecture/`. On conflict the rule modules win over `godzila`.
+  in `docs/architecture/` of the monorepo, one page per subject — `services/<svc>/docs/` is the
+  service's documentation **site**, not its conventions (predicate in `project/kacho`:
+  `git ls-files 'services/*/docs/architecture/*'` — empty; `git ls-files docs/architecture/` is
+  not). On conflict the rule modules win over `godzila`.
 
-### 20.5 Loading order in a fresh session
+### 20.5 What is already in your window when a run starts — and what you take yourself
 
-1. The workspace `CLAUDE.md` and its `@import`-ed rule modules load automatically.
-2. Invoke `evgeniy` to refresh normative rules.
-3. Invoke `godzila` to load templates.
-4. Read the one or two vault notes (see `obsidian/kacho/INDEX.md`) that match the resource you are
-   touching. There is no size ceiling on a note any more — the "1–3 KB" one was lifted by the
-   owner on 2026-08-05; what is still normative is one subject per note.
-5. Delegate the narrow steps to the specialist sub-agents listed in §20.3.
+1. **Loaded for you, before your task text:** the workspace `CLAUDE.md` (the shared protocol) and
+   the rules pinned to you by your `skills:` — whole files, not excerpts (§20.4). Nothing else
+   from `.claude/rules/` is there.
+2. **Taken by you, with the `Skill` tool:** `evgeniy` for the normative architectural layer,
+   `godzila` (this file) for the templates, and any rule your body lists under «Правила по
+   триггеру» whose trigger fired. On conflict `evgeniy` wins over `godzila`, and a rule wins over
+   both.
+3. **Read by you:** the one or two vault notes (see `obsidian/kacho/INDEX.md`) that match the
+   resource you are touching. There is no size ceiling on a note any more — the "1–3 KB" one was
+   lifted by the owner on 2026-08-05; what is still normative is one subject per note.
+4. **Ordered from the dispatcher, never started by you:** the narrow steps that belong to another
+   agent — one line per step in your return block (§20.3).
 
 This pair-loading is the standard kachō-workspace flow — neither skill is meant to be used alone in this project.
 

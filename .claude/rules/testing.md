@@ -134,8 +134,11 @@ newman-кейсов. Newman/integration-тест, написанный уже П
   фиксированное имя коллизит `409 AlreadyExists` на повторном прогоне (даже max-len BVA — вшивай runId
   в пределах лимита). Cleanup своих ресурсов обязателен (leak → пул растёт, list-контракты плывут).
 
-Методология: skills `testing-code-coach` (unit/integration), `testing-product-coach` (black-box техники),
-`load-testing-coach` / `<svc>-load-testing` (нагрузка). Финальная верификация перед merge:
+Методология: скилы `testing-code-coach` (unit/integration), `testing-product-coach` (black-box
+техники), `load-testing-coach` (нагрузка; сам замер ведёт агент `load-tester` —
+`testing-load.md`). Прежде здесь стоял ещё `<svc>-load-testing` — доменного скила с таким
+именем в дереве нет (`ls .claude/skills/`), и роли такой нет (`ls .claude/agents/`), упоминание
+снято. Финальная верификация перед merge:
 `go test ./... -race` + `golangci-lint run` + `govulncheck` + newman зелёные.
 
 ## Regression-lock security/leak-фиксов — на уровне ОБСЕРВАБЛА (выведено из audit-раундов)
