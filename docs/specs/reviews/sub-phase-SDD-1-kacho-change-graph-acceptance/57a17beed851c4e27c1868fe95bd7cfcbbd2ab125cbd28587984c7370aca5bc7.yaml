@@ -1,0 +1,251 @@
+schema_version: 1
+kind: acceptance_review
+
+# Запись НЕ bootstrap. Вердикт APPROVED, но effective approval она НЕ выпускает:
+# внешнее событие публикует диспетчер, и до него issued остаётся false
+# (.claude/rules/change-graph.md §3 — роль без события полномочия не даёт).
+# Прежние records append-only; запись круга 1 (9dad9256…) не тронута — проверено
+# побайтово: f8e1d4379ffa774881504ff8df586117cfb8ba4b6ac6b260d55c42f9957abdd6
+# совпадает с её версией в коммите eec6dd1c.
+
+subject:
+  path: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  sha256: 57a17beed851c4e27c1868fe95bd7cfcbbd2ab125cbd28587984c7370aca5bc7
+  static_status: DRAFT
+  static_status_note: >-
+    шапка subject намеренно НЕ правлена ни в одном круге: статическая форма
+    вердикта не меняется после ревью, effective approval выводится из внешнего
+    события и записи (§2 change-graph.md).
+  supersedes_subject_sha256: 9dad9256479b357c069793379b39b3a58d009c47d0414096dd9db41dabb95fcc
+  review_base: cbbe7603
+  review_branch: acceptance/sdd1-adapter-retired
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+round: 2
+previous_round:
+  subject_sha256: 9dad9256479b357c069793379b39b3a58d009c47d0414096dd9db41dabb95fcc
+  verdict: CHANGES_REQUESTED
+  blocking: 2
+  record_commit: eec6dd1c
+
+publication_mode: courier
+
+authority:
+  mode: none
+  note: >-
+    вердикт вынесен, полномочие не предъявлено: событие публикует диспетчер.
+    Недоступность внешнего источника — третий исход, а не «да» (§3).
+
+event: none
+
+effective_approval:
+  issued: false
+  reason: >-
+    рецензент события не публикует; approval становится действующим, когда
+    диспетчер опубликует событие и оно свяжет роль, вердикт и ЭТОТ отпечаток.
+
+# ── Закрытие блокирующих круга 1 ──────────────────────────────────────────────
+blocking_resolution:
+  - id: B1
+    was: >-
+      §10, заголовок, 13 надгробий и DoD объявляли производное снятым в
+      прошедшем времени, тогда как все шесть его координат были в дереве.
+    now_measured:
+      heading: "§10 — «производное для чужих сред СНИМАЕТСЯ» (было «НЕТ»)"
+      predicate_in_section_10: >-
+        стоит блок команды по шести координатам с числами «6 на день этой
+        редакции» и «0 — предикат готовности снятия»
+      predicate_reproduced: 6
+      coordinates_named_openly: true
+      tree_contradiction_acknowledged: >-
+        §10 несёт абзац о том, что CLAUDE.md предписывает перегенерацию, а
+        MANIFEST числит сверяющий набор держателем, — «и они правы сегодня»
+      header_states_overtake: >-
+        «на ревизии этой редакции производное ещё в стволе воркспейса», снятие
+        идёт невлитой веткой, ban #1 опережение разрешает, выдачу намерения за
+        свершившееся — нет
+      residual_claims_predicate:
+        command: "grep -n 'не существует\\|больше нет' <subject>"
+        hits_about_derived: 0
+        note: >-
+          единственное попадание — «SDD-1-POLICY-04 — valid-looking cutover
+          commit не существует», к производному отношения не имеет
+      tombstones_with_predicate_reference: 13 из 13
+      dod_item_carries_same_predicate: true
+    verdict: закрыто
+
+  - id: B2
+    was: >-
+      §13 называл тринадцать осиротевших фикстур «зелёными», тогда как они
+      дают HARNESS_CASE_UNKNOWN и exit 40.
+    now_measured:
+      quoted_output: "HARNESS · HARNESS_CASE_UNKNOWN · exit 40 — приведён дословно"
+      names_third_category: true
+      says_verdict_not_issued: true
+      says_matrix_excludes_them: "185 из 185, поломок harness 0"
+      reproduced_by_me: exit 40 на трёх фикстурах, перечень драйвера 185, ADAPTER 0
+    verdict: закрыто
+
+# ── Перемер круга 2 ───────────────────────────────────────────────────────────
+measurements:
+  fingerprint:
+    command: sha256sum <subject>
+    result: 57a17beed851c4e27c1868fe95bd7cfcbbd2ab125cbd28587984c7370aca5bc7
+    matches_author_claim: true
+
+  diff_narrowness:
+    command: git diff --name-only eec6dd1c..cbbe7603
+    files: 1 (только subject)
+    touched_sections: шапка редакции · §10 · §13 (надгробия и хвост) · пункт DoD §15
+    round_1_record_touched: false
+    round_1_record_sha256_unchanged: true
+
+  numbers_unchanged_since_round_1:
+    headings: 185
+    matrix_rows: 185
+    unique_ids: 185
+    tombstones: 13
+    verdict: помимо двух исправленных мест ничего не сдвинулось
+
+  matrix_run:
+    command: python3 scripts/change-graph-gate/tests/run_matrix.py final
+    executed: 185 из 185
+    mismatched: 0
+    harness_breakage: 0
+    exit_code: 0
+
+  change_graph_gate_red:
+    command: bash scripts/change-graph-gate/run-all.sh
+    exit_code: 1
+    checks: рассмотрено 4, пройдено 3, провалено 1
+    failing_check: check-01-hook-lane-probes-are-green → selftest/prove.py → I1
+    census_line_verbatim: >-
+      перепись сверки диагностик: диагностик правил 135 · диагностик приёмки 127 ·
+      мимо приёмки 9 · из них прощено ведомостью 0 · из них упоминаний вне
+      объявляющей позиции 1 · без производителя 1
+    codes_named_by_gate: CGA_DERIVED_DRIFT + восемь CG_ADAPTER_*
+    author_claim_reproduced: дословно, все три числа и весь перечень кодов
+
+  all_eight_sets:
+    # код читается ПРЯМО, не после конвейера: первый мой замер брал $? после
+    # `| tail | head` и дал восемь нулей — класс testing-verdict.md §7а.
+    adapter-gate: {exit: 0, passed: 7, failed: 0, void: 0}
+    change-graph-gate: {exit: 1, passed: 3, failed: 1, void: 0}
+    crossrepo-gate: {exit: 2, passed: 0, failed: 0, void: 1}
+    docs-gate: {exit: 2, passed: 6, failed: 0, void: 1}
+    rules-gate: {exit: 0, passed: 5, failed: 0, void: 0}
+    skills-gate: {exit: 0, passed: 7, failed: 0, void: 0}
+    tooling-gate: {exit: 0, passed: 9, failed: 0, void: 0}
+    vault-gate: {exit: 0, passed: 5, failed: 0, void: 0}
+    note: >-
+      красный ровно один и ровно заявленный; провалено 0 у всех остальных.
+      Формулировка «остальные семь зелёные» шире сделанного: зелёных пять,
+      два дают код 2 — третья категория (см. N2).
+
+  docs_gate_three_landings:
+    # Расхождение разрешено уточнением ПОСАДКИ, а не выбором «верного» числа.
+    # Различает одно: сколько ДОМОВ продукта достижимо.
+    symlink_project:  {passed: 7, failed: 0, void: 0, exit: 0, homes: "kacho + kaname"}
+    kacho_monorepo:   {passed: 6, failed: 0, void: 1, exit: 2, homes: "только kacho"}
+    bare_worktree:    {passed: 3, failed: 0, void: 4, exit: 2, homes: "ни одного"}
+    void_cause_in_my_landing: >-
+      check-03-holding-claim-resolves — 33 координаты домом PRO-Robotech/kaname,
+      рабочей копии рядом нет; вердикт по ним НЕ вынесен
+    verdict: >-
+      все три числа верны и мерили разные посадки. Провалено 0 во всех трёх —
+      находок гейт не даёт ни при какой.
+
+  future_tense_carries_a_predicate:
+    # требование круга 2 №1: «снимается» нигде не стало обещанием без предиката
+    header: несёт состояние дерева и отсылку к §10
+    section_10: предикат стоит тут же блоком команды
+    tombstones: 13 из 13 несут «(состояние дерева и предикат готовности — §10)»
+    dod_item: «признак готовности здесь тот же, что в §10»
+    interim_section_13: предикат конца назван — «код 0 и мимо приёмки 0»
+    verdict: мест будущего времени без предиката либо ссылки на §10 — 0
+
+  interim_state_has_an_end:
+    # требование круга 2 №2: назван ли запрет вливать редакцию отдельно
+    named_in_document: true
+    verbatim: >-
+      «редакция и снятие кода вливаются вместе либо снятие идёт немедленно
+      следом — иначе ствол несёт красный набор»
+    second_consequence: >-
+      ведомость исключений вести допустимо, но её ведёт полоса снятия кода, а не
+      эта приёмка; ведомость истекает сама
+    end_predicate: набор change-graph-gate даёт код 0 и «мимо приёмки 0»
+    verdict: >-
+      требование закрыто САМИМ документом — отдельного замечания не остаётся
+
+  load_bearing_argument_verified:
+    claim: >-
+      §10: «фикстуры описывают мир целиком из своих файлов, поэтому смерть
+      предмета их вердикта не меняет»
+    checked_by: чтение кода, а не текста
+    finding: >-
+      фикстура несёт собственный world.yaml, семейство читает его через
+      world.read(...)/world.has(...), реального дерева для мира кейса не трогает
+    verdict: >-
+      довод верен. Это ИСПРАВЛЕНИЕ формулировки круга 1, где было «их фикстуры
+      описывают мир, которого дерево больше не производит» — та версия
+      подразумевала зависимость от дерева, новая точнее.
+
+# ── Важные, не блокирующие ────────────────────────────────────────────────────
+non_blocking:
+  - id: N1
+    where: scripts/change-graph-gate/check-04-canonical-inputs-match-manifest.sh
+    observed: >-
+      проверка сверяет REGISTERED_CANONICAL_INPUTS семейства cg.adapter с
+      canonical_inputs манифеста производного; на этой редакции зелёная
+      (7 = 7, расхождений 0). После снятия производного манифеста не станет, и
+      она даст код 2 — VOID, «сверять не с чем».
+    why_not_blocking: >-
+      её собственная шапка это поведение объявляет, читает она ИСПОЛНЯЕМОЕ, а не
+      текст §10, и ведёт её та же полоса снятия кода, что и ведомость исключений.
+      Приёмка перечисляет следствия промежутка и это в перечень не внесла —
+      довесок к §13, а не дефект: третья категория не есть краснота.
+    suggested: одной строкой в §13 назвать её рядом с девятью диагностиками
+
+  - id: N2
+    where: отчёт автора
+    observed: >-
+      «остальные семь наборов зелёные» — на замере зелёных пять; crossrepo-gate
+      и docs-gate дают код 2 (без предмета 1 у каждого) при провалено 0.
+    why_not_blocking: про отчёт, не про документ; правится формулировкой
+
+  - id: N3
+    where: .claude/rules/change-graph.md, строки 27 и 84
+    observed: >-
+      «196 кейсов приёмки из 196» при фактических 198 на стволе — число было
+      ложным ДО обоих кругов; «33 семейства» верно. Перенесено из круга 1.
+    why_not_blocking: >-
+      файл вне диффа и вне предмета под-фазы. Но обещание «сменятся после снятия
+      кода» без задачи есть обещание без держателя (ban #11) — нужен предмет.
+
+# ── Что этим кругом НЕ проверялось ────────────────────────────────────────────
+out_of_scope_of_this_round:
+  - "содержание оставшихся 185 кейсов по существу — предмет круга есть дельта редакции; дифф её узость доказывает"
+  - "стенд не поднимался — о поведении на кластере вердикта нет"
+  - "ветка chore/remove-codex-projection не рецензировалась — она не влита и предметом приёмки не является"
+  - "клон продукта отстаёт от своего ствола; дома PRO-Robotech/kaname рядом нет — 33 координаты чужих приёмок остались без вердикта"
+  - "истинность утверждений прежних редакций не перепроверялась"
+
+reviewer_self_correction: >-
+  круг 1 — мой предикат уникальности ID был слеп к двухсегментному семейству
+  (SDD-1-POST-NA-01/-02) и дал 184 вместо 185; прав был автор. Круг 2 — мой
+  первый замер восьми наборов читал код после конвейера `| tail | head` и дал
+  восемь нулей, скрыв единственный красный набор; перемерено записью в файл.
+  Оба раза расхождение поймано сверкой с чужим числом, а не перечитыванием
+  своего выражения.
+
+author_premise_check:
+  b1_closed: подтверждена — шесть признаков проверены порознь
+  b2_closed: подтверждена
+  self_refutation_of_round_1_claim: >-
+    подтверждена и принята: автор опроверг собственное утверждение круга 1
+    «осиротевшую фикстуру никто не находит» — набор её находит, код 1, мимо
+    приёмки 9. Опровержение воспроизведено дословно и внесено в документ числом
+    с двумя следствиями и предикатом конца.
+  seven_sets_green: опровергнута в части единицы — зелёных пять, два кода 2 (N2)
+  docs_gate_landings: подтверждена — три посадки воспроизведены, различие названо
