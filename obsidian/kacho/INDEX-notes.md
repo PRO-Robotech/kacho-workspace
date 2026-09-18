@@ -1305,6 +1305,7 @@ tags:
 | [[KAC/issue-652\|#652: форма курсора страницы объявлена одним местом]] | в работе (test) |
 | [[KAC/issue-657\|#657: линия квот — предел, который действительно ограничивает]] | в работе (test) |
 | [[KAC/issue-658\|#658: вердикт из трубы под pipefail — найденное объявляется ненайденным]] | в работе (to-do) |
+| [[KAC/issue-666-ws\|ws#666: проекция оснастки для чужих агентских сред снята целиком]] | в работе (test) |
 | [[KAC/issue-667\|#667: краснота сквозных проб линии квот — два корня, оба про утечку фикстуры]] | в работе (test) |
 | [[KAC/issue-691\|#691: журналы аудита пишутся и не читаются — класс закрыт гейтом по схеме]] | в работе (test) |
 | [[KAC/issue-694\|#694: ключ повтора — домен параллелизма защиты сведён с флотом]] | в работе (test) |
@@ -1431,6 +1432,7 @@ tags:
 | [[lessons/a-value-you-choose-may-already-be-derived\|Величина, которую ты выбираешь, могла быть уже ВЫВЕДЕНА приёмкой]] | — |
 | [[lessons/absence-of-finding-versus-absence-of-inspection\|Нет находки — это два разных факта: путь чист или путь не осматривали]] | — |
 | [[lessons/acceptance-of-a-request-named-as-its-execution\|Приём запроса, названный его исполнением: шаг утверждает «сделано», проверив «принято»]] | — |
+| [[lessons/acceptance-retires-a-case-while-the-rule-still-produces-it\|Приёмка сняла кейс, правило ещё производит его код — и слышно это в одну сторону]] | живо (stable) |
 | [[lessons/allowlist-of-names-guards-the-names-not-the-class\|Защита перечнем ИМЁН охраняет имена, а не класс]] | — |
 | [[lessons/backticks-in-commit-message-get-executed\|Обратные кавычки в подставляемом тексте исполняются оболочкой]] | — |
 | [[lessons/census-blind-to-the-verb-that-creates\|Перепись покрытия, слепая к глаголу заведения: пропущен не ресурс, а целый вид предмета]] | — |
@@ -1444,6 +1446,7 @@ tags:
 | [[lessons/db-refusal-in-open-tx-wedges-the-probe\|Отказ базы внутри открытой транзакции вешает пробу вместо падения]] | — |
 | [[lessons/dead-code-is-not-code-without-callers\|«Мёртвый код» и «код без вызывающих» — разные вещи, и путают их в обе стороны]] | — |
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
+| [[lessons/derived-output-is-retired-by-its-contour-not-its-directory\|Производное снимается КОНТУРОМ, а не каталогом: звеньев больше, чем файлов]] | живо (stable) |
 | [[lessons/disjunction-gate-green-on-a-removed-disjunct\|Гейт, утверждающий ДИЗЪЮНКЦИЮ, зелен на снятии одного дизъюнкта]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
