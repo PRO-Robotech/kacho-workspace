@@ -38,7 +38,7 @@ skills_gate_void() { echo "[VOID] $1${2:+ — $2}" >&2; }   # «проверят
 # не-ASCII именем и оборачивает его в кавычки (`".claude/skills/\320\277…"`).
 # Такой путь не открывается ни на чтение, ни предикатом `-L`, то есть каталог с
 # кириллическим именем становился бы для набора НЕВИДИМ — маской ровно на том,
-# что проверка обязана ловить. Тот же довод стоит в `scripts/adapter-gate/probe.py`.
+# что проверка обязана ловить.
 skills_gate_skill_files() {
     local ws="$1"
     git -C "$ws" -c core.quotepath=false ls-files --cached --others --exclude-standard \

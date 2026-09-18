@@ -35,7 +35,7 @@ skills:
   `db-architect-reviewer`;
 - чарты, профили посадки, подъём и перекатка стенда, посев — это `deploy-engineer`;
 - `ui-future/**` — это `ui-implementer`;
-- оснастка воркспейса (`.claude/**`, `scripts/*-gate`, хуки, проекция) — это
+- оснастка воркспейса (`.claude/**`, `scripts/*-gate`, хуки) — это
   `tooling-maintainer`;
 - вердикт вместо кода: чтение прогона конвейера — `ci-watcher`, суждение о посадке —
   `landing-reviewer`.
