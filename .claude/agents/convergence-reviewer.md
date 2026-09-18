@@ -187,9 +187,11 @@ skills:
 
 ## Чем это держится
 
-Испытуемый контура в дереве есть: `scripts/change-graph-gate/run.py`, 196 кейсов приёмки из
-196 (`.claude/rules/change-graph.md` §0; перемерить —
-`python3 scripts/change-graph-gate/tests/run_matrix.py final`).
+Испытуемый контура в дереве есть: `scripts/change-graph-gate/run.py`. **Сколько кейсов
+приёмки он исполняет — число НЕ здесь:** его единственный владелец
+`.claude/rules/change-graph.md` §0, и перемеряется оно там же
+(`python3 scripts/change-graph-gate/tests/run_matrix.py final`). Прежняя редакция несла
+копию величины, и копия устарела молча — перечень кейсов приёмки с тех пор менялся дважды.
 
 Что действует независимо от контура: доказательство сохранности работы содержимым —
 `scripts/branch-audit.sh` (способность упасть доказана `scripts/branch-audit-inject.sh`).

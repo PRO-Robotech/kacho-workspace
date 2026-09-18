@@ -24,7 +24,7 @@
 > |---|---|---|
 > | приёмка контура | **есть**, вердикт APPROVED внешним событием | `ls docs/specs/sub-phase-SDD-1-*.md` |
 > | драйвер кейсов и фикстуры | **есть** | `python3 scripts/change-graph-gate/tests/run_case.py --list` |
-> | испытуемый `scripts/change-graph-gate/run.py` | **есть**, 196 кейсов приёмки из 196 | `python3 scripts/change-graph-gate/tests/run_matrix.py final` |
+> | испытуемый `scripts/change-graph-gate/run.py` | **есть**, 185 кейсов приёмки из 185 | `python3 scripts/change-graph-gate/tests/run_matrix.py final` |
 > | `docs/changes/policy.yaml` и cutover | **есть**, обе координаты резолвятся | `git cat-file -t $(grep -m1 cutover_commit docs/changes/policy.yaml \| awk '{print $2}')` |
 > | пакеты `docs/changes/<change-id>/` | **нет** ни одного — первый заводится первым изменением по контуру | `ls -d docs/changes/*/ 2>/dev/null \| grep -v census` |
 >
@@ -80,7 +80,10 @@
 > (воркспейс) и `check-04` (дерево продукта). Предел назван честно: они судят **объявление**,
 > а не истинность — документ вправе объявить одобрение, не будучи одобренным. Привязку к
 > отпечатку и внешнему событию держит испытуемый контура — он **в дереве есть**
-> (`scripts/change-graph-gate/`, 33 семейства правил, 196 кейсов из 196).
+> (`scripts/change-graph-gate/`, 32 семейства правил, 185 кейсов из 185). Оба числа
+> перемеряются, а не помнятся: семейства —
+> `ls scripts/change-graph-gate/cglib/families/*.py | grep -v '__init__' | wc -l`,
+> кейсы — предикатом из таблицы §0.
 
 ## 3. Роль без события полномочия не даёт
 
