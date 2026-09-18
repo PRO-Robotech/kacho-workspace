@@ -1,0 +1,249 @@
+schema_version: 1
+kind: acceptance_review
+
+# Запись НЕ bootstrap и НЕ несёт effective approval: вердикт CHANGES_REQUESTED,
+# внешнего события полномочия нет. Прежние records append-only и не удаляются;
+# этот artifact — их sibling. Роль в записи — координата, а не доказательство
+# личности (.claude/rules/change-graph.md §3).
+
+subject:
+  path: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  sha256: 9dad9256479b357c069793379b39b3a58d009c47d0414096dd9db41dabb95fcc
+  static_status: DRAFT
+  static_status_note: >-
+    шапка subject намеренно НЕ правлена: статическая форма вердикта не меняется
+    после ревью, effective approval выводится из внешнего события и записи
+    (§2 change-graph.md). Автор её не трогал — проверено диффом.
+  supersedes_subject_sha256: cc021e4e28512667d71f58d7fd430cf457c24f7059efffa37344e1e30e560fb9
+  review_base: 811098287cc9aa7b339dedffb25e72e0663978a5
+  review_branch: acceptance/sdd1-adapter-retired
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+round: 1
+
+publication_mode: courier
+# Тело внешнего события отдаётся строкой диспетчеру; рецензент событие не публикует.
+
+authority:
+  mode: none
+  note: >-
+    вердикт CHANGES_REQUESTED внешнего полномочия не требует и его не несёт.
+    Одобрения эта запись НЕ выпускает.
+
+event: none
+
+effective_approval:
+  issued: false
+  reason: >-
+    два блокирующих замечания; оба — утверждение документа о дереве,
+    опровергаемое командой на ревизии самого документа.
+
+# ── Что проверено ЭКСПЕРИМЕНТОМ, а не прочтением ──────────────────────────────
+measurements:
+  fingerprint:
+    command: sha256sum docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+    result: 9dad9256479b357c069793379b39b3a58d009c47d0414096dd9db41dabb95fcc
+    matches_author_claim: true
+
+  case_census:
+    # ПЕРВЫЙ мой предикат был СЛЕП и дал 184: форма '^SDD-1-[A-Z]+-[0-9]+$' не
+    # знает двухсегментного семейства (SDD-1-POST-NA-01/-02). Широкий предикат
+    # даёт 185 и сходится с автором. Класс — testing-verdict.md §14.
+    headings: {command: "grep -c '^#### SDD-1-' <subject>", before: 198, after: 185}
+    matrix_rows: {command: "grep -c '^| SDD-1-' <subject>", before: 198, after: 185}
+    unique_ids: {command: "grep -o '^#### SDD-1-[A-Za-z0-9-]*' | sort -u | wc -l", after: 185}
+    adapter_occurrences: {before: 148, after: 18}
+    adapter_lines: {before: 44, after: 17}
+    verdict: все числа автора воспроизведены
+
+  removed_set:
+    command: comm -23 <ids@origin/main> <ids@HEAD>
+    removed: 13
+    removed_ids: SDD-1-ADAPTER-01 … SDD-1-ADAPTER-13
+    added_ids: 0
+    tombstones_in_section_13: 13
+    numbers_match: true
+
+  untouched_scenarios:
+    command: git diff origin/main...HEAD | grep -E '^[+-]\*\*(Then|Тогда)'
+    result: 13 строк, ВСЕ удаления, все принадлежат снятым ADAPTER
+    added_then: 0
+    verdict: ни одно «Тогда» оставшихся 185 не изменено — подтверждено
+
+  diff_boundaries:
+    command: git diff --name-only origin/main...HEAD
+    files: 1 (только subject)
+    fixtures_touched: false
+    sut_code_touched: false
+    review_records_touched: false
+    docs_changes_touched: false
+    rules_touched: false
+
+  matrix_run:
+    command: python3 scripts/change-graph-gate/tests/run_matrix.py final
+    executed: 185 из 185
+    mismatched: 0
+    harness_breakage_exit40: 0
+    exit_code: 0
+
+  docs_gate:
+    command: KACHO_MONOREPO=<клон продукта> ./scripts/docs-gate/run-all.sh
+    reviewed: 7
+    passed: 6
+    failed: 0
+    void: 1
+    exit_code: 2
+    note: >-
+      автор заявил «7/7, код 0» — это верно для ГЛАВНОЙ копии воркспейса, где
+      клон продукта достижим, но там гейт читает приёмку ДО этой редакции.
+      На редакции автора провалено 0; беспредметна одна проверка. Расхождение
+      разрешено уточнением условия, а не выбором числа.
+
+  holder_completeness:
+    adapter_contract_holder_mentions: 0
+    live_coordinates_of_removed_subject_in_text: 0
+    verdict: держатель снятого предмета снят полностью, мёртвых координат в тексте нет
+
+  orphaned_fixtures:
+    command: python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-01
+    fixtures_in_tree: 13
+    observed: HARNESS · HARNESS_CASE_UNKNOWN · exit 40
+    driver_case_list: 185, из них ADAPTER — 0
+    green_under_any_run: false
+    verdict: фикстуры НЕ зелёные — они не исполняются вовсе (третья категория)
+
+  sut_families_predicate:
+    command: ls scripts/change-graph-gate/cglib/families/*.py | grep -v '__init__' | wc -l
+    now: 33
+    without_adapter_py: 32
+    verdict: предикат §10 воспроизведён, оба числа верны
+
+  derived_projection_on_this_revision:
+    command: git cat-file -e HEAD:<путь> по шести координатам
+    AGENTS.md: ЕСТЬ
+    adapters_manifest: ЕСТЬ
+    codex_dir: ЕСТЬ
+    agents_dir: ЕСТЬ
+    generator_dir: ЕСТЬ
+    adapter_gate_dir: ЕСТЬ
+    removal_lives_in: chore/remove-codex-projection (НЕ влита)
+    verdict: производное на ревизии документа существует целиком
+
+# ── Блокирующие ───────────────────────────────────────────────────────────────
+blocking:
+  - id: B1
+    kind: CONVENTION
+    where: §10 «Что снято», заголовок §10, 13 надгробий §13, пункт DoD §15
+    claim_in_document: >-
+      «Предмета больше нет: производное снято целиком решением владельца
+      2026-09-18… Вместе с ним сняты манифест владения, генератор, сверяющий
+      набор и его доказательство падучести»; заголовок «производного для чужих
+      сред НЕТ»; каждое из 13 надгробий — «производного для чужих сред не
+      существует».
+    measured: >-
+      на ревизии 81109828 в дереве присутствуют ВСЕ шесть координат производного;
+      снятие живёт в невлитой ветке chore/remove-codex-projection.
+    predicate: >-
+      for p in AGENTS.md .claude/adapters.yaml .codex .agents scripts/adapter
+      scripts/adapter-gate; do git cat-file -e HEAD:"$p" && echo "$p ЕСТЬ"; done
+    why_blocking: >-
+      документ утверждает в прошедшем времени факт о дереве, ложный на его
+      собственной ревизии. Приёмка, получившая APPROVED, читается как факт;
+      читатель, проверивший первую же координату, найдёт её на месте.
+      Асимметрия внутри одного §10 показывает, что это упущение, а не решение:
+      про cg.adapter автор написал честно — «33 на день этой редакции, семейство
+      ещё в дереве; его снимает следующее изменение» — и дал предикат готовности.
+    corroboration: >-
+      на ТОЙ ЖЕ ревизии корневой CLAUDE.md воркспейса (строки 79-81) предписывает
+      «правишь оснастку → python3 scripts/adapter/generate.py, сверка —
+      ./scripts/adapter-gate/run-all.sh. Проекцию руками не правят», а
+      .claude/rules/MANIFEST.md числит adapter-gate держателем ai-tooling.md.
+      То есть два документа того же дерева объявляют предмет живым и предписывают
+      с ним работать, пока приёмка объявляет его несуществующим. Это не довод
+      против снятия — это довод за то, что снятие ещё НЕ состоялось на этой
+      ревизии, и приёмка обязана называть состояние, а не опережать его в
+      прошедшем времени.
+    resolution_expected: >-
+      привести формулировки к той же честной форме, что уже применена к
+      cg.adapter: назвать состояние на день редакции, назвать изменение,
+      снимающее предмет, и дать предикат готовности. Снимать сам предмет не
+      требуется — ban #1 ставит приёмку ПЕРЕД снятием, и опережение дерева
+      законно; незаконно выдавать намерение за свершившееся.
+
+  - id: B2
+    kind: CONVENTION
+    where: §13, хвост раздела «Tracked adapter — СНЯТО ВМЕСТЕ С ПРЕДМЕТОМ»
+    claim_in_document: >-
+      «До того снятия тринадцать фикстур остаются в дереве и остаются зелёными —
+      это ожидаемое состояние промежутка, а не свидетельство о предмете».
+    measured: >-
+      все проверенные фикстуры дают HARNESS · HARNESS_CASE_UNKNOWN · exit 40;
+      драйвер выводит перечень из документа (185 кейсов, ADAPTER — 0), поэтому
+      снятый из документа кейс перестаёт быть исполнимым. Зелёными они не
+      остаются ни при одном прогоне.
+    predicate: >-
+      python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-01
+      → exit 40; run_case.py --list | grep -c ADAPTER → 0
+    why_blocking: >-
+      третья категория исхода подана как зелёное. Это прямо та норма, которую
+      документ держит сам: exit 40 его же перепись называет «поломкой harness,
+      verdict НЕ выдан». Формулировка успокаивающая — «ожидаемое состояние
+      промежутка», — поэтому следующий читатель проверять не пойдёт и не
+      заметит, что 13 фикстур мертвы и об этом в дереве не сообщает ничто.
+    resolution_expected: >-
+      назвать наблюдаемое состояние верно (фикстуры остаются в дереве и
+      перестают исполняться: HARNESS_CASE_UNKNOWN, exit 40 — третья категория,
+      не зелёное) и назвать, чем и когда оно снимается.
+
+# ── Важные, не блокирующие ────────────────────────────────────────────────────
+non_blocking:
+  - id: N1
+    where: .claude/rules/change-graph.md, строки 27 и 84
+    observed: >-
+      «196 кейсов приёмки из 196» и «33 семейства правил». Замер на origin/main:
+      кейсов 198 (и матрица исполняет 198 из 198), семейств 33. То есть число
+      196 было ложным ДО этой редакции, а не стало таким от неё; эта редакция
+      лишь увеличивает расхождение до 185.
+    predicate: >-
+      grep -c '^#### SDD-1-' <subject@origin/main> → 198;
+      python3 scripts/change-graph-gate/tests/run_matrix.py final → 198 из 198
+    adjudication: >-
+      НЕ блокирует эту приёмку: файл вне её диффа и вне предмета под-фазы, и
+      довод автора «сменятся снова после снятия кода» верен по существу. Но
+      довод не объясняет, почему число ложно СЕЙЧАС, а обещание без задачи —
+      обещание без держателя (ban #11). Нужен предмет с предикатом снятия.
+
+  - id: N2
+    where: отчёт автора
+    observed: >-
+      «docs-gate 7/7, код 0» — заявление шире сделанного: в рабочей копии ветки
+      клона продукта нет, там 4 проверки беспредметны и код 2. На редакции
+      автора с доступным деревом продукта: пройдено 6, провалено 0, без
+      предмета 1, код 2.
+    adjudication: находок гейт не даёт; правится формулировкой отчёта, не документом.
+
+# ── Что этим кругом НЕ проверялось ────────────────────────────────────────────
+out_of_scope_of_this_round:
+  - "содержание оставшихся 185 кейсов по существу (их «Тогда», производители, близнецы) — предмет круга есть ДЕЛЬТА редакции; неизменность «Тогда» доказана диффом, но сами формулировки заново не судились"
+  - "стенд не поднимался — о поведении на кластере вердикта нет"
+  - "ветка chore/remove-codex-projection не рецензировалась — она не влита и предметом этой приёмки не является"
+  - "клон продукта в дереве отстаёт от своего ствола на 21 коммит — проверки, читающие продукт, судили отставшую копию"
+  - "истинность утверждений прежних редакций не перепроверялась"
+
+reviewer_self_correction: >-
+  мой первый предикат уникальности ID дал 184 против 185 у автора и был СЛЕП:
+  форма '^SDD-1-[A-Z]+-[0-9]+$' не знает двухсегментного семейства
+  (SDD-1-POST-NA-01, SDD-1-POST-NA-02). Прав автор. Расхождение поймано
+  сверкой с его числом, а не перечитыванием своего выражения.
+
+author_premise_check:
+  claim_1_thirteen_removed_by_tombstone: подтверждена
+  claim_2_census_numbers: подтверждена
+  claim_3_matrix_and_gate_runs: подтверждена частично (гейт — см. N2)
+  claim_4_no_then_touched_all_have_fixtures: подтверждена в части «Тогда»
+  claim_5_hook_bypass_reverted: >-
+    подтверждена reflog: eb29fe5d снят `reset` к HEAD~1, действующий коммит
+    81109828 получен amend поверх 6b971547
+  claim_orphaned_fixtures_silent: >-
+    подтверждена — и опровергает формулировку самого документа (B2)

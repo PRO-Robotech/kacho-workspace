@@ -379,25 +379,12 @@ INJECTIONS = [
         '    return tokens',
         ["A5 снятие модуля семейства снимает признак — перечень выведен из дерева"],
     ),
-    # --- по инъекции на семейство полосы адаптера/провязки/замещения ---------
+    # --- по инъекции на семейство полосы провязки/замещения -----------------
     # Каждая снимает ОДИН предикат и сохраняет его ЧТЕНИЯ. Инъекция, убравшая
     # заодно и чтение, роняла бы испытуемого собственным отказом
     # (CG_SELF_WORLD_FACT_UNREAD) — то есть краснота приходила бы от учёта
     # фактов, а не от снятого предиката, и проверяемое свойство осталось бы
     # неизмеренным (`testing.md` §«Гейт на класс», п. 2в).
-    (
-        "расхождение производного перестало судиться",
-        "cglib/families/adapter.py",
-        "    for coordinate in sorted(owned):\n"
-        "        if _is_foreign(coordinate, foreign):",
-        "    for coordinate in []:\n"
-        "        if _is_foreign(coordinate, foreign):",
-        ["B SDD-1-ADAPTER-02",
-         "B SDD-1-ADAPTER-13",
-         B1,
-         "C1 SDD-1-ADAPTER-01: дефектный мир под положительным ID даёт "
-         "CGA_DERIVED_DRIFT"],
-    ),
     (
         "отсутствие обязательного вызывающего перестало судиться",
         "cglib/families/wire.py",
@@ -957,13 +944,6 @@ FAMILY_MODULE_PREFIX = "cglib/families/"
 # прогона и находкой не по адресу. Заводя следующее семейство, взвесь это
 # заново, а не прими за данность.
 FAMILY_ASKED_ROSTER = {
-    "adapter": (
-        "SDD-1-ADAPTER-01", "SDD-1-ADAPTER-02", "SDD-1-ADAPTER-03",
-        "SDD-1-ADAPTER-04", "SDD-1-ADAPTER-05", "SDD-1-ADAPTER-06",
-        "SDD-1-ADAPTER-07", "SDD-1-ADAPTER-08", "SDD-1-ADAPTER-09",
-        "SDD-1-ADAPTER-10", "SDD-1-ADAPTER-11", "SDD-1-ADAPTER-12",
-        "SDD-1-ADAPTER-13",
-    ),
     "adv": (
         "SDD-1-ADV-01", "SDD-1-ADV-02", "SDD-1-ADV-03",
     ),

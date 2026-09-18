@@ -17,6 +17,23 @@
 > 47f5f98fe1f01611a70ae1c2a5187b54d88dfd9cfb5c8566d74b5e5783d19c28.
 > Все четыре record append-only, и ни один не переносит verdict на эту
 > редакцию: verdict привязан к отпечатку subject, а эта редакция его меняет.
+> **Редакция 2026-09-18 — семейство `ADAPTER` СНИМАЕТСЯ ВМЕСТЕ С ПРЕДМЕТОМ.**
+> Производное оснастки для чужих агентских сред снимается решением владельца
+> 2026-09-18, дословно — «удали все от codex и все что туда относится». **На
+> ревизии этой редакции производное ещё в стволе воркспейса**, и снятие идёт
+> невлитой веткой: приёмка опережает снятие намеренно (ban #1), но намерение
+> здесь не выдаётся за свершившееся — состояние дерева и предикат готовности
+> названы в §10 командой. Из документа сняты тринадцать кейсов
+> `SDD-1-ADAPTER-01`…`SDD-1-ADAPTER-13`
+> вместе с их rows матрицы; номера сохранены надгробиями (§13) и **не
+> переиспользуются**. Ни один сценарий не ослаблен: ослабить утверждение о снятом
+> предмете значило бы оставить проверку, которая не может упасть. §10 переписан,
+> а не снят: норма «оснастка — ВХОД контура» **остаётся**, снято обещание
+> отслеживаемого ВЫХОДА. Числа перемерены, а не вычтены: case IDs 198 → **185**
+> (`grep -c '^#### SDD-1-'` и `grep -c '^| SDD-1-'` по этому файлу дают одно и то
+> же), семейства испытуемого 33 → **32** после снятия (предикат — §10). Дельта
+> редакции этим исчерпана: ни один из оставшихся 185 кейсов, ни один holder и ни
+> одно число о них не тронуты.
 
 ## 1. Scope и единственный bootstrap
 
@@ -205,8 +222,8 @@ python3 scripts/change-graph-gate/tests/run_case.py --case <ID>
 run_case.py и scripts/change-graph-gate/tests/**, включая fixtures, — pre-RED
 test diff integration-tester. Driver загружает fixture и вызывает SUT через
 стабильный test seam. Production scripts/change-graph-gate/run.py, production
-runner, callers/wiring, adapter generator, canonical .claude, CI/config и
-project/kacho являются implementation diff.
+runner, callers/wiring, canonical .claude, CI/config и project/kacho являются
+implementation diff.
 
 До RED_PROVEN допустимы:
 
@@ -347,45 +364,81 @@ Squash/cherry-pick с тем же applied content разрешает LANDED и �
 SHA. Content drift инвалидирует convergence. Commit identity не подменяет content
 identity.
 
-## 10. Tracked adapter contract
+## 10. Оснастка — ВХОД контура; производное для чужих сред СНИМАЕТСЯ
 
-Adapter входит в SDD-1 безусловно. Canonical ownership manifest:
+**Норма, которая остаётся.** Правила, агенты, скилы, хуки и настройки —
+**канонические входы** контура. Они читаются там, где лежат, и вторым
+представлением одной нормы не размножаются.
 
-~~~text
-.claude/adapters.yaml
+**Что снимается.** Прежняя редакция объявляла у этих входов **отслеживаемый
+выход** — порождённое представление оснастки для чужих агентских сред — и
+требовала манифеста владения, генератора, побайтовой сверки регенерацией и
+отдельного machine holder под этот контракт. Владелец 2026-09-18 постановил снять
+производное целиком (дословно: «удали все от codex и все что туда относится»);
+вместе с ним снимаются манифест владения, генератор, сверяющий набор и его
+доказательство падучести.
+
+**Состояние дерева названо замером, а не прошедшим временем.** На день этой
+редакции производное **ещё в стволе воркспейса** — снятие идёт невлитой веткой.
+Приёмка опережает снятие намеренно: ban #1 ставит её перед кодом и на снятии
+тоже. Незаконно было бы не опережение, а выдача намерения за свершившееся,
+поэтому здесь стоит команда, а не утверждение:
+
+~~~sh
+for p in AGENTS.md .claude/adapters.yaml .codex .agents \
+         scripts/adapter/generate.py scripts/adapter-gate; do
+  git cat-file -e HEAD:"$p" 2>/dev/null && echo "$p"
+done | wc -l
+# 6 на день этой редакции — производное и его оснастка ещё в стволе
+# 0 — предикат готовности снятия
 ~~~
 
-Единственные canonical inputs:
+Пока команда даёт не ноль, всякое утверждение этого раздела о несуществовании
+производного читается как **намерение**, а не как факт о дереве, и проверяется
+за секунду. Координаты названы прямо, а не спрятаны: приёмка — датированная
+запись, и предикат несёт свою дату вместе с числом; спрятать их значило бы
+лишить читателя единственного способа отличить сделанное от объявленного.
 
-- root CLAUDE.md;
-- tracked .claude/adapters.yaml;
-- tracked .claude/agents/**;
-- tracked .claude/hooks/**;
-- tracked .claude/rules/**;
-- tracked .claude/skills/**;
-- tracked .claude/settings.json.
+**Тем же предикатом закрывается и то, что дерево сегодня утверждает обратное.**
+На этой ревизии корневой `CLAUDE.md` предписывает перегенерацию производного
+после правки оснастки, а `.claude/rules/MANIFEST.md` числит сверяющий набор
+держателем правила оснастки. Два места дерева объявляют предмет живым — и они
+правы сегодня. Их приводит к дереву то же изменение, что снимает производное;
+приёмка за них не отвечает и их не опережает молча.
 
-Точный adapter-owned generated set:
+**Почему кейсы сняты, а не ослаблены.** Утверждение о предмете, которого не
+станет, не краснеет и не зеленеет — оно **молчит**, оставаясь на вид рабочим.
+Тринадцать кейсов семейства были бы зелёными на синтетике и после снятия
+производного: их фикстуры описывают мир целиком из своих файлов, поэтому смерть
+предмета их вердикта не меняет. Ослабление оставило бы проверку, неспособную
+упасть; снятие вместе с предметом — единственный исход, не создающий послабления
+без срока.
 
-- root AGENTS.md;
-- полные tracked packages .agents/skills/<name>/** для каждого manifest skill,
-  включая SKILL.md, references, assets и scripts; текущие разновидности включают
-  audit-round.workflow.js, EXAMPLES и Obsidian references;
-- .codex/agents/*.toml;
-- .codex/hooks/**;
-- .codex/hooks.json.
+**Семейство правил испытуемого `cg.adapter` снимается тем же доводом** — его
+предмет исчезает вместе с производным. Числа названы замером, а не вычитанием в
+уме; единица счёта — модуль семейства в дереве испытуемого, `__init__` в неё не
+входит:
 
-Outputs tracked. CI генерирует их во временный каталог и побайтно сравнивает с
-tracked tree. Missing nested asset, tracked drift, missing/extra adapter-owned
-output, uppercase .Codex, absolute path, noncanonical input и nondeterminism →
-RED.
+~~~sh
+ls scripts/change-graph-gate/cglib/families/*.py | grep -v '__init__' | wc -l
+# 33 на день этой редакции — семейство ещё в дереве; его снимает следующее изменение
+ls scripts/change-graph-gate/cglib/families/*.py | grep -v '__init__' \
+  | grep -v '/adapter\.py$' | wc -l
+# 32 — столько остаётся у испытуемого после снятия
+~~~
 
-Adapter contract принадлежит отдельному machine holder `adapter-contract`; его
-birth inversion и evidence не сливаются с aggregate process-gate holder.
+Первое число — состояние дерева на день этой редакции, второе — предикат
+готовности снятия: после изменения, снимающего семейство, **обе** команды обязаны
+давать 32. Пока они дают 33 и 32, работа не сделана, и это видно командой, а не
+по памяти.
 
-Foreign runtime package вне adapters.yaml не является adapter output и не
-маскирует drift. Design «outputs только untracked/runtime» запрещён: generated
-contract обязан быть tracked.
+**Что связывает контур ВПЕРЁД.** Заводя производное заново — любое второе
+представление оснастки, для любой среды и любого потребителя, — сперва назови,
+**чем оно будет удержано**: непроверяемое производное неотличимо от
+произвольного, и запрет прежней редакции стоял именно на этом. Машинного
+держателя у самого этого требования не будет: он обходит производное, а
+производного после снятия не останется. Сказано прямо, чтобы «держится нормой» не
+читалось как «держится гейтом».
 
 ## 11. Authoritative wiring
 
@@ -2012,111 +2065,88 @@ Planned coordinates не утверждают, что файлы уже суще
 **When** migration scope проверяется  
 **Then** SUT не требует package или registry entry.
 
-### Tracked adapter
+### Tracked adapter — СНЯТО ВМЕСТЕ С ПРЕДМЕТОМ
 
-#### SDD-1-ADAPTER-01 — deterministic regeneration совпала побайтно
-**Positive twin:** —  
-**Holder type:** machine  
-**Expected SUT:** GREEN · CG_OK · exit 0  
-**Given** `.claude/adapters.yaml` exact-list-ит owned outputs, temp regeneration из canonical inputs побайтно равна tracked outputs  
-**When** adapter gate сравнивает exact set и bytes  
-**Then** SUT возвращает GREEN.
+Тринадцать кейсов ниже сняты вместе со своим предметом; сам предмет снимается
+решением владельца 2026-09-18, и его состояние в дереве на день этой редакции
+названо командой в §10, а не прошедшим временем. Номера **сохранены и не
+переиспользуются**: иначе ссылка на снятый кейс молча указала бы на другой.
+Снятое поведение здесь не пересказывается — надгробие называет номер и довод,
+а не то, что кейс утверждал.
 
-#### SDD-1-ADAPTER-02 — tracked generated output drift
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CGA_DERIVED_DRIFT · exit 10  
-**Given** в twin изменён только один byte tracked adapter-owned output  
-**When** temp regeneration сравнивается  
-**Then** SUT возвращает RED.
+- ~~`SDD-1-ADAPTER-01`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-02`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-03`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-04`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-05`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-06`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-07`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-08`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-09`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-10`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-11`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-12`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
+- ~~`SDD-1-ADAPTER-13`~~ — снят вместе с предметом: производное для чужих
+  сред снимается решением владельца 2026-09-18 (состояние дерева и предикат
+  готовности — §10).
 
-#### SDD-1-ADAPTER-03 — nested asset manifest skill потерян
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_NESTED_ASSET_MISSING · exit 10  
-**Given** из twin удалён только один nested asset/reference/script полного `.agents/skills/<name>/**` package  
-**When** exact package set сравнивается  
-**Then** SUT возвращает RED.
+Фикстуры и семейство правил испытуемого снимает **отдельное изменение** после
+вердикта по этой редакции: приёмка идёт перед кодом и на снятии тоже (ban #1).
 
-#### SDD-1-ADAPTER-04 — foreign runtime package вне manifest сохранён
-**Positive twin:** —  
-**Holder type:** machine  
-**Expected SUT:** GREEN · CG_OK · exit 0  
-**Given** рядом существует foreign runtime package, которого нет среди adapter-owned outputs в manifest  
-**When** temp regeneration и drift проверяются  
-**Then** SUT не удаляет и не считает package output, но всё равно проверяет owned exact set.
+**Состояние тринадцати фикстур в промежутке названо наблюдаемым, а не
+успокаивающим.** Перечень кейсов драйвер выводит из ЭТОГО документа, поэтому с
+принятием редакции фикстуры остаются в дереве и **перестают исполняться вовсе**:
 
-#### SDD-1-ADAPTER-05 — extra adapter-owned output
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_OWNED_OUTPUT_EXTRA · exit 10  
-**Given** в twin добавлен только один tracked output в owned namespace, отсутствующий в manifest exact set  
-**When** output set сравнивается  
-**Then** SUT возвращает RED.
+~~~text
+python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-01
+HARNESS · HARNESS_CASE_UNKNOWN · exit 40
+~~~
 
-#### SDD-1-ADAPTER-06 — manifest-owned output отсутствует
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_OWNED_OUTPUT_MISSING · exit 10  
-**Given** из twin удалён только один manifest-owned tracked output  
-**When** output set сравнивается  
-**Then** SUT возвращает RED.
+Это **третья категория** — «не выполнилось»: verdict не выдан, и та же перепись
+прогона зовёт `exit 40` поломкой harness. Зелёными они НЕ становятся, и писать
+«остаются зелёными» здесь было бы формулировкой, из-за которой следующий не пойдёт
+проверять. Матрица их не исполняет: `run_matrix.py final` даёт 185 из 185,
+поломок harness 0 — осиротевшие тринадцать в её счёт не входят вовсе.
 
-#### SDD-1-ADAPTER-07 — design предлагает только untracked outputs
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** human-external  
-**Expected SUT:** RED · CG_ADAPTER_OUTPUTS_MUST_BE_TRACKED · exit 10  
-**Given** в twin изменено только design decision с tracked outputs на runtime/untracked-only  
-**When** design semantics reviewed  
-**Then** human holder и SUT отвергают design.
+**Промежуток НЕ тихий, и цена названа числом.** Набор `scripts/change-graph-gate/`
+на этой редакции **краснеет**, код 1: проверка «диагностика берётся из приёмки, а
+не из реализации» находит **9** кодов, которые правило `cg.adapter` производит, а
+приёмка больше не объявляет (`CGA_DERIVED_DRIFT` и восемь `CG_ADAPTER_*`). Это не
+дефект приёмки и не дефект проверки: она сработала ровно как задумана — «приёмка
+код сняла, а правило его производит». Так выглядит ban #1 изнутри, когда приёмка
+опережает снятие кода.
 
-#### SDD-1-ADAPTER-08 — canonical path использует uppercase `.Claude`
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_CANONICAL_CASE_INVALID · exit 10  
-**Given** в twin изменён только один canonical path с `.claude` на uppercase variant  
-**When** canonical coordinates проверяются  
-**Then** SUT возвращает RED.
-
-#### SDD-1-ADAPTER-09 — generated artifact содержит absolute path
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_PATH_NOT_PORTABLE · exit 10  
-**Given** в twin изменена только одна generated coordinate на machine-absolute path  
-**When** portability проверяется  
-**Then** SUT возвращает RED.
-
-#### SDD-1-ADAPTER-10 — adapter читает noncanonical input
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_INPUT_NOT_CANONICAL · exit 10  
-**Given** в twin добавлен только один input вне root `CLAUDE.md` и tracked `.claude/{adapters.yaml,agents,hooks,rules,skills,settings.json}`  
-**When** input ownership проверяется  
-**Then** SUT возвращает RED.
-
-#### SDD-1-ADAPTER-11 — regeneration nondeterministic
-**Positive twin:** SDD-1-ADAPTER-01  
-**Holder type:** machine  
-**Expected SUT:** RED · CG_ADAPTER_NONDETERMINISTIC · exit 10  
-**Given** в twin изменён только второй regeneration output при тех же input hashes  
-**When** два temp runs сравниваются  
-**Then** SUT возвращает RED.
-
-#### SDD-1-ADAPTER-12 — current nested variants сохранены
-**Positive twin:** —  
-**Holder type:** machine  
-**Expected SUT:** GREEN · CG_OK · exit 0  
-**Given** manifest skills включают полные packages с `audit-round.workflow.js`, `EXAMPLES` и Obsidian references/assets/scripts по фактическому дереву  
-**When** nested package census сравнивается с regeneration  
-**Then** SUT возвращает GREEN.
-
-#### SDD-1-ADAPTER-13 — foreign package не маскирует owned drift
-**Positive twin:** SDD-1-ADAPTER-04  
-**Holder type:** machine  
-**Expected SUT:** RED · CGA_DERIVED_DRIFT · exit 10  
-**Given** в twin с неизменным foreign package изменён только один byte adapter-owned tracked output  
-**When** temp regeneration сравнивается  
-**Then** отдельный `adapter-contract` holder возвращает RED, не исключая drift-check.
+Отсюда два следствия, и оба для того, кто ведёт линию. **Первое:** редакция и
+снятие кода вливаются вместе либо снятие идёт немедленно следом — иначе ствол
+несёт красный набор. **Второе:** прощать эти 9 кодов ведомостью исключений
+допустимо, но ведомость живёт в дереве испытуемого и истекает сама («записи
+нечего исключать» — находка), поэтому её ведёт полоса снятия кода, а не эта
+приёмка. Предикат конца промежутка один: набор `scripts/change-graph-gate/`
+даёт код 0 и переписи «мимо приёмки 0».
 
 ### Authoritative callers и advisory hooks
 
@@ -2515,19 +2545,6 @@ holder GREEN.
 | SDD-1-CENSUS-12 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-12/ | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-12/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-12/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-12/evidence/SDD-1-CENSUS-12.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-CENSUS-12 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-CENSUS-13 | SDD-1-CENSUS-12 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-13/ | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-13/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-13/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-13/evidence/SDD-1-CENSUS-13.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-CENSUS-13 | RED · CG_MIGRATION_PACKAGE_MISSING · exit 10 | RED · CG_MIGRATION_PACKAGE_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-CENSUS-14 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-14/ | scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-14/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-14/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-CENSUS-14/evidence/SDD-1-CENSUS-14.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-CENSUS-14 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-01 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-01/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-01/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-01/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-01/evidence/SDD-1-ADAPTER-01.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-01 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-02 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-02/evidence/SDD-1-ADAPTER-02.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-02 | RED · CGA_DERIVED_DRIFT · exit 10 | RED · CGA_DERIVED_DRIFT · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-03 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-03/evidence/SDD-1-ADAPTER-03.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-03 | RED · CG_ADAPTER_NESTED_ASSET_MISSING · exit 10 | RED · CG_ADAPTER_NESTED_ASSET_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-04 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-04/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-04/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-04/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-04/evidence/SDD-1-ADAPTER-04.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-04 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-05 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-05/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-05/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-05/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-05/evidence/SDD-1-ADAPTER-05.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-05 | RED · CG_ADAPTER_OWNED_OUTPUT_EXTRA · exit 10 | RED · CG_ADAPTER_OWNED_OUTPUT_EXTRA · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-06 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-06/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-06/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-06/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-06/evidence/SDD-1-ADAPTER-06.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-06 | RED · CG_ADAPTER_OWNED_OUTPUT_MISSING · exit 10 | RED · CG_ADAPTER_OWNED_OUTPUT_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-07 | SDD-1-ADAPTER-01 | human-external | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-07/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-07/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-07/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-07/reviews/{role}/{subject}.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-07/github-event.json | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-07 | RED · CG_ADAPTER_OUTPUTS_MUST_BE_TRACKED · exit 10 | RED · CG_ADAPTER_OUTPUTS_MUST_BE_TRACKED · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-08 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-08/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-08/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-08/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-08/evidence/SDD-1-ADAPTER-08.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-08 | RED · CG_ADAPTER_CANONICAL_CASE_INVALID · exit 10 | RED · CG_ADAPTER_CANONICAL_CASE_INVALID · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-09 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-09/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-09/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-09/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-09/evidence/SDD-1-ADAPTER-09.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-09 | RED · CG_ADAPTER_PATH_NOT_PORTABLE · exit 10 | RED · CG_ADAPTER_PATH_NOT_PORTABLE · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-10 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-10/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-10/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-10/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-10/evidence/SDD-1-ADAPTER-10.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-10 | RED · CG_ADAPTER_INPUT_NOT_CANONICAL · exit 10 | RED · CG_ADAPTER_INPUT_NOT_CANONICAL · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-11 | SDD-1-ADAPTER-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-11/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-11/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-11/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-11/evidence/SDD-1-ADAPTER-11.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-11 | RED · CG_ADAPTER_NONDETERMINISTIC · exit 10 | RED · CG_ADAPTER_NONDETERMINISTIC · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-12 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-12/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-12/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-12/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-12/evidence/SDD-1-ADAPTER-12.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-12 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
-| SDD-1-ADAPTER-13 | SDD-1-ADAPTER-04 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-13/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-13/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-13/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADAPTER-13/evidence/SDD-1-ADAPTER-13.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADAPTER-13 | RED · CGA_DERIVED_DRIFT · exit 10 | RED · CGA_DERIVED_DRIFT · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-WIRE-01 | — | machine | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-01/ | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-01/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-01/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-01/evidence/SDD-1-WIRE-01.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-WIRE-01 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-WIRE-02 | SDD-1-WIRE-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-02/evidence/SDD-1-WIRE-02.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-WIRE-02 | RED · CG_CALLER_WORKSPACE_PRE_PUSH_MISSING · exit 10 | RED · CG_CALLER_WORKSPACE_PRE_PUSH_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-WIRE-03 | SDD-1-WIRE-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-WIRE-03/evidence/SDD-1-WIRE-03.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-WIRE-03 | RED · CG_CALLER_WORKSPACE_CI_MISSING · exit 10 | RED · CG_CALLER_WORKSPACE_CI_MISSING · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
@@ -2555,6 +2572,13 @@ holder GREEN.
 | SDD-1-ADV-02 | SDD-1-ADV-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADV-02/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADV-02/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADV-02/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADV-02/evidence/SDD-1-ADV-02.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADV-02 | RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10 | RED · CG_AUTHORITATIVE_GATE_BLOCKED · exit 10 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 | SDD-1-ADV-03 | SDD-1-ADV-01 | machine | scripts/change-graph-gate/tests/testdata/SDD-1-ADV-03/ | scripts/change-graph-gate/tests/testdata/SDD-1-ADV-03/holders.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADV-03/evidence/case-assertion.yaml; scripts/change-graph-gate/tests/testdata/SDD-1-ADV-03/evidence/SDD-1-ADV-03.yaml | python3 scripts/change-graph-gate/tests/run_case.py --case SDD-1-ADV-03 | GREEN · CG_OK · exit 0 | GREEN · CG_OK · exit 0 | GREEN · CASE_ASSERTION_MATCHED · exit 0 | RED · CASE_CAPABILITY_MISSING · exit 10 |
 
+**Тринадцать rows СНЯТЫ вместе с предметом** — `SDD-1-ADAPTER-01`…
+`SDD-1-ADAPTER-13` (§10, §13). Номера не переиспользуются. Rows матрицы после
+снятия: **185**; предикат по этому файлу — `grep -c '^| SDD-1-' <файл>`. То же
+число обязано давать и перепись заголовков кейсов §13 —
+`grep -c '^#### SDD-1-' <файл>`: два предиката считают разные единицы (row
+матрицы и объявленный кейс), и расхождение между ними есть находка, а не описка.
+
 ## 15. Definition of Done SDD-1
 
 - Этот subject остаётся `DRAFT`; effective approval выпускает только
@@ -2565,12 +2589,16 @@ holder GREEN.
 - Issue #480 и этот acceptance долговечно задают bootstrap SCOPE; self-package
   не создаётся, второе bootstrap-исключение невозможно. Долговечность authority
   этого маршрута — вопрос §4, и ответ там: она истекает cutover'ом.
-- Все 198 case IDs имеют fixtures, exact planned holders и один row matrix;
+- Все 185 case IDs имеют fixtures, exact planned holders и один row matrix;
   negative/NOT_EXECUTED fixtures отличаются от существующего positive twin
-  ровно одним названным фактом.
+  ровно одним названным фактом. Число получено переписью, а не вычитанием:
+  `grep -c '^#### SDD-1-' <этот файл>` и `grep -c '^| SDD-1-' <этот файл>`
+  обязаны давать одно и то же **185**. Прежняя редакция объявляла 198 — те же
+  предикаты давали 198 на ней; тринадцать снятых номеров (§13) в перепись не
+  входят и не переиспользуются.
 - Integration-tester единолично владеет `tests/**`, fixtures и первым запуском:
   до SUT каждый case даёт exact capability RED; только этот valid RED открывает
-  RED_PROVEN. Production SUT, generator и wiring появляются только после него.
+  RED_PROVEN. Production SUT и wiring появляются только после него.
 - После implementation все behavior rows завершаются final holder GREEN;
   driver-assertion mutation rows — те, что §14 называет поимённо, — завершаются
   ожидаемым RED отдельно для category, diagnostic и exit. Crash или masked
@@ -2586,9 +2614,12 @@ holder GREEN.
 - Exact-set gates связывают acceptance → design → tasks → evidence, actual diff
   → change и applicable specialist records → convergence. Only
   convergence-reviewer выпускает final record по verified external event.
-- `.claude/adapters.yaml` задаёт ownership; deterministic temp regeneration
-  побайтно совпадает со всеми tracked adapter-owned outputs, включая полные
-  nested skill packages, и не присваивает foreign packages.
+- Пункт о манифесте владения производным и побайтовой сверке регенерацией
+  **снят вместе с предметом** (§10): производное снимается решением владельца
+  2026-09-18, и требование остаётся без предмета. Это не послабление — снимается
+  предмет, а не проверка над ним. **Признак готовности здесь тот же, что в §10**:
+  пока предикат шести координат даёт не ноль, снятие не состоялось, и пункт снят
+  в документе раньше, чем предмет в дереве, — намеренно и названо вслух.
 - Blocking one-fact injection доказан отдельно для workspace/product pre-push и
   CI в четырёх точных caller paths; advisory hook не влияет на authority.
 - Landing-reviewer сверяет applied content, а не только commit identity; squash
