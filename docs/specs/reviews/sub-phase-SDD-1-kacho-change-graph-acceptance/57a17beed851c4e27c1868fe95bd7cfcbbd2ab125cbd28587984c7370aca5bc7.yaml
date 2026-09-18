@@ -37,10 +37,37 @@ authority:
     вердикт вынесен, полномочие не предъявлено: событие публикует диспетчер.
     Недоступность внешнего источника — третий исход, а не «да» (§3).
 
-event: none
+event:
+  type: issue_comment
+  status: performed
+  database_id: 5727459724
+  node_id: IC_kwDOSVvpIM8AAAABVWIZjA
+  url: https://github.com/PRO-Robotech/kacho-workspace/issues/666#issuecomment-5727459724
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/comments/5727459724
+  issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho-workspace/issues/666
+  actor: pointpu
+  role: acceptance-reviewer
+  author_association: MEMBER
+  created_at: '2026-09-18T08:38:14Z'
+  body_sha256: 0674555a245845b178b996f61e0d06da68156521610df38eeb9bc9c994227ebf
+  subject_sha256: 57a17beed851c4e27c1868fe95bd7cfcbbd2ab125cbd28587984c7370aca5bc7
+  subject_revision: cbbe7603
+  verdict: APPROVED
+  published_by_dispatcher: true
+  publication_note: >-
+    Дописано ОТДЕЛЬНЫМ коммитом поверх записи рецензента; запись рецензента задним
+    числом не правилась. Отпечаток предмета сверен перед публикацией и совпал с
+    объявленным; отпечаток тела снят с сырого ответа API.
+
+attribution:
+  reviewer_kind: claude_agent
+  publishing_actor: pointpu
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
 
 effective_approval:
-  issued: false
+  issued: true
+  issued_at: '2026-09-18T08:38:14Z'
   reason: >-
     рецензент события не публикует; approval становится действующим, когда
     диспетчер опубликует событие и оно свяжет роль, вердикт и ЭТОТ отпечаток.
