@@ -56,7 +56,7 @@
 | `e2e-flow.md` | правка `tests/newman/**`, `ui-future/e2e/**` · заведение набора | `assert-suites-green.sh` · `exec-coverage.py` | `integration-tester` · `landing-reviewer` · `qa-test-engineer` · `ui-implementer` |
 | `subscription.md` | правка `corelib/subscription`, `corelib/outbox`, `services/*/internal/subscriptionjournal`, `gateway/internal/subscriptionstream` | девять гейтов `internal/repohygiene` | `go-implementer` |
 | `vault.md` | правка `obsidian/kacho/**` · закрытие задачи | `scripts/vault-gate/run-all.sh` | `vault-scribe` |
-| `ai-tooling.md` | правка `.claude/**` | `skills-gate` · `tooling-gate` · `adapter-gate` · `rules-gate` | `tooling-maintainer` |
+| `ai-tooling.md` | правка `.claude/**` | `skills-gate` · `tooling-gate` · `rules-gate` | `tooling-maintainer` |
 | `change-graph.md` | ведение изменения по контуру | `scripts/change-graph-gate/run.py` — обязательность начинается с cutover | `acceptance-author` · `acceptance-reviewer` · `convergence-reviewer` · `integration-tester` · `tooling-maintainer` |
 
 ## Второго каталога правил нет
