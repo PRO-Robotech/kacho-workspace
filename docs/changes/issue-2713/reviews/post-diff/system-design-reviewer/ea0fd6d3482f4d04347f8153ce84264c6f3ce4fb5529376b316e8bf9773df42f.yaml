@@ -1,0 +1,294 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+#
+# ЭТО ФИНАЛЬНОЕ СВЕДЁННОЕ содержимое #2713 (обе полосы в одной ветке
+# release/edge-call-deadline). Записи на под-отпечатках частей УСТАРЕЛИ и НЕ
+# судят этот дифф:
+#   - session-полоса   : branch issue-2713,        head 60843801, digest 41148c31… (accepted)
+#   - restmux-полоса   : branch issue-2713-restmux, head a71aac31, digest e248514c… (accepted)
+# Сведение строго СИЛЬНЕЕ суммы частей: коммиты 6e94d656 и 4d224d06 добавили
+# стрим-пару проб REST-моста ПОСЛЕ того, как была написана запись restmux-части
+# (e248514c судил head a71aac31 — до этих проб). Поэтому судится ea0fd6d3, а не
+# под-отпечатки.
+schema_version: 1
+change_id: issue-2713
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  #2713 (сведено) — per-call предел края 5s на КАЖДОМ межсервисном вызове:
+  (1) SessionRevocationsAdapter → внутренний слушатель службы о сессии
+  (kaname:9091), все пять глаголов, callTimeout-поле + константа
+  sessionRevocationsCallTimeout; (2) restBridgeCallTimeout=5s на КАЖДОМ
+  backend-вызове REST-моста края (grpc-gateway) через перехватчики (unary+stream)
+  в restBridgeDialOpts, куда делегирует optsFor. Оба края gateway → все backend'ы
+  (vpc/compute/storage/geo/iam/loadbalancer/registry, оба слушателя).
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: release/edge-call-deadline
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/release-edge-call-deadline
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: 53b3930461d775838c1f042537e05589bbce8680
+content_digest: sha256:ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...53b3930` (полный трёхточечный дифф от
+  базы origin/main до головы сведённой ветки; оба конца из задания, перемерены
+  своей командой в worktree). Перемер: `git diff ac33f733...53b3930 | sha256sum`
+  = ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f — совпал с
+  заданием. Рабочее дерево чистое (git status --short пусто) — суд о ДЕРЕВЕ, не
+  об индексе (testing-verdict п.9).
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+distributed_surface: true    # per-call дедлайн на межсервисных рёбрах + воркер (sweeper) + fail-closed под перегрузкой соседа
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  полный сведённый дифф (6 файлов: 2 прод + 4 пробы, +772/-18). Осмотрены callers
+  адаптера вне диффа (fail-closed-диспозиция), воркер sweeper (Run→Sweep→ask,
+  источник контекста), все 59 Register*HandlerFromEndpoint (маршрут дедлайна
+  REST-моста), sibling-клиенты внутреннего слушателя (величина 5s) и отсутствие
+  стрим-регистрации через мост — как контекст; судится дельта к стволу.
+
+files_reviewed:
+  - gateway/internal/clients/session_revocations_client.go            # прод: +33/-3 (callTimeout на все 5 глаголов)
+  - gateway/internal/clients/session_deadline_test.go                 # проба: чёрный ящик (bufconn), все 5 глаголов несут дедлайн
+  - gateway/internal/clients/session_deadline_behaviour_test.go       # проба: медленный сосед + сторож + законный близнец
+  - gateway/internal/restmux/backend_call_deadline.go                 # прод: +96 (новый) — restBridgeDialOpts + оба перехватчика
+  - gateway/internal/restmux/backend_call_deadline_test.go            # проба: +378 (unary+STREAM пара; bufconn, медленный сосед, течь горутины/контекста)
+  - gateway/internal/restmux/mux.go                                   # -15/+6: optsFor делегирует в restBridgeDialOpts
+files_read_for_context:
+  - gateway/internal/streamrevocation/sweeper.go                      # воркер: Run(ctx)→Sweep→ask; err→verdictUnanswered→failClosed
+  - gateway/internal/middleware/revocation_local.go                   # IsSessionRevoked consumer (err→deny)
+  - gateway/internal/middleware/auth_session_cutoff.go                # SessionCutoffOf consumer (err→sessionCutoffUnanswered=refuse)
+  - gateway/internal/middleware/auth_own_session.go                   # ResolveHumanSession consumer (err→401 fail-closed)
+  - gateway/internal/middleware/session_identity_handler.go           # /me consumer (err→{"user":null}, безопасное направление)
+  - gateway/internal/handler/logout_handler.go                        # Revoke consumer (best-effort, ошибки собираются не фатально)
+  - gateway/cmd/api-gateway/subscription_stream.go                    # подписка НЕ через restBridgeDialOpts (gRPC-direct)
+  - proto/kacho/cloud/subscription/subscription_service.proto         # Subscribe без google.api.http → мост не проксирует
+  - gateway/internal/clients/iam_subject_client.go                    # sibling: callTimeout 5s (:106)
+  - gateway/internal/opsproxy/proxy.go                                # sibling: backendCallTimeout 5s (:78)
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок распределённого свойства нет
+important:
+  - id: SDR-2713F-O1
+    axis: наблюдение (не находка)
+    coord: gateway/internal/restmux/backend_call_deadline.go:44-45
+    finding: >-
+      Перехватчики стоят на СОЕДИНЕНИИ (dial-опция ClientConn), не на call-site.
+      Это не «предел на всё соединение разом»: WithChainUnaryInterceptor даёт
+      замыкание, исполняемое на КАЖДЫЙ invoke и ставящее свежий
+      context.WithTimeout(ctx, 5s) для этого вызова. Семантика — per-call, как
+      требует architecture.md §Concurrency; координата постановки (соединение)
+      вынуждена тем, что call-site'ы генерит grpc-gateway (у моста нет своей
+      точки для per-call WithTimeout, как у соседей iam_subject/opsproxy).
+      Корректно.
+    blocking: false
+  - id: SDR-2713F-O2
+    axis: наблюдение (не находка)
+    coord: gateway/internal/restmux/backend_call_deadline.go:75-95
+    finding: >-
+      Стрим-перехватчик: на ошибке создания потока — немедленный cancel (нет
+      утечки контекста); на успехе — горутина ждёт <-stream.Context().Done() и
+      зовёт cancel (идемпотентно, defer в успешной ветке отсутствует осознанно —
+      иначе поток убился бы по возврату). stream.Context() производен от ctx с
+      пределом, поэтому жизнь горутины ограничена 5s даже у брошенного потока —
+      всегда завершается, cancel всегда вызывается. Течи горутины/контекста нет
+      (прямые пробы _GoroutineExitsOnStreamEnd и _CancelsOnStreamerError).
+    blocking: false
+  - id: SDR-2713F-O3
+    axis: наблюдение (не находка)
+    coord: gateway/internal/handler/logout_handler.go:181
+    finding: >-
+      logout_handler уже оборачивает Revoke собственным
+      context.WithTimeout(r.Context(), 5s); адаптер оборачивает ЕЩЁ раз своим 5s.
+      Двойная обёртка безвредна by construction (min-семантика WithTimeout:
+      эффективный дедлайн = min(5s,5s)≈5s). Обёртка адаптера при этом несущая:
+      она — единственный потолок для воркера sweeper, который своей обёртки не
+      делает. «Часть — да, часть — нет» не возникает: адаптер закрывает ВСЕ пять
+      глаголов единообразно у ВСЕХ вызывающих.
+    blocking: false
+
+foundation_candidates: []    # величина 5s осознанно дублируется per-client/per-edge
+                             # константой (restBridge/sessionRevocations/iam_subject/opsproxy) — не предмет corelib
+
+# ── оси, которые судит эта роль ────────────────────────────────────────────
+axes:
+  per_call_deadline_on_every_external_call:
+    status: closed
+    evidence: >-
+      (A) Адаптер сессии: все пять sibling-глаголов
+      (ResolveHumanSession/IsBasicCredentialLive/Revoke/IsSessionRevoked/
+      SessionCutoffOf) получают в диффе ctx, cancel := context.WithTimeout(ctx,
+      a.callTimeout); defer cancel(). callTimeout выставляется конструктором в
+      sessionRevocationsCallTimeout=5s (ноль означал бы мгновенное истечение —
+      комментарий это фиксирует). (B) REST-мост: все 59
+      Register*HandlerFromEndpoint передают optsFor(<key>) → restBridgeDialOpts,
+      которая добавляет оба перехватчика (5s). Перемер: `grep -c
+      HandlerFromEndpoint mux.go`=59; ни одна dial-опция не собирается в обход
+      optsFor (строки 327/347 — объявление карты и параметр, не dial).
+      Инвариант architecture.md «все sibling-вызовы применяют один и тот же
+      configured-timeout, не часть — да, часть — нет» выполнен by construction:
+      источник дедлайна один у каждой грани. Sibling-величины перемерены:
+      iam_subject_client.go:106=5s, opsproxy/proxy.go:78=5s.
+  fail_closed_under_neighbor_overload:
+    status: closed
+    evidence: >-
+      Все session/authz-пути под перегрузкой соседа (DeadlineExceeded) фейлятся
+      закрыто: (1) воркер sweeper.ask — любой err (кроме двух Unsupported-sentinel
+      раската) → verdictUnanswered → unanswered++ → lastGood НЕ обновляется →
+      после StaleAfter failClosed() закрывает ВСЕ потоки; (2) revocation_local:
+      err → возврат ошибки «источник отзыва не ответил» (не revoked=false) →
+      introspection отказывает; (3) auth_session_cutoff: err →
+      sessionCutoffUnanswered (комментарий прямо: мягкий проход = «отзываем и свой
+      отзыв не исполняем»); (4) auth_own_session: err → writeHTTPUnauthorized;
+      (5) /me: err → {"user":null} — безопасное направление (не выдаёт личность).
+      Диспозиция pre-existing, диффом не тронута; введение DeadlineExceeded вместо
+      зависания её не ослабляет, а активирует (раньше сосед вешал горутину — ни
+      открыто, ни закрыто, а исчерпание процесса).
+  no_hang_in_worker:
+    status: closed
+    evidence: >-
+      sweeper.Run(ctx) блокирует до отмены СВОЕГО контекста (процессный, не
+      request-scoped — не наследует дедлайн/отмену запроса; наблюдаемость через
+      логгер cfg сохранена). Каждый ask ходит к соседу через адаптер, теперь
+      ограниченный 5s: WithTimeout(worker-ctx, 5s) = now+5s (worker-ctx
+      долгоживущий). До фикса неотвечающий сосед подвесил бы Sweep на всю итерацию
+      — теперь возврат по пределу. Проба
+      TestSessionRevocationsAdapter_SlowPeerIsBoundedByDeadline (сосед блокирует
+      до отмены, callTimeout=100ms, сторож 2s) зелёная — предмет ЖИВ.
+  min_semantics_no_deadline_extension:
+    status: closed
+    evidence: >-
+      context.WithTimeout(ctx, d) == WithDeadline(ctx, now+d); по документированной
+      семантике stdlib возвращается эффективный МИНИМУМ, если у родителя дедлайн
+      уже раньше — предел не расширяется. Значит входящий запрос с более тесным
+      дедлайном сохраняет его; край лишь ВНОСИТ потолок, когда дедлайна нет либо
+      он свободнее. Отмена входящего тоже пробрасывается (ctx производен).
+      Корректный длинный путь НЕ рвётся: через мост идут только control-plane RPC
+      (мутации → Operation сразу, ban #9; чтения ≤ statement_timeout), а
+      единственный долгоживущий путь — подписка (server-stream) — идёт
+      gRPC-direct, НЕ через мост. Перемер: subscription Subscribe без
+      google.api.http → не регистрируется HandlerFromEndpoint; subscription_stream.go
+      не использует restBridgeDialOpts. Стрим-перехватчик моста — единообразное
+      покрытие грани (стриминговых Internal-служб мост сегодня не проксирует), а
+      не механизм, режущий живой длинный стрим.
+  public_vs_internal_edge_separation:
+    status: closed
+    evidence: >-
+      Дифф меняет ТОЛЬКО dial-опции (клиентская сторона) и адаптерный контекст —
+      не маршрутизацию. Ни одна Internal*-служба не выносится на external mux; ни
+      один новый route не регистрируется. Дедлайн ставится единообразно на обе
+      грани REST-моста: external (optsFor("iam"),"vpc",…) и internal
+      (optsFor("iamInternal"),"vpcInternal","storageInternal",…) — обеим потолок
+      нужен. Ban #6 не задет: разделитель Internal* диффом не тронут. Адаптер
+      сессии дозванивается до kaname:9091 (внутренний слушатель) — ребро
+      pre-existing.
+  idempotency_of_retry_on_deadline_exceeded:
+    status: closed
+    evidence: >-
+      Автоматического повтора дифф не вводит: у адаптера и перехватчиков retry
+      нет, gRPC built-in retry выключен, DeadlineExceeded ≠ Unavailable (retry.
+      OnUnavailable, где он есть на других рёбрах, его не ловит). Единственная
+      мутация на этих рёбрах — Revoke: идемпотентна по природе (отзыв уже
+      отозванного — no-op над множеством), а logout собирает её ошибку не фатально
+      (revocErrs, пользователь всё равно видит успешный logout) — цикла повтора
+      нет. Чтения (Resolve/IsRevoked/SessionCutoffOf/IsBasicCredentialLive)
+      идемпотентны by nature. Двойной записи класс отсутствует.
+  no_new_cross_domain_edge:
+    status: closed
+    evidence: >-
+      Ребро gateway → kaname:9091 (адаптер сессии) существует на базе:
+      `git show ac33f733:gateway/internal/clients/session_revocations_client.go`
+      резолвится (файл МОДИФИЦИРОВАН, не добавлен). Рёбра gateway → каждый backend
+      REST-моста уже в §Runtime cross-domain edges. Дифф лишь навешивает per-call
+      потолок на существующие рёбра. Нового runtime-ребра нет; запись в
+      polyrepo.md не требуется. Заказа tooling-maintainer нет.
+  no_double_write:
+    status: closed
+    evidence: >-
+      Изменение целиком транспортное (dial-опции + перехватчики + адаптерный
+      WithTimeout). Ни записи в БД, ни CAS, ни outbox, ни pg_notify не вводит.
+      Класса «двойная запись» и «проверка-затем-запись» (ban #10) в диффе нет.
+
+# ── проба под перегрузкой: конкурентно-горутинная НЕ применима ──────────────
+overload_probe:
+  ordered_integration_tester: false
+  concurrent_goroutine_probe_applicable: false
+  reason: >-
+    Классическая конкурентно-горутинная CAS-проба («ровно одна транзакция
+    выигрывает спорную строку») НЕПРИМЕНИМА: в сведённом диффе НЕТ мутации, CAS,
+    xmin, advisory-lock, разделяемого мутируемого состояния и спорного пути за
+    строку. Предмет распределённого свойства здесь — тайминг под перегрузкой
+    соседа и жизненный цикл горутины стрим-перехватчика, а не гонка за запись.
+    Присутствующая конкуренция (per-stream горутина cancel; вызовы под сторожевым
+    таймером в горутинах; общая карта свидетеля под mutex) уже покрыта пробами
+    диффа. Заказ integration-tester не нужен.
+  present_probes:
+    - name: TestSessionRevocationsAdapter_EveryCallCarriesItsOwnDeadline
+      file: gateway/internal/clients/session_deadline_test.go
+      kind: чёрный ящик над настоящим адаптером поверх gRPC (bufconn), свидетель-дублёр
+      asserts: >-
+        подан context.Background() (БЕЗ дедлайна); все ПЯТЬ глаголов доносят до
+        сервера контекст С дедлайном. Фикстура цела (отвечает без ошибки) →
+        красное приходит РОВНО от отсутствия предела.
+    - name: TestSessionRevocationsAdapter_SlowPeerIsBoundedByDeadline
+      file: gateway/internal/clients/session_deadline_behaviour_test.go
+      kind: медленный сосед (держит до отмены) + сторож 2s, callTimeout=100ms
+      asserts: negativ — DeadlineExceeded, вызов не зависает; обе полосы (Resolve, SessionCutoffOf).
+    - name: TestSessionRevocationsAdapter_PeerWithinDeadlinePasses
+      file: gateway/internal/clients/session_deadline_behaviour_test.go
+      kind: законный близнец — сосед в пределе
+      asserts: проходит без отказа.
+    - name: TestRestBridgeBackendCallCarriesDeadline / …StreamBackendCallCarriesDeadline
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: чёрный ящик над restBridgeDialOpts (прод-обвязка) поверх gRPC (bufconn)
+      asserts: >-
+        подан context.Background(); сервер-свидетель фиксирует дедлайн в окне
+        (0, restBridgeCallTimeout]. Стрим-близнец ловит МОНТАЖ
+        WithChainStreamInterceptor на реальном соединении (без него грань была
+        замаскирована отсутствием) — это и есть дельта, добавленная сведением.
+    - name: TestRestBridgeDeadline_SlowNeighborFailsFast / …StreamDeadline_SlowNeighborFailsFast
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: медленный сосед (2s/5s) + сторож; стрим-негатив показан ИНЪЕКЦИЕЙ no-op
+      asserts: DeadlineExceeded около предела, без зависания (unary и stream).
+    - name: TestRestBridgeStreamDeadline_GoroutineExitsOnStreamEnd / …CancelsOnStreamerError
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: управляемый fakeClientStream — ветки успеха и ошибки создания
+      asserts: горутина завершается по концу потока; cancel немедленный на ошибке — течи нет.
+  own_run:
+    command: >-
+      go test ./internal/restmux/ ./internal/clients/ -run 'RestBridge|SessionRevocationsAdapter'
+      -count=1 -v (в gateway/)
+    outcome: >-
+      зелёных 11 из 11 · красных 0 · не выполнилось 0. -race не исполнилось (в
+      среде нет cgo/gcc — «не выполнилось», НЕ красное; гонки не перемерены этой
+      ролью). Прогон этой ролью — свидетельство живости предмета
+      (measurement-discipline §Живость); область зелёного и независимый перемер
+      полного прогона (в т.ч. -race) — landing-reviewer/check-verifier.
+
+# ── пересечение с ревью схемы ──────────────────────────────────────────────
+schema_review_intersection:
+  intersects: false
+  reason: >-
+    В сведённом диффе нет SQL, миграции, CAS, xmin, advisory-lock. Изменение
+    целиком транспортное (dial-опции + перехватчики дедлайна + адаптерный
+    WithTimeout). db-architect-reviewer на этот дайджест не нужен.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход прогона проб этой ролью как ВЕРДИКТ линии не объявляется: сырой вывод
+# полного прогона читает landing-reviewer, независимый перемер — check-verifier.
+# Здесь — только распределённые свойства написанного (и свой контрольный прогон
+# 11 проб как свидетельство живости предмета).
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (если пакет линии есть) либо
+  landing-reviewer (если пакета нет). Пересечения со схемой нет; заказа
+  integration-tester и tooling-maintainer нет.
