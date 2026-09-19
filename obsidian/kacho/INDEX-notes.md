@@ -1420,6 +1420,7 @@ tags:
 | Записка | Состояние |
 |---|---|
 | [[lessons/a-converging-proxy-count-still-measures-the-wrong-subject\|Сходящийся ряд прокси-замеров мерит всё тот же не тот предмет — долю ложных находок даёт только сам распознаватель]] | живо (active) |
+| [[lessons/a-coordinate-in-an-approved-document-is-repaired-from-the-other-end\|Координата внутри одобренного документа чинится с ДРУГОГО конца — переадресацией в старом доме, а не правкой ссылки]] | живо (active) |
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/a-document-denying-the-verdict-that-lies-beside-it\|Документ отрицает вердикт, лежащий рядом с ним: устаревшее «не одобрено» останавливает работу, а идти читателю некуда]] | живо (active) |
 | [[lessons/a-gate-a-pinned-module-cannot-satisfy\|Гейт, которому пиннутый модуль не может ответить by construction]] | живо (stable) |

@@ -82,6 +82,7 @@ stub/skeleton и «happy-path пока», разрешая ровно одно �
 | каркас несёт страж запуска, адрес зависимости контроля доступа, каркас прав | `Skill rule-security-hardening` | `.claude/rules/security-hardening.md` §«Hardening-инварианты» пп. 1, 2, 8, 9; §«Авторизация живёт в МОДЕЛИ, а не в самодельных проверках»; §«Контроль, у которого нет МЕХАНИЗМА исполниться» |
 | новая служба несёт поток изменений (подписку) | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Откуда берут готовое», §«Что заводит САМ владелец», §«Заводишь новый сервис с подпиской — порядок» шаги 3–4 |
 | каркас несёт клиента другого домена либо посев стенда | `Skill rule-data-integrity` | `.claude/rules/data-integrity.md` §«Cross-domain ссылки» п. 2; §«Данные СТЕНДА заводятся посевом, а не миграцией» |
+| каркас несёт клиента другого домена (межсервисный вызов) либо заводит ребро между доменами | `Skill rule-polyrepo-runtime-edges` | `.claude/rules/polyrepo-runtime-edges.md` §«Runtime cross-domain edges»: направление вызова, ацикличность, адреса соседей, форма записи ребра |
 | берёшь форму файла с соседней службы | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` §«12. Правило берётся из КАНОНА, а не из формы соседних файлов» |
 | читаешь записки vault до заведения каталогов | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода», §«Запреты» (дублирование) |
 | работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
