@@ -691,6 +691,9 @@ git commit -m "feat(rules-gate): два прибора — объём и фор�
 - Create: `.claude/backup/README.md`
 - Create: `.claude/backup/<30 файлов>.md`
 - Modify: все 30 `.claude/rules/*.md` — по одной строке-якорю
+- Modify: `.claude/settings.json` — `claudeMdExcludes` += `**/.claude/backup/**`
+- Modify: `.claude/hooks/docfresh/docfresh.py` — `TRUTH_EXCLUDE` += `:(exclude).claude/backup/`
+- Modify: `.claude/hooks/rag-freshness.sh` → `.claude/backup/hooks/rag-freshness.sh` (единственный сирота по замеру ссылок)
 
 **Interfaces:**
 - Produces: `.claude/backup/<имя>.md` для каждого файла корпуса; в корпусе по строке `archive · доводы, замеры и снятые редакции — .claude/backup/<имя>.md`. Задачи 7–15 при переписывании кладут класс D в соответствующий архивный файл, а не удаляют.
@@ -740,7 +743,75 @@ for f in sorted(glob.glob('.claude/rules/*.md')):
 PY
 ```
 
-- [ ] **Step 3: Прогнать гейты и прибор**
+- [ ] **Step 3: Три механизма, без которых адрес `.claude/backup/` вредит**
+
+Архив лежит ВНУТРИ `.claude/`, поэтому одного каталога недостаточно.
+
+```bash
+# (1) страховка от автозагрузки: корпус правил Claude Code грузит из .claude сам
+python3 - <<'ZZ'
+import json,io
+p='.claude/settings.json'
+s=json.load(open(p,encoding='utf-8'))
+ex=s.setdefault('claudeMdExcludes',[])
+if '**/.claude/backup/**' not in ex:
+    ex.append('**/.claude/backup/**')
+io.open(p,'w',encoding='utf-8').write(json.dumps(s,ensure_ascii=False,indent=2)+'\n')
+print('claudeMdExcludes:',ex)
+ZZ
+
+# (2) docfresh не должен светиться на архивных координатах.
+# docfresh.py:125 обходит .claude целиком, исключая только .claude/hooks/ (TRUTH_EXCLUDE).
+# Архивный текст называет координаты, верные НА МОМЕНТ снятия, и давал бы находки на каждой записи.
+grep -n 'TRUTH_EXCLUDE' .claude/hooks/docfresh/docfresh.py
+```
+
+Правка `docfresh.py`: превратить `TRUTH_EXCLUDE` в пару pathspec'ов и дописать довод рядом —
+одной строкой, в стиле соседних комментариев файла:
+
+```python
+# Предмет docfresh — ЖИВОЕ утверждение о дереве. Архив живым не является by construction:
+# его текст называет координаты, верные на момент снятия, и держать его под тем же судом
+# значило бы требовать от истории соответствия сегодняшнему дереву.
+TRUTH_EXCLUDE = (":(exclude).claude/hooks/", ":(exclude).claude/backup/")
+```
+
+и в вызове на строке ~834 раскрыть пару вместо одиночного значения: `*TRUTH_EXCLUDE`.
+
+```bash
+# (3) единственный сирота оснастки по замеру ссылок: хук, не провязанный в settings.json
+mkdir -p .claude/backup/hooks
+git mv .claude/hooks/rag-freshness.sh .claude/backup/hooks/rag-freshness.sh
+printf '\n## hooks\n\n- `rag-freshness.sh` — снят 2026-09-20: в `.claude/settings.json` не провязан ни в одном из 10 вызовов.\n  Возврат: `git mv .claude/backup/hooks/rag-freshness.sh .claude/hooks/`.\n' >> .claude/backup/README.md
+```
+
+Доказательство всех трёх:
+
+```bash
+python3 -c "
+import json
+ex=json.load(open('.claude/settings.json',encoding='utf-8')).get('claudeMdExcludes',[])
+print('claudeMdExcludes:',ex)
+assert '**/.claude/backup/**' in ex and '**/.claude/rules/**' in ex
+print('OK (1)')"
+grep -c 'exclude).claude/backup/' .claude/hooks/docfresh/docfresh.py   # обязан быть 1
+python3 -c "
+import ast,sys
+ast.parse(open('.claude/hooks/docfresh/docfresh.py',encoding='utf-8').read()); print('OK (2) docfresh парсится')"
+test ! -f .claude/hooks/rag-freshness.sh && test -f .claude/backup/hooks/rag-freshness.sh && echo "OK (3) сирота переехал"
+python3 -c "
+import json,re
+s=json.dumps(json.load(open('.claude/settings.json',encoding='utf-8')))
+assert 'rag-freshness' not in s, 'хук всё же провязан — вернуть его на место'
+print('OK (3) в settings.json на него ссылок нет')"
+bash .claude/hooks/hooks-wired.sh; echo "hooks-wired: $?"
+```
+
+Ожидается: `OK (1)`, `1`, `OK (2)`, `OK (3)` дважды, и `hooks-wired` не краснеет на снятом хуке.
+Если `hooks-wired.sh` покраснеет — хук провязан не через `settings.json`, а иначе: верни его
+командой из `README.md` и запиши это находкой в отчёт.
+
+- [ ] **Step 4: Прогнать гейты и прибор**
 
 ```bash
 scripts/rules-gate/run-all.sh; echo "run-all: $?"
@@ -750,11 +821,11 @@ scripts/rules-gate/measure.sh | tail -1
 
 Ожидается: оба гейта 0; итог ≈ 624 500 (+2 700 якорей). Объём пока растёт — переписывание идёт следующими задачами.
 
-- [ ] **Step 4: Коммит**
+- [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/backup/ .claude/rules/
-git commit -m "feat(rules): архив доводов и замеров заведён, каждый файл корпуса несёт якорь"
+git add .claude/backup/ .claude/rules/ .claude/settings.json .claude/hooks/ .gitignore
+git commit -m "feat(rules): архив легаси в .claude/backup — якоря, исключения, снятый сирота-хук"
 ```
 
 ---
