@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** свести `.claude/rules` с 618 189 до **133 937** символов (÷4,62), оставив только нормы про написание кода, тестирование и доставку, и не потеряв ни одного сторожа качества.
+**Goal:** свести `.claude/rules` с 618 189 до **149 800** символов (÷4,13), оставив только нормы про написание кода, тестирование и доставку, и не потеряв ни одного сторожа качества.
 
-**Architecture:** 15 файлов остаются основой, 15 процессных уезжают в `.claude/backup/` целиком. Из уезжающих спасаются **50 норм класса A, не держащихся ни одним гейтом** — они переселяются в `00-kacho-core.md`. Остальные 56 норм A из процессных файлов держатся названными гейтами: их текст уезжает, механизм остаётся в CI. Каждая норма становится одной строкой `<id> · <императив> · <держатель> · red: <признак>`.
+**Architecture:** 17 файлов остаются основой, 13 процессных уезжают в `.claude/backup/` целиком. Из уезжающих спасаются **49 норм класса A, не держащихся ни одним гейтом** — они переселяются в `00-kacho-core.md`. Остальные 56 норм A из процессных файлов держатся названными гейтами: их текст уезжает, механизм остаётся в CI. Каждая норма становится одной строкой `<id> · <императив> · <держатель> · red: <признак>`.
 
 **Tech Stack:** bash + python3 (гейты и приборы), Go-тесты `internal/repohygiene` в `PRO-Robotech/kacho` (только правка координат в комментариях), markdown.
 
@@ -13,11 +13,11 @@
 ## Global Constraints
 
 - Потолок: **200 000 символов** на сумму `.claude/rules/*.md`. Символы, не байты: `len(open(f,encoding='utf-8').read())`, не `wc -c` — кириллица в UTF-8 вдвое тяжелее.
-- Смета: нормы 122 937 + заголовки/frontmatter/якоря ~11 000 = **133 937**, запас **66 063 (33 %)**.
+- Смета: нормы 138 800 + заголовки/frontmatter/якоря ~11 000 = **149 800**, запас **50 200 (25 %)**.
 - Форма записи: `<id> · <императив> · <держатель> · red: <признак нарушения>`. Разделитель — ровно ` · ` (пробел, U+00B7, пробел). Без markdown-таблицы: палки стоят 40 % строки (244 симв против 172).
 - Слово «держится» в корпусе не пишется **никогда**. Держатель — имя Go-теста, скрипта или команды; если гейта нет — `ЗАВЕСТИ <имя>`.
-- **ОСНОВА, 15 файлов:** `00-kacho-core` `api-conventions` `architecture` `data-integrity` `subscription` `polyrepo` `ui` `security` `security-hardening` `security-disclosure` `testing` `testing-verdict` `testing-newman` `testing-load` `e2e-flow`.
-- **ЛЕГАСИ, 15 файлов целиком в `.claude/backup/`:** `multi-agent-flow` `multi-agent-flow-orchestration` `multi-agent-flow-shared-tree` `multi-agent-flow-waiting` `git-issues` `git-issues-branch-audit` `git-issues-ci-runs` `git-issues-issue-lifecycle` `01-wave-contract` `ai-tooling` `MANIFEST` `change-graph` `writing` `vault` `rag`.
+- **ОСНОВА, 17 файлов:** `00-kacho-core` `api-conventions` `architecture` `data-integrity` `subscription` `polyrepo` `ui` `security` `security-hardening` `security-disclosure` `testing` `testing-verdict` `testing-newman` `testing-load` `e2e-flow` `MANIFEST` `ai-tooling`.
+- **ЛЕГАСИ, 13 файлов целиком в `.claude/backup/`:** `multi-agent-flow` `multi-agent-flow-orchestration` `multi-agent-flow-shared-tree` `multi-agent-flow-waiting` `git-issues` `git-issues-branch-audit` `git-issues-ci-runs` `git-issues-issue-lifecycle` `01-wave-contract` `change-graph` `writing` `vault` `rag`.
 - Ни одна норма не удаляется безвозвратно: классы C и D базовых файлов — тоже в `.claude/backup/<файл>.md`.
 - Работа в worktree `tmp/rules-compress`, ветка `rules/corpus-200k`. **Прямой push в `main` запрещён** (`multi-agent-flow-shared-tree.md §8а`, и защита ветки на origin это подтверждает: `enforce_admins: true`, 9 обязательных проверок). Только PR.
 - Опись 1 436 норм: `tmp/rules-compression/inventory-2026-09-19.json`, поля `id`, `src`, `k`, `min`, `form`, `hold`, `gate`, `v`.
@@ -47,9 +47,9 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 | `testing-newman.md` | 7 631 | **3 691** | 16/1 | 0 | 4 |
 | `testing-load.md` | 6 282 | **1 531** | 1/6 | 0 | 3 |
 | `security-disclosure.md` | 12 216 | **405** | 0/2 | 0 | 25 |
-| **ИТОГО 15** | **348 113** | **122 937** | **459/187** | **19** | **270** |
+| **ИТОГО 15** | **348 113** | **138 800** | **459/187** | **19** | **270** |
 
-Переселяется норм A без гейта: **50** на 7 279 символов, дом — `00-kacho-core.md` (его читают все 30 агентов).
+Переселяется норм A без гейта: **49** на 7 000 символов, дом — `00-kacho-core.md` (его читают все 30 агентов).
 
 **Партии переписывания:**
 
@@ -66,9 +66,30 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 Опись 1 436 норм положена, перепись 30 скилов без frontmatter снята, негация `!tmp/rules-compression/` в `.gitignore` заведена, задание пробы для владельца записано в `tmp/rules-compression/delivery-probe.md`.
 
 ---
-### Task 2: Снять легаси — 15 процессных файлов в `.claude/backup/` с тремя механизмами
+### Task 2: Снять легаси — 13 процессных файлов в `.claude/backup/` с тремя механизмами
 
-Самая рискованная задача плана: она рвёт 83 ссылки и трогает `settings.json` и хук. Делается первой, потому что переписывать корпус, из которого ещё не вынуто легаси, — переписывать вдвое.
+Самая рискованная задача плана: она рвёт 83 ссылки `skills:` и 53 inline-ссылки диспетчера и трогает `settings.json` и хук. Делается первой, потому что переписывать корпус, из которого ещё не вынуто легаси, — переписывать вдвое.
+
+> [!important] Два файла НЕ уезжают, хотя по предмету процессные — попытка 1 это доказала
+> Первая попытка Task 2 вернула BLOCKED: `rules-gate` упал с 5/5 до 1/5. Замер причины:
+>
+> - **`MANIFEST.md` — не норма, а объявление состава корпуса.** Его читают три проверки:
+>   `check-01` (состав ↔ манифест в обе стороны), `check-03` (полнота строки), `check-04`
+>   (привязка правило ↔ агент). Координата `.claude/rules/MANIFEST.md` стоит в них дословно
+>   **3 раза**, слово `MANIFEST` — **17**. Унести его — сломать механизм, который держит всю
+>   доставку правил. Остаётся; реестр сокращается с 30 строк до 17.
+> - **`ai-tooling.md` — его перечни машинно несущие.** §«Канонические агенты» и §«Канонические
+>   скилы» читают `skills-gate/check-03` и `check-07`: **47 строк на 7 918 символов**. Остаётся;
+>   перечни сохраняются ДОСЛОВНО, остальное уезжает в архив при переписывании.
+>
+> Третья находка попытки 1: тела агентов несут **218** inline-ссылок вида `файл.md §«…»` на
+> уезжающие файлы, из них **53 в `dispatcher.md`** — а `check-05` судит именно его ссылки.
+> Снятие строк `skills:` их не трогает. Поэтому ниже добавлен Step 2а, и только с ним
+> `rules-gate: 0` достижим. Остальные 165 ссылок в прочих агентах не судит никто — их найдёт
+> `check-07` (Task 4) и починит Task 5.
+>
+> Цена решения: корпус 149 800 вместо 133 937, запас 50 200 вместо 66 063. Механизм дороже
+> экономии: без `MANIFEST` доставка правил не держится ничем.
 
 **Files:**
 - Move: 15 `.claude/rules/<легаси>.md` → `.claude/backup/<легаси>.md`
@@ -87,7 +108,7 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 - [ ] **Step 1: Снять перепись того, что придётся править**
 
 ```bash
-LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract ai-tooling MANIFEST change-graph writing vault rag"
+LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract change-graph writing vault rag"
 for r in $LEG; do printf '%-36s ссылок skills: %s\n' "$r" "$(grep -l "^  - rule-$r\$" .claude/agents/*.md | wc -l)"; done
 echo "всего ссылок снять: $(for r in $LEG; do grep -l "^  - rule-$r\$" .claude/agents/*.md; done | wc -l)"
 scripts/rules-gate/run-all.sh >/dev/null 2>&1; echo "rules-gate до работы: $?"
@@ -100,7 +121,7 @@ scripts/rules-gate/run-all.sh >/dev/null 2>&1; echo "rules-gate до работ�
 Порядок обязателен: `rules-gate/check-04` судит привязку в обе стороны, поэтому агент не должен остаться со ссылкой на снятое правило ни на один коммит.
 
 ```bash
-LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract ai-tooling MANIFEST change-graph writing vault rag"
+LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract change-graph writing vault rag"
 for r in $LEG; do sed -i "/^  - rule-$r\$/d" .claude/agents/*.md; done
 for r in $LEG; do sed -i "/^| \`$r\.md\` |/d" .claude/rules/MANIFEST.md; done
 for r in $LEG; do git rm -r --quiet ".claude/skills/rule-$r"; done
@@ -118,7 +139,31 @@ assert not bad, bad"
 
 Ожидается: `агентов без единого правила: 0`.
 
-- [ ] **Step 3: Переселить 50 норм класса A без гейта в `00-kacho-core.md`**
+- [ ] **Step 2а: Починить 53 inline-ссылки `dispatcher.md` на уезжающие файлы**
+
+`check-05` судит ссылки диспетчера и покраснеет на каждой висячей.
+
+```bash
+LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract change-graph writing vault rag"
+for r in $LEG; do printf '%-36s %s\n' "$r" "$(grep -c "\`\?$r\.md\`\? *§" .claude/agents/dispatcher.md)"; done
+echo "всего: $(for r in $LEG; do grep -oE "\`?$r\.md\`? *§" .claude/agents/dispatcher.md; done | wc -l)"
+```
+
+Каждую ссылку разобрать поимённо, не шаблоном. Три исхода, других нет:
+1. утверждение диспетчера всё ещё нужно → переадресовать на оставшийся файл по предмету
+   (норма-преемник ищется в `tmp/rules-compression/relocated-to-core.txt` или в описи по предмету);
+2. утверждение уехало вместе с предметом → снять **вместе с утверждением**, а не оставить висеть;
+3. ссылка была лишней (предмет назван и без неё) → снять ссылку, утверждение оставить.
+
+Проверка после правки:
+
+```bash
+LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract change-graph writing vault rag"
+echo "осталось ссылок на уезжающие: $(for r in $LEG; do grep -oE "\`?$r\.md\`? *§" .claude/agents/dispatcher.md; done | wc -l)"   # обязан быть 0
+scripts/rules-gate/check-05-dispatcher-routes-every-agent.sh 2>&1 | tail -2
+```
+
+- [ ] **Step 3: Переселить 49 норм класса A без гейта в `00-kacho-core.md`**
 
 Они уезжали бы вместе с файлами и потеряли бы единственного сторожа. Список берётся из описи механически:
 
@@ -141,7 +186,7 @@ def row(n):
 out=[row(n) for n in sel]
 open('tmp/rules-compression/relocated-to-core.txt','w',encoding='utf-8').write('\n'.join(out)+'\n')
 print('переселяется:',len(out),'норм,',sum(len(x)+1 for x in out),'символов')
-assert len(out)==50, len(out)
+assert len(out)==49, len(out)
 ZZ
 ```
 
@@ -151,7 +196,7 @@ ZZ
 
 ```bash
 mkdir -p .claude/backup/hooks
-LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract ai-tooling MANIFEST change-graph writing vault rag"
+LEG="multi-agent-flow multi-agent-flow-orchestration multi-agent-flow-shared-tree multi-agent-flow-waiting git-issues git-issues-branch-audit git-issues-ci-runs git-issues-issue-lifecycle 01-wave-contract change-graph writing vault rag"
 for r in $LEG; do git mv ".claude/rules/$r.md" ".claude/backup/$r.md"; done
 cat > .claude/backup/README.md <<'MD'
 # Архив оснастки
@@ -169,11 +214,11 @@ cat > .claude/backup/README.md <<'MD'
 Архив не грузится автоматически (`.claude/settings.json` → `claudeMdExcludes`) и не судится
 `docfresh` (`TRUTH_EXCLUDE`): его текст называет координаты, верные на момент снятия.
 
-**50 норм класса A из этих файлов НЕ снято** — они не держались ни одним гейтом и переселены
+**49 норм класса A из этих файлов НЕ снято** — они не держались ни одним гейтом и переселены
 в `.claude/rules/00-kacho-core.md` §«Доставка и общее дерево». 56 норм A, держащихся названными
 гейтами, здесь: механизм остался в CI, уехал только текст.
 
-Возврат нормы в корпус: поимённо, запас 66 063 символа оставлен для этого.
+Возврат нормы в корпус: поимённо, запас 50 200 символа оставлен для этого.
 MD
 python3 - <<'ZZ'
 import json,io
@@ -201,9 +246,9 @@ TRUTH_EXCLUDE = (":(exclude).claude/hooks/", ":(exclude).claude/backup/")
 - [ ] **Step 5: Доказать и закоммитить**
 
 ```bash
-ls .claude/rules/*.md | wc -l                                  # обязан быть 15
-ls .claude/backup/*.md | wc -l                                 # обязан быть 16 (15 + README)
-ls -d .claude/skills/rule-* | wc -l                            # обязан быть 15
+ls .claude/rules/*.md | wc -l                                  # обязан быть 17
+ls .claude/backup/*.md | wc -l                                 # обязан быть 14 (13 + README)
+ls -d .claude/skills/rule-* | wc -l                            # обязан быть 17
 python3 -c "
 import glob;print('корпус:',sum(len(open(f,encoding='utf-8').read()) for f in glob.glob('.claude/rules/*.md')))"
 python3 -c "
@@ -220,11 +265,11 @@ git commit -m "refactor(rules): 15 процессных файлов и сиро
 
 Решение владельца 2026-09-20: в .claude остаётся только то, что используется при написании
 кода, тестировании и доставке. Снято 83 ссылки skills:, 15 строк MANIFEST, 15 симлинков.
-50 норм класса A, не держащихся гейтом, заготовлены к переселению в 00-kacho-core.
+49 норм класса A, не держащихся гейтом, заготовлены к переселению в 00-kacho-core.
 Три механизма адреса: claudeMdExcludes, TRUTH_EXCLUDE в docfresh, снятие непровязанного хука."
 ```
 
-Ожидается: правил **15**, архива 16, симлинков 15, корпус ≈ 348 100, `OK` трижды, `rules-gate: 0`. Если `rules-gate` покраснеет — не коммить, вернуть находку в отчёт.
+Ожидается: правил **17**, архива 14, симлинков 17, корпус ≈ 379 000, `OK` трижды, `rules-gate: 0`. Если `rules-gate` покраснеет — не коммить, вернуть находку в отчёт.
 
 ---
 
@@ -756,7 +801,7 @@ git commit -m "feat(rules): архивные близнецы 15 базовых 
 
 Всего 151484 → **65993** символов (÷2.3), норм A/B 262/62, без готовой строки 10.
 
-**Особое в этой партии:** в `00-kacho-core.md` дописывается раздел `## Доставка и общее дерево` — 50 норм класса A, переселённых из снятых файлов (`tmp/rules-compression/relocated-to-core.txt`, 7 279 символов). Без них эти нормы теряют единственного сторожа: гейта у них нет.
+**Особое в этой партии:** в `00-kacho-core.md` дописывается раздел `## Доставка и общее дерево` — 49 норм класса A, переселённых из снятых файлов (`tmp/rules-compression/relocated-to-core.txt`, 7 279 символов). Без них эти нормы теряют единственного сторожа: гейта у них нет.
 
 **Files:**
 - Modify: `.claude/rules/testing.md` — 36040 → **14937** симв, норм 60/17, руками 0
@@ -981,7 +1026,7 @@ scripts/rules-gate/measure.sh --form
 python3 scripts/rules-gate/rows-from-inventory.py --verify $(cd .claude/rules && ls *.md | tr '\n' ' ') | grep -v 'ПОТЕРЯНО 0' || echo "потерь нет ни в одном файле"
 ```
 
-Ожидается: итог ≈ **133 937**, запас ≈ 66 063; `без поля red: 0`; `слово «держится»: 0`; потерь нет. Если выше 200 000 — вернуться к партии, чей файл вышел за бюджет. Гейт не заводить.
+Ожидается: итог ≈ **149 800**, запас ≈ 50 200; `без поля red: 0`; `слово «держится»: 0`; потерь нет. Если выше 200 000 — вернуться к партии, чей файл вышел за бюджет. Гейт не заводить.
 
 - [ ] **Step 2: Написать гейт**
 
