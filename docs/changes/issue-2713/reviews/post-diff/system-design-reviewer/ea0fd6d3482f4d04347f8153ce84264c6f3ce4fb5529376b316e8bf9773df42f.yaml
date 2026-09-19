@@ -292,3 +292,57 @@ next_requested: >-
   сбор пост-дифф записей: convergence-reviewer (если пакет линии есть) либо
   landing-reviewer (если пакета нет). Пересечения со схемой нет; заказа
   integration-tester и tooling-maintainer нет.
+
+# ── полномочие: внешнее событие публикации вердикта ────────────────────────
+# ДОПИСАНО после публикации события; ни одна прежняя строка записи не
+# переписана и не удалена. Роль в policy.yaml — КООРДИНАТА, а не доказательство
+# личности: authority даёт внешнее событие, самообъявление записи его не даёт
+# (docs/changes/policy.yaml §2). До этой дописи запись о своём событии не знала —
+# тот же класс устаревшей записи, что дважды ловили на приёмках.
+authority:
+  status: published
+  policy:
+    path: docs/changes/policy.yaml
+    field: review_authority.system-design-reviewer
+    authorized_actor: pointpu
+    allowlisted_for_role: true
+  event:
+    type: issue_comment
+    repo: PRO-Robotech/kacho
+    issue: 2713
+    database_id: 5741111932
+    node_id: IC_kwDOTZqgWM8AAAABVjJqfA
+    url: https://github.com/PRO-Robotech/kacho/issues/2713#issuecomment-5741111932
+    api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5741111932
+    actor: pointpu
+    author_association: MEMBER
+    role: system-design-reviewer
+    created_at: '2026-09-19T10:38:26Z'
+    body_sha256: 7ed1607ae6aee62e0570223a9dd0abafcb584af9d40e7f0f16f035d44ffb0f7c
+    body_sha256_predicate: >-
+      sha256 СЫРОГО значения поля body ответа API — без обрезки и без добавления
+      хвостового перевода строки (подстановка через $(cat) срезала бы его):
+      gh api repos/PRO-Robotech/kacho/issues/comments/5741111932 > raw.json &&
+      python3 -c "import json,hashlib;
+      print(hashlib.sha256(json.load(open('raw.json'))['body'].encode('utf-8')).hexdigest())".
+      Перемерено вторым независимым GET после публикации — совпало.
+    body_is_single_machine_line: true
+    declared_verdict: ACCEPTED
+    declared_content_digest: ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f
+    declared_record_path: docs/changes/issue-2713/reviews/post-diff/system-design-reviewer/ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f.yaml
+    matches_this_record:
+      verdict: true           # accepted ↔ ACCEPTED
+      content_digest: true    # совпадает с content_digest выше и с именем файла
+      blocks_landing_false: true
+  digest_reverified_by_publisher:
+    command: git diff ac33f733962577688958fe9fbba35d715822c8b9...53b3930461d775838c1f042537e05589bbce8680 | sha256sum
+    where: project/kacho
+    result: ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f
+    matches_record: true
+  attribution:
+    reviewer_kind: claude_agent
+    assigned_agent: system-design-reviewer
+    publication_mode: courier_of_agent_verdict
+    published_by_role: git-operator
+    personal_review_by_publishing_actor_claimed: false
+    history_is_appended_not_rewritten: true
