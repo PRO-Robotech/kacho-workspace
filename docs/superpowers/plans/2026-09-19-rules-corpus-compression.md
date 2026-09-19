@@ -16,7 +16,7 @@
 - Смета: нормы 165 426 + 190 адресуемых заголовков 11 813 + frontmatter 3 600 + якоря 2 700 = **183 539**, запас 16 461 (8,2 %).
 - Форма записи: `<id> · <императив> · <держатель> · red: <признак нарушения>`. Разделитель — ровно ` · ` (пробел, U+00B7, пробел). Без markdown-таблицы: палки стоят 40 % строки (244 симв против 148).
 - Слово «держится» в корпусе не пишется **никогда**. Держатель — имя Go-теста, скрипта или команды; если гейта нет — `ЗАВЕСТИ <имя>`.
-- Ни одна норма не удаляется безвозвратно. Класс D уезжает в `docs/rules-archive/<файл>.md`.
+- Ни одна норма не удаляется безвозвратно. Класс D уезжает в `.claude/backup/<файл>.md`.
 - Не трогается: `.claude/agents/**`, `MANIFEST.md` (кроме собственного содержимого как файла правил), `.claude/settings.json`, symlink `.claude/skills/rule-*`. Единственное исключение вне `.claude/rules/` — 4 координаты в `internal/repohygiene` и два новых файла в `scripts/rules-gate/`.
 - 190 адресуемых заголовков разделов сохраняются дословно: на них стоят 424 ссылки из агентов. 177 неадресуемых схлопываются.
 - 46 гейтов на 239 норм класса A без механизма — **не в этом плане**, отдельная линия.
@@ -65,7 +65,7 @@ for f in .claude/skills/*/SKILL.md; do
 done | sort | uniq -c | sort -rn
 ```
 
-Ожидается ровно два класса: 30 строк `rule / симлинк / # <заголовок>` и 19 строк
+Ожидается ровно два класса: 30 строк `rule / симлинк / # <заголовок>` и 14 строк
 `обычный / файл / ---`. Если хоть один `rule-*` окажется с `---` — признак неверен,
 и Task 2 надо пересмотреть.
 
@@ -101,7 +101,7 @@ cat > tmp/rules-compression/delivery-probe.md <<'PROBE'
 ## Следствие
 - ГРУЗИТСЯ → Task 2 была уборкой: frontmatter дал скилу имя и описание.
 - НЕ ГРУЗИТСЯ → Task 2 была починкой: с 2026-09-17 исполнители работали без корпуса.
-  Записать находку с датой в `docs/rules-archive/README.md`.
+  Записать находку с датой в `.claude/backup/README.md`.
 
 Ни тот, ни другой исход не отменяет Task 2 и не меняет ни одной другой задачи плана.
 PROBE
@@ -688,18 +688,18 @@ git commit -m "feat(rules-gate): два прибора — объём и фор�
 ### Task 6: Архив и 30 строк-якорей
 
 **Files:**
-- Create: `docs/rules-archive/README.md`
-- Create: `docs/rules-archive/<30 файлов>.md`
+- Create: `.claude/backup/README.md`
+- Create: `.claude/backup/<30 файлов>.md`
 - Modify: все 30 `.claude/rules/*.md` — по одной строке-якорю
 
 **Interfaces:**
-- Produces: `docs/rules-archive/<имя>.md` для каждого файла корпуса; в корпусе по строке `archive · доводы, замеры и снятые редакции — docs/rules-archive/<имя>.md`. Задачи 7–15 при переписывании кладут класс D в соответствующий архивный файл, а не удаляют.
+- Produces: `.claude/backup/<имя>.md` для каждого файла корпуса; в корпусе по строке `archive · доводы, замеры и снятые редакции — .claude/backup/<имя>.md`. Задачи 7–15 при переписывании кладут класс D в соответствующий архивный файл, а не удаляют.
 
 - [ ] **Step 1: Завести архив с объявлением предмета**
 
 ```bash
-mkdir -p docs/rules-archive
-cat > docs/rules-archive/README.md <<'MD'
+mkdir -p .claude/backup
+cat > .claude/backup/README.md <<'MD'
 # Архив корпуса правил
 
 Здесь лежит то, что снято с `.claude/rules/` решением владельца 2026-09-19: доводы «почему так
@@ -718,9 +718,9 @@ MD
 for f in .claude/rules/*.md; do
   b=$(basename "$f")
   printf '# Архив: %s\n\nСнято 2026-09-19. Норма живёт в `.claude/rules/%s`.\n' "$b" "$b" \
-    > "docs/rules-archive/$b"
+    > ".claude/backup/$b"
 done
-ls docs/rules-archive | wc -l   # ожидается 31 (30 + README.md)
+ls .claude/backup | wc -l   # ожидается 31 (30 + README.md)
 ```
 
 - [ ] **Step 2: Вписать якорь в каждый файл корпуса**
@@ -730,7 +730,7 @@ python3 - <<'PY'
 import glob,os
 for f in sorted(glob.glob('.claude/rules/*.md')):
     b=os.path.basename(f)
-    line=f'archive · доводы, замеры и снятые редакции — docs/rules-archive/{b}\n'
+    line=f'archive · доводы, замеры и снятые редакции — .claude/backup/{b}\n'
     t=open(f,encoding='utf-8').read()
     if line in t: continue
     # якорь идёт сразу после frontmatter, до первого заголовка
@@ -753,7 +753,7 @@ scripts/rules-gate/measure.sh | tail -1
 - [ ] **Step 4: Коммит**
 
 ```bash
-git add docs/rules-archive/ .claude/rules/
+git add .claude/backup/ .claude/rules/
 git commit -m "feat(rules): архив доводов и замеров заведён, каждый файл корпуса несёт якорь"
 ```
 
@@ -764,16 +764,16 @@ git commit -m "feat(rules): архив доводов и замеров заве
 
 **Files:**
 - Modify: `.claude/rules/00-kacho-core.md` — 22 508 → **5 201** симв, норм 28/8, руками 1
-- Modify: `docs/rules-archive/00-kacho-core.md` — принимает классы C и D этого файла (10 968 симв)
+- Modify: `.claude/backup/00-kacho-core.md` — принимает классы C и D этого файла (10 968 симв)
 - Modify: `.claude/rules/writing.md` — 10 856 → **2 277** симв, норм 1/13, руками 0
-- Modify: `docs/rules-archive/writing.md` — принимает классы C и D этого файла (7 181 симв)
+- Modify: `.claude/backup/writing.md` — принимает классы C и D этого файла (7 181 симв)
 - Modify: `.claude/rules/rag.md` — 2 722 → **167** симв, норм 1/0, руками 0
-- Modify: `docs/rules-archive/rag.md` — принимает классы C и D этого файла (2 547 симв)
+- Modify: `.claude/backup/rag.md` — принимает классы C и D этого файла (2 547 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['00-kacho-core.md', 'writing.md', 'rag.md'] и `k in ('A','B')`
-- Produces: 51 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 51 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -797,7 +797,7 @@ python3 scripts/rules-gate/rows-from-inventory.py 00-kacho-core.md writing.md ra
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -826,7 +826,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify 00-kacho-core.md writ
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/00-kacho-core.md .claude/rules/writing.md .claude/rules/rag.md docs/rules-archive/00-kacho-core.md docs/rules-archive/writing.md docs/rules-archive/rag.md
+git add .claude/rules/00-kacho-core.md .claude/rules/writing.md .claude/rules/rag.md .claude/backup/00-kacho-core.md .claude/backup/writing.md .claude/backup/rag.md
 git commit -m "refactor(rules): партия «ядро и письмо» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -838,16 +838,16 @@ git commit -m "refactor(rules): партия «ядро и письмо» све
 
 **Files:**
 - Modify: `.claude/rules/api-conventions.md` — 37 337 → **14 552** симв, норм 63/16, руками 7
-- Modify: `docs/rules-archive/api-conventions.md` — принимает классы C и D этого файла (4 695 симв)
+- Modify: `.claude/backup/api-conventions.md` — принимает классы C и D этого файла (4 695 симв)
 - Modify: `.claude/rules/architecture.md` — 10 205 → **3 829** симв, норм 22/6, руками 0
-- Modify: `docs/rules-archive/architecture.md` — принимает классы C и D этого файла (2 553 симв)
+- Modify: `.claude/backup/architecture.md` — принимает классы C и D этого файла (2 553 симв)
 - Modify: `.claude/rules/polyrepo.md` — 37 860 → **4 881** симв, норм 23/7, руками 6
-- Modify: `docs/rules-archive/polyrepo.md` — принимает классы C и D этого файла (26 637 симв)
+- Modify: `.claude/backup/polyrepo.md` — принимает классы C и D этого файла (26 637 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['api-conventions.md', 'architecture.md', 'polyrepo.md'] и `k in ('A','B')`
-- Produces: 137 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 137 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -871,7 +871,7 @@ python3 scripts/rules-gate/rows-from-inventory.py api-conventions.md architectur
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -900,7 +900,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify api-conventions.md ar
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/api-conventions.md .claude/rules/architecture.md .claude/rules/polyrepo.md docs/rules-archive/api-conventions.md docs/rules-archive/architecture.md docs/rules-archive/polyrepo.md
+git add .claude/rules/api-conventions.md .claude/rules/architecture.md .claude/rules/polyrepo.md .claude/backup/api-conventions.md .claude/backup/architecture.md .claude/backup/polyrepo.md
 git commit -m "refactor(rules): партия «контракт и слои» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -912,14 +912,14 @@ git commit -m "refactor(rules): партия «контракт и слои» с
 
 **Files:**
 - Modify: `.claude/rules/data-integrity.md` — 33 060 → **14 171** симв, норм 72/6, руками 2
-- Modify: `docs/rules-archive/data-integrity.md` — принимает классы C и D этого файла (13 090 симв)
+- Modify: `.claude/backup/data-integrity.md` — принимает классы C и D этого файла (13 090 симв)
 - Modify: `.claude/rules/subscription.md` — 13 097 → **7 476** симв, норм 37/9, руками 3
-- Modify: `docs/rules-archive/subscription.md` — принимает классы C и D этого файла (1 305 симв)
+- Modify: `.claude/backup/subscription.md` — принимает классы C и D этого файла (1 305 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['data-integrity.md', 'subscription.md'] и `k in ('A','B')`
-- Produces: 124 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 124 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -943,7 +943,7 @@ python3 scripts/rules-gate/rows-from-inventory.py data-integrity.md subscription
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -972,7 +972,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify data-integrity.md sub
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/data-integrity.md .claude/rules/subscription.md docs/rules-archive/data-integrity.md docs/rules-archive/subscription.md
+git add .claude/rules/data-integrity.md .claude/rules/subscription.md .claude/backup/data-integrity.md .claude/backup/subscription.md
 git commit -m "refactor(rules): партия «данные и поток» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -984,16 +984,16 @@ git commit -m "refactor(rules): партия «данные и поток» св
 
 **Files:**
 - Modify: `.claude/rules/testing.md` — 36 040 → **14 937** симв, норм 60/17, руками 0
-- Modify: `docs/rules-archive/testing.md` — принимает классы C и D этого файла (9 268 симв)
+- Modify: `.claude/backup/testing.md` — принимает классы C и D этого файла (9 268 симв)
 - Modify: `.claude/rules/testing-newman.md` — 7 631 → **3 691** симв, норм 16/1, руками 0
-- Modify: `docs/rules-archive/testing-newman.md` — принимает классы C и D этого файла (1 945 симв)
+- Modify: `.claude/backup/testing-newman.md` — принимает классы C и D этого файла (1 945 симв)
 - Modify: `.claude/rules/testing-load.md` — 6 282 → **1 531** симв, норм 1/6, руками 0
-- Modify: `docs/rules-archive/testing-load.md` — принимает классы C и D этого файла (1 527 симв)
+- Modify: `.claude/backup/testing-load.md` — принимает классы C и D этого файла (1 527 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['testing.md', 'testing-newman.md', 'testing-load.md'] и `k in ('A','B')`
-- Produces: 101 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 101 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1017,7 +1017,7 @@ python3 scripts/rules-gate/rows-from-inventory.py testing.md testing-newman.md t
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1046,7 +1046,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify testing.md testing-ne
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/testing.md .claude/rules/testing-newman.md .claude/rules/testing-load.md docs/rules-archive/testing.md docs/rules-archive/testing-newman.md docs/rules-archive/testing-load.md
+git add .claude/rules/testing.md .claude/rules/testing-newman.md .claude/rules/testing-load.md .claude/backup/testing.md .claude/backup/testing-newman.md .claude/backup/testing-load.md
 git commit -m "refactor(rules): партия «тесты» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1058,14 +1058,14 @@ git commit -m "refactor(rules): партия «тесты» сведена к с
 
 **Files:**
 - Modify: `.claude/rules/testing-verdict.md` — 31 342 → **9 065** симв, норм 8/39, руками 0
-- Modify: `docs/rules-archive/testing-verdict.md` — принимает классы C и D этого файла (4 780 симв)
+- Modify: `.claude/backup/testing-verdict.md` — принимает классы C и D этого файла (4 780 симв)
 - Modify: `.claude/rules/e2e-flow.md` — 24 158 → **9 828** симв, норм 22/36, руками 0
-- Modify: `docs/rules-archive/e2e-flow.md` — принимает классы C и D этого файла (10 209 симв)
+- Modify: `.claude/backup/e2e-flow.md` — принимает классы C и D этого файла (10 209 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['testing-verdict.md', 'e2e-flow.md'] и `k in ('A','B')`
-- Produces: 105 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 105 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1089,7 +1089,7 @@ python3 scripts/rules-gate/rows-from-inventory.py testing-verdict.md e2e-flow.md
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1118,7 +1118,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify testing-verdict.md e2
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/testing-verdict.md .claude/rules/e2e-flow.md docs/rules-archive/testing-verdict.md docs/rules-archive/e2e-flow.md
+git add .claude/rules/testing-verdict.md .claude/rules/e2e-flow.md .claude/backup/testing-verdict.md .claude/backup/e2e-flow.md
 git commit -m "refactor(rules): партия «вердикт и e2e» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1130,16 +1130,16 @@ git commit -m "refactor(rules): партия «вердикт и e2e» свед�
 
 **Files:**
 - Modify: `.claude/rules/security.md` — 23 777 → **8 683** симв, норм 35/7, руками 0
-- Modify: `docs/rules-archive/security.md` — принимает классы C и D этого файла (10 764 симв)
+- Modify: `.claude/backup/security.md` — принимает классы C и D этого файла (10 764 симв)
 - Modify: `.claude/rules/security-hardening.md` — 22 539 → **9 853** симв, норм 39/15, руками 0
-- Modify: `docs/rules-archive/security-hardening.md` — принимает классы C и D этого файла (7 069 симв)
+- Modify: `.claude/backup/security-hardening.md` — принимает классы C и D этого файла (7 069 симв)
 - Modify: `.claude/rules/security-disclosure.md` — 12 216 → **405** симв, норм 0/2, руками 0
-- Modify: `docs/rules-archive/security-disclosure.md` — принимает классы C и D этого файла (11 161 симв)
+- Modify: `.claude/backup/security-disclosure.md` — принимает классы C и D этого файла (11 161 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['security.md', 'security-hardening.md', 'security-disclosure.md'] и `k in ('A','B')`
-- Produces: 98 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 98 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1163,7 +1163,7 @@ python3 scripts/rules-gate/rows-from-inventory.py security.md security-hardening
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1192,7 +1192,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify security.md security-
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/security.md .claude/rules/security-hardening.md .claude/rules/security-disclosure.md docs/rules-archive/security.md docs/rules-archive/security-hardening.md docs/rules-archive/security-disclosure.md
+git add .claude/rules/security.md .claude/rules/security-hardening.md .claude/rules/security-disclosure.md .claude/backup/security.md .claude/backup/security-hardening.md .claude/backup/security-disclosure.md
 git commit -m "refactor(rules): партия «безопасность» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1204,12 +1204,12 @@ git commit -m "refactor(rules): партия «безопасность» све
 
 **Files:**
 - Modify: `.claude/rules/ui.md` — 30 061 → **7 555** симв, норм 33/12, руками 0
-- Modify: `docs/rules-archive/ui.md` — принимает классы C и D этого файла (12 818 симв)
+- Modify: `.claude/backup/ui.md` — принимает классы C и D этого файла (12 818 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['ui.md'] и `k in ('A','B')`
-- Produces: 45 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 45 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1233,7 +1233,7 @@ python3 scripts/rules-gate/rows-from-inventory.py ui.md
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1262,7 +1262,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify ui.md
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/ui.md docs/rules-archive/ui.md
+git add .claude/rules/ui.md .claude/backup/ui.md
 git commit -m "refactor(rules): партия «консоль» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1274,20 +1274,20 @@ git commit -m "refactor(rules): партия «консоль» сведена �
 
 **Files:**
 - Modify: `.claude/rules/multi-agent-flow.md` — 32 967 → **2 004** симв, норм 9/5, руками 0
-- Modify: `docs/rules-archive/multi-agent-flow.md` — принимает классы C и D этого файла (27 902 симв)
+- Modify: `.claude/backup/multi-agent-flow.md` — принимает классы C и D этого файла (27 902 симв)
 - Modify: `.claude/rules/multi-agent-flow-orchestration.md` — 35 586 → **5 351** симв, норм 19/23, руками 0
-- Modify: `docs/rules-archive/multi-agent-flow-orchestration.md` — принимает классы C и D этого файла (20 213 симв)
+- Modify: `.claude/backup/multi-agent-flow-orchestration.md` — принимает классы C и D этого файла (20 213 симв)
 - Modify: `.claude/rules/multi-agent-flow-shared-tree.md` — 22 486 → **5 228** симв, норм 28/11, руками 0
-- Modify: `docs/rules-archive/multi-agent-flow-shared-tree.md` — принимает классы C и D этого файла (10 387 симв)
+- Modify: `.claude/backup/multi-agent-flow-shared-tree.md` — принимает классы C и D этого файла (10 387 симв)
 - Modify: `.claude/rules/multi-agent-flow-waiting.md` — 14 289 → **3 451** симв, норм 8/20, руками 0
-- Modify: `docs/rules-archive/multi-agent-flow-waiting.md` — принимает классы C и D этого файла (7 616 симв)
+- Modify: `.claude/backup/multi-agent-flow-waiting.md` — принимает классы C и D этого файла (7 616 симв)
 - Modify: `.claude/rules/01-wave-contract.md` — 18 411 → **1 435** симв, норм 0/7, руками 2
-- Modify: `docs/rules-archive/01-wave-contract.md` — принимает классы C и D этого файла (13 343 симв)
+- Modify: `.claude/backup/01-wave-contract.md` — принимает классы C и D этого файла (13 343 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['multi-agent-flow.md', 'multi-agent-flow-orchestration.md', 'multi-agent-flow-shared-tree.md', 'multi-agent-flow-waiting.md', '01-wave-contract.md'] и `k in ('A','B')`
-- Produces: 130 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 130 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1311,7 +1311,7 @@ python3 scripts/rules-gate/rows-from-inventory.py multi-agent-flow.md multi-agen
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1340,7 +1340,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify multi-agent-flow.md m
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/multi-agent-flow.md .claude/rules/multi-agent-flow-orchestration.md .claude/rules/multi-agent-flow-shared-tree.md .claude/rules/multi-agent-flow-waiting.md .claude/rules/01-wave-contract.md docs/rules-archive/multi-agent-flow.md docs/rules-archive/multi-agent-flow-orchestration.md docs/rules-archive/multi-agent-flow-shared-tree.md docs/rules-archive/multi-agent-flow-waiting.md docs/rules-archive/01-wave-contract.md
+git add .claude/rules/multi-agent-flow.md .claude/rules/multi-agent-flow-orchestration.md .claude/rules/multi-agent-flow-shared-tree.md .claude/rules/multi-agent-flow-waiting.md .claude/rules/01-wave-contract.md .claude/backup/multi-agent-flow.md .claude/backup/multi-agent-flow-orchestration.md .claude/backup/multi-agent-flow-shared-tree.md .claude/backup/multi-agent-flow-waiting.md .claude/backup/01-wave-contract.md
 git commit -m "refactor(rules): партия «волна» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1352,26 +1352,26 @@ git commit -m "refactor(rules): партия «волна» сведена к с
 
 **Files:**
 - Modify: `.claude/rules/git-issues.md` — 33 822 → **4 176** симв, норм 5/16, руками 2
-- Modify: `docs/rules-archive/git-issues.md` — принимает классы C и D этого файла (25 467 симв)
+- Modify: `.claude/backup/git-issues.md` — принимает классы C и D этого файла (25 467 симв)
 - Modify: `.claude/rules/git-issues-branch-audit.md` — 16 614 → **4 020** симв, норм 15/5, руками 0
-- Modify: `docs/rules-archive/git-issues-branch-audit.md` — принимает классы C и D этого файла (7 761 симв)
+- Modify: `.claude/backup/git-issues-branch-audit.md` — принимает классы C и D этого файла (7 761 симв)
 - Modify: `.claude/rules/git-issues-ci-runs.md` — 6 252 → **2 083** симв, норм 5/5, руками 0
-- Modify: `docs/rules-archive/git-issues-ci-runs.md` — принимает классы C и D этого файла (2 763 симв)
+- Modify: `.claude/backup/git-issues-ci-runs.md` — принимает классы C и D этого файла (2 763 симв)
 - Modify: `.claude/rules/git-issues-issue-lifecycle.md` — 12 263 → **1 195** симв, норм 1/5, руками 1
-- Modify: `docs/rules-archive/git-issues-issue-lifecycle.md` — принимает классы C и D этого файла (9 851 симв)
+- Modify: `.claude/backup/git-issues-issue-lifecycle.md` — принимает классы C и D этого файла (9 851 симв)
 - Modify: `.claude/rules/vault.md` — 6 550 → **859** симв, норм 2/3, руками 1
-- Modify: `docs/rules-archive/vault.md` — принимает классы C и D этого файла (4 773 симв)
+- Modify: `.claude/backup/vault.md` — принимает классы C и D этого файла (4 773 симв)
 - Modify: `.claude/rules/change-graph.md` — 14 694 → **3 358** симв, норм 8/12, руками 0
-- Modify: `docs/rules-archive/change-graph.md` — принимает классы C и D этого файла (8 705 симв)
+- Modify: `.claude/backup/change-graph.md` — принимает классы C и D этого файла (8 705 симв)
 - Modify: `.claude/rules/ai-tooling.md` — 31 286 → **2 493** симв, норм 4/8, руками 4
-- Modify: `docs/rules-archive/ai-tooling.md` — принимает классы C и D этого файла (27 276 симв)
+- Modify: `.claude/backup/ai-tooling.md` — принимает классы C и D этого файла (27 276 симв)
 - Modify: `.claude/rules/MANIFEST.md` — 11 278 → **995** симв, норм 0/5, руками 1
-- Modify: `docs/rules-archive/MANIFEST.md` — принимает классы C и D этого файла (1 086 симв)
+- Modify: `.claude/backup/MANIFEST.md` — принимает классы C и D этого файла (1 086 симв)
 - Test: `scripts/rules-gate/measure.sh`, `run-all.sh`, `check-07-address-resolves.sh`, `check-08-rule-frontmatter.sh`
 
 **Interfaces:**
 - Consumes: `tmp/rules-compression/inventory-2026-09-19.json` — отбор `src` из ['git-issues.md', 'git-issues-branch-audit.md', 'git-issues-ci-runs.md', 'git-issues-issue-lifecycle.md', 'vault.md', 'change-graph.md', 'ai-tooling.md', 'MANIFEST.md'] и `k in ('A','B')`
-- Produces: 99 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `docs/rules-archive/`
+- Produces: 99 строк-норм в форме `<id> · <императив> · <держатель> · red: <признак>`; классы C и D — в `.claude/backup/`
 
 - [ ] **Step 1: Снять точку отсчёта**
 
@@ -1395,7 +1395,7 @@ python3 scripts/rules-gate/rows-from-inventory.py git-issues.md git-issues-branc
 Сохранить: frontmatter (Task 2), строку-якорь (Task 6) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `docs/rules-archive/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
 
 Нормы с пометой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст,
 свести к четырём полям. Ориентир — 172 символа; строка, из которой нельзя вывести вердикт,
@@ -1424,7 +1424,7 @@ python3 scripts/rules-gate/rows-from-inventory.py --verify git-issues.md git-iss
 - [ ] **Step 5: Коммит**
 
 ```bash
-git add .claude/rules/git-issues.md .claude/rules/git-issues-branch-audit.md .claude/rules/git-issues-ci-runs.md .claude/rules/git-issues-issue-lifecycle.md .claude/rules/vault.md .claude/rules/change-graph.md .claude/rules/ai-tooling.md .claude/rules/MANIFEST.md docs/rules-archive/git-issues.md docs/rules-archive/git-issues-branch-audit.md docs/rules-archive/git-issues-ci-runs.md docs/rules-archive/git-issues-issue-lifecycle.md docs/rules-archive/vault.md docs/rules-archive/change-graph.md docs/rules-archive/ai-tooling.md docs/rules-archive/MANIFEST.md
+git add .claude/rules/git-issues.md .claude/rules/git-issues-branch-audit.md .claude/rules/git-issues-ci-runs.md .claude/rules/git-issues-issue-lifecycle.md .claude/rules/vault.md .claude/rules/change-graph.md .claude/rules/ai-tooling.md .claude/rules/MANIFEST.md .claude/backup/git-issues.md .claude/backup/git-issues-branch-audit.md .claude/backup/git-issues-ci-runs.md .claude/backup/git-issues-issue-lifecycle.md .claude/backup/vault.md .claude/backup/change-graph.md .claude/backup/ai-tooling.md .claude/backup/MANIFEST.md
 git commit -m "refactor(rules): партия «трекер и след» сведена к строкам-нормам, доводы в архив"
 ```
 
@@ -1549,5 +1549,5 @@ git commit -m "feat(rules-gate): потолок корпуса 200 000 симв�
 ## Что остаётся после этого плана
 
 - **46 гейтов на 239 норм класса A без механизма** — отдельная линия, в этот план не входит. До неё у такой нормы в корпусе стоит `ЗАВЕСТИ <имя>` и заведённая задача. Число различных `ЗАВЕСТИ` печатает `measure.sh --form`: это и есть названный числом долг.
-- **Классы C и D в архиве** — 546 записей, 305 660 символов в `docs/rules-archive/`. Если процессный отказ начнёт повторяться, норму возвращают в корпус поимённо; запас 27 137 символов оставлен ровно для этого.
+- **Классы C и D в архиве** — 546 записей, 305 660 символов в `.claude/backup/`. Если процессный отказ начнёт повторяться, норму возвращают в корпус поимённо; запас 27 137 символов оставлен ровно для этого.
 - **Замер цены набора после работы:** медиана 135 060 → 33 613, максимум 163 004 → 58 733, сумма по 30 агентам 3 565 283 → 980 772. Перемерить предикатом из §8 спеки.
