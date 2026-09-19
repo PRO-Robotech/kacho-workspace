@@ -1,0 +1,33 @@
+{
+  "kind": "independent_agent_review_verdict",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "acceptance-reviewer",
+  "verdict": "APPROVED",
+  "source_reviewer": "/root/truth_tests",
+  "source_author": "/root/release_supply_arch",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+  "subject_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+  "bound_acceptance_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+  "bound_design_sha256": "0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd",
+  "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5",
+  "authority_policy": "docs/changes/policy.yaml",
+  "authority_policy_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
+  "policy_actor_required": "pointpu",
+  "external_publication_status": "NOT_PUBLISHED_BY_REVIEWER",
+  "exposure_item_ids": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "E9",
+    "E10",
+    "E11",
+    "E12"
+  ],
+  "unhandled_item_ids": []
+}

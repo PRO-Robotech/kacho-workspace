@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-excluding-build-tag",
+  "reviewer_role": "design-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-EBT-1-excluding-build-tag-design-revision2.md",
+  "subject_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+  "verdict": "APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVOTvBw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVOTvBw",
+  "event_api_id": 5719256839,
+  "body_sha256": "9a302eeeb47e77f82d51d5bd25aabd015eac35f3c14237b1397d1943a746a337",
+  "timestamp": "2026-09-17T18:24:36Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "03722bf28eafc7662369533af8602a3f368cb318f812643381dbd1572a8599b7",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/event-body.txt",
+  "bound_acceptance_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a"
+}

@@ -1,0 +1,31 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/event-body.txt",
+      "sha256": "0a5b4f218499c16be58b3dbbff033fd445897f63ec16f8c5e4b5fcaed2386d23"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/request.json",
+      "sha256": "df6a4bfa15f50359a1fb5a58f306fbbf9d831018271ca96a29dcc93445f412f5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/published-event.json",
+      "sha256": "32c9767b571721deb1d4cd7193a999b53b8e16c432a04c22e25deb0e18752642"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/api-readback.json",
+      "sha256": "32c9767b571721deb1d4cd7193a999b53b8e16c432a04c22e25deb0e18752642"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/root-review.json",
+      "sha256": "59ae4907d25127df227eb2df81f4892e22fcb5df8c2a85807465317241142a84"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/personal-stateless-root-review.json",
+      "sha256": "2bf2cc5c934a12cf8761db4487330867ede8a8ab32b0563ef77b8524711b4a7f"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

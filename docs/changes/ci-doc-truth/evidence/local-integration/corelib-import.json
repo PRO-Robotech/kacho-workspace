@@ -1,0 +1,31 @@
+{
+  "source": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "generated_provenance": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/frozen-88deb14-and-2711-baseline",
+  "rows": [
+    {
+      "path": "api/corelib/subscription/subscription.pb.go",
+      "before": "ab804e745c5617ecfb6134dc0db3d1c44d8bf9f5d4356a5943a2efd8f450086f",
+      "after": "b7904d4d4a68efd8d5ab1f60b10489cc51318ff7f35b1fba35bbc96073a252aa"
+    },
+    {
+      "path": "api/corelib/subscription/subscription_service.pb.go",
+      "before": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3",
+      "after": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3"
+    },
+    {
+      "path": "api/corelib/subscription/subscription_service.pb.gw.go",
+      "before": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0",
+      "after": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0"
+    },
+    {
+      "path": "api/corelib/subscription/subscription_service_grpc.pb.go",
+      "before": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f",
+      "after": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f"
+    }
+  ],
+  "head": "80447d27a89398bc1cfca8ceea878204bb3ab4ba",
+  "changed_paths": [
+    "api/corelib/subscription/subscription.pb.go"
+  ],
+  "local_only": true
+}

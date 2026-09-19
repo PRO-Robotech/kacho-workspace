@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "class-exposure-analyst",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-NP-1-newman-publication-design.md",
+  "subject_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+  "verdict": "REVALIDATED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVIiBvw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199551",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVIiBvw",
+  "event_api_id": 5713199551,
+  "body_sha256": "6a66e9dee8e240dc877ceb20ceea4367f5aa897b64ba4ce11707c36498691ef5",
+  "timestamp": "2026-09-17T10:56:27Z",
+  "source_reviewer": "/root/hygiene_audit",
+  "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/event-bodies/03-class-revalidation.md"
+}

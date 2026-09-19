@@ -1,0 +1,30 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/event-body.txt",
+      "sha256": "d0466acfa7c2cf9cc22c40b78a361fab92103f66046f14939ab9b124282a4a69"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/published-event.json",
+      "sha256": "77cf3183c6ddc05ed997ad1123ea1f46268e792063c5cf087c34d875aa500263"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/api-readback.json",
+      "sha256": "77cf3183c6ddc05ed997ad1123ea1f46268e792063c5cf087c34d875aa500263"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/request.json",
+      "sha256": "25c5e4bbefa7241a93e0b65455c650d05a9ee6e4bb273c94f40c748e24f2dbb9"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/publisher-routine.txt",
+      "sha256": "a431d5d1796b5930c34875c4767f1d0a8ac8dc487ca0444eff71c0c73d96d104"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-routine-5718038428/routine-binding.json",
+      "sha256": "7d402bdda323ba0f6ece1fdc6717de262038ca207d6f8e4500fb99cc63b059c0"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

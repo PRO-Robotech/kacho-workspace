@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "integration-tester",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMivtg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717405622",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMivtg",
+  "event_api_id": 5717405622,
+  "body_sha256": "907f89d2beaea71c53385ecd599838f76c98f214130eeb6f0a1f45c2020febc4",
+  "timestamp": "2026-09-17T16:00:18Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "14b8165cd118d18667fc6e123332d3299204503d",
+  "subject_path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/root-review.json",
+  "subject_sha256": "864d677b00d00cd531087522283a393390cce1faf39c81629a7a086bbb2b9e12",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/root-review.json",
+  "source_review_sha256": "864d677b00d00cd531087522283a393390cce1faf39c81629a7a086bbb2b9e12",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/event-body.txt",
+      "sha256": "907f89d2beaea71c53385ecd599838f76c98f214130eeb6f0a1f45c2020febc4"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/published-event.json",
+      "sha256": "c7dc3e2e28a0b4c2b90455b28f9dfcb200799a451544008fcaaaffdd4e709048"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/api-readback.json",
+      "sha256": "c7dc3e2e28a0b4c2b90455b28f9dfcb200799a451544008fcaaaffdd4e709048"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/request.json",
+      "sha256": "916bb6cfe76adab9988b3837200468b55efbb09301f418a21165bc1f90d77fa7"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/root-review.json",
+      "sha256": "864d677b00d00cd531087522283a393390cce1faf39c81629a7a086bbb2b9e12"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/input.json",
+      "sha256": "d81c31b343d8add056b62af6b0f663442b14292c622a983c7c902e08590a0d23"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-green-5717405622/execution.json",
+      "sha256": "c6018ad414718746667b63b9563b03af1b815d252c4f95ed8c654537293a7adc"
+    }
+  ],
+  "scope": [
+    "Bounded consumer/nested implementation: 39 RUN / 39 PASS / 0 SKIP, 29 SUT cases, 221 capture pairs. Остальные режимы отдельны."
+  ],
+  "pending": [
+    "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

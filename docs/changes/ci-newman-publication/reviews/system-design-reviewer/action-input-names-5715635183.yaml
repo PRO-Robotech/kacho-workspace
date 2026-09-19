@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "system-design-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVK2r7w",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5715635183",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVK2r7w",
+  "event_api_id": 5715635183,
+  "body_sha256": "39ff8a3f4956f29466038d5fd9649bb8690ab6ae06d369af6448cab4106d9594",
+  "timestamp": "2026-09-17T14:01:01Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/action-input-names-5715635183/event-body.md",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": null,
+  "subject_path": "docs/changes/ci-newman-publication/conventions/action-input-names-04b04c1c2a259bb48f92f5d1b797a935d6c942843dffac319c0bd89d261af7de.json",
+  "subject_sha256": "04b04c1c2a259bb48f92f5d1b797a935d6c942843dffac319c0bd89d261af7de",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_ROUTINE_CONVENTION",
+  "source_review_sha256": "39ff8a3f4956f29466038d5fd9649bb8690ab6ae06d369af6448cab4106d9594",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/action-input-names-5715635183/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/conventions/action-input-names-04b04c1c2a259bb48f92f5d1b797a935d6c942843dffac319c0bd89d261af7de.json",
+      "sha256": "04b04c1c2a259bb48f92f5d1b797a935d6c942843dffac319c0bd89d261af7de"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/action-input-names-5715635183/event-body.md",
+      "sha256": "39ff8a3f4956f29466038d5fd9649bb8690ab6ae06d369af6448cab4106d9594"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/action-input-names-5715635183/published-event.json",
+      "sha256": "387ea3d57754add4647fcd41293f141e9a14384b860c000be5cd7c2f7df5d208"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/action-input-names-5715635183/api-readback.json",
+      "sha256": "387ea3d57754add4647fcd41293f141e9a14384b860c000be5cd7c2f7df5d208"
+    }
+  ],
+  "scope": [
+    "Routine names: семь action inputs, fixed Node24 entrypoint, closed result и exit mapping",
+    "Принятые acceptance/design/interface bytes и semantics неизменны"
+  ],
+  "remaining": "Это основание для независимого NP-T1 holder, не RED, не разрешение source SDK и не GREEN publisher."
+}

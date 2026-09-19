@@ -1,0 +1,641 @@
+✖ snapshot-lawful-full-bytes (1.453801ms)
+✖ snapshot-replace-path-after-check (0.336131ms)
+✖ snapshot-mutate-checker-copy (0.206598ms)
+✖ snapshot-before-add (0.290295ms)
+✖ snapshot-before-remove (0.195878ms)
+✖ snapshot-before-change (0.149801ms)
+✖ input-missing-file (0.815552ms)
+✖ input-raw-report (0.20792ms)
+✖ checker-invalid-operation (0.264567ms)
+✖ checker-invalid-archive_sha256 (0.260891ms)
+✖ checker-invalid-archive_bytes (0.238368ms)
+✖ checker-invalid-schema_version (0.154891ms)
+✖ checker-invalid-files_declared (0.140644ms)
+✖ checker-invalid-findings (0.155241ms)
+✖ checker-invalid-extra (0.098796ms)
+✖ checker-incomplete-files_declared (0.149672ms)
+✖ checker-incomplete-files_checked (0.108574ms)
+✖ checker-missing (0.166694ms)
+✖ checker-throws (0.095249ms)
+✖ checker-nonclean (0.089939ms)
+✖ checker-finding (0.150192ms)
+✖ budget-invalid-maxArchiveBytes-0 (0.1809ms)
+✖ budget-invalid-maxArchiveBytes-true (0.123422ms)
+✖ budget-invalid-maxArchiveBytes-1.5 (0.108784ms)
+✖ budget-invalid-maxArchiveBytes-67108865 (0.097763ms)
+✖ budget-invalid-checkerTimeoutMs-0 (0.124373ms)
+✖ budget-invalid-checkerTimeoutMs-true (0.088115ms)
+✖ budget-invalid-checkerTimeoutMs-1.5 (0.094378ms)
+✖ budget-invalid-checkerTimeoutMs-120001 (0.100178ms)
+✖ budget-exact-and-one-below (0.155392ms)
+✖ checker-timeout-aborts (0.160662ms)
+✖ transport-throws (0.145583ms)
+✖ transport-digest (0.690707ms)
+✖ transport-size (0.104367ms)
+✖ transport-id (0.091412ms)
+✖ fixed-main-lawful (0.252515ms)
+✖ fixed-main-mutate-path-after-check (0.124193ms)
+✖ fixed-main-stall-checker (0.114505ms)
+✖ fixed-main-malformed-checker (0.092233ms)
+✖ fixed-main-blob-error (0.117411ms)
+✖ fixed-main-create-not-ok (0.081493ms)
+✖ fixed-main-finalize-not-ok (0.081122ms)
+✖ fixed-main-bad-artifact-id (0.094938ms)
+✖ fixed-main-missing-runtime (0.118312ms)
+✖ fixed-main-bad-integer (0.091863ms)
+✖ fixed-main-bad-budget (0.092103ms)
+ℹ tests 46
+ℹ suites 0
+ℹ pass 0
+ℹ fail 46
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2727.05546
+
+✖ failing tests:
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-lawful-full-bytes (1.453801ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:76:100
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-replace-path-after-check (0.336131ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:78:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-mutate-checker-copy (0.206598ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:78:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-before-add (0.290295ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:87:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-before-remove (0.195878ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:87:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ snapshot-before-change (0.149801ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:87:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ input-missing-file (0.815552ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:91:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ input-raw-report (0.20792ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:91:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-operation (0.264567ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-archive_sha256 (0.260891ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-archive_bytes (0.238368ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-schema_version (0.154891ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-files_declared (0.140644ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-findings (0.155241ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-invalid-extra (0.098796ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:95:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-incomplete-files_declared (0.149672ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:98:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-incomplete-files_checked (0.108574ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:98:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-missing (0.166694ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:101:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-throws (0.095249ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:101:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-nonclean (0.089939ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:101:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-finding (0.150192ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:101:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-maxArchiveBytes-0 (0.1809ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-maxArchiveBytes-true (0.123422ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-maxArchiveBytes-1.5 (0.108784ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-maxArchiveBytes-67108865 (0.097763ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-checkerTimeoutMs-0 (0.124373ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-checkerTimeoutMs-true (0.088115ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-checkerTimeoutMs-1.5 (0.094378ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-invalid-checkerTimeoutMs-120001 (0.100178ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:108:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ budget-exact-and-one-below (0.155392ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:110:103
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ checker-timeout-aborts (0.160662ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:112:17
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ transport-throws (0.145583ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:116:130
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ transport-digest (0.690707ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:116:130
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ transport-size (0.104367ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:116:130
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ transport-id (0.091412ms)
+  Error: CAPABILITY_ABSENT: publishSnapshot after successful prerequisites
+      at publisher (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:38:30)
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:116:130
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-lawful (0.252515ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-mutate-path-after-check (0.124193ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-stall-checker (0.114505ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-malformed-checker (0.092233ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-blob-error (0.117411ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-create-not-ok (0.081493ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-finalize-not-ok (0.081122ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-bad-artifact-id (0.094938ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-missing-runtime (0.118312ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-bad-integer (0.091863ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+
+test at ci/newman_publication/tests/upload.test.mjs:48:3
+✖ fixed-main-bad-budget (0.092103ms)
+  Error: CAPABILITY_ABSENT: fixed main/action after successful prerequisites
+      at file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:121:51
+      at TestContext.<anonymous> (file:///home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib/ci/newman_publication/tests/upload.test.mjs:50:104)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

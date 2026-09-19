@@ -1,0 +1,160 @@
+{
+  "source_base": "e58e6f581e858df6a9ffd3c25d93cbfcc1800128",
+  "source_candidate": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "changed_paths": [
+    "internal/repohygiene/catalogreachability_test.go",
+    "internal/repohygiene/grpcmountparity_test.go",
+    "internal/repohygiene/subscriptionformshape.go",
+    "internal/repohygiene/subscriptionformshape_injection_test.go",
+    "proto/corelib/subscription/subscription.proto"
+  ],
+  "source_diff_sha256": "4c5637f81fbc3032ff18b4d2302c9bd353e42c6928a82a2b25dafafce97ba10e",
+  "source_bytes": {
+    "internal/repohygiene/catalogreachability_test.go": {
+      "before_sha256": "21b6dcf43e9cc9d7b82db32357674eb5ad7b56b78b9a9e2c99584d90f5962eb2",
+      "after_sha256": "a455d9be877f2f895b14a80d86c3a0a724faa819aa5b78cc56e969f74f9b5dad"
+    },
+    "internal/repohygiene/grpcmountparity_test.go": {
+      "before_sha256": "88c54f445de01ccf89f91bd87634c55c9f0e2a19809f65fd17f37f7394fd9a05",
+      "after_sha256": "3b990a777fd953c58115bb72d0627120f78287d1c7eba2c1d78a950d4aac0468"
+    },
+    "internal/repohygiene/subscriptionformshape.go": {
+      "before_sha256": "866b034d42ff2ec6645ca9242d28ee2bf6910372011b5668a8a861ae744a022a",
+      "after_sha256": "c1d70c5445cca31445257e09361ccbf7fe1bd4e3b976f78bc402ca089def1d92"
+    },
+    "internal/repohygiene/subscriptionformshape_injection_test.go": {
+      "before_sha256": "f83e6e9a0c1a5809d8d2642933b2a6def0fc1dc46e99a5ef23b5d9560603c239",
+      "after_sha256": "8d7f0e260df4f9baf198223915df0e70f9dc0fc037003e727a87d93d24647ca4"
+    },
+    "proto/corelib/subscription/subscription.proto": {
+      "before_sha256": "a235a81b7dbd18e532d42153491d8e2935a2336b500866ff52ed205c2e0bd639",
+      "after_sha256": "5af9a7bb1eef12a6c2fb2018d3a5eb2521a8c3b9423168fe1ddb0ba9c3f99b40"
+    }
+  },
+  "history_regions": [
+    {
+      "path": "internal/repohygiene/catalogreachability_test.go",
+      "marker": "bdafe2c4",
+      "baseline_lines": [
+        16,
+        19
+      ],
+      "sha256": "d05f0862b067e8ec406c60a72b51cb4c54a58bc82ce48a84033b089a90aab909",
+      "unchanged": true
+    },
+    {
+      "path": "internal/repohygiene/catalogreachability_test.go",
+      "marker": "af0ca8f3",
+      "baseline_lines": [
+        85,
+        88
+      ],
+      "sha256": "9ab9289f0e9bb95eaaed36ee5f875ebdfeedd57086b5afa139f6b59d553094a3",
+      "unchanged": true
+    },
+    {
+      "path": "internal/repohygiene/catalogreachability_test.go",
+      "marker": "94352d9c",
+      "baseline_lines": [
+        90,
+        94
+      ],
+      "sha256": "b4fd5a75b488ce63acfba8449dd46661686f48f59815c2bc3990e110db30c088",
+      "unchanged": true
+    },
+    {
+      "path": "internal/repohygiene/grpcmountparity_test.go",
+      "marker": "89242e6b",
+      "baseline_lines": [
+        15,
+        19
+      ],
+      "sha256": "d5585574f0bc9816d22261ea29c8f55ee3db387e1b42b6fcff2b367f12d0d23b",
+      "unchanged": true
+    },
+    {
+      "path": "internal/repohygiene/grpcmountparity_test.go",
+      "marker": "af0ca8f3",
+      "baseline_lines": [
+        83,
+        87
+      ],
+      "sha256": "7b42f0756b61233a350978d79ed7e568c1f55da43e445ce40b6ff2a6a4006cb9",
+      "unchanged": true
+    },
+    {
+      "path": "internal/repohygiene/subscriptionformshape_injection_test.go",
+      "marker": "Это измерено, а не предположено: сделав первую ветвь носителя",
+      "baseline_lines": [
+        193,
+        196
+      ],
+      "sha256": "c9b189a3e8a13bcb19502e53984d4ca8ddb8fff937cb7642759affedb3aebb21",
+      "unchanged": true
+    }
+  ],
+  "directives_unchanged": true,
+  "issue1439_count_section_sha256": "d526894c95dab61e452cf5ed84be005f07b6fc1596e02f2ba5ca614be1bbb57d",
+  "immutable_holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35",
+  "untouched_addendum_source_sha256": "ab38d70525b8d9279c63c711e373a312bfe315fc86e498ef5eeea4c2f5dbd959",
+  "canonical_proto_exact_four_comment_lines": true,
+  "descriptors": [
+    {
+      "command": [
+        "buf",
+        "build",
+        "--path",
+        "corelib/subscription",
+        "--as-file-descriptor-set",
+        "--exclude-source-info",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/baseline-semantic-descriptor.pb"
+      ],
+      "cwd": "/var/tmp/area-ci-truth-tests/generation-baseline/proto",
+      "source_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+      "GOWORK": "off",
+      "sanitized_git_env": true,
+      "rc": 0,
+      "elapsed_seconds": 0.03400135040283203,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 16796,
+      "sha256": "663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f"
+    },
+    {
+      "command": [
+        "buf",
+        "build",
+        "--path",
+        "corelib/subscription",
+        "--as-file-descriptor-set",
+        "--exclude-source-info",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/candidate-semantic-descriptor.pb"
+      ],
+      "cwd": "/var/tmp/area-ci-truth-tests/generation-candidate-independent/proto",
+      "source_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+      "GOWORK": "off",
+      "sanitized_git_env": true,
+      "rc": 0,
+      "elapsed_seconds": 0.03267955780029297,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 16796,
+      "sha256": "663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f"
+    }
+  ],
+  "semantic_descriptors_byte_equal": true,
+  "generated_diff_sha256": "5663bbe76970c139dbfca6e367e630699619b908e7487b681e41d112a58e415d",
+  "generated_projection_exact_four_comment_lines": true,
+  "addendum_baseline": {
+    "source": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+    "list_count": 15,
+    "run": 55,
+    "pass": 55,
+    "fail": 0,
+    "skip": 0,
+    "names_sha256": "dcf5efe53f313e63b994c5b929904873a9682b28a2f892a935d523ae2650025e",
+    "holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35"
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVOsp9w",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719665143",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVOsp9w",
+  "event_api_id": 5719665143,
+  "body_sha256": "4d328efafc291e0d28ff6c068e1de83d397f225d220f041aeee165cf4bc41657",
+  "timestamp": "2026-09-17T18:58:00Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "0fb62a11094a07d99d5ca41e09db6b323655da51",
+  "subject_path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/root-review.json",
+  "subject_sha256": "6c219c1c56178e0d61d12b62a3a138b50af2ad57cebcbbdff187d3b2962bb42f",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "BOUNDED_TEST_ONLY_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/root-review.json",
+  "source_review_sha256": "6c219c1c56178e0d61d12b62a3a138b50af2ad57cebcbbdff187d3b2962bb42f",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/event-body.txt",
+      "sha256": "4d328efafc291e0d28ff6c068e1de83d397f225d220f041aeee165cf4bc41657"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/request.json",
+      "sha256": "5412c31efd0471e0ceb0126a633de36ad43e305011b1ec734e82de67ef687b73"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/published-event.json",
+      "sha256": "ff354b176af08f5ed5c6906790f610d4c39dd51082ca8ddd1105549e4f53d4f2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/api-readback.json",
+      "sha256": "ff354b176af08f5ed5c6906790f610d4c39dd51082ca8ddd1105549e4f53d4f2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/root-review.json",
+      "sha256": "6c219c1c56178e0d61d12b62a3a138b50af2ad57cebcbbdff187d3b2962bb42f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/deleted-head-resume-proposal.md",
+      "sha256": "96a1d775a76872bec5fa75585cebd7c5da7438ae689ce2a1b414f85784c2c69d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/deleted-head-holder-5719665143/api-detail-amendment.md",
+      "sha256": "f37660b82d42665a6effc537df28feba80f0cc8cffae4652943d41b242fe7022"
+    }
+  ],
+  "scope": [
+    "Разрешён только независимый дополнительный holder: 22 профиля / 37 фазовых ячеек и отдельный release resume, actual squash/deletion и numbered PR detail. Product source не разрешён."
+  ],
+  "pending": [
+    "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/e2e_audit"
+}

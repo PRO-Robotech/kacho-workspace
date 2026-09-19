@@ -1,0 +1,71 @@
+{
+  "status": "PROPOSED_ROUTINE_FORMAT_COVERAGE_FOR_ROOT_REVIEW",
+  "author": "/root/release_supply_arch",
+  "scenario": "CI-NP-08; CI-NP-02/03 format completeness applies unchanged",
+  "source_base": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "evidence_basis": {
+    "path": "root-metadata-census.json",
+    "sha256": "e4169410a66f89c2360f30351f6fba720fa958009a99e4fb8246fd4005881802",
+    "archives": 1030,
+    "entries": 20716,
+    "member_bodies_inspected_by_census": 0
+  },
+  "new_historical_profile": {
+    "operation": "scan only",
+    "zip": "single-disk non-ZIP64 with signed16-byte data descriptor",
+    "flags_added": [
+      8
+    ],
+    "compression_added_for_descriptor": [
+      8
+    ],
+    "descriptor_signature_hex": "504b0708",
+    "local_crc_compressed_uncompressed": "all zero as measured; other local fields retain existing equality rules",
+    "descriptor_fields": "CRC32, compressed_size, uncompressed_size exactly equal central record; actual full decoded bytes verify size and CRC32",
+    "placement": "descriptor begins immediately at end of exactly consumed compressed payload, is exactly16 bytes, ends at next local header or central directory",
+    "framing": "full archive covered; no prefix, gaps, overlaps, trailing bytes or DEFLATE tail; existing path/type/encryption/ZIP64/extra/metadata restrictions preserved",
+    "suffixes_added": [
+      ".cli",
+      ".rc"
+    ],
+    "suffix_interpretation": "strict UTF-8 plaintext through existing text carrier walker; not arbitrary binary or a new decoder"
+  },
+  "unchanged": [
+    "strict final check rejects all descriptor-form archives",
+    "project writer remains its existing descriptor-free profile",
+    "capacity ceilings and accounting",
+    "supported carrier/encoding semantics",
+    "unknown or malformed input cannot be CLEAN",
+    "NP security/runtime/retention closure predicates"
+  ],
+  "test_only_paths": [
+    "ci/newman_publication/tests/test_historical_zip.py"
+  ],
+  "fixture_producer": "Python stdlib zipfile writes to explicit unseekable sink; prove flags8/signed16/localzero/central equality by independent struct+zipfile read before SUT",
+  "lawful_cases": [
+    "existing seekable profile remains supported",
+    "descriptor JSON with no secret CLEAN",
+    "descriptor .cli UTF8 ordinary text CLEAN",
+    "descriptor .rc UTF8 ordinary text CLEAN"
+  ],
+  "negative_cases": [
+    "one synthetic credential value in each supported JSON/cli/rc input gives FINDING",
+    "descriptor signature one-field corruption",
+    "descriptor CRC one-field corruption",
+    "descriptor compressed-size one-field corruption",
+    "descriptor expanded-size one-field corruption",
+    "truncated descriptor",
+    "gap after descriptor with central offsets repaired",
+    "trailing archive bytes",
+    "trailing DEFLATE bytes with lengths adjusted",
+    "nonzero local placeholder field",
+    "invalid UTF8 cli",
+    "invalid UTF8 rc",
+    "unsupported binary member type",
+    "empty archive",
+    "same real projected publication repacked via descriptor remains refused by strict check"
+  ],
+  "pair_discipline": "Each mutation has a lawful original from same writer; driver computes changed bytes/fields and prerequisite structure, keeps raw captures, and does not count harness failures as SUT RED",
+  "authority": "No approval/source/holder RED claimed by this proposal; independent root routine review precedes dependent test writing; source follows separate reviewed RED authorization",
+  "production_archives_used_as_fixtures": false
+}

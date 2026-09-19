@@ -1,0 +1,8 @@
+=== RUN   TestExcludingBuildTagGateRedOnInjectedDefect
+=== PAUSE TestExcludingBuildTagGateRedOnInjectedDefect
+=== CONT  TestExcludingBuildTagGateRedOnInjectedDefect
+    excludingbuildtag_injection_test.go:105: перепись: файлов .go прочитано 3 · с признаком сборки 1 · из них в обычной сборке 1 · исключаемых 1 · исключающих тегов 1 (synthexclude) · отброшено как признаки платформы 0 () · пакетов проверено 1 · из них не собирались и без тега 1 · вызовов сборки 1
+    excludingbuildtag_injection_test.go:108: пакет под исключающим признаком не собирается, а гейт молчит — он не способен упасть.
+        перепись: файлов .go прочитано 3 · с признаком сборки 1 · из них в обычной сборке 1 · исключаемых 1 · исключающих тегов 1 (synthexclude) · отброшено как признаки платформы 0 () · пакетов проверено 1 · из них не собирались и без тега 1 · вызовов сборки 1
+--- FAIL: TestExcludingBuildTagGateRedOnInjectedDefect (0.02s)
+FAIL

@@ -95,9 +95,9 @@ legacy_census:
 # Ровно 60 координат — столько же, сколько в snapshot переписи. Лишняя запись и
 # пропущенная активная — обе RED (SDD-1-CENSUS-08/09).
 #
-# Route у всех legacy, и это не умолчание: пакета Change Graph нет ни у одного
-# из этих изменений, потому что на момент cutover формата пакета ещё не
-# существует. Legacy-маршрут ровно для того и заведён. Route migrate выбирается
+# На момент cutover route у всех был legacy: пакета Change Graph не было ни у
+# одного из этих изменений, потому что формат пакета тогда ещё не существовал.
+# Legacy-маршрут для этого и заведён. Route migrate выбирается
 # ОСОЗНАННО и требует пакета (SDD-1-CENSUS-12/13); изменение observable contract
 # на legacy-маршруте — RED (SDD-1-CENSUS-11).
 #
@@ -444,10 +444,10 @@ legacy_changes:
   - issue: https://github.com/PRO-Robotech/kacho/issues/1810
     coordinate: PRO-Robotech/kacho#1810
     kind: live-issue
-    acceptance_repo: null
-    acceptance_path: null
-    acceptance_absence_predicate: no-acceptance-document-in-change
-    route: legacy
+    acceptance_repo: PRO-Robotech/kacho-workspace
+    acceptance_path: docs/specs/sub-phase-CI-NP-1-newman-publication-acceptance.md
+    acceptance_contract_sha256: 2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400
+    route: migrate
   - issue: https://github.com/PRO-Robotech/kacho/issues/1816
     coordinate: PRO-Robotech/kacho#1816
     kind: live-issue

@@ -1,0 +1,890 @@
+{
+  "classification": "SYNTHETIC_SERIALIZATION_VECTORS_ONLY_NO_AUTHORITY_OR_SUT_VERDICT",
+  "vectors": [
+    {
+      "name": "lawful",
+      "producer_execution": {
+        "repository": "PRO-Robotech/kacho",
+        "commit": "1111111111111111111111111111111111111111",
+        "tree": "2222222222222222222222222222222222222222",
+        "executable_closure": [
+          {
+            "path": "internal/release/fixture.go",
+            "mode": "100644",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "tool_versions": [
+          {
+            "tool": "go",
+            "version": "fixture-version"
+          }
+        ],
+        "machine_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "regression_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "review": {
+          "path": "/fixture/producer-review.json",
+          "sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+        },
+        "root": "/fixture/producer",
+        "authorization": {
+          "path": "/fixture/execution-authority.json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      },
+      "producer_review_record": {
+        "schema_version": 1,
+        "kind": "producer-review",
+        "subject_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+        "outcome": "GREEN",
+        "reviewer": "ci-rs-fixture-reviewer",
+        "independence_record": {
+          "path": "/fixture/independence.json",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "authority_coordinate": {
+          "repository": "PRO-Robotech/kacho",
+          "issue_number": 2588,
+          "comment_id": 990000,
+          "author_login": "ci-rs-fixture-reviewer",
+          "body_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      },
+      "R_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+      "E_sha256": "99bf002062fde92f78c2474060284afc4dbe0acc36d8a73bfef6717d0f89321f",
+      "review_sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+    },
+    {
+      "name": "changed-inner-retain-old-review",
+      "producer_execution": {
+        "repository": "PRO-Robotech/kacho",
+        "commit": "1111111111111111111111111111111111111111",
+        "tree": "2222222222222222222222222222222222222222",
+        "executable_closure": [
+          {
+            "path": "internal/release/fixture.go",
+            "mode": "100755",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "tool_versions": [
+          {
+            "tool": "go",
+            "version": "fixture-version"
+          }
+        ],
+        "machine_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100755",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100755",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "regression_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100755",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100755",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "review": {
+          "path": "/fixture/producer-review.json",
+          "sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+        },
+        "root": "/fixture/producer",
+        "authorization": {
+          "path": "/fixture/execution-authority.json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      },
+      "producer_review_record": {
+        "schema_version": 1,
+        "kind": "producer-review",
+        "subject_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+        "outcome": "GREEN",
+        "reviewer": "ci-rs-fixture-reviewer",
+        "independence_record": {
+          "path": "/fixture/independence.json",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "authority_coordinate": {
+          "repository": "PRO-Robotech/kacho",
+          "issue_number": 2588,
+          "comment_id": 990000,
+          "author_login": "ci-rs-fixture-reviewer",
+          "body_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      },
+      "R_sha256": "ce76b570fa09a248cdefabda71f649415e77f1884694cf3fad6593d30d5f881c",
+      "E_sha256": "f88bab078674fd13898c858b3666281d2ff3020ed3ad4196daa1a37f5374a5f4",
+      "review_sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+    },
+    {
+      "name": "changed-review-retain-old-execution-authority",
+      "producer_execution": {
+        "repository": "PRO-Robotech/kacho",
+        "commit": "1111111111111111111111111111111111111111",
+        "tree": "2222222222222222222222222222222222222222",
+        "executable_closure": [
+          {
+            "path": "internal/release/fixture.go",
+            "mode": "100644",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "tool_versions": [
+          {
+            "tool": "go",
+            "version": "fixture-version"
+          }
+        ],
+        "machine_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "regression_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "review": {
+          "path": "/fixture/producer-review.json",
+          "sha256": "d7462d8a04a46c9e34fb1c677016c6d1845136a3eb5ec1c72970d43b431fee10"
+        },
+        "root": "/fixture/producer",
+        "authorization": {
+          "path": "/fixture/execution-authority.json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      },
+      "producer_review_record": {
+        "schema_version": 1,
+        "kind": "producer-review",
+        "subject_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+        "outcome": "GREEN",
+        "reviewer": "other-fixture-reviewer",
+        "independence_record": {
+          "path": "/fixture/independence.json",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "authority_coordinate": {
+          "repository": "PRO-Robotech/kacho",
+          "issue_number": 2588,
+          "comment_id": 990000,
+          "author_login": "ci-rs-fixture-reviewer",
+          "body_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      },
+      "R_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+      "E_sha256": "2d11ad9cbae11b1589d8f0d5b7e3dd4c5101078b28e6bdf9eeb805383e5eab67",
+      "review_sha256": "d7462d8a04a46c9e34fb1c677016c6d1845136a3eb5ec1c72970d43b431fee10"
+    },
+    {
+      "name": "root-locator-only",
+      "producer_execution": {
+        "repository": "PRO-Robotech/kacho",
+        "commit": "1111111111111111111111111111111111111111",
+        "tree": "2222222222222222222222222222222222222222",
+        "executable_closure": [
+          {
+            "path": "internal/release/fixture.go",
+            "mode": "100644",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "tool_versions": [
+          {
+            "tool": "go",
+            "version": "fixture-version"
+          }
+        ],
+        "machine_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "regression_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "review": {
+          "path": "/fixture/producer-review.json",
+          "sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+        },
+        "root": "/other-location/same-frozen-producer",
+        "authorization": {
+          "path": "/fixture/execution-authority.json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      },
+      "producer_review_record": {
+        "schema_version": 1,
+        "kind": "producer-review",
+        "subject_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+        "outcome": "GREEN",
+        "reviewer": "ci-rs-fixture-reviewer",
+        "independence_record": {
+          "path": "/fixture/independence.json",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "authority_coordinate": {
+          "repository": "PRO-Robotech/kacho",
+          "issue_number": 2588,
+          "comment_id": 990000,
+          "author_login": "ci-rs-fixture-reviewer",
+          "body_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      },
+      "R_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+      "E_sha256": "99bf002062fde92f78c2474060284afc4dbe0acc36d8a73bfef6717d0f89321f",
+      "review_sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+    },
+    {
+      "name": "authorization-locator-only",
+      "producer_execution": {
+        "repository": "PRO-Robotech/kacho",
+        "commit": "1111111111111111111111111111111111111111",
+        "tree": "2222222222222222222222222222222222222222",
+        "executable_closure": [
+          {
+            "path": "internal/release/fixture.go",
+            "mode": "100644",
+            "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        ],
+        "tool_versions": [
+          {
+            "tool": "go",
+            "version": "fixture-version"
+          }
+        ],
+        "machine_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "regression_proofs": [
+          {
+            "subject": {
+              "predicate_id": "fixture-machine",
+              "source": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "test": {
+                "repository": "PRO-Robotech/kacho",
+                "revision": "1111111111111111111111111111111111111111",
+                "files": [
+                  {
+                    "path": "internal/release/fixture.go",
+                    "mode": "100644",
+                    "sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+                  }
+                ]
+              },
+              "runs": [
+                {
+                  "command": [
+                    "go",
+                    "test",
+                    "./internal/release"
+                  ],
+                  "cwd": "/fixture/producer",
+                  "runtimes": [
+                    {
+                      "tool": "go",
+                      "version": "fixture-version"
+                    }
+                  ],
+                  "exit_code": 0,
+                  "declared": 1,
+                  "executed": 1,
+                  "outputs": [
+                    {
+                      "path": "/fixture/machine.stdout",
+                      "sha256": "4444444444444444444444444444444444444444444444444444444444444444"
+                    }
+                  ]
+                }
+              ]
+            },
+            "subject_sha256": "0d54d5f5912bd35d20a282972f70909093061765d65741e23e57fa9b0520d7c0",
+            "review": {
+              "path": "/fixture/machine-review.json",
+              "sha256": "5555555555555555555555555555555555555555555555555555555555555555"
+            },
+            "authority": {
+              "path": "/fixture/machine-authority.json",
+              "sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+            }
+          }
+        ],
+        "review": {
+          "path": "/fixture/producer-review.json",
+          "sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+        },
+        "root": "/fixture/producer",
+        "authorization": {
+          "path": "/other-location/same-authority.json",
+          "sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      },
+      "producer_review_record": {
+        "schema_version": 1,
+        "kind": "producer-review",
+        "subject_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+        "outcome": "GREEN",
+        "reviewer": "ci-rs-fixture-reviewer",
+        "independence_record": {
+          "path": "/fixture/independence.json",
+          "sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+        },
+        "authority_coordinate": {
+          "repository": "PRO-Robotech/kacho",
+          "issue_number": 2588,
+          "comment_id": 990000,
+          "author_login": "ci-rs-fixture-reviewer",
+          "body_sha256": "8888888888888888888888888888888888888888888888888888888888888888"
+        }
+      },
+      "R_sha256": "9e43ecf8d2280952a81a762e08dd65da110e18e327ac963f2f48d704a4b466cc",
+      "E_sha256": "99bf002062fde92f78c2474060284afc4dbe0acc36d8a73bfef6717d0f89321f",
+      "review_sha256": "b102b394cc4d8d0a8ffc654f0b761fd800e944734bed59f305866e2a7340e11b"
+    }
+  ]
+}

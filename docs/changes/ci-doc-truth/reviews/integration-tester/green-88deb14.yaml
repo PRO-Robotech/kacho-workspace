@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "kind": "scoped_candidate_verification_record",
+  "change_id": "ci-doc-truth",
+  "archive_writer": "/root/docs_truth",
+  "source_reviewer": "/root/truth_tests",
+  "repeat_reviewer": "/root",
+  "verdict": "SCOPED_GREEN",
+  "scope": "source implementation and independently generated projection at exact 88deb14; CI-DT-09 delivery not complete",
+  "publication_status": "VERIFIED",
+  "candidate_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "acceptance_sha256": "0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24",
+  "design_sha256": "f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047",
+  "tester_review": {
+    "path": "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-88deb14-review.md",
+    "sha256": "635bbf13af1087713edd54a3ff01b91aeec96ccb98017c6e3a8a311f11d033be"
+  },
+  "root_execution": {
+    "path": "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/execution.json",
+    "sha256": "1eb059c5edaeb78d7ddf2383f508c94a30e9694580265674b63b0669e9581cec"
+  },
+  "tester_shape_counts": {
+    "run": 55,
+    "pass": 55,
+    "fail": 0,
+    "skip": 0
+  },
+  "root_broader_counts": {
+    "run": 75,
+    "pass": 75,
+    "fail": 0,
+    "skip": 0
+  },
+  "generated_files": 4,
+  "generated_program_tokens": 5171,
+  "source_program_tokens": 9809,
+  "remaining": [
+    "corelib release",
+    "archive verification",
+    "Kacho consumer pin",
+    "convergence",
+    "main delivery"
+  ],
+  "index": "docs/changes/ci-doc-truth/evidence/independent-88deb14/archive-index.json",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVKLeXg",
+  "event_api_id": 5714927198,
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714927198",
+  "event_author": "pointpu",
+  "timestamp": "2026-09-17T13:12:43Z",
+  "body_sha256": "cf51cb5c999accb56d4cbf58b737a973c22e3bd28414e8ed9fdaaa29f2795428",
+  "root_review": {
+    "path": "docs/changes/ci-doc-truth/evidence/independent-88deb14/root/review.md",
+    "sha256": "5ff3917948c272faf9e4847291e93a07f6875f259b30fc2756b2c859f6500b64"
+  }
+}

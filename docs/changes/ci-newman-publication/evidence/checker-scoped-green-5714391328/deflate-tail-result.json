@@ -1,0 +1,36 @@
+{
+  "mutant_sha256": "6234fccb6bc5d1ade23149e08d3acb69c2c87e8e13f92628604c314b7a268788",
+  "lawful_sha256": "7f7b5ae3f3a2b1117d56c2b33d662ede879271ae294199d958f49d9941b8f266",
+  "equal_extracted_members": true,
+  "fixture": "/var/tmp/area-ci-independent-verifier/np-deflate-control-q2br0iuz",
+  "results": [
+    {
+      "label": "old-lawful",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "stderr_empty": true
+    },
+    {
+      "label": "old-tail",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "stderr_empty": true
+    },
+    {
+      "label": "new-lawful",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "stderr_empty": true
+    },
+    {
+      "label": "new-tail",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "stderr_empty": true
+    }
+  ]
+}

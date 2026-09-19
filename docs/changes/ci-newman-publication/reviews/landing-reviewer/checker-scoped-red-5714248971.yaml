@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+  "subject_path": "ci/newman_publication/tests/test_check_boundaries.py",
+  "subject_sha256": "949a5e01a84c4fea650e767c7f06998a6634ee7894eec33476573144457ff34a",
+  "subject_hash_kind": "scoped-red-manifest",
+  "verdict": "APPROVED_SCOPED_TDD_RED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJiFCw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714248971",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJiFCw",
+  "event_api_id": 5714248971,
+  "body_sha256": "84452f60ac2940e0da834db5658485b91d05d3ca4e130d84dcfc72258803ef0c",
+  "timestamp": "2026-09-17T12:21:07Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "187909c76bef168972575045a4739b0759f44dc7393bdf400bc1f72281ff4a6d",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/review.md",
+      "sha256": "187909c76bef168972575045a4739b0759f44dc7393bdf400bc1f72281ff4a6d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/event-body.md",
+      "sha256": "84452f60ac2940e0da834db5658485b91d05d3ca4e130d84dcfc72258803ef0c"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/published-event.json",
+      "sha256": "77729094ce36772525bc76b39f698357f3fc591cfc0cada7cff9539350cb1ff0"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/api-readback.json",
+      "sha256": "a05a0bb438732fb271cfb385e8705dee1b202484f116f7dc2474541332e69827"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/execution.json",
+      "sha256": "eca93f9ba1b75eab2c208aec534ee59a78c6f2395eedaeae3fc01c3fd994fc33"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/stdout.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-red-5714248971/stderr.log",
+      "sha256": "6cf5f9294354ddb4a08acaa9f22330b7ede9f6bb229576034b1c9bb410bcc1f4"
+    }
+  ],
+  "scope": [
+    "Полное неперекрывающееся покрытие байтов конечного ZIP",
+    "Согласованность local/central metadata",
+    "Регулярность производимых members",
+    "Сохранение 10 projection и 8 checker tests без изменения assertions"
+  ],
+  "remaining": "Scanner/capacity/SDK/consumers/runtime/retention сохраняют отдельные RED и последующие переходы.",
+  "source_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+  "mechanical_test_import_commit": "f9b8fba49387d3bdcc4f30d479b5ae63620c163d",
+  "result": {
+    "parents": 8,
+    "passed_parents": 5,
+    "failed_parents": 3,
+    "negative_variants": 24,
+    "unsafe_clean": 8,
+    "correct_refusals": 16,
+    "positive_cli_calls": 24,
+    "errors": 0,
+    "skipped": 0
+  }
+}

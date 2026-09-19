@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMi23g",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717407454",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMi23g",
+  "event_api_id": 5717407454,
+  "body_sha256": "92760a43a41db898132c6799a08db59f1a5612e566060d2a2d6499d963bc16d1",
+  "timestamp": "2026-09-17T16:00:26Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "5c5476d1a7b330b865d0d753d89e0f9ad84378d2",
+  "subject_path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/root-review.json",
+  "subject_sha256": "2ebe46807988a4fcae63af69fa9d37b8b079098833f69300d99297fb0b8acf3a",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/root-review.json",
+  "source_review_sha256": "2ebe46807988a4fcae63af69fa9d37b8b079098833f69300d99297fb0b8acf3a",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/event-body.txt",
+      "sha256": "92760a43a41db898132c6799a08db59f1a5612e566060d2a2d6499d963bc16d1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/published-event.json",
+      "sha256": "eee870e9052b510fce198e58470013f29aedee497add33c48e27755ffc5b275d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/api-readback.json",
+      "sha256": "eee870e9052b510fce198e58470013f29aedee497add33c48e27755ffc5b275d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/request.json",
+      "sha256": "c4b0ea71e49ece77c047b8318a1f95fb3670951bd6d57d5b6924356998aff5dc"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/root-review.json",
+      "sha256": "2ebe46807988a4fcae63af69fa9d37b8b079098833f69300d99297fb0b8acf3a"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/input.json",
+      "sha256": "1612e326e35e5433915d341e55a3491622983fc5e7156df23d9ac73b35595f63"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-red-5717407454/execution.json",
+      "sha256": "71491fd445712ef217803d3a445df04f964a8832a57f12399343177634baf638"
+    }
+  ],
+  "scope": [
+    "14 SUT calls вернули USAGE_ERROR неподдержанного pins mode; разрешены только pins.go, manifest.go, consumers.go. Это не 14 отдельных semantic pin findings."
+  ],
+  "pending": [
+    "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

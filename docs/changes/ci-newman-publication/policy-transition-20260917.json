@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "subject": "PRO-Robotech/kacho#1810",
+  "basis": "SDD-1 acceptance section 8, lines315-318: post-cutover observable contract change uses migrate and a Change Graph package",
+  "authority": "Architecture transition authorized by root within the active user goal; independent exact-diff review pending, no retrospective acceptance claimed",
+  "policy_before_sha256": "ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24",
+  "policy_after_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
+  "before": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/1810",
+    "coordinate": "PRO-Robotech/kacho#1810",
+    "kind": "live-issue",
+    "acceptance_repo": null,
+    "acceptance_path": null,
+    "acceptance_absence_predicate": "no-acceptance-document-in-change",
+    "route": "legacy"
+  },
+  "after": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/1810",
+    "coordinate": "PRO-Robotech/kacho#1810",
+    "kind": "live-issue",
+    "acceptance_repo": "PRO-Robotech/kacho-workspace",
+    "acceptance_path": "docs/specs/sub-phase-CI-NP-1-newman-publication-acceptance.md",
+    "acceptance_contract_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+    "route": "migrate"
+  },
+  "acceptance_hash_semantics": {
+    "algorithm": "SHA256 of complete raw acceptance file bytes; no normalization",
+    "producer": "sha256sum",
+    "existing_policy_introduction_commit": "c8370129",
+    "reference_path": "docs/specs/sub-phase-ID-MAIL-1-mail-delivery-acceptance.md",
+    "reference_bytes": 442192,
+    "reference_sha256": "c85b7ef7c26ec5a9de8e8cc49c50a95dc4f1eae35bce69d1c652716fc5fb9501",
+    "reproduce_existing": "git show c8370129:docs/specs/sub-phase-ID-MAIL-1-mail-delivery-acceptance.md | sha256sum",
+    "reproduce_new": "sha256sum docs/specs/sub-phase-CI-NP-1-newman-publication-acceptance.md"
+  },
+  "invariants": {
+    "legacy_coordinates_count": 60,
+    "same_ordered_coordinates": true,
+    "only_changed_entry": "PRO-Robotech/kacho#1810",
+    "immutable_census_unchanged": true,
+    "closed_history_unchanged": true,
+    "review_authority_unchanged": true
+  },
+  "package": "docs/changes/ci-newman-publication/change.yaml",
+  "reason": "New exact-content independently approved CI-NP-1 acceptance now exists for this issue. The no-acceptance predicate is false; route legacy cannot authorize the changed observable contract. The old entry remains in Git history, and the cutover census remains immutable.",
+  "comment_correction": "Three preamble lines now describe the historical cutover snapshot, rather than incorrectly claiming all current routes are legacy; authorized by root as part of the same transition"
+}

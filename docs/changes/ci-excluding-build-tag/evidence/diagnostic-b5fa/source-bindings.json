@@ -1,0 +1,25 @@
+{
+  "source_head": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "source_status": "",
+  "source_files": {
+    "internal/repohygiene/excludingbuildtag_test.go": "740e358303f16eea366672f7176506c226abc3f606ab5ae0cb9b2af6dfb27da5",
+    "internal/repohygiene/excludingbuildtag_injection_test.go": "d14f40695e1500946252f44135c0f0144ab9f921650da8789a1ef24a0ab30328",
+    "internal/repohygiene/license_test.go": "d33d18f4871a0a0b923dafd7a032be320839cb77347129118fa6c03f6213f196",
+    "internal/repohygiene/panicrecoverywiring_injection_test.go": "babdc55cf25b8f4bdd3c8fe9003086db391be77a83b4d657a55314768581e16b",
+    "Makefile": "09c32e95c26287ad70012b5719de3de723bca446b18a80cfa5399bae350f655e",
+    ".github/workflows/ci.yaml": "293aa81ab85ffb4a841f26eaff422b005e01917c58f9ccdd7824810b7a35b801",
+    "go.mod": "e6c37578bb19d2dc89770c5c86a0b7066151b5595e14d0132a96b1643bf55c95",
+    "go.sum": "24c0dfb8ec26ad16f5e5532a96472137a446fe92dec13b8c26ec70f1e344a27c"
+  },
+  "workspace_rule_head": "cdffc5b6a61629b59360bbdfa849865d6b9a3602",
+  "rules": {
+    ".claude/rules/testing.md": "38a0dde4e2220fd561f4dd97a1323048ede18e37a0855f504a0aca1a9aff5824",
+    ".claude/rules/testing-verdict.md": "d0c943f34da4e7da82914191cb9f4c7650bb31bb9a487e50418528ce4aa92a5d",
+    ".claude/rules/writing.md": "86ba7d6b04c92a03c193408e446f4ed4b92b226d8d33428bc06eac399c510340",
+    ".claude/rules/change-graph.md": "93a7270dc32d789b6544b6457b2e190691ea811c968bca7976dd8f0f60c90080",
+    ".claude/agents/acceptance-author.md": "59abe4bacecda40606b94fe50c83b63fe0adce05e10888179aa87b610283a675",
+    ".claude/skills/measurement-discipline/SKILL.md": "be3d55b8fb27ad51e873d73580cecfb3c310d15c3502610193f351bf4dd8599f",
+    ".claude/skills/code-authoring/SKILL.md": "546e2a921bfa099305a544d1d1266cb5ad83711ea51bb3d6e370fc0a64c73009"
+  },
+  "time": "2026-09-17T17:13:34.545923+00:00"
+}

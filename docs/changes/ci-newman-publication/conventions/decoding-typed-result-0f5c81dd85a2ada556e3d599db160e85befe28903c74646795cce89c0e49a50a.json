@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "kind": "routine typed-result clarification; preserves accepted subjects and all ceilings",
+  "prior_convention_sha256": "1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c",
+  "accepted_event": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714122338",
+  "rule": "One carrier unwrap produces one typed decoded representation. Parsing object/array JSON bytes as part of Buffer/base64/base64url/URL unwrap is within that same depth step. If that result is itself a JSON string requiring another JSON unwrap, the next representation increments depth again.",
+  "nodes_rule": "Count each dict/list/scalar in the original parsed input and each additional typed decoded representation. Keys are scanned but are not nodes. Intermediate parser byte/string temporaries are not separate decoded representations and are not double counted.",
+  "examples": [
+    {
+      "input": "JSON document object",
+      "base_nodes": 2,
+      "additional_representations": [],
+      "total_nodes": 2,
+      "max_unwrap_depth": 0
+    },
+    {
+      "input": "JSON string containing object JSON",
+      "base_nodes": 1,
+      "additional_representations": [
+        {
+          "kind": "nested JSON object",
+          "nodes": 2
+        }
+      ],
+      "total_nodes": 3,
+      "max_unwrap_depth": 1
+    },
+    {
+      "input": "Buffer bytes containing object JSON",
+      "base_value": {
+        "type": "Buffer",
+        "data": [
+          123,
+          34,
+          111,
+          107,
+          34,
+          58,
+          116,
+          114,
+          117,
+          101,
+          125
+        ]
+      },
+      "base_nodes": 14,
+      "additional_representations": [
+        {
+          "kind": "Buffer typed decoded object",
+          "nodes": 2
+        }
+      ],
+      "total_nodes": 16,
+      "max_unwrap_depth": 1
+    },
+    {
+      "input": "explicit base64 envelope encoding object JSON",
+      "base_value": {
+        "encoding": "base64",
+        "data": "eyJvayI6dHJ1ZX0="
+      },
+      "base_nodes": 3,
+      "additional_representations": [
+        {
+          "kind": "base64 typed decoded object",
+          "nodes": 2
+        }
+      ],
+      "total_nodes": 5,
+      "max_unwrap_depth": 1
+    },
+    {
+      "input": "explicit base64 envelope encoding a JSON string containing object JSON",
+      "base_value": {
+        "encoding": "base64",
+        "data": "IntcIm9rXCI6dHJ1ZX0i"
+      },
+      "base_nodes": 3,
+      "additional_representations": [
+        {
+          "kind": "base64 typed decoded string",
+          "nodes": 1
+        },
+        {
+          "kind": "nested JSON object",
+          "nodes": 2
+        }
+      ],
+      "total_nodes": 6,
+      "max_unwrap_depth": 2
+    }
+  ],
+  "null_empty_policy": "This holder corpus uses only null and empty string as absence-of-secret lawful values. No exemption for arbitrary redaction markers or unresolved placeholder strings is added.",
+  "ceilings_changed": false,
+  "source_authorized": false
+}

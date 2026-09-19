@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVOnnqA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719582632",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVOnnqA",
+  "event_api_id": 5719582632,
+  "body_sha256": "8426a4c37d6c221ce34913b656daa01568c66d1ee812ff07fdea8cec72a7a9e2",
+  "timestamp": "2026-09-17T18:51:13Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "0fb62a11094a07d99d5ca41e09db6b323655da51",
+  "subject_path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/root-review.json",
+  "subject_sha256": "5f9414e05fedcd2e89c03b89efea8585ec39b774a1d9705293dbe2a76b60c312",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/root-review.json",
+  "source_review_sha256": "5f9414e05fedcd2e89c03b89efea8585ec39b774a1d9705293dbe2a76b60c312",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/event-body.txt",
+      "sha256": "8426a4c37d6c221ce34913b656daa01568c66d1ee812ff07fdea8cec72a7a9e2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/request.json",
+      "sha256": "b2473351d08e0dfe42e43f4048e2bd4c78add0ddea99154ef9d82148341f436c"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/published-event.json",
+      "sha256": "3a9b629e5c4b046c5f0a83da6f09b424471e9311207cc8a48fa7b4d3bbd0a200"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/api-readback.json",
+      "sha256": "3a9b629e5c4b046c5f0a83da6f09b424471e9311207cc8a48fa7b4d3bbd0a200"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/root-review.json",
+      "sha256": "5f9414e05fedcd2e89c03b89efea8585ec39b774a1d9705293dbe2a76b60c312"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/public-checksum-routine-proposal.md",
+      "sha256": "798d7d263e540ed26fc5fcb1e0033a279f5acf48a6873d4282f4ba7666708a6c"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/input.json",
+      "sha256": "f7e6117c46070a30f2744f36ed18a459da7e3c087821907ab84bf7a36881cf14"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-red-5719582632/execution.json",
+      "sha256": "03d75ae53c1f3508a4eddb1a75905b38c70a280867a3b5546d5171b3ca06b567"
+    }
+  ],
+  "scope": [
+    "После настоящих signed-log prerequisites получены 7 RED: 8 RUN / 8 FAIL с родительским тестом. Для public Go / SumDB разрешён только publisher_release.go; bypass и изменение budgets исключены."
+  ],
+  "pending": [
+    "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

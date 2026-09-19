@@ -1,0 +1,66 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/actual-block-controls.json",
+      "sha256": "76fb4a95b8d53998ce9cb038e33ab2cd3812a8bf1eee8b3ab1df42bd2754aed8"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/actual-new-block.py.txt",
+      "sha256": "205ffdf1d836282d9d2806a8ee726f82ee494bca57236cddcf390daa396acbe4"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/api-readback.json",
+      "sha256": "da9d927fd71f03191979a79c192a9389715a34e70fda6759742a449f687d5c25"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/controls-execution.json",
+      "sha256": "c05d698fa6a1d908aaeb2e6a8988c9075aa794745c65a38669d6dea8fbb27261"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/event-body.md",
+      "sha256": "d0b169d40a93434003ec1c08f2af17ff2c02ae7e6d6875746aac9c158dcb6ef2"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/handoff.json",
+      "sha256": "52020a5ffbd8f4adb767bd851772519950ece1d97af0a1e76e8283154dbdac46"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/holder.diff",
+      "sha256": "f3b20e3df18c81c1222b41d02aec1d461145b2c96825575b1a9bc0e76fedd0ad"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/independent-exact-proposal-results.json",
+      "sha256": "86c01a9dfa9169d9420608fc0f12133a470b6dcbbf95e4446b288469ad3e3b19"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/independent-proposed-replacement.py.txt",
+      "sha256": "205ffdf1d836282d9d2806a8ee726f82ee494bca57236cddcf390daa396acbe4"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/independent-review.json",
+      "sha256": "040fcd8a4759761da9978ee786cee40d5c378b4e1f8b76db5eb4320d39be8b75"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/independent-review.txt",
+      "sha256": "6d8defa8a1aec9f50c9a2f7edf53a6383320d674f941fea7be102f020f546640"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/preservation.json",
+      "sha256": "679bddb3dd24a5cd20b21fce326cf3dddc8725cc6e95c81eeaa51a496a08f0e1"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/published-event.json",
+      "sha256": "da9d927fd71f03191979a79c192a9389715a34e70fda6759742a449f687d5c25"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/review.json",
+      "sha256": "1524fee08c59bc42839f12dbb685f1627beb9acdbf42b56c1c62d6e32fd26ea3"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/ci09-oracle-correction-5715525103/root-import.json",
+      "sha256": "b68db4b2b18854fd8b1e2c1b161ddff351b9056e9ceb4e39aa9999bf06e81f8d"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

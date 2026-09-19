@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-doc-truth",
+  "reviewer_role": "class-exposure-analyst",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-DT-1-doc-truth-acceptance.md",
+  "subject_sha256": "0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24",
+  "verdict": "APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJZbSQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714107209",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJZbSQ",
+  "event_api_id": 5714107209,
+  "body_sha256": "0b7200a6533e755e1ca80daa21275ba0c6ef9db2db6028c13f5bc904ed372aec",
+  "timestamp": "2026-09-17T12:09:49Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "4e51f89bcb87e673b203b895b38274f949889736870228ed1acc1be654751403",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-doc-truth/event-bodies/02-class-exposure-analyst-initial.md",
+  "review_phase": "initial"
+}

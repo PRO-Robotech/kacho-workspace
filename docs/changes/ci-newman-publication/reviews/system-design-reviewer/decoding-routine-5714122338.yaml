@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "system-design-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": null,
+  "subject_path": "docs/changes/ci-newman-publication/conventions/decoding-1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c.json",
+  "subject_sha256": "1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_ROUTINE_CONVENTION",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJaWYg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714122338",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJaWYg",
+  "event_api_id": 5714122338,
+  "body_sha256": "0936473a3f7181502e1eea16d7b24c60e98391541feb2bd649ba07f82f09eff2",
+  "timestamp": "2026-09-17T12:10:58Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "57c6e29d0e3a713575233c963f013e8df11e48ec93974e0ac74d25288c91b706",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/decoding-routine-5714122338/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-routine-5714122338/review.md",
+      "sha256": "57c6e29d0e3a713575233c963f013e8df11e48ec93974e0ac74d25288c91b706"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-routine-5714122338/event-body.md",
+      "sha256": "0936473a3f7181502e1eea16d7b24c60e98391541feb2bd649ba07f82f09eff2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-routine-5714122338/published-event.json",
+      "sha256": "7eafeeade0e2c2f49636b62cb1ae7f06a145a65755b83b80cd5c86ff4aff706f"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-routine-5714122338/api-readback.json",
+      "sha256": "0557e17c86ed5ec181bd82197021e16748391c36d749cfa4caeb1d7c365c3231"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/conventions/decoding-1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c.json",
+      "sha256": "1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c"
+    }
+  ],
+  "scope": [
+    "Единица unwrap depth и cumulative decoded nodes для независимых holders; потолки и approved contracts не меняются."
+  ],
+  "remaining": "Source scanner не разрешён; это точная convention, не security GREEN."
+}

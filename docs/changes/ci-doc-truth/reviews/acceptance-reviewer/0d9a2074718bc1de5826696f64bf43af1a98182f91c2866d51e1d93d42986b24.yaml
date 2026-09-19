@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-doc-truth",
+  "reviewer_role": "acceptance-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-DT-1-doc-truth-acceptance.md",
+  "subject_sha256": "0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24",
+  "verdict": "APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJZZ7w",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714106863",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJZZ7w",
+  "event_api_id": 5714106863,
+  "body_sha256": "6feacc277fea97571b244ddf7ebf07bd203dd9b2adae7bbe861cb618c3153b47",
+  "timestamp": "2026-09-17T12:09:47Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "4e51f89bcb87e673b203b895b38274f949889736870228ed1acc1be654751403",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-doc-truth/event-bodies/01-acceptance-reviewer.md"
+}

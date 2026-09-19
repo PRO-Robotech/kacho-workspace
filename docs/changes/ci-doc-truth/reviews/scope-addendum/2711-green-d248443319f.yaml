@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_scope_candidate_verification",
+  "change_id": "ci-doc-truth",
+  "issue": "https://github.com/PRO-Robotech/kacho/issues/2711",
+  "archive_writer": "/root/docs_truth",
+  "source_reviewer": "/root",
+  "verdict": "SCOPED_GREEN",
+  "candidate_sha": "d248443319f9bc927d81bea04794c4405528f62e",
+  "subject_path": "docs/changes/ci-doc-truth/addenda/issue-2711-scope.md",
+  "subject_sha256": "c57a9d30e9ce1876297f40e0b589ec2d01a551a9913064c81fc73cfcd1d49100",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVKLwBQ",
+  "event_api_id": 5714931717,
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2711#issuecomment-5714931717",
+  "event_author": "pointpu",
+  "timestamp": "2026-09-17T13:13:03Z",
+  "body_sha256": "95d43b6a02dfe19fd081f22c0bdf8c951ad5570fd5e3596450c6e68917d0202d",
+  "publication_status": "VERIFIED",
+  "source_review_path": "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/review.md",
+  "source_review_sha256": "6716e76ca68efab81074f1bb38d84f60bd6a8b094c2e6c8c382e3d30313b4b34",
+  "execution_path": "docs/changes/ci-doc-truth/evidence/addendum-2711/root-candidate/execution.json",
+  "counts": {
+    "run": 75,
+    "pass": 75,
+    "fail": 0,
+    "skip": 0
+  },
+  "exact_names_match_baseline": true,
+  "candidate_file_sha256": "ca976ed9e0be54f6273182d6f58de64e2d8fa8c176c27cefd893b104434e6e41",
+  "program_tokens": 482,
+  "declarations": 6,
+  "whitelist": [],
+  "remaining": [
+    "aggregate verification",
+    "main delivery",
+    "issue closure by root after evidence"
+  ]
+}

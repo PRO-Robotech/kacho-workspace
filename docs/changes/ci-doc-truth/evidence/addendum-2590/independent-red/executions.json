@@ -1,0 +1,291 @@
+[
+  {
+    "label": "go-version",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "version"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 0,
+    "seconds": 0.0037873060209676623,
+    "stdout_sha256": "7e35a947feee25f89c2649aa041942db786be35c3d6c484ab2ba2da849e3dc00",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "build-comparator",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "build",
+      "-trimpath",
+      "-o",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 0,
+    "seconds": 0.28567431902047247,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-lawful",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/lawful.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 0,
+    "seconds": 0.006124948034994304,
+    "stdout_sha256": "65f6104c7112d15c4c4bdc4942d1c4e4cfea6d6cee1530a5a653950153985558",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-program-token",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/program-token.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 1,
+    "seconds": 0.006695900985505432,
+    "stdout_sha256": "875996f58dc2553ecad8aa200bebc60335870509a3020aeb3120033566da1cb9",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-outside-comment",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/outside-comment.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 1,
+    "seconds": 0.005636329995468259,
+    "stdout_sha256": "092049ae7b7e3ba49d956cd86cf75529451e982c45a7a1d74992446ac4766021",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-old-header",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/old-header.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 1,
+    "seconds": 0.006088540016207844,
+    "stdout_sha256": "6d7f300b8f9f505a76a89d80cb14a3e90b6d52a1c89c971c2a0a4f7103429917",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-empty",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/empty.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 3,
+    "seconds": 0.004148374020587653,
+    "stdout_sha256": "05aa504eac2c3367dfd9441bb1d6ded4c1f3b05ddbf292feaa3d3522067384ab",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-no-declarations",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/no-declarations.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 3,
+    "seconds": 0.0045804359833709896,
+    "stdout_sha256": "fa432858ec06e662f1b28702110bd1a3b880c783acc8eafca8ca466240b13d8b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-unreadable",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/unreadable.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 3,
+    "seconds": 0.002201446972321719,
+    "stdout_sha256": "9189d1b9b0d621356c26a09249d522ecfa4f9088799d328421c8bf1a52ea6fc6",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-malformed",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/malformed.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 3,
+    "seconds": 0.003762649022974074,
+    "stdout_sha256": "e0cf94b62cf38aeb71a9b0ec2a478f4c7aac6442b6c0ff4efa379317f814660f",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "control-directive",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/directive.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 1,
+    "seconds": 0.005629007006064057,
+    "stdout_sha256": "b6ab03a26b0ababb1c7927b1f68942e5a426cb99666aa3af3eeefa7b958ca88b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "current-header-red",
+    "argv": [
+      "/var/tmp/area-ci-independent-verifier/issue-2590/notice-preservation",
+      "--contract",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/baseline.json",
+      "--baseline",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/inputs/baseline.go",
+      "--candidate",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/checkout/migratorcli/notice_test.go"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590",
+    "rc": 1,
+    "seconds": 0.0057362180086784065,
+    "stdout_sha256": "6d7f300b8f9f505a76a89d80cb14a3e90b6d52a1c89c971c2a0a4f7103429917",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "actual-selection",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "list",
+      "-f",
+      "{{.ImportPath}} {{join .TestImports \" \"}} {{join .XTestImports \" \"}}",
+      "./..."
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590/checkout",
+    "rc": 0,
+    "seconds": 0.22009223501663655,
+    "stdout_sha256": "1b6c57f2586874487b55064917652530db2312a8beb05220c2cdc3c9dd9f824a",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "baseline-declared",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "test",
+      "./migratorcli",
+      "-short",
+      "-list",
+      "^(TestCensusCountsWhatItPrintedAndWhatItDropped|TestCensusIsPrintedEvenWhenNothingWasSaid|TestLevelIsTakenUnlocalised|TestNoticeReachesTheOperatorWithItsLevelAndText|TestOpenDBRefusesADriverThatCannotDeliver|TestOpenDBRefusesToRunWithoutAPlaceToDeliver)$",
+      "-count=1"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590/checkout",
+    "rc": 0,
+    "seconds": 0.8279983509564772,
+    "stdout_sha256": "d33b525907d4dde8f5265265ceda4eb9690ea6eb7a53d84a16c0e7613f734551",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "baseline-tests",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "test",
+      "./migratorcli",
+      "-short",
+      "-run",
+      "^(TestCensusCountsWhatItPrintedAndWhatItDropped|TestCensusIsPrintedEvenWhenNothingWasSaid|TestLevelIsTakenUnlocalised|TestNoticeReachesTheOperatorWithItsLevelAndText|TestOpenDBRefusesADriverThatCannotDeliver|TestOpenDBRefusesToRunWithoutAPlaceToDeliver)$",
+      "-count=1",
+      "-json",
+      "-timeout=2m"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590/checkout",
+    "rc": 0,
+    "seconds": 0.6009091089945287,
+    "stdout_sha256": "a55d527b2364d598e4403940cde7798f0422f47e625f6e8f079f0a0190b64a13",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "lawful-overlay-declared",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "test",
+      "-overlay",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/lawful-overlay.json",
+      "./migratorcli",
+      "-short",
+      "-list",
+      "^(TestCensusCountsWhatItPrintedAndWhatItDropped|TestCensusIsPrintedEvenWhenNothingWasSaid|TestLevelIsTakenUnlocalised|TestNoticeReachesTheOperatorWithItsLevelAndText|TestOpenDBRefusesADriverThatCannotDeliver|TestOpenDBRefusesToRunWithoutAPlaceToDeliver)$",
+      "-count=1"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590/checkout",
+    "rc": 0,
+    "seconds": 0.7027200129814446,
+    "stdout_sha256": "89fba64e789f0fbc470b8120092e132a0a09c360583e6a821397ce3d37e9ee1a",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "lawful-overlay-tests",
+    "argv": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "test",
+      "-overlay",
+      "/var/tmp/area-ci-independent-verifier/issue-2590/lawful-overlay.json",
+      "./migratorcli",
+      "-short",
+      "-run",
+      "^(TestCensusCountsWhatItPrintedAndWhatItDropped|TestCensusIsPrintedEvenWhenNothingWasSaid|TestLevelIsTakenUnlocalised|TestNoticeReachesTheOperatorWithItsLevelAndText|TestOpenDBRefusesADriverThatCannotDeliver|TestOpenDBRefusesToRunWithoutAPlaceToDeliver)$",
+      "-count=1",
+      "-json",
+      "-timeout=2m"
+    ],
+    "cwd": "/var/tmp/area-ci-independent-verifier/issue-2590/checkout",
+    "rc": 0,
+    "seconds": 0.6056341369985603,
+    "stdout_sha256": "e150cedeb7462f25f3cfb1eb11e91a2c6165cc417639197e34a6b27806e70d94",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

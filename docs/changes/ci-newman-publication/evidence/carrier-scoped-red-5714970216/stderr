@@ -1,0 +1,23 @@
+test_ci_np_02_03_carriers_and_capacity (__main__.CarrierScanner.test_ci_np_02_03_carriers_and_capacity) ... FAIL
+
+======================================================================
+FAIL: test_ci_np_02_03_carriers_and_capacity (__main__.CarrierScanner.test_ci_np_02_03_carriers_and_capacity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-carrier-tests/ci/newman_publication/tests/test_carrier_scanner.py", line 127, in test_ci_np_02_03_carriers_and_capacity
+    run.execute_all()
+    ~~~~~~~~~~~~~~~^^
+  File "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-carrier-tests/ci/newman_publication/tests/test_carrier_scanner.py", line 506, in execute_all
+    self.require(not failures, "carrier CLI expectations failed; see carrier-summary.json; "
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                 "missing scan dispatch is a capability boundary, never semantic FINDING")
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-carrier-tests/ci/newman_publication/tests/test_carrier_scanner.py", line 139, in require
+    self.test.assertTrue(predicate, message)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : carrier CLI expectations failed; see carrier-summary.json; missing scan dispatch is a capability boundary, never semantic FINDING
+
+----------------------------------------------------------------------
+Ran 1 test in 201.309s
+
+FAILED (failures=1)

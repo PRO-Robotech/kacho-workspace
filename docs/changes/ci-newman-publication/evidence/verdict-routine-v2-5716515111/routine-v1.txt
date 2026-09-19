@@ -1,0 +1,127 @@
+# NP nonempty kacho-shard-v1 — proposed routine binding
+
+Status: PROPOSED for root and source-author readback before dependent holder.
+No product source, new acceptance scenario, or approval is created here.
+Accepted NP interface SHA256:
+`44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800`.
+Test source baseline is corelib `50a2f67b73ea25c3c138d64a13c31d53abe188eb`.
+Real producer/readers come from Kacho main
+`b5fa093341f1fdbe96adfc6a9555482690968253`.
+
+## Existing facts
+
+`.github/scripts/shard-verdict.py` reads tracked suite collection stems using
+Git, the fixed `deploy/e2e-shards.json` catalogue and actual Newman reports.
+It emits shard/suites, seven numeric counters, missing/empty string arrays,
+per_collection counters and optional precondition. Its rc is 75 for a stand
+precondition mark, 1 for zero tracked collections, otherwise 0; a finding
+Newman result does not by itself make this producer return nonzero.
+
+`.github/scripts/aggregate-shard-verdicts.py` is the direct verdict consumer.
+It reads those counts and precondition kind/unmet, retains missing/empty census,
+and derives the actual aggregate category. It does not need the free detail or
+per_collection input key text for its numeric decision. It joins missing/empty
+as strings, so changing them to integers without an adapter would break it.
+The workflow passes produced files to this consumer after download. Its other
+post-download reader `tools/knownfailingsubject` reads Newman reports, not the
+shard-verdict shape; that report compatibility is a separate existing boundary.
+
+## Proposed smallest private binding: no new manifest keys
+
+Keep the accepted private verdict entry exactly `{index, kind, path}`.
+For `kind: kacho-shard-v1`, the adapter has the fixed source coordinate
+`deploy/e2e-shards.json`. Require a tracked regular blob at source_commit,
+source_root HEAD equals source_commit and its checkout bytes equal that blob.
+Its digest is measured evidence. No arbitrary catalogue file/environment knob
+or raw report supplied catalogue is accepted.
+
+The raw `shard` value is only a lookup selector. It must identify exactly one
+entry in the trusted catalogue; copy the selected catalogue ID and suites into
+the output, never the raw strings as authority. Unknown/duplicate/ambiguous ID,
+raw suites differing from the selected catalogue entry, or unresolvable tracked
+collection binding refuses. The current `run.shard_index` remains the accepted
+numeric publication coordinate: this proposal does **not** silently assign it
+new catalogue-array-position meaning. This replaces the earlier exploratory
+message suggesting such an ordinal binding.
+
+For each trusted suite, use the producer's actual path rule:
+api-gateway → gateway/tests/newman/collections; other suite S →
+services/S/tests/newman/collections. Tracked `.postman_collection.json` stems
+bind each `<suite>/<stem>` key to exactly one declared reports[].collection and
+therefore its report index. Reject duplicate/ambiguous relations. Multiple
+verdict entries may cover distinct declared shards; duplicate shard declarations
+are ambiguous and refuse. All entries still have contiguous unique indices.
+
+Require the verdict counter/per_collection/index census to agree internally and
+with its declared report observations: expected is the trusted collection count;
+reported and per_collection refer to the observed declared reports; the five
+per-collection counters and totals preserve the actual producer observations;
+empty coordinates correspond to zero assertions. No changed scalar may turn a
+red observed report into a green shard. This is consistency of the accepted
+publication facts, not execution of Newman inside the projector.
+
+A missing required raw report still refuses project exactly as the accepted
+interface says. A shard precondition with no raw reports cannot bypass that
+completeness rule to obtain a publication ZIP. Precondition-marked verdicts with
+complete declared reports remain projectable, preserving the mark and all
+observed counters. The holder distinguishes this from claiming the actual
+missing-report case was successfully published.
+
+## Proposed closed projected verdict shape
+
+The member is `verdicts/verdict-000001.json` by private index, as already agreed.
+Its keys are exactly:
+
+```text
+schema_version: integer 1
+kind: "kacho-shard-v1"
+index: private verdict index, integer >=0
+shard: selected trusted catalogue ID
+suites: selected trusted catalogue suites, in declared order
+expected, reported, requests, unanswered, assertions, failed, script_failed:
+    nonnegative integer (bool is not integer)
+missing, empty: arrays of produced report member strings,
+    e.g. "reports/report-000001.json", related to declared report indices
+per_collection: object whose keys are those same produced report member strings,
+    with exact values {requests, unanswered, assertions, failed, script_failed}
+precondition: optional exact {unmet: bool,
+    kind: "external-chart-source" | "stand-revision-divergence"}
+```
+
+No arbitrary string keys are copied. Free detail/producer and unknown input
+metadata are stripped; unknown mandatory type/kind or incomplete schema refuses.
+Both current precondition forms preserve their fixed category and bool. Unknown
+future category is an unsupported adapter form, not a guess at its meaning.
+Public manifest verdict entry has the usual exact index/member/bytes/sha256
+fields; adding an input path or free metadata is forbidden. The existing
+aggregate can consume this shape without a new decision table; fixture
+filesystem relocation uses a generated `shard-verdict-000001.json` name so its
+existing filename discovery runs unchanged.
+
+Final check validates the closed output and the same trusted catalogue/index
+relations from the supplied private manifest; no raw path read is required to
+trust a public free string. Forged/rebound member digests do not waive schema,
+counter, source or full census validation. Existing six limits and field/node
+accounting apply to verdict inputs and output exactly as to the other members.
+
+## Planned independent holder scope
+
+One test-only Python holder plus hash-bound copies of the actual producer and
+direct aggregate reader, with provenance pointing to the exact Kacho commit.
+Use existing immutable real Newman fixtures and the three existing readers.
+Build real tracked suite/catalogue Git fixtures, run the actual producer,
+and record the actual aggregate reader's counts/category/exit before projection.
+Reader truth is observed from that code, not duplicated in the holder.
+
+Lawful forms: green, assertion finding, Newman precondition, script-error,
+empty-assertion refusal preserved, and both actual stand-precondition producer
+forms. Include multi-report/index binding, unknown metadata/privacy carriers,
+source/catalogue drift, missing file, malformed/unknown shape, invalid counters
+and index census, empty input, limits equality/one-below and final-check member
+mutations. Every negative has a lawful original and computed single-fact delta.
+The producer/reader prerequisites and current no-verdict projection run before
+expecting nonempty-verdict SUT RED. Missing/broken fixture is NOT_EXECUTED.
+
+This proposal needs explicit routine readback before the above shape-dependent
+assertions freeze. It does not claim full consumer workflow/runtime/retention,
+module release, main landing or NP closure.

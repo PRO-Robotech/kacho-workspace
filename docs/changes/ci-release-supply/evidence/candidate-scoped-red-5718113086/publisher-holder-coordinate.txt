@@ -1,0 +1,5 @@
+# Routine publisher holder coordinate
+
+Root selects the additional test-only file `internal/release/supply_publisher_test.go` for publisher Go fixtures/helpers and `TestReleaseSupplyPublisherProtocol`. It uses existing same-package frozen candidate/consumer helpers. The executable remains `scripts/release/publish-module-tree-inject.sh`.
+
+The frozen candidate file from commit 5c3293d321f7bd472cfa1c19f3677305eacbfddb, SHA256 c6eff1bf48c43c2b353daa8bd1d9bec6912b5170ceb72c27f44908703131d80d, remains byte-identical. Existing consumers/nested-module/pins holders remain unchanged. This placement adds one test-only file to the four proposed coordinates enumerated in accepted tasks.md lines43–45. It changes no scenario, predicate, expected result, architecture, runtime seam or product source scope. The selected name avoids changing frozen candidate imports or embedding Go source inside the shell entrypoint. This note is root-selected routine placement, not an independent test verdict or source authorization.

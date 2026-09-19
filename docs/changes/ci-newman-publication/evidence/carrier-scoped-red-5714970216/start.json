@@ -1,0 +1,16 @@
+{
+  "source_sha": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+  "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "command": [
+    "python3",
+    "ci/newman_publication/tests/test_carrier_scanner.py"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-carrier-tests",
+  "started_at_unix": 1789650677.0422955,
+  "file_hashes": {
+    "ci/newman_publication/tests/carrier_corpus.py": "b5b46275a3d5d39fde13f6407b43954b4e71706c57090fc153328891c5ed37a9",
+    "ci/newman_publication/tests/test_carrier_scanner.py": "205da4c2a692025bb96611caf573942972670ee62869cbbbbab35a00afbe5820"
+  },
+  "author_captures_hashes_verified": 9,
+  "GIT_environment_sanitized": true
+}

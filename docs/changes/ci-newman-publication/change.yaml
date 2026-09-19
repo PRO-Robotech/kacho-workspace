@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-newman-publication",
+  "lifecycle_state": "TASKS_READY",
+  "coordinates": {
+    "issue": "https://github.com/PRO-Robotech/kacho/issues/1810",
+    "repositories": [
+      {
+        "repo": "PRO-Robotech/kacho-workspace",
+        "role": "package-home",
+        "base_sha": "ab74164eb6078985d7ed7a6b18a577f56f7f20b7",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/kacho",
+        "role": "subject-tree",
+        "base_sha": "b5fa093341f1fdbe96adfc6a9555482690968253",
+        "cutover_is_ancestor_of_base": true
+      },
+      {
+        "repo": "PRO-Robotech/corelib",
+        "role": "common-producer",
+        "base_sha": "34bc8104a832b67e53c868646ab2b1e0ac4c8562"
+      },
+      {
+        "repo": "PRO-Robotech/kaname",
+        "role": "consumer",
+        "base_sha": "39628487099fe44990e9e03b09b725f3d7e37abb"
+      }
+    ]
+  },
+  "hashes": {
+    "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+    "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+    "holders_sha256": "494d3a0f23b6fb455ad9c441ebf620cff5fefb771316ad0ec3b2423c88a363ce",
+    "route_sha256": "0c5c33c52d266bf86c94c90ecc765f04682608f192e251471246841c2eb1523a",
+    "source_review_sha256": "1cf74cbc9cfeefe8935d543627786e25b1de2c997ebb70210a71ece8594bfd84",
+    "policy_transition_sha256": "9cd19d92e7bbc38a86a733ce6e4d3df8bd9e91916b59b8ac3817c69f5e6d7a11",
+    "policy_transition_review_sha256": "97292083a2a5d2ee70a1b4d1334289e7c8fc76df84966a943c00ebce2cc4c611",
+    "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+    "tasks_sha256": "3e916909d5c9a334733c8e81519653558f9a313b1d898464a91e9bcab2a28a0e",
+    "class_considerations_sha256": "9088f72c3285a05276095e1ece486ce21b0f2a1183b7ec3a640e565d74d850a6"
+  },
+  "links": {
+    "policy": "docs/changes/policy.yaml",
+    "acceptance": "docs/specs/sub-phase-CI-NP-1-newman-publication-acceptance.md",
+    "design": "docs/specs/sub-phase-CI-NP-1-newman-publication-design.md",
+    "holders": "docs/changes/ci-newman-publication/holders.yaml",
+    "route": "docs/changes/ci-newman-publication/route.md",
+    "source_review": "docs/changes/ci-newman-publication/review-history/20260917-approved-review.md",
+    "policy_transition": "docs/changes/ci-newman-publication/policy-transition-20260917.json",
+    "policy_transition_review": "docs/changes/ci-newman-publication/review-history/20260917-policy-review.md",
+    "interface": "docs/changes/ci-newman-publication/interface.md",
+    "tasks": "docs/changes/ci-newman-publication/tasks.md",
+    "class_considerations": "docs/changes/ci-newman-publication/class-considerations.md"
+  },
+  "reviews": [
+    "docs/changes/ci-newman-publication/reviews/acceptance-reviewer/2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400.yaml",
+    "docs/changes/ci-newman-publication/reviews/class-exposure-analyst/initial/2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400.yaml",
+    "docs/changes/ci-newman-publication/reviews/class-exposure-analyst/revalidation/d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181.yaml",
+    "docs/changes/ci-newman-publication/reviews/design-reviewer/d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181.yaml"
+  ],
+  "evidence": [],
+  "implementation_diff_set": [],
+  "lifecycle_history": [
+    {
+      "state": "ACCEPTANCE_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIh-AA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713198592",
+      "timestamp": "2026-09-17T10:56:23Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_RECORDED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIh_7Q",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199085",
+      "timestamp": "2026-09-17T10:56:25Z"
+    },
+    {
+      "state": "CLASS_EXPOSURE_REVALIDATED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIiBvw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199551",
+      "timestamp": "2026-09-17T10:56:27Z"
+    },
+    {
+      "state": "DESIGN_APPROVED",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIiDcg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713199986",
+      "timestamp": "2026-09-17T10:56:29Z"
+    },
+    {
+      "state": "TASKS_READY",
+      "authority": "root-orchestration-and-independent-integration-tester",
+      "route": "docs/changes/ci-newman-publication/route.md",
+      "holders": "docs/changes/ci-newman-publication/holders.yaml",
+      "scope": "NP-T1 fixtures and independent holders only; NP-T2 waits for RED and root transition"
+    }
+  ],
+  "scoped_transitions": [
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Python report/log projection",
+        "private Git-bound manifest/source relation",
+        "positive file/stdin roundtrip check",
+        "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+      ],
+      "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVIwbZQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713435493",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/projection-scoped-red-e27d24458cba073fa6a3e0c1843b5543646f96f3.yaml",
+      "remaining": "Все прочие части NP-T2 и NP-T3–T7 сохраняют свои TESTS_PENDING/зависимости; global lifecycle остаётся TASKS_READY."
+    },
+    {
+      "state": "APPROVED_SCOPED_GREEN",
+      "task": "NP-T2",
+      "scope": [
+        "Python report/log projection",
+        "private Git-bound manifest/source relation",
+        "positive file/stdin roundtrip check",
+        "missing/malformed/dirty source/foreign commit/symlink/existing output refusals"
+      ],
+      "source_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+      "test_commit": "e27d24458cba073fa6a3e0c1843b5543646f96f3",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJOxFA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5713932564",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/projection-scoped-green-e8c07ed1a7fab3739fd84597e9c597ab911dcbb7.yaml",
+      "remaining": "Все части вне разрешённой Python projection сохраняют TESTS_PENDING/зависимости. Global lifecycle остаётся TASKS_READY; внешняя публикация и доставка не разрешены."
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "task": "NP-T1",
+      "scope": [
+        "Единица unwrap depth и cumulative decoded nodes для независимых holders; потолки и approved contracts не меняются."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJaWYg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714122338",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/decoding-routine-5714122338.yaml",
+      "remaining": "Source scanner не разрешён; это точная convention, не security GREEN."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Полное неперекрывающееся покрытие байтов конечного ZIP",
+        "Согласованность local/central metadata",
+        "Регулярность производимых members",
+        "Сохранение 10 projection и 8 checker tests без изменения assertions"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJiFCw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714248971",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/checker-scoped-red-5714248971.yaml",
+      "remaining": "Scanner/capacity/SDK/consumers/runtime/retention сохраняют отдельные RED и последующие переходы."
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "task": "NP-T2",
+      "scope": [
+        "Python projection и полный final ZIP envelope",
+        "Полное неперекрывающееся покрытие байтов",
+        "Local/central metadata agreement и regular members",
+        "Сохранение прежних читателей и source binding"
+      ],
+      "source_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+      "test_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJqxIA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714391328",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/checker-scoped-green-5714391328.yaml",
+      "remaining": "Scanner/capacity/SDK/consumers/runtime/retention/convergence и доставка сохраняют собственные обязательные этапы. Global lifecycle остаётся TASKS_READY."
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "task": "NP-T1",
+      "scope": [
+        "Одно раскрытие даёт один typed decoded result; JSON object/array parsing входит в тот же шаг.",
+        "Исходные и дополнительные typed representations считаются; parser temporaries не дублируются.",
+        "Только null и empty string служат lawful absence markers текущего holder."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVJ8MWw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714676827",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/decoding-typed-result-5714676827.yaml",
+      "remaining": "Ceilings, accepted subjects и global phase неизменны; событие 5714676827 само по себе не разрешает scanner source и не объявляет GREEN."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "task": "NP-T2",
+      "scope": [
+        "Полный supported scanner/decoding/capacity CLI в corelib ci/newman_publication.",
+        "Generic credential families и contexts; immutable holders, accepted ceilings и projection/checker regression obligations сохраняются."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVKOGaA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714970216",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/carrier-scoped-red-5714970216.yaml",
+      "remaining": "SDK, consumer workflows/pins, runtime, retention, convergence, main delivery и closure сохраняют отдельные обязательные этапы. Global lifecycle остаётся TASKS_READY."
+    },
+    {
+      "scope": [
+        "Routine names: семь action inputs, fixed Node24 entrypoint, closed result и exit mapping",
+        "Принятые acceptance/design/interface bytes и semantics неизменны"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVK2r7w",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5715635183",
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "task": "NP-T1",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/action-input-names-5715635183.yaml",
+      "remaining": "Это основание для независимого NP-T1 holder, не RED, не разрешение source SDK и не GREEN publisher."
+    },
+    {
+      "scope": [
+        "CI-NP-02/03: frozen carrier/scanner/decoding/capacity holder",
+        "Все 18 прежних projection/checker tests без изменения assertions"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVK6G-g",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5715691258",
+      "state": "SCOPED_GREEN_APPROVED",
+      "task": "NP-T2",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/carrier-scoped-green-5715691258.yaml",
+      "remaining": "Global lifecycle TASKS_READY; Nonempty verdict adapter и его отдельный RED/GREEN; SDK/action publisher; consumer workflows и pins; Полный runtime и retention/containment/prelanding; Покрытие фактического исторического ZIP data-descriptor формата; Convergence, доставка в main и закрытие #1810",
+      "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+      "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e"
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "CI-NP-03/04: publishSnapshot и fixed Node24 action; пять action/package paths",
+        "Private snapshot, all pre-CLEAN effects forbidden, fixed checker/SDK, bounded diagnostics"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLSbmw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716089755",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/sdk-scoped-red-5716089755.yaml",
+      "test_commit": "d880251ebfd21aea68e42f4d71d1c862a9e6cfa9",
+      "remaining": "Global lifecycle TASKS_READY; независимый GREEN, consumer/runtime/retention/main — отдельные этапы."
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "CI-NP-08: scan-only signed16 data descriptor flags8/deflate8/localzero",
+        "Строгий UTF-8 .cli/.rc через прежний walker; strict check/project и limits неизменны"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLV-gA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716147840",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/historical-scoped-red-5716147840.yaml",
+      "test_commit": "1c9e6a7908b422799df256ceffe0719bbda32dad",
+      "remaining": "Global lifecycle TASKS_READY; независимый GREEN, consumer/runtime/retention/main — отдельные этапы."
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "SDK snapshot publisher/fixed Node24 action",
+        "Historical scan signed16 descriptor + UTF-8 .cli/.rc",
+        "Полная Python regression и frozen SDK matrix"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLpfBA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716467460",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/sdk-historical-scoped-green-5716467460.yaml",
+      "remaining": "Global TASKS_READY; nonempty verdict adapter, consumer/runtime/retention/main и closure ещё требуются.",
+      "source_commit": "883fc4999b26dab9567689926eb159236f397afb"
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Обычные имена и binding nonempty kacho-shard-v1 в рамках принятого interface",
+        "Exact trusted catalogue/report union; closed numeric/precondition projection без raw history claim"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVLsZJw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716515111",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/verdict-routine-v2-5716515111.yaml",
+      "remaining": [
+        "Само routine agreement не разрешает source и не устанавливает GREEN"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "Только catalogue.py, publication.py и новый verdicts.py",
+        "Непустой project/check adapter с exact catalogue/report binding; holders и соседние области неизменны"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVL47JQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716720421",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/verdict-scoped-red-5716720421.yaml",
+      "remaining": [
+        "Независимый combined GREEN",
+        "Потребители, runtime, retention, release/main и closure"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Непустой kacho-shard-v1 adapter и неизменная полная локальная Python/SDK regression"
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMN0Pg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717062718",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/verdict-scoped-green-5717062718.yaml",
+      "remaining": [
+        "Consumer workflows/pins",
+        "Полный runtime, retention/containment/prelanding",
+        "Module release/main и closure"
+      ]
+    },
+    {
+      "state": "APPROVED_ROUTINE_CONVENTION",
+      "scope": [
+        "Finite recognition clarification для отдельного независимого holder; 4 explicit Basic classes, complete spans/remainders и прежние limits. Source этим событием не разрешён."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMWTCw",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717201675",
+      "record": "docs/changes/ci-newman-publication/reviews/system-design-reviewer/recognizer-grammar-5717201675.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "IMPLEMENTING",
+      "scope": [
+        "158 recognition inputs и 14 accounting shapes; оба parents semantic FAIL, 0 ERROR/SKIP. Разрешён только carriers.py, old holders/limits неизменны."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVMoMEQ",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717494801",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/recognizer-scoped-red-5717494801.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "APPROVED_BOUNDED_TEST_ONLY_CORRECTION",
+      "scope": [
+        "Root воспроизвёл FileExistsError: 1 ERROR, 151 captures, 26 readers. Разрешена одна suffix expression в test_recognizer_boundaries.py; это holder defect, не product RED."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVM4Krg",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717756590",
+      "record": "docs/changes/ci-newman-publication/reviews/landing-reviewer/recognizer-holder-correction-5717756590.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    },
+    {
+      "state": "SCOPED_GREEN_APPROVED",
+      "scope": [
+        "Root combined replay: 23 Python + 46 SDK PASS, 0 FAIL/SKIP; 5031 capture pairs, 1186 readers. Recognition 158/504, accounting 14/136, все 83 negative pairs установлены."
+      ],
+      "event_coordinate": "IC_kwDOTZqgWM8AAAABVNI-HA",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5718031900",
+      "record": "docs/changes/ci-newman-publication/reviews/integration-tester/recognizer-scoped-green-5718031900.yaml",
+      "remaining": [
+        "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+      ]
+    }
+  ]
+}

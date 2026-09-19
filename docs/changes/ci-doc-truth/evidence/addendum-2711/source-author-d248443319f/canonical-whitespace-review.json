@@ -1,0 +1,21 @@
+{
+  "full_staged_rc": 2,
+  "warnings_only_in_unchanged_raw_unified_diff_captures": [
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/source.diff",
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-full.diff",
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-independent.diff",
+    "docs/changes/ci-doc-truth/evidence/local-integration/corelib-generated.diff"
+  ],
+  "reason": "Unified diff context prefixes require a leading space before captured tabs or empty context lines; raw evidence bytes preserved.",
+  "all_other_staged_files_checked": 152,
+  "all_other_staged_rc": 0,
+  "raw_capture_hashes": {
+    "docs/changes/ci-doc-truth/evidence/addendum-2711/source-author-d248443319f/source.diff": "1e929f85f7cc972abfa3b10c1b5009b98337820def0c70c8ad4238d4e5cdc5c7",
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/candidate-full.diff": "4c5637f81fbc3032ff18b4d2302c9bd353e42c6928a82a2b25dafafce97ba10e",
+    "docs/changes/ci-doc-truth/evidence/independent-88deb14/tester/generated-independent.diff": "5663bbe76970c139dbfca6e367e630699619b908e7487b681e41d112a58e415d",
+    "docs/changes/ci-doc-truth/evidence/local-integration/corelib-generated.diff": "81aae855205db20001e95cd0b66db120a270781975542ae7c334dc694a0ab284"
+  },
+  "full_staged_stdout_sha256": "b7f6109b03779801dc5abdd39185cb24396677fc8082a5b9c2541ec755cbbde4",
+  "full_staged_stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "reviewed_docs_commit": "40548ab29d8bc35adc66af27fa2ba48aeed99214"
+}

@@ -1,0 +1,391 @@
+{
+  "kind": "author-operational-prerequisite-not-independent-approval",
+  "fixture_root": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+  "argv": [
+    "/home/dk/.local/bin/go",
+    "list",
+    "-e",
+    "-json",
+    "-deps",
+    "-test",
+    "./..."
+  ],
+  "env_delta": {
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "runs": [
+    {
+      "name": "regular-baseline",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "trace_argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-yy",
+        "-s",
+        "128",
+        "-e",
+        "trace=openat,read,close",
+        "-P",
+        "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/regular-baseline/go-mod.strace",
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "go_pid": 292290,
+      "trace_sha256": "c59bd3ed576c05cc44d9f30cdd3c3240e3f350ee005271b4cd9ee63c86c0c6bf",
+      "cwd": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+      "deadline_seconds": 3.0,
+      "pid": 292288,
+      "returncode": 0,
+      "elapsed_seconds": 0.20328760700067505,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": false,
+        "writes": [],
+        "errors": []
+      },
+      "early_snapshot": {
+        "pid": 292290,
+        "exists": false
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 33204
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    },
+    {
+      "name": "fifo-repeat-writer",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "trace_argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-yy",
+        "-s",
+        "128",
+        "-e",
+        "trace=openat,read,close",
+        "-P",
+        "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer/go-mod.strace",
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "go_pid": 292304,
+      "trace_sha256": "6449f2ee6646ef5b8b590f8ddf1f5035a14c2c408ca3c1defe6ee5baa0045397",
+      "cwd": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+      "deadline_seconds": 3.0,
+      "pid": 292302,
+      "returncode": 0,
+      "elapsed_seconds": 0.2034458850394003,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": true,
+        "writes": [
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.01391608704579994
+          },
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.016268507053609937
+          }
+        ],
+        "errors": [],
+        "closed_after_each_write": true
+      },
+      "early_snapshot": {
+        "pid": 292304,
+        "exists": false
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    },
+    {
+      "name": "fifo-no-writer",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "trace_argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-yy",
+        "-s",
+        "128",
+        "-e",
+        "trace=openat,read,close",
+        "-P",
+        "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-no-writer/go-mod.strace",
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "go_pid": 292319,
+      "trace_sha256": "e797ad4b6c96a825bcd94bee8ff64c80bb9accb803c212ee6860cc49d936dfc8",
+      "cwd": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+      "deadline_seconds": 3.0,
+      "pid": 292317,
+      "returncode": -9,
+      "elapsed_seconds": 3.0052349410252646,
+      "deadline_expired": true,
+      "writer": {
+        "enabled": false,
+        "writes": [],
+        "errors": []
+      },
+      "early_snapshot": {
+        "pid": 292319,
+        "exists": true,
+        "stat": "292319 (go) S 292317 292317 292317 0 -1 4194304 642 0 0 0 0 0 0 0 20 0 5 0 44418576 1302544384 2603 18446744073709551615 4194304 11132593 140734540667600 0 0 0 0 0 2143420159 0 0 0 17 13 0 0 0 0 0 17973248 18407616 979406848 140734540676550 140734540676605 140734540676605 140734540681185 0",
+        "wchan": "wait_for_partner",
+        "syscall": "257 0xffffffffffffff9c 0x31480c476ed0 0x80000 0x0 0x0 0x0 0x31480c591e30 0x40d00e",
+        "cmdline": [
+          "/home/dk/.local/bin/go",
+          "list",
+          "-e",
+          "-json",
+          "-deps",
+          "-test",
+          "./..."
+        ],
+        "exe": "/home/dk/.local/opt/go1.26.8/bin/go",
+        "pgid": 292317,
+        "children": [],
+        "fds": {
+          "0": "pipe:[128616144]",
+          "1": "pipe:[128627074]",
+          "2": "pipe:[128627075]",
+          "3": "/home/dk/.config/go/telemetry/local/go@go1.26.8-go1.26.8-linux-amd64-2026-09-17.v1.count",
+          "4": "anon_inode:[eventpoll]",
+          "5": "anon_inode:[eventfd]"
+        }
+      },
+      "cancellation": {
+        "signal": "SIGKILL",
+        "own_pgid": 292317,
+        "before_cancel": {
+          "pid": 292319,
+          "exists": true,
+          "stat": "292319 (go) S 292317 292317 292317 0 -1 4194304 642 0 0 0 0 0 0 0 20 0 5 0 44418576 1302544384 2603 18446744073709551615 4194304 11132593 140734540667600 0 0 0 0 0 2143420159 0 0 0 17 13 0 0 0 0 0 17973248 18407616 979406848 140734540676550 140734540676605 140734540676605 140734540681185 0",
+          "wchan": "wait_for_partner",
+          "syscall": "257 0xffffffffffffff9c 0x31480c476ed0 0x80000 0x0 0x0 0x0 0x31480c591e30 0x40d00e",
+          "cmdline": [
+            "/home/dk/.local/bin/go",
+            "list",
+            "-e",
+            "-json",
+            "-deps",
+            "-test",
+            "./..."
+          ],
+          "exe": "/home/dk/.local/opt/go1.26.8/bin/go",
+          "pgid": 292317,
+          "children": [],
+          "fds": {
+            "0": "pipe:[128616144]",
+            "1": "pipe:[128627074]",
+            "2": "pipe:[128627075]",
+            "3": "/home/dk/.config/go/telemetry/local/go@go1.26.8-go1.26.8-linux-amd64-2026-09-17.v1.count",
+            "4": "anon_inode:[eventpoll]",
+            "5": "anon_inode:[eventfd]"
+          }
+        },
+        "signal_target_go_pid": 292319,
+        "cancel_seconds": 3.002765019016806,
+        "reaped_after_seconds": 0.002311002986971289
+      },
+      "reaped": true,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 0,
+        "problem_objects": 0,
+        "import_paths": []
+      }
+    },
+    {
+      "name": "fifo-repeat-writer-restored",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "trace_argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-yy",
+        "-s",
+        "128",
+        "-e",
+        "trace=openat,read,close",
+        "-P",
+        "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer-restored/go-mod.strace",
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "go_pid": 292381,
+      "trace_sha256": "8a30e7e3044eec1a981e2745a356869db0872ce51d1bfe25d8e5cdc8643c2fe4",
+      "cwd": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+      "deadline_seconds": 3.0,
+      "pid": 292379,
+      "returncode": 0,
+      "elapsed_seconds": 0.20362325996393338,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": true,
+        "writes": [
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.013997339992783964
+          },
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.016189447953365743
+          }
+        ],
+        "errors": [],
+        "closed_after_each_write": true
+      },
+      "early_snapshot": {
+        "pid": 292381,
+        "exists": false
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    }
+  ],
+  "provenance": {
+    "go_path": "/home/dk/.local/bin/go",
+    "resolved_path": "/home/dk/.local/opt/go1.26.8/bin/go",
+    "binary_sha256": "d9a2fa19c7ef8b57f420012c21f49f235c46f08a68c12077d9c753dbb6ccdc34",
+    "version": "go version go1.26.8 linux/amd64",
+    "go_mod_bytes": 46,
+    "go_mod_sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+    "source_sha256": "458cf65508504f3ea616c36cc572d0d08536178425505d179149585ab55c008a"
+  },
+  "prerequisite_proved": true,
+  "cleanup": {
+    "owned_pids": [
+      292290,
+      292288,
+      292304,
+      292302,
+      292319,
+      292317,
+      292381,
+      292379
+    ],
+    "all_owned_pids_absent": true,
+    "fixture_root_absent": true
+  }
+}

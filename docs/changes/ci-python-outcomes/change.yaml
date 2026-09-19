@@ -1,0 +1,100 @@
+schema_version: 1
+change_id: ci-python-outcomes
+lifecycle_state: TASKS_READY
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/2629
+  related_issues:
+    - https://github.com/PRO-Robotech/kacho/issues/2281
+    - https://github.com/PRO-Robotech/kacho/issues/2705
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: ab74164eb6078985d7ed7a6b18a577f56f7f20b7
+      cutover_is_ancestor_of_base: true
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      base_sha: b5fa093341f1fdbe96adfc6a9555482690968253
+      cutover_is_ancestor_of_base: true
+hashes:
+  transport_interface_sha256: 6e98466a99871bc2515b969d7607630d2a4cc30fcad2bd64b87e2c8d51deded1
+  acceptance_sha256: 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e
+  design_sha256: 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d
+  class_considerations_sha256: 2f9410b4620dc2cb9273f76c1fe8e6e57cf2b7d0c1d7c079a2c9ee2fd547c7f6
+  route_sha256: 62b2aeac5766c5359d4b882e08112fb45b9de0c121d28ea79f18ad79c906d32f
+  holders_sha256: 8610fa303d34a869409e1b23502332e423d33766eed729242c83187b5235f262
+links:
+  transport_interface: docs/changes/ci-python-outcomes/transport-interface.md
+  policy: docs/changes/policy.yaml
+  acceptance: docs/specs/sub-phase-CI-PY-1-python-outcomes-acceptance.md
+  design: docs/specs/sub-phase-CI-PY-1-python-outcomes-design.md
+  class_considerations: docs/changes/ci-python-outcomes/class-considerations.md
+  route: docs/changes/ci-python-outcomes/route.md
+  holders: docs/changes/ci-python-outcomes/holders.yaml
+reviews:
+  - docs/changes/ci-python-outcomes/reviews/acceptance-reviewer/427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e.yaml
+  - docs/changes/ci-python-outcomes/reviews/class-exposure-analyst/initial/427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e.yaml
+  - docs/changes/ci-python-outcomes/reviews/class-exposure-analyst/revalidation/26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d.yaml
+  - docs/changes/ci-python-outcomes/reviews/design-reviewer/26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d.yaml
+evidence: []
+lifecycle_history:
+  - state: ACCEPTANCE_APPROVED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR3xw
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712934855
+    timestamp: '2026-09-17T10:35:02Z'
+  - state: CLASS_EXPOSURE_RECORDED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR5Zg
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712935270
+    timestamp: '2026-09-17T10:35:04Z'
+  - state: DESIGN_APPROVED
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIR83A
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5712936156
+    timestamp: '2026-09-17T10:35:09Z'
+  - state: TASKS_READY
+    authority: root-orchestration-and-independent-integration-tester
+    route: docs/changes/ci-python-outcomes/route.md
+    holders: docs/changes/ci-python-outcomes/holders.yaml
+
+scoped_transitions:
+  - state: IMPLEMENTING
+    decisions: [D1, D2, D3]
+    scenarios: [CI-PY-01, CI-PY-02, CI-PY-03, CI-PY-04, CI-PY-05, CI-PY-06, CI-PY-07, CI-PY-08]
+    test_commit: 8cc171365e676f07005bfdde9b97d85d0eaa2452
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIkqbw
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713242735
+    record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/producer-scoped-red-8cc171365e676f07005bfdde9b97d85d0eaa2452.yaml
+    remaining: D4-D7 TESTS_PENDING
+  - state: GREEN_VERIFIED
+    decisions: [D1, D2, D3]
+    scenarios: [CI-PY-01, CI-PY-02, CI-PY-03, CI-PY-04, CI-PY-05, CI-PY-06, CI-PY-07, CI-PY-08]
+    source_commit: 78025a3d10a7ea4eaf86ce4797026e0f76396edc
+    test_commit: 8cc171365e676f07005bfdde9b97d85d0eaa2452
+    event_coordinate: IC_kwDOTZqgWM8AAAABVIsukQ
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713374865
+    record: docs/changes/ci-python-outcomes/reviews/integration-tester/producer-scoped-green-78025a3d10a7ea4eaf86ce4797026e0f76396edc.yaml
+    remaining: D4-D7 TESTS_PENDING
+
+  - name: ci09-correction
+    state: APPROVED_BOUNDED_TEST_ONLY_CORRECTION
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5715525103
+    event_coordinate: IC_kwDOTZqgWM8AAAABVKv97w
+    record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/ci09-oracle-correction-5715525103.yaml
+  - name: full-candidate-green
+    state: SCOPED_GREEN_APPROVED
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5716467064
+    event_coordinate: IC_kwDOTZqgWM8AAAABVLpdeA
+    record: docs/changes/ci-python-outcomes/reviews/integration-tester/full-candidate-green-5716467064.yaml
+
+routine_revalidations:
+  - record: docs/changes/ci-python-outcomes/routine/execution-route-20260917/record.json
+    subject_sha256: 00f1c9bde19ef48308274c85940ae267f4e0af6220456233b7d6e3f681ce23e3
+    review_sha256: 432485e133b807a7a207068c1a27c88ff4f20fcd8bbdb59d980abb8eefc67429
+    scope: D4-D7 execution placement and budgets; source pending semantic RED
+
+downstream_transition:
+  state: IMPLEMENTING
+  decisions: [D4, D5, D6, D7-mandatory-wiring]
+  source_base: e9b32abe757f89f3f092928172d9b29536feab35
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5713896895
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJMlvw
+  record: docs/changes/ci-python-outcomes/reviews/landing-reviewer/downstream-scoped-red-e9b32abe757.yaml
+  limitation: scoped semantic RED; full corrected-holder GREEN remains required

@@ -1,0 +1,27 @@
+{
+  "status": "READ_ONLY_PLAN_COMPLETE_PENDING_ROOT_ROUTINE_READBACK",
+  "own_worktree": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan",
+  "source_head": "28a80b7a5ff0f14221e1077b77a4dbf60a6922de",
+  "clean": true,
+  "inputs_verified": 24,
+  "source_edits": 0,
+  "test_edits": 0,
+  "canonical_edits": 0,
+  "SUT_runs": 0,
+  "parser_cases_proposed": 33,
+  "historical_assertions_preserved_as_oracle": 18,
+  "root_task_readback_intent": [
+    "pass exact P5 HEAD via existing --revision private route",
+    "compiled binary in reviewed machine/regression run.outputs plus mandatory root pre-invocation verification/direct execution",
+    "owned native Git transport adapter following frozen d38 policy permitted"
+  ],
+  "remaining_before_holder_freeze": [
+    "finite parser matrix/additive holder paths final readback",
+    "bootstrap missing-tool/build-failure JSON phase/reason",
+    "closed declaration failure table",
+    "historical fixture/helper successor boundary",
+    "separate pins CI exact Kaname revision/input-composition decision"
+  ],
+  "all_processes_finished": true,
+  "notes": "No test process started. No missing API/file is labelled semantic RED. D8 authority and live delivery remain absent."
+}

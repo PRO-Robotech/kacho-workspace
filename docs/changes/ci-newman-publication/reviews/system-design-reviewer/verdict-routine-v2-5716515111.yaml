@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "system-design-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLsZJw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716515111",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVLsZJw",
+  "event_api_id": 5716515111,
+  "body_sha256": "d9482d8a96b36d1ae83e592caffe4fa0499f608d6f51b52ec129da31e841d58a",
+  "timestamp": "2026-09-17T14:58:55Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": null,
+  "subject_path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/routine-v2.txt",
+  "subject_sha256": "19a9d04459011d47801d760db8d2d6fdecb84a01a5aca393973e3dc1fd3f0ad0",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_ROUTINE_CONVENTION",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/event-body.txt",
+  "source_review_sha256": "d9482d8a96b36d1ae83e592caffe4fa0499f608d6f51b52ec129da31e841d58a",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/event-body.txt",
+      "sha256": "d9482d8a96b36d1ae83e592caffe4fa0499f608d6f51b52ec129da31e841d58a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/published-event.json",
+      "sha256": "b0011167d4068cfd759d6210a6cb727cfa63593823622ec0f9893dfb8e2be24a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/api-readback.json",
+      "sha256": "b0011167d4068cfd759d6210a6cb727cfa63593823622ec0f9893dfb8e2be24a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/request.json",
+      "sha256": "eaddd81fb78b8cee25856c56146c02f1669eb37f94ef4b295875bb638f145c9d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/routine-v1.txt",
+      "sha256": "4d469abd550a65b9575d16360ac7927c62a3494f71852840df010d4d1a6fc496"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/routine-v2.txt",
+      "sha256": "19a9d04459011d47801d760db8d2d6fdecb84a01a5aca393973e3dc1fd3f0ad0"
+    }
+  ],
+  "scope": [
+    "Обычные имена и binding nonempty kacho-shard-v1 в рамках принятого interface",
+    "Exact trusted catalogue/report union; closed numeric/precondition projection без raw history claim"
+  ],
+  "pending": [
+    "Само routine agreement не разрешает source и не устанавливает GREEN"
+  ],
+  "source_author": "/root/e2e_audit",
+  "holder_author": "/root/release_supply_arch"
+}

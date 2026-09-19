@@ -1,0 +1,26 @@
+{
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-run",
+    "^TestInternalPinsReachability$",
+    "-count=1",
+    "-json",
+    "-timeout=10m"
+  ],
+  "head": "5c5476d1a7b330b865d0d753d89e0f9ad84378d2",
+  "rc": 1,
+  "seconds": 5.926351428031921,
+  "test_counts": {
+    "run": 17,
+    "output": 270,
+    "pass": 1,
+    "fail": 16
+  },
+  "stdout_sha256": "11261c74761d99c79f28c3978343dde4056df78b19c1765bb1f233637195b8c7",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_holders_unchanged": true,
+  "clean": true,
+  "finished_at": "2026-09-17T15:50:23.301430+00:00"
+}

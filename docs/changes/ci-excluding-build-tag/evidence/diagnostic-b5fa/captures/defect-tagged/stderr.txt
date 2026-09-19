@@ -1,0 +1,3 @@
+# synthexcluding/pkg
+# [synthexcluding/pkg]
+vet: pkg/caller_test.go:5:40: undefined: helperValue

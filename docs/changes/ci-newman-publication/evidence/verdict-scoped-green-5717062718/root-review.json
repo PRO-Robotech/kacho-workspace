@@ -1,0 +1,21 @@
+{
+  "status": "ROOT_SCOPED_GREEN",
+  "scope": "nonempty kacho-shard-v1 verdict adapter and unchanged regression boundary",
+  "author": "056472e0d1b7a4261a5592460eecb14eae423453",
+  "aggregate": "afd2b182822beb90d8648ed4c79d5f2ef6e0eb2c",
+  "tree": "5258e9e566f7a793c2c2a07794242a33bdd304e8",
+  "all_three_source_changes_read": true,
+  "source_review": "Trusted Git catalogue/blob/checkout binding; suites/reports full union and unique ownership; producer counter/empty relation; closed final schema and no raw reread. Existing walk/limits/SDK/holders unchanged. No original raw precondition history authentication claim.",
+  "frozen_holder": "e548f5836ec2326d9ea4b35b90d1a697c5f87c69",
+  "verdict_holder_sha256": "bc418e0addb5d062ee13500bce3146ec31cb1dc1044ed3eeaa42f59e1021b312",
+  "verdict_attempts": 125,
+  "lawful_clean": 49,
+  "established_negative_pairs": 76,
+  "unestablished_negative_pairs": 0,
+  "source_and_holders_unchanged": true,
+  "combined_result_sha256": "eab293af5e806411f5bdceabaefeffbd797917937b4bbc74b7c3292b1bcc15e5",
+  "captures_verified_sha256": "7e165e9820b66db2ca78348fe790581d7269c0203284c84f85d4b4912e0327d7",
+  "process_capture_pairs": 3783,
+  "readers": 894,
+  "prior_red_preserved": "newman-verdict-root-red-e548"
+}

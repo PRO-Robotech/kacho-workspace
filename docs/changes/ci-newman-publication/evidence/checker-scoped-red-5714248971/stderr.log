@@ -1,0 +1,117 @@
+test_np02_rebound_member_hash_does_not_authorize_opaque_key (test_check_boundaries.FinalArchiveBoundary.test_np02_rebound_member_hash_does_not_authorize_opaque_key) ... ok
+test_np03_changed_public_binding_and_bad_member_hash_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_changed_public_binding_and_bad_member_hash_refused) ... ok
+test_np03_duplicate_unknown_missing_and_unsafe_member (test_check_boundaries.FinalArchiveBoundary.test_np03_duplicate_unknown_missing_and_unsafe_member) ... ok
+test_np03_empty_truncated_and_nonzip_are_not_clean (test_check_boundaries.FinalArchiveBoundary.test_np03_empty_truncated_and_nonzip_are_not_clean) ... ok
+test_np03_metadata_carriers_are_not_ignored (test_check_boundaries.FinalArchiveBoundary.test_np03_metadata_carriers_are_not_ignored) ... ok
+test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) ... 
+  test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) (kind='symlink') ... FAIL
+  test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) (kind='directory') ... FAIL
+test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) ... 
+  test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) (position='prefix') ... FAIL
+  test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) (position='suffix') ... FAIL
+test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) ... 
+  test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='local-extra-only') ... FAIL
+  test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='gap-before-central') ... FAIL
+  test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='shadow-eocd-before-central') ... FAIL
+  test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='repeated-central-eocd-tail') ... FAIL
+
+======================================================================
+FAIL: test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) (kind='symlink')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 132, in test_np03_symlink_or_directory_member_metadata_is_refused
+    self.refuse(self.repack(infos=infos), name)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : symlink: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np03_symlink_or_directory_member_metadata_is_refused (test_check_boundaries.FinalArchiveBoundary.test_np03_symlink_or_directory_member_metadata_is_refused) (kind='directory')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 132, in test_np03_symlink_or_directory_member_metadata_is_refused
+    self.refuse(self.repack(infos=infos), name)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : directory: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) (position='prefix')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 79, in test_np04_bytes_before_or_after_zip_are_not_closed_projection
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : prefix: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_bytes_before_or_after_zip_are_not_closed_projection (test_check_boundaries.FinalArchiveBoundary.test_np04_bytes_before_or_after_zip_are_not_closed_projection) (position='suffix')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 79, in test_np04_bytes_before_or_after_zip_are_not_closed_projection
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : suffix: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='local-extra-only')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 123, in test_np04_internal_zip_gaps_and_shadow_directory_are_refused
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : local-extra-only: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='gap-before-central')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 123, in test_np04_internal_zip_gaps_and_shadow_directory_are_refused
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : gap-before-central: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='shadow-eocd-before-central')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 123, in test_np04_internal_zip_gaps_and_shadow_directory_are_refused
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : shadow-eocd-before-central: mutated final ZIP was authorized
+
+======================================================================
+FAIL: test_np04_internal_zip_gaps_and_shadow_directory_are_refused (test_check_boundaries.FinalArchiveBoundary.test_np04_internal_zip_gaps_and_shadow_directory_are_refused) (kind='repeated-central-eocd-tail')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 123, in test_np04_internal_zip_gaps_and_shadow_directory_are_refused
+    self.refuse(data, name)
+    ~~~~~~~~~~~^^^^^^^^^^^^
+  File "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_/ci/newman_publication/tests/test_check_boundaries.py", line 63, in refuse
+    self.assertTrue(process.returncode in (1, 3), name + ": mutated final ZIP was authorized")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : repeated-central-eocd-tail: mutated final ZIP was authorized
+
+----------------------------------------------------------------------
+Ran 8 tests in 3.119s
+
+FAILED (failures=8)

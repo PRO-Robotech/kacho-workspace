@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVOPJZg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5719181670",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVOPJZg",
+  "event_api_id": 5719181670,
+  "body_sha256": "0a5b4f218499c16be58b3dbbff033fd445897f63ec16f8c5e4b5fcaed2386d23",
+  "timestamp": "2026-09-17T18:18:21Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "c61a1ff85565374fbbc9dd11f6e1dfc95224f459",
+  "subject_path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/root-review.json",
+  "subject_sha256": "59ae4907d25127df227eb2df81f4892e22fcb5df8c2a85807465317241142a84",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/root-review.json",
+  "source_review_sha256": "59ae4907d25127df227eb2df81f4892e22fcb5df8c2a85807465317241142a84",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/event-body.txt",
+      "sha256": "0a5b4f218499c16be58b3dbbff033fd445897f63ec16f8c5e4b5fcaed2386d23"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/request.json",
+      "sha256": "df6a4bfa15f50359a1fb5a58f306fbbf9d831018271ca96a29dcc93445f412f5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/published-event.json",
+      "sha256": "32c9767b571721deb1d4cd7193a999b53b8e16c432a04c22e25deb0e18752642"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/api-readback.json",
+      "sha256": "32c9767b571721deb1d4cd7193a999b53b8e16c432a04c22e25deb0e18752642"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/root-review.json",
+      "sha256": "59ae4907d25127df227eb2df81f4892e22fcb5df8c2a85807465317241142a84"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-cas-source-5719181670/personal-stateless-root-review.json",
+      "sha256": "2bf2cc5c934a12cf8761db4487330867ede8a8ab32b0563ef77b8524711b4a7f"
+    }
+  ],
+  "scope": [
+    "Разрешены exact expected-empty CAS собственной ветви, личная snapshot identity и native credential transport. Подготовлено 52 случая, 0 вызовов SUT; cleanup failure сохранён; publisher GREEN не заявлен."
+  ],
+  "pending": [
+    "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

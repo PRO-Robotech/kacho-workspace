@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "subject_path": "ci/newman_publication/tests/test_carrier_scanner.py",
+  "subject_sha256": "205da4c2a692025bb96611caf573942972670ee62869cbbbbab35a00afbe5820",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_SCOPED_CAPABILITY_RED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVKOGaA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714970216",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVKOGaA",
+  "event_api_id": 5714970216,
+  "body_sha256": "c09eda0bdb113bce962c31088a73757d261ee6e9098603246f9bff22211e7eb8",
+  "timestamp": "2026-09-17T13:15:44Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "6a4af14ffb4cbc1d817f82d53fe7c0093d09092c8a30321d79410bc818c0593d",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/review.md",
+  "recorded_by": "/root/truth_tests",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/README.md",
+      "sha256": "4d2ba53d67c3e0acaaa5e4de26e943d97ecc687a0ff92a14c8a28d2c1aca6a7e"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/api-readback.json",
+      "sha256": "fc992d83a741f36174b2b752ec1f23042de9f22b38e727868d18d265669b26ac"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/event-body.md",
+      "sha256": "c09eda0bdb113bce962c31088a73757d261ee6e9098603246f9bff22211e7eb8"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/execution.json",
+      "sha256": "9dce04c1fa71cb470208702411436418aec6b5dad09fde56da1b97d5517a5f7f"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/holder-manifest.json",
+      "sha256": "ba977a23b97c76462a168e9754a84eaefc2abc1ded65586d3c22e0c4e2f52d3a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/independent-summary.json",
+      "sha256": "c61c101519f1fe97ddba8956de75d4219e5e0797f9c8bca1ec25f306b8ad0f67"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/mechanical-import.json",
+      "sha256": "beafdaf69a67033f9e96f48264c3c3401fa4efd531a39c8b3952c01de9ba4219"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/process-capture-hashes.jsonl",
+      "sha256": "6c6657a9840ff092a3338341d96fc4cee8ca62edfd730afd3085252f1799c23b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/published-event.json",
+      "sha256": "fc992d83a741f36174b2b752ec1f23042de9f22b38e727868d18d265669b26ac"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/recording-integrity.json",
+      "sha256": "e21b9e36ac4767ad886900a2bd4fb173f82e4298ecf8c688e916fb2c5ffdd426"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/review.md",
+      "sha256": "6a4af14ffb4cbc1d817f82d53fe7c0093d09092c8a30321d79410bc818c0593d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/carrier-declared.json",
+      "sha256": "658f950419efd105883af27639610ae683a3a9509338dfeabf1565525e501431"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/carrier-pairs.json",
+      "sha256": "f033091d2006a4265f5aac5cf72bc930a8d0155dee53c09425448d844d05188a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/carrier-prerequisites.json",
+      "sha256": "2c2f227b5a1aee2ebbc0683b0128e297ee11558f612980d55005f95db1e1463d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/carrier-results.json",
+      "sha256": "f71c4ea7d2295a2988c8d22c185dc11f338fdf729d18905fb9e454b8cd21c20a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/carrier-summary.json",
+      "sha256": "e938da20fc5c4d685f42ac374620c6db771420ab22ebb52ff7c5286f52ec2812"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/limits-results.json",
+      "sha256": "9b1b17e04a6892d1642d3e35d506fff232060cddc1a162d3a6a3f97ecc6e5ad6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/run-summary/manifest.json",
+      "sha256": "5e3751f3cdf47f245e347e52495a4b0b6316e12380e268c74d26933fedb314d6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/start.json",
+      "sha256": "e67ff8d689fbb6ff9521af37d465fab96200f1eb3d41b3b5be835260caa2cc14"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/stderr",
+      "sha256": "72fe26264332e17616f56ae307265f38801e17ddccb6a3ba459862fb09f1dd6b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-red-5714970216/stdout",
+      "sha256": "f1d1219276ebd68789090ab164ccbae32b348da0a5f5b06b0766c8d8fadd1bb2"
+    }
+  ],
+  "source_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+  "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "holder_author": "/root/newman_carrier_tests",
+  "holder_hashes": {
+    "ci/newman_publication/tests/carrier_corpus.py": "b5b46275a3d5d39fde13f6407b43954b4e71706c57090fc153328891c5ed37a9",
+    "ci/newman_publication/tests/test_carrier_scanner.py": "205da4c2a692025bb96611caf573942972670ee62869cbbbbab35a00afbe5820"
+  },
+  "mechanical_test_import_commit": "2161e76ea36b0c3249ac274e698d22e27bd5fec8",
+  "accepted_subjects": {
+    "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+    "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+    "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+    "decoding_convention_sha256": "1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c",
+    "typed_result_clarification_sha256": "0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a"
+  },
+  "scope": [
+    "Полный supported scanner/decoding/capacity CLI в corelib ci/newman_publication.",
+    "Generic credential families и contexts; immutable holders, accepted ceilings и projection/checker regression obligations сохраняются."
+  ],
+  "outcome": {
+    "scope": "CI-NP-02/03 carrier, decoding and lower-only capacity CLI; no SDK/workflow/retention",
+    "prerequisites_executed": 412,
+    "scan_declared": 461,
+    "scan_attempts": 461,
+    "scan_semantic_decisions": 0,
+    "missing_scan_dispatch": 461,
+    "limits_declared": 120,
+    "invalid_or_missing_scan_verdict": 461,
+    "limits_attempts": 120,
+    "failed_expectations": 501,
+    "groups": {
+      "capacity": {
+        "declared": 28,
+        "attempted": 28,
+        "lawful": 14,
+        "negative": 14
+      },
+      "carriers": {
+        "declared": 308,
+        "attempted": 308,
+        "lawful": 154,
+        "negative": 154
+      },
+      "contextual": {
+        "declared": 12,
+        "attempted": 12,
+        "lawful": 6,
+        "negative": 6
+      },
+      "decoding": {
+        "declared": 7,
+        "attempted": 7,
+        "lawful": 6,
+        "negative": 1
+      },
+      "field-families": {
+        "declared": 66,
+        "attempted": 66,
+        "lawful": 33,
+        "negative": 33
+      },
+      "incomplete": {
+        "declared": 16,
+        "attempted": 16,
+        "lawful": 8,
+        "negative": 8
+      },
+      "lawful-empty": {
+        "declared": 22,
+        "attempted": 22,
+        "lawful": 22,
+        "negative": 0
+      },
+      "lawful-public": {
+        "declared": 2,
+        "attempted": 2,
+        "lawful": 2,
+        "negative": 0
+      }
+    },
+    "process_captures_hash_verified": 3077,
+    "reader_trios": 828,
+    "verified_rendered_pairs": 187,
+    "limits_by_operation": {
+      "project": {
+        "executed": 40,
+        "passed": 40
+      },
+      "check": {
+        "executed": 40,
+        "passed": 40
+      },
+      "scan": {
+        "executed": 40,
+        "passed": 0
+      }
+    },
+    "evidence_directory": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-red/np-03065890e6",
+    "manifest": {
+      "carrier-summary.json": "e938da20fc5c4d685f42ac374620c6db771420ab22ebb52ff7c5286f52ec2812",
+      "carrier-results.json": "f71c4ea7d2295a2988c8d22c185dc11f338fdf729d18905fb9e454b8cd21c20a",
+      "carrier-prerequisites.json": "2c2f227b5a1aee2ebbc0683b0128e297ee11558f612980d55005f95db1e1463d",
+      "carrier-pairs.json": "f033091d2006a4265f5aac5cf72bc930a8d0155dee53c09425448d844d05188a",
+      "carrier-declared.json": "658f950419efd105883af27639610ae683a3a9509338dfeabf1565525e501431",
+      "limits-results.json": "9b1b17e04a6892d1642d3e35d506fff232060cddc1a162d3a6a3f97ecc6e5ad6"
+    }
+  },
+  "remaining": "SDK, consumer workflows/pins, runtime, retention, convergence, main delivery и closure сохраняют отдельные обязательные этапы. Global lifecycle остаётся TASKS_READY.",
+  "interpretation": "461 observed NOT_EXECUTED caused by missing scan dispatch establish scoped capability RED. They are neither findings nor successful content decisions. Invalid fixture rehearsals remain NOT_EXECUTED."
+}

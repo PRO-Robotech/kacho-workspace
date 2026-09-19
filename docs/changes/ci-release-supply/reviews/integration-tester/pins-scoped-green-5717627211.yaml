@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "integration-tester",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMwRSw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717627211",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMwRSw",
+  "event_api_id": 5717627211,
+  "body_sha256": "d899d26520d35ff3771e51cddaf0f9468704f6266fb71449d002fd20c1521ac1",
+  "timestamp": "2026-09-17T16:15:40Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "eb576376cae88e4965e1d5b17ff1a9ce302419eb",
+  "subject_path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/root-review.json",
+  "subject_sha256": "7e16fbd3eb427362fe445db2fa14c7336c0af16ddd6c3f7ddd2631cc851fb6a2",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/root-review.json",
+  "source_review_sha256": "7e16fbd3eb427362fe445db2fa14c7336c0af16ddd6c3f7ddd2631cc851fb6a2",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/event-body.txt",
+      "sha256": "d899d26520d35ff3771e51cddaf0f9468704f6266fb71449d002fd20c1521ac1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/published-event.json",
+      "sha256": "f33c3ee8095b30a8efc5009db56715792f35ace851b9eeb3eb5e35259d9002d2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/api-readback.json",
+      "sha256": "f33c3ee8095b30a8efc5009db56715792f35ace851b9eeb3eb5e35259d9002d2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/request.json",
+      "sha256": "990d32550e32712148b26825341810bf3fbfb3e6ef03c8fa02ab4dbcc7ad420f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/root-review.json",
+      "sha256": "7e16fbd3eb427362fe445db2fa14c7336c0af16ddd6c3f7ddd2631cc851fb6a2"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/input.json",
+      "sha256": "f69347c331cfe9bdf0bd62676ff404735775eb9ede773a4daa9d94def87aa8ca"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/pins-scoped-green-5717627211/execution.json",
+      "sha256": "6c4bec1785cbcc9173c4ab65e982b8eae322f1034685ce57cc76a6d4244a83cd"
+    }
+  ],
+  "scope": [
+    "Bounded pins и consumer regression: 56 RUN / 56 PASS / 0 SKIP, 43 SUT reports, 376 capture pairs. Live pins/main этим не утверждаются."
+  ],
+  "pending": [
+    "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

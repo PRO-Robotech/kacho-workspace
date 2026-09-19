@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "kind": "routine accounting convention; no acceptance/design or ceiling change",
+  "acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+  "design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+  "interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+  "decode_depth": {
+    "unit": "additional sequential carrier decoding/unwrapping",
+    "base_member_parse_depth": 0,
+    "increments_by_one": [
+      "URL",
+      "base64",
+      "base64url",
+      "Buffer",
+      "nested JSON string"
+    ],
+    "ordinary_dict_list_nesting_cost": 0,
+    "zip_envelope_cost": 0,
+    "boundary": "depth <= configured maximum; next unwrap beyond maximum refuses"
+  },
+  "decoded_nodes": {
+    "unit": "dict/list/scalar occurrence observed in a decoded walk",
+    "scope": "cumulative in one invocation across all members and additional decoded representations",
+    "object_keys_count_as_nodes": false,
+    "object_keys_are_scanned_as_carriers": true,
+    "boundary": "nodes <= configured maximum; next counted occurrence refuses"
+  },
+  "zip_limits": "archive_bytes/expanded_bytes/zip_entries are separate; decode_depth does not count ZIP envelope",
+  "explicit_envelopes": {
+    "encoding_values": [
+      "base64",
+      "base64url",
+      "url"
+    ],
+    "data_type": "string",
+    "unknown_example": "rot13",
+    "unknown_result": "NOT_EXECUTED/UNSUPPORTED_ENCODING"
+  },
+  "real_newman_structural_twin": {
+    "fixture_sha256": "5aa1e2c88993204fb580b0d13d2f3c2e563323bd3585b1e3ad5046614f615deb",
+    "newman_version": "6.2.2",
+    "measured_structure_depth": 10,
+    "base_parse_nodes": 516,
+    "base_parse_unwrap_depth": 0,
+    "note": "This measurement only walks base parsed dict/list/scalars; ordinary structural nesting spends no unwrap depth. Existing Buffer/nested JSON carriers are separately decoded and counted by the eventual scanner; this record does not claim an implemented scanner result."
+  },
+  "ceilings": {
+    "archive_bytes": 67108864,
+    "expanded_bytes": 268435456,
+    "document_bytes": 67108864,
+    "zip_entries": 1024,
+    "decode_depth": 8,
+    "decoded_nodes": 100000
+  },
+  "source_change": "none",
+  "status": "PROPOSED_FOR_ROOT_INDEPENDENT_REVIEW"
+}

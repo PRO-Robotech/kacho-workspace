@@ -1,0 +1,48 @@
+{
+  "source_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "stage": "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-candidate-6ec47lvs",
+  "GOWORK": "off",
+  "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+  "git_environment_sanitized": true,
+  "archive_sha256": "057318a663990f7b0c83e6db09d4f2f01e2b4c3731d8188a27e37b71d044dd34",
+  "plugin_prefix_sha256": "0d1c3807ffa4a182d4e7db40a9b49964d8357500f745ad97b4991e8b91ab522f",
+  "buf_version": "1.72.0",
+  "go_version": "go version go1.26.8 linux/amd64",
+  "commands": [
+    {
+      "command": [
+        "buf",
+        "generate"
+      ],
+      "cwd": "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-candidate-6ec47lvs/proto",
+      "rc": 0,
+      "elapsed_seconds": 0.13438796997070312,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "command": [
+        "buf",
+        "build",
+        "--path",
+        "corelib/subscription",
+        "--as-file-descriptor-set",
+        "--exclude-source-info",
+        "-o",
+        "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-candidate-6ec47lvs/semantic-descriptor.binpb"
+      ],
+      "cwd": "/home/dk/kacho-tmp/area-ci-tools/ci-dt-author-candidate-6ec47lvs/proto",
+      "rc": 0,
+      "elapsed_seconds": 0.03715348243713379,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "outputs": {
+    "api/corelib/subscription/subscription.pb.go": "b7904d4d4a68efd8d5ab1f60b10489cc51318ff7f35b1fba35bbc96073a252aa",
+    "api/corelib/subscription/subscription_service.pb.go": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3",
+    "api/corelib/subscription/subscription_service.pb.gw.go": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0",
+    "api/corelib/subscription/subscription_service_grpc.pb.go": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f"
+  },
+  "semantic_descriptor_sha256": "663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f"
+}

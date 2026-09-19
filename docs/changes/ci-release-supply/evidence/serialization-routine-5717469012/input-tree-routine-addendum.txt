@@ -1,0 +1,9 @@
+# CI-RS routine: input tree digest bytes
+
+Root readback after comparing routine vocabulary v2 lines 7/14/84/92 and the accepted interface found no competing byte projection. This addendum changes no accepted scenario, predicate, schema or authority route. The v2 file remains unchanged.
+
+`input_tree_digest` is lowercase SHA256 of the canonical **entire input_files array**, already sorted by exact relative path. Every entry is exactly `{path, mode, sha256}` with validated string types, mode 100644 or 100755 and lowercase SHA256. Duplicate paths, malformed paths/entries, unknown or missing fields and unsorted input are rejected, not silently normalized or omitted. Path spelling is retained. This inventory is the supplied ready tree; receiving bytes added by explicit preservation do not enter this digest.
+
+Canonical bytes are UTF-8 JSON with object keys sorted, compact separators, no whitespace or trailing newline, and no ASCII escaping of valid non-ASCII strings (`ensure_ascii=False`). JSON-required quotes, backslashes and control characters retain their required escaping. HTML characters do not acquire optional escapes. U+2028 remains its UTF-8 bytes in the identity vector; an implementation's optional JavaScript-safe escape must not silently change this byte projection. Ordered contexts elsewhere retain their declared order.
+
+The sibling identity vectors give exact canonical UTF-8 hex and SHA256 for a lawful inventory, individual mode/path/content changes, one omitted entry, non-ASCII and HTML characters, and U+2028. These are serializer/input identity controls only, not SUT GREEN and not input authorization. Actual candidate/publisher fixtures continue to bind inventories to real tracked bytes and modes. Synthetic authority records remain fixture-only, never live T5/NP/DT permission.

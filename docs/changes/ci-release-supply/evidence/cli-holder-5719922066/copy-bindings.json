@@ -1,0 +1,63 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/event-body.txt",
+      "sha256": "dfaf7dbd8d92bdd8a0c57276755c0531261d7712a33cfdd19be5c20d34485b34"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/request.json",
+      "sha256": "7d94202a0b0ccabe1e5212add1c64c3adb10e00a32dc5495ad0ef47e6f52b95d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/published-event.json",
+      "sha256": "b8166853e90a28f82810d731d003a22c8e01cd215eef20be3598f8d46ca2174d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/api-readback.json",
+      "sha256": "b8166853e90a28f82810d731d003a22c8e01cd215eef20be3598f8d46ca2174d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/root-review.json",
+      "sha256": "49cfad42280e71a7d8128df012810647791baa052beed5be36e8fd6a8274e8ef"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/MANIFEST.json",
+      "sha256": "17d756c7bf48defc8120076de3a6432196a806a803807ad28809f66fb301ec61"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/handoff.json",
+      "sha256": "e2668d7f97259907ca6b83e25415ffc52ac8426227a343030f03a1f390b48ecf"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/inputs.json",
+      "sha256": "fcc67cba240319e4cb2ee28065686aa4ca4ca9a56b34a46f6f22c85b344d83f5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/legacy-oracle-binding.json",
+      "sha256": "340bd416930188ecca69c74e57760c9947d4ebaefb1b2c1221c2466ecdb441e0"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/legacy-oracles.txt",
+      "sha256": "80da0652f5ad43888fce65fc03fb242161a9e0723e04b6e33dbf7c51956fc659"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/parser-matrix.json",
+      "sha256": "50ada39aae1e104088cbd1192ac32a9620ae9ebce4a6f96536a10611f9ffcce8"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/pins-caller-input-proposal.md",
+      "sha256": "af7be77342bf366f7eaf6b8b60ded94c71659242ae352554bfabe490677b8e32"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/review.md",
+      "sha256": "a434054d195e3101f43c762f975df3f77daeda8cc073b2db64941eb2dfcff8a6"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/cli-holder-5719922066/plan/routine-addendum-proposed.md",
+      "sha256": "be9ae5460466cb9ae348623dd1911b870150982a11669696e4a6fa0e484cf3a2"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

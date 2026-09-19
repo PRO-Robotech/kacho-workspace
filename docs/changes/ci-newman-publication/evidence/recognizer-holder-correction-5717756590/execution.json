@@ -1,0 +1,18 @@
+{
+  "head": "db20659a38a9fc202c4c2bf5696153fe3fafe359",
+  "argv": [
+    "python3",
+    "-B",
+    "-m",
+    "unittest",
+    "-v",
+    "test_recognizer_boundaries.RecognizerBoundaries.test_representation_node_and_depth_boundaries"
+  ],
+  "rc": 1,
+  "seconds": 9.99774439202156,
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "8785aecb1f511ae432dce3ec5b8d7fc131d250f39ee36ce605febef2c95a53e2",
+  "unchanged": true,
+  "clean": true,
+  "finished_at": "2026-09-17T16:22:14.576044+00:00"
+}

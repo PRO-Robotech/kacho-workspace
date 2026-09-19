@@ -1,0 +1,21 @@
+{
+  "group": "recognition",
+  "prerequisites": "PASS",
+  "declared_inputs": 158,
+  "actual_attempts": 504,
+  "operations": {
+    "scan": 158,
+    "project": 158,
+    "check": 188
+  },
+  "failed_expectations": 0,
+  "failures": [],
+  "dependent_check_attempts": 188,
+  "dependent_blocked": 64,
+  "actual_reader_after": 94,
+  "negative_pairs": 83,
+  "established_negative_pairs": 83,
+  "unestablished_negative_pairs": 0,
+  "completed_content_decisions": 94,
+  "refused_walks": 64
+}

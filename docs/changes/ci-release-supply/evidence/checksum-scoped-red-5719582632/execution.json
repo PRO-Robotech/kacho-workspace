@@ -1,0 +1,28 @@
+{
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-checksum-root",
+  "head": "4c626dc6d5e4850c7821dbae9d177f90d98c38fd",
+  "tree": "8f79644517bc95fe6f6d2f61f9202c790ebd8b2e",
+  "source_candidate": "0fb62a11094a07d99d5ca41e09db6b323655da51",
+  "holder_candidate": "6211c63654dab4c194fe892bf7b0683b74949754",
+  "command": [
+    "bash",
+    "scripts/release/publish-module-tree-checksum-inject.sh"
+  ],
+  "environment": {
+    "PATH": "/home/dk/.local/opt/go1.26.8/bin:/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+    "GOWORK": "off",
+    "GOTOOLCHAIN": "local",
+    "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/checksum-root-6211-cdzzk9vo",
+    "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-checksum-root-red-6211/captures"
+  },
+  "exit_code": 1,
+  "seconds": 102.50182022503577,
+  "tests": {
+    "run": 8,
+    "fail": 8
+  },
+  "stdout_sha256": "7e1dca33c77f27580a98927f9e9decb23b26fc6107b4fb21b49ec20df71b67fb",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_holders_unchanged": true,
+  "clean": true
+}

@@ -1,0 +1,6 @@
+PASS file=corelib/subscription/subscription.proto messages=3 enums=1 services=0 source_info_absent=true
+PASS file=corelib/subscription/subscription_service.proto messages=1 enums=0 services=1 source_info_absent=true
+PASS path=/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/baseline-semantic-descriptor.pb descriptor_files=5 bytes=16796 sha256=663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f
+PASS file=corelib/subscription/subscription.proto messages=3 enums=1 services=0 source_info_absent=true
+PASS file=corelib/subscription/subscription_service.proto messages=1 enums=0 services=1 source_info_absent=true
+PASS path=/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/candidate-semantic-descriptor.pb descriptor_files=5 bytes=16796 sha256=663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f

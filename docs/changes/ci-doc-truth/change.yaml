@@ -1,0 +1,112 @@
+schema_version: 1
+change_id: ci-doc-truth
+lifecycle_state: RED_PROVEN
+subject_status: DRAFT
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/2696
+  related_issues:
+  - https://github.com/PRO-Robotech/kacho/issues/2591
+  - https://github.com/PRO-Robotech/kacho/issues/2592
+  repositories:
+  - repo: PRO-Robotech/kacho-workspace
+    role: package-home
+    base_sha: a52d9ef952a8a1a37ee99563899b6e5f139e063c
+  - repo: PRO-Robotech/kacho
+    role: canonical-source-and-consumer
+    base_sha: b5fa093341f1fdbe96adfc6a9555482690968253
+  - repo: PRO-Robotech/corelib
+    role: generated-artifact-delivery
+    base_sha: 34bc8104a832b67e53c868646ab2b1e0ac4c8562
+    consumer_baseline_version: v1.8.0
+route_decision:
+  kind: new-package
+  legacy_registry_matches: []
+  policy_migration_required: false
+  workspace_cutover_is_ancestor: true
+  product_cutover_is_ancestor: true
+  corelib_note: Generated output dependency; no corelib cutover or legacy status is inferred from two-repository policy.
+hashes:
+  policy_sha256: e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629
+  acceptance_sha256: 0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24
+  design_sha256: f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047
+  class_considerations_sha256: 4835981a6a1af259062af64814267861c7df45210f43e75c01f4e707a10c60c9
+  route_sha256: 45b8eaea897998d8324270c2843d9ccfcd039f2de90adac2ebbc832227389ab1
+  holders_sha256: 64b04476ce1521af726cba7c8f3c1dcb74ac02bb6676abd47663ba09dc1e1516
+  tasks_sha256: c87abc9d9a27fe7a9c5a690cfe62877d942f4bc8963ff799d14b7b09fb7a5729
+  tasks_ready_sha256: 8e2dbeb21a176e31c570764fe0386543ef7edff78923b3243de413e46f9af31d
+  source_review_sha256: 4e51f89bcb87e673b203b895b38274f949889736870228ed1acc1be654751403
+links:
+  policy: docs/changes/policy.yaml
+  acceptance: docs/specs/sub-phase-CI-DT-1-doc-truth-acceptance.md
+  design: docs/specs/sub-phase-CI-DT-1-doc-truth-design.md
+  class_considerations: docs/changes/ci-doc-truth/class-considerations.md
+  route: docs/changes/ci-doc-truth/route.md
+  holders: docs/changes/ci-doc-truth/holders.yaml
+  tasks: docs/changes/ci-doc-truth/tasks.md
+  tasks_ready: docs/changes/ci-doc-truth/tasks-ready-20260917.json
+  source_review: docs/changes/ci-doc-truth/review-history/20260917-root-approved-review.md
+acceptance_ids:
+- CI-DT-01
+- CI-DT-02
+- CI-DT-03
+- CI-DT-04
+- CI-DT-05
+- CI-DT-06
+- CI-DT-07
+- CI-DT-08
+- CI-DT-09
+issue_read_bindings:
+- issue: https://github.com/PRO-Robotech/kacho/issues/2696
+  state_at_read: open
+  updated_at: '2026-09-16T23:20:18Z'
+  body_sha256: 79d756fe113abecb49d56309641721a2f82391f6d96df6112ee2dd1ffc956e2d
+  comments_count: 0
+  comments_payload_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+- issue: https://github.com/PRO-Robotech/kacho/issues/2591
+  state_at_read: open
+  updated_at: '2026-09-11T13:26:16Z'
+  body_sha256: 50e9b3b1821df0fbce1c75a1816568367cc62f2343f55d5b38275a0820f025d6
+  comments_count: 0
+  comments_payload_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+- issue: https://github.com/PRO-Robotech/kacho/issues/2592
+  state_at_read: open
+  updated_at: '2026-09-11T13:55:03Z'
+  body_sha256: 05c148c72a92225591f29a796d1dda588400de2222cdeb74d289a1272ffa94a4
+  comments_count: 0
+  comments_payload_sha256: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+reviews:
+- docs/changes/ci-doc-truth/reviews/acceptance-reviewer/0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24.yaml
+- docs/changes/ci-doc-truth/reviews/class-exposure-analyst/initial/0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24.yaml
+- docs/changes/ci-doc-truth/reviews/class-exposure-analyst/revalidation/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml
+- docs/changes/ci-doc-truth/reviews/design-reviewer/f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047.yaml
+- docs/changes/ci-doc-truth/reviews/integration-tester/red-0eae6a3569f.yaml
+evidence:
+- docs/changes/ci-doc-truth/evidence/diagnostic-reasons/red-0eae6a3569f
+implementation_authorized: true
+lifecycle_history:
+- state: ACCEPTANCE_APPROVED
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJZZ7w
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714106863
+  timestamp: '2026-09-17T12:09:47Z'
+- state: CLASS_EXPOSURE_RECORDED
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJZbSQ
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714107209
+  timestamp: '2026-09-17T12:09:49Z'
+- state: CLASS_EXPOSURE_REVALIDATED
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJZdTw
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714107727
+  timestamp: '2026-09-17T12:09:51Z'
+- state: DESIGN_APPROVED
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJZeuw
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714108091
+  timestamp: '2026-09-17T12:09:53Z'
+- state: TASKS_READY
+  authority: root writing-plans handoff to /root/truth_tests
+  record: docs/changes/ci-doc-truth/tasks-ready-20260917.json
+  scope: route ready; test-only waits for root readback; implementation waits for independent RED and root transition
+- state: RED_PROVEN
+  event_coordinate: IC_kwDOTZqgWM8AAAABVJo4-A
+  event_url: https://github.com/PRO-Robotech/kacho/issues/2696#issuecomment-5714360568
+  timestamp: '2026-09-17T12:28:54Z'
+  scope: two exact Reason mismatches; unchanged previous71 and lawful twin PASS; implementation limited to approved D1-D5
+implementation_authority: docs/changes/ci-doc-truth/reviews/integration-tester/red-0eae6a3569f.yaml

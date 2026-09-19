@@ -1,0 +1,232 @@
+[
+  {
+    "id": "snapshot-lawful-full-bytes",
+    "scenario": "CI-NP-04",
+    "axis": "real project/check → receiving bytes"
+  },
+  {
+    "id": "snapshot-replace-path-after-check",
+    "scenario": "CI-NP-04",
+    "axis": "only mutable input copy changes after checked bytes"
+  },
+  {
+    "id": "snapshot-mutate-checker-copy",
+    "scenario": "CI-NP-04",
+    "axis": "only mutable input copy changes after checked bytes"
+  },
+  {
+    "id": "snapshot-before-add",
+    "scenario": "CI-NP-04",
+    "axis": "one ZIP member delta"
+  },
+  {
+    "id": "snapshot-before-remove",
+    "scenario": "CI-NP-04",
+    "axis": "one ZIP member delta"
+  },
+  {
+    "id": "snapshot-before-change",
+    "scenario": "CI-NP-04",
+    "axis": "one ZIP member delta"
+  },
+  {
+    "id": "input-missing-file",
+    "scenario": "CI-NP-03",
+    "axis": "archive input only"
+  },
+  {
+    "id": "input-raw-report",
+    "scenario": "CI-NP-03",
+    "axis": "archive input only"
+  },
+  {
+    "id": "checker-invalid-operation",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-archive_sha256",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-archive_bytes",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-schema_version",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-files_declared",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-findings",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-invalid-extra",
+    "scenario": "CI-NP-03",
+    "axis": "one checker response field"
+  },
+  {
+    "id": "checker-incomplete-files_declared",
+    "scenario": "CI-NP-03",
+    "axis": "one census field"
+  },
+  {
+    "id": "checker-incomplete-files_checked",
+    "scenario": "CI-NP-03",
+    "axis": "one census field"
+  },
+  {
+    "id": "checker-missing",
+    "scenario": "CI-NP-03",
+    "axis": "one checker boundary outcome"
+  },
+  {
+    "id": "checker-throws",
+    "scenario": "CI-NP-03",
+    "axis": "one checker boundary outcome"
+  },
+  {
+    "id": "checker-nonclean",
+    "scenario": "CI-NP-03",
+    "axis": "one checker boundary outcome"
+  },
+  {
+    "id": "checker-finding",
+    "scenario": "CI-NP-03",
+    "axis": "one checker boundary outcome"
+  },
+  {
+    "id": "budget-invalid-maxArchiveBytes-0",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-maxArchiveBytes-true",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-maxArchiveBytes-1.5",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-maxArchiveBytes-67108865",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-checkerTimeoutMs-0",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-checkerTimeoutMs-true",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-checkerTimeoutMs-1.5",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-invalid-checkerTimeoutMs-120001",
+    "scenario": "CI-NP-03",
+    "axis": "one budget value"
+  },
+  {
+    "id": "budget-exact-and-one-below",
+    "scenario": "CI-NP-03",
+    "axis": "maxArchiveBytes one-byte boundary"
+  },
+  {
+    "id": "checker-timeout-aborts",
+    "scenario": "CI-NP-03",
+    "axis": "controlled timer + abort observation"
+  },
+  {
+    "id": "transport-throws",
+    "scenario": "CI-NP-03",
+    "axis": "one transport outcome"
+  },
+  {
+    "id": "transport-digest",
+    "scenario": "CI-NP-03",
+    "axis": "one transport outcome"
+  },
+  {
+    "id": "transport-size",
+    "scenario": "CI-NP-03",
+    "axis": "one transport outcome"
+  },
+  {
+    "id": "transport-id",
+    "scenario": "CI-NP-03",
+    "axis": "one transport outcome"
+  },
+  {
+    "id": "fixed-main-lawful",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-mutate-path-after-check",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-stall-checker",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-malformed-checker",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-blob-error",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-create-not-ok",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-finalize-not-ok",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-bad-artifact-id",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-missing-runtime",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-bad-integer",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  },
+  {
+    "id": "fixed-main-bad-budget",
+    "scenario": "CI-NP-03",
+    "axis": "fixed Node24 action and genuine SDK"
+  }
+]

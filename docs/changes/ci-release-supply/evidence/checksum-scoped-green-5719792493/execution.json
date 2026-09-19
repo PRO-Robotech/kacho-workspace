@@ -1,0 +1,28 @@
+{
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-checksum-root",
+  "head": "be25ac72578ce81867ef3ca3ad6a70b3564e658e",
+  "tree": "33ce840833fc080c1c01b71a7a4d7e41494135c1",
+  "source_candidate": "288b22ddb9748748da09e61f625036dee66bc2eb",
+  "exact_tree_author_subject": "ce302083e7c2714795bdf2625f0c75cf8da896fc",
+  "holder_common_successor": "23cb7dbcb2f4e54f9259295c6390be828ab3d96a",
+  "command": [
+    "bash",
+    "scripts/release/publish-module-tree-checksum-inject.sh"
+  ],
+  "environment": {
+    "GOWORK": "off",
+    "GOTOOLCHAIN": "local",
+    "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/checksum-corrected-root-h46c3d8d",
+    "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-checksum-root-green-288b/captures"
+  },
+  "exit_code": 0,
+  "seconds": 102.02782025502529,
+  "tests": {
+    "run": 8,
+    "pass": 8
+  },
+  "sources_and_holders_unchanged": true,
+  "clean": true,
+  "stdout_sha256": "4644711b1f7cf4485e48a8583679764049d5703301b8c3495b512cffd3337461",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

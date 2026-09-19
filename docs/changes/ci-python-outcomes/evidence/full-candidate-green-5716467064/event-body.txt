@@ -1,0 +1,9 @@
+CI-PY / #2629 #2281 #2705 — SCOPED_GREEN_APPROVED после полного независимого прогона.
+
+Root самостоятельно исполнил неизменённую обязательную команду `make test-python-outcomes-integration` на Kacho candidate `0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4`: 3/3 parent tests и 13/13 scenarios PASS, всего 16 RUN / 16 PASS / 0 FAIL / 0 SKIP, 2813.318 s. Все 11 production/holder hashes сохранены, GOWORK=off, очищены GIT_*, внешний TMPDIR; дерево осталось чистым. Acceptance 427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e; design 26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d; interface 6e98466a99871bc2515b969d7607630d2a4cc30fcad2bd64b87e2c8d51deded1.
+
+Проверены настоящие producer, self-test→shell→Make→ci-local helm, mixed finding/unmet, подлинность и полнота outcome records, реальные CI collector и final verdict. Сам текст шага `python-outcomes-integration-verdict` извлечён из candidate `.github/workflows/ci.yaml` и дополнительно исполнен: реальные полные events → rc0, отсутствующий events input → rc1. Полный прогон не становится необязательным или зелёным при отсутствии условий.
+
+Root review SHA256 b857ecf5a9ef993be9bed869f92c2a07941b17bebbde2a7db6a6c42ee80cc66b; events SHA256 ab9ad98bc9edcaccca0f5bf8675ccd327c6285927e02bd4da86967ba88496436; actual-final-YAML capture SHA256 6e765353c122c1b2cf88c24bf6153546a37076cdffba621cd4310d6134b080b2. Проверены 52 captures и хеши всех 195 сохранённых файлов. Предыдущий a7f7203a прогон 14 PASS / 2 FAIL остаётся RED; разрешённая отдельно test-only коррекция CI-PY-09 имеет событие #2629#issuecomment-5715525103, immutable holder 8b51c778e23b2f930c512e101456653540d84277. Она исправляет неверный oracle, не acceptance или product logic.
+
+GREEN охватывает весь локальный CI-PY candidate D1–D7. Защищённая доставка aggregate в main, итоговая сверка predicates и закрытие трёх issues ещё не выполнены; issues остаются OPEN.

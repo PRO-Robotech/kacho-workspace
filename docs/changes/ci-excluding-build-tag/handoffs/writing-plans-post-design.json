@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "kind": "writing_plans_handoff",
+  "change_id": "ci-excluding-build-tag",
+  "author": "/root/e2e_audit",
+  "prepared_at": "2026-09-17T18:42:10.089375+00:00",
+  "status": "SUBMITTED_PENDING_ROOT_READBACK",
+  "skill": "superpowers:writing-plans",
+  "skill_source": "/home/dk/.claude/plugins/cache/claude-plugins-official/superpowers/6.3.0/skills/writing-plans/SKILL.md",
+  "subject_path": "docs/changes/ci-excluding-build-tag/tasks.md",
+  "subject_sha256": "554d3336e76df8639da89c369ec8196cfdc8b085e5040034e8d16b31333141b8",
+  "bound_acceptance_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+  "bound_design_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+  "bound_interface_sha256": "1ef207b6e81f181b6b1f51a18db3e00a58386ac1395caceeae944f7a269aa953",
+  "bound_scenario_matrix_sha256": "54f727421ba35ad038ce59e774df1d80c1fb4b52185b298bb1b465a872bd26ea",
+  "bound_diagnostic_controls_sha256": "3aad4a4935194e926ca5c016b47b0fa22b658fc178d78f2f00d556e65e6b1711",
+  "design_approval_event": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839",
+  "design_approval_body_sha256": "9a302eeeb47e77f82d51d5bd25aabd015eac35f3c14237b1397d1943a746a337",
+  "revalidation_event": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256456",
+  "revalidation_body_sha256": "4c2b16a28d4f8cfcc4ddf90f985d32e39a9e7ac366fb706c10286a37e5c08248",
+  "source_root_review_sha256": "03722bf28eafc7662369533af8602a3f368cb318f812643381dbd1572a8599b7",
+  "previous_tasks": {
+    "path": "docs/changes/ci-excluding-build-tag/history/tasks-e7214a79.txt",
+    "sha256": "5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea"
+  },
+  "root_readback": null,
+  "holder_authorized": false,
+  "source_authorized": false,
+  "scenarios": [
+    "CI-EBT-01",
+    "CI-EBT-02",
+    "CI-EBT-03",
+    "CI-EBT-04",
+    "CI-EBT-05",
+    "CI-EBT-06",
+    "CI-EBT-07",
+    "CI-EBT-08",
+    "CI-EBT-09",
+    "CI-EBT-10",
+    "CI-EBT-11"
+  ],
+  "diagnostic_controls": [
+    "DC-01",
+    "DC-02",
+    "DC-03"
+  ],
+  "boundaries": [
+    "No product or holder edit",
+    "No author self-approval",
+    "No TASKS_READY before exact root readback",
+    "Routine callable coordinates fixed before independent holder freeze",
+    "No semantic RED inferred from absent callable capability"
+  ]
+}

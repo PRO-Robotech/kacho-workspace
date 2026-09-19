@@ -1,0 +1,207 @@
+# CI-RS routine proposal — independent architect readback
+
+Status: **CONDITIONAL ROUTINE AGREEMENT, corrections required before dependent holder freeze**.
+This is a read-only review, not source authorization, an approval event, or a
+revision of the accepted CI-RS subjects. Original proposal is unchanged.
+
+Reviewed proposal SHA256:
+`a9737bfe68e741be50ba4295be5b31923164a4d46083e435acc6a670f0c1ac37`.
+Compared full D1–D8 and interface at architect freeze
+`9e067edd2142001847194ce3967798a30e8b94c7` (design SHA256
+`0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd`, interface
+`2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5`).
+The later route/task transition does not change those predicate meanings.
+
+## Agreed routine names and dependency entrypoints
+
+`RunSupplyPreflight`, `RunSupplyPublisher`, `SupplyDependencies`, `SupplyCommand`
+and `SupplyCommandResult` as proposed implement the accepted explicit test-only
+OS/HTTP/clock boundary. Real Git, Go, archives, parsing and builds remain real.
+Runtime inputs accept only github.com and exact mapped repositories; no
+environment command override, arbitrary remote URL, approval bool, fixture flag,
+or lower required-check set enters the production CLI. HTTP fixtures can model
+exact forge/proxy requests; they cannot manufacture a successful real Go build.
+
+The existing field names for inventories, ownership, budgets, components,
+payload, pins and source provenance are reasonable routine vocabulary, subject
+to the corrections below. Seconds, lower-only bounds, exact closed key sets,
+integer types excluding bool, duplicate rejection and strict JSON parsing fit
+the accepted interface. Required semantic predicates are still determined by
+its phase table, not by which record is convenient to construct.
+
+## R1 — retain the accepted candidate source union
+
+The proposed external-program declaration loses D2's explicit
+`source.kind=candidate` and requires a pinned self revision. This is a concrete
+mismatch: the default committed Kacho witness declaration cannot predict its
+own commit. Restore the following closed union:
+
+```text
+repository consumer = {
+  type: "repository", repository: owner/name, root: absolute local directory,
+  revision: SHA1, module_roots: nonempty sorted relative paths,
+  contexts: nonempty context array
+}
+external consumer = {
+  type: "external-program", source: CandidateSource | RepositorySource,
+  program_paths: nonempty sorted tracked Go file paths,
+  contexts: nonempty context array
+}
+CandidateSource = {kind: "candidate"}
+RepositorySource = {
+  kind: "repository", repository: owner/name, root: absolute local directory,
+  revision: SHA1
+}
+```
+
+CandidateSource resolves only to the exact candidate repo/revision passed to
+preflight, and the result records that resolved SHA. It is never current HEAD
+or an uncommitted path. The default `scripts/release/consumers.json` should be a
+stable declaration document `{schema_version: 1, consumers: [...]}` using this
+candidate source and the ordered contexts. The existing CLI adapter supplies
+its actual archived revision, module/repo/version and owned clone as a resolved
+consumers-mode invocation; it must not rewrite the declaration at each release.
+Both consumer types still require nonempty actual imports and real archive
+resolution/build. Corelib still uses actual Kacho/Kaname repository consumers.
+
+## R2 — local coordinates, complete censuses and plan identity
+
+`candidate_root` is a preflight coordinate of a sealed owned clone, not a new
+publisher source alternative. The publisher input is the ready tree from
+`--tree`; it constructs its own candidate from the input snapshot and preserved
+base bytes. Use the complete publisher manifest without `candidate_root`, and
+the same resolved candidate-mode object with that field added for preflight.
+Consumers-only and pins-only top-level sets in the proposal otherwise fit their
+required predicates. Missing fields in smaller modes do not supply GREEN for
+larger phases. Probe resolves the same binding against the published archive
+and the sealed pre-tag baseline, rather than trusting a caller directory.
+
+Define the canonical plan identity projection explicitly: bind repo/version,
+base/baseline identities, relative paths/modes/digests, resolved source revisions,
+all required proof identities and producer closure/tool/authorization identities.
+Temporary local clone/transport/file-proxy locator strings are not new content
+identities and cannot alter the plan on every resume. In particular, exclude
+the newly created `candidate_root` from that projection. Record actual execution
+cwd in capture provenance separately. Do not change approved relative source
+paths or record bytes under the guise of normalizing locators.
+
+All publisher inventory modes, including receiving-owned and payload, use only
+`100644` or `100755`; generic `git mode` must not silently admit symlinks or gitlinks.
+Product module_roots must match the discovered tracked go.mod census exactly;
+a caller cannot omit a nested module or internal requirement. Nonempty modules
+and internal requirements remain mandatory for product scope. For internal pin
+ownership, map the exact parsed required module path to its exact declared repo;
+do not use a broad organization prefix as a mapping. Longest module-prefix
+matching belongs to assigning imports to the declared target module and excludes
+the `/foo` versus `/foobar` collision; it does not authorize invented repo maps.
+
+Baseline is more than its version string: seal resolved baseline tag target and
+archive identity from the pre-tag observation in the derived plan record. Probe
+must reuse and revalidate those facts. The manifest cannot supply arbitrary
+baseline content as an assertion of latest published identity.
+
+## R3 — close proof/authority record shapes without inventing approvals
+
+The proposal's `{role,path,mode,sha256}` references alone do not define the
+referenced records. Before proof-heavy holders are frozen, record their closed
+schemas (or an exact referenced schema hash). A minimal routine representation
+that carries the already required facts is:
+
+```text
+FileRef = {path: absolute local regular file, sha256: SHA256}
+SourceSet = {repository: owner/name, revision: SHA1,
+             files: nonempty sorted [{path: relative path,
+                                    mode: "100644"|"100755", sha256: SHA256}]}
+Run = {command: nonempty string array, cwd: absolute local directory,
+       runtimes: nonempty [{tool: string, version: string}],
+       exit_code: integer, declared: positive integer, executed: positive integer,
+       outputs: nonempty FileRef array}
+ProofSubject = {predicate_id: closed ID, source: SourceSet, test: SourceSet,
+                runs: nonempty Run array}
+Proof = {subject: ProofSubject, subject_sha256: SHA256,
+         review: FileRef, authority: FileRef}
+ReviewRecord = {schema_version: 1, kind: "scoped-review",
+                predicate_id: closed ID, subject_sha256: SHA256,
+                outcome: "GREEN", reviewer: nonempty string,
+                independence_record: FileRef, authority_coordinate: CommentCoordinate}
+CommentCoordinate = {repository: exact owner/name, issue_number: positive integer,
+                     comment_id: positive integer, author_login: nonempty string,
+                     body_sha256: SHA256}
+AuthorityRecord = {schema_version: 1,
+                   kind: "component-review"|"producer-execution",
+                   subject_sha256: SHA256, coordinate: CommentCoordinate,
+                   readback: FileRef}
+```
+
+Use normalized command argument arrays, never executable record strings. The
+proof subject hash covers canonical ProofSubject bytes, excluding its later
+review/authority references to avoid circular hashes. Require executed=declared
+and the independently reviewed holder outcome for the complete specified
+predicate; do not infer GREEN from one output file or a zero process exit alone.
+Expected RED twins may have nonzero individual captured exits; overall proof
+success and full matrix census are distinct from an individual fixture's rc.
+
+For producer execution, hash the exact D8 producer subject (repo/commit/tree,
+full executable closure, tools, machine/regression proofs and scoped review)
+without the authorization record itself. Its AuthorityRecord kind must be
+producer-execution and refer to that same hash. A component review cannot be
+reused as an execution authorization. Captures and review/authority fields
+remain regular files checked against their own exact hashes; payload source
+paths must also match candidate ZIP bytes/modes, independently of the records.
+
+**Trust boundary:** these shapes store evidence; neither `author_login`,
+`outcome: GREEN`, nor a comment's existence grants authority. Root/independent
+verifier first identifies the applicable actual approved coordinate and verifies
+its actor, decision, independent review and exact subject. The explicit execution
+key and plan bind that reviewed set. Producer readback must verify the coordinate
+and captured body hash, and identity/subject/applicability bindings; unknown or
+unreadable authority fails closed. It must not infer approval from prose substring,
+from caller-provided identity alone, from collaborator permission, or from any
+synthetic fixture record. This reflects the already accepted root/verifier D8
+boundary. A new autonomous issuer-discovery/permission oracle is **not** routine
+and is not proposed here. Root must confirm the record binding against its actual
+approval route before this shape is frozen. Existing approvals are recorded as
+they are; this report creates none.
+
+Within a test driver only, synthetic API readbacks use the same closed record
+shape, with named synthetic actors and exact fixture coordinate/body/subject.
+The HTTP seam substitutes that exact request, not an injectable approval bool.
+The holder makes no claim about real owner authority or live execution permission.
+
+## R4 — concrete compile-gated bridge and capability accounting
+
+Use one test-only bridge compiled inside an isolated copy of the candidate Go
+module, for example `internal/release/ci_rs_bridge_test.go`, package
+`release_test`. It calls the two real exported entrypoints and builds the proposed
+dependencies from independent fixture data. It contains no archive/pin/ownership
+decision algorithm. Compile with `go test -c` and execute only the named bridge
+test. Neither this temporary bridge nor runtime fixtures are product source edits.
+
+First establish tool, Git/Go/file-proxy, lawful consumer and response fixtures.
+Then use normal Go package discovery plus AST declaration inspection to determine
+whether the exact entrypoint/type declarations exist. Missing named declarations
+after successful prerequisites produce a **holder** record:
+
+```json
+{"holder_outcome":"CAPABILITY_ABSENT","boundary":"supply-entrypoints",
+ "missing_symbols":["RunSupplyPublisher"],"sut_invocations":0,
+ "sut_semantic_decisions":0}
+```
+
+The actual missing set is sorted and complete. This is not a producer result,
+does not claim any result-schema reason, and does not count as 22 semantic REDs.
+Once declarations exist, compile/link failure, parser error, missing dependency,
+or broken fixture is holder NOT_EXECUTED with exact capture; never reinterpret a
+compiler error as expected product RED. A compiled bridge executes all declared
+cases and validates actual JSON against the accepted result schema. Prerequisite
+success is retained separately from stage/outcome/effects assertions. The legacy
+P8 real two-import demonstration remains a separately labelled semantic gap.
+
+## Disposition
+
+R1 and the underdefined R3 records require correction before the full dependent
+fixture manifest can freeze. R2 makes the existing owned-clone, exact-census and
+resume boundaries explicit; R4 selects the test-only bridge without changing
+runtime inputs. Root can record a routine agreement on the corrected vocabulary
+and actual authority bindings. No change to the 22 scenarios, D1–D8 obligations,
+accepted result schema, protected-main route, or source gate is authorized here.

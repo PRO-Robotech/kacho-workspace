@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVL47JQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716720421",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVL47JQ",
+  "event_api_id": 5716720421,
+  "body_sha256": "842148ca91592dd52a367bc96e0579a48f958bec7a92d19855d595bc7af2ad60",
+  "timestamp": "2026-09-17T15:12:24Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/event-body.txt",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "e548f5836ec2326d9ea4b35b90d1a697c5f87c69",
+  "subject_path": "ci/newman_publication/tests/test_verdict_projection.py",
+  "subject_sha256": "a387af0adac085e8d844d4b69d9fa62ae8370d7194f7e6c770947a0b28030572",
+  "subject_hash_kind": "file-bytes-at-test-commit",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/root-review.json",
+  "source_review_sha256": "51756bf31604736f0bdf6c225f6d1713deccb2468a32aaeed40f9390bd3e81f3",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/event-body.txt",
+      "sha256": "842148ca91592dd52a367bc96e0579a48f958bec7a92d19855d595bc7af2ad60"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/published-event.json",
+      "sha256": "a23c89fc04c573358efa1017817299f82da4c78b22bb2ea2565b7432c72421bf"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/api-readback.json",
+      "sha256": "a23c89fc04c573358efa1017817299f82da4c78b22bb2ea2565b7432c72421bf"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/request.json",
+      "sha256": "aeb6bd83e9b3cd26b06314f7225f4a3c161906ac69c6a25f5ad868d3263ae05f"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/root-review.json",
+      "sha256": "51756bf31604736f0bdf6c225f6d1713deccb2468a32aaeed40f9390bd3e81f3"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/input.json",
+      "sha256": "1a5ce1dbb41a3dd12d31a74ca4b16f078062f2cdc07f9b98f7f85767b429d569"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-red-5716720421/execution.json",
+      "sha256": "92e512856381df09fd2591a980dcd7d348aade70acade4e22c4ac47c89f4819e"
+    }
+  ],
+  "scope": [
+    "Только catalogue.py, publication.py и новый verdicts.py",
+    "Непустой project/check adapter с exact catalogue/report binding; holders и соседние области неизменны"
+  ],
+  "pending": [
+    "Независимый combined GREEN",
+    "Потребители, runtime, retention, release/main и closure"
+  ],
+  "source_author": "/root/e2e_audit",
+  "holder_author": "/root/release_supply_arch"
+}

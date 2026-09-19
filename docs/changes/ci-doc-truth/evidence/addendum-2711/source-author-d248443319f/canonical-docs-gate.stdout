@@ -1,0 +1,37 @@
+[CENSUS] check-01-acceptance-verdict: приёмок осмотрено 190; файлов со словом acceptance в имени 191, из них приёмками не являются 1 (docs/specs/KAC-170-acceptance-review-report.md)
+[CENSUS] check-01-acceptance-verdict: вердикты — DRAFT 96, APPROVED 88, SUPERSEDED 5, WITHDRAWN 1
+[PASS] check-01-acceptance-verdict — вердикт прочитан у всех 190 приёмок
+[CENSUS] check-02-kac-trail-status: записок в каталоге 800; предмет 799 (выведено указателей 1: obsidian/kacho/KAC/README.md); состояние объявлено — в шапке 791, в теле 0, в обеих 8
+[PASS] check-02-kac-trail-status — состояние объявлено во всех 799 записках предмета
+[CENSUS] check-03-acceptance-tree-claims: документ docs/specs/sub-phase-XC-7-iam-unified-contour-acceptance.md; строк закрепления 16; предикатов в реестре 16; дерево продукта /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth @ d248443319f (lane/ci-truth-20260917); судится ствол origin/main b5fa093341f, копия ОПЕРЕЖАЕТ его (позади 0, впереди 3); ревизий в закреплениях 4; достижимость каждой ревизии проверена из origin/main
+  Д1   сервисов, поднимающих gRPC-контур носителем @ccc6918ef: документ **6**, дерево 6 — сервисов с вызовом servicehost.Serve( в прод-коде: compute, geo, nlb, registry, storage, vpc
+  Д2   то же на ревизии замыкания контура @563f92852: документ **6**, дерево 6 — сервисов с вызовом servicehost.Serve( в прод-коде: compute, geo, nlb, registry, storage, vpc
+  Д3   сервисов, поднимающих не-gRPC поверхность профилем н @ccc6918ef: документ **7**, дерево 7 — сервисов с вызовом servicehost.ServeSurface(: compute, geo, iam, nlb, registry, storage, vpc
+  Д4   объявлений поверхности @ccc6918ef: документ **11**, дерево 11 — объявлений servicecontract.Surface{ в прод-коде services/
+  Д5   не-gRPC слушателей своей сборки (П11) @ccc6918ef: документ **0**, дерево 0 — прод-файлов services/ с литералом http.Server{
+  Д6   то же на ревизии вооружения гейта Ф5 @5cad2f9e0: документ **8**, дерево 8 — прод-файлов services/ с литералом http.Server{
+  Д7   обёрток вывода карты прав @ccc6918ef: документ **3**, дерево 3 — файлов services/**/permission_map.go (не тесты)
+  Д8   то же на ревизии замера клетки Ф2 @563f92852: документ **3**, дерево 3 — файлов services/**/permission_map.go (не тесты)
+  Д9   конструкций сервера в сервисах @ccc6918ef: документ **2**, дерево 2 — вхождений grpcsrv.NewServer( в прод-коде services/
+  Д10  вызовов конструктора сервера у края @ccc6918ef: документ **2**, дерево 2 — вхождений grpc.NewServer( в прод-коде gateway/
+  Д11  копий загрузочного гейта (П8) @ccc6918ef: документ **1**, дерево 1 — копий internal/fgaboot/gate.go
+  Д12  то же на базе @cf69249ed: документ **3**, дерево 3 — копий internal/fgaboot/gate.go
+  Д13  прод-файлов, взявших носитель полосы @ccc6918ef: документ **21**, дерево 21 — прод-файлов services/, импортирующих pkg/peer (сервисов: 5)
+  Д14  проводок сужателя полем дескриптора @ccc6918ef: документ **6**, дерево 6 — проводок Narrowers: в прод-коде services/
+  Д15  экземпляров файла каталога прав (П14) @ccc6918ef: документ **2**, дерево 2 — экземпляров permission_catalog.json
+  Д16  самодельный административный рубеж (в-12) — жив ли @ccc6918ef: документ **1**, дерево 1 — объявлений func assertAdminAccess( в прод-коде services/
+[PASS] check-03-acceptance-tree-claims — все 16 закреплений сошлись с деревом продукта на названных ими ревизиях
+[CENSUS] check-03-holding-claim-resolves: приёмок осмотрено 190; несут таблицу состояния 3 (docs/specs/sub-phase-IAM-INT-1-interactive-login-capability-acceptance.md, docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md, docs/specs/sub-phase-XC-11-participation-conformance-acceptance.md); таблиц 3, строк 81, из них называют дом координаты 11
+[CENSUS] check-03-holding-claim-resolves: дом по умолчанию — дерево продукта /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth @ d248443319f (lane/ci-truth-20260917); судится ствол origin/main b5fa093341f, копия ОПЕРЕЖАЕТ его (позади 0, впереди 3); путей в его стволе 6656. Проверено ВСЕГО, по всем домам: путей 85, имён проверок 47
+[CENSUS] check-03-holding-claim-resolves: дом PRO-Robotech/kaname — /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/project/kaname @ b673325f (main); судится ствол origin/main 39628487, копия ОТСТАЁТ от него (позади 47, впереди 0); координат в нём названо 23
+[CENSUS] check-03-holding-claim-resolves: ВНЕ ПРЕДМЕТА — проза приёмок: координат-файлов в инлайн-коде 6644 в 183 приёмках из 190 (верхняя оценка). Их не судит ни эта проверка, ни хук свежести (docs/specs/*-acceptance.md выведены из LIVE_WS намеренно: приёмка — датированная запись). «Находок ноль» ниже относится ТОЛЬКО к таблицам состояния
+[PASS] check-03-holding-claim-resolves — координата резолвится у всех 81 строк в 3 таблицах (домов названо 1)
+[CENSUS] check-03-scope-row-scenario: приёмок осмотрено 190; объявляют состав фичами `| F<N> |` — 17, остальные 173 объявляют его иначе и в предмет не входят
+[CENSUS] check-03-scope-row-scenario: строк Scope прочитано 131; со сценарием 130; передано в дочернюю приёмку 1 (sub-phase-NLB-1-lb-listener-targetgroup-acceptance.md F5 → sub-phase-NLB-1b-loadbalancer-listener-core-acceptance.md)
+[PASS] check-03-scope-row-scenario — у всех 131 строк Scope есть сценарий (130 прямо, 1 передачей)
+[CENSUS] check-04-product-acceptance-verdict: дерево продукта /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth @ d248443319f (lane/ci-truth-20260917); судится ствол origin/main b5fa093341f, копия ОПЕРЕЖАЕТ его (позади 0, впереди 3); документов `.md` прочитано 139, приёмок второго дома среди них 0 — компонент со своими приёмками вынесен (#2598), их вердикт судит гейт его дома
+[PASS] check-04-product-acceptance-verdict — приёмок второго дома в дереве продукта нет, и обход это УСТАНОВИЛ, а не пропустил: документов прочитано 139
+[CENSUS] check-05-ledger-verdict-reproduces: дерево продукта /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth @ d248443319f (lane/ci-truth-20260917); судится ствол origin/main b5fa093341f, копия ОПЕРЕЖАЕТ его (позади 0, впереди 3); записей ведомости 3; вердикт воспроизведён у 3; не выполнилось у 0
+[PASS] check-05-ledger-verdict-reproduces — вердикт воспроизведён у всех 3 проверенных записей из 3
+
+docs-gate: рассмотрено проверок 7; пройдено 7, провалено 0, без предмета 0

@@ -1,0 +1,921 @@
+{
+  "records": [
+    {
+      "label": "source-head",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-independent",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.002498285030014813,
+      "stdout_sha256": "6a0074f8ada8fdcfecc137e1dc4461d01691b5de4cc10c7e8a90789860b227b7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "source-status-before",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-independent",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.406522945035249,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "toolchain",
+      "argv": [
+        "go",
+        "version"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-independent",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.003990159020759165,
+      "stdout_sha256": "7e35a947feee25f89c2649aa041942db786be35c3d6c484ab2ba2da849e3dc00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "build-binary",
+      "argv": [
+        "go",
+        "test",
+        "-c",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "./internal/repohygiene"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-independent",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 8.714376280957367,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "missing-tool-git-init",
+      "argv": [
+        "git",
+        "init",
+        "--quiet"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.003363622003234923,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "missing-tool-git-add",
+      "argv": [
+        "git",
+        "add",
+        "--all"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0022847229847684503,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "missing-tool-direct-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.06398542894748971,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "missing-tool-direct-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./pkg/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.044848133984487504,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-before-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018592739943414927,
+      "stdout_sha256": "4a97ba2cd0eb535e3db645a37743a40ad8b4f5425fb35d188c0ad946e04d36d4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-lawful-before",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.14516259700758383,
+      "stdout_sha256": "29bbeb207d80dcc643165062311f21ef07d30eb49b0ad62e9438e0f683045671",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-git-still-available",
+      "argv": [
+        "git",
+        "--version"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.00151482701767236,
+      "stdout_sha256": "97452bcde974ef512f9552791fc4f6a3219a724877671fba270baca1a6075b74",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-missing-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0019777060369960964,
+      "stdout_sha256": "4a97ba2cd0eb535e3db645a37743a40ad8b4f5425fb35d188c0ad946e04d36d4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-go-unavailable",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.01938220497686416,
+      "stdout_sha256": "b7275aa5fa769b149dd048b13373299d01ad917312b393249e34180e6e255415",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-restored-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018101109890267253,
+      "stdout_sha256": "4a97ba2cd0eb535e3db645a37743a40ad8b4f5425fb35d188c0ad946e04d36d4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "09-lawful-restored",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.14492504997178912,
+      "stdout_sha256": "29bbeb207d80dcc643165062311f21ef07d30eb49b0ad62e9438e0f683045671",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "mixed-git-init",
+      "argv": [
+        "git",
+        "init",
+        "--quiet"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0036428359453566372,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "mixed-git-add",
+      "argv": [
+        "git",
+        "add",
+        "--all"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0023786300444044173,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-lawful-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0015467969933524728,
+      "stdout_sha256": "1820d710a94283fec9072b4d353cef76633a67cfebcfce7a50e5dc8117aa6457",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-lawful",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.30268552200868726,
+      "stdout_sha256": "aba9c91b78e0141e9b17edc0f5f29abfa998bef44b2ec6a0bf851442c6258cc4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-finding-only-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018365310388617218,
+      "stdout_sha256": "1820d710a94283fec9072b4d353cef76633a67cfebcfce7a50e5dc8117aa6457",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-a-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./a/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.06150913500459865,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-a-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./a/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.06049024098319933,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9884a8c67f152f92a3912ca19d612695cc68ae5a705eca3c6b7efc4c27bb8391",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-finding-only",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.2700215459917672,
+      "stdout_sha256": "3774fb6bf12e84bb2f60cd8e38a1767f84db88eb0883f38b19cf333d2fde3388",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-mixed-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018918249988928437,
+      "stdout_sha256": "1820d710a94283fec9072b4d353cef76633a67cfebcfce7a50e5dc8117aa6457",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-b-baseline",
+      "argv": [
+        "go",
+        "vet",
+        "./b/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.059482896991539747,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "00f77b6f51011a439269fb5e84408f95fb5c7e85b6491015ac27325a8e20bfc1",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-b-tagged",
+      "argv": [
+        "go",
+        "vet",
+        "-tags=synthexclude",
+        "./b/"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.03145300998585299,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-mixed",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.19634740898618475,
+      "stdout_sha256": "0527c24b759a29eec4e8f5585c954fd5927ed51a38550777e60e3fb8b68adecf",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-second-restored-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018624999793246388,
+      "stdout_sha256": "1820d710a94283fec9072b4d353cef76633a67cfebcfce7a50e5dc8117aa6457",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-second-restored",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.264298700960353,
+      "stdout_sha256": "6b24e7fe3c4946d5c6c434722fcec87f52611f07cf50f5791f13c8d5de29d85a",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-all-restored-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0018226559623144567,
+      "stdout_sha256": "1820d710a94283fec9072b4d353cef76633a67cfebcfce7a50e5dc8117aa6457",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "10-all-restored",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/mixed",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.27106077899225056,
+      "stdout_sha256": "af2a84c42a793622e5887804080c6fb0954c9d07820dca96900959504fd7fa54",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "unreadable-git-init",
+      "argv": [
+        "git",
+        "init",
+        "--quiet"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.003189644019585103,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "unreadable-git-add",
+      "argv": [
+        "git",
+        "add",
+        "--all"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0023160720011219382,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-before-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0016463640495203435,
+      "stdout_sha256": "c6f214176a675d689b7380583696f97f88f45a235cbf0f30009162fda4fb9a72",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-lawful-before",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.019116235023830086,
+      "stdout_sha256": "0f03d3c767f040875464b456c1e228aae74409dbcb62308d5aa726845872db07",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-missing-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0014727679663337767,
+      "stdout_sha256": "c6f214176a675d689b7380583696f97f88f45a235cbf0f30009162fda4fb9a72",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-indexed-file-unavailable",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 1,
+      "timed_out": false,
+      "seconds": 0.018624190997797996,
+      "stdout_sha256": "e5348e72cecef988ed395872de7017f0c392c97f1976d1b15bd7f2a8b0711b49",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-restored-index",
+      "argv": [
+        "git",
+        "ls-files",
+        "--stage",
+        "-z"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0015336020151153207,
+      "stdout_sha256": "c6f214176a675d689b7380583696f97f88f45a235cbf0f30009162fda4fb9a72",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "11-lawful-restored",
+      "argv": [
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.019203359028324485,
+      "stdout_sha256": "0f03d3c767f040875464b456c1e228aae74409dbcb62308d5aa726845872db07",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    },
+    {
+      "label": "source-status-after",
+      "argv": [
+        "git",
+        "status",
+        "--porcelain"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-2672-independent",
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 0.0214871009811759,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "environment": {
+        "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+        "GOWORK": "off",
+        "GOTOOLCHAIN": "local",
+        "GOPROXY": "off",
+        "GOSUMDB": "off",
+        "TMPDIR": "/var/tmp/area-ci-2672-independent"
+      }
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "status": "SCOPED_FORMAT_RED_APPROVED",
+  "scope_sha256": "73de3c44ce92867a52205cf05d8620dbcc75187237f84fc167ed87f56150c0e5",
+  "source_aggregate": "50a2f67b73ea25c3c138d64a13c31d53abe188eb",
+  "holder_commit": "1c9e6a7908b422799df256ceffe0719bbda32dad",
+  "holder_sha256": "fed6350b9bce570a9c5083e6b226273498d44d9bbc6e79f7341e14d0b888bf74",
+  "production_hashes": {
+    "ci/newman_publication/scanner.py": "51588839b91ee01b30e7580236dcc537f7ad5febf61889593e11d9c28d72f561",
+    "ci/newman_publication/__init__.py": "0d99b7f818da79f2ea5040eccd12cf7607145cbcf06a77fde189c0e823614f18",
+    "ci/newman_publication/catalogue.py": "022b3290cd01a225ddfb1a832f6508c98f4db498f6b0725f9b34286a8a6b5cd9",
+    "ci/newman_publication/__main__.py": "e5438d03483f21ae67bbd662b806fa819c492797408570e8f41ae1d0a5489ca4",
+    "ci/newman_publication/zip_envelope.py": "c930d053ecc03419c563c0592f542d5f6426af67a5b409adc3137b9416e0b421",
+    "ci/newman_publication/publication.py": "47045b034932d406ad436d65c46236e654c5b5f66cb0bce113d684f1ad5cb27d",
+    "ci/newman_publication/carriers.py": "fa85f7ed4844918ba569a69c32b94c92e138f949d362835b27e128de54f5a8ba",
+    "ci/newman_publication/common.py": "6561f87be0bbaa66abbb5ee4f808fea72b0c4213e13c62cdf947a2d56c340bc1",
+    "ci/newman_publication/projection.py": "5e37249712faab1a6a1747faf1b5b80003d5b5c0514276fb577ece4621811241"
+  },
+  "argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "ci/newman_publication/tests",
+    "-p",
+    "test_historical_zip.py",
+    "-v"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "rc": 1,
+  "elapsed_seconds": 3.687418263987638,
+  "summary": {
+    "scope": "historical signed descriptor ZIP + UTF-8 cli/rc; no live retention or SDK delivery",
+    "prerequisites": "PASS",
+    "declared": 28,
+    "attempted": 28,
+    "scan_attempts": 26,
+    "content_decisions": 2,
+    "scope_refusals": 26,
+    "expected_findings": 4,
+    "actual_findings": 0,
+    "failed_expectations": 8,
+    "failures": [
+      "descriptor-json",
+      "secret-json",
+      "descriptor-cli",
+      "secret-cli",
+      "descriptor-rc",
+      "secret-rc",
+      "descriptor-multiple-members",
+      "secret-final-member"
+    ]
+  },
+  "verified_captures": 68,
+  "reader_records": 8,
+  "stdout_sha256": "af097000d448454cde51819c0ae8a274689655e1d94a035d8f5addfa1fe27408",
+  "stderr_sha256": "ed71d9533e8273b7d64dad904b79e9307b6e9ce3acdec6baab43c5f1d7d5dad5",
+  "reviewer": "/root",
+  "tester": "/root/release_supply_arch",
+  "future_worker": "/root/e2e_audit",
+  "live_retention_content_proof": false
+}

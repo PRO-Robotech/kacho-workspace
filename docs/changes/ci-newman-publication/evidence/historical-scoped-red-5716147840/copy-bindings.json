@@ -1,0 +1,38 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/api-readback.json",
+      "sha256": "a5a42b5b35c44b32676770f1f3c8f4615f9e403936d2a48e7d45dde79715cbf2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/event-body.md",
+      "sha256": "382d6c615e41897a4a775b2857723236185a78fd37780280627a0ac5f8b31992"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/format-scope.json",
+      "sha256": "73de3c44ce92867a52205cf05d8620dbcc75187237f84fc167ed87f56150c0e5"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/published-event.json",
+      "sha256": "a5a42b5b35c44b32676770f1f3c8f4615f9e403936d2a48e7d45dde79715cbf2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/review.json",
+      "sha256": "8df2a0c789b2d2f28ac3e522cd023fd3e432d3b975abdfd8617f017de61e2a46"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/stderr",
+      "sha256": "ed71d9533e8273b7d64dad904b79e9307b6e9ce3acdec6baab43c5f1d7d5dad5"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/stdout",
+      "sha256": "af097000d448454cde51819c0ae8a274689655e1d94a035d8f5addfa1fe27408"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/historical-scoped-red-5716147840/verified-captures.json",
+      "sha256": "d1e2eecdcf1e696bba02eb60d148a5859208f94b81f4e7c2d0b1ed4a55b539af"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

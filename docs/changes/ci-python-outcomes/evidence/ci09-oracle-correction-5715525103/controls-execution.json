@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "python3",
+    "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/python-ci09-test-correction/verify_actual_block.py"
+  ],
+  "returncode": 0,
+  "stdout_sha256": "a60517c86d7aca454d2ee4ebf9d4067c5f5b5d227ae32eb3b722ebbe35619dda",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_or_SUT_execution": false,
+  "actual_driver_sha256": "5e2071e25b2e99bfb3eccc0a3deb566eded3c1ac2a612aa6dc8da5a97d9a92cf"
+}

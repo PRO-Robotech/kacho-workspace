@@ -1,0 +1,7 @@
+BIRTH lawful-comment-only PASS
+BIRTH one-program-token rejected: RED internal/repohygiene/subscriptionformshape.go: program tokens differ
+BIRTH unapproved-reason rejected: unapproved Reason 0: "носитель нагрузки не выражен ветвлением `${carrier}`. Подменить прозой значение, которое допускает собственный тип, невозможно: без ветвления пустая нагрузка остаётся представимой, и подписчик прочтёт её как «у предмета не осталось полей»"
+BIRTH dynamic-leaf rejected: unapproved expression node *ast.SelectorExpr
+BIRTH kind-leaf rejected: expected exactly two carrier diagnostic calls; got 1
+BIRTH empty rejected: VOID internal/repohygiene/subscriptionformshape.go: empty source
+BIRTH declaration-free rejected: VOID internal/repohygiene/subscriptionformshape.go: no declarations

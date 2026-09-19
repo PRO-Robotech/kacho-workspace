@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "class-exposure-analyst",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": "9e067edd2142001847194ce3967798a30e8b94c7",
+  "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+  "subject_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "RECORDED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLC8Hw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715835935",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVLC8Hw",
+  "event_api_id": 5715835935,
+  "body_sha256": "fc42e849008adde8df2ef3999ff69109e9a72d3848ca83e958be7b74060fc4f1",
+  "timestamp": "2026-09-17T14:14:23Z",
+  "source_reviewer": "/root/truth_tests",
+  "source_author": "/root/release_supply_arch",
+  "source_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5",
+  "source_review_coordinate": "docs/changes/ci-release-supply/review-history/20260917-independent-review-9e067edd.md",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "authority_policy_sha256": "e3cfb84acccb42e3c1d9d34db1e332f8b48625826e0cd1aa76caadae9fad3629",
+  "event_body_coordinate": "docs/changes/ci-release-supply/event-bodies/02-class-initial.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/review-history/20260917-independent-review-9e067edd.md",
+      "sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/review-history/20260917-independent-review-9e067edd.json",
+      "sha256": "f9bb013be55b6669f7e56ba7e6556cd8bea59231f832128baa930a347cfef43a"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/approvals-9e067edd/published-summary.json",
+      "sha256": "1f7d7325d55fc7984f2b9c870b511e72b83b8fe2c6f6f9ad584af7c2e1bb8689"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/event-bodies/02-class-initial.md",
+      "sha256": "fc42e849008adde8df2ef3999ff69109e9a72d3848ca83e958be7b74060fc4f1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/approvals-9e067edd/02-class-initial-published.json",
+      "sha256": "909f08d4010ef126566f5f0375f99852a553d7fe7b329b39ffd28e9f52cedbee"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/approvals-9e067edd/02-class-initial-readback.json",
+      "sha256": "909f08d4010ef126566f5f0375f99852a553d7fe7b329b39ffd28e9f52cedbee"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/review-history/role-verdicts-9e067edd/02-class-initial.json",
+      "sha256": "80cdc873bc309a03f8bce87db66e14ed6f18fddf70bfd783fa3279167f9f43db"
+    }
+  ],
+  "bound_acceptance_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+  "bound_design_sha256": "0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd",
+  "phase": "initial",
+  "exposure_item_ids": [
+    "E1",
+    "E2",
+    "E3",
+    "E4",
+    "E5",
+    "E6",
+    "E7",
+    "E8",
+    "E9",
+    "E10",
+    "E11",
+    "E12"
+  ],
+  "unhandled_item_ids": []
+}

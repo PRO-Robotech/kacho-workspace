@@ -1,0 +1,33 @@
+{
+  "producer": "default unit",
+  "chain_and_callers": "separate positive integration build tag preserving repository tag guards",
+  "entrypoint": "go test -tags=<compatible-positive-tag> ./tools/pythonprobes -count=1 -json -timeout=90m",
+  "census": {
+    "parents": [
+      "TestPythonOutcomesProducer",
+      "TestPythonOutcomesChain",
+      "TestPythonOutcomesCallers"
+    ],
+    "scenarios": 13,
+    "skip": 0
+  },
+  "mandatory": [
+    "make test",
+    "ci-local all",
+    "ci-local direct named group",
+    "CI job100m plus final required verdict"
+  ],
+  "unit_only": "ci-local go",
+  "no_recursion": "ci-local helm never calls the integration entrypoint",
+  "inner_minutes": {
+    "Producer": 8,
+    "Chain": 55,
+    "Callers": 22
+  },
+  "evidence_seconds": {
+    "positive_baseline": 465.8,
+    "Callers": 733.9
+  },
+  "unchanged_acceptance": "427493262f75bcef467f1864c6327abde34661f03d4748029f26269ae95f658e",
+  "unchanged_design": "26ab94480f7c8c1fdb263d62dd8b060d5b4f9d698bc8ddd39f46c6f78424604d"
+}

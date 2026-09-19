@@ -1,0 +1,34 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/event-body.txt",
+      "sha256": "5278f8a29ade3d78fe0eb1b3271407b4c58632b0dbcf4032951bc3070e18adcd"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/published-event.json",
+      "sha256": "51e3085e5fb4540094095723044d21d659190cb9262a90c456b56f3b903d48b1"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/api-readback.json",
+      "sha256": "51e3085e5fb4540094095723044d21d659190cb9262a90c456b56f3b903d48b1"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/request.json",
+      "sha256": "ccba513cb3a8855f298ac4b7ba0d614d1bf141cd3d8772fb536df51044e684aa"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/root-review.json",
+      "sha256": "dda9bef0b06d218c650c66a68c8e0a3705a05d63c6d3365a391c33ecb2adc10d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/input.json",
+      "sha256": "8f7cd1cda0bec4a5a26ba60c2ccae72468461aa59d5cd1e58c5393da10f75155"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-holder-correction-5717756590/execution.json",
+      "sha256": "bf97d237a5f315157bd337520d12208a391f50f26089f8bad283354ad1752157"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

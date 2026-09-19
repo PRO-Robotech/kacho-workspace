@@ -1,0 +1,29 @@
+[
+  {
+    "name": "fifo-repeat-writer",
+    "trace_sha256": "6449f2ee6646ef5b8b590f8ddf1f5035a14c2c408ca3c1defe6ee5baa0045397",
+    "read46": 2,
+    "eof": 2,
+    "close": 2,
+    "open": 2,
+    "killed": false
+  },
+  {
+    "name": "fifo-no-writer",
+    "trace_sha256": "e797ad4b6c96a825bcd94bee8ff64c80bb9accb803c212ee6860cc49d936dfc8",
+    "read46": 0,
+    "eof": 0,
+    "close": 0,
+    "open": 1,
+    "killed": true
+  },
+  {
+    "name": "fifo-repeat-writer-restored",
+    "trace_sha256": "8a30e7e3044eec1a981e2745a356869db0872ce51d1bfe25d8e5cdc8643c2fe4",
+    "read46": 2,
+    "eof": 2,
+    "close": 2,
+    "open": 2,
+    "killed": false
+  }
+]

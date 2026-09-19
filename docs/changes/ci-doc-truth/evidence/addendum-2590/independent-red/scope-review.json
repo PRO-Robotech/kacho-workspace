@@ -1,0 +1,23 @@
+{
+  "scope_verdict": "APPROVED for exact subject only; source transition remains separate",
+  "scope_sha256": "0bf009e5c11cf964397bb32274e2492d8aed41fd6901918f4a8e8189587ca105",
+  "baseline_record_sha256": "cd4732af9c4c939a715d8c17f6bccd25fadb495ebc854d10f1dd151e52668903",
+  "source_base": "34bc8104a832b67e53c868646ab2b1e0ac4c8562",
+  "source_archive_sha256": "4a35a563200a97c474c59e6a7ccb72e5b46bdb2621b6c556b5d9d06787a7e509",
+  "candidate_fixture_sha256": "c85a8ed9b06a0720fa4050e3537ee90892cb1aa81e84103aba63da7fe6125f96",
+  "allowed_bytes": [
+    162,
+    964
+  ],
+  "route_source_hashes": {
+    ".github/scripts/run-integration.sh": "c48888381b2a9637f1e583d4131800308ded067550b971dba265adad05673e0e",
+    ".github/workflows/ci.yml": "965e03399df3f32fde3f1880a506f9c97906c043a19cdd842563643bf089820c",
+    "migratorcli/testmain_pgtest_test.go": "e0dd1b8cd5ddda9d9c2728d72a26d4bda02fb74f470a305972784a5a13ed7e2a",
+    "migratorcli/noticethreshold_integration_test.go": "576c6d44373805220af71d32bef45f80fb4a3cad7606b413c7539943cab59894",
+    "pgtest/pgtest.go": "edd4c38d2a1185d46c00eddd720fc3744e8d2cab986f6515b73cf2a0dd8132ec"
+  },
+  "product_source_edited": false,
+  "scope_author": "notice-doc architect",
+  "reviewer": "e2e_audit",
+  "comments_on_fresh_issue": 0
+}

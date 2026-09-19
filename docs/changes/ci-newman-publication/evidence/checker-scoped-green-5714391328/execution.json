@@ -1,0 +1,1164 @@
+{
+  "source_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+  "test_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+  "argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "ci/newman_publication/tests",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "cwd": "/var/tmp/area-ci-independent-verifier/np-checker-green-root-qjczu0hz",
+  "rc": 0,
+  "seconds": 10.442395294026937,
+  "file_sha256": {
+    "ci/newman_publication/__init__.py": "0d99b7f818da79f2ea5040eccd12cf7607145cbcf06a77fde189c0e823614f18",
+    "ci/newman_publication/catalogue.py": "022b3290cd01a225ddfb1a832f6508c98f4db498f6b0725f9b34286a8a6b5cd9",
+    "ci/newman_publication/__main__.py": "1f5384b66bd7be541a9eabf553f40811e7c533649c7e5b9c611eb7ffbd67607d",
+    "ci/newman_publication/zip_envelope.py": "fe80024985dd32c0affa1c2f22b605d2cd3b2521ccb8da05260e654e3b4a56ad",
+    "ci/newman_publication/publication.py": "edadce36b33f8444e6a16915fc6414dc11144e9bba03a2af26263be76bdf528d",
+    "ci/newman_publication/common.py": "6561f87be0bbaa66abbb5ee4f808fea72b0c4213e13c62cdf947a2d56c340bc1",
+    "ci/newman_publication/projection.py": "5e37249712faab1a6a1747faf1b5b80003d5b5c0514276fb577ece4621811241",
+    "ci/newman_publication/tests/support.py": "cfc5d2970d6c7cfcd90f9123811379342ed9cd77773ef864c848c33151cd6789",
+    "ci/newman_publication/tests/legacy_red.py": "73c6e7e7d9b5c75817f4907456b0bdd06da0c5e4f09d9991dd3d455abacc2704",
+    "ci/newman_publication/tests/.gitignore": "32dae3052f331ee34d628ef535709b301259a45df7c7522c4d35dcf49873f00b",
+    "ci/newman_publication/tests/test_check_boundaries.py": "af8f904b8fc70e819d9720368d1d30a47ce042fa178ac2a1a5274b74431edcf5",
+    "ci/newman_publication/tests/test_publication.py": "4b1fb757bfe6ee4027bf890328d8ba5073d4b52b3509a65fb8a7ac44a9220379",
+    "ci/newman_publication/tests/fixtures/provenance.json": "b6b5dbdc8ef9363dbf1fa603d0c6580da9a905c97dcf0c74b2c0b955bec281e3",
+    "ci/newman_publication/tests/fixtures/readers/assert-suites-green.sh": "063bf9748227d5c07a5c3e4ffe589495943760f4b184402a0bbd83047daa15c0",
+    "ci/newman_publication/tests/fixtures/readers/newman-live.py": "9b1438a49f3ce6c67905f6b5b67e3f2dbfe629149dbe3041ea57935b73b87ea9",
+    "ci/newman_publication/tests/fixtures/readers/exec-coverage.py": "286f511da88be7b09604d2791a91b43d3d333145688c20b87184009bae4e0c80",
+    "ci/newman_publication/tests/fixtures/script-error/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/script-error/collections/fixture.postman_collection.json": "37834c0e79735a5a62612e58623a69c8e3b1e6baf582390e7cd71097eecdedef",
+    "ci/newman_publication/tests/fixtures/script-error/out/fixture.json": "ad76609304043d334962ef0a216725921216df294303708d66242e40f9a6e052",
+    "ci/newman_publication/tests/fixtures/green/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/green/collections/fixture.postman_collection.json": "1b44bce34205f71cff645676874e6823031753ac52a460ce61c2fb19e40e5714",
+    "ci/newman_publication/tests/fixtures/green/out/fixture.json": "5aa1e2c88993204fb580b0d13d2f3c2e563323bd3585b1e3ad5046614f615deb",
+    "ci/newman_publication/tests/fixtures/finding/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/finding/collections/fixture.postman_collection.json": "07087a4e84585546e35bc17be688f7b525414155dd6d5225ebb22949adaeccc2",
+    "ci/newman_publication/tests/fixtures/finding/out/fixture.json": "7a1330d66d62dcbae90f5788139496441e0cd9ec6c63ac1421de73be55b8d755",
+    "ci/newman_publication/tests/fixtures/precondition/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/precondition/collections/fixture.postman_collection.json": "3b2e9cddf2aaa37bce32b7a0bf7a170f796998630b906db2c55e7dca56483501",
+    "ci/newman_publication/tests/fixtures/precondition/out/fixture.json": "e173c0bfa3d9c6729136b2eb083381f17a125bd8777246bc3c50c62669bf7a87"
+  },
+  "source_test_bytes_unchanged": true,
+  "children": [
+    {
+      "name": "0159-suite-projected",
+      "rc": 1
+    },
+    {
+      "name": "0129-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0234-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0251-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0241-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0068-check-prefix",
+      "rc": 3
+    },
+    {
+      "name": "0018-check-manifest-unknown-key",
+      "rc": 3
+    },
+    {
+      "name": "0116-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0167-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0125-coverage-projected",
+      "rc": 0
+    },
+    {
+      "name": "0086-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0206-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0149-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0035-project",
+      "rc": 0
+    },
+    {
+      "name": "0038-check-empty-file",
+      "rc": 3
+    },
+    {
+      "name": "0223-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0033-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0224-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0268-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0232-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0166-project",
+      "rc": 0
+    },
+    {
+      "name": "0260-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0202-project",
+      "rc": 0
+    },
+    {
+      "name": "0003-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0171-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0218-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0060-check-directory",
+      "rc": 3
+    },
+    {
+      "name": "0110-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0157-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0195-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0156-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0015-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0040-check-truncated",
+      "rc": 3
+    },
+    {
+      "name": "0249-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0084-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0272-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0027-check-unknown",
+      "rc": 3
+    },
+    {
+      "name": "0148-suite-projected",
+      "rc": 1
+    },
+    {
+      "name": "0049-check-archive-comment",
+      "rc": 3
+    },
+    {
+      "name": "0093-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0200-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0054-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0182-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0209-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0023-project",
+      "rc": 0
+    },
+    {
+      "name": "0150-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0025-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0208-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0051-check-member-extra",
+      "rc": 3
+    },
+    {
+      "name": "0214-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0055-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0085-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0007-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0083-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0238-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0024-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0091-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0252-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0094-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0160-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0139-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0101-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0210-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0019-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0079-check-shadow-eocd-before-central",
+      "rc": 3
+    },
+    {
+      "name": "0136-coverage-projected",
+      "rc": 0
+    },
+    {
+      "name": "0102-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0205-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0235-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0141-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0174-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0266-project",
+      "rc": 3
+    },
+    {
+      "name": "0099-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0140-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0264-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0072-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0191-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0239-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0089-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0034-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0043-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0143-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0190-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0028-check-missing",
+      "rc": 3
+    },
+    {
+      "name": "0199-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0123-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0184-project",
+      "rc": 0
+    },
+    {
+      "name": "0001-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0172-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0168-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0016-check-manifest-run",
+      "rc": 3
+    },
+    {
+      "name": "0115-suite-projected",
+      "rc": 0
+    },
+    {
+      "name": "0008-check-rebound-opaque-key",
+      "rc": 3
+    },
+    {
+      "name": "0069-check-suffix",
+      "rc": 3
+    },
+    {
+      "name": "0216-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0138-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0255-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0162-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0011-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0076-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0030-check-absolute",
+      "rc": 3
+    },
+    {
+      "name": "0120-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0164-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0193-project",
+      "rc": 0
+    },
+    {
+      "name": "0044-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0226-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0021-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0012-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0082-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0231-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0153-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0197-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0258-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0096-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0097-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0058-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0062-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0176-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0098-suite-raw",
+      "rc": 3
+    },
+    {
+      "name": "0064-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0109-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0078-check-gap-before-central",
+      "rc": 3
+    },
+    {
+      "name": "0188-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0010-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0177-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0095-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0087-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0246-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0047-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0230-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0004-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0088-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0026-check-duplicate",
+      "rc": 3
+    },
+    {
+      "name": "0222-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0090-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0212-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0117-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0163-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0036-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0046-project",
+      "rc": 0
+    },
+    {
+      "name": "0108-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0080-check-repeated-central-eocd-tail",
+      "rc": 3
+    },
+    {
+      "name": "0002-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0032-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0107-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0219-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0113-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0276-coverage-raw",
+      "rc": 3
+    },
+    {
+      "name": "0075-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0020-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0165-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0263-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0130-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0248-project",
+      "rc": 3
+    },
+    {
+      "name": "0183-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0181-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0271-project",
+      "rc": 3
+    },
+    {
+      "name": "0269-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0057-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0262-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0242-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0105-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0121-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0071-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0031-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0147-coverage-projected",
+      "rc": 0
+    },
+    {
+      "name": "0100-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0173-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0077-check-local-extra-only",
+      "rc": 3
+    },
+    {
+      "name": "0056-project",
+      "rc": 0
+    },
+    {
+      "name": "0240-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0112-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0111-project",
+      "rc": 0
+    },
+    {
+      "name": "0257-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0074-project",
+      "rc": 0
+    },
+    {
+      "name": "0221-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0039-check-invalid-format",
+      "rc": 3
+    },
+    {
+      "name": "0192-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0006-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0132-suite-raw",
+      "rc": 3
+    },
+    {
+      "name": "0073-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0133-project",
+      "rc": 0
+    },
+    {
+      "name": "0126-suite-projected",
+      "rc": 1
+    },
+    {
+      "name": "0050-check-member-comment",
+      "rc": 3
+    },
+    {
+      "name": "0048-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0213-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0106-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0179-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0277-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0256-project",
+      "rc": 3
+    },
+    {
+      "name": "0059-check-symlink",
+      "rc": 3
+    },
+    {
+      "name": "0243-project",
+      "rc": 3
+    },
+    {
+      "name": "0154-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0186-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0114-coverage-projected",
+      "rc": 0
+    },
+    {
+      "name": "0270-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0178-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0029-check-traversal",
+      "rc": 3
+    },
+    {
+      "name": "0261-project",
+      "rc": 3
+    },
+    {
+      "name": "0158-coverage-projected",
+      "rc": 0
+    },
+    {
+      "name": "0220-project",
+      "rc": 0
+    },
+    {
+      "name": "0103-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0146-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0065-project",
+      "rc": 0
+    },
+    {
+      "name": "0267-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0037-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0142-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0144-project",
+      "rc": 0
+    },
+    {
+      "name": "0273-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0066-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0237-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0229-project",
+      "rc": 0
+    },
+    {
+      "name": "0009-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0228-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0014-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0152-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0061-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0017-check-manifest-digest",
+      "rc": 3
+    },
+    {
+      "name": "0135-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0041-check-empty-archive",
+      "rc": 3
+    },
+    {
+      "name": "0118-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0207-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0244-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0245-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0225-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0203-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0274-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0092-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0119-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0127-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0233-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0161-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0185-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0196-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0053-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0170-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0145-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0215-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0217-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0254-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0211-project",
+      "rc": 0
+    },
+    {
+      "name": "0201-suite-raw",
+      "rc": 0
+    },
+    {
+      "name": "0052-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0104-suite-raw",
+      "rc": 1
+    },
+    {
+      "name": "0124-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0247-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0131-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0275-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0250-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0187-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0189-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0204-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0259-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0045-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0278-project",
+      "rc": 3
+    },
+    {
+      "name": "0253-project",
+      "rc": 0
+    },
+    {
+      "name": "0175-project",
+      "rc": 0
+    },
+    {
+      "name": "0063-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0194-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0134-final-check",
+      "rc": 0
+    },
+    {
+      "name": "0180-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0236-project",
+      "rc": 0
+    },
+    {
+      "name": "0081-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0169-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0122-project",
+      "rc": 0
+    },
+    {
+      "name": "0042-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0022-git-head",
+      "rc": 0
+    },
+    {
+      "name": "0005-project",
+      "rc": 0
+    },
+    {
+      "name": "0070-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0227-coverage-raw",
+      "rc": 0
+    },
+    {
+      "name": "0155-project",
+      "rc": 0
+    },
+    {
+      "name": "0128-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0198-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0151-git-fixture",
+      "rc": 0
+    },
+    {
+      "name": "0137-suite-projected",
+      "rc": 3
+    },
+    {
+      "name": "0067-stdin-check",
+      "rc": 0
+    },
+    {
+      "name": "0013-project",
+      "rc": 0
+    },
+    {
+      "name": "0265-git-head",
+      "rc": 0
+    }
+  ],
+  "child_count": 278
+}

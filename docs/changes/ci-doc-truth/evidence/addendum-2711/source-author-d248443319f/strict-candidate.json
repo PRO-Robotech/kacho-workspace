@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/home/dk/kacho-tmp/area-ci-tools/ci-dt-2711-author-strict",
+    "-mode",
+    "addendum",
+    "-repo",
+    ".",
+    "-candidate",
+    "d248443319f9bc927d81bea04794c4405528f62e"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+  "source_sha": "d248443319f9bc927d81bea04794c4405528f62e",
+  "GOWORK": "off",
+  "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+  "git_environment_sanitized": true,
+  "rc": 0,
+  "elapsed_seconds": 0.010861873626708984,
+  "stdout_sha256": "ca32f62d81b5641ba16db52c36e1f9d8b959eed623401d6d832bffa880bc3df2",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLSbmw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716089755",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVLSbmw",
+  "event_api_id": 5716089755,
+  "body_sha256": "f915d11c4cae7a4f9de6ad49e87c0057b75d98bf7496f76039c89085eae63a23",
+  "timestamp": "2026-09-17T14:29:52Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/event-body.md",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "d880251ebfd21aea68e42f4d71d1c862a9e6cfa9",
+  "subject_path": "ci/newman_publication/tests/upload.test.mjs",
+  "subject_sha256": "f49b87a7fca93e40de5c662b287491c87929b9792037ef294837ede7809bf8d0",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "SCOPED_CAPABILITY_RED_APPROVED",
+  "source_review_sha256": "8f54ad2e107bfe21571e121729b5c14a9638f2deaae8f33c35558a32df211c33",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/review.json",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/api-readback.json",
+      "sha256": "3fd64e13f041754a9c76e7414845fa7fa78dbc629b56a519196b17c2ecb0c82f"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/declared.json",
+      "sha256": "ddaa058c475605ed30a53eb88f75035c6d4c80c5eb58fa97d845772dac717235"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/event-body.md",
+      "sha256": "f915d11c4cae7a4f9de6ad49e87c0057b75d98bf7496f76039c89085eae63a23"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/fixture.execution.json",
+      "sha256": "159008a3196a01e2cb635a3bd3a84a56bcda24ac2b3023bf9e19ed69529966df"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/imports.json",
+      "sha256": "f0cc014db1c240b170255864574aa55b795752d7328e625de4f9bf02c9721ba2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/node.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/node.stdout",
+      "sha256": "1fa7eae846d93f06d2dc72bab8cf8f5048d6869b46a2b3c79eb5f4684b253164"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/prerequisites.json",
+      "sha256": "6e0fda7d5194e7886ac67250798959b9d02400102a2708a50a35f4bbb5ed3c70"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/published-event.json",
+      "sha256": "3fd64e13f041754a9c76e7414845fa7fa78dbc629b56a519196b17c2ecb0c82f"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/review.json",
+      "sha256": "8f54ad2e107bfe21571e121729b5c14a9638f2deaae8f33c35558a32df211c33"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/sdk.execution.json",
+      "sha256": "a0aa6365c7fba8246508fdeacb314830e4705f3a233c3f732553c9fbd3096028"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/summary.json",
+      "sha256": "59b94b6a24484ba6ce9998a8ab0d16b75b7155aacc768c2d34643b735626f24b"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-scoped-red-5716089755/verified-captures.json",
+      "sha256": "a7af437105da556f127851d13cc5c31ac1fe27a663d171ce66bee519eff5b4b7"
+    }
+  ],
+  "holder_author": "/root/release_supply_arch",
+  "source_author": "/root/e2e_audit",
+  "scope": [
+    "CI-NP-03/04: publishSnapshot и fixed Node24 action; пять action/package paths",
+    "Private snapshot, all pre-CLEAN effects forbidden, fixed checker/SDK, bounded diagnostics"
+  ],
+  "result": {
+    "capability_checks": 46,
+    "semantic_SUT_decisions": 0,
+    "capability_absent": 46,
+    "not_executed": 0,
+    "process_captures": 49,
+    "reader_records": 8
+  },
+  "source_base": "5e8c1eefddefecef6c8c8b87bcf39d67b77437e1"
+}

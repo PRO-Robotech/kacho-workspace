@@ -1,0 +1,19 @@
+{
+  "command": [
+    "go",
+    "test",
+    "./internal/repohygiene",
+    "-list",
+    "^Test(SubscriptionFormShape|SubscriptionShape|GRPCMountParity|CatalogReachability)",
+    "-count=1"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+  "source_sha": "d248443319f9bc927d81bea04794c4405528f62e",
+  "GOWORK": "off",
+  "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+  "git_environment_sanitized": true,
+  "rc": 0,
+  "elapsed_seconds": 1.046818733215332,
+  "stdout_sha256": "e53dc23c63786b960c9f6e8a9e3c200dfdc1439f70293f6bb76f4cc7b68375c7",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

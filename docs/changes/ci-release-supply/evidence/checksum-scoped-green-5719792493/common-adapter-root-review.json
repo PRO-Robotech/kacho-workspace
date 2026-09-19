@@ -1,0 +1,56 @@
+{
+  "reviewed_at": "2026-09-17T18:53:56.894783+00:00",
+  "reviewer": "/root",
+  "holder_successor": "23cb7dbcb2f4e54f9259295c6390be828ab3d96a",
+  "diff_fully_read": true,
+  "scope": [
+    "internal/release/supply_publisher_test.go",
+    "internal/release/supply_public_checksum_test.go"
+  ],
+  "source_unchanged": true,
+  "original_52_case_outcomes_unchanged": true,
+  "new7_outcomes_and_7s_parent_unchanged": true,
+  "new7_adapter_composition": "same adapter now applied by common builder before 7s context wrapping; no recursion",
+  "old52_admission": "actual lawful signed-log prerequisite plus same public adapter; 110s outer parent; distinct fresh GOPATH/checkpoints and explicitly preserved producer cache",
+  "cleanup": "same cleanup helper extracted, registered for actual owned public cache",
+  "root_narrow_replay": {
+    "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-checksum-root",
+    "head": "c7fd9144ad60edbd3bff99b2c1b60eb0de60f36b",
+    "tree": "7910251046bbd66f4dd77cee8338451673d3abcd",
+    "command": [
+      "/home/dk/.local/opt/go1.26.8/bin/go",
+      "test",
+      "-json",
+      "-count=1",
+      "-timeout=15m",
+      "./internal/release",
+      "-run",
+      "^TestReleaseSupplyPublisherProtocol$/^probe-lawful$"
+    ],
+    "environment": {
+      "GOWORK": "off",
+      "GOTOOLCHAIN": "local",
+      "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/publisher-common-root-tslpcvts",
+      "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-common-bridge-root-23cb/captures"
+    },
+    "seconds": 26.051148387021385,
+    "exit_code": 1,
+    "tests": {
+      "run": 2,
+      "fail": 2
+    },
+    "sources_and_holders_unchanged": true,
+    "clean": true,
+    "stdout_sha256": "93d4df38087b0e7672f2af9708b6ba46ee727b24c97e46159cf587b253cac79b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "diagnostics": [
+    "supply_publisher_test.go:1096: SEMANTIC_MISMATCH: mandatory public Go calls=0 want1"
+  ],
+  "verdict": "APPROVED bounded test adapter integration; actual old lawful probe reaches same missing-public-Go semantic RED without fixture failure",
+  "source_and_schema_changes_authorized": false,
+  "file_sha256": {
+    "internal/release/supply_publisher_test.go": "5ca5f8ada3230c6244467b3094ae76209d48c239638810c01f8f18f155721386",
+    "internal/release/supply_public_checksum_test.go": "b629544d99baac9a12a1c20ff8081542bc6518a88f827ed0565852968720e502"
+  }
+}

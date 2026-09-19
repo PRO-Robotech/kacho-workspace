@@ -1,0 +1,102 @@
+{
+  "status": "ROOT_SCOPED_COMBINED_GREEN",
+  "head": "ce4671772757b2e735ad2764e59bae5882571f1d",
+  "tree": "92a53fcbf7d538f9e6fded81f7004932c7fa91ab",
+  "finished_at": "2026-09-17T16:33:39.837559+00:00",
+  "source_and_holders_unchanged": true,
+  "python_tests": 23,
+  "sdk_tests": 46,
+  "failed": 0,
+  "skipped": 0,
+  "historical": {
+    "scope": "historical signed descriptor ZIP + UTF-8 cli/rc; no live retention or SDK delivery",
+    "prerequisites": "PASS",
+    "declared": 28,
+    "attempted": 28,
+    "scan_attempts": 26,
+    "content_decisions": 10,
+    "scope_refusals": 18,
+    "expected_findings": 4,
+    "actual_findings": 4,
+    "failed_expectations": 0,
+    "failures": []
+  },
+  "recognizer": {
+    "recognition": {
+      "group": "recognition",
+      "prerequisites": "PASS",
+      "declared_inputs": 158,
+      "actual_attempts": 504,
+      "operations": {
+        "scan": 158,
+        "project": 158,
+        "check": 188
+      },
+      "failed_expectations": 0,
+      "dependent_check_attempts": 188,
+      "dependent_blocked": 64,
+      "actual_reader_after": 94,
+      "negative_pairs": 83,
+      "established_negative_pairs": 83,
+      "unestablished_negative_pairs": 0,
+      "completed_content_decisions": 94,
+      "refused_walks": 64
+    },
+    "accounting": {
+      "group": "accounting",
+      "prerequisites": "PASS",
+      "declared_inputs": 14,
+      "actual_attempts": 136,
+      "operations": {
+        "scan": 37,
+        "project": 37,
+        "check": 62
+      },
+      "failed_expectations": 0,
+      "dependent_check_attempts": 36,
+      "dependent_blocked": 0,
+      "actual_reader_after": 18
+    }
+  },
+  "captures_verified": 5031,
+  "reader_records": 1186,
+  "runs": [
+    {
+      "kind": "python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ci/newman_publication/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 366.2859734870144,
+      "stdout_sha256": "9c9452e29b68ca511ecb396b9081bffc72cd47ea0d4fafb9524d4fc1c6b3ad8c",
+      "stderr_sha256": "ca15445b14bd750d6eb69c457b8398c2fba968d552f2f848734f2c13f99ccdf4"
+    },
+    {
+      "kind": "sdk",
+      "argv": [
+        "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+        "--test",
+        "ci/newman_publication/tests/upload.test.mjs"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 11.183707557036541,
+      "stdout_sha256": "7334af14d960d692d609c686aaa4fc80924e7066601b0d168e9185c4ba9c1d5e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "pending": [
+    "consumer workflows/pins",
+    "real runtime/retention",
+    "module release/main/closure"
+  ]
+}

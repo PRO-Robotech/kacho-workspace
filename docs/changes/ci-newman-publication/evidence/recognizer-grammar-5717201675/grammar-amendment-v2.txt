@@ -1,0 +1,32 @@
+# CI-NP recognizer DRAFT v2 grammar amendment
+
+This amendment binds DRAFT v1 SHA `49bee3107622723e84e4bfb24ec6f36341d41bb9f9821f5086dd006c7cdde213`. It clarifies source classification before any holder/source authorization. It leaves all existing accepted subjects, immutable test cases and ceilings in force.
+
+## Declared Basic sources and grammar
+
+Use the existing case-insensitive separator-normalized field-name function; its authorization names are exactly `authorization` and `proxyauthorization`. Classification derives from parsed structure or explicit header syntax, never from arbitrary pathname or a production-specific exception.
+
+| Source | Which value carries the explicit authorization declaration |
+|---|---|
+| JSON object with a property whose normalized name is one of the two authorization names | That property's value, including decoded representations of an explicit supported envelope in that value. Ordinary unrelated sibling keys/values do not inherit this declaration. |
+| Postman `{key: NAME, value: VALUE}` or `{name: NAME, value: VALUE}` with the existing key-before-name lookup and an authorization name | VALUE, including its supported decoded representations. NAME is still scanned normally as a coordinate. |
+| Typed auth object `{type: "basic", basic: VALUE}` | VALUE and descendants retain the existing typed-basic context. This does not declare all their strings base64: username/password key/value entries still have their existing credential semantics. A textual `Basic` scheme occurrence in that declared subtree is parsed strictly, rather than downgraded to prose. |
+| Raw text header | An explicit header name token `[A-Za-z][A-Za-z0-9_-]*` with an authorization normalized name, followed by optional SP/HTAB, `:`, optional SP/HTAB, then a Basic scheme. Header-name token boundaries forbid matching the suffix of a longer identifier. The field value extends to the next CR/LF or end of text. |
+
+For a declared scalar/header authorization value whose first non-SP/HTAB word is case-insensitive `Basic` (followed by SP/HTAB or end), the complete value must satisfy:
+
+`OWS Basic RWS TOKEN OWS`
+
+`OWS` is zero or more ASCII SP/HTAB; `RWS` is one or more; `TOKEN` is one nonempty maximal non-whitespace token. Validate the *whole* token using existing strict standard-base64 alphabet/padding/canonical-bit rules; decode as UTF-8; require a colon; split at the first colon. Empty/missing token, extra non-whitespace after it, bad codec form, or missing colon is MALFORMED_INPUT; non-UTF-8 bytes keep UNSUPPORTED_INPUT. Never validate a valid prefix of a malformed token. Password presence follows the existing null/empty policy. Any nonempty structured Authorization/Proxy-Authorization value continues to be a protected-field finding independently of Basic parsing; if traversal later refuses, preserve that partial finding and NOT_EXECUTED.
+
+Typed-basic descendants preserve the old rule for a Basic scheme occurrence (word boundary, case insensitive Basic followed by SP/HTAB, then the maximal non-whitespace token), using the same strict token/UTF-8/colon validation. Plain username/password values do not need a Basic scheme or base64 syntax to remain credentials. Unchanged bearer and protected-name rules continue in parallel.
+
+Outside those declared sources, `Basic` plus a maximal non-whitespace token is only an implicit candidate. A tolerant *discovery* decode may establish UTF-8 credential shape containing `:`; if so, the original whole token must then pass strict canonical validation before walking/counting the decoded representation. Noncanonical encoded credential shape refuses. If discovery does not establish credential shape, the word/token remains ordinary text for the existing other recognizers; that is why `Basic policy check complete` can be lawful. Explicit header/structured context must not fall back to this prose branch after a parse error. A parent decoded JSON object must re-establish these structural source contexts for its own children.
+
+This source classification is an implementation obligation: current `context` only carries typed bearer/basic, so blindly reusing that flag would lose explicit scalar/Postman/raw-header declarations. The independent holder must cover each row with canonical credential, null/empty lawful context where allowed, malformed token and noncanonical credential twins. It must also prove that an unrelated sibling English Basic sentence does not inherit an authorization context.
+
+## JSON span and remainder rules
+
+The positive malformed-object recognizer is exactly `{` followed by zero or more JSON whitespace characters (SP, HTAB, CR, LF), then a double quote. A quoted key beginning with a backslash escape is still an object-key introducer. Complete span discovery may be permissive only to locate the span; the existing strict decoder receives its original bytes, so plain/escaped duplicate keys and non-finite values cannot be normalized away first. An incomplete introduced object remains MALFORMED_INPUT.
+
+A discovered JSON string inside ordinary JS/log text is only one span. Resume scanning at its end through the entire remaining original text; a valid quoted string at the front must not suppress a protected assignment, malformed introduced object, encoded token, URL or another span later in the same text. Only a representation consisting entirely of that single JSON value (apart from JSON whitespace) has no original remainder. Decoded content is recursively inspected with unchanged cumulative depth/node accounting. Existing immutable injection, noncanonical and duplicate-key cases remain valid and must all pass the eventual regression run.

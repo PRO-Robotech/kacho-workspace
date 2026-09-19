@@ -1,0 +1,249 @@
+{
+  "kind": "supplementary author experiment, not independent frozen holder",
+  "node_census": {
+    "project": 85,
+    "check": 100
+  },
+  "depth": 2,
+  "expanded_census": {
+    "raw_input_bytes": [
+      16787,
+      4352
+    ],
+    "raw_sum": 21139,
+    "projected_sum": 1552,
+    "cases": 2
+  },
+  "records": [
+    {
+      "id": "initial",
+      "operation": "project",
+      "limits": null,
+      "rc": 0,
+      "result": {
+        "archive_bytes": 732,
+        "archive_sha256": "7f7b5ae3f3a2b1117d56c2b33d662ede879271ae294199d958f49d9941b8f266",
+        "code": "COMPLETE",
+        "fields_checked": 1061,
+        "files_checked": 1,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0005-initial"
+    },
+    {
+      "id": "project-nodes-equal",
+      "operation": "project",
+      "limits": {
+        "decoded_nodes": 85
+      },
+      "rc": 0,
+      "result": {
+        "archive_bytes": 732,
+        "archive_sha256": "4af21c8f72a61580264cd6180b577a8d76b0bec207bef3cedf70fab907b068c3",
+        "code": "COMPLETE",
+        "fields_checked": 310,
+        "files_checked": 1,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0009-project-nodes-equal"
+    },
+    {
+      "id": "project-nodes-below",
+      "operation": "project",
+      "limits": {
+        "decoded_nodes": 84
+      },
+      "rc": 3,
+      "result": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 161,
+        "files_checked": 0,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0010-project-nodes-below"
+    },
+    {
+      "id": "check-nodes-equal",
+      "operation": "check",
+      "limits": {
+        "decoded_nodes": 100
+      },
+      "rc": 0,
+      "result": {
+        "archive_bytes": 732,
+        "archive_sha256": "4af21c8f72a61580264cd6180b577a8d76b0bec207bef3cedf70fab907b068c3",
+        "code": "COMPLETE",
+        "fields_checked": 338,
+        "files_checked": 1,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0011-check-nodes-equal"
+    },
+    {
+      "id": "check-nodes-below",
+      "operation": "check",
+      "limits": {
+        "decoded_nodes": 99
+      },
+      "rc": 3,
+      "result": {
+        "archive_bytes": 732,
+        "archive_sha256": "4af21c8f72a61580264cd6180b577a8d76b0bec207bef3cedf70fab907b068c3",
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 189,
+        "files_checked": 0,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0012-check-nodes-below"
+    },
+    {
+      "id": "project-depth-equal",
+      "operation": "project",
+      "limits": {
+        "decode_depth": 2
+      },
+      "rc": 0,
+      "result": {
+        "archive_bytes": 764,
+        "archive_sha256": "725932c92c29dd3502b345ecde31208d286b8e66773fb6ea75d78bc896ce732e",
+        "code": "COMPLETE",
+        "fields_checked": 318,
+        "files_checked": 1,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0016-project-depth-equal"
+    },
+    {
+      "id": "project-depth-below",
+      "operation": "project",
+      "limits": {
+        "decode_depth": 1
+      },
+      "rc": 3,
+      "result": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 12,
+        "files_checked": 0,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0017-project-depth-below"
+    },
+    {
+      "id": "check-depth-equal",
+      "operation": "check",
+      "limits": {
+        "decode_depth": 2
+      },
+      "rc": 0,
+      "result": {
+        "archive_bytes": 764,
+        "archive_sha256": "725932c92c29dd3502b345ecde31208d286b8e66773fb6ea75d78bc896ce732e",
+        "code": "COMPLETE",
+        "fields_checked": 346,
+        "files_checked": 1,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0018-check-depth-equal"
+    },
+    {
+      "id": "check-depth-below",
+      "operation": "check",
+      "limits": {
+        "decode_depth": 1
+      },
+      "rc": 3,
+      "result": {
+        "archive_bytes": 764,
+        "archive_sha256": "725932c92c29dd3502b345ecde31208d286b8e66773fb6ea75d78bc896ce732e",
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 40,
+        "files_checked": 0,
+        "files_declared": 1,
+        "findings": 0,
+        "operation": "check",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0019-check-depth-below"
+    },
+    {
+      "id": "project-expanded-equal",
+      "operation": "project",
+      "limits": {
+        "expanded_bytes": 21139
+      },
+      "rc": 0,
+      "result": {
+        "archive_bytes": 968,
+        "archive_sha256": "a3c8e8594cc3ae641467e155a54334972f4809aaa11d971a269904aa819e646f",
+        "code": "COMPLETE",
+        "fields_checked": 1080,
+        "files_checked": 2,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "CLEAN"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0024-project-expanded-equal"
+    },
+    {
+      "id": "project-expanded-below",
+      "operation": "project",
+      "limits": {
+        "expanded_bytes": 21138
+      },
+      "rc": 3,
+      "result": {
+        "archive_bytes": 0,
+        "archive_sha256": null,
+        "code": "LIMIT_EXCEEDED",
+        "fields_checked": 1039,
+        "files_checked": 1,
+        "files_declared": 2,
+        "findings": 0,
+        "operation": "project",
+        "schema_version": 1,
+        "status": "NOT_EXECUTED"
+      },
+      "capture": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141/0025-project-expanded-below"
+    }
+  ],
+  "evidence_root": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-green-3884b882/extra-review/budget-captures/np-429462b141"
+}
