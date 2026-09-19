@@ -57,10 +57,29 @@ rule_of() {   # <каталог песочницы> <агент>
         | awk -F'\t' -v a="$2" 'index($5, a) > 0 { print $2; exit }'
 }
 
+# Величина, КОТОРУЮ НЕ ДВИГАЕТ ДОПИСЫВАНИЕ в названный файл: сумма агента, за
+# которым этот файл НЕ закреплён. Без неё фикстура копирует величину, а своей же
+# записью делает её непроизведённой, и утверждение становится вакуумным — ровно
+# тот механизм, что шапка check-06 описывает для величины корпуса. Наблюдалось
+# 2026-09-19: ось A копировала сумму ближайшего под ориентиром, запас у него был
+# 23 Б, дописывание уводило его НАД ориентир — тождество не срабатывало, и три
+# утверждения расходились на дереве БЕЗ дефекта.
+sum_unmoved_by() {   # <каталог песочницы> <файл правила> ; печатает «<агент> <сумма>»
+    local d="$1" f="$2" holders
+    holders="$(LC_ALL=C awk -f "$GATE/manifest-rows.awk" "$d/$MANREL" \
+        | awk -F'\t' -v n="$f" '$2 == n { print $5; exit }')"
+    ( cd "$d" && RULES_GATE_ROOT="$d" bash "$GATE/$CH06" 2>&1 ) \
+        | sed -n 's/.*над ориентиром [0-9]*: //p' | tr '·' '\n' \
+        | while read -r a s _; do
+              [ -n "${a:-}" ] || continue
+              case "$holders" in *"$a"*) continue ;; esac
+              printf '%s %s\n' "$a" "$s"; break
+          done
+}
+
 echo "== ось A: КОПИЯ ВЫВОДА — тождество величины в живой строке таблицы =="
 d="$(sandbox a06)"
-capture "$d" "$CH06"
-sum="$(printf '%s\n' "$OUT" | sed -n 's/.*ближайший под ориентиром: [^ ]* \([0-9]*\) .*/\1/p')"
+read -r _a sum <<<"$(sum_unmoved_by "$d" "01-wave-contract.md")"
 printf '| произвольный ярлык | предзагрузка | %s | — |\n' "$sum" >> "$d/.claude/rules/01-wave-contract.md"
 capture "$d" "$CH06"
 assert_code 1 "ДЕФЕКТ: строка таблицы несёт число, равное величине из вывода переписи"
@@ -90,8 +109,7 @@ assert_code 0 "БЛИЗНЕЦ: доля, счёт и ноль рядом с им
 
 echo "== ось D: БЛИЗНЕЦ — те же числа В ПРОЗЕ, а не строкой таблицы =="
 d="$(sandbox d06)"
-capture "$d" "$CH06"
-sum="$(printf '%s\n' "$OUT" | sed -n 's/.*ближайший под ориентиром: [^ ]* \([0-9]*\) .*/\1/p')"
+read -r _a sum <<<"$(sum_unmoved_by "$d" "01-wave-contract.md")"
 b="$(sandbox_digest "$d")"
 printf '\nЗамер 2026-09-19 давал %s Б — снимок с названной датой, а не таблица.\n' "$sum" \
     >> "$d/.claude/rules/01-wave-contract.md"
@@ -101,8 +119,7 @@ assert_code 0 "БЛИЗНЕЦ: проза цитирует датированн�
 
 echo "== ось E: БЛИЗНЕЦ — та же строка в ОГРАДЕ КОДА (форма показана примером) =="
 d="$(sandbox e06)"
-capture "$d" "$CH06"
-sum="$(printf '%s\n' "$OUT" | sed -n 's/.*ближайший под ориентиром: [^ ]* \([0-9]*\) .*/\1/p')"
+read -r _a sum <<<"$(sum_unmoved_by "$d" "01-wave-contract.md")"
 b="$(sandbox_digest "$d")"
 { printf '\n```\n'; printf '| ярлык | агент | %s | — |\n' "$sum"; printf '```\n'; } \
     >> "$d/.claude/rules/01-wave-contract.md"
@@ -112,8 +129,7 @@ assert_code 0 "БЛИЗНЕЦ: пример формы в ограде — не 
 
 echo "== ось F: БЛИЗНЕЦ — та же строка под HTML-КОММЕНТАРИЕМ (снята автором) =="
 d="$(sandbox f06)"
-capture "$d" "$CH06"
-sum="$(printf '%s\n' "$OUT" | sed -n 's/.*ближайший под ориентиром: [^ ]* \([0-9]*\) .*/\1/p')"
+read -r _a sum <<<"$(sum_unmoved_by "$d" "01-wave-contract.md")"
 b="$(sandbox_digest "$d")"
 printf '\n<!-- | ярлык | агент | %s | — | -->\n' "$sum" >> "$d/.claude/rules/01-wave-contract.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же строка под HTML-комментарием"
