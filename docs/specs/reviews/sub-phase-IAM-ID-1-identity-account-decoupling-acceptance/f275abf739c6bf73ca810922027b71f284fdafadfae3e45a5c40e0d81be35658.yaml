@@ -1,0 +1,247 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: f275abf739c6bf73ca810922027b71f284fdafadfae3e45a5c40e0d81be35658
+  revision: 21
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция 21, ждёт acceptance-reviewer»; шапка намеренно НЕ
+    правлена (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со
+    строкой «✅ APPROVED — круг 12»: она описывает прежние редакции и ЭТОТ текст не одобряет.
+    Машинный читатель docs-gate прочтёт объявленный вердикт — это его объявленный предел
+    (судит объявление, а не одобрение). Действующий вердикт о редакции 21 (отпечаток
+    f275abf7) — ЭТА запись, и он ОДОБРЕНИЕ. APPROVED редакций 17 (`46d03ba4…`) и 19
+    (`c5937b4e…`) и ⛔ круга 20 (`24b4bf85…`) к этому отпечатку отношения не имеют.
+  base_commit: 810136a3
+  content_commit: uncommitted
+  content_state: >-
+    Редакция 21 — НЕЗАКОММИЧЕННАЯ правка рабочего дерева поверх HEAD (810136a3, чей .md ==
+    редакция 19 `c5937b4e…`). Судится рабочий файл в worktree tmp/w-s31-rebase (ветка
+    issue-1351-iam-id-1-s4), как назвало задание. Коммит редакции 21 и этой записи — момент
+    git-operator, не мой.
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/24b4bf85cddf5ebc552769ed93b641515e2dfe778d821776ac7cd42fe8b33a78.yaml
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md  (worktree tmp/w-s31-rebase, рабочий файл)
+  fingerprint_verified: true
+  lines: 8063
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+review_mode: >-
+  ЗАКРЫВАЮЩИЙ круг по отсечке диспетчера: блокирует только то, что ломает НАБЛЮДАЕМЫЙ контракт
+  (делает сценарий неисполнимым, недоказуемым или лживым о дереве). Условия на реализацию
+  вынесены строками «в задание полосы кода», важное без нового круга — non_blocking_findings.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в worktree tmp/w-s31-rebase (HEAD=810136a3) вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 810136a3
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  policy_value_read: '[pointpu]'
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОДОБРЕНИЕ. Effective approval приёмки существует только по внешнему событию
+    полномочия; я его НЕ публикую. Событие публикует курьер под учётной записью, допущенной
+    политикой (policy.yaml review_authority.acceptance-reviewer = [pointpu]). Роль в записи —
+    координата, а не доказательство личности (change-graph.md §3).
+  external_event_body_for_publication: >-
+    роль: acceptance-reviewer · вердикт: APPROVED · SHA-256 предмета:
+    f275abf739c6bf73ca810922027b71f284fdafadfae3e45a5c40e0d81be35658 · путь:
+    docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседние записи 1b202071, 4b28757a, ecd73639, 46d03ba4, f4ffbd08, c5937b4e и 24b4bf85
+      НЕ правятся и НЕ удаляются — каждая остаётся вердиктом о своём содержимом. Эта запись —
+      соседняя, новая, на отпечаток редакции 21. Предикат отсутствия прежней записи на этот
+      отпечаток до создания: `ls docs/specs/reviews/…/ | grep -c f275abf7` → 0.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 21 по редакции 21.
+  editions_by_fingerprint:
+    - {edition: 19, commit: c5937b4e-content, sha256_prefix: c5937b4e, verdict: 'APPROVED (круг 19)'}
+    - {edition: 20, commit: uncommitted, sha256_prefix: 24b4bf85, verdict: 'CHANGES_REQUESTED (круг 20, B20-1 CONVENTION)'}
+    - {edition: 21, commit: uncommitted, sha256_prefix: f275abf7, verdict: 'APPROVED (эта запись)'}
+
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ 810136a3 (worktree tmp/w-s31-rebase), редакция 21 — рабочий файл (uncommitted)
+  subject_tree_service: PRO-Robotech/kaname @ f8fc5a37 (клон project/kaname; git cat-file -t → commit)
+  subject_tree_platform: PRO-Robotech/kacho @ 8d70f599834 (клон project/kacho, HEAD)
+  subject_tree_foundation: PRO-Robotech/corelib @ 34bc8104 = тег v1.9.0
+
+delta_since_prior_round:
+  parent_round: 20
+  parent_sha256: 24b4bf85cddf5ebc552769ed93b641515e2dfe778d821776ac7cd42fe8b33a78
+  parent_lines: 8021
+  this_lines: 8063
+  note_on_measurable_delta: >-
+    Редакция 20 в дереве НЕ сохранена (правка рабочего файла), поэтому дельту 20→21 я
+    перемерить не мог — это «не выполнилось», а не вердикт. Перемерена дельта 19→21 против
+    закоммиченного HEAD: +147/−61, 12 хунков. Она СИЛЬНЕЕ заявленной: за ДВА круга подряд
+    состав сценариев не сдвинулся ни на один.
+  scenario_count_measured:
+    predicate: "grep -cE '^\\*\\*Given\\*\\*' <файл>"
+    edition_19_committed: 83
+    edition_21_worktree: 83
+    scenario_headers_identical: >-
+      "grep -oE '^#### [A-Z0-9][A-Za-z0-9.-]*' | sort" — 91 заголовок, diff между редакциями
+      19 и 21 ПУСТ. Ни одного заведённого, снятого или переименованного сценария.
+    document_self_declaration: '«Сценариев — 83, из них действующих 71» (строка 6553) — совпало с моим счётом'
+
+what_i_verified_by_measurement:
+  fingerprint:
+    result: подтверждено
+    predicate: sha256sum → f275abf739c6bf73ca810922027b71f284fdafadfae3e45a5c40e0d81be35658
+  b20_1_closed_self_contradiction:
+    result: ЗАКРЫТ
+    how: >-
+      Абзац §2.3а «Форма пути — аккаунт-скоупная» теперь называет сегмент {accountId} ОТБОРОМ
+      (формулировка перенята у предфазы S3.1 §1.1/§4.1), отдельным абзацем говорит, что
+      областью решения о доступе сегмент НЕ является (её называет membership_id), и третьим
+      абзацем — что слота для ОТБОРА в переписи §1.5 нет вовсе. Вывод «§2.3 соблюдён»
+      перевешен на довод «сегмент — не поле РЕСУРСА»; довод про места 2/5 для вывода больше
+      не используется. Самопротиворечия в абзаце нет: ни одно из трёх утверждений не
+      отрицает другого.
+  n20_1_edge_does_not_glue:
+    result: подтверждено ЗАМЕРОМ (kacho @ 8d70f599834)
+    predicate: |
+      git grep -n -A12 'type AuthzCheckInput struct' 8d70f599834 -- gateway/
+        → ResourceType string; ResourceID string — ДВА скалярных поля
+      git grep -n 'ResourceRef{' 8d70f599834 -- gateway/
+        → gateway/internal/clients/iam_authorize_client.go:223
+          Resource: &iamv1.ResourceRef{Type: in.ResourceType, Id: in.ResourceID}
+    verdict_on_claim: >-
+      Утверждение редакции 21 «край объект-строку не собирает вовсе — он несёт ПАРУ скалярных
+      полей до самой границы» ИСТИННО на дереве. Вывод об отвергнутом композите от этого
+      усиливается: второй идентификатор в одно скалярное поле не помещается без правки
+      структуры.
+  reconciler_arity:
+    result: подтверждено (kaname @ f8fc5a37)
+    predicate: "git grep -n 'fmt.Sprintf(\"%s:%s\"' f8fc5a37 -- internal/apps/kaname/api/access_binding/reconcile/tuples.go → :69"
+  membership_id_is_deterministic:
+    result: подтверждено (kaname @ f8fc5a37)
+    predicate: |
+      git show f8fc5a37:internal/migrations/0001_initial.sql | grep -A5 'FUNCTION kaname.membership_mirror_id'
+        → LANGUAGE sql IMMUTABLE; 'mbr-' || substr(md5('membership:'||p_user_id||':'||p_account_id),1,17)
+      grep 'memberships_id_form_check' → CHECK (id ~ '^mbr-[0-9abcdefghjkmnpqrstvwxyz]{17}$')
+    consequence: >-
+      Основание «вычислимость — причина, по которой отказ обязан быть побайтово неотличим»
+      стоит на дереве, а не на прозе.
+  public_promise_of_offline_computability:
+    result: подтверждено (kaname @ f8fc5a37)
+    predicate: "git show f8fc5a37:proto/kaname/cloud/iam/v1/membership_service.proto | grep -B12 'rpc Get ' → строки 136–137 «идентификатор членства вычислим офлайн из пары»"
+  fga_model_state:
+    result: подтверждено (kaname @ f8fc5a37)
+    predicate: |
+      grep -cE '^type ' fga_model.fga                     → 32
+      grep -c '^type iam_membership$'                     → 0   (остаток назван верно)
+      awk 'type iam_user' | grep 'define v_(get|list)'    →
+        v_get:  [user, service_account, group#member] or subject or super_admin
+        v_list: [user, service_account, group#member] or super_admin
+    consequence: >-
+      Семантика гейта §2.3а («v_get = … or subject or super_admin», «v_list = … or
+      super_admin») воспроизводит ДЕЙСТВУЮЩИЙ состав iam_user, а не заводит второй предмет.
+  ownership_of_the_third_remainder:
+    result: подтверждено — двойного владения НЕТ
+    how: >-
+      Родитель называет третью вещь остатка (исход поля user_id) и ЯВНО отдаёт её владельцем
+      приёмке предфазы S3.1, не дублируя наблюдаемого (change-graph.md §1). Предфаза
+      (ddf0ddb6, §1.1а) этот исход действительно называет: снять с резервированием номера и
+      имени. Разрыва «названо нигде» нет, дубля «названо дважды по-разному» — тоже.
+
+discrepancy_resolved_by_unit:
+  question_from_dispatcher: >-
+    Автор предфазы нашёл вне своего предмета: from_request_field: "account_id" несут ТРИ RPC,
+    а §1.5 родителя называет ДВА. Правка переписи или строка для полосы?
+  my_measurement:
+    subject_tree: "kaname @ f8fc5a37 — git grep -c 'from_request_field: \"account_id\"' -- proto/kaname/cloud/iam/v1/user_service.proto → 3"
+    which_rpcs: "Invite (строка 83) · ResendInvite (131) · RemoveFromAccount (274) — определено по блоку каждого rpc, а не окном"
+    parent_predicate_tree: "монорепо kacho @ $R=475f8527 — предикат §1.5 читает proto/kacho/cloud/iam/v1/user_service.proto"
+    parent_predicate_state: "⟳ НЕ ВЫПОЛНИЛОСЬ — 475f8527 не резолвится в клоне project/kacho; ветки release/identity-4 на origin нет (git fetch: couldn't find remote ref). Число 2 я не подтвердил и не опроверг."
+    why_three_and_not_two: "ResendInvite в монорепо не существовал ни разу: git log -S'rpc ResendInvite' --all -- proto/kacho/cloud/iam/v1/user_service.proto → 0 коммитов. Единица разная: §1.5 мерила КОНТРАКТ МОНОРЕПО, автор предфазы — КОНТРАКТ СЛУЖБЫ."
+  verdict: >-
+    НЕ блокирующее и НЕ строка для полосы кода. Третий носитель в родителе УЖЕ имеет названный
+    исход, и не в одном месте: §1.10.2 («ResendInviteRequest.account_id = 2 … остаётся»,
+    предикат на $K=kaname), §2.5 Р4, §1.10.2/§2.5 сноска «на крае снимается только запись
+    allowlist Invite, запись ResendInvite остаётся», сценарий IAM-ID-1-84. То есть
+    «принято-и-проигнорировано» здесь не возникает: несделанного исхода нет.
+  recommendation_non_blocking: >-
+    При следующем открытии родителя дописать к месту 5 §1.5 одну оговорку единицы — «монорепо
+    @ $R; на субъект-дереве носителей ТРИ (Invite · ResendInvite · RemoveFromAccount), исходы
+    — §1.10.2». Это снимет класс «два числа об одном предмете без названной единицы»
+    (writing.md §2). Отдельного круга не требует.
+
+checklist:
+  scope: 'пройдено — §0.2 называет, что APPROVED разрешает и чего не разрешает; §2.3а называет остаток и его границы; «третья вещь» отдана владельцу-предфазе'
+  coverage: 'пройдено — состав сценариев не менялся два круга подряд (91 заголовок, diff пуст); счёт 83/71 совпал с моим'
+  negative: 'пройдено — правка не трогала отрицательных сценариев, кроме механических оговорок 31/57'
+  producer: 'пройдено — «Тогда» остатка несёт названного производителя (приёмка предфазы S3.1 + модельные гейты), и предфаза на этот отпечаток существует'
+  twin: 'пройдено — IAM-ID-1-31 несёт положительного близнеца с ОДНОЙ дельтой (super_admin над аккаунтом названного членства); формулировка близнеца перемерена диффом'
+  constructibility: 'пройдено — посевом, см. constructibility ниже'
+  format: 'пройдено'
+  convention: 'пройдено — B20-1 закрыт; самопротиворечия в §2.3а нет'
+  dod: 'пройдено — §8 диффом не тронут'
+  open_question: 'пройдено — врезка «Открытый вопрос редакции 18 … СНЯТ»; открытых пунктов к владельцу правка не оставляет'
+  disclosure: 'пройдено — правка не вносит координат «где защита не сработала»; называет механизм, а не дыру'
+
+constructibility:
+  seeded_not_enumerated: true
+  runs:
+    - given: 'человек в ДВУХ аккаунтах, два членства (Given сценариев IAM-ID-1-31/-57 и предфазы)'
+      fixture: 'kaname internal/repo/kaname/pg/user_invite_second_account_integration_test.go — TestUserInvite_ExistingActiveEmail_SecondAccount, require.Len(t, mems, 2) на строке 133'
+      command: 'go test ./internal/repo/kaname/pg/ -run TestUserInvite_ExistingActiveEmail_SecondAccount -count=1 (project/kaname @ dd66b5be, testcontainers)'
+      result: 'PASS (3.13s) — состояние ПОСЕЯНО, а не перечислено'
+  not_performed:
+    - 'предикаты §1 на $R=475f8527 — ревизия монорепо не резолвится, ветки на origin нет. Третий исход, не красное: числа §1 я не опроверг.'
+  note: >-
+    Несущие для S3.1 предикаты читают $KN/$CL, а не $R (врезка «Перебазировка S3.1»), и оба
+    резолвятся — поэтому недоступность $R радиуса одобрения не сужает.
+
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N21-1
+    kind: unit_of_count
+    where: '§1.5, место 5'
+    what: >-
+      Число «2» относится к контракту МОНОРЕПО на $R; на субъект-дереве носителей ТРИ. Обе
+      величины истинны, единица разная — но рядом с числом единица не названа, а соседний
+      §1.10.2 такую оговорку для своего числа несёт («Единица та же, дерево другое»).
+    why_not_blocking: 'исход третьего носителя назван в §1.10.2/§2.5/сценарии 84 — несделанного нет'
+  - id: N21-2
+    kind: unverifiable_anchor
+    where: '§1.0 якорь R=475f8527, помеченный «ДЕЙСТВУЮЩАЯ»'
+    what: 'ревизия не резолвится ни локально, ни на origin (ветки release/identity-4 нет) — ни один предикат на $R сегодня не перепроверяем'
+    why_not_blocking: 'ни один сценарий на $R не стоит; S3.1-предикаты читают $KN/$CL'
+    suggested: 'при следующем открытии пометить $R как «ветка снята с origin» — форма для этого в документе уже есть (строка про 78d062bb)'
+
+task_lines_for_the_code_lane:
+  - 'Строка таблицы форм ответа края на тип iam_membership: назвать ШАБЛОН дословно и сказать, какой идентификатор подставляется (в таблице kacho gateway/internal/middleware/permission_denied_response.go шаблоны вида "User %s not found" ключуются типом). Требование «побайтово равна строке iam_user» исполнимо двояко, и выбор — момент полосы, а не приёмки.'
+  - 'Смена object_type и from_request_field у ДВУХ записей каталога приземляется вместе с маршрутом, несущим поле membership_id: каждая половина по отдельности ОТНИМАЕТ доступ (fail-closed). Это уже сказано §2.3а — повторяю строкой, потому что делится по полосам.'
+
+scope:
+  what_this_record_judges: 'точное содержимое f275abf7 — текст приёмки. Не дифф кода, не .proto, не схему, не вердикт прогона, не посадку.'
+  document_not_edited_by_me: true
