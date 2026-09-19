@@ -91,7 +91,7 @@ AI-оснастка живёт **в единственном экземпляр�
 
 `.claude/settings.json` — `bypassPermissions` (локальная dev-машина) плюс хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует
+сабагентов), `change-graph-reminder`, `wave-monitor` (`UserPromptSubmit`, седьмой шаг волны), rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует
 в одном экземпляре; в репозитории продукта его нет и не должно быть: `bypassPermissions`,
 закоммиченный в публичный репозиторий, решал бы за каждого клонирующего.
 
