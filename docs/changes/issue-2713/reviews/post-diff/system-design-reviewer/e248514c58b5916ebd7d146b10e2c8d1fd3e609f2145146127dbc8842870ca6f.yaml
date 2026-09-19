@@ -1,0 +1,205 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+#
+# ЭТО НЕ session-часть #2713. Тот адаптер (branch issue-2713, head 60843801,
+# digest 41148c31…) отсужен отдельной записью этой же роли. Здесь — остаток
+# #2713: предел края на backend-вызовах REST-моста (branch issue-2713-restmux).
+schema_version: 1
+change_id: issue-2713
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  #2713 (остаток) — предел края restBridgeCallTimeout=5s на КАЖДОМ backend-вызове
+  REST-моста края (grpc-gateway): перехватчики дедлайна (unary+stream) в
+  restBridgeDialOpts, куда делегирует optsFor. Публичный/внутренний край gateway
+  → все backend'ы (vpc/compute/storage/geo/iam/loadbalancer/registry, оба
+  слушателя).
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2713-restmux
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/issue-2713-restmux
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: a71aac3159c22952a497f76604cf86e46199a696
+content_digest: sha256:e248514c58b5916ebd7d146b10e2c8d1fd3e609f2145146127dbc8842870ca6f
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...a71aac31` (полный трёхточечный дифф
+  от базы origin/main до головы ветки; оба конца — из задания, перемерены своей
+  командой в worktree; merge-base == base, линия чистая). Совпадает с дайджестом
+  записи go-style-reviewer на тот же дифф.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+distributed_surface: true    # per-call дедлайн на межсервисной грани моста + fail-fast под перегрузкой соседа
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  полный дифф (3 файла: 1 прод + 1 проба + правка mux.go). Осмотрены все 59
+  Register*HandlerFromEndpoint (маршрут дедлайна), соседние клиенты внутреннего
+  слушателя (величина 5s) и отсутствие стрим-регистрации через мост как контекст;
+  судится дельта к стволу.
+
+files_reviewed:
+  - gateway/internal/restmux/backend_call_deadline.go        # прод: +96 (новый файл)
+  - gateway/internal/restmux/backend_call_deadline_test.go   # проба: +171 (bufconn, медленный сосед + сторож)
+  - gateway/internal/restmux/mux.go                          # -15/+6: optsFor делегирует в restBridgeDialOpts
+files_read_for_context:
+  - gateway/internal/clients/iam_subject_client.go           # sibling внутр. слушателя: callTimeout 5s (:106)
+  - gateway/internal/opsproxy/proxy.go                       # sibling: backendCallTimeout 5s (:78)
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок распределённого свойства нет
+important:
+  - id: SDR-2713R-O1
+    axis: наблюдение (не находка)
+    coord: gateway/internal/restmux/backend_call_deadline.go:44-45
+    finding: >-
+      Перехватчик стоит на СОЕДИНЕНИИ (dial-опция ClientConn), не на call-site.
+      Это не «предел на всё соединение разом»: WithChainUnaryInterceptor даёт
+      замыкание, которое исполняется на КАЖДЫЙ invoke и ставит свежий
+      context.WithTimeout(ctx, 5s) для этого вызова. Семантика — per-call, как
+      требует architecture.md §Concurrency; координата постановки (соединение)
+      вынуждена тем, что call-site'ы генерит grpc-gateway. Корректно.
+    blocking: false
+  - id: SDR-2713R-O2
+    axis: наблюдение (не находка)
+    coord: gateway/internal/restmux/backend_call_deadline.go:75-95
+    finding: >-
+      Стрим-перехватчик: на ошибке создания потока — немедленный cancel (нет
+      утечки контекста); на успехе — горутина ждёт <-stream.Context().Done() и
+      зовёт cancel (идемпотентно). stream.Context() производен от ctx с пределом,
+      поэтому жизнь горутины ограничена 5s даже у брошенного потока — всегда
+      завершается, cancel всегда вызывается. Стриминговых служб мост сегодня не
+      проксирует (subscription/InternalResourceLifecycle — gRPC-direct, не через
+      HandlerFromEndpoint), поэтому это единообразное покрытие грани, а не горячий
+      путь. Утечки горутины/контекста нет.
+    blocking: false
+
+foundation_candidates: []    # величина 5s осознанно дублируется per-client/per-edge
+                             # константой (restBridge/iam_subject/opsproxy) — не предмет corelib
+
+# ── оси, которые судит эта роль ────────────────────────────────────────────
+axes:
+  per_call_deadline_on_every_external_call:
+    status: closed
+    evidence: >-
+      Все 59 Register*HandlerFromEndpoint передают optsFor(<key>) → optsFor
+      делегирует в restBridgeDialOpts (mux.go:417-419) → та добавляет
+      WithChainUnaryInterceptor(backendCallDeadlineUnaryInterceptor(5s)) и
+      WithChainStreamInterceptor(...) (backend_call_deadline.go:44-45). Перемер:
+      `grep -c HandlerFromEndpoint mux.go` = 59; из них НИ ОДНА не собирает
+      dial-опции в обход optsFor (единственная строка без optsFor — комментарий
+      :95). Инвариант architecture.md «все sibling-вызовы применяют один и тот же
+      configured-timeout, не часть — да, часть — нет» выполнен by construction:
+      источник dial-опций один.
+  min_semantics_no_deadline_extension:
+    status: closed
+    evidence: >-
+      context.WithTimeout(ctx, d) == WithDeadline(ctx, now+d); по документированной
+      семантике stdlib, если у родителя дедлайн уже раньше — возвращается
+      эффективный МИНИМУМ, предел не расширяется. Значит входящий запрос с более
+      тесным дедлайном сохраняет его; мост лишь ВНОСИТ потолок, когда дедлайна нет
+      или он свободнее. Комментарий-обоснование (backend_call_deadline.go:50-52)
+      правдив. Отмена входящего запроса тоже пробрасывается (ctx производен).
+  fail_fast_under_neighbor_overload:
+    status: closed
+    evidence: >-
+      TestRestBridgeDeadline_SlowNeighborFailsFast: сосед со сном 2s, предел 100ms
+      → status.Code == DeadlineExceeded, возврат около предела (сторож elapsed >
+      1s роняет «завис»). Прогнано своей командой (`go test ./internal/restmux/
+      -run TestRestBridge -count=1 -v`): PASS, SlowNeighbor 0.10s — предмет ЖИВ,
+      не только объявлен. Это ровно лекарство класса architecture.md §Concurrency
+      «неотвечающий peer вешает горутину навсегда → исчерпание процесса».
+  deadline_does_not_sever_correct_long_path:
+    status: closed
+    evidence: >-
+      Через мост идут только control-plane RPC: мутации возвращают Operation сразу
+      (ban #9, async), чтения ограничены statement_timeout БД. Легитимного
+      синхронного backend-вызова >5s через мост нет. Единственный долгоживущий
+      путь — подписка (server-stream) — идёт gRPC-direct, НЕ через мост (перемер:
+      ни одна Subscribe/ResourceLifecycle не регистрируется через
+      HandlerFromEndpoint). 5s совпадает с соседями внутр. слушателя (перемерено:
+      iam_subject_client.go:106 = 5s, opsproxy/proxy.go:78 = 5s). Замечание
+      (не находка): List page_size=1000 + listauthz batch — бюджет СТОРОНЫ backend'а
+      (security.md: параллелить проверки в срок), а не грани моста; потолок моста
+      единообразен с выбранным платформой per-call бюджетом.
+  public_vs_internal_edge_separation:
+    status: closed
+    evidence: >-
+      Дифф меняет ТОЛЬКО dial-опции, не маршрутизацию. Дедлайн ставится
+      единообразно и на external-mux (optsFor("iam"), "vpc", …), и на internal-mux
+      (optsFor("iamInternal"), "vpcInternal", "storageInternal", …) — обеим граням
+      потолок нужен. Ban #6 не задет: разделение Internal* от external держит
+      резолвер HasInternalSuffix (server.go/shimproxy.go), диффом не тронутый.
+      Корректность регистрации моста — предмет api-gateway-registrar; этот дифф её
+      не изменяет.
+  no_new_cross_domain_edge:
+    status: closed
+    evidence: >-
+      Рёбра gateway → каждый backend уже существуют (§Runtime cross-domain edges);
+      дифф лишь навешивает per-call потолок на существующие рёбра. Нового
+      runtime-ребра нет; запись в polyrepo.md не требуется.
+  no_double_write_idempotency:
+    status: closed
+    evidence: >-
+      Мост — чистый форвардер: ни записи в БД, ни CAS, ни outbox, ни pg_notify не
+      вводит. DeadlineExceeded на чтении безопасен для повтора; мутации возвращают
+      Operation. Класса двойной записи и «проверка-затем-запись» в диффе нет.
+
+# ── пробы под перегрузкой: уже есть и способны краснеть ─────────────────────
+overload_probe:
+  ordered_integration_tester: false
+  reason: >-
+    Проба медленного соседа + сторож уже в диффе, красна-способна и прогнана
+    зелёной. Конкурентно-горутинная CAS-проба НЕПРИМЕНИМА: в диффе нет CAS,
+    разделяемого мутируемого состояния и спорного пути «ровно одна транзакция
+    выигрывает» — предмет распределённого свойства здесь тайминг под перегрузкой,
+    а не гонка за строку. Заказ integration-tester не нужен.
+  present_probes:
+    - name: TestRestBridgeBackendCallCarriesDeadline
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: чёрный ящик над restBridgeDialOpts поверх настоящего gRPC (bufconn)
+      asserts: >-
+        подан context.Background() (БЕЗ дедлайна); сервер-свидетель
+        (UnknownServiceHandler — как дозванивается мост) фиксирует наличие дедлайна
+        и остаток в окне (0, restBridgeCallTimeout]. RED до фикса: нет перехватчика
+        → has=false. Фикстура отвечает без ошибки → красное приходит РОВНО от
+        отсутствия предела, не от сломанной подпорки.
+    - name: TestRestBridgeDeadline_SlowNeighborFailsFast
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: медленный сосед (сон 2s) + сторож (elapsed > 1s роняет «завис»)
+      asserts: negatiв — DeadlineExceeded около предела, без зависания.
+    - name: TestRestBridgeDeadline_NeighborWithinLimitPasses
+      file: gateway/internal/restmux/backend_call_deadline_test.go
+      kind: законный близнец — сосед в пределе
+      asserts: проходит без отказа.
+  own_run:
+    command: >-
+      go test ./internal/restmux/ -run TestRestBridge -count=1 -v (в gateway/)
+    outcome: >-
+      зелёных 3 из 3 · красных 0 · не выполнилось 0. SlowNeighbor 0.10s. Прогон
+      этой ролью — свидетельство живости предмета; область зелёного и независимый
+      перемер полного прогона — landing-reviewer/check-verifier.
+
+# ── пересечение с ревью схемы ──────────────────────────────────────────────
+schema_review_intersection:
+  intersects: false
+  reason: >-
+    В диффе нет SQL, миграции, CAS, xmin, advisory-lock. Изменение целиком
+    транспортное (dial-опции + перехватчики дедлайна). db-architect-reviewer на
+    этот дайджест не нужен.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход прогона проб/линтера этой ролью как ВЕРДИКТ не объявляется: сырой вывод
+# читает landing-reviewer, независимый перемер — check-verifier. Здесь — только
+# распределённые свойства написанного (и свой контрольный прогон трёх проб).
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (если пакет линии есть) либо
+  landing-reviewer (если пакета нет).

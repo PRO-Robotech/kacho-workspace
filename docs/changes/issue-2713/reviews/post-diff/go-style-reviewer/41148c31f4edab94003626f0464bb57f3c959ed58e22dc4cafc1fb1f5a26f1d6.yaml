@@ -1,0 +1,131 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: issue-2713
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: 'багфикс #2713 — вызовы края к службе о сессии шли без своего предела (per-call deadline)'
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2713
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/issue-2713
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: 60843801878d96d41464aaf0f992f3116679bbdf
+content_digest: sha256:41148c31f4edab94003626f0464bb57f3c959ed58e22dc4cafc1fb1f5a26f1d6
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...60843801` (полный трёхточечный дифф
+  изменения от базы origin/main до головы ветки, оба конца — из задания,
+  перемерены своей командой в worktree). Перемер:
+  `git diff ac33f733...60843801 | sha256sum`.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  полный дифф (3 файла, +292/-3); запрет отсрочки (#11) и требование проб в том
+  же PR (#12) судятся по всему диффу, а не по фрагменту.
+
+files_reviewed:
+  - gateway/internal/clients/session_revocations_client.go
+  - gateway/internal/clients/session_deadline_test.go
+  - gateway/internal/clients/session_deadline_behaviour_test.go
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок по коду нет
+important: []
+foundation_candidates: []    # см. reuse_assessment — выноса в corelib изменение не порождает
+style: []
+security_comments_contradicting_code: []
+
+# ── счётчики по всему диффу ────────────────────────────────────────────────
+fresh_deferral_markers: 0    # маркеров отсрочки (TODO:/FIXME/SKIP) в диффе нет.
+                             # Совпадения «позже предела»/«later» — проза комментариев
+                             # о медленном соседе, отвечающем ПОЗЖЕ дедлайна; это не
+                             # форма обращения к читателю кода, под ban #11 не подпадает.
+tests_in_same_pr: true       # две пробы в том же диффе: RED (session_deadline_test.go,
+                             # чёрный ящик над настоящим адаптером по bufconn) +
+                             # поведенческая пара (session_deadline_behaviour_test.go:
+                             # негатив «медленный сосед → DeadlineExceeded, не зависает»
+                             # + законный близнец «в пределе → проходит»).
+
+# ── что проверено и на чём основано ────────────────────────────────────────
+approved:
+  per_call_deadline_every_sibling: >-
+    ядро фикса. Все ПЯТЬ глаголов адаптера (ResolveHumanSession, IsBasicCredentialLive,
+    Revoke, IsSessionRevoked, SessionCutoffOf) несут собственный
+    context.WithTimeout(ctx, a.callTimeout) с defer cancel() сразу после создания.
+    Единообразно, из одного поля callTimeout — per architecture.md «все sibling-методы
+    клиента обязаны применять один и тот же configured-timeout». Это точный класс
+    §Concurrency architecture.md и §Hardening security-hardening.md: без предела
+    неотвечающий сосед держал бы горутину края навсегда → накопление → исчерпание.
+  radius_complete: >-
+    единственное место в gateway, конструирующее клиентов внутреннего слушателя службы
+    о сессии (NewInternalSessionRevocationsServiceClient / NewInternalHumanSessionServiceClient),
+    — этот адаптер (grep по прод-дереву). Соседи того же слушателя (iam_subject, opsproxy)
+    предел уже несли. Радиус механизма «край к службе о сессии без предела» закрыт целиком.
+  ctx_propagation: >-
+    ctx — первый аргумент всех методов, прокидывается во все gRPC-вызовы; ctx в структуре
+    не хранится (хранится только callTimeout time.Duration). context.Background — только во
+    входе проб (намеренно бессрочный вход, предел ставит край). context.TODO нет.
+  deadline_min_semantics: >-
+    WithTimeout берёт минимум с родительским дедлайном — per-call 5s есть верхняя граница,
+    более короткий родительский ctx не удлиняется. Fail-closed сохранён: DeadlineExceeded
+    течёт по существующим ветвям возврата ошибки как «спросить не удалось», не подменяя
+    типизированные признаки (Unimplemented) и не читаясь как «отозван»/«живо».
+  no_panic_in_prod_path: 'panic/MustParse/log.Fatal в диффе нет; defer cancel() паники не несёт'
+  thin_adapter: >-
+    слой clients/ тонкий: parse → gRPC-вызов → перевод кода. Дифф оставляет его тонким,
+    добавляя только предел; бизнес-логики, ветвлений по состоянию домена, pgx — нет.
+  layering: >-
+    файл слоя adapter (internal/clients/), реализует порт handler.SessionRevocationsClient;
+    импортирует grpc-stubs + middleware/streamrevocation. pgx/transport не протекли —
+    направление зависимостей цело.
+  naming_ascii: >-
+    новые идентификаторы латиницей (sessionRevocationsCallTimeout, callTimeout) — ban #17
+    цел; ресивер короткий (a *SessionRevocationsAdapter); магического числа нет — 5s есть
+    именованная const. Комментарии на русском — законны.
+  no_dead_code: >-
+    добавленное поле callTimeout читается всеми пятью глаголами; const используется
+    конструктором; мёртвого кода/веток дифф не вносит.
+  cross_module_clean: >-
+    go.mod не тронут; corelib (v1.8.0) и kaname (пин) уже зависимости; новых рёбер модулей
+    дифф не заводит — rule-polyrepo триггер не срабатывает.
+  probes_observable_lock: >-
+    регресс-лок на УРОВНЕ ОБСЕРВАБЛА (testing.md §Regression-lock): негатив утверждает
+    codes.DeadlineExceeded (наблюдаемое поведение), не только «есть таймаут»; concurrency-
+    проба детерминирована — блокирующий дублёр держит вызов до отмены ctx, горутина под
+    сторожевым time.After(2s), без time.Sleep на счастливом пути; законный близнец (сосед
+    в пределе) проходит — пара по gate-authoring, не одиночное молчание.
+
+# ── перемеренные основания утверждений в комментариях кода (doc-truthfulness) ─
+verified_facts:
+  - 'комментарий client:32 «iam_subject: 5s» — верно: gateway/internal/clients/iam_subject_client.go:106 callTimeout: 5 * time.Second'
+  - 'комментарий client:32 «opsproxy: 5s» — верно: gateway/internal/opsproxy/proxy.go:78 const backendCallTimeout = 5 * time.Second'
+  - 'единообразие величины подтверждено: все три клиента внутреннего слушателя несут один предел 5s'
+  - 'go.mod без изменений (git diff --name-only не содержит go.mod); модуль gateway — корневой github.com/PRO-Robotech/kacho'
+  - 'все 5 внешних gRPC-вызовов адаптера обёрнуты WithTimeout+defer cancel (client.go:91,136,156,177,203)'
+  - 'адаптер — единственный конструктор session/human internal-клиентов в прод-дереве gateway'
+
+# ── оценка переиспользования (checklist §10) ───────────────────────────────
+reuse_assessment: >-
+  кандидата в фундамент нет. Применённый образец — идиоматичное per-call
+  context.WithTimeout(ctx,…)+defer cancel() на месте вызова, предписанное самим
+  architecture.md как inline-инвариант; каждый клиент (iam_subject, opsproxy) держит свой
+  callTimeout полем так же. Вынос обёртки над двухстрочной stdlib-идиомой в corelib был бы
+  over-engineering (LEAN), а величина 5s — локальное политическое решение на клиента, не
+  горизонтальный контракт. Дифф верно следует установленному локальному образцу, а не
+  заводит новую абстракцию.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход линтера и проб НЕ объявляется: сырой вывод читает landing-reviewer,
+# независимый перемер делает check-verifier. Здесь — только форма кода.
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
