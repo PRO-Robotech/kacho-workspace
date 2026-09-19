@@ -232,8 +232,9 @@ for f in sorted(glob.glob('.claude/rules/*.md')):
     m=re.search(r'(?m)^#\s+(.+)$', t)
     desc=(m.group(1) if m else base).strip().replace('"','')
     if len(desc)>150: desc=desc[:147].rstrip()+'…'
-    open(f,'w',encoding='utf-8').write(f'---\nname: rule-{base}\ndescription: "{desc}"\n---\n\n'+t)
-    print(f'{base}: +{len(f"---\\nname: rule-{base}\\ndescription: \\"{desc}\\"\\n---\\n\\n")} симв')
+    fm = '---\nname: rule-' + base + '\ndescription: "' + desc + '"\n---\n\n'
+    open(f,'w',encoding='utf-8').write(fm + t)
+    print(base + ': +' + str(len(fm)) + ' симв')
 PY
 chmod +x scripts/rules-gate/inject-08-rule-frontmatter.sh
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
