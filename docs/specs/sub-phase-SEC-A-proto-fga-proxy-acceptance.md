@@ -294,10 +294,10 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 **Given** новые RPC потребляются vpc→iam / compute→iam / nlb→iam (drainer→IAM.RegisterResource, SEC-D)
 **And** `kacho-iam` НЕ импортирует и НЕ зовёт vpc / compute / nlb
 
-**When** фиксируются runtime-edges в `polyrepo.md`
+**When** фиксируются runtime-edges в `polyrepo-runtime-edges.md`
 
 **Then** fgaproxy-рёбра (vpc→iam, compute→iam, nlb→iam) — усиление уже существующего направления `*→iam` (Check / ProjectService.Get), цикл не вводится
-**And** новые edges документируются в `polyrepo.md` (runtime-edge) и vault `edges/vpc-to-iam-fgaproxy.md` / `compute-to-iam-fgaproxy.md` / `nlb-to-iam-fgaproxy.md` (создаются в SEC-A trail; реальное поведение — SEC-D). NLB-сервис — канонически `kacho-nlb` (§4.1 п.6; legacy `kacho-loadbalancer` не использовать)
+**And** новые edges документируются в `polyrepo-runtime-edges.md` (runtime-edge) и vault `edges/vpc-to-iam-fgaproxy.md` / `compute-to-iam-fgaproxy.md` / `nlb-to-iam-fgaproxy.md` (создаются в SEC-A trail; реальное поведение — SEC-D). NLB-сервис — канонически `kacho-nlb` (§4.1 п.6; legacy `kacho-loadbalancer` не использовать)
 
 ## Сценарий SEC-A-13: verify-no-yandex и no-cloud-naming
 
@@ -325,7 +325,7 @@ unary (как `Check` / `WriteCreatorTuple`), НЕ async через `Operation`,
 - [ ] `cd proto && buf breaking --against 'https://github.com/PRO-Robotech/kacho.git#branch=main,subdir=proto'` зелёный — additive (SEC-A-09).
 - [ ] public breaking-diff = 0 — изменён только Internal-сервис, публичные контракты нетронуты (SEC-A-10); ban #6 proto-предусловие (нет http-аннотации) соблюдено (SEC-A-11).
 - [ ] `! grep -ri 'yandex' proto/ pkg/api/` пуст (SEC-A-13) — цели под этот гейт нет.
-- [ ] `polyrepo.md` обновлён fgaproxy-рёбрами (vpc/compute/nlb→iam) + не-цикл-инвариантом (SEC-A-12; §6.6 эпика); NLB упомянут как `kacho-nlb`.
+- [ ] `polyrepo-runtime-edges.md` обновлён fgaproxy-рёбрами (vpc/compute/nlb→iam) + не-цикл-инвариантом (SEC-A-12; §6.6 эпика); NLB упомянут как `kacho-nlb`.
 - [ ] Тесты для контракта (этот PR / kacho-proto): см. ниже «proto-conformance / buf тесты». Идемпотентность / коды / ReBAC-энфорс (SEC-A-04/05/06/07) — нормативные ожидания, RED-тесты под них пишутся как conformance в SEC-C (kacho-iam) и newman в сервисных репо (SEC-D/SEC-E); зафиксированы здесь для трассировки 1:1.
 - [ ] vault-trail: `rpc/iam-internal-iam-service.md` (+2 метода; **methods_count 7→9** — реальный proto уже содержит 7 RPC: `LookupSubject` / `ListPermissions` / `Check` / `WriteCreatorTuple` / `GetJWKSStatus` / `ForceLogout` / `PollSubjectChanges`; vault-запись `methods_count: 3` stale — актуализировать как часть trail), новые `edges/*-to-iam-fgaproxy.md` (planned), `KAC/KAC-<SEC-A>.md`.
 

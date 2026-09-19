@@ -5,7 +5,7 @@
 > Ревьюер: acceptance-reviewer (gate перед кодом, ban #1)
 > Эпик/тикет: SEC (`docs/specs/sub-phase-SEC-mtls-iam-authz-epic.md`), KAC-<TBD> (Subtask of SEC-эпик)
 > Зависит от: **SEC-D** (vpc/compute mTLS server+client + outbox-FGA), **SEC-F** (cert-manager internal-CA, per-svc Certificate ×2, SA-seed wiring, FGA NetworkPolicy), **SEC-C** (client-cert→SA mapping, ReBAC least-priv SA seed, ACR-модель)
-> Затронутые репо: `kacho-vpc-operator` (+ `kacho-deploy`), правка `polyrepo.md` (`kacho-workspace`)
+> Затронутые репо: `kacho-vpc-operator` (+ `kacho-deploy`), правка `polyrepo-runtime-edges.md` (`kacho-workspace`)
 
 ## Обзор
 
@@ -16,7 +16,7 @@
 (read-only синк, никаких мутаций — требование #4, §3.3), согласовать существующий
 **webhook-cert оператора** (cert-manager) с internal CA эпика, собрать **весь стенд
 целиком** на mTLS и подтвердить, что синк Subnet→kube-ovn и data-path не сломаны. В
-завершение зафиксировать в `polyrepo.md` fgaproxy-рёбра (vpc→iam / compute→iam) и
+завершение зафиксировать в `polyrepo-runtime-edges.md` fgaproxy-рёбра (vpc→iam / compute→iam) и
 инвариант «vpc⇄compute — не семантический цикл» (§6.6).
 
 **Модель авторизации — ReBAC (ground-truth `kacho-proto/gen/permission_catalog.json`,
@@ -43,12 +43,12 @@ deploy-обвязка. `enable=false` для всех mTLS-рёбер = теку
 
 SEC-G — самостоятельный end-to-end deliverable, дробится на 4 стадии, каждая
 мёржится отдельным PR в порядке: транспорт (S1) → identity/least-priv ReBAC (S2) →
-webhook-CA + full-stack deploy (S3) → polyrepo-фиксация инвариантов (S4).
+webhook-CA + full-stack deploy (S3) → фиксация рёбер и инвариантов в `polyrepo-runtime-edges.md` (S4).
 
 - **S1** — operator→vpc/iam dial на mTLS с отдельным client-cert оператора (per-edge `enable`).
 - **S2** — least-privilege SA оператора (ReBAC viewer-tuples на scope-объекты, SA exempt от ACR) + empirical least-priv validation (over/under-grant).
 - **S3** — webhook-cert оператора через internal CA + полный стенд на mTLS (kube-ovn/multus e2e зелёный).
-- **S4** — `polyrepo.md`: fgaproxy-рёбра + vpc⇄compute не-цикл-инвариант + operator→{vpc,iam} mTLS-рёбра.
+- **S4** — `polyrepo-runtime-edges.md`: fgaproxy-рёбра + vpc⇄compute не-цикл-инвариант + operator→{vpc,iam} mTLS-рёбра.
 
 ---
 
@@ -389,7 +389,7 @@ data-path (secondary CNI) не сломан.
 
 ---
 
-## S4 — polyrepo.md: fgaproxy-рёбра + vpc⇄compute не-цикл-инвариант
+## S4 — polyrepo-runtime-edges.md: fgaproxy-рёбра + vpc⇄compute не-цикл-инвариант
 
 **Контекст (§6.6, §4.1.1):** design-review подтвердил ацикличность: iam не импортирует
 vpc/compute; fgaproxy-рёбра vpc→iam / compute→iam — усиление существующего направления
@@ -401,46 +401,46 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 (SEC-B), затем проверка, что SA имеет relation `fga_writer` на системном объекте
 `iam_fgaproxy:system` (tuple выдаётся модульным SA в seed). Permission-строка
 `iam.fgaproxy.write` НЕ вводится. Эпик требует зафиксировать рёбра + не-цикл-инвариант
-в `polyrepo.md` (закрывается здесь, в SEC-G, как финал). Чисто docs-правка (markdown), без кода.
+в `polyrepo-runtime-edges.md` (закрывается здесь, в SEC-G, как финал). Чисто docs-правка (markdown), без кода.
 
-### Сценарий S4-01: fgaproxy-рёбра зафиксированы в polyrepo.md (exempt+ReBAC механизм) [req #6][§6.6][§4.1.1]
+### Сценарий S4-01: fgaproxy-рёбра зафиксированы в polyrepo-runtime-edges.md (exempt+ReBAC механизм) [req #6][§6.6][§4.1.1]
 
 **ID:** SEC-G-17
 
-**Given** `.claude/rules/polyrepo.md` §«Runtime cross-domain edges» содержит `* → kacho-iam` (ProjectService.Get + InternalIAMService.Check)
+**Given** `.claude/rules/polyrepo-runtime-edges.md` §«Runtime cross-domain edges» содержит `* → kacho-iam` (ProjectService.Get + InternalIAMService.Check)
 
 **When** добавляется явная фиксация fgaproxy-рёбер: `kacho-vpc → kacho-iam` и `kacho-compute → kacho-iam` через `InternalIAMService.RegisterResource`/`UnregisterResource` (Internal-only, owner-tuple write/delete, idempotent — SEC-A/C/D), с пометкой: проверяются опцией `permission="<exempt>"` + ReBAC-relation `fga_writer` на `iam_fgaproxy:system` (§4.1.1), НЕ permission-строкой `iam.fgaproxy.write`
 
-**Then** `polyrepo.md` явно перечисляет fgaproxy-рёбра как runtime-edges (усиление направления `* → iam`, не новое направление) + механизм exempt+ReBAC
+**Then** `polyrepo-runtime-edges.md` явно перечисляет fgaproxy-рёбра как runtime-edges (усиление направления `* → iam`, не новое направление) + механизм exempt+ReBAC
 **And** отмечено: модули не ходят в FGA напрямую (vpc/compute openfga-client удалён — SEC-D), только через IAM-proxy (#6)
 
 ### Сценарий S4-02: vpc⇄compute не-цикл-инвариант зафиксирован [§6.6 N2]
 
 **ID:** SEC-G-18
 
-**Given** `polyrepo.md` перечисляет `kacho-vpc → kacho-compute` (zone_id validate) и `kacho-compute → kacho-vpc` (NIC-spec validate + IPAM)
+**Given** `polyrepo-runtime-edges.md` перечисляет `kacho-vpc → kacho-compute` (zone_id validate) и `kacho-compute → kacho-vpc` (NIC-spec validate + IPAM)
 
 **When** добавляется инвариант: vpc⇄compute — **не** семантический цикл (разные ресурсные контексты; vpc→compute запрос не порождает обратный синхронный compute→vpc вызов в той же цепочке)
 
-**Then** `polyrepo.md` явно документирует не-цикл-инвариант + правило «новое cross-domain ребро не должно замыкать синхронную цепочку A→B→A»
+**Then** `polyrepo-runtime-edges.md` явно документирует не-цикл-инвариант + правило «новое cross-domain ребро не должно замыкать синхронную цепочку A→B→A»
 **And** операторские рёбра (operator→vpc, operator→iam) добавлены в карту runtime-edges (operator — вне build-графа, sync-poll consumer, mTLS + read-only SA)
 
 ### Сценарий S4-03: операторские mTLS-рёбра отражены в edge-карте [req #5]
 
 **ID:** SEC-G-20
 
-**Given** vault edges и `polyrepo.md` runtime-edge карта
+**Given** vault edges и `polyrepo-runtime-edges.md` runtime-edge карта
 
 **When** SEC-G завершён
 
-**Then** `polyrepo.md` / vault содержат: `kacho-vpc-operator → kacho-vpc` (mTLS, отдельный client-cert SAN `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`, read-only ReBAC viewer-SA) и `kacho-vpc-operator → kacho-iam` (mTLS, fan-out list через exempt AccountService.List + viewer-scoped ProjectService.List)
+**Then** `polyrepo-runtime-edges.md` / vault содержат: `kacho-vpc-operator → kacho-vpc` (mTLS, отдельный client-cert SAN `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`, read-only ReBAC viewer-SA) и `kacho-vpc-operator → kacho-iam` (mTLS, fan-out list через exempt AccountService.List + viewer-scoped ProjectService.List)
 **And** отмечено, что оператор вне build-графа control-plane (sibling, не импортируется по build)
 
 **DoD S4:**
-- `.claude/rules/polyrepo.md` §«Runtime cross-domain edges»: добавлены fgaproxy-рёбра (vpc→iam / compute→iam via InternalIAMService.RegisterResource/Unregister, механизм exempt+ReBAC `fga_writer`@`iam_fgaproxy:system` — §4.1.1) + vpc⇄compute не-цикл-инвариант + operator→{vpc,iam} mTLS-рёбра.
-- docs-правка раскатана во все синканные копии `polyrepo.md` (`./sync-tooling.sh`, источник истины — workspace).
+- `.claude/rules/polyrepo-runtime-edges.md` §«Runtime cross-domain edges»: добавлены fgaproxy-рёбра (vpc→iam / compute→iam via InternalIAMService.RegisterResource/Unregister, механизм exempt+ReBAC `fga_writer`@`iam_fgaproxy:system` — §4.1.1) + vpc⇄compute не-цикл-инвариант + operator→{vpc,iam} mTLS-рёбра.
+- docs-правка раскатана во все синканные копии `polyrepo-runtime-edges.md` (`./sync-tooling.sh`, источник истины — workspace).
 - vault: `edges/vpc-operator-to-vpc-mtls.md` финализирован; `edges/vpc-operator-to-kubeovn.md` обновлён.
-- Чисто markdown — без кода (S4 не содержит integration/newman, проверяется ревью текста polyrepo.md).
+- Чисто markdown — без кода (S4 не содержит integration/newman, проверяется ревью текста polyrepo-runtime-edges.md).
 
 ---
 
@@ -485,9 +485,9 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 | Проверка | Покрывает |
 |---|---|
 | helm-unittest/yq: webhook Certificate `issuerRef` = internal-CA (`kacho-selfsigned`); operator-client-cert secret отдельный от webhook-server-cert; kube-labels `app.kubernetes.io/*`; NLB=`kacho-nlb` | SEC-G-12, S3 DoD |
-| `polyrepo.md` содержит fgaproxy-рёбра (vpc→iam / compute→iam via RegisterResource/Unregister, exempt+ReBAC) | SEC-G-17 |
-| `polyrepo.md` содержит vpc⇄compute не-цикл-инвариант + правило A→B→A | SEC-G-18 |
-| `polyrepo.md` / vault содержат operator→{vpc,iam} mTLS-рёбра | SEC-G-20 |
+| `polyrepo-runtime-edges.md` содержит fgaproxy-рёбра (vpc→iam / compute→iam via RegisterResource/Unregister, exempt+ReBAC) | SEC-G-17 |
+| `polyrepo-runtime-edges.md` содержит vpc⇄compute не-цикл-инвариант + правило A→B→A | SEC-G-18 |
+| `polyrepo-runtime-edges.md` / vault содержат operator→{vpc,iam} mTLS-рёбра | SEC-G-20 |
 
 ---
 
@@ -496,7 +496,7 @@ exempt). Least-priv энфорсится **в IAM-handler через ReBAC**: mT
 - [ ] **S1**: operator→vpc и operator→iam dial на mTLS с отдельным operator-client-cert (раздельно от webhook-server-cert, #5; SAN `spiffe://kacho.cloud/ns/kacho-vpc-operator/sa/kacho-vpc-operator`, §4.1.4); per-edge `enable`; `enable=false` = insecure back-compat (#1).
 - [ ] **S2**: operator-SA с least-priv **ReBAC viewer-relation tuples** на scope-объекты синка (account/project/vpc_network/vpc_network_interface; permission-литералы `vpc.subnetses.list`/`vpc.networks.get`/`vpc.network_interfaces.get`/`iam.projectses.list` validated из `permission_catalog.json`; `AccountService.List` покрыт членством/exempt) seed'ом в kacho-iam (SEC-C); никаких editor/мутаций (#4); SA exempt от `required_acr_min` (§4.1.2); over/under-grant пройдены эмпирически (I6); unknown SAN → DENY; known SAN без scope-relation → DENY.
 - [ ] **S3**: webhook-cert оператора через internal-CA (переиспользован `kacho-selfsigned`, единый trust-root, #2, §4.1.6); полный стенд (сервисы + vpc-operator + ns-operator + kube-ovn + multus) на mTLS; newman зелёные в сервисных репо + `make -C deploy e2e-test` bash-смоук зелёный + helm-assertion (§4.1.5); kube-ovn/multus data-path и deletion-семантика не сломаны; per-edge insecure-rollback работает; kube-labels `app.kubernetes.io/*`, NLB=`kacho-nlb`.
-- [ ] **S4**: `polyrepo.md` фиксирует fgaproxy-рёбра (#6, exempt+ReBAC `fga_writer`@`iam_fgaproxy:system`, §4.1.1) + vpc⇄compute не-цикл-инвариант (§6.6) + operator→{vpc,iam} mTLS-рёбра; раскатано sync-tooling'ом.
+- [ ] **S4**: `polyrepo-runtime-edges.md` фиксирует fgaproxy-рёбра (#6, exempt+ReBAC `fga_writer`@`iam_fgaproxy:system`, §4.1.1) + vpc⇄compute не-цикл-инвариант (§6.6) + operator→{vpc,iam} mTLS-рёбра; раскатано sync-tooling'ом.
 - [ ] Публичные ресурсные контракты не изменены (#8); JWT-флоу не тронут (#7).
 - [ ] Каждая стадия — отдельный PR + ветка `KAC-<N>` в затронутых репо; integration+newman в том же PR (RED→GREEN, ban #12).
 - [ ] vault обновлён (`edges/vpc-operator-to-kubeovn.md`, новая `edges/vpc-operator-to-vpc-mtls.md`, `resources/iam-serviceaccount.md`/`rpc/iam-service-account-service.md`); KAC-trail.
