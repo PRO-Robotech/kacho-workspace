@@ -57,7 +57,7 @@ Cross-service FK запрещён (база на службу, ban #4 и #8) —
 | на новый инвариант нужна integration-проба | `Skill rule-testing` | `.claude/rules/testing.md` §«Test-first — обязательно (ban #12)», §«Пирамида и инфраструктура» (уровень integration) |
 | заводишь outbox-таблицу или журнал подписки | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Что заводит САМ владелец — ровно три вещи» п. 1; §«Заводишь новый сервис с подпиской — порядок» шаг 1 |
 | гейт или генерация красные; берёшь форму с соседней миграции | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` §«9. Гейт судит КОММИТ, а работа лежит в ИНДЕКСЕ», §«12. Правило берётся из КАНОНА, а не из формы соседних файлов» |
-| миграция касается снятых рёбер сетевого оператора | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Runtime cross-domain edges», врезка «Здесь стояли два ребра оператора сети — сняты решением владельца 2026-08-09» |
+| миграция касается снятых рёбер сетевого оператора | `Skill rule-polyrepo-runtime-edges` | `.claude/rules/polyrepo-runtime-edges.md` §«Runtime cross-domain edges», врезка «Здесь стояли два ребра оператора сети — сняты решением владельца 2026-08-09» |
 | читаешь записку ресурса до правки | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода» (строка про ресурс), §«Запреты» (дублирование) |
 | работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
 | задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Continuous integration» (синхронизация перед правкой) |
