@@ -1,0 +1,408 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md
+  sha256: 6e03c8de1523af606e6176cb9eed8b11c4f537838be5a74c6e56ad3af3609b73
+  revision: 2
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция 2 (круг 2)»; шапка намеренно НЕ правлена
+    (change-graph.md §2). Действующий вердикт о редакции 2 (отпечаток 6e03c8de) — ЭТА
+    запись, и он ВОЗВРАТ. Запись круга 1 (`16f26c13…`) к этому отпечатку отношения не
+    имеет — обесценена сменой отпечатка.
+  base_commit: cf15f29d4746f2eb90755ce219cba0d1f7432dce
+  content_commit: uncommitted
+  content_state: >-
+    Редакция 2 — НЕЗАКОММИЧЕННЫЙ файл рабочего дерева (untracked) в worktree
+    tmp/s31-prephase-acceptance (ветка s31-prephase-acceptance), как назвало задание.
+    Коммит редакции 2 и этой записи — момент git-operator, не мой.
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance/16f26c132f28db28753b738ebe29b89b3691d4d7fb29f1be080023afc96a00c4.yaml
+  parent_acceptance:
+    path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+    sha256: 24b4bf85cddf5ebc552769ed93b641515e2dfe778d821776ac7cd42fe8b33a78
+    revision: 20
+    verdict_on_that_fingerprint: CHANGES_REQUESTED (моя запись 24b4bf85….yaml, круг 20)
+    note: >-
+      Предфаза стоит на редакции 20 родителя и называет её ОТПЕЧАТКОМ, а не именем и словом
+      APPROVED — N2 круга 1 закрыт. Родитель на этот отпечаток НЕ одобрен (мой возврат
+      того же захода, блокер B20-1 CONVENTION). Это не блокер предфазы: она родителя не
+      правит, а её собственный текст род сегмента называет ВЕРНО (§1.1, §4.1) — именно там,
+      где родитель ошибается.
+  epic: https://github.com/PRO-Robotech/kaname/issues/292
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md  (worktree tmp/s31-prephase-acceptance)
+  fingerprint_verified: true
+  lines: 584
+
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в worktree tmp/s31-prephase-acceptance (HEAD=cf15f29d) вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_applicable
+  published: false
+  rationale: >-
+    Вердикт — ВОЗВРАТ. Внешнее событие полномочия публикуется только под ОДОБРЕНИЕ.
+  external_event_body_for_publication: null
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Запись круга 1 (16f26c13….yaml) НЕ правится и НЕ удаляется — она остаётся вердиктом о
+      редакции 1. Эта запись — соседняя, новая, на отпечаток редакции 2. Предикат отсутствия
+      прежней записи на этот отпечаток до создания:
+      `ls docs/specs/reviews/…/ | grep -c 6e03c8de` → 0.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 2 по редакции 2.
+
+measurement_home:
+  workspace_branch: s31-prephase-acceptance @ cf15f29d (worktree tmp/s31-prephase-acceptance)
+  subject_tree_service: PRO-Robotech/kaname @ dd66b5be (клон project/kaname — вершина, названная документом)
+  subject_tree_edge: PRO-Robotech/kacho @ 8d70f599 (клон project/kacho)
+
+# ─────────────────────────────────────────────────────────────────────────────
+round1_blockers_closure_check:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    was: сегмент пути против поля — «сегмент пути без поля запроса» запрещён схемой связывания
+    author_claim: исчез как предмет — область называет ОДНО поле `membership_id`, плейсхолдер пути и есть поле запроса
+    my_verdict: ЗАКРЫТ, и закрыт именно так
+    evidence: >-
+      §1.2 объявляет запись каталога двумя скалярами; §1.1 даёт путь, где `{membershipId}`
+      и есть поле области. Дерево подтверждает, что это ШТАТНАЯ форма, а не изобретение:
+      посаженный сосед IAM-ID-2 несёт ровно её —
+      kaname proto/kaname/cloud/iam/v1/membership_service.proto, rpc Get:
+      get: "/iam/v1/accounts/{account_id}/memberships/{membership_id}" со
+      scope_extractor { object_type: "account" from_request_field: "account_id" }.
+      Плейсхолдер пути связан с полем запроса; противоречию взяться неоткуда.
+  - id: B2
+    kind: SCOPE
+    was: §4 делает вывод, которого в цитатах нет (подмена референта — запрет любого account_id выводился из §2.3)
+    author_claim: §4 переписан под §1.5 родителя (пять мест, четыре смысла) и приведён к ред.20 `24b4bf85`
+    my_verdict: ЗАКРЫТ
+    evidence: >-
+      §4.1 воспроизводит перепись §1.5 родителя пятью строками и называет смыслы верно:
+      место 1 `User.account_id` — поле РЕСУРСА, снято §2.3; места 2 и 5 — поле, называющее
+      ОБЛАСТЬ решения. Сверено с §1.5 редакции 20 родителя дословно — совпадает. Ссылка на
+      родителя дана отпечатком `24b4bf85…` (§4.3, шапка), а не `a8fd4f94` из ствола; врезка
+      «Рецензент круга 1 читал ДРУГУЮ редакцию» называет предикат перепроверки. Обратный
+      контроль §4.1 исполним: я перемерил `grep -cE 'reserved 6;|reserved "account_id"'` по
+      kaname proto/kaname/cloud/iam/v1/user.proto — предмет §2.3 остаётся снятым.
+  - id: B3
+    kind: CONSTRUCTIBILITY
+    was: композит `iam_membership:<account>:<user>` не производим ни одной из двух сторон
+    author_claim: снят решением — объект есть собственный id ресурса, обе стороны уже строят «тип + `:` + ОДИН id»
+    my_verdict: ЗАКРЫТ ПО СУЩЕСТВУ, но координата края названа НЕВЕРНО — см. блокер B2-2
+    evidence_for: >-
+      Существо верно: kaname.membership_mirror_id(p_user_id, p_account_id) LANGUAGE sql
+      IMMUTABLE (0001_initial.sql:1251-1255) чеканит `mbr-` + 17 из пары; форма закреплена
+      CONSTRAINT memberships_id_form_check (строка 2169). Реконсайлер действительно
+      односоставен: fmt.Sprintf("%s:%s", fgaType, objectID) —
+      kaname internal/apps/kaname/api/access_binding/reconcile/tuples.go:69.
+    evidence_against_the_edge_coordinate: см. blocking_findings B2-2
+  - id: B4
+    kind: COVERAGE
+    was: источник отношения не назван
+    author_claim: >-
+      назван — `account: [account]`, `super_admin: admin from account`,
+      `subject: [user]`; `v_get` несёт `subject`, `v_list` не несёт, асимметрия
+      объявлена намеренной
+    my_verdict: ЗАКРЫТ
+    evidence: >-
+      §1.3 называет все три источника таблицей и выводит глаголы. Сверено с деревом
+      @ kaname dd66b5be, блок `type iam_user` в internal/authzmodel/fga_model.fga:
+      define account: [account] · define super_admin: admin from account ·
+      define subject: [user] · define v_get: [user, service_account, group#member] or
+      subject or super_admin · define v_list: [user, service_account, group#member] or
+      super_admin. Асимметрия — сегодняшний факт на `iam_user`, документ её СОХРАНЯЕТ и
+      называет намеренной (S31E-10 утверждает её исходом, с положительным близнецом S31E-06).
+
+load_bearing_check_path_form:
+  question_from_task: >-
+    Прежнее указание диспетчера «поля `account_id` не нужно вовсе» автор опроверг замером —
+    подтвердить независимо, и убедиться, что ОТБОР не выдаётся за ОБЛАСТЬ.
+  my_verdict: АВТОР ПРАВ — подтверждаю независимо; оба утверждения проверены на дереве
+  evidence_flat_read_forbidden:
+    document: docs/specs/sub-phase-IAM-ID-2-membership-read-acceptance.md
+    status: '✅ APPROVED — круг 7 (вердикт acceptance-reviewer), 2026-08-27 (шапка, строка 3)'
+    quote_2_2_level_4: >-
+      «Одиночное чтение живёт **только** на аккаунт-скоупном пути
+      `GET /iam/v1/accounts/{accountId}/memberships/{membershipId}`, и аккаунт в нём —
+      **обязательная часть отбора**, а не украшение пути: строка отдаётся, лишь если
+      принадлежит названному аккаунту. Плоской формы `GET /iam/v1/memberships/{id}` не
+      существует (§2.6).»
+    quote_lane_C: >-
+      «отмена держится **полосой C** гейта IAM-ID-2-15, которая красит плоское чтение по
+      идентификатору независимо от автора и от того, какой документ его разрешил» и
+      «Она красит плоское чтение по идентификатору **независимо от того, какой документ его
+      разрешил**, — то есть держит свойство дерева, а не согласие двух текстов.»
+    why_it_binds: >-
+      Причина запрета названа там же и действует здесь дословно: идентификатор членства
+      вычислим офлайн из пары, поэтому плоское чтение по нему задаёт вопрос «в каких
+      аккаунтах состоит этот человек» арифметикой вместо параметра. Я подтвердил
+      вычислимость деревом (membership_mirror_id, IMMUTABLE). Значит `account_id` в пути
+      НУЖЕН, и прежнее указание диспетчера опровергнуто верно.
+  selection_not_passed_off_as_scope:
+    prephase: ДЕРЖИТ
+    evidence: >-
+      §1.1: «Сегмент `{accountId}` — часть ОТБОРА, а не украшение пути … Членство, не
+      принадлежащее названному аккаунту, даёт промах независимо от прав вызывающего» и
+      «**Областью решения о доступе сегмент НЕ является** — её называет `membership_id`».
+      §4.1: «Редакция 2 называет область полем `membership_id`, а сегмент `{accountId}`
+      несёт **отбор**». Сценарий S31E-03 утверждает это ИСХОДОМ, а не прозой.
+    parent: НЕ ДЕРЖИТ — блокер B20-1 моей записи 24b4bf85….yaml (отбор назван «поле-область»)
+    note: >-
+      Асимметрия существенна: правит её родитель, а не предфаза. Предфаза формулировку уже
+      нашла; родителю её и надо перенять.
+
+dispatcher_decision_check:
+  what_task_says: >-
+    Решение диспетчера, внесено в §6.1: действующие прямые выдачи при смене объекта гейта
+    ПЕРЕНОСЯТСЯ реконсайлером, а не объявляются снятыми; перенос обратим, снятие ломает
+    держателей (ban #18); фаза migrate обязана быть доказана предикатом «не ноль на новом
+    объекте», а не фактом запуска реконсайлера.
+  substance: ЗАПИСАНО ВЕРНО И ПОЛНОСТЬЮ
+  substance_evidence:
+    - '§1.4 п. 2: «предикат перехода — ненулевое число кортежей на новом объекте при действующей выдаче, а не факт запуска реконсайлера»'
+    - '§1.4 п. 3: contract — только после доказанной migrate'
+    - 'S31E-13 (положительный близнец), S31E-14 (непроизошедшая перематериализация ОБЯЗАНА быть красной), S31E-15 (снятие только при «ноль на старом И не-ноль на новом»)'
+    - 'DoD п. 9 повторяет все три условия'
+    - 'ban #18 и обратимость названы дословно в §6.1'
+  form: ЗАПИСАНО КАК ОТКРЫТЫЙ ВОПРОС, А НЕ КАК ПРИНЯТОЕ РЕШЕНИЕ
+  form_evidence: >-
+    §6.1 озаглавлен «Вопрос владельцу — один, и он несущий» и заканчивается «Пока ответа
+    нет, сценарии S31E-13/14/15 описывают **первый** исход». То есть документ считает выбор
+    неразрешённым, тогда как задание называет его принятым и делегированным.
+  my_handling: >-
+    НЕ блокер. По §3.8 моего чек-листа открытый вопрос с явно записанным умолчанием и
+    названным обоснованием (обратимость, ban #18) — дефолтабельный, и он фиксируется
+    вердиктом, а не возвращается. ФИКСИРУЮ ДЕФОЛТ ЯВНО: выдачи ПЕРЕНОСЯТСЯ; фаза migrate
+    доказывается предикатом «не ноль на новом объекте при действующей выдаче». Вопроса
+    владельцу этот пункт больше не порождает. Просьба к автору — важное замечание N2-3:
+    переписать §6.1 из «вопроса» в «решение», сохранив обоснование.
+
+numbers_verified_by_me:
+  revision: kaname @ dd66b5be, kacho @ 8d70f599
+  table:
+    - claim: типов в модели 32
+      result: ПОДТВЕРЖДЕНО (grep -cE '^type ' internal/authzmodel/fga_model.fga → 32)
+    - claim: 'type iam_membership → 0'
+      result: ПОДТВЕРЖДЕНО (→ 0)
+    - claim: обе копии fga_model.fga байт-идентичны
+      result: ПОДТВЕРЖДЕНО (diff internal/authzmodel/fga_model.fga proto/kaname/cloud/iam/v1/fga_model.fga — пуст)
+    - claim: 'роль iam.user.view — 1 (единица: роль)'
+      result: ПОДТВЕРЖДЕНО (→ 1); контроль iam.group → 3, значение непустое и ДРУГОЕ
+    - claim: 'якорных селекторов с iam.user — 4 (единица: строка селектора)'
+      result: ПОДТВЕРЖДЕНО (→ 4); контроль iam.group → 4
+    - claim: 'memberships_id_form_check — 1'
+      result: ПОДТВЕРЖДЕНО (0001_initial.sql:2169, CHECK id ~ '^mbr-[0-9abcdefghjkmnpqrstvwxyz]{17}$')
+    - claim: membership_mirror_id — детерминированная чеканка из пары
+      result: ПОДТВЕРЖДЕНО (0001_initial.sql:1251-1255, LANGUAGE sql IMMUTABLE)
+  control_note: >-
+    Контроль по соседнему типу печатает непустые и ДРУГИЕ значения (3 и 4 против 1 и 4) —
+    значит предикаты различают предмет, а не находят слово. Утверждение документа об этом
+    верно.
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  - id: B2-1
+    kind: CONVENTION
+    title: судьба поля `user_id` в двух запросах не названа — исхода нет ни одного из трёх законных
+    where: §1.1 (таблица форм), §2 F1/F2, §5 DoD п. 1
+    measured: >-
+      kaname @ dd66b5be / f8fc5a37, proto/kaname/cloud/iam/v1/user_service.proto:
+      message GetUserRequest несёт ТОЛЬКО `string user_id = 1`;
+      message ListUserOperationsRequest — `user_id`, `page_size`, `page_token`;
+      rpc Get сегодня объявляет get: "/iam/v1/users/{user_id}".
+      Поле `user_id` — единственный сегодня носитель адресуемой личности.
+    what_the_doc_does: >-
+      §1.1 переводит оба глагола на путь `…/accounts/{accountId}/memberships/{membershipId}/user`,
+      где `{userId}` сегмента БОЛЬШЕ НЕТ, а S31E-01 прямо утверждает: «`id` ответа равен
+      человеку **названного членства** — вызывающий его отдельно не называл: личность
+      выводится из членства, а не сверяется с ним».
+    why_blocking:
+      - >-
+        Поле остаётся в сообщении запроса, перестав быть сегментом пути, и его исход не
+        назван. api-conventions.md §«Принято-и-проигнорировано — ЗАПРЕЩЕНО» даёт ровно три
+        законных исхода: реализовать · отвергать явно `INVALID_ARGUMENT` с именем поля ·
+        снять с контракта с резервированием номера И имени. Четвёртого («молча принять и
+        выбросить») не существует, и именно он получается по умолчанию.
+      - >-
+        Если поле останется и БУДЕТ читаться, то у входа «членство `M_A` + `userId` другого
+        человека» нет названного «Тогда» ни в одном сценарии: непонятно, промах это,
+        `INVALID_ARGUMENT` или оракул, различающий «несовпало» и «нет доступа». Это дыра в
+        анти-оракуле §1.5, которая прямо противоречит его же требованию побайтовой
+        неразличимости трёх исходов.
+      - >-
+        Предмет ровно этой предфазы: §1.1 и DoD п. 1 объявляют наблюдаемую REST-форму, а
+        судьба поля запроса — наблюдаемое поведение API, а не правка кода. §6.2 («ни .proto»)
+        это не выводит из области: документ ничего не правит, он НАЗЫВАЕТ наблюдаемое.
+    how_to_close: >-
+      Назвать исход по каждому из двух сообщений одним из трёх законных и добавить
+      соответствующий сценарий: при «снять с контракта» — резервирование номера и имени и
+      ломающее изменение объявлено; при «отвергать явно» — сценарий с `INVALID_ARGUMENT` и
+      именем поля; при «реализовать» — сценарий на несовпадение `user_id` и человека
+      названного членства, с ответом, побайтово равным §1.5-эталону (иначе оракул).
+    same_gap_in_parent: >-
+      Родитель тем же молчанием не называет правку контракта в перечне остатка — заметка
+      N20-3 моей записи 24b4bf85….yaml. Производителем «Тогда» остатка родитель называет
+      ЭТУ приёмку, поэтому исход обязан появиться здесь.
+
+  - id: B2-2
+    kind: PRODUCER
+    title: «строка объекта края» у края не производится — названный производитель S31E-11 её не строит
+    where: S31E-11 (второй «And»), §3 строка S31E-11, §5 DoD п. 7
+    what_the_doc_claims: >-
+      S31E-11 «Тогда»: «строка объекта края **побайтово равна** строке, для которой
+      реконсайлер пишет кортежи», и «край — `ResourceType + ":" + ResourceID`
+      (`kacho gateway/internal/middleware/authz.go`)». §3 повторяет ту же координату
+      производителем. DoD п. 7: «Строка объекта края = строка объекта реконсайлера».
+    measured: >-
+      kacho @ 8d70f599, gateway/internal/middleware/authz.go:
+      (а) AuthzCheckInput (строки 70-82) несёт `ResourceType string` и `ResourceID string`
+          ОТДЕЛЬНЫМИ скалярными полями;
+      (б) вызов на строке 1186 — m.cfg.Checker.Check(ctx, AuthzCheckInput{… ResourceType:
+          resourceType, ResourceID: resourceID.String() …}) — передаёт ПАРУ, не строку;
+      (в) выражение descriptor.ResourceType+":"+descriptor.ResourceID встречается в этом
+          файле ТОЛЬКО в журнальных вызовах — строки 1129, 1219, 1232, 1250 («resource», …)
+          — и на путь Check не попадает;
+      (г) склейки нет и в адаптере gateway/internal/clients/ (предикат по Sprintf/конкатенации
+          с ":" дал пусто).
+      Реконсайлер строку действительно строит: fmt.Sprintf("%s:%s", fgaType, objectID) —
+      kaname internal/apps/kaname/api/access_binding/reconcile/tuples.go:69.
+    why_blocking:
+      - >-
+        «Тогда» утверждает ПОБАЙТОВОЕ РАВЕНСТВО двух строк, а одной из них не существует:
+        у края объекта-строки нет ни на одном шаге пути Check. Утверждение в этой форме не
+        проверяемо, а названный производитель его не производит — это ровно род PRODUCER.
+      - >-
+        Координата названа ФАЙЛОМ, в котором выражение есть, — поэтому ошибка не видна
+        чтением: grep найдёт строку и подтвердит. Отличает предмет только вопрос, попадает
+        ли выражение на путь Check; ответ — нет, оно журнальное.
+      - >-
+        Это ТОТ ЖЕ класс, на котором круг 1 заблокировал B3: утверждение о том, ЧТО именно
+        производит каждая из двух сторон, взятое чтением, а не замером. Редакция 2 сняла
+        композит и на той же оси сделала новое непроверенное утверждение о крае.
+      - >-
+        DoD п. 7 наследует дефект: «контракт-проба края↔реконсайлера» на строку, которой у
+        края нет, не пишется.
+    what_survives_and_must_not_be_over_corrected: >-
+      СУЩЕСТВО S31E-11 ВЕРНО и моим замером УСИЛИВАЕТСЯ: у края ровно ОДНО скалярное поле
+      ResourceID, значит композит «тип:id:id» непредставим без правки структуры
+      AuthzCheckInput — то есть вывод «расхождению взяться неоткуда, потому что половин
+      больше нет» стоит прочнее, чем написано. Править надо форму утверждения и координату,
+      а не вывод.
+    how_to_close: >-
+      Переформулировать «Тогда» на то, что действительно наблюдаемо и имеет производителя:
+      край подаёт ПАРУ (ResourceType="iam_membership", ResourceID=`mbr-<17>`), реконсайлер
+      пишет кортежи на объект, склеенный из той же пары той же формой; утверждать равенство
+      ПАРЫ края и пары, из которой реконсайлер строит строку, либо равенство строк там, где
+      обе стороны строку действительно строят. Координату края назвать той, что на пути
+      Check (AuthzCheckInput и вызов Checker.Check), а не журнальной строкой. DoD п. 7
+      привести к той же форме.
+
+important_non_blocking:
+  - id: N2-1
+    kind: FORMAT
+    title: S31E-07 не несёт строки дельты, которой снабжены остальные отрицания
+    what: >-
+      Все прочие отрицательные сценарии открываются курсивной строкой «*Близнец S31E-NN;
+      изменён ровно один факт — …*». S31E-07 её не несёт: он начинается сразу с «**Given**
+      те же условия, что в S31E-01». Близнец по сути назван (условия S31E-01), изменённый
+      факт очевиден (негодная форма идентификатора), но форма разошлась с остальными
+      шестнадцатью.
+    how_to_close: добавить ту же курсивную строку дельты.
+  - id: N2-2
+    kind: precision
+    title: ссылка S31E-07 на «задокументированную authz-first полосу» указывает не на тот раздел
+    what: >-
+      S31E-07 ссылается на `api-conventions.md` §«By-lane code-split». Этот раздел владеет
+      разделением NOT_FOUND / FAILED_PRECONDITION по линии резолва и прямо требует для
+      malformed own-id синхронный `INVALID_ARGUMENT` первым стейтментом. Толерантность
+      «authz-first, гейт края короткозамыкает до backend-валидации» объявлена в
+      `testing.md` §«e2e-инварианты». Утверждение сценария защитимо, но сослано на раздел,
+      который говорит противоположное про malformed id.
+    note: >-
+      Производитель у сценария на дереве ЕСТЬ —
+      kacho gateway/internal/middleware/authz_malformed_id_test.go; вопрос только в ссылке.
+    how_to_close: сослаться на владельца толерантности и назвать, почему у края порядок иной.
+  - id: N2-3
+    kind: form
+    title: §6.1 записан как открытый вопрос, тогда как решение принято
+    what: см. блок dispatcher_decision_check выше — существо записано верно и полностью, форма нет.
+    how_to_close: >-
+      Переписать §6.1 из «Вопрос владельцу — один, и он несущий» в «Решение — принято
+      (владелец, делегировано диспетчеру)», сохранив обоснование (обратимость, ban #18) и
+      убрав «Пока ответа нет». Открытых вопросов после этого — 0.
+  - id: N2-4
+    kind: precision
+    title: координата гейта дрейфа без дерева
+    what: >-
+      DoD п. 7 называет `internal/authzmap/fga_model_drift_test.go` без префикса дерева,
+      тогда как документ везде пишет `kaname …` / `kacho …`. Файл существует в kaname
+      (проверено: git ls-tree dd66b5be -r --name-only | grep drift →
+      internal/authzmap/fga_model_drift_test.go).
+    how_to_close: добавить префикс дерева, как в остальных координатах.
+
+checklist:
+  scope: PASS — «Что НЕ входит» перечисляет пять отложенных предметов с адресами; over-scope нет
+  coverage: FAIL — B2-1 (нет исхода по `user_id` и нет сценария на несовпадение)
+  negative: PASS — отрицания покрывают чужое членство, несуществующее членство, отсутствие отношения, wildcard, негодную форму, недоступность владельца решения
+  producer: FAIL — B2-2
+  twin: PASS с заметкой N2-1 — у каждого отрицания назван положительный близнец с ОДНОЙ дельтой
+  constructibility: >-
+    PASS — Given строится посевом: приглашение известной почты во второй аккаунт; названа
+    проба субъект-дерева
+    kaname internal/repo/kaname/pg/user_invite_second_account_integration_test.go.
+    ПОСЕВА Я НЕ СТАВИЛ (стенд заданием не назван) — конструируемость подтверждена
+    существованием механизма на дереве, а не прогоном; см. not_performed.
+  format: PASS с заметками N2-1, N2-4
+  convention: FAIL — B2-1
+  dod: >-
+    PASS по измеримости (14 пунктов, каждый ссылается на сценарии), но п. 7 наследует
+    дефект B2-2 и правится вместе с ним
+  open_question: PASS — дефолт зафиксирован мной явно (перенос выдач); заметка N2-3 о форме
+  disclosure: >-
+    PASS — координаты публичны (оба репозитория публичны), разбора «где защита не сработала»
+    нет; §3 прямо оговаривает, что называет производителя, а не место отказа защиты
+
+counts:
+  blocking: 2
+  blocking_kinds: [CONVENTION, PRODUCER]
+  important_non_blocking: 4
+  scenarios: 17
+  gwt_triples: 17
+  dod_items: 14
+  scenarios_without_producer: >-
+    0 нераскрытых — документ сам называет S31E-13/14/15 «производителя сегодня НЕ ИМЕЕТ» и
+    заказывает его полосой реконсайлера S3.1; исход назван, что и требуется
+  owner_questions: 0
+  not_performed: 1
+
+not_performed:
+  - what: посев Given своим прогоном
+    why: >-
+      Стенд заданием не назван, разрешения на посев нет — третий исход «не выполнилось».
+      Конструируемость подтверждена косвенно и на дереве: механизм чеканки (membership_mirror_id),
+      ограничение формы (memberships_id_form_check), названная проба посева второго членства.
+      В зелёное это не зачитывается.

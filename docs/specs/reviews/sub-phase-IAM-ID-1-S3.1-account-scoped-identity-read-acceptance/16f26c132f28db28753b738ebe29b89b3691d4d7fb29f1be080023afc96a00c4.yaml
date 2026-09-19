@@ -1,0 +1,449 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md
+  sha256: 16f26c132f28db28753b738ebe29b89b3691d4d7fb29f1be080023afc96a00c4
+  revision: 1
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT и сама говорит, что действующий вердикт выводится из внешнего события
+    и записи ревью (change-graph.md §2). Шапка не правлена намеренно: правка шапки вместо записи
+    была бы подменой предмета. Машинный читатель docs-gate судит ОБЪЯВЛЕНИЕ, а не одобрение —
+    это его названный предел; действующий вердикт о редакции 1 — эта запись.
+  base_commit: cf15f29d4746f2eb90755ce219cba0d1f7432dce
+  content_commit: none
+  content_state: >-
+    Файл не закоммичен. Суждение вынесено о РАБОЧЕМ файле в worktree tmp/s31-prephase-acceptance,
+    ветка s31-prephase-acceptance от cf15f29d. Отпечаток сверен до чтения.
+  pull_request: none
+  task: https://github.com/PRO-Robotech/kaname/issues/292
+  fingerprint_predicate: >-
+    sha256sum tmp/s31-prephase-acceptance/docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md
+  fingerprint_matched: true
+  lines: 355
+verdict: CHANGES_REQUESTED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+round: 1
+round_note: >-
+  Круг 1. Записей ревью этого документа в docs/specs/reviews/ нет ни одной — каталог создан этой
+  записью; прежних вердиктов о нём не существует, переписывать нечего.
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac cf15f29d
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: cf15f29d4746f2eb90755ce219cba0d1f7432dce
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОТКАЗ. Отказ полномочия не выдаёт и ничего не открывает, поэтому его
+    действительность от внешнего события не зависит. Тело события к публикации не отдаётся:
+    публиковать нечего, кроме самого отказа.
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Ни одной записи ревью этого документа до этой не существует; каталог заведён вместе с ней.
+      Соседние каталоги docs/specs/reviews/ не тронуты.
+
+measurement_homes:
+  workspace: PRO-Robotech/kacho-workspace @ cf15f29d (worktree tmp/s31-prephase-acceptance)
+  product: PRO-Robotech/kacho @ 8d70f599834
+  access_service: PRO-Robotech/kaname @ dd66b5be
+  note: >-
+    Ревизии продукта и службы доступа — те, что названы документом в §3. Обе резолвятся
+    (git cat-file -t → commit). Все числа ниже сняты мной на них, а не переписаны из текста.
+
+# ─────────────────────────────────────────────────────────────────────────────
+carrying_claim_C1:
+  question: воскрешает ли хоть один сценарий снятое §2.3 поле account_id
+  author_claim: >-
+    GetUserRequest/ListUserOperationsRequest несут account_id → 0; user.proto reserved 6 +
+    reserved "account_id" → 2, @ kaname dd66b5be
+  my_own_measurement:
+    GetUserRequest_fields: [user_id]
+    GetUserRequest_account_id: 0
+    ListUserOperationsRequest_fields: [user_id, page_size, page_token]
+    ListUserOperationsRequest_account_id: 0
+    user_proto_reserved: 2
+    user_proto_reserved_lines: ['42: reserved 6;', '43: reserved "account_id";']
+  reverse_control:
+    predicate_discriminates: true
+    evidence: >-
+      RemoveUserFromAccountRequest (user_service.proto:573, поле на :580) несёт account_id = 2 —
+      значит «→ 0» выше различает предмет, а не отсутствие слова в файле. Контроль автора
+      воспроизведён и верен.
+  verdict_on_C1: >-
+    ПОДТВЕРЖДЕНО как ЧИСЛО и ОПРОВЕРГНУТО как ДОВОД. Числа автора верны все три. Но вывод,
+    который документ из них делает (§4: «аккаунт-скоупное чтение личности не имеет
+    тенант-задаваемого поля account_id»), из них НЕ следует — см. блокирующий B2.
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings:
+  count: 4
+  kinds: [CONSTRUCTIBILITY, SCOPE, CONSTRUCTIBILITY, COVERAGE]
+  items:
+
+    - id: B1
+      kind: CONSTRUCTIBILITY
+      title: >-
+        «Аккаунт в СЕГМЕНТЕ пути» и «контракт запроса БЕЗ поля account_id» — не совместимы
+        by construction; сценарии требуют состояния, запрещённого схемой связывания пути
+      where: [§1.1, S31E-01, S31E-04, S31E-05, S31E-06, S31E-09, S31E-10, §5 DoD п.1, п.2]
+      predicate_and_numbers:
+        path_placeholder_is_always_a_request_field:
+          kaname_iam_protos_at_dd66b5be: 'плейсхолдеров пути 64 · без соответствующего поля запроса 0'
+          kacho_protos_at_8d70f599: 'плейсхолдеров 40 · кажущихся исключений 7 · подлинных 0'
+          adjudication_of_the_7: >-
+            Все семь — артефакт МОЕГО разбора, а не дерева: регулярное выражение по `rpc …`
+            перебегало границу тела и привязывало шаблоны UpdateRules/UpdateRule к
+            GetSecurityGroupRequest. Прочитано глазами: UpdateSecurityGroupRulesRequest несёт
+            security_group_id, UpdateSecurityGroupRuleRequest несёт security_group_id и rule_id.
+            Подлинных исключений ноль. Называю прямо, потому что первая форма предиката
+            над-сообщала.
+        option_contract_verbatim:
+          source: project/kacho/proto/corelib/authz/v1/authz_options.proto:229-235
+          text: >-
+            «The api-gateway authz middleware builds the FGA Check object as `<object_type>:<id>`
+            where the id is taken from `from_request_field`.» · «Name of the proto request field
+            from which the scope id is taken. Must be a top-level field on the request message and
+            a non-empty string.»
+        edge_extraction_path_branch:
+          source: project/kacho/gateway/internal/middleware/resource_extractor.go:130-149
+          finding: >-
+            ExtractFromHTTP ДЕЙСТВИТЕЛЬНО умеет брать величину из сегмента пути — но только из
+            плейсхолдера, ИМЕНОВАННОГО тем же полем, что стоит в from_request_field, и при пустом
+            поле немедленно возвращает "*". Сегмент — второй ИСТОЧНИК того же поля, а не
+            замена полю. Сопровождающий комментарий (:151-155) называет это прямо: край обязан
+            авторизовать объект, «the handler is about to act on», то есть ровно ту величину,
+            которую grpc-gateway свяжет в поле сообщения.
+      what_this_means: >-
+        Чтобы маршрут GET /iam/v1/accounts/{accountId}/users/{userId} существовал, {accountId}
+        обязан быть полем GetUserRequest — иначе шаблон нечего связывать. Значит «Тогда» S31E-05
+        («контракт запроса не несёт поля account_id») и «Когда» S31E-01 («вызывает путь с
+        сегментом аккаунта») описывают взаимоисключающие миры. Ни один сценарий не исполним, пока
+        одно из двух утверждений не снято.
+      why_scope_deferral_does_not_save_it: >-
+        Документ выносит механизм в «Что НЕ входит» как выбор из двух: сырой сегмент против нового
+        режима-источника scope_extractor. Выбора нет: первого варианта в дереве не существует
+        (сегмент читается только как источник НАЗВАННОГО поля), второй требует ровно того поля,
+        которое документ запрещает. Отложен не механизм, а несущее решение, и одна из двух его
+        ветвей уже закрыта деревом. Приёмка называет НАБЛЮДАЕМОЕ, которого ни одна из ветвей не
+        производит.
+      remedy_is_the_authors: >-
+        Исход выбирает автор, не я. Но он обязан быть один из трёх: (а) признать поле запроса
+        законным (оно не есть снятое §2.3 поле — см. B2) и переписать S31E-05/10 на то, что
+        действительно требуется; (б) отказаться от сегмента и назвать иную форму; (в) заказать
+        новый источник сегмента как ПРЕДМЕТ с предикатом, а не вынести его из области.
+
+    - id: B2
+      kind: SCOPE
+      title: >-
+        §4 делает из своей же цитаты вывод, которого в ней нет: §2.3 снял ПОЛЕ РЕСУРСА
+        User.account_id, а не поле-область запроса; §2.3а прямо требует брать объект ИЗ ПОЛЯ ЗАПРОСА
+      where: [§4, §1.2, S31E-05, S31E-10, §5 DoD п.2, Обзор]
+      quotes_verified_verbatim: true
+      quote_1:
+        source: 'родительская приёмка §2.3 (строки 2506-2511)'
+        status: процитирована дословно
+      quote_2:
+        source: 'родительская приёмка §2.3а, врезка круга 3 (строки 2553-2557)'
+        status: процитирована дословно
+        decisive_fragment: >-
+          «у края меняется то, из какого ПОЛЯ ЗАПРОСА берётся объект»
+      the_source_the_document_did_not_read:
+        section: 'родительская приёмка §1.5 «Контракт: где сегодня стоит аккаунт — пять мест, четыре разных смысла» (строка 1657)'
+        table:
+          - {place: 1, what: 'User.account_id = 6 — домашний аккаунт человека', outcome: 'СНЯТО с резервированием — это и есть предмет §2.3'}
+          - {place: 2, what: 'InviteUserRequest.account_id = 1 — аккаунт, в который приглашают; вход анти-BOLA-гейта', outcome: 'ПЕРЕЕЗЖАЕТ вместе с глаголом, не снимается'}
+          - {place: 3, what: 'ListUsersRequest.account_id = 4', outcome: снять}
+          - {place: 4, what: 'внутренние сообщения, account_id = 2', outcome: 'ОСТАЮТСЯ — другой предмет'}
+          - {place: 5, what: 'scope_extractor.from_request_field: "account_id" — объект, про который спрашивает гейт', outcome: 'у Invite переезжает; у RemoveFromAccount ОСТАЁТСЯ'}
+        parent_says_verbatim: >-
+          «Поле №2 нельзя просто вырезать. … Поле — это то, про что гейт задаёт вопрос; без него у
+          гейта нет объекта, вызов становится unscoped и fail-closed, то есть глагол перестаёт
+          работать вовсе.»
+      finding: >-
+        Документ отождествляет место 1 с местами 2/5. Поле запроса, называющее ОБЛАСТЬ решения о
+        доступе, — это смысл 2/5, сохранённый родительской приёмкой явно; снятое §2.3 поле —
+        смысл 1, поле РЕСУРСА, называвшее домашний аккаунт личности. Завести
+        GetUserRequest.account_id как источник области НЕ значит воскресить User.account_id = 6:
+        это разные поля в разных сообщениях с разными смыслами. Обратное утверждение документа
+        («снятое §2.3 поле не воскресает» как довод против поля запроса) — подмена референта.
+        Расхождение приёмки со спекой разрешается в пользу спеки.
+      landed_confirmation: >-
+        Посаженное чтение членства IAM-ID-2 (kaname @ dd66b5be,
+        proto/kaname/cloud/iam/v1/membership_service.proto:138-148) делает ровно это:
+        get: "/iam/v1/accounts/{account_id}/memberships/{membership_id}" при
+        GetMembershipRequest{account_id = 1, membership_id = 2}, scope_extractor
+        {object_type: "account", from_request_field: "account_id"}. Комментарий поля в контракте:
+        «Аккаунт, в котором читается членство. ОБЯЗАТЕЛЕН: он и есть объект, про который край
+        спрашивает модель прав». То есть «биндит аккаунт ПОЛЕМ» — это не дефект образца, а
+        механизм, которым сегмент вообще доходит до гейта.
+
+    - id: B3
+      kind: CONSTRUCTIBILITY
+      title: >-
+        Композит iam_membership:<accountId>:<userId> не производим ни одной из двух сторон,
+        байт-совпадение которых он объявляет; у членства уже ЕСТЬ неизменяемый id mbr-<17>,
+        и документ не упоминает его ни разу
+      where: [§1.2, §1.3, S31E-11, S31E-12, §5 DoD п.6, «Предмет ровно три» п.3]
+      producers_measured:
+        reconciler:
+          source: 'kaname internal/apps/kaname/api/access_binding/reconcile/tuples.go:69 и reconcile.go:451'
+          builds: 'fmt.Sprintf("%s:%s", fgaType, objectID) — ОДИН objectID, одно поле'
+        edge:
+          source: 'kacho gateway/internal/middleware/authz.go (descriptor.ResourceType+":"+descriptor.ResourceID)'
+          builds: 'ResourceType + ":" + ResourceID — ОДИН ResourceID, из ОДНОГО названного поля'
+        catalog_survey:
+          source: 'kacho gateway/internal/middleware/embed/permission_catalog.json @ 8d70f599'
+          distinct_from_request_field_values: '20+ (project_id 43 · account_id 14 · user_id 10 · instance_id 17 · …)'
+          composite_two_field_sources: 0
+          control: >-
+            предикат различает — он печатает два десятка разных значений, а не пустоту
+      landed_membership_id:
+        form: 'mbr-<17>, дефис-канон'
+        db_check: >-
+          kaname internal/migrations/0001_initial.sql:2169 —
+          CONSTRAINT memberships_id_form_check CHECK (id ~ '^mbr-[0-9abcdefghjkmnpqrstvwxyz]{17}$')
+        minted_deterministically: >-
+          kaname internal/migrations/0001_initial.sql:1254 —
+          SELECT 'mbr-' || substr(md5('membership:' || p_user_id || ':' || p_account_id), 1, 17)
+        contract: 'kaname proto/kaname/cloud/iam/v1/membership.proto:30 — «Resource id prefix: `mbr-`»'
+        document_mentions_mbr: 0
+      finding: >-
+        S31E-11 объявляет побайтовое равенство строки объекта у края и у реконсайлера, но ни одна
+        из сторон не умеет собрать двухчастный идентификатор: обе склеивают тип с ОДНИМ
+        идентификатором, а край берёт его из одного названного поля. Производителя у «Тогда» нет
+        — не «ещё не написан», а не выразим объявленным механизмом. Одновременно у объекта уже
+        есть внешне-адресуемый неизменяемый id (mbr-<17>), которым ban #15 велит ключевать
+        authz-target и grant-scope; документ его не принимает и не отвергает — он о нём молчит.
+        Молчание здесь и есть дефект: выбор между mbr-<17> и парой — несущее решение приёмки,
+        объявившей строковую схему своим третьим предметом.
+      note_for_the_author: >-
+        Родительская приёмка (круг 9, усилено кругом 11) признала ПАРУ естественным ключом
+        членства — но для ГЛАГОЛА СНЯТИЯ, и на том основании, что областью решения там является
+        аккаунт. Она же оставила mbr-… внешне-адресуемым идентификатором для ЧТЕНИЯ
+        (IAM-ID-1-64). Перенести довод о снятии на строку authz-объекта чтения нельзя молча:
+        это отдельное решение, и его надо принять явно, с предикатом.
+
+    - id: B4
+      kind: COVERAGE
+      title: >-
+        Заявленная параллельность с IAM-ID-2 не выполняется в решающей точке: посаженное чтение
+        членства гейтится объектом account/viewer, а не объектом членства; типа iam_membership
+        нет ни в модели, ни в каталоге, и документ не называет этого расхождения
+      where: [§1.1, §1.2, S31E-12, §5 DoD п.7]
+      measured:
+        iam_membership_in_fga_model:
+          source: 'kaname internal/authzmodel/fga_model.fga @ dd66b5be'
+          types_declared: 33
+          membership_type_present: 0
+        iam_membership_in_permission_catalog:
+          source: 'kacho gateway/internal/middleware/embed/permission_catalog.json @ 8d70f599'
+          object_type_iam_membership: 0
+          control: 'object_type iam_user 10 · account 14 — предикат находит соседей, значит различает'
+        landed_membership_rpc_gate:
+          Get: 'required_relation "viewer", scope_extractor {object_type: "account", from_request_field: "account_id"}'
+          List: 'required_relation "viewer", тот же экстрактор'
+          Create: 'required_relation "editor", тот же экстрактор'
+      finding: >-
+        §1.1 объявляет целевую форму «параллельной» IAM-ID-2. По ПУТИ параллельность есть, по
+        ГЕЙТУ её нет: образец спрашивает viewer на account, документ — v_get/v_list на композите
+        членства. Это законный выбор, но он ОТЛИЧИЕ, а не параллель, и в документе не назван.
+        Отдельно: §1.2 объявляет источником отношения super_admin названного аккаунта, тогда как
+        образец опирается на viewer/editor; какой из двух источников действует и как они
+        соотносятся, документ не решает. Сценарий S31E-03 («рядовой член → промах») при образце
+        viewer@account дал бы противоположный исход — то есть у него нет однозначного «Тогда»,
+        пока источник отношения не назван.
+
+  # ─────────────────────────────────────────────────────────────────────────────
+important_findings:
+  - id: N1
+    kind: FORMAT
+    title: побайтовое равенство утверждается, но ожидаемые байты не названы
+    where: [S31E-02, S31E-03, S31E-07, S31E-08, S31E-12, §5 DoD п.4]
+    text: >-
+      Пять сценариев требуют ответа, «побайтово равного настоящему промаху», и ни один не
+      называет ни самой строки, ни координаты строки таблицы форм, с которой её сверять.
+      Производитель назван (permission_denied_response.go — существует), но утверждение о
+      БАЙТАХ без названных байтов проверяется только через сам продукт, то есть зеленеет при
+      любой согласованной паре. Назвать эталон: либо ожидаемое тело, либо «строка таблицы для
+      типа X равна строке для типа iam_user», с предикатом сверки.
+
+  - id: N2
+    kind: FORMAT
+    title: родитель назван по ИМЕНИ и «APPROVED», без отпечатка — и файл правлен после одобрения
+    where: [шапка, строки 9-11]
+    measured:
+      parent_sha256_today: a8fd4f943e243a0d956619532e615f7b7b6795889c04cdd4cd447896f0539b99
+      parent_edits: >-
+        9de4f372 (2026-09-13) · 37ee702d (2026-08-25) · 4e37e76e (2026-08-25); одобрение — круг 12,
+        2026-08-24, то есть правка 9de4f372 легла ПОСЛЕ него
+      parent_sha256_by_commit:
+        9de4f372: a8fd4f943e243a0d
+        37ee702d: '8524378966118b07'
+        4e37e76e: a74960bb30ab0d70
+    text: >-
+      change-graph.md §2: вердикт привязан к отпечатку, а не к файлу по имени. Документ строит
+      всю согласованность (§4) на родителе, названном именем и словом APPROVED. Назвать
+      отпечаток редакции, которую автор читал.
+    separate_fact_for_the_dispatcher: >-
+      Отпечаток c5937b4e, названный ЗАДАНИЕМ как родительский и APPROVED, в этом дереве не
+      резолвится ни во что: git cat-file -t c5937b4e → «Not a valid object name»; ни одна из трёх
+      редакций родителя не даёт sha256 с таким префиксом; поиск строки по *.md и *.yaml
+      воркспейса — пусто. Это факт о задании, а не о документе (документ c5937b4e не цитирует).
+
+  - id: N3
+    kind: FORMAT
+    title: fga_model.fga названа без пути, а файлов с этим именем два
+    where: [§3, строки 248, 252]
+    measured: 'kaname @ dd66b5be: internal/authzmodel/fga_model.fga и proto/kaname/cloud/iam/v1/fga_model.fga'
+    text: Назвать координату — какой из двух является владельцем утверждения.
+
+# ─────────────────────────────────────────────────────────────────────────────
+checklist:
+  scope:
+    roadmap_link: 'частично — ссылается на родительскую приёмку и первичный разбор классов, не на 04-roadmap §3; для предфазы под эпиком kaname#292 приемлемо'
+    out_of_scope_section: 'ЕСТЬ, пять пунктов'
+    over_scope: нет
+    under_scope: 'ДА — несущее решение (источник аккаунта у гейта) вынесено из области; см. B1'
+  coverage:
+    scenarios_total: 13
+    positive: 2
+    negative: 9
+    contract: 2
+    grouping: 'F1 v_get · F2 v_list · F3 схема композита · F4 недоступность — ЕСТЬ'
+    unique_ids: 'ЕСТЬ, S31E-01..13, без коллизии с IAM-ID-1-<NN>'
+    unavailable_fail_closed: 'ЕСТЬ — S31E-13'
+    async_contract: 'не применимо — оба глагола read-only (Get/List sync по api-conventions)'
+  producer_per_then:
+    named: 13
+    of: 13
+    coordinates_verified_to_exist: 13
+    verified:
+      - 'kaname user_service.proto:27 = rpc Get — точно'
+      - 'kaname user_service.proto:461 = rpc ListOperations — точно'
+      - 'kaname user_service.proto:473 = message GetUserRequest — точно'
+      - 'kaname user_service.proto:600 = message ListUserOperationsRequest — точно'
+      - 'kaname user_service.proto:580 = RemoveUserFromAccountRequest.account_id — точно'
+      - 'kacho gateway/internal/middleware/permission_denied_response.go — существует'
+      - 'kacho gateway/internal/middleware/permission_denied_notfound_oracle_test.go — существует'
+      - 'kacho gateway/internal/middleware/authz_hide_existence_message_test.go — существует'
+      - 'kaname internal/apps/kaname/api/access_binding/reconcile/tuples.go — существует'
+      - 'kaname internal/authzmap/fga_model_drift_test.go — существует'
+    note: >-
+      Координаты существуют все. Дефект не в координатах, а в том, что у трёх «Тогда»
+      (S31E-05/10 контрактных и S31E-11) названное место НЕ ПРОИЗВОДИТ объявленного
+      наблюдаемого при объявленном механизме — B1 и B3.
+  twin_per_negation:
+    negations: 11
+    twins_named: 11
+    formally_complete: true
+    substantive_note: >-
+      Формально близнец назван у каждого. По существу одно-фактность S31E-04/09 («сегмент
+      есть → нет») не выдерживает B1: снятие сегмента меняет и контракт запроса, то есть
+      фактов два, а не один. Перепроверить после снятия B1.
+  format:
+    gwt_explicit: true
+    concrete_codes: 'ДА — 200/404/503 + reason-token RESOURCE_NOT_FOUND'
+    payloads: 'для GET путь и метод и есть payload — приемлемо'
+    byte_equality_expected_value: 'НЕ названо — N1'
+    ascii_names_ban15: соблюдено
+  traceability:
+    integration: 'DoD п.9 — различающая проба на паре членств'
+    newman: 'DoD п.10 — happy + negative, reason-token И код'
+    two_way_by_id: 'объявлено §2 преамбулой'
+  realism:
+    constructibility_of_given:
+      seeded_by_me: 0
+      of: 13
+      not_performed: 13
+      reason: >-
+        Стенд заданием не назван, посев не разрешён, и кода края S3.1 не существует — маршрута,
+        который сценарии вызывают, в дереве нет. Это третий исход «не выполнилось», не красное
+        и не зелёное.
+      contract_level_constructibility_measured: true
+      contract_level_result: >-
+        ОТРИЦАТЕЛЬНЫЙ для несущего Given шести сценариев (S31E-01/04/05/06/09/10): состояние
+        «сегмент пути есть И поля запроса нет» запрещено схемой связывания пути — 64 из 64
+        плейсхолдеров kaname и 0 подлинных исключений по kacho. Это ровно тот класс, ради
+        которого конструируемость проверяется замером, а не вычиткой: сценарий неверен, а не
+        продукт.
+    magic_givens: 'нет — посев членства назван и опирается на доказанный посевом §16.2 родителя'
+  conventions:
+    ban_1: соблюдён — приёмка до кода, это её предмет
+    ban_6_hide_existence: 'заявлено верно (§1.3), производитель существует'
+    ban_15: 'НАРУШЕНО по существу — B3: durable-координата authz-объекта ключуется не на mbr-<17>'
+    ban_9_async: не применимо (read-only)
+    ban_10: не применимо
+  dod:
+    points: 11
+    measurable: 'да, каждый ссылается на сценарии или на держателя'
+    final_e2e: 'ЕСТЬ — п.10 newman happy+negative'
+    note: 'п.1 и п.2 взаимоисключающи по B1 — предикат готовности недостижим by construction'
+  open_questions:
+    declared: 0
+    de_facto: 1
+    text: >-
+      Раздел «Открытые вопросы» отсутствует, но нерешённый вопрос есть и он несущий: откуда гейт
+      берёт аккаунт. Он вынесен в «Что НЕ входит» как реализация — этим и снимается с
+      рассмотрения вопрос, который решает исполнимость всей приёмки.
+  disclosure:
+    reviewed: true
+    finding: >-
+      Ни документ, ни эта запись не называют действующего дефекта защиты и пути к нему.
+      Обсуждаемое скрытие существования — ТРЕБОВАНИЕ к будущему коду; отсутствие типа
+      iam_membership названо самим документом как заказанная работа; поведение при отсутствии
+      объекта — fail-closed, что не является раскрытием. Оба репозитория публичны; запись
+      выдерживает публикацию.
+
+# ─────────────────────────────────────────────────────────────────────────────
+task_premise:
+  stated_by_task: >-
+    «Буквальный перенос образца IAM-ID-2 (который биндит аккаунт ПОЛЕМ) был бы дефектом —
+    убедись, что приёмка его не делает.»
+  status: ОПРОВЕРГНУТА
+  commands:
+    - >-
+      git -C project/kacho show 8d70f599:proto/corelib/authz/v1/authz_options.proto | sed -n '224,236p'
+      → «the id is taken from `from_request_field` … Must be a top-level field on the request message»
+    - >-
+      git -C project/kaname show dd66b5be:proto/kaname/cloud/iam/v1/membership_service.proto
+      | sed -n '138,148p' → get: "/iam/v1/accounts/{account_id}/memberships/{membership_id}",
+      scope_extractor {object_type: "account", from_request_field: "account_id"}
+    - 'разбор 64 плейсхолдеров kaname iam: без соответствующего поля запроса — 0'
+  finding: >-
+    Связывание аккаунта ПОЛЕМ — не дефект образца, а единственный механизм, которым сегмент
+    пути доходит до гейта в этом дереве. Дефект — противоположный: приёмка запрещает поле и тем
+    делает собственную REST-форму непостроимой. Посылка задания перевёрнута замером.
+
+# ─────────────────────────────────────────────────────────────────────────────
+next:
+  agent: acceptance-author
+  task: >-
+    Снять B1 выбором одного из трёх исходов (признать поле области законным и переписать
+    S31E-05/10 · отказаться от сегмента · заказать источник сегмента предметом с предикатом);
+    привести §4 к §1.5 родителя (пять мест, четыре смысла); решить и назвать строку
+    authz-объекта относительно посаженного mbr-<17>; назвать источник отношения (super_admin
+    против viewer@account) и привести к нему S31E-03/08.
+  owner_question: none

@@ -1,0 +1,271 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md
+  sha256: ddf0ddb610c297f22a64588967dfa838fbaaec0ff5279ecf7d03f9e32e4a95a9
+  revision: 3
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — «редакция 3, правка формы по ⛔ круга 2»; шапка намеренно НЕ
+    правлена (change-graph.md §2). Машинный читатель docs-gate прочтёт объявленный вердикт —
+    это его объявленный предел (судит объявление, а не одобрение). Действующий вердикт о
+    редакции 3 (отпечаток ddf0ddb6) — ЭТА запись, и он ОДОБРЕНИЕ. Записи 16f26c13 (⛔ круг 1)
+    и 6e03c8de (⛔ круг 2) к этому отпечатку отношения не имеют.
+  base_commit: cf15f29d
+  content_commit: uncommitted
+  content_state: >-
+    Редакция 3 — НЕЗАКОММИЧЕННЫЙ (untracked) файл рабочего дерева worktree
+    tmp/s31-prephase-acceptance (ветка s31-prephase-acceptance, HEAD=cf15f29d). Коммит
+    документа и этой записи — момент git-operator, не мой.
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance/6e03c8de1523af606e6176cb9eed8b11c4f537838be5a74c6e56ad3af3609b73.yaml
+  parent_acceptance:
+    path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+    sha256: f275abf739c6bf73ca810922027b71f284fdafadfae3e45a5c40e0d81be35658
+    revision: 21
+    verdict_of_this_reviewer: APPROVED (соседняя запись того же круга)
+  task: https://github.com/PRO-Robotech/kaname/issues/292
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md  (worktree tmp/s31-prephase-acceptance)
+  fingerprint_verified: true
+  lines: 758
+
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-19T00:00:00Z'
+review_mode: >-
+  ЗАКРЫВАЮЩИЙ круг по отсечке диспетчера: блокирует только то, что ломает НАБЛЮДАЕМЫЙ контракт.
+  Условия на реализацию вынесены строками «в задание полосы кода».
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD
+    в worktree tmp/s31-prephase-acceptance (HEAD=cf15f29d) вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: cf15f29d
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+  policy_value_read: '[pointpu]'
+
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОДОБРЕНИЕ; внешнее событие публикует курьер под учётной записью политики. Роль в
+    записи — координата, а не доказательство личности (change-graph.md §3).
+  external_event_body_for_publication: >-
+    роль: acceptance-reviewer · вердикт: APPROVED · SHA-256 предмета:
+    ddf0ddb610c297f22a64588967dfa838fbaaec0ff5279ecf7d03f9e32e4a95a9 · путь:
+    docs/specs/sub-phase-IAM-ID-1-S3.1-account-scoped-identity-read-acceptance.md
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Записи 16f26c13….yaml (⛔ круг 1, ред.1) и 6e03c8de….yaml (⛔ круг 2, ред.2) НЕ правятся
+      и НЕ удаляются. Эта запись — соседняя, новая, на отпечаток редакции 3. Предикат
+      отсутствия прежней записи на этот отпечаток до создания:
+      `ls docs/specs/reviews/…/ | grep -c ddf0ddb6` → 0.
+
+parent_fingerprint_trap:
+  what_the_task_warned: >-
+    В worktree предфазы лежит СВОЯ копия родителя на отпечатке a8fd4f94 (стволовая, правок
+    ветки не несущая). Предфаза цитирует f275abf7 из tmp/w-s31-rebase.
+  my_check: |
+    sha256sum tmp/s31-prephase-acceptance/docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+      → a8fd4f943e243a0d956619532e615f7b7b6795889c04cdd4cd447896f0539b99   (НЕ предмет цитаты)
+    sha256sum tmp/w-s31-rebase/docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+      → f275abf739c6bf73ca810922027b71f284fdafadfae3e45a5c40e0d81be35658   (предмет цитаты)
+  result: >-
+    Все §4.3-утверждения предфазы о родителе сверены с f275abf7 (tmp/w-s31-rebase), НЕ с
+    ближайшим файлом. Врезка документа о двойной смене отпечатка родителя истинна.
+
+what_i_verified_by_measurement:
+  measurement_home:
+    service: PRO-Robotech/kaname @ dd66b5be (клон project/kaname, HEAD; f8fc5a37 — его предок, +2 коммита)
+    platform: PRO-Robotech/kacho @ 8d70f599834 (клон project/kacho, HEAD)
+  b2_1_closed_user_id_fate:
+    result: ЗАКРЫТ — исход назван и он один из трёх законных
+    how: >-
+      §1.1а объявляет снятие с резервированием номера И имени, DoD п. 2а несёт предикат с
+      контролем, наблюдаемое — S31E-18. Молчаливого четвёртого исхода не остаётся.
+    contract_state_measured: |
+      git show dd66b5be:proto/kaname/cloud/iam/v1/user_service.proto
+        message GetUserRequest            → ровно одно поле: string user_id = 1
+        message ListUserOperationsRequest → user_id = 1, int64 page_size = 2, string page_token = 3
+        рядом: get: "/iam/v1/users/{user_id}" и "/iam/v1/users/{user_id}/operations"
+      контроль в обратную сторону: msg InviteUserRequest | grep -c account_id → 1 (предикат различает)
+      образец той же формы снятия: user.proto | grep -cE 'reserved 6;|reserved "account_id"' → 2
+  b2_2_closed_pair_not_string:
+    result: ЗАКРЫТ — и переформулировка ИСТИННА на дереве
+    predicate: |
+      git grep -n -A12 'type AuthzCheckInput struct' 8d70f599834 -- gateway/
+        → ResourceType string; ResourceID string  (ДВА скалярных поля, строки объекта нет)
+      git grep -n 'ResourceRef{' 8d70f599834 -- gateway/
+        → gateway/internal/clients/iam_authorize_client.go:223
+          &iamv1.ResourceRef{Type: in.ResourceType, Id: in.ResourceID}
+      git grep -n 'fmt.Sprintf("%s:%s"' dd66b5be -- internal/apps/kaname/api/access_binding/reconcile/tuples.go
+        → :69   (склейку делает РОВНО ОДНА сторона, и у неё ОДИН идентификатор)
+    verdict_on_claim: >-
+      Координата исправлена верно: путь Check несёт ПАРУ, склейки у края нет ни на одном шаге.
+      Вывод S31E-11 «расхождению взяться неоткуда» от этого прочнее, а не слабее.
+  model_and_migration_numbers:
+    result: все числа §1.3/§1.4/§3 воспроизведены ТОЧНО (kaname @ dd66b5be)
+    predicates: |
+      grep -cE '^type ' internal/authzmodel/fga_model.fga                        → 32
+      grep -c 'type iam_membership'                                              → 0
+      awk 'type iam_user' | grep 'define v_get'  → [user, service_account, group#member] or subject or super_admin
+      awk 'type iam_user' | grep 'define v_list' → [user, service_account, group#member] or super_admin
+      diff <(internal/authzmodel/fga_model.fga) <(proto/kaname/cloud/iam/v1/fga_model.fga) → ПУСТ (байт-идентичны)
+      grep -c 'INSERT INTO kaname.roles .*"resources": \["user"\]'  0001_initial.sql → 1  (контроль "group" → 3)
+      grep -c 'role_rule_selectors.*iam\.user,'                     0001_initial.sql → 4  (контроль iam.group → 4)
+      grep -c 'memberships_id_form_check'                           0001_initial.sql → 1
+      ls internal/authzmap/fga_model_drift_test.go                                  → существует (координата DoD п.7 верна)
+  named_coordinates_resolve:
+    result: все проверенные координаты существуют
+    list: |
+      kaname  proto/kaname/cloud/iam/v1/membership_service.proto : get "/iam/v1/accounts/{account_id}/memberships/{membership_id}"  (строка 139)
+      kaname  proto/kaname/cloud/iam/v1/authorize_service.proto  : rpc WhoAmI, get "/iam/v1/me", permission = "<exempt>"
+      kaname  internal/migrations/0001_initial.sql               : membership_mirror_from_user — пустой аккаунт ПРОПУСКАЕТСЯ (цитата дословна)
+      kacho   gateway/internal/middleware/permission_denied_response.go            : существует; таблица «тип → форма» ключуется типом ("iam_user": "User %s not found")
+      kacho   gateway/internal/middleware/permission_denied_notfound_oracle_test.go: существует
+      kacho   gateway/internal/middleware/authz_hide_existence_message_test.go     : существует
+      kacho   proto/declared-breaks.yaml                                            : существует (DoD п. 2а ссылается верно)
+      .claude/rules/testing.md §«Authz-first толерантность негативов»               : строка 118
+      .claude/rules/security-hardening.md §«Отношение, выполнимое подстановочным знаком»: строка 144
+      .claude/rules/security-hardening.md инвариант 6 (hide-existence byte-identical): строка 28
+  iam_id_2_citation:
+    result: подтверждено
+    how: >-
+      docs/specs/sub-phase-IAM-ID-2-membership-read-acceptance.md — статус «✅ APPROVED —
+      круг 7». Полоса C гейта IAM-ID-2-15 «красит плоское чтение по идентификатору независимо
+      от того, какой документ его разрешил» (строки 1938, 1951–1952). Цитата §1.1/§4.2
+      предфазы верна дословно, и аккаунт-скоупная форма §1.1 полосу C оставляет зелёной.
+
+dispatcher_question_1_resolved_by_measurement:
+  question: >-
+    S31E-18 утверждает НЕРАЗЛИЧИМОСТЬ ответа, а не INVALID_ARGUMENT. Верно ли это, или
+    контракт обязан назвать иной исход?
+  authors_position: >-
+    Край разбирает ТЕЛО с DiscardUnknown; полоса для неизвестного ПАРАМЕТРА ЗАПРОСА отдельным
+    замером не устанавливалась, поэтому в «Тогда» не называется — утверждение о ней не имело
+    бы производителя.
+  my_measurement:
+    body_lane: |
+      git show 8d70f599834:gateway/internal/restmux/mux.go — блок комментария над publicMarshaler
+      (строки ~360–398): ключ остаётся отбрасываемым ВЗВЕШЕННО, четыре довода, из них №2 —
+      «клауза update_mask РЕАЛИЗОВАНА именно DiscardUnknown». Утверждение автора о теле ИСТИННО.
+    query_lane: |
+      go.mod: github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
+      $GOMODCACHE/…/grpc-gateway/v2@v2.30.0/runtime/query.go:117–126 —
+        fieldDescriptor = fields.ByName(...); если nil → fields.ByJSONName(...); если снова nil:
+        «We're not returning an error here because this could just be an extra query parameter
+         that isn't part of the request» → grpclog.Infof(...); return nil
+      собственного QueryParameterParser край не ставит: git grep 'QueryParameterParser' -- gateway/ → 0
+        (единственные попадания PopulateQueryParameters — в пробе restmux/repeated_scalar_query_param_test.go)
+  verdict: >-
+    Автор прав, и его утверждение оказалось СИЛЬНЕЕ, чем он заявил: неизвестный параметр
+    запроса на этом крае отбрасывается молча БИБЛИОТЕКОЙ, а не только телом — то есть у «Тогда»
+    S31E-18 («ответ побайтово равен ответу без предъявленного поля») производитель ЕСТЬ и он
+    назван замером выше. Требовать INVALID_ARGUMENT было бы требованием БЕЗ производителя: его
+    пришлось бы завести SetQueryParameterParser'ом, а это продуктовое решение обо ВСЕХ RPC
+    края, не предмет этой под-фазы. Блокирующим не является ни при каком прочтении.
+  offered_to_author_non_blocking: >-
+    Врезку под S31E-18 можно усилить измеренным производителем (координата и строки выше)
+    вместо оговорки «отдельным замером не устанавливалась». Нового круга не требует.
+
+checklist:
+  scope: 'пройдено — §«Что НЕ входит» перечисляет пять отложенных предметов; §6.2 сужает область до одного файла; §«Снятие user_id области НЕ расширяет» отвечает на очевидное возражение'
+  coverage: 'пройдено — 18 сценариев (S31E-01…18), заголовков 18, дублей 0; шесть семейств F1…F6'
+  negative: 'пройдено — промах, чужое членство, несхождение сегмента, отсутствие членства, рядовой член, wildcard, недоступность владельца вердикта, непроизошедшая перематериализация'
+  producer: 'пройдено — §3 называет производителя всем 18; у двух (S31E-13/14/15 и S31E-18) производителя сегодня НЕТ, и это названо ИСХОДОМ («заказан производитель», полоса и пункт DoD названы), а не умолчанием'
+  twin: 'пройдено с одним замечанием — см. N3-2; у 15 отрицаний из 16 близнец назван поимённо и дельта ОДНА'
+  constructibility: 'пройдено ПОСЕВОМ — см. constructibility ниже'
+  format: 'пройдено — у каждого сценария ровно один Given / When / Then (перемерено поблочно), payload конкретен, ответы названы кодом И тоном'
+  convention: 'пройдено — «принято-и-проигнорировано» закрыт исходом 3; hide-existence по инварианту 6; anti-wildcard по §«Отношение, выполнимое подстановочным знаком»; авторизация в МОДЕЛИ, а не в самодельной проверке'
+  dod: 'пройдено — 14 пунктов, каждый с предикатом либо ссылкой на сценарий; п. 2а несёт контроль в обратную сторону'
+  open_question: 'пройдено — §6.1 записан РЕШЕНИЕМ (выдачи переносятся; основание — обратимость, ban #18), а не вопросом; «Открытых вопросов к владельцу этот документ не несёт»'
+  disclosure: 'пройдено — координаты публичной поверхности и механизма, не разбор «где защита не сработала»'
+
+constructibility:
+  seeded_not_enumerated: true
+  runs:
+    - given: 'человек в ДВУХ аккаунтах, членства M_A и M_B — несущий Given S31E-02/09/12 и DoD п.12'
+      fixture: 'kaname internal/repo/kaname/pg/user_invite_second_account_integration_test.go — TestUserInvite_ExistingActiveEmail_SecondAccount, require.Len(t, mems, 2) на строке 133'
+      command: 'go test ./internal/repo/kaname/pg/ -run TestUserInvite_ExistingActiveEmail_SecondAccount -count=1 (project/kaname @ dd66b5be, testcontainers)'
+      result: PASS (3.13s)
+    - given: 'строка личности БЕЗ единого членства — Given S31E-16'
+      how: >-
+        Состояние представимо и посеяно. Схема: users.account_id — text NOT NULL, но ПУСТАЯ
+        строка не запрещена (CHECK-ограничений на account_id у users нет: перебраны все
+        CONSTRAINT блока CREATE TABLE kaname.users), а триггер membership_mirror_from_user
+        пустой аккаунт ПРОПУСКАЕТ («строка без аккаунта законна, а членства без аккаунта не
+        бывает» — цитата предфазы дословна). Посев: фикстура
+        internal/migrations/membership_backfill_integration_test.go строит это состояние СВОИМ
+        положительным контролем (удаляет одно членство и требует, чтобы предикат «строки без
+        членства» нашёл ровно одну и назвал её).
+      command: 'go test ./internal/migrations/ -run Membership -count=1 (project/kaname @ dd66b5be, testcontainers)'
+      result: PASS (6.65s)
+    - given: 'детерминированный mbr-<17> и форма идентификатора — Given S31E-04/07'
+      how: 'kaname.membership_mirror_id(p_user_id, p_account_id) LANGUAGE sql IMMUTABLE + CONSTRAINT memberships_id_form_check CHECK (id ~ ''^mbr-[0-9abcdefghjkmnpqrstvwxyz]{17}$'') — 0001_initial.sql'
+      result: 'подтверждено чтением схемы на dd66b5be; отдельного посева не требует — форма закреплена ограничением'
+  seeded: 2
+  of: 3
+  not_performed: 0
+  note: >-
+    Третий Given (форма идентификатора) закреплён ограничением схемы, то есть доказан сильнее,
+    чем посевом: состояние вне формы в таблицу не попадает by construction.
+
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N3-1
+    kind: control_prints_the_same_value
+    where: '§1.4, таблица «что выдаёт такие кортежи сегодня», строка якорных селекторов'
+    what: >-
+      Проза под таблицей говорит «Контроль печатает непустые и ДРУГИЕ значения». Для строки
+      ролей это верно (1 против 3), для строки якорных селекторов — нет: перемерено, iam.user
+      → 4 и контроль iam.group → 4, то есть значение ТО ЖЕ.
+    why_not_blocking: >-
+      Контроль свою работу делает: непустой ответ доказывает, что предикат не слеп. Неверна
+      только характеристика «другие», и ни одно число раздела от этого не меняется.
+    suggested: 'заменить «непустые и другие» на «непустые» — либо назвать, что у второй строки совпадение случайно'
+  - id: N3-2
+    kind: twin_not_named_by_id
+    where: 'S31E-16'
+    what: >-
+      Положительный близнец поимённо не назван. Фактически он есть — S31E-01 (дельта одна: у
+      человека ЕСТЬ членство), а роль положительного контроля внутри сценария играет клауза
+      про GET /iam/v1/me.
+    why_not_blocking: >-
+      Утверждение сценария — о НЕПРЕДСТАВИМОСТИ адреса, и оно доказуемо без второго прогона;
+      «мёртвым предметом» оно не читается, потому что соседние 17 сценариев ту же поверхность
+      проходят.
+    suggested: 'дописать «положительный близнец — S31E-01» одной строкой'
+  - id: N3-3
+    kind: predicate_could_be_stronger
+    where: 'врезка под S31E-18'
+    what: 'полоса неизвестного ПАРАМЕТРА ЗАПРОСА теперь измерена мной (grpc-gateway v2.30.0 runtime/query.go:117–126 + отсутствие своего QueryParameterParser у края) — у «Тогда» есть производитель, и оговорку можно заменить замером'
+    why_not_blocking: 'вывод сценария от этого не меняется — он усиливается'
+
+task_lines_for_the_code_lane:
+  - 'В GetUserRequest и ListUserOperationsRequest вместе со снятием user_id (reserved 1 + reserved "user_id") ЗАВОДЯТСЯ поля-носители нового пути — account_id и membership_id, с НОВЫМИ номерами (1 зарезервирован). Приёмка называет это следствием пути и через DoD п.1/п.2, но именами полей запроса не называет: сегмент пути без поля запроса — состояние, запрещённое схемой связывания (это же нашёл круг 1, B1).'
+  - 'Строка таблицы форм ответа края (kacho gateway/internal/middleware/permission_denied_response.go) на тип iam_membership: назвать ШАБЛОН дословно и сказать, какой идентификатор в него подставляется. «Побайтово равна строке iam_user» исполнимо двояко — как та же строка ("User %s not found") и как та же ФОРМА контракт-тона; требование hardening-инварианта 6 — совпадение с настоящим backend-miss ЭТОГО маршрута, и именно его надо зафиксировать пробой.'
+  - 'Полоса негодной формы membershipId: у соседнего посаженного маршрута IAM-ID-2 (MembershipService.Get) областью гейта служит account_id, поэтому негодный membership_id доходит до службы и получает INVALID_ARGUMENT (corevalidate.ResourceID, internal/apps/kaname/api/membership/get.go:44). У новых маршрутов область — сам membership_id, поэтому негодная форма не резолвится в объект и отвечает отказом (S31E-07). Различие законно и оракулом не является; НЕ «чинить» его проверкой формата ПЕРЕД authz на поле-области.'
+  - 'Фаза migrate доказывается предикатом «не ноль кортежей на НОВОМ объекте при действующей выдаче» (§6.1, S31E-13/14). Факт запуска реконсайлера предикатом не является; проба обязана падать на непроизошедшей перематериализации.'
+  - 'Новая коллекция newman (DoD п. 13) заводится вместе со строкой ведомости производителя — иначе MR линии краснеет.'
+
+scope:
+  what_this_record_judges: 'точное содержимое ddf0ddb6 — текст приёмки предфазы. Не дифф кода, не .proto, не схему, не вердикт прогона, не посадку.'
+  document_not_edited_by_me: true
