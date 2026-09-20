@@ -12,12 +12,29 @@ subject:
     внешнее событие. Машинный читатель docs-gate (`check-01`) по этой редакции отвечает DRAFT —
     его объявленный предел (судит объявление, а не одобрение). После этого ревью шапка не правится.
   base_commit: dd66b5beee2212c3925a459d4be701064dfd88bc
-  content_commit: null
-  content_state: uncommitted_worktree
+  content_commit: c880590412f6f5176480b47932b9d13ac188fe03
+  content_state: committed
+  content_state_measured_at: '2026-09-20'
+  content_state_predicate: >-
+    git show c8805904:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+    | sha256sum → b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec — РАВЕН имени
+    этой записи, то есть коммит установлен ТОЖДЕСТВОМ СОДЕРЖИМОГО, а не поиском по сообщению.
+    Достижимость: git merge-base --is-ancestor c8805904 HEAD → 0. Единственность: тот же предикат
+    прогнан по всем коммитам, трогавшим файл (git log --all -- <путь> → c8805904 3972202a
+    56430a8e 8a99fe58 4e584bdf) — отпечаток b755886f… даёт ровно один из них.
   content_state_note: >-
     Редакция 3 на момент ревью НЕ закоммичена (задание диспетчера). HEAD рабочей копии —
     96331843 (коммит записи ревью круга 2). Вердикт вынесен по ОТПЕЧАТКУ содержимого, а не по
     коммиту; коммит редакции 3 и этой записи — работа следующего шага, не рецензента.
+  superseded_declaration:
+    note: >-
+      Поля выше ОБНОВЛЕНЫ 2026-09-20 по замеру. Объявление рецензента сохранено дословно —
+      оно не лгало о прошлом, оно пережило свой предмет. Вердикт, основания и тексты замечаний
+      этой записи НЕ тронуты: правка ограничена полями СОСТОЯНИЯ.
+    was_content_commit: null
+    was_content_state: uncommitted_worktree
+    corrected_by_role: acceptance-reviewer (состояние, не вердикт)
+    corroborating_record: docs/specs/reviews/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance/PUBLICATION-STATE.yaml
   worktree: tmp/wt-line-a-1
   branch: acceptance/line-a-1
   worktree_head: 9633184320c18a4ce704631922f51f030884bca5
@@ -55,9 +72,59 @@ authority:
 
 event:
   type: github_issue_comment
-  status: not_performed
-  published: false
+  status: performed
+  published: true
   publication_expected_from_orchestrator: true
+  url: https://github.com/PRO-Robotech/kacho/issues/2721#issuecomment-5751175183
+  api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5751175183
+  issue: PRO-Robotech/kacho#2721
+  database_id: 5751175183
+  node_id: IC_kwDOTZqgWM8AAAABVsv4Dw
+  actor: pointpu
+  author_association: MEMBER
+  created_at: '2026-09-20T16:44:59Z'
+  updated_at: '2026-09-20T16:44:59Z'
+  never_edited: true          # created_at == updated_at
+  body_sha256: fbf9630e52e8fa1ac82671550732c1604cc54bdf9504119dfdfebfd3b5c81f65
+  verified_at: '2026-09-20'
+  verified_predicates:
+    existence: >-
+      gh api --paginate repos/PRO-Robotech/kacho/issues/2721/comments
+      --jq '.[] | [.id,.user.login,.created_at,.updated_at,.html_url] | @tsv'
+      → ровно 2 комментария; 5751175183 среди них.
+    body_carries_this_fingerprint: >-
+      gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body'
+      | grep -c 'b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec' → 1
+    body_verbatim: >-
+      acceptance-reviewer · APPROVED ·
+      sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ c8805904 ·
+      sha256 b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
+    body_sha256: >-
+      gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body' | tr -d '\n'
+      | sha256sum → fbf9630e52e8fa1ac82671550732c1604cc54bdf9504119dfdfebfd3b5c81f65
+    actor_authorized: >-
+      docs/changes/policy.yaml → review_authority.acceptance-reviewer: [pointpu]; актор события
+      pointpu — допущен. Отпечаток политики перемерен: sha256sum docs/changes/policy.yaml →
+      ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24 (совпал с полем
+      authority.policy_sha256 ниже).
+    body_matches_required_body_for_courier: >-
+      ДА по всем четырём полям required_body_for_courier (role · verdict · subject ·
+      subject_sha256). Сверх них тело несёт ревизию «@ c8805904» — ту, что запись оставляла
+      пустой; она измерена независимо (см. subject.content_state_predicate) и совпала.
+  superseded_declaration:
+    note: >-
+      Поля status/published ОБНОВЛЕНЫ 2026-09-20 по сетевому замеру. Объявление рецензента
+      сохранено дословно: «не опубликовано» было ПРАВДОЙ в момент письма (событие легло
+      2026-09-20T16:44:59Z) и стало ложью о настоящем. Вердикт APPROVED круга 3 не
+      пересматривается, основания и тексты замечаний не тронуты.
+    was_status: not_performed
+    was_published: false
+  known_limit: >-
+    Эти поля — ОБЪЯВЛЕНИЕ, а не вычисление: их вписал тот же, кто мерил. Машинного стража,
+    который брал бы database_id, тянул комментарий и требовал совпадения body_sha256, актора из
+    policy и created_at == updated_at, в дереве НЕТ (grep -rln 'issues/comments' scripts/ → 0).
+    Предмет и предикат снятия названы в PUBLICATION-STATE.yaml, what_could_hold_it_going_forward
+    п. 3. До того состояние держится воспроизводимостью команд выше, а не механизмом.
   rationale: >-
     Вердикт — ОДОБРЕНИЕ, а одобрение полномочие ДАЁТ, поэтому от внешнего события ЗАВИСИТ
     (change-graph.md §3 «Роль без события полномочия не даёт»). Действующее одобрение редакции 3
