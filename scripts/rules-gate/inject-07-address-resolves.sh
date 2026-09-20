@@ -1,54 +1,125 @@
 #!/usr/bin/env bash
-# ДОКАЗАТЕЛЬСТВО check-07 по четырём осям: новый висячий заголовок, новый висячий
-# id, дубль id внутри файла, и зажившая база. Последняя — самоистечение: база не
-# может пережить свой предмет.
-set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
-G=scripts/rules-gate/address-refs.py
-T=.claude/rules/testing-load.md
-B=scripts/rules-gate/address-baseline.txt
-TO="$(mktemp)"
-BO="$(mktemp)"
-cp "$T" "$TO"
-cp "$B" "$BO"
-trap 'cp "$TO" "$T"; cp "$BO" "$B"; rm -f "$TO" "$BO"' EXIT
-# Адрес для оси D берётся ИЗ ВЫВОДА САМОГО ГЕЙТА: он обязан УЖЕ резолвиться в
-# дереве, иначе проба доказывала бы не «база зажила», а «база тоже висит».
-# Одной записи в базе недостаточно: предмет оси — адрес, который И стоит в дереве,
-# И резолвится, а в базе числится висячим.
-RESOLVABLE="$(python3 "$G" --list 2>/dev/null | awk -F'\t' '$3=="OK"{print $2; exit}')"
-fail=0
-probe() {
-  local out
-  out="$(python3 "$G" 2>&1 || true)"
-  if grep -qE "$2" <<< "$out"; then
-    printf 'ось %s: красное — OK\n' "$1"
-  else
-    printf 'ось %s: МОЛЧИТ — доказательство не прошло\n' "$1"
-    fail=1
-  fi
-}
-printf '\ntesting-load.md §«Раздела с таким именем нет ни в корпусе, ни в архиве»\n' >> "$T"
-probe A 'новая поломка адреса'
-cp "$TO" "$T"
-printf '\ntesting-load.md#no-such-id-exists-anywhere\n' >> "$T"
-probe B 'новая поломка адреса'
-cp "$TO" "$T"
-printf '\ndup-id-probe · императив · ЗАВЕСТИ x · red: признак\ndup-id-probe · императив · ЗАВЕСТИ x · red: признак\n' >> "$T"
-probe C 'дубль id'
-cp "$TO" "$T"
-# ЗАЖИВШАЯ БАЗА: адрес, который резолвится, обязан быть убран из базы.
-if [ -z "$RESOLVABLE" ]; then
-  printf 'ось D: НЕ ВЫПОЛНЕНА — в дереве нет ни одного резолвящегося адреса, входа нет\n'
-else
-  printf '%s\n' "$RESOLVABLE" >> "$B"
+# ЧАСТЬ инъекции набора: доказательство check-07 «адрес нормы резолвится, id
+# уникален» по четырём осям — новый висячий заголовок, новый висячий id, дубль id
+# внутри файла и ЗАЖИВШАЯ база. Последняя есть самоистечение: объявленная база
+# известных поломок не вправе пережить свой предмет.
+#
+# Файл ПОДКЛЮЧАЕТСЯ (`.`) из `inject.sh` и пользуется его оснасткой — `sandbox`,
+# `capture`, `assert_code`, `assert_fixture_changed`, счётчиками `pass`/`fail`.
+
+# ── СТРАЖ ПОДКЛЮЧЕНИЯ: часть НЕ исполняется самостоятельно ───────────────────
+# Своей оснастки у части нет: в обход `inject.sh` каталог песочницы не определён,
+# путь вида "$d/.claude/…" становится ОТНОСИТЕЛЬНЫМ и правка уезжает в рабочую
+# копию. Отказ — код 2: ноль исполненных утверждений не находка и не успех.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — ЧАСТЬ инъекции, а не самостоятельная проба." >&2
+    echo "       Она подключается из scripts/rules-gate/inject.sh и пользуется его оснасткой;" >&2
+    echo "       самостоятельно не исполнила бы ни одного утверждения и писала бы в рабочее" >&2
+    echo "       дерево. Запускать: bash scripts/rules-gate/inject.sh" >&2
+    exit 2
 fi
-[ -z "$RESOLVABLE" ] || probe D 'зажил'
-cp "$BO" "$B"
-if python3 "$G" > /dev/null 2>&1; then
-  printf 'ось Z: на целом дереве зелено — OK\n'
-else
-  printf 'ось Z: КРАСНОЕ — гейт шумит\n'
-  fail=1
+for _i07_fn in sandbox capture assert_code assert_fixture_changed sandbox_digest; do
+    command -v "$_i07_fn" >/dev/null 2>&1 && continue
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: функция" \
+         "«$_i07_fn» не определена; часть подключена не оттуда, доказывать нечем" >&2
+    exit 2
+done
+unset -v _i07_fn
+if [ -z "${GATE:-}" ] || [ ! -d "$GATE" ] || [ -z "${TMP:-}" ] || [ ! -d "$TMP" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — каталог набора \$GATE либо \$TMP не определён;" \
+         "разборщик и подменную базу брать не из чего" >&2
+    exit 2
 fi
-exit "$fail"
+
+C7=check-07-address-resolves.sh
+# Жертва — правило корпуса, выведенное ИЗ ДЕРЕВА: имя в коде рассыпалось бы вместе
+# с раскладкой, а предмет оси от имени файла не зависит.
+V7=""
+for _v in "$WS"/.claude/rules/*.md; do
+    [ -e "$_v" ] || continue
+    V7=".claude/rules/$(basename "$_v")"
+    break
+done
+unset -v _v
+if [ -z "$V7" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в .claude/rules нет ни одного файла;" \
+         "ссылку вписывать некуда" >&2
+    exit 2
+fi
+# ЗАКОННЫЙ АДРЕС для близнеца — заголовок ДРУГОГО файла корпуса, тоже из дерева.
+# Он обязан существовать: иначе близнец доказывал бы не «ссылка верна, гейт молчит»,
+# а «гейт не заметил и её».
+T7=""; H7=""
+for _t in "$WS"/.claude/rules/*.md; do
+    [ -e "$_t" ] || continue
+    [ ".claude/rules/$(basename "$_t")" != "$V7" ] || continue
+    H7="$(sed -n 's/^#\+[[:space:]]*//p' "$_t" | head -1 | sed 's/^§[[:space:]]*//')"
+    if [ -n "$H7" ]; then T7="$(basename "$_t")"; break; fi
+done
+unset -v _t
+if [ -z "$T7" ]; then
+    echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в корпусе нет второго файла с заголовком;" \
+         "законный адрес для близнеца выводить не из чего" >&2
+    exit 2
+fi
+
+# ── ось A: НОВЫЙ висячий заголовок ───────────────────────────────────────────
+d="$(sandbox i07_named)"
+printf '\n%s §«Раздела с таким именем нет ни в корпусе, ни в архиве»\n' "$T7" >> "$d/$V7"
+capture "$d" "$C7"
+assert_code 1 "ДЕФЕКТ: ссылка на заголовок, которого нет нигде — краснеет"
+
+# ── ось B: НОВЫЙ висячий id ──────────────────────────────────────────────────
+d="$(sandbox i07_id)"
+printf '\n%s#takogo-id-net-ni-v-odnom-fajle\n' "$T7" >> "$d/$V7"
+capture "$d" "$C7"
+assert_code 1 "ДЕФЕКТ: ссылка на id, которого нет — краснеет"
+
+# ── ось C: дубль id внутри одного файла ──────────────────────────────────────
+d="$(sandbox i07_dup)"
+printf '\ndup-id-proba · императив пробы · ЗАВЕСТИ dup-id-proba · red: признак\ndup-id-proba · императив пробы · ЗАВЕСТИ dup-id-proba · red: признак\n' \
+    >> "$d/$V7"
+capture "$d" "$C7"
+assert_code 1 "ДЕФЕКТ: один id у двух строк-норм файла — краснеет"
+
+# ── ось D: ЗАЖИВШАЯ база — адрес резолвится, а в базе числится висячим ───────
+#
+# Адрес берётся ИЗ ВЫВОДА САМОГО ГЕЙТА и только со меткой `OK`: он обязан уже
+# резолвиться в дереве, иначе проба доказывала бы не «база зажила», а «база тоже
+# висит». Подменная база — законный шов проверки (`RULES_GATE_ADDRESS_BASELINE`):
+# все 18 записей настоящей живут в `project/kacho/**`, которого в песочнице нет.
+d="$(sandbox i07_healed)"
+RESOLVED_ADDR="$( cd "$d" && python3 "$GATE/address-refs.py" --list \
+    --baseline "$GATE/address-baseline.txt" 2>/dev/null \
+    | awk -F'\t' '$3=="OK"{print $2; exit}' )"
+if [ -z "$RESOLVED_ADDR" ]; then
+    echo "  [FAIL] ось D БЕСПРЕДМЕТНА — в песочнице нет ни одного резолвящегося адреса;" \
+         "«заживший» подставить не из чего" >&2
+    fail=$((fail + 1))
+else
+    cp "$GATE/address-baseline.txt" "$TMP/bl.healed.txt"
+    printf '%s\n' "$RESOLVED_ADDR" >> "$TMP/bl.healed.txt"
+    capture "$d" "$C7" RULES_GATE_ADDRESS_BASELINE="$TMP/bl.healed.txt"
+    assert_code 1 "ДЕФЕКТ: адрес из базы зажил — краснеет и требует убрать запись"
+fi
+
+# ── БЛИЗНЕЦ оси A/B: ссылка ДОБАВЛЕНА, но на то, что в дереве есть ───────────
+d="$(sandbox i07_twin_ref)"; b="$(sandbox_digest "$d")"
+printf '\n%s \u00a7«%s»\n' "$T7" "$H7" >> "$d/$V7"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же новая ссылка, но адрес существует"
+capture "$d" "$C7"
+assert_code 0 "БЛИЗНЕЦ: новая ссылка на существующий адрес — молчит"
+
+# ── БЛИЗНЕЦ оси C: два заголовка той же формы, но id РАЗНЫЕ ──────────────────
+d="$(sandbox i07_twin_id)"; b="$(sandbox_digest "$d")"
+printf '\ndup-id-proba-odin · императив пробы · ЗАВЕСТИ dup-id-proba-odin · red: признак\ndup-id-proba-dva · императив пробы · ЗАВЕСТИ dup-id-proba-dva · red: признак\n' \
+    >> "$d/$V7"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: две строки-нормы подряд, id различны"
+capture "$d" "$C7"
+assert_code 0 "БЛИЗНЕЦ: разные id у соседних строк-норм — молчит"
+
+# ── ось Z: нетронутая копия — молчит ────────────────────────────────────────
+# Она же близнец оси D: все 18 записей базы остаются висячими, и гейт молчит.
+d="$(sandbox i07_clean)"
+capture "$d" "$C7"
+assert_code 0 "БЛИЗНЕЦ: нетронутая копия — молчит"

@@ -9,4 +9,9 @@
 set -euo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
-exec python3 "$SELF_DIR/address-refs.py" --baseline "$SELF_DIR/address-baseline.txt"
+# Путь базы переопределяем средой: ось «адрес из базы зажил» инъекции иначе не
+# доказуема — все 18 её записей живут в `project/kacho/**`, которого в песочнице
+# нет, и подставить заживший адрес можно только своей базой. Шов той же природы,
+# что `RULES_GATE_ROOT`: в CI переменная не задана, база берётся рядом с собой.
+exec python3 "$SELF_DIR/address-refs.py" \
+    --baseline "${RULES_GATE_ADDRESS_BASELINE:-$SELF_DIR/address-baseline.txt}"

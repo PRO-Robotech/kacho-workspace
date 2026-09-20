@@ -4,6 +4,7 @@ description: "Единственный, кто меняет состояние g
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
+  - rule-git-issues
   - rule-security-disclosure
 ---
 

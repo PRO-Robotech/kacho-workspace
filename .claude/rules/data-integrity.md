@@ -9,461 +9,113 @@ description: "Целостность данных: within-service (DB-урове
 
 ## Within-service инварианты — ТОЛЬКО на DB-уровне (ban #10)
 
-Внутри одной БД сервиса каждая ссылочная зависимость и инвариант **обязан** быть
-выражен DB-конструкцией. Software-side `Get → check → Update` (TOCTOU) запрещён —
-он race-prone (реальный инцидент: NIC-attach 2026-05-14, две Create прошли
-software-guard и оба сделали безусловный UPDATE → second-writer-wins).
-
-| Инвариант | DB-механизм |
-|---|---|
-| id обязан существовать в той же БД | `FK REFERENCES <t>(id) ON DELETE {RESTRICT\|CASCADE\|SET NULL}` |
-| поле уникально | `UNIQUE` / `CREATE UNIQUE INDEX` |
-| уникально только если поле непусто | partial `UNIQUE … WHERE <cond>` |
-| range не пересекается | `EXCLUDE USING gist (… WITH &&)` |
-| простой предикат | `CHECK (…)` |
-| атомарный compare-and-swap | `UPDATE … WHERE <expected-state> RETURNING …` + проверка кардинальности |
-| read-modify-write OCC без колонки версии | `xmin::text` snapshot + `UPDATE … WHERE xmin::text=$exp` |
-| уникальная аллокация из пула под concurrency | `FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING` |
-| сериализовать read-modify-write набора | `SELECT … FOR UPDATE` перед merge+write |
-
-Service-слой только маппит SQLSTATE → gRPC: `23503`→FailedPrecondition,
-`23505`→AlreadyExists/FailedPrecondition (по контексту), `23514`→InvalidArgument,
-`23P01`→FailedPrecondition. **Никогда не leak'ай pgx-текст наружу** (→ фикс. INTERNAL).
-
-### Шаблон attach / смена ownership — атомарный CAS (не TOCTOU)
-
-```sql
-UPDATE <table>
-   SET <owner-col> = $new, <other…>
- WHERE id = $id
-   AND (<owner-col> = '' OR <owner-col> = $new)   -- свободно ИЛИ уже наш (идемпотентно)
-RETURNING …;
-```
-0 rows из RETURNING → `pgx.ErrNoRows` → `FailedPrecondition`. Single-statement UPDATE на
-одной row защищён row-lock'ом: параллельный writer ждёт commit, видит обновлённый row,
-CAS не matches → 0 rows. Доп. UNIQUE-индекс как «backstop» — НЕ нужен (и для
-one-resource-per-owner-or-many семантики он ложно ловит нормальный multi-attach).
+arch-db-invariant-only · выражай DB-конструкцией, не software Get→check→Update · mapRepoErr + integration-тест на гонку · red: check-then-act в сервис-слое перед UPDATE
+db-fk-same-db · `FK REFERENCES <t>(id) ON DELETE {RESTRICT|CASCADE|SET NULL}` · ЗАВЕСТИ db-fk-same-db · red: проверка существования кодом
+db-unique · `UNIQUE` / `CREATE UNIQUE INDEX` · ЗАВЕСТИ db-unique · red: SELECT-then-INSERT
+db-partial-unique · partial `UNIQUE … WHERE <cond>` · ЗАВЕСТИ db-partial-unique · red: полный UNIQUE или software-проверка
+db-exclude-range · `EXCLUDE USING gist (… WITH &&)` · ЗАВЕСТИ db-exclude-range · red: сравнение диапазонов в Go
+db-check · `CHECK (…)` · ЗАВЕСТИ db-check · red: валидация только в сервисе
+db-cas · `UPDATE … WHERE <expected-state> RETURNING …` + проверка кардинальности · 0 rows → sentinel · red: безусловный UPDATE после Get
+db-xmin-occ · `xmin::text` snapshot + `UPDATE … WHERE xmin::text=$exp` · 0 rows → конфликт · red: перезапись без сверки снимка
+db-skip-locked · `FOR UPDATE SKIP LOCKED LIMIT 1` + `DELETE … RETURNING` · один writer выигрывает slot · red: SELECT свободного, затем DELETE
+db-select-for-update · `SELECT … FOR UPDATE` перед merge+write · ЗАВЕСТИ db-select-for-update · red: merge без блокировки
+sqlstate-to-grpc · маппь только в сервис-слое: 23503→FailedPrecondition · 23505→AlreadyExists/FailedPrecondition · 23514→InvalidArgument · 23P01→FailedPrecondition · sqlstatehome_test.go · red: решение о классе отказа вне единственного дома
+no-pgx-leak · не выпускай наружу, отдавай фиксированный INTERNAL · sqlstatehome_test.go (ветка по умолчанию) · red: текст драйвера в gRPC-ответе
+cas-attach-template · делай одним `UPDATE … WHERE id=$id AND (<owner>='' OR <owner>=$new) RETURNING` · 0 rows → `pgx.ErrNoRows` → FailedPrecondition · red: Get→проверка→UPDATE
+no-unique-backstop · не заводи UNIQUE-индекс как backstop к CAS · ЗАВЕСТИ no-unique-backstop · red: UNIQUE, отвергающий законный multi-attach
 
 ### Чек-лист нового ссылочного поля / инварианта
 
-1. Ссылка на ресурс в **той же БД** → FK (+ partial UNIQUE/EXCLUDE при необходимости). Никогда software-only.
-2. Условная уникальность → partial `UNIQUE … WHERE`.
-3. Состояние меняется конкурирующими путями (attach/detach, allocate/free) → атомарный CAS.
-4. SQLSTATE→gRPC в `mapRepoErr`/serviceerr.
-5. **Integration-тест (testcontainers) с concurrent goroutines** на спорный путь — ровно одна
-   транзакция проходит, остальные получают ожидаемый sentinel. Без него не мёржим (race не ловится unit-тестом).
+concurrent-integration-test · закрой integration-тестом (testcontainers) с параллельными горутинами: ровно одна TX проходит, прочие получают ожидаемый sentinel · ЗАВЕСТИ concurrent-integration-test · red: мёрж с unit-тестом вместо него
 
 ## Cross-domain ссылки (owner-сервис / consumer-сервис)
 
-Через границу сервиса FK невозможен (DB-per-service, ban #4/#8). Регламент:
+single-owner-per-type · держи ровно одного владельца с каноническим CRUD/read-API · ЗАВЕСТИ single-owner-per-type · red: mirror-строка или cross-service FK у потребителя
+consumer-validates-by-owner · храни TEXT без FK и валидируй через API владельца на Create/Update · вызов клиента в use-case · red: ссылка принята без проверки у владельца
+typed-client-layering · ходи типизированным клиентом `internal/clients/<owner>_client.go`, port в use-case · usecaselayout_test.go · red: http/grpc-вызов из слоя репозитория
+crossdomain-refusal-codes · не найдено → InvalidArgument · не то состояние → FailedPrecondition · владелец недоступен → Unavailable (fail-closed на мутациях) · таблица кодов use-case · red: мутация прошла при недоступном владельце
+service-to-service-direct · ходи service→service напрямую · ребро в polyrepo.md · red: вызов через api-gateway
+mirror-output-only · держи output-only, с пометкой source of truth, обновляй на чтении · ЗАВЕСТИ mirror-output-only · red: зеркало на входе Create/Update
+delete-no-cascade · не спрашивай потребителей; потребитель переживает dangling-ref деградированным статусом · тест на dangling-ref · red: паника или cross-service cascade
+owner-map · Region/Zone→geo · Account/Project/User/SA/Group/Role/AccessBinding→iam · Network/Subnet/SG/RouteTable/Address/Gateway/NIC→vpc · Instance/MachineType→compute · Volume/Snapshot/Image/DiskType→storage · LB/Listener/TargetGroup→nlb · Registry/Repository/Tag→registry · Operation — per-service · ЗАВЕСТИ owner-map · red: второй владелец типа
+new-edge-in-polyrepo · фиксируй в `polyrepo.md` §runtime-edges · polyrepo.md §runtime-edges · red: цикл или ребро вне карты
+warning-needs-removal-predicate · неси предикат снятия в устаревающем предупреждении · ЗАВЕСТИ warning-needs-removal-predicate · red: предупреждение без предиката снятия
 
-1. **Один владелец на тип ресурса** — канонический CRUD/read-API. Consumer'ы не держат mirror-строк, нет cross-service FK.
-2. **Consumer ссылается по id (TEXT, без FK), валидирует через API владельца** на request-path
-   (`Create`/`Update`): типизированный gRPC-клиент `internal/clients/<owner>_client.go` (port в use-case,
-   impl в `clients/`). Не найдено/не то состояние → `InvalidArgument`/`FailedPrecondition`; владелец
-   недоступен → `Unavailable` (fail-closed для мутаций). Вызовы — service→service напрямую (не через api-gateway).
-3. **Денормализованные зеркала** (показать имя/статус чужого ресурса) — output-only, помечены
-   «source of truth = `<owner>.<Resource>`», обновляются на чтении, не источник истины, не на вход Create/Update.
-4. **Удаление**: владелец не спрашивает consumer'ов (нет cross-service cascade). Consumer обязан
-   грациозно переживать dangling-ref (деградированный статус, не паника). Жёсткие гарантии — только same-schema FK.
-5. **Карта владельцев**: Geography (Region/Zone) → `kacho-geo`; IAM (Account/Project/User/SA/Group/Role/AccessBinding) → `kacho-iam`;
-   Network/Subnet/SG/RouteTable/Address/Gateway/NetworkInterface → `kacho-vpc`; Instance/MachineType → `kacho-compute`;
-   **Volume/Snapshot/Image/DiskType → `kacho-storage`** (блочное хранение; `volume_attachments` живёт у владельца-storage);
-   LoadBalancer/Listener/TargetGroup → `kacho-nlb`; Registry/Repository/Tag → `kacho-registry`;
-   Operation — per-service (общая `operations`-таблица из corelib).
-   > [!note] Раскол compute→storage ЗАВЕРШЁН — предупреждение снято 2026-08-06
-   > Прежнее предупреждение «раскол НЕ завершён» перечисляло живой дубль
-   > `Disk`/`Image`/`Snapshot`/`DiskType` у compute: свои таблицы, свои gRPC-сервисы,
-   > 34 REST-маршрута, свои FGA-типы. **На дереве этого нет ни в одном из четырёх измерений**
-   > (замер `ee679467`, предикаты повторяемы):
-   >
-   > - контрактов `Disk`/`Image`/`Snapshot`/`DiskType` в `proto/kacho/cloud/compute/v1/` — **ноль**;
-   > - proto-сервисов у compute на тот замер — **четыре**, **перемер 2026-08-29 даёт восемь**.
-   >   Перечень **выводится**, а не выписывается — он вырос вчетверо за три недели и устареет
-   >   снова: `git grep -h '^service ' -- 'proto/kacho/cloud/compute/v1/*.proto'`;
-   > - REST-маршрутов блочного хранения под доменом compute край не обслуживает — **ноль**
-   >   (адреса здесь намеренно не воспроизводятся: цитата мёртвого маршрута читается проверкой
-   >   свежести как живое утверждение — что с первой редакцией этого абзаца и случилось);
-   > - таблицы дропнуты миграциями `0013_drop_attached_disks`, `0021_drop_block_storage_duplicates`,
-   >   `0022_drop_disk_types`.
-   >
-   > Правило «один владелец на тип ресурса» (п.1 выше) **выполняется**, карта владельцев над
-   > этим абзацем описывает код.
-   >
-   > Урок, ради которого абзац остаётся вместо удаления: **предупреждение пережило свой предмет
-   > и продолжало грузиться в окно целиком** — тогда `@import`-ом в каждую сессию, то есть чаще
-   > любой другой строки; с 2026-09-17 — предзагрузкой каждому агенту, за кем правило закреплено
-   > (`.claude/rules/MANIFEST.md`). Звучало оно как действующее ограничение (агент, писавший записку хранилища, едва не
-   > воспроизвёл «задвоенный Snapshot» **по этому правилу**, перемерил и переписал).
-   > Предупреждение о незавершённой работе обязано нести предикат снятия — иначе снять его некому.
-   >
-   > Историческая часть, которая остаётся верной: **данные переносить не требовалось** (директива
-   > владельца 2026-07-27, облако не в проде). Гейт «счётчик строк на боевой базе перед удалением»
-   > снят осознанно; связующая таблица дропнута, а не перенесена (голый `DROP TABLE`, ноль
-   > `INSERT`) — раскол изначально спроектирован без переноса.
-6. Новое cross-domain ребро — фиксируется в `polyrepo.md` (runtime-edge); циклы запрещены.
+## Saga-компенсация у инициатора
 
-## Cross-service saga-compensation — one-shot launch (B12, инициатор компенсирует)
-
-Owner никогда не спрашивает consumer'ов на Delete (нет cross-service cascade) → при partial-fail
-one-shot-саги (compute `Create.launch` спанит vpc IPAM-Address-alloc + NIC-`SetReference`-CAS,
-storage boot-Volume, registry pull-grant) orphan-lease / half-attached NIC **некому реклеймить**
-обратным вызовом. Компенсация живёт **на инициаторе**:
-
-- **Compensation-outbox инициатора.** worker на launch-fail **ДО** пометки `Operation` error эмитит
-  компенсирующие `Free`/`ClearReference` (vpc) и `Delete` (storage) в **собственный**
-  `<svc>.compensation_outbox` (тот же writer-TX, at-least-once drainer) — НЕ «best-effort в горутине»
-  (процесс может умереть между fail и cleanup). Идемпотентно (повторный `Free` уже свободного — no-op).
-- **Sweeper-backstop у владельца.** vpc/storage reconciler освобождает lease/Volume, чей
-  `usedBy°`-`Referrer` **DETACHED/dangling** дольше TTL (двойная защита: если compensation-outbox
-  инициатора не доехал — sweeper подберёт). Backstop, не первичный путь.
-- **Порядок компенсации — обратный allocation** (last-allocated → first-freed); каждый шаг сам
-  идемпотентен, поэтому повтор всей цепочки безопасен.
-- Оба пути (outbox + sweeper) **обязаны** landing до Phase-2 compute (owner GA gated). Тест: kill
-  worker между alloc и Volume-Create → lease реклеймится (compensation ИЛИ sweeper), пул не течёт.
+compensation-outbox-initiator · компенсируй у инициатора: `<svc>.compensation_outbox` в том же writer-TX ДО пометки Operation error, at-least-once drainer, идемпотентно · тест kill-worker · red: best-effort горутина после fail
+sweeper-backstop · держи sweeper-backstop: освобождай lease/Volume с DETACHED/dangling Referrer дольше TTL · reconciler владельца · red: backstop как первичный путь или его отсутствие
+compensation-reverse-order · обратный allocation (last-allocated → first-freed), каждый шаг идемпотентен · ЗАВЕСТИ compensation-reverse-order · red: компенсация в прямом порядке
+compensation-kill-test · докажи тестом: kill worker между alloc и Volume-Create → lease реклеймится, пул не течёт · integration-тест · red: зелёный без убийства worker'а
+compensation-landing-phase2 · оба пути компенсации обязаны landing до Phase-2 compute (owner GA gated) · ЗАВЕСТИ compensation-landing-phase2 · red: Phase-2 GA без обоих путей
 
 ## Lease-recycle-on-delete — IPAM/pool-ресурсы (B17, атомарно)
 
-Ресурс из **ограниченного пула** (Address/AddressPool, внешний VIP) обязан возвращать lease в
-free-list **на КАЖДОМ пути высвобождения**, атомарно:
-
-- **Delete ресурса И teardown-владельца** (NIC-detach, VIP-teardown LB) возвращают lease в
-  `AddressPool` free-list **single-statement под row-lock** (не «прочитал→вернул» — TOCTOU, ban #10):
-  `DELETE … RETURNING` / `UPDATE pool … WHERE …` в той же TX, что снятие ownership-CAS.
-- **Без recycle** orphan-lease + saga-fail **исчерпывают пул** под параллельным e2e (`could not
-  allocate` → phantom-ресурс → каскад). Recycle — не «на потом», это часть Delete-контракта.
-- Тест (ban #12): concurrent alloc/free integration (ровно один writer выигрывает slot) +
-  pool-exhaustion e2e-guard (N alloc → N delete → N alloc снова проходит, пул не деградировал).
-- Тот же принцип — любой ресурс из ограниченного пула, не только IPAM.
+lease-recycle-every-path · возвращай в free-list на КАЖДОМ пути высвобождения одним оператором под row-lock, в той же TX, что ownership-CAS · `DELETE … RETURNING` / `UPDATE pool …` · red: «прочитал → вернул»
+lease-test · докажи concurrent alloc/free (один writer берёт slot) + N alloc → N delete → N alloc снова проходит · integration + e2e-guard · red: тест без параллелизма
 
 ## Authz-материализация owner-доступа — flat Contract-A (eventually-consistent)
 
-Модель OpenFGA — **flat Contract-A**: CRUD-relations (`v_get/v_list/v_create/v_update/v_delete`) —
-**DIRECT usersets per-object** (`[user, service_account, group#member]`), **БЕЗ** каскада
-`<rel> from project|account`. Доступ subject'а к ресурсу материализуется **per-object** iam-реконсайлером
-из AccessBinding'ов (не резолвится каскадом на request-path). Инварианты (выведены из owner-tuple раундов 2026-07):
+fga-flat-contract-a · flat Contract-A: CRUD-глаголы — DIRECT usersets per-object `[user, service_account, group#member]`, без каскада `<rel> from project|account` · `modelcanonpin.go`, `modelrelationproducer_test.go` · red: каскадный резолв на пути запроса
+materialization-async · эмить intent'ом в writer-TX → sync-registrar (best-effort) + `fga_outbox` → drainer + reconciler · outboxeventdictionary_test.go · red: синхронный dual-write в FGA на create-path
+no-confirm-gate-ban9 · не гейти на видимость eventually-consistent эффекта; окно закрывает bounded client-retry · consoleconfirmprobe_test.go · red: confirm-барьер на видимость (ban #9, phantom)
+fga-write-atomic-per-object · пиши весь verb-набор объекта одним Write, all-or-nothing, идемпотентно (read-delta пишет только missing) · v_update visible ⟹ набор visible · red: частично записанный набор глаголов
+role-rule-selectors-all · проецируй в `role_rule_selectors` миграцией + boot-backfill `SyncAllSystemRoleSelectors` · ЗАВЕСТИ role-rule-selectors-all · red: binding невидим discovery, creator получает 403 на своём ресурсе
+edit-comaterializes-delete · co-материализуй `v_delete` вместе с `v_update`, но НЕ на hierarchy-scope · integration-матрица · red: delete на account/project-scope
+containment-transitive · считай транзитивным: account-scoped binding матчит объект в project ∈ account; mirror несёт `parent_project_id` · резолв на read-boundary · red: binding не матчит вложенный объект
+authz-integration-matrix · верифицируй integration-матрицей verb×role×scope: edit@project full-CRUD · owner@account на project+child · cross-account DENY · ЗАВЕСТИ authz-integration-matrix · red: 40-мин e2e вместо матрицы
+group-member-ec · эмить intent'ом в `fga_outbox` в writer-TX членства → at-least-once drainer → reconciler; слово «co-commit» запрещено · Operation.done члена не ждёт видимость · red: sync dual-write в FGA из tx группы
+grant-by-email-pending · храни pending email-grant intent, ремапь в `usr-<id>` reconciler'ом на первом OIDC-login · conformance: grant→login→доступ; revoke-before-login чистит intent · red: tuple, keyed на email, либо серверный confirm-барьер
+grant-to-group · выдавай ГРУППЕ, людей и SA добавляй в группу; перечисление субъектов законно только при единственном неизменном получателе · ЗАВЕСТИ grant-to-group · red: перечисление субъектов в привязке
+membership-declared-everywhere · держи ноль объявлений глаголов без `group#member` · awk '/define v_/{n++; if ($0 ~ /group#member/) g++} END{print n-g}' proto/kacho/cloud/iam/v1/fga_model.fga → 0 · red: глагол без членства
 
-- **Материализация НЕ на синхронном create-path.** owner-tuple эмитится intent'ом в writer-TX →
-  sync-registrar (best-effort post-commit, window-оптимизация) + `fga_outbox` → register-drainer
-  (at-least-once) + reconciler. `Operation.done` **НЕ** ждёт видимость (см. `api-conventions.md`); owner-доступ
-  в кратком окне обеспечивается bounded client-retry. Confirm-gate на видимость — запрещён (ban #9, phantom).
-- **Sync-FGA-write атомарен per-object** (all-or-nothing весь verb-набор объекта одним Write; идемпотентен —
-  read-delta пишет только missing, pre-existing tuple не роняет batch). `v_update`-visible ⟹ полный набор visible.
-- **role_rule_selectors для ВСЕХ materializing system-ролей** (не только owner): `edit`/`view`/`admin` +
-  per-domain (`vpc.network.admin`…) проецируются в `role_rule_selectors` (миграция + boot-backfill
-  `SyncAllSystemRoleSelectors`) — иначе binding невидим discovery и не материализует verbs (project-scoped
-  creator получал 403 на своём ресурсе). `edit`-роль co-материализует `v_delete` с `v_update` (CRUD-editor
-  удаляет что редактирует), но НЕ на hierarchy-scope (account/project) — anti-over-grant.
-- **Containment транзитивен**: account-scoped binding матчит объект, вложенный в project ∈ account
-  (резолв project→account на read-boundary; mirror-объект несёт `parent_project_id`, account добирается JOIN'ом).
-- Верификация класса — **integration-матрица** (verb×role×scope: edit@project full-CRUD; owner@account на
-  project+child-ресурсах; cross-account DENY), не 40-мин e2e. Trail: `obsidian/kacho/KAC/rbac-2026-*`.
-- **Group#member — outbox-emit + EC, НЕ «co-commit» (B14).** Внешний FGA НЕ может атомарно
-  co-commit'иться в DB-tx группы → member-tuple эмитится **intent'ом** в `fga_outbox` (writer-TX
-  добавления/удаления члена) → at-least-once drainer → reconciler покрывает `Group#member`. Формулировка
-  «co-commit» запрещена (подразумевает sync dual-write с дрейфом). Group-subject в AccessBinding
-  резолвится в userset — материализация членства идёт **той же** EC-дисциплиной, что owner-tuple;
-  `Operation.done` члена НЕ ждёт видимость tuple.
-- **grant-by-email / UserInvitation — pending-intent + reconciler-remap (B15).** Grant на subject
-  `EMAIL` (до первого login): tuple keyed на email **не матчит** enforcement (резолвит `usr-`), а keyed
-  на будущий `usr-` не существует pre-login. Хранить как **pending email-grant intent** → reconciler
-  ремапит в `usr-<id>`-tuple на **первом OIDC-login** (invitation-accept), в ограниченном окне.
-  Conformance: `grant-by-email → login → access материализуется`; `revoke-before-login → clears pending
-  intent` (не залипает). Серверный confirm-барьер запрещён (ban #9) — EC-окно, bounded client-retry.
-- **Право на многих — ГРУППЕ, а не перечислением субъектов (B18).** Право, которое получает
-  **больше одного** принципала **или** чей состав получателей может измениться, выдаётся
-  **группе**; люди и служебные учётки добавляются в группу. Перечисление субъектов в самой
-  привязке законно ровно для одного случая: получатель **один** и меняться не будет (служебная
-  учётка модуля, чья личность и есть предмет выдачи). Правило связывает **наши** посевы,
-  фикстуры и приёмки и действует **вперёд**; чужие привязки не переписываются. **Модели это не
-  требует** — отношение членства уже принято каждым глаголом каждого типа (предикат: `awk
-  '/define v_/{n++; if ($0 ~ /group#member/) g++} END{print n, g}'
-  proto/kacho/cloud/iam/v1/fga_model.fga` → `111 111` на `main` 2026-08-16, сверено вторым
-  предикатом по блокам типа; зеркало «объявления **без** `group#member`» → `0`. Число здесь —
-  **ориентир, а не гейт**: оно растёт с каждым новым типом и устаревает молча; свойство держит
-  зеркало — ноль объявлений без членства. Прежняя редакция называла `99 99` — верно на момент
-  записи и неверно на четырнадцать типов позже). Причина — **цена изменения состава**: снять
-  одного из группы — одна строка членства, снять одного из перечисления — снятие кортежей по
-  всем объектам роли.
-  Числа замера, обе стороны цены, перемещение поверхности выдачи и требование к вырожденному
-  составу — **в приёмке**, `docs/specs/sub-phase-XC-9-grant-to-group-discipline-acceptance.md`
-  (норма — §2.1, цена — §3, сценарии — §5); арендатору то же правило адресовано страницей
-  продукта (в `kaname` — `docs/content/api/access-binding.mdx`, §«Кому выдавать»).
+## Outbox-drainer — claim по голове партиции
 
-  > [!note] Здесь стояло второе ИЗЛОЖЕНИЕ приёмки, а не ссылка на неё
-  > Прежняя редакция воспроизводила из XC-9 шесть элементов сразу и заканчивалась фразой
-  > «здесь она не пересказывается». Два места об одном предмете разошлись на первом же
-  > уточнении числа: поправку пришлось вносить в три документа одним заходом, и в одном из
-  > них жила ревизия замера, на которой харнесса нет вовсе. Осталось то, что связывает
-  > **инженера**: сама норма, предикат её применимости и адрес, по которому правят остальное.
+drainer-commutativity-question · включай только ответив «коммутативны ли события этой очереди» · internal/repohygiene/outboxorderinggate_test.go · red: `ApplyConcurrency>1` без ответа
+write-only-outbox-parallel · `ApplyConcurrency=N` безопасен · outboxorderinggate_test.go · red: ApplyConcurrency сужен «на всякий случай» без замера
+write-delete-noncommutative · считай НЕкоммутативной · outboxorderinggate_test.go · red: наивный `ApplyConcurrency>1` → tuple выживает → over-grant
+groupbykey-insufficient · не считай решением: claim `ORDER BY (attempt_count, id)` разводит предшественника и преемника по разным батчам · outboxorderinggate_test.go · red: внутрибатчевая re-sort вместо claim-предиката
+partition-head-claim · не клейми, пока в партиции есть доставляемый предшественник: `AND NOT EXISTS (SELECT 1 FROM <t> p WHERE p.sent_at IS NULL AND p.attempt_count < MaxAttempts AND p.id < t.id AND p.<part>=t.<part>)` + partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go`, `outboxpendingindexperservice_test.go` · red: claim без предиката головы партиции
+poison-not-blocking · исключай из блокирующего набора (`p.attempt_count < MaxAttempts`) · outboxorderinggate_test.go · red: вечный wedge партиции на poison
+wedge-observability · обязателен per-partition WARN + table-wide oldest-pending gauge · outboxobservedgate_test.go · red: застрявший revoke без сигнала
+crossbatch-ordering-test · делай CROSS-BATCH: bumped-WRITE (attempt=5) + fresh-DELETE (attempt=0) + ≥ApplyConcurrency filler'ов · RED без фикса, GREEN с фиксом · red: внутрибатчевый тест
 
-## Outbox-drainer concurrency — ordering только на CLAIM-уровне (выведено 2026-07-24)
+## Placement-coherence — зона/регион
 
-Ускорять drainer конкуренцией можно **ТОЛЬКО** после ответа на вопрос: **коммутативны ли
-события этого outbox?**
+placement-coherent · делай placement-coherent · ЗАВЕСТИ placement-coherent · red: связь ресурсов из разных зоны/региона
+coherence-rule · зональный↔зональный — та же `zone_id` · региональный↔региональный — тот же `region_id` · зональный↔региональный — `zone.region_id == region_id` · проверка в attach/link-CAS · red: сравнение не проведено или проведено с пустой строкой
+anycast-exception · исключай из зональной проверки by construction (`zone_id=''`), оставляй региональную · ветка anycast в тесте · red: зональная проверка на anycast
+placement-discriminator · несёт `placement_type ∈ {ZONAL(zone_id)|REGIONAL(region_id)}` взаимоисключающе, закреплено DB-CHECK `(placement_type='ZONAL' AND zone_id<>'' AND region_id='') OR (placement_type='REGIONAL' AND zone_id='' AND region_id<>'')` · ЗАВЕСТИ placement-discriminator · red: ad-hoc поля без дискриминатора
+placement-anchor-subnet · каноничный — Subnet; NIC/Address зону не несут, наследуют через `subnet_id` · ЗАВЕСТИ placement-anchor-subnet · red: своя колонка зоны у NIC/Address
+coherence-enforce-db · энфорси когерентность на DB-уровне внутри attach/link-CAS: `… AND (peer.placement_type='REGIONAL' OR peer.zone_id = $my_zone) …` · ЗАВЕСТИ coherence-enforce-db · red: software check-then-act
+coherence-enforce-peer · peer-validate на пути запроса, владелец несёт placement в self-describing payload и валидирует СВОЮ строку · fail-closed Unavailable · red: владелец зовёт потребителя (цикл)
+zone-existence-peer · валидируй peer-вызовом `geo.v1.ZoneService.Get` / `RegionService.Get`, fail-closed · вызов в Create/Update · red: локальная проверка или её пропуск
+no-region-from-zone-name · бери ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля ресурса (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием (директива владельца, non-negotiable) · red: отрезание суффикса, срез по дефису, префиксное сравнение имён; предикат, тождественно истинный на пустой строке
+instance-nic-same-zone · требуй ту же зону для подсети каждого интерфейса (исключение — REGIONAL-подсеть) на пути запроса Create/Update · negative-кейс · red: проверка отложена в сагу запуска
+coherence-error-texts · часть контракта: зона — `"<A> is in zone %s, <B> zone is %s"` → FailedPrecondition/InvalidArgument · регион — `"... must be in the same region"` · newman-кейс на точный текст · red: свой текст отказа
+coherence-instances · Instance↔Volume · Instance↔NIC(subnet) · NLB(ZONAL)↔subnet/address (включая v4/v6 dualstack в одной зоне) · NLB(REGIONAL)↔subnet/address · Address↔subnet · новый placement-scoped ресурс дописывает свою · red: инстанс без проверки
+coherence-test · negative на zone/region mismatch → код + точный текст · anycast-ветка проходит · cross-family v4/v6 same-zone отдельным кейсом · ЗАВЕСТИ coherence-test · red: только положительный путь
 
-- **Write-only outbox** (compute `fga_register_outbox` — только регистрация owner-tuple):
-  события коммутативны → `ApplyConcurrency=N` безопасен «как есть».
-- **Write+delete одного ключа** (iam `fga_outbox`: grant→WRITE и revoke/delete-stale→DELETE
-  одного `(user,relation,object)`) — **НЕ коммутативны**. Наивный `ApplyConcurrency>1`
-  переупорядочивает → delete применяется раньше write → **tuple выживает → authz over-grant /
-  cross-account leak**. Corelib-godoc это прямо оговаривает: «включать ТОЛЬКО когда финальное
-  состояние target СХОДИТСЯ независимо от порядка».
-- **Group-by-key НА APPLY-УРОВНЕ НЕДОСТАТОЧЕН** (ловушка — выглядит как решение, но течёт):
-  claim идёт `ORDER BY (attempt_count, id)`, поэтому transient-подтянутый предшественник
-  (`attempt≥1`) сортируется **позже** свежего преемника (`attempt=0`) и они попадают в **разные
-  claim-батчи** — внутрибатчевая группировка/re-sort про это ничего не знает. Cross-batch
-  reorder → тот же leak.
-- **Правильно — partition-head-only CLAIM**: не клеймить строку, пока в её партиции есть
-  **доставляемый** unsent-предшественник с меньшим id:
-  `AND NOT EXISTS (SELECT 1 FROM <t> p WHERE p.sent_at IS NULL AND p.attempt_count < MaxAttempts
-  AND p.id < t.id AND p.<partition_expr> = t.<partition_expr>)`. Тогда per-partition FIFO держится
-  **cross-batch И cross-replica** (незакоммиченный peer-claim в чужом snapshot всё ещё
-  `sent_at IS NULL`; `FOR UPDATE OF t SKIP LOCKED` лочит только кандидата, коррелированный `p` —
-  чистый read). Следствие: в снапшоте claimable максимум одна строка партиции ⇒ apply-группировка
-  становится не нужна (LEAN). Обязателен partial-index `((<partition_expr>), id) WHERE sent_at IS NULL`.
-- **Poison исключать из блокирующего набора** (`p.attempt_count < MaxAttempts`) — отравленная
-  строка никогда не применится, блокировка на ней = **вечный wedge** партиции; leak-safe (отравленный
-  WRITE не создал tuple).
-- **Head-of-line wedge — осознанный размен leak-safety > liveness**: persistently-transient
-  предшественник блокирует СВОЮ партицию (радиус — один объект), остальные дренятся; heals на
-  восстановлении peer'а. Обязателен observability-контракт (per-partition WARN + table-wide
-  oldest-pending gauge), иначе застрявший revoke тихий.
-- **Тест (ban #12) обязан быть CROSS-BATCH**, а не внутрибатчевым: bumped-WRITE (`attempt=5`) +
-  fresh-DELETE (`attempt=0`) + ≥`ApplyConcurrency` filler'ов ⇒ без фикса delete уезжает в ранний
-  батч и tuple выживает (RED), с фиксом — absent (GREEN). Внутрибатчевый тест это НЕ ловит.
+## Межсервисное намерение — контракт приёмника
 
-## Placement-coherence — ВСЕ ресурсы связываются зонально ИЛИ регионально (обязательно)
-
-Любая ссылка/привязка между двумя placement-scoped ресурсами **обязана** быть
-**placement-coherent**. Нельзя связать ресурсы из разной зоны/региона.
-
-- **Правило когерентности:**
-  - зональный ↔ зональный — **та же `zone_id`**;
-  - региональный ↔ региональный — **тот же `region_id`**;
-  - зональный ↔ региональный — зона consumer'а **∈** регион peer'а (`zone.region_id == region_id`).
-- **Anycast/regional исключение:** региональный (**anycast**) ресурс зоне-независим
-  (`zone_id=''`, задан `region_id`) → из **зональной** проверки исключён **by construction**
-  (сравнивать не с чем); остаётся региональная. Это и есть «исключение эникаст».
-- **Placement-якорь = дискриминатор, не ad-hoc поля.** placement-несущий ресурс несёт
-  `placement_type ∈ {ZONAL(zone_id) | REGIONAL(region_id)}`, взаимоисключающе, закреплено
-  DB-CHECK: `(placement_type='ZONAL' AND zone_id<>'' AND region_id='') OR (placement_type='REGIONAL'
-  AND zone_id='' AND region_id<>'')`. Каноничный якорь — **Subnet**; NIC/Address зону НЕ несут,
-  наследуют через `subnet_id` (у REGIONAL-subnet зоны нет → адреса region-scoped, anycast).
-- **Где энфорсить:**
-  - within-service (обе строки в одной БД) — **на DB-уровне** внутри attach/link-CAS:
-    `… AND (peer.placement_type='REGIONAL' OR peer.zone_id = $my_zone) …` (не software check-then-act, ban #10);
-  - cross-service — **peer-validate на request-path**: owner несёт placement в **self-describing**
-    payload и валидирует **свою** строку (fail-closed `Unavailable`; owner НЕ зовёт consumer — ацикличность).
-- **Существование `zone_id`/`region_id`** — валидировать peer-вызовом `geo.v1.ZoneService.Get` /
-  `RegionService.Get` (не локально), fail-closed. Пропуск (напр. непроверенная зона внешнего адреса) — баг.
-- **Связь «зона → её регион» берётся ТОЛЬКО резолвом у владельца, НИКОГДА не выводится из имени
-  (директива владельца, non-negotiable).** Имя региона и имя зоны — **произвольные строки**, между
-  ними нет гарантированного отношения. Регион берётся из `geo.v1.ZoneService.Get` (поле региона в
-  ответе) ЛИБО из уже полученного авторитетного поля у самого ресурса (`Subnet.RegionID` и аналоги).
-  **Запрещены как приём**: отрезание суффикса зоны, срез по последнему дефису, префиксное сравнение
-  имён, допущение «зона начинается с имени региона», любая иная деривация разбором строки. Причина:
-  строковая деривация **молча возвращает пустую строку** на ресурсе без зоны (REGIONAL/anycast), и
-  проверка когерентности превращается в **no-op** — сравнение с пустой строкой проходит всегда,
-  защита выглядит исполненной и не отвергает ничего. Реальный дефект класса (**`regionFromZone`** —
-  деривация, **удалённая** из дерева; имя оставлено намеренно, оно связывает пункт с `polyrepo.md`
-  §runtime-edges и с приёмкой XC-1, где прецедент цитируется) снят 2026-07-25 и нёс три признака
-  сразу: вывод из имени, тождественно-истинный предикат и ложный комментарий («настоящая проверка
-  остаётся за geo», которой в потоке не было) при неиспользуемом авторитетном поле рядом.
-  Новое ребро к geo ради резолва — по общим правилам межсервисных вызовов (типизированный
-  клиент, per-call timeout, fail-closed `UNAVAILABLE` на мутациях) + фиксация в `polyrepo.md`.
-- **Instance ↔ NIC — та же зона (директива владельца).** Машина создаётся в своей зоне, и подсеть
-  **каждого** её интерфейса обязана быть в той же зоне. Исключение — **эникаст**: REGIONAL-подсеть
-  зоны не несёт, из зональной проверки исключена by construction, остаётся региональная когерентность.
-  Проверка — **на пути запроса** (`Create`/`Update`), не отложенная в саму сагу запуска.
-- **Error-тексты** (часть контракта): mismatch зоны → `"<A> is in zone %s, <B> zone is %s"` →
-  `FailedPrecondition`/`InvalidArgument`; mismatch региона → `"... must be in the same region"`.
-- **Обязательные инстансы инварианта:** Instance ↔ Volume/Disk (та же зона) · Instance ↔ NIC(subnet)
-  (та же зона, кроме REGIONAL/anycast subnet) · NLB(ZONAL) ↔ subnet/address (та же зона, включая
-  v4/v6 dualstack в ОДНОЙ зоне) · NLB(REGIONAL) ↔ subnet/address (тот же регион + anycast) · Address ↔ subnet
-  (зона наследуется). Новый placement-scoped ресурс/ссылка — добавляет свою coherence-проверку по этому правилу.
-- **Тест (ban #12):** negative-кейс на zone/region mismatch → ожидаемый код + **точный текст**;
-  anycast/REGIONAL-ветка → проходит (zone-check пропущен). Cross-family (v4/v6) same-zone — отдельный кейс.
-
-## Межсервисное намерение — контракт ПРИНИМАЮЩЕЙ стороны, а не факт эмиссии (выведено 2026-07-26)
-
-Эмитировать намерение и **иметь его применённым** — разные вещи. Регистрация ресурса у владельца
-прав гейтится **закрытым набором принимаемых отношений**, проверяемым ДО записи; отношение вне
-набора отвергается целиком.
-
-**Реальный инцидент (2026-07-26):** в очереди регистраций одного сервиса **ни одна строка никогда
-не была доставлена** — все 198 с отказом в правах. Два сцепленных дефекта: (а) намерение одного из
-ресурсов несло отношение, которого нет в закрытом наборе принимающей стороны, при том что его
-собственный комментарий заявлял паритет с соседними ресурсами — то есть был скопирован вывод, а не
-проверен факт; (б) **каждое** создание несло вдобавок отношение, зарезервированное за другим потоком
-и тоже отвергаемое. Дренаж классифицирует отказ в правах как **временный** ⇒ короткое замыкание ⇒
-строка никогда не помечается отправленной ⇒ claim партиции по голове **блокирует последующие строки
-того же ресурса** на всё окно повторов (MaxAttempts×backoff).
-
-**Почему это не замечали:** выдача по метке работала — **синхронный** регистратор короткого
-замыкания не делает; весь очередной путь был мёртв при исправном наблюдаемом поведении. Вторая,
-более тихая сторона класса: снятие регистрации отвергается тем же способом, что и постановка, —
-**отзыв прав не доезжает так же, как выдача**, но без единого симптома, потому что «работает» и
-«не отозвано» выглядят одинаково.
-
-**How to apply:**
-- **Тест обязан утверждать контракт ПРИНИМАЮЩЕЙ стороны** — что эмитировано отношение, которое
-  владелец **примет**. Слабое «намерение эмитировано» остаётся зелёным ровно на этом дефекте.
-- Отказ в правах от владельца — **НЕ transient**: повтор идентичного запроса не может пройти.
-  Классифицировать как терминальный, иначе строка вечно блокирует свою партицию.
-- При добавлении ресурса в очередь регистраций — сверить набор отношений с закрытым списком
-  принимающей стороны, а не копировать у соседа «по аналогии» (у соседа могло быть верно, а
-  комментарий про паритет — ложным).
-- Наблюдаемость: «ноль доставленных строк за всю жизнь очереди» обязано быть заметно. Связано:
-  [[checks-with-form-but-no-substance]].
+intent-closed-set · гейть закрытым набором принимаемых отношений, проверяемым ДО записи; отношение вне набора отвергай целиком; набор сверяй со списком принимающей стороны, а не с соседом · ЗАВЕСТИ intent-closed-set · red: отношение вне набора в очереди
+intent-test-receiver · утверждай контракт ПРИНИМАЮЩЕЙ стороны — что эмитировано отношение, которое владелец ПРИМЕТ · ЗАВЕСТИ intent-test-receiver · red: зелёное «намерение эмитировано»
+permission-denied-terminal · классифицируй терминальным, не transient · ЗАВЕСТИ permission-denied-terminal · red: повтор до MaxAttempts блокирует партицию навсегда
+intent-verify-set · сверяй набор отношений нового ресурса со списком принимающей стороны, не копируй по аналогии у соседа · ЗАВЕСТИ intent-verify-set · red: набор скопирован у соседа без сверки
+intent-observability · «ноль доставленных строк за всю жизнь» обязано быть заметно · outboxobservedgate_test.go · red: мёртвая очередь при исправном наблюдаемом поведении
 
 ## Счётчик потолка живёт РЯДОМ С РЕСУРСОМ, а величина — у владельца величин (решение 2026-08-15)
 
-> [!warning] Раздел ниже описывает УСТРОЙСТВО ТОГО, ЧТО СНИМАЕТСЯ — решение владельца 2026-09-16
-> Дословно: **«квоты в итоге будут выпилены полностью»**. Развилка `kacho#2190` закрыта этим
-> исходом; эпики `kacho#411` и `#532` закрыты как отменённые, PR `kacho#2675` (стадия S1) не
-> влит. Раздел оставлен **свидетельством принятого тогда решения**, а не предписанием:
-> заводить по нему новую квоту, стадию или витрину — нарушение. Что остаётся нормой из него —
-> довод «списание идёт в транзакции вставки, распределённой транзакции в стеке нет»: он верен
-> для любого счётчика, не только квотного.
->
-> **Снятие идёт порядком `polyrepo.md`** — corelib (пакет `quota/`, шаблон
-> `quota/refusal.sql.tmpl`) → kaname (счётчик, триггер, функции схемы `kacho_quota_*` новой
-> миграцией, ban #5) → kacho (`pkg/quota/`, `quota_service.proto` пяти доменов с `reserved`
-> номера и имени, витрина консоли, ручка `authority`) — под приёмкой снятия (ban #1).
-> Предикат готовности снятия: `git grep -il quota -- ':!*.md'` по трём деревьям → 0 при
-> названном исключении для слова в чужих именах.
->
-> **Чем держится** — вниманием и этой врезкой; гейта на «не заводить новое по снятому
-> предмету» нет, он заводится вместе с приёмкой снятия.
-
-
-Владелец поставил вопрос: не должны ли квоты быть единым доменом — частью iam либо отдельным
-сервисом, — с актуальностью счётчика, устроенной как у кортежей прав. Решение записано здесь,
-потому что определяет **форму** всякой будущей квоты, а не одну подсистему.
-
-**РЕШЕНИЕ. Число, из которого вычитают, лежит в ТОЙ ЖЕ базе, что и ресурс. Величина, которую
-назначает администратор, лежит у владельца величин. Единым делается всё остальное.**
-
-### Почему счётчик нельзя вынести
-
-Списание обязано быть **в той же транзакции**, что вставка строки ресурса, — это ban #10 в
-чистом виде: инвариант держится оператором базы, а не software check-then-act. Вынести счётчик
-значит развести «спросить» и «списать» по сети, а распределённой транзакции в стеке нет
-(`PREPARE TRANSACTION` — ноль вхождений в дереве). Тогда между вопросом и списанием появляется
-окно, и потолок превращается в **скорость запросов, помноженную на это окно**: ровно под той
-нагрузкой, ради которой квота и заведена.
-
-**Аналогия с кортежами прав точна для ВЕЛИЧИНЫ и ломается для СЧЁТЧИКА**:
-
-| ось | кортеж права | счётчик потолка |
-|---|---|---|
-| форма факта | множество | сумма последовательности ±1 |
-| повтор записи | no-op | **плюс единица** |
-| где референт для ремонта | в той же базе | **в чужих базах**, в рядах владельца типа |
-| чем оканчивается опоздание | право появилось позже, клиент повторит | **ресурс уже создан** — необратимо |
-| величина ошибки | не суммируется | растёт с нагрузкой |
-
-Три следствия, каждое самостоятельно достаточное:
-
-1. **Реконсиляция чинит проекцию, но не отменяет принятое решение.** Гейтить `Operation.done` на
-   видимость eventually-consistent эффекта запрещено (ban #9, phantom). Для квоты тот же ход даёт
-   «создай, спишешь потом», и это «потом» вправе отказать: тогда существует ресурс, которого
-   существовать не должно, а выходов два — удалить чужие данные асинхронно либо признать, что
-   потолок потолком не был.
-2. **Пересчёт счётчика требует ребра, запрещённого топологией.** iam — лист; обратный вызов
-   владельцу типа замкнул бы цикл. Значит «реконсиляция счётчика внутри iam» невыразима: iam
-   нечем себя опровергнуть. Отдельный сервис снимает этот цикл и заводит свой — на сверке.
-3. **У прав нет конкуренции за единицу.** Два grant'а одного права коммутативны; два создания при
-   остатке в одну единицу — гонка, разрешаемая **одним** атомарным оператором. Реконсиляция гонок
-   не разрешает, она узнаёт о них после.
-
-Отдельно: очередь, несущая `+1` и `−1` по одному ключу, **не коммутативна** — значит по
-§«Outbox-drainer concurrency» требуется клейм только по голове партиции, фактический параллелизм
-на паре (носитель, вид) становится единицей, а одна отравленная строка заклинивает **этот вид у
-этого арендатора**. У прав такой клин означает задержку видимости; здесь — невозможность создать.
-
-### Что ОБЯЗАНО быть единым, и это не место хранения числа
-
-Довод владельца о нарушенном единстве **верен**, и закрывается он без переезда счётчика:
-
-- **каталог видов** — закрытая таблица, один источник (уже так);
-- **величина и её актуальность** — владелец величин, монотонная ревизия, дельта с включением
-  отозванных, догоняющий читатель у каждого домена. Здесь аналогия с кортежами точна: предел мал,
-  редко меняется, идемпотентен;
-- **производитель отказа** — одна функция, а не копия у каждого домена; междоменная
-  байт-идентичность держится гейтом;
-- **сигнатура списания** — одна форма для всех, а не три;
-- **чтение арендатором** — у каждого домена, который считает, а не у одного;
-- **витрина и наблюдаемость** — общие.
-
-### Предикат пересмотра — измеримый, а не «когда вырастем»
-
-Решение обязано быть пересмотрено, если появится **хотя бы одно** из двух:
-
-- домен, чей ресурс живёт в **чужой** базе (атомарность в одной транзакции становится невыразимой
-  по факту, а не по вкусу);
-- потолок на **сумму по нескольким доменам** сразу (одного оператора для него не существует).
-
-До этого «единый домен квот» означает единство каталога, контракта, отказа, чтения и дисциплины
-актуальности — но не единство хранилища счётчика.
-
-> [!note] Что этот разбор нашёл по дороге — и это важнее самого спора
-> Механизма актуальности величины **не существует**: дельту изменений не тянет ни один домен,
-> строка учёта заводится один раз при первой мутации и больше не обновляется никогда
-> (`ON CONFLICT DO NOTHING`), ревизия пишется константой, отметка синхронизации не двигается ни
-> одним оператором при созданном под неё индексе в пяти миграциях. То есть смена предела
-> администратором **не доезжает до живого проекта ни при каких условиях** — класс
-> «принято-и-проигнорировано» на уровне подсистемы. Заведено задачей уровня P0.
+counter-in-insert-tx · списывай в ТОЙ ЖЕ транзакции, что вставка ресурсной строки; распределённой транзакции в стеке нет · ЗАВЕСТИ counter-in-insert-tx · red: «спросить» и «списать» разведены по сети
 
 ## Данные СТЕНДА заводятся посевом, а не миграцией (решение владельца 2026-08-17)
 
-**Норма.** Строки, нужные только поднятому стенду — адресные планы, каталоги размещения,
-демонстрационные наборы, — заводятся **посевом**: отдельным скриптом, который зовёт подъём
-стенда. В миграции они не идут **ни при каких условиях**.
-
-**Почему это не вкусовщина.** Миграция применяется **везде**, включая боевую поставку.
-Адресный план тестового стенда, приехавший в чужой кластер, — это либо мусор в каталоге
-арендатора, либо занятый слот, из-за которого настоящая запись отвергается ограничением
-уникальности. Плюс применённую миграцию **не правят** (ban #5): ошибка в посевных данных
-становится неисправимой на месте и требует второй миграции, отменяющей первую.
-
-**Признак нарушения — механический:**
-```sh
-git grep -ln 'INSERT INTO' -- 'services/*/internal/migrations/*.sql'
-```
-Каждое попадание обязано быть **справочником продукта** (закрытый каталог видов, системная
-роль, якорная строка), а не данными окружения. Различает вопрос: **обязана ли эта строка
-существовать у арендатора, который развернул продукт у себя?** Нет — значит посев.
-
-> [!note] Замер 2026-08-17 — предикат даёт **45** попаданий, и это НЕ 45 нарушений
-> По `origin/main`: iam 27 · vpc 7 · nlb 4 · compute 4 · storage 2 · registry 1. Выборочный
-> просмотр пяти показал справочники продукта (виды дисков, системный кластер, исторические
-> строки каталога размещения, снятые более поздними миграциями) — то есть законные случаи.
->
-> **Сплошной адъюдикации по всем 45 не проводилось**, и правило этого не утверждает.
-> Предикат — способ найти **кандидатов**, а не список находок; решает по каждому вопрос
-> выше. Число названо затем, чтобы «есть предикат» не читалось как «есть перечень
-> нарушений»: перепись по каждому пункту — отдельная работа, и она не сделана.
-
-**Как выглядит правильный посев** (эталоны в дереве: каталог geo, каталог хранения, полоса
-внешних адресов):
-
-| требование | почему |
-|---|---|
-| отдельный файл, вызываемый рецептом подъёма стенда | миграция применится и там, где не надо |
-| `ON CONFLICT DO NOTHING` **без указания цели** | накрывает первичный ключ, частичную уникальность и ограничение исключения разом |
-| вставка ограждена проверкой занятости | слот мог быть свободен, а блоки заняты чужим посевом — тогда строка появится, а её содержимое нет |
-| идентичность строки взята **дословно** у соседнего посева, если слот один на кластер | иначе у одного слота два автора, и второй отбирает его у первого |
-| гейт согласия двух объявлений | дословность держится проверкой, а не комментарием |
-| отдельный шаг «условие создано» в полосе | «стенд не готов» обязано быть отличимо от «продукт сломан» (`e2e-flow.md` §6) |
-
-**Что посев обязан утверждать — способность, а не существование.** Проверять надо не
-«строка есть», а «из неё можно получить то, ради чего она заведена»: пул «по умолчанию» с
-пустым списком свободных адресов существует и не работает, давая тот же отказ, что и его
-отсутствие.
-
-**Выведено из #607:** проба консоли была красна с первого своего прогона и блокировала два
-MR в ствол, потому что полосу внешних адресов заводил посев одного набора проб, а другая
-полоса его не звала. Починка — посевом на подъёме стенда; миграция была рассмотрена и
-отвергнута по причинам выше.
+stand-data-by-seed · заводи посевом, вызываемым подъёмом стенда; в миграцию не кладя ни при каких условиях · git grep -ln 'INSERT INTO' -- 'services/*/internal/migrations/*.sql', каждое попадание — справочник продукта · red: данные окружения в миграции
+seed-predicate · суди попадание вопросом «обязана ли строка существовать у арендатора, развернувшего продукт у себя» — нет значит посев · ЗАВЕСТИ seed-predicate · red: строка окружения принята за справочник без ответа на предикат
+seed-separate-file · отдельный файл, вызываемый рецептом подъёма стенда · ЗАВЕСТИ seed-separate-file · red: вставка в миграции
+seed-on-conflict-no-target · `ON CONFLICT DO NOTHING` БЕЗ указания цели · ЗАВЕСТИ seed-on-conflict-no-target · red: указанная цель пропускает частичную уникальность и EXCLUDE
+seed-guard-occupancy · ограждай вставку проверкой занятости · ЗАВЕСТИ seed-guard-occupancy · red: строка появилась, а её содержимое нет
+seed-verbatim-identity · бери идентичность строки дословно у соседнего посева · `standanycastpoolidentity_test.go`, `seedaddressplanparity_test.go` · red: два автора у одного слота
+seed-parity-gate · держи гейтом, не комментарием · seedaddressplanparity_test.go · red: расхождение блоков, не покрывающих друг друга
+seed-condition-step · отдельный шаг полосы · шаг «условие создано — полоса внешнего адреса пригодна» в console-e2e.yml · red: «стенд не готов» подано как «продукт сломан»
+seed-asserts-capability · утверждай СПОСОБНОСТЬ, а не существование строки · .github/workflows/console-e2e.yml:693 · red: пул существует с пустым списком свободных адресов

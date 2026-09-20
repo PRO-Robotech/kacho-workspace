@@ -12,15 +12,25 @@ for f in sorted(glob.glob('.claude/rules/*.md')):
     rows += [l.rstrip('\n') for l in open(f, encoding='utf-8') if ' · ' in l]
 nored = [l for l in rows if 'red:' not in l]
 odd = [l for l in rows if l.count('`') % 2]
-empty = [l for l in rows if len(l.split(' · ')) >= 3 and l.split(' · ')[2].strip() in ('—', '')]
+def field(l, i):
+    parts = l.split(' · ')
+    return parts[i].strip() if len(parts) > i else ''
+empty = [l for l in rows if field(l, 2) in ('—', '')]
+noimp = [l for l in rows if field(l, 1) in ('—', '')]
+nosign = [l for l in rows if l.rstrip().endswith('red: —')]
 held = sum(1 for f in glob.glob('.claude/rules/*.md')
            for l in open(f, encoding='utf-8') if 'держится' in l)
-todo = {w for f in glob.glob('.claude/rules/*.md')
-        for l in open(f, encoding='utf-8') for w in l.split() if w.startswith('ЗАВЕСТИ')}
+def debts(line):
+    w = line.split()
+    return [w[i + 1] for i, t in enumerate(w) if t == 'ЗАВЕСТИ' and i + 1 < len(w)]
+todo = {d for f in glob.glob('.claude/rules/*.md')
+        for l in open(f, encoding='utf-8') for d in debts(l)}
 print('строк-норм: %d' % len(rows))
 print('без поля red: %d (обязан быть 0)' % len(nored))
 print('с нечётным backtick: %d (обязан быть 0)' % len(odd))
 print('с пустым держателем: %d (обязан быть 0)' % len(empty))
+print('с пустым императивом: %d (обязан быть 0)' % len(noimp))
+print('с пустым признаком red: %d (обязан быть 0)' % len(nosign))
 print('ЗАВЕСТИ, различных: %d' % len(todo))
 print('слово «держится»: %d (обязан быть 0)' % held)
 PY
