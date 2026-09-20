@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# ИНЪЕКЦИЯ набора foundation-candidates.
+#
+# КЛАСС ДЕФЕКТА, А НЕ ПРЕДИКАТ. Инъекция выводится из того, ЧЕМ проверка может
+# ошибиться, а не из того, что она читает. Ошибок у неё ровно две, и они не
+# равноценны:
+#
+#   ЛОЖНО ЗАЧИСЛЕННЫЙ — предмет, который выносить НЕЛЬЗЯ, назван кандидатом.
+#     Опаснее: вынос ломает направление зависимостей, а ошибка НЕОБРАТИМА —
+#     опубликованный тег фундамента из базы контрольных сумм не отзывается.
+#   ЛОЖНО ИСКЛЮЧЁННЫЙ — предмет, который выносить нужно, отсечён молча.
+#     Дешевле, но именно им норма превращается в пожелание.
+#
+# ПАРЫ ОДНОФАКТНЫЕ: дефект и законный близнец отличаются РОВНО ОДНИМ фактом, и
+# ожидание у них противоположное. Пара, отличающаяся двумя фактами, доказывает
+# только то, что проверка на что-то реагирует.
+#
+# ОСИ (пять пар, десять прогонов):
+#   A  ложно ЗАЧИСЛЕННЫЙ · продуктовый литерал лежит в СИБЛИНГЕ пакета
+#   B  ложно ИСКЛЮЧЁННЫЙ · направление как НЕПОДВИЖНАЯ ТОЧКА
+#   C  предпосылка · пустой ОБХОД обязан дать 2, а не 0
+#   D  ведомость самоистекает · запись без предмета
+#   E  храповик · рост числа
+#
+# Деревья строятся СИНТЕТИЧЕСКИ в $TMPDIR: живое дерево инъекцией не трогается,
+# и вердикт не зависит от того, что сегодня лежит в клонах.
+set -uo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/foundation-inject.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+pass=0; fail=0
+
+# repo <корень> — пустой клон продукта с резолвимым стволом origin/main.
+repo() {
+    mkdir -p "$1"
+    git -C "$1" init -q
+    git -C "$1" config user.email i@i; git -C "$1" config user.name i
+}
+seal() {
+    git -C "$1" add -A
+    git -C "$1" -c commit.gpgsign=false commit -qm i --allow-empty
+    git -C "$1" update-ref refs/remotes/origin/main HEAD
+}
+
+# body <имя> — тело, дающее ≥5 нормализованных строк и J=1.0 между копиями.
+body() {
+    cat <<GO
+package $1
+
+func Probe(kind string) (string, bool) {
+	switch kind {
+	case "one":
+		return "ones", true
+	case "two":
+		return "twos", true
+	}
+	return "", false
+}
+GO
+}
+
+# build <корень> — общий каркас: три клона и обе ведомости.
+build() {
+    local r="$1"
+    mkdir -p "$r/docs"
+    for p in kacho kaname corelib; do repo "$r/project/$p"; done
+    printf 'pairs: []\n' > "$r/docs/crossrepo-pairs.yaml"
+}
+
+ledger() {  # ledger <корень> <subjects> <files> <actionable> [строки решений]
+    { printf 'ceiling:\n  subjects: %s\n  files: %s\n  actionable: %s\n' "$2" "$3" "$4"
+      printf 'decisions:%s\n' "${5:-" []"}"; } > "$1/docs/foundation-candidates.yaml"
+}
+
+run() {  # run <корень> <проверка> → печатает код
+    # Клоны берутся ТОЛЬКО из синтетического корня: живые переменные окружения
+    # снимаются, иначе инъекция мерила бы настоящие стволы и молчала бы о своём
+    # дефекте.
+    env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
+        DOCS_GATE_ROOT="$1" RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 \
+        python3 "$HERE/$2" >/dev/null 2>&1
+    echo $?
+}
+
+expect() {  # expect <ось> <что за вход> <ожидаемый код> <полученный код>
+    if [ "$3" = "$4" ]; then
+        printf '  [OK]   %-3s %-46s код %s\n' "$1" "$2" "$4"; pass=$((pass + 1))
+    else
+        printf '  [ПРОВАЛ] %-3s %-44s ожидался %s, получен %s\n' "$1" "$2" "$3" "$4" >&2
+        fail=$((fail + 1))
+    fi
+}
+
+echo "── ОСЬ A · ложно ЗАЧИСЛЕННЫЙ: продуктовый литерал в СИБЛИНГЕ пакета"
+echo "   Один факт: несёт ли СОСЕД по каталогу имя схемы продукта. Пофайловая"
+echo "   единица зачислила бы обе стороны — она соседа не читает вовсе."
+for side in defect twin; do
+    r="$WORK/A-$side"; build "$r"
+    for svc in alpha beta; do
+        d="$r/project/kacho/services/$svc/internal/repo"; mkdir -p "$d"
+        body repo > "$d/probe.go"
+        # Сиблинг РАЗНЫЙ у двух служб — иначе парой становится он сам, и ось A
+        # мерила бы два предмета вместо одного.
+        { printf 'package repo\n\nimport "github.com/jackc/pgx/v5"\n\n'
+          printf 'type Store struct{ p *pgx.Conn }\n'
+          [ "$side" = defect ] && printf 'const schema = "kacho_registry"\n'
+          printf 'func (s *Store) Ping%s() bool { return s.p != nil }\n' "$svc"
+          printf 'func (s *Store) Name%s() string { return "%s" }\n' "$svc" "$svc"
+          printf 'func (s *Store) Kind%s() int { return len("%s") }\n' "$svc" "$svc"
+          printf 'func (s *Store) Bit%s() bool { return s.Kind%s() > 0 }\n' "$svc" "$svc"
+        } > "$d/store.go"
+    done
+    seal "$r/project/kacho"; for p in kaname corelib; do seal "$r/project/$p"; done
+    if [ "$side" = defect ]; then
+        # ДЕФЕКТ: литерал схемы у соседа → выносить нельзя → кандидатов 0,
+        # ведомость пуста, храповик сходится.
+        ledger "$r" 1 2 0
+        expect A "дефект: схема PG у соседа — НЕ кандидат" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect A "дефект: храповик знает actionable=0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    else
+        # БЛИЗНЕЦ: тот же пакет без литерала → кандидат → решения нет → находка.
+        ledger "$r" 1 2 1
+        expect A "близнец: соседа без литерала — КАНДИДАТ" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    fi
+done
+
+echo "── ОСЬ B · ложно ИСКЛЮЧЁННЫЙ: направление как НЕПОДВИЖНАЯ ТОЧКА"
+echo "   Один факт: стоит ли ИМПОРТИРУЕМЫЙ пакет сам в очереди выноса."
+for side in defect twin; do
+    r="$WORK/B-$side"; build "$r"
+    for svc in alpha beta; do
+        d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"
+        { printf 'package lane\n\nimport "github.com/PRO-Robotech/kacho/pkg/refusal"\n\n'
+          body lane | tail -n +2; printf 'var _ = refusal.Lane\n'; } > "$d/lane.go"
+    done
+    d="$r/project/kacho/pkg/refusal"; mkdir -p "$d"; body refusal > "$d/lane.go"
+    if [ "$side" = defect ]; then
+        # ДЕФЕКТ: у `pkg/refusal` ЕСТЬ вторая прописка (копия в kaname), значит
+        # он сам в очереди — импорт его НЕ отсекает, обе копии lane — кандидат.
+        d="$r/project/kaname/internal/shared"; mkdir -p "$d"; body shared > "$d/refusal.go"
+    fi
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    if [ "$side" = defect ]; then
+        ledger "$r" 2 4 2
+        expect B "дефект: импортируемое само в очереди — КАНДИДАТ" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    else
+        ledger "$r" 1 2 0
+        expect B "близнец: импортируемое вне очереди — отсечён" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect B "близнец: храповик знает actionable=0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo "── ОСЬ C · ПРЕДПОСЫЛКА: падать обязан пустой ОБХОД, а не пустой ПЕРЕЧЕНЬ"
+echo "   Первая редакция роняла гейт на пустом перечне кандидатов — то есть"
+echo "   на ЦЕЛИ; пустой обход при этом не судился ничем."
+r="$WORK/C-defect"; build "$r"; for p in kacho kaname corelib; do seal "$r/project/$p"; done
+ledger "$r" 0 0 0
+expect C "дефект: обход пуст (0 файлов) — код 2" 2 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+expect C "дефект: обход пуст — храповик тоже 2" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect C "дефект: обход пуст — измеритель тоже 2" 2 "$(run "$r" list-candidates.py)"
+r="$WORK/C-twin"; build "$r"
+for svc in alpha beta; do
+    d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+done
+for p in kacho kaname corelib; do seal "$r/project/$p"; done
+ledger "$r" 1 2 1 '
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: "синтетика инъекции"'
+expect C "близнец: обход НЕ пуст, перечень пуст — код 0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+
+echo "── ОСЬ D · ВЕДОМОСТЬ САМОИСТЕКАЕТ: запись, которой нечего решать"
+echo "   Один факт: есть ли у названного пакета вторая прописка в стволах."
+r="$WORK/D-defect"; build "$r"
+for svc in alpha beta; do
+    d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+done
+for p in kacho kaname corelib; do seal "$r/project/$p"; done
+ledger "$r" 1 2 1 '
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: "синтетика инъекции"
+  - package: kacho:services/gamma/internal/gone
+    decision: keep
+    why: "предмета в стволах больше нет"'
+expect D "дефект: запись без предмета — находка" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+r="$WORK/D-twin"; build "$r"
+for svc in alpha beta; do
+    d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+done
+for p in kacho kaname corelib; do seal "$r/project/$p"; done
+ledger "$r" 1 2 1 '
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: "синтетика инъекции"'
+expect D "близнец: у записи предмет есть — молчит" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+
+echo "── ОСЬ E · ХРАПОВИК: рост числа копий"
+echo "   Один факт: третья служба с той же копией. Счёт ПРЕДМЕТОВ от неё не"
+echo "   меняется — меняется счёт ФАЙЛОВ, и ровно ради этого события заведено"
+echo "   второе число."
+for side in defect twin; do
+    r="$WORK/E-$side"; build "$r"
+    svcs="alpha beta"; [ "$side" = defect ] && svcs="alpha beta gamma"
+    for svc in $svcs; do
+        d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+    done
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    ledger "$r" 1 2 1
+    if [ "$side" = defect ]; then
+        expect E "дефект: ТРЕТЬЯ прописка при files=2 — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    else
+        expect E "близнец: две прописки при files=2 — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo
+echo "inject foundation-candidates: сошлось $pass, разошлось $fail"
+[ "$fail" -eq 0 ] || exit 1
+[ "$pass" -gt 0 ] || { echo "инъекция не исполнила ни одной пары" >&2; exit 1; }
+exit 0
