@@ -8,6 +8,28 @@
 #
 # Корень workspace берём из $CLAUDE_PROJECT_DIR (выставляет Claude Code в hook-env);
 # fallback — каталог на 2 уровня выше скрипта (.claude/hooks/ → workspace root).
+#
+# # Каждый из трёх разделов — СВОЙ сигнал (2026-09-20)
+#
+# Разделы независимы: активные записки, счётчик правок за час и открытые PR живут
+# разными предметами и снимаются разными полосами. Поэтому у каждого свой id, свой
+# адресат и свой предикат снятия — общая свёртка одного не вправе свернуть другой.
+# До этой правки все три печатались каждый конец хода, включая ходы без единой правки.
+# Оболочка признака дельты. Провал `source` ОБЯЗАН быть слышен и НЕ вправе проглотить
+# находку: замер 2026-09-20 — при неверном имени файла хук напечатал НОЛЬ строк, то
+# есть находки исчезли молча, а это ровно тот мягкий проход, который оснастка и ловит.
+# Заглушки объявлены ЗДЕСЬ, а не в общем файле, по причине начальной загрузки: они
+# страхуют отсутствие того самого файла, в котором иначе бы лежали.
+_sig="$(dirname "${BASH_SOURCE[0]}")/lib/hook_signal.sh"
+# shellcheck source=lib/hook_signal.sh
+. "$_sig" 2>/dev/null || {
+  echo "[сигнал] признак дельты НЕ применён: не найден $_sig. Тело печатается ПОЛНОСТЬЮ каждый ход. → tooling-maintainer" >&2
+  signal_stdin() { :; }
+  signal_sha() { echo "ревизия не читается"; }
+  signal_emit() { cat; echo "[сигнал \`$1\`] признак дельты НЕ применён (нет $_sig) · адресат: $2 · предикат снятия предмета: $3"; }
+}
+signal_stdin
+
 ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 VAULT="$ROOT/obsidian/kacho"
 PROJ="$ROOT/project"
@@ -15,23 +37,31 @@ PROJ="$ROOT/project"
 # 1. Активные записки задач в vault — напоминание про status update
 INPROG=$(grep -rlE "^status: (in-progress|test)" "$VAULT/KAC/" 2>/dev/null | head -5)
 if [ -n "$INPROG" ]; then
-  echo
-  echo "⚠️  АКТИВНЫЕ ЗАДАЧИ В VAULT (status: in-progress|test):"
-  echo "$INPROG" | xargs -I{} basename {} .md | sed 's/^/   • /'
-  echo "   → scout: влит ли PR каждой из них (этот хук читает только поле status)."
-  echo "   → vault-scribe: с PR-URL и списком затронутых сущностей — перевод состояния"
-  echo "     и «Затронутые сущности vault» в KAC/issue-<N>.md."
+  signal_emit vault-active-notes "scout (влит ли PR) · vault-scribe (перевод состояния)" \
+    'grep -rlE "^status: (in-progress|test)" obsidian/kacho/KAC/ не даёт ни одного файла' \
+    "$(signal_sha "$ROOT")" <<EOF
+
+⚠️  АКТИВНЫЕ ЗАДАЧИ В VAULT (status: in-progress|test):
+$(echo "$INPROG" | xargs -I{} basename {} .md | sed 's/^/   • /')
+   → scout: влит ли PR каждой из них (этот хук читает только поле status).
+   → vault-scribe: с PR-URL и списком затронутых сущностей — перевод состояния
+     и «Затронутые сущности vault» в KAC/issue-<N>.md.
+EOF
 fi
 
 # 2. Активность за последний час: код-changes vs vault-changes
 RECENT_CODE=$(find "$PROJ" \( -name "*.go" -o -name "*.sql" -o -name "*.proto" \) -mmin -60 2>/dev/null | wc -l)
 RECENT_VAULT=$(find "$VAULT" -name "*.md" -mmin -60 2>/dev/null | wc -l)
 if [ "$RECENT_CODE" -gt 0 ] && [ "$RECENT_VAULT" -eq 0 ]; then
-  echo
-  echo "⚠️  $RECENT_CODE code-files изменено за час, $RECENT_VAULT vault-файлов."
-  echo "   → vault-scribe, если затронут ресурс/RPC/пакет/runtime-edge. Предмет берётся"
-  echo "     из строк «затронуто в vault» возвратов полос, а не из этого счётчика:"
-  echo "     счётчик говорит о времени правки файла, а не о том, что в ней изменилось."
+  signal_emit vault-code-without-notes "vault-scribe (по строкам «затронуто в vault» возвратов полос)" \
+    'find obsidian/kacho -name "*.md" -mmin -60 даёт больше нуля файлов, либо правок кода за час нет' \
+    "$(signal_sha "$ROOT")" <<EOF
+
+⚠️  $RECENT_CODE code-files изменено за час, $RECENT_VAULT vault-файлов.
+   → vault-scribe, если затронут ресурс/RPC/пакет/runtime-edge. Предмет берётся
+     из строк «затронуто в vault» возвратов полос, а не из этого счётчика:
+     счётчик говорит о времени правки файла, а не о том, что в ней изменилось.
+EOF
 fi
 
 # 3. Open PR'ы по KAC-эпикам — есть ли чей trail обновлять.
@@ -66,11 +96,15 @@ try:
 except: pass
 " 2>/dev/null)
     if [ -n "$OPEN" ]; then
-      echo
-      echo "📂 OPEN PR'Ы С ЗАДАЧАМИ:"
-      echo "$OPEN"
-      echo "   → scout: состояние каждого (база, headSha, проверок всего/зелёных/красных)."
-      echo "   → vault-scribe по влитым: PR-URL и затронутые сущности в KAC/issue-<N>.md."
+      signal_emit vault-open-task-prs "scout (состояние каждого PR) · vault-scribe (по влитым)" \
+        'gh pr list --state open не даёт ни одного PR с KAC- в заголовке' \
+        "$(signal_sha "$ROOT")" <<EOF
+
+📂 OPEN PR'Ы С ЗАДАЧАМИ:
+$OPEN
+   → scout: состояние каждого (база, headSha, проверок всего/зелёных/красных).
+   → vault-scribe по влитым: PR-URL и затронутые сущности в KAC/issue-<N>.md.
+EOF
     fi
   fi
 fi
