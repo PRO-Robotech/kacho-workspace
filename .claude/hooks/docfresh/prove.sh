@@ -350,7 +350,15 @@ done
 # То есть верной была не «своя» и не «чужая» сторона, а по одному элементу с каждой.
 # Предикат перемера (гоняй его, а не верь перечню):
 #   python3 -c "…Truth(...).classify('path', '<координата>')" — обязан дать `resolved`.
-for alive in sync-all.sh .claude/rules/vault.md proto/buf.yaml; do
+# КООРДИНАТА ПРАВИЛА ВЫВОДИТСЯ, А НЕ ПОМНИТСЯ — и это второй раз, когда класс
+# укусил здесь же. Первый: переезд #572 унёс свод в `.claude/rulebook/` (описано
+# выше). Второй: решение владельца 2026-09-20 вынесло 13 процессных правил в
+# `.claude/backup/`, и `vault.md` перестал резолвиться — проба доложила «НЕ
+# ВЫПОЛНИЛОСЬ» и сама же предписала переанкерить. Ровно то, чему учит абзац выше:
+# перечень выверяется замером на каждом прогоне. Теперь он им и выводится.
+RULE_ANCHOR="$(cd "$WS" 2>/dev/null && ls .claude/rules/*.md 2>/dev/null | LC_ALL=C sort | head -1)"
+[ -n "$RULE_ANCHOR" ] || RULE_ANCHOR=".claude/rules/00-kacho-core.md"
+for alive in sync-all.sh "$RULE_ANCHOR" proto/buf.yaml; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
   else notrun "'$alive' исчез из дерева — близнец (−) больше не законный, заменить вход"; fi
 done
@@ -469,8 +477,8 @@ echo "== A'. регрессии нормализации пути =="
 # в `claude/rules/x`. Воспроизведено трижды подряд при написании предиката,
 # поэтому проба стоит отдельно и с обеих сторон.
 expect_silent_live "ведущая точка каталога оснастки не съедена" b1.md \
-  'Полные правила — `.claude/rules/vault.md`.' '.claude/rules/vault.md' \
-  '.claude/rules/vault.md'
+  "Полные правила — \`$RULE_ANCHOR\`." "$RULE_ANCHOR" \
+  "$RULE_ANCHOR"
 expect_silent_live "маркер импорта @ не часть пути" b2.md \
   'Модуль подключается как `@.claude/rules/security.md`.' '.claude/rules/security.md' \
   '.claude/rules/security.md'
