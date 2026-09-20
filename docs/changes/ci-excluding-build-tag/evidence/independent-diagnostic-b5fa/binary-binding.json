@@ -1,0 +1,9 @@
+{
+  "source_head": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "binary_sha256": "b167d4ff70ac0b7e99756fbc30b0d8b2ee030f16dacdab3dc81859f9dbd7490b",
+  "source_sha256": {
+    "internal/repohygiene/excludingbuildtag_test.go": "740e358303f16eea366672f7176506c226abc3f606ab5ae0cb9b2af6dfb27da5",
+    "internal/repohygiene/excludingbuildtag_injection_test.go": "d14f40695e1500946252f44135c0f0144ab9f921650da8789a1ef24a0ab30328",
+    "internal/repohygiene/license_test.go": "d33d18f4871a0a0b923dafd7a032be320839cb77347129118fa6c03f6213f196"
+  }
+}

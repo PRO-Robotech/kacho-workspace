@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "reviewer": "root independent verifier",
+  "at": "2026-09-17T18:18:20.046080+00:00",
+  "holder_head": "0e6ba5f4dde639c18036594a3d17d6b1e7de1a61",
+  "aggregate": {
+    "head": "c61a1ff85565374fbbc9dd11f6e1dfc95224f459",
+    "tree": "e9114d3013f1d63531c71c19ecc42ed36f4134b9",
+    "clean": true
+  },
+  "author_manifest_bindings_verified": 2064,
+  "complete_delta_review": true,
+  "execution": {
+    "command": [
+      "bash",
+      "scripts/release/publish-module-tree-inject.sh"
+    ],
+    "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-publisher-cas-tests",
+    "head": "0e6ba5f4dde639c18036594a3d17d6b1e7de1a61",
+    "tree": "e9114d3013f1d63531c71c19ecc42ed36f4134b9",
+    "exit_code": 1,
+    "seconds": 7.383293867111206,
+    "environment": {
+      "GOWORK": "off",
+      "GOTOOLCHAIN": "local",
+      "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/cas-root-af6lyfsx",
+      "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-publisher-root-red-0e6ba5f4/captures"
+    },
+    "manifest_entries_verified": 2064,
+    "stdout_sha256": "d55f96bbb692d84b8e203eb60aec7fbbd6b23af6e1356652e3056dc24b0144d8",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "stream_pairs_verified": 549,
+  "stream_hashes_verified": 1098,
+  "cas_controls": [
+    {
+      "actual_payload": "candidate owned bytes",
+      "actual_ref": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "base": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "candidate": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "classification": "ACTUAL_GIT_PREREQUISITE_ONLY_NO_SUT",
+      "main_other_refs_unchanged": true,
+      "mode": "cas-before",
+      "name": "ordinary-before",
+      "push_exit": 0,
+      "same_candidate_resume_writes": 0
+    },
+    {
+      "actual_payload": "baseline owned bytes",
+      "actual_ref": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "base": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "candidate": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "classification": "ACTUAL_GIT_PREREQUISITE_ONLY_NO_SUT",
+      "main_other_refs_unchanged": true,
+      "mode": "cas-before",
+      "name": "lease-before",
+      "push_exit": 1,
+      "same_candidate_resume_writes": 0
+    },
+    {
+      "actual_payload": "baseline owned bytes",
+      "actual_ref": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "base": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "candidate": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "classification": "ACTUAL_GIT_PREREQUISITE_ONLY_NO_SUT",
+      "main_other_refs_unchanged": true,
+      "mode": "cas-after",
+      "name": "lease-after",
+      "push_exit": 1,
+      "same_candidate_resume_writes": 0
+    },
+    {
+      "actual_payload": "candidate owned bytes",
+      "actual_ref": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "base": "f9b772dd0037a93168ab1a717e11565551be5579",
+      "candidate": "92e3f17cacd0ef6ef035ab671e96bc2e63be349d",
+      "classification": "ACTUAL_GIT_PREREQUISITE_ONLY_NO_SUT",
+      "main_other_refs_unchanged": true,
+      "mode": "lawful",
+      "name": "lawful",
+      "push_exit": 0,
+      "same_candidate_resume_writes": 0
+    }
+  ],
+  "lease_oracle_controls": 31,
+  "owned_hook_pairs_verified_absent": 7,
+  "forge_processes_joined_absent": 19,
+  "capability": {
+    "prepared": 52,
+    "sut_calls": 0,
+    "semantic_decisions": 0,
+    "failure": "CAPABILITY_ABSENT RunSupplyPublisher"
+  },
+  "independent_additional_failure": "testing.TempDir cleanup could not remove readonly Go module cache; preserved, no clean-run claim; separate holder investigation pending",
+  "verdict": "CAS mechanism and bounded source implementation accepted; publisher GREEN and complete D4 NOT established",
+  "bindings": {
+    "manifest": "af5f9eb0ae12571d1d8886cade9ec0f8d244e6bba2b9512ce8eeb72bd2f096dd",
+    "execution": "35c483c1a0ec5cf9d4d799862382dd25a66e8666e578577b8fda58ffa9843eb0",
+    "capture_review_partial": "c3c287987727a9faf2faeec3709106333f6df045ba34d4a5a56f9fe8d0100ecf"
+  }
+}

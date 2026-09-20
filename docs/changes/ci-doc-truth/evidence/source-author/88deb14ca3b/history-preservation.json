@@ -1,0 +1,50 @@
+[
+  {
+    "file": "grpcmountparity_test.go",
+    "start": "// ЧТО БЫЛО ВМЕСТО ЭТОГО",
+    "end": "package repohygiene",
+    "bytes": 686,
+    "sha256": "61f60d70ee3ac1f3c25cb05bf48c922db597f5c71870a3ebc547c92708c5a8f9",
+    "equal": true
+  },
+  {
+    "file": "grpcmountparity_test.go",
+    "start": "// Ф3 (kacho#1269)",
+    "end": "var mountAllow",
+    "bytes": 636,
+    "sha256": "3f45a5c33aeca9544ce04d2a50c6ff823c6bcbd03d69fd2ec187464860cc5727",
+    "equal": true
+  },
+  {
+    "file": "catalogreachability_test.go",
+    "start": "// ЧТО БЫЛО ИЗМЕРЕНО",
+    "end": "// резервируют.\n",
+    "bytes": 1500,
+    "sha256": "98fac3a6f2b9b694f38de269c167a96c427d99727f0feb787d3fd15339c28083",
+    "equal": true
+  },
+  {
+    "file": "catalogreachability_test.go",
+    "start": "// Ф3 (kacho#1269)",
+    "end": "var knownInertCatalogRows",
+    "bytes": 1063,
+    "sha256": "88756e2340e3198625cda71fb839be5de5ce38c0ee3faab6e608e623fcae6d63",
+    "equal": true
+  },
+  {
+    "file": "subscriptionformshape.go",
+    "start": "// # Единицы счёта",
+    "end": "package repohygiene",
+    "bytes": 4508,
+    "sha256": "34589a1a0b255c3e2d9b7d570b43ba394547a0100d02efce69feb5a73f7b4fd0",
+    "equal": true
+  },
+  {
+    "file": "subscriptionformshape_injection_test.go",
+    "start": "// Это измерено, а не предположено",
+    "end": "func requireKindSaying",
+    "bytes": 482,
+    "sha256": "7a4b34d6c6252f242247886e179916ffd406df37639767e806eb18f26d8e0f4b",
+    "equal": true
+  }
+]

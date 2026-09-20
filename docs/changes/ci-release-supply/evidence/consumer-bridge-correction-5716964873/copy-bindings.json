@@ -1,0 +1,34 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/event-body.txt",
+      "sha256": "a291178f3b11ff725203f7fc0d76fd837af0fe8c5b29eae3f333d3ac21cdeecd"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/published-event.json",
+      "sha256": "5f961361d164da390cdae5032e0d1595c3df31ad4787586730ae3ff175c83176"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/api-readback.json",
+      "sha256": "5f961361d164da390cdae5032e0d1595c3df31ad4787586730ae3ff175c83176"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/request.json",
+      "sha256": "d47e414cf65a207226e3de5f9915d5fe378da61924f7ecac0ab871c99b1baa4e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/root-review.json",
+      "sha256": "362cc40f5d48c3e2605844fd5317f40dca28df826d6f9cf2d348760b66dbd17f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/input.json",
+      "sha256": "b2839604c5bd1770311522be183aadd1b8d2f9830a9dc07c4f4fab6794208d9f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/execution.json",
+      "sha256": "baa52ed218d7c5a2b58ed22d56ef84b0e78c683a9aaed5df8634b4e524944baa"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "integration-tester",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLpfBA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5716467460",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVLpfBA",
+  "event_api_id": 5716467460,
+  "body_sha256": "b3a2042cfd4f47ecc771486bb1a239d4aa56e743db3ba4ffa023036ffb9c5371",
+  "timestamp": "2026-09-17T14:55:36Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/event-body.md",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "883fc4999b26dab9567689926eb159236f397afb",
+  "subject_path": "ci/newman_publication/",
+  "subject_sha256": "dd81b55772fae54716adc47b4ed4974d940e9a54ff1f79aa70315c3a79d67298",
+  "subject_hash_kind": "root-result-json",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "source_review_sha256": "dd81b55772fae54716adc47b4ed4974d940e9a54ff1f79aa70315c3a79d67298",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/review.json",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/api-readback.json",
+      "sha256": "9da0577dd80f822766a02452d0f3450ba6efb4c81b034ab906efb809f62b1567"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/event-body.md",
+      "sha256": "b3a2042cfd4f47ecc771486bb1a239d4aa56e743db3ba4ffa023036ffb9c5371"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/input.json",
+      "sha256": "739d445b99789b53e4b7206741bb1f44e29aba124357c509fe01f1c256fd6262"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/published-event.json",
+      "sha256": "9da0577dd80f822766a02452d0f3450ba6efb4c81b034ab906efb809f62b1567"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/python/execution.json",
+      "sha256": "dfeafe688f104841ae4b8ecd478497eeddff0ed0b505872a8f403b9d306e1932"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/python/stderr",
+      "sha256": "41884b49994407601823b36ee6e0512da82301a187bfa7d486e790233a050cb2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/python/stdout",
+      "sha256": "4820dabdda161b6f1e5b1ff1fb14489384c8064ab98227237b8cef388f4d57f6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/review.json",
+      "sha256": "dd81b55772fae54716adc47b4ed4974d940e9a54ff1f79aa70315c3a79d67298"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/sdk/execution.json",
+      "sha256": "9887ad87808077b00678d701df5aed4353227c8ab69f8b780b376582c50a911c"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/sdk/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/sdk/stdout",
+      "sha256": "8605275a18a4e85f4fb75331c11b612a465ef4dce8aee777002b35a32ee5bb69"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/source-review.json",
+      "sha256": "6f656cace455cd5b3de016317d553f01fa54a1460cc00d9505ab79bfc3c149cf"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/start.json",
+      "sha256": "4a0296cda572fb47d2fb433944beaa4bfece51cb31cfa4aae0ce6bc982359489"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/sdk-historical-scoped-green-5716467460/verified-captures.json",
+      "sha256": "0916a98e1c4d63fc5c508ca4a606b7a6edf5b98a0b6c1d818294b7ce56b40076"
+    }
+  ],
+  "scope": [
+    "SDK snapshot publisher/fixed Node24 action",
+    "Historical scan signed16 descriptor + UTF-8 .cli/.rc",
+    "Полная Python regression и frozen SDK matrix"
+  ],
+  "source_author": "/root/e2e_audit",
+  "holder_author": "/root/release_supply_arch",
+  "source_commits": [
+    "c586d765bb679b8d2bb380490409241604c690ce",
+    "e79cd99c753783d62ed008cdd4446eec39757d84"
+  ],
+  "test_commits": [
+    "d880251ebfd21aea68e42f4d71d1c862a9e6cfa9",
+    "1c9e6a7908b422799df256ceffe0719bbda32dad"
+  ],
+  "result": {
+    "python_pass": 20,
+    "sdk_pass": 46,
+    "failed": 0,
+    "skipped": 0,
+    "historical_cases": 28,
+    "process_captures": 3472,
+    "reader_records": 867
+  },
+  "pending": [
+    "Nonempty verdict adapter",
+    "Consumer workflows/pins и module delivery",
+    "Full runtime, retention/containment и fresh prelanding census",
+    "Main, convergence, issue closure"
+  ]
+}

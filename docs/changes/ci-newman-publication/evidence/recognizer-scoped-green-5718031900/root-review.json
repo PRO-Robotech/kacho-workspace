@@ -1,0 +1,57 @@
+{
+  "status": "ROOT_SCOPED_GREEN",
+  "scope": "carrier recognizer context and unchanged complete NP regression",
+  "source_author_commit": "bb8bdb741b73041c1374581c9721bca07f81f7a7",
+  "holder_author_commit": "ff41e75add6c4376026e0cdf894b2cef82304794",
+  "holder_correction_commit": "035b5adcfca1464df5557f2d5cb3af9ddf7bd724",
+  "aggregate": "ce4671772757b2e735ad2764e59bae5882571f1d",
+  "tree": "92a53fcbf7d538f9e6fded81f7004932c7fa91ab",
+  "source_full_diff_read": true,
+  "source_sha256": "62073463d9c368728b960d543d9814a96c3937fb4f28b1c3947dbd96e5e463ba",
+  "holder_sha256": "24607be46543edddb3542778f1e3672615bf4d2563834802d092dc2654473182",
+  "recognizer_expected_counts_unchanged": [
+    158,
+    14,
+    83
+  ],
+  "source_review": "Complete JSON span discovery then strict original-byte parsing; malformed object introducers refuse; ordinary JS/quoted prose stays text and remainder scanned. Explicit Basic contexts validate whole token; implicit prose only candidate after UTF-8 colon-shape discovery. CRLF boundary and all typed-node/limit accounting preserved. Independent holder changes only fresh reader path suffix; source author did not edit assertions.",
+  "source_and_holders_unchanged": true,
+  "root_result_sha256": "851876bd696e5787bb17bab102c5c246fd8bc385153b556cb5af52e0f661818b",
+  "verified_captures_sha256": "0dccee0ce718dff11036fac4a3fdccc4424ce0e55381f4a117204c0a6a4fa060",
+  "process_capture_pairs": 5031,
+  "reader_records": 1186,
+  "source_author_regression_file_bindings": 13902,
+  "independent_holder_file_bindings": 4452,
+  "ledgers": {
+    "recognizer-recognition-summary.json": {
+      "path": "python/captures/np-8552e9581f/recognizer-recognition-summary.json",
+      "sha256": "70c28f37fb1fae862cdda4dba7cc3623de2acdb37d57d3fd9325ca9f3fa235da"
+    },
+    "recognizer-accounting-summary.json": {
+      "path": "python/captures/np-8552e9581f/recognizer-accounting-summary.json",
+      "sha256": "fe4d19bd2dd6b22fb7f3555db28b49281cfd8c6165568bfcaf84a60e0f595f4d"
+    },
+    "carrier-summary.json": {
+      "path": "python/captures/np-8552e9581f/carrier-summary.json",
+      "sha256": "13fcd290bd98cbd40075afe2c8bbedf63bcd6c0f78a62c32a93e39b0aaa71558"
+    },
+    "historical-summary.json": {
+      "path": "python/captures/np-8552e9581f/historical-summary.json",
+      "sha256": "c10c4bca854d81e663ff8017cb4a96947b4000ed5cde49724e5796111be7acae"
+    }
+  },
+  "python_pass": 23,
+  "sdk_pass": 46,
+  "failures": 0,
+  "skips": 0,
+  "prior_red_preserved": [
+    "newman-recognizer-root-red-ff41e75",
+    "newman-recognizer-root-holder-collision-bb8b"
+  ],
+  "pending": [
+    "consumer workflows/pins",
+    "real runtime/retention",
+    "module release/main/closure"
+  ],
+  "reviewed_at": "2026-09-17T16:45:43.973771+00:00"
+}

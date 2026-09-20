@@ -1,0 +1,104 @@
+{
+  "verifier_sha256": "7d849a4882496c3fe8620c2a5ea76abee4907c01a0934deb9ab7b9585aab81b9",
+  "root_copy_sha256": "7d849a4882496c3fe8620c2a5ea76abee4907c01a0934deb9ab7b9585aab81b9",
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+  "GOWORK": "off",
+  "GIT_environment_sanitized": true,
+  "records": [
+    {
+      "name": "build",
+      "command": [
+        "go",
+        "build",
+        "-o",
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation.go"
+      ],
+      "rc": 0,
+      "expected_rc": 0,
+      "elapsed_seconds": 0.2109680169960484,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "birth",
+      "command": [
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "-mode",
+        "addendum",
+        "-repo",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+        "-birth"
+      ],
+      "rc": 0,
+      "expected_rc": 0,
+      "elapsed_seconds": 0.01658726396271959,
+      "stdout_sha256": "e1fce1a96ff64528e0dd0eebe8f984fe4c0b0b3ad04ca210a6b1f68c4a5666f6",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "unchanged",
+      "command": [
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "-mode",
+        "addendum",
+        "-repo",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+        "-candidate",
+        "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0"
+      ],
+      "rc": 2,
+      "expected_rc": 2,
+      "elapsed_seconds": 0.011374731024261564,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9f1ca0bb6c37e06960848392523045b1635c4e0b85cd5b9e4d8a5b4f347db499"
+    },
+    {
+      "name": "missing",
+      "command": [
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "-mode",
+        "addendum"
+      ],
+      "rc": 2,
+      "expected_rc": 2,
+      "elapsed_seconds": 0.0018495849799364805,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "408504b2a9a34e8b67d4c1403ebb0391ca78a04dfbf095291ce8d37b91b5a2d8"
+    },
+    {
+      "name": "unread",
+      "command": [
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "-mode",
+        "addendum",
+        "-repo",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+        "-candidate",
+        "0000000000000000000000000000000000000000"
+      ],
+      "rc": 2,
+      "expected_rc": 2,
+      "elapsed_seconds": 0.007903568970505148,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "c3e40a2ce43f2b0bee2950d419afc8d3029ca2d108ab7076804e4686714aa259"
+    },
+    {
+      "name": "generated",
+      "command": [
+        "/var/tmp/area-ci-independent-verifier/truth-preservation/strictpreservation",
+        "-mode",
+        "generated",
+        "-before",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/generated-baseline",
+        "-after",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/docs-truth-tester/generated-candidate-independent"
+      ],
+      "rc": 0,
+      "expected_rc": 0,
+      "elapsed_seconds": 0.023793933039996773,
+      "stdout_sha256": "ada97a73b97e06e558311010bb324f4f1fe0a621233a1a1d0404f0411576182b",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

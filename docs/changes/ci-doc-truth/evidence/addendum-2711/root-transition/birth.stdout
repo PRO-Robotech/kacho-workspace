@@ -1,0 +1,6 @@
+PASS lawful exact two-comment deletion tokens=482 declarations=6 baseline_sha256=ab38d70525b8d9279c63c711e373a312bfe315fc86e498ef5eeea4c2f5dbd959 candidate_sha256=ca976ed9e0be54f6273182d6f58de64e2d8fa8c176c27cefd893b104434e6e41
+PASS birth one_program_token => REJECT program token difference
+PASS birth extra_comment => REJECT candidate is not exact deletion of two frozen lines
+PASS birth unchanged_source => REJECT candidate is not exact deletion of two frozen lines
+PASS birth empty => VOID empty source: internal/repohygiene/subscriptionformshape_test.go
+PASS birth no_declarations => VOID no declarations: internal/repohygiene/subscriptionformshape_test.go

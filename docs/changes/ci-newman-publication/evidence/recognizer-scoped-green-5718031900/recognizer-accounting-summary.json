@@ -1,0 +1,16 @@
+{
+  "group": "accounting",
+  "prerequisites": "PASS",
+  "declared_inputs": 14,
+  "actual_attempts": 136,
+  "operations": {
+    "scan": 37,
+    "project": 37,
+    "check": 62
+  },
+  "failed_expectations": 0,
+  "failures": [],
+  "dependent_check_attempts": 36,
+  "dependent_blocked": 0,
+  "actual_reader_after": 18
+}

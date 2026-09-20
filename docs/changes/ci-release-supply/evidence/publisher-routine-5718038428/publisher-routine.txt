@@ -1,0 +1,18 @@
+# Publisher admission and release-note routine binding
+
+This bounded vocabulary records root readback of the already accepted interface (CLI lines 14–15, 30–32 and CI-RS-02 table) and D4. It does not change accepted subject bytes, authorize publisher source, or grant live execution permission.
+
+| Exact condition | Outcome | Reason | Remote effects |
+|---|---|---|---|
+| Bare `--commit` with no value | USAGE_ERROR / 2 | INVALID_INVOCATION | none |
+| Parsed commit value is not the exact repository | USAGE_ERROR / 2 | INVALID_CONFIRMATION | none |
+| Commit supplied with missing, invalid, or non-exact plan digest, including a syntactically valid stale 64-hex digest at initial admission | USAGE_ERROR / 2 | INVALID_CONFIRMATION | none |
+| Actual origin or manifest repository differs from declared receiving repository | RED / 1 | REPOSITORY_MISMATCH | none |
+| Exact plan was accepted, then a bound input actually changes | RED / 1 | INPUT_CHANGED | no dependent effect |
+| D8 prior-review/execution record has wrong kind or stale subject | RED / 1 | INVALID_CONFIRMATION | none |
+
+CLI admission and actual post-admission drift are separate single-fact pairs. A stale CLI key cannot stand in for the input-drift case. Existing D8 R/E and input-tree serialization bindings stay unchanged.
+
+The normal committed release entrypoint first verifies tag identity and ancestry, then reads the exact release-note identity. It performs one note POST only after confirmed absence. Exact existing identity is reused; uncertain response requires bounded readback, never an automatic second write; conflicting identity stops. Note failure preserves TAG_PRESENT and the already observed tag effect. A later explicit resume reads the same identities and preserves existing objects. Probe remains read-only and never creates a note. No new CLI flag, separate runtime bypass, or inferred live authority is introduced.
+
+These are root-selected routine names/outcomes for the independent test holder. The holder still must establish real fixture prerequisites and capture actual SUT outcomes; this document itself is neither an executed test nor a GREEN result.

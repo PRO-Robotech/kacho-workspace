@@ -1,0 +1,7 @@
+TestNoticeReachesTheOperatorWithItsLevelAndText
+TestLevelIsTakenUnlocalised
+TestCensusIsPrintedEvenWhenNothingWasSaid
+TestCensusCountsWhatItPrintedAndWhatItDropped
+TestOpenDBRefusesToRunWithoutAPlaceToDeliver
+TestOpenDBRefusesADriverThatCannotDeliver
+ok  	github.com/PRO-Robotech/corelib/migratorcli	0.103s

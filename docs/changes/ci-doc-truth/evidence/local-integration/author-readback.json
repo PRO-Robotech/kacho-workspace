@@ -1,0 +1,14 @@
+{
+  "writer": "/root/docs_truth",
+  "read_only": true,
+  "kacho_aggregate": "7a41adf7b53cbcee1fbddc84b7408299a0832742",
+  "author_candidate": "d248443319f9bc927d81bea04794c4405528f62e",
+  "identical_tree": "583b47e4091657838fa53233d92ef5b171fa945c",
+  "corelib_aggregate": "80447d27a89398bc1cfca8ceea878204bb3ab4ba",
+  "generated_payload_sha256": {
+    "api/corelib/subscription/subscription.pb.go": "b7904d4d4a68efd8d5ab1f60b10489cc51318ff7f35b1fba35bbc96073a252aa",
+    "api/corelib/subscription/subscription_service.pb.go": "a400a469bd7850d30f011e80cc08b304a56306873e11d8fcefe13ffda9bacea3",
+    "api/corelib/subscription/subscription_service.pb.gw.go": "b0d2f8ec8b145f163e6cd37b55857cb3f7c5f7b55eed82cc2b84026c81b611c0",
+    "api/corelib/subscription/subscription_service_grpc.pb.go": "c9d7e47d26254ac5cef33d3aa2508bc915bcc75bab69947f1adc93f71f501b9f"
+  }
+}

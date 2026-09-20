@@ -1,0 +1,269 @@
+[
+  {
+    "label": "lawful-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.09041699604131281,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "e3136969e251e6f6e8e7c60bb58112bdb272a7b79894ea3873bb5f772a287551",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "lawful-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.011655372043605894,
+    "packages": 1,
+    "problems": [],
+    "stdout_sha256": "5d316583a0ad2e46012cbf7cbc32c3aaf5e944a24a110f7f0b87ea47e271d838",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "defect-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.08207366801798344,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "a8356ab414d8efa96e406ff40f52dcfd9b2d751bf26b169eb82d82d762f2d3b7",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "defect-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.08003529702546075,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "8d39cd2ae8a8fea963912dc3ce24428841ff4ea5e65e7c6e24d31dbd361b989b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "baseline-broken-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.08580045099370182,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "202a81d1f3d2950d13ad37e18f971aff6bb40f0cf9234affecf178414df07c58",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "baseline-broken-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.012037029024213552,
+    "packages": 1,
+    "problems": [],
+    "stdout_sha256": "744e1cf769fb6ad276c43dd96c6be76d6eec44f2395659900918ef4e38847547",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "tagged-dependency-present-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.08370015397667885,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "e7d235f0e92d3168cdea73c03e2df70fa154904d2fc1405d1a212557c28fc28b",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "tagged-dependency-present-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.010810595005750656,
+    "packages": 2,
+    "problems": [],
+    "stdout_sha256": "bcad1c886d31b2f74379889c970c611f326caaa379d9a7b3e025da3b7ae5da9f",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "tagged-dependency-missing-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.08205204701516777,
+    "packages": 126,
+    "problems": [],
+    "stdout_sha256": "d484fbdf0bff9627407ad67d880c419c61495f4f56c3cb9e76c6f826d53585bf",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "tagged-dependency-missing-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.011926541978027672,
+    "packages": 2,
+    "problems": [
+      {
+        "ImportPath": "syntheticdep",
+        "Incomplete": true,
+        "Error": {
+          "ImportStack": [
+            "synthexcluding/pkg"
+          ],
+          "Pos": "pkg/tagged.go:4:8",
+          "Err": "syntheticdep@v0.0.0: replacement directory ../tagged-dependency-missing-dependency does not exist"
+        }
+      },
+      {
+        "ImportPath": "synthexcluding/pkg",
+        "Incomplete": true,
+        "DepsErrors": [
+          {
+            "ImportStack": [
+              "synthexcluding/pkg"
+            ],
+            "Pos": "pkg/tagged.go:4:8",
+            "Err": "syntheticdep@v0.0.0: replacement directory ../tagged-dependency-missing-dependency does not exist"
+          }
+        ]
+      }
+    ],
+    "stdout_sha256": "ba34bddfdffedbdf8a61a3a4c4fb1bfc2808e11a1854bf2087d914111cbaeeb3",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "workspace-mismatch-load-baseline",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.006524881988298148,
+    "packages": 1,
+    "problems": [
+      {
+        "ImportPath": "./pkg",
+        "Incomplete": true,
+        "Error": {
+          "ImportStack": [],
+          "Pos": "",
+          "Err": "directory pkg is contained in a module that is not one of the workspace modules listed in go.work. You can add the module to the workspace using:\n\tgo work use ."
+        }
+      }
+    ],
+    "stdout_sha256": "cd415192d2c6a4fe14cc48726056fa0928a450414b118a8f808edff7ef6f097d",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "workspace-mismatch-load-tagged",
+    "argv": [
+      "go",
+      "list",
+      "-e",
+      "-json",
+      "-deps",
+      "-test",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.00596670201048255,
+    "packages": 1,
+    "problems": [
+      {
+        "ImportPath": "./pkg",
+        "Incomplete": true,
+        "Error": {
+          "ImportStack": [],
+          "Pos": "",
+          "Err": "directory pkg is contained in a module that is not one of the workspace modules listed in go.work. You can add the module to the workspace using:\n\tgo work use ."
+        }
+      }
+    ],
+    "stdout_sha256": "cd415192d2c6a4fe14cc48726056fa0928a450414b118a8f808edff7ef6f097d",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

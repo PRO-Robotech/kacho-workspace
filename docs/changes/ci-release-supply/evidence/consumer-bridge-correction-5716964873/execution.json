@@ -1,0 +1,28 @@
+{
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-run",
+    "^TestReleaseDeclaredConsumerImports$",
+    "-count=1",
+    "-json",
+    "-timeout=15m"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release",
+  "rc": 1,
+  "seconds": 1.968286182032898,
+  "stdout_sha256": "1b4a2d0f1ad9f3c7e345cc707b457d5ad4c289daa4d500122d52321c7680ecc3",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "test_counts": {
+    "run": 4,
+    "output": 130,
+    "pass": 2,
+    "fail": 2
+  },
+  "accounting_lines": [
+    "consumer_imports_test.go:1038: HARNESS_PREREQUISITES: exact bridge parser 16 controls; canonical identity 3 controls; real local transport 2 controls; no SUT invoked",
+    "consumer_imports_test.go:1044: CAPABILITY_ABSENT: validated real prerequisites; prepared cases=27; missing [RunSupplyPreflight SupplyCommand SupplyCommandResult SupplyDependencies]; sut_invocations=0, sut_semantic_decisions=0"
+  ],
+  "finished_at": "2026-09-17T15:26:59.020852+00:00"
+}

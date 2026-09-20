@@ -1,0 +1,38 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/event-body.txt",
+      "sha256": "301ce26510f6cfb1e81a114213a29379c08fdcebf0ca5e8c88bfe091d55751b0"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/published-event.json",
+      "sha256": "03809ea0d44d06efb8fdf55560bec24a3c25a85a29ad14513a866c0a357c6b60"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/api-readback.json",
+      "sha256": "03809ea0d44d06efb8fdf55560bec24a3c25a85a29ad14513a866c0a357c6b60"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/request.json",
+      "sha256": "c790aa1950bac73c486d8a1e792b2199b5b2e8a92c4a75fea603bd603564dfed"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/routine-proposal.txt",
+      "sha256": "a9737bfe68e741be50ba4295be5b31923164a4d46083e435acc6a670f0c1ac37"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/architect-review.txt",
+      "sha256": "f317057e3ae691438f9551dc147575ea65012f0e0f6b0c686cf2e25b5b677db7"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/architect-review.json",
+      "sha256": "4f3438d68b774073fe3395362ec39e906fae9c3cf03c1e77780f0986e779a9c1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/routine-v2-5716256869/routine-v2.txt",
+      "sha256": "cd0897c91c1a86cf0579fff5b9dd1a5a2c47f00848ed1fb926dff29f5c60f607"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

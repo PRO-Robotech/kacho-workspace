@@ -1,0 +1,112 @@
+[
+  {
+    "id": "CI-EBT-01",
+    "title": "lawful",
+    "expected_status": "CLEAN",
+    "delta": "base excludes definer and caller",
+    "diagnostic_capture": "lawful-public",
+    "baseline_observation": "PASS",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-02",
+    "title": "lost-symbol",
+    "expected_status": "FINDING",
+    "delta": "remove only caller excluding header",
+    "diagnostic_capture": "defect-public",
+    "baseline_observation": "EXPECTED_REFUSAL",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-03",
+    "title": "empty-corpus",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "remove only Go member from nonempty index",
+    "diagnostic_capture": "empty-public",
+    "baseline_observation": "ALREADY_REFUSES_WITHOUT_STATUS_ENUM",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-04",
+    "title": "no-candidates",
+    "expected_status": "CLEAN",
+    "delta": "no excluding header in nonempty Go corpus; separate existing header-regression",
+    "diagnostic_capture": "no-tags-public",
+    "baseline_observation": "PASS",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-05",
+    "title": "platform",
+    "expected_status": "CLEAN",
+    "delta": "platform tag instead of user tag; existing regression",
+    "diagnostic_capture": "platform-public",
+    "baseline_observation": "PASS",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-06",
+    "title": "baseline-compiler-error",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "replace return expression by unknown symbol",
+    "diagnostic_capture": "baseline-broken-public",
+    "baseline_observation": "FALSE_CLEAN",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-07",
+    "title": "workspace-precondition",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "change only GOWORK to actual nonmember workspace",
+    "diagnostic_capture": "workspace-mismatch-public",
+    "baseline_observation": "FALSE_CLEAN_AND_SUPPRESSED_CAUSE",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-08",
+    "title": "tagged-dependency",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "remove only external replacement directory; input files identical",
+    "diagnostic_capture": "tagged-dependency-missing-public",
+    "baseline_observation": "FALSE_FINDING_2",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-09",
+    "title": "missing-tool",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "remove only go from own PATH retaining git",
+    "diagnostic_capture": null,
+    "baseline_observation": "NOT_DIAGNOSED",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-10",
+    "title": "mixed-finding-and-incomplete",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "explicit composition of two separately controlled deltas",
+    "diagnostic_capture": null,
+    "baseline_observation": "NOT_DIAGNOSED",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  },
+  {
+    "id": "CI-EBT-11",
+    "title": "unreadable-indexed-file",
+    "expected_status": "NOT_EXECUTED",
+    "delta": "remove only tracked Go working file while index fixed",
+    "diagnostic_capture": null,
+    "baseline_observation": "NOT_DIAGNOSED",
+    "independent_holder": "NOT_AUTHORIZED_NOT_WRITTEN",
+    "source": "NOT_AUTHORIZED"
+  }
+]

@@ -1,0 +1,123 @@
+{
+  "reviewer": "/root",
+  "reviewed_at": "2026-09-17T19:02:49.858681+00:00",
+  "outcome": "PUBLIC_CHECKSUM_SCOPED_GREEN",
+  "source_commits": [
+    "43e1ff7275345b3cdd380afda3c81c9e2341851c",
+    "288b22ddb9748748da09e61f625036dee66bc2eb"
+  ],
+  "source_path": "internal/release/publisher_release.go",
+  "source_sha256": "a253a59d136a8273da024997d0d04e9c9e81b6dcdda87aa285ca3770229d50aa",
+  "both_source_diffs_read": true,
+  "shared_adapter_review_sha256": "a7d430137caf265ccfa81dd45ad75ea8ff4c492a6d674017240f27708500822a",
+  "execution": {
+    "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-checksum-root",
+    "head": "be25ac72578ce81867ef3ca3ad6a70b3564e658e",
+    "tree": "33ce840833fc080c1c01b71a7a4d7e41494135c1",
+    "source_candidate": "288b22ddb9748748da09e61f625036dee66bc2eb",
+    "exact_tree_author_subject": "ce302083e7c2714795bdf2625f0c75cf8da896fc",
+    "holder_common_successor": "23cb7dbcb2f4e54f9259295c6390be828ab3d96a",
+    "command": [
+      "bash",
+      "scripts/release/publish-module-tree-checksum-inject.sh"
+    ],
+    "environment": {
+      "GOWORK": "off",
+      "GOTOOLCHAIN": "local",
+      "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/checksum-corrected-root-h46c3d8d",
+      "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-checksum-root-green-288b/captures"
+    },
+    "exit_code": 0,
+    "seconds": 102.02782025502529,
+    "tests": {
+      "run": 8,
+      "pass": 8
+    },
+    "sources_and_holders_unchanged": true,
+    "clean": true,
+    "stdout_sha256": "4644711b1f7cf4485e48a8583679764049d5703301b8c3495b512cffd3337461",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "actual_calls": [
+    {
+      "case": "lawful",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "stage": "ARCHIVE_VERIFIED",
+      "actual_Go_exit_code": 0,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "c0c2aefed03c62c3c8facb384d2d5c7f27aa54896ec98b397ad290d723d1660f"
+    },
+    {
+      "case": "altered-zip",
+      "outcome": "NOT_EXECUTED",
+      "reason": "PROXY_UNAVAILABLE",
+      "stage": "TAG_PRESENT",
+      "actual_Go_exit_code": 1,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "5af7e58ce5821915a694aecca5c83b3094f5201b543feae67761543c781dae4b"
+    },
+    {
+      "case": "invalid-signature",
+      "outcome": "NOT_EXECUTED",
+      "reason": "PROXY_UNAVAILABLE",
+      "stage": "TAG_PRESENT",
+      "actual_Go_exit_code": 1,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "e304cfabec5c1cb0cc13a5b2ebc6c27c9e799f76dc5d25127d99368892b50f33"
+    },
+    {
+      "case": "unavailable",
+      "outcome": "NOT_EXECUTED",
+      "reason": "PROXY_UNAVAILABLE",
+      "stage": "TAG_PRESENT",
+      "actual_Go_exit_code": 1,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "f75782100b824b9ce0e75227e80cba02c5c2f12c53ea2231a2fdfdee45e9c4c1"
+    },
+    {
+      "case": "deadline",
+      "outcome": "NOT_EXECUTED",
+      "reason": "BUDGET_EXHAUSTED",
+      "stage": "TAG_PRESENT",
+      "actual_Go_exit_code": -1,
+      "context_deadline_exceeded": true,
+      "parent_deadline_exceeded": true,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "96bb5ce5eafd51031a5fb8f35266a4fe5fb2903e29e1db94ec4f5cffc7fde36a"
+    },
+    {
+      "case": "restored",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "stage": "ARCHIVE_VERIFIED",
+      "actual_Go_exit_code": 0,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "196d9d1e511493ea28a405c1256a20dc5379decccf7fac3c5b757e56b76c5317"
+    },
+    {
+      "case": "signed-altered-content",
+      "outcome": "RED",
+      "reason": "PUBLISHED_ARCHIVE_MISMATCH",
+      "stage": "TAG_PRESENT",
+      "actual_Go_exit_code": 0,
+      "context_deadline_exceeded": false,
+      "parent_deadline_exceeded": false,
+      "fresh_cache_entries_before": 0,
+      "actual_command_record_sha256": "be0df9ca084e3f1bbdb35285bdbf3973120dbe7345539a4426bbf6cb19520a49"
+    }
+  ],
+  "failed_predecessor_preserved": "release-supply-checksum-root-green-43e1",
+  "correction": "Remove uncontracted equality between two independently generated info timestamp values; retain valid metadata and exact module/version/Origin/content/h1 checks",
+  "limits": "Local actual Go and signed-log services only; not live public version publication. Old52 regression ongoing; API/deleted head and CLI/P9 still required before full T5/D4/D8 authorization."
+}

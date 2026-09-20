@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "integration-tester",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVK6G-g",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5715691258",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVK6G-g",
+  "event_api_id": 5715691258,
+  "body_sha256": "7326e6d1003faacd528ae7e61bc624f763b81cede8dfc01b429165cf5eeb6c6e",
+  "timestamp": "2026-09-17T14:04:51Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/event-body.md",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "subject_path": "ci/newman_publication/",
+  "subject_sha256": "b21b2169e6d0cfbbb143a061448d60067ac2554031a39271f90c20b7effbaf94",
+  "subject_hash_kind": "worker-manifest",
+  "test_commit": "3aa95633b5f635847997ce55f590c63d5dfce68e",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "source_review_sha256": "37d298dbe2aebec6268b3c02500bc40c47e8560c4266d64cae4be3bc73740ff6",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/review.json",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/review.json",
+      "sha256": "37d298dbe2aebec6268b3c02500bc40c47e8560c4266d64cae4be3bc73740ff6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/execution.json",
+      "sha256": "552aeef95393cfd12ae0d65a25deb669aaf516dddf55b5bb679e6e811284bbea"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/start.json",
+      "sha256": "123e0bf85d4642d04a520c55e726ee7e297488cb8fad749669d58b0ef451a33e"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/verified-captures.json",
+      "sha256": "051c8e2090c0ca5b9c974401bc63a982e22d49665b162254ec6980433e162c8e"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/event-body.md",
+      "sha256": "7326e6d1003faacd528ae7e61bc624f763b81cede8dfc01b429165cf5eeb6c6e"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/published-event.json",
+      "sha256": "e7dc1023f4c24f703a7d74fb8fabf030ebd81277bd48b8b4f419fcb5e3ce5ff6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/api-readback.json",
+      "sha256": "e7dc1023f4c24f703a7d74fb8fabf030ebd81277bd48b8b4f419fcb5e3ce5ff6"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/extra-review/extra-replay.json",
+      "sha256": "db0b19a9379566c4103032a7b75e582e1e794c80b00befaa6ebd2171a68f5a34"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/extra-review/nested-json-replay.json",
+      "sha256": "9aeaccfc5831e7b4061738ec9b5396079aed7e5b75cc823664db198d697da410"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/carrier-scoped-green-5715691258/extra-review/project-check-budgets.json",
+      "sha256": "80ba6436d6bd4039f96668daeb73165ca3977958f52e5715ce7161c9f5e1a25c"
+    }
+  ],
+  "scope": [
+    "CI-NP-02/03: frozen carrier/scanner/decoding/capacity holder",
+    "Все 18 прежних projection/checker tests без изменения assertions"
+  ],
+  "result": {
+    "tests": 19,
+    "passed": 19,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "carrier_prerequisites": 412,
+    "semantic_scan_decisions": 461,
+    "scan_CLEAN": 245,
+    "scan_FINDING": 193,
+    "scan_NOT_EXECUTED": 23,
+    "config_cases": 120
+  },
+  "verified_capture_counts": {
+    "processes": 3355,
+    "streams": 6710,
+    "reader_records": 851
+  },
+  "preservation": {
+    "source_and_holders_unchanged": true,
+    "production_files": 9,
+    "holder_files": 23,
+    "clean_tree": true
+  },
+  "source_author": "/root/e2e_audit",
+  "independent_holder_author": "/root/newman_carrier_tests",
+  "pending": [
+    "Nonempty verdict adapter и его отдельный RED/GREEN",
+    "SDK/action publisher; consumer workflows и pins",
+    "Полный runtime и retention/containment/prelanding",
+    "Покрытие фактического исторического ZIP data-descriptor формата",
+    "Convergence, доставка в main и закрытие #1810"
+  ]
+}

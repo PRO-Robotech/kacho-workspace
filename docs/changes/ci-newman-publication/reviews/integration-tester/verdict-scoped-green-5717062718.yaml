@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "integration-tester",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMN0Pg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717062718",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMN0Pg",
+  "event_api_id": 5717062718,
+  "body_sha256": "c2f1a85114d04d9f0f1aa8302e3732a1ebcce6ce1a653931e382701940643590",
+  "timestamp": "2026-09-17T15:34:52Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/event-body.txt",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "afd2b182822beb90d8648ed4c79d5f2ef6e0eb2c",
+  "subject_path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/root-review.json",
+  "subject_sha256": "18770ad472969ea6b9ccf3922a1c14c4af850f876075c8656ff136e263e42557",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/root-review.json",
+  "source_review_sha256": "18770ad472969ea6b9ccf3922a1c14c4af850f876075c8656ff136e263e42557",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/event-body.txt",
+      "sha256": "c2f1a85114d04d9f0f1aa8302e3732a1ebcce6ce1a653931e382701940643590"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/published-event.json",
+      "sha256": "d705e0e908a7d29c6d05a5d1ad5872aa53db5b0504ab792b1f5d829101f3f451"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/api-readback.json",
+      "sha256": "d705e0e908a7d29c6d05a5d1ad5872aa53db5b0504ab792b1f5d829101f3f451"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/request.json",
+      "sha256": "500b3ae5996362d6ecd87ee871f103c3b745f7f70082ee490a0e545f90fb6f42"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/root-review.json",
+      "sha256": "18770ad472969ea6b9ccf3922a1c14c4af850f876075c8656ff136e263e42557"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/input.json",
+      "sha256": "494a515c995027405a117499e0e8e7253f82b9cd418a4e41b616784771b32965"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/result.json",
+      "sha256": "eab293af5e806411f5bdceabaefeffbd797917937b4bbc74b7c3292b1bcc15e5"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/start.json",
+      "sha256": "5cbafd3452f0e923f8b3062b4c6e0f9a632c7dc0099daa58984e633d1dd127c9"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/verified-captures.json",
+      "sha256": "7e165e9820b66db2ca78348fe790581d7269c0203284c84f85d4b4912e0327d7"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/verdict-holder.json",
+      "sha256": "bc418e0addb5d062ee13500bce3146ec31cb1dc1044ed3eeaa42f59e1021b312"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/carrier-summary.json",
+      "sha256": "13fcd290bd98cbd40075afe2c8bbedf63bcd6c0f78a62c32a93e39b0aaa71558"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-scoped-green-5717062718/historical-summary.json",
+      "sha256": "c10c4bca854d81e663ff8017cb4a96947b4000ed5cde49724e5796111be7acae"
+    }
+  ],
+  "scope": [
+    "Непустой kacho-shard-v1 adapter и неизменная полная локальная Python/SDK regression"
+  ],
+  "pending": [
+    "Consumer workflows/pins",
+    "Полный runtime, retention/containment/prelanding",
+    "Module release/main и closure"
+  ],
+  "source_author": "/root/e2e_audit",
+  "holder_author": "/root/release_supply_arch",
+  "source_commit": "056472e0d1b7a4261a5592460eecb14eae423453",
+  "aggregate_commit": "afd2b182822beb90d8648ed4c79d5f2ef6e0eb2c",
+  "tree": "5258e9e566f7a793c2c2a07794242a33bdd304e8",
+  "frozen_holder": "e548f5836ec2326d9ea4b35b90d1a697c5f87c69",
+  "result": {
+    "python_pass": 21,
+    "sdk_pass": 46,
+    "failed": 0,
+    "skipped": 0,
+    "prerequisites": 8,
+    "verdict_attempts": 125,
+    "lawful_clean": 49,
+    "established_negative_pairs": 76,
+    "unestablished_negative_pairs": 0,
+    "capture_pairs_verified": 3783,
+    "reader_records": 894
+  }
+}

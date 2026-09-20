@@ -1,0 +1,22 @@
+{
+  "kind": "mechanical evidence integrity verification; not a second semantic review",
+  "recorder": "/root/truth_tests",
+  "source_reviewer": "/root",
+  "origin_directory": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-red/np-03065890e6",
+  "root_review_sha256": "6a4af14ffb4cbc1d817f82d53fe7c0093d09092c8a30321d79410bc818c0593d",
+  "subprocess_execution_records": 3077,
+  "stdout_stderr_stream_files_verified": 6154,
+  "reader_trio_records_hashed": 828,
+  "prerequisites": 412,
+  "scan_attempts": 461,
+  "observed_not_executed": 461,
+  "semantic_scan_decisions": 0,
+  "missing_scan_dispatch": 461,
+  "limits_calls": 120,
+  "limits_project_pass": 40,
+  "limits_check_pass": 40,
+  "limits_scan_missing": 40,
+  "capture_manifest_sha256": "6c6657a9840ff092a3338341d96fc4cee8ca62edfd730afd3085252f1799c23b",
+  "main_jsons_verified": 6,
+  "raw_capture_policy": "Full subprocess and reader captures remain at origin_directory. Canonical copy stores their hash manifest, six exact main JSONs and root aggregate verification; it does not claim the full raw capture corpus is vendored here."
+}

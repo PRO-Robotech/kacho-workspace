@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "go",
+    "test",
+    "./internal/release",
+    "-count=1",
+    "-json",
+    "-timeout=20m"
+  ],
+  "head": "14b8165cd118d18667fc6e123332d3299204503d",
+  "rc": 0,
+  "seconds": 25.660706266004127,
+  "tests": {
+    "run": 39,
+    "output": 306,
+    "pass": 39
+  },
+  "stdout_sha256": "e831fce3948983817e2aff6951da132cb98f5427eff35a38e3ea551e14d41bc7",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "files_unchanged": true,
+  "clean": true,
+  "finished_at": "2026-09-17T15:48:42.738374+00:00",
+  "failures": []
+}

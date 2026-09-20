@@ -1,0 +1,18 @@
+[
+  {
+    "script": "probe-repeat.py",
+    "script_sha256": "b9a57a6b6f5279807f3748538a227add0c95635b5c9b5ca23dcb77db9c8e8b6e",
+    "rc": 0,
+    "seconds": 3.6745383689994924,
+    "stdout_sha256": "11cfc7c8b2f811da66771bb9aa09f59208cce22458cb440317e0491691b19a1f",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "script": "probe-traced.py",
+    "script_sha256": "cd67008130bf168b74b38d20dfa74c4828e210a0489446dc753c6cb55c868732",
+    "rc": 0,
+    "seconds": 3.6948576950235292,
+    "stdout_sha256": "8423fdf68f2e81f1b84c6839fe872ca50095214baf3df787710ac0bdbd7cbd88",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

@@ -1,0 +1,47 @@
+# CI-RS routine producer-review binding — read-only proposed correction
+
+The routine v2 complete producer execution subject includes `review: FileRef` while excluding `root` and `authorization`. A producer review record cannot name the hash of that same complete subject: its own file digest would become an input to the hash it contains. This is an actual serialization cycle, not a reason to omit the review from final execution authority.
+
+Use two explicit, closed subjects; canonical encoding remains routine v2 sorted-key compact UTF-8 JSON, no trailing newline, sorted set arrays with the accepted ordered-context rule. Existing SourceFile/Runtime/Proof/FileRef/CommentCoordinate/AuthorityRecord shapes and validation remain unchanged.
+
+```
+ProducerReviewSubject = {
+  repository: "PRO-Robotech/kacho",
+  commit: SHA1,
+  tree: SHA1,
+  executable_closure: nonempty sorted SourceFile array,
+  tool_versions: nonempty Runtime array,
+  machine_proofs: nonempty Proof array,
+  regression_proofs: nonempty Proof array
+}
+ProducerReviewRecord = {
+  schema_version: 1,
+  kind: "producer-review",
+  subject_sha256: SHA256,
+  outcome: "GREEN",
+  reviewer: nonempty string,
+  independence_record: FileRef,
+  authority_coordinate: CommentCoordinate
+}
+ProducerExecutionSubject = {
+  repository: "PRO-Robotech/kacho",
+  commit: SHA1,
+  tree: SHA1,
+  executable_closure: nonempty sorted SourceFile array,
+  tool_versions: nonempty Runtime array,
+  machine_proofs: nonempty Proof array,
+  regression_proofs: nonempty Proof array,
+  review: FileRef
+}
+```
+
+All keys shown are required and every object is closed; unknown/missing/duplicate keys or wrong types refuse. The first subject is exactly the producer_execution object with `root`, `review`, and `authorization` removed. The second is exactly that object with only `root` and `authorization` removed. No paths, source/runtime identities, proof/output digests or proof authority records disappear beyond the already accepted locator projection. FileRef bytes and typed roles remain bound.
+
+1. Compute R = SHA256(canonical ProducerReviewSubject). The producer-review event and ProducerReviewRecord.subject_sha256 bind R, actual verified source/tests, GREEN and independent reviewer. The producer-review event body can cite R; it cannot include a digest of its own later record/readback file. Capture its exact coordinate/actor/body hash using the existing root-bound route.
+2. Serialize that closed ProducerReviewRecord after actual event readback; its exact file bytes become producer_execution.review FileRef. Validate its independence record and live/captured authority coordinate. It is a producer review, not one of the component Proof ReviewRecords with predicate_id; neither kind substitutes for the other.
+3. Compute E = SHA256(canonical ProducerExecutionSubject), now including that exact review FileRef. The existing AuthorityRecord with kind producer-execution must bind E, through a separate actual root execution event/readback. A component-review or producer-review alone never grants execution.
+4. Validate both bindings before any effect: changed executable/proof/runtime invalidates R and E; changed review bytes invalidates its FileRef and E; changed root locator alone does not grant changed content; changed authorization locator does not grant new authority. Final plan still binds all reviewed source/proof/review/authorization identities under the existing plan projection.
+
+This replaces only the circular interpretation of the producer FileRef. It does not weaken the D8 requirement for independent T5 machine/regression review, full frozen producer closure, separate exact root execution authorization, receiving protected main, component proofs or complete publisher phases. No live producer authorization currently follows from this record.
+
+Required independent fixture distinction: lawful two-stage construction; change only inner source/proof record retaining old R → refusal; change only review record retaining old E → refusal; producer-review record without producer-execution authority → refusal. The source worker cannot invent the authority issuer or accept an approval boolean. No product/source/accepted subject edits were performed by this readback.

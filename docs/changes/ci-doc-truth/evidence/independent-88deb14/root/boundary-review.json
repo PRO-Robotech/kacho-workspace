@@ -1,0 +1,15 @@
+{
+  "source_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "exact_changed_paths": [
+    "internal/repohygiene/catalogreachability_test.go",
+    "internal/repohygiene/grpcmountparity_test.go",
+    "internal/repohygiene/subscriptionformshape.go",
+    "internal/repohygiene/subscriptionformshape_injection_test.go",
+    "proto/corelib/subscription/subscription.proto"
+  ],
+  "root_test_names_match_red": true,
+  "immutable_holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35",
+  "go_directives_unchanged": true,
+  "author_evidence_hashes_verified": 27,
+  "generated_independent_verification": "pending truth_tests"
+}

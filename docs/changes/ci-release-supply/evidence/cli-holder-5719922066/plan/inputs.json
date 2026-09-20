@@ -1,0 +1,129 @@
+{
+  "status": "READ_ONLY_PLAN_NOT_HOLDER_OR_SOURCE_AUTHORITY",
+  "source_head": "28a80b7a5ff0f14221e1077b77a4dbf60a6922de",
+  "source_tree": "f44cfa34c725a23118a089de828bc7403113ba64",
+  "own_worktree": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan",
+  "clean": true,
+  "inputs": [
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+      "sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/specs/sub-phase-CI-RS-1-release-supply-design.md",
+      "sha256": "0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/changes/ci-release-supply/interface.md",
+      "sha256": "2c1d5c070b1c2f5b38cd124913cd3ad3d55bb16cf4a4cbebbe6a5627855e34c5",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/changes/ci-release-supply/tasks.md",
+      "sha256": "895eb9da7806dc1018c3019d418f2cd5240a27968c875a953201c2e5b4499d50",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/changes/ci-release-supply/holders.yaml",
+      "sha256": "db624bac0916fc2181bc5c9f22197d77443ddc81d6838625bb9ebac7d58e7cd4",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-supply-docs/docs/changes/ci-release-supply/result.schema.json",
+      "sha256": "d4cd888ef8edea93f2b771fe2d5b65b4dbeb01cd01603dd2843fc5bfca13da32",
+      "role": "accepted subject; external approvals govern status"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/scripts/release/publish-version.sh",
+      "sha256": "540b548aaff8df7a241b26dc513c3d8474ac82ad3d9283c607e76cb2e6774467",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/scripts/release/publish-version-inject.sh",
+      "sha256": "52cb8d4a978c7c36e2a4fa75ed7acb489d6d185ee5dbdc65bd40da1b40afd5b8",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/pack_test.go",
+      "sha256": "7eeed15c297c58c7a0d627671d16f959baea0de64627da2ff3f15c0f889c48ad",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/consumable_test.go",
+      "sha256": "83f3eed632784f97a8977f7fb7f4f44a598e0e681c7b1b81800f11c1f7ed580d",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/consumable_injection_test.go",
+      "sha256": "84c48db2086d6650da262b34d82ee76cfd972d2b8383be21c46eb0df20a6891d",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/archive.go",
+      "sha256": "fd35188b5d2ed0ff09b3ade5e250149bb25142cfe225f977d62e687661b262e5",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/evidence.go",
+      "sha256": "bccd1372ec5301eb5df603c34ce0f58eaada235624ebd773894c3b3177fbdbdb",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/manifest.go",
+      "sha256": "6c450d7206c51a62195ebfb8f97da9d0313fff055641fe5a0867ac9e0c9ed0ab",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/consumers.go",
+      "sha256": "d6d511b49ed27d67dd710e56beb109dac5521c43c2f75a4d120243fec7c67ead",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/pins.go",
+      "sha256": "7976cfaeacd1c5f1793a880c0f513c931826093120eb905c44315fcd3fae7d62",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/publisher.go",
+      "sha256": "f777b63ef4b12b17b081ef2753702739c8a8d988901407f79d77c55462ef751e",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/Makefile",
+      "sha256": "e0aacdcd7611d8fa7f0af78bd1b38271b3b4579d92b02c833949e8c7f08da255",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/.github/workflows/ci.yaml",
+      "sha256": "8fa98fcd800c251fbdd59584c3fd80a7343962d525800751cc4e30cd81dbabf7",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/scripts/ci-local.sh",
+      "sha256": "d8fdef8d0b12bf94e3d1390e19b6c4bbd1048988b09e9d64f3d4deb1a9ca6fa0",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/consumer_imports_test.go",
+      "sha256": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-cli-plan/internal/release/internal_pins_test.go",
+      "sha256": "0165beeeb18ff55f37a109ea2b9aa6c032ec2f759de3ae01b81e55ce22dcec5e",
+      "role": "actual source at28a80b7a"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-publisher-source/cli-p9-scope-readback-v1.md",
+      "sha256": "58fb821ceb6c5b8658ad0908058636b079559de47dc99dbe078cbb56d07434e1",
+      "role": "worker proposal"
+    },
+    {
+      "path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-tests/routine-vocabulary-v2.md",
+      "sha256": "cd0897c91c1a86cf0579fff5b9dd1a5a2c47f00848ed1fb926dff29f5c60f607",
+      "role": "accepted routine vocabulary"
+    }
+  ]
+}

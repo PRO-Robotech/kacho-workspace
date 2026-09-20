@@ -1,0 +1,13 @@
+diff --git a/internal/repohygiene/subscriptionformshape_test.go b/internal/repohygiene/subscriptionformshape_test.go
+index 7884c87ac3b..a8020835e46 100644
+--- a/internal/repohygiene/subscriptionformshape_test.go
++++ b/internal/repohygiene/subscriptionformshape_test.go
+@@ -99,8 +99,6 @@ func subscriptionShapeExpectation() SubscriptionShapeExpectation {
+ 		StopReasonNames:     []string{"stop_reason", "termination_reason", "close_reason", "reason", "error", "status"},
+ 		OwnerVocabularyAxis: "kinds",
+ 		OwnerVocabularyType: "string",
+-		// Обязательность в этом дереве выражается ОПЦИЕЙ поля, а не ключевым
+-		// словом: `required` из proto3 убрано, а опция жива и употребляется.
+ 	}
+ }
+ 

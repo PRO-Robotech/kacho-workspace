@@ -1,0 +1,2 @@
+directory pkg is contained in a module that is not one of the workspace modules listed in go.work. You can add the module to the workspace using:
+	go work use .

@@ -1,0 +1,44 @@
+{
+  "status": "ROUTINE_READBACK_ACCEPTED_TEST_ONLY",
+  "reviewer": "/root",
+  "independent_tester": "/root/truth_tests",
+  "source_author": "/root/release_supply_arch",
+  "manifest_sha256": "17d756c7bf48defc8120076de3a6432196a806a803807ad28809f66fb301ec61",
+  "verified_manifest_entries": 8,
+  "verified_input_bindings": 24,
+  "parser_cases": 33,
+  "historical_assertions": 18,
+  "bootstrap": {
+    "missing_tool_or_build_failure": "NOT_EXECUTED/HARNESS_UNAVAILABLE/3",
+    "actual_deadline": "NOT_EXECUTED/BUDGET_EXHAUSTED/3",
+    "publisher_phase": "plan",
+    "pins_phase": "pins",
+    "dry_run": true,
+    "stage": "NONE",
+    "checks_predicate": "input",
+    "identity_fields": null,
+    "census_values": null,
+    "snapshots": [],
+    "effects": [],
+    "build_seconds": 600,
+    "bounded_kill_grace_seconds": 5
+  },
+  "declaration_table": {
+    "missing_unread": "NOT_EXECUTED/SOURCE_UNAVAILABLE/3",
+    "malformed_duplicate_unknown_wrong_type": "RED/CONSUMER_DECLARATION_INVALID/1",
+    "empty_consumers_zero_target_imports": "RED/CONSUMER_CENSUS_EMPTY/1"
+  },
+  "accepted_pins_input_proposal_sha256": "af7be77342bf366f7eaf6b8b60ded94c71659242ae352554bfabe490677b8e32",
+  "pins_revision_rule": "actual Kacho checkout SHA plus independently captured fresh Kaname main SHA, exact owned Git materialization; final T7 delivered revisions remain separate",
+  "test_paths": [
+    "internal/release/supply_cli_test.go",
+    "internal/release/supply_p9_caller_test.go",
+    "internal/release/internal_pins_caller_test.go",
+    "scripts/release/release-callers-inject.sh"
+  ],
+  "limited_fixture_successor": [
+    "scripts/release/publish-version-inject.sh"
+  ],
+  "source_authorization": false,
+  "live_authorization": false
+}

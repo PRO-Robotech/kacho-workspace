@@ -1,0 +1,88 @@
+{
+  "scope": "CI-NP-02/03 carrier, decoding and lower-only capacity CLI; no SDK/workflow/retention",
+  "prerequisites_executed": 412,
+  "scan_declared": 461,
+  "scan_attempts": 461,
+  "scan_semantic_decisions": 0,
+  "missing_scan_dispatch": 461,
+  "limits_declared": 120,
+  "invalid_or_missing_scan_verdict": 461,
+  "limits_attempts": 120,
+  "failed_expectations": 501,
+  "groups": {
+    "capacity": {
+      "declared": 28,
+      "attempted": 28,
+      "lawful": 14,
+      "negative": 14
+    },
+    "carriers": {
+      "declared": 308,
+      "attempted": 308,
+      "lawful": 154,
+      "negative": 154
+    },
+    "contextual": {
+      "declared": 12,
+      "attempted": 12,
+      "lawful": 6,
+      "negative": 6
+    },
+    "decoding": {
+      "declared": 7,
+      "attempted": 7,
+      "lawful": 6,
+      "negative": 1
+    },
+    "field-families": {
+      "declared": 66,
+      "attempted": 66,
+      "lawful": 33,
+      "negative": 33
+    },
+    "incomplete": {
+      "declared": 16,
+      "attempted": 16,
+      "lawful": 8,
+      "negative": 8
+    },
+    "lawful-empty": {
+      "declared": 22,
+      "attempted": 22,
+      "lawful": 22,
+      "negative": 0
+    },
+    "lawful-public": {
+      "declared": 2,
+      "attempted": 2,
+      "lawful": 2,
+      "negative": 0
+    }
+  },
+  "process_captures_hash_verified": 3077,
+  "reader_trios": 828,
+  "verified_rendered_pairs": 187,
+  "limits_by_operation": {
+    "project": {
+      "executed": 40,
+      "passed": 40
+    },
+    "check": {
+      "executed": 40,
+      "passed": 40
+    },
+    "scan": {
+      "executed": 40,
+      "passed": 0
+    }
+  },
+  "evidence_directory": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-red/np-03065890e6",
+  "manifest": {
+    "carrier-summary.json": "e938da20fc5c4d685f42ac374620c6db771420ab22ebb52ff7c5286f52ec2812",
+    "carrier-results.json": "f71c4ea7d2295a2988c8d22c185dc11f338fdf729d18905fb9e454b8cd21c20a",
+    "carrier-prerequisites.json": "2c2f227b5a1aee2ebbc0683b0128e297ee11558f612980d55005f95db1e1463d",
+    "carrier-pairs.json": "f033091d2006a4265f5aac5cf72bc930a8d0155dee53c09425448d844d05188a",
+    "carrier-declared.json": "658f950419efd105883af27639610ae683a3a9509338dfeabf1565525e501431",
+    "limits-results.json": "9b1b17e04a6892d1642d3e35d506fff232060cddc1a162d3a6a3f97ecc6e5ad6"
+  }
+}

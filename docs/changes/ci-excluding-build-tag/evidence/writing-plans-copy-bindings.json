@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "kind": "exact_safe_evidence_copies",
+  "entries": [
+    {
+      "source_path": "docs/changes/ci-excluding-build-tag/tasks.md",
+      "destination_path": "docs/changes/ci-excluding-build-tag/history/tasks-e7214a79.txt",
+      "sha256": "5c74583815877a5f7664d27a4ce1060ae1c996144f09daf720ff2b7b7c96faea",
+      "bytes": 4443,
+      "source_repo": "PRO-Robotech/kacho-workspace",
+      "source_commit": "e7214a798f61eb2b77085fa3515c009a398d7ff7",
+      "source_kind": "git-blob"
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/review.md",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/review.txt",
+      "sha256": "03722bf28eafc7662369533af8602a3f368cb318f812643381dbd1572a8599b7",
+      "bytes": 3485
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/published-summary.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/published-summary.json",
+      "sha256": "a606c2593a64442daa9d96a499c529806a6fe6564a670101bef976b8dddd1ca5",
+      "bytes": 475
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/03-class-revalidation/request.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/03-class-revalidation/request.json",
+      "sha256": "6c4fbf1fcb1376c672c11b35cbbcb9dfe541921bbf22e5707816f3372d9c17b9",
+      "bytes": 1168
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/03-class-revalidation/published.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/03-class-revalidation/published.json",
+      "sha256": "50ffa56402ff8f6716452b2cc78b83060a54fab42e8cf4ca4f8056eb672a0983",
+      "bytes": 2794
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/03-class-revalidation/readback.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/03-class-revalidation/readback.json",
+      "sha256": "50ffa56402ff8f6716452b2cc78b83060a54fab42e8cf4ca4f8056eb672a0983",
+      "bytes": 2794
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/03-class-revalidation/published.stderr",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/03-class-revalidation/published.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/03-class-revalidation/body.md",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/03-class-revalidation/event-body.txt",
+      "sha256": "4c2b16a28d4f8cfcc4ddf90f985d32e39a9e7ac366fb706c10286a37e5c08248",
+      "bytes": 1151
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/04-design/request.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/request.json",
+      "sha256": "af859a4b97b04a9a1e57479a288c947e6b7c97bc4a8542d2cb1b945ab7133fda",
+      "bytes": 1637
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/04-design/published.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/published.json",
+      "sha256": "8427d0a3751f2bbda84f8ab49dbbe7883849f684bb93c420d3a9c4ae6dbaaefd",
+      "bytes": 3263
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/04-design/readback.json",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/readback.json",
+      "sha256": "8427d0a3751f2bbda84f8ab49dbbe7883849f684bb93c420d3a9c4ae6dbaaefd",
+      "bytes": 3263
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/04-design/published.stderr",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/published.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source_path": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-design-review/04-design/body.md",
+      "destination_path": "docs/changes/ci-excluding-build-tag/evidence/design-final-root/04-design/event-body.txt",
+      "sha256": "9a302eeeb47e77f82d51d5bd25aabd015eac35f3c14237b1397d1943a746a337",
+      "bytes": 1618
+    }
+  ],
+  "source_reviewer": "/root",
+  "recorder": "/root/e2e_audit",
+  "recording_is_not_new_independent_approval": true
+}

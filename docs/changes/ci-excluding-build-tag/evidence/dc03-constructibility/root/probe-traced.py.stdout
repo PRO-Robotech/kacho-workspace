@@ -1,0 +1,73 @@
+{
+  "prerequisite_proved": true,
+  "runs": [
+    {
+      "name": "regular-baseline",
+      "rc": 0,
+      "timeout": false,
+      "writes": 0,
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      },
+      "elapsed": 0.20328760700067505
+    },
+    {
+      "name": "fifo-repeat-writer",
+      "rc": 0,
+      "timeout": false,
+      "writes": 2,
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      },
+      "elapsed": 0.2034458850394003
+    },
+    {
+      "name": "fifo-no-writer",
+      "rc": -9,
+      "timeout": true,
+      "writes": 0,
+      "parsed": {
+        "json_objects": 0,
+        "problem_objects": 0,
+        "import_paths": []
+      },
+      "elapsed": 3.0052349410252646
+    },
+    {
+      "name": "fifo-repeat-writer-restored",
+      "rc": 0,
+      "timeout": false,
+      "writes": 2,
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      },
+      "elapsed": 0.20362325996393338
+    }
+  ],
+  "cleanup": {
+    "owned_pids": [
+      292290,
+      292288,
+      292304,
+      292302,
+      292319,
+      292317,
+      292381,
+      292379
+    ],
+    "all_owned_pids_absent": true,
+    "fixture_root_absent": true
+  }
+}

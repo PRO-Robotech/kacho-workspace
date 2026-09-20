@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMoMEQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5717494801",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMoMEQ",
+  "event_api_id": 5717494801,
+  "body_sha256": "5f0710a0311cbc81ec7ef87d0762e770c9d2136607d51948ce5ac6720a16ba01",
+  "timestamp": "2026-09-17T16:06:34Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/event-body.txt",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "7dba813a5a13a833b8754a50e7a07f219f08e571",
+  "subject_path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/root-review.json",
+  "subject_sha256": "2ade0ca9efab88c909162fd81efc448aef0bca891f42739b6825b12dd7e8cbc4",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/root-review.json",
+  "source_review_sha256": "2ade0ca9efab88c909162fd81efc448aef0bca891f42739b6825b12dd7e8cbc4",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/event-body.txt",
+      "sha256": "5f0710a0311cbc81ec7ef87d0762e770c9d2136607d51948ce5ac6720a16ba01"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/published-event.json",
+      "sha256": "21acb3a2552006dde1285e2f62db5d29aaeaae977133724ac8edfca4fa878456"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/api-readback.json",
+      "sha256": "21acb3a2552006dde1285e2f62db5d29aaeaae977133724ac8edfca4fa878456"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/request.json",
+      "sha256": "f4b73e5e259e5ba62efd379c914bfa37f5576a2bc336f6d374dd0d6f4f9f203a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/root-review.json",
+      "sha256": "2ade0ca9efab88c909162fd81efc448aef0bca891f42739b6825b12dd7e8cbc4"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/input.json",
+      "sha256": "da1a1c8f5c168f479d258eab2a1315b8f9fde3d797ac72c4b835feff3562363d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/recognizer-scoped-red-5717494801/execution.json",
+      "sha256": "ce17b2f2c5404eaf451ddb7b0421f5b9858d419081b539e710a95671558bc8a2"
+    }
+  ],
+  "scope": [
+    "158 recognition inputs и 14 accounting shapes; оба parents semantic FAIL, 0 ERROR/SKIP. Разрешён только carriers.py, old holders/limits неизменны."
+  ],
+  "pending": [
+    "Consumer delivery/runtime/retention/prelanding, module release/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/e2e_audit"
+}

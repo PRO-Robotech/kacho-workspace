@@ -1,0 +1,55 @@
+{
+  "source_commit": "9e067edd2142001847194ce3967798a30e8b94c7",
+  "independent_review_sha256": "10918d0a508ad2f0ff45da4ad22c4d28396e18892cfc8b57fa78ccb36a690aa5",
+  "checked_at": "2026-09-17T14:14:28.832305+00:00",
+  "events": [
+    {
+      "role": "acceptance-reviewer",
+      "phase": null,
+      "verdict": "APPROVED",
+      "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+      "subject_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+      "id": 5715835485,
+      "url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715835485",
+      "actor": "pointpu",
+      "body_sha256": "09b3d81690b75f94c232a1c035ac8e4fa84a3329269385e2b2324a3147fa88b6",
+      "readback_verified": true
+    },
+    {
+      "role": "class-exposure-analyst",
+      "phase": "initial",
+      "verdict": "RECORDED",
+      "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-acceptance.md",
+      "subject_sha256": "d5fa021cc12c40e99be08ea69e9e8554cac6ebbbe1d638f7b5307b3d63adbb9a",
+      "id": 5715835935,
+      "url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715835935",
+      "actor": "pointpu",
+      "body_sha256": "fc42e849008adde8df2ef3999ff69109e9a72d3848ca83e958be7b74060fc4f1",
+      "readback_verified": true
+    },
+    {
+      "role": "class-exposure-analyst",
+      "phase": "revalidation",
+      "verdict": "REVALIDATED",
+      "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-design.md",
+      "subject_sha256": "0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd",
+      "id": 5715836426,
+      "url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715836426",
+      "actor": "pointpu",
+      "body_sha256": "725c24bcabf15de188c63556db702e92a31b146ed67801c785f262246f6a96b8",
+      "readback_verified": true
+    },
+    {
+      "role": "design-reviewer",
+      "phase": null,
+      "verdict": "APPROVED",
+      "subject_path": "docs/specs/sub-phase-CI-RS-1-release-supply-design.md",
+      "subject_sha256": "0f50f1375cf3a647e9c3eb1f7df9dc787cfaaf7449d26f27a3a292d6a004fedd",
+      "id": 5715836975,
+      "url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5715836975",
+      "actor": "pointpu",
+      "body_sha256": "3637019ff55459e44a2d3689663f06f46584a43f8fbf5d0943cd60f6854a3492",
+      "readback_verified": true
+    }
+  ]
+}

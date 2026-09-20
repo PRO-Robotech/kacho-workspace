@@ -1,0 +1,32 @@
+{
+  "worktree": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-python-ci09-tests",
+  "branch": "lane/ci-python-ci09-tests-20260917",
+  "commit": "8b51c778e23b2f930c512e101456653540d84277",
+  "head": "8b51c778e23b2f930c512e101456653540d84277",
+  "parent": "a7f7203a9b4188ed721d6ed835c8f4fda9ec61de",
+  "tree": "3f0a41f5706b215368037a5b1d2c03e4d72b189f",
+  "driver_sha256": "5e2071e25b2e99bfb3eccc0a3deb566eded3c1ac2a612aa6dc8da5a97d9a92cf",
+  "proposal_sha256": "205ffdf1d836282d9d2806a8ee726f82ee494bca57236cddcf390daa396acbe4",
+  "transition": "https://github.com/PRO-Robotech/kacho/issues/2629#issuecomment-5715525103",
+  "changed_paths": [
+    "tools/pythonprobes/testdata/outcomes_driver.py"
+  ],
+  "diff_numstat": "20\t1\ttools/pythonprobes/testdata/outcomes_driver.py",
+  "clean": true,
+  "actual_block_controls": {
+    "passed": 39,
+    "total": 39,
+    "negative_inversions": 25
+  },
+  "preservation": {
+    "exact_inverse_restores_original": true,
+    "all_outside_block_bytes_preserved": true,
+    "frozen_evidence_58_manifest_entries_unchanged": true,
+    "product_files_unchanged": true,
+    "helpers_fixtures_other_scenarios_unchanged": true
+  },
+  "mandatory_full_SUT_run": "NOT RUN by this correction task; root owns fresh complete run",
+  "prior_root_fullrun": "RED unchanged",
+  "publication": "local test-only commit; no push",
+  "processes": "All own commands and child processes completed"
+}

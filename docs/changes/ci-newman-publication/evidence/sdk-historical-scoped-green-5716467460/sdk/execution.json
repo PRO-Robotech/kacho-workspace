@@ -1,0 +1,13 @@
+{
+  "kind": "sdk",
+  "argv": [
+    "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+    "--test",
+    "ci/newman_publication/tests/upload.test.mjs"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "rc": 0,
+  "seconds": 10.731902909989003,
+  "stdout_sha256": "8605275a18a4e85f4fb75331c11b612a465ef4dce8aee777002b35a32ee5bb69",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

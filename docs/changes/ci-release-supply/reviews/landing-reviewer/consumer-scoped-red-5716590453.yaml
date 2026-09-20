@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVLw_dQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716590453",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVLw_dQ",
+  "event_api_id": 5716590453,
+  "body_sha256": "5c18e0b5b086406c0afb5798df6d7e6b9e5e582cfd11c22fe666d8fc0ea7dd41",
+  "timestamp": "2026-09-17T15:04:05Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "9e9e9401ab5d133db7045da8c7304b57662ab3cc",
+  "subject_path": "internal/release/consumer_imports_test.go",
+  "subject_sha256": "1e35f7dd077903968943f174ccb4c1e51d0fb02ce8275793af7ada65afa4cf7b",
+  "subject_hash_kind": "file-bytes-at-test-commit",
+  "verdict": "BOUNDED_TESTS_REVIEWED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/root-review.json",
+  "source_review_sha256": "80b5dc5178dad88d48024fbee40852a76875303dc107093790b1bdf2a99515b5",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/event-body.txt",
+      "sha256": "5c18e0b5b086406c0afb5798df6d7e6b9e5e582cfd11c22fe666d8fc0ea7dd41"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/published-event.json",
+      "sha256": "0aa101b828ccb6494b674de8b075dceca51f009fe4853772b936d1593912c74e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/api-readback.json",
+      "sha256": "0aa101b828ccb6494b674de8b075dceca51f009fe4853772b936d1593912c74e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/request.json",
+      "sha256": "6ae99da79231f834a02b31c4a8c66b7ab7292ac7bcd29e882638159fd581f253"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/root-review.json",
+      "sha256": "80b5dc5178dad88d48024fbee40852a76875303dc107093790b1bdf2a99515b5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/input.json",
+      "sha256": "7576dd45d42d740ba819e06bf92f18470cad84d791fd8ee122661277b4fa0ecc"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/execution.json",
+      "sha256": "9eb5141a76232a3484e41ccc84dab667d1d3eca44013dc1962d43a0105cd3d70"
+    }
+  ],
+  "scope": [
+    "CI-RS-07–09 consumers/preflight engine: manifest.go, archive.go, consumers.go",
+    "CAPABILITY_ABSENT после реальных prerequisite: 27 prepared cases, 0 SUT invocations, 0 semantic decisions"
+  ],
+  "pending": [
+    "Полный T1 из 22 сценариев",
+    "Остальной T2: candidate/pins/publisher, P9 CLI/wiring/default declaration",
+    "Полные регрессии, D8 producer authority, protected delivery и closure"
+  ],
+  "holder_author": "/root/truth_tests",
+  "source_author": "/root/release_supply_arch"
+}

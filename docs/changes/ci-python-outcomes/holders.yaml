@@ -1,0 +1,59 @@
+schema_version: 1
+change_id: ci-python-outcomes
+required_holders:
+  python-outcomes-behaviour:
+    kind: machine
+    owner: integration-tester
+    executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesProducer$' -count=1 -json -timeout=10m"
+    source_path: tools/pythonprobes/outcomes_test.go
+    status: scoped-green-independently-verified
+    scenarios: [CI-PY-01, CI-PY-02, CI-PY-03, CI-PY-04, CI-PY-05, CI-PY-06, CI-PY-07, CI-PY-08]
+    evidence_coordinate: evidence/python-outcomes-behaviour/
+  python-outcomes-real-chain:
+    kind: machine
+    owner: integration-tester
+    executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesChain$' -count=1 -json -timeout=30m"
+    source_path: tools/pythonprobes/outcomes_test.go
+    status: scoped-semantic-red-implementation-authorized-final-holder-pending
+    executable_status: superseded-awaiting-delivered-integration-route
+    planned_integration_tag: ci_integration
+    planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"
+    route_revalidation: routine/execution-route-20260917/record.json
+    scenarios: [CI-PY-09, CI-PY-10, CI-PY-11, CI-PY-12]
+    evidence_coordinate: evidence/python-outcomes-real-chain/
+  python-outcomes-callers:
+    kind: machine
+    owner: integration-tester
+    executable: "GOWORK=off go test ./tools/pythonprobes -run '^TestPythonOutcomesCallers$' -count=1 -json -timeout=15m"
+    source_path: tools/pythonprobes/outcomes_test.go
+    status: scoped-semantic-red-implementation-authorized-final-holder-pending
+    executable_status: superseded-awaiting-delivered-integration-route
+    planned_integration_tag: ci_integration
+    planned_family_command: "GOWORK=off go test -tags=ci_integration ./tools/pythonprobes -run '^TestPythonOutcomes' -count=1 -json -timeout=90m"
+    route_revalidation: routine/execution-route-20260917/record.json
+    scenarios: [CI-PY-13]
+    evidence_coordinate: evidence/python-outcomes-callers/
+  acceptance-review:
+    kind: human
+    owner: acceptance-reviewer
+    evidence_coordinate: reviews/acceptance-reviewer/
+  exposure-analysis:
+    kind: human
+    owner: class-exposure-analyst
+    evidence_coordinate: reviews/class-exposure-analyst/
+  design-review:
+    kind: human
+    owner: design-reviewer
+    evidence_coordinate: reviews/design-reviewer/
+  independent-verification:
+    kind: human
+    owner: integration-tester
+    evidence_coordinate: reviews/integration-tester/
+  convergence-review:
+    kind: human
+    owner: convergence-reviewer
+    evidence_coordinate: reviews/convergence-reviewer/
+  landing-review:
+    kind: human
+    owner: landing-reviewer
+    evidence_coordinate: reviews/landing-reviewer/

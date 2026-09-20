@@ -1,0 +1,37 @@
+# Independent CI-EBT operational diagnostics and counter readiness
+
+This is independent operational evidence and a finite proposed oracle table, not acceptance/design approval, a RED holder or source permission. Author diagnostic results are not reused as independent execution. Canonical DRAFT freeze/review remains pending. Root interrupted final canonical review for a bounded publisher branch-CAS probe; this completed package is preserved.
+
+Own source checkout tmp/area-ci-2672-independent, clean b5fa093341f1fdbe96adfc6a9555482690968253. Own unchanged public binary was built with actual Go 1.26.8. Source/holder edits: zero. Rebuilt binary and three source hashes are bound in binary-binding.json. Actual Git index and working-file snapshots are in snapshots.json; all counterpart restorations were byte-identical, with unchanged indices.
+
+40 diagnostic command records / 80 stdout-stderr hashes, plus two finite strace public executions / four stdout-stderr hashes and two syscall captures. Every subprocess completed; no SKIP. Binary output still has no proposed result protocol, which is not silently treated as a future verdict.
+
+CI-EBT-09: same exact PATH, same Git/files/index; only the symlink to real Go is removed, then restored. Git remains available. Lawful before/after PASS, missing Go public exit1 carries exec failure cause. Actual strace shows only pkg/caller_test.go opened and its complete142 bytes read, then no subsequent fixture-Go opens. Proposed partial go_files_read=1 is grounded in actual traversal, not len(index)=3.
+
+CI-EBT-10: two lawful packages PASS with files6/candidates4/packages2/vet6. Removing only first caller header gives real baseline PASS/tagged undefined failure and public FINDING with files6/candidates3/packages2/vet5. Changing only second definer return expression gives real second baseline compiler failure; public still reports first finding with packages2/vet3 and already-broken1 but discards missingBaselineSymbol. Restoring second package leaves first finding; restoring first returns lawful PASS. This proves preservation of the first finding and loss of the second incomplete cause on baseline. Composition of two independently observed mutations is explicit.
+
+CI-EBT-11: a single tracked ordinary Go file is removed from disk while index remains fixed. Lawful before/after PASS, missing file public exit1 carries exact path/ENOENT. Actual strace shows openat on thing.go returns ENOENT and zero successful fixture-Go reads. Proposed partial go_files_read=0 is grounded; existing early fatal does not emit partial census.
+
+Counter meanings jointly read back with root and architecture author before canonical freeze: go_files_read counts actual successful content reads, incremented before parse outcome. packages_checked counts unique packages whose baseline stage began. load_runs/vet_runs count processes actually started, excluding exec-start failure. not_executed counts missing required-check identities (phase,pkg,file,tag), baseline/global once, tagged per candidate. Existing tagged per-candidate scheduling remains; no memoization change.
+
+The following table is proposed future contract, not claimed current binary output. Columns R/C/P/L/V/F/N are go_files_read/candidate_files/packages_checked/load_runs/vet_runs/findings/not_executed.
+
+| Scenario | R | C | P | L | V | F | N |
+|---|---|---|---|---|---|---|---|
+| CI-EBT-01 | 3 | 2 | 1 | 3 | 3 | 0 | 0 |
+| CI-EBT-02 | 3 | 1 | 1 | 2 | 2 | 1 | 0 |
+| CI-EBT-03 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+| CI-EBT-04 | 1 | 0 | 0 | 0 | 0 | 0 | 0 |
+| CI-EBT-05 | 3 | 0 | 0 | 0 | 0 | 0 | 0 |
+| CI-EBT-06 | 3 | 2 | 1 | 1 | 1 | 0 | 1 |
+| CI-EBT-07 | 3 | 2 | 1 | 1 | 0 | 0 | 1 |
+| CI-EBT-08 | 4 | 2 | 1 | 3 | 1 | 0 | 2 |
+| CI-EBT-09 | 1 | 0 | 0 | 0 | 0 | 0 | 1 |
+| CI-EBT-10 | 6 | 3 | 2 | 3 | 3 | 1 | 1 |
+| CI-EBT-11 | 0 | 0 | 0 | 0 | 0 | 0 | 1 |
+
+Lawful twins: 03/11 → ordinary1-file CLEAN, all other counts0. 06/07/09 → 01. 08 available dependency →4/2/1/3/3/0/0. 10 restore baseline-only →6/3/2/5/5/1/0; restore both →6/4/2/6/6/0/0. Baseline-load failure is1/1/0/1 in P/L/V/N; tagged-load failure of two candidates is1/3/1/2.
+
+Finite future holder plan, after separate authority: compile unchanged public entrypoint binary, establish exact tracked fixtures and direct real Go lawful/negative compiler controls, capture same-root before/after snapshots and environment single deltas; call public selector only; parse exactly one strict closed result line and assert census/status plus semantic coordinates and preserved real causes. Distinguish real SUT semantic failures from missing tools/failed prerequisite construction. Cover all11 scenarios and existing4 injections, then unchanged real-tree public gate. Unknown-format/deadline controls remain separately proposed and unproved; no extra scenario or stubbed compiler has been introduced here.
+
+Read-only familiarity covers draft proposal87132b0, design5384949, matrix3e45f02, full existing gate/injection source, actual compiler/loader diagnostic forms. Full canonical package classes/matrix/authority review awaits its frozen subject; no verdict on that future subject is asserted.

@@ -1,0 +1,10 @@
+{
+  "rc": 1,
+  "seconds": 11.931972081016283,
+  "stdout_sha256": "435db8be500f1196f26fb57bc12cfc24bc891421517f0d81b0cf21bb60980b60",
+  "stderr_sha256": "5d52d09408df0bab95002abbedab6fa9b87cb879987bc3f013ecd02181150798",
+  "head_unchanged": true,
+  "holder_hashes_unchanged": true,
+  "git_status": "",
+  "finished_at": "2026-09-17T15:11:17.895879+00:00"
+}

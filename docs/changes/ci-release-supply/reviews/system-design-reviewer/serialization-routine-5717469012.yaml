@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "system-design-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMmnVA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5717469012",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMmnVA",
+  "event_api_id": 5717469012,
+  "body_sha256": "a1c187bff8b1008918902e9ae6f4e3496e58395c9a347dbfb7af4246199f3d7a",
+  "timestamp": "2026-09-17T16:04:46Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": null,
+  "subject_path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/producer-routine-addendum.txt",
+  "subject_sha256": "e5f820ed7bd229e9fff98e626e8a202be33db849ec6467d43f7074b3ef780505",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_ROUTINE_CONVENTION",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/event-body.txt",
+  "source_review_sha256": "a1c187bff8b1008918902e9ae6f4e3496e58395c9a347dbfb7af4246199f3d7a",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/event-body.txt",
+      "sha256": "a1c187bff8b1008918902e9ae6f4e3496e58395c9a347dbfb7af4246199f3d7a"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/published-event.json",
+      "sha256": "5178036d2398231d7d218267030462ad410185bef00366c180afce81db24eebb"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/api-readback.json",
+      "sha256": "5178036d2398231d7d218267030462ad410185bef00366c180afce81db24eebb"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/request.json",
+      "sha256": "518bbfa4070de3450506854aa37a1d2522821637ab672974bb6ef69b9b23ad2d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/review-binding-proposal.txt",
+      "sha256": "5871e593aa6c92d04e08f883d5fb9731b839f1cbbf11cb5723433f33b15f7bc1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/producer-routine-addendum.txt",
+      "sha256": "e5f820ed7bd229e9fff98e626e8a202be33db849ec6467d43f7074b3ef780505"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/producer-hash-vectors.json",
+      "sha256": "49df8d0543d2f26b627d99aa3c85110b1ab0b19f4af6da8859285be216c529f9"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/producer-root-review.json",
+      "sha256": "221c443b8a87623bbdd3583a1d440e017a074a56873847262946127a58337d8b"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/input-tree-routine-addendum.txt",
+      "sha256": "8710538ee6d9a2a474f7f77ddd6b8f760fcf81a0583117288023d4b54237389d"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/input-tree-vectors.json",
+      "sha256": "9089de8ee6cf0317abb36229a3971891c290a166e83abc7af62c256a1f3e3d7a"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/serialization-routine-5717469012/input-tree-root-review.json",
+      "sha256": "ae47151657188fc0863e9c0ea28390923db1716ea4c2bfb5c53000f7404af76d"
+    }
+  ],
+  "scope": [
+    "Producer review R и execution E — отдельные subjects/authority events; exact input_files serialization. Синтетические vectors не дают live D8 authority."
+  ],
+  "pending": [
+    "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

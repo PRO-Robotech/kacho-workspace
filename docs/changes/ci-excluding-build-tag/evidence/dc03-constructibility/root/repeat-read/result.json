@@ -1,0 +1,302 @@
+{
+  "kind": "author-operational-prerequisite-not-independent-approval",
+  "fixture_root": "/var/tmp/area-ci-2672-dc03-93hyv4lt",
+  "argv": [
+    "/home/dk/.local/bin/go",
+    "list",
+    "-e",
+    "-json",
+    "-deps",
+    "-test",
+    "./..."
+  ],
+  "env_delta": {
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "runs": [
+    {
+      "name": "regular-baseline",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "cwd": "/var/tmp/area-ci-2672-dc03-93hyv4lt",
+      "deadline_seconds": 3.0,
+      "pid": 292194,
+      "returncode": 0,
+      "elapsed_seconds": 0.20124487997964025,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": false,
+        "writes": [],
+        "errors": []
+      },
+      "early_snapshot": {
+        "pid": 292194,
+        "exists": true,
+        "stat": "292194 (go) Z 292188 292194 292194 0 -1 4228108 894 619 0 0 0 0 0 0 20 0 1 0 44418166 0 0 18446744073709551615 0 0 0 0 0 0 0 0 2143420159 1 0 0 17 11 0 0 0 0 0 0 0 0 0 0 0 0 0",
+        "wchan": "0",
+        "syscall_errno": 13,
+        "cmdline": [],
+        "exe": "/proc/292194/exe",
+        "pgid": 292194,
+        "children": [],
+        "fds": {}
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 33204
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    },
+    {
+      "name": "fifo-repeat-writer",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "cwd": "/var/tmp/area-ci-2672-dc03-93hyv4lt",
+      "deadline_seconds": 3.0,
+      "pid": 292208,
+      "returncode": 0,
+      "elapsed_seconds": 0.20134277502074838,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": true,
+        "writes": [
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.0052813360234722495
+          },
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.007480486994609237
+          }
+        ],
+        "errors": [],
+        "closed_after_each_write": true
+      },
+      "early_snapshot": {
+        "pid": 292208,
+        "exists": false
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    },
+    {
+      "name": "fifo-no-writer",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "cwd": "/var/tmp/area-ci-2672-dc03-93hyv4lt",
+      "deadline_seconds": 3.0,
+      "pid": 292221,
+      "returncode": -9,
+      "elapsed_seconds": 3.0043599130003713,
+      "deadline_expired": true,
+      "writer": {
+        "enabled": false,
+        "writes": [],
+        "errors": []
+      },
+      "early_snapshot": {
+        "pid": 292221,
+        "exists": true,
+        "stat": "292221 (go) S 292188 292221 292221 0 -1 4194304 630 0 0 0 0 0 0 0 20 0 5 0 44418207 1302544384 2657 18446744073709551615 4194304 11132593 140722823838640 0 0 0 0 0 2143420159 0 0 0 17 31 0 0 0 0 0 17973248 18407616 509579264 140722823843270 140722823843325 140722823843325 140722823847905 0",
+        "wchan": "wait_for_partner",
+        "syscall": "257 0xffffffffffffff9c 0x3f229a566ed0 0x80000 0x0 0x0 0x0 0x3f229a691e30 0x40d00e",
+        "cmdline": [
+          "/home/dk/.local/bin/go",
+          "list",
+          "-e",
+          "-json",
+          "-deps",
+          "-test",
+          "./..."
+        ],
+        "exe": "/home/dk/.local/opt/go1.26.8/bin/go",
+        "pgid": 292221,
+        "children": [],
+        "fds": {
+          "0": "pipe:[128616144]",
+          "1": "pipe:[128636979]",
+          "2": "pipe:[128636980]",
+          "3": "/home/dk/.config/go/telemetry/local/go@go1.26.8-go1.26.8-linux-amd64-2026-09-17.v1.count",
+          "4": "anon_inode:[eventpoll]",
+          "5": "anon_inode:[eventfd]"
+        }
+      },
+      "cancellation": {
+        "signal": "SIGKILL",
+        "own_pgid": 292221,
+        "before_cancel": {
+          "pid": 292221,
+          "exists": true,
+          "stat": "292221 (go) S 292188 292221 292221 0 -1 4194304 630 0 0 0 0 0 0 0 20 0 5 0 44418207 1302544384 2657 18446744073709551615 4194304 11132593 140722823838640 0 0 0 0 0 2143420159 0 0 0 17 31 0 0 0 0 0 17973248 18407616 509579264 140722823843270 140722823843325 140722823843325 140722823847905 0",
+          "wchan": "wait_for_partner",
+          "syscall": "257 0xffffffffffffff9c 0x3f229a566ed0 0x80000 0x0 0x0 0x0 0x3f229a691e30 0x40d00e",
+          "cmdline": [
+            "/home/dk/.local/bin/go",
+            "list",
+            "-e",
+            "-json",
+            "-deps",
+            "-test",
+            "./..."
+          ],
+          "exe": "/home/dk/.local/opt/go1.26.8/bin/go",
+          "pgid": 292221,
+          "children": [],
+          "fds": {
+            "0": "pipe:[128616144]",
+            "1": "pipe:[128636979]",
+            "2": "pipe:[128636980]",
+            "3": "/home/dk/.config/go/telemetry/local/go@go1.26.8-go1.26.8-linux-amd64-2026-09-17.v1.count",
+            "4": "anon_inode:[eventpoll]",
+            "5": "anon_inode:[eventfd]"
+          }
+        },
+        "cancel_seconds": 3.0033724830136634,
+        "reaped_after_seconds": 0.0008189220097847283
+      },
+      "reaped": true,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 0,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 0,
+        "problem_objects": 0,
+        "import_paths": []
+      }
+    },
+    {
+      "name": "fifo-repeat-writer-restored",
+      "argv": [
+        "/home/dk/.local/bin/go",
+        "list",
+        "-e",
+        "-json",
+        "-deps",
+        "-test",
+        "./..."
+      ],
+      "cwd": "/var/tmp/area-ci-2672-dc03-93hyv4lt",
+      "deadline_seconds": 3.0,
+      "pid": 292253,
+      "returncode": 0,
+      "elapsed_seconds": 0.2011398629983887,
+      "deadline_expired": false,
+      "writer": {
+        "enabled": true,
+        "writes": [
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.005216083023697138
+          },
+          {
+            "bytes": 46,
+            "sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+            "seconds": 0.007393684005364776
+          }
+        ],
+        "errors": [],
+        "closed_after_each_write": true
+      },
+      "early_snapshot": {
+        "pid": 292253,
+        "exists": false
+      },
+      "cancellation": null,
+      "reaped": true,
+      "stdout_sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 479,
+      "stderr_bytes": 0,
+      "fifo_stat": {
+        "inode": 67568608,
+        "mode": 4480
+      },
+      "parsed": {
+        "json_objects": 1,
+        "problem_objects": 0,
+        "import_paths": [
+          "example.invalid/dc03fixture"
+        ]
+      }
+    }
+  ],
+  "provenance": {
+    "go_path": "/home/dk/.local/bin/go",
+    "resolved_path": "/home/dk/.local/opt/go1.26.8/bin/go",
+    "binary_sha256": "d9a2fa19c7ef8b57f420012c21f49f235c46f08a68c12077d9c753dbb6ccdc34",
+    "version": "go version go1.26.8 linux/amd64",
+    "go_mod_bytes": 46,
+    "go_mod_sha256": "b165b969b2d1bdd7a2883c4349eb4ffd398bd682a38893e210432192ad7d0d90",
+    "source_sha256": "458cf65508504f3ea616c36cc572d0d08536178425505d179149585ab55c008a"
+  },
+  "prerequisite_proved": true,
+  "cleanup": {
+    "owned_pids": [
+      292194,
+      292208,
+      292221,
+      292253
+    ],
+    "all_owned_pids_absent": true,
+    "fixture_root_absent": true
+  }
+}

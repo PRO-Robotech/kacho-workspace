@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-excluding-build-tag",
+  "status": "DESIGN_APPROVED_TASKS_HANDOFF_PENDING_ROOT_REVIEW",
+  "required_holders": {
+    "excluding-build-tag-outcomes": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "proposed-not-authorized-not-implemented",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "source_path": "internal/repohygiene/excludingbuildtag_outcomes_test.go",
+      "proposed_parent": "TestExcludingBuildTagOutcomes",
+      "executable": null,
+      "planned_executable": "GOWORK=off go test ./internal/repohygiene/ -run '^TestExcludingBuildTagOutcomes$' -count=1 -json -timeout=10m",
+      "scenarios": [
+        "CI-EBT-01",
+        "CI-EBT-02",
+        "CI-EBT-03",
+        "CI-EBT-04",
+        "CI-EBT-05",
+        "CI-EBT-06",
+        "CI-EBT-07",
+        "CI-EBT-08",
+        "CI-EBT-09",
+        "CI-EBT-10",
+        "CI-EBT-11"
+      ],
+      "evidence_coordinate": "evidence/independent-outcomes/"
+    },
+    "existing-four-and-public-tree": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "status": "existing-diagnostic-pass-not-future-green",
+      "cwd_repo": "PRO-Robotech/kacho",
+      "executable": "GOWORK=off go test ./internal/repohygiene/ -run '^TestExcludingBuildTag(Gate|LeavesThePackageBuildable)' -count=1 -json -timeout=10m",
+      "source_paths": [
+        "internal/repohygiene/excludingbuildtag_test.go",
+        "internal/repohygiene/excludingbuildtag_injection_test.go"
+      ],
+      "scenarios": [
+        "CI-EBT-01",
+        "CI-EBT-02",
+        "CI-EBT-03",
+        "CI-EBT-04",
+        "CI-EBT-05",
+        "CI-EBT-06",
+        "CI-EBT-07",
+        "CI-EBT-08",
+        "CI-EBT-09",
+        "CI-EBT-10",
+        "CI-EBT-11"
+      ],
+      "evidence_coordinate": "evidence/independent-regression/"
+    },
+    "acceptance-review": {
+      "kind": "human",
+      "owner": "acceptance-reviewer",
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/acceptance-reviewer/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888294",
+      "subject_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+      "verdict": "APPROVED"
+    },
+    "class-initial": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/class-exposure-analyst/initial/5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888868",
+      "subject_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+      "verdict": "RECORDED"
+    },
+    "class-revalidation": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/class-exposure-analyst/revalidation/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256456",
+      "subject_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+      "verdict": "RECORDED"
+    },
+    "design-review": {
+      "kind": "human",
+      "owner": "design-reviewer",
+      "status": "external-event-verified",
+      "evidence_coordinate": "reviews/design-reviewer/884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429.yaml",
+      "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5719256839",
+      "subject_sha256": "884130123e104a474f58ea0bbba694fd36a62ef65811d7e32e2cce775a1ae429",
+      "verdict": "APPROVED"
+    },
+    "independent-green": {
+      "kind": "human",
+      "owner": "integration-tester",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/independent-green/"
+    },
+    "convergence-review": {
+      "kind": "human",
+      "owner": "convergence-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/convergence-review/"
+    },
+    "landing-review": {
+      "kind": "human",
+      "owner": "landing-reviewer",
+      "status": "proposed-no-external-event",
+      "evidence_coordinate": "reviews/landing-review/"
+    }
+  },
+  "diagnostic_controls": {
+    "proposal": "diagnostic-controls-revision2.md",
+    "ids": [
+      "DC-01",
+      "DC-02",
+      "DC-03"
+    ],
+    "status": "design-approved-holder-not-authorized",
+    "unknown_format_and_deadline_coverage_claimed": false
+  }
+}

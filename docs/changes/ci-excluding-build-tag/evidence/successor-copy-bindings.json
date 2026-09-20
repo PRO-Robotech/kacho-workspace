@@ -1,0 +1,264 @@
+{
+  "kind": "exact-safe-evidence-copies",
+  "copies": [
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/review.md",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/review.txt",
+      "sha256": "94dcc0a44cd10471356114133005664d2b1d4230ff19ca760f9273f46ee04791",
+      "bytes": 2982
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/published-summary.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/published-summary.json",
+      "sha256": "c9dca00b275958abebef4ba951e0ee822b4e899b170df98499633e5b5be3e71b",
+      "bytes": 474
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/01-acceptance-request.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/01-acceptance/request.json",
+      "sha256": "0961cae67e4e9a02003fce5630dcc48bc55ec27be55f5b1ec5025b9bae2d0d35",
+      "bytes": 1109
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/01-acceptance-published.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/01-acceptance/published.json",
+      "sha256": "7776c4d3d7c2b8523d16d4c53ec2c4209b35f785b24d167c504d6459c76108a5",
+      "bytes": 2734
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/01-acceptance-readback.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/01-acceptance/readback.json",
+      "sha256": "7776c4d3d7c2b8523d16d4c53ec2c4209b35f785b24d167c504d6459c76108a5",
+      "bytes": 2734
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/01-acceptance.md",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/01-acceptance/event-body.txt",
+      "sha256": "79f073262539625b083bbe6a8b8d869ca66f78e6837314088969f06ca4b98e87",
+      "bytes": 1091
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/02-class-initial-request.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/02-class-initial/request.json",
+      "sha256": "1535086e94121091c7aeb9a93c5dcfeb99d0ae0462d0bc439dd4b5c21d7a2ca5",
+      "bytes": 1128
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/02-class-initial-published.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/02-class-initial/published.json",
+      "sha256": "07ac354d3144a4f61ab2cc6bf1686e3ee32e9f783e6abf38c60e84877f925554",
+      "bytes": 2753
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/02-class-initial-readback.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/02-class-initial/readback.json",
+      "sha256": "07ac354d3144a4f61ab2cc6bf1686e3ee32e9f783e6abf38c60e84877f925554",
+      "bytes": 2753
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-root-contract-review/02-class-initial.md",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/02-class-initial/event-body.txt",
+      "sha256": "e2089b08cf1b49019df0d457818c0b9c901c889fb9b213862cbdb90530008b00",
+      "bytes": 1110
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-author/addendum.md",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/author/addendum.txt",
+      "sha256": "9465cb70877b24eeab4a0dfc049ad63b325d1282d510b993b88e3131739c43f3",
+      "bytes": 7255
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-author/summary.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/author/summary.json",
+      "sha256": "8eb9cba23395f9d201493f02bd98079e84337f81d20c9cb7696eef4d39942c65",
+      "bytes": 2832
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-author/MANIFEST.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/author/MANIFEST.json",
+      "sha256": "c91bb8a2ade3d9ceac9e0678a32ecde86c2b604cfeb3dddc408bb404a7386211",
+      "bytes": 10041
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/root-review.md",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/root-review.txt",
+      "sha256": "85a1899eff9f36cdbbfdf95a996452e9dd37b39ab31ffcedd5e5d3d3b07ab160",
+      "bytes": 1905
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/root-summary.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/root-summary.json",
+      "sha256": "d7e37521782ff76b1f849bb2e628ca2a8aa43c0cd028cca24244b33154eafbee",
+      "bytes": 2105
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/trace-checks.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/trace-checks.json",
+      "sha256": "5f94a64785d2b73a6fb96edc0914ded69de72eb7c126a327dd7bbbd37cc36298",
+      "bytes": 646
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/execution.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/execution.json",
+      "sha256": "1d2b3abc18f90780e33e664c16c63edd214eee5b5f6c66d0ba267d524ec45d40",
+      "bytes": 715
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/probe-repeat.py.stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/probe-repeat.py.stdout",
+      "sha256": "11cfc7c8b2f811da66771bb9aa09f59208cce22458cb440317e0491691b19a1f",
+      "bytes": 1387
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/probe-repeat.py.stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/probe-repeat.py.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/probe-traced.py.stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/probe-traced.py.stdout",
+      "sha256": "8423fdf68f2e81f1b84c6839fe872ca50095214baf3df787710ac0bdbd7cbd88",
+      "bytes": 1443
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/probe-traced.py.stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/probe-traced.py.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/result.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/result.json",
+      "sha256": "b9a4e8a12974b91eebe2a7e352a560f5f41a8879c37f4388b350f4fc08add92b",
+      "bytes": 9031
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/result.json",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/result.json",
+      "sha256": "3f4adf5f89a3a72b2cdc3e68b7f40cccc88d0eb3da829aebb749a87469310459",
+      "bytes": 11456
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-no-writer/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-no-writer/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-no-writer/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-no-writer/stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-repeat-writer/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-repeat-writer/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-repeat-writer/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-repeat-writer/stdout",
+      "sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "bytes": 479
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-repeat-writer-restored/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-repeat-writer-restored/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/fifo-repeat-writer-restored/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/fifo-repeat-writer-restored/stdout",
+      "sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "bytes": 479
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/regular-baseline/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/regular-baseline/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/repeat-read/regular-baseline/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/repeat-read/regular-baseline/stdout",
+      "sha256": "7864c35e7c827211fc60223f082d44df1027cfd1d4ea75b32a1c9145a5080ee4",
+      "bytes": 479
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-no-writer/go-mod.strace",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-no-writer/go-mod.strace",
+      "sha256": "e797ad4b6c96a825bcd94bee8ff64c80bb9accb803c212ee6860cc49d936dfc8",
+      "bytes": 296
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-no-writer/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-no-writer/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-no-writer/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-no-writer/stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer/go-mod.strace",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer/go-mod.strace",
+      "sha256": "6449f2ee6646ef5b8b590f8ddf1f5035a14c2c408ca3c1defe6ee5baa0045397",
+      "bytes": 1079
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer/stdout",
+      "sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "bytes": 479
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer-restored/go-mod.strace",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer-restored/go-mod.strace",
+      "sha256": "8a30e7e3044eec1a981e2745a356869db0872ce51d1bfe25d8e5cdc8643c2fe4",
+      "bytes": 993
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer-restored/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer-restored/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/fifo-repeat-writer-restored/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/fifo-repeat-writer-restored/stdout",
+      "sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "bytes": 479
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/regular-baseline/go-mod.strace",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/regular-baseline/go-mod.strace",
+      "sha256": "c59bd3ed576c05cc44d9f30cdd3c3240e3f350ee005271b4cd9ee63c86c0c6bf",
+      "bytes": 993
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/regular-baseline/stderr",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/regular-baseline/stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "source": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-dc03-root/traced-repeat-read/regular-baseline/stdout",
+      "destination": "docs/changes/ci-excluding-build-tag/evidence/dc03-constructibility/root/traced-repeat-read/regular-baseline/stdout",
+      "sha256": "208e58f2afe61e09f83e85abcf64f16cfe07d7c62e4a78f581252ec6f26779ab",
+      "bytes": 479
+    }
+  ],
+  "author_full_manifest_scope": "Полные 60 исходных записей author manifest остаются во внешнем AUD; канон копирует addendum/summary/manifest. Root safe captures скопированы по точному списку."
+}

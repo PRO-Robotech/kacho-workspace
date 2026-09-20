@@ -1,0 +1,46 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/actual-final-yaml-results.json",
+      "sha256": "6e765353c122c1b2cf88c24bf6153546a37076cdffba621cd4310d6134b080b2"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/api-readback.json",
+      "sha256": "f3738f6461da0081e57faf13ea7d2a91290ee65d96934869ef77c2a9e50d8b36"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/event-body.txt",
+      "sha256": "a74731e4622d9e0688fd6a3ddad9a4590e8bb1e7169e54476aa60c44d0a2c1f6"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/events.jsonl",
+      "sha256": "ab9ad98bc9edcaccca0f5bf8675ccd327c6285927e02bd4da86967ba88496436"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/published-event.json",
+      "sha256": "f3738f6461da0081e57faf13ea7d2a91290ee65d96934869ef77c2a9e50d8b36"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/result.json",
+      "sha256": "33bc7b65357dbe5d3db0bf84400840e6843209d26c5d942d33a28ebff14dde98"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/review.json",
+      "sha256": "b857ecf5a9ef993be9bed869f92c2a07941b17bebbde2a7db6a6c42ee80cc66b"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/start.json",
+      "sha256": "fdfc930fb69f7b0f37e88e674c6058e40e4bbf985dd79cf9312251fc0b9ddc31"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/stderr.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-python-outcomes/evidence/full-candidate-green-5716467064/stdout.log",
+      "sha256": "69049e1b775c14118cf32783eb5e3670a958223306ef84817a862c4995703b50"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

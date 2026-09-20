@@ -1,0 +1,11 @@
+=== RUN   TestExcludingBuildTagLeavesThePackageBuildable
+=== PAUSE TestExcludingBuildTagLeavesThePackageBuildable
+=== CONT  TestExcludingBuildTagLeavesThePackageBuildable
+    excludingbuildtag_test.go:381: перепись: файлов .go прочитано 4 · с признаком сборки 3 · из них в обычной сборке 2 · исключаемых 2 · исключающих тегов 1 (synthexclude) · отброшено как признаки платформы 0 () · пакетов проверено 1 · из них не собирались и без тега 0 · вызовов сборки 3
+    excludingbuildtag_test.go:388: pkg не собирается под -tags=synthexclude, а этот тег выводит из сборки pkg/caller_test.go (его признак: `//go:build …`, исключающий тег "synthexclude"):
+        pkg/tagged.go:4:8: syntheticdep@v0.0.0: replacement directory ../tagged-dependency-missing-dependency does not exist
+    excludingbuildtag_test.go:388: pkg не собирается под -tags=synthexclude, а этот тег выводит из сборки pkg/definer_test.go (его признак: `//go:build …`, исключающий тег "synthexclude"):
+        pkg/tagged.go:4:8: syntheticdep@v0.0.0: replacement directory ../tagged-dependency-missing-dependency does not exist
+    excludingbuildtag_test.go:391: исключающий признак сборки оставляет пакет несобираемым: находок 2. Исходов три: снять признак (файл и так в каждой сборке) · перенести символ в файл без признака · вывести из сборки ВСЕХ его пользователей тем же признаком. Маркер отложенной работы исходом не является
+--- FAIL: TestExcludingBuildTagLeavesThePackageBuildable (0.07s)
+FAIL

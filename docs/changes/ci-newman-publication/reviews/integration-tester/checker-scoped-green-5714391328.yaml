@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "integration-tester",
+  "subject_repo": "PRO-Robotech/corelib",
+  "subject_commit": "4d37cfb6ef62d31c09cd65daadf09bdef671d3a5",
+  "subject_path": "ci/newman_publication/",
+  "subject_sha256": "673f99b5904ba92b6e33758eff358eb704c273560d3c4e82f9405f9c5467b053",
+  "subject_hash_kind": "worker-manifest",
+  "test_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+  "verdict": "SCOPED_GREEN_APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJqxIA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714391328",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJqxIA",
+  "event_api_id": 5714391328,
+  "body_sha256": "dc9b824239fe19de2bc9288aeded15c298c8a29a0bb3731b1dec3162866660f0",
+  "timestamp": "2026-09-17T12:31:27Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "7a31ad03a544a75d59638f9c9db6dc82859981b8027ab1a8dbdc4111ed23b2ba",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/api-readback.json",
+      "sha256": "fc17c30352450d5e351f2181d6c1ebb25a209bbe164050ff7f894fe8afadbd61"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/deflate-tail-result.json",
+      "sha256": "275f8ebe357f46bc911ebbde9176da6b85e1d5b1a958e0ddedff7d507011b903"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/event-body.md",
+      "sha256": "dc9b824239fe19de2bc9288aeded15c298c8a29a0bb3731b1dec3162866660f0"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/execution.json",
+      "sha256": "1a928b3f7a56bebc165d0302c561bb0232098db28884ce561891e138a6db20a2"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/new-lawful.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/new-lawful.stdout",
+      "sha256": "b697bb9414674883b90ac2efe145e7a515b5198b07718068b39c8e0ca7ffc916"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/new-tail.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/new-tail.stdout",
+      "sha256": "9deb20409988602565575d58ac99e4520be23425738d266f9b5b098bc21d6df9"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/old-lawful.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/old-lawful.stdout",
+      "sha256": "b697bb9414674883b90ac2efe145e7a515b5198b07718068b39c8e0ca7ffc916"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/old-tail.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/old-tail.stdout",
+      "sha256": "a2704995686bd9025c08e571e31c93398411a201d70397b9fcdd22e8ac4c07ac"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/published-event.json",
+      "sha256": "281ae67ebe16296bff61174e7b70b4dab77b1808782b59126488a6ed92ab8d39"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/review.md",
+      "sha256": "7a31ad03a544a75d59638f9c9db6dc82859981b8027ab1a8dbdc4111ed23b2ba"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/stderr",
+      "sha256": "b7388830276ecc54930266d9e62182e211d44b1f3d2a6d3b50e9a94e37105422"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "scope": [
+    "Python projection и полный final ZIP envelope",
+    "Полное неперекрывающееся покрытие байтов",
+    "Local/central metadata agreement и regular members",
+    "Сохранение прежних читателей и source binding"
+  ],
+  "result": {
+    "canonical_tests": 18,
+    "passed": 18,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "negative_zip_variants": 24,
+    "correct_refusals": 24,
+    "unsafe_clean": 0,
+    "checker_positive_cli_calls": 24,
+    "subprocess_captures_verified": 278
+  },
+  "additional_experiment": {
+    "coordinate": "docs/changes/ci-newman-publication/evidence/checker-scoped-green-5714391328/deflate-tail-result.json",
+    "canonical_holder": false,
+    "equal_extracted_members": true,
+    "old_tail_rc": 0,
+    "new_tail_rc": 3,
+    "both_lawful_rc": 0
+  },
+  "pending": [
+    "scanner/capacity matrix",
+    "SDK/consumer workflows and pins",
+    "runtime/retention/convergence",
+    "main delivery and closure"
+  ]
+}

@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVNoeIA",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718548000",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVNoeIA",
+  "event_api_id": 5718548000,
+  "body_sha256": "243222f3b4389a1bc2f20728f1f8b29ea784d738a2c7cd7f1e84fad831b6e2cf",
+  "timestamp": "2026-09-17T17:26:22Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "75ea46f4c30a945ee1cbd5e7db2b0b735c5839f4",
+  "subject_path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/root-review.json",
+  "subject_sha256": "4b194ee643f73276744a8bd0574c542e4c1f5c1ed9bf378eee3211b1b014cc33",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/root-review.json",
+  "source_review_sha256": "4b194ee643f73276744a8bd0574c542e4c1f5c1ed9bf378eee3211b1b014cc33",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/event-body.txt",
+      "sha256": "243222f3b4389a1bc2f20728f1f8b29ea784d738a2c7cd7f1e84fad831b6e2cf"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/request.json",
+      "sha256": "d3ccad356c4a8e09cbb547b2fde26cced182b90fdf09efb98046f8b2e4e37b07"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/published-event.json",
+      "sha256": "d44594eef59728867b21ca03019acc957badcd11a99ee7d1631799f40dd521df"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/api-readback.json",
+      "sha256": "d44594eef59728867b21ca03019acc957badcd11a99ee7d1631799f40dd521df"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/root-review.json",
+      "sha256": "4b194ee643f73276744a8bd0574c542e4c1f5c1ed9bf378eee3211b1b014cc33"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/candidate-root-review.json",
+      "sha256": "0e14baca23a7cae933023ef41d8d992d96e1ece039803b3912e00d39ec850a39"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/publisher-source-5718548000/source-scope-plan.md",
+      "sha256": "2caecc0f45d2b8e15e7c3eec0c0ea206d3279deaca6a144308d7919bbeae3ceb"
+    }
+  ],
+  "scope": [
+    "Candidate: независимые 120/120 PASS. Publisher: 50 подготовленных CAPABILITY_ABSENT, 0 вызовов SUT. Разрешены ровно 9 source paths; CLI/P9 и live authority исключены."
+  ],
+  "pending": [
+    "Полный D4/T5, финальный caller/CLI/P9 и deleted-head integration, отдельная D8 execution authority, live release/consumer/main/closure не выводятся из этого scoped события."
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

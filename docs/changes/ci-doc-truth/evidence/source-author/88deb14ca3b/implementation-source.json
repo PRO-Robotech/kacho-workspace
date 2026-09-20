@@ -1,0 +1,13 @@
+{
+  "source_commit": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "test_base": "e58e6f581e858df6a9ffd3c25d93cbfcc1800128",
+  "product_base": "b5fa093341f1fdbe96adfc6a9555482690968253",
+  "files": {
+    "internal/repohygiene/grpcmountparity_test.go": "3b990a777fd953c58115bb72d0627120f78287d1c7eba2c1d78a950d4aac0468",
+    "internal/repohygiene/catalogreachability_test.go": "a455d9be877f2f895b14a80d86c3a0a724faa819aa5b78cc56e969f74f9b5dad",
+    "internal/repohygiene/subscriptionformshape.go": "c1d70c5445cca31445257e09361ccbf7fe1bd4e3b976f78bc402ca089def1d92",
+    "internal/repohygiene/subscriptionformshape_injection_test.go": "8d7f0e260df4f9baf198223915df0e70f9dc0fc037003e727a87d93d24647ca4",
+    "proto/corelib/subscription/subscription.proto": "5af9a7bb1eef12a6c2fb2018d3a5eb2521a8c3b9423168fe1ddb0ba9c3f99b40"
+  },
+  "holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35"
+}

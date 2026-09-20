@@ -1,0 +1,33 @@
+{
+  "kind": "routine names agreement before dependent test-only holder",
+  "accepted_acceptance_sha256": "2c30dc5fb1ba6fb985b8e63918c5c4bd58a115d06bf31e35006acf737531e400",
+  "accepted_design_sha256": "d60f34f6a2458e011f46cbe460310ed0e5071ee0635ae0fb188a70c387bc9181",
+  "accepted_interface_sha256": "44035f95b5b85f330e3e06b75ab88922286fe9a3e4e14010ed1fef7587735800",
+  "agreed_by": [
+    "/root/release_supply_arch as independent upload tester",
+    "/root/e2e_audit as source worker",
+    "/root as orchestrator"
+  ],
+  "inputs": [
+    "archive-path",
+    "manifest-path",
+    "run-id",
+    "run-attempt",
+    "shard-index",
+    "max-archive-bytes",
+    "checker-timeout-ms"
+  ],
+  "mapping": "GitHub JavaScript action INPUT_<UPPERCASE NAME> environment mapping; hyphens remain hyphens in name. Paths are private input coordinates. Run numbers validated as complete integer strings and subject to accepted ranges. Optional budgets default to accepted ceilings, integer >=1 and lower-only.",
+  "entrypoint": "ci/newman_publication/action/main.mjs",
+  "runtime": "runs.using: node24",
+  "output": "Exactly one closed publishSnapshot result JSON on stdout; no source values or private diagnostics on stdout/stderr.",
+  "exit_codes": {
+    "PUBLISHED": 0,
+    "FINDING": 1,
+    "NOT_EXECUTED": 3
+  },
+  "fixed_producers": "Canonical Python check through stdin bytes; pinned @actions/artifact@6.2.1 SDK transport. No workflow/env command, checker or transport override seam.",
+  "unchanged": "Semantics, source authority, algorithms, budget ceilings, timeout abort/child termination, credential isolation and independent receiving/SDK obligations remain those of accepted subjects.",
+  "authorization": "Names for NP-T1 test-only work only. Product action implementation still requires independently demonstrated scoped RED and separate root transition.",
+  "checked_at": "2026-09-17T14:01:01.233070+00:00"
+}

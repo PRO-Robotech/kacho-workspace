@@ -1,0 +1,62 @@
+{
+  "records": [
+    {
+      "label": "09-missing-go-traversal",
+      "argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-s",
+        "4096",
+        "-e",
+        "trace=openat,read,execve",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/captures/09-missing-go-traversal/syscalls",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/missing-tool",
+      "exit_code": 1,
+      "seconds": 0.05149515497032553,
+      "PATH": "/var/tmp/area-ci-2672-independent/private-bin",
+      "stdout_sha256": "bd637ed63f2ee3e9201ffb423ee5e6f9d85d2bc69ed43a6a50dec44d0decd5d7",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "syscalls_sha256": "6648996dca11edc8a42de3935c1e27a7485d4a5a551fa2ac2bea6d507a885213",
+      "fixture_go_open_calls": [
+        "151669 openat(AT_FDCWD, \"/var/tmp/area-ci-2672-independent/missing-tool/pkg/caller_test.go\", O_RDONLY|O_CLOEXEC) = 3"
+      ]
+    },
+    {
+      "label": "11-missing-file-traversal",
+      "argv": [
+        "/usr/bin/strace",
+        "-f",
+        "-qq",
+        "-s",
+        "4096",
+        "-e",
+        "trace=openat,read,execve",
+        "-o",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/captures/11-missing-file-traversal/syscalls",
+        "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/issue-2672-independent-review/repohygiene.test",
+        "-test.run=^TestExcludingBuildTagLeavesThePackageBuildable$",
+        "-test.count=1",
+        "-test.v",
+        "-test.timeout=150s"
+      ],
+      "cwd": "/var/tmp/area-ci-2672-independent/unreadable",
+      "exit_code": 1,
+      "seconds": 0.044613604026380926,
+      "PATH": "/home/dk/.local/bin:/home/dk/bin:/home/dk/.codex/tmp/arg0/codex-arg04QzNfz:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/override:/home/dk/.local/bin:/home/dk/.local/opt/node/bin:/home/dk/.local/bin:/home/dk/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/home/dk/.cache/codex-runtimes/codex-primary-runtime/dependencies/bin/fallback:/usr/lib/chatgpt/resources",
+      "stdout_sha256": "dc3b47f43033cb785b38857da6693bbb79219347dc847d30ad16bab630eba30e",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "syscalls_sha256": "e8b6b035174e61a4c59b86f19db6576fa3a44ac58ec4e40f94cbf7530e62a915",
+      "fixture_go_open_calls": [
+        "151699 openat(AT_FDCWD, \"/var/tmp/area-ci-2672-independent/unreadable/thing.go\", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)"
+      ]
+    }
+  ]
+}

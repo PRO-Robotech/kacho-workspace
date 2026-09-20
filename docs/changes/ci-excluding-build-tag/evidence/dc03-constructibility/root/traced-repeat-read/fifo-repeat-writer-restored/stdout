@@ -1,0 +1,21 @@
+{
+	"Dir": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+	"ImportPath": "example.invalid/dc03fixture",
+	"Name": "fixture",
+	"Root": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+	"Module": {
+		"Path": "example.invalid/dc03fixture",
+		"Main": true,
+		"Dir": "/var/tmp/area-ci-2672-dc03-qc430zq6",
+		"GoMod": "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod",
+		"GoVersion": "1.26.0"
+	},
+	"Match": [
+		"./..."
+	],
+	"Stale": true,
+	"StaleReason": "build ID mismatch",
+	"GoFiles": [
+		"fixture.go"
+	]
+}

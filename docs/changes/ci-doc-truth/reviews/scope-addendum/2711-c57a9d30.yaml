@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "kind": "bounded_scope_source_transition",
+  "change_id": "ci-doc-truth",
+  "issue": "https://github.com/PRO-Robotech/kacho/issues/2711",
+  "archive_writer": "/root/docs_truth",
+  "source_reviewer": "/root",
+  "verdict": "ACCEPTED_FOR_EXACT_SOURCE_CHANGE",
+  "subject_path": "docs/changes/ci-doc-truth/addenda/issue-2711-scope.md",
+  "subject_sha256": "c57a9d30e9ce1876297f40e0b589ec2d01a551a9913064c81fc73cfcd1d49100",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVKFVWQ",
+  "event_api_id": 5714826585,
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2711#issuecomment-5714826585",
+  "event_author": "pointpu",
+  "timestamp": "2026-09-17T13:05:11Z",
+  "body_sha256": "46053c141c406767484645f576f69663d7aa8f444cbf6a583bb591ae99f37c4d",
+  "publication_status": "VERIFIED",
+  "review_path": "docs/changes/ci-doc-truth/evidence/addendum-2711/root-transition/review.md",
+  "review_sha256": "22e5c04b1aa36e9c218d4a01c3ff9c76e34677850842c090e7ec7a15ce9f0242",
+  "base_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "only_path": "internal/repohygiene/subscriptionformshape_test.go",
+  "only_change": "delete exactly two literal stale comment lines; all remaining bytes equal",
+  "expected_file_sha256": "ca976ed9e0be54f6273182d6f58de64e2d8fa8c176c27cefd893b104434e6e41",
+  "scenarios": [
+    "CI-DT-A1-01",
+    "CI-DT-A1-02",
+    "CI-DT-A1-03"
+  ],
+  "candidate_green_asserted": false
+}

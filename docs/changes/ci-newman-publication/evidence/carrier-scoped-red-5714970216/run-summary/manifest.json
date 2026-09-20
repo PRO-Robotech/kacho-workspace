@@ -1,0 +1,12 @@
+{
+  "origin_directory": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/newman-root-carrier-red/np-03065890e6",
+  "hash_algorithm": "sha256",
+  "files": {
+    "carrier-summary.json": "e938da20fc5c4d685f42ac374620c6db771420ab22ebb52ff7c5286f52ec2812",
+    "carrier-results.json": "f71c4ea7d2295a2988c8d22c185dc11f338fdf729d18905fb9e454b8cd21c20a",
+    "carrier-prerequisites.json": "2c2f227b5a1aee2ebbc0683b0128e297ee11558f612980d55005f95db1e1463d",
+    "carrier-pairs.json": "f033091d2006a4265f5aac5cf72bc930a8d0155dee53c09425448d844d05188a",
+    "carrier-declared.json": "658f950419efd105883af27639610ae683a3a9509338dfeabf1565525e501431",
+    "limits-results.json": "9b1b17e04a6892d1642d3e35d506fff232060cddc1a162d3a6a3f97ecc6e5ad6"
+  }
+}

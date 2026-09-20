@@ -1,0 +1,19 @@
+{
+  "kind": "python",
+  "argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "ci/newman_publication/tests",
+    "-p",
+    "test_*.py",
+    "-v"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "rc": 0,
+  "seconds": 231.54262382094748,
+  "stdout_sha256": "4820dabdda161b6f1e5b1ff1fb14489384c8064ab98227237b8cef388f4d57f6",
+  "stderr_sha256": "41884b49994407601823b36ee6e0512da82301a187bfa7d486e790233a050cb2"
+}

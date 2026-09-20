@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-newman-publication",
+  "reviewer_role": "system-design-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_commit": null,
+  "subject_path": "docs/changes/ci-newman-publication/conventions/decoding-typed-result-0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a.json",
+  "subject_sha256": "0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a",
+  "subject_hash_kind": "file-bytes",
+  "verdict": "APPROVED_ROUTINE_CONVENTION",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVJ8MWw",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/1810#issuecomment-5714676827",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVJ8MWw",
+  "event_api_id": 5714676827,
+  "body_sha256": "0e7783dcbef8f01fecbf99c6afa80d630a92a1a9570642ba71705d2463338632",
+  "timestamp": "2026-09-17T12:53:42Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "0e7783dcbef8f01fecbf99c6afa80d630a92a1a9570642ba71705d2463338632",
+  "source_review_coordinate": "docs/changes/ci-newman-publication/evidence/decoding-typed-result-5714676827/event-body.md",
+  "recorded_by": "/root/truth_tests",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-newman-publication/evidence/decoding-typed-result-5714676827/event-body.md",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-typed-result-5714676827/api-readback.json",
+      "sha256": "4e7239b63f755a24e287bad8eedc891e33851a91a44abd8d85c01d7b9de415b8"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/decoding-typed-result-5714676827/event-body.md",
+      "sha256": "0e7783dcbef8f01fecbf99c6afa80d630a92a1a9570642ba71705d2463338632"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/conventions/decoding-typed-result-0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a.json",
+      "sha256": "0f5c81dd85a2ada556e3d599db160e85befe28903c74646795cce89c0e49a50a"
+    }
+  ],
+  "source_review_form": "published root typed-result clarification",
+  "prior_convention_sha256": "1604e73f8b496a5be946da4a732e7c57f4d6e6118f2b95ef7dd3d572a243b96c",
+  "scope": [
+    "Одно раскрытие даёт один typed decoded result; JSON object/array parsing входит в тот же шаг.",
+    "Исходные и дополнительные typed representations считаются; parser temporaries не дублируются.",
+    "Только null и empty string служат lawful absence markers текущего holder."
+  ],
+  "remaining": "Ceilings, accepted subjects и global phase неизменны; событие 5714676827 само по себе не разрешает scanner source и не объявляет GREEN."
+}

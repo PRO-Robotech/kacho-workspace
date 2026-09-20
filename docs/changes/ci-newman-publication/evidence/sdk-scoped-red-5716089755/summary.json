@@ -1,0 +1,349 @@
+{
+  "source_root": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+  "source_commit": "5e8c1eefddefecef6c8c8b87bcf39d67b77437e1",
+  "node": "v24.21.0",
+  "prerequisites": {
+    "sdk": "@actions/artifact@6.2.1",
+    "node": "v24.21.0",
+    "bytes": 732,
+    "digest": "7f7b5ae3f3a2b1117d56c2b33d662ede879271ae294199d958f49d9941b8f266",
+    "calls": 3,
+    "networkCalls": 0,
+    "abortObserved": true,
+    "realChildReaped": true,
+    "yamlParser": true
+  },
+  "prerequisite_error": null,
+  "declared": 46,
+  "executed": 46,
+  "outcomes": {
+    "PASS": 0,
+    "FAIL": 0,
+    "CAPABILITY_ABSENT": 46,
+    "NOT_EXECUTED": 0
+  },
+  "rows": [
+    {
+      "id": "snapshot-lawful-full-bytes",
+      "axis": "real project/check → receiving bytes",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "snapshot-replace-path-after-check",
+      "axis": "only mutable input copy changes after checked bytes",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "snapshot-mutate-checker-copy",
+      "axis": "only mutable input copy changes after checked bytes",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "snapshot-before-add",
+      "axis": "one ZIP member delta",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "snapshot-before-remove",
+      "axis": "one ZIP member delta",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "snapshot-before-change",
+      "axis": "one ZIP member delta",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "input-missing-file",
+      "axis": "archive input only",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "input-raw-report",
+      "axis": "archive input only",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-operation",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-archive_sha256",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-archive_bytes",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-schema_version",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-files_declared",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-findings",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-invalid-extra",
+      "axis": "one checker response field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-incomplete-files_declared",
+      "axis": "one census field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-incomplete-files_checked",
+      "axis": "one census field",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-missing",
+      "axis": "one checker boundary outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-throws",
+      "axis": "one checker boundary outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-nonclean",
+      "axis": "one checker boundary outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-finding",
+      "axis": "one checker boundary outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-maxArchiveBytes-0",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-maxArchiveBytes-true",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-maxArchiveBytes-1.5",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-maxArchiveBytes-67108865",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-checkerTimeoutMs-0",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-checkerTimeoutMs-true",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-checkerTimeoutMs-1.5",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-invalid-checkerTimeoutMs-120001",
+      "axis": "one budget value",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "budget-exact-and-one-below",
+      "axis": "maxArchiveBytes one-byte boundary",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "checker-timeout-aborts",
+      "axis": "controlled timer + abort observation",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "transport-throws",
+      "axis": "one transport outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "transport-digest",
+      "axis": "one transport outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "transport-size",
+      "axis": "one transport outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "transport-id",
+      "axis": "one transport outcome",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: publishSnapshot after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-lawful",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-mutate-path-after-check",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-stall-checker",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-malformed-checker",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-blob-error",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-create-not-ok",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-finalize-not-ok",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-bad-artifact-id",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-missing-runtime",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-bad-integer",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    },
+    {
+      "id": "fixed-main-bad-budget",
+      "axis": "fixed Node24 action and genuine SDK",
+      "prerequisites": true,
+      "outcome": "CAPABILITY_ABSENT",
+      "signature": "CAPABILITY_ABSENT: fixed main/action after successful prerequisites"
+    }
+  ]
+}

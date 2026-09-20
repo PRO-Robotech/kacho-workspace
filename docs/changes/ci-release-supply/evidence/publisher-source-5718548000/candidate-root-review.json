@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "reviewer": "root independent verifier; not source or holder author",
+  "source_commit": "494e91544dd6a94967258986244248042e978e11",
+  "aggregate": "6170f8c00e7406a93a9025f4290449dce8ee389f",
+  "tree": "9d0b0ecc790e40b47ca23a116e908d8c1ebbd7bc",
+  "reviewed_at": "2026-09-17T17:24:50.871229+00:00",
+  "verdict": "SCOPED_GREEN_EXISTING_CANDIDATE_CONSUMER_PINS_PACKAGE",
+  "source_delta_six_paths_read_completely": true,
+  "author_bindings": {
+    "author_handoff_sha256": "71268f2ba514653f72ce885874ff1cd4e71d4aec15919a55fd15710abf382f56",
+    "verified_manifest_files": 34668,
+    "source_paths_verified": 6,
+    "seconds": 50.36983408697415
+  },
+  "execution": {
+    "head": "6170f8c00e7406a93a9025f4290449dce8ee389f",
+    "argv": [
+      "go",
+      "test",
+      "./internal/release",
+      "-count=1",
+      "-json",
+      "-timeout=20m"
+    ],
+    "rc": 0,
+    "seconds": 130.8890695410082,
+    "tests": {
+      "run": 120,
+      "output": 976,
+      "pass": 120
+    },
+    "failed": [],
+    "changed": [],
+    "clean": true,
+    "stdout_sha256": "bd6024db1096bbb1423bf27b82906fdb7e9842c5c3617ad64d169bce67cb5404",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "finished_at": "2026-09-17T17:19:18.328069+00:00"
+  },
+  "captures": {
+    "verified_at": "2026-09-17T17:21:18.701496+00:00",
+    "capture_files": 9469,
+    "command_capture_pairs": 2757,
+    "explicit_stream_hashes_verified": 1454,
+    "http_request_response_pairs_verified": 0,
+    "bridges_without_unhandled_or_deadline": 104,
+    "actual_outcomes": {
+      "consumers:RED": 23,
+      "consumers:NOT_EXECUTED": 2,
+      "consumers:GREEN": 4,
+      "pins:RED": 9,
+      "pins:GREEN": 4,
+      "pins:NOT_EXECUTED": 1,
+      "candidate:RED": 41,
+      "candidate:GREEN": 6,
+      "candidate:NOT_EXECUTED": 14
+    },
+    "joined_forge_processes": 0,
+    "verified_owned_hook_pairs": 0,
+    "capture_manifest_sha256": "6520f902e16dec6ee0b957ff0e6bcd0b02b2e4a719319a1bcb51bea76b2ea4c9"
+  },
+  "candidate_cases_verified_against_frozen_expected_ledger": 61,
+  "candidate_outcomes": {
+    "GREEN": 6,
+    "RED": 41,
+    "NOT_EXECUTED": 14
+  },
+  "source_review": [
+    "Closed candidate schema and canonical UTF-8 digest preserve exact sorted file-set identity.",
+    "Actual Git input and receiving-owned paths/modes survive complete preserve/replace/remove classification.",
+    "Latest remote ordinary semver tag, proxy info/mod/zip and actual tagged source member bytes bind the nonempty baseline and structural package floor.",
+    "Existing actual declared-consumer census/build reused; full package preserved prior consumer and pins controls.",
+    "All required component proof IDs and exact source/test/output/review/authority hashes checked; foreign canonical source validated but cannot count as receiving payload coverage.",
+    "Producer clean commit/tree/executable closure, proof records, prior R and separate E authorization readback remain distinct. Accepted root pre-bound authority route is not inferred from prose.",
+    "Schema omission of unknown baseline subjects fixes refusal records. Reverted full-syntax archive parse preserves declared-consumer parse boundary; discarded failed run retained."
+  ],
+  "limitations": [
+    "Additional five foreign-source controls separately authorized and pending; not counted as completed here.",
+    "No publisher capability, legacy CLI/P9 wiring, live T5/D8 authority, corelib release, consumer runtime or main landing claimed."
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVMH2CQ",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5716964873",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVMH2CQ",
+  "event_api_id": 5716964873,
+  "body_sha256": "a291178f3b11ff725203f7fc0d76fd837af0fe8c5b29eae3f333d3ac21cdeecd",
+  "timestamp": "2026-09-17T15:28:14Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "d38aa34845a1bcfd0ce6e99ee69a2c3f04553f07",
+  "subject_path": "internal/release/consumer_imports_test.go",
+  "subject_sha256": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+  "subject_hash_kind": "file-bytes-at-test-commit",
+  "verdict": "APPROVED_BOUNDED_TEST_ONLY_CORRECTION",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/root-review.json",
+  "source_review_sha256": "362cc40f5d48c3e2605844fd5317f40dca28df826d6f9cf2d348760b66dbd17f",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/event-body.txt",
+      "sha256": "a291178f3b11ff725203f7fc0d76fd837af0fe8c5b29eae3f333d3ac21cdeecd"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/published-event.json",
+      "sha256": "5f961361d164da390cdae5032e0d1595c3df31ad4787586730ae3ff175c83176"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/api-readback.json",
+      "sha256": "5f961361d164da390cdae5032e0d1595c3df31ad4787586730ae3ff175c83176"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/request.json",
+      "sha256": "d47e414cf65a207226e3de5f9915d5fe378da61924f7ecac0ab871c99b1baa4e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/root-review.json",
+      "sha256": "362cc40f5d48c3e2605844fd5317f40dca28df826d6f9cf2d348760b66dbd17f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/input.json",
+      "sha256": "b2839604c5bd1770311522be183aadd1b8d2f9830a9dc07c4f4fab6794208d9f"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-bridge-correction-5716964873/execution.json",
+      "sha256": "baa52ed218d7c5a2b58ed22d56ef84b0e78c683a9aaed5df8634b4e524944baa"
+    }
+  ],
+  "scope": [
+    "Только test Git transport rewrite: canonical identity сохраняется, реальные transport operations перенаправляются",
+    "Существующий bounded source допуск продолжается; дополнительно только package comment doc.go с сохранением license/SPDX/package"
+  ],
+  "pending": [
+    "27 cases остаются CAPABILITY_ABSENT, semantic decisions 0",
+    "Полный T1 из 22 сценариев, остальной source/P9, runtime/protected release/closure"
+  ],
+  "holder_author": "/root/truth_tests",
+  "source_author": "/root/release_supply_arch"
+}

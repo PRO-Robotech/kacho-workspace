@@ -1,0 +1,7 @@
+=== RUN   TestExcludingBuildTagLeavesThePackageBuildable
+=== PAUSE TestExcludingBuildTagLeavesThePackageBuildable
+=== CONT  TestExcludingBuildTagLeavesThePackageBuildable
+    excludingbuildtag_test.go:381: перепись: файлов .go прочитано 0 · с признаком сборки 0 · из них в обычной сборке 0 · исключаемых 0 · исключающих тегов 0 () · отброшено как признаки платформы 0 () · пакетов проверено 0 · из них не собирались и без тега 0 · вызовов сборки 0
+    excludingbuildtag_test.go:384: прочитано ноль файлов .go — вердикт недействителен: перепись: файлов .go прочитано 0 · с признаком сборки 0 · из них в обычной сборке 0 · исключаемых 0 · исключающих тегов 0 () · отброшено как признаки платформы 0 () · пакетов проверено 0 · из них не собирались и без тега 0 · вызовов сборки 0
+--- FAIL: TestExcludingBuildTagLeavesThePackageBuildable (0.00s)
+FAIL

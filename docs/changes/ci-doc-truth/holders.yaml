@@ -1,0 +1,77 @@
+schema_version: 1
+change_id: ci-doc-truth
+required_holders:
+  doc-semantic-truth:
+    kind: human
+    owner: go-style-reviewer
+    status: proposed
+    scenarios: [CI-DT-01, CI-DT-02, CI-DT-06, CI-DT-07]
+    predicate: current claims match named producers; historical observations unchanged
+    evidence_coordinate: reviews/post-diff/go-style-reviewer/
+  diagnostic-reasons:
+    kind: machine
+    owner: integration-tester
+    status: proposed-not-implemented
+    executable: "GOWORK=off go test ./internal/repohygiene -run '^TestSubscriptionShapeReasonContract$' -count=1 -json -timeout=5m"
+    cwd_repo: PRO-Robotech/kacho
+    source_path: internal/repohygiene/subscriptionreason_test.go
+    scenarios: [CI-DT-03, CI-DT-04, CI-DT-05]
+    predicate: exact Reason, Kind and coordinate for two defective forms; legal form has zero findings
+    evidence_coordinate: evidence/diagnostic-reasons/
+  existing-regression:
+    kind: machine
+    owner: integration-tester
+    status: existing-command-awaiting-independent-capture
+    executable: "GOWORK=off go test ./internal/repohygiene -run '^Test(SubscriptionFormShape|SubscriptionShape|GRPCMountParity|CatalogReachability)' -count=1 -json -timeout=5m"
+    cwd_repo: PRO-Robotech/kacho
+    scenarios: [CI-DT-01, CI-DT-05, CI-DT-06, CI-DT-07]
+    predicate: nonempty expected test set equals executed set; no FAIL or SKIP; census on same inputs preserved
+    evidence_coordinate: evidence/existing-regression/
+  program-preservation:
+    kind: human
+    owner: go-style-reviewer
+    status: proposed-with-machine-transcript-required
+    scenarios: [CI-DT-07]
+    predicate: full Go token and position-free AST comparison; exact approved Reason exception only
+    evidence_coordinate: reviews/post-diff/go-style-reviewer/
+    required_capture: verifier source and digest; input SHA pair; full comparison outcome; lawful twin, program-token defect and empty-input inversion
+  generated-projection:
+    kind: human
+    owner: proto-api-reviewer
+    status: proposed-with-generation-transcript-required
+    scenarios: [CI-DT-08, CI-DT-09]
+    predicate: canonical proto comments and generated comments agree; exact four-file census; unchanged descriptors and program tokens
+    evidence_coordinate: reviews/post-diff/proto-api-reviewer/
+    required_capture: exact Git inputs; unchanged plugin declaration; buf generate stdout/stderr and rc; before-after generated diff; descriptor comparison; published archive and GOWORK-off consumer pin
+  acceptance-review:
+    kind: human
+    owner: acceptance-reviewer
+    evidence_coordinate: reviews/acceptance-reviewer/
+  class-initial:
+    kind: human
+    owner: class-exposure-analyst
+    evidence_coordinate: reviews/class-exposure-analyst/initial/
+  class-revalidation:
+    kind: human
+    owner: class-exposure-analyst
+    evidence_coordinate: reviews/class-exposure-analyst/revalidation/
+  design-review:
+    kind: human
+    owner: design-reviewer
+    evidence_coordinate: reviews/design-reviewer/
+  independent-verification:
+    kind: human
+    owner: integration-tester
+    evidence_coordinate: reviews/integration-tester/
+  convergence-review:
+    kind: human
+    owner: convergence-reviewer
+    evidence_coordinate: reviews/convergence-reviewer/
+  landing-review:
+    kind: human
+    owner: landing-reviewer
+    evidence_coordinate: reviews/landing-reviewer/
+applicability:
+  db-architect-reviewer:
+    predicate: no-migrations-in-change
+    status: proposed-requires-actual-diff-evidence

@@ -1,0 +1,159 @@
+{
+  "schema_version": 1,
+  "change_id": "ci-newman-publication",
+  "required_holders": {
+    "publication-projection-and-readers": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-01",
+        "CI-NP-02",
+        "CI-NP-03",
+        "CI-NP-06"
+      ],
+      "predicate": "Closed projection removes opaque/meta carriers and preserves actual reader counts, test verdict, coverage, precondition/script/provenance categories",
+      "evidence_coordinate": "evidence/publication-projection-and-readers/",
+      "proposed_executable": {
+        "repo": "PRO-Robotech/corelib",
+        "path": "ci/newman_publication/tests/test_publication.py",
+        "command": "python3 -m unittest discover -s ci/newman_publication/tests -p test_publication.py"
+      }
+    },
+    "publication-byte-binding": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-04"
+      ],
+      "predicate": "Actual transmitted private snapshot equals checked bytes after post-final-check input mutation; alternate raw uploader fails",
+      "evidence_coordinate": "evidence/publication-byte-binding/",
+      "proposed_executable": {
+        "repo": "PRO-Robotech/corelib",
+        "path": "ci/newman_publication/tests/upload.test.mjs",
+        "command": "node --test ci/newman_publication/tests/upload.test.mjs"
+      }
+    },
+    "publication-workflow-binding": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-05"
+      ],
+      "predicate": "Parsed nonempty publisher census catches all bypass shapes in both consumers with lawful twins",
+      "evidence_coordinate": "evidence/publication-workflow-binding/"
+    },
+    "publication-sdk-and-delivery": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-03",
+        "CI-NP-04",
+        "CI-NP-05",
+        "CI-NP-07"
+      ],
+      "predicate": "Exact SDK pin and Node24 action capabilities, one module pin, clean materialization, archive completeness, GOWORK=off consumer delivery",
+      "evidence_coordinate": "evidence/publication-sdk-and-delivery/"
+    },
+    "publication-full-runtime": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-07"
+      ],
+      "predicate": "Full positive own identity and every declared platform shard; findings0/unmet0; downloaded published package independent scan",
+      "evidence_coordinate": "evidence/publication-full-runtime/"
+    },
+    "publication-retention": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-08",
+        "CI-NP-10"
+      ],
+      "predicate": "Complete paginated current inventory and per-artifact scoped outcome; download/expiry errors never count as inspected clean",
+      "evidence_coordinate": "evidence/publication-retention/"
+    },
+    "publication-exact-containment": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-09"
+      ],
+      "predicate": "Only independently accepted content-verified object identity/digest set can be deleted; changed/clean/uninspected refused; exact404",
+      "evidence_coordinate": "evidence/publication-exact-containment/"
+    },
+    "publication-prelanding-revalidation": {
+      "kind": "machine",
+      "owner": "integration-tester",
+      "executable": null,
+      "status": "proposed-not-implemented",
+      "scenarios": [
+        "CI-NP-10"
+      ],
+      "predicate": "Fresh metadata slice, new/changed accessible packages inspected, no unproven publisher at landing",
+      "evidence_coordinate": "evidence/publication-prelanding-revalidation/"
+    },
+    "acceptance-review": {
+      "kind": "human",
+      "owner": "acceptance-reviewer",
+      "evidence_coordinate": "reviews/acceptance-review/"
+    },
+    "class-initial": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "evidence_coordinate": "reviews/class-initial/"
+    },
+    "class-revalidation": {
+      "kind": "human",
+      "owner": "class-exposure-analyst",
+      "evidence_coordinate": "reviews/class-revalidation/"
+    },
+    "design-review": {
+      "kind": "human",
+      "owner": "design-reviewer",
+      "evidence_coordinate": "reviews/design-review/"
+    },
+    "independent-verification": {
+      "kind": "human",
+      "owner": "integration-tester",
+      "evidence_coordinate": "reviews/independent-verification/"
+    },
+    "system-review": {
+      "kind": "human",
+      "owner": "system-design-reviewer",
+      "evidence_coordinate": "reviews/system-review/"
+    },
+    "convergence-review": {
+      "kind": "human",
+      "owner": "convergence-reviewer",
+      "evidence_coordinate": "reviews/convergence-review/"
+    },
+    "landing-review": {
+      "kind": "human",
+      "owner": "landing-reviewer",
+      "evidence_coordinate": "reviews/landing-review/"
+    }
+  },
+  "role_assignments": {
+    "integration-tester": {
+      "agent": "/root/ci_verdict_audit",
+      "worktree": "area-ci-newman-tests",
+      "active_task": "NP-T1",
+      "scope": "Independent fixture/holder author and RED producer; source worker remains /root/e2e_audit after root transition"
+    }
+  }
+}

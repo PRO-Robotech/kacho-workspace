@@ -1,0 +1,1 @@
+VOID git [rev-parse --verify 0000000000000000000000000000000000000000^{commit}]: exit status 128

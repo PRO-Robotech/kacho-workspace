@@ -1,0 +1,100 @@
+# CI-RS T0/T1 routine vocabulary v2
+
+Status: CONSOLIDATED ROUTINE AGREEMENT after root readback of architect R1–R4. No source authorization. This does not amend frozen acceptance/design/schema or authorize source. Tester owns fixture construction and expected results; source worker owns implementations. Baseline is 7a41adf7b53cbcee1fbddc84b7408299a0832742. Canonical TASKS_READY is 926a76fdd2305e38a8e5ba5b2529eab537ce9be6.
+
+## Exact input data vocabulary
+
+JSON objects reject unknown keys, missing required keys, duplicate keys and wrong types. Paths are slash-separated relative tracked paths except explicitly named local roots. Digests are lowercase SHA256; revisions are full Git SHA1. Arrays representing sets reject duplicates. Stable canonical encoding is UTF-8 JSON with sorted keys, compact separators, no whitespace/newline, and sorted set arrays; ordered contexts remain ordered. Booleans are not integers. All strings are UTF-8; number fields are integral and within the named ranges. Local checkout locations are bindings to immutable revisions, not alternatives to content identity.
+
+Top-level required keys:
+
+- `schema_version`: integer 1.
+- `repository`: exact owner/name; `module_path`: string; `version`: canonical semver string.
+- `base_sha`: SHA1; `baseline_version`: canonical semver selected before tag creation.
+- `input_tree_digest`: SHA256; `input_files`: sorted array of `{path: string, mode: '100644'|'100755', sha256: SHA256}`. These describe the supplied ready tree, not the receiving candidate after preservation. Empty files are allowed; empty required input is rejected.
+- `receiving_owned`: sorted array of `{path: string, mode: '100644'|'100755', sha256: SHA256, reason: nonempty string}` bound to exact receiving base. `.github/**` membership is derived from base; the declaration cannot narrow it.
+- `preserve_paths`, `replace_paths`, `remove_paths`: sorted exact relative-path string arrays; no globs, directory umbrellas or overlaps.
+- `consumers`: nonempty array of the closed tagged union below.
+- `product_trees`: array of `{repository: owner/name, root: local directory, revision: SHA1, module_roots: sorted relative paths}` for pins; in pins mode this is nonempty. Candidate/consumers modes retain this field but do not claim pin predicates.
+- `internal_modules`: array of `{module_path: string, repository: owner/name}`; exact parsed required module path determines its declared repository; no organization-prefix inference or caller-supplied remote URL. Longest matching module prefix applies only to import assignment.
+- `components`: sorted subset of `['CI-NP-1','CI-DT-1']`; `ci_dt_addenda`: sorted subset of `['2590']`.
+- `payload`: sorted array of `{path: string, mode: '100644'|'100755', sha256: SHA256, component: component ID}` checked inside the actual candidate ZIP.
+- `proofs`: array of closed `Proof` objects defined below; exact required IDs are NP-P01..06, DT-P01..03, and optional DT-A2590-P01/P02. No postrelease proof can replace one.
+- `producer_execution`: `{repository: 'PRO-Robotech/kacho', root: local frozen checkout, commit: SHA1, tree: SHA1, executable_closure: nonempty sorted SourceFile array, tool_versions: nonempty Runtime array, machine_proofs: nonempty Proof array, regression_proofs: nonempty Proof array, review: FileRef, authorization: FileRef}`. SourceFile paths are relative to that exact frozen commit. Its subject hash covers all identity/closure/tools/proof/review fields except local root and authorization; the authorization binds that same hash with kind producer-execution. Actual future root D8 execution authorization does not exist yet.
+- `budgets`: `{network_seconds: integer 1..300, checks_seconds: integer 1..7200}`. Fixed Go/context budgets remain contract constants, not new knobs.
+
+Consumer union, all keys required and no others:
+
+- repository: `{type: 'repository', repository: owner/name, root: local immutable clone, revision: SHA1, module_roots: nonempty sorted relative path array, contexts: nonempty context array}`.
+- external program: `{type: 'external-program', source: CandidateSource | RepositorySource, program_paths: nonempty sorted tracked Go paths, contexts: nonempty context array}`. CandidateSource is exactly `{kind: 'candidate'}` and resolves to the immutable invocation candidate SHA. RepositorySource is exactly `{kind: 'repository', repository: owner/name, root: absolute local immutable clone, revision: SHA1}`. Neither source reads current HEAD or uncommitted files. Stable default declaration document is exactly `{schema_version: 1, consumers: [...]}`; P9 resolves candidate identity without committing a self-referential SHA.
+- context: `{goos: string, goarch: string, cgo_enabled: boolean, tags: sorted string array}`. Every import from all tracked Go source, including tests/constraints, must be assigned a supported context; no zero-import declaration can pass. Canonical Kacho external program is a real committed source, not an invented downstream repository.
+
+For pin-only mode, receiving/candidate/payload fields above are omitted rather than populated with fabricated values: exact top-level keys are `schema_version`, `product_trees`, `internal_modules`, `budgets`. For consumers-only mode exact keys are `schema_version`, `repository`, `module_path`, `version`, `candidate_root`, `consumers`, `budgets`. Publisher uses the complete top-level object above. Candidate mode uses that complete object plus `candidate_root`, a derived absolute directory of its sealed owned clone. The publisher constructs that clone from `--tree` and receiving base; candidate_root is not an alternate publisher input. This is proposed routine representation, not permission to drop required predicates from any producer phase.
+
+## Concrete dependency seam
+
+Proposed Go entrypoints in the existing internal/release package:
+
+```
+func RunSupplyPreflight(ctx context.Context, args []string, deps SupplyDependencies, stdout, stderr io.Writer) int
+func RunSupplyPublisher(ctx context.Context, args []string, deps SupplyDependencies, stdout, stderr io.Writer) int
+
+type SupplyDependencies struct {
+    Command func(context.Context, SupplyCommand) SupplyCommandResult
+    HTTP func(context.Context, *http.Request) (*http.Response, error)
+    Now func() time.Time
+    Sleep func(context.Context, time.Duration) error
+}
+type SupplyCommand struct { Program string; Args []string; Dir string; Env []string; Stdin []byte }
+type SupplyCommandResult struct { Stdout, Stderr []byte; ExitCode int; Err error }
+```
+
+The production CLI passes only normal OS/HTTP/clock implementations. There are no runtime environment command overrides, fixture flags, skip checks or trust shortcuts. Test driver calls these exact entrypoints with test-only dependencies; Git and Go commands execute real binaries with all inherited GIT_* removed and GOWORK=off. Git adapter rewrites only declared github.com repository transport coordinates to fixture bare repos, forwarding every other argument and observing actual refs. The adapter cannot manufacture Git result/ancestor/ZIP/build success. Go is never stubbed and target archives never fall back to network/shared target cache. HTTP adapter serves request-identified controlled forge/proxy responses and records every request, including attempted mutations. Unknown request fails the harness. Go ZIP creation and local file/JSON/import parsing are real SUT work and are not boundary replacements. Clock changes only waiting; context cancellation/deadlines remain observed and reported. Every controlled request/response and mutation journal is captured.
+
+## Closed proof and authority records
+
+All objects below reject unknown keys, missing keys, duplicates and wrong types. Positive integers exclude zero/bool. Every FileRef resolves to an existing readable regular file whose actual bytes have the exact sha256; reference presence alone is insufficient.
+
+```
+FileRef = {path: absolute local regular file, sha256: SHA256}
+SourceFile = {path: relative tracked path, mode: "100644"|"100755", sha256: SHA256}
+SourceSet = {repository: owner/name, revision: SHA1, files: nonempty sorted SourceFile array}
+Runtime = {tool: nonempty string, version: nonempty string}
+Run = {command: nonempty string array, cwd: absolute local directory,
+       runtimes: nonempty Runtime array, exit_code: integer,
+       declared: positive integer, executed: positive integer,
+       outputs: nonempty FileRef array}
+ProofSubject = {predicate_id: closed ID, source: SourceSet, test: SourceSet,
+                runs: nonempty Run array}
+Proof = {subject: ProofSubject, subject_sha256: SHA256,
+         review: FileRef, authority: FileRef}
+ReviewRecord = {schema_version: 1, kind: "scoped-review",
+                predicate_id: closed ID, subject_sha256: SHA256,
+                outcome: "GREEN", reviewer: nonempty string,
+                independence_record: FileRef, authority_coordinate: CommentCoordinate}
+CommentCoordinate = {repository: owner/name, issue_number: positive integer,
+                     comment_id: positive integer, author_login: nonempty string,
+                     body_sha256: SHA256}
+AuthorityRecord = {schema_version: 1,
+                   kind: "component-review"|"producer-execution",
+                   subject_sha256: SHA256, coordinate: CommentCoordinate,
+                   readback: FileRef}
+```
+
+ProofSubject hash is canonical bytes of that object, excluding later review/authority references. Runs require executed=declared; missing cases are not compensated by zero exit. Individual captured negative twins can have nonzero rc; the bound complete holder outcome and independent review determine acceptance, not a blanket requirement that every child command exit zero. D8 machine/regression proof IDs are the concrete frozen holder identities, bound by the independent producer review; component proof IDs remain the closed component sets. Each source/test file and captured output is independently hashed, and payload is also checked in actual candidate archive. Candidate Git mode is checked against source mode; Go ZIP bytes, not ZIP permission normalization, establish payload content.
+
+Root/independent verifier pre-binds the exact existing GitHub coordinate, actor, decision, subject and independence record, plus explicit execution key/plan. Production performs exact readback/binding/applicability checks and fails closed; it does not discover issuers, infer approval from an actor string/prose keyword/collaborator permission, or accept an approval boolean. The ReviewRecord and AuthorityRecord must agree on coordinate/subject and the captured readback must match actual API coordinate/actor/body hash. A component-review cannot authorize execution. The already accepted root route is the authority boundary; this routine data model does not grant authority to records by itself. The live D8 authorization must be created separately by root after future T5 GREEN and is absent now.
+
+Synthetic fixture records use this same data shape with named synthetic actors and exact readback fixtures. Their meaning is limited to test boundary behavior; they never establish actual owner approval, NP/DT outcome or live execution permission. The HTTP seam substitutes only the exact request, not trust policy.
+
+## Plan identity projection
+
+Plan binding includes exact repository/version, base SHA, resolved pre-tag baseline version/tag target/archive digest, ready-tree relative paths/modes/digests, ownership and disposition sets, resolved consumer/product repositories/revisions/module roots/contexts, exact module maps, components/addenda, payload/proof subjects and every source/test/output/review/authority digest, producer commit/tree/executable closure/runtime/test/review/authorization identities and budgets. It excludes temporary absolute clone/file-proxy locators and candidate_root; those stay captured as execution provenance. Relative source paths and record bytes are not normalized away. Local absolute FileRef locators are excluded as locators, while their file digests and typed roles remain bound. No changed subject can keep an old plan valid. Publisher resolves current latest baseline before sealing and probe revalidates the same pre-tag version/target/archive, never its newly published version. Product module_roots must equal the full discovered tracked go.mod census; caller omission is RED.
+
+## Concrete test-only compile bridge
+
+Holder makes an isolated copy of the candidate module, adds only a temporary `internal/release/ci_rs_bridge_test.go` in package `release_test`, and compiles it with `go test -c`. The bridge calls the two real exported entrypoints above, using independent fixture data for Command/HTTP/clock. It contains no archive/ownership/pin policy algorithm and never enters the live product checkout or CLI. Compile-gated discovery first uses normal Go package discovery and Go AST declarations. A sorted complete missing-symbol set after successful real prerequisites gives holder CAPABILITY_ABSENT with sut_invocations=0 and sut_semantic_decisions=0; it is not result-schema RED and not 22 failed semantic decisions. When declarations exist, any compile/link/dependency/parser/fixture failure is holder NOT_EXECUTED. No fake implementation is generated. Real Git/Go/ZIP controls and existing unmodified P8 semantic gap remain separate captures. Full dependent scenarios must call the actual compiled entrypoints and validate result JSON/schema/census/stage/effects before any GREEN claim.
+
+## Authority and immutable bindings
+
+The parent root confirmed R1–R4 and actual authority route by direct task message before this v2 was written. Architect review: `architect-routine-review.md`, SHA256 f317057e3ae691438f9551dc147575ea65012f0e0f6b0c686cf2e25b5b677db7. Original proposal preserved at SHA256 a9737bfe68e741be50ba4295be5b31923164a4d46083e435acc6a670f0c1ac37. Canonical TASKS_READY and all ten accepted binding hashes are in `contracts-preflight.json`; this routine record changes none. No remote approval/source/live effect is created by this document.

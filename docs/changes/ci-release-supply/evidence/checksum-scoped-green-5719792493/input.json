@@ -1,0 +1,45 @@
+{
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-release-checksum-root",
+  "head": "be25ac72578ce81867ef3ca3ad6a70b3564e658e",
+  "tree": "33ce840833fc080c1c01b71a7a4d7e41494135c1",
+  "source_candidate": "288b22ddb9748748da09e61f625036dee66bc2eb",
+  "exact_tree_author_subject": "ce302083e7c2714795bdf2625f0c75cf8da896fc",
+  "holder_common_successor": "23cb7dbcb2f4e54f9259295c6390be828ab3d96a",
+  "command": [
+    "bash",
+    "scripts/release/publish-module-tree-checksum-inject.sh"
+  ],
+  "environment": {
+    "GOWORK": "off",
+    "GOTOOLCHAIN": "local",
+    "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools/checksum-corrected-root-h46c3d8d",
+    "CI_RS_TEST_CAPTURE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/release-supply-checksum-root-green-288b/captures"
+  },
+  "hashes": {
+    "internal/release/archive.go": "fd35188b5d2ed0ff09b3ade5e250149bb25142cfe225f977d62e687661b262e5",
+    "internal/release/candidate.go": "1ba8a00f5ae8123f2049f281ffca9d46ccf6089755ecb4c18b075cdde536916e",
+    "internal/release/candidate_manifest.go": "eb83c68c0486b080ef28c2f7a4dd19e6ba7e6fb3fbbae9172c9e4d8738f2941e",
+    "internal/release/consumable_injection_test.go": "84c48db2086d6650da262b34d82ee76cfd972d2b8383be21c46eb0df20a6891d",
+    "internal/release/consumable_test.go": "83f3eed632784f97a8977f7fb7f4f44a598e0e681c7b1b81800f11c1f7ed580d",
+    "internal/release/consumer_imports_test.go": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+    "internal/release/consumer_nested_module_test.go": "f0ef2e53afc058b3249f3cc66567c345f3decce7775327833a23902dc53934e2",
+    "internal/release/consumers.go": "d6d511b49ed27d67dd710e56beb109dac5521c43c2f75a4d120243fec7c67ead",
+    "internal/release/doc.go": "9b3102b3aa8a1e75caf93d7f0e3ff59400ca5e9c9bdcc4df602d7cc8b1d37dc4",
+    "internal/release/evidence.go": "bccd1372ec5301eb5df603c34ce0f58eaada235624ebd773894c3b3177fbdbdb",
+    "internal/release/internal_pins_test.go": "0165beeeb18ff55f37a109ea2b9aa6c032ec2f759de3ae01b81e55ce22dcec5e",
+    "internal/release/manifest.go": "6c450d7206c51a62195ebfb8f97da9d0313fff055641fe5a0867ac9e0c9ed0ab",
+    "internal/release/pack_test.go": "7eeed15c297c58c7a0d627671d16f959baea0de64627da2ff3f15c0f889c48ad",
+    "internal/release/pins.go": "7976cfaeacd1c5f1793a880c0f513c931826093120eb905c44315fcd3fae7d62",
+    "internal/release/publisher.go": "f777b63ef4b12b17b081ef2753702739c8a8d988901407f79d77c55462ef751e",
+    "internal/release/publisher_effects.go": "7a6694a26d8edaae5ff612cecdafdc5f1836c0bf51cf597cc5bfdfe1a2de2fb3",
+    "internal/release/publisher_forge.go": "d2dabc7919309cf59039def9c5f58e822b622b840aa2d38b79485b4ca83e79c7",
+    "internal/release/publisher_http_auth_test.go": "01e81a4090f6f499f321b9658cffccd7233b140e83884e6fed48f0ecf453f049",
+    "internal/release/publisher_release.go": "a253a59d136a8273da024997d0d04e9c9e81b6dcdda87aa285ca3770229d50aa",
+    "internal/release/publisher_tree.go": "17aeda48efdda2a1cb95d5653099f5a8da5d168eb8540d32bfb7b5c67f4aac86",
+    "internal/release/supply_candidate_test.go": "c6eff1bf48c43c2b353daa8bd1d9bec6912b5170ceb72c27f44908703131d80d",
+    "internal/release/supply_foreign_proof_test.go": "0c181f1bc4cdd62eed419b57d3b8b1166e419503094ed88d35d3c9c6530972c2",
+    "internal/release/supply_public_checksum_test.go": "b629544d99baac9a12a1c20ff8081542bc6518a88f827ed0565852968720e502",
+    "internal/release/supply_publisher_test.go": "5ca5f8ada3230c6244467b3094ae76209d48c239638810c01f8f18f155721386",
+    "scripts/release/publish-module-tree-checksum-inject.sh": "dfdeffd9913562923db4cd19a13417f50a95ca9418b88304a1c97f5eb3ac020c"
+  }
+}

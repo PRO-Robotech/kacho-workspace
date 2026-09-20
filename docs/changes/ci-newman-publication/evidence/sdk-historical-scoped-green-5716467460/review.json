@@ -1,0 +1,66 @@
+{
+  "status": "ROOT_SCOPED_COMBINED_GREEN",
+  "head": "883fc4999b26dab9567689926eb159236f397afb",
+  "tree": "2e7f419875205bcae0067670ed66fc02f4568d79",
+  "finished_at": "2026-09-17T14:50:36.054805+00:00",
+  "source_and_holders_unchanged": true,
+  "python_tests": 20,
+  "sdk_tests": 46,
+  "failed": 0,
+  "skipped": 0,
+  "historical": {
+    "scope": "historical signed descriptor ZIP + UTF-8 cli/rc; no live retention or SDK delivery",
+    "prerequisites": "PASS",
+    "declared": 28,
+    "attempted": 28,
+    "scan_attempts": 26,
+    "content_decisions": 10,
+    "scope_refusals": 18,
+    "expected_findings": 4,
+    "actual_findings": 4,
+    "failed_expectations": 0,
+    "failures": []
+  },
+  "captures_verified": 3472,
+  "reader_records": 867,
+  "runs": [
+    {
+      "kind": "python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "ci/newman_publication/tests",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 231.54262382094748,
+      "stdout_sha256": "4820dabdda161b6f1e5b1ff1fb14489384c8064ab98227237b8cef388f4d57f6",
+      "stderr_sha256": "41884b49994407601823b36ee6e0512da82301a187bfa7d486e790233a050cb2"
+    },
+    {
+      "kind": "sdk",
+      "argv": [
+        "/var/tmp/ci-np-sdk-node24/node-v24.21.0-linux-x64/bin/node",
+        "--test",
+        "ci/newman_publication/tests/upload.test.mjs"
+      ],
+      "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-newman-corelib",
+      "rc": 0,
+      "seconds": 10.731902909989003,
+      "stdout_sha256": "8605275a18a4e85f4fb75331c11b612a465ef4dce8aee777002b35a32ee5bb69",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "pending": [
+    "nonempty verdict adapter",
+    "consumer workflows/pins",
+    "real runtime/retention",
+    "module release/main/closure"
+  ]
+}

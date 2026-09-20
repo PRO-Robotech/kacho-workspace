@@ -1,0 +1,110 @@
+# CI-RS candidate preflight: bounded source scope proposal
+
+Status: proposed source scope after independent frozen holder, before root RED
+readback/source authorization. No implementation has started. Publisher, live
+D8 execution, CLI/P9 wiring and full22 delivery are separate transitions.
+
+Reviewed holder: `5c3293d321f7bd472cfa1c19f3677305eacbfddb`, sole
+`internal/release/supply_candidate_test.go`, SHA256
+`c6eff1bf48c43c2b353daa8bd1d9bec6912b5170ceb72c27f44908703131d80d`.
+Read all1004 lines, including61 prepared cases, independent prerequisites,
+actual bridge/API boundary and producer R/E controls. Holder parent is
+`eb576376cae88e4965e1d5b17ff1a9ce302419eb`; working base for implementation will
+be the exact aggregate supplied by root after independent replay.
+
+## Exact six-path source proposal
+
+| Path under Kacho | Permitted responsibility |
+|---|---|
+| `internal/release/candidate.go` (new) | Read-only candidate orchestration; sealed tracked tree inventory; ownership/disposition checks; fresh previous release selection/archive/floor and payload orchestration |
+| `internal/release/candidate_manifest.go` (new) | Closed complete candidate manifest types/parser and canonical identities; retain separate consumers/pins closed schemas |
+| `internal/release/evidence.go` (new) | Closed Proof/FileRef/ReviewRecord/AuthorityRecord/ProducerReviewRecord parsing; source/test/output hash bindings; R/E digests and exact bounded GitHub comment readback |
+| `internal/release/manifest.go` | Recognize candidate invocation with required40hex revision and no final-main; narrow reusable primitive parsing only where needed |
+| `internal/release/consumers.go` | Candidate dispatch and extraction of existing consumer-census/archive verification into shared engine helper accepting the actual built candidate archive; preserve current consumers-mode behavior/results |
+| `internal/release/archive.go` | Extract shared real module-ZIP decoding/package census needed for downloaded baseline and existing candidate archive; preserve target proxy isolation and nested-module ownership fixes |
+
+No changes to pins.go, doc.go, source tests/fixtures, scripts/release, tools,
+go.mod/go.sum, accepted contract/schema or publisher entrypoint. No stub modes.
+If a further path becomes necessary, stop that dependent edit for scoped readback.
+
+## Ordered implementation
+
+1. Parse candidate's complete closed vocabulary, including inputs retained but
+not adjudicated by this mode (`product_trees`, `internal_modules`). Reject unknown,
+missing/duplicate keys and malformed sets; preserve routine classification for
+missing producer execution authority instead of collapsing it to generic input
+syntax. The manifest's repository/module/version remains exact and GitHub-only.
+Use the accepted input-files identity and R/E canonical UTF-8 projections,
+including literal non-ASCII/HTML/U+2028, ordered contexts and validated sorted sets.
+
+2. Identify candidate repo/revision and actual producer frozen checkout separately.
+Read candidate/base paths, modes and bytes from exact Git objects. For the producer,
+check actual repo, commit/tree, clean checkout and every executable closure byte/mode;
+relocating a genuinely identical clean checkout remains lawful. Validate independent
+machine/regression subjects and all captured records before accepting prior review R
+and separate execution authority E. Use exactly the selected seven-key prior review
+record; no added readback property. The prior event is read by its exact coordinate.
+
+3. Prove input inventory and disposition equality. `input_tree_digest` covers only
+the supplied sorted inventory. Candidate must equal declared replacement input plus
+explicit preserved base bytes, less declared existing removals. Every base/input path
+has one disposition; no unlisted candidate entry is silently accepted. Derive all
+tracked `.github/**` ownership from base in addition to reviewed receiving-owned
+entries. Repeated owned input is lawful only with original bytes AND mode; omission
+requires explicit preservation. Producer and candidate snapshots never overwrite
+source directories or read arbitrary mutable HEAD as their identity.
+
+4. Fresh bounded remote tags determine latest semver for the declared module major,
+with annotated tags peeled. A newer eligible remote tag cannot be ignored because
+proxy lacks its ZIP. Fetch exact baseline module .info/.mod/.zip through the HTTP
+seam at the fixed public Go proxy; unavailable ZIP is BASELINE_UNAVAILABLE, stale
+selection BASELINE_STALE, measured zero-package baseline BASELINE_EMPTY. Validate
+real module ZIP framing/membership and module identity under x/mod rules, then derive
+structural package import paths from actual non-test Go sources across constraints.
+Build the actual candidate ZIP once. Both censuses must be nonempty and the baseline
+package set must be contained in candidate. An empty directory marker is no package.
+
+5. Reuse the already implemented full declared-consumer census, context coverage,
+module assignment, ephemeral target proxy and actual Go builds against that same
+candidate ZIP. Preserve all29 consumer cases, especially separate required nested
+modules and no target archive fallback. Candidate does not claim pins-origin,
+compatibility, PR/checks/main/tag/proxy-publication predicates.
+
+6. Validate the exact included payload/components/addenda and required prerelease
+proof set: NP-P01..06; DT-P01..03; #2590 adds DT-A2590-P01/P02. Empty component delta
+permits measured payload0 only. Each selected file must match declared Git mode,
+actual candidate ZIP bytes and reviewed source bytes; actual file/hash identities
+of source, independent holder, outputs, review and authority must resolve and match.
+Include the accepted #2590 exact whole-file/region subject binding, without expanding
+CI-DT01..09 or replacing its generated-set proof. RS checks evidence bindings and
+scoped review; it does not execute an invented NP/DT oracle or accept projection-only
+proof as the whole component. No postrelease obligation is forged or required early.
+
+7. Emit one closed result with exactly candidate required predicates on GREEN:
+invocation, identity, input, ownership, baseline, package-floor, consumer-census,
+consumer-archive, payload. Stage NONE/effects[] always. Census null means unmeasured;
+measured zero is not absence of execution. Preserve reason/outcome priority and
+source-unavailable versus semantic-negative distinctions. Every external question
+has the accepted finite deadline/read retry budget; no remote writes are present.
+
+## Authority and applicability boundary
+
+Exact comment repository/id/actor/body bytes and captured readback are checked
+through the declared HTTP seam. A GREEN string, collaborator status or invented
+approval lookup is insufficient. Synthetic fixture records prove these bindings only;
+they do not authorize a live producer or establish NP/DT readiness. Root's accepted
+route pre-binds applicability/independence; actual D8 event still belongs to T5/root.
+No live credentials, approval events, release refs or owner decisions are generated
+by this implementation plan.
+
+## Validation and delivery
+
+After explicit source authorization, create a separate owned source worktree from
+the root-supplied aggregate with the frozen holder mechanically included. First
+execute all61 actual candidate cases with real Git/Go/ZIP and request-identified
+HTTP captures. Distinguish unexecuted fixture/seam errors from semantic failures.
+Then run the full internal/release package once on the final frozen candidate,
+including unchanged consumers29, pins14 and legacy controls. Preserve hashes of
+all old holders, source file inventory, captures and exact commit/tree. Root performs
+independent full diff review and replay; local source completion is not publisher
+completion, release/archive delivery, main landing or issue closure.

@@ -1,0 +1,22 @@
+{
+  "head": "eb576376cae88e4965e1d5b17ff1a9ce302419eb",
+  "tree": "0ec14411be0da3cc6567302c54f6e252516350d3",
+  "source_author": "e03209f4c732d732d770bd4bb61b0cfcb5955883",
+  "source_base": "5c5476d1a7b330b865d0d753d89e0f9ad84378d2",
+  "all_files": {
+    "internal/release/consumable_test.go": "83f3eed632784f97a8977f7fb7f4f44a598e0e681c7b1b81800f11c1f7ed580d",
+    "internal/release/doc.go": "9b3102b3aa8a1e75caf93d7f0e3ff59400ca5e9c9bdcc4df602d7cc8b1d37dc4",
+    "internal/release/consumer_nested_module_test.go": "f0ef2e53afc058b3249f3cc66567c345f3decce7775327833a23902dc53934e2",
+    "internal/release/manifest.go": "8e90f0d789965200272d215ee295573e08b325ce3ea9cf846ebe58c2baad0024",
+    "internal/release/consumable_injection_test.go": "84c48db2086d6650da262b34d82ee76cfd972d2b8383be21c46eb0df20a6891d",
+    "internal/release/consumer_imports_test.go": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+    "internal/release/pins.go": "b18f4a99e22b7e60a6674d1cd6ecc6e986765cafa1991672967f82ce17094840",
+    "internal/release/internal_pins_test.go": "0165beeeb18ff55f37a109ea2b9aa6c032ec2f759de3ae01b81e55ce22dcec5e",
+    "internal/release/pack_test.go": "7eeed15c297c58c7a0d627671d16f959baea0de64627da2ff3f15c0f889c48ad",
+    "internal/release/archive.go": "e2df221f62157b0140787586d0b7bc737640bc00d05efc2615531d72eb1e7413",
+    "internal/release/consumers.go": "f079fa249c14ffea6813e6d248d5838dcf45ca42397898bac33b0a7816bee41c"
+  },
+  "all_existing_holders_unchanged": true,
+  "review": "Read all433 initial pins lines, both other path diffs and3line classification correction",
+  "started_at": "2026-09-17T16:11:09.768021+00:00"
+}

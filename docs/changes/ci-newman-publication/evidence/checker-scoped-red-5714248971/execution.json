@@ -1,0 +1,241 @@
+{
+  "source_commit": "e8c07ed1a7fab3739fd84597e9c597ab911dcbb7",
+  "test_commit": "08d5d91cd431a34159af5d7d556764c4ecc52372",
+  "argv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "ci/newman_publication/tests",
+    "-p",
+    "test_check_boundaries.py",
+    "-v"
+  ],
+  "cwd": "/var/tmp/area-ci-independent-verifier/np-boundary-r2-root-xrtptuu_",
+  "rc": 1,
+  "seconds": 3.185545297979843,
+  "file_sha256": {
+    "ci/newman_publication/__init__.py": "0d99b7f818da79f2ea5040eccd12cf7607145cbcf06a77fde189c0e823614f18",
+    "ci/newman_publication/catalogue.py": "022b3290cd01a225ddfb1a832f6508c98f4db498f6b0725f9b34286a8a6b5cd9",
+    "ci/newman_publication/__main__.py": "1f5384b66bd7be541a9eabf553f40811e7c533649c7e5b9c611eb7ffbd67607d",
+    "ci/newman_publication/publication.py": "cd157dc567388d6e7047463fd3ee4fafcab738b7703c47119a49b3af6e0d74c9",
+    "ci/newman_publication/common.py": "6561f87be0bbaa66abbb5ee4f808fea72b0c4213e13c62cdf947a2d56c340bc1",
+    "ci/newman_publication/projection.py": "5e37249712faab1a6a1747faf1b5b80003d5b5c0514276fb577ece4621811241",
+    "ci/newman_publication/tests/support.py": "cfc5d2970d6c7cfcd90f9123811379342ed9cd77773ef864c848c33151cd6789",
+    "ci/newman_publication/tests/legacy_red.py": "73c6e7e7d9b5c75817f4907456b0bdd06da0c5e4f09d9991dd3d455abacc2704",
+    "ci/newman_publication/tests/.gitignore": "32dae3052f331ee34d628ef535709b301259a45df7c7522c4d35dcf49873f00b",
+    "ci/newman_publication/tests/test_check_boundaries.py": "af8f904b8fc70e819d9720368d1d30a47ce042fa178ac2a1a5274b74431edcf5",
+    "ci/newman_publication/tests/test_publication.py": "4b1fb757bfe6ee4027bf890328d8ba5073d4b52b3509a65fb8a7ac44a9220379",
+    "ci/newman_publication/tests/fixtures/provenance.json": "b6b5dbdc8ef9363dbf1fa603d0c6580da9a905c97dcf0c74b2c0b955bec281e3",
+    "ci/newman_publication/tests/fixtures/readers/assert-suites-green.sh": "063bf9748227d5c07a5c3e4ffe589495943760f4b184402a0bbd83047daa15c0",
+    "ci/newman_publication/tests/fixtures/readers/newman-live.py": "9b1438a49f3ce6c67905f6b5b67e3f2dbfe629149dbe3041ea57935b73b87ea9",
+    "ci/newman_publication/tests/fixtures/readers/exec-coverage.py": "286f511da88be7b09604d2791a91b43d3d333145688c20b87184009bae4e0c80",
+    "ci/newman_publication/tests/fixtures/script-error/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/script-error/collections/fixture.postman_collection.json": "37834c0e79735a5a62612e58623a69c8e3b1e6baf582390e7cd71097eecdedef",
+    "ci/newman_publication/tests/fixtures/script-error/out/fixture.json": "ad76609304043d334962ef0a216725921216df294303708d66242e40f9a6e052",
+    "ci/newman_publication/tests/fixtures/green/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/green/collections/fixture.postman_collection.json": "1b44bce34205f71cff645676874e6823031753ac52a460ce61c2fb19e40e5714",
+    "ci/newman_publication/tests/fixtures/green/out/fixture.json": "5aa1e2c88993204fb580b0d13d2f3c2e563323bd3585b1e3ad5046614f615deb",
+    "ci/newman_publication/tests/fixtures/finding/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/finding/collections/fixture.postman_collection.json": "07087a4e84585546e35bc17be688f7b525414155dd6d5225ebb22949adaeccc2",
+    "ci/newman_publication/tests/fixtures/finding/out/fixture.json": "7a1330d66d62dcbae90f5788139496441e0cd9ec6c63ac1421de73be55b8d755",
+    "ci/newman_publication/tests/fixtures/precondition/scripts/gen.py": "e1953357297a792c710f879a50aa169fd00b2f5de7ef1260d1dfede3182710a3",
+    "ci/newman_publication/tests/fixtures/precondition/collections/fixture.postman_collection.json": "3b2e9cddf2aaa37bce32b7a0bf7a170f796998630b906db2c55e7dca56483501",
+    "ci/newman_publication/tests/fixtures/precondition/out/fixture.json": "e173c0bfa3d9c6729136b2eb083381f17a125bd8777246bc3c50c62669bf7a87"
+  },
+  "mutants": [
+    {
+      "kind": "prefix",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "cd6bb1baee2c09df8f09029b6c5d125d09db4391883b9b992a5399136bc51f03"
+    },
+    {
+      "kind": "manifest-unknown-key",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "a50423164ec3727fc0122cffb9f1b06bb4960ed08441155e0482fa1c8f4ed091"
+    },
+    {
+      "kind": "empty-file",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "kind": "directory",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "b0af39967b0a1e243489cd721fce3590336789ef1222f8dc233e8be2b13f09be"
+    },
+    {
+      "kind": "truncated",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "f6ab7b838a80ea9e620ae0df200939c5abc18806f5cb7ce29fc2e61102623bd2"
+    },
+    {
+      "kind": "unknown",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "2a01698c39e08008739c09d9af4542ba2ac7d2b2cafb0dfa1fb9c41cc5c39f01"
+    },
+    {
+      "kind": "archive-comment",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "776cac27a9bff8e2cbe9247c2380b8e90885106b4b35a5b9b5db6ea9fe14c1f9"
+    },
+    {
+      "kind": "member-extra",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "e10fefdf500265ce242d01d4339f901943fe9bc3021bd664dc6180b48db223bf"
+    },
+    {
+      "kind": "shadow-eocd-before-central",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "7690b43e2f23bf555021861952d9ac6aa113c08bf74b17592371e13c54a5c942"
+    },
+    {
+      "kind": "missing",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "4a0ba0da93a55ade392a305ce9950cf2b785681d5d39d1c48f2ccf33e15e306f"
+    },
+    {
+      "kind": "manifest-run",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "SOURCE_MISMATCH",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "7a4061b281b7f54cca184dd9a270898a2fd49bfa635c017475f7344eeca244da"
+    },
+    {
+      "kind": "rebound-opaque-key",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "7f72d8822135584fe620e7f12ed9dc4f4ad31d2f8495a5981360698d12823d60"
+    },
+    {
+      "kind": "suffix",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "8d3cb016a11ffab373c9716a446e0d0fa07b3abd13b67897938903d461cd52a8"
+    },
+    {
+      "kind": "absolute",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "bd76659ee6c82a46b5b8da3e23ad0cdffdad9bbcd90a641d3974189807f4a5bf"
+    },
+    {
+      "kind": "gap-before-central",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "384a9379c26a97f1d37068eab70d9ec7156cc35903642e0c1625143285a36a02"
+    },
+    {
+      "kind": "duplicate",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSAFE_PATH",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "17332bd5d0f4ca3620fdf6c59b66ecf42217422d9393ea55cdfb0aceb381dd68"
+    },
+    {
+      "kind": "repeated-central-eocd-tail",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "10e18793359138d9565b5937e150773e032009c2e315d188267a897f4d46a3a0"
+    },
+    {
+      "kind": "local-extra-only",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "7f19e25cf6ea1bce2f1e8284563eeed040229cea151ae21e4a5ebad72c2f6411"
+    },
+    {
+      "kind": "invalid-format",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "ff1305b0c9946df328e94eec764c7fff3584dffb2313777d4bc6f372a258b58a"
+    },
+    {
+      "kind": "member-comment",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "58e066ed0d98a58e7dea5a1892da8863a7ee4f7e5d7c1c5c4ad0777aa8246709"
+    },
+    {
+      "kind": "symlink",
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "1d7cdf2ffb0d1212e6794d46d6c7828a59b89aab60d45a2e8a43df85d2d00b49"
+    },
+    {
+      "kind": "traversal",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "ef6348e4ee7a937089c55aaceaa472b9e2c9af86ccccab21b5c7e99025317935"
+    },
+    {
+      "kind": "manifest-digest",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "SOURCE_MISMATCH",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "542f9667d45c3f2b99ccb8a01804341c7b5d40aa90548d367c7048ace87749d1"
+    },
+    {
+      "kind": "empty-archive",
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "UNSUPPORTED_INPUT",
+      "lawful_sha256": "a1006b2da9251f14425b10e6cc9afd493f4e48c79da85fa1b77ec7421d486f7d",
+      "mutated_sha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85"
+    }
+  ]
+}

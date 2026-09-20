@@ -1,0 +1,76 @@
+{
+  "reviewer": "root independent; not holder/source author",
+  "holder_commit": "c3fae89d50230ea90cf581cae0c53fd524bee711",
+  "holder_sha256": "0c181f1bc4cdd62eed419b57d3b8b1166e419503094ed88d35d3c9c6530972c2",
+  "scope": "5 foreign source and receiving payload cases; fullholderread; frozenpriorholdersunchanged",
+  "verdict": "SCOPED_GREEN",
+  "execution": {
+    "head": "ca6a958f8fd96b40cb554cd914bc2abe13875e81",
+    "argv": [
+      "go",
+      "test",
+      "./internal/release",
+      "-run",
+      "^TestReleaseSupplyForeignCanonicalProof$",
+      "-count=1",
+      "-json",
+      "-timeout=15m"
+    ],
+    "rc": 0,
+    "seconds": 13.809337206999771,
+    "tests": {
+      "run": 6,
+      "output": 135,
+      "pass": 6
+    },
+    "failed": [],
+    "unchanged": true,
+    "clean": true,
+    "stdout_sha256": "4c6b1688e2ccd9691e7b435f3d764e008c30db4ede64d733f7c982bddc103e32",
+    "finished_at": "2026-09-17T17:31:17.898521+00:00"
+  },
+  "author_manifest_bindings_verified": 1017,
+  "actual_sut_calls": 5,
+  "cases": [
+    {
+      "name": "canonical-proto-with-receiving-projection",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "prerequisites_green": 8
+    },
+    {
+      "name": "canonical-proto-digest-mismatch",
+      "outcome": "RED",
+      "reason": "PAYLOAD_MISMATCH",
+      "prerequisites_green": 8
+    },
+    {
+      "name": "canonical-proto-revision-unavailable",
+      "outcome": "NOT_EXECUTED",
+      "reason": "SOURCE_UNAVAILABLE",
+      "prerequisites_green": 8
+    },
+    {
+      "name": "same-bytes-receiving-coverage",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "prerequisites_green": 8
+    },
+    {
+      "name": "same-bytes-foreign-only-no-receiving-coverage",
+      "outcome": "RED",
+      "reason": "PAYLOAD_MISMATCH",
+      "prerequisites_green": 8
+    }
+  ],
+  "capture_files": 1010,
+  "command_pairs": 284,
+  "declared_stream_hashes_verified": 246,
+  "http_body_bindings_verified": 48,
+  "capture_manifest_sha256": "44c97868de60261f83ec3c3c491241109f22942390bb0dc431454e9431dd03c8",
+  "reviewed_at": "2026-09-17T17:32:40.080770+00:00",
+  "limitations": [
+    "synthetic authority records do not assert actual DT or live producer permission",
+    "no publisher/release/main/runtime closureclaim"
+  ]
+}

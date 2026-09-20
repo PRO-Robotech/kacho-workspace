@@ -1,0 +1,80 @@
+{
+  "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "checked_at": "2026-09-17T14:01:48.723074+00:00",
+  "scope": "independent one-off replay of root discovered nested-JSON duplicate bypass and paired lawful/credential controls; original whole input bytes preserved",
+  "cases": [
+    {
+      "kind": "whole",
+      "name": "lawful",
+      "expected_rc": 0,
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "input_sha256": "cbe54b6e27a74b459058b3bebfddc1acb1e68553e3c198fc9cd4139a19a78dec",
+      "stdout_sha256": "81e3a69b796543e19f7f7dd69085f193d409734c81f5b46d9ee22033043b23b1",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    {
+      "kind": "fragment",
+      "name": "lawful",
+      "expected_rc": 0,
+      "rc": 0,
+      "status": "CLEAN",
+      "code": "COMPLETE",
+      "input_sha256": "fa7b670e7d9e666924872ce837c8271dad6d5dcacae7aa6de7e21363c3e20c23",
+      "stdout_sha256": "f5ea3ec238b3640f2c1123be6f6000b80c2d40644fdaf3e183986a05884e27ef",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    {
+      "kind": "whole",
+      "name": "finding",
+      "expected_rc": 1,
+      "rc": 1,
+      "status": "FINDING",
+      "code": "SECRET_MATERIAL",
+      "input_sha256": "e629f9f609274ffbe1f3d667d61a977cd5b9afe2705682ba4b12414f4c94c358",
+      "stdout_sha256": "d817da3254a67452d4af62ea59f8603edfd566c3dcb427fa4f8fbdbf21f274a6",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    {
+      "kind": "fragment",
+      "name": "finding",
+      "expected_rc": 1,
+      "rc": 1,
+      "status": "FINDING",
+      "code": "SECRET_MATERIAL",
+      "input_sha256": "22f7a8519f496447fb251717a943465e34450abe449de5d2c2ba2a01c82ba918",
+      "stdout_sha256": "91fdab3637dd3356d35d58576726562095d5374d4e9bc498137107dd000d9b39",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    {
+      "kind": "whole",
+      "name": "duplicate",
+      "expected_rc": 3,
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "input_sha256": "22b72958db4857f09e09a2cc1f78f753dd22f98300a80185a90726a2fa8b7116",
+      "stdout_sha256": "eeb576f6cecd0809cac5abbad989befadb0b6b82d3abe67bbeabdc6c944a1119",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    },
+    {
+      "kind": "fragment",
+      "name": "duplicate",
+      "expected_rc": 3,
+      "rc": 3,
+      "status": "NOT_EXECUTED",
+      "code": "MALFORMED_INPUT",
+      "input_sha256": "1da39ffad9a3d899a6024d90489ffd741f707ebd6ac795dc0830922898a9d001",
+      "stdout_sha256": "3a8fd415bd83344fb801de298428073dc30eff3d4ea21f70d9fa529182dd1397",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "passed": true
+    }
+  ],
+  "all_pass": true
+}

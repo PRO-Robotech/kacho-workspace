@@ -1,0 +1,9 @@
+{
+  "source_sha": "d248443319f9bc927d81bea04794c4405528f62e",
+  "base_sha": "88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0",
+  "changed_paths": [
+    "internal/repohygiene/subscriptionformshape_test.go"
+  ],
+  "file_sha256": "ca976ed9e0be54f6273182d6f58de64e2d8fa8c176c27cefd893b104434e6e41",
+  "immutable_holder_sha256": "9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35"
+}

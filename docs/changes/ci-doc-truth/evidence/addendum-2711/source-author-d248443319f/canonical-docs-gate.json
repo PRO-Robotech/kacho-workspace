@@ -1,0 +1,16 @@
+{
+  "command": [
+    "bash",
+    "scripts/docs-gate/run-all.sh"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth-docs",
+  "rc": 0,
+  "elapsed_seconds": 4.2694385051727295,
+  "GOWORK": "off",
+  "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+  "git_environment_sanitized": true,
+  "KACHO_MONOREPO": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth",
+  "KACHO_HOME_KANAME": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/project/kaname",
+  "stdout_sha256": "4fb17c8684a8d42b852c9f7803fe6d2348c6fa14ebd69942b19f7ec969009abb",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

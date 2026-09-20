@@ -1,0 +1,34 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/event-body.txt",
+      "sha256": "36588590ed0119f751ac22d6e9ed114f39ff7c1643d655d37d745f07b38e760b"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/published-event.json",
+      "sha256": "dc39ad2723a4872ab5920be606045b7a4224049449f574efd9c384818fa22105"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/api-readback.json",
+      "sha256": "dc39ad2723a4872ab5920be606045b7a4224049449f574efd9c384818fa22105"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/request.json",
+      "sha256": "365419712e82a8afac7277737416f35d0d18a3fab63366cedef6b24f2db0e5a6"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/root-review.json",
+      "sha256": "38ef6f97a4e8984faf6372ed9c9002eefe5ca156facd5bab1c783daa78c03189"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/input.json",
+      "sha256": "8f29893e65983477d1283920d16fa1aef877f14d1fb378d4708ff0adf9bbb3f9"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/nested-scoped-red-5717180465/execution.json",
+      "sha256": "22870fb7fb131d6db301a59efe9468c6340784bbff94cbbbda62170e2d6bd797"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

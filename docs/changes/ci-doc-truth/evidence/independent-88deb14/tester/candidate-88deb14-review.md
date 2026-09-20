@@ -1,0 +1,32 @@
+# Independent post-diff review: CI-DT-1
+
+Verdict: SCOPED GREEN for the reviewed source candidate and its independently generated projection. Reviewer: truth_tests, 2026-09-17. This verdict does not claim main landing, canonical evidence archive, release, or a Kacho corelib pin update.
+
+Kacho candidate: `88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0`.
+Product parent: `e58e6f581e858df6a9ffd3c25d93cbfcc1800128`.
+Independent original baseline: `b5fa093341f1fdbe96adfc6a9555482690968253`.
+Independent generated baseline target: corelib `34bc8104a832b67e53c868646ab2b1e0ac4c8562`.
+Acceptance SHA-256: `0d9a2074718bc1de5826696f64bf43af1a98182f91c2866d51e1d93d42986b24`.
+Design SHA-256: `f77397339a15cd51c09ab59df2e8e4b5072e7549c2242eeae6586fccde1d2047`.
+
+The review used the reviewer's own isolated Kacho worktree at `tmp/area-ci-truth-tests`, detached at the candidate, and its exact committed bytes. All child Git environments were stripped of inherited `GIT_*`. Go ran with `GOWORK=off` and `TMPDIR=/var/tmp/area-ci-truth-tests`. The worktree was clean. No product source or another owner's worktree was edited.
+
+The entire five-file diff was read, including surrounding current prose, historic observations and diagnostic construction. There are exactly three comment-only Go test files, the analyzer header and two observable Reason string expressions, and the canonical proto's four comment lines. The changed mount/catalog prose points to the actual named census producers and preserves the distinct ownership predicates; the branch prose describes declaration shape without promising instance fill validation. The canonical carrier prose separates the two declared alternatives from choosing or filling an individual message. No runtime validation was introduced. I found no discrepancy within the approved exact set.
+
+`preservation.go`, SHA-256 `fbaa2f1f049d0f561cf64e2243adc7d240ef396656edf13f5a9cda72501469ee`, independently compared all four Go files: 9,809 program tokens and full position-free AST are unchanged except the exact nine previously approved string leaves. The two Reason expressions retain their expression structure, dynamic carrier and branch count, finding kind and coordinate. `verifier-candidate.{json,stdout,stderr}` contains the exact command and outcome. This is the reviewer's comparator, whose adverse birth controls were already recorded, not the author's comparator.
+
+`postdiff.py` checked the exact changed path set, preserved all six historical regions (the `89242e6b`, `bdafe2c4`, two `af0ca8f3`, `94352d9c` observations and the first-branch-blinding narrative), and preserved the entire #1439 count-unit section. The canonical proto equals its baseline with only the four approved comment lines replaced. No Go/build/line/cgo directive changed. Dated WATCH and historical evidence paths are outside the five-file source diff. The untouched #2711 target file remains SHA-256 `ab38d70525b8d9279c63c711e373a312bfe315fc86e498ef5eeea4c2f5dbd959`.
+
+The committed diagnostic holder remains byte-identical, SHA-256 `9b64d9cb6e89e94f3416bc671caff9d7c3927ca1a60ca199f58d7915bfac1b35`. Its assertions were not revised in response to the implementation.
+
+Generation was repeated independently with `python3 /var/tmp/area-ci-truth-tests/generate.py 88deb14ca3b7f9c58529d8a3ebc4cb19920fc5d0 candidate-independent`. The script archives the exact revision's `proto`, `go.mod`, `go.sum`; preserves the exact plugin prefix of `proto/buf.gen.yaml`; and limits the staged input to `corelib/subscription` before running `buf generate`. The prefix SHA-256 is `0d1c3807ffa4a182d4e7db40a9b49964d8357500f745ad97b4991e8b91ab522f`. Tool versions are Go 1.26.8 and buf 1.72.0. Buf is the available tool version, not a claim that buf itself is module-pinned. The review did not run or repair the broken whole exporter.
+
+Exactly four outputs were generated. They were compared with the reviewer's earlier independent baseline generation, which had matched the stated corelib baseline byte-for-byte. Three outputs remain byte-identical. `subscription.pb.go` differs by precisely the canonical four comment lines with generated Go indentation; the entire remaining file is byte-identical. Its candidate SHA-256 is `b7904d4d4a68efd8d5ab1f60b10489cc51318ff7f35b1fba35bbc96073a252aa`. Both complete output sets are captured under `generated-baseline/` and `generated-candidate-independent/`.
+
+`strictpreservation.go`, SHA-256 `7d849a4882496c3fe8620c2a5ea76abee4907c01a0934deb9ab7b9585aab81b9`, compared all four generated files with zero allowed program changes: 5,171 program tokens, full position-free AST, and directives remain identical. Both nonempty raw descriptors remain byte-identical: subscription 1,388 bytes, SHA-256 `68d2157de5d3d78b1f0796c70a8e1795fe09a99201fbf6a3e71348f3e3b285e3`; service 581 bytes, SHA-256 `19cdb860c44c536c7427b9ad9b4fc3dc8a57dc734db88f1b6d0af8797a6c948c`. See `generated-strict.{json,stdout,stderr}`.
+
+Independent semantic descriptor builds ran in each staged proto tree with `buf build --path corelib/subscription --as-file-descriptor-set --exclude-source-info -o <capture>`. Their outputs are byte-identical: 16,796 bytes, SHA-256 `663029870c57c2c0d5ae1b4655e5a2001839e262d63d7e0b41158ccdd304206f`. The independent decoder parsed five file descriptors, found both subscription files, and confirmed absent SourceCodeInfo throughout; the main file has three messages and one enum, and the service file one message and one service. See `descriptor-census.{json,stdout,stderr}`, the two `.pb` captures and `candidate-postdiff-checks.json` for commands, hashes and census.
+
+As the baseline for the separate #2711 addendum, the unchanged candidate also ran the existing shape selection independently: 15 listed top-level tests, 55 RUN, 55 PASS, zero FAIL and SKIP; the exact Reason contract holder is included. This directly confirms both revised observable Reasons against the already-frozen holder. The broader 75-test selection is the root reviewer's separate execution and is not presented as my own run.
+
+The canonical owner remains the Kacho proto and the derived projection belongs in corelib. This report supplies a scoped implementation/projection review; canonical archival, main integration and downstream pin verification remain separate pending work. Evidence here is bound to file hashes and a frozen local snapshot, not yet claimed as a canonical committed archive.

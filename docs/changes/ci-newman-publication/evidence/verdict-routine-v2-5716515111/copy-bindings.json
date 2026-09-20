@@ -1,0 +1,30 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/event-body.txt",
+      "sha256": "d9482d8a96b36d1ae83e592caffe4fa0499f608d6f51b52ec129da31e841d58a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/published-event.json",
+      "sha256": "b0011167d4068cfd759d6210a6cb727cfa63593823622ec0f9893dfb8e2be24a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/api-readback.json",
+      "sha256": "b0011167d4068cfd759d6210a6cb727cfa63593823622ec0f9893dfb8e2be24a"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/request.json",
+      "sha256": "eaddd81fb78b8cee25856c56146c02f1669eb37f94ef4b295875bb638f145c9d"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/routine-v1.txt",
+      "sha256": "4d469abd550a65b9575d16360ac7927c62a3494f71852840df010d4d1a6fc496"
+    },
+    {
+      "path": "docs/changes/ci-newman-publication/evidence/verdict-routine-v2-5716515111/routine-v2.txt",
+      "sha256": "19a9d04459011d47801d760db8d2d6fdecb84a01a5aca393973e3dc1fd3f0ad0"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-excluding-build-tag",
+  "reviewer_role": "acceptance-reviewer",
+  "subject_repo": "PRO-Robotech/kacho-workspace",
+  "subject_path": "docs/specs/sub-phase-CI-EBT-1-excluding-build-tag-acceptance.md",
+  "subject_sha256": "5bdaa5bdcac65a23cf109c95a5fb602cdff8f25db9ee2fb157fd0f7acef3f27a",
+  "verdict": "APPROVED",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVN9PZg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2672#issuecomment-5718888294",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVN9PZg",
+  "event_api_id": 5718888294,
+  "body_sha256": "79f073262539625b083bbe6a8b8d869ca66f78e6837314088969f06ca4b98e87",
+  "timestamp": "2026-09-17T17:54:00Z",
+  "source_reviewer": "/root",
+  "source_review_sha256": "94dcc0a44cd10471356114133005664d2b1d4230ff19ca760f9273f46ee04791",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-excluding-build-tag/evidence/contract-initial-root/01-acceptance/event-body.txt"
+}

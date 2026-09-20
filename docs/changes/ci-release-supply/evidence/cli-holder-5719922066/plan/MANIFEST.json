@@ -1,0 +1,44 @@
+{
+  "entries": [
+    {
+      "path": "handoff.json",
+      "sha256": "e2668d7f97259907ca6b83e25415ffc52ac8426227a343030f03a1f390b48ecf",
+      "bytes": 1265
+    },
+    {
+      "path": "inputs.json",
+      "sha256": "fcc67cba240319e4cb2ee28065686aa4ca4ca9a56b34a46f6f22c85b344d83f5",
+      "bytes": 7375
+    },
+    {
+      "path": "legacy-oracle-binding.json",
+      "sha256": "340bd416930188ecca69c74e57760c9947d4ebaefb1b2c1221c2466ecdb441e0",
+      "bytes": 681
+    },
+    {
+      "path": "legacy-oracles.txt",
+      "sha256": "80da0652f5ad43888fce65fc03fb242161a9e0723e04b6e33dbf7c51956fc659",
+      "bytes": 11878
+    },
+    {
+      "path": "parser-matrix.json",
+      "sha256": "50ada39aae1e104088cbd1192ac32a9620ae9ebce4a6f96536a10611f9ffcce8",
+      "bytes": 12659
+    },
+    {
+      "path": "pins-caller-input-proposal.md",
+      "sha256": "af7be77342bf366f7eaf6b8b60ded94c71659242ae352554bfabe490677b8e32",
+      "bytes": 4557
+    },
+    {
+      "path": "review.md",
+      "sha256": "a434054d195e3101f43c762f975df3f77daeda8cc073b2db64941eb2dfcff8a6",
+      "bytes": 12199
+    },
+    {
+      "path": "routine-addendum-proposed.md",
+      "sha256": "be9ae5460466cb9ae348623dd1911b870150982a11669696e4a6fa0e484cf3a2",
+      "bytes": 5809
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "head": "0f3f0edeb63a029a9b2db16586e2d84cf7b0e2e4",
+  "argv": [
+    "make",
+    "test-python-outcomes-integration"
+  ],
+  "start_hashes": {
+    ".github/scripts/run-python-probes.py": "a75d08d4157d4e389b67dd73d254e17a7d40b01dbbc16081cbe0bc294960c3f5",
+    ".github/scripts/ci_outcomes.py": "d1da46a502fecfe5339e6627c09f823fa7bc9fd503eff71118dbe7e699b5aa57",
+    ".github/workflows/ci.yaml": "8fa98fcd800c251fbdd59584c3fd80a7343962d525800751cc4e30cd81dbabf7",
+    "Makefile": "e0aacdcd7611d8fa7f0af78bd1b38271b3b4579d92b02c833949e8c7f08da255",
+    "deploy/Makefile": "bdc155896a53c82bd2cc52fbdb1652333acc853c6501bf812798ecc8fe77f404",
+    "deploy/scripts/run-gate-self-tests.sh": "c24546316c50610fef40c10af1d6a3d376acd23ba9604355fdd233b4a32cb741",
+    "scripts/ci-local.sh": "d8fdef8d0b12bf94e3d1390e19b6c4bbd1048988b09e9d64f3d4deb1a9ca6fa0",
+    "scripts/run-python-outcomes-integration.sh": "27b57ba42aa45e839e9b870644197a7cdcf847b7a41c0db3341eb743e58de61f",
+    "tools/pythonprobes/outcomes_test.go": "76c51fb8ba43502eafa7f9ed89f70e7ee9182ccc686fd8bef2685b30413fb386",
+    "tools/pythonprobes/outcomes_integration_test.go": "6ac2e671d91e5343217b62b222b567fc36bc4fb8bbbf944e521d38be4b47f2ee",
+    "tools/pythonprobes/testdata/outcomes_driver.py": "5e2071e25b2e99bfb3eccc0a3deb566eded3c1ac2a612aa6dc8da5a97d9a92cf"
+  },
+  "env": {
+    "GOWORK": "off",
+    "TMPDIR": "/home/dk/kacho-tmp/area-ci-tools",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "CI": "true",
+    "CI_PY_EVIDENCE_DIR": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/python-outcomes/root-full-0f3f0ede/captures",
+    "CI_PY_INTEGRATION_EVENTS": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-audit/contracts/python-outcomes/root-full-0f3f0ede/events.jsonl"
+  },
+  "GIT_context_removed": true,
+  "holder_commit": "8b51c778e23b2f930c512e101456653540d84277",
+  "wrapper_pid": 1050197,
+  "wrapper_process_group": 1050197,
+  "started_at": "2026-09-17T13:59:37.491203+00:00",
+  "started_at_unix": 1789653577.491217,
+  "command_pid": 1050226,
+  "command_process_group": 1050226
+}

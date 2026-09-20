@@ -1,0 +1,18 @@
+{
+  "head": "faba15027a217204950da259bd13bc1857b96e53",
+  "tree": "c81eeb85db656b8abb7c251f43c2e7a6e106481d",
+  "holder": "6b86334c417c281d9968f7138498a88685e22a0b",
+  "holder_sha256": "f0ef2e53afc058b3249f3cc66567c345f3decce7775327833a23902dc53934e2",
+  "source_author": "e94b43354d73e4c164d62a70e247fae4757e9b0a",
+  "source_hashes": {
+    "internal/release/archive.go": "be1e4e7f5b7a09f95c2e2b357e572cea2ee8b234ae9e7911fbdbbd8302d29919",
+    "internal/release/consumable_injection_test.go": "84c48db2086d6650da262b34d82ee76cfd972d2b8383be21c46eb0df20a6891d",
+    "internal/release/consumable_test.go": "83f3eed632784f97a8977f7fb7f4f44a598e0e681c7b1b81800f11c1f7ed580d",
+    "internal/release/consumer_imports_test.go": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+    "internal/release/consumers.go": "ec5f53b1dbb8dbb880acd78250ae62fae9d7f9c418be2fad5754ab945e67b805",
+    "internal/release/doc.go": "9b3102b3aa8a1e75caf93d7f0e3ff59400ca5e9c9bdcc4df602d7cc8b1d37dc4",
+    "internal/release/manifest.go": "a5d15052b63ec7adb08de3842ea9654d59ac154448e09d0b35e20a201ecb61cc",
+    "internal/release/pack_test.go": "7eeed15c297c58c7a0d627671d16f959baea0de64627da2ff3f15c0f889c48ad"
+  },
+  "frozen_manifest_verified": 360
+}

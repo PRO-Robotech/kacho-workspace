@@ -1,0 +1,20 @@
+{
+  "command": [
+    "/var/tmp/area-ci-truth-tests/preservation",
+    "-repo",
+    ".",
+    "-base",
+    "b5fa093341f1fdbe96adfc6a9555482690968253",
+    "-candidate",
+    "0eae6a3569f062bcdf0c1184c1750b95eea5beb7"
+  ],
+  "cwd": "/home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/area-ci-truth-tests",
+  "head": "0eae6a3569f062bcdf0c1184c1750b95eea5beb7",
+  "GOWORK": "off",
+  "TMPDIR": "/var/tmp/area-ci-truth-tests",
+  "sanitized_git_env": true,
+  "rc": 0,
+  "elapsed_seconds": 0.08267998695373535,
+  "stdout_sha256": "3f80bb0a9a94962d8fa30594df16910ab2e029af0a89d67c92a2e07098ffb476",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -1,0 +1,9 @@
+292290 openat(AT_FDCWD</var/tmp/area-ci-2672-dc03-qc430zq6>, "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod", O_RDONLY|O_CLOEXEC) = 6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>
+292290 read(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>, "module example.invalid/dc03fixture\n\ngo 1.26.0\n", 512) = 46
+292290 read(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>, "", 466) = 0
+292290 close(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>) = 0
+292290 openat(AT_FDCWD</var/tmp/area-ci-2672-dc03-qc430zq6>, "/var/tmp/area-ci-2672-dc03-qc430zq6/go.mod", O_RDONLY|O_CLOEXEC) = 6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>
+292290 read(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>, "module example.invalid/dc03fixture\n\ngo 1.26.0\n", 512) = 46
+292290 read(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>, "", 466) = 0
+292290 close(6</var/tmp/area-ci-2672-dc03-qc430zq6/go.mod>) = 0
+292295 --- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=292297, si_uid=1000, si_status=0, si_utime=0, si_stime=0} ---

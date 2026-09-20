@@ -1,0 +1,13 @@
+{
+  "scope": "historical signed descriptor ZIP + UTF-8 cli/rc; no live retention or SDK delivery",
+  "prerequisites": "PASS",
+  "declared": 28,
+  "attempted": 28,
+  "scan_attempts": 26,
+  "content_decisions": 10,
+  "scope_refusals": 18,
+  "expected_findings": 4,
+  "actual_findings": 4,
+  "failed_expectations": 0,
+  "failures": []
+}

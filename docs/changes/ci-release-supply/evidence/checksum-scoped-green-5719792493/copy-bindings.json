@@ -1,0 +1,39 @@
+{
+  "recorded_by": "/root/release_supply_arch",
+  "recording_only": true,
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/event-body.txt",
+      "sha256": "50812599af4fddf2a9c12ec54b640d3d94cc0f418d5494c28b785fb4756992df"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/request.json",
+      "sha256": "fb0c388b7789ab2eccb21c735f8bce3aec5525846f113fe4f70a26386af97848"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/published-event.json",
+      "sha256": "fd9bbcd23d8a8400399201e8bdbdbb1206ae1a2caa269c9191312f95cad6bbfd"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/api-readback.json",
+      "sha256": "fd9bbcd23d8a8400399201e8bdbdbb1206ae1a2caa269c9191312f95cad6bbfd"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/root-review.json",
+      "sha256": "3949c1f730f22962b2b8666acee57c8424db9f970c54e4407fe62b170f173cc9"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/common-adapter-root-review.json",
+      "sha256": "a7d430137caf265ccfa81dd45ad75ea8ff4c492a6d674017240f27708500822a"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/input.json",
+      "sha256": "ef9a365bf6ee1ca74bc839180b55dc99d54c639084901d41d2549f86c6979352"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/checksum-scoped-green-5719792493/execution.json",
+      "sha256": "4fd8d6e7012dba81804e809b3e2ed918976efab79a51936cdc777b8d5cb4a4f4"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

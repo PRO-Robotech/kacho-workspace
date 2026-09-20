@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "kind": "external_review_record",
+  "change_id": "ci-release-supply",
+  "reviewer_role": "landing-reviewer",
+  "authorized_actor": "pointpu",
+  "event_coordinate": "IC_kwDOTZqgWM8AAAABVNN7Pg",
+  "event_url": "https://github.com/PRO-Robotech/kacho/issues/2588#issuecomment-5718113086",
+  "event_node_id": "IC_kwDOTZqgWM8AAAABVNN7Pg",
+  "event_api_id": 5718113086,
+  "body_sha256": "c1124e6a3474a5961372ec60f1949b4a4d5d6cdb669765377986c81326df2654",
+  "timestamp": "2026-09-17T16:52:45Z",
+  "source_reviewer": "/root",
+  "recorded_by": "/root/e2e_audit",
+  "publication_status": "VERIFIED",
+  "authority_policy": "docs/changes/policy.yaml",
+  "event_body_coordinate": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/event-body.txt",
+  "subject_repo": "PRO-Robotech/kacho",
+  "subject_commit": "daae559b40bc18c16798283ea376826adbcf6ea9",
+  "subject_path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/root-review.json",
+  "subject_sha256": "b8840a281e60235a7a72124d418c4f8beb2fb3563c5800e5a24e56089a208f30",
+  "subject_hash_kind": "root-review-json",
+  "verdict": "SCOPED_RED_APPROVED_SOURCE_AUTHORIZED",
+  "source_review_coordinate": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/root-review.json",
+  "source_review_sha256": "b8840a281e60235a7a72124d418c4f8beb2fb3563c5800e5a24e56089a208f30",
+  "evidence": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/event-body.txt",
+      "sha256": "c1124e6a3474a5961372ec60f1949b4a4d5d6cdb669765377986c81326df2654"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/published-event.json",
+      "sha256": "07287c6fd9143ed9f4934aed4725358eedc375ccedac848023c36d56f16891b6"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/api-readback.json",
+      "sha256": "07287c6fd9143ed9f4934aed4725358eedc375ccedac848023c36d56f16891b6"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/request.json",
+      "sha256": "c5bba3ed1c492c160925a267ac1b979c3da6fa26ae9a9e3ee0738e5d358bd874"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/root-review.json",
+      "sha256": "b8840a281e60235a7a72124d418c4f8beb2fb3563c5800e5a24e56089a208f30"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/input.json",
+      "sha256": "a51184b558417566a48b4797a71c417cd5e4f3efdc3a1c4487e64a4dc80a11d1"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/execution.json",
+      "sha256": "24d6b598b46fa8651d5376833d59d8f2c1ee129b95e9a06a5b932e89e8aa84b3"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/source-scope-plan.txt",
+      "sha256": "af972f693703b16259fc48bd80c3b6800c6b09c6da59b0b6271dd9748199a574"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/candidate-scoped-red-5718113086/publisher-holder-coordinate.txt",
+      "sha256": "ca5bd7c6e39e51024a7cad6ab9c62697c173753b1df3609f77a2dd5a8dcc326c"
+    }
+  ],
+  "scope": [
+    "61 реальный compiled SUT call вернул schema-valid unsupported candidate mode; 64 RUN / 1 PASS / 63 FAIL / 0 SKIP. Разрешены ровно 6 source paths; additive publisher test coordinate отдельно, без publisher source authority."
+  ],
+  "pending": [
+    "Полный T1, candidate/publisher и P9, actual D8/protected delivery, consumer/main и closure остаются отдельными"
+  ],
+  "source_author": "/root/release_supply_arch",
+  "holder_author": "/root/truth_tests"
+}

@@ -1,0 +1,15 @@
+{
+  "reviewer": "/root",
+  "at": "2026-09-17T18:57:59.609129+00:00",
+  "plan_sha256": "3071a520c86544e50f06185164f898b180a8f0328abb9d138cd5c8826da2153f",
+  "proposal_sha256": "96a1d775a76872bec5fa75585cebd7c5da7438ae689ce2a1b414f85784c2c69d",
+  "detail_amendment_sha256": "f37660b82d42665a6effc537df28feba80f0cc8cffae4652943d41b242fe7022",
+  "outcome": "BOUNDED_TEST_ONLY_AUTHORIZED",
+  "authored_paths": [
+    "internal/release/publisher_deleted_head_test.go"
+  ],
+  "source_authorized": false,
+  "canonical_subjects_unchanged": true,
+  "controls": "22 profiles/37 phase cells plus separately counted idempotent release; actual Git squash/ref deletion prerequisites and actual API shape; original52 immutable",
+  "findings": "No conflict with D4/interface: omit branch ledger record only when unattempted and no live present branch; unique authoritative numbered detail and accepted merge tree/checks/current-main ancestry still mandatory. A conflicting live ref never ignored. Malformed/absent detail never yields a merge fact."
+}

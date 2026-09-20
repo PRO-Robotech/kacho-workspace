@@ -1,0 +1,1114 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "phase",
+    "outcome",
+    "reason",
+    "exit_code",
+    "dry_run",
+    "stage",
+    "repository",
+    "version",
+    "plan_sha256",
+    "input_sha256",
+    "candidate_sha",
+    "tag_target_sha",
+    "snapshots",
+    "census",
+    "checks",
+    "effects"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "phase": {
+      "enum": [
+        "plan",
+        "deliver",
+        "release",
+        "probe",
+        "candidate",
+        "consumers",
+        "pins"
+      ]
+    },
+    "outcome": {
+      "enum": [
+        "GREEN",
+        "RED",
+        "USAGE_ERROR",
+        "NOT_EXECUTED"
+      ]
+    },
+    "reason": {
+      "enum": [
+        "OK",
+        "INVALID_INVOCATION",
+        "INVALID_CONFIRMATION",
+        "REPOSITORY_MISMATCH",
+        "INPUT_INVALID",
+        "INPUT_CHANGED",
+        "UNDECLARED_PATH_LOSS",
+        "RECEIVING_OWNERSHIP_CONFLICT",
+        "BASELINE_EMPTY",
+        "BASELINE_STALE",
+        "BASELINE_UNAVAILABLE",
+        "PACKAGE_FLOOR_LOSS",
+        "CONSUMER_IMPORT_MISSING",
+        "CONSUMER_CENSUS_EMPTY",
+        "CONSUMER_DECLARATION_INVALID",
+        "SOURCE_UNAVAILABLE",
+        "PR_REQUIRED",
+        "TARGET_NOT_ON_MAIN",
+        "CONTENT_MISMATCH",
+        "REQUIRED_CHECKS_FAILED",
+        "BUDGET_EXHAUSTED",
+        "PROXY_UNAVAILABLE",
+        "PUBLISHED_ARCHIVE_MISMATCH",
+        "CONSUMER_BUILD_FAILED",
+        "PIN_UNREACHABLE",
+        "PIN_NOT_ON_MAIN",
+        "MODULE_CENSUS_EMPTY",
+        "INTERNAL_CENSUS_EMPTY",
+        "MODULE_MAPPING_INVALID",
+        "TAG_IDENTITY_CONFLICT",
+        "WRITE_OUTCOME_UNKNOWN",
+        "PAYLOAD_MISMATCH",
+        "PR_HEAD_CHANGED",
+        "VERSION_INVALID",
+        "COMPATIBILITY_FAILED",
+        "HARNESS_UNAVAILABLE",
+        "REMOTE_WRITE_REJECTED",
+        "EFFECT_IDENTITY_CONFLICT"
+      ]
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "stage": {
+      "enum": [
+        "NONE",
+        "BRANCH_PRESENT",
+        "PR_OPEN",
+        "MERGE_PRESENT",
+        "MERGED_VERIFIED",
+        "TAG_PRESENT",
+        "ARCHIVE_VERIFIED"
+      ]
+    },
+    "repository": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "version": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "plan_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "input_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidate_sha": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "tag_target_sha": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "point",
+          "main_sha",
+          "observed_at",
+          "target_is_ancestor"
+        ],
+        "properties": {
+          "point": {
+            "enum": [
+              "base",
+              "pre-write",
+              "post-write"
+            ]
+          },
+          "main_sha": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "target_is_ancestor": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "census": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input_files",
+        "preserved_files",
+        "previous_packages",
+        "candidate_packages",
+        "consumers",
+        "consumer_imports",
+        "modules",
+        "internal_requirements",
+        "pseudo_versions",
+        "resolved_pins",
+        "required_checks",
+        "payload_files"
+      ],
+      "properties": {
+        "input_files": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preserved_files": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "previous_packages": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidate_packages": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "consumers": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "consumer_imports": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "modules": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "internal_requirements": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pseudo_versions": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "resolved_pins": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_checks": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "payload_files": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "predicate",
+          "outcome",
+          "reason",
+          "subjects",
+          "examined"
+        ],
+        "properties": {
+          "predicate": {
+            "enum": [
+              "invocation",
+              "identity",
+              "input",
+              "ownership",
+              "baseline",
+              "package-floor",
+              "consumer-census",
+              "consumer-archive",
+              "payload",
+              "compatibility",
+              "pr",
+              "required-checks",
+              "main-ancestry",
+              "tag",
+              "proxy",
+              "pins-origin",
+              "pins-main"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "GREEN",
+              "RED",
+              "USAGE_ERROR",
+              "NOT_EXECUTED"
+            ]
+          },
+          "reason": {
+            "enum": [
+              "OK",
+              "INVALID_INVOCATION",
+              "INVALID_CONFIRMATION",
+              "REPOSITORY_MISMATCH",
+              "INPUT_INVALID",
+              "INPUT_CHANGED",
+              "UNDECLARED_PATH_LOSS",
+              "RECEIVING_OWNERSHIP_CONFLICT",
+              "BASELINE_EMPTY",
+              "BASELINE_STALE",
+              "BASELINE_UNAVAILABLE",
+              "PACKAGE_FLOOR_LOSS",
+              "CONSUMER_IMPORT_MISSING",
+              "CONSUMER_CENSUS_EMPTY",
+              "CONSUMER_DECLARATION_INVALID",
+              "SOURCE_UNAVAILABLE",
+              "PR_REQUIRED",
+              "TARGET_NOT_ON_MAIN",
+              "CONTENT_MISMATCH",
+              "REQUIRED_CHECKS_FAILED",
+              "BUDGET_EXHAUSTED",
+              "PROXY_UNAVAILABLE",
+              "PUBLISHED_ARCHIVE_MISMATCH",
+              "CONSUMER_BUILD_FAILED",
+              "PIN_UNREACHABLE",
+              "PIN_NOT_ON_MAIN",
+              "MODULE_CENSUS_EMPTY",
+              "INTERNAL_CENSUS_EMPTY",
+              "MODULE_MAPPING_INVALID",
+              "TAG_IDENTITY_CONFLICT",
+              "WRITE_OUTCOME_UNKNOWN",
+              "PAYLOAD_MISMATCH",
+              "PR_HEAD_CHANGED",
+              "VERSION_INVALID",
+              "COMPATIBILITY_FAILED",
+              "HARNESS_UNAVAILABLE",
+              "REMOTE_WRITE_REJECTED",
+              "EFFECT_IDENTITY_CONFLICT"
+            ]
+          },
+          "subjects": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "examined": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "effects": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "ref",
+              "expected_sha",
+              "sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "branch"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "expected_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "CONFLICT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "head_ref",
+              "base_ref",
+              "expected_head_sha",
+              "pr_number",
+              "sha",
+              "plan_marker"
+            ],
+            "properties": {
+              "kind": {
+                "const": "pr"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "head_ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "base_ref": {
+                "const": "refs/heads/main"
+              },
+              "expected_head_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "pr_number": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "plan_marker": {
+                "type": "string",
+                "pattern": "^CI-RS-1 plan-sha256:[0-9a-f]{64}$"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "pr_number": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "head_ref",
+              "base_ref",
+              "expected_head_sha",
+              "pr_number",
+              "sha",
+              "merge_sha",
+              "main_sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "merge"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "head_ref": {
+                "type": "string",
+                "pattern": "^refs/heads/[^\\s]+$"
+              },
+              "base_ref": {
+                "const": "refs/heads/main"
+              },
+              "expected_head_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "pr_number": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "merge_sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "main_sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "pr_number": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "merge_sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "merge_sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "ref",
+              "expected_sha",
+              "sha"
+            ],
+            "properties": {
+              "kind": {
+                "const": "tag"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "^refs/tags/[^\\s]+$"
+              },
+              "expected_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "CONFLICT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "enum": [
+                        "UNKNOWN",
+                        "ABSENT"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "repository",
+              "state",
+              "tag_ref",
+              "expected_sha",
+              "sha",
+              "release_id"
+            ],
+            "properties": {
+              "kind": {
+                "const": "release-note"
+              },
+              "repository": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+              },
+              "state": {
+                "enum": [
+                  "PRESENT",
+                  "ABSENT",
+                  "UNKNOWN",
+                  "CONFLICT"
+                ]
+              },
+              "tag_ref": {
+                "type": "string",
+                "pattern": "^refs/tags/[^\\s]+$"
+              },
+              "expected_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "sha": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "release_id": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "state": {
+                      "const": "PRESENT"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "sha": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "release_id": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/PRO-Robotech/kacho-workspace/docs/changes/ci-release-supply/result.schema.json",
+  "title": "CI-RS-1 proposed result schema - DRAFT",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "GREEN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 0
+          },
+          "reason": {
+            "const": "OK"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "RED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "USAGE_ERROR"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "NOT_EXECUTED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "exit_code": {
+            "const": 3
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "dry_run": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "effects": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "enum": [
+              "RED",
+              "USAGE_ERROR",
+              "NOT_EXECUTED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "not": {
+              "const": "OK"
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "outcome": {
+            "const": "GREEN"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "effects": {
+            "items": {
+              "properties": {
+                "state": {
+                  "const": "PRESENT"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

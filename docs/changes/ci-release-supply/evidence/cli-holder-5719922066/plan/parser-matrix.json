@@ -1,0 +1,534 @@
+{
+  "status": "PROPOSED_FINITE_EXPECTATIONS_REQUIRES_ROOT_READBACK_BEFORE_HOLDER",
+  "placeholders": {
+    "<S>": "actual immutable 40hex fixture commit already captured by P5 for legacy route",
+    "<D>": "existing closed declaration file",
+    "<M>": "existing full mode-specific manifest",
+    "<ready>": "existing owned ready tree",
+    "<missing-manifest>": "proven absent owned path"
+  },
+  "closed_private_route": "one leading version positional, exactly one --consumers value and --revision 40hex in either named-option order, no other arguments; public legacy flags unchanged",
+  "cases": [
+    {
+      "id": "CLI-candidate-missing",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "candidate",
+        "--manifest",
+        "<missing-manifest>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "candidate",
+      "outcome": "NOT_EXECUTED",
+      "reason": "SOURCE_UNAVAILABLE",
+      "exit_code": 3,
+      "note": "S is an actual full fixture commit; no launcher rc collapse"
+    },
+    {
+      "id": "CLI-consumers-missing",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "consumers",
+        "--manifest",
+        "<missing-manifest>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "consumers",
+      "outcome": "NOT_EXECUTED",
+      "reason": "SOURCE_UNAVAILABLE",
+      "exit_code": 3,
+      "note": "S is an actual full fixture commit; no launcher rc collapse"
+    },
+    {
+      "id": "CLI-pins-missing",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "pins",
+        "--manifest",
+        "<missing-manifest>"
+      ],
+      "route": "pins",
+      "outcome": "NOT_EXECUTED",
+      "reason": "SOURCE_UNAVAILABLE",
+      "exit_code": 3,
+      "note": "S is an actual full fixture commit; no launcher rc collapse"
+    },
+    {
+      "id": "CLI-publisher-default-missing",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--tree",
+        "<ready>",
+        "--repo",
+        "PRO-Robotech/corelib",
+        "--version",
+        "v1.1.0",
+        "--manifest",
+        "<missing-manifest>"
+      ],
+      "route": "plan",
+      "outcome": "NOT_EXECUTED",
+      "reason": "SOURCE_UNAVAILABLE",
+      "exit_code": 3,
+      "note": "Valid local ready locator; no --phase or --commit; effects remain empty"
+    },
+    {
+      "id": "CLI-empty",
+      "entry": "actual compiled CLI",
+      "argv": [],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-unknown-mode",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "unknown",
+        "--manifest",
+        "<M>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-missing-mode-value",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-duplicate-mode",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "consumers",
+        "--mode",
+        "consumers",
+        "--manifest",
+        "<M>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-missing-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "consumers",
+        "--manifest",
+        "<M>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-malformed-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "candidate",
+        "--manifest",
+        "<M>",
+        "--revision",
+        "abc"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-pins-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "pins",
+        "--manifest",
+        "<M>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-pins-final-duplicate",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "pins",
+        "--manifest",
+        "<M>",
+        "--final-main",
+        "--final-main"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-consumer-final-main",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "consumers",
+        "--manifest",
+        "<M>",
+        "--revision",
+        "<S>",
+        "--final-main"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-mixed-mode-phase",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--mode",
+        "pins",
+        "--manifest",
+        "<M>",
+        "--phase",
+        "plan"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-unknown-flag",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--unexpected"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-publisher-unexpected-positional",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "extra"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "CLI-bare-commit",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "--commit"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-exact",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "consumers",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "exit_code": 0,
+      "note": "Lawful hermetic candidate and tracked canonical program; no external write"
+    },
+    {
+      "id": "P9-route-named-order",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--revision",
+        "<S>",
+        "--consumers",
+        "<D>"
+      ],
+      "route": "consumers",
+      "outcome": "GREEN",
+      "reason": "OK",
+      "exit_code": 0,
+      "note": "Lawful hermetic candidate and tracked canonical program; no external write"
+    },
+    {
+      "id": "P9-route-no-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-no-consumers",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-duplicate-consumers",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-duplicate-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-second-version",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "v1.1.1",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-missing-value",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-bad-revision",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "HEAD"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-mixed-phase",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>",
+        "--phase",
+        "plan"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-mixed-mode",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>",
+        "--mode",
+        "consumers"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "P9-route-skip-pack-private",
+      "entry": "actual compiled CLI",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>",
+        "--skip-pack"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": ""
+    },
+    {
+      "id": "publisher-wrapper-foreign-mode",
+      "entry": "actual publish-module-tree.sh",
+      "argv": [
+        "--mode",
+        "consumers",
+        "--manifest",
+        "<M>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": "Wrapper must not turn its own forbidden flags/positionals into another successful CLI route"
+    },
+    {
+      "id": "publisher-wrapper-private-p9",
+      "entry": "actual publish-module-tree.sh",
+      "argv": [
+        "v1.1.0",
+        "--consumers",
+        "<D>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": "Wrapper must not turn its own forbidden flags/positionals into another successful CLI route"
+    },
+    {
+      "id": "pins-wrapper-caller-mode",
+      "entry": "actual assert-internal-pins-reachable.sh",
+      "argv": [
+        "--mode",
+        "pins",
+        "--manifest",
+        "<M>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": "Pins wrapper supplies exactly one --mode pins itself; accepts only --manifest and optional --final-main"
+    },
+    {
+      "id": "pins-wrapper-caller-revision",
+      "entry": "actual assert-internal-pins-reachable.sh",
+      "argv": [
+        "--manifest",
+        "<M>",
+        "--revision",
+        "<S>"
+      ],
+      "route": "rejected",
+      "outcome": "USAGE_ERROR",
+      "reason": "INVALID_INVOCATION",
+      "exit_code": 2,
+      "note": "Pins wrapper supplies exactly one --mode pins itself; accepts only --manifest and optional --final-main"
+    }
+  ]
+}

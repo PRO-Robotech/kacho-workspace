@@ -1,0 +1,34 @@
+{
+  "recorded_by": "/root/e2e_audit",
+  "exact_evidence_hashes": [
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/event-body.txt",
+      "sha256": "5c18e0b5b086406c0afb5798df6d7e6b9e5e582cfd11c22fe666d8fc0ea7dd41"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/published-event.json",
+      "sha256": "0aa101b828ccb6494b674de8b075dceca51f009fe4853772b936d1593912c74e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/api-readback.json",
+      "sha256": "0aa101b828ccb6494b674de8b075dceca51f009fe4853772b936d1593912c74e"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/request.json",
+      "sha256": "6ae99da79231f834a02b31c4a8c66b7ab7292ac7bcd29e882638159fd581f253"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/root-review.json",
+      "sha256": "80b5dc5178dad88d48024fbee40852a76875303dc107093790b1bdf2a99515b5"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/input.json",
+      "sha256": "7576dd45d42d740ba819e06bf92f18470cad84d791fd8ee122661277b4fa0ecc"
+    },
+    {
+      "path": "docs/changes/ci-release-supply/evidence/consumer-scoped-red-5716590453/execution.json",
+      "sha256": "9eb5141a76232a3484e41ccc84dab667d1d3eca44013dc1962d43a0105cd3d70"
+    }
+  ],
+  "raw_private_artifacts_copied": false
+}

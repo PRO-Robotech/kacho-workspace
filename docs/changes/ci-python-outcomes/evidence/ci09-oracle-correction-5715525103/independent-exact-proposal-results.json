@@ -1,0 +1,242 @@
+{
+  "scope": "Independent one-off assertion adjudication using immutable saved root captures and in-memory mutants. No source/holder edits, no SUT rerun, no GREEN for root fullrun.",
+  "controls": [
+    {
+      "control": "original_literal_rejects_actual_007",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_accepts_actual_007",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "lawful_003_complete",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "actual_004_pytest_absence_distinct",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "actual_005_pytest_absence_distinct",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_003",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_004",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_005",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_006",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_008",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "semantic_refusal_rejects_other_actual_022",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "same_fact_uppercase_original_passes",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "same_fact_uppercase_semantic_passes",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "same_fact_alternative_wording_semantic_passes",
+      "observed": true,
+      "expected": true,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_no_record",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_foreign_id",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_unknown_schema",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_bool_schema",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_wrong_producer",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_wrong_unit",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_green_category",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_unmet_category",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_zero_rc",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_missing_findings",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_missing_gate",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_missing_python_leaf",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_wrong_gate_coordinate",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_wrong_leaf_code",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_empty_leaf_coordinates",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_empty_leaf_messages",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_declarations_four",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_executed_four",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_zero_failed",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_unmet_one",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_skipped_one",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_bool_failed",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_inconsistent_reason",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_human_summary_zero_failed",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    },
+    {
+      "control": "negative_inversion_human_declared_four",
+      "observed": false,
+      "expected": false,
+      "pass": true
+    }
+  ],
+  "total": 39,
+  "passed": 39,
+  "negative_mutants": 25
+}

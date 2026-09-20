@@ -1,0 +1,20 @@
+{
+  "head": "5c5476d1a7b330b865d0d753d89e0f9ad84378d2",
+  "tree": "0add74933730314a276d075acfbabfe82d637ed9",
+  "holder": "f43f10da6c401d0360d17e3aa5d174074c9d46c3",
+  "holder_sha256": "0165beeeb18ff55f37a109ea2b9aa6c032ec2f759de3ae01b81e55ce22dcec5e",
+  "prior_source": "c5ca217cbb6430db63c3923d13add3cbd0ddd4fb",
+  "source_and_holders": {
+    "internal/release/archive.go": "e2df221f62157b0140787586d0b7bc737640bc00d05efc2615531d72eb1e7413",
+    "internal/release/consumable_injection_test.go": "84c48db2086d6650da262b34d82ee76cfd972d2b8383be21c46eb0df20a6891d",
+    "internal/release/consumable_test.go": "83f3eed632784f97a8977f7fb7f4f44a598e0e681c7b1b81800f11c1f7ed580d",
+    "internal/release/consumer_imports_test.go": "ac003b9abe5111b5c36c3b2ae6b6fb54d08448dd3a18dfc408b225e4077d138c",
+    "internal/release/consumer_nested_module_test.go": "f0ef2e53afc058b3249f3cc66567c345f3decce7775327833a23902dc53934e2",
+    "internal/release/consumers.go": "c25723245f8067384f5227ce00da174de2944271d189570ac4da6db8f1e9c264",
+    "internal/release/doc.go": "9b3102b3aa8a1e75caf93d7f0e3ff59400ca5e9c9bdcc4df602d7cc8b1d37dc4",
+    "internal/release/manifest.go": "a5d15052b63ec7adb08de3842ea9654d59ac154448e09d0b35e20a201ecb61cc",
+    "internal/release/pack_test.go": "7eeed15c297c58c7a0d627671d16f959baea0de64627da2ff3f15c0f889c48ad"
+  },
+  "manifest_entries_verified": 410,
+  "source_review": "All408 newholder lines read; actualfreshorigin refs andfull2modulecensus cases"
+}

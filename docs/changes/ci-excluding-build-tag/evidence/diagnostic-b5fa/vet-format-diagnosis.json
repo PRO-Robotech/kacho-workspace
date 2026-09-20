@@ -1,0 +1,57 @@
+[
+  {
+    "label": "lawful-vet-json",
+    "argv": [
+      "go",
+      "vet",
+      "-json",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 0,
+    "seconds": 0.04395635996479541,
+    "stdout_sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "label": "defect-vet-json",
+    "argv": [
+      "go",
+      "vet",
+      "-json",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 1,
+    "seconds": 0.7784676589653827,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "a9f3ccd3f4b203b35723a6b9a4f6040fc3b1f50ed35e5c9873eb30cf88bbe8f6"
+  },
+  {
+    "label": "baseline-broken-vet-json",
+    "argv": [
+      "go",
+      "vet",
+      "-json",
+      "./pkg/"
+    ],
+    "rc": 1,
+    "seconds": 0.7804959199856967,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "5f6c965d412d3ec5e0a83e75db1ebf2e3d99480e19c043a00f6bb9b9aaa2437a"
+  },
+  {
+    "label": "tagged-dependency-missing-vet-json",
+    "argv": [
+      "go",
+      "vet",
+      "-json",
+      "-tags=synthexclude",
+      "./pkg/"
+    ],
+    "rc": 1,
+    "seconds": 0.010514297988265753,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "382ee500003873d24e0c7ccba53e95a1bc0062d1f75d280cb7e9d6aa08738015"
+  }
+]

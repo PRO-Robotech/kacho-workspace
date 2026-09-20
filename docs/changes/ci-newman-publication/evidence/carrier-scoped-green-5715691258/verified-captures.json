@@ -1,0 +1,72 @@
+{
+  "source_commit": "3884b882e30a63cee03f371a75a4f4df209e5ffc",
+  "all_stream_hashes_verified": true,
+  "process_captures": 3355,
+  "reader_records": 851,
+  "reader_hashes_verified": true,
+  "source_and_holder_hashes_unchanged": true,
+  "carrier_summary": {
+    "scope": "CI-NP-02/03 carrier, decoding and lower-only capacity CLI; no SDK/workflow/retention",
+    "prerequisites_executed": 412,
+    "scan_declared": 461,
+    "scan_attempts": 461,
+    "scan_semantic_decisions": 461,
+    "missing_scan_dispatch": 0,
+    "limits_declared": 120,
+    "invalid_or_missing_scan_verdict": 0,
+    "limits_attempts": 120,
+    "failed_expectations": 0,
+    "groups": {
+      "capacity": {
+        "declared": 28,
+        "attempted": 28,
+        "lawful": 14,
+        "negative": 14
+      },
+      "carriers": {
+        "declared": 308,
+        "attempted": 308,
+        "lawful": 154,
+        "negative": 154
+      },
+      "contextual": {
+        "declared": 12,
+        "attempted": 12,
+        "lawful": 6,
+        "negative": 6
+      },
+      "decoding": {
+        "declared": 7,
+        "attempted": 7,
+        "lawful": 6,
+        "negative": 1
+      },
+      "field-families": {
+        "declared": 66,
+        "attempted": 66,
+        "lawful": 33,
+        "negative": 33
+      },
+      "incomplete": {
+        "declared": 16,
+        "attempted": 16,
+        "lawful": 8,
+        "negative": 8
+      },
+      "lawful-empty": {
+        "declared": 22,
+        "attempted": 22,
+        "lawful": 22,
+        "negative": 0
+      },
+      "lawful-public": {
+        "declared": 2,
+        "attempted": 2,
+        "lawful": 2,
+        "negative": 0
+      }
+    },
+    "failures": []
+  },
+  "run_capture_dir": "contracts/newman-root-carrier-green-3884b882/captures/np-c601598d32"
+}
