@@ -2132,6 +2132,49 @@ def journal_read_and_clear() -> list[str]:
     return sorted(set(out))
 
 
+SESSION = ""   # id сессии из события; «уже сказано» относится к ЭТОЙ сессии
+
+
+# Летучее ЭТОГО прибора: тёплость кэша — свойство прогона, не предмета. Первый Stop
+# сессии всегда холодный, второй тёплый, и без этой строки второй ход ПЕЧАТАЛСЯ БЫ
+# ПОЛНОСТЬЮ всегда — замер 2026-09-20 на четырёх прогонах подряд: дельта нашлась
+# ровно в словах «кэш холодный → кэш тёплый», всё остальное совпадало дословно.
+VOLATILE_OF_THIS_PROBE = (r"кэш (?:тёплый|холодный)",)
+
+
+def signal_out(sid: str, body: str, *, addressee: str, clear_when: str,
+               sha: str = "") -> tuple[str, str]:
+    """Признак дельты у сигнала. Механизм ОДИН — `.claude/hooks/lib/hook_signal.py`.
+
+    Своей копии признака здесь нет намеренно. Класс «печатается состояние вместо
+    дельты» уже лечился В ЭТОМ файле один раз — сменой канала для одной строки
+    (`census_append` ниже), — и вернулся, как только печатаемых строк стало больше.
+    Пока признак не принадлежит сигналу как таковому, он будет возвращаться; поэтому
+    он лежит вне этого файла и общий для всех хуков.
+
+    Отказ самого механизма (нет файла, нет прав) даёт ПОЛНУЮ печать и говорит об
+    этом вслух: сигнал, замолчавший из-за поломки признака, неотличим от «находок
+    нет» — ровно тот мягкий проход, который хук и ловит.
+    """
+    lib = str(HERE.parent / "lib")
+    try:
+        if lib not in sys.path:
+            sys.path.insert(0, lib)
+        import hook_signal
+        return hook_signal.gate(sid, body, addressee=addressee, clear_when=clear_when,
+                                session=SESSION, sha=sha,
+                                volatile=VOLATILE_OF_THIS_PROBE)
+    except Exception as e:  # noqa: BLE001
+        return (body + f"\n[сигнал `{sid}`] признак дельты НЕ применён: {e!r} — "
+                f"печатается ПОЛНОСТЬЮ каждый ход, пока это так. "
+                f"→ tooling-maintainer: провязка {lib}/hook_signal.py"), "full"
+
+
+def head_sha(ws: Path) -> str:
+    out = git(ws, "rev-parse", "--short", "HEAD")
+    return out[0] if out else "ревизия не читается"
+
+
 def census_append(line: str) -> bool:
     """Перепись конца хода уезжает в ПОСТОЯННЫЙ журнал, а не в контекст агента.
 
@@ -3148,6 +3191,11 @@ def main() -> int:
 
     ws = workspace_root()
     mono = monorepo_root(ws)
+    # «Уже сказано» относится к ЭТОЙ сессии: в новой сессии отпечатка нет, и первый
+    # сигнал печатается полностью. Событие без `session_id` не ошибка — тогда ключ
+    # один общий, и свёртка работает по времени жизни каталога состояния.
+    global SESSION
+    SESSION = str(event.get("session_id") or "")
     hook_event = event.get("hook_event_name") or ""
     tool = event.get("tool_name") or ""
     fpath = (event.get("tool_input") or {}).get("file_path") or ""
@@ -3162,11 +3210,24 @@ def main() -> int:
         # основания неотличимо от сообщения о продукте — читатель не знает, о каком
         # дереве речь. Требование было записано пробой набора для отказа; исход
         # сменился, требование осталось.
+        #
+        # Третья категория — ТОЖЕ печатаемый сигнал, поэтому идёт через тот же признак
+        # дельты. Замер 2026-09-20: две строки [VOID] выходили КАЖДЫЙ ход при
+        # неизменных предпосылках — отставание копии продукта и исключение, которому
+        # нечего исключать. Оба предмета живут неделями, и печать каждого хода делала
+        # их фоном ровно так же, как перепись.
         basis_v = premise_basis(mono)
-        if basis_v:
-            sys.stderr.write("[VOID] docfresh: " + basis_v + "\n")
-        for n in notices:
-            sys.stderr.write("[VOID] docfresh: " + n + "\n")
+        void_body = "\n".join(
+            (["[VOID] docfresh: " + basis_v] if basis_v else [])
+            + ["[VOID] docfresh: " + n for n in notices])
+        void_out, _ = signal_out(
+            "docfresh-void", void_body,
+            addressee="tooling-maintainer (предпосылка прибора) · git-operator "
+                      "(отставание выписанной копии от ствола)",
+            clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep не печатает "
+                       "ни одной строки [VOID]",
+            sha=head_sha(ws))
+        sys.stderr.write(void_out + "\n")
     if bad:
         lines = ["╔══ docfresh ОТКАЗЫВАЕТСЯ РАБОТАТЬ ═══════════════════════════════"]
         # Ревизия, по которой судили, — ПЕРВОЙ строкой: отказ, не назвавший своего
@@ -3273,10 +3334,28 @@ def main() -> int:
     census = census_line(idx, truth, cnt, warm, ms, stats, carried)
 
     gaps = cnt.get("toolgaps") or []
+    sha = head_sha(ws)
     if findings or stales or gaps:
-        sys.stderr.write(render(findings, stales, refusals, census, gaps=gaps) + "\n")
+        out, _ = signal_out(
+            "docfresh-edit", render(findings, stales, refusals, census, gaps=gaps),
+            addressee="docs-writer (документ дерева) · vault-scribe (записка vault) · "
+                      "tooling-maintainer (граница основания и послабления)",
+            clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep даёт код 0 "
+                       "и строку [PASS]",
+            sha=sha)
+        # Код 2 остаётся и у свёрнутого повтора: он доставляет stderr автору правки.
+        # Свёрнута ФОРМА, а не доставка — иначе вторая правка того же документа
+        # проходила бы молча, и это читалось бы как «починено».
+        sys.stderr.write(out + "\n")
         return 2
-    sys.stdout.write(census + "\n")
+    out, _ = signal_out(
+        "docfresh-census", census,
+        addressee="check-verifier (объём осмотренного — предмет приёмки, а не работы)",
+        clear_when="tail -1 .claude/hooks/docfresh/.state/census.log называет объём "
+                   "осмотренного этим ходом — перепись проверяема после факта и канал "
+                   "находок ей не нужен",
+        sha=sha)
+    sys.stdout.write(out + "\n")
     return 0
 
 
@@ -3444,16 +3523,35 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
     # класс», п. 3), поэтому перепись остаётся — сменён её адресат.
     journaled = census_append(census)
     gaps = cnt.get("toolgaps") or []
+    sha = head_sha(ws)
     if findings or stales or gaps:
         text = render(findings, stales, refusals, census, gaps=gaps)
-        sys.stderr.write(text + "\n")
-        sys.stdout.write(json.dumps({
-            "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": text}
-        }, ensure_ascii=False) + "\n")
+        out, mode = signal_out(
+            "docfresh-stop", text,
+            addressee="docs-writer (документ дерева) · vault-scribe (записка vault) · "
+                      "tooling-maintainer (граница основания и послабления)",
+            clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep даёт код 0 "
+                       "и строку [PASS]",
+            sha=sha)
+        sys.stderr.write(out + "\n")
+        # `additionalContext` поднимает агента заново, поэтому им уходит только ПОЛНАЯ
+        # печать. Свёрнутый повтор в этот канал не идёт: находка, о которой уже сказано,
+        # не вправе тратить ход заново — так и замыкалась петля «ход → впрыск → ход».
+        if mode == "full":
+            sys.stdout.write(json.dumps({
+                "hookSpecificOutput": {"hookEventName": "Stop", "additionalContext": out}
+            }, ensure_ascii=False) + "\n")
         return 0
     if not journaled:
         census += " · ЖУРНАЛ ПЕРЕПИСИ НЕ ПИШЕТСЯ: каталог .state недоступен"
-    sys.stderr.write(census + "\n")
+    out, _ = signal_out(
+        "docfresh-census", census,
+        addressee="check-verifier (объём осмотренного — предмет приёмки, а не работы)",
+        clear_when="tail -1 .claude/hooks/docfresh/.state/census.log называет объём "
+                   "осмотренного этим ходом — перепись проверяема после факта и канал "
+                   "находок ей не нужен",
+        sha=sha)
+    sys.stderr.write(out + "\n")
     return 0
 
 
