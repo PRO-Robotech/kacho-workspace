@@ -172,7 +172,7 @@ tags:
 | [[rpc/iam-internal-authorize-service\|InternalAuthorizeService]] | в работе (planned) |
 | [[rpc/iam-internal-cluster-service\|InternalClusterService]] | живо (done) |
 | [[rpc/iam-internal-iam-service\|InternalIAMService]] | в работе (planned) |
-| [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
+| [[rpc/iam-internal-limit-service\|InternalLimitService]] | история (deprecated) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
 | [[rpc/iam-login-lane\|Полоса формы входа и регистрации (kaname)]] | в работе (test) |
@@ -497,10 +497,10 @@ tags:
 | [[packages/corelib-operations\|corelib-operations]] | живо (stable) |
 | [[packages/corelib-outbox-drainer\|corelib-outbox-drainer]] | живо (stable) |
 | [[packages/corelib-outbox\|corelib-outbox]] | живо (stable) |
-| [[packages/corelib-peer\|pkg/peer — полоса ответа соседа: единственное место, где чужой отказ становится нашим]] | живо (stable) |
+| [[packages/corelib-peer\|corelib/peer — полоса ответа соседа: единственное место, где чужой отказ становится нашим]] | живо (stable) |
 | [[packages/corelib-quota\|corelib-quota]] | в работе (in-progress) |
 | [[packages/corelib-retry\|corelib-retry]] | живо (stable) |
-| [[packages/corelib-servicehost\|pkg/servicehost + pkg/servicecontract — носитель контура работы сервиса с моделью прав]] | живо (stable) |
+| [[packages/corelib-servicehost\|corelib/servicehost + corelib/servicecontract — носитель контура работы сервиса с моделью прав]] | живо (stable) |
 | [[packages/corelib-shutdown\|corelib-shutdown]] | история (wontfix) |
 | [[packages/corelib-subscription\|corelib-subscription]] | живо (stable) |
 | [[packages/corelib-validate\|corelib-validate]] | живо (stable) |
@@ -1219,11 +1219,11 @@ tags:
 | [[KAC/issue-285\|#285: версию генератора контракта выбирал PATH, а не дерево]] | в работе (test) |
 | [[KAC/issue-287\|#287: перепись читала машинно собираемый файл как расщеплённую работу]] | живо (done) |
 | [[KAC/issue-291-quota-v2\|Квоты на число ресурсов: каталог, учёт, отказ и арендаторское чтение (#291)]] | в работе (test) |
-| [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | в работе (in-progress) |
+| [[KAC/issue-291\|#291: число ресурсов у арендатора не ограничено квотами]] | история (superseded) |
 | [[KAC/issue-292\|#292: клетка Ф2 приёмки XC-7 называла шесть обёрток, их три]] | живо (done) |
 | [[KAC/issue-293\|#293: у проверки состава приёмок не было ни одной пробы]] | живо (done) |
 | [[KAC/issue-295\|[trail] issue-295 — судья переноса не доходил до вердикта]] | в работе (test) |
-| [[KAC/issue-296\|[trail] issue-296 — состояние применения выведено в публичный контракт vpc]] | в работе (test) |
+| [[KAC/issue-296\|[trail] issue-296 — состояние применения выведено в публичный контракт vpc]] | история (superseded) |
 | [[KAC/issue-297\|#297: версия shellcheck не пиннилась — вердикт принадлежал образу ранера]] | живо (done) |
 | [[KAC/issue-304\|#304: корпус фаззера уезжал в кэш только той ночью, которая ничего не нашла]] | в работе (test) |
 | [[KAC/issue-306\|#306: обязательный локальный прогон держался вниманием — цели установки хука не существовало]] | в работе (test) |
@@ -1297,7 +1297,7 @@ tags:
 | [[KAC/issue-567\|#567: перепись уникальности миграций видела 263 файла из 268]] | в работе (test) |
 | [[KAC/issue-570\|рулы: ядро волны сведено к трём файлам, свод читает ревьюер]] | история (superseded) |
 | [[KAC/issue-574\|#574: MR #547 красный — четыре корня в пяти джобах]] | в работе (test) |
-| [[KAC/issue-580\|#580: контракт access.proto не обслуживался ни одним сервисом — снят]] | в работе (test) |
+| [[KAC/issue-580\|#580: контракт access.proto не обслуживался ни одним сервисом — снят]] | живо (done) |
 | [[KAC/issue-581\|#581: сообщения метаданных без операции — и шесть обратного класса]] | в работе (test) |
 | [[KAC/issue-582\|#582: имя джобы стало контрактом с защитой ветки — и разошлось]] | в работе (test) |
 | [[KAC/issue-584\|#584: замена набора теряет параллельную правку — радиус два поля, а не класс]] | в работе (to-do) |
@@ -1320,6 +1320,7 @@ tags:
 | [[KAC/issue-708\|#708: списочные таблицы без курсорного индекса]] | в работе (test) |
 | [[KAC/issue-709\|#709: ширина пула против потолка соединений базы — считать надо ПАРУ чисел]] | в работе (test) |
 | [[KAC/issue-715\|#715: имя ресурса — одна форма по RFC 1123, пустого не бывает, алиасов нет]] | живо (done) |
+| [[KAC/issue-719\|#719: координаты записок пережили переезд предмета — чинился класс, а не три записки]] | в работе (test) |
 | [[KAC/issue-720\|#720: единичный отказ недоступности — мёртвое соединение из пула, не сбой стенда]] | в работе (test) |
 | [[KAC/issue-723\|#723: сужение списков: две реализации — решение записано]] | в работе (test) |
 | [[KAC/issue-727\|#727: приёмка R7-1 — константа на проверку доказана прибором, материализация линейна]] | в работе (in-progress) |

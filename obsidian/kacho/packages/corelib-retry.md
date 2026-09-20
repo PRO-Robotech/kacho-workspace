@@ -2,7 +2,7 @@
 title: corelib-retry
 category: packages
 repo: kacho-corelib
-path: pkg/retry
+path: project/corelib/retry
 layer: shared
 status: stable
 tags:
@@ -13,9 +13,9 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/retry — повторы вызовов к соседнему сервису
+# corelib/retry — повторы вызовов к соседнему сервису
 
-**Каталог**: `pkg/retry/` · импорт `github.com/PRO-Robotech/kacho/pkg/retry`
+**Каталог**: `project/corelib/retry/` · импорт `github.com/PRO-Robotech/corelib/retry`
 **Прежде** (полирепо): `kacho-corelib/retry`.
 **Импортирует**: `context`, `errors`, `time`, `grpc/codes`, `grpc/status`,
 [[corelib-backoff]].

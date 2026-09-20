@@ -2,7 +2,7 @@
 title: corelib-db
 category: packages
 repo: kacho-corelib
-path: pkg/db
+path: project/corelib/db
 layer: shared
 status: stable
 tags:
@@ -13,9 +13,9 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/db — пул pgx и транзактор
+# corelib/db — пул pgx и транзактор
 
-**Каталог**: `pkg/db/` · импорт `github.com/PRO-Robotech/kacho/pkg/db`
+**Каталог**: `project/corelib/db/` · импорт `github.com/PRO-Robotech/corelib/db`
 **Прежде** (полирепо): `kacho-corelib/db`.
 **Импортирует**: `context`, `strings`, `pgx/v5`, `pgx/v5/pgxpool`.
 **Импортируют** (`go list` на `96b2879a`, non-test): по одному пакету в каждом из

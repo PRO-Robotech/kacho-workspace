@@ -3,7 +3,7 @@ title: ConditionsService
 aliases:
   - ConditionsService (iam)
   - CEL Conditions CRUD
-proto_file: kacho/cloud/iam/v1/conditions_service.proto
+proto_file: "нет — контракта `conditions_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -22,7 +22,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
 
 > [!warning] Сервиса в дереве продукта НЕТ — записка оставлена как история
-> Сервиса `ConditionsService` в `proto/kacho/cloud/iam/v1/` нет; тенант-facing Condition-поверхность снята миграцией `0075_retire_tenant_condition_surface.sql` вместе с ресурсом, полем-ссылкой и authz-типом. Утверждение записки «mounted on the api-gateway external mux and in the gRPC allowlist» на этом дереве **неверно**. Живо другое, одноимённое: условия НА КОРТЕЖЕ (`TupleCondition`, внутренний листенер) и перечисление `BuiltinCondition`.
+> Сервиса `ConditionsService` нет ни в одном дереве контрактов; тенант-facing Condition-поверхность снята миграцией `0075_retire_tenant_condition_surface.sql` вместе с ресурсом, полем-ссылкой и authz-типом. Утверждение записки «mounted on the api-gateway external mux and in the gRPC allowlist» на этом дереве **неверно**. Живо другое, одноимённое: условие НА КОРТЕЖЕ — сегодня это Go-тип `TupleConditionRef` в службе доступа (`project/kaname/internal/authztypes/authztypes.go`), а не сообщение контракта. Перечисления `BuiltinCondition` не осталось ни в одном дереве контрактов (перемерено 2026-09-20).
 >
 > Перечни методов и REST-маршрутов ниже **не являются контрактом**: по ним нельзя
 > ни позвать, ни найти код. Читать как след прежнего замысла.
@@ -30,7 +30,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # ConditionsService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/conditions_service.proto`. **Backend**: `kacho-iam:9090`.
+**Proto**: нет — файла `conditions_service.proto` нет ни в одном дереве. **Backend**: `kacho-iam:9090`.
 **Visibility**: public — mounted on the api-gateway external mux and in the gRPC allowlist.
 
 ## Methods

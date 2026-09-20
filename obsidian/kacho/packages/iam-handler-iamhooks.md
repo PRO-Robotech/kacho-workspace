@@ -6,7 +6,7 @@ aliases:
   - refresh hook
   - caep ingress
 category: packages
-path: services/iam/internal/handler/iamhooks
+path: project/kaname/internal/handler/iamhooks
 repo: kacho-iam
 layer: handler
 status: done
@@ -83,7 +83,7 @@ Re-checks user/SA status:
 > `gateway/internal/config/config.go`. Прежняя редакция называла и другое значение TTL,
 > и другой дом кэша, и шардирование, которого у этой реализации нет.
 >
-> Таблица `dpop_replay_jti` в `services/iam/internal/migrations/0001_initial.sql`
+> Таблица `dpop_replay_jti` в `project/kaname/internal/migrations/0001_initial.sql`
 > объявлена, но писателя в прод-коде iam у неё нет — то есть «переживает рестарт»
 > сегодня не обеспечено ничем: кэш края переживает ровно жизнь пода.
 
@@ -100,25 +100,25 @@ Verify signed SET → process event:
   `deploy/helm/umbrella/charts/kacho-iam/templates/deployment.yaml`); заголовок
   `X-Kacho-Hook-Token` (либо `Authorization: Bearer`), сверка
   `subtle.ConstantTimeCompare`, пустой secret → **fail-closed 500**, не bypass
-  (`services/iam/internal/handler/iamhooks/hook_auth.go`).
+  (`project/kaname/internal/handler/iamhooks/hook_auth.go`).
 - CAEP ingress: SET signature verified против issuer JWKS.
 
 ## Imports
 
 - `net/http`, `encoding/json`, `crypto/subtle` — stdlib
 - ровно три внутренних пакета продукта (перепись non-test файлов пакета, 1653387b):
-  `services/iam/internal/domain`, `services/iam/internal/errors`,
-  `services/iam/internal/service`
+  `project/kaname/internal/domain`, `project/kaname/internal/errors`,
+  `project/kaname/internal/service`
 
 > [!note] Двух прежних строк «Imports» в дереве нет — координаты сняты (1653387b, 2026-08-06)
 > Первая называла подкаталог-порт под слоем сервисов: подкаталогов там нет вовсе,
-> `services/iam/internal/service` — **плоский** пакет. Сам порт при этом жив, но
+> `project/kaname/internal/service` — **плоский** пакет. Сам порт при этом жив, но
 > объявлен **самим** пакетом хуков (`UserRevocationLookup` в
-> `services/iam/internal/handler/iamhooks/ports.go`), то есть импортом никогда и не был;
+> `project/kaname/internal/handler/iamhooks/ports.go`), то есть импортом никогда и не был;
 > use-case отзыва сессий живёт отдельно —
-> `services/iam/internal/apps/kacho/api/session_revocations`.
+> `project/kaname/internal/apps/kaname/api/session_revocations`.
 > Вторая называла подкаталог клиента OpenFGA как импорт «Phase 3». Клиент существует
-> (`services/iam/internal/clients`, файлы `openfga_*.go`), но подкаталога с таким именем
+> (`project/kaname/internal/clients`, файлы `openfga_*.go`), но подкаталога с таким именем
 > нет, и пакет хуков его **не импортирует** — заявленной работы Phase 3 в дереве нет.
 
 ## Imported by

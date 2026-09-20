@@ -4,7 +4,7 @@ aliases:
   - iam repo pg
   - iam-repo-kacho-pg
 category: packages
-path: services/iam/internal/repo/kacho/pg
+path: project/kaname/internal/repo/kaname/pg
 repo: kacho-iam
 layer: repo
 status: done
@@ -60,13 +60,16 @@ CQRS Repository / Reader / Writer adapter — реализация port-инте
 - **Organization · FederationTrustPolicy · JITEligibility · AccessBindingCondition ·
   BreakGlass · CAEP · SCIM · GDPRErasure · AccessReview · OIDCJwksKey** — сняты
   вместе со своими таблицами, каждый своей миграцией:
-  `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql`,
+  `0006_drop_scim_saml_break_glass.sql`,
   `0007_drop_caep_pipeline.sql`, `0008_drop_organizations.sql`,
   `0013_drop_jit_breakglass_condition_whitelist.sql`,
-  `0065_drop_oidc_jwks_keys.sql`.
+  `0065_drop_oidc_jwks_keys.sql`. Эти миграции названы **именами файлов, а не
+  координатой**: при выносе службы доступа набор перенумерован (в дереве службы —
+  `0001_initial.sql` плюс миграции с меткой времени), и прежнего пути ни в одном дереве
+  нет. Сам вынос — [[KAC/wave-iam-standalone-2026-09-13]].
 - **Операции (LRO)** — отдельного репозитория операций у iam нет: общая таблица и её
-  репозиторий живут в фундаменте (`pkg/operations/repo.go`,
-  `pkg/migrations/common/0001_operations.sql`); iam-специфика — надстройки
+  репозиторий живут в фундаменте (`project/corelib/operations/repo.go`,
+  `project/corelib/migrations/common/0001_operations.sql`); iam-специфика — надстройки
   `ops_response_redactor.go` / `ops_secret_sweeper.go`.
 - **Заглушки нереализованных методов** — предмета нет: сентинела «не реализовано» в
   слое репозитория iam не осталось ни одного вхождения.

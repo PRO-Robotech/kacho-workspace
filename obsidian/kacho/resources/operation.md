@@ -26,7 +26,7 @@ verified_against: "карта маршрутизации операций кра
 
 **Domain**: per-service (каждый сервис ведёт свою `operations` таблицу)
 **Owner table**: `<schema сервиса>.operations`
-**Контракт**: `proto/kacho/cloud/operation/operation.proto` (пакет `kacho.cloud.operation`)
+**Контракт**: `project/kacho/proto/corelib/operation/operation.proto` (пакет `corelib.operation`; перенесён из `kacho/cloud/operation` — kacho `bdaedfd5aaa`, 2026-09-15)
 
 ## ID-префикс операции — per-домен, и он ДЕКАПЛЕН от префикса ресурса
 

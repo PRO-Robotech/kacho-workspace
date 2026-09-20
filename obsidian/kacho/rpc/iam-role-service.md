@@ -2,7 +2,7 @@
 title: RoleService
 aliases:
   - RoleService (iam)
-proto_file: kacho/cloud/iam/v1/role_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/role_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -24,7 +24,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # RoleService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/role_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/role_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend custom-CRUD в [[KAC-112]]; system-роли seed-нуты миграцией E0 ([[KAC-105]]).

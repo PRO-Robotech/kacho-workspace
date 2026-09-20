@@ -1,5 +1,5 @@
 ---
-title: "pkg/peer — полоса ответа соседа: единственное место, где чужой отказ становится нашим"
+title: "corelib/peer — полоса ответа соседа: единственное место, где чужой отказ становится нашим"
 aliases:
   - peer lane
   - носитель полосы
@@ -8,7 +8,7 @@ category: packages
 status: stable
 repo: kacho-corelib
 layer: pkg
-path: pkg/peer
+path: project/corelib/peer
 verified_against: "дерево продукта e2941effc (2026-08-11): 3 файла пакета, 21 прод-потребитель в пяти сервисах (compute · nlb · registry · storage · vpc)"
 tags:
   - packages
@@ -18,7 +18,7 @@ tags:
   - conventions
 ---
 
-# `pkg/peer` — полоса ответа соседа
+# `corelib/peer` — полоса ответа соседа
 
 Ответ владельца чужого ресурса превращается в наш ответ **ровно в одном месте**. До пакета
 каждый клиент писал свой разбор исходов, и разборы расходились по одному — с разными кодами,

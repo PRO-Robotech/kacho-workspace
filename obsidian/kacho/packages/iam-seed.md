@@ -6,7 +6,7 @@ aliases:
   - bootstrap admin
   - permissions registry
 category: packages
-path: services/iam/internal/apps/kacho/seed
+path: project/kaname/internal/apps/kaname/seed
 repo: kacho-iam
 layer: app
 status: done
@@ -28,7 +28,7 @@ Startup-time bootstrap пакет: permissions registry + cluster admin seed. З
 - **`bootstrap_admin.go`** — startup-time bootstrap admin grant + fga_outbox enqueue.
 - **`permissions.go`** — generated permissions registry (`<module>.<resource>.<verb>` enumeration from proto annotations).
 - **`embedded/`** — ровно **один** отслеживаемый файл:
-  `services/iam/internal/apps/kacho/seed/embedded/permission_catalog.json`,
+  `project/kaname/internal/apps/kaname/seed/embedded/permission_catalog.json`,
   вшиваемый директивой `go:embed` из `permissions.go`. Это **генерируемый** каталог
   прав, и у него есть вторая embedded-копия на крае
   (`gateway/internal/middleware/embed/permission_catalog.json`); байт-идентичность
@@ -43,7 +43,7 @@ Startup-time bootstrap пакет: permissions registry + cluster admin seed. З
 > задаётся и правится миграциями (`0031_reseed_system_roles_rules.sql`,
 > `0053_system_role_rule_selectors.sql`, `0057_storage_sa_least_priv.sql`,
 > `0060_storage_system_role_selectors.sql` и соседние), а backfill живёт в
-> `services/iam/internal/apps/kacho/seed/migrate_backfill.go`.
+> `project/kaname/internal/apps/kaname/seed/migrate_backfill.go`.
 
 ## Bootstrap admin flow (`bootstrap_admin.go`)
 

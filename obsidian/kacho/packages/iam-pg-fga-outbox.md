@@ -1,7 +1,7 @@
 ---
 title: "kacho-iam · internal/repo/kacho/pg/fga_outbox"
 category: packages
-path: services/iam/internal/repo/kacho/pg/fga_outbox
+path: project/kaname/internal/repo/kaname/pg/fga_outbox
 repo: kacho-iam
 layer: repo
 tags:
@@ -49,22 +49,22 @@ fire-and-forget вне transaction-границы.
 Перепись импортёров пакета по дереву 1653387b (non-test) даёт **три** файла, все —
 соседи по слою репозитория, а не отдельные сервисные пакеты:
 
-- `services/iam/internal/repo/kacho/pg/fga_outbox_emitter.go`
-- `services/iam/internal/repo/kacho/pg/reconcile_adapter.go`
-- `services/iam/internal/repo/kacho/pg/tx.go` — через writer-TX; отсюда emit достаётся
+- `project/kaname/internal/repo/kaname/pg/fga_outbox_emitter.go`
+- `project/kaname/internal/repo/kaname/pg/reconcile_adapter.go`
+- `project/kaname/internal/repo/kaname/pg/tx.go` — через writer-TX; отсюда emit достаётся
   own-resource writer'ам (Account/Project/Group/SA/Role + bootstrap) для owner/hierarchy-tuple
   co-commit (sub-phase 1.4 S2)
 
 AccessBinding Create/Delete кладут строку в очередь **сам**, плоским файлом
-`services/iam/internal/repo/kacho/pg/access_binding_repo.go` (прямой
+`project/kaname/internal/repo/kaname/pg/access_binding_repo.go` (прямой
 `INSERT INTO kacho_iam.fga_outbox` в writer-TX) — прежняя координата называла подкаталог
 `access_binding/` со своим writer'ом, а раскладка слоя плоская, подкаталогов там нет.
 
 > [!warning] Две строки прежних импортёров сняты — предмета нет ни в каком виде (1653387b, 2026-08-06)
 > Они называли сервисные пакеты JIT и break-glass. Оба механизма **удалены из продукта**
 > целиком, вместе со своей поверхностью: миграции
-> `services/iam/internal/migrations/0006_drop_scim_saml_break_glass.sql` и
-> `services/iam/internal/migrations/0013_drop_jit_breakglass_condition_whitelist.sql`.
+> `0006_drop_scim_saml_break_glass.sql` и
+> `0013_drop_jit_breakglass_condition_whitelist.sql`.
 > Сами снятые адреса здесь не воспроизводятся координатой: цитата мёртвого пути в
 > обратных кавычках читается как живое утверждение о дереве. Строки таблицы
 > «Текущее runtime-поведение» в [[../edges/iam-to-openfga-grant-write]], описывающие

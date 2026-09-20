@@ -2,7 +2,7 @@
 title: corelib-filter
 category: packages
 repo: kacho-corelib
-path: pkg/filter
+path: project/corelib/filter
 layer: shared
 status: stable
 tags:
@@ -12,9 +12,9 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/filter — парсер выражения `filter` списочных RPC
+# corelib/filter — парсер выражения `filter` списочных RPC
 
-**Каталог**: `pkg/filter/` · импорт `github.com/PRO-Robotech/kacho/pkg/filter`
+**Каталог**: `project/corelib/filter/` · импорт `github.com/PRO-Robotech/corelib/filter`
 **Прежде** (полирепо): `kacho-corelib/filter`.
 **Импортирует**: `fmt`, `regexp`, `strings`, `pgx/v5`.
 **Импортируют** (`go list` на `96b2879a`, non-test): storage 3 · vpc 1 · registry 1 ·

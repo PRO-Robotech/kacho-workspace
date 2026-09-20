@@ -2,7 +2,7 @@
 title: corelib-config
 category: packages
 repo: kacho-corelib
-path: pkg/config
+path: project/corelib/config
 layer: config
 status: stable
 tags:
@@ -12,9 +12,9 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/config — загрузка конфигурации из окружения
+# corelib/config — загрузка конфигурации из окружения
 
-**Каталог**: `pkg/config/` · импорт `github.com/PRO-Robotech/kacho/pkg/config`
+**Каталог**: `project/corelib/config/` · импорт `github.com/PRO-Robotech/corelib/config`
 **Прежде** (полирепо): `kacho-corelib/config`.
 **Импортирует**: `github.com/kelseyhightower/envconfig` (единственная зависимость).
 **Импортируют** (`go list` на `96b2879a`, non-test): по одному конфиг-пакету у vpc ·

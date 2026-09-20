@@ -2,7 +2,7 @@
 title: corelib-ids
 category: packages
 repo: kacho-corelib
-path: PRO-Robotech/corelib:ids
+path: project/corelib/ids
 layer: shared
 status: stable
 tags:
@@ -12,7 +12,7 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/ids — генератор и каталог префиксов идентификаторов
+# corelib/ids — генератор и каталог префиксов идентификаторов
 
 **Каталог**: `PRO-Robotech/corelib:ids/` · импорт `github.com/PRO-Robotech/corelib/ids`
 **Прежде** (полирепо): `kacho-corelib/ids`.

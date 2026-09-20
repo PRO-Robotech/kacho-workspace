@@ -2,7 +2,7 @@
 title: ServiceAccountService
 aliases:
   - ServiceAccountService (iam)
-proto_file: kacho/cloud/iam/v1/service_account_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/service_account_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -24,7 +24,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # ServiceAccountService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/service_account_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/service_account_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]].

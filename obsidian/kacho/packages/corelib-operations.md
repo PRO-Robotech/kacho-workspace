@@ -2,7 +2,7 @@
 title: corelib-operations
 category: packages
 repo: kacho-corelib
-path: pkg/operations
+path: project/corelib/operations
 layer: shared
 status: stable
 tags:
@@ -13,17 +13,17 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/operations — таблица длящихся операций, воркер, реконсайлер
+# corelib/operations — таблица длящихся операций, воркер, реконсайлер
 
-**Каталог**: `pkg/operations/` · импорт
-`github.com/PRO-Robotech/kacho/pkg/operations`
+**Каталог**: `project/corelib/operations/` · импорт
+`github.com/PRO-Robotech/corelib/operations`
 **Прежде** (полирепо): `kacho-corelib/operations`.
-**Импортирует**: `pkg/baggage`, `pkg/backoff`, `pkg/ids`, `pkg/errors`, `pkg/validate`,
+**Импортирует**: `project/corelib/baggage`, `project/corelib/backoff`, `project/corelib/ids`, `project/corelib/errors`, `project/corelib/validate`,
 `pgx/v5`, `pgxpool`, `genproto/googleapis/rpc/status`, `grpc/codes`, `grpc/status`,
 `protobuf/proto`, `anypb`.
 **Импортируют** (`go list` на `96b2879a`, non-test): iam 22 · vpc 13 · nlb 10 ·
-geo 9 · compute 9 · storage 8 · registry 4 · gateway 2 · `pkg/grpcsrv` 1 ·
-`pkg/authz` 1 · `pkg/auth` 1. **Самый широко потребляемый пакет фундамента.**
+geo 9 · compute 9 · storage 8 · registry 4 · gateway 2 · `project/corelib/grpcsrv` 1 ·
+`project/corelib/authz` 1 · `project/corelib/auth` 1. **Самый широко потребляемый пакет фундамента.**
 
 Каждая мутация в Kachō возвращает `Operation`, клиент поллит её до `done=true`
 (`api-conventions.md`). Здесь живут: таблица и репозиторий, воркер, реконсайлер
@@ -111,7 +111,7 @@ backstop, а не основной путь: основной — термина
 
 ## Урок про общую схему: таблица у каждого сервиса СВОЯ
 
-`pkg/migrations/common/*` **не применяется** сервисами автоматически — у каждого
+`project/corelib/migrations/common/*` **не применяется** сервисами автоматически — у каждого
 своя копия DDL таблицы операций. Изменение пути записи фундамента по новой колонке,
 приехавшее **раньше** миграций потребителей, дало отказ на **каждой** вставке
 операции во всём флоте и замаскировалось под сбой первичной загрузки.

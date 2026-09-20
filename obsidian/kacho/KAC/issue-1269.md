@@ -59,7 +59,7 @@ PR kaname#179 (`issue-1269-login-lane` → линия `release/iam-lines`, `c0eb
 | сессия как запись службы | миграция `internal/migrations/20260916190000_human_session_is_our_record.sql`: `kaname.human_sessions`, `kaname.human_first_authentications`, `kaname.login_failures` | [[resources/iam-human-session]] |
 | поток входа · выхода · смены пароля | `internal/apps/kaname/api/humansession/` (`login.go`, `logout.go`, `change_password.go`, `issue.go`, `resolve.go`, `refusals.go`, `rate.go`, `password_rule.go`) | пробы того же каталога; порт — `iface.go` |
 | глаголы формы на HTTP-слушателе полосы | `internal/handler/loginlanehttp/handler.go` — `Paths()` одним объявлением, семь путей | [[rpc/iam-login-lane]] |
-| резолв сессии для края | `proto/kaname/cloud/iam/v1/human_session_service.proto` — `InternalHumanSessionService.Resolve` (`<exempt>`, внутренний слушатель) | строка каталога прав — [[issue-184-kaname]] |
+| резолв сессии для края | `project/kaname/proto/kaname/cloud/iam/v1/human_session_service.proto` — `InternalHumanSessionService.Resolve` (`<exempt>`, внутренний слушатель) | строка каталога прав — [[issue-184-kaname]] |
 | ручки полосы | `internal/apps/kaname/config/login_lane.go` — `authn.login.*` (`session-ttl`, `cookie-domain`, окна и потолки неверных предъявлений, правило пароля, формат хеша) одним перечнем `LoginLaneKnobs` | страж посадки `own` читает тот же перечень |
 
 ## Половина края — ВЕТКА, PR открыт в `main` платформы

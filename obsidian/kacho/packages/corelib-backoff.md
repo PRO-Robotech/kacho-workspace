@@ -2,7 +2,7 @@
 title: corelib-backoff
 category: packages
 repo: kacho-corelib
-path: pkg/backoff
+path: project/corelib/backoff
 layer: shared
 status: stable
 tags:
@@ -11,13 +11,13 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/backoff — обёртка над экспоненциальным backoff
+# corelib/backoff — обёртка над экспоненциальным backoff
 
-**Каталог**: `pkg/backoff/` · импорт `github.com/PRO-Robotech/kacho/pkg/backoff`
+**Каталог**: `project/corelib/backoff/` · импорт `github.com/PRO-Robotech/corelib/backoff`
 **Прежде** (полирепо): `kacho-corelib/backoff`.
 **Импортирует**: `time`, `github.com/cenkalti/backoff/v4`.
-**Импортируют** (`go list` на `96b2879a`, non-test): `pkg/retry`, `pkg/operations`,
-`pkg/dbready` — **только внутри фундамента**. Ни один сервис не зовёт пакет
+**Импортируют** (`go list` на `96b2879a`, non-test): `project/corelib/retry`, `project/corelib/operations`,
+`project/corelib/dbready` — **только внутри фундамента**. Ни один сервис не зовёт пакет
 напрямую, и это правильная форма: сервисы получают backoff через [[corelib-retry]]
 и через воркер операций, а не настраивают его каждый по-своему.
 

@@ -25,7 +25,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
 
 > [!warning] Предмета в дереве продукта НЕТ — записка оставлена как история
-> Таблица `kacho_iam.conditions` **дропнута** миграцией `0075_retire_tenant_condition_surface.sql` вместе с сервисом ресурса и полем-ссылкой. **Важно не спутать два разных предмета, делящих слово «условие»**: условия НА КОРТЕЖЕ, объявленные в модели прав и передаваемые по внутреннему листенеру (`TupleCondition` в `internal_authorize_service.proto`), — **живы**; снята именно тенант-facing Condition-поверхность. Живо и перечисление `BuiltinCondition` (`proto/kacho/cloud/iam/v1/builtin_condition.proto`).
+> Таблица `kacho_iam.conditions` **дропнута** миграцией `0075_retire_tenant_condition_surface.sql` вместе с сервисом ресурса и полем-ссылкой. **Важно не спутать два разных предмета, делящих слово «условие»**: условие НА КОРТЕЖЕ — **живо**, но выражено уже не контрактом: это Go-тип `TupleConditionRef` в службе доступа (`project/kaname/internal/authztypes/authztypes.go`), снята же именно тенант-facing Condition-поверхность. Перечисления `BuiltinCondition` не осталось ни в одном дереве контрактов: координата `builtin_condition.proto` была снята вместе с выносом службы ([[KAC/wave-iam-standalone-2026-09-13]]), перемерено 2026-09-20.
 >
 > Читать как след прежнего замысла, а не как описание сегодняшнего дня.
 > Сверено по стволу `redesign/integration` 2026-08-05.

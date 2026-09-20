@@ -2,7 +2,7 @@
 title: TrustPolicyService
 aliases:
   - TrustPolicy (iam, internal)
-proto_file: kacho/cloud/iam/v1/internal_trust_policy_service.proto
+proto_file: "нет — контракта `internal_trust_policy_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -32,7 +32,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # TrustPolicyService (iam, internal)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_trust_policy_service.proto` (Phase 5).
+**Proto**: нет — файла `internal_trust_policy_service.proto` нет ни в одном дереве (замышлялся как Phase 5)
 **Backend**: `kacho-iam:9091` — cluster-internal listener.
 **Visibility**: **Internal** — admin / account-owner CRUD (§Запреты #6). Tenant-CLI читает через public read-only RPC (планируется в `FederationService.ListTrustPolicies` если acceptance Phase 5 одобрит).
 **Status**: **Phase 5 planned**. CRUD federation_trust_policies. Exchange-flow — отдельно [[iam-federation-exchange-service]].

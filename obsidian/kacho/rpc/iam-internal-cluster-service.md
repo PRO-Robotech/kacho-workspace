@@ -2,7 +2,7 @@
 title: InternalClusterService
 aliases:
   - InternalClusterService (iam)
-proto_file: kacho/cloud/iam/v1/internal_cluster_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/internal_cluster_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -25,7 +25,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # InternalClusterService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/internal_cluster_service.proto` (KAC-196).
 **Backend**: `kacho-iam:9091` (**internal-only**; workspace §запрет #6 — НЕ публиковать на external TLS endpoint).
 **Visibility**: **internal** — зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/cluster/...` (KAC-196 PR #44).
 **Status**: **Phase 2 — DONE** (cluster-admin enforcement, [[../KAC/KAC-196]]). Phase 7 (break-glass `RequestBreakGlass` / `Approve/Deny/RevokeBreakGlass`) — planned.

@@ -2,7 +2,7 @@
 title: corelib-validate
 category: packages
 repo: kacho-corelib
-path: pkg/validate
+path: project/corelib/validate
 layer: shared
 status: stable
 tags:
@@ -12,16 +12,16 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/validate — общие валидаторы полей
+# corelib/validate — общие валидаторы полей
 
-**Каталог**: `pkg/validate/` · импорт `github.com/PRO-Robotech/kacho/pkg/validate`
+**Каталог**: `project/corelib/validate/` · импорт `github.com/PRO-Robotech/corelib/validate`
 **Прежде** (полирепо): `kacho-corelib/validate`. Тег `kacho-corelib` здесь означает
 **домен общего фундамента**, а не отдельный репозиторий: разработка идёт в монорепо
 `PRO-Robotech/kacho`, прежний репозиторий не развивается с середины июля 2026.
 **Импортирует**: `net`, `os`, `regexp`, `strings`, `unicode/utf8`, `grpc/codes`,
-`grpc/status`, `pkg/errors`, `pkg/ids`.
+`grpc/status`, `project/corelib/errors`, `project/corelib/ids`.
 **Импортируют** (`go list ./...` на ревизии `96b2879a`, non-test): vpc 14 · iam 7 ·
-storage 5 · nlb 5 · registry 4 · compute 4 · geo 2 · gateway 1 · `pkg/operations` 1.
+storage 5 · nlb 5 · registry 4 · compute 4 · geo 2 · gateway 1 · `project/corelib/operations` 1.
 
 Каждый валидатор возвращает готовую gRPC-ошибку `InvalidArgument` с
 `BadRequest.field_violations[]` через [[corelib-errors]] — кроме `ResourceID`,

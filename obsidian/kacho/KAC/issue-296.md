@@ -5,8 +5,8 @@ aliases:
   - issue-296
 ticket_id: issue-296
 category: kac
-status: test
-verified_against: "предмет сверен с PRO-Robotech/kacho@0a07fae2 (origin/release/approved-work = origin/main, 2026-08-14)"
+status: superseded
+verified_against: "предмет сверен с PRO-Robotech/kacho@0a07fae2 (origin/release/approved-work = origin/main, 2026-08-14); перемерено 2026-09-20: на `origin/main` @ `f445aaaa` контракта нет — шов снят коммитом `29ad7b78d80` (2026-08-16), поле `apply_state` во всех семи публичных сообщениях vpc стоит `reserved`"
 type: feature
 repos:
   - kacho
@@ -17,6 +17,7 @@ prs:
   - "https://github.com/PRO-Robotech/kacho/pull/PENDING → release/approved-work"
 issue_url: https://github.com/PRO-Robotech/kacho/issues/296
 opened: 2026-08-14
+closed: 2026-08-14
 tags:
   - kac
   - vpc
@@ -25,6 +26,13 @@ tags:
 ---
 
 # issue-296 — состояние применения выведено в публичный контракт vpc
+
+> [!warning] Предмета в дереве НЕТ — записка верна как прошлое
+> Задача закрыта 2026-08-14, работа влита; **двумя днями позже шов с исполнителем
+> датаплейна снят с контракта целиком** — kacho `29ad7b78d80` (2026-08-16). Сегодня
+> `apply_state.proto` нет ни в одном дереве, а номер поля во всех семи публичных
+> сообщениях vpc помечен `reserved` (например `proto/kacho/cloud/vpc/v1/network.proto`,
+> строки 64 и 76). Координаты ниже поэтому даны ревизией, а не путём в сегодняшнем дереве.
 
 Шов с исполнителем датаплейна был построен целиком со стороны платформы: намерение
 выдаётся проекцией с ревизией, отчёт принимается и сводится к паре «применено ли
@@ -87,7 +95,8 @@ tags:
 
 ## Acceptance / Definition of Done
 
-- [x] предмет предъявлен в дереве продукта: `proto/kacho/cloud/vpc/v1/apply_state.proto`
+- [x] предмет предъявлен в дереве продукта: `kacho@47b29c06:proto/kacho/cloud/vpc/v1/apply_state.proto`
+      (координата дана ревизией: сегодня файла нет, см. callout)
 - [x] поле `apply_state` в семи публичных сообщениях vpc
 - [x] заполнитель `services/vpc/internal/apps/kacho/shared/applystate/` и его провязка
 - [x] миграция `0039_network_interface_status_binding_only.sql`

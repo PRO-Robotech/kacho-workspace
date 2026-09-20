@@ -4,7 +4,7 @@ aliases:
   - vpc check package
   - vpc authz interceptor
 category: packages
-path: services/vpc/internal/apps/kacho/check
+path: services/vpc/internal/check
 repo: kacho-vpc
 layer: composition
 tags:
@@ -53,10 +53,10 @@ Composition-root пакет, который превращает corelib `authz`
 
 Сборка перехватчика в композиционном корне СНЯТА — вместе с фабрикой пакета и её ручкой
 аварийного пропуска. Сервис ОБЪЯВЛЯЕТ участие дескриптором, а звено решения ставит общий
-носитель (`pkg/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
+носитель (`project/corelib/servicehost.Serve`) — **безусловно и в обе цепочки**, публичную и
 внутреннюю. Поля, способного снять звено, в дескрипторе не существует.
 
-Карта прав приезжает туда же выводом из аннотаций (`pkg/authz/catalogderive`), а не
+Карта прав приезжает туда же выводом из аннотаций (`project/corelib/authz/catalogderive`), а не
 литералом: `PermissionMap()` этого пакета — тонкая обёртка над выводом, и она читается
 теми, кому нужен перечень типов.
 

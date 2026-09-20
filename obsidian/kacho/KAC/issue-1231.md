@@ -65,7 +65,7 @@ kaname#97, 22 сценария. Цикл **4 → 3 → 4 → 2 → 0**: три �
 |---|---|---|
 | **S1** — отказ на пути запроса | удаление непустого проекта отвергается в операции `FAILED_PRECONDITION` с перечнем видов и чисел — `Project <id> is not empty (vpc.network: 2, iam.role: 1)` — и признаком `REFERENCE_IN_USE`; **один** оператор базы (ban #10), синхронной полосы нет и не заводится | `internal/apps/kaname/api/project/delete.go`, `internal/repo/kaname/pg/project_repo.go` (`iamerr.ErrReferenceInUse`) |
 | **S2** — видимость остатка | осиротевшие строки зеркала называет проход на старте | `internal/apps/kaname/seed/dangling_project_mirror_sweep.go`, `internal/repo/kaname/pg/dangling_project_mirror_adapter.go`, провязка `cmd/kaname/serve.go` |
-| контракт и страницы | комментарий `Delete` в `proto/kaname/cloud/iam/v1/project_service.proto`; `docs/content/api/project.mdx`, `docs/engineering/components/02-project.md`, страницы terraform | тот же PR |
+| контракт и страницы | комментарий `Delete` в `project/kaname/proto/kaname/cloud/iam/v1/project_service.proto`; `docs/content/api/project.mdx`, `docs/engineering/components/02-project.md`, страницы terraform | тот же PR |
 | пробы чёрного ящика | `tests/newman/cases/iam-project.py`, `CASES-INDEX.md` | тот же PR |
 
 ## Остаток — платформенная половина, `kacho#2684`

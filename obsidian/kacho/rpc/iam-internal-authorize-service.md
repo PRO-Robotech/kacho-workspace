@@ -3,7 +3,7 @@ title: InternalAuthorizeService
 aliases:
   - InternalAuthorize (iam)
   - FGA tuple write
-proto_file: kacho/cloud/iam/v1/internal_authorize_service.proto
+proto_file: "нет — контракта `internal_authorize_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -26,7 +26,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # InternalAuthorizeService (iam, internal)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_authorize_service.proto` (Phase 3).
+**Proto**: нет — файла `internal_authorize_service.proto` нет ни в одном дереве (замышлялся как Phase 3)
 **Backend**: `kacho-iam:9091` — cluster-internal listener.
 **Visibility**: **Internal** — admin / control-plane only (workspace `CLAUDE.md` §Запреты #6). НЕ exposed на public TLS / api.kacho.cloud.
 **Status**: **Phase 3 planned**. Write-path FGA tuple management + model lifecycle + Rego policy lifecycle.

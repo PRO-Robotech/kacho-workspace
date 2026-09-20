@@ -18,7 +18,7 @@ tags:
   - rpc
   - kacho-iam
   - iam
-verified_against: "kaname release/iam-lines@4b674bf5 — proto/kaname/cloud/iam/v1/access_key_service.proto; каталог прав службы: 6 записей, порождены генератором края"
+verified_against: "kaname release/iam-lines@4b674bf5 — project/kaname/proto/kaname/cloud/iam/v1/access_key_service.proto; каталог прав службы: 6 записей, порождены генератором края"
 ---
 
 # `AccessKeyService` — шесть глаголов ключа доступа (Ф7 Р11)

@@ -3,7 +3,7 @@ title: AuthorizeService
 aliases:
   - AuthorizeService (iam)
   - FGA Check
-proto_file: kacho/cloud/iam/v1/authorize_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/authorize_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -25,7 +25,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 ---
 
 > [!note] Сверка со стволом (2026-08-05)
-> Сервис жив: `proto/kacho/cloud/iam/v1/authorize_service.proto`, шесть RPC —
+> Сервис жив: `project/kaname/proto/kaname/cloud/iam/v1/authorize_service.proto`, шесть RPC —
 > `Check`, `BatchCheck`, `ListObjects`, `ListSubjects`, `ExpandRelations`, `WhoAmI`
 > (имена сверены по контракту). Там же живут `message ResourceRef` (закрытая таблица
 > целей авторизации, **без** поля имени — least-info) и `AccountMembership`.
@@ -44,7 +44,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # AuthorizeService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/authorize_service.proto`.
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/authorize_service.proto`.
 **Backend**: `kacho-iam:9090` (public mux + cluster-internal listener для api-gateway).
 **Visibility**: **public** — per-RPC authorization-gate. Потребители: интерсептор
 api-gateway, фильтры видимости списков vpc / compute / nlb / storage / registry / geo, kacho-ui.

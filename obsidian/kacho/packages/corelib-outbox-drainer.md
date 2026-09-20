@@ -2,7 +2,7 @@
 title: corelib-outbox-drainer
 category: packages
 repo: kacho-corelib
-path: pkg/outbox/drainer
+path: project/corelib/outbox/drainer
 layer: infrastructure
 status: stable
 tags:
@@ -13,10 +13,10 @@ tags:
 verified_against: "перечень импортов, перечень экспортируемых имён, состав Config и число потребителей сверены построчно с деревом продукта d24476c1 (2026-08-06) предикатами `go list -f '{{.Imports}}'` и `go doc -all` по пакету; текст разделов про порядок, ширину ключа и индексы сверен с godoc `Config.PartitionColumn` и телом `buildClaimQuery`. Утверждение про импорт генератора случайных чисел было неверным и исправлено этой сверкой"
 ---
 
-# pkg/outbox/drainer — доставка намерений с сохранением порядка
+# corelib/outbox/drainer — доставка намерений с сохранением порядка
 
-**Каталог**: `pkg/outbox/drainer/` · импорт
-`github.com/PRO-Robotech/kacho/pkg/outbox/drainer`
+**Каталог**: `project/corelib/outbox/drainer/` · импорт
+`github.com/PRO-Robotech/corelib/outbox/drainer`
 **Прежде** (полирепо): `kacho-corelib/outbox/drainer`.
 **Импортирует** (`go list` на `d24476c1`, non-test, **11** штук): `context`,
 `errors`, `fmt`, `log/slog`, `math/rand/v2`, `sync`, `time`, `pgx/v5`, `pgxpool`,

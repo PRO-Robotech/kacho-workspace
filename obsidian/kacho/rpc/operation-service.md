@@ -2,7 +2,7 @@
 title: OperationService
 aliases:
   - OperationService
-proto_file: kacho/cloud/operation/operation_service.proto
+proto_file: corelib/operation/operation_service.proto
 category: rpc
 backend: per-domain
 visibility: public
@@ -20,7 +20,7 @@ status: stable
 
 # OperationService
 
-**Proto**: `proto/kacho/cloud/operation/operation_service.proto`
+**Proto**: `project/kacho/proto/corelib/operation/operation_service.proto`
 **Backend**: per-domain (каждый сервис ведёт свои operations; api-gateway проксирует к нужному backend по префиксу).
 
 ## Methods

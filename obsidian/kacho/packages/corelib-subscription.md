@@ -2,7 +2,7 @@
 title: corelib-subscription
 category: packages
 repo: kacho-corelib
-path: pkg/subscription
+path: project/corelib/subscription
 layer: shared
 status: stable
 tags:
@@ -14,11 +14,11 @@ tags:
 verified_against: "перемерено 2026-08-29 на линии `release/watch-2`, ревизия f205e60c2: шесть прод-файлов состава на месте; прогонами гейтов дерева получено — серверов глагола 1 (в `pkg/`, послаблений 0), наблюдателей границы 1 (в `pkg/`, послаблений 0), возобновимых чтений 6 (по счётчику 3, ограничено сверху 1, послаблений 2), владельцев журнала 5 [compute nlb registry storage vpc]. В стволе (`origin/main`) линии ещё нет: MR PRO-Robotech/kacho#1457 открыт и не влит"
 ---
 
-# pkg/subscription — общий сервер потока изменений
+# corelib/subscription — общий сервер потока изменений
 
-**Каталог**: `pkg/subscription/` · импорт `github.com/PRO-Robotech/kacho/pkg/subscription`
+**Каталог**: `project/corelib/subscription/` · импорт `github.com/PRO-Robotech/corelib/subscription`
 **Контракт, который он исполняет**: [[rpc/subscription-service]]
-**Позиция потока**: `pkg/pagetoken/subscriptionposition.go`
+**Позиция потока**: `project/corelib/pagetoken/subscriptionposition.go`
 **Линия работ**: [[KAC/watch-unified-change-stream-2026-08]]
 
 Один сервер на платформу, по экземпляру на владельца журнала. Заведён вместо того,
@@ -161,7 +161,7 @@ verified_against: "перемерено 2026-08-29 на линии `release/watc
 дословно, а значит переносится через край **без второго кодека курсора**.
 
 **Чего у пакета всё ещё нет**: владельца-`iam` (журнала подписки у него нет вовсе, и
-сброс кэша решений край по-прежнему получает опросом — `pkg/subjectchange`) и вливания в
+сброс кэша решений край по-прежнему получает опросом — `project/kaname/pkg/subjectchange`) и вливания в
 ствол: MR PRO-Robotech/kacho#1457 **открыт и не влит**, поэтому на `origin/main` ни
 владельцев, ни края ещё нет.
 

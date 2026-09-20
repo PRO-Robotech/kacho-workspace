@@ -89,5 +89,5 @@ tags:
 - [x] отношения `record_writer` и `identity_suspender` объявлены в `proto/kacho/cloud/iam/v1/fga_model.fga` и читаются каталогом прав
 - [x] проба уровня модели в дереве: `services/iam/internal/authzmap/governing_the_identity_is_not_an_account_right_test.go`
 - [x] сквозной кейс `IAM-USR-GOV-NEG-ACCOUNT-ADMIN` в `services/iam/tests/newman/cases/iam-user.py`
-- [x] решение о неразведённом запрете записано в модели и в `proto/kacho/cloud/iam/v1/user_service.proto`
+- [x] решение о неразведённом запрете записано в модели и в `project/kaname/proto/kaname/cloud/iam/v1/user_service.proto`
 - [x] работа доехала до ствола вливанием линии identity (PR #1160, слияние `7bb0a6e14`)

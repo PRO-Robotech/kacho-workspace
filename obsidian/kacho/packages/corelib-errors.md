@@ -2,7 +2,7 @@
 title: corelib-errors
 category: packages
 repo: kacho-corelib
-path: pkg/errors
+path: project/corelib/errors
 layer: shared
 status: stable
 tags:
@@ -13,15 +13,15 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/errors — типизированный билдер gRPC-ошибок
+# corelib/errors — типизированный билдер gRPC-ошибок
 
-**Каталог**: `pkg/errors/` · импорт `github.com/PRO-Robotech/kacho/pkg/errors`
+**Каталог**: `project/corelib/errors/` · импорт `github.com/PRO-Robotech/corelib/errors`
 (в сервисах обычно под алиасом `coreerrors`).
 **Прежде** (полирепо): `kacho-corelib/errors`.
 **Импортирует**: `google.golang.org/genproto/googleapis/rpc/errdetails`, `grpc/codes`,
 `grpc/status`.
 **Импортируют** (`go list` на `96b2879a`, non-test): nlb 2 · registry 1 · compute 1 ·
-`pkg/validate` 1 · `pkg/operations` 1.
+`project/corelib/validate` 1 · `project/corelib/operations` 1.
 
 > [!note] Прямых потребителей мало — но пакет не узкий
 > Большинство сервисов доходит сюда **транзитивно**, через [[corelib-validate]]:

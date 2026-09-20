@@ -3,7 +3,7 @@ title: iam authzguard
 repo: kacho-iam
 layer: internal
 category: packages
-path: services/iam/internal/authzguard
+path: project/kaname/internal/authzguard
 related_tickets:
   - "[[../KAC/IAM-INT-1-interactive-login]]"
 tags:
@@ -15,7 +15,7 @@ status: stable
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# `services/iam/internal/authzguard/`
+# `kaname/internal/authzguard/`
 
 Дом одного вопроса: **каким типом называть принципала** — и всего, что из ответа
 следует (перехватчики пола ступени, политика вызывающего, гейт записи отношений).

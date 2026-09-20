@@ -2,7 +2,7 @@
 title: corelib-observability
 category: packages
 repo: kacho-corelib
-path: pkg/observability
+path: project/corelib/observability
 layer: shared
 status: stable
 tags:
@@ -13,10 +13,10 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/observability — логгер, трассировка и самоотчёт о посадке
+# corelib/observability — логгер, трассировка и самоотчёт о посадке
 
-**Каталог**: `pkg/observability/` · импорт
-`github.com/PRO-Robotech/kacho/pkg/observability`
+**Каталог**: `project/corelib/observability/` · импорт
+`github.com/PRO-Robotech/corelib/observability`
 **Прежде** (полирепо): `kacho-corelib/observability`.
 **Импортируют** (`go list` на `96b2879a`, non-test): по одному пакету у каждого из
 семи сервисов и у шлюза — восемь потребителей, ровно те композиционные корни,

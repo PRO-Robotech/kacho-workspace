@@ -23,7 +23,7 @@ tags:
 
 # SEC-C: IAM FGA-proxy + least-priv SA-identities (ReBAC) + cert→SA
 
-> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `UnregisterResource` в `proto/kacho/cloud/iam/v1/internal_iam_service.proto`; `services/iam/internal/migrations/0009_sec_c_module_sa_least_priv.sql`.
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `UnregisterResource` в `kacho@58913d0e:proto/kacho/cloud/iam/v1/internal_iam_service.proto`; `services/iam/internal/migrations/0009_sec_c_module_sa_least_priv.sql`.
 > Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
 
 **Состояние на момент записи**: test (код готов, тесты зелёные, ждёт ревью + merge оркестратором)

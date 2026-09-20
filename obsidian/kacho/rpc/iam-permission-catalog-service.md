@@ -4,7 +4,7 @@ aliases:
   - PermissionCatalogService (iam)
   - ListPermissionCatalog
   - backend-driven role-rule catalog
-proto_file: kacho/cloud/iam/v1/permission_catalog_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/permission_catalog_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -28,7 +28,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # PermissionCatalogService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/permission_catalog_service.proto` (RBAC rules-model G).
 **Backend**: `kacho-iam:9090` (**public** listener; `registerPublicServices` in `cmd/kacho-iam/grpc_register.go`).
 **Visibility**: **public** — grantable-token platform metadata, NOT infra-sensitive (`security.md` §infra-sensitive; G-D3). Authenticated-floor; anonymous fail-closed.
 **Status**: test (branch `rbac-docs-site`).

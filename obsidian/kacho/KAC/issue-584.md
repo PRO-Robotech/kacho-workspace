@@ -86,7 +86,7 @@ tags:
 Отчёт называет `Role.rules` вторым экземпляром класса «версии нет». **Дерево говорит
 иначе, и различие существенно для объёма работы.**
 
-На `origin/main` @ `007e3e99` роль **несёт** `resource_version` (`proto/kacho/cloud/iam/v1/role.proto`
+На `origin/main` @ `007e3e99` роль **несёт** `resource_version` (`kacho@007e3e99:proto/kacho/cloud/iam/v1/role.proto`
 и запрос правки в `role_service.proto`), а `services/iam/internal/apps/kacho/api/role/update.go`
 его **энфорсит**: устаревший токен при изменяющихся правилах даёт
 `FAILED_PRECONDITION` с текстом про конкурентную правку. Комментарий рядом называет и

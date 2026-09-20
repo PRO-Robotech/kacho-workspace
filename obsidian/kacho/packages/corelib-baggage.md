@@ -2,7 +2,7 @@
 title: corelib-baggage
 category: packages
 repo: kacho-corelib
-path: pkg/baggage
+path: project/corelib/baggage
 layer: shared
 status: stable
 tags:
@@ -12,12 +12,12 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/baggage — контекст для асинхронного продолжения
+# corelib/baggage — контекст для асинхронного продолжения
 
-**Каталог**: `pkg/baggage/` · импорт `github.com/PRO-Robotech/kacho/pkg/baggage`
+**Каталог**: `project/corelib/baggage/` · импорт `github.com/PRO-Robotech/corelib/baggage`
 **Прежде** (полирепо): `kacho-corelib/baggage`.
 **Импортирует**: `context` — и больше ничего.
-**Импортируют** (`go list` на `96b2879a`, non-test): `pkg/operations` — единственный
+**Импортируют** (`go list` на `96b2879a`, non-test): `project/corelib/operations` — единственный
 потребитель. Пакет живёт ради одного места, но выделен отдельно потому, что правило
 «что переносим в воркер» обязано быть в одном месте, а не размазано по воркерам.
 

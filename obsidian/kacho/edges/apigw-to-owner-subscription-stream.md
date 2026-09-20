@@ -32,7 +32,7 @@ verified_against: "линия `release/watch-2` дерева продукта, �
 **Caller**: `kacho-api-gateway`, `gateway/internal/subscriptionstream` —
 [[packages/gateway-subscriptionstream]].
 **Callee**: владелец журнала, внутренний слушатель `:9091`,
-`kacho.cloud.subscription.InternalSubscriptionService/Subscribe` —
+`corelib.subscription.InternalSubscriptionService/Subscribe` —
 [[rpc/subscription-service]].
 **Sync/Async**: синхронный серверный поток, живущий всё время подписки (не запрос-ответ
 и не толчок).

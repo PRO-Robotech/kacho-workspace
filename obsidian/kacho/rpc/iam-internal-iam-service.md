@@ -2,7 +2,7 @@
 title: InternalIAMService
 aliases:
   - InternalIAMService (iam)
-proto_file: kacho/cloud/iam/v1/internal_iam_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/internal_iam_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -27,7 +27,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # InternalIAMService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_iam_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/internal_iam_service.proto`
 **Backend**: `kacho-iam:9091` (**internal-only**; запрет #6 — НЕ публиковать на external TLS `api.kacho.local:443`)
 **Visibility**: internal — REST зарегистрирован в `api-gateway/internal mux` под `/iam/v1/internal/...`.
 **Status**: backend в [[KAC-112]].

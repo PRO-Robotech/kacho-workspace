@@ -83,7 +83,7 @@ git grep -ohE '\((kacho\.cloud\.)?(required|pattern|value|size|length|unique|map
 | | `31d0d7ecc` (до) | `534de0c4f` (ствол) |
 |---|---:|---:|
 | опций семейства | **1249** | **4** |
-| `proto/kacho/cloud/validation.proto` | есть | **нет** |
+| `kacho@31d0d7ecc:proto/kacho/cloud/validation.proto` | есть | **нет** |
 | контроль — живое расширение `secret_bearing` | **7** | **7** |
 
 Остаток в 4 — вхождения этих слов **в комментариях**: объявления в дереве нет, и опция без

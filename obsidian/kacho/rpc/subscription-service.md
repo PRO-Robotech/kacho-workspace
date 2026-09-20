@@ -3,7 +3,7 @@ title: InternalSubscriptionService — общий контракт потока 
 aliases:
   - InternalSubscriptionService
   - подписка на изменения ресурсов
-proto_file: kacho/cloud/subscription/subscription_service.proto
+proto_file: corelib/subscription/subscription_service.proto
 category: rpc
 backend: kacho-corelib
 backend_port: 9091
@@ -25,8 +25,8 @@ status: stable
 
 # InternalSubscriptionService — один формат подписки на всю платформу
 
-**Контракт**: `proto/kacho/cloud/subscription/subscription.proto` (форма) +
-`proto/kacho/cloud/subscription/subscription_service.proto` (глагол)
+**Контракт**: `project/kacho/proto/corelib/subscription/subscription.proto` (форма) +
+`project/kacho/proto/corelib/subscription/subscription_service.proto` (глагол)
 **Видимость**: **внутренняя** — префикс `Internal` и есть действующий дискриминатор
 запрета #6 на крае; внешнего маршрута у службы нет.
 **Механизм, который это исполняет**: [[packages/corelib-subscription]].

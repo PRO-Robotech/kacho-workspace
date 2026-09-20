@@ -2,7 +2,7 @@
 title: InternalOperationsService
 aliases:
   - InternalOperationsService (iam)
-proto_file: kacho/cloud/iam/v1/internal_operations_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/internal_operations_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -22,7 +22,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # InternalOperationsService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_operations_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/internal_operations_service.proto`
 **Backend**: `kacho-iam:9091` (internal-only gRPC — **ban #6**, never external).
 **Visibility**: internal — cluster-wide admin operations feed for the admin UI.
 **Status**: ✅ done — sub-phase 1.2 (IAM operations visibility, §B / D-4b / D-10); merged + live `fe3455` helm rev13. См. [[sub-phase-1.2-iam-operations]].

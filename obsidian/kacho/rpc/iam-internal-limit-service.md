@@ -6,9 +6,9 @@ aliases:
 category: rpc
 domain: iam
 service: InternalLimitService
-proto: proto/kacho/cloud/iam/v1/internal_limit_service.proto
+proto: "нет — контракта `internal_limit_service.proto` нет ни в одном дереве"
 listener: ":9091 (cluster-internal)"
-status: done
+status: deprecated
 related_resources:
   - "[[resources/iam-limit]]"
 related_tickets:
@@ -18,10 +18,23 @@ tags:
   - kacho-iam
   - iam
   - internal
-verified_against: "ветка issue-291 от origin/release/approved-work, заведено 2026-08-14"
+verified_against: "заведено на ветке issue-291 от origin/release/approved-work 2026-08-14; предмет перемерен 2026-09-20: контракта нет ни в kacho `f445aaaa`, ни в kaname `cbbac984`, ни в corelib — служба снята, см. callout. Разбор поведения ниже построчно не пересматривался"
 ---
 
 # InternalLimitService
+
+> [!warning] Службы в дереве НЕТ — записка оставлена как история
+> Контракта `internal_limit_service.proto` нет ни в одном из трёх деревьев: он ушёл из
+> дерева платформы вместе с выносом службы доступа (kacho `a10bfd208d4`, 2026-09-08) и в
+> дереве службы заведён не был. Снятие сказано **прямым текстом в композиции службы** —
+> `project/kaname/cmd/kaname/grpc_register.go`: «ЗДЕСЬ РЕГИСТРИРОВАЛАСЬ InternalLimitService
+> … Снята стадией S4 той же задачи», и там же назван порядок: пятеро потребителей
+> перестали спрашивать домен величин раньше (`quota.authority: not-deployed`, kacho#2596),
+> иначе снятие отвечающего оборвало бы каждую их мутацию — авторитет на пути запроса
+> fail-closed.
+>
+> Разбор ниже — след прежнего замысла: по нему нельзя ни позвать, ни найти код. Вынос
+> службы целиком — [[KAC/wave-iam-standalone-2026-09-13]].
 
 **Domain**: iam. **Listener**: только кластерный внутренний (:9091); на внешнем крае
 маршрут не обслуживается — диспетчер края классифицирует пару (метод, путь) и отвечает 404,

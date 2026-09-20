@@ -2,7 +2,7 @@
 title: proto-access
 category: packages
 repo: kacho-proto
-path: proto/kacho/cloud/access
+path: "нет — каталог снят из дерева; последняя ревизия с ним — kacho@97544aef"
 layer: proto
 status: legacy
 tags:
@@ -15,7 +15,7 @@ verified_against: "перемерено на origin/main 007e3e99 (2026-08-18): 
 
 # proto/kacho/cloud/access — поверхность без глагола, снимается
 
-**Каталог**: `proto/kacho/cloud/access/access.proto`
+**Каталог**: снят. Последняя ревизия, на которой файл стоял, — `kacho@97544aef:proto/kacho/cloud/access/access.proto`; снят коммитом `e818be695c4` (2026-08-18, PR #671), предком `origin/main`. Работа — [[KAC/issue-580]].
 **Пакет контракта**: `kacho.cloud.access` (**без** `.v1` — вопреки конвенции именования)
 **Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/access`
 

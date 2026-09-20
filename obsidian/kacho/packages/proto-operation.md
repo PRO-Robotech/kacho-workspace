@@ -2,7 +2,7 @@
 title: proto-operation
 category: packages
 repo: kacho-proto
-path: proto/kacho/cloud/operation
+path: proto/corelib/operation
 layer: proto
 status: stable
 tags:
@@ -12,13 +12,12 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# proto/kacho/cloud/operation — конверт длящейся операции
+# proto/corelib/operation — конверт длящейся операции
 
-**Каталог**: `proto/kacho/cloud/operation/`
-**Пакет контракта**: `kacho.cloud.operation.v1`
-**Go-импорт**: `github.com/PRO-Robotech/kacho/pkg/api/kacho/cloud/operation`
-(алиас `operationv1`; каталог **без** сегмента `v1`, хотя пакет контракта его несёт —
-частая причина промаха при написании импорта вручную).
+**Каталог**: `project/kacho/proto/corelib/operation/` (прежде — `kacho/cloud/operation`; перенесён под имя фундамента, kacho `bdaedfd5aaa`, 2026-09-15)
+**Пакет контракта**: `corelib.operation`
+**Go-импорт**: `github.com/PRO-Robotech/corelib/api/corelib/operation` (алиас
+`operationv1`; ни в пакете контракта, ни в пути стабов сегмента `v1` нет).
 
 Возвращается **каждой** мутацией платформы; чтение синхронно.
 

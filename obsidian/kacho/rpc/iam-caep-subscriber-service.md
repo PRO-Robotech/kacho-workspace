@@ -2,7 +2,7 @@
 title: CAEPSubscriberService
 aliases:
   - CAEP Subscriber (iam, internal)
-proto_file: kacho/cloud/iam/v1/internal_caep_subscriber_service.proto
+proto_file: "нет — контракта `internal_caep_subscriber_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -32,7 +32,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # CAEPSubscriberService (iam, internal)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/internal_caep_subscriber_service.proto` (Phase 8).
+**Proto**: нет — файла `internal_caep_subscriber_service.proto` нет ни в одном дереве (замышлялся как Phase 8)
 **Backend**: `kacho-iam:9091` — cluster-internal.
 **Visibility**: **Internal** — admin / account-owner registers OAuth resource servers (Salesforce / Okta / downstream apps) для CAEP Continuous Access Evaluation Profile push'ей.
 **Status**: **Phase 8 planned**. CRUD subscribers + manual replay.

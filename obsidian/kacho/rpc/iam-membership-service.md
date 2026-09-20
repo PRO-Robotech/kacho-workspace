@@ -2,7 +2,7 @@
 title: MembershipService
 aliases:
   - MembershipService (iam)
-proto_file: kaname/cloud/iam/v1/membership_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/membership_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -24,7 +24,7 @@ verified_against: "kaname, ветка issue-181-membership-create от release/i
 
 # MembershipService (iam)
 
-**Proto**: `proto/kaname/cloud/iam/v1/membership_service.proto` (дом — репозиторий службы `PRO-Robotech/kaname`; платформа берёт стабы пином).
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/membership_service.proto` (дом — репозиторий службы `PRO-Robotech/kaname`; платформа берёт стабы пином).
 **Backend**: `kaname:9090` (public gRPC); на внутреннем слушателе служба **не** регистрируется — единственный гейт чтений пообъектная проверка края.
 
 Поверхность **трёхадресная**, и плоская коллекция несёт **только создание** (IAM-ID-2 §2.6, полоса C гейта IAM-ID-2-15):

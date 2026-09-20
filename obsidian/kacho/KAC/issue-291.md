@@ -4,7 +4,7 @@ aliases:
   - issue-291
 ticket_id: 291
 category: kac
-status: in-progress
+status: superseded
 type: feature
 repos:
   - kacho
@@ -17,6 +17,7 @@ areas:
 prs: []
 issue_url: https://github.com/PRO-Robotech/kacho/issues/291
 opened: 2026-08-14
+closed: 2026-08-15
 tags:
   - kac
   - feature
@@ -25,6 +26,17 @@ tags:
 # #291: число ресурсов у арендатора не ограничено квотами
 
 **Type**: feature
+
+> [!warning] Предмета в дереве НЕТ — записка верна как прошлое
+> Задача закрыта 2026-08-15. Контрактов `limit.proto` и `internal_limit_service.proto` нет
+> ни в дереве платформы (`kacho` @ `f445aaaa`), ни в дереве службы доступа (`kaname` @
+> `cbbac984`), ни в фундаменте: они ушли из платформы вместе с выносом службы
+> (`a10bfd208d4`, 2026-09-08) и в дереве службы заведены не были. Снятие
+> сказано прямым текстом в композиции службы — `project/kaname/cmd/kaname/grpc_register.go`:
+> «ЗДЕСЬ РЕГИСТРИРОВАЛАСЬ InternalLimitService … Снята стадией S4 той же задачи», там же
+> назван порядок: пятеро потребителей перестали спрашивать домен величин раньше
+> (`quota.authority: not-deployed`, kacho#2596). Разбор поверхности — [[rpc/iam-internal-limit-service]].
+> Координаты ниже поэтому даны ревизией, а не путём в сегодняшнем дереве.
 
 **Состояние на момент записи**: величина сдана (см. ниже), и работу продолжает **приёмка
 quota-v2** (`sub-phase-quota-v2-materialised-usage-acceptance.md`, APPROVED раунд 2) —
@@ -97,8 +109,9 @@ vpc), **S3** (предел на родителя), **S4** (остальные в
 
 ### S1 — величина как ресурс iam
 
-- [x] контракт: `proto/kacho/cloud/iam/v1/limit.proto` + `internal_limit_service.proto`,
-      регенерация в `pkg/api/`
+- [x] контракт: `kacho@a9e635c7:proto/kacho/cloud/iam/v1/limit.proto` +
+      `internal_limit_service.proto`, регенерация в `pkg/api/` — координата дана
+      **ревизией**: в сегодняшнем дереве обоих файлов нет, см. callout
 - [x] префикс идентификатора `lim-` внесён в канон дефисных префиксов
       (`pkg/ids/ids.go`, гейт `TestHyphenPrefixConstants_InCanon`)
 - [x] схема: `services/iam/internal/migrations/0092_resource_count_limits.sql` — таблица,

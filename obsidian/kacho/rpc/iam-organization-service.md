@@ -2,7 +2,7 @@
 title: OrganizationService
 aliases:
   - OrganizationService (iam)
-proto_file: kacho/cloud/iam/v1/organization_service.proto (planned)
+proto_file: "нет — контракта `organization_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -30,7 +30,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # OrganizationService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/organization_service.proto` (Phase 6).
+**Proto**: нет — файла `organization_service.proto` нет ни в одном дереве (замышлялся как Phase 6)
 **Backend**: `kacho-iam:9090` (public + `:9091` internal for SCIM endpoints).
 **Visibility**: public CRUD; SCIM endpoints — internal-only.
 **Status**: **Phase 1 — schema only** ([[../resources/iam-organization]] + [[../resources/iam-scim-user-mapping]] + [[../resources/iam-caep-subscriber]] tables). RPC handlers — Phase 6 (Enterprise SSO).

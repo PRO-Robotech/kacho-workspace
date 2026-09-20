@@ -39,7 +39,7 @@ tags:
 ## Решение
 
 Заведено действие исключения из аккаунта — `UserService.RemoveFromAccount`
-(`proto/kacho/cloud/iam/v1/user_service.proto`): снимает строку членства, требует
+(`project/kaname/proto/kaname/cloud/iam/v1/user_service.proto`): снимает строку членства, требует
 отношения **уровня аккаунта** (`member_remover` на аккаунте) и к глаголам личности
 отношения не имеет. Область берётся из аккаунта запроса, порог повторного подтверждения
 личности — тот же, что у приглашения и у отзыва права: смена состава участников есть
@@ -76,10 +76,10 @@ tags:
 
 ## DoD
 
-- [x] действие исключения объявлено в `proto/kacho/cloud/iam/v1/user_service.proto` со своей записью каталога прав
+- [x] действие исключения объявлено в `project/kaname/proto/kaname/cloud/iam/v1/user_service.proto` со своей записью каталога прав
 - [x] требуемое отношение — уровня АККАУНТА, а не личности
 - [x] исключение не трогает ни одного поля строки личности
 - [x] порядок «сперва права, потом членство» держит страж базы `services/iam/internal/migrations/472002_membership_carries_rights.sql`
 - [x] сквозные кейсы исключения в `services/iam/tests/newman/cases/iam-user.py`
-- [x] проза `proto/kacho/cloud/iam/v1/user_service.proto` про запрет больше не отсылает к снятию выдач как к замене исключения
+- [x] проза `project/kaname/proto/kaname/cloud/iam/v1/user_service.proto` про запрет больше не отсылает к снятию выдач как к замене исключения
 - [x] работа доехала до ствола вливанием линии identity (PR #1160, слияние `7bb0a6e14`)

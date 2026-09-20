@@ -3,7 +3,7 @@ title: FederationExchangeService
 aliases:
   - FederationExchange (iam)
   - RFC 8693 Token Exchange
-proto_file: kacho/cloud/iam/v1/federation_exchange_service.proto
+proto_file: "нет — контракта `federation_exchange_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -32,7 +32,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # FederationExchangeService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/federation_exchange_service.proto` (Phase 5).
+**Proto**: нет — файла `federation_exchange_service.proto` нет ни в одном дереве (замышлялся как Phase 5)
 **Backend**: `kacho-iam:9090` — public (internet-reachable необходимо для GitHub Actions / AWS / GCP / GitLab CI / CircleCI / Buildkite / Bitbucket OIDC).
 **Status**: **Phase 5 planned**. Реализует RFC 8693 Token Exchange. Trust-policy CRUD — отдельно [[iam-trust-policy-service]].
 

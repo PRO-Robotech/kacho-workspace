@@ -2,7 +2,7 @@
 title: corelib-outbox
 category: packages
 repo: kacho-corelib
-path: pkg/outbox
+path: project/corelib/outbox
 layer: shared
 status: stable
 tags:
@@ -13,9 +13,9 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/outbox — запись намерения в той же транзакции
+# corelib/outbox — запись намерения в той же транзакции
 
-**Каталог**: `pkg/outbox/` · импорт `github.com/PRO-Robotech/kacho/pkg/outbox`
+**Каталог**: `project/corelib/outbox/` · импорт `github.com/PRO-Robotech/corelib/outbox`
 **Прежде** (полирепо): `kacho-corelib/outbox`.
 **Импортирует**: `context`, `encoding/json`, `fmt`, `regexp`, `pgx/v5`.
 **Импортируют** (`go list` на `96b2879a`, non-test): vpc · geo · compute, плюс

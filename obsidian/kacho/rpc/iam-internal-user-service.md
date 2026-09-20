@@ -2,7 +2,7 @@
 title: InternalUserService
 aliases:
   - InternalUserService (iam)
-proto_file: kacho/cloud/iam/v1/internal_user_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/internal_user_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9091
@@ -26,7 +26,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # InternalUserService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/internal_user_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/internal_user_service.proto`
 **Backend**: `kacho-iam:9091` (**internal-only**; запрет #6)
 **Visibility**: internal — частично через api-gateway internal mux.
 **Status**: backend в [[KAC-112]]; реальный заполнятель — OIDC-callback в E2.

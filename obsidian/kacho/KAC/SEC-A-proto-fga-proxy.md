@@ -41,7 +41,7 @@ tags:
 ## Что и зачем
 
 Два **Internal-only** RPC добавлены в существующий `InternalIAMService`
-(`proto/kacho/cloud/iam/v1/internal_iam_service.proto`, package `kacho.cloud.iam.v1`):
+(`kacho@96b2879a:proto/kacho/cloud/iam/v1/internal_iam_service.proto`, package `kacho.cloud.iam.v1`; сегодня контракт живёт в репозитории службы доступа — [[KAC/wave-iam-standalone-2026-09-13]]):
 `RegisterResource` / `UnregisterResource`. Это контракт **FGA-proxy** — через него
 vpc/compute/nlb перестанут писать owner-hierarchy-tuple напрямую в OpenFGA (эпик #6:
 «модули не ходят в FGA напрямую, только через IAM») и начнут декларировать намерение

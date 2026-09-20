@@ -2,7 +2,7 @@
 title: corelib-shutdown
 category: packages
 repo: kacho-corelib
-path: pkg/shutdown
+path: project/corelib/shutdown
 layer: shared
 status: wontfix
 tags:
@@ -13,16 +13,16 @@ tags:
 verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
 ---
 
-# pkg/shutdown — координатор graceful-shutdown, **которого никто не зовёт**
+# corelib/shutdown — координатор graceful-shutdown, **которого никто не зовёт**
 
-**Каталог**: `pkg/shutdown/` · импорт `github.com/PRO-Robotech/kacho/pkg/shutdown`
+**Каталог**: `project/corelib/shutdown/` · импорт `github.com/PRO-Robotech/corelib/shutdown`
 **Прежде** (полирепо): `kacho-corelib/shutdown`.
 **Импортирует**: `context`, `errors`, `log/slog`, `os`, `os/signal`, `sync`,
 `syscall`, `time`.
 
 > [!warning] Ноль потребителей во всём модуле — замер, а не впечатление
 > Предикат: `go list ./...` на ревизии `96b2879a`, поиск импорта
-> `github.com/PRO-Robotech/kacho/pkg/shutdown` и в `Imports`, и в `TestImports`
+> `github.com/PRO-Robotech/corelib/shutdown` и в `Imports`, и в `TestImports`
 > **всех 334 пакетов** модуля. Результат — **ноль** прод-импортов и ноль тестовых;
 > контрольный `grep -rn` по всему дереву даёт **одно** вхождение — собственный
 > `manager_test.go` пакета.

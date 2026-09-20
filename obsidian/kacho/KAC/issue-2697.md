@@ -21,7 +21,7 @@ tags:
   - kacho-api-gateway
   - iam
   - proto
-verified_against: "kaname release/iam-lines@6acf8f19: `git grep -n 'PasswordChangeRequired: *true' -- '*.go' ':!*_test.go' | wc -l` → 0 при 22 строках-читателях; поле `password_change_required = 8` в `proto/kaname/cloud/iam/v1/human_session_service.proto:97`; kacho: main@972bdc34 читателей 0, ветка issue-1269-login-lane-edge@2dcf7f2e — 9 файлов края; решение — комментарий задачи 2026-09-17T00:38Z"
+verified_against: "kaname release/iam-lines@6acf8f19: `git grep -n 'PasswordChangeRequired: *true' -- '*.go' ':!*_test.go' | wc -l` → 0 при 22 строках-читателях; поле `password_change_required = 8` в `kaname@6acf8f19:proto/kaname/cloud/iam/v1/human_session_service.proto`:97; kacho: main@972bdc34 читателей 0, ветка issue-1269-login-lane-edge@2dcf7f2e — 9 файлов края; решение — комментарий задачи 2026-09-17T00:38Z"
 ---
 
 # kacho#2697: поле есть, производителя нет — исход 1, поле снимается с контракта

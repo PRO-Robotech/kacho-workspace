@@ -3,7 +3,7 @@ title: FederationService
 aliases:
   - FederationService (iam)
   - Token Exchange
-proto_file: kacho/cloud/iam/v1/federation_service.proto (planned)
+proto_file: "нет — контракта `federation_service.proto` нет ни в одном дереве"
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -32,7 +32,7 @@ verified_against: "ствол redesign/integration, сверено 2026-08-05"
 
 # FederationService (iam)
 
-**Proto**: `kacho-proto/proto/kacho/cloud/iam/v1/federation_service.proto` (Phase 5).
+**Proto**: нет — файла `federation_service.proto` нет ни в одном дереве (замышлялся как Phase 5)
 **Backend**: `kacho-iam:9090`.
 **Visibility**: **public** — Exchange endpoint требует internet-reachable URL (для GitHub Actions / AWS / GCP / GitLab CI / CircleCI / Buildkite / Bitbucket OIDC providers).
 **Status**: **Phase 1 — schema only** ([[../resources/iam-federation-trust-policy]] table). Exchange RPC + trust-policy CRUD — Phase 5 (Workload Identity Federation).

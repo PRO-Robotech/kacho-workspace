@@ -31,7 +31,7 @@ tags:
 > | Шаг плана | Где он в дереве | Предикат |
 > |---|---|---|
 > | 1. запись в `subject_change_outbox` в TX привязки | **три** эмитента: `access_binding/create.go:376`, `delete.go:247`, `revoke.go:218` | `git grep -n EmitSubjectChangeEvent -- services/iam \| grep -v _test` |
-> | 2. internal-RPC `PollSubjectChanges` | `proto/kacho/cloud/iam/v1/internal_iam_service.proto:109` | `git grep -n PollSubjectChanges -- proto` |
+> | 2. internal-RPC `PollSubjectChanges` | `project/kaname/proto/kaname/cloud/iam/v1/internal_iam_service.proto:163` (контракт уехал в репозиторий службы доступа — [[KAC/wave-iam-standalone-2026-09-13]]) | `git grep -n PollSubjectChanges -- proto` |
 > | 3. синхронный self-flush края на проксируемой мутации | `gateway/internal/middleware/authz.go:252`, зовётся из `:366` и `:467` | `git grep -n MaybeFlushOnMutation -- gateway \| grep -v _test` |
 > | 4. фоновая сходимость остальных реплик | `gateway/internal/watcher/subject_change_watcher.go`, провязан в `gateway/cmd/api-gateway/main.go:506` | `git grep -rn 'internal/watcher' -- gateway \| grep -v _test` |
 >

@@ -533,7 +533,7 @@ git show origin/main:internal/migrations/0001_initial.sql | awk '/group_members_
 
 | величина | значение | предикат |
 |---|---:|---|
-| глаголов службы ключей | **3** (`Issue`·`List`·`Revoke`) | `git show origin/main:proto/kaname/cloud/iam/v1/sa_key_service.proto \| grep -cE '^  rpc '` |
+| глаголов службы ключей | **3** (`Issue`·`List`·`Revoke`) | `git -C project/kaname show origin/main:proto/kaname/cloud/iam/v1/sa_key_service.proto \| grep -cE '^  rpc '` |
 | глаголов правки перечня доверия | **0** | тот же вывод: `Update` отсутствует |
 | путей чтения, возвращающих записи доверия | **0** | `git grep -n 'trusted_subject' origin/main -- 'proto/**'` → **одна строка, и та во ВХОДЕ выдачи** |
 | полей о доверии в ответном сообщении клиента | **0 из 11** | разбор того же сообщения: `grep -ciE 'trusted\|federat'` по его телу → 0 |

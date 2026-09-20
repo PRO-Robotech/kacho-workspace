@@ -25,7 +25,7 @@ verified_against: "kaname release/iam-lines@6acf8f19: ведомость `intern
 # kaname#184: строка `Resolve` — у службы уже, у края после подъёма пина
 
 **Предмет.** Найдено по дороге Ф3 ([[issue-1269]]). Контракт
-`InternalHumanSessionService.Resolve` (`proto/kaname/cloud/iam/v1/human_session_service.proto`,
+`InternalHumanSessionService.Resolve` (`project/kaname/proto/kaname/cloud/iam/v1/human_session_service.proto`,
 `<exempt>`, внутренний слушатель) аннотирован, а копия каталога прав службы
 (`internal/apps/kaname/seed/embedded/permission_catalog.json`) сверяется гейтом паритета с копией
 **края на `main` платформы** — и та строку получит только после того, как платформа поднимет пин

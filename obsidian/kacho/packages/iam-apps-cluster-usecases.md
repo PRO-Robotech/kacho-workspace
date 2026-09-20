@@ -3,7 +3,7 @@ title: iam apps cluster use-cases
 repo: kacho-iam
 layer: usecase
 category: packages
-path: services/iam/internal/apps/kacho/api/cluster
+path: project/kaname/internal/apps/kaname/api/cluster
 related_rpc:
   - "[[rpc/iam-internal-cluster-service]]"
 related_tickets:

@@ -3,7 +3,7 @@ title: SAKeyService
 aliases:
   - SAKey (iam)
   - SA OAuth Client CRUD
-proto_file: kacho/cloud/iam/v1/sa_key_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/sa_key_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -26,7 +26,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # SAKeyService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/sa_key_service.proto` (Phase 5).
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/sa_key_service.proto` (Phase 5).
 **Backend**: `kacho-iam:9090`. Public — workload owner управляет своими SA OAuth clients.
 **Status**: **Phase 5 planned**. Class A static credentials через Hydra OAuth2 client. `ServiceAccountOAuthClient` 1:1 c ServiceAccount.
 
@@ -76,7 +76,7 @@ Hydra → token_hook ([[../packages/iam-handler-iamhooks]]) → final access_tok
 
 ## Сверка со стволом (2026-08-05)
 
-В контракте `proto/kacho/cloud/iam/v1/sa_key_service.proto` — **три** RPC:
+В контракте `project/kaname/proto/kaname/cloud/iam/v1/sa_key_service.proto` — **три** RPC:
 
 | Метод | Ответ | Sync/Async | REST |
 |---|---|---|---|
@@ -92,7 +92,7 @@ Hydra → token_hook ([[../packages/iam-handler-iamhooks]]) → final access_tok
 `ListOAuthClients`, `UpdateOAuthClient`, `RevokeOAuthClient`, `RotateSecret`.
 OAuth-клиент сервисной учётки — **ресурс**, а не набор RPC этого сервиса: он живёт
 сообщением `ServiceAccountOAuthClient`
-(`proto/kacho/cloud/iam/v1/service_account_oauth_client.proto`) и таблицей
+(`project/kaname/proto/kaname/cloud/iam/v1/service_account_oauth_client.proto`) и таблицей
 `kacho_iam.service_account_oauth_clients`; его жизненным циклом у Hydra управляет iam как
 единый фасад. См. [[../resources/iam-service-account-oauth-client]].
 

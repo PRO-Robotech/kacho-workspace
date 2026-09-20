@@ -2,7 +2,7 @@
 title: AccessBindingService
 aliases:
   - AccessBindingService (iam)
-proto_file: kacho/cloud/iam/v1/access_binding_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/access_binding_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -28,7 +28,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 # AccessBindingService (iam)
 
-**Proto**: `proto/kacho/cloud/iam/v1/access_binding_service.proto`
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/access_binding_service.proto`
 **Backend**: `kacho-iam:9090` (public gRPC)
 **Visibility**: public
 **Status**: backend в [[KAC-112]]. E0 хранит binding'и, **не** enforce'ит authz — E3 ([[KAC-108]]) добавит Check-interceptor.
@@ -140,7 +140,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 
 ## Сверка со стволом (2026-08-05)
 
-Перепись по `proto/kacho/cloud/iam/v1/access_binding_service.proto`: у сервиса **14** RPC.
+Перепись по `project/kaname/proto/kaname/cloud/iam/v1/access_binding_service.proto`: у сервиса **14** RPC.
 
 **Есть в контракте, но записка о нём молчала**: `Revoke` (`POST
 /iam/v1/accessBindings/{access_binding_id}:revoke`, → `Operation`). Отзыв — отдельный

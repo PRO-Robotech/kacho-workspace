@@ -1,5 +1,5 @@
 ---
-title: "pkg/servicehost + pkg/servicecontract — носитель контура работы сервиса с моделью прав"
+title: "corelib/servicehost + corelib/servicecontract — носитель контура работы сервиса с моделью прав"
 aliases:
   - servicehost
   - servicecontract
@@ -8,7 +8,7 @@ category: packages
 status: stable
 repo: kacho-corelib
 layer: pkg
-path: pkg/servicehost, pkg/servicecontract
+path: project/corelib/servicehost, project/corelib/servicecontract
 verified_against: "дерево продукта 63132d35 (2026-08-11): шесть сервисов на носителе и у всех шести есть проба подъёма; ServeSurface зовут 13 прод-файлов в семи сервисах; текст сверен по коду, не по приёмке"
 tags:
   - packages
@@ -18,7 +18,7 @@ tags:
   - internal
 ---
 
-# `pkg/servicehost` + `pkg/servicecontract`
+# `corelib/servicehost` + `corelib/servicecontract`
 
 Единый вход в контур работы сервиса с моделью прав: **сервис ОБЪЯВЛЯЕТ, чем он участвует, а
 поднимает его общий носитель**. Композиционный корень не собирает ни серверов, ни цепочки

@@ -4,7 +4,7 @@ aliases:
   - issue-580
 ticket_id: 580
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kacho
@@ -25,9 +25,12 @@ tags:
 
 **Type**: fix
 
-**Состояние на момент записи**: test — сделано в линии `release/contract-hygiene`,
-PR PRO-Robotech/kacho#671, коммит `6eddfff5`. В `main` ещё не влито: файл
-`proto/kacho/cloud/access/access.proto` на `origin/main` @ `007e3e99` на месте.
+**Состояние**: done — влито. Сделано в линии `release/contract-hygiene`, PR
+PRO-Robotech/kacho#671; в стволе — коммитом `e818be695c4` (2026-08-18), который является
+предком `origin/main` (проверено `git merge-base --is-ancestor`). Файла нет на
+`origin/main` @ `f445aaaa` (2026-09-19); последняя ревизия, на которой он стоял, —
+`kacho@97544aef`. Запись «в `main` ещё не влито», верная на момент заведения
+(`origin/main` @ `007e3e99`), снята 2026-09-20 как пережившая свой предмет.
 
 **Где ведётся**: `PRO-Robotech/kacho` — `proto/kacho/cloud/access`, `gateway`.
 **PRs**: PRO-Robotech/kacho#671

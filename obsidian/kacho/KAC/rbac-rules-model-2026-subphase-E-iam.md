@@ -27,7 +27,7 @@ category: kac
 
 # RBAC rules-model 2026 — sub-phase E (subjects[] + ExpandAccess + ListByRole)
 
-> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `repeated Subject subjects = 19` в `proto/kacho/cloud/iam/v1/access_binding.proto`; `rpc ExpandAccess` в `access_binding_service.proto`.
+> [!note] Сверено по дереву продукта 2026-08-05 (`PRO-Robotech/kacho@58913d0e`): `repeated Subject subjects = 19` в `kacho@58913d0e:proto/kacho/cloud/iam/v1/access_binding.proto`; `rpc ExpandAccess` в `access_binding_service.proto`.
 > Правило закрытия и что именно проверяется вместо пунктов «PR смёржен» — [[KAC/README]].
 
 **Состояние на момент записи**: test (code-complete on branches `rbac-rules-e-proto` / `rbac-rules-e-iam` / `rbac-rules-e-gateway`, NOT committed)

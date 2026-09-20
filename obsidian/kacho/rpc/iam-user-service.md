@@ -2,7 +2,7 @@
 title: UserService
 aliases:
   - UserService (iam)
-proto_file: kaname/cloud/iam/v1/user_service.proto
+proto_file: project/kaname/proto/kaname/cloud/iam/v1/user_service.proto
 category: rpc
 backend: kacho-iam
 backend_port: 9090
@@ -23,12 +23,12 @@ tags:
   - kacho-iam
   - iam
   - mirror
-verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05"
+verified_against: "kaname main@af0ca8f3: перечень RPC сверен с `project/kaname/proto/kaname/cloud/iam/v1/user_service.proto` в ОБЕ стороны 2026-09-17 (9 глаголов), каталог use-case `internal/apps/kaname/api/user/` прочитан по именам файлов; release/iam-lines@6acf8f19 — десятый глагол `ResendInvite`; семантика authz в таблице методов построчно не пересматривалась с 2026-08-05"
 ---
 
 # UserService (iam)
 
-**Proto**: `proto/kaname/cloud/iam/v1/user_service.proto` (дом — репозиторий службы `PRO-Robotech/kaname`; платформа берёт стабы пином: контрактов iam под каталогом контрактов платформы на `main@972bdc34` — 0 файлов).
+**Proto**: `project/kaname/proto/kaname/cloud/iam/v1/user_service.proto` (дом — репозиторий службы `PRO-Robotech/kaname`; платформа берёт стабы пином: контрактов iam под каталогом контрактов платформы на `main@972bdc34` — 0 файлов).
 **Backend**: `kaname:9090` (public gRPC). Use-case — `internal/apps/kaname/api/user/` (по файлу на глагол: `get.go`, `list.go`, `invite.go`, `update.go`, `delete.go`, `remove_from_account.go`, `set_blocked.go` — `Block`/`Unblock` одним потоком; `handler.go` — транспорт, включая `ListOperations`; в линии `release/iam-lines` ещё `resend_invite.go`); зеркало внешней личности и завершение восстановления — `internal_upsert.go`, `internal_on_recovery.go` ([[iam-internal-user-service]]).
 **Visibility**: public — read (`Get`/`List`) + label-write `Update` (DIVERGENCE-A); identity-mirror write — через [[iam-internal-user-service]].
 **Status**: backend в [[KAC-112]]; `Update` (label-write) merged DIVERGENCE-A (proto#89 / iam#249 `b4164e0f` / api-gateway#102).

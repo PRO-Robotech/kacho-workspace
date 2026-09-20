@@ -32,7 +32,7 @@ verified_against: "отметка сверки с деревом продукт�
 
 > [!note] RPC пережил своего единственного вызывающего (замер 2026-08-05)
 > `InternalIAMService.WriteCreatorTuple` **по-прежнему объявлен** в
-> `proto/kacho/cloud/iam/v1/internal_iam_service.proto`, но во всём дереве `96b2879a` его
+> `kacho@96b2879a:proto/kacho/cloud/iam/v1/internal_iam_service.proto`, но во всём дереве `96b2879a` его
 > не зовёт **никто**: единственные вхождения — сгенерированные gateway-заглушки
 > (`pkg/api/.../internal_iam_service.pb.gw.go`). Ровно то же верно для соседних
 > `ForceLogout` и `GetRoleCompiled` — у них тоже ноль не-сгенерированных вызывающих.
