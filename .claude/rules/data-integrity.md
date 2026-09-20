@@ -1,3 +1,10 @@
+---
+name: rule-data-integrity
+description: "Целостность данных: within-service (DB-уровень) + cross-domain (peer-API)"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/data-integrity.md`
+
 # Целостность данных: within-service (DB-уровень) + cross-domain (peer-API)
 
 ## Within-service инварианты — ТОЛЬКО на DB-уровне (ban #10)

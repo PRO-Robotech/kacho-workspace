@@ -1,3 +1,10 @@
+---
+name: rule-api-conventions
+description: "Конвенции API Kachō"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/api-conventions.md`
+
 # Конвенции API Kachō
 
 Собственные конвенции продукта. Соблюдай их как нормативные требования (не как

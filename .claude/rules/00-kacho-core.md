@@ -1,3 +1,10 @@
+---
+name: rule-00-kacho-core
+description: "Kachō — ядро: продукт, naming, non-negotiables"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/00-kacho-core.md`
+
 # Kachō — ядро: продукт, naming, non-negotiables
 
 Оснастка живёт **в единственном экземпляре** — в `.claude/` воркспейса; копий в рабочих

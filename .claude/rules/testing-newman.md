@@ -1,3 +1,10 @@
+---
+name: rule-testing-newman
+description: "Сквозные пробы newman: eventual-consistency и параллельный прогон"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/testing-newman.md`
+
 # Сквозные пробы newman: eventual-consistency и параллельный прогон
 
 Часть правила `.claude/rules/testing.md`. Инварианты, общие всем suite'ам — RYW-retry,

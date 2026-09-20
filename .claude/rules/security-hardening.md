@@ -1,3 +1,10 @@
+---
+name: rule-security-hardening
+description: "Безопасность: hardening-классы, которые уже стоили нам дефекта"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/security-hardening.md`
+
 # Безопасность: hardening-классы, которые уже стоили нам дефекта
 
 Часть правила `security.md` (периметр, ban #6, инфра-данные, production-посадка) — базовый

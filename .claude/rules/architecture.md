@@ -1,3 +1,10 @@
+---
+name: rule-architecture
+description: "Чистая архитектура + переиспользование"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/architecture.md`
+
 # Чистая архитектура + переиспользование
 
 ## Clean Architecture (строгое dependency rule)

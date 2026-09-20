@@ -1,0 +1,2 @@
+disc-three-places-not-subject · называть запрещаемое свойство прямо, не выхолащивать · ЗАВЕСТИ disc-three-places-not-subject · red: обезличенный текст в этих трёх местах
+disc-preservation-proof · давать только после git diff <исходный> HEAD -- $(git show --name-only --format= <исходный>) = пусто · ЗАВЕСТИ disc-preservation-proof · red: «влито» без проверки (слияние могло быть частичным)

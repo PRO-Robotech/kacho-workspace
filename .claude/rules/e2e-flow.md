@@ -1,3 +1,10 @@
+---
+name: rule-e2e-flow
+description: "Сквозные пробы: newman (API) и playwright (браузер) — единый флоу"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/e2e-flow.md`
+
 # Сквозные пробы: newman (API) и playwright (браузер) — единый флоу
 
 Две семьи проб, одно ядро. **Newman** — HTTP-API через край: 7 наборов, 84 коллекции, 1481
