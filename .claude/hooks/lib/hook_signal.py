@@ -147,7 +147,8 @@ def _journal(path: Path, body: str) -> None:
 def gate(sid: str, body: str, *, addressee: str, clear_when: str,
          session: str | None = None, sha: str = "",
          state: Path | None = None,
-         volatile: tuple[str, ...] = ()) -> tuple[str, str]:
+         volatile: tuple[str, ...] = (),
+         repeat_silent: bool = False) -> tuple[str, str]:
     """Возвращает (что печатать, исход). Исход: `full` · `repeat` · `void`.
 
     `void` — тело пустое: сигналу нечего сказать, печати нет. Предмет пустоты —
@@ -199,6 +200,13 @@ def gate(sid: str, body: str, *, addressee: str, clear_when: str,
                 f" · повтор без дельты будет свёрнут в строку")
         return body + tail, "full"
 
+    if repeat_silent:
+        # Молчание на повторе выдаётся ТОЛЬКО сигналу, у которого предмет пуст: ему
+        # нечего повторять, и строка «без изменений» о пустоте — тот же фон, только
+        # короче. Проверяемость после факта держит журнал (`<id>.log`) и перепись
+        # прибора: они пишутся и при молчании, поэтому «ноль прочитанного» остаётся
+        # отличимо от «ноль находок» — по журналу, а не по каналу находок.
+        return "", "repeat"
     where = str((d / f"{name}.log"))
     when = f"{rec['sha'] or 'ревизия не названа'}@{rec['at']}"
     return (f"[сигнал `{sid}`] без изменений с {when} — повтор {rec['n']}-й, дельты нет."
@@ -234,6 +242,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--state", default="")
     ap.add_argument("--volatile", action="append", default=[],
                     help="выражение, летучее у ЭТОГО прибора (можно несколько)")
+    ap.add_argument("--repeat-silent", action="store_true",
+                    help="на повторе не печатать ничего — только для сигнала с ПУСТЫМ предметом")
     ap.add_argument("--streak", default="")
     a = ap.parse_args(argv)
 
@@ -250,7 +260,7 @@ def main(argv: list[str]) -> int:
         text, mode = gate(a.id or "", body, addressee=a.addressee, clear_when=a.clear_when,
                           session=a.session, sha=a.sha,
                           state=Path(a.state) if a.state else None,
-                          volatile=tuple(a.volatile))
+                          volatile=tuple(a.volatile), repeat_silent=a.repeat_silent)
     except ValueError as e:
         sys.stderr.write(
             "╔══ СИГНАЛ ХУКА СЛОМАН ═══════════════════════════════════════════\n"
