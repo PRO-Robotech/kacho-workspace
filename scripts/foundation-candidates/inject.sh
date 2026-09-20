@@ -15,12 +15,20 @@
 # ожидание у них противоположное. Пара, отличающаяся двумя фактами, доказывает
 # только то, что проверка на что-то реагирует.
 #
-# ОСИ (пять пар, десять прогонов):
+# ОСИ:
 #   A  ложно ЗАЧИСЛЕННЫЙ · продуктовый литерал лежит в СИБЛИНГЕ пакета
 #   B  ложно ИСКЛЮЧЁННЫЙ · направление как НЕПОДВИЖНАЯ ТОЧКА
 #   C  предпосылка · пустой ОБХОД обязан дать 2, а не 0
 #   D  ведомость самоистекает · запись без предмета
 #   E  храповик · рост числа
+#   F  ложно ИСКЛЮЧЁННЫЙ · САМОИМПОРТ: внешний тестовый пакет своего предмета
+#   G  ложно ИСКЛЮЧЁННЫЙ · ЦИКЛ из двух предметов
+#   H  довод `keep` судится ПО СУЩЕСТВУ, а не по непустоте (две пары)
+#
+# F и G заведены приёмкой 2026-09-21: ось B проверяла НЕПОДВИЖНУЮ ТОЧКУ только
+# нерекурсивным случаем, и обе рекурсии — самоимпорт и цикл — были не покрыты
+# вовсе. На прежнем ядре (очередь строилась СНИЗУ, от пустого множества) дефекты
+# F и G дают 0 кандидатов вместо ожидаемых и краснеют здесь.
 #
 # Деревья строятся СИНТЕТИЧЕСКИ в $TMPDIR: живое дерево инъекцией не трогается,
 # и вердикт не зависит от того, что сегодня лежит в клонах.
@@ -59,6 +67,33 @@ func Probe(kind string) (string, bool) {
 	return "", false
 }
 GO
+}
+
+# other <имя> — тело, НЕ близкое к `body`: J между ними 0.0, поэтому пакет,
+# собранный из него, своего предмета с копиями `body` не заводит. Без этого
+# «пакет ВНЕ очереди» сам попал бы в очередь, и ось мерила бы два факта.
+other() {
+    cat <<GO
+package $1
+
+func Width(n int) int {
+	total := n * 3
+	for i := 0; i < n; i++ {
+		total -= i
+	}
+	return total
+}
+GO
+}
+
+# ring <каталог служб> <свой пакет> <партнёр> <служба> — половина ЦИКЛА: пакет,
+# импортирующий партнёра по соседству. Две встречные половины и дают цикл.
+ring() {
+    local d="$1/$2"
+    mkdir -p "$d"
+    { printf 'package %s\n\nimport "github.com/PRO-Robotech/kacho/services/%s/internal/%s"\n\n' "$2" "$4" "$3"
+      body "$2" | tail -n +2
+      printf 'var _ = %s.Probe\n' "$3"; } > "$d/$2.go"
 }
 
 # build <корень> — общий каркас: три клона и обе ведомости.
@@ -168,7 +203,9 @@ for p in kacho kaname corelib; do seal "$r/project/$p"; done
 ledger "$r" 1 2 1 '
   - package: kacho:services/alpha/internal/lane
     decision: keep
-    why: "синтетика инъекции"'
+    why: "синтетика инъекции"
+    class: 2-политика
+    evidence: kacho:services/alpha/internal/lane/lane.go'
 expect C "близнец: обход НЕ пуст, перечень пуст — код 0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
 
 echo "── ОСЬ D · ВЕДОМОСТЬ САМОИСТЕКАЕТ: запись, которой нечего решать"
@@ -182,9 +219,11 @@ ledger "$r" 1 2 1 '
   - package: kacho:services/alpha/internal/lane
     decision: keep
     why: "синтетика инъекции"
+    class: 2-политика
+    evidence: kacho:services/alpha/internal/lane/lane.go
   - package: kacho:services/gamma/internal/gone
-    decision: keep
-    why: "предмета в стволах больше нет"'
+    decision: move
+    issue: "#1"'
 expect D "дефект: запись без предмета — находка" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
 r="$WORK/D-twin"; build "$r"
 for svc in alpha beta; do
@@ -194,7 +233,9 @@ for p in kacho kaname corelib; do seal "$r/project/$p"; done
 ledger "$r" 1 2 1 '
   - package: kacho:services/alpha/internal/lane
     decision: keep
-    why: "синтетика инъекции"'
+    why: "синтетика инъекции"
+    class: 2-политика
+    evidence: kacho:services/alpha/internal/lane/lane.go'
 expect D "близнец: у записи предмет есть — молчит" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
 
 echo "── ОСЬ E · ХРАПОВИК: рост числа копий"
@@ -213,6 +254,115 @@ for side in defect twin; do
         expect E "дефект: ТРЕТЬЯ прописка при files=2 — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
     else
         expect E "близнец: две прописки при files=2 — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo "── ОСЬ F · САМОИМПОРТ: внешний тестовый пакет своего же предмета"
+echo "   Один факт: КУДА показывает импорт соседнего тестового файла — на СВОЙ"
+echo "   ЖЕ пакет или на пакет ВНЕ очереди. Полярность в факт не входит."
+echo "   На очереди, строящейся СНИЗУ, дефект отсекался в первом круге и в"
+echo "   очередь не попадал никогда: попасть в неё можно только пережив отсев,"
+echo "   а пережить отсев — только уже стоя в ней."
+for side in defect twin; do
+    r="$WORK/F-$side"; build "$r"
+    # Пакет ВНЕ очереди: одна прописка, значит предметом он не является.
+    d="$r/project/kacho/pkg/outside"; mkdir -p "$d"; other outside > "$d/outside.go"
+    for svc in alpha beta; do
+        d="$r/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"
+        body lane > "$d/lane.go"
+        # Сосед короче MIN_LINES — в сравнение он не попадает и своего предмета
+        # не заводит, но импорты КАТАЛОГА пополняет (единица отсева — пакет).
+        if [ "$side" = defect ]; then
+            printf 'package lane_test\n\nimport _ "github.com/PRO-Robotech/kacho/services/%s/internal/lane"\n' "$svc" > "$d/probe_test.go"
+        else
+            printf 'package lane_test\n\nimport _ "github.com/PRO-Robotech/kacho/pkg/outside"\n' > "$d/probe_test.go"
+        fi
+    done
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    if [ "$side" = defect ]; then
+        # Самоимпорт направления не ограничивает: судья едет вместе с предметом,
+        # и ссылка после выноса указывает на новый адрес ТОГО ЖЕ пакета.
+        ledger "$r" 1 2 1
+        expect F "дефект: сосед импортирует СВОЙ предмет — КАНДИДАТ" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect F "дефект: храповик видит actionable=1" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    else
+        ledger "$r" 1 2 0
+        expect F "близнец: сосед импортирует ВНЕ очереди — отсечён" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect F "близнец: храповик видит actionable=0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo "── ОСЬ G · ЦИКЛ из двух предметов, импортирующих друг друга"
+echo "   Один факт: есть ли ВТОРАЯ ПРОПИСКА у партнёра по импорту. Есть — цикл,"
+echo "   ребро после выноса внутреннее, уезжают оба одним изменением; нет —"
+echo "   импорт указывает ВНЕ очереди и отсекает по существу."
+echo "   Снизу цикл недостижим: в первом круге отсекаются ОБА, очередь пуста и"
+echo "   больше не меняется."
+for side in defect twin; do
+    r="$WORK/G-$side"; build "$r"
+    for svc in alpha beta; do
+        ring "$r/project/kacho/services/$svc/internal" one two "$svc"
+        ring "$r/project/kacho/services/$svc/internal" two one "$svc"
+    done
+    # ЕДИНСТВЕННЫЙ различающийся факт: у близнеца второй копии `two` нет, и
+    # предметом он не становится. Исходники при этом побайтово те же.
+    [ "$side" = twin ] && rm -rf "$r/project/kacho/services/beta/internal/two"
+    for p in kacho kaname corelib; do seal "$r/project/$p"; done
+    if [ "$side" = defect ]; then
+        ledger "$r" 2 4 2
+        expect G "дефект: цикл двух предметов — ОБА кандидаты" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect G "дефект: храповик видит actionable=2" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    else
+        ledger "$r" 1 2 0
+        expect G "близнец: партнёр без второй прописки — отсечён" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect G "близнец: храповик видит actionable=0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo "── ОСЬ H · ДОВОД keep СУДИТСЯ ПО СУЩЕСТВУ, а не по непустоте"
+echo "   Фраза why на ВСЕХ ЧЕТЫРЁХ сторонах одна и та же — та самая, которую"
+echo "   норма называет запретной. Это и есть предмет оси: прежняя редакция"
+echo "   судила НЕПУСТОТУ и зеленела на ней. Текст на вердикт больше не влияет"
+echo "   вовсе — красное и зелёное приходят от машинного факта."
+lane_pair() {  # lane_pair <корень> — пара копий, дающая ровно одного кандидата
+    for svc in alpha beta; do
+        d="$1/project/kacho/services/$svc/internal/lane"; mkdir -p "$d"
+        body lane > "$d/lane.go"
+    done
+    for p in kacho kaname corelib; do seal "$1/project/$p"; done
+}
+echo "   H1 · один факт: резолвится ли координата довода в файл ЭТОГО пакета."
+for side in defect twin; do
+    r="$WORK/H1-$side"; build "$r"; lane_pair "$r"
+    ev="kacho:services/alpha/internal/lane/lane.go"
+    [ "$side" = defect ] && ev="kacho:services/alpha/internal/lane/nothing.go"
+    ledger "$r" 1 2 1 "
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: \"по усмотрению\"
+    class: 2-политика
+    evidence: $ev"
+    if [ "$side" = defect ]; then
+        expect H1 "дефект: координата не резолвится — находка" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    else
+        expect H1 "близнец: координата в файле предмета — молчит" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    fi
+done
+echo "   H2 · один факт: назван ли класс из ЗАКРЫТОГО словаря восьми."
+for side in defect twin; do
+    r="$WORK/H2-$side"; build "$r"; lane_pair "$r"
+    cls="2-политика"
+    [ "$side" = defect ] && cls="9-если-оправдано"
+    ledger "$r" 1 2 1 "
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: \"по усмотрению\"
+    class: $cls
+    evidence: kacho:services/alpha/internal/lane/lane.go"
+    if [ "$side" = defect ]; then
+        expect H2 "дефект: девятый класс вне словаря — находка" 1 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    else
+        expect H2 "близнец: класс из восьми — молчит" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
     fi
 done
 
