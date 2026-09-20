@@ -2143,7 +2143,7 @@ VOLATILE_OF_THIS_PROBE = (r"кэш (?:тёплый|холодный)",)
 
 
 def signal_out(sid: str, body: str, *, addressee: str, clear_when: str,
-               sha: str = "") -> tuple[str, str]:
+               sha: str = "", repeat_silent: bool = False) -> tuple[str, str]:
     """Признак дельты у сигнала. Механизм ОДИН — `.claude/hooks/lib/hook_signal.py`.
 
     Своей копии признака здесь нет намеренно. Класс «печатается состояние вместо
@@ -2163,7 +2163,8 @@ def signal_out(sid: str, body: str, *, addressee: str, clear_when: str,
         import hook_signal
         return hook_signal.gate(sid, body, addressee=addressee, clear_when=clear_when,
                                 session=SESSION, sha=sha,
-                                volatile=VOLATILE_OF_THIS_PROBE)
+                                volatile=VOLATILE_OF_THIS_PROBE,
+                                repeat_silent=repeat_silent)
     except Exception as e:  # noqa: BLE001
         return (body + f"\n[сигнал `{sid}`] признак дельты НЕ применён: {e!r} — "
                 f"печатается ПОЛНОСТЬЮ каждый ход, пока это так. "
@@ -3490,6 +3491,21 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
 
     stales = stale_allow(entries, idx["reverse"], ws, mono, claims)
     _, refusals = truth.enabled()
+    # Отказ предиката печатается СВОИМ сигналом, а не только внутри переписи: его
+    # предмет — основание истины, он от обхода документов не зависит и обязан
+    # дожить до печати даже тогда, когда обход пуст и перепись свёрнута.
+    if refusals:
+        r_out, _ = signal_out(
+            "docfresh-predicate-refused",
+            "docfresh: предикаты НЕ прогонялись — "
+            + "; ".join(f"`{k}`: {why}" for k, why in refusals)
+            + ". По этим видам координат вердикт не вынесен: «находок 0» из них не читается.",
+            addressee="tooling-maintainer (основание истины прибора)",
+            clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep печатает "
+                       "«отказано 0 ()» в строке про предикаты",
+            sha=head_sha(ws))
+        if r_out:
+            sys.stderr.write(r_out + "\n")
     stats = bump_stats(bool(findings or stales or cnt.get("toolgaps")))
     ms = int((time.time() - t0) * 1000)
     if not cnt["docs"]:
@@ -3525,7 +3541,10 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
     gaps = cnt.get("toolgaps") or []
     sha = head_sha(ws)
     if findings or stales or gaps:
-        text = render(findings, stales, refusals, census, gaps=gaps)
+        # Отказы предикатов в отчёт конца хода НЕ подставляются: у них теперь свой
+        # сигнал (выше). Два места об одном предмете — то самое, что хук ловит у
+        # чужой прозы, и печатались бы они по разным признакам дельты.
+        text = render(findings, stales, [], census, gaps=gaps)
         out, mode = signal_out(
             "docfresh-stop", text,
             addressee="docs-writer (документ дерева) · vault-scribe (записка vault) · "
@@ -3544,6 +3563,44 @@ def stop_mode(idx: dict, truth: Truth, entries: list[dict], ws: Path,
         return 0
     if not journaled:
         census += " · ЖУРНАЛ ПЕРЕПИСИ НЕ ПИШЕТСЯ: каталог .state недоступен"
+
+    # ── ПЕЧАТАЕТСЯ ТО, ЧЕЙ ПРЕДМЕТ НЕПУСТ ────────────────────────────────────
+    #
+    # Замер 2026-09-20 (главный поток, десятки ходов подряд): прибор печатал полный
+    # экран, НЕ ОСМОТРЕВ НИ ОДНОГО ДОКУМЕНТА — «осмотрено документов 0 из 533 LIVE»,
+    # «координат рассмотрено 0», «за ход затронуто 0». Это не совпадение и не
+    # настройка: предмет ЭТОЙ оси — документы, затронутые за ход, а в сессии
+    # диспетчера записи файлов не происходит by construction (у него нет ни Write,
+    # ни Edit, ни Bash). Значит предмет пуст ВСЕГДА, а печать шла каждый ход.
+    #
+    # Тот же род дефекта, что арифметический гейт, слепой к отсутствующей строке:
+    # прибор, печатающий одно и то же независимо от состояния, состояний НЕ
+    # РАЗЛИЧАЕТ, и находка в нём неотличима от её отсутствия.
+    #
+    # Решение — НЕ «молчать при нуле осмотренных». Оси у хука разные, и предмет у
+    # каждой свой: послабление без предмета и отказ предиката обхода документов не
+    # требуют, их печать пустым обходом не отменяется (они выше, своими сигналами).
+    # Свёрнута ровно та ось, чей предмет пуст.
+    #
+    # Перепись при этом НЕ снята: полная строка уже ушла в `.state/census.log` выше,
+    # безусловно, и «ноль находок» остаётся отличимо от «ноль прочитанного» — по
+    # журналу, проверяемому после факта, а не по каналу находок.
+    if not cnt.get("docs"):
+        out, _ = signal_out(
+            "docfresh-no-subject",
+            f"docfresh: предмета не было: осмотрено 0 документов из {len(idx['docs'])} LIVE"
+            f" · за ход затронуто {len(touched)}, мимо Write/Edit {len(unaccounted)},"
+            f" исчезло из дерева {ngone}"
+            f" · полная перепись хода — .claude/hooks/docfresh/.state/census.log",
+            addressee="никому: предмета нет. Ось просыпается от правки файла, а в сессии "
+                      "главного потока её не бывает — сигнал сообщает об этом один раз",
+            clear_when="tail -1 .claude/hooks/docfresh/.state/census.log называет "
+                       "«осмотрено документов N» при N больше нуля",
+            sha=sha, repeat_silent=True)
+        if out:
+            sys.stderr.write(out + "\n")
+        return 0
+
     out, _ = signal_out(
         "docfresh-census", census,
         addressee="check-verifier (объём осмотренного — предмет приёмки, а не работы)",
