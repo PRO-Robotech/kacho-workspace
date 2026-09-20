@@ -71,6 +71,11 @@ DEFAULT_STATE = Path(os.environ.get("HOOK_SIGNAL_STATE") or (HERE.parent / ".sta
 
 # Летучее — то, что меняется без изменения предмета. Список закрытый и назван: молча
 # вычитать из отпечатка что-либо ещё значило бы глушить настоящую дельту.
+#
+# Здесь только то, что летуче у ЛЮБОГО сигнала — время. Летучее своего прибора каждый
+# источник объявляет сам (`volatile=` у `gate`, `--volatile` у CLI): «кэш тёплый»
+# докfresh знает про себя, а общий механизм про его словарь знать не должен — иначе
+# словарь одного источника вычитался бы из отпечатков всех.
 _VOLATILE = (
     re.compile(r"\d+\s*мс"),                      # время прогона прибора
     re.compile(r"\d+\s*ms"),
@@ -83,18 +88,25 @@ SESSION_TTL_DAYS = 7
 LOG_KEEP = 200              # строк в журнале полного тела сигнала
 
 
-def _norm(body: str) -> str:
+def _norm(body: str, volatile: tuple[str, ...] = ()) -> str:
     out = body
     for pat in _VOLATILE:
         out = pat.sub("", out)
+    for raw in volatile:
+        try:
+            out = re.sub(raw, "", out)
+        except re.error:
+            # Негодное выражение НЕ отменяет свёртку и НЕ глушит сигнал: отпечаток
+            # берётся без него, то есть в сторону ЛИШНЕЙ печати, а не молчания.
+            pass
     return "\n".join(line.rstrip() for line in out.split("\n")).strip()
 
 
-def fingerprint(sid: str, body: str) -> str:
+def fingerprint(sid: str, body: str, volatile: tuple[str, ...] = ()) -> str:
     h = hashlib.sha256()
     h.update(sid.encode("utf-8"))
     h.update(b"\x00")
-    h.update(_norm(body).encode("utf-8"))
+    h.update(_norm(body, volatile).encode("utf-8"))
     return h.hexdigest()[:16]
 
 
@@ -134,7 +146,8 @@ def _journal(path: Path, body: str) -> None:
 
 def gate(sid: str, body: str, *, addressee: str, clear_when: str,
          session: str | None = None, sha: str = "",
-         state: Path | None = None) -> tuple[str, str]:
+         state: Path | None = None,
+         volatile: tuple[str, ...] = ()) -> tuple[str, str]:
     """Возвращает (что печатать, исход). Исход: `full` · `repeat` · `void`.
 
     `void` — тело пустое: сигналу нечего сказать, печати нет. Предмет пустоты —
@@ -155,7 +168,7 @@ def gate(sid: str, body: str, *, addressee: str, clear_when: str,
     sess = _safe(session or os.environ.get("CLAUDE_SESSION_ID", ""), "no-session")
     name = _safe(sid, "signal")
     d = root / sess
-    fp = fingerprint(sid, body)
+    fp = fingerprint(sid, body, tuple(volatile))
     prev: dict = {}
     try:
         prev = json.loads((d / f"{name}.json").read_text(encoding="utf-8"))
@@ -193,13 +206,13 @@ def gate(sid: str, body: str, *, addressee: str, clear_when: str,
             f" Полное тело каждого прогона: {where}"), "repeat"
 
 
-def _streak(path: Path) -> int:
+def _streak(path: Path, volatile: tuple[str, ...] = ()) -> int:
     """Сколько последних строк журнала совпадают после вычитания летучего.
 
     Это предикат для ОПИСАНИЯ дефекта и для приёмки, а не часть механизма.
     """
     lines = [l for l in path.read_text(encoding="utf-8").split("\n") if l.strip()]
-    norm = [_norm(re.sub(r"^\S+\s", "", l)) for l in lines]
+    norm = [_norm(re.sub(r"^\S+\s", "", l), volatile) for l in lines]
     if not norm:
         return 0
     n = 0
@@ -219,6 +232,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--session", default="")
     ap.add_argument("--sha", default="")
     ap.add_argument("--state", default="")
+    ap.add_argument("--volatile", action="append", default=[],
+                    help="выражение, летучее у ЭТОГО прибора (можно несколько)")
     ap.add_argument("--streak", default="")
     a = ap.parse_args(argv)
 
@@ -227,14 +242,15 @@ def main(argv: list[str]) -> int:
         if not p.is_file():
             sys.stderr.write(f"signal --streak: нет файла {p} — не прочитано НИ ОДНОЙ строки\n")
             return 2
-        print(_streak(p))
+        print(_streak(p, tuple(a.volatile)))
         return 0
 
     body = sys.stdin.read()
     try:
         text, mode = gate(a.id or "", body, addressee=a.addressee, clear_when=a.clear_when,
                           session=a.session, sha=a.sha,
-                          state=Path(a.state) if a.state else None)
+                          state=Path(a.state) if a.state else None,
+                          volatile=tuple(a.volatile))
     except ValueError as e:
         sys.stderr.write(
             "╔══ СИГНАЛ ХУКА СЛОМАН ═══════════════════════════════════════════\n"
