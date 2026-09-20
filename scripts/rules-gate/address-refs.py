@@ -147,8 +147,7 @@ def check():
     return rows, dangling, dup, cross
 
 
-def baseline():
-    p = 'scripts/rules-gate/address-baseline.txt'
+def baseline(p='scripts/rules-gate/address-baseline.txt'):
     if not os.path.exists(p):
         return set()
     return {l.strip() for l in open(p, encoding='utf-8')
@@ -158,9 +157,10 @@ def baseline():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--list', action='store_true')
+    ap.add_argument('--baseline', default='scripts/rules-gate/address-baseline.txt')
     a = ap.parse_args()
     rows, dangling, dup, cross = check()
-    known = baseline()
+    known = baseline(a.baseline)
     fresh = sorted({(f + '#' + t) if k == 'id' else (f + ' \u00a7' + t)
                     for _, _, f, k, t, ok in rows if not ok} - known)
     resolved_now = sorted(known & {(f + '#' + t) if k == 'id' else (f + ' \u00a7' + t)

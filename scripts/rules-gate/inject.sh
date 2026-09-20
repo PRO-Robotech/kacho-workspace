@@ -130,6 +130,10 @@ sandbox() {
     cp -a "$WS/.claude/agents" "$dir/.claude/" 2>/dev/null || true
     cp -a "$WS/.claude/skills" "$dir/.claude/" 2>/dev/null || true
     cp -a "$WS/.claude/settings.json" "$dir/.claude/" 2>/dev/null || true
+    # АРХИВ — ЧАСТЬ ПРЕДМЕТА check-07: адрес, указывающий в `.claude/backup/`, верен,
+    # потому что норма там лежит. Копия без архива сделала бы 182 законных адреса
+    # висячими и красила бы нетронутое дерево.
+    cp -a "$WS/.claude/backup" "$dir/.claude/" 2>/dev/null || true
     cp "$WS/.gitignore" "$dir/" 2>/dev/null || true
     git -C "$dir" init -q >/dev/null 2>&1
     git -C "$dir" add -A >/dev/null 2>&1
