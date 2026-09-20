@@ -356,7 +356,12 @@ done
 # `.claude/backup/`, и `vault.md` перестал резолвиться — проба доложила «НЕ
 # ВЫПОЛНИЛОСЬ» и сама же предписала переанкерить. Ровно то, чему учит абзац выше:
 # перечень выверяется замером на каждом прогоне. Теперь он им и выводится.
-RULE_ANCHOR="$(cd "$WS" 2>/dev/null && ls .claude/rules/*.md 2>/dev/null | LC_ALL=C sort | head -1)"
+RULE_ANCHOR=""
+for _ra in "$WS"/.claude/rules/*.md; do
+  [ -e "$_ra" ] || continue
+  RULE_ANCHOR=".claude/rules/$(basename "$_ra")"
+  break
+done
 [ -n "$RULE_ANCHOR" ] || RULE_ANCHOR=".claude/rules/00-kacho-core.md"
 for alive in sync-all.sh "$RULE_ANCHOR" proto/buf.yaml; do
   if premise_live "$alive"; then echo "  ✔ вход (−) жив: '$alive' в дереве присутствует"
