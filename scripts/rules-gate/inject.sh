@@ -130,17 +130,29 @@ sandbox() {
     cp -a "$WS/.claude/agents" "$dir/.claude/" 2>/dev/null || true
     cp -a "$WS/.claude/skills" "$dir/.claude/" 2>/dev/null || true
     cp -a "$WS/.claude/settings.json" "$dir/.claude/" 2>/dev/null || true
+    # АРХИВ — ЧАСТЬ ПРЕДМЕТА check-07: адрес, указывающий в `.claude/backup/`, верен,
+    # потому что норма там лежит. Копия без архива сделала бы 182 законных адреса
+    # висячими и красила бы нетронутое дерево.
+    cp -a "$WS/.claude/backup" "$dir/.claude/" 2>/dev/null || true
     cp "$WS/.gitignore" "$dir/" 2>/dev/null || true
     git -C "$dir" init -q >/dev/null 2>&1
     git -C "$dir" add -A >/dev/null 2>&1
     echo "$dir"
 }
 
-# capture <каталог> <имя проверки> — заполняет RC и OUT; имя запоминается, по
-# нему `assert_code` ведёт учёт доказанности этой проверки.
+# capture <каталог> <имя проверки> [ПЕРЕМЕННАЯ=значение...] — заполняет RC и OUT;
+# имя запоминается, по нему `assert_code` ведёт учёт доказанности этой проверки.
+#
+# Хвостовые пары попадают в среду проверки. Через них доказуемы оси, живущие НЕ в
+# дереве, а в объявленном шве самой проверки: так `inject-07` подставляет
+# `RULES_GATE_ADDRESS_BASELINE`, потому что записи настоящей базы указывают в
+# `project/kacho/**`, которого в песочнице нет. Учёт доказанности идёт тем же
+# путём — ось со швом не становится проверкой второго сорта.
 capture() {
-    LAST_CHECK="$2"
-    OUT="$( cd "$1" && RULES_GATE_ROOT="$1" bash "$GATE/$2" 2>&1 )"
+    local dir="$1" chk="$2"
+    shift 2
+    LAST_CHECK="$chk"
+    OUT="$( cd "$dir" && env RULES_GATE_ROOT="$dir" "$@" bash "$GATE/$chk" 2>&1 )"
     RC=$?
 }
 

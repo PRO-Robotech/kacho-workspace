@@ -1,0 +1,69 @@
+# Архив: polyrepo.md
+
+Снято 2026-09-20. Норма живёт в `.claude/rules/polyrepo.md`.
+Здесь: классы C (процесс вокруг кода) и D (замеры, доводы, отменённое, пересказы),
+КРОМЕ записей, несущих названный гейт, — те остались нормами в корпусе.
+
+## Снятые записи описи (2026-09-20, полная опись — `tmp/rules-compression/inventory-2026-09-19.json`)
+
+Проверены на признаки повелительной формы («обязан», «запрещено», «только», «не …ся»,
+«не заводится», «нельзя») — ни одна не несёт самостоятельной нормы сверх уже
+перенесённой в корпус строкой; где рядом стоит цитата внешнего правила
+(`api-conventions.md`, `e2e-flow.md`, ban #5), сама норма живёт там, а не здесь.
+
+- **poly-topology-table** — таблица «репозиторий · что несёт · рабочая копия»:
+  kacho/kaname/corelib все публичны, `project/` — gitignore, kacho-workspace тоже публичный.
+- **poly-topology-predicate** — shell-предикат подсчёта `go.mod` и пина `corelib` по трём
+  репозиториям; «гоняй его, а не верь числу — оно менялось трижды».
+- **poly-number-no-owner** — `[!warning] Число в заголовке раздела НЕ ИМЕЕТ ВЛАДЕЛЬЦА`: три
+  ложных числа (15 репозиториев / одно монорепо / один Go-модуль) пережили свой предмет;
+  устройство — перечень репозиториев выводится из дерева (`repos.sh`), а не выписывается.
+- **poly-history-notes** — `[!note] Предшествующие полирепо существуют и не заархивированы`:
+  последний push — середина июля 2026, README зовёт их «архивом» без флага `isArchived`;
+  `kacho-vpc-operator` не резолвится (404).
+- **poly-kacho-layout** — таблица «Раскладка kacho» (каталог ↔ прежний репозиторий): `proto/
+  pkg/ gateway/ services/* deploy/ ui-future/ terraform/`, плюс абзац про вынос IAM в `kaname`
+  и заметка про `terraform/` отдельным каталогом, а не модулем.
+- **poly-inner-order** — «Внутри `kacho` прежнее верно: `proto/` → `pkg/` → `services/*/`
+  `gateway/` `terraform/` — пакеты одного модуля, порядок между ними задают импорты.»
+- **poly-copy-measures** — измерения «живой пары» фундамента: 146 путей / 145 контрактов
+  (расхождение — `fga_model.fga`), таблица перемера 2026-09-16, 12 заглушек `corelib/api/**`,
+  радиус переключения (103/37/4 файла).
+- **poly-replace-reason** — причина запрета `replace`: локальный `replace ../` не резолвится
+  при single-repo checkout → `go build`/`docker-build` падает; инцидент storage-split-gateway
+  2026-07-13 (storage/v1 403 на проде).
+- **poly-dep-bump** — регламент бампа зависимости: `GOWORK=off go get github.com/PRO-Robotech/
+  <repo>@<sha>` в затронутом модуле → PR; порядок для кросс-репо фичи corelib→kaname/kacho.
+- **poly-gateway-imports-all** — «`gateway/` импортирует стабы всех доменов — это его роль,
+  а не нарушение.»
+- **poly-edges-header** — врезка к разделу Runtime cross-domain edges: имена `kacho-<svc>` —
+  домены, а не репозитории.
+- **poly-removed-edges** — `[!note] Здесь стояли два ребра оператора сети — сняты решением
+  владельца 2026-08-09`: бронь под несуществующий компонент держалась в шести местах; плюс
+  `[!note] СНЯТО обратное ребро kacho-iam → kacho-api-gateway` — предмет снятия направление,
+  а не механизм.
+- **poly-edges-catalog** — сам перечень runtime-рёбер (vpc/compute/nlb/registry→geo,
+  geo→iam, compute→vpc, compute→storage, nlb→compute, *→iam, vpc/compute/storage→iam
+  fgaproxy, registry→iam jwks) — «перечень не проверяется гейтом».
+- **poly-quota-edge-removed** — `[!note] СНЯТО ребро kacho-{...} → kacho-iam (величины
+  пределов, #656) — у контракта не осталось ПРОИЗВОДИТЕЛЯ`: развилку решает задача продукта
+  #2190, счётчик остаётся у владельца ресурса; правка поля — `api-conventions.md`
+  §«Принято-и-проигнорировано».
+- **poly-subscription-edge** — `[!note] СНЯТЫ две прежние формы подписки — compute и nlb`:
+  было четыре механизма, осталась одна форма; поллинг не отзывается (норма живёт в
+  `api-conventions.md` §«Подписки на операции не существует»).
+- **poly-six-owners** — «Владельцев ШЕСТЬ, и шестой — в ДРУГОМ РЕПОЗИТОРИИ» (`kaname#69`),
+  предикат по двум деревьям, замер 5+1.
+- **poly-subjectchange-edge** — ребро `kacho-api-gateway → kacho-iam` (чтение журнала смены
+  субъекта, #1024): край сам читает журнал и гасит свой кэш решений.
+- **poly-geo-leaf** — «`kacho-geo` — leaf (как iam): geo никого, кроме iam, не зовёт» +
+  удалённые ложные рёбра `vpc→compute`/`nlb→compute (region)`.
+- **poly-work-order** — регламент «Порядок работы для кросс-доменной фичи»: `corelib` →
+  `proto/` → `pkg/` → `services/*/` → `gateway/` → `deploy/` → `kacho-workspace`.
+- **poly-crossrepo-boundaries** — «Кросс-репозиторных границ теперь три»: corelib↔потребители
+  (пин), kaname↔kacho (копия+вызов), продукт↔workspace (спека/vault-trail по URL коммита/PR).
+- **poly-acceptance-two-homes** — `[!note] У приёмки домов ДВА, и это решение, а не дрейф`:
+  4 документа в `kaname:docs/engineering/acceptance/`, 170 в workspace по имени
+  `*-acceptance.md`; кросс-доменный предмет — в workspace.
+- **poly-epic-tracking** — «Кросс-доменный эпик — tracking-issue в `kacho-workspace`
+  (метка `epic`) + issue в репозитории, где лежит код.»

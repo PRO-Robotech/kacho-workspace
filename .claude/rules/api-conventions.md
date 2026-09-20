@@ -1,574 +1,136 @@
+---
+name: rule-api-conventions
+description: "Конвенции API Kachō"
+---
+
+**Архив** (доводы, замеры, снятые редакции): `.claude/backup/api-conventions.md`
+
 # Конвенции API Kachō
 
-Собственные конвенции продукта. Соблюдай их как нормативные требования (не как
-подражание чужим облакам). Стиль выработан и зафиксирован — менять только осознанно.
+## Статус конвенции
+
+api-preamble · конвенции продукта нормативны, не подражание чужим облакам; менять только осознанно · ЗАВЕСТИ api-preamble · red: конвенция взята подражанием чужому облаку, а не решением
 
 ## Форма ресурса — flat message + Operations
 
-Каждый ресурс — **плоский** message с domain-полями на верхнем уровне (без
-K8s-envelope `spec`/`status`/`metadata`/`resourceVersion`/`generation`/`finalizers`):
+api-flat-message · плоский message, domain-поля верхним уровнем; без spec/status/metadata/resourceVersion/generation/finalizers · TestApiSurfaceInjection_RealTreeIsSilent · red: K8s-энвелоп в контракте
+api-service-template · Get/List — sync, Create/Update/Delete — Operation; доп. действия — свой RPC с :verb · TestSLP_OperationsLaneProducersAreCountedFromTheTree · red: sync-мутация
+api-operation-shape · id, description, created_at, done, metadata:Any, oneof result{google.rpc.Status\ · Any}; клиент поллит OperationService.Get до done · red: TestOperationHandlerHasASingleSource | своя форма операции в домене
 
-```protobuf
-message Instance {
-  string id = 1;
-  string project_id = 2;
-  google.protobuf.Timestamp created_at = 3;
-  string name = 4;
-  string description = 5;
-  map<string,string> labels = 6;
-  string zone_id = 7;
-  Status status = 10;        // enum, не nested message
-  // ...domain-specific поля плоско
-}
-```
+## Подписки на операции не существует
 
-Service-шаблон: **read — sync, мутации — async через `Operation`**:
-
-```protobuf
-service InstanceService {
-  rpc Get(GetInstanceRequest) returns (Instance);                  // sync
-  rpc List(ListInstancesRequest) returns (ListInstancesResponse);  // sync
-  rpc Create(CreateInstanceRequest) returns (operation.Operation); // async
-  rpc Update(UpdateInstanceRequest) returns (operation.Operation); // async
-  rpc Delete(DeleteInstanceRequest) returns (operation.Operation); // async
-}
-```
-
-`Operation` (`kacho.cloud.operation.v1`): `id`, `description`, `created_at`,
-`done`, `metadata: Any`, `oneof result { google.rpc.Status error | Any response }`.
-Клиент поллит `OperationService.Get(id)` до `done=true`.
-
-**Подписки на операции не существует, и полл операции остаётся ЕДИНСТВЕННЫМ путём к её
-исходу** (решение эпика единого потока изменений, 2026-08-22). Причин две, и вторая
-сильнее первой:
-
-1. **поток операции не окупается**: предмет короткоживущий, клиент знает `id`, делает один
-   `Get` и заканчивает по `done`. Отдельно: `metadata` несёт `id`, присвоенный при
-   **принятии**, до выполнения, поэтому на упавшей операции он указывает на несуществующий
-   ресурс, и поток операций тиражировал бы этот фантом подписчикам;
-2. **поток РЕСУРСОВ исход операции заменить НЕ МОЖЕТ**: событие пишется в той же транзакции,
-   что и ресурсная строка, поэтому при отказе операции события нет **вовсе**. Наблюдатель
-   ресурсов не отличит «ещё делается» от «упало».
-
-Понадобится «узнать исход без поллинга» — это долгий `Get` с серверным сроком, а не
-подписка. Полл **списков** — про ресурсы, см. врезку ниже.
-
-> [!important] А вот подписка на изменения РЕСУРСОВ существует
-> Платформа несёт **единую форму подписки** на изменения ресурсов, объявленную **однажды** —
-> `proto/corelib/subscription/subscription_service.proto`, сервер `corelib/subscription/`
-> в единственном экземпляре:
->
-> | ось | что несёт |
-> |---|---|
-> | глагол | **один** на всех владельцев: `InternalSubscriptionService/Subscribe`, server-stream |
-> | фильтр | три **иммутабельных** оси конъюнкцией: виды · проект · идентификаторы |
-> | возобновление | непрозрачная позиция либо якорь (начало · текущий конец) |
-> | сужение | пообъектное на **каждой отдаваемой строке** (`scope_filtered`), не один вопрос при открытии |
->
-> **Фильтра по имени и по меткам нет намеренно**: имя — мутабельный косметический label
-> (ban #15), подписка по нему молча перестала бы матчить после переименования; метки
-> фильтрует клиент, потому что событие несёт **полное состояние**, а не дельту.
->
-> **Единственность держится предикатом:** `git grep -h 'returns (stream' -- proto` → **1**
-> (замер по стволу продукта `a9cc0391f`, 2026-08-29).
->
-> **Опрос остаётся штатным путём и не отзывается**: подписка — второй путь, а не замена.
->
-> **Проекция потока в браузер — в стволе продукта её ещё нет**: каталога проекции у края на
-> `a9cc0391f` нет ни одним файлом (предикат в дереве продукта:
-> `git ls-tree -r origin/main --name-only | grep -c subscriptionstream` → 0; сам путь здесь
-> намеренно не пишется координатой — цитата мёртвого адреса читается проверкой свежести как
-> живое утверждение). Контракт и сервер — факт ствола, край — нет.
->
-> **Класс, ради которого врезка оставлена:** утверждение «такого механизма нет» **пережило
-> свой предмет** и продолжало грузиться в окно целиком — до 2026-09-17 `@import`-ом в каждую
-> сессию, с 2026-09-17 предзагрузкой тем агентам, за кем правило закреплено
-> (`.claude/rules/MANIFEST.md`): адрес сузился, срок жизни ложного утверждения — нет. Тот же класс нашёлся
-> тогда же в клиентской документации — четырьмя страницами. Заводя запрет, спроси, чем он
-> **истечёт**, когда предмет появится.
-
-**`Operation.done` = durability предмета мутации, НЕ видимость downstream side-effect
-(non-negotiable).** `done=true` означает «ресурс закоммичен» (`w.Commit()` в worker-fn) —
-и ТОЛЬКО это. **Категорически запрещено гейтить `done` на видимость eventually-consistent
-downstream-эффекта** (owner-tuple в OpenFGA, зеркало в другом сервисе, drain outbox): это
-(а) переопределяет контракт Operation (ban #9 — предмет = «создать Network», не «распространить
-FGA-tuple»); (б) на fail-closed рождает **phantom-ресурс** (row закоммичен, имя занято UNIQUE,
-но op=ERROR → клиент видит fail → retry ловит `AlreadyExists` → get воспринимает как 404); (в)
-конвертирует ограниченный read-after-write лаг в неограниченный hard-fail под нагрузкой на
-downstream. Kachō **eventually-consistent by design** (async Operation, polling, replica isolation):
-side-effect материализуется в ограниченном окне (at-least-once outbox+drainer+reconciler), а
-«создал→сразу мутирую» обеспечивается **bounded client-retry** на кратком 403/404-окне, НЕ серверным
-confirm-барьером. Инцидент owner-tuple-opgate (2026-07): confirm-gate на видимость owner-tuple
-удалён по system-design-review как ban #9-нарушение (см. `data-integrity.md` cross-domain authz).
+api-no-operation-subscription · только полл Get(id); подписки на операции нет; «без поллинга» = долгий Get с серверным сроком · TestSubscriptionFormIsDeclaredOnce · red: server-stream в операционном контракте
+api-subscription-single-form · одна форма, объявлена однажды: corelib.subscription.InternalSubscriptionService/Subscribe · TestSubscriptionServerIsSingularAndLivesInTheFoundation · red: второй контракт или сервер потока
+api-subscription-axes · глагол один на всех владельцев · фильтр три иммутабельных оси конъюнкцией (виды · проект · идентификаторы) · возобновление позицией или якорем · сужение пообъектное на каждой строке (`scope_filtered`) · TestSubscriptionShapeAxisLedgerCanFail · red: один вопрос доступа при открытии
+api-sub-no-name-filter · ни по имени, ни по меткам: событие несёт полное состояние · TestSubscriptionShapeAbsentAxisCanFail · red: фильтр по мутабельному name
+api-sub-singularity-predicate · git grep -h 'returns (stream' -- proto → 1 · TestSubscriptionFormIsDeclaredOnce · red: второй stream в контрактах
+api-polling-not-revoked · опрос остаётся штатным путём, не отзывается: подписка — второй путь, не замена · ЗАВЕСТИ api-polling-not-revoked · red: опрос снят как «заменённый подпиской»
+api-ban-must-expire · называет, чем истечёт при появлении предмета · TestClientDocsDoNotDenyTheSubscriptionTheTreeHas · red: «такого механизма нет» после его появления
+api-operation-done · = ресурс закоммичен, и только это; запрещено гейтить на видимость downstream (FGA-tuple, зеркало, drain outbox) · TestPublishedResourceIdIsGuardedByOperationOutcome · red: confirm-барьер рождает phantom-ресурс
 
 ## Naming / формат
 
-- **JSON (REST через api-gateway): camelCase** — `<resource>Id`, `projectId`, `labels`, `createdAt`.
-- **REST-пути**: `/<service>/v1/<resource>`, suffix-actions через `:verb` (`/subnets/{id}:addCidrBlocks`).
-- **Стандартные методы ресурса**: `Get`/`List` (sync) + `Create`/`Update`/`Delete` (async Operation).
-  Доп. действия — отдельные RPC с `:verb`-путём.
-- **Timestamps**: в proto-ответе truncate до **секунд** (`CreatedAt.Truncate(time.Second)`); БД хранит микросекунды.
-- **ID**: `PRO-Robotech/corelib:ids`.`NewID(<prefix>)` — 3-char prefix + 17-char crockford-base32. Тип ресурса читается по prefix. (Фундамент — отдельный репозиторий `PRO-Robotech/corelib`; прежние имена `kacho-corelib` и каталог `pkg/` монорепо в старых записках означают его же.)
-- **Адресация — по `id`, не по `name` (core, ban #15).** `id` — единственная **внешне-адресуемая** идентичность: попадает в публичные URL / pull-пути (`$domain/$registryId/$repo:$tag`), cross-service ссылки, grant-scope, authz-target. **immutable на всю жизнь ресурса** (нет «rename id»), глобально-уникален by construction. `name` — косметический project-scoped label (`UNIQUE(project,name)`), может меняться, **НИКОГДА не в URL/ссылке**. Запрещена деривация глобального человекочитаемого слага в URL вместо id (name-в-URL через заднюю дверь + rename-ломкость).
-- **id-prefix — hyphen-канон (going-forward, B3)**: **новые** ресурсы адресуются формой
-  `<prefix>-<crockford-base32>` (`ins-…`, `ns-…`, `mt-…`) — дефис-разделитель, prefix бывает
-  2+ символа (не фикс-3). Legacy слитная форма `<prefix><17-base32>` (`net…`, `epd…`) остаётся
-  валидной; сервисы мигрируют свой prefix **по одному** в собственном редизайне. Router
-  `corevalidate.ResourceID` классифицирует **обе** формы **аддитивно** (legacy-приём не отзывается):
-  крокфорд-тело дефиса не содержит → дефис = однозначный дискриминатор новой формы. Канон
-  hyphen-префиксов — `ids.KnownHyphenPrefixes()` (единый источник) + config-extra
-  `KACHO_EXTRA_RESOURCE_ID_HYPHEN_PREFIXES` (новый домен без релиза corelib). **`NewID`-генерация
-  ещё НЕ мигрирована** (эмитит legacy 3-char) — Phase-0-фундамент только учит router принимать
-  hyphen **вперёд** миграции сервисов.
+api-json-camel-dup · JSON (REST через api-gateway) — camelCase: `<resource>Id`, `projectId`, `createdAt` · ЗАВЕСТИ api-json-camel-dup · red: snake_case в теле REST-ответа
+api-rest-paths · /<service>/v1/<resource>`, suffix-action через `:verb · TestDocsPagesAreReachableFromTheMenu · red: свой путь ресурса
+api-standard-methods · Get/List — sync, Create/Update/Delete — Operation; доп. действия — отдельный RPC с :verb · ЗАВЕСТИ api-standard-methods · red: Create/Update/Delete отвечает ресурсом вместо Operation
+api-timestamp-truncate · .Truncate(time.Second) на каждом ресурсе И каждой под-записи · TestOperationTimestampsAreTruncatedEverywhere · red: микросекунды БД на wire
+api-id-newid · corelib:ids.NewID(<prefix>) — префикс + 17 crockford-base32, тип читается по префиксу · TestCt2DocsIdForm · red: свой генератор id
+api-id-addressing-dup · адресация только по `id` (ban #15): immutable, глобально-уникален, идёт в URL/ссылки/authz-target; `name` косметический, в URL никогда; слаг в URL вместо id запрещён · ЗАВЕСТИ api-id-addressing-dup · red: слаг или `name` в URL либо в authz-target
+api-hyphen-prefix · форма `<prefix>-<crockford>`; каталог префиксов один — `ids.KnownHyphenPrefixes()` + KACHO_EXTRA_RESOURCE_ID_HYPHEN_PREFIXES; legacy-форма принимается аддитивно · TestCt2IdCanonHyphenMinting · red: свой список префиксов в сервисе
+api-gotcha-truncate · .Truncate(time.Second) на КАЖДОМ ресурсе И под-записи; микросекунды БД не текут на wire · ЗАВЕСТИ api-gotcha-truncate · red: микросекунды из БД доехали до клиента
 
 ## Имя ресурса: одна форма, пустого не бывает (решение владельца 2026-08-18)
 
-**Норма.** У каждого ресурса всякого сервиса имя подчиняется **одной** форме — DNS label
-по RFC 1123:
-
-```
-^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$
-```
-
-строчные латинские буквы, цифры и дефис · первый и последний символ — буква или цифра ·
-длина 1–63. Валидатор в дереве **один**; производных «как общий, но ещё и…» не заводится.
-
-**Пустого имени не существует.** Пустая строка остаётся законным ВХОДОМ создания, но
-ресурсом с пустым именем не становится: сервер проставляет имя, производное от `id`, и
-возвращает его в ответе. Правка на пустое имя отвергается `INVALID_ARGUMENT` — снять имя
-нельзя, потому что его не бывает.
-
-| Требование | Признак нарушения |
-|---|---|
-| форма одна на всё дерево | второй валидатор имени: «общий, но здесь ещё подчёркивание» |
-| пустое имя не доживает до записи | строка в таблице с `name = ''` |
-| уникальность держит полный `UNIQUE(project_id, name)` | частичный индекс `WHERE name <> ''` — он существует только ради пустых имён |
-| умолчание производится от `id` | генерация со счётчиком, случайностью или проверкой-перед-вставкой |
-| отказ формы называет поле и правило | «invalid name» без указания, чем именно оно негодно |
-
-**Почему сервер проставляет, а не требует.** Требование имени — ломающее изменение у каждого
-создающего глагола: клиент, сегодня законно не шлющий имя, начал бы получать 400 без выигрыша
-для себя, ведь адресуется он по `id` (ban #15). Имя косметическое — автопростановка не трогает
-ни одной durable-координаты.
-
-**Почему от `id`, а не «первое свободное».** `id` глобально уникален by construction, значит
-производное имя уникально в проекте **без** проверки-перед-вставкой. «Посмотреть, занято ли, и
-взять следующее» — software check-then-act, запрещённый ban #10: под конкуренцией два создания
-увидят одно и то же свободное имя.
-
-**Почему RFC 1123, а не своя форма.** Имя, годное как DNS label, годится сегментом адреса,
-меткой в средствах наблюдения и именем в конфигурации развёртывания — без экранирования и без
-второго правила «а здесь можно иначе». Форма не наша, поэтому не переизобретается при каждом
-новом ресурсе.
-
-**Чем держится.** Гейтом дерева (объявление регулярки имени в `PRO-Robotech/corelib:validate` ровно одно) и
-пробой формы, утверждающей **обе** стороны на каждой оси: цифра первой — принимается;
-заглавная, подчёркивание, точка, пустая строка, 64 символа — отвергаются с именем поля.
-Односторонняя проба зеленела бы на валидаторе, отвергающем всё.
-
-> [!note] Расхождение, из которого выведено — измерено, а не предположено
-> На `origin/main` валидаторов имени было **четыре**, и они разошлись по трём осям:
-> `Name` не допускал ни заглавных, ни подчёркивания; `NameVPC` допускал оба; `NameCompute` —
-> подчёркивание; `NameGateway` — ни того, ни другого. Пустую строку допускали **все четыре**,
-> кроме базового. Следствие в хранилище: среди уникальных индексов имени полных было **5**,
-> у них пустое имя занимало слот, у частичных — нет. Наблюдаемо для арендатора: вторая сеть
-> с пустым именем в проекте получала `409`, вторая подсеть — нет. Предмет и предикат
-> снятия — задача продукта #715.
+api-name-one-form · одна форма на всё дерево — DNS label RFC 1123 `^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$`, валидатор один · TestResourceNameFormIsDeclaredOnce, TestDeclaredNameFormMatchesTheEnforcedOne · red: второй валидатор «как общий, но ещё…»
+api-name-never-empty · не существует: сервер проставляет производное от `id`; правка на пустое → INVALID_ARGUMENT · TestNameFormInjection_EmptyWalkIsNotSilentSuccess · red: строка с name = ''
+api-name-signs · второй валидатор · строка с name='' · частичный UNIQUE WHERE name<>'' · умолчание со счётчиком/случайностью/проверкой-перед-вставкой · «invalid name» без поля и правила · TestNameFormDBCoverage_FailsOnInjectedDefect · red: любой из пяти
+api-name-rationale · сервер проставляет имя вместо требования (breaking change, адресация по id — ban #15); имя от id, не «первое свободное» — иначе check-then-act (ban #10); форма — чужой RFC 1123 DNS label, не переизобретается · ЗАВЕСТИ api-name-rationale · red: имя требуют от клиента либо выбирают «первое свободное»
+api-name-holder · утверждает обе стороны каждой оси: цифра первой принимается; заглавная, подчёркивание, точка, пустая, 64 символа отвергаются с именем поля · TestIntegration_NameForm · red: односторонняя проба
 
 ## Error-format
 
-- gRPC `status.Error(code, message)`; REST через grpc-gateway → `{code, message, details:[]}` + `google.rpc.Status`.
-- Коды: `INVALID_ARGUMENT` (формат/валидация), `NOT_FOUND` (well-formed-но-нет),
-  `FAILED_PRECONDITION` (состояние ресурса не позволяет), `ALREADY_EXISTS` (UNIQUE),
-  `UNAVAILABLE` (peer недоступен — fail-closed для мутаций), `INTERNAL` (фикс. текст, **без leak'а pgx/SQL**).
-- Тон сообщений — единый и стабильный: `"<Resource> %s not found"`,
-  `"<field> is immutable after <Resource>.Create"`, `"Illegal argument <thing>"`,
-  `"network is not empty"`. Тексты — часть контракта; меняются только осознанно (через тикет).
-- malformed id → sync `InvalidArgument "invalid <res> id '<X>'"` первым стейтментом RPC
-  (`corevalidate.ResourceID`); well-formed-но-нет → `NotFound` через `repo.Get`.
+api-error-grpc-status · gRPC `status.Error(code,message)`; REST — {code,message,details}+google.rpc.Status · TestNoCaseAssertsAStatusTheEdgeCannotProduce · red: своя форма ошибки
+api-error-codes-vocab · INVALID_ARGUMENT формат · NOT_FOUND нет · FAILED_PRECONDITION состояние · ALREADY_EXISTS UNIQUE · UNAVAILABLE peer (fail-closed мутации) · INTERNAL фиксированный текст без pgx/SQL · TestCheckViolationTone · red: SQL в сообщении клиенту
+api-error-tone · часть контракта: `"<Resource> %s not found"`, `"<field> is immutable after <Resource>.Create"`; меняется только тикетом · TestOperationNotFoundHasOneProducer, TestOperationLaneMessageIsAssertedVerbatim · red: свой текст того же отказа
+api-malformed-id-sync · corevalidate.ResourceID` первым стейтментом RPC → INVALID_ARGUMENT `invalid <res> id '<X>' · TestPhantomIdGateAttributesPollByOperationVariable · red: malformed уехал в repo.Get и вернул NOT_FOUND
+### Gotcha'и (частые нарушения конвенций)
+
+api-gotcha-malformed · corevalidate.ResourceID первым стейтментом RPC → InvalidArgument; без format-check malformed-id уезжает в repo.Get → NotFound (неверно) · ЗАВЕСТИ api-gotcha-malformed · red: malformed-id уехал в repo.Get и вернул NotFound
+api-gotcha-deferrable-fk · 23503 приходит из `tx.Commit()`: маршрутизируй commit-ошибку constraint-aware маппером с owner-id hint · — (КАНДИДАТ НА ГЕЙТ: маршрутизация commit-ошибки) · red: 23503 в INTERNAL вместо FailedPrecondition
 
 ### gRPC-код → HTTP-статус: таблица края, а не догадка кейса (обязательно)
 
-Край **не** несёт своего отображения ошибок: `runtime.NewServeMux` в
-`gateway/internal/restmux/mux.go` собирается **без** `WithErrorHandler`, поэтому
-статус выбирает `runtime.HTTPStatusFromCode` grpc-gateway. Отображение
-детерминировано и от сервиса не зависит:
+api-http-status-table · у края нет своего WithErrorHandler, статус даёт `runtime.HTTPStatusFromCode`; FAILED_PRECONDITION = 400, не 412; 412 краем не производится вовсе · TestEdgeOwnStatusesStillHaveAProducer, TestNoCaseAssertsAStatusTheEdgeCannotProduce · red: кейс ждёт 412 или oneOf([400,412])
+api-case-asserts-pair · утверждает ПАРУ: HTTP-статус и `code` из google.rpc.Status · TestFormParityRedsWhenTheCodeSetIsNotAnchoredToTheResponseCode · red: только статус или только код
+api-no-oneof-mixing · не заводится ради удобства; исключение одно — authz-first 403\ · internal/repohygiene (form parity) · red: 404, разные линии со своими производителями | TestFormParityRedsWhenNegationIsReadAsAcceptance | oneOf по неопределённости отображения
+api-table-edit-is-contract · правится тем же коммитом, что заведение WithErrorHandler · ЗАВЕСТИ api-table-edit-is-contract · red: два места об одном отображении
+### By-lane code-split — NOT_FOUND vs FAILED_PRECONDITION по линии резолва id (обязательно)
 
-| gRPC-код | HTTP | gRPC-код | HTTP |
-|---|---:|---|---:|
-| `OK` | 200 | `RESOURCE_EXHAUSTED` | 429 |
-| `INVALID_ARGUMENT` | **400** | `FAILED_PRECONDITION` | **400** |
-| `OUT_OF_RANGE` | 400 | `ABORTED` | 409 |
-| `NOT_FOUND` | 404 | `ALREADY_EXISTS` | 409 |
-| `PERMISSION_DENIED` | 403 | `UNIMPLEMENTED` | 501 |
-| `UNAUTHENTICATED` | 401 | `UNAVAILABLE` | 503 |
-| `DEADLINE_EXCEEDED` | 504 | `INTERNAL`/`UNKNOWN`/`DATA_LOSS` | 500 |
-| `CANCELED` | 499 | | |
-
-**`FAILED_PRECONDITION` — это 400, а НЕ 412.** Совпадение имён («precondition»)
-обманчиво, и библиотека оговаривает это своим комментарием в самой ветке: `412
-Precondition Failed` — про условные заголовки запроса (`If-Match`, `If-None-Match`),
-а не про состояние ресурса. **412 не производится краем ни для одного кода**, значит
-у кейса, ожидающего 412, нет производителя, а у толерантности `oneOf([400, 412])` —
-предмета: она перечисляет исход, которого не бывает.
-
-**Как это применять:**
-- **Кейс утверждает ПАРУ** — HTTP-статус по этой таблице **и** `code` из
-  `google.rpc.Status`. Смысл несёт gRPC-код (400 приходит и от `INVALID_ARGUMENT`, и от
-  `FAILED_PRECONDITION`, и от `OUT_OF_RANGE`); HTTP-статус — механическое следствие.
-  Утверждать один без другого значит либо не отличить валидацию от состояния (только
-  HTTP), либо не заметить смену отображения на крае (только код).
-- **Отдельные коды не смешивать в `oneOf` ради удобства.** Задокументированное
-  исключение ровно одно и оно про **порядок**, а не про неопределённость отображения:
-  authz-first-толерантность `403|400|404` там, где гейт края короткозамыкает до
-  backend-валидации (`testing.md` §e2e-инварианты) — разные **линии**, каждая со своим
-  производителем, а не разные статусы одной линии.
-- **Правка этой таблицы = правка контракта.** Заведёт край свой `WithErrorHandler` —
-  таблица обязана переехать за ним в тот же коммит, иначе останется двумя местами об
-  одном предмете, из которых верно одно.
-
-> Выведено 2026-08-04 из двух упавших утверждений (`IAM-USR-BLK-NEG-PENDING`,
-> `IAM-USR-UBK-NEG-PENDING`): сервер был прав — `FAILED_PRECONDITION` + текст
-> `"... is not active"`, — а кейс ждал 412. Перепись по дереву показала, что
-> предметом были не два кейса: 13 строк документации iam объявляли
-> `FAILED_PRECONDITION → 412` таблицами ошибок, и ни одна не могла покраснеть.
-
-### By-lane code-split — NOT_FOUND vs FAILED_PRECONDITION по **линии** резолва id (обязательно)
-
-Код «id well-formed, но не резолвится» зависит от **линии**, а не от ресурса:
-
-- **direct-read lane** — own-owned id, `repo.Get` **своей** БД → нет строки = **`NOT_FOUND`**
-  (`"<Resource> <id> not found"`). Это «я не нашёл СВОЙ ресурс».
-- **peer-validate lane** — foreign id, cross-service peer-вызов владельцу на request-path
-  (`Create`/`Update`) → нет/не то состояние у владельца = **`FAILED_PRECONDITION`** (НЕ NOT_FOUND:
-  consumer не «не нашёл своё», а «предусловие на ЧУЖОЙ ресурс не выполнено»); владелец недоступен =
-  **`UNAVAILABLE`** (fail-closed для мутаций).
-- **Format-check — только own-owned id** (B4): malformed own-id → sync `INVALID_ARGUMENT`
-  (`corevalidate.ResourceID`, prefix-router); foreign id **не** prefix-checked — existence-only
-  peer-validate (чужой prefix — не наш словарь).
-  > [!note] Задокументированное исключение: синтаксический gate на чужой ссылке (nlb VIP-источники)
-  > Consumer **вправе** прогнать чужой id через `corevalidate.ResourceID` перед peer-validate, но
-  > **только** если это записано как решение (запись в `docs/architecture/` сервиса + ссылка отсюда) и
-  > соблюдены все три границы: (а) **никакого утверждения о типе** — `corevalidate.ResourceID`
-  > **family-agnostic по контракту** (`expectedPrefix` не читается, см. её godoc), проверяет лишь
-  > членство первого сегмента в **платформенном** каталоге `ids.KnownPrefixes()`/`KnownHyphenPrefixes()`
-  > + config-extras, поэтому id с чужим для этого поля префиксом **проходит** к владельцу; (б) каталог —
-  > **общий corelib-артефакт**, а не копия приватного словаря владельца, поэтому предмет запрета
-  > («владелец сменил prefix → consumer отвергает валидный id») отсутствует by construction; (в)
-  > существование/тип/ownership/placement по-прежнему решает **только** владелец, а нерезолвящийся
-  > чужой id отвечает полосой peer-validate, **никогда** own-полосой `NOT_FOUND`.
-  > Мотив — что видит вызывающий: явно-не-id получает **терминальный** `INVALID_ARGUMENT
-  > "invalid <res> id '<X>'"` вместо retryable `UNAVAILABLE` («повтори позже» на ввод, который
-  > валидным не станет никогда) и вместо ложного `"<res> <X> not found"` — контракт-тона
-  > **отсутствия ресурса** на строку, которая ресурсом быть не может. Landed:
-  > nlb `v4Source/v6Source.subnetId`/`.addressId`
-  > (`services/nlb/docs/engineering/architecture/08-known-divergences.md` §«Формат чужого id (VIP-источники)»);
-  > прочие чужие id nlb (`projectId`/`regionId`/`securityGroupIds`/instance/nic) — existence-only.
-  > **Молчаливое** отступление (проверка есть, записи нет) остаётся нарушением B4.
-  >
-  > **Второе записанное отступление — iam, СВОИ идентификаторы (2026-08-31, задача продукта
-  > #1767).** Сервис судит свои id **префикс-строгой** проверкой, а не family-agnostic: **51**
-  > вызов в 48 файлах. Отвергнуто **замером**: проверки различаются по трём осям, решающая —
-  > **пустая строка**, платформенная её **пропускает**, поэтому замена завела бы отказ с
-  > вырезанным id (`"Account  not found"`) сразу в 51 место — тот самый дефект, который эта же
-  > конвенция называет ниже. Довод взят из границ исключения выше: тип решает **только
-  > владелец**, а владелец здесь iam. Чужие id сервис не судит **вовсе** (0 из 51).
-  > Запись — страница продукта в `kaname`, `docs/content/`;
-  > предикат пересмотра **внешний**: перевод любого из семи префиксов на дефисную форму
-  > (строгая пинит длину) либо объявление family-agnostic обязательной и для владельца.
-- **`corevalidate.ResourceID` пустую строку ПРОПУСКАЕТ** — required-проверка это **отдельная**
-  ответственность вызывающего (её godoc это оговаривает). Поле-ссылка, обязательное по форме запроса
-  (в т.ч. выбранная ветка `oneof` со ссылкой), обязано нести **свой** required-check → `INVALID_ARGUMENT
-  "<field>: required"`. Иначе пустая строка уезжает в peer-lane и возвращается контракт-тоном miss'а с
-  вырезанным id (`"subnet  not found"`) — утверждение об отсутствии ресурса, которого caller не называл
-  (реальный дефект nlb `resolveVipSources`, 2026-07-27).
-
-Клиент **машинно** различает линии по **`reason`-token** в `rpc.Status.details`
-(`google.rpc.ErrorInfo.reason`), НЕ парся прозу message (тон message стабилен, но не парсибелен).
-`ErrorInfo.domain = "<service>.kacho.cloud"`, `metadata = {resource_type, resource_id}`:
-
-| `reason` | code | линия | смысл |
-|---|---|---|---|
-| `INVALID_RESOURCE_ID` | INVALID_ARGUMENT | sync-format | malformed own-id (prefix-router, первым стейтментом) |
-| `RESOURCE_NOT_FOUND` | NOT_FOUND | direct-read | own-owned id well-formed, строки в своей БД нет |
-| `PEER_RESOURCE_MISSING` | FAILED_PRECONDITION | peer-validate | foreign id не существует у владельца |
-| `PEER_RESOURCE_STATE` | FAILED_PRECONDITION | peer-validate | foreign ресурс есть, состояние не позволяет |
-| `PEER_UNAVAILABLE` | UNAVAILABLE | peer-validate | владелец недоступен (fail-closed мутации) |
-
-Split энфорсится **на обеих сторонах**: geo Region/Zone.Get **direct** → `RESOURCE_NOT_FOUND`/NOT_FOUND
-(GEO-1-34/35); consumer (vpc/compute/nlb), валидируя `zoneId`/`regionId` **peer** через geo, на geo-miss
-маппит в `PEER_RESOURCE_MISSING`/FAILED_PRECONDITION. Regression: assert `reason`-token И code (не только
-code) — тон message остаётся стабильным контрактом, но клиент ключуется на token.
+api-bylane-header · код "id well-formed, но не резолвится" зависит от линии резолва, а не от ресурса · ЗАВЕСТИ api-bylane-header · red: код отказа выбран по ресурсу, а не по линии резолва
+api-lane-direct-read · NOT_FOUND "<Resource> <id> not found" · TestOperationNotFoundDiscriminatorKnowsEveryLegalForm · red: FAILED_PRECONDITION на своём ресурсе
+api-lane-peer-validate · нет или не то состояние у владельца → FAILED_PRECONDITION; владелец недоступен → UNAVAILABLE · TestHideExistenceParityResolvesByPackage · red: NOT_FOUND на чужой ресурс
+api-format-check-own-only · только own-owned id; чужой id — existence-only peer-validate · TestProtoPrefixInjection_WrongPrefixIsFound · red: prefix-проверка чужого id
+api-b4-recorded-exceptions · только записанное решением (docs/architecture сервиса + ссылка из правила) и в трёх границах: family-agnostic каталог · общий артефакт corelib · тип решает владелец · вниманием (запись в docs/architecture сервиса) · red: молчаливая проверка чужого id
+api-resourceid-empty · несёт свой required-check → INVALID_ARGUMENT `"<field>: required"`, потому что `corevalidate.ResourceID` пустую строку пропускает · — (КАНДИДАТ НА ГЕЙТ: обязательное поле-ссылка без required-check) · red: "subnet  not found" с вырезанным id
+api-reason-token · различается машинно по `reason` в rpc.Status.details: INVALID_RESOURCE_ID · RESOURCE_NOT_FOUND · PEER_RESOURCE_MISSING · PEER_RESOURCE_STATE · PEER_UNAVAILABLE; domain=`<service>.kacho.cloud`, metadata={resource_type,resource_id} · TestInjection_EmptyReasonIsAFinding · red: клиент парсит прозу message
+api-reason-both-sides · утверждает И reason-token, И code, на обеих сторонах: владелец direct, потребитель peer · TestListReadRelationParity · red: assert только кода
 
 ## Принято-и-проигнорировано — ЗАПРЕЩЕНО (решение владельца 2026-07-28)
 
-**Поле запроса, на которое сервис не смотрит, не может быть принято молча.** Три
-законных исхода, четвёртого нет:
-
-1. **реализовать** — поле читается и меняет поведение;
-2. **отвергать явно** — `INVALID_ARGUMENT` с именем поля, синхронно, первым стейтментом;
-3. **снять с контракта** — удалить из proto с резервированием номера И имени
-   (`reserved`), объявив ломающее изменение в сообщении коммита.
-
-**Молча принять и выбросить — не исход.** Вызывающий получает успех и уверен, что
-его параметр применён; продукт обещает возможность, которой нет. Это хуже отказа:
-отказ виден сразу, а несделанное — только по последствиям и в чужой отладке.
-
-Выведено из семи мест за одну развёртку (2026-07-27/28), и **у каждого сегодня назван
-исход** — иначе перечень читается как список действующих дефектов: `dns_record_specs`
-у адреса (домена DNS в сервисе нет вовсе — **снят с контракта**, номер и имя
-зарезервированы), легаси-поля создания машины (при том что док сервиса **заявлял
-отказ** — **сняты**: в `CreateInstanceRequest` их номера и имена стоят в `reserved`;
-число «шесть» — из той развёртки, здесь не перемерялось), `order_by` в семи
-списочных запросах (**снят**), зоны типа диска (**реализованы**), эфемерный жизненный
-цикл репозитория (**отвергается явно** — исход 2).
-
-> [!note] Пример «эфемерный жизненный цикл репозитория» пережил свой предмет — перемерено 2026-08-08
-> Дерево (`project/kacho` @ `6b1293713`): вход отвергается синхронно, до любой записи —
-> `services/registry/internal/apps/kacho/api/registry/create_repository.go:66`
-> (`validateRepoLifecycle`, принимаются только омит и `DURABLE`); уже сохранённые строки
-> нормализованы миграцией
-> `services/registry/internal/migrations/0012_repository_lifecycle_durable_normalize.sql`.
-> Предикат: `git grep -n -i lifecycle -- services/registry/internal/apps/kacho/api/registry/create_repository.go`
-> и `git ls-files services/registry/internal/migrations | grep lifecycle`.
->
-> Норма, ради которой абзац не удалён: **перечень примеров обязан нести исход по каждому
-> пункту**. Пять из семи исходы несли, два — нет, и именно безысходные читались как
-> открытые (устаревший пример грузится агенту целиком вместе с правилом: до 2026-09-17 —
-> `@import`-ом в каждую сессию, теперь — предзагрузкой тем, за кем правило закреплено, то
-> есть он читается на каждом их запуске). Закрывая такое поле, правь и то место, которое им
-> иллюстрировалось.
-
-**Выбор между исходами — продуктовый, но по умолчанию: снять с контракта.** Целая
-подсистема (DNS, обслуживание, локальные диски) не «допиливается» полем в чужом
-сообщении — она заводится отдельным доменом со своим acceptance. Держать поле «на
-будущее» значит держать обещание, за которое никто не отвечает.
-
-**Гейт класса:** поле публичного запроса обязано иметь читателя в прод-коде своего
-сервиса. Отсутствие геттера в non-test дереве — находка, а не стиль.
+api-accepted-ignored · обязано иметь читателя в прод-коде своего сервиса · TestEveryDescriptorFieldHasAReader · red: геттера поля нет в не-тестовом дереве
+api-outcome-implement · поле читается и меняет поведение · internal/repohygiene (descriptor field reader) · red: поле принято и не меняет ничего
+api-outcome-reject · INVALID_ARGUMENT с именем поля, синхронно, первым стейтментом · TestClientTruthRefusalFieldName · red: тихий успех
+api-outcome-remove · удалить из proto с `reserved` номера И имени, объявив ломающее изменение в коммите · TestClientDocsContractDrift · red: номер или имя переиспользованы
+api-silent-accept-not-outcome · не исход · TestEveryDescriptorFieldHasAReader · red: успех на неприменённом параметре
+api-examples-carry-outcome · каждый пункт несёт исход · ЗАВЕСТИ api-examples-carry-outcome · red: безысходный пример читается как открытый дефект
+api-default-outcome-remove · по умолчанию снять с контракта; подсистема заводится своим доменом, а не полем в чужом сообщении · ЗАВЕСТИ api-default-outcome-remove · red: поле «на будущее»
 
 ## update_mask discipline
 
-`Update` принимает `google.protobuf.FieldMask update_mask`:
-- mask содержит **unknown** поле → `InvalidArgument` (`corevalidate.UpdateMask` с known-set).
-- mask содержит **hard-immutable** поле → `InvalidArgument` (`"<field> is immutable after <R>.Create"`).
-- mask **пустой** → full-object PATCH: применяются все mutable-поля; immutable из тела silently игнорируются.
-- mask содержит mutable поле → применяется; валидируется по тем же правилам, что Create.
+api-mask-unknown · INVALID_ARGUMENT через `corevalidate.UpdateMask` с known-set · TestUpdateMaskKnownSetKnowsBothFormsOfAField · red: неизвестное поле применено
+api-mask-immutable · INVALID_ARGUMENT "<field> is immutable after <R>.Create" · TestUpdateMaskFormParityGateCanFailAndCanStayQuiet · red: generic «unknown field»
+api-mask-empty-full-patch · full-object PATCH: все mutable применяются, immutable из тела игнорируются · ЗАВЕСТИ api-mask-empty-full-patch · red: пустая маска трактуется как «ничего»
+api-mask-mutable · применяется и валидируется по правилам Create · ЗАВЕСТИ api-mask-mutable · red: обход валидации через Update
+api-mask-parity · одна на все ресурсы всех сервисов · TestUpdateMaskFormParityGateCanFailAndCanStayQuiet · red: своя семантика маски в сервисе
+api-gotcha-immutable-first · immutable-switch ДО corevalidate.UpdateMask · TestUpdateMaskKnownSetKnowsBothFormsOfAField · red: immutable отвергнут как «unknown field»
 
-Единая дисциплина для всех ресурсов всех сервисов (parity по форме между ресурсами обязателен).
+## Reference-типы
 
-## Структура ресурсов — проектируем удобно
-
-Состав ресурсов/методов проектируем в чистой форме под задачу, не копируя ничей
-чужой API: `NetworkInterface` — first-class ресурс VPC (ENI-подобная модель, NIC
-отдельно от Instance); `AddressPool` — admin-only ресурс (Internal*); oneof/replace-
-семантика там, где удобнее (напр. AddressPool split v4/v6, KAC-71). Осознанные
-дизайн-решения документируй в `docs/architecture/` соответствующего сервиса.
-
-## Reference-типы — 3-way naming (B1, НЕ overload одного идентификатора)
-
-Три РАЗНЫЕ семантики ссылки — три разных типа. **Переименование landed-типов запрещено**
-(сломало бы wire-форму) — disambiguation достигается именами, не relocation:
-
-- **`reference.Referrer{type,id,name°}`** (пакет `kacho.cloud.reference`) — generic **cross-owner
-  dependency handle** (class-C, graceful-dangling: референт удалён → DETACHED/degraded, не паника).
-  `type` — dotted `domain.resource` из shared-каталога; `name°` — output-only best-effort зеркало
-  на момент привязки. Плюс `reference.Reference{referrer,type(MANAGED_BY|USED_BY),owned}` (reverse).
-  Landed: vpc (NIC/Address/SG `usedBy°`), storage (Volume `usedBy°`), compute (`Instance.serviceAccountId`).
-- **`iam.v1.ResourceRef{type,id}`** — **closed-table authz/AccessBinding target** (БЕЗ `name`;
-  `type` — из закрытого FGA object-type словаря). Живёт в `authorize_service.proto` (пакет
-  `kacho.cloud.iam.v1`); переиспользуется `AccessBinding.target` **в том же пакете** через import —
-  БЕЗ relocation (F8 iam-редизайн добавляет поле; wire/Go-тип `iamv1.ResourceRef` уже доступен,
-  buf-clean). НЕ несёт `name` (least-info, anti-oracle).
-- **`OciReferrer`/`ArtifactRef`** — **OCI-1.1 artifact-граф** registry (подпись/SBOM/аттестация).
-  Сейчас `Referrer` в пакете `kacho.cloud.registry.v1` (FQN отличается от generic — коллизии нет,
-  только читаемостная неоднозначность). Каноничный rename → `OciReferrer` вводится в **REG-2**
-  (buf-breaking, registry-домен) — Phase-0 НЕ добавляет мёртвый скелет (LEAN, ban #11).
-
-Правило выбора: dependency-handle → **`Referrer`**; authz-target → **`ResourceRef`**; OCI-граф →
-**`OciReferrer`**. Один и тот же id в разных ролях — разные типы, не overload.
+api-ref-header · три семантики ссылки — три типа; переименование landed-типов запрещено, disambiguation — именами, не relocation · ЗАВЕСТИ api-ref-header · red: три семантики ссылки сведены к одному типу либо landed-тип переименован
+api-ref-referrer · reference.Referrer{type,id,name°}, graceful-dangling: референт удалён → DETACHED, не паника; name° — output-only зеркало · TestDeletionRefusalGateFailsWhenTheLaneRidesAForeignSentinel · red: паника на удалённом референте
+api-ref-resourceref · iam.v1.ResourceRef{type,id}` из закрытого FGA-словаря, БЕЗ `name · TestClientTruthRefusalFieldName · red: name в authz-таргете
+api-ref-ocireferrer · OciReferrer/ArtifactRef в registry-домене · ЗАВЕСТИ api-ref-ocireferrer · red: мёртвый скелет типа вперёд своего домена
+api-ref-choice · dependency-handle → Referrer · authz-target → ResourceRef · OCI → OciReferrer; переименование landed-типов запрещено · — (КАНДИДАТ НА ГЕЙТ: overload одного типа в двух ролях) · red: один id в разных ролях одним типом
 
 ## Пустое значение обязано означать «пусто» — иначе оно лжёт (обязательно, выведено 2026-08-12)
 
-Массив и объект в ответе края читаются вызывающим как **факт о ресурсе**. Если на их месте
-стоит не факт, а умолчание — «порядок какой получился», «это чтение поле не заполняет», —
-вызывающий получает утверждение, которого край не делал, и записывает его в своё состояние
-как истину. Два подкласса, оба найдены за один час на одном ресурсе, оба тихие.
-
-### A. Порядок повторяющегося поля — часть контракта либо его нет; третьего не дано
-
-**Норма.** У `repeated`-поля ровно два законных состояния, и владелец обязан выбрать:
-
-- **упорядоченное** — `Get` возвращает элементы **в том порядке, в котором их прислали**;
-  порядок значим (правила маршрутизации, приоритеты), закреплён `ORDER BY` по колонке
-  ПОРЯДКА, а не по времени вставки, и **проверен пробой на ≥3 элементах**;
-- **набор** — порядок не значим и **не сохраняется**; это сказано в комментарии поля
-  контракта, и вызывающий обязан сверять элементы **по составу**, а не по индексу.
-
-**Признак нарушения.** `ORDER BY created_at, id` на строках, вставленных **одной
-транзакцией**: метка времени у них совпадает, разрешает спор `id`, а он крокфордов —
-то есть порядок ответа определяется случайной строкой и от порядка запроса не зависит
-никак. Со стороны выглядит как «стабильная сортировка», и на **одном** элементе проба
-этого не показывает никогда.
-
-**Что ломается у вызывающего.** Клиент, ведущий состояние (Terraform, консоль,
-синхронизатор), сверяет **по индексу**. Ответ, переставивший два элемента, читается как
-«элемент 1 изменил адрес, элемент 2 изменил вес» — клиент откатывает то, что сам только что
-записал, либо останавливается с ошибкой о собственной несогласованности.
-Наблюдалось: `nlb` `TargetGroup.targets`, две цели одним запросом — ответ вернул их в
-обратном порядке (`services/nlb/internal/repo/kacho/pg/target_group_repo.go`, чтение
-целей упорядочено по времени создания и идентификатору).
-
-**Чем держится.** Со стороны **вызывающего** — модель без индексов (в Terraform это
-`SetNestedAttribute`, а не `ListNestedAttribute`) плюс проба, подающая ответ края
-**переставленным** и требующая, чтобы состояние не изменилось. Со стороны **владельца** —
-интеграционная проба на ≥3 элементах, утверждающая порядок дословно, если поле объявлено
-упорядоченным. Перечня по дереву **нет**: `repeated`-полей в контрактах **218**
-(предикат: `grep -rho '^\s*repeated ' proto/kacho --include=*.proto | wc -l`), сплошная
-разметка — отдельная работа, и она заведена предметом, а не обещанием.
-
-### B. Проекция, которая поле НЕ заполняет, обязана это сказать
-
-**Норма.** Если одно чтение поле заполняет, а другое — нет, то ответ второго **не вправе**
-выглядеть как «поле пусто». Исходов три, четвёртого нет: заполнить · вынести поле из
-проекции контрактом (отдельный message списка) · назвать это в комментарии поля и в
-документации ресурса.
-
-**Признак нарушения.** `Get` отдаёт непустой массив, `List` на том же ресурсе — `[]`, при
-том что message один и тот же. Клиент, обновляющий состояние из списка (дешёвый и потому
-частый путь), увидит «все элементы удалены» и предложит их создать заново.
-Наблюдалось: тот же `nlb` `TargetGroup.targets` — одиночное чтение подгружает цели
-inline, списочное не подгружает вовсе.
-
-**Чем держится.** Проба, читающая один и тот же ресурс **обоими** путями и требующая
-совпадения по объявленным полям; расхождение законно только там, где контракт назвал
-проекцию **другой**. Без такой пробы «лёгкий список» неотличим от потери данных.
-
-### Как это применять при заведении поля
-
-Заводя `repeated`-поле или новую проекцию, ответь письменно на два вопроса и положи ответ
-в комментарий контракта: **значим ли порядок** и **какие чтения это поле заполняют**.
-Ответ «неважно» не существует: он означает «набор» и «все» — и это тоже надо написать,
-иначе следующий вызывающий примет умолчание за обещание.
+api-empty-means-empty · означает факт о ресурсе, а не умолчание · ЗАВЕСТИ api-empty-means-empty · red: «порядок какой получился», «это чтение поле не заполняет»
+api-repeated-order · ровно два состояния: упорядоченное (ORDER BY по колонке ПОРЯДКА, проба на ≥3 элементах) либо набор (сказано в комментарии поля) · — (КАНДИДАТ НА ГЕЙТ: 218 repeated-полей без объявленного порядка) · red: третье состояние
+api-repeated-order-sign · ORDER BY created_at, id на строках одной транзакции: порядок решает крокфордов id · ЗАВЕСТИ api-repeated-order-sign · red: «стабильная сортировка», проверенная одним элементом
+api-repeated-order-holder · у вызывающего — модель без индексов (SetNestedAttribute) + проба на переставленный ответ; у владельца — integration-проба на ≥3 элементах · ЗАВЕСТИ api-repeated-order-holder · red: сверка по индексу
+api-projection-says · исходов три: заполнить · вынести поле из проекции контрактом · назвать в комментарии поля и документации ресурса · — (КАНДИДАТ НА ГЕЙТ: Get/List parity по полям одного message) · red: Get отдаёт массив, List — `[]` при одном message
+api-projection-holder · читает один ресурс обоими путями и требует совпадения по объявленным полям · ЗАВЕСТИ api-projection-holder · red: «лёгкий список» неотличим от потери данных
+api-field-two-questions · в комментарии контракта письменно: значим ли порядок и какие чтения поле заполняют · — (КАНДИДАТ НА ГЕЙТ: комментарий контракта у repeated-поля) · red: ответ «неважно»
 
 ## Pagination / filter
 
-- Cursor-based: `(created_at, id)` ORDER BY ASC; `page_token` — opaque base64 `{created_at,id}`.
-- `page_size` через `corevalidate.PageSize` (0 → default 50, max 1000); garbage token → `InvalidArgument`.
-  page_size вне `[0..1000]` → `InvalidArgument` (**отвергается, не clamp'ится**).
-- `filter` — `corelib/filter`.`Parse` с whitelist полей (текущая фаза — `name=`).
-- **Валидация pagination — ДО listauthz empty-grant short-circuit** (см. Gotcha ниже).
+api-pagination-cursor · cursor `(created_at, id)` ORDER BY ASC; `page_token` — opaque base64 {created_at,id} · TestPageCursorFormIsDeclaredOnce, TestEveryCursorPageReadGetsItsOrderFromAnIndex · red: offset или голый номер курсором
+api-pagesize · corevalidate.PageSize: 0→50, max 1000; вне [0..1000] и мусорный токен → INVALID_ARGUMENT, не clamp · TestPaginationValidatorNamesHaveSubject · red: clamp вместо отказа
+api-filter-whitelist · corelib/filter.Parse с whitelist полей · ЗАВЕСТИ api-filter-whitelist · red: свободный предикат от клиента
+api-pagination-before-shortcircuit · порядок: ValidatePagination(page_token,page_size) → listauthz-resolve → empty-grant short-circuit → repo · TestEmptyPageNeverPrecedesPaginationValidation · red: 200 {[]} на мусорный токен при пустом гранте
+api-guard-same-function · стоит в ТОЙ ЖЕ функции, которая замыкается · TestEmptyPageNeverPrecedesPaginationValidation · red: guard в хендлере, замыкание в use-case
+api-cursor-codec-single · зовёт тот же разбор page_token/page_size, что путь чтения · TestPageCursorFormIsDeclaredOnce · red: второй кодек, согласный с первым на валидном входе
+api-regression-two-levels · парная проба use-case-уровня (один мусорный курсор у названного вызывающего и у замыкающегося) + положительный контроль, плюс tree-wide AST-гейт · TestEmptyPageNeverPrecedesPaginationValidation · red: одна сторона
+api-unit-not-regression · регрессией на порядок не является · ЗАВЕСТИ api-unit-not-regression · red: заголовок про порядок без вызывающего и без замыкания
 
-## Gotcha'и (выведены из audit-раундов — частые нарушения конвенций)
+## Неисполнимая возможность
 
-- **Timestamp truncate — на КАЖДОМ ресурсе И под-записи.** `.Truncate(time.Second)` для
-  `created_at`/`updated_at` во ВСЕХ proto-ответах, включая вложенные сущности (напр.
-  `AddressPoolAddressEntry`, а не только «главный» `AddressPool`). Микросекунды с БД не текут на wire.
-- **Malformed-id — ПЕРВЫМ стейтментом RPC.** `corevalidate.ResourceID(id, <prefix>)` до любого
-  repo-вызова → sync `InvalidArgument "invalid <res> id '<X>'"`. Без format-check malformed-id
-  уходит в `repo.Get` и возвращает `NotFound` (неверно). well-formed-но-нет → `NotFound`.
-- **Immutable-check в Update — ДО `corevalidate.UpdateMask`.** known-set маски НЕ содержит
-  immutable-полей, поэтому `UpdateMask` отвергнет их первым как generic «unknown field» вместо
-  конвенционного `"<field> is immutable after <R>.Create"`. Порядок: immutable-switch → UpdateMask.
-- **DEFERRABLE INITIALLY DEFERRED FK — 23503 на COMMIT, не на INSERT.** Ошибка приходит из
-  `tx.Commit()`, а не из INSERT-стейтмента → маршрутизируй **commit-ошибку** через
-  constraint-aware mapper (с owner-id hint), а не sentinel-only fallback, иначе 23503 попадёт в
-  INTERNAL вместо `FailedPrecondition "User <id> not found"`. (Deferral — осознанный, для
-  order-independence сидов; см. `data-integrity.md` SQLSTATE-маппинг.)
-- **List: валидация pagination — ДО listauthz empty-grant short-circuit.** List-хендлеры с
-  per-object listauthz (compute/nlb/vpc) при пустом гранте (`len(AllowedIDs)==0`) отдают пустую
-  страницу РАНО — часто и в use-case, и в repo — **до** того как repo декодирует/валидирует
-  `page_token`/`page_size`. Тогда malformed-token / `page_size>1000` при пустом гранте утекают в
-  `200 {[]}` вместо `400 InvalidArgument` — расхождение с конвенцией и между сервисами.
-  Порядок в хендлере:
-  **`ValidatePagination(page_token, page_size)` → listauthz-resolve → empty-grant short-circuit →
-  repo**. Repo-декод остаётся authoritative backstop; sync-guard делает 400 детерминированным
-  независимо от grant-state.
-
-  **Проверка стоит в ТОЙ ЖЕ функции, которая замыкается.** Guard в хендлере не защищает
-  второго вызывающего той же use-case-функции, а «валидирует репозиторий» верно лишь для
-  пути, который до репозитория доходит, — замыкание до него не доходит by construction.
-
-  **Кодек курсора не переписывать**: guard обязан звать тот же разбор `page_token`/`page_size`,
-  что исполняется на пути чтения. Иначе заводится второй кодек, который разойдётся с первым
-  молча: на валидном входе оба отвечают «валидно».
-
-  **Regression — ДВА уровня, и первый обязателен:**
-  (а) **порядок** — парная проба use-case-уровня: один и тот же мусорный курсор у названного
-  вызывающего и у того, кто попадает в замыкание; рядом положительный контроль (законная
-  страница проходит), иначе отрицание зеленеет на всём сломанном;
-  (б) tree-wide гейт `internal/repohygiene` `TestEmptyPageNeverPrecedesPaginationValidation`
-  (`listpaginationorder_test.go:94`) — он обходит дерево по синтаксическому признаку и требует
-  свойство от кода, которого ещё нет.
-
-  **Unit на сам `ValidatePagination` — НЕ регрессия на это правило.** Он зовёт функцию без
-  вызывающего и без замыкания, поэтому о порядке не утверждает ничего и остаётся зелёным при
-  любом. Такой юнит писался дважды, оба раза с заголовком про порядок, — вакуумное утверждение,
-  а не проверка (см. `testing.md` §«Гейт на класс»).
-
-  Замер 2026-08-07 по дереву `main` (ориентир, не гейт): пообъектную пробу
-  `TestListPaginationFormatCheckedBeforeIdentityShortCircuit` несут vpc — **7** файлов и
-  iam — **6**; у geo, compute, storage, nlb, registry — **0**. Свойство дерева держит AST-гейт,
-  а не перечень per-service юнитов и не звание эталона: звание ничего не роняет.
-
-
-## Неисполнимая возможность: ДВА ПРАВИЛА ОБ ОДНОМ ПОЛЕ (выведено 2026-08-13)
-
-Близнец запрета «принято-и-проигнорировано» выше. Там поле принимают и не читают; здесь —
-**поле требуют, но прислать его нельзя**, потому что второе правило того же тракта его
-отвергает. Исход для вызывающего хуже: возможность объявлена, задокументирована, покрыта
-типами — и **не работает ни при каком входе**.
-
-**Норма.** У каждого поля запроса ровно один хозяин. Величину, которую назначает **запись**
-(идентификатор, номер ревизии, состояние по факту регистрации, отметка времени), проверка
-входа обязана принимать **незаданной**: ноль и пустая строка означают «ещё не назначено» и
-являются законным входом. Отвергается только **названное неверно** (отрицательный номер,
-состояние вне словаря).
-
-**Признак нарушения — механический, ищется без чтения бизнес-логики:**
-```sh
-# что запись отвергает как присланное
-git grep -n 'must not be supplied\|is assigned on' -- '*/repo/*'
-# что проверка входа требует как обязательное
-git grep -n 'is required\|must be positive' -- '*/domain/*'
-```
-Пересечение по одному полю — находка. **Одного примера достаточно, чтобы перебрать ВЕСЬ
-входной контракт глагола**: класс не приходит по одному.
-
-**Замер, ради которого правило написано.** У одного административного глагола таких величин
-оказалось **три** — идентификатор, номер ревизии и состояние, — и каждая требовалась от
-вызывающего, тогда как вставка назначает их сама и присланное отвергает явно. Исполнимого
-входа не существовало **ни для одной**. Рядом, у двух глаголов копирования, был тот же класс
-с другой стороны: непосредственного родителя копии **записывала вставка**, но этот вид
-происхождения не признавали ни проверка домена, ни контракт, ни путь чтения, — и оба глагола
-не работали с момента заведения.
-
-**Почему это не видно в обзоре изменения.** Код собирается; обе проверки по отдельности
-защитимы; тип поля ничего не запрещает. Неисполнимость появляется только **на стыке** и
-обнаруживается только **вызовом**.
-
-**Чем держится.** Приёмка глагола обязана нести сценарий, который его **вызывает** с
-минимально-законным входом, а не только проверяет форму запроса. Сценарий «создан ли ресурс»
-этот класс не ловит — он спрашивает про исход, а не про то, чем ресурс себя объявляет; в
-этой сессии два таких сценария существовали и оба были зелёными при неработающем глаголе.
+api-unimplementable-header · исполнима хотя бы одним входом · — (КАНДИДАТ НА ГЕЙТ: пересечение required-домена и «assigned on insert») · red: поле требуют, а запись присланное отвергает
+api-field-one-owner · проверка входа принимает её незаданной: 0 и пустая строка = «ещё не назначено»; отвергается только названное неверно · ЗАВЕСТИ api-field-one-owner · red: required на поле, которое назначает INSERT
+api-unimplementable-predicate · пересечение git grep 'must not be supplied\ · is assigned on' -- */repo/*` и `git grep 'is required\ · red: must be positive' -- */domain/* по одному полю; один пример → перебрать весь вход глагола | ГЕЙТА НЕТ | проверка одного поля
+api-unimplementable-holder · несёт сценарий, ВЫЗЫВАЮЩИЙ его минимально-законным входом · ЗАВЕСТИ api-unimplementable-holder · red: сценарий «создан ли ресурс» зелен при неработающем глаголе
 
 ## Поле контракта не выходит наружу, пока КРАЙ не пересобран (выведено 2026-08-13)
 
-**Норма.** Расширил публичный контракт — **перекатывай край вместе с сервисом**. Ответ на
-чтение перекодирует в JSON шлюз своими стабами; неизвестное ему поле он отбрасывает молча.
-
-**Признак нарушения.** Сервис поле отдаёт (видно в его ответе и в базе), а в теле ответа
-клиенту его нет — «сервис не отдаёт поле» там, где сервис его отдаёт.
-
-**Чем держится.** В конвейере — построением: все образы собираются от одного дерева, поэтому
-класс там не воспроизводится. На стенде разработчика — привычкой и этой строкой: после
-`buf generate` перекатывать **и** сервис, **и** край. Стоило прогона: правка была верной,
-а вердикт — ложным.
-
-> [!note] Третий признак того же семейства: значение, которое ПИШУТ и не ЧИТАЮТ
-> Столбец, который вставка заполняет, а проекция чтения не выбирает, невидим отовсюду: его
-> нет ни в ответе, ни в объекте в памяти. Проверять надо **всю цепочку** — контракт, домен,
-> запись, чтение, транспорт, — а не то место, где значение появляется. В этой сессии цепочка
-> обрывалась на контракте у одного ресурса и на чтении у другого, при том что три независимые
-> поверхности (провайдер инфраструктуры, сквозной кейс и сам столбец) исходили из того, что
-> поле есть.
+api-edge-rebuild · край перекатывается вместе с сервисом · .github/workflows (единое дерево сборки) · red: поле есть у сервиса и нет в теле ответа клиенту
+api-written-not-read · проверяется вся цепочка: контракт → домен → запись → чтение → транспорт · TestEveryDescriptorFieldHasAReader · red: столбец пишут, а проекция чтения не выбирает

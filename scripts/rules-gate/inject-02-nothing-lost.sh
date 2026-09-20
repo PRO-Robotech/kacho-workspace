@@ -80,16 +80,23 @@ C2N=check-02-nothing-lost.sh
 # no-op на первой же перестановке ключей, и утверждение о вердикте начинает
 # относиться к нетронутой копии. Всякая операция обязана что-то изменить и
 # отказывает, если не изменила, — тем же доводом, что и правка таблицы манифеста.
-inj02_settings() {   # <каталог> <операция> [аргумент]
-    python3 - "$1/.claude/settings.json" "$2" "${3-}" <<'PY'
+inj02_settings() {   # <каталог> <операция> [аргумент...]
+    local dir="$1" op="$2"
+    shift 2
+    python3 - "$dir/.claude/settings.json" "$op" "$@" <<'PY'
 import io, json, sys
-path, op, arg = sys.argv[1], sys.argv[2], sys.argv[3]
+path, op = sys.argv[1], sys.argv[2]
+args = sys.argv[3:] or ['']
+arg = args[0]
 before = io.open(path, encoding='utf-8').read()
 data = json.loads(before)
 if op == 'drop_excludes':
     data.pop('claudeMdExcludes', None)
-elif op == 'set_excludes':                 # arg — один шаблон
-    data['claudeMdExcludes'] = [arg]
+elif op == 'set_excludes':                 # args — ОДИН ИЛИ НЕСКОЛЬКО шаблонов.
+    # Список заменяется целиком, поэтому фикстура обязана уметь задать и корпус, и
+    # архив: с 2026-09-20 покрытие требуется для обоих, и одноаргументная форма
+    # доказывала бы «архив без исключения» вместо своего предмета.
+    data['claudeMdExcludes'] = [a for a in args if a]
 elif op == 'add_exclude':                  # arg — шаблон ВДОБАВОК к имеющимся
     data['claudeMdExcludes'] = list(data.get('claudeMdExcludes') or []) + [arg]
 elif op == 'drop_agent':
@@ -260,7 +267,11 @@ assert_says ".claude/rules/domain/x.md" "  ...и назван ИМЕННО не�
 assert_lacks ".claude/rules/x.md," "  ...и не назван покрытый: диагноз указывает на дыру, а не на всё"
 
 d="$(sandbox i_twin_rel)"; b="$(sandbox_digest "$d")"
-inj02_settings "$d" set_excludes '.claude/rules/**'
+# ПРЕДМЕТ ВЫРОС: с 2026-09-20 покрытие обязано включать и архив (`.claude/backup/`),
+# иначе он лишь текстом отличается от второго дома корпуса. Фикстура «другое
+# написание» переписывает СПИСОК целиком, поэтому архивный шаблон ей тоже нужен —
+# иначе она доказывала бы не «судится путь, а не строка», а «архив без исключения».
+inj02_settings "$d" set_excludes '.claude/rules/**' '.claude/backup/**'
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: то же покрытие, другое написание шаблона"
 capture "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: покрытие то же, написание другое — судится ПУТЬ, а не строка"
