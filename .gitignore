@@ -72,3 +72,4 @@ foo
 # отрицание внутри него не действует — README остался бы неотслеживаемым.
 tmp/*
 !tmp/README.md
+!tmp/rules-compression/
