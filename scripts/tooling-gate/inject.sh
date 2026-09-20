@@ -626,6 +626,98 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
+echo "== check-10: печатающий сигнал главного потока доходит до признака дельты =="
+
+# Регистрация нового хука — ровно та операция, ради которой проверка и нужна:
+# перечень выводится из `.claude/settings.json`, а не из списка внутри гейта.
+reg_hook() { # $1 = песочница, $2 = событие, $3 = относительный путь
+    python3 - "$1/.claude/settings.json" "$2" "$3" <<'PYX'
+import json, sys
+path, event, rel = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(path, encoding="utf-8"))
+d.setdefault("hooks", {}).setdefault(event, []).append(
+    {"hooks": [{"type": "command",
+                "command": 'bash "$CLAUDE_PROJECT_DIR/%s"' % rel}]})
+json.dump(d, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+PYX
+}
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-10-hook-signal-prints-delta.sh
+
+# ДЕФЕКТ: хук события главного потока печатает и до механизма не доходит.
+b="$(mksandbox)"
+printf '#!/usr/bin/env bash
+echo "нашёл кое-что"
+' > "$b/.claude/hooks/probe-loud.sh"
+reg_hook "$b" UserPromptSubmit .claude/hooks/probe-loud.sh
+run 1 "$b" "дефект: печатает мимо признака дельты — находка"     check-10-hook-signal-prints-delta.sh
+
+# ЗАКОННЫЙ БЛИЗНЕЦ той же формы: такой же новый печатающий хук, но через механизм.
+# Без него проверка запрещала бы заводить хуки вообще, а не печать состоянием.
+b="$(mksandbox)"
+printf '#!/usr/bin/env bash
+. "$(dirname "${BASH_SOURCE[0]}")/lib/hook_signal.sh"
+signal_stdin
+signal_emit probe agent-x "предикат" "" <<EOF
+нашёл кое-что
+EOF
+'     > "$b/.claude/hooks/probe-quiet.sh"
+reg_hook "$b" UserPromptSubmit .claude/hooks/probe-quiet.sh
+run 0 "$b" "близнец: такой же хук через механизм — молчит"     check-10-hook-signal-prints-delta.sh
+
+# ВТОРОЙ ЗАКОННЫЙ БЛИЗНЕЦ: печатающий хук на `PostToolUse`. Его читает ИСПОЛНИТЕЛЬ,
+# граница объявлена в шапке проверки — значит проверка обязана МОЛЧАТЬ. Без этой
+# пробы объявленная граница держалась бы прозой.
+b="$(mksandbox)"
+printf '#!/usr/bin/env bash
+echo "нашёл кое-что"
+' > "$b/.claude/hooks/probe-tool.sh"
+reg_hook "$b" PostToolUse .claude/hooks/probe-tool.sh
+run 0 "$b" "близнец: печать на PostToolUse — вне границы, молчит"     check-10-hook-signal-prints-delta.sh
+
+# ДЕФЕКТ второго рода: регистрация называет файл, которого в дереве нет.
+b="$(mksandbox)"
+reg_hook "$b" Stop .claude/hooks/no-such-hook.sh
+run 1 "$b" "дефект: событие обслуживает пустоту — находка"     check-10-hook-signal-prints-delta.sh
+
+# ПРЕДПОСЫЛКА: механизма в дереве нет — это находка, а не VOID. Ссылки хуков ведут
+# в пустоту, и «печатающих 0» здесь означало бы обратное истине.
+b="$(mksandbox .claude/hooks/lib/hook_signal.py)"
+run 1 "$b" "предпосылка: механизма нет — находка, не успех"     check-10-hook-signal-prints-delta.sh
+
+# ПРЕДПОСЫЛКА: регистрации нет вовсе — VOID, а не успех.
+b="$(mksandbox .claude/settings.json)"
+run 2 "$b" "предпосылка: регистрации нет — VOID"     check-10-hook-signal-prints-delta.sh
+
+echo "== механизм: сигнал без адресата либо без предиката снятия НЕ печатается =="
+# Вторая половина нормы держится механизмом, а не проверкой выше, поэтому
+# доказывается здесь, прямым прогоном: иначе «названы двое» осталось бы прозой.
+mech_probe() { # $1 = имя, $2..$n = аргументы
+    local name="$1"; shift
+    probes=$((probes + 1))
+    local got
+    printf 'что-то нашлось\n' | python3 "$WS/.claude/hooks/lib/hook_signal.py" "$@"         --state "$TMP/mech-$RANDOM" >/dev/null 2>&1
+    got=$?
+    if [ "$got" -eq 2 ]; then
+        echo "  ok   $name (код 2)"
+    else
+        echo "  ПРОВАЛ $name — ждали код 2, получили $got" >&2
+        failed=$((failed + 1))
+    fi
+}
+mech_probe "без адресата — отказ" --id probe --clear-when 'предикат есть'
+mech_probe "без предиката снятия — отказ" --id probe --addressee 'agent-x'
+
+probes=$((probes + 1))
+if printf 'что-то нашлось\n' | python3 "$WS/.claude/hooks/lib/hook_signal.py" \
+     --id probe --addressee agent-x --clear-when 'предикат есть' \
+     --state "$TMP/mech-ok-$RANDOM" >/dev/null 2>&1; then
+    echo "  ok   близнец: названы оба — печатает (код 0)"
+else
+    echo "  ПРОВАЛ близнец: названы оба, а печати нет" >&2
+    failed=$((failed + 1))
+fi
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
