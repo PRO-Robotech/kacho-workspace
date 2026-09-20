@@ -63,7 +63,7 @@
 # читающему.
 set -uo pipefail
 
-. "$(dirname "${BASH_SOURCE[0]}")/lib/signal.sh"
+. "$(dirname "${BASH_SOURCE[0]}")/lib/hook_signal.sh"
 signal_stdin
 
 ws="${CLAUDE_PROJECT_DIR:-}"
