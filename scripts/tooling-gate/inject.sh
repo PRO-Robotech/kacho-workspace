@@ -298,16 +298,36 @@ TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
 такого job'"'"'а ни один процесс не производит' \
     run 1 "$b" "инъекция: защита требует контекст, которого нет — краснеет" check-05-workflow-triggers-narrowed.sh
 
+# Фикстура САМА заводит сужённый триггер: с решения владельца 2026-09-20 автозапуска
+# в дереве нет, и без этой строки проба доказывала бы не «контексты производятся», а
+# «их некому производить» — то есть свою же соседнюю ось.
 b="$(mksandbox)"
+python3 - "$b/.github/workflows/ci.yaml" <<'PYWF'
+import sys
+p = sys.argv[1]
+s = open(p, encoding='utf-8').read()
+s = s.replace("on:\n  workflow_dispatch:", "on:\n  pull_request:\n    branches: [main]\n  workflow_dispatch:", 1)
+open(p, 'w', encoding='utf-8').write(s)
+PYWF
 TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
 документы объявляют то, чем их измеряют' \
-    run 0 "$b" "близнец: все требуемые контексты производятся — молчит" check-05-workflow-triggers-narrowed.sh
+    run 0 "$b" "близнец: триггер сужен, все требуемые контексты производятся — молчит" check-05-workflow-triggers-narrowed.sh
+
+# ОПАСНАЯ СТОРОНА ОБЪЯВЛЕННОГО «АВТОЗАПУСКА НЕТ»: контекст, которого никто не
+# начинает, остаётся «ожидается» и блокирует слияние НАВСЕГДА. Дерево здесь как
+# есть (триггеров нет), извне задан непустой перечень обязательных контекстов.
+b="$(mksandbox)"
+TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck' \
+    run 1 "$b" "инъекция: автозапуска нет, а защита требует контексты — краснеет" check-05-workflow-triggers-narrowed.sh
 
 b="$(mksandbox .github/workflows)"
 run 2 "$b" "предпосылка: файлов конвейера нет — VOID, а не успех" check-05-workflow-triggers-narrowed.sh
 
-# Предпосылка второго рода: файлы есть, а триггеров ПО ВЕТКЕ в них ноль. Тогда
-# предикат остался без предмета, и это тоже VOID, а не «находок 0».
+# Триггеров ПО ВЕТКЕ ноль — с решения владельца 2026-09-20 это ОБЪЯВЛЕННОЕ
+# состояние, а не потерянный предмет: задания описаны и поднимаются вручную. Прежде
+# здесь ждали VOID; вечный отказ снимают не глядя, вместе со всеми осями проверки.
+# Законность этого состояния держит соседняя ось: она краснеет, если защита при том
+# же дереве требует контексты.
 b="$(mksandbox .github/workflows)"
 mkdir -p "$b/.github/workflows"
 mkwf "$b" "name: injected
@@ -315,7 +335,7 @@ on:
   schedule:
     - cron: \"0 3 * * *\"
 $WF_JOB"
-run 2 "$b" "предпосылка: ни одного триггера по ветке — VOID, а не «находок 0»" check-05-workflow-triggers-narrowed.sh
+run 0 "$b" "близнец: автозапуска нет и контекстов не требуют — молчит" check-05-workflow-triggers-narrowed.sh
 
 echo "== check-06: версия анализатора не пиннится / объявлена дважды =="
 
