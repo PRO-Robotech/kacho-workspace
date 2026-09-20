@@ -34,12 +34,24 @@ fi
 C7=check-07-address-resolves.sh
 # Жертва — правило корпуса, выведенное ИЗ ДЕРЕВА: имя в коде рассыпалось бы вместе
 # с раскладкой, а предмет оси от имени файла не зависит.
+# Порядок глоба зависит от ЛОКАЛИ, и жертва обязана быть одной и той же на всякой
+# машине: под `LC_ALL=C` вторым файлом корпуса идёт `MANIFEST.md`, под ru_RU —
+# `ai-tooling.md`. Цена измерена: доказательство зеленело локально и краснело в
+# CI, потому что цель ссылки оказывалась файлом, которого разборщик не адресовал.
+# Отбор — предикатом самого разборщика (`REF_NAMED`), а сортировка — в C.
+# Шаблон ЗЕРКАЛИТ разборщик (`REF_NAMED`/`REF_ID` в address-refs.py): имя не со
+# строчной адресом не считается вовсе, и ссылка на такой файл ничего не доказала бы
+# — гейт молчал бы не потому, что адрес верен, а потому, что адреса нет.
+_i07_addressable() {   # <путь> — имя годится целью адреса
+    printf '%s' "$(basename "$1")" | LC_ALL=C grep -qE '^[a-z0-9][a-z0-9._-]*\.md$'
+}
 V7=""
-for _v in "$WS"/.claude/rules/*.md; do
+while IFS= read -r _v; do
     [ -e "$_v" ] || continue
+    _i07_addressable "$_v" || continue
     V7=".claude/rules/$(basename "$_v")"
     break
-done
+done < <(printf '%s\n' "$WS"/.claude/rules/*.md | LC_ALL=C sort)
 unset -v _v
 if [ -z "$V7" ]; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в .claude/rules нет ни одного файла;" \
@@ -50,12 +62,13 @@ fi
 # Он обязан существовать: иначе близнец доказывал бы не «ссылка верна, гейт молчит»,
 # а «гейт не заметил и её».
 T7=""; H7=""
-for _t in "$WS"/.claude/rules/*.md; do
+while IFS= read -r _t; do
     [ -e "$_t" ] || continue
     [ ".claude/rules/$(basename "$_t")" != "$V7" ] || continue
+    _i07_addressable "$_t" || continue
     H7="$(sed -n 's/^#\+[[:space:]]*//p' "$_t" | head -1 | sed 's/^§[[:space:]]*//')"
     if [ -n "$H7" ]; then T7="$(basename "$_t")"; break; fi
-done
+done < <(printf '%s\n' "$WS"/.claude/rules/*.md | LC_ALL=C sort)
 unset -v _t
 if [ -z "$T7" ]; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в корпусе нет второго файла с заголовком;" \

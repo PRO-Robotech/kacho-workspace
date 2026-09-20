@@ -24,12 +24,14 @@ unset -v _i06_fn
 
 C6=check-06-corpus-ceiling.sh
 # Жертва выводится ИЗ ДЕРЕВА: имя в коде рассыпалось бы вместе с раскладкой.
+# Порядок глоба зависит от ЛОКАЛИ, а жертва обязана быть одной и той же на всякой
+# машине: сортировка — в C.
 V6=""
-for _v in "$WS"/.claude/rules/*.md; do
+while IFS= read -r _v; do
     [ -e "$_v" ] || continue
     V6=".claude/rules/$(basename "$_v")"
     break
-done
+done < <(printf '%s\n' "$WS"/.claude/rules/*.md | LC_ALL=C sort)
 unset -v _v
 if [ -z "$V6" ]; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в .claude/rules нет ни одного файла;" \

@@ -23,12 +23,14 @@ unset -v _i08_fn
 
 C8=check-08-rule-frontmatter.sh
 # Жертва выводится ИЗ ДЕРЕВА, а не из имени в коде.
+# Порядок глоба зависит от ЛОКАЛИ, а жертва обязана быть одной и той же на всякой
+# машине: сортировка — в C.
 V8=""
-for _v in "$WS"/.claude/rules/*.md; do
+while IFS= read -r _v; do
     [ -e "$_v" ] || continue
     V8=".claude/rules/$(basename "$_v")"
     break
-done
+done < <(printf '%s\n' "$WS"/.claude/rules/*.md | LC_ALL=C sort)
 unset -v _v
 if [ -z "$V8" ]; then
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — в .claude/rules нет ни одного файла;" \
