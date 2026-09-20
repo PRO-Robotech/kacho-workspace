@@ -60,8 +60,10 @@ def main():
     print("ревизии: " + " · ".join(
         "%s@%s" % (n, m["trees"][n][2]) for n in sorted(m["trees"])))
     _lib.census("%s: осмотрено `.go` %d, из них сравнимых (≥%d строк) %d · порог J=%.2f · "
+                "неподвижная точка СВЕРХУ: кругов %d, в очереди каталогов %d · "
                 "решение о перелицензировании: BUSL %s, AGPL %s"
                 % (NAME, m["walked"], _core.MIN_LINES, m["comparable"], m["threshold"],
+                   m["fixpoint_rounds"], len(m["queued_dirs"]),
                    "принято" if m["relicense"][0] else "НЕ опубликовано",
                    "принято" if m["relicense"][1] else "НЕ опубликовано"))
     print("ПРЕДМЕТОВ со второй пропиской: %d (файлов в них %d) · КАНДИДАТОВ после "

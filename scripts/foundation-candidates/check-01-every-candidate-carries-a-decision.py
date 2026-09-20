@@ -20,6 +20,37 @@
 либо `keep` с доводом. Похоронить предмет молчанием нельзя: молчание и есть
 находка.
 
+ЧЕМ ДЕРЖИТСЯ СОДЕРЖАТЕЛЬНОСТЬ ДОВОДА `keep` (исправлено приёмкой 2026-09-21)
+
+Прежняя редакция судила довод НЕПУСТОТОЙ, и потому `why: "по усмотрению"`
+проходила зелёной, хотя норма эту самую формулировку и запрещает. Перечень
+запрещённых формулировок распознавателя не имеет и здесь не заводится:
+чёрный список форм обходится дописыванием ЛЮБОГО другого текста, и вместе с ним
+норма остаётся пожеланием ровно там, где выглядит проверенной.
+
+Довод разложен на ДВА МАШИННЫХ ФАКТА, ни один из которых текстом не производится:
+
+  `class`     — класс отказа из ЗАКРЫТОГО словаря ВОСЬМИ исключений
+                (`_core.EXCLUSIONS` — девять строк на восемь исключений:
+                лицензионное записано двумя режимами, 4а и 4б, обязательства у
+                них противоположные). Девятого нет по норме
+                `arch-second-home-exclusions-closed`, поэтому отказ, не
+                относящийся ни к одному из восьми, отказом не является.
+  `evidence`  — координата `<продукт>:<путь>`, которая ОБЯЗАНА резолвиться в
+                файл `.go` ИМЕННО ТОГО пакета, о котором запись, в стволе его
+                продукта. Дописать её нельзя: требуется настоящий файл предмета.
+
+`why` остаётся, но несущим больше НЕ является: это фраза для человека. Поэтому
+подстановка «по усмотрению» вместо довода теперь краснеет не на словах, а на
+отсутствующих `class` и `evidence`.
+
+ГРАНИЦА НАЗВАНА ВСЛУХ. Машина проверяет, что класс назван из закрытых восьми и
+что координата указывает на настоящий файл предмета. ИСТИННОСТЬ класса для этой
+координаты — «этот файл действительно несёт политику по существу» — машинно не
+проверяется и ДЕРЖИТСЯ ВНИМАНИЕМ: приёмкой записи человеком и `check-verifier`.
+Имитации здесь нет: то, что не проверяется, названо, а не подменено счётом
+символов.
+
 СЕГОДНЯШНЯЯ СИЛА ЭТОЙ ПРОВЕРКИ НАЗЫВАЕТСЯ ЧЕСТНО. Ярус 0 нормы — предусловие:
 пока решение владельца о перелицензировании не опубликовано, исключения 4а/4б
 держат класс целиком и очередь пуста ПО ПОСТРОЕНИЮ. Значит сегодня здесь
@@ -43,26 +74,34 @@ LEDGER = "docs/foundation-candidates.yaml"
 DECISIONS = ("move", "keep", "sunset")
 
 
+FIELDS = ("decision", "issue", "why", "class", "evidence")
+
+
 def parse(text):
-    """{пакет: (решение, задача, довод, строка)}."""
-    rows, cur, ln = {}, None, 0
+    """{пакет: {поле: значение, "line": номер строки}}."""
+    rows, cur, key = {}, None, None
+
+    def flush():
+        if cur:
+            rows[key] = cur
+
     for i, raw in enumerate(text.split("\n"), 1):
         s = raw.strip()
         if s.startswith("#"):
             continue
         if s.startswith("- package:"):
-            if cur:
-                rows[cur[0]] = (cur[1], cur[2], cur[3], ln)
-            cur = [s.split(":", 1)[1].strip().strip('"'), "", "", ""]
-            ln = i
-        elif cur is not None and s.startswith("decision:"):
-            cur[1] = s.split(":", 1)[1].strip()
-        elif cur is not None and s.startswith("issue:"):
-            cur[2] = s.split(":", 1)[1].strip().strip('"')
-        elif cur is not None and s.startswith("why:"):
-            cur[3] = s.split(":", 1)[1].strip().strip('"')
-    if cur:
-        rows[cur[0]] = (cur[1], cur[2], cur[3], ln)
+            flush()
+            key = s.split(":", 1)[1].strip().strip('"')
+            cur = dict.fromkeys(FIELDS, "")
+            cur["line"] = i
+            continue
+        if cur is None:
+            continue
+        for f in FIELDS:
+            if s.startswith(f + ":"):
+                cur[f] = s.split(":", 1)[1].strip().strip('"')
+                break
+    flush()
     return rows
 
 
@@ -106,7 +145,9 @@ def main():
                             "копии %s. Исходы два — `move` с задачей либо `keep` с доводом; "
                             "молчание исходом не является"
                             % ("+".join(c["homes"]), c["address"], ", ".join(c["files"])))
-    for pkg, (dec, issue, why, ln) in sorted(rows.items()):
+    for pkg, row in sorted(rows.items()):
+        dec, issue, why, ln = row["decision"], row["issue"], row["why"], row["line"]
+        cls, ev = row["class"], row["evidence"]
         if dec not in DECISIONS:
             findings.append("%s:%d — решение %r вне закрытого словаря %s"
                             % (LEDGER, ln, dec, list(DECISIONS)))
@@ -115,10 +156,38 @@ def main():
             findings.append("%s:%d — %s без задачи: за обязанностью никто не отвечает"
                             % (LEDGER, ln, dec))
             continue
-        if dec == "keep" and not why:
-            findings.append("%s:%d — отказ от выноса без довода: «по усмотрению» под эту "
-                            "строку подставляется что угодно" % (LEDGER, ln))
-            continue
+        if dec == "keep":
+            # ДОВОД СУДИТСЯ ПО СУЩЕСТВУ, а не по непустоте: непустота
+            # производится дописыванием любого текста, эти два факта — нет.
+            bad = False
+            if not why:
+                findings.append("%s:%d — отказ от выноса без фразы `why`" % (LEDGER, ln))
+                bad = True
+            if cls not in _core.EXCLUSIONS:
+                findings.append("%s:%d — `class: %s` вне ЗАКРЫТОГО словаря исключений "
+                                "(их восемь; лицензионное записано двумя режимами, 4а и "
+                                "4б, потому что обязательства у них противоположные): %s. "
+                                "Девятого исключения нет "
+                                "(arch-second-home-exclusions-closed), поэтому отказ, не "
+                                "относящийся ни к одному из восьми, отказом не является; "
+                                "непустой `why` этого не заменяет"
+                                % (LEDGER, ln, cls or "<пусто>", list(_core.EXCLUSIONS)))
+                bad = True
+            own = m["package_files"].get(pkg, [])
+            if not ev:
+                findings.append("%s:%d — `keep` без `evidence`: довод обязан указать "
+                                "координату `<продукт>:<путь>` в СВОЁМ предмете. Файлов "
+                                "у пакета в стволе %d" % (LEDGER, ln, len(own)))
+                bad = True
+            elif ev not in own:
+                findings.append("%s:%d — `evidence: %s` не резолвится в файл пакета %s: в "
+                                "стволе у него %d `.go` (%s). Координата довода "
+                                "дописыванием текста не производится"
+                                % (LEDGER, ln, ev, pkg, len(own),
+                                   ", ".join(own[:3]) + ("…" if len(own) > 3 else "")))
+                bad = True
+            if bad:
+                continue
         if pkg not in m["second_home_dirs"]:
             findings.append("%s:%d — запись о %s, у которого второй прописки в стволах "
                             "БОЛЬШЕ НЕТ: самоистечение. Снимите запись тем же изменением, "
