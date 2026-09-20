@@ -4,9 +4,6 @@
     "**/.claude/rules/**",
     "**/.claude/backup/**"
   ],
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  },
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -83,5 +80,10 @@
         ]
       }
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }
