@@ -676,15 +676,35 @@ GATELESS = 'ЗАВЕСТИ ' + DASH
 HAND = 'ПИСАТЬ РУКАМИ'
 
 
+def balance_bt(s):
+    # Нечётное число backtick ломает markdown. Замер: 146 строк из 860 приходят такими.
+    return s if s.count('`') % 2 == 0 else s.replace('`', '')
+
+
+def holder(n, form_field):
+    # Держатель обязан быть ИМЕНЕМ механизма либо честным `ЗАВЕСТИ <имя>` (Global Constraints).
+    # Замер: у 360 из 860 строк поле формы держателя не несёт, из них из gate/hold восстановимо 36.
+    for src in (form_field, (n.get('gate') or ''), (n.get('hold') or '')):
+        s = (src or '').strip(' `')
+        if s and s not in (DASH, '', 'None') and re.search(r'[A-Za-z_]{4,}', s):
+            return balance_bt(s)
+    return 'ЗАВЕСТИ ' + n['id']
+
+
 def row(n):
     fm = (n.get('form') or '').strip()
-    if not fm or fm == DASH: return None
+    if not fm or fm == DASH:
+        return None
     p = [x.strip(' `') for x in re.split(r'\s*\|\s*', fm) if x.strip(' `')]
-    if len(p) >= 4: imp, hold, red = p[1], p[2], ' | '.join(p[3:])
-    elif len(p) == 3: imp, hold, red = p[1], p[2], DASH
-    elif len(p) == 2: imp, hold, red = p[1], GATELESS, DASH
-    else: imp, hold, red = p[0], GATELESS, DASH
-    return n['id'] + DOT + imp + DOT + hold + DOT + 'red: ' + red
+    if len(p) >= 4:
+        imp, hold_raw, red = p[1], p[2], ' | '.join(p[3:])
+    elif len(p) == 3:
+        imp, hold_raw, red = p[1], p[2], DASH
+    elif len(p) == 2:
+        imp, hold_raw, red = p[1], '', DASH
+    else:
+        imp, hold_raw, red = p[0], '', DASH
+    return n['id'] + DOT + balance_bt(imp) + DOT + holder(n, hold_raw) + DOT + 'red: ' + balance_bt(red)
 
 
 def main(argv):
@@ -859,6 +879,13 @@ for f in testing.md api-conventions.md data-integrity.md 00-kacho-core.md securi
 ```bash
 for f in testing.md api-conventions.md data-integrity.md 00-kacho-core.md security-hardening.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify testing.md api-conventions.md data-integrity.md 00-kacho-core.md security-hardening.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -931,6 +958,13 @@ for f in e2e-flow.md testing-verdict.md security.md ui.md subscription.md; do pr
 ```bash
 for f in e2e-flow.md testing-verdict.md security.md ui.md subscription.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify e2e-flow.md testing-verdict.md security.md ui.md subscription.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -1003,6 +1037,13 @@ for f in polyrepo.md architecture.md testing-newman.md testing-load.md security-
 ```bash
 for f in polyrepo.md architecture.md testing-newman.md testing-load.md security-disclosure.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify polyrepo.md architecture.md testing-newman.md testing-load.md security-disclosure.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -1044,6 +1085,13 @@ git commit -m "refactor(rules): партия 3 сведена к строкам-
 ```bash
 scripts/rules-gate/measure.sh | tail -1
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify $(cd .claude/rules && ls *.md | tr '\n' ' ') | grep -v 'ПОТЕРЯНО 0' || echo "потерь нет ни в одном файле"
 ```
 
