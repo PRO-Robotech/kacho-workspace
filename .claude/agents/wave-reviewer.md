@@ -4,10 +4,6 @@ description: "Единственный, кто видит предметы вс�
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
-  - rule-multi-agent-flow-orchestration
-  - rule-01-wave-contract
   - rule-MANIFEST
   - rule-testing
   - rule-architecture

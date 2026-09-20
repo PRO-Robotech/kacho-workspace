@@ -4,8 +4,6 @@ description: "Единственный, кто пишет obsidian/kacho/**: tra
 disallowedTools: Agent, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-vault
   - rule-security-disclosure
 ---
 

@@ -41,7 +41,7 @@
   2026-09-13 весь корпус вернулся в `.claude/rules/`, а каталог `.claude/rulebook/` снят;
   решение 2026-09-17 сменило способ ДОСТАВКИ правила, а не его адрес.
   Предикаты (сверяй ими, а не памятью):
-  `git ls-files .claude/rules/ | wc -l` (**30**) — правила;
+  `git ls-files .claude/rules/ | wc -l` (**17**) — правила;
   `git ls-files .claude/agents/ | wc -l` (**32**),
   `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | grep -cv '^rule-'` (**14**).
   На диске скилов больше — сторонние, установленные рядом, объявлены чужими в `.gitignore`

@@ -4,8 +4,6 @@ description: "Пост-дифф ревью распределённых свой
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-data-integrity
   - rule-architecture
   - rule-polyrepo

@@ -4,12 +4,7 @@ description: "Вердикт прогона, а не его починка. Ре
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-multi-agent-flow-waiting
-  - rule-git-issues-ci-runs
   - rule-testing-verdict
-  - rule-multi-agent-flow-shared-tree
-  - rule-git-issues
 ---
 
 # Ci-watcher — вердикт прогона: прочитать, классифицировать, назвать числами

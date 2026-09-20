@@ -4,10 +4,7 @@ description: "RED-фаза по APPROVED приёмке: на каждый сц�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-testing
-  - rule-change-graph
   - rule-testing-newman
   - rule-e2e-flow
   - rule-testing-verdict

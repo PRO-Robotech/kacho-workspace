@@ -4,8 +4,6 @@ description: "Пост-дифф ревью консоли по её канону
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-ui
 ---
 

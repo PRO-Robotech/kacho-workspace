@@ -4,8 +4,6 @@ description: "Разведка только на чтение для решен�
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-testing-verdict
 ---
 

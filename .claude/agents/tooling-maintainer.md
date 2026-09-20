@@ -4,12 +4,8 @@ description: "Правит оснастку одним изменением с �
 disallowedTools: Agent, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-MANIFEST
-  - rule-01-wave-contract
   - rule-ai-tooling
-  - rule-change-graph
   - rule-testing
 ---
 

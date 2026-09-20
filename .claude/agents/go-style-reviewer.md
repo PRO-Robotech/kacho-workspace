@@ -4,8 +4,6 @@ description: "Пост-дифф ревью Go-кода продукта: обё�
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-architecture
   - rule-security-hardening
 ---

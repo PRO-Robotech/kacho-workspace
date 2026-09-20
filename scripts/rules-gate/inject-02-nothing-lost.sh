@@ -369,3 +369,76 @@ assert_says "пропущено как код" "перепись называе�
 assert_says "строк-объявлений" "перепись отличает СТРОКИ-объявления от уникальных целей"
 assert_says "шаблонов claudeMdExcludes" "перепись называет число шаблонов исключения"
 assert_says "при потолке" "перепись называет измеренные тела и потолок — «бюджет сошёлся» без числа не читается"
+
+# ── ось M: `.claude/backup/` — объявленный архив, а не второй дом ───────────
+#
+# Ось новая (Task 2, попытка 2, правка check-02 по указанию контроллера): архив
+# снятых процессных правил живёт ПО ВИДУ как корпус (файлы `<имя>.md` с текстом
+# норм), и разница «архив / второй дом» — не в тексте файла, а в том, ГРУЗИТСЯ
+# ли он. Предмет — два предиката, обязаны выполняться ОДНОВРЕМЕННО:
+#   (а) `.claude/backup/**` покрыт claudeMdExcludes;
+#   (б) ни один агент не тянет файл архива предзагрузкой `skills:`.
+# У каждого предиката — дефект и его законный близнец: файл архива сам по себе
+# не находка (иначе снятие легаси было бы невозможно провести без красного
+# гейта); находкой становится ИМЕННО непокрытость или ИМЕННО ссылка skills:.
+echo
+echo "== ось M: .claude/backup/ — объявленный архив =="
+
+d="$(sandbox m_drop)"
+mkdir -p "$d/.claude/backup"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+inj02_settings "$d" set_excludes '**/.claude/rules/**'
+capture "$d" "$C2N"
+assert_code 1 "ДЕФЕКТ: файл архива есть, но claudeMdExcludes его не покрывает (предикат а)"
+assert_says "АРХИВ БЕЗ ИСКЛЮЧЕНИЯ" "  ...и вердикт назван своим именем"
+assert_says ".claude/backup/x.md" "  ...и назван непокрытый пробный путь"
+assert_lacks "АРХИВ В skills:" "  ...и диагноз ОДИН: skills: агентов не тронуты"
+
+d="$(sandbox m_twin)"; b="$(sandbox_digest "$d")"
+mkdir -p "$d/.claude/backup"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: тот же файл архива, claudeMdExcludes НЕ трогали"
+capture "$d" "$C2N"
+assert_code 0 "БЛИЗНЕЦ: файл архива при покрытых claudeMdExcludes — предикат а верен, не находка"
+
+d="$(sandbox m_skill)"
+mkdir -p "$d/.claude/backup" "$d/.claude/skills/rule-legacy-probe"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+ln -s ../../backup/legacy-probe.md "$d/.claude/skills/rule-legacy-probe/SKILL.md"
+cat > "$d/.claude/agents/m-skill-probe.md" <<'MD'
+---
+name: m-skill-probe
+description: "Фикстура инъекции — не читается харнессом, только этим гейтом."
+tools: Read
+skills:
+  - rule-legacy-probe
+---
+
+Пробный агент фикстуры оси M.
+MD
+capture "$d" "$C2N"
+assert_code 1 "ДЕФЕКТ: skills: агента резолвится файлом архива (предикат б)"
+assert_says "АРХИВ В skills:" "  ...и вердикт назван своим именем"
+assert_says "rule-legacy-probe" "  ...и названо конкретное имя скилла-нарушителя"
+assert_says "m-skill-probe.md" "  ...и назван конкретный агент-нарушитель"
+
+d="$(sandbox m_skill_twin)"; b="$(sandbox_digest "$d")"
+mkdir -p "$d/.claude/skills/rule-legacy-probe"
+# Близнец: та же форма ссылки skills:, но символьная ссылка ведёт в ДЕЙСТВУЮЩИЙ
+# корпус (.claude/rules/), а не в архив, — законная форма, которую несут все
+# 17 оставшихся правил.
+ln -s "../../rules/00-kacho-core.md" "$d/.claude/skills/rule-legacy-probe/SKILL.md"
+cat > "$d/.claude/agents/m-skill-probe.md" <<'MD'
+---
+name: m-skill-probe
+description: "Фикстура инъекции — не читается харнессом, только этим гейтом."
+tools: Read
+skills:
+  - rule-legacy-probe
+---
+
+Пробный агент фикстуры оси M.
+MD
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: skills: ведёт в корпус, а не в архив"
+capture "$d" "$C2N"
+assert_code 0 "БЛИЗНЕЦ: skills: на живое правило — предикат б верен, не находка"

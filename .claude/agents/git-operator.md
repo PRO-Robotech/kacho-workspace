@@ -4,13 +4,7 @@ description: "Единственный, кто меняет состояние g
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-git-issues
-  - rule-git-issues-issue-lifecycle
   - rule-security-disclosure
-  - rule-multi-agent-flow-shared-tree
-  - rule-multi-agent-flow
-  - rule-git-issues-ci-runs
 ---
 
 # Git-operator — единственный, кто меняет состояние git и трекера
