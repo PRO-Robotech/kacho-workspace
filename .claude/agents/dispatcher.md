@@ -1,7 +1,7 @@
 ---
 name: dispatcher
 description: Главный поток воркспейса Kachō — только маршрутизация: выбор агента, порядок полос, ворота, приём возврата; сам не читает, не исполняет, не правит.
-tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, integration-tester, rpc-implementer, migration-writer, proto-sync, service-scaffolder, api-gateway-registrar, qa-test-engineer, go-style-reviewer, db-architect-reviewer, proto-api-reviewer, system-design-reviewer, wave-reviewer, convergence-reviewer, landing-reviewer, scout, go-implementer, ui-implementer, ui-reviewer, docs-writer, vault-scribe, git-operator, ci-watcher, load-tester, security-auditor, tooling-maintainer, deploy-engineer, client-simulator, check-verifier), SendMessage, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, TaskStop
+tools: Agent(acceptance-author, acceptance-reviewer, class-exposure-analyst, integration-tester, rpc-implementer, migration-writer, proto-sync, service-scaffolder, api-gateway-registrar, qa-test-engineer, go-style-reviewer, db-architect-reviewer, proto-api-reviewer, system-design-reviewer, wave-reviewer, convergence-reviewer, landing-reviewer, scout, go-implementer, ui-implementer, ui-reviewer, docs-writer, vault-scribe, git-operator, ci-watcher, load-tester, security-auditor, tooling-maintainer, deploy-engineer, client-simulator, check-verifier), SendMessage, AskUserQuestion, TaskCreate, TaskGet, TaskList, TaskUpdate, TaskStop, Workflow
 ---
 
 # База маршрутизации
