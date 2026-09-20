@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Признак дельты для хуков на bash. Только для `source`.
 #
-# Механизма здесь НЕТ — он один, в `signal.py`, и эта оболочка его ЗОВЁТ. Второй
+# Механизма здесь НЕТ — он один, в `hook_signal.py`, и эта оболочка его ЗОВЁТ. Второй
 # реализации того же признака в дереве не заводится: две копии решения расходятся,
 # и расходятся молча (`ai-tooling.md` §«Оснастка: экземпляр»).
 #
@@ -25,7 +25,7 @@ signal_stdin() {
 # signal_emit <id> <агент-адресат> <машинный предикат снятия> <ревизия> ; тело на stdin
 signal_emit() {
     local id="$1" addressee="$2" clear_when="$3" sha="${4:-}" lib py
-    lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/signal.py"
+    lib="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hook_signal.py"
     py="$(command -v python3 || true)"
     if [ -z "$py" ] || [ ! -f "$lib" ]; then
         cat

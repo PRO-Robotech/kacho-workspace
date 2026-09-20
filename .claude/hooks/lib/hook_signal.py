@@ -7,7 +7,7 @@
 неизменном дереве. Замер 2026-09-20: подряд идущих одинаковых строк переписи в
 `.claude/hooks/docfresh/.state/census.log` — 42 в 17:26 и 51 в 17:55, то есть число
 не константа, а РАСТЁТ с каждым ходом сессии; предикат —
-`python3 .claude/hooks/lib/signal.py --streak .claude/hooks/docfresh/.state/census.log`.
+`python3 .claude/hooks/lib/hook_hook_signal.py --streak .claude/hooks/docfresh/.state/census.log`.
 Повторённый сигнал неотличим от новой находки, поэтому НОВАЯ находка теряется в
 фоне. Адресат — диспетчер: у него нет ни `Read`, ни `Bash`, он обязан верить
 напечатанному и перепроверить его не может.
@@ -242,7 +242,7 @@ def main(argv: list[str]) -> int:
             "║ Печатаемый сигнал обязан называть двоих: агента, который предмет\n"
             "║ закрывает, и МАШИННО ПРОВЕРЯЕМЫЙ предикат своего снятия. Без них\n"
             "║ сигнал нельзя ни адресовать, ни снять — он остаётся фоном навсегда.\n"
-            "║ → tooling-maintainer: провязка сигнала (.claude/hooks/lib/signal.py).\n"
+            "║ → tooling-maintainer: провязка сигнала (.claude/hooks/lib/hook_signal.py).\n"
             "╚═════════════════════════════════════════════════════════════════\n")
         return 2
     if mode != "void":
