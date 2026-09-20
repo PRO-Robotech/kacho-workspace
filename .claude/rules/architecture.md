@@ -27,6 +27,7 @@ arch-postgres-in-service-test · не требует Postgres · ЗАВЕСТИ 
 
 arch-corelib-horizontal · нужен двум продуктам → PRO-Robotech/corelib пином версии · TestCrossModuleJudgeIsSilentOnTheAllowedDirections · red: вторая копия per-service
 arch-new-util-ownership · спроси чей предмет: двум → corelib, одному → pkg/, домену → каталог сервиса · ЗАВЕСТИ arch-new-util-ownership · red: доменная логика в pkg/
+arch-foreign-code-subtree · ЧУЖОЙ код (апстрим вне наших репозиториев) берётся поддеревом в фундамент вместе с набором проб апстрима, а не зависимостью: пином версии приезжает чёрный ящик, поддеревом — околопродовый код и пробы к нему; пин версии в `arch-corelib-horizontal` — про НАШ `corelib`, не про сторонний модуль (`polyrepo.md` §«Внесение ЧУЖОГО (стороннего) кода», решение владельца 2026-09-20) · ЗАВЕСТИ arch-foreign-code-subtree: ввезённых поддеревьев сегодня нет, предмета у гейта не существует · red: «берём пином» сказано о стороннем коде, чьи пробы нам нужны
 
 ## Concurrency / lifecycle / читаемость (выведено из audit-раундов)
 
