@@ -4,8 +4,6 @@ description: "Реализует один RPC end-to-end по APPROVED приё�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-api-conventions
   - rule-data-integrity
   - rule-security

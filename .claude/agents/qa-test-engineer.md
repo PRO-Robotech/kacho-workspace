@@ -4,8 +4,6 @@ description: "Расширяет чёрный ящик newman против уж�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-e2e-flow
   - rule-testing-newman
   - rule-testing

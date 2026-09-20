@@ -4,10 +4,6 @@ description: "Единственный, кто создаёт финальную
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-change-graph
-  - rule-git-issues-branch-audit
-  - rule-git-issues
   - rule-security-disclosure
 ---
 

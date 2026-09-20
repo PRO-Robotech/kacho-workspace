@@ -1,1 +1,0 @@
-../../rules/git-issues-ci-runs.md

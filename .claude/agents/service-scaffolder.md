@@ -4,8 +4,6 @@ description: "Заводит каталог нового сервиса services
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-architecture
   - rule-polyrepo
   - rule-security

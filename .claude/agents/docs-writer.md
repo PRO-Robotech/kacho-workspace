@@ -4,8 +4,6 @@ description: "Пишет и выверяет документацию: спек�
 disallowedTools: Agent, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-security-disclosure
 ---
 

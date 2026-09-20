@@ -4,9 +4,6 @@ description: "Принимает работы, чей предмет — сам�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
-  - rule-multi-agent-flow-orchestration
   - rule-testing
   - rule-testing-verdict
 ---

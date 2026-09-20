@@ -4,11 +4,8 @@ description: "Последний, кто говорит до того, как и
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
   - rule-testing-verdict
   - rule-security-disclosure
-  - rule-git-issues
-  - rule-git-issues-ci-runs
   - rule-e2e-flow
 ---
 

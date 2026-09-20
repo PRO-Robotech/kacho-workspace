@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** свести `.claude/rules` с 618 189 до **149 800** символов (÷4,13), оставив только нормы про написание кода, тестирование и доставку, и не потеряв ни одного сторожа качества.
+**Goal:** свести `.claude/rules` с 618 189 до **149 714** символов (÷4,13), оставив только нормы про написание кода, тестирование и доставку, и не потеряв ни одного сторожа качества.
 
 **Architecture:** 17 файлов остаются основой, 13 процессных уезжают в `.claude/backup/` целиком. Из уезжающих спасаются **49 норм класса A, не держащихся ни одним гейтом** — они переселяются в `00-kacho-core.md`. Остальные 56 норм A из процессных файлов держатся названными гейтами: их текст уезжает, механизм остаётся в CI. Каждая норма становится одной строкой `<id> · <императив> · <держатель> · red: <признак>`.
 
@@ -13,12 +13,14 @@
 ## Global Constraints
 
 - Потолок: **200 000 символов** на сумму `.claude/rules/*.md`. Символы, не байты: `len(open(f,encoding='utf-8').read())`, не `wc -c` — кириллица в UTF-8 вдвое тяжелее.
-- Смета: нормы 138 800 + заголовки/frontmatter/якоря ~11 000 = **149 800**, запас **50 200 (25 %)**.
+- Смета: нормы 138 714 + заголовки/frontmatter/якоря ~11 000 = **149 714**, запас **50 286 (25,1 %)**.
 - Форма записи: `<id> · <императив> · <держатель> · red: <признак нарушения>`. Разделитель — ровно ` · ` (пробел, U+00B7, пробел). Без markdown-таблицы: палки стоят 40 % строки (244 симв против 172).
 - Слово «держится» в корпусе не пишется **никогда**. Держатель — имя Go-теста, скрипта или команды; если гейта нет — `ЗАВЕСТИ <имя>`.
 - **ОСНОВА, 17 файлов:** `00-kacho-core` `api-conventions` `architecture` `data-integrity` `subscription` `polyrepo` `ui` `security` `security-hardening` `security-disclosure` `testing` `testing-verdict` `testing-newman` `testing-load` `e2e-flow` `MANIFEST` `ai-tooling`.
 - **ЛЕГАСИ, 13 файлов целиком в `.claude/backup/`:** `multi-agent-flow` `multi-agent-flow-orchestration` `multi-agent-flow-shared-tree` `multi-agent-flow-waiting` `git-issues` `git-issues-branch-audit` `git-issues-ci-runs` `git-issues-issue-lifecycle` `01-wave-contract` `change-graph` `writing` `vault` `rag`.
 - Ни одна норма не удаляется безвозвратно: классы C и D базовых файлов — тоже в `.claude/backup/<файл>.md`.
+- **Запись, несущая НАЗВАННЫЙ ГЕЙТ, — норма, какой бы класс ей ни присвоила опись.** Таких 93: 52 в классе D и 41 в классе C. Они остаются в корпусе строкой-ссылкой на гейт, а не уезжают. Предикат отбора: `gate` непусто и не `—`.
+- **Класс D и C архивируются НЕ механически.** У 236 записей D и 111 записей C нет готовой формы в описи, то есть проверить снимаемое по описи нельзя. Правило разбора при переписывании: абзац в повелительной форме («обязан», «запрещено», «только», «не …ся», «не заводится») остаётся строкой-нормой, даже если опись присвоила ему D или C. Ревью нашло три таких на выборке из шести: `ext-factories` («фабрика обязана читать `error`»), `chk-fk` (отображение инварианта на `FK`/`CHECK`), `sec-nonzero-default-means-dead-guard` (это буквально поле `red:`).
 - Работа в worktree `tmp/rules-compress`, ветка `rules/corpus-200k`. **Прямой push в `main` запрещён** (`multi-agent-flow-shared-tree.md §8а`, и защита ветки на origin это подтверждает: `enforce_admins: true`, 9 обязательных проверок). Только PR.
 - Опись 1 436 норм: `tmp/rules-compression/inventory-2026-09-19.json`, поля `id`, `src`, `k`, `min`, `form`, `hold`, `gate`, `v`.
 - **Нулевой шаг КАЖДОГО вызова Bash** (исполнитель Task 1 закоммитил не в то дерево — цена уже уплачена):
@@ -35,7 +37,7 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 | `testing.md` | 36 040 | **14 937** | 60/17 | 0 | 23 |
 | `api-conventions.md` | 37 337 | **14 552** | 63/16 | 7 | 5 |
 | `data-integrity.md` | 33 060 | **14 171** | 72/6 | 2 | 26 |
-| `00-kacho-core.md` | 22 508 | **12 480** (+50 переселённых) | 28/8 | 1 | 30 |
+| `00-kacho-core.md` | 22 508 | **12 480** (+49 переселённых) | 28/8 | 1 | 30 |
 | `security-hardening.md` | 22 539 | **9 853** | 39/15 | 0 | 15 |
 | `e2e-flow.md` | 24 158 | **9 828** | 22/36 | 0 | 50 |
 | `testing-verdict.md` | 31 342 | **9 065** | 8/39 | 0 | 10 |
@@ -68,7 +70,7 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 ---
 ### Task 2: Снять легаси — 13 процессных файлов в `.claude/backup/` с тремя механизмами
 
-Самая рискованная задача плана: она рвёт 83 ссылки `skills:` и 53 inline-ссылки диспетчера и трогает `settings.json` и хук. Делается первой, потому что переписывать корпус, из которого ещё не вынуто легаси, — переписывать вдвое.
+Самая рискованная задача плана: она рвёт 83 ссылки `skills:` и 50 inline-ссылок диспетчера и трогает `settings.json` и хук. Делается первой, потому что переписывать корпус, из которого ещё не вынуто легаси, — переписывать вдвое.
 
 > [!important] Два файла НЕ уезжают, хотя по предмету процессные — попытка 1 это доказала
 > Первая попытка Task 2 вернула BLOCKED: `rules-gate` упал с 5/5 до 1/5. Замер причины:
@@ -82,20 +84,20 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 >   скилы» читают `skills-gate/check-03` и `check-07`: **47 строк на 7 918 символов**. Остаётся;
 >   перечни сохраняются ДОСЛОВНО, остальное уезжает в архив при переписывании.
 >
-> Третья находка попытки 1: тела агентов несут **218** inline-ссылок вида `файл.md §«…»` на
+> Третья находка попытки 1: тела агентов несут **212** inline-ссылок вида `файл.md §«…»` на
 > уезжающие файлы, из них **53 в `dispatcher.md`** — а `check-05` судит именно его ссылки.
 > Снятие строк `skills:` их не трогает. Поэтому ниже добавлен Step 2а, и только с ним
-> `rules-gate: 0` достижим. Остальные 165 ссылок в прочих агентах не судит никто — их найдёт
+> `rules-gate: 0` достижим. Остальные 162 ссылок в прочих агентах не судит никто — их найдёт
 > `check-07` (Task 4) и починит Task 5.
 >
-> Цена решения: корпус 149 800 вместо 133 937, запас 50 200 вместо 66 063. Механизм дороже
+> Цена решения: корпус 149 714 вместо 133 937, запас 50 286 вместо 66 063. Механизм дороже
 > экономии: без `MANIFEST` доставка правил не держится ничем.
 
 **Files:**
-- Move: 15 `.claude/rules/<легаси>.md` → `.claude/backup/<легаси>.md`
-- Delete: 15 `.claude/skills/rule-<легаси>/` (каталог с симлинком)
-- Modify: `.claude/rules/MANIFEST.md` — 15 строк снять **до** переезда самого файла
-- Modify: до 30 `.claude/agents/*.md` — 83 строки `skills:` снять
+- Move: 13 `.claude/rules/<легаси>.md` → `.claude/backup/<легаси>.md`
+- Delete: 13 `.claude/skills/rule-<легаси>/` (каталог с симлинком)
+- Modify: `.claude/rules/MANIFEST.md` — снять 13 строк уезжающих, оставить 17; сам файл НЕ уезжает
+- Modify: до 30 `.claude/agents/*.md` — 80 строк `skills:` снять; плюс 50 inline-ссылок в `dispatcher.md` (Step 2а)
 - Modify: `.claude/settings.json` — `claudeMdExcludes` += `**/.claude/backup/**`
 - Modify: `.claude/hooks/docfresh/docfresh.py` — `TRUTH_EXCLUDE` += `:(exclude).claude/backup/`
 - Move: `.claude/hooks/rag-freshness.sh` → `.claude/backup/hooks/rag-freshness.sh`
@@ -103,7 +105,7 @@ test "$(git rev-parse --show-toplevel)" = "/home/dk/workspace/github/PRO-Robotec
 
 **Interfaces:**
 - Consumes: перечень легаси из Global Constraints
-- Produces: `.claude/rules/` содержит ровно 15 файлов; `rules-gate/run-all.sh` зелёный; ни один агент не остался без правил
+- Produces: `.claude/rules/` содержит ровно 17 файлов; `rules-gate/run-all.sh` зелёный; ни один агент не остался без правил
 
 - [ ] **Step 1: Снять перепись того, что придётся править**
 
@@ -114,7 +116,7 @@ echo "всего ссылок снять: $(for r in $LEG; do grep -l "^  - rule
 scripts/rules-gate/run-all.sh >/dev/null 2>&1; echo "rules-gate до работы: $?"
 ```
 
-Ожидается: суммарно **83** ссылки, `rules-gate до работы: 0`.
+Ожидается: суммарно **80** ссылок, `rules-gate до работы: 0`.
 
 - [ ] **Step 2: Снять ссылки у агентов, затем строки манифеста, затем симлинки**
 
@@ -139,7 +141,7 @@ assert not bad, bad"
 
 Ожидается: `агентов без единого правила: 0`.
 
-- [ ] **Step 2а: Починить 53 inline-ссылки `dispatcher.md` на уезжающие файлы**
+- [ ] **Step 2а: Починить 50 inline-ссылок `dispatcher.md` на уезжающие файлы**
 
 `check-05` судит ссылки диспетчера и покраснеет на каждой висячей.
 
@@ -170,7 +172,7 @@ scripts/rules-gate/check-05-dispatcher-routes-every-agent.sh 2>&1 | tail -2
 ```bash
 python3 - <<'ZZ'
 import json,re
-BASE={'00-kacho-core','api-conventions','architecture','data-integrity','subscription','polyrepo','ui','security','security-hardening','security-disclosure','testing','testing-verdict','testing-newman','testing-load','e2e-flow'}
+BASE={'00-kacho-core','api-conventions','architecture','data-integrity','subscription','polyrepo','ui','security','security-hardening','security-disclosure','testing','testing-verdict','testing-newman','testing-load','e2e-flow','MANIFEST','ai-tooling'}
 inv=json.load(open('tmp/rules-compression/inventory-2026-09-19.json',encoding='utf-8'))
 def gated(n): return bool(n.get('gate')) and n.get('gate') not in ('—','',None)
 sel=[n for n in inv if n['src'][:-3] not in BASE and n['k']=='A' and not gated(n)]
@@ -190,7 +192,7 @@ assert len(out)==49, len(out)
 ZZ
 ```
 
-Эти 50 строк дописываются в `00-kacho-core.md` разделом `## Доставка и общее дерево` в **Task 8** (партия 1), а не здесь: здесь только заготовка, чтобы она не потерялась вместе с файлами.
+Эти 49 строк дописываются в `00-kacho-core.md` разделом `## Доставка и общее дерево` в **Task 8** (партия 1), а не здесь: здесь только заготовка, чтобы она не потерялась вместе с файлами.
 
 - [ ] **Step 4: Переезд файлов и три механизма**
 
@@ -204,7 +206,7 @@ cat > .claude/backup/README.md <<'MD'
 Снято решением владельца 2026-09-20: «в `.claude` только те данные, которые используются при
 написании кода, тестировании и доставке в k8s».
 
-Здесь лежат 15 файлов правил, чей предмет — процесс вокруг кода (трекер, ветки, PR, волна,
+Здесь лежат 13 файлов правил, чей предмет — процесс вокруг кода (трекер, ветки, PR, волна,
 записки, реестр), и классы C/D базовых файлов: исторические замеры, доводы «почему так решили»,
 описания отменённых устройств, пересказы соседних правил.
 
@@ -218,7 +220,7 @@ cat > .claude/backup/README.md <<'MD'
 в `.claude/rules/00-kacho-core.md` §«Доставка и общее дерево». 56 норм A, держащихся названными
 гейтами, здесь: механизм остался в CI, уехал только текст.
 
-Возврат нормы в корпус: поимённо, запас 50 200 символа оставлен для этого.
+Возврат нормы в корпус: поимённо, запас 50 286 символа оставлен для этого.
 MD
 python3 - <<'ZZ'
 import json,io
@@ -241,7 +243,17 @@ printf '\n## hooks\n\n- `rag-freshness.sh` — снят 2026-09-20: в `.claude/
 TRUTH_EXCLUDE = (":(exclude).claude/hooks/", ":(exclude).claude/backup/")
 ```
 
-и в вызове (~:834) раскрыть пару: `*TRUTH_EXCLUDE` вместо `TRUTH_EXCLUDE`.
+и раскрыть пару во **всех пяти** употреблениях, а не только на `:834`:
+
+| строка | вид | как раскрыть |
+|---|---|---|
+| `:834` | `"--", *specs, TRUTH_EXCLUDE` | `*TRUTH_EXCLUDE` |
+| `:1138` | `*ENV_PATHSPECS, TRUTH_EXCLUDE` | `*TRUTH_EXCLUDE` |
+| `:1252` | `*ENV_PATHSPECS, TRUTH_EXCLUDE` | `*TRUTH_EXCLUDE` |
+| `:1412` | `excl += [..., TRUTH_EXCLUDE]` | `excl += [..., *TRUTH_EXCLUDE]` — иначе кортеж ляжет внутрь списка и сломает git-вызов |
+| `:2002` | `coord, *ENV_PATHSPECS, TRUTH_EXCLUDE` | `*TRUTH_EXCLUDE` |
+
+Проверка: `grep -c 'TRUTH_EXCLUDE' docfresh.py` → 6 (одно определение + пять раскрытых).
 
 - [ ] **Step 5: Доказать и закоммитить**
 
@@ -264,19 +276,19 @@ git add -A .claude .gitignore tmp/rules-compression/
 git commit -m "refactor(rules): 15 процессных файлов и сирота-хук в .claude/backup
 
 Решение владельца 2026-09-20: в .claude остаётся только то, что используется при написании
-кода, тестировании и доставке. Снято 83 ссылки skills:, 15 строк MANIFEST, 15 симлинков.
+кода, тестировании и доставке. Снято 80 ссылок skills: и 50 inline-ссылок диспетчера, 13 строк MANIFEST, 13 симлинков.
 49 норм класса A, не держащихся гейтом, заготовлены к переселению в 00-kacho-core.
 Три механизма адреса: claudeMdExcludes, TRUTH_EXCLUDE в docfresh, снятие непровязанного хука."
 ```
 
-Ожидается: правил **17**, архива 14, симлинков 17, корпус ≈ 379 000, `OK` трижды, `rules-gate: 0`. Если `rules-gate` покраснеет — не коммить, вернуть находку в отчёт.
+Ожидается: правил **17**, архива 14, симлинков 17, корпус ≈ 390 677, `OK` трижды, `rules-gate: 0`. Если `rules-gate` покраснеет — не коммить, вернуть находку в отчёт.
 
 ---
 
-### Task 3: Frontmatter в 15 оставшихся файлов правил
+### Task 3: Frontmatter в 17 оставшихся файлов правил
 
 **Files:**
-- Modify: 15 `.claude/rules/*.md` — три строки в начало
+- Modify: 17 `.claude/rules/*.md` — три строки в начало
 - Create: `scripts/rules-gate/check-08-rule-frontmatter.sh`, `scripts/rules-gate/inject-08-rule-frontmatter.sh`
 - Test: `scripts/rules-gate/run-all.sh`
 
@@ -305,14 +317,14 @@ for f in .claude/rules/*.md; do
 done
 n=$(ls .claude/rules/*.md | wc -l)
 printf 'осмотрено файлов правил: %s\n' "$n"
-[ "$n" -ge 15 ] || { printf 'КРАСНОЕ — файлов правил меньше 15, обход усечён\n'; rc=1; }
+[ "$n" -ge 17 ] || { printf 'КРАСНОЕ — файлов правил меньше 17, обход усечён\n'; rc=1; }
 exit "$rc"
 ZZ
 chmod +x scripts/rules-gate/check-08-rule-frontmatter.sh
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "код выхода: $?"
 ```
 
-Ожидается: 15 строк `КРАСНОЕ … нет frontmatter`, `осмотрено файлов правил: 15`, `код выхода: 1`.
+Ожидается: 17 строк `КРАСНОЕ … нет frontmatter`, `осмотрено файлов правил: 17`, `код выхода: 1`.
 
 - [ ] **Step 2: Внести frontmatter**
 
@@ -333,7 +345,7 @@ ZZ
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
 ```
 
-Ожидается: 15 строк `+NNN симв`, `check-08: 0`.
+Ожидается: 17 строк `+NNN симв`, `check-08: 0`.
 
 - [ ] **Step 3: Инъекционное доказательство на три оси**
 
@@ -566,7 +578,7 @@ cut -f2 tmp/rules-compression/dangling-after-task2.txt | sed 's/ §.*//;s/#.*//'
 Три рода и что с каждым делать:
 1. **Ссылка на уехавший файл** — цель в `.claude/backup/`. Если утверждение, опирающееся на неё, всё ещё нужно — переадресовать на `#<id>` нормы, которая осталась в корпусе (искать id в описи по предмету). Если утверждение уехало вместе с предметом — снять ссылку **вместе с утверждением**, а не оставить висеть.
 2. **Ссылка на заголовок, который схлопнется** в Task 8–10 — переадресовать на `#<id>` заранее.
-3. **Ссылка была неверной до начала работы** — 4 координаты в `internal/repohygiene` на `multi-agent-flow.md §13` / `§«НЕПРИКОСНОВЕННОСТЬ ЧУЖОГО СОСТОЯНИЯ»`: раздел жил в `multi-agent-flow-shared-tree.md:273`, а тот теперь в `.claude/backup/`. Норма про неприкосновенность чужого дерева — среди 50 переселённых в `00-kacho-core.md`, значит адрес становится `00-kacho-core.md#<id>`.
+3. **Ссылка была неверной до начала работы** — 4 координаты в `internal/repohygiene` на `multi-agent-flow.md §13` / `§«НЕПРИКОСНОВЕННОСТЬ ЧУЖОГО СОСТОЯНИЯ»`: раздел жил в `multi-agent-flow-shared-tree.md:273`, а тот теперь в `.claude/backup/`. Норма про неприкосновенность чужого дерева — среди 49 переселённых в `00-kacho-core.md`, значит адрес становится `00-kacho-core.md#<id>`.
 
 ```bash
 grep -rn 'multi-agent-flow' ../kacho/internal/repohygiene/*.go | head -8
@@ -644,7 +656,7 @@ scripts/rules-gate/measure.sh | tail -1
 scripts/rules-gate/measure.sh --form
 ```
 
-Ожидается: итог ≈ 350 000 (15 файлов + frontmatter, ещё не переписаны); `строк-норм: 0`, `слово «держится»: 92` — до переписывания так и должно быть.
+Ожидается: итог ≈ **390 677**; `строк-норм: **89**` (столько строк с разделителем ` · ` уже есть в прозе 17 файлов — прибор их посчитает нормами, это ожидаемо), `слово «держится»: **69**`. До переписывания так и должно быть.
 
 - [ ] **Step 2: Прибор отбора норм**
 
@@ -664,15 +676,35 @@ GATELESS = 'ЗАВЕСТИ ' + DASH
 HAND = 'ПИСАТЬ РУКАМИ'
 
 
+def balance_bt(s):
+    # Нечётное число backtick ломает markdown. Замер: 146 строк из 860 приходят такими.
+    return s if s.count('`') % 2 == 0 else s.replace('`', '')
+
+
+def holder(n, form_field):
+    # Держатель обязан быть ИМЕНЕМ механизма либо честным `ЗАВЕСТИ <имя>` (Global Constraints).
+    # Замер: у 360 из 860 строк поле формы держателя не несёт, из них из gate/hold восстановимо 36.
+    for src in (form_field, (n.get('gate') or ''), (n.get('hold') or '')):
+        s = (src or '').strip(' `')
+        if s and s not in (DASH, '', 'None') and re.search(r'[A-Za-z_]{4,}', s):
+            return balance_bt(s)
+    return 'ЗАВЕСТИ ' + n['id']
+
+
 def row(n):
     fm = (n.get('form') or '').strip()
-    if not fm or fm == DASH: return None
+    if not fm or fm == DASH:
+        return None
     p = [x.strip(' `') for x in re.split(r'\s*\|\s*', fm) if x.strip(' `')]
-    if len(p) >= 4: imp, hold, red = p[1], p[2], ' | '.join(p[3:])
-    elif len(p) == 3: imp, hold, red = p[1], p[2], DASH
-    elif len(p) == 2: imp, hold, red = p[1], GATELESS, DASH
-    else: imp, hold, red = p[0], GATELESS, DASH
-    return n['id'] + DOT + imp + DOT + hold + DOT + 'red: ' + red
+    if len(p) >= 4:
+        imp, hold_raw, red = p[1], p[2], ' | '.join(p[3:])
+    elif len(p) == 3:
+        imp, hold_raw, red = p[1], p[2], DASH
+    elif len(p) == 2:
+        imp, hold_raw, red = p[1], '', DASH
+    else:
+        imp, hold_raw, red = p[0], '', DASH
+    return n['id'] + DOT + balance_bt(imp) + DOT + holder(n, hold_raw) + DOT + 'red: ' + balance_bt(red)
 
 
 def main(argv):
@@ -730,7 +762,7 @@ cat tmp/rules-compression/measure-before.txt
 
 ```bash
 python3 scripts/rules-gate/rows-from-inventory.py $(cd .claude/rules && ls *.md | tr '\n' ' ')
-ls tmp/rules-compression/rows-*.txt | wc -l   # обязан быть 15
+ls tmp/rules-compression/rows-*.txt | wc -l   # обязан быть 17
 ```
 
 - [ ] **Step 5: Коммит**
@@ -742,11 +774,11 @@ git commit -m "feat(rules-gate): два прибора — объём и фор�
 
 ---
 
-### Task 7: Архив классов C и D базовых файлов, 15 якорей
+### Task 7: Архив классов C и D базовых файлов, 17 якорей
 
 **Files:**
-- Create: `.claude/backup/<15 базовых>.md`
-- Modify: 15 `.claude/rules/*.md` — по строке-якорю
+- Create: `.claude/backup/<17 базовых>.md`
+- Modify: 17 `.claude/rules/*.md` — по строке-якорю
 
 **Interfaces:**
 - Produces: у каждого базового файла есть архивный близнец и строка `archive · доводы, замеры и снятые редакции — .claude/backup/<файл>.md`
@@ -759,7 +791,7 @@ for f in .claude/rules/*.md; do
   [ -f ".claude/backup/$b" ] && { echo "уже есть: $b"; continue; }
   printf '# Архив: %s\n\nСнято 2026-09-20. Норма живёт в `.claude/rules/%s`.\nЗдесь: классы C (процесс) и D (замеры, доводы, отменённое, пересказы).\n' "$b" "$b" > ".claude/backup/$b"
 done
-ls .claude/backup/*.md | wc -l   # обязан быть 31 (15 легаси + 15 базовых + README)
+ls .claude/backup/*.md | wc -l   # обязан быть 31 (13 легаси + 17 базовых + README)
 ```
 
 - [ ] **Step 2: Вписать якорь в каждый базовый файл**
@@ -833,7 +865,10 @@ for f in testing.md api-conventions.md data-integrity.md 00-kacho-core.md securi
 Сохранить: frontmatter (Task 3), строку-якорь (Task 7) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.md.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы. **Два исключения, обязательных:**
+1. запись несёт непустой `gate` — остаётся строкой-ссылкой на гейт (таких 93 по корпусу);
+2. абзац в повелительной форме («обязан», «запрещено», «только», «не …ся») — остаётся строкой-нормой, даже если класс D или C.
+После переноса прогнать: `grep -nE 'обязан|запрещ|только |не заводится' .claude/backup/<файл>.md` — каждое попадание разобрать и решить, не норма ли это.
 
 Строки с пометкой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст, свести
 к четырём полям. Ориентир 172 символа; строка, из которой нельзя вывести вердикт, не годится, даже
@@ -844,6 +879,13 @@ for f in testing.md api-conventions.md data-integrity.md 00-kacho-core.md securi
 ```bash
 for f in testing.md api-conventions.md data-integrity.md 00-kacho-core.md security-hardening.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify testing.md api-conventions.md data-integrity.md 00-kacho-core.md security-hardening.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -902,7 +944,10 @@ for f in e2e-flow.md testing-verdict.md security.md ui.md subscription.md; do pr
 Сохранить: frontmatter (Task 3), строку-якорь (Task 7) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.md.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы. **Два исключения, обязательных:**
+1. запись несёт непустой `gate` — остаётся строкой-ссылкой на гейт (таких 93 по корпусу);
+2. абзац в повелительной форме («обязан», «запрещено», «только», «не …ся») — остаётся строкой-нормой, даже если класс D или C.
+После переноса прогнать: `grep -nE 'обязан|запрещ|только |не заводится' .claude/backup/<файл>.md` — каждое попадание разобрать и решить, не норма ли это.
 
 Строки с пометкой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст, свести
 к четырём полям. Ориентир 172 символа; строка, из которой нельзя вывести вердикт, не годится, даже
@@ -913,6 +958,13 @@ for f in e2e-flow.md testing-verdict.md security.md ui.md subscription.md; do pr
 ```bash
 for f in e2e-flow.md testing-verdict.md security.md ui.md subscription.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify e2e-flow.md testing-verdict.md security.md ui.md subscription.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -971,7 +1023,10 @@ for f in polyrepo.md architecture.md testing-newman.md testing-load.md security-
 Сохранить: frontmatter (Task 3), строку-якорь (Task 7) и **только адресуемые заголовки** — их печатает
 `python3 scripts/rules-gate/address-refs.py --list | grep '<файл>'`. Тело заменить строками из
 `tmp/rules-compression/rows-<файл>.md.txt`, сгруппировав их под сохранёнными заголовками.
-Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы.
+Классы C и D перенести в `.claude/backup/<файл>.md`, каждую запись — с id нормы. **Два исключения, обязательных:**
+1. запись несёт непустой `gate` — остаётся строкой-ссылкой на гейт (таких 93 по корпусу);
+2. абзац в повелительной форме («обязан», «запрещено», «только», «не …ся») — остаётся строкой-нормой, даже если класс D или C.
+После переноса прогнать: `grep -nE 'обязан|запрещ|только |не заводится' .claude/backup/<файл>.md` — каждое попадание разобрать и решить, не норма ли это.
 
 Строки с пометкой `ПИСАТЬ РУКАМИ` дописать по координате из описи: прочитать исходный текст, свести
 к четырём полям. Ориентир 172 символа; строка, из которой нельзя вывести вердикт, не годится, даже
@@ -982,6 +1037,13 @@ for f in polyrepo.md architecture.md testing-newman.md testing-load.md security-
 ```bash
 for f in polyrepo.md architecture.md testing-newman.md testing-load.md security-disclosure.md; do printf '%-28s %s\n' "$f" "$(scripts/rules-gate/measure.sh $f)"; done
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify polyrepo.md architecture.md testing-newman.md testing-load.md security-disclosure.md
 scripts/rules-gate/check-07-address-resolves.sh; echo "check-07: $?"
 scripts/rules-gate/check-08-rule-frontmatter.sh; echo "check-08: $?"
@@ -1023,10 +1085,17 @@ git commit -m "refactor(rules): партия 3 сведена к строкам-
 ```bash
 scripts/rules-gate/measure.sh | tail -1
 scripts/rules-gate/measure.sh --form
+# форма: держатель обязан нести имя механизма или ЗАВЕСТИ; backtick обязаны быть парными
+awk -F' · ' 'NF>=4 && ($3=="—" || $3=="") {n++} END{print "строк с пустым держателем: "n+0" (обязан быть 0)"}' .claude/rules/*.md
+python3 -c "
+import glob
+bad=[l.rstrip() for f in glob.glob('.claude/rules/*.md') for l in open(f,encoding='utf-8') if ' · ' in l and l.count('\`')%2]
+print('строк с нечётным backtick:',len(bad),'(обязан быть 0)')
+for b in bad[:5]: print('   ',b[:110])"
 python3 scripts/rules-gate/rows-from-inventory.py --verify $(cd .claude/rules && ls *.md | tr '\n' ' ') | grep -v 'ПОТЕРЯНО 0' || echo "потерь нет ни в одном файле"
 ```
 
-Ожидается: итог ≈ **149 800**, запас ≈ 50 200; `без поля red: 0`; `слово «держится»: 0`; потерь нет. Если выше 200 000 — вернуться к партии, чей файл вышел за бюджет. Гейт не заводить.
+Ожидается: итог ≈ **149 714**, запас ≈ 50 286; `без поля red: 0`; `слово «держится»: 0`; потерь нет. Если выше 200 000 — вернуться к партии, чей файл вышел за бюджет. Гейт не заводить.
 
 - [ ] **Step 2: Написать гейт**
 
@@ -1036,8 +1105,8 @@ cat > scripts/rules-gate/corpus_ceiling.py <<'ZZ'
 import glob, sys
 CAP = 200000
 files = sorted(glob.glob('.claude/rules/*.md'))
-if len(files) < 15:
-    print('КРАСНОЕ — файлов правил %d, ожидалось не меньше 15: обход усечён, вердикт беспредметен' % len(files))
+if len(files) < 17:
+    print('КРАСНОЕ — файлов правил %d, ожидалось не меньше 17: обход усечён, вердикт беспредметен' % len(files))
     sys.exit(1)
 sizes = {f: len(open(f, encoding='utf-8').read()) for f in files}
 tot = sum(sizes.values())
@@ -1061,7 +1130,7 @@ chmod +x scripts/rules-gate/check-06-corpus-ceiling.sh
 scripts/rules-gate/check-06-corpus-ceiling.sh; echo "check-06: $?"
 ```
 
-Ожидается: `осмотрено файлов: 15; корпус: ~133937; потолок: 200000; запас: ~66063`, `check-06: 0`.
+Ожидается: `осмотрено файлов: 17; корпус: ~133937; потолок: 200000; запас: ~66063`, `check-06: 0`.
 
 - [ ] **Step 3: Инъекционное доказательство на две оси**
 

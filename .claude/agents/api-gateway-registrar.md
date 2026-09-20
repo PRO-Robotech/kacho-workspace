@@ -4,8 +4,6 @@ description: "Открывает публичные методы на крае g
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-security
   - rule-api-conventions
   - rule-security-hardening

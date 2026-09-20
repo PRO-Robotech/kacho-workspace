@@ -227,12 +227,27 @@ restore
 # ДЕФЕКТ ВТОРОЙ СТОРОНЫ: привязка расшита — ссылка заменена копией текста правила.
 # Копия правила разойдётся с оригиналом молча, и перечень скилов объявит правило
 # экспертизой. Инъекция бьёт ровно в предикат: имя каталога не тронуто.
-cp --remove-destination "$TMP/.claude/rules/vault.md" "$TMP/.claude/skills/rule-vault/SKILL.md"
-run 1 "инъекция: привязка расшита в копию — каталог rule-* перестал быть ссылкой" check-03-roster-matches-tree.sh
-grep -q 'rule-vault' <<<"${LAST_OUT:-}" \
-    && printf '  [ok]   расшитая привязка названа координатой\n' && pass=$((pass + 1)) \
-    || { printf '  [БЕДА] гейт покраснел, но расшитой привязки не назвал\n'; fail=$((fail + 1)); }
-ln -sfn ../../rules/vault.md "$TMP/.claude/skills/rule-vault/SKILL.md"
+# ЦЕЛЬ ВЫВОДИТСЯ ИЗ ДЕРЕВА, А НЕ ПОМНИТСЯ ИМЕНЕМ. Прежде здесь стояло `vault.md`
+# жёстко, и проба сломалась молча, когда правило уехало в `.claude/backup/`
+# (решение владельца 2026-09-20): `cp` не нашёл входа, инъекция не состоялась, а
+# счётчик доложил провал — то есть проба обвиняла гейт в своём собственном
+# отсутствии входа. Берём ЛЮБОЕ правило, у которого есть парный каталог-ссылка;
+# если таких нет вовсе — это третья категория, а не находка.
+VICTIM=""
+for _r in "$TMP"/.claude/rules/*.md; do
+    _b="$(basename "$_r" .md)"
+    if [ -L "$TMP/.claude/skills/rule-$_b/SKILL.md" ]; then VICTIM="$_b"; break; fi
+done
+if [ -z "$VICTIM" ]; then
+    printf '  [⊘]    инъекция расшитой привязки НЕ ВЫПОЛНЕНА: ни одно правило не несёт парного каталога-ссылки — входа нет\n'
+else
+    cp --remove-destination "$TMP/.claude/rules/$VICTIM.md" "$TMP/.claude/skills/rule-$VICTIM/SKILL.md"
+    run 1 "инъекция: привязка расшита в копию — каталог rule-* перестал быть ссылкой ($VICTIM)" check-03-roster-matches-tree.sh
+    grep -q "rule-$VICTIM" <<<"${LAST_OUT:-}" \
+        && printf '  [ok]   расшитая привязка названа координатой\n' && pass=$((pass + 1)) \
+        || { printf '  [БЕДА] гейт покраснел, но расшитой привязки не назвал\n'; fail=$((fail + 1)); }
+    ln -sfn "../../rules/$VICTIM.md" "$TMP/.claude/skills/rule-$VICTIM/SKILL.md"
+fi
 
 restore
 # ГЕЙТ 01 НА ТОЙ ЖЕ ПАРЕ. Исключение живёт в `_lib.sh` и читается ОБОИМИ гейтами;

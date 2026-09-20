@@ -805,7 +805,10 @@ COMMENT_HEADS = ("//", "#", "--", "*", "<!--")
 #
 # Граница честная: `.claude/hooks/` — оснастка разработки, а не продукт; читателем
 # ручки продукта файл оттуда не является ни при каком раскладе.
-TRUTH_EXCLUDE = ":(exclude).claude/hooks/"
+#
+# Предмет docfresh — ЖИВОЕ утверждение о дереве. Архив живым не является by construction:
+# его текст называет координаты, верные на момент снятия.
+TRUTH_EXCLUDE = (":(exclude).claude/hooks/", ":(exclude).claude/backup/")
 
 def pick_hooks_only_env(ws, mono):
     """Ручка, чей ЕДИНСТВЕННЫЙ источник — файл, покрытый ТОЛЬКО путями хуков.
@@ -831,7 +834,7 @@ def pick_hooks_only_env(ws, mono):
         if root is None or not specs:
             return out
         for line in git(root, "grep", "-h", "-I", "-E", "-e", RE_ENVNAME.pattern,
-                        "--", *specs, TRUTH_EXCLUDE):
+                        "--", *specs, *TRUTH_EXCLUDE):
             out.update(RE_ENVNAME.findall(_code_part(line)))
         return out
 
@@ -1135,7 +1138,7 @@ def _ref_targets(root: Path, ref: str) -> set[str]:
 def _ref_envs(root: Path, ref: str) -> set[str]:
     envs: set[str] = set()
     for line in git(root, "grep", "-h", "-I", "-E", "-e", RE_ENVNAME.pattern, ref, "--",
-                    *ENV_PATHSPECS, TRUTH_EXCLUDE):
+                    *ENV_PATHSPECS, *TRUTH_EXCLUDE):
         envs.update(RE_ENVNAME.findall(_code_part(line)))
     return envs
 
@@ -1249,7 +1252,7 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         if root is None:
             continue
         for line in git(root, "grep", "-h", "-I", "-E", RE_ENVNAME.pattern, "--",
-                        *ENV_PATHSPECS, TRUTH_EXCLUDE):
+                        *ENV_PATHSPECS, *TRUTH_EXCLUDE):
             envs.update(RE_ENVNAME.findall(_code_part(line)))
 
     refs: set[str] = set()
@@ -1409,7 +1412,7 @@ class Truth:
     # выхолостился бы целиком. Читателем ручки документ не является.
     def _env_outside_base(self, name: str) -> str | None:
         excl = [":(exclude)" + spec for spec in ENV_PATHSPECS]
-        excl += [":(exclude)*.md", ":(exclude)*.mdx", TRUTH_EXCLUDE]
+        excl += [":(exclude)*.md", ":(exclude)*.mdx", *TRUTH_EXCLUDE]
         for root in (self.ws, self.mono):
             if root is None:
                 continue
@@ -1999,7 +2002,7 @@ def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
         for root in (truth.ws, truth.mono):
             if root is None:
                 continue
-            hits = git(root, "grep", "-h", "-I", "-w", "--", coord, *ENV_PATHSPECS, TRUTH_EXCLUDE)
+            hits = git(root, "grep", "-h", "-I", "-w", "--", coord, *ENV_PATHSPECS, *TRUTH_EXCLUDE)
             # Сравнение — по ЦЕЛОМУ имени, а не подстрокой. `find(coord) >= 0`
             # засчитывал бы `KACHO_..._ENABLE` внутри `KACHO_..._ENABLED`: референт
             # на одну букву длиннее, и несуществующая ручка выглядела бы живой.
@@ -2532,6 +2535,23 @@ def uncovered_doc_dirs(pats: list[re.Pattern[str]], files: list[str]) -> list[st
         # каталог, который классификатор исключает НАМЕРЕННО, попал бы сюда как
         # «не опознан ни одним шаблоном» — отказ по собственному же решению.
         if "node_modules/" in f:
+            continue
+        # `.claude/backup/` — АРХИВ, и это решение владельца 2026-09-20 с предметом,
+        # а не недосмотр. Шаблона в LIVE_WS у него нет НАМЕРЕННО: LIVE-утверждение
+        # обязано сходиться с СЕГОДНЯШНИМ деревом, а текст архива называет
+        # координаты, верные НА МОМЕНТ СНЯТИЯ. Требовать от истории соответствия
+        # нынешнему дереву значило бы либо чинить историю, либо держать гейт
+        # красным вечно. Две другие половины того же решения держатся механизмами:
+        # `.claude/settings.json` → `claudeMdExcludes` не даёт архиву попасть в
+        # автозагрузку, а `TRUTH_EXCLUDE` выше — в сверку истины.
+        #
+        # ЧЕМ ЭТО ИСКЛЮЧЕНИЕ САМОИСТЕКАЕТ: оно верно, пока архив не читают как
+        # норму. Признак нарушения — ссылка на `.claude/backup/` из `skills:`
+        # любого агента; её судит `scripts/rules-gate/check-02-nothing-lost.sh`
+        # осью «объявленный архив, а не второй дом» (два предиката, оба обязательны).
+        # Появится такая ссылка — красным станет тот гейт, а не этот, и правильно:
+        # предмет там.
+        if f.startswith(".claude/backup/"):
             continue
         if f.startswith(TREE_DOC_NAMESPACE) and f.endswith(".md") and "/" in f:
             by_dir.setdefault(f.rsplit("/", 1)[0], []).append(f)

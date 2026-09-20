@@ -4,8 +4,6 @@ description: "Правит консоль ui-future/**: по находке сн
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-ui
   - rule-e2e-flow
 ---
