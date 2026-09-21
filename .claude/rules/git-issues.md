@@ -13,7 +13,16 @@ description: "Разметка задач и комментариев GitHub Iss
 
 ## Git / коммиты
 
-gi-conventional-commits · Conventional Commits: `feat:` `fix:` `chore:` `docs:` `test:` `ci:` `refactor:` · ЗАВЕСТИ gi-conventional-commits · red: тип не из набора либо тип отсутствует
+gi-conventional-commits · Conventional Commits, набор ЗАКРЫТ и перечислен здесь целиком: `feat:` `fix:` `chore:` `docs:` `test:` `ci:` `refactor:` `design:` `review:` `rules:` `vault:` `tooling:` · ВНИМАНИЕМ — машинного держателя НЕТ (ЗАВЕСТИ gi-conventional-commits: судья по `git log` диапазона PR; предикат снятия — долг в этом поле исчез) · red: тип не из набора либо тип отсутствует
+
+> Пять типов добавлены 2026-09-21 ЗАМЕРОМ, а не по одному поводу. На 1 897 коммитах всех
+> веток типов вне прежнего набора оказалось 46 в 261 коммите. Добавлены те пять, у которых
+> предмет свой, а путевой профиль чистый: `rules:` 80 → `.claude/**`, `vault:` 38 → `obsidian/**`,
+> `review:` 15 и `design:` 6 → `docs/specs/**` (по 100 %), `tooling:` 14 → `scripts/**` и `.claude/**`;
+> вместе 153 из 261. Остальные 41 — разовые и идентификаторы полос вместо типа (`SDD-1:`,
+> `KAN-AUTHN-1:`): это нарушения, а не недостающие метки. История задним числом не правится
+> (решение владельца 2026-09-21).
+
 gi-identity-owner-only · author И committer — ТОЛЬКО личная учётка владельца; `--author=`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, `git -c user.*` и worktree-local override запрещены; коммить дефолтно, дрейф чинится `filter-branch --env-filter` по затронутому диапазону · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись владельца · red: коммит подписан бот-идентичностью либо «Kacho Workspace»
 gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · ЗАВЕСТИ gi-no-attribution-trailers · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` не пушить напрямую и не `--force` без явного разрешения владельца: работа идёт веткой с номером задачи через PR · защита ветви (`enforce_admins`, обязательные контексты) · red: коммит в `main`, которому не предъявить PR
