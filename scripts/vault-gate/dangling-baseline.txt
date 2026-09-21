@@ -104,7 +104,6 @@
 7	../packages/iam-service-scim
 1	../packages/iam-tests-newman
 1	../packages/kacho-deploy-helm-umbrella
-1	../packages/nlb-apps-kacho-config
 2	../packages/proto-apisurface
 2	../packages/proto-iam
 1	../packages/proto-iam-fga-model
