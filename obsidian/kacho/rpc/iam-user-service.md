@@ -128,8 +128,24 @@ git -C kaname ls-tree -r --name-only origin/main internal/apps/kaname/api/user/ 
 Текст отказа `Delete` на владельце аккаунтов производит `internal/repo/kaname/pg/pgmaperr.go`
 (`iamerr.ErrReferenceInUse`), а не FK-сообщение базы.
 
+> [!note] `Block` — писатель отсечки, и пишет он через дверь
+> Запрет участия снимает доступ, а снятие доступа есть **пара** записей отсечки субъекта:
+> первую читают хуки выдачи, вторую — авторитет отзыва на пути запроса. Обе кладёт
+> единственная дверь пакета [[packages/kaname-repo-pg]]; путь, дошедший до одной записи и
+> не дошедший до второй, выглядел бы исполненным целиком. Чего дверь не закрывает —
+> [[KAC/issue-336-kaname]]; чем расходятся схемные писатели той же строки —
+> [[edges/kaname-cutoff-door-vs-schema-writers]].
+>
+> Выключение личности из активного состояния к тому же взводит триггер схемы, который
+> пишет **вторую** запись сам: [[resources/iam-minted-token-revocation]].
+
+## История
+
+- `kn-313` (в `main` не влита на 2026-09-21) — писатели отсечки сведены к одной двери;
+  отсюда [[KAC/issue-336-kaname]] и [[KAC/issue-335-kaname]].
+
 ## See also
 
-[[../packages/iam-domain]] [[../resources/iam-user]] [[iam-internal-user-service]] [[../edges/iam-to-zitadel-oidc]] [[../KAC/KAC-105]]
+[[../packages/iam-domain]] [[../resources/iam-user]] [[iam-internal-user-service]] [[../edges/iam-to-zitadel-oidc]] [[../KAC/KAC-105]] [[resources/iam-user-token-revocation]] [[resources/iam-minted-token-revocation]]
 
 #rpc #kacho-iam #iam #mirror
