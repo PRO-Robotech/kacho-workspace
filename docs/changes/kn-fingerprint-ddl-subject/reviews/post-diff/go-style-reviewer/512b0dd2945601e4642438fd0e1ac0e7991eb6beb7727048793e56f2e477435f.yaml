@@ -156,6 +156,47 @@ critical:
       internal/migrations/*.sql` = 0. Дефект латентный, но молчаливый: первая же
       такая миграция уйдёт из-под отпечатка без следа.
 
+  - id: CLOSED-LIST-SWALLOWS-PLAN-AFFECTING-FORMS
+    tag: '[BLIND SPOT]'
+    coordinate: internal/repo/kaname/pg/scalegrid/ddlsubject.go:470
+    claim: >-
+      Тот же дефект, что у `"foreign"`, но с экземпляром, у которого есть
+      прямой смысл для ПЛАНА ЧТЕНИЯ: в закрытом перечне
+      `objectsWithoutTableSubject` стоят `"statistics": true` и `"policy": true`,
+      и оттого `CREATE STATISTICS … FROM <измеряемая>` и
+      `CREATE POLICY … ON <измеряемая>` отсеиваются МОЛЧА, хотя субъектом
+      влияния у обоих стоит именно измеряемая таблица. Расширенная статистика
+      меняет оценку числа строк планировщиком, политика RLS добавляет в план
+      фильтр. Предмет отчёта — стоимость ЧТЕНИЯ измеряемой таблицы, то есть
+      ровно то, что обе формы двигают.
+    measured: >-
+      Проба-зонд в пакете (заведена на время ревью и снята), искомое
+      `kaname.access_bindings`:
+      `CREATE STATISTICS kaname.ab_stx (dependencies) ON scope, role_id FROM
+      kaname.access_bindings;` -> read=false subjects=[] unknown="";
+      `DROP STATISTICS kaname.ab_stx;` -> read=false;
+      `CREATE POLICY ab_rls ON kaname.access_bindings USING (true);` -> read=false;
+      контроль `ALTER TABLE kaname.access_bindings ADD COLUMN z text;` -> read=true.
+    contradicts_its_own_diff: >-
+      Собственная проба диффа утверждает обратное намерение:
+      fingerprint_ddl_subject_test.go:128 — «статистика планировщика по колонке
+      измеряемой — влияет» для `ALTER TABLE … ALTER COLUMN labels SET STATISTICS
+      500`. То есть статистика планировщика объявлена ВНУТРИ предмета, а
+      отдельный объект статистики над той же таблицей из предмета выпадает
+      молча. Решения об этом расхождении никто не принимал: оно следствие того,
+      что вид объекта попал в разрешающий перечень по имени, а не по вопросу
+      «может ли его субъектом быть измеряемая таблица».
+    requirement: >-
+      Перебрать закрытый перечень `objectsWithoutTableSubject` по ОДНОМУ
+      вопросу — «может ли субъектом этого вида объекта оказаться измеряемая
+      таблица»: `statistics`, `policy`, `foreign` отвечают «да» и в перечне
+      стоять не должны; для каждого либо разбор позиции таблицы (у STATISTICS
+      это `FROM <таблица>`, у POLICY — `ON <таблица>`), либо вывод в
+      `unknownObject` ради осторожного исхода. Пробу — одно-фактной парой на
+      каждый снятый вид. В корпусе сегодня экземпляров нет
+      (`grep -rniE 'CREATE (STATISTICS|POLICY)' internal/migrations/*.sql` = 0),
+      дефект латентный и молчаливый.
+
   - id: E-STRING-BREAKS-STATEMENT-BOUNDARY
     tag: '[STATEMENT BOUNDARY]'
     coordinate: internal/repo/kaname/pg/scalegrid/ddlsubject.go:900
