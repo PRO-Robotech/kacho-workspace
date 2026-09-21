@@ -53,11 +53,11 @@ skills:
 | дифф трогает `go.mod` или импорты между модулями | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Build-граф — три модуля, рёбра ПИНАМИ»; §«`replace` на внутренний модуль — НИ ОДНОГО, ни в одном `go.mod`», пункты «Что остаётся нормой» |
 | дифф трогает отображение SQLSTATE или клиента другого домена | `Skill rule-data-integrity` | `.claude/rules/data-integrity.md` §«Within-service инварианты — ТОЛЬКО на DB-уровне» (отображение SQLSTATE); §«Cross-domain ссылки (owner-сервис / consumer-сервис)» п. 2 (структура клиента) |
 | находка о комментарии, имени или тексте, касающемся защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты — НЕ раскрывать operational security-internals», врезка «Три места, которые НЕ подпадают» |
-| изменение ведётся по контуру: вердикт на отпечаток | `Skill rule-change-graph` | `.claude/rules/change-graph.md` §2 «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»; §3 «Роль без события полномочия не даёт» |
-| выносишь блокирующее возражение | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Возражение рецензента — ТОЖЕ утверждение: несёт предикат и ревизию»; §«Довод, взятый из СОСЕДНЕГО артефакта, стареет вместе с его деревом» |
+| изменение ведётся по контуру: вердикт на отпечаток | `Skill change-graph` | `.claude/rules/change-graph.md` §2 «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»; §3 «Роль без события полномочия не даёт» |
+| выносишь блокирующее возражение | `Read .claude/backup/git-issues-issue-lifecycle.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-issue-lifecycle.md` §«Возражение рецензента — ТОЖЕ утверждение: несёт предикат и ревизию»; §«Довод, взятый из СОСЕДНЕГО артефакта, стареет вместе с его деревом» |
 | прогоняешь линт или чужой предикат ради находки | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` пп. 13, 14, 16 |
-| принимаешь посылку задания либо судишь работу-проверку | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение»; §15 «Результат агента проверяется ЭКСПЕРИМЕНТОМ, а не чтением диффа» |
-| готов одобрить по форме, а доказательства не приложено | `Skill rule-01-wave-contract` | `.claude/rules/01-wave-contract.md` §«Что ревью добирает, а что нет — измерено» |
+| принимаешь посылку задания либо судишь работу-проверку | `Read .claude/backup/multi-agent-flow-orchestration.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-orchestration.md` §14а «ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение»; §15 «Результат агента проверяется ЭКСПЕРИМЕНТОМ, а не чтением диффа» |
+| готов одобрить по форме, а доказательства не приложено | `Read .claude/backup/01-wave-contract.md` (АРХИВ — довод, не норма) | `.claude/rules/01-wave-contract.md` §«Что ревью добирает, а что нет — измерено» |
 
 ## Когда запускаться
 

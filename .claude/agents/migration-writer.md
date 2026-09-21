@@ -56,14 +56,14 @@ Cross-service FK запрещён (база на службу, ban #4 и #8) —
 | заводишь outbox-таблицу или журнал подписки | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Что заводит САМ владелец — ровно три вещи» п. 1; §«Заводишь новый сервис с подпиской — порядок» шаг 1 |
 | гейт или генерация красные; берёшь форму с соседней миграции | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` §«9. Гейт судит КОММИТ, а работа лежит в ИНДЕКСЕ», §«12. Правило берётся из КАНОНА, а не из формы соседних файлов» |
 | миграция касается снятых рёбер сетевого оператора | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Runtime cross-domain edges», врезка «Здесь стояли два ребра оператора сети — сняты решением владельца 2026-08-09» |
-| читаешь записку ресурса до правки | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода» (строка про ресурс), §«Запреты» (дублирование) |
-| работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
+| читаешь записку ресурса до правки | `Read .claude/backup/vault.md` (АРХИВ — довод, не норма) | `.claude/rules/vault.md` §«ДО кода» (строка про ресурс), §«Запреты» (дублирование) |
+| работаешь в общей рабочей копии | `Read .claude/backup/multi-agent-flow-shared-tree.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
 | задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Continuous integration» (синхронизация перед правкой) |
-| перед сдачей ветки | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
-| находка или долг вне предмета; условие блокировки | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt», §«Метка «заблокировано» требует ПРОВЕРЕННОГО условия» |
+| перед сдачей ветки | `Read .claude/backup/git-issues-ci-runs.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
+| находка или долг вне предмета; условие блокировки | `Read .claude/backup/git-issues-issue-lifecycle.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt», §«Метка «заблокировано» требует ПРОВЕРЕННОГО условия» |
 | текст миграции или комментарий касается защиты данных | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты» |
-| задание несёт диагноз или число диспетчера | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Диагноз диспетчера — ГИПОТЕЗА», «ПОДТВЕРЖДЕНИЕ посылки», «Требование 1 — ПАЧКА» |
-| находка по дороге | `Skill rule-multi-agent-flow` | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО» и §«Находка «по дороге» попадает в СВОЙ релиз», §9, §10 пп. 1–3 |
+| задание несёт диагноз или число диспетчера | `Read .claude/backup/multi-agent-flow-orchestration.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Диагноз диспетчера — ГИПОТЕЗА», «ПОДТВЕРЖДЕНИЕ посылки», «Требование 1 — ПАЧКА» |
+| находка по дороге | `Read .claude/backup/multi-agent-flow.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО» и §«Находка «по дороге» попадает в СВОЙ релиз», §9, §10 пп. 1–3 |
 
 ## Когда запускаться, а когда нет
 

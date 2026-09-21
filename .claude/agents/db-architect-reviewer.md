@@ -52,11 +52,11 @@ skills:
 | дифф трогает outbox-таблицу или журнал подписки | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Что заводит САМ владелец — ровно три вещи», пп. 1–2 |
 | изоляция данных параллельных наборов проб | `Skill rule-testing-newman` | `.claude/rules/testing-newman.md` §«Параллельный newman — слоёная parallel-safety», пп. 1–2 и врезка «Мета» |
 | гейт отсекает стенд, на котором меряют | `Skill rule-testing-load` | `.claude/rules/testing-load.md` п. 7 «Гейт, отсекающий стенд, НА КОТОРОМ МЕРЯЮТ, не проверяет ничего важного» |
-| изменение ведётся по контуру: вердикт на отпечаток | `Skill rule-change-graph` | `.claude/rules/change-graph.md` §2 «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»; §3 «Роль без события полномочия не даёт» |
-| выносишь блокирующее возражение | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Возражение рецензента — ТОЖЕ утверждение: несёт предикат и ревизию»; §«Довод, взятый из СОСЕДНЕГО артефакта, стареет вместе с его деревом» |
+| изменение ведётся по контуру: вердикт на отпечаток | `Skill change-graph` | `.claude/rules/change-graph.md` §2 «Вердикт привязан к ОТПЕЧАТКУ, а не к документу»; §3 «Роль без события полномочия не даёт» |
+| выносишь блокирующее возражение | `Read .claude/backup/git-issues-issue-lifecycle.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-issue-lifecycle.md` §«Возражение рецензента — ТОЖЕ утверждение: несёт предикат и ревизию»; §«Довод, взятый из СОСЕДНЕГО артефакта, стареет вместе с его деревом» |
 | прогоняешь чужой предикат или свой разборщик | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` пп. 13, 14, 16 |
-| принимаешь посылку задания | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение»; §15 «Результат агента проверяется ЭКСПЕРИМЕНТОМ, а не чтением диффа» |
-| готов одобрить по форме, а доказательства не приложено | `Skill rule-01-wave-contract` | `.claude/rules/01-wave-contract.md` §«Что ревью добирает, а что нет — измерено» |
+| принимаешь посылку задания | `Read .claude/backup/multi-agent-flow-orchestration.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-orchestration.md` §14а «ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение»; §15 «Результат агента проверяется ЭКСПЕРИМЕНТОМ, а не чтением диффа» |
+| готов одобрить по форме, а доказательства не приложено | `Read .claude/backup/01-wave-contract.md` (АРХИВ — довод, не норма) | `.claude/rules/01-wave-contract.md` §«Что ревью добирает, а что нет — измерено» |
 
 ## Когда запускаться
 

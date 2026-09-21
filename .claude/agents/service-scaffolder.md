@@ -81,14 +81,14 @@ stub/skeleton и «happy-path пока», разрешая ровно одно �
 | новая служба несёт поток изменений (подписку) | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Откуда берут готовое», §«Что заводит САМ владелец», §«Заводишь новый сервис с подпиской — порядок» шаги 3–4 |
 | каркас несёт клиента другого домена либо посев стенда | `Skill rule-data-integrity` | `.claude/rules/data-integrity.md` §«Cross-domain ссылки» п. 2; §«Данные СТЕНДА заводятся посевом, а не миграцией» |
 | берёшь форму файла с соседней службы | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` §«12. Правило берётся из КАНОНА, а не из формы соседних файлов» |
-| читаешь записки vault до заведения каталогов | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода», §«Запреты» (дублирование) |
-| работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
+| читаешь записки vault до заведения каталогов | `Read .claude/backup/vault.md` (АРХИВ — довод, не норма) | `.claude/rules/vault.md` §«ДО кода», §«Запреты» (дублирование) |
+| работаешь в общей рабочей копии | `Read .claude/backup/multi-agent-flow-shared-tree.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
 | задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Continuous integration» |
-| перед сдачей ветки | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
-| находка или долг вне предмета | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt» |
+| перед сдачей ветки | `Read .claude/backup/git-issues-ci-runs.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
+| находка или долг вне предмета | `Read .claude/backup/git-issues-issue-lifecycle.md` (АРХИВ — довод, не норма) | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt» |
 | комментарии каркаса или README называют средство защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты», «Три места, которые НЕ подпадают» |
-| задание несёт диагноз или число диспетчера | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Диагноз диспетчера — ГИПОТЕЗА», «ПОДТВЕРЖДЕНИЕ посылки», «Требование 1 — ПАЧКА» |
-| находка по дороге | `Skill rule-multi-agent-flow` | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО» и §«Находка «по дороге» попадает в СВОЙ релиз», §9, §10 пп. 1–3 |
+| задание несёт диагноз или число диспетчера | `Read .claude/backup/multi-agent-flow-orchestration.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Диагноз диспетчера — ГИПОТЕЗА», «ПОДТВЕРЖДЕНИЕ посылки», «Требование 1 — ПАЧКА» |
+| находка по дороге | `Read .claude/backup/multi-agent-flow.md` (АРХИВ — довод, не норма) | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО» и §«Находка «по дороге» попадает в СВОЙ релиз», §9, §10 пп. 1–3 |
 
 ## Когда запускаться, а когда нет
 
