@@ -60,5 +60,15 @@ assert 0 "$(run "$d")" "БЛИЗНЕЦ: тот же скил назван ГОЛ
 d="$(sandbox)"; skill "$d" alpha
 assert 2 "$(run "$d")" "ПРЕДМЕТА НЕТ: тел агентов ноль — код 2, не зелёное"; rm -rf "$d"
 
+# ── ось E: ЗАГЛАВНЫЕ В ФОРМЕ ВЫЗОВА ────────────────────────────────────────
+# Прежняя редакция допускала заглавные только в предзагрузке, и `Skill rule-MANIFEST`
+# стоял вне наблюдения: ни красного, ни зелёного.
+d="$(sandbox)"; skill "$d" alpha; agent "$d" a alpha 'Грузи `Skill rule-MANIFEST` по триггеру.'
+assert 1 "$(run "$d")" 'ДЕФЕКТ: вызов С ЗАГЛАВНЫМИ без каталога — виден'; rm -rf "$d"
+
+d="$(sandbox)"; skill "$d" alpha; skill "$d" rule-MANIFEST
+agent "$d" a alpha 'Грузи `Skill rule-MANIFEST` по триггеру.'
+assert 0 "$(run "$d")" 'БЛИЗНЕЦ: тот же вызов, каталог есть — молчит'; rm -rf "$d"
+
 echo "инъекция: пройдено $PASS, провалено $FAIL"
 [ "$FAIL" -eq 0 ]

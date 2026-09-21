@@ -13,6 +13,15 @@
 # ПРЕДПОСЫЛКА ПРОВЕРЯЕТСЯ: нет §12 — нет и предмета, код 2, а не зелёное.
 # Пустой раздел — тоже код 2: «ноль находок» на нуле строк ничего не значит.
 #
+# ДВЕ ЗАКОННЫЕ ФОРМЫ КООРДИНАТЫ, И ОБЕ С ЗАГЛАВНЫМИ: голое имя (`testing.md`) и
+# канонический полный путь (`.claude/rules/testing.md`), плюс `CLAUDE.md` и
+# `MANIFEST.md`. Первая редакция знала ОДНУ форму в нижнем регистре и давала
+# ЛОЖНОЕ КРАСНОЕ на законной записи.
+#
+# СВЕРКА С ВЕДОМОСТЬЮ — ТОЧНАЯ. Первая редакция сверяла ПРЕФИКСОМ, и запись в
+# один знак гасила любую новую строку без источника: она префикс чего угодно.
+# «Краснеет в обе стороны» держалось тогда ДЛИНОЙ записей, а не предикатом.
+#
 # ВЕДОМОСТЬ `decision-source-baseline.txt` — только СОКРАЩАЕТСЯ, и краснеет в
 # обе стороны: новая строка без источника — находка; строка ведомости, которая
 # источник уже называет, — тоже находка, её обязаны убрать.
@@ -43,7 +52,7 @@ if not rows:
     sys.exit(2)
 
 DATE = re.compile(r"\b20\d\d-\d\d-\d\d\b")
-COORD = re.compile(r"`[a-z0-9][a-z0-9-]*\.md`")
+COORD = re.compile(r"`[A-Za-z0-9.][A-Za-z0-9._/-]*\.md`")
 
 known = []
 if os.path.isfile(baseline_path):
@@ -63,8 +72,9 @@ for row in rows:
     else:
         sourceless.append(key)
 
-new_findings = [k for k in sourceless if not any(k.startswith(b[:60]) or b.startswith(k) for b in known)]
-healed = [b for b in known if not any(s.startswith(b[:60]) or b.startswith(s) for s in sourceless)]
+known_set = set(known)
+new_findings = [k for k in sourceless if k not in known_set]
+healed = [b for b in known if b not in set(sourceless)]
 
 print(
     f"[CENSUS] {NAME}: строк-решений §12 {len(rows)}; с источником "

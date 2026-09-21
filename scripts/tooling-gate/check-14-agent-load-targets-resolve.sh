@@ -16,6 +16,16 @@
 # ТРИ ОСИ:
 #   A  `Skill <имя>` -> каталог `.claude/skills/<имя>/SKILL.md` существует;
 #   B  `Read .claude/backup/<файл>.md` -> файл существует;
+# ЗАГЛАВНЫЕ ЗАКОННЫ ВО ВСЕХ ТРЁХ ФОРМАХ (`rule-MANIFEST`). Первая редакция
+# допускала их только в предзагрузке, и два живых вхождения `Skill rule-MANIFEST`
+# стояли ВНЕ НАБЛЮДЕНИЯ — ни красного, ни зелёного.
+#
+# ГРАНИЦА ОБРАТНОЙ ОСИ НАЗВАНА: голым упоминанием считается ЛЮБОЕ слово в
+# обратных кавычках, включая пример кода. Это расширение В СТОРОНУ МОЛЧАНИЯ:
+# скил, названный где угодно, читателя получает. Сузить можно, но тогда ось
+# начнёт краснеть на законной прозе, а цена ложного красного здесь выше цены
+# пропуска: предмет оси — забытый файл, а не ошибка загрузки.
+#
 #   C  ОБРАТНАЯ СТОРОНА: скил, которого не зовёт никто и который не стоит ни в
 #      одном `skills:`, — находка другого рода. Не «лишний файл»: это правило,
 #      до агента не доезжающее, то есть норма без читателя.
@@ -43,7 +53,7 @@ for path in sorted(glob.glob(os.path.join(ws, ".claude/agents/*.md"))):
 if not bodies:
     void("тел агентов ноль — загружать нечего, обход беспредметен")
 
-SKILL = re.compile(r"`Skill ([a-z0-9][a-z0-9-]*)`")
+SKILL = re.compile(r"`Skill ([A-Za-z0-9][A-Za-z0-9-]*)`")
 ARCH = re.compile(r"`Read (\.claude/backup/[A-Za-z0-9._-]+\.md)`")
 FM = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.S)
 PRELOAD = re.compile(r"^\s+-\s+([A-Za-z0-9][A-Za-z0-9-]*)\s*$", re.M)
@@ -53,7 +63,8 @@ PRELOAD = re.compile(r"^\s+-\s+([A-Za-z0-9][A-Za-z0-9-]*)\s*$", re.M)
 # Распознаватель, знающий не все формы, не краснеет и не молчит — он лжёт.
 BARE = re.compile(r"`([A-Za-z0-9][A-Za-z0-9-]{2,})`")
 
-skill_calls, arch_reads, preloaded = 0, 0, set()
+skill_occurrences, arch_reads, preloaded = 0, 0, set()
+skill_names = set()
 findings = []
 
 for rel, text in bodies.items():
@@ -66,8 +77,10 @@ for rel, text in bodies.items():
                     f"ПРЕДЗАГРУЗКА НЕ РАЗРЕШАЕТСЯ: {rel} -> skills: {name} — "
                     f"каталога `.claude/skills/{name}/` нет"
                 )
-    for name in set(SKILL.findall(text)):
-        skill_calls += 1
+    here = SKILL.findall(text)
+    skill_occurrences += len(here)
+    for name in set(here):
+        skill_names.add(name)
         if not os.path.isfile(os.path.join(ws, ".claude/skills", name, "SKILL.md")):
             findings.append(
                 f"ЗАГРУЗКА НЕ РАЗРЕШАЕТСЯ: {rel} -> `Skill {name}` — каталога "
@@ -80,7 +93,7 @@ for rel, text in bodies.items():
         if not os.path.isfile(os.path.join(ws, target)):
             findings.append(f"ЧТЕНИЕ НЕ РАЗРЕШАЕТСЯ: {rel} -> `Read {target}` — файла нет")
 
-if skill_calls == 0 and arch_reads == 0 and not preloaded:
+if skill_occurrences == 0 and arch_reads == 0 and not preloaded:
     void("ни одного имени к загрузке во всех телах — обход беспредметен")
 
 called, mentioned = set(), set()
@@ -95,13 +108,15 @@ on_disk = {
 orphan = sorted(on_disk - called - preloaded - mentioned)
 for name in orphan:
     findings.append(
-        f"СКИЛ БЕЗ ЧИТАТЕЛЯ: `.claude/skills/{name}/` — ни один агент его не "
-        f"зовёт и не несёт в `skills:`. Норма, до агента не доезжающая"
+        f"СКИЛ БЕЗ ЧИТАТЕЛЯ: `.claude/skills/{name}/` — ни одно тело агента не "
+        f"зовёт его `Skill {name}`, не несёт в `skills:` и не упоминает голым "
+        f"именем в обратных кавычках. Норма, до агента не доезжающая"
     )
 
 print(
     f"[CENSUS] {NAME}: тел агентов {len(bodies)}; имён в `skills:` {len(preloaded)}; "
-    f"вызовов `Skill` {skill_calls}; чтений архива {arch_reads}; скилов на диске "
+    f"вызовов `Skill` {skill_occurrences} (различных имён {len(skill_names)}); "
+    f"чтений архива {arch_reads}; скилов на диске "
     f"{len(on_disk)}, из них зовут, предзагружают или называют "
     f"{len(on_disk) - len(orphan)}, "
     f"без читателя {len(orphan)}; находок {len(findings)}"
@@ -115,6 +130,7 @@ if findings:
 
 print(
     f"[PASS] {NAME} — все имена к загрузке разрешаются: скилов {len(on_disk)}, "
-    f"вызовов {skill_calls}, чтений архива {arch_reads}, без читателя 0"
+    f"вызовов {skill_occurrences} ({len(skill_names)} имён), чтений архива "
+    f"{arch_reads}, без читателя 0"
 )
 PY
