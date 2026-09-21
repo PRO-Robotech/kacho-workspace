@@ -29,7 +29,7 @@ set -uo pipefail
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="${KACHO_WS:-$(cd "$SELF_DIR/../.." && pwd)}"
 exec python3 - "$WS" "$SELF_DIR/decision-source-baseline.txt" <<'PY'
-import re, sys, os
+import datetime, re, sys, os
 
 ws, baseline_path = sys.argv[1], sys.argv[2]
 base_rel = ".claude/agents/dispatcher.md"
@@ -51,7 +51,22 @@ if not rows:
     print(f"[VOID] {NAME} — раздел 12 пуст, строк-решений 0; предмета нет", file=sys.stderr)
     sys.exit(2)
 
-DATE = re.compile(r"\b20\d\d-\d\d-\d\d\b")
+DATE = re.compile(r"\b(20\d\d)-(\d\d)-(\d\d)\b")
+
+
+def has_real_date(row):
+    """Дата обязана СУЩЕСТВОВАТЬ, а не только иметь форму.
+
+    Прежняя редакция судила образец, и `2026-13-45` проходило источником.
+    Источник — это когда решение принято; несуществующий день не называет
+    ничего и отличим от опечатки только календарём."""
+    for y, m, d in DATE.findall(row):
+        try:
+            datetime.date(int(y), int(m), int(d))
+            return True
+        except ValueError:
+            continue
+    return False
 COORD = re.compile(r"`[A-Za-z0-9.][A-Za-z0-9._/-]*\.md`")
 
 known = []
@@ -67,7 +82,7 @@ def key_of(row):
 sourceless, sourced_keys = [], []
 for row in rows:
     key = key_of(row)
-    if DATE.search(row) or COORD.search(row):
+    if has_real_date(row) or COORD.search(row):
         sourced_keys.append(key)
     else:
         sourceless.append(key)
