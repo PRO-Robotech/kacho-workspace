@@ -82,8 +82,28 @@ verified_against: "перечень RPC сверен с proto ствола redes
 > может, и классификация его как временного заклинивает партицию очереди на всё окно
 > повторов. Разбор класса — `data-integrity.md` §«Межсервисное намерение».
 
+> [!important] `ForceLogout` — две половины, и порядок между ними несущий
+> Отсечка идёт **первой**, потому что держится без чьего-либо содействия; снятие записи
+> сессии следует, потому что оно и превращает вечный отказ в выход. Из этого порядка растут
+> два открытых остатка глагола, заведённые после полосы `kn-313`:
+>
+> - причина снятия пишется `logout` — значения «выведен распорядителем» в закрытом словаре
+>   нет: [[KAC/issue-334-kaname]];
+> - событие `iam.session.force_logout` кладётся транзакцией отсечки, то есть **до** снятия,
+>   и числа снятого не несёт: [[KAC/issue-340-kaname]].
+>
+> Ноль снятых записей — законный исход, а не отказ: у человека могло не быть ни одной живой
+> сессии. Потому различать «сняты N» и «снимать было нечем» обязано событие, а не код
+> ответа. Отсечку обеих записей кладёт единственная дверь пакета
+> [[packages/kaname-repo-pg]]; что она **не** закрывает — [[KAC/issue-336-kaname]].
+
+## История
+
+- `kn-313` (в `main` не влита на 2026-09-21) — `ForceLogout` стал снимать и нашу запись
+  сессии; отсюда [[KAC/issue-334-kaname]] и [[KAC/issue-340-kaname]].
+
 ## See also
 
-[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[../resources/iam-user]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]]
+[[../packages/iam-domain]] [[../resources/iam-access-binding]] [[../resources/iam-user]] [[../edges/iam-to-openfga-check]] [[../KAC/KAC-105]] [[packages/kaname-api-internal-iam]] [[resources/iam-user-token-revocation]] [[resources/iam-minted-token-revocation]]
 
 #rpc #kacho-iam #iam #internal

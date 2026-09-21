@@ -24,7 +24,7 @@ tags:
   - iam
   - internal
   - migrations
-verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался"
+verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался. 2026-09-21: словарь `ended_reason` пересверен по обеим миграциям на ревизии 229a0693 — значений три, не два; остальные строки таблицы колонок при этой сверке не пересматривались"
 ---
 
 # human_sessions (iam)
@@ -55,7 +55,7 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 | `assurance_level` | text | обязателен, CHECK `IN ('1','2','3')` — ось Ф11 |
 | `presented_methods` | text[] | непусто, CHECK `<@ {password, totp, lookup_secret, webauthn, recovery_code}` — словарь `assurance.Methods()`, сверяется пробой `TestHumanSessionMethodVocabularyAgreesWithTheRule` |
 | `password_change_required` | boolean | DEFAULT false; прод-производителя `true` нет — предмет [[KAC/issue-2697]] (решение: поле снимается с контракта) |
-| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина ∈ `{logout, password-change}` — те же значения, что пишут писатели отсечки [[resources/iam-session-revocation]] |
+| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина ∈ `{logout, password-change, second-factor-removed}` (словарь **закрыт**, `human_sessions_ended_reason_check`; третье значение заведено миграцией `20260917160000_second_factor_rows_carry_state_and_step.sql`) |
 | `created_at` | timestamptz | DEFAULT now() |
 
 Индексы: `human_sessions_user_id_idx (user_id)`, `human_sessions_expires_at_idx (expires_at)` —
@@ -82,9 +82,30 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 - Срок и домен печенья — ручки `authn.login.session-ttl` / `authn.login.cookie-domain`; страж
   посадки `own` отказывает в старте без них.
 
+> [!warning] Административный выход причиной не различается
+> Принудительный выход распорядителя снимает запись **той же** причиной `logout`, какой
+> помечает себя выход самого человека: значения «выведен распорядителем» в закрытом словаре
+> нет, а значение вне словаря база отвергнет. От строки сессии к событию дороги при этом
+> тоже нет — событие принудительного выхода номера сессии не несёт. Предмет и решение —
+> [[KAC/issue-334-kaname]].
+
+## Кто ещё держит ключ на эту строку
+
+`kaname.token_families` ссылается на запись сессии внешним ключом с каскадом **на удалении**,
+а снятие строку не удаляет. Отсюда — писатель, отзывающий семейства снятых сессий в той же
+транзакции, и ребро [[edges/kaname-session-end-vs-code-issue]].
+
+## История
+
+- `kn-313` — принудительный выход стал снимать и **нашу** запись сессии; отсюда
+  [[KAC/issue-334-kaname]] (четвёртое значение словаря) и [[KAC/issue-340-kaname]]
+  (число снятого не доезжает до события). Полоса в `main` не влита на 2026-09-21.
+- [[KAC/issue-1281-kaname]] — третье значение словаря, `second-factor-removed`.
+
 ## See also
 
 [[rpc/iam-login-lane]] · [[resources/iam-session-revocation]] · [[resources/iam-recovery-code]] ·
-[[KAC/issue-1269]] · [[KAC/issue-1280]]
+[[KAC/issue-1269]] · [[KAC/issue-1280]] · [[resources/iam-token-family]] ·
+[[resources/iam-user-token-revocation]]
 
 #resource #kacho-iam #iam #internal #migrations
