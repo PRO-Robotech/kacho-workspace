@@ -1,0 +1,645 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer. КРУГ ВТОРОЙ.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+# Запись круга первого (`9a0f4882…yaml`) оставлена нетронутой.
+schema_version: 1
+change_id: gw-session-carrier-set
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+subject: >-
+  край платформы переведён с одной ручки выбора читателя браузерного носителя на
+  МНОЖЕСТВО читателей (`config.SessionCarrierSet`, ручка
+  `KACHO_API_GATEWAY_SESSION_CARRIERS`): три состояния — только чужой · оба ·
+  только наш. Плюс переходное ОКНО с моментом открытия, старшинство «наш
+  носитель решает на каждом своём исходе», общий предикат присутствия носителя
+  на обе полосы, гашение обоих имён на глаголе выхода полосы формы и пять новых
+  гейтов.
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: feat/gateway-session-carrier-set
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/gw-session-carrier-set
+  base: bec320cf47d
+  head: 7108a5d0a8c2cefac80eb336fa2c9572158bddaa
+  commits_over_base: 18
+content_digest: sha256:afb407724678d6b37abd86631d1b70ecd3736a6dd809b8c798b9ceb75cf18998
+digest_definition: >-
+  sha256 сырого вывода
+  `git diff bec320cf47d..7108a5d0a8c2cefac80eb336fa2c9572158bddaa | sha256sum`,
+  снят СВОЕЙ командой в worktree предмета, не принят со слов задания.
+digest_vs_declared:
+  declared_by_author: afb407724678d6b37abd86631d1b70ecd3736a6dd809b8c798b9ceb75cf18998
+  measured_by_this_role: afb407724678d6b37abd86631d1b70ecd3736a6dd809b8c798b9ceb75cf18998
+  ruling: >-
+    СОВПАЛ побайтово — предмет суда тот же, отказ судить не наступил. Вердикт
+    ниже относится ТОЛЬКО к этому отпечатку.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-21T00:00:00Z'
+review_scope: >-
+  полный дифф: 25 файлов, 3387 вставок / 135 удалений, 18 коммитов. Запрет
+  отсрочки (#11) и требование проб в том же PR (#12) судятся по ВСЕМУ диффу.
+fresh_deferral_markers: 0
+probes_in_the_same_pr: true
+
+files_reviewed:
+  - gateway/cmd/api-gateway/main.go
+  - gateway/cmd/api-gateway/session_carrier_validation.go
+  - gateway/cmd/api-gateway/session_carrier_validation_test.go
+  - gateway/cmd/api-gateway/session_carrier_wiring_test.go
+  - gateway/cmd/api-gateway/docs_example_carrier_pair_test.go
+  - gateway/cmd/api-gateway/own_lane_readers_wiring_test.go
+  - gateway/docs/content/install/configuration.mdx
+  - gateway/internal/config/config.go
+  - gateway/internal/config/sessioncarriers.go
+  - gateway/internal/config/session_carriers_test.go
+  - gateway/internal/handler/login_lane_relay.go
+  - gateway/internal/handler/login_lane_relay_test.go
+  - gateway/internal/handler/logout_carrier_states_test.go
+  - gateway/internal/handler/logout_exits_census_test.go
+  - gateway/internal/middleware/auth.go
+  - gateway/internal/middleware/auth_own_session.go
+  - gateway/internal/middleware/auth_session_stepup.go
+  - gateway/internal/middleware/human_session.go
+  - gateway/internal/middleware/login_lane_paths.go
+  - gateway/internal/middleware/session_carrier_names.go
+  - gateway/internal/middleware/session_carrier_readers.go
+  - gateway/internal/middleware/session_carrier_readers_gate_test.go
+  - gateway/internal/middleware/session_carrier_precedence_test.go
+  - gateway/internal/middleware/session_identity_handler.go
+  - gateway/internal/middleware/session_lanes_agree_test.go
+
+# ══ РОД БЛОКИРУЮЩИХ ПРОШЛОГО КРУГА — назван ПРЕЖДЕ нового вердикта ════════
+# Прошлый круг судил отпечаток 9a0f4882… (head 6e05f762cac, 6 коммитов) и вернул
+# по трём критическим. Каждая починка ПЕРЕМЕРЕНА здесь своей командой — заявление
+# автора само по себе статусом не является (multi-agent-flow §15).
+prior_round:
+  record: docs/changes/gw-session-carrier-set/reviews/post-diff/go-style-reviewer/9a0f48829a888f218126177a04d9492de221da06f9f72ceebb52a68b04671e2a.yaml
+  blockers:
+    - id: C1
+      class: PROFILE-REFUSED-BY-ITS-OWN-GUARD
+      was: >-
+        опубликованный пример настройки объявлял посадку `external` рядом с
+        множеством `own,external` — пару, которую страж ЭТОГО ЖЕ изменения
+        отвергает. Оператор, скопировавший единственный образец новой ручки,
+        получал неподнимающийся стенд, и отказ называл ему ручку из документации.
+      author_claims: >-
+        пример приведён к исполнимой паре, и гейт судит ОБЪЯВЛЕНИЯ тем же
+        читателем и тем же стражем, что процесс, плюс проверяет свою предпосылку.
+      status: ПОДТВЕРЖДЕНО — перемерено
+      how_remeasured: >-
+        читал `gateway/docs/content/install/configuration.mdx:190,242,243`:
+        посадка `external` · множество `external` · адрес чужой стороны задан.
+        Провёл эту пару через `validateSessionCarrierConfig` вручную по ветвям
+        `session_carrier_validation.go:106,118,160,166,173`: ни одна не
+        срабатывает — пара законна. Гейт
+        `cmd/api-gateway/docs_example_carrier_pair_test.go:110,126` зовёт
+        `config.Load()` и `validateSessionCarrierConfig` — ровно те же читатель
+        и страж, что в `main.go:181,186`. Предпосылка проверена, а не
+        подразумевается (`:66` — блоков примера обязано быть ровно 1).
+        Перемерил предпосылку: `grep -c '{dedent`' → 1, и все 22 строки вида
+        `^\s*KACHO_…:` лежат в диапазоне 164–265, то есть внутри единственного
+        блока 163–267. Прочие ручки примера гейт не судит, и граница названа
+        вслух (`:27-31`).
+      residue: см. стиль S1 — регулярное выражение читает ВСЮ страницу, а
+        предпосылка считает только блоки; сегодня расхождения нет, измерено.
+    - id: C2
+      class: PREDICATE-STILL-DIVERGES
+      was: >-
+        третья копия предиката присутствия носителя (`r.Cookie(OurSessionCarrierName)`
+        внутри `meFromOwnSession`) лежала в том же диффе, чья шапка объявляла
+        предикат ЕДИНСТВЕННЫМ на сторону.
+      author_claims: >-
+        носитель приходит аргументом, недостижимая ветка снята вместе с
+        докстрокой, утверждение держит обход — «мест чтения носителя 2 · вне
+        файла предикатов 0».
+      status: ПОДТВЕРЖДЕНО в объявленных границах — перемерено
+      how_remeasured: >-
+        `meFromOwnSession` принимает `bearer string`
+        (`session_identity_handler.go`), ветка «носителя нет» снята вместе с
+        абзацем докстроки; единственный вызывающий зовёт её под
+        `ourSessionCarrierOf(r)`. Перепись своей командой:
+        `grep -rn "OurSessionCarrierName\|providerSessionCarrierName" --include=*.go
+        gateway/ | grep -v _test.go` — мест ВЫЗОВА с именем в аргументе два, оба
+        в `internal/middleware/session_carrier_readers.go:45,66`; вне него ноль.
+        Прочие попадания — проза и объявление перечня (композитный литерал,
+        вызовом не являющийся).
+      residue: >-
+        держащий это обход ОБЪЯВЛЕН шире, чем исполняется, — новая критическая
+        C1 ниже. Число «2 · 0» верно ДЛЯ ПАКЕТА полос и не верно для дерева.
+    - id: C3
+      class: GUARD-CLAIMS-MORE-THAN-IT-ENFORCES
+      was: >-
+        страж объявлял свойство шире исполняемого, и четвёртая пара «посадка ×
+        множество» — посадка `own` без нашего читателя — давала ВХОД БЕЗ
+        ЧИТАТЕЛЯ: человек проходит форму, получает носитель и остаётся анонимом.
+      author_claims: >-
+        правило переформулировано одним двусторонним свойством «на стенде
+        читается ровно то, что на нём чеканится»; произведение пар выводится из
+        словаря посадок — «пар осмотрено 6 · законных 3 · обязанных отказать 3».
+      status: ПОДТВЕРЖДЕНО — перемерено
+      how_remeasured: >-
+        обе половины стоят в коде: `session_carrier_validation.go:106`
+        (производитель без читателя) и `:118` (читатель без производителя), плюс
+        половина об адресе `:173`. Проба
+        `session_carrier_validation_test.go:73` берёт посадки из
+        `identityposture.Values()` — ВЫВЕДЕНО из словаря фундамента, не
+        выписано, — и кроет их тремя объявлениями профиля: 2 × 3 = 6 пар,
+        `lawfulCarrierPairs` содержит 3. Подставил мысленно третью посадку
+        `third`: пара `third/external` проходит все ветви стража и даёт
+        `err == nil`, ключа в `lawfulCarrierPairs` нет — `t.Errorf`. То есть
+        новое значение посадки делает пробу КРАСНОЙ, а не молчаливой, как
+        обещает шапка `:56-59`. Ось «состояния носителя» остаётся выписанной
+        (`:62`), и это сказано вслух («из трёх объявлений профиля»); новое
+        состояние представимо только вместе с новой посадкой, которая уже
+        красит пробу, — класс закрыт через красное.
+
+# ══ ГЛАВНОЕ ЭТОГО КРУГА: ЗАКРЫТ ЛИ КЛАСС ═════════════════════════════════
+# Автор заявляет, что знаменатель каждой новой пробы выводится ИЗ ДЕРЕВА.
+# Проверено подстановкой нового элемента в каждый из пяти новых гейтов.
+class_closure_audit:
+  method: >-
+    в каждый гейт мысленно подложен новый элемент его предмета (путь, посадка,
+    сторона множества, имя носителя, выход) и задан вопрос: попадёт ли он под
+    пробу САМ, без правки пробы. «Попадёт» засчитывается и когда проба краснеет,
+    требуя пересмотра, — молчание не засчитывается (measurement-discipline
+    §«Радиус»; gate-authoring §«Пустой вход как всеразрешение»).
+  verdicts:
+    - gate: cmd/api-gateway/session_carrier_validation_test.go
+      denominator: >-
+        посадки — `identityposture.Values()` (ВЫВЕДЕНО); состояния носителя —
+        литерал `carrierStateDeclarations` (:62, ВЫПИСАНО, объявлено вслух)
+      new_element_falls_under_it: да, через красное
+      note: третья посадка даёт `t.Errorf` на паре `third/external` — прослежено по ветвям
+    - gate: cmd/api-gateway/docs_example_carrier_pair_test.go
+      denominator: ручки — из самого документа (ВЫВЕДЕНО), предпосылка проверена
+      new_element_falls_under_it: да
+      note: судимая ПАРА выписана (:89), и граница названа в шапке — честно
+    - gate: internal/handler/logout_exits_census_test.go
+      denominator: >-
+        имена — `middleware.SessionCarrierNames()` (ВЫВЕДЕНО); ВЫХОДЫ — литерал
+        `exits` (:63, ВЫПИСАНО и НЕ объявлено выписанным)
+      new_element_falls_under_it: НЕТ — молча
+      note: см. важное I2
+    - gate: internal/middleware/session_carrier_readers_gate_test.go
+      denominator: >-
+        константы имён — из `SessionCarrierNames()` (ВЫВЕДЕНО); ФАЙЛЫ —
+        `os.ReadDir(".")`, то есть один каталог пакета (:118)
+      new_element_falls_under_it: НЕТ для читателя в другом пакете — молча
+      note: см. критическую C1
+    - gate: cmd/api-gateway/session_carrier_wiring_test.go
+      denominator: >-
+        конструкторы — литерал, объявлен вслух и сверен с деревом на
+        существование; СТОРОНЫ — литерал `[]string{"ReadsOwn","ReadsProvider"}`
+        (:84) под комментарием «выводятся ИЗ НЕГО»
+      new_element_falls_under_it: НЕТ — молча, и утверждение о выведении ложно
+      note: см. критическую C2
+
+# ── критические (блокируют посадку) ────────────────────────────────────────
+critical:
+  - id: C1
+    class: GUARD-CLAIMS-MORE-THAN-IT-ENFORCES
+    repeat_of: круг 1, C3 — тот же класс, новое место
+    coordinates:
+      - gateway/internal/middleware/session_carrier_readers.go:18
+      - gateway/internal/middleware/session_carrier_readers_gate_test.go:118
+      - gateway/internal/middleware/session_carrier_readers_gate_test.go:103
+      - gateway/internal/middleware/session_carrier_readers_gate_test.go:173
+      - gateway/cmd/api-gateway/session_carrier_validation.go:114
+    finding: >-
+      Шапка предикатов утверждает: «`session_carrier_readers_gate_test.go`
+      объявляет находкой ВСЯКОЕ чтение имени носителя вне этого файла»
+      (`session_carrier_readers.go:18`). Исполняется другое, и уже двумя
+      сужениями. Первое — обход: `os.ReadDir(".")` (:118) читает РОВНО каталог
+      пакета `internal/middleware`; читатель, заведённый в `internal/handler`
+      или в `cmd/api-gateway`, не осматривается вовсе. Второе — предикат:
+      `if id, ok := a.(*ast.Ident)` (:103) опознаёт только НЕКВАЛИФИЦИРОВАННОЕ
+      имя; `OurSessionCarrierName` экспортирован, и из чужого пакета он
+      записывается `middleware.OurSessionCarrierName`, то есть `*ast.SelectorExpr`,
+      — мимо предиката даже если обход расширить.
+      Сайт ровно такой формы лежит В ЭТОМ ЖЕ ДИФФЕ:
+      `cmd/api-gateway/session_carrier_validation.go:114` передаёт имя
+      АРГУМЕНТОМ вызова `fmt.Errorf` — то самое, что гейт своей шапкой (:22-24)
+      называет чтением. Гейт молчит. Строка переписи при этом печатает «мест
+      чтения носителя N · из них вне <дома> — 0» (:173) — число о знаменателе,
+      который уже поставлен так, чтобы ноль получился.
+      Цена расхождения названа самим автором и не косметическая: в состоянии,
+      где живы оба читателя, разные ответы на «наш ли это запрос» означают, что
+      действующая личность зависит от задетой полосы.
+    requirement: >-
+      Либо ИСПОЛНИТЬ объявленное: обойти все непроверочные `.go` модуля
+      `gateway` (не один каталог) и опознавать обе формы имени —
+      `*ast.Ident` и `*ast.SelectorExpr` с `X == "middleware"`, — с инъекцией на
+      КВАЛИФИЦИРОВАННОМ близнеце и законным близнецом (проза, текст отказа);
+      либо СУЗИТЬ объявление до «в пакете полос» в шапке
+      `session_carrier_readers.go:18`, в шапке гейта и в строке переписи, и
+      тогда неквалифицированность предиката дефектом не является. Третьего
+      исхода нет: сегодня печатается «ноль вне дома» о том, чего обход не
+      достигает.
+    rule: >-
+      architecture §«arch-doc-truthfulness» (red: комментарий о свойстве,
+      которого в коде нет); gate-authoring §«Инъекция настоящим входом из
+      дерева»; measurement-discipline §«Объём осмотренного»
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+  - id: C2
+    class: ROSTER-CLAIMS-A-DERIVATION-IT-DOES-NOT-PERFORM
+    answers_prior: круг 1, I5 (CLOSED-ROSTER-HOLDS-ITSELF) — ответ дан ЛОЖНЫМ утверждением
+    coordinates:
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:82
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:84
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:56
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:195
+    finding: >-
+      Комментарий «Стороны множества выводятся ИЗ НЕГО: сторона, добавленная
+      множеству и забытая здесь, обязана быть находкой» (:82) стоит ПРЯМО НАД
+      литералом `for _, question := range []string{"ReadsOwn", "ReadsProvider"}`
+      (:84). Выведения нет. `identifiersDeclaredIn("../../internal/config")`
+      действительно разбирает пакет настройки и знает про `ReadsThird`, если та
+      появится, — но цикл о ней не спрашивает, а `bareSetCall` (:195) опознаёт
+      тот же закрытый литерал из двух имён. Подставил новый элемент: сторона
+      `ReadsThird`, добавленная `config.SessionCarrierSet`, и её читатель,
+      забытый в `carrierReaderConstructors`, находкой НЕ становятся — гейт
+      молчит, перепись печатает прежние «сторон покрыто 2».
+      Про сам перечень конструкторов (:59) автор честен — «остаётся
+      объявленным… и это сказано вслух». Ложно ровно утверждение о СТОРОНАХ, и
+      именно им закрыт I5 прошлого круга, требовавший вывести признак из дерева.
+    requirement: >-
+      Вывести стороны из того же разбора, который файл УЖЕ делает: взять из
+      пакета настройки имена методов `SessionCarrierSet` вида `Reads*` и гонять
+      цикл по ним; тем же источником кормить `bareSetCall`, чтобы законная
+      форма условия росла вместе с множеством. Либо снять утверждение о
+      выведении и напечатать в переписи, что стороны ОБЪЯВЛЕНЫ, — но тогда I5
+      прошлого круга остаётся открытым и требует своего решения.
+    rule: >-
+      measurement-discipline §«Единица счёта», §«Объём осмотренного»;
+      gate-authoring §«Исход вместо объявления»; architecture §«arch-doc-truthfulness»
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+  - id: C3
+    class: DECLARED-NEVER-READ / CONTROL-WITHOUT-A-VISIBLE-REFUSAL-COUNT
+    coordinates:
+      - gateway/internal/middleware/human_session.go:104
+      - gateway/internal/middleware/human_session.go:110
+      - gateway/internal/middleware/human_session.go:188
+      - gateway/internal/middleware/human_session.go:200
+      - gateway/docs/content/install/configuration.mdx:231
+      - gateway/internal/observability/metrics/session_lane.go:86
+    finding: >-
+      Две новые клетки полосы — `TransitionalFloorWithheld` и
+      `TransitionalWindowClosed` — пишутся на горячем пути
+      (`auth_session_stepup.go:159`, `auth.go:1288`), попадают в `Snapshot()`
+      и НИКЕМ не читаются. Перепись своей командой:
+      `grep -rn "TransitionalFloorWithheld\|TransitionalWindowClosed"
+      --include=*.go gateway/` — вне `internal/middleware` ноль строк, если не
+      считать одной пробы. Коллектор их не отдаёт.
+      Все ПЯТЬ соседних клеток того же снимка (`CutoffDenied`, `NoSession`,
+      `Unavailable`, `RolloutWindow`, `AssuranceOffAxis`) несут
+      `prometheus.NewDesc` + `Describe` + `Collect` в
+      `internal/observability/metrics/session_lane.go:86,118,137` — форма
+      известна и стоит рядом.
+      Обещание при этом ОПУБЛИКОВАНО: страница установки говорит оператору
+      «Счётчик отвергнутых (`TransitionalWindowClosed`) отвечает, достижима ли
+      она [чужая форма входа] на деле» (`configuration.mdx:231`), а докстрока
+      (`human_session.go:104-114`) — что величина показывает, «пора ли закрывать
+      окно». Наблюдать нечем: край отвергает чужие входы молча, и оператор
+      узнаёт о второй открытой двери не раньше, чем кто-нибудь пожалуется.
+      Переписи «поле снимка → метрика» в
+      `internal/observability/metrics/session_lane_test.go` нет — ни один гейт
+      этого не держит, и поле, добавленное без метрики, проходит молча.
+    requirement: >-
+      Отдать обе клетки коллектором рядом с соседями (desc + `Describe` +
+      `Collect`) и завести перепись: каждое поле
+      `middleware.SessionLaneSnapshot` имеет метрику — разбором или рефлексией
+      по полям, с печатью «полей N · с метрикой M», падением на пустом обходе и
+      инъекцией синтетическим полем. Либо снять обещание со страницы установки
+      и из докстрок — но тогда на вопрос «пора ли закрывать окно» отвечать
+      нечем, а окно заводится ровно затем, чтобы его закрыли.
+    rule: >-
+      security-hardening §«hard-zero-refusals-visible», §«hard-soft-pass-counted»;
+      00-kacho-core «naming-env → TestDeclaredKnobHasAReader» (тот же класс:
+      объявлено и не читается); doc-truthfulness §«Утверждение, пережившее свой
+      предмет» — здесь предмета ещё и не было
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+  - id: C4
+    class: SECOND-PLACE-ABOUT-ONE-SUBJECT
+    repeat_of: круг 1, C2 — тот же класс (копия в файле, чья шапка объявляет единственность)
+    coordinates:
+      - gateway/internal/middleware/session_carrier_names.go:69
+      - gateway/internal/handler/login_lane_relay.go:227
+      - gateway/internal/handler/logout_exits_census_test.go:39
+    finding: >-
+      Шапка `EndSessionCarriers` утверждает: «Одно место продукта гасит печенье
+      одним способом: путь отказа F4d-22 и обработчик выхода зовут ЭТУ функцию»
+      (`session_carrier_names.go:69`). Этот дифф заводит ВТОРОЕ место и второй
+      способ: `endEveryCarrierOnLogout` собирает гасящее печенье вручную
+      (`login_lane_relay.go:227-235`) — `Path`, `MaxAge`, `HttpOnly`, `Secure`,
+      `SameSite` выписаны литералами, `EndSessionCarriers` не зовётся.
+      Сегодня атрибуты совпадают — измерено сравнением двух мест, — и держится
+      это совпадение вниманием автора: его собственный комментарий там так и
+      говорит («Атрибуты те же, что у выдачи и у `EndSessionCarriers`»).
+      Гейта на параллель нет: `endedNames` (`logout_exits_census_test.go:39`)
+      смотрит ТОЛЬКО на `c.MaxAge < 0` и об атрибутах не утверждает ничего.
+      Правка `Path` или `SameSite` в одном месте разойдётся с другим молча, и
+      наблюдаемое следствие — то самое, против которого заведён весь файл:
+      браузер не сопоставит гашение со своим печеньем, и «выйти» оставит
+      человека вошедшим.
+    requirement: >-
+      Завести ОДНУ форму гасящего печенья (например `endedCarrierCookie(name)
+      *http.Cookie`), из которой берут и `EndSessionCarriers`, и
+      `endEveryCarrierOnLogout`; перепись выходов после этого сравнивает
+      атрибуты ПОБАЙТНО, а не только знак `MaxAge`. Шапку
+      `session_carrier_names.go:69` привести к тому, что дерево исполняет,
+      — сегодня она называет одно место там, где их два.
+    rule: >-
+      security-hardening §«hard-hide-existence-byte-identical» (тот же приём:
+      равенство держится обходом, не намерением); architecture
+      §«arch-doc-truthfulness»; code-authoring §«два места об одном предмете»
+    return_to: автор диффа feat/gateway-session-carrier-set
+
+# ── важные ─────────────────────────────────────────────────────────────────
+important:
+  - id: I1
+    class: FORM-CHECK-BLIND-TO-THE-RECEIVER
+    coordinates:
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:185
+      - gateway/cmd/api-gateway/session_carrier_wiring_test.go:328
+    finding: >-
+      Коммит b37d77f9a83 перевёл гейт провязки с «наличия имени» на «форму
+      условия» — правильно, и отрицание с дизъюнкцией закрыты. Но приёмник —
+      тоже часть формы, а `bareSetCall` (:185) принимает ЛЮБОЙ: условие
+      `legacyFlags.ReadsOwn()` пройдёт как решение множества. Таблица инъекций
+      (:328, девять форм) приёмник не варьирует — все девять пишут `carriers.`,
+      то есть ровно одну сторону вопроса. Это тот самый способ обойти гейт
+      формой, которой он не знает.
+    requirement: >-
+      Связать приёмник с величиной, пришедшей из `ResolvedSessionCarriers()`
+      (в корне это одно имя, `sessionCarriers`), и добавить в таблицу
+      отрицательный близнец `otherThing.ReadsOwn()`.
+  - id: I2
+    class: CENSUS-DENOMINATOR-IS-HAND-WRITTEN-AND-NOT-SAID-TO-BE
+    coordinates:
+      - gateway/internal/handler/logout_exits_census_test.go:63
+      - gateway/internal/handler/logout_exits_census_test.go:4
+      - gateway/internal/handler/logout_exits_census_test.go:147
+    finding: >-
+      Заголовок пробы обещает «ВЫХОД ГАСИТ ОБА ИМЕНИ НА КАЖДОМ ВЫХОДЕ, КОТОРЫЙ
+      ПРЕДЛАГАЕТ ПРОДУКТ» (:4), а знаменатель — литерал `exits` из двух записей
+      (:63). Границу шапка называет («выходы, достижимые ЧЕРЕЗ КРАЙ», консоли
+      вне осмотра), но не называет главного: перечень ВЫПИСАН. Подставил новый
+      элемент — третий выход (второй глагол выхода полосы либо второй
+      обработчик): под пробу он не попадёт и красного не даст, а перепись
+      напечатает прежние «выходов осмотрено 2».
+      Форма выведения тут же рядом и уже работает: близнец
+      `TestLoginLaneRelay_ANonLogoutVerbEndsNothing` (:147) гонит цикл по
+      `middleware.LoginLaneRoutes()`.
+      Сверил перечень с деревом своей командой — сегодня выходов ровно два
+      (`/oauth/logout` в `internal/handler/logout_handler.go` и глагол
+      `LoginLanePathLogout`), так что число верно; неверна его ДОЛГОВЕЧНОСТЬ.
+    requirement: >-
+      Половину полосы формы вывести из `LoginLaneRoutes()` по признаку
+      `Verb == LoginLaneVerbLogout` (тогда второй глагол выхода попадёт под
+      пробу сам), половину «обработчики» оставить объявленной и СКАЗАТЬ это в
+      шапке и в строке переписи.
+  - id: I3
+    class: LOAD-BEARING-ASYMMETRY-WITHOUT-A-PROBE
+    coordinates:
+      - gateway/internal/config/sessioncarriers.go:118
+      - gateway/internal/config/sessioncarriers.go:119
+      - gateway/internal/config/session_carriers_test.go:155
+    finding: >-
+      `raw := strings.TrimSpace(c.SessionCarriers)` (:118) и следом
+      `if c.SessionCarriers == ""` (:119) — вопрос задаётся ДВУМ разным
+      величинам в соседних строках. Асимметрия несущая и, насколько я проследил,
+      намеренно верная: значение `"   "` непусто как строка, поэтому идёт путём
+      ОБЪЯВЛЕННОГО и отказывает «нулём элементов», а не выводится молча из
+      посадки. Но ни комментария, ни пробы на этот вход нет: ближайший случай
+      в `session_carriers_test.go:155` — `","`, а не пробельная строка.
+      Второй остаток круга 1 (I1): текст отказа теперь честно говорит, что
+      пробелы вокруг элемента СНИМАЮТСЯ, — и пробы на `" own , external "` тоже
+      нет, хотя требование прошлого круга её называло.
+    requirement: >-
+      Назвать асимметрию комментарием у :119 и закрыть двумя строками в
+      таблице: `"   "` → отказ «нулём элементов»; `" own , external "` →
+      состояние «оба».
+  - id: I4
+    class: NIL-DEREF-ON-A-CONTRACT-THAT-ONLY-«SHOULD»-HOLD
+    coordinates:
+      - gateway/internal/handler/login_lane_relay.go:206
+      - gateway/cmd/api-gateway/login_lane_transport.go:65
+    finding: >-
+      `endEveryCarrierOnLogout` разыменовывает `resp.Request.URL.Path` без
+      проверки. `http.RoundTripper` обязуется выставить `Response.Request`
+      словом «should», а транспорт сюда ИНЖЕКТИРУЕТСЯ из другого пакета
+      (`LoginLaneRelayConfig.Transport`). Сегодня это `*http.Transport`
+      (`login_lane_transport.go:65`), поле выставляет он сам, и паники нет —
+      прослежено. Но инвариант живёт в чужом пакете, а следствие его нарушения
+      — паника в рабочем пути на каждом ответе полосы формы.
+    requirement: >-
+      `if resp.Request == nil || resp.Request.URL == nil { return nil }` первой
+      строкой, с однострочным доводом.
+  - id: I5
+    class: UNDECLARED-RED-COMMIT
+    coordinates:
+      - 654c4a11e687121f4901c628167556ba00aeb85b
+      - gateway/internal/handler/login_lane_relay_test.go
+    finding: >-
+      Перемерено своей командой по каждому из 18 коммитов (см. history_probe
+      ниже): дерево остаётся красным на четырёх. Три первых — ОБЪЯВЛЕННОЕ
+      красное TDD, и первый из них носит это в теме («красное на невыразимый
+      переход носителя сессии»); к ним претензии нет.
+      Четвёртый — `654c4a11e68` — красное НЕ объявленное, и автор его признал
+      в теле следующего коммита. Уточняю запись: пробы упало ДВЕ, а не одна —
+      `TestLoginLaneRelay_F3_51_RelayedRequestCarriesCookiesAndOneForwardedForAndNoIdentity`
+      и `TestLoginLaneRelay_F3_17_ServiceRefusalIsRelayedAsIsAndUnreachableServiceIs503`,
+      обе в `login_lane_relay_test.go`, обе стояли в дереве до этой полосы.
+      Вторая — про ОТКАЗ службы, то есть ровно про дефект («гасим на любом
+      ответе, включая отказ»), и назвать её значило бы назвать дефект точнее.
+      Обе зелены с `f4269fa931f`; к голове сошлось.
+    requirement: >-
+      В теле коммита-починки признание уже есть — довести его до двух проб, либо
+      при последующей переписи полосы не повторять счёт «одна». Не блокирует
+      посадку: на голове расхождения нет.
+
+# ── кандидаты в фундамент ──────────────────────────────────────────────────
+foundation_candidates: []
+# Горизонтального выноса изменение не порождает. Словарь сторон взят ПИНОМ из
+# фундамента (`github.com/PRO-Robotech/corelib`, `identityposture.Parse/Values/
+# Names/String`) и используется обоими новыми разборами — второго словаря не
+# заведено, копии чужого файла в дереве нет (00-kacho-core ban20-copy-ban,
+# polyrepo §«Копия между репозиториями ЗАПРЕЩЕНА»). Всё остальное —
+# доменная логика края и остаётся в службе.
+
+# ── стиль (не блокирует) ───────────────────────────────────────────────────
+style:
+  - id: S1
+    coordinates:
+      - gateway/cmd/api-gateway/docs_example_carrier_pair_test.go:52
+      - gateway/cmd/api-gateway/docs_example_carrier_pair_test.go:66
+    note: >-
+      Предпосылка считает БЛОКИ примера (:66), а `docsEnvLine` (:52) читает
+      строки со ВСЕЙ страницы. Сегодня расхождения нет — измерил: единственный
+      блок занимает строки 163–267, и все 22 совпадения лежат внутри. Строка
+      вида `KACHO_…: значение`, появившаяся в прозе или в таблице вне блока,
+      попадёт в карту примера, а предпосылка этого не увидит. Дешевле читать
+      строки из ТЕЛА блока, а не из файла.
+  - id: S2
+    coordinates:
+      - gateway/internal/middleware/session_carrier_readers.go:86
+    note: >-
+      `ProviderSessionCarrierHeader` экспортирован, а зовут его только из своего
+      пакета (`auth.go`, `session_identity_handler.go`). Экспорт расширяет
+      поверхность пакета без потребителя; строчной буквы хватило бы.
+  - id: S3
+    coordinates:
+      - gateway/internal/middleware/session_carrier_readers.go:105
+    note: >-
+      `c.Name + "=" + c.Value` отдаёт значение БЕЗ кавычек, которые мог провести
+      браузер: `r.Cookie` снимает обрамляющие кавычки при разборе. Для значений
+      сессии это безразлично (октеты внутри кавычек всё равно из того же
+      набора), но довод в комментарии говорит про форму заголовка, а не про
+      кавычки, — стоит дописать строкой.
+  - id: S4
+    coordinates:
+      - gateway/cmd/api-gateway/main.go:1204
+    note: >-
+      Строка комментария о читателях маршрута «кто я» переползла за принятую в
+      файле ширину (склеилась при правке: «…стоит в `middleware` (наш носитель
+      решает на каждом своём исходе). Свой читатель отсечки…»). Переформатировать.
+
+# ── одобрено (перемерено) ──────────────────────────────────────────────────
+approved:
+  - subject: маркеры отсрочки
+    measured: >-
+      `git diff bec320cf47d..7108a5d0a8c | grep '^+' | grep -E
+      'TODO|FIXME|XXX|HACK|t\.Skip'` — 0 совпадений в коде (единственное
+      попадание — русское слово «позже» внутри текста комментария о поведении
+      службы). Запрет #11 не нарушен.
+  - subject: пробы в том же PR
+    measured: >-
+      каждый из 18 коммитов, трогающих прод-код, несёт пробу; дифф заводит пять
+      новых гейтов и расширяет три существующих. Запрет #12 исполнен.
+  - subject: обёртка ошибок
+    measured: >-
+      все новые отказы несут `%w` либо собственный текст с названной ручкой;
+      I2 круга 1 закрыт — `sessioncarriers.go:134` теперь оборачивает отказ
+      посадки, называя, ЧТО спрашивали.
+  - subject: проброс контекста
+    measured: >-
+      `context.Background()`/`context.TODO()` в диффе нет; `r.Context()` идёт
+      до соседей; у ретранслятора свой `context.WithTimeout`
+      (`login_lane_relay.go` ServeHTTP), у клиента чужой стороны —
+      настроенный предел 5 s (`kratos_session.go:96`).
+      arch-per-call-deadline соблюдён.
+  - subject: паника в рабочем пути
+    measured: >-
+      `panic(`, `must*`, `MustParse` в диффе нет; `log.Fatalf` встречается
+      только в `cmd/api-gateway/main.go` на старте (три новых места). Оговорка —
+      важное I4.
+  - subject: журналирование
+    measured: >-
+      только `log/slog`, поля структурные, интерполяции нет; персональных
+      данных в новых строках нет — `logger.Info("browser session carrier
+      readers resolved", …)` несёт состояние множества и посадку.
+  - subject: латиница в именах (#17)
+    measured: >-
+      `git diff | grep '^+' | grep -E '^\+\s*(func|var|const|type)\s+[^ ]*[А-Яа-я]'`
+      — 0. Кириллица только в комментариях и текстах.
+  - subject: чистая архитектура
+    measured: >-
+      `internal/config` не тянет транспорта; `internal/middleware` не тянет pgx
+      и sqlc; handler тонкий; ВСЯ провязка — в `cmd/api-gateway/main.go`
+      (arch-wiring-cmd-only), новых `init()` и пакетных синглтонов нет.
+  - subject: старшинство читателей
+    measured: >-
+      решение «наш носитель решает на каждом своём исходе» исполняется
+      структурно: владение спрашивается ДО полос (`auth.go` `ownsRequest`), обе
+      полосы зовут ОДИН предикат, и наблюдается это счётчиком обращений к
+      дублёру чужой стороны, а не чтением кода
+      (`session_carrier_precedence_test.go`). Знаменатель путей выведен из
+      `LoginLaneRoutes()` — новый глагол полосы попадает под пробу сам.
+
+# ── объявления автора: что перемерено, что не моё ──────────────────────────
+authors_claims:
+  - claim: 'дайджест afb40772…'
+    status: подтверждено — снят своей командой, совпал побайтово
+  - claim: 'C3 починен: одно двустороннее свойство, произведение из словаря посадок, 6/3/3'
+    status: подтверждено — перемерено по ветвям стража и по телу пробы
+  - claim: 'C2 починен: носитель аргументом, обход держит «2 · 0»'
+    status: >-
+      подтверждено в границах пакета полос; сам обход объявлен шире
+      исполняемого — новая критическая C1
+  - claim: 'C1 починен: пример исполним, гейт судит тем же читателем и стражем'
+    status: подтверждено — перемерено, включая предпосылку о единственном блоке
+  - claim: 'первая редакция гашения срабатывала на любом ответе; соседняя проба закоммичена красной'
+    status: >-
+      подтверждено и уточнено — проб упало ДВЕ, а не одна (важное I5); к голове
+      сошлось
+  - claim: '`-race` НЕ выполнен (нет компилятора C)'
+    status: >-
+      принято как «не выполнилось» — не зелёное и не красное, в зачёт проходу
+      НЕ ставится. По коду отмечу: дифф заводит два новых `atomic.Uint64` в
+      `SessionLaneCounts` и одно поле `time.Time`, которое пишется на старте и
+      дальше только читается, — общего изменяемого состояния без синхронизации
+      не видно. Вердикт о прогоне остаётся за landing-reviewer.
+  - claim: 'исход линтера и проб'
+    status: не моё — объявляет landing-reviewer, перемеряет check-verifier
+
+# ── история полосы: коммиты, оставляющие дерево красным ────────────────────
+history_probe:
+  question: >-
+    задание круга: «нет ли в ветке ещё коммитов, оставляющих дерево красным, и
+    сошлось ли всё к зелёному на голове»
+  command: >-
+    отдельный detached-worktree; на каждом из 18 коммитов —
+    `go test -count=1 ./internal/middleware/... ./internal/config/...
+    ./internal/handler/... ./cmd/api-gateway/...` из каталога `gateway/`
+  scope_caveat: >-
+    это НЕ вердикт прогона и НЕ область зелёного: осмотрены четыре пакета,
+    затронутые диффом; `make lint`, остальной модуль и `-race` сюда не входят.
+    Вердикт прогона объявляет landing-reviewer, независимый перемер делает
+    check-verifier.
+  form_note: >-
+    `-count=1` обязателен: без него `TestNoRawCmuxNewOutsideFactory` сам
+    отказывает («проверка ДЕРЕВА на кэшируемом прогоне — вердикт был бы
+    недействителен»). Авторитетная форма — `make test-unit`.
+  red_commits:
+    - sha: b1c4a5ac044
+      kind: объявленное TDD-красное
+      detail: >-
+        тема коммита — «красное на невыразимый переход носителя сессии»;
+        `internal/config_test` при этом ещё и НЕ СОБИРАЕТСЯ (символа не
+        существует) — классическая форма красного-до-кода в Go
+    - sha: a4b24b0338b
+      kind: то же окно TDD
+    - sha: c7f0683f4dc
+      kind: то же окно TDD
+    - sha: 654c4a11e68
+      kind: НЕ объявленное — см. важное I5
+      detail: >-
+        красные `TestLoginLaneRelay_F3_51_…` и `TestLoginLaneRelay_F3_17_…`,
+        обе в `login_lane_relay_test.go`, обе предшествовали полосе
+  green_again_at:
+    tdd_window: 5fe644eb3b3
+    undeclared_window: f4269fa931f
+  converged_at_head: >-
+    да — на голове 7108a5d0a8c ни один из четырёх пакетов не остался красным.
+    Это факт об истории, а не вердикт прогона.
+
+linter_probes_outcome: not-claimed-by-this-role
+
+# ── возврат ────────────────────────────────────────────────────────────────
+return_to: автор диффа feat/gateway-session-carrier-set
+next_requested: >-
+  автор диффа — C1, C2, C3, C4; после фикса дайджест новый, роль повторяется на
+  нём. Кандидатов в фундамент нет, `git-operator` по этому предмету не нужен.
+  Каталог изменения в воркспейсе — `gw-session-carrier-set`; если у предмета
+  есть номер задачи, перенос записи под `issue-<N>` — отдельным изменением,
+  чужих записей эта роль не трогала.
