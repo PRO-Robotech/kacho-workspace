@@ -150,6 +150,7 @@ def main():
     agents_with_both = 0
     agents_total = 0
     findings = []
+    skipped = []          # (агент, почему НЕ осмотрен) — печатается поимённо
 
     for path in agent_files:
         name = os.path.basename(path)[:-3]
@@ -158,7 +159,14 @@ def main():
         agents_total += 1
         forbidden_raw = read_agent_forbidden(path)
         when_raw = entries.get(name, "")
-        if not forbidden_raw or not when_raw:
+        if not when_raw and not forbidden_raw:
+            skipped.append((name, "нет ни `Когда:` в базе, ни `НЕ запускать:`"))
+            continue
+        if not when_raw:
+            skipped.append((name, "в базе нет строки `Когда:`"))
+            continue
+        if not forbidden_raw:
+            skipped.append((name, "во frontmatter нет `НЕ запускать:`"))
             continue
         agents_with_both += 1
         for when in clauses_of(when_raw):
@@ -173,11 +181,25 @@ def main():
                     continue
                 findings.append((name, when, forbidden, sorted(overlap)))
 
+    # ПЕРЕПИСЬ НАЗЫВАЕТ НЕОСМОТРЕННОЕ ПОИМЁННО. «Находок ноль» без знаменателя
+    # обхода читается как утверждение обо ВСЕХ агентах, и разница между «предмет
+    # чист» и «предмет не смотрели» пропадает. Поэтому пропущенные перечисляются
+    # с причиной, а не сворачиваются в разность двух чисел.
     print(
         f"[CENSUS] base-agent-subject-conflict: записей `### агент` в базе "
         f"{len(entries)}; определений агентов (без диспетчера) {agents_total}, "
-        f"из них с обеими половинами {agents_with_both}; пар клауз сверено "
-        f"{pairs_checked}; порог общих основ {MIN_OVERLAP}; находок {len(findings)}"
+        f"из них осмотрено {agents_with_both}, НЕ осмотрено {len(skipped)}; "
+        f"пар клауз сверено {pairs_checked}; порог общих основ {MIN_OVERLAP}; "
+        f"находок {len(findings)}"
+    )
+    if skipped:
+        print("[CENSUS] НЕ осмотрены (предмета для сверки нет):")
+        for name, why in skipped:
+            print(f"    {name} — {why}")
+    print(
+        "[CENSUS] вне обхода по построению: `.claude/backup/**` (архив), тела "
+        "агентов вне frontmatter, тексты заданий агентам — последние в дереве "
+        "не живут и проверены быть не могут вовсе"
     )
 
     if agents_with_both == 0 or pairs_checked == 0:
