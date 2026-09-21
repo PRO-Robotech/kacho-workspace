@@ -29,8 +29,8 @@ at-dead-asset-does-not-travel · ассет без предмета не зав�
 at-two-grep-engines · `grep` в Bash-инструменте агента и `grep` в скрипте — РАЗНЫЕ движки: харнесс определяет функцию-обёртку на встроенный ugrep 7.8.4 с `-G`, функция НЕ экспортируется, дочерний bash берёт GNU grep 3.12 · проба предпосылки в scripts/tooling-gate/inject.sh · red: вердикт команды, набранной руками, перенесён на скрипт или конвейер без перемера
 at-handrun-predicate-engine-agnostic · выписанный для прогона руками предикат не ставит якорь ветвью альтернативы — `(^|X)` и `(?:^|X)` в обёртке молча не совпадают на части ширин; граница слова пишется `-P` просмотром назад либо `\b` · scripts/tooling-gate/check-12-handrun-predicate-survives-both-greps.sh · red: перепись построена на образце, который в обёртке всегда пуст, и пустота прочитана как факт
 at-rule-address-as-written · ссылка на правило и на скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится и `Skill` его не откроет · scripts/rules-gate/check-11-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
-at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и может только сокращаться; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh` + `scripts/rules-gate/rule-address-baseline.txt` (воркспейс; проверки нумеруют СЕМЬ каталогов-гейтов независимо друг от друга, имя без пути не адресует — этим и столкнулись два `check-10` одной полосой) · red: долг вырос молча либо база пережила свой предмет
-at-markup-is-not-a-script · исключение по роли не выдаётся разметке, чем бы ни начинался файл, и файлу без строки запуска: `#!` в первых двух байтах исполнимости не доказывает, а перечень каталогов ту же дыру заводит заново — судится ФОРМАТ файла · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh`, пары 2 и 4 в `inject-11-rule-address-exists-as-written.sh` (снятие барьера роняет пару 4) · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
+at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и может только сокращаться; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh` вместе с `scripts/rules-gate/rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
+at-markup-is-not-a-script · исключение по роли не выдаётся разметке, чем бы ни начинался файл, и файлу без строки запуска: `#!` в первых двух байтах исполнимости не доказывает, а перечень каталогов ту же дыру заводит заново — судится ФОРМАТ файла · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh`, пары 2 и 4 в его инъекции · red: корпус, агент, навык или корневой протокол изъял себя из переписи одной строкой
 
 ## Канонические агенты (единственный экземпляр — `.claude/agents/` воркспейса; копий нет)
 
@@ -47,37 +47,37 @@ at-no-nested-launches · агент не зовёт другого напрям�
 > строка без файла и файл без строки — обе находки.
 
 - `dispatcher` — выбирает агента под задачу и выставляет последовательность
-- `acceptance-author` — пишет Given-When-Then acceptance-док (markdown, не код) ПЕРЕД любой новой работой
-- `proto-sync` — синхронизирует/адаптирует `.proto` в `kacho-proto` (envelope flat-resources, package…
-- `service-scaffolder` — скелет нового сервиса (cmd/internal/migrations/deploy/CI), без бизнес-логики
-- `rpc-implementer` — реализует один RPC end-to-end строгим TDD (proto→migration→repo(sqlc)→handler→outbox→tests)
-- `go-implementer` — не-RPC правка Go по TDD: багфикс, рефакторинг, corelib/pkg, конфиг, подписки и…
-- `migration-writer` — goose SQL-миграции (JSONB/GIN/UNIQUE/EXCLUDE/CHECK/CAS/triggers)
-- `api-gateway-registrar` — регистрирует новый public RPC в api-gateway (никогда Internal.* на external)
+- `acceptance-author` — пишет Given-When-Then acceptance-док ПЕРЕД новой работой
+- `proto-sync` — синхронизирует и адаптирует `.proto`
+- `service-scaffolder` — скелет нового сервиса, без бизнес-логики
+- `rpc-implementer` — один RPC end-to-end строгим TDD
+- `go-implementer` — не-RPC правка Go по TDD: багфикс, рефакторинг, corelib/pkg, конфиг
+- `migration-writer` — goose SQL-миграции
+- `api-gateway-registrar` — новый public RPC в api-gateway; никогда Internal.* наружу
 - `ui-implementer` — `ui-future/**`, включая красную playwright-пробу до фикса
-- `integration-tester` — конвертит APPROVED-сценарии в падающие integration+e2e тесты (TDD red)
+- `integration-tester` — APPROVED-сценарии в падающие integration+e2e пробы (TDD red)
 - `docs-writer` — `docs/**`: спека-книга, сайты документации компонентов, README
-- `vault-scribe` — `obsidian/kacho/**`: trail задачи, узкие записки по ресурсам и рёбрам, vault-гейт
-- `deploy-engineer` — `deploy/helm/**`, `values*.yaml`, `terraform/**`, стенд: подъём, выкатка, посев, провенанс…
+- `vault-scribe` — `obsidian/kacho/**`: trail задачи, записки, vault-гейт
+- `deploy-engineer` — `deploy/helm/**`, `terraform/**`, стенд: подъём, выкатка, посев
 - `tooling-maintainer` — `.claude/**`, `scripts/*-gate`, хуки, CI воркспейса
-- `git-operator` — трекер и git: issue, метки, ветка и worktree, commit, push, PR, слияние (только после ✅…
+- `git-operator` — трекер и git: issue, метки, ветка, commit, push, PR, слияние
 - `load-tester` — нагрузочные замеры и сравнение прогонов
-- `client-simulator` — имитация клиента с ПУСТЫМ контекстом (`00-kacho-core.md`, ban #18): без протокола и без…
+- `client-simulator` — имитация клиента с ПУСТЫМ контекстом (ban #18)
 - `acceptance-reviewer` — единственный gate APPROVED для acceptance-дока (не заказчик)
-- `system-design-reviewer` — распределённые аспекты (dual-write, идемпотентность, OCC, реконсайл, replica-isolation)
-- `db-architect-reviewer` — Postgres-схемы/миграции против `data-integrity.md`…
-- `go-style-reviewer` — Go clean-code (error wrapping, ctx, slog, no panic в prod-path, thin handlers) плюс скил…
-- `proto-api-reviewer` — proto-изменения: package naming, flat-resource envelope, `Get/List` sync +…
-- `ui-reviewer` — пост-дифф ревью `ui-future/**` по нормам, которые не держатся тестами
-- `qa-test-engineer` — расширяет regression-suite (Newman) против acceptance/спеки как источника истины
-- `security-auditor` — поверхность безопасности до кода, раунды аудита, модель прав, публичный текст на…
-- `wave-reviewer` — **единственный, кто видит диффы всех полос РЯДОМ**: принимает их за один заход, ОДИН раз на…
-- `convergence-reviewer` — **единственная** роль, создающая финальную запись схождения перед посадкой: сверяет…
-- `scout` — read-only разведка для диспетчера: состояние дерева, веток, стенда, конвейера и трекера
-- `class-exposure-analyst` — запускается ПЕРЕД первой строкой кода по APPROVED-приёмке или сформулированному замыслу:…
-- `landing-reviewer` — запускается ПЕРЕД посадкой (коммит, мёрж, squash, cherry-pick, push, закрытие тикета) и при…
-- `check-verifier` — приёмка работ-проверок ЭКСПЕРИМЕНТОМ: вернуть дефект, предъявить законный близнец,…
-- `ci-watcher` — читает вердикт конвейера и разбирает красное по корням в трёх категориях, перезапускает…
+- `system-design-reviewer` — распределённые аспекты: dual-write, идемпотентность, OCC, реконсайл
+- `db-architect-reviewer` — Postgres-схемы и миграции против `data-integrity.md`
+- `go-style-reviewer` — Go clean-code: error wrapping, ctx, slog, thin handlers
+- `proto-api-reviewer` — proto-изменения: именование пакета, envelope, sync-vs-Operation
+- `ui-reviewer` — пост-дифф `ui-future/**` по нормам, которые не держат пробы
+- `qa-test-engineer` — расширяет regression-suite (Newman) против приёмки и спеки
+- `security-auditor` — поверхность безопасности до кода, раунды аудита, модель прав
+- `wave-reviewer` — **единственный, кто видит диффы всех полос РЯДОМ**, ОДИН раз на волну
+- `convergence-reviewer` — **единственная** роль записи схождения перед посадкой
+- `scout` — read-only разведка для диспетчера: дерево, ветки, стенд, конвейер, трекер
+- `class-exposure-analyst` — запускается ПЕРЕД первой строкой кода по APPROVED-приёмке
+- `landing-reviewer` — запускается ПЕРЕД посадкой: коммит, мёрж, squash, push, закрытие
+- `check-verifier` — приёмка работ-проверок ЭКСПЕРИМЕНТОМ, а не прочтением
+- `ci-watcher` — вердикт конвейера, разбор красного по корням в трёх категориях
 
 ## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
 
@@ -92,15 +92,15 @@ at-no-nested-launches · агент не зовёт другого напрям�
 - `testing-product-coach` (workspace) — black-box против развёрнутого стенда, включая Newman
 - `load-testing-coach` (workspace) — методология нагрузки
 - `kacho-docs-writer` (workspace) — регламент документации Kachō
-- `hardening-audit-loop` (workspace) — аудит-рефакторинг до сходимости: 6 дименсий, 9 инвариантов Kachō как определение «дефекта»
-- `measurement-discipline` (workspace) — как получить число или факт о дереве, стенде и чужой работе, который выдержит проверку
+- `hardening-audit-loop` (workspace) — аудит-рефакторинг до сходимости: 6 дименсий, 9 инвариантов
+- `measurement-discipline` (workspace) — как получить число о дереве, стенде и чужой работе
 - `gate-authoring` (workspace) — как построить проверку, СПОСОБНУЮ упасть
-- `verdict-and-landing` (workspace) — как прочесть полученный исход и внести изменение
+- `verdict-and-landing` (workspace) — как прочесть исход и внести изменение
 - `security-surface` (workspace) — поверхность безопасности сервиса
 - `doc-truthfulness` (workspace) — долговечность утверждения в документе
 - `godzila` (workspace) — готовые ШАБЛОНЫ КОДА kachō-стиля
 - `change-graph` (workspace) — контур Kachō Change Graph
-- `<svc>-load-testing` (repo) — конкретные нагрузочные сценарии сервиса
+- `<svc>-load-testing` (repo) — нагрузочные сценарии сервиса
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
 
