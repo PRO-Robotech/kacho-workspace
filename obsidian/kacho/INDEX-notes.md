@@ -446,10 +446,12 @@ tags:
 |---|---|
 | [[packages/kacho-ci-determinism\|CI — детерминизм: пины версий и честные exit-коды]] | живо (stable) |
 | [[packages/kacho-ci-runners\|CI монорепы — ранеры и раскладка job'ов]] | живо (stable) |
+| [[packages/kacho-declaredbreak\|Гейт объявленных разрывов контракта — три исхода и отказ, который не гадает]] | живо (stable) |
 | [[packages/kacho-e2e-fullscope-plan\|e2e-newman fullscope — мастер-план добивания (все 4 сервиса)]] | в работе (in-progress) |
 | [[packages/kacho-monorepo\|kacho — монорепа]] | живо (stable) |
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
 | [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
+| [[packages/kacho-prepush-hook\|Локальный хук отправки — о каком дереве он выносит вердикт]] | живо (stable) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
@@ -535,10 +537,12 @@ tags:
 | [[packages/nlb-apps-kacho-api-loadbalancer\|nlb-apps-kacho-api-loadbalancer]] | живо (stable) |
 | [[packages/nlb-apps-kacho-api-operation\|nlb-apps-kacho-api-operation]] | живо (stable) |
 | [[packages/nlb-apps-kacho-api-targetgroup\|nlb-apps-kacho-api-targetgroup]] | живо (stable) |
+| [[packages/nlb-apps-kacho-config\|nlb-apps-kacho-config]] | живо (stable) |
 | [[packages/nlb-apps-kacho-jobs\|nlb-apps-kacho-jobs]] | живо (stable) |
 | [[packages/nlb-clients-compute\|nlb-clients-compute]] | живо (stable) |
 | [[packages/nlb-clients-iam\|nlb-clients-iam]] | живо (stable) |
 | [[packages/nlb-clients-vpc\|nlb-clients-vpc]] | живо (stable) |
+| [[packages/nlb-cmd-kacho-loadbalancer\|nlb-cmd-kacho-loadbalancer]] | живо (stable) |
 | [[packages/nlb-domain\|nlb-domain]] | живо (stable) |
 | [[packages/nlb-internal-check\|kacho-nlb/internal/check]] | живо (stable) |
 | [[packages/nlb-internal-fgawrite\|nlb-internal-fgawrite]] | живо (stable) |
@@ -573,6 +577,12 @@ tags:
 | [[packages/rm-handler\|rm-handler]] | история (deprecated) |
 | [[packages/rm-repo\|rm-repo]] | история (deprecated) |
 | [[packages/rm-service\|rm-service]] | история (deprecated) |
+
+**домен: kacho-storage**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/storage-cmd-storage\|storage-cmd-storage]] | живо (stable) |
 
 **домен: kacho-ui**
 
@@ -1205,7 +1215,9 @@ tags:
 | [[KAC/issue-254\|#254: правило называло enforce_admins false, в обоих репозиториях true]] | живо (done) |
 | [[KAC/issue-257\|issue-257 — перепись веток: раздел «работа в стволе не вся» давал ложные находки]] | живо (done) |
 | [[KAC/issue-259\|#259: брошенные рабочие копии держали влитые ветки]] | живо (done) |
+| [[KAC/issue-2594\|#2594: хук отправки выносил вердикт о рабочей копии, а не об отправляемой ревизии]] | в работе (in-progress) |
 | [[KAC/issue-2616\|#2616: контракты службы уезжают в её репозиторий — решение владельца]] | живо (active) |
+| [[KAC/issue-2678\|#2678: пробы композиционных корней nlb и storage поднимали носитель на фиксированных портах]] | в работе (in-progress) |
 | [[KAC/issue-2697\|kacho#2697: сессию восстановления с требованием сменить пароль не выдаёт ни один глагол]] | в работе (in-progress) |
 | [[KAC/issue-2699\|kacho#2699: край ретранслирует регистрацию, профили несут её величины (Ф4)]] | в работе (test) |
 | [[KAC/issue-2701\|kacho#2701: край ретранслирует восстановление доступа, профили несут срок кода (Ф5)]] | в работе (test) |
