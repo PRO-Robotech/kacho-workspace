@@ -1399,6 +1399,7 @@ tags:
 | [[KAC/rbac-rules-model-2026-subphase-H-rule-module-scalar\|RBAC rules-model 2026 — sub-phase H (Rule.module scalar) — proto/iam/gateway/ui]] | живо (done) |
 | [[KAC/redesign-2026\|redesign-2026 — 7-сервисный UX-конвергентный редизайн]] | в работе (in-progress) |
 | [[KAC/release-identity-lines-2026-08-31\|релиз identity: две накопительные линии за смену — 11 и 12]] | в работе (in-progress) |
+| [[KAC/release-identity-own\|Маршрут линии release:identity-own — снятие чужого поставщика личности волнами]] | в работе (in-progress) |
 | [[KAC/release-identity\|Релиз identity: закрытие долга службы личности]] | в работе (in-progress) |
 | [[KAC/revocation-not-enforced-at-edge-2026-07-28\|Проверка отзыва на краю ведёт в никуда и проглатывает отказ (2026-07-28)]] | живо (done) |
 | [[KAC/sec-acr-stepup-refinement\|SEC-acr-stepup-refinement — narrow required_acr_min to 41-set]] | живо (done) |
