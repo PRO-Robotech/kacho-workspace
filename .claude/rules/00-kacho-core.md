@@ -35,6 +35,7 @@ ban10-db-level-invariants · within-service — на DB-уровне: FK/UNIQUE/
 ban11-no-deferral · ни одного в не-тестовом дереве, исключений нет · TestNoDeferredWorkInTheTree · red: TODO:/TODO(тикет): в коде, чарте, контракте
 ban11-three-outcomes · исходов три: сделать сейчас · снять вместе с подпираемым кодом · завести предмет с причиной и предикатом снятия · TestLatentMarkerCarriesAReason · red: маркер без ответственного
 ban12-tdd · падающий тест ДО кода, тесты в том же PR · ЗАВЕСТИ ban12-tdd · red: прод-правка без пробы
+ban12-second-echelon · сквозные пробы через край (newman) — второй эшелон, обязателен ОТДЕЛЬНО: он судит развёрнутое, зелёные unit/integration судят собранное и о нём не свидетельствуют · обязательный контекст «сводный вердикт (все шарды)» — .github/required-contexts.txt, assert-required-contexts-match-jobs.py · red: готовность к посадке заявлена по зелёному первому эшелону
 ban13-test-only-pr · не трогает прод-код, без TODO/SKIP/FIXME · TestNoDeferredWorkInTheTree · red: правка сервиса в тестовом PR
 ban14-production-grade · сразу production-форма: error-handling, authz, DB-инварианты, observability, тесты; урезание — только под-фазой, production-complete в своих границах · — (КАНДИДАТ НА ГЕЙТ: stub/skeleton-признаки) · red: stub, «happy-path пока», «authz позже»
 ban15-id-addressing · только immutable `id`; операции смены id нет; `name` — косметический project-scoped label и в URL не попадает · TestPublishedResourceIdIsGuardedByOperationOutcome · red: name или слаг в URL, pull-пути, гранте, cross-service ссылке
