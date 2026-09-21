@@ -205,24 +205,12 @@ json.dump(d, open(p, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PY
 }
 
-# shellcheck disable=SC2329  # зовётся косвенно: имя выводится из имени проверки («check-10-…» → probe_10), прямого вызова нет by construction
-probe_10() {   # отпечаток нормы: в охраняемый раздел базы дописана оговорка
-    python3 - "$1" <<'PY'
-import os
-import re
-import sys
-
-p = os.path.join(sys.argv[1], ".claude/agents/dispatcher.md")
-lines = open(p, encoding="utf-8").read().split("\n")
-start = next(i for i, l in enumerate(lines)
-             if re.match(r"^##\s+\d+\.\s+Когда спрашивать владельца\s*$", l))
-end = next((j for j in range(start + 1, len(lines)) if re.match(r"^##\s", lines[j])),
-           len(lines))
-last = max(i for i in range(start, end) if lines[i].startswith("- "))
-lines.insert(last + 1, "- Перечень выше — ориентир, а не закрытый список.")
-open(p, "w", encoding="utf-8").write("\n".join(lines))
-PY
-}
+# Пробы `probe_10` здесь НЕТ, и это не пропуск. Её предметом была проверка
+# `check-10-owner-escalation-list-is-closed.sh`, снятая 2026-09-21 вместе с
+# ведомостью и инъекцией: механизм отпечатка перенесён к остающемуся держателю
+# `scripts/tooling-gate/check-11-owner-escalation-list-is-closed.sh` (ось D).
+# Проба, пережившая свой предмет, попала бы в строку «НЕ ИЗМЕРЕНО» о проверке,
+# которой в дереве нет, — то есть прибор докладывал бы о несуществующем.
 
 # СТРОКА ТАБЛИЦЫ ВЫРАВНИВАЕТСЯ ПО СИМВОЛАМ, А НЕ ПО БАЙТАМ. `printf %-10s`
 # считает байты, а «нет» в UTF-8 весит шесть, — колонки разъезжались, и таблицу,
