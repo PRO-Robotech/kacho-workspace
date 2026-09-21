@@ -4,9 +4,6 @@
     "**/.claude/rules/**",
     "**/.claude/backup/**"
   ],
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  },
   "hooks": {
     "UserPromptSubmit": [
       {

@@ -89,11 +89,17 @@ AI-оснастка живёт **в единственном экземпляр�
 
 ## Permissions и хуки
 
-`.claude/settings.json` — `bypassPermissions` (локальная dev-машина) плюс хуки: vault-discipline
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
 сабагентов), `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует
-в одном экземпляре; в репозитории продукта его нет и не должно быть: `bypassPermissions`,
-закоммиченный в публичный репозиторий, решал бы за каждого клонирующего.
+в одном экземпляре; в репозитории продукта его нет и не должно быть.
+
+Режима без подтверждений здесь **нет и быть не может**: `permissions.defaultMode` из проектного и
+локального слоёв харнесс **игнорирует** (оба repo-controllable — обход решал бы за каждого
+клонирующего), сессия встаёт в `auto` и спрашивает «Do you want to proceed?». Режим даёт только
+личный `~/.claude/settings.json`, policy или флаг — решение каждого за себя, в дерево не
+коммитится. Измерено 2026-09-21, CC 2.1.278; предикат и признак — `ai-tooling.md`,
+at-bypass-not-from-repo-layer.
 
 Хуки печатают **диспетчеру**, а он ничего не делает сам: что каким агентом закрывается —
 таблица сигналов в `.claude/agents/dispatcher.md`.
