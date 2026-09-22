@@ -4,12 +4,8 @@ description: "Владеет развёртыванием и стендом: ч�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-security
   - rule-security-hardening
-  - rule-multi-agent-flow-shared-tree
-  - rule-multi-agent-flow-waiting
 ---
 
 # Deploy-engineer — развёртывание и состояние стенда

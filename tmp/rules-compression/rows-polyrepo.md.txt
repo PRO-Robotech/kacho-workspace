@@ -1,0 +1,31 @@
+poly-generated-stubs · сгенерированные стабы руками не правятся · buf generate в CI · red: диф в pkg/api вне регенерации
+poly-proto-single-home · только `proto/` репозитория kacho; каталоги сервисов .proto не содержат · TestVocabularyJudgeCatchesACatalogModuleWithNoProtoDirectory · red: .proto в services/
+poly-buf-single-lint · один на всё дерево · .github/workflows/ci.yaml · red: второй buf.yaml
+poly-build-graph-pins · ровно три, пином: kacho→corelib, kaname→corelib, kacho→kaname; corelib — лист; кольца запрещены · TestCrossModuleJudgeIsSilentOnTheAllowedDirections · red: обратное ребро или импорт вместо пина
+poly-copy-ban · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-copy-ban · red: —
+poly-copy-sign-file · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-copy-sign-file · red: —
+poly-copy-trunk-predicate · судит СТВОЛ `ls-tree origin/main`, не рабочую копию · scripts/crossrepo-gate · red: замер по ls-files
+poly-copy-atomic · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-copy-atomic · red: —
+poly-copy-lawful-forms · сгенерированное из своего контракта · фикстура внутри пробы · историческая записка · kacho-workspace:scripts/crossrepo-gate/ · red: послабление вне трёх форм
+poly-copy-gate · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-copy-gate · red: —
+poly-copy-gate-home · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-copy-gate-home · red: —
+poly-copy-decisions-three · словарь закрыт: vendored · own · debt, и debt обязан называть задачу · scripts/crossrepo-gate · red: debt без задачи
+poly-copy-ledger-expires · истекает в обе стороны; `own` на побайтово совпадающей паре — находка · scripts/crossrepo-gate · red: запись без пары
+poly-replace-ban · ни одного replace github.com/PRO-Robotech/... · ! grep -rnE '^replace github.com/PRO-Robotech' project/*/go.mod · red: replace ../ ломает single-repo сборку образа
+poly-gowork · через git-ignored go.work (шаблон go.work.example), бамп — GOWORK=off go get …@<sha> · TestCrossModuleWorkspaceGateCanFailAndCanStaySilent · red: правка go.mod ради локальной разработки
+poly-replace-gate · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-replace-gate · red: —
+poly-green-without-subject · различает «предмета нет» и «предмет чист» · TestCrossModuleJudgeRefusesAnEmptyWalkInsteadOfReportingNoFindings · red: пустой обход как успех
+poly-dockerfile-no-replace · собирается versioned-модулями, go.mod без replace в любом варианте контекста · TestBuildContextGuard · red: COPY siblings с replace
+poly-services-no-code-dep · не импортирует services/<b>/; общение только по API · TestCrossModuleJudgeCatchesTheServiceTakingThePlatform · red: импорт соседнего сервиса
+poly-no-cycles · ПИСАТЬ РУКАМИ · ЗАВЕСТИ poly-no-cycles · red: —
+poly-jwks-fail-closed · JWKS только с iam :9097, fail-closed: нет пригодного ключа → 401, никогда allow · — (КАНДИДАТ НА ГЕЙТ: ветка allow при недоступном авторитете) · red: allow при недоступном iam
+poly-jwks-issuer-selection · по объявленному издателю токена, у каждой записи свой путь; издатель без записи → отказ · ЗАВЕСТИ poly-jwks-issuer-selection · red: перебор записей или путь, выведенный из издателя
+poly-jwks-revocation · читается на пути ПРЕДЪЯВЛЕНИЯ; недоступность авторитета — fail-closed · TestEdgeRevocationLaneHasAReaderOnTheRequestPath · red: отзыв действует только на выдаче
+poly-internal-prefix · дискриминатор ban #6, во внешний маршрутизатор не попадает by construction; имя ребра пишется целиком · TestGRPCMountParity_EveryDeclaredServiceIsMounted · red: ребро названо без префикса
+poly-subscription-pkg-noversion · corelib.subscription, без сегмента версии · TestSubscriptionFormIsDeclaredOnce · red: доменная версия в общей форме
+poly-consumer-opens · соединение открывает ПОТРЕБИТЕЛЬ · TestSubscriptionServerIsSingularAndLivesInTheFoundation · red: толчок от владельца замыкает граф
+poly-acyclicity-statement · объявляется вместе с доводом ацикличности · ЗАВЕСТИ poly-acyclicity-statement · red: ребро без утверждения о направлении
+poly-owners-list-closed · пустое значение = «не объявлен» → 501, а не «все»; заводя такую ручку скажи, сужает она или разрешает · ЗАВЕСТИ poly-owners-list-closed · red: пустой перечень открывает поток всем доменам
+poly-two-dictionaries · называет словарь (proto-пакет или каталог чарта) и сверяется с тем, который читает код · ЗАВЕСТИ poly-two-dictionaries · red: имя из чужого словаря → отказ старта края
+poly-cycles-forbidden · A зовёт B ⇒ B не зовёт A; новое ребро фиксируется перечнем · TestTargetModuleLayoutIsAcyclic · red: обратный вызов владельца к потребителю
+poly-verdict-one-recognizer · читается одним распознавателем `scripts/docs-gate/_lib.py:verdict` в обоих домах · check-01 и check-04 · red: APPROVED, которого никто не читает

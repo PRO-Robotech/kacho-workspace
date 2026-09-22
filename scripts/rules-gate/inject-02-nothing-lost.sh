@@ -80,16 +80,23 @@ C2N=check-02-nothing-lost.sh
 # no-op на первой же перестановке ключей, и утверждение о вердикте начинает
 # относиться к нетронутой копии. Всякая операция обязана что-то изменить и
 # отказывает, если не изменила, — тем же доводом, что и правка таблицы манифеста.
-inj02_settings() {   # <каталог> <операция> [аргумент]
-    python3 - "$1/.claude/settings.json" "$2" "${3-}" <<'PY'
+inj02_settings() {   # <каталог> <операция> [аргумент...]
+    local dir="$1" op="$2"
+    shift 2
+    python3 - "$dir/.claude/settings.json" "$op" "$@" <<'PY'
 import io, json, sys
-path, op, arg = sys.argv[1], sys.argv[2], sys.argv[3]
+path, op = sys.argv[1], sys.argv[2]
+args = sys.argv[3:] or ['']
+arg = args[0]
 before = io.open(path, encoding='utf-8').read()
 data = json.loads(before)
 if op == 'drop_excludes':
     data.pop('claudeMdExcludes', None)
-elif op == 'set_excludes':                 # arg — один шаблон
-    data['claudeMdExcludes'] = [arg]
+elif op == 'set_excludes':                 # args — ОДИН ИЛИ НЕСКОЛЬКО шаблонов.
+    # Список заменяется целиком, поэтому фикстура обязана уметь задать и корпус, и
+    # архив: с 2026-09-20 покрытие требуется для обоих, и одноаргументная форма
+    # доказывала бы «архив без исключения» вместо своего предмета.
+    data['claudeMdExcludes'] = [a for a in args if a]
 elif op == 'add_exclude':                  # arg — шаблон ВДОБАВОК к имеющимся
     data['claudeMdExcludes'] = list(data.get('claudeMdExcludes') or []) + [arg]
 elif op == 'drop_agent':
@@ -260,7 +267,11 @@ assert_says ".claude/rules/domain/x.md" "  ...и назван ИМЕННО не�
 assert_lacks ".claude/rules/x.md," "  ...и не назван покрытый: диагноз указывает на дыру, а не на всё"
 
 d="$(sandbox i_twin_rel)"; b="$(sandbox_digest "$d")"
-inj02_settings "$d" set_excludes '.claude/rules/**'
+# ПРЕДМЕТ ВЫРОС: с 2026-09-20 покрытие обязано включать и архив (`.claude/backup/`),
+# иначе он лишь текстом отличается от второго дома корпуса. Фикстура «другое
+# написание» переписывает СПИСОК целиком, поэтому архивный шаблон ей тоже нужен —
+# иначе она доказывала бы не «судится путь, а не строка», а «архив без исключения».
+inj02_settings "$d" set_excludes '.claude/rules/**' '.claude/backup/**'
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: то же покрытие, другое написание шаблона"
 capture "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: покрытие то же, написание другое — судится ПУТЬ, а не строка"
@@ -369,3 +380,76 @@ assert_says "пропущено как код" "перепись называе�
 assert_says "строк-объявлений" "перепись отличает СТРОКИ-объявления от уникальных целей"
 assert_says "шаблонов claudeMdExcludes" "перепись называет число шаблонов исключения"
 assert_says "при потолке" "перепись называет измеренные тела и потолок — «бюджет сошёлся» без числа не читается"
+
+# ── ось M: `.claude/backup/` — объявленный архив, а не второй дом ───────────
+#
+# Ось новая (Task 2, попытка 2, правка check-02 по указанию контроллера): архив
+# снятых процессных правил живёт ПО ВИДУ как корпус (файлы `<имя>.md` с текстом
+# норм), и разница «архив / второй дом» — не в тексте файла, а в том, ГРУЗИТСЯ
+# ли он. Предмет — два предиката, обязаны выполняться ОДНОВРЕМЕННО:
+#   (а) `.claude/backup/**` покрыт claudeMdExcludes;
+#   (б) ни один агент не тянет файл архива предзагрузкой `skills:`.
+# У каждого предиката — дефект и его законный близнец: файл архива сам по себе
+# не находка (иначе снятие легаси было бы невозможно провести без красного
+# гейта); находкой становится ИМЕННО непокрытость или ИМЕННО ссылка skills:.
+echo
+echo "== ось M: .claude/backup/ — объявленный архив =="
+
+d="$(sandbox m_drop)"
+mkdir -p "$d/.claude/backup"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+inj02_settings "$d" set_excludes '**/.claude/rules/**'
+capture "$d" "$C2N"
+assert_code 1 "ДЕФЕКТ: файл архива есть, но claudeMdExcludes его не покрывает (предикат а)"
+assert_says "АРХИВ БЕЗ ИСКЛЮЧЕНИЯ" "  ...и вердикт назван своим именем"
+assert_says ".claude/backup/x.md" "  ...и назван непокрытый пробный путь"
+assert_lacks "АРХИВ В skills:" "  ...и диагноз ОДИН: skills: агентов не тронуты"
+
+d="$(sandbox m_twin)"; b="$(sandbox_digest "$d")"
+mkdir -p "$d/.claude/backup"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: тот же файл архива, claudeMdExcludes НЕ трогали"
+capture "$d" "$C2N"
+assert_code 0 "БЛИЗНЕЦ: файл архива при покрытых claudeMdExcludes — предикат а верен, не находка"
+
+d="$(sandbox m_skill)"
+mkdir -p "$d/.claude/backup" "$d/.claude/skills/rule-legacy-probe"
+printf '# снятое правило\n\nтекст архива, для пробы гейта.\n' > "$d/.claude/backup/legacy-probe.md"
+ln -s ../../backup/legacy-probe.md "$d/.claude/skills/rule-legacy-probe/SKILL.md"
+cat > "$d/.claude/agents/m-skill-probe.md" <<'MD'
+---
+name: m-skill-probe
+description: "Фикстура инъекции — не читается харнессом, только этим гейтом."
+tools: Read
+skills:
+  - rule-legacy-probe
+---
+
+Пробный агент фикстуры оси M.
+MD
+capture "$d" "$C2N"
+assert_code 1 "ДЕФЕКТ: skills: агента резолвится файлом архива (предикат б)"
+assert_says "АРХИВ В skills:" "  ...и вердикт назван своим именем"
+assert_says "rule-legacy-probe" "  ...и названо конкретное имя скилла-нарушителя"
+assert_says "m-skill-probe.md" "  ...и назван конкретный агент-нарушитель"
+
+d="$(sandbox m_skill_twin)"; b="$(sandbox_digest "$d")"
+mkdir -p "$d/.claude/skills/rule-legacy-probe"
+# Близнец: та же форма ссылки skills:, но символьная ссылка ведёт в ДЕЙСТВУЮЩИЙ
+# корпус (.claude/rules/), а не в архив, — законная форма, которую несут все
+# 17 оставшихся правил.
+ln -s "../../rules/00-kacho-core.md" "$d/.claude/skills/rule-legacy-probe/SKILL.md"
+cat > "$d/.claude/agents/m-skill-probe.md" <<'MD'
+---
+name: m-skill-probe
+description: "Фикстура инъекции — не читается харнессом, только этим гейтом."
+tools: Read
+skills:
+  - rule-legacy-probe
+---
+
+Пробный агент фикстуры оси M.
+MD
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: skills: ведёт в корпус, а не в архив"
+capture "$d" "$C2N"
+assert_code 0 "БЛИЗНЕЦ: skills: на живое правило — предикат б верен, не находка"

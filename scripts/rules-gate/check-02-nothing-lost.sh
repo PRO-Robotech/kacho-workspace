@@ -642,6 +642,91 @@ if uncovered:
         f"становится украшением: ни один файл дерева этого не показывает"
     )
 
+# ── `.claude/backup/` — ОБЪЯВЛЕННЫЙ АРХИВ, А НЕ ВТОРОЙ ДОМ ───────────────────
+#
+# Решение владельца 2026-09-20 держит снятые процессные правила в
+# `.claude/backup/`, а не выкидывает их, — и у архива тот же ВИД, что у
+# корпуса (файлы `<имя>.md` с текстом норм). Разница «архив / второй дом»
+# — не в содержимом файла, а в том, ГРУЗИТСЯ ли он, поэтому предмет здесь не
+# текст, а два предиката, и оба обязаны выполняться ОДНОВРЕМЕННО:
+#   (а) `.claude/backup/**` покрыт claudeMdExcludes — тем же механизмом, что
+#       {RULES_REL}/. Не покрыт — грузится сам, и архив становится вторым
+#       домом текстуально неотличимым от {SECOND_HOME_REL}/;
+#   (б) ни один агент не тянет файл архива предзагрузкой `skills:` — она
+#       делает архивный текст РАБОЧИМ правилом при каждом запуске, а не
+#       справкой, которую открывают вручную.
+# Каталога может не быть вовсе (архив снят целиком или ещё не заведён) —
+# тогда предикату не по чему судить, и это отсутствие предмета, а не
+# находка; проверка ниже идёт ТОЛЬКО если каталог существует на диске.
+BACKUP_REL = ".claude/backup"
+backup_abs = os.path.join(root, BACKUP_REL)
+backup_uncovered = []
+archive_refs = []
+
+if os.path.isdir(backup_abs):
+    backup_probes = [BACKUP_REL + "/x.md", BACKUP_REL + "/domain/x.md"]
+    for probe in backup_probes:
+        spellings = (os.path.join(root, probe), probe)
+        if not any(rx.fullmatch(s) for _p, rx in patterns for s in spellings):
+            backup_uncovered.append(probe)
+    if backup_uncovered:
+        if settings is None:
+            why = f"{SETTINGS_REL}: {settings_note}"
+        elif not patterns:
+            why = f"в {SETTINGS_REL} нет ни одного шаблона claudeMdExcludes"
+        else:
+            shown = ", ".join("«%s»" % p for p, _rx in patterns[:6])
+            why = f"шаблоны claudeMdExcludes ({len(patterns)}: {shown}) этот путь не покрывают"
+        findings.append(
+            f"АРХИВ БЕЗ ИСКЛЮЧЕНИЯ (предикат а): {why}; пробный путь "
+            f"{', '.join(backup_uncovered)} остаётся вне claudeMdExcludes. "
+            f"{BACKUP_REL}/ объявлен архивом, а не вторым домом корпуса, ровно "
+            f"ПОТОМУ что исключён из автозагрузки тем же механизмом, что и "
+            f"{RULES_REL}/; без покрытия он лишь текстом отличается от второго дома"
+        )
+
+    # предикат (б): ни один `skills:` агента не резолвится файлом из архива.
+    # `skills:` предзагружает скиллу САБагенту (измерено в check-02 выше),
+    # значит символьная ссылка `.claude/skills/<имя>/SKILL.md`, ведущая внутрь
+    # {BACKUP_REL}/, доставляет архивный текст РЕГУЛЯРНО — то есть он второй
+    # дом с доставкой не через @import, а через skills:.
+    FM_YAML = re.compile(r"(?ms)\A---\r?\n(.*?)\r?\n---\r?\n")
+    SKILLS_BLOCK = re.compile(r"(?ms)^skills:[ \t]*\r?\n((?:[ \t]*-[ \t]*\S+[ \t]*\r?\n?)+)")
+    SKILL_ITEM = re.compile(r"(?m)^[ \t]*-[ \t]*(\S+)[ \t]*$")
+    agents_abs_probe = os.path.join(root, AGENTS_REL)
+    if os.path.isdir(agents_abs_probe):
+        for aname in sorted(os.listdir(agents_abs_probe)):
+            if not aname.lower().endswith(".md"):
+                continue
+            try:
+                atext = open(os.path.join(agents_abs_probe, aname), encoding="utf-8").read()
+            except OSError:
+                continue
+            fm = FM_YAML.match(atext)
+            if not fm:
+                continue
+            block = SKILLS_BLOCK.search(fm.group(1))
+            if not block:
+                continue
+            for item in SKILL_ITEM.finditer(block.group(1)):
+                skill_md = os.path.join(root, ".claude/skills", item.group(1), "SKILL.md")
+                if not os.path.islink(skill_md):
+                    continue
+                target = os.path.realpath(skill_md)
+                if target == backup_abs or target.startswith(backup_abs + os.sep):
+                    archive_refs.append(
+                        f"{AGENTS_REL}/{aname} skills: {item.group(1)} -> "
+                        f"{os.path.relpath(target, root)}"
+                    )
+    if archive_refs:
+        findings.append(
+            f"АРХИВ В skills: (предикат б): {', '.join(archive_refs[:3])}"
+            f"{f', …и ещё {len(archive_refs) - 3}' if len(archive_refs) > 3 else ''} — "
+            f"предзагрузка `skills:` делает файл {BACKUP_REL}/ рабочим правилом при "
+            f"каждом запуске агента; это второй дом корпуса, доставленный не "
+            f"@import, а skills:, и предикат «архив не тянут» нарушен"
+        )
+
 agent_setting = settings.get("agent") if isinstance(settings, dict) else None
 dispatcher_abs = os.path.join(root, DISPATCHER_REL)
 no_main = []
@@ -740,7 +825,9 @@ census = (
     f"{' (' + listing(offbook, 3) + ')' if offbook else ''}; "
     f"строк-объявлений {declared_lines}, уникальных целей {len(declared)}; "
     f"настройки {settings_note}, шаблонов claudeMdExcludes {len(patterns)}, "
-    f"agent={agent_setting!r}, определений агентов {agents_n}; {budget_note}"
+    f"agent={agent_setting!r}, определений агентов {agents_n}; {budget_note}; "
+    f"{BACKUP_REL}/ {'осмотрен' if os.path.isdir(backup_abs) else 'нет — предмета нет'}"
+    f"{f', непокрытых проб {len(backup_uncovered)}, ссылок skills: в архив {len(archive_refs)}' if os.path.isdir(backup_abs) else ''}"
 )
 print(census, flush=True)   # перепись печатается ПЕРВОЙ и на пустом обходе тоже
 
@@ -769,7 +856,8 @@ print(
     f"{len(core_files)}, ни одно не импортировано, определений агентов в замыкании 0, "
     f"импортов из снятого дома 0, импортов в середине предложения 0; "
     f"{RULES_REL}/ исключён из автозагрузки, главный поток — «{DISPATCHER}», "
-    f"бюджет базы сошёлся"
+    f"бюджет базы сошёлся; {BACKUP_REL}/ "
+    f"{'объявлен архивом (оба предиката верны)' if os.path.isdir(backup_abs) else 'отсутствует'}"
 )
 sys.exit(0)
 PY

@@ -1,0 +1,196 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: issue-2713
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+subject: >-
+  #2713 — предел края (5s) на КАЖДОМ вызове адаптера SessionRevocationsAdapter
+  к внутреннему слушателю службы о сессии (край gateway → kaname:9091)
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2713
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/issue-2713
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: 60843801878d96d41464aaf0f992f3116679bbdf
+content_digest: sha256:41148c31f4edab94003626f0464bb57f3c959ed58e22dc4cafc1fb1f5a26f1d6
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...60843801` (полный трёхточечный дифф
+  от базы origin/main до головы ветки; оба конца — из задания, перемерены своей
+  командой в worktree; merge-base == base, линия чистая).
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+distributed_surface: true    # per-call дедлайн на межсервисном ребре + воркер + fail-closed под перегрузкой
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  полный дифф (3 файла: 1 прод + 2 пробы). Осмотрены callers адаптера вне диффа
+  (fail-closed-диспозиция) и sibling-клиенты внутреннего слушателя (величина 5s)
+  как контекст, но судится дельта к стволу.
+
+files_reviewed:
+  - gateway/internal/clients/session_revocations_client.go            # прод: +33/-3
+  - gateway/internal/clients/session_deadline_test.go                 # проба (чёрный ящик, bufconn)
+  - gateway/internal/clients/session_deadline_behaviour_test.go       # проба (медленный сосед)
+files_read_for_context:
+  - gateway/internal/streamrevocation/sweeper.go                      # воркер: Run→Sweep→ask
+  - gateway/internal/middleware/revocation_local.go                   # IsSessionRevoked consumer
+  - gateway/internal/middleware/auth_session_cutoff.go                # SessionCutoffOf consumer
+  - gateway/internal/middleware/auth_own_session.go                   # ResolveHumanSession consumer
+  - gateway/internal/handler/logout_handler.go                        # Revoke consumer
+  - gateway/internal/clients/iam_subject_client.go                    # sibling: callTimeout 5s
+  - gateway/internal/opsproxy/proxy.go                                # sibling: backendCallTimeout 5s
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок распределённого свойства нет
+important:
+  - id: SDR-2713-I1
+    axis: LEAN / concurrency
+    coord: gateway/internal/handler/logout_handler.go:180
+    finding: >-
+      Двойной вложенный предел на пути выхода: handler уже оборачивает Revoke в
+      WithTimeout(r.Context(), 5s), а адаптер теперь оборачивает повторно (5s).
+      Безвредно (эффективный дедлайн = min ≈ родительский 5s), но собственный
+      5s handler'а стал избыточным.
+    blocking: false
+    note: >-
+      Не распределённый дефект и вне заявленного scope #2713 (правка адаптера).
+      Кандидат на уборку отдельным предметом, не заказ этой роли.
+  - id: SDR-2713-I2
+    axis: наблюдение (не находка)
+    coord: gateway/internal/clients/session_revocations_client.go
+    finding: >-
+      Адаптер не делает principalmeta.OutgoingFromIncoming(ctx) перед WithTimeout,
+      в отличие от opsproxy. Это ПРЕДСУЩЕЕ поведение (диффом не изменено) и
+      корректно для модели адаптера: вопросы о сессии идут под service-identity
+      края по mTLS, а не проброс tenant-principal. Не находка.
+    blocking: false
+
+foundation_candidates: []    # горизонтального выноса в corelib изменение не порождает
+                             # (величина 5s дублируется у трёх клиентов края —
+                             #  осознанный per-client const, не предмет corelib)
+
+# ── оси, которые судит эта роль ────────────────────────────────────────────
+axes:
+  per_call_deadline_on_every_external_call:
+    status: closed
+    evidence: >-
+      Все ПЯТЬ глаголов адаптера, делающих gRPC-вызов, оборачивают ctx в
+      context.WithTimeout(ctx, a.callTimeout): ResolveHumanSession (:91),
+      IsBasicCredentialLive (:136), Revoke (:156), IsSessionRevoked (:177),
+      SessionCutoffOf (:203). Это полный набор внешних вызовов адаптера (поля
+      client/iam/human, других вызывающих методов нет). Инвариант architecture.md
+      «все sibling-методы применяют один и тот же configured-timeout (не часть —
+      да, часть — нет)» выполнен.
+  no_hang_in_worker:
+    status: closed
+    evidence: >-
+      sweeper.go: Run(ctx)→Sweep(ctx)→ask(ctx) — ctx это lifecycle-контекст
+      воркера (НЕ request-ctx), запрос отменён давно. До фикса неотвечающий сосед
+      (GC/перегрузка/полуоткрытый TCP) вешал горутину бессрочно — ровно класс
+      architecture.md §Concurrency «горутины копятся → исчерпание процесса».
+      Дифф и есть это лекарство: WithTimeout(min c родительским дедлайном)
+      ограничивает вызов 5s и снимается на остановке воркера.
+  fail_closed_under_neighbor_overload:
+    status: closed
+    evidence: >-
+      DeadlineExceeded от перегруженного соседа доезжает до СУЩЕСТВУЮЩИХ deny-веток
+      каждого потребителя, а не до мягкого прохода: sweeper.ask err!=nil →
+      verdictUnanswered → Sweep → s.failClosed(); revocation_local.Introspect
+      err!=nil → возвращает ошибку «источник отзыва не ответил», НЕ «активен»;
+      auth_session_cutoff err!=nil → sessionCutoffUnanswered → auth_own_session →
+      writeHTTPUnauthorized; ResolveHumanSession err!=nil → writeHTTPUnauthorized.
+      Единственный проход-под-ошибкой — намеренно решённая полоса входа
+      relayOnUnavailable (F4d-23 / Ф12 Р4), диффом не тронута. Диспозиция
+      потребителей ПРЕДСУЩАЯ; дифф лишь делает ошибочный путь надёжно достижимым
+      вместо зависания.
+  idempotency_retry_on_deadline_exceeded:
+    status: closed
+    evidence: >-
+      Четыре из пяти глаголов — чтения (Resolve/IsRevoked/SessionCutoffOf/
+      CheckBasicCredentialLive), идемпотентны, повтор безопасен. Revoke —
+      идемпотентный повторный отзыв (терминальное состояние), а вызывающий
+      logout_handler собирает ошибку как НЕфатальное предупреждение (revocErrs),
+      автоповтора-шторма нет. Двойной записи в этом сервисе нет — запись владеет
+      сосед, адаптер лишь форвардит один вызов.
+  deadline_does_not_sever_correct_long_path:
+    status: closed
+    evidence: >-
+      Все глаголы — точечные чтения / async-мутация с возвратом Operation (ban #9);
+      легитимной длительности >5s ни у одного нет. 5s совпадает с соседними
+      клиентами внутреннего слушателя — перемерено: iam_subject_client.go
+      callTimeout=5*time.Second; opsproxy/proxy.go backendCallTimeout=5*time.Second.
+      Комментарий-обоснование константы (стр. 25-33) правдив.
+  public_vs_internal_edge_separation:
+    status: closed
+    evidence: >-
+      Адаптер — КЛИЕНТ к внутреннему слушателю kaname:9091 через Internal*-стабы
+      (InternalSessionRevocationsService / InternalIAMService /
+      InternalHumanSessionService). Серверной поверхности не заводит, mux/routing
+      не трогает (restmux вне scope по заданию — предмет api-gateway-registrar).
+      Ban #6 не задет.
+  no_new_cross_domain_edge:
+    status: closed
+    evidence: >-
+      Изменён существующий клиент существующего ребра kacho-api-gateway → kaname
+      (iam, session/revocation). Нового runtime-ребра нет; запись в polyrepo.md
+      не требуется.
+  zero_value_construction_guard:
+    status: closed
+    evidence: >-
+      callTimeout выставляется только в NewSessionRevocationsAdapter (:72);
+      единственный struct-литерал — внутри самого конструктора (:68). Все 8
+      прод-точек сборки идут через конструктор (subscription_stream.go:273,
+      main.go x7). Нулевого callTimeout (мгновенное истечение) в проде нет.
+      Белоящичная проба переопределяет поле осознанно, в пакете clients.
+
+# ── пробы под перегрузкой: уже есть и способны краснеть ─────────────────────
+overload_probe:
+  ordered_integration_tester: false
+  reason: >-
+    Проба медленного соседа уже в диффе и красна-способна — заказ integration-tester
+    не нужен. Конкурентно-горутинная CAS-проба неприменима: в диффе нет CAS,
+    разделяемого состояния и спорного пути «ровно одна транзакция выигрывает».
+  present_probes:
+    - name: TestSessionRevocationsAdapter_EveryCallCarriesItsOwnDeadline
+      file: gateway/internal/clients/session_deadline_test.go
+      kind: чёрный ящик над настоящим адаптером поверх настоящего gRPC (bufconn)
+      asserts: >-
+        подан бессрочный ctx; сервер-свидетель для всех ПЯТИ глаголов фиксирует
+        наличие дедлайна в контексте; фикстура отвечает без ошибки, значит красное
+        приходит РОВНО от отсутствия предела, а не от сломанной подпорки.
+    - name: TestSessionRevocationsAdapter_SlowPeerIsBoundedByDeadline
+      file: gateway/internal/clients/session_deadline_behaviour_test.go
+      kind: медленный сосед (блокирует до отмены ctx) + сторожевой таймер
+      asserts: >-
+        негатив — медленный сосед даёт DeadlineExceeded и не подвешивает (сторож
+        2s роняет пробу «завис»); законный близнец — сосед в пределе проходит.
+  optional_not_blocking: >-
+    Сквозная fail-closed-проба через middleware под медленным соседом была бы
+    приятным дополнением, но не блокирует: диспозиция потребителей неизменна и
+    читается как fail-closed, а достижимость ошибочного пути доказана на границе
+    адаптера.
+
+# ── пересечение с ревью схемы ──────────────────────────────────────────────
+schema_review_intersection:
+  intersects: false
+  reason: >-
+    В диффе нет SQL, миграции, CAS, xmin, advisory-lock. Изменение целиком
+    клиентское (per-call дедлайн). db-architect-reviewer на этот дайджест не нужен.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход прогона проб и линтера этой ролью НЕ объявляется: сырой вывод читает
+# landing-reviewer, независимый перемер — check-verifier. Здесь — распределённые
+# свойства написанного.
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: >-
+  сбор пост-дифф записей: convergence-reviewer (если пакет линии есть) либо
+  landing-reviewer (если пакета нет).
