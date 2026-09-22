@@ -646,14 +646,14 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
-echo "== check-10: страж монитора флоу =="
+echo "== check-16: страж монитора флоу =="
 # Предмет инъекции — САМ СТРАЖ `.claude/hooks/wave-monitor.sh`, а не гейт: гейт
 # читает то, что страж напечатал, и доказать его способность упасть можно только
 # сломав стража. Каждая инъекция меняет РОВНО ОДИН факт.
 HK_REL=".claude/hooks/wave-monitor.sh"
 
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" \
-    check-10-wave-monitor-fires-on-its-triggers.sh
+    check-16-wave-monitor-fires-on-its-triggers.sh
 
 # Ось 1 обезврежена: ни одна строка ведомости не доходит до проверки поля
 # «монитор». Страж перестаёт звать на сведённой волне, оставаясь исправным во
@@ -663,7 +663,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$2 == "" \|\| \$2 == "—"\) next}{next}' \
     "строки ведомости не доходят до проверки поля «монитор»"; then
     run 1 "$b" "инъекция: страж молчит на сведённой волне — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Законный близнец ТОЙ ЖЕ оси: то же условие, записанное иначе — сравнение двух
@@ -674,7 +674,7 @@ if mr_patch "$b/$HK_REL" \
     's{\(\$5 == "" \|\| \$5 == "—"\)}{(\$5 ~ /^(|—)\$/)}' \
     "то же условие другой формой"; then
     run 0 "$b" "близнец: то же условие другой формой — молчит" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Порог оси 2 поднят выше любого мыслимого числа посадок: страж перестаёт видеть
@@ -682,7 +682,7 @@ fi
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/^WAVE_MIN=4\b/WAVE_MIN=999/m' "порог оси «строки о волне нет»"; then
     run 1 "$b" "инъекция: порог выше любого числа посадок — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Третья категория подана как находка: заголовок «осмотреть удалось не всё»
@@ -693,7 +693,7 @@ if mr_patch "$b/$HK_REL" \
     's/🌊 монитор флоу: осмотреть удалось НЕ ВСЁ[^"]*/🌊 МОНИТОР ФЛОУ: предмет открыт — находок есть/' \
     "заголовок третьей категории"; then
     run 1 "$b" "инъекция: «не проверяли» подано находкой — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Второй законный близнец: переписан ТЕКСТ адресата, поведение не тронуто. Гейт,
@@ -704,7 +704,7 @@ if mr_patch "$b/$HK_REL" \
     's/→ tooling-maintainer, полоса монитора \(замер \+ правка оснастки\)\./полосу монитора ведёт tooling-maintainer: замер и правка оснастки./' \
     "формулировка адресата"; then
     run 0 "$b" "близнец: та же работа другой формулировкой — молчит" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ПУСТОЕ ПОЛЕ — отдельная ось инъекции, и она заведена после того, как приёмка
@@ -715,7 +715,7 @@ if mr_patch "$b/$HK_REL" \
     's/if \(\$5 == "" \|\| \$5 == "—"\)/if (\$5 == "—")/' \
     "пустое поле «монитор» перестаёт считаться открытым"; then
     run 1 "$b" "инъекция: пустое поле «монитор» не открывает волну — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
@@ -723,7 +723,7 @@ if mr_patch "$b/$HK_REL" \
     's/state = \(\$1 == "" \? "EMPTY" : "OK"\)/state = "OK"/' \
     "пустое поле модели засчитано за объявленную модель"; then
     run 1 "$b" "инъекция: пустое поле модели выдаётся за модель — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Находка обязана называть СВОЙ предмет: заголовок на месте, имя волны пропало.
@@ -732,7 +732,7 @@ if mr_patch "$b/$HK_REL" \
     's{\(\$1 == "" \? "без имени" : \$1\)}{"волна"}' \
     "находка перестаёт называть имя волны"; then
     run 1 "$b" "инъекция: находка не называет предмет своей оси — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Указатель без имени полосы диспетчер исполнить не может — у него нет инструментов.
@@ -741,7 +741,7 @@ if mr_patch "$b/$HK_REL" \
     's/→ tooling-maintainer, полоса монитора \(замер \+ правка оснастки\)\./→ разберитесь и поправьте оснастку./' \
     "имя полосы в находке"; then
     run 1 "$b" "инъекция: находка не называет полосу — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Предпочтение удалённой ссылки снято: локальный `main` отстаёт молча, и волна,
@@ -750,7 +750,7 @@ b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/for candidate in origin\/main main; do/for candidate in main; do/' \
     "предпочтение origin\/main"; then
     run 1 "$b" "инъекция: считает по отставшему локальному main — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ПЯТЬ ОСЕЙ, ЗАВЕДЁННЫХ ПОСЛЕ ВТОРОЙ ПРИЁМКИ ОПЫТОМ. Четыре из них гейт прежде
@@ -762,28 +762,28 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$2 == "" \|\| \$2 == "—"\) next}{if (\$2 == "—") next}' \
     "пустое поле «сведена» перестаёт означать «волна не сведена»"; then
     run 1 "$b" "инъекция: ложная находка о несведённой волне — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{\(\$4 == "" \? "не названо" : \$4\)}{\$4}' \
     "пустое поле «полос» печатается пустотой"; then
     run 1 "$b" "инъекция: находка молчит о неназванном числе полос — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{signals\+=\("по ссылке \$trunk_ref посадок[^"]*"\)}{signals+=("")}' \
     "текст находки оси 2 обнулён"; then
     run 1 "$b" "инъекция: находка оси 2 без текста — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{по ссылке \$trunk_ref посадок \$landed}{посадок \$landed}' \
     "ось 2 перестаёт называть ссылку ствола"; then
     run 1 "$b" "инъекция: не названа ссылка, по которой считали — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # БЛОБ — проба на связь оси с её предметом. Все токены в одной строке находки:
@@ -793,7 +793,7 @@ if mr_patch "$b/$HK_REL" \
     's{OPEN волна «%s» сведена %s \(полос %s\), монитор по ней не отработал}{OPEN блоб w1 без имени не названо по ссылке origin/main по ссылке main model-alpha model-beta model-gamma %s %s %s}' \
     "все предметы осей в одной строке находки"; then
     run 1 "$b" "инъекция: находка называет предметы ВСЕХ осей разом — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ── ОСИ, ЗАВЕДЁННЫЕ ЧЕТВЁРТЫМ КРУГОМ ─────────────────────────────────────────
@@ -816,13 +816,13 @@ fi
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/^WAVE_MIN=4\b/WAVE_MIN=3/m' "порог опущен до трёх"; then
     run 1 "$b" "инъекция: порог вровень с близнецом «посадок ТРИ» — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/^WAVE_MIN=4\b/WAVE_MIN=1/m' "порог опущен до единицы"; then
     run 1 "$b" "инъекция: порог вровень с близнецом «посадка ОДНА» — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Пять ветвей третьей категории: у каждой снимается ИМЕННО ТО, чем она называет
@@ -832,42 +832,42 @@ b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{не несёт НИ ОДНОЙ строки — сверять не с чем}{сверять не с чем}' \
     "ведомость без строк данных перестаёт называть свою ось"; then
     run 1 "$b" "инъекция: «ведомость без строк» не называет ось — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{база модели исполнения \$baseline не читается}{база модели исполнения не читается}' \
     "нечитаемая база перестаёт называть свой файл"; then
     run 1 "$b" "инъекция: «базы нет» не называет свой файл — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{не несёт строки — ориентиры сверять не с чем}{ориентиры сверять не с чем}' \
     "база без строк данных перестаёт называть свою ось"; then
     run 1 "$b" "инъекция: «база без строк» не называет ось — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{ревизия \$cursor из ведомости относительно \$trunk_ref не разрешается}{ревизия из ведомости не разрешается}' \
     "нерезолвящийся курсор перестаёт называться"; then
     run 1 "$b" "инъекция: «курсор не резолвится» без самой ревизии — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{elif \[ -z "\$payload" \]}{elif [ -z "не-пусто" ]}' \
     "отсутствие полезной нагрузки перестаёт распознаваться"; then
     run 1 "$b" "инъекция: пустой вход выдан за нечитаемый транскрипт — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{python3 нет — транскрипт не разобран}{нужного средства нет — транскрипт не разобран}' \
     "отсутствие python3 перестаёт называть средство"; then
     run 1 "$b" "инъекция: «нет python3» не называет средство — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ТРЕТЬЯ КАТЕГОРИЯ СУДИТСЯ ТЕМ ЖЕ, ЧЕМ НАХОДКА — обе половины утверждения.
@@ -878,7 +878,7 @@ b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's{unexamined\+=\("(?:[^"\\]|\\.)*"\)}{unexamined+=("—")}g' \
     "все тексты третьей категории заменены одной константой"; then
     run 1 "$b" "инъекция: «не проверяли» без оси, одной константой — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Отрицательную половину снимает БЛОБ: один текст, называющий предметы ВСЕХ осей
@@ -893,7 +893,7 @@ if mr_patch "$b/$HK_REL" \
     's{unexamined\+=\("(?:[^"\\]|\\.)*"\)}{unexamined+=("блоб: ledger.tsv не читается, НИ ОДНОЙ строки, не называет ревизию ствола, ни origin/main, ни main, model-baseline.tsv, ПУСТЫМ полем модели, не несёт строки, python3, полезной нагрузки на входе нет, транскрипт сессии не прочитан")}g' \
     "один текст третьей категории называет предметы всех осей"; then
     run 1 "$b" "инъекция: «не проверяли» называет предметы ВСЕХ осей — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ФИКСТУРА ОБОИХ БЛОКОВ РАЗОМ — та, без которой «читаем блок, а не весь вывод»
@@ -904,7 +904,7 @@ if mr_patch "$b/$HK_REL" \
     's{транскрипт сессии не прочитан либо не несёт ассистентских записей}{состояние не прочитано}' \
     "строка нечитаемого транскрипта перестаёт называть свою ось"; then
     run 1 "$b" "инъекция: на входе с ДВУМЯ блоками «не проверяли» без оси — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ── ОСЬ, ЗАВЕДЁННАЯ ПЯТЫМ КРУГОМ: КАКАЯ СТРОКА ВЕДОМОСТИ СТАНОВИТСЯ КУРСОРОМ ─
@@ -924,7 +924,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{if (\$3 != "" && \$3 != "—" && cursor == "") cursor = \$3}' \
     "курсор берётся из ПЕРВОЙ строки ведомости"; then
     run 1 "$b" "инъекция: курсор из первой строки ведомости, а не из последней — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Законный близнец ТОЙ ЖЕ оси: «последняя непустая строка выигрывает», записанное
@@ -935,7 +935,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{cursor = (\$3 == "" || \$3 == "—") ? cursor : \$3}' \
     "тот же курсор тернарной формой"; then
     run 0 "$b" "близнец: тот же курсор другой формой записи — молчит" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ── ОСИ, ЗАВЕДЁННЫЕ ШЕСТЫМ КРУГОМ: СОСТОЯНИЕ ПОСЛЕДНЕЙ СТРОКИ ───────────────
@@ -957,7 +957,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{if (\$3 != "" && \$3 != "—" && \$2 >= best) { best = \$2; cursor = \$3 }}' \
     "курсор — САМАЯ СВЕЖАЯ строка (нестрогое сравнение дат)"; then
     run 1 "$b" "инъекция: курсор по свежести даты, а не по положению — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
@@ -965,7 +965,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{if (\$3 != "" && \$3 != "—" && \$2 > best) { best = \$2; cursor = \$3 }}' \
     "курсор — САМАЯ СВЕЖАЯ строка (строгое сравнение дат)"; then
     run 1 "$b" "инъекция: на РАВНЫХ датах курсор уезжает на первую из них — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ОТКАТ КУРСОРА НА ПРЕДЫДУЩУЮ СТРОКУ — то самое «последняя строка С НЕПУСТЫМ
@@ -977,7 +977,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{cursor = \$3}' \
     "курсор берётся из последней строки БЕЗ разбора меток"; then
     run 1 "$b" "инъекция: пустое поле «ствол» становится курсором — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox)"
@@ -985,7 +985,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{if (\$3 != "") cursor = \$3}' \
     "метка «—» в поле «ствол» перестаёт отличаться от ревизии"; then
     run 1 "$b" "инъекция: «—» в поле «ствол» становится курсором — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # Третий законный близнец ТОЙ ЖЕ оси: те же две метки, записанные образцом
@@ -996,7 +996,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$3 != "" && \$3 != "—"\) cursor = \$3}{if (\$3 !~ /^(|—)\$/) cursor = \$3}' \
     "те же метки «ствола» образцом вместо двух сравнений"; then
     run 0 "$b" "близнец: те же метки другой формой записи — молчит" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ВОЛНА, КОТОРАЯ ИДЁТ, ОБЪЯВЛЯЕТСЯ СВЕДЁННОЙ. Метка «—» в поле «сведена»
@@ -1009,7 +1009,7 @@ if mr_patch "$b/$HK_REL" \
     's{if \(\$2 == "" \|\| \$2 == "—"\) next}{if (\$2 == "") next}' \
     "метка «—» в поле «сведена» перестаёт означать «волна идёт»"; then
     run 1 "$b" "инъекция: ложная находка о волне, которая ещё идёт — краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 # ПЕРЕЧЕНЬ МЕТОК СНИМАЕТСЯ С ИСХОДНИКА СТРАЖА — В ОДНОЙ ФОРМЕ ЗАПИСИ, и ровно
@@ -1022,19 +1022,19 @@ fi
 # лишнего: метка в ЛЮБОЙ ДРУГОЙ законной форме (образец, переменная, обратный
 # порядок, `index()`) распознавателю невидима и проходит молча, а форма-образец
 # объявлена законным близнецом в этом же файле дважды. Предел, замеры и честная
-# единица — шапка `check-10-wave-monitor-fires-on-its-triggers.sh`, разделы
+# единица — шапка `check-16-wave-monitor-fires-on-its-triggers.sh`, разделы
 # «МЕТКИ ЗНАЧЕНИЯ» и п. 1 шестого круга.
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" \
     's{if \(\$2 == "" \|\| \$2 == "—"\) next}{if (\$2 == "" || \$2 == "—" || \$2 == "н/д") next}' \
     "у стража появилась ТРЕТЬЯ метка значения"; then
     run 1 "$b" "инъекция: новая метка без фикстур — знаменатель вырос, краснеет" \
-        check-10-wave-monitor-fires-on-its-triggers.sh
+        check-16-wave-monitor-fires-on-its-triggers.sh
 fi
 
 b="$(mksandbox .claude/hooks/wave-monitor.sh)"
 run 2 "$b" "предпосылка: стража нет — VOID, а не успех" \
-    check-10-wave-monitor-fires-on-its-triggers.sh
+    check-16-wave-monitor-fires-on-its-triggers.sh
 
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
