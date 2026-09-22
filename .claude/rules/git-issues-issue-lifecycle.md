@@ -34,6 +34,8 @@ gil-neighbour-argument-remeasured · перемерь на СВОЕЙ ревиз
 
 ## Баги / tech-debt — GitHub Issues, а не файл-список в репозитории
 
+### Issue-lifecycle discipline — заводим ⇒ ведём; закрываем ⇒ code-артефактом
+
 gil-issue-closed-by-code-artifact · закрывай задачу code-артефактом: коммитом, PR, прогоном — и называй коммит СВОЕЙ работы · docs-gate check-02 · red: задача закрыта комментарием без артефакта
 
 ### Авто-закрытие вливанием закрывает то, что В НЕГО ВОШЛО
