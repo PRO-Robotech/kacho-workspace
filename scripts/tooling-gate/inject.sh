@@ -646,7 +646,7 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
-echo "== check-10: печатающий сигнал главного потока доходит до признака дельты =="
+echo "== check-17: печатающий сигнал главного потока доходит до признака дельты =="
 
 # Регистрация нового хука — ровно та операция, ради которой проверка и нужна:
 # перечень выводится из `.claude/settings.json`, а не из списка внутри гейта.
@@ -662,7 +662,7 @@ json.dump(d, open(path, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 PYX
 }
 
-b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-10-hook-signal-prints-delta.sh
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-17-hook-signal-prints-delta.sh
 
 # ДЕФЕКТ: хук события главного потока печатает и до механизма не доходит.
 b="$(mksandbox)"
@@ -670,7 +670,16 @@ printf '#!/usr/bin/env bash
 echo "нашёл кое-что"
 ' > "$b/.claude/hooks/probe-loud.sh"
 reg_hook "$b" UserPromptSubmit .claude/hooks/probe-loud.sh
-run 1 "$b" "дефект: печатает мимо признака дельты — находка"     check-10-hook-signal-prints-delta.sh
+run 1 "$b" "дефект: печатает мимо признака дельты — находка"     check-17-hook-signal-prints-delta.sh
+
+# ДЕФЕКТ той же формы, что близнец ниже: имя механизма есть, но только в комментарии.
+b="$(mksandbox)"
+printf '#!/usr/bin/env bash
+# печать идёт через lib/hook_signal.sh
+echo "нашёл кое-что"
+' > "$b/.claude/hooks/probe-comment.sh"
+reg_hook "$b" UserPromptSubmit .claude/hooks/probe-comment.sh
+run 1 "$b" "дефект: механизм назван лишь в комментарии — находка"     check-17-hook-signal-prints-delta.sh
 
 # ЗАКОННЫЙ БЛИЗНЕЦ той же формы: такой же новый печатающий хук, но через механизм.
 # Без него проверка запрещала бы заводить хуки вообще, а не печать состоянием.
@@ -683,7 +692,7 @@ signal_emit probe agent-x "предикат" "" <<EOF
 EOF
 '     > "$b/.claude/hooks/probe-quiet.sh"
 reg_hook "$b" UserPromptSubmit .claude/hooks/probe-quiet.sh
-run 0 "$b" "близнец: такой же хук через механизм — молчит"     check-10-hook-signal-prints-delta.sh
+run 0 "$b" "близнец: такой же хук через механизм — молчит"     check-17-hook-signal-prints-delta.sh
 
 # ВТОРОЙ ЗАКОННЫЙ БЛИЗНЕЦ: печатающий хук на `PostToolUse`. Его читает ИСПОЛНИТЕЛЬ,
 # граница объявлена в шапке проверки — значит проверка обязана МОЛЧАТЬ. Без этой
@@ -693,21 +702,21 @@ printf '#!/usr/bin/env bash
 echo "нашёл кое-что"
 ' > "$b/.claude/hooks/probe-tool.sh"
 reg_hook "$b" PostToolUse .claude/hooks/probe-tool.sh
-run 0 "$b" "близнец: печать на PostToolUse — вне границы, молчит"     check-10-hook-signal-prints-delta.sh
+run 0 "$b" "близнец: печать на PostToolUse — вне границы, молчит"     check-17-hook-signal-prints-delta.sh
 
 # ДЕФЕКТ второго рода: регистрация называет файл, которого в дереве нет.
 b="$(mksandbox)"
 reg_hook "$b" Stop .claude/hooks/no-such-hook.sh
-run 1 "$b" "дефект: событие обслуживает пустоту — находка"     check-10-hook-signal-prints-delta.sh
+run 1 "$b" "дефект: событие обслуживает пустоту — находка"     check-17-hook-signal-prints-delta.sh
 
 # ПРЕДПОСЫЛКА: механизма в дереве нет — это находка, а не VOID. Ссылки хуков ведут
 # в пустоту, и «печатающих 0» здесь означало бы обратное истине.
 b="$(mksandbox .claude/hooks/lib/hook_signal.py)"
-run 1 "$b" "предпосылка: механизма нет — находка, не успех"     check-10-hook-signal-prints-delta.sh
+run 1 "$b" "предпосылка: механизма нет — находка, не успех"     check-17-hook-signal-prints-delta.sh
 
 # ПРЕДПОСЫЛКА: регистрации нет вовсе — VOID, а не успех.
 b="$(mksandbox .claude/settings.json)"
-run 2 "$b" "предпосылка: регистрации нет — VOID"     check-10-hook-signal-prints-delta.sh
+run 2 "$b" "предпосылка: регистрации нет — VOID"     check-17-hook-signal-prints-delta.sh
 
 echo "== механизм: сигнал без адресата либо без предиката снятия НЕ печатается =="
 # Вторая половина нормы держится механизмом, а не проверкой выше, поэтому
