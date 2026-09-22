@@ -4,8 +4,6 @@ description: "Работает до кода: разбирает предмет 
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-api-conventions
   - rule-data-integrity
   - rule-security

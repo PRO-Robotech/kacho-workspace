@@ -4,11 +4,8 @@ description: "Замер под нагрузкой на стенде в producti
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
   - rule-testing-load
   - rule-testing-verdict
-  - rule-multi-agent-flow-waiting
-  - rule-multi-agent-flow-shared-tree
 ---
 
 # Load-tester — замер под нагрузкой: числа с посадкой, потолок по отказам

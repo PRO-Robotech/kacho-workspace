@@ -4,8 +4,6 @@ description: "Пишет goose-миграцию как самостоятель�
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-data-integrity
 ---
 

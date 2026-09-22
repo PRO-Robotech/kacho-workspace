@@ -1,0 +1,29 @@
+at-single-copy-no-rollout · единственный экземпляр в `.claude/` воркспейса; копий в рабочих копиях продукта не заводить · git ls-files продукта не содержит файлов оснастки · red: копия оснастки в дереве продукта
+at-walker-derives-and-zero-is-failure · перечень целей выводить из дерева; ноль целей — отказ; объём осмотренного печатать всегда · kacho-workspace/scripts/vault-gate/run-all.sh · red: рукописный перечень; «пропущено» с кодом 0
+at-unit-is-tracked-git-element · брать `git ls-files`, объявлять рядом с предикатом · scripts/skills-gate/check-07-declared-counts-match-tree.sh исполняет процитированную команду и сверяет · red: число из памяти; счёт по диску вместо индекса
+at-two-numbers-one-predicate · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-two-numbers-one-predicate · red: —
+at-numbers-held-by-gate · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-numbers-held-by-gate · red: —
+at-settings-without-permissions · не коммитить блок `permissions`/`defaultMode: bypassPermissions` — его место в `settings.local.json` (git-ignored) · git show HEAD:.claude/settings.json \ · red: grep -c permissions = 0 | обход подтверждения принят за каждого, кто сделает клон
+at-no-autoload-corpus · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-no-autoload-corpus · red: —
+at-main-thread-is-agent · агент `dispatcher`, его тело — единственная база маршрутизации и обязано быть самодостаточным (`@import` в теле агента не раскрывается) · grep '"agent"' .claude/settings.json · red: @import в базе диспетчера
+at-rule-preloaded-by-symlink · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-rule-preloaded-by-symlink · red: —
+at-executors-dont-launch-executors · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-executors-dont-launch-executors · red: —
+at-symlink-not-copy · символьная ссылка на файл правила, не копия · readlink .claude/skills/rule-<имя>/SKILL.md` = `../../rules/<имя>.md · red: копия правила в скиле
+at-rule-star-is-binding · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-rule-star-is-binding · red: —
+at-debt-three-gates-stale · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-debt-three-gates-stale · red: —
+at-agents-roster-dispatcher · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-agents-roster-dispatcher · red: —
+at-agents-roster-execution · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-agents-roster-execution · red: —
+at-agents-roster-review · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-agents-roster-review · red: —
+at-agents-roster-boundary · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-agents-roster-boundary · red: —
+at-agents-count-32 · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-agents-count-32 · red: —
+at-no-nested-launches · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-no-nested-launches · red: —
+at-skills-roster · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-skills-roster · red: —
+at-godzila-thirteenth · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-godzila-thirteenth · red: —
+at-lifecycle-preamble · ПИСАТЬ РУКАМИ · ЗАВЕСТИ at-lifecycle-preamble · red: —
+lc1-acceptance-first · ПИСАТЬ РУКАМИ · ЗАВЕСТИ lc1-acceptance-first · red: —
+lc2-issue-branch-trail · ПИСАТЬ РУКАМИ · ЗАВЕСТИ lc2-issue-branch-trail · red: —
+lc4-crossrepo-order · вести в порядке proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по каждому модулю зелен, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
+lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
+lc6-role-reviews · провести ревью четырьмя ролями (proto-api-reviewer, db-architect-reviewer, go-style-reviewer, system-design-reviewer) плюс <svc>-conventions-auditor · ЗАВЕСТИ lc6-role-reviews · red: посадка при неполном множестве ролей
+lc7-final-verification · go test ./... -race · golangci-lint run · govulncheck · make audit-list-filter · newman — все зелёные · .github/workflows/ci.yaml даёт зелёный по всем поимённым контекстам · red: вердикт по подмножеству
+lc8-trail-and-close · ПИСАТЬ РУКАМИ · ЗАВЕСТИ lc8-trail-and-close · red: —

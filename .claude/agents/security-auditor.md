@@ -4,8 +4,6 @@ description: "Судит поверхность безопасности и ве
 disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-security
   - rule-security-hardening
   - rule-security-disclosure
