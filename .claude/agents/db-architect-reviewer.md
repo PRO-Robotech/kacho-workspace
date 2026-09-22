@@ -46,6 +46,7 @@ skills:
 
 | условие | грузи | зачем |
 |---|---|---|
+| пишешь или правишь запись ревью под `docs/changes/*/reviews/**` либо `docs/specs/reviews/**` | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Предмет признака — записи ревью, поимённо перед каждым коммитом»: каждый файл записи — признаком до коммита |
 | схема хранит имя ресурса, порядок повторяющегося поля, пагинацию либо отложенный внешний ключ | `Skill rule-api-conventions` | `.claude/rules/api-conventions.md` §«Имя ресурса: одна форма, пустого не бывает»; §«Пустое значение обязано означать «пусто»» подраздел A «Порядок повторяющегося поля»; §«Pagination / filter»; §«Gotcha'и» |
 | дифф настраивает пул соединений | `Skill rule-architecture` | `.claude/rules/architecture.md` §«Пул размеряется по ДЛИННОМУ МЕНЬШИНСТВУ, а не по среднему» |
 | ошибка базы отображается наружу | `Skill rule-security-hardening` | `.claude/rules/security-hardening.md` §«Hardening-инварианты» п. 1: текст драйвера наружу не выходит |
