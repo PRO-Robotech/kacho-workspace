@@ -1,0 +1,6 @@
+mf-rules-not-autoloaded-dup · ПИСАТЬ РУКАМИ · ЗАВЕСТИ mf-rules-not-autoloaded-dup · red: —
+mf-column-holder · объявлять, чем соблюдение держится (имя гейта либо слово «вниманием») · check-03-manifest-row-is-complete.sh = 0 · red: норма без названного держателя
+mf-column-agents-explicit · перечислять поимённо, шаблоном не заменять · check-04-rule-agent-binding.sh = 0 в обе стороны · red: правило без агента; агент со ссылкой на несуществующее правило; шаблон, подхватывающий нового агента молча
+mf-table-is-sole-declaration · объявлять единственной таблицей `MANIFEST.md`; `.claude/rules/` — единственный дом · check-01-corpus-matches-manifest.sh = 0 · red: файл без строки; строка без файла
+mf-registry-table-30-rows · одна строка реестра: <файл> \ · kacho-workspace/scripts/rules-gate/check-01-corpus-matches-manifest.sh · check-03-manifest-row-is-complete.sh · check-04-rule-agent-binding.sh · red: <имя гейта или «вниманием»> \ | <агенты> | scripts/rules-gate/` = 0 в обе стороны | строка без гейта; перечень агентов, разошедшийся с `skills:
+mf-no-second-rulebook · ПИСАТЬ РУКАМИ · ЗАВЕСТИ mf-no-second-rulebook · red: —

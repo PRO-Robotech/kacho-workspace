@@ -4,8 +4,6 @@ description: "Ревью изменений контрактов: пакет, п
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-api-conventions
   - rule-security
   - rule-polyrepo

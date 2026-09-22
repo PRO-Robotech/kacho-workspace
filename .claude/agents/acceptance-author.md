@@ -4,11 +4,9 @@ description: "Пишет Given-When-Then приёмку (только markdown) 
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
   - rule-api-conventions
   - rule-data-integrity
   - rule-security
-  - rule-change-graph
   - rule-security-disclosure
 ---
 

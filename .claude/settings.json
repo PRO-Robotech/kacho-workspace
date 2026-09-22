@@ -1,11 +1,9 @@
 {
   "agent": "dispatcher",
   "claudeMdExcludes": [
-    "**/.claude/rules/**"
+    "**/.claude/rules/**",
+    "**/.claude/backup/**"
   ],
-  "permissions": {
-    "defaultMode": "bypassPermissions"
-  },
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -86,5 +84,10 @@
         ]
       }
     ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
   }
 }

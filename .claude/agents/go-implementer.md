@@ -4,8 +4,6 @@ description: "Не-RPC правка Go продукта строгим TDD, кр
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-architecture
   - rule-testing
   - rule-testing-verdict

@@ -4,8 +4,6 @@ description: "Владелец любой правки .proto в proto/ моно
 disallowedTools: Agent
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-api-conventions
   - rule-security
   - rule-polyrepo

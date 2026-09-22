@@ -4,8 +4,6 @@ description: "Ревью схем и миграций: инвариант вну
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
-  - rule-rag
   - rule-data-integrity
 ---
 

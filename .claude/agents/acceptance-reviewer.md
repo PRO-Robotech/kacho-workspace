@@ -4,12 +4,9 @@ description: "Единственный гейт одобрения приёмк�
 disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
-  - rule-writing
   - rule-api-conventions
   - rule-data-integrity
   - rule-security
-  - rule-change-graph
-  - rule-git-issues-issue-lifecycle
 ---
 
 # Acceptance-reviewer — единственный гейт одобрения приёмки, судящий отпечаток, а не файл

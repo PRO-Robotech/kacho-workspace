@@ -1,0 +1,61 @@
+ui-rule-triple-form · пиши тройкой: норма · признак нарушения · держатель · ЗАВЕСТИ ui-rule-triple-form · red: третьего пункта нет
+ui-verify-command · гоняй cd ui-future/<модуль> && npm run typecheck && npm test · .github/workflows/ui.yml · red: вердикт без прогона модуля
+ui-shared-no-own-run · проверяй прогоном модуля-потребителя (`vpc`) · module-runs-shared-suite.test.ts · red: сослался на «прогон shared»
+ui-standalone-npm-ci · ставь `npm ci --prefix <пакет>` до прогона · kacho: .github/workflows/ui.yml · red: MODULE_NOT_FOUND назван красным прогоном
+ui-verdict-by-exit-code · читай $? и строку Tests: · pipefailguard_test.go · red: вердикт выведен из вида вывода (●) или потерян пайпом через grep
+ui-memory-death-not-red · считай «не выполнилось» · хвост вывода без строки Tests: · red: объявлен красный вердикт
+ui-form-label-left-input-right · имя+тултип в labelCol 200px, ввод в wrapperCol · ResourceFormBody.test.tsx · red: поле в своей рамке, левая колонка пуста, имя названо дважды
+ui-fullwidth-only-when-not-fits · только редактор правил SG, `custom`-виджет, составной список · ResourceFormBody.test.tsx · red: обычное поле растянуто на всю ширину
+ui-list-alone-not-fullwidth · рисуй обычным полем правой колонки · ResourceFormBody.test.tsx · red: список вынесен во всю ширину
+ui-form-frame-duplicates-label · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-form-frame-duplicates-label · red: —
+ui-form-holder-desc · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-form-holder-desc · red: —
+ui-width-not-declared-by-hand · руками не объявляй, пока `isFullWidthField` не подвёл · ResourceFormBody.test.tsx · red: fullWidth у поля, которое влезает
+ui-probe-not-on-antd-classes · утверждай о разметке заглушки (`shared/src/test/antd-stub.ts`), классов `ant-*` здесь нет · antd-stub.test.tsx · red: проба ищет .ant-form-item-label
+ui-ref-is-link-not-id · рисуй RefNameLink (иконка типа · имя · переход); свой id — CopyableId · RefNameLink.test.tsx · red: reg-…/zone-… плоским текстом или тегом
+ui-ref-violation-sign · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-ref-violation-sign · red: —
+ui-ref-scope-decides-project-id · бери `scope` из реестра: `project` несёт `project_id`, `global`/`account` — не несёт · ref-name-link-scope.test.ts · red: безусловный `project_id` в запросе к geo
+ui-placement-anchor-single · рисуй только PlacementAnchor · PlacementAnchor.test.tsx · red: своя ветка вида в списке, карточке или расширениях
+ui-rule2-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule2-holder · red: —
+ui-one-subject-one-view · рисуй общей геометрией `CidrTableSection`/`editor-surface`, отличия — параметрами · value-set-editors-one-geometry.test.ts · red: второй компонент того же предмета
+ui-two-components-violation · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-two-components-violation · red: —
+ui-action-path-owned-by-resource · литерал держи в файле ресурса, общий компонент берёт actionPath(verb) · api-path-surface.test.ts` · `console-verb-literals.test.ts · red: путь спрятан за проп
+ui-user-texts-verbatim · при объединении компонентов сохраняй дословно · суита ресурса (`SubnetCidrManager.test.tsx`) · red: сообщение переписано заодно
+ui-rule3-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule3-holder · red: —
+ui-immutable-only-hashed-names · ставь только ассету с хэшем в имени; `remoteEntry` — `no-cache` правилом ВЫШЕ общего · ui-chart-remote-entry-cache.test.ts · red: правило точки входа после общего location
+ui-cache-checked-by-header · проверяй заголовком ответа …/<модуль>-remote/assets/ · no-cache у точки входа · red: «правка не доходит» объяснена глазами
+ui-fix-where-config-acts · правь конфиг, действующий в поде (ConfigMap чарта), а не только `nginx.conf` образа · ui-chart-remote-entry-cache.test.ts` · `kubectl exec deploy/<под> -- cat /etc/nginx/conf.d/*.conf · red: починка в неиспользуемом конфиге
+ui-rule4-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule4-holder · red: —
+ui-name-is-link-row-is-not · ссылкой делай ИМЯ через `ResourceLink`; строку таблицы кликабельной не делай · spec-columns.name-link.test.tsx · red: обработчик клика на <tr>
+ui-no-clickable-inside-link · button не держи, копирование — иконкой рядом · spec-columns.name-link.test.tsx · red: клик по ссылке копирует вместо перехода
+ui-link-on-identity-column · вешай на колонку ИДЕНТИЧНОСТИ, не на поле name · spec-columns.name-link.test.tsx · red: вид ресурса без имени (пользователь) остался без ссылок
+ui-address-same-expression · бери тем же выражением, что прежний переход (`childRoute`); нет адреса — нет ссылки · spec-columns.name-link.test.tsx · red: адрес собран как «база + id»
+ui-rule5-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule5-holder · red: —
+ui-bool-named-by-consequence · называй оба исхода словами предмета через BoolFact · spec-columns.bool.test.tsx · red: подпись «Да»/«Нет»
+ui-bool-violation-yes · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-bool-violation-yes · red: —
+ui-shared-table-and-form-shell · бери общую таблицу и общую оболочку форм · shared-organisms-single-source.test.ts · red: своя `<table>` или своя форма во вкладке
+ui-own-table-violation · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-own-table-violation · red: —
+ui-no-field-without-source · не показывай · ГЕЙТА НЕТ — завести по образцу retired-contract-fields.test.ts · red: прочерк на месте живого факта
+ui-page-single-scroll · шапка фиксирована, прокрутка одна внутри содержимого · ЗАВЕСТИ ui-page-single-scroll · red: две полосы прокрутки либо список, не занявший высоту
+ui-value-set-as-table · рисуй таблицей значений: колонка · строки · действие на строке · «Добавить» снизу · value-set-editors-one-geometry.test.ts · red: чипы или россыпь отдельных полей
+ui-finding-closed-by-e2e-probe · закрывай сквозной пробой playwright: красной ДО фикса, фикс и зелень одним PR · TestConsoleProbeIssueLinksNameATaskAndLiveInsideTheProbe · red: фикс влит, пробы с его номером нет
+ui-what-counts-as-finding · считай ею наблюдение о том, что пользователь видит или получает; вёрстка без смены поведения — нет · ЗАВЕСТИ ui-what-counts-as-finding · red: пробу требуют на смену отступа
+ui-probe-asserts-observable · утверждай наблюдаемое на адресе, по которому зашёл нашедший · вниманием (близкий по классу гейт — console-probe-data-rows.test.ts: строка данных против строки устройства) · red: проба утверждает разметку, класс или наличие <button>
+ui-probe-lives-in-e2e-specs · кладите в `ui-future/e2e/specs/`; модульная её не замещает · TestConsoleProbeIssueLinks…` обходит `e2e/specs · red: находка закрыта jest-пробой, зовущей компонент функцией
+ui-probe-carries-issue-number · ставь // verifies #<N> ВНУТРИ вызова test(…) · TestConsoleProbeIssueLinksNameATaskAndLiveInsideTheProbe · red: ссылка над файлом или в test.describe
+ui-link-inside-test-call · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-link-inside-test-call · red: —
+ui-probe-no-retries · не заводи: retries: 0 · e2e-flow.md §4, долг D3 · red: retries в playwright.config.ts или перезапуск суиты
+ui-probe-waits-condition · ждём условие (`expect.poll`, `toBeVisible`) · e2e-flow.md §4 (newmanfreshreadwrap_test.go) · red: waitForTimeout`/`sleep
+ui-probe-not-status-200 · утверждай элемент или вызов к API · e2e-flow.md долг D4 · red: проба утверждает «страница ответила 200»
+ui-rule12-violation-sign · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule12-violation-sign · red: —
+ui-rule12-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule12-holder · red: —
+ui-drop-counts-as-narrowing · считай сужением (влияет на признак «список сужен») · console-list-filter-declared.test.ts · red: ветка отбрасывания опирается на имя, которого нет в признаке сужения
+ui-show-rule-belongs-to-spec · держи в спеке ресурса · console-list-filter-declared.test.ts` · `list-scope-declared.test.ts · red: ветка по `spec.id` внутри общего компонента списка
+ui-empty-state-for-empty-answer · показывай только на пустом ответе края · console-list-filter-declared.test.ts · red: приглашение при непустом ответе
+ui-neighbour-decisions-consistent · согласуй с отбором · console-list-filter-declared.test.ts · red: фильтр или `rowZone` читает поле, до которого отбор строку не допускает
+ui-rule13-holder · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-rule13-holder · red: —
+ui-radius-by-mechanism · измеряй по имени механизма, а не по файлу находки · перепись по дереву (`git grep -c`) · red: починено там, где найдено
+ui-obstacle-needs-predicate · каждому пункту давай предикат · ЗАВЕСТИ ui-obstacle-needs-predicate · red: препятствие без предиката
+ui-fork-measure · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-fork-measure · red: —
+ui-number-from-rules-is-reference · в задание передавай с пометкой «перемерь» · ЗАВЕСТИ ui-number-from-rules-is-reference · red: план построен на числе из правила
+ui-single-source-gate-must-grow · держи ведомость форков и достижимости, пересечение — находка · fork-excused-by-two-ledgers.test.ts` · `shared-fork-ledger.json · red: гейт удостоверяет 5 компонентов из 50
+ui-closed-formbody · ПИСАТЬ РУКАМИ · ЗАВЕСТИ ui-closed-formbody · red: —
