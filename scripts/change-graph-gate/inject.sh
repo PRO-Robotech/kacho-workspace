@@ -145,7 +145,8 @@ commit_all() {
 
 # world4 <каталог> — мир check-04: корень-cutover, затем реестр и пакет
 # `pkg-a`, сходящиеся друг с другом (роль замысла освобождена канонической
-# строкой, роль схождения применима), и соседний пакет `pkg-b` без документов.
+# строкой, роль схождения применима и держится `human-convergence`), и соседний
+# пакет `pkg-b` без документов и без holders.yaml.
 # Предмет check-04 — СВЕРКА; способность производителя отказать доказывает
 # полоса hook (`selftest/prove_applicability.py`), здесь она не повторяется.
 world4() {
@@ -191,6 +192,10 @@ role_applicability:
   convergence-reviewer:
     status: applicable
     holder: human-convergence
+required_holders:
+  human-convergence:
+    kind: human-external
+    owner: convergence-reviewer
 """)
 PYW4
     commit_all "$1" world
@@ -378,6 +383,42 @@ open(p, "w", encoding="utf-8").write(t)
 PYR
 commit_all "$d" "роль в реестре, строки в пакете нет"
 assert 1 "$(run "$d" "$C4")" "роль реестра без строки role_applicability -> краснеет"
+
+# Покрытие ролей держателями (опыты S1 и W7 приёмки, круг 2): пакет без раздела
+# освобождений не имеет, и держатель нужен каждой роли; держатель освобождённой
+# роли — находка без всяких файлов свидетельства.
+d="$(sandbox c4-no-section)"
+world4 "$d"
+printf 'schema_version: 1\nchange_id: pkg-b\n' > "$d/docs/changes/pkg-b/holders.yaml"
+commit_all "$d" "пакет без раздела role_applicability и без держателей"
+assert 1 "$(run "$d" "$C4")" "пакет без раздела и без держателей (опыт S1) -> краснеет"
+
+d="$(sandbox c4-no-section-held)"
+world4 "$d"
+printf 'schema_version: 1\nchange_id: pkg-b\nrequired_holders:\n  h-design:\n    owner: design-reviewer\n  h-conv:\n    owner: convergence-reviewer\n' \
+    > "$d/docs/changes/pkg-b/holders.yaml"
+commit_all "$d" "пакет без раздела, у каждой роли держатель"
+assert 0 "$(run "$d" "$C4")" "законный близнец: пакет без раздела, каждая роль держится -> молчит"
+
+d="$(sandbox c4-released-held)"
+world4 "$d"
+printf '  human-design:\n    kind: human-external\n    owner: design-reviewer\n' \
+    >> "$d/docs/changes/pkg-a/holders.yaml"
+commit_all "$d" "держатель освобождённой роли остался в required_holders"
+assert 1 "$(run "$d" "$C4")" "освобождённая роль держит держателя (опыт W7) -> краснеет"
+
+d="$(sandbox c4-applicable-unheld)"
+world4 "$d"
+python3 - "$d/docs/changes/pkg-a/holders.yaml" <<'PYU'
+import sys
+p = sys.argv[1]
+t = open(p, encoding="utf-8").read()
+head, sep, _ = t.partition("required_holders:\n")
+assert sep, "раздела required_holders в мире нет — опыт не ставится"
+open(p, "w", encoding="utf-8").write(head + "required_holders: {}\n")
+PYU
+commit_all "$d" "у применимой роли держателя нет"
+assert 1 "$(run "$d" "$C4")" "применимая роль без держателя -> краснеет"
 
 d="$(sandbox c4-void)"
 world4 "$d"

@@ -50,11 +50,22 @@
         `check-04-package-releases-reproduce.sh`.
 
 Клон продукта: `KACHO_HOME_<ИМЯ>` (для `PRO-Robotech/kacho` ещё
-`KACHO_MONOREPO`), затем `<дом>/project/<имя>`. Кандидат принимается только
-если несёт cutover-коммит своего репозитория из `policy.yaml` §1 предком базы:
-имя каталога ничего не доказывает. Ревизии линии обязаны быть достижимы в
-клоне; ветка, снятая без слияния, делает число непроизводимым — это «не
-выполнилось», а не ноль.
+`KACHO_MONOREPO`), затем `<дом>/project/<имя>`. Кандидат принимается, только
+если несёт cutover-коммит своего репозитория из `policy.yaml` §1 предком базы
+(имя каталога ничего не доказывает) и если голову линии содержит хотя бы одна
+ссылка `refs/remotes/`, то есть голова опубликована. Объект без ссылки и ветка
+только в локальном клоне числа не дают: клон конвейера (`fetch-depth: 0`, все
+ветки origin) такой ревизии не несёт, и локальный вердикт разошёлся бы с
+конвейерным (опыт L2 приёмки, круг 2).
+
+ПОЧЕМУ ГОЛОВА ДОСТИЖИМА И ПОСЛЕ ПОСАДКИ. Вливание — только коммитом слияния,
+сквоша и rebase опубликованного нет (решение владельца 2026-09-22, п.4), поэтому
+влитая голова — предок приёмника и в итоге ствола, а невлитая лежит на открытой
+ветке (п.6: иных ссылок нет). Прежде голова после посадки схлопыванием предком
+ствола не становилась, и снятая ветка уносила её из клона одного ствола (опыт
+L1); предпосылку сняло правило, а не оговорка здесь. Голова без ссылки — это
+нарушение п.6 либо линия, переписанная по п.9. Число тогда непроизводимо: это
+«не выполнилось», а не ноль, и пакет перемеряется на новую голову.
 
 Коды: 0 — число произведено (verify: пакеты сверены, находок нет); 1 — находка
 (форма пакета неверна; verify: освобождение не воспроизводится или ложно);
@@ -289,6 +300,12 @@ def resolve_line(home, repo, base, head):
         if rc != 0:
             raise Finding("%s: база %s… не предок головы %s… — диапазон не линия изменения"
                           % (repo, base[:12], head[:12]))
+        rc, refs, _ = git(top, "for-each-ref", "--count=1", "--contains", head,
+                          "--format=%(refname)", "refs/remotes/")
+        if rc != 0 or not refs.strip():
+            rejected.append("%s (%s): голову %s… не содержит ни одна ссылка refs/remotes/ — "
+                            "не опубликована, клон конвейера её не несёт" % (label, top, head[:12]))
+            continue
         return top
     raise Unread("клон %s с ревизиями линии не найден: %s" % (repo, "; ".join(rejected)))
 
@@ -310,7 +327,8 @@ def measure(home, package, field):
     if field in DIFF_FIELDS or field == LANE_FIELD:
         value = 0
         parts = []
-        for repo, base, head in package.ranges():
+        ranges = package.ranges()
+        for repo, base, head in ranges:
             top = resolve_line(home, repo, base, head)
             if field == LANE_FIELD:
                 rc, total, err = git(top, "rev-list", "--count", "%s..%s" % (base, head))
@@ -340,6 +358,13 @@ def measure(home, package, field):
                 value += len(hit)
                 parts.append("%s %s...%s: путей диффа %d, отобрано %d"
                              % (repo, base[:12], head[:12], len(total), len(hit)))
+        if field == LANE_FIELD and len(ranges) > 1:
+            # Линии в двух репозиториях — две полосы, лежащие рядом, даже если
+            # обе линейны (опыт W4 приёмки, круг 2): каждая следующая линия —
+            # ещё одно сведение.
+            value += len(ranges) - 1
+            parts.append("линий в %d репозиториях: сведений между ними %d"
+                         % (len(ranges), len(ranges) - 1))
         return value, "ревизия дома %s · пакет %s · %s" % (home.sha, package.path, " · ".join(parts))
     raise Finding("поле %r производителю неизвестно; известные: %s" % (field, ", ".join(FIELDS)))
 
@@ -362,6 +387,23 @@ def cmd_field(args):
 
 # ── СВЕРКА ОСВОБОЖДЕНИЙ ПАКЕТОВ С РЕЕСТРОМ ───────────────────────────────────
 
+def holder_owners(holders):
+    """{роль: [держатели]} по полю `owner` точного множества `required_holders`."""
+    table = holders.get("required_holders")
+    if table is None:
+        table = {}
+    if not isinstance(table, dict):
+        raise Finding("required_holders — не отображение")
+    owners, orphans = {}, []
+    for name, holder in table.items():
+        owner = holder.get("owner") if isinstance(holder, dict) else None
+        if owner:
+            owners.setdefault(str(owner), []).append(str(name))
+        else:
+            orphans.append(str(name))
+    return owners, orphans
+
+
 def role_records(package, holders, role):
     """Следы роли в пакете: каталог с именем роли либо свидетельство её держателя."""
     coords = []
@@ -377,31 +419,67 @@ def role_records(package, holders, role):
 
 
 def verify_package(home, predicates, roles, holders_path):
-    """(находки, непрочитанное, освобождений пересчитано) по одному пакету."""
+    """(находки, непрочитанное, освобождений пересчитано, есть ли раздел) по пакету.
+
+    Каждая роль реестра обязана быть ЛИБО освобождена строкой `role_applicability`
+    на своём предикате, ЛИБО держаться хотя бы одним держателем с её `owner` —
+    третьего нет. Пакет без раздела не освобождает ничего и судится тем же
+    правилом: у него держатель нужен КАЖДОЙ роли (опыт S1 приёмки, круг 2).
+    Держатель освобождённой роли — находка сам по себе, без файлов свидетельства
+    (опыт W7): точное множество называет его обязательным, а реестр — снятым.
+    """
     findings, unread, done = [], [], 0
     package_path = holders_path.rsplit("/", 1)[0]
     try:
         package = Package(home, package_path)
     except (Unread, Finding) as exc:
-        return ["%s: %s" % (package_path, exc)], [], 0
+        return ["%s: %s" % (package_path, exc)], [], 0, False
     holders = home.load_yaml(holders_path, missing="на %s нет %s")
     if not isinstance(holders, dict):
-        return ["%s — не отображение" % holders_path], [], 0
+        return ["%s — не отображение" % holders_path], [], 0, False
     if str(holders.get("change_id")) != package.change_id:
         findings.append("%s: change_id %r не совпадает с каталогом %r"
                         % (holders_path, holders.get("change_id"), package.change_id))
+    try:
+        owners, orphans = holder_owners(holders)
+    except Finding as exc:
+        return findings + ["%s: %s" % (holders_path, exc)], [], 0, False
+    for name in orphans:
+        findings.append("%s: держатель %s без owner — роль, которую он держит, не названа"
+                        % (package.path, name))
+    for role in sorted(set(owners) - roles):
+        findings.append("%s: держатели %s принадлежат роли %s, которой нет в review_authority"
+                        % (package.path, ", ".join(owners[role]), role))
     table = holders.get("role_applicability")
+    sectioned = table is not None
+    if table is None:
+        table = {}
     if not isinstance(table, dict):
-        return findings, [], None
-    for role in sorted(roles - set(table)):
-        findings.append("%s: роль реестра %s без строки role_applicability" % (package.path, role))
-    for role in sorted(set(table) - roles):
-        findings.append("%s: строка %s есть, роли в review_authority нет" % (package.path, role))
-    for role in sorted(set(table) & roles):
+        return findings + ["%s: role_applicability — не отображение" % holders_path], [], 0, True
+    if sectioned:
+        for role in sorted(roles - set(table)):
+            findings.append("%s: роль реестра %s без строки role_applicability" % (package.path, role))
+        for role in sorted(set(table) - roles):
+            findings.append("%s: строка %s есть, роли в review_authority нет" % (package.path, role))
+    for role in sorted(roles):
+        where = "%s · %s" % (package.path, role)
+        held = owners.get(role, [])
+        if role not in table:
+            if not sectioned and not held:
+                findings.append("%s: ни строки role_applicability, ни держателя с этим owner — "
+                                "без строки роль не освобождена, а держать её некому" % where)
+            continue
         row = table[role] if isinstance(table[role], dict) else {}
         status = row.get("status")
-        where = "%s · %s" % (package.path, role)
         if status == "applicable":
+            if not held:
+                findings.append("%s: применима, а держателя с этим owner в required_holders нет"
+                                % where)
+            named = row.get("holder")
+            for name in (named if isinstance(named, list) else [named] if named else []):
+                if str(name) not in held:
+                    findings.append("%s: строка называет держателя %r, а у роли в "
+                                    "required_holders его нет" % (where, name))
             continue
         if status != "not-applicable":
             findings.append("%s: статус %r — ни applicable, ни not-applicable" % (where, status))
@@ -425,6 +503,9 @@ def verify_package(home, predicates, roles, holders_path):
             findings.append("%s: evidence_command не в канонической форме — записано %r, "
                             "ожидается %r" % (where, normalize(row.get("evidence_command", "")),
                                               canonical))
+        if held:
+            findings.append("%s: освобождённая роль держит в required_holders %s — множество "
+                            "называет обязательным то, что реестр снял" % (where, ", ".join(held)))
         records = role_records(package, holders, role)
         if records:
             findings.append("%s: освобождённая роль оставила в пакете записи (%s) — предмет "
@@ -445,7 +526,7 @@ def verify_package(home, predicates, roles, holders_path):
             findings.append("%s: предикат %s ложен — %s = %d, освобождает только %s %r"
                             % (where, pid, field, value, pred.get("satisfied_when"),
                                pred.get("value")))
-    return findings, unread, done
+    return findings, unread, done, sectioned
 
 
 def cmd_verify(args):
@@ -463,41 +544,42 @@ def cmd_verify(args):
             predicates[p["id"]] = p
     roles = set(home.policy.get("review_authority") or {})
     try:
-        holders_files = sorted(f for f in home.files()
-                               if re.match(r"^docs/changes/[^/]+/holders\.yaml$", f))
+        files = home.files()
     except Unread as exc:
         sys.stderr.write("[UNREAD] %s\n" % exc)
         return EXIT_UNREAD
+    holders_files = sorted(f for f in files if re.match(r"^docs/changes/[^/]+/holders\.yaml$", f))
+    with_holders = {f.split("/")[2] for f in holders_files}
+    without = sorted({f.split("/")[2] for f in files
+                      if re.match(r"^docs/changes/[^/]+/change\.yaml$", f)} - with_holders)
     findings, unread = [], []
-    judged, prose, done = [], [], 0
+    sectioned, whole, done = [], [], 0
     for path in holders_files:
         try:
-            f, u, d = verify_package(home, predicates, roles, path)
+            f, u, d, s = verify_package(home, predicates, roles, path)
         except (Unread, Finding) as exc:
             findings.append("%s: %s" % (path, exc))
             continue
         findings += f
         unread += u
-        if d is None:
-            prose.append(path.split("/")[2])
-        else:
-            judged.append(path.split("/")[2])
-            done += d
+        done += d
+        (sectioned if s else whole).append(path.split("/")[2])
     census("ревизия %s · ролей реестра %d · предикатов %d · пакетов с holders.yaml %d: "
-           "сверено %d (%s), без раздела role_applicability %d (%s) · освобождений "
-           "пересчитано %d, не пересчитано %d · находок %d"
-           % (home.sha, len(roles), len(predicates), len(holders_files), len(judged),
-              ", ".join(judged) or "—", len(prose), ", ".join(prose) or "—",
-              done, len(unread), len(findings)))
+           "с разделом role_applicability %d (%s), без раздела — все роли применимы и "
+           "судятся по держателям — %d (%s) · манифест без holders.yaml %d (%s), не сверены · "
+           "освобождений пересчитано %d, не пересчитано %d · находок %d"
+           % (home.sha, len(roles), len(predicates), len(holders_files), len(sectioned),
+              ", ".join(sectioned) or "—", len(whole), ", ".join(whole) or "—",
+              len(without), ", ".join(without) or "—", done, len(unread), len(findings)))
     for line in findings:
         sys.stderr.write("[FAIL] %s\n" % line)
     for line in unread:
         sys.stderr.write("[UNREAD] %s\n" % line)
     if findings:
         return EXIT_FINDING
-    if not judged:
-        sys.stderr.write("[UNREAD] ни одного пакета с разделом role_applicability на %s — "
-                         "сверять нечего, это не «находок 0»\n" % home.sha[:12])
+    if not holders_files:
+        sys.stderr.write("[UNREAD] ни одного пакета с holders.yaml на %s — сверять нечего, "
+                         "это не «находок 0»\n" % home.sha[:12])
         return EXIT_UNREAD
     if unread:
         return EXIT_UNREAD

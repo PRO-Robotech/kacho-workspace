@@ -159,6 +159,7 @@ def build_product(tmp):
     git(repo, "checkout", "-q", plain)
     write(repo, "proto/kacho/cloud/vpc/v1/x.proto", "syntax = \"proto3\";\n")
     heads["proto"] = commit(repo, "proto")
+    git(repo, "branch", "proto-lane", heads["proto"])  # голова линии опубликована веткой
 
     # две полосы, сведённые слиянием
     git(repo, "checkout", "-q", "-b", "lane-a", base)
@@ -191,7 +192,32 @@ def build_product(tmp):
     heads["stray_base"] = commit(repo, "stray base")
     write(repo, "y.sql", "select 2;\n")
     heads["stray_head"] = commit(repo, "stray head")
+
+    # полоса, влитая в ствол КОММИТОМ СЛИЯНИЯ, и её ветка снята: голова остаётся
+    # предком ствола (п.4 решения владельца 2026-09-22) — опыт L1 приёмки
+    git(repo, "checkout", "-q", "-f", "-b", "trunk2", base)
+    write(repo, "gateway/trunk2.go", "package a\n")
+    commit(repo, "trunk2 moves")
+    git(repo, "checkout", "-q", "-b", "landed-lane", base)
+    write(repo, "gateway/landed.go", "package a\n")
+    heads["landed"] = commit(repo, "landed lane")
+    git(repo, "checkout", "-q", "trunk2")
+    git(repo, "merge", "-q", "--no-ff", "-m", "merge landed lane", "landed-lane")
+    git(repo, "branch", "-q", "-D", "landed-lane")
+
+    # голова только в локальной ветке и объект без ссылки — опыт L2 приёмки
+    git(repo, "checkout", "-q", "-b", "local-only", base)
+    write(repo, "gateway/local.go", "package a\n")
+    heads["local_only"] = commit(repo, "local only")
+    heads["dangling"] = git(repo, "commit-tree", heads["plain"] + "^{tree}", "-p", base,
+                            "-m", "dangling")
     git(repo, "checkout", "-q", "-f", "main")
+
+    # «опубликовать» = ссылка refs/remotes/, как после fetch в клоне конвейера;
+    # local-only намеренно не публикуется, landed-lane снята
+    for name in git(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").split("\n"):
+        if name and name != "local-only":
+            git(repo, "update-ref", "refs/remotes/origin/" + name, "refs/heads/" + name)
     return repo, heads
 
 
@@ -204,9 +230,11 @@ def rewrite_cutovers(policy_text, policy, ws_cut, product_cut):
     return text
 
 
-def manifest(change_id, head=None, base=None, extra_hashes=""):
+def manifest(change_id, head=None, base=None, extra_hashes="", home_line=None):
     lines = ["schema_version: 1", "change_id: %s" % change_id, "coordinates:",
              "  repositories:", "    - repo: %s" % WORKSPACE, "      role: package-home"]
+    if home_line:
+        lines += ["      base_sha: %s" % home_line[0], "      head_sha: %s" % home_line[1]]
     if head:
         lines += ["    - repo: %s" % PRODUCT, "      role: subject-tree",
                   "      base_sha: %s" % base, "      head_sha: %s" % head]
@@ -216,7 +244,7 @@ def manifest(change_id, head=None, base=None, extra_hashes=""):
     return "\n".join(lines) + "\n"
 
 
-def holders_for(package, policy, role_rows_override=None):
+def holders_for(package, policy, role_rows_override=None, holders_override=None):
     """Точное множество ролей реестра: всё, что реестр позволяет освободить на
     пакете без документов и на линии без миграций/контракта/слияний, — освобождено
     канонической строкой; остальное применимо. Выведено из РЕЕСТРА, а не выписано."""
@@ -224,11 +252,12 @@ def holders_for(package, policy, role_rows_override=None):
     by_role = {}
     for pred in policy.get("applicability_predicates") or []:
         by_role.setdefault(pred["role"], pred)
-    rows = {}
+    rows, holders = {}, {}
     for role in sorted(policy.get("review_authority") or {}):
         pred = by_role.get(role)
         if pred is None:
             rows[role] = {"status": "applicable", "holder": "human-" + role}
+            holders["human-" + role] = {"kind": "human-external", "owner": role}
             continue
         rows[role] = {
             "status": "not-applicable",
@@ -238,8 +267,10 @@ def holders_for(package, policy, role_rows_override=None):
             "evidence_command": producer_module.canonical_command(pred["evidence_field"], package),
         }
     rows.update(role_rows_override or {})
+    holders.update(holders_override or {})
+    holders = {k: v for k, v in holders.items() if v is not None}
     doc = {"schema_version": 1, "change_id": change_id, "role_applicability": rows,
-           "required_holders": {}}
+           "required_holders": holders}
     return yaml.safe_dump(doc, allow_unicode=True, sort_keys=True)
 
 
@@ -467,6 +498,28 @@ def prove(tmp):
     rev = world.branch(w1, line("zz-crossed", heads["lane_a"], base=heads["lane_b"]))
     expect_refusal("L база не предок головы -> находка",
                    field(ws, "lane_merges_in_change", "docs/changes/zz-crossed", rev, env=env), code=1)
+
+    sys.stdout.write("=== линии: опубликованность головы и полосы в двух репозиториях ===\n")
+    for key, title in (("local_only", "L2 голова только в локальной ветке, не опубликована"),
+                       ("dangling", "L2 голова — объект без ссылки")):
+        rev = world.branch(w1, line("zz-" + key.replace("_", "-"), heads[key]))
+        expect_refusal("%s -> отказ: клон конвейера её не несёт" % title,
+                       field(ws, "lane_merges_in_change",
+                             "docs/changes/zz-" + key.replace("_", "-"), rev, env=env))
+    rev = world.branch(w1, line("zz-landed", heads["landed"]))
+    expect_value("L1 полоса влита коммитом слияния, ветка снята -> число: голова — предок ствола",
+                 field(ws, "lane_merges_in_change", "docs/changes/zz-landed", rev, env=env), 0)
+    git(ws, "update-ref", "refs/remotes/origin/w1", w1)
+
+    def two_lines(r):
+        write(r, "docs/changes/zz-two/change.yaml",
+              manifest("zz-two", head=heads["plain"], base=heads["base"],
+                       home_line=(world.cutover, w1)))
+    rev = world.branch(w1, two_lines)
+    expect_value("W4 линии в двух репозиториях, обе линейны -> 1: полос две",
+                 field(ws, "lane_merges_in_change", "docs/changes/zz-two", rev, env=env), 1)
+    expect_value("W4 близнец: те же линии, поле о диффе продукта -> 0 (сумма по линиям)",
+                 field(ws, "migrations_touched", "docs/changes/zz-two", rev, env=env), 0)
     git(ws, "checkout", "-q", "-f", lines["plain"])
     os.makedirs(os.path.join(ws, "project"), exist_ok=True)
     os.symlink(product, os.path.join(ws, "project", "kacho"))
@@ -479,12 +532,12 @@ def prove(tmp):
     target = "docs/changes/zz-verify"
     other = "docs/changes/zz-other"
 
-    def verify_world(override=None, extra=None):
+    def verify_world(override=None, extra=None, holders=None):
         def mutate(r):
             for pk in (target, other):
                 write(r, pk + "/change.yaml", manifest(pk.rsplit("/", 1)[-1],
                                                       head=heads["plain"], base=heads["base"]))
-            write(r, target + "/holders.yaml", holders_for(target, policy, override))
+            write(r, target + "/holders.yaml", holders_for(target, policy, override, holders))
             write(r, target + "/reviews/post-diff/go-style-reviewer/x.yaml", "verdict: accepted\n")
             if extra:
                 extra(r)
@@ -548,11 +601,42 @@ def prove(tmp):
                 verify(verify_world({design_row: wrong}), e={}), 1)
     expect_code("V пакетов с holders.yaml нет -> 2, а не «находок 0»", verify(only_policy), 2)
 
-    def prose_only(r):
-        write(r, "docs/changes/zz-prose/change.yaml", manifest("zz-prose"))
-        write(r, "docs/changes/zz-prose/holders.yaml", "schema_version: 1\nchange_id: zz-prose\n")
-    expect_code("V только пакет без role_applicability -> 2: сверять нечего",
-                verify(world.branch(only_policy, prose_only)), 2)
+    sys.stdout.write("=== verify: каждая роль освобождена либо держится (опыты S1, W7) ===\n")
+
+    def prose(holders_text):
+        def mutate(r):
+            write(r, "docs/changes/zz-prose/change.yaml", manifest("zz-prose"))
+            write(r, "docs/changes/zz-prose/holders.yaml",
+                  "schema_version: 1\nchange_id: zz-prose\n" + holders_text)
+        return world.branch(only_policy, mutate)
+    every_role = "required_holders:\n" + "".join(
+        "  h-%s:\n    owner: %s\n" % (role, role) for role in sorted(policy["review_authority"]))
+    expect_code("V S1 пакет без role_applicability и без держателей -> находка, а не 2",
+                verify(prose("")), 1, "держать её некому")
+    expect_code("V близнец: пакет без раздела, каждая роль держится -> 0",
+                verify(prose(every_role)), 0)
+    lone = [r for r in sorted(policy["review_authority"]) if r != "wave-reviewer"]
+    expect_code("V S1 пакет без раздела, у одной роли держателя нет -> находка",
+                verify(prose("required_holders:\n" + "".join(
+                    "  h-%s:\n    owner: %s\n" % (r, r) for r in lone))), 1, "wave-reviewer")
+    expect_code("V W7 освобождённая роль держит держателя в required_holders -> находка",
+                verify(verify_world(holders={"h-released": {"kind": "human-external",
+                                                             "owner": design_row}})),
+                1, "держит в required_holders")
+    applicable = sorted(r for r in rows if rows[r]["status"] == "applicable")
+    check("V предпосылка: на синтетическом пакете есть применимая роль", bool(applicable),
+          "применимых ролей нет — опыты о держателях вакуумны")
+    expect_code("V применимая роль без держателя -> находка",
+                verify(verify_world(holders={"human-" + applicable[0]: None})), 1,
+                "держателя с этим owner")
+    expect_code("V строка называет держателя чужой роли -> находка",
+                verify(verify_world(holders={"human-" + applicable[0]: {
+                    "kind": "human-external", "owner": applicable[-1]}})), 1, "называет держателя")
+    expect_code("V держатель без owner -> находка",
+                verify(verify_world(holders={"h-anon": {"kind": "human-external"}})), 1, "без owner")
+    expect_code("V держатель роли, которой нет в реестре -> находка",
+                verify(verify_world(holders={"h-ghost": {"owner": "ghost-reviewer"}})), 1,
+                "ghost-reviewer")
     return True
 
 
