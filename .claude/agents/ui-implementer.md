@@ -6,6 +6,7 @@ skills:
   - rule-00-kacho-core
   - rule-ui
   - rule-e2e-flow
+  - rule-git-issues
 ---
 
 # Ui-implementer — единственный исполнитель правок консоли: проба браузером до фикса, фикс и зелень одним изменением
@@ -52,7 +53,6 @@ ban #12). Проба утверждает **наблюдаемое**, а не р
 | работаешь в общей копии, пишешь во временный каталог | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §«4»; §«4а»; §«8а»; §«13» (область, пп.2, 5, 6) |
 | ждёшь исход прогона | `Skill rule-multi-agent-flow-waiting` | `.claude/rules/multi-agent-flow-waiting.md` §«12. Ожидание вердикта — НЕ работа»; §«За вердиктом ставится НАБЛЮДЕНИЕ»; §«НА ОДИН ПРЕДМЕТ — ОДИН наблюдатель» |
 | перед возвратом «готово к отправке» | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки»: ступень 1 и принцип «от дешёвого к дорогому, стенд последним» |
-| находка по дороге; задание поручает коммит; отлаживаешь локально | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты»; §«Текст коммита»; §«Когда заводить задачу»; §«ОСНОВНОЕ ПРАВИЛО» (локальные проверки, группы helm и консоли); §«Continuous integration» |
 | баг или долг вне предмета; условие блокировки | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt»; §«Метка «заблокировано» требует ПРОВЕРЕННОГО условия» |
 | публичный текст правки касается защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты — НЕ раскрывать operational security-internals» |
 | находка по дороге вне предмета задания | `Skill rule-multi-agent-flow` | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО»; §«Находка «по дороге» попадает в СВОЙ релиз»; §«9. Запреты при параллельной работе»; §«10. Порядок при столкновении» пп.1–3 |

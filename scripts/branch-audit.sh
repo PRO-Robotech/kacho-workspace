@@ -90,8 +90,8 @@
 #
 # ЧЕГО ПРИЗНАКИ НЕ ДОКАЗЫВАЮТ ПООДИНОЧКЕ:
 #
-#   * `git branch --merged` — здесь вливают схлопыванием и через накопительную
-#     ветку, поэтому HEAD ветки предком ствола не становится: `--merged
+#   * `git branch --merged` — до 2026-09-22 здесь вливали схлопыванием и через
+#     накопительную ветку, и HEAD таких веток предком ствола не становится: `--merged
 #     origin/main` дал НОЛЬ при 63 ветках, из которых 13 были влиты;
 #   * сравнение содержимого — лжёт в обратную сторону: ствол уходит вперёд по тем
 #     же файлам, и у заведомо влитой ветки насчитывается тысяча строк «различий»;
@@ -108,6 +108,20 @@
 # Использование:
 #   scripts/branch-audit.sh [путь-к-репозиторию]                  # перепись
 #   scripts/branch-audit.sh --prune-merged [путь-к-репозиторию]   # + снять влитые
+#   scripts/branch-audit.sh --graph [путь-к-репозиторию]          # инвариант графа
+#
+# РЕЖИМ --graph — инвариант правила 2026-09-22 (п.6, `git-issues.md`
+# §«Дерево задач, ветки, слияния»): каждая ссылка — открытая работа по открытой
+# задаче либо предок ствола; иных ноль. Печатает ЧИСЛО ссылок по классам,
+# локальных и на origin отдельно, и имена висящих; ничего не снимает.
+#   законные: предок ствола · ветка-номер открытой задачи · ветка до правила с
+#             открытым PR (переход, п.9);
+#   висящие:  ветка-номер закрытой задачи · номер, который не задача этого
+#             репозитория · имя не номер без открытого PR;
+#   без вердикта: состояние задачи или открытых PR не прочитано (gh недоступен).
+# Код: 0 — висящих 0; 1 — есть висящие; 2 — висящих 0, но часть без вердикта.
+# Состояния задач без gh — из BRANCH_AUDIT_ISSUE_STATE_FILE («номер<TAB>OPEN|
+# CLOSED|NOTASK»), только для проб; провенанс печатается.
 #
 # Переменные: BRANCH_AUDIT_TRUNK (ствол, умолчание origin/main),
 #             BRANCH_AUDIT_FRESH_MIN (окно «движется прямо сейчас», умолчание 45),
@@ -138,7 +152,11 @@
 set -euo pipefail
 
 PRUNE=0
-if [ "${1:-}" = "--prune-merged" ]; then PRUNE=1; shift; fi
+MODE=census
+case "${1:-}" in
+  --prune-merged) PRUNE=1; shift ;;
+  --graph)        MODE=graph; shift ;;
+esac
 
 REPO="${1:-$(pwd)}"
 cd "$REPO" || { echo "branch-audit: каталог '$REPO' недоступен" >&2; exit 2; }
@@ -257,9 +275,11 @@ is_generated() { # $1 = путь → 0, если файл производитс
 }
 
 echo "branch-audit: замер $(date -u +'%Y-%m-%dT%H:%M:%SZ') (UTC) — вердикт верен НА ЭТОТ МОМЕНТ"
-collect_generated
-echo "branch-audit: генераторов спрошено ${GEN_ASKED}, без ключа --outputs ${GEN_MUTE};"\
-     "машинно собираемых путей ${#GENERATED_PATHS[@]} — их дельта свойство генератора, не ветки"
+if [ "$MODE" = census ]; then
+  collect_generated
+  echo "branch-audit: генераторов спрошено ${GEN_ASKED}, без ключа --outputs ${GEN_MUTE};"\
+       "машинно собираемых путей ${#GENERATED_PATHS[@]} — их дельта свойство генератора, не ветки"
+fi
 echo
 
 # --- какие ветки заняты рабочими копиями (снимать нельзя, не спросив) ---------
@@ -304,12 +324,14 @@ worktree_abandoned() { # $1 = путь копии → 0, если копия в�
 }
 
 # --- что РЕАЛЬНО есть на origin: прямой запрос, не refs/remotes ---------------
-declare -A ON_ORIGIN=()
+declare -A ON_ORIGIN=() ORIGIN_SHA=()
 remote_ok=0
 if remote_out=$(git ls-remote --heads origin 2>/dev/null); then
   remote_ok=1
   while read -r _sha ref; do
-    [ -n "${ref:-}" ] && ON_ORIGIN["${ref#refs/heads/}"]=1
+    [ -n "${ref:-}" ] || continue
+    ON_ORIGIN["${ref#refs/heads/}"]=1
+    ORIGIN_SHA["${ref#refs/heads/}"]=$_sha
   done <<<"$remote_out"
 fi
 
@@ -340,6 +362,132 @@ elif [ -n "${BRANCH_AUDIT_PR_STATE_FILE:-}" ] && [ -r "${BRANCH_AUDIT_PR_STATE_F
 fi
 if [ "${pr_state_from_file:-0}" = 1 ]; then
   echo "branch-audit: состояния PR прочитаны ИЗ ФАЙЛА ${BRANCH_AUDIT_PR_STATE_FILE} — gh недоступен"
+fi
+
+# --- РЕЖИМ --graph: инвариант графа (правило 2026-09-22, п.6) ------------------
+# Ветку адресуем ПОЛНЫМ именем ссылки: голый номер без локальной ветки git читает
+# как сокращённый хеш (`git rev-parse --verify 10032` здесь давал объект blob), и
+# вердикт «предок ствола» выносился бы о чужом объекте.
+if [ "$MODE" = graph ]; then
+  declare -A ISSUE_STATE=()
+  gh_live=0
+  [ "$have_gh" = 1 ] && [ "${pr_state_from_file:-0}" != 1 ] && gh_live=1
+  if [ "$gh_live" = 0 ] && [ -n "${BRANCH_AUDIT_ISSUE_STATE_FILE:-}" ] && [ -r "$BRANCH_AUDIT_ISSUE_STATE_FILE" ]; then
+    while IFS=$'\t' read -r n st; do
+      [ -n "$n" ] && ISSUE_STATE["$n"]="$st"
+    done < "$BRANCH_AUDIT_ISSUE_STATE_FILE"
+    echo "branch-audit: состояния задач прочитаны ИЗ ФАЙЛА ${BRANCH_AUDIT_ISSUE_STATE_FILE} — gh недоступен"
+  fi
+  issue_state() { # $1 = номер → OPEN · CLOSED · NOTASK · UNKNOWN
+    local n=$1 out
+    if [ -n "${ISSUE_STATE[$n]+x}" ]; then printf '%s' "${ISSUE_STATE[$n]}"; return; fi
+    if [ "$gh_live" = 1 ]; then
+      if out=$(gh api "repos/{owner}/{repo}/issues/$n" \
+                 --jq 'if .pull_request then "NOTASK" else (.state|ascii_upcase) end' 2>&1); then
+        ISSUE_STATE["$n"]="$out"
+      elif grep -q 'HTTP 404' <<<"$out"; then
+        ISSUE_STATE["$n"]=NOTASK
+      else
+        ISSUE_STATE["$n"]=UNKNOWN
+      fi
+    else
+      ISSUE_STATE["$n"]=UNKNOWN
+    fi
+    printf '%s' "${ISSUE_STATE[$n]}"
+  }
+  # Открытые PR — ОТДЕЛЬНЫМ запросом, а не из PRSTATE: там последние 300 PR всех
+  # состояний, и на одну голову пишется последний прочитанный, то есть САМЫЙ
+  # СТАРЫЙ PR — открытый PR ветки, у которой был закрытый, терялся бы, а открытый
+  # старше трёхсот последних не попадал бы вовсе; ветка выглядела бы висящей.
+  declare -A OPEN_PR=()
+  if [ "$gh_live" = 1 ]; then
+    if open_out=$(gh pr list --state open --limit 1000 --json headRefName \
+                    --jq '.[].headRefName' 2>/dev/null); then
+      while read -r h; do [ -n "$h" ] && OPEN_PR["$h"]=1; done <<<"$open_out"
+    else
+      echo "branch-audit: открытые PR не прочитаны — ветки с именем не номер без вердикта" >&2
+      open_unread=1
+    fi
+  else
+    for h in "${!PRSTATE[@]}"; do
+      case "${PRSTATE[$h]}" in *OPEN*) OPEN_PR["$h"]=1 ;; esac
+    done
+  fi
+  declare -A G_LOCAL=() G_REMOTE=() G_NAMES=()
+  G_CLASSES=(ancestor open-task legacy-open-pr closed-task not-a-task legacy-no-pr unknown)
+  declare -A G_TITLE=(
+    [ancestor]="законно · предок ствола (после вливания снимается)"
+    [open-task]="законно · ветка-номер открытой задачи"
+    [legacy-open-pr]="законно · ветка до правила с открытым PR (переход)"
+    [closed-task]="ВИСИТ · ветка-номер ЗАКРЫТОЙ задачи, не предок ствола"
+    [not-a-task]="ВИСИТ · номер не задача этого репозитория"
+    [legacy-no-pr]="ВИСИТ · имя не номер, открытого PR нет"
+    [unknown]="БЕЗ ВЕРДИКТА · состояние задачи или открытых PR не прочитано"
+  )
+  for c in "${G_CLASSES[@]}"; do G_LOCAL[$c]=0; G_REMOTE[$c]=0; G_NAMES[$c]=""; done
+  g_class() { # $1 = имя ветки, $2 = sha → класс
+    local b=$1 sha=$2
+    if git merge-base --is-ancestor "$sha" "$TRUNK" 2>/dev/null; then printf ancestor; return; fi
+    if [[ "$b" =~ ^[0-9]+$ ]]; then
+      case "$(issue_state "$b")" in
+        OPEN)   printf open-task ;;
+        CLOSED) printf closed-task ;;
+        NOTASK) printf not-a-task ;;
+        *)      printf unknown ;;
+      esac
+      return
+    fi
+    if [ -n "${OPEN_PR[$b]+x}" ]; then printf legacy-open-pr
+    elif [ "${open_unread:-0}" = 1 ]; then printf unknown
+    else printf legacy-no-pr; fi
+  }
+  g_note() { # $1 = класс, $2 = метка «имя (сторона)»
+    case "$1" in ancestor|open-task|legacy-open-pr) return ;; esac
+    G_NAMES[$1]+="$2"$'\n'
+  }
+  while read -r b; do
+    [ "$b" = "${TRUNK#origin/}" ] && continue
+    c=$(g_class "$b" "$(git rev-parse "refs/heads/$b")")
+    G_LOCAL[$c]=$(( ${G_LOCAL[$c]} + 1 )); g_note "$c" "$b (локально)"
+  done < <(git for-each-ref --format='%(refname:short)' refs/heads/)
+  if [ "$remote_ok" = 1 ]; then
+    for b in "${!ORIGIN_SHA[@]}"; do
+      [ "$b" = "${TRUNK#origin/}" ] && continue
+      sha=${ORIGIN_SHA[$b]}
+      if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+        c=unknown
+      else
+        c=$(g_class "$b" "$sha")
+      fi
+      G_REMOTE[$c]=$(( ${G_REMOTE[$c]} + 1 )); g_note "$c" "$b (origin)"
+    done
+  fi
+  echo "── ГРАФ: локальных · на origin · класс"
+  dangling=0; nov=0; lawful=0
+  for c in "${G_CLASSES[@]}"; do
+    printf '   %5s · %-5s %s\n' "${G_LOCAL[$c]}" "${G_REMOTE[$c]}" "${G_TITLE[$c]}"
+    case "$c" in
+      closed-task|not-a-task|legacy-no-pr) dangling=$(( dangling + ${G_LOCAL[$c]} + ${G_REMOTE[$c]} )) ;;
+      unknown) nov=$(( ${G_LOCAL[$c]} + ${G_REMOTE[$c]} )) ;;
+      *) lawful=$(( lawful + ${G_LOCAL[$c]} + ${G_REMOTE[$c]} )) ;;
+    esac
+  done
+  for c in closed-task not-a-task legacy-no-pr unknown; do
+    [ -n "${G_NAMES[$c]}" ] || continue
+    echo
+    echo "── ${G_TITLE[$c]}"
+    printf '%s' "${G_NAMES[$c]}" | sort | awk 'NR<=20{print "   "$0} END{if(NR>20) printf "   …и ещё %d\n", NR-20}'
+  done
+  [ "$remote_ok" = 1 ] || echo "branch-audit: origin не опрошен — ветки на origin НЕ сосчитаны, перепись неполна" >&2
+  echo
+  echo "branch-audit --graph: висящих ссылок ${dangling}, законных ${lawful}, без вердикта ${nov}" \
+       "(инвариант: висящих 0 — каждая ссылка открытая работа по открытой задаче либо предок ствола)"
+  [ "$dangling" -eq 0 ] ||
+    echo "branch-audit --graph: снимать — по переписи без --graph: она доказывает вливание содержимым, этот режим — нет"
+  [ "$dangling" -eq 0 ] || exit 1
+  [ "$nov" -eq 0 ] || exit 2
+  [ "$remote_ok" = 1 ] || exit 2
+  exit 0
 fi
 
 # --- ПЯТЫЙ ПРИЗНАК: дельта слияния во временной копии -------------------------

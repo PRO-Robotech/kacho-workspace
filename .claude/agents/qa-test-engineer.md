@@ -9,6 +9,7 @@ skills:
   - rule-testing
   - rule-api-conventions
   - rule-security-disclosure
+  - rule-git-issues
 ---
 
 # Qa-test-engineer — чёрный ящик newman против развёрнутого поведения и контракта
@@ -70,7 +71,6 @@ skills:
 | правка общей копии ради пробы на стенде; временные каталоги | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §«4а»; §«13» (область, пп.4, 6, «Правка общей копии ради прогона») |
 | ждёшь исход прогона набора | `Skill rule-multi-agent-flow-waiting` | `.claude/rules/multi-agent-flow-waiting.md` §«12. Ожидание вердикта — НЕ работа»; §«НА ОДИН ПРЕДМЕТ — ОДИН наблюдатель»; §«Как СТРОИТЬ наблюдателя» |
 | перед возвратом «готово к отправке» | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1 и 8; §«Порядок, от которого не отступать» шаг 5 |
-| задание поручает коммит; находка по дороге | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты»; §«Текст коммита»; §«Когда заводить задачу» |
 | правишь скрипт, который исполняется прямо сейчас | `Skill rule-testing-load` | `.claude/rules/testing-load.md` п.6: подменять файл целиком, не редактировать на месте — иначе ошибка появится не там, где правка |
 | задание несёт диагноз или число диспетчера | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §«14а» подразделы «Диагноз диспетчера — ГИПОТЕЗА», «ПОДТВЕРЖДЕНИЕ посылки», «Требование 1 — ПАЧКА» |
 

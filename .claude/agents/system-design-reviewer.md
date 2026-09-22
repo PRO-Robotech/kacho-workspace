@@ -8,6 +8,7 @@ skills:
   - rule-architecture
   - rule-polyrepo
   - rule-security
+  - rule-git-issues
 ---
 
 # System-design-reviewer — пост-дифф рецензент распределённых свойств

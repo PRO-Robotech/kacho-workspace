@@ -7,6 +7,7 @@ skills:
   - rule-api-conventions
   - rule-security
   - rule-polyrepo
+  - rule-git-issues
 ---
 
 # Proto-api-reviewer — рецензент формы контрактов платформы

@@ -6,6 +6,7 @@ skills:
   - rule-00-kacho-core
   - rule-testing-load
   - rule-testing-verdict
+  - rule-git-issues
 ---
 
 # Load-tester — замер под нагрузкой: числа с посадкой, потолок по отказам

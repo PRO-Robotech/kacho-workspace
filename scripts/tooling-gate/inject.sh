@@ -646,6 +646,70 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
+echo "== check-17: стражи правила git отказывают на дефекте и молчат на близнеце =="
+# Дефект вносится в КОПИЮ хуков песочницы и ровно одним фактом; каждая инъекция
+# обязана уронить check-17 — иначе его отказные пробы проверяли бы форму вывода,
+# а не существо стража. Близнец — тот же распознаватель другой записью.
+GR_LIB="scripts/hooks/git-rule.sh"
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-17-git-rule-guards-refuse-and-pass.sh
+
+b="$(mksandbox)"
+if mr_patch "$b/$GR_LIB" "s/^GR_ATTR_RE=.*\$/GR_ATTR_RE='^---never---x'/m" "распознаватель атрибуции ослеп"; then
+    run 1 "$b" "инъекция: распознаватель атрибуции не видит ничего — краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/scripts/hooks/pre-push" 's/if ! gr_judge_push <<<"\$push_refs"; then/if false; then/' \
+    "хук отправки не зовёт стража"; then
+    run 1 "$b" "инъекция: хук отправки не судит ссылки — краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-17" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/scripts/hooks/commit-msg" 's/\[ "\$n" != "\$branch" \]/false/' \
+    "номер заголовка не сверяется с веткой"; then
+    run 1 "$b" "инъекция: чужой номер на ветке-номере пропущен — краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$GR_LIB" 's/if \[ "\$who" != "\$root" \] \|\| \[ "\$cwho" != "\$root" \]; then/if false; then/' \
+    "подпись отправляемых не сверяется с корневой"; then
+    run 1 "$b" "инъекция: чужая подпись после T0 пропущена стражем отправки — краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$GR_LIB" 's/if \[ "\$name" != main \] && ! \[\[ "\$name" =~ \^\[0-9\]\+\$ \]\]; then/if false; then/' \
+    "имя новой ветки не судится"; then
+    run 1 "$b" "инъекция: новая ветка не номер пропущена — краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+# Страж, отвергающий ИСТОРИЮ, так же неверен, как пропускающий дефект: его ловит
+# законный близнец «дата до T0», и только он.
+b="$(mksandbox)"
+if mr_patch "$b/$GR_LIB" 's/if \[ "\$at" -lt "\$t0" \]; then/if false; then/' \
+    "история до T0 судится как новая"; then
+    run 1 "$b" "инъекция: коммит до T0 отвергнут — близнец краснеет" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$GR_LIB" \
+    "s/^GR_ATTR_RE=.*\$/GR_ATTR_RE='claude\\\\.ai\\/code|generated with \\\\[?claude code|^[[:space:]]*claude-session:|^[[:space:]]*co-authored-by:.*(anthropic|claude)'/m" \
+    "тот же распознаватель другой записью"; then
+    run 0 "$b" "близнец: распознаватель атрибуции другой записью — молчит" \
+        check-17-git-rule-guards-refuse-and-pass.sh
+fi
+
+b="$(mksandbox scripts/hooks/commit-msg)"
+run 2 "$b" "предпосылка: коммит-стража нет — VOID, а не успех" \
+    check-17-git-rule-guards-refuse-and-pass.sh
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.

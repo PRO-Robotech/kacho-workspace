@@ -6,6 +6,7 @@ skills:
   - rule-00-kacho-core
   - rule-architecture
   - rule-security-hardening
+  - rule-git-issues
 ---
 
 # Go-style-reviewer — пост-дифф рецензент Go-кода продукта

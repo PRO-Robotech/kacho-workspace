@@ -8,6 +8,7 @@ skills:
   - rule-testing
   - rule-testing-verdict
   - rule-subscription
+  - rule-git-issues
 ---
 
 # go-implementer — не-RPC правка Go продукта строгим TDD
@@ -64,7 +65,6 @@ skills:
 | гоняешь пробы и гейты в рабочей копии, пишешь во временный каталог | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8 (гейты до отправки), §8а, §13 (область; пп. 1, 2, 4, 5, 6) |
 | прогон идёт дольше нормы, ставится наблюдение | `Skill rule-multi-agent-flow-waiting` | `.claude/rules/multi-agent-flow-waiting.md` §12, §«За вердиктом ставится НАБЛЮДЕНИЕ», §«НА ОДИН ПРЕДМЕТ — ОДИН наблюдатель», §«Как СТРОИТЬ наблюдателя» (снятие по id задачи) |
 | перед сдачей ветки гоняешь локальные проверки | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5, 8; §«Порядок, от которого не отступать» шаги 3, 5 |
-| задание поручает коммит; отлаживаешь локально | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Когда заводить задачу», §«ОСНОВНОЕ ПРАВИЛО: работа копится в релизной ветке, отлаживается ЛОКАЛЬНО», §«Continuous integration», §«git-флоу под задачу» |
 | баг или долг вне предмета; посылка опровергнута; условие блокировки; отзыв «вопрос закрыт» | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt», §«Задача закрывается и ОПРОВЕРЖЕНИЕМ СВОЕЙ ПОСЫЛКИ», §«Метка «заблокировано» требует ПРОВЕРЕННОГО условия», §«Утверждение «вопрос закрыт» ОТЗЫВАЕТСЯ» |
 | переносишь работу из другой ветки | `Skill rule-git-issues-branch-audit` | `.claude/rules/git-issues-branch-audit.md` §«Вид 1. ПЕРЕНОС» |
 | находка по дороге; проба занимает очередь | `Skill rule-multi-agent-flow` | `.claude/rules/multi-agent-flow.md` §«ОТПРАВКИ НЕ ПАРАЛЛЕЛЯТСЯ», §«Находка по дороге заводится задачей НЕМЕДЛЕННО» и §«Находка «по дороге» попадает в СВОЙ релиз», §9, §10 пп. 1–3 |

@@ -10,8 +10,8 @@
 # падать не умеет. Проверка «ноль находок» имеет смысл, только если рядом
 # показано, что на настоящей находке она краснеет И называет имя.
 #
-# Проверяется тридцать четыре утверждения (A, A2, B, C, D, E, F, G, H, I, J, K, L,
-# M, N, O, P, Q, R, S, T, U, V, W, X, Y, Y2, Z, R2, AA, AB, AC, AD, AE — полный
+# Проверяется сорок утверждений (A, A2, B, C, D, E, F, G, H, I, J, K, L,
+# M, N, O, P, Q, R, S, T, U, V, W, X, Y, Y2, Z, R2, AA, AB, AC, AD, AE, GA–GF — полный
 # перечень меток см. по коду ниже; счётчик в самом файле не выписывается
 # отдельно, он выводится трейлером последнего прогона):
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
@@ -59,6 +59,10 @@
 #   AE. один и тот же прогон под LC_ALL=C и под LANG=ru_RU.UTF-8 (LC_ALL
 #      пуст — окружение из тела issue #540) даёт ДОСЛОВНО совпадающий раздел
 #      по ветке AA и ни одной жалобы на порядок ни под одной локалью.
+#   GA–GF. режим --graph (инвариант графа, правило 2026-09-22 п.6): законный
+#      граф → 0; ветка закрытой задачи, номер-не-задача, ветка до правила без
+#      открытого PR → 1 и имя; закрытая, но предок ствола, и ветка до правила
+#      с открытым PR — молчат; непрочитанное состояние → 2, рядом с находкой → 1.
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -742,9 +746,94 @@ else
   echo "$OUT2"; fail=1
 fi
 
+# --- GA..GF. РЕЖИМ --graph: инвариант графа (правило 2026-09-22, п.6) ---------
+# Отдельный «origin» и его клон: коммиты делаются в уже заведённой рабочей копии
+# (её личность задана выше), клон только заводит ветки из ссылок — своей
+# подписи ему не нужно. Состояния задач и PR подаются файлами: gh на синтетике
+# недоступен. У каждого отказа — близнец, отличающийся одним фактом: задача
+# открыта ⇄ закрыта; закрыта, но ветка — предок ствола; PR открыт ⇄ его нет.
+GO="$TMP/graph-origin.git"
+GW="$TMP/graph"
+git init -q --bare "$GO"
+git -C "$TMP/work" checkout -q main
+git -C "$TMP/work" push -q "$GO" main:refs/heads/main
+for n in 101 102 104 105 lane-x lane-y; do
+  git -C "$TMP/work" checkout -q -B "graph-$n" main
+  echo "работа $n" > "$TMP/work/graph-$n.txt"
+  git -C "$TMP/work" add "graph-$n.txt"
+  git -C "$TMP/work" commit -qm "#$n работа"
+done
+git -C "$TMP/work" checkout -q -B graph-103 main
+echo "работа 103" > "$TMP/work/graph-103.txt"
+git -C "$TMP/work" add graph-103.txt && git -C "$TMP/work" commit -qm "#103 влитая работа"
+git -C "$TMP/work" push -q "$GO" graph-103:refs/heads/103 graph-103:refs/heads/main \
+  graph-101:refs/heads/101 graph-102:refs/heads/102 graph-104:refs/heads/104 \
+  graph-105:refs/heads/105 graph-lane-x:refs/heads/lane/x graph-lane-y:refs/heads/lane/y 2>/dev/null
+git -C "$TMP/work" checkout -q main
+git clone -q "$GO" "$GW"
+git -C "$GW" branch -q 101 origin/101
+git -C "$GW" branch -q 102 origin/102
+
+graph_run() { # $1 = состояния задач, $2 = состояния PR → печатает «код|вывод»
+  printf '%b' "$1" > "$TMP/g-issues.tsv"
+  printf '%b' "$2" > "$TMP/g-prs.tsv"
+  set +e
+  GOUT=$(env -u GH_REPO BRANCH_AUDIT_ISSUE_STATE_FILE="$TMP/g-issues.tsv" \
+    BRANCH_AUDIT_PR_STATE_FILE="$TMP/g-prs.tsv" "$AUDIT" --graph "$GW" 2>&1); GRC=$?
+  set -e
+}
+ALL_OPEN='101\tOPEN\n102\tOPEN\n103\tCLOSED\n104\tOPEN\n105\tOPEN\n'
+PRS='lane/x\t201\tOPEN\nlane/y\t202\tOPEN\n'
+
+graph_run "$ALL_OPEN" "$PRS"
+if [ "$GRC" -eq 0 ] && grep -q 'висящих ссылок 0' <<<"$GOUT"; then
+  say "✅ GA" "--graph: все ссылки законны (закрытая 103 — предок ствола) → код 0, висящих 0"
+else
+  say "❌ GA" "--graph на законном графе: код $GRC"; echo "$GOUT" | tail -12; fail=1
+fi
+
+graph_run "${ALL_OPEN/102\\tOPEN/102\\tCLOSED}" "$PRS"
+if [ "$GRC" -eq 1 ] && grep -q 'висящих ссылок 2' <<<"$GOUT" &&
+   awk '/ЗАКРЫТОЙ задачи/,0' <<<"$GOUT" | grep -q '102 (локально)'; then
+  say "✅ GB" "--graph: ветка закрытой задачи, не предок ствола → код 1, висящих 2 (локально и на origin), названа"
+else
+  say "❌ GB" "--graph не заметил ветку закрытой задачи: код $GRC"; echo "$GOUT" | tail -12; fail=1
+fi
+
+graph_run "${ALL_OPEN/104\\tOPEN/104\\tNOTASK}" "$PRS"
+if [ "$GRC" -eq 1 ] && grep -q 'висящих ссылок 1' <<<"$GOUT"; then
+  say "✅ GC" "--graph: номер, который не задача, → код 1, висящих 1"
+else
+  say "❌ GC" "--graph не заметил ветку-номер без задачи: код $GRC"; echo "$GOUT" | tail -12; fail=1
+fi
+
+graph_run "$ALL_OPEN" 'lane/x\t201\tOPEN\nlane/y\t202\tMERGED\n'
+if [ "$GRC" -eq 1 ] && grep -q 'висящих ссылок 1' <<<"$GOUT" &&
+   awk '/имя не номер/,0' <<<"$GOUT" | grep -q 'lane/y (origin)'; then
+  say "✅ GD" "--graph: ветка до правила без открытого PR → код 1, названа; близнец с открытым PR молчит"
+else
+  say "❌ GD" "--graph не заметил ветку до правила без PR: код $GRC"; echo "$GOUT" | tail -12; fail=1
+fi
+
+graph_run "${ALL_OPEN/105\\tOPEN\\n/}" "$PRS"
+if [ "$GRC" -eq 2 ] && grep -q 'без вердикта 1' <<<"$GOUT"; then
+  say "✅ GE" "--graph: состояние задачи не прочитано → код 2, а не «чисто»"
+else
+  say "❌ GE" "--graph выдал непрочитанное за вердикт: код $GRC"; echo "$GOUT" | tail -12; fail=1
+fi
+
+# Антимаска: непрочитанное рядом с находкой не глушит находку.
+T=${ALL_OPEN/105\\tOPEN\\n/}
+graph_run "${T/102\\tOPEN/102\\tCLOSED}" "$PRS"
+if [ "$GRC" -eq 1 ]; then
+  say "✅ GF" "--graph: находка рядом с непрочитанным → код 1 (без вердикта не маскирует висящее)"
+else
+  say "❌ GF" "--graph: непрочитанное замаскировало висящую ссылку: код $GRC"; fail=1
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "branch-audit-inject: 34 утверждения, все выполнены — перепись способна упасть И смолчать"
+  echo "branch-audit-inject: 40 утверждений, все выполнены — перепись способна упасть И смолчать"
 else
   echo "branch-audit-inject: есть невыполненные утверждения" >&2
 fi

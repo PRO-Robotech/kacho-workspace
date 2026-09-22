@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Copyright (c) PRO-Robotech
+# SPDX-License-Identifier: BUSL-1.1
+#
+# commit-msg — страж правила git на СОЗДАВАЕМОМ коммите (решение владельца
+# 2026-09-22; `.claude/rules/git-issues.md` §«Git / коммиты»). Отказ — до того,
+# как коммит станет фактом: переписывать потом пришлось бы опубликованное.
+#
+# Что судится:
+#   · атрибуция ассистента в сообщении — ВСЕГДА, в том числе при переписи
+#     сообщения старого коммита (п.9: ради неё перепись и делается);
+#   · первая строка `#<N> `, а на ветке-номере N равен имени ветки;
+#   · подпись автора и коммиттера равна корневому gitconfig; переопределение
+#     `user.*` в настройках копии — отказ при любом значении;
+#   · строки-комментарии git в сообщении: коммит собран в редакторе, и первая
+#     строка `#<N> …` будет вырезана как комментарий — только `-m`/`-F`.
+# Коммит, чья дата автора раньше T0 (перепись сообщения истории), судится только
+# на атрибуцию и коммиттера: заголовок и прежняя подпись автора — история.
+#
+# Распознаватели — в `git-rule.sh` рядом: один источник с `pre-push`.
+# Без находок хук молчит. Проба — `scripts/tooling-gate/check-17-*`.
+set -uo pipefail
+
+msg="${1:-}"
+[ -n "$msg" ] && [ -r "$msg" ] || { echo "commit-msg: ОТКАЗ — файла сообщения нет («$msg»)" >&2; exit 1; }
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+lib="$here/git-rule.sh"
+[ -r "$lib" ] || { echo "commit-msg: ОТКАЗ — нет $lib: страж правила git не исполним" >&2; exit 1; }
+# shellcheck source=scripts/hooks/git-rule.sh
+. "$lib"
+
+found=0
+refuse() { echo "commit-msg: ОТКАЗ — $1" >&2; found=$((found + 1)); }
+
+hits="$(gr_attr_hits < "$msg")"
+[ -z "$hits" ] || refuse "атрибуция ассистента в сообщении (строки $(cut -d: -f1 <<<"$hits" | paste -sd, -)) — запрещена правилом владельца"
+
+if grep -q -E '^#([[:space:]]|$)' "$msg"; then
+    refuse "в сообщении строки-комментарии git: коммит собран в редакторе, и строка «#<N> …» будет вырезана — сообщение только через -m/-F (у слияния — --no-edit -m)"
+fi
+
+aident="$(git var GIT_AUTHOR_IDENT)"
+cident="$(git var GIT_COMMITTER_IDENT)"
+t0="$(gr_t0 HEAD)"
+legacy=0
+[ -n "$t0" ] && [ "$(gr_ident_epoch "$aident")" -lt "$t0" ] && legacy=1
+
+if [ "$legacy" = 0 ]; then
+    subj="$(grep -m1 -v -E '^[[:space:]]*$' "$msg" || true)"
+    if ! [[ "$subj" =~ $GR_SUBJECT_RE ]]; then
+        refuse "первая строка «$subj» не начинается с «#<N> » (N — задача ветки)"
+    else
+        n="${BASH_REMATCH[1]}"
+        branch="$(git symbolic-ref -q --short HEAD 2>/dev/null || true)"
+        if [[ "$branch" =~ ^[0-9]+$ ]] && [ "$n" != "$branch" ]; then
+            refuse "первая строка несёт #$n, а ветка — $branch: номер в заголовке — задача ветки"
+        fi
+    fi
+fi
+
+if root="$(gr_root_ident)"; then
+    [ "$legacy" = 1 ] || [ "$(gr_ident_who "$aident")" = "$root" ] ||
+        refuse "автор «$(gr_ident_who "$aident")», корневая подпись — «$root»; -c user.*, GIT_AUTHOR_* и --author запрещены"
+    [ "$(gr_ident_who "$cident")" = "$root" ] ||
+        refuse "коммиттер «$(gr_ident_who "$cident")», корневая подпись — «$root»; -c user.* и GIT_COMMITTER_* запрещены"
+else
+    refuse "корневая подпись не задана (git config --global user.name / user.email) — сверять не с чем"
+fi
+
+overrides="$(gr_local_overrides)"
+[ -z "$overrides" ] || refuse "подпись переопределена в настройках копии: $(paste -sd';' - <<<"$overrides") — снять: git config --local --unset <ключ>"
+
+[ "$found" -eq 0 ] || exit 1
+exit 0

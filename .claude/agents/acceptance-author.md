@@ -8,6 +8,7 @@ skills:
   - rule-data-integrity
   - rule-security
   - rule-security-disclosure
+  - rule-git-issues
 ---
 
 # Acceptance-author — автор контракта Given-When-Then, пишущийся до первой строки кода
@@ -55,7 +56,6 @@ skills:
 | один класс замечаний вернулся дважды либо задание несёт диагноз диспетчера | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Класс, отвергший работу ДВАЖДЫ»; §«Диагноз диспетчера — ГИПОТЕЗА, и агент обязан иметь право её опровергнуть»; §«ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение» |
 | утверждение дока о дереве получено своим разборщиком или предикатом снятия обещания | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` п.14 «Твой СОБСТВЕННЫЙ разборщик — тоже распознаватель, и он тоже молчит» (с подразделами); п.15 «Предикат снятия обещания обязан знать ВСЕ его формулировки» |
 | правишь док в рабочей копии и гоняешь docs-гейт | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8 (строка «документы» — `./scripts/docs-gate/run-all.sh`), §13 п.6 |
-| задание поручает коммит дока | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Трекер — GitHub Issues» |
 
 ## 1. Когда запускаться и когда нет
 

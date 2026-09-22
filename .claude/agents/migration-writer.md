@@ -5,6 +5,7 @@ disallowedTools: Agent
 skills:
   - rule-00-kacho-core
   - rule-data-integrity
+  - rule-git-issues
 ---
 
 # migration-writer — goose-миграция как самостоятельный предмет полосы
@@ -58,7 +59,6 @@ Cross-service FK запрещён (база на службу, ban #4 и #8) —
 | миграция касается снятых рёбер сетевого оператора | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Runtime cross-domain edges», врезка «Здесь стояли два ребра оператора сети — сняты решением владельца 2026-08-09» |
 | читаешь записку ресурса до правки | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода» (строка про ресурс), §«Запреты» (дублирование) |
 | работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
-| задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Continuous integration» (синхронизация перед правкой) |
 | перед сдачей ветки | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
 | находка или долг вне предмета; условие блокировки | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt», §«Метка «заблокировано» требует ПРОВЕРЕННОГО условия» |
 | текст миграции или комментарий касается защиты данных | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты» |

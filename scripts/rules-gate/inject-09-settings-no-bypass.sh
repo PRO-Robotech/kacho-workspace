@@ -60,6 +60,41 @@ assert_fixture_changed "$d" "$b" "ДЕФЕКТ: локальные настро�
 capture "$d" "$C9"
 assert_code 1 "ДЕФЕКТ: локальные настройки не игнорируются — краснеет"
 
+# ── ось D: атрибуция харнесса — каждое поле одним фактом ─────────────────────
+d="$(sandbox i09_attr_gone)"
+python3 - "$d/$S" <<'PY'
+import collections, json, sys
+p = sys.argv[1]
+d = json.load(open(p), object_pairs_hook=collections.OrderedDict)
+d.pop('attribution', None)
+open(p, 'w', encoding='utf-8').write(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+PY
+capture "$d" "$C9"
+assert_code 1 "ДЕФЕКТ: ключ attribution снят — харнесс ставит атрибуцию по умолчанию — краснеет"
+
+d="$(sandbox i09_attr_commit)"
+i09_put "$d" attribution '{"commit": "Co-Authored-By: X", "pr": "", "sessionUrl": false}'
+capture "$d" "$C9"
+assert_code 1 "ДЕФЕКТ: attribution.commit непуст — краснеет"
+
+d="$(sandbox i09_attr_session)"
+i09_put "$d" attribution '{"commit": "", "pr": "", "sessionUrl": true}'
+capture "$d" "$C9"
+assert_code 1 "ДЕФЕКТ: attribution.sessionUrl = true — краснеет"
+
+d="$(sandbox i09_attr_legacy)"
+i09_put "$d" includeCoAuthoredBy 'true'
+capture "$d" "$C9"
+assert_code 1 "ДЕФЕКТ: устаревший includeCoAuthoredBy = true — краснеет"
+
+# БЛИЗНЕЦ оси D: та же выключенная атрибуция другой записью — порядок полей иной.
+d="$(sandbox i09_attr_twin)"; b="$(sandbox_digest "$d")"
+i09_put "$d" attribution '{"sessionUrl": false, "pr": "", "commit": ""}'
+i09_put "$d" includeCoAuthoredBy 'false'
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: атрибуция выключена, поля в другом порядке, устаревший ключ false"
+capture "$d" "$C9"
+assert_code 0 "БЛИЗНЕЦ: атрибуция выключена другой записью — молчит"
+
 # ── ось VOID: предмета нет — ОТКАЗ, а не «находок 0» ────────────────────────
 d="$(sandbox i09_void)"
 rm -f "$d/$S"

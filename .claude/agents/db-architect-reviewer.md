@@ -5,6 +5,7 @@ disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-data-integrity
+  - rule-git-issues
 ---
 
 # Db-architect-reviewer — рецензент схем и миграций

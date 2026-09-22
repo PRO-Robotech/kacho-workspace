@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# check-09 — ОТСЛЕЖИВАЕМЫЕ НАСТРОЙКИ НЕ НЕСУТ ОБХОДА ПОДТВЕРЖДЕНИЙ.
+# check-09 — ОТСЛЕЖИВАЕМЫЕ НАСТРОЙКИ НЕ НЕСУТ ОБХОДА ПОДТВЕРЖДЕНИЙ И НЕ ВКЛЮЧАЮТ
+# АТРИБУЦИЮ АССИСТЕНТА (ось D, правило git 2026-09-22).
 #
 # Предмет: `.claude/settings.json` едет в репозиторий, и блок `permissions` с
 # `defaultMode: bypassPermissions` — выбор про ОДНУ машину, принятый за каждого,
@@ -49,6 +50,35 @@ fi
 # Дом выбора назван нормой; дом, который git отслеживает, домом не является.
 if [ -f "$L" ] && ! git check-ignore -q "$L"; then
   printf 'КРАСНОЕ %s существует и НЕ игнорируется git — локальный выбор уедет в репозиторий\n' "$L"
+  rc=1
+fi
+
+# ── ось D: атрибуция харнесса выключена (решение владельца 2026-09-22) ───────
+# `git-issues.md#gi-no-attribution` называет держателем настройку харнесса.
+# Схема настроек (CC 2.1.280, описание поля): `attribution.commit`/`.pr` —
+# «Empty string hides attribution», `sessionUrl: false` — «omit the
+# Claude-Session trailer and PR-body link», `includeCoAuthoredBy` — «Deprecated».
+# Ключа нет — харнесс ставит атрибуцию по умолчанию: это находка, а не молчание.
+attr="$(python3 - "$S" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+a = d.get('attribution')
+bad = []
+if not isinstance(a, dict):
+    bad.append('ключа attribution нет — харнесс ставит атрибуцию по умолчанию')
+else:
+    for k in ('commit', 'pr'):
+        if a.get(k) != '':
+            bad.append('attribution.%s = %r, а не пустая строка' % (k, a.get(k)))
+    if a.get('sessionUrl') is not False:
+        bad.append('attribution.sessionUrl = %r, а не false' % (a.get('sessionUrl'),))
+if d.get('includeCoAuthoredBy') is True:
+    bad.append('includeCoAuthoredBy = true')
+print('\n'.join(bad))
+PY
+)"
+if [ -n "$attr" ]; then
+  while IFS= read -r l; do printf 'КРАСНОЕ %s: %s — атрибуция ассистента запрещена\n' "$S" "$l"; done <<<"$attr"
   rc=1
 fi
 

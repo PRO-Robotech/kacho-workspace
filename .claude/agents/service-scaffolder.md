@@ -8,6 +8,7 @@ skills:
   - rule-polyrepo
   - rule-security
   - rule-api-conventions
+  - rule-git-issues
 ---
 
 # service-scaffolder — заведение каталога новой службы как производственно-полной под-фазы
@@ -83,7 +84,6 @@ stub/skeleton и «happy-path пока», разрешая ровно одно �
 | берёшь форму файла с соседней службы | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` §«12. Правило берётся из КАНОНА, а не из формы соседних файлов» |
 | читаешь записки vault до заведения каталогов | `Skill rule-vault` | `.claude/rules/vault.md` §«ДО кода», §«Запреты» (дублирование) |
 | работаешь в общей рабочей копии | `Skill rule-multi-agent-flow-shared-tree` | `.claude/rules/multi-agent-flow-shared-tree.md` §4, §4а, §8а, §13 (область; пп. 5, 6) |
-| задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты», §«Текст коммита», §«Continuous integration» |
 | перед сдачей ветки | `Skill rule-git-issues-ci-runs` | `.claude/rules/git-issues-ci-runs.md` §«Обязательные проверки ПЕРЕД отправкой ветки» ступени 1–5 |
 | находка или долг вне предмета | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt» |
 | комментарии каркаса или README называют средство защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты», «Три места, которые НЕ подпадают» |
@@ -117,7 +117,7 @@ stub/skeleton и «happy-path пока», разрешая ровно одно �
   канона, а не с соседей (`.claude/rules/testing-verdict.md` §12).
 - Спека развёртывания и конвейера: `docs/specs/03-deployment-and-operations.md` — перемерь:
   это спека воркспейса, её отпечаток называет задание.
-- Ветка `issue-<N>`, worktree, база `origin/<ствол>`.
+- Ветка `<N>` (номер задачи) от ветки волны, worktree.
 
 ## Целевая структура (`SVC` = имя службы)
 

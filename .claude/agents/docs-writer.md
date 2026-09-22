@@ -5,6 +5,7 @@ disallowedTools: Agent, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure
+  - rule-git-issues
 ---
 
 # Docs-writer — документация Kachō и её истинность на названной ревизии
@@ -59,7 +60,6 @@ skills:
 | правишь `docs/**` в рабочей копии и гоняешь docs-гейт | `Skill rule-multi-agent-flow-shared-tree` | §4 (ветки и общие копии); §4а (копии живут в `tmp/` воркспейса); §8 (docs-гейт, три кода); §8а (прямой push в `main` запрещён); §13 (область, п.6) |
 | толкнул проверку и ждёшь вердикт | `Skill rule-multi-agent-flow-waiting` | §12 «Ожидание вердикта — НЕ работа»; §«За вердиктом ставится НАБЛЮДЕНИЕ» (состояния отчёта) |
 | документируешь by-design отклонение | `Skill rule-git-issues-issue-lifecycle` | §«Баги / tech-debt — GitHub Issues, а не файл-список в репозитории» (пункт про by-design отклонение) |
-| задание поручает коммит; ссылаешься на трекер | `Skill rule-git-issues` | §«Трекер — GitHub Issues» (note «Здесь был YouTrack»); §«Git / коммиты»; §«Текст коммита» |
 | документ называет ветку | `Skill rule-git-issues-branch-audit` | §«Вид 3. ЕДИНСТВЕННЫЙ ЭКЗЕМПЛЯР» (note о том, что имя ветки пишется координатой) |
 | решаешь границу `docs/**` и vault | `Skill rule-vault` | вступление (абзац про потолок и один предмет); §«Запреты» |
 | находка по дороге | `Skill rule-multi-agent-flow` | §0 «Находка по дороге заводится задачей НЕМЕДЛЕННО» и §6 «Находка «по дороге» попадает в СВОЙ релиз»; §9 «Запреты при параллельной работе»; §10 пп. 1–3 |

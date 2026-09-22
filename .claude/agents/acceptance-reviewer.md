@@ -7,6 +7,7 @@ skills:
   - rule-api-conventions
   - rule-data-integrity
   - rule-security
+  - rule-git-issues
 ---
 
 # Acceptance-reviewer — единственный гейт одобрения приёмки, судящий отпечаток, а не файл
@@ -48,7 +49,6 @@ Given-When-Then-редакцию — ты решаешь: контракт го�
 | кросс-доменная фича, новое ребро, выбор дома приёмки | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Порядок работы для кросс-доменной фичи»; note «У приёмки домов ДВА, и это решение, а не дрейф»; §«Runtime cross-domain edges» |
 | тот же класс замечаний второй раз либо круг без предмета | `Skill rule-multi-agent-flow-orchestration` | `.claude/rules/multi-agent-flow-orchestration.md` §14а «Класс, отвергший работу ДВАЖДЫ, переезжает в форму задания»; §«Круг не запускается там, где ПРЕДМЕТА ещё нет»; §«ПОДТВЕРЖДЕНИЕ посылки отчитывается так же, как опровержение»; §15 «Результат агента проверяется ЭКСПЕРИМЕНТОМ, а не чтением диффа» |
 | сверяешь числа и предикаты дока прогоном | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` пп. 10, 13, 14 (с подразделами), 15, 16 |
-| проверяешь эпик, декомпозицию и Gate трекера | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Трекер — GitHub Issues»; §«Когда заводить задачу» |
 | готов поставить ✅ по форме, а доказательства (прогон, предикат) в доке нет | `Skill rule-01-wave-contract` | `.claude/rules/01-wave-contract.md` §«Что ревью добирает, а что нет — измерено» |
 
 ## 1. Когда запускаться и когда нет

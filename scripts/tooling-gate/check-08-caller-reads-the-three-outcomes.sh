@@ -68,8 +68,12 @@ trap 'rm -rf "$TMP"' EXIT
 # ЭТУ рабочую копию.
 #
 # Коммит делается пустым и «через силу не берётся»: на машине без объявленной
-# личности он не состоится, HEAD останется неродившимся, и хук получит пустое имя
-# ветки — черновиком (`wip/`, `tmp/`) оно не является, поэтому путь пробы тот же.
+# личности он не состоится, HEAD останется неродившимся — хуку это безразлично,
+# имя ветки он больше не читает.
+#
+# Stdin хука — `/dev/null`: ссылок к отправке нет, и страж правила git (он
+# судит ссылки со stdin и поведенчески доказан `check-17`) здесь не участвует.
+# Унаследованный stdin сделал бы исход пробы зависимым от того, кто зовёт набор.
 probe() {
     local caller="$1"; shift
     local dir i=90 rc out code
@@ -93,7 +97,7 @@ probe() {
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        bash ./scripts/hooks/pre-push 2>&1
+        bash ./scripts/hooks/pre-push 2>&1 </dev/null
     )"; code=$?
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }

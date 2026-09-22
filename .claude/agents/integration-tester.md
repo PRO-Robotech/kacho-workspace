@@ -8,6 +8,7 @@ skills:
   - rule-testing-newman
   - rule-e2e-flow
   - rule-testing-verdict
+  - rule-git-issues
 ---
 
 # Integration-tester — полоса RED: на каждый сценарий приёмки падающая проба и доказанный честный красный
@@ -71,7 +72,6 @@ skills:
 | красный кейс против реального бага продукта | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt — GitHub Issues, а не файл-список в репозитории» — форма черновика задачи |
 | имя пробы, комментарий или текст находки касается защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты» (абзац «Три места, которые НЕ подпадают») |
 | находка по дороге вне предмета задания | `Skill rule-multi-agent-flow` | `.claude/rules/multi-agent-flow.md` §«Находка по дороге заводится задачей НЕМЕДЛЕННО»; §«Находка «по дороге» попадает в СВОЙ релиз»; §«9. Запреты при параллельной работе»; §«10. Порядок при столкновении» пп.1–3 |
-| задание поручает коммит | `Skill rule-git-issues` | `.claude/rules/git-issues.md` §«Git / коммиты»; §«Текст коммита»; §«Continuous integration» |
 
 ## Когда запускаться, когда нет
 

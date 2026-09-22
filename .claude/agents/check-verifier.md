@@ -6,6 +6,7 @@ skills:
   - rule-00-kacho-core
   - rule-testing
   - rule-testing-verdict
+  - rule-git-issues
 ---
 
 # Check-verifier — приёмщик работ-проверок: вердикт даётся опытом, а не прочтением
