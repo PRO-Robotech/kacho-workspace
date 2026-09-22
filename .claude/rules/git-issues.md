@@ -3,7 +3,7 @@ name: rule-git-issues
 description: "Разметка задач и комментариев GitHub Issues и перевод этапности в трекер"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/git-issues.md`
+**Архив**: `.claude/backup/git-issues.md`
 
 # Разметка задач и комментариев GitHub Issues, перевод этапности
 

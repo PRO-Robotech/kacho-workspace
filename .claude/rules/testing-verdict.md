@@ -3,7 +3,7 @@ name: rule-testing-verdict
 description: "Чтение вердикта прогона"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/testing-verdict.md`
+**Архив**: `.claude/backup/testing-verdict.md`
 
 # Чтение вердикта прогона
 

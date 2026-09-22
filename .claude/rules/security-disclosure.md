@@ -3,7 +3,7 @@ name: rule-security-disclosure
 description: "Безопасность: что НЕ идёт в публичные артефакты"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/security-disclosure.md`
+**Архив**: `.claude/backup/security-disclosure.md`
 
 # Безопасность: что НЕ идёт в публичные артефакты
 

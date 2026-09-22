@@ -3,7 +3,7 @@ name: rule-ai-tooling
 description: "AI-оснастка Kachō: канонический набор и lifecycle"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/ai-tooling.md`
+**Архив**: `.claude/backup/ai-tooling.md`
 
 # AI-оснастка Kachō: канонический набор и lifecycle
 

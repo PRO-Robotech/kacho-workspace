@@ -3,7 +3,7 @@ name: rule-api-conventions
 description: "Конвенции API Kachō"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/api-conventions.md`
+**Архив**: `.claude/backup/api-conventions.md`
 
 # Конвенции API Kachō
 

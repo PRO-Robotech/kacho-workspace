@@ -3,7 +3,7 @@ name: rule-testing-load
 description: "Замер под нагрузкой: действительность чисел"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/testing-load.md`
+**Архив**: `.claude/backup/testing-load.md`
 
 # Замер под нагрузкой: действительность чисел
 

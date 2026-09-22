@@ -3,7 +3,7 @@ name: rule-testing
 description: "Тестирование (строгий TDD)"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/testing.md`
+**Архив**: `.claude/backup/testing.md`
 
 # Тестирование (строгий TDD)
 

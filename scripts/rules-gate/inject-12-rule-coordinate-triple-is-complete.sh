@@ -96,6 +96,41 @@ assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: заведена новая а
 capture "$d" "$C12"
 assert_code 0 "БЛИЗНЕЦ: та же несуществующая координата в аппаратуре — молчит"
 
+# ── ось C1 (ДЕФЕКТ): роль НЕ выдаётся строкой комментария ───────────────────
+# Возврат приёмки V1: до этой оси любой исполняемый файл снимал с себя суд ОДНОЙ
+# СТРОКОЙ ПРОЗЫ `# пример пути: "$SOME_ROOT/.claude/rules/"`. Пара C1/C2 различает
+# ровно один факт — та же строка как комментарий против исполняемой.
+d="$(sandbox i12_comment)"
+mkdir -p "$d/scripts/proba-gate"
+{ printf '#!/usr/bin/env bash\n'
+  printf '# Норма: .claude/rules/%s.md\n' "$GHOST12"
+  printf '# пример пути: "$SOME_ROOT/.claude/rules/"\n'; } > "$d/scripts/proba-gate/pribor.sh"
+git -C "$d" add -A >/dev/null 2>&1
+capture "$d" "$C12"
+assert_code 1 "ДЕФЕКТ: висячая координата плюс СТРОКА-КОММЕНТАРИЙ с корнем-переменной — краснеет"
+assert_says ".claude/rules/$GHOST12.md" "  ...комментарий роли аппаратуры не даёт"
+
+# ── ось C2 (БЛИЗНЕЦ): та же строка как НАСТОЯЩИЙ создающий акт ──────────────
+d="$(sandbox i12_act)"; b="$(sandbox_digest "$d")"
+mkdir -p "$d/scripts/proba-gate"
+{ printf '#!/usr/bin/env bash\n'
+  printf '# Норма: .claude/rules/%s.md\n' "$GHOST12"
+  printf 'mkdir -p "$SOME_ROOT/.claude/rules"\n'; } > "$d/scripts/proba-gate/pribor.sh"
+git -C "$d" add -A >/dev/null 2>&1
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же координата плюс создающий акт"
+capture "$d" "$C12"
+assert_code 0 "БЛИЗНЕЦ: создающий акт в ИСПОЛНЯЕМОЙ строке — роль выдана, гейт молчит"
+
+# ── ось C3 (ДЕФЕКТ): РАЗМЕТКЕ роль не выдаётся никогда ─────────────────────
+# Барьер формата: `.md` читают, а не исполняют, и создающий акт в ней — цитата.
+d="$(sandbox i12_md)"
+{ printf '#!/usr/bin/env bash\n'
+  printf 'mkdir -p "$SOME_ROOT/.claude/rules"\n'
+  printf 'Координата: .claude/rules/%s.md\n' "$GHOST12"; } > "$d/zz-inj12-proza.md"
+git -C "$d" add -A >/dev/null 2>&1
+capture "$d" "$C12"
+assert_code 1 "ДЕФЕКТ: разметка с shebang и создающим актом роли не получает — краснеет"
+
 # ── ось D: тройка разорвана — снят ПЕРЕХОДНИК при живых файле и строке ──────
 d="$(sandbox i12_link)"
 rm -rf "$d/.claude/skills/rule-$VICTIM12"

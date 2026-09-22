@@ -3,7 +3,7 @@ name: rule-architecture
 description: "Чистая архитектура + переиспользование"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/architecture.md`
+**Архив**: `.claude/backup/architecture.md`
 
 # Чистая архитектура + переиспользование
 

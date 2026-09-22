@@ -3,7 +3,7 @@ name: rule-testing-newman
 description: "Сквозные пробы newman: eventual-consistency и параллельный прогон"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/testing-newman.md`
+**Архив**: `.claude/backup/testing-newman.md`
 
 # Сквозные пробы newman: eventual-consistency и параллельный прогон
 

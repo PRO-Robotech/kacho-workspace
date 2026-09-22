@@ -3,7 +3,7 @@ name: rule-security
 description: "Безопасность: Internal-vs-external + инфра-чувствительные данные"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/security.md`
+**Архив**: `.claude/backup/security.md`
 
 # Безопасность: Internal-vs-external + инфра-чувствительные данные
 

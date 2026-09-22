@@ -3,7 +3,7 @@ name: rule-ui
 description: "Канон консоли Kachō — как писать UI"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/ui.md`
+**Архив**: `.claude/backup/ui.md`
 
 # Канон консоли Kachō — как писать UI
 

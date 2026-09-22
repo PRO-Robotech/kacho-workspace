@@ -3,7 +3,7 @@ name: rule-security-hardening
 description: "Безопасность: hardening-классы, которые уже стоили нам дефекта"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/security-hardening.md`
+**Архив**: `.claude/backup/security-hardening.md`
 
 # Безопасность: hardening-классы, которые уже стоили нам дефекта
 

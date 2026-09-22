@@ -3,7 +3,7 @@ name: rule-change-graph
 description: "Kachō Change Graph — контур изменения: переходы между фазами и их предметы"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/change-graph.md`
+**Архив**: `.claude/backup/change-graph.md`
 
 # Kachō Change Graph — контур изменения
 
