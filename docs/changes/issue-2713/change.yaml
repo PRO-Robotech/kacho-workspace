@@ -1,0 +1,138 @@
+# Манифест изменения issue-2713 — координаты, состояние, отпечатки, ссылки.
+#
+# Манифест НЕ несёт нормативной прозы: требование, внесённое сюда абзацем, —
+# нарушение (CG_HUMAN_MANIFEST_PROSE). Всё, что объясняет применимость ролей и
+# чем изменение держится, живёт в `holders.yaml`; наблюдаемое поведение описали
+# бы `acceptance.md` и `design.md`, которых это изменение не несёт — и их
+# отсутствие ЗАЯВЛЕНО ниже предикатами, а не изображено пустыми полями.
+#
+# Форму ключей не задаёт ни приёмка SDD-1, ни испытуемый контура — она выбрана
+# автором по образцу `docs/changes/standalone-iam/change.yaml`.
+schema_version: 1
+change_id: issue-2713
+lifecycle_state: IMPLEMENTING
+
+# ПОЧЕМУ IMPLEMENTING, А НЕ CONVERGED. Реализация написана, обе применимые
+# пост-дифф роли высказались по текущему отпечатку, но конечной записи контура
+# нет: её выпускает `convergence-reviewer`, и он высказывается после автора
+# этого файла. Состояния ACCEPTANCE_APPROVED · CLASS_EXPOSURE_RECORDED ·
+# DESIGN_APPROVED пройдены не вердиктами, а ОСВОБОЖДЕНИЯМИ по
+# зарегистрированным предикатам (`holders.yaml`, role_applicability): у ролей,
+# держащих эти переходы, в данном изменении нет предмета.
+
+# --- Координаты ------------------------------------------------------------
+#
+# Поля route и epoch ОТСУТСТВУЮТ намеренно: route принадлежит реестру наследия и
+# свойством изменения не является, а эпоха ВЫВОДИТСЯ из ancestry базы и вторым
+# источником быть не может.
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/2713
+  issue_kind: bug            # метки #2713: bug · P1 · size:M · area:iam · release:identity-own
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      base_sha: 6e5b9a60c9f592a9d26ea5a320193b75a03f0278
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… HEAD → 0
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      branch: release/edge-call-deadline
+      base_sha: ac33f733962577688958fe9fbba35d715822c8b9
+      head_sha: 53b3930461d775838c1f042537e05589bbce8680
+      commits_in_line: 6                   # git rev-list --count ac33f733..53b3930
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… ac33f733 → 0
+      trunk_sha_at_measurement: bec320cf47d668173bf27f60ebaf6cbe413a4903
+      base_is_ancestor_of_trunk: true      # git merge-base --is-ancestor ac33f733 bec320cf47d → 0
+
+# --- Отпечатки -------------------------------------------------------------
+#
+# Ими же ключуются записи ревью: вердикт относится к СОДЕРЖИМОМУ, а не к имени
+# файла. Все числа ниже перемерены автором этого файла своей командой в рабочем
+# дереве линии; рабочее дерево при замере чистое (`git status --short` пусто).
+hashes:
+  # Дайджест полного диффа линии. Совпал в ОБЕИХ формах — двухточечной и
+  # трёхточечной, — что и ожидается: база является общим предком головы
+  # (`git merge-base ac33f733 53b3930` → ac33f733).
+  content_digest_sha256: ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f
+  content_digest_predicate: >-
+    git diff ac33f733962577688958fe9fbba35d715822c8b9...53b3930461d775838c1f042537e05589bbce8680 | sha256sum
+
+  # Канонический набор диффа — единица «repo · path · mode · blob», по одной
+  # строке на путь, поля разделены табуляцией, строки отсортированы LC_ALL=C.
+  # Он, а не дайджест текста диффа, доказывает сохранность работы при посадке:
+  # текст диффа зависит от базы и от формы схлопывания, набор — нет.
+  canonical_diff_set_sha256: 7c298e3b00f9aa6cfb2f84e684c6895d77737c1859bcd7dcf1129f27526a2246
+  canonical_diff_set_predicate: >-
+    git diff --raw --no-abbrev <base>...<head>
+    | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
+    | LC_ALL=C sort | sha256sum
+  canonical_diff_set_survives_collapse: true
+  canonical_diff_set_collapse_check: >-
+    перемерено на СУХОМ слиянии с ТЕКУЩИМ стволом, а не на паре база-голова:
+    `git merge-tree --write-tree bec320cf47d 53b3930` → дерево
+    d36c728822a52a1ee0ca9c8272dd0566916071e6; тот же предикат над
+    `git diff --raw --no-abbrev bec320cf47d d36c7288` даёт тот же набор
+    ПОСТРОЧНО и тот же sha256. Значит набор не зависит ни от базы, ни от формы
+    схлопывания.
+
+  holders_sha256: 7c527fd87fa79cf1959d1392554ebfeb471e2f82536b711586ba785641329c05
+
+  # Документов замысла изменение не несёт. Отсутствие ЗАЯВЛЕНО предикатом — той
+  # же формой, какой реестр наследия заявляет отсутствие приёмки: пустая строка
+  # в поле отпечатка была бы изображением отсутствия, а не его заявлением.
+  acceptance_sha256: null
+  acceptance_absence_predicate: no-acceptance-document-in-change
+  design_sha256: null
+  design_absence_predicate: no-design-document-in-change
+  exposure_subject_absence_predicate: no-exposure-subject-document-in-change
+
+# --- Ссылки ----------------------------------------------------------------
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  holders: docs/changes/issue-2713/holders.yaml
+  reviews_root: docs/changes/issue-2713/reviews/post-diff/
+
+# --- Записи ревью по ТЕКУЩЕМУ отпечатку ------------------------------------
+#
+# Перечислены только записи на ea0fd6d3…. Записи 41148c31… (полоса сессии, голова
+# 60843801) и e248514c… (полоса моста, голова a71aac31) стоят на ПОД-отпечатках
+# частей и этот дифф не судят; они не правятся и не переносятся.
+#
+# Полномочие каждой записи подтверждено АВТОРОМ ЭТОГО ФАЙЛА независимым запросом
+# к API, а не прочтением самой записи: тело комментария получено заново,
+# sha256 сырого значения поля body сошлось с объявленным, actor совпал с
+# allowlist роли в policy.yaml.
+post_diff_records:
+  - role: go-style-reviewer
+    path: >-
+      docs/changes/issue-2713/reviews/post-diff/go-style-reviewer/ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f.yaml
+    verdict: accepted
+    blocks_landing: false
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2713#issuecomment-5741110692
+    event_actor: pointpu
+    event_body_sha256: a8217338b7918866cc7a99f77a1cadd4fac249cd8351f0e158d4428f3f7217f1
+    reverified_by_package_author: true
+  - role: system-design-reviewer
+    path: >-
+      docs/changes/issue-2713/reviews/post-diff/system-design-reviewer/ea0fd6d3482f4d04347f8153ce84264c6f3ce4fb5529376b316e8bf9773df42f.yaml
+    verdict: accepted
+    blocks_landing: false
+    distributed_surface: true
+    event_url: https://github.com/PRO-Robotech/kacho/issues/2713#issuecomment-5741111932
+    event_actor: pointpu
+    event_body_sha256: 7ed1607ae6aee62e0570223a9dd0abafcb584af9d40e7f0f16f035d44ffb0f7c
+    reverified_by_package_author: true
+
+# --- Заявленное множество путей реализации ---------------------------------
+#
+# ТОЧНОЕ множество, сличаемое с фактическим по паре «путь + содержимое». Порядок
+# и разделитель те же, что у канонического набора выше: расхождение между этим
+# перечнем и `canonical_diff_set_sha256` — находка, а не разночтение записи.
+# Удалений нет, режим у всех 100644, все пути — Go в `gateway/`.
+implementation_diff_set:
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/clients/session_deadline_behaviour_test.go, mode: '100644', blob: 138f62cdf0672cdf4f9bff350ac9b811c6f21060, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/clients/session_deadline_test.go,           mode: '100644', blob: af30d14a61592b2f99ac834a29827bb4acf49bd3, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/clients/session_revocations_client.go,      mode: '100644', blob: 23e21acc7cd02893bc883b46ffcc5b1a22a9f77e, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/restmux/backend_call_deadline.go,           mode: '100644', blob: 3845b8fbb8af3fdd5f50b2caae1e7031b64a5fd4, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/restmux/backend_call_deadline_test.go,      mode: '100644', blob: 7d6668909d4b5c89d3709f1429b3dcd8a1f0be45, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/restmux/mux.go,                             mode: '100644', blob: d55d61442b29b3033862041f2ae1193ee9188325, change: M }
