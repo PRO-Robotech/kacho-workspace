@@ -1,0 +1,161 @@
+# Манифест изменения wave-identity-own-w0 — координаты, состояние, отпечатки, ссылки.
+#
+# Манифест НЕ несёт нормативной прозы (CG_HUMAN_MANIFEST_PROSE): применимость
+# ролей и то, чем изменение держится, живут в `holders.yaml`. Документов
+# приёмки и замысла изменение не несёт — их отсутствие ЗАЯВЛЕНО предикатами.
+#
+# Форма ключей — по образцу `docs/changes/issue-2713/change.yaml`.
+schema_version: 1
+change_id: wave-identity-own-w0
+lifecycle_state: IMPLEMENTING
+
+# ПОЧЕМУ IMPLEMENTING. Реализация сведена в одну голову, но записей пост-дифф
+# ролей на отпечаток сведённого содержимого на момент замера нет (пишутся
+# параллельно), конечной записи контура нет — её выпускает
+# `convergence-reviewer` после автора этого файла.
+
+# --- Координаты ------------------------------------------------------------
+coordinates:
+  issue: https://github.com/PRO-Robotech/kacho/issues/1266   # эпик линии; PR несёт «Refs #1266»
+  issue_kind: wave             # семь полос одной линии release:identity-own, один запрос
+  merge_request: https://github.com/PRO-Robotech/kacho/pull/2787
+  repositories:
+    - repo: PRO-Robotech/kacho-workspace
+      role: package-home
+      branch: tooling/wave0-change-package
+      base_sha: 5058bf2d3885ba7e556402cd6722ca9310189273
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor 1202e3cf… 5058bf2d → 0
+    - repo: PRO-Robotech/kacho
+      role: subject-tree
+      branch: wave/identity-own-w0-kacho
+      base_sha: bec320cf47d668173bf27f60ebaf6cbe413a4903
+      head_sha: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+      commits_in_line: 79                  # git rev-list --count bec320cf47d..0e0a85f936e
+      files_in_line: 65                    # git diff --name-only bec320cf47d...0e0a85f936e | wc -l
+      shortstat: '65 files changed, 11158 insertions(+), 381 deletions(-)'
+      merge_base_equals_base: true         # git merge-base bec320cf47d 0e0a85f936e → bec320cf47d
+      cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bec320cf47d → 0
+      trunk_sha_at_measurement: bec320cf47d668173bf27f60ebaf6cbe413a4903   # git rev-parse origin/main после fetch
+      pr_head_matches: true                # gh pr view 2787 → headRefOid 0e0a85f936e…, baseRefOid bec320cf47d…
+
+# --- Отпечатки -------------------------------------------------------------
+#
+# Перемерены автором этого файла своей командой 2026-09-22; рабочая копия
+# продукта чистая (`git status --porcelain | wc -l` → 0).
+hashes:
+  # Совпал в обеих формах — двух- и трёхточечной: база есть общий предок головы.
+  content_digest_sha256: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
+  content_digest_predicate: >-
+    git diff bec320cf47d668173bf27f60ebaf6cbe413a4903...0e0a85f936e173ad6a13349fa01c3ca8eb72c029 | sha256sum
+
+  # Единица «repo · path · mode · blob», по строке на путь, поля через табуляцию,
+  # строки LC_ALL=C. Предикат — тот же, что в issue-2713. 65 строк: 24 A, 41 M,
+  # удалений и переименований нет; режимы — 58 × 100644, 7 × 100755.
+  canonical_diff_set_sha256: b37e0ffbc458d53da033f85cc5da3faa18b27db2cf81534b0000fb5ead71f251
+  canonical_diff_set_predicate: >-
+    git diff --raw --no-abbrev <base>...<head>
+    | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
+    | LC_ALL=C sort | sha256sum
+  canonical_diff_set_survives_collapse: true
+  canonical_diff_set_collapse_check: >-
+    перемерено на сухом слиянии с ТЕКУЩИМ стволом: `git merge-tree --write-tree
+    bec320cf47d 0e0a85f936e` → код 0, дерево
+    1f97129b41f541b0ef801573d06868826875f2ae, равное дереву головы; тот же
+    предикат над `git diff --raw --no-abbrev bec320cf47d 1f97129b41f` даёт
+    тот же sha256. Ствол вперёд не ушёл (trunk = base), поэтому проверка
+    подтверждает лишь отсутствие конфликта на текущем стволе, а не
+    независимость от будущей базы.
+
+  holders_sha256: 43b0e1df40a56ff1acd88319ed15c9b756150e97acdbea1a8cd8a3146c9148e4
+
+  acceptance_sha256: null
+  acceptance_absence_predicate: no-acceptance-document-in-change
+  design_sha256: null
+  design_absence_predicate: no-design-document-in-change
+  exposure_subject_absence_predicate: no-exposure-subject-document-in-change
+
+# --- Ссылки ----------------------------------------------------------------
+links:
+  policy: docs/changes/policy.yaml
+  contour_acceptance: docs/specs/sub-phase-SDD-1-kacho-change-graph-acceptance.md
+  holders: docs/changes/wave-identity-own-w0/holders.yaml
+  reviews_root: docs/changes/wave-identity-own-w0/reviews/post-diff/
+
+# --- Записи ревью по ТЕКУЩЕМУ отпечатку ------------------------------------
+#
+# На момент замера — НИ ОДНОЙ. Ожидаемые координаты двух записей, которые
+# пишутся параллельно, названы в `holders.yaml` (record_on_current_digest);
+# вердикт здесь не записан и не предполагается.
+post_diff_records: []
+
+# --- Заявленное множество путей реализации ---------------------------------
+#
+# ТОЧНОЕ множество, сличаемое с фактическим по паре «путь + содержимое»; порядок
+# — LC_ALL=C по пути. Расхождение между этим перечнем и
+# `canonical_diff_set_sha256` — находка, а не разночтение записи.
+implementation_diff_set:
+  - { repo: PRO-Robotech/kacho, path: deploy/Makefile, mode: '100644', blob: afbac3d84784afcc77fcf1aacd1ba44f37a420da, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/cutover-fe3455.sh, mode: '100755', blob: 44a935bfc1df9abd64afff59194aabd416872ee7, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.dev.yaml, mode: '100644', blob: ce4d8e761692e3446657bf5dd831b1960cb35d8a, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.own-stand.yaml, mode: '100644', blob: 3ed88e9f58401ad8dce58d4a4276ae45e27188eb, change: A }
+  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.own.yaml, mode: '100644', blob: 47008ffb5aef17b5b6272d7547c541e8905814f6, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/identity_flow_path_is_served_injection_test.go, mode: '100644', blob: d9fe550c49872909a5ce89dd22a03235aaedcbee, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/identity_flow_path_is_served_test.go, mode: '100644', blob: 8f241cd8a2158a8b7e737c22869d28dea606d9a4, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/scripts/dev-prod-secrets.sh, mode: '100755', blob: 8ca8f9270cff57f7c043088ac02d12afbe550030, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/scripts/run-gate-self-tests.sh, mode: '100755', blob: a65a18754f8104ab06e1e5e94e8575c9aea8b8bc, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/scripts/stack-secrets.sh, mode: '100755', blob: 3eb87a525eb5be66fd6f836e7bcf23dc930940bb, change: A }
+  - { repo: PRO-Robotech/kacho, path: deploy/stacks.txt, mode: '100644', blob: c138c9d05752fb154eba1c6a7e7a25b044a73063, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/console-serves-identity-flows-test.sh, mode: '100755', blob: 7240c3e59a8586c0dd5c77d3fa52f0cbf4daa7bc, change: A }
+  - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/outcome-library-speaks-test.sh, mode: '100755', blob: 04df274068c8d9272614b87e4f20e94552462fb5, change: A }
+  - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/outcome.sh, mode: '100755', blob: 0b44a8a00a8f7c2aa097bd2ddc62aa1bc73b1a67, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/docs_example_carrier_pair_test.go, mode: '100644', blob: ec2e68001b581e747e62febacba95980faefb2d3, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/main.go, mode: '100644', blob: a68ade3efb7efa0b003e9931936bba33d64aa543, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/own_lane_readers_wiring_test.go, mode: '100644', blob: bb85974d00680261a2265344908836c990c9e420, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/session_carrier_validation.go, mode: '100644', blob: c45a899422f494fc0d2cad741cbc54036a8d3804, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/session_carrier_validation_test.go, mode: '100644', blob: 3a87ceb89ea2bfa67d2fb1cd89cc0aafe71913f2, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/session_carrier_wiring_test.go, mode: '100644', blob: fd3043d40e2b2fa3f8a7ce4045d6b4b0b52d133b, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/f1b_token_acceptance_declared_test.go, mode: '100644', blob: 6d2bc31e499a59af72b9eff972940b1a371ba5c1, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/f1c_issuer_set_reaches_every_stand_test.go, mode: '100644', blob: c6715a8ce9436aac4dac975bdf737755a8a9a952, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/login_console_test.go, mode: '100644', blob: ca4286617452709e7e99b304ef19fcba59e68a36, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/session_carrier_knobs_test.go, mode: '100644', blob: a3d4d50467915835b1cfcb79435b435552b895d0, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/templates/deployment.yaml, mode: '100644', blob: dbd150a860c5f528b8a360aab00add8ff6f5bc4e, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/deploy/values.yaml, mode: '100644', blob: 15d4029c1248e93cbdb5219b722f9edabee83c70, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/docs/content/install/configuration.mdx, mode: '100644', blob: 399e9b325a14e8f48a0ae42c27ed331be9308702, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/config/config.go, mode: '100644', blob: ddca50563f1b56ea589ab9932e56109862898d40, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/config/session_carriers_test.go, mode: '100644', blob: 00055d65a0c9d43d3389a390f0bae2d5057516f4, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/config/sessioncarriers.go, mode: '100644', blob: 0c72a214c67ca49f35ec50108ab4b080a7f80092, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/handler/login_lane_relay.go, mode: '100644', blob: 88acaf1c8408cca495ef1b88bc08de233ac4e8d5, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/handler/login_lane_relay_outcome_test.go, mode: '100644', blob: 01b97ffff3841ddb63b7ac7408775b86022baf3d, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/handler/login_lane_relay_test.go, mode: '100644', blob: 01ce83276a61501ca9c9d691eb029372d84e98cd, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/handler/logout_carrier_states_test.go, mode: '100644', blob: 2d2e32ffdee8eb1db8db4eacf2704b4eb69d0c99, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/handler/logout_exits_census_test.go, mode: '100644', blob: 4078f63b07ee0154fbe7cb44330f13530a08b4e4, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/auth.go, mode: '100644', blob: 7757710cd396d9f826066307d4d5a6d9ada04014, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/auth_own_session.go, mode: '100644', blob: ac91c6537dad1f69969a1e97bc7be68cf68b7618, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/auth_session_stepup.go, mode: '100644', blob: d315f270ab6403363d60e1efb41588755926819c, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/human_session.go, mode: '100644', blob: f7efe8d13affe08978957e4e462f48c1059ac318, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/login_lane_paths.go, mode: '100644', blob: 06f9401a01730cbf257474cab5cceea42fb8dbd8, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_carrier_names.go, mode: '100644', blob: e6194a488fe111d004b7dc9b63f6c946ef1df0ac, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_carrier_precedence_test.go, mode: '100644', blob: ecd16bf52cd95e56e533b9fca053c9841f9fd2fb, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_carrier_readers.go, mode: '100644', blob: c0afe8454be1326666da92cee2ac093e71927563, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_carrier_readers_gate_test.go, mode: '100644', blob: 1b6ac656070e6a56f759ebd3971b17dc430e7ca8, change: A }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_identity_handler.go, mode: '100644', blob: 0ae730d9474e2bf744a849e7324efe8d66546767, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/session_lanes_agree_test.go, mode: '100644', blob: 24aaf49dae022ee90cdbbf7558467dc98bb71861, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/middleware/stepup_lane_parity_test.go, mode: '100644', blob: dcb7c7dbb4da14252d6759468a04e6a80efc65dd, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/observability/metrics/session_lane.go, mode: '100644', blob: 793b430971827984bd6645d5ce6cfa5f18c7be12, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/internal/observability/metrics/session_lane_test.go, mode: '100644', blob: 758b776dba4bef1da5a7efd8b328b5751249893c, change: M }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/foreignidpname.go, mode: '100644', blob: dae3fff3f006deb7a791f4c2b750246c5986c153, change: A }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/foreignidpname_injection_test.go, mode: '100644', blob: 2d1f81cceb2db297b092b1af335081197133afda, change: A }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/foreignidpname_test.go, mode: '100644', blob: 33c802d044669cf342cb38890e1169a6ce0fa3b4, change: A }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/gatecarrierbase_test.go, mode: '100644', blob: 2729ffd4b26dd85a717b6d5c3b4fb94fcab6f9e4, change: A }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/gatecarrierremoval.go, mode: '100644', blob: 8e5490b4dd3a2425f5859c010a14c905b4a05cce, change: M }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/gitrevcause.go, mode: '100644', blob: 11c5a4a76bf10f172d36fa8c2a785fcf1192d786, change: A }
+  - { repo: PRO-Robotech/kacho, path: internal/repohygiene/gitrevcause_test.go, mode: '100644', blob: c044e1f46d104267ecc411d56459ffc45a7f0e54, change: A }
+  - { repo: PRO-Robotech/kacho, path: services/registry/deploy/token_acceptance_declared_test.go, mode: '100644', blob: 71081592e23cdbbb4417e16aecad205e7c1e5074, change: M }
+  - { repo: PRO-Robotech/kacho, path: services/registry/internal/clients/jwks/verifier_iam_origin_test.go, mode: '100644', blob: 99ea9105488e67859e621d2a2a3962f55ef30567, change: M }
+  - { repo: PRO-Robotech/kacho, path: services/registry/internal/clients/jwks/verifier_stale_bound_test.go, mode: '100644', blob: 0b2521ba0aaf235b6bd6647cfd82a9a657c1d9d9, change: M }
+  - { repo: PRO-Robotech/kacho, path: services/registry/internal/clients/jwks/verifier_test.go, mode: '100644', blob: 4fd7560efc8e42a60a9f83509f75cc0c39c474a9, change: M }
+  - { repo: PRO-Robotech/kacho, path: services/registry/internal/dataplane/f1b_third_surface_e2e_test.go, mode: '100644', blob: ad2cbdf1d83191b34c9c2c67d1233d05a9ed0955, change: M }
+  - { repo: PRO-Robotech/kacho, path: ui-future/deploy/templates/configmap-nginx.yaml, mode: '100644', blob: a1734818002cb16ec6830a1c00e6df18fc89870c, change: M }
+  - { repo: PRO-Robotech/kacho, path: ui-future/deploy/values.yaml, mode: '100644', blob: 0370d17a508facb94a7bfe99e4d5f5056f8bfa6d, change: M }
+  - { repo: PRO-Robotech/kacho, path: ui-future/shared/src/pages/auth/README.md, mode: '100644', blob: e6d86b6659a54f7633b12c8e9899512ddaf20a73, change: M }
+  - { repo: PRO-Robotech/kacho, path: ui-future/shared/src/test/identity-ceremony-carriers-rendered.test.ts, mode: '100644', blob: c5a854fbf0a62c833e55ec528fbc023bc89f5bdc, change: M }
