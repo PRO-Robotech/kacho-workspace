@@ -1,0 +1,276 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F1-token-signer-acceptance.md
+  sha256: ca78d72f651a16f06fe3f3b0391906f9737e582c64200370a45c2b36b6f46f52
+  revision: 'правка 2026-09-22, редакция после круга 1 правки'
+  static_status: APPROVED
+  static_status_note: >-
+    Слово APPROVED в шапке — вердикт круга 6 (2026-08-21) о редакции SHA-256
+    9a53c6375d20d91283c273c21c6bce7a07dff6adea5e644f5564422cc4b2b6b4 (так и лежит в
+    origin/main @ f4defb0c — сверено `git show origin/main:<путь> | sha256sum`). Шапка
+    намеренно не правлена (change-graph.md §2); врезка «Редакция 2026-09-22» прямо говорит, что
+    вердикт круга 6 на эту редакцию не переносится, а строка «История review правки 2026-09-22»
+    называет круг 1 (6a509729…) и его запись. Машинный читатель docs-gate по этой редакции
+    ответит APPROVED — это его объявленный предел (судит объявление, а не одобрение).
+    Действующий вердикт об этой редакции — эта запись вместе с внешним событием.
+  base_commit: f4defb0c6448f5e71ec267941146524be455cdba
+  content_commit: null
+  content_commit_note: >-
+    Правка автора в копии acceptance-f1-ory-library-decision (ветка
+    acceptance/f1-ory-library-decision) не закоммичена; отпечаток посчитан по рабочему файлу.
+    Запись также не закоммичена — по заданию. Коммит обоих и публикация события — не момент
+    рецензента.
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/774
+  wave: https://github.com/PRO-Robotech/kacho-workspace/issues/772
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F1-token-signer-acceptance.md
+  declared_fingerprint_matches: true
+  declared_fingerprint_note: >-
+    В задании два отпечатка: «ожидаемый начинается ef7cb034» (черновик до круга 1, так и записан
+    в записи круга 1) и ca78d72f… («посчитай сам»). sha256sum дал ca78d72f…6f52 — совпало со
+    вторым; первый — устаревшая строка задания.
+  lines: 1959
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T19:55:00Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac f4defb0c
+    в копии вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: f4defb0c6448f5e71ec267941146524be455cdba
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body_for_courier: 'acceptance-reviewer · APPROVED · ca78d72f651a16f06fe3f3b0391906f9737e582c64200370a45c2b36b6f46f52'
+  rationale: >-
+    Одобрение полномочие ВЫДАЁТ, поэтому до публикации внешнего события курьером под учётной
+    записью, допущенной политикой, эта запись полномочия не даёт: роль в ней — координата, а не
+    доказательство личности (change-graph.md §3). Недоступность события — «не выполнилось»,
+    никогда «да». Запись задним числом не правится; событие ссылается на неё по отпечатку.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    - path: docs/specs/reviews/sub-phase-F1-token-signer-acceptance/6a509729bc8e315dd364b2a49c0e637d73d3212dd5c414b390c5a45f560ac2b5.yaml
+      note: >-
+        Запись круга 1 не правлена и не удалена; она остаётся вердиктом CHANGES_REQUESTED о
+        редакции 6a509729…. Эта запись — соседняя.
+
+round_numbering:
+  convention: Круг называется редакцией, которую он прочитал.
+  this_round: 'круг 2 правки 2026-09-22 (восьмое рассмотрение документа) — ПОСЛЕДНИЙ по заданию'
+  editions_by_fingerprint:
+    - {edition: 'круг 6', commit: 'origin/main f4defb0c', sha256_prefix: 9a53c6375d20d916, verdict: 'APPROVED (статика шапки)'}
+    - {edition: 'черновик правки', commit: 'не закоммичен', sha256_prefix: ef7cb034, verdict: 'нет (не рассматривался)'}
+    - {edition: 'правка 2026-09-22, круг 1', commit: 'не закоммичен', sha256_prefix: 6a509729bc8e315d, verdict: 'CHANGES_REQUESTED (3 блокирующих)'}
+    - {edition: 'правка 2026-09-22, круг 2', commit: 'не закоммичен', sha256_prefix: ca78d72f651a16f0, verdict: 'APPROVED (эта запись)'}
+
+edition_binding:
+  question: объявлена ли правка после вердикта и привязан ли прежний вердикт к прежнему отпечатку
+  answer: ДА
+  evidence:
+    - врезка «Редакция 2026-09-22» называет полный SHA-256 одобренной редакции — сверено с origin/main
+    - строка «История review правки 2026-09-22» называет круг 1, его отпечаток и путь записи — оба сверены
+    - '`git diff -U0 HEAD` — 4 ханка (385 вставок, 12 удалений): шапка, §1.4+§1.5, группа G, §13 п. 15; ни одного в сценариях F1-01…F1-46'
+
+scope:
+  reviewed: >-
+    По заданию — закрытие трёх блокирующих круга 1 и дельта правки против одобренной редакции:
+    врезка и история шапки, §1.4 (утверждения 1–3, «Кто сажает группу G», «Путь входа»), §1.5,
+    группа G (F1-47…F1-52) с таблицей «Сценарий → производитель», §13 п. 15. Текста редакции
+    круга 1 (6a509729…) в дереве нет (не закоммичен и не сохранён), поэтому дельта круг 1 → круг 2
+    читалась по месту каждого блокирующего, а вся дельта против origin/main — целиком.
+  full_acceptance_document_read: false
+  delta_read_in_full: true
+  trees_measured:
+    - PRO-Robotech/corelib @ 34bc8104a83 (= origin/main)
+    - PRO-Robotech/kaname @ 32637536f4c и @ cbbac984b7b
+    - PRO-Robotech/kacho @ bec320cf47d и @ b32ca653083
+    - 'corelib origin/lane/oauth2-engine-intake @ 5e50b9f — ветка названного производителя corelib#20, не влита'
+    - github.com/ory/fosite v0.49.0 (кэш модулей)
+    - 'приёмка LINE-A-1 @ воркспейс 3972202a, sha256 304d545e…be54 (ветка acceptance/line-a-1; путь и отпечаток — из тела kacho#2721)'
+  implementation_completion_claimed: false
+
+# ─────────────────────────────────────────────────────────────────────────────
+closure_of_round_1_blockers:
+  - id: B1
+    kind: COVERAGE
+    status: CLOSED
+    change_seen: >-
+      F1-52 When обходит и kaname: internal/presentedcred и internal/handler/tokenintrospecthttp
+      на 32637536f4c; положительный контроль — 2 не-тестовых импортёра tokenpolicy названы по
+      файлам; «конфигураций проверяющего» перемерено по трём деревьям (kacho 2 · kaname 2 ·
+      фундамент 0) с предикатом; производитель kaname-половины — строка F1-52 таблицы группы G;
+      §1.4 утверждение 3 называет обе стороны.
+    predicates_rerun:
+      - "git -C kaname grep -l 'corelib/tokenpolicy' 32637536f4c -- 'internal/presentedcred/*.go' 'internal/handler/tokenintrospecthttp/*.go' ':!*_test.go' → reader.go, handler.go (2) — сошлось"
+      - "git -C kaname grep -nE 'presentedcred\\.New\\(|tokenintrospecthttp\\.NewHandler\\(' 32637536f4c -- '*.go' ':!*_test.go' → cmd/kaname/serve.go:936, :1471 — сошлось"
+      - "полнота множества «проверяющих наш токен» в kaname: git grep -nE 'jwt\\.Parse|ParseWithClaims|jwt\\.NewParser' 32637536f4c -- '*.go' ':!*_test.go' → разбор токена только в presentedcred и tokenintrospecthttp; прочие — clientassertion (утверждение клиента, не наш токен) и чтение PEM в tokensigner — множество полное"
+      - "kacho: 5 импортёров tokenpolicy в двух пакетах и по одному построению NewJWTVerifier/jwks.New — на bec320cf47d и на b32ca653083 одинаково — сошлось"
+  - id: B2
+    kind: COVERAGE
+    status: CLOSED
+    change_seen: >-
+      Выбран исход (а) круга 1. Утверждение 2 сужено до ключей, которыми подписан JWS НАШЕГО
+      токена; отдельным пунктом назван симметричный секрет движка (код авторизации и
+      refresh_token): кто держит, хранит и вращает — служба доступа; фаза — LINE-A-1 (продукт
+      #2721); прямо сказано «сегодня держателя у них нет»; посадка подключения движка к службе
+      доступа заперта до того, как приёмка LINE-A-1 назовёт хранение и вращение сценариями
+      (§1.4, «Кто сажает», §13 п. 15). F1-50 получил And: токен нашего вида, подписанный этим
+      секретом или непрозрачный, — красный первым Then (алгоритма нет в словаре tokenpolicy);
+      близнец назван. Текст больше не заявляет того, чего не держит.
+    predicates_rerun:
+      - "corelib 34bc8104a83 tokenpolicy/policy.go:33-44 — закрытый словарь RS256 · ES256 · EdDSA и Algorithms(); ссылка документа :34-44 покрывает его — сошлось"
+      - "corelib#20 @ 5e50b9f: oauthceremony/ceremony.go:141-142 GlobalSecret/RotatedGlobalSecrets из Config.SigningSecret — секрет передаётся движку конфигурацией пакета церемонии, вне поддерева — сошлось"
+      - "приёмка LINE-A-1 @ 3972202a §6 строка 2: «полный OAuth 2.1 в A-1: refresh_token с ротацией уже здесь (S2)» — сошлось; grep 'hmac|fosite|движ' → 0, «секрет» — только клиентский — секрета движка приёмка не называет, как и сказано"
+      - "kacho#2721 открыта; тело называет путь и sha256 304d545e… приёмки LINE-A-1 — сошлось"
+  - id: B3
+    kind: CONSTRUCTIBILITY
+    status: CLOSED
+    change_seen: >-
+      §1.4: раскладка названа точными путями под корнем поддерева (LICENSE — файл источника;
+      PROVENANCE.md и PROVENANCE.patch — наши). F1-47: исключены ровно два пути, по пути от корня
+      фундамента, не по базовому имени; близнец «копия манифеста на иной глубине» — красный.
+      §1.5 и F1-48: два класса файлов под корнем, класс берётся из перечня патчей, а не из
+      заголовка; F1-48 «каждый файл поддерева» сужен до пришедших от источника; наш файл несёт
+      наш заголовок; перенесённый патчем файл — выражение источника с уведомлением об изменении.
+      Три требования к одному файлу больше не противоречат друг другу.
+    seeded: >-
+      Посев на `git archive` ветки lane/oauth2-engine-intake @ 5e50b9f в отдельный каталог, её
+      сценарий .github/scripts/oauth2-provenance.sh, GOPROXY=off: законное дерево → rc 0; копия
+      PROVENANCE.md в internal/oauth2/handler/x/ → rc 0 (сценарий производителя исключает по
+      базовому имени `diff -x PROVENANCE.md` — законный «красный раньше зелёного»: F1-47 теперь
+      требует здесь красного); лишний internal/oauth2/extra_unlisted.txt → rc 1 с этим файлом;
+      восстановленное → rc 0. Оба состояния близнецов существуют и различимы. Перепись
+      заголовков поддерева ветки (238 файлов): 235 .go с Apache-2.0 источника, 2 наших
+      (PROVENANCE.md, PROVENANCE.patch — `Copyright (c) PRO-Robotech`), 1 без идентификатора
+      (LICENSE); перенесённый патчем storage/tx/transactional.go несёт заголовок источника и
+      строку о переносе — класс «перенесён из названного файла» в реальном дереве есть.
+
+# ─────────────────────────────────────────────────────────────────────────────
+verification:
+  delta_numbers_reproduced:
+    - "corelib 34bc8104a83: git ls-tree -r --name-only | grep -cE '^(internal/oauth2/|oauthceremony/|NOTICE$)|PROVENANCE' → 0 — сошлось"
+    - "kaname 32637536f4c: не-тестовых файлов в /tokensigner/ → 1 (internal/tokensigner/signer.go) — сошлось"
+    - "kacho b32ca653083: код, ищущий '\"SPDX-License-Identifier' → 3 файла, среди них internal/repohygiene/licensemap.go; corelib → 0 — сошлось"
+    - "corelib: .github/workflows → 1 файл (ci.yml); schedule: → 0; govulncheck — ci.yml:301 — сошлось"
+    - "corelib 34bc8104a83: не-тестовых импортёров golang-jwt → 0 — сошлось"
+    - "corelib#20 @ 5e50b9f: oauthceremony/translate.go:14 импортирует go-jose/v3 — красное состояние F1-51 существует — сошлось"
+    - "OSV github.com/ory/fosite: 0.34.0 → GHSA-grfp-q2mm-hfp6, GHSA-rfq3-w54c-f9q5 (красный близнец); 0.49.0 → пусто — сошлось"
+  producers_walk:
+    scenarios_with_named_producer: 6
+    scenarios_total: 6
+    note: 'таблица группы G называет производителя у всех шести; F1-52 — теперь в обоих потребителях и в фундаменте'
+  negatives_have_twins: '6 из 6; новые отрицания правки (копия манифеста на иной глубине; заголовок не своего класса; токен под симметричным секретом) несут близнеца с одним отличием'
+  dispatcher_decisions: >-
+    Все десять решений диспетчера 2026-09-22 на месте (сверено в круге 1, дельта их не снимает);
+    производители F1-47 (гейт поставки в конвейере фундамента) и F1-51 (страж импортов в трёх
+    деревьях) — как решено; цитата владельца исключена из снятия по пути; §12 базы
+    маршрутизации — dispatcher.md:365-367.
+
+constructibility:
+  seeded: 5
+  total: 6
+  not_executed: 1
+  detail:
+    F1-47: 'посеяно (см. B3): законное дерево, лишний файл, копия манифеста на иной глубине — все три состояния существуют'
+    F1-48: 'посеяно переписью заголовков ветки производителя: оба класса и перенесённый файл есть; положительный контроль «шаблон с BUSL» — из круга 1'
+    F1-49: 'посеяно запросом OSV: красный близнец 0.34.0 (2 уведомления), зелёный 0.49.0 (0)'
+    F1-50: >-
+      Частично. Красное состояние нового And посеяно пробой в копии ветки производителя
+      (oauthceremony, её фикстуры памяти): код → обмен → токен доступа с 1 точкой (HMAC-форма
+      движка, не JWS) — первый Then его отвергнет. Зелёного близнеца посеять нечем: связки движка
+      с подписантом нет ни в одном дереве (LINE-A-1 не начата) — «не выполнилось», как и в
+      круге 1. Подписант есть (kaname internal/tokensigner/signer.go).
+    F1-51: 'красное состояние в реальном дереве (translate.go:14 → go-jose/v3), отправная величина 0 вне поддерева в трёх деревьях — обе стороны'
+    F1-52: 'положительный контроль посеян в обоих потребителях (5 · 2); красное — один импорт церемонии в названном пакете, строится тривиально (фикстура — сам предикат сценария)'
+
+blocking_findings: []
+
+non_blocking_findings:
+  - id: R2-N1
+    kind: COVERAGE
+    origin: 'круг 1 N8, теперь с наблюдением'
+    where: 'F1-52, And «в фундаменте вне поддерева не появляется пакета, разбирающего или проверяющего наш токен»'
+    finding: >-
+      Названный признак (первый не-тестовый импортёр golang-jwt в фундаменте) слеп к проверке
+      нашего токена ЧЕРЕЗ движок, а документ называет слепым пятном только проверку поверх
+      crypto/*. Названный производитель corelib#20 (5e50b9f) экспортирует из пакета церемонии
+      интроспекцию, спрашивающую движок о годности токена доступа; посев показал active=true на
+      токене доступа, выданном движком. Сегодня это HMAC-артефакт движка, но как только F1-50
+      сделает токен доступа нашим JWS, этот экспорт станет пакетом вне поддерева, проверяющим
+      наш токен, — And это запрещает, признак останется зелёным. Требование записано верно, и
+      документ прямо отдаёт остаток обзору, поэтому не блокирует (ban19). Рекомендация: назвать
+      второе слепое пятно («проверка через экспортируемое API церемонии») и сузить признак —
+      экспортируемое API церемонии не принимает НАШ токен на проверку (интроспекция и отзыв —
+      только для артефактов, которые принимает сам движок).
+    predicate: >-
+      git -C corelib grep -n 'func (c \*Ceremony) Introspect\|TokenIntrospectionHandlers'
+      origin/lane/oauth2-engine-intake -- 'oauthceremony/*.go' → ceremony.go:231, :607
+  - id: R2-N2
+    kind: FORMAT
+    where: '§12 строка 4 против §1.4 утверждения 2'
+    finding: >-
+      §12 строка 4 по-прежнему говорит «обновление токена — F3, решение не принято», а §1.4
+      теперь записывает позднейшее решение владельца 2026-09-19: refresh_token — в LINE-A-1. Два
+      места об одном предмете, верно одно. Надписать строку 4 так же, как надписаны строки 2, 3, 6.
+  - id: R2-N3
+    kind: FORMAT
+    where: 'F1-48, первый Then'
+    finding: >-
+      «сохраняет строку копирайта и идентификатор Apache-2.0 источника без изменений» буквально
+      требует идентификатора и от internal/oauth2/LICENSE — файла источника без идентификатора
+      (перепись ветки: единственный такой). Покрыто And о побайтовом равенстве LICENSE; назвать
+      «как у источника, включая отсутствие».
+  - id: R2-N4
+    kind: FORMAT
+    finding: >-
+      Не блокирующие круга 1, не внесённые правкой: N1 (ory/go-convenience, ory/go-acc в
+      переписи §1.4), N2 (граница F1-48 — лицензии модулей графа не судит ни один гейт), N3
+      (единица «четыре уведомления» и синонимы OSV), N5 («сегодня держателя нет» у пробы #2780),
+      N6 (перечень включённых потоков — из объявления сборки движка, пустой ⇒ красный), N7
+      (контроль F1-48 на шаблоне квот, снимаемых целиком), N9 (материал — архив модуля, h1 и
+      Origin.Hash). N4 внесён (посадка F1-52 названа изменением); N6 внесён частично
+      (refresh_token назван явно).
+
+found_by_the_way:
+  - >-
+    corelib#20 (5e50b9f) по-прежнему расходится с группой G: токен доступа движка —
+    HMAC-артефакт (F1-50, посеяно), translate.go импортирует go-jose/v3 (F1-51), сценарий
+    происхождения исключает манифест по базовому имени (F1-47, посеяно), интроспекция церемонии
+    принимает токен доступа (R2-N1). Законный «красный раньше зелёного», но предикат снятия
+    corelib#20 этих требований не содержит — задачу выровнять с приёмкой.
+
+route_signs:
+  proto: false
+  schema: false
+  public_rpc: false
+  ui: false
+  new_domain: false
+  security_surface: true
+
+premise_check:
+  declared_fingerprint: 'подтверждена для ca78d72f… (sha256sum); «начинается ef7cb034» — опровергнута как устаревшая строка задания'
+  round_1_blockers_list: 'подтверждена — B1 COVERAGE, B2 COVERAGE, B3 CONSTRUCTIBILITY; текст B2/B3 в задании обрезан, взят из записи круга 1'
+  approved_base_is_origin_main: 'подтверждена — git show origin/main:<путь> | sha256sum = 9a53c637…b6b4'
+  scenarios_F1_01_46_untouched: 'подтверждена — git diff -U0 HEAD: 4 ханка, ни одного в теле A–F'
+
+remainders:
+  - 'полный текст цитаты владельца — не выполнилось (как в круге 1: источник со слов диспетчера)'
+  - 'F1-50 зелёный близнец — не выполнилось: связки движка с подписантом нет ни в одном дереве'
+  - 'внешнее событие полномочия — не опубликовано; до публикации одобрение полномочия не даёт'
+  - 'редакция круга 1 не сохранена — дельта круг 1 → круг 2 судилась по месту блокирующих, а не диффом'
