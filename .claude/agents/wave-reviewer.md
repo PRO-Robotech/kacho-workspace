@@ -7,6 +7,8 @@ skills:
   - rule-MANIFEST
   - rule-testing
   - rule-architecture
+  - rule-01-wave-contract
+  - rule-multi-agent-flow-orchestration
 ---
 
 # Wave-reviewer — приёмка волны: то, что видно только когда полосы лежат рядом

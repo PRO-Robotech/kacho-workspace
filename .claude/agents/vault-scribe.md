@@ -5,6 +5,7 @@ disallowedTools: Agent, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure
+  - rule-vault
 ---
 
 # Vault-scribe — единственный писатель хранилища `obsidian/kacho/**`

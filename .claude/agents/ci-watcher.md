@@ -5,6 +5,8 @@ disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-testing-verdict
+  - rule-git-issues-ci-runs
+  - rule-multi-agent-flow-waiting
 ---
 
 # Ci-watcher — вердикт прогона: прочитать, классифицировать, назвать числами

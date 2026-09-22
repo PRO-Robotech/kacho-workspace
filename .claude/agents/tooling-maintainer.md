@@ -7,6 +7,7 @@ skills:
   - rule-MANIFEST
   - rule-ai-tooling
   - rule-testing
+  - rule-multi-agent-flow-shared-tree
 ---
 
 # Tooling-maintainer — оснастка воркспейса, правимая одним изменением с зелёными наборами

@@ -14,7 +14,7 @@ mf-no-second-rulebook · второй каталог правил не заво�
 mf-column-holder · держатель — имя гейта либо «вниманием» · check-03-manifest-row-is-complete.sh · red: держатель не назван
 mf-column-agents-explicit · агенты поимённо, не шаблоном · check-04-rule-agent-binding.sh в обе стороны · red: правило без агента; агент без правила; шаблон подхватывает агента молча
 mf-table-is-sole-declaration · `MANIFEST.md` — одна таблица состава; `.claude/rules/` — единственный дом · check-01-corpus-matches-manifest.sh · red: файл без строки; строка без файла
-mf-registry-table-30-rows · строка: `<файл> \| <триггер> \| <гейт> \| <агенты>` · check-01-corpus-matches-manifest.sh / check-03-manifest-row-is-complete.sh / check-04-rule-agent-binding.sh · red: строка без гейта; агенты разошлись с `skills:`
+mf-registry-row-form · строка: `<файл> \| <триггер> \| <гейт> \| <агенты>` · check-01-corpus-matches-manifest.sh / check-03-manifest-row-is-complete.sh / check-04-rule-agent-binding.sh · red: строка без гейта; агенты разошлись с `skills:`
 
 | правило | включается действием | чем соблюдение обеспечено | закреплено за агентами (предзагрузка) |
 |---|---|---|---|
@@ -36,3 +36,14 @@ mf-registry-table-30-rows · строка: `<файл> \| <триггер> \| <�
 | `e2e-flow.md` | правка `tests/newman/**`, `ui-future/e2e/**`; заведение набора | `assert-suites-green.sh`; `exec-coverage.py` | `integration-tester`; `landing-reviewer`; `qa-test-engineer`; `ui-implementer` |
 | `subscription.md` | правка `corelib/subscription`, `corelib/outbox`, `services/*/internal/subscriptionjournal`, `gateway/internal/subscriptionstream` | девять гейтов `internal/repohygiene` | `go-implementer` |
 | `ai-tooling.md` | правка `.claude/**` | `skills-gate`; `tooling-gate`; `rules-gate` | `tooling-maintainer` |
+| `01-wave-contract.md` | раздача волны; вердикт ревью по форме без доказательства | `scripts/compliance/`; перепись ролей ревью волны | `wave-reviewer` |
+| `change-graph.md` | переход между фазами изменения В ВОРКСПЕЙСЕ (к полосам продукта контур не применяется) | `scripts/change-graph-gate/run-all.sh`; `docs-gate/check-01-acceptance-verdict.py` | `acceptance-reviewer`; `convergence-reviewer`; `landing-reviewer` |
+| `git-issues-branch-audit.md` | перенос работы между ветками; снятие ветки; перепись веток | `scripts/branch-audit.sh`; `scripts/branch-audit-inject.sh` | `git-operator` |
+| `git-issues-ci-runs.md` | разбор красного прогона; локальные проверки перед отправкой; правка шага конвейера | `scripts/ci-local.sh`; `scripts/tooling-gate` | `ci-watcher` |
+| `git-issues-issue-lifecycle.md` | закрытие задачи; метка `blocked`; возражение рецензента | `scripts/docs-gate/check-01-acceptance-verdict.py`; `check-05-ledger-verdict-reproduces.py` | `git-operator` |
+| `multi-agent-flow.md` | ведение задачи волной: захват, форма задачи, отправка, конец сессии | `scripts/branch-audit.sh`; `docs-gate check-03-scope-row-scenario.py` | `git-operator` |
+| `multi-agent-flow-orchestration.md` | раздача заданий; сборка волны; приёмка работы-проверки | `scripts/rules-gate/check-05-dispatcher-routes-every-agent.sh`; форма задания рецензенту | `check-verifier`; `wave-reviewer` |
+| `multi-agent-flow-shared-tree.md` | ветка, рабочая копия, чужое состояние, коды набора | `scripts/branch-audit.sh`; `scripts/*/run-all.sh` (коды 0/1/2) | `git-operator`; `tooling-maintainer` |
+| `multi-agent-flow-waiting.md` | ожидание вердикта; заведение наблюдателя; правка его порогов | перепись идущих наблюдателей; `gh pr list` | `ci-watcher` |
+| `rag.md` | вопрос к локальному индексу кода до широкого обхода дерева | `rag status` (ревизия индекса); отложенный набор `kacho-rag/bench/heldout.json` | `scout` |
+| `vault.md` | чтение записок до кода; trail задачи; запись в `obsidian/kacho/**` | `scripts/vault-gate/run-all.sh`; `scripts/docs-gate/check-02-kac-trail-status.py` | `vault-scribe` |

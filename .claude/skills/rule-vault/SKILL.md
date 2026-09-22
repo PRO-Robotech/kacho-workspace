@@ -1,0 +1,1 @@
+../../rules/vault.md

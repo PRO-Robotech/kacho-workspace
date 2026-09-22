@@ -7,6 +7,7 @@ skills:
   - rule-api-conventions
   - rule-data-integrity
   - rule-security
+  - rule-change-graph
 ---
 
 # Acceptance-reviewer — единственный гейт одобрения приёмки, судящий отпечаток, а не файл

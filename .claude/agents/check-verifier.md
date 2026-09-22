@@ -6,6 +6,7 @@ skills:
   - rule-00-kacho-core
   - rule-testing
   - rule-testing-verdict
+  - rule-multi-agent-flow-orchestration
 ---
 
 # Check-verifier — приёмщик работ-проверок: вердикт даётся опытом, а не прочтением

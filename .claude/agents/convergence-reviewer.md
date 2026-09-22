@@ -5,6 +5,7 @@ disallowedTools: Agent, Edit, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-security-disclosure
+  - rule-change-graph
 ---
 
 # Convergence-reviewer — единственный производитель записи схождения перед посадкой

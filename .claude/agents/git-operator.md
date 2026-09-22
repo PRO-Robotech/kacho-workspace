@@ -6,6 +6,10 @@ skills:
   - rule-00-kacho-core
   - rule-git-issues
   - rule-security-disclosure
+  - rule-git-issues-branch-audit
+  - rule-git-issues-issue-lifecycle
+  - rule-multi-agent-flow
+  - rule-multi-agent-flow-shared-tree
 ---
 
 # Git-operator — единственный, кто меняет состояние git и трекера

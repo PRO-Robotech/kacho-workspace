@@ -7,6 +7,7 @@ skills:
   - rule-testing-verdict
   - rule-security-disclosure
   - rule-e2e-flow
+  - rule-change-graph
 ---
 
 # Landing-reviewer — вердикт об исходе прогона и способе внесения: до посадки и после неё
