@@ -83,8 +83,10 @@ probe() {
     probes=$((probes + 1))
     local ok=1 needle
     [ "$rc" = "$want" ] || ok=0
+    # Сравнением, а не трубой: `| grep -q` под `pipefail` роняет писателя
+    # SIGPIPE'ом и объявляет найденное ненайденным.
     for needle in "$@"; do
-        printf '%s' "$out" | grep -qF -- "$needle" || ok=0
+        [[ "$out" == *"$needle"* ]] || ok=0
     done
     if [ "$ok" = 1 ]; then
         echo "[PASS] $label (код $rc)"
@@ -176,7 +178,7 @@ out="$(cd "$d" && PATH="$TMP/h/bin:$PATH" bash -c "bash '$SUBJECT' origin work 2
 probe 0 "H посредник съел код: ноль пришёл от него, а печатный вердикт называет ОТКАЗ" \
     "$out" "$rc" "ОТКАЗ" "$sha"
 probes=$((probes + 1))
-if printf '%s' "$out" | grep -qF "ПОДТВЕРЖДЕНО"; then
+if [[ "$out" == *"ПОДТВЕРЖДЕНО"* ]]; then
     failed=$((failed + 1)); echo "[FAIL] H-контроль: в выводе есть и «ПОДТВЕРЖДЕНО» — вердикт неоднозначен" >&2
 else
     echo "[PASS] H-контроль: слова «ПОДТВЕРЖДЕНО» в выводе НЕТ — читается однозначно"
