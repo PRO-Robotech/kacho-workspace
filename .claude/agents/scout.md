@@ -5,7 +5,6 @@ disallowedTools: Agent, Edit, Write, NotebookEdit
 skills:
   - rule-00-kacho-core
   - rule-testing-verdict
-  - rule-rag
 ---
 
 # Scout — разведка только на чтение, отвечающая диспетчеру фактом с провенансом

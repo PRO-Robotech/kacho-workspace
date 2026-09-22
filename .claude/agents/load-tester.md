@@ -48,7 +48,7 @@ production-посадке, «зелёный» dev-режим не доказыв
 | нагрузка идёт через консоль с подпиской | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Как это провязывается в консоли — и почему GET-запросы остаются»: цена провязки и признак неработающей |
 | замер нашёл дефект | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt» — форма черновика задачи |
 | отчёт о замере называет предмет защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты — НЕ раскрывать operational security-internals» |
-| ищешь, какой код даёт узкое место | `Skill rule-rag` | `.claude/rules/rag.md` §«Порядок работы»; §«Чем спрашивать — по предмету вопроса»; §«Чего индекс НЕ делает» |
+| ищешь, какой код даёт узкое место | `Read .claude/backup/rag.md` | §«Порядок работы»; §«Чем спрашивать»; §«Чего индекс НЕ делает»; переходника `Skill` нет |
 
 ## Когда запускаться, когда нет
 
