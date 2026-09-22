@@ -300,6 +300,7 @@ tags:
 | [[edges/api-gateway-to-iam-acr-floor\|api-gateway → iam — acr-on-internal step-up floor]] | живо (stable) |
 | [[edges/api-gateway-to-iam-authorize\|api-gateway → iam: AuthorizeService.Check (per-RPC)]] | живо (active) |
 | [[edges/api-gateway-to-iam-subject-change\|api-gateway → iam: PollSubjectChanges (authz-cache invalidation)]] | живо (active) |
+| [[edges/api-gateway-to-kaname-login-lane\|api-gateway → kaname: полоса формы (:9100, взаимный TLS)]] | в работе (test) |
 | [[edges/apigw-internal-rest-listener\|api-gateway public cmux vs internal-rest]] | живо (stable) |
 | [[edges/apigw-internal-vs-tls\|api-gateway: TLS edge vs cluster-internal listener]] | живо (active) |
 | [[edges/apigw-to-compute\|api-gateway → compute (proxy)]] | живо (active) |
@@ -463,6 +464,7 @@ tags:
 | [[packages/kacho-newman-gate\|newman — гейт, known-RED и загрязнение фикстур]] | живо (stable) |
 | [[packages/kacho-newman-gen-shared\|kacho-newman-gen-shared]] | живо (stable) |
 | [[packages/kacho-prepush-hook\|Локальный хук отправки — о каком дереве он выносит вердикт]] | живо (stable) |
+| [[packages/kacho-repohygiene-gitrevcause\|internal/repohygiene/gitrevcause.go — глубина клона и словарь ремонта в одном доме]] | в работе (test) |
 | [[packages/kacho-terraform-provider\|terraform — провайдер Kachō для Terraform и OpenTofu]] | живо (active) |
 
 **домен: kacho-api-gateway**
@@ -482,6 +484,7 @@ tags:
 | [[packages/apigw-proxy\|apigw-proxy]] | живо (stable) |
 | [[packages/apigw-restmux\|apigw-restmux]] | живо (stable) |
 | [[packages/gateway-subscriptionstream\|gateway-subscriptionstream]] | в работе (in-progress) |
+| [[packages/kacho-gateway-deploy\|gateway/deploy — гейты края о стендах и его чарт]] | живо (stable) |
 
 **домен: kacho-compute**
 
@@ -521,6 +524,7 @@ tags:
 
 | Записка | Состояние |
 |---|---|
+| [[packages/kacho-deploy-helm-umbrella\|deploy/helm/umbrella — зонт и семь цепочек профилей]] | живо (stable) |
 | [[packages/kacho-deploy-tests-helm\|deploy/tests/helm — рендерные гейты зонта и их общая библиотека исхода]] | живо (stable) |
 
 **домен: kacho-geo**
@@ -1266,6 +1270,8 @@ tags:
 | [[KAC/issue-352-kaname\|kaname#352: три отчёта-замера просрочены новой миграцией, две пробы красны]] | в работе (to-do) |
 | [[KAC/issue-352\|issue-352 — compute: предел числа машин не назначается ни одному проекту]] | в работе (in-progress) |
 | [[KAC/issue-353-kaname\|kaname#353: шапка приёмки Ф13 противоречит действующему вердикту]] | в работе (to-do) |
+| [[KAC/issue-354-kaname\|kaname#354: самопроверка отчитывается кодом — 16 вызовов, ведомость у двух]] | в работе (to-do) |
+| [[KAC/issue-355-kaname\|kaname#355: четыре тега держат состояния до перезаписи — решение владельца]] | в работе (to-do) |
 | [[KAC/issue-357\|#357: порядок внутри стадии S3 приёмки IAM-ID-1 был неисполним]] | история (superseded) |
 | [[KAC/issue-364-quota-console\|Витрина квот в консоли: арендатор видит предел, занято и источник (#364)]] | в работе (in-progress) |
 | [[KAC/issue-373-list-scope-honesty\|#373: ручка списка называет область, в которой судит]] | в работе (test) |
@@ -1278,6 +1284,7 @@ tags:
 | [[KAC/issue-419\|issue-419 — квоты: линия учёта, величины, носителя и единого источника отказа]] | в работе (test) |
 | [[KAC/issue-420\|issue-420 — iam: пользователя ищут по почте, и сужает сервер]] | в работе (test) |
 | [[KAC/issue-421\|issue-421 — ui: страница с именем чужого поставщика личности снята]] | в работе (test) |
+| [[KAC/issue-425-ws\|ws#425: код возврата обёртки читается как вердикт прогона]] | в работе (to-do) |
 | [[KAC/issue-425\|issue-425 — ui: пустая заявка на шапку страницы стирала чужую]] | в работе (test) |
 | [[KAC/issue-428\|issue-428 — ui: подмена antd брала дублёр динамическим импортом]] | в работе (test) |
 | [[KAC/issue-429-ws\|ws#429: посадка слияния может приезжать не из дерева]] | в работе (test) |
@@ -1373,12 +1380,19 @@ tags:
 | [[KAC/issue-754-ws\|ws#754: docs-gate несёт три проверки под номером check-03]] | в работе (to-do) |
 | [[KAC/issue-754\|#754: смена членства не снимала кеш вердиктов — и путь не работал ни для кого]] | в работе (test) |
 | [[KAC/issue-755\|#755: канал session_revoked снят — потребителя у него нет и построить его нельзя]] | в работе (test) |
+| [[KAC/issue-756-ws\|ws#756: запас над потолком базы переносился дословно — это не замер]] | в работе (to-do) |
 | [[KAC/issue-756\|#756: боевой профиль не выбирал посадку своих баз]] | в работе (test) |
+| [[KAC/issue-757-ws\|ws#757: «корень из расположения проверки» держится в 1 наборе из 9]] | в работе (to-do) |
 | [[KAC/issue-757\|#757: очередь аудита копится, дренажа нет — записано решением с предикатом]] | живо (done) |
 | [[KAC/issue-758-811\|#758 и #811 (R7): стоимость чтения — заход по ключу и цепь без повтора]] | в работе (test) |
+| [[KAC/issue-758-ws\|ws#758: потолок стережёт 2 файла класса из 65]] | в работе (to-do) |
 | [[KAC/issue-758\|#758: обратные вопросы склеивают колонку — координата задачи была неверна]] | в работе (in-progress) |
+| [[KAC/issue-759-ws\|ws#759: обещание о переселении 49 норм пережило свою задачу]] | в работе (to-do) |
 | [[KAC/issue-759\|#759: доля попаданий кеша прав выведена наружу у всех шести модулей]] | в работе (test) |
+| [[KAC/issue-760-ws\|ws#760: числа в шапках скриптов без предиката воспроизводимости]] | в работе (to-do) |
 | [[KAC/issue-760\|#760: примитивы сверки outbox сняты — исполнителя у них не было]] | в работе (test) |
+| [[KAC/issue-761-ws\|ws#761: перепись веток слепа к тегам — 13 коммитов вне осмотра]] | в работе (to-do) |
+| [[KAC/issue-762-ws\|ws#762: зонтик — исход из одного канала, объём осмотренного не печатается]] | в работе (to-do) |
 | [[KAC/issue-762\|#762: предел соединений базы vpc не выбирал никто]] | в работе (test) |
 | [[KAC/issue-767\|#767: отчёты прибора authzformbench накрыты отпечатком вперёд, граница напечатана]] | живо (done) |
 | [[KAC/issue-777\|#777: перепись мест обращения к движку прав — дискриминатор по типу, не по имени]] | в работе (test) |
@@ -1457,6 +1471,7 @@ tags:
 | [[KAC/wave-close-2026-08-02\|Волна закрытия: девять предметов, сверенных с деревом a373c599]] | в работе (reference) |
 | [[KAC/wave-gates-and-retire-2026-07-28\|Волна 2026-07-28 — шесть слияний, четыре гейта, один молчаливый откат]] | живо (done) |
 | [[KAC/wave-iam-standalone-2026-09-13\|Волна выноса службы доступа: копия контрактов снята, держатели заведены, наборы разрезаны по домам]] | в работе (test) |
+| [[KAC/wave-identity-own-w0-2026-09-22\|Волна identity-own w0 (kacho): консоль долита схлопыванием, голова 9fcf1e81e9a]] | в работе (test) |
 | [[KAC/wave-platform-2026-08-22\|Волна 2026-08-22 — линия platform, семь предметов и два несовместимых гейта]] | в работе (in-progress) |
 | [[KAC/wildcard-relation-sweep-2026-07-28\|Отношение, выполнимое подстановкой — развёртка по каталогу (2026-07-28)]] | живо (done) |
 
