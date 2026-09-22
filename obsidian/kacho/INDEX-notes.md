@@ -1479,6 +1479,7 @@ tags:
 
 | Записка | Состояние |
 |---|---|
+| [[lessons/a-check-that-forbids-its-subject-to-print-the-denominator\|Проверка, запрещающая прибору называть объём осмотренного]] | живо (active) |
 | [[lessons/a-converging-proxy-count-still-measures-the-wrong-subject\|Сходящийся ряд прокси-замеров мерит всё тот же не тот предмет — долю ложных находок даёт только сам распознаватель]] | живо (active) |
 | [[lessons/a-declared-predicate-can-be-wrong-and-then-it-lies-confidently\|Объявленный предикат может быть негодным — и тогда он лжёт увереннее, чем догадка]] | — |
 | [[lessons/a-document-denying-the-verdict-that-lies-beside-it\|Документ отрицает вердикт, лежащий рядом с ним: устаревшее «не одобрено» останавливает работу, а идти читателю некуда]] | живо (active) |
