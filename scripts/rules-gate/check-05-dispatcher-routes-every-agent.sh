@@ -119,7 +119,8 @@ FORBIDDEN = ("Read", "Write", "Edit", "Bash", "Grep", "Glob",
 
 
 def census(msg):
-    print("[CENSUS] %s: %s" % (NAME, msg))
+    # Корень — первым: числа переписи суть утверждения о ДЕРЕВЕ (2026-09-22).
+    print("[CENSUS] %s: корень %s; %s" % (NAME, root, msg))
 
 
 def fail(msg):

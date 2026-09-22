@@ -149,7 +149,7 @@ def builds_fixture_tree(root, p):
        запускается никогда, поэтому держать роль не может в принципе. Признак —
        shebang первой строкой, и он же делает барьер 3 ЗАКОННЫМ: `#` открывает
        комментарий ровно в тех языках, которые так и запускаются. Взят shebang, а
-       НЕ бит исполнимости в индексе: `inject-10-*.sh` подключается точкой и
+       НЕ бит исполнимости в индексе: `inject-11-*.sh` подключается точкой и
        лежит с правами 100644 — по биту он не производитель, по shebang'у
        производитель, и верно второе. Замер: все 12 производителей дерева несут
        shebang, из 1309 файлов области его несут 138.
@@ -267,16 +267,25 @@ def read_baseline(path):
 
 def main():
     ap = argparse.ArgumentParser()
+    # САМОИМЯ ГЕЙТА ПРИХОДИТ ИЗ ИМЕНИ ЕГО ФАЙЛА, А НЕ ИЗ ЛИТЕРАЛА ЗДЕСЬ.
+    # Разборщик общий, зовут его из `check-NN-rule-address-exists-as-written.sh`,
+    # и своего номера он знать не может. Вписанный литерал пережил бы
+    # переномерацию МОЛЧА: файл с одним номером печатал бы вердикт с другим, и
+    # читающий пошёл бы искать гейт, которого в наборе нет. Умолчание — имя
+    # ЭТОГО файла: что бы ни напечаталось, это имя существующего файла, а не
+    # выдуманное. Признак проверяется переименованием, а не чтением.
+    ap.add_argument("--gate", default=pathlib.Path(__file__).stem)
     ap.add_argument("--root", default=".")
     ap.add_argument("--baseline")
     ap.add_argument("--emit-baseline", action="store_true")
     args = ap.parse_args()
+    gate = args.gate
     root = pathlib.Path(args.root).resolve()
 
     try:
         all_paths = tracked(root)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("[VOID] check-10 — индекс git не читается, состав дерева не выведен", file=sys.stderr)
+        print(f"[VOID] {gate} — индекс git не читается, состав дерева не выведен", file=sys.stderr)
         return 2
 
     area = [p for p in all_paths if in_area(p)]
@@ -293,12 +302,12 @@ def main():
     subject = [p for p in area if not excluded(root, p)]
     outside = [p for p in all_paths if p.startswith(OUTSIDE)]
     if not subject:
-        print("[VOID] check-10 — файлов оснастки не найдено, судить нечего", file=sys.stderr)
+        print(f"[VOID] {gate} — файлов оснастки не найдено, судить нечего", file=sys.stderr)
         return 2
 
     refs, files_read, lines_read = scan(root, subject)
     if not refs:
-        print("[VOID] check-10 — обход прошёл, но ни одной ссылки на правило или скил "
+        print(f"[VOID] {gate} — обход прошёл, но ни одной ссылки на правило или скил "
               "в нём нет: предмета в дереве не осталось", file=sys.stderr)
         return 2
 
@@ -314,7 +323,11 @@ def main():
             print(f"{c} {form} {nameref}")
         return 0
 
-    print(f"[CENSUS] check-10: файлов оснастки {files_read} "
+    # КОРЕНЬ — ПЕРВОЕ ЧИСЛО ПЕРЕПИСИ, А НЕ УМОЛЧАНИЕ. Все прочие величины —
+    # утверждения о ДЕРЕВЕ, и без имени дерева они не читаются: два прогона одного
+    # файла с разным cwd давали разные числа и оба звались `[PASS]`.
+    print(f"[CENSUS] {gate}: корень {root}")
+    print(f"[CENSUS] {gate}: файлов оснастки {files_read} "
           f"(исключено по роли и архиву {len(area) - len(subject)}, из них "
           f"производителей синтетического дерева {len(producers)} — признак выведен, "
           f"не перечислен); роль применима к {len(runnable)} скриптам, "
@@ -322,7 +335,7 @@ def main():
           f"строк {lines_read}; "
           f"ссылок {len(refs)}; висячих {len(dangling)} по {len(now)} именам; "
           f"в объявленном долге {sum(known.values())} по {len(known)}")
-    print(f"[CENSUS] check-10: вне области набора (docs/**, obsidian/**, tmp/**, project/**) — "
+    print(f"[CENSUS] {gate}: вне области набора (docs/**, obsidian/**, tmp/**, project/**) — "
           f"ссылок {len(out_refs)}, из них висячих {len(out_dangling)}; "
           f"владельцы docs-writer и vault-scribe, гейтом набора не судятся")
 
@@ -340,7 +353,7 @@ def main():
                             f"в дереве 0; убрать из долга")
 
     if findings:
-        print("[FAIL] check-10 — адрес правила или скила не резолвится там, где написан",
+        print(f"[FAIL] {gate} — адрес правила или скила не резолвится там, где написан",
               file=sys.stderr)
         for f in findings:
             print(f"       {f}", file=sys.stderr)
@@ -349,7 +362,7 @@ def main():
                 print(f"       └ {rel}:{i}: {form} {nameref}", file=sys.stderr)
         return 1
 
-    print(f"[PASS] check-10 — новых висячих адресов нет; объявленный долг "
+    print(f"[PASS] {gate} — новых висячих адресов нет; объявленный долг "
           f"{sum(known.values())} вхождений по {len(known)} именам не вырос")
     return 0
 
