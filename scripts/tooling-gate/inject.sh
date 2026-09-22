@@ -647,7 +647,7 @@ run 2 "$b" "предпосылка: инструмента нет — VOID, а �
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
 echo
-echo "== check-10: вердикт об отправке приходит от сервера, а не от кода =="
+echo "== check-16: вердикт об отправке приходит от сервера, а не от кода =="
 PV_REL="scripts/push-verified.sh"
 
 # pv_patch <файл> <perl-выражение> <что вносим> — правка обёртки в песочнице.
@@ -667,7 +667,7 @@ pv_patch() {
     return 0
 }
 
-b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-10-push-verdict-comes-from-the-remote.sh
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-16-push-verdict-comes-from-the-remote.sh
 
 # Инъекция ТОГО САМОГО дефекта: вердиктом становится код команды. Ровно это и
 # наблюдалось 2026-09-22 — ноль посредника, прочитанный как исход операции.
@@ -676,7 +676,7 @@ if pv_patch "$b/$PV_REL" \
     's/^(echo "push-verified: код команды отправки.*\n)/${1}exit "\$push_rc"\n/m' \
     "вердикт берётся у кода команды"; then
     run 1 "$b" "инъекция: сервер не спрошен, вердикт = код команды — краснеет" \
-        check-10-push-verdict-comes-from-the-remote.sh
+        check-16-push-verdict-comes-from-the-remote.sh
 fi
 
 # Законный близнец: сервер спрошен ДРУГОЙ командой. Без него проверка ловила бы
@@ -687,7 +687,7 @@ if pv_patch "$b/$PV_REL" \
     's/git ls-remote "\$remote" "refs\/heads\/\$branch"/git ls-remote --heads "\$remote" "\$branch"/' \
     "тот же вопрос серверу другой командой"; then
     run 0 "$b" "близнец: сервер спрошен иначе — молчит" \
-        check-10-push-verdict-comes-from-the-remote.sh
+        check-16-push-verdict-comes-from-the-remote.sh
 fi
 
 # Вторая половина класса: код съеден посредником, и читателю остаётся печать.
@@ -697,12 +697,12 @@ if pv_patch "$b/$PV_REL" \
     's/push-verified: ПОДТВЕРЖДЕНО —/push-verified: ok —/' \
     "вердикт перестал читаться словом"; then
     run 1 "$b" "инъекция: состоявшееся не названо словом — краснеет" \
-        check-10-push-verdict-comes-from-the-remote.sh
+        check-16-push-verdict-comes-from-the-remote.sh
 fi
 
 b="$(mksandbox scripts/push-verified.sh)"
 run 2 "$b" "предпосылка: обёртки нет — VOID, а не успех" \
-    check-10-push-verdict-comes-from-the-remote.sh
+    check-16-push-verdict-comes-from-the-remote.sh
 
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без

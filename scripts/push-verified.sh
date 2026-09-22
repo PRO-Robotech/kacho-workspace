@@ -66,7 +66,7 @@
 # он тот же, значило бы завести второй молчаливый ноль.
 #
 # Способность упасть доказана `scripts/push-verified-inject.sh`; что обёртка
-# исполняет этот признак на каждом прогоне — `scripts/tooling-gate/check-10-*`.
+# исполняет этот признак на каждом прогоне — `scripts/tooling-gate/check-16-*`.
 set -uo pipefail
 
 KEEPALIVE_INTERVAL=20

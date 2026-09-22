@@ -18,7 +18,7 @@ gi-identity-owner-only · author И committer — ТОЛЬКО личная уч
 gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · ЗАВЕСТИ gi-no-attribution-trailers · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` не пушить напрямую и не `--force` без явного разрешения владельца: работа идёт веткой с номером задачи через PR · защита ветви (`enforce_admins`, обязательные контексты) · red: коммит в `main`, которому не предъявить PR
 gi-no-verify-by-request · `--no-verify` — только по явной просьбе владельца · ЗАВЕСТИ gi-no-verify-by-request · red: хук отправки обойдён, чтобы «пройти»
-gi-push-proved-by-remote-ref · отправку доказывать постусловием: ссылка на сервере равна отправленной sha, спрошено ПОСЛЕ; код возврата — про посредника (обрыв, уход в фон) · scripts/push-verified.sh, tooling-gate/check-10 · red: «отправлено» со слов кода возврата
+gi-push-proved-by-remote-ref · отправку доказывать постусловием: ссылка на сервере равна отправленной sha, спрошено ПОСЛЕ; код возврата — про посредника (обрыв, уход в фон) · scripts/push-verified.sh, tooling-gate/check-16 · red: «отправлено» со слов кода возврата
 gi-push-keepalive-is-clone-setting · keepalive ставить клону провязкой, а не руками каждой отправке: длинный хук молчит в соединении · scripts/hooks/install.sh (ServerAliveInterval=20) · red: ssh -G <хост> даёт serveraliveinterval 0 при живущем хуке
 
 ## Текст коммита: ёмко, информативно, не поэма

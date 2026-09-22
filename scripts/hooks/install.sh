@@ -105,7 +105,7 @@ ka_state() {
         printf 'none|\n'
     # Сравнение БЕЗ внешнего процесса: `printf | grep -q` под `pipefail` роняет
     # писателя SIGPIPE'ом, и найденное объявляется ненайденным (класс держит
-    # проба продукта TestPipefailVerdictNeverComesFromAPipe, #658).
+    # проба продукта TestPipefailVerdictNeverComesFromAPipe, PRO-Robotech/kacho#658).
     elif [[ "${cur,,}" == *serveraliveinterval* ]]; then
         printf 'set|%s\n' "$cur"
     else
