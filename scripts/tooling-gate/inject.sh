@@ -647,6 +647,64 @@ run 2 "$b" "предпосылка: инструмента нет — VOID, а �
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
 echo
+echo "== check-10: вердикт об отправке приходит от сервера, а не от кода =="
+PV_REL="scripts/push-verified.sh"
+
+# pv_patch <файл> <perl-выражение> <что вносим> — правка обёртки в песочнице.
+# Отдельная функция, а не sed по месту: вносимое — многострочная вставка, и
+# молчаливый промах регулярного выражения дал бы зелёную пробу на неправленом
+# файле (`gate-authoring` §Инъекция вносит РОВНО свой дефект).
+pv_patch() {
+    local f="$1" expr="$2" what="$3" before after
+    before="$(cksum < "$f")"
+    perl -0pi -e "$expr" "$f"
+    after="$(cksum < "$f")"
+    if [ "$before" = "$after" ]; then
+        echo "  ПРОВАЛ инъекция не внесена ($what) — выражение не совпало" >&2
+        failed=$((failed + 1))
+        return 1
+    fi
+    return 0
+}
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-10-push-verdict-comes-from-the-remote.sh
+
+# Инъекция ТОГО САМОГО дефекта: вердиктом становится код команды. Ровно это и
+# наблюдалось 2026-09-22 — ноль посредника, прочитанный как исход операции.
+b="$(mksandbox)"
+if pv_patch "$b/$PV_REL" \
+    's/^(echo "push-verified: код команды отправки.*\n)/${1}exit "\$push_rc"\n/m' \
+    "вердикт берётся у кода команды"; then
+    run 1 "$b" "инъекция: сервер не спрошен, вердикт = код команды — краснеет" \
+        check-10-push-verdict-comes-from-the-remote.sh
+fi
+
+# Законный близнец: сервер спрошен ДРУГОЙ командой. Без него проверка ловила бы
+# запись `git ls-remote <remote> refs/heads/<ветка>`, а не исход, и запрещала бы
+# автору любой другой способ спросить.
+b="$(mksandbox)"
+if pv_patch "$b/$PV_REL" \
+    's/git ls-remote "\$remote" "refs\/heads\/\$branch"/git ls-remote --heads "\$remote" "\$branch"/' \
+    "тот же вопрос серверу другой командой"; then
+    run 0 "$b" "близнец: сервер спрошен иначе — молчит" \
+        check-10-push-verdict-comes-from-the-remote.sh
+fi
+
+# Вторая половина класса: код съеден посредником, и читателю остаётся печать.
+# Инъекция снимает слово подтверждения — код при этом верный, находка одна.
+b="$(mksandbox)"
+if pv_patch "$b/$PV_REL" \
+    's/push-verified: ПОДТВЕРЖДЕНО —/push-verified: ok —/' \
+    "вердикт перестал читаться словом"; then
+    run 1 "$b" "инъекция: состоявшееся не названо словом — краснеет" \
+        check-10-push-verdict-comes-from-the-remote.sh
+fi
+
+b="$(mksandbox scripts/push-verified.sh)"
+run 2 "$b" "предпосылка: обёртки нет — VOID, а не успех" \
+    check-10-push-verdict-comes-from-the-remote.sh
+
+echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
 echo "[CENSUS] inject: проб исполнено $probes, провалов $failed; в каждой песочнице файлов $( cd "$WS" && git ls-files --cached --others --exclude-standard | wc -l )"

@@ -20,7 +20,8 @@ disc-self-apply-recoverability · признак восстановимости 
 ### Проверяемый признак для СООБЩЕНИЯ КОММИТА (выведено 2026-07-28, класс повторился дважды за день)
 
 disc-recoverability-predicate · переписывать сообщение коммита, если читатель без доступа к коду восстановит по нему состояние до фикса настолько, чтобы воспользоваться · ЗАВЕСТИ disc-recoverability-predicate · red: «уровень контракта и поведения» как критерий
-disc-preservation-proof · давать только после git diff <исходный> HEAD -- $(git show --name-only --format= <исходный>) = пусто · ЗАВЕСТИ disc-preservation-proof · red: «влито» без проверки (слияние могло быть частичным)
+disc-preservation-proof · знаменатель — пути ВСЕЙ полосы: git diff --name-only $(git merge-base <база> <голова>)..<голова>; добавленное присутствует, снятое не уцелело, непустое расхождение не вердикт · scripts/preservation-proof.sh · red: знаменатель — файлы головного коммита, потеря вне их молчит
+disc-preservation-predicted-first · дерево слияния предсказывать ДО необратимого шага, сверять после; факт годен для этой пары голов · scripts/preservation-proof.sh --predict · red: предсказания не было
 disc-rewrite-history-needs-owner · переписывать историю публичной ветки принудительно — только с разрешения владельца; штатно — merge --squash + удаление ветки · ЗАВЕСТИ disc-rewrite-history-needs-owner · red: force-push по своему решению
 disc-squash-says-it-is-squashed · тело squash-коммита обязано нести «схлопнуто из <ветка>, исходные коммиты <sha>; ветка удалена» — правило и для cherry-pick · ЗАВЕСТИ disc-squash-says-it-is-squashed · red: отсутствие хеша читается как потеря работы
 disc-hash-exception-when-rewritten · исходные хеши не перечислять, если сообщения переписаны по дисциплине публичного репо; называть ветку и причину · ЗАВЕСТИ disc-hash-exception-when-rewritten · red: ссылка на объект со старым текстом
