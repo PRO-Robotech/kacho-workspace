@@ -9,13 +9,17 @@
 # а названный и не отдавший исхода даёт «не выполнилось» — не «наверное прошло».
 #
 # ЗДЕСЬ НЕ ОБЪЯВЛЕН НИ ОДИН ИСХОД. Файл называет, ЧЕМ изменение держится, и где
-# лежат (или должны лечь) записи. Запись схождения выпускает
-# `convergence-reviewer`; автор этого файла её не выпускает.
+# лежат (или должны лечь) записи. Поля записей, приведённые ниже, — цитаты из
+# самих записей с номером строки, а не исход держателя. Запись схождения
+# выпускает `convergence-reviewer`; автор этого файла её не выпускает.
 #
-# Все числа ниже сняты автором этого файла 2026-09-22 своей командой. Команды над
-# диффом исполняются в рабочей копии продукта (`project/kacho`, дерево чистое:
-# `git status --porcelain | wc -l` → 0); команды над пакетом — в корне
-# воркспейса на ветке, несущей этот файл.
+# Редакция 2 (2026-09-22): голова 0e0a85f936e → 945b851ed52, отпечаток
+# 707b05a4…1366 → c5ae0889…fa77. Все числа ниже сняты заново автором этого
+# файла своей командой на новой голове; прежние значения не переносились.
+# Команды над диффом исполняются в рабочей копии продукта (`project/kacho`,
+# дерево чистое: `git status --porcelain | wc -l` → 0); команды над пакетом — в
+# копии `tmp/wave0-change-package` на ветке, несущей этот файл. Каждое число о
+# дереве снято двумя предикатами — по написанию пути и по содержимому.
 schema_version: 1
 change_id: wave-identity-own-w0
 
@@ -29,6 +33,17 @@ change_id: wave-identity-own-w0
 role_applicability:
 
   # ── освобождены: предмета РОЛИ в изменении нет ────────────────────────────
+  #
+  # ОГОВОРКА О РЕЕСТРЕ. Три освобождения ниже опираются на предикаты реестра
+  # `docs/changes/policy.yaml` базы этого пакета (5058bf2d, ветка
+  # tooling-change-contour-predicates). Приёмка этих предикатов вернула работу
+  # автору ветки (check-verifier, прогон wf_bc03c766-ea3; записи на диске нет —
+  # со слов диспетчера): на несуществующем корне, опечатке, чужом репозитории и
+  # вне git поле даёт 0 и освобождение. Реестр этим файлом не правится. Против
+  # каждого из четырёх входов здесь стоит своё поле, проверяемое отдельно:
+  # `evidence_repo` (чужой репозиторий), `census` с числом отслеживаемых
+  # записей корня пакета, равным 2, а не 0 (несуществующий корень, опечатка в
+  # `change_id`, вне git — `git ls-files` там отказывает, а не печатает 2).
 
   acceptance-reviewer:
     status: not-applicable
@@ -41,20 +56,26 @@ role_applicability:
       корень пакета `docs/changes/wave-identity-own-w0/` СУЩЕСТВУЕТ и несёт 2
       отслеживаемые записи (`git ls-files docs/changes/wave-identity-own-w0/ |
       wc -l` → 2: change.yaml, holders.yaml) — ноль есть ноль НАХОДОК, а не
-      непрочитанное дерево. `hashes.acceptance_sha256` в `change.yaml` — null:
-      документа вне каталога пакет тоже не называет. Второй обход, по самому
-      диффу: сообщения 79 коммитов (`git log --format=%B bec320cf47d..0e0a85f936e`)
-      и добавленные строки диффа не называют ни `docs/specs/…`, ни
-      `sub-phase-…-acceptance`, ни `docs/changes/…` — 0 совпадений; `git ls-files
-      docs/specs | xargs grep -l wave-identity-own-w0` → 0.
+      непрочитанное дерево. Второй предикат, по диску: `find
+      docs/changes/wave-identity-own-w0 -name 'acceptance*' -o -name 'design*' |
+      wc -l` → 0. `hashes.acceptance_sha256` в `change.yaml` — null: документа
+      вне каталога пакет тоже не называет. Третий обход, по самому диффу:
+      сообщения 83 коммитов (`git log --format=%B bec320cf47d..945b851ed52`) и
+      добавленные строки диффа (`git diff bec320cf47d...945b851ed52 | grep -E
+      '^\+[^+]'`) под отбором `docs/specs/|sub-phase-[A-Za-z0-9.-]*-acceptance|docs/changes/`
+      → 0 и 0. Положительный контроль того же отбора: сообщения последних 200
+      коммитов ствола продукта → 2 — отбор не слеп. `git ls-files docs/specs |
+      xargs grep -l wave-identity-own-w0` → 0.
     why: >-
       Волна — сводка полос класса дефект и тех-долг под эпиком #1266 (полоса
       issue-2724 несёт метки bug · P0), а не реализация Given-When-Then одной
       приёмки. Приёмки изменение не несёт, и отсутствие ЗАЯВЛЕНО предикатом.
       Записи ревью приёмки F8 (`docs/specs/reviews/sub-phase-F8-console-identity-
-      ceremony-screens-acceptance/`) называют голову волны 0e0a85f936e
-      координатой, НА КОТОРОЙ перемеряют утверждения F8, — предметом волны F8
-      от этого не становится.
+      ceremony-screens-acceptance/`, в основной копии воркспейса 3 файла на
+      диске, 2 отслеживаемых) называют прежнюю голову волны 0e0a85f936e
+      координатой, НА КОТОРОЙ перемеряют утверждения F8 (3 из 3 по `grep -l`),
+      новую голову 945b851ed52 — ни одна (0 из 3). Предметом волны F8 от этого
+      не становится.
 
   class-exposure-analyst:
     status: not-applicable
@@ -66,8 +87,9 @@ role_applicability:
       git ls-files docs/changes/wave-identity-own-w0/acceptance.md
       docs/changes/wave-identity-own-w0/design.md | wc -l
     census: >-
-      тот же корень пакета, 2 отслеживаемые записи — обход не пуст;
-      `hashes.acceptance_sha256` и `hashes.design_sha256` в `change.yaml` — null.
+      тот же корень пакета, 2 отслеживаемые записи — обход не пуст; по диску
+      документов 0; `hashes.acceptance_sha256` и `hashes.design_sha256` в
+      `change.yaml` — null.
     why: >-
       Оба держателя роли привязаны к отпечаткам документов (приёмки и замысла);
       изменение не несёт ни одного из них — предмета нет ни у одного держателя.
@@ -80,8 +102,8 @@ role_applicability:
     evidence_repo: PRO-Robotech/kacho-workspace
     evidence_command: git ls-files docs/changes/wave-identity-own-w0/design.md | wc -l
     census: >-
-      тот же корень пакета, 2 отслеживаемые записи — обход не пуст;
-      `hashes.design_sha256` в `change.yaml` — null.
+      тот же корень пакета, 2 отслеживаемые записи — обход не пуст; по диску
+      документов 0; `hashes.design_sha256` в `change.yaml` — null.
     why: >-
       Единственный держатель роли — внешнее событие на отпечаток `design.md`.
       Документа нет — нет и отпечатка, к которому вердикт привязался бы.
@@ -93,17 +115,18 @@ role_applicability:
     evidence_value: 0
     evidence_repo: PRO-Robotech/kacho
     evidence_command: >-
-      git diff --name-only bec320cf47d668173bf27f60ebaf6cbe413a4903...0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+      git diff --name-only bec320cf47d668173bf27f60ebaf6cbe413a4903...945b851ed52e8e7a840f706015e8e088169ad032
       -- '*/migrations/*' '*.sql' | wc -l
     census: >-
-      знаменатель обхода — 65 путей полного диффа волны (`git diff --name-only
-      bec320cf47d...0e0a85f936e | wc -l` → 65), все перечислены в `change.yaml`
-      (`implementation_diff_set`). Положительный контроль того же отбора на
-      коммите, заведомо несущем миграции: `git diff --name-only
-      0cc1cd54c38^...0cc1cd54c38 -- '*/migrations/*' '*.sql' | wc -l` → 108 —
-      отбор не слеп.
+      знаменатель обхода — 66 путей полного диффа волны (`git diff --name-only
+      bec320cf47d...945b851ed52 | wc -l` → 66; `git diff --numstat … | wc -l` →
+      66), все перечислены в `change.yaml` (`implementation_diff_set`).
+      Второй предикат, по содержимому: из 66 blob-ов головы строку `-- +goose`
+      несёт 0. Положительный контроль отбора по пути на коммите, заведомо
+      несущем миграции: `git diff --name-only 0cc1cd54c38^...0cc1cd54c38 --
+      '*/migrations/*' '*.sql' | wc -l` → 108 — отбор не слеп.
     why: >-
-      В диффе нет ни SQL, ни миграции: 14 путей `deploy/`, 35 `gateway/`, 7
+      В диффе нет ни SQL, ни миграции: 15 путей `deploy/`, 35 `gateway/`, 7
       `internal/repohygiene/`, 5 `services/registry/` (все пять — пробы
       `*_test.go`), 4 `ui-future/`.
 
@@ -114,11 +137,13 @@ role_applicability:
     evidence_value: 0
     evidence_repo: PRO-Robotech/kacho
     evidence_command: >-
-      git diff --name-only bec320cf47d668173bf27f60ebaf6cbe413a4903...0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+      git diff --name-only bec320cf47d668173bf27f60ebaf6cbe413a4903...945b851ed52e8e7a840f706015e8e088169ad032
       -- '*.proto' | wc -l
     census: >-
-      тот же знаменатель — 65 путей. Положительный контроль отбора: `git diff
-      --name-only 26206c80f9d^...26206c80f9d -- '*.proto' | wc -l` → 1.
+      тот же знаменатель — 66 путей. Второй предикат, по содержимому: из 66
+      blob-ов головы строку `syntax = "proto…` несёт 0. Положительный контроль
+      отбора по пути: `git diff --name-only 26206c80f9d^...26206c80f9d --
+      '*.proto' | wc -l` → 1.
     why: >-
       Контракт не тронут: ни одного `.proto`; меняются конфигурация и
       промежуточные слои края, чарты и посадки стенда, гейты дерева, пробы.
@@ -129,8 +154,10 @@ role_applicability:
     status: applicable
     holder: human-post-diff-go
     reason: >-
-      46 из 65 путей — Go (`git diff --name-only bec320cf47d...0e0a85f936e --
-      '*.go' | wc -l` → 46; из них не-проб 17) — предмет роли налицо.
+      46 из 66 путей — Go (`git diff --name-only bec320cf47d...945b851ed52 --
+      '*.go' | wc -l` → 46; по содержимому — blob-ов с клаузой `package` 46; из
+      них не-проб 17) — предмет роли налицо. Дельта 0e0a85f936e..945b851ed52
+      Go не несёт: по пути 0, по содержимому 0 (подробности у держателя).
 
   system-design-reviewer:
     status: applicable
@@ -139,7 +166,7 @@ role_applicability:
       поверхность распределённая: чтение носителя сессии на краю и единственность
       личности при двух носителях, перечень принимаемых издателей токена,
       объявленный на каждом стенде и читаемый краем и registry, посадка стенда
-      own без публичного адреса прежнего поставщика личности. Роль обязана
+      own (дельта вернула на неё поставщика личности). Роль обязана
       высказаться на ТОЧНЫЙ отпечаток СВЕДЁННОГО содержимого — записи полос
       стоят на под-отпечатках и сведённое не судят.
 
@@ -147,9 +174,14 @@ role_applicability:
     status: applicable
     holder: [prod-required-verdict]
     reason: >-
-      дифф несёт 32 пробы (`git diff --name-only bec320cf47d...0e0a85f936e |
-      grep -cE '(_test\.go|\.test\.ts|-test\.sh)$'` → 32); роль держит машинный
-      держатель ниже и отдельной человеческой записи не даёт.
+      дифф несёт пробы: по написанию 32 (`git diff --name-only
+      bec320cf47d...945b851ed52 | grep -cE '(_test\.go|\.test\.ts|-test\.sh)$'`
+      → 32), по предмету 33 — 29 Go-файлов с функцией `Test…` (равно 29 по
+      имени `*_test.go`), 1 `.test.ts` и 3 исполняемые shell-пробы: к двум
+      `*-test.sh` добавляется `deploy/tests/helm/outcome-contract-inject.sh`
+      (проба инъекцией, внесена дельтой как M к базе; отбор по написанию её не
+      видит). `outcome.sh` — сорсимая библиотека, не проба. Роль держит
+      машинный держатель ниже и отдельной человеческой записи не даёт.
 
   convergence-reviewer:
     status: applicable
@@ -174,19 +206,21 @@ required_holders:
     owner: integration-tester
     executable: >-
       CI-контекст «сводный вердикт (все проверки завершились и зелены)» на голове
-      0e0a85f936e запроса PRO-Robotech/kacho#2787
+      945b851ed52 запроса PRO-Robotech/kacho#2787
     predicate: >-
       все обязательные контексты конвейера на ТОЙ ЖЕ голове завершились и зелены;
       сводный вердикт читает завершение ВСЕХ проверок, а не подмножество
     evidence_coordinate: evidence/prod-required-verdict/
     producer_exists: >-
-      проверено, а не объявлено: `git ls-tree --name-only 0e0a85f936e
+      проверено, а не объявлено: `git ls-tree --name-only 945b851ed52
       .github/workflows/` несёт `required-verdict.yml`, в нём задание
       `name: сводный вердикт (все проверки завершились и зелены)` (строка 120);
-      контекст с этим именем присутствует в `gh pr checks 2787`.
+      дельта файл не трогала (`git diff --quiet 0e0a85f936e 945b851ed52 --
+      .github/workflows/required-verdict.yml` → 0). Контекст с этим именем
+      присутствует в `gh pr checks 2787` на новой голове.
     note: >-
       Исход здесь НЕ объявлен: его снимает тот, кто читает вердикт конвейера на
-      голове, одобренной к посадке.
+      голове, одобренной к посадке. На момент замера контекст не завершился.
 
   # ── человеческие ──────────────────────────────────────────────────────────
 
@@ -200,15 +234,56 @@ required_holders:
       СВЕДЁННОМУ дереву, включая места стыка полос
     evidence_coordinate: reviews/post-diff/go-style-reviewer/
     record_on_current_digest:
-      status: expected         # пишется параллельно; на момент замера файла нет
+      status: absent-role-not-invoked
+      digest: c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77
+      why_not_invoked: >-
+        со слов диспетчера: дельта Go не несёт, роль в этот заход не
+        вызывалась, прежняя запись в силе. Посылка перемерена: Go в дельте
+        0e0a85f936e..945b851ed52 — 0 по пути (`git diff --name-only
+        0e0a85f936e 945b851ed52 -- '*.go' | wc -l`) и 0 по содержимому (ни
+        один из 3 blob-ов дельты не несёт клаузы `package`); из 10 Go-файлов
+        предмета прежней записи (её `coverage_measured.go_files`) дельта
+        трогает 0.
+      measured_absent: >-
+        в копии tmp/review-wave0-post-diff-go каталог роли несёт один файл —
+        707b05a4….yaml; файла c5ae0889….yaml нет; голова копии f2b60adf.
+      event_on_current_digest: >-
+        нет: из 3 комментариев PR #2787 (`gh api
+        repos/PRO-Robotech/kacho/issues/2787/comments`; отзывов PR 0)
+        отпечаток c5ae0889 называет 1, и это событие system-design-reviewer
+        (5773921910).
+    prior_record_in_force:
+      # Запись стоит на ПРЕЖНЕМ отпечатке. Текущий отпечаток она не судит:
+      # вердикт привязан к отпечатку, а не к имени файла. Приведена, потому
+      # что диспетчер назвал её действующей, и convergence-reviewer обязан
+      # видеть её поля, а не пересказ.
       repo: PRO-Robotech/kacho-workspace
       worktree: tmp/review-wave0-post-diff-go
       branch: review/wave0-post-diff-go
+      commit: f2b60adf0cbf7046d5e6a86f5225878a16f74300
+      commit_on_origin: true     # git ls-remote origin refs/heads/review/wave0-post-diff-go → f2b60adf
       path: >-
         docs/changes/wave-identity-own-w0/reviews/post-diff/go-style-reviewer/707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
-      measured_absent: >-
-        `ls tmp/review-wave0-post-diff-go/docs/changes/wave-identity-own-w0/reviews/post-diff/`
-        → нет такого каталога; голова копии 6e5b9a60.
+      file_blob: 61cd56c83029ffd92502f8ad3649cc0530457337
+      file_sha256: f8b205202d4ff9312f6fd2fb7413cda156f0f28bd90e95727eba6bfacdbfdb9e
+      digest: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
+      head: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+      record_fields: 'verdict: ⛔ возврат (:61) · blocks_landing: true (:62) · critical C1 (:66)'
+      event_url: https://github.com/PRO-Robotech/kacho/pull/2787#issuecomment-5773083266
+      event_actor: pointpu
+      event_body_sha256: 1e6017b0d027e9ef85d9e39f58190f821924b525876fde867663e8d4c585c4a6
+      c1_coordinates_at_new_head: >-
+        C1 записи называет `gateway/deploy/login_console_test.go:47-53, :67-68,
+        :325-326` и радиус в `values.own.yaml`. На 945b851ed52 blob
+        login_console_test.go тот же, что на 0e0a85f936e (ca42866174…); его
+        предикат радиуса (`git grep -nE 'TestOwnLane_F3_12|не заводится
+        ВОВСЕ|выбирает ПОСАДКА|заведено под own' <голова>`, 6691 отслеживаемый
+        файл) даёт 4 строки в 2 файлах (было 6 строк в 2 файлах):
+        login_console_test.go:49, :51 и values.own.yaml:96, :97. Второй
+        предикат, по референту: определений `func TestOwnLane_F3_12` на
+        голове 0. Запись system-design круга 2 (I5, `cross_role`) фиксирует
+        то же: «C1 дельтой не закрыт ни в части values.own.yaml, ни в части
+        login_console_test.go».
     lane_records:
       # Записи ПОЛОС на ПОД-отпечатках. Сведённое содержимое волны они не
       # судят: вердикт привязан к отпечатку, а не к имени файла. Названы как
@@ -229,11 +304,14 @@ required_holders:
           `git diff bec320cf47d..4f899d637ef | sha256sum` →
           6de13b167160685ac30283208f866be796dec7c06d94a2c52d2350a8e9b87898 — равен
           имени файла
-        lane_head_in_wave: true  # git merge-base --is-ancestor 4f899d637ef 0e0a85f936e → 0
+        lane_head_in_wave: true  # git merge-base --is-ancestor 4f899d637ef 945b851ed52 → 0
         blobs_at_wave_head: >-
-          31 из 32 путей полосы несут в голове волны тот же blob, что в голове
-          полосы; расходится `gateway/deploy/values.yaml` — сведён с полосой
-          deploy-issuer-census-merged (5e8cafeaff0) слиянием 5b20df5c638.
+          30 из 32 путей полосы несут в голове 945b851ed52 тот же blob, что в
+          голове полосы (было 31 на 0e0a85f936e). Расходятся
+          `gateway/deploy/values.yaml` — сведён с полосой
+          deploy-issuer-census-merged (5e8cafeaff0) слиянием 5b20df5c638, и
+          `gateway/docs/content/install/configuration.mdx` — изменён дельтой
+          (796da67d5ea, экранирование в литерале примера); второй путь не Go.
       - change_id: foreign-idp-ledger-merged-tree
         round: 7
         path: >-
@@ -250,13 +328,13 @@ required_holders:
           `git diff 5b20df5c638..9bbaa92b2bb | sha256sum` →
           f9ff8df269f0aa37a21125937ed9d7f4410dd75f766e6bd15decae75f30ca6b7 — равен
           имени файла
-        lane_head_in_wave: true  # 9bbaa92b2bb — второй родитель 0e0a85f936e
-        blobs_at_wave_head: 7 из 7 путей полосы несут в голове волны тот же blob.
+        lane_head_in_wave: true  # git merge-base --is-ancestor 9bbaa92b2bb 945b851ed52 → 0
+        blobs_at_wave_head: 7 из 7 путей полосы несут в голове 945b851ed52 тот же blob.
         later_rounds: >-
           В том же каталоге лежат записи round 8 (1bf032bc…, голова b35a6acb13b)
           и round 9 (8f2813c9…, голова e1128d6cafc). Обе судят ПРИРАЩЕНИЯ поверх
           9bbaa92b2bb, и ни одна голова не является предком головы волны
-          (`git merge-base --is-ancestor <head> 0e0a85f936e` → 1 у обеих).
+          (`git merge-base --is-ancestor <head> 945b851ed52` → 1 у обеих).
 
   human-post-diff-system:
     kind: human-external
@@ -269,15 +347,35 @@ required_holders:
       межсервисного ребра не заведено, отказ соседа фейлится закрыто
     evidence_coordinate: reviews/post-diff/system-design-reviewer/
     record_on_current_digest:
-      status: expected         # пишется параллельно; на момент замера файла нет
+      status: present
+      digest: c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77
       repo: PRO-Robotech/kacho-workspace
       worktree: tmp/review-wave0-post-diff-sd
       branch: review/wave0-post-diff-sd
+      commit: 5c2fb80bdd4545f3b83e2a4c6ef890925cc83877
+      commit_on_origin: false    # git ls-remote origin refs/heads/review/wave0-post-diff-sd → f286d52d
+      path: >-
+        docs/changes/wave-identity-own-w0/reviews/post-diff/system-design-reviewer/c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77.yaml
+      file_blob: c826bc2442ead9edbd2cb57b5be7440bb9235684
+      file_sha256: f5f37613c06ae7f6589fba77a17d9a3ca1631a28538741515d302ab8aaef4a02
+      record_fields: >-
+        round: 2 (:9) · supersedes_record 707b05a4….yaml (:10) · head
+        945b851ed52 (:17) · verdict: ✅ принято (:48) · blocks_landing: false
+        (:49) · важные I5, I6 (:151, :174), посадку по оси роли не держат
+      event_url: https://github.com/PRO-Robotech/kacho/pull/2787#issuecomment-5773921910
+      event_actor: pointpu
+      event_body_sha256: ad4de43f5f6c24371c4c99afdbe5775030736d9684e6b99ef7de5cb8d86726f6
+    prior_record:
+      # Прежний круг, на прежнем отпечатке; заменён записью выше по её полю
+      # `supersedes_record`. Не правится и текущий отпечаток не судит.
+      branch: review/wave0-post-diff-sd
+      commit: f286d52d7151bc6f19914df8508e395b4cc403c3
       path: >-
         docs/changes/wave-identity-own-w0/reviews/post-diff/system-design-reviewer/707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
-      measured_absent: >-
-        `ls tmp/review-wave0-post-diff-sd/docs/changes/wave-identity-own-w0/reviews/post-diff/`
-        → нет такого каталога; голова копии 6e5b9a60.
+      file_blob: 28cf043e107484338c60c93f42c2661ad3141da0
+      file_sha256: b0d83a5119c2a5ac3e27a6e9977eb39e334e8c71c0677d671894840a9befb71e
+      event_url: https://github.com/PRO-Robotech/kacho/pull/2787#issuecomment-5773083480
+      event_body_sha256: e279b187b2542cf8256383c3fd8bcd79e393ef37145e5c2f159c3e946ddaec10
     distributed_surface: true
 
   human-convergence:
@@ -288,7 +386,7 @@ required_holders:
       множество применимых ролей сверено с `review_authority` в ОБЕ стороны,
       каждое освобождение опирается на зарегистрированный предикат с
       удовлетворяющим его свидетельством, записи ревью лежат по ТЕКУЩЕМУ
-      отпечатку 707b05a4…, отпечатки базы и головы названы
+      отпечатку c5ae0889…, отпечатки базы и головы названы
     evidence_coordinate: evidence/human-convergence/
     note: >-
       Исхода НЕТ: производитель записи — другая роль, она высказывается ПОСЛЕ
@@ -310,13 +408,18 @@ required_holders:
 #      продукте, над пакетом — в воркспейсе; без поля одна и та же строка
 #      команды давала бы 0 в чужом дереве и покупала освобождение.
 #   2. У двух отборов по диффу (миграции, proto) — ПОЛОЖИТЕЛЬНЫЙ контроль того
-#      же отбора на коммите, заведомо несущем предмет: ноль отбора, не
-#      способного ничего найти, освобождения не даёт.
-#   3. `record_on_current_digest` — отображение с координатами копии и ветки и
-#      `status: expected`, а не имя файла: записи пишутся параллельно, и имя без
-#      состояния читалось бы как лежащая запись.
+#      же отбора на коммите, заведомо несущем предмет, и второй предикат по
+#      содержимому: ноль отбора, не способного ничего найти, освобождения не
+#      даёт.
+#   3. `record_on_current_digest` — отображение с координатами копии, ветки,
+#      коммита и `status`, а не имя файла: имя без состояния читалось бы как
+#      лежащая запись. Значения `status`: present · absent-role-not-invoked.
 #   4. `lane_records` — записи полос на под-отпечатках, с веткой и коммитом,
 #      где они лежат: ни ствол воркспейса, ни база этого пакета (5058bf2d) их
 #      не несут.
 #   5. Машинный держатель один — сводный вердикт конвейера; держателей без
 #      проверенного производителя не заведено.
+#   6. `prior_record_in_force` (редакция 2): роль, не вызванная на текущий
+#      отпечаток, называет свою прежнюю запись координатами и цитатами полей,
+#      чтобы её вердикт не читался ни снятым, ни перенесённым на новый
+#      отпечаток.
