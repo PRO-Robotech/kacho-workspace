@@ -35,4 +35,4 @@ set -uo pipefail
 # shellcheck source=_lib.sh
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
 cg_gate_run "check-03-ci-calls-every-artifact-of-the-set" \
-    "конвейер зовёт все три артефакта набора и срабатывает на стволе" --ci-declares
+    "конвейер зовёт все три артефакта набора; при автозапуске — со ствола" --ci-declares
