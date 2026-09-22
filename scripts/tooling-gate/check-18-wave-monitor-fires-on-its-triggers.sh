@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-16 — СТРАЖ МОНИТОРА ФЛОУ заговаривает на своих признаках, называет ось
+# check-18 — СТРАЖ МОНИТОРА ФЛОУ заговаривает на своих признаках, называет ось
 # КАЖДОЙ напечатанной строки — и находки, и «не проверяли», — и молчит на
 # законных близнецах.
 #
@@ -277,7 +277,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 WS="$(tooling_gate_workspace_root)"
-NAME="check-16-wave-monitor-fires-on-its-triggers"
+NAME="check-18-wave-monitor-fires-on-its-triggers"
 HOOK_REL=".claude/hooks/wave-monitor.sh"
 
 mapfile -t HOOKS < <(tooling_gate_files "$WS" "$HOOK_REL")
