@@ -220,8 +220,58 @@ else
     echo "[PASS] H-контроль: полоса не объявлена пустой — причина названа верно"
 fi
 
+# ── I. СТРОКИ, ПОХОЖИЕ НА ЗАГОЛОВОК ДИФА: `-- …` снята, `++ …` добавлена ───────
+# Комментарий SQL, разделитель YAML и markdown начинаются с `--`; в дифе снятая
+# такая строка выглядит как `--- …`, добавленная `++ …` — как `+++ …`, то есть как
+# заголовок файла. Разборщик, отбрасывающий заголовки по префиксу, теряет их молча
+# и объявляет сохранным то, что потеряно.
+d="$(fixture i1)" || { echo "[VOID] фикстура i1 не собралась" >&2; exit 2; }
+git -C "$d" checkout -q main
+printf -- '-- ствол: комментарий в стиле SQL\n' >> "$d/tail.md"
+git -C "$d" commit -q -am "ствол: строка-комментарий" >/dev/null 2>&1
+git -C "$d" checkout -q work
+git -C "$d" merge -q --no-ff main -m "полоса: слияние ствола" >/dev/null 2>&1
+grep -vxF -- '-- ствол: комментарий в стиле SQL' "$d/tail.md" > "$d/tail.md.new"; mv "$d/tail.md.new" "$d/tail.md"
+printf -- '++ полоса: счётчик\n' >> "$d/essence.txt"
+git -C "$d" commit -q -am "c4: полоса снимает строку «-- …» и добавляет «++ …»" >/dev/null 2>&1
+head_sha="$(git -C "$d" rev-parse work)"
+git -C "$d" checkout -q main
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+printf -- '-- ствол: комментарий в стиле SQL\n' >> "$d/tail.md"              # снятие не доехало
+grep -vxF -- '++ полоса: счётчик' "$d/essence.txt" > "$d/essence.txt.new"; mv "$d/essence.txt.new" "$d/essence.txt"  # добавленное не доехало
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work (потеряны строки вида заголовка)" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+probe 1 "I строки вида «--»/«++» потеряны — краснеет и называет обе" \
+    "$out" "$rc" "ПОТЕРЯ" "++ полоса: счётчик" "-- ствол: комментарий в стиле SQL"
+
+# Законный близнец: те же строки, честное слияние — молчит. Без него разборщик,
+# считающий заголовки содержимым, прошёл бы пробу I, краснея на всём подряд.
+d="$(fixture i2)" || { echo "[VOID] фикстура i2 не собралась" >&2; exit 2; }
+git -C "$d" checkout -q main
+printf -- '-- ствол: комментарий в стиле SQL\n' >> "$d/tail.md"
+git -C "$d" commit -q -am "ствол: строка-комментарий" >/dev/null 2>&1
+git -C "$d" checkout -q work
+git -C "$d" merge -q --no-ff main -m "полоса: слияние ствола" >/dev/null 2>&1
+grep -vxF -- '-- ствол: комментарий в стиле SQL' "$d/tail.md" > "$d/tail.md.new"; mv "$d/tail.md.new" "$d/tail.md"
+printf -- '++ полоса: счётчик\n' >> "$d/essence.txt"
+git -C "$d" commit -q -am "c4: полоса снимает строку «-- …» и добавляет «++ …»" >/dev/null 2>&1
+head_sha="$(git -C "$d" rev-parse work)"
+git -C "$d" checkout -q main
+base_sha="$(git -C "$d" rev-parse main)"
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work" >/dev/null 2>&1
+# Сосед приходит в ствол ПОСЛЕ слияния: итог уходит от предсказанного дерева, и
+# вердикт выносит построчная перепись — та самая ось, где живёт разборщик.
+printf 'соседняя полоса после слияния\n' > "$d/neighbour.md"
+git -C "$d" add -A >/dev/null 2>&1
+git -C "$d" commit -q -m "соседняя полоса после слияния" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" "$base_sha" "$head_sha" HEAD 2>&1)"; rc=$?
+probe 0 "I2 близнец: те же строки, честное слияние, судит перепись — сохранено" \
+    "$out" "$rc" "СОХРАНЕНО — по всем" "тождества дерева не было"
+
 echo
-echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано 8, у каждой полоса из трёх коммитов (существо — не в головном)"
+echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано 10, у каждой полоса из трёх коммитов (существо — не в головном)"
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] ни одной пробы не исполнено" >&2
     exit 2

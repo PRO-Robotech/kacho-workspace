@@ -187,12 +187,14 @@ for p in "${paths[@]}"; do
         continue
     fi
 
-    # Заголовки дифа (`+++`/`---`) отбрасываются ПО ПРИЗНАКУ, а не по номеру
-    # строки: у переименования их больше одного, и счёт по позиции молча съел бы
-    # первую настоящую строку.
+    # Строки берутся ТОЛЬКО из тела ханков — после первого `@@`. Заголовок
+    # `--- a/…`/`+++ b/…` отличается от снятой строки `-- …` (комментарий SQL,
+    # разделитель YAML и markdown) и добавленной `++ …` лишь ПОЛОЖЕНИЕМ, а не
+    # префиксом: отбрасывание по префиксу теряло их молча и объявляло сохранным
+    # то, что потеряно (проба I в inject).
     lane_diff="$(git diff "$mb..$head" -- "$p")"
-    added="$(printf '%s\n' "$lane_diff" | grep '^+' | grep -v '^+++' | cut -c2- | grep -v '^[[:space:]]*$' | sort -u)"
-    removed="$(printf '%s\n' "$lane_diff" | grep '^-' | grep -v '^---' | cut -c2- | grep -v '^[[:space:]]*$' | sort -u)"
+    added="$(printf '%s\n' "$lane_diff" | awk '/^@@/ {h = 1; next} h && /^\+/ {print substr($0, 2)}' | grep -v '^[[:space:]]*$' | sort -u)"
+    removed="$(printf '%s\n' "$lane_diff" | awk '/^@@/ {h = 1; next} h && /^-/ {print substr($0, 2)}' | grep -v '^[[:space:]]*$' | sort -u)"
 
     while IFS= read -r line; do
         [ -n "$line" ] || continue
