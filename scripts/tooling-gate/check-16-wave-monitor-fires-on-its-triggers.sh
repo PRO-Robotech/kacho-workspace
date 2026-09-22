@@ -483,7 +483,7 @@ WAVE="волна-А"   # имя волны ФИКСТУРЫ — кириллиц
                  # могло бы случайно встретиться внутри пути `mktemp`, и тогда
                  # отрицательная половина падала бы по жребию.
 
-ROW_CLOSED="$(printf '%s\t2026-09-19\t%s\t6\t2026-09-19\t.claude/rules/multi-agent-flow.md §«Седьмой шаг»' "$WAVE" "$TIP")"
+ROW_CLOSED="$(printf '%s\t2026-09-19\t%s\t6\t2026-09-19\t.claude/agents/tooling-maintainer.md §«Полоса монитора волны»' "$WAVE" "$TIP")"
 ROW_OPEN="$(printf '%s\t2026-09-19\t%s\t6\t—\t—' "$WAVE" "$TIP")"
 BASE_SAME="$(printf 'model-alpha\t2026-09-19\tориентиры')"
 BASE_OTHER="$(printf 'model-beta\t2026-09-01\tориентиры')"
