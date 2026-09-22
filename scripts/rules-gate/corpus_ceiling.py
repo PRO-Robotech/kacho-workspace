@@ -27,6 +27,7 @@ red: признак» проверяется у каждой. Гейт назы�
 измерение; сказано вслух, потому что «потолок корпуса» читается как второе.
 """
 import glob
+import os
 import sys
 import unicodedata
 
@@ -48,13 +49,39 @@ def rows_of(path):
     return [l for l in read(path).split('\n') if ' · ' in l]
 
 
+def workspace_root(argv):
+    """Корень дерева — ИЗ РАСПОЛОЖЕНИЯ ЭТОГО ФАЙЛА, а не из текущего каталога.
+
+    Здесь стоял относительный `glob.glob('.claude/rules/*.md')`, а звавший его
+    `check-06` делал `cd "$(git rev-parse --show-toplevel)"`: корнем обоих был
+    cwd. Измерено 2026-09-22 на том же классе в `check-11`: запуск с cwd в
+    СОСЕДНЕМ worktree полосы судил ЧУЖОЕ дерево и выходил нулём — «полоса
+    получает чужой вердикт». Порядок источников: явный аргумент (им пользуется
+    инъекция, гоняющая проверку по КОПИИ дерева), затем `RULES_GATE_ROOT` —
+    контракт набора (`run-all.sh`), затем своё расположение. cwd не участвует.
+    """
+    if len(argv) > 1 and argv[1]:
+        return os.path.abspath(argv[1])
+    env = os.environ.get('RULES_GATE_ROOT')
+    if env:
+        return os.path.abspath(env)
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
 def main():
-    files = sorted(glob.glob('.claude/rules/*.md'))
+    root = workspace_root(sys.argv)
+    files = sorted(glob.glob(os.path.join(root, '.claude/rules/*.md')))
     total = sum(len(read(f)) for f in files)
     rows = [(f, l) for f in files for l in rows_of(f)]
+    # Координаты печатаются ОТ КОРНЯ: находка обязана указывать на файл так, как
+    # его зовёт дерево, а не так, как он лёг в абсолютный путь этой машины.
+    files = [os.path.relpath(f, root) for f in files]
+    rows = [(os.path.relpath(f, root), l) for f, l in rows]
 
-    print('осмотрено файлов правил: %d; строк-норм: %d; объём: %d из %d'
-          % (len(files), len(rows), total, CEILING))
+    # Корень — первым числом переписи: все прочие суть утверждения о ДЕРЕВЕ, и
+    # без имени дерева два прогона нечем сверить между собой.
+    print('корень %s; осмотрено файлов правил: %d; строк-норм: %d; объём: %d из %d'
+          % (root, len(files), len(rows), total, CEILING))
 
     if len(files) < FLOOR_FILES or not rows:
         print('ОТКАЗ — файлов правил %d (ожидалось не меньше %d), строк-норм %d: обход'
