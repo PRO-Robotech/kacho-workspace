@@ -104,14 +104,20 @@ for rel in "${FOUND[@]}"; do
     fi
     examined=$((examined + 1))
 
-    if ! printf '%s' "$green_out" | grep -qF "$CONFIRM"; then
+    # Поиск СРАВНЕНИЕМ, а не трубой: `| grep -q` выходит до конца входа, писатель
+    # получает SIGPIPE, и под `pipefail` найденное объявляется ненайденным.
+    confirm_line=""
+    while IFS= read -r line; do
+        case "$line" in *"$CONFIRM"*) confirm_line="$line"; break ;; esac
+    done <<< "$green_out"
+    if [ -z "$confirm_line" ]; then
         tooling_gate_fail "$NAME" "$rel — состоявшаяся отправка не названа словом «$CONFIRM»: читателю нечего отличать от отказа"
         findings=$((findings + 1))
     fi
     # sha ищется В СТРОКЕ ПОДТВЕРЖДЕНИЯ, а не где-нибудь в выводе: обёртка
     # называет её и до отправки («отправляю …»), и поиск по всему выводу был бы
     # зелёным у обёртки, которая подтверждает НЕИЗВЕСТНО ЧТО.
-    if ! printf '%s' "$green_out" | grep -F "$CONFIRM" | grep -qF "$green_sha"; then
+    if [[ "$confirm_line" != *"$green_sha"* ]]; then
         tooling_gate_fail "$NAME" "$rel — строка подтверждения не называет sha $green_sha: подтверждено НЕИЗВЕСТНО ЧТО"
         findings=$((findings + 1))
     fi
@@ -135,7 +141,7 @@ for rel in "${FOUND[@]}"; do
             "$rel — команда отчиталась нулём, ссылки на сервере нет, а обёртка вышла 0: код посредника принят за исход операции"
         findings=$((findings + 1))
     fi
-    if printf '%s' "$red_out" | grep -qF "$CONFIRM"; then
+    if [[ "$red_out" == *"$CONFIRM"* ]]; then
         tooling_gate_fail "$NAME" \
             "$rel — в выводе несостоявшейся отправки стоит «$CONFIRM»: при съеденном коде читатель прочтёт её как успех"
         findings=$((findings + 1))

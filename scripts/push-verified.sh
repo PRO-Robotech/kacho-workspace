@@ -130,7 +130,7 @@ if [ -z "$transport" ]; then
     export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=$KEEPALIVE_INTERVAL -o ServerAliveCountMax=$KEEPALIVE_COUNT"
     echo "push-verified: keepalive выставлен этой отправке — ServerAliveInterval=$KEEPALIVE_INTERVAL, ServerAliveCountMax=$KEEPALIVE_COUNT" >&2
     echo "push-verified: постоянное место настройки клона — make install-hooks (scripts/hooks/install.sh)" >&2
-elif printf '%s' "$transport" | grep -qi 'serveraliveinterval'; then
+elif [[ "${transport,,}" == *serveraliveinterval* ]]; then
     echo "push-verified: keepalive уже задан снаружи ($source_of): $transport" >&2
 else
     echo "push-verified: ВНИМАНИЕ — транспорт задан снаружи ($source_of) и keepalive в нём НЕТ:" >&2

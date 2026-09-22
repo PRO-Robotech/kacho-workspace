@@ -103,7 +103,10 @@ ka_state() {
     cur="$(git -C "$root" config --get core.sshCommand 2>/dev/null || true)"
     if [ -z "$cur" ]; then
         printf 'none|\n'
-    elif printf '%s' "$cur" | grep -qi 'serveraliveinterval'; then
+    # Сравнение БЕЗ внешнего процесса: `printf | grep -q` под `pipefail` роняет
+    # писателя SIGPIPE'ом, и найденное объявляется ненайденным (класс держит
+    # проба продукта TestPipefailVerdictNeverComesFromAPipe, #658).
+    elif [[ "${cur,,}" == *serveraliveinterval* ]]; then
         printf 'set|%s\n' "$cur"
     else
         printf 'foreign|%s\n' "$cur"

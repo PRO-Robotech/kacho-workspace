@@ -78,8 +78,9 @@ probe() {
     probes=$((probes + 1))
     local ok=1 needle
     [ "$rc" = "$want" ] || ok=0
+    # Сравнением, а не трубой: см. тот же довод в push-verified-inject.sh.
     for needle in "$@"; do
-        printf '%s' "$out" | grep -qF -- "$needle" || ok=0
+        [[ "$out" == *"$needle"* ]] || ok=0
     done
     if [ "$ok" = 1 ]; then
         echo "[PASS] $label (код $rc)"
@@ -105,7 +106,7 @@ out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
 probe 0 "A честное схлопывание — сохранено" "$out" "$rc" "СОХРАНЕНО"
 say "old_form_is_silent '$d' '$head_sha'" "A-контроль: старая форма на честном слиянии тоже молчит — расхождения нет"
 probes=$((probes + 1))
-if printf '%s' "$out" | grep -qF "равно предсказанному"; then
+if [[ "$out" == *"равно предсказанному"* ]]; then
     echo "[PASS] A-ось1: дерево итога совпало с предсказанным ДО слияния — постусловие проверено заранее"
 else
     failed=$((failed + 1)); echo "[FAIL] A-ось1: предсказанное дерево не совпало с итогом честного схлопывания" >&2
