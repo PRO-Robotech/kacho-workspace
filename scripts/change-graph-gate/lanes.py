@@ -350,6 +350,18 @@ def strip_shell_comments(block):
     return "\n".join(out)
 
 
+def has_auto_trigger(doc):
+    """Процесс поднимается СОБЫТИЕМ ДЕРЕВА, а не только руками."""
+    on = doc.get("on", doc.get(True))
+    if isinstance(on, str):
+        on = {on: None}
+    elif isinstance(on, list):
+        on = {str(ev): None for ev in on}
+    if not isinstance(on, dict):
+        return False
+    return any(str(ev) != "workflow_dispatch" for ev in on)
+
+
 def fires_on_main(doc):
     """Процесс срабатывает на стволе — иначе его job'ы не производит никто."""
     import fnmatch
@@ -397,6 +409,12 @@ def audit_ci_declaration():
     findings = []
     files_read = 0
     jobs_read = 0
+    # АВТОЗАПУСК ХОТЬ ГДЕ-НИБУДЬ В ДЕРЕВЕ. Решением владельца 2026-09-20 конвейер
+    # описан, но не поднимается ни одним событием; тогда «задание не срабатывает на
+    # стволе» верно про КАЖДОЕ задание, и находка об этом перестаёт отличать
+    # исправное дерево от испорченного — она стала бы вечной, а вечную находку
+    # снимают вместе с проверкой. Ось остаётся живой ровно пока автозапуск есть.
+    auto_anywhere = False
     callers = {rel: [] for rel, _ in CI_MUST_CALL}
 
     for name in names:
@@ -411,6 +429,8 @@ def audit_ci_declaration():
             continue
         files_read += 1
         on_main = fires_on_main(doc)
+        if has_auto_trigger(doc):
+            auto_anywhere = True
         jobs = doc.get("jobs") or {}
         if not isinstance(jobs, dict):
             continue
@@ -437,7 +457,7 @@ def audit_ci_declaration():
                 "исполняется никем; ровно то состояние, из-за которого заведена ws#504"
                 % (rel, why)
             )
-        elif not any(on_main for _, _, on_main in rows):
+        elif auto_anywhere and not any(on_main for _, _, on_main in rows):
             findings.append(
                 "%s зовут только процессы, не срабатывающие на `main` (%s) — "
                 "задание, которое не начинается, не зеленеет и не краснеет"

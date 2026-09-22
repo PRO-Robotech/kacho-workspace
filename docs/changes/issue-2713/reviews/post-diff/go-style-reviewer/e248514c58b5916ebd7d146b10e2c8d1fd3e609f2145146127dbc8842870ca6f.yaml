@@ -1,0 +1,191 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+# Прежняя запись роли по #2713 (41148c31…, head 60843801, клауза адаптера
+# сессии) не трогается: это другой отпечаток на другой ветке.
+schema_version: 1
+change_id: issue-2713
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  остаток #2713 — предел края на КАЖДЫЙ backend-вызов REST-моста (grpc-gateway)
+  через перехватчик соединения: у моста нет per-call site, хендлеры генерит
+  grpc-gateway
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2713-restmux
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/issue-2713-restmux
+  base: ac33f733962577688958fe9fbba35d715822c8b9
+  head: a71aac3159c22952a497f76604cf86e46199a696
+content_digest: sha256:e248514c58b5916ebd7d146b10e2c8d1fd3e609f2145146127dbc8842870ca6f
+digest_definition: >-
+  sha256 сырого вывода `git diff ac33f733...a71aac31` (полный трёхточечный дифф
+  изменения от базы origin/main до головы ветки; оба конца из задания,
+  перемерены своей командой в worktree). Перемер:
+  `git diff ac33f733...a71aac31 | sha256sum`. Голова a71aac31 — ровно один
+  коммит поверх базы (a71aac31^ == ac33f733).
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-19T00:00:00Z'
+review_scope: >-
+  полный дифф (3 файла, +273/-15); запрет отсрочки (#11) и требование проб в том
+  же PR (#12) судятся по всему диффу, а не по фрагменту.
+
+files_reviewed:
+  - gateway/internal/restmux/backend_call_deadline.go        # +96
+  - gateway/internal/restmux/backend_call_deadline_test.go   # +171
+  - gateway/internal/restmux/mux.go                          # +6/-15 (шов optsFor)
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок по коду нет
+
+important:
+  - id: STREAM-INTERCEPTOR-UNTESTED
+    coord: gateway/internal/restmux/backend_call_deadline.go:73
+    finding: >-
+      backendCallDeadlineStreamInterceptor — новый прод-код с ветвлением
+      (cancel немедленно на ошибке создания потока; на успехе — горутина
+      <-stream.Context().Done() → cancel), но НИ ОДНА проба его не исполняет.
+      Пробы дифф несёт три, все unary: TestRestBridgeBackendCallCarriesDeadline
+      (через настоящий шов restBridgeDialOpts — conn.Invoke = unary),
+      SlowNeighborFailsFast и NeighborWithinLimitPasses (через
+      dialWithUnaryDeadline). Ни один conn.Invoke стрим-перехватчик не задевает.
+      Строгий TDD (#12) требует падающей пробы до кода на КАЖДУЮ новую ветку.
+    requirement: >-
+      добрать в том же PR стрим-пару RED→GREEN по образцу unary: медленный сосед
+      → DeadlineExceeded и без зависания + законный близнец (в пределе →
+      проходит), и утверждение об отсутствии течи контекста/горутины. По образцу
+      backendSleeping можно поднять bufconn-стрим.
+    blocking: false
+    why_not_blocking: >-
+      возврата не требует: (1) PR НЕ безтестовый — ban #12 в ядре («не мёржится
+      без тестов в том же PR») выполнен, горячий путь (unary REST→gRPC) и
+      настоящий шов restBridgeDialOpts покрыты честным RED→GREEN; (2) стрим-грань
+      — канонический образец grpc-go (cancel на ошибке, горутина на завершении
+      контекста), корректный by construction; (3) стриминговых служб мост сегодня
+      НЕ проксирует (subscription-стрим живёт в gateway/internal/subscriptionstream/,
+      не в REST-мосте) — трафика по ветке нет, что и заявлено комментарием.
+      Пробел покрытия, не дефект поведения. Решение о том, требовать ли паритета
+      покрытия перед посадкой, — за convergence/landing.
+
+foundation_candidates: []    # см. reuse_assessment — выноса в corelib изменение не порождает
+
+style:
+  - id: STREAM-5S-ON-LONGLIVED
+    coord: gateway/internal/restmux/backend_call_deadline.go:66
+    note: >-
+      5s — жёсткий предел на ВЕСЬ стрим, не per-message. Для настоящего
+      долгоживущего server-streaming REST-эндпоинта это обрезало бы поток на 5-й
+      секунде. Сегодня мост стримов не проксирует (комментарий это и говорит),
+      так что вреда нет; но если через мост когда-нибудь выставят server-stream
+      RPC, предел придётся пересмотреть (per-message либо обход перехватчика).
+      Форвард-лукинг замечание, не находка: комментарий честен о текущем
+      состоянии грани.
+
+security_comments_contradicting_code: []   # комментариев о защите, противоречащих коду, нет
+
+# ── счётчики по всему диффу ────────────────────────────────────────────────
+fresh_deferral_markers: 0    # маркеров отсрочки (TODO:/FIXME:/SKIP) в диффе нет.
+                             # Совпадения «backward-compat», «сегодня не проксирует»,
+                             # «отвечающий ПОЗЖЕ предела» — проза комментариев, не форма
+                             # обращения к читателю кода; под ban #11 не подпадают.
+tests_in_same_pr: true       # три пробы в том же диффе (unary): RED через настоящий
+                             # шов restBridgeDialOpts + негатив fail-fast + позитив
+                             # в пределе. Стрим-грань пробой не покрыта (см.
+                             # important STREAM-INTERCEPTOR-UNTESTED).
+
+# ── что проверено и на чём основано ────────────────────────────────────────
+approved:
+  per_call_deadline_every_edge: >-
+    ядро фикса. restBridgeDialOpts добавляет к dial-опциям КАЖДОГО backend'а
+    моста WithChainUnaryInterceptor + WithChainStreamInterceptor с общим пределом
+    restBridgeCallTimeout. Верное решение класса «per-call deadline на КАЖДОМ
+    внешнем вызове» (architecture.md §Concurrency, security-hardening.md): у моста
+    нет своей call-site (хендлеры генерит grpc-gateway), поэтому предел ставится
+    на СОЕДИНЕНИИ перехватчиком — это и объяснено в шапке функции. Покрыты все
+    грани: optsFor зовётся для vpc/compute/storage/geo/iam/loadbalancer/registry
+    и их Internal-слушателей — все идут через restBridgeDialOpts.
+  deadline_min_semantics: >-
+    unary-перехватчик: context.WithTimeout(ctx, d) + defer cancel(). Утверждение
+    комментария «берёт МИНИМУМ из уже стоящего дедлайна и now+d, никогда не
+    РАСШИРЯЕТ более ранний дедлайн входящего» — верно по семантике
+    context.WithDeadline (родитель с более ранним дедлайном эквивалентен parent).
+    Прямо просилось к суду задания — подтверждено.
+  no_context_leak_unary: 'defer cancel() сразу после WithTimeout — течи контекста нет'
+  no_context_leak_stream: >-
+    стрим-перехватчик: cancel на ошибке создания потока немедленно; на успехе —
+    горутина ждёт stream.Context().Done() и зовёт cancel. Контекст потока — дитя
+    WithTimeout(d), поэтому по истечении d он сам завершится → горутина всегда
+    терминируется в пределах d, течи горутины нет. Канонический образец grpc-go.
+    (Корректность by construction; пробой не закреплена — см. important.)
+  error_passthrough: >-
+    оба перехватчика возвращают ошибку invoker/streamer БЕЗ обёртки fmt.Errorf
+    %w — верно для клиентского перехватчика: обёртка сломала бы status.FromError
+    downstream. gRPC-статус проходит насквозь, как и положено.
+  no_panic_in_prod_path: 'panic/MustParse/log.Fatal в диффе нет; defer cancel() паники не несёт'
+  thin_transport: >-
+    backend_call_deadline.go — сборка dial-опций и два перехватчика предела;
+    бизнес-логики, ветвлений по состоянию домена, pgx, SQL нет. Транспорт остаётся
+    тонким. mux.go: optsFor теперь делегирует в restBridgeDialOpts — та же тонкость.
+  layering: >-
+    файл в gateway/internal/restmux/ (слой REST-моста/транспорта). Импортирует
+    только grpc + grpc/credentials/insecure — уместно для сборки dial-опций.
+    Направление зависимостей цело: домен/use-case не задеты.
+  naming_ascii: >-
+    новые идентификаторы латиницей (restBridgeCallTimeout, restBridgeDialOpts,
+    backendCallDeadlineUnaryInterceptor, backendCallDeadlineStreamInterceptor,
+    backendKey, dialOpts) — ban #17 цел; receiver'ов нет (свободные функции);
+    магического числа нет — 5s есть именованная const restBridgeCallTimeout.
+    Комментарии на русском — законны.
+  seam_no_dead_code: >-
+    после выноса optsFor: тело переехало в package-level restBridgeDialOpts,
+    optsFor делегирует. Импорт credentials/insecure удалён из mux.go (остались
+    ТОЛЬКО текстовые вхождения слова insecure в комментариях строк 331/334/341/342,
+    вызовов insecure. нет — импорт верно снят) и добавлен в backend_call_deadline.go
+    (там используется insecure.NewCredentials()). restBridgeDialOpts используется
+    optsFor (mux.go:418) и пробой (test:73); optsFor используется ~60 раз всеми
+    Register…HandlerFromEndpoint. Мёртвого кода/висящего импорта дифф не оставил.
+  seam_semantics_preserved: >-
+    restBridgeDialOpts возвращает те же транспорт+round-robin service-config, что
+    старый optsFor, плюс два перехватчика. Поведение insecure-fallback при
+    отсутствии ключа в dialOpts сохранено (dev backward-compat). Шов оправдан:
+    закрытие captur'ит dialOpts, функция принимает его аргументом — dial-опции
+    моста стали испытуемы пробой над реальным транспортом (bufconn), не через
+    полный NewMux.
+
+# ── перемеренные основания утверждений в комментариях кода (doc-truthfulness) ─
+verified_facts:
+  - 'комментарий const:16 «iam_subject: 5s» — верно: gateway/internal/clients/iam_subject_client.go:106 callTimeout: 5 * time.Second'
+  - 'комментарий const:17 «opsproxy: 5s» — верно: gateway/internal/opsproxy/proxy.go:78 const backendCallTimeout = 5 * time.Second'
+  - 'комментарий const:17 «адаптер сессии» 5s — верно: gateway/internal/middleware/kratos_session.go:96 HTTP{Timeout: 5*time.Second}, :99 negativeTTL 5s'
+  - 'единообразие 5s подтверждено по всем названным соседям; restBridgeCallTimeout = 5s продолжает единый предел'
+  - 'go.mod НЕ тронут (git diff --name-only — только 3 файла в gateway/internal/restmux); rule-polyrepo триггер не срабатывает'
+  - 'импорт credentials/insecure снят из mux.go корректно: grep insecure в mux.go даёт только комментарии (строки 331,334,341,342), ни одного вызова insecure.'
+  - 'restBridgeDialOpts зовётся optsFor (mux.go:418) и пробой (test:73); optsFor — ~60 Register…FromEndpoint по всем backend-ключам'
+  - 'семантика WithTimeout=минимум — верна по контракту context.WithDeadline stdlib'
+
+# ── оценка переиспользования (checklist §10) ───────────────────────────────
+reuse_assessment: >-
+  кандидата в фундамент нет. Перехватчики предела на СОЕДИНЕНИИ — ответ на
+  локальную особенность именно REST-моста: у него нет call-site, тогда как соседи
+  (iam_subject, opsproxy) ставят per-call context.WithTimeout в СВОЁМ коде на месте
+  вызова. То есть образец здесь другой, чем у соседей, и специфичен для одного
+  потребителя (мост). Вынос двухстрочных grpc-идиом (WithTimeout-перехватчик) в
+  corelib при единственном потребителе — over-engineering (LEAN). Величина 5s —
+  локальное политическое решение на грань, не горизонтальный контракт. Если второй
+  край когда-нибудь тоже лишится call-site и потребует connection-level предел —
+  тогда это станет кандидатом; сегодня потребитель один → остаётся своим.
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход линтера и проб НЕ объявляется: сырой вывод читает landing-reviewer,
+# независимый перемер делает check-verifier. Здесь — только форма кода.
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
