@@ -90,6 +90,8 @@ mksandbox() {
 
 probes=0
 failed=0
+# Доказанность ПОИМЁННО: удавшиеся пробы «краснеет» и «молчит» на каждую проверку.
+declare -A t_find=() t_twin=()
 
 # run <ожидаемый-код> <песочница> <имя-пробы> <скрипт>
 #
@@ -113,6 +115,10 @@ run() {
     out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$script" 2>&1)"; got=$?
     if [ "$got" -eq "$want" ]; then
         echo "  ok   $name (код $got)"
+        case "$want" in
+            0) t_twin["$script"]=$(( ${t_twin["$script"]:-0} + 1 )) ;;
+            1) t_find["$script"]=$(( ${t_find["$script"]:-0} + 1 )) ;;
+        esac
     else
         echo "  ПРОВАЛ $name — ждали код $want, получили $got" >&2
         printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
@@ -646,10 +652,65 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
+# ── САМОСТОЯТЕЛЬНЫЕ ПРОБЫ `prove-*.sh` ─────────────────────────────────────────
+#
+# Проверка, заведённая со своей пробой в отдельном файле, доказана только тогда,
+# когда пробу кто-то ЗОВЁТ. До 2026-09-22 не звал никто: четыре проверки
+# (13–16) приехали со своими пробами, этот файл их не знал, и набор печатал
+# «доказан в обе стороны» о девяти проверках из тринадцати.
+#
+# Подключение глобом, а не списком: список расходится с каталогом молча и в ту
+# сторону, где проба перестаёт прогоняться. Какую проверку проба доказывает,
+# она говорит сама строкой `# ДОКАЗЫВАЕТ: check-NN-….sh`; проба без этой строки
+# и проба, чьей проверки в наборе нет, — находки: доказательство, которому
+# нечего доказывать, не может пережить свой предмет.
+proofs=0
+for pf in "$HERE"/prove-*.sh; do
+    [ -f "$pf" ] || continue
+    proofs=$((proofs + 1)); probes=$((probes + 1))
+    pn="$(basename "$pf")"
+    target="$(sed -n 's/^# ДОКАЗЫВАЕТ: \(check-[^ ]*\.sh\).*/\1/p' "$pf" | head -1)"
+    if [ -z "$target" ]; then
+        echo "  ПРОВАЛ $pn — нет строки «# ДОКАЗЫВАЕТ: check-NN-….sh»: чью способность падать" \
+             "она доказывает, не сказано" >&2
+        failed=$((failed + 1)); continue
+    fi
+    if [ ! -f "$HERE/$target" ]; then
+        echo "  ПРОВАЛ $pn — доказывает $target, а такой проверки в наборе нет" >&2
+        failed=$((failed + 1)); continue
+    fi
+    out="$(bash "$pf" 2>&1)"; got=$?
+    if [ "$got" -eq 0 ]; then
+        echo "  ok   $pn доказывает $target: $(printf '%s\n' "$out" | tail -1)"
+        t_find["$target"]=$(( ${t_find["$target"]:-0} + 1 ))
+        t_twin["$target"]=$(( ${t_twin["$target"]:-0} + 1 ))
+    else
+        echo "  ПРОВАЛ $pn (доказывает $target) — код $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+done
+
+# ── СВЕРКА ДОКАЗАННОСТИ ПОИМЁННО ─────────────────────────────────────────────
+# Число проб не говорит, что доказана КАЖДАЯ проверка: 56 проб о девяти
+# проверках печатались зелёными при тринадцати в наборе.
+checks=0; uncovered=0
+for c in "$HERE"/check-*.sh; do
+    [ -f "$c" ] || continue
+    checks=$((checks + 1))
+    cn="$(basename "$c")"
+    if [ "${t_find["$cn"]:-0}" -eq 0 ] || [ "${t_twin["$cn"]:-0}" -eq 0 ]; then
+        echo "[FAIL] ПРОВЕРКА НЕ ДОКАЗАНА: scripts/tooling-gate/$cn — удавшихся проб «краснеет»" \
+             "${t_find["$cn"]:-0}, «молчит» ${t_twin["$cn"]:-0}; нужна хотя бы одна каждого" \
+             "здесь либо пробой prove-*.sh со строкой «# ДОКАЗЫВАЕТ: $cn»" >&2
+        uncovered=$((uncovered + 1))
+    fi
+done
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
-echo "[CENSUS] inject: проб исполнено $probes, провалов $failed; в каждой песочнице файлов $( cd "$WS" && git ls-files --cached --others --exclude-standard | wc -l )"
+echo "[CENSUS] inject: проб исполнено $probes (из них самостоятельных prove-*.sh $proofs), провалов $failed; проверок набора $checks, не доказано $uncovered; в каждой песочнице файлов $( cd "$WS" && git ls-files --cached --others --exclude-standard | wc -l )"
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] inject — ни одной пробы не исполнено" >&2
     exit 2
@@ -658,4 +719,8 @@ if [ "$failed" -gt 0 ]; then
     echo "[FAIL] inject — гейт не доказан: провалов $failed из $probes" >&2
     exit 1
 fi
-echo "[PASS] inject — гейт доказан в обе стороны: проб $probes, провалов 0"
+if [ "$uncovered" -gt 0 ]; then
+    echo "[FAIL] inject — гейт не доказан: проверок $checks, без пары доказательств $uncovered" >&2
+    exit 1
+fi
+echo "[PASS] inject — гейт доказан в обе стороны: проверок $checks, у каждой проба «краснеет» и «молчит»; проб $probes, провалов 0"

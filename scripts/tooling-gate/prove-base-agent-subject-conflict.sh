@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ДОКАЗЫВАЕТ: check-16-base-and-agent-agree-on-subject.sh (зовётся из inject.sh; строку читает его перепись доказанности)
 # Инъекция для `measure-base-agent-subject-conflict.py` — в обе стороны.
 #
 # Миры СИНТЕТИЧЕСКИЕ (`mktemp -d`), а не живая запись дерева: самопроверка,
