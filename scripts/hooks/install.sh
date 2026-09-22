@@ -101,7 +101,11 @@ ka_want="ssh -o ServerAliveInterval=$ka_interval -o ServerAliveCountMax=$ka_coun
 ka_state() {
     local cur
     cur="$(git -C "$root" config --get core.sshCommand 2>/dev/null || true)"
-    if [ -z "$cur" ]; then
+    if [ -z "$cur" ] && [ -n "${GIT_SSH:-}" ]; then
+        # `core.sshCommand` сильнее программы `GIT_SSH`: выставленный поверх неё,
+        # он выключил бы её молча — значит, это чужой транспорт.
+        printf 'foreign|GIT_SSH=%s\n' "$GIT_SSH"
+    elif [ -z "$cur" ]; then
         printf 'none|\n'
     # Сравнение БЕЗ внешнего процесса: `printf | grep -q` под `pipefail` роняет
     # писателя SIGPIPE'ом, и найденное объявляется ненайденным (класс держит
@@ -119,8 +123,8 @@ ka_report() {
         set)
             echo "keepalive транспорта: есть — core.sshCommand = «${st#*|}»" ;;
         foreign)
-            echo "keepalive транспорта: НЕТ — core.sshCommand задан снаружи: «${st#*|}»" >&2
-            echo "  Не перебиваем: там могут быть ключ, порт, прокси. Добавьте в него сами:" >&2
+            echo "keepalive транспорта: НЕТ — транспорт задан снаружи: «${st#*|}»" >&2
+            echo "  Не перебиваем: там могут быть ключ, порт, прокси. Добавьте в него (или в ~/.ssh/config хоста) сами:" >&2
             echo "    -o ServerAliveInterval=$ka_interval -o ServerAliveCountMax=$ka_count" >&2 ;;
         *)
             echo "keepalive транспорта: НЕ настроен — длинный хук молчит в соединении, и отправку рвёт по простою" >&2

@@ -48,8 +48,8 @@
 #   Перепроверить: `ssh -G <хост> | grep -i serveralive` (что ДЕЙСТВУЕТ сейчас)
 #   и повтор отправки с хуком длиннее измеренного окна.
 #
-# ЧУЖУЮ НАСТРОЙКУ ТРАНСПОРТА НЕ ПЕРЕБИВАЕТ. Если `GIT_SSH_COMMAND` или
-# `core.sshCommand` уже заданы, там может стоять ключ, порт или прокси, без
+# ЧУЖУЮ НАСТРОЙКУ ТРАНСПОРТА НЕ ПЕРЕБИВАЕТ. Если `GIT_SSH_COMMAND`,
+# `core.sshCommand` или программа `GIT_SSH` уже заданы, там может стоять ключ, порт или прокси, без
 # которых отправка не состоится вовсе. Тогда keepalive не навязывается, а
 # состояние НАЗЫВАЕТСЯ строкой — «в чужой команде keepalive нет» читается и
 # чинится, молчаливая подмена — нет. Постоянное место настройки для клона —
@@ -125,6 +125,12 @@ source_of=окружение
 if [ -z "$transport" ]; then
     transport="$(git config --get core.sshCommand 2>/dev/null || true)"
     source_of="core.sshCommand клона"
+fi
+# Программа `GIT_SSH` слабее обоих: выставленный поверх неё `GIT_SSH_COMMAND`
+# выключил бы её молча, поэтому она — тоже чужой транспорт.
+if [ -z "$transport" ] && [ -n "${GIT_SSH:-}" ]; then
+    transport="$GIT_SSH"
+    source_of="программа GIT_SSH окружения"
 fi
 if [ -z "$transport" ]; then
     export GIT_SSH_COMMAND="ssh -o ServerAliveInterval=$KEEPALIVE_INTERVAL -o ServerAliveCountMax=$KEEPALIVE_COUNT"
