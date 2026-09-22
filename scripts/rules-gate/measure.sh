@@ -36,14 +36,20 @@ print('слово «держится»: %d (обязан быть 0)' % held)
 PY
     ;;
   '')
-    python3 - <<'PY'
-import glob, os
+    # Потолок берётся У ПРОВЕРКИ, а не выписывается здесь: выписанный был бы
+    # вторым домом одной величины и разошёлся бы с ней молча — измеритель
+    # продолжал бы печатать «запас», меряя чужой потолок.
+    python3 - "$(dirname "${BASH_SOURCE[0]}")/corpus_ceiling.py" <<'PY'
+import glob, importlib.util, os, sys
+spec = importlib.util.spec_from_file_location('c6src', sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
 rows = [(len(open(f, encoding='utf-8').read()), os.path.basename(f))
         for f in sorted(glob.glob('.claude/rules/*.md'))]
 for n, b in sorted(rows, reverse=True):
     print('%8d  %s' % (n, b))
 t = sum(n for n, _ in rows)
-print('%8d  ИТОГО, потолок 200000, запас %d' % (t, 200000 - t))
+print('%8d  ИТОГО, потолок %d, запас %d' % (t, mod.CEILING, mod.CEILING - t))
 PY
     ;;
   *)
