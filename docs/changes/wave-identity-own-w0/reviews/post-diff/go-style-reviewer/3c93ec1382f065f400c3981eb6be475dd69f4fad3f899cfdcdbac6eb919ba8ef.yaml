@@ -1,0 +1,200 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer, круг 3 (повторный
+# проход после блокера B1, задача kacho#2788). Судится ТОЛЬКО дельта прежняя
+# голова → новая (правка комментариев B1, fe777cbebf8) и один вопрос: закрыт ли
+# класс C1 во ВСЕХ формулировках. Принятое в кругах 1–2 не пересуживается.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 3
+previous_record: docs/changes/wave-identity-own-w0/reviews/post-diff/go-style-reviewer/332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c.yaml
+class_origin_record: docs/changes/wave-identity-own-w0/reviews/post-diff/go-style-reviewer/707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
+subject: >-
+  Дельта b579b9eec9c..ab1ad6ee88a: коммит fe777cbebf8 «docs(gateway): адрес
+  поставщика читается по множеству носителей» (Closes #2788) и слияние
+  ab1ad6ee88a в ветку волны. Семь файлов: шесть Go (config.go и пять проб
+  края) и шаблон gateway/deploy/templates/deployment.yaml.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pull_request: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  previous_head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  files: 68
+content_digest: sha256:3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef
+digest_definition: 'sha256 сырого вывода `git diff bec320cf47d...ab1ad6ee88a` (трёхточечный)'
+
+subject_preflight:
+  digest_matches_declared: >-
+    ДА, дважды: до разбора и перед вердиктом, оба раза 3c93ec13…a8ef, после
+    `git fetch origin`. Прежний дайджест на b579b9eec9c тем же предикатом —
+    332117864d…2c8c, равен объявленному.
+  merge_base: '`git merge-base bec320cf47d ab1ad6ee88a` → bec320cf47d… = `git rev-parse origin/main`.'
+  head_on_origin: '`git rev-parse origin/wave/identity-own-w0-kacho` → ab1ad6ee88a…, равна объявленной.'
+  files: '68 — `git diff --name-only bec320cf47d...ab1ad6ee88a | wc -l` (было 66: дельта ввела в дифф волны own_session_lane_test.go и session_lanes_agree_test.go).'
+  delta: '`git diff --shortstat b579b9eec9c ab1ad6ee88a` → 7 файлов, +60 −28.'
+  delta_is_comment_only: >-
+    ДА, двумя предикатами. (1) Строки: в `git diff -U0 b579b9eec9c ab1ad6ee88a -- '*.go'`
+    изменённых строк 60, не начинающихся с `//` — 0. (2) Разбор: sha256 печати
+    go/parser без комментариев (mode 0, go/printer RawFormat) равен на обеих
+    головах для всех 6 Go-файлов; контроль — вставка `_ = 1` в тело ownLane даёт
+    другой хэш. Шаблон: `helm template` чарта gateway/deploy на обеих головах в
+    двух профилях (умолчание; own,external + момент окна + адрес) — разобранные
+    документы (yaml.safe_load_all → json, sort_keys) равны (222b914a…, b4ce7247…),
+    строки вне `#` побайтово равны; профиль own,external действительно выдаёт
+    KACHO_API_GATEWAY_SESSION_CARRIERS (1 раз), умолчание — 0.
+  commit_identity: 'fe777cbebf8 и ab1ad6ee88a — автор и коммиттер pointpu <pointpu@prorobotech.ru>; трейлеров атрибуции в телах 0 (`git log --format=%B b579b9eec9c..ab1ad6ee88a | grep -ciE "co-authored-by|claude-session|generated with"`).'
+
+c1_closure:
+  status: закрыта во всех найденных формулировках
+  class: >-
+    Комментарий приписывает ПОСАДКЕ выбор читателя носителя поставщика или чтение
+    его адреса («только под external», «под own не заводится / не читается /
+    не провязан», «читатель под external»), тогда как волна отдала этот выбор
+    множеству носителей: main.go:229 и :1209 заводят читателя поставщика по
+    `sessionCarriers.ReadsProvider()`, от посадки не зависит; при `own,external`
+    под `own` он заведён, а адрес обязателен.
+  predicates:
+    - name: 'задача #2788, п. 1'
+      command: "git grep -niE 'только под посадкой .external.|read under .external. only' <rev> -- gateway"
+      previous_head: 3
+      head: 0
+    - name: 'задача #2788, п. 2'
+      command: "git grep -ni 'не заводится' <rev> -- gateway/internal/config/config.go gateway/deploy/templates/deployment.yaml"
+      previous_head: 2
+      head: 0
+    - name: 'радиус круга 2 (формулировка C1 из login_console_test.go)'
+      command: "git grep -nE 'TestOwnLane_F3_12|не заводится ВОВСЕ|выбирает ПОСАДКА|заведено под own' <rev>"
+      previous_head: 0
+      head: 0
+    - name: 'строчный: отрицание провязки/чтения рядом с поставщиком'
+      command: "git grep -nE '(не заводится|не заведён|не провязан|НЕ провязан|не читается|никто не читает).*(поставщик|Kratos|kratos|чуж)|(поставщик|Kratos|kratos|чуж).*(…то же…)' <rev> -- gateway deploy"
+      previous_head: 5
+      head: 3
+      head_hits_by_referent: >-
+        values.own.yaml:57 — «не заводится» при НЕобъявленном множестве, условие
+        названо, верно; deploy/tests/helm/image-rollout-binding-test.sh:29 — другой
+        референт (ключ образа); login_console_test.go:77 — отрицает посылку
+        («причина не в том, что … не читается»), верно.
+    - name: 'по абзацам комментариев, пословно по предложению'
+      scope: '1914 файлов (.go .yaml .tpl .sh .md .mdx .txt под gateway/ deploy/ services/iam/ pkg/ internal/ docs/), 32534 абзаца комментария на каждой голове'
+      rule: 'предложение называет поставщика (поставщик|kratos|чуж) И читателя/провязку И посадку/сторону И отрицание или исключительность'
+      previous_head: 10
+      head: 8
+      removed_by_delta: 'config.go (поле KratosPublicURL) и deployment.yaml (шапка переменной адреса)'
+      head_hits_by_referent: >-
+        все 8 верны: values.own.yaml:101-130 (условие «множество не объявлено»
+        названо); main.go:158-175, own_lane_readers_wiring_test.go:4-32,
+        session_carrier_wiring_test.go:4-51 — описывают ПРЕЖНЕЕ устройство как
+        прежнее; session_carrier_validation.go:4-55 — посадка external с
+        выключенным адресом при невыведенном множестве; login_console_test.go:39-81
+        (два) — принято в круге 2; middleware/auth.go:185-199 — читателей заводит
+        множество.
+      blind_spot: >-
+        Длинная строка перечня переменных (config.go, шапка) делится на
+        предложения по «;» и этим предикатом НЕ ловится — на b579b9eec9c он её
+        пропустил; её держит предикат задачи п. 1.
+    - name: 'оконный: поставщик + читатель + «под external» либо «под own» с отрицанием, окно 3 строки'
+      scope: '3302 файла (плюс ui-future/, .ts .tsx .conf)'
+      previous_head: 21
+      head: 19
+      removed_by_delta: >-
+        session_carrier_names_gate_test.go:25 («пока его читатель под `external`
+        жив»), own_session_lane_test.go:185 («печенье поставщика без нашего под
+        `own`»), deployment.yaml (адрес «краем не читается»), config.go шапка
+        («read under `external` only») и поле. Два из них — за пределом предиката
+        задачи: дельта закрыла больше, чем он называл.
+      head_hits_by_referent: >-
+        3 — новый текст дельты (config.go:295-296, deployment.yaml:181), верен;
+        5 — посадка САМОЙ службы доступа (charts/kaname configmap/values,
+        values.prod.yaml:545), другой референт; 2 — ось авторитета отзыва
+        (revocation_validation.go:136-137), другой предмет; 1 — наш носитель под
+        чужой посадкой (session_carrier_validation_test.go:187), верно; 1 —
+        состояния множества (sessioncarriers.go:40); 4 — values.own.yaml:54,
+        login_console_test.go:60/:76/:336, приняты в круге 2; 1 — синтетика
+        распознавателя (own_lane_readers_wiring_test.go:181); 1 — main.go:589
+        «сессия поставщика под `external`» (текст базы, волной не тронут):
+        утверждение не исключающее — читатель отсечки общий для обеих посадок, —
+        коду не противоречит.
+  claims_checked_against_code:
+    - claim: 'config.go:293-301 — читателя поставщика заводит множество (ветки `sessionCarriers.ReadsProvider()` в main.go)'
+      evidence: 'main.go:229 (полоса личности) и :1209 (маршрут «кто я») — оба под ReadsProvider(); ветки посадки над ними нет: распознаватель postureBranchOf на main.go даёт "" для NewKratosClient :231 и :1210 (проба рецензента в отсоединённой копии головы, не коммитилась).'
+    - claim: 'config.go — пока ручка не объявлена, под own множество = только наш носитель, адрес не читается'
+      evidence: 'sessioncarriers.go:129-130 (пустая ручка → sessionCarriersFromPosture), :147-148 Own → {own}; KratosPublicURL читается в дереве один раз, main.go:189, и дальше идёт только в ReadsProvider-ветки и в страж, где спрашивается лишь при Declared().'
+    - claim: 'config.go, deployment.yaml — объявленное множество со стороной external (в т. ч. own,external под own) требует адрес; пустой или disabled отвергаются'
+      evidence: 'session_carrier_validation.go:190-199 (Declared && ReadsProvider; TrimSpace == "" или "disabled" → отказ); own,external под own проходит обе половины пары (:106, :118).'
+    - claim: 'deployment.yaml — `disabled` выключает чтение сессии поставщика, нашего чтения не касается'
+      evidence: 'main.go:230 и :1209 (условие только на ветке поставщика); наш читатель :245 и :1217 — под ReadsOwn(), от адреса не зависит.'
+    - claim: 'deployment.yaml (шапка множества) и session_carrier_knobs_test.go — процесс читает пустую переменную как «не задано»; «   » и «,» — объявление без стороны, отказ старта; `with` пропускает непустое'
+      evidence: >-
+        Опытом, не чтением: Load() пиннованного corelib v1.8.0 (envconfig.Process)
+        в отсоединённой копии головы — отсутствует → carriers=own declared=false;
+        задано "" → то же; "   " и "," → отказ «declares no carrier element … 0
+        elements»; окно при "" → нуль без ошибки. `helm template` с
+        sessionCarriers "   " и "," выдаёт переменную, с "" — нет.
+    - claim: 'own_lane_readers_wiring_test.go:156-159, :177-178 — распознаватель даёт вне ветки пустую посадку, в ветке External — External, в else — пустую; вердикт о читателе выносит session_carrier_wiring_test.go'
+      evidence: 'проба рецензента: синтетика main.go:10 → "", :5 → "External", else → ""; session_carrier_wiring_test.go:357-387 судит по carrierDecisionBranchOf, посадку лишь печатает в тексте находки (:377-380).'
+    - claim: 'own_session_lane_test.go:71-73, :185-187 — ownLane есть состояние множества own; при own,external читатель поставщика провязан'
+      evidence: 'тело ownLane (:74-81) — только WithHumanSession и отсечка; провязка поставщика по ReadsProvider — main.go:229.'
+    - claim: 'session_lanes_agree_test.go:42-46 — ось окна судит TestBrowserSessionLanesAgree_OnTheTransitionalWindowAxis'
+      evidence: 'символ есть, :366; сравнивает обе чужие полосы с моментом окна.'
+    - claim: 'session_carrier_names_gate_test.go:25-28 — читателя поставщика заводит множество, называющее external'
+      evidence: 'main.go:229, :1209.'
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+
+critical: []
+important: []
+style:
+  - id: S1
+    where: gateway/cmd/api-gateway/own_lane_readers_wiring_test.go:156-159, :168
+    finding: >-
+      Новый комментарий говорит, что внесённый читатель «получает ПУСТУЮ посадку»,
+      а проба утверждает только `s.posture != "External"`: распознаватель,
+      вернувший для места вне ветки "Own", прошёл бы её зелёным. Сейчас
+      распознаватель даёт "" (проверено опытом), текст не ложен, но обещает
+      больше, чем проба держит.
+    requirement: 'сузить утверждение пробы до `s.posture == ""` либо снять из текста слово «пустую».'
+
+found_along_the_way:
+  - id: A1
+    where: gateway/deploy/values.yaml:203-206 (YAML, не мой предмет; ни дельтой, ни волной не тронут)
+    finding: >-
+      «Выключает сессионную аутентификацию целиком ТОЛЬКО значение `disabled`» —
+      тот самый довод, который дельта исправила во второй копии,
+      deployment.yaml:177-179 («выключает чтение сессии ПОСТАВЩИКА; чтения нашей
+      сессии оно не касается»). Два места об одном предмете, верно одно. Ложным
+      текст делает волна: она же вписала `kratosPublicUrl: disabled` в цепочку own
+      (values.own.yaml:77; на базе ключа нет), и на этом стенде наша сессия
+      читается (main.go:245, :1217). Не блокирует: направление ошибки безопасное
+      (текст обещает выключение, которого нет), а предмет — вне дельты и вне Go.
+    requirement: 'задача: переписать тем же смыслом, что deployment.yaml:177-179.'
+  - id: A2
+    where: gateway/deploy/session_carrier_knobs_test.go:85-86 (Go, строка вне дельты, соседняя с правленой)
+    finding: >-
+      Текст отказа пробы не тронут и противоречит комментарию дельты тремя
+      строками выше (:81-83): «пустое значение доедет переменной, и «не задано»
+      станет неотличимо от «задано пустым»». Опыт показывает, что процесс этих
+      состояний не различает ни при какой форме эмиссии, а в профиле они и так
+      одно (values.yaml:317 `sessionCarriers: ""`). Коммит fe777cbebf8 заявляет,
+      что поправил и шапку, и пробу: комментарий исправлен, сообщение нет. Не
+      блокирует: сообщение выводится только на красном и защиту не описывает.
+    requirement: 'задача: текст отказа назвать следствием формы — без `with` переменная с пустым значением появляется в поде на каждом стенде.'
+
+approved:
+  - 'Дельта — только комментарии: разбор Go без комментариев и разобранный рендер шаблона на обеих головах равны (subject_preflight).'
+  - 'Класс C1 на голове не найден ни одним из шести предикатов. На прежней голове четыре из них находят места, которые дельта сняла (обратный контроль), в том числе два, которых предикат задачи не называл.'
+  - 'Каждое утверждение нового текста сверено с кодом головы, два — опытом (claims_checked_against_code); держатели названы именами символов.'
+
+counts:
+  fresh_deferral_markers: '0 в дельте — `git diff b579b9eec9c ab1ad6ee88a | grep "^+" | grep -cE "\b(TODO|FIXME|XXX|HACK)\b[:(]|t\.Skip\("`'
+  probes_in_same_pr: 'да — исполняемого кода дельта не меняет (разбор без комментариев равен), в том числе в прод-файле config.go'
+  security_comments_contradicting_code: '0 в дельте; вне дельты — A1 (YAML, не блокирует)'
+  foundation_candidates: 0
