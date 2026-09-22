@@ -1,0 +1,75 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: kn-279
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: 'багфикс #279 — /iam/v1/me помечал любую роль как viewer'
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: issue-279
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kn-279
+  base: f8fc5a37b7436db71648fd4552e307ebaaad2880
+  head: 008b880b56c955be7a124af7a8219b0f7b549c22
+content_digest: sha256:72978e056319793e35daa7cdc7220774ea77cf5272b561bd878ec05324bd6067
+digest_definition: >-
+  sha256 сырого вывода `git diff f8fc5a37...008b880b` (полный трёхточечный дифф
+  изменения от базы origin/main до головы ветки, оба конца — из задания,
+  перемерены своей командой в worktree).
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: accepted            # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-18T00:00:00Z'
+review_scope: 'полный дифф (2 файла); запрет отсрочки и требование проб судятся по всему диффу'
+
+files_reviewed:
+  - internal/apps/kaname/api/authorize/whoami.go
+  - internal/apps/kaname/api/authorize/whoami_test.go
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical: []                 # блокирующих находок по коду нет
+important: []
+foundation_candidates: []    # горизонтального выноса в corelib изменение не порождает
+style: []
+security_comments_contradicting_code: []
+
+# ── счётчики по всему диффу ────────────────────────────────────────────────
+fresh_deferral_markers: 0    # маркеров отсрочки (TODO:/FIXME/…) в диффе нет;
+                             # совпадение «later» — это лицензия AGPL-3.0-or-later, не маркер
+tests_in_same_pr: true       # whoami_test.go в том же диффе: две поведенческие
+                             # регрессии на #279 + переписанная таблица classifyRoleID
+
+# ── что проверено и на чём основано ────────────────────────────────────────
+approved:
+  error_wrapping: 'не деградировано — функция классификации ошибок не возвращает; путь ошибок use-case прежний (shared.MapRepoErr, вне диффа)'
+  clean_function: 'classifyRoleID — чистый поиск по карте с fallback, без побочных эффектов и IO; ctx не требуется by construction'
+  package_level_readonly_map: 'systemRoleTag — package-level var map, только читается (whoami.go:213), не мутируется; идиоматичная const-таблица, не глобальный синглтон в смысле architecture.md'
+  single_source_of_ids: 'id только через domain.SystemRoleID(view/edit/admin/owner) и пины (OwnerRoleID/ClusterAdminRoleID/SystemAdminRoleID/SystemViewerRoleID); литералов rol-id в whoami.go нет'
+  no_dead_code: 'снята мёртвая ветка парса хвоста после точки, снят импорт strings (использований не осталось), снят вакуумный TestClassifyRoleID_HappyPath на iam.<tag>'
+  no_panic_in_prod_path: 'panic/MustParse/log.Fatal в диффе нет'
+  layering: 'файл слоя use-case; импортирует domain + shared/operations/repoab; pgx/grpc-stubs/transport не протекли — направление зависимостей цело'
+  naming_ascii: 'все новые идентификаторы латиницей (ban #17); комментарии на англ. — законны'
+  tests_on_mock_ports: 'пробы на fakeWhoAmIRepo, без Postgres — утечки адаптера в пробу слоя нет'
+
+# ── перемеренные основания утверждений в комментариях кода (doc-truthfulness) ─
+verified_facts:
+  - 'SystemRoleID("owner") == OwnerRoleID: md5("owner")[:17] = 72122ce96bfec66e2, пин rol72122ce96bfec66e2 — совпало'
+  - 'SystemRoleID("admin") == ClusterAdminRoleID: md5("admin")[:17] = 21232f297a57a5a74, пин rol21232f297a57a5a74 — совпало'
+  - 'PrefixRole = "rol" (internal/domain/constants.go:22); SystemRoleID = rol + md5(name)[:17]'
+  - 'канонические имена ролей view/edit/admin/owner (internal/domain/role_catalog.go:24-27) — совпадают с ключами карты'
+  - 'карта не даёт дубля ключа при компиляции: пины различны, а SystemRoleID(...) — вызовы функций, не константы; runtime-совпадения дают одно значение'
+  - 'логика бага подтверждена: до фикса OwnerRoleID (без точки) падал в fallback viewer и сливался с owner-implicit тегом → [owner,viewer]; тест TestWhoAmI_OwnerAccount_TagsOwnerOnly воспроизводит'
+
+# ── дисциплина исходов ─────────────────────────────────────────────────────
+# Исход линтера и проб НЕ объявляется: сырой вывод читает landing-reviewer,
+# независимый перемер делает check-verifier. Здесь — только форма кода.
+linter_probes_outcome: not-claimed-by-this-role
+
+return_to: null              # блокирующих находок нет — возврата автору диффа не требуется
+next_requested: 'сбор пост-дифф записей: convergence-reviewer либо landing-reviewer'
