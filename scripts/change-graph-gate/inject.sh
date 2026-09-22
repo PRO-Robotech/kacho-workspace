@@ -2,7 +2,7 @@
 # Доказательство способности набора change-graph-gate УПАСТЬ — инъекцией в обе
 # стороны.
 #
-# ЗАЧЕМ. Три зелёные проверки на сошедшемся дереве не доказывают ничего: ровно
+# ЗАЧЕМ. Зелёные проверки на сошедшемся дереве не доказывают ничего: ровно
 # так же выглядит набор, потерявший способность краснеть. По каждой оси здесь
 # вносится НАСТОЯЩИЙ дефект (проверка обязана покраснеть) и рядом ставится
 # ЗАКОННЫЙ БЛИЗНЕЦ той же формы (проверка обязана смолчать). Без близнеца
@@ -11,7 +11,7 @@
 # ТРЕТЬЯ КАТЕГОРИЯ ДОКАЗЫВАЕТСЯ ОТДЕЛЬНО. «Без предмета» (код 2) обязано
 # приходить своим кодом, а не единицей: вызывающий принимает по ним прямо
 # противоположные решения — находку чинят в дереве, отсутствие предмета создают
-# условием. Оси VOID есть у каждой из трёх проверок.
+# условием. Оси VOID есть у каждой проверки набора.
 #
 # ОДИН ФАКТ НА ИНЪЕКЦИЮ. Каждая проба меняет ровно одно и меняет его там, где
 # живёт предмет проверки: инъекция, попутно нарушающая соседнюю проверку,
@@ -132,6 +132,69 @@ assert() {
 C1="check-01-hook-lane-probes-are-green.sh"
 C2="check-02-lane-roster-covers-every-entry-point.sh"
 C3="check-03-ci-calls-every-artifact-of-the-set.sh"
+C4="check-04-package-releases-reproduce.sh"
+
+# commit_all <каталог> <сообщение> — коммит песочницы. Подпись — в конфиге
+# выброшенного репозитория: он живёт до конца пробы и на origin не попадает.
+commit_all() {
+    git -C "$1" config user.name 'cg-gate probe'
+    git -C "$1" config user.email 'probe@invalid'
+    git -C "$1" add -A > /dev/null 2>&1
+    git -C "$1" commit -q --allow-empty -m "$2" > /dev/null 2>&1
+}
+
+# world4 <каталог> — мир check-04: корень-cutover, затем реестр и пакет
+# `pkg-a`, сходящиеся друг с другом (роль замысла освобождена канонической
+# строкой, роль схождения применима), и соседний пакет `pkg-b` без документов.
+# Предмет check-04 — СВЕРКА; способность производителя отказать доказывает
+# полоса hook (`selftest/prove_applicability.py`), здесь она не повторяется.
+world4() {
+    commit_all "$1" cutover
+    python3 - "$1" "$(git -C "$1" rev-parse HEAD)" <<'PYW4'
+import os
+import sys
+root, cutover = sys.argv[1], sys.argv[2]
+def write(rel, text):
+    path = os.path.join(root, rel)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    open(path, "w", encoding="utf-8").write(text)
+write("docs/changes/policy.yaml", f"""schema_version: 1
+repositories:
+  - repo: PRO-Robotech/kacho-workspace
+    cutover_commit: {cutover}
+  - repo: PRO-Robotech/kacho
+    cutover_commit: {"0" * 40}
+review_authority:
+  design-reviewer: [probe]
+  convergence-reviewer: [probe]
+applicability_predicates:
+  - id: no-design-document-in-change
+    role: design-reviewer
+    evidence_field: design_documents_referenced
+    satisfied_when: equals
+    value: 0
+""")
+for pkg in ("pkg-a", "pkg-b"):
+    write(f"docs/changes/{pkg}/change.yaml",
+          f"schema_version: 1\nchange_id: {pkg}\nhashes:\n  design_sha256: null\n")
+write("docs/changes/pkg-a/holders.yaml", """schema_version: 1
+change_id: pkg-a
+role_applicability:
+  design-reviewer:
+    status: not-applicable
+    predicate_id: no-design-document-in-change
+    evidence_field: design_documents_referenced
+    evidence_value: 0
+    evidence_command: >-
+      python3 scripts/change-graph-gate/applicability.py field
+      design_documents_referenced --package docs/changes/pkg-a --rev HEAD
+  convergence-reviewer:
+    status: applicable
+    holder: human-convergence
+""")
+PYW4
+    commit_all "$1" world
+}
 
 echo "=== check-01: дешёвая полоса прогоняется, и её исход читается по коду ==="
 
@@ -277,6 +340,57 @@ assert 2 "$(run_without_yaml "$d" "$C3")" "разборщика YAML нет -> �
 d="$(sandbox c3-void)"
 rm -rf "$d/.github/workflows"
 assert 2 "$(run "$d" "$C3")" "файлов конвейера нет -> без предмета"
+
+echo
+echo "=== check-04: освобождения ролей в пакетах пересчитаны по реестру ==="
+
+d="$(sandbox c4-twin)"
+world4 "$d"
+assert 0 "$(run "$d" "$C4")" "законный близнец: пакет и реестр сходятся -> молчит"
+
+d="$(sandbox c4-design)"
+world4 "$d"
+printf '# замысел\n' > "$d/docs/changes/pkg-a/design.md"
+commit_all "$d" "документ замысла при заявленном освобождении"
+assert 1 "$(run "$d" "$C4")" "документ замысла появился, освобождение заявлено -> краснеет"
+
+d="$(sandbox c4-staged)"
+world4 "$d"
+printf '# замысел\n' > "$d/docs/changes/pkg-a/design.md"
+git -C "$d" add -A > /dev/null 2>&1
+assert 0 "$(run "$d" "$C4")" "законный близнец: документ в индексе, но не в коммите -> молчит (судится коммит)"
+
+d="$(sandbox c4-foreign-package)"
+world4 "$d"
+sed -i 's|--package docs/changes/pkg-a|--package docs/changes/pkg-b|' "$d/docs/changes/pkg-a/holders.yaml"
+commit_all "$d" "команда свидетельства называет чужой существующий пакет"
+assert 1 "$(run "$d" "$C4")" "команда называет чужой пакет (опыт N2) -> краснеет, хотя там тоже 0"
+
+d="$(sandbox c4-role-missing)"
+world4 "$d"
+python3 - "$d/docs/changes/policy.yaml" <<'PYR'
+import sys
+p = sys.argv[1]
+t = open(p, encoding="utf-8").read()
+t = t.replace("  convergence-reviewer: [probe]\n",
+              "  convergence-reviewer: [probe]\n  wave-reviewer: [probe]\n", 1)
+open(p, "w", encoding="utf-8").write(t)
+PYR
+commit_all "$d" "роль в реестре, строки в пакете нет"
+assert 1 "$(run "$d" "$C4")" "роль реестра без строки role_applicability -> краснеет"
+
+d="$(sandbox c4-void)"
+world4 "$d"
+rm -f "$d/docs/changes/pkg-a/holders.yaml"
+commit_all "$d" "пакетов с holders.yaml нет"
+assert 2 "$(run "$d" "$C4")" "пакетов с holders.yaml нет -> без предмета, а не 'находок 0'"
+
+d="$(sandbox c4-nocommit)"
+assert 2 "$(run "$d" "$C4")" "в песочнице нет ни одного коммита -> без предмета"
+
+d="$(sandbox c4-noyaml)"
+world4 "$d"
+assert 2 "$(run_without_yaml "$d" "$C4")" "разборщика YAML нет -> без предмета"
 
 echo
 echo "=== перепись инъекций набора change-graph-gate ==="

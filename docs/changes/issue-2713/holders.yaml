@@ -26,14 +26,13 @@
 schema_version: 1
 change_id: issue-2713
 
-# ── ПРИМЕНИМОСТЬ РОЛЕЙ: все ДЕСЯТЬ из review_authority ──────────────────────
+# ── ПРИМЕНИМОСТЬ РОЛЕЙ: все роли review_authority ───────────────────────────
 #
 # Перечень выведен из `review_authority` в `docs/changes/policy.yaml`, а не
-# переписан по памяти, и сверяется В ОБЕ СТОРОНЫ: роль реестра без строки здесь
-# и строка здесь без роли реестра — обе находки. Предикат сверки:
-#   python3 -c "import yaml;d=yaml.safe_load(open('docs/changes/policy.yaml'));\
-#   h=yaml.safe_load(open('docs/changes/issue-2713/holders.yaml'));\
-#   print(sorted(set(d['review_authority'])^set(h['role_applicability'])))"  # → []
+# переписан по памяти, и сверяется В ОБЕ СТОРОНЫ машинно:
+# `scripts/change-graph-gate/check-04-package-releases-reproduce.sh` — роль
+# реестра без строки здесь и строка здесь без роли реестра обе дают находку; он
+# же пересчитывает каждое освобождение ниже на коммите, который судит.
 #
 # Роль — КООРДИНАТА, а не доказательство личности: вердикт даёт внешнее событие,
 # подтверждённое через API. Освобождение от вердикта полномочия не заменяет.
@@ -43,22 +42,31 @@ role_applicability:
   # У каждого освобождения — идентификатор из versioned applicability registry
   # и число, произведённое командой. Свободный текст «неприменимо» здесь не
   # считается ничем.
+  #
+  # Команда — единственная каноническая строка производителя
+  # `scripts/change-graph-gate/applicability.py` для ЭТОГО пакета: он читает
+  # коммит (не индекс), берёт ревизии линии из `change.yaml`, опознаёт клон по
+  # cutover-коммиту и на непрочитанном дереве числа не выдаёт. Объём
+  # осмотренного он печатает сам строкой [CENSUS] при каждом вызове; записанный
+  # сюда текстом, объём свидетельством не был бы (§3 реестра), поэтому полей
+  # `census` здесь больше нет. Прежняя форма — `git ls-files … | wc -l` и
+  # `git diff … | wc -l` — давала 0 на опечатке, в чужом клоне и вне git
+  # (приёмка `check-verifier` 2026-09-22).
 
   acceptance-reviewer:
     status: not-applicable
     predicate_id: no-acceptance-document-in-change
     evidence_field: acceptance_documents_referenced
     evidence_value: 0
-    evidence_command: git ls-files docs/changes/issue-2713/acceptance.md | wc -l
-    census: >-
-      корень пакета `docs/changes/issue-2713/` СУЩЕСТВУЕТ и несёт 6
-      отслеживаемых записей ревью — значит ноль есть ноль НАХОДОК, а не
-      непрочитанное дерево. Второй обход: `grep -rl 2713 docs/specs/` пуст —
-      приёмки на это изменение нет и вне каталога пакета.
+    evidence_command: >-
+      python3 scripts/change-graph-gate/applicability.py field
+      acceptance_documents_referenced --package docs/changes/issue-2713 --rev HEAD
     why: >-
       Предмет — задача класса «дефект» (#2713 несёт метку bug/P1 и форму признак ·
       предмет · предикат снятия в теле, а не Given-When-Then). Приёмки изменение
       не несёт, и отсутствие ЗАЯВЛЕНО предикатом, а не изображено пустой строкой.
+      Вне каталога пакета приёмки тоже нет: `git grep -l 2713 -- docs/specs/`
+      пуст.
 
   class-exposure-analyst:
     status: not-applicable
@@ -66,23 +74,27 @@ role_applicability:
     evidence_field: exposure_subject_documents_referenced
     evidence_value: 0
     evidence_command: >-
-      git ls-files docs/changes/issue-2713/acceptance.md
-      docs/changes/issue-2713/design.md | wc -l
-    census: тот же корень пакета, 6 отслеживаемых записей — обход не пуст.
+      python3 scripts/change-graph-gate/applicability.py field
+      exposure_subject_documents_referenced --package docs/changes/issue-2713 --rev HEAD
     why: >-
       У роли ДВА держателя, и оба привязаны к отпечаткам документов: первичный
       разбор — к приёмке, перепроверка — к замыслу. Изменение не несёт НИ
-      ОДНОГО из них, поэтому предмета нет ни у одного держателя. Роль
-      освобождается потому, что судить нечего, а не потому, что разбор классов
-      необязателен.
+      ОДНОГО из них, поэтому записи ни одного держателя не к чему привязаться.
+      Это НЕ «судить нечего»: линия вводит новый асинхронный путь (`go func(` в
+      `gateway/internal/restmux/backend_call_deadline.go:90`), а приёмка SDD-1
+      §5 называет такой путь exposure item. Законно ли освобождение при таком
+      пункте — открытый вопрос политики, названный в note предиката
+      `no-exposure-subject-document-in-change`; до решения владельца условие
+      предиката выполнено, а вопрос не снят.
 
   design-reviewer:
     status: not-applicable
     predicate_id: no-design-document-in-change
     evidence_field: design_documents_referenced
     evidence_value: 0
-    evidence_command: git ls-files docs/changes/issue-2713/design.md | wc -l
-    census: тот же корень пакета, 6 отслеживаемых записей — обход не пуст.
+    evidence_command: >-
+      python3 scripts/change-graph-gate/applicability.py field
+      design_documents_referenced --package docs/changes/issue-2713 --rev HEAD
     why: >-
       Единственный держатель роли есть внешнее событие на ОТПЕЧАТОК `design.md`.
       Документа нет — нет и отпечатка, к которому вердикт привязался бы.
@@ -93,12 +105,8 @@ role_applicability:
     evidence_field: migrations_touched
     evidence_value: 0
     evidence_command: >-
-      git diff --name-only ac33f733962577688958fe9fbba35d715822c8b9...53b3930461d775838c1f042537e05589bbce8680
-      -- '*/migrations/*' '*.sql' | wc -l
-    census: >-
-      знаменатель обхода — 6 путей полного диффа линии, все перечислены в
-      `change.yaml` (`implementation_diff_set`). Ноль получен ПРИ непустом
-      знаменателе.
+      python3 scripts/change-graph-gate/applicability.py field
+      migrations_touched --package docs/changes/issue-2713 --rev HEAD
     why: >-
       В диффе нет SQL, миграции, CAS и xmin; изменение целиком транспортное.
       Это же независимо зафиксировано записью `system-design-reviewer`
@@ -110,9 +118,8 @@ role_applicability:
     evidence_field: proto_files_touched
     evidence_value: 0
     evidence_command: >-
-      git diff --name-only ac33f733962577688958fe9fbba35d715822c8b9...53b3930461d775838c1f042537e05589bbce8680
-      -- '*.proto' | wc -l
-    census: тот же знаменатель — 6 путей полного диффа линии.
+      python3 scripts/change-graph-gate/applicability.py field
+      proto_files_touched --package docs/changes/issue-2713 --rev HEAD
     why: >-
       Контракт не тронут: маршрутизация и объявления служб диффом не задеты,
       меняются только dial-опции, перехватчики предела и контекст адаптера.
@@ -132,6 +139,17 @@ role_applicability:
       поверхность распределённая (межсервисные рёбра, воркер, жизненный цикл
       горутины перехватчика), поэтому роль обязана высказаться ПОВТОРНО на
       ТОЧНЫЙ отпечаток содержимого, а не только на замысел.
+
+  wave-reviewer:
+    status: applicable
+    holder: human-wave
+    reason: >-
+      линия собрана из ДВУХ полос слиянием — предикат
+      `no-lane-merges-in-change` ложен: `lane_merges_in_change` = 2
+      (производитель — `applicability.py field lane_merges_in_change --package
+      docs/changes/issue-2713 --rev HEAD`; слияния 98740ffc и 53b3930 сводят
+      полосы session и restmux). Предмет роли — расхождение полос между собой —
+      налицо, освобождения нет.
 
   integration-tester:
     status: applicable
@@ -260,6 +278,19 @@ required_holders:
       Обязательность ПОВТОРНОЙ записи этой роли на текущий отпечаток возникает из
       СВОЙСТВА изменения, а не из чьей-то отметки «применимо».
 
+  human-wave:
+    kind: human-external
+    owner: wave-reviewer
+    executable: внешнее review event на отпечаток содержимого СОБРАННОЙ линии
+    predicate: >-
+      полосы session и restmux, лежащие рядом, не решают одну задачу дважды, не
+      вводят двух имён одного предмета и не отменяют правку соседа
+    evidence_coordinate: reviews/wave/wave-reviewer/
+    note: >-
+      Исхода НЕТ: роль заведена в реестр той же правкой, что эта строка, и
+      события роли на отпечаток ea0fd6d3… не было. До него исход держателя —
+      «не выполнилось»; посадка линии его вердикта требует.
+
   human-convergence:
     kind: human-external
     owner: convergence-reviewer
@@ -296,7 +327,7 @@ required_holders:
 # машинными держателями у `integration-tester`.
 #
 # ОТОШЛО, и по каждому — почему:
-#   1. Заведён раздел `role_applicability` на ВСЕ десять ролей реестра. У образца
+#   1. Заведён раздел `role_applicability` на ВСЕ роли реестра. У образца
 #      применимость объявлена абзацем комментария («применимы ВСЕ роли ниже»),
 #      потому что там не освобождена ни одна. Здесь освобождены ПЯТЬ, и
 #      абзац сделал бы сверку в обе стороны делом внимания, а не предиката.
