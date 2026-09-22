@@ -44,6 +44,9 @@ export CLAUDE_PROJECT_DIR="$WS"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+# Отпечатки сигналов — в песочнице: иначе набор читал бы «уже сказано» из сессий
+# запускающего и писал бы в них свои.
+export HOOK_SIGNAL_STATE="$TMP/signal"
 DOCS="$TMP/docs"; mkdir -p "$DOCS"
 
 PASS=0; FAIL=0; NOTRUN=0
@@ -2151,6 +2154,82 @@ if [ "$prc" -eq 0 ]; then
   echo "  ✔ код 0 на чистом ходу — конец хода не блокируется"; PASS=$((PASS+1))
 else
   echo "  ✘ код $prc на чистом ходу — хук мешает работе"; FAIL=$((FAIL+1))
+fi
+
+echo
+echo "== P'. признак дельты на конце хода: повтор свёрнут, новое — целиком (#714) =="
+# Пара по каждой стороне: молчание повтора без печати новой находки неотличимо от
+# заглушенного сигнала. Сессия задаётся событием, отпечатки — в песочнице.
+pd_ok() { echo "  ✔ $1"; PASS=$((PASS+1)); }
+pd_bad() { echo "  ✘ $1"; FAIL=$((FAIL+1)); }
+# Пустой предмет: построенный мир. Первый ход ставит базовую линию (каталог
+# состояния лежит внутри мира и виден `git status`) — судятся ходы после него.
+rm -rf "$PWST"; mkdir -p "$PWST"
+p_run_world '{"hook_event_name":"Stop","session_id":"pd-empty"}' "$TMP/pd0.out" "$TMP/pd0.err"
+p_run_world '{"hook_event_name":"Stop","session_id":"pd-empty"}' "$TMP/pd1.out" "$TMP/pd1.err"
+if grep -q 'предмета не было: осмотрено документов 0' "$TMP/pd1.err"; then
+  pd_ok "пустой предмет — ОДНА строка на первом ходу, объём назван"
+else
+  pd_bad "пустой предмет: нет строки «предмета не было» на первом ходу"; head -c 300 "$TMP/pd1.err" | sed 's/^/      /'
+fi
+pd_log0="$(wc -l < "$PWST/census.log" 2>/dev/null || echo 0)"
+p_run_world '{"hook_event_name":"Stop","session_id":"pd-empty"}' "$TMP/pd2.out" "$TMP/pd2.err"
+pd_log1="$(wc -l < "$PWST/census.log" 2>/dev/null || echo 0)"
+# Соседний сигнал мира (отказ предикатов) свёрнут своей строкой — предмет у него свой.
+if ! grep -qE 'предмета не было|осмотрено документов' "$TMP/pd2.err" && [ ! -s "$TMP/pd2.out" ]; then
+  pd_ok "тот же пустой предмет вторым ходом — молчание"
+else
+  pd_bad "повтор пустого предмета печатается"; head -c 300 "$TMP/pd2.err" | sed 's/^/      /'
+fi
+if [ "$pd_log1" -gt "$pd_log0" ]; then
+  pd_ok "перепись молчаливого хода ушла в журнал ($pd_log0 → $pd_log1 строк)"
+else
+  pd_bad "молчаливый ход не оставил переписи в журнале ($pd_log0 → $pd_log1)"
+fi
+p_run_world '{"hook_event_name":"Stop","session_id":"pd-empty-2"}' "$TMP/pd3.out" "$TMP/pd3.err"
+if grep -q 'предмета не было' "$TMP/pd3.err"; then
+  pd_ok "новая сессия — отпечатка нет, печать полная"
+else
+  pd_bad "новая сессия унаследовала «уже сказано»"
+fi
+# Находка: настоящее дерево, базовая линия поставлена, инъекция — после неё.
+if absent_path "$DEAD_BOTH"; then
+  PDD="$TMP/pddocs"; PDS="$TMP/pdstate"; mkdir -p "$PDD" "$PDS"
+  warm_turn_baseline "$PDD" "$PDS"
+  pd_stop() { # pd_stop <документы хода через пробел> <out> <err>
+    local d; : > "$PDS/turn.jsonl"
+    for d in $1; do printf '{"p":"%s","t":1}\n' "$d" >> "$PDS/turn.jsonl"; done
+    printf '{"hook_event_name":"Stop","session_id":"pd-find"}' \
+      | DOCFRESH_DOC_ROOT="$PDD" DOCFRESH_STATE="$PDS" bash "$HOOK" >"$2" 2>"$3"
+  }
+  printf 'Копии генерируются `%s`.\n' "$DEAD_BOTH" > "$PDD/pd1.md"
+  pd_stop pd1.md "$TMP/pf1.out" "$TMP/pf1.err"
+  if grep -q 'additionalContext' "$TMP/pf1.out" && grep -qF -- "$DEAD_BOTH" "$TMP/pf1.err"; then
+    pd_ok "(+) находка первым ходом — полное тело и впрыск"
+  else
+    pd_bad "(+) находка первым ходом не дошла"; head -c 300 "$TMP/pf1.err" | sed 's/^/      /'
+  fi
+  pd_stop pd1.md "$TMP/pf2.out" "$TMP/pf2.err"
+  if grep -q 'без изменений с' "$TMP/pf2.err" && ! grep -qF -- "$DEAD_BOTH" "$TMP/pf2.err"; then
+    pd_ok "(−) та же находка вторым ходом — одна строка «без изменений»"
+  else
+    pd_bad "(−) повтор той же находки печатается полностью"; head -c 300 "$TMP/pf2.err" | sed 's/^/      /'
+  fi
+  if [ ! -s "$TMP/pf2.out" ]; then
+    pd_ok "(−) повтор не впрыскивается — петли «ход → впрыск → ход» нет"
+  else
+    pd_bad "(−) повтор отдан каналом additionalContext"
+  fi
+  printf 'Гейт держит `%s`.\n' "$DEAD_BOTH" > "$PDD/pd2.md"
+  pd_stop "pd1.md pd2.md" "$TMP/pf3.out" "$TMP/pf3.err"
+  if grep -q 'additionalContext' "$TMP/pf3.out" && grep -qF 'pd2.md' "$TMP/pf3.err"; then
+    pd_ok "(+) новая находка после повтора — снова полное тело и впрыск"
+  else
+    pd_bad "(+) новая находка свёрнута как повтор"; head -c 300 "$TMP/pf3.err" | sed 's/^/      /'
+  fi
+  rm -f "$PDD/pd1.md" "$PDD/pd2.md"
+else
+  notrun "'$DEAD_BOTH' появился в дереве — вход (+) пробы P' больше не настоящий"
 fi
 
 echo
