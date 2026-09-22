@@ -19,6 +19,9 @@
 # Без первой половины правка знаменателя была бы переносом утверждения, а не его
 # доказательством.
 #
+# Итог — КОММИТ СЛИЯНИЯ (вливание без схлопывания, ws#770), база — его первый
+# родитель `HEAD^1`: ствол после посадки уже содержит полосу (проба H).
+#
 # ТРИ ИСХОДА: 0 — доказано в обе стороны; 1 — проба не дала ожидаемого; 2 — без
 # предмета (нет git либо фикстура не собралась).
 set -uo pipefail
@@ -100,16 +103,16 @@ predicted="$(cd "$d" && bash "$SUBJECT" --predict main work 2>&1)"
 probe 0 "A0 предсказание ДО слияния: дерево посчитано, не исполняя слияние" \
     "$predicted" "$?" "предсказанное дерево слияния" "СРОК ГОДНОСТИ"
 git -C "$d" checkout -q main
-git -C "$d" merge -q --squash work >/dev/null 2>&1
-git -C "$d" commit -q -m "схлопнуто из work" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
-probe 0 "A честное схлопывание — сохранено" "$out" "$rc" "СОХРАНЕНО"
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+probe 0 "A честное слияние — сохранено" "$out" "$rc" "СОХРАНЕНО"
 say "old_form_is_silent '$d' '$head_sha'" "A-контроль: старая форма на честном слиянии тоже молчит — расхождения нет"
 probes=$((probes + 1))
 if [[ "$out" == *"равно предсказанному"* ]]; then
     echo "[PASS] A-ось1: дерево итога совпало с предсказанным ДО слияния — постусловие проверено заранее"
 else
-    failed=$((failed + 1)); echo "[FAIL] A-ось1: предсказанное дерево не совпало с итогом честного схлопывания" >&2
+    failed=$((failed + 1)); echo "[FAIL] A-ось1: предсказанное дерево не совпало с итогом честного слияния" >&2
     printf '%s\n' "$out" | sed 's/^/    | /' >&2
 fi
 
@@ -117,11 +120,11 @@ fi
 d="$(fixture b)" || { echo "[VOID] фикстура b не собралась" >&2; exit 2; }
 head_sha="$(git -C "$d" rev-parse work)"
 git -C "$d" checkout -q main
-git -C "$d" merge -q --squash work >/dev/null 2>&1
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
 # Разрешение «в пользу ствола» по одному файлу: хвост доехал, существо — нет.
 git -C "$d" checkout -q main -- essence.txt
-git -C "$d" commit -q -m "схлопнуто из work (существо потеряно)" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+git -C "$d" commit -q -m "слияние work (существо потеряно)" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 1 "B потеря существа — краснеет и называет путь и строку" \
     "$out" "$rc" "ПОТЕРЯ" "essence.txt" "полоса: существо A1"
 say "old_form_is_silent '$d' '$head_sha'" \
@@ -142,9 +145,9 @@ git -C "$d" checkout -q main
 printf 'соседняя полоса: своя строка 1\nсоседняя полоса: своя строка 2\n%s\n' "$(cat "$d/essence.txt")" > "$d/essence.txt.new"
 mv "$d/essence.txt.new" "$d/essence.txt"
 git -C "$d" commit -q -am "соседняя полоса пишет в тот же файл" >/dev/null 2>&1
-git -C "$d" merge -q --squash work >/dev/null 2>&1
-git -C "$d" commit -q -m "схлопнуто из work поверх соседней полосы" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work поверх соседней полосы" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 0 "C близнец: непустое расхождение от соседней полосы — НЕ находка" \
     "$out" "$rc" "СОХРАНЕНО" "это ПЕРЕПИСЬ, не вердикт"
 probes=$((probes + 1))
@@ -162,10 +165,10 @@ sed -i '/ствол: строка 2/d' "$d/essence.txt"
 git -C "$d" commit -q -am "c4: полоса снимает строку ствола" >/dev/null 2>&1
 head_sha="$(git -C "$d" rev-parse work)"
 git -C "$d" checkout -q main
-git -C "$d" merge -q --squash work >/dev/null 2>&1
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
 git -C "$d" checkout -q main -- essence.txt     # снятие не доехало
-git -C "$d" commit -q -m "схлопнуто из work (снятие потеряно)" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+git -C "$d" commit -q -m "слияние work (снятие потеряно)" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 1 "D вторая половина оси 2: снятая полосой строка уцелела — находка" \
     "$out" "$rc" "ПОТЕРЯ" "уцелела"
 
@@ -173,11 +176,11 @@ probe 1 "D вторая половина оси 2: снятая полосой �
 d="$(fixture e)" || { echo "[VOID] фикстура e не собралась" >&2; exit 2; }
 head_sha="$(git -C "$d" rev-parse work)"
 git -C "$d" checkout -q main
-git -C "$d" merge -q --squash work >/dev/null 2>&1
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
 git -C "$d" rm -q --cached essence.txt >/dev/null 2>&1
 rm -f "$d/essence.txt"
-git -C "$d" commit -q -m "схлопнуто из work (файл существа не доехал)" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+git -C "$d" commit -q -m "слияние work (файл существа не доехал)" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 1 "E файл существа отсутствует в итоге — находка с путём" \
     "$out" "$rc" "ПОТЕРЯ" "essence.txt"
 
@@ -191,14 +194,34 @@ probe 2 "F предпосылка: полоса не трогает путей �
 d="$(fixture g)" || { echo "[VOID] фикстура g не собралась" >&2; exit 2; }
 head_sha="$(git -C "$d" rev-parse work)"
 git -C "$d" checkout -q main
-git -C "$d" merge -q --squash work >/dev/null 2>&1
-git -C "$d" commit -q -m "схлопнуто из work" >/dev/null 2>&1
-out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 0 "G перепись: названы пути полосы, пути головного коммита и разница между ними" \
     "$out" "$rc" "путей 2; головной коммит трогает 1" "не смотрел бы на 1 путей полосы"
 
+# ── H. БАЗА УЖЕ СОДЕРЖИТ ПОЛОСУ: слияние состоялось, база названа после него ──
+# Вливание — коммитом слияния (#770), поэтому ствол ПОСЛЕ посадки содержит голову
+# полосы, и merge-base с ней равен самой голове: знаменатель пуст. Это не «полоса
+# не трогает путей», а неверно названная база — отказ обязан сказать именно это и
+# назвать базу до слияния.
+d="$(fixture h)" || { echo "[VOID] фикстура h не собралась" >&2; exit 2; }
+head_sha="$(git -C "$d" rev-parse work)"
+git -C "$d" checkout -q main
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" commit -q -m "слияние work" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" main "$head_sha" HEAD 2>&1)"; rc=$?
+probe 2 "H база после слияния уже содержит полосу — без предмета с названной причиной" \
+    "$out" "$rc" "БЕЗ ПРЕДМЕТА" "уже содержит голову полосы" "^1"
+probes=$((probes + 1))
+if [[ "$out" == *"не трогает НИ ОДНОГО пути"* ]]; then
+    failed=$((failed + 1)); echo "[FAIL] H-контроль: отказ называет полосу пустой, а она трогает пути" >&2
+else
+    echo "[PASS] H-контроль: полоса не объявлена пустой — причина названа верно"
+fi
+
 echo
-echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано 7, у каждой полоса из трёх коммитов (существо — не в головном)"
+echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано 8, у каждой полоса из трёх коммитов (существо — не в головном)"
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] ни одной пробы не исполнено" >&2
     exit 2
