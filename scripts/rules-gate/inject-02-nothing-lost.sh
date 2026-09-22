@@ -45,7 +45,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "       в рабочее дерево. Запускать: bash scripts/rules-gate/inject.sh" >&2
     exit 2
 fi
-for _inj_fn in sandbox capture assert_code assert_says assert_lacks assert_fixture_changed sandbox_digest; do
+for _inj_fn in sandbox capture assert_code assert_says assert_number assert_lacks assert_fixture_changed sandbox_digest; do
     command -v "$_inj_fn" >/dev/null 2>&1 && continue
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: функция" \
          "«$_inj_fn» не определена; часть подключена не оттуда, доказывать нечем" >&2
@@ -167,7 +167,7 @@ for form in "./.claude/rules" ".claude//rules" ".claude/./rules" ".claude/agents
     assert_says "ПРАВИЛО В АВТОЗАГРУЗКЕ" "  ...и названа ТА ось, а не «в середине предложения»"
     assert_says "@$form/$corpus_rule" "  ...и координата названа ТАК, КАК НАПИСАНА в файле"
     assert_says "«.claude/rules/$corpus_rule»" "  ...и рядом названа приведённая цель"
-    assert_says "осмотрено файлов $inj02_closure" "  ...и гейт НЕ спустился в корпус по этой ссылке"
+    assert_number "осмотрено файлов" "$inj02_closure" "  ...и гейт НЕ спустился в корпус по этой ссылке"
 done
 
 # Законный близнец у каждой формы: та же строка в обратных кавычках. Без него
@@ -203,7 +203,7 @@ printf '@docs/extra.md\n' >> "$d/CLAUDE.md"
 capture "$d" "$C2N"
 assert_code 1 "ДЕФЕКТ: правило импортировано через промежуточный файл"
 assert_says "ПРАВИЛО В АВТОЗАГРУЗКЕ: docs/extra.md" "  ...и координата — ФАЙЛ, где импорт живёт"
-assert_says "рёбер замыкания за пределы CLAUDE.md 1" "  ...и перепись назвала ребро наружу"
+assert_number "рёбер замыкания за пределы CLAUDE.md" 1 "  ...и перепись назвала ребро наружу"
 
 d="$(sandbox h_home)"
 mkdir -p "$d/docs"
@@ -451,7 +451,7 @@ med="$(inj02_median "$d" "$DISP")"
 inj02_append_bytes "$d/$DISP" "$((med + 1))"
 capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$WS" "$DISP" MEDIAN)"
 assert_code 1 "ДЕФЕКТ: абзац плюс ОДИН байт — потолок перейден"
-assert_says "перебор 1 Б" "  ...и перебор назван ЧИСЛОМ: барьер стоит там, где измерено"
+assert_number "перебор" 1 "  ...и перебор назван ЧИСЛОМ: барьер стоит там, где измерено"
 
 # ── ось L: перепись называет ОСМОТРЕННОЕ, а не только прочитанное ───────────
 #
