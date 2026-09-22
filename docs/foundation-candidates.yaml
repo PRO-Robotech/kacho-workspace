@@ -60,7 +60,7 @@ ceiling:
   # же пакет). Объявленное число было неверно на единицу; правится оно, а не
   # замер.
   actionable: 2
-  measured: "kacho@bec320cf47d · kaname@cbbac984 · corelib@34bc810 · воркспейс@abbe3c0c"
+  measured: "kacho@bec320cf47d · kaname@cbbac984 · corelib@34bc810 · воркспейс@ee0055db"
   predicate: "RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 J=0.70 python3 scripts/foundation-candidates/list-candidates.py"
 
 # ПУСТАЯ ВЕДОМОСТЬ — ЦЕЛЬ, А НЕ ОТКАЗ. Сегодня очередь пуста ПО ПОСТРОЕНИЮ:
