@@ -5,14 +5,20 @@
 # приёмки и замысла изменение не несёт — их отсутствие ЗАЯВЛЕНО предикатами.
 #
 # Форма ключей — по образцу `docs/changes/issue-2713/change.yaml`.
+#
+# Редакция 2 (2026-09-22): голова линии сменилась 0e0a85f936e → 945b851ed52
+# (4 коммита, 3 пути: values.own.yaml, outcome-contract-inject.sh,
+# configuration.mdx). Всё ниже перемерено на новой голове; прежние значения
+# не переносились.
 schema_version: 1
 change_id: wave-identity-own-w0
 lifecycle_state: IMPLEMENTING
 
-# ПОЧЕМУ IMPLEMENTING. Реализация сведена в одну голову, но записей пост-дифф
-# ролей на отпечаток сведённого содержимого на момент замера нет (пишутся
-# параллельно), конечной записи контура нет — её выпускает
-# `convergence-reviewer` после автора этого файла.
+# ПОЧЕМУ IMPLEMENTING. На ТЕКУЩИЙ отпечаток лежит одна запись пост-дифф ролей
+# из двух применимых (system-design-reviewer); у go-style-reviewer записи на
+# текущем отпечатке нет — роль в этот заход не вызывалась, её прежняя запись
+# стоит на прежнем отпечатке (координаты в `holders.yaml`). Конечной записи
+# контура нет — её выпускает `convergence-reviewer` после автора этого файла.
 
 # --- Координаты ------------------------------------------------------------
 coordinates:
@@ -29,29 +35,38 @@ coordinates:
       role: subject-tree
       branch: wave/identity-own-w0-kacho
       base_sha: bec320cf47d668173bf27f60ebaf6cbe413a4903
-      head_sha: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
-      commits_in_line: 79                  # git rev-list --count bec320cf47d..0e0a85f936e
-      files_in_line: 65                    # git diff --name-only bec320cf47d...0e0a85f936e | wc -l
-      shortstat: '65 files changed, 11158 insertions(+), 381 deletions(-)'
-      merge_base_equals_base: true         # git merge-base bec320cf47d 0e0a85f936e → bec320cf47d
+      head_sha: 945b851ed52e8e7a840f706015e8e088169ad032
+      previous_head_sha: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029   # git merge-base --is-ancestor 0e0a85f936e 945b851ed52 → 0
+      commits_in_line: 83                  # git rev-list --count bec320cf47d..945b851ed52
+      files_in_line: 66                    # git diff --name-only bec320cf47d...945b851ed52 | wc -l; второй предикат — git diff --numstat … | wc -l → 66
+      shortstat: '66 files changed, 11157 insertions(+), 382 deletions(-)'
+      merge_base_equals_base: true         # git merge-base bec320cf47d 945b851ed52 → bec320cf47d
       cutover_is_ancestor_of_base: true    # git merge-base --is-ancestor c2d57365… bec320cf47d → 0
-      trunk_sha_at_measurement: bec320cf47d668173bf27f60ebaf6cbe413a4903   # git rev-parse origin/main после fetch
-      pr_head_matches: true                # gh pr view 2787 → headRefOid 0e0a85f936e…, baseRefOid bec320cf47d…
+      trunk_sha_at_measurement: bec320cf47d668173bf27f60ebaf6cbe413a4903   # git ls-remote origin refs/heads/main после fetch
+      head_on_origin: true                 # git ls-remote origin refs/heads/wave/identity-own-w0-kacho → 945b851ed52…
+      pr_head_matches: true                # gh pr view 2787 → headRefOid 945b851ed52…, baseRefOid bec320cf47d…, OPEN
 
 # --- Отпечатки -------------------------------------------------------------
 #
-# Перемерены автором этого файла своей командой 2026-09-22; рабочая копия
-# продукта чистая (`git status --porcelain | wc -l` → 0).
+# Перемерены автором этого файла своей командой 2026-09-22 на 945b851ed52;
+# рабочая копия продукта чистая (`git status --porcelain | wc -l` → 0).
 hashes:
-  # Совпал в обеих формах — двух- и трёхточечной: база есть общий предок головы.
-  content_digest_sha256: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
+  # Снят дважды, оба раза равен объявленному в задании; совпал в обеих формах —
+  # двух- и трёхточечной: база есть общий предок головы. Прежний отпечаток той
+  # же командой на 0e0a85f936e воспроизведён: 707b05a4…1366.
+  content_digest_sha256: c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77
   content_digest_predicate: >-
-    git diff bec320cf47d668173bf27f60ebaf6cbe413a4903...0e0a85f936e173ad6a13349fa01c3ca8eb72c029 | sha256sum
+    git diff bec320cf47d668173bf27f60ebaf6cbe413a4903...945b851ed52e8e7a840f706015e8e088169ad032 | sha256sum
+  previous_content_digest_sha256: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
 
   # Единица «repo · path · mode · blob», по строке на путь, поля через табуляцию,
-  # строки LC_ALL=C. Предикат — тот же, что в issue-2713. 65 строк: 24 A, 41 M,
-  # удалений и переименований нет; режимы — 58 × 100644, 7 × 100755.
-  canonical_diff_set_sha256: b37e0ffbc458d53da033f85cc5da3faa18b27db2cf81534b0000fb5ead71f251
+  # строки LC_ALL=C. Предикат — тот же, что в issue-2713. 66 строк: 24 A, 42 M,
+  # удалений и переименований нет; режимы — 58 × 100644, 8 × 100755. Против
+  # прежней головы: сменился blob у 2 путей (values.own.yaml, configuration.mdx),
+  # добавился 1 путь (deploy/tests/helm/outcome-contract-inject.sh, M к базе,
+  # 100755). Прежний набор на 0e0a85f936e тем же предикатом воспроизведён:
+  # b37e0ffb…f251.
+  canonical_diff_set_sha256: c687b2567397fa709f996a73318d65ffd55cf7a6d166bcf98ecabacb107caebf
   canonical_diff_set_predicate: >-
     git diff --raw --no-abbrev <base>...<head>
     | awk -F'\t' '{split($1,a," "); print "PRO-Robotech/kacho\t" $2 "\t" a[2] "\t" a[4]}'
@@ -59,14 +74,14 @@ hashes:
   canonical_diff_set_survives_collapse: true
   canonical_diff_set_collapse_check: >-
     перемерено на сухом слиянии с ТЕКУЩИМ стволом: `git merge-tree --write-tree
-    bec320cf47d 0e0a85f936e` → код 0, дерево
-    1f97129b41f541b0ef801573d06868826875f2ae, равное дереву головы; тот же
-    предикат над `git diff --raw --no-abbrev bec320cf47d 1f97129b41f` даёт
+    bec320cf47d 945b851ed52` → код 0, дерево
+    26eb68301c920f7a575e3ddd64ffe27aa2ee203f, равное дереву головы; тот же
+    предикат над `git diff --raw --no-abbrev bec320cf47d 26eb68301c9` даёт
     тот же sha256. Ствол вперёд не ушёл (trunk = base), поэтому проверка
     подтверждает лишь отсутствие конфликта на текущем стволе, а не
     независимость от будущей базы.
 
-  holders_sha256: 43b0e1df40a56ff1acd88319ed15c9b756150e97acdbea1a8cd8a3146c9148e4
+  holders_sha256: 769d6467a88b54a0705cce40848bc67fd74553f6178d78e6a62b6d350e419826
 
   acceptance_sha256: null
   acceptance_absence_predicate: no-acceptance-document-in-change
@@ -83,22 +98,54 @@ links:
 
 # --- Записи ревью по ТЕКУЩЕМУ отпечатку ------------------------------------
 #
-# На момент замера — НИ ОДНОЙ. Ожидаемые координаты двух записей, которые
-# пишутся параллельно, названы в `holders.yaml` (record_on_current_digest);
-# вердикт здесь не записан и не предполагается.
-post_diff_records: []
+# Перечислены только записи на c5ae0889…. Прежние записи на 707b05a4… (обе
+# роли) текущий отпечаток не судят и сюда не переносятся; их координаты и то,
+# почему у go-style-reviewer записи на текущем отпечатке нет, — в
+# `holders.yaml`.
+#
+# Запись НЕ лежит в пакете: она на ветке роли (копия tmp/review-wave0-post-diff-sd),
+# и её коммит на origin НЕ опубликован (`git ls-remote origin
+# refs/heads/review/wave0-post-diff-sd` → f286d52d, запись в 5c2fb80b).
+#
+# Полномочие подтверждено АВТОРОМ ЭТОГО ФАЙЛА независимым запросом к API, а не
+# прочтением записи: тело комментария получено заново (`gh api
+# repos/PRO-Robotech/kacho/issues/comments/5773921910`), sha256 сырого значения
+# поля body снят той же формой, что воспроизводит a8217338… пакета issue-2713;
+# actor совпал с allowlist роли в policy.yaml (`system-design-reviewer: [pointpu]`).
+post_diff_records:
+  - role: system-design-reviewer
+    path: >-
+      docs/changes/wave-identity-own-w0/reviews/post-diff/system-design-reviewer/c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77.yaml
+    repo: PRO-Robotech/kacho-workspace
+    branch: review/wave0-post-diff-sd
+    commit: 5c2fb80bdd4545f3b83e2a4c6ef890925cc83877
+    file_blob: c826bc2442ead9edbd2cb57b5be7440bb9235684
+    file_sha256: f5f37613c06ae7f6589fba77a17d9a3ca1631a28538741515d302ab8aaef4a02
+    commit_on_origin: false
+    round: 2
+    supersedes_record: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
+    verdict: accepted            # поле `verdict: ✅ принято`, запись :48
+    blocks_landing: false        # запись :49
+    distributed_surface: true    # запись :51
+    event_url: https://github.com/PRO-Robotech/kacho/pull/2787#issuecomment-5773921910
+    event_actor: pointpu
+    event_body_sha256: ad4de43f5f6c24371c4c99afdbe5775030736d9684e6b99ef7de5cb8d86726f6
+    event_names_digest: true     # тело называет путь записи и digest c5ae0889…
+    reverified_by_package_author: true
 
 # --- Заявленное множество путей реализации ---------------------------------
 #
 # ТОЧНОЕ множество, сличаемое с фактическим по паре «путь + содержимое»; порядок
 # — LC_ALL=C по пути. Расхождение между этим перечнем и
-# `canonical_diff_set_sha256` — находка, а не разночтение записи.
+# `canonical_diff_set_sha256` — находка, а не разночтение записи. Перечень
+# выведен из `git diff --raw --no-abbrev bec320cf47d...945b851ed52`; собранный
+# обратно из перечня набор даёт тот же c687b256….
 implementation_diff_set:
   - { repo: PRO-Robotech/kacho, path: deploy/Makefile, mode: '100644', blob: afbac3d84784afcc77fcf1aacd1ba44f37a420da, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/cutover-fe3455.sh, mode: '100755', blob: 44a935bfc1df9abd64afff59194aabd416872ee7, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.dev.yaml, mode: '100644', blob: ce4d8e761692e3446657bf5dd831b1960cb35d8a, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.own-stand.yaml, mode: '100644', blob: 3ed88e9f58401ad8dce58d4a4276ae45e27188eb, change: A }
-  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.own.yaml, mode: '100644', blob: 47008ffb5aef17b5b6272d7547c541e8905814f6, change: M }
+  - { repo: PRO-Robotech/kacho, path: deploy/helm/umbrella/values.own.yaml, mode: '100644', blob: ca4ceb5aaf260c2789b6fc4ea774ad01b6e343b8, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/identity_flow_path_is_served_injection_test.go, mode: '100644', blob: d9fe550c49872909a5ce89dd22a03235aaedcbee, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/identity_flow_path_is_served_test.go, mode: '100644', blob: 8f241cd8a2158a8b7e737c22869d28dea606d9a4, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/scripts/dev-prod-secrets.sh, mode: '100755', blob: 8ca8f9270cff57f7c043088ac02d12afbe550030, change: M }
@@ -106,6 +153,7 @@ implementation_diff_set:
   - { repo: PRO-Robotech/kacho, path: deploy/scripts/stack-secrets.sh, mode: '100755', blob: 3eb87a525eb5be66fd6f836e7bcf23dc930940bb, change: A }
   - { repo: PRO-Robotech/kacho, path: deploy/stacks.txt, mode: '100644', blob: c138c9d05752fb154eba1c6a7e7a25b044a73063, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/console-serves-identity-flows-test.sh, mode: '100755', blob: 7240c3e59a8586c0dd5c77d3fa52f0cbf4daa7bc, change: A }
+  - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/outcome-contract-inject.sh, mode: '100755', blob: b9f0f2e9113fcfda0bdfd873ff62cc52a2f84858, change: M }
   - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/outcome-library-speaks-test.sh, mode: '100755', blob: 04df274068c8d9272614b87e4f20e94552462fb5, change: A }
   - { repo: PRO-Robotech/kacho, path: deploy/tests/helm/outcome.sh, mode: '100755', blob: 0b44a8a00a8f7c2aa097bd2ddc62aa1bc73b1a67, change: M }
   - { repo: PRO-Robotech/kacho, path: gateway/cmd/api-gateway/docs_example_carrier_pair_test.go, mode: '100644', blob: ec2e68001b581e747e62febacba95980faefb2d3, change: A }
@@ -120,7 +168,7 @@ implementation_diff_set:
   - { repo: PRO-Robotech/kacho, path: gateway/deploy/session_carrier_knobs_test.go, mode: '100644', blob: a3d4d50467915835b1cfcb79435b435552b895d0, change: A }
   - { repo: PRO-Robotech/kacho, path: gateway/deploy/templates/deployment.yaml, mode: '100644', blob: dbd150a860c5f528b8a360aab00add8ff6f5bc4e, change: M }
   - { repo: PRO-Robotech/kacho, path: gateway/deploy/values.yaml, mode: '100644', blob: 15d4029c1248e93cbdb5219b722f9edabee83c70, change: M }
-  - { repo: PRO-Robotech/kacho, path: gateway/docs/content/install/configuration.mdx, mode: '100644', blob: 399e9b325a14e8f48a0ae42c27ed331be9308702, change: M }
+  - { repo: PRO-Robotech/kacho, path: gateway/docs/content/install/configuration.mdx, mode: '100644', blob: 5debe47d93a823bc84393726c5f808d1dc3f9363, change: M }
   - { repo: PRO-Robotech/kacho, path: gateway/internal/config/config.go, mode: '100644', blob: ddca50563f1b56ea589ab9932e56109862898d40, change: M }
   - { repo: PRO-Robotech/kacho, path: gateway/internal/config/session_carriers_test.go, mode: '100644', blob: 00055d65a0c9d43d3389a390f0bae2d5057516f4, change: A }
   - { repo: PRO-Robotech/kacho, path: gateway/internal/config/sessioncarriers.go, mode: '100644', blob: 0c72a214c67ca49f35ec50108ab4b080a7f80092, change: A }
