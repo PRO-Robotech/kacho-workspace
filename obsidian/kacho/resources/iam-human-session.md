@@ -85,6 +85,13 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 ## See also
 
 [[rpc/iam-login-lane]] · [[resources/iam-session-revocation]] · [[resources/iam-recovery-code]] ·
-[[KAC/issue-1269]] · [[KAC/issue-1280]]
+[[KAC/issue-1269]] · [[KAC/issue-1280]] · [[rpc/iam-internal-human-session-service]] ·
+[[packages/apigw-clients]]
+
+## History
+
+- 2026-09-22 — заведены ссылки на записку внутреннего глагола `Resolve` и на переходник края,
+  который его зовёт. Повод: возврат полосы края назвал `InternalHumanSessionService.Resolve`
+  затронутым RPC. Состав колонок и контракт не правились.
 
 #resource #kacho-iam #iam #internal #migrations

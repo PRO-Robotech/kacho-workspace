@@ -70,6 +70,7 @@ tags:
 | [[resources/iam-service-account-oauth-client\|ServiceAccountOAuthClient]] | в работе (planned) |
 | [[resources/iam-service-account\|ServiceAccount]] | живо (done) |
 | [[resources/iam-session-revocation\|SessionRevocation]] | в работе (planned) |
+| [[resources/iam-user-access-key\|iam.user.accessKey — ключ доступа человека и рукоятка его церемонии]] | в работе (test) |
 | [[resources/iam-user-login-methods\|user_login_methods]] | живо (done) |
 | [[resources/iam-user\|User]] | живо (done) |
 
@@ -169,9 +170,11 @@ tags:
 | [[rpc/iam-group-service\|GroupService]] | в работе (planned) |
 | [[rpc/iam-internal-authorize-service\|InternalAuthorizeService]] | в работе (planned) |
 | [[rpc/iam-internal-cluster-service\|InternalClusterService]] | живо (done) |
+| [[rpc/iam-internal-human-session-service\|InternalHumanSessionService]] | живо (stable) |
 | [[rpc/iam-internal-iam-service\|InternalIAMService]] | в работе (planned) |
 | [[rpc/iam-internal-limit-service\|InternalLimitService]] | живо (done) |
 | [[rpc/iam-internal-operations-service\|InternalOperationsService]] | живо (done) |
+| [[rpc/iam-internal-session-revocations-service\|InternalSessionRevocationsService]] | живо (stable) |
 | [[rpc/iam-internal-user-service\|InternalUserService]] | в работе (planned) |
 | [[rpc/iam-login-lane\|Полоса формы входа и регистрации (kaname)]] | в работе (test) |
 | [[rpc/iam-membership-service\|MembershipService]] | в работе (test) |
@@ -283,6 +286,13 @@ tags:
 |---|---|
 | [[edges/iam-to-scim-google\|iam ← google-workspace: inbound SCIM 2.0]] | история (deprecated) |
 
+**вызывающий: kacho**
+
+| Записка | Состояние |
+|---|---|
+| [[edges/kacho-to-corelib-module-pin\|kacho → corelib: ребро сборки, взятое пином модуля]] | живо (stable) |
+| [[edges/kacho-to-kaname-module-pin\|kacho → kaname: контракт службы доступа, взятый пином модуля]] | живо (stable) |
+
 **вызывающий: kacho-api-gateway**
 
 | Записка | Состояние |
@@ -315,6 +325,7 @@ tags:
 | Записка | Состояние |
 |---|---|
 | [[edges/kube-ovn-to-bgp-fabric\|kube-ovn-speaker → BGP route-reflector (data-plane маршрут-анонс)]] | история (deprecated) |
+| [[edges/ui-future-deploy-to-umbrella\|ui-future/deploy → deploy/helm/umbrella: консоль подчартом по file://]] | живо (stable) |
 
 **вызывающий: kacho-geo**
 
@@ -462,6 +473,7 @@ tags:
 | [[packages/api-gateway-middleware-authz\|api-gateway-middleware-authz]] | живо (stable) |
 | [[packages/api-gateway-middleware-dpop\|api-gateway-middleware-dpop]] | живо (stable) |
 | [[packages/apigw-allowlist\|apigw-allowlist]] | живо (stable) |
+| [[packages/apigw-clients\|gateway/internal/clients — переходники края к внутренним соседям]] | живо (stable) |
 | [[packages/apigw-cmd\|apigw-cmd]] | живо (stable) |
 | [[packages/apigw-config\|apigw-config]] | живо (stable) |
 | [[packages/apigw-health\|apigw-health]] | живо (stable) |
@@ -505,6 +517,12 @@ tags:
 | [[packages/corelib-subscription\|corelib-subscription]] | живо (stable) |
 | [[packages/corelib-validate\|corelib-validate]] | живо (stable) |
 
+**домен: kacho-deploy**
+
+| Записка | Состояние |
+|---|---|
+| [[packages/kacho-deploy-tests-helm\|deploy/tests/helm — рендерные гейты зонта и их общая библиотека исхода]] | живо (stable) |
+
 **домен: kacho-geo**
 
 | Записка | Состояние |
@@ -526,6 +544,7 @@ tags:
 | [[packages/iam-repo-kacho-pg\|iam internal/repo/kacho/pg]] | живо (done) |
 | [[packages/iam-seed\|iam internal/apps/kacho/seed]] | живо (done) |
 | [[packages/iam-tests-newman-scripts\|tests/newman/scripts (kacho-iam)]] | живо (stable) |
+| [[packages/kaname-access-keys\|internal/apps/kaname/api/access_keys — полоса ключей доступа]] | в работе (test) |
 | [[packages/nlb-permissions-catalog\|kacho-nlb permissions catalog]] | живо (stable) |
 
 **домен: kacho-nlb**
@@ -1202,6 +1221,7 @@ tags:
 | [[KAC/issue-232\|#232: список групп целей nlb не заполнял targets]] | в работе (test) |
 | [[KAC/issue-2355\|#2355: переезд состояния сторожится у одного типа провайдера из девяти]] | в работе (in-progress) |
 | [[KAC/issue-239\|#239: правки консоли по находкам владельца — волна 2026-08-12]] | в работе (test) |
+| [[KAC/issue-24-corelib\|corelib#24: переходник хука отправки фундамента fail-open — заводится вместе с хуком]] | в работе (to-do) |
 | [[KAC/issue-240\|issue-240 — перепись веток принимает отставание за расщеплённую работу]] | живо (done) |
 | [[KAC/issue-2407\|#2407: ствол выносимого продукта требует семь контекстов из семи производимых]] | живо (done) |
 | [[KAC/issue-241\|issue-241 — ветки: влитая локальная ветка не снимается и не видна]] | живо (done) |
@@ -1221,6 +1241,12 @@ tags:
 | [[KAC/issue-2697\|kacho#2697: сессию восстановления с требованием сменить пароль не выдаёт ни один глагол]] | в работе (in-progress) |
 | [[KAC/issue-2699\|kacho#2699: край ретранслирует регистрацию, профили несут её величины (Ф4)]] | в работе (test) |
 | [[KAC/issue-2701\|kacho#2701: край ретранслирует восстановление доступа, профили несут срок кода (Ф5)]] | в работе (test) |
+| [[KAC/issue-2777\|kacho#2777: чужая консоль личности разворачивается и на посадке own]] | в работе (to-do) |
+| [[KAC/issue-2778\|kacho#2778: живой гейт требует четырёх эмиссий снятого поставщика]] | в работе (to-do) |
+| [[KAC/issue-2779\|kacho#2779: переходник хука отправки платформы fail-open — семейство v1]] | в работе (to-do) |
+| [[KAC/issue-2780\|kacho#2780: церемонию входа консоли не проверяет ни одна браузерная проба]] | в работе (to-do) |
+| [[KAC/issue-2781\|kacho#2781: признак 2 гейта раздачи не держит ни одного случая]] | в работе (to-do) |
+| [[KAC/issue-2782\|kacho#2782: outcome.sh зовёт свойство дерева условием прогона]] | в работе (to-do) |
 | [[KAC/issue-282\|#282: триггеры конвейера воркспейса сужены по ветке — правило стало верным]] | в работе (test) |
 | [[KAC/issue-285\|#285: версию генератора контракта выбирал PATH, а не дерево]] | в работе (test) |
 | [[KAC/issue-287\|#287: перепись читала машинно собираемый файл как расщеплённую работу]] | живо (done) |
@@ -1235,7 +1261,11 @@ tags:
 | [[KAC/issue-306\|#306: обязательный локальный прогон держался вниманием — цели установки хука не существовало]] | в работе (test) |
 | [[KAC/issue-307\|#307: шаг сквозной пробы, захватывающий переменную, не утверждал исход]] | в работе (test) |
 | [[KAC/issue-329\|#329: отказ хука читается как «не выполнилось», а не как расхождение]] | в работе (test) |
+| [[KAC/issue-349-kaname\|kaname#349: хук отправки службы доступа и переходник, который отказывает]] | в работе (in-progress) |
+| [[KAC/issue-351-kaname\|kaname#351: контракт и страница называют рукоятку платформенным id человека]] | в работе (to-do) |
+| [[KAC/issue-352-kaname\|kaname#352: три отчёта-замера просрочены новой миграцией, две пробы красны]] | в работе (to-do) |
 | [[KAC/issue-352\|issue-352 — compute: предел числа машин не назначается ни одному проекту]] | в работе (in-progress) |
+| [[KAC/issue-353-kaname\|kaname#353: шапка приёмки Ф13 противоречит действующему вердикту]] | в работе (to-do) |
 | [[KAC/issue-357\|#357: порядок внутри стадии S3 приёмки IAM-ID-1 был неисполним]] | история (superseded) |
 | [[KAC/issue-364-quota-console\|Витрина квот в консоли: арендатор видит предел, занято и источник (#364)]] | в работе (in-progress) |
 | [[KAC/issue-373-list-scope-honesty\|#373: ручка списка называет область, в которой судит]] | в работе (test) |
@@ -1338,6 +1368,9 @@ tags:
 | [[KAC/issue-745\|#745: стоимость одной операции против объёма налитой матрицы]] | в работе (test) |
 | [[KAC/issue-747-s5\|#747 S5: источник вердикта о доступе переключён на реляционную форму]] | в работе (test) |
 | [[KAC/issue-747\|#747 (R7-3): полный отказ от внешнего движка прав — решение вычисляется в своей базе]] | живо (done) |
+| [[KAC/issue-752-ws\|ws#752: перепись веток слепа к отдельным клонам — работа теряется молча]] | в работе (to-do) |
+| [[KAC/issue-753-ws\|ws#753: конвейер зовёт 6 наборов проверок из 9 — три не сработают]] | в работе (to-do) |
+| [[KAC/issue-754-ws\|ws#754: docs-gate несёт три проверки под номером check-03]] | в работе (to-do) |
 | [[KAC/issue-754\|#754: смена членства не снимала кеш вердиктов — и путь не работал ни для кого]] | в работе (test) |
 | [[KAC/issue-755\|#755: канал session_revoked снят — потребителя у него нет и построить его нельзя]] | в работе (test) |
 | [[KAC/issue-756\|#756: боевой профиль не выбирал посадку своих баз]] | в работе (test) |
