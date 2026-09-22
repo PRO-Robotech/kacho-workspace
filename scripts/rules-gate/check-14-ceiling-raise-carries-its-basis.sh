@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# check-10 — у каждого действующего потолка есть основание, и запас остался.
+# check-14 — у каждого действующего потолка есть основание, и запас остался.
+# Заведена номером 10; перенумерована 2026-09-22: номер 10 в этом наборе носят
+# проверки двух других веток origin.
 #
 # ПРЕДМЕТ. `BUDGET` в check-02 — числа; `ceiling-basis.txt` — основания. Число
 # производится одним местом, основание обязано меняться ВМЕСТЕ с ним. Проверка
@@ -29,7 +31,7 @@ exec python3 - "$WS" "$SELF_DIR/ceiling-basis.txt" "$SELF_DIR/check-02-nothing-l
 import os, re, sys
 
 ws, ledger_path, check02_path = sys.argv[1], sys.argv[2], sys.argv[3]
-NAME = "check-10-ceiling-raise-carries-its-basis"
+NAME = "check-14-ceiling-raise-carries-its-basis"
 
 
 def void(msg):
