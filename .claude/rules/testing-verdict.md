@@ -28,6 +28,7 @@ exhausted-run-is-third-category · считай прогон НЕДЕЙСТВИ�
 exhaustion-corrupts-inflight-git · после срыва сделай перепись: размер .git/index, git ls-files · wc -l против git ls-tree -r HEAD · red: эти команды | дерево выглядит исправным, неверен только граф
 local-runner-exit-code-3 · различай коды 0 / 1 / 3 (недействителен); исчерпание распознавай по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): `pgrep -x 'go|golangci-lint|compile|link' | wc -l` = 0 и место `df -h /`; занято — жди опросом раз в 60 с до 30 минут, «не выполнилось» — лишь по истечении, с последним выводом опроса · ЗАВЕСТИ busy-machine-step-zero · red: «не выполнилось: машина занята» без 30 минут опроса; тяжёлый прогон начат на занятой машине
 
 ## Кэш: сохраняй только на доказанно полном исходе
 
@@ -69,6 +70,8 @@ columns-by-name-not-position · проси поля по имени (-o jsonpath
 
 pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: прежние проверки висят красными после отправки починки
 delta-gate-asks-the-commit · спрашивай о коммите (origin/main...HEAD); закоммить, потом прогоняй · git diff --name-only --diff-filter=A origin/main...HEAD · red: пусто при непустом рабочем дереве
+pr-checks-are-task-verdict · вердикт задачи бери из проверок конвейера на её PR в ветку волны при headSha = голова; полного локального прогона задачи не жди (`testing.md#final-verification-before-merge`) · `gh pr checks <PR> --json name,state` · red: вердикт задачи взят локальным прогоном при открытом PR
+pr-without-checks-not-green · PR без проверок — не зелёный: триггера PR в базу нет — прогон запускается вручную (`git-issues.md#gi-pr-manual-dispatch`) · `gh run list --branch <ветка> --json headSha,conclusion` · red: «проверок 0» прочитано как «замечаний нет»
 
 ## Расхождение двух прогонов — разные предметы
 

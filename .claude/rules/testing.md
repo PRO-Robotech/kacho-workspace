@@ -62,7 +62,14 @@ product-bug-go-fix-not-tolerance · чини Go-фиксом с RED-lock, а н�
 per-service-fixture-isolation · держи свой account + home/cross проекты (setup.sh), scope через existingProjectId; shared-account только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
 run-idempotency-runid-suffix · вшей {{runId}} в имя, в том числе в max-len BVA · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: 409 AlreadyExists на повторном прогоне
 fixture-cleanup-mandatory · убирай за собой · TestSeededParentChildrenAreReclaimedBySuites; TestNestedReclaimGateRedsOnSeededParentLeak · red: пул растёт, list-контракты плывут
-final-verification-before-merge · прогони go test ./... -race + golangci-lint run + govulncheck + newman · scripts/ci-local.sh · red: merge без одного из четырёх
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер GitHub на PR задачи в ветку волны; локально гоняй только свои пакеты в цикле TDD; полный локальный прогон — сборка волны и непокрытое конвейером (решение владельца 2026-09-24) · `.github/workflows/ci.yaml` на PR; `scripts/ci-local.sh` на сборке · red: вливание без одного из четырёх; полный локальный прогон задачи при идущем конвейере PR
+
+## План опыта до кода (решение владельца 2026-09-24 «запиши в рулы новый подход»)
+
+exp-plan-before-code · полосе, чей предмет — проба, гейт, страж или инвариант безопасности, ДО реализации `check-verifier` даёт план опыта: инъекции (одно-фактный дефект → какая проба обязана покраснеть), законные близнецы, слепые зоны класса · ЗАВЕСТИ exp-plan-before-code · red: работа-проверка начата без плана; дефект впервые вносит приёмка
+exp-plan-self-run · сдавай, только прогнав весь план сам: исход по каждому пункту с командой · ЗАВЕСТИ exp-plan-self-run · red: сдача без исхода по пункту; «план прогнан» без команд
+exp-plan-acceptance · приёмка повторяет план и ищет вне его · `check-verifier` §3 · red: вердикт — пересказ исходов автора, опытов вне плана ноль
+exp-plan-old-hole-own-task · дыру, которую правка не вносила, заводи сразу отдельной задачей, в полосе не чини · `git-issues.md#gi-find-own-issue` · red: полоса разрослась прежней дырой; дыра названа и не заведена
 
 ## Regression-lock security/leak-фиксов
 

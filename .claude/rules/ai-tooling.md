@@ -104,7 +104,7 @@ lc2-issue-branch-trail · фича — issue + ветка `issue-<N>` + trail в
 lc4-crossrepo-order · вести в порядке proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по каждому модулю зелен, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
 lc6-role-reviews · провести ревью четырьмя ролями (proto-api-reviewer, db-architect-reviewer, go-style-reviewer, system-design-reviewer) плюс <svc>-conventions-auditor · ЗАВЕСТИ lc6-role-reviews · red: посадка при неполном множестве ролей
-lc7-final-verification · go test ./... -race · golangci-lint run · govulncheck · make audit-list-filter · newman — все зелёные · .github/workflows/ci.yaml даёт зелёный по всем поимённым контекстам · red: вердикт по подмножеству
+lc7-final-verification · go test ./... -race, golangci-lint run, govulncheck, make audit-list-filter, newman — все зелёные на PR задачи в ветку волны; сборку волны гонит local (`testing.md#final-verification-before-merge`) · .github/workflows/ci.yaml даёт зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail
 
 ## Сторонние агенты/скилы (использовать, не пересоздавать)
