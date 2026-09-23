@@ -1,0 +1,151 @@
+# Пост-дифф ревью Go-кода продукта. Роль go-style-reviewer, круг 4.
+#
+# Файл назван по content_digest. Прежние записи не правятся: если дайджест
+# сменился, нужен новый запуск и новый файл (change-graph §2). Запись не
+# коммитится, так велит задание. Текст на уровне свойства, потому что
+# репозиторий публичен.
+schema_version: 1
+change_id: kn-379
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 4
+previous_record: 60775d14911ad62d7d8eef9083560d418bd791a8e459704d236d0500ce56d171.yaml
+subject: >-
+  kaname#379. Полосы удостоверений человека судят отсечку отзыва-всех одним
+  правилом. Круг 4 смотрит полный дифф на новой голове кода. После прошлого
+  принятия в ней две неэкспортируемые константы-фрагменты запроса авторитета
+  базового секрета переименованы под правило статического анализатора о
+  словах-признаках секрета.
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '379'
+  worktree: копия полосы tmp/kaname-379 воркспейса
+  base: a889f108f22e1e42782b822677a4225467f3bdfc
+  head: 6ec7eeff64e02c53ce5e21735971536911cec7ff
+  code_head_equivalent: 5f51a6901a478357bdc30ddf4c4281aed536cc66   # тот же дайджест; 6ec7eeff6 трогает только docs/changes
+  delta_from: 874ada4a76a27307e2eb8ca013d5dd3933d4f0a9             # голова прошлого принятия (60775d14)
+content_digest: sha256:8985b84c6be8af6474dd8a3ee106cfe97d9f6d3fa000bc3cae5b345a621a6a46
+digest_definition: >-
+  `git diff --full-index a889f108..6ec7eeff6 -- . ':!docs/changes' | sha256sum`.
+  Перемерено своей командой. На 5f51a6901 то же значение, на 874ada4a7 другое
+  (60775d14). Совпадает с дайджестом из задания и с записями system-design и
+  db-architect на этом отпечатке. В рабочем дереве только неотслеживаемые
+  записи ревью.
+
+verdict: accepted            # принято
+blocks_landing: false
+timestamp: '2026-09-23T13:57:00Z'
+
+review_scope: >-
+  Полный дифф: 57 файлов, +4425/-266. Непробный Go-код, 22 файла, прочитан
+  заново целиком на этой голове: политика отсечки, отказ-обёртка домена,
+  авторитет базового секрета, перепись исходов и витрина, обе полосы хука,
+  токен-эндпоинт, сборки в корне. 31 тестовый файл просмотрен по признакам
+  чек-листа. Дельта к прошлому принятию (874ada4a7..6ec7eeff6) содержит 2
+  коммита. Код в ней меняется в одном файле, +7/-7
+  (`git diff --numstat 874ada4a7 6ec7eeff6 -- . ':!docs/changes'`). Скил evgeniy
+  и чек-лист роли применены.
+
+delta_judgement:
+  coord: internal/repo/kaname/pg/basic_credential_repo.go:138
+  related:
+    - internal/repo/kaname/pg/basic_credential_repo.go:144
+    - internal/repo/kaname/pg/basic_credential_repo.go:112
+  property: >-
+    Переименованы две неэкспортируемые константы, фрагменты FROM/JOIN двух
+    источников строки. Литералы запроса не изменились: в диффе меняются только
+    строки с идентификаторами, текст внутри обратных кавычек прежний. Новые
+    имена следуют конвенции роли: латиница, полные слова, носитель назван, и
+    назван предмет (источник строки), а не слово-признак секрета. Подавляющей
+    пометки анализатора нет. Ссылка в doc-комментарии ([userBasicRowSource])
+    обновлена тем же коммитом.
+  evidence:
+    - "`git grep -E 'userCredentialSource|saCredentialSource' 6ec7eeff6` — 0 совпадений по всему дереву"
+    - "`git grep -E 'userBasicRowSource|saBasicRowSource' 6ec7eeff6` — 7 совпадений, все в одном файле: 2 объявления, 4 склейки операторов, 1 ссылка в комментарии"
+    - "`go vet ./internal/repo/kaname/pg/` на 6ec7eeff6 — exit 0; пакет собирается вместе со своими пробами (build-тегов у проб пакета нет)"
+  behaviour_change: none
+  tests_required_for_delta: >-
+    Новых проб не требуется: поведение, текст запроса и API прежние.
+    Операторы, в которые склеиваются фрагменты, держат уже существующие
+    интеграционные пробы авторитета из того же PR.
+
+prior_findings:
+  - id: BASIC-LANE-CUTOFF-READ-UNBOUNDED
+    status: closed
+    evidence: >-
+      Остаётся закрытым на этой голове. Конструктор авторитета отказывает при
+      неположительном пределе. Каждое из трёх обращений к базе идёт под своим
+      context.WithTimeout с defer cancel. Оба вызывающих получают одну величину
+      из корня.
+  - id: BASIC-LANE-CUTOFF-REFUSAL-NOT-DISTINGUISHABLE-INSIDE
+    status: closed
+    evidence: >-
+      Остаётся закрытым. Код internal/domain и internal/apps с 874ada4a7 не
+      менялся (`git diff --quiet 874ada4a7 6ec7eeff6 -- internal/domain
+      internal/apps`).
+  - id: PRINCIPAL-KIND-OPEN-ELSE
+    status: closed
+    evidence: остаётся закрытым; revocationpolicy.go не менялся.
+  - id: SECOND-CONSUMER-DROPS-REASON
+    status: open-carried
+    evidence: >-
+      Не блокирует. Координаты перемерены на голове, файлы с прошлого круга не
+      менялись (см. important).
+
+critical: []
+
+important:
+  - id: SECOND-CONSUMER-DROPS-REASON
+    coord: internal/domain/credential_kind.go:130
+    related:
+      - internal/apps/kaname/api/registry_token/token.go:402
+    property: >-
+      Перенесено с круга 3 без изменений. Абзац домена называет счётчики и
+      журнал по причинам местом внутренней различимости отказа. Для глаголов
+      внутреннего слушателя это верно. Второй потребитель того же авторитета,
+      полоса реестра, причину отбрасывает. На исход это не влияет: полоса
+      принимает только машинного принципала.
+    requirement: >-
+      Выбрать одно из двух: считать отказы базового секрета на полосе реестра по
+      причине тем же словарём либо назвать в абзаце домена вызывающего, у
+      которого живёт перепись.
+
+foundation_candidates: []
+
+style:
+  - id: REFUSAL-LOG-LEVEL
+    coord: internal/apps/kaname/api/internal_iam/basic_credential_outcomes.go:153
+    note: >-
+      Перенесено. Ожидаемый отказ предъявителю пишется уровнем Info, а таблица
+      уровней роли относит ожидаемые ошибки к Warn. Выбрать уровень и закрепить
+      обоснование рядом.
+  - id: ENDPOINT-REFUSAL-LOG-LEVEL
+    coord: internal/handler/clienttokenhttp/handler.go:314
+    note: >-
+      Перенесено. Место вне диффа, кандидат в отдельную задачу.
+
+security_comments_contradicting_code: []
+
+out_of_diff:
+  - SECOND-CONSUMER-DROPS-REASON — разрыв существовал до этого изменения.
+
+fresh_deferral_markers: 0     # по 4425 добавленным строкам полного диффа совпадений TODO/FIXME/XXX/HACK 0
+tests_in_same_pr: true        # 31 тестовый .go на 22 не-тестовых
+
+checklist_scan_of_added_lines: >-
+  Добавленные Go-строки полного диффа (4062). context.Background() — 34, все в
+  пробах, в непробном коде 0. context.TODO() — 0. panic — 2, оба в
+  регистраторе витрины на пути сборки, по образцу соседних коллекторов.
+  log.Fatalf — 1, в cmd при сборке авторитета. fmt.Print и log.Print — 0.
+  Обёртка ошибки через %v — 0. Сравнение текста ошибки — 0. MustParse — 0.
+  init() — 0. interface{} — 0. Эхо err.Error() в codes.Internal — 0.
+
+approved:
+  - имена констант фрагментов запроса предметные, латиница; подавления анализатора нет; SQL побайтно прежний
+  - предел на каждом обращении авторитета к базе; обязательность предела — отказ построения; одна величина из корня
+  - причина отказа — собственный тип домена из закрытого словаря; errors.Is/As вместо сравнения текста; наружу фиксированный код и текст
+  - перепись по объявленному набору клеток, витрина печатает и нулевые клетки
+  - вердикт отсечки — одно правило (revocationpolicy) на трёх полосах выдачи и полосе базового секрета; закрытый словарь вердиктов, default — отказ
+  - направление зависимостей — domain только stdlib; перевод типов переписи в витрину — в cmd
+  - в рабочем пути паники нет; ctx первым аргументом и не хранится; только log/slog; в журнале нет секрета и предъявленной строки
