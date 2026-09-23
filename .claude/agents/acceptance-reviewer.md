@@ -104,7 +104,7 @@ Given-When-Then-редакцию — ты решаешь: контракт го�
 
 ### 3.4 Traceability
 - [ ] Каждый сценарий → одна integration-функция `Test<R>_<ID>_<ShortDesc>` (её пишет автор проб, не ты).
-- [ ] Каждый сценарий → newman-кейс (`tests/newman/cases/*.py`) либо e2e-шаг через край.
+- [ ] Каждый сценарий края → newman-кейс (`tests/newman/cases/*.py`, `testing-newman.md#edge-is-newman`), консоли → playwright-спека; следствие внутреннего слушателя, краем не видимое, — integration с причиной (`testing-newman.md#edge-internal-consequence`).
 - [ ] Двусторонняя трассируемость по ID: сценарий ↔ проба.
 
 ### 3.5 Реализм

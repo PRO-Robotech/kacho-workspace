@@ -275,11 +275,13 @@ gRPC-клиенты к соседним сервисам тестируются 
 клиент правильно сериализует/десериализует request/response и обрабатывает
 все коды соседа. Это **contract test со стороны consumer'а**.
 
-### 3.6 E2E через api-gateway
+### 3.6 E2E через край — не этот скил
 
-Полные сценарии: создал Network → дождался Operation → создал Subnet →
-Allocate IP. Newman-suite или аналог. Покрывает интеграцию между
-сервисами + REST-маппинг grpc-gateway.
+Край (api-gateway, публичные пути kaname) проверяет только newman, и кейс пишет
+тестировщик, а не автор кода (`testing-newman.md#edge-is-newman`,
+`testing-newman.md#edge-author-black-box`, решение владельца 2026-09-23). Аналога
+нет: Go-проба край не закрывает. Автор кода заказывает кейс строкой «нужен
+следующий» и зеленит его, не правя; форма кейса — скил `testing-product-coach`.
 
 ---
 
@@ -859,8 +861,10 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 - [ ] `make test` зелёный (unit + integration).
 - [ ] Code coverage по критическим путям > 80%.
 - [ ] Race detector прогоняется в CI.
-- [ ] Newman или эквивалент e2e-coverage.
-- [ ] Smoke-test против локального стенда через api-gateway.
+- [ ] Newman-кейсы края по классам свода заказаны тестировщику
+      (`testing-newman.md#qa-classes-per-method`); эквивалента нет.
+- [ ] Smoke через край после выкатки — `qa-test-engineer`
+      (`testing-newman.md#flow-after-deploy`).
 - [ ] Graceful shutdown integration-test.
 - [ ] Migration up/down/redo проверены integration-тестом.
 

@@ -70,7 +70,7 @@ regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведе�
 error-leak-assert-message-text · assert Message()=="internal error" либо NotContains(msg,<raw>) · internal/repohygiene/sqlstatehome_test.go (смежный) · red: тест проверяет только codes.Internal
 pii-assert-log-both-paths · assert NotContains(logBuf,<email/token>) на success- И error-пути · ЗАВЕСТИ pii-assert-log-both-paths · red: проверен только успешный путь
 apiconv-assert-exact-text · assert точный текст, усечение и код · TestErrorMappersTailReturnsAFixedText · red: проверен только код
-security-fix-test-same-pr · несёт behaviour-level regression-тест в ТОМ ЖЕ PR; RPC без функционального теста — добери handler-level unit, путь края — и newman-кейс · ЗАВЕСТИ security-fix-test-same-pr · red: фикс без теста либо тест только code-level
+security-fix-test-same-pr · несёт behaviour-level regression-тест в ТОМ ЖЕ PR; RPC без функционального теста — добери handler-level unit, путь края — и newman-кейс тестировщика (testing-newman.md#flow-bug-regression) · ЗАВЕСТИ security-fix-test-same-pr · red: фикс без теста либо тест только code-level
 concurrency-fix-race-deterministic · тест под -race, детерминированно (blocker держит слот, Stop→Wait завершается) · TestWaitOrderGateRedOnSleepLoopWait · red: time.Sleep в тесте гонки
 
 ## Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки
