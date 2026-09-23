@@ -191,7 +191,7 @@ Assert   (Then)   — проверка результата + side-effects
 | Unit | Чистая логика одной функции/use-case с моками портов | Только in-process | ~ms | 70-80% |
 | Integration | Адаптер (repo, gRPC client) против реальной зависимости | Testcontainers / spawned servers | ~ds-секунды | 15-25% |
 | Contract | Соблюдение proto-контракта между сервисами | Stubs/spec | ~ms | 5-10% |
-| E2E | Полный путь через api-gateway | Весь dev-стенд | ~секунды-минуты | 5-10% |
+| E2E | Сервис целиком in-process через bufconn; край (api-gateway) — не здесь, newman (`testing-newman.md#edge-is-newman`) | Testcontainers / spawned servers | ~секунды | 5-10% |
 
 ### 2.2 Time budget
 
@@ -506,16 +506,16 @@ Use-case с внутренним состоянием (счётчик, кэш, r
 Анти-паттерн — `time.Sleep(100ms)` для ожидания worker'а. Использовать
 `assert.Eventually` или сигнал-канал.
 
-### 5.8 Async event streams (Watch)
+### 5.8 Async event streams (поток подписки)
 
 Тестируется на трёх уровнях:
 
 1. **Outbox emit** — repo integration: insert ресурса в TX, проверяем
    что событие появилось в outbox.
-2. **Watch handler** — integration: подписаться, послать pg_notify,
+2. **Сервер потока** — integration: подписаться, послать pg_notify,
    проверить что событие пришло в stream.
-3. **End-to-end** — e2e: создать ресурс через публичный API, подписка
-   через Watch должна увидеть событие.
+3. **Край** — не этот скил: поток подписки через публичный API — newman-кейс
+   тестировщика, консоль — playwright (`subscription.md#sub-e2e-observable`).
 
 ### 5.9 Background workers (cron-like)
 
