@@ -37,3 +37,29 @@ throughput+isolation+idempotency, а не «добавить retry». Retry-об
 read-your-own-writes EC-окна; не лечат collision/phantom/idempotency (там — fixture-изоляция/
 энтропия/preclean-retry). Прод-фиксы (форвард/lock/delete-stale) — TDD+db-review; тест-фиксы
 не маскируют.»
+
+## edge-is-newman — поток подписки (класс D — замер; исключение снято 2026-09-23)
+
+Прежняя редакция отдавала тело потока playwright: «ответ-поток newman не дочитывает». Замер
+опроверг довод. newman 6.2.2 (конвейер — `newman@6`) против локального SSE (chunked, кадры
+`opened` и `event`, служебный кадр раз в 1 с): поток, закрытый сервером через 3 с, — 200,
+тело с обоими кадрами, 3 утверждения из 3; незакрывающийся поток — newman не вернулся за 60 с
+и при `--timeout-request 8000`. Край kacho закрывает поток сам и чисто: `StreamBudget`
+(`KACHO_API_GATEWAY_SUBSCRIPTION_STREAM_BUDGET`, умолчание 90s; чарт
+`gateway/deploy/values.yaml` — `streamBudget: 90s`), ветвь `ctx.Done()` в `pump`
+(`gateway/internal/subscriptionstream/handler.go`) @kacho 1d42a6728bf; `--timeout-request`
+прогонщики kacho не ставят. Итог: тело потока newman читает до закрытия по сроку, консоль
+поверх потока — playwright.
+
+## qa-class-label — AUTHN узаконен синонимом правила (класс D — замер; 2026-09-23)
+
+`qa-access` относил 401 к AUTHZ, а держатель 401 на крае помечен AUTHN
+(`gateway/tests/newman/cases/authn_edge.py`, 7 списков: 4 отказа 401 и 3 контроля 200).
+Решение диспетчера: AUTHN — синоним AUTHZ удостоверения, законен и в новом кейсе. Перепись
+@kacho 1d42a6728bf, 60 файлов `*/tests/newman/cases/*.py`; единица — литеральный список
+аргумента `classes` по AST (`ast.keyword`, значение `List`): 1070 списков, 1985 элементов —
+1981 строковый литерал и 4 условных выражения `"POS" if … else "NEG"`; 7 записей не литералом
+(`inner_case.classes`, сложение списков) в счёт не входят. Вне словаря и синонимов 8 меток:
+POS 7 (3 литерала и 4 ветви условных), LST 7, AZ 6, FLOW 3, SECD 2, SETUP, CATALOG, OBS по 1 —
+их правка в дереве продукта, не здесь. `ALLOW` и `UNAUTH` — операнды сравнения в условии, а не
+метки (compute `authz-deny.py:243`, `:271`; storage `authz-catalog.py:113`).

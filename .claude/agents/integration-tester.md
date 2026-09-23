@@ -146,7 +146,9 @@ Concurrent/race-сценарии (CAS/UNIQUE/EXCLUDE/OCC) — обязателе
 отрицательный (NotFound / FailedPrecondition / InvalidArgument / AlreadyExists / Unavailable по
 семантике). Async-мутация: создать → поллить `OperationService.Get(id)` до `done=true` →
 проверить `response`/`error`; между опросами — **реальная** задержка. Кейс самодостаточен,
-уникальность имён через `{{runId}}`, за собой убирает.
+уникальность имён через `{{runId}}`, за собой убирает. Классы — из свода
+(`testing-newman.md#qa-classes-per-method`), ответ сверяется с интерфейсом
+(`testing-newman.md#edge-double-check`), родители — цепочкой (`testing-newman.md#edge-composite-chain`).
 
 ### 4. Playwright-спека — только для наблюдаемого
 

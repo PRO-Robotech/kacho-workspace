@@ -47,6 +47,9 @@
 - `xc9-addresses` — адреса приёмки: `docs/specs/sub-phase-XC-9-grant-to-group-discipline-acceptance.md`
   (норма §2.1, цена §3, сценарии §5); арендатору — `kaname`/`docs/content/api/access-binding.mdx`
   §«Кому выдавать».
+- `authz-integration-matrix` — снята 2026-09-23 решением владельца «проверка края всегда достигается
+  через newman тесты»: прежний red «40-мин e2e вместо матрицы» ставил Go-матрицу на место края; норма
+  переименована в `authz-edge-matrix`, держатель `edit-comaterializes-delete` — туда же.
 
 ## Placement-coherence — разбор инцидента `regionFromZone`
 
