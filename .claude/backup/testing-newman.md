@@ -50,3 +50,12 @@ read-your-own-writes EC-окна; не лечат collision/phantom/idempotency 
 (`gateway/internal/subscriptionstream/handler.go`) @kacho 1d42a6728bf; `--timeout-request`
 прогонщики kacho не ставят. Итог: тело потока newman читает до закрытия по сроку, консоль
 поверх потока — playwright.
+
+## qa-class-label — AUTHN узаконен синонимом правила (класс D — замер; 2026-09-23)
+
+`qa-access` относил 401 к AUTHZ, а держатель 401 на крае помечен AUTHN
+(`gateway/tests/newman/cases/authn_edge.py`, 7 списков: 4 отказа 401 и 3 контроля 200).
+Решение диспетчера: AUTHN — синоним AUTHZ удостоверения, законен и в новом кейсе. Перепись
+@kacho 1d42a6728bf, 60 файлов `cases/*.py`, 1072 списка, 1995 меток: вне словаря и синонимов
+остаются POS 7, LST 7, AZ 6, FLOW 3, ALLOW 2, SECD 2, SETUP, UNAUTH, CATALOG, OBS по 1 —
+их правка в дереве продукта, не здесь.

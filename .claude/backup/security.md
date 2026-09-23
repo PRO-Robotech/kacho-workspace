@@ -161,3 +161,7 @@ region-, ни zone-контракта, Geography — в **geo** (KAC-эпик #8
 (`gateway/internal/middleware/auth.go:474`), и на HS256 в production (шапка того же файла,
 :12-13); строк `anonymous`, `HS256`, `403` в скрипте нет — он держит `pg_stat_ssl` (раздел B).
 Утверждение края — newman (`testing-newman.md#qa-access`, решение владельца 2026-09-23).
+Держатель края — не долг (замер 2026-09-23 @kacho 1d42a6728bf): `gateway/tests/newman/cases/authn_edge.py`,
+`IBT-10-ANONYMOUS-REJECTED` (:272) и `IBT-10-HS256-FORGED-REJECTED` (:320), утверждение `eql(401)` (:186);
+оба id в `collections/authn_edge.postman_collection.json`, гонит шаг «гейт — newman зелёный (api-gateway)»
+`e2e-newman.yml`, шард по `deploy/e2e-shards.json`.

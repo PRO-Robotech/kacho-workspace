@@ -749,7 +749,7 @@ Negative-тестов должно быть **больше**, чем positive.
 |---|---|---|
 | Pre-commit hook (локально) | gofmt + go vet + unit с -short | < 30s |
 | PR commit | Полный unit + integration | < 10min |
-| PR merge / nightly | + e2e (Newman против dev-стенда) | < 30min |
+| PR merge / nightly | + newman против dev-стенда (край, не E2E пирамиды §2.1) | < 30min |
 | Release | + perf benchmarks + mutation testing | < 2h |
 
 ### 9.2 Selective test running
