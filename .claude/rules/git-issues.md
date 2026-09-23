@@ -37,7 +37,7 @@ gi-commit-form-by-hook · форму сообщения (строки выше) 
 
 gi-wave-assemble-only · в ветку волны задачи вливай только сборкой: готовые (ревью ✅, конвейер PR задачи зелёный на её голове) — разом, `git merge --no-ff` каждой, состав доказан до прогона; поштучное `gh pr merge` в волну и догон волны в ветку задачи отменены · `git merge-base --is-ancestor <голова задачи> <голова волны>` · red: PR задачи влит в волну поштучно; в ветке задачи слияние волны
 gi-wave-one-run-one-push · после сборки: один прогон на сведённой голове и `wave-reviewer`, затем посадочный, затем одна отправка; повтор прогона — только после пересборки по возврату · ЗАВЕСТИ gi-wave-one-run-one-push · red: прогон после каждого вливания; отправка до ✅ посадочного
-gi-pr-manual-dispatch · открыл PR, а триггера PR в базу нет (kacho#2793, corelib#31, kaname#394; воркспейс — только `workflow_dispatch`) — тем же заходом `gh workflow run <файл> --ref <ветка>` · `gh run list --branch <ветка> --json headSha` · red: PR без проверок ждёт триггера, которого нет
+gi-pr-manual-dispatch · открыл PR, а триггера PR в базу нет (kacho#2793, corelib#31, kaname#394; воркспейс — только `workflow_dispatch`) — тем же заходом `gh workflow run <файл> --ref <ветка>` КАЖДОГО процесса с `pull_request` и `workflow_dispatch`; свод без `workflow_dispatch` (kacho `required-verdict.yml`) не встаёт, вердикт — по процессам · `gh run list --branch <ветка> --json workflowName,headSha` · red: PR без проверок ждёт триггера, которого нет; запущен не каждый процесс PR
 
 ## Трекер — GitHub Issues: когда заводится задача
 
