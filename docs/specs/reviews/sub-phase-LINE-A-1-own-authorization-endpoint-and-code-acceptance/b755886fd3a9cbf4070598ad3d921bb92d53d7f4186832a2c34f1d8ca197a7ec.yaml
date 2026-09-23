@@ -95,9 +95,9 @@ event:
     body_carries_this_fingerprint: >-
       gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body'
       | grep -c 'b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec' → 1
-    body_verbatim: >-
+    body_verbatim: >-   # хеш в цитате — до переписки сообщений 2026-09-23; то же дерево — ветка 772
       acceptance-reviewer · APPROVED ·
-      sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 90b7c5b3 ·
+      sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ c8805904 ·
       sha256 b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
     body_sha256: >-
       gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body' | tr -d '\n'
@@ -109,7 +109,9 @@ event:
       authority.policy_sha256 ниже).
     body_matches_required_body_for_courier: >-
       ДА по всем четырём полям required_body_for_courier (role · verdict · subject ·
-      subject_sha256). Сверх них тело несёт ревизию «@ 90b7c5b3» — ту, что запись оставляла
+      subject_sha256). Сверх них тело несёт
+      ревизию «@ c8805904» (хеш в цитате — до переписки сообщений 2026-09-23; то же дерево — ветка 772)
+      — ту, что запись оставляла
       пустой; она измерена независимо (см. subject.content_state_predicate) и совпала.
   superseded_declaration:
     note: >-
