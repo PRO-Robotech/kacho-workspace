@@ -102,7 +102,7 @@ scope:
     - PRO-Robotech/kacho @ bec320cf47d и @ b32ca653083
     - 'corelib origin/lane/oauth2-engine-intake @ 5e50b9f — ветка названного производителя corelib#20, не влита'
     - github.com/ory/fosite v0.49.0 (кэш модулей)
-    - 'приёмка LINE-A-1 @ воркспейс 3972202a, sha256 304d545e…be54 (ветка acceptance/line-a-1; путь и отпечаток — из тела kacho#2721)'
+    - 'приёмка LINE-A-1 @ воркспейс 8b8d1f97, sha256 304d545e…be54 (ветка acceptance/line-a-1; путь и отпечаток — из тела kacho#2721)'
   implementation_completion_claimed: false
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +136,7 @@ closure_of_round_1_blockers:
     predicates_rerun:
       - "corelib 34bc8104a83 tokenpolicy/policy.go:33-44 — закрытый словарь RS256 · ES256 · EdDSA и Algorithms(); ссылка документа :34-44 покрывает его — сошлось"
       - "corelib#20 @ 5e50b9f: oauthceremony/ceremony.go:141-142 GlobalSecret/RotatedGlobalSecrets из Config.SigningSecret — секрет передаётся движку конфигурацией пакета церемонии, вне поддерева — сошлось"
-      - "приёмка LINE-A-1 @ 3972202a §6 строка 2: «полный OAuth 2.1 в A-1: refresh_token с ротацией уже здесь (S2)» — сошлось; grep 'hmac|fosite|движ' → 0, «секрет» — только клиентский — секрета движка приёмка не называет, как и сказано"
+      - "приёмка LINE-A-1 @ 8b8d1f97 §6 строка 2: «полный OAuth 2.1 в A-1: refresh_token с ротацией уже здесь (S2)» — сошлось; grep 'hmac|fosite|движ' → 0, «секрет» — только клиентский — секрета движка приёмка не называет, как и сказано"
       - "kacho#2721 открыта; тело называет путь и sha256 304d545e… приёмки LINE-A-1 — сошлось"
   - id: B3
     kind: CONSTRUCTIBILITY

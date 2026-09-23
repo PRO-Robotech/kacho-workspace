@@ -12,19 +12,19 @@ subject:
     внешнее событие. Машинный читатель docs-gate (`check-01`) по этой редакции отвечает DRAFT —
     его объявленный предел (судит объявление, а не одобрение). После этого ревью шапка не правится.
   base_commit: dd66b5beee2212c3925a459d4be701064dfd88bc
-  content_commit: c880590412f6f5176480b47932b9d13ac188fe03
+  content_commit: 90b7c5b30c8244762406d6d6417ed99521225d03
   content_state: committed
   content_state_measured_at: '2026-09-20'
   content_state_predicate: >-
-    git show c8805904:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+    git show 90b7c5b3:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
     | sha256sum → b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec — РАВЕН имени
     этой записи, то есть коммит установлен ТОЖДЕСТВОМ СОДЕРЖИМОГО, а не поиском по сообщению.
-    Достижимость: git merge-base --is-ancestor c8805904 HEAD → 0. Единственность: тот же предикат
-    прогнан по всем коммитам, трогавшим файл (git log --all -- <путь> → c8805904 3972202a
-    56430a8e 8a99fe58 4e584bdf) — отпечаток b755886f… даёт ровно один из них.
+    Достижимость: git merge-base --is-ancestor 90b7c5b3 HEAD → 0. Единственность: тот же предикат
+    прогнан по всем коммитам, трогавшим файл (git log --all -- <путь> → 90b7c5b3 8b8d1f97
+    91864a29 8a99fe58 4e584bdf) — отпечаток b755886f… даёт ровно один из них.
   content_state_note: >-
     Редакция 3 на момент ревью НЕ закоммичена (задание диспетчера). HEAD рабочей копии —
-    96331843 (коммит записи ревью круга 2). Вердикт вынесен по ОТПЕЧАТКУ содержимого, а не по
+    62b4e52f (коммит записи ревью круга 2). Вердикт вынесен по ОТПЕЧАТКУ содержимого, а не по
     коммиту; коммит редакции 3 и этой записи — работа следующего шага, не рецензента.
   superseded_declaration:
     note: >-
@@ -37,7 +37,7 @@ subject:
     corroborating_record: docs/specs/reviews/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance/PUBLICATION-STATE.yaml
   worktree: tmp/wt-line-a-1
   branch: acceptance/line-a-1
-  worktree_head: 9633184320c18a4ce704631922f51f030884bca5
+  worktree_head: 62b4e52ff43003949e6460de65150683172b7f08
   pull_request: null
   task: PRO-Robotech/kacho#2564
   fingerprint_predicate: >-
@@ -61,7 +61,7 @@ authority:
   mode: versioned_policy_authority
   epoch: post-cutover
   epoch_derivation: >-
-    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD(96331843) в
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac HEAD(62b4e52f) в
     PRO-Robotech/kacho-workspace вернул 0 → содержимое пост-cutover
   repository: PRO-Robotech/kacho-workspace
   cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
@@ -97,7 +97,7 @@ event:
       | grep -c 'b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec' → 1
     body_verbatim: >-
       acceptance-reviewer · APPROVED ·
-      sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ c8805904 ·
+      sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 90b7c5b3 ·
       sha256 b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
     body_sha256: >-
       gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body' | tr -d '\n'
@@ -109,7 +109,7 @@ event:
       authority.policy_sha256 ниже).
     body_matches_required_body_for_courier: >-
       ДА по всем четырём полям required_body_for_courier (role · verdict · subject ·
-      subject_sha256). Сверх них тело несёт ревизию «@ c8805904» — ту, что запись оставляла
+      subject_sha256). Сверх них тело несёт ревизию «@ 90b7c5b3» — ту, что запись оставляла
       пустой; она измерена независимо (см. subject.content_state_predicate) и совпала.
   superseded_declaration:
     note: >-
@@ -156,7 +156,7 @@ round_numbering:
   convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг 3 по редакции 3.
   editions_by_fingerprint:
     - {edition: 1, commit: 8a99fe58, sha256_prefix: e6c08a823485a253, verdict: 'CHANGES_REQUESTED (круг 1, B1 SCOPE)'}
-    - {edition: 2, commit: 3972202a, sha256_prefix: 304d545e71c4d148, verdict: 'APPROVED (круг 2) — ОБЕСЦЕНЕНО правкой'}
+    - {edition: 2, commit: 8b8d1f97, sha256_prefix: 304d545e71c4d148, verdict: 'APPROVED (круг 2) — ОБЕСЦЕНЕНО правкой'}
     - {edition: 3, commit: null, sha256_prefix: b755886fd3a9cbf4, verdict: 'APPROVED (эта запись)'}
 
 # ─────────────────────────────────────────────────────────────────────────────
