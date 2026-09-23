@@ -47,7 +47,7 @@ repository: PRO-Robotech/kacho-workspace
 branch: acceptance/line-a-1
 worktree: tmp/wt-line-a-1
 measured_at: '2026-09-20'
-measured_on_head: 77f13116   # HEAD рабочей копии в момент замера, до коммита этой записи
+measured_on_head: 45285ea0   # HEAD рабочей копии в момент замера, до коммита этой записи
 author_role: acceptance-reviewer
 authority_premise_rechecked:
   policy_document: docs/changes/policy.yaml
@@ -93,19 +93,19 @@ clarifications:
       never_edited: true   # created_at == updated_at
       body_verbatim: >-
         acceptance-reviewer · APPROVED ·
-        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 3972202a ·
+        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 8b8d1f97 ·
         sha256 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
       body_sha256: f58ca8c3d3b900153e66f5aea8513eb904bfb73a420feb03d1416dfffa861239
       body_sha256_predicate: >-
         gh api repos/PRO-Robotech/kacho/issues/comments/5738034812 --jq '.body' | tr -d '\n' | sha256sum
       body_matches_required_body_for_courier: >-
         ДА по всем четырём полям записи: role=acceptance-reviewer · verdict=APPROVED ·
-        subject=…-acceptance.md · subject_revision=3972202a · subject_sha256=304d545e…
+        subject=…-acceptance.md · subject_revision=8b8d1f97 · subject_sha256=304d545e…
       actor_authorized_by_policy: true
     commit_state_measured:
-      record_declares_content_commit: 3972202a5c109f74db121cb9d05763af5fa2301c
+      record_declares_content_commit: 8b8d1f9773990985740dc392f5809333ba909a55
       predicate: >-
-        git show 3972202a:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
+        git show 8b8d1f97:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
       result: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
       verdict_on_the_claim: ПОДТВЕРЖДЕНО — коммит содержимого назван записью верно, уточнения не требует
     what_is_corrected: >-
@@ -138,32 +138,32 @@ clarifications:
       never_edited: true   # created_at == updated_at
       body_verbatim: >-
         acceptance-reviewer · APPROVED ·
-        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ c8805904 ·
+        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 90b7c5b3 ·
         sha256 b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
       body_sha256: fbf9630e52e8fa1ac82671550732c1604cc54bdf9504119dfdfebfd3b5c81f65
       body_sha256_predicate: >-
         gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body' | tr -d '\n' | sha256sum
       body_matches_required_body_for_courier: >-
         ДА по всем трём полям записи (role · verdict · subject_sha256). Сверх записи тело
-        несёт ревизию `@ c8805904` — ту самую, которую запись оставила пустой; независимо
+        несёт ревизию `@ 90b7c5b3` — ту самую, которую запись оставила пустой; независимо
         измеренная мной ниже, она совпала с названной событием.
       actor_authorized_by_policy: true
     commit_state_measured:
-      actual_content_commit: c880590412f6f5176480b47932b9d13ac188fe03
+      actual_content_commit: 90b7c5b30c8244762406d6d6417ed99521225d03
       commit_subject: 'docs(LINE-A-1): редакция 3 приёмки и запись ревью круга 3'
       commit_author: pointpu
       commit_date: '2026-09-19T14:57:07+03:00'
       predicate_identity: >-
-        git show c8805904:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
+        git show 90b7c5b3:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
       result_identity: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
       identity_holds: >-
         ДА — отпечаток содержимого приёмки в этом коммите РАВЕН имени записи; коммит
         установлен замером, а не поиском по сообщению коммита.
       predicate_uniqueness: >-
-        for c in c8805904 3972202a 56430a8e 8a99fe58 4e584bdf; do git show
+        for c in 90b7c5b3 8b8d1f97 91864a29 8a99fe58 4e584bdf; do git show
         $c:docs/specs/…-acceptance.md | sha256sum; done — перебраны ВСЕ коммиты, трогавшие
-        файл (git log --all -- <путь>); b755886f… даёт ровно один из них, c8805904
-      predicate_reachability: 'git merge-base --is-ancestor c8805904 HEAD → 0 (предок HEAD 77f13116)'
+        файл (git log --all -- <путь>); b755886f… даёт ровно один из них, 90b7c5b3
+      predicate_reachability: 'git merge-base --is-ancestor 90b7c5b3 HEAD → 0 (предок HEAD 45285ea0)'
       verdict_on_the_claim: >-
         ОПРОВЕРГНУТО — `content_commit: null` / `content_state: uncommitted_worktree` было
         верно в момент письма и неверно сейчас. Примечательно: коммит, внёсший содержимое,
@@ -221,17 +221,17 @@ prior_records_untouched:
     - subject_sha256: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
       file_sha256_before: fa6ec42eb03f597d9fcff494ca17ff834425b3d3cc4ca7eb8ed3757d80bd7b61
       file_sha256_at_birth_commit: fa6ec42eb03f597d9fcff494ca17ff834425b3d3cc4ca7eb8ed3757d80bd7b61
-      birth_commit: 96331843
+      birth_commit: 62b4e52f
       commits_touching_file: 1
     - subject_sha256: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
       file_sha256_before: 4a809cce7bc53e27a10e66c7702011325913cd564cb8a8b68091992180c5fb07
       file_sha256_at_birth_commit: 4a809cce7bc53e27a10e66c7702011325913cd564cb8a8b68091992180c5fb07
-      birth_commit: c8805904
+      birth_commit: 90b7c5b3
       commits_touching_file: 1
     - subject_sha256: e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864
       file_sha256_before: e635507b9dc412a897ff245829416454411aa9dd024ca0a7f840187cb87f471e
       file_sha256_at_birth_commit: e635507b9dc412a897ff245829416454411aa9dd024ca0a7f840187cb87f471e
-      birth_commit: 72c39678
+      birth_commit: d8e1cd97
       commits_touching_file: 1
   note: >-
     Отпечаток «после» снимается тем же предикатом в коммите, вносящем эту запись, и обязан
