@@ -1,0 +1,138 @@
+# Сверка волны — роль wave-reviewer, сборка 32 = #31 + #38.
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся; сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 1
+previous_record: —
+subject: >-
+  corelib, волна 32: сборка из #31 (.github/) и #38 (oauthceremony/) и сверка
+  сборки с ждущими полосами #34, #35, #39, #40 пробным слиянием вне общего дерева.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8   # origin/32 после fetch
+  head: bc580b9205f98bffee413747ebfd9d5b1f9edd01   # tmp/corelib-32, ветка 32, не отправлена
+  shortstat: '6 файлов, +1467 / -45'
+  lanes_in_assembly:
+    '31': {head: 542e525212a5fea2af419409678bbab5f38fd88e, base: 9f0393c540d7, digest: 643bf3e0ea0ddae743cf76a6eda36879875c8c99eba6d2eb6b1106726ae24fe5, shortstat: '2 файла, +1020 / -4'}
+    '38': {head: 60184d279a72bb1b6197335761f792dc012fee86, base: 84b9be87f789, digest: 1228065f34ccfd878e33aeb2b2fa45752beac3b86cdff2510e3399e019f95f70, shortstat: '4 файла, +447 / -41'}
+  lanes_waiting:
+    '34': {head: d3c3ea4f9e08a6211cd7cbea94af29d291c7186f, digest: 4271a38c628ed167ad6d81600ddd99954be806117d5486a5a6cb636e303589ef, shortstat: '19 файлов, +1865 / -99'}
+    '35': {head: e5abaa5e06b45257b9c84253089a6e432502cc4f, digest: c35505471288e854253de490af23d90a4a718b036af86cf89f813e49890e998f, shortstat: '9 файлов, +628 / -1'}
+    '39': {head: ea40a529e7844509cc1e8069af6e423ebb3ca71e, digest: 408fb3070be1ce52ff3b3426fe3e5dc9683019f5b1437146427aae328f95138e, shortstat: '4 файла, +194 / -0'}
+    '40': {head: 1c931b82d0ff38b3bcea94e5cf46c978a6267a60, digest: 89d72b42da11fea368b1dd4dfbd29bf85ceb3d87767bc0063ba60c08af57d357, shortstat: '14 файлов, +876 / -359', note: 'копия в переделке: MERGE_HEAD=bc580b92, porcelain 6 — судится закоммиченная голова'}
+content_digest: sha256:b6123f418dcc54a78fc385efd401aa626b1cbfbcf64c2af857ada73aff8fee07
+digest_definition: >-
+  git diff --full-index 84b9be87..bc580b92 | sha256sum (перемерено; = origin/32..HEAD).
+  Дайджесты полос: git diff --full-index <merge-base с 84b9be87>..<голова> | sha256sum —
+  все шесть совпали с записями ревью.
+
+verdict: accepted              # по сборке bc580b92; ждущим полосам — возвраты ниже
+blocks_landing: false          # отправку 32@bc580b92 сверка не держит
+timestamp: '2026-09-23T17:19:03Z'
+isolation: >-
+  пробные слияния — в своём клоне /home/dk/.cache/wave-review-32-tMPJdC (git clone --shared,
+  merge-tree + read-tree), GOCACHE и TMPDIR там же, GOPROXY=off; общий клон project/corelib
+  и копии полос не тронуты (porcelain общего клона 0 до и после).
+
+lanes:
+  - 'полоса 31 · вердикт принято · координата .github/workflows/ci.yml:88 · требование .claude/backup/multi-agent-flow-orchestration.md §14 · чем доказано: в .github/ не заходит ни одна полоса (ждущих 0 из 4); python3 .github/scripts/pr-target-branches.py --self-test на bc580b92 → проб 86, провалов 0; гейт → rc 0, заданий 9'
+  - 'полоса 38 · вердикт принято · координата oauthceremony/ceremony.go:192 · требование .claude/backup/multi-agent-flow-orchestration.md §14 · чем доказано: с #31 пути не пересекаются; go test -count=1 -json ./oauthceremony/ на bc580b92 → 249 PASS / 0 FAIL; Config.Issuer, testIssuer, JoinPath вне движка → 0; столкновения с ждущими — ниже, чинятся в полосах, изменивших смысл'
+  - 'полоса 35 · вердикт возврат · координата oauthceremony/ceremony_test.go:650-663, oauthceremony/endpoints_internal_test.go:200-218 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…» (ожиданий) · чем доказано: git merge-tree --write-tree bc580b92 e5abaa5e → rc 0 (дерево 90202dfb); go vet 0; go test ./oauthceremony/ → 212 PASS / 56 FAIL, два прогона одинаково'
+  - 'полоса 34 · вердикт возврат · координата oauthceremony/ceremony_test.go:653-654, oauthceremony/endpoints_internal_test.go:204-205,220-229, oauthceremony/ceremony.go:192-196 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Пятый вид…» и «Классы столкновений…» · чем доказано: merge-tree bc580b92 d3c3ea4f → rc 1, конфликт только в 3 файлах; перепись на d3c3ea4f: SigningSecret 0, NewHMACSHAStrategy 0, MaxTokenTTL = 30m (tokenpolicy/policy.go:146)'
+  - 'полоса 40 · вердикт возврат · координата oauthceremony/endpoints_internal_test.go:211-212,227 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Пятый вид: ДОБАВЛЕНИЕ В УДАЛЁННОЕ…» · чем доказано: merge-tree bc580b92 1c931b82 → rc 1, конфликт в 3 файлах, этого файла среди них нет (blob 45bfbd9c не тронут); перепись на 1c931b82: RequireProofKey 0, ProofKeys 0, ProofKeyVault 0, uncalledProofKeys 0'
+  - 'полоса 39 · вердикт принято (предмет — пара со сборкой) · координата oauthceremony/ceremony.go:320-332@ea40a529 · требование .claude/backup/multi-agent-flow-orchestration.md §14 · чем доказано: merge-tree bc580b92 ea40a529 → rc 0 (e88d422f); go vet 0; oauthceremony 252 PASS / 0 FAIL, tokenpolicy 9 / 0; литералы #38 (код 10m, обновление 24h) в пределах потолков'
+
+collisions:
+  - kind: 'столкновение ожиданий — §14 «Классы столкновений…», вторая строка'
+    lanes: ['38', '35']
+    subject: >-
+      #35 делает Config.NewGrantID обязательным (validateConfig, последний case switch);
+      #38 завёл три новых литерала Config без него — ceremony_test.go:650-663
+      (TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress) и endpoints_internal_test.go:200-218.
+      Литералы лежат вне всех кусков #35, поэтому git сливает без конфликта, а сборка зелёная.
+    proof: >-
+      слияние rc 0; go vet ./oauthceremony/ → 0; go test -count=1 -json ./oauthceremony/ →
+      212 PASS / 56 FAIL: TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress — 50 подслучаев,
+      TestEndpointsReachTheEngineAsNamedInConfig — 4, у каждого текст «Config.NewGrantID is
+      not named». Контроль — bc580b92: 249 / 0; голова #35: 214 / 0 (по отчёту полосы).
+    fix_in: '#35 — при вливании 32@bc580b92 добавить NewGrantID в оба литерала #38'
+  - kind: 'добавление в удалённое — §14 «Пятый вид…» (на уровне поля) + столкновение ожиданий'
+    lanes: ['38', '34']
+    subject: >-
+      #34 снимает Config.SigningSecret, вводит потолок AccessTokenLifespan ≤ tokenpolicy.MaxTokenTTL
+      (30m), обязательный Ports.AccessTokenIssuer и свою artifactStrategy вместо HMAC. #38 вне
+      кусков конфликта: SigningSecret и AccessTokenLifespan 1h в ceremony_test.go:653-654 и
+      endpoints_internal_test.go:204-205; uncalledPorts (:220-229) без AccessTokenIssuer;
+      комментарий ceremony.go:192-196 утверждает «New строит одну стратегию — HMAC …
+      токен доступа — непрозрачная строка без утверждений», а после #34 токен доступа
+      выпускает порт службы. Вдобавок имя AccessTokenIssuer там — поле движка, а у #34 —
+      порт: одно имя, два предмета в одной функции.
+    proof: >-
+      merge-tree bc580b92 d3c3ea4f → rc 1, конфликты: ceremony.go, ceremony_test.go,
+      engineconfig_internal_test.go; новая проба #38 в слитом ceremony_test.go — строки 683-783,
+      маркеры — 31-70, 603-631, 787-795; комментарий в слитом ceremony.go — 197-201, маркеры —
+      335-341; endpoints_internal_test.go — blob 45bfbd9c без изменений. На d3c3ea4f:
+      git grep SigningSecret -- 'oauthceremony/*.go' → 0, NewHMACSHAStrategy → 0. Не
+      компилировалось: конфликты разрешаются по существу, это работа полосы.
+    fix_in: >-
+      #34 — при вливании 32: убрать SigningSecret, срок ≤ 30m, AccessTokenIssuer в uncalledPorts,
+      переписать ceremony.go:192-196 (издатель — у порта службы, настройки движка его не называют)
+  - kind: 'добавление в удалённое — §14 «Пятый вид: ДОБАВЛЕНИЕ В УДАЛЁННОЕ…»'
+    lanes: ['38', '40']
+    subject: >-
+      #40 снимает RequireProofKey, RequireProofKeyForPublicClients, Ports.ProofKeys и
+      ProofKeyVault. Новый файл #38 endpoints_internal_test.go называет их на :211-212 и :227.
+      Git этот файл конфликтом не считает, go build тестов не собирает; падает только go vet
+      или go test.
+    proof: >-
+      merge-tree bc580b92 1c931b82 → rc 1, конфликты только в ceremony.go, ceremony_test.go,
+      engineconfig_internal_test.go (совпадает с отчётом сборки); на 1c931b82 перепись имён
+      → 0/0/0/0. В копии #40 файл уже в работе (AM) — признак, что полоса его видит; судится
+      закоммиченное.
+    fix_in: '#40 — при вливании 32 снять эти три строки; после — go vet ./oauthceremony/ → 0'
+
+premise_answer:
+  question: 'опираются ли ждущие #40/#35/#34 на Config.Issuer'
+  answer: >-
+    нет. Добавленных строк с Issuer/testIssuer/JoinPath/authorizeURL/tokenURL: #34 — 0 (только имена
+    порта AccessTokenIssuer), #35 — 0, #39 — 0, #40 — 2, и обе — перевыровненные строки литерала
+    внутри кусков конфликта, git их показывает. Собственных читателей GetAccessTokenIssuer и
+    GetIDTokenIssuer у #34 нет (0), свойство «издателя не читает ни один путь» после #34 держится.
+    Разбор Issuer в конфликте #40 — только контекст рядом с его комментарием о PKCE: снять
+    Issuer и сохранить комментарий.
+
+not_found:
+  - 'снятый предмет при ведомости, которая о нём не знает (четвёртый вид): Config.Issuer в дереве 32 вне движка — 0, в kacho-workspace HEAD — 0; потребителей oauthceremony в kaname@cbbac984b и kacho@1d42a6728bf — 0'
+  - 'столкновение раскладок и имён: 0. Потолки #34 (MaxTokenTTL) и #39 (код, обновление) — один класс в одной форме (case в switch, текст «Config.X … exceeds tokenpolicy.Y …»), конфликт только в абзаце комментария и в импорте'
+  - 'пары ждущих без конфликта: #34+#35 → 293 PASS / 0 FAIL, #35+#39 → 256 / 0, #39+#40 → 258 / 0 (oauthceremony, ids, tokenpolicy; go vet 0); с конфликтом: #34+#39 (ceremony.go), #34+#40 (7 файлов), #35+#40 (2 файла тестов) — git их показывает, разрешать по существу'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  не выявлено. Отчёты полос #31 и #38 в задание не переданы. Сверено по записям ревью в 825
+  (check-verifier r3 ✅ по #31 на 643bf3e0 @752c0099; go-style r3 ✅ и security r3 ✅ по #38 на
+  1228065f — у второй записи статус незакоммиченной) и по своим прогонам. Заголовок #31
+  описывает поведение хостинга, а его держит статический гейт; живой предикат (rollup запроса
+  32→26) не измерен, и #31 до него не закрывать — то же сказал посадочный.
+
+examined:
+  diffs: 7                     # сборка + 6 полос
+  lines: 5534                  # по шести полосам, +5030 / -504; сборка 1512 = #38 488 + #31 1024
+  read_line_by_line: 'дельты ceremony.go у всех шести, литералы Config/Ports у всех шести, ci.yml #31, endpoints_internal_test.go (:1-60, :190-229)'
+  mechanical_census: 'все добавленные строки шести полос: имена снятого (#38, #34, #40), литералы Config{ и Ports{ (новых — 3, все в #38), новые файлы (11)'
+  runs: 'go test на 6 деревьях (bc580b92, +#35 дважды, +#39, #34+#35, #35+#39, #39+#40); merge-tree на 10 парах'
+
+next:
+  - 'go-implementer #35 — влить 32@bc580b92, добавить NewGrantID в ceremony_test.go:650-663 и endpoints_internal_test.go:200-218; красное сейчас 56'
+  - 'go-implementer #34 — влить 32@bc580b92: 3 файла с конфликтом плюс четыре места, которые git молча сольёт (collisions[1])'
+  - 'go-implementer #40 (уже в работе) — кроме 3 файлов с конфликтом снять endpoints_internal_test.go:211-212,227'
+  - 'wave-reviewer — повторный проход после каждой пересборки 32 по изменившимся полосам'
+finding_on_the_way: >-
+  тело wave-reviewer ссылается на .claude/rules/multi-agent-flow-orchestration.md §14 и на
+  rule-multi-agent-flow-shared-tree, но файла нет в rules/ (он лежит в .claude/backup/), и
+  скила нет — координата указывает в пустоту (tooling-maintainer).
