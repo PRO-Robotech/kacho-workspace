@@ -1,0 +1,252 @@
+# Пост-дифф ревью распределённых свойств, роль system-design-reviewer, круг 5.
+# Волна-0 цели identity-own. Имя файла — content_digest. Запись новая, добавлена
+# рядом с прежними; записи 707b05a4…1366.yaml, c5ae0889…fa77.yaml,
+# 33211786…2c8c.yaml и 3c93ec13…a8ef.yaml не правятся (change-graph §2).
+#
+# Предмет круга — ТОЛЬКО дельта ab1ad6ee88a..bdac9a1f8d1 (починка B5 посадочного):
+# правду ли теперь говорят тексты о выходе и закрывает ли латентный путь моей
+# находки I7 (круг 3) объявленное предусловие. Прежнее принятое не пересуживалось.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 5
+supersedes_record: 3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef.yaml
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787   # открыт, headRefOid = bdac9a1f8d1
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: bdac9a1f8d1e937c2b079810fcf25de34e7907e4
+  previous_head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  previous_digest: sha256:3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef
+  commits: 89        # git rev-list --count base..head (слияний 11)
+  files: 69          # LC_ALL=C git diff --name-only base...head | wc -l
+content_digest: sha256:64de754dba9883632fd703fc2284e6777fc8108587e12db7d29c27d4d704421f
+digest_definition: 'git -C project/kacho diff bec320cf47d668173bf27f60ebaf6cbe413a4903...bdac9a1f8d1e937c2b079810fcf25de34e7907e4 | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой дважды, до разбора и перед вердиктом, оба раза
+    64de754d…421f. Совпадает с объявленным. Прежний дайджест от ab1ad6ee88a
+    перемерен той же командой: 3c93ec13…a8ef, тоже совпадает.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → bdac9a1f8d1, совпадает; refs/heads/main → bec320cf47d = base.'
+  ancestry: 'merge-base --is-ancestor ab1ad6ee88a bdac9a1f8d1 → да; родители слияния bdac9a1f8d1: ab1ad6ee88a и ea02df843bc.'
+  committed: >-
+    Да. Судился detached worktree tmp/sd-w0-bdac на голове. После разбора
+    git status --porcelain → 0. Временных проб не заводилось.
+  identity: 'Оба коммита дельты: автор pointpu <pointpu@prorobotech.ru>. Трейлеров атрибуции в телах 0 (git log --format=%B ab1a..bdac | grep -ciE co-authored|claude|anthropic|generated → 0).'
+
+# ── ДЕЛЬТА ─────────────────────────────────────────────────────────────────────
+delta:
+  commits: '2 (ea02df843bc docs(gateway): тексты о гашении при выходе сужены до сделанного; bdac9a1f8d1 — слияние)'
+  files:
+    - gateway/docs/content/install/configuration.mdx
+    - gateway/internal/handler/login_lane_relay.go
+    - gateway/internal/handler/logout_carrier_states_test.go
+    - gateway/internal/handler/logout_exits_census_test.go
+    - gateway/internal/handler/logout_handler.go
+    - gateway/internal/middleware/auth.go
+    - gateway/internal/middleware/session_carrier_names.go
+  new_to_wave: 'Впервые вошёл в дифф волны 1 путь (68 → 69): logout_handler.go. Правка — только комментарий шапки.'
+  substance: >-
+    Только комментарии. Строк ±: 112, все 112 начинаются с `//` (go) или `#`
+    (строки YAML внутри шаблонной строки mdx). Контроль прибора: тот же фильтр
+    на base..ab1a по session_carrier_names.go находит 13 строк кода.
+  axes: >-
+    Распределённых свойств дельта не меняет. Атомарность, идемпотентность, CAS,
+    доставка, воркеры, рёбра, изоляция реплик, край и слои не применимы или
+    остаются как в записи 33211786…2c8c. Круг судит только истинность текстов
+    о выходе и то, закрывает ли путь I7 объявленное предусловие.
+
+# ── УТВЕРЖДЕНИЯ ДЕЛЬТЫ ПРОТИВ КОДА НА ГОЛОВЕ ────────────────────────────────────
+claims:
+  - text: 'session_carrier_names.go:29-37 — перечень гашения не зависит от множества; «выдать гашение» и «закрыть печенье» — разное; гашение края идёт без Domain и совпадает только с печеньем без Domain'
+    verdict: верно
+    evidence: 'SessionCarrierEndings (session_carrier_names.go:119-131): Path=/, MaxAge=-1, HttpOnly, Secure, Lax, поле Domain не заполняется; перечень — константа sessionCarrierNames, множества не читает.'
+  - text: 'session_carrier_names.go:39-42 — НАШЕ имя выход закрывает во всех состояниях: служба гасит той же формой, какой выдала; cookieDomain: none объявлено на каждой цепочке, где печенье выдаётся'
+    verdict: верно
+    evidence: >-
+      Пин kaname в go.mod — 16b5cadead2a. Прочитано там:
+      loginlanehttp/handler.go:794-805 (выдача и гашение kaname_session с одним
+      и тем же Domain: h.cfg.CookieDomain) и :506 (гашение на выходе);
+      config/login_lane.go:142-147 (none → "").
+      Отрисованы 7 цепочек из 7 (measured.chains). identity-provider own только
+      на `own`, остальные 6 — external, и под external блок входа не читается
+      (kaname/values.yaml:575-580). На `own` cookie-domain: "none".
+      Значит, «на каждой цепочке, где выдаётся» = 1 из 1.
+  - text: 'session_carrier_names.go:43-46 — ЧУЖОЕ имя гашение края закрывает только на посадке без доменного имени; Domain = global.kacho.identity.cookieDomain, по умолчанию — домен личности'
+    verdict: верно
+    evidence: >-
+      _kratos-identity.tpl:127-131 и 499-505: ключ domain печатается при
+      domainless=false, значение — cookieDomain | default domain. Рендер: процесс
+      поставщика получает две карты. Карта kaname-kratos-config подаётся вторым
+      --config и потому действует. Её домен: dev, dev-prod и prorobotech —
+      kacho.local; prod, own и fe3455 — api.kacho.cloud; a8f60d — ключа нет
+      (values.a8f60d.yaml:127 domainless: true). Итого Domain на 6 из 7.
+  - text: 'session_carrier_names.go:48-51 — предусловие own,external; страж старта его не сверяет, домен чужого печенья краю не объявлен; снимается вместе с чужим читателем (S3, kacho#1276)'
+    verdict: верно
+    evidence: >-
+      git grep cookie_?domain|CookieDomain|COOKIE_DOMAIN|domainless по gateway,
+      без комментариев и доков → 0. Контроль тем же предикатом на
+      charts/kaname/values.yaml → 2. kacho#1276 открыта: «снятие компонента»,
+      последний шаг эпика #1266, ПРЕДИКАТ СНЯТИЯ — упоминаний провайдера в Go 0.
+  - text: 'session_carrier_names.go:92-95, 116-118 — атрибуты те же, что у выдачи НАШЕГО печенья; Domain не ставится'
+    verdict: верно
+    evidence: 'Совпадает с kaname handler.go:794-798 при cookie-domain none.'
+  - text: 'login_lane_relay.go:193-205 — служба гасит только своё имя; /oauth/logout выдаёт гашение по всему перечню; выход формы идёт не через него; дополнение не расширяет того, что гашение закрывает'
+    verdict: верно
+    evidence: >-
+      kaname handler.go:506 гасит только kaname_session. logout_handler.go:217 —
+      middleware.EndSessionCarriers(w). endEveryCarrierOnLogout
+      (login_lane_relay.go:213-251) дописывает SessionCarrierEndings только
+      незагашенным именам. Формулировка «каждый выдаёт гашение одной формой»
+      строго верна, пока наше печенье идёт без Domain (форма службы = форма
+      края). Это условие названо в шапке session_carrier_names.go:40-42.
+  - text: 'auth.go:1292-1295 — ветка окончания по отказу окна живёт лишь в состоянии «оба»'
+    verdict: верно
+    evidence: >-
+      auth.go:1118-1124: нулевой момент окна пропускает всех. main.go:210-220:
+      момент ненулевой только при IsTransitionalWindow, а по
+      sessioncarriers.go:224 это own && provider.
+  - text: 'logout_handler.go:78-81 — шаг 5 выдаёт гашение по перечню через EndSessionCarriers, без Domain'
+    verdict: верно
+    evidence: 'logout_handler.go:217.'
+  - text: 'logout_carrier_states_test.go:4-20, logout_exits_census_test.go:4-9 — пробы судят ОТВЕТ, а не хранилище печений браузера'
+    verdict: верно
+    evidence: 'Утверждения проб — rec.Result().Cookies() с MaxAge<0 (logout_carrier_states_test.go:67-68; logout_exits_census_test.go:46-47, 68-69); браузер не моделируется.'
+  - text: 'configuration.mdx:239-250 — обещание оператору: наше имя закрывается; чужое — только без Domain; предусловие own,external; страж не сверяет'
+    verdict: верно
+    evidence: >-
+      Содержание то же, что у шапки session_carrier_names.go. Экранирование \`
+      законно: строки лежат внутри шаблонной строки {dedent`…`} (160-276), и
+      уже существующая строка 216 записана той же формой.
+  - text: 'тело #2787, «Что посажено», п.1 и п.6 — порядок внутри множества намеренно непредставим; выход гасит наше имя во всех состояниях; own,external не объявляется на цепочке с доменным печеньем поставщика'
+    verdict: верно
+    evidence: >-
+      gh pr view 2787 --json body: формулировок «выразим» и «порядок выбора» 0.
+      Утверждение о порядке совпадает с sessioncarriers.go:30-36. Числа тела
+      89 коммитов, 11 слияний и 69 файлов совпадают с замером. Строка отпечатка
+      тела даёт 64de754d…421f.
+
+b5_removal_predicate:
+  command: "git grep -nEi 'гасит ОБА имени|гасит оба имени|ОБА имени во всех|ВОШЕДШИМ по второму|вход не вернёт|вход обратно от отката|вернулся бы откатом профиля|станет носителем снова' <rev> -- ."
+  control_ab1a: 8     # находит все четыре места B5 в коде и документации (плюс две шапки проб)
+  head_bdac: 0
+  broadened: >-
+    Расширенный предикат «оба имени|обоим именам|both names|every carrier name»
+    на голове дал попадания двух видов. Первый — утверждения об ОТВЕТЕ
+    (шапки проб; session_carrier_precedence_test.go:182, 731). Второй — чужие
+    предметы вне gateway. Утверждений о закрытии печенья в браузере среди них нет.
+
+# ── ЗАКРЫВАЕТ ЛИ ПРЕДУСЛОВИЕ ЛАТЕНТНЫЙ ПУТЬ I7 ─────────────────────────────────
+latent_path_closure:
+  requirement_i7: 'Круг 3, I7 допускал один из двух путей: гашение с доменом издателя ЛИБО честное сужение обещаний до host-only посадок. Выбран второй.'
+  reach: >-
+    Тот же рендер, 7 из 7 цепочек. Объявляющих KACHO_API_GATEWAY_SESSION_CARRIERS
+    — 0, объявляющих момент окна — 0. Состояние own,external не объявлено нигде,
+    и предусловие на этой голове выполнено на 7 из 7.
+  judgement: >-
+    Путь закрыт объявленным предусловием. Все тексты, от которых зависит
+    решение оператора, говорят правду: шапка кода, шапки двух вызывающих, шаг 5
+    обработчика, страница оператора и тело запроса. Каждый называет одно и то
+    же предусловие, говорит, что страж старта его не сверяет, и даёт предикат
+    снятия. Случаи I7 (а) и (б) возникают только при объявлении own,external на
+    цепочке с Domain, а тексты теперь прямо запрещают это объявление.
+  residue: 'Предусловие держится вниманием оператора, машинного стража нет — I11.'
+
+# ── ИЗМЕРЕНО ────────────────────────────────────────────────────────────────
+measured:
+  chains:
+    predicate: 'helm template kacho-umbrella . -n kacho по каждой цепочке deploy/stacks.txt; зависимости материализованы deploy/scripts/helm-umbrella-deps.sh офлайн (20 из 20)'
+    result: 'Цепочек 7, отрисовано 7 (rc=0).'
+    per_chain: |
+      цепочка      посадка   SESSION_CARRIERS  наше cookie-domain  Domain чужого печенья
+      dev          external  0                 —                   kacho.local
+      dev-prod     external  0                 —                   kacho.local
+      prod         external  0                 none                api.kacho.cloud
+      own          own       0                 none                api.kacho.cloud
+      fe3455       external  0                 none                api.kacho.cloud
+      prorobotech  external  0                 —                   kacho.local
+      a8f60d       external  0                 —                   (нет, domainless)
+    instrument_note: 'В каталоге прогонов лежал посторонний own-BRANCH.yaml от прежней сессии. В счёт он не вошёл: считались только 7 файлов по именам цепочек.'
+  go:
+    predicate: 'GOWORK=off go test -count=1 ./internal/handler/ ./internal/middleware/ (каталог gateway) @bdac9a1f8d1; go vet; gofmt -l по 6 go-файлам дельты'
+    result: 'ok × 2; vet rc=0; gofmt 0 файлов'
+  pipeline_observed: 'gh pr checks 2787 на bdac9a1f8d1: 51 pass, 13 pending. Вердикт прогона выносит не эта роль.'
+
+# ── ВАЖНЫЕ ЗАМЕЧАНИЯ (не блокируют) ──────────────────────────────────────────
+important:
+  - id: I11
+    coordinate: 'gateway/deploy/templates/deployment.yaml:239 (эмиссия authn.sessionCarriers); session_carrier_names.go:48-51; configuration.mdx:246-250'
+    class: 'решение и его следствие разнесены (code-authoring): предусловие объявления держится вниманием'
+    claim: >-
+      Предусловие «own,external не объявляется там, где поставщик ставит Domain»
+      машинно не проверяется, и тексты это честно говорят. Однако чарт края уже
+      читает .Values.global (deployment.yaml:57), а факт «посадка без доменного
+      имени» — это ровно global.kacho.identity.domainless. Значит, отказ рендера
+      выполним без новой ручки у края. Кроме того, тексты называют условие через
+      cookieDomain, а квалифицирует цепочку только domainless: true. Очистка
+      cookieDomain Domain не снимает, он падает на домен личности. Это сказано
+      («по умолчанию — домен личности»), но единственный разрешающий признак
+      стоит назвать прямо.
+    why_not_blocking: >-
+      Путь латентен: состояние объявлено на 0 цепочках из 7. Тексты не вводят в
+      заблуждение. Прода с пользователями нет (core-no-prod), а переходное
+      состояние снимается вместе с #1276.
+    requirement: >-
+      Добавить в чарт края отказ рендера: authn.sessionCarriers называет и own,
+      и external, а global.kacho.identity.domainless не true. В текстах назвать
+      domainless: true как единственное условие, при котором own,external
+      допустим. Предикат: helm template dev с --set
+      api-gateway.authn.sessionCarriers=own\,external → отказ; то же на a8f60d
+      (плюс момент окна) → рендер. Предикат снятия — вместе с чужим читателем
+      (#1276).
+    return_to: 'диспетчер — завести задачу (роль go-implementer или tooling по чарту, size:XS)'
+  - id: I12
+    coordinate: 'gateway/docs/content/architecture/authn.mdx:172-175 (текст базы, в дифф волны не входит)'
+    class: 'тот же класс, что B5: обещание закрытия печенья, опровергнутое формой гашения без Domain (doc-truthfulness)'
+    claim: >-
+      «Отказ заканчивает носитель … край гасит cookie, и следующее обращение
+      приходит без сессии». Это отсечка на чужой полосе, на сегодняшних
+      цепочках она достижима в посадке external. На 6 цепочках из 7 чужое
+      печенье выдано с Domain, и гашение края его не находит: следующее
+      обращение приходит С сессией и снова получает отказ. Это случай I7(б),
+      разовый отказ становится стоящим.
+    why_not_blocking: >-
+      Направление закрытое: отказ действует на каждом запросе, личность не
+      пропускается, и безопасность не задета — страдает только живость.
+      Текст взят из базы, дельта и волна его не трогают; повторный круг судит
+      только дельту.
+    requirement: 'Сузить абзац так же, как дельта сузила шапку session_carrier_names.go: гашение без Domain закрывает чужое печенье только на посадке domainless, на остальных отказ стоящий, пока сессию не снимет выход поставщика.'
+    return_to: 'диспетчер — завести задачу (kacho-docs-writer, size:XS); может идти одной задачей с I11'
+
+prior_items:
+  I7: >-
+    Требование круга 3 закрыто вторым из двух допустимых путей: обещания и
+    комментарии честно сужены, предусловие объявления названо с предикатом
+    снятия. Остаток (машинный страж) перенесён в I11. Строка пробы
+    session_carrier_precedence_test.go:803 («Браузер исполнил Set-Cookie:
+    печенья больше нет») в пределах предусловия верна: окно бывает только на
+    host-only посадке.
+  I1_I6_I8_I10: 'не тронуты дельтой, остаются в силе как задачи и посадку не держат.'
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+distributed_surface: нет   # дельта — только комментарии; распределённая поверхность волны судилась записью 33211786…2c8c
+schema_intersection: нет   # CAS, xmin и advisory-lock в дельте не встречаются
+
+orders:
+  concurrent_goroutine_probe: 'не требуется: спорных CAS-путей в дельте нет.'
+  unrecorded_edge: 'нет: runtime-рёбер дельта не заводит.'
+  tasks_for_dispatcher:
+    - 'I11 — страж рендера предусловия own,external по global.kacho.identity.domainless; назвать domainless в текстах'
+    - 'I12 — authn.mdx:172-175 обещает анонимный следующий запрос после отсечки, на 6 из 7 цепочек неверно'
+
+checks_run:
+  green: 11      # дайджест ×2 · перепись комментарных строк с контролем · рендер 7/7 · таблица посадок и нашего домена · домен чужого печенья и порядок карт · предикат B5 (8→0) с контролем · go test 2 пакета · vet · gofmt · тело #2787
+  red: 0
+  not_run: 0
+  probes_model: 0
