@@ -1,0 +1,176 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 1.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса (ветка 805) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-34
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+previous_record: '—'
+subject: >-
+  oauthceremony: токен доступа выпускает порт службы (AccessTokenIssuer), код и токен
+  обновления непрозрачны; HMAC и подписной секрет сняты (задача #34, полоса L1, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d7            # origin/32 на момент ответвления
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: 588709b6b418f6edbb31ebbd822c7d1113a03107
+  head_tree: 851a14a018794bbd36feaa323aeaa4c74d9b71f9
+  head_is: 'ветка 34 в tmp/corelib-34, один коммит, не отправлена'
+  shortstat: '17 файлов, +1199 / -83'
+content_digest: sha256:ce97a03b32fecb36a08180850c6ee06a986bc6719696fb3a578761edc23a695e
+digest_definition: 'git diff --full-index 9f0393c540d7..588709b6 | sha256sum (перемерено своей командой)'
+
+verdict: returned              # возврат
+blocks_landing: true
+timestamp: '2026-09-23T15:48:34Z'
+return_to: go-implementer (автор диффа, полоса #34)
+review_scope: >-
+  Полный дифф (17 файлов). Вне диффа: вызовы стратегии в поддереве движка
+  (flow_authorize_code_token.go, flow_refresh.go, revocation.go, introspector.go), все
+  вызывающие grantFromRequester, ведомость операции (notes.go), разбор отказов (bridge.go,
+  translate.go), подставки проб. Пробы-накладки — в копии дерева коммита (git archive) вне
+  git-деревьев; копия полосы не менялась.
+
+premise_checks:
+  - claim: 'токен доступа выпускает порт, срок в ответе — срок выпуска'
+    result: подтверждено
+    how: 'чтение strategy.go:121-143, ceremony.go:719-741; проба автора TestAccessTokenInTheResponseIsTheIssuersAndItsLifetime'
+  - claim: 'выпуск идёт до единицы работы движка (внешний вызов не держит транзакцию)'
+    result: подтверждено
+    how: 'flow_authorize_code_token.go:143 раньше MaybeBeginTx :156; flow_refresh.go:124 раньше :136'
+
+critical:
+  - id: C1
+    tag: RAW-FORM-CROSSES-ISSUER-PORT
+    at: oauthceremony/strategy.go:124
+    summary: >-
+      Грант для IssueAccessToken собирается из НЕсанированного запроса движка
+      (grantFromRequester(requester)). Движок санирует запрос только для хранилища
+      (flow_authorize_code_token.go:143 против :170, flow_refresh.go:124 против :141). В итоге
+      порт выпуска получает в GrantRecord.Form поля формы запроса точки токена: предъявленный код,
+      code_verifier, предъявленный токен обновления, а при client_secret_post — секрет клиента.
+      Это противоречит types.go:243-244 («поля запроса, ПОРОДИВШЕГО грант») и замыслу
+      непрозрачных артефактов (doc.go §«Артефакты и подписной материал»).
+    measured: >-
+      Накладная проба на 588709b6. Выпуск 1 (обмен кода, basic): ключи Form — code, code_verifier,
+      grant_type, redirect_uri; значение code совпадает с предъявленным. Выпуск 2 (оборот): ключи
+      Form — grant_type, scope, refresh_token; значение совпадает с предъявленным. Обмен с
+      client_secret_post: Form[client_secret] совпадает с секретом клиента. В хранилище для тех же
+      грантов лежат только grant_type и scope. Существующие пробы этого не ловят: они зелёные и с
+      правкой, и без неё.
+    radius: >-
+      Вызывающих grantFromRequester 6. Четыре пересекают порт хранения, и движок отдаёт им уже
+      санированный запрос (bridge.go:187, 305, 362, 491). ceremony.go:1080 порт не пересекает.
+      Сырая форма пересекает порт ровно в одном месте — strategy.go:124.
+    requirement: >-
+      Собирать грант выпуска из requester.Sanitize(nil), то есть из той же записи, что уходит в
+      хранилище. Нужна проба: грант, пришедший в IssueAccessToken, не несёт code, code_verifier,
+      refresh_token и client_secret — ни на обмене кода (basic и post), ни на обороте. Близнец:
+      grant_type на месте, и грант выпуска равен записи в хранилище за вычетом срока токена
+      доступа.
+    predicate: >-
+      Накладка с этой правкой в одну строку на 588709b6: go test ./oauthceremony/... -count=1
+      даёт код 0, 91 проба верхнего уровня и 113 подслучаев PASS, 0 FAIL, 0 SKIP. Ключи Form у
+      выпуска сужаются до grant_type и scope, Form[client_secret] пуст.
+  - id: C2
+    tag: UNNAMED-PORT-OUTCOME
+    at: 'oauthceremony/ports.go:334-351; oauthceremony/strategy.go:177-195'
+    summary: >-
+      Контракт IdentifyAccessToken разрешает порту судить срок («Срок судить вправе, но не
+      обязан»), но не называет исхода для подлинного истёкшего токена. Утверждение «Исходов три, и
+      все три названы» для разрешённого им же случая ложно. Разрешённое поведение попадает в
+      ветку «иной отказ → отказ операции». Интроспекция и отзыв истёкшего токена отвечают
+      отказом, хотя RFC 7662 §2.2 и RFC 7009 §2.2 требуют active:false и успех. Кроме того,
+      подлинный истёкший токен и подделка получают на интроспекции разные исходы. Именно это
+      запрещает шапка Introspect («Почему «негоден» — НЕ ошибка»).
+    measured: >-
+      Накладная проба на 588709b6: токен выпущен в прошлом, запись гранта истекла.
+      Близнец — порт срок не судит: интроспекция active=false без ошибки, отзыв nil.
+      Порт судит срок:
+        - простая ошибка: интроспекция server_error, отзыв server_error;
+        - ErrTokenExpired: интроспекция token_expired, отзыв token_expired;
+        - ErrInactiveToken: интроспекция active=false, отзыв inactive_token.
+      Отзыв неверен во всех 3 формах, интроспекция — в 2 из 3.
+    requirement: >-
+      Назвать исход для подлинного истёкшего токена. Рекомендуемый вариант: снять «вправе»,
+      подлинный токен с истёкшим exp → (jti, nil), срок судит церемония по записи гранта.
+      Допустимая альтернатива: вердикт срока порта в AccessTokenSignature читается как «не
+      наш», и форма этого вердикта названа в контракте. Для выбранной формы нужна проба через
+      Introspect и Revoke с истёкшим токеном доступа (active:false, nil) вместе с близнецом, где
+      порт срок не судит. Выбранную форму передать в kaname#358: адаптер пишется против этого
+      контракта.
+    predicate: 'та же накладная проба на исправленной голове: во всех формах, разрешённых контрактом, интроспекция active:false и отзыв nil'
+
+important:
+  - id: I1
+    tag: WIRE-TEXT-NAMES-WRONG-PORT
+    at: 'oauthceremony/bridge.go:78, 82, 89-90'
+    summary: >-
+      fromPort и contractBreach отдают в Description тексты про хранилище («A storage call …»,
+      «The storage backing …», «A storage port …»). Description годится проводу (errors.go:34).
+      Теперь эти же тексты уходят на отказах порта выпуска: strategy.go (GenerateAccessToken,
+      checkIssued, AccessTokenSignature) и GetAccessTokenSession. Замер: отказ опознания даёт
+      «server_error: The storage backing the authorization server failed.». Текст фиксированный,
+      утечки нет, но он ложен о том, что отказало.
+    requirement: >-
+      Текст по виду порта либо нейтральный. Проба должна утверждать Description на пути порта
+      выпуска, а не только код (hard-regression-asserts-message).
+  - id: I2
+    tag: DOC-RATIONALE-CONTRADICTS-PORT
+    at: 'oauthceremony/ceremony.go:55-59; oauthceremony/access_issuer_test.go:322-325; oauthceremony/ceremony.go:97'
+    summary: >-
+      Довод «церемония со сроком длиннее отказывала бы на каждом обмене» противоречит контракту
+      IssueAccessToken: «Выпуск раньше неё законен: подписант режет срок до своего потолка».
+      Противоречит он и подставке, которая режет срок по потолку (fakes_test.go:147). Проверка
+      потолка законна, а названная причина — нет. Настоящая причина: такой срок неисполним, и
+      настройка лгала бы. Отдельно: PortTimeout описан как «срок ОДНОГО вызова порта хранения»,
+      хотя теперь им же ограничен порт выпуска (ceremony.go:233).
+    requirement: 'переписать довод в шапке Config и пробы; дополнить описание PortTimeout портом выпуска'
+
+style:
+  - id: S1
+    at: oauthceremony/strategy.go:65
+    note: >-
+      return "", "", err без контекста. Либо обернуть (fmt.Errorf("opaque artifact: %w", err)),
+      либо назвать ветку недостижимой: crypto/rand.Read с Go 1.24 ошибки не возвращает.
+  - id: S2
+    at: 'oauthceremony/strategy.go:131, 179'
+    note: 'context.WithTimeout повторяет storageBridge.deadline (bridge.go:64); лучше один помощник срока на все порты'
+  - id: S3
+    at: oauthceremony/ceremony.go:186
+    note: >-
+      В одной функции живут две разные вещи с одним именем: настройка движка
+      AccessTokenIssuer (строка, её не читает ни одна собранная стратегия) и порт
+      ports.AccessTokenIssuer. Полоса #38 (60184d2) снимает настройку, и при сведении имя
+      освобождается.
+  - id: S4
+    at: oauthceremony/ceremony.go:1042
+    note: 'пустой case "expires_in" — слить с case "access_token", "token_type"'
+  - id: S5
+    at: 'oauthceremony/bridge.go:331-332'
+    note: 'notesFrom(ctx) дважды подряд — взять один раз'
+
+foundation_candidates: []       # изменение и есть фундамент
+fresh_deferral_markers: 0       # по добавленным строкам полного диффа
+probes_in_same_pr: true         # 9 файлов _test.go в диффе
+security_comments_contradicting_code:
+  - 'oauthceremony/types.go:243-244 — Form «поля запроса, породившего грант»; порт выпуска получает форму запроса точки токена (C1)'
+  - 'oauthceremony/ports.go:337-338 — «все три названы»; исход разрешённого суждения о сроке не назван (C2)'
+trailers_in_commit: 0
+
+outside_diff:
+  - >-
+    Со слов автора диффа, не перемерено: общий отказ выборки токена доступа на интроспекции
+    даёт active:false. Это прежний дефект, в диффе его нет; автор предлагает завести отдельную
+    задачу в corelib.
+  - >-
+    origin/32 ушёл вперёд: 9f0393c → 84b9be8 (#33, #49). Семь файлов этого диффа правлены и там
+    (boundary_test, bridge, ceremony, doc, fakes_test, notes, ports). Полоса #38 (60184d2)
+    снимает Config.Issuer в тех же местах. Сведение с волной сменит дайджест, и роль нужно
+    повторить.
+
+not_run: 'полный -race и линтер не перезапускал (замеры автора диффа и check-verifier)'
