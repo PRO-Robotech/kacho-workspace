@@ -1,0 +1,204 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer, круг 2.
+# Волна-0 цели identity-own. Имя файла — content_digest. Запись новая, добавлением;
+# прежняя запись (707b05a4…1366.yaml) не правится (change-graph §2).
+# Круг судит ТОЛЬКО дельту 0e0a85f936e..945b851ed52 и то, держится ли прежний ✅.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 2
+supersedes_record: 707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366.yaml
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: 945b851ed52e8e7a840f706015e8e088169ad032
+  previous_head: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+  commits: 83        # git rev-list --count base..head
+  files: 66          # git diff --name-only base...head | wc -l (LC_ALL=C)
+content_digest: sha256:c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77
+digest_definition: 'git -C project/kacho diff bec320cf47d...945b851ed52 | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой дважды, до разбора и перед вердиктом: оба раза
+    c5ae0889…fa77, равен объявленному. Прежний дайджест той же командой на
+    0e0a85f936e дал 707b05a4…1366, тоже равен объявленному.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → 945b851ed52, совпадает.'
+  ancestry: 'merge-base --is-ancestor 0e0a85f936e 945b851ed52 → да; дельта линейна поверх прежней головы.'
+  committed: >-
+    да; судился detached worktree tmp/sd-w0-head-945b851, git status --porcelain
+    → 0 до и после. Для сравнения — tmp/sd-w0-head-0e0a85f и tmp/sd-w0-base-bec320c.
+
+# ── ДЕЛЬТА ──────────────────────────────────────────────────────────────────
+delta:
+  commits: '4 (796da67d5ea, f14e822e416 и два слияния 9e97fe247e2, 945b851ed52)'
+  files: 3
+  judged_on_axes: 'deploy/helm/umbrella/values.own.yaml — распределённая поверхность: цепочка own'
+  outside_axes:
+    - 'deploy/tests/helm/outcome-contract-inject.sh — ожидаемый текст отказа пробы; распределённых свойств нет'
+    - 'gateway/docs/content/install/configuration.mdx — экранирование обратных кавычек в литерале; распределённых свойств нет'
+  substance: >-
+    С цепочки own снято выключение kratos, pg-kratos и kratos-selfservice-ui.
+    Относительно базы values.own.yaml теперь отличается только строкой
+    `api-gateway.kratosPublicUrl: disabled` и комментариями.
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+distributed_surface: да   # цепочка own: +16 ресурсов поставщика сессии, ребро kratos→kaname :9092 вернулось
+schema_intersection: нет  # CAS/xmin/advisory-lock в дельте не встречаются
+
+# ── ОСИ, ПРИМЕНИМЫЕ К ДЕЛЬТЕ ────────────────────────────────────────────────
+axes:
+  atomicity_outbox: 'не применимо — мутаций, Operation и outbox в дельте нет.'
+  idempotency: 'не применимо к дельте (посев секретов не тронут; I2 прежнего круга в силе).'
+  cas_occ: 'не применимо — SQL в дельте нет; проба с конкурирующими горутинами не требуется.'
+  change_delivery: 'не применимо.'
+  worker_coordination: 'не применимо.'
+  per_call_deadline: 'новых внешних вызовов дельта не заводит; ребро kratos→kaname взято из базы без изменений.'
+  service_graph: >-
+    На own вернулись вебхуки kratos → https://kaname-internal.kacho.svc:9092
+    (/iam/v1/hooks/provision ×4, /recovery ×1). Ребро есть в базе: рендер чарта
+    головы с values.own.yaml базы и слоем площадки головы совпадает с рендером
+    головы до ресурса, кроме значения KACHO_API_GATEWAY_KRATOS_PUBLIC_URL.
+    Обратного ребра нет: в картах настроек и env не-kratos процессов own
+    упоминаний kratos 0, кроме этой ручки края со значением `disabled`. Граф ацикличен.
+  replica_isolation: 'не затронуто.'
+  edge_ban6: >-
+    Internal* не тронуты. Публичный вход на own — один Ingress (api-gateway, `/`).
+    kratos-public, kratos-admin, kratos-courier и kratos-selfservice-ui — ClusterIP.
+    Консоль на own не разворачивается (console-serves-identity-flows-test.sh).
+    Внешнего пути к API поставщика на own нет.
+  clean_arch: 'Go-кода в дельте нет.'
+
+# ── ИЗМЕРЕНО ────────────────────────────────────────────────────────────────
+measured:
+  render_delta_own:
+    predicate: >-
+      helm template kacho-umbrella . -n kacho, цепочка из deploy/stacks.txt, на
+      0e0a85f936e и на 945b851ed52 (зависимости — helm-umbrella-deps.sh, офлайн,
+      20 из 20). Единица — ресурс (kind, name).
+    result: >-
+      own: 205 → 221, добавлено 16, все из семейства kratos (Deployment kratos,
+      selfservice-ui; StatefulSet courier и pg-kratos; 6 Service; 4 ServiceAccount;
+      ConfigMap kacho-umbrella-kratos-config; Pod test-connection). Удалено 0,
+      изменено вне шума 0.
+  render_other_stacks:
+    predicate: >-
+      Второй предикат, по содержимому: старая голова против новой по каждому
+      ресурсу. Контроль — рендер новой головы дважды (шум: случайные пароли
+      pg-*, самоподписанные -crt, контрольные суммы, `now` в security.txt).
+    result: >-
+      Цепочки a8f60d, dev, dev-prod, fe3455, prod, prorobotech: добавлено 0,
+      удалено 0, изменено сверх собственного шума 0. У fe3455: изменено 5, шум 6.
+      Дельта меняет рендер ровно одной цепочки из 7.
+  provider_carrier_not_read_on_own:
+    question: 'Становится ли печенье поставщика личностью на own теперь, когда поставщик поднят?'
+    result: >-
+      Нет. Держат это два независимых условия. (1) Env края на own:
+      KACHO_API_GATEWAY_SESSION_CARRIERS не объявлен,
+      KACHO_API_GATEWAY_IDENTITY_PROVIDER=own. Тогда множество носителей
+      выводится из посадки как {own}
+      (gateway/internal/config/sessioncarriers.go:129-130, 147-148), а
+      читатель поставщика заводится только при ReadsProvider()
+      (gateway/cmd/api-gateway/main.go:229, 1209). (2) Значение
+      KACHO_API_GATEWAY_KRATOS_PUBLIC_URL равно `disabled` (main.go:230, 1209).
+      Условие (1) держит проба TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture:
+      PASS; всего 32 PASS в `go test -run 'SessionCarrier|OwnLane' -v
+      ./gateway/internal/config/ ./gateway/cmd/api-gateway/` @945b851ed52.
+  identity_file_gate:
+    predicate: 'go test -tags helmcharts -run TestIdentityFileKeysAreNotOverriddenByTheEnvironment -v ./deploy/'
+    result: >-
+      @0e0a85f936e — FAIL: на стеке own «не найдено ни одного контейнера,
+      читающего наш файл настроек». Посылка фикса подтверждена.
+      @945b851ed52 — PASS: стеков 7, наших карт 7, процессов-читателей 14, B=0.
+  stack_secrets_own:
+    predicate: >-
+      kubectl-заглушка («все секреты на месте»), настоящий helm, `bash
+      deploy/scripts/stack-secrets.sh own` на обеих головах. Это модель, а не
+      живой кластер.
+    result: >-
+      Требуется 14 → 17: добавились kacho-umbrella-kratos-stand,
+      kacho-umbrella-pg-kratos и kratos-selfservice-ui-cookie-secret. У каждого
+      есть строка производителя и функция посева
+      (stack-secrets.sh:216-217, 346-353). Требуемое выводится из рендера,
+      поэтому решение и его следствие опираются на один вход. Возврат поставщика
+      не оставляет стенд own без предпосылок.
+  console_edge_gate: 'bash deploy/tests/helm/console-serves-identity-flows-test.sh @945b851ed52 → PASS, 7 утверждений, находок 0; own — «консоль НЕ разворачивается».'
+  outcome_contract_inject: 'bash deploy/tests/helm/outcome-contract-inject.sh @945b851ed52 → PASS, случаев 18 (вне осей роли; приведено фактом).'
+
+# ── ДЕРЖИТСЯ ЛИ ПРЕЖНИЙ ✅ ───────────────────────────────────────────────────
+prior_verdict_holds:
+  result: >-
+    Держится. Из 66 файлов волны дельта трогает 3. Производственный рендер
+    меняется только на цепочке own, и только добавлением поставщика в форме
+    базы. Прочие оси прежней записи (перечень издателей, чарт против образа,
+    раздача консоли, registry JWKS, порядок stack-up) опираются на файлы вне
+    дельты и на рендеры, которые сверх шума не изменились.
+  superseded_measurement: >-
+    Прежняя запись: measured.own_chain_foreign_session_provider_off («подчарты
+    kratos и kratos-selfservice-ui ресурсов не дают»). На 945b851ed52 это
+    НЕВЕРНО, замер заменён на render_delta_own и provider_carrier_not_read_on_own.
+    Прежний ✅ на выключенности поставщика не стоял: обе оценки держатся на
+    невыборе читателя краем и на отсутствии внешнего маршрута.
+  prior_important_I1_I4: 'не тронуты дельтой (stack-secrets.sh, dev-prod-secrets.sh, values.dev.yaml, configmap-nginx.yaml вне дельты) — остаются в силе, посадку не держат.'
+
+# ── ВАЖНЫЕ ЗАМЕЧАНИЯ (не блокируют по оси роли) ──────────────────────────────
+important:
+  - id: I5
+    coordinate: 'deploy/helm/umbrella/values.own.yaml:94-97'
+    class: 'arch-doc-truthfulness — ссылка на снятую пробу'
+    claim: >-
+      Новый комментарий обосновывает «под own печенье поставщика личностью не
+      становится» пробой TestOwnLane_F3_12_NoProviderCarrierReaderIsWiredUnderOwn,
+      а её в дереве нет. Проверено двумя способами. По тексту: `git grep 'func
+      TestOwnLane_F3_12' 945b851ed52` → 0 определений, упоминаний 2
+      (values.own.yaml:97, gateway/deploy/login_console_test.go:51). По
+      исполнению: `go test -run TestOwnLane_F3_12 ./gateway/cmd/api-gateway/` →
+      «no tests to run». Шапка own_lane_readers_wiring_test.go говорит, что
+      размещение читателя файл больше не судит. Само свойство держится, но
+      ДРУГОЙ пробой (см. provider_carrier_not_read_on_own).
+    cross_role: >-
+      Это требование go-style C1 («Ссылку на снятый тест … убрать … Тем же
+      изменением — values.own.yaml:98-110»). Дельта переписала раздел, но ссылку
+      перенесла в новый текст. gateway/deploy/login_console_test.go в дельту не
+      входит (`git diff --name-only 0e0a85f936e 945b851ed52 --
+      gateway/deploy/login_console_test.go` → 0). Поэтому C1 дельтой не закрыт ни
+      в части values.own.yaml, ни в части login_console_test.go. Блокер держит
+      go-style; эта роль его не дублирует.
+    requirement: 'Сослаться на TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture и на `disabled` у адреса либо убрать ссылку. Решает повторный круг go-style.'
+    return_to: 'автор диффа волны (из задания), через повторный круг go-style-reviewer'
+  - id: I6
+    coordinate: 'deploy/helm/umbrella/values.own.yaml:114-117'
+    class: 'ban11-three-outcomes — отложенный предмет без координаты'
+    claim: >-
+      «снятие поставщика с этой цепочки — ОТДЕЛЬНЫЙ предмет». Причина и условие
+      снятия названы (гейт должен отличать цепочку без службы личности от
+      процесса, потерявшего аргумент), но задачи-носителя в тексте нет.
+    requirement: 'Завести задачу и назвать её в комментарии; к распределённым свойствам не относится.'
+    return_to: 'диспетчер — завести задачу'
+
+# ── НАХОДКИ ПО ДОРОГЕ (вне предмета волны) ───────────────────────────────────
+on_the_way:
+  - >-
+    deploy/helm/umbrella/templates/security-txt-configmap.yaml:34-35. Шаблон
+    обещает «Expires no later than 1 year from generation», а выводит
+    `Expires: {{ now | date … }}`, то есть момент рендера: security.txt
+    просрочен в момент выпуска. Заодно рендер карты недетерминирован. Есть в
+    базе (bec320cf47d, рендер own: Expires равен времени генерации), волна не трогала.
+  - >-
+    Прежний факт в силе: распределённые оси 38 файлов носителя сессии не
+    покрыты ни одной записью этой роли (prior scope.coverage_caveat).
+
+orders:
+  concurrent_goroutine_probe: 'не требуется — спорных CAS-путей в дельте нет.'
+  unrecorded_edge: 'нет — ребро kratos→kaname :9092 из базы, новое не заведено.'
+
+checks_run:
+  green: 5      # identity-file gate @945b851 · gateway/internal/config · gateway/cmd/api-gateway (32 PASS) · console-serves-identity-flows · outcome-contract-inject (18)
+  red: 1        # identity-file gate @0e0a85f — подтверждение посылки фикса, не находка
+  not_run: 1    # TestOwnLane_F3_12_* — «no tests to run»: предмета нет (I5)
+  probes_model: 1   # stack-secrets own — kubectl-заглушка
