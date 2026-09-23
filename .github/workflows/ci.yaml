@@ -550,7 +550,25 @@ jobs:
     # отличима от красного по строке, а не по времени ожидания.
     timeout-minutes: 30
     steps:
+      # `fetch-depth: 0` и клон продукта — ПРЕДПОСЫЛКИ `check-04`, а не запас.
+      # Он пересчитывает освобождения ролей в пакетах `docs/changes/*/` на
+      # коммите: опознаёт дом пакетов по cutover-коммиту воркспейса ПРЕДКОМ
+      # головы (мелкий клон его не несёт), а поля о дереве продукта — по линии
+      # `base..head` из манифеста пакета в клоне продукта с его cutover-коммитом
+      # предком базы и головой, которую содержит ссылка origin (`fetch-depth: 0`
+      # приносит все ветки). Без обоих набор честно отвечает «не выполнилось» (код 2), и
+      # шаг под `bash -e` падает — VOID в конвейере есть поломка, потому что
+      # условие здесь создаёт само задание.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: разборщик YAML — fixtures контура объявлены YAML
