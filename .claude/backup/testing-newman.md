@@ -56,6 +56,10 @@ read-your-own-writes EC-окна; не лечат collision/phantom/idempotency 
 `qa-access` относил 401 к AUTHZ, а держатель 401 на крае помечен AUTHN
 (`gateway/tests/newman/cases/authn_edge.py`, 7 списков: 4 отказа 401 и 3 контроля 200).
 Решение диспетчера: AUTHN — синоним AUTHZ удостоверения, законен и в новом кейсе. Перепись
-@kacho 1d42a6728bf, 60 файлов `cases/*.py`, 1072 списка, 1995 меток: вне словаря и синонимов
-остаются POS 7, LST 7, AZ 6, FLOW 3, ALLOW 2, SECD 2, SETUP, UNAUTH, CATALOG, OBS по 1 —
-их правка в дереве продукта, не здесь.
+@kacho 1d42a6728bf, 60 файлов `*/tests/newman/cases/*.py`; единица — литеральный список
+аргумента `classes` по AST (`ast.keyword`, значение `List`): 1070 списков, 1985 элементов —
+1981 строковый литерал и 4 условных выражения `"POS" if … else "NEG"`; 7 записей не литералом
+(`inner_case.classes`, сложение списков) в счёт не входят. Вне словаря и синонимов 8 меток:
+POS 7 (3 литерала и 4 ветви условных), LST 7, AZ 6, FLOW 3, SECD 2, SETUP, CATALOG, OBS по 1 —
+их правка в дереве продукта, не здесь. `ALLOW` и `UNAUTH` — операнды сравнения в условии, а не
+метки (compute `authz-deny.py:243`, `:271`; storage `authz-catalog.py:113`).
