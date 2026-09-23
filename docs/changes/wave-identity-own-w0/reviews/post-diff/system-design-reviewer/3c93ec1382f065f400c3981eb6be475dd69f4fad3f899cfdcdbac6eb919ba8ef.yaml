@@ -1,0 +1,212 @@
+# Пост-дифф ревью распределённых свойств, роль system-design-reviewer, круг 4.
+# Волна-0 цели identity-own. Имя файла — content_digest. Запись новая, добавлена
+# рядом с прежними; записи 707b05a4…1366.yaml, c5ae0889…fa77.yaml и
+# 33211786…2c8c.yaml не правятся (change-graph §2).
+#
+# Предмет круга — ТОЛЬКО дельта b579b9eec9c..ab1ad6ee88a (починка B1, kacho#2788):
+# верно ли переписанные комментарии теперь описывают распределённое поведение
+# края — кто и при каком состоянии множества носителей читает адрес поставщика
+# и заводит читателя его носителя. Прочие 61 путь волны этим кругом не
+# перечитывались: их держит запись 33211786…2c8c.yaml, дельта их не трогает.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 4
+supersedes_record: 332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c.yaml
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787   # закрыт без вливания, открывается заново
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  previous_head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  previous_digest: sha256:332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c
+  commits: 87        # git rev-list --count base..head
+  files: 68          # LC_ALL=C git diff --name-only base...head | wc -l
+content_digest: sha256:3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef
+digest_definition: 'git -C project/kacho diff bec320cf47d668173bf27f60ebaf6cbe413a4903...ab1ad6ee88a8913053442da5d25ad55931d30fb6 | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой дважды, до разбора и перед вердиктом, оба раза
+    3c93ec13…a8ef. Совпадает с объявленным. Прежний дайджест от b579b9eec9c
+    перемерен той же командой: 33211786…2c8c, тоже совпадает.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → ab1ad6ee88a, совпадает; refs/heads/main → bec320cf47d = base.'
+  ancestry: 'merge-base --is-ancestor b579b9eec9c ab1ad6ee88a → да.'
+  committed: >-
+    Да. Судился detached worktree tmp/sd-w0-ab1a на голове. Прежняя голова лежит
+    в tmp/sd-w0-b579x и нужна только для сравнения рендера. После разбора
+    git status --porcelain на голове → 0: временные пробы zzsd_probe_test.go
+    (config и cmd/api-gateway) прогнаны и удалены, в дерево не попали.
+  identity: 'Оба коммита дельты: автор и коммиттер pointpu <pointpu@prorobotech.ru>. Трейлеров атрибуции в телах 0.'
+
+# ── ДЕЛЬТА ─────────────────────────────────────────────────────────────────────
+delta:
+  commits: '2 (fe777cbebf8 docs(gateway), ab1ad6ee88a chore(wave): починка wave0-b1-rest)'
+  files:
+    - gateway/cmd/api-gateway/own_lane_readers_wiring_test.go
+    - gateway/deploy/session_carrier_knobs_test.go
+    - gateway/deploy/templates/deployment.yaml
+    - gateway/internal/config/config.go
+    - gateway/internal/middleware/own_session_lane_test.go
+    - gateway/internal/middleware/session_carrier_names_gate_test.go
+    - gateway/internal/middleware/session_lanes_agree_test.go
+  new_to_wave: >-
+    Впервые вошли в дифф волны 2 пути (66 → 68):
+    own_session_lane_test.go и session_carrier_names_gate_test.go.
+    Правка в обоих — только комментарии.
+  substance: >-
+    Только комментарии. Строк ±: 88. Все, кроме 15, начинаются с `//` или `#`.
+    Оставшиеся 15 лежат внутри одного блока `{{/* … */}}` в deployment.yaml.
+    Рендер чарта без строк-комментариев побайтово совпадает на обеих головах в
+    трёх наборах значений (measured.chart_render).
+  axes: >-
+    Распределённых свойств не меняет: атомарность, идемпотентность, CAS,
+    доставка, воркеры, рёбра, изоляция реплик, край и слои — не применимо или
+    как в записи 33211786…2c8c. Круг судит только истинность описаний.
+
+# ── УТВЕРЖДЕНИЯ ДЕЛЬТЫ ПРОТИВ КОДА НА ГОЛОВЕ ────────────────────────────────────
+claims:
+  - text: 'config.go:293-301 и :46-50, deployment.yaml:180-186 — читает ли край адрес поставщика, решает множество, а не посадка'
+    verdict: верно
+    evidence: >-
+      Прочитано на голове. Адрес читается одной строкой, main.go:189
+      (kratosURL := cfg.KratosPublicURL). Уходит в стража (main.go:193) и в две
+      ветки `sessionCarriers.ReadsProvider()`: интерцептор, main.go:229-231, и
+      «кто я», main.go:1209-1210. Других производственных читателей в gateway
+      нет: git grep 'KratosPublicURL|KRATOS_PUBLIC_URL' без _test.go и доков
+      находит только эти места.
+  - text: 'config.go — ручка не объявлена: множество из посадки, под own адрес не читается, задан он или нет'
+    verdict: верно
+    evidence: >-
+      Прочитано в sessioncarriers.go:129-130 и 146-148: c.SessionCarriers == ""
+      → из посадки, Own → {own}. Измерено пробой через настоящий загрузчик
+      (corecfg.Load → envconfig.Process, v1.4.0): случаи absent и present-empty
+      дают set=own, declared=false, readsProvider=false. Проба стража: под own
+      при carriers="" с адресом "" или "disabled" отказа нет.
+  - text: 'config.go, deployment.yaml — объявленное множество с external, в том числе own,external под own: адрес обязателен, пустой или disabled страж отвергает'
+    verdict: верно
+    evidence: >-
+      Прочитано в session_carrier_validation.go:190-199 (Declared && ReadsProvider,
+      TrimSpace, "" или "disabled" → отказ). Измерено пробой: own,external под own
+      с "disabled" → отказ, с "" → отказ, с http://kratos:80 → проход. В чарте
+      пустого адреса не бывает (`default (printf …)`), поэтому deployment.yaml
+      называет только disabled, и это корректно.
+  - text: 'deployment.yaml:177-179 — disabled выключает чтение сессии поставщика и не касается нашей'
+    verdict: верно
+    evidence: >-
+      main.go:230 и 1209: disabled проверяется только внутри веток ReadsProvider.
+      Ветки ReadsOwn (main.go:245-249 и 1217-1218) от адреса поставщика не
+      зависят.
+  - text: 'deployment.yaml:230-238, session_carrier_knobs_test.go:27-31 и 81-83 — процесс читает пустую переменную как «не задано»; отказ получает непустое значение из пробелов или разделителей'
+    verdict: верно
+    evidence: >-
+      Измерено пробой через Load(). present-empty для SESSION_CARRIERS даёт
+      declared=false. Для WINDOW_OPENED_AT пустое даёт нулевой момент без ошибки
+      (sessioncarriers.go:236-238). «   » и «,» дают отказ разбора «declares no
+      carrier element», и main.go:176-181 превращает его в log.Fatalf. Рендер с
+      authn.sessionCarriers из пробелов эмитит переменную (`with` пропускает
+      непустое).
+  - text: 'own_lane_readers_wiring_test.go:156-159 — вердикт о читателе выносит session_carrier_wiring_test.go по решению множества, посадка лишь называется в тексте находки'
+    verdict: верно
+    evidence: >-
+      session_carrier_wiring_test.go:357-384: засчитывается decision == want
+      (ReadsProvider/ReadsOwn), s.posture идёт только в счётчик byPosture и в
+      текст t.Errorf. Шапка распознавателя (own_lane_readers_wiring_test.go:30-32)
+      говорит то же.
+  - text: 'own_session_lane_test.go:71-73, 186-187 — при own,external читатель поставщика провязан; при множестве own его нет'
+    verdict: верно
+    evidence: 'Страж пропускает own + {own,external} (проба: проход с адресом). main.go заводит WithKratos по ReadsProvider независимо от посадки.'
+  - text: 'session_lanes_agree_test.go:42-46 — при own,external заведены оба читателя, чужая сессия читается с моментом открытия окна; ось судит TestBrowserSessionLanesAgree_OnTheTransitionalWindowAxis'
+    verdict: верно
+    evidence: >-
+      main.go:217-220 и 241: момент ненулевой только при IsTransitionalWindow и
+      подаётся обеим полосам (main.go:1215). Проба существует
+      (session_lanes_agree_test.go:366).
+  - text: 'session_carrier_names_gate_test.go:25-28 — читателя носителя поставщика заводит множество, называющее external'
+    verdict: верно
+    evidence: 'То же, что в первом пункте: main.go:229, 1209.'
+
+b1_removal_predicate:   # kacho#2788, пункты 1–2; пункт 3 — вердикты других ролей
+  p1:
+    command: "git grep -niE 'только под посадкой .external.|read under .external. only' <rev> -- gateway | wc -l"
+    control_b579: 3
+    head_ab1a: 0
+  p2:
+    command: "git grep -ni 'не заводится' <rev> -- gateway/internal/config/config.go gateway/deploy/templates/deployment.yaml | wc -l"
+    control_b579: 2
+    head_ab1a: 0
+  reading: 'Оба предиката находят свой предмет на прежней голове (контроль) и дают ноль на новой.'
+  not_residue: >-
+    Проверено, что main.go:170-171 («посадка продолжает решать … адреса
+    поставщика») и sessioncarriers.go:24-26 — НЕ остаток того же класса.
+    Посадка по-прежнему разводит требование адресов Hydra (introspection и
+    admin): main.go:432-436, validateProductionRevocationConfig с
+    IdentityProvider: identityLane. Утверждение верно.
+
+# ── ИЗМЕРЕНО ────────────────────────────────────────────────────────────────
+measured:
+  go_tests:
+    predicate: 'GOWORK=off go test -count=1 ./cmd/api-gateway/ ./deploy/ ./internal/config/ ./internal/middleware/ (каталог gateway) @ab1ad6ee88a, после удаления временных проб'
+    result: 'ok × 4 — все пакеты, в которых лежат файлы дельты.'
+  reviewer_probes:
+    config: 'TestZZSD_EmptyVarIsNotDeclared: 5 подслучаев (absent, present-empty, spaces, comma, own,external) PASS; пустая переменная адреса через Load() → "" (умолчание envconfig не подставлено)'
+    guard: 'TestZZSD_TransitionalUnderOwnRequiresProviderAddress: 5 пар (own,external×{disabled,"",url}, undeclared×{disabled,""}) — исходы стража совпали с ожидаемыми'
+    disposition: 'обе пробы удалены, в дерево не попали'
+  chart_render:
+    predicate: "helm template g <tree>/gateway/deploy <values> | grep -vE '^\\s*#', сравнение tmp/sd-w0-b579x и tmp/sd-w0-ab1a"
+    result: >-
+      Три набора значений: умолчания; own,external + момент окна +
+      kratosPublicUrl=disabled; sessionCarriers из пробелов. Строк 239, 243 и
+      241, расхождение 0/0/0.
+    instrument_note: >-
+      Два промежуточных прогона прибора недействительны. В одном указан
+      несуществующий каталог старой головы, в другом `eval` снял экранирование
+      запятой в --set. Оба перезапущены верной командой, и в вердикт вошли
+      только перезапуски.
+
+# ── ВАЖНЫЕ ЗАМЕЧАНИЯ (не блокируют) ──────────────────────────────────────────
+important:
+  - id: I10
+    coordinate: 'gateway/deploy/session_carrier_knobs_test.go:85-86 (текст t.Errorf)'
+    class: 'два места об одном предмете, верно одно (doc-truthfulness)'
+    claim: >-
+      Текст отказа пробы по-прежнему говорит «пустое значение доедет переменной,
+      и «не задано» станет неотличимо от «задано пустым»». Это прежняя модель:
+      процесс якобы различает «задано пустым». Три строки выше (81-83) дельта
+      исправила комментарий той же проверки на обратное: процесс читает пустую
+      переменную как «не задано», и `with` держит форму эмиссии, а не различие
+      состояний. Коммит fe777cbebf8 говорит, что исправлены и шапка, и проба, но
+      эта строка дельтой не тронута.
+    why_not_blocking: >-
+      Строка не тронута дельтой, она печатается только на красном и поведения
+      не меняет. В исключения повторного круга (безопасность, запрет ядра,
+      маска, пропуск, ослабление проверки) не входит. Распределённого свойства
+      не описывает, поэтому это задача, а не блокер.
+    requirement: 'Переписать текст отказа тем же смыслом, что комментарий 81-83: «ручка эмитится не под `with` — незаданная ручка родила бы переменную».'
+    return_to: 'диспетчер — завести задачу (роль go-implementer, size:XS)'
+
+prior_items:
+  I1_I6: 'не тронуты дельтой, остаются в силе, посадку не держат.'
+  I7_I9: 'не тронуты дельтой (session_carrier_names.go, clients/session_revocations_client.go, auth.go и metrics — вне дельты), остаются в силе как задачи.'
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+distributed_surface: нет   # дельта — только комментарии; распределённая поверхность волны судилась записью 33211786…2c8c
+schema_intersection: нет   # CAS, xmin и advisory-lock в дельте не встречаются
+
+orders:
+  concurrent_goroutine_probe: 'не требуется: спорных CAS-путей в дельте нет.'
+  unrecorded_edge: 'нет: runtime-рёбер дельта не заводит.'
+  tasks_for_dispatcher:
+    - 'I10 — текст отказа session_carrier_knobs_test.go:86 противоречит исправленному комментарию той же пробы'
+
+checks_run:
+  green: 7       # дайджест ×2 · предикат B1 (p1, p2 с контролем) · перепись некомментарных строк · проба загрузчика · проба стража · go test 4 пакета · рендер 3 набора
+  red: 0
+  not_run: 0
+  invalid_instrument_runs: 2   # перезапущены, в вердикт не вошли
+  probes_model: 0

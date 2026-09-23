@@ -1,0 +1,314 @@
+# Пост-дифф ревью распределённых свойств, роль system-design-reviewer, круг 3.
+# Волна-0 цели identity-own. Имя файла — content_digest. Запись новая, добавлена
+# рядом с прежними; записи 707b05a4…1366.yaml и c5ae0889…fa77.yaml не правятся
+# (change-graph §2).
+#
+# Предмет круга:
+#   (B4) распределённые оси 37 файлов ядра носителя сессии. До этого круга их не
+#        покрывала ни одна запись этой роли, только записи go-style других изменений;
+#   (B1) дельта 945b851ed52..b579b9eec9c.
+# Последний заход: все блокирующие названы здесь.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 3
+supersedes_record: c5ae0889bf2c9bcaa928ed84046f1af9bb882d26693c76b8405c5a3038adfa77.yaml
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  previous_head: 945b851ed52e8e7a840f706015e8e088169ad032
+  commits: 85        # git rev-list --count base..head
+  files: 66          # LC_ALL=C git diff --name-only base...head | wc -l
+content_digest: sha256:332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c
+digest_definition: 'git -C project/kacho diff bec320cf47d668173bf27f60ebaf6cbe413a4903...b579b9eec9c918e23c8e76a1dd2c68edd8688f09 | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой два раза, до разбора и перед вердиктом. Оба раза
+    332117864d…2c8c, совпадает с объявленным.
+  base_is_trunk: 'git merge-base origin/main b579b9eec9c = bec320cf47d = origin/main (после fetch; ls-remote main → bec320cf47d).'
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → b579b9eec9c, совпадает.'
+  ancestry: 'merge-base --is-ancestor 945b851ed52 b579b9eec9c → да.'
+  committed: >-
+    Да. Судились detached worktree tmp/sd-w0-b579 (голова) и tmp/sd-w0-base (база).
+    git status --porcelain на голове → 0 после разбора. Временная проба
+    gateway/cmd/zzsdprobe собрана, прогнана и удалена; в дерево не попала.
+
+# ── ПРЕДМЕТ B4: ПЕРЕПИСЬ 37 ФАЙЛОВ ───────────────────────────────────────────
+scope_b4:
+  method: >-
+    Каждый из 66 файлов волны проверялся так: blob на голове сравнивался с blob
+    на голове принятого круга. Засчитывались только файлы, входящие в дельту
+    этого круга: gw-session-carrier-set @4f899d637ef (дельта
+    bec320cf47d...4f899d637ef, 32 файла) и foreign-idp-ledger @9bbaa92b2bb
+    (дельта 5b20df5c638..9bbaa92b2bb, 7 файлов).
+  result: 'побайтово совпадают 37: 30 по gw-session-carrier-set, 7 по foreign-idp-ledger. Перечень совпал с заданием.'
+  why_not_38: >-
+    В прошлом круге было 38. gateway/deploy/login_console_test.go теперь входит в
+    дельту B1 и побайтово с 4f899d637ef больше не совпадает. Два файла из дельты
+    gw-session-carrier-set тоже не совпадают: gateway/deploy/values.yaml и
+    configuration.mdx. Их судили прежние круги этой роли.
+  production_go_judged:
+    - gateway/cmd/api-gateway/main.go
+    - gateway/cmd/api-gateway/session_carrier_validation.go
+    - gateway/internal/config/config.go
+    - gateway/internal/config/sessioncarriers.go
+    - gateway/internal/handler/login_lane_relay.go
+    - gateway/internal/middleware/auth.go
+    - gateway/internal/middleware/auth_own_session.go
+    - gateway/internal/middleware/auth_session_stepup.go
+    - gateway/internal/middleware/human_session.go
+    - gateway/internal/middleware/login_lane_paths.go
+    - gateway/internal/middleware/session_carrier_names.go
+    - gateway/internal/middleware/session_carrier_readers.go
+    - gateway/internal/middleware/session_identity_handler.go
+    - gateway/internal/observability/metrics/session_lane.go
+  chart_judged: 'gateway/deploy/templates/deployment.yaml (ручки SESSION_CARRIERS и WINDOW_OPENED_AT выводятся через `with` только при непустом значении)'
+  probes_judged: '15 проб gateway (precedence, lanes_agree, wiring, validation, logout census/states, relay outcome, metrics) — оценивалось, доказывают ли они заявленные распределённые свойства'
+  foreign_idp_7: >-
+    internal/repohygiene/{foreignidpname,gatecarrierremoval,gitrevcause}.go и
+    четыре их пробы. Это оснастка гейтов, производственных импортёров у неё нет:
+    `git grep -l '"github.com/PRO-Robotech/kacho/internal/repohygiene"' -- '*.go'
+    | grep -v _test.go` → 0. Сетевых вызовов, SQL и параллелизма нет.
+    Распределённые оси к ним не применимы.
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+distributed_surface: да   # край ↔ kaname :9091 (Resolve, SessionCutoffOf), край ↔ kratos public (whoami), край → слушатель формы kaname (ретрансляция), гашение носителя, выпущенного чужим издателем
+schema_intersection: нет  # CAS, xmin и advisory-lock в 37 файлах и в дельте B1 не встречаются
+
+# ── ОСИ (B4) ────────────────────────────────────────────────────────────────
+axes:
+  atomicity_outbox: 'не применимо: мутаций ресурса, Operation и outbox в 37 файлах нет.'
+  idempotency: >-
+    Держится. Гашение носителя и дополнение ответа выхода (ModifyResponse) при
+    повторе дают тот же результат. Ленивое зеркало (LookupOrUpsertFromKratos) не
+    вызывается для сессии, отвергнутой окном: граница окна стоит до резолва
+    субъекта на обеих полосах (auth.go:1298, session_identity_handler.go:196).
+    Держит это TestTransitionalWindow_ARefusedForeignSessionCreatesNoMirror (PASS).
+  cas_occ: 'не применимо: SQL нет. Проба с конкурирующими горутинами не требуется.'
+  change_delivery: 'не применимо.'
+  worker_coordination: 'не применимо: воркеров и реконсайлеров нет.'
+  per_call_deadline: >-
+    Kratos whoami: http.Client{Timeout: 5s}, kratos_session.go:96. Ретрансляция
+    формы: настраиваемый timeout. IAMSubjectClient: callTimeout на каждом методе.
+    Resolve и SessionCutoffOf идут по сырому контексту запроса без предела, и
+    это было в базе (см. I8).
+  revocation: >-
+    Держится на обеих полосах. Чужая сессия проходит, только если она новее нашей
+    отсечки (sessionCutoffCheck, включающе) и старше момента открытия окна
+    (transitionalWindowAdmits, строго). Нулевой момент аутентификации при
+    открытом окне даёт отказ. «Кто я» спрашивает тот же предикат своим читателем
+    (session_identity_handler.go:140-145, 321-346). Обе полосы сверяет
+    TestBrowserSessionLanesAgree_OnTheTransitionalWindowAxis (PASS). Выход нашей
+    формой пишет отсечку «первая наша аутентификация минус 1 мкс»
+    (kaname@cbbac984 humansession/logout.go:124-141). Поэтому чужие сессии,
+    заведённые до первого нашего входа, выход тоже снимает, даже если их печенье
+    осталось в браузере (см. I7).
+  unavailable_session_service: >-
+    Держится, отказ закрытый. Если kaname не ответил о сессии либо об отсечке,
+    полоса отвечает 401 (F4d-23) и носитель остаётся. Исключение — глаголы формы
+    с relayWhenUnanswered: их исход судит служба. «Кто я» отвечает анонимом.
+    UNIMPLEMENTED об отсечке — проход с громким журналом (окно раската). Это
+    решение приёмки Ф1-56/F4d-29 из базы, волна его не трогала. Если kratos
+    недоступен, результат Active=false: полоса не выставляет личность и
+    запрос уходит дальше анонимным.
+  precedence_single_predicate: >-
+    Держится. Владение запросом определяется до полос
+    (ownSessionOwnsRequest: наш читатель провязан и наш носитель предъявлен).
+    Предикат носителя на обе полосы один (ourSessionCarrierOf). Чужой стороне
+    уходит ровно её печенье (ProviderSessionCarrierHeader), поэтому ключ кэша
+    whoami больше не содержит нашего носителя. Всё это держат
+    TestBothCarriers*, TestForeignLane_NeverCarriesOurBearerToTheForeignSide и
+    TestProviderCarrierPredicate_* (PASS).
+  service_graph: >-
+    Новых рёбер нет. Край→kaname :9091 (Resolve, SessionCutoffOf), край→kratos
+    public (whoami) и край→слушатель формы kaname были в базе при разных
+    посадках. В состоянии own,external живы оба первых сразу, направление
+    прежнее. Kaname и kratos край не зовут, граф ацикличен.
+  replica_isolation: >-
+    Множество и момент окна — величины чарта, одинаковые для всех реплик.
+    Страж старта сверяет момент с часами СВОЕЙ реплики (Now: time.Now(),
+    main.go). Счётчики полосы atomic и считаются на процесс. После старта
+    интерцептор не меняется: With* вызываются только в композиционном корне.
+  edge_ban6: >-
+    Internal* не тронуты. Resolve и SessionCutoffOf ходят на внутренний слушатель
+    kaname по mTLS (backends["iamInternal"]). Новых маршрутов на публичном mux
+    нет: /iam/v1/auth/me и глаголы формы были в базе.
+  clean_arch: >-
+    Держится. Разбор ручки находится в config, страж пары — в корне,
+    предикаты и полосы — в middleware. Доступ к kaname идёт через адаптер
+    clients (порт HumanSessionReader).
+
+# ── ИЗМЕРЕНО ────────────────────────────────────────────────────────────────
+measured:
+  go_tests:
+    predicate: 'go test -count=1 ./gateway/internal/{middleware,config,handler,observability/metrics}/ ./gateway/cmd/api-gateway/ @b579b9eec9c'
+    result: 'ok × 5.'
+  carrier_roster:
+    predicate: "go test -count=1 -v -run 'TransitionalWindow|BothCarriers|BrowserSessionLanesAgree|SessionCarrier|LogoutExits|LogoutCarrier|ForeignLane|ForeignOnlyState|CarrierPredicates|ProviderCarrierPredicate|EndEveryCarrier|LoginLaneRelay' (те же 4 пакета)"
+    result: '64 PASS, 0 FAIL.'
+  transitional_state_reach:
+    predicate: 'helm template kacho-umbrella . -n kacho по каждой цепочке deploy/stacks.txt (зависимости — helm-umbrella-deps.sh, офлайн, 20 из 20), env края'
+    result: >-
+      Цепочек 7, отрисовано 7 (rc=0). Объявляющих KACHO_API_GATEWAY_SESSION_CARRIERS — 0,
+      объявляющих WINDOW_OPENED_AT — 0. Множество везде выводится из посадки.
+      Состояния own,external и окна на этой голове нет ни на одном стенде.
+  foreign_cookie_domain:
+    predicate: 'тот же рендер, карта kaname-kratos-config → kratos.yaml → session.cookie.domain'
+    result: >-
+      dev, dev-prod, prorobotech — kacho.local; prod, own, fe3455 — api.kacho.cloud;
+      a8f60d — host-only (domainless). Чужой издатель выпускает печенье с
+      атрибутом Domain на 6 цепочках из 7.
+
+# ── ВАЖНЫЕ ЗАМЕЧАНИЯ (не блокируют) ──────────────────────────────────────────
+important:
+  - id: I7
+    coordinate: >-
+      gateway/internal/middleware/session_carrier_names.go:98-111
+      (SessionCarrierEndings без Domain). Новые вызывающие в волне:
+      auth.go:1300 (отказ окна) и handler/login_lane_relay.go:236-240
+      (дополнение ответа выхода). Проба снисходительнее продукта:
+      session_carrier_precedence_test.go:804, handler/logout_exits_census_test.go:56
+      (форма гашения без домена). Обещание оператору:
+      gateway/docs/content/install/configuration.mdx:239.
+    class: 'решение и его следствие разнесены по двум службам (code-authoring); проба снисходительнее продукта (gate-authoring)'
+    claim: >-
+      Край гасит ory_kratos_session печеньем host-only без Domain. Чужой
+      издатель выпускает это печенье с Domain=<cookieDomain> на 6 цепочках из 7.
+      Браузер хранит host-only и доменное печенье как разные записи (RFC 6265
+      §5.3 п.11: ключ — имя, домен и путь), поэтому гашение край чужое печенье не
+      находит. Консоль отдаёт /iam/v1/ краю со своего хоста (console.<domain>,
+      app.<domain>), а это другой хост, чем домен печенья.
+    predicate: >-
+      Google Chrome 152 headless, HTTPS-заглушка, *.kacho.test → 127.0.0.1.
+      Гасящие печенья выпускает продуктовая функция
+      middleware.EndSessionCarriers (собрано из дерева b579b9eec9c). Пять вариантов:
+        (1) доменное печенье, гашения нет → печенье видно на консольном хосте. Это контроль видимости;
+        (2) доменное печенье, гашение края → печенье ЖИВО. Это находка;
+        (3) host-only печенье на консольном хосте, гашения нет → видно;
+        (4) то же и гашение края → удалено. Это законный близнец: проба гашение видит;
+        (5) доменное печенье, гашение с Domain=kacho.test → удалено. Это форма починки.
+    consequence: >-
+      На этой голове путь недостижим ни на одном стенде (measured.transitional_state_reach).
+      Корень был в базе: форма гашения не менялась с bec320cf47d, где было 4
+      вызывающих (отсечка на чужой полосе, /oauth/logout и 2 на нашей полосе).
+      Волна добавила 2 вызывающих на латентном пути. После объявления own,external
+      на цепочке с cookieDomain будет так:
+        (а) «выйти» формой края при одной чужой сессии: служба не пишет отсечку,
+            потому что нашего носителя нет, чужое печенье не гасится, окно его
+            пропускает, и человек остаётся вошедшим. Ровно этот случай
+            login_lane_relay.go называет закрытым;
+        (б) отказ окна становится СТОЯЩИМ, а не разовым. Клетка window_closed
+            растёт на каждом запросе одного браузера, и её смысл «чужая форма
+            входа достижима» теряется;
+        (в) выход консоли идёт через собственный выход чужого издателя, он
+            гасит печенье с верными атрибутами и снимает сессию на сервере. Этот
+            путь находкой не затронут.
+      Обещание configuration.mdx «ВЫХОД гасит ОБА имени во всех трёх
+      состояниях» на 6 цепочках из 7 ложно для чужого имени.
+    why_not_blocking: >-
+      Предмет латентен: ноль стендов объявляют ручку. Корень в базе. Выход, которым
+      пользуется консоль, находкой не затронут. Починка естественно входит в
+      предпосылку включения переходного состояния.
+    requirement: >-
+      До того как own,external объявят на любой цепочке с cookieDomain, нужно
+      одно из двух. Либо гашение чужого имени несёт домен его издателя: ручка
+      края, заполняемая из global.kacho.identity.cookieDomain, с тем же
+      правилом domainless. Тогда форма гашения в census-пробе сверяет Domain, а
+      проба «после отказа запрос анонимен» моделирует браузер доменным печеньем.
+      Либо обещание и комментарии честно сужаются до host-only посадок.
+    return_to: 'диспетчер — завести задачу. Предикат снятия: census-проба красная на доменном печенье без Domain в гашении, зелёная с ним.'
+  - id: I8
+    coordinate: >-
+      gateway/internal/clients/session_revocations_client.go:74, 178
+      (Resolve, SessionCutoffOf). Вызывающие: auth_own_session.go:102,
+      auth_session_cutoff.go:179, session_identity_handler.go:275, 327.
+    class: 'arch-per-call-deadline: сырой контекст запроса без предела'
+    claim: >-
+      Оба вопроса к kaname :9091 уходят с r.Context() без context.WithTimeout.
+      Предела по умолчанию нет ни на соединении (dialBackends,
+      mtls_config.go:60-90: keepalive и round_robin, интерсептора нет), ни в
+      цепочке HTTP (WriteTimeout не задан, TimeoutHandler нет). У соседних
+      методов того же соседа предел есть: IAMSubjectClient.callTimeout,
+      Revoke — 5s в logout_handler.go.
+    consequence: >-
+      Если внутренний слушатель kaname зависнет, каждый браузерный запрос с
+      носителем будет висеть, пока клиент сам не отключится, а горутины края
+      будут копиться. Пока не придёт ответ, отказ F4d-23 не наступает.
+    why_not_blocking: >-
+      Так было в базе (bec320cf47d: ResolveHumanSession(r.Context(),
+      carrier.Value)). Волна поменяла у вызова только аргумент, адаптер вне её
+      дельты.
+    requirement: 'Настраиваемый предел на Resolve и SessionCutoffOf, общий для всех методов адаптера; сбой по пределу классифицировать как «не ответил».'
+    return_to: 'диспетчер — завести задачу'
+  - id: I9
+    coordinate: 'gateway/internal/middleware/auth.go:1299-1303; observability/metrics/session_lane.go (sessionRefusalsDesc, outcome=window_closed)'
+    class: 'величина называет не то, что считает'
+    claim: >-
+      Клетка window_closed растёт до развилки isPublicHTTPPath. На
+      пред-аутентификационных путях, включая «кто я», который консоль опрашивает,
+      отказа нет, а клетка «Browser-session refusals» всё равно растёт.
+    requirement: 'Считать отказ после развилки либо развести клетку «отвергнуто окном» и клетку «отказано 401».'
+    return_to: 'задача; вместе с I7 (б)'
+
+# ── ЗАМЕЧАНИЯ БЕЗ ТРЕБОВАНИЯ ─────────────────────────────────────────────────
+notes:
+  - >-
+    Раскат в own,external неатомарен по репликам. Пока старые реплики
+    (только чужой, окна нет) живут рядом с новыми, чужая сессия, заведённая
+    после момента окна, получает то 200, то 401 в зависимости от реплики.
+    Состояние сходится само. Это свойство профиля, а не кода.
+  - >-
+    Страж отвергает момент окна «в будущем» относительно часов реплики. Если
+    момент равен моменту раската, реплика с отстающими часами уходит в
+    CrashLoop, пока часы его не догонят. Отказ закрытый и именованный.
+  - >-
+    Готовность консоли к переходному состоянию предметом этой роли не является,
+    но выяснилась по дороге. Своих экранов входа у консоли 0, это подтверждает
+    ui-future/shared/src/pages/auth/README.md. Её вход и выход идут через чужого
+    издателя (AuthContext.tsx:137, 140-156). В окне сессии, заведённые после его
+    момента, край отвергает, поэтому войти заново через консоль нельзя.
+    Предпосылка включения own,external на стенде с консолью.
+
+# ── ДЕЛЬТА B1 (945b851ed52..b579b9eec9c) ─────────────────────────────────────
+delta_b1:
+  commits: '2 (466b8e2cf63, b579b9eec9c)'
+  files: ['deploy/helm/umbrella/values.own.yaml', 'gateway/deploy/login_console_test.go']
+  substance: 'Только комментарии. Ни исполняемых строк, ни значений чарта дельта не меняет.'
+  axes: 'Распределённых свойств не меняет.'
+  references_checked: >-
+    TestOwnLane_F3_45_TheLoginLaneRelayIsWiredUnderTheOwnPostureOnly есть
+    (own_lane_readers_wiring_test.go:113).
+    TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture есть
+    (session_carriers_test.go:138). Упоминаний TestOwnLane_F3_12 в дереве 0
+    (git grep @b579b9eec9c). Утверждение «own,external с адресом disabled не
+    объявить» совпадает с кодом: session_carrier_validation.go:190-199.
+    Ключ api-gateway.authn.sessionCarriers есть (gateway/deploy/values.yaml:317),
+    чарт выводит его через `with` (deployment.yaml:231-234).
+  closes_prior: 'I5 прошлого круга: ссылка на снятую пробу снята в обоих файлах.'
+
+prior_items:
+  I1_I4: 'не тронуты дельтой, остаются в силе, посадку не держат.'
+  I5: 'закрыт дельтой B1.'
+  I6: 'в силе (values.own.yaml:126-129): отложенное снятие поставщика с цепочки own без задачи-носителя.'
+  coverage_caveat_prior: 'снят: 37 файлов ядра носителя сессии этой записью судились по осям роли.'
+
+orders:
+  concurrent_goroutine_probe: 'не требуется: спорных CAS-путей нет.'
+  unrecorded_edge: 'нет: новых runtime-рёбер не заведено.'
+  tasks_for_dispatcher:
+    - 'I7 — гашение чужого имени без Domain; предпосылка включения own,external'
+    - 'I8 — предел на Resolve и SessionCutoffOf'
+
+checks_run:
+  green: 7       # go test 5 пакетов · перепись проб носителя (64 PASS) · рендер 7/7
+  red: 1         # браузерная проба I7 вариант (2); контроль (1), близнец (4) и починка (5) вели себя ожидаемо
+  not_run: 1     # go test -race — нет gcc (CGO), в среде не выполнилось
+  probes_model: 0
