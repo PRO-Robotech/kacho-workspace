@@ -22,7 +22,7 @@ description: Use when designing or extending product-level tests against the dep
 - Спорная семантика канонических текстов контракта Kachō — `vpc-conventions-auditor`.
 - CIDR / EXCLUDE constraint специфика — `vpc-cidr-specialist`.
 - Acceptance-spec — `acceptance-author`.
-- Конкретная конверсия finding → newman case — `qa-test-engineer` (он реально пишет .json + curl-probe).
+- Конкретная конверсия finding → newman case — `qa-test-engineer` (пишет `cases/*.py`, сдача — `testing-newman.md#flow-handoff`).
 
 ## 3. Что я отдаю на выходе
 
@@ -599,13 +599,10 @@ acceptance Given-When-Then.
 
 ### 8.5 Flake handling
 
-| Признак | Действие |
-|---|---|
-| Один fail за неделю в зелёном suite | Игнорировать, мониторить |
-| 2+ fail за неделю | Quarantine + issue |
-| Систематический fail | Root cause: либо тест неверный, либо продукт нестабильный |
-
-Никогда не делать auto-retry для прохождения CI — это легализация бага.
+Разный исход кейса на одной ревизии — дефект кейса либо продукта, всегда с разбором причины;
+игнорирование одиночного fail, карантин и повтор до зелёного запрещены
+(`testing-newman.md#flow-flaky-is-defect`). Никогда не делать auto-retry для прохождения CI —
+это легализация бага.
 
 ---
 
@@ -785,8 +782,7 @@ Conformance-кейсы в коллекциях сервиса (`services/<svc>/t
 - [ ] Pagination + filter (если применимо).
 - [ ] UpdateMask (если есть Update RPC).
 - [ ] AuthZ cross-project (если project-scoped).
-- [ ] Кейсы добавлены в master Newman-collection.
-- [ ] Коллекции пересобраны из деклараций: `services/<svc>/tests/newman/scripts/validate-cases.py` (уникальность + индекс кейсов) → `gen.py`.
+- [ ] Кейсы — `cases/*.py` набора с `classes`, коллекции из деклараций: `validate-cases.py` → `gen.py` (`testing-newman.md#flow-handoff`).
 - [ ] `docs/architecture/<svc>/` обновлён, если введено осознанное by-design отклонение.
 
 ### 12.2 Чек-лист релизного тестирования

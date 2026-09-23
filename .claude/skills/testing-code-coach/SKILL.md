@@ -40,7 +40,7 @@ description: Use when designing, writing, or reviewing tests for production code
 - План тестов для нового модуля (какие классы кейсов, какой уровень, какие моки).
 - Review теста с конкретными замечаниями (хрупкое место → конкретный рефакторинг).
 - Чек-лист "что недотестировано" в патче.
-- Кандидаты в quarantine / deletion (flaky / тавтологичные / тестирующие фреймворк).
+- Кандидаты в deletion (тавтологичные / тестирующие фреймворк); flaky — в разбор причины, не в quarantine.
 
 ## 4. Что я НЕ делаю
 
@@ -59,7 +59,7 @@ description: Use when designing, writing, or reviewing tests for production code
 | Test name `TestFoo1`/`TestFoo_OK` | Перенейминг по шаблону `Test<Subject>_<Action>_<Outcome>` |
 | Кейсы копи-пастой 20 раз | Перепаковать в table-driven |
 | Repo-тест на мокнутом pgxpool | Перевести на testcontainers |
-| Падает 1 раз в неделю | Quarantine + root-cause issue, не retry |
+| Падает 1 раз в неделю | Root-cause issue и фикс; skip и retry запрещены (`testing.md#no-todo-skip-in-tests`) |
 
 ## 6. Ссылки в knowledge base ниже
 
@@ -118,7 +118,7 @@ test suite.
 - порядка items в map,
 - race conditions, которые "обычно не воспроизводятся".
 
-Flaky-тест → quarantine + root-cause investigation. Никаких retry-плагинов
+Flaky-тест → root-cause investigation и фикс, без skip (`testing.md#no-todo-skip-in-tests`). Никаких retry-плагинов
 "чтобы зелёный CI" — это легализация бага.
 
 ### 1.4 AAA / Given-When-Then
@@ -158,6 +158,8 @@ Assert   (Then)   — проверка результата + side-effects
 Сравнивай эти издержки с выгодой. Дешёвый unit-тест на boundary —
 почти бесплатный. Дорогой e2e на хеппи-пас, который покрыт unit-тестом
 — часто чистый минус.
+Это и пирамида (Часть II) — про пробы кода, не про край: край проверяет newman по своду
+классов, его happy unit-тестом не закрывается (`testing-newman.md#edge-is-newman`).
 
 ### 1.8 Симметрия "что покрываем"
 
@@ -768,12 +770,10 @@ build-tag selection или dependency analysis).
 
 ### 9.4 Flake tracking
 
-Каждое падение помечается тегом `flaky`. Если тест пометился >2 раз
-за неделю — переводится в quarantine (skip с FIXME), сразу
-issue с приоритетом.
+Каждое падение помечается тегом `flaky` и сразу получает issue с приоритетом; тест не
+выключается (skip, FIXME — `testing.md#no-todo-skip-in-tests`), чинится причина.
 
-Никаких автоматических retry в CI без quarantine — это легализует
-бажные тесты.
+Никаких автоматических retry в CI — это легализует бажные тесты.
 
 ### 9.5 Fast feedback loop
 
@@ -904,7 +904,7 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 | AAA | Arrange-Act-Assert структура теста |
 | BVA | Boundary Value Analysis — тесты на границах |
 | Flaky | Тест с недетерминированным результатом |
-| Quarantine | Изоляция flaky-теста до root-cause fix |
+| Quarantine | Изоляция flaky-теста; в Kachō запрещена (`testing.md#no-todo-skip-in-tests`) |
 | Golden master | Эталонный snapshot для approval-сравнения |
 | Mutation testing | Автоматическая модификация кода для оценки тестов |
 | Property-based | Тесты на инвариант поверх случайной генерации входа |

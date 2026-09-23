@@ -37,3 +37,16 @@ throughput+isolation+idempotency, а не «добавить retry». Retry-об
 read-your-own-writes EC-окна; не лечат collision/phantom/idempotency (там — fixture-изоляция/
 энтропия/preclean-retry). Прод-фиксы (форвард/lock/delete-stale) — TDD+db-review; тест-фиксы
 не маскируют.»
+
+## edge-is-newman — поток подписки (класс D — замер; исключение снято 2026-09-23)
+
+Прежняя редакция отдавала тело потока playwright: «ответ-поток newman не дочитывает». Замер
+опроверг довод. newman 6.2.2 (конвейер — `newman@6`) против локального SSE (chunked, кадры
+`opened` и `event`, служебный кадр раз в 1 с): поток, закрытый сервером через 3 с, — 200,
+тело с обоими кадрами, 3 утверждения из 3; незакрывающийся поток — newman не вернулся за 60 с
+и при `--timeout-request 8000`. Край kacho закрывает поток сам и чисто: `StreamBudget`
+(`KACHO_API_GATEWAY_SUBSCRIPTION_STREAM_BUDGET`, умолчание 90s; чарт
+`gateway/deploy/values.yaml` — `streamBudget: 90s`), ветвь `ctx.Done()` в `pump`
+(`gateway/internal/subscriptionstream/handler.go`) @kacho 1d42a6728bf; `--timeout-request`
+прогонщики kacho не ставят. Итог: тело потока newman читает до закрытия по сроку, консоль
+поверх потока — playwright.

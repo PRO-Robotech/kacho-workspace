@@ -31,7 +31,7 @@ exclusion-self-expires · обязан истекать сам: запись б�
 
 ## Test-first — обязательно (ban #12)
 
-test-first-red-before-code · напиши и ПРОГОНИ до кода; подтверди причину падения; все уровни (Go unit/integration и newman) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
+test-first-red-before-code · напиши и ПРОГОНИ до кода; подтверди причину падения; реализатор — Go unit/integration, newman-кейс края — тестировщик (testing-newman.md#edge-author-black-box) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
 chunk-all-reds-first · напиши ВСЕ падающие тесты первыми, получи RED по всем, чини по одному · ЗАВЕСТИ chunk-all-reds-first · red: первый фикс сделан раньше последнего RED
 report-red-green-pair · покажи пару RED→GREEN в PR/отчёте · ЗАВЕСТИ report-red-green-pair · red: готовность заявлена без пары прогонов
 new-rpc-integration-test · в том же PR — integration_test.go на testcontainers Postgres, включая concurrent-race для CAS/UNIQUE/EXCLUDE · git diff PR: новый RPC → новый *integration_test.go · red: PR добавляет RPC без integration-теста
