@@ -128,6 +128,10 @@
 # (263 с, 0,94 с на слияние — это поиск переименований: с `-X no-renames` то же
 # слияние 0,03 с) и пофайловый `git apply` (96 с). Ветка, ответвлённая до
 # переезда дерева, несёт 3470 файлов дельты — и одна шла полчаса.
+# После (2026-09-24, 16 заданий, живой клон продукта, 494 локальных и 230 на
+# origin): 445 с; на снимке того же клона — 442 с, вердикт по всем 517 ключам
+# тот же, что у предыдущей пакетной редакции, а на выборке из 30 веток и 5
+# веток origin — тот же, что у поштучной редакции fb7a2cbb.
 #
 # Ускорение не меняет ни одного признака: каждый ускоритель либо ДОКАЗЫВАЕТ тот
 # исход, который дала бы поштучная форма, либо отступает к ней. Доказательства —
@@ -138,9 +142,10 @@
 #     порядке теми же строками;
 #   * пятый признак не сливает там, где непустота дельты доказана деревьями;
 #   * пофайловые признаки (6а)–(7) считаются одним разбором дельты на ветку и
-#     одной проверкой патча на ствол; история пути обходится один раз на
-#     прогон и делится между ветками; перепись строк идёт одним потоком на
-#     ветку; поштучные вызовы остаются там, где пакетный ответ не доказателен.
+#     одной проверкой патча на ствол; отказ git apply, доказанный перечнем
+#     ствола, git apply не зовёт; история пути обходится один раз на прогон и
+#     делится между ветками; перепись строк идёт одним потоком на ветку;
+#     поштучные вызовы остаются там, где пакетный ответ не доказателен.
 # Объём ускорения печатается: сколько слияний сделано и сколько доказано без
 # них, сколько файлов пошло пакетом и сколько поштучно, сколько вопросов к
 # истории задано поштучно и какая ветка разбиралась дольше всех.
@@ -768,26 +773,78 @@ first3() { # $@ = элементы → строка из первых трёх, 
   printf '%s' "$out"
 }
 
+# --patch-with-raw → патч (всё после первой пустой строки) и пути (последнее
+# поле каждой строки raw: у переименования — новое имя, как у --name-only).
+# Форма не та — отказ, и патч считается прежней командой.
+split_patch_with_raw() { # $1 = вывод, $2 = патч, $3 = пути
+  LC_ALL=C awk -F'\t' -v pt="$2" -v nm="$3" '
+    !body && $0 == "" { body = 1; next }
+    !body { if (substr($0, 1, 1) != ":") bad = 1; print $NF > nm; next }
+    { if (!started) { started = 1; if ($0 !~ /^diff --git /) bad = 1 } print > pt }
+    END { printf "" > pt; printf "" > nm; exit bad ? 1 : 0 }' "$1"
+}
+
+# --- УСКОРИТЕЛЬ (6а) ЦЕЛИКОМ И ПОФАЙЛОВО: отказ, доказанный перечнем ствола --
+# `git apply --cached -R --check` судит по индексу ствола (read-tree — ровно
+# записи `ls-tree -r`, tl.<k>) и откажет наверняка, если у пути, который патч
+# трогает один раз и без переименования, обратное действие невозможно:
+#   ветка ДОБАВИЛА путь, а в стволе его нет — обратное «снять» не находит его;
+#   ветка СНЯЛА путь, а в стволе он есть — обратное «создать» упирается в него;
+#   ветка ИЗМЕНИЛА путь, а в стволе его нет — изменять нечего.
+# Такой проверке git apply не нужен; остальным — нужен, как прежде.
+whole_refusals() { # $1 = вывод --patch-with-raw → номера стволов, где целиком откажет
+  local k args=()
+  for k in "${!TRUNKS[@]}"; do
+    [ -n "${TRUNK_IDX[${TRUNKS[$k]}]+x}" ] && [ -e "$BA_SHARED/tl.$k.ok" ] && args+=("$BA_SHARED/tl.$k")
+  done
+  [ "${#args[@]}" -gt 0 ] || return 0
+  LC_ALL=C awk -F'\t' '
+    FILENAME ~ /\/tl\.[0-9]+$/ { k = FILENAME; sub(/.*\/tl\./, "", k); t[k, $2] = 1; K[k] = 1; next }
+    $0 == "" { exit }
+    /^:/ { split($1, a, " "); st = substr(a[5], 1, 1)
+           for (x = 2; x <= NF; x++) cnt[$x]++
+           if (NF == 2 && (st == "A" || st == "D" || st == "M")) { n++; es[n] = st; ep[n] = $2 } }
+    END { for (k in K) for (i = 1; i <= n; i++) {
+            p = ep[i]; if (cnt[p] != 1 || substr(p, 1, 1) == "\"") continue
+            pres = ((k, p) in t)
+            if ((es[i] == "A" && !pres) || (es[i] == "D" && pres) || (es[i] == "M" && !pres)) { print k; break } } }' \
+    "${args[@]}" "$1"
+}
+
 GEN_SKIPPED=0
 UNABS_PROVEN=(); UNABS_UNDET=()
 classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
-  local ref=$1 base f bb tr found info pf
-  local -A whole=()
+  local ref=$1 base f bb tr found info pf k
+  local -A whole=() refuse=()
   UNABS_PROVEN=(); UNABS_UNDET=()
 
-  for tr in "${TRUNKS[@]}"; do
+  for k in "${!TRUNKS[@]}"; do
+    tr=${TRUNKS[$k]}
     [ -n "${TRUNK_IDX[$tr]+x}" ] || continue
     base=$(git merge-base "$tr" "$ref" 2>/dev/null) || continue
     # Дешёвая проверка целиком: кумулятивный патч ложится обратно ⇒ поглощено
     # всё сразу, пофайлово ходить незачем. Патч от одной базы — один на все
     # стволы с этой базой: та же команда с теми же входами (переименования ищет
     # именно она, и у ветки, ответвлённой до переезда дерева, это секунды).
+    # Пакетный путь берёт `--patch-with-raw`: после пустой строки — тот же патч
+    # байт в байт, а до неё — пути в порядке и форме `--name-only`, так что
+    # поиск переименований идёт один раз на базу, а не дважды.
     pf="$BA_TMP/whole.$base"
     if [ -z "${whole[$base]+x}" ]; then
-      if git diff "$base" "$ref" > "$pf" 2>/dev/null; then whole[$base]=1; else whole[$base]=0; fi
+      whole[$base]=0
+      if [ "$EXACT" = 1 ]; then
+        git diff "$base" "$ref" > "$pf" 2>/dev/null && whole[$base]=1
+      elif git diff --patch-with-raw "$base" "$ref" > "$pf.raw" 2>/dev/null &&
+           split_patch_with_raw "$pf.raw" "$pf" "$pf.names"; then
+        whole[$base]=1
+        while IFS= read -r line; do refuse["$base|$line"]=1; done < <(whole_refusals "$pf.raw")
+      elif git diff "$base" "$ref" > "$pf" 2>/dev/null; then
+        whole[$base]=1; rm -f "$pf.names"
+      fi
     fi
     if [ "${whole[$base]}" = 1 ]; then
       [ -s "$pf" ] || return 0
+      if [ -n "${refuse["$base|$k"]+x}" ]; then APPLY_SKIP=$((APPLY_SKIP + 1)); continue; fi
       if GIT_INDEX_FILE="${TRUNK_IDX[$tr]}" git apply --cached -R --check "$pf" 2>/dev/null; then
         return 0
       fi
@@ -795,7 +852,11 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
   done
 
   base=$(git merge-base "$TRUNK" "$ref" 2>/dev/null) || return 0
-  git diff --name-only "$base" "$ref" > "$BA_TMP/names" 2>/dev/null || true
+  if [ -e "$BA_TMP/whole.$base.names" ]; then
+    cp "$BA_TMP/whole.$base.names" "$BA_TMP/names"
+  else
+    git diff --name-only "$base" "$ref" > "$BA_TMP/names" 2>/dev/null || true
+  fi
   prep_files "$ref" "$base"
   while read -r f; do
     [ -n "$f" ] || continue
@@ -882,11 +943,11 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
 #     заведомо; есть — решает множество блобов истории пути (ниже).
 #   (6в), (7) Для оставшихся — один `cat-file --batch-check` по стволам (EXISTS)
 #     и надмножество путей, тронутых стволом после ответвления (TOUCHC).
-declare -A FAST=() FOUND=() BBV=() EXISTS=() BASE2=() TOUCHC=()
+declare -A FAST=() FOUND=() BBV=() EXISTS=() BASE2=() TOUCHC=() KIND=()
 REM=(); PREP_FULL=0
 prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCHC по $BA_TMP/names
   local ref=$1 base=$2 d="$BA_TMP/ch" f k del bb nnul nlin nch tr line
-  FAST=(); FOUND=(); BBV=(); EXISTS=(); BASE2=(); TOUCHC=(); REM=(); PREP_FULL=0
+  FAST=(); FOUND=(); BBV=(); EXISTS=(); BASE2=(); TOUCHC=(); KIND=(); REM=(); PREP_FULL=0
   [ "$EXACT" = 1 ] && return 0
   git diff --no-renames "$base" "$ref" > "$BA_TMP/all.diff" 2>/dev/null || return 0
   git diff --no-renames -z --name-only "$base" "$ref" > "$BA_TMP/all.z" 2>/dev/null || return 0
@@ -896,13 +957,14 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
   [ "$nnul" -eq "$nlin" ] || return 0
   rm -rf "$d"; mkdir -p "$d"; : > "$BA_TMP/all.idx"
   LC_ALL=C awk -v dir="$d" -v idx="$BA_TMP/all.idx" '
-    /^diff --git / { if (k) close(out); k++; out = dir "/" k; hdr[k] = $0; sp[k] = 0; dl[k] = 0 }
+    /^diff --git / { if (k) close(out); k++; out = dir "/" k; hdr[k] = $0; sp[k] = 0; dl[k] = 0; nf[k] = 0 }
     k { print > out }
     k && /^(old mode|new mode|new file mode|deleted file mode) 1[26]0000$/ { sp[k] = 1 }
     k && /^index [0-9a-f]+\.\.[0-9a-f]+ 1[26]0000$/ { sp[k] = 1 }
     k && /^deleted file mode / { dl[k] = 1 }
+    k && /^new file mode / { nf[k] = 1 }
     END { if (k) close(out)
-          for (i = 1; i <= k; i++) printf "%d\t%d\t%d\t%s\n", i, sp[i], dl[i], hdr[i] > idx }' \
+          for (i = 1; i <= k; i++) printf "%d\t%d\t%d\t%d\t%s\n", i, sp[i], dl[i], nf[i], hdr[i] > idx }' \
     "$BA_TMP/all.diff"
   nch=$(wc -l < "$BA_TMP/all.idx")
   [ "$nch" -eq "$nlin" ] || return 0
@@ -914,7 +976,7 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
       p = $0
       while ((i = cut(p)) > 0) { p = substr(p, 1, i - 1); dir[p] = 1 }
       next }
-    FILENAME == ARGV[2] { h = $0; sub(/^[^\t]*\t[^\t]*\t[^\t]*\t/, "", h); hdr[$1] = h; sp[$1] = $2; dl[$1] = $3; next }
+    FILENAME == ARGV[2] { h = $0; sub(/^[^\t]*\t[^\t]*\t[^\t]*\t[^\t]*\t/, "", h); hdr[$1] = h; sp[$1] = $2; dl[$1] = $3; nw[$1] = $4; next }
     { f = $0
       if (f == "" || (f in seen)) next
       seen[f] = 1
@@ -924,25 +986,26 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
       if (!(f in kof) || kof[f] < 0 || (f in dir)) next
       k = kof[f]
       if (sp[k] != 0 || hdr[k] != "diff --git a/" f " b/" f) next
-      print f, k, dl[k] }' "$BA_TMP/all.n" "$BA_TMP/all.idx" "$BA_TMP/names" > "$BA_TMP/fast.map"
+      print f, k, dl[k], nw[k] }' "$BA_TMP/all.n" "$BA_TMP/all.idx" "$BA_TMP/names" > "$BA_TMP/fast.map"
   [ -s "$BA_TMP/fast.map" ] || return 0
   cut -f1 "$BA_TMP/fast.map" > "$BA_TMP/fast.f"
   awk -v r="$ref" '{ print r ":" $0 }' "$BA_TMP/fast.f" |
     git cat-file --batch-check='%(objectname)' > "$BA_TMP/fast.bb" 2>/dev/null || return 0
   [ "$(wc -l < "$BA_TMP/fast.bb")" -eq "$(wc -l < "$BA_TMP/fast.f")" ] || return 0
-  while IFS=$'\t' read -r f k del <&3 && IFS= read -r bb <&4; do
+  while IFS=$'\t' read -r f k del new <&3 && IFS= read -r bb <&4; do
     case "$bb" in
       *[!0-9a-f]*|'') [ "$del" = 1 ] || continue; bb="" ;;
       *) [ "$del" = 0 ] || continue ;;
     esac
     FAST["$f"]="$d/$k"; BBV["$f"]=$bb; REM+=("$f")
+    if [ "$del" = 1 ]; then KIND["$f"]=D; elif [ "$new" = 1 ]; then KIND["$f"]=A; else KIND["$f"]=M; fi
   done 3< "$BA_TMP/fast.map" 4< "$BA_TMP/fast.bb"
 
   for k in "${!TRUNKS[@]}"; do
     tr=${TRUNKS[$k]}
     [ -n "${TRUNK_IDX[$tr]+x}" ] || continue
     [ "${#REM[@]}" -gt 0 ] || break
-    apply_batch "$tr"
+    apply_batch "$tr" "$k"
   done
 
   if [ "${#REM[@]}" -gt 0 ]; then
@@ -1206,9 +1269,23 @@ shared_store() { # $1 = вопрос; ANSWER — ответ
 # apply_batch <ствол> — (6а) по всем файлам REM одной проверкой; применимые →
 # FOUND, прочие остаются в REM.
 apply_batch() {
-  local tr=$1 f rc=0
-  local -a keep=() chunks=()
-  local -A failed=()
+  local tr=$1 k=$2 f rc=0
+  local -a keep=() chunks=() tried=()
+  local -A failed=() sure=()
+  # Отказ, доказанный перечнем ствола (см. whole_refusals): такие файлы в пачку
+  # не идут и остаются ненайденными — поштучная проверка отказала бы им так же.
+  if [ -e "$BA_SHARED/tl.$k.ok" ]; then
+    while IFS= read -r f; do sure["$f"]=1; done < <(
+      for f in "${REM[@]}"; do printf '%s\t%s\n' "${KIND[$f]}" "$f"; done |
+        LC_ALL=C awk -F'\t' 'FILENAME == ARGV[1] { t[$2] = 1; next }
+          { pres = ($2 in t); if (($1 == "A" && !pres) || ($1 == "D" && pres) || ($1 == "M" && !pres)) print $2 }' \
+          "$BA_SHARED/tl.$k" -)
+  fi
+  for f in "${REM[@]}"; do
+    if [ -n "${sure[$f]+x}" ]; then keep+=("$f"); APPLY_SURE=$((APPLY_SURE + 1)); else tried+=("$f"); fi
+  done
+  if [ "${#tried[@]}" -eq 0 ]; then REM=(${keep[@]+"${keep[@]}"}); return 0; fi
+  REM=("${tried[@]}")
   for f in "${REM[@]}"; do chunks+=("${FAST[$f]}"); done
   printf '%s\n' "${chunks[@]}" | xargs -r -d '\n' cat > "$BA_TMP/comb.diff"
   printf '%s\n' "${REM[@]}" > "$BA_TMP/comb.names"
@@ -1293,7 +1370,7 @@ examined_local=0; examined_remote=0; delta_checked=0
 sixth_checked=0; sixth_rescued=0
 census_asked=0; census_found=0
 MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; SLOWEST=""; SLOWEST_S=-1
+FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; SLOWEST=""; SLOWEST_S=-1
 
 # --- РАЗБОР ВЕТКИ — ЗАДАНИЕМ --------------------------------------------------
 # Всё, что стоит git-вызовов, считается в задании: признаки 1, 4, 5, 6, 7 и
@@ -1307,7 +1384,7 @@ audit_branch() { # $1 = номер, $2 = ветка → $BA_SHARED/r.<номер
   mkdir -p "$BA_TMP"
   census_asked=0; census_found=0; GEN_SKIPPED=0
   MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0
+  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0
   UNABS_PROVEN=(); UNABS_UNDET=(); ABS_SRC=""
   git merge-base --is-ancestor "$b" "$TRUNK" 2>/dev/null && ancestor=1
   ahead=$(git rev-list --count "$TRUNK".."$b" 2>/dev/null || echo 0)
@@ -1318,9 +1395,9 @@ audit_branch() { # $1 = номер, $2 = ветка → $BA_SHARED/r.<номер
   bct=$(git log -1 --format=%ct "$b" 2>/dev/null || echo 0)
   {
     printf 'A%s\nH%s\nT%s\nS%s\nC%s\n' "$ancestor" "$ahead" "$bct" "$ABS_SRC" "$classified"
-    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
+    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
       "$MERGE_RUN" "$MERGE_SKIP" "$FILES_FAST" "$FILES_LITERAL" "$APPLY_FALLBACK" \
-      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH"
+      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH" "$APPLY_SKIP" "$APPLY_SURE"
     for e in ${UNABS_PROVEN[@]+"${UNABS_PROVEN[@]}"}; do printf 'P%s\n' "$e"; done
     for e in ${UNABS_UNDET[@]+"${UNABS_UNDET[@]}"}; do printf 'U%s\n' "$e"; done
     printf 'E\n'
@@ -1349,6 +1426,7 @@ load_result() {
             MERGE_SKIP=$((MERGE_SKIP + n[4])); FILES_FAST=$((FILES_FAST + n[5]))
             FILES_LITERAL=$((FILES_LITERAL + n[6])); APPLY_FALLBACK=$((APPLY_FALLBACK + n[7]))
             FO_CALLS=$((FO_CALLS + n[8])); TC_CALLS=$((TC_CALLS + n[9])); CEN_BATCH=$((CEN_BATCH + n[11]))
+            APPLY_SKIP=$((APPLY_SKIP + n[12])); APPLY_SURE=$((APPLY_SURE + n[13]))
             if [ "${n[10]}" -gt "$SLOWEST_S" ]; then SLOWEST_S=${n[10]}; SLOWEST=$b; fi ;;
         P*) UNABS_PROVEN+=("${line#P}") ;;
         U*) UNABS_UNDET+=("${line#U}") ;;
@@ -1561,7 +1639,8 @@ echo "branch-audit: время прогона $(( $(date +%s) - START )) с; е�
 echo "branch-audit: ускорение — заданий ${JOBS}; слияний во временной копии ${MERGE_RUN}," \
      "непустота дельты доказана деревьями без слияния ${MERGE_SKIP}; файлов дельты пакетом" \
      "${FILES_FAST}, поштучно ${FILES_LITERAL}; пакетная проверка патча отступила к поштучной" \
-     "${APPLY_FALLBACK} раз; перепись строк пачкой по ${CEN_BATCH} файл(ам) из ${census_asked};" \
+     "${APPLY_FALLBACK} раз; отказ git apply доказан перечнем ствола: целиком ${APPLY_SKIP} раз," \
+     "пофайлово ${APPLY_SURE} раз; перепись строк пачкой по ${CEN_BATCH} файл(ам) из ${census_asked};" \
      "поштучных вопросов к истории: блобы пути ${FO_CALLS}, касание пути ${TC_CALLS}" \
      "(нули при BRANCH_AUDIT_EXACT=1 — эталон, а не отказ ускорения)"
 [ -z "$SLOWEST" ] || echo "branch-audit: дольше всех разбиралась ветка ${SLOWEST} — ${SLOWEST_S} с"
