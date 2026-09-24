@@ -20,8 +20,21 @@
 #   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок.
 # Недобранное = Σ max(0, бюджет − текущая память) по занятым слотам (memory.current
 # их cgroup и их контейнеров). Без этого слагаемого вход повторял бы исходный отказ.
-# Места нет — опрос раз в HEAVY_SLOT_POLL_S до HEAVY_SLOT_WAIT_S, затем код 75.
+# Места нет — опрос раз в 30 с до 1800 с, затем код 75. Голову очереди держит лишь
+# билет, который влез бы под СВОЙ потолок, будь занятые слоты пусты: (MemTotal −
+# MemAvailable) − память слотов + бюджет ≤ потолок билета. Прочий ждёт памяти не
+# от слотов — её очередь не освободит, и держать за ним соседей незачем (опыт ws#832,
+# круг 3: потолок 1 ГиБ на 99999 с стоял головой строгой очереди).
 # Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 60,7).
+#
+# ГРАНИЦА: предел держит cgroup слота, а из неё уводит перенос процесса в другой
+# unit. Команда, в чьих словах argv стоит `systemd-run` или `--scope`, — отказ 64
+# (опыт ws#832, круг 3: `systemd-run --user --scope …` уходил из слота). Мимо слов
+# argv — не видно: скрипт, внутри которого стоит systemd-run; `systemctl --user
+# start`, `busctl`/`dbus-send` StartTransientUnit; tmux и screen к уже идущему
+# серверу; `ssh localhost`; `docker exec` в живой контейнер; `at`. Перенос уводит и
+# из-под потолка сессии (scripts/session-memcap.sh): предела ядра у них нет, их видят
+# лишь вход и сторож слотов по памяти машины да systemd-oomd.
 #
 # ИСПОЛНЕНИЕ
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
@@ -38,23 +51,22 @@
 #     МЯГКИЙ — пик между опросами проходит. prlimit не взят (замер 2026-09-24):
 #     под RLIMIT_AS=2 ГиБ клиента docker контейнер занял 3 ГиБ — предел до него не
 #     доходит; под 1 ГиБ упал сам клиент — адресное пространство Go не память;
-#   · сторож машины: пока команда идёт, раз в HEAVY_SLOT_GUARD_S; занято больше
+#   · сторож машины: пока команда идёт, раз в 2 с; занято больше
 #     потолка и этот слот — младший из занятых → команда и её контейнеры
-#     обрываются; следующий обрыв — не раньше HEAVY_SLOT_GUARD_GRACE_S: память
+#     обрываются; следующий обрыв — не раньше чем через 10 с: память
 #     убитого освобождается не мгновенно, и без паузы сторож снимал бы старших за
 #     чужой хвост. Он держит то, до чего предел слота не дотягивается: контейнеры
 #     testcontainers и узлы kind живут в cgroup dockerd, а стенд остаётся в памяти
 #     после выхода команды — его память входит в «занято» при каждом следующем входе.
 #
-# РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) — только общий каталог
-# машины и потолок не выше 45 ГиБ; бюджет, ограничитель и сторож — как в классе.
-# Свой каталог, синтетический meminfo и прочие ручки — только вместе (пробы слота):
-# иначе переменная снимала бы потолок или очередь (опыт ws#832). Синтетический
-# meminfo — режим проб, и тяжёлым прогоном он быть не способен: бюджет ≤ 512 МиБ,
-# сторож раз в 1–2 с. Страж видит ручки лишь в строке команды, скрипт с ними он
-# пропускает — их держит слот (опыт ws#832, круг 3). Сторож машины в режиме проб
-# судит синтетическую память: docker мимо подмены (абсолютный путь, API) под ним
-# без предела. Отказ — 64 до первой записи.
+# РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) ручек нет: потолок 45 ГиБ,
+# ожидание 1800 с, общий каталог, бюджет, ограничитель и сторож — как в классе; любая
+# ручка — 64 до первой записи (опыт ws#832, круги 2–3: переменная снимала потолок или
+# очередь). Ручки — только режиму проб, синтетическому HEAVY_SLOT_MEMINFO в своём
+# каталоге, и тяжёлым прогоном он быть не способен: бюджет ≤ 512 МиБ, сторож раз в 1–2 с. Страж видит
+# ручки лишь в строке команды, скрипт с ними он пропускает — их держит слот. Сторож
+# машины в режиме проб судит синтетическую память: docker мимо подмены (абсолютный
+# путь, API) под ним без предела.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен; 75 — слот не выдан за время ожидания; 76 — команда оборвана
@@ -76,13 +88,9 @@ SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
 DIR="${HEAVY_SLOT_DIR:-$SHARED}"
 CAP_MIB=46080  # 45 ГиБ — решение владельца 2026-09-24
 PROBE_MIB=512  # потолок бюджета в режиме проб: пробы берут ≤ 301 МиБ
-LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
-POLL_S="${HEAVY_SLOT_POLL_S:-30}"
-WAIT_S="${HEAVY_SLOT_WAIT_S:-1800}"
-GUARD_S="${HEAVY_SLOT_GUARD_S:-2}"
-GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-10}"
+# Рабочие величины; ручки HEAVY_SLOT_* их меняют только в режиме проб (ниже).
+LIMIT_MIB="$CAP_MIB"; POLL_S=30; WAIT_S=1800; GUARD_S=2; GRACE_S=10; LIMITER=auto
 MEMINFO="${HEAVY_SLOT_MEMINFO:-/proc/meminfo}"
-LIMITER="${HEAVY_SLOT_LIMITER:-auto}"
 CGROOT=/sys/fs/cgroup
 
 # класс|бюджет MiB|что покрывает|основание бюджета. Замеры 2026-09-24 — через сам
@@ -179,10 +187,10 @@ print_classes() {
     done <<< "$CLASSES"
 }
 
-# used_mib — (MemTotal − MemAvailable) в MiB; пусто, если не прочитать.
+# used_mib [meminfo] — (MemTotal − MemAvailable) в MiB; пусто, если не прочитать.
 used_mib() {
     awk '/^MemTotal:/ { t = $2 } /^MemAvailable:/ { a = $2; h = 1 }
-         END { if (t > 0 && h) printf "%d\n", (t - a) / 1024 }' "$MEMINFO" 2>/dev/null
+         END { if (t > 0 && h) printf "%d\n", (t - a) / 1024 }' "${1:-$MEMINFO}" 2>/dev/null
 }
 
 cg_bytes() { local v; v="$(cat "$1" 2>/dev/null)" && [ -n "$v" ] && printf '%s\n' "$v" || echo 0; }
@@ -232,6 +240,15 @@ reap() {
         journal "reap id=$(basename "$f" .slot) class=$(field "$f" class) pid=$(field "$f" pid)"
         rm -rf "${f%.slot}".*
     done
+}
+
+# slots_mib — текущая память всех занятых слотов.
+slots_mib() {
+    local f sum=0
+    for f in "$DIR"/active/*.slot; do
+        [ -e "$f" ] && sum=$(( sum + $(slot_current_mib "${f%.slot}") ))
+    done
+    echo "$sum"
 }
 
 # reserved_mib [кроме id] — недобранное занятыми слотами.
@@ -309,27 +326,50 @@ if [ "${1:-}" != "--" ] || [ "$#" -lt 2 ]; then
     exit 64
 fi
 shift
+
+# Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
+KNOBS="HEAVY_SLOT_LIMIT_GIB HEAVY_SLOT_LIMIT_MIB HEAVY_SLOT_WAIT_S HEAVY_SLOT_POLL_S HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S"
+if [ "$MEMINFO" = /proc/meminfo ]; then
+    knob=""
+    [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
+    for v in $KNOBS; do
+        [ -n "${!v+x}" ] && knob="$v=${!v} — потолок 45 ГиБ, ожидание 1800 с, бюджет и сторож класса не переопределяются"
+    done
+    if [ -n "$knob" ]; then
+        say "над настоящей памятью машины ручка не принимается: $knob. Решение владельца 2026-09-24 — ≤ 45 ГиБ на машину; ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
+        exit 64
+    fi
+else
+    if [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ]; then
+        say "синтетический HEAVY_SLOT_MEMINFO — режим проб, и он идёт только в своём каталоге (HEAVY_SLOT_DIR): в общей очереди билет пробы стоял бы среди настоящих"
+        exit 64
+    fi
+    for v in $KNOBS; do
+        [ "$v" = HEAVY_SLOT_LIMITER ] || [ -z "${!v+x}" ] || [[ "${!v}" =~ ^[0-9]+$ ]] || { say "$v=«${!v}» — не число"; exit 64; }
+    done
+    LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
+    POLL_S="${HEAVY_SLOT_POLL_S:-$POLL_S}"; WAIT_S="${HEAVY_SLOT_WAIT_S:-$WAIT_S}"
+    GUARD_S="${HEAVY_SLOT_GUARD_S:-$GUARD_S}"; GRACE_S="${HEAVY_SLOT_GUARD_GRACE_S:-$GRACE_S}"
+    LIMITER="${HEAVY_SLOT_LIMITER:-$LIMITER}"
+    if [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
+        say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и ручек"
+        exit 64
+    fi
+fi
 if [ "$BUDGET" -gt "$LIMIT_MIB" ]; then
     say "бюджет $(mib "$BUDGET") больше потолка машины $(mib "$LIMIT_MIB") — такой слот не выдаётся никогда"
     exit 64
 fi
 
-# Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
-if [ "$MEMINFO" = /proc/meminfo ]; then
-    knob=""
-    [ "$LIMIT_MIB" -gt "$CAP_MIB" ] && knob="потолок $(mib "$LIMIT_MIB") выше 45 ГиБ"
-    [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
-    for v in HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S; do
-        [ -n "${!v+x}" ] && knob="$v ослабляет предел либо сторож класса"
-    done
-    if [ -n "$knob" ]; then
-        say "над настоящей памятью машины ручка не принимается: $knob. Решение владельца 2026-09-24 — ≤ 45 ГиБ на машину; свой каталог и ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
+# Перенос процесса в другой unit уводит команду из cgroup слота: предел ядра до
+# неё не дотянулся бы (опыт ws#832, круг 3). Судятся слова argv, в том числе
+# строка `bash -c "…"`; граница — в шапке.
+for a in "$@"; do
+    if [[ "$a" =~ (^|[^A-Za-z0-9_.-])(systemd-run|--scope)($|[^A-Za-z0-9_.-]) ]]; then
+        say "команда несёт «${BASH_REMATCH[2]}» — перенос в другой unit уводит её из cgroup слота, и предел $(mib "$BUDGET") до неё не дотянется. Слот сам ставит scope с пределом: heavy-slot.sh $CLASS -- <команда без systemd-run>"
         exit 64
     fi
-elif [ "$BUDGET" -gt "$PROBE_MIB" ] || ! [[ "$GUARD_S" =~ ^[12]$ ]]; then
-    say "синтетический HEAVY_SLOT_MEMINFO — режим проб: бюджет ≤ $(mib "$PROBE_MIB") (здесь $(mib "$BUDGET")), сторож раз в 1–2 с (здесь «$GUARD_S»). Настоящий прогон — без HEAVY_SLOT_MEMINFO и своего каталога"
-    exit 64
-fi
+done
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"
@@ -368,7 +408,7 @@ mkdir -p "$DIR/queue"
 lock
 tk=$(( $(cat "$DIR/ticket" 2>/dev/null || echo 0) + 1 )); echo "$tk" > "$DIR/ticket"
 TICKET="$DIR/queue/$(printf '%012d' "$tk")"
-printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nwho=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$WHO" > "$TICKET"
+printf 'pid=%s\npid_start=%s\nclass=%s\nbudget=%s\nlimit=%s\nmeminfo=%s\nwho=%s\n' "$$" "$(pid_start $$)" "$CLASS" "$BUDGET" "$LIMIT_MIB" "$MEMINFO" "$WHO" > "$TICKET"
 unlock
 trap 'rm -f "$TICKET"' EXIT
 t0="$(now)"; waited=0
@@ -376,16 +416,23 @@ while :; do
     lock
     reap
     held="$(exclusive_holder)"
-    ahead=0
+    ahead=0; aside=0; smib="$(slots_mib)"
     for f in "$DIR"/queue/*; do
         [ -e "$f" ] || continue
         if [ "$(pid_start "$(field "$f" pid)")" != "$(field "$f" pid_start)" ]; then
             journal "reap ticket=$(basename "$f") class=$(field "$f" class) pid=$(field "$f" pid)"; rm -f "$f"; continue
         fi
+        [[ "$f" < "$TICKET" ]] || continue
         # Ждущий исключительного класса при занятом линтере очередь не держит:
         # иначе десять минут ci-local стояли бы и newman, и go-race за ним.
         if [ -n "$held" ] && is_exclusive "$(field "$f" class)"; then continue; fi
-        [[ "$f" < "$TICKET" ]] && ahead=$(( ahead + 1 ))
+        # Не влезет под свой потолок и при пустых слотах — ждёт не очереди.
+        tu="$(used_mib "$(field "$f" meminfo)")"
+        tb=$(( ${tu:-0} - smib )); [ "$tb" -gt 0 ] || tb=0
+        if [ -z "$tu" ] || [ $(( tb + $(field "$f" budget) )) -gt "$(field "$f" limit)" ]; then
+            aside=$(( aside + 1 )); continue
+        fi
+        ahead=$(( ahead + 1 ))
     done
     used="$(used_mib)"; resv="$(reserved_mib)"
     blocked=""
@@ -407,6 +454,7 @@ while :; do
     unlock
     why="занято $(mib "$used") + недобрано $(mib "$resv") + бюджет $(mib "$BUDGET") $( [ $(( used + resv + BUDGET )) -le "$LIMIT_MIB" ] && echo '≤' || echo '>') потолка $(mib "$LIMIT_MIB")"
     [ "$ahead" -gt 0 ] && why="в очереди впереди $ahead; $why"
+    [ "$aside" -gt 0 ] && why="$why; впереди $aside не влезут под свой потолок и при пустых слотах — голову не держат"
     [ -n "$blocked" ] && why="golangci-lint по одному на машину, занят: $blocked; $why"
     waited=$(( $(now) - t0 ))
     if [ "$waited" -ge "$WAIT_S" ]; then

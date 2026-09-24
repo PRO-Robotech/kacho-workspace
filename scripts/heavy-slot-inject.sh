@@ -19,6 +19,9 @@
 #
 # Части, чьей предпосылки в среде нет (systemd --user с контроллером memory,
 # docker с образом HEAVY_SLOT_PROBE_IMAGE), не «пройдены», а «не выполнились».
+# Граница слота (шапка heavy-slot.sh) исполняется тоже, но строкой [BOUND]: это
+# известное «не ловится», а не зелёное; форма границы, которую слот вдруг поймал, —
+# [FAIL]: шапка называет границей то, чего уже нет.
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — сошлось всё
 # исполненное, но часть не построена.
 set -uo pipefail
@@ -29,10 +32,15 @@ IMAGE="${HEAVY_SLOT_PROBE_IMAGE:-python:3.13-slim}"
 W="$(mktemp -d)"
 trap 'rm -rf "$W"' EXIT
 
-pass=0; fail=0; void=0
+pass=0; fail=0; void=0; bound=0
 assert() {
     if [ "$1" = "$2" ]; then echo "  [OK]   $3"; pass=$((pass + 1))
     else echo "  [FAIL] $3 — ожидалось «$1», получено «$2»" >&2; fail=$((fail + 1)); fi
+}
+# boundary <ожидание> <факт> <форма> — граница слота: форма обязана уйти мимо него.
+boundary() {
+    if [ "$1" = "$2" ]; then echo "  [BOUND] не ловится (граница): $3"; bound=$((bound + 1))
+    else echo "  [FAIL] граница «$3» — ожидалось «$1», получено «$2»: слот её держит, шапка устарела" >&2; fail=$((fail + 1)); fi
 }
 skip() { echo "  [VOID] $1" >&2; void=$((void + 1)); }
 has() { grep -qF -- "$2" "$1" && echo да || echo нет; }
@@ -57,23 +65,36 @@ assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
 
-echo "── ручки над настоящей памятью: общий каталог, потолок ≤ 45 ГиБ, класс как есть"
-# Без синтетического meminfo слот судит настоящую память машины — и тогда ручки,
-# снимающие потолок или очередь, получают 64 ДО первой записи (опыт ws#832).
-REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB)
+echo "── перенос в другой unit уводит из cgroup слота: systemd-run и --scope в argv — 64"
+# B2 круга 3: `heavy-slot.sh docker -- systemd-run --user --scope …` уходил из слота.
+assert "64 да нет" "$(slot bash "$SLOT" docker -- systemd-run --user --scope touch "$W/e1") $(has "$W/err" '«systemd-run»') $([ -e "$W/e1" ] && echo да || echo нет)" "systemd-run первым словом — 64, причина названа, команда не запускалась"
+assert "64 нет" "$(slot bash "$SLOT" docker -- bash -c "/usr/bin/systemd-run --user --scope touch $W/e2") $([ -e "$W/e2" ] && echo да || echo нет)" "systemd-run в строке bash -c — 64"
+assert "64 да" "$(slot bash "$SLOT" docker -- sudo --scope true) $(has "$W/err" '«--scope»')" "--scope словом argv — 64"
+# shellcheck disable=SC2016  # строка дочерней оболочки, $0 раскрывает она
+assert "0 да" "$(slot bash "$SLOT" docker -- sh -c 'touch "$0"' "$W/e3" systemd-runner --scoped) $([ -e "$W/e3" ] && echo да || echo нет)" "близнец: systemd-runner и --scoped — не те слова, команда исполнилась"
+
+echo "── над настоящей памятью ручек нет: потолок 45 ГиБ, ожидание 1800 с, класс как есть"
+# Без синтетического meminfo слот судит настоящую память машины — и тогда любая
+# ручка получает 64 ДО первой записи (опыт ws#832, круги 2–3).
+REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_POLL_S -u HEAVY_SLOT_WAIT_S)
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
 seen() { stat -c %s:%Y "$SHARED/journal.log" 2>/dev/null || echo нет; }
 before="$(seen)"
-assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=46 bash "$SLOT" docker -- touch "$W/k1") $(has "$W/err" 'выше 45 ГиБ')" "потолок 46 ГиБ — 64, причина названа"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=46 bash "$SLOT" docker -- touch "$W/k1") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB=46')" "потолок 46 ГиБ — 64, ручка названа"
 assert "64 да нет" "$(slot "${REAL[@]}" HEAVY_SLOT_DIR="$W/own" bash "$SLOT" docker -- touch "$W/k2") $(has "$W/err" 'отдельная очередь') $([ -e "$W/own" ] && echo да || echo нет)" "свой каталог — 64, каталог не заведён"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- touch "$W/k3") $(has "$W/err" 'HEAVY_SLOT_BUDGET_MIB')" "бюджет вызова — 64"
 assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMITER=watch bash "$SLOT" docker -- touch "$W/k4") $(has "$W/err" 'HEAVY_SLOT_LIMITER')" "мягкий предел вместо ядра — 64"
+# B3 круга 3: потолок 1 ГиБ и ожидание 99999 с стояли головой строгой очереди.
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 bash "$SLOT" docker -- touch "$W/k6") $(has "$W/err" 'HEAVY_SLOT_')" "потолок 1 ГиБ и ожидание 99999 с — 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" docker -- touch "$W/k7") $(has "$W/err" 'HEAVY_SLOT_LIMIT_GIB')" "даже потолок 45 ГиБ ручкой — 64: величина не переопределяется"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_POLL_S=0 bash "$SLOT" docker -- touch "$W/k8") $(has "$W/err" 'HEAVY_SLOT_POLL_S')" "опрос 0 с (замок без паузы) — 64"
 assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
-rc="$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" newman -- touch "$W/k5")"
-if [ "$rc" = 75 ]; then
-    skip "машина занята — близнец общего каталога не построен (75)"
+# Близнец идёт в общую очередь с ожиданием 1800 с; занятая машина — «не выполнилось».
+rc="$(slot "${REAL[@]}" timeout 90 bash "$SLOT" newman -- touch "$W/k5")"
+if [ "$rc" = 75 ] || [ "$rc" = 124 ]; then
+    skip "машина занята — близнец общего каталога не построен ($rc)"
 else
-    assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог, потолок 45 ГиБ — слот выдан, команда исполнилась"
+    assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог без ручек — слот выдан, команда исполнилась"
 fi
 
 echo "── синтетический meminfo — режим проб: тяжёлым прогоном он быть не способен"
@@ -85,6 +106,8 @@ assert "64 да нет" "$(slot -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_LIMIT_MIB
 assert "64 нет" "$(slot HEAVY_SLOT_BUDGET_MIB=513 bash "$SLOT" docker -- touch "$W/p2") $([ -e "$W/p2" ] && echo да || echo нет)" "бюджет 513 МиБ — 64"
 assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=512 bash "$SLOT" docker -- touch "$W/p3") $([ -e "$W/p3" ] && echo да || echo нет)" "близнец: бюджет 512 МиБ — слот выдан"
 assert "64 да" "$(slot HEAVY_SLOT_GUARD_S=60 bash "$SLOT" docker -- true) $(has "$W/err" 'сторож раз в 1–2 с')" "сторож раз в 60 с — 64, причина названа"
+assert "64 да нет" "$(slot -u HEAVY_SLOT_DIR bash "$SLOT" docker -- touch "$W/p4") $(has "$W/err" 'только в своём каталоге') $([ -e "$W/p4" ] && echo да || echo нет)" "режим проб в общем каталоге — 64: билет пробы не встаёт в настоящую очередь"
+assert "64 да" "$(slot HEAVY_SLOT_WAIT_S=x bash "$SLOT" docker -- true) $(has "$W/err" 'не число')" "нечисловая ручка — 64"
 
 echo "── вход по порогу: (MemTotal − MemAvailable) + недобранное + бюджет ≤ потолок"
 export HEAVY_SLOT_LIMIT_MIB=1300
@@ -109,6 +132,17 @@ assert "75 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true) $
 wait "$B"; rc_b=$?; wait "$A"
 assert 0 "$rc_b" "большой дождался выхода первого и вошёл"
 assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- true)" "близнец: очередь пуста — малый входит"
+
+echo "── голову очереди держит лишь билет, влезающий под свой потолок при пустых слотах"
+# B3 круга 3: билет с потолком ниже занятого ждал до конца своего ожидания, и
+# строгая очередь стояла за ним вся.
+HEAVY_SLOT_BUDGET_MIB=200 bash "$SLOT" docker -- sleep 4 2>/dev/null & A=$!
+for _ in 1 2 3 4 5 6 7 8 9 10; do ls "$HEAVY_SLOT_DIR"/active/*.slot >/dev/null 2>&1 && break; sleep 0.2; done
+HEAVY_SLOT_LIMIT_MIB=1100 HEAVY_SLOT_WAIT_S=6 HEAVY_SLOT_BUDGET_MIB=250 bash "$SLOT" docker -- touch "$W/q1" 2>"$W/errQ" & B=$!
+sleep 0.5
+assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" docker -- touch "$W/q2") $([ -e "$W/q2" ] && echo да || echo нет)" "впереди билет с потолком 1100 < 1000 + 250: голову не держит — малый (1000 + ~200 + 50 ≤ 1300) входит сразу (близнец — строгая очередь выше: потолок 1300, малый ждёт)"
+wait "$A"; wait "$B"; rc_b=$?
+assert "75 нет" "$rc_b $([ -e "$W/q1" ] && echo да || echo нет)" "сам билет с низким потолком — 75 по своему ожиданию, команда не запускалась"
 
 echo "── golangci-lint по одному на машину; ждущий линтер очередь не держит"
 HEAVY_SLOT_BUDGET_MIB=50 bash "$SLOT" lint -- sleep 4 2>/dev/null & A=$!
@@ -141,6 +175,12 @@ if systemd-run --user --scope --quiet --collect -p MemoryMax=32M -- true 2>/dev/
     chmod +x "$W/shim/systemd-run"
     rc="$(slot PATH="$W/shim:$PATH" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- python3 -c "$ALLOC" 256 3)"
     assert "76 да да" "$rc $(has "$W/err" 'предел ядра НЕ в силе') $(has "$W/err" 'мягкий предел')" "предел объявлен, но не в силе — замечено по memory.max, команда всё равно оборвана"
+
+    # Граница: systemd-run внутри скрипта в argv не виден — команда уходит в свой
+    # scope, мимо предела слота. Держит её потолок сессии либо ничто.
+    printf 'systemd-run --user --scope --quiet --collect cat /proc/self/cgroup\n' > "$W/escape.sh"
+    rc="$(slot HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- bash "$W/escape.sh")"
+    boundary "0 нет" "$rc $(grep -q 'heavy-slot-' "$W/out" && echo да || echo нет)" "скрипт с systemd-run внутри — команда в чужом scope ($(sed 's#.*/##' "$W/out"))"
 else
     skip "systemd --user с контроллером memory недоступен — предел ядра не доказан в этой среде"
 fi
@@ -180,6 +220,7 @@ if docker image inspect "$IMAGE" >/dev/null 2>&1; then
     assert "76 да нет" "$rc $(has "$W/errG" 'контейнеры слота остановлены') $(running "$n")" "сторож машины: 76, контейнер из bash -c снят, сказано"
     docker rm -f "$n" >/dev/null 2>&1
     mkdir -p "$W/nokill"
+    # shellcheck disable=SC2016  # текст подставного скрипта, а не раскрытие
     printf '#!/usr/bin/env bash\n[ "$1" = kill ] && exit 0\nexec %q "$@"\n' "$(command -v docker)" > "$W/nokill/docker"
     chmod +x "$W/nokill/docker"
     n="hs-probe-k-$$"
@@ -210,7 +251,7 @@ t0="$(date +%s)"; kill -TERM "$S"; wait "$S"; rc=$?; t1="$(date +%s)"
 alive="нет"; kill -0 "$(cat "$W/cmdpid" 2>/dev/null || echo 999999)" 2>/dev/null && alive="да"
 assert "143 0 нет да" "$rc $(entries) $alive $([ $(( t1 - t0 )) -lt 10 ] && echo да || echo нет)" "TERM слоту → 143 сразу, записи нет, команда снята"
 
-echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; не построено частей $void"
+echo "[CENSUS] heavy-slot: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; граница (не ловится, заявлено в шапке) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
 exit 0
