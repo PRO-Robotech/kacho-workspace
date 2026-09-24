@@ -81,9 +81,10 @@
 # при 63 ветках, из которых 13 влиты. Предикат перепроверки — прогон этого
 # скрипта: доли выводятся из его же разделов, а не из этого комментария.
 #
-# СТВОЛОВ БОЛЬШЕ ОДНОГО. Работа копится в накопительных ветках (`git-issues.md`
-# §«Накопительная релизная ветка»), поэтому «нет в origin/main» и «нет нигде» —
-# РАЗНЫЕ вердикты. Скрипт сверяет с origin/main И с каждой origin/release/*;
+# СТВОЛОВ БОЛЬШЕ ОДНОГО. Работа копится в накопительных ветках и в ветках эпиков
+# и волн, поэтому «нет в origin/main» и «нет нигде» — РАЗНЫЕ вердикты. Скрипт
+# сверяет с origin/main, с каждой origin/release/* и с каждой базой PR, чья
+# ветка есть на origin (эпик, волна — ws#821); шапка называет стволы поимённо;
 # ветка, поглощённая накопительной веткой, помечается источником поглощения, а
 # не объявляется единственным экземпляром. В том же замере это сняло две ложные
 # находки из пяти (`issue-489`, `issue-mutation-outcome-signal`).
@@ -111,7 +112,8 @@
 #
 # Переменные: BRANCH_AUDIT_TRUNK (ствол, умолчание origin/main),
 #             BRANCH_AUDIT_FRESH_MIN (окно «движется прямо сейчас», умолчание 45),
-#             BRANCH_AUDIT_NO_ACCUM=1 (не искать накопительные ветки — для проб).
+#             BRANCH_AUDIT_NO_ACCUM=1 (не искать накопительные ветки, эпики и
+#             волны — для проб).
 #
 # БЕЗ `--prune-merged` скрипт НИЧЕГО НЕ УДАЛЯЕТ: он печатает списки и объём
 # осмотренного, решение принимает человек — третий вид требует сдать работу, а
@@ -181,17 +183,69 @@ TRUNK_SHA=$(git rev-parse "$TRUNK")
 TRUNK_TREE=$(git rev-parse "$TRUNK^{tree}")
 NOW=$(date +%s)
 
-# --- СТВОЛЫ: ствол плюс каждая накопительная ветка ----------------------------
+# --- статус PR по head-ветке и базы PR (если gh доступен) ---------------------
+# BRANCH_AUDIT_PR_STATE_FILE — единственный второй источник этих состояний, и он
+# заведён не для удобства: разделы «работа в стволе НЕ ВСЯ» и «поглощение не
+# установлено» набираются ТОЛЬКО у веток с известным состоянием PR, поэтому на
+# синтетическом репозитории без gh они не набирались вовсе — то есть раздел,
+# ради которого заведена задача #257, инъекции не имел ни одной. Файл читается
+# ТОЛЬКО когда gh недоступен (на настоящем репозитории он игнорируется by
+# construction), а провенанс печатается: подстановка обязана быть видна в
+# выводе, а не подразумеваться. Формат строки: «ветка<TAB>номер<TAB>состояние»,
+# необязательная четвёртая колонка — база PR.
+#
+# Блок стоит ДО стволов: базы PR — источник стволов эпиков и волн (ниже). Баз
+# спрашивается отдельный полный перечень вне main: головы — последние 300 PR, а
+# эпик старше их окна выпал бы из стволов молча.
+declare -A PRSTATE=() PRBASE=()
+have_gh=0; bases_src="не прочитан"
+if command -v gh >/dev/null 2>&1 && gh repo view >/dev/null 2>&1; then
+  have_gh=1
+  while IFS=$'\t' read -r head num state; do
+    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
+  done < <(gh pr list --state all --limit 300 \
+             --json number,state,headRefName \
+             --jq '.[]|"\(.headRefName)\t\(.number)\t\(.state)"' 2>/dev/null || true)
+  if bases=$(gh pr list --state all --limit 1000 --search '-base:main' \
+               --json baseRefName --jq '.[].baseRefName' 2>/dev/null); then
+    bases_src="gh"
+    while read -r base; do [ -n "$base" ] && PRBASE["$base"]=1; done <<<"$bases"
+  fi
+elif [ -n "${BRANCH_AUDIT_PR_STATE_FILE:-}" ] && [ -r "${BRANCH_AUDIT_PR_STATE_FILE}" ]; then
+  have_gh=1
+  pr_state_from_file=1
+  bases_src="файл ${BRANCH_AUDIT_PR_STATE_FILE}"
+  while IFS=$'\t' read -r head num state base; do
+    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
+    [ -n "${base:-}" ] && PRBASE["$base"]=1
+  done < "${BRANCH_AUDIT_PR_STATE_FILE}"
+fi
+
+# --- СТВОЛЫ: ствол, каждая накопительная ветка, эпики и волны -----------------
 # Работа копится в release/*, поэтому «нет в origin/main» и «нет нигде» — разные
 # вердикты. Перечень ВЫВОДИТСЯ из ссылок, а не выписывается: рукописный список
 # разошёлся бы с деревом молча, и новая накопительная ветка осталась бы вне
 # сверки — невидимо, потому что отсутствие проверки не производит сигнала.
+#
+# ЭПИКИ И ВОЛНЫ (ws#821). С 2026-09-22 волна вливается в ветку эпика, а не в main
+# и не в release/*, и без них влитая волна называлась работой в единственном
+# экземпляре. Имя не признак: эпик, волна и задача называются числом, а ветка
+# задачи стволом не является. Признак — роль: в эпик и волну вливают запросом, и
+# они — базы PR; в ветку задачи запроса нет (`git-issues.md#gi-wave-assemble-only`).
+# База без ветки на origin стволом не становится.
+declare -A TRUNK_KIND=(["$TRUNK"]="ствол")
 TRUNKS=("$TRUNK")
 if [ "${BRANCH_AUDIT_NO_ACCUM:-0}" != "1" ]; then
   while read -r r; do
-    [ -n "$r" ] && [ "$r" != "$TRUNK" ] && TRUNKS+=("$r")
+    [ -n "$r" ] && [ "$r" != "$TRUNK" ] && TRUNKS+=("$r") && TRUNK_KIND["$r"]="накопительная"
   done < <(git for-each-ref --format='%(refname:short)' \
              'refs/remotes/origin/release/*' 'refs/remotes/origin/release/*/*' 2>/dev/null || true)
+  while read -r base; do
+    r="origin/$base"
+    case "$base" in ""|release/*|"${TRUNK#origin/}") continue ;; esac
+    git rev-parse --verify --quiet "refs/remotes/$r^{commit}" >/dev/null || continue
+    TRUNKS+=("$r"); TRUNK_KIND["$r"]="эпик/волна — база PR"
+  done < <(printf '%s\n' "${!PRBASE[@]}" | LC_ALL=C sort)
 fi
 
 # Временный индекс на КАЖДЫЙ ствол: обратное применение патча идёт в него, а не
@@ -211,10 +265,16 @@ done
 PATCH_TMP="$BA_TMP/p.diff"
 
 echo "branch-audit: репозиторий $(basename "$REPO"), ствол $TRUNK @ ${TRUNK_SHA:0:12}"
-if [ "${#TRUNKS[@]}" -gt 1 ]; then
-  echo "branch-audit: накопительных веток в сверке: $(( ${#TRUNKS[@]} - 1 )) — ${TRUNKS[*]:1}"
-else
-  echo "branch-audit: накопительных веток нет — сверка только со стволом"
+named=""
+for tr in "${TRUNKS[@]}"; do named="$named${named:+, }$tr (${TRUNK_KIND[$tr]})"; done
+echo "branch-audit: стволов в сверке ${#TRUNKS[@]} — $named"
+echo "branch-audit: баз PR вне ствола ${#PRBASE[@]}, источник — $bases_src"
+if [ "$bases_src" = "не прочитан" ]; then
+  echo "branch-audit: эпики и волны в стволы НЕ выведены — влитое в них будет названо" >&2
+  echo "              работой в единственном экземпляре. Перепись неполна." >&2
+fi
+if [ "${pr_state_from_file:-0}" = 1 ]; then
+  echo "branch-audit: состояния PR прочитаны ИЗ ФАЙЛА ${BRANCH_AUDIT_PR_STATE_FILE} — gh недоступен"
 fi
 # ── МАШИННО СОБИРАЕМОЕ не считается расщеплённой работой ────────
 #
@@ -311,35 +371,6 @@ if remote_out=$(git ls-remote --heads origin 2>/dev/null); then
   while read -r _sha ref; do
     [ -n "${ref:-}" ] && ON_ORIGIN["${ref#refs/heads/}"]=1
   done <<<"$remote_out"
-fi
-
-# --- статус PR по head-ветке (если gh доступен и это GitHub-репозиторий) ------
-# BRANCH_AUDIT_PR_STATE_FILE — единственный второй источник этих состояний, и он
-# заведён не для удобства: разделы «работа в стволе НЕ ВСЯ» и «поглощение не
-# установлено» набираются ТОЛЬКО у веток с известным состоянием PR, поэтому на
-# синтетическом репозитории без gh они не набирались вовсе — то есть раздел,
-# ради которого заведена задача #257, инъекции не имел ни одной. Файл читается
-# ТОЛЬКО когда gh недоступен (на настоящем репозитории он игнорируется by
-# construction), а провенанс печатается: подстановка обязана быть видна в
-# выводе, а не подразумеваться. Формат строки: «ветка<TAB>номер<TAB>состояние».
-declare -A PRSTATE=()
-have_gh=0
-if command -v gh >/dev/null 2>&1 && gh repo view >/dev/null 2>&1; then
-  have_gh=1
-  while IFS=$'\t' read -r head num state; do
-    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
-  done < <(gh pr list --state all --limit 300 \
-             --json number,state,headRefName \
-             --jq '.[]|"\(.headRefName)\t\(.number)\t\(.state)"' 2>/dev/null || true)
-elif [ -n "${BRANCH_AUDIT_PR_STATE_FILE:-}" ] && [ -r "${BRANCH_AUDIT_PR_STATE_FILE}" ]; then
-  have_gh=1
-  pr_state_from_file=1
-  while IFS=$'\t' read -r head num state; do
-    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
-  done < "${BRANCH_AUDIT_PR_STATE_FILE}"
-fi
-if [ "${pr_state_from_file:-0}" = 1 ]; then
-  echo "branch-audit: состояния PR прочитаны ИЗ ФАЙЛА ${BRANCH_AUDIT_PR_STATE_FILE} — gh недоступен"
 fi
 
 # --- ПЯТЫЙ ПРИЗНАК: дельта слияния во временной копии -------------------------
