@@ -62,15 +62,6 @@ if [ "$n_removed" -gt 0 ] && [ "$n_pushed" -eq 0 ]; then
     exit 0
 fi
 
-# Ветка, которую никто не собирается вливать, проверок не требует.
-branch="$(git rev-parse --abbrev-ref HEAD)"
-case "$branch" in
-    wip/*|tmp/*)
-        echo "pre-push: ветка «$branch» объявлена черновиком — проверки пропущены" >&2
-        exit 0
-        ;;
-esac
-
 # ── Дерево продукта: ВЫВОДИМ, а не гадаем ────────────────────────────────────
 #
 # Часть проверок сверяет утверждения воркспейса с деревом монорепо и без него
@@ -82,31 +73,62 @@ esac
 # внутрь КАНОНИЧЕСКОГО клона, где `project/kacho` и лежит) — это вывод, а не
 # зашитая координата машины. Не вывелось — ничего не подставляем: пусть
 # проверка сама скажет, чего ей не хватило.
+common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
+case "$common" in /*) ;; *) common="$ROOT/$common" ;; esac
+canonical="$(dirname "$common")"
 if [ -z "${KACHO_MONOREPO:-}" ]; then
-    common="$(git rev-parse --git-common-dir 2>/dev/null || true)"
-    case "$common" in /*) ;; *) common="$ROOT/$common" ;; esac
-    canonical="$(dirname "$common")"
     if [ -d "$canonical/project/kacho/.git" ] || [ -f "$canonical/project/kacho/.git" ]; then
         export KACHO_MONOREPO="$canonical/project/kacho"
         echo "pre-push: дерево продукта выведено — $KACHO_MONOREPO" >&2
     fi
 fi
 
-# ── Перечень ВЫВОДИТСЯ из дерева, а не выписывается ──────────────────────────
+# ── Что судится: дерево КАЖДОЙ отправляемой вершины, а не копия (ws#811) ─────
 #
-# Рукописный список разъезжается с деревом молча: заведут пятый набор проверок,
-# и он не будет исполняться, а хук продолжит рапортовать успех. Признак —
-# место и имя: `scripts/<набор>/run-all.sh`, отслеживаемый git.
-gates=()
-while IFS= read -r rel; do
-    gates+=("$rel")
-done < <(git ls-files 'scripts/*/run-all.sh' | sort)
-
-if [ "${#gates[@]}" -eq 0 ]; then
-    echo "pre-push: ОТКАЗ — в дереве нет НИ ОДНОГО scripts/*/run-all.sh." >&2
-    echo "Пустой обход здесь означал бы зелёную отправку при снятых проверках." >&2
-    exit 1
+# Вершина судится во временной копии на её ревизии: незакоммиченное в исход не
+# входит, а красная вершина не уезжает оттого, что копия зелёная. Черновик
+# (`wip/*`, `tmp/*`) — по ОТПРАВЛЯЕМОЙ ссылке, а не по HEAD. Пустой вход судит
+# HEAD. Держит это `scripts/tooling-gate/check-10-push-hook-judges-what-is-pushed.sh`.
+targets=()
+if [ "$n_pushed" -eq 0 ]; then
+    head="$(git rev-parse --verify -q 'HEAD^{commit}')" || {
+        echo "pre-push: ОТКАЗ — вход отправки пуст, а HEAD не родился: судить нечего." >&2
+        exit 1
+    }
+    echo "pre-push: вход отправки пуст — судится HEAD" >&2
+    targets+=("HEAD $head")
 fi
+for e in "${pushed[@]}"; do
+    rref="${e% *}"
+    name="${rref#refs/heads/}"
+    case "$name" in
+        wip/* | tmp/*)
+            echo "pre-push: ссылка «$rref» объявлена черновиком — проверки пропущены" >&2
+            continue
+            ;;
+    esac
+    c="$(git rev-parse --verify -q "${e##* }^{commit}")" || {
+        echo "pre-push: ОТКАЗ — вершина «$rref» (${e##* }) не сводится к ревизии." >&2
+        exit 1
+    }
+    targets+=("$rref $c")
+done
+if [ "${#targets[@]}" -eq 0 ]; then
+    echo "pre-push: уезжают только черновики — проверки пропущены" >&2
+    exit 0
+fi
+
+wt_base="$canonical/tmp"
+wts=()
+# shellcheck disable=SC2317,SC2329  # зовётся ловушкой EXIT
+cleanup() {
+    local w
+    for w in "${wts[@]}"; do
+        git worktree remove --force "$w" >/dev/null 2>&1 || rm -rf "$w"
+    done
+    [ "${#wts[@]}" -eq 0 ] || git worktree prune >/dev/null 2>&1
+}
+trap cleanup EXIT
 
 # ── ТРИ ИСХОДА НАБОРА, А НЕ ДВА ──────────────────────────────────────────────
 #
@@ -135,17 +157,46 @@ fi
 # файле не говорят ничего.
 failed=()
 void=()
-for g in "${gates[@]}"; do
-    printf '── %s\n' "$g" >&2
-    bash "$ROOT/$g" >&2
-    case $? in
-        0) ;;
-        2) void+=("$g") ;;
-        *) failed+=("$g") ;;
-    esac
+ran=0
+judged=()
+for t in "${targets[@]}"; do
+    rref="${t% *}"
+    c="${t##* }"
+    judged+=("$rref@${c:0:12}")
+    if ! wt="$(mkdir -p "$wt_base" && mktemp -d "$wt_base/pre-push.XXXXXX")" ||
+        ! wts+=("$wt") ||
+        ! git -c core.hooksPath=/dev/null worktree add -q --detach "$wt" "$c" >/dev/null 2>&1; then
+        echo "pre-push: ОТКАЗ — копию вершины «$rref» ($c) не собрать в $wt_base." >&2
+        exit 1
+    fi
+
+    # ── Перечень ВЫВОДИТСЯ из дерева вершины, а не выписывается ─────────────
+    #
+    # Рукописный список разъезжается с деревом молча: заведут пятый набор
+    # проверок, и он не будет исполняться, а хук продолжит рапортовать успех.
+    # Признак — место и имя: `scripts/<набор>/run-all.sh`, отслеживаемый git.
+    gates=()
+    while IFS= read -r rel; do
+        gates+=("$rel")
+    done < <(git -C "$wt" ls-files 'scripts/*/run-all.sh' | sort)
+    if [ "${#gates[@]}" -eq 0 ]; then
+        echo "pre-push: ОТКАЗ — в дереве «$rref» нет НИ ОДНОГО scripts/*/run-all.sh." >&2
+        echo "Пустой обход здесь означал бы зелёную отправку при снятых проверках." >&2
+        exit 1
+    fi
+    for g in "${gates[@]}"; do
+        printf '── %s @ %s: %s\n' "$rref" "${c:0:12}" "$g" >&2
+        ran=$((ran + 1))
+        (cd "$wt" && bash "$g" </dev/null) >&2
+        case $? in
+            0) ;;
+            2) void+=("$rref: $g") ;;
+            *) failed+=("$rref: $g") ;;
+        esac
+    done
 done
 
-echo "pre-push: исполнено наборов ${#gates[@]}, провалено ${#failed[@]}, без предмета ${#void[@]}" >&2
+echo "pre-push: судились вершины ${judged[*]}; исполнено наборов $ran, провалено ${#failed[@]}, без предмета ${#void[@]}" >&2
 
 if [ "${#failed[@]}" -gt 0 ]; then
     echo "" >&2
