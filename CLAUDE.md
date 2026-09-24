@@ -83,17 +83,27 @@ AI-оснастка живёт **в единственном экземпляр�
 
 ## Локальная разработка
 
-- Стенд: `cd project/kacho/deploy && make dev-up` / `make dev-down`
-- Перезапуск сервиса: `make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
+- Тяжёлое (go test -race, integration, ci-local, линтеры, docker run, стенд, newman) — только
+  через слот памяти, ≤ 45 ГиБ на машину (решение владельца 2026-09-24): `$WS/scripts/heavy-slot.sh
+  <класс> -- <команда>`, `$WS` — корень воркспейса; классы и бюджеты — `--classes`, занятость —
+  `--status`. Команду без слота отклоняет хук `heavy-guard` и печатает готовую строку: он —
+  напоминание против случайных форм, предел держит cgroup.
+- Потолок сессии и метку oomd omit её scope ставит хук SessionStart (`scripts/session-memcap.sh`,
+  формула — в шапке); метка ставится и там, где потолок отказан. Терминал
+  заводит scope с OOMPolicy=stop, где потолок снял бы всю сессию, — поэтому её запускают
+  `$WS/scripts/session-memcap.sh --launch -- claude`.
+- Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make dev-up` / `make dev-down`
+- Перезапуск сервиса: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
 - Обновить рабочие копии: `./sync-all.sh`
 
 ## Permissions и хуки
 
 `.claude/settings.json` — `bypassPermissions` (локальная dev-машина) плюс хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует
-в одном экземпляре; в репозитории продукта его нет и не должно быть: `bypassPermissions`,
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `session-memcap` (`SessionStart`), `change-graph-reminder`, rag-хуки. Пути — через
+`$CLAUDE_PROJECT_DIR`. Файл существует в одном экземпляре; в репозитории продукта его нет и не должно быть: `bypassPermissions`,
 закоммиченный в публичный репозиторий, решал бы за каждого клонирующего.
 
-Хуки печатают **диспетчеру**, а он ничего не делает сам: что каким агентом закрывается —
-таблица сигналов в `.claude/agents/dispatcher.md`.
+Хуки запроса и хода печатают **диспетчеру**, а он ничего не делает сам: что каким агентом
+закрывается — таблица сигналов в `.claude/agents/dispatcher.md`. Хуки записи и команд говорят
+исполнителю, который их вызвал.

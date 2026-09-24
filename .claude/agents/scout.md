@@ -103,7 +103,7 @@ worktree, ревизия) и что не осматривать.
   каждую голову `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion`
   — таблица: репо, номер, база, headSha, прогонов на голове всего, зелёных, красных, идущих;
   ноль прогонов называется нулём; `statusCheckRollup` ручного запуска не видит
-  (`testing-verdict.md#task-verdict-runs-on-head`);
+  (`testing-verdict.md#asm-verdict-runs-on-head`);
 - `gh issue list --limit 200` — задачи в работе с assignee и метками состояния;
 - `scripts/branch-audit.sh <репо>` без ключа — вывод по разделам с кодом возврата
   (код 1 — единственный экземпляр, код 2 — предмета нет);
