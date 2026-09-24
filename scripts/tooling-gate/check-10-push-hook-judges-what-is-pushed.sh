@@ -17,7 +17,14 @@
 #                          красная → отказ с именем ссылки (ws#811: судится дерево
 #                          вершины, незакоммиченное в исход не входит);
 #   HEAD = wip/x, уезжает красная не-черновая → отказ; близнец: уезжает `wip/y` —
-#                          заглушка не вызвана (черновик — по отправляемой ссылке).
+#                          заглушка не вызвана (черновик — по отправляемой ссылке);
+#   красный набор есть только у вершины → отказ; близнец: только в копии → 0
+#                          (перечень наборов — из дерева вершины, в обе стороны);
+#   игнорируемое вершиной условие у копии есть (форма `project/<клон>`: каталог и
+#                          ссылка на каталог), набор по нему красный → отказ, зелёный →
+#                          строка чистого; близнец: вершина путь НЕ игнорирует → 0
+#                          (для неё это незакоммиченная работа); дом копий `tmp/*` и
+#                          байткод не переносятся.
 #
 # ПРЕДПОСЫЛКА (исход VOID): вызывающий есть, и на чистой копии с зелёной вершиной
 # он отвечает 0, вызвав заглушку. Иначе остальные пробы на нём недоказательны.
@@ -148,6 +155,85 @@ for caller in "${CALLERS[@]}"; do
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — HEAD = wip/x, уезжает красная не-черновая вершина: код $(rc "$r") вместо 1 — черновик взят по HEAD"
     fi
+
+    # ── Перечень наборов — из дерева ВЕРШИНЫ, в обе стороны ─────────────────
+    # `extra-lane` = G + красный набор `scripts/extra/`; копия стоит на `main`.
+    pgit -C "$box" checkout -q main
+    pgit -C "$box" checkout -q -b extra-lane
+    mkdir -p "$box/scripts/extra"
+    printf '#!/usr/bin/env bash\necho "extra: красное"\nexit 1\n' > "$box/scripts/extra/run-all.sh"
+    pgit -C "$box" add scripts/extra/run-all.sh
+    pgit -C "$box" commit -q -m X
+    X="$(git -C "$box" rev-parse extra-lane)"
+    pgit -C "$box" checkout -q main
+
+    r="$(push "$box" "refs/heads/extra-lane $X refs/heads/extra-lane $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 1 ]; then
+        bad "$caller — красный набор есть только у вершины: код $(rc "$r") вместо 1 — перечень наборов взят из копии, а не из вершины"
+    fi
+    pgit -C "$box" checkout -q extra-lane
+    r="$(push "$box" "refs/heads/main $G refs/heads/main $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 0 ]; then
+        bad "$caller — красный набор есть только в копии, у вершины его нет: код $(rc "$r") вместо 0 — перечень наборов взят из копии, а не из вершины"
+    fi
+
+    # ── Условие ВНЕ дерева, которое у копии есть, у копии вершины тоже есть ──
+    # Форма `project/<клон>`: игнорируемый вершиной `outside/`, набор `cond` судит
+    # по нему и без него объявляет себя VOID. `tmp/*` — дом копий вершины (он же
+    # `$canonical/tmp` хука), байткод — производное исходника: ни то, ни другое не
+    # условие, и набор краснеет, если они доехали.
+    pgit -C "$box" checkout -q main
+    mkdir -p "$box/scripts/cond"
+    # shellcheck disable=SC2016  # тело заглушки раскрывается при её вызове
+    printf '%s\n' '#!/usr/bin/env bash' \
+        'r="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"' \
+        '[ -e "$r/tmp/stale" ] && { echo "cond: в копию вершины доехал дом копий"; exit 1; }' \
+        '[ -e "$r/scripts/cond/__pycache__" ] && { echo "cond: в копию вершины доехал байткод копии"; exit 1; }' \
+        'f="$r/outside/clone/verdict"' \
+        '[ -f "$f" ] || { echo "[VOID] cond: условия вне дерева нет"; exit 2; }' \
+        '[ "$(cat "$f")" = red ] && { echo "cond: красное"; exit 1; }' \
+        'exit 0' > "$box.cond"
+    pgit -C "$box" checkout -q -b loose-lane
+    cp "$box.cond" "$box/scripts/cond/run-all.sh"
+    pgit -C "$box" add scripts/cond/run-all.sh
+    pgit -C "$box" commit -q -m L
+    L="$(git -C "$box" rev-parse loose-lane)"
+    pgit -C "$box" checkout -q -b cond-lane main
+    mkdir -p "$box/scripts/cond"
+    cp "$box.cond" "$box/scripts/cond/run-all.sh"
+    printf 'outside/\ntmp/*\n__pycache__/\n' > "$box/.gitignore"
+    pgit -C "$box" add .gitignore scripts/cond/run-all.sh
+    pgit -C "$box" commit -q -m C
+    C="$(git -C "$box" rev-parse cond-lane)"
+    mkdir -p "$box/outside/clone" "$box/tmp/stale" "$box/scripts/cond/__pycache__"
+    : > "$box/scripts/cond/__pycache__/run.cpython.pyc"
+    echo red > "$box/outside/clone/verdict"
+
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 1 ]; then
+        bad "$caller — у копии есть игнорируемое вершиной outside/, набор по нему красный: код $(rc "$r") вместо 1 — условие вне дерева в копию вершины не доехало"
+    fi
+    echo green > "$box/outside/clone/verdict"
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 0 ] || [ "$(tail_of "$r")" != "$(tail_of "$green")" ]; then
+        bad "$caller — условие вне дерева зелёное: код $(rc "$r"), завершающая строка «$(tail_of "$r")» вместо строки чистого; набор сказал: «$(grep -m1 -o 'cond: .*' "$box.out" || echo 'ничего')»"
+    fi
+    echo red > "$box/outside/clone/verdict"
+    r="$(push "$box" "refs/heads/loose-lane $L refs/heads/loose-lane $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 0 ]; then
+        bad "$caller — вершина outside/ НЕ игнорирует (для неё это незакоммиченная работа), копия — игнорирует: код $(rc "$r") вместо 0 — условие взято по правилам копии, а не вершины"
+    fi
+
+    # Форма тех копий, где `project` — ссылка на клоны канонического: для git копии
+    # она неотслеживаема, а вершина объявляет путь своим игнорируемым каталогом.
+    mv "$box/outside" "$box.ext"
+    rm -rf "$box/tmp/stale" "$box/scripts/cond/__pycache__"
+    pgit -C "$box" checkout -q main
+    ln -s "$box.ext" "$box/outside"
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n')"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 1 ]; then
+        bad "$caller — у копии outside — ссылка на каталог, вершина его игнорирует, набор по нему красный: код $(rc "$r") вместо 1 — условие вне дерева в копию вершины не доехало"
+    fi
 done
 
 tooling_gate_census "$NAME: вызывающих осмотрено $examined, проб $probes"
@@ -157,4 +243,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины, черновик — по отправляемой ссылке"
+tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины с её перечнем наборов и условиями копии вне дерева, черновик — по отправляемой ссылке"

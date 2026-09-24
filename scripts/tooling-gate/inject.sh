@@ -695,6 +695,45 @@ if mr_patch "$b/$HK_REL" 's/mktemp -d "\$wt_base\/pre-push.XXXXXX"/mktemp -d/' "
     run 0 "$b" "близнец: копия вершины в другом месте — молчит" "$C10"
 fi
 
+# Возврат check-verifier к ws#811: перечень наборов и условия вне дерева.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/git -C "\$wt" ls-files/git -C "\$ROOT" ls-files/' \
+    "перечень наборов из копии"; then
+    run 1 "$b" "инъекция: перечень наборов взят из копии, а не из вершины — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" "s/'!!' \\| '\\?\\?'\\) outside\\+=\\(\"\\\$\\{rec:3\\}\"\\) ;;/'!!' | '??') : ;;/" \
+    "условия вне дерева не переносятся"; then
+    run 1 "$b" "инъекция: игнорируемое копии (project/) в копию вершины не едет — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/git -C "\$wt" check-ignore -q -- "\$rel\/"/git -C "\$ROOT" check-ignore -q -- "\$rel\/"/' \
+    "условие по правилам копии"; then
+    run 1 "$b" "инъекция: игнорируемое судится правилами копии, а не вершины — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/            case "\$src\/" in "\$wt_base"\/\*\) continue ;; esac\n//' \
+    "дом копий переносится"; then
+    run 1 "$b" "инъекция: в копию вершины едет дом копий — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/        case "\/\$rel" in \*\/__pycache__ \| \*\.py\[co\]\) continue ;; esac\n//' \
+    "байткод переносится"; then
+    run 1 "$b" "инъекция: в копию вершины едет байткод копии — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/--untracked-files=normal/--untracked-files=all/' \
+    "кандидаты поштучно"; then
+    run 0 "$b" "близнец: кандидаты перечислены поштучно, а не каталогом — молчит" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" "s/git -C \"\\\$wt\" ls-files 'scripts\\/\\*\\/run-all.sh'/(cd \"\\\$wt\" \\&\\& git ls-files -- 'scripts\\/*\\/run-all.sh')/" \
+    "перечень из вершины другой формой"; then
+    run 0 "$b" "близнец: перечень наборов из вершины другой формой — молчит" "$C10"
+fi
+
 # Близнец: та же форма, другие слова — проверка судит исход, а не формулировку.
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/только удаление, прогона не было/уезжает лишь снятие ссылок, наборы не исполнялись/' \
