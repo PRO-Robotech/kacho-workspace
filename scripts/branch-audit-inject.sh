@@ -10,8 +10,9 @@
 # падать не умеет. Проверка «ноль находок» имеет смысл, только если рядом
 # показано, что на настоящей находке она краснеет И называет имя.
 #
-# Проверяется тридцать восемь утверждений (A, A2, B, C, D, E, F, G, H, I, J, K, L,
-# M, N, O, P, Q, R, S, T, U, V, W, X, Y, Y2, Z, R2, AA, AB, AC, AD, AE, AF, AG, AH, AI — полный
+# Проверяется сорок пять утверждений (A, A2, B, C, D, E, F, G, H, I, J, K, L,
+# M, N, O, P, Q, R, S, T, U, V, W, X, Y, Y2, Z, R2, AA, AB, AC, AD, AE, AF, AG, AH, AI,
+# AJ, AK, AL, AM, AN, AO, AP — полный
 # перечень меток см. по коду ниже; счётчик в самом файле не выписывается
 # отдельно, он выводится трейлером последнего прогона):
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
@@ -61,7 +62,12 @@
 #      по ветке AA и ни одной жалобы на порядок ни под одной локалью;
 #   AF–AI. РЕЖИМ КАНДИДАТОВ: по двум названным веткам разделы и строки те же, что
 #      у полной переписи; судятся только они; время и объём напечатаны;
-#      ненайденный кандидат назван и даёт код 2, рядом с находкой — 1.
+#      ненайденный кандидат назван и даёт код 2, рядом с находкой — 1;
+#   AJ–AP. САМОПРОБА ПАКЕТНОГО РАЗБОРА (ws#813): на отдельном репозитории, где у
+#      каждого ускорителя и каждой формы отступления есть свой файл, пакетный
+#      режим дословно равен поштучному эталону (AJ), ускорители действительно
+#      сработали (AK), а мутация каждого из пяти делает сверку красной и меняет
+#      вердикт названной ветки (AL–AP).
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -393,6 +399,10 @@ echo
 
 fail=0
 say() { printf '%s %s\n' "$1" "$2"; }
+# Раздел читается трубой `awk … | grep -c … >/dev/null`, а не `| grep -q`: под
+# pipefail `grep -q` выходит на первом совпадении, и следующая запись awk
+# умирает от SIGPIPE — утверждение краснело по жребию, при верном выводе (AA,
+# ws#813). `grep -c` дочитывает вход; истинность та же.
 
 # A — обязана краснеть И назвать имя
 if [ "$RC" -eq 1 ] && grep -q 'work-only-local' <<<"$OUT"; then
@@ -402,21 +412,21 @@ else
 fi
 
 # Имя должно стоять именно в третьем списке, а не «где-то в выводе»
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'work-only-local'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'work-only-local' >/dev/null; then
   say "✅ A2" "имя стоит в списке «единственный экземпляр», а не случайно в выводе"
 else
   say "❌ A2" "work-only-local не попал в третий список"; fail=1
 fi
 
 # B — влитая не должна попадать в находки
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'work-merged'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'work-merged' >/dev/null; then
   say "❌ B" "влитая ветка ошибочно объявлена единственным экземпляром"; fail=1
 else
   say "✅ B" "влитая ветка молчит — ложного срабатывания нет"
 fi
 
 # C — пятый признак: содержимое в стволе, ветка не предок
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'work-squashed'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'work-squashed' >/dev/null; then
   say "❌ C" "схлопнутая ветка объявлена работой — пятый признак не сработал"; fail=1
 elif grep -q 'work-squashed.*ДЕЛЬТА СЛИЯНИЯ ПУСТА' <<<"$OUT"; then
   say "✅ C" "пятый признак распознал схлопнутое вливание, которого не видят первые четыре"
@@ -439,7 +449,7 @@ else
 fi
 
 # H — ветка на origin с работой: живая, но НЕ находка
-if awk '/ЖИВЫЕ/,0' <<<"$OUT" | grep -q 'pushed-alive'; then
+if awk '/ЖИВЫЕ/,0' <<<"$OUT" | grep -c 'pushed-alive' >/dev/null; then
   say "✅ H" "ветка на origin с работой отнесена к живым"
 else
   say "❌ H" "pushed-alive не попала в список живых"; fail=1
@@ -447,7 +457,7 @@ fi
 
 # I — ветка на origin, поглощённая стволом: без предмета, найдена ПО ДЕЛЬТЕ
 if awk '/НА ORIGIN без предмета/,/^── ТОЛЬКО ЛОКАЛЬНО/' <<<"$OUT" |
-     grep -q 'pushed-absorbed.*ДЕЛЬТА СЛИЯНИЯ ПУСТА'; then
+     grep -c 'pushed-absorbed.*ДЕЛЬТА СЛИЯНИЯ ПУСТА' >/dev/null; then
   say "✅ I" "поглощённая ветка origin найдена пятым признаком"
 else
   say "❌ I" "pushed-absorbed не отнесена к «без предмета» по дельте"; fail=1
@@ -468,7 +478,7 @@ else
 fi
 
 # K — шестой признак молчит на поглощённом, хотя пятый дал конфликт
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'absorbed-then-trunk-moved'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'absorbed-then-trunk-moved' >/dev/null; then
   say "❌ K" "поглощённая ветка объявлена работой — шестой признак не сработал"; fail=1
 elif grep -q 'absorbed-then-trunk-moved.*ПОГЛОЩЕНА ПОФАЙЛОВО' <<<"$OUT"; then
   say "✅ K" "шестой признак снял ложную находку, которую пятый дал конфликтом"
@@ -477,14 +487,14 @@ else
 fi
 
 # L — законный близнец: настоящая работа того же силуэта ОСТАЁТСЯ находкой
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'never-landed'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'never-landed' >/dev/null; then
   say "✅ L" "работа, которой ствол не видел, названа — шестой признак не глушит настоящее"
 else
   say "❌ L" "never-landed пропала из находок: шестой признак глушит настоящую работу"; fail=1
 fi
 
 # M — накопительная ветка засчитана как ствол, источник поглощения назван
-if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'work-in-accum'; then
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'work-in-accum' >/dev/null; then
   say "❌ M" "работа, влитая в накопительную ветку, объявлена единственным экземпляром"; fail=1
 elif grep -q 'work-in-accum.*относительно origin/release/accum' <<<"$OUT"; then
   say "✅ M" "поглощение накопительной веткой распознано и источник назван"
@@ -506,7 +516,7 @@ fi
 if grep -q 'draft-absorbed-by-lines.*ПОГЛОЩЕНА ПОФАЙЛОВО' <<<"$OUT"; then
   say "❌ R" "перепись объявила ветку влитой — свидетельство подано доказательством"; fail=1
 elif awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" |
-       grep -q 'draft-absorbed-by-lines.*отсутствует 0'; then
+       grep -c 'draft-absorbed-by-lines.*отсутствует 0' >/dev/null; then
   say "✅ R" "перепись узнала содержимое (отсутствует 0), но влитой ветку не сделала"
 else
   say "❌ R" "перепись не узнала содержимое, внесённое другим блобом"; fail=1
@@ -515,7 +525,7 @@ fi
 # S — половина переписи про снятое: ветка НЕ становится влитой
 if grep -q 'removal-not-taken.*ПОГЛОЩЕНА' <<<"$OUT"; then
   say "❌ S" "ветка со снятием, которого ствол не принял, объявлена поглощённой"; fail=1
-elif awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -q 'removal-not-taken'; then
+elif awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c 'removal-not-taken' >/dev/null; then
   say "✅ S" "снятие, которого ствол не принял, поглощением не считается"
 else
   say "❌ S" "removal-not-taken пропала из вывода — снятие потеряно молча"; fail=1
@@ -523,7 +533,7 @@ fi
 
 # T — тревога поднимается на доказанном непоглощении И называет имя
 if awk '/ВНИМАНИЕ: PR закрыт/,/^── ПОГЛОЩЕНИЕ НЕ УСТАНОВЛЕНО/' <<<"$OUT" |
-     grep -q 'pr-closed-work-left'; then
+     grep -c 'pr-closed-work-left' >/dev/null; then
   say "✅ T" "раздел «работа в стволе НЕ ВСЯ» называет ветку, чьего пути ствол не касался"
 else
   say "❌ T" "доказанное непоглощение не поднято тревогой — раздел разучился находить"; fail=1
@@ -531,10 +541,10 @@ fi
 
 # U — законный близнец: ранний черновик в тревогу НЕ попадает, но и не молчит
 if awk '/ВНИМАНИЕ: PR закрыт/,/^── ПОГЛОЩЕНИЕ НЕ УСТАНОВЛЕНО/' <<<"$OUT" |
-     grep -q 'pr-merged-early-draft'; then
+     grep -c 'pr-merged-early-draft' >/dev/null; then
   say "❌ U" "ранний черновик подан тревогой — ровно тот ложный класс задачи #257"; fail=1
 elif awk '/ПОГЛОЩЕНИЕ НЕ УСТАНОВЛЕНО/,0' <<<"$OUT" |
-     grep -q 'pr-merged-early-draft.*отсутствует 1'; then
+     grep -c 'pr-merged-early-draft.*отсутствует 1' >/dev/null; then
   say "✅ U" "ранний черновик назван отдельно, с числами переписи, а не тревогой"
 else
   say "❌ U" "pr-merged-early-draft не попал в раздел «поглощение не установлено»"; fail=1
@@ -544,7 +554,7 @@ fi
 if grep -q 'work-of-common-lines.*ПОГЛОЩЕНА' <<<"$OUT"; then
   say "❌ W" "правка из обычных строк объявлена поглощённой — снятие уничтожит работу"; fail=1
 elif awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" |
-       grep -q 'work-of-common-lines.*НЕ ТРОГАЛ'; then
+       grep -c 'work-of-common-lines.*НЕ ТРОГАЛ' >/dev/null; then
   say "✅ W" "правку из обычных строк удержал седьмой признак, а не перепись"
 else
   say "❌ W" "work-of-common-lines пропала из раздела «единственный экземпляр»"; fail=1
@@ -581,7 +591,7 @@ fi
 
 # --- AA. ветка с триггерным содержимым классифицирована ВЕРНО ------------------
 if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" |
-     grep -q 'locale-comm-census-work.*отсутствует 1'; then
+     grep -c 'locale-comm-census-work.*отсутствует 1' >/dev/null; then
   say "✅ AA" "содержимое, ломающее comm из PATH, всё равно даёт верный счёт (1)"
 else
   say "❌ AA" "locale-comm-census-work не даёт «отсутствует 1» в разделе единственного экземпляра"
@@ -791,9 +801,161 @@ else
   echo "$OUT2"; fail=1
 fi
 
+# --- AJ–AO. САМОПРОБА ПАКЕТНОГО РАЗБОРА (ws#813) -------------------------------
+# Ускорители обязаны давать ровно тот вердикт, что поштучная форма. Держит это
+# не чтение кода, а сверка двух режимов на отдельном репозитории, где у каждого
+# ускорителя есть предмет и у каждой формы отступления — свой файл:
+#   p-unique   — файл, которого ствол не видел (свидетель дельты, (6а) пачкой, (7));
+#   p-oddnames — имена со знаками pathspec, хвостовым пробелом и нелатиницей
+#                (поштучная форма обязательна);
+#   p-dirfile  — каталог стал файлом (путь — каталог другого пути дельты);
+#   p-kinds    — ссылка, двоичный файл, смена режима, снятие, переименование;
+#   p-absorbed — влита схлопыванием, ствол потом правил файл: держит (6б);
+#   p-draft    — ранний черновик, ствол переработал файл: держит (7);
+#   p-dirren   — ствол переименовал каталог, куда ветка добавила файл:
+#                свидетель дельты обязан промолчать;
+#   p-squashed — схлопнута без правок: пятый признак обязан слить.
+# AJ — оба режима дословно равны; AK — ускорители действительно сработали, а
+# эталон действительно поштучен (иначе AJ пуст); AL–AP — мутация каждого
+# ускорителя делает сверку КРАСНОЙ и меняет вердикт названной ветки.
+PB="$TMP/probe"
+git init -q --bare "$TMP/probe-origin.git"
+git init -q -b main "$PB"
+cd "$PB"
+git config user.email inject@example.invalid
+git config user.name  inject
+git config commit.gpgsign false
+git remote add origin "$TMP/probe-origin.git"
+mkdir -p lib df mv-src dirren
+printf 'один\nдва\nтри\n' > lib/common.txt
+printf 'x\n' > df/a.txt
+printf 'перенос\nстрока\nещё строка\n' > mv-src/moved.txt
+printf 'r1\n' > dirren/one.txt; printf 'r2\n' > dirren/two.txt
+printf 'режим\n' > mode.sh
+printf 'снимаемое\n' > gone.txt
+printf 'общая\nисходная\n' > draft.txt
+git add lib df mv-src dirren mode.sh gone.txt draft.txt && git commit -qm "база самопробы"
+git push -qu origin main
+
+git checkout -qb p-unique main
+printf 'своё\n' > unique.txt
+git add unique.txt && git commit -qm "файл, которого ствол не видел"
+git checkout -qb p-oddnames main
+printf 'a\n' > 'odd[1].txt'; printf 'b\n' > 'star*.txt'; printf 'c\n' > 'trail '
+printf 'd\n' > 'файл.txt'
+git add -- 'odd[1].txt' 'star*.txt' 'trail ' 'файл.txt' && git commit -qm "имена, требующие поштучной формы"
+git checkout -qb p-dirfile main
+git rm -q -r df; printf 'теперь файл\n' > df
+git add df && git commit -qm "каталог стал файлом"
+git checkout -qb p-kinds main
+ln -s lib/common.txt link; printf 'bin\000ary\n' > blob.bin; chmod +x mode.sh
+git rm -q gone.txt; git mv mv-src/moved.txt mv-dst.txt; printf 'правка\n' >> mv-dst.txt
+git add link blob.bin mode.sh mv-dst.txt && git commit -qm "ссылка, двоичный, режим, снятие, переименование"
+git checkout -qb p-absorbed main
+printf 'поглощённая строка\n' > absorbed.txt
+git add absorbed.txt && git commit -qm "работа, которую внесут схлопыванием"
+git checkout -qb p-draft main
+printf 'общая\nстарая форма\n' > draft.txt
+git add draft.txt && git commit -qm "ранняя форма"
+git checkout -qb p-dirren main
+printf 'r3\n' > dirren/three.txt
+git add dirren/three.txt && git commit -qm "файл в каталог, который ствол переименует"
+git checkout -qb p-squashed main
+printf 'схлопнуто\n' > sq.txt
+git add sq.txt && git commit -qm "работа без последующих правок"
+git checkout -qb p-remote main
+printf 'сдано\n' > remote.txt
+git add remote.txt && git commit -qm "работа на origin"
+git push -qu origin p-remote p-squashed >/dev/null 2>&1
+
+git checkout -q main
+git merge -q --squash p-absorbed && git commit -qm "схлопнуто из p-absorbed"
+printf 'поглощённая строка\nствол дописал\n' > absorbed.txt
+git add absorbed.txt && git commit -qm "ствол правит тот же файл после вливания"
+git merge -q --squash p-squashed && git commit -qm "схлопнуто из p-squashed"
+printf 'общая\nновая форма\n' > draft.txt
+git add draft.txt && git commit -qm "ствол принял переработанную форму"
+git mv dirren renamed-dir && git commit -qm "ствол переименовал каталог"
+git push -q origin main
+git fetch -q origin
+cd "$TMP"
+
+printf 'p-unique\t201\tMERGED\np-draft\t202\tMERGED\np-absorbed\t203\tMERGED\n' > "$TMP/probe-pr.tsv"
+probe_run() { # $1 = исполняемый branch-audit.sh, далее — окружение; → нормализованный вывод
+  local a=$1; shift
+  env "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" \
+    "$a" "$PB" 2>&1 |
+    grep -vE '^branch-audit: (замер|параллельных заданий|время прогона|ускорение|дольше всех)'
+}
+probe_raw() { env "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" "$AUDIT" "$PB" 2>&1; }
+mutate() { # $1 = куда, $2 = было, $3 = стало → 0, если замена легла ровно один раз
+  python3 - "$AUDIT" "$1" "$2" "$3" <<'PY'
+import sys
+s = open(sys.argv[1], encoding="utf-8").read()
+if s.count(sys.argv[3]) != 1:
+    sys.exit(1)
+open(sys.argv[2], "w", encoding="utf-8").write(s.replace(sys.argv[3], sys.argv[4]))
+PY
+  chmod +x "$1"
+}
+
+set +e
+P_EXACT=$(probe_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+P_FAST=$(probe_run "$AUDIT")
+R_EXACT=$(probe_raw BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+R_FAST=$(probe_raw)
+set -e
+
+if [ -n "$P_FAST" ] && [ "$P_FAST" = "$P_EXACT" ] &&
+   grep -q 'p-unique' <<<"$P_FAST" && grep -q 'p-squashed' <<<"$P_FAST"; then
+  say "✅ AJ" "самопроба: пакетный и поштучный режимы дали дословно один вывод по всем веткам"
+else
+  say "❌ AJ" "пакетный режим разошёлся с поштучным эталоном"
+  diff <(echo "$P_EXACT") <(echo "$P_FAST") | head -20; fail=1
+fi
+
+if grep -qE 'без слияния [1-9]' <<<"$R_FAST" && grep -qE 'пакетом [1-9]' <<<"$R_FAST" &&
+   grep -qE 'поштучно [1-9]' <<<"$R_FAST" && grep -qE 'перепись строк пачкой по [1-9]' <<<"$R_FAST" &&
+   grep -qE 'без слияния 0; файлов дельты пакетом 0' <<<"$R_EXACT" &&
+   grep -qE 'перепись строк пачкой по 0 ' <<<"$R_EXACT"; then
+  say "✅ AK" "ускорители сработали (без слияния, пакетом, поштучно, перепись пачкой — все > 0), эталон поштучен"
+else
+  say "❌ AK" "самопроба пуста: ускоритель не сработал либо эталон не поштучен"
+  grep 'ускорение' <<<"$R_FAST$R_EXACT"; fail=1
+fi
+
+# Мутации: каждая ломает ровно один ускоритель в копии скрипта.
+probe_mutant() { # $1 = метка, $2 = ветка, чей вердикт обязан смениться, $3 = было, $4 = стало, $5 = что сломано
+  local m="$TMP/mutant.sh" out d
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки ускорителя в скрипте нет: $5"; fail=1; return
+  fi
+  set +e; out=$(probe_run "$m"); set -e
+  # Дифф — в переменную: под pipefail код diff (1 при различии) стал бы кодом трубы.
+  d=$(diff <(echo "$P_EXACT") <(echo "$out") || true)
+  if [ "$out" != "$P_EXACT" ] && grep -q -- "$2" <<<"$d"; then
+    say "✅ $1" "мутация «$5» делает самопробу красной и меняет вердикт $2"
+  else
+    say "❌ $1" "мутация «$5» не замечена самопробой — сверка режимов слепа"; fail=1
+    head -12 <<<"$d"
+  fi
+}
+probe_mutant AL p-unique \
+  '      if [ -n "${failed[$f]+x}" ]; then keep+=("$f"); else FOUND["$f"]=1; fi' \
+  '      FOUND["$f"]=1' "пакетная проверка патча считает применимым всё"
+probe_mutant AM p-squashed \
+  'END { exit(w ? 0 : 1) }' 'END { exit(0) }' "свидетель непустой дельты есть всегда"
+probe_mutant AN p-absorbed \
+  '(($0 in pr) || (($1 in di) && ($2 in oi)))' '(0)' "в истории ствола нет ни одного блоба"
+probe_mutant AP p-draft \
+  'if (r[1] == 0 && r[2] == 0) { done[i] = 1' 'if (1) { done[i] = 1' "перепись пачкой находит всё в первой цели"
+probe_mutant AO p-draft \
+  'LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$BA_TMP/s.$k" > "$BA_TMP/s.hit" || true' \
+  ': > "$BA_TMP/s.hit"' "ствол не касался ни одного пути"
+
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "branch-audit-inject: 38 утверждений, все выполнены — перепись способна упасть И смолчать"
+  echo "branch-audit-inject: 45 утверждений, все выполнены — перепись способна упасть И смолчать"
 else
   echo "branch-audit-inject: есть невыполненные утверждения" >&2
 fi
