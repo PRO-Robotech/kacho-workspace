@@ -485,6 +485,49 @@ d="$(sandbox c5-option)"; world5 "$d"
 rec "$d" "$NEW" "command: git -C project/kacho diff aaa...ccc | sha256sum"; commit_all "$d" new
 says "$d" 1 "$NEW" "форма git -C <клон> diff -> краснеет"
 
+# form5 <имя> <команда до diff> <форма> — пара по форме записи опции git перед
+# diff: без --full-index краснеет находкой распознавателя (а не нераспознанной
+# формой), с ним молчит И сосчитана — близнец зелен потому, что увиден.
+# Формы: из обхода записей дерева (-C с заполнителем в пробелах — ws#827) и из
+# грамматики git 2.53 для опций с отдельным аргументом.
+form5() {
+    local d
+    d="$(sandbox "c5-form-$1")"; world5 "$d"
+    rec "$d" "$NEW" "command: $2 diff aaa...ccc | sha256sum"; commit_all "$d" new
+    says "$d" 1 "без --full-index: $NEW" "форма $3 без --full-index -> краснеет и называет путь"
+    d="$(sandbox "c5-form-$1-full")"; world5 "$d"
+    rec "$d" "$NEW" "command: $2 diff --full-index aaa...ccc | sha256sum"; commit_all "$d" new
+    says "$d" 0 "с --full-index 1," "законный близнец: форма $3 с --full-index -> молчит и сосчитана"
+}
+form5 placeholder 'git -C <копия полосы>' 'git -C <заполнитель с пробелом>'
+form5 dquote 'git -C "<путь с пробелом>"' 'git -C "<путь в двойных кавычках>"'
+form5 squote "git -C '/srv/копия полосы'" "git -C '<путь в одинарных кавычках>'"
+form5 eqvalue 'git --git-dir="<копия полосы>/.git"' 'git --опция="<значение с пробелом>"'
+for o in git-dir work-tree namespace config-env attr-source; do
+    form5 "sep-$o" "git --$o <копия полосы>" "git --$o <отдельный аргумент>"
+done
+
+d="$(sandbox c5-lane-copy)"; world5 "$d"
+rec "$d" "$NEW" $'digest_definition: >-\n  git -C <копия полосы> diff 253c...51ab\n  -- . \':!docs/specs/reviews\' | sha256sum — перемерено своей командой'
+commit_all "$d" new
+says "$d" 1 "без --full-index: $NEW" "форма записи ws#827 (свёрнутый скаляр, -C <копия полосы>, pathspec) без --full-index -> краснеет"
+
+# Прямое звено `git … diff … | хеш`, которого распознаватель не разбирает, —
+# находка с координатой, и с --full-index тоже: форму гейт не судит, и «ноль
+# находок» о ней было бы ложью. Унаследованное с границы — сосчитано, молчит.
+d="$(sandbox c5-unparsed)"; world5 "$d"
+rec "$d" "$NEW" 'command: git -C $(git rev-parse --show-toplevel) diff --full-index aaa...ccc | sha256sum'
+commit_all "$d" new
+says "$d" 1 "не разобрана распознавателем: $NEW" "звено git … diff | хеш вне распознавателя -> краснеет, а не молчит"
+
+d="$(sandbox c5-unparsed-old)"
+world5 "$d" $'command: git diff aaa...bbb | sha256sum\nodd: git -C $(git rev-parse --show-toplevel) diff aaa...bbb | sha256sum'
+says "$d" 0 "не разобрано 1 (унаследовано 1, новых 0)" "законный близнец: то же звено на границе в том же пути -> молчит и сосчитано"
+
+d="$(sandbox c5-chain)"; world5 "$d"
+rec "$d" "$NEW" "set: git diff --raw --no-abbrev aaa...ccc | LC_ALL=C sort | sha256sum"; commit_all "$d" new
+says "$d" 0 "иных труб 1 · записей с трубой без команды дайджеста 1" "цепочка diff | звено | хеш не судится (объявлено) -> молчит, но сосчитана"
+
 d="$(sandbox c5-edit)"; world5 "$d"
 rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "again: git diff aaa...ddd | sha256sum"
 commit_all "$d" edit
