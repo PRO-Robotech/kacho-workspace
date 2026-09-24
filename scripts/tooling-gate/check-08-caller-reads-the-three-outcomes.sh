@@ -93,7 +93,9 @@ probe() {
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        bash ./scripts/hooks/pre-push 2>&1
+        # Вход отправки хук читает со stdin (ws#810): унаследованный открытый
+        # поток держал бы пробу до его закрытия. Пустой вход — прежний путь.
+        bash ./scripts/hooks/pre-push </dev/null 2>&1
     )"; code=$?
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }
