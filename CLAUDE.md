@@ -88,7 +88,8 @@ AI-оснастка живёт **в единственном экземпляр�
   <класс> -- <команда>`, `$WS` — корень воркспейса; классы и бюджеты — `--classes`, занятость —
   `--status`. Команду без слота отклоняет хук `heavy-guard` и печатает готовую строку: он —
   напоминание против случайных форм, предел держит cgroup.
-- Потолок сессии ставит хук SessionStart (`scripts/session-memcap.sh`, формула — в шапке). Терминал
+- Потолок сессии и метку oomd omit её scope ставит хук SessionStart (`scripts/session-memcap.sh`,
+  формула — в шапке); метка ставится и там, где потолок отказан. Терминал
   заводит scope с OOMPolicy=stop, где потолок снял бы всю сессию, — поэтому её запускают
   `$WS/scripts/session-memcap.sh --launch -- claude`.
 - Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make dev-up` / `make dev-down`

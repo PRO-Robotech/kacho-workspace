@@ -11,7 +11,7 @@
 # всё прочее, что запускает сессия, живёт в её scope, и потолок ему ставит ядро.
 #
 # ФОРМА
-#   session-memcap.sh                   потолок на scope, где исполняется (/proc/self/cgroup)
+#   session-memcap.sh                   потолок и omit на scope, где исполняется (/proc/self/cgroup)
 #   session-memcap.sh --show            посчитать и напечатать, ничего не меняя
 #   session-memcap.sh --hook            SessionStart: поставить; отказ — строкой диспетчеру
 #   session-memcap.sh --launch -- <команда…>   запустить команду (claude) в новом scope,
@@ -26,7 +26,8 @@
 # Потолок — снимок на старте: сосед, поднятый позже, видит занятое этой сессией, а не
 # её потолок. Сумму сверх 45 ГиБ тогда держат вход и сторож слота.
 #
-# ОТКАЗ ПРИМЕНЕНИЯ — код 1, потолок не ставится, причина печатается:
+# ОТКАЗ ПРИМЕНЕНИЯ — код 1, потолок не ставится, причина печатается; метка omit (ниже)
+# ставится и при отказе:
 #   · anon scope + 4096 ≥ потолка — ядро сразу снимало бы процессы сессии;
 #   · OOMPolicy scope ≠ continue. Замер 2026-09-24 (одноразовые scope, 64 МиБ): при
 #     OOMPolicy=stop первое OOM-убийство под MemoryMax останавливает ВЕСЬ scope
@@ -40,26 +41,35 @@
 #     остановки, на которую реагирует oomd;
 #   · MemorySwapMax=0: у потолка ядро снимает процесс, а не гоняет swap. Замер: 64 МиБ
 #     со swap, 512 МиБ в цикле — 14,8 с пробуксовки вместо OOM за 0,0 с без swap;
-#   · ManagedOOMMemoryPressure=auto: scope сам не цель слежения oomd;
-#   · ManagedOOMPreference=avoid (xattr user.oomd_avoid на cgroup). Замер: oomd следит
-#     за user@1000.service (kill, 50 %, 20 с; user.slice, user-1000.slice, app.slice —
-#     auto), кандидаты — листья под ним, и терминал 41,7 ГБ был таким листом. На
-#     одноразовом срезе (kill, 1 %, 2 с) avoid соблюдён: снят сосед без avoid, scope с
-#     avoid дожил. Avoid ставится ТОЛЬКО вместе с потолком: без него сессия-виновник
-#     под avoid отдавала бы oomd соседей. На живом scope set-property avoid xattr не
-#     ставит (замер) — скрипт пишет его сам и сверяет.
+#   · ManagedOOMMemoryPressure=auto: scope сам не цель слежения oomd.
+#
+# МЕТКА OMIT (решение диспетчера 2026-09-24): xattr user.oomd_omit=1 на cgroup своего
+# scope — прямой записью, со сверкой чтением; ставится ВСЕГДА, и при отказе потолка:
+# кандидатом на снятие oomd scope с omit не выбирает вовсе. Повод — терминал 41,7 ГБ был
+# листом под user@1000.service, за которым oomd тогда следил по давлению (kill, 50 %, 20 с).
+# Замер 2026-09-24: `set-property ManagedOOMPreference=omit` живого scope возвращает 0,
+# а метки не пишет, — поэтому свойство не трогается, а читается метка; запись без root
+# работает, oomd её соблюдает (session-memcap-inject.sh: срез kill 1 %/2 с — scope с
+# omit дожил, соседа снял oomd по журналу; близнец — omit на соседе, снят давящий).
+# Следствие: сессия без потолка (терминал со stop) под omit oomd не снимается, под
+# давлением он снимет соседа; её саму держат лишь слот и OOM ядра машины.
+# Надзор oomd по давлению за user@UID.service объявлен, но в oomctl его бывает не видно
+# (2026-09-24 — не было; вероятно, снят перезагрузками менеджера пользователя —
+# гипотеза); надзора по подкачке нет: ManagedOOMSwap=auto на всех срезах.
 #
 # ГРАНИЦА: мимо scope — слоты (свой scope и предел), контейнеры docker (--memory
 # слота; узлы kind — `docker update --memory` при подъёме), `systemd-run --user`,
-# процессы других терминалов. Scope не под user@UID.service (ssh: session-N.scope) —
-# 69: менеджер пользователя его не правит.
+# процессы других терминалов: ни потолка, ни метки omit у них нет — метку получает
+# только scope сессии, запустившей хук. Scope не под user@UID.service (ssh:
+# session-N.scope) — 69: менеджер пользователя его не правит.
 #
 # РУЧКИ SESSION_MEMCAP_* — только режиму проб: синтетический SESSION_MEMCAP_MEMINFO и
 # одноразовый scope session-memcap-probe-*; живую сессию режим проб не трогает. Над
 # настоящей памятью ручка — 64.
 #
-# КОДЫ: 0 — потолок в силе (сверен по cgroup); 1 — отказ применения; 64 — вызов
-# неверен; 69 — механизм недоступен. --hook всегда 0: сессию он не роняет, отказ —
+# КОДЫ: 0 — потолок и omit в силе (сверены по cgroup); 1 — отказ потолка, omit в силе;
+# 64 — вызов неверен; 69 — механизм недоступен, в том числе метка omit не сверилась
+# чтением. --hook всегда 0: сессию он не роняет, отказ —
 # additionalContext «SESSION-MEMCAP: …». Журнал — journal.log каталога слотов.
 {
 set -uo pipefail
@@ -143,10 +153,10 @@ if [ "$MODE" = launch ]; then
     formula 0
     if [ "$MEMINFO" = /proc/meminfo ]; then UNIT="memcap-session-$(date +%s)-$$.scope"
     else UNIT="session-memcap-probe-$$-$(date +%s).scope"; fi
-    say "запуск в $UNIT: $(show_formula 0 | head -n 1); OOMPolicy=continue, avoid, swap 0"
+    say "запуск в $UNIT: $(show_formula 0 | head -n 1); OOMPolicy=continue, omit, swap 0"
     journal "launch unit=$UNIT limit=${LIMIT}MiB used=${USED}MiB docker=${DOCKER}MiB cmd=$*"
     exec systemd-run --user --scope --quiet --collect --unit="$UNIT" \
-        -p OOMPolicy=continue -p ManagedOOMPreference=avoid -p ManagedOOMMemoryPressure=auto \
+        -p OOMPolicy=continue -p ManagedOOMPreference=omit -p ManagedOOMMemoryPressure=auto \
         -p MemoryMax="${LIMIT}M" -p MemoryHigh=infinity -p MemorySwapMax=0 -- "$@"
 fi
 
@@ -173,33 +183,36 @@ show_formula "$ANON"
 why=""
 [ $(( ANON + MARGIN )) -lt "$LIMIT" ] || why="anon scope $(mib "$ANON") + запас $(mib "$MARGIN") ≥ потолка $(mib "$LIMIT"): ядро сразу снимало бы процессы сессии"
 [ "$POLICY" = continue ] || why="${why:+$why; }OOMPolicy=$POLICY: первое OOM-убийство под потолком остановило бы весь scope (замер в шапке), а на живом scope OOMPolicy не меняется — потолок получает сессия, запущенная $SELF --launch -- claude"
-if [ -n "$why" ]; then
-    say "ОТКАЗ — потолок не ставится: $why"
-    [ "$MODE" = apply ] && journal "refuse unit=$UNIT limit=${LIMIT}MiB used=${USED}MiB anon=${ANON}MiB policy=$POLICY"
-    exit 1
+if [ "$MODE" = show ]; then
+    [ -z "$why" ] || { say "ОТКАЗ — потолок не ставился бы: $why; метка omit ставилась бы"; exit 1; }
+    echo "поставил бы: MemoryMax=$(mib "$LIMIT"), swap 0, high max; user.oomd_omit=1"; exit 0
 fi
-if [ "$MODE" = show ]; then echo "поставил бы: MemoryMax=$(mib "$LIMIT"), swap 0, avoid"; exit 0; fi
 
-if ! systemctl --user set-property --runtime "$UNIT" MemoryMax="${LIMIT}M" MemoryHigh=infinity \
-        MemorySwapMax=0 ManagedOOMMemoryPressure=auto ManagedOOMPreference=avoid 2>/dev/null; then
+if [ -z "$why" ] && ! systemctl --user set-property --runtime "$UNIT" MemoryMax="${LIMIT}M" MemoryHigh=infinity \
+        MemorySwapMax=0 ManagedOOMMemoryPressure=auto 2>/dev/null; then
     say "systemctl --user set-property $UNIT отказал (не выполнилось)"; exit 69
 fi
-# avoid — после set-property: иначе пересборка cgroup сняла бы xattr.
-python3 - "$CGD" <<'PY' 2>/dev/null
-import os, sys
-try:
-    os.getxattr(sys.argv[1], "user.oomd_avoid")
-except OSError:
-    os.setxattr(sys.argv[1], "user.oomd_avoid", b"1")
-PY
-got="$(cat "$CGD/memory.max") $(cat "$CGD/memory.swap.max" 2>/dev/null) $(cat "$CGD/memory.high")"
-avoid="$(python3 -c 'import os,sys; print(os.getxattr(sys.argv[1], "user.oomd_avoid").decode())' "$CGD" 2>/dev/null)"
-if [ "$got" != "$(( LIMIT * 1048576 )) 0 max" ] || [ "$avoid" != 1 ]; then
-    say "потолок объявлен, но НЕ в силе: memory.max/swap.max/high = «$got», avoid = «${avoid:-нет}» (не выполнилось)"
-    journal "nolimit unit=$UNIT got=$got avoid=${avoid:-нет}"
+# Метка omit — прямой записью xattr (set-property её не пишет, замер в шапке); сверка
+# чтением — после set-property, по итоговому состоянию cgroup.
+python3 -c 'import os, sys; os.setxattr(sys.argv[1], "user.oomd_omit", b"1")' "$CGD" 2>/dev/null
+omit="$(python3 -c 'import os, sys; print(os.getxattr(sys.argv[1], "user.oomd_omit").decode())' "$CGD" 2>/dev/null)"
+if [ "$omit" != 1 ]; then
+    say "метка user.oomd_omit на $CGD не в силе: запись xattr не сверилась чтением, прочитано «${omit:-нет}» (не выполнилось)${why:+; потолок тоже не ставится: $why}"
+    journal "noomit unit=$UNIT omit=${omit:-нет}"
     exit 69
 fi
-echo "в силе: memory.max $(mib "$LIMIT"), swap.max 0, high max, user.oomd_avoid=1"
-journal "set unit=$UNIT limit=${LIMIT}MiB used=${USED}MiB anon=${ANON}MiB outside=${OUTSIDE}MiB docker=${DOCKER}MiB${FLOORED:+ floored}"
+if [ -n "$why" ]; then
+    say "ОТКАЗ — потолок не ставится: $why. Метка user.oomd_omit=1 в силе (сверена чтением)"
+    journal "refuse unit=$UNIT limit=${LIMIT}MiB used=${USED}MiB anon=${ANON}MiB policy=$POLICY omit=1"
+    exit 1
+fi
+got="$(cat "$CGD/memory.max") $(cat "$CGD/memory.swap.max" 2>/dev/null) $(cat "$CGD/memory.high")"
+if [ "$got" != "$(( LIMIT * 1048576 )) 0 max" ]; then
+    say "потолок объявлен, но НЕ в силе: memory.max/swap.max/high = «$got» (не выполнилось); метка omit в силе"
+    journal "nolimit unit=$UNIT got=$got omit=1"
+    exit 69
+fi
+echo "в силе: memory.max $(mib "$LIMIT"), swap.max 0, high max, user.oomd_omit=1"
+journal "set unit=$UNIT limit=${LIMIT}MiB used=${USED}MiB anon=${ANON}MiB outside=${OUTSIDE}MiB docker=${DOCKER}MiB omit=1${FLOORED:+ floored}"
 exit 0
 }
