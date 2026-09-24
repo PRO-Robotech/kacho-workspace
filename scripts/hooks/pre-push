@@ -118,7 +118,7 @@ if [ "${#targets[@]}" -eq 0 ]; then
     exit 0
 fi
 
-wt_base="$canonical/tmp"
+wt_base="$(cd "$canonical" && pwd -P)/tmp"
 wts=()
 # shellcheck disable=SC2317,SC2329  # зовётся ловушкой EXIT
 cleanup() {
@@ -129,6 +129,73 @@ cleanup() {
     [ "${#wts[@]}" -eq 0 ] || git worktree prune >/dev/null 2>&1
 }
 trap cleanup EXIT
+
+# ── Условия ВНЕ дерева едут в копию вершины (ws#811, возврат check-verifier) ──
+#
+# Наборы судят не одно отслеживаемое: клоны продукта в `project/<репо>`, локальные
+# настройки — условия машины, и пока наборы исполнялись в самой копии, они их
+# видели. Копия вершины собирается из ревизии, условий в ней нет, и набор,
+# судящий по `project/kaname`, уходил в VOID: красная вершина уезжала строкой
+# «без предмета 1».
+#
+# Условие — то, что вершина объявляет НЕ своим: путь, который в копии есть и
+# который игнорируют ПРАВИЛА ВЕРШИНЫ (`check-ignore` в копии вершины). Кандидаты —
+# игнорируемое и неотслеживаемое копии (`--ignored=matching`: путь, совпавший с
+# правилом, а не всё под ним). Путь, который вершина своим игнорируемым не
+# объявляет, — незакоммиченная работа, и в исход он не входит. Ссылка на каталог
+# (так в части копий лежит `project`) судится как каталог.
+#
+# Не переносятся: уже лежащее в копии вершины (отслеживаемое вершиной не
+# подменяется), дом самих копий `$wt_base` (копия не несёт себя и соседей) и
+# байткод (`__pycache__/`, `*.py[co]` — производное исходника: перенос подменил
+# бы исходник вершины исходником копии).
+#
+# Каталог переносится НАСТОЯЩИМ каталогом со ссылками на детей: ссылка на месте
+# `project/` для git не каталог, правило `project/` её не покрывает, и в копии
+# вершины она стала бы неотслеживаемой работой. Держит это check-10 (пробы
+# условия вне дерева) — там же пробы на то, что перечень наборов берётся из
+# дерева вершины в обе стороны.
+outside=()
+while IFS= read -r -d '' rec; do
+    case "${rec:0:2}" in
+        '!!' | '??') outside+=("${rec:3}") ;;
+        [RC]? | ?[RC]) IFS= read -r -d '' _ || true ;;   # второе поле — исходный путь
+    esac
+done < <(git --no-optional-locks status --porcelain=v1 -z --ignored=matching \
+    --untracked-files=normal 2>/dev/null)
+case "$ROOT/" in "$wt_base"/*) root_in_base=1 ;; *) root_in_base=0 ;; esac
+
+# carry_outside <копия вершины> — переносит условия; перенесённое — в `carried`.
+carry_outside() {
+    local wt="$1" p rel src dst ch
+    carried=()
+    for p in "${outside[@]}"; do
+        rel="${p%/}"
+        case "/$rel" in */__pycache__ | *.py[co]) continue ;; esac
+        src="$ROOT/$rel"
+        [ -e "$src" ] || continue
+        if [ "$root_in_base" = 0 ]; then
+            case "$src/" in "$wt_base"/*) continue ;; esac
+            case "$wt_base/" in "$src"/*) continue ;; esac
+        fi
+        dst="$wt/$rel"
+        if [ -d "$src" ]; then
+            [ -L "$dst" ] || { [ -e "$dst" ] && [ ! -d "$dst" ]; } && continue
+            git -C "$wt" check-ignore -q -- "$rel/" 2>/dev/null || continue
+            mkdir -p "$dst" || return 1
+            for ch in "$src"/* "$src"/.[!.]* "$src"/..?*; do
+                [ -e "$ch" ] || [ -L "$ch" ] || continue
+                [ -e "$dst/${ch##*/}" ] || [ -L "$dst/${ch##*/}" ] ||
+                    ln -s "$ch" "$dst/${ch##*/}" || return 1
+            done
+        else
+            [ -e "$dst" ] || [ -L "$dst" ] && continue
+            git -C "$wt" check-ignore -q -- "$rel" 2>/dev/null || continue
+            mkdir -p "${dst%/*}" && ln -s "$src" "$dst" || return 1
+        fi
+        carried+=("$p")
+    done
+}
 
 # ── ТРИ ИСХОДА НАБОРА, А НЕ ДВА ──────────────────────────────────────────────
 #
@@ -169,6 +236,11 @@ for t in "${targets[@]}"; do
         echo "pre-push: ОТКАЗ — копию вершины «$rref» ($c) не собрать в $wt_base." >&2
         exit 1
     fi
+    if ! carry_outside "$wt"; then
+        echo "pre-push: ОТКАЗ — условия вне дерева в копию вершины «$rref» не перенести ($wt)." >&2
+        exit 1
+    fi
+    echo "pre-push: «$rref»: условий вне дерева перенесено ${#carried[@]} из ${#outside[@]} путей копии${carried[*]:+ — ${carried[*]}}" >&2
 
     # ── Перечень ВЫВОДИТСЯ из дерева вершины, а не выписывается ─────────────
     #
