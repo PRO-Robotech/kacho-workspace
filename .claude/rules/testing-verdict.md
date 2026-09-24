@@ -28,6 +28,7 @@ exhausted-run-is-third-category · считай прогон НЕДЕЙСТВИ�
 exhaustion-corrupts-inflight-git · после срыва сделай перепись: размер .git/index, git ls-files · wc -l против git ls-tree -r HEAD · red: эти команды | дерево выглядит исправным, неверен только граф
 local-runner-exit-code-3 · различай коды 0 / 1 / 3 (недействителен); исчерпание распознавай по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): MemAvailable ≥ 8 ГБ, чужих `golangci-lint` и `pre-push` нет — они делят кэш и мешают друг другу, прочий `go` занятостью не считается — и место `df -h /`; признаки: `awk '/^MemAvailable:/{print $2}' /proc/meminfo` ≥ 8388608, `pgrep -x golangci-lint | wc -l` = 0, `ps -eo args | command grep -c '[/]hooks/pre-push'` = 0 (скобка исключает сам опрос); занято — жди опросом раз в 60 с до 30 минут, «не выполнилось» — лишь по истечении, с последним выводом опроса · ЗАВЕСТИ busy-machine-step-zero · red: «не выполнилось: машина занята» без 30 минут опроса; тяжёлый прогон начат при чужом `golangci-lint` или `pre-push`; ожидание из-за процесса `go`, не делящего кэш
 
 ## Кэш: сохраняй только на доказанно полном исходе
 
@@ -69,6 +70,8 @@ columns-by-name-not-position · проси поля по имени (-o jsonpath
 
 pr-red-belongs-to-revision-headsha · сверяй headSha прогона с головой ветки, а не имя проверки с состоянием · TestWorkflowRunUsesTheSubjectCommit · red: прежние проверки висят красными после отправки починки
 delta-gate-asks-the-commit · спрашивай о коммите (origin/main...HEAD); закоммить, потом прогоняй · git diff --name-only --diff-filter=A origin/main...HEAD · red: пусто при непустом рабочем дереве
+task-verdict-runs-on-head · вердикт задачи бери из прогонов на голове её PR в ветку волны: последний прогон КАЖДОГО процесса PR (`git-issues.md#gi-pr-manual-dispatch`) при headSha = голова; проверки PR (`gh pr checks`, `statusCheckRollup`) ручного запуска не видят; полного локального прогона задачи не жди (`testing.md#final-verification-before-merge`) · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят локальным прогоном при открытом PR; «no checks reported» у `gh pr checks` прочитано как отсутствие прогона
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти его вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай тем же прибором, что `task-verdict-runs-on-head` · тот же `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»; процесс без прогона на голове не назван
 
 ## Расхождение двух прогонов — разные предметы
 
