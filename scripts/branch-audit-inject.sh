@@ -1092,7 +1092,7 @@ probe_mutant AN p-absorbed \
 probe_mutant AP p-draft \
   'if (r[1] == 0 && r[2] == 0) { done[i] = 1' 'if (1) { done[i] = 1' "перепись пачкой находит всё в первой цели"
 probe_mutant AO p-draft \
-  'LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$BA_TMP/s.$k" > "$BA_TMP/s.hit" || true' \
+  'LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$sf" > "$BA_TMP/s.hit" || true' \
   ': > "$BA_TMP/s.hit"' "ствол не касался ни одного пути"
 
 echo

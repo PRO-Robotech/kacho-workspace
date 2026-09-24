@@ -1032,16 +1032,29 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
     return 0
   fi
 
+  # Надмножество путей диапазона зависит только от (база, ствол) и делится
+  # между ветками с общей точкой ответвления — их у клона продукта десятки.
+  local sf st
+  mkdir -p "$BA_SHARED/s"
   for k in "${!TRUNKS[@]}"; do
     tr=${TRUNKS[$k]}
     BASE2[$k]=$(git merge-base "$tr" "$ref" 2>/dev/null) || { unset 'BASE2[$k]'; continue; }
-    if git log --format= --name-only --no-renames --diff-merges=separate --root \
-         "${BASE2[$k]}..$tr" 2>/dev/null |
-       LC_ALL=C awk '
-         function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }
-         length($0) { p = $0; print p; while ((i = cut(p)) > 0) { p = substr(p, 1, i - 1); print p } }' |
-       LC_ALL=C sort -u > "$BA_TMP/s.$k"; then
-      LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$BA_TMP/s.$k" > "$BA_TMP/s.hit" || true
+    sf="$BA_SHARED/s/${BASE2[$k]}.$k"
+    if [ ! -e "$sf.ok" ]; then
+      st="$sf.$BASHPID"
+      if git log --format= --name-only --no-renames --diff-merges=separate --root \
+           "${BASE2[$k]}..$tr" 2>/dev/null |
+         LC_ALL=C awk '
+           function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }
+           length($0) { p = $0; print p; while ((i = cut(p)) > 0) { p = substr(p, 1, i - 1); print p } }' |
+         LC_ALL=C sort -u > "$st"; then
+        mv -f "$st" "$sf" && : > "$sf.ok"
+      else
+        rm -f "$st"
+      fi
+    fi
+    if [ -e "$sf.ok" ]; then
+      LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$sf" > "$BA_TMP/s.hit" || true
       while IFS= read -r f; do TOUCHC["$k|$f"]=1; done < "$BA_TMP/s.hit"
     else
       for f in "${REM[@]}"; do TOUCHC["$k|$f"]=1; done
