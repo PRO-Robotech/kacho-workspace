@@ -18,7 +18,7 @@
 # ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину:
 #   (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ потолок.
 # Недобранное = Σ max(0, бюджет − текущая память) по занятым слотам (memory.current
-# их cgroup и их контейнера). Без этого слагаемого вход повторял бы исходный отказ.
+# их cgroup и их контейнеров). Без этого слагаемого вход повторял бы исходный отказ.
 # Места нет — опрос раз в HEAVY_SLOT_POLL_S до HEAVY_SLOT_WAIT_S, затем код 75.
 # Потолок — в ГиБ, в тех единицах, что печатает `free -g` (MemTotal здесь 60,7).
 #
@@ -26,20 +26,30 @@
 #   · systemd-run --user --scope -p MemoryMax=<бюджет> -p MemorySwapMax=0 — предел
 #     ядра. Внутри слота он СВЕРЯЕТСЯ с memory.max до запуска команды: не совпал —
 #     предела нет, и слот уходит в запасной путь, а не верит объявлению;
-#   · docker run — подставляются --memory/--memory-swap=<бюджет> и --cidfile:
-#     контейнер — потомок dockerd, а не клиента, cgroup слота до него не доходит;
+#   · docker run/create — --memory/--memory-swap=<бюджет> и --cidfile: контейнер —
+#     потомок dockerd, cgroup слота до него не доходит. Подставляет их `docker` в
+#     PATH команды — ссылка на этот файл, — поэтому предел получает КАЖДЫЙ вызов
+#     дерева: за timeout, в bash -c, в рецепте make, у kind (опыт ws#832: `timeout
+#     60 docker run` и `docker create` шли без предела). Мимо — абсолютный путь к
+#     docker внутри команды и docker API (testcontainers, compose): их держит сторож;
 #   · запасной путь (нет systemd --user либо контроллера memory): сторож суммирует
 #     RSS дерева процессов раз в секунду и убивает дерево сверх бюджета. Предел
 #     МЯГКИЙ — пик между опросами проходит. prlimit не взят (замер 2026-09-24):
 #     под RLIMIT_AS=2 ГиБ клиента docker контейнер занял 3 ГиБ — предел до него не
 #     доходит; под 1 ГиБ упал сам клиент — адресное пространство Go не память;
 #   · сторож машины: пока команда идёт, раз в HEAVY_SLOT_GUARD_S; занято больше
-#     потолка и этот слот — младший из занятых → команда обрывается; следующий
-#     обрыв — не раньше HEAVY_SLOT_GUARD_GRACE_S: память убитого освобождается не
-#     мгновенно, и без паузы сторож снимал бы старших за чужой хвост. Он держит то,
-#     до чего предел слота не дотягивается: контейнеры testcontainers и узлы kind
-#     живут в cgroup dockerd, а стенд остаётся в памяти после выхода команды —
-#     его память входит в «занято» при каждом следующем входе.
+#     потолка и этот слот — младший из занятых → команда и её контейнеры
+#     обрываются; следующий обрыв — не раньше HEAVY_SLOT_GUARD_GRACE_S: память
+#     убитого освобождается не мгновенно, и без паузы сторож снимал бы старших за
+#     чужой хвост. Он держит то, до чего предел слота не дотягивается: контейнеры
+#     testcontainers и узлы kind живут в cgroup dockerd, а стенд остаётся в памяти
+#     после выхода команды — его память входит в «занято» при каждом следующем входе.
+#
+# РУЧКИ HEAVY_SLOT_*. Над настоящей памятью (/proc/meminfo) — только общий каталог
+# машины и потолок не выше 45 ГиБ; бюджет, ограничитель и сторож — как в классе.
+# Свой каталог, синтетический meminfo и прочие ручки — только вместе (пробы слота):
+# иначе переменная снимала бы потолок или очередь (опыт ws#832). Отказ — 64 до
+# первой записи.
 #
 # КОДЫ: код команды, если она исполнилась; 64 — вызов неверен; 69 — механизм
 # недоступен; 75 — слот не выдан за время ожидания; 76 — команда оборвана
@@ -55,7 +65,11 @@
 {
 set -uo pipefail
 
-DIR="${HEAVY_SLOT_DIR:-$HOME/.cache/heavy-slots}"
+# Общий каталог — от домашнего каталога учётки, а не от $HOME: иначе HOME=… был бы
+# ещё одной ручкой, уводящей вызов из общей очереди.
+SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
+DIR="${HEAVY_SLOT_DIR:-$SHARED}"
+CAP_MIB=46080  # 45 ГиБ — решение владельца 2026-09-24
 LIMIT_MIB="${HEAVY_SLOT_LIMIT_MIB:-$(( ${HEAVY_SLOT_LIMIT_GIB:-45} * 1024 ))}"
 POLL_S="${HEAVY_SLOT_POLL_S:-30}"
 WAIT_S="${HEAVY_SLOT_WAIT_S:-1800}"
@@ -79,6 +93,63 @@ newman|2048|newman run; make e2e-newman, e2e-test; newman-e2e.sh, newman-paralle
 say() { printf 'heavy-slot: %s\n' "$*" >&2; }
 now() { date +%s; }
 mib() { awk -v m="$1" 'BEGIN { if (m < 1024) printf "%d МиБ", m; else printf "%.1f ГиБ", m / 1024 }'; }
+
+# docker_limit <бюджет MiB> <cidfile> <аргументы docker…> — в DARGS аргументы, где
+# run/create (и container run/create) несут предел бюджета; прочее — как было.
+# Код 64 — у вызова свои флаги памяти: второе значение молча перекрыло бы бюджет.
+docker_limit() {
+    local budget="$1" cidf="$2" i=0 sub at j a k step
+    shift 2
+    DARGS=("$@")
+    while [ "$i" -lt "${#DARGS[@]}" ]; do
+        case "${DARGS[$i]}" in
+            --context|-c|-H|--host|--config|-l|--log-level|--tlscacert|--tlscert|--tlskey) i=$(( i + 2 )) ;;
+            -*) i=$(( i + 1 )) ;;
+            *) break ;;
+        esac
+    done
+    sub="${DARGS[$i]:-}"; at=$(( i + 1 ))
+    if [ "$sub" = container ]; then sub="${DARGS[$at]:-}"; at=$(( at + 1 )); fi
+    case "$sub" in run|create) ;; *) return 0 ;; esac
+    # Флаги самого docker кончаются на образе; дальше — аргументы команды
+    # контейнера, и её «-m» слоту не принадлежит. Значение отдельным словом
+    # берут длинные флаги вне списка булевых и короткие a c e h l m p u v w.
+    j="$at"
+    while [ "$j" -lt "${#DARGS[@]}" ]; do
+        a="${DARGS[$j]}"
+        case "$a" in
+            -m|-m?*|--memory|--memory=*|--memory-swap|--memory-swap=*|--cidfile|--cidfile=*)
+                say "docker $sub несёт «$a» — слот ставит --memory/--memory-swap/--cidfile сам; сними флаг (бюджет класса: $(mib "$budget"))"
+                return 64 ;;
+            --) break ;;
+            --*=*) j=$(( j + 1 )) ;;
+            --rm|--detach|--interactive|--tty|--init|--privileged|--read-only|--publish-all|--oom-kill-disable|--no-healthcheck|--quiet|--disable-content-trust|--use-api-socket|--help)
+                j=$(( j + 1 )) ;;
+            --*) j=$(( j + 2 )) ;;
+            -?*)
+                k=1; step=1
+                while [ "$k" -lt "${#a}" ]; do
+                    case "${a:$k:1}" in
+                        [acehlmpuvw]) [ "$k" -eq $(( ${#a} - 1 )) ] && step=2; break ;;
+                    esac
+                    k=$(( k + 1 ))
+                done
+                j=$(( j + step )) ;;
+            *) break ;;
+        esac
+    done
+    DARGS=("${DARGS[@]:0:$at}" "--memory=${budget}m" "--memory-swap=${budget}m" "--cidfile=$cidf" "${DARGS[@]:$at}")
+}
+
+# Вызван как `docker` из PATH команды слота — подставить предел и отдать настоящему.
+if [ "${0##*/}" = docker ]; then
+    if [ -z "${HEAVY_SLOT_P:-}" ] || [ -z "${HEAVY_SLOT_B:-}" ] || [ -z "${HEAVY_SLOT_REAL_DOCKER:-}" ]; then
+        say "docker-подмена слота вызвана вне слота (нет HEAVY_SLOT_P/_B/_REAL_DOCKER)"; exit 69
+    fi
+    mkdir -p "$HEAVY_SLOT_P.cid.d" 2>/dev/null
+    docker_limit "$HEAVY_SLOT_B" "$(mktemp -u "$HEAVY_SLOT_P.cid.d/XXXXXX")" "$@" || exit 64
+    exec "$HEAVY_SLOT_REAL_DOCKER" "${DARGS[@]}"
+fi
 
 class_budget() {
     local c="$1" line
@@ -113,14 +184,21 @@ cg_bytes() { local v; v="$(cat "$1" 2>/dev/null)" && [ -n "$v" ] && printf '%s\n
 # field <файл> <ключ> — значение key=value из записи слота.
 field() { sed -n "s/^$2=//p" "$1" 2>/dev/null | head -n 1; }
 
+# slot_cids <префикс записи> — контейнеры, созданные командой слота, по строке.
+slot_cids() {
+    local f
+    for f in "$1".cid.d/*; do [ -s "$f" ] && printf '%s\n' "$(cat "$f")"; done
+}
+
 # slot_current_mib <префикс записи> — текущая память слота: его cgroup, его
-# контейнер, либо RSS дерева по отчёту сторожа запасного пути.
+# контейнеры, либо RSS дерева по отчёту сторожа запасного пути.
 slot_current_mib() {
     local p="$1" b=0 cg cid rss
     cg="$(cat "$p.cg" 2>/dev/null)"
     [ -n "$cg" ] && b=$(( b + $(cg_bytes "$CGROOT$cg/memory.current") ))
-    cid="$(cat "$p.cid" 2>/dev/null)"
-    [ -n "$cid" ] && b=$(( b + $(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.current") ))
+    for cid in $(slot_cids "$p"); do
+        b=$(( b + $(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.current") ))
+    done
     rss="$(cat "$p.rss" 2>/dev/null)"
     [ -n "$rss" ] && b=$(( b + rss * 1024 * 1024 ))
     echo $(( b / 1024 / 1024 ))
@@ -146,7 +224,7 @@ reap() {
         [ -e "$f" ] || continue
         slot_alive "$f" && continue
         journal "reap id=$(basename "$f" .slot) class=$(field "$f" class) pid=$(field "$f" pid)"
-        rm -f "${f%.slot}".*
+        rm -rf "${f%.slot}".*
     done
 }
 
@@ -229,63 +307,40 @@ if [ "$BUDGET" -gt "$LIMIT_MIB" ]; then
     exit 64
 fi
 
-if ! { mkdir -p "$DIR/active" && touch "$DIR/journal.log" "$DIR/lock"; } 2>/dev/null; then
-    say "каталог слотов $DIR недоступен на запись — слот не выдан (не выполнилось)"; exit 69
+# Ручки — до первой записи: отказ не оставляет следа в общем каталоге.
+if [ "$MEMINFO" = /proc/meminfo ]; then
+    knob=""
+    [ "$LIMIT_MIB" -gt "$CAP_MIB" ] && knob="потолок $(mib "$LIMIT_MIB") выше 45 ГиБ"
+    [ "$DIR" = "$SHARED" ] || [ "$DIR" -ef "$SHARED" ] || knob="свой каталог слотов $DIR — отдельная очередь, соседей общей он не видит"
+    for v in HEAVY_SLOT_BUDGET_MIB HEAVY_SLOT_LIMITER HEAVY_SLOT_GUARD_S HEAVY_SLOT_GUARD_GRACE_S; do
+        [ -n "${!v+x}" ] && knob="$v ослабляет предел либо сторож класса"
+    done
+    if [ -n "$knob" ]; then
+        say "над настоящей памятью машины ручка не принимается: $knob. Решение владельца 2026-09-24 — ≤ 45 ГиБ на машину; свой каталог и ручки — только пробам над синтетическим HEAVY_SLOT_MEMINFO"
+        exit 64
+    fi
 fi
-command -v flock >/dev/null || { say "нет flock — вход без замка повторил бы исходный отказ (не выполнилось)"; exit 69; }
-[ -n "$(used_mib)" ] || { say "не прочитать MemTotal/MemAvailable из $MEMINFO (не выполнилось)"; exit 69; }
 
 ID="$(now)-$$"
 P="$DIR/active/$ID"
 UNIT="heavy-slot-$CLASS-$$-$(now).scope"
 CMD=("$@")
 
-# docker run: предел — контейнеру, а не клиенту. Флаги памяти у вызова — отказ:
-# слот ставит их сам, и второе значение молча перекрыло бы бюджет.
-DOCKER_RUN=0
+# docker первым словом — через ту же подмену, что и внутри команды; флаги
+# памяти у вызова — отказ ДО очереди, а не после получаса ожидания.
+SELF="$(readlink -f -- "${BASH_SOURCE[0]}")"
+REAL_DOCKER="${HEAVY_SLOT_REAL_DOCKER:-$(command -v docker 2>/dev/null)}"
 if [ "$(basename -- "${CMD[0]}")" = docker ]; then
-    i=1
-    while [ "$i" -lt "${#CMD[@]}" ]; do
-        case "${CMD[$i]}" in
-            --context|-H|--host|--config|-l|--log-level) i=$(( i + 2 )) ;;
-            -*) i=$(( i + 1 )) ;;
-            *) break ;;
-        esac
-    done
-    sub="${CMD[$i]:-}"; at=$(( i + 1 ))
-    if [ "$sub" = container ] && [ "${CMD[$at]:-}" = run ]; then sub=run; at=$(( at + 1 )); fi
-    if [ "$sub" = run ]; then
-        # Флаги самого docker кончаются на образе; дальше — аргументы команды
-        # контейнера, и её «-m» слоту не принадлежит. Значение отдельным словом
-        # берут длинные флаги вне списка булевых и короткие a c e h l m p u v w.
-        j="$at"
-        while [ "$j" -lt "${#CMD[@]}" ]; do
-            a="${CMD[$j]}"
-            case "$a" in
-                -m|-m?*|--memory|--memory=*|--memory-swap|--memory-swap=*|--cidfile|--cidfile=*)
-                    say "docker run несёт «$a» — слот ставит --memory/--memory-swap/--cidfile сам; сними флаг (бюджет класса: $(mib "$BUDGET"))"
-                    exit 64 ;;
-                --) break ;;
-                --*=*) j=$(( j + 1 )) ;;
-                --rm|--detach|--interactive|--tty|--init|--privileged|--read-only|--publish-all|--oom-kill-disable|--no-healthcheck|--quiet|--disable-content-trust|--use-api-socket|--help)
-                    j=$(( j + 1 )) ;;
-                --*) j=$(( j + 2 )) ;;
-                -?*)
-                    k=1; step=1
-                    while [ "$k" -lt "${#a}" ]; do
-                        case "${a:$k:1}" in
-                            [acehlmpuvw]) [ "$k" -eq $(( ${#a} - 1 )) ] && step=2; break ;;
-                        esac
-                        k=$(( k + 1 ))
-                    done
-                    j=$(( j + step )) ;;
-                *) break ;;
-            esac
-        done
-        CMD=("${CMD[@]:0:$at}" "--memory=${BUDGET}m" "--memory-swap=${BUDGET}m" "--cidfile=$P.cidfile" "${CMD[@]:$at}")
-        DOCKER_RUN=1
-    fi
+    docker_limit "$BUDGET" - "${CMD[@]:1}" || exit 64
+    [ "${CMD[0]}" = docker ] || REAL_DOCKER="${CMD[0]}"
+    [ -n "$REAL_DOCKER" ] && CMD[0]="$P.bin/docker"
 fi
+
+if ! { mkdir -p "$DIR/active" && touch "$DIR/journal.log" "$DIR/lock"; } 2>/dev/null; then
+    say "каталог слотов $DIR недоступен на запись — слот не выдан (не выполнилось)"; exit 69
+fi
+command -v flock >/dev/null || { say "нет flock — вход без замка повторил бы исходный отказ (не выполнилось)"; exit 69; }
+[ -n "$(used_mib)" ] || { say "не прочитать MemTotal/MemAvailable из $MEMINFO (не выполнилось)"; exit 69; }
 
 WHO="$(git -C "$PWD" branch --show-current 2>/dev/null)@$PWD"
 CMDLINE="$(printf '%q ' "$@")"
@@ -356,10 +411,16 @@ while :; do
 done
 
 WPID=""; KIND=""; CPID=""; RPID=""
+# kill_containers — снять контейнеры слота: они потомки dockerd, и смерть
+# клиента их не останавливает.
+kill_containers() {
+    local c
+    for c in $(slot_cids "$P"); do docker kill "$c" >/dev/null 2>&1; done
+}
 # shellcheck disable=SC2329  # зовётся ловушкой
 cleanup() {
     [ -n "$WPID" ] && kill "$WPID" 2>/dev/null
-    rm -f "$P".*
+    rm -rf "$P".*
 }
 # shellcheck disable=SC2329  # зовётся ловушкой
 on_signal() {
@@ -369,7 +430,7 @@ on_signal() {
     fi
     [ -n "$RPID" ] && kill "$RPID" 2>/dev/null
     [ -n "$CPID" ] && tree_kill "$CPID"
-    [ -s "$P.cidfile" ] && docker kill "$(cat "$P.cidfile")" >/dev/null 2>&1
+    kill_containers
     journal "signal id=$ID class=$CLASS"
     cleanup; exit 143
 }
@@ -391,17 +452,16 @@ tree_kill() {
     [ -n "$pids" ] && kill -KILL $pids 2>/dev/null
 }
 
-# watcher <root pid, если предел мягкий> — сторож машины, пик контейнера,
+# watcher <root pid, если предел мягкий> — сторож машины, пик контейнеров,
 # мягкий предел запасного пути. Пишет только в свои файлы записи слота.
 watcher() {
     local root="${1:-}" used cid cpeak=0 v rss
     while [ -e "$P.slot" ]; do
-        if [ ! -s "$P.cid" ] && [ -s "$P.cidfile" ]; then cp "$P.cidfile" "$P.cid"; fi
-        cid="$(cat "$P.cid" 2>/dev/null)"
-        if [ -n "$cid" ]; then
-            v="$(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.peak")"
-            [ "$v" -gt "$cpeak" ] && cpeak="$v" && echo "$cpeak" > "$P.cpeak"
-        fi
+        v=0
+        for cid in $(slot_cids "$P"); do
+            v=$(( v + $(cg_bytes "$CGROOT/system.slice/docker-$cid.scope/memory.peak") ))
+        done
+        [ "$v" -gt "$cpeak" ] && cpeak="$v" && echo "$cpeak" > "$P.cpeak"
         if [ -n "$root" ]; then
             rss="$(tree_rss_mib "$root")"; echo "$rss" > "$P.rss"
             [ "$rss" -gt "$(cat "$P.rsspeak" 2>/dev/null || echo 0)" ] && echo "$rss" > "$P.rsspeak"
@@ -414,7 +474,7 @@ watcher() {
            [ $(( $(now) - $(cat "$DIR/guard-at" 2>/dev/null || echo 0) )) -ge "$GRACE_S" ]; then
             now > "$DIR/guard-at"; echo "used=${used}MiB" > "$P.guard"
             systemctl --user kill --signal=SIGKILL "$UNIT" 2>/dev/null
-            [ -n "$cid" ] && docker kill "$cid" >/dev/null 2>&1
+            kill_containers
             [ -n "$root" ] && tree_kill "$root"
         fi
         sleep "$GUARD_S"
@@ -435,12 +495,18 @@ oom="$(awk "\$1 == \"oom_kill\" { print \$2 }" "/sys/fs/cgroup$cg/memory.events"
 printf "rc %s %s %s\n" "$rc" "$peak" "${oom:-0}" > "$p.res"
 exit "$rc"'
 
+# Окружение команды: `docker` из PATH — эта же программа, она ставит предел.
+CENV=()
+if [ -n "$REAL_DOCKER" ] && mkdir -p "$P.bin" && ln -sf "$SELF" "$P.bin/docker"; then
+    CENV=(HEAVY_SLOT_P="$P" HEAVY_SLOT_B="$BUDGET" HEAVY_SLOT_REAL_DOCKER="$REAL_DOCKER" PATH="$P.bin:$PATH")
+fi
+
 t_run="$(now)"; rc=0
 if [ "$LIMITER" != watch ] && command -v systemd-run >/dev/null; then
     watcher & WPID=$!
     # Фоном и через wait: ловушка сигнала срабатывает посреди wait, а не после
     # выхода команды переднего плана — иначе TERM слоту ждал бы конца прогона.
-    systemd-run --user --scope --quiet --collect --expand-environment=no --unit="$UNIT" \
+    env "${CENV[@]}" systemd-run --user --scope --quiet --collect --expand-environment=no --unit="$UNIT" \
         -p MemoryMax="${BUDGET}M" -p MemorySwapMax=0 -p OOMPolicy=continue \
         -- bash -c "$INNER" heavy-slot "$P" "$(( BUDGET * 1024 * 1024 ))" "${CMD[@]}" 0<&0 &
     RPID=$!; wait "$RPID"; rc=$?; RPID=""
@@ -455,7 +521,7 @@ fi
 if [ "$LIMITER" = watch ] || ! command -v systemd-run >/dev/null; then
     [ "$LIMITER" = watch ] || say "systemd-run не найден — запасной путь: мягкий предел по RSS"
     UNIT=""; LIMITER=watch
-    "${CMD[@]}" 0<&0 & CPID=$!
+    env "${CENV[@]}" "${CMD[@]}" 0<&0 & CPID=$!
     watcher "$CPID" & WPID=$!
     wait "$CPID"; rc=$?
 fi
@@ -463,12 +529,13 @@ kill "$WPID" 2>/dev/null; wait "$WPID" 2>/dev/null; WPID=""
 dur=$(( $(now) - t_run ))
 
 # ── итог ─────────────────────────────────────────────────────────────────────
-peak=0; oom=0; cpeak=0; coom=0; cut_by=""
+peak=0; oom=0; cpeak=0; coom=0; cut_by=""; alive=""
 if { read -r KIND _ peak oom < "$P.res"; } 2>/dev/null && [ "$KIND" = rc ]; then :; else peak=0; oom=0; fi
 [ -s "$P.cpeak" ] && cpeak="$(cat "$P.cpeak")"
-if [ "$DOCKER_RUN" -eq 1 ] && [ -s "$P.cidfile" ]; then
-    cid="$(cat "$P.cidfile")"
-    docker events --since "$(( t_run - 5 ))" --until "$(( $(now) + 1 ))" --filter "container=$cid" \
+cids="$(slot_cids "$P")"
+if [ -n "$cids" ]; then
+    filt=(); for c in $cids; do filt+=(--filter "container=$c"); done
+    docker events --since "$(( t_run - 5 ))" --until "$(( $(now) + 1 ))" "${filt[@]}" \
         --filter event=oom --format '{{.Action}}' 2>/dev/null | grep -q oom && coom=1
 fi
 [ "${oom:-0}" -gt 0 ] && cut_by="OOM в cgroup слота (oom_kill=$oom)"
@@ -478,11 +545,25 @@ fi
 if [ -z "$cut_by" ] && [ ! -s "$P.res" ] && [ "$LIMITER" != watch ]; then
     say "итог слота не записан: дерево команды убито целиком снаружи (сигнал либо systemd-oomd), код $rc"
 fi
+# Оборванная команда не оставляет контейнеров: клиент снят, а контейнер — потомок
+# dockerd и жил бы дальше. «Оборвана» говорится, только если остановлены и они.
+if [ -n "$cut_by" ]; then
+    for c in $cids; do
+        [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ] || continue
+        docker kill "$c" >/dev/null 2>&1
+        for _ in 1 2 3 4 5; do [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ] || break; sleep 1; done
+        [ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" = true ] && alive="$alive ${c:0:12}"
+    done
+fi
 peak_mib=$(( peak / 1024 / 1024 )); cpeak_mib=$(( cpeak / 1024 / 1024 ))
 [ "$LIMITER" = watch ] && peak_mib="$(cat "$P.rsspeak" 2>/dev/null || echo 0)"
-journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—} who=$WHO"
+journal "leave id=$ID class=$CLASS budget=${BUDGET}MiB rc=$rc peak=${peak_mib}MiB container_peak=${cpeak_mib}MiB containers=$(printf '%s' "$cids" | grep -c .) limiter=${LIMITER/auto/systemd} dur=${dur}s cut=${cut_by:-—}${alive:+ alive=${alive# }} who=$WHO"
+if [ -n "$alive" ]; then
+    say "НЕ ВЫПОЛНИЛОСЬ — $cut_by: клиент снят, но контейнер(ы)$alive РАБОТАЮТ, docker kill их не остановил; память не освобождена — docker kill$alive"
+    exit 76
+fi
 if [ -n "$cut_by" ]; then
-    say "НЕ ВЫПОЛНИЛОСЬ — команда оборвана пределом памяти: $cut_by; код команды $rc."
+    say "НЕ ВЫПОЛНИЛОСЬ — команда оборвана пределом памяти: $cut_by; код команды $rc${cids:+; контейнеры слота остановлены}."
     say "это исчерпание ресурса, а не красное: вердикта по предмету нет. Бюджет класса «$CLASS» — $(mib "$BUDGET"); пик — в журнале $DIR/journal.log"
     exit 76
 fi

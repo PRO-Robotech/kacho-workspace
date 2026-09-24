@@ -11,12 +11,20 @@
 # и готовую строку «heavy-slot.sh <класс> -- <команда>» — текст отказа часть
 # свойства (`testing.md`, finding-text-is-part-of-property).
 #
+# Тяжесть make-цели и скрипта страж выводит из дерева: на синтетическом дереве
+# (цепочка предпосылок, `$(MAKE) -C`, переменные, `-n`, скрипт в скрипте, цикл по
+# шаблону) и на дереве продукта — формами, которые опыт ws#832 провёл мимо
+# словаря. Страж make не зовёт: рецепты синтетики пишут метку, и её отсутствие
+# после всех проб — утверждение. Перепись дерева продукта печатается: сколько
+# скриптов и целей осмотрено и сколько из них тяжёлых (ноль — отказ разбора).
+#
 # Сверки в обе стороны:
-#   · словарь классов стража = классам слота (`heavy-slot.sh --classes`): класс,
-#     которого слот не знает, дал бы исполнителю строку, падающую кодом 64;
-#   · каждая make-цель словаря есть в дереве продукта — запись без предмета
-#     (цель переименовали) молча перестала бы что-либо ловить. Нет дерева продукта
-#     (${KACHO_MONOREPO:-<корень>/project/kacho}) — эта часть «не выполнилась».
+#   · классы стража = классам слота (`heavy-slot.sh --classes`), и порядок стража —
+#     по убыванию бюджета слота: из нескольких найденных он берёт первый;
+#   · каждая запись SCRIPTS есть в дереве продукта — запись без предмета молча
+#     перестала бы что-либо ловить.
+# Нет дерева продукта (${KACHO_MONOREPO:-<корень>/project/kacho}) — его части «не
+# выполнились».
 #
 # Коды: 0 — все утверждения сошлись; 1 — хотя бы одно нет; 2 — сошлось всё
 # исполненное, но часть не построена (нет дерева продукта).
@@ -56,7 +64,19 @@ denies() {
     rc="$(run "$2" "${3:-}")"
     cls="$(sed -n 's/.*класс «\([^»]*\)».*/\1/p' "$WORK/out" | head -n 1)"
     fix="нет"; grep -qF -- "/ws/scripts/heavy-slot.sh $1 -- " "$WORK/out" && fix="да"
-    assert "2 $1 да" "$rc $cls $fix" "отказ «$1»: $2"
+    assert "2 $1 да" "$rc $cls $fix" "отказ «$1»: $(printf '%s' "$2" | tr '\n' ' ')"
+    denied=$((denied + 1))
+}
+
+# knob <ручка> <команда> — отказ вызову слота с ручкой; ручка названа, строки
+# «как запустить» без неё.
+knob() {
+    local rc named fixed
+    rc="$(run "$2")"
+    named="нет"; grep -qF -- "ручку «$1" "$WORK/out" && named="да"
+    fixed="$(sed -n '/Как запустить правильно/{n;p}' "$WORK/out")"
+    case "$fixed" in *"${1%%=*}"*|'') fixed="нет" ;; *) fixed="да" ;; esac
+    assert "2 да да" "$rc $named $fixed" "отказ ручке «$1»: $2"
     denied=$((denied + 1))
 }
 
@@ -64,7 +84,7 @@ denies() {
 passes() {
     local rc
     rc="$(run "$1" "${2:-}")"
-    assert "0 0" "$rc $(wc -c < "$WORK/out" | tr -d ' ')" "пропуск: $1"
+    assert "0 0" "$rc $(wc -c < "$WORK/out" | tr -d ' ')" "пропуск: $(printf '%s' "$1" | tr '\n' ' ')"
     passed=$((passed + 1))
 }
 
@@ -84,10 +104,6 @@ denies go-race     'bash -c "go test -race ./..."'
 denies go-race     'echo a | xargs -n1 go test -race'
 denies go-race     'for p in a b; do go test -race $p; done'
 denies go-race     'echo "$(go test -race ./...)"'
-denies go-race     'make test-unit'
-denies integration 'make test-integration SVC=vpc'
-denies stand       'make -C deploy dev-up'
-denies newman      'make e2e-newman SVC=vpc'
 denies ci-local    'bash scripts/ci-local.sh go'
 denies ci-local    './scripts/ci-local.sh'
 denies lint        'golangci-lint run ./...'
@@ -102,12 +118,35 @@ denies stand       'helm upgrade --install a ./c'
 denies newman      'newman run c.json'
 denies newman      'npx -y newman run c.json'
 
+echo "── формы, которые опыт ws#832 провёл мимо стража, и их близнецы"
+denies go-race     'bash -lc "go test -race ./..."'
+denies go-race     'bash -ec "go test -race ./..."'
+denies go-race     'sh -xc "go test -race ./..."'
+denies go-race     'bash -euo pipefail -c "go test -race ./..."'
+passes             'bash -lc "go test ./..."'
+passes             'bash -o pipefail -c "go vet ./..."'
+denies go-race     'export GOFLAGS=-race; go test ./...'
+passes             'export GOFLAGS=-count=1; go test ./...'
+denies go-race     'go test -race=1 ./...'
+denies go-race     'go test -race=TRUE ./...'
+passes             'go test -race=false ./...'
+denies go-race     'R=-race; go test $R ./...'
+passes             'R=-v; go test $R ./...'
+denies docker      'D=docker; $D run alpine'
+passes             'D=docker; $D ps'
+denies go-race     'find . -name x -exec go test -race {} \;'
+passes             'find . -name x -exec go vet {} \;'
+denies go-race     "bash <<'EOF'
+go test -race ./...
+EOF"
+passes             "bash <<'EOF'
+go vet ./...
+EOF"
+
 echo "── законный близнец той же формы → пропуск молча"
 passes 'go test ./...'
 passes 'go test -run Race ./...'
 passes 'go vet ./...'
-passes 'make -n test-unit'
-passes 'make help'
 passes 'docker ps'
 passes 'docker compose logs'
 passes 'kind get clusters'
@@ -128,6 +167,15 @@ EOF
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes 'bash scripts/heavy-slot.sh docker -- docker run --rm alpine true'
 
+echo "── ручки слота в строке команды: только ожидание и потолок не выше 45 ГиБ"
+knob   HEAVY_SLOT_LIMIT_GIB=200 'HEAVY_SLOT_LIMIT_GIB=200 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
+knob   HEAVY_SLOT_DIR=/tmp/x    'HEAVY_SLOT_DIR=/tmp/x bash scripts/heavy-slot.sh docker -- true'
+knob   HEAVY_SLOT_MEMINFO=/tmp/m 'env HEAVY_SLOT_MEMINFO=/tmp/m heavy-slot.sh docker -- true'
+knob   HEAVY_SLOT_BUDGET_MIB=1  'export HEAVY_SLOT_BUDGET_MIB=1; timeout 9 heavy-slot.sh docker -- true'
+knob   HEAVY_SLOT_LIMITER=watch 'bash -c "HEAVY_SLOT_LIMITER=watch heavy-slot.sh docker -- true"'
+passes 'HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_POLL_S=5 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
+passes 'HEAVY_SLOT_LIMIT_GIB=40 /ws/scripts/heavy-slot.sh docker -- true'
+
 echo "── git push: тяжёл там, где pre-push клона зовёт ci-local (признак — дерево)"
 mkdir -p "$WORK/prod/.git" "$WORK/prod/scripts/hooks" "$WORK/ws/.git" "$WORK/ws/scripts/hooks"
 : > "$WORK/prod/scripts/ci-local.sh"
@@ -139,6 +187,56 @@ passes 'git push origin x' "$WORK/ws"
 passes "cd $WORK/prod && git push --no-verify"
 : > "$WORK/ws/scripts/ci-local.sh"
 passes 'git push origin x' "$WORK/ws"
+
+echo "── make и скрипт: тяжесть выводится из дерева, make не исполняется"
+M="$WORK/mk"; MARK="$WORK/mark"
+mkdir -p "$M/sub" "$M/sh"
+cat > "$M/Makefile" <<EOF
+GO ?= go
+STAND = kind create cluster
+include sub/vars.mk
+.PHONY: t dep help heavydry lightdry loop
+t: dep
+	@echo building; touch $MARK
+dep:
+	\$(MAKE) -C sub unit
+help:
+	@echo "go test -race ./..."; touch $MARK
+heavydry:
+	touch $MARK; \$(MAKE) -C sub unit; \$(STAND)
+lightdry:
+	touch $MARK; \$(MAKE) -C sub unit
+loop:
+	@for s in sh/h*.sh; do bash "\$\$s" || exit 1; done
+lightloop:
+	@for s in sh/l*.sh; do bash "\$\$s" || exit 1; done
+EOF
+printf 'RACE := -race\n' > "$M/sub/vars.mk"
+printf 'include vars.mk\nunit:\n\ttouch %s; go test $(RACE) ./...\n' "$MARK" > "$M/sub/Makefile"
+printf '#!/usr/bin/env bash\nkind create cluster --name x\n' > "$M/sh/heavy.sh"
+printf '#!/usr/bin/env bash\necho "kind create cluster"\n' > "$M/sh/light.sh"
+printf '#!/usr/bin/env bash\n./inner.sh\n' > "$M/sh/outer.sh"
+printf '#!/usr/bin/env bash\nnewman run c.json\n' > "$M/sh/inner.sh"
+printf '#!/usr/bin/env python3\nimport os; os.system("true")\n# kind create cluster\n' > "$M/sh/tool"
+chmod +x "$M/sh/"*
+denies go-race 'make t' "$M"
+denies go-race 'make -C sub unit' "$M"
+denies go-race 'make -C mk dep' "$WORK"
+passes         'make help' "$M"
+denies stand   'make -n heavydry' "$M"
+passes         'make -n lightdry' "$M"
+passes         'make -n t' "$M"
+denies stand   'make loop' "$M"
+passes         'make lightloop' "$M"
+denies stand   'bash sh/heavy.sh' "$M"
+denies stand   './sh/heavy.sh' "$M"
+denies stand   'source sh/heavy.sh' "$M"
+denies newman  'bash sh/outer.sh' "$M"
+passes         'bash sh/light.sh' "$M"
+passes         './sh/tool' "$M"
+denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
+passes         'for s in sh/l*.sh; do bash "$s"; done' "$M"
+assert "нет" "$([ -e "$MARK" ] && echo да || echo нет)" "страж не исполнял ни одного рецепта (метки нет)"
 
 echo "── не Bash и поломка стража"
 out="$(printf '{"tool_name":"Edit","tool_input":{"file_path":"x"}}' | bash "$HOOK" 2>&1; echo "rc=$?")"
@@ -154,22 +252,61 @@ out="$(echo '{}' | env PATH=/nonexistent /bin/bash "$HOOK")"; rc=$?
 said="нет"; printf '%s' "$out" | grep -qF 'python3' && said="да"
 assert "0 да" "$rc $said" "нет python3 — пропуск, причина названа"
 
-echo "── словарь классов стража = классам слота, в обе стороны"
-g="$(python3 "$GUARD" --classes | sort)"
-s="$(bash "$SLOT" --classes | awk 'NR > 1 && $0 !~ /^ / { print $1 }' | sort)"
-assert "$s" "$g" "классы стража и слота совпадают ($(printf '%s\n' "$g" | wc -l) шт.)"
+echo "── классы стража = классам слота, порядок стража — по убыванию бюджета слота"
+g="$(python3 "$GUARD" --classes < /dev/null)"
+s="$(bash "$SLOT" --classes | awk 'NR > 1 && $0 !~ /^ / { print $1 }')"
+assert "$(sort <<< "$s")" "$(sort <<< "$g")" "классы стража и слота совпадают ($(printf '%s\n' "$g" | wc -l) шт.)"
+order="$(bash "$SLOT" --classes | awk 'NR > 1 && $0 !~ /^ / { v = $2; if ($3 == "ГиБ") v *= 1024; print $1, v }' |
+    awk 'NR == FNR { b[$1] = $2; next } { if (NR > FNR && prev != "" && b[$1] > b[prev]) bad = bad " " prev "<" $1; prev = $1 } END { print bad == "" ? "да" : bad }' - <(printf '%s\n' "$g"))"
+assert "да" "$order" "порядок RANK стража не нарушает убывания бюджетов слота"
 
-echo "── каждая make-цель словаря есть в дереве продукта"
+echo "── дерево продукта: формы ws#832 и перепись"
 if [ -f "$PRODUCT/Makefile" ] && [ -f "$PRODUCT/deploy/Makefile" ]; then
-    n=0
-    while IFS= read -r t; do
-        n=$((n + 1))
-        have="нет"; grep -qE "^$t:" "$PRODUCT/Makefile" "$PRODUCT/deploy/Makefile" && have="да"
-        assert "да" "$have" "make-цель «$t» есть в $PRODUCT"
-    done < <(python3 "$GUARD" --make-targets)
-    assert "да" "$([ "$n" -gt 0 ] && echo да || echo нет)" "словарь make-целей непуст ($n)"
+    denies go-race     'make test-unit' "$PRODUCT"
+    denies integration 'make test-integration SVC=vpc' "$PRODUCT"
+    denies stand       'make -C deploy dev-up' "$PRODUCT"
+    denies stand       'make -C deploy e2e-test' "$PRODUCT"
+    denies newman      'make -C deploy e2e-newman SVC=vpc' "$PRODUCT"
+    denies docker      'make -C services/vpc docker' "$PRODUCT"
+    denies docker      'make -C deploy build-services' "$PRODUCT"
+    denies docker      'make -C deploy build-ui' "$PRODUCT"
+    denies stand       'make -C deploy stack-up STACK=dev' "$PRODUCT"
+    denies stand       'bash deploy/kind/create-cluster.sh' "$PRODUCT"
+    denies newman      'bash services/vpc/tests/newman/scripts/run.sh' "$PRODUCT"
+    denies docker      'bash deploy/tests/conformance/oidc/run-oidc-conformance.sh' "$PRODUCT"
+    denies newman      'bash deploy/scripts/newman-parallel.sh vpc' "$PRODUCT"
+    denies newman      './deploy/scripts/newman-e2e.sh vpc' "$PRODUCT"
+    passes             'make help' "$PRODUCT"
+    passes             'make -n test-unit' "$PRODUCT"
+    passes             'make -C deploy dev-down' "$PRODUCT"
+    passes             'make -C deploy logs-svc SVC=vpc' "$PRODUCT"
+    while IFS= read -r sc; do
+        have="$(git -C "$PRODUCT" ls-files | grep -c "/$sc\$\|^$sc\$")"
+        assert "да" "$([ "$have" -gt 0 ] && echo да || echo нет)" "запись SCRIPTS «$sc» есть в дереве продукта"
+    done < <(python3 "$GUARD" --scripts < /dev/null)
+    census="$(cd "$PRODUCT" && python3 - "$GUARD" <<'PY'
+import os, re, subprocess, sys
+sys.path.insert(0, os.path.dirname(sys.argv[1]))
+import guard
+files = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout.split()
+sh = [f for f in files if f.endswith(".sh")]
+hs = sum(1 for f in sh if guard.best(guard.classes_in("bash " + f, os.getcwd(), guard.Ctx())))
+mt = hm = 0
+for mf in (f for f in files if os.path.basename(f) == "Makefile"):
+    d = os.path.dirname(mf) or "."
+    with open(mf, encoding="utf-8", errors="replace") as fh:
+        targets = sorted({m.group(1) for m in re.finditer(r"^([A-Za-z0-9_-][A-Za-z0-9_.-]*)\s*:(?!=)", fh.read(), re.M)})
+    for t in targets:
+        mt += 1
+        hm += bool(guard.best(guard.classes_in("make -C %s %s" % (d, t), os.getcwd(), guard.Ctx())))
+print(len(sh), hs, mt, hm)
+PY
+)"
+    read -r nsh hsh nmt hmt <<< "$census"
+    echo "  [CENSUS] продукт: скриптов .sh осмотрено ${nsh:-?}, тяжёлых ${hsh:-?}; make-целей осмотрено ${nmt:-?}, тяжёлых ${hmt:-?}"
+    assert "да" "$([ "${hsh:-0}" -gt 0 ] && [ "${hmt:-0}" -gt 0 ] && echo да || echo нет)" "перепись нашла тяжёлые скрипты и цели (ноль — разбор ослеп)"
 else
-    echo "  [VOID] нет дерева продукта $PRODUCT — сверка make-целей не выполнялась" >&2
+    echo "  [VOID] нет дерева продукта $PRODUCT — его формы и перепись не выполнялись" >&2
     void=$((void + 1))
 fi
 

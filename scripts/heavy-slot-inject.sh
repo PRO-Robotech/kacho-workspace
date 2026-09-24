@@ -14,6 +14,8 @@
 # сторож машины судят по нему, поэтому исход не зависит от соседних полос. Предел
 # ядра, мягкий предел и docker — настоящие: 256 МиБ против бюджета 64 МиБ.
 # Каталог слотов — свой временный: занятые слоты машины проба не видит и не трогает.
+# Исключение одно — близнец раздела ручек: законный вызов над настоящей памятью
+# входит в общий каталог машины классом newman с командой touch.
 #
 # Части, чьей предпосылки в среде нет (systemd --user с контроллером memory,
 # docker с образом HEAVY_SLOT_PROBE_IMAGE), не «пройдены», а «не выполнились».
@@ -53,6 +55,25 @@ assert 64 "$(slot bash "$SLOT" no-such -- true)" "неизвестный кла�
 assert 64 "$(slot bash "$SLOT" docker true)" "без «--» — 64"
 assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=200000 bash "$SLOT" docker -- true)" "бюджет больше потолка — 64, а не вечное ожидание"
 assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнившаяся команда — её собственный код"
+
+echo "── ручки над настоящей памятью: общий каталог, потолок ≤ 45 ГиБ, класс как есть"
+# Без синтетического meminfo слот судит настоящую память машины — и тогда ручки,
+# снимающие потолок или очередь, получают 64 ДО первой записи (опыт ws#832).
+REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S)
+SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
+seen() { stat -c %s:%Y "$SHARED/journal.log" 2>/dev/null || echo нет; }
+before="$(seen)"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=46 bash "$SLOT" docker -- touch "$W/k1") $(has "$W/err" 'выше 45 ГиБ')" "потолок 46 ГиБ — 64, причина названа"
+assert "64 да нет" "$(slot "${REAL[@]}" HEAVY_SLOT_DIR="$W/own" bash "$SLOT" docker -- touch "$W/k2") $(has "$W/err" 'отдельная очередь') $([ -e "$W/own" ] && echo да || echo нет)" "свой каталог — 64, каталог не заведён"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_BUDGET_MIB=64 bash "$SLOT" docker -- touch "$W/k3") $(has "$W/err" 'HEAVY_SLOT_BUDGET_MIB')" "бюджет вызова — 64"
+assert "64 да" "$(slot "${REAL[@]}" HEAVY_SLOT_LIMITER=watch bash "$SLOT" docker -- touch "$W/k4") $(has "$W/err" 'HEAVY_SLOT_LIMITER')" "мягкий предел вместо ядра — 64"
+assert "нет $before" "$(ls "$W"/k? >/dev/null 2>&1 && echo да || echo нет) $(seen)" "ни одна команда не запускалась, журнал общего каталога не тронут"
+rc="$(slot "${REAL[@]}" HEAVY_SLOT_LIMIT_GIB=45 bash "$SLOT" newman -- touch "$W/k5")"
+if [ "$rc" = 75 ]; then
+    skip "машина занята — близнец общего каталога не построен (75)"
+else
+    assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог, потолок 45 ГиБ — слот выдан, команда исполнилась"
+fi
 
 echo "── вход по порогу: (MemTotal − MemAvailable) + недобранное + бюджет ≤ потолок"
 export HEAVY_SLOT_LIMIT_MIB=1300
@@ -123,6 +144,37 @@ if docker image inspect "$IMAGE" >/dev/null 2>&1; then
     assert "76 да" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm "$IMAGE" python3 -c "$ALLOC" 300 0) $(has "$W/err" 'OOM контейнера')" "300 МиБ в контейнере под бюджетом 96 — 76, причина названа"
     assert 64 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -m 1g "$IMAGE" true)" "свой -m у вызова — 64"
     assert 0 "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker run --rm -e X=1 "$IMAGE" sh -c 'exit 0' -m)" "близнец: -m после образа — аргумент контейнера, не флаг docker"
+
+    # docker не первым словом: подставляет `docker` из PATH команды (опыт ws#832).
+    assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- timeout 60 docker run --rm "$IMAGE" cat /sys/fs/cgroup/memory.max) $(tr -d '\n' < "$W/out")" "docker за timeout — тот же предел"
+    assert "0 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- bash -c "docker run --rm $IMAGE cat /sys/fs/cgroup/memory.max") $(tr -d '\n' < "$W/out")" "docker в bash -c — тот же предел"
+    n="hs-probe-c-$$"
+    assert "0 100663296 100663296" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- docker create --name "$n" "$IMAGE" true) $(docker inspect -f '{{.HostConfig.Memory}} {{.HostConfig.MemorySwap}}' "$n" 2>/dev/null)" "docker create — предел в HostConfig"
+    docker rm -f "$n" >/dev/null 2>&1
+    assert "64 да" "$(slot HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- bash -c "docker run --rm -m 1g $IMAGE true") $(has "$W/err" 'несёт «-m»')" "свой -m у вложенного docker run — 64 от подмены"
+
+    # Сторож машины снимает и контейнер: он потомок dockerd, смерть клиента его не
+    # останавливает. «Оборвана» — только если остановлен и он: близнец с docker,
+    # чей kill ничего не делает, обязан сказать, что контейнер РАБОТАЕТ.
+    guarded() {  # guarded <имя контейнера> <stderr> [PATH=…] — код слота под перебором потолка
+        rm -f "$HEAVY_SLOT_DIR/guard-at"; export HEAVY_SLOT_LIMIT_MIB=1300; mem 1000
+        env ${3:+"$3"} HEAVY_SLOT_BUDGET_MIB=96 bash "$SLOT" docker -- bash -c "docker run --rm --name $1 $IMAGE sleep 30" 2>"$2" & local g=$!
+        for _ in $(seq 1 50); do [ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null)" = true ] && break; sleep 0.2; done
+        mem 1400; wait "$g"; local r=$?; mem 1000; export HEAVY_SLOT_LIMIT_MIB=100000
+        echo "$r"
+    }
+    running() { docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null | grep -qx true && echo да || echo нет; }
+    n="hs-probe-g-$$"
+    rc="$(guarded "$n" "$W/errG")"
+    assert "76 да нет" "$rc $(has "$W/errG" 'контейнеры слота остановлены') $(running "$n")" "сторож машины: 76, контейнер из bash -c снят, сказано"
+    docker rm -f "$n" >/dev/null 2>&1
+    mkdir -p "$W/nokill"
+    printf '#!/usr/bin/env bash\n[ "$1" = kill ] && exit 0\nexec %q "$@"\n' "$(command -v docker)" > "$W/nokill/docker"
+    chmod +x "$W/nokill/docker"
+    n="hs-probe-k-$$"
+    rc="$(guarded "$n" "$W/errK" PATH="$W/nokill:$PATH")"
+    assert "76 да нет да" "$rc $(has "$W/errK" 'РАБОТАЮТ') $(has "$W/errK" 'контейнеры слота остановлены') $(running "$n")" "близнец: kill не остановил — «работают», а не «остановлены»"
+    docker rm -f "$n" >/dev/null 2>&1
 else
     skip "нет docker либо образа $IMAGE — предел контейнера не доказан в этой среде"
 fi
