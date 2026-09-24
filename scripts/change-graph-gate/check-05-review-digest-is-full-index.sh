@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# check-05 — дайджест содержимого в новых записях ревью снят `git diff --full-index`.
+#
+# ЧТО УТВЕРЖДАЕТ. На коммите HEAD каждая команда дайджеста в записях
+# `docs/changes/**` и `docs/**/reviews/**`, которой не было в том же пути на
+# границе, несёт `--full-index`. Без него дайджест зависит от числа объектов
+# клона и перестаёт воспроизводиться (ws#818). Распознаватель, граница и
+# положительный контроль — `digestform.py`; падучесть — `inject.sh`.
+#
+# Коды выхода: 0 — находок нет; 1 — находка, пустой обход либо слепой
+# распознаватель; 2 — HEAD или граница в клоне не разрешаются.
+set -uo pipefail
+# shellcheck source=_lib.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_lib.sh"
+
+NAME="check-05-review-digest-is-full-index"
+TITLE="команда дайджеста в новых записях ревью несёт --full-index"
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="${CG_GATE_ROOT:-$(cd "$DIR/../.." && pwd)}"
+
+python3 "$DIR/digestform.py" --rev HEAD --home "$ROOT"
+rc=$?
+case "$rc" in
+    0) cg_gate_pass "$NAME" "$TITLE" ;;
+    2) cg_gate_void "$NAME" "$TITLE — ревизия или граница не разрешаются" ;;
+    *) cg_gate_fail "$NAME" "$TITLE — есть находки (код $rc)" ;;
+esac
+exit "$rc"
