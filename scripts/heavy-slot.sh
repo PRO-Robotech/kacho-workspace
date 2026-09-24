@@ -13,6 +13,7 @@
 # ФОРМА
 #   heavy-slot.sh <класс> -- <команда> [аргументы…]
 #   heavy-slot.sh --classes     классы, бюджеты и основание каждого
+#   heavy-slot.sh --budget <класс>  бюджет класса в МиБ (читает session-memcap.sh)
 #   heavy-slot.sh --status      занятые слоты, память машины, хвост журнала
 #
 # ВХОД — строгая очередь по билету под flock на каталоге слотов, ОДНОМ на машину:
@@ -291,9 +292,10 @@ print_status() {
 # ── разбор вызова ────────────────────────────────────────────────────────────
 case "${1:-}" in
     --classes) print_classes; exit 0 ;;
+    --budget)  class_budget "${2:-}" || { say "класса «${2:-}» нет"; exit 64; }; exit 0 ;;
     --status)  mkdir -p "$DIR/active" 2>/dev/null; print_status; exit 0 ;;
     ''|-h|--help)
-        sed -n '13,16p' "$0" >&2; exit 64 ;;
+        sed -n '13,17p' "$0" >&2; exit 64 ;;
 esac
 
 CLASS="$1"; shift

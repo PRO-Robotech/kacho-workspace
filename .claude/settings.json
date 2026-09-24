@@ -87,6 +87,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/session-memcap.sh\" --hook",
+            "timeout": 30
+          },
+          {
+            "type": "command",
             "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/rag-session-start.sh"
           }
         ]

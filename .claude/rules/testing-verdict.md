@@ -29,6 +29,7 @@ exhaustion-corrupts-inflight-git · после срыва сделай пере�
 local-runner-exit-code-3 · различай коды 0 / 1 / 3 (недействителен); исчерпание распознавай по журналу шага, не по коду инструмента · scripts/ci-local.sh · red: оборванный шаг записан в упавшие
 read-dollar-question · читай $?, а не строку · echo $? после прогона · red: код 3 выглядит дословно как код 0
 busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>`: вход по (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ 45 ГиБ, строгая очередь, golangci-lint (классы lint, ci-local) по одному на машину, ожидание — до 30 минут, затем 75; 75 и 76 (оборвано пределом памяти) — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «не выполнилось: машина занята» без кода 75; код 76 прочитан красным
+session-memcap · потолок сессии — MemoryMax её scope = max(8 ГиБ, 45 ГиБ − занятое вне scope − бюджет docker), swap 0, без MemoryHigh, ManagedOOMPreference=avoid; ставит хук SessionStart, отказ — anon + 4 ГиБ ≥ потолка либо OOMPolicy ≠ continue; терминал заводит scope со stop — сессия с потолком запускается `scripts/session-memcap.sh --launch -- claude` · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — первое OOM-убийство снимает всю сессию; потолок назван без сверки memory.max
 
 ## Кэш: сохраняй только на доказанно полном исходе
 
