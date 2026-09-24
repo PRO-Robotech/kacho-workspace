@@ -180,6 +180,7 @@ if systemctl is-active --quiet systemd-oomd && command -v oomctl >/dev/null; the
             -- python3 "$W/thrash.py" "$2" 2>/dev/null; rt=$?
         wait "$N" 2>/dev/null; rn=$?
         systemctl --user set-property --runtime "$S" ManagedOOMMemoryPressure=auto 2>/dev/null
+        systemctl --user stop "$S" 2>/dev/null  # пустой срез пробы не остаётся в менеджере
         echo "$rt $rn"
     }
     assert "0 137" "$(oomd_round thrasher 8 2>/dev/null)" "срез kill 1 %/2 с: давящий scope (64 МиБ со swap) с avoid дожил, сосед без avoid снят oomd"
