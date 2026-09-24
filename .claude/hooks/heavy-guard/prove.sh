@@ -5,6 +5,12 @@
 # Доказательство того, что heavy-guard ОТКАЗЫВАЕТ тяжёлой команде без слота и
 # ПРОПУСКАЕТ законного близнеца той же формы.
 #
+# Контракт стража — напоминание против случайных форм, а не барьер: предел держит
+# cgroup (слот, потолок сессии). Поэтому доказательство двустороннее: пойманные
+# формы — зелёные утверждения, а граница стража (BOUNDARY в guard.py) исполняется
+# строкой [BOUND] — «известно, не ловится», не зелёное. Пример границы, который
+# страж вдруг поймал, — [FAIL]: перечень в шапке стража устарел.
+#
 # Страж молчалив по замыслу: пропуск — пустой вывод и код 0. Сломанный страж
 # выглядит так же, поэтому каждая форма записи тяжёлой команды подаётся ему
 # настоящим входом PreToolUse, и читается код И текст: отказ обязан назвать класс
@@ -41,7 +47,7 @@ PRODUCT="${KACHO_MONOREPO:-$ROOT/project/kacho}"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
-pass=0; fail=0; void=0; denied=0; passed=0
+pass=0; fail=0; void=0; denied=0; passed=0; bound=0
 TOOL=Bash; HOOKENV=()  # инструмент входа и окружение самого стража
 
 assert() {
@@ -80,6 +86,18 @@ knob() {
     case "$fixed" in *"${1%%=*}"*|'') fixed="нет" ;; *) fixed="да" ;; esac
     assert "2 да да" "$rc $named $fixed" "отказ ручке «$1»: $2"
     denied=$((denied + 1))
+}
+
+# boundary <класс формы> <команда> — граница: страж её пропускает, и это не зелёное.
+boundary() {
+    local rc
+    rc="$(run "$2")"
+    if [ "$rc $(wc -c < "$WORK/out" | tr -d ' ')" = "0 0" ]; then
+        echo "  [BOUND] не ловится (граница: $1): $(printf '%s' "$2" | tr '\n' ' ')"; bound=$((bound + 1))
+    else
+        echo "  [FAIL] граница «$1» — страж поймал пример (код $rc): перечень BOUNDARY устарел: $(printf '%s' "$2" | tr '\n' ' ')" >&2
+        fail=$((fail + 1))
+    fi
 }
 
 # passes <команда> [cwd] — пропуск: код 0 и ни слова.
@@ -211,6 +229,35 @@ passes             'docker exec box go test ./...'
 denies docker      'docker buildx bake'
 passes             'docker buildx ls'
 
+echo "── круг 4: головы с флагами до подкоманды, make lint|test|ci по имени"
+denies stand       'helm -n ns upgrade --install a ./c'
+denies stand       'helm --kube-context kind-x upgrade -i a ./c'
+passes             'helm -n ns list'
+passes             'helm -n ns template a ./c'
+denies stand       'kind -q create cluster'
+denies stand       'kind --verbosity 3 create cluster --name x'
+passes             'kind -q get clusters'
+denies go-race     'env -S"go test -race ./..."'
+denies go-race     "env -S'go test -race ./...'"
+denies go-race     'env --split-string="go test -race ./..."'
+denies go-race     'env -iS "go test -race ./..."'
+passes             'env -S"go vet ./..."'
+denies newman      'newman --verbose run c.json'
+mkdir -p "$WORK/nomk"
+denies lint        'make lint' "$WORK/nomk"
+denies go-race     'make test' "$WORK/nomk"
+denies ci-local    'make ci' "$WORK/nomk"
+denies go-race     'make -C "$d" test'
+passes             'make -n lint' "$WORK/nomk"
+passes             'make help' "$WORK/nomk"
+
+echo "── граница стража (BOUNDARY): известно, не ловится — не зелёное"
+nb=0
+while IFS= read -r -d '' what && IFS= read -r -d '' example; do
+    nb=$((nb + 1)); boundary "$what" "$example"
+done < <(python3 "$GUARD" --boundary < /dev/null)
+assert "да" "$([ "$nb" -gt 0 ] && echo да || echo нет)" "перечень BOUNDARY прочитан: примеров $nb (ноль — разбор ослеп)"
+
 echo "── Monitor исполняет command той же оболочкой: страж стоит и на нём"
 TOOL=Monitor
 denies go-race     'go test -race ./...'
@@ -250,14 +297,16 @@ EOF
 passes '/ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 passes 'bash scripts/heavy-slot.sh docker -- docker run --rm alpine true'
 
-echo "── ручки слота в строке команды: только ожидание и потолок не выше 45 ГиБ"
+echo "── ручки слота в строке команды: над настоящей памятью ни одной"
 knob   HEAVY_SLOT_LIMIT_GIB=200 'HEAVY_SLOT_LIMIT_GIB=200 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
 knob   HEAVY_SLOT_DIR=/tmp/x    'HEAVY_SLOT_DIR=/tmp/x bash scripts/heavy-slot.sh docker -- true'
 knob   HEAVY_SLOT_MEMINFO=/tmp/m 'env HEAVY_SLOT_MEMINFO=/tmp/m heavy-slot.sh docker -- true'
 knob   HEAVY_SLOT_BUDGET_MIB=1  'export HEAVY_SLOT_BUDGET_MIB=1; timeout 9 heavy-slot.sh docker -- true'
 knob   HEAVY_SLOT_LIMITER=watch 'bash -c "HEAVY_SLOT_LIMITER=watch heavy-slot.sh docker -- true"'
-passes 'HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_POLL_S=5 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
-passes 'HEAVY_SLOT_LIMIT_GIB=40 /ws/scripts/heavy-slot.sh docker -- true'
+knob   HEAVY_SLOT_WAIT_S=60     'HEAVY_SLOT_WAIT_S=60 HEAVY_SLOT_POLL_S=5 /ws/scripts/heavy-slot.sh go-race -- go test -race ./...'
+knob   HEAVY_SLOT_LIMIT_GIB=1   'HEAVY_SLOT_LIMIT_GIB=1 HEAVY_SLOT_WAIT_S=99999 /ws/scripts/heavy-slot.sh docker -- true'
+knob   HEAVY_SLOT_LIMIT_GIB=40  'HEAVY_SLOT_LIMIT_GIB=40 /ws/scripts/heavy-slot.sh docker -- true'
+passes 'FOO=1 /ws/scripts/heavy-slot.sh docker -- true'
 
 echo "── git push: тяжёл там, где pre-push клона зовёт ci-local (признак — дерево)"
 mkdir -p "$WORK/prod/.git" "$WORK/prod/scripts/hooks" "$WORK/ws/.git" "$WORK/ws/scripts/hooks"
@@ -401,7 +450,7 @@ else
     void=$((void + 1))
 fi
 
-echo "[CENSUS] heavy-guard: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed; не построено частей $void"
+echo "[CENSUS] heavy-guard: утверждений $((pass + fail)), сошлось $pass, разошлось $fail; отказов проверено $denied, пропусков $passed; граница (не ловится, заявлено в BOUNDARY) $bound; не построено частей $void"
 [ "$fail" -eq 0 ] || exit 1
 [ "$void" -eq 0 ] || exit 2
 exit 0

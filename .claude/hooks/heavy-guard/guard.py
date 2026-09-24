@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
-"""heavy-guard — тяжёлая команда без слота памяти не запускается.
+"""heavy-guard — НАПОМИНАНИЕ: тяжёлая команда случайной формы получает отказ и строку
+через слот памяти.
 
 Предмет: решение владельца 2026-09-24 «контроль за оперативной памятью не должна
-переваливать за 45гб». Слот (`scripts/heavy-slot.sh`) держит потолок, только если
-через него идут ВСЕ тяжёлые прогоны; команда в обход него — ровно та полоса,
-которая «видела, что памяти хватает». Страж стоит на PreToolUse Bash и Monitor (он
-исполняет command той же оболочкой) и отказывает такой команде с текстом, как
-запустить её правильно.
+переваливать за 45гб». Потолок держит ЯДРО — cgroup слота (`scripts/heavy-slot.sh`)
+и потолок сессии (`scripts/session-memcap.sh`), — а не разбор строки: три круга
+опыта ws#832 находили новые формы, и полноты разбором строки не достичь. Поэтому
+контракт стража — напоминание против СЛУЧАЙНЫХ форм, которые агенты пишут на деле,
+а не барьер против намеренного обхода: агенты сотрудничают, барьер — cgroup. Страж
+стоит на PreToolUse Bash и Monitor (он исполняет command той же оболочкой) и отказывает
+такой команде с текстом, как запустить её правильно.
 
 Судит РАЗОБРАННУЮ команду, а не текст: строка режется на простые команды по
 управляющим операторам вне кавычек (включая `$(…)`, обратные кавычки, тела
@@ -37,11 +40,10 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 бюджетом из найденных (RANK — порядок бюджетов слота, сверяет prove.sh).
 
 Команда слота (`heavy-slot.sh <класс> -- …`) законна целиком: хвост после `--` —
-его аргументы. В строке команды она не несёт ручек HEAVY_SLOT_* кроме WAIT_S,
-POLL_S и потолка: свой каталог, синтетический meminfo, бюджет и ограничитель —
-для проб слота, в живом вызове они снимают очередь или предел. Ручки глубже строки
+его аргументы. В строке команды она не несёт ни одной ручки HEAVY_SLOT_*: над
+настоящей памятью слот их не принимает, ручки — пробам слота. Ручки глубже строки
 (в тексте скрипта) страж не судит — их держит слот: синтетический meminfo там —
-режим проб с бюджетом ≤ 512 МиБ.
+режим проб с бюджетом ≤ 512 МиБ в своём каталоге.
 
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ (текст видит тот, кто
 звал Bash: исполнитель, у диспетчера Bash нет); 0 и additionalContext «СЛОМАН» —
@@ -49,17 +51,19 @@ POLL_S и потолка: свой каталог, синтетический me
 отказывающий всему, остановил бы каждую полосу на любой команде; но молчать о
 поломке он не вправе, и слово доходит до модели.
 
-Граница: `$(command -v go)`, текст в `| bash`, программа или каталог в переменной,
-присвоенной не в судимой строке (`cd "$d" && ./run.sh`), переменная make из
-`$(shell …)` (страж её не исполняет — пусто), `python3 -c "os.system(…)"`,
-`go env -w`, docker API без клиента (testcontainers, compose — их держит слот);
-строка оболочке одним словом у незнакомой обёртки (`tmux new -d '…'`, `screen`,
-`su -c`); аргументы скрипта в его `$@` (`bash run.sh go test -race`); экспорт,
-унаследованный оболочкой Bash мимо окружения стража, кроме GOFLAGS и MAKEFLAGS;
-`npx playwright test` и `npm test` консоли — ни в одном классе: бюджет не замерен
-(ui-future/e2e/playwright.config.ts — workers: 1); `docker exec` с тяжёлым
-внутри получает класс, но память его — в cgroup живого контейнера: слот её
-резервирует, а не ограничивает.
+Головы с флагами до подкоманды — случайная форма и ловятся: `helm -n ns upgrade
+--install`, `kind -q create cluster`, `env -S"…"`/`-iS`/`--split-string=…`, `go -C`,
+`docker --context x run`; цель `make lint|test|ci` тяжела и по имени, когда рецепт
+из Makefile не выводится (цели нет, каталог в переменной).
+
+ГРАНИЦА — то, чего страж НЕ ловит, перечнем: BOUNDARY ниже (класс формы и пример);
+prove.sh исполняет каждый пример строкой [BOUND] — «известно, не ловится», не зелёное,
+а пойманный пример — [FAIL]: перечень устарел. Сверх примеров: каталог в переменной
+(`cd "$d" && ./run.sh`), переменная make из `$(shell …)`, экспорт, унаследованный
+оболочкой Bash мимо окружения стража (кроме GOFLAGS и MAKEFLAGS), docker API без
+клиента (testcontainers, compose — их держит слот); `docker exec` с тяжёлым внутри
+получает класс, но память его — в cgroup живого контейнера: слот её резервирует,
+а не ограничивает.
 """
 
 import glob
@@ -126,17 +130,28 @@ POSREF = re.compile(r'"\$(?:\{[@*]\}|[@*])"|\$(?:\{([0-9@*#])\}|([0-9@*#]))')
 SAFE = re.compile(r"^[\w./=:,+%@-]+$")
 TRUE = {"1", "t", "T", "true", "TRUE", "True"}  # strconv.ParseBool — разбор флагов go
 
-CAP_GIB = 45  # решение владельца 2026-09-24; слот держит то же число сам (CAP_MIB)
+# Граница стража: (класс формы, пример). Формы B1 опыта ws#832, круг 3 — за ней
+# намеренно: их держит cgroup, а не разбор. prove.sh исполняет каждый пример.
+BOUNDARY = (
+    ("переменная, присвоенная вне строки", "go test $RACE_FLAGS ./..."),
+    ("программа из подстановки", "G=$(command -v go); $G test -race ./..."),
+    ("текст, поданный оболочке трубой", "echo 'go test -race ./...' | bash"),
+    ("текст оболочке из подстановки", 'bash -c "$(cat run.txt)"'),
+    ("файл, записанный и запущенный той же строкой", "printf 'go test -race ./...\\n' > t.sh && bash t.sh"),
+    ("файл, записанный и запущенный той же строкой", "cat > t.sh <<'EOF'\ngo test -race ./...\nEOF\nbash t.sh"),
+    ("строка оболочке одним словом у незнакомой обёртки", "tmux new -d 'go test -race ./...'"),
+    ("аргументы скрипта в его $@", "bash run.sh go test -race ./..."),
+    ("запуск из другого языка", "python3 -c \"import os; os.system('go test -race ./...')\""),
+    ("настройка, сохранённая инструментом", "go env -w GOFLAGS=-race && go test ./..."),
+    ("alias", "alias gt='go test -race'; gt ./..."),
+    ("консоль: ни в одном классе, бюджет не замерен", "npm test"),
+)
 
 
 def bad_knob(e):
-    """Ручка слота, которой нет места в строке команды: всё, кроме ожидания и
-    потолка не выше 45 ГиБ."""
-    n, _, v = e.partition("=")
-    if not n.startswith("HEAVY_SLOT_") or n in ("HEAVY_SLOT_WAIT_S", "HEAVY_SLOT_POLL_S"):
-        return False
-    cap = {"HEAVY_SLOT_LIMIT_GIB": CAP_GIB, "HEAVY_SLOT_LIMIT_MIB": CAP_GIB * 1024}.get(n)
-    return not (cap and v.isdigit() and int(v) <= cap)
+    """Ручка слота в строке команды: над настоящей памятью слот не принимает ни одной
+    (потолок 45 ГиБ и ожидание 1800 с не переопределяются) — ручки только пробам."""
+    return e.partition("=")[0].startswith("HEAVY_SLOT_")
 
 
 MAX_LEVEL = 5          # вложенность файлов: скрипт → скрипт → make → …
@@ -332,12 +347,21 @@ def unwrap(argv):
         if base == "env":
             i += 1
             while i < len(argv) and (argv[i].startswith("-") or ASSIGN.match(argv[i])):
-                if ASSIGN.match(argv[i]):
-                    env.append(argv[i])
-                if argv[i] in ("-S", "--split-string") and i + 1 < len(argv):
-                    argv = argv[:i] + argv[i + 1].split() + argv[i + 2:]
+                a = argv[i]
+                if ASSIGN.match(a):
+                    env.append(a)
+                    i += 1
                     continue
-                i += 2 if argv[i] in ("-u", "--unset", "-C", "--chdir") else 1
+                if a == "--":
+                    i += 1
+                    break
+                split = env_split(a, argv[i + 1] if i + 1 < len(argv) else None)
+                if split is not None:  # -S строка: её слова и есть команда
+                    words_, took = split
+                    argv = argv[:i] + words_ + argv[i + took:]
+                    continue
+                i += 2 if a in ("-u", "--unset", "-C", "--chdir", "-a", "--argv0") or (
+                    re.match(r"^-[^-]*[uCa]$", a)) else 1
             continue
         if base in WRAPPERS:
             opts, i = WRAPPERS[base], i + 1
@@ -354,6 +378,43 @@ def unwrap(argv):
             continue
         break
     return env, argv[i:]
+
+
+def env_split(a, nxt):
+    """`env -S строка` во всех записях: `-S x`, `-Sx`, `-iS x`, `-iSx`,
+    `--split-string x`, `--split-string=x`. (слова строки, сколько слов argv она заняла)
+    либо None. Опции -u/-C/-a в связке берут значение сами и -S за собой не несут."""
+    if a.startswith("--split-string="):
+        text, took = a.split("=", 1)[1], 1
+    elif a == "--split-string":
+        text, took = nxt, 2
+    elif a.startswith("-") and not a.startswith("--"):
+        text, took = None, 0
+        for k in range(1, len(a)):
+            if a[k] in "uCa":
+                return None
+            if a[k] == "S":
+                text, took = (a[k + 1:], 1) if a[k + 1:] else (nxt, 2)
+                break
+        if not took:
+            return None
+    else:
+        return None
+    if text is None:
+        return None
+    try:
+        return shlex.split(text), took
+    except ValueError:
+        return text.split(), took
+
+
+def subcommand(args, known):
+    """Первое слово args из множества подкоманд: флаги и их значения до него —
+    пропускаются (`helm -n ns upgrade`, `kind -q create`). (подкоманда, хвост)."""
+    for k, a in enumerate(args):
+        if not a.startswith("-") and a in known:
+            return a, args[k + 1:]
+    return None, []
 
 
 def positional(cmd, params):
@@ -453,6 +514,12 @@ def push_runs_ci_local(path):
     except OSError:
         return False
 
+
+HELM_SUBS = {"completion", "create", "dependency", "env", "get", "help", "history", "install",
+             "lint", "list", "ls", "package", "plugin", "pull", "push", "registry", "repo",
+             "rollback", "search", "show", "status", "template", "test", "uninstall", "upgrade",
+             "verify", "version"}
+KIND_SUBS = {"build", "completion", "create", "delete", "export", "get", "help", "load", "version"}
 
 DOCKER_GLOBAL_VALUE = {"--context", "-c", "-H", "--host", "--config", "-l", "--log-level",
                        "--tlscacert", "--tlscert", "--tlskey"}
@@ -557,6 +624,9 @@ MK_DEFINE = re.compile(r"^(?:(?:export|override)\s+)?define\s+([A-Za-z0-9_.-]+)\
 MK_DIRECTIVES = {"ifeq", "ifneq", "ifdef", "ifndef", "else", "endif"}
 MK_SILENT_FUNCS = {"shell", "error", "warning", "info", "eval", "file", "origin", "flavor", "value"}
 MK_DRY = {"--dry-run", "--just-print", "--recon", "--touch", "--question"}
+# Цель тяжела и по имени, когда рецепт не выводится (нет цели, каталог в переменной):
+# `make lint|test|ci` агенты пишут на деле (опыт ws#832, круг 3).
+MK_BY_NAME = {"lint": "lint", "test": "go-race", "ci": "ci-local"}
 
 
 def mk_strip_comment(line):
@@ -705,7 +775,16 @@ def mk_args(s):
 
 
 def make_class(env, args, cwd, ctx, level):
-    """Класс вызова make: рецепты целей и их предпосылок, прочитанные из Makefile."""
+    """Класс вызова make: рецепты целей и их предпосылок, прочитанные из Makefile;
+    не выведен — по имени цели (MK_BY_NAME), кроме `-n/-t/-q`."""
+    derived, goals, dry = make_derived(env, args, cwd, ctx, level)
+    if derived or dry:
+        return derived
+    return best({MK_BY_NAME[g] for g in goals if g in MK_BY_NAME})
+
+
+def make_derived(env, args, cwd, ctx, level):
+    """(класс из Makefile либо None, цели вызова, сухой ли прогон)."""
     dirs, files, goals, over, dry, k = [], [], [], {}, False, 0
     for e in env:
         n, v = e.split("=", 1)
@@ -744,12 +823,12 @@ def make_class(env, args, cwd, ctx, level):
     d = cwd or os.getcwd()
     for x in dirs:
         if "$" in x or "__SUBST__" in x:
-            return None
+            return None, goals, dry
         d = os.path.normpath(os.path.join(d, os.path.expanduser(x)))
     mfiles = [os.path.normpath(os.path.join(d, f)) for f in files] or \
         [os.path.join(d, f) for f in ("GNUmakefile", "makefile", "Makefile") if os.path.isfile(os.path.join(d, f))][:1]
     if not mfiles or level >= MAX_LEVEL:
-        return None
+        return None, goals, dry
     vs = {"MAKE": "make", "CURDIR": d, "SHELL": "/bin/sh"}
     vs.update(e.split("=", 1) for e in env)
     rules, default, seen_inc = {}, [], set()
@@ -810,7 +889,7 @@ def make_class(env, args, cwd, ctx, level):
 
     for g in goals or default[:1]:
         walk(mk_expand(g, vs))
-    return best(found)
+    return best(found), goals, dry
 
 
 def classify_argv(env, argv, cwd, ctx, level, alt):
@@ -888,11 +967,14 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
         return docker_class(args, ctx, level)
     if base == "docker-compose" and any(a in COMPOSE_HEAVY for a in args):
         return "docker"
-    if base == "kind" and args[:2] == ["create", "cluster"]:
-        return "stand"
-    if base == "helm" and args[:1] and args[0] in ("install", "upgrade"):
-        return "stand"
-    if base == "newman" and args[:1] == ["run"]:
+    if base == "kind":
+        sub, tail = subcommand(args, KIND_SUBS)
+        if sub == "create" and subcommand(tail, {"cluster"})[0]:
+            return "stand"
+        return None
+    if base == "helm":
+        return "stand" if subcommand(args, HELM_SUBS)[0] in ("install", "upgrade") else None
+    if base == "newman" and subcommand(args, {"run"})[0]:
         return "newman"
     if base == "git":
         k, where = 0, None
@@ -1071,10 +1153,10 @@ def deny_knob(knob, env, argv):
     fixed = clip(" ".join([show(keep), show(argv)]).strip(), 400)
     sys.stderr.write(
         "HEAVY-GUARD: отказ — вызов слота несёт ручку «%s».\n"
-        "Ручки HEAVY_SLOT_* кроме WAIT_S, POLL_S и потолка (не выше 45 ГиБ) — для проб слота\n"
-        "над синтетическим meminfo (scripts/heavy-slot-inject.sh): в живом вызове свой каталог\n"
-        "уводит из общей очереди, синтетический meminfo снимает потолок, бюджет и ограничитель —\n"
-        "предел класса (решение владельца 2026-09-24: ≤ 45 ГиБ на машину).\n"
+        "Над настоящей памятью слот не принимает ни одной ручки HEAVY_SLOT_*: потолок 45 ГиБ,\n"
+        "ожидание 1800 с, общая очередь, бюджет и предел класса не переопределяются (решение\n"
+        "владельца 2026-09-24: ≤ 45 ГиБ на машину); ручки — только пробам слота над\n"
+        "синтетическим meminfo (scripts/heavy-slot-inject.sh).\n"
         "Как запустить правильно:\n"
         "  %s\n" % (knob, fixed))
     sys.exit(2)
@@ -1096,6 +1178,10 @@ def main():
         return
     if sys.argv[1:] == ["--scripts"]:
         print("\n".join(sorted(SCRIPTS)))
+        return
+    if sys.argv[1:] == ["--boundary"]:
+        # класс формы и пример через NUL: пример бывает многострочным (heredoc)
+        sys.stdout.write("".join("%s\0%s\0" % b for b in BOUNDARY))
         return
     if sys.argv[1:2] == ["--classify"] and len(sys.argv) == 4:
         # --classify <команда> <cwd> — класс строки для переписи дерева (prove.sh)
