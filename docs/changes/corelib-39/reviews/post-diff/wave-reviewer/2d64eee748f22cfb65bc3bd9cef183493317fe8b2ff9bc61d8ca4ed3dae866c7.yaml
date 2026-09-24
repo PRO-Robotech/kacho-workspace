@@ -1,0 +1,129 @@
+# Сверка волны: роль wave-reviewer. Повторный проход по полосе corelib #39 после
+# возврата сборки-4 (return_39 и C1 в corelib-32/reviews/wave/2aea5a5a….yaml).
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/wave-reviewer
+owner: wave-reviewer
+round: 5
+previous_record: ../../../../corelib-32/reviews/wave/2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243.yaml
+subject: >-
+  corelib #39 @fa1dd916: поверх d167e009 два коммита. 565f5b50 — срок кода в пробе
+  TestConsumedCodeRecordOutlivesTheCodeLifespan истекает старением записи, а не
+  паузой на часах. fa1dd916 — снята строка «токен доступа» таблицы
+  TestNewRefusesAnArtifactLifespanAboveItsCeiling, то есть закрыт C1. Судятся
+  закрытие своего возврата и новая дельта. Дельта сверена с полосами 36 и 37 той
+  же волны: у каждой база f213439a.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39'
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # origin/32; ls-remote и fetch совпали
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2   # tmp/corelib-39: porcelain 0, не отправлена (origin/39 = d167e009)
+  head_tree: 8c4c9abea2174cf44498c23c4d5267d1d823a471
+  shortstat: '11 файлов, +582 / -19 (к базе); дельта круга d167e009..fa1dd916: 3 файла, +154 / -34'
+  commits:
+    - '565f5b50 #39 пробы: срок кода в пробе записи истекает старением, а не паузой'
+    - 'fa1dd916 #39 пробы: отказ New по сроку токена доступа держит одна проба'
+content_digest: sha256:2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7
+digest_definition: >-
+  git diff --full-index origin/32..HEAD | sha256sum в tmp/corelib-39 после fetch.
+  Совпадает с заданием и с git diff --full-index $(merge-base origin/32 HEAD)..HEAD,
+  потому что merge-base = origin/32.
+
+verdict: accepted
+blocks_landing: false            # полосы одной. Сборку 32 вместе с #36 блокирует C3, см. ниже
+timestamp: '2026-09-23T23:35:00Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-39r5-3mMjPY/corelib (git clone --shared от
+  tmp/corelib-39), рабочие копии t-old (d167e009), t-head (fa1dd916), t-39-36, а сам
+  клон на pair-39-37. GOCACHE там же (ccache), GOPROXY=off, контейнер golang:1.26.8.
+  Инъекции вносились через -overlay, дерево не правилось. Копия tmp/corelib-39 не
+  тронута: porcelain 0, HEAD fa1dd916. Шаг 0: MemAvailable 32 ГБ. Чужие go шли
+  8 минут (кто-то гнал тот же опыт при --cpus=1, плюс kaname), я ждал опросом раз в
+  60 с до нуля (02:21:59). Логи и перечень прогонов: .../wave-review-39r5-3mMjPY/logs/ (INDEX).
+
+runs:
+  - 'R1 контроль, старая голова d167e009, --cpus=1: go test -race -count=5 -v -run ^TestConsumedCodeRecordOutlivesTheCodeLifespan$ ./oauthceremony. rc 1: верхних FAIL 5 из 5, подпроб FAIL 10 из 10, у всех 10 текст «первый обмен отказал: oauthceremony: invalid_grant». Значит, опыт сегодня всё ещё различает'
+  - 'R2 голова fa1dd916, тот же опыт при --cpus=1: rc 0, верхних PASS 5 из 5, подпроб PASS 10, FAIL 0, «НЕ ВЫПОЛНИЛОСЬ» 0, DATA RACE 0; подпроба длится 7,88–8,75 с при сроке кода 30 с'
+  - 'R3 голова, тот же опыт без ограничения: rc 0, 5 из 5, подпроб 10 PASS, FAIL 0, DATA RACE 0 (3,88–4,95 с)'
+  - 'R4 инъекция «погашенный код с истёкшим сроком выдан как кода нет» (мост отдаёт погашенный код с истёкшим сроком движку как неизвестный), -race -count=1 и при --cpus=1, и без ограничения: rc 1 в обоих. Половина «запись цела» КРАСНАЯ, 7 утверждений (invalid_grant вместо authorization_code_consumed, семейство не отозвано, оба метода порта отзыва не вызваны, пара жива). Близнец «запись снята» зелёный. TestSequentialCodeReplayRevokesTheFamily зелёная'
+  - 'R5 C1: из validateConfig снят case AccessTokenLifespan > MaxTokenTTL, пакет целиком (-count=1 -v). Верхних FAIL 1 (TestNewRefusesAnAccessLifespanAboveTheTokenCeiling, access_issuer_test.go:562), подпроб FAIL 0, PASS 114. На сборке-4 от той же инъекции краснели две'
+  - 'R6 третий исход первого обмена. Инъекция: срок кода 1 мс → обе подпробы «НЕ ВЫПОЛНИЛОСЬ: код истёк (…) до первого обмена». Близнец: код жив, отказ продукта (предъявлен чужой код) → «первый обмен отказал: …invalid_grant». Тексты различают причины'
+  - 'R9 голова, -race -count=1 -json ./oauthceremony ./tokenpolicy: rc 0, 339 + 10 PASS, FAIL 0, DATA RACE 0, oauthceremony 241,6 с'
+  - 'R12 d167e009 -count=1 -json тех же пакетов: 350 PASS; на голове 349. Пропало ровно одно имя: TestNewRefusesAnArtifactLifespanAboveItsCeiling/токен_доступа. Новых нет'
+  - 'go vet ./oauthceremony/ ./tokenpolicy/ rc 0; gofmt -l → 0'
+
+closed:
+  - id: return_39
+    how: >-
+      Паузы на часах больше нет, код живёт по умолчанию проб, 30 с. К повтору обе записи
+      (погашенного и нетронутого кодов) стареют на MaxAuthorizationCodeTTL + 1 мин.
+      Предпосылка «к повтору срок истёк» по-прежнему судится записанным сроком и отказом
+      нетронутого кода. Требование return_39 выполнено: первый обмен больше не зависит
+      от того, сколько времени заняла сверка секрета (R1 → R2: 5/5 красных → 5/5 зелёных
+      при --cpus=1). Не выдержанное окно называет причину (R6). Проба по-прежнему
+      различает запись и срок (R4). Подставка ageCodeRecord пишет через *codeRow, её
+      предпосылку «стареют все мгновения GrantRecord» судит обход типа отражением.
+      Работу предпосылки на настоящем входе показал C3.
+  - id: I-3
+    how: 'codeRetentionWait и комментарий про Round(time.Second) сняты вместе с паузой. В дельте упоминаний 0 (command grep по oauthceremony/tokenpolicy). lifetime_test.go:187-189 (#20) говорит об округлении срока ТОКЕНА ОБНОВЛЕНИЯ, и там это правда: internal/oauth2/handler/oauth2/flow_authorize_code_token.go:101, flow_refresh.go:112'
+  - id: C1
+    how: 'одна проба на класс, R5: 1 красная вместо 2. Шапка lifespan_ceiling_test.go называет, где держится отказ по сроку токена доступа'
+
+collisions:
+  - id: C3
+    kind: 'столкновение ожиданий: .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…», видно только рядом'
+    lanes: ['39', '36']
+    subject: >-
+      #39 (565f5b50, fakes_test.go agedGrantInstants / requireGrantInstantsAged) требует,
+      чтобы подставка старила ровно те поля GrantRecord, что несут мгновение. Сейчас это
+      [IssuedAt Session.ExpiresAt Session.NotAfter]. #36 (e2a451c6, oauthceremony/types.go)
+      добавляет в SessionRecord поле AuthTime time.Time. Каждая полоса у себя зелёная.
+      Вместе проба не выполняется.
+    proof: >-
+      Пробное слияние fa1dd916 + 36@e2a451c6 --no-ff (5cfafeb0) проходит без конфликтов,
+      remerge-diff пуст. go test -count=1 -json ./oauthceremony ./tokenpolicy (R10): rc 1,
+      PASS 439, FAIL 3 — ровно TestConsumedCodeRecordOutlivesTheCodeLifespan и её
+      2 подпробы. Текст code_record_retention_test.go:111 «НЕ ВЫПОЛНИЛОСЬ: мгновения
+      GrantRecord — [IssuedAt Session.AuthTime Session.ExpiresAt Session.NotAfter],
+      ageCodeRecord старит [IssuedAt Session.ExpiresAt Session.NotAfter]». Разрешение
+      выполнимо, проверено через -overlay на паре: ageCodeRecord сдвигает и
+      Session.AuthTime, AuthTime добавлен в agedGrantInstants → зелёная (R8). С той же
+      правкой инъекция R4 по-прежнему красная, 7 утверждений (R8A).
+    fix_in: >-
+      при сведении — в той из полос 36/39, что вливается в 32 второй. На своей базе ни
+      одна из них этой правки не выразит: у #39 поля AuthTime нет, а у #36 нет подставки
+      старения. Порядок влития выбирает диспетчер. После правки нужен повторный проход
+      по собранному.
+
+not_found:
+  - '#39 × #37: пробное слияние fa1dd916 + 37@be0d7cc8 (b32823b6) без конфликтов, remerge-diff пуст. #37 в types.go трогает только ClientRegistration и TokenRequest, мгновений GrantRecord не добавляет. Прогон (R11) обоих пакетов: rc 0, 1389 PASS, 0 FAIL; проба #39 на паре зелёная'
+  - '#39 × #21: #21 правит скрипт вердикта конвейера (беспредметность при нуле исполненных) и хуки. С дельтой #39 общих путей и предмета нет'
+  - 'добавление в удалённое / снят предмет: дельта #39 ничего не снимает, кроме строки таблицы и константы своего же файла; упоминаний codeRetentionWait/shortCodeLifespan в дереве 0'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Не блокирует. Тело 565f5b50: «Отказ первого обмена на истёкшем коде — «не выполнилось»,
+  а не красное». Для go test и для .github/scripts/go-test-verdict.py это всё же FAIL:
+  маркера «НЕ ВЫПОЛНИЛОСЬ» скрипт не знает (command grep → 0). Различение держит только
+  текст. Так принято в пакете: в пробах oauthceremony маркер встречается 42 раза. Остальные
+  заявления полосы подтверждены моими прогонами: 5/5 красных на d167e009 при --cpus=1,
+  зелёное после правки, одна проба на C1.
+
+form_not_blocking: >-
+  Коммитов 2, у обоих подпись pointpu <pointpu@in-cloud.io> (как в ~/.gitconfig) и
+  трейлеров 0. Темы 67 и 62 знака, тела 9 и 4 непустых строки.
+
+examined:
+  diffs: 7                     # дельта d167e009..fa1dd916; #36 types.go; #37 types.go; #37 ceremony_test.go на паре; #21 go-test-verdict.py; remerge-diff 2 пробных слияний (пусты)
+  lines: 567                   # 278 + 83 + 41 + 82 + 83 + 0 + 0 строк вывода git diff
+  read_line_by_line: 'вся дельта; code_record_retention_test.go целиком; fakes_test.go (codeRow, sweepConsumedCode, codeExpiresAt, readCodeRow, ConsumeAuthorizationCode); bridge.go GetAuthorizeCodeSession/replayedCode; ceremony.go validateConfig; SessionRecord/GrantRecord на паре 39+36'
+  mechanical_census: 'Round(time.Second) вне проб: 10 мест, все в internal/oauth2. Из них срок кода авторизации округляет одно (openid/flow_hybrid.go:114), срок токена обновления — flow_authorize_code_token.go:101 и flow_refresh.go:112; имена PASS-проб на двух ревизиях (350 → 349); маркер НЕ ВЫПОЛНИЛОСЬ в пробах oauthceremony (42)'
+
+next:
+  - 'диспетчер — выбрать порядок влития #36 и #39 в 32. Вливаемая второй полоса (go-implementer) тем же сведением добавляет Session.AuthTime в ageCodeRecord и agedGrantInstants (C3)'
+  - 'сведение — пересобрать 32 на голове 39 = fa1dd916; wave-reviewer — проход по сборке, в которой есть и #36, и #39'
