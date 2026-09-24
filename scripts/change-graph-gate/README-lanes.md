@@ -118,7 +118,9 @@ gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
 **Граница признака названа, а не подразумевается.** Он смотрит в два каталога, и
 это решение: испытуемый (`run.py`), производитель свидетельства освобождений
 (`applicability.py` — его зовёт `check-04`, падучесть доказывает
-`selftest/prove_applicability.py`) и сама полосовая оснастка (`lanes.py`,
+`selftest/prove_applicability.py`), распознаватель команды дайджеста
+(`digestform.py` — его зовёт `check-05`, падучесть доказывает `inject.sh`) и сама полосовая
+оснастка (`lanes.py`,
 `run-all.sh`, `prove-all.sh`, `check-*.sh`, `inject.sh`) лежат ВЫШЕ них, поэтому
 не требуют строк и не создают самоссылки. Цена: проба, заведённая **прямо в
 `scripts/change-graph-gate/`**, мимо обоих каталогов, под признак не попадёт и

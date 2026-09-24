@@ -434,6 +434,87 @@ world4 "$d"
 assert 2 "$(run_without_yaml "$d" "$C4")" "разборщика YAML нет -> без предмета"
 
 echo
+echo "=== check-05: команда дайджеста в новых записях ревью несёт --full-index ==="
+
+C5="check-05-review-digest-is-full-index.sh"
+
+# rec <каталог> <путь> <текст> — запись ревью в песочнице.
+rec() { mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" >> "$1/$2"; }
+
+# world5 <каталог> [<текст унаследованной записи>] — граница: коммит с записью,
+# чья команда без --full-index. Граница вписывается в ЕДИНСТВЕННОЕ место, где
+# гейт её объявляет; не вписалась — пробы о другом гейте, отказ.
+world5() {
+    local g="$1/scripts/change-graph-gate/digestform.py" b
+    rec "$1" docs/changes/p/reviews/post-diff/r/old.yaml \
+        "${2-command: git diff aaa...bbb | sha256sum}"
+    commit_all "$1" boundary
+    b="$(git -C "$1" rev-parse HEAD)"
+    sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$b\"/" "$g" 2> /dev/null
+    grep -qx "BOUNDARY = \"$b\"" "$g" 2> /dev/null \
+        || { echo "ОТКАЗ: границы в $g вписать некуда" >&2; exit 1; }
+}
+
+# says <каталог> <код> <подстрока> <утверждение> — код И текст: находка обязана
+# назвать координату, а не симптом.
+says() {
+    local out rc
+    out="$(cd "$1" && CG_GATE_ROOT="$1" bash "$1/scripts/change-graph-gate/$C5" 2>&1)"; rc=$?
+    case "$out" in *"$3"*) ;; *) rc="$rc без «$3» в выводе" ;; esac
+    assert "$2" "$rc" "$4"
+}
+
+NEW=docs/specs/reviews/x-acceptance/new.yaml
+
+d="$(sandbox c5-twin)"; world5 "$d"
+says "$d" 0 "записей 1" "законный близнец: новых записей нет, унаследованная команда не судится -> молчит"
+
+d="$(sandbox c5-bad)"; world5 "$d"
+rec "$d" "$NEW" "command: git diff aaa...ccc | sha256sum"; commit_all "$d" new
+says "$d" 1 "$NEW" "новая запись без --full-index -> краснеет и называет путь"
+
+d="$(sandbox c5-good)"; world5 "$d"
+rec "$d" "$NEW" "command: git diff --full-index aaa...ccc | sha256sum"; commit_all "$d" new
+says "$d" 0 "без --full-index 1" "законный близнец: та же запись с --full-index -> молчит"
+
+d="$(sandbox c5-folded)"; world5 "$d"
+rec "$d" "$NEW" $'command: >-\n  git diff aaa...ccc\n  | sha256sum'; commit_all "$d" new
+says "$d" 1 "$NEW" "команда разнесена по строкам свёрнутого скаляра -> краснеет"
+
+d="$(sandbox c5-option)"; world5 "$d"
+rec "$d" "$NEW" "command: git -C project/kacho diff aaa...ccc | sha256sum"; commit_all "$d" new
+says "$d" 1 "$NEW" "форма git -C <клон> diff -> краснеет"
+
+d="$(sandbox c5-edit)"; world5 "$d"
+rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "again: git diff aaa...ddd | sha256sum"
+commit_all "$d" edit
+says "$d" 1 "old.yaml" "в унаследованную запись дописана вторая команда без --full-index -> краснеет"
+
+d="$(sandbox c5-inline)"; world5 "$d"
+rec "$d" "$NEW" 'note: "`git diff --quiet aaa bbb -- x` → 0; `git show aaa:x | sha256sum`"'
+commit_all "$d" new
+says "$d" 0 "записей 2" "законный близнец: git diff без трубы в хеш, граница инлайн-кода -> молчит"
+
+d="$(sandbox c5-staged)"; world5 "$d"
+rec "$d" "$NEW" "command: git diff aaa...ccc | sha256sum"; git -C "$d" add -A > /dev/null 2>&1
+says "$d" 0 "записей 1" "законный близнец: запись в индексе, не в коммите -> молчит (судится коммит)"
+
+d="$(sandbox c5-empty)"; world5 "$d"
+git -C "$d" rm -rq docs; commit_all "$d" empty
+says "$d" 1 "записей 0" "записей на ревизии ноль -> пустой обход — находка, а не зелёное"
+
+d="$(sandbox c5-blind)"; world5 "$d" "command: none"
+says "$d" 1 "контроль" "на границе не распознано ни одной команды -> распознаватель слеп, краснеет"
+
+d="$(sandbox c5-noboundary)"; world5 "$d"
+sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$(printf '0%.0s' {1..40})\"/" \
+    "$d/scripts/change-graph-gate/digestform.py"
+says "$d" 2 "граница" "граница не разрешается в клоне -> без предмета, а не 'находок 0'"
+
+d="$(sandbox c5-nocommit)"
+says "$d" 2 "HEAD" "в песочнице нет ни одного коммита -> без предмета"
+
+echo
 echo "=== перепись инъекций набора change-graph-gate ==="
 echo "утверждений: $((pass + fail)) · прошло: $pass · провалено: $fail"
 [ "$fail" -eq 0 ]
