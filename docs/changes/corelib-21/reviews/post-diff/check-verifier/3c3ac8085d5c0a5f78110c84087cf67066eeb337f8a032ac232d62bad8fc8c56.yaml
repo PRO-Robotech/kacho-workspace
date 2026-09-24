@@ -1,0 +1,178 @@
+# Приёмка работы-проверки — роль check-verifier. Имя файла — content_digest.
+#
+# Первая запись check-verifier по corelib #21. Все опыты поставлены 2026-09-24
+# в своём каталоге /var/tmp/cv21.qFv9RZ, он снят. Числа ниже — этого захода.
+# Запись лежит в рабочей копии ws-825 (ветка 825) и НЕ закоммичена: её сводит
+# пакетный коммит записей ревью.
+schema_version: 1
+change_id: corelib-21
+holder: post-diff/check-verifier
+owner: check-verifier
+round: 1
+mode: приёмка работы-проверки (хук отправки — страж)
+subject: >-
+  scripts/hooks/pre-push (build · vet · gofmt · golangci-lint пином ·
+  go test -short с вердиктом go-test-verdict.py; предпосылка — install.sh check;
+  судится отправляемая ревизия), scripts/hooks/install.sh (переходник v2 отказывает
+  на ненайденном адресате, v1 — «прежней редакции»), корневой Makefile (цели
+  провязки), scripts/hooks/inject.sh (проба в задании build ci.yml),
+  gitenv/hookscrub_test.go (сверка перечня GIT_* с хуком).
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: 'issue-21 (локальная; origin/issue-21 = 75af8e12, то есть голова не отправлена)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # merge-base(origin/32, HEAD); origin/32 = f213439a перемерен fetch + rev-parse
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: 3290b6b30e24288f53af11488dd8428e5ca98170
+  head_tree: 8438f252963bcfa86eca4ad4d0feceac8ed3b276
+  shortstat: '6 files changed, 1073 insertions(+)'
+  commits_first_parent: [fef469d, 75af8e1, f0f8375, bd59d73, 2b29ecf, 3290b6b]
+content_digest: sha256:3c3ac8085d5c0a5f78110c84087cf67066eeb337f8a032ac232d62bad8fc8c56
+digest_definition: |
+  git -C tmp/corelib-21 diff --full-index $(git -C tmp/corelib-21 merge-base origin/32 HEAD)..HEAD | sha256sum
+  (перемерено до опытов и после них — оба раза 3c3ac808…, совпадает с заданием)
+
+verdict: returned               # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T21:10:00Z'
+return_to: go-implementer (автор полосы corelib #21)
+
+isolation:
+  dir: '/var/tmp/cv21.qFv9RZ (mktemp -d, вне git-деревьев); TMPDIR=$dir/tmp; GIT_CONFIG_GLOBAL — свой конфиг пробы'
+  clone: 'git clone --no-local tmp/corelib-21 → $dir/real, ветка issue-21 = 3290b6b; голый удалённый $dir/remote.git; linked worktree $dir/wt32 (@f213439) и $dir/wt21 (@3290b6b)'
+  container: 'golang:1.26.8 (sha256:6c2a5538…), клон смонтирован :ro, --network none; файлов чужого владельца в каталоге 0 (find ! -user dk)'
+  foreign_state: >-
+    tmp/corelib-21 — только чтение: HEAD 3290b6b, `git status --porcelain --ignored`
+    0 строк до и после (inject.sh копию не трогает), stash 0. ws-825 — только этот
+    файл; чужие неотслеживаемые записи (corelib-36, corelib-39 2aea5a5a…) не тронуты.
+  removed: 'rm -rf каталога опытов; ls -d → «No such file or directory» (команда — в возврате)'
+
+premise:
+  status: подтверждена
+  how: >-
+    git fetch + rev-parse: origin/32 = f213439a, origin/issue-21 = 75af8e12 ≠ HEAD
+    (ничего не отправлено); дайджест 3c3ac808… совпал; merge-base = f213439a.
+
+experiments:
+  foreign_predicate_verbatim:
+    inject.sh: 'bash scripts/hooks/inject.sh в копии @3290b6b → rc 0, «утверждений 64 · сошлось 64 · разошлось 0»'
+    trigger_gate: 'pr-target-branches.py --self-test → rc 0, проб 86, провалов 0; без флага → rc 0 ЗЕЛЁНЫЙ; ci.yml разобран yaml.safe_load: в build 11 шагов, последний — проба хука'
+    gitenv_race: 'go test -race -count=1 -v ./gitenv/ в golang:1.26.8 → ok, PASS 7, FAIL 0, DATA RACE 0'
+
+  real_tree_one_fact_defects:   # настоящий хук, настоящий линтер v2.12.2, git push в голый удалённый; дефект — новый файл в authz/proxytuple (вложенный пакет)
+    twin_clean_3290b6b: 'rc 0, 38 с, ссылка доехала; «исполнено 5 из 5»; gofmt прочитал 750 файлов; линтер 0 issues; go test: пакетов 99 (прошло 80 · без проб 19), проб исполнено 3075, отказов 0, пропущено 191'
+    d-test (TestCV21Injected с t.Fatal): 'rc 1, ссылки нет; красные — go test -short; названа authz/proxytuple :: TestCV21Injected'
+    d-lint (неиспользуемая cv21Unused): 'rc 1, ссылки нет; красные — golangci-lint; «func cv21Unused is unused (unused)»'
+    d-gofmt (лишние пробелы в const): 'rc 1, ссылки нет; красные — gofmt, golangci-lint (форматтер gofmt в конфиге); назван cv21_fmt.go'
+    d-vet (битый тег структуры): 'rc 1, ссылки нет; красные — vet, golangci-lint; «struct field tag … bad syntax»'
+    d-build (string в int): 'rc 1, ссылки нет; красные — сборка, vet, golangci-lint, go test -short; названа cv21_build.go:3:22'
+
+  zero_checks:
+    no_tools_in_PATH: 'PATH = bash git grep head wc sort mkdir cat sed, git push → rc 1 (хук — код 2), ссылки нет; «исполнено НОЛЬ проверок из 5», без условия 5 — все пять названы'
+
+  stub_without_script:
+    v2_tree_without_hook: 'ветка на f213439 (в дереве нет scripts/hooks), переходник v2 → rc 1, ссылки нет; «ОТКАЗ — проверок НЕ БЫЛО», назван адресат'
+    v2_linked_worktree_without_hook: 'git -C wt32 push → rc 1, ссылки нет; переходник взят из общего каталога, адресат назван в wt32'
+    control_real_v1: 'v1 поставлен НАСТОЯЩИМ установщиком fef469d:scripts/hooks/install.sh (sha256 переходника 8a2feff8 — тот же, что в inject.sh); дерево без хука → rc 0, ссылка e3-nohook-v1 ДОЕХАЛА: дефект воспроизводим'
+    v1_with_hook_tree: 'v1 + дерево @3290b6b → rc 1, ссылки нет; «прежней редакции: pre-push(v1)», совет make install-hooks; исполнено проверок 0'
+    check_from_linked_worktree: 'install.sh check из wt21 → rc 0, клон назван общий ($dir/real/.git/hooks)'
+
+  gitenv_scrub_one_fact:
+    D1 хук забыл GIT_PREFIX: 'rc 1, «Vars() снимает, а хук — нет: GIT_PREFIX», в хуке 6, в Vars() 7'
+    D2 хук снимает лишнюю GIT_NAMESPACE: 'rc 1, «хук снимает, а Vars() — нет: GIT_NAMESPACE»'
+    D3 граница закомментирована: 'rc 1, «НЕТ ни одной снимаемой переменной GIT_*»'
+    T1 те же имена в другом порядке: 'rc 0'
+    T2 одна строка с хвостовым комментарием: 'rc 0'
+
+  probe_of_probe:   # один факт в хуке, переходнике или Makefile; судья — inject.sh этой же копии; после каждого прогона git checkout -- ., porcelain 0
+    twin T0 правка комментария хука: 'rc 0, 64 из 64'
+    red_13_of_20:
+      P1 переходник v2 выходит 0 на ненайденном адресате: 'разошлось 4'
+      P2 ноль исполненного → код 0: 'разошлось 1'
+      P3 провязка не судится: 'разошлось 3'
+      P4 вершина ≠ HEAD не судится: 'разошлось 1'
+      P5 gofmt не краснеет: 'разошлось 1'
+      P6 «без условия» засчитано в исполненные: 'разошлось 3'
+      P7 код 3 линтера → «без условия»: 'разошлось 1'
+      P8 check-hooks только в .PHONY, без рецепта: 'разошлось 3'
+      P9 v1 не распознаётся как прежняя редакция: 'разошлось 3'
+      P13 грязная копия не судится: 'разошлось 2'
+      P14 несколько вершин не судятся: 'разошлось 1'
+      P15 go test с -run '^$': 'разошлось 3'
+      P18 пропуск wip/* возвращён: 'разошлось 3'
+    red_by_accident:
+      P23 go test ./... → go test .: 'разошлось 2 — но только потому, что sed самой инъекции «без -short» перестал совпадать («инъекция … изменила копию хука»); сужение охвата проба не судит'
+    silent_6_of_20:   # rc 0, 64 из 64 — см. finding F2
+      P16 кэш линтера перенесён в ${HOME}/.cache/golangci-lint: 'молчит'
+      P20 снят --config=.github/golangci.yml: 'молчит'
+      P21 охват линтера сужен до ./gitenv/...: 'молчит'
+      P22 go vet ./... → go vet .: 'молчит'
+      P24 go build ./... → go build .: 'молчит'
+      P25 gofmt только по первому файлу обхода: 'молчит (фикстурный файл случайно первый)'
+
+  empty_walk:   # finding F1
+    module_without_tests: 'синтетический модуль, в нём ни одной пробы; хук @3290b6b побайтно, переходник v2, git push → rc 0, ссылка доехала; «проб исполнено : 0», «ЗЕЛЁНЫЙ: отказов нет», «исполнено 5 из 5, красных 0 — отправляю»'
+    all_probes_skipped_under_short: 'та же фикстура + одна проба с t.Skip под testing.Short() → rc 0, ссылка доехала; проб исполнено 0, пропущено 1, «исполнено 5 из 5»'
+    twin_one_executed_probe: 'та же фикстура + одна исполняемая проба → rc 0; проб исполнено 1 — исход хука неотличим от двух строк выше'
+    runner_asked_directly: 'go-test-verdict.py на потоке из одного события «skip» пакета → rc 0, «ЗЕЛЁНЫЙ» (файл волны 32, в дифф полосы не входит)'
+
+findings:
+  - id: F1
+    blocks_landing: true
+    claim: 'проверка «go test -short» зеленеет на пустом обходе проб'
+    measured: >-
+      см. experiments.empty_walk: ни одной исполненной пробы (проб нет вовсе либо
+      все пропущены под -short) — c_test отдаёт 0, проверка идёт в «исполнено»,
+      хук 0, отправка уходит. Отличие от зелёного с пробами — только в печатном
+      числе. Та же работа для gofmt делает пустой обход красным (c_gofmt: «ноль
+      неотформатированных было бы ноль прочитанного»), а шапка хука обосновывает
+      прогонщик тем, что «ok» голого go test не отличает прошедшие пробы от
+      отсутствующих; по коду исхода прогонщик их тоже не отличает.
+    rule: 'testing.md ban17-gates / census-separate-from-findings / positive-control-needs-nonempty; критерий задания «отсутствие проверок не даёт зелёного»'
+    predicate_of_fix: >-
+      тот же опыт: модуль без проб и модуль, где все пробы пропущены под -short, —
+      хук НЕ 0 (красное либо третья категория, в «исполнено» не входит), ссылка
+      не доезжает; близнец с одной исполненной пробой — 0. Пара — в inject.sh.
+  - id: F2
+    blocks_landing: true
+    claim: 'проба хука (inject.sh) не различает охват и аргументы проверок: подставной линтер принимает любые аргументы, фикстура — один корневой пакет'
+    measured: >-
+      см. probe_of_probe.silent_6_of_20: снятый --config, линтер по ./gitenv/...,
+      общий на машину кэш линтера, vet и build только корневого пакета, gofmt по
+      одному файлу — inject.sh 64 из 64. Настоящий хук сейчас этих дефектов не
+      несёт: опыты real_tree_one_fact_defects с дефектом во вложенном пакете
+      красные. Но шаг ci.yml заявляет, что хук «судится здесь, а не вниманием»,
+      а состав «тот же, что в ci.yml» и перенос кэша линтера в каталог git
+      (исправление из 75af8e1) держатся вниманием. Подставной линтер глотает
+      вход, на котором настоящий отказывает (неверный путь конфига).
+    rule: 'testing.md double-must-honor-real-contract, fake-structurally-unable-to-be-green; test-title-wider-than-body (заголовок шага шире тела пробы); ban12-tdd для кэша линтера'
+    predicate_of_fix: >-
+      те же шесть инъекций (P16, P20, P21, P22, P24, P25) — каждая даёт в
+      inject.sh ≥1 «разошлось», называющее свой предмет; близнец T0 — 64 из 64
+      (или новое число) без расхождений. Например, подставной линтер пишет свой
+      argv и GOLANGCI_LINT_CACHE, проба сверяет их с пином; дефекты
+      build/vet/gofmt кладутся во вложенный пакет фикстуры.
+
+observations:   # неблокирующие
+  - id: N1
+    item: 'нет grep в PATH — хук отказывает (fail-closed), но с ложной причиной'
+    measured: 'PATH без grep: «grep: command not found», «[: : integer expected», затем «ОТКАЗ — в рабочей копии правок и неотслеживаемых файлов: .» при чистой копии (porcelain 0). Красное, не зелёное; причина названа неверно (finding-text-is-part-of-property). Собственная ошибка опыта (битая ссылка grep) его и вскрыла'
+  - id: N2
+    item: 'go-test-verdict.py (волна 32, вне диффа) отдаёт 0 при нуле исполненных проб'
+    measured: 'runner_asked_directly; тот же исход наследует задание unit ci.yml — отдельный предмет, не этой полосы'
+
+not_distinguished_by_fake:
+  - 'подставной golangci-lint: аргументы (--config, охват ./..., --timeout), GOLANGCI_LINT_CACHE — не различает ничего, кроме версии и кода выхода'
+  - 'фикстура хука — один корневой пакет: ./... и . для build/vet/test неотличимы; gofmt по всему индексу и по части его неотличимы'
+  - 'фикстура не различает пустой обход проб (F1): в ней всегда есть одна исполняемая проба'
+masks: >-
+  маски, выписанных списков исключаемого, вычетов не найдено. Осмотрено:
+  scripts/hooks/pre-push целиком (единственный обход — CORELIB_SKIP_PREPUSH=1, он
+  объявлен и печатает непроверенное; пропуск wip/* снят — P18 это держит),
+  install.sh, inject.sh, Makefile, дифф ci.yml (+12 строк, один шаг).
+  Послабления — F1 (пустой обход проб) и F2 (сужение охвата не судится).
+
+counts:
+  unit: 'опыт = одна команда со своим исходом, поставленная в этом заходе'
+  own_experiments: 51   # inject дословно 1 · гейт триггеров 2 · race 1 · реальные отправки 6 · без инструментов 2 (с битой ссылкой grep — N1) · переходник 4 · check из worktree 1 · make check/install/check 3 · gitenv 6 · probe-of-probe 21 (20 инъекций + T0) · пустой обход 3 · прогонщик напрямую 1
+  tally: 'совпали с ожиданием приёмки 41 · разошлись 10: F1 — 2, F2 — 7 (6 молчат, P23 красное не по предмету), N1 — 1'

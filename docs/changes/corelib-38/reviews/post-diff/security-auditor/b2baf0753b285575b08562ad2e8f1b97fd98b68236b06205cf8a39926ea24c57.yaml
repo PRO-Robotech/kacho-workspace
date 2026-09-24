@@ -1,0 +1,65 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность».
+# Имя файла — content_digest отсуженного диффа. Запись лежит в копии и НЕ закоммичена — по заданию.
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+subject: >-
+  oauthceremony: адреса authorize/token названы в Config, а не выводятся из Issuer (задача #38, волна #32)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: 3535e77f55334e11ac8ae373b84f046482a2cc9e
+  head_tree: 5bd4f6feae46a25e44da96d30b7732f178b94de7
+  shortstat: '4 файла, +413 / -24'
+content_digest: sha256:b2baf0753b285575b08562ad2e8f1b97fd98b68236b06205cf8a39926ea24c57
+digest_definition: 'git diff --full-index 9f0393c540d7..3535e77f5533 | sha256sum'
+verdict: returned
+blocks_landing: true
+return_to: go-implementer (полоса #38)
+review_scope: >-
+  весь дифф (4 файла); вне диффа прочитаны New/validateConfig/Authorize/postForm, сборка
+  обработчиков движка (ceremony.go:253-296), clientViewOf (translate.go:252-267), все читатели
+  TokenURL и Issuer-настроек в internal/oauth2 (grep по дереву @head_tree).
+answers:
+  derivation_substitution: >-
+    снята. Адреса доезжают до движка дословно из Config: проба
+    TestEndpointsReachTheEngineAsNamedInConfig красная на возвращённом выводе из Issuer
+    (2 случая из 3), законный близнец зелёный — инъекция в копии вне дерева.
+  scheme: >-
+    не ограничена (http, ftp приняты). Читателя схемы на путях церемонии нет: запрос
+    синтезируется в памяти, не набирается и корнем не публикуется. Тяжесть — низкая, не находка.
+  host: >-
+    «порт без хоста» (https://:8443/...) принят — C1 go-style-reviewer, подтверждаю замером.
+    Читателя хоста нет, подмены нет; по безопасности — низкая. Та же дыра у предиката Issuer
+    (ceremony.go:191-193).
+  query_fragment_userinfo: 'отвергаются поимённо у обоих адресов, ДО разбора; проба держит.'
+  normalization: >-
+    нет, значения дословно. Единственный читатель TokenURL — сверка aud утверждения клиента
+    (client_authentication.go:185) — недостижим: clientView не реализует OpenIDConnectClient,
+    движок отказывает на client_authentication.go:99-102 раньше.
+findings:
+  - id: F1
+    severity: medium
+    key: 'corelib:oauthceremony/ceremony.go:issuer-unread-doc-claims-artifacts'
+    at: oauthceremony/ceremony.go:48-51, 191-193, 210-211
+    sign: >-
+      после снятия вывода у Config.Issuer нет читателя ни в одном выпускаемом артефакте:
+      AccessTokenIssuer/IDTokenIssuer читают только JWT-стратегии движка
+      (handler/oauth2/strategy_jwt.go:126, handler/openid/strategy_jwt.go:217), а церемония
+      собирает только HMAC-стратегию (ceremony.go:253). Новый текст шапки утверждает
+      «Уезжает в артефакты издателем». Отказ по Issuer при этом уже контракта адресов:
+      сведения пользователя, строка запроса, фрагмент, порт без хоста проходят.
+    failure_scenario: >-
+      служба собирает церемонию с Issuer, несущим сведения пользователя или строку запроса, —
+      New принимает; ни токен, ни интроспекция, ни ответ авторизации издателя не несут;
+      потребитель, опершийся на шапку («артефакт привязан к издателю»), получает привязку,
+      которой нет, а проверка при старте судит значение, не меняющее ничего.
+    proof: >-
+      инъекция в копии вне дерева: Issuer-настройки движка заменены чужим значением → полный
+      пакет 214 зелёных / 4 красных, все 4 — утверждение значения настройки в новой пробе;
+      ни одна поведенческая проба издателя не видит. Чистая голова: 218 зелёных / 0 красных.
+cross_repo: []
+dry_round: false
