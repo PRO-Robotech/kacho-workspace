@@ -2,7 +2,7 @@
 # Copyright (c) PRO-Robotech
 # SPDX-License-Identifier: BUSL-1.1
 #
-# PreToolUse(Bash) hook — heavy-guard. Тяжёлая команда без слота памяти
+# PreToolUse(Bash|Monitor) hook — heavy-guard. Тяжёлая команда без слота памяти
 # (`scripts/heavy-slot.sh`) получает отказ с текстом, как запустить её правильно.
 # Разбор команды и словарь форм — в heavy-guard/guard.py; доказательство —
 # heavy-guard/prove.sh (его зовёт scripts/hook-proofs.sh).

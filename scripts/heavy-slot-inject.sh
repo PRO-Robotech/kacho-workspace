@@ -43,7 +43,8 @@ entries() { local n=0 f; for f in "$HEAVY_SLOT_DIR"/active/*; do [ -e "$f" ] && 
 mem() { printf 'MemTotal: %d kB\nMemAvailable: %d kB\n' $((61440 * 1024)) $(( (61440 - $1) * 1024 )) > "$W/meminfo"; }
 
 export HEAVY_SLOT_DIR="$W/slots" HEAVY_SLOT_MEMINFO="$W/meminfo" HEAVY_SLOT_LIMIT_MIB=100000 \
-       HEAVY_SLOT_POLL_S=1 HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_GUARD_S=1 HEAVY_SLOT_GUARD_GRACE_S=10
+       HEAVY_SLOT_POLL_S=1 HEAVY_SLOT_WAIT_S=2 HEAVY_SLOT_GUARD_S=1 HEAVY_SLOT_GUARD_GRACE_S=10 \
+       HEAVY_SLOT_BUDGET_MIB=64
 mem 1000
 
 # slot [ENV=…] <класс> -- … — код слота; stderr в $W/err.
@@ -59,7 +60,7 @@ assert 3 "$(slot bash "$SLOT" docker -- bash -c 'exit 3')" "исполнивша
 echo "── ручки над настоящей памятью: общий каталог, потолок ≤ 45 ГиБ, класс как есть"
 # Без синтетического meminfo слот судит настоящую память машины — и тогда ручки,
 # снимающие потолок или очередь, получают 64 ДО первой записи (опыт ws#832).
-REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S)
+REAL=(-u HEAVY_SLOT_DIR -u HEAVY_SLOT_MEMINFO -u HEAVY_SLOT_LIMIT_MIB -u HEAVY_SLOT_GUARD_S -u HEAVY_SLOT_GUARD_GRACE_S -u HEAVY_SLOT_BUDGET_MIB)
 SHARED="$(getent passwd "$(id -u)" | cut -d: -f6)/.cache/heavy-slots"
 seen() { stat -c %s:%Y "$SHARED/journal.log" 2>/dev/null || echo нет; }
 before="$(seen)"
@@ -74,6 +75,16 @@ if [ "$rc" = 75 ]; then
 else
     assert "0 да" "$rc $([ -e "$W/k5" ] && echo да || echo нет)" "близнец: общий каталог, потолок 45 ГиБ — слот выдан, команда исполнилась"
 fi
+
+echo "── синтетический meminfo — режим проб: тяжёлым прогоном он быть не способен"
+# Опыт ws#832, круг 3: скрипт с синтетическим meminfo, своим каталогом и потолком
+# 200 ГиБ страж пропускает (ручки он видит лишь в строке команды) — держит слот.
+printf '#!/usr/bin/env bash\nHEAVY_SLOT_MEMINFO=%q HEAVY_SLOT_DIR=%q HEAVY_SLOT_LIMIT_GIB=200 bash %q go-race -- touch %q\n' \
+    "$W/meminfo" "$W/own2" "$SLOT" "$W/p1" > "$W/knobs.sh"
+assert "64 да нет" "$(slot -u HEAVY_SLOT_BUDGET_MIB -u HEAVY_SLOT_LIMIT_MIB bash "$W/knobs.sh") $(has "$W/err" 'режим проб') $([ -e "$W/p1" ] && echo да || echo нет)" "скрипт с ручками, бюджет класса go-race — 64, причина названа, команда не запускалась"
+assert "64 нет" "$(slot HEAVY_SLOT_BUDGET_MIB=513 bash "$SLOT" docker -- touch "$W/p2") $([ -e "$W/p2" ] && echo да || echo нет)" "бюджет 513 МиБ — 64"
+assert "0 да" "$(slot HEAVY_SLOT_BUDGET_MIB=512 bash "$SLOT" docker -- touch "$W/p3") $([ -e "$W/p3" ] && echo да || echo нет)" "близнец: бюджет 512 МиБ — слот выдан"
+assert "64 да" "$(slot HEAVY_SLOT_GUARD_S=60 bash "$SLOT" docker -- true) $(has "$W/err" 'сторож раз в 1–2 с')" "сторож раз в 60 с — 64, причина названа"
 
 echo "── вход по порогу: (MemTotal − MemAvailable) + недобранное + бюджет ≤ потолок"
 export HEAVY_SLOT_LIMIT_MIB=1300

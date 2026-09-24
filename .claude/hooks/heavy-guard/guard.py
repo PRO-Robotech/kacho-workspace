@@ -6,18 +6,25 @@
 Предмет: решение владельца 2026-09-24 «контроль за оперативной памятью не должна
 переваливать за 45гб». Слот (`scripts/heavy-slot.sh`) держит потолок, только если
 через него идут ВСЕ тяжёлые прогоны; команда в обход него — ровно та полоса,
-которая «видела, что памяти хватает». Страж стоит на PreToolUse(Bash) и отказывает
-такой команде с текстом, как запустить её правильно.
+которая «видела, что памяти хватает». Страж стоит на PreToolUse Bash и Monitor (он
+исполняет command той же оболочкой) и отказывает такой команде с текстом, как
+запустить её правильно.
 
 Судит РАЗОБРАННУЮ команду, а не текст: строка режется на простые команды по
 управляющим операторам вне кавычек (включая `$(…)`, обратные кавычки, тела
 `bash -c` с любыми слитными флагами — `-lc`, `-ec` — и heredoc, поданный оболочке),
 прочие тела heredoc и комментарии выбрасываются, у каждой простой команды
-снимаются присваивания и обёртки (`timeout`, `env`, `xargs`, `nice`, `sudo`,
-`find -exec`, …), переменные строки (`R=-race; go test $R`, `export GOFLAGS=…`)
-подставляются. Поэтому «go test -race» в сообщении коммита, в grep-образце или в
-записываемом heredoc-файле не находка, а `cd x && timeout 900 go test -race ./...`
-— находка.
+снимаются присваивания и обёртки с их опциями (`timeout`, `env -S`, `xargs`,
+`time -v`, `command -p`, `flock`, `systemd-run`, `find -exec`, …). Переменные
+раскрываются как в оболочке: без кавычек — с делением на слова, в двойных — без,
+в одинарных — никак: `bash -c '…'` раскрывает дочерняя оболочка, а ей видим только
+экспорт строки (`export`, `set -a`, присваивание перед командой); `$@`, `$1` строки
+`sh -c` — её аргументы. Тот же экспорт получают скрипт, рецепты make и go (GOFLAGS).
+Строку оболочке несут и `watch`, `script -c`, `parallel`, `flock -c`; незнакомая
+команда, в чьих словах стоит тяжёлая программа (`strace -f go test -race`), —
+обёртка, кроме команд-данных (NON_EXEC: echo, grep, …). Поэтому «go test -race» в
+сообщении коммита, в grep-образце или в записываемом heredoc-файле не находка, а
+`cd x && timeout 900 go test -race ./...` — находка (опыт ws#832, круги 1–3).
 
 Тяжесть make-цели и скрипта ВЫВОДИТСЯ из дерева, а не из словаря: страж читает
 Makefile (цель, её предпосылки, `$(MAKE)`-вызовы, include, переменные файла и
@@ -32,7 +39,9 @@ cluster.sh`). make страж НЕ зовёт: `make -n` исполняет ст
 Команда слота (`heavy-slot.sh <класс> -- …`) законна целиком: хвост после `--` —
 его аргументы. В строке команды она не несёт ручек HEAVY_SLOT_* кроме WAIT_S,
 POLL_S и потолка: свой каталог, синтетический meminfo, бюджет и ограничитель —
-для проб слота, в живом вызове они снимают очередь или предел.
+для проб слота, в живом вызове они снимают очередь или предел. Ручки глубже строки
+(в тексте скрипта) страж не судит — их держит слот: синтетический meminfo там —
+режим проб с бюджетом ≤ 512 МиБ.
 
 Исходы: 0 без вывода — пропуск; 2 и текст в stderr — отказ (текст видит тот, кто
 звал Bash: исполнитель, у диспетчера Bash нет); 0 и additionalContext «СЛОМАН» —
@@ -43,7 +52,14 @@ POLL_S и потолка: свой каталог, синтетический me
 Граница: `$(command -v go)`, текст в `| bash`, программа или каталог в переменной,
 присвоенной не в судимой строке (`cd "$d" && ./run.sh`), переменная make из
 `$(shell …)` (страж её не исполняет — пусто), `python3 -c "os.system(…)"`,
-`go env -w`, docker API без клиента (testcontainers, compose — их держит слот).
+`go env -w`, docker API без клиента (testcontainers, compose — их держит слот);
+строка оболочке одним словом у незнакомой обёртки (`tmux new -d '…'`, `screen`,
+`su -c`); аргументы скрипта в его `$@` (`bash run.sh go test -race`); экспорт,
+унаследованный оболочкой Bash мимо окружения стража, кроме GOFLAGS и MAKEFLAGS;
+`npx playwright test` и `npm test` консоли — ни в одном классе: бюджет не замерен
+(ui-future/e2e/playwright.config.ts — workers: 1); `docker exec` с тяжёлым
+внутри получает класс, но память его — в cgroup живого контейнера: слот её
+резервирует, а не ограничивает.
 """
 
 import glob
@@ -63,10 +79,14 @@ RANK = ("go-race", "ci-local", "integration", "lint", "stand", "docker", "newman
 # без файла в дереве продукта находит prove.sh.
 SCRIPTS = {"ci-local.sh": "ci-local", "newman-parallel.sh": "newman"}
 
-WRAPPERS_NOARG = {"nohup", "command", "exec", "time", "setsid", "builtin", "!", "{",
-                  "do", "then", "else", "elif", "if", "while", "until"}
-# обёртка → опции, берущие значение отдельным словом
-WRAPPERS_OPTS = {
+KEYWORDS = {"!", "{", "do", "then", "else", "elif", "if", "while", "until"}
+# обёртка → её опции, берущие значение отдельным словом; прочие «-…» — флаги
+# (опыт ws#832: `/usr/bin/time -v`, `time -p`, `command -p` проводили -race мимо)
+WRAPPERS = {
+    "nohup": set(), "builtin": set(), "setsid": set(),
+    "time": {"-f", "--format", "-o", "--output"},
+    "command": set(),                 # -v/-V — поиск имени, а не запуск
+    "exec": {"-a"},
     "timeout": {"-s", "--signal", "-k", "--kill-after"},
     "nice": {"-n", "--adjustment"},
     "ionice": {"-c", "-n", "-p", "--class", "--classdata"},
@@ -75,14 +95,35 @@ WRAPPERS_OPTS = {
     "xargs": {"-a", "-d", "-E", "-I", "-L", "-n", "-P", "-s", "--arg-file", "--delimiter",
               "--max-args", "--max-procs", "--max-lines", "--max-chars"},
     "npx": {"-p", "--package"},
-    "chrt": set(),
-    "taskset": set(),
+    "chrt": set(), "taskset": set(),
+    "flock": {"-w", "--wait", "--timeout", "-E", "--conflict-exit-code"},
+    "systemd-run": {"-p", "--property", "-u", "--unit", "--description", "--slice", "--uid",
+                    "--gid", "--nice", "--working-directory", "-E", "--setenv", "-H", "--host",
+                    "-M", "--machine", "--service-type", "--on-active", "--on-calendar"},
 }
+POSITIONAL = {"timeout": 1, "chrt": 1, "taskset": 1, "flock": 1}  # слов между опциями и командой
+PARALLEL_OPTS = {"-j", "--jobs", "-P", "--max-procs", "-S", "--sshlogin", "--joblog", "-a",
+                 "--arg-file", "--colsep", "-d", "--delimiter", "-E", "-I", "--replace", "-L",
+                 "-n", "--max-args", "-N", "--results", "--tmpdir", "--timeout", "--load",
+                 "--memfree", "--delay", "--retries", "--workdir", "--tagstring", "--env"}
+# Команды, чьи слова — данные, а не запуск: хвост «go test -race» у них не находка.
+# У прочих незнакомых он находка — обёрток больше, чем их можно выписать (strace,
+# parallel, doas, unshare …), и незнакомая молча проводила бы тяжёлое мимо.
+NON_EXEC = {"echo", "printf", "grep", "egrep", "fgrep", "rg", "ag", "ack", "gh", "man", "info",
+            "which", "type", "whereis", "whatis", "apropos", "hash", "alias", "cat", "less",
+            "more", "head", "tail", "sed", "awk", "gawk", "jq", "yq", "test", "[", "[[", "ssh",
+            "scp", "true", "false", ":", "sleep", "wc", "sort", "tee", "diff", "read"}
 SHELLS = {"bash", "sh", "zsh", "dash", "ksh"}
+HEADS = {"go", "golangci-lint", "govulncheck", "gosec", "docker", "docker-compose", "kind",
+         "helm", "newman", "make", "gmake"} | SHELLS
 DECLARE = {"export", "declare", "typeset", "readonly", "local"}
+TOOL_ENV = {"GOFLAGS", "MAKEFLAGS"}  # решают класс; могут прийти экспортом из профиля
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_.-]*)\1")
-VARREF = re.compile(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\}|([A-Za-z_][A-Za-z0-9_]*))")
+SQ, DQ = "\ue000", "\ue001"  # `$`-литерал этой оболочки / `$` в двойных кавычках
+VARREF = re.compile("([$%s])(?:\\{([A-Za-z_][A-Za-z0-9_]*)(?::?-([^}]*))?\\}|([A-Za-z_][A-Za-z0-9_]*))" % DQ)
+POSREF = re.compile(r'"\$(?:\{[@*]\}|[@*])"|\$(?:\{([0-9@*#])\}|([0-9@*#]))')
+SAFE = re.compile(r"^[\w./=:,+%@-]+$")
 TRUE = {"1", "t", "T", "true", "TRUE", "True"}  # strconv.ParseBool — разбор флагов go
 
 CAP_GIB = 45  # решение владельца 2026-09-24; слот держит то же число сам (CAP_MIB)
@@ -196,12 +237,40 @@ REDIR_OP = re.compile(r"^(\d*|&)(<<<|<<-?|<>|>>|>\||<|>)&?$")
 REDIR_WORD = re.compile(r"^(\d*|&)(<<<|<<-?|<>|>>|>\||<|>)&?\S")
 
 
+def mark(segment):
+    """`$` по кавычкам: в одинарных и экранированный — SQ (литерал; раскроет его разве
+    что дочерняя оболочка, из СВОЕГО окружения), в двойных — DQ (раскрывается, слово
+    не делится), без кавычек — `$` (раскрывается и делится). Без этой разметки
+    `C="go test -race"; bash -c "$C"` делился на слова, и -c получал одно «go»."""
+    out, q, i, n = [], None, 0, len(segment)
+    while i < n:
+        c = segment[i]
+        if q == "'":
+            out.append(SQ if c == "$" else c)
+            q = None if c == "'" else q
+        elif c == "\\" and i + 1 < n:
+            out.append(SQ if segment[i + 1] == "$" else segment[i:i + 2])
+            i += 2
+            continue
+        elif c == '"':
+            q = None if q == '"' else '"'
+            out.append(c)
+        elif c == "'" and q is None:
+            q = "'"
+            out.append(c)
+        else:
+            out.append(DQ if c == "$" and q == '"' else c)
+        i += 1
+    return "".join(out)
+
+
 def words(segment):
-    """Слова простой команды без перенаправлений (`<<EOF`, `2>&1`, `> f`)."""
+    """Слова простой команды без перенаправлений (`<<EOF`, `2>&1`, `> f`); `$` размечен."""
+    s = mark(segment)
     try:
-        ws = shlex.split(segment, posix=True)
+        ws = shlex.split(s, posix=True)
     except ValueError:
-        ws = segment.split()
+        ws = s.split()
     out, skip = [], False
     for w in ws:
         if skip:
@@ -213,20 +282,38 @@ def words(segment):
     return out
 
 
-def expand_words(ws, env):
-    """Подставляет переменные, присвоенные раньше в той же строке, и умолчания `${X:-y}`."""
-    known = dict(e.split("=", 1) for e in env)
-
-    def sub(m):
-        name = m.group(1) or m.group(3)
-        if name in known:
-            return known[name]
-        return m.group(2) if m.group(2) is not None else m.group(0)  # ${X:-умолчание}
+def expand_words(ws, vis):
+    """Раскрывает переменные этой оболочки (присвоенные раньше в строке либо пришедшие
+    окружением) и умолчания `${X:-y}`; делит слово только по раскрытию вне кавычек.
+    SQ-литералы возвращаются в `$` — их раскроет тот, кто исполнит слово."""
+    known = dict(e.split("=", 1) for e in vis)
     out = []
     for w in ws:
-        v = VARREF.sub(sub, w) if "$" in w else w
-        out.extend(v.split() if v != w else [w])
+        cut = []
+
+        def sub(m):
+            name = m.group(2) or m.group(4)
+            if name in known:
+                v = known[name]
+            elif m.group(3) is not None:
+                v = m.group(3)  # ${X:-умолчание}
+            else:
+                return m.group(0)
+            cut.append(m.group(1) == "$")
+            return v
+        v = VARREF.sub(sub, w).replace(SQ, "$").replace(DQ, "$")
+        out.extend(v.split() if any(cut) else [v])
     return out
+
+
+def skip_opts(args, opts):
+    """Хвост после опций: значение берут опции из opts; `--` кончает опции."""
+    k = 0
+    while k < len(args) and args[k].startswith("-") and args[k] != "-":
+        if args[k] == "--":
+            return args[k + 1:]
+        k += 2 if args[k] in opts else 1
+    return args[k:]
 
 
 def unwrap(argv):
@@ -239,7 +326,7 @@ def unwrap(argv):
             i += 1
             continue
         base = os.path.basename(w)
-        if base in WRAPPERS_NOARG:
+        if base in KEYWORDS:
             i += 1
             continue
         if base == "env":
@@ -247,26 +334,49 @@ def unwrap(argv):
             while i < len(argv) and (argv[i].startswith("-") or ASSIGN.match(argv[i])):
                 if ASSIGN.match(argv[i]):
                     env.append(argv[i])
+                if argv[i] in ("-S", "--split-string") and i + 1 < len(argv):
+                    argv = argv[:i] + argv[i + 1].split() + argv[i + 2:]
+                    continue
                 i += 2 if argv[i] in ("-u", "--unset", "-C", "--chdir") else 1
             continue
-        if base in WRAPPERS_OPTS:
-            opts, i = WRAPPERS_OPTS[base], i + 1
-            while i < len(argv) and argv[i].startswith("-"):
+        if base in WRAPPERS:
+            opts, i = WRAPPERS[base], i + 1
+            while i < len(argv) and argv[i].startswith("-") and argv[i] != "-":
+                if base == "command" and re.match(r"^-[A-Za-z]*[vV]", argv[i]):
+                    return env, []
+                if argv[i] == "--":
+                    i += 1
+                    break
                 i += 2 if argv[i] in opts else 1
-            if base == "timeout" and i < len(argv):
-                i += 1  # длительность
-            if base in ("chrt", "taskset") and i < len(argv):
-                i += 1  # приоритет / маска
+            i = min(i + POSITIONAL.get(base, 0), len(argv))
+            if base == "flock" and argv[i:i + 1] in (["-c"], ["--command"]):
+                return env, ["sh", "-c"] + argv[i + 1:]
             continue
         break
     return env, argv[i:]
+
+
+def positional(cmd, params):
+    """`sh -c 'строка' $0 $1 …`: позиционные параметры строки — слова после неё."""
+    def q(p):
+        return p if SAFE.match(p) else shlex.quote(p)
+
+    def sub(m):
+        k = m.group(1) or m.group(2)
+        if k is None or k in "@*":  # "$@" целиком, $@, $*
+            return " ".join(q(p) for p in params[1:])
+        if k == "#":
+            return str(max(len(params) - 1, 0))
+        return q(params[int(k)]) if int(k) < len(params) else ""
+    return POSREF.sub(sub, cmd)
 
 
 def shell_args(args):
     """Разбор `bash [опции] …`: (строка -c | None, скрипт | None, его аргументы, stdin).
 
     -c узнаётся и слитным (`-lc`, `-ec`, `-xc`); значения -o/-O/+o, --rcfile —
-    отдельным словом; строка команды — первое слово после опций.
+    отдельным словом; строка команды — первое слово после опций, её аргументы —
+    $0, $1, … (при -c).
     """
     k, has_c, stdin = 0, False, False
     while k < len(args):
@@ -288,7 +398,7 @@ def shell_args(args):
         break
     rest = args[k:]
     if has_c:
-        return (rest[0] if rest else None), None, [], False
+        return (rest[0] if rest else None), None, rest[1:], False
     if stdin or not rest:
         return None, None, [], True
     return None, rest[0], rest[1:], False
@@ -308,8 +418,8 @@ def flag_value(args, names):
 
 def go_test_class(args, env):
     """args — после `go test`."""
-    goflags = " ".join(e.split("=", 1)[1] for e in env if e.startswith("GOFLAGS="))
-    allargs = args + goflags.split()
+    goflags = [e.split("=", 1)[1] for e in env if e.startswith("GOFLAGS=")]
+    allargs = args + (goflags[-1].split() if goflags else [])  # последнее присваивание — в силе
     tags = ",".join(flag_value(allargs, ("-tags", "--tags")))
     if "integration" in re.split(r"[,\s]+", tags):
         return "integration"
@@ -346,7 +456,7 @@ def push_runs_ci_local(path):
 
 DOCKER_GLOBAL_VALUE = {"--context", "-c", "-H", "--host", "--config", "-l", "--log-level",
                        "--tlscacert", "--tlscert", "--tlskey"}
-DOCKER_HEAVY = {"run", "create", "start", "build"}
+DOCKER_HEAVY = {"run", "create", "start", "build", "bake"}
 COMPOSE_HEAVY = {"up", "run", "build", "start", "create"}
 
 
@@ -364,26 +474,20 @@ def docker_class(args, ctx, level):
     if sub == "compose":
         heavy = any(t in COMPOSE_HEAVY for t in tail if not t.startswith("-"))
         return "docker" if heavy else None
-    if sub not in DOCKER_HEAVY:
-        return None
-    if sub == "run":
+    if sub in ("run", "exec"):
         # Команда контейнера — хвост после образа, либо строка `sh -c '…'` в нём.
         # Её класс уточняет бюджет: go test -race в golang — это go-race, а с
         # docker.sock внутри — integration (testcontainers ходят в dockerd машины).
+        # `docker exec` лёгок, пока внутри нет тяжёлого: память — уже живого контейнера.
         env = [a.split("=", 1)[1] if a.startswith("--env=") else a for a in tail if "GOFLAGS=" in a]
         sock = any("docker.sock" in a for a in tail)
         for k, a in enumerate(tail):
-            if a == "go" and tail[k + 1:k + 2] == ["test"]:
-                inner = go_test_class(tail[k + 2:], env)
-            elif a in SHELLS:
-                cmd, _, _, _ = shell_args(tail[k + 1:])
-                if cmd is None:
-                    continue
-                inner = best(classes_in(cmd, None, ctx, level))
-            else:
-                continue
-            if inner in ("go-race", "integration"):
-                return "integration" if sock else inner
+            if os.path.basename(a) == "go" or a in SHELLS:
+                inner = classify_argv(env, tail[k:], None, ctx, level, None)
+                if inner in ("go-race", "integration"):
+                    return "integration" if sock else inner
+    if sub not in DOCKER_HEAVY:
+        return None
     return "docker"
 
 
@@ -424,14 +528,16 @@ def read_text(p, ctx):
     return data.decode("utf-8", "replace")
 
 
-def file_classes(path, cwd, ctx, level, alt, shell):
-    """Классы скрипта по его тексту; shell=False — только если это скрипт оболочки."""
+def file_classes(path, cwd, ctx, level, alt, shell, env=None):
+    """Классы скрипта по его тексту; shell=False — только если это скрипт оболочки.
+    env — окружение, с которым его зовут (`export GOFLAGS=-race; bash x.sh`)."""
     p = resolve(path, cwd, alt)
     if p is None or level >= MAX_LEVEL:
         return set()
-    if p in ctx.files:
-        return ctx.files[p] or set()
-    ctx.files[p] = None
+    key = (p, tuple(env or ()))
+    if key in ctx.files:
+        return ctx.files[key] or set()
+    ctx.files[key] = None
     text = read_text(p, ctx)
     got = set()
     if text is not None:
@@ -439,8 +545,8 @@ def file_classes(path, cwd, ctx, level, alt, shell):
         is_sh = shell or p.endswith((".sh", ".bash")) or (
             first.startswith("#!") and re.search(r"\b(ba|z|da|k)?sh\b", first))
         if is_sh:
-            got = classes_in(text, cwd, ctx, level + 1, os.path.dirname(p))
-    ctx.files[p] = got
+            got = classes_in(text, cwd, ctx, level + 1, os.path.dirname(p), env)
+    ctx.files[key] = got
     return got
 
 
@@ -682,6 +788,8 @@ def make_class(env, args, cwd, ctx, level):
         load(mf)
     vs.update(over)
     found, visited = set(), set()
+    # окружение рецепта: экспорт вызова и переменные командной строки make
+    renv = list(env) + ["%s=%s" % kv for kv in over.items()] + (["MAKEFLAGS=n"] if dry else [])
 
     def walk(t):
         if t in visited or t not in rules:
@@ -698,7 +806,7 @@ def make_class(env, args, cwd, ctx, level):
             if dry and not plus and "$(MAKE)" not in raw and "${MAKE}" not in raw:
                 continue
             line = mk_expand(body, vs, auto).lstrip("@-+ \t")
-            found.update(classes_in(line, d, ctx, level + 1, d, ["MAKEFLAGS=n"] if dry else []))
+            found.update(classes_in(line, d, ctx, level + 1, d, renv))
 
     for g in goals or default[:1]:
         walk(mk_expand(g, vs))
@@ -713,19 +821,38 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
     args = argv[1:]
     if base == "heavy-slot.sh":
         return None
+
+    def text_class(text):  # строка, которую исполнит дочерняя оболочка
+        return best(classes_in(text, cwd, ctx, level, alt, env)) if text else None
     if base in SHELLS:
-        cmd, script, _, _ = shell_args(args)
+        cmd, script, params, _ = shell_args(args)
         if cmd is not None:
-            return best(classes_in(cmd, cwd, ctx, level, alt, env))
+            return text_class(positional(cmd, params))
         if script is None or os.path.basename(script) == "heavy-slot.sh":
             return None
         if os.path.basename(script) in SCRIPTS:
             return SCRIPTS[os.path.basename(script)]
-        return best(file_classes(script, cwd, ctx, level, alt, True))
+        return best(file_classes(script, cwd, ctx, level, alt, True, env))
     if base in (".", "source"):
-        return best(file_classes(args[0], cwd, ctx, level, alt, True)) if args else None
+        return best(file_classes(args[0], cwd, ctx, level, alt, True, env)) if args else None
     if base == "eval":
-        return best(classes_in(" ".join(args), cwd, ctx, level, alt, env))
+        return text_class(" ".join(args))
+    if base == "watch":  # слова склеиваются и идут в sh -c
+        return text_class(" ".join(skip_opts(args, {"-n", "--interval", "-q", "--equexit"})))
+    if base == "script":
+        for k, a in enumerate(args):
+            if a.startswith("--command="):
+                return text_class(a.split("=", 1)[1])
+            if a == "--command" or re.match(r"^-[A-Za-z]*c$", a):
+                return text_class(" ".join(args[k + 1:k + 2]))
+        return None
+    if base == "parallel":
+        cmd = []
+        for w in skip_opts(args, PARALLEL_OPTS):
+            if w.startswith(":::"):
+                break
+            cmd.append(w)
+        return text_class(" ".join(cmd))
     if base in ("make", "gmake"):
         return make_class(env, args, cwd, ctx, level)
     if base in SCRIPTS:
@@ -738,16 +865,25 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
                     if w in (";", "+"):
                         break
                     sub.append(w)
-                c = classify_argv(env, sub, cwd, ctx, level, alt)
+                e2, sub = unwrap(sub)
+                c = classify_argv(env + e2, sub, cwd, ctx, level, alt)
                 if c:
                     return c
         return None
-    if base == "go" and args[:1] == ["test"]:
-        return go_test_class(args[1:], env)
+    if base == "go":
+        k = 0  # глобальный флаг go до подкоманды: `go -C services/vpc test -race`
+        while k < len(args) and args[k].startswith("-"):
+            k += 2 if args[k] == "-C" else 1
+        sub, rest = (args[k], args[k + 1:]) if k < len(args) else ("", [])
+        if sub == "test":
+            return go_test_class(rest, env)
+        if sub in ("run", "build", "install") and go_test_class(rest, env) == "go-race":
+            return "go-race"  # бинарь с -race запускают — ради этого его и собирают
+        return None
     if base == "golangci-lint" and "run" in args:
         return "lint"
-    if base in ("govulncheck", "gosec"):
-        return "lint"
+    if base in ("govulncheck", "gosec") and any(not a.startswith("-") for a in args):
+        return "lint"  # с пакетами; `gosec -version` и имя инструмента аргументом — нет
     if base == "docker":
         return docker_class(args, ctx, level)
     if base == "docker-compose" and any(a in COMPOSE_HEAVY for a in args):
@@ -775,48 +911,88 @@ def classify_argv(env, argv, cwd, ctx, level, alt):
                 return "ci-local"
         return None
     if "/" in argv[0]:
-        return best(file_classes(argv[0], cwd, ctx, level, alt, False))
+        c = best(file_classes(argv[0], cwd, ctx, level, alt, False, env))
+        if c:
+            return c
+    if base in NON_EXEC or "$" in argv[0] or "__SUBST__" in argv[0]:
+        return None
+    # Незнакомая команда, в чьих словах стоит тяжёлая программа (`strace -f go test
+    # -race`, `parallel go test -race ::: …`, `doas docker run …`), — обёртка. Имя
+    # скрипта в словах — не признак: у chmod, cp, ls оно путь, а не запуск.
+    for k in range(1, len(args) + 1):
+        b = os.path.basename(argv[k])
+        if b == "heavy-slot.sh":
+            return None
+        if b in HEADS:
+            c = classify_argv(env, argv[k:], cwd, ctx, level, alt)
+            if c:
+                return c
     return None
 
 
 def scan(text, cwd, ctx, level=0, alt=None, env0=None):
     """Простые команды строки по порядку: ("heavy", класс, env, argv) либо
-    ("knob", присваивание, env, argv) — ручка слота в строке команды."""
-    cur, line_env = cwd, list(env0 or [])
+    ("knob", присваивание, env, argv) — ручка слота в строке команды.
+
+    env0 — окружение этой оболочки. Внутри строки ведутся два множества: vis —
+    переменные оболочки (ими раскрывается `$X` в ЭТОЙ строке), exp — её экспорт
+    (окружение детей: `bash -c`, скрипта, рецептов make, go). Не экспортированная
+    `F=-race; bash -c 'go test $F'` до дочерней оболочки не доходит; экспорт — это
+    `export`/`declare -x`, `set -a`, присваивание перед командой и имя, уже
+    экспортированное (окружение стража либо TOOL_ENV)."""
+    cur, vis, exp, allexport = cwd, list(env0 or []), list(env0 or []), False
+
+    def exported(e):
+        n = e.split("=", 1)[0]
+        return allexport or n in TOOL_ENV or n in os.environ or any(x.startswith(n + "=") for x in exp)
     stripped, bodies = strip_heredocs(text)
-    for intro, body in bodies:
-        # heredoc, поданный оболочке (`bash <<EOF`, `sh -s <<EOF`), — её команды
-        for seg in split_commands(intro):
-            _, argv = unwrap(words(seg))
-            if argv and os.path.basename(argv[0]) in SHELLS and shell_args(argv[1:])[3]:
-                yield from scan(body, cur, ctx, level, alt, line_env)
-                break
     loops = {}
     for ws in (v for seg in split_commands(stripped) for v in loop_variants(words(seg), loops, cur)):
-        env, argv = unwrap(expand_words(ws, line_env))
+        env, argv = unwrap(expand_words(ws, vis))
         if not argv:
-            line_env.extend(env)  # `R=-race` отдельной командой
+            exp.extend([e for e in env if exported(e)])  # `R=-race` отдельной командой
+            vis.extend(env)
             continue
         base = os.path.basename(argv[0])
         if base in ("cd", "pushd") and len(argv) > 1 and "__SUBST__" not in argv[1] and "$" not in argv[1]:
             cur = os.path.join(cur or os.getcwd(), os.path.expanduser(argv[1]))
             continue
-        if base in DECLARE:
-            line_env.extend(a for a in argv[1:] if ASSIGN.match(a))
+        if base == "set":
+            allexport = allexport or "allexport" in argv or any(
+                re.match(r"^-[A-Za-z]*a", a) for a in argv[1:])
             continue
-        allenv = line_env + env
+        if base in DECLARE:
+            xp = base == "export" or any(re.match(r"^-[A-Za-z]*x", a) for a in argv[1:])
+            for a in argv[1:]:
+                if ASSIGN.match(a):
+                    if xp or exported(a):
+                        exp.append(a)
+                    vis.append(a)
+                elif xp and not a.startswith("-"):  # `export R` — присвоенной раньше
+                    val = dict(e.split("=", 1) for e in vis).get(a)
+                    exp.extend([] if val is None else [a + "=" + val])
+            continue
+        cenv = (vis if base in (".", "source", "eval") else exp) + env
         if level == 0 and slot_call(argv):
-            for e in allenv:
+            for e in vis + env:
                 if bad_knob(e):
-                    yield "knob", e, allenv, argv
+                    yield "knob", e, vis + env, argv
                     break
             continue
         inline = shell_args(argv[1:])[0] if base in SHELLS else " ".join(argv[1:]) if base == "eval" else None
         if level == 0 and inline:
-            yield from (h for h in scan(inline, cur, ctx, 0, alt, allenv) if h[0] == "knob")
-        c = classify_argv(allenv, argv, cur, ctx, level, alt)
+            yield from (h for h in scan(inline, cur, ctx, 0, alt, cenv) if h[0] == "knob")
+        c = classify_argv(cenv, argv, cur, ctx, level, alt)
         if c:
-            yield "heavy", c, allenv, argv
+            yield "heavy", c, cenv, argv
+    for intro, body in bodies:
+        # heredoc, поданный оболочке (`bash <<EOF`, `sh -s <<EOF`), — её команды;
+        # переменные — всей строки (тело без кавычек раскрывает внешняя оболочка)
+        for seg in split_commands(intro):
+            _, argv = unwrap(words(seg))
+            if argv and os.path.basename(argv[0]) in SHELLS and shell_args(argv[1:])[3]:
+                yield from scan(body, cur, ctx, level, alt, vis)
+                break
 
 
 def loop_variants(ws, loops, cwd):
@@ -831,7 +1007,7 @@ def loop_variants(ws, loops, cwd):
         return []
     out = [ws]
     for var, vals in loops.items():
-        ref = re.compile(r"\$(\{%s\}|%s\b)" % (var, var))
+        ref = re.compile(r"[$%s](\{%s\}|%s\b)" % (DQ, var, var))
         if any(ref.search(w) for w in ws):
             out = [[ref.sub(lambda _m, v=v: v, w) for w in o] for o in out for v in vals][:100]
     return out
@@ -852,7 +1028,9 @@ def classes_in(text, cwd, ctx, level=0, alt=None, env0=None):
 
 
 def find_heavy(text, cwd, ctx=None):
-    for hit in scan(text, cwd, ctx or Ctx()):
+    # GOFLAGS, экспортированный профилем, делает -race каждый `go test` строки
+    env0 = ["GOFLAGS=" + os.environ["GOFLAGS"]] if os.environ.get("GOFLAGS") else []
+    for hit in scan(text, cwd, ctx or Ctx(), env0=env0):
         return hit
     return None
 
@@ -928,11 +1106,14 @@ def main():
         data = json.load(sys.stdin)
     except (ValueError, OSError) as exc:
         broken("вход хука не разобран как JSON (%s)" % exc)
-    if data.get("tool_name") not in (None, "Bash"):
+    tool = data.get("tool_name")
+    if tool not in (None, "Bash", "Monitor"):  # Monitor исполняет command той же оболочкой
         return
     cmd = (data.get("tool_input") or {}).get("command")
+    if tool == "Monitor" and cmd is None:
+        return  # источник ws: команды нет
     if not isinstance(cmd, str):
-        broken("у вызова Bash нет tool_input.command")
+        broken("у вызова %s нет tool_input.command" % (tool or "Bash"))
     ws = os.environ.get("CLAUDE_PROJECT_DIR") or os.path.dirname(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     slot = os.path.join(ws, "scripts", "heavy-slot.sh")

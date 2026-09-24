@@ -42,6 +42,7 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 pass=0; fail=0; void=0; denied=0; passed=0
+TOOL=Bash; HOOKENV=()  # инструмент входа и окружение самого стража
 
 assert() {
     if [ "$1" = "$2" ]; then
@@ -51,10 +52,11 @@ assert() {
     fi
 }
 
-# run <команда> [cwd] — код стража; вывод в $WORK/out.
+# run <команда> [cwd] — код стража; вывод в $WORK/out. GOFLAGS и MAKEFLAGS
+# прогона сняты: страж читает их из своего окружения, а оно — HOOKENV.
 run() {
-    python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' \
-        "$1" "${2:-$WORK}" | CLAUDE_PROJECT_DIR=/ws bash "$HOOK" > "$WORK/out" 2>&1
+    python3 -c 'import json,sys; print(json.dumps({"tool_name":sys.argv[3],"tool_input":{"command":sys.argv[1]},"cwd":sys.argv[2]}))' \
+        "$1" "${2:-$WORK}" "$TOOL" | env -u GOFLAGS -u MAKEFLAGS "${HOOKENV[@]}" CLAUDE_PROJECT_DIR=/ws bash "$HOOK" > "$WORK/out" 2>&1
     echo $?
 }
 
@@ -143,6 +145,87 @@ passes             "bash <<'EOF'
 go vet ./...
 EOF"
 
+echo "── круг 3: строка дочерней оболочке из переменных строки, экспорт, \$@"
+denies go-race     'C="go test -race ./..."; bash -c "$C"'
+passes             'C="go test ./..."; bash -c "$C"'
+passes             'C="go test -race ./..."; bash -c $C'
+denies go-race     "C='go test -race ./...'; sh -c \"\$C\""
+passes             "C='go vet ./...'; sh -c \"\$C\""
+denies go-race     "export FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
+passes             "FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
+denies go-race     "FLAGS=-race bash -c 'go test \$FLAGS ./...'"
+denies go-race     "R=-race; export R; bash -c 'go test \$R ./...'"
+denies go-race     "set -a; FLAGS=-race; bash -c 'go test \$FLAGS ./...'"
+denies go-race     'X=go; bash -c "$X test -race ./..."'
+passes             'X=go; bash -c "$X test ./..."'
+denies go-race     'F="-race ./..."; bash -c "go test $F"'
+passes             'F="-v ./..."; bash -c "go test $F"'
+denies go-race     "R=-race; eval 'go test \$R ./...'"
+passes             "R=-v; eval 'go test \$R ./...'"
+denies go-race     "bash -c '\"\$@\"' _ go test -race ./..."
+passes             "bash -c '\"\$@\"' _ go test ./..."
+denies go-race     "sh -c 'exec go test \$1 ./...' sh -race"
+passes             "sh -c 'exec go test \$1 ./...' sh -v"
+HOOKENV=(GOFLAGS=-race)
+denies go-race     'go test ./...'
+HOOKENV=()
+
+echo "── круг 3: опции обёрток, go -C, go run/build -race"
+denies go-race     '/usr/bin/time -v go test -race ./...'
+passes             '/usr/bin/time -v go test ./...'
+denies go-race     '/usr/bin/time -o /tmp/t -f %M go test -race ./...'
+denies go-race     'time -p go test -race ./...'
+passes             'time -p go vet ./...'
+denies go-race     'command -p go test -race ./...'
+passes             'command -v go test -race ./...'
+denies go-race     'exec -a x go test -race ./...'
+denies go-race     'env -S "go test -race ./..."'
+denies go-race     'go -C services/vpc test -race ./...'
+passes             'go -C services/vpc test ./...'
+denies go-race     'go run -race ./cmd/x'
+passes             'go run ./cmd/x'
+denies go-race     'go build -race -o x .'
+passes             'go build -o x .'
+
+echo "── незнакомые обёртки; строка оболочке у watch, script, parallel, flock"
+denies go-race     'strace -f go test -race ./...'
+passes             'strace -f go vet ./...'
+passes             'echo go test -race ./...'
+passes             'chmod +x scripts/ci-local.sh'
+denies go-race     'systemd-run --user --scope -p MemoryMax=16G go test -race ./...'
+passes             'systemd-run --user --scope -p MemoryMax=16G go vet ./...'
+denies go-race     "watch -n 5 'go test -race ./...'"
+passes             'watch -n 5 docker ps'
+denies go-race     "script -qc 'go test -race ./...' /dev/null"
+passes             "script -qc 'go vet ./...' /dev/null"
+denies go-race     "parallel -j2 'go test -race {}' ::: ./a ./b"
+passes             "parallel -j2 'go vet {}' ::: ./a ./b"
+denies go-race     'parallel go test -race ::: ./a'
+denies go-race     "flock /tmp/l -c 'go test -race ./...'"
+passes             "flock /tmp/l -c 'go vet ./...'"
+denies go-race     'flock -w 5 /tmp/l go test -race ./...'
+denies lint        'gosec ./...'
+passes             'gosec -version'
+denies go-race     'docker exec box go test -race ./...'
+passes             'docker exec box go test ./...'
+denies docker      'docker buildx bake'
+passes             'docker buildx ls'
+
+echo "── Monitor исполняет command той же оболочкой: страж стоит и на нём"
+TOOL=Monitor
+denies go-race     'go test -race ./...'
+passes             'tail -f run.log | grep --line-buffered ERROR'
+TOOL=Bash
+out="$(printf '{"tool_name":"Monitor","tool_input":{"ws":{"url":"wss://x"},"description":"d","timeout_ms":1000}}' | bash "$HOOK" 2>&1; echo "rc=$?")"
+assert "rc=0" "$out" "Monitor с источником ws, без команды — пропуск молча"
+wired="$(python3 -c '
+import json, re, sys
+ms = [e.get("matcher", "") for e in json.load(open(sys.argv[1])).get("hooks", {}).get("PreToolUse", [])
+      if any("heavy-guard.sh" in h.get("command", "") for h in e.get("hooks", []))]
+print(" ".join(t for t in ("Bash", "Monitor") if any(re.fullmatch(m, t) for m in ms)) or "нет")
+' "$ROOT/.claude/settings.json")"
+assert "Bash Monitor" "$wired" "settings.json: heavy-guard провязан на PreToolUse и для Bash, и для Monitor"
+
 echo "── законный близнец той же формы → пропуск молча"
 passes 'go test ./...'
 passes 'go test -run Race ./...'
@@ -195,7 +278,7 @@ cat > "$M/Makefile" <<EOF
 GO ?= go
 STAND = kind create cluster
 include sub/vars.mk
-.PHONY: t dep help heavydry lightdry loop
+.PHONY: t dep help heavydry lightdry loop plain
 t: dep
 	@echo building; touch $MARK
 dep:
@@ -210,6 +293,8 @@ loop:
 	@for s in sh/h*.sh; do bash "\$\$s" || exit 1; done
 lightloop:
 	@for s in sh/l*.sh; do bash "\$\$s" || exit 1; done
+plain:
+	touch $MARK; go test ./...
 EOF
 printf 'RACE := -race\n' > "$M/sub/vars.mk"
 printf 'include vars.mk\nunit:\n\ttouch %s; go test $(RACE) ./...\n' "$MARK" > "$M/sub/Makefile"
@@ -218,6 +303,7 @@ printf '#!/usr/bin/env bash\necho "kind create cluster"\n' > "$M/sh/light.sh"
 printf '#!/usr/bin/env bash\n./inner.sh\n' > "$M/sh/outer.sh"
 printf '#!/usr/bin/env bash\nnewman run c.json\n' > "$M/sh/inner.sh"
 printf '#!/usr/bin/env python3\nimport os; os.system("true")\n# kind create cluster\n' > "$M/sh/tool"
+printf '#!/usr/bin/env bash\ngo test ./...\n' > "$M/sh/unit.sh"
 chmod +x "$M/sh/"*
 denies go-race 'make t' "$M"
 denies go-race 'make -C sub unit' "$M"
@@ -236,6 +322,11 @@ passes         'bash sh/light.sh' "$M"
 passes         './sh/tool' "$M"
 denies stand   'for s in sh/h*.sh; do bash "$s"; done' "$M"
 passes         'for s in sh/l*.sh; do bash "$s"; done' "$M"
+denies go-race 'export GOFLAGS=-race; bash sh/unit.sh' "$M"
+passes         'export GOFLAGS=-count=1; bash sh/unit.sh' "$M"
+denies go-race 'export GOFLAGS=-race; make plain' "$M"
+denies go-race 'make plain GOFLAGS=-race' "$M"
+passes         'make plain' "$M"
 assert "нет" "$([ -e "$MARK" ] && echo да || echo нет)" "страж не исполнял ни одного рецепта (метки нет)"
 
 echo "── не Bash и поломка стража"
