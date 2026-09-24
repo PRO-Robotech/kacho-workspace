@@ -674,6 +674,27 @@ if mr_patch "$b/$HK_REL" 's/ && \[ "\$n_pushed" -eq 0 \]//' "удаление м
     run 1 "$b" "инъекция: удаление рядом с вершиной снимает прогон — краснеет" "$C10"
 fi
 
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\(cd "\$wt" && bash "\$g"/(cd "\$ROOT" && bash "\$g"/' \
+    "наборы исполняются в копии"; then
+    run 1 "$b" "инъекция: вершина судится по рабочей копии (ws#811) — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/--detach "\$wt" "\$c"/--detach "\$wt" HEAD/' "судится HEAD вместо вершины"; then
+    run 1 "$b" "инъекция: судится HEAD, а не отправляемая вершина — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/name="\$\{rref#refs\/heads\/\}"/name="\$(git rev-parse --abbrev-ref HEAD)"/' \
+    "черновик по HEAD"; then
+    run 1 "$b" "инъекция: черновик взят по HEAD, а не по ссылке — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/mktemp -d "\$wt_base\/pre-push.XXXXXX"/mktemp -d/' "копия вершины в TMPDIR"; then
+    run 0 "$b" "близнец: копия вершины в другом месте — молчит" "$C10"
+fi
+
 # Близнец: та же форма, другие слова — проверка судит исход, а не формулировку.
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/только удаление, прогона не было/уезжает лишь снятие ссылок, наборы не исполнялись/' \
