@@ -33,6 +33,35 @@ fi
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
 
+# ── Вход отправки: ЧТО уезжает, а не где стоит копия ─────────────────────────
+#
+# git подаёт на stdin по строке на ссылку: `<local ref> <local sha> <remote ref>
+# <remote sha>`. Нулевой `<local sha>` — снятие ссылки: ревизий в нём нет, и
+# судить копию значило бы решать исход снятия её незакоммиченной правкой (ws#810).
+# Пустой вход (ручной вызов) за «только удаления» НЕ считается. Проверки
+# влитости снимаемой головы здесь нет: перепись веток — `scripts/branch-audit.sh`.
+# Держит это `scripts/tooling-gate/check-10-push-hook-judges-what-is-pushed.sh`.
+is_null_sha() { case "$1" in '' | *[!0]*) return 1 ;; esac; }
+pushed=()
+removed=()
+if [ ! -t 0 ]; then
+    while read -r _lref lsha rref rsha || [ -n "${lsha:-}" ]; do
+        [ -n "${lsha:-}" ] || continue
+        if is_null_sha "$lsha"; then
+            removed+=("$rref (была ${rsha:0:12})")
+        else
+            pushed+=("$rref $lsha")
+        fi
+    done
+fi
+n_removed=${#removed[@]}
+n_pushed=${#pushed[@]}
+if [ "$n_removed" -gt 0 ] && [ "$n_pushed" -eq 0 ]; then
+    printf 'pre-push: снимается ссылок %s: %s\n' "$n_removed" "${removed[*]}" >&2
+    echo "pre-push: только удаление, прогона не было" >&2
+    exit 0
+fi
+
 # Ветка, которую никто не собирается вливать, проверок не требует.
 branch="$(git rev-parse --abbrev-ref HEAD)"
 case "$branch" in
