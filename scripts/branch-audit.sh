@@ -108,6 +108,15 @@
 # Использование:
 #   scripts/branch-audit.sh [путь-к-репозиторию]                  # перепись
 #   scripts/branch-audit.sh --prune-merged [путь-к-репозиторию]   # + снять влитые
+#   scripts/branch-audit.sh [--prune-merged] <путь> <ветка>…      # только кандидаты
+#
+# РЕЖИМ КАНДИДАТОВ (ws#813). Полная перепись клона продукта (≈500 веток) не
+# укладывается в один вызов: ветка, ответвлённая до переезда дерева, несёт
+# тысячи файлов, и каждый проходит признаки (6а)–(7) по всем стволам. Снятию
+# нужен вердикт по снимаемой ветке, поэтому перечень после пути судит ТОЛЬКО
+# названные ветки — тем же кодом: их строки и разделы совпадают с полной
+# переписью (держит `scripts/branch-audit-inject.sh`, AF–AI). Ненайденный
+# кандидат называется, и без находки код 2. Время прогона печатается всегда.
 #
 # Переменные: BRANCH_AUDIT_TRUNK (ствол, умолчание origin/main),
 #             BRANCH_AUDIT_FRESH_MIN (окно «движется прямо сейчас», умолчание 45),
@@ -141,6 +150,17 @@ PRUNE=0
 if [ "${1:-}" = "--prune-merged" ]; then PRUNE=1; shift; fi
 
 REPO="${1:-$(pwd)}"
+[ "$#" -eq 0 ] || shift
+CANDIDATES=("$@")
+declare -A CAND=()
+for c in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do CAND["$c"]=0; done
+# $1 = ветка → 0, если она судится этим прогоном (без перечня — любая); отмечает осмотр.
+wanted() {
+  [ "${#CANDIDATES[@]}" -eq 0 ] && return 0
+  [ -n "${CAND[$1]+x}" ] || return 1
+  CAND["$1"]=1
+}
+START=$(date +%s)
 cd "$REPO" || { echo "branch-audit: каталог '$REPO' недоступен" >&2; exit 2; }
 
 git rev-parse --git-dir >/dev/null 2>&1 || {
@@ -216,6 +236,8 @@ if [ "${#TRUNKS[@]}" -gt 1 ]; then
 else
   echo "branch-audit: накопительных веток нет — сверка только со стволом"
 fi
+[ "${#CANDIDATES[@]}" -eq 0 ] ||
+  echo "branch-audit: режим кандидатов — судятся только названные ветки (${#CANDIDATES[@]}): ${CANDIDATES[*]}"
 # ── МАШИННО СОБИРАЕМОЕ не считается расщеплённой работой ────────
 #
 # Указатель хранилища пересобирается генератором в каждой ветке, поэтому его
@@ -635,6 +657,7 @@ census_asked=0; census_found=0
 # --- локальные ветки ----------------------------------------------------------
 while read -r b; do
   [ "$b" = "${TRUNK#origin/}" ] && continue
+  wanted "$b" || continue
   examined_local=$((examined_local + 1))
 
   on_origin=0
@@ -714,6 +737,7 @@ if [ "$remote_ok" = 1 ]; then
   for b in "${!ON_ORIGIN[@]}"; do
     [ "$b" = "${TRUNK#origin/}" ] && continue
     case "$b" in release/*) continue ;; esac
+    wanted "$b" || continue
     examined_remote=$((examined_remote + 1))
 
     # Ветку origin читаем ПО ЕЁ SHA с origin, а не через возможно отставший
@@ -782,6 +806,17 @@ echo "branch-audit: осмотрено локальных ${examined_local}, н�
      "в единственном экземпляре ${#only_local[@]}, живых ${#alive[@]}," \
      "с расщеплённой работой ${#split_work[@]}, с неустановленным поглощением ${#undet_work[@]}," \
      "резервных ссылок ${#backup_refs[@]}"
+cand_missing=()
+for c in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do
+  [ "${CAND[$c]}" = 1 ] || cand_missing+=("$c")
+done
+if [ "${#CANDIDATES[@]}" -eq 0 ]; then
+  scope="полная перепись"
+else
+  scope="кандидатов ${#CANDIDATES[@]}, не найдено ни локально, ни на origin ${#cand_missing[@]}"
+  [ "${#cand_missing[@]}" -eq 0 ] || scope="$scope: ${cand_missing[*]}"
+fi
+echo "branch-audit: время прогона $(( $(date +%s) - START )) с; единица осмотра — ветка; $scope"
 
 # «Шестой признак спрошен 0 раз» — не успех: это значит, что пятый ни разу не дал
 # конфликта, то есть проверять было нечего. Разные исходы для «проверено, находок
@@ -862,3 +897,4 @@ fi
 # (сдать в PR), и молчаливый успех здесь означал бы «всё в порядке» ровно там,
 # где одна команда `git branch -D` уничтожает работу навсегда.
 [ "${#only_local[@]}" -eq 0 ] || exit 1
+[ "${#cand_missing[@]}" -eq 0 ] || exit 2
