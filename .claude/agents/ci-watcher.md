@@ -143,8 +143,8 @@ skills:
 
 ## Локальный прогон
 
-- шаг 0 (`testing-verdict.md#busy-machine-step-zero`) — MemAvailable ≥ 8 ГБ, чужих
-  `golangci-lint` и `pre-push` нет, место `df -h /`; занято — опрос раз в 60 с до 30 минут;
+- шаг 0 (`testing-verdict.md#busy-machine-step-zero`) — тяжёлое только через
+  `scripts/heavy-slot.sh`, памяти он ждёт сам до 30 минут; место `df -h /`;
   `TMPDIR` вне репозиториев;
 - инструменты и версии берутся из тех же мест, что у конвейера; ступени — от дешёвого к
   дорогому;
