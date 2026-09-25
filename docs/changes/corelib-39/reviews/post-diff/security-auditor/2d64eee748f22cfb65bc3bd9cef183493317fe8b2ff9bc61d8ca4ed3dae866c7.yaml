@@ -1,0 +1,103 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 4.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 4
+subject: >-
+  corelib #39: потолки сроков трёх артефактов церемонии в tokenpolicy, отказ New выше потолка;
+  круг 4 — только пробы: срок кода в пробе записи погашенного кода истекает старением записи
+  в подставке, а не паузой (565f5b5); строка «токен доступа» снята из таблицы
+  TestNewRefusesAnArtifactLifespanAboveItsCeiling, отказ держит проба в access_issuer_test.go (fa1dd91).
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39 (`git branch -a --contains HEAD` → только локальная 39)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_is: 'merge-base(origin/32, HEAD) = origin/32 = f213439a (перемерено после fetch)'
+  head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2
+  shortstat: '11 файлов, +582 / -19'
+  delta_since_round_3: 'd167e009..fa1dd916 — 3 файла, +154 / -34, все *_test.go; прод-кода в дельте 0'
+  commits_in_delta: ['565f5b5', 'fa1dd91']
+content_digest: sha256:2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7
+digest_definition: 'git -C tmp/corelib-39 diff --full-index f213439a..fa1dd916 | sha256sum (перемерено, совпадает с заданием)'
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T23:17:58Z'
+
+review_scope: >-
+  дельта круга целиком (code_record_retention_test.go, fakes_test.go, lifespan_ceiling_test.go)
+  и её соприкосновение с продом: bridge.go:216-275 (GetAuthorizeCodeSession, replayedCode),
+  ceremony.go:365-392 (validateConfig, три потолка), fakes_test.go:585-640 (хранение и выборка
+  записи кода: map[string]*codeRow, запись отдаётся копией GrantRecord, токены лежат отдельно),
+  access_issuer_test.go:546-570 (уцелевшая проба отказа по MaxTokenTTL), ceremony_test.go:49
+  (testCodeLifespan = 30 с). Прежнее содержание диффа не переоткрывалось.
+experiments:
+  tmpdir: '/var/tmp/sa39r4.* (вне git-деревьев; кэши сборки сняты, логи оставлены); дерево corelib после прогонов — 0 строк git status'
+  machine: 'MemAvailable ≥ 33 ГБ; чужой go test на старте — ждал опросом до освобождения перед полным прогоном'
+  head_targeted: >-
+    go test -count=1 -run 'TestConsumedCodeRecordOutlivesTheCodeLifespan|TestSequentialCodeReplayRevokesTheFamily|
+    TestNewRefusesAnArtifactLifespanAboveItsCeiling|TestNewRefusesAnAccessLifespanAboveTheTokenCeiling' -v ./oauthceremony
+    → 4 верхнего уровня прошли, 0 упали.
+  head_race_one_cpu: >-
+    docker golang:1.26.8 --cpus=1, go test -race -count=5 -run TestConsumedCodeRecordOutlivesTheCodeLifespan
+    ./oauthceremony → 5 из 5 прошли, DATA RACE 0 (прогон шёл одновременно с чужими go test —
+    условие жёстче заданного). Посылка полосы (исход не зависит от процессора) подтверждена.
+  head_full: 'go test -count=1 -json ./oauthceremony ./tokenpolicy → верхнего уровня 115 + 10 прошли, 0 упали; go vet — 0.'
+  injection_bridge_judges_consumed_code_expiry: >-
+    -overlay с bridge.go, где погашенный код с истёкшим сроком отдаётся движку как «кода нет»
+    вместо повтора (тот же класс, что круг 3): TestConsumedCodeRecordOutlivesTheCodeLifespan/запись_цела
+    КРАСНАЯ, 7 утверждений (invalid_grant вместо authorization_code_consumed; семейство не отозвано;
+    RevokeGrantRefreshTokens и RevokeGrantAccessTokens не вызваны; пара жива); близнец «запись снята»
+    зелёный; TestSequentialCodeReplayRevokesTheFamily зелёная. Старение записи различает запись и
+    срок так же, как пауза.
+  injection_access_ceiling_check_removed: >-
+    -overlay с ceremony.go без ветки AccessTokenLifespan > MaxTokenTTL:
+    TestNewRefusesAnAccessLifespanAboveTheTokenCeiling КРАСНАЯ (access_issuer_test.go:562 «срок токена
+    доступа выше потолка принят»); TestNewRefusesAnArtifactLifespanAboveItsCeiling зелёная (2 подпробы).
+    Посылка fa1dd91 «одна проверка — одна проба» подтверждена по отказу.
+  injection_refusal_text_drops_ceiling_name: >-
+    -overlay с ceremony.go, где текст отказа говорит «exceeds the ceiling» вместо
+    «exceeds tokenpolicy.MaxTokenTTL»: обе пробы потолков зелёные, весь пакет ok. См. notes[0].
+
+premise: >-
+  подтверждена по коду и прогоном: запись кода хранится по указателю, старение сдвигает все три
+  мгновения GrantRecord (IssuedAt, Session.ExpiresAt, Session.NotAfter), выборка отдаёт копию,
+  записи токенов доступа и обновления не старятся — «пара жива» у близнеца остаётся осмысленной.
+  Срок кода по умолчанию 30 с ≤ MaxAuthorizationCodeTTL, старение на потолок + 1 мин истекает код
+  при любых законных настройках; requireCodePastItsLifespan стоит как предпосылка.
+
+closed_from_prior_round:
+  - ref: '2aea5a5a….yaml notes[0] (не находка: пауза на реальных часах, комментарий об округлении срока кода)'
+    how: 'пауза снята, срок истекает старением записи; комментарий об округлении снят (565f5b5); красное 5/5 при --cpus=1 → зелёное 5/5.'
+
+findings: []
+
+notes:
+  - >-
+    не находка безопасности (правдивость пробы, предмет go-style-reviewer): шапка
+    lifespan_ceiling_test.go говорит, что снятая строка «ничего сверх неё не держала бы». Держала:
+    строка утверждала в тексте отказа ещё и имя потолка tokenpolicy.MaxTokenTTL, уцелевшая проба
+    утверждает только имя поля и величину потолка. Инъекция выше: текст отказа без имени потолка —
+    зелёный пакет. Отказ старта и величина потолка держатся; снят один замок содержания текста.
+    Исход — добавить имя потолка в перечень уцелевшей пробы либо сузить слова шапки.
+
+disclosure: >-
+  признак восстановимости прогнан по новым комментариям проб и сообщениям двух коммитов: они
+  говорят о механике пробы (часы, процессор, старение записи), координаты живого дефекта не
+  дают — реализаций порта FetchAuthorizationCode у потребителя по-прежнему ноль (круг 3).
+  Трейлеров атрибуции 0 (git log --format=%B d167e009..fa1dd916).
+
+cross_repo: 'без изменений против круга 3 (kaname#318, L2/L6) — дельта круга потребителя не трогает.'
+
+relation_to_other_records:
+  prior_security_round: '2aea5a5a….yaml (круг 3, accepted, сухой) — его note[0] закрыта этой дельтой; 2db18f96….yaml и 408fb307….yaml — F1–F3 закрыты прежде.'
+
+dry_round: true
+seen_keys:
+  - 'corelib:tokenpolicy/policy.go:refresh-ceiling-is-idle-not-family'
+  - 'corelib:tokenpolicy/policy.go:code-ceiling-diverges-from-decision'
+  - 'corelib:tokenpolicy/policy.go:code-record-retention-claimed-bounded-by-code-ttl'

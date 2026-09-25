@@ -57,9 +57,9 @@ proto-sync» с перечнем сообщений, RPC и полей. Ждат
 
 | условие | чем грузить | зачем (разделы правила) |
 |---|---|---|
-| пишешь RED/GREEN пробы, regression-lock, newman-кейс или заводишь подпорку | `Skill rule-testing` | `.claude/rules/testing.md` §«E2E НИКОГДА не пропускаются», §«Test-first — обязательно (ban #12)», §«Пирамида и инфраструктура» (и §«e2e-инварианты», если пишешь newman), §«Regression-lock security/leak-фиксов», §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» пп. 1, 6, §«Подпорка ЗЕЛЕНИТ вердикт» |
+| пишешь RED/GREEN пробы, regression-lock или заводишь подпорку; во входе план опыта | `Skill rule-testing` | `.claude/rules/testing.md` §«План опыта задачи-проверки», §«E2E НИКОГДА не пропускаются», §«Test-first — обязательно (ban #12)», §«Пирамида и инфраструктура», §«Regression-lock security/leak-фиксов», §«Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки» пп. 1, 6, §«Подпорка ЗЕЛЕНИТ вердикт» |
 | разбираешь красный или не выполнившийся прогон своих проб, линта, генерации | `Skill rule-testing-verdict` | `.claude/rules/testing-verdict.md` пп. 0, 1, 2, 6, 7, 9, 11, 12 |
-| пишешь или гоняешь newman-кейс | `Skill rule-testing-newman` | `.claude/rules/testing-newman.md` §«op-poll с РЕАЛЬНОЙ inter-poll задержкой», §«Fixture-seed обязан проверять `op.error`…», §«Параллельный прогон суит и точечный debug», §«Параллельный newman» пп. 1–2, 6 и «Мета» |
+| зеленишь или гоняешь newman-кейс тестировщика | `Skill rule-testing-newman` | `.claude/rules/testing-newman.md#edge-double-check` — что кейс утверждает; §«op-poll с РЕАЛЬНОЙ inter-poll задержкой», §«Параллельный newman — слоёная parallel-safety» |
 | решаешь, открыт ли переход к реализации, либо нашёл новый пункт перечня классов | `Skill rule-change-graph` | `.claude/rules/change-graph.md` §«5. Красный обязан быть ЧЕСТНЫМ», §«4. Классы риска размечаются ДВАЖДЫ» |
 | трогаешь `go.mod`, стабы proto, `internal/clients/**`, заводишь ребро между доменами | `Skill rule-polyrepo` | `.claude/rules/polyrepo.md` §«Раскладка `kacho`», §«Build-граф — три модуля, рёбра ПИНАМИ, `replace` ЗАПРЕЩЁН», §«Копия между репозиториями ЗАПРЕЩЕНА», §«`replace` на внутренний модуль — НИ ОДНОГО, ни в одном `go.mod`», §«Runtime cross-domain edges», §«Порядок работы для кросс-доменной фичи» |
 | ресурс отдаёт поток изменений | `Skill rule-subscription` | `.claude/rules/subscription.md` врезка «четыре решения уже приняты», §«Откуда берут готовое», §«Что заводит САМ владелец», §«Состояние: «его нет» — ПЕРВОКЛАССНЫЙ случай», §«Заводишь новый сервис с подпиской — порядок» шаги 2–4, §«Как это ТЕСТИРУЮТ» / «Владелец — интеграцией» |
@@ -106,7 +106,8 @@ proto-sync» с перечнем сообщений, RPC и полей. Ждат
   + concurrent-race на CAS/OCC/SKIP-LOCKED-инварианты (без race-пробы инвариант не мёржим).
 - **unit** — `internal/apps/kacho/api/<resource>/usecase_test.go`: use-case через mock-порты
   (`repomock`/`kachomock`); LRO дожидаются детерминированно (`AwaitOpDone`), не `time.Sleep`.
-- **newman** — `tests/newman/cases/*.py` → `gen.py`: black-box через край, ≥1 happy + ≥1 negative.
+- **newman** — не твой: newman на свой предмет не пишешь, кейс края пишет тестировщик
+  (`testing-newman.md#edge-author-black-box`), заказ — в «нужен следующий»; ты его зеленишь, не правя.
 
 Имена проб: `Test<Resource>_<ScenarioID>_<ShortDesc>` (трассировка к приёмке).
 Если service/use-case-проба требует Postgres — это утечка adapter в use-case, исправь дизайн.
@@ -163,11 +164,12 @@ return w.Commit(ctx)
 После commit'а — wake-up consumer'ов outbox (LISTEN/NOTIFY), как принято в сервисе.
 
 ### Шаг 8. GREEN
-`make test-integration` (корневой Makefile монорепо) + `go test ./...` → все зелёные. Падает —
-чинишь **реализацию**, не пробу (пробу правишь только если в ней реальная ошибка). Прогоняй
-ПОСЛЕ коммита то, чей предмет — дельта к стволу: гейт судит коммит, а работа лежит в индексе
-(`.claude/rules/testing-verdict.md` §«9. Гейт судит КОММИТ, а работа лежит в ИНДЕКСЕ»).
-В возврат — пара «красное до — зелёное после» с командами и числами.
+Свои пробы: `go test` тронутых пакетов без `-race`, свои интеграционные — `-run <имя>` через
+`$WS/scripts/heavy-slot.sh integration -- …` → все зелёные; `-race` и полный набор — конвейер PR
+сборки. Падает — чинишь **реализацию**, не пробу (пробу правишь только если в
+ней реальная ошибка). Прогоняй ПОСЛЕ коммита то, чей предмет — дельта к стволу: гейт судит
+коммит, а работа лежит в индексе (`.claude/rules/testing-verdict.md` §«9. Гейт судит КОММИТ, а
+работа лежит в ИНДЕКСЕ»). В возврат — пара «красное до — зелёное после» с командами и числами.
 
 ### Шаг 9. Рефактор
 Рефактор под зелёные пробы: убрать дублирование, error-wrapping (`fmt.Errorf("...: %w")`),
@@ -177,11 +179,21 @@ return w.Commit(ctx)
 Internal-методы наружу не выставляются — это ban #6, а не #7
 (`.claude/rules/00-kacho-core.md` §«Non-negotiables»; #7 — «Без брокера»).
 
-Финал локально: `scripts/ci-local.sh go`, `make test-integration`, `go test ./... -race`, линт,
-`govulncheck` — и сырой вывод в возврат. Newman через край требует стенда и перекатки сервиса и
-КРАЯ после регенерации контрактов (`.claude/rules/api-conventions.md` §«Поле контракта не
-выходит наружу, пока КРАЙ не пересобран») — это возврат «перекатка стенда нужна: да», а не твой
-прогон. Назвать прогон зелёным — момент `landing-reviewer`.
+## Приоритет кода и память (решение владельца 2026-09-24)
+
+- Локально — только быстрое по своим пакетам: unit без `-race`, vet, gofmt, свои пробы; `-race`,
+  линт монорепо и полный набор гонит конвейер PR сборки (`testing.md#code-first-no-wait`).
+- Сдача — коммит в ветку задачи, дальше — следующая задача пачки: ревью и прогонов не ждёшь, их
+  даёт сборка k волны; возврат по ней приходит в ветку задачи.
+- Память ≤ 45 ГиБ на машину: тяжёлое (integration, стенд, newman) — только
+  `$WS/scripts/heavy-slot.sh <класс> -- …`, 75 и 76 — «не выполнилось»; держатель — потолок сессии
+  и слот (cgroup), страж `heavy-guard` — напоминание против случайных форм, граница — `BOUNDARY`
+  в guard.py.
+
+Newman через край требует стенда и перекатки сервиса и КРАЯ после регенерации контрактов
+(`.claude/rules/api-conventions.md` §«Поле контракта не выходит наружу, пока КРАЙ не
+пересобран») — это возврат «перекатка стенда нужна: да», а не твой прогон. Назвать прогон
+зелёным — момент `landing-reviewer`.
 
 ## Clean Architecture (обязательно)
 
@@ -210,7 +222,7 @@ Dependency rule: `handler → use-case → domain`; `repo`/`clients` реали�
 
 ## Выходные артефакты
 
-- `internal/repo/<resource>_*_integration_test.go` + `internal/apps/kacho/api/<resource>/usecase_test.go` + `tests/newman/cases/*.py`
+- `internal/repo/<resource>_*_integration_test.go` + `internal/apps/kacho/api/<resource>/usecase_test.go`
 - `internal/apps/kacho/api/<resource>/<verb>.go` (use-case) + порты (`iface.go`)
 - `internal/handler/<resource>.go`
 - `internal/repo/...` (sqlc-запросы + сгенерированный код)
@@ -226,6 +238,7 @@ Dependency rule: `handler → use-case → domain`; `repo`/`clients` реали�
 
 | поле | откуда берётся |
 |---|---|
+| план опыта (был во входе): пунктов N · исход по каждому командой — покраснело \| молчит \| не выполнилось; без него сдачи нет | прогон плана `check-verifier` сам (`testing.md#exp-plan-self-run`) |
 | фаза остановки: RED \| реализация \| рефактор \| блокер на шаге N | номер шага раздела «Порядок работы», на котором ты стоишь |
 | публичный RPC: да \| нет + перечень методов; admin-проекция Internal: да \| нет | объявления методов в `proto/`, которые ты реализовал |
 | контракт: правок `.proto` не нужно \| нужен proto-sync с перечнем сообщений, RPC, полей | шаг 3: чего не нашлось в `pkg/api/` |
@@ -244,6 +257,7 @@ Dependency rule: `handler → use-case → domain`; `repo`/`clients` реали�
 | блокер: приёмки APPROVED нет | `acceptance-author` — написать приёмку под-фазы |
 | контракт: нужен proto-sync непусто | `proto-sync` — перечень сообщений, RPC, полей |
 | блокер: честного красного нет (режим split) | `integration-tester` — красный по сценариям приёмки |
+| путь края тронут, кейса края нет | `integration-tester` до реализации либо `qa-test-engineer` после выкатки — newman-кейс края |
 | публичный RPC: да \| admin-проекция Internal: да | `api-gateway-registrar` — перечень методов и признак «новый домен» |
 | миграция написана в этой цепочке | `db-architect-reviewer` — схема и инварианты |
 | затронуто outbox, worker, сага, CAS, межсервисный вызов | `system-design-reviewer`; при любом Go-диффе — `go-style-reviewer` |

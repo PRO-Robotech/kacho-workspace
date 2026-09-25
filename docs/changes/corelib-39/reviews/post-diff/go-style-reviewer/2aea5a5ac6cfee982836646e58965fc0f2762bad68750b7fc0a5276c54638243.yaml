@@ -1,0 +1,169 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 3.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2). Записи
+# кругов 1 (408fb307…) и 2 (2db18f96…) не тронуты. Запись лежит в рабочей
+# копии воркспейса ветки 825 и НЕ закоммичена — её сводит пакетный коммит
+# записей ревью.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 3
+subject: >-
+  corelib #39, круг 3: к кругу 2 добавлены слияние свежей ветки волны 32
+  (f213439a, порт выпуска токена доступа) и d167e009 — шапка
+  tokenpolicy.MaxAuthorizationCodeTTL и контракт
+  AuthorizationCodeVault.FetchAuthorizationCode говорят, что запись погашенного
+  кода хранится, пока может жить семейство (порог уборки от
+  MaxRefreshTokenFamilyTTL), с пробой TestConsumedCodeRecordOutlivesTheCodeLifespan
+  и её близнецом. Закрывает F3 security-auditor круга 2.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  base_is: 'merge-base origin/32 HEAD; origin/32 = f213439a после fetch'
+  head: d167e009effc6580f311279c1b85aa6e73e1d12d
+  head_tree: 7a6cc77f0d1737a3e91e75a041fc539ac73ca531
+  shortstat: '11 файлов, +462 / -19'
+  commits:
+    - 'ea40a52 #39 oauthceremony: сроки кода и токена обновления судятся потолком tokenpolicy'
+    - 'a19954a #39 merge #32: адреса точек из Config и PKCE полями записи кода'
+    - '3d05765 #39 пробы: сроки в настройках проб ниже потолков решения'
+    - 'c1cb73d #39 oauthceremony: срок токена доступа судится потолком MaxTokenTTL'
+    - 'ef7914b #39 tokenpolicy: потолок кода 60 с, семейства токенов обновления 168 ч'
+    - '8676ffe #39 merge #32: токен доступа выпускает порт службы, ID гранта — крючок'
+    - 'd167e00 #39 tokenpolicy: запись погашенного кода живёт сроком семейства'
+content_digest: sha256:2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243
+digest_definition: |
+  git -C tmp/corelib-39 diff --full-index $(git -C tmp/corelib-39 merge-base origin/32 HEAD)..HEAD | sha256sum
+  (перемерено своей командой после fetch — совпадает с заданием)
+
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-23T20:42:50Z'
+return_to: '—'
+review_scope: >-
+  полный закоммиченный дифф, все 11 файлов. Разрешение слияния 8676ffe прочитано
+  через `git show --remerge-diff`: конфликты в ceremony.go, ceremony_test.go,
+  endpoints_internal_test.go, engineconfig_internal_test.go сведены без потерь;
+  правка tokenpolicy/policy.go сверх конфликта (абзац о подписи токена доступа)
+  названа в теле коммита слияния. Вне диффа прочитаны: bridge.go:216-275
+  (GetAuthorizeCodeSession, replayedCode), ceremony.go:280-340 (сборка
+  обработчиков движка — только явный обмен кода, гибридного нет),
+  translate.go:415-450 (ceremonySession.SetExpiresAt сжимает срок к границе
+  гранта), strategy.go:295-312 (notExpired), fakes_test.go:495-520
+  (FetchAuthorizationCode подставки), движок flow_authorize_code_token.go:31-60,
+  flow_authorize_code_auth.go:86, flow_refresh.go:107-114,
+  tokenpolicy/policy.go:140-146, 530-547.
+
+premise:
+  status: подтверждена
+  how: >-
+    Чтением: на ветке погашенного кода GetAuthorizeCodeSession уходит в
+    replayedCode (bridge.go:246-247), срока кода там не сверяет никто; движок
+    вызывает GetAuthorizeCodeSession и разбирает повтор на строках 33-53, а
+    ValidateAuthorizeCode (срок) — на строке 58. Экспериментом: инъекция через
+    -overlay в подставку — FetchAuthorizationCode отдаёт «кода нет» для
+    погашенного кода с истёкшим сроком (уборка по сроку кода) — половина
+    «запись цела» КРАСНАЯ, 7 строк отказа (invalid_grant вместо
+    authorization_code_consumed, семейство не отозвано, порт отзыва не вызван
+    дважды, живы 1+1 артефакт, оба токена пережили повтор); близнец «запись
+    снята» зелёный. На дереве проба зелёная.
+
+experiments:
+  workdir: 'tmp/corelib-39 @d167e009; TMPDIR — /var/tmp/gsr39*.* (вне git-деревьев, удалены); -count=1; шаг 0 — MemAvailable 32,7 GiB, чужих go/golangci-lint/compile/link нет; дерево после — 0 строк git status'
+  tree: >-
+    go test -count=1 -v -run 'TestConsumedCodeRecordOutlivesTheCodeLifespan|TestSequentialCodeReplayRevokesTheFamily|TestNewRefusesAnArtifactLifespanAboveItsCeiling'
+    ./oauthceremony → ok; 3 теста верхнего уровня и 5 подтестов исполнены, 0 упали.
+  injection_sweep_by_code_ttl: 'см. premise.how — красная половина и зелёный близнец; совпадает с заявленным автором «7 находок, близнец зелен»'
+  code_expiry_rounding: >-
+    -overlay с пробой-замером: у пяти выданных кодов (срок 1 с) записанный срок
+    несёт долю секунды 210034214…210253186 нс, exp − миг выдачи = 1,000012…1,000112 с.
+    Срок кода НЕ округляется до секунды — основание находки I-3.
+  identifiers: 'go/scanner по 11 .go-файлам диффа: идентификаторов 8099, не-ASCII 0'
+  gofmt: 'gofmt -l по 11 файлам — пусто'
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # TODO|FIXME|XXX|HACK по +строкам диффа
+  panic_stray_logging_in_added_lines: 0
+  context_background_in_added_lines: '3, все в пробе code_record_retention_test.go (Exchange); в прод-коде 0'
+  cyrillic_identifiers: 0                 # кириллица только в комментариях и строках
+  probes_in_same_pr: true                 # code_record_retention_test.go, lifespan_ceiling_test.go ×2, правки фикстур
+  prod_lines_changed_this_round: 'только комментарии: ports.go +8, policy.go (шапка MaxAuthorizationCodeTTL); исполняемый код с круга 2 не менялся'
+
+prior_findings:
+  go_style_round_2:
+    I-1: 'остаётся, кросс-репо — см. important I-1'
+    I-2: 'остаётся — см. important I-2 (ceremony.go:88-89 на голове)'
+    S-1: 'остаётся, стиль'
+    forward_note_hmac: 'снято — абзац tokenpolicy/policy.go о подписи токена доступа переписан в слиянии 8676ffe под порт AccessTokenIssuer и правдив на голове'
+  security_auditor_round_2:
+    F3: >-
+      закрыто в предмете Go-кода: шапка MaxAuthorizationCodeTTL больше не
+      утверждает, что срок кода ограничивает запись; контракт выборки (ports.go:173-179)
+      называет обязанность и порог; проба держит различие записью, а не сроком
+      (подтверждено инъекцией). Окончательное снятие F3 — за security-auditor.
+
+findings:
+  critical: []
+  important:
+    - id: I-1
+      class: census-row-at-pin-bump
+      where: 'tokenpolicy/policy.go:245, 288 (у потребителя — перепись величин политики kacho, загрузчик kaname#318)'
+      summary: >-
+        без изменений с круга 2: держателя требования «служба судит свою ручку этой
+        же константой» на стороне службы нет, пока перепись потребителя не несёт
+        строк двух потолков. Теперь к нему добавлена обязанность порога уборки
+        записи кода от MaxRefreshTokenFamilyTTL (ports.go:173-179) — у службы ей
+        тоже нужен держатель.
+      requirement: 'при переходе потребителя на пин — строки переписи и проба порога уборки тем же изменением. Вне дерева corelib; посадку #39 не блокирует.'
+    - id: I-2
+      class: doc-truthfulness
+      where: 'oauthceremony/ceremony.go:88-89'
+      summary: >-
+        «решение, из которого взято значение каждого потолка, записано у самой
+        константы» верно для двух потолков из трёх: у MaxTokenTTL
+        (tokenpolicy/policy.go:141-146) записана роль в арифметике снятия ключа,
+        а решения о 30 минутах нет.
+      requirement: 'сузить фразу до двух потолков либо дать у MaxTokenTTL ссылку на решение. Не блокирует; следующим касанием файла.'
+    - id: I-3
+      class: doc-truthfulness
+      where: 'oauthceremony/code_record_retention_test.go:30-33'
+      summary: >-
+        комментарий к codeRetentionWait объясняет запас «округлением движка до
+        секунды (срок назначается Round(time.Second))». Для кода это неверно:
+        церемония собирает только явный обмен, и он назначает срок кода без
+        округления (flow_authorize_code_auth.go:86); Round стоит у сроков токенов
+        (flow_authorize_code_token.go:97, 101) и у гибридного потока, которого
+        церемония не собирает. Замер (experiments.code_expiry_rounding) —
+        у записанного срока доля секунды есть. Исход пробы от этого не зависит:
+        предпосылка requireCodePastItsLifespan судит записанный срок сама.
+      requirement: 'довод запаса назвать верно (запас на планирование и миг сравнения, округления нет) либо снять. Не блокирует.'
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: 'oauthceremony/ceremony.go:371-386'
+      summary: 'текст отказа собран конкатенацией с .String(); fmt.Sprintf с %s короче. Не блокирует.'
+  security_comments_contradicting_code: []   # ports.go:173-179 и policy.go:220-233 сверены с bridge.go и движком — правдивы
+  disclosure: >-
+    ports.go:173-179 — нормативный контракт порта: называет обязанность и её
+    довод, живой координаты дефекта в развёрнутой службе не называет; сборки
+    «координата + условие + следствие» нет.
+
+approved:
+  - 'контракт выборки и шапка константы говорят одно и то же и совпадают с кодом: повтор узнаётся по записи раньше срока (bridge.go:246-247; движок 33-53 до 58)'
+  - 'проба и близнец различаются ровно одним фактом (снята ли запись); предпосылка «срок истёк» проверяется двумя признаками — записанным сроком и отказом нетронутого кода тем же мигом, — а не паузой на веру'
+  - 'хелперы подставки sweepConsumedCode и codeExpiresAt берут m.mu (класс S-2/S-3 прошлых кругов не повторён); несозданное условие — «НЕ ВЫПОЛНИЛОСЬ», а не красное'
+  - 'подтесты с t.Parallel — по одной паузе 2,5 с на набор; управляемых часов у церемонии нет, приём тот же, что в lifetime_test.go:186-241'
+  - 'разрешение слияния 8676ffe: одна проверка AccessTokenLifespan > MaxTokenTTL, SigningSecret из фикстур снят, шапка Config сведена из обеих сторон без потери абзацев'
+  - 'нет паники, init(), сторонних логгеров, context.Background в прод-коде; идентификаторы — латиница'
+
+outside_diff: []
+
+next: >-
+  сбор пост-дифф записей — convergence-reviewer либо landing-reviewer; снятие F3 —
+  security-auditor на этом дайджесте; I-1 — полоса потребителя при переходе на пин

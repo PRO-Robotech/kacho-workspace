@@ -1,0 +1,142 @@
+# Пост-дифф ревью Go-кода продукта, роль go-style-reviewer.
+#
+# Имя файла совпадает с content_digest. Прежние записи не правятся: сменился
+# дайджест, значит новый запуск и новый файл (change-graph §2).
+#
+# Место записи. Общая рабочая копия воркспейса для этой фоновой сессии закрыта
+# на запись (охрана харнесса), поэтому запись лежит в отсоединённом worktree
+# воркспейса kacho-workspace/tmp/ws-2851-go-style-review по тому же
+# относительному пути. Переносить её в общую копию — момент диспетчера.
+schema_version: 1
+change_id: issue-2851
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+subject: >-
+  kacho#2851: registry, проба F1_46 нестабильна в хуке отправки под нагрузкой.
+  Правка оснастки: источник набора ключей отвечает на случайном объявленном
+  пути и засчитывает обращениями только его; плюс проба свойства оснастки.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: '2851'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kacho-2851
+  base: 113f3b8b591c4caef55f19c51346a10ff98d8151   # origin/2796 = merge-base, перемерено
+  head: 2413184adc9169a3783f44744a9d13332659e484
+content_digest: sha256:83bf31e484fd14377b2f31cff99cb8792ab03c86320dea056603ffb17aaf0b91
+digest_definition: >-
+  `git -C <worktree> diff --full-index origin/2796..2413184adc9169a3783f44744a9d13332659e484 | sha256sum`,
+  команда из задания, выполнена дословно.
+
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+return_to: go-implementer (полоса #2851, ветка 2851, автор коммита 2413184adc9)
+timestamp: '2026-09-23T20:05:00+03:00'
+review_scope: >-
+  Полный закоммиченный дифф: 2 файла, только тестовые (+86/-3).
+  services/registry/internal/clients/jwks/f1_harness_test.go,
+  services/registry/internal/clients/jwks/f1_harness_attribution_test.go.
+
+premise: >-
+  Подтверждена экспериментом. Механизм, который назван в коммите, существует:
+  до правки счётчик засчитывал любое прибытие на порт. Проба свойства способна
+  покраснеть: при инъекции «постороннее прибытие засчитывается как обращение»
+  (через go test -overlay, дерево не тронуто) она падает на
+  f1_harness_attribution_test.go:53 с «Should be zero, but was 2», а предпосылка
+  :51 при этом держится. Законный близнец (обращение по объявленному адресу)
+  засчитывается.
+
+critical:
+  - id: C1
+    class: fix-class-not-instance (testing.md §«Гейт на класс»; measurement-discipline §4 «Радиус»)
+    coordinates:
+      - services/registry/internal/clients/jwks/f1_revocation_test.go:44   # authority.asked: Zero на :286, Equal на :224 :230 :237 :293
+      - services/registry/internal/clients/jwks/verifier_test.go:87         # jwksServer.fetch: точные Equal на :363 :379 :391 :407 :417 :433 :452 :472 :523 :553
+      - services/registry/internal/clients/jwks/f1_keyid_fuzz_test.go:44    # fetches: «grew > 1» на :106
+      - gateway/internal/middleware/f1b_harness_test.go:56                  # ks.Requests++ (неатомарно): «!= 0» на f1b_issuer_binding_test.go:100 :118
+    finding: >-
+      Механизм, из-за которого F1_46 давала ложный красный, починен в одной
+      оснастке, а по дереву он остаётся. Это счётчик на сервере петли, который
+      засчитывает каждое прибытие и на котором стоит утверждение «ноль» или
+      точное число. В том же пакете так устроены authority, jwksServer и сервер
+      фаззинга. Двойник в gateway, f1b_harness_test.go, держит то же свойство
+      привязки к издателю, что и F1_46. Эксперимент через overlay: прибытие на
+      корень порта увеличивает authority.asked и jwksServer.fetch на 1. Число
+      вхождений ни в коммите, ни в возврате не названо, коммит говорит только
+      «F1-46 и соседние». Пакет прогоняется в хуке отправки целиком, поэтому
+      следующее постороннее прибытие на порт authority опять покрасит тот же
+      шаг, а повторять отправку до зелёного запрещено.
+    requirement: >-
+      Прочесать дерево по механизму: сервер httptest, счётчик прибытий, а на нём
+      Zero, точный Equal или «рост > N». Перечислить законные формы записи:
+      HandlerFunc, именованный обработчик, mux, TLS. Число назвать до правки и
+      починить все вхождения, на которых стоит утверждение, чувствительное к
+      лишнему прибытию. Утверждения вида Positive и GreaterOrEqual к лишнему
+      прибытию невосприимчивы: их назвать и оставить. Счёт этой записи дан одним
+      выражением (grep -A3 по `httptest.New*Server(http.HandlerFunc` вместе с
+      `.Add(1)|++`): 18 файлов, из них 4 в пакете jwks сверх исправленного. Это
+      нижняя граница, а не перепись. Правка каждого вхождения должна нести
+      свою инъекцию, как её несёт проба атрибуции.
+
+important:
+  - id: I1
+    coordinate: services/registry/internal/clients/jwks/f1_harness_test.go:87
+    finding: >-
+      Атрибуция сделана по точному равенству пути (`r.URL.Path != ks.path`).
+      Поэтому обращение по пути, производному от объявленного, записывается в
+      foreign, а не в fetches. Эксперимент: GET ks.url()+"/our-1" даёт
+      fetches=0, foreign=1. Утверждения «обращений ноль» (f1_keyid_test.go:58,
+      f1_token_checks_test.go:119, f1_issuer_binding_test.go:96 :97 :135 :219)
+      такое обращение больше не видят, а foreign только печатается в журнал.
+      Охват узкий: если производный путь строится всегда, это ловят
+      положительные контроли, потому что набор по чужому пути отдаёт 404. Но
+      оснастка стала снисходительнее, чем была.
+    requirement: >-
+      Засчитывать проверяющему каждое прибытие, в пути которого есть
+      объявленный случайный маркер (префикс ks.path; маркер фиксированной длины,
+      и совпадение с чужим невозможно), и отвечать 404 на любой путь, кроме
+      точного. В foreign считать только прибытия без маркера. В
+      TestKeySetCountsOnlyArrivalsAtItsDeclaredAddress добавить третий случай:
+      прибытие по пути, производному от объявленного, засчитывается проверяющему.
+      То же различение применить в C1.
+
+foundation_candidates: []    # горизонтального выноса правка не порождает
+
+style:
+  - id: S1
+    coordinate: services/registry/internal/clients/jwks/f1_harness_test.go:115
+    note: >-
+      t.Cleanup выполняется в обратном порядке, поэтому журнал foreign
+      печатается ДО ks.srv.Close, а прибытия между ними в счёт не попадают.
+      Регистрировать журнал раньше Close: Close дожидается обработчиков в полёте.
+  - id: S2
+    coordinate: services/registry/internal/clients/jwks/f1_harness_attribution_test.go:43
+    note: >-
+      Лучше t.Context() (в go.mod стоит go 1.26.0) и ks.srv.Client() вместо
+      context.Background() и http.DefaultClient. У DefaultClient нет предела и
+      есть прокси из окружения. Сейчас это совпадает с формой пакета, посадку
+      не блокирует.
+
+approved:
+  errors: 'каждая ошибка проверена require.NoError(f); отброшен только `_ = resp.Body.Close()`, это законно'
+  no_panic: 'panic, Must* и log.Fatal в диффе нет'
+  concurrency: 'ks.path задан до старта сервера; fetches и foreign атомарны; новых гонок нет'
+  randomness: 'crypto/rand.Text() (Go 1.24+) даёт алфавит base32, в пути безопасен'
+  consumers: 'все потребители keySet в пакете берут ks.url(); ks.srv.URL в новом коде используется только для посторонних форм пробы, и это намеренно'
+  naming_ascii: 'новые идентификаторы латиницей; русские ключи map — строковые литералы, а не идентификаторы (ban17 соблюдён)'
+  test_only: 'правлены только *_test.go; прод-кода в диффе нет (ban13)'
+  probe_can_fail: 'инъекция краснит строку :53, предпосылка :51 держится, законный близнец засчитывается'
+
+fresh_deferral_markers: 0    # grep TODO|FIXME|XXX|HACK|позже по добавленным строкам: 0
+probes_in_same_pr: true      # f1_harness_attribution_test.go в том же коммите
+forbidden_trailers_in_commit: 0
+misleading_security_comments: []
+
+# Исход линтера и проб эта роль не объявляет. Прогоны выше ставились только
+# ради находок (overlay, TMPDIR вне git-деревьев), рабочее дерево не менялось:
+# git status --short пуст.
+linter_probes_outcome: not-claimed-by-this-role
+
+next_requested: >-
+  go-implementer: закрыть C1 и I1 в ветке 2851, затем повтор go-style-reviewer
+  на новом дайджесте.

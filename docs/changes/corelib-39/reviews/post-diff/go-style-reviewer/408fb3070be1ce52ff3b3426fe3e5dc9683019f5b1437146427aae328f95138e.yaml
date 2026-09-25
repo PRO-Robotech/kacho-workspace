@@ -1,0 +1,161 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в рабочей копии воркспейса ветки 825 и НЕ закоммичена.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  corelib #39: сроки кода авторизации и токена обновления судятся потолком
+  tokenpolicy (MaxAuthorizationCodeTTL = 10 мин, MaxRefreshTokenTTL = 30 сут);
+  потолок + 1 нс → ErrCeremonyMisuse, равный потолку — собирает церемонию
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39 (`git branch -a --contains ea40a529` → только локальная 39)'
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  base_is: 'ветка 32 @84b9be87; предок головы (`git merge-base --is-ancestor` → да)'
+  head: ea40a529e7844509cc1e8069af6e423ebb3ca71e
+  head_tree: 3a0bb55ae75a160f73a989833218381c705b2be7
+  shortstat: '4 файла, +194 / -0'
+  commits:
+    - 'ea40a52 #39 oauthceremony: сроки кода и токена обновления судятся потолком tokenpolicy'
+content_digest: sha256:408fb3070be1ce52ff3b3426fe3e5dc9683019f5b1437146427aae328f95138e
+digest_definition: |
+  git -C tmp/corelib-39 diff --full-index 84b9be87..ea40a529e784 | sha256sum
+  (перемерено своей командой — совпадает с заданием)
+
+verdict: returned              # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T17:11:33Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io> (роль go-implementer)'
+review_scope: >-
+  полный закоммиченный дифф, все 4 файла; прод-код прочитан с окружением:
+  validateConfig и сборка engine.Config (ceremony.go), misuse (errors.go),
+  clientViewOf (translate.go — движку не отдаёт личных сроков клиента, значит
+  срок Config действует без подмены), ceremonySession и checkGrantBounds
+  (граница семейства только сокращает срок), flow_refresh.go:110-113 (оборот
+  назначает преемнику срок от своего выпуска), flow_authorize_code_token.go:34-49
+  (повтор кода отзывает семейство), MaxTokenTTL и SecretCredentialTTLCeiling
+  (policy.go).
+
+premise:
+  status: 'подтверждена в предмете, опровергнута в одном доводе'
+  how: >-
+    Предмет подтверждён: на base validateConfig судит три срока только на
+    положительность (`git show 84b9be87:oauthceremony/ceremony.go`, строки
+    312/314/316). Опровергнут довод «у срока токена доступа потолок фундамента
+    есть — MaxTokenTTL»: на голове AccessTokenLifespan судится только `<= 0`
+    (ceremony.go:319), и фикстура newTestCeremony (ceremony_test.go:48) задаёт
+    срок вдвое выше MaxTokenTTL — близнецы новой пробы на ней проходят.
+
+experiments:
+  workdir: 'tmp/corelib-39 @ea40a529, TMPDIR — /tmp/gsr39.*, -count=1'
+  control: >-
+    go vet ./tokenpolicy ./oauthceremony → чисто; go test -count=1 -run
+    'TestNewRefusesAnArtifactLifespanAboveItsCeiling|TestRefreshTokenCeilingStaysWithinTheSecretCredentialCeiling'
+    ./tokenpolicy ./oauthceremony → оба пакета ok, 2 теста верхнего уровня и 2
+    подтеста исполнены. Замер для находки, не вердикт.
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # TODO|FIXME|XXX|HACK по +строкам диффа
+  panic_ctx_background_stray_logging_in_added_lines: 0
+  cyrillic_identifiers_in_added_lines: 0  # кириллица только в комментариях и именах подтестов (строки)
+  probes_in_same_pr: true                 # oauthceremony/lifespan_ceiling_test.go, tokenpolicy/lifespan_ceiling_test.go
+  import_cycle: 'нет — go list -deps ./tokenpolicy не содержит пакетов corelib, кроме самого tokenpolicy'
+
+findings:
+  critical:
+    - id: C-1
+      class: security-comment-contradicts-code
+      where: tokenpolicy/policy.go:197-198
+      summary: >-
+        Заголовок нового раздела называет MaxTokenTTL потолком срока токена
+        доступа и противопоставляет ему «два других артефакта церемонии». Для
+        церемонии это неверно: validateConfig судит AccessTokenLifespan только на
+        положительность (ceremony.go:319), значения выше MaxTokenTTL New
+        принимает (фикстура ceremony_test.go:48). MaxTokenTTL по собственному
+        комментарию (policy.go:143-145) — слагаемое арифметики снятия ключа для
+        подписанных токенов, а токен доступа церемонии — HMAC (ceremony.go:237).
+        Читатель раздела выносит, что все три срока церемонии под потолком.
+      requirement: >-
+        Привести фразу и код к одному. Либо (а) validateConfig судит
+        AccessTokenLifespan названным потолком фундамента тем же отказом
+        ErrCeremonyMisuse с именем поля и потолка, проба «потолок + 1 нс» с
+        близнецом «равно потолку», фикстуры newTestCeremony и соседние
+        (ceremony_test.go:48/570/634, engineconfig_internal_test.go:185) — под
+        потолок; либо (б) фраза говорит правду: MaxTokenTTL ограничивает токены,
+        подписанные ключами набора, а срок токена доступа церемонии потолком
+        фундамента не судится — и решение об этом заводится задачей с
+        предикатом снятия, не маркером в коде. Довод раздела («страж, требующий
+        срок НАЗВАТЬ, на любом значении зелен») относится к третьему сроку
+        дословно — это довод за (а); выбор — за автором и диспетчером.
+  important:
+    - id: I-1
+      class: census-row-at-pin-bump
+      where: 'tokenpolicy/policy.go:202-203 (у потребителя — перепись величин политики, internal/repohygiene, TestTokenPolicyQuantityIsDeclaredOnce, в kacho)'
+      summary: >-
+        Раздел требует, чтобы служба судила свою ручку «этой же константой, а не
+        своей копией числа» (п. 3 предиката #39). Перепись величин политики у
+        потребителя — закрытый перечень, и двух новых потолков в нём нет;
+        держателя требования на стороне службы нет. Ложного совпадения новых
+        имён с образцами перечня нет (сверено по всем шести образцам).
+      requirement: >-
+        при переходе потребителя на пин с этими константами — строки переписи
+        для обоих потолков тем же изменением (полоса PRO-Robotech/kaname#318 и
+        перепись kacho). Предмет вне дерева corelib; посадку #39 не блокирует.
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: oauthceremony/ceremony.go:324-326, 330-332
+      summary: >-
+        текст отказа собран конкатенацией с .String(); fmt.Sprintf с %s читался
+        бы короче. Не блокирует.
+  security_comments_contradicting_code:
+    - 'tokenpolicy/policy.go:197-198 — см. C-1'
+
+approved:
+  - 'отказ — собственный *ProtocolError через misuse, различим errors.Is(ErrCeremonyMisuse); проба утверждает и случай, и текст (поле, имя потолка, величину)'
+  - 'отказ, а не урезание — «принято-и-проигнорировано» не заводится'
+  - 'потолки — именованные константы фундамента рядом с MaxTokenTTL, по одному объявлению; tokenpolicy остаётся без зависимостей внутри corelib, цикла импорта нет'
+  - 'проба и близнец различаются одной наносекундой в одном поле; остальной набор — снимок той же фикстуры'
+  - 'проба соотношения MaxRefreshTokenTTL ≤ SecretCredentialTTLCeiling называет оба числа'
+  - 'комментарии о семантике сверены с кодом и правдивы: срок кода ограничивает окно повторного обмена и жизнь записи кода (повтор отзывает семейство — flow_authorize_code_token.go:34-49); срок токена обновления — окно простоя, оборот назначает преемнику срок от выпуска (flow_refresh.go:110-113); граница семейства только сокращает (ceremonySession, checkGrantBounds); личных сроков клиента движку не отдаётся (clientViewOf)'
+  - 'RFC 6749 §4.1.2 процитирован верно: «A maximum authorization code lifetime of 10 minutes is RECOMMENDED»; повтор кода — «SHOULD revoke … all tokens previously issued based on that authorization code»'
+
+ceiling_values_decision:
+  MaxAuthorizationCodeTTL:
+    decision: 'принять 10 мин'
+    basis: >-
+      RFC 6749 §4.1.2: код «MUST expire shortly after it is issued», наибольший
+      рекомендуемый срок — 10 минут; RFC 9700 (Security BCP) этого не меняет.
+      Потолок на верхней границе стандарта, равное потолку допускается —
+      «maximum» включителен. Жёстче стандарта потолок был бы решением без
+      основания; служба вправе назвать меньше (практика — от одной до десяти
+      минут). Умолчание движка (15 мин) выше стандарта и не действует: New
+      требует срок явно.
+  MaxRefreshTokenTTL:
+    decision: 'принять 30 сут как потолок окна простоя'
+    basis: >-
+      RFC 6749 срока токена обновления не задаёт. RFC 9700 §4.14.2: токен
+      обновления публичного клиента обязан быть привязан к отправителю либо
+      оборачиваться, и «SHOULD expire if the client has been inactive for some
+      time», величина — на усмотрение сервера авторизации. Потолок ровно это
+      окно бездействия: срок каждого токена от выпуска, оборот его обновляет.
+      Практика — от двух недель до трёх месяцев бездействия; при токене без
+      привязки к ключу выбран консервативный край, и соотношение с потолком
+      секрета (90 сут) держит проба. Абсолютный срок семейства фундаментом не
+      ограничен — его называет служба границей гранта (только сокращает); это
+      предмет потребителя (PRO-Robotech/kaname#318), не #39. Текст #39 говорит
+      о «сроке семейства», константа — о простое; дифф называет различие прямо
+      (policy.go:232-238), расхождения с кодом нет.
+
+outside_diff: []
+
+next: >-
+  go-implementer — C-1 на ветке 39, новый коммит, новый дайджест; затем повтор
+  go-style-reviewer

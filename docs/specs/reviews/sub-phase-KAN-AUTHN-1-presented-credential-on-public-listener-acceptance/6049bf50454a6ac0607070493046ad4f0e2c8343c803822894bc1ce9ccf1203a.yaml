@@ -1,0 +1,169 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md
+  sha256: 6049bf50454a6ac0607070493046ad4f0e2c8343c803822894bc1ce9ccf1203a
+  base_sha256: 2b613112090c678919465ca98fa79bef8c153d586a066eac8efe7b245b021179
+  base_commit: 3fb924b5f9135fef2ae6515736521d39d864c215
+  content_commit: none (рабочее дерево копии tmp/ws-618, ветка 618; коммита правки нет — по заданию)
+  task: https://github.com/PRO-Robotech/kacho/issues/618
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md
+  base_fingerprint_predicate: git show 3fb924b5:docs/specs/sub-phase-KAN-AUTHN-1-presented-credential-on-public-listener-acceptance.md | sha256sum
+  lines: 3736
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 10 о коммите ea4dfc9c (содержимое SHA-256 1b320c6a0e340778…).
+    Шапка не правлена намеренно (change-graph.md §2), и дельта 2b613112 → 6049bf50 её не трогает
+    (6 ханков, все ниже строки 205). Машинный читатель объявления (docs-gate) ответит APPROVED —
+    это его объявленный предел: он судит объявление, а не одобрение. Действующий вердикт о
+    редакции 6049bf50 — эта запись.
+verdict: APPROVED
+round: 12
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-22T23:24:12Z'
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 3fb924b5
+    в PRO-Robotech/kacho-workspace (копия tmp/ws-618) вернул 0
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+event:
+  type: none
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  body: acceptance-reviewer · APPROVED · 6049bf50454a6ac0607070493046ad4f0e2c8343c803822894bc1ce9ccf1203a
+  rationale: >-
+    Вердикт — одобрение. Событие полномочия публикует курьер отдельным действием; до события
+    запись полномочия не даёт (change-graph.md §3 «Роль без события полномочия не даёт»), и
+    задним числом она не правится.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседняя запись круга 11 (2b613112….yaml) не тронута: `git status --short` в копии
+      tmp/ws-618 показывает изменённым только документ приёмки. История кругов 1–10 живёт в теле
+      документа, и дельта её не правит.
+
+# ─────────────────────────────────────────────────────────────────────────────
+scope_of_this_verdict:
+  judged: >-
+    ТОЛЬКО дельта 2b613112 → 6049bf50 (6 ханков по `git diff -U0`, +99/−18, один файл): §1.7
+    (единица, перепись путей П1–П6, таблица посевов, пути вне выражений Д1 · Д2 и два умолчания,
+    контроль на стволе продукта) и две ссылки на него — строка §5 «4 — профиль посадки own» и
+    строка §11 «посадка own не выбрана ни одним профилем». Вопрос круга: закрыт ли R11-B1 —
+    различает ли предикат посадку own, объявленную любым путём, которым дерево доводит значение
+    до процесса.
+  relies_on: >-
+    Круг 11 судил дельту 24182104 → 2b613112 (единственный блокирующий R11-B1, закрыт здесь;
+    не блокирующий R11-N1 — контроль третьего выражения — закрыт: строка П2 таблицы посевов).
+  not_judged: >-
+    Правки после одобрения круга 10: ea4dfc9c → 622ae99c (`git diff --shortstat` → +207/−31;
+    коммиты 396d9baf, 44b33cb5, 622ae99c). Круги 11 и 12 их не судили — повторный круг судит
+    только дельту по решению диспетчера. Беглый осмотр, НЕ суд: шапка, перенос координат
+    KAN-FWD-* в дом PRO-Robotech/kaname, запись решений владельца линии круга 10, хвост записи
+    круга; строк Given/When/Then/Дано/Когда/Тогда среди изменённых — 0; набор идентификаторов
+    сценариев в 2b613112 и 6049bf50 одинаков (50 · 50, diff пуст). Одобрение отпечатка 6049bf50
+    по объёму равно дельте и закрытию R11-B1, а не повторному суду всего содержимого.
+
+premise:
+  claim: >-
+    R11-B1 закрыт; дельта 2b613112 → 6049bf50 — +99/−18, 6 ханков, один файл, шапка и записи
+    прошлых кругов не тронуты; сценариев 41, фазы не менялись; отпечаток 6049bf50…
+  result: подтверждена
+  evidence:
+    - "`sha256sum <док>` → 6049bf50454a6ac0607070493046ad4f0e2c8343c803822894bc1ce9ccf1203a; `git show HEAD:<док> | sha256sum` → 2b613112… (база = рассмотренная кругом 11)"
+    - "`git diff --numstat HEAD` → 99 18 <док>; `git diff -U0 HEAD -- <док> | grep -c '^@@'` → 6; первые 12 строк документа (шапка) вне дельты"
+    - "идентификаторы сценариев base/new: 50 · 50, различий 0; строка «Сценариев всего 41» (строка 376) вне дельты"
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurements:
+  tree: >-
+    PRO-Robotech/kacho (project/kacho); ревизии caa48b770d14cf63, fe0e5a60f3513fe8,
+    4382f05c0a3d17e0 (= origin/main на момент круга), f445aaaa5547 — резолвятся;
+    f445aaaa554 — предок 4382f05c0a.
+  isolation: >-
+    Посев — висячие коммиты поверх caa48b770d в отдельном голом репозитории
+    kacho-workspace/tmp/review-618-r12/seed.git (alternates на объекты project/kacho), каждый
+    посев — одна правка одного файла; ни одна ссылка ни в одном клоне не тронута. Команды
+    документа извлечены из него дословно (строки 237–243, 297–298) и исполнены без
+    переписывания; они же — в tmp/review-618-r12/doc-cmds.sh.
+  author_claims_reproduced:
+    - {claim: "caa48b770d: обзор 6 · П1–П6 по 0 · Д1 · Д2 → 0 · 0", measured: "6 · 0 0 0 0 0 0 · 0 0", result: подтверждено}
+    - {claim: "fe0e5a60f3: числа те же", measured: "6 · 0 0 0 0 0 0 · 0 0", result: подтверждено}
+    - {claim: "4382f05c0a: обзор 5, П1 → 2 (values.own.yaml:37 и :82), П2 → 2 (оба — own_ceilings_and_access_keys_umbrella_test.go), П3–П6 · Д1 · Д2 → 0", measured: "5 · 2 (37, 82) · 2 (:313, :351 пробы) · 0 0 0 0 · 0 0", result: подтверждено}
+    - {claim: "П3 без ':!*_test.go' → 1 на обеих ревизиях; попадание — refusal_env_reach_test.go:192", measured: "1 · 1, та самая строка", result: подтверждено}
+    - {claim: "каждый посев таблицы переводит в 1 ровно своё выражение, прочие остаются 0; близнецы — все 0", measured: "36 посевов таблицы (П1 5+3 близнеца, П2 2+1, П3 5+5, П4 2+2, П5 2+1, П6 1+1, Д1 5, Д2 1): 36 из 36 совпали", result: подтверждено}
+    - {claim: "Д1-посевы: Д1 = 1 при П1–П6 = 0", measured: "5 из 5 (якорь-ссылка, якорь, блочный скаляр, secrets блочно и потоково)", result: подтверждено}
+    - {claim: "Д2: JSON-файл с \"identity-provider\": \"own\" → 1", measured: "1 (многострочный JSON; П4 = 0)", result: подтверждено}
+    - {claim: "прежние выражения (ключ YAML и --set) на девяти названных посевах → 0 · 0", measured: "9 из 9 → 0 · 0", result: подтверждено}
+    - {claim: "рендер (helm v4.2.4) доводит own до входа процесса по П1–П5", measured: "П1 → identity-provider: \"own\"; П1 в шаблоне карты → identity-provider: own (с values.prod.yaml; в базовом профиле строка не рендерится — внутри with); П2 → identity-provider: \"own\"; П3 служба → env KANAME_AUTHN__IDENTITY_PROVIDER=\"own\"; П3 край → вторая запись KACHO_API_GATEWAY_IDENTITY_PROVIDER=\"own\" после \"external\"; П4 (поток и --set-json) — рендером чарта края напрямую, зонт не собирался (внешние зависимости) → \"own\"; П5 → value: own", result: подтверждено}
+    - {claim: "envconfig v1.4.0: заданная пустой → \"\", отсутствующая → own; viper v1.21.0: под пустой переменной видно умолчание кода", measured: "программа на тех же версиях (tmp/review-618-r12/libprobe): edge absent=own · empty=\"\"; svc empty=own · absent=own", result: подтверждено}
+    - {claim: "пробы умолчаний существуют и задают переменную пустой", measured: "identity_provider_test.go:202 TestIdentityProviderStaysUnsetWithoutAnyDeclaration (t.Setenv(…, \"\")); gateway identity_posture_env_test.go:40 TestIdentityProviderStaysUnsetWhenNothingDeclaresIt (t.Setenv(…, \"\"))", result: подтверждено}
+    - {claim: "координаты входов и путей", measured: "load.go:58 BindEnv · config.go:227 поле с default:\"\" · deployment.yaml:131/138/142 · зонт :522 · край :204/:461; карты настроек :64 и :111 — строки `with`, сам ключ на :69 и :112", result: подтверждено}
+    - {claim: "значение посадки сравнивается дословно", measured: "pkg/identityposture/provider.go:153 Parse — точное равенство, регистр не сворачивается, пробелы не срезаются: ось «вид значения» закрыта разборщиком", result: подтверждено}
+    - {claim: "у процесса службы нет флагов для ручки; env-имя одно", measured: "load.go: SetEnvPrefix + replacer . → __, - → _ + BindEnv; BindPFlag/pflag в services/iam/cmd и internal/apps — 0", result: подтверждено}
+  reviewer_own_seeds:
+    - {seed: "\"KANAME_AUTHN__IDENTITY_PROVIDER\": own в env: профиля", result: "П3 = 1"}
+    - {seed: "extraEnv края блочной записью", result: "П3 = 1"}
+    - {seed: "--set kaname.config.authn.identityProvider=own", result: "П2 = 1"}
+    - {seed: "global.identityProvider: own", result: "П1 = 1"}
+    - {seed: "Dockerfile ENV KANAME_AUTHN__IDENTITY_PROVIDER=own", result: "П3 = 1"}
+    - {seed: "compose environment: - KANAME_AUTHN__IDENTITY_PROVIDER=own", result: "П3 = 1"}
+    - {seed: "шаблон: - {name: KANAME_AUTHN__IDENTITY_PROVIDER, value: own}", result: "П1–П6 · Д1 · Д2 = 0 (см. R12-N1)"}
+    - {seed: "шаблон: - name: … / строка комментария / value: own", result: "П1–П6 · Д1 · Д2 = 0 (см. R12-N1)"}
+
+# ─────────────────────────────────────────────────────────────────────────────
+r11_b1_closure:
+  status: закрыт
+  basis: >-
+    Единица выведена из переписи входов процесса (ключ файла настроек, переменная службы,
+    переменная края) к путям трёх чартов, а не из перечня форм записи. Путь, на котором стоял
+    R11-B1, — env-блок профиля — теперь своё выражение П3 и различает посадку own во всех трёх
+    чартах (env · kaname.env · extraEnv) и в рецептах (--set env.…=, export); близнец external —
+    0. Потоковое отображение, замеченное кругом 11 тем же классом, — П4. Пути вне выражений
+    названы с причиной и замером (Д1, Д2, умолчание службы с пробой, файл значений вне дерева).
+    Контроль настоящим входом из дерева есть: на стволе продукта выражение видит посаженную
+    накладку values.own.yaml.
+
+blocking: []
+
+non_blocking:
+  - id: R12-N1
+    note: >-
+      П5 знает одну запись пары — `- name:` и `value:` на двух соседних строках. Запись пары одной
+      строкой (`- {name: KANAME_AUTHN__IDENTITY_PROVIDER, value: own}`) и пара с посторонней
+      строкой между `name:` и `value:` дают П1–П6 · Д1 · Д2 = 0 (посевы 0a4a45de01, 03b7244aef в
+      tmp/review-618-r12/seed.git). Не блокирует: ни одна форма не живёт в дереве ни для какой
+      переменной — однострочных пар `{name: …, value: …}` в *.yaml/*.yml/*.tpl на caa48b770d 0;
+      из 409 строк `- name: <ИМЯ_ЗАГЛАВНЫМИ>` 408 идут прямо перед value/valueFrom, одна — имя
+      шага CI, не пара окружения. Стоит назвать обе в таблице «пути вне выражений» с этим
+      замером либо расширить П5.
+  - id: R12-N2
+    note: >-
+      §7 п. 4 (строка 1239, вне дельты) говорит «сегодня посадка own в дереве развёртывания не
+      выбрана ни разу», и так же читается заголовок §1.7. Контроль на стволе, добавленный этой
+      же дельтой, показывает, что на 4382f05c0a это не так (П1 → 2, values.own.yaml). Сам §1.7
+      теперь привязан к ревизиям верно; во фразе §7 п. 4 «сегодня» стоит заменить на «на
+      ревизиях §1.7».
+
+totals:
+  blocking: 0
+  kinds: []
+  scenarios: 41 (не менялись; дельта сценариев не трогает)
+  producer_of_then: не судилось заново — вне дельты
+  twin_of_negations: не судилось заново — вне дельты
+  constructibility: >-
+    посеяно 44 из 44 (36 посевов таблицы документа и 8 своих), рендеров 8, программа на
+    библиотеках 1 (4 случая); «не выполнилось» 0. Конструируемость Given сценариев в этом круге
+    не переоценивалась — дельта их не трогает.
+  route_signs: {proto: no, schema: no, public_rpc: no, ui: no, new_domain: no, security_surface: no}

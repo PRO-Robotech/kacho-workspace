@@ -22,7 +22,7 @@ tags:
   - kacho-iam
   - iam
   - internal
-verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); поля построчно не пересматривались"
+verified_against: "таблица-владелец подтверждена живой переписью миграций сервиса (ствол redesign/integration, 2026-08-05); отсутствие выталкивания и канала уведомлений перемерено по контракту `session_revocations_service.proto` службы доступа 2026-09-22; поля построчно не пересматривались"
 ---
 
 # SessionRevocation
@@ -69,11 +69,29 @@ verified_against: "таблица-владелец подтверждена жи
 
 - `token_jti` — PK, не префиксованный id. Зависит от issuer Hydra (UUID/ULID).
 - TTL обязателен — без него blocklist неограниченно растёт. После expiry token уже не валиден через standard JWT `exp` — row безопасно удалить.
-- Production hot-path: read-only lookup в Redis-cache (Phase 2), DB fallback на miss. Cache invalidate через CAEP push.
-- LISTEN/NOTIFY на `session_revocations` для invalidate всех replicas (Phase 2 wiring).
+> [!warning] Снято: выталкивания НЕТ, и два прежних пункта этого раздела были неверны
+> Здесь стояло: «production hot-path — read-only lookup в кэше, инвалидация через выталкивание
+> событий» и «канал уведомлений на таблицу для инвалидации всех реплик». **Ни того, ни другого
+> нет.** Перемерено 2026-09-22 по контракту службы доступа
+> (`proto/kaname/cloud/iam/v1/session_revocations_service.proto`, общий клон `project/kaname`):
+> канал уведомлений **снят вместе со своим триггером** — слушателя у него не было с первого дня
+> схемы, и дать его было нельзя (край не держит драйвера базы, а чтение базы службы напрямую
+> ломает «база на службу»); приёмник событий чужой доверяющей стороны **снят миграцией**.
+>
+> Как устроено сегодня: край **спрашивает** на пути запроса, на каждом предъявлении —
+> [[rpc/iam-internal-session-revocations-service]] `IsRevoked`. Отзыв всех признаков человека
+> пишет **отсечку уровня человека**, а не строку на каждый признак.
 
 ## See also
 
 [[../packages/iam-domain]] [[../packages/iam-repo-kacho-pg]] [[iam-user]] [[iam-caep-subscriber]] [[../KAC/KAC-127]]
+[[rpc/iam-internal-session-revocations-service]] · [[packages/apigw-clients]]
+
+## History
+
+- 2026-09-22 — исправлены два устаревших утверждения раздела «Gotchas» (кэш с инвалидацией
+  выталкиванием и канал уведомлений на таблицу): оба описывали механизм, снятый вместе с
+  триггером. Заведена ссылка на записку внутреннего глагола. Повод: возврат полосы края назвал
+  полосу отзыва на предъявлении затронутым ресурсом.
 
 #resource #kacho-iam #iam #internal
