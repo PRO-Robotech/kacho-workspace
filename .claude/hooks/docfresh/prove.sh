@@ -944,14 +944,36 @@ else
 fi
 
 # СОСЕДНИЙ КЛОН: координата существует — резолвится и СЧИТАЕТСЯ отдельной полосой.
+#
+# ПРЕДПОСЫЛКА — сам сосед: клон `project/corelib`, и `authz` в его индексе.
+# Без клона `corelib` нет в словаре корней, координата путём не опознаётся, и три
+# пробы полосы молчали бы не по своей причине: «не названа» читалась расхождением,
+# «не обвинён» и зеркало — зелёным без предмета. Так было в конвейере, где рядом
+# выложено одно дерево продукта (ws#839). Клон выкладывает job hook-proofs.
+# Спрашивается git клона, а не хук: сломанная полоса хука иначе сделала бы
+# предпосылку мёртвой, и дефект ушёл бы в «не выполнилось» вместо «разошлось».
+SIB_NOTE="соседнего клона нет (project/corelib) либо «authz» не в его индексе — полосе соседних клонов нечего называть. Условие: git clone https://github.com/PRO-Robotech/corelib.git project/corelib, так его выкладывает конвейер (job hook-proofs)"
+SIB_LIVE=0
+PREMISE_SEEN=$((PREMISE_SEEN+1))
+if is_git_tree "$WS/project/corelib"; then
+  if [ -n "$(git -C "$WS/project/corelib" ls-files -- authz 2>/dev/null | head -1)" ]; then
+    SIB_LIVE=1
+  else
+    PREMISE_DEAD=$((PREMISE_DEAD+1))   # клон есть, а входа нет — переанкерить пробу
+  fi
+fi
 out="$(run_doc t2.md 'Модель прав живёт в `corelib/authz`.')"
-if printf '%s' "$out" | grep -qE 'резолвится в соседнем репозитории [1-9]'; then
+if [ "$SIB_LIVE" -eq 0 ]; then
+  notrun "$SIB_NOTE"
+elif printf '%s' "$out" | grep -qE 'резолвится в соседнем репозитории [1-9]'; then
   echo "  ✔ (−) путь соседнего клона резолвится И назван ОТДЕЛЬНОЙ полосой"; PASS=$((PASS+1))
 else
   echo "  ✘ (−) полоса соседних клонов не названа — третье основание вердикта невидимо"; FAIL=$((FAIL+1))
   printf '%s\n' "$out" | tr '\n' ' ' | grep -o 'координат РАСПОЗНАНО[^·]*' | sed 's/^/      /'
 fi
-if printf '%s\n' "$out" | findings_only | grep -qF 'corelib/authz'; then
+if [ "$SIB_LIVE" -eq 0 ]; then
+  notrun "$SIB_NOTE"   # каждая неисполненная проба — своей строкой переписи
+elif printf '%s\n' "$out" | findings_only | grep -qF 'corelib/authz'; then
   echo "  ✘ (−) живой путь соседнего клона ОБВИНЁН — 41 такое обвинение и чинится"; FAIL=$((FAIL+1))
 else
   echo "  ✔ (−) живой путь соседнего клона не обвинён"; PASS=$((PASS+1))
@@ -966,9 +988,13 @@ else
 fi
 # ЗЕРКАЛО той же полосы: путь, которого в соседе НЕТ, — находка. Без него
 # «резолвится всё подряд» было бы неотличимо от работающего резолва.
-expect_fires_dead "(+) путь, которого в соседнем клоне нет, — находка" t3.md \
-  'Клиент сужения живёт в `corelib/listnarrow/client.go`.' \
-  'corelib/listnarrow/client.go' 'corelib/listnarrow/client.go'
+if [ "$SIB_LIVE" -eq 1 ]; then
+  expect_fires_dead "(+) путь, которого в соседнем клоне нет, — находка" t3.md \
+    'Клиент сужения живёт в `corelib/listnarrow/client.go`.' \
+    'corelib/listnarrow/client.go' 'corelib/listnarrow/client.go'
+else
+  notrun "$SIB_NOTE"
+fi
 
 # ИМЯ СНЯТОГО ПОЛИРЕПО БЕЗ ИЗВЕСТНОГО РАСШИРЕНИЯ добирается до СВОЕЙ границы.
 # Прежде до неё доходили только координаты с расширением, то есть детектор
