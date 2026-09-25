@@ -1,0 +1,59 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 2 (F1 и C1 круга 1).
+# Имя файла — content_digest отсуженного диффа. Коммитит оператор задачей волны-2 воркспейса (#805).
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 2
+subject: >-
+  oauthceremony: адреса authorize/token названы в Config; хост адреса и издателя судится по
+  Hostname(); шапка Config.Issuer приведена к поведению (задача #38, волна #32)
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: ead5a64c79556e029d805623ee64e7c99f577363
+  head_tree: 62d72779665f628db13591d4bbd70bd3ebd68361
+  shortstat: '4 файла, +503 / -30'
+content_digest: sha256:320314834f3df969118793a54475920649112e79b78393572880b609fb7ea124
+digest_definition: >-
+  git diff --full-index 9f0393c540d7..ead5a64c7955 | sha256sum
+  (перемерено по деревьям e6430e60ed13 62d72779665f — совпадает)
+supersedes: sha256:b2baf0753b285575b08562ad2e8f1b97fd98b68236b06205cf8a39926ea24c57
+verdict: accepted
+blocks_landing: false
+review_scope: >-
+  дельта круга 2 (ead5a64: ceremony.go, ceremony_test.go) целиком; вне дельты — validateConfig,
+  validateEndpoint, сборка обработчиков движка (ceremony.go:257-302), все читатели
+  AccessTokenIssuer/IDTokenIssuer и "iss" в internal/oauth2 (git grep @head), doc.go:50-60.
+closed:
+  - id: F1
+    status: закрыта
+    how: >-
+      шапка Config.Issuer больше не утверждает привязку артефактов к издателю. Проверено по
+      коду: AccessTokenIssuer/IDTokenIssuer читают только JWT-стратегии движка
+      (handler/oauth2/strategy_jwt.go:126, handler/openid/strategy_jwt.go:217); New собирает одну
+      HMAC-стратегию (ceremony.go:257) и пять обработчиков без openid; ответ интроспекции "iss"
+      не несёт (introspection_response_writer.go:157 — только пример в комментарии); токен
+      личности не выдаётся (doc.go:59). Форма «порт без хоста» у издателя закрыта вместе с C1.
+    residual: >-
+      издатель со сведениями пользователя, строкой запроса или фрагментом по-прежнему
+      принимается. Читателя издателя ни на проводе, ни в артефакте, ни в тексте отказа нет
+      (отказы — постоянные строки), шапка сужения не обещает. Тяжесть — низкая, ниже планки;
+      сужение издателя как предмет — I1 go-style-reviewer.
+  - id: C1
+    status: закрыта (в части безопасности подтверждаю замером)
+    how: >-
+      обе проверки судят Hostname() (ceremony.go:367, :393). Инъекция через go test -overlay
+      (возврат к Host == "" в обоих местах, дерево копии не тронуто): 6 из 6 новых
+      отрицательных случаев красные (4 у адресов точек, 2 у издателя), близнецы зелёные;
+      чистая голова — обе пробы зелёные.
+    class_census: >-
+      git grep -n -E '\.Host (==|!=) ""' -- '*.go' @head — 0 из 735 отслеживаемых .go;
+      расширенный предикат (len(.Host), .Host ==/!=, Hostname() ==/!=) — ещё 2 места в движке,
+      оба сравнение двух хостов между собой, не проверка пустоты.
+findings: []
+cross_repo: []
+dry_round: true
+commit_message_check: 'трейлеров Co-Authored-By/Claude-Session/Generated with — 0 на диапазоне; текст не восстанавливает ничего сверх ошибки валидации настроек оператора'

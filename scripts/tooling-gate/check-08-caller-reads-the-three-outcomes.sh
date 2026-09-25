@@ -67,9 +67,8 @@ trap 'rm -rf "$TMP"' EXIT
 # запуском: унаследованный `GIT_DIR` сильнее рабочего каталога и увёл бы запись в
 # ЭТУ рабочую копию.
 #
-# Коммит делается пустым и «через силу не берётся»: на машине без объявленной
-# личности он не состоится, HEAD останется неродившимся, и хук получит пустое имя
-# ветки — черновиком (`wip/`, `tmp/`) оно не является, поэтому путь пробы тот же.
+# Хук судит дерево ревизии (ws#811), поэтому коммит обязан состояться: личность
+# задаётся песочнице явно — на ранере без неё HEAD не родился бы, и хук отказал бы.
 probe() {
     local caller="$1"; shift
     local dir i=90 rc out code
@@ -86,14 +85,17 @@ probe() {
     done
     git -C "$dir" init -q
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" commit -q --allow-empty -m fixture >/dev/null 2>&1 || true
+    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
+        commit -q --allow-empty -m fixture >/dev/null 2>&1
 
     out="$(
         cd "$dir" || exit 111
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        bash ./scripts/hooks/pre-push 2>&1
+        # Вход отправки хук читает со stdin (ws#810): унаследованный открытый
+        # поток держал бы пробу до его закрытия. Пустой вход судит HEAD.
+        bash ./scripts/hooks/pre-push </dev/null 2>&1
     )"; code=$?
     printf '%s|%s\n' "$code" "$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -1)"
 }

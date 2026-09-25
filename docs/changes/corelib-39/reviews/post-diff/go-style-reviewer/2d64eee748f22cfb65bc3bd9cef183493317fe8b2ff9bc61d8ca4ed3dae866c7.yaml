@@ -1,0 +1,168 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 4.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2). Записи
+# кругов 1 (408fb307…), 2 (2db18f96…) и 3 (2aea5a5a…) не тронуты. Запись лежит
+# в рабочей копии воркспейса ветки 825 и НЕ закоммичена — её сводит пакетный
+# коммит записей ревью.
+schema_version: 1
+change_id: corelib-39
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 4
+previous_record: 2aea5a5ac6cfee982836646e58965fc0f2762bad68750b7fc0a5276c54638243.yaml
+subject: >-
+  corelib #39, круг 4: к кругу 3 (d167e009) добавлены два тестовых коммита.
+  565f5b50 — в TestConsumedCodeRecordOutlivesTheCodeLifespan срок кода истекает
+  старением записи в подставке (memoryPorts.ageCodeRecord, сдвиг всех
+  мгновений GrantRecord, перечень сверяется обходом типа), а не паузой 2,5 с;
+  отказ первого обмена на истёкшем коде классифицирован «не выполнилось»;
+  комментарий об округлении срока кода снят. fa1dd916 — из таблицы
+  TestNewRefusesAnArtifactLifespanAboveItsCeiling снята строка «токен доступа»
+  (столкновение C1 wave-reviewer). Прод-код с круга 3 не менялся.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '39'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  base_is: 'merge-base origin/32 HEAD; origin/32 = f213439a после fetch (ls-remote 32 = f213439a)'
+  head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2
+  head_tree: 8c4c9abea2174cf44498c23c4d5267d1d823a471
+  shortstat: '11 файлов, +582 / -19'
+  delta_since_previous_round: 'd167e009..fa1dd916 — 3 файла, +154 / -34, все *_test.go'
+  commits_this_round:
+    - '565f5b5 #39 пробы: срок кода в пробе записи истекает старением, а не паузой'
+    - 'fa1dd91 #39 пробы: отказ New по сроку токена доступа держит одна проба'
+content_digest: sha256:2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7
+digest_definition: |
+  git -C tmp/corelib-39 diff --full-index $(git -C tmp/corelib-39 merge-base origin/32 HEAD)..HEAD | sha256sum
+  (перемерено своей командой после fetch — совпадает с заданием)
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T23:25:24Z'
+return_to: '—'
+review_scope: >-
+  полный закоммиченный дифф (11 файлов) с упором на дельту d167e009..fa1dd916.
+  Вне диффа прочитаны: types.go:187-265 (SessionRecord, GrantRecord),
+  types.go:318-324 (AuthorizationCodeRecord), fakes_test.go:35-54 (codeRow —
+  указатель в карте, собственных мгновений у строки нет), fakes_test.go:384-414
+  (sweepConsumedCode, codeExpiresAt), fakes_test.go:618-642 (readCodeRow),
+  ceremony_test.go:44-60 (testCodeLifespan = 30 с), ceremony.go:84-89,
+  ceremony.go:362-387 (validateConfig), access_issuer_test.go:546-569.
+  Сырые логи прогонов автора (inj/*.log) прочитаны; перемер — свой, ниже.
+
+premise:
+  status: подтверждена
+  how: >-
+    Чтением: codeRow хранится указателем (fakes_test.go:52), поэтому
+    ageCodeRecord правит саму запись; у строки кода нет мгновений вне grant;
+    обход GrantRecord даёт ровно IssuedAt, Session.ExpiresAt, Session.NotAfter
+    (Claims — map[string]any, статически не виден, оговорено в комментарии).
+    Экспериментом (ниже): на дереве проба зелёная без паузы (подпробы 0,32 и
+    0,37 с), инъекция уборки по сроку кода краснит ровно половину «запись
+    цела», близнец зелёный.
+
+experiments:
+  workdir: 'tmp/corelib-39 @fa1dd916; TMPDIR — /var/tmp/gsr39r4.*, вне git-деревьев; -count=1; шаг 0 — MemAvailable 30–33 ГБ, чужие go test/golangci-lint были, ждал опросом до 0 процессов (02:24:28 местного); дерево после — 0 строк git status'
+  tree: >-
+    go test -count=1 -v -run 'TestConsumedCodeRecordOutlivesTheCodeLifespan|TestNewRefusesAnAccessLifespanAboveTheTokenCeiling|TestNewRefusesAnArtifactLifespanAboveItsCeiling|TestSequentialCodeReplayRevokesTheFamily'
+    ./oauthceremony → ok; 4 теста верхнего уровня и 4 подтеста исполнены, 0 упали.
+  inj_A_fake_sweeps_consumed_code_by_code_ttl: >-
+    -overlay fakes_test.go: readCodeRow отдаёт «кода нет» для погашенного кода с
+    истёкшим сроком. Красная 1 подпроба («запись погашенного кода цела»), 7 строк
+    отказа (invalid_grant вместо authorization_code_consumed, семейство не
+    отозвано, порт отзыва не вызван дважды, живы 1+1, оба токена пережили повтор);
+    близнец «запись снята» зелёный; прочие 3 теста зелёные. Совпадает с логом
+    автора inj/a_fake_sweep_by_code_ttl.log.
+  inj_C_refusal_text_drops_ceiling_name: >-
+    -overlay ceremony.go: в тексте отказа по AccessTokenLifespan
+    «exceeds tokenpolicy.MaxTokenTTL» заменено на «exceeds the token ceiling».
+    На fa1dd916 — 0 красных (изменение не держит никто). С таблицей
+    lifespan_ceiling_test.go из d167e009 — красная 1 подпроба «токен доступа»:
+    «отказ не называет "tokenpolicy.MaxTokenTTL"». Основание находки I-4.
+  identifiers: 'go/scanner по 3 файлам дельты: идентификаторов 2151, не-ASCII 0'
+  gofmt: 'gofmt -l по 11 .go-файлам диффа — пусто'
+  commit_form: 'темы 67 и 62 знака, тела 9 и 4 непустых строки, трейлеров 0, оба коммита — одиночные потомки (не слияния)'
+  lint_and_suite: 'исход линтера, полного набора и -race --cpus=1 не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # TODO|FIXME|XXX|HACK, по полному диффу и по дельте
+  panic_stray_logging_in_added_lines: 0   # в дельте: panic( 0, log. 0, fmt.Print 0, context.Background( 0
+  context_background_in_added_lines: '3 по полному диффу, все в пробе code_record_retention_test.go (Exchange) с круга 3; в дельте новых 0; в прод-коде 0'
+  cyrillic_identifiers: 0
+  probes_in_same_pr: true
+  prod_lines_changed_this_round: 0        # git diff --quiet d167e009 HEAD -- oauthceremony/ceremony.go oauthceremony/ports.go tokenpolicy/
+
+prior_findings:
+  go_style_round_3:
+    I-1: 'остаётся, кросс-репо, вне дерева corelib — без изменений'
+    I-2: 'остаётся — ceremony.go в дельте не тронут, требование «следующим касанием файла» не наступило'
+    I-3: >-
+      закрыто: комментарий об округлении срока кода снят (Round в
+      code_record_retention_test.go — 0 вхождений); довод запаса новой константы
+      codeRecordAge (потолок кода + минута на шаг стенных часов назад) верен —
+      validateConfig не собирает срок кода выше MaxAuthorizationCodeTTL
+      (ceremony.go:383), сроки сравниваются по стенным часам.
+    S-1: 'остаётся, стиль'
+
+findings:
+  critical: []
+  important:
+    - id: I-1
+      class: census-row-at-pin-bump
+      where: 'tokenpolicy/policy.go:245, 288; oauthceremony/ports.go:173-179 (у потребителя — перепись величин политики kacho, загрузчик kaname#318)'
+      summary: 'без изменений с круга 3.'
+      requirement: 'при переходе потребителя на пин — строки переписи и проба порога уборки тем же изменением. Посадку #39 не блокирует.'
+    - id: I-2
+      class: doc-truthfulness
+      where: 'oauthceremony/ceremony.go:88-89'
+      summary: 'без изменений с круга 3: «решение … записано у самой константы» верно для двух потолков из трёх.'
+      requirement: 'сузить фразу либо дать у MaxTokenTTL ссылку на решение. Не блокирует; следующим касанием файла.'
+    - id: I-4
+      class: doc-truthfulness / probe-collapse-kept-the-weaker-hold
+      where: 'oauthceremony/lifespan_ceiling_test.go:8-11; oauthceremony/access_issuer_test.go:564'
+      summary: >-
+        сводя две пробы одной проверки в одну, fa1dd916 оставил ту, что держит
+        меньше. Снятая строка таблицы судила в тексте отказа три имени (поле,
+        tokenpolicy.MaxTokenTTL, значение потолка); оставшаяся проба судит два —
+        поле и значение (access_issuer_test.go:564), имя константы потолка не
+        судит никто. Комментарий lifespan_ceiling_test.go:10-11 («вторая проба …
+        ничего сверх неё не держала бы») поэтому неверен, а шапка Config
+        (ceremony.go:87-88: «New отвергает, называя поле и потолок») для срока
+        токена доступа осталась без держателя. Измерено inj_C: на голове 0
+        красных, с прежней таблицей — 1.
+      requirement: >-
+        добавить "tokenpolicy.MaxTokenTTL" в перечень named на
+        access_issuer_test.go:564 — оставшаяся проба держит объединение утверждений
+        обеих, и комментарий 10-11 становится правдой; инъекция inj_C после правки
+        обязана краснеть. Не блокирует: сама проверка validateConfig с близнецом
+        держится (снятие краснит 1 пробу — лог автора inj/g-after.log). Делать
+        тем же касанием полосы, если оно будет до пересборки 32.
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style:
+    - id: S-1
+      where: 'oauthceremony/ceremony.go:371-386'
+      summary: 'без изменений: текст отказа собран конкатенацией с .String(); fmt.Sprintf с %s короче. Не блокирует.'
+    - id: S-2
+      where: 'oauthceremony/fakes_test.go:478'
+      summary: 'grantInstantFields — единственная новая функция дельты без doc-комментария; остальные четыре (ageCodeRecord, shiftedInstants, requireGrantInstantsAged, carriesInstant) его несут. Не блокирует.'
+  security_comments_contradicting_code: []   # дельта — только пробы; прод-комментарии с круга 3 не менялись
+  disclosure: 'дельта — тестовые помощники и комментарии о сроке пробы; сборки «координата + условие + следствие» нет.'
+
+approved:
+  - 'зависимость исхода от процессора снята конструкцией, а не запасом: пауза заменена старением записи, подпробы идут 0,32–0,37 с; codeRow — указатель, старение правит саму запись'
+  - 'старятся все мгновения записи гранта, а не один срок; перечень сверяется обходом типа GrantRecord (указатели, срезы, ключи и значения карт, вложенные структуры, защита от циклов через seen); значения под any оговорены'
+  - 'карты мгновений копируются, а не правятся на месте (shiftedInstants) — сеанс движка и соседние записи того же гранта не задеты'
+  - 'несозданное условие отделено от красного: код, истёкший до первого обмена, — «НЕ ВЫПОЛНИЛОСЬ»; записи нет, нет мига выдачи, перечень мгновений разошёлся — тоже «НЕ ВЫПОЛНИЛОСЬ»'
+  - 'проба сохранила различающую силу: inj_A краснит ровно половину «запись цела», близнец зелёный'
+  - 'хелперы подставки берут m.mu; requireGrantInstantsAged зовётся до замка и сам замка не требует'
+  - 'нет паники, init(), сторонних логгеров, context.Background в прод-коде; идентификаторы — латиница; форма коммитов по правилам владельца'
+
+outside_diff: []
+
+next: >-
+  сбор пост-дифф записей — convergence-reviewer либо landing-reviewer; I-4 —
+  go-implementer полосы #39 одной строкой, если полоса будет касаться дерева до
+  пересборки 32; I-1 — полоса потребителя при переходе на пин

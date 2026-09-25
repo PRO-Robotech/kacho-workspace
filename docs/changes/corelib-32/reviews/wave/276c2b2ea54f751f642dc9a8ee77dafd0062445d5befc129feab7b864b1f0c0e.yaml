@@ -1,0 +1,114 @@
+# Сверка волны: роль wave-reviewer, сборка-3 ветки 32 (c2261955 + #35 + #34).
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 3
+previous_record: 49321145b04ee7ccd0f0acc8acbfdc2d714c156f444009bd9323558a8d7ad852.yaml
+subject: >-
+  corelib, волна 32, сборка-3: поверх origin/32@c2261955 влиты #35 (d5342ca5) и #34
+  (f213439a). Сверяется пара #35↔#34 на собранном дереве. Повторный проход по #35
+  после возврата круга 2 выполнен в том же заходе.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: c22619552559cace2a30dc4b413a6df5c9944fc0   # origin/32 (ls-remote из tmp/corelib-32)
+  head: f213439a409ecce4816d88121cf3301b9efbad33   # tmp/corelib-32, ветка 32, не отправлена
+  tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  shortstat: '24 файла, +2653 / -113'
+  lanes:
+    '35': {head: e90d570cd411fbc502254d892ef6987009329785, base: c22619552559, digest: c522adc52f24ab71fe228aef1a7e554e760efc92540b7a667c590190a8148a5d, shortstat: '10 файлов, +650 / -2', in_assembly: true, merge: d5342ca501fa9304b504c4ce56a695f3f57f4b23}
+    '34': {head: cadf77688ffb73b2b9da8fef9dd768d2da3e7460, base: c22619552559, digest: 631eb5033c3ef65b081b38fda6a8ceebf73ea0e94dbb1e58d1cb5688f937d5aa, shortstat: '21 файл, +2011 / -112', in_assembly: true, merge: f213439a409ecce4816d88121cf3301b9efbad33}
+content_digest: sha256:276c2b2ea54f751f642dc9a8ee77dafd0062445d5befc129feab7b864b1f0c0e
+digest_definition: >-
+  git diff --full-index c2261955..f213439a | sha256sum, то есть origin/32..HEAD.
+  Дайджесты полос от merge-base c2261955 пересчитаны той же командой и совпали с
+  переданными и с именами записей ревью полос (go-style и security, обе accepted,
+  blocks_landing: false, в ws-825 не закоммичены).
+
+verdict: accepted              # по сборке f213439a и по обеим полосам
+blocks_landing: false
+timestamp: '2026-09-23T19:50:28Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32c-snqu5v/corelib (git clone --shared от
+  tmp/corelib-32), рабочие копии для баз и голов полос там же; GOCACHE и TMPDIR там же;
+  GOPROXY=off. Инъекция внесена в клоне и снята git checkout (porcelain 0). Копии
+  tmp/corelib-{32,34,35}: porcelain 0/0/0, не тронуты.
+
+runs:
+  - 'go build ./... rc 0; go vet ./... rc 0; gofmt -l oauthceremony ids tokenpolicy → 0'
+  - 'go test -count=1 -json ./oauthceremony/ ./ids/ ./tokenpolicy/ @f213439a rc 0: oauthceremony 333 PASS / 0 FAIL / 0 SKIP; ids 30; tokenpolicy 8'
+  - 'то же в golang:1.26.8, -race -short: rc 0, те же 333 / 30 / 8, DATA RACE 0 (прогон начат после конца чужого go test -race)'
+  - 'go test -count=1 -short ./internal/oauth2/... ./validate/... ./treehygiene/... ./treecorpus/... ./contractroot/... ./modulemanifest/... rc 0: 1082 PASS / 0 FAIL, пакетов 17 pass, 7 без тестов'
+  - 'контроль по головам, та же команда: c2261955 — 308 PASS; e90d570c (#35) — 329; cadf7768 (#34) — 350; сборка — 371 = 308 + 21 + 43 − 1. Единственное имя из полос, которого нет на сборке, — TestNewRejectsEveryUnnamedSetting/SigningSecret_короток: его сняла сама #34. Проб, пропавших молча, 0'
+
+lanes:
+  - 'полоса 35 · вердикт принято · координата oauthceremony/grant_id_test.go:158-184@f213439a (возврат круга 2: grant_id_test.go:95,166,317,391@e5abaa5e) · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Пятый вид…» и «Классы столкновений…»; .claude/rules/testing.md subject-removal-audit-by-sign · чем доказано: все четыре пункта возврата закрыты, store.proof и вид «PKCE» на сборке 0 вхождений, литералы #38 несут NewGrantID; go test на e90d570c 329/0, на сборке 333/0 (-race 0 гонок); дерево d5342ca5 = дерево e90d570c (ca4866c7)'
+  - 'полоса 34 · вердикт принято · координата oauthceremony/strategy.go:138-161@f213439a · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений…»; .claude/rules/security-hardening.md hard-parts-must-converge · чем доказано: go test на cadf7768 350/0, на сборке 333/0 по oauthceremony; инъекция расхождения ключа семейства при выпуске (requester.SetID("") перед grantFromRequester) даёт 34 FAIL, красные пробы обеих полос: grant_id_test.go:171 (#35) и issuer_grant_test.go:166 (#34); контроль без инъекции 333/0'
+
+collisions:
+  - kind: 'два решения одной задачи — §14 «Классы столкновений…»; факт, не вердикт'
+    lanes: ['35', '34']
+    subject: >-
+      Вызов службы из церемонии заведён двумя формами. #35: поле-функция
+      Config.NewGrantID (ceremony.go:153 объявление, :389 проверка в validateConfig,
+      :713-728 mintGrantID со своим context.WithTimeout(PortTimeout)). #34: интерфейс
+      Ports.AccessTokenIssuer (ports.go:400, :545; проверка в validatePorts,
+      ceremony.go:444; срок через storageBridge.deadline, strategy.go:48, :147).
+      Поведение одно: срок PortTimeout, разбор отказа через fromPort, проверка при New.
+      Разные только место объявления и способ проверки.
+    proof: >-
+      Прочитано на сборке. Значения сроков совпадают: bridge.go:64-65 WithTimeout(ctx,
+      b.timeout), а b.timeout = cfg.PortTimeout (ceremony.go:258). Импортёров
+      corelib/oauthceremony в kaname нет по 187 локальным ref (без fetch), в kacho
+      origin/main тоже 0. Смена формы сейчас никого не ломает.
+    fix_in: 'диспетчер выбирает одну форму. Выбор не за wave-reviewer; в трекере #32/#34/#35 записи о выборе нет'
+  - kind: 'два места об одном предмете — следствие первого столкновения; видно только на сборке'
+    lanes: ['34', '35']
+    subject: >-
+      (а) ceremony.go:122-124 (из #34) перечисляет, что ограничивает PortTimeout: порт
+      хранения и порт выпуска. Крючок Config.NewGrantID (#35) в перечне пропущен, хотя
+      его же описание (ceremony.go:147) и код (:716) ставят ему этот срок.
+      (б) bridge.go:70-73 (из #34) говорит «портов два вида», и тексты отказа называют
+      порт. На сборке fromPort зовёт ещё mintGrantID (ceremony.go:721), и отказ крючка
+      выходит с текстом «A port of the authorization server failed.». Крючок при этом
+      не порт; подробности называют Config.NewGrantID верно.
+    proof: 'прочитано на f213439a; command grep -n PortTimeout / «Портов два вида» по oauthceremony'
+    fix_in: >-
+      Не блокирует. Правится вместе с выбором формы: если выбран интерфейс в Ports,
+      оба перечня становятся верными сами; если остаётся Config — нужна одна строка
+      в каждом. Правку делает полоса, которой диспетчер отдаст выбор.
+
+not_found:
+  - 'добавление в удалённое: снятые #34 SigningSecret, RotatedSigningSecrets, NewHMACSHAStrategyUnPrefixed, импорт token/hmac, GlobalSecret — по 786 файлам сборки вне internal/oauth2 0 вхождений, в строках #35 0'
+  - 'столкновение ожиданий: литералы Config и наборы портов на сборке несут и NewGrantID, и AccessTokenIssuer; TestNewRejectsEveryMissingPort — 6 подпроб из 6, включая AccessTokenIssuer'
+  - 'столкновение раскладок: все 6 мест моста, где собирается запрос движка (bridge.go:260, 267, 379, 421, 432, 591), идут через requesterFromGrant со стражем #35. Новые пути #34 его не обходят: пустая подпись в GetAccessTokenSession отвечает до выборки. В движке SetID стоит раньше GenerateAccessToken в обоих собранных потоках (flow_authorize_code_token.go:94→143, flow_refresh.go:87→124). Грант порта выпуска несёт ключ, выданный крючком'
+  - 'столкновение имён: сборка и vet по всему модулю rc 0'
+  - 'текстовый конфликт: один, ceremony_test.go TestNewRejectsEveryMissingPort (git show --remerge-diff f213439a, 29 строк). Оставлена форма #35 «Ports.<имя> » и одна предпосылка вместо двух. Заявление сообщения слияния сверено с диффом и совпало'
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  Не выявлено. Отчёты полос в задание не переданы, сверено по сообщениям слияний и
+  записям ревью. Заявление сведения «дерево сборки совпадает с деревом головы e90d570c»
+  верно (ca4866c7). Его «проверок не было» верно: тестов сведение не гоняло.
+
+form_not_blocking: >-
+  Новые коммиты сборки в форме: d5342ca5 — 64 знака, тело 8 строк; f213439a — 68 знаков,
+  тело 9 строк. Трейлеров в c2261955..f213439a 0 из 10 коммитов, подпись pointpu
+  <pointpu@in-cloud.io>. Коммиты полос сверх формы: d3c3ea4 (120 знаков, 24 строки),
+  588709b (90, 19), cbd324e (87), e5abaa5 (81). В трекере #34 и #35 они уже отмечены,
+  класс держит #25; без rebase не исправить.
+
+examined:
+  diffs: 3                     # #35 от c2261955; #34 от c2261955; remerge-diff f213439a (у d5342ca5 он пуст)
+  lines: 3557                  # 839 + 2689 + 29 строк вывода git diff
+  read_line_by_line: 'рабочие файлы обеих полос (ceremony, bridge, strategy, ports, notes, translate, types, doc, ids); grant_id_test.go :20-470; issuer_grant_test.go :60-200; правки #34 в прежних пробах'
+  mechanical_census: 'имена, снятые #34, по 786 файлам; места сборки запроса движка и выборок моста; подпробы TestNewRejectsEveryMissingPort; множества имён проб по четырём ревизиям'
+
+next:
+  - 'диспетчер — выбрать одну форму вызова службы (Config-функция или Ports-интерфейс), пока у oauthceremony нет импортёров. Потом отдать правку двух перечней (ceremony.go:122-124, bridge.go:70-73) полосе выбранной формы'
+  - 'git-operator — отправить 32@f213439a и записать этот файл в ws-825'

@@ -1,0 +1,101 @@
+# Сверка волны: роль wave-reviewer, сборка-7 ветки 32 (сборка-6 64019361 + сопряжение #63).
+#
+# Имя файла — content_digest сборки. Прежние записи не правятся: сменился
+# дайджест (пересборка) — новый проход и новый файл.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-32
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 7
+previous_record: 330c23fc4d424eab6d1c231e5bf1cba56e5773b3b58fc1025bc401d5469efe3a.yaml
+subject: >-
+  corelib, волна 32, сборка-7: поверх сборки-6 (64019361: #36, #37, #39, #21 на origin/32@f213439a)
+  влита #63 слиянием c8b7650 (--no-ff, remerge-diff пуст, дерево 34a10d47 = дерево головы 55adf31).
+  #63 сопрягает #36 с #39 (C3/K1), #36 с #37 (C4/K2) и снимает второй механизм C5. Повторный
+  проход по полосе 36 после возврата круга 6; проверка на новые столкновения #63 с прочими.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33   # origin/32, ls-remote после fetch
+  head: c8b7650112d97d7a4349290703c691ad608291c5   # tmp/corelib-32, ветка 32, не отправлена, porcelain 0
+  tree: 34a10d47126836f56cf6ad1b92a4ef4d2b710155
+  shortstat: '38 файлов, +5120 / -166'
+  commits: 'f213439a..c8b7650: 36, слияний 8'
+  lanes:
+    '36': {head: e2a451c63f2fe3ed7f6f5e1e99d9cc9958e160a0, base: f213439a, digest: a4e2e12095a74f0f9f1521d3504a7ad447883ecdbf62e49d121244b4f1bbfd86, merge: 0bffecb, changed_since_round6: false}
+    '37': {head: be0d7cc81f557d58024598d1daf122b08b3c4551, base: f213439a, digest: b7f59f68d233c5c91c623f8fdb080eb8c0b13eb8f8b59f4abe85de60d727a564, merge: 39a12da, changed_since_round6: false}
+    '39': {head: fa1dd916efa65cdcc4946f97ae9ddf9557d71be2, base: f213439a, digest: 2d64eee748f22cfb65bc3bd9cef183493317fe8b2ff9bc61d8ca4ed3dae866c7, merge: c9e37ff, changed_since_round6: false}
+    '21': {head: dd8df2c1e167bd17e74dafe849b9bc695177227d, base: f213439a, digest: 696a1dbba2c61bfde2bc97fc91e452ea31e7f43bedd5581ac967b45dc778349e, merge: 6401936, changed_since_round6: false}
+    '63': {head: 55adf317da2373568aecd6ce76fc0d5800ac2449, base: 64019361707d8582a47ef747eacb555a170f4efe, digest: 852b3fe54ae8f47a8e23b32d15faf1bb8745c583b6e97e677e74940c58e75645, merge: c8b7650, shortstat: '6 файлов, +477 / -68', new: true}
+content_digest: sha256:f985f1ab5fa10107957d9ae6a74f4b26a432b4a93e6c811a0c770d5cd0c5cae0
+digest_definition: >-
+  git diff --full-index origin/32..HEAD | sha256sum в tmp/corelib-32 после fetch. Дайджест #63 —
+  git diff --full-index 64019361..55adf31 | sha256sum = 852b3fe5…, совпал с именами записей
+  go-style-reviewer и security-auditor круга 1 (обе accepted, blocks_landing false, не закоммичены).
+
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-24T02:13:11Z'
+isolation: >-
+  Свой клон /home/dk/.cache/wave-review-32g-PqX8jX/corelib (git clone --shared от tmp/corelib-32,
+  HEAD c8b7650). GOCACHE, TMPDIR, GOLANGCI_LINT_CACHE там же, GOPROXY=off. Инъекции — только
+  -overlay (ov/), дерево клона после прогонов porcelain 0. tmp/corelib-32 не тронута: porcelain 0,
+  HEAD c8b7650. Шаг 0: MemAvailable 31 ГБ, чужих golangci-lint и pre-push 0 (logs/step0.txt).
+  Скрипт прогонов — runs.sh, коды шагов — logs/rc.tsv.
+
+runs:
+  - 'go build ./... rc 0; go vet трёх пакетов rc 0; gofmt -l по индексу: 0 из 760; golangci-lint v2.12.2 --config=.github/golangci.yml: 0 issues, rc 0'
+  - 'R1 хост, go test -count=1 -json ./oauthceremony/ ./acrlevel/ ./tokenpolicy/: rc 0. oauthceremony PASS 1485 FAIL 0; acrlevel PASS 14; tokenpolicy PASS 10 (сборка-6: 1468 + 4 FAIL = 1472; +13 — record_aging_test.go, 3 пробы и 10 подпроб)'
+  - 'R3 golang:1.26.8 --cpus=1 (cpu.max 100000 100000), go test -race -count=1 -timeout 25m -json тех же пакетов: rc 0, PASS 1485 + 14 + 10, FAIL 0, DATA RACE 0'
+  - 'R5 golang:1.26.8 --cpus=4, форма задания unit: go test ./... -race -short -count=1 -timeout 25m -json | go-test-verdict.py: пакетов 99 (прошло 80, упало 0, без проб 19), исполнено 4229, отказов 0, пропущено 191, ЗЕЛЁНЫЙ, rc 0; DATA RACE 0'
+  - 'I-kprod1 (-overlay bridge.go: погашенный код после срока отдаётся движку как «кода нет»): rc 1, красная ровно TestConsumedCodeRecordOutlivesTheCodeLifespan/запись цела (code_record_retention_test.go:122-123 — invalid_grant вместо authorization_code_consumed, семейство не отозвано, RevokeGrant* 0); близнец «запись снята» зелёный. Проба K1 судит свойство продукта'
+  - 'I-kprod2 (-overlay bridge.go: replayedCode помечает семейство только после удачной сборки): rc 1, красные 3 пробы пути кода — TestCodeReplayOfAClientThatIsGoneStillRevokesTheFamily (replay_build_test.go:208-209), TestReplayWithABrokenSessionRecordIsStillAReplay, TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest; пара пути токена обновления зелёная. Проба K2 судит свойство продукта'
+  - 'I-c5 (-overlay notes.go: markReplayedFamily не делает повтор точным случаем): rc 1, красные 4 пробы верхнего уровня, 31 FAIL подпроб. Механизм один, его снятие видно'
+  - 'I-kfix1 (-overlay fakes_test.go: старение пропускает Session.AuthTime — форма K1 до #63): rc 1, «НЕ ВЫПОЛНИЛОСЬ: мгновения [GrantRecord.Session.AuthTime] … не сдвинуты» (code_record_retention_test.go:111) — отказ предпосылки, а не красное утверждения'
+  - 'I-kfix2 (-overlay ceremony_test.go: registerClientLike не кладёт секрет — форма K2 до #63): rc 1, обе пробы повтора ушедшего клиента «НЕ ВЫПОЛНИЛОСЬ: порт сверки не признал секрет клиента svc-other» (refresh_replay_test.go:360, replay_build_test.go:207)'
+
+roots:
+  K1_C3: 'закрыт на сборке: R1/R3/R5 зелёные; I-kprod1 красная на продукте; I-kfix1 даёт «не выполнилось» (dafe2b9)'
+  K2_C4: 'закрыт на сборке: R1/R3/R5 зелёные; I-kprod2 красная на продукте; I-kfix2 даёт «не выполнилось» (0e2414d)'
+  C5: 'закрыт: record(ours) за markReplayedFamily снят в обоих местах (bridge.go:458-465, :622-628); оставшиеся вызовы record — bridge.go:242,265,321,560 и notes.go:355, повтор не пишут; I-c5 — 4 красных (55adf31)'
+
+lanes:
+  - 'полоса 36 · вердикт принято · координата — · требование — · чем доказано R1, R3, R5; I-kprod1, I-kprod2, I-c5 (C3, C4, C5 закрыты сопряжением #63)'
+  - 'полоса 37 · вердикт принято · координата — · требование — · чем доказано R5; I-kfix2 (сверка секрета до выборки кода не ослаблена)'
+  - 'полоса 39 · вердикт принято · координата — · требование — · чем доказано R1, R3; I-kprod1'
+  - 'полоса 21 · вердикт принято · координата — · требование — · чем доказано общих файлов с #63 0; R5 исполнено 4229, правило «исполнено 0 → код 2» не срабатывает'
+  - 'полоса 63 · вердикт принято · координата — · требование — · чем доказано R1, R3, R5, I-kprod1, I-kprod2, I-c5, I-kfix1, I-kfix2; lint 0; форма: темы 58/64/67 знаков, тела 6/8/8 строк, трейлеров 0, автор pointpu@in-cloud.io'
+
+collisions:
+  - {id: C3, kind: 'столкновение ожиданий — §14 «Классы столкновений…»', lanes: ['39', '36'], status: 'закрыто #63 dafe2b9', proof: 'R1/R3/R5; I-kprod1; I-kfix1'}
+  - {id: C4, kind: 'столкновение ожиданий — §14 «Классы столкновений…»', lanes: ['36', '37'], status: 'закрыто #63 0e2414d', proof: 'R1/R3/R5; I-kprod2; I-kfix2'}
+  - {id: C5, kind: 'два решения одной задачи — §14 «Классы столкновений…»', lanes: ['36', '37'], status: 'закрыто #63 55adf31', proof: 'I-c5'}
+  - id: C6
+    kind: 'работа × утверждение о дереве — §14 «Четвёртый вид…»; не блокирует'
+    lanes: ['21', '36+37+39+63']
+    subject: 'scripts/hooks/pre-push:16-17 «Замер на дереве волны 32: 99 пакетов, 3073 пробы, пропущено 191». На сборке-7 исполнено 4229 (R5). Не изменилось с круга 6'
+    fix_in: 'полоса 21 при следующем касании — предикат либо ревизия вместо числа'
+new_collisions: >-
+  нет. #63 × #21: общих файлов 0. #63 × #36/#37/#39: #63 и есть их сопряжение; все 6 файлов — в
+  oauthceremony. Снятые помощники подставки (agedGrantInstants, requireGrantInstantsAged,
+  grantInstantFields, shiftedInstants): 0 вхождений в дереве. Ссылка на пробу хранения в
+  tokenpolicy/policy.go:234 цела. Второго клиента в пробах заводят 2 места, оба через
+  registerClientLike; прочие правки store.clients — по testClientID. Удалений путей нет.
+
+lanes_without_verdict: —
+reports_wider_than_done: >-
+  C6 (шапка хука, не блокирует). Примечание к полосе 63, не столкновение: I-1 go-style-reviewer —
+  комментарии fakes_test.go:455-456, :490-491 обещают старение «любого» мгновения, а обход не
+  видит именованного типа над time.Time и эпохи числом; не блокирует, при следующем касании подставки.
+route_note: >-
+  База #63 — сама сборка-6 (64019361, не отправлена), а не origin/32. При пересборке 32 из других
+  голов 36/37/39 #63 вливается после них заново, иначе сопряжение теряет предмет.
+
+examined:
+  diffs: 3                     # дифф #63 = дельта сборки-7 (64019361..c8b7650); полный дифф сборки f213439a..c8b7650; remerge-diff c8b7650 (пуст)
+  lines: 6996                  # 697 + 6299 + 0
+  read_line_by_line: 'дифф #63 целиком (697 строк); на сборке — notes.go:180-260, bridge.go:395-520, :585-690, code_record_retention_test.go:1-140, record_aging_test.go целиком. Диффы 36/37/39/21 не менялись с круга 6 и судились прогоном'
+
+next:
+  - 'сведение — отправка 32@c8b7650 после прогона формы конвейера и landing-reviewer'
