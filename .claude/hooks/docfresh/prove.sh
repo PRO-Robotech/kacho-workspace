@@ -87,18 +87,28 @@ PASS=0; FAIL=0; NOTRUN=0
 # время своих проб, и ответ «жива ли координата» при назначенном стволе другой. Ключ
 # без ствола отдавал бы вердикт, снятый при другом основании, — молча.
 CLASS_MEMO="$TMP/classmemo"; mkdir -p "$CLASS_MEMO"
-hook_path_class() { # hook_path_class <координата> → исход classify
-  local c="$1" key f out
-  key="$(printf '%s|%s' "${DOCFRESH_INTEGRATION_REF:-}" "$c" | md5sum | cut -d" " -f1)"
+# Режим `без-соседей` — тот же ответчик с ВЫКЛЮЧЕННОЙ полосой соседних клонов:
+# её вход пуст, и её единственная функция (`sibling_hit`) не отвечает. Он нужен
+# предпосылкам самой полосы (секция G4): спросить полосу о её же предпосылке
+# значило бы отдать предпосылку тому дефекту, который проба ловит.
+hook_path_class() { # hook_path_class <координата> [без-соседей] → исход classify
+  local c="$1" mode="${2:-}" key f out
+  key="$(printf '%s|%s|%s' "${DOCFRESH_INTEGRATION_REF:-}" "$mode" "$c" | md5sum | cut -d" " -f1)"
   f="$CLASS_MEMO/$key"
   if [ ! -s "$f" ]; then
-    python3 - "$GUARD" "$WS" "$c" > "$f" 2>/dev/null <<'PYCLASS' || true
+    python3 - "$GUARD" "$WS" "$c" ${mode:+"$mode"} > "$f" 2>/dev/null <<'PYCLASS' || true
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfcls", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ws = pathlib.Path(sys.argv[2]); mono = m.monorepo_root(ws)
 idx, _warm = m.load_index(ws, mono)
-print(m.Truth(idx["truth"], ws, mono).classify("path", sys.argv[3]))
+truth = idx["truth"]
+if sys.argv[4:] == ["без-соседей"]:
+    truth = dict(truth, siblings={}, siblings_skipped=[])
+    m.Truth.sibling_hit = lambda self, coord: None
+elif sys.argv[4:]:
+    sys.exit(f"неизвестный режим: {sys.argv[4:]}")
+print(m.Truth(truth, ws, mono).classify("path", sys.argv[3]))
 PYCLASS
   fi
   out="$(cat "$f" 2>/dev/null)"
@@ -945,24 +955,49 @@ fi
 
 # СОСЕДНИЙ КЛОН: координата существует — резолвится и СЧИТАЕТСЯ отдельной полосой.
 #
-# ПРЕДПОСЫЛКА — сам сосед: клон `project/corelib`, и `authz` в его индексе.
-# Без клона `corelib` нет в словаре корней, координата путём не опознаётся, и три
-# пробы полосы молчали бы не по своей причине: «не названа» читалась расхождением,
-# «не обвинён» и зеркало — зелёным без предмета. Так было в конвейере, где рядом
-# выложено одно дерево продукта (ws#839). Клон выкладывает job hook-proofs.
-# Спрашивается git клона, а не хук: сломанная полоса хука иначе сделала бы
-# предпосылку мёртвой, и дефект ушёл бы в «не выполнилось» вместо «разошлось».
-SIB_NOTE="соседнего клона нет (project/corelib) либо «authz» не в его индексе — полосе соседних клонов нечего называть. Условие: git clone https://github.com/PRO-Robotech/corelib.git project/corelib, так его выкладывает конвейер (job hook-proofs)"
+# У ТРЁХ ПРОБ ПОЛОСЫ ТРИ СВОИХ ДЕФЕКТА, и каждая обязана краснеть на своём:
+#   «названа»    — полоса резолвит, но в перепись не считается;
+#   «не обвинён» — полосы нет: сосед не резолвит ничего;
+#   зеркало      — полоса резолвит всё подряд под именем известного соседа.
+# Отсюда требование ко входу двух первых: координата есть ТОЛЬКО у соседа.
+# Прежний вход, `corelib/authz`, основание резолвило и без полосы — хвостом
+# `proto/corelib/authz` дерева продукта, — и «не обвинён» на своём дефекте
+# оставалась зелёной (ws#839, возврат ревью волны).
+#
+# ПРЕДПОСЫЛКА ВХОДА — ДВЕ ПОЛОВИНЫ, и обе спрашиваются МИМО полосы:
+#   • сосед — у git клона `project/corelib`: несёт путь либо не несёт;
+#   • остальное основание — у хука с ВЫКЛЮЧЕННОЙ полосой (`без-соседей`): вход
+#     обязан быть там `missing`, иначе исход объяснялся бы не полосой.
+# Спроси предпосылку у самой полосы — и она станет мёртвой ровно на дефекте:
+# зеркало под «резолвит всё подряд» уходило в «не выполнилось» (код 2) вместо
+# «разошлось» (код 1). Без клона `corelib` нет в словаре корней, координата
+# путём не опознаётся, и три пробы — «не выполнилось». Клон выкладывает job
+# hook-proofs.
+SIB="$WS/project/corelib"
+SIB_NOTE="соседнего клона нет (project/corelib) — полосе соседних клонов нечего называть. Условие: git clone https://github.com/PRO-Robotech/corelib.git project/corelib, так его выкладывает конвейер (job hook-proofs)"
+# `grep -c`, а не `-q`: ранний выход `-q` рвёт трубу, и под `pipefail` совпадение
+# читалось бы отказом (SIGPIPE у `git ls-files`) — ровно на большом индексе.
+sib_index_has() { [ "$(git -C "$SIB" ls-files 2>/dev/null | grep -cE -- "$1")" -gt 0 ]; }
+SIB_ON=0; is_git_tree "$SIB" && SIB_ON=1
+SIB_IN='corelib/audit'          # есть у соседа (audit/), в остальном основании — нет
 SIB_LIVE=0
 PREMISE_SEEN=$((PREMISE_SEEN+1))
-if is_git_tree "$WS/project/corelib"; then
-  if [ -n "$(git -C "$WS/project/corelib" ls-files -- authz 2>/dev/null | head -1)" ]; then
+if [ "$SIB_ON" -eq 1 ]; then
+  sib_base="$(hook_path_class "$SIB_IN" без-соседей)"
+  sib_why=""
+  if ! sib_index_has '^audit/'; then
+    sib_why="в индексе клона нет «audit/» — соседу нечего резолвить"
+  elif [ "$sib_base" != "missing" ]; then
+    sib_why="основание без полосы соседей судит его «$sib_base», а не «missing» — «не обвинён» зеленела бы и без полосы"
+  fi
+  if [ -z "$sib_why" ]; then
     SIB_LIVE=1
   else
-    PREMISE_DEAD=$((PREMISE_DEAD+1))   # клон есть, а входа нет — переанкерить пробу
+    PREMISE_DEAD=$((PREMISE_DEAD+1))
+    SIB_NOTE="вход «$SIB_IN» мёртв: $sib_why. Переанкерить на путь, который есть ТОЛЬКО у соседа"
   fi
 fi
-out="$(run_doc t2.md 'Модель прав живёт в `corelib/authz`.')"
+out="$(run_doc t2.md 'Журнал аудита живёт в `corelib/audit`.')"
 if [ "$SIB_LIVE" -eq 0 ]; then
   notrun "$SIB_NOTE"
 elif printf '%s' "$out" | grep -qE 'резолвится в соседнем репозитории [1-9]'; then
@@ -973,7 +1008,7 @@ else
 fi
 if [ "$SIB_LIVE" -eq 0 ]; then
   notrun "$SIB_NOTE"   # каждая неисполненная проба — своей строкой переписи
-elif printf '%s\n' "$out" | findings_only | grep -qF 'corelib/authz'; then
+elif printf '%s\n' "$out" | findings_only | grep -qF "$SIB_IN"; then
   echo "  ✘ (−) живой путь соседнего клона ОБВИНЁН — 41 такое обвинение и чинится"; FAIL=$((FAIL+1))
 else
   echo "  ✔ (−) живой путь соседнего клона не обвинён"; PASS=$((PASS+1))
@@ -987,13 +1022,32 @@ else
   echo "  ✘ пропущенный сосед не назван — его координата читается несуществующей"; FAIL=$((FAIL+1))
 fi
 # ЗЕРКАЛО той же полосы: путь, которого в соседе НЕТ, — находка. Без него
-# «резолвится всё подряд» было бы неотличимо от работающего резолва.
-if [ "$SIB_LIVE" -eq 1 ]; then
-  expect_fires_dead "(+) путь, которого в соседнем клоне нет, — находка" t3.md \
-    'Клиент сужения живёт в `corelib/listnarrow/client.go`.' \
-    'corelib/listnarrow/client.go' 'corelib/listnarrow/client.go'
+# «резолвится всё подряд» было бы неотличимо от работающего резолва. Каталог
+# `listnarrow/` у соседа есть, файла `client.go` в нём нет: зеркало ловит и
+# полосу, резолвящую по живому родителю. Предпосылка — теми же двумя половинами:
+# у git клона путь не встречается ни целиком, ни хвостом (хвост полоса судит
+# так же, как основные деревья), и основание без полосы судит его `missing`.
+SIB_MIRROR='corelib/listnarrow/client.go'
+if [ "$SIB_ON" -eq 0 ]; then
+  notrun "соседнего клона нет (project/corelib) — зеркалу полосы нечего судить. Условие то же: git clone https://github.com/PRO-Robotech/corelib.git project/corelib (job hook-proofs)"
 else
-  notrun "$SIB_NOTE"
+  PREMISE_SEEN=$((PREMISE_SEEN+1))
+  mir_base="$(hook_path_class "$SIB_MIRROR" без-соседей)"
+  mir_why=""
+  if ! sib_index_has '.'; then
+    mir_why="индекс клона пуст — хук такого соседа не читает, и координата путём не опознаётся"
+  elif sib_index_has '(^|/)listnarrow/client\.go(/|$)'; then
+    mir_why="путь есть в индексе клона — полоса резолвит его законно"
+  elif [ "$mir_base" != "missing" ]; then
+    mir_why="основание без полосы соседей судит его «$mir_base», а не «missing» — находка объяснялась бы не полосой"
+  fi
+  if [ -z "$mir_why" ]; then
+    expect_fires "путь, которого в соседнем клоне нет, — находка" t3.md \
+      'Клиент сужения живёт в `corelib/listnarrow/client.go`.' "$SIB_MIRROR"
+  else
+    PREMISE_DEAD=$((PREMISE_DEAD+1))
+    notrun "вход (+) зеркала «$SIB_MIRROR» испорчен: $mir_why. Переанкерить пробу на путь, которого нет нигде"
+  fi
 fi
 
 # ИМЯ СНЯТОГО ПОЛИРЕПО БЕЗ ИЗВЕСТНОГО РАСШИРЕНИЯ добирается до СВОЕЙ границы.
