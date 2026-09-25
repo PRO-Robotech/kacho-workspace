@@ -24,7 +24,11 @@
 #                          ссылка на каталог), набор по нему красный → отказ, зелёный →
 #                          строка чистого; близнец: вершина путь НЕ игнорирует → 0
 #                          (для неё это незакоммиченная работа); дом копий `tmp/*` и
-#                          байткод не переносятся.
+#                          байткод не переносятся;
+#   отправка из СВЯЗАННОЙ копии под `tmp/` (так отправляют полосы: копия сама лежит
+#                          в доме копий) — условие ссылкой на каталог канонического и
+#                          своим каталогом, набор красный → отказ, зелёный → строка
+#                          чистого (ws#811, возврат wave-reviewer).
 #
 # ПРЕДПОСЫЛКА (исход VOID): вызывающий есть, и на чистой копии с зелёной вершиной
 # он отвечает 0, вызвав заглушку. Иначе остальные пробы на нём недоказательны.
@@ -73,17 +77,19 @@ mkbox() {
     printf '%s' "$dir"
 }
 
-# push <песочница> <вход> — «<код>|<вызовов заглушки>|<завершающая строка>»;
-# полный вывод — в `<песочница>.out`.
+# push <песочница> <вход> [<копия>] — «<код>|<вызовов заглушки>|<завершающая
+# строка>»; полный вывод — в `<песочница>.out`. Хук — вызывающий песочницы, а
+# отправляет <копия> (по умолчанию сама песочница): git зовёт хук из корня той
+# копии, из которой идёт отправка.
 push() {
-    local dir="$1" input="$2" code
+    local dir="$1" input="$2" from="${3:-$1}" code
     : > "$dir.calls"
     (
-        cd "$dir" || exit 111
+        cd "$from" || exit 111
         unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
               GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
               KACHO_MONOREPO KACHO_SKIP_PREPUSH
-        printf '%s' "$input" | bash ./scripts/hooks/pre-push origin "$dir.remote"
+        printf '%s' "$input" | bash "$dir/scripts/hooks/pre-push" origin "$dir.remote"
     ) > "$dir.out" 2>&1 && code=0 || code=$?
     printf '%s|%s|%s\n' "$code" "$(grep -c . "$dir.calls" || true)" \
         "$(grep -v '^[[:space:]]*$' "$dir.out" | tail -1)"
@@ -234,6 +240,49 @@ for caller in "${CALLERS[@]}"; do
     if [ "$(rc "$r")" != 1 ]; then
         bad "$caller — у копии outside — ссылка на каталог, вершина его игнорирует, набор по нему красный: код $(rc "$r") вместо 1 — условие вне дерева в копию вершины не доехало"
     fi
+
+    # ── Отправка из СВЯЗАННОЙ копии под `tmp/` — так отправляют полосы ──────
+    # Копия полосы — `git worktree` канонического в его `tmp/<полоса>`, то есть
+    # сама лежит в доме копий вершины: всё её — под `$canonical/tmp`. Пробы выше
+    # отправляют из канонического и этого не видят: хук, снимающий условия копии
+    # полосы как «дом копий», проходил их все, а с настоящей полосы красная
+    # вершина уезжала «без предмета». Формы условия в полосе — ссылка на каталог
+    # канонического (`project` → `<канонический>/project`) и свой каталог.
+    rm -f "$box/outside"
+    mv "$box.ext" "$box/outside"   # у канонического условие — настоящий каталог
+    lane="$box/tmp/lane"
+    if ! pgit -C "$box" worktree add -q "$lane" cond-lane >/dev/null 2>&1; then
+        tooling_gate_void "$NAME" "$caller — связанная копия $lane не собралась; пробы отправки из полосы недоказательны"
+        exit 2
+    fi
+    lane_common="$(cd "$(git -C "$lane" rev-parse --path-format=absolute --git-common-dir)" && pwd -P)"
+    case "$(cd "$lane" && pwd -P)/" in
+        "$(cd "$box" && pwd -P)/tmp/"*) ;;
+        *) lane_common="" ;;
+    esac
+    if [ "$lane_common" != "$(cd "$box/.git" && pwd -P)" ]; then
+        tooling_gate_void "$NAME" "$caller — $lane не связанная копия песочницы под её tmp/; пробы отправки из полосы не про то"
+        exit 2
+    fi
+
+    ln -s "$box/outside" "$lane/outside"
+    echo red > "$box/outside/clone/verdict"
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 1 ]; then
+        bad "$caller — отправка из связанной копии tmp/lane, её outside — ссылка на каталог канонического, набор по нему красный: код $(rc "$r") вместо 1 — условие копии полосы снято как дом копий, красное уехало; хук сказал: «$(grep -m1 -o 'перенесено .*' "$box.out" || echo 'ничего')»"
+    fi
+    echo green > "$box/outside/clone/verdict"
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 0 ] || [ "$(tail_of "$r")" != "$(tail_of "$green")" ]; then
+        bad "$caller — отправка из связанной копии tmp/lane, условие зелёное: код $(rc "$r"), завершающая строка «$(tail_of "$r")» вместо строки чистого; набор сказал: «$(grep -m1 -o 'cond: .*' "$box.out" || echo 'ничего')»"
+    fi
+    rm "$lane/outside"
+    mkdir -p "$lane/outside/clone"
+    echo red > "$lane/outside/clone/verdict"
+    r="$(push "$box" "refs/heads/cond-lane $C refs/heads/cond-lane $Z"$'\n' "$lane")"; probes=$((probes + 1))
+    if [ "$(rc "$r")" != 1 ]; then
+        bad "$caller — отправка из связанной копии tmp/lane, её outside — свой каталог, набор по нему красный: код $(rc "$r") вместо 1 — условие копии полосы снято как дом копий, красное уехало; хук сказал: «$(grep -m1 -o 'перенесено .*' "$box.out" || echo 'ничего')»"
+    fi
 done
 
 tooling_gate_census "$NAME: вызывающих осмотрено $examined, проб $probes"
@@ -243,4 +292,4 @@ if [ "$findings" -gt 0 ]; then
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины с её перечнем наборов и условиями копии вне дерева, черновик — по отправляемой ссылке"
+tooling_gate_pass "$NAME" "у всех $examined вызывающих исход решает вход отправки: удаление не судит копию, судится дерево вершины с её перечнем наборов и условиями копии вне дерева — и из канонического, и из связанной копии под tmp/, черновик — по отправляемой ссылке"
