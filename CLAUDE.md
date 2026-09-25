@@ -29,8 +29,8 @@
 Почему исключение, а не перенос каталога: **все** `.md` внутри `.claude/rules/` Claude Code грузит
 сам, рекурсивно, при старте, без всякого `@import` (измерено). Снять автозагрузку, не трогая
 адреса файлов, умеет только `claudeMdExcludes` — а адреса трогать дорого: координата
-`.claude/rules/<файл>.md` встречается в дереве около тысячи раз. Число здесь не выписано, потому
-что меняется при каждой правке; предикат — `git ls-files | xargs grep -oh '\.claude/rules/[A-Za-z0-9_-]*\.md' | wc -l`.
+`.claude/rules/<файл>.md` встречается в дереве больше тысячи раз. Число не выписано — оно
+меняется с каждой правкой; предикат — `git ls-files | xargs grep -oh '\.claude/rules/[A-Za-z0-9_-]*\.md' | wc -l`.
 
 Сессия без диспетчера, если она нужна человеку: `claude --agent <имя исполнителя>` — флаг
 перекрывает настройку.
@@ -98,11 +98,16 @@ AI-оснастка живёт **в единственном экземпляр�
 
 ## Permissions и хуки
 
-`.claude/settings.json` — `bypassPermissions` (локальная dev-машина) плюс хуки: vault-discipline
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
 (`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
-сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `session-memcap` (`SessionStart`), `change-graph-reminder`, rag-хуки. Пути — через
-`$CLAUDE_PROJECT_DIR`. Файл существует в одном экземпляре; в репозитории продукта его нет и не должно быть: `bypassPermissions`,
-закоммиченный в публичный репозиторий, решал бы за каждого клонирующего.
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `session-memcap` (`SessionStart`),
+`change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует в одном
+экземпляре; в репозитории продукта его нет и не должно быть.
+
+Режима без подтверждений из дерева **нет**: `permissions.defaultMode` проектного и локального
+слоёв харнесс игнорирует (оба repo-controllable — обход решал бы за каждого клонирующего) и
+спрашивает «Do you want to proceed?». Режим даёт только личный `~/.claude/settings.json`, policy
+или флаг. Замер и признак — `ai-tooling.md`, at-bypass-not-from-repo-layer.
 
 Хуки запроса и хода печатают **диспетчеру**, а он ничего не делает сам: что каким агентом
 закрывается — таблица сигналов в `.claude/agents/dispatcher.md`. Хуки записи и команд говорят
