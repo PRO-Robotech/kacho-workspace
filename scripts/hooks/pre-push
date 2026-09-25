@@ -163,6 +163,10 @@ while IFS= read -r -d '' rec; do
     esac
 done < <(git --no-optional-locks status --porcelain=v1 -z --ignored=matching \
     --untracked-files=normal 2>/dev/null)
+# Копия, из которой отправляют, сама может лежать в `$wt_base` — так отправляют
+# полосы из `tmp/<полоса>`. Под ним тогда ВСЁ её, и фильтр дома копий для неё
+# снят: иначе не доедет ни одно условие. Держит check-10 (отправка из связанной
+# копии под `tmp/`).
 case "$ROOT/" in "$wt_base"/*) root_in_base=1 ;; *) root_in_base=0 ;; esac
 
 # carry_outside <копия вершины> — переносит условия; перенесённое — в `carried`.

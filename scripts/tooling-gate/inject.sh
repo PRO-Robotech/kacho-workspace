@@ -723,6 +723,27 @@ if mr_patch "$b/$HK_REL" 's/        case "\/\$rel" in \*\/__pycache__ \| \*\.py\
     "байткод переносится"; then
     run 1 "$b" "инъекция: в копию вершины едет байткод копии — краснеет" "$C10"
 fi
+
+# Возврат wave-reviewer к ws#811: копия полосы сама лежит в доме копий `tmp/`.
+# Переключатель роняется в обе стороны: полоса судится как канонический и
+# канонический — как полоса; близнец пишет ту же принадлежность другой формой.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/"\$wt_base"\/\*\) root_in_base=1 ;;/"\$wt_base"\/*) root_in_base=0 ;;/' \
+    "копия полосы под tmp/ судится как канонический"; then
+    run 1 "$b" "инъекция: из копии полосы под tmp/ условие вне дерева не едет — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\*\) root_in_base=0 ;; esac/*) root_in_base=1 ;; esac/' \
+    "канонический судится как копия полосы"; then
+    run 1 "$b" "инъекция: из канонического в копию вершины едет дом копий — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/^case "\$ROOT\/" in "\$wt_base"\/\*\) root_in_base=1 ;; \*\) root_in_base=0 ;; esac$/root_in_base=0; [[ "\$ROOT\/" == "\$wt_base"\/* ]] \&\& root_in_base=1/m' \
+    "принадлежность дому копий другой формой"; then
+    run 0 "$b" "близнец: принадлежность копии дому копий другой формой — молчит" "$C10"
+fi
 b="$(mksandbox)"
 if mr_patch "$b/$HK_REL" 's/--untracked-files=normal/--untracked-files=all/' \
     "кандидаты поштучно"; then
