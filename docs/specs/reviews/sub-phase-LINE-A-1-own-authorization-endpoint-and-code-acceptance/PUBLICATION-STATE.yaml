@@ -1,0 +1,323 @@
+# Запись-уточнение СОСТОЯНИЯ публикации и коммита — каталог записей ревью приёмки LINE-A-1.
+#
+# ЧТО ЭТА ЗАПИСЬ ДЕЛАЕТ И ЧЕГО НЕ ДЕЛАЕТ.
+#   Делает: называет действительное состояние внешнего события полномочия и коммита
+#   содержимого для каждой записи этого каталога, с командой и её выводом на каждое
+#   утверждение.
+#   НЕ делает: не выносит вердикта, не пересматривает, не подтверждает и не отменяет
+#   ни одного прежнего. Вердикт каждой записи лежит в ней самой, не тронут и здесь не
+#   оценивается. Предмет этой записи — ТОЛЬКО состояние публикации и коммита.
+#
+# ПОЧЕМУ ПРЕЖНИЕ ЗАПИСИ НЕ ИСПРАВЛЕНЫ НА МЕСТЕ (две причины, каждая достаточна).
+#   1. Журнал ревью ДОПОЛНЯЕТСЯ, а не переписывается: `.claude/rules/change-graph.md`
+#      §«история ревью добавляется, не переписывается» — прежняя запись не редактируется
+#      и не удаляется, новое утверждение получает СОСЕДНИЙ файл. Перезапись стёрла бы
+#      единственное свидетельство того, ЧТО именно рецензент видел в момент вердикта.
+#   2. Правка поля «событие опубликовано» в чужой записи вердикта ОТКЛОНЕНА средой как
+#      подделка следа аудита, и отклонение правильное: снаружи такая правка неотличима
+#      от подделки — тот же байт мог бы вписать и тот, у кого события нет. Состояние,
+#      которое нельзя дописать в запись, не подделав её, выражается ДОБАВЛЕННЫМ соседом.
+#
+# ЧЕМ ОБОСНОВАНЫ ФОРМА И МЕСТО (канон каталога, четыре признака — как у соседнего
+# `…-class-exposure/revalidation/SUPERSEDED.yaml`, той же природы файла):
+#   1. `change-graph.md` §«история ревью добавляется, не переписывается» — сосед есть
+#      законная форма нового утверждения о прежних записях.
+#   2. Пространство имён каталога — `<sha256 прочитанного предмета>.yaml`: имя файла ЕСТЬ
+#      отпечаток предмета. Эта запись предмета-приёмки не читает и вердикта не несёт,
+#      поэтому её имя НАМЕРЕННО вне этого пространства — ASCII-слова, не 64 hex. Это и
+#      есть машинный различитель: предикат `^[0-9a-f]{64}\.yaml$` её не захватывает, и
+#      читатель записей вердиктов не примет её за вердикт.
+#   3. Машинно читаемое состояние в этом дереве пишется YAML (`docs/changes/policy.yaml`,
+#      записи ревью `<sha256>.yaml`, ведомость `SUPERSEDED.yaml`); проза — `.md`.
+#   4. Место — ТОТ ЖЕ каталог, что уточняемые записи, а не отдельный: координаты записей
+#      неизменны (их не переносят и не переименовывают — перемещение чужого файла ломает
+#      адресацию так же молча, как правка), а читатель, нашедший записи, находит и это
+#      уточнение рядом, без внешнего указателя.
+#
+# КАК ЧИТАТЬ ССЫЛКИ НИЖЕ: уточняемая запись называется ОТПЕЧАТКОМ своего предмета
+# (`clarifies_record_subject_sha256`), а не именем файла. Имя файла в этом каталоге равно
+# отпечатку, но адресует именно отпечаток: переименуют файл — утверждение останется верным.
+
+schema_version: 1
+kind: review_publication_state_clarification
+supersedes_no_verdict: true
+subject_directory: docs/specs/reviews/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance
+acceptance_document: docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md
+repository: PRO-Robotech/kacho-workspace
+branch: acceptance/line-a-1
+worktree: tmp/wt-line-a-1
+measured_at: '2026-09-20'
+measured_on_head: 45285ea0   # HEAD рабочей копии в момент замера, до коммита этой записи
+author_role: acceptance-reviewer
+authority_premise_rechecked:
+  policy_document: docs/changes/policy.yaml
+  policy_sha256_measured: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  predicate: 'sha256sum docs/changes/policy.yaml'
+  matches_value_cited_by_all_three_records: true
+  policy_field: review_authority.acceptance-reviewer
+  authorized_actors: [pointpu]
+  note: >-
+    Посылка авторитета трёх записей перемерена на ЭТОЙ ревизии, а не принята с их слов:
+    довод, взятый из соседнего артефакта, стареет вместе с его деревом.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ЗАМЕРЫ. Каждая строка несёт команду и её вывод. Ничего не принято со слов задания.
+# ─────────────────────────────────────────────────────────────────────────────
+
+clarifications:
+
+  # ---------------------------------------------------------------- редакция 2
+  - clarifies_record_subject_sha256: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
+    record_file_at_time_of_writing: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54.yaml
+    record_own_verdict_untouched: 'APPROVED (круг 2, редакция 2) — здесь не пересматривается'
+    what_the_record_declares:
+      event_status: not_performed
+      event_published: false
+      quote: 'event: {type: github_issue_comment, status: not_performed, published: false}'
+      где: 'строки 43–45 записи'
+    actual_state: СОБЫТИЕ ОПУБЛИКОВАНО
+    event_measured:
+      searched_by: >-
+        gh api --paginate "repos/PRO-Robotech/kacho/issues/comments?since=2026-09-18T00:00:00Z&per_page=100"
+        --jq '.[] | select(.body | test("304d545e71c4d148|b755886fd3a9cbf4")) | [.created_at,.user.login,.html_url] | @tsv'
+        — тот же обход повторён для PRO-Robotech/kaname и PRO-Robotech/kacho-workspace
+      url: https://github.com/PRO-Robotech/kacho/issues/2721#issuecomment-5738034812
+      api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5738034812
+      issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2721
+      database_id: 5738034812
+      node_id: IC_kwDOTZqgWM8AAAABVgN2fA
+      actor: pointpu
+      author_association: MEMBER
+      created_at: '2026-09-19T00:55:54Z'
+      updated_at: '2026-09-19T00:55:54Z'
+      never_edited: true   # created_at == updated_at
+      body_verbatim: >-   # хеш в цитате — до переписки сообщений 2026-09-23; то же дерево — ветка 772
+        acceptance-reviewer · APPROVED ·
+        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ 3972202a ·
+        sha256 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
+      body_sha256: f58ca8c3d3b900153e66f5aea8513eb904bfb73a420feb03d1416dfffa861239
+      body_sha256_predicate: >-
+        gh api repos/PRO-Robotech/kacho/issues/comments/5738034812 --jq '.body' | tr -d '\n' | sha256sum
+      body_matches_required_body_for_courier: >-
+        ДА по всем четырём полям записи: role=acceptance-reviewer · verdict=APPROVED ·
+        subject=…-acceptance.md · subject_revision=8b8d1f97 · subject_sha256=304d545e…
+      actor_authorized_by_policy: true
+    commit_state_measured:
+      record_declares_content_commit: 8b8d1f9773990985740dc392f5809333ba909a55
+      predicate: >-
+        git show 8b8d1f97:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
+      result: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
+      verdict_on_the_claim: ПОДТВЕРЖДЕНО — коммит содержимого назван записью верно, уточнения не требует
+    what_is_corrected: >-
+      ТОЛЬКО поля event.status / event.published. Утверждение записи «событие не
+      опубликовано» было верным в момент её написания и стало неверным 2026-09-19T00:55:54Z;
+      оно не лжёт о прошлом, но перестало описывать настоящее.
+
+  # ---------------------------------------------------------------- редакция 3
+  - clarifies_record_subject_sha256: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
+    record_file_at_time_of_writing: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec.yaml
+    record_own_verdict_untouched: 'APPROVED (круг 3, редакция 3) — здесь не пересматривается'
+    what_the_record_declares:
+      event_status: not_performed
+      event_published: false
+      content_commit: null
+      content_state: uncommitted_worktree
+      где: 'строки 15–17 (коммит) и 57–59 (событие) записи'
+    actual_state: СОБЫТИЕ ОПУБЛИКОВАНО · СОДЕРЖИМОЕ ЗАКОММИЧЕНО
+    event_measured:
+      searched_by: 'тот же обход комментариев трёх репозиториев, что строкой выше'
+      url: https://github.com/PRO-Robotech/kacho/issues/2721#issuecomment-5751175183
+      api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/comments/5751175183
+      issue_api_url: https://api.github.com/repos/PRO-Robotech/kacho/issues/2721
+      database_id: 5751175183
+      node_id: IC_kwDOTZqgWM8AAAABVsv4Dw
+      actor: pointpu
+      author_association: MEMBER
+      created_at: '2026-09-20T16:44:59Z'
+      updated_at: '2026-09-20T16:44:59Z'
+      never_edited: true   # created_at == updated_at
+      body_verbatim: >-   # хеш в цитате — до переписки сообщений 2026-09-23; то же дерево — ветка 772
+        acceptance-reviewer · APPROVED ·
+        sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md @ c8805904 ·
+        sha256 b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
+      body_sha256: fbf9630e52e8fa1ac82671550732c1604cc54bdf9504119dfdfebfd3b5c81f65
+      body_sha256_predicate: >-
+        gh api repos/PRO-Robotech/kacho/issues/comments/5751175183 --jq '.body' | tr -d '\n' | sha256sum
+      body_matches_required_body_for_courier: >-
+        ДА по всем трём полям записи (role · verdict · subject_sha256). Сверх записи тело
+        несёт ревизию `@ c8805904` (хеш в цитате — до переписки сообщений 2026-09-23; то же дерево — ветка 772)
+        — ту самую, которую запись оставила пустой; независимо
+        измеренная мной ниже, она совпала с названной событием.
+      actor_authorized_by_policy: true
+    commit_state_measured:
+      actual_content_commit: 90b7c5b30c8244762406d6d6417ed99521225d03
+      commit_subject: 'docs(LINE-A-1): редакция 3 приёмки и запись ревью круга 3'
+      commit_author: pointpu
+      commit_date: '2026-09-19T14:57:07+03:00'
+      predicate_identity: >-
+        git show 90b7c5b3:docs/specs/sub-phase-LINE-A-1-own-authorization-endpoint-and-code-acceptance.md | sha256sum
+      result_identity: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
+      identity_holds: >-
+        ДА — отпечаток содержимого приёмки в этом коммите РАВЕН имени записи; коммит
+        установлен замером, а не поиском по сообщению коммита.
+      predicate_uniqueness: >-
+        for c in 90b7c5b3 8b8d1f97 91864a29 8a99fe58 4e584bdf; do git show
+        $c:docs/specs/…-acceptance.md | sha256sum; done — перебраны ВСЕ коммиты, трогавшие
+        файл (git log --all -- <путь>); b755886f… даёт ровно один из них, 90b7c5b3
+      predicate_reachability: 'git merge-base --is-ancestor 90b7c5b3 HEAD → 0 (предок HEAD 45285ea0)'
+      verdict_on_the_claim: >-
+        ОПРОВЕРГНУТО — `content_commit: null` / `content_state: uncommitted_worktree` было
+        верно в момент письма и неверно сейчас. Примечательно: коммит, внёсший содержимое,
+        внёс и саму эту запись — то есть запись описывает как незакоммиченное содержимое,
+        закоммиченное ВМЕСТЕ с ней.
+    what_is_corrected: >-
+      ТОЛЬКО поля event.status / event.published и subject.content_commit /
+      subject.content_state. Вердикт APPROVED круга 3 не пересматривается.
+
+  # ------------------------------------------------- редакция 1, круг 1 (контроль)
+  - clarifies_record_subject_sha256: e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864
+    record_file_at_time_of_writing: e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864.yaml
+    record_own_verdict_untouched: 'CHANGES_REQUESTED (круг 1, редакция 1) — здесь не пересматривается'
+    what_the_record_declares:
+      event_type: none
+      event_status: not_performed
+      event_published: false
+    actual_state: УТОЧНЕНИЯ НЕ ТРЕБУЕТ — объявление верно
+    checked_not_assumed: >-
+      Это положительный контроль к двум строкам выше: та же команда поиска, применённая к
+      отпечатку e6c08a82…, обязана дать ноль — иначе мой поиск находит всё подряд.
+    absence_measured:
+      predicate_1: >-
+        gh api --paginate "repos/<R>/issues/comments?since=2026-09-01T00:00:00Z&per_page=100"
+        --jq '[.[] | select(.body | test("e6c08a823485a253"))] | length' для
+        R ∈ {PRO-Robotech/kacho, PRO-Robotech/kaname, PRO-Robotech/kacho-workspace}
+      result_1: 'ноль по всем страницам всех трёх репозиториев (kacho 17 страниц, kaname 3, workspace 1)'
+      predicate_2: 'gh search issues "e6c08a823485a253…" --owner PRO-Robotech --json number,repository,title'
+      result_2: '[] — ни одного тела задачи'
+      predicate_3: >-
+        gh api --paginate "repos/<R>/pulls/comments?since=2026-09-01T00:00:00Z" с тем же
+        фильтром — ноль
+      predicate_4: >-
+        полный обход комментариев задачи-адресата событий:
+        gh api --paginate repos/PRO-Robotech/kacho/issues/2721/comments — ровно два
+        комментария, оба перечислены выше, ни один не про e6c08a82…
+      control_direction: >-
+        Тот же обход, что дал ноль на e6c08a82…, дал ДВА попадания на 304d545e… и
+        b755886f… — поиск способен находить, и ноль означает отсутствие, а не немоту.
+    вывод: >-
+      «Не опубликовано» у записи круга 1 — ПРАВДА, и это согласуется с её же основанием:
+      вердикт-отказ полномочия не выдаёт и от внешнего события не зависит
+      (change-graph.md §«Роль без события полномочия не даёт»).
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ПРЕЖНИЕ ЗАПИСИ НЕ ТРОНУТЫ — доказательство отпечатками файлов записей
+# (не путать с отпечатками их ПРЕДМЕТА, которые стоят в именах файлов).
+# ─────────────────────────────────────────────────────────────────────────────
+prior_records_untouched:
+  predicate: >-
+    sha256sum docs/specs/reviews/sub-phase-LINE-A-1-…-acceptance/*.yaml — снят ДО работы и
+    ПОСЛЕ неё; плюс сверка с блобом коммита-рождения каждой записи:
+    git show <коммит-рождения>:<путь> | sha256sum
+  records:
+    - subject_sha256: 304d545e71c4d148b0a00042bafc4da468b46933353c949986a51fef5dd8be54
+      file_sha256_before: fa6ec42eb03f597d9fcff494ca17ff834425b3d3cc4ca7eb8ed3757d80bd7b61
+      file_sha256_at_birth_commit: fa6ec42eb03f597d9fcff494ca17ff834425b3d3cc4ca7eb8ed3757d80bd7b61
+      birth_commit: 62b4e52f
+      commits_touching_file: 1
+    - subject_sha256: b755886fd3a9cbf4070598ad3d921bb92d53d7f4186832a2c34f1d8ca197a7ec
+      file_sha256_before: 4a809cce7bc53e27a10e66c7702011325913cd564cb8a8b68091992180c5fb07
+      file_sha256_at_birth_commit: 4a809cce7bc53e27a10e66c7702011325913cd564cb8a8b68091992180c5fb07
+      birth_commit: 90b7c5b3
+      commits_touching_file: 1
+    - subject_sha256: e6c08a823485a2536c01b8d8d754baaf86804a120d77a9c3a0a1dd30d6044864
+      file_sha256_before: e635507b9dc412a897ff245829416454411aa9dd024ca0a7f840187cb87f471e
+      file_sha256_at_birth_commit: e635507b9dc412a897ff245829416454411aa9dd024ca0a7f840187cb87f471e
+      birth_commit: d8e1cd97
+      commits_touching_file: 1
+  note: >-
+    Отпечаток «после» снимается тем же предикатом в коммите, вносящем эту запись, и обязан
+    совпасть со строкой `file_sha256_before`. Совпадение с блобом коммита-рождения
+    доказывает больше «я не правил»: записи не правились НИКОГДА, ни одним автором.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# РАЗЛИЧИМО ЛИ СОСТОЯНИЕ ПУБЛИКАЦИИ МАШИННО. Ответ прямой: СЕГОДНЯ — НЕТ.
+# ─────────────────────────────────────────────────────────────────────────────
+machine_distinguishability:
+  question: >-
+    можно ли по дереву машинно отличить запись, чьё событие опубликовано, от записи, чьё
+    событие не публиковалось?
+  answer: НЕТ
+  measured:
+    field_census: >-
+      grep -rn 'published:' docs/specs/reviews --include='*.yaml' → 14 записей несут поле;
+      13 говорят `false`, одна (…F1b…/f55c521c….yaml) — `true`
+    counterexample: >-
+      из 13 «false» по меньшей мере ДВЕ — 304d545e… и b755886f… — на деле опубликованы
+      (события измерены выше). То есть значение `false` покрывает ОБА состояния сразу и
+      различителем не является ни в одну сторону.
+    no_reader_in_tree: >-
+      grep -rln 'docs/specs/reviews' scripts/ → ноль. Ни один гейт дерева каталог записей
+      не обходит; docs-gate check-01/check-04 судят ОБЪЯВЛЕНИЕ вердикта в шапке документа,
+      про событие не знают вовсе.
+    coordinate_is_not_in_the_record: >-
+      даже внешний предикат «сходить и посмотреть» из записи не строится: обе записи
+      называют `task: PRO-Robotech/kacho#2564` (эпик), а события опубликованы в #2721
+      (задача под-фазы). Обход всех 8 комментариев #2564 даёт ноль попаданий по обоим
+      отпечаткам. Адреса, по которому положено искать событие, в записи НЕТ.
+  why_it_is_this_way_and_not_a_bug_of_the_author: >-
+    Поле `event.published` заполняет рецензент в момент письма, а публикация — будущее
+    событие, которого он знать не может. Утверждение о будущем, записанное в неизменяемый
+    журнал, стареет в ложь по построению — и исправить его на месте нельзя, потому что
+    правка поля вердикта неотличима от подделки. Дефект структурный: состояние поставлено
+    ОБЪЯВЛЕНИЕМ там, где оно обязано быть ВЫЧИСЛЯЕМЫМ.
+  what_could_hold_it_going_forward:
+    - id: 1
+      предложение: >-
+        Различитель ВЫЧИСЛЯЕМЫЙ, а не объявленный — как в соседнем SUPERSEDED.yaml, где
+        действующая запись определяется равенством `имя == sha256(предмет)`. Здесь:
+        «событие записи <X> существует ⟺ в объявленной области событий есть комментарий,
+        чьё тело побайтово равно каноническому рендеру `required_body_for_courier` этой
+        записи». Предикат тотален: отвечает про любую запись, списка не требует и от
+        полноты чьего-либо перечня не зависит.
+      чего_не_хватает_сегодня: >-
+        (а) поля `event_scope` (репозиторий + номер задачи, куда публикуются события по
+        ЭТОМУ документу) — его нет ни в одной записи, а `task:` указывает на эпик, не на
+        адресата; (б) канонической побайтовой формы тела — сегодня тела двух событий
+        различаются составом («@ <ревизия>» есть у обоих, но у записи редакции 3
+        `required_body_for_courier` ревизии не содержит), поэтому сверка возможна лишь
+        по вхождению отпечатка, а не по равенству.
+    - id: 2
+      предложение: >-
+        Ведомость публикаций СОСЕДНИМ файлом (`EVENTS.yaml` в каталоге записей), строку в
+        которую добавляет курьер ТЕМ ЖЕ коммитом, каким публикует событие. Строка несёт
+        `subject_sha256` · `database_id` · `node_id` · `api_url` · `body_sha256` · `actor`
+        · `created_at` — словарь уже существует в дереве, он взят из записи
+        …F1b…/f55c521c….yaml, где событие предшествовало записи и потому попало внутрь неё.
+      почему_соседом: >-
+        Запись вердикта остаётся неприкосновенной — правка её полей продолжает быть
+        подделкой и продолжает отклоняться. Дополняется ведомость, а не журнал вердиктов.
+      предел_назван_честно: >-
+        Ведомость без стража — тоже ОБЪЯВЛЕНИЕ: строку может вписать и тот, у кого события
+        нет. Сама по себе она переносит ложь из одного файла в другой.
+    - id: 3
+      предложение: >-
+        Страж, который ведомость СУДИТ, а не читает: `scripts/docs-gate/check-06-…` берёт
+        `database_id` каждой строки, тянет комментарий по api_url и требует совпадения
+        `body_sha256`, `actor` ∈ policy.review_authority, `created_at == updated_at`
+        (комментарий не редактировался) и вхождения `subject_sha256` в тело. Только эта
+        связка делает состояние ИЗМЕРЯЕМЫМ, а не объявленным; пункты 1–2 без неё дают
+        удобство чтения, но не истину.
+      парная_проба: >-
+        страж обязан краснеть на подставленном входе: строка с несуществующим database_id,
+        строка с чужим actor, строка, чей body_sha256 разошёлся с телом. Без инъекционной
+        пробы зелёный страж неотличим от стража, ничего не читающего.
+    - id: 4
+      предложение: >-
+        Убрать из записи рецензента то, чего он знать не может: оставить
+        `required_body_for_courier` и `event_scope`, а булево `published` не писать вовсе.
+        Поле, которого нет, не лжёт; состояние читается там, где его есть кому измерить.
+  предел_этой_записи: >-
+    Настоящая запись ни одного из четырёх пунктов НЕ вводит — она их называет. Сама она
+    такое же ОБЪЯВЛЕНИЕ, как и уточняемые: её строки держатся приведёнными командами и
+    тем, что каждая команда воспроизводима, а не машинным стражем. Стража на этот предмет
+    в дереве нет; предмет и предикат снятия названы пунктом 3.

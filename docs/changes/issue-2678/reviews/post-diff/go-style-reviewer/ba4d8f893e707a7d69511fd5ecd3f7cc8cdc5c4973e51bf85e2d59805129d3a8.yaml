@@ -1,0 +1,248 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — и есть content_digest: запись самоидентифицируется отпечатком
+# отсуженного содержимого. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2 «вердикт привязан к ОТПЕЧАТКУ»).
+schema_version: 1
+change_id: issue-2678
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  kacho #2678 + #2594 — вердикт стал функцией окружения прогона, а не предмета:
+  пробы носителя на фиксированных портах и хук отправки, судивший рабочую копию
+
+# ── отпечаток ──────────────────────────────────────────────────────────────
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: issue-2678
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/issue-2678
+  base: f445aaaa55472d1c676595d4a33daee14882ad2d
+  head: 3f68255d58f57bf3fa9e30dce4ed6a13f7b02584
+  commits:
+    - e4edf76af68  # #2678 — пробы носителя nlb и storage берут эфемерный порт
+    - 3f68255d58f  # #2594 — отправка судится отправляемой ревизией
+content_digest: sha256:ba4d8f893e707a7d69511fd5ecd3f7cc8cdc5c4973e51bf85e2d59805129d3a8
+names_digest: sha256:72e886dbe64ada6a9a4f7f42f2a166560793f007a5b6d0d0f9240ee8f62737a7
+digest_definition: >-
+  content_digest — sha256 сырого вывода `git diff origin/main...HEAD`;
+  names_digest — sha256 вывода `git diff --name-only origin/main...HEAD | sort`.
+  Перемерено своей командой в worktree; `git status --porcelain` пуст,
+  merge-base совпадает с origin/main.
+
+# ── вердикт ────────────────────────────────────────────────────────────────
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+return_to: автор диффа (исполнитель полосы issue-2678)
+timestamp: '2026-09-21T00:00:00Z'
+review_scope: >-
+  полный дифф: 10 файлов, 691 добавленная / 36 снятых строк, два коммита.
+  Go-часть — 7 файлов (+228 / -12); оболочечная часть (scripts/hooks/pre-push,
+  prepush-range-inject.sh, +463/-14) прочитана только в части, на которую
+  ссылается Go-вердикт, и её предмет отсужен приёмщиком опытом.
+
+files_reviewed:
+  - services/nlb/cmd/kacho-loadbalancer/carrier_start_test.go   # +14 / -3
+  - services/nlb/cmd/kacho-loadbalancer/describe_test.go        # +37 / -3
+  - services/nlb/internal/apps/kacho/config/config.go           # +7 / -3
+  - services/storage/cmd/storage/carrier_start_test.go          # +11 / -3
+  - services/storage/cmd/storage/describe_test.go               # +24 / -0  (новый страж)
+  - tools/declaredbreak/declaredbreak.go                        # +40 / -0
+  - tools/declaredbreak/cmd/adjudicate-declared-breaks/main.go  # +5 / -10
+  - tools/declaredbreak/incoherentreport_test.go                # +90 (новый)
+  - scripts/hooks/pre-push                                      # +208 / -13 (вне Go-предмета)
+  - scripts/hooks/prepush-range-inject.sh                       # +255 / -1  (вне Go-предмета)
+
+# ── посылка задания, проверенная по диффу ──────────────────────────────────
+premise_checked:
+  ephemeral_guard_judges_the_subject: >-
+    ПОДТВЕРЖДЕНА ЧАСТИЧНО. Страж судит ПРЕДМЕТ, а не симптом: он утверждает,
+    что величина ручки доехала до разбора конфигурации (порт == "0"), и падает,
+    когда подстановка не доехала — то есть способен покраснеть, а не всегда
+    зелен. nlb: describe_test.go:100-117 читает `cfg.APIServer.Endpoint` через
+    прод-помощник `hostPort` (describe.go:285) + `net.SplitHostPort`; storage:
+    describe_test.go:110-121 читает `cfg.GrpcPort`/`cfg.InternalGrpcPort`.
+    Оговорка — critical[0]: в том же помощнике nlb остаётся ручка того же
+    класса без читателя, и страж её не накрывает.
+  knob_names_fixed: >-
+    ОПРОВЕРГНУТА ДЛЯ nlb, подтверждена для storage.
+    storage: `KACHO_STORAGE_INTERNAL_PORT` — верно, совпадает с
+    `envconfig:"KACHO_STORAGE_INTERNAL_PORT"` (internal/config/config.go:43),
+    с ConfigMap (deploy/templates/configmap.yaml:12) и с описателем настроек
+    (docs/content/install/configuration.mdx:17).
+    nlb: дефисная форма верна — замерено на viper v1.21.0 тем же устройством,
+    что в load.go:66-68 (`SetEnvPrefix`+`SetEnvKeyReplacer(".","__")`+
+    `AutomaticEnv`): `KACHO_NLB_API-SERVER__ENDPOINT` доезжает,
+    `KACHO_NLB_API_SERVER__ENDPOINT` — нет. НО в том же `bootConfig`
+    остаются имена того же класса без читателя (critical[0]).
+  hook_judges_the_pushed_revision: >-
+    ПОДТВЕРЖДЕНА в части, влияющей на Go-вердикт: прогон зовётся как
+    `bash "$subject_root/scripts/ci-local.sh"`, а ci-local.sh считает свой
+    ROOT от `BASH_SOURCE` и делает `cd "$ROOT"` (scripts/ci-local.sh:29,168) —
+    то есть судится разложенное дерево, а не рабочая копия.
+  temp_worktree_cleans_up: >-
+    ПОДТВЕРЖДЕНА. `trap cleanup_subject_tree EXIT` стоит ДО `git worktree add`
+    (pre-push:172); уборка снимает СВОЮ запись `worktrees/kacho-prepush-$$`,
+    общего `git worktree prune` нет; проба на остаток есть
+    (prepush-range-inject.sh: «в .git осталось рабочих деревьев»).
+
+# ── находки ────────────────────────────────────────────────────────────────
+critical:
+  - id: DEAD-KNOB-IN-THE-SAME-HELPER
+    kind: страж поставлен на две ручки из трёх — соседняя того же класса остаётся мёртвой,
+          и отрицательный близнец на ней вакуумен
+    coordinates:
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:66
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:196
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:243
+    measured: >-
+      viper v1.21.0, устройство из load.go:66-68, ключ `extapi.iam.internal-addr`
+      (defaults.go:87): `KACHO_NLB_EXTAPI__IAM__INTERNAL-ADDR` → доезжает;
+      `KACHO_NLB_EXTAPI__IAM__INTERNAL_ADDR` → мимо, величина остаётся "".
+      В дереве уже стоят ОБЕ формы: дефисная в config/load_test.go:94,
+      подчёркнутая — в правленом диффом describe_test.go.
+    consequence: >-
+      1) `TestDescribeProbeCanFail` (:191) объявляет «адрес резолвится
+      firstNonEmpty(internal, public), и обнулить надо ОБА, иначе проба
+      зеленела бы на живом ребре» — но внутренний адрес НИКОГДА не был задан,
+      и обнуляется фактически один. Отрицательный близнец судит половину
+      предмета.
+      2) Пробы носителя, которые страж диффа и удостоверяет
+      (`TestCarrierRaisesTheService`, `TestCarrierRaisesNlbWithoutAStartRefusal`),
+      идут на конфигурации, где ребро решения о доступе резолвится на ПУБЛИЧНЫЙ
+      адрес вместо внутреннего (:9090 вместо :9091) — форма, которой нет ни на
+      одной посадке. Это тот самый класс, который шапка `bootConfig` запрещает.
+    requirement: >-
+      В `services/nlb/cmd/kacho-loadbalancer/describe_test.go` заменить
+      `KACHO_NLB_EXTAPI__IAM__INTERNAL_ADDR` на
+      `KACHO_NLB_EXTAPI__IAM__INTERNAL-ADDR` в трёх местах (:66, :196, :243) и
+      перепрогнать: `TestDescribeProbeCanFail` обязан остаться красным на
+      пустых адресах и зелёным на заданных.
+    removal_predicate: >-
+      Замер перебором имён из `services/nlb/cmd/kacho-loadbalancer/*_test.go`
+      по устройству load.go:66-68 даёт «доезжает» для каждого.
+    norm: architecture.md §«arch-doc-truthfulness»; testing §«отрицание только в
+          паре с положительным»; security-hardening §«hard-parts-must-converge»
+
+  - id: RETRACTED-CAUSE-SURVIVES-IN-THE-NEIGHBOURING-DOC
+    kind: два утверждения об одном предмете в одном файле, одно из них диффом
+          объявлено ложным
+    coordinates:
+      - tools/declaredbreak/declaredbreak.go:221-224   # прежнее: «Наблюдалось вживую: buf breaking из корня…»
+      - tools/declaredbreak/declaredbreak.go:388-392   # новое: «догадка… добросовестная, правдоподобная и НЕВЕРНАЯ»
+    consequence: >-
+      Отказ гейта теперь честно молчит о причине, а читатель, открывший код
+      следом (именно он и есть адресат «Причину гейт не называет… сверьте обе
+      величины сами»), получает ту же снятую догадку в шапке `Incoherent()` —
+      и уходит чинить форму путей. Ущерб, ради снятия которого сделан #2594,
+      воспроизводится на один шаг дальше.
+    requirement: >-
+      Привести шапку `Incoherent()` в соответствие с шапкой `IncoherentReport()`:
+      либо снять «Наблюдалось вживую: `buf breaking` из корня репозитория…»,
+      либо назвать, каким замером она держится, рядом с утверждением
+      IncoherentReport'а «прогонщик зовёт `buf` именно изнутри каталога».
+      Утверждение о предмете живёт в одном месте.
+    norm: architecture.md §«arch-doc-truthfulness»; doc-truthfulness
+          §«два места об одном предмете, где одно верно»
+
+important:
+  - id: GUARD-LANES-DECLARE-DIFFERENT-THINGS
+    coordinates:
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:103-116
+      - services/storage/cmd/storage/describe_test.go:112-120
+    text: >-
+      Две полосы одного механизма («страж предусловия проб носителя») называют
+      в отказе РАЗНОЕ: nlb — ключ конфигурации (`api-server.endpoint`) с явным
+      доводом «имя переменной — способ доставки»; storage — имя переменной
+      окружения (`KACHO_STORAGE_GRPC_PORT`). Ни один из двух не неверен, но
+      решения этого никто не принимал, и читатель отказа получает разный
+      предмет. Плюс у storage имя ручки — литерал рядом с полем конфигурации:
+      сменится тег `envconfig`, и сообщение солжёт, ничего не уронив.
+    norm: architecture.md §«arch-lanes-compare-norm»
+  - id: BOTH-SIDES-PROMISED-ONE-MAY-BE-PRINTED
+    coordinates:
+      - tools/declaredbreak/declaredbreak.go:408
+    text: >-
+      Строка «Вот по одному образцу с каждой стороны:» печатается безусловно, а
+      оба образца — под `len(...) > 0`. `Incoherent()` (:235) требует
+      `Matched == 0` и `len(Expired) == DeclarationsRead`, но не требует
+      непустого `Undeclared`: находки могут целиком уйти в `SymbolMismatch`
+      либо `Invalid`. Тогда заголовок обещает две стороны, а напечатана одна.
+      Паники нет (границы проверены), но отказ обещает больше, чем даёт.
+    norm: architecture.md §«arch-doc-truthfulness»
+  - id: SPLITHOSTPORT-ERROR-SWALLOWED
+    coordinates:
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:110-111
+    text: >-
+      `_, port, err := net.SplitHostPort(...)`; `err` участвует в условии, но в
+      текст отказа не попадает. «Это не порт, назначенный ядром» одинаково
+      покрывает «порт 9090» и «эндпоинт вообще не разобрался» — два разных
+      дефекта под одним текстом.
+
+style:
+  - id: GUARD-DOC-OVERREACHES
+    coordinates:
+      - services/nlb/cmd/kacho-loadbalancer/describe_test.go:91
+      - services/storage/cmd/storage/describe_test.go:101
+    text: >-
+      Шапка объявляет «слушатели процесса подняты на порту, который назначит
+      ЯДРО». Утверждается не это: страж читает величину конфигурации до вызова
+      носителя, слушателей в этот момент нет. Предмет назван точнее во втором
+      абзаце («подстановка доехала»), и первому стоит говорить о том же.
+
+radius:
+  # measurement-discipline §«Радиус»: искали по имени механизма, а не по диффу.
+  - id: same-class-live-elsewhere-in-nlb
+    text: >-
+      Перепись имён `KACHO_NLB_*` по дереву против ключей, зарегистрированных в
+      defaults.go, плюс замер на viper v1.21.0. Кроме critical[0] тем же классом
+      задеты:
+      services/nlb/cmd/kacho-loadbalancer/dialpeers_mtls_test.go:62
+      (`KACHO_NLB_EXTAPI__VPC__INTERNAL_ADDR` — читается только как
+      `…__INTERNAL-ADDR`); services/nlb/deploy/configmap-sample.yaml:17 и :118
+      (`…EXTAPI__IAM__INTERNAL_ADDR`, `…AUTHZ__LIST_FILTER__ENABLED` — в
+      комментариях, на рендер не влияют: чарт кладёт YAML, а не переменные);
+      подчёркнутая форма `KACHO_NLB_AUTHZ__TRUSTED_FORWARDER_SANS` в шапках
+      config.go / defaults.go / validate.go / describe.go.
+      Дифф правит из этого только config.go:18,20 — две строки из перечня.
+  - id: guard-covers-two-services-of-five
+    text: >-
+      Пробы носителя того же вида несут ещё compute, geo, registry, vpc
+      (services/*/cmd/*/carrier_start_test.go). Стража предусловия у них нет.
+      Имена ручек у geo и registry читаются (`KACHO_GEO_GRPC_PORT`,
+      `KACHO_GEO_INTERNAL_PORT`, `KACHO_REGISTRY_GRPC_PORT`,
+      `KACHO_REGISTRY_INTERNAL_PORT` — все с envconfig-тегом), то есть дефекта
+      #2678 там нет; отсутствует только защита класса.
+      Решение о ГЕЙТЕ класса «имя ручки без читателя» вынесено из предмета
+      задания — здесь оно только названо как незакрытое.
+
+foundation_candidates: []   # горизонтального в диффе нет; оба стража — помощники
+                            # проб над конфигурациями своих служб, общего типа у
+                            # которых нет: копия в corelib потребовала бы сначала
+                            # общего порта конфигурации, а это отдельный предмет.
+
+# ── счёт по запретам ───────────────────────────────────────────────────────
+bans:
+  fresh_deferral_markers: 0   # по всему диффу: TODO/FIXME/XXX/HACK/t.Skip — ни одного
+  tests_in_the_same_pr: true  # tools/declaredbreak/incoherentreport_test.go (двусторонняя,
+                              # с положительным контролем); prepush-range-inject.sh
+                              # (инъекция обоих дефектов + контроль «проба способна упасть»);
+                              # правленые пробы служб сами суть предмет
+  orm: false
+  panic_in_production_path: false        # panic/log.Fatal/MustParse в добавленном Go — 0
+  context_background_instead_of_ctx: false
+  personal_data_in_logs: false
+  security_comments_contradicting_code: []
+
+approved:
+  - >-
+    обёртка ошибок — новых путей ошибки в Go-части нет; сравнений по тексту ошибки нет
+  - контекст — не трогается; `context.Background()`/`context.TODO()` в диффе нет
+  - паники в рабочем пути нет; `os.Exit(2)` остаётся в cmd/, где ему и место
+  - журналирование — не трогается; сторонних логгеров и `fmt.Println` не добавлено
+  - именование — латиница, receiver'ы короткие, символы уровня пакета полными словами
+  - направление зависимостей — не нарушено: правка живёт в cmd-пробах и в tools/
+  - текст отказа переехал ИЗ cmd В библиотеку (declaredbreak.go:394) — у утверждения
+    стало одно место вместо двух, и это ровно то, чего требует правило
+  - >-
+    `IncoherentReport` пуст на согласованном вердикте — отчёт об отказе
+    существует только у отказа, и это залочено отдельной пробой

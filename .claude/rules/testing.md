@@ -12,7 +12,7 @@ description: "Тестирование (строгий TDD)"
 | файл | предмет |
 |---|---|
 | `.claude/rules/testing-verdict.md` | чтение вердикта прогона: текст отказа, недействительный прогон, самоистекающие пробы, слепой разборщик |
-| `.claude/rules/testing-newman.md` | сквозные пробы newman: eventual-consistency, поллер, параллельный прогон |
+| `.claude/rules/testing-newman.md` | сквозные пробы newman: край, свод классов и флоу кейса, eventual-consistency, поллер, параллельный прогон |
 | `.claude/rules/testing-load.md` | замер под нагрузкой: что делает числа недействительными |
 
 ## E2E НИКОГДА не пропускаются — только честные тесты (директива владельца 2026-07-29)
@@ -31,11 +31,11 @@ exclusion-self-expires · обязан истекать сам: запись б�
 
 ## Test-first — обязательно (ban #12)
 
-test-first-red-before-code · напиши и ПРОГОНИ до кода; подтверди причину падения; все уровни (Go unit/integration и newman) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
+test-first-red-before-code · напиши и ПРОГОНИ до кода; подтверди причину падения; реализатор — Go unit/integration, newman-кейс края — тестировщик (testing-newman.md#edge-author-black-box) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
 chunk-all-reds-first · напиши ВСЕ падающие тесты первыми, получи RED по всем, чини по одному · ЗАВЕСТИ chunk-all-reds-first · red: первый фикс сделан раньше последнего RED
 report-red-green-pair · покажи пару RED→GREEN в PR/отчёте · ЗАВЕСТИ report-red-green-pair · red: готовность заявлена без пары прогонов
 new-rpc-integration-test · в том же PR — integration_test.go на testcontainers Postgres, включая concurrent-race для CAS/UNIQUE/EXCLUDE · git diff PR: новый RPC → новый *integration_test.go · red: PR добавляет RPC без integration-теста
-new-rpc-newman-case · в том же PR — newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative · TestNewmanCorpusComesFromTheIndex; docs/CASES-INDEX.md · red: RPC есть в gateway, кейса в CASES-INDEX нет
+new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative; пишет тестировщик по заказу автора (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ new-rpc-newman-case (кандидат — coverage.py маршрут→кейс) · red: путь на крае есть, кейса нет
 no-tests-no-excuse · запрещено как обоснование отсутствия тестов; reviewer отклоняет PR без тестов · TestDeferralGateCatchesAMarkerInProductionCode · red: в PR стоит обещание вместо теста
 tests-followup-issue-form · форма `Tests-followup: #<N>` на открытый issue, привязанный к эпику ДО merge · tools/knownfailingsubject · red: ссылка на issue, заведённый после merge
 
@@ -51,8 +51,8 @@ test-only-pr-no-prod-code · трогай только tests/ и docs/; любо
 unit-mock-ports-no-sleep · мокай port-интерфейсы (repomock/kachomock); LRO дожидайся детерминированно AwaitOpDone · TestWaitOrderGateRedOnSleepLoopWait · red: time.Sleep вместо AwaitOpDone
 usecase-needs-postgres-is-leak · считай утечкой adapter в use-case и чини слой · TestUseCaseLayerHasOneLayout · red: usecase_test.go поднимает контейнер
 integration-covers-sql-races · покрой CRUD, EXCLUDE/FK/UNIQUE, outbox-транзакционность, CAS/OCC/SKIP-LOCKED гонки на testcontainers Postgres 16 · TestNoPackageStartsAContainerPerTest · red: миграция или CAS-путь без гоночного теста
-e2e-http-through-gateway-only · ходи только HTTP через api-gateway · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: кейс зовёт сервис напрямую
-newman-case-workflow · прогони validate-cases.py, затем gen.py · TestNewmanCorpusComesFromTheIndex · red: коллекция правлена руками
+e2e-http-through-gateway-only · ходи только HTTP через край (testing-newman.md#edge-is-newman) · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: кейс зовёт сервис напрямую
+newman-case-workflow · прогони validate-cases.py, затем gen.py · validate-cases.py в ci.yaml; gen.py перед прогоном (newman-e2e.sh, newman-parallel.sh) · red: коллекция правлена руками
 ryw-retry-first-own-read · оборачивай клиентским bounded-retry: retry_until_authorized / retry_until_present · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: кейс падает на 403/404 своего же созданного ресурса
 ryw-retry-bounded-budget · держи конечным (~10s) и fail-open: по исчерпании падает реальный assert · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: retry без предела либо проглатывающий отказ
 ryw-retry-never-on-negatives · НИКОГДА не ставь на негатив, cross-account, absent-id, lst-excludes, sync-4xx, давно существующий ресурс · TestDeleteRetryWindowGate_SilentWhenStepDeclares404AsItsOutcome · red: обёрнут negative-шаг — реальный deny замаскирован
@@ -62,15 +62,23 @@ product-bug-go-fix-not-tolerance · чини Go-фиксом с RED-lock, а н�
 per-service-fixture-isolation · держи свой account + home/cross проекты (setup.sh), scope через existingProjectId; shared-account только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
 run-idempotency-runid-suffix · вшей {{runId}} в имя, в том числе в max-len BVA · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: 409 AlreadyExists на повторном прогоне
 fixture-cleanup-mandatory · убирай за собой · TestSeededParentChildrenAreReclaimedBySuites; TestNestedReclaimGateRedsOnSeededParentLeak · red: пул растёт, list-контракты плывут
-final-verification-before-merge · прогони go test ./... -race + golangci-lint run + govulncheck + newman · scripts/ci-local.sh · red: merge без одного из четырёх
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер GitHub на PR сборки в ветку волны — раз на сведение и раз на пересведение; локально — быстрое своих пакетов (`code-first-no-wait`) и непокрытое конвейером, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` на PR сборки · red: вливание без одного из четырёх; прогон на задаче; `-race` или полный набор исполнителем локально
+code-first-no-wait · исполнитель пишет код строгим TDD, локально гоняет только быстрое по своим пакетам — unit без `-race`, vet, gofmt, свои пробы — и сдаёт коммитом в ветку задачи, затем берёт следующую задачу пачки: ревью и прогонов не ждёт, их даёт сборка (решение владельца 2026-09-24 «приоритет написания кода») · вниманием исполнителя; возврат называет sha сдачи и взятую следующую задачу · red: исполнитель ждёт вердикта или ревью задачи; `-race`, линт монорепо или стенд в цикле TDD
+
+## План опыта задачи-проверки (решение владельца 2026-09-24)
+
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности, `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции (одно-фактный дефект → какая проба обязана покраснеть), законные близнецы, слепые зоны класса; прочим задачам плана нет; инвариант безопасности — заводимый или меняемый контроль (проверка прав, граница слушателя, отзыв), а аннотация прав и строка каталога нового RPC по действующему правилу (`api-gateway-registrar`, `proto-sync`) — применение, его держит гейт каталога прав · ЗАВЕСТИ exp-plan-parallel · red: план заказан задаче не-проверке; код ждёт плана
+exp-plan-self-run · план, пришедший до сдачи, прогони сам: исход по каждому пункту с командой; пришедший после — гонит `check-verifier` на сборке, сдача его не ждёт · ЗАВЕСТИ exp-plan-self-run · red: сдача без исхода по пункту плана из входа; «план прогнан» без команд
+exp-plan-acceptance · приёмка на сборке повторяет план и ищет вне его · `check-verifier` §3 · red: вердикт — пересказ исходов автора, опытов вне плана ноль
+exp-plan-old-hole-own-task · дыру, которую правка не вносила, заводи сразу отдельной задачей, в полосе не чини · `git-issues.md#gi-find-own-issue` · red: полоса разрослась прежней дырой; дыра названа и не заведена
 
 ## Regression-lock security/leak-фиксов
 
-regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведение, не только gRPC-код · regression-тест в том же PR · red: рефактор возвращает баг, suite остаётся зелёным
+regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведение, не только gRPC-код; видимое через край — и newman-кейсом (testing-newman.md#flow-bug-regression) · regression-тест в том же PR · red: рефактор возвращает баг, suite остаётся зелёным
 error-leak-assert-message-text · assert Message()=="internal error" либо NotContains(msg,<raw>) · internal/repohygiene/sqlstatehome_test.go (смежный) · red: тест проверяет только codes.Internal
 pii-assert-log-both-paths · assert NotContains(logBuf,<email/token>) на success- И error-пути · ЗАВЕСТИ pii-assert-log-both-paths · red: проверен только успешный путь
 apiconv-assert-exact-text · assert точный текст, усечение и код · TestErrorMappersTailReturnsAFixedText · red: проверен только код
-security-fix-test-same-pr · несёт behaviour-level regression-тест в ТОМ ЖЕ PR; RPC без функционального теста — добери handler-level unit · ЗАВЕСТИ security-fix-test-same-pr · red: фикс без теста либо тест только code-level
+security-fix-test-same-pr · несёт behaviour-level regression-тест в ТОМ ЖЕ PR; RPC без функционального теста — добери handler-level unit, путь края — и newman-кейс тестировщика (testing-newman.md#flow-bug-regression) · ЗАВЕСТИ security-fix-test-same-pr · red: фикс без теста либо тест только code-level
 concurrency-fix-race-deterministic · тест под -race, детерминированно (blocker держит слот, Stop→Wait завершается) · TestWaitOrderGateRedOnSleepLoopWait · red: time.Sleep в тесте гонки
 
 ## Гейт на класс: измерить по дереву, доказать инъекцией, снабдить проверкой предпосылки

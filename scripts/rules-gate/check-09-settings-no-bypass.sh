@@ -3,9 +3,12 @@
 #
 # Предмет: `.claude/settings.json` едет в репозиторий, и блок `permissions` с
 # `defaultMode: bypassPermissions` — выбор про ОДНУ машину, принятый за каждого,
-# кто сделает клон. Место такого выбора — `.claude/settings.local.json`, который
-# git игнорирует (норма `ai-tooling.md` §«Оснастка: экземпляр, счёт правил и
-# доставка до агента», запись `at-settings-without-permissions`).
+# кто сделает клон. Режим обхода харнесс берёт только из личного
+# `~/.claude/settings.json`, policy или флага: проектный слой и локальный
+# `.claude/settings.local.json` (git его игнорирует) оба repo-controllable, и
+# режим оттуда не применяется (нормы `ai-tooling.md` §«Оснастка: экземпляр,
+# счёт правил и доставка до агента», записи `at-settings-without-permissions`
+# и `at-bypass-not-from-repo-layer`).
 #
 # ПОЧЕМУ ГЕЙТ, А НЕ АБЗАЦ. Держателем нормы стояло «вниманием», и норма
 # нарушилась: на 2026-09-20 ствол нёс `"permissions": {"defaultMode":
@@ -35,7 +38,7 @@ rc=0
 
 # ── ось A: блок permissions в отслеживаемых настройках ───────────────────────
 if python3 -c 'import json,sys; sys.exit(0 if "permissions" in json.load(open(sys.argv[1])) else 1)' "$S"; then
-  printf 'КРАСНОЕ %s несёт блок permissions — его место в %s (git игнорирует)\n' "$S" "$L"
+  printf 'КРАСНОЕ %s несёт блок permissions — обход решён за каждого, кто сделает клон; режим даёт только личный ~/.claude/settings.json\n' "$S"
   rc=1
 fi
 
@@ -46,7 +49,8 @@ if grep -q 'bypassPermissions' "$S"; then
 fi
 
 # ── ось C: локальные настройки существуют и НЕ игнорируются ──────────────────
-# Дом выбора назван нормой; дом, который git отслеживает, домом не является.
+# Локальный слой — выбор одной машины; файл, который git отслеживает, таким
+# выбором не является.
 if [ -f "$L" ] && ! git check-ignore -q "$L"; then
   printf 'КРАСНОЕ %s существует и НЕ игнорируется git — локальный выбор уедет в репозиторий\n' "$L"
   rc=1

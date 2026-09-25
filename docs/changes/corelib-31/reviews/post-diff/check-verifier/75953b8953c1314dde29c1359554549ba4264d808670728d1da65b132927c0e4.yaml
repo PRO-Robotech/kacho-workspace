@@ -1,0 +1,81 @@
+# Приёмка работы-проверки — роль check-verifier.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2). Запись не закоммичена (задание).
+schema_version: 1
+change_id: corelib-31
+holder: post-diff/check-verifier
+owner: check-verifier
+round: 1
+previous_record: —
+mode: приёмка работы-проверки
+subject: >-
+  ci.yml: on.pull_request.branches [main] → [main, '[0-9]+']; новый гейт
+  .github/scripts/pr-target-branches.py (--self-test и прогон) в задании build.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '31'
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869   # дерево e6430e60ed13 = дерево 8dff416 (родителя) = дерево origin/26: коммит пуст
+  head: f6203c0ea1b0c34f4c2da78df68c7aa8a98b349d   # дерево 94ab05ddac7d
+  commits_in_delta: 1
+  shortstat: '2 files changed, 485 insertions(+), 4 deletions(-)'
+content_digest: sha256:75953b8953c1314dde29c1359554549ba4264d808670728d1da65b132927c0e4
+digest_definition: "sha256 вывода `git diff --full-index 9f0393c540d7..f6203c0ea1b0 | sha256sum` (из задания); с `-- . ':!docs/changes'` — тот же дайджест. Измерен дважды."
+
+isolation:
+  dir: kacho-workspace/tmp/cv-corelib-31-*  (клон копии, detached @ дерево 94ab05ddac7d), TMPDIR ~/.cache/cv-tmp-*
+  foreign_state: копия corelib-31 — только эта запись; `git status --porcelain` до опытов 0 строк.
+
+experiments:
+  control: 'гейт @94ab05ddac7d → rc 0, процессов 1, заданий 9, if: 1; --self-test → rc 0, проб 32, провалов 0.'
+  own_yaml_diff: >-
+    свой разбор yaml.safe_load до/после: единственная разница в `on` — pull_request.branches
+    [main] → [main, '[0-9]+']; push [main], schedule, workflow_dispatch тождественны; заданий 9 → 9,
+    имена те же; поля заданий (if, needs, runs-on, timeout, strategy …) тождественны; шаги build
+    6 → 10, прежние 6 — точный префикс; прочие 8 заданий — шаги тождественны; условий if: 1 (gosec
+    шаг 7 always()) до и после. Гейты не ослаблены.
+  independent_matcher: >-
+    сопоставитель шаблонов веток Gitea (modules/glob CompileWorkflow + actions/workflowpattern,
+    дерево 9ae7ea7ec65f): [main, '[0-9]+'] пускает main, 0, 7, 26, 27, 31, 32, 2564; не пускает 26a,
+    a26, main2, 26/27, lane/…, release/26, issue-31, batch-quota-fate; [main] пускает только main.
+    Дифференциально против compile_pattern/fires автора — 266 пар (14 наборов × 19 имён), расхождений 0.
+  premise_of_task: 'gh pr list: #46 27→26 MERGED, statusCheckRollup 0 — подтверждена.'
+  injections:
+    D1 trigger removed ([main]): rc 1, называет «7», «26», «2564»
+    D2 pull_request removed: rc 1, «ни один процесс не гонится на запрос»
+    D3 '[0-9]*': rc 1, «26a»
+    D4 paths added: rc 1, on.pull_request.paths
+    D5 main dropped: rc 1, «main»
+    D6 '**': rc 1, пять не-номер
+    B3 job if pull_request.base.ref: rc 2, ПРЕДПОСЫЛКА НЕ ДЕРЖИТСЯ
+  twins:
+    T1 block list with "[0-9]+": rc 0
+    T2 order ['[0-9]+', main]: rc 0
+  empty_walk: 'ci.yml снят с индекса (на диске остался): rc 2 «обход пуст».'
+  false_green:
+    B1: >-
+      `types: [closed]` добавлен к on.pull_request (один факт): rc 0, «ЗЕЛЁНЫЙ: запрос в main и в
+      ветку-номер гонит конвейер». На деле запрос на opened/synchronize/reopened конвейер не
+      запускает. _branch_filter читает только paths/branches, ключ types молча не судится.
+    B4: >-
+      job build `if: github.event['pull_request']['base']['ref'] == 'main'` (индексная запись
+      того же условия, что B3): rc 0, «условий if: 2, по ветке 0». BRANCH_CONDITION — поиск
+      образцом по тексту выражения; индексная форма (и `pull_request['base']`, и косвенность
+      через env) его обходит, задание гаснет на запросе в ветку-номер при зелёном гейте.
+
+not_distinguished:
+  - 'чтение шаблона хостингом (сам гейт это называет; независимый сопоставитель согласен, живой запрос не ставился)'
+  - 'on.<event>.types (B1)'
+  - 'условие по ветке в индексной записи и через env (B4)'
+  - 'условия по github.event_name, гасящие задания на любом запросе (main и номер одинаково) — rc 0'
+  - 'ветка 26 не защищена (gh api …/branches/26/protection → 404): на номере конвейер идёт, но слияния не блокирует — вне дерева'
+  - 'Python 3.13 из пина не воспроизведён: локально 3.14.4 + PyYAML 6.0.3'
+masks: 'не найдено; осмотрено: весь дифф, 9 заданий, 1 условие, самопроба (32 пробы).'
+
+verdict: ⛔ возврат
+return_demand: >-
+  Повторить опыты B1 и B4 и получить не 0: types, не содержащий opened/synchronize/reopened, —
+  нарушение или исход 2 (близнец types: [opened, synchronize, reopened] — 0); условие if: —
+  закрытый словарь известных безопасных форм (always() и т.п.), всё прочее — исход 2, а не
+  поиск по образцу. Каждое — инъекцией в --self-test, с законным близнецом.

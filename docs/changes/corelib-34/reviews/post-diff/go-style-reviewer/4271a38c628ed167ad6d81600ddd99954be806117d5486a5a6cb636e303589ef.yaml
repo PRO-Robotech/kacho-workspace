@@ -1,0 +1,125 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 2.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса (ветка 805) и НЕ закоммичена — её коммитит оператор.
+schema_version: 1
+change_id: corelib-34
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 2
+previous_record: 'go-style-reviewer/ce97a03b32fecb36a08180850c6ee06a986bc6719696fb3a578761edc23a695e.yaml (круг 1, возврат: C1, C2)'
+subject: >-
+  oauthceremony: грант порта выпуска очищен как запись хранилища; исходы опознания и момент
+  выпуска названы контрактом (задача #34, полоса L1, волна #32; сведено с origin/32 @84b9be8)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 84b9be87f78956450325bacbf16d27c2fe7e98a8      # origin/32 = merge-base origin/32 HEAD
+  base_tree: 1ebe75c1faae9396ea259097316d220ebfa6a6c9
+  head: d3c3ea4f9e08a6211cd7cbea94af29d291c7186f
+  head_tree: 28d5807466ec3b3b962e15dd0f2c39d76524e42c
+  head_is: 'ветка 34 в tmp/corelib-34: 588709b + слияние cbd324e (#34 merge #32) + правка круга 1 d3c3ea4; не отправлена; git status пуст до и после'
+  shortstat: '19 файлов, +1865 / -99'
+content_digest: sha256:4271a38c628ed167ad6d81600ddd99954be806117d5486a5a6cb636e303589ef
+digest_definition: 'git -C tmp/corelib-34 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum (перемерено своей командой; совпадает с числом автора)'
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T16:52:16Z'
+return_to: '—'
+review_scope: >-
+  Полный дифф 84b9be8..d3c3ea4 (19 файлов). Правку круга 1 (cbd324e..d3c3ea4, 10 файлов) прочёл
+  целиком; разрешение конфликтов слияния (doc.go, notes.go, ports.go, fakes_test.go) — по
+  комбинированному диффу. Вне диффа: Sanitize движка (request.go), места санации в потоках
+  обмена кода, оборота, PKCE, все вызывающие grantFromRequester. Пробы-накладки —
+  `go test -overlay`, файлы вне git-деревьев (~/.cache/gsr-corelib34-r2); копия полосы не менялась.
+
+premise_checks:
+  - claim: 'порт выпуска получает grantFromRequester(requester.Sanitize(nil)): без code, code_verifier, refresh_token, client_secret; Form равна записи хранилища'
+    result: подтверждено
+    how: >-
+      strategy.go:140. Инъекция обратно (grantFromRequester(requester)) накладкой:
+      TestIssuerReceivesTheGrantAsItIsStored — 4 из 4 подслучаев FAIL (basic и post, обмен и
+      оборот), у каждого названо поле-носитель и совпадение значения; близнец (запись
+      хранилища) чист. На голове — 4 из 4 PASS.
+  - claim: 'грант порта равен записи под jti этого выпуска, отличие одно — срок токена доступа'
+    result: подтверждено
+    how: >-
+      своя накладная проба: обмен кода и оборот — reflect.DeepEqual после снятия
+      ExpiresAt[access] даёт равенство в обоих; у порта граница, у записи exp выпуска.
+      Sanitize движка сохраняет ID (request.go:170), а оборот ставит ID семейства до выпуска
+      (flow_refresh.go:87) — ключ семейства у порта тот же, что у записи.
+  - claim: 'подлинный истёкший токен — (jti, nil); иной названный портом случай — ErrPortContract на интроспекции и отзыве'
+    result: подтверждено
+    how: >-
+      инъекция: ветка default в identificationFailure отключена накладкой —
+      TestExpiredAccessTokenHasOneNamedOutcome 2 из 4 FAIL (ErrTokenExpired даёт token_expired,
+      ErrInactiveToken даёт active:false и inactive_token), оба близнеца PASS. На голове 4 из 4 PASS.
+  - claim: 'пакет oauthceremony: 99 проб и 137 подслучаев PASS, 0 FAIL, 0 SKIP'
+    result: подтверждено
+    how: 'go test -count=1 -json ./oauthceremony/... (свой TMPDIR вне git-деревьев), rc 0, счёт по событиям json'
+
+closed_from_round_1:
+  - {id: C1, how: 'strategy.go:140 и проба issuer_grant_test.go; измерено инъекцией (выше)'}
+  - {id: C2, how: 'ports.go (IdentifyAccessToken: срок порт не судит), strategy.go:269-279; измерено инъекцией (выше)'}
+  - {id: I1, how: 'bridge.go:74-80 — один набор текстов «port», им же пользуется translate.go:145-147; проба утверждает Description'}
+  - {id: I2, how: 'ceremony.go:55-61 и :99-101 переписаны'}
+  - {id: S1, how: 'strategy.go:68 — ветка отказа снята, недостижимость названа (go 1.26 в go.mod)'}
+  - {id: S2, how: 'strategy.go:48 — deadline берётся у моста, один источник срока'}
+  - {id: S4, how: 'ceremony.go:1055 — case слит'}
+  - {id: S5, how: 'bridge.go:341 — notesFrom один раз'}
+  - {id: S3, how: 'не в этой полосе: настройку движка снимает #38'}
+
+critical: []
+
+important:
+  - id: I3
+    tag: SCRUB-REWRITES-FIXED-TEXT
+    at: 'oauthceremony/strategy.go:286-291'
+    summary: >-
+      withoutPresented заменяет предъявленное значение во ВСЕХ текстах отказа, в том числе в
+      фиксированных текстах самой церемонии (textPort*) и в имени вызова. Значение выбирает
+      клиент, и короткое значение переписывает фиксированный текст.
+    measured: >-
+      Накладная проба: интроспекция со значением "a" при отказавшем опознании. Description:
+      "A port of the [presented token]uthoriz[presented token]tion server f[presented token]iled.",
+      Debug искажён так же. Близнец со значением длиной 36 символов: Description ровно
+      "A port of the authorization server failed.".
+    requirement: >-
+      Вырезать значение только из текста, который принёс порт (его Debug, а если порт вернул
+      свой ProtocolError, то и его Description и Hint), до сборки с именем вызова. Фиксированные
+      тексты не трогать. Проба: короткое предъявленное значение; Description сверяется
+      побайтно, близнец — длинное значение.
+    blocks: false
+  - id: I4
+    tag: DOC-LIST-OMITS-KEPT-FIELD
+    at: 'oauthceremony/types.go:243-250; oauthceremony/ceremony.go:199'
+    summary: >-
+      Шапка GrantRecord.Form перечисляет поля записи кода сверх умолчания: redirect_uri и
+      code_challenge. Перечень сохраняемых полей (ceremony.go:199) держит ещё и `code`, а
+      AuthorizationRequest.Additional его не запрещает (authorizeReservedNames). Предъявленного
+      секрета там нет, но перечень в шапке неполон.
+    measured: >-
+      Накладная проба: Authorize с Additional code=planted-at-authorize. В Form записи кода
+      лежат client_id, code, code_challenge, redirect_uri, response_type, scope.
+    requirement: 'назвать `code` в шапке либо снять его из перечня ceremony.go:199 (церемония задаёт перечень целиком)'
+    blocks: false
+
+style: []
+
+foundation_candidates: []       # изменение и есть фундамент
+fresh_deferral_markers: 0       # добавленные строки *.go полного диффа, TODO|FIXME|XXX|HACK
+probes_in_same_pr: true         # 10 файлов _test.go в диффе, из них новые issuer_grant_test.go и прочие круга 1
+security_comments_contradicting_code: []   # оба пункта круга 1 (types.go Form; ports.go «все три названы») сняты правкой
+trailers_in_commit: 0           # 84b9be8..HEAD: Co-Authored-By / Claude-Session / Generated — 0
+
+outside_diff:
+  - >-
+    Нижняя граница iat отсчитывается от часов процесса церемонии. Для порта, у которого iat
+    ставят часы другого узла, это требует синхронных часов с точностью до секунды. Контракт
+    называет это явно (ports.go, «Момент выпуска»), поэтому дефектом я это не считаю. Тот же
+    класс уже был у верхней границы exp.
+  - 'со слов автора, не перемерено: повторная инъекция проверки iat даёт 3 красных случая, близнецы зелёные'
+
+not_run: 'полный -race, линтер и gosec не перезапускал (замеры автора диффа и check-verifier)'

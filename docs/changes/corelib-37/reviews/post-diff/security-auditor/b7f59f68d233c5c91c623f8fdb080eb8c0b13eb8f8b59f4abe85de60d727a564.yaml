@@ -1,0 +1,139 @@
+# Пост-дифф ревью — роль security-auditor, режим «поверхность», круг 2.
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменится дайджест — новый запуск и новый файл. Запись лежит в копии
+# воркспейса ветки 825 и НЕ закоммичена (как и соседние записи круга).
+schema_version: 1
+change_id: corelib-37
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 2
+subject: >-
+  corelib #37, круг 2. Судится закрытие своего возврата F1 из записи 64180de8… и новая
+  дельта 36a3bf0a..be0d7cc8: 2fbb0ed2 (отказ порта доказательства — закрытый перечень
+  closedPortFailure; grantClient на всех пяти местах сборки запроса по гранту; повтор
+  пишется в ведомость ДО сборки), 27aa003c (срок вызова порта сверки — проба), be0d7cc8
+  (проба печати: каждому глаголу значение). Прежнее не переоткрывается.
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '37 (origin/37 = 36a3bf0a; три коммита круга не отправлены)'
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_is: 'origin/32 = merge-base origin/32 HEAD = v1.10.0-rc.1 (перемерено: git fetch; git ls-remote origin 32 37; git rev-list -n1 v1.10.0-rc.1)'
+  head: be0d7cc81f557d58024598d1daf122b08b3c4551
+  head_tree: 1630d05fd7c2b34f85cee0723401b12a28ea219e
+  shortstat: '17 файлов, +1778 / -78 (дельта круга: 5 файлов, +715 / -49)'
+content_digest: sha256:b7f59f68d233c5c91c623f8fdb080eb8c0b13eb8f8b59f4abe85de60d727a564
+digest_definition: >-
+  git -C tmp/corelib-37 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum —
+  перемерено, совпадает с заданием
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T23:36:00Z'
+
+review_scope: >-
+  дельта круга целиком: bridge.go и ports.go по ханкам; client_secret_port_test.go,
+  client_secret_test.go, fakes_test.go. Вне дельты прочитаны: errors.go 30-110 (Debug,
+  Is, Unwrap, CodeOf); notes.go 185-360 (record — первая запись побеждает, preferRecorded,
+  coarsenable, note); translate.go 115-150 (fromEngine), 335-400 (requesterFromCode,
+  requesterFromGrant); ceremony.go 811-1045 (Exchange, Introspect, Revoke,
+  revokeReplayedFamily); bridge.go 60-110, 175-260, 400-470, 520-640, 770-785 (deadline,
+  fromPort, GetClient, GetAuthorizeCodeSession, replayedCode, GetAccessTokenSession,
+  GetRefreshTokenSession, GetPKCERequestSession); ports.go 570-630 (контракт
+  ClientSecretVerifier); движок internal/oauth2/handler/oauth2/revocation.go 25-74
+  (RevokeToken, storeErrorsToRevocationError). Перепись мест вопроса справочнику:
+  GetClient и grantClient; вызывающих grantClient 5, у всех срок b.deadline выше по
+  стеку. Прогоны — на копии git archive be0d7cc8 вне git-деревьев
+  (~/.cache/sa-corelib-37-r2, свой GOCACHE и TMPDIR, GOMAXPROCS=4, -p 2), go1.26.8.
+  Шаг 0: MemAvailable ~33 ГБ; чужие go/golangci-lint/.test шли все 30 минут опроса
+  (02:02–02:32, опрос раз в 60 с). Поэтому прогон изолирован и ограничен, а не отложен.
+  Контроль: go test -count=1 -json ./oauthceremony/ → 125 проб верхнего уровня, 1248
+  подпроб, 0 fail, 0 skip. -race и линтер не гонялись: это не выполнилось, а не зелёное.
+
+premise: >-
+  подтверждена: исполнитель заявил, что F1 закрыта на обоих портах доказательства и на
+  сборке запроса по гранту, и это держат пробы. Проверено инъекциями на копии (каждая
+  откатывалась, откат сверен cmp):
+  J1 — verifyClientSecret снова через fromPort: TestProofPortFailureWithACaseOfThisPackageIsAContractBreach
+  красная, 486 подпроб (обмен 162, интроспекция 162, отзыв 162). Среди них 16 строк
+  «операция исполнилась … отказ <nil>» на отзыве — ровно наблюдаемое F1 (отзыв успехом).
+  J2 — GetClient по умолчанию через fromPort: та же проба красная, 316 (по 79 на обмене,
+  интроспекции, отзыве и авторизации).
+  J3 — grantClient отдаёт отказ справочника сырым: TestDirectoryFailureAfterTheClientProofFailsTheOperation
+  красная, 121.
+  J4 — случай порта кладётся в цепочку: красные обе, 792 и 117 (errors.Is находит случай
+  порта).
+  J5 — запись повтора возвращена ПОСЛЕ отказа сборки на обоих путях:
+  TestReplayOutlivesADirectoryFailureWhileBuildingTheRequest красная 3 из 3, близнецы
+  зелёные.
+  J6 — у вызова порта сверки срок операции (WithCancel): TestClientSecretVerifierCallCarriesThePortDeadline
+  красная 6 из 6.
+
+closure_of_previous:
+  - id: F1
+    key: 'corelib:oauthceremony/bridge.go:proof-port-failure-code-becomes-op-verdict'
+    status: closed
+    how: >-
+      отказ обоих портов доказательства переводится closedPortFailure в закрытый перечень:
+      PortDeadline, PortCanceled, PortContract, ServerError. Ни один из них не входит в
+      «безобидные» случаи Revoke (UnhandledRequest, GrantNotFound, NotFound,
+      RefreshTokenRotated) и Introspect (InactiveToken, RefreshTokenRotated). Наш случай из
+      такого порта — нарушение контракта. Порт в цепочку не кладётся, текст порта на
+      провод не уезжает. Единственный объявленный случай справочника, «клиента нет»,
+      разбирается раньше своей веткой. То же правило стоит на месте вопроса справочнику,
+      которого прошлая запись не называла: сборка запроса по записи гранта, grantClient, пять
+      вызывающих. Регрессия закреплена на уровне обсервабла, как заказано: все объявленные
+      случаи × 2 формы × оба порта × каждая операция × каждое доказательство (812), с
+      близнецами «порт исправен» (у отзыва токен после него негоден) и «простая ошибка» →
+      server_error.
+
+new_delta:
+  findings: []
+  checked: >-
+    (1) Перестановка записи повтора ДО сборки: ведомость принимает первую запись.
+    Грант без идентификатора отсекается раньше повтора на обоих путях, так что нарушение
+    контракта повтор не заслоняет. Отзыв семейства (Exchange, Revoke) читает
+    replayedFamily, а не ведомость, и от порядка не зависит. (2) grantClient пишет
+    server_error там, где движок сжимал сбой справочника в «токен негоден» или «временно
+    недоступно»: исход стал закрытым и громким. Отзыв при успехе второго способа поиска
+    снимает найденный артефакт — это верно. (3) Провод отказа порта постоянен: текст —
+    константа на случай, подсказка только у нарушения контракта, Debug на провод не
+    идёт (errors.go:40-43). Проба portFailureWires требует одну форму провода на случай.
+    (4) Для неизвестного клиента матрица судит порт сверки тем же исходом, что для
+    известного: со стороны церемонии прибора перебора нет.
+  below_bar:
+    - id: N3
+      severity: low
+      key: 'corelib:oauthceremony/errors.go:typed-nil-protocol-error-from-port'
+      note: >-
+        порт, вернувший типизированный nil *ProtocolError как error, роняет разбор:
+        errors.As кладёт nil-указатель, и чтение Code разыменовывает nil. Класс старше
+        дельты: он есть в fromPort на базе. Дельта добавляет к нему три места того же вида:
+        CodeOf в GetClient и grantClient, closedPortFailure. Вход даёт только код службы,
+        внешний вызывающий его не выбирает. Не блокирует; планку решает владелец.
+      measured: >-
+        временная внутренняя проба на копии архива (снята): CodeOf, fromPort и
+        closedPortFailure на типизированном nil — все три паникуют (recover → true).
+
+cross_repo:
+  - repo: PRO-Robotech/kaname
+    subject: >-
+      в силе прежняя строка записи 64180de8 с одной поправкой. Случай пакета из
+      ClientSecretVerifier теперь громкий отказ операции (нарушение контракта), а не
+      успех отзыва. Но исход ошибкой для неизвестного клиента против SecretMismatched для
+      известного по-прежнему различим на проводе. Поэтому для клиента без проверочного
+      значения служба отвечает SecretMismatched после сверки с приманкой, а не ошибкой.
+      LookupClient отвечает ровно ErrGrantNotFound.
+
+commit_message_check: >-
+  3 коммита 36a3bf0a..be0d7cc8: трейлеров Co-Authored-By/Claude-Session/Generated with — 0.
+  Автор и коммитер — pointpu <pointpu@in-cloud.io> = ~/.gitconfig. Первые строки — 65, 56 и
+  68 знаков (wc -m), тела — 10, 4 и 3 строки. Тексты называют свойство после правки.
+  Состояние до правки у справочника есть в опубликованном v1.10.0-rc.1 (= база; в теге
+  oauthceremony есть, git ls-tree → 1). Потребителей нет: kaname origin/main cbbac984b —
+  пин v1.9.0, kacho origin/main 1d42a6728bf — пин v1.8.0, импортов corelib/oauthceremony
+  в обоих 0. Условие вызывает только собственный порт службы, нарушающий контракт, а не
+  внешний вход. Признак восстановимости не срабатывает. Форму судит landing-reviewer.
+dry_round: true
+seen_keys:
+  - 'corelib:oauthceremony/bridge.go:proof-port-failure-code-becomes-op-verdict'
+  - 'corelib:oauthceremony/errors.go:typed-nil-protocol-error-from-port'

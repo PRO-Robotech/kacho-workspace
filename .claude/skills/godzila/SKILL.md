@@ -78,7 +78,7 @@ digraph workflow {
   port        [shape=box, label="6. Narrow ports for peer-calls"];
   wire        [shape=box, label="7. Composition root (cmd/<svc>/main.go)"];
   expose      [shape=box, label="8. Register on transport (public/internal listener)"];
-  tests       [shape=box, label="9. Integration + e2e + concurrent-race test"];
+  tests       [shape=box, label="9. Integration + concurrent-race test; e2e edge case — order from the tester"];
   stop        [shape=octagon, label="STOP — get approval first"];
 
   spec -> stop  [label="no"];
@@ -689,7 +689,7 @@ Use a parallel-execution helper (e.g. `corlib/parallel.ExecAbstract`) to run pub
 | "A software mutex defends against the race" | Multi-replica services do not share a mutex. Only the DB does. |
 | "I will add the CHECK constraint later" | The DB is the last line of defence; bugs / admin SQL bypass app-level validation. |
 | "Watch via SSE/WebSocket is fine" | Streaming Watch was retired; client polls List or the LRO `Get`. |
-| "I will skip the e2e case — out of scope of this PR" | Forbidden by the project rule. Tests live in the same PR. |
+| "I will skip the e2e case — out of scope of this PR" | Forbidden by the project rule. Tests live in the same PR (e2e edge case is written by the tester, `testing-newman.md#edge-author-black-box`: order it). |
 | "`strings.Contains` is shorter than `errors.Is`" | Fragile under wrap/i18n. Only `errors.Is`. |
 | "One Update RPC should handle every mutable thing" | Split endpoints when the OCC scope or audit semantics differ. |
 | "An `interface{}` payload in outbox is heavy" | The payload is small (~hundreds of bytes); allocations are not the bottleneck. Atomicity is. |
@@ -718,7 +718,7 @@ Use a parallel-execution helper (e.g. `corlib/parallel.ExecAbstract`) to run pub
 - [ ] **DTO:** registered via `RegTransfer` in `init()`; call sites use `Transfer`.
 - [ ] **Peer-clients:** built via the single builder; positive+negative TTL cache where applicable.
 - [ ] **Listeners:** admin RPC only on internal listener; rejection interceptor in place.
-- [ ] **Tests in the same PR:** integration (testcontainers) + e2e + a concurrent-race test for every CAS / partial-UNIQUE / EXCLUDE invariant.
+- [ ] **Tests in the same PR:** integration (testcontainers) + e2e + a concurrent-race test for every CAS / partial-UNIQUE / EXCLUDE invariant (e2e edge case is written by the tester, `testing-newman.md#edge-author-black-box`: order it).
 - [ ] **Trail updated:** docs / ADR / vault entries reflect the change.
 
 ---

@@ -1,0 +1,124 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии автора и НЕ закоммичена — по заданию.
+schema_version: 1
+change_id: corelib-49
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  ранжирование уровня аутентификации (Rank/Satisfies) вынесено из пакета
+  gRPC-сервера в пакет без транспорта acrlevel; правило step-up берёт ранг
+  оттуда; прежний адрес grpcsrv.ACRRank/ACRSatisfies снят; проба замыкания
+  импортов пакета acrlevel.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: 3403dc90ecc5004bbea2305f28254eb6bb27fef5
+  head_tree: d3af856f82eb372671883561dedf6d8bb2e150a6
+  head_is: 'ветка 49, один коммит поверх 32 (@9f0393c), не отправлена'
+  shortstat: '5 файлов, +433 / -87'
+  commits:
+    - 'дерево d3af856f82eb #49 ранжирование уровня аутентификации — в пакете без транспорта'
+content_digest: sha256:f202d6a1f7f2fff43914d5c9477787b52fbac5e52630e4b6ff70ed49d7f332de
+digest_definition: |
+  git diff --full-index 9f0393c540d7..3403dc90ecc5004bbea2305f28254eb6bb27fef5 | sha256sum
+  (перемерено ревьюером в копии; HEAD копии = 3403dc9, дерево d3af856f82eb)
+
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-23T00:00:00Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io>; только неблокирующее'
+review_scope: >-
+  ПОЛНЫЙ закоммиченный дифф 9f0393c540d7..3403dc9, все 5 файлов; grpcsrv/acr.go
+  прочитан целиком вместе с шапкой пакета; сверены имена, на которые ссылается
+  новая шапка (TrustedACRFromContext, TrustedPrincipalFromContext в
+  grpcsrv/cert_identity.go; MDKeyTokenACR в grpcsrv/acr.go; MDKeyPrincipalType
+  в grpcsrv/principal_extract.go); сверено переиспользование с
+  treehygiene/imports.go (AuditImportConfinement).
+
+files_reviewed:
+  prod:
+    - acrlevel/acrlevel.go
+    - grpcsrv/acr.go
+  probes:
+    - acrlevel/acrlevel_test.go
+    - acrlevel/transport_test.go
+    - grpcsrv/acr_extract_test.go   # снятие двух проб вместе с символами
+
+deferral_markers_in_diff: 0      # git diff | grep '^+' | grep -E 'TODO|FIXME|XXX|HACK|t\.Skip' → пусто
+probes_in_same_pr: true          # Rank/Satisfies переехали вместе с пробами; проба замыкания — новая
+
+checks:
+  error_wrapping: >-
+    прод-кода с ошибками в диффе нет (две чистые функции). В пробе transport_test.go:101
+    `return w, err` без контекста — неблокирующее.
+  context: 'не применимо: вызовов IO и внешних вызовов в диффе нет'
+  no_panic: 'паники, must* и log.Fatal в диффе нет'
+  logging: 'журналирования в диффе нет'
+  naming: >-
+    acrlevel.Rank / acrlevel.Satisfies — без повтора имени пакета; идентификаторы
+    латиницей (не-ASCII только в комментариях и строках); receiver'ов нет.
+  init_side_effects: 'init() нет'
+  dependency_direction: >-
+    acrlevel не импортирует ничего; grpcsrv → acrlevel — ребро от транспорта к
+    чистому пакету, обратного нет. Проба замыкания держит это транзитивно.
+  one_table: >-
+    `git grep 'case "3":' HEAD -- '*.go'` → одно попадание (acrlevel/acrlevel.go:36):
+    второй таблицы ранжирования в модуле нет; в дереве нет ни одной ссылки на
+    grpcsrv.ACRRank/ACRSatisfies, кроме упоминания снятого адреса в шапке acrlevel.
+  doc_truthfulness: >-
+    шапка acrlevel и новый абзац WHY HERE в grpcsrv/acr.go описывают код как есть;
+    названные ими читатели без транспорта существуют у потребителей
+    (kaname internal/apps/kaname/config/lane_requirements.go:458,485;
+    kacho gateway/cmd/api-gateway/stepup_validation.go:45 — на origin/main).
+  reuse: >-
+    treehygiene.AuditImportConfinement судит заключение набора импортов по файлам
+    индекса, а не транзитивное замыкание от пакета, так что обход в
+    transport_test.go его не повторяет. Дубликата нет.
+
+experiment:
+  where: 'чистый экспорт `git archive 3403dc9` вне git-деревьев'
+  runs:
+    - 'go test ./acrlevel/ -count=1 -v → 11 проб, все PASS; перепись: пакетов модуля 1, файлов 1, транспорта 0, чужих 0; контроль по grpcsrv: пакетов 13, файлов 41, транспорта 41'
+    - 'инъекция acrlevel/inject.go под //go:build never с импортом corelib/grpcsrv → TestRankingPackagePullsNoTransport FAIL с координатами grpcsrv/admission.go:59…'
+    - 'инъекция импорта github.com/stretchr/testify/require в прод-файл acrlevel → FAIL «не выполнилось: замыкание через чужой модуль не прочитано»'
+  note: 'это находка-эксперимент ревьюера, а не объявление исхода проб; исход объявляют landing-reviewer и check-verifier'
+
+critical: []
+important: []
+foundation_candidates: []
+security_comments_contradicting_code: []
+
+style_non_blocking:
+  - at: acrlevel/acrlevel.go:35-46
+    what: >-
+      значения acr "1"/"2"/"3" и ранги — голые литералы (скил evgeniy §7). Форма
+      перенесена из grpcsrv дословно; раз это теперь единственная таблица
+      платформы, именованные константы ступеней были бы естественны здесь.
+      Ветка `case "0", "": return 0` перед `default: return 0` избыточна по
+      исполнению и держится только как документация.
+  - at: acrlevel/transport_test.go:68,111
+    what: >-
+      одна карта `seen` хранит и пути пакетов, и строки рёбер «pkg → imp».
+      Коллизии нет (в ребре есть « → »), но с двумя картами читалось бы проще.
+  - at: acrlevel/transport_test.go:148-156
+    what: >-
+      sc.Err() не проверяется: ошибка сканера выдаёт себя за «нет строки module».
+      Проба и так падает, но причина названа неверно.
+  - at: acrlevel/transport_test.go:100-101
+    what: 'ошибка filepath.Rel возвращается без контекста (раздел «Обёртка ошибок»); путь практически недостижим'
+
+consumer_radius_info: >-
+  Не находка по этому диффу, а сведения для посадки. Снятый адрес читают потребители
+  на origin/main. kacho: вызов в gateway/cmd/api-gateway/stepup_validation.go:45,
+  три в пробе gateway/internal/middleware/auth_basic_stepup_internal_test.go, шесть
+  упоминаний в комментариях middleware. kaname: четыре прод-вызова
+  (cmd/kaname/laneposture.go:125; internal/apps/kaname/config/lane_requirements.go:458,485;
+  internal/authzguard/acr_floor.go:168), один в пробе
+  (internal/authzguard/acr_floor_stepup_refinement_test.go:74) и два в комментариях.
+  Любой бамп пина corelib на эту ревизию перестанет собираться, пока вызовы не
+  переедут в том же изменении.
