@@ -132,12 +132,25 @@
 # origin): 445 с; на снимке того же клона — 442 с, вердикт по всем 517 ключам
 # тот же, что у предыдущей пакетной редакции, а на выборке из 30 веток и 5
 # веток origin — тот же, что у поштучной редакции fb7a2cbb.
+# Круг 4 (2026-09-25, снимок того же клона @1d42a672: 470 локальных, 240 на
+# origin, 9 стволов, 16 заданий, без fetch, PR из файла): 403 с против 392 с у
+# редакции 43ed5563 на том же снимке; вердикт по всем веткам тот же — 689
+# строк, разошлись две строки возраста «N дн.», который считается от момента
+# прогона.
 #
 # Ускорение не меняет ни одного признака: каждый ускоритель либо ДОКАЗЫВАЕТ тот
 # исход, который дала бы поштучная форма, либо отступает к ней. Доказательства —
 # у каждого ускорителя ниже; эталон — те же признаки поштучно (BRANCH_AUDIT_EXACT=1),
-# и `scripts/branch-audit-inject.sh` сверяет оба режима дословно, а мутацией
-# каждого ускорителя показывает, что сверка краснеет (AJ–AP).
+# и `scripts/branch-audit-inject.sh` сверяет оба режима дословно по ВСЕМУ перечню
+# файлов (AJ). Держатели у ускорителей двух родов:
+#   * ускоритель, чья ошибка меняет вердикт, держит сверка: его мутант меняет
+#     вердикт названной ветки самопробы (AL–AP, AY, BL–BQ, BT, BV–BX, BZ);
+#   * ускоритель, чья ошибка вердикта НЕ меняет, — отказ, доказанный перечнем,
+#     которого нет, либо ключ кэша, — лишь отступает к вызову. Его держит счёт:
+#     AK требует, чтобы каждый сработал, а мутант без предмета красит AK (BR,
+#     BS) либо поднимает счёт ответов вне кэша (BU).
+# Эквивалентный мутант назван там, где он есть: у проверки целиком — снятое
+# «путь в raw встречается один раз» (см. whole_refusals).
 #   * ветки разбираются заданиями параллельно, вердикт собирается в исходном
 #     порядке теми же строками;
 #   * пятый признак не сливает там, где непустота дельты доказана деревьями;
@@ -150,11 +163,40 @@
 # них, сколько файлов пошло пакетом и сколько поштучно, сколько вопросов к
 # истории задано поштучно и какая ветка разбиралась дольше всех.
 #
+# ЗАКОННЫЕ ФОРМЫ ЗАПИСИ ПРЕДМЕТА (ws#813, круг 4). Каждый разбор здесь читает
+# чужой вывод, и у каждого предмета больше одной законной записи. Форма, которую
+# разбор не знал, давала не красное и не зелёное, а молчание — и самое дорогое
+# молчание было в сторону снятия. Перечень и держатели:
+#   * путь файла: в кавычках (нелатиница, табуляция), с пробелом по краю, со
+#     знаками образца pathspec, с ведущим «:» — git получает сам путь и
+#     буквальный pathspec, а файл, который не удалось осмотреть, назван и
+#     поглощённым не считается (inject AZ, BA, BB); прежде каждая из этих форм
+#     уводила ветку с единственным экземпляром работы в «ВЛИТЫ»;
+#   * путь в истории стволов и в касании пути — сам, с -z (BW, BX);
+#   * генератор машинно собираемого — чужой код, и буквальный pathspec переписи
+#     до него не доходит (генератор самопробы выводит свой выход образцом;
+#     утечка красит Y, Y2);
+#   * тёзка по имени — образец grep эталона, где точка совпадает и с «/» (D1,
+#     BT); побайтово — только в ASCII-перечне (BY, BZ);
+#   * имя файла ответа в общем кэше — взаимно однозначное с путём, а ответ,
+#     который не записался, спрашивается поштучно (D2, BU, BV);
+#   * имя ветки — полное имя ссылки для git, lstrip=2 для печати (тег того же
+#     имени, BF); кандидат — и коротким, и полным именем (BK);
+#   * ствол: неоднозначное имя — отказ (BG); накопительные ветки — на любой
+#     глубине под release/ (BH); временный индекс — по номеру ствола (BI);
+#   * рабочая копия — путь с пробелом (BJ); перевод строки в пути разбор с -z
+#     тоже читает, но инъекции на эту форму нет;
+#   * PR ветки: несколько PR одной головы, PR из чужого репозитория, выдача,
+#     упёршаяся в предел, и отказ gh (BC, BD, BE).
+#
 # Переменные: BRANCH_AUDIT_TRUNK (ствол, умолчание origin/main),
 #             BRANCH_AUDIT_FRESH_MIN (окно «движется прямо сейчас», умолчание 45),
 #             BRANCH_AUDIT_NO_ACCUM=1 (не искать накопительные ветки — для проб),
 #             BRANCH_AUDIT_JOBS (параллельных заданий, умолчание — половина ядер,
-#               не больше 16), BRANCH_AUDIT_EXACT=1 (эталон: всё поштучно).
+#               не больше 16), BRANCH_AUDIT_EXACT=1 (эталон: всё поштучно),
+#             BRANCH_AUDIT_ALL_FILES=1 (весь перечень непоглощённых файлов, а
+#               не первые три), BRANCH_AUDIT_PR_LIMIT (предел выдачи gh pr list,
+#               умолчание 5000; выдача, равная пределу, — перепись PR неполна).
 #
 # БЕЗ `--prune-merged` скрипт НИЧЕГО НЕ УДАЛЯЕТ: он печатает списки и объём
 # осмотренного, решение принимает человек — третий вид требует сдать работу, а
@@ -180,12 +222,28 @@
 
 set -euo pipefail
 
+# Путь из дельты — ИМЯ, а не образец. Без этого `-- 'g*.txt'` накрывает и
+# `gx.txt` (блоб соседа засчитывался поглощением работы), а `-- ':x.txt'`
+# читается магией pathspec и не находит файла вовсе — поштучная форма молча
+# пропускала такой файл, и ветка с ним одним уходила в «ВЛИТЫ». Образец нужен
+# ровно одному вызову (перечень генераторов), и он снимает это явно.
+export GIT_LITERAL_PATHSPECS=1
+
 PRUNE=0
 if [ "${1:-}" = "--prune-merged" ]; then PRUNE=1; shift; fi
 
 REPO="${1:-$(pwd)}"
 [ "$#" -eq 0 ] || shift
-CANDIDATES=("$@")
+# Кандидат называется и коротким именем, и полным именем ссылки: обе формы —
+# одна ветка.
+CANDIDATES=()
+for c in "$@"; do
+  case "$c" in
+    refs/heads/*) c=${c#refs/heads/} ;;
+    refs/remotes/origin/*) c=${c#refs/remotes/origin/} ;;
+  esac
+  CANDIDATES+=("$c")
+done
 declare -A CAND=()
 for c in ${CANDIDATES[@]+"${CANDIDATES[@]}"}; do CAND["$c"]=0; done
 # $1 = ветка → 0, если она судится этим прогоном (без перечня — любая); отмечает осмотр.
@@ -201,11 +259,30 @@ git rev-parse --git-dir >/dev/null 2>&1 || {
   echo "branch-audit: '$REPO' не репозиторий" >&2; exit 2; }
 
 TRUNK="${BRANCH_AUDIT_TRUNK:-origin/main}"
+# Имя ветки ствола — у обеих записей ствола, короткой «origin/main» и полной
+# «refs/remotes/origin/main»: локальная ветка с этим именем — сам ствол, а не
+# ветка переписи, и снятию не подлежит.
+TRUNK_BRANCH=${TRUNK#refs/remotes/}; TRUNK_BRANCH=${TRUNK_BRANCH#origin/}
 FRESH_MIN="${BRANCH_AUDIT_FRESH_MIN:-45}"
 
 git rev-parse --verify --quiet "$TRUNK^{commit}" >/dev/null || {
   echo "branch-audit: ствол '$TRUNK' не разрешается — перепись была бы беспредметна" >&2
   exit 2; }
+# Короткое имя ствола разрешается по правилам git (refs/, теги, ветки, origin),
+# и локальная ветка «origin/main» перекрывает ссылку origin: перепись шла бы
+# против чужой ссылки молча. Имя, которое называет больше одной ссылки, — отказ.
+case "$TRUNK" in
+  refs/*) ;;
+  *) n_amb=0
+     for r in "refs/$TRUNK" "refs/tags/$TRUNK" "refs/heads/$TRUNK" "refs/remotes/$TRUNK" "refs/remotes/$TRUNK/HEAD"; do
+       git show-ref --verify --quiet "$r" && n_amb=$((n_amb + 1))
+     done
+     if [ "$n_amb" -gt 1 ]; then
+       echo "branch-audit: имя ствола '$TRUNK' неоднозначно — называет $n_amb ссылки (например, локальная" >&2
+       echo "  ветка того же имени); перепись беспредметна. Назови ствол полным именем: refs/remotes/…" >&2
+       exit 2
+     fi ;;
+esac
 
 # --- ССЫЛКИ ОБНОВЛЯЮТСЯ ДО ВЕРДИКТА ------------------------------------------
 # Присутствие ветки перепись спрашивает У ORIGIN (`ls-remote`), а СОДЕРЖИМОЕ
@@ -243,9 +320,11 @@ NOW=$(date +%s)
 TRUNKS=("$TRUNK")
 if [ "${BRANCH_AUDIT_NO_ACCUM:-0}" != "1" ]; then
   while read -r r; do
-    [ -n "$r" ] && [ "$r" != "$TRUNK" ] && TRUNKS+=("$r")
-  done < <(git for-each-ref --format='%(refname:short)' \
-             'refs/remotes/origin/release/*' 'refs/remotes/origin/release/*/*' 2>/dev/null || true)
+    [ -n "$r" ] && [ "$r" != "$TRUNK" ] && [ "refs/remotes/$r" != "$TRUNK" ] && TRUNKS+=("$r")
+  # Образец «release/*» и «release/*/*» не видел «release/x/y/z»: звёздочка
+  # здесь не переходит «/». Префикс берёт всё под release/ на любой глубине, а
+  # короткое имя for-each-ref однозначно по построению.
+  done < <(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' 2>/dev/null || true)
 fi
 
 # Временный индекс на КАЖДЫЙ ствол: обратное применение патча идёт в него, а не
@@ -256,8 +335,11 @@ declare -A TRUNK_IDX=()
 BA_TMP=$(mktemp -d)
 cleanup_tmp() { rm -rf "$BA_TMP"; }
 trap cleanup_tmp EXIT
-for tr in "${TRUNKS[@]}"; do
-  idx="$BA_TMP/idx.$(printf '%s' "$tr" | tr '/' '_')"
+# Имя файла — номер ствола: прежнее «/ → _» сводило release/a/b и release/a_b в
+# один файл, и (6а) одного ствола судилось деревом другого.
+for k in "${!TRUNKS[@]}"; do
+  tr=${TRUNKS[$k]}
+  idx="$BA_TMP/idx.$k"
   if GIT_INDEX_FILE="$idx" git read-tree "$tr" 2>/dev/null; then
     TRUNK_IDX["$tr"]="$idx"
   fi
@@ -295,26 +377,34 @@ esac
 # Готовность каждого общего файла отмечена `.ok`: недописанный перечень сделал
 # бы ускоритель ложным, а без отметки ускоритель просто не применяется.
 #   lst.<k> — `ls-tree -r --name-only` ствола: поиск цели переписи по имени;
+#             lst.<k>.ascii — отметка, что перечень ASCII (предпосылка пакетного
+#             поиска тёзки, см. census_batch);
 #   tl.<k>  — `ls-tree -r` ствола: доказательство непустой дельты слияния;
 #   hist.*  — пары «путь, блоб» из диффов истории стволов с индексом (одним
 #             обходом их объединения), блобы и каталоги этих путей: надмножество
 #             того, что найдёт `git log <ствол> --find-object=<блоб> -- <путь>`.
+#             Пути берутся с -z, то есть САМИ, а не в кавычках: у пути
+#             «qd/файл» каталог — «qd», а из кавычечной формы выходил «"qd», и
+#             файл ветки «qd» терял ответ, который поштучная форма находит.
 IDXTR=()
 for tr in "${TRUNKS[@]}"; do [ -z "${TRUNK_IDX[$tr]+x}" ] || IDXTR+=("$tr"); done
 if [ "$EXACT" != 1 ]; then
   for k in "${!TRUNKS[@]}"; do
     (
       tr=${TRUNKS[$k]}
-      git ls-tree -r --name-only "$tr" > "$BA_SHARED/lst.$k" 2>/dev/null && : > "$BA_SHARED/lst.$k.ok"
+      git ls-tree -r --name-only "$tr" > "$BA_SHARED/lst.$k" 2>/dev/null && : > "$BA_SHARED/lst.$k.ok" &&
+        { LC_ALL=C grep -q '[^ -~]' "$BA_SHARED/lst.$k" || : > "$BA_SHARED/lst.$k.ascii"; }
       git ls-tree -r "$tr" > "$BA_SHARED/tl.$k" 2>/dev/null && : > "$BA_SHARED/tl.$k.ok"
     ) &
   done
   if [ "${#IDXTR[@]}" -gt 0 ]; then
     (
-      git log "${IDXTR[@]}" --raw --no-renames --no-abbrev --format= 2>/dev/null |
-        LC_ALL=C awk -F'\t' -v d="$BA_SHARED/hist" '
+      git log "${IDXTR[@]}" --raw --no-renames --no-abbrev --format= -z 2>/dev/null |
+        LC_ALL=C awk -v d="$BA_SHARED/hist" '
           function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }
-          /^:/ { split($1, a, " "); p = $2
+          BEGIN { RS = "\0" }
+          /^:/ { split($0, a, " "); left = (a[5] ~ /^[RC]/) ? 2 : 1; next }
+          left > 0 { left--; p = $0
                  for (x = 3; x <= 4; x++) if (a[x] !~ /^0+$/) {
                    if (!((p, a[x]) in pr)) { pr[p, a[x]] = 1; print p "\t" a[x] > (d ".pairs") }
                    if (!(a[x] in oi)) { oi[a[x]] = 1; print a[x] > (d ".oids") } }
@@ -379,14 +469,15 @@ collect_generated() {
   while IFS= read -r g; do
     [ -n "$g" ] || continue
     GEN_ASKED=$((GEN_ASKED + 1))
-    if out=$(python3 "$REPO/$g" --outputs 2>/dev/null) && [ -n "$out" ]; then
+    # Генератор — чужой код: буквальный pathspec переписи ему не передаётся.
+    if out=$(env -u GIT_LITERAL_PATHSPECS python3 "$REPO/$g" --outputs 2>/dev/null) && [ -n "$out" ]; then
       while IFS= read -r line; do
         [ -n "$line" ] && GENERATED_PATHS+=("$line")
       done <<< "$out"
     else
       GEN_MUTE=$((GEN_MUTE + 1))
     fi
-  done < <(git -C "$REPO" ls-files -- 'scripts/*/generate.py' 2>/dev/null)
+  done < <(GIT_LITERAL_PATHSPECS=0 git -C "$REPO" ls-files -- 'scripts/*/generate.py' 2>/dev/null)
 }
 
 is_generated() { # $1 = путь → 0, если файл производится машинно
@@ -405,12 +496,22 @@ echo
 
 # --- какие ветки заняты рабочими копиями (снимать нельзя, не спросив) ---------
 # `git worktree list` отвечает про ТОТ репозиторий, в котором выполнен, поэтому
-# он выполняется после cd в целевой каталог, а не из текущего.
+# он выполняется после cd в целевой каталог, а не из текущего. Записи — с -z:
+# путь копии бывает с пробелом (прежний разбор брал его первое слово и называл
+# живую копию брошенной по чужому пути) и даже с переводом строки. Перечень не
+# прочитан — отказ: без него снятие не отличает занятую ветку от свободной.
 declare -A OCCUPIED=()
-while read -r br path; do
-  [ -n "$br" ] && OCCUPIED["$br"]="$path"
-done < <(git worktree list --porcelain 2>/dev/null |
-         awk '/^worktree /{p=$2} /^branch /{b=$2; sub("refs/heads/","",b); print b" "p}')
+wt_path=""
+if ! git worktree list --porcelain -z > "$BA_TMP/wt.z" 2>/dev/null; then
+  echo "branch-audit: перечень рабочих копий не прочитан (git worktree list -z) — перепись беспредметна" >&2
+  exit 2
+fi
+while IFS= read -r -d '' rec; do
+  case "$rec" in
+    'worktree '*) wt_path=${rec#worktree } ;;
+    'branch refs/heads/'*) OCCUPIED["${rec#branch refs/heads/}"]=$wt_path ;;
+  esac
+done < "$BA_TMP/wt.z"
 
 # --- копия ЖИВАЯ или БРОШЕННАЯ: перепись обязана их различать -----------------
 #
@@ -462,25 +563,55 @@ fi
 # ради которого заведена задача #257, инъекции не имел ни одной. Файл читается
 # ТОЛЬКО когда gh недоступен (на настоящем репозитории он игнорируется by
 # construction), а провенанс печатается: подстановка обязана быть видна в
-# выводе, а не подразумеваться. Формат строки: «ветка<TAB>номер<TAB>состояние».
+# выводе, а не подразумеваться. Формат строки — тот же, что отдаёт gh ниже:
+# «ветка<TAB>номер<TAB>состояние[<TAB>из чужого репозитория: true|false]»,
+# новые PR первыми.
+#
+# Законных форм у PR ветки три, и каждая прежде читалась неверно:
+#   * у головы БЫВАЕТ несколько PR (на клоне продукта таких голов 11): прежде
+#     побеждала последняя строка, то есть САМЫЙ СТАРЫЙ PR, и ветка с открытым
+#     PR поднимала тревогу «PR закрыт». Теперь открытый PR перевешивает прочие,
+#     среди прочих — самый новый;
+#   * PR из чужого репозитория несёт то же имя головы, но это чужая ветка;
+#   * перепись PR упирается в предел выдачи gh: прежний предел 300 при 931 PR
+#     клона продукта терял состояние у 6 локальных веток и 7 веток origin, и
+#     про ветку origin печаталось «PR не заводился». Предел — ручка, а выдача,
+#     равная пределу, либо отказ gh — «перепись PR неполна», и это утверждение
+#     не делается.
 declare -A PRSTATE=()
-have_gh=0
+have_gh=0; pr_rows=0; pr_foreign=0; pr_incomplete=""
+PR_LIMIT="${BRANCH_AUDIT_PR_LIMIT:-5000}"
+case "$PR_LIMIT" in ''|*[!0-9]*|0) PR_LIMIT=5000 ;; esac
+pr_take() { # $1 = голова, $2 = номер, $3 = состояние, $4 = из чужого репозитория
+  [ -n "$1" ] || return 0
+  pr_rows=$((pr_rows + 1))
+  if [ "${4:-false}" = true ]; then pr_foreign=$((pr_foreign + 1)); return 0; fi
+  if [ -z "${PRSTATE[$1]+x}" ] || { [ "$3" = OPEN ] && [ "${PRSTATE[$1]##* }" != OPEN ]; }; then
+    PRSTATE["$1"]="#${2} ${3}"
+  fi
+}
 if command -v gh >/dev/null 2>&1 && gh repo view >/dev/null 2>&1; then
   have_gh=1
-  while IFS=$'\t' read -r head num state; do
-    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
-  done < <(gh pr list --state all --limit 300 \
-             --json number,state,headRefName \
-             --jq '.[]|"\(.headRefName)\t\(.number)\t\(.state)"' 2>/dev/null || true)
+  if gh pr list --state all --limit "$PR_LIMIT" \
+       --json number,state,headRefName,isCrossRepository \
+       --jq '.[]|"\(.headRefName)\t\(.number)\t\(.state)\t\(.isCrossRepository)"' \
+       > "$BA_TMP/prs.tsv" 2>/dev/null; then
+    while IFS=$'\t' read -r head num state cross; do pr_take "$head" "$num" "$state" "$cross"; done < "$BA_TMP/prs.tsv"
+    [ "$pr_rows" -lt "$PR_LIMIT" ] || pr_incomplete="gh отдал $pr_rows строк при пределе $PR_LIMIT (BRANCH_AUDIT_PR_LIMIT)"
+  else
+    pr_incomplete="gh pr list отказал"
+  fi
 elif [ -n "${BRANCH_AUDIT_PR_STATE_FILE:-}" ] && [ -r "${BRANCH_AUDIT_PR_STATE_FILE}" ]; then
   have_gh=1
   pr_state_from_file=1
-  while IFS=$'\t' read -r head num state; do
-    [ -n "$head" ] && PRSTATE["$head"]="#${num} ${state}"
-  done < "${BRANCH_AUDIT_PR_STATE_FILE}"
+  while IFS=$'\t' read -r head num state cross; do pr_take "$head" "$num" "$state" "$cross"; done \
+    < "${BRANCH_AUDIT_PR_STATE_FILE}"
 fi
 if [ "${pr_state_from_file:-0}" = 1 ]; then
   echo "branch-audit: состояния PR прочитаны ИЗ ФАЙЛА ${BRANCH_AUDIT_PR_STATE_FILE} — gh недоступен"
+fi
+if [ "$have_gh" = 1 ]; then
+  echo "branch-audit: PR прочитано ${pr_rows}, из чужих репозиториев ${pr_foreign} (не приписаны одноимённым веткам)"
 fi
 
 # --- ПЯТЫЙ ПРИЗНАК: дельта слияния во временной копии -------------------------
@@ -618,6 +749,59 @@ ba_mset_common() {
   ' "$2" "$1"
 }
 
+# --- ПУТЬ В ФОРМЕ ВЫВОДА И САМ ПУТЬ ----------------------------------------------
+# Перечни git (--name-only, --raw, ls-tree) печатают путь, который нужно
+# экранировать (нелатиница, управляющие знаки, «"» и «\»), В КАВЫЧКАХ. Эта форма
+# — ключ и то, что печатается; git же получает САМ путь. Прежде поштучная форма
+# отдавала git кавычечную строку, дифф выходил пустым, файл пропускался молча —
+# и ветка, чья работа — файл «файл.txt», уходила в «ВЛИТЫ».
+BA_P=""
+ba_raw_path() { # $1 = путь в форме вывода git → BA_P = сам путь
+  case "$1" in
+    \"*\")
+      BA_P=""
+      IFS= read -r -d '' BA_P < <(printf '%s\n' "$1" | LC_ALL=C awk '
+        { s = substr($0, 2, length($0) - 2); r = ""
+          for (i = 1; i <= length(s); i++) { c = substr(s, i, 1)
+            if (c != "\\") { r = r c; continue }
+            c = substr(s, ++i, 1)
+            if (c ~ /[0-7]/) { n = 0
+              for (d = 0; d < 3 && substr(s, i, 1) ~ /[0-7]/; d++) n = n * 8 + substr(s, i++, 1)
+              i--; r = r sprintf("%c", n) }
+            else if (c == "a") r = r "\007"; else if (c == "b") r = r "\b"; else if (c == "t") r = r "\t"
+            else if (c == "n") r = r "\n"; else if (c == "v") r = r "\v"; else if (c == "f") r = r "\f"
+            else if (c == "r") r = r "\r"; else r = r c }
+          printf "%s", r }') || true ;;
+    *) BA_P=$1 ;;
+  esac
+}
+
+# Тёзка — первая строка перечня ствола, кончающаяся образцом grep «/<имя>$»
+# (точка — любой знак, в том числе «/»; это форма эталона, и пакетный поиск в
+# census_batch повторяет именно её). Имя в кавычках образцом не бывает: его
+# хвост ищется буквально, в кавычечной строке перечня и в простой.
+ba_namesake() { # $1 = путь в форме вывода git; stdin — перечень ствола → первый тёзка либо пусто
+  local q
+  case "$1" in
+    \"*) q=${1#\"}; q=${q##*/}; q=${q%\"}
+         BA_Q="/$q" LC_ALL=C awk '{ n = length($0); t = ENVIRON["BA_Q"]; m = length(t)
+           if (substr($0, n - m + 1) == t || substr($0, n - m) == t "\"") { print; exit } }' ;;
+    *) grep -- "/${1##*/}$" | head -1 ;;
+  esac
+}
+
+# Ключ общего кэша ответа о пути: каталоги — «d<имя>», файл — «f<имя>». Прежний
+# ключ «<путь>.b» совпадал с каталогом пути «<путь>.b/…», и ответ одной ветки
+# отнимался у другой (D2). Ключ, который не записался (длинное имя), — не ответ
+# «нет»: такой вопрос задаётся поштучно.
+BA_KEY=""
+ba_key_of() { # $1 = путь → BA_KEY
+  case "$1" in
+    */*) BA_KEY="d${1%/*}"; BA_KEY="${BA_KEY//\//\/d}/f${1##*/}" ;;
+    *) BA_KEY="f$1" ;;
+  esac
+}
+
 # --- ТРЕТИЙ ЗАМЕР ФАЙЛА (6в): ПОСТРОЧНАЯ ПЕРЕПИСЬ -----------------------------
 # (6а) и (6б) сравнивают БАЙТЫ: первая — весь патч файла, вторая — весь блоб.
 # Обе молчат, как только ствол правил файл после вливания хотя бы одной строкой,
@@ -636,8 +820,8 @@ ba_mset_common() {
 # печатается, чтобы подстановка была видна, а не подразумевалась.
 CENSUS_ADD=0; CENSUS_MISS=0; CENSUS_DEL=0; CENSUS_STAY=0; CENSUS_TARGET=""
 CENSUS_MOVED=0
-census_file() { # $1=ref $2=base $3=путь → 0, если содержимое найдено в стволе
-  local ref=$1 base=$2 f=$3 tr bn cand target miss stay best=-1
+census_file() { # $1=ref $2=base $3=путь в форме вывода git → 0, если содержимое найдено в стволе
+  local ref=$1 base=$2 f=$3 tr cand target tgit miss stay best=-1 p
   CENSUS_ADD=0; CENSUS_MISS=0; CENSUS_DEL=0; CENSUS_STAY=0; CENSUS_TARGET=""
   # CENSUS_MOVED=1 означает: содержимое найдено НЕ по тому пути, по которому его
   # писала ветка, — то есть реализация переехала. Это единственный законный способ
@@ -659,10 +843,11 @@ census_file() { # $1=ref $2=base $3=путь → 0, если содержимо�
     [ "$ok" = 1 ]
     return
   fi
+  ba_raw_path "$f"; p=$BA_P
   if [ -n "${FAST[$f]+x}" ]; then
     fast=$PREP_FULL; patch=${FAST[$f]}
   else
-    git diff "$base" "$ref" -- "$f" > "$PATCH_TMP" 2>/dev/null || return 1
+    git diff "$base" "$ref" -- "$p" > "$PATCH_TMP" 2>/dev/null || return 1
   fi
   grep '^+' "$patch" | grep -v '^+++' | sed 's/^+//' | ba_norm > "$BA_TMP/c.add" || true
   grep '^-' "$patch" | grep -v '^---' | sed 's/^-//' | ba_norm > "$BA_TMP/c.del" || true
@@ -671,26 +856,25 @@ census_file() { # $1=ref $2=base $3=путь → 0, если содержимо�
 
   for k in "${!TRUNKS[@]}"; do
     tr=${TRUNKS[$k]}
-    target=""; ent=""; trf="$BA_TMP/c.tr"
+    target=""; tgit=""; ent=""; trf="$BA_TMP/c.tr"
     if [ "$fast" = 1 ]; then
       ent=${EXISTS["$k|$f"]:-}
-      [ -n "$ent" ] && target="$tr:$f"
-    elif git cat-file -e "$tr:$f" 2>/dev/null; then
-      target="$tr:$f"
+      [ -n "$ent" ] && { target="$tr:$f"; tgit="$tr:$p"; }
+    elif git cat-file -e "$tr:$p" 2>/dev/null; then
+      target="$tr:$f"; tgit="$tr:$p"
     fi
     if [ -z "$target" ]; then
-      bn=${f##*/}
       if [ "$fast" = 1 ] && [ -e "$BA_SHARED/lst.$k.ok" ]; then
-        cand=$(grep -- "/${bn}$" "$BA_SHARED/lst.$k" | head -1 || true)
+        cand=$(ba_namesake "$f" < "$BA_SHARED/lst.$k" || true)
       else
-        cand=$(git ls-tree -r --name-only "$tr" 2>/dev/null | grep -- "/${bn}$" | head -1 || true)
+        cand=$(git ls-tree -r --name-only "$tr" 2>/dev/null | ba_namesake "$f" || true)
       fi
-      [ -n "$cand" ] && target="$tr:$cand"
+      if [ -n "$cand" ]; then target="$tr:$cand"; ba_raw_path "$cand"; tgit="$tr:$BA_P"; fi
     fi
     [ -n "$target" ] || continue
     case "$ent" in
       *' blob') norm_blob "${ent%% *}"; trf="$BA_SHARED/norm/${ent%% *}" ;;
-      *) git show "$target" 2>/dev/null | ba_norm > "$BA_TMP/c.tr" || true ;;
+      *) git show "$tgit" 2>/dev/null | ba_norm > "$BA_TMP/c.tr" || true ;;
     esac
     # Счёт — awk-хэшем (см. ba_mset_extra/ba_mset_common выше), не `comm`:
     # у стороннего `comm` собственная проверка упорядоченности расходится с
@@ -735,19 +919,21 @@ trunk_touched_path() { # $1=ref $2=путь → 0, если хоть один с
     for k in "${!TRUNKS[@]}"; do
       [ -n "${TOUCHC["$k|$f"]+x}" ] || continue
       b2=${BASE2[$k]}
-      if ! shared_answer "tc/$b2.$k/$f"; then
+      ba_key_of "$f"
+      if ! shared_answer "tc/$b2.$k/$BA_KEY"; then
         ANSWER=0
         [ -n "$(git log --format=%H "$b2".."${TRUNKS[$k]}" -- "$f" 2>/dev/null | head -1)" ] && ANSWER=1
         TC_CALLS=$((TC_CALLS + 1))
-        shared_store "tc/$b2.$k/$f"
+        shared_store "tc/$b2.$k/$BA_KEY"
       fi
       [ "$ANSWER" = 1 ] && return 0
     done
     return 1
   fi
+  ba_raw_path "$f"
   for tr in "${TRUNKS[@]}"; do
     b2=$(git merge-base "$tr" "$ref" 2>/dev/null) || continue
-    [ -n "$(git log --format=%H "$b2".."$tr" -- "$f" 2>/dev/null | head -1)" ] && return 0
+    [ -n "$(git log --format=%H "$b2".."$tr" -- "$BA_P" 2>/dev/null | head -1)" ] && return 0
   done
   return 1
 }
@@ -763,11 +949,13 @@ trunk_touched_path() { # $1=ref $2=путь → 0, если хоть один с
 # Первые три элемента списка — БЕЗ труб. `printf … | head -3` под `pipefail`
 # роняет производителя сигналом обрыва, и вердикт всего прогона становится
 # недействительным ровно тогда, когда список длинный, то есть когда он и нужен.
+# BRANCH_AUDIT_ALL_FILES=1 — весь перечень: сверка режимов в самопробе читает
+# его, а не первые три имени, иначе расхождение четвёртого файла невидимо.
 first3() { # $@ = элементы → строка из первых трёх, с многоточием если их больше
   local out="" n=0 e
   for e in "$@"; do
     n=$((n + 1))
-    if [ "$n" -gt 3 ]; then out="$out…"; break; fi
+    if [ "$n" -gt 3 ] && [ "${BRANCH_AUDIT_ALL_FILES:-0}" != 1 ]; then out="$out…"; break; fi
     out="$out$e; "
   done
   printf '%s' "$out"
@@ -792,6 +980,12 @@ split_patch_with_raw() { # $1 = вывод, $2 = патч, $3 = пути
 #   ветка СНЯЛА путь, а в стволе он есть — обратное «создать» упирается в него;
 #   ветка ИЗМЕНИЛА путь, а в стволе его нет — изменять нечего.
 # Такой проверке git apply не нужен; остальным — нужен, как прежде.
+# Условие «путь встречается в raw один раз» — эквивалентный мутант, и это
+# измерено, а не предположено: дважды путь встречается только у источника копии
+# (diff.renames=copies — строка M источника и строка C), и обратное применение
+# строки M требует источника в индексе независимо от строки C (опыт: ветка
+# скопировала и правила src.txt, ствол src.txt снял — git apply отказал, rc=1).
+# Условие оставлено как ограничитель на форму, которой git сейчас не выдаёт.
 whole_refusals() { # $1 = вывод --patch-with-raw → номера стволов, где целиком откажет
   local k args=()
   for k in "${!TRUNKS[@]}"; do
@@ -811,10 +1005,10 @@ whole_refusals() { # $1 = вывод --patch-with-raw → номера ство�
     "${args[@]}" "$1"
 }
 
-GEN_SKIPPED=0
+GEN_SKIPPED=0; NOT_EXAMINED=0
 UNABS_PROVEN=(); UNABS_UNDET=()
 classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
-  local ref=$1 base f bb tr found info pf k
+  local ref=$1 base f p bb tr found info pf k
   local -A whole=() refuse=()
   UNABS_PROVEN=(); UNABS_UNDET=()
 
@@ -858,16 +1052,25 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
     git diff --name-only "$base" "$ref" > "$BA_TMP/names" 2>/dev/null || true
   fi
   prep_files "$ref" "$base"
-  while read -r f; do
+  # IFS= — путь бывает с пробелом по краю: `read` без него срезал «trail » до
+  # «trail», дифф выходил пустым, и файл пропускался молча.
+  while IFS= read -r f; do
     [ -n "$f" ] || continue
+    ba_raw_path "$f"; p=$BA_P
     if [ -n "${FAST[$f]+x}" ]; then
       FILES_FAST=$((FILES_FAST + 1))
       [ -n "${FOUND[$f]+x}" ] && continue
     else
       FILES_LITERAL=$((FILES_LITERAL + 1))
-      git diff "$base" "$ref" -- "$f" > "$PATCH_TMP" 2>/dev/null || continue
-      [ -s "$PATCH_TMP" ] || continue
-      bb=$(git rev-parse "$ref:$f" 2>/dev/null || true)
+      # Путь из дельты не может дать пустой поштучный дифф. Пустой либо отказ
+      # значит, что файл НЕ ОСМОТРЕН, — это не поглощение: прежде здесь стоял
+      # молчаливый пропуск, и ветка без осмотренных файлов объявлялась влитой.
+      if ! git diff "$base" "$ref" -- "$p" > "$PATCH_TMP" 2>/dev/null || [ ! -s "$PATCH_TMP" ]; then
+        NOT_EXAMINED=$((NOT_EXAMINED + 1))
+        UNABS_UNDET+=("$f (путь не осмотрен: поштучный дифф пуст либо отказал — поглощение не доказано)")
+        continue
+      fi
+      bb=$(git rev-parse "$ref:$p" 2>/dev/null || true)
       found=0
       for tr in "${TRUNKS[@]}"; do
         [ -n "${TRUNK_IDX[$tr]+x}" ] || continue
@@ -875,7 +1078,7 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
           found=1; break
         fi
         if [ -n "$bb" ] &&
-           [ -n "$(git log "$tr" --format=%H --find-object="$bb" -- "$f" 2>/dev/null | head -1)" ]; then
+           [ -n "$(git log "$tr" --format=%H --find-object="$bb" -- "$p" 2>/dev/null | head -1)" ]; then
           found=1; break
         fi
       done
@@ -897,7 +1100,7 @@ classify_files() { # $1 = ref → заполняет UNABS_PROVEN и UNABS_UNDET
     # Машинно собираемый файл авторской работы не несёт: его дельта — свойство
     # генератора, а не ветки. Отсев СЧИТАЕТСЯ и печатается, иначе он был бы
     # неотличим от «находок не было».
-    if is_generated "$f"; then
+    if is_generated "$p"; then
       GEN_SKIPPED=$((GEN_SKIPPED + 1))
       continue
     fi
@@ -1011,7 +1214,9 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
   if [ "${#REM[@]}" -gt 0 ]; then
     : > "$BA_TMP/fo.cand"; : > "$BA_TMP/fo.hit"
     for f in "${REM[@]}"; do
-      [ -z "${BBV[$f]}" ] || printf '%s\t%s\n' "$f" "${BBV[$f]}" >> "$BA_TMP/fo.cand"
+      [ -n "${BBV[$f]}" ] || continue
+      ba_key_of "$f"
+      printf '%s\t%s\t%s\n' "$f" "${BBV[$f]}" "$BA_KEY" >> "$BA_TMP/fo.cand"
     done
     local -a idxtr=(${IDXTR[@]+"${IDXTR[@]}"})
     # Кандидат — пара, что встречалась в диффе истории по этому пути, либо путь,
@@ -1021,7 +1226,7 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
         FILENAME == ARGV[1] { pr[$0] = 1; next }
         FILENAME == ARGV[2] { oi[$0] = 1; next }
         FILENAME == ARGV[3] { di[$0] = 1; next }
-        (($0 in pr) || (($1 in di) && ($2 in oi)))' \
+        ((($1 "\t" $2) in pr) || (($1 in di) && ($2 in oi)))' \
         "$BA_SHARED/hist.pairs" "$BA_SHARED/hist.oids" "$BA_SHARED/hist.dirs" "$BA_TMP/fo.cand" > "$BA_TMP/fo.hit"
     else
       cp "$BA_TMP/fo.cand" "$BA_TMP/fo.hit"
@@ -1033,40 +1238,52 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
     # обходов, а его `--raw` несёт ровно те блобы, по которым отбирает
     # `--find-object`. Множество блобов пути не зависит от ветки: оно считается
     # один раз на прогон (ans/fb/<путь>.b) и делится между заданиями, а решение по
-    # всем файлам ветки выносит один awk.
+    # всем файлам ветки выносит один awk. Ключ файла ответа — ba_key_of; ответ,
+    # который не записался (имя длиннее предела файловой системы), awk называет
+    # «?», и такой файл спрашивается поштучно — ТОЙ ЖЕ командой, что эталон.
     LC_ALL=C sort -u "$BA_TMP/fo.hit" > "$BA_TMP/fo.q"
     if [ -s "$BA_TMP/fo.q" ]; then
-      local -a need=() dirs=()
-      local t
-      while IFS=$'\t' read -r f bb; do
-        [ -e "$BA_SHARED/ans/fb/$f.b" ] || need+=("$f")
+      local -a need=() needk=() dirs=()
+      local t key i
+      while IFS=$'\t' read -r f bb key; do
+        [ -e "$BA_SHARED/ans/fb/$key.b" ] || { need+=("$f"); needk+=("$key"); }
       done < "$BA_TMP/fo.q"
       if [ "${#need[@]}" -gt 0 ]; then
-        for f in "${need[@]}"; do case "$f" in */*) dirs+=("$BA_SHARED/ans/fb/${f%/*}") ;; esac; done
+        for key in "${needk[@]}"; do case "$key" in */*) dirs+=("$BA_SHARED/ans/fb/${key%/*}") ;; esac; done
         mkdir -p "$BA_SHARED/ans/fb" ${dirs[@]+"${dirs[@]}"} 2>/dev/null || true
-        for f in "${need[@]}"; do
-          [ ! -e "$BA_SHARED/ans/fb/$f.b" ] || continue
+        for i in "${!need[@]}"; do
+          f=${need[$i]}; key=${needk[$i]}
+          [ ! -e "$BA_SHARED/ans/fb/$key.b" ] || continue
           FO_CALLS=$((FO_CALLS + 1))
           # Имя — заранее: слово перенаправления раскрывается в порождённом
           # процессе, и $BASHPID там был бы его собственным.
-          t="$BA_SHARED/ans/fb/$f.b.$BASHPID"
-          if git log "${idxtr[@]}" --raw --no-abbrev --no-renames --format= -- "$f" > "$t" 2>/dev/null; then
-            mv -f "$t" "$BA_SHARED/ans/fb/$f.b"
+          t="$BA_SHARED/ans/fb/$key.b.$BASHPID"
+          if { git log "${idxtr[@]}" --raw --no-abbrev --no-renames --format= -- "$f" > "$t"; } 2>/dev/null; then
+            mv -f -T "$t" "$BA_SHARED/ans/fb/$key.b" 2>/dev/null || rm -f "$t"
           else
-            rm -f "$t"
+            rm -f "$t" 2>/dev/null || true
           fi
         done
       fi
-      while IFS= read -r f; do FOUND["$f"]=1; done < <(
+      while IFS=$'\t' read -r t f bb; do
+        if [ "$t" = + ]; then FOUND["$f"]=1; continue; fi
+        FO_MISS=$((FO_MISS + 1))
+        for tr in "${idxtr[@]}"; do
+          FO_CALLS=$((FO_CALLS + 1))
+          if [ -n "$(git log "$tr" --format=%H --find-object="$bb" -- "$f" 2>/dev/null | head -1)" ]; then
+            FOUND["$f"]=1; break
+          fi
+        done
+      done < <(
         LC_ALL=C awk -F'\t' -v d="$BA_SHARED/ans/fb/" '
-          { f = $1; bb = $2; p = d f ".b"; hit = 0
-            while ((getline line < p) > 0) {
+          { f = $1; bb = $2; p = d $3 ".b"; hit = 0
+            while ((r = (getline line < p)) > 0) {
               if (substr(line, 1, 1) != ":") continue
               split(line, a, " ")
               if (a[3] == bb || a[4] == bb) { hit = 1; break }
             }
             close(p)
-            if (hit) print f }' "$BA_TMP/fo.q")
+            if (hit) print "+\t" f; else if (r < 0) print "?\t" f "\t" bb }' "$BA_TMP/fo.q")
     fi
     local -a left=()
     for f in "${REM[@]}"; do [ -n "${FOUND[$f]+x}" ] || left+=("$f"); done
@@ -1105,10 +1322,13 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
     sf="$BA_SHARED/s/${BASE2[$k]}.$k"
     if [ ! -e "$sf.ok" ]; then
       st="$sf.$BASHPID"
-      if git log --format= --name-only --no-renames --diff-merges=separate --root \
+      # -z: пути сами, а не в кавычках — каталог «qe» у пути «qe/файл» иначе
+      # выходил «"qe», и касание файла ветки «qe» терялось.
+      if git log --format= --name-only --no-renames --diff-merges=separate --root -z \
            "${BASE2[$k]}..$tr" 2>/dev/null |
          LC_ALL=C awk '
            function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }
+           BEGIN { RS = "\0" }
            length($0) { p = $0; print p; while ((i = cut(p)) > 0) { p = substr(p, 1, i - 1); print p } }' |
          LC_ALL=C sort -u > "$st"; then
         mv -f "$st" "$sf" && : > "$sf.ok"
@@ -1138,8 +1358,13 @@ prep_files() { # $1=ref $2=base — готовит FAST/FOUND/EXISTS/BASE2/TOUCH
 #     отсутствие NUL и ошибок кодировки во всём потоке (grep судит «двоичность»
 #     по ним), иначе пачки нет. Разделителей обязано быть ровно по числу файлов;
 #   * имя-кандидат ищется за один проход перечня ствола там, где имя состоит из
-#     [A-Za-z0-9_.-]: для grep это образец «/<имя>$», где точка — любой знак, и
-#     берётся ПЕРВАЯ строка перечня; иное имя спрашивается прежним grep;
+#     [A-Za-z0-9_.-]: для grep это образец «/<имя>$» — «/» и ровно столько
+#     знаков, сколько в имени, в конце строки, где точка — ЛЮБОЙ знак, в том
+#     числе «/» (для «foo.sh» эталон находит «b/foo/sh»; сравнение с именем после
+#     последней «/» этого не видело — D1). Поэтому у строки перебираются ВСЕ
+#     «/», а не последняя, и берётся ПЕРВАЯ подошедшая строка перечня. Знак —
+#     байт только в ASCII-перечне (lst.<k>.ascii): иначе точка grep под UTF-8
+#     совпадает с многобайтовым знаком, и имя спрашивается прежним grep;
 #   * счёт мультимножеств и выбор цели (первая с «отсутствует 0, уцелело 0»,
 #     иначе первая с наименьшим «отсутствует») — одним awk по тем же правилам,
 #     что ba_mset_extra/ba_mset_common и census_file.
@@ -1171,13 +1396,14 @@ census_batch() { # $1 = ref; REM → CEN["$f"] = ok, добавлено, отс�
       ent=${EXISTS["$k|$f"]:-}
       if [ -n "$ent" ]; then
         printf '%s\t%s\t%s\t0\t%s\n' "$i" "$k" "${TRUNKS[$k]}:$f" "$ent" >> "$BA_TMP/cb.t"
-      elif [[ $bn =~ ^[A-Za-z0-9_.-]+$ ]] && [ -e "$BA_SHARED/lst.$k.ok" ] && [ -e "$BA_SHARED/tl.$k.ok" ]; then
+      elif [[ $bn =~ ^[A-Za-z0-9_.-]+$ ]] && [ -e "$BA_SHARED/lst.$k.ok" ] && [ -e "$BA_SHARED/tl.$k.ok" ] &&
+           [ -e "$BA_SHARED/lst.$k.ascii" ]; then
         printf '%s\t%s\n' "$i" "$bn" >> "$BA_TMP/cb.q.$k"
       else
         if [ -e "$BA_SHARED/lst.$k.ok" ]; then
-          cand=$(grep -- "/${bn}$" "$BA_SHARED/lst.$k" | head -1 || true)
+          cand=$(ba_namesake "$f" < "$BA_SHARED/lst.$k" || true)
         else
-          cand=$(git ls-tree -r --name-only "${TRUNKS[$k]}" 2>/dev/null | grep -- "/${bn}$" | head -1 || true)
+          cand=$(git ls-tree -r --name-only "${TRUNKS[$k]}" 2>/dev/null | ba_namesake "$f" || true)
         fi
         [ -z "$cand" ] || printf '%s\t%s\t%s\t1\t-\n' "$i" "$k" "${TRUNKS[$k]}:$cand" >> "$BA_TMP/cb.t"
       fi
@@ -1186,24 +1412,28 @@ census_batch() { # $1 = ref; REM → CEN["$f"] = ok, добавлено, отс�
   for k in "${!TRUNKS[@]}"; do
     [ -s "$BA_TMP/cb.q.$k" ] || continue
     LC_ALL=C awk -F'\t' -v k="$k" -v t="${TRUNKS[$k]}" '
-      function bnof(p,  i, j) { j = 0; while ((i = index(substr(p, j + 1), "/")) > 0) j += i; return j ? substr(p, j + 1) : "" }
       FILENAME == ARGV[1] { split($1, m, " "); ty[$2] = m[3] " " m[2]; next }
-      FILENAME == ARGV[2] { n++; line[n] = $0; b = bnof($0); if (b != "") { L = length(b); cnt[L]++; byl[L, cnt[L]] = n; bb[n] = b }; next }
+      FILENAME == ARGV[2] { n++; line[n] = $0; len = length($0); rest = $0; off = 0
+        while ((j = index(rest, "/")) > 0) { off += j; rest = substr(rest, j + 1)
+          L = len - off; if (L > 0) { cnt[L]++; byl[L, cnt[L]] = n } }
+        next }
       { i = $1; q = $2; L = length(q); hit = 0
         for (c = 1; c <= cnt[L]; c++) {
-          r = byl[L, c]; b = bb[r]; ok = 1
+          r = byl[L, c]; b = substr(line[r], length(line[r]) - L + 1); ok = 1
           for (x = 1; x <= L; x++) { ch = substr(q, x, 1); if (ch != "." && ch != substr(b, x, 1)) { ok = 0; break } }
           if (ok) { hit = r; break } }
         if (hit) { p = line[hit]; e = (substr(p, 1, 1) != "\"" && (p in ty)) ? ty[p] : "-"; printf "%s\t%s\t%s:%s\t1\t%s\n", i, k, t, p, e } }' \
       "$BA_SHARED/tl.$k" "$BA_SHARED/lst.$k" "$BA_TMP/cb.q.$k" >> "$BA_TMP/cb.t"
   done
 
-  # Строки цели: блоб — из общего кэша, прочее — прежним `git show`.
+  # Строки цели: блоб — из общего кэша, прочее — прежним `git show` по САМОМУ
+  # пути (кавычечная строка перечня git show не находит).
   while IFS=$'\t' read -r i k tgt mv ent; do
     case "$ent" in
       *' blob') norm_blob "${ent%% *}"
                 printf '%s\t%s\t%s\t%s\t%s\n' "$i" "$k" "$tgt" "$mv" "$BA_SHARED/norm/${ent%% *}" ;;
-      *) git show "$tgt" 2>/dev/null | ba_norm > "$BA_TMP/cb.lit.$i.$k" || true
+      *) ba_raw_path "${tgt#*:}"
+         git show "${tgt%%:*}:$BA_P" 2>/dev/null | ba_norm > "$BA_TMP/cb.lit.$i.$k" || true
          printf '%s\t%s\t%s\t%s\t%s\n' "$i" "$k" "$tgt" "$mv" "$BA_TMP/cb.lit.$i.$k" ;;
     esac
   done < "$BA_TMP/cb.t" > "$BA_TMP/cb.task"
@@ -1368,9 +1598,9 @@ merged_local=(); orphan_remote=(); only_local=(); alive=(); split_work=(); pruna
 undet_work=()
 examined_local=0; examined_remote=0; delta_checked=0
 sixth_checked=0; sixth_rescued=0
-census_asked=0; census_found=0
+census_asked=0; census_found=0; NOT_EXAMINED=0
 MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; SLOWEST=""; SLOWEST_S=-1
+FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0; SLOWEST=""; SLOWEST_S=-1
 
 # --- РАЗБОР ВЕТКИ — ЗАДАНИЕМ --------------------------------------------------
 # Всё, что стоит git-вызовов, считается в задании: признаки 1, 4, 5, 6, 7 и
@@ -1380,24 +1610,27 @@ FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; SLOWEST=""; SLO
 # строки и счётчики не зависят от числа заданий.
 audit_branch() { # $1 = номер, $2 = ветка → $BA_SHARED/r.<номер>
   local i=$1 b=$2 res="$BA_SHARED/r.$1" ancestor=0 ahead classified=0 bct e t0=$SECONDS
+  # Git получает ПОЛНОЕ имя ссылки: короткое «amb» при теге «amb» разрешилось бы
+  # в тег, и судился бы чужой коммит.
+  local ref="refs/heads/$b"
   BA_TMP="$BA_SHARED/w.$i"; PATCH_TMP="$BA_TMP/p.diff"
   mkdir -p "$BA_TMP"
-  census_asked=0; census_found=0; GEN_SKIPPED=0
+  census_asked=0; census_found=0; GEN_SKIPPED=0; NOT_EXAMINED=0
   MERGE_RUN=0; MERGE_SKIP=0; FILES_FAST=0; FILES_LITERAL=0; APPLY_FALLBACK=0
-  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0
+  FO_CALLS=0; TC_CALLS=0; CEN_BATCH=0; APPLY_SKIP=0; APPLY_SURE=0; FO_MISS=0
   UNABS_PROVEN=(); UNABS_UNDET=(); ABS_SRC=""
-  git merge-base --is-ancestor "$b" "$TRUNK" 2>/dev/null && ancestor=1
-  ahead=$(git rev-list --count "$TRUNK".."$b" 2>/dev/null || echo 0)
+  git merge-base --is-ancestor "$ref" "$TRUNK" 2>/dev/null && ancestor=1
+  ahead=$(git rev-list --count "$TRUNK".."$ref" 2>/dev/null || echo 0)
   if [ "$ancestor" != 1 ]; then
-    absorbed_where "$b"
-    if [ -z "$ABS_SRC" ]; then classified=1; classify_files "$b"; fi
+    absorbed_where "$ref"
+    if [ -z "$ABS_SRC" ]; then classified=1; classify_files "$ref"; fi
   fi
-  bct=$(git log -1 --format=%ct "$b" 2>/dev/null || echo 0)
+  bct=$(git log -1 --format=%ct "$ref" 2>/dev/null || echo 0)
   {
     printf 'A%s\nH%s\nT%s\nS%s\nC%s\n' "$ancestor" "$ahead" "$bct" "$ABS_SRC" "$classified"
-    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
+    printf 'N%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n' "$census_asked" "$census_found" "$GEN_SKIPPED" \
       "$MERGE_RUN" "$MERGE_SKIP" "$FILES_FAST" "$FILES_LITERAL" "$APPLY_FALLBACK" \
-      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH" "$APPLY_SKIP" "$APPLY_SURE"
+      "$FO_CALLS" "$TC_CALLS" "$(( SECONDS - t0 ))" "$CEN_BATCH" "$APPLY_SKIP" "$APPLY_SURE" "$NOT_EXAMINED" "$FO_MISS"
     for e in ${UNABS_PROVEN[@]+"${UNABS_PROVEN[@]}"}; do printf 'P%s\n' "$e"; done
     for e in ${UNABS_UNDET[@]+"${UNABS_UNDET[@]}"}; do printf 'U%s\n' "$e"; done
     printf 'E\n'
@@ -1427,6 +1660,7 @@ load_result() {
             FILES_LITERAL=$((FILES_LITERAL + n[6])); APPLY_FALLBACK=$((APPLY_FALLBACK + n[7]))
             FO_CALLS=$((FO_CALLS + n[8])); TC_CALLS=$((TC_CALLS + n[9])); CEN_BATCH=$((CEN_BATCH + n[11]))
             APPLY_SKIP=$((APPLY_SKIP + n[12])); APPLY_SURE=$((APPLY_SURE + n[13]))
+            NOT_EXAMINED=$((NOT_EXAMINED + n[14])); FO_MISS=$((FO_MISS + n[15]))
             if [ "${n[10]}" -gt "$SLOWEST_S" ]; then SLOWEST_S=${n[10]}; SLOWEST=$b; fi ;;
         P*) UNABS_PROVEN+=("${line#P}") ;;
         U*) UNABS_UNDET+=("${line#U}") ;;
@@ -1440,12 +1674,15 @@ load_result() {
 }
 
 # --- локальные ветки ----------------------------------------------------------
+# Имя — lstrip=2, а не :short: при теге или ветке origin того же имени :short
+# отдаёт «heads/<имя>», и под этим именем ветку не находили ни на origin, ни
+# среди занятых рабочими копиями, ни среди кандидатов.
 LOCAL_BRANCHES=()
 while read -r b; do
-  [ "$b" = "${TRUNK#origin/}" ] && continue
+  [ "$b" = "$TRUNK_BRANCH" ] && continue
   wanted "$b" || continue
   LOCAL_BRANCHES+=("$b")
-done < <(git branch --format='%(refname:short)')
+done < <(git for-each-ref --format='%(refname:lstrip=2)' refs/heads/)
 par_run audit_branch LOCAL_BRANCHES
 
 for bi in "${!LOCAL_BRANCHES[@]}"; do
@@ -1536,7 +1773,7 @@ remote_delta() { # $1 = номер, $2 = ветка origin → $BA_SHARED/d.<н�
 if [ "$remote_ok" = 1 ]; then
   REMOTE_BRANCHES=()
   for b in "${!ON_ORIGIN[@]}"; do
-    [ "$b" = "${TRUNK#origin/}" ] && continue
+    [ "$b" = "$TRUNK_BRANCH" ] && continue
     case "$b" in release/*) continue ;; esac
     wanted "$b" || continue
     git rev-parse --verify --quiet "refs/remotes/origin/$b^{commit}" >/dev/null || continue
@@ -1554,7 +1791,7 @@ if [ "$remote_ok" = 1 ]; then
   done
 
   for b in "${!ON_ORIGIN[@]}"; do
-    [ "$b" = "${TRUNK#origin/}" ] && continue
+    [ "$b" = "$TRUNK_BRANCH" ] && continue
     case "$b" in release/*) continue ;; esac
     wanted "$b" || continue
     examined_remote=$((examined_remote + 1))
@@ -1575,8 +1812,13 @@ if [ "$remote_ok" = 1 ]; then
     if [ "$have_gh" = 1 ] && [ -z "${PRSTATE[$b]+x}" ]; then
       ct=$(git log -1 --format=%ct "$rref" 2>/dev/null || echo "$NOW")
       age_days=$(( (NOW - ct) / 86400 ))
-      [ "$age_days" -gt 14 ] &&
-        orphan_remote+=("$b — PR не заводился, последний коммит ${age_days} дн. назад, дельта НЕ пуста")
+      if [ "$age_days" -gt 14 ]; then
+        if [ -z "$pr_incomplete" ]; then
+          orphan_remote+=("$b — PR не заводился, последний коммит ${age_days} дн. назад, дельта НЕ пуста")
+        else
+          orphan_remote+=("$b — PR среди прочитанных не найден (перепись PR неполна), последний коммит ${age_days} дн. назад, дельта НЕ пуста")
+        fi
+      fi
     fi
   done
 fi
@@ -1621,6 +1863,7 @@ echo "branch-audit: осмотрено локальных ${examined_local}, н�
      "стволов в сверке ${#TRUNKS[@]}, дельта слияния посчитана ${delta_checked} раз," \
      "шестой признак спрошен ${sixth_checked} раз и снял ${sixth_rescued} ложных находок;" \
      "перепись строк спрошена по ${census_asked} файл(ам), содержимое найдено по ${census_found};" \
+     "путей, осмотреть которые не удалось, ${NOT_EXAMINED};" \
      "влитых ${#merged_local[@]}, без предмета на origin ${#orphan_remote[@]}," \
      "в единственном экземпляре ${#only_local[@]}, живых ${#alive[@]}," \
      "с расщеплённой работой ${#split_work[@]}, с неустановленным поглощением ${#undet_work[@]}," \
@@ -1641,7 +1884,8 @@ echo "branch-audit: ускорение — заданий ${JOBS}; слияни�
      "${FILES_FAST}, поштучно ${FILES_LITERAL}; пакетная проверка патча отступила к поштучной" \
      "${APPLY_FALLBACK} раз; отказ git apply доказан перечнем ствола: целиком ${APPLY_SKIP} раз," \
      "пофайлово ${APPLY_SURE} раз; перепись строк пачкой по ${CEN_BATCH} файл(ам) из ${census_asked};" \
-     "поштучных вопросов к истории: блобы пути ${FO_CALLS}, касание пути ${TC_CALLS}" \
+     "поштучных вопросов к истории: блобы пути ${FO_CALLS}, касание пути ${TC_CALLS};" \
+     "ответов о блобах пути вне общего кэша (спрошены поштучно) ${FO_MISS}" \
      "(нули при BRANCH_AUDIT_EXACT=1 — эталон, а не отказ ускорения)"
 [ -z "$SLOWEST" ] || echo "branch-audit: дольше всех разбиралась ветка ${SLOWEST} — ${SLOWEST_S} с"
 
@@ -1670,6 +1914,9 @@ fi
 if [ "$have_gh" = 0 ]; then
   echo "branch-audit: gh недоступен — статус PR НЕ прочитан; из пяти признаков" >&2
   echo "              доступны четыре. Перепись неполна." >&2
+elif [ -n "$pr_incomplete" ]; then
+  echo "branch-audit: перепись PR неполна — ${pr_incomplete}; «PR не заводился» не утверждается," >&2
+  echo "              а разделы о закрытых PR набраны только по прочитанным PR." >&2
 fi
 
 if [ "$examined_local" -eq 0 ] && [ "$examined_remote" -eq 0 ]; then
@@ -1686,7 +1933,7 @@ echo "branch-audit: вердикт устаревает — ветка може�
 if [ "$PRUNE" = 1 ]; then
   echo
   echo "── СНЯТИЕ влитых локальных ссылок (--prune-merged)"
-  head_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  head_branch=$(git symbolic-ref --quiet HEAD 2>/dev/null || true); head_branch=${head_branch#refs/heads/}
   pruned=0; kept=0; abandoned=0
   for b in ${prunable[@]+"${prunable[@]}"}; do
     if [ -n "${OCCUPIED[$b]+x}" ]; then
@@ -1703,7 +1950,7 @@ if [ "$PRUNE" = 1 ]; then
     if [ "$b" = "$head_branch" ]; then
       echo "   оставлена $b — это текущая ветка HEAD"; kept=$((kept+1)); continue
     fi
-    ct=$(git log -1 --format=%ct "$b" 2>/dev/null || echo 0)
+    ct=$(git log -1 --format=%ct "refs/heads/$b" 2>/dev/null || echo 0)
     if [ "$ct" -gt 0 ] && [ $(( (NOW - ct) / 60 )) -lt "$FRESH_MIN" ]; then
       echo "   оставлена $b — двигалась $(( (NOW - ct) / 60 )) мин назад (соседняя сессия может писать в неё)"
       kept=$((kept+1)); continue

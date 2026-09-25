@@ -10,11 +10,9 @@
 # падать не умеет. Проверка «ноль находок» имеет смысл, только если рядом
 # показано, что на настоящей находке она краснеет И называет имя.
 #
-# Проверяется пятьдесят четыре утверждения (A, A2, B, C, D, E, F, G, H, I, J, K, L,
-# M, N, O, P, Q, R, S, T, U, V, W, X, Y, Y2, Z, R2, AA, AB, AC, AD, AE, AF, AG, AH, AI,
-# AJ, AK, AL, AM, AN, AO, AP, AQ, AR, AS, AT, AU, AV, AW, AX, AY — полный
-# перечень меток см. по коду ниже; счётчик в самом файле не выписывается
-# отдельно, он выводится трейлером последнего прогона):
+# Число утверждений здесь не выписывается: его печатает последняя строка
+# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ; что
+# держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -79,9 +77,27 @@
 #      предпосылка AL–AP и AT–AW;
 #   AJ–AP. САМОПРОБА ПАКЕТНОГО РАЗБОРА (ws#813): на отдельном репозитории, где у
 #      каждого ускорителя и каждой формы отступления есть свой файл, пакетный
-#      режим дословно равен поштучному эталону (AJ), ускорители действительно
-#      сработали (AK), а мутация каждого из шести делает сверку красной и меняет
-#      вердикт названной ветки (AL–AP, AY).
+#      режим дословно равен поштучному эталону по всему перечню файлов и по
+#      первым трём (AJ), ускорители действительно сработали (AK), а мутация
+#      каждого ускорителя, чья ошибка меняет вердикт, делает сверку красной и
+#      меняет вердикт названной ветки (AL–AP, AY);
+#   AZ–BK. ФОРМЫ ЗАПИСИ ПРЕДМЕТА, дефект которых эталон и пакет делили (сверка
+#      режимов к ним слепа, поэтому вердикт судится у каждого режима отдельно):
+#      AZ — единственный экземпляр под пятью формами имени (нелатиница, табуляция,
+#      хвостовой пробел, знак образца, ведущее «:») осмотрен и назван; BA —
+#      близнецы тех же форм поглощены; BB — неосмотренный путь поглощением не
+#      считается (мутант промаха); BC/BD/BE — PR: открытый новее закрытого, PR из
+#      чужого репозитория, неполная перепись PR (подставной gh); BF — ветка под
+#      именем тега; BG — неоднозначный ствол — отказ; BH — накопительная ветка
+#      глубины три; BI — временные индексы release/a/b и release/a_b; BJ — рабочая
+#      копия с пробелом в пути; BK — кандидат полным именем ссылки;
+#   BL–BZ. МУТАНТЫ ЧЕТВЁРТОГО КРУГА: имя цели переименования (BL, M8), снятый как
+#      добавленный (BM, M10), проверка целиком — всегда и по каждому члену
+#      (BN–BQ); ускоритель без предмета красит счёт AK (BR — целиком, BS —
+#      пофайлово); тёзка после любой «/» (BT, D1); ключ кэша (BU, D2 — счётом,
+#      вердикт держит BV); незаписавшийся ответ истории (BV); пути истории и
+#      касания — сами, с -z (BW, BX); перечень ствола не ASCII (BY, предпосылка —
+#      BZ).
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -270,10 +286,14 @@ git checkout -q main
 # стволом непуста ВСЕГДА. Перечень такого выводится опросом генераторов, а не
 # выписывается: здесь заводится настоящий генератор с ключом `--outputs`.
 mkdir -p scripts/vault-index
+# Свой выход генератор выводит образцом pathspec, как генератор, спрашивающий
+# git: буквальный pathspec переписи до него доходить не должен (иначе выход
+# пуст, и Y/Y2 краснеют).
 cat > scripts/vault-index/generate.py <<'GEN'
-import sys
+import subprocess, sys
 if "--outputs" in sys.argv:
-    print("machine/INDEX.md")
+    out = subprocess.run(["git", "ls-files", "--", "machine/*.md"], capture_output=True, text=True).stdout
+    print(out.strip())
     raise SystemExit(0)
 raise SystemExit(0)
 GEN
@@ -425,7 +445,8 @@ echo "=== код возврата: $RC ==="
 echo
 
 fail=0
-say() { printf '%s %s\n' "$1" "$2"; }
+N_SAID=0   # число утверждений выводится счётом, а не выписывается
+say() { N_SAID=$((N_SAID + 1)); printf '%s %s\n' "$1" "$2"; }
 # Раздел читается трубой `awk … | grep -c … >/dev/null`, а не `| grep -q`: под
 # pipefail `grep -q` выходит на первом совпадении, и следующая запись awk
 # умирает от SIGPIPE — утверждение краснело по жребию, при верном выводе (AA,
@@ -981,7 +1002,7 @@ git config user.email inject@example.invalid
 git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/probe-origin.git"
-mkdir -p lib df mv-src dirren
+mkdir -p lib df mv-src dirren ren-src wren
 printf 'один\nдва\nтри\n' > lib/common.txt
 printf 'x\n' > df/a.txt
 printf 'перенос\nстрока\nещё строка\n' > mv-src/moved.txt
@@ -990,7 +1011,13 @@ printf 'режим\n' > mode.sh
 printf 'снимаемое\n' > gone.txt
 printf 'общая\nисходная\n' > draft.txt
 for i in $(seq 1 25); do echo "строка $i"; done > long.txt
-git add lib df mv-src dirren mode.sh gone.txt draft.txt long.txt && git commit -qm "база самопробы"
+for i in $(seq 1 25); do echo "перенос $i"; done > ren-src/r.txt
+for i in $(seq 1 25); do echo "целиком $i"; done > wren/a.txt
+printf 'снимется целиком\n' > wd.txt; printf 'w1\nw2\nw3\n' > wm.txt
+printf 'снимут и ветка, и ствол\n' > drop.txt
+printf 'v0\n' > clash
+git add lib df mv-src dirren ren-src wren mode.sh gone.txt draft.txt long.txt wd.txt wm.txt drop.txt clash &&
+  git commit -qm "база самопробы"
 git push -qu origin main
 
 git checkout -qb p-unique main
@@ -1026,6 +1053,40 @@ git checkout -qb p-remote main
 printf 'сдано\n' > remote.txt
 git add remote.txt && git commit -qm "работа на origin"
 git push -qu origin p-remote p-squashed >/dev/null 2>&1
+# Ветки четвёртого круга — у каждой одна форма, которую сверка режимов обязана
+# видеть; какая и чем держится — в перечне AJ–AP выше и у BL–BZ ниже.
+git checkout -qb p-renamed main
+git mv ren-src/r.txt ren-dst.txt; sed -i '5s/.*/перенос 5 ветки/' ren-dst.txt
+git add ren-dst.txt && git commit -qm "переименование с правкой — единственный файл ветки"
+git checkout -qb p-dropped main
+git rm -q drop.txt; printf 'своё рядом со снятием\n' > dropped-own.txt
+git add dropped-own.txt && git commit -qm "снятие, которое ствол повторит сам, и свой файл"
+git checkout -qb p-whole main
+git mv wren/a.txt wren-dst.txt; sed -i '10s/.*/целиком 10 ветки/' wren-dst.txt
+git rm -q wd.txt; printf 'добавлено целиком\n' > wa.txt; sed -i '2s/.*/w2 ветки/' wm.txt
+git add wren-dst.txt wa.txt wm.txt && git commit -qm "работа, которую ствол примет со сдвигом: целиком ложится обратно"
+git checkout -qb p-dotname main
+mkdir -p dotdir; printf 'точка1\nточка2\nточка3\n' > dotdir/foo.sh
+git add dotdir/foo.sh && git commit -qm "имя с точкой"
+git checkout -qb p-dottwin main
+mkdir -p dotdir; printf 'близнец1\nблизнец2\n' > dotdir/bar.sh
+git add dotdir/bar.sh && git commit -qm "имя с точкой, чей тёзка в стволе есть"
+git checkout -qb p-clash main
+printf 'v1\n' > clash; mkdir -p clash.b; printf 'y1\n' > clash.b/y
+git add clash clash.b/y && git commit -qm "путь и каталог, чьё имя — путь плюс «.b»"
+git checkout -qb p-clash-twin main
+printf 'v1\n' > clash
+git add clash && git commit -qm "тот же путь без соседнего каталога"
+PB_LONG=$(printf 'L%.0s' $(seq 1 254))
+git checkout -qb p-longname main
+printf 'длинное имя\n' > "$PB_LONG"
+git add "$PB_LONG" && git commit -qm "имя длиной 254 байта"
+git checkout -qb p-qdir main
+printf 'в каталоге ствола\n' > qd
+git add qd && git commit -qm "файл там, где ствол заведёт каталог с именем в кавычках"
+git checkout -qb p-qdir2 main
+printf 'своё, не как в стволе\n' > qe
+git add qe && git commit -qm "то же, содержимое иное"
 
 git checkout -q main
 git merge -q --squash p-absorbed && git commit -qm "схлопнуто из p-absorbed"
@@ -1037,43 +1098,79 @@ git add draft.txt && git commit -qm "ствол принял переработ�
 git mv dirren renamed-dir && git commit -qm "ствол переименовал каталог"
 sed -i '1s/.*/строка 1 ветки/;25s/.*/строка 25 ствола/' long.txt
 git add long.txt && git commit -qm "ствол принял правку p-applied одним коммитом с доработкой"
+# p-whole: то же переименование и та же правка, но строка ветки легла в ствол
+# со сдвигом — отдельным блоком в конце файла; слияние чисто и дерево не равно
+# стволу, а обратное применение целиком ложится.
+git mv wren/a.txt wren-dst.txt
+{ cat wren-dst.txt; echo; sed -n '7,9p' wren-dst.txt; echo 'целиком 10 ветки'; sed -n '11,13p' wren-dst.txt; } > wren.t
+mv wren.t wren-dst.txt
+git rm -q wd.txt; printf 'добавлено целиком\n' > wa.txt; sed -i '2s/.*/w2 ветки/' wm.txt
+git add wren-dst.txt wa.txt wm.txt && git commit -qm "ствол принял работу p-whole одним коммитом, строку — со сдвигом"
+git rm -q drop.txt && git commit -qm "ствол сам снял drop.txt"
+# D1: тёзка по образцу «/foo.sh» — строка перечня «dotother/foo/sh»; тёзка по имени.
+mkdir -p dotother/foo dotother2
+printf 'точка1\nточка2\nточка3\n' > dotother/foo/sh; printf 'близнец1\nблизнец2\n' > dotother2/bar.sh
+git add dotother/foo/sh dotother2/bar.sh && git commit -qm "ствол завёл файлы, чьи строки перечня кончаются образцами веток"
+git merge -q --squash p-clash && git commit -qm "схлопнуто из p-clash"
+printf 'v2\n' > clash; printf 'y2\n' > clash.b/y
+git add clash clash.b/y && git commit -qm "ствол правит clash и clash.b/y после вливания"
+git merge -q --squash p-longname && git commit -qm "схлопнуто из p-longname"
+printf 'длинное имя\nствол дописал\n' > "$PB_LONG"
+git add "$PB_LONG" && git commit -qm "ствол правит длинное имя после вливания"
+mkdir -p qd qe
+printf 'в каталоге ствола\n' > 'qd/файл'; printf 'иное содержимое\n' > 'qe/файл'
+git add 'qd/файл' 'qe/файл' && git commit -qm "ствол завёл каталоги, чьи файлы git берёт в кавычки"
 git push -q origin main
 git fetch -q origin
 cd "$TMP"
 
-printf 'p-unique\t201\tMERGED\np-draft\t202\tMERGED\np-absorbed\t203\tMERGED\n' > "$TMP/probe-pr.tsv"
+printf 'p-unique\t201\tMERGED\np-draft\t202\tMERGED\np-absorbed\t203\tMERGED\np-dotname\t204\tCLOSED\n' \
+  > "$TMP/probe-pr.tsv"
+# Сверка режимов читает ВЕСЬ перечень файлов ветки (BRANCH_AUDIT_ALL_FILES=1):
+# расхождение четвёртого и дальше файла в обрезанной до трёх имён строке
+# невидимо — так мутант имени цели переименования прошёл круг 3 (M8).
 probe_run() { # $1 = исполняемый branch-audit.sh, далее — окружение; → нормализованный вывод
   local a=$1; shift
-  env "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" \
+  env BRANCH_AUDIT_ALL_FILES=1 "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" \
     "$a" "$PB" 2>&1 |
     grep -vE '^branch-audit: (замер|параллельных заданий|время прогона|ускорение|дольше всех)'
 }
-probe_raw() { env "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" "$AUDIT" "$PB" 2>&1; }
+probe_raw() { # $1 = исполняемый, далее — окружение; → вывод как есть
+  local a=$1; shift
+  env "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" "$a" "$PB" 2>&1
+}
 
 set +e
 P_EXACT=$(probe_run "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
 P_FAST=$(probe_run "$AUDIT")
-R_EXACT=$(probe_raw BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
-R_FAST=$(probe_raw)
+P_EXACT3=$(probe_run "$AUDIT" BRANCH_AUDIT_ALL_FILES=0 BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+P_FAST3=$(probe_run "$AUDIT" BRANCH_AUDIT_ALL_FILES=0)
+R_EXACT=$(probe_raw "$AUDIT" BRANCH_AUDIT_EXACT=1 BRANCH_AUDIT_JOBS=1)
+R_FAST=$(probe_raw "$AUDIT")
 set -e
 
-if [ -n "$P_FAST" ] && [ "$P_FAST" = "$P_EXACT" ] &&
-   grep -q 'p-unique' <<<"$P_FAST" && grep -q 'p-squashed' <<<"$P_FAST"; then
-  say "✅ AJ" "самопроба: пакетный и поштучный режимы дали дословно один вывод по всем веткам"
+if [ -n "$P_FAST" ] && [ "$P_FAST" = "$P_EXACT" ] && [ -n "$P_FAST3" ] && [ "$P_FAST3" = "$P_EXACT3" ] &&
+   [ "$P_FAST" != "$P_FAST3" ] &&
+   grep -q 'p-unique' <<<"$P_FAST" && grep -q 'p-squashed' <<<"$P_FAST" && grep -q 'p-qdir2' <<<"$P_FAST"; then
+  say "✅ AJ" "самопроба: пакетный и поштучный режимы дали дословно один вывод по всем веткам — и полным перечнем файлов, и первыми тремя"
 else
-  say "❌ AJ" "пакетный режим разошёлся с поштучным эталоном"
-  diff <(echo "$P_EXACT") <(echo "$P_FAST") | head -20; fail=1
+  say "❌ AJ" "пакетный режим разошёлся с поштучным эталоном (либо полный перечень не отличим от первых трёх)"
+  diff <(echo "$P_EXACT") <(echo "$P_FAST") | head -20 || true
+  diff <(echo "$P_EXACT3") <(echo "$P_FAST3") | head -8 || true; fail=1
 fi
 
-if grep -qE 'без слияния [1-9]' <<<"$R_FAST" && grep -qE 'пакетом [1-9]' <<<"$R_FAST" &&
-   grep -qE 'поштучно [1-9]' <<<"$R_FAST" && grep -qE 'перепись строк пачкой по [1-9]' <<<"$R_FAST" &&
-   grep -qE 'без слияния 0; файлов дельты пакетом 0' <<<"$R_EXACT" &&
-   grep -qE 'перепись строк пачкой по 0 ' <<<"$R_EXACT" &&
-   grep -qE 'пофайлово [1-9][0-9]* раз' <<<"$R_FAST" && grep -qE 'целиком 0 раз, пофайлово 0 раз' <<<"$R_EXACT"; then
-  say "✅ AK" "ускорители сработали (без слияния, пакетом, поштучно, перепись пачкой — все > 0), эталон поштучен"
+ak_ok() { # $1 = вывод пакетного режима, $2 = вывод эталона → 0, если каждый ускоритель сработал, а эталон поштучен
+  grep -qE 'без слияния [1-9]' <<<"$1" && grep -qE 'пакетом [1-9]' <<<"$1" &&
+    grep -qE 'поштучно [1-9]' <<<"$1" && grep -qE 'перепись строк пачкой по [1-9]' <<<"$1" &&
+    grep -qE 'целиком [1-9][0-9]* раз' <<<"$1" && grep -qE 'пофайлово [1-9][0-9]* раз' <<<"$1" &&
+    grep -qE 'без слияния 0; файлов дельты пакетом 0' <<<"$2" &&
+    grep -qE 'перепись строк пачкой по 0 ' <<<"$2" && grep -qE 'целиком 0 раз, пофайлово 0 раз' <<<"$2"
+}
+if ak_ok "$R_FAST" "$R_EXACT"; then
+  say "✅ AK" "ускорители сработали (без слияния, пакетом, поштучно, перепись пачкой, отказ целиком и пофайлово — все > 0), эталон поштучен"
 else
   say "❌ AK" "самопроба пуста: ускоритель не сработал либо эталон не поштучен"
-  grep 'ускорение' <<<"$R_FAST$R_EXACT"; fail=1
+  grep 'ускорение' <<<"$R_FAST$R_EXACT" || true; fail=1
 fi
 
 # Мутации: каждая ломает ровно один ускоритель в копии скрипта.
@@ -1098,7 +1195,7 @@ probe_mutant AL p-draft \
 probe_mutant AM p-squashed \
   'END { exit(w ? 0 : 1) }' 'END { exit(0) }' "свидетель непустой дельты есть всегда"
 probe_mutant AN p-absorbed \
-  '(($0 in pr) || (($1 in di) && ($2 in oi)))' '(0)' "в истории ствола нет ни одного блоба"
+  '((($1 "\t" $2) in pr) || (($1 in di) && ($2 in oi)))' '(0)' "в истории ствола нет ни одного блоба"
 probe_mutant AP p-draft \
   'if (r[1] == 0 && r[2] == 0) { done[i] = 1' 'if (1) { done[i] = 1' "перепись пачкой находит всё в первой цели"
 probe_mutant AY p-applied \
@@ -1108,10 +1205,399 @@ probe_mutant AO p-draft \
   'LC_ALL=C grep -Fx -f "$BA_TMP/rem.f" "$sf" > "$BA_TMP/s.hit" || true' \
   ': > "$BA_TMP/s.hit"' "ствол не касался ни одного пути"
 
+# --- BL–BX. МУТАНТЫ ЧЕТВЁРТОГО КРУГА: каждый возвращает ровно один дефект -------
+probe_mutant BL p-renamed \
+  '!body { if (substr($0, 1, 1) != ":") bad = 1; print $NF > nm; next }' \
+  '!body { if (substr($0, 1, 1) != ":") bad = 1; print $2 > nm; next }' \
+  "у переименования в перечень путей идёт старое имя (M8)"
+probe_mutant BM p-dropped \
+  'if [ "$del" = 1 ]; then KIND["$f"]=D;' 'if [ "$del" = 1 ]; then KIND["$f"]=A;' \
+  "снятый файл классифицирован как добавленный (M10)"
+WR='if ((es[i] == "A" && !pres) || (es[i] == "D" && pres) || (es[i] == "M" && !pres)) { print k; break } } }'
+probe_mutant BN p-whole "$WR" 'if (1) { print k; break } } }' "отказ целиком «доказан» всегда (M1)"
+probe_mutant BO p-whole "$WR" \
+  'if ((es[i] == "A" && pres) || (es[i] == "D" && pres) || (es[i] == "M" && !pres)) { print k; break } } }' \
+  "отказ целиком: член A перевёрнут"
+probe_mutant BP p-whole "$WR" \
+  'if ((es[i] == "A" && !pres) || (es[i] == "D" && !pres) || (es[i] == "M" && !pres)) { print k; break } } }' \
+  "отказ целиком: член D перевёрнут"
+probe_mutant BQ p-whole "$WR" \
+  'if ((es[i] == "A" && !pres) || (es[i] == "D" && pres) || (es[i] == "M" && pres)) { print k; break } } }' \
+  "отказ целиком: член M перевёрнут"
+# Ускоритель без предмета вердикта не меняет — он лишь отступает к вызову; его
+# держит счёт AK, и мутант обязан этот счёт покрасить.
+counter_mutant() { # $1 = метка, $2 = было, $3 = стало, $4 = что сломано
+  local m="$TMP/mutant.sh" out
+  if ! mutate "$m" "$2" "$3"; then
+    say "❌ $1" "мутация не легла — строки ускорителя в скрипте нет: $4"; fail=1; return
+  fi
+  set +e; out=$(probe_raw "$m"); set -e
+  if ak_ok "$out" "$R_EXACT"; then
+    say "❌ $1" "мутация «$4» не красит AK — ускоритель без предмета неотличим от сработавшего"; fail=1
+  else
+    say "✅ $1" "мутация «$4» красит AK: ускоритель без предмета виден счётом"
+  fi
+}
+counter_mutant BR '{ print k; break } } }' '{ break } } }' "отказ целиком не доказывается никогда (T1)"
+counter_mutant BS \
+  'if (($1 == "A" && !pres) || ($1 == "D" && pres) || ($1 == "M" && !pres)) print $2' 'if (0) print $2' \
+  "пофайловый отказ не доказывается никогда (E1)"
+probe_mutant BT p-dotname \
+  $'while ((j = index(rest, "/")) > 0) { off += j; rest = substr(rest, j + 1)\n          L = len - off; if (L > 0) { cnt[L]++; byl[L, cnt[L]] = n } }' \
+  $'while ((j = index(rest, "/")) > 0) { off += j; rest = substr(rest, j + 1) }\n          L = len - off; if (off && L > 0) { cnt[L]++; byl[L, cnt[L]] = n }' \
+  "тёзка ищется только после последней «/» (D1)"
+# BU — ключ общего кэша. Вердикт от столкновения ключей уже не зависит: ответ,
+# который не записался или не читается, спрашивается поштучно (BV). Ключ держит
+# КЭШ: при ключе «сам путь» ответ о «clash» и каталог «clash.b/» делят имя, и
+# ответов вне кэша становится больше, чем у настоящего скрипта.
+fo_miss() { sed -n 's/.*ответов о блобах пути вне общего кэша (спрошены поштучно) \([0-9]*\).*/\1/p' <<<"$1"; }
+bu_m="$TMP/mutant.sh"
+if mutate "$bu_m" $'    */*) BA_KEY="d${1%/*}"; BA_KEY="${BA_KEY//\\//\\/d}/f${1##*/}" ;;\n    *) BA_KEY="f$1" ;;' \
+                  '    *) BA_KEY=$1 ;;'; then
+  set +e; bu_out=$(probe_raw "$bu_m"); set -e
+  bu_real=$(fo_miss "$R_FAST"); bu_mut=$(fo_miss "$bu_out")
+  if [ -n "$bu_real" ] && [ -n "$bu_mut" ] && [ "$bu_mut" -gt "$bu_real" ] &&
+     [ "$(probe_run "$bu_m")" = "$P_EXACT" ]; then
+    say "✅ BU" "ключ «сам путь» (D2): ответов вне кэша $bu_mut против $bu_real у настоящего, вердикт тот же — его держит BV"
+  else
+    say "❌ BU" "столкновение ключей кэша не видно счётом ($bu_real → $bu_mut) либо сменило вердикт"; fail=1
+  fi
+else
+  say "❌ BU" "мутация не легла — строки ключа кэша в скрипте нет"; fail=1
+fi
+probe_mutant BV p-longname \
+  'if (hit) print "+\t" f; else if (r < 0) print "?\t" f "\t" bb }' 'if (hit) print "+\t" f }' \
+  "незаписавшийся ответ истории считается ответом «нет»"
+probe_mutant BW p-qdir \
+  $'      git log "${IDXTR[@]}" --raw --no-renames --no-abbrev --format= -z 2>/dev/null |\n        LC_ALL=C awk -v d="$BA_SHARED/hist" \'\n          function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }\n          BEGIN { RS = "\\0" }\n          /^:/ { split($0, a, " "); left = (a[5] ~ /^[RC]/) ? 2 : 1; next }\n          left > 0 { left--; p = $0\n' \
+  $'      git log "${IDXTR[@]}" --raw --no-renames --no-abbrev --format= 2>/dev/null |\n        LC_ALL=C awk -F\'\\t\' -v d="$BA_SHARED/hist" \'\n          function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }\n          /^:/ { split($1, a, " "); p = $2\n' \
+  "пути истории стволов — в кавычках, а не сами"
+probe_mutant BX p-qdir2 \
+  $'      if git log --format= --name-only --no-renames --diff-merges=separate --root -z \\\n           "${BASE2[$k]}..$tr" 2>/dev/null |\n         LC_ALL=C awk \'\n           function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }\n           BEGIN { RS = "\\0" }\n' \
+  $'      if git log --format= --name-only --no-renames --diff-merges=separate --root \\\n           "${BASE2[$k]}..$tr" 2>/dev/null |\n         LC_ALL=C awk \'\n           function cut(s,  i, j) { j = 0; while ((i = index(substr(s, j + 1), "/")) > 0) j += i; return j }\n' \
+  "пути касания ствола — в кавычках, а не сами"
+
+# --- BY. ПЕРЕЧЕНЬ СТВОЛА НЕ ASCII: пакетный поиск тёзки отступает к grep --------
+# Пакетный поиск тёзки повторяет образец grep «/<имя>$» побайтово — и это верно,
+# только пока перечень ствола ASCII (core.quotePath по умолчанию берёт прочее в
+# кавычки). С core.quotePath=false строки несут UTF-8, и под UTF-8-локалью точка
+# grep совпадает с многобайтовым знаком: тёзка «pqt/aЖb» для «a.b» находится
+# эталоном и не находится побайтово. Предпосылка проверяется, и без неё пакет
+# не применяется.
+PQ="$TMP/pq"
+git init -q --bare "$TMP/pq-origin.git"
+git init -q -b main "$PQ"
+cd "$PQ"
+git config user.email inject@example.invalid
+git config user.name  inject
+git config commit.gpgsign false
+git config core.quotePath false
+git remote add origin "$TMP/pq-origin.git"
+echo ствол > trunk.txt
+git add trunk.txt && git commit -qm "база"
+git push -qu origin main
+git checkout -qb pq-dot main
+mkdir -p pq; printf 'ю1\nю2\n' > pq/a.b
+git add pq/a.b && git commit -qm "имя с точкой"
+git checkout -q main
+mkdir -p pqt; printf 'ю1\nю2\n' > 'pqt/aЖb'
+git add 'pqt/aЖb' && git commit -qm "тёзка по образцу — с многобайтовым знаком на месте точки"
+git push -q origin main
+cd "$TMP"
+pq_run() { # $1 = исполняемый, далее — окружение → нормализованный вывод под UTF-8
+  local a=$1; shift
+  env -u LC_ALL LANG=C.UTF-8 BRANCH_AUDIT_ALL_FILES=1 "$@" BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_NO_ACCUM=1 \
+    BRANCH_AUDIT_PR_STATE_FILE="$TMP/probe-pr.tsv" "$a" "$PQ" 2>&1 |
+    grep -vE '^branch-audit: (замер|параллельных заданий|время прогона|ускорение|дольше всех)'
+}
+set +e
+PQ_EXACT=$(pq_run "$AUDIT" BRANCH_AUDIT_EXACT=1)
+PQ_FAST=$(pq_run "$AUDIT")
+set -e
+if [ -n "$PQ_FAST" ] && [ "$PQ_FAST" = "$PQ_EXACT" ] && grep -q 'pq-dot.*pqt/aЖb' <<<"$PQ_EXACT"; then
+  say "✅ BY" "перечень ствола в UTF-8: тёзка «pqt/aЖb» назван в обоих режимах одинаково — пакет отступил к grep"
+else
+  say "❌ BY" "перечень ствола в UTF-8: режимы разошлись либо эталон не нашёл тёзку по образцу"
+  diff <(echo "$PQ_EXACT") <(echo "$PQ_FAST") | head -8 || true; fail=1
+fi
+# BZ — предпосылка снята: пакет ищет тёзку побайтово и в UTF-8-перечне.
+bz_m="$TMP/pq-mutant.sh"
+if mutate "$bz_m" '           [ -e "$BA_SHARED/lst.$k.ascii" ]; then' '           true; then'; then
+  set +e; bz_out=$(pq_run "$bz_m"); set -e
+  bz_d=$(diff <(echo "$PQ_EXACT") <(echo "$bz_out") || true)
+  if [ "$bz_out" != "$PQ_EXACT" ] && grep -q 'pq-dot' <<<"$bz_d"; then
+    say "✅ BZ" "без предпосылки «перечень ASCII» пакет теряет тёзку «pqt/aЖb» — BY держится именно ею"
+  else
+    say "❌ BZ" "снятая предпосылка ASCII не меняет вердикта pq-dot — BY слеп к ней"; fail=1
+  fi
+else
+  say "❌ BZ" "мутация не легла — строки предпосылки ASCII в скрипте нет"; fail=1
+fi
+
+# --- AZ…BK. ФОРМЫ ЗАПИСИ ПРЕДМЕТА, КОТОРЫЕ ЭТАЛОН И ПАКЕТ ДЕЛЯТ (ws#813, круг 4) -
+# Сверка режимов слепа к дефекту, общему для обоих: здесь каждое утверждение
+# судит вердикт ОБОИХ режимов по отдельности, а у каждой формы есть законный
+# близнец той же формы, который обязан остаться при своём вердикте.
+FO="$TMP/forms"
+git init -q --bare "$TMP/forms-origin.git"
+git init -q -b main "$FO"
+cd "$FO"
+git config user.email inject@example.invalid
+git config user.name  inject
+git config commit.gpgsign false
+git remote add origin "$TMP/forms-origin.git"
+# Имена ниже — предмет, а не образцы: посев сам обязан звать их буквально.
+export GIT_LITERAL_PATHSPECS=1
+for i in $(seq 1 25); do echo "общая $i"; done > c.txt
+echo ствол > trunk.txt
+git add c.txt trunk.txt && git commit -qm "база форм"
+git push -qu origin main
+# AZ: работа в единственном экземпляре под пятью формами имени, которые
+# поштучная форма прежде теряла молча: git берёт имя в кавычки (нелатиница,
+# табуляция), хвостовой пробел (его срезал read), знак образца pathspec и
+# ведущее двоеточие (магия pathspec). Прежде каждая такая ветка попадала в
+# «ВЛИТЫ» и снималась.
+git checkout -qb f-cyr main;   printf 'моя работа\n' > 'файл.txt'; git add 'файл.txt' && git commit -qm "имя в кавычках"
+git checkout -qb f-trail main; printf 'моя работа\n' > 'trail ';   git add 'trail ' && git commit -qm "хвостовой пробел"
+git checkout -qb f-glob main;  printf 'hello\n' > 'g*.txt';        git add 'g*.txt' && git commit -qm "знак образца"
+git checkout -qb f-colon main; printf 'моя работа\n' > ':x.txt';   git add ':x.txt' && git commit -qm "ведущее двоеточие"
+git checkout -qb f-tab main;   printf 'моя работа\n' > $'tab\there'; git add $'tab\there' && git commit -qm "табуляция в имени"
+# BA: близнецы — те же формы влиты схлопыванием, потом ствол правил файл.
+git checkout -qb f-cyr-abs main;   printf 'сдано\n' > 'данные.txt'; git add 'данные.txt' && git commit -qm "имя в кавычках"
+git checkout -qb f-trail-abs main; printf 'сдано\n' > 'twin ';      git add 'twin ' && git commit -qm "хвостовой пробел"
+git checkout -qb f-glob-abs main;  printf 'сдано\n' > 'h*.txt';     git add 'h*.txt' && git commit -qm "знак образца"
+git checkout -qb f-colon-abs main; printf 'сдано\n' > ':y.txt';     git add ':y.txt' && git commit -qm "ведущее двоеточие"
+git checkout -qb f-tab-abs main;   printf 'сдано\n' > $'twin\ttab';   git add $'twin\ttab' && git commit -qm "табуляция в имени"
+# BC/BD: состояния PR — открытый новее закрытого, PR из чужого репозитория, свой закрытый.
+git checkout -qb f-pr-open main; printf 'работа при открытом PR\n' > pr-open.txt; git add pr-open.txt && git commit -qm "открытый PR"
+git checkout -qb f-pr-fork main; printf 'работа, чей тёзка — PR из чужого репозитория\n' > pr-fork.txt
+git add pr-fork.txt && git commit -qm "PR чужого репозитория"
+git checkout -qb f-pr-own main;  printf 'работа, чей PR закрыт\n' > pr-own.txt; git add pr-own.txt && git commit -qm "свой PR закрыт"
+# BF: ветка, чьё короткое имя совпадает с тегом, — она на origin и живая.
+git checkout -qb amb main; printf 'работа под именем тега\n' > amb.txt; git add amb.txt && git commit -qm "работа под именем тега"
+git push -q origin refs/heads/amb:refs/heads/amb
+git tag amb main
+# BE: ветка только на origin, без PR, последний коммит — месяц назад.
+git checkout -qb f-old main; printf 'старая работа на origin\n' > old.txt; git add old.txt
+F_OLD=$(( $(date +%s) - 30 * 86400 ))
+GIT_COMMITTER_DATE="@$F_OLD +0000" GIT_AUTHOR_DATE="@$F_OLD +0000" git commit -qm "старая работа"
+git push -q origin f-old
+# BH: накопительная ветка глубины три.
+git checkout -qb f-deep main; printf 'уехало в глубокую накопительную\n' > deep.txt; git add deep.txt && git commit -qm "работа для release/x/y/z"
+git checkout -qb release/x/y/z main
+git merge -q --squash f-deep && git commit -qm "схлопнуто из f-deep"
+git push -q origin release/x/y/z
+# BI: две накопительные ветки, чьи имена прежний ключ временного индекса сводил
+# в одно («release/a/b» и «release/a_b» → «origin_release_a_b»). Работа f-coll
+# поглощена только release/a/b и только по (6а): её строка легла туда со сдвигом.
+git checkout -qb f-coll main; sed -i '10s/.*/общая 10 ветки/' c.txt; git add c.txt && git commit -qm "правка строки 10"
+git checkout -qb release/a/b main
+{ cat c.txt; echo; sed -n '7,9p' c.txt; echo 'общая 10 ветки'; sed -n '11,13p' c.txt; } > c.t && mv c.t c.txt
+git add c.txt && git commit -qm "накопительная приняла правку со сдвигом"
+git push -q origin release/a/b
+git checkout -qb release/a_b main; printf 'иная накопительная\n' > other.txt; git add other.txt && git commit -qm "соседняя накопительная"
+git push -q origin release/a_b
+# BJ: рабочая копия, в пути которой пробел; ветка влита (предок ствола).
+git checkout -q main
+git branch f-wt-live main
+git worktree add -q "$TMP/forms wt/live" f-wt-live
+for b in f-cyr-abs f-trail-abs f-glob-abs f-colon-abs f-tab-abs; do
+  git merge -q --squash "$b" && git commit -qm "схлопнуто из $b"
+done
+printf 'сдано\nствол дописал\n' > 'данные.txt'; printf 'сдано\nствол дописал\n' > 'twin '
+printf 'сдано\nствол дописал\n' > 'h*.txt'; printf 'сдано\nствол дописал\n' > ':y.txt'
+printf 'сдано\nствол дописал\n' > $'twin\ttab'
+# Тот же блоб, что у 'g*.txt' ветки f-glob, — под именем, которое образец «g*.txt» накрыл бы.
+printf 'hello\n' > gx.txt
+git add 'данные.txt' 'twin ' 'h*.txt' gx.txt ':y.txt' $'twin\ttab' && git commit -qm "ствол правит влитое и заводит gx.txt"
+git push -q origin main
+git branch -q -D f-old release/x/y/z release/a/b release/a_b
+git fetch -q origin
+unset GIT_LITERAL_PATHSPECS
+cd "$TMP"
+FPR="$TMP/forms-pr.tsv"   # строки — новые первыми, как их отдаёт gh
+printf 'f-pr-open\t12\tOPEN\tfalse\nf-pr-open\t5\tMERGED\tfalse\n' > "$FPR"
+printf 'f-pr-fork\t7\tMERGED\ttrue\nf-pr-own\t8\tMERGED\tfalse\n' >> "$FPR"
+f_run() { # $1 = исполняемый, далее — окружение и ключи → вывод как есть; код — в F_RC
+  local a=$1; shift
+  set +e
+  F_OUT=$(env BRANCH_AUDIT_ALL_FILES=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_PR_STATE_FILE="$FPR" "$a" "$@" 2>&1); F_RC=$?
+  set -e
+}
+f_sec() { # $1 = вывод, $2 = начало заголовка раздела → строки раздела
+  awk -v h="── $2" 'index($0, h) == 1 {f = 1; next} /^── |^branch-audit: /{f = 0} f' <<<"$1"
+}
+f_has() { # $1 = вывод, $2 = раздел, $3 = начало строки ветки, $4 = образец внутри строки → 0, если есть
+  f_sec "$1" "$2" | grep -F -- "   $3" | grep -qE -- "$4"
+}
+f_run "$AUDIT" "$FO"; F_FAST=$F_OUT
+f_run env BRANCH_AUDIT_EXACT=1 "$AUDIT" "$FO"; F_EXACT=$F_OUT
+
+forms_ok=1; forms_why=""
+for mode in F_EXACT F_FAST; do
+  o=${!mode}
+  for b in f-cyr f-trail f-glob f-colon f-tab; do
+    f_has "$o" "ТОЛЬКО ЛОКАЛЬНО" "$b (" 'добавлено 1, отсутствует 1' || { forms_ok=0; forms_why="$forms_why $mode:$b"; }
+  done
+  grep -q 'не осмотрен' <<<"$o" && { forms_ok=0; forms_why="$forms_why $mode:есть-неосмотренные"; }
+done
+if [ "$forms_ok" = 1 ]; then
+  say "✅ AZ" "нелатиница и табуляция (имя в кавычках), хвостовой пробел, знак образца, ведущее двоеточие: работа в единственном экземпляре осмотрена и названа в обоих режимах"
+else
+  say "❌ AZ" "форма имени потеряна (ветка не в «единственном экземпляре» с числами переписи):$forms_why"; fail=1
+  f_sec "$F_FAST" "ВЛИТЫ" | head -8
+fi
+forms_ok=1; forms_why=""
+for mode in F_EXACT F_FAST; do
+  o=${!mode}
+  for b in f-cyr-abs f-trail-abs f-glob-abs f-colon-abs f-tab-abs; do
+    f_has "$o" "ВЛИТЫ" "$b —" 'ПОГЛОЩЕНА ПОФАЙЛОВО' || { forms_ok=0; forms_why="$forms_why $mode:$b"; }
+  done
+done
+if [ "$forms_ok" = 1 ]; then
+  say "✅ BA" "близнецы тех же пяти форм, влитые и правленные стволом, поглощены шестым признаком в обоих режимах"
+else
+  say "❌ BA" "влитый близнец формы имени не признан поглощённым:$forms_why"; fail=1
+fi
+
+# BB — путь, который осмотреть не удалось, ветку влитой НЕ делает: мутант, чей
+# поштучный дифф промахивается мимо пути, обязан оставить ветку работой и
+# назвать файл неосмотренным.
+bb_m="$TMP/forms-miss.sh"
+if mutate "$bb_m" 'if ! git diff "$base" "$ref" -- "$p" > "$PATCH_TMP" 2>/dev/null' \
+                  'if ! git diff "$base" "$ref" -- "$p.промах" > "$PATCH_TMP" 2>/dev/null'; then
+  f_run env BRANCH_AUDIT_EXACT=1 "$bb_m" "$FO"
+  if f_has "$F_OUT" "ТОЛЬКО ЛОКАЛЬНО" "f-cyr (" 'не осмотрен' && ! f_has "$F_OUT" "ВЛИТЫ" "f-cyr —" '.'; then
+    say "✅ BB" "поштучный дифф промахнулся мимо пути — файл назван неосмотренным, ветка осталась работой"
+  else
+    say "❌ BB" "неосмотренный путь засчитан поглощённым — ветка ушла бы под снятие"; fail=1
+  fi
+else
+  say "❌ BB" "мутация не легла — строки поштучного диффа в скрипте нет"; fail=1
+fi
+
+# BC — открытый PR новее закрытого: тревоги «PR закрыт» нет, назван открытый.
+# BD — PR из чужого репозитория PR ветки не является; свой закрытый — является.
+bc_ok=1; bd_ok=1
+for mode in F_EXACT F_FAST; do
+  o=${!mode}
+  f_has "$o" "ТОЛЬКО ЛОКАЛЬНО" "f-pr-open (" '#12 OPEN' || bc_ok=0
+  f_sec "$o" "ВНИМАНИЕ: PR закрыт" | grep -qF -- '   f-pr-open ' && bc_ok=0
+  f_sec "$o" "ВНИМАНИЕ: PR закрыт" | grep -qF -- '   f-pr-fork ' && bd_ok=0
+  grep -q '#7 ' <<<"$o" && bd_ok=0
+  f_has "$o" "ВНИМАНИЕ: PR закрыт" "f-pr-own —" '#8 MERGED' || bd_ok=0
+done
+if [ "$bc_ok" = 1 ]; then
+  say "✅ BC" "у головы два PR: открытый новее закрытого — назван открытый, тревоги «PR закрыт» нет"
+else
+  say "❌ BC" "состояние PR взято не у открытого PR головы"; fail=1
+fi
+if [ "$bd_ok" = 1 ]; then
+  say "✅ BD" "PR из чужого репозитория не приписан одноимённой ветке; свой закрытый PR тревогу поднял"
+else
+  say "❌ BD" "PR чужого репозитория приписан ветке либо свой закрытый PR не поднял тревоги"; fail=1
+fi
+
+# BE — перепись PR неполна (gh отдал ровно предел строк либо отказал): это
+# сказано, и «PR не заводился» не утверждается; полная — утверждается.
+mkdir -p "$TMP/fakebin"
+cat > "$TMP/fakebin/gh" <<'FAKEGH'
+#!/usr/bin/env bash
+# Подставной gh: «repo view» — успех; «pr list» — строки из FAKE_GH_ROWS, либо отказ.
+case "$1 $2" in
+  "repo view") exit 0 ;;
+  "pr list") [ "${FAKE_GH_FAIL:-0}" = 1 ] && exit 1; cat "$FAKE_GH_ROWS"; exit 0 ;;
+esac
+exit 1
+FAKEGH
+chmod +x "$TMP/fakebin/gh"
+printf 'f-pr-own\t8\tMERGED\tfalse\nnobody-a\t1\tMERGED\tfalse\nnobody-b\t2\tMERGED\tfalse\n' > "$TMP/fake-rows.tsv"
+f_run env PATH="$TMP/fakebin:$PATH" FAKE_GH_ROWS="$TMP/fake-rows.tsv" BRANCH_AUDIT_PR_LIMIT=3 "$AUDIT" "$FO"; BE_FULL=$F_OUT
+f_run env PATH="$TMP/fakebin:$PATH" FAKE_GH_ROWS="$TMP/fake-rows.tsv" BRANCH_AUDIT_PR_LIMIT=4 "$AUDIT" "$FO"; BE_PART=$F_OUT
+f_run env PATH="$TMP/fakebin:$PATH" FAKE_GH_ROWS="$TMP/fake-rows.tsv" FAKE_GH_FAIL=1 "$AUDIT" "$FO"; BE_FAIL=$F_OUT
+if grep -q 'перепись PR неполна' <<<"$BE_FULL" && ! grep -q 'f-old — PR не заводился' <<<"$BE_FULL" &&
+   grep -q 'перепись PR неполна' <<<"$BE_FAIL" && ! grep -q 'f-old — PR не заводился' <<<"$BE_FAIL" &&
+   ! grep -q 'перепись PR неполна' <<<"$BE_PART" && grep -q 'f-old — PR не заводился' <<<"$BE_PART"; then
+  say "✅ BE" "перепись PR, упёршаяся в предел или отказ gh, названа неполной и «PR не заводился» не утверждает; полная — утверждает"
+else
+  say "❌ BE" "неполная перепись PR подана полной (или полная — неполной)"; fail=1
+  grep -E 'перепись PR|f-old' <<<"$BE_FULL$BE_PART$BE_FAIL" | head -6 || true
+fi
+
+# BF — ветка, чьё короткое имя совпадает с тегом: судится ВЕТКА, по её имени.
+bf_ok=1
+for mode in F_EXACT F_FAST; do
+  o=${!mode}
+  f_has "$o" "ЖИВЫЕ" "amb (" '\+1' || bf_ok=0
+  grep -q 'heads/amb' <<<"$o" && bf_ok=0
+done
+if [ "$bf_ok" = 1 ]; then
+  say "✅ BF" "ветка под именем тега судится как ветка: названа «amb», есть на origin — живая"
+else
+  say "❌ BF" "ветка под именем тега названа «heads/amb» либо судится как единственный экземпляр"; fail=1
+fi
+
+# BG — ствол, чьё имя называет две ссылки (есть локальная ветка «origin/main»),
+# — отказ с причиной, а не перепись против чужой ссылки. Близнец — тот же клон
+# без неё.
+git -C "$FO" branch -q origin/main main 2>/dev/null
+f_run "$AUDIT" "$FO"; BG_RC=$F_RC; BG_OUT=$F_OUT
+# Названный в отказе выход — полное имя ствола: перепись идёт, а локальная
+# ветка main (сам ствол) переписью не судится и снятию не подлежит.
+f_run env BRANCH_AUDIT_TRUNK=refs/remotes/origin/main "$AUDIT" "$FO"; BG_FULL_RC=$F_RC; BG_FULL=$F_OUT
+git -C "$FO" branch -q -D origin/main 2>/dev/null
+f_run "$AUDIT" "$FO"; BG_TWIN_RC=$F_RC
+if [ "$BG_RC" -eq 2 ] && grep -q 'неоднозначн' <<<"$BG_OUT" && [ "$BG_TWIN_RC" -ne 2 ] &&
+   [ "$BG_FULL_RC" -ne 2 ] && [ -z "$(ba_line "$BG_FULL" main)" ] && [ -n "$(ba_line "$BG_FULL" f-cyr)" ]; then
+  say "✅ BG" "ствол с неоднозначным именем — отказ с кодом 2 и причиной; полным именем и без тёзки — перепись идёт, ветка ствола не судится"
+else
+  say "❌ BG" "неоднозначный ствол: код $BG_RC (ждали 2 с причиной), полным именем — $BG_FULL_RC, близнец — $BG_TWIN_RC"; fail=1
+fi
+
+# BH — накопительная ветка глубины три — ствол; BI — поглощение по (6а) в
+# release/a/b при соседе release/a_b (прежний ключ индекса их сводил).
+bh_ok=1; bi_ok=1
+for mode in F_EXACT F_FAST; do
+  o=${!mode}
+  f_has "$o" "ВЛИТЫ" "f-deep —" 'относительно origin/release/x/y/z' || bh_ok=0
+  f_has "$o" "ВЛИТЫ" "f-coll —" 'ПОГЛОЩЕНА ПОФАЙЛОВО' || bi_ok=0
+done
+if [ "$bh_ok" = 1 ]; then
+  say "✅ BH" "накопительная ветка release/x/y/z — ствол сверки, источник поглощения назван"
+else
+  say "❌ BH" "накопительная ветка глубины три не попала в стволы сверки"; fail=1
+fi
+if [ "$bi_ok" = 1 ]; then
+  say "✅ BI" "у release/a/b и release/a_b свои временные индексы: поглощение по (6а) в release/a/b распознано"
+else
+  say "❌ BI" "временный индекс одного ствола судил за другой — поглощение по (6а) потеряно"; fail=1
+fi
+
+# BK — кандидат, названный полным именем ссылки, судится как короткое имя.
+f_run "$AUDIT" "$FO" refs/heads/f-cyr; BK_OUT=$F_OUT
+if grep -q 'не найдено ни локально, ни на origin 0' <<<"$BK_OUT" &&
+   [ "$(ba_line "$BK_OUT" f-cyr)" = "$(ba_line "$F_FAST" f-cyr)" ] &&
+   [ -n "$(ba_line "$BK_OUT" f-cyr)" ]; then
+  say "✅ BK" "кандидат refs/heads/f-cyr найден и судим той же строкой, что в полной переписи"
+else
+  say "❌ BK" "кандидат полным именем ссылки назван ненайденным либо судим иначе"; fail=1
+  grep -E 'кандидат|f-cyr' <<<"$BK_OUT" | head -4 || true
+fi
+
+# BJ — рабочая копия с пробелом в пути: занятость и живость — по полному пути.
+f_run "$AUDIT" --prune-merged "$FO"; BJ_OUT=$F_OUT
+if grep -qF -- "оставлена f-wt-live — занята ЖИВОЙ рабочей копией $TMP/forms wt/live" <<<"$BJ_OUT" &&
+   grep -qF -- "f-wt-live — предок ствола [ЗАНЯТА рабочей копией: $TMP/forms wt/live]" <<<"$BJ_OUT"; then
+  say "✅ BJ" "копия с пробелом в пути названа полным путём и живой; ветка не снята"
+else
+  say "❌ BJ" "путь рабочей копии обрезан на пробеле — живая копия подана брошенной или безымянной"; fail=1
+  grep -F 'f-wt-live' <<<"$BJ_OUT" | head -3 || true
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "branch-audit-inject: 54 утверждения, все выполнены — перепись способна упасть И смолчать"
+  echo "branch-audit-inject: утверждений ${N_SAID}, все выполнены — перепись способна упасть И смолчать"
 else
-  echo "branch-audit-inject: есть невыполненные утверждения" >&2
+  echo "branch-audit-inject: утверждений ${N_SAID}, есть невыполненные" >&2
 fi
 exit "$fail"
