@@ -19,16 +19,17 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/334
 opened: 2026-09-21
+closed: 2026-09-26
 tags:
   - kac
   - refactor
   - kacho-iam
-verified_against: "PRO-Robotech/kaname: голова задачи 92b9b1b97eb — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись"
+verified_against: "PRO-Robotech/kaname: голова задачи 92b9b1b97eb — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:38:27Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#334: своя причина снятия сессии при административном выходе
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метки: `P2`, `size:L`, `area:iam`, `status:test`, `tech-debt`, `release:identity-own`. Работа влита в ветку волны [[KAC/issue-358-kaname|#358]], волна — в ветку эпика `357` (координата, не живая ссылка) запросом PR #422; в `main` **не** доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:38:27Z вместе с волной [[KAC/issue-358-kaname|#358]]: запрос волны PR #422 влит в ветку эпика `357` (координата, не живая ссылка), коммит закрытия — слияние волны `fc9f5aff19c`; метка `status:test` снята, метки сейчас: `P2`, `size:L`, `area:iam`, `tech-debt`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #357 в ствол.
 
 ## Что и зачем
 

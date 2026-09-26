@@ -20,16 +20,17 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/313
 opened: 2026-09-20
+closed: 2026-09-26
 tags:
   - kac
   - feature
   - kacho-iam
-verified_against: "PRO-Robotech/kaname: голова задачи 410d750ba46 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись"
+verified_against: "PRO-Robotech/kaname: голова задачи 410d750ba46 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:37:52Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#313: своя запись кода авторизации и семейств токенов
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метки: `P1`, `size:L`, `area:iam`, `status:test`, `release:identity-own`. Работа влита в ветку волны [[KAC/issue-358-kaname|#358]], волна — в ветку эпика `357` (координата, не живая ссылка) запросом PR #422; в `main` **не** доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:37:52Z вместе с волной [[KAC/issue-358-kaname|#358]]: запрос волны PR #422 влит в ветку эпика `357` (координата, не живая ссылка), коммит закрытия — слияние волны `fc9f5aff19c`; метка `status:test` снята, метки сейчас: `P1`, `size:L`, `area:iam`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #357 в ствол.
 
 ## Что и зачем
 
@@ -60,6 +61,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи 410d750ba46 �
 Возвраты исполнителей по задаче называют: ресурсы interactive_clients, token_families, authorization_codes, refresh_tokens; rpc InternalIamService.ForceLogout; пакеты cmd/kaname, internal/repo/kaname/pg, internal/apps/kaname/api/internal_iam.
 
 - [[KAC/issue-358-kaname]] — волна.
+- [[KAC/issue-428-kaname]] — ветвь корня композиции, внесённая этой полосой, стала остатком #337.
 - [[resources/iam-token-family]]
 - [[resources/iam-interactive-client]]
 

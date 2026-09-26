@@ -4,7 +4,7 @@ aliases:
   - issue-2733
 ticket_id: 2733
 category: kac
-status: in-progress
+status: test
 type: refactor
 repos:
   - kacho
@@ -20,16 +20,17 @@ prs:
   - https://github.com/PRO-Robotech/kacho/pull/2869
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2733
 opened: 2026-09-21
+closed: 2026-09-26
 tags:
   - kac
   - refactor
   - kacho-ui
-verified_against: "PRO-Robotech/kacho: голова задачи af6d21f7d65 — предок коммита слияния волны 7190c3e5274 в ветку эпика 2564 и не предок origin/main 1d42a6728bf (`git merge-base --is-ancestor`), 2026-09-26. Пункт DoD о грубом git grep по ui-future перемерен мной: 212 строк на 7190c3e5274 (398 на origin/main); прочие пункты DoD не перемерялись"
+verified_against: "PRO-Robotech/kacho: голова задачи af6d21f7d65 — предок коммита слияния волны 7190c3e5274 в ветку эпика 2564 и не предок origin/main 1d42a6728bf (`git merge-base --is-ancestor`), 2026-09-26. Пункт DoD о грубом git grep по ui-future перемерен мной: 212 строк на 7190c3e5274 (398 на origin/main); прочие пункты DoD не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:41:00Z, меток status:* нет (`gh issue view`); коммит слияния волны 7190c3e5274 — в origin/2564, не в origin/main (`gh api compare`)"
 ---
 
 # kacho#2733: ручки и проксирование консоли к чужим службам личности — снята первая часть
 
-**Состояние на момент записи**: `in-progress` — 2026-09-26, хотя на трекере стоит `status:test`: первая часть предмета влита, остаток в дереве не снят (см. DoD). Задача **открыта**, метки: `tech-debt`, `status:test`, `P1`, `size:M`, `area:ui`, `release:identity-own`. Работа влита в ветку волны [[KAC/issue-2796|#2796]], волна — в ветку эпика `2564` (координата, не живая ссылка) запросом PR #2869; в `main` **не** доехала: закроет её посадка эпика #2564 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:41:00Z вместе с волной [[KAC/issue-2796|#2796]]: запрос волны PR #2869 влит в ветку эпика `2564` (координата, не живая ссылка), коммит закрытия — слияние волны `7190c3e5274`; метка `status:test` снята, метки сейчас: `tech-debt`, `P1`, `size:M`, `area:ui`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #2564 в ствол. Сдана частично: остаток предмета в `ui-future/**` заведён задачей [[KAC/issue-2874|#2874]] в волне-3 #2797 (комментарий закрытия).
 
 ## Что и зачем
 
@@ -56,7 +57,7 @@ verified_against: "PRO-Robotech/kacho: голова задачи af6d21f7d65 —
 
 Сверено мной:
 
-- [ ] грубый прибор тела задачи: `git grep -niE 'hydra|kratos|oryd/' 7190c3e5274 -- ui-future | wc -l` → **212** (на `main` `1d42a6728bf` — 398), цель DoD — 0. Больше всего строк в `ui-future/deploy/identity_serving_precedence_test.go` (20), `shared/src/lib/resource-registry.tsx` (18), `deploy/templates/configmap-nginx.yaml` (12); часть их — пробы и комментарии, которые грубый прибор тоже считает;
+- [ ] грубый прибор тела задачи: `git grep -niE 'hydra|kratos|oryd/' 7190c3e5274 -- ui-future | wc -l` → **212** (на `main` `1d42a6728bf` — 398), цель DoD — 0. Больше всего строк в `ui-future/deploy/identity_serving_precedence_test.go` (20), `shared/src/lib/resource-registry.tsx` (18), `deploy/templates/configmap-nginx.yaml` (12); часть их — пробы и комментарии, которые грубый прибор тоже считает. Этот остаток — предмет [[KAC/issue-2874|#2874]] (волна-3 #2797), заведённой при закрытии задачи 2026-09-26;
 - [x] голова задачи — предок коммита слияния волны `7190c3e5274` в ветку эпика `2564`;
 - [ ] предмет в стволе: `main` — посадкой эпика #2564.
 
@@ -66,5 +67,6 @@ verified_against: "PRO-Robotech/kacho: голова задачи af6d21f7d65 —
 
 - [[KAC/issue-2796]] — волна.
 - [[KAC/issue-2735]]
+- [[KAC/issue-2874]] — остаток.
 
 #kac #refactor #kacho-ui

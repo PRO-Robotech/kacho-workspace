@@ -15,16 +15,17 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/393
 opened: 2026-09-23
+closed: 2026-09-26
 tags:
   - kac
   - fix
   - kacho-iam
-verified_against: "PRO-Robotech/kaname: голова задачи deae1034ce2 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись"
+verified_against: "PRO-Robotech/kaname: голова задачи deae1034ce2 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:39:41Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#393: генератор набора newman: повтор окна прав только на ожидаемом успехе
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метки: `bug`, `P2`, `size:M`, `area:ci`, `status:test`, `release:identity-own`. Работа влита в ветку волны [[KAC/issue-358-kaname|#358]], волна — в ветку эпика `357` (координата, не живая ссылка) запросом PR #422; в `main` **не** доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:39:41Z вместе с волной [[KAC/issue-358-kaname|#358]]: запрос волны PR #422 влит в ветку эпика `357` (координата, не живая ссылка), коммит закрытия — слияние волны `fc9f5aff19c`; метка `status:test` снята, метки сейчас: `bug`, `P2`, `size:M`, `area:ci`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #357 в ствол. Сдана частично: остаток п.3 предиката (коллекции `iam-role` и `iam-user`) ведёт [[KAC/issue-415-kaname|kaname#415]] в волне-3 #366 (комментарий закрытия).
 
 ## Что и зачем
 
@@ -49,6 +50,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи deae1034ce2 �
 Сверено мной:
 
 - [x] голова задачи — предок коммита слияния волны `fc9f5aff19c` в ветку эпика `357`;
+- [ ] п.3 для `iam-role` и `iam-user` — не исполнен: 2 коллекции · 3 шага без вердикта стенда (комментарий закрытия); ведёт [[KAC/issue-415-kaname|#415]];
 - [ ] предмет в стволе: `main` — посадкой эпика #357.
 
 ## Затронутые сущности vault
@@ -56,5 +58,6 @@ verified_against: "PRO-Robotech/kaname: голова задачи deae1034ce2 �
 Возвраты исполнителей по задаче называют: tests/newman (генератор, кейсы, пробы).
 
 - [[KAC/issue-358-kaname]] — волна.
+- [[KAC/issue-415-kaname]] — носитель остатка п.3.
 
 #kac #fix #kacho-iam

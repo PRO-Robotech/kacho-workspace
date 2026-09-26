@@ -18,18 +18,23 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/409
 issue_url: https://github.com/PRO-Robotech/kaname/issues/377
 opened: 2026-09-23
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - epic
-verified_against: "PRO-Robotech/kaname: PR #409 влит 2026-09-24T14:09:51Z коммитом слияния dbf25d17e25cba5368856da789c2674705a2392f (родители d65f97e9e3e, dda965ecef3) = origin/357 на 2026-09-24; голова волны dda965ecef3 не предок origin/main (`git merge-base --is-ancestor`); ветка 377 с origin снята (`git ls-remote origin refs/heads/377` пусто). Прогоны головы — `gh run list --commit dda965ecef351b97c563a80b37e626bc05dc9ef2`"
+verified_against: "PRO-Robotech/kaname: PR #409 влит 2026-09-24T14:09:51Z коммитом слияния dbf25d17e25cba5368856da789c2674705a2392f (родители d65f97e9e3e, dda965ecef3) = origin/357 на 2026-09-24; голова волны dda965ecef3 не предок origin/main (`git merge-base --is-ancestor`); ветка 377 с origin снята (`git ls-remote origin refs/heads/377` пусто). Прогоны головы — `gh run list --commit dda965ecef351b97c563a80b37e626bc05dc9ef2`; 2026-09-26: трекер волны закрыт 2026-09-26T09:40:51Z, sub-issue закрыты 4 из 4, меток status:* нет (`gh api .../sub_issues`, `gh issue view`); dbf25d17e25 — в origin/357 @ fc9f5aff19c, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#377: волна второго фактора — влита в ветку эпика
 
-**Состояние на момент записи**: `test` — 2026-09-24. Задача волны **открыта**, метка
-`status:test`. Волна влита в ветку эпика `357` (координата, не живая ссылка) и в `main` **не**
-доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Волна **закрыта** на трекере
+2026-09-26T09:40:51Z: её запрос PR #409 влит в ветку эпика `357` (координата, не живая ссылка)
+коммитом слияния `dbf25d17e25` — это коммит закрытия волны и её задач. Тем же заходом закрыты
+#287, #378 и #305, у всех снята `status:test`; #304 закрыта раньше. Остатков 0, переведённых
+без сдачи 0. [[KAC/issue-295-kaname|#295]], sub-issue волны #358, влита этой волной, а закрыта
+вместе со своей волной. В `main` волна **не** доехала, поэтому состояние записки `test`, а не
+`done`: `done` — посадкой эпика #357 в ствол.
 
 ## Что и зачем
 

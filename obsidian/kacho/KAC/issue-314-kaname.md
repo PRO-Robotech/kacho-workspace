@@ -19,16 +19,17 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/314
 opened: 2026-09-20
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "Перемер 2026-09-26: голова задачи 30c41bbcf0c, 0b8113cb894 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`). Сверка 2026-09-24: PRO-Robotech/kaname: голова задачи 0b8113cb894b7c53f3f736c92fc30dbf58a5c5c9 (= origin/314) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия мной не перемерялся"
+verified_against: "Перемер 2026-09-26: голова задачи 30c41bbcf0c, 0b8113cb894 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`). Сверка 2026-09-24: PRO-Robotech/kaname: голова задачи 0b8113cb894b7c53f3f736c92fc30dbf58a5c5c9 (= origin/314) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия мной не перемерялся; 2026-09-26: трекер — закрыта 2026-09-26T09:37:57Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#314: у жизненного цикла ключа подписи есть вызывающий
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метка `status:test`. Работа влита в ветку волны [[KAC/issue-358-kaname|#358]], волна — в ветку эпика `357` (координата, не живая ссылка) запросом PR #422; в `main` **не** доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:37:57Z вместе с волной [[KAC/issue-358-kaname|#358]]: запрос волны PR #422 влит в ветку эпика `357` (координата, не живая ссылка), коммит закрытия — слияние волны `fc9f5aff19c`; метка `status:test` снята, метки сейчас: `P1`, `size:L`, `area:iam`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #357 в ствол.
 
 ## Что и зачем
 

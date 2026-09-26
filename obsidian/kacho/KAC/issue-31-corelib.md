@@ -15,16 +15,17 @@ prs:
   - https://github.com/PRO-Robotech/corelib/pull/62
 issue_url: https://github.com/PRO-Robotech/corelib/issues/31
 opened: 2026-09-22
+closed: 2026-09-26
 tags:
   - kac
   - feature
   - kacho-corelib
-verified_against: "PRO-Robotech/corelib: голова задачи 542e525212a — предок коммита слияния волны 227ed2b77b4 в ветку эпика 26 и не предок origin/main 34bc8104a83 (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись"
+verified_against: "PRO-Robotech/corelib: голова задачи 542e525212a — предок коммита слияния волны 227ed2b77b4 в ветку эпика 26 и не предок origin/main 34bc8104a83 (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:37:58Z, меток status:* нет (`gh issue view`); коммит слияния волны 227ed2b77b4 — в origin/26, не в origin/main (`gh api compare`)"
 ---
 
 # corelib#31: конвейер гонится на запрос в ветку-номер
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метки: `enhancement`, `release:identity-own`, `status:test`. Работа влита в ветку волны [[KAC/issue-32-corelib|#32]], волна — в ветку эпика `26` (координата, не живая ссылка) запросом PR #62; в `main` **не** доехала: закроет её посадка эпика #26 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:37:58Z вместе с волной [[KAC/issue-32-corelib|#32]]: запрос волны PR #62 влит в ветку эпика `26` (координата, не живая ссылка), коммит закрытия — слияние волны `227ed2b77b4`; метка `status:test` снята, метки сейчас: `enhancement`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #26 в ствол.
 
 ## Что и зачем
 

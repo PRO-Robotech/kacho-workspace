@@ -20,15 +20,16 @@ prs:
   - https://github.com/PRO-Robotech/kacho-workspace/pull/841
 issue_url: https://github.com/PRO-Robotech/kacho-workspace/issues/832
 opened: 2026-09-24
+closed: 2026-09-26
 tags:
   - kac
   - feature
-verified_against: "PRO-Robotech/kacho-workspace: голова задачи 847bee447d0 — предок коммита слияния волны 27eb0775252 в ветку эпика 771 и не предок origin/main 6eddaa5e9c9 (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись"
+verified_against: "PRO-Robotech/kacho-workspace: голова задачи 847bee447d0 — предок коммита слияния волны 27eb0775252 в ветку эпика 771 и не предок origin/main 6eddaa5e9c9 (`git merge-base --is-ancestor`), 2026-09-26. Пункты DoD тела задачи мной не перемерялись; 2026-09-26: трекер — закрыта 2026-09-26T09:34:59Z, меток status:* нет (`gh issue view`); коммит слияния волны 27eb0775252 — в origin/771, не в origin/main (`gh api compare`)"
 ---
 
 # ws#832: флоу v2: код первым, агрегаты, память не выше 45 ГБ
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метки: `P1`, `size:L`, `area:tooling`, `status:test`, `release:identity-own`. Работа влита в ветку волны [[KAC/issue-805-ws|#805]], волна — в ветку эпика `771` (координата, не живая ссылка) запросом PR #841; в `main` **не** доехала: закроет её посадка эпика #771 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере 2026-09-26T09:34:59Z вместе с волной [[KAC/issue-805-ws|#805]]: запрос волны PR #841 влит в ветку эпика `771` (координата, не живая ссылка), коммит закрытия — слияние волны `27eb0775252`; метка `status:test` снята, метки сейчас: `P1`, `size:L`, `area:tooling`, `release:identity-own`. В `main` работа **не** доехала, поэтому состояние записки `test`, а не `done`: `done` — посадкой эпика #771 в ствол.
 
 ## Что и зачем
 
