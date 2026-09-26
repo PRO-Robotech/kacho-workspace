@@ -30,15 +30,28 @@
 дайджеста, неразобранных, иных — и записи с трубой, но без команды дайджеста.
 
 ГРАНИЦА. Влитые записи не правятся: имя файла и есть их дайджест. Команда без
-`--full-index`, стоявшая в ТОМ ЖЕ пути на `BOUNDARY`, унаследована; любая другая
-(новый путь или дописанная в старый) — находка. Граница объявлена одним местом —
-константой ниже.
+`--full-index`, стоявшая в ТОМ ЖЕ пути на `BOUNDARY` либо на сведённой вершине
+линии до правила (ниже), унаследована; любая другая (новый путь или дописанная в
+старый) — находка. Граница объявлена одним местом — константой ниже.
 
 Граница — коммит, где СОШЛИСЬ линии, писавшие записи до правила: запись с
 параллельной линии, снятая до ws#818, на прежней границе отсутствует и читалась
 бы новой. Сведение 805 с веткой docfresh (ws#839) принесло 29 таких записей
 (37 команд, все от 2026-09-22 при правиле от 2026-09-24), поэтому граница —
 коммит этого слияния: на нём записи обеих линий, и только они.
+
+ЛИНИИ ДО ПРАВИЛА. Граница одна, а линий, писавших записи до правила и
+сходящихся с этой позже неё, может быть несколько (ws#822 и ws#824: записи от
+2026-09-23 при правиле от 2026-09-24). Двигать границу на каждое сведение
+нельзя: ветки правили бы одну константу по-разному и конфликтовали бы при
+сборке. Поэтому такие линии объявлены своими ВЕРШИНАМИ до правила
+(`PRE_RULE_TIPS`), и запись в том же пути с той же командой на вершине из
+истории HEAD унаследована так же, как с границы. Вершина вне истории HEAD ещё не
+сошлась: она не судится и сосчитана в переписи. Сведённая вершина судится:
+- вершина, содержащая коммит правила (`RULE`) либо снятая не раньше его, знает
+  правило — находка: перечень не прощает записей, снятых при правиле;
+- вершина, с которой в HEAD не унаследовано ни одной команды сверх границы, —
+  находка без предмета: её строку снимают вместе с предметом.
 
 ПОЛОЖИТЕЛЬНЫЙ КОНТРОЛЬ. На границе записи несут команды без `--full-index`;
 распознаватель, не увидевший там ни одной, слеп к форме, которой дерево пишет, —
@@ -49,10 +62,14 @@
 судится: ближайшее к хешу звено — не `git` (канонический набор
 `git diff --raw --no-abbrev … | awk … | sort | sha256sum` — такой, его сокращение
 держит `--no-abbrev`, а не `--full-index`); она видна в переписи числом «иных труб».
+Вершина, так и не сведённая ни в одну судимую ревизию, не судится никогда: её
+несведённость видна только числом «не сошлись» в переписи. Дата вершины —
+дата коммиттера, поставленная тем, кто коммитил; подделку даты гейт не ловит.
 
 Коды: 0 — записи прочитаны, контроль сошёлся, находок нет; 1 — находка (и
-неразобранное звено), пустой обход или слепой распознаватель; 2 — ревизия или
-граница в клоне не разрешаются.
+неразобранное звено, и вершина, знающая правило либо без предмета), пустой
+обход или слепой распознаватель; 2 — ревизия, граница или коммит правила в
+клоне не разрешаются.
 """
 
 import argparse
@@ -62,6 +79,16 @@ import subprocess
 import sys
 
 BOUNDARY = "e55b0e0ba76be2e1d899c0f069c6c970112e58bc"
+
+# Коммит, которым правило ws#818 вошло в дерево. Вершина линии до правила
+# обязана его не содержать и быть снятой раньше него.
+RULE = "4e34df39e89458ee303f400ce9f623f5631315ed"
+
+# Вершины линий, писавших записи до правила и сходящихся позже границы.
+PRE_RULE_TIPS = (
+    "cfbb53db6ddfb4017cbe7d138df24b808f1ccbd3",
+    "42258def00d88929edd510793f32b55f70b50029",
+)
 
 # Аргумент — слово без `;`, тире, стрелки, инлайн-кода и трубы, не кончающееся
 # двоеточием: иначе команда «тянулась» бы через прозу и ключи YAML до чужой трубы.
@@ -99,6 +126,32 @@ def git(home, *args):
 def commit(home, rev):
     rc, out = git(home, "rev-parse", "--verify", "-q", rev + "^{commit}")
     return out.decode().strip() if rc == 0 else None
+
+
+def ancestor(home, older, newer):
+    return git(home, "merge-base", "--is-ancestor", older, newer)[0] == 0
+
+
+def stamp(home, rev):
+    """Дата коммиттера, секунды эпохи."""
+    return int(git(home, "show", "-s", "--format=%ct", rev)[1].decode().strip())
+
+
+def tips(home, head, rule):
+    """Вершины линий до правила: (сведённые и годные, знающие правило с причиной,
+    не сошедшиеся). Вершина, которой нет в клоне, в истории HEAD быть не может."""
+    good, knows, open_ = [], [], []
+    for tip in PRE_RULE_TIPS:
+        sha = commit(home, tip)
+        if sha is None or not ancestor(home, sha, head):
+            open_.append(tip)
+        elif ancestor(home, rule, sha):
+            knows.append((sha, "содержит коммит правила %s" % rule[:12]))
+        elif stamp(home, sha) >= stamp(home, rule):
+            knows.append((sha, "снята не раньше коммита правила %s" % rule[:12]))
+        else:
+            good.append(sha)
+    return good, knows, open_
 
 
 def records(home, rev):
@@ -173,28 +226,62 @@ def main(argv=None):
             % BOUNDARY[:12], True)
         return 2
 
+    rule = commit(a.home, RULE)
+    if rule is None:
+        say("VOID", "коммит правила %s в клоне не разрешается (неглубокий клон?)"
+            % RULE[:12], True)
+        return 2
+
     now, old = records(a.home, head), records(a.home, base)
     cur, was = commands(a.home, head, now), commands(a.home, base, old)
-    findings, blind = [], []
-    inherited = held = 0
-    for path in now:
-        extra = cur.bad[path] - was.bad.get(path, collections.Counter())
-        inherited += sum(cur.bad[path].values()) - sum(extra.values())
-        findings += ["%s: %s" % (path, c) for c in sorted(extra.elements())]
-        dark = cur.unparsed[path] - was.unparsed.get(path, collections.Counter())
-        held += sum(cur.unparsed[path].values()) - sum(dark.values())
-        blind += ["%s: %s" % (path, c) for c in sorted(dark.elements())]
+
+    # Наследство — граница и сведённые годные вершины, объединением по пути.
+    good, knows, open_ = tips(a.home, head, rule)
+    empty = collections.Counter()
+    heir_bad = {p: collections.Counter(c) for p, c in was.bad.items()}
+    heir_dark = {p: collections.Counter(c) for p, c in was.unparsed.items()}
+    idle = []
+    for sha in good:
+        at = commands(a.home, sha, records(a.home, sha))
+        gain = 0
+        for mine, theirs, edge, heir in ((cur.bad, at.bad, was.bad, heir_bad),
+                                         (cur.unparsed, at.unparsed,
+                                          was.unparsed, heir_dark)):
+            for path in now:
+                own = theirs.get(path, empty) - edge.get(path, empty)
+                gain += sum((mine[path] & own).values())
+                heir[path] = heir.get(path, collections.Counter()) \
+                    | theirs.get(path, empty)
+        if gain == 0:
+            idle.append(sha)
+
+    def judge(bad_heir, dark_heir):
+        findings, blind, inherited, held = [], [], 0, 0
+        for path in now:
+            extra = cur.bad[path] - bad_heir.get(path, empty)
+            inherited += sum(cur.bad[path].values()) - sum(extra.values())
+            findings += ["%s: %s" % (path, c) for c in sorted(extra.elements())]
+            dark = cur.unparsed[path] - dark_heir.get(path, empty)
+            held += sum(cur.unparsed[path].values()) - sum(dark.values())
+            blind += ["%s: %s" % (path, c) for c in sorted(dark.elements())]
+        return findings, blind, inherited, held
+
+    findings, blind, inherited, held = judge(heir_bad, heir_dark)
+    edge_only = judge(was.bad, was.unparsed)
+    from_tips = inherited + held - edge_only[2] - edge_only[3]
     control = sum(sum(c.values()) for c in was.bad.values()) + was.full
     digests = cur.full + inherited + len(findings)
     say("CENSUS", "записей %d · команд дайджеста %d: с --full-index %d, "
         "без --full-index %d (унаследовано %d, новых %d) · труб в хеш %d: "
         "командой дайджеста %d, не разобрано %d (унаследовано %d, новых %d), "
         "иных труб %d · записей с трубой без команды дайджеста %d · граница %s: "
-        "записей %d, команд %d" % (
+        "записей %d, команд %d · вершин линий до правила %d: в истории HEAD %d, "
+        "не сошлись %d, унаследовано с них %d" % (
             len(now), digests, cur.full, inherited + len(findings), inherited,
             len(findings), digests + held + len(blind) + cur.other, digests,
             held + len(blind), held, len(blind), cur.other, cur.bare,
-            base[:12], len(old), control))
+            base[:12], len(old), control, len(PRE_RULE_TIPS),
+            len(good) + len(knows), len(open_), from_tips))
 
     if not now:
         say("FAIL", "записей 0 на %s — обход пуст, о дереве не прочитано ничего"
@@ -204,13 +291,21 @@ def main(argv=None):
         say("FAIL", "положительный контроль: на границе не распознано ни одной "
             "команды дайджеста — распознаватель слеп к форме записей", True)
         return 1
+    for sha, why in knows:
+        say("FAIL", "вершина линии до правила %s знает правило ws#818 — %s: её "
+            "записи судятся как новые, перечень PRE_RULE_TIPS не прощает "
+            "записей, снятых при правиле" % (sha[:12], why), True)
+    for sha in idle:
+        say("FAIL", "вершина линии до правила %s без предмета: сведена в HEAD, а "
+            "унаследовать с неё сверх границы нечего — строку PRE_RULE_TIPS "
+            "снимают" % sha[:12], True)
     for f in findings:
         say("FAIL", "команда дайджеста без --full-index: " + f, True)
     for f in blind:
         say("FAIL", "команда дайджеста не разобрана распознавателем: " + f
             + " — форма вне наблюдения: распознаватель учат форме либо запись "
             "пишут разбираемой формой", True)
-    return 1 if findings or blind else 0
+    return 1 if findings or blind or knows or idle else 0
 
 
 if __name__ == "__main__":

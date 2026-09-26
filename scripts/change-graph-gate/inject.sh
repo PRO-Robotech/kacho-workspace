@@ -441,18 +441,90 @@ C5="check-05-review-digest-is-full-index.sh"
 # rec <каталог> <путь> <текст> — запись ревью в песочнице.
 rec() { mkdir -p "$(dirname "$1/$2")"; printf '%s\n' "$3" >> "$1/$2"; }
 
+# const5 <каталог> <имя> <sha> — константа гейта (BOUNDARY, RULE) вписывается в
+# ЕДИНСТВЕННОЕ место, где гейт её объявляет; не вписалась — пробы о другом
+# гейте, отказ.
+const5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"
+    sed -i "s/^$2 = \"[0-9a-f]\{40\}\"$/$2 = \"$3\"/" "$g" 2> /dev/null
+    grep -qx "$2 = \"$3\"" "$g" 2> /dev/null \
+        || { echo "ОТКАЗ: константы $2 в $g вписать некуда" >&2; exit 1; }
+}
+
+# tips5 <каталог> [<sha>…] — перечень вершин линий до правила целиком; пустой
+# вызов делает мир песочницы независимым от вершин настоящего дерева.
+tips5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"; shift
+    python3 - "$g" "$@" << 'PY' \
+        || { echo "ОТКАЗ: перечня PRE_RULE_TIPS в $g вписать некуда" >&2; exit 1; }
+import re
+import sys
+path, tips = sys.argv[1], sys.argv[2:]
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+body = "".join('    "%s",\n' % t for t in tips)
+new, n = re.subn(r"^PRE_RULE_TIPS = \(\n(?:    .*\n)*?\)$",
+                 lambda _m: "PRE_RULE_TIPS = (\n" + body + ")", text,
+                 count=1, flags=re.M)
+if n != 1:
+    sys.exit(1)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new)
+PY
+}
+
 # world5 <каталог> [<текст унаследованной записи>] — граница: коммит с записью,
-# чья команда без --full-index. Граница вписывается в ЕДИНСТВЕННОЕ место, где
-# гейт её объявляет; не вписалась — пробы о другом гейте, отказ.
+# чья команда без --full-index. Тот же коммит объявлен коммитом правила,
+# перечень вершин линий до правила пуст.
 world5() {
-    local g="$1/scripts/change-graph-gate/digestform.py" b
+    local b
     rec "$1" docs/changes/p/reviews/post-diff/r/old.yaml \
         "${2-command: git diff aaa...bbb | sha256sum}"
     commit_all "$1" boundary
     b="$(git -C "$1" rev-parse HEAD)"
-    sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$b\"/" "$g" 2> /dev/null
-    grep -qx "BOUNDARY = \"$b\"" "$g" 2> /dev/null \
-        || { echo "ОТКАЗ: границы в $g вписать некуда" >&2; exit 1; }
+    const5 "$1" BOUNDARY "$b"
+    const5 "$1" RULE "$b"
+    tips5 "$1"
+}
+
+# commit_at / merge_at <каталог> <дата> … — коммит и сведение с датой автора и
+# коммиттера: «до правила» в пробе задают часы, а не скорость прогона.
+commit_at() {
+    ( export GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2"; commit_all "$1" "$3" )
+}
+merge_at() {
+    ( export GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2"
+      git -C "$1" merge -q --no-ff --no-edit "$3" > /dev/null 2>&1 )
+}
+
+TIPREC=docs/changes/q/reviews/post-diff/r/tip.yaml
+
+# world5tip <каталог> <откуда линия: root|rule> <дата вершины> <свести: yes|no>
+# — линия `side` пишет запись без --full-index и объявлена вершиной до правила.
+# Коммит правила и граница — один коммит ствола от 2001-01-03. Линия ответвлена
+# от корня (правила не знает) либо от коммита правила (знает). Вершина — в TIP.
+world5tip() {
+    local d="$1" b=""
+    commit_at "$d" "2001-01-01T00:00:00Z" root
+    if [ "$2" = rule ]; then
+        rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "command: git diff aaa...bbb | sha256sum"
+        commit_at "$d" "2001-01-03T00:00:00Z" boundary
+        b="$(git -C "$d" rev-parse HEAD)"
+    fi
+    git -C "$d" checkout -q -b side
+    rec "$d" "$TIPREC" "command: git diff aaa...eee | sha256sum"
+    commit_at "$d" "$3" side
+    TIP="$(git -C "$d" rev-parse HEAD)"
+    git -C "$d" checkout -q -
+    if [ "$2" = root ]; then
+        rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "command: git diff aaa...bbb | sha256sum"
+        commit_at "$d" "2001-01-03T00:00:00Z" boundary
+        b="$(git -C "$d" rev-parse HEAD)"
+    fi
+    [ "$4" = yes ] && merge_at "$d" "2001-01-06T00:00:00Z" side
+    const5 "$d" BOUNDARY "$b"
+    const5 "$d" RULE "$b"
+    tips5 "$d" "$TIP"
 }
 
 # says <каталог> <код> <подстрока> <утверждение> — код И текст: находка обязана
@@ -553,6 +625,33 @@ d="$(sandbox c5-noboundary)"; world5 "$d"
 sed -i "s/^BOUNDARY = \"[0-9a-f]\{40\}\"$/BOUNDARY = \"$(printf '0%.0s' {1..40})\"/" \
     "$d/scripts/change-graph-gate/digestform.py"
 says "$d" 2 "граница" "граница не разрешается в клоне -> без предмета, а не 'находок 0'"
+
+# Линии, писавшие записи ДО правила и сходящиеся позже границы (ws#822, ws#824).
+# Пары меняют по одному факту против c5-tip: дату вершины, её основание,
+# сведение, дописанную команду, наличие записи.
+d="$(sandbox c5-tip)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+says "$d" 0 "в истории HEAD 1, не сошлись 0, унаследовано с них 1" "запись линии до правила сведена в HEAD -> унаследована с вершины, молчит и сосчитана"
+
+d="$(sandbox c5-tip-late)"; world5tip "$d" root "2001-01-05T00:00:00Z" yes
+says "$d" 1 "знает правило" "вершина снята позже коммита правила -> перечень не прощает записи при правиле, краснеет"
+
+d="$(sandbox c5-tip-knows)"; world5tip "$d" rule "2001-01-02T00:00:00Z" yes
+says "$d" 1 "знает правило" "вершина содержит коммит правила -> краснеет, её записи судятся как новые"
+
+d="$(sandbox c5-tip-edit)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+rec "$d" "$TIPREC" "again: git diff aaa...fff | sha256sum"; commit_at "$d" "2001-01-07T00:00:00Z" edit
+says "$d" 1 "без --full-index: $TIPREC" "в запись линии до правила после вершины дописана команда -> краснеет и называет путь"
+
+d="$(sandbox c5-tip-open)"; world5tip "$d" root "2001-01-02T00:00:00Z" no
+says "$d" 0 "в истории HEAD 0, не сошлись 1" "вершина объявлена, линия не сведена -> не судится, сосчитана несошедшейся"
+
+d="$(sandbox c5-tip-gone)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
+git -C "$d" rm -q "$TIPREC"; commit_at "$d" "2001-01-07T00:00:00Z" gone
+says "$d" 1 "без предмета" "вершина в истории HEAD, а наследовать с неё нечего -> строка перечня без предмета, краснеет"
+
+d="$(sandbox c5-norule)"; world5 "$d"
+const5 "$d" RULE "$(printf '0%.0s' {1..40})"
+says "$d" 2 "коммит правила" "коммит правила не разрешается в клоне -> без предмета, а не 'находок 0'"
 
 d="$(sandbox c5-nocommit)"
 says "$d" 2 "HEAD" "в песочнице нет ни одного коммита -> без предмета"
