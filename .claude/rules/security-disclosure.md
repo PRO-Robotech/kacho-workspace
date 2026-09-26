@@ -21,6 +21,6 @@ disc-self-apply-recoverability · признак восстановимости 
 
 disc-recoverability-predicate · переписывать сообщение коммита, если читатель без доступа к коду восстановит по нему состояние до фикса настолько, чтобы воспользоваться · ЗАВЕСТИ disc-recoverability-predicate · red: «уровень контракта и поведения» как критерий
 disc-preservation-proof · давать только после git diff <исходный> HEAD -- $(git show --name-only --format= <исходный>) = пусто · ЗАВЕСТИ disc-preservation-proof · red: «влито» без проверки (слияние могло быть частичным)
-disc-rewrite-history-needs-owner · переписывать историю публичной ветки принудительно — только с разрешения владельца; штатно — merge --squash + удаление ветки · ЗАВЕСТИ disc-rewrite-history-needs-owner · red: force-push по своему решению
+disc-rewrite-history-needs-owner · переписывать историю публичной ветки принудительно — только с разрешения владельца; штатно — коммит слияния + удаление ветки · ЗАВЕСТИ disc-rewrite-history-needs-owner · red: force-push по своему решению
 disc-squash-says-it-is-squashed · тело squash-коммита обязано нести «схлопнуто из <ветка>, исходные коммиты <sha>; ветка удалена» — правило и для cherry-pick · ЗАВЕСТИ disc-squash-says-it-is-squashed · red: отсутствие хеша читается как потеря работы
 disc-hash-exception-when-rewritten · исходные хеши не перечислять, если сообщения переписаны по дисциплине публичного репо; называть ветку и причину · ЗАВЕСТИ disc-hash-exception-when-rewritten · red: ссылка на объект со старым текстом
