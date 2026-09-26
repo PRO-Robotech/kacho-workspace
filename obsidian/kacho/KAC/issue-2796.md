@@ -4,7 +4,7 @@ aliases:
   - issue-2796
 ticket_id: 2796
 category: kac
-status: in-progress
+status: done
 type: epic
 repos:
   - kacho
@@ -15,19 +15,25 @@ areas:
   - deploy
   - .github/workflows
 prs:
+  - https://github.com/PRO-Robotech/kacho/pull/2869
   - https://github.com/PRO-Robotech/kacho/pull/2856
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2796
 opened: 2026-09-22
 tags:
   - kac
   - epic
-verified_against: "PRO-Robotech/kacho: origin/2796 = 87db6534a7a2c98a3deec264f8697e7352c37e9c на 2026-09-24 (`git ls-remote origin refs/heads/2796`); запросы в ветку волны — `gh pr list --state all --base 2796` (2 запроса, оба влиты). Состав задач волны перечнем здесь не держится — только командой"
+verified_against: "PRO-Robotech/kacho: origin/2796 = 87db6534a7a2c98a3deec264f8697e7352c37e9c на 2026-09-24 (`git ls-remote origin refs/heads/2796`); запросы в ветку волны — `gh pr list --state all --base 2796` (2 запроса, оба влиты). Состав задач волны перечнем здесь не держится — только командой. Запрос волны #2869 `2796` → `2564` влит 2026-09-26T08:09:51Z коммитом слияния 7190c3e5274a29353276aa74f689bb98e733da9f (родители d68ef02a00b, ec8f4f445b4; `gh pr view 2869`, `git log -1 --format=%P`); закрытие — `gh issue view 2796 -R PRO-Robotech/kacho --json state,closedAt` — CLOSED 2026-09-26T09:41:22Z; головы задач сборки 1 — перемерено мной 2026-09-26: `git merge-base --is-ancestor <голова> <origin/2564>` — код 0, против origin/main — код 1; origin/2564 = 7190c3e5274a29353276aa74f689bb98e733da9f, origin/main = 1d42a6728bf68fc37f31bf004bf2e82266b9c5f2 (`git ls-remote origin`)"
 ---
 
 # kacho#2796: волна-2 identity-own — сборки, влитые в ветку волны
 
 **Состояние на момент записи**: `in-progress` — 2026-09-24. Волна **открыта**; её запрос в
 ветку эпика `2564` (координата, не живая ссылка) не открыт. Родитель — эпик #2564.
+
+**Состояние на 2026-09-26**: `done`. Запрос волны PR #2869 `2796` → `2564` влит коммитом
+слияния `7190c3e5274`; по каскаду закрытия (`git-issues.md#gi-close-cascade`, решение
+владельца 2026-09-26) волна закрыта тем же днём вместе с задачами. Перепись дочерних и остатки,
+переданные в следующие волны, — в закрывающей записи, комментарием в задаче.
 
 ## Что и зачем
 
@@ -47,8 +53,10 @@ gh api repos/PRO-Robotech/kacho/issues/2796/sub_issues --paginate -q '.[] | "#\(
 Готовые задачи сводятся в ветку сборки коммитом слияния (`git merge --no-ff`), и конвейер,
 рецензенты и приёмка гоняются **один раз** на голову сборки. Возвраты идут по задачам в их
 ветки, затем одно повторное сведение и один повторный прогон. Вердикт снимается по прогонам
-головы запроса (`gh run list --commit <sha>`). Задачи, влитые в волну, не закрываются: метка
-`status:test`, закроет их посадка эпика в `main`.
+головы запроса (`gh run list --commit <sha>`). Задача, влитая в волну, несёт `status:test` и
+закрывается вместе с волной, когда запрос волны влит в ветку эпика
+(`git-issues.md#gi-close-cascade`). До 2026-09-26 здесь стояло «закроет их посадка эпика в
+`main`» — ту норму отменило решение владельца того дня.
 
 ## Сборки
 
@@ -56,9 +64,11 @@ gh api repos/PRO-Robotech/kacho/issues/2796/sub_issues --paginate -q '.[] | "#\(
 |---|---|---|---|---|---|---|
 | 1 | #2855 (закрыта) | PR #2856, влит 2026-09-24T12:59:01Z | `ce59e5769df49b66dcd16e1f073ce6b3bdba0c9a` | `87db6534a7a2c98a3deec264f8697e7352c37e9c` | [[KAC/issue-2807\|#2807]] @ `d2a10170d4d`, исправления `a51bfc78a65`, `57f182db0b3`; [[KAC/issue-2833\|#2833]] @ `3f5041eb9a5` | 9 прогонов, все `completed success` |
 
-Состав сборки 1 сверен мной: каждая голова задачи — предок головы сборки и origin/`2796`,
-и ни одна не предок origin/`2564` и origin/`main` (`git merge-base --is-ancestor`). Файлы
-задач (12 и 1) на голове сборки равны их головам.
+Состав сборки 1 сверен мной 2026-09-24: каждая голова задачи — предок головы сборки и
+origin/`2796`, и ни одна не предок origin/`2564` и origin/`main` (`git merge-base
+--is-ancestor`). Файлы задач (12 и 1) на голове сборки равны их головам. После вливания
+запроса волны (перемерено мной 2026-09-26) головы — предки origin/`2564` @ `7190c3e5274` и не
+предки origin/`main`.
 
 ## Затронутые сущности vault
 

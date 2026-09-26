@@ -11,8 +11,8 @@
 # показано, что на настоящей находке она краснеет И называет имя.
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
-# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ; что
-# держит каждая —
+# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN;
+# что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -98,6 +98,21 @@
 #      вердикт держит BV); незаписавшийся ответ истории (BV); пути истории и
 #      касания — сами, с -z (BW, BX); перечень ствола не ASCII (BY, предпосылка —
 #      BZ).
+#   CA–CH. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2): со стволом
+#      эпика `--prune-merged` оставляет волну без своего коммита (CA), снимает
+#      задачу, влитую в эпик коммитом слияния, — законный близнец (CB),
+#      оставляет цель из BRANCH_AUDIT_KEEP (CC) и ветку по умолчанию, чья
+#      голова — второй родитель догона (CD); итог считает «к снятию» за вычетом
+#      целей и веток без своего коммита (CE); мутация исключения по первой
+#      линии и мутация исключения целей красят свои утверждения (CF, CG); на
+#      origin та же пометка у волны и у ветки по умолчанию (CH).
+#   CI–CN. КРУГ 3 (ws#847): исключение без своего коммита истекает — только
+#      локальная ветка без копии, чья ссылка не двигалась в окне, снимается (CI),
+#      а та же ветка со свежим журналом ссылки на том же давнем коммите держится
+#      окном (CJ); снятие переписью судит байты, а не предка: исходник местного
+#      переноса, не предок цели, снят по пустой дельте слияния (CM); мутации —
+#      бессрочное исключение (CK), окно по времени коммита (CL), снятие, суженное
+#      до предков (CN), — красят каждая своё утверждение.
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -1593,6 +1608,164 @@ else
   say "❌ BJ" "путь рабочей копии обрезан на пробеле — живая копия подана брошенной или безымянной"; fail=1
   grep -F 'f-wt-live' <<<"$BJ_OUT" | head -3 || true
 fi
+
+# --- CA–CH. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2) ---------
+# Предок ствола — не то же, что «влита». Живая волна до первой сборки лежит на
+# первой линии ствола эпика, и `--prune-merged` со стволом эпика её снимала
+# (замер 2026-09-26: origin/786 = origin/771). Репозиторий свой, по пробе —
+# заново: снятие необратимо, и вторая проба на остатке первой судила бы другое.
+ct_build() { # $1 = каталог → эпик на origin; task и named влиты в эпик; wave — без
+  #          своего коммита; main догнан эпиком (голова main — второй родитель);
+  #          stale-local и fresh-local — без своего коммита, только локально, на
+  #          ДАВНЕМ стволовом коммите, журнал ссылки давний и свежий; leak —
+  #          исходник местного переноса: не предок, его дельту внёс transfer
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config user.email inject@example.invalid
+    git config user.name inject
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    echo ствол > t.txt && git add t.txt
+    GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb epic && echo эпик > e.txt && git add e.txt && git commit -qm "работа эпика"
+    git checkout -qb task epic && echo задача > task.txt && git add task.txt && git commit -qm "работа задачи"
+    git checkout -q epic && git merge -q --no-ff -m "влить task" task
+    git checkout -qb named epic && echo цель > named.txt && git add named.txt && git commit -qm "работа цели"
+    git checkout -q epic && git merge -q --no-ff -m "влить named" named
+    git branch wave epic
+    git push -q origin wave
+    GIT_COMMITTER_DATE=$old git branch stale-local main
+    git branch fresh-local main
+    git checkout -qb leak epic && echo раскрытое > leak.txt && git add leak.txt && git commit -qm "раскрывающее"
+    echo ещё >> leak.txt && git commit -qam "раскрывающее ещё"
+    git checkout -qb transfer epic && git diff --binary epic...leak | git apply --index
+    git commit -qm "перенос одним коммитом" && git rev-parse leak > "$d.leak-sha"
+    git checkout -q epic && git merge -q --no-ff -m "влить transfer" transfer && git branch -q -D transfer
+    git checkout -q main && echo дальше > m.txt && git add m.txt && git commit -qm "ствол ушёл"
+    git push -q origin main
+    git checkout -q epic && git merge -q --no-ff -m "эпик догоняет main" main
+    git push -qu origin epic
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+}
+ct_run() { # $1 = исполняемый → CT_OUT; каталог — $CT; окно — CT_FRESH (умолчание 0)
+  ct_build "$CT"
+  set +e
+  CT_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN="${CT_FRESH:-0}" BRANCH_AUDIT_TRUNK=origin/epic \
+    BRANCH_AUDIT_KEEP="named" "$1" --prune-merged "$CT" 2>&1)
+  set -e
+}
+ct_ref() { git -C "$CT" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+CT="$TMP/cascade"
+ct_run "$AUDIT"; CT_BASE=$CT_OUT
+
+if grep -qF 'оставлена wave — своего коммита нет' <<<"$CT_BASE" && ct_ref wave &&
+   f_has "$CT_BASE" "ВЛИТЫ" "wave —" 'СВОЕГО КОММИТА НЕТ'; then
+  say "✅ CA" "волна без своего коммита на первой линии ствола эпика помечена и не снята"
+else
+  say "❌ CA" "волна без своего коммита снята либо не помечена переписью со стволом эпика"; fail=1
+  grep -F 'wave' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА task' <<<"$CT_BASE" && ! ct_ref task; then
+  say "✅ CB" "задача, влитая в эпик коммитом слияния, снята — законный близнец волны"
+else
+  say "❌ CB" "задача, влитая в эпик, не снята — исключение накрыло влитую работу"; fail=1
+  grep -F 'task' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'оставлена named — цель каскада' <<<"$CT_BASE" && ct_ref named; then
+  say "✅ CC" "цель из BRANCH_AUDIT_KEEP оставлена, хотя влита"
+else
+  say "❌ CC" "цель из BRANCH_AUDIT_KEEP снята"; fail=1
+fi
+if grep -qF 'оставлена main — цель каскада' <<<"$CT_BASE" && ct_ref main; then
+  say "✅ CD" "ветка по умолчанию, догнанная эпиком, оставлена без перечня"
+else
+  say "❌ CD" "ветка по умолчанию снята переписью со стволом эпика"; fail=1
+fi
+if grep -qF 'влитых 7 (к снятию 4, из них без своего коммита, только локально и вне окна 2; целей каскада 2, своего коммита нет 1)' <<<"$CT_BASE"; then
+  say "✅ CE" "итог «к снятию» считает влитые за вычетом целей и веток без своего коммита"
+else
+  say "❌ CE" "итог влитых не отделяет цели и ветки без своего коммита: $(grep -o 'влитых [^)]*)' <<<"$CT_BASE" | head -1)"; fail=1
+fi
+
+# CH — раздел origin «без предмета» зовёт проверить ветку перед снятием, и живая
+# волна там без пометки выглядела бы мусором ровно так же, как в «ВЛИТЫ».
+if f_has "$CT_BASE" "НА ORIGIN" "wave —" 'СВОЕГО КОММИТА НЕТ' &&
+   f_has "$CT_BASE" "НА ORIGIN" "main —" 'ЦЕЛЬ КАСКАДА'; then
+  say "✅ CH" "на origin волна без своего коммита и ветка по умолчанию помечены так же, как локально"
+else
+  say "❌ CH" "раздел origin без предмета не метит цели каскада и ветки без своего коммита"; fail=1
+  f_sec "$CT_BASE" "НА ORIGIN" | head -4 || true
+fi
+
+# CI — исключение без своего коммита ИСТЕКАЕТ (ws#847, круг 3): ветка, которой
+# нет на origin, без копии, чья ссылка не двигалась в окне, в счёт «к снятию»
+# идёт и снимается — иначе исключение держало бы её вечно. Силуэт волны тот же,
+# разница одна — ветки нет на origin.
+if grep -qF 'СНЯТА stale-local' <<<"$CT_BASE" && ! ct_ref stale-local &&
+   f_has "$CT_BASE" "ВЛИТЫ" "stale-local —" 'только локально, без копии и вне окна свежести — к снятию'; then
+  say "✅ CI" "ветка без своего коммита, только локально и вне окна, помечена к снятию и снята"
+else
+  say "❌ CI" "исключение без своего коммита не истекает: только локальная давняя ветка оставлена"; fail=1
+  grep -F 'stale-local' <<<"$CT_BASE" | head -3 || true
+fi
+
+# CM — предикат снятия переписью — байты, а не предок (круг 3,
+# `gi-prune-census-predicate`): исходник местного переноса (leak) не предок
+# эпика — это предпосылка, проверенная по sha до снятия, — а его дельту внёс
+# transfer, и дельта слияния пуста. Перепись относит его к «ВЛИТЫ» и снимает.
+CT_LEAK=$(cat "$CT.leak-sha" 2>/dev/null || true)
+if [ -n "$CT_LEAK" ] && ! git -C "$CT" merge-base --is-ancestor "$CT_LEAK" origin/epic 2>/dev/null &&
+   f_has "$CT_BASE" "ВЛИТЫ" "leak —" 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' &&
+   grep -qF 'СНЯТА leak' <<<"$CT_BASE" && ! ct_ref leak; then
+  say "✅ CM" "исходник местного переноса — не предок цели — снят по пустой дельте слияния"
+else
+  say "❌ CM" "исходник переноса не снят переписью либо предпосылка «не предок» не подтверждена (sha ${CT_LEAK:-нет})"; fail=1
+  grep -F 'leak' <<<"$CT_BASE" | head -3 || true
+fi
+
+# CJ — законный близнец CI: та же ветка на том же давнем стволовом коммите, но её
+# ССЫЛКА заведена только что (журнал ссылки свежий) — окно держит её. Разница с
+# CI одна — время журнала ссылки; коммит у обеих давний, поэтому окно по времени
+# коммита их не различило бы. Прогон с окном 45 минут.
+CT_FRESH=45 ct_run "$AUDIT"; CT_WIN=$CT_OUT
+if grep -qF 'оставлена fresh-local — своего коммита нет' <<<"$CT_WIN" && ct_ref fresh-local &&
+   grep -qF 'СНЯТА stale-local' <<<"$CT_WIN"; then
+  say "✅ CJ" "свежая ссылка без своего коммита держится окном по журналу ссылки, давняя рядом снята"
+else
+  say "❌ CJ" "окно свежести не различает давнюю и свежую ссылку на одном стволовом коммите"; fail=1
+  grep -F -e 'fresh-local' -e 'stale-local' <<<"$CT_WIN" | head -4 || true
+fi
+
+ct_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = признак красного
+  local m="$TMP/ct-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  ct_run "$m"
+  if grep -qF -- "$6" <<<"$CT_OUT"; then
+    say "✅ $1" "мутация «$5» красит $2: $6"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+ct_mutant CF CA 'while read -r c; do TRUNK_FP["$c"]=1; done' ':' \
+  "первая линия ствола не читается" "СНЯТА wave"
+ct_mutant CG CC $'    if [ -n "${KEEP[$b]+x}" ]; then\n      echo "   оставлена $b — цель каскада' \
+  $'    if false; then\n      echo "   оставлена $b — цель каскада' "цели каскада снимаются" "СНЯТА named"
+ct_mutant CK CI '  [ "${3:-}" = local ] || { OWNLESS_WHY="есть на origin"; return 0; }' \
+  '  OWNLESS_WHY="мутант: исключение бессрочно"; return 0' "исключение без своего коммита бессрочно" \
+  "оставлена stale-local — своего коммита нет"
+CT_FRESH=45 ct_mutant CL CJ '  moved=$(ref_moved_ct "$2")' '  moved=$(git log -1 --format=%ct "$2")' \
+  "окно по времени коммита, а не журнала ссылки" "СНЯТА fresh-local"
+ct_mutant CN CM $'    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
+  $'    git merge-base --is-ancestor "refs/heads/$b" "$TRUNK" || { echo "   оставлена $b — не предок ствола"; kept=$((kept+1)); continue; }\n    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
+  "снятие переписью сужено до предков цели" "оставлена leak — не предок ствола"
 
 echo
 if [ "$fail" -eq 0 ]; then

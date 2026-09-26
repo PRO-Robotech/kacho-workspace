@@ -4,7 +4,7 @@ aliases:
   - issue-394-kaname
 ticket_id: 394
 category: kac
-status: test
+status: done
 type: fix
 repos:
   - kaname
@@ -20,14 +20,21 @@ tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633574a95415731403e59be613fef (= голова PR #400) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); ветка 394 с origin снята. Предикат сверен: 9 контекстов `branches/main/protection/required_status_checks` против `statusCheckRollup` PR #411, 2026-09-24"
+verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633574a95415731403e59be613fef (= голова PR #400) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); ветка 394 с origin снята. Предикат сверен: 9 контекстов `branches/main/protection/required_status_checks` против `statusCheckRollup` PR #411, 2026-09-24; закрытие — `gh issue view 394 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:37Z; голова `09bb99905d9` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
 ---
 
 # kaname#394: конвейер идёт на запросе в ветки волн и эпика
 
 **Состояние на момент записи**: `test` — 2026-09-24. Задача **открыта**, метка `status:test`.
-Влита в ветку волны [[KAC/issue-358-kaname|#358]] сборкой 1 и в `main` **не** доехала:
-закроет её посадка эпика #357 в ствол.
+Влита в ветку волны [[KAC/issue-358-kaname|#358]] сборкой 1 и в `main` **не** доехала.
+Тогдашняя норма держала задачу волны открытой до посадки эпика в ствол; её отменил каскад
+закрытия 2026-09-26.
+
+**Состояние на 2026-09-26**: `done`. Закрыта вместе со своей волной
+[[KAC/issue-358-kaname|#358]]: запрос волны #422 влит в ветку эпика `357` коммитом слияния
+`fc9f5aff19c`, и по каскаду закрытия (`git-issues.md#gi-close-cascade`, решение владельца
+2026-09-26) задачи волны закрыты тем же заходом. Закрывающая запись с коммитом работы и исходом
+предиката — комментарий в задаче. Посадка эпика #357 в `main` — предмет эпика, а не задачи.
 
 ## Что и зачем
 
@@ -53,7 +60,9 @@ verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633
       #411 (`408` → `358`) все 9 контекстов защиты `main` — `SUCCESS`, прогоны события
       `pull_request` (ci, образ службы, e2e-newman);
 - [x] ветка задачи влита в ветку волны `358` коммитом слияния — через сборку 1;
-- [ ] предмет в стволе: изменение доехало до `main` посадкой эпика #357.
+- [x] задача закрыта вместе с волной #358: её запрос #422 влит в ветку эпика `357`,
+      голова задачи `09bb99905d9` — предок origin/`357` и не предок origin/`main` (перемерено
+      мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
 
 ## Затронутые сущности vault
 

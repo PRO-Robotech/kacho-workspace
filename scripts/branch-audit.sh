@@ -196,7 +196,10 @@
 #               не больше 16), BRANCH_AUDIT_EXACT=1 (эталон: всё поштучно),
 #             BRANCH_AUDIT_ALL_FILES=1 (весь перечень непоглощённых файлов, а
 #               не первые три), BRANCH_AUDIT_PR_LIMIT (предел выдачи gh pr list,
-#               умолчание 5000; выдача, равная пределу, — перепись PR неполна).
+#               умолчание 5000; выдача, равная пределу, — перепись PR неполна),
+#             BRANCH_AUDIT_KEEP (цели каскада через пробел — ветки открытых
+#               эпиков и волн; `--prune-merged` их не снимает, ветку по
+#               умолчанию origin — тоже, без перечня).
 #
 # БЕЗ `--prune-merged` скрипт НИЧЕГО НЕ УДАЛЯЕТ: он печатает списки и объём
 # осмотренного, решение принимает человек — третий вид требует сдать работу, а
@@ -205,9 +208,49 @@
 # С `--prune-merged` снимаются ТОЛЬКО локальные ветки раздела «ВЛИТЫ», и по
 # каждой печатается, снята она или оставлена и почему. Не снимаются никогда:
 # занятые рабочей копией · двигавшиеся в окне FRESH_MIN · ветка ствола · текущая
-# ветка HEAD · всё, что не попало в раздел «ВЛИТЫ». Причина ограничений — не
-# осторожность, а замеренный класс: вердикт устаревает за минуты, а `git branch
-# -D` необратим.
+# ветка HEAD · цель каскада (ветка по умолчанию origin и BRANCH_AUDIT_KEEP) ·
+# ветка без своего коммита, пока она есть на origin либо её ссылка двигалась в
+# окне FRESH_MIN · всё, что не попало в раздел «ВЛИТЫ». Причина ограничений — не
+# осторожность, а замеренный класс: вердикт устаревает за минуты, а
+# `git branch -D` необратим.
+#
+# ПРЕДИКАТ СНЯТИЯ ЗДЕСЬ — БАЙТЫ, А НЕ ПРЕДОК (ws#847, круг 3;
+# `git-issues.md#gi-prune-census-predicate`). В «ВЛИТЫ» стоят и предки ствола, и
+# ветки, чья дельта слияния пуста либо поглощена пофайлово побайтово (признаки
+# 1, 5, 6а, 6б), — предками они не стали: схлопнутые до 2026-09-22 и исходник
+# местного переноса, чью дельту внесла в приёмник ветка переноса. Замер
+# рецензента волны 2026-09-26 (ws PR 849, круг 3) на воркспейсе со стволом
+# `origin/main`: в «ВЛИТЫ» 10 веток, не предков ствола среди них 10. Предикат
+# предка — у снятия при вливании, где снимается голова,
+# равная влитой (`gi-prune-commit-predicate`); перепись его не заменяет и им не
+# сужается.
+#
+# ВЕТКА БЕЗ СВОЕГО КОММИТА НЕ ВЛИТА (ws#847, круг 2). Предок ствола — не то же,
+# что «влита»: ветка, чья голова лежит на ПЕРВОЙ ЛИНИИ ствола
+# (`git rev-list --first-parent <ствол>`), не внесла в него ни одного коммита —
+# это ствол в прошлом, а не работа, пришедшая слиянием. Так выглядит живая
+# волна до первой сборки: замер 2026-09-26 — `origin/786` равна `origin/771`, и
+# перепись со стволом `origin/771` отнесла бы волну к влитым и сняла бы её.
+# Влитая работа приходит коммитом слияния и лежит вторым родителем — на первую
+# линию она не попадает. Такая ветка остаётся в «ВЛИТЫ» с пометкой (строки
+# режима кандидатов и полной переписи совпадают), в счёт «к снятию» не идёт и
+# при снятии называется оставленной; та же пометка — у её копии на origin в
+# разделе «без предмета», который зовёт проверить ветку перед снятием. Цели каскада не выводятся из дерева —
+# открыт ли эпик, знает трекер, — поэтому их называет вызывающий; ветку по
+# умолчанию origin (`main`) скрипт держит сам: при стволе эпика, догнавшего
+# `main`, её голова — второй родитель слияния догона.
+#
+# ИСКЛЮЧЕНИЕ БЕЗ СВОЕГО КОММИТА ИСТЕКАЕТ (ws#847, круг 3). Живая волна лежит на
+# origin, свежая ветка только что заведена — а ветка, которой нет на origin, чья
+# ссылка не двигалась дольше окна и которую не держит копия, не живая ничем:
+# замер 2026-09-26 — `project/kacho` `fix/2580-gates-resolution`, только
+# локально, своего коммита нет, две недели, без копии; исключение держало бы её
+# вечно, а хук молчал. Такая ветка в счёт «к снятию» идёт и снимается; её
+# снятие ничего не теряет — голова лежит в стволе. Свежесть здесь — время
+# ПОСЛЕДНЕЙ ЗАПИСИ ЖУРНАЛА ССЫЛКИ (`git reflog`), а не коммита: коммит головы —
+# стволовой, и его возраст говорит о стволе, а не о ветке; журнала нет — время
+# коммита. Origin не опрошен — «только локально» не доказано, и исключение
+# держится.
 #
 # ПОЧЕМУ СНЯТИЕ ЛОКАЛЬНОЙ ВЕТКИ ВООБЩЕ ЕСТЬ ПРЕДМЕТ. Висяк — это ССЫЛКА, а не
 # коммит: при схлопывании исходный коммит не становится предком ствола НИКОГДА,
@@ -264,6 +307,19 @@ TRUNK="${BRANCH_AUDIT_TRUNK:-origin/main}"
 # ветка переписи, и снятию не подлежит.
 TRUNK_BRANCH=${TRUNK#refs/remotes/}; TRUNK_BRANCH=${TRUNK_BRANCH#origin/}
 FRESH_MIN="${BRANCH_AUDIT_FRESH_MIN:-45}"
+# Цели каскада — не снимаются переписью (см. шапку). Имя — в тех же формах, что
+# у кандидата: короткое и полной ссылкой.
+DEFAULT_BRANCH=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)
+DEFAULT_BRANCH=${DEFAULT_BRANCH#origin/}; [ -n "$DEFAULT_BRANCH" ] || DEFAULT_BRANCH=main
+declare -A KEEP=()
+KEEP["$DEFAULT_BRANCH"]=1
+for k in ${BRANCH_AUDIT_KEEP:-}; do
+  case "$k" in
+    refs/heads/*) k=${k#refs/heads/} ;;
+    refs/remotes/origin/*) k=${k#refs/remotes/origin/} ;;
+  esac
+  KEEP["$k"]=1
+done
 
 git rev-parse --verify --quiet "$TRUNK^{commit}" >/dev/null || {
   echo "branch-audit: ствол '$TRUNK' не разрешается — перепись была бы беспредметна" >&2
@@ -309,6 +365,50 @@ if [ "${BRANCH_AUDIT_NO_FETCH:-0}" != "1" ]; then
 fi
 
 TRUNK_SHA=$(git rev-parse "$TRUNK")
+# Первая линия ствола: голова на ней — ветка без своего коммита (см. шапку).
+declare -A TRUNK_FP=()
+while read -r c; do TRUNK_FP["$c"]=1; done < <(git rev-list --first-parent "$TRUNK")
+# ref_moved_ct $1 = ссылка → время последней записи её журнала (эпоха); журнала
+# нет — время коммита головы. Свежесть ветки без своего коммита — это движение
+# ССЫЛКИ: коммит у неё стволовой, и его возраст говорит о стволе (см. шапку).
+ref_moved_ct() {
+  local t
+  t=$(git reflog show --date=unix --format=%gd -n 1 "$1" -- 2>/dev/null || true)
+  t=${t##*@\{}; t=${t%\}}
+  case "$t" in ''|*[!0-9]*) t=$(git log -1 --format=%ct "$1" 2>/dev/null || echo 0) ;; esac
+  printf '%s' "$t"
+}
+# cascade_mark $1 = ветка, $2 = её ссылка, $3 = «local» у локальной ветки →
+# CMARK: «keep», «ownless», «stale» либо пусто; OWNLESS_WHY — почему держится.
+# Одна функция на обе стороны — локальную и origin: ветка origin без предмета
+# печатается «проверить перед снятием», и живая волна там выглядела бы мусором.
+# Ветка origin есть на origin по построению — исключение у неё держится всегда;
+# локальная держится, пока есть на origin, занята копией или её ссылка двигалась
+# в окне; иначе — «stale»: в счёт «к снятию», снимается.
+cascade_mark() {
+  CMARK=""; OWNLESS_WHY=""
+  local sha moved
+  if [ -n "${KEEP[$1]+x}" ]; then CMARK=keep; return 0; fi
+  sha=$(git rev-parse --verify --quiet "$2^{commit}" 2>/dev/null) || return 0
+  [ -n "${TRUNK_FP[$sha]+x}" ] || return 0
+  CMARK=ownless
+  [ "${3:-}" = local ] || { OWNLESS_WHY="есть на origin"; return 0; }
+  if [ "$remote_ok" != 1 ]; then OWNLESS_WHY="origin не опрошен — «только локально» не доказано"; return 0; fi
+  if [ -n "${ON_ORIGIN[$1]+x}" ]; then OWNLESS_WHY="есть на origin"; return 0; fi
+  if [ -n "${OCCUPIED[$1]+x}" ]; then OWNLESS_WHY="занята копией"; return 0; fi
+  moved=$(ref_moved_ct "$2")
+  if [ "$moved" -gt 0 ] && [ $(( (NOW - moved) / 60 )) -lt "$FRESH_MIN" ]; then
+    OWNLESS_WHY="ссылка двигалась $(( (NOW - moved) / 60 )) мин назад"; return 0
+  fi
+  CMARK=stale
+}
+mark_text() { # CMARK → пометка строки
+  case "$CMARK" in
+    keep) printf ' [ЦЕЛЬ КАСКАДА — переписью не снимается]' ;;
+    ownless) printf ' [СВОЕГО КОММИТА НЕТ — голова на первой линии ствола]' ;;
+    stale) printf ' [СВОЕГО КОММИТА НЕТ, но только локально, без копии и вне окна свежести — к снятию]' ;;
+  esac
+}
 TRUNK_TREE=$(git rev-parse "$TRUNK^{tree}")
 NOW=$(date +%s)
 
@@ -1595,6 +1695,8 @@ fresh_mark() { # $1 = время последнего коммита (%ct) → �
 }
 
 merged_local=(); orphan_remote=(); only_local=(); alive=(); split_work=(); prunable=()
+declare -A OWNLESS=()
+n_keep=0; n_ownless=0; n_stale=0
 undet_work=()
 examined_local=0; examined_remote=0; delta_checked=0
 sixth_checked=0; sixth_rescued=0
@@ -1725,10 +1827,16 @@ for bi in "${!LOCAL_BRANCHES[@]}"; do
   fresh=$(fresh_mark "$bct")
 
   if [ "$empty" = 1 ]; then
+    cascade_mark "$b" "refs/heads/$b" local; own=$(mark_text)
+    case "$CMARK" in
+      keep) n_keep=$((n_keep + 1)) ;;
+      ownless) n_ownless=$((n_ownless + 1)); OWNLESS["$b"]=$OWNLESS_WHY ;;
+      stale) n_stale=$((n_stale + 1)) ;;
+    esac
     if [ "$ancestor" = 1 ] && [ "$ahead" = 0 ]; then
-      merged_local+=("$b — $how${pr}${occ}${fresh}")
+      merged_local+=("$b — $how${pr}${occ}${fresh}${own}")
     else
-      merged_local+=("$b — +$ahead коммит(ов), но $how${pr}${occ}${fresh}")
+      merged_local+=("$b — +$ahead коммит(ов), но $how${pr}${occ}${fresh}${own}")
     fi
     prunable+=("$b")
   elif [ "$on_origin" = 0 ]; then
@@ -1805,7 +1913,8 @@ if [ "$remote_ok" = 1 ]; then
 
     delta_checked=$((delta_checked + 1))
     if [ "${RDELTA[$b]:-0}" = 1 ]; then
-      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}")
+      cascade_mark "$b" "$rref"
+      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}$(mark_text)")
       continue
     fi
 
@@ -1864,7 +1973,8 @@ echo "branch-audit: осмотрено локальных ${examined_local}, н�
      "шестой признак спрошен ${sixth_checked} раз и снял ${sixth_rescued} ложных находок;" \
      "перепись строк спрошена по ${census_asked} файл(ам), содержимое найдено по ${census_found};" \
      "путей, осмотреть которые не удалось, ${NOT_EXAMINED};" \
-     "влитых ${#merged_local[@]}, без предмета на origin ${#orphan_remote[@]}," \
+     "влитых ${#merged_local[@]} (к снятию $(( ${#merged_local[@]} - n_keep - n_ownless )), из них без своего коммита, только локально и вне окна ${n_stale};" \
+     "целей каскада ${n_keep}, своего коммита нет ${n_ownless}), без предмета на origin ${#orphan_remote[@]}," \
      "в единственном экземпляре ${#only_local[@]}, живых ${#alive[@]}," \
      "с расщеплённой работой ${#split_work[@]}, с неустановленным поглощением ${#undet_work[@]}," \
      "резервных ссылок ${#backup_refs[@]}"
@@ -1949,6 +2059,14 @@ if [ "$PRUNE" = 1 ]; then
     fi
     if [ "$b" = "$head_branch" ]; then
       echo "   оставлена $b — это текущая ветка HEAD"; kept=$((kept+1)); continue
+    fi
+    if [ -n "${KEEP[$b]+x}" ]; then
+      echo "   оставлена $b — цель каскада (ветка по умолчанию либо BRANCH_AUDIT_KEEP): её снимает вливание, а не перепись"
+      kept=$((kept+1)); continue
+    fi
+    if [ -n "${OWNLESS[$b]+x}" ]; then
+      echo "   оставлена $b — своего коммита нет: голова на первой линии ствола $TRUNK, влито нечего; ${OWNLESS[$b]}"
+      kept=$((kept+1)); continue
     fi
     ct=$(git log -1 --format=%ct "refs/heads/$b" 2>/dev/null || echo 0)
     if [ "$ct" -gt 0 ] && [ $(( (NOW - ct) / 60 )) -lt "$FRESH_MIN" ]; then
