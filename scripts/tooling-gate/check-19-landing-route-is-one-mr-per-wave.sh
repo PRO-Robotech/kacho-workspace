@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-10 — МАРШРУТ ПОСАДКИ И СРОК ЗАВЕДЕНИЯ ЗАДАЧИ О БЕЗОПАСНОСТИ, записанные
+# check-19 — МАРШРУТ ПОСАДКИ И СРОК ЗАВЕДЕНИЯ ЗАДАЧИ О БЕЗОПАСНОСТИ, записанные
 # в корпусе, соответствуют РЕШЕНИЯМ ВЛАДЕЛЬЦА 2026-09-20.
 #
 # ЧТО УТВЕРЖДАЕТ — два разных утверждения, ни одно не выводится из другого.
@@ -79,7 +79,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 WS="$(tooling_gate_workspace_root)"
-NAME="check-10-landing-route-is-one-mr-per-wave"
+NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 
 BASE_REL=".claude/agents/dispatcher.md"
 RULE_REL=".claude/rules/git-issues.md"
