@@ -4,7 +4,7 @@ aliases:
   - issue-788-ws
 ticket_id: 788
 category: kac
-status: to-do
+status: in-progress
 type: fix
 repos:
   - kacho-workspace
@@ -20,7 +20,7 @@ opened: 2026-09-22
 tags:
   - kac
   - fix
-verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, родитель ws#786, меток status:* и release:wave нет (`gh issue view 788`, `gh api .../parent`); в #853 коммитов с её номером нет (`git log 27eb0775..a9159c46`). Предмет и предикат — дословно из тела задачи (пересмотренное решение диспетчера 2026-09-26), мной не перемерялись"
+verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, родитель ws#786, меток status:* и release:wave нет (`gh issue view 788`, `gh api .../parent`); в #853 коммитов с её номером нет (`git log 27eb0775..a9159c46`). Предмет и предикат — дословно из тела задачи (пересмотренное решение диспетчера 2026-09-26), мной не перемерялись; перепись трекера 2026-09-27: открыта, метка status:in-progress (`gh issue view 788`)"
 ---
 
 # ws#788: вердикт конвейера воркспейса — по ручному прогону на голове, в волне-3
@@ -30,6 +30,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — з
 [[KAC/issue-778-ws|#778]] в волну-3 ws#786: своих коммитов в PR #853 нет, а пересмотренный предмет
 появился позже головы `58631015` и на ней не выполнен. Сняты `status:test` и `release:wave`. Роль —
 `tooling-maintainer`. Родилась в [[KAC/issue-780-ws|#780]].
+
+**Состояние на 2026-09-27**: `in-progress`. Задача открыта, метка `status:in-progress`: взята в
+волне-3 ws#786 2026-09-26T21:37Z полосой `788` — ветка `788` (координата, не живая ссылка) от
+`origin/786` @ `d5cf0d9a`, в той же полосе ws#837 (комментарий задачи).
 
 ## Что и зачем
 
@@ -56,6 +60,10 @@ landing-reviewer, ci-watcher и `scripts/merge-readiness.sh`. Шапка `ci.yam
 Перемерено мной на `3956217c` (`git grep` по `git-issues.md`): после [[KAC/issue-722-ws|#722]]
 держатель `gi-no-direct-push-main` — защита ветви `main` (`enforce_admins`), обязательные контексты
 в нём не названы; строки о том, что контекстов нет по решению владельца 2026-09-20, в норме нет.
+
+## History
+
+- 2026-09-27 (#846) — состояние приведено к трекеру: задача взята полосой, `to-do` → `in-progress`.
 
 ## Затронутые сущности vault
 

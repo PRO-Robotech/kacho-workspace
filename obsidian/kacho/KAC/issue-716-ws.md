@@ -4,7 +4,7 @@ aliases:
   - issue-716-ws
 ticket_id: 716
 category: kac
-status: test
+status: done
 type: docs
 repos:
   - kacho-workspace
@@ -25,11 +25,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммиты 429c
 
 # ws#716: правила — волна сдаётся одним запросом, находка по безопасности — задачей сразу
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере
+**Состояние на момент записи**: `done` — 2026-09-26. Задача **закрыта** на трекере
 2026-09-26T19:22:49Z каскадом волны [[KAC/issue-778-ws|#778]]: запрос волны PR #853 влит в ветку
 эпика `771` (координата, не живая ссылка) коммитом слияния `3956217c`; `status:test` снята, метки:
-`P1`, `size:S`, `area:rules`, `release:wave`, `release:identity-own`. В `main` работа **не**
-доехала: `done` — посадкой эпика #771 в ствол.
+`P1`, `size:S`, `area:rules`, `release:wave`, `release:identity-own`. В `main` работа **не** доехала: посадка эпика #771 в ствол — предмет эпика, а не задачи; закрытая каскадом задача — `done` (`git-issues.md#gi-close-cascade`, решение владельца 2026-09-26).
 
 ## Что и зачем
 
@@ -55,7 +54,11 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммиты 429c
 - [x] `git grep -e 'PR в main' -e 'pr create --base main' -e '--base main' -- .claude/rules .claude/skills` → 0 строк;
 - [x] норма о находке — `gi-security-finding-issue-now` в `git-issues.md`;
 - [x] норма о волне — по комментарию закрытия `gi-wave-one-mr` в `git-issues.md` (поиск с `-i`), мной не перемерялось;
-- [ ] предмет в стволе: `main` — посадкой эпика #771.
+- посадка в `main` — DoD эпика #771, а не задачи (`git-issues.md#gi-close-cascade`).
+
+## History
+
+- 2026-09-27 (#846) — состояние приведено к каскаду закрытия: задача закрыта вместе с волной, `test` → `done`; посадка в `main` — DoD эпика, а не задачи.
 
 ## Затронутые сущности vault
 

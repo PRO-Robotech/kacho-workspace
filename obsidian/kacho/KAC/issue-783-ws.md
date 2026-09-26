@@ -4,7 +4,7 @@ aliases:
   - issue-783-ws
 ticket_id: 783
 category: kac
-status: test
+status: done
 type: docs
 repos:
   - kacho-workspace
@@ -23,11 +23,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммиты f2b6
 
 # ws#783: записи go-style волны 0 identity-own — в ветке эпика 771
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере
+**Состояние на момент записи**: `done` — 2026-09-26. Задача **закрыта** на трекере
 2026-09-26T19:23:18Z каскадом волны [[KAC/issue-778-ws|#778]]: запрос волны PR #853 влит в ветку
 эпика `771` (координата, не живая ссылка) коммитом слияния `3956217c`; `status:test` снята, метки:
-`P1`, `size:S`, `area:tooling`, `release:identity-own`. В `main` записи **не** доехали: туда они
-уходят посадкой эпика #771, тогда состояние — `done`.
+`P1`, `size:S`, `area:tooling`, `release:identity-own`. В `main` записи **не** доехали: туда они уходят посадкой эпика #771 — предмет эпика, а не задачи; закрытая каскадом задача — `done` (`git-issues.md#gi-close-cascade`, решение владельца 2026-09-26).
 
 ## Что и зачем
 
@@ -53,6 +52,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммиты f2b6
 - [x] в `771` — 4 записи `post-diff/go-style-reviewer/`, перемерено мной `git ls-tree`;
 - [x] ветка снята — на origin её нет (`git ls-remote`);
 - [ ] в `main` — 0 записей: посадкой эпика #771.
+
+## History
+
+- 2026-09-27 (#846) — состояние приведено к каскаду закрытия: задача закрыта вместе с волной, `test` → `done`; посадка в `main` — DoD эпика, а не задачи.
 
 ## Затронутые сущности vault
 

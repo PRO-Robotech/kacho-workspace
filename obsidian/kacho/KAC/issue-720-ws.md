@@ -4,7 +4,7 @@ aliases:
   - issue-720-ws
 ticket_id: 720
 category: kac
-status: test
+status: done
 type: docs
 repos:
   - kacho-workspace
@@ -26,11 +26,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммит c2b6c3
 
 # ws#720: правила — четыре требования владельца 2026-09-20 дословно в корпусе
 
-**Состояние на момент записи**: `test` — 2026-09-26. Задача **закрыта** на трекере
+**Состояние на момент записи**: `done` — 2026-09-26. Задача **закрыта** на трекере
 2026-09-26T19:22:55Z каскадом волны [[KAC/issue-778-ws|#778]]: запрос волны PR #853 влит в ветку
 эпика `771` (координата, не живая ссылка) коммитом слияния `3956217c`; `status:test` снята, метки:
-`P1`, `size:S`, `area:rules`, `release:wave`, `release:identity-own`. В `main` работа **не**
-доехала: `done` — посадкой эпика #771 в ствол.
+`P1`, `size:S`, `area:rules`, `release:wave`, `release:identity-own`. В `main` работа **не** доехала: посадка эпика #771 в ствол — предмет эпика, а не задачи; закрытая каскадом задача — `done` (`git-issues.md#gi-close-cascade`, решение владельца 2026-09-26).
 
 > [!note] Одноимённая записка — о другом трекере
 > [[KAC/issue-720]] — задача продукта PRO-Robotech/kacho#720, с этой не связана.
@@ -59,7 +58,11 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: коммит c2b6c3
 - [x] слова владельца — в разделе первичных требований `.claude/agents/dispatcher.md`;
   `git grep -c 2026-09-20 -- .claude/rules .claude/agents .claude/skills` → 20 файлов;
 - [x] противоречащих нет — перепись wave-reviewer круга 1, принятие перенесено в круг 2;
-- [ ] предмет в стволе: `main` — посадкой эпика #771.
+- посадка в `main` — DoD эпика #771, а не задачи (`git-issues.md#gi-close-cascade`).
+
+## History
+
+- 2026-09-27 (#846) — состояние приведено к каскаду закрытия: задача закрыта вместе с волной, `test` → `done`; посадка в `main` — DoD эпика, а не задачи.
 
 ## Затронутые сущности vault
 
