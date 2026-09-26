@@ -12,7 +12,7 @@
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
 # прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
-# EW1–EW14; что держит каждая —
+# EW1–EW16, OR1–OR10; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -36,8 +36,15 @@
 #      своего коммита держится первой линией волны (EW6); волна без PR из
 #      BRANCH_AUDIT_KEEP — ствол, сведённая в неё задача снята (EW7), без перечня
 #      — единственный экземпляр (EW8, близнец); цель каскада на origin без
-#      запроса — не сирота (EW13, близнец — BE); мутанты EW9–EW12, EW14 красят
-#      каждый своё утверждение (EW5, EW7, EW4, EW6, EW13);
+#      запроса — не сирота (EW13, близнец — BE); база, чей свой PR влит, — не
+#      ствол, и тревога о работе вне ствола звучит (EW15, близнец — EW5); мутанты
+#      EW9–EW12, EW14, EW16 красят EW5, EW7, EW4, EW6, EW13, EW15;
+#   OR1–OR10. ВЕТКИ ORIGIN — ТЕМ ЖЕ ПРЕДИКАТОМ (ws#821, норма ws#847): пустая
+#      дельта по стволу волны (OR1); влитая release/* судится, с открытым PR в неё
+#      — держится (OR2); местная копия с работой держит ветку origin (OR3); живая
+#      накопительная линия собой не поглощена (OR4); свежая держится окном (OR5);
+#      итог «к снятию на origin» — отдельным числом (OR6); мутанты OR7–OR10 красят
+#      OR4, OR1, OR3, OR2;
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -1865,9 +1872,13 @@ ev_build() { # $1 = каталог
     # журнал 713 был бы давним, и окно её не держало бы.
     unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
     git branch 713 711
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    git checkout -qb 750 main && echo закрытая > c.txt && git add c.txt && git commit -qm "работа 750 вне main"
+    git push -qu origin 750
     git checkout -q --detach
   ) >/dev/null 2>&1
-  printf '701\t301\tMERGED\tfalse\t700\n' > "$d.pr"
+  # 750 — база давнего запроса 751, и её собственный PR 306 уже влит: закрытая цель.
+  printf '701\t301\tMERGED\tfalse\t700\n751\t305\tMERGED\tfalse\t750\n750\t306\tMERGED\tfalse\tmain\n' > "$d.pr"
 }
 ev_run() { # $1 = исполняемый, $2 = BRANCH_AUDIT_KEEP → EV_OUT; каталог — $EV
   ev_build "$EV"
@@ -1913,6 +1924,15 @@ else
   say "❌ EW13" "цель каскада на origin названа веткой «PR не заводился»"; fail=1
   f_sec "$EV_BASE" "НА ORIGIN" | head -4 || true
 fi
+# EW15 — база, чей собственный PR влит, — закрытая цель: не ствол, её копия не
+# поглощается своей же копией на origin, и тревога о работе вне ствола звучит.
+if ! ev_trunks | grep -c 'origin/750' >/dev/null && f_has "$EV_BASE" "ЖИВЫЕ" "750 " 'MERGED' &&
+   f_sec "$EV_BASE" "ВНИМАНИЕ" | grep -F -c '   750 — #306 MERGED' >/dev/null; then
+  say "✅ EW15" "база с влитым своим PR — не ствол: работа вне main названа тревогой"
+else
+  say "❌ EW15" "закрытая база 750 стала стволом либо её тревога смолкла"; fail=1
+  grep -F '750' <<<"$EV_BASE" | head -4 || true
+fi
 ev_run "$AUDIT" ""; EV_NOKEEP=$EV_OUT
 if f_has "$EV_NOKEEP" "ТОЛЬКО ЛОКАЛЬНО" "712 " 'НЕТ на origin' && ev_ref 712 &&
    ! ev_trunks | grep -c 'origin/711' >/dev/null; then
@@ -1941,8 +1961,122 @@ ev_mutant EW11 EW4 '    if trunk_add "$base" "база PR — эпик/волн�
   "база PR не ствол" "стволов в сверке 2 — "
 ev_mutant EW12 EW6 'git rev-list --first-parent "${FP_TRUNKS[@]}" --' 'git rev-list --first-parent "$TRUNK" --' \
   "первая линия только у ствола" "СНЯТА 713"
-ev_mutant EW14 EW13 ' && [ -z "${KEEP[$b]+x}" ]; then' '; then' \
+ev_mutant EW14 EW13 ' && [ -z "${KEEP[$b]+x}" ] &&' ' &&' \
   "цель каскада на origin — сирота" "711 — PR не заводился"
+ev_mutant EW16 EW15 '    case "${PRSTATE[$base]:-}" in *MERGED|*CLOSED) n_base_closed=$((n_base_closed + 1)); continue ;; esac' \
+  '    :' "закрытая база — ствол" "относительно origin/750"
+
+# --- OR1–OR9. ВЕТКИ ORIGIN — ТЕМ ЖЕ ПРЕДИКАТОМ (ws#821, норма ws#847) ----------
+# Строка origin с пустой дельтой слияния по ЛЮБОМУ стволу, кроме своего, без
+# пометки — «к снятию на origin»; стоп нормы — пометкой [ДЕРЖИТСЯ: …]. Волна 721
+# названа в BRANCH_AUDIT_KEEP; 722, 723, 724 отправлены и сведены в неё
+# местным слиянием; у 723 местная ветка ушла вперёд, 724 — свежая. release/r1 и
+# release/r2 влиты в main, у r2 открыт PR в неё; release/r3 — живая линия.
+or_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config user.email inject@example.invalid
+    git config user.name inject
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb 721 && echo волна > w.txt && git add w.txt && git commit -qm "волна"
+    for t in 722 723; do
+      git checkout -qb "$t" 721 && echo "$t" > "$t.txt" && git add "$t.txt" && git commit -qm "задача $t"
+      git push -qu origin "$t"
+      git checkout -q 721 && git merge -q --no-ff -m "сборка: $t в волну" "$t"
+    done
+    unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+    git checkout -qb 724 721 && echo 724 > 724.txt && git add 724.txt && git commit -qm "задача 724, свежая"
+    git push -qu origin 724
+    git checkout -q 721 && git merge -q --no-ff -m "сборка: 724 в волну" 724
+    git push -qu origin 721
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    git checkout -q 723 && echo ещё >> 723.txt && git commit -qam "работа 723 после сборки"
+    for r in r1 r2 r3; do
+      git checkout -qb "release/$r" main && echo "$r" > "$r.txt" && git add "$r.txt" && git commit -qm "линия $r"
+      git push -qu origin "release/$r"
+    done
+    git checkout -q main
+    git merge -q --no-ff -m "влить r1" release/r1 && git merge -q --no-ff -m "влить r2" release/r2
+    git push -q origin main
+    git checkout -q --detach
+    git branch -q -D 722 724 release/r1 release/r2 release/r3
+  ) >/dev/null 2>&1
+  printf 'into-r2\t309\tOPEN\tfalse\trelease/r2\n' > "$d.pr"
+}
+or_run() { # $1 = исполняемый → OR_OUT; каталог — $ORD
+  or_build "$ORD"
+  set +e
+  OR_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=45 BRANCH_AUDIT_PR_STATE_FILE="$ORD.pr" \
+    BRANCH_AUDIT_KEEP=721 "$1" "$ORD" 2>&1)
+  set -e
+}
+ORD="$TMP/origin-predicate"
+or_run "$AUDIT"; OR_BASE=$OR_OUT
+or_row() { f_sec "$OR_BASE" "НА ORIGIN" | grep -F -- "   $1 —" || true; }
+
+if grep -E -c '^   722 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$' <<<"$(or_row 722)" >/dev/null; then
+  say "✅ OR1" "ветка origin, сведённая в волну-ствол, — пустая дельта по стволу волны, без пометки"
+else
+  say "❌ OR1" "ветка origin 722, сведённая в волну 721, не отнесена к пустой дельте по origin/721: $(or_row 722)"; fail=1
+fi
+if grep -E -c '^   release/r1 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$' <<<"$(or_row release/r1)" >/dev/null &&
+   grep -F -c '[ДЕРЖИТСЯ: база открытого PR]' <<<"$(or_row release/r2)" >/dev/null; then
+  say "✅ OR2" "влитая release/* на origin судится; близнец с открытым PR в неё держится"
+else
+  say "❌ OR2" "release/r1 не предъявлена снятию либо release/r2 с открытым PR не держится: $(or_row release/r1) | $(or_row release/r2)"; fail=1
+fi
+if grep -F -c '[ДЕРЖИТСЯ: местная ветка того же имени вне «ВЛИТЫ»]' <<<"$(or_row 723)" >/dev/null; then
+  say "✅ OR3" "ветка origin, чья местная копия несёт работу, держится"
+else
+  say "❌ OR3" "ветка origin 723 с работой в местной копии не держится: $(or_row 723)"; fail=1
+fi
+if [ -n "$(or_row release/r3)" ] && ! grep -F -c 'ДЕЛЬТА СЛИЯНИЯ ПУСТА' <<<"$(or_row release/r3)" >/dev/null; then
+  say "✅ OR4" "живая накопительная линия своим стволом не поглощена"
+else
+  say "❌ OR4" "release/r3 не осмотрена либо поглощена сама собой: $(or_row release/r3)"; fail=1
+fi
+if grep -E -c '\[ДЕРЖИТСЯ: коммит головы [0-9]+ мин назад\]' <<<"$(or_row 724)" >/dev/null; then
+  say "✅ OR5" "свежая ветка origin с пустой дельтой держится окном"
+else
+  say "❌ OR5" "свежая ветка origin 724 не держится окном: $(or_row 724)"; fail=1
+fi
+if grep -F -c '(к снятию на origin 2: дельта пуста, без пометки)' <<<"$OR_BASE" >/dev/null; then
+  say "✅ OR6" "итог считает «к снятию на origin» отдельным числом: 722 и release/r1"
+else
+  say "❌ OR6" "итог к снятию на origin не 2: $(grep -o '(к снятию на origin [^)]*)' <<<"$OR_BASE" || true)"; fail=1
+fi
+
+or_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = образец красного (ERE)
+  local m="$TMP/or-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  or_run "$m"
+  if grep -E -c -- "$6" <<<"$OR_OUT" >/dev/null; then
+    say "✅ $1" "мутация «$5» красит $2"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+or_mutant OR7 OR4 '  absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  '  absorbed_where "refs/remotes/origin/$b"' "ветка origin сверяется и со своим стволом" \
+  '^   release/r3 — ДЕЛЬТА СЛИЯНИЯ ПУСТА'
+or_mutant OR8 OR1 '  absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  '  TRUNKS=("$TRUNK"); absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"' \
+  "ветка origin судится одним стволом" '^   722 — PR не заводился'
+or_mutant OR9 OR3 '  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1]}" != merged ]; then' \
+  '  if false; then' "стоп по местной ветке снят" \
+  '^   723 — ДЕЛЬТА СЛИЯНИЯ ПУСТА относительно origin/721, содержимое в стволе$'
+or_mutant OR10 OR2 $'  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf \'база открытого PR\'; return 0; fi' ':' \
+  "стоп по открытому PR в ветку снят" '^   release/r2 — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе$'
 
 echo
 if [ "$fail" -eq 0 ]; then

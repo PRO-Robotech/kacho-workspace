@@ -229,6 +229,15 @@
 # равная влитой (`gi-prune-commit-predicate`); перепись его не заменяет и им не
 # сужается.
 #
+# НА ORIGIN СНЯТИЮ ПРЕДЪЯВЛЯЕТСЯ ТОТ ЖЕ ПРЕДИКАТ (ws#821, норма ws#847). Строка
+# раздела «НА ORIGIN без предмета» с пустой дельтой слияния — по любому стволу,
+# кроме своего, release/* тоже — без пометки `[…]` идёт в итог отдельным числом
+# «к снятию на origin». Стоп нормы печатается пометкой `[ДЕРЖИТСЯ: …]`: открытый
+# PR головой или базой, ветка занята копией, местная ветка того же имени вне
+# «ВЛИТЫ», коммит головы моложе окна. Сама перепись на origin НЕ снимает ничего:
+# снимает git-operator под `interim.lock`, сверив голову `git ls-remote` с
+# головой переписи; поглощённые пофайлово на origin перепись не видит (ws#851).
+#
 # ВЕТКА БЕЗ СВОЕГО КОММИТА НЕ ВЛИТА (ws#847, круг 2). Предок ствола — не то же,
 # что «влита»: ветка, чья голова лежит на ПЕРВОЙ ЛИНИИ ствола
 # (`git rev-list --first-parent <ствол>`), не внесла в него ни одного коммита —
@@ -254,10 +263,13 @@
 # ствол сверки; без этого её местная копия, равная origin, поглощалась бы своей
 # же копией на origin и уходила «к снятию». На origin цель каскада без запроса
 # веткой «без предмета» не называется: у волны запрос в эпик появляется в конце
-# волны, а до того её отсутствие — штатное состояние. Граница признака: база давнего
-# запроса в ветку задачи (замер 2026-09-27: `kacho` `issue-1380`, воркспейс
-# `docs/kan-extract-1`) тоже держится — она названа в шапке среди стволов, и её
-# снятие — предмет ws#851.
+# волны, а до того её отсутствие — штатное состояние. База, чей собственный PR
+# уже влит или закрыт, — закрытая цель, не ствол: база давнего запроса в ветку
+# задачи иначе держалась бы вечно, а её работа вне `main` поглощалась бы своей
+# же копией на origin, и тревога «PR закрыт, а работа в стволе НЕ ВСЯ» молчала
+# (замер 2026-09-27: `kacho` `issue-1380` — #1385 MERGED, воркспейс
+# `docs/kan-extract-1` — #586 MERGED; живые цели — эпик с открытым PR в `main`
+# и волна без своего PR).
 #
 # ИСКЛЮЧЕНИЕ БЕЗ СВОЕГО КОММИТА ИСТЕКАЕТ (ws#847, круг 3). Живая волна лежит на
 # origin, свежая ветка только что заведена — а ветка, которой нет на origin, чья
@@ -425,7 +437,6 @@ mark_text() { # CMARK → пометка строки
     stale) printf ' [СВОЕГО КОММИТА НЕТ, но только локально, без копии и вне окна свежести — к снятию]' ;;
   esac
 }
-TRUNK_TREE=$(git rev-parse "$TRUNK^{tree}")
 NOW=$(date +%s)
 
 # Временный каталог — ДО переписи PR: она пишет в него выдачу gh, а стволы эпиков
@@ -464,7 +475,7 @@ trap cleanup_tmp EXIT
 # берутся из той же выдачи, что и головы, и граница полноты у них та же: эпик,
 # чей последний запрос старше предела выдачи, выпал бы из стволов молча, поэтому
 # неполная выдача печатается и как неполный вывод стволов.
-declare -A PRSTATE=() PRBASE=()
+declare -A PRSTATE=() PRBASE=() PRBASE_OPEN=()
 have_gh=0; pr_rows=0; pr_foreign=0; pr_incomplete=""; bases_src="не прочитан"
 PR_LIMIT="${BRANCH_AUDIT_PR_LIMIT:-5000}"
 case "$PR_LIMIT" in ''|*[!0-9]*|0) PR_LIMIT=5000 ;; esac
@@ -473,6 +484,7 @@ pr_take() { # $1 = голова, $2 = номер, $3 = состояние, $4 = 
   pr_rows=$((pr_rows + 1))
   # База — ветка ЭТОГО репозитория и у запроса из чужого: её роль от головы не зависит.
   [ -z "${5:-}" ] || PRBASE["$5"]=1
+  [ -z "${5:-}" ] || [ "$3" != OPEN ] || PRBASE_OPEN["$5"]=1
   if [ "${4:-false}" = true ]; then pr_foreign=$((pr_foreign + 1)); return 0; fi
   if [ -z "${PRSTATE[$1]+x}" ] || { [ "$3" = OPEN ] && [ "${PRSTATE[$1]##* }" != OPEN ]; }; then
     PRSTATE["$1"]="#${2} ${3}"
@@ -523,7 +535,7 @@ declare -A TRUNK_KIND=(["$TRUNK"]="ствол")
 TRUNKS=("$TRUNK")
 # Первая линия берётся у ствола и у целей каскада, но не у release/* (см. шапку).
 FP_TRUNKS=("$TRUNK")
-n_base_trunks=0; TRUNK_ADDED=""
+n_base_trunks=0; n_base_closed=0; TRUNK_ADDED=""
 # trunk_add $1 = ветка, $2 = род → 0 и TRUNK_ADDED, если её копия origin стала
 # стволом. Имя — короткое, каким его отдаёт for-each-ref: оно однозначно по
 # построению (см. BG); совпадение — только полной ссылкой, не префиксом.
@@ -548,8 +560,12 @@ if [ "${BRANCH_AUDIT_NO_ACCUM:-0}" != "1" ]; then
   done < <(git for-each-ref --format='%(refname:short)' 'refs/remotes/origin/release/' 2>/dev/null || true)
   # База PR, ставшая стволом, — цель каскада: её местная копия, равная origin,
   # поглощалась бы своей же копией на origin и уходила «к снятию» (см. шапку).
+  # База, чей собственный запрос уже влит или закрыт, — закрытая цель: ни ствол,
+  # ни цель каскада. Каскад снимает её тем же заходом, и её копия, оставшаяся на
+  # origin, — предмет снятия, а не место, куда вливают (см. шапку).
   while read -r base; do
     case "$base" in ""|release/*) continue ;; esac
+    case "${PRSTATE[$base]:-}" in *MERGED|*CLOSED) n_base_closed=$((n_base_closed + 1)); continue ;; esac
     if trunk_add "$base" "база PR — эпик/волна"; then
       FP_TRUNKS+=("$TRUNK_ADDED"); KEEP["$base"]=1; n_base_trunks=$((n_base_trunks + 1))
     fi
@@ -564,6 +580,10 @@ fi
 # по первой линии каждой.
 declare -A TRUNK_FP=()
 while read -r c; do TRUNK_FP["$c"]=1; done < <(git rev-list --first-parent "${FP_TRUNKS[@]}" --)
+# Полная ссылка каждого ствола: ветка origin, сама ставшая стволом, со своим
+# стволом не сверяется — поглощена собой она всегда (см. «ветки на origin»).
+declare -A TRUNK_FULL=()
+for tr in "${TRUNKS[@]}"; do TRUNK_FULL["$tr"]=$(git rev-parse --symbolic-full-name "$tr" 2>/dev/null || true); done
 
 # Временный индекс на КАЖДЫЙ ствол: обратное применение патча идёт в него, а не
 # в индекс репозитория и не в рабочую копию. Это не стилистика — испорченный
@@ -676,7 +696,7 @@ echo "branch-audit: стволов в сверке ${#TRUNKS[@]} — $named"
 n_bases=0
 for base in "${!PRBASE[@]}"; do [ "$base" = "$TRUNK_BRANCH" ] || n_bases=$((n_bases + 1)); done
 echo "branch-audit: баз PR вне ствола ${n_bases}, из них стволами (ветка есть на origin) ${n_base_trunks}," \
-     "источник — $bases_src"
+     "закрытых (свой PR влит или закрыт) ${n_base_closed}, источник — $bases_src"
 if [ "${BRANCH_AUDIT_NO_ACCUM:-0}" != 1 ] && { [ "$bases_src" = "не прочитан" ] || [ -n "$pr_incomplete" ]; }; then
   echo "branch-audit: базы PR прочитаны не все — эпик или волна вне BRANCH_AUDIT_KEEP могли не" >&2
   echo "              попасть в стволы, и влитое в них будет названо работой в единственном" >&2
@@ -809,14 +829,8 @@ fi
 # Равны ⇒ ветка не добавляет стволу ничего ⇒ её содержимое уже там, каким бы
 # способом оно туда ни попало.
 # Конфликт (ненулевой код) означает, что ветка несёт изменения, которых в стволе
-# нет, — то есть «не пусто», а не «неизвестно».
-merge_delta_empty() { # $1 = ref → 0 если дельта пуста
-  local ref=$1 out
-  if delta_surely_nonempty "$TRUNK" "$ref"; then MERGE_SKIP=$((MERGE_SKIP + 1)); return 1; fi
-  MERGE_RUN=$((MERGE_RUN + 1))
-  out=$(git merge-tree --write-tree "$TRUNK" "$ref" 2>/dev/null) || return 1
-  [ "$(printf '%s\n' "$out" | head -1)" = "$TRUNK_TREE" ]
-}
+# нет, — то есть «не пусто», а не «неизвестно». Исполняет признак absorbed_where
+# (ниже) — по каждому стволу сверки, у местной ветки и у ветки origin одинаково.
 
 # --- УСКОРИТЕЛЬ ПЯТОГО ПРИЗНАКА: непустота дельты, доказанная деревьями -------
 # Слияние дорого поиском переименований, а вопрос у признака один: равно ли
@@ -1761,10 +1775,11 @@ norm_blob() { # $1 = блоб → строки после ba_norm лежат в 
 }
 
 ABS_SRC=""
-absorbed_where() { # $1 = ref → ABS_SRC: имя ствола, поглотившего ветку, либо пусто
-  local ref=$1 tr out
+absorbed_where() { # $1 = ref [$2 = полная ссылка ствола, с которым не сверять] → ABS_SRC: имя ствола, поглотившего ветку, либо пусто
+  local ref=$1 skip=${2:-} tr out
   ABS_SRC=""
   for tr in "${TRUNKS[@]}"; do
+    [ -z "$skip" ] || [ "${TRUNK_FULL[$tr]:-}" != "$skip" ] || continue
     if delta_surely_nonempty "$tr" "$ref"; then MERGE_SKIP=$((MERGE_SKIP + 1)); continue; fi
     MERGE_RUN=$((MERGE_RUN + 1))
     out=$(git merge-tree --write-tree "$tr" "$ref" 2>/dev/null) || continue
@@ -1784,7 +1799,7 @@ fresh_mark() { # $1 = время последнего коммита (%ct) → �
 }
 
 merged_local=(); orphan_remote=(); only_local=(); alive=(); split_work=(); prunable=()
-declare -A OWNLESS=()
+declare -A OWNLESS=() LOCAL_VERDICT=()
 n_keep=0; n_ownless=0; n_stale=0
 undet_work=()
 examined_local=0; examined_remote=0; delta_checked=0
@@ -1927,13 +1942,14 @@ for bi in "${!LOCAL_BRANCHES[@]}"; do
     else
       merged_local+=("$b — +$ahead коммит(ов), но $how${pr}${occ}${fresh}${own}")
     fi
-    prunable+=("$b")
+    prunable+=("$b"); LOCAL_VERDICT["$b"]=merged
   elif [ "$on_origin" = 0 ]; then
+    LOCAL_VERDICT["$b"]=only
     ucnt=$(( ${#UNABS_PROVEN[@]} + ${#UNABS_UNDET[@]} ))
     ulist=$(first3 ${UNABS_PROVEN[@]+"${UNABS_PROVEN[@]}"} ${UNABS_UNDET[@]+"${UNABS_UNDET[@]}"})
     only_local+=("$b (+$ahead коммит(ов), НЕТ на origin) — не поглощено ни одним стволом: $ucnt файл(ов): $ulist${pr}${occ}${fresh}")
   else
-    alive+=("$b (+$ahead)${pr}${occ}${fresh}")
+    alive+=("$b (+$ahead)${pr}${occ}${fresh}"); LOCAL_VERDICT["$b"]=alive
   fi
 
   # Класс «одна ветка — две работы»: PR закрыт/влит, а содержимое поглощено не всё.
@@ -1957,13 +1973,43 @@ done
 # --- ветки на origin ----------------------------------------------------------
 # Пятый признак по веткам origin тоже считается заданиями — заранее, по тем же
 # условиям отбора; цикл ниже читает его ответ вместо слияния на месте.
-declare -A RDELTA=()
-remote_delta() { # $1 = номер, $2 = ветка origin → $BA_SHARED/d.<номер>: «пуста счёт-слияний счёт-доказанных»
-  local i=$1 b=$2 v=0
+#
+# ВСЕМИ СТВОЛАМИ, КРОМЕ СВОЕГО (ws#821, норма ws#847). Дельта слияния ветки
+# origin судится каждым стволом сверки, как у местной ветки, а не одним `main`:
+# ветка задачи на origin, сведённая в волну, до вливания волны в `main` иначе
+# не видна снятию вовсе, и обход целей подменой BRANCH_AUDIT_TRUNK оставался бы
+# единственным способом её найти. Свой ствол пропускается: ветка origin, сама
+# ставшая стволом (release/*, эпик, волна), поглощена собой всегда. release/*
+# судится наравне с прочими — прежде раздел её пропускал, и влитая накопительная
+# линия на origin снятию не предъявлялась.
+declare -A RDELTA=() RSRC=()
+n_origin_prune=0
+# origin_hold $1 = ветка, $2 = её ссылка origin → причина, по которой ветку origin
+# с пустой дельтой НЕ снимать, либо пусто. Стоп нормы `gi-prune-census-predicate`
+# (ws#847), кроме сверки головы перед снятием — её делает снимающий: открытый PR
+# головой либо базой; ветка занята копией; местная ветка того же имени вне
+# «ВЛИТЫ» (в ней работа, которой на origin нет); коммит головы моложе окна.
+origin_hold() {
+  local ct
+  case "${PRSTATE[$1]:-}" in *OPEN) printf 'открыт PR %s' "${PRSTATE[$1]%% *}"; return 0 ;; esac
+  if [ -n "${PRBASE_OPEN[$1]+x}" ]; then printf 'база открытого PR'; return 0; fi
+  if [ -n "${OCCUPIED[$1]+x}" ]; then printf 'занята копией %s' "${OCCUPIED[$1]}"; return 0; fi
+  if [ -n "${LOCAL_VERDICT[$1]+x}" ] && [ "${LOCAL_VERDICT[$1]}" != merged ]; then
+    printf 'местная ветка того же имени вне «ВЛИТЫ»'; return 0
+  fi
+  ct=$(git log -1 --format=%ct "$2" 2>/dev/null || echo 0)
+  if [ "$ct" -gt 0 ] && [ $(( (NOW - ct) / 60 )) -lt "$FRESH_MIN" ]; then
+    printf 'коммит головы %s мин назад' "$(( (NOW - ct) / 60 ))"; return 0
+  fi
+  return 0
+}
+remote_delta() { # $1 = номер, $2 = ветка origin → $BA_SHARED/d.<номер>: «пуста источник счёт-слияний счёт-доказанных»
+  local i=$1 b=$2 v=0 src=-
   BA_TMP="$BA_SHARED/v.$i"; mkdir -p "$BA_TMP"
   MERGE_RUN=0; MERGE_SKIP=0
-  merge_delta_empty "refs/remotes/origin/$b" && v=1
-  printf '%s %s %s\n' "$v" "$MERGE_RUN" "$MERGE_SKIP" > "$BA_SHARED/d.$i.tmp" &&
+  absorbed_where "refs/remotes/origin/$b" "refs/remotes/origin/$b"
+  [ -z "$ABS_SRC" ] || { v=1; src=$ABS_SRC; }
+  printf '%s %s %s %s\n' "$v" "$src" "$MERGE_RUN" "$MERGE_SKIP" > "$BA_SHARED/d.$i.tmp" &&
     mv -f "$BA_SHARED/d.$i.tmp" "$BA_SHARED/d.$i"
   rm -rf "$BA_TMP"
 }
@@ -1971,7 +2017,6 @@ if [ "$remote_ok" = 1 ]; then
   REMOTE_BRANCHES=()
   for b in "${!ON_ORIGIN[@]}"; do
     [ "$b" = "$TRUNK_BRANCH" ] && continue
-    case "$b" in release/*) continue ;; esac
     wanted "$b" || continue
     git rev-parse --verify --quiet "refs/remotes/origin/$b^{commit}" >/dev/null || continue
     REMOTE_BRANCHES+=("$b")
@@ -1982,14 +2027,13 @@ if [ "$remote_ok" = 1 ]; then
     [ -e "$BA_SHARED/d.$ri" ] || {
       echo "branch-audit: ветка origin ${REMOTE_BRANCHES[$ri]} не разобрана — перепись неполна" >&2
       exit 2; }
-    read -r rv rm_run rm_skip < "$BA_SHARED/d.$ri"
-    RDELTA["${REMOTE_BRANCHES[$ri]}"]=$rv
+    read -r rv rsrc rm_run rm_skip < "$BA_SHARED/d.$ri"
+    RDELTA["${REMOTE_BRANCHES[$ri]}"]=$rv; RSRC["${REMOTE_BRANCHES[$ri]}"]=$rsrc
     MERGE_RUN=$((MERGE_RUN + rm_run)); MERGE_SKIP=$((MERGE_SKIP + rm_skip))
   done
 
   for b in "${!ON_ORIGIN[@]}"; do
     [ "$b" = "$TRUNK_BRANCH" ] && continue
-    case "$b" in release/*) continue ;; esac
     wanted "$b" || continue
     examined_remote=$((examined_remote + 1))
 
@@ -2003,13 +2047,18 @@ if [ "$remote_ok" = 1 ]; then
     delta_checked=$((delta_checked + 1))
     if [ "${RDELTA[$b]:-0}" = 1 ]; then
       cascade_mark "$b" "$rref"
-      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}$(mark_text)")
+      rel=""; [ "${RSRC[$b]}" = "$TRUNK" ] || rel=" относительно ${RSRC[$b]}"
+      hold=$(origin_hold "$b" "$rref")
+      if [ -z "$CMARK" ] && [ -z "$hold" ]; then n_origin_prune=$((n_origin_prune + 1)); fi
+      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА${rel}, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}$(mark_text)${hold:+ [ДЕРЖИТСЯ: $hold]}")
       continue
     fi
 
     # Цель каскада без запроса — не сирота: запрос волны в эпик заводится в конце
     # волны, эпика в main — в конце эпика, а по флоу v2 в волну запросов нет вовсе.
-    if [ "$have_gh" = 1 ] && [ -z "${PRSTATE[$b]+x}" ] && [ -z "${KEEP[$b]+x}" ]; then
+    # База открытого PR — живая ветка, а не сирота, даже если головой PR не была.
+    if [ "$have_gh" = 1 ] && [ -z "${PRSTATE[$b]+x}" ] && [ -z "${KEEP[$b]+x}" ] &&
+       [ -z "${PRBASE_OPEN[$b]+x}" ]; then
       ct=$(git log -1 --format=%ct "$rref" 2>/dev/null || echo "$NOW")
       age_days=$(( (NOW - ct) / 86400 ))
       if [ "$age_days" -gt 14 ]; then
@@ -2065,7 +2114,8 @@ echo "branch-audit: осмотрено локальных ${examined_local}, н�
      "перепись строк спрошена по ${census_asked} файл(ам), содержимое найдено по ${census_found};" \
      "путей, осмотреть которые не удалось, ${NOT_EXAMINED};" \
      "влитых ${#merged_local[@]} (к снятию $(( ${#merged_local[@]} - n_keep - n_ownless )), из них без своего коммита, только локально и вне окна ${n_stale};" \
-     "целей каскада ${n_keep}, своего коммита нет ${n_ownless}), без предмета на origin ${#orphan_remote[@]}," \
+     "целей каскада ${n_keep}, своего коммита нет ${n_ownless}), без предмета на origin ${#orphan_remote[@]}" \
+     "(к снятию на origin ${n_origin_prune}: дельта пуста, без пометки)," \
      "в единственном экземпляре ${#only_local[@]}, живых ${#alive[@]}," \
      "с расщеплённой работой ${#split_work[@]}, с неустановленным поглощением ${#undet_work[@]}," \
      "резервных ссылок ${#backup_refs[@]}"
