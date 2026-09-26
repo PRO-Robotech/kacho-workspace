@@ -290,9 +290,68 @@ git -C "$TMP/root" -c user.email=i@i -c user.name=i commit -aqm drop >/dev/null 
 ledger "kacho=$(rev kacho):0:0:0" "kaname=$(rev kaname):0:0:0" "corelib=$(rev corelib):0:0:0"
 axis 'I пустой обход' 2 'ни одного файла Go — это НЕ зелёное'
 
+echo
+echo "── ФОРМА ВЕДОМОСТИ: неполнота — находка с именем поля, а не «клонов нет» (#856)"
+#
+# Ведомость — файл ЭТОГО дерева и судится без клонов. Прежде нет записи, нет
+# числа, нет файла — всё давало 2, и хук отправки печатал «нет клона» при клонах
+# на месте и выходил нулём. Код 2 остаётся ровно за тем, чего нет по
+# построению, — клоном. ПАРА Q/R ОДНОФАКТНАЯ против чистой синтетики: у Q снято
+# поле ведомости, у R — клон; всё прочее то же.
+
+# set_axis <ось> <ожидаемый код> <пояснение> — код НАБОРА, а не проверки: ровно
+# его читает хук отправки.
+set_axis() {
+    local name="$1" want="$2" why="$3" got
+    DOCS_GATE_ROOT="$(root)" bash "$SELF/run-all.sh" > "$TMP/out" 2>&1
+    got=$?
+    if [ "$got" = "$want" ]; then
+        pass=$((pass + 1))
+        printf 'OK        %-38s код %s — %s\n' "$name" "$got" "$why"
+    else
+        fail=$((fail + 1))
+        printf 'РАЗОШЛОСЬ %-38s ожидался %s, получен %s — %s\n' "$name" "$want" "$got" "$why"
+        sed 's/^/          | /' "$TMP/out"
+    fi
+}
+
 reset_tree
 rm -f "$TMP/root/docs/comment-language.yaml"
-axis "I ведомости нет" 2 "сверять число не с чем"
+axis "I ведомости нет" 1 "носитель снят отдельно от гейта" "нет в дереве"
+set_axis "I набор: ведомости нет" 1 "отправку остановит"
+
+reset_tree
+sed -i '/^  kacho:$/,/^  kaname:$/{/^    rev: /d}' "$TMP/root/docs/comment-language.yaml"
+axis "Q нет ceiling.kacho.rev, клоны на месте" 1 "поле названо адресом" '`ceiling.kacho.rev`'
+set_axis "Q набор: нет ceiling.kacho.rev" 1 "отправку остановит"
+
+reset_tree
+sed -i '/^  kaname:$/,/^  corelib:$/{/^    lines: /d}' "$TMP/root/docs/comment-language.yaml"
+axis "Q' нет ceiling.kaname.lines" 1 "поле названо адресом" '`ceiling.kaname.lines`'
+
+reset_tree
+sed -i '/^  corelib:$/,/^  workspace:$/{s/^    blocks: .*/    blocks: many/}' \
+    "$TMP/root/docs/comment-language.yaml"
+axis "Q'' число не числом" 1 "строка названа номером" "не разобрана"
+
+reset_tree
+sed -i '/^  workspace:/,$d' "$TMP/root/docs/comment-language.yaml"
+axis "Q''' нет записи дерева workspace" 1 "дерево названо" '`ceiling.workspace.files`'
+
+reset_tree
+rm -rf "$TMP/root/project/kaname"
+axis "R клона нет, ведомость полна" 2 "условие не создано — не находка" "клонов нет"
+set_axis "R набор: клона нет" 2 "не находка о дереве"
+
+reset_tree
+sed -i '/^  kacho:$/,/^  kaname:$/{/^    rev: /d}' "$TMP/root/docs/comment-language.yaml"
+rm -rf "$TMP/root/project/kaname"
+axis "R' поле снято И клона нет" 1 "находка объявляется раньше" '`ceiling.kacho.rev`'
+
+reset_tree
+ledger "kacho=${BASE[kacho]:0:11}:0:0:0"
+rm -rf "$TMP/root/project/kaname"
+axis "R'' сокращённая ревизия И клона нет" 1 "находка объявляется раньше" "не полная ревизия"
 
 echo
 echo "── СТВОЛ ПРОДУКТА ПРОТИВ ЗАКРЕПЛЁННОЙ РЕВИЗИИ (ws#789) ──────────────────"
