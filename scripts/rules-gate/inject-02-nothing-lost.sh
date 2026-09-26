@@ -117,26 +117,8 @@ io.open(path, 'w', encoding='utf-8').write(after)
 PY
 }
 
-# Определена ДО оси K: её близнец берёт потолок этим же расчётом.
-# Величины НЕ ВЫПИСЫВАЮТСЯ: тело и медиана берутся тем же кодом, что у гейта, из
-# дерева песочницы. Выписанное число состарилось бы молча при первой же правке
-# базы, и ось начала бы доказывать арифметику фикстуры вместо свойства гейта.
-inj02_ceiling() {   # <каталог> <относительный путь> <запас> → «rel=тело+запас»
-    python3 - "$1" "$2" "$3" <<'PY'
-import io, re, sys
-d, rel, spare = sys.argv[1], sys.argv[2], sys.argv[3]
-data = io.open(d + "/" + rel, "rb").read()
-m = re.match(rb"^---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n", data, re.S)
-body = data[m.end():] if m else data
-if spare == "MEDIAN":
-    sizes = sorted(len(p.encode()) for p in body.decode("utf-8", "replace").split("\n\n")
-                   if p.strip() and not p.lstrip().startswith("#"))
-    if not sizes:
-        raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: в теле %s нет ни одного абзаца" % rel)
-    spare = str(sizes[len(sizes) // 2])
-print("%s=%d+%s" % (rel, len(body), spare))
-PY
-}
+# Потолок песочницы (`sandbox_ceiling`) определён в общей оснастке `inject.sh`:
+# им пользуются и близнецы осей A–D, исполняемые ДО подключения этой части.
 
 # ДОПИСАТЬ В ПОСЛЕДНИЙ АБЗАЦ, НЕ ЗАВОДЯ НОВОГО. Близнец обязан молчать при ЛЮБОМ
 # дереве, а новый абзац меньше медианы при ЧЁТНОМ числе абзацев опускает верхнюю
@@ -223,7 +205,7 @@ for form in "./.claude/rules" ".claude//rules" ".claude/./rules" ".claude/agents
     #   Двойные кавычки потребовали бы экранировать разметку, а фикстура обязана
     #   лечь в CLAUDE.md БАЙТ В БАЙТ так, как её пишут люди.
     printf '\nПодробности — `@%s/%s` §«класс».\n' "$form" "$corpus_rule" >> "$d/CLAUDE.md"
-    capture "$d" "$C2N"
+    capture_twin "$d" "$C2N"
     assert_code 0 "БЛИЗНЕЦ: «@$form/…» в обратных кавычках — координата, не импорт"
 done
 
@@ -265,7 +247,7 @@ assert_code 0 "БЛИЗНЕЦ: посторонний файл в замыкан
 d="$(sandbox h_mail)"; b="$(sandbox_digest "$d")"
 printf '\nПишите на admin@in-cloud.io либо позовите @claude.\n' >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: почта и @имя в прозе"
-capture "$d" "$C2N"
+capture_twin "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: почта и @имя в прозе маршрутом не становятся"
 
 # ── ось I: ИСКЛЮЧЕНИЕ автозагрузки ──────────────────────────────────────────
@@ -389,8 +371,8 @@ assert_says "БАЗА БОЛЬШЕ ПОТОЛКА: CLAUDE.md" "  ...и назв�
 # 19 Б), и близнец фиксированного размера превращал её в скрытый порог
 # доказуемости. Тот же приём у оси N.
 d="$(sandbox k_twin)"; b="$(sandbox_digest "$d")"
-seam_disp="$(inj02_ceiling "$d" .claude/agents/dispatcher.md MEDIAN)"
-seam="$seam_disp;$(inj02_ceiling "$d" CLAUDE.md MEDIAN)"
+seam_disp="$(sandbox_ceiling "$d" .claude/agents/dispatcher.md MEDIAN)"
+seam="$seam_disp;$(sandbox_ceiling "$d" CLAUDE.md MEDIAN)"
 kt_base="${seam_disp#*=}"; kt_base="${kt_base%+*}"; kt_spare="${seam_disp##*+}"
 inj02_append_to_last_par "$d/.claude/agents/dispatcher.md" 'Строка, дописанная в базу по решению.
 '
@@ -428,20 +410,20 @@ echo "== ось N: запас потолка выведен замером =="
 DISP=.claude/agents/dispatcher.md
 
 d="$(sandbox n_carry)"
-capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$d" "$DISP" 131)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$d" "$DISP" 131)"
 assert_code 1 "ДЕФЕКТ: запас 131 Б — перенесённый остаток прежнего потолка"
 assert_says "ЗАПАС НЕ ВЫВЕДЕН ЗАМЕРОМ" "  ...и вердикт назван своим именем"
 assert_says "медианном абзаце" "  ...и названа величина, которой запас обязан равняться"
 assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН: тело потолка не перешагивало"
 
 d="$(sandbox n_wide)"
-capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$d" "$DISP" 9000)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$d" "$DISP" 9000)"
 assert_code 1 "ДЕФЕКТ: запас щедрее медианного абзаца — потолок «с запасом»"
 assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и названа ИМЕННО эта половина оси"
 assert_lacks "ЗАПАС НЕ ВЫВЕДЕН ЗАМЕРОМ" "  ...и диагноз ОДИН: чинить надо не свежесть замера"
 
 d="$(sandbox n_twin)"
-capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$d" "$DISP" MEDIAN)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$d" "$DISP" MEDIAN)"
 assert_code 0 "БЛИЗНЕЦ: запас равен ИЗМЕРЕННОМУ медианному абзацу — молчит"
 assert_says "медианный абзац" "  ...и перепись называет измеренную медиану числом"
 
@@ -471,20 +453,20 @@ PY
 }
 
 inj02_median() {   # <каталог> <относительный путь> → медианный абзац тела, в байтах
-    inj02_ceiling "$1" "$2" MEDIAN | sed 's/.*+//'
+    sandbox_ceiling "$1" "$2" MEDIAN | sed 's/.*+//'
 }
 
 d="$(sandbox n_fit)"; b="$(sandbox_digest "$d")"
 med="$(inj02_median "$d" "$DISP")"
 inj02_append_bytes "$d/$DISP" "$med"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: дописано РОВНО столько байт, сколько медианный абзац ($med Б)"
-capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$WS" "$DISP" MEDIAN)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$WS" "$DISP" MEDIAN)"
 assert_code 0 "БЛИЗНЕЦ: один медианный абзац помещается — запас на абзац и есть"
 
 d="$(sandbox n_over)"
 med="$(inj02_median "$d" "$DISP")"
 inj02_append_bytes "$d/$DISP" "$((med + 1))"
-capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(inj02_ceiling "$WS" "$DISP" MEDIAN)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$WS" "$DISP" MEDIAN)"
 assert_code 1 "ДЕФЕКТ: абзац плюс ОДИН байт — потолок перейден"
 assert_number "перебор" 1 "  ...и перебор назван ЧИСЛОМ: барьер стоит там, где измерено"
 
@@ -509,7 +491,7 @@ d="$(sandbox l_twin)"; b="$(sandbox_digest "$d")"
 #   CLAUDE.md байт в байт.
 printf '\n```\n@.claude/rules/%s\n```\n' "$corpus_rule" >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же ограда, но ЗАКРЫТАЯ"
-capture "$d" "$C2N"
+capture_twin "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: та же ограда, но ЗАКРЫТАЯ — пример, а не импорт"
 
 d="$(sandbox l_census)"

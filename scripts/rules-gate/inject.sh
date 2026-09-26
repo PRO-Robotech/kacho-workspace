@@ -156,6 +156,63 @@ capture() {
     RC=$?
 }
 
+# sandbox_ceiling <каталог> <относительный путь> <запас|MEDIAN> → «rel=тело+запас».
+# Потолок ПЕСОЧНИЦЫ тем же расчётом, что у гейта: тело — файл минус frontmatter,
+# MEDIAN — медианный абзац того же тела. Величины не выписываются: выписанное
+# число состарилось бы молча при первой же правке базы, и ось начала бы доказывать
+# арифметику фикстуры вместо свойства гейта. Живёт здесь, а не в части
+# `inject-02`: им пользуются и близнецы осей A–D этого файла, которые исполняются
+# ДО подключения частей, а вторая копия формулы разошлась бы с первой молча.
+sandbox_ceiling() {
+    python3 - "$1" "$2" "$3" <<'PY'
+import io, re, sys
+d, rel, spare = sys.argv[1], sys.argv[2], sys.argv[3]
+data = io.open(d + "/" + rel, "rb").read()
+m = re.match(rb"^---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n", data, re.S)
+body = data[m.end():] if m else data
+if spare == "MEDIAN":
+    sizes = sorted(len(p.encode()) for p in body.decode("utf-8", "replace").split("\n\n")
+                   if p.strip() and not p.lstrip().startswith("#"))
+    if not sizes:
+        raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: в теле %s нет ни одного абзаца" % rel)
+    spare = str(sizes[len(sizes) // 2])
+print("%s=%d+%s" % (rel, len(body), spare))
+PY
+}
+
+# capture_twin <каталог> <имя проверки> — capture ЗАКОННОГО БЛИЗНЕЦА check-02,
+# чей предмет — НЕ бюджет базы, а форма записи координаты в `CLAUDE.md`.
+#
+# Такой близнец дописывает строку НОВЫМ АБЗАЦЕМ, и это часть его формы (так
+# координату пишут люди). Но новый абзац меньше медианы сдвигает медиану протокола
+# на соседний элемент, и гейт краснеет по СОСЕДНЕЙ оси — «ЗАПАС ЩЕДРЕЕ АБЗАЦА», —
+# а не по своей. Измерено 2026-09-26 на ветке 778: у `CLAUDE.md` 16 абзацев,
+# медиана 604 Б при объявленном запасе 604; семнадцатый абзац опускает её на
+# 541 Б, и 12 близнецов осей A–D, G, H, L краснели при целой оси импорта. Та же
+# зависимость от состояния живого дерева, что 2026-09-22 была снята у близнецов
+# осей K и N: там — остаток до потолка, здесь — положение медианы.
+#
+# Поэтому потолок близнецу берётся У ЕГО ПЕСОЧНИЦЫ, ПОСЛЕ правки: тело плюс
+# медианный абзац по обоим файлам, тем же швом, что у оси K. Фикстура остаётся
+# байт в байт прежней; снята только зависимость от оси, которая предметом
+# близнеца не является. Ось бюджета доказывается своими пробами (K, N) и на
+# контроле судится объявленным потолком. Шов, собранный не целиком, — отказ
+# фикстуры, а не молчаливый прогон по объявленному.
+capture_twin() {
+    local dir="$1" chk="$2" seam_d seam_c
+    seam_d="$(sandbox_ceiling "$dir" .claude/agents/dispatcher.md MEDIAN)"
+    seam_c="$(sandbox_ceiling "$dir" CLAUDE.md MEDIAN)"
+    case "$seam_d;$seam_c" in
+        .claude/agents/dispatcher.md=[0-9]*+[0-9]*\;CLAUDE.md=[0-9]*+[0-9]*) ;;
+        *)
+            LAST_CHECK="$chk"; RC=99
+            OUT="ФИКСТУРА: шов потолка песочницы не собран («$seam_d;$seam_c»)"
+            return
+            ;;
+    esac
+    capture "$dir" "$chk" RULES_GATE_BASE_CEILING="$seam_d;$seam_c"
+}
+
 assert_code() {   # <ожидаемый> <утверждение>
     if [ "$1" = "$RC" ]; then
         echo "  [OK]   $2"; pass=$((pass + 1))
@@ -438,7 +495,7 @@ d="$(sandbox a3)"; b="$(sandbox_digest "$d")"
 #   markdown: в ней вся суть близнеца. Фикстура обязана лечь в CLAUDE.md байт в байт.
 printf '\nПравило читает тот, за кем оно закреплено: `@.claude/rules/%s`.\n' "$prose_rule" >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же координата в обратных кавычках"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 # shellcheck disable=SC2016  # Обратные кавычки — разметка координаты в тексте
 #   утверждения; двойные кавычки развели бы его с тем, как координата написана в файле.
 assert_code 0 'БЛИЗНЕЦ: `@`-координата в обратных кавычках — не импорт, молчит'
@@ -483,7 +540,7 @@ d="$(sandbox b2)"; b="$(sandbox_digest "$d")"
 #   близнец доказывает, что координата в кавычках импортом не становится.
 printf '\nРоль исполнителя описана в `@.claude/agents/%s`.\n' "$agent_file" >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же координата агента в кавычках"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 assert_code 0 "БЛИЗНЕЦ: координата агента в прозе — не импорт, молчит"
 
 echo
@@ -517,14 +574,14 @@ d="$(sandbox c3)"; b="$(sandbox_digest "$d")"
 # shellcheck disable=SC2016  # Тот же довод: код-спан во вносимой строке markdown.
 printf '\nПодробности — `@.claude/rulebook/%s` §«класс».\n' "$ghost_rule" >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же координата в обратных кавычках"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 assert_code 0 "БЛИЗНЕЦ: та же координата в обратных кавычках — законна, молчит"
 
 d="$(sandbox c4)"; b="$(sandbox_digest "$d")"
 { printf '\n```\n'; printf '@.claude/rulebook/%s\n' "$ghost_rule"; printf '```\n'; } \
     >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же координата в ограждённом блоке"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 assert_code 0 "БЛИЗНЕЦ: та же координата в ограждённом блоке — не вычисляется, молчит"
 
 echo
@@ -538,7 +595,7 @@ echo "== ось D: импорт, вставленный в СЕРЕДИНУ ПР
 d="$(sandbox d1)"; b="$(sandbox_digest "$d")"
 printf '\n@.claude/settings.json\n' >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: посторонний файл объявлен СТРОКОЙ ЦЕЛИКОМ"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 assert_code 0 "БЛИЗНЕЦ: объявление строкой целиком — решение, видимое в диффе; молчит"
 
 d="$(sandbox d2)"
@@ -557,7 +614,7 @@ d="$(sandbox d4)"; b="$(sandbox_digest "$d")"
 # shellcheck disable=SC2016  # Тот же довод: код-спан во вносимой строке markdown.
 printf '\nНастройки лежат в `@.claude/settings.json` — правит их tooling-maintainer.\n' >> "$d/CLAUDE.md"
 assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: та же фраза, координата в кавычках"
-capture "$d" "$C2"
+capture_twin "$d" "$C2"
 assert_code 0 "БЛИЗНЕЦ: координата в прозе в обратных кавычках — молчит"
 
 echo
