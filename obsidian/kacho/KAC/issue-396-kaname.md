@@ -16,13 +16,15 @@ areas:
   - cmd/kaname
 prs:
   - https://github.com/PRO-Robotech/kaname/pull/411
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/396
 opened: 2026-09-23
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - feature
-verified_against: "PRO-Robotech/kaname: голова задачи b372cba3e1c963d754ac3a312ed9140242103697 (= origin/396) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия (K1–K5) мной не перемерялся; закрытие — `gh issue view 396 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:45Z; голова `b372cba3e1c` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: голова задачи b372cba3e1c963d754ac3a312ed9140242103697 (= origin/396) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия (K1–K5) мной не перемерялся; закрытие — `gh issue view 396 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:45Z; голова `b372cba3e1c` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:38:45Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#396: адаптеры портов токена доступа исполняют контракт порта
@@ -53,6 +55,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи b372cba3e1c963
 | голова первого сведения | `c49152dd3c7afaf71d08d037798432cce3037ba5` → слияние `61c47dcf79d758e4ce05548a1ae85ca947df84bf` |
 | голова повторного сведения | `b372cba3e1c963d754ac3a312ed9140242103697` → слияние `dd1e253219c58a1fa6ce3ab7a92f55424964c5fd`; ветка `396` (координата, не живая ссылка) на origin с этой головой |
 | запрос сборки | PR #411 `408` → `358`, голова `2f45e7c8aa0ebb6a1ec25ff26523cc70e205bb03`, коммит слияния `d22123ba0957625fa791649bd72b6fffd694cfa0` |
+| запрос волны | PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5 прогонов, все `success` |
 
 Таблица тела PR #411 называет голову первого сведения; повторное пришло после.
 
@@ -66,10 +69,16 @@ verified_against: "PRO-Robotech/kaname: голова задачи b372cba3e1c963
       голова задачи `b372cba3e1c` — предок origin/`357` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
 
+## History
+
+- 2026-09-26 — волна #358 влита в ветку эпика `357` запросом PR #422 (`fc9f5aff19c`); в `main` @ `cbbac984b7b` задачи нет — посадка в ствол предмет эпика, а не задачи.
+
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» нет; узкие записки этой записью не менялись.
+Возвраты исполнителей по задаче называют ресурс TokenFamily (отсечка по ключу семейства), пакеты `internal/ceremonyport`, `internal/tokenrevocation`, `internal/tokensigner`, `internal/repo/kaname/pg` и ребро kaname → corelib v1.10.0-rc.1 (`oauthceremony`, `acrlevel`, `ids`). Записки ресурса и пакета фундамента заведены этой записью.
 
 - [[KAC/issue-358-kaname]] — волна и сборка 1.
+- [[resources/iam-token-family]] — семейство, чьи порты реализуют адаптеры.
+- [[packages/corelib-oauthceremony]] — порты фундамента.
 
 #kac #kacho-iam #feature

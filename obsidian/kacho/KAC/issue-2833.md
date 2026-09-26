@@ -13,12 +13,14 @@ areas:
 prs:
   - https://github.com/PRO-Robotech/kacho/pull/2854
   - https://github.com/PRO-Robotech/kacho/pull/2856
+  - https://github.com/PRO-Robotech/kacho/pull/2869
 issue_url: https://github.com/PRO-Robotech/kacho/issues/2833
 opened: 2026-09-22
+closed: 2026-09-26
 tags:
   - kac
   - docs
-verified_against: "PRO-Robotech/kacho: голова задачи 3f5041eb9a5b30fe25afc171e2ecb1695ca78564 — предок головы сборки ce59e5769df и origin/2796, не предок origin/2564 и origin/main (`git merge-base --is-ancestor`); её единственный файл на голове сборки равен голове задачи. Число утверждений пробы мной не перезапускалось — оно и есть предмет правки, и в документе его больше нет; закрытие — `gh issue view 2833 -R PRO-Robotech/kacho --json state,closedAt` — CLOSED 2026-09-26T09:40:25Z; голова `3f5041eb9a5` — предок origin/2564 @ 7190c3e5274, не предок origin/main @ 1d42a6728bf (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kacho: голова задачи 3f5041eb9a5b30fe25afc171e2ecb1695ca78564 — предок головы сборки ce59e5769df и origin/2796, не предок origin/2564 и origin/main (`git merge-base --is-ancestor`); её единственный файл на голове сборки равен голове задачи. Число утверждений пробы мной не перезапускалось — оно и есть предмет правки, и в документе его больше нет; закрытие — `gh issue view 2833 -R PRO-Robotech/kacho --json state,closedAt` — CLOSED 2026-09-26T09:40:25Z; голова `3f5041eb9a5` — предок origin/2564 @ 7190c3e5274, не предок origin/main @ 1d42a6728bf (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:40:25Z, меток status:* нет (`gh issue view`); коммит слияния волны 7190c3e5274 — в origin/2564, не в origin/main (`gh api compare`)"
 ---
 
 # kacho#2833: счёт утверждений пробы берётся из неё, а не выписывается
@@ -55,6 +57,7 @@ verified_against: "PRO-Robotech/kacho: голова задачи 3f5041eb9a5b30f
 | ветка задачи (координата, не живая ссылка) | `2833`, с origin снята (`git ls-remote origin refs/heads/2833` → пусто) |
 | запрос сборки | PR #2856 `2855` → `2796`, голова `ce59e5769df49b66dcd16e1f073ce6b3bdba0c9a`; 9 прогонов головы, все `completed success` |
 | коммит слияния в ветке волны | `87db6534a7a2c98a3deec264f8697e7352c37e9c` |
+| запрос волны | PR #2869 `2796` → `2564`, голова `ec8f4f445b4`, коммит слияния `7190c3e5274`; прогоны головы — 8 прогонов, все `success` |
 
 ## DoD (из тела задачи)
 
@@ -65,6 +68,10 @@ verified_against: "PRO-Robotech/kacho: голова задачи 3f5041eb9a5b30f
 - [x] задача закрыта вместе с волной #2796: её запрос #2869 влит в ветку эпика `2564`,
       голова задачи `3f5041eb9a5` — предок origin/`2564` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #2564, а не задачи.
+
+## History
+
+- 2026-09-26 — волна #2796 влита в ветку эпика `2564` запросом PR #2869 (`7190c3e5274`); в `main` @ `1d42a6728bf` задачи нет — посадка в ствол предмет эпика, а не задачи.
 
 ## Затронутые сущности vault
 

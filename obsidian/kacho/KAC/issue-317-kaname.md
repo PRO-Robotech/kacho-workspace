@@ -13,13 +13,15 @@ areas:
   - internal/repo/kaname/pg
 prs:
   - https://github.com/PRO-Robotech/kaname/pull/411
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/317
 opened: 2026-09-20
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: голова задачи 2b203955a36f651c79323825c1c04509fc0a9bbb (= origin/317) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия задачи мной не перемерялся; закрытие — `gh issue view 317 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:07Z; голова `2b203955a36` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: голова задачи 2b203955a36f651c79323825c1c04509fc0a9bbb (= origin/317) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия задачи мной не перемерялся; закрытие — `gh issue view 317 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:07Z; голова `2b203955a36` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:38:07Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#317: способ аутентификации клиента выражен схемой
@@ -51,6 +53,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи 2b203955a36f65
 | голова задачи | `2b203955a36f651c79323825c1c04509fc0a9bbb`; ветка `317` (координата, не живая ссылка) на origin с той же головой |
 | коммит слияния в ветке сборки | `a37b67366bba35c3497b022b2f35515fd2bf5be2` |
 | запрос сборки | PR #411 `408` → `358`, голова `2f45e7c8aa0ebb6a1ec25ff26523cc70e205bb03`, коммит слияния `d22123ba0957625fa791649bd72b6fffd694cfa0` |
+| запрос волны | PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5 прогонов, все `success` |
 
 ## DoD (из тела задачи)
 
@@ -63,10 +66,15 @@ verified_against: "PRO-Robotech/kaname: голова задачи 2b203955a36f65
       голова задачи `2b203955a36` — предок origin/`357` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
 
+## History
+
+- 2026-09-26 — волна #358 влита в ветку эпика `357` запросом PR #422 (`fc9f5aff19c`); в `main` @ `cbbac984b7b` задачи нет — посадка в ствол предмет эпика, а не задачи.
+
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» нет; узкие записки этой записью не менялись.
+Возвраты исполнителей по задаче называют ресурс InteractiveClient (таблица `kaname.interactive_clients`, ограничения `auth_method_ck` и `secret_verifier_method_ck`) и пакеты `internal/migrations`, `internal/repo/kaname/pg`. Записка ресурса заведена этой записью.
 
 - [[KAC/issue-358-kaname]] — волна и сборка 1.
+- [[resources/iam-interactive-client]] — способ аутентификации клиента выражен схемой.
 
 #kac #kacho-iam #fix

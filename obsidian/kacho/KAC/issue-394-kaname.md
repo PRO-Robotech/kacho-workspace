@@ -14,13 +14,15 @@ areas:
 prs:
   - https://github.com/PRO-Robotech/kaname/pull/400
   - https://github.com/PRO-Robotech/kaname/pull/411
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/394
 opened: 2026-09-23
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633574a95415731403e59be613fef (= голова PR #400) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); ветка 394 с origin снята. Предикат сверен: 9 контекстов `branches/main/protection/required_status_checks` против `statusCheckRollup` PR #411, 2026-09-24; закрытие — `gh issue view 394 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:37Z; голова `09bb99905d9` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633574a95415731403e59be613fef (= голова PR #400) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); ветка 394 с origin снята. Предикат сверен: 9 контекстов `branches/main/protection/required_status_checks` против `statusCheckRollup` PR #411, 2026-09-24; закрытие — `gh issue view 394 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:38:37Z; голова `09bb99905d9` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:38:37Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#394: конвейер идёт на запросе в ветки волн и эпика
@@ -53,6 +55,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633
 | голова повторного сведения | `09bb99905d9633574a95415731403e59be613fef` → слияние `8fc953171b8ae8d1700bb564cc77755bae684f30` |
 | запрос задачи | PR #400 `394` → `358`; площадка отметила его влитым 2026-09-24T14:05:20Z, когда голова вошла в `358` через сборку; ветка `394` (координата, не живая ссылка) с origin снята |
 | запрос сборки | PR #411 `408` → `358`, голова `2f45e7c8aa0ebb6a1ec25ff26523cc70e205bb03`, коммит слияния `d22123ba0957625fa791649bd72b6fffd694cfa0` |
+| запрос волны | PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5 прогонов, все `success` |
 
 ## DoD (из тела задачи)
 
@@ -63,6 +66,10 @@ verified_against: "PRO-Robotech/kaname: голова задачи 09bb99905d9633
 - [x] задача закрыта вместе с волной #358: её запрос #422 влит в ветку эпика `357`,
       голова задачи `09bb99905d9` — предок origin/`357` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
+
+## History
+
+- 2026-09-26 — волна #358 влита в ветку эпика `357` запросом PR #422 (`fc9f5aff19c`); в `main` @ `cbbac984b7b` задачи нет — посадка в ствол предмет эпика, а не задачи.
 
 ## Затронутые сущности vault
 
