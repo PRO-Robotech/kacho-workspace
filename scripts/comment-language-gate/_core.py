@@ -71,6 +71,10 @@ import subprocess
 PRODUCTS = ("kacho", "kaname", "corelib")
 WORKSPACE = "workspace"
 
+# Ствол продукта — одно объявление на все гейты воркспейса (`docs-gate/_lib.py`).
+# Вызывающие кладут `docs-gate` в путь поиска до импорта этого модуля.
+from _lib import TRUNK_REF  # noqa: E402
+
 # Ключевые слова Go и универсальные сокращения. Это НЕ словарь английского и не
 # словарь инструментов: перечень закрыт грамматикой Go плюс те сокращения,
 # которые в нашем дереве встречаются как имена, а не как изложение.
@@ -123,17 +127,114 @@ def clone(root, name):
     return None
 
 
-def go_paths(repo):
-    """`.go` по ИНДЕКСУ git, а не с диска: посторонний каталог рядом иначе
-    влияет на вердикт, а ещё не закоммиченный файл обязан судиться ровно в тот
-    коммит, где его заводят."""
-    out = subprocess.run(
-        ["git", "-C", repo, "ls-files", "--cached", "--others",
-         "--exclude-standard", "*.go"],
-        capture_output=True, text=True)
-    if out.returncode != 0:
-        return None
-    return sorted(p for p in out.stdout.split("\n") if p.endswith(".go"))
+# ── ИСТОЧНИК ДЕРЕВА: РЕВИЗИЯ ПРОДУКТА, РАБОЧАЯ КОПИЯ ВОРКСПЕЙСА ─────────────
+#
+# ДЕРЕВО ПРОДУКТА ЧИТАЕТСЯ С РЕВИЗИИ, А НЕ С ДИСКА КЛОНА (ws#789). Клон продукта
+# рядом с воркспейсом — чужая рабочая копия: её переключают на ветку полосы, в
+# ней лежат незакоммиченные правки. Прибор, читавший её индекс и неотслеживаемые
+# файлы, выносил вердикт о том, на что клон переключён: клон kaname на ветке
+# полосы давал другой вход, чем `origin/main`, и вердикт воркспейса зависел от
+# чужого `git checkout`. Поэтому у продукта вход — `git ls-tree` и `git cat-file`
+# по ревизии: ствол (`origin/main`) либо закреплённая в ведомости ревизия.
+#
+# ВОРКСПЕЙС — ПО ИНДЕКСУ И РАБОЧЕЙ КОПИИ, как прежде и как его судят остальные
+# гейты воркспейса: это дерево, в котором гейт живёт, и незакоммиченный файл
+# обязан судиться ровно в том изменении, где его заводят. Посторонний каталог
+# рядом на вердикт не влияет — пути берутся из индекса git, а не обходом диска.
+
+class Source(object):
+    """Состав и содержимое одного дерева. `rev` None — рабочая копия."""
+
+    def __init__(self, repo, rev=None):
+        self.repo, self.rev = repo, rev
+        self._blobs = {}
+
+    def paths(self, suffix):
+        """Отсортированные пути, кончающиеся `suffix`; None — git не отработал."""
+        if self.rev is None:
+            out = subprocess.run(
+                ["git", "-C", self.repo, "ls-files", "-z", "--cached", "--others",
+                 "--exclude-standard", "*" + suffix],
+                capture_output=True)
+            if out.returncode != 0:
+                return None
+            return sorted(set(p.decode("utf-8", "surrogateescape")
+                              for p in out.stdout.split(b"\0")
+                              if p and p.decode("utf-8", "surrogateescape").endswith(suffix)))
+        out = subprocess.run(
+            ["git", "-C", self.repo, "ls-tree", "-r", "-z", "--full-tree", self.rev],
+            capture_output=True)
+        if out.returncode != 0:
+            return None
+        res = []
+        for rec in out.stdout.split(b"\0"):
+            if not rec:
+                continue
+            meta, path = rec.split(b"\t", 1)
+            mode, kind, sha = meta.decode().split()
+            path = path.decode("utf-8", "surrogateescape")
+            # Символьная ссылка несёт в блобе ПУТЬ цели, а не текст файла: прочесть
+            # её как Go значило бы судить строку пути. Цель внутри дерева судится
+            # своей записью. Замер 2026-09-26: `.go`-ссылок на стволах 0.
+            if kind != "blob" or mode == "120000" or not path.endswith(suffix):
+                continue
+            self._blobs[path] = sha
+            res.append(path)
+        return sorted(res)
+
+    def read(self, rel):
+        """Текст файла либо None."""
+        if self.rev is None:
+            try:
+                with open(os.path.join(self.repo, rel), encoding="utf-8",
+                          errors="replace") as fh:
+                    return fh.read()
+            except OSError:
+                return None
+        sha = self._blobs.get(rel)
+        if sha is None:
+            return None
+        out = subprocess.run(["git", "-C", self.repo, "cat-file", "blob", sha],
+                             capture_output=True)
+        if out.returncode != 0:
+            return None
+        return out.stdout.decode("utf-8", "replace")
+
+    def read_many(self, rels):
+        """{путь: текст} одним `git cat-file --batch` — у ревизии; у копии — по файлу."""
+        if self.rev is None:
+            return dict((r, self.read(r)) for r in rels)
+        shas = [self._blobs[r] for r in rels if r in self._blobs]
+        if not shas:
+            return {}
+        out = subprocess.run(["git", "-C", self.repo, "cat-file", "--batch"],
+                             input=("\n".join(shas) + "\n").encode(),
+                             capture_output=True)
+        if out.returncode != 0:
+            return {}
+        data, pos, by_sha = out.stdout, 0, {}
+        while pos < len(data):
+            nl = data.index(b"\n", pos)
+            head = data[pos:nl].decode().split()
+            if len(head) < 3 or head[1] == "missing":
+                pos = nl + 1
+                continue
+            size = int(head[2])
+            by_sha[head[0]] = data[nl + 1:nl + 1 + size].decode("utf-8", "replace")
+            pos = nl + 1 + size + 1
+        return dict((r, by_sha.get(self._blobs.get(r))) for r in rels)
+
+
+def resolve(repo, rev):
+    """Полная ревизия коммита либо None — её в клоне нет."""
+    out = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "--quiet",
+                          rev + "^{commit}"], capture_output=True, text=True)
+    return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
+
+
+def is_ancestor(repo, older, newer):
+    return subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor",
+                           older, newer], capture_output=True).returncode == 0
 
 
 # ── ЛЕКСЕР ──────────────────────────────────────────────────────────────────
@@ -307,7 +408,7 @@ def line_is_finding(body, first_of_block):
 
 # ── ИСКЛЮЧЕНИЯ, ВЫВОДИМЫЕ ИЗ ДЕРЕВА ─────────────────────────────────────────
 
-def vendored_prefixes(repo, paths):
+def vendored_prefixes(src):
     """И4 — ввезённое поддерево. Признак ВЫВОДИТСЯ ИЗ ДЕРЕВА, а не выписан
     координатой: выписанная координата переживает свой предмет (опровержение
     нашло ровно это — `corelib/internal/oauth2/PROVENANCE.md` на объявленной
@@ -324,29 +425,18 @@ def vendored_prefixes(repo, paths):
         скрипт рядом.
     """
     prefixes, files = set(), set()
-    prov = subprocess.run(
-        ["git", "-C", repo, "ls-files", "--cached", "--others",
-         "--exclude-standard", "*PROVENANCE.md"],
-        capture_output=True, text=True)
-    if prov.returncode == 0:
-        for rel in prov.stdout.split("\n"):
-            if rel.strip():
-                prefixes.add(os.path.dirname(rel) + "/")
-    out = subprocess.run(
-        ["git", "-C", repo, "ls-files", "--cached", "--others",
-         "--exclude-standard", "*vendor-provenance.json"],
-        capture_output=True, text=True)
-    if out.returncode == 0:
-        for rel in out.stdout.split("\n"):
-            if not rel.strip():
-                continue
-            try:
-                with open(os.path.join(repo, rel), encoding="utf-8") as fh:
-                    doc = json.load(fh)
-            except (OSError, ValueError):
-                continue
-            for item in _walk_json_paths(doc):
-                files.add(item)
+    for rel in src.paths("PROVENANCE.md") or ():
+        prefixes.add(os.path.dirname(rel) + "/")
+    manifests = src.paths("vendor-provenance.json") or ()
+    for rel, text in src.read_many(manifests).items():
+        if text is None:
+            continue
+        try:
+            doc = json.loads(text)
+        except ValueError:
+            continue
+        for item in _walk_json_paths(doc):
+            files.add(item)
     return prefixes, files
 
 
@@ -372,23 +462,22 @@ def is_vendored(rel, prefixes, files):
 
 # ── ЗАМЕР ───────────────────────────────────────────────────────────────────
 
-def measure_tree(repo, name, paths=None):
-    """Перепись по одному дереву. Возвращает словарь; ключ `void` — считать не
-    по чему (это НЕ зелёное)."""
+def measure_tree(repo, name, rev=None):
+    """Перепись по одному дереву на ревизии `rev` (None — рабочая копия).
+    Ключ `void` — считать не по чему (это НЕ зелёное)."""
+    src = Source(repo, rev)
+    paths = src.paths(".go")
     if paths is None:
-        paths = go_paths(repo)
-    if paths is None:
-        return {"void": "`git ls-files` в %s не отработал" % repo}
-    prefixes, vfiles = vendored_prefixes(repo, paths)
-    res = {"tree": name, "walked": 0, "parsefail": [], "generated": 0,
+        return {"void": "`git %s` в %s не отработал"
+                        % ("ls-files" if rev is None else "ls-tree " + rev, repo)}
+    prefixes, vfiles = vendored_prefixes(src)
+    res = {"tree": name, "rev": rev, "walked": 0, "parsefail": [], "generated": 0,
            "vendored": 0, "files": set(), "lines": 0, "blocks": 0,
            "findings": [], "comment_lines": 0}
+    texts = src.read_many(paths)
     for rel in paths:
-        full = os.path.join(repo, rel)
-        try:
-            with open(full, encoding="utf-8", errors="replace") as fh:
-                text = fh.read()
-        except OSError:
+        text = texts.get(rel)
+        if text is None:
             continue
         res["walked"] += 1
         if _GENERATED.search(text):
@@ -424,8 +513,19 @@ def _sample(block, ln):
     return ""
 
 
+def tree_rev(repo, name):
+    """Ревизия, по которой судится дерево: у продукта — полная ревизия ствола
+    `origin/main`, у воркспейса — None (рабочая копия). (ревизия, отказ)."""
+    if name == WORKSPACE:
+        return None, None
+    rev = resolve(repo, TRUNK_REF)
+    if rev is None:
+        return None, "ствол %s не резолвится" % TRUNK_REF
+    return rev, None
+
+
 def measure(root):
-    """Замер по ВСЕМ четырём деревьям. `void` — хоть одного клона нет."""
+    """Замер по ВСЕМ четырём деревьям. `void` — хоть одного клона либо ствола нет."""
     trees, total = [], {"walked": 0, "files": 0, "lines": 0, "blocks": 0,
                         "generated": 0, "vendored": 0, "comment_lines": 0}
     parsefail, missing, findings = [], [], []
@@ -434,10 +534,15 @@ def measure(root):
         if repo is None:
             missing.append(name)
             continue
-        m = measure_tree(repo, name)
+        rev, why = tree_rev(repo, name)
+        if why:
+            missing.append("%s (%s)" % (name, why))
+            continue
+        m = measure_tree(repo, name, rev)
         if "void" in m:
             missing.append("%s (%s)" % (name, m["void"]))
             continue
+        m["repo"] = repo
         trees.append(m)
         parsefail.extend(m["parsefail"])
         findings.extend((name,) + f for f in m["findings"])

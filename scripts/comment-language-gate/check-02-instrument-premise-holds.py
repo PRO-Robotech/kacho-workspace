@@ -13,9 +13,11 @@
      покраснела бы в день, когда дерево вычистят.
 
   2. ПРИЗНАК ПОРОЖДЁННОГО СХОДИТСЯ СО ВСТРЕЧНОЙ КОМАНДОЙ. Прибор снимает файл
-     по шапке `// Code generated … DO NOT EDIT.`; встречный счёт — `git grep`.
-     Разошлись — значит прибор снимает не тот класс, что наши собственные
-     гейты, читающие ту же строку дословно.
+     по шапке `// Code generated … DO NOT EDIT.`; встречный счёт — `git grep`
+     по ТОЙ ЖЕ ревизии, что читает прибор (у продукта — ствол, у воркспейса —
+     рабочая копия). Разошлись — значит прибор снимает не тот класс, что наши
+     собственные гейты, читающие ту же строку дословно. Встречная команда по
+     рабочей копии клона сверяла бы прибор с другим деревом.
 
   3. ИСКЛЮЧЕНИЕ ВВЕЗЁННОГО ВЫВОДИТСЯ ИЗ ДЕРЕВА. Признак не выписан координатой,
      поэтому истекает сам: сегодня он снимает ноль файлов `.go`, и это не
@@ -76,11 +78,14 @@ def premise_generated(root):
         repo = _core.clone(root, name)
         if repo is None:
             return None, "клона %s нет" % name
+        rev, why = _core.tree_rev(repo, name)
+        if why:
+            return None, "%s: %s" % (name, why)
         grep = subprocess.run(
-            ["git", "-C", repo, "grep", "-lE", r"^// Code generated .* DO NOT EDIT\.$",
-             "--", "*.go"], capture_output=True, text=True)
+            ["git", "-C", repo, "grep", "-lE", r"^// Code generated .* DO NOT EDIT\.$"]
+            + ([rev] if rev else []) + ["--", "*.go"], capture_output=True, text=True)
         counter = len([x for x in grep.stdout.split("\n") if x.strip()])
-        m = _core.measure_tree(repo, name)
+        m = _core.measure_tree(repo, name, rev)
         if "void" in m:
             return None, m["void"]
         out.append((name, m["generated"], counter, m))
