@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
-# check-11 — перепись каскада читает ОБА отношения дочерних и не выдаёт пустой
+# check-20 — перепись каскада читает ОБА отношения дочерних и не выдаёт пустой
 # уровень за «открытых ноль».
+#
+# НОМЕР 20, А НЕ 11 (сведение 786 × 771, 2026-09-26). Номер 11 в сведённом наборе
+# носила и `check-11-owner-escalation-list-is-closed.sh` (с 2026-09-20); уступает
+# пришедшая позже, как в 267b3f0b. Номера 12 и 19 заняты в этом наборе, 13–18 —
+# ветками вне сведения (`git ls-tree` по всем ссылкам), свободен 20. Самоимя — из
+# имени файла.
 #
 # ЧТО ЗАПРЕЩАЕТ ЭТА ПРОВЕРКА. `scripts/cascade-census.sh` — предикат каскада
 # закрытия (`.claude/rules/git-issues.md#gi-close-cascade`): у закрытой волны
@@ -47,7 +53,7 @@ set -euo pipefail
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 WS="$(tooling_gate_workspace_root)"
-NAME="check-11-cascade-census-reads-both-relations"
+NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
 TOOL_REL="scripts/cascade-census.sh"
 
 if [ -z "$(tooling_gate_files "$WS" "$TOOL_REL")" ]; then

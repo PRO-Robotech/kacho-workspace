@@ -1,6 +1,6 @@
 ---
 name: kacho-docs-writer
-description: Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (это .claude/rules/vault.md).
+description: Регламент написания/правки документации Kachō — сайт документации компонента (Docusaurus 3, каталог docs у gateway и каждого сервиса), его инженерная часть, спека-книга docs/specs 00…04, README. Применять при любой задаче «написать/обновить/вычитать документацию»; кодифицирует own-product тон (без сравнений с чужими облаками), сверку фактов с ground-truth, валидность MDX/mermaid, build-гейт (0 broken links) и связность глав. Vault-записки — НЕ сюда (канон obsidian/kacho/CLAUDE.md, агент vault-scribe).
 ---
 
 # Skill: kacho-docs-writer — документация Kachō
@@ -16,7 +16,7 @@ description: Регламент написания/правки документ
 инженерной частью, `docs/specs/` воркспейса, README; вычитка/актуализация существующих
 доков.
 
-**НЕ сюда**: vault-записки (`obsidian/kacho/` — правила в `.claude/rules/vault.md`);
+**НЕ сюда**: vault-записки (`obsidian/kacho/` — канон `obsidian/kacho/CLAUDE.md`, агент `vault-scribe`);
 godoc/комментарии в коде (skill `evgeniy` + go-style-reviewer); commit-messages
 (`.claude/rules/git-issues.md`); acceptance-доки (`acceptance-author` — это gate-артефакт,
 а не документация).

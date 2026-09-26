@@ -178,3 +178,147 @@ final-verification-before-merge · go test ./... -race + golangci-lint run + gov
 exp-plan-before-code · полосе, чей предмет — проба, гейт, страж или инвариант безопасности, ДО реализации `check-verifier` даёт план опыта: инъекции (одно-фактный дефект → какая проба обязана покраснеть), законные близнецы, слепые зоны класса; инвариант безопасности — заводимый или меняемый контроль (проверка прав, граница слушателя, отзыв), а аннотация прав и строка каталога нового RPC по действующему правилу (`api-gateway-registrar`, `proto-sync`) — применение, его держит гейт каталога прав, плана нет · ЗАВЕСТИ exp-plan-before-code · red: работа-проверка начата без плана; дефект впервые вносит приёмка
 exp-plan-self-run · сдавай, только прогнав весь план сам: исход по каждому пункту с командой · ЗАВЕСТИ exp-plan-self-run · red: сдача без исхода по пункту; «план прогнан» без команд
 exp-plan-acceptance · приёмка повторяет план и ищет вне его · `check-verifier` §3 · red: вердикт — пересказ исходов автора, опытов вне плана ноль
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**final-verification-before-merge** — прежняя редакция:
+
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер GitHub на PR сборки в ветку волны — раз на сведение и раз на пересведение; локально — быстрое своих пакетов (`code-first-no-wait`) и непокрытое конвейером, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` на PR сборки · red: вливание без одного из четырёх; прогон на задаче; `-race` или полный набор исполнителем локально
+
+**code-first-no-wait** — прежняя редакция:
+
+code-first-no-wait · исполнитель пишет код строгим TDD, локально гоняет только быстрое по своим пакетам — unit без `-race`, vet, gofmt, свои пробы — и сдаёт коммитом в ветку задачи, затем берёт следующую задачу пачки: ревью и прогонов не ждёт, их даёт сборка (решение владельца 2026-09-24 «приоритет написания кода») · вниманием исполнителя; возврат называет sha сдачи и взятую следующую задачу · red: исполнитель ждёт вердикта или ревью задачи; `-race`, линт монорепо или стенд в цикле TDD
+
+**exp-plan-parallel** — прежняя редакция:
+
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности, `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции (одно-фактный дефект → какая проба обязана покраснеть), законные близнецы, слепые зоны класса; прочим задачам плана нет; инвариант безопасности — заводимый или меняемый контроль (проверка прав, граница слушателя, отзыв), а аннотация прав и строка каталога нового RPC по действующему правилу (`api-gateway-registrar`, `proto-sync`) — применение, его держит гейт каталога прав · ЗАВЕСТИ exp-plan-parallel · red: план заказан задаче не-проверке; код ждёт плана
+
+**primacy-judged-by-position-not-only-text** — прежняя редакция:
+
+primacy-judged-by-position-not-only-text · «текст первичен» — ДВА утверждения, и оба судятся врозь: дословность блока и его ПОЗИЦИЯ среди разделов. Цитата, уехавшая в середину файла, остаётся дословной и первичной быть перестаёт · scripts/tooling-gate/check-11-owner-escalation-list-is-closed.sh (ось C: пять литералов + обход заголовков, первый нумерованный обязан быть `## 0.`) · red: гейт зелен на блоке, перенесённом вниз без правки текста
+
+**recognizer-built-from-class-not-form-list** — прежняя редакция:
+
+recognizer-built-from-class-not-form-list · распознаватель строй ОТ КЛАССА; перечисляешь формы — выведи их обходом дерева и назови, чем обход ограничен · там же (обход видит только `^## <число>.` вне оград кода; порядок — по положению в файле, не по значению номера) · red: перечень арм, и мимо него проходит форма, которой в перечне не было
+
+**anchor-judges-substance-not-key** — прежняя редакция:
+
+anchor-judges-substance-not-key · якорем на норму бери ДОСЛОВНЫЙ фрагмент императива на строке самой нормы, а не её идентификатор: id ничего не утверждает и переживает выворачивание тела наизнанку · scripts/tooling-gate/check-11-owner-escalation-list-is-closed.sh (функция `norm`: ключ и существо на одной строке) · red: гейт зелен на теле, разрешающем обратное, при сохранённом ключе
+
+**pressure-clause-anchored-with-its-limiter** — прежняя редакция:
+
+pressure-clause-anchored-with-its-limiter · клаузулу, создающую давление, и её ограничитель закрепляй ОДНИМ вызовом и в одном файле; якорь на одну сторону без другой — дефект · scripts/tooling-gate/check-11-owner-escalation-list-is-closed.sh (функция `pair` принимает обе стороны, пар ноль — код 2) · red: клаузула «ищи обход» под якорем, оговорка «среди безопасных способов» — ничем
+
+**injection-inverts-body-not-renames-key** — прежняя редакция:
+
+injection-inverts-body-not-renames-key · инъекция в норму выворачивает ТЕЛО при сохранённом ключе; переименование ключа — тавтология на строке, которую вписал сам автор предиката · scripts/tooling-gate/inject.sh (пробы check-11: дефект и близнец — обе полная переписка строки, отличие одно — дословное существо) · red: проба зовётся «норма снята», а роняет собственный литерал предиката
+
+**presence-predicate-is-monotone** — прежняя редакция:
+
+presence-predicate-is-monotone · предикат на ПРИСУТСТВИИ монотонен по дописыванию: ловит снятие нормы и слеп к ослаблению — всякое ослабление есть ДОБАВЛЕНИЕ; охраняемый раздел суди отпечатком целиком · tooling-gate check-11 ось D, ведомость owner-escalation-fingerprint.txt · red: в раздел дописана оговорка, гейт зелен
+
+(второй проход того же сжатия)
+
+**test-first-red-before-code** — прежняя редакция:
+
+test-first-red-before-code · напиши и ПРОГОНИ до кода; подтверди причину падения; реализатор — Go unit/integration, newman-кейс края — тестировщик (testing-newman.md#edge-author-black-box) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
+
+**new-rpc-newman-case** — прежняя редакция:
+
+new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative; пишет тестировщик по заказу автора (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ new-rpc-newman-case (кандидат — coverage.py маршрут→кейс) · red: путь на крае есть, кейса нет
+
+**exp-plan-self-run** — прежняя редакция:
+
+exp-plan-self-run · план, пришедший до сдачи, прогони сам: исход по каждому пункту с командой; пришедший после — гонит `check-verifier` на сборке, сдача его не ждёт · ЗАВЕСТИ exp-plan-self-run · red: сдача без исхода по пункту плана из входа; «план прогнан» без команд
+
+**regression-lock-at-observable** — прежняя редакция:
+
+regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведение, не только gRPC-код; видимое через край — и newman-кейсом (testing-newman.md#flow-bug-regression) · regression-тест в том же PR · red: рефактор возвращает баг, suite остаётся зелёным
+
+**security-fix-test-same-pr** — прежняя редакция:
+
+security-fix-test-same-pr · несёт behaviour-level regression-тест в ТОМ ЖЕ PR; RPC без функционального теста — добери handler-level unit, путь края — и newman-кейс тестировщика (testing-newman.md#flow-bug-regression) · ЗАВЕСТИ security-fix-test-same-pr · red: фикс без теста либо тест только code-level
+
+**probe-must-be-read-by-its-subject** — прежняя редакция:
+
+probe-must-be-read-by-its-subject · постусловие пробы — не «песочница изменилась», а «проверка это ПРОЧИТАЛА»: вывод на правленой копии обязан отличаться от контрольного на ней же · scripts/rules-gate/measure-monotonicity.sh · red: проба легла мимо предмета, замер объявил проверку монотонной
+
+**empty-ledger-must-pass** — прежняя редакция:
+
+empty-ledger-must-pass · обязан проходить · TestBakedLedgerInjection_AnEmptyLedgerIsTheGoalNotAFailure · red: соблазн вернуть запись ради зелёного
+
+(второй проход того же сжатия)
+
+**final-verification-before-merge** — прежняя редакция:
+
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер PR сборки в ветку волны — раз на сведение и раз на пересведение; локально — быстрое своих пакетов (`code-first-no-wait`) и непокрытое конвейером, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` на PR сборки · red: вливание без одного из четырёх; прогон на задаче; `-race` или полный набор исполнителем локально
+
+**code-first-no-wait** — прежняя редакция:
+
+code-first-no-wait · исполнитель пишет код строгим TDD, локально гоняет только быстрое своих пакетов (unit без `-race`, vet, gofmt, свои пробы), сдаёт коммитом в ветку задачи и берёт следующую задачу пачки: ревью и прогонов не ждёт — их даёт сборка (решение владельца 2026-09-24 «приоритет написания кода») · вниманием исполнителя; возврат называет sha сдачи и следующую задачу · red: исполнитель ждёт вердикта или ревью задачи; `-race`, линт монорепо или стенд в цикле TDD
+
+**exp-plan-parallel** — прежняя редакция:
+
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности (заводимый или меняемый контроль: проверка прав, граница слушателя, отзыв; аннотация прав и строка каталога нового RPC — применение, его держит гейт каталога прав), `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции (одно-фактный дефект → какая проба краснеет), законные близнецы, слепые зоны класса; прочим задачам плана нет · ЗАВЕСТИ · red: план заказан задаче не-проверке; код ждёт плана
+
+(второй проход того же сжатия)
+
+**primacy-judged-by-position-not-only-text** — прежняя редакция:
+
+primacy-judged-by-position-not-only-text · «текст первичен» суди двумя утверждениями врозь: дословность блока и его ПОЗИЦИЯ среди разделов — цитата, уехавшая вниз, дословна, но не первична · tooling-gate check-11, ось C · red: гейт зелен на блоке, перенесённом вниз без правки текста
+
+**per-service-fixture-isolation** — прежняя редакция:
+
+per-service-fixture-isolation · держи свой account + home/cross проекты (setup.sh), scope через existingProjectId; shared-account только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
+
+(второй проход того же сжатия)
+
+**exp-plan-parallel** — прежняя редакция:
+
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности (заводимый или меняемый контроль; аннотация прав и строка каталога нового RPC — применение, их держит гейт каталога прав), `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции, законные близнецы, слепые зоны класса; прочим задачам плана нет · ЗАВЕСТИ · red: план заказан задаче не-проверке; код ждёт плана
+
+## Снято 2026-09-26 (ws#786): сжатие корпуса под потолок check-06 на сведении 786 с 771
+
+Сведённое дерево `786` × `771` (волна-0 в волну-3) дало 208 847 знаков при потолке 200 000
+(решение владельца 2026-09-19); потолок не поднимался. Нормы каскада закрытия и снятия влитых
+веток (786) и требования волны-0 (771) сохранены под теми же id; ниже — ПРЕЖНИЕ редакции строк,
+сжатых этим изменением, дословно (редакция сведения до сжатия).
+
+| `.claude/rules/testing-verdict.md` | чтение вердикта прогона: текст отказа, недействительный прогон, самоистекающие пробы, слепой разборщик |
+| `.claude/rules/testing-newman.md` | сквозные пробы newman: край, свод классов и флоу кейса, eventual-consistency, поллер, параллельный прогон |
+e2e-no-skip-ever · НИКОГДА не пропускай, не маскируй, не ослабляй; зелёное добывай фиксом продукта или фикстуры · assert-suites-green.sh; TestSkippedVerdictDoesNotPassAsGreen · red: кейс исключён из набора, ослаблен assert, зелёное получено сужением вопроса
+e2e-fixture-step-must-assert · утверждай статус И захват id; поллер несёт идентификаторы фикстуры · TestNewmanPrecondMark_ProvenByInjection; TestCapturedVarGateSilentOnLawfulSameShape · red: if (!lastOpError); шаг захватил id без assert; кейс падает на три шага позже
+e2e-missing-dep-own-job · дай ему свою job/волну, создающую условие; не можешь — запиши открытый долг с числом · TestActorExemptionRequiresAScarceRunnerThatExists · red: кейс замаскирован «здесь его не запустить», суита объявлена зелёной
+test-first-red-before-code · напиши и ПРОГОНИ до кода, подтверди причину падения; реализатор — Go unit/integration, newman-кейс края — тестировщик (testing-newman.md#edge-author-black-box) · пара RED→GREEN в отчёте PR · red: тест написан после кода, хотя зелёный
+new-rpc-integration-test · в том же PR — integration_test.go на testcontainers Postgres, включая concurrent-race для CAS/UNIQUE/EXCLUDE · git diff PR: новый RPC → новый *integration_test.go · red: PR добавляет RPC без integration-теста
+new-rpc-newman-case · новый RPC или HTTP-путь края — в том же PR newman-кейс tests/newman/cases/*.py, ≥1 happy и ≥1 negative, пишет тестировщик по заказу автора (testing-newman.md#edge-author-black-box) · ЗАВЕСТИ (кандидат — coverage.py маршрут→кейс) · red: путь на крае есть, кейса нет
+unit-mock-ports-no-sleep · мокай port-интерфейсы (repomock/kachomock); LRO дожидайся детерминированно AwaitOpDone · TestWaitOrderGateRedOnSleepLoopWait · red: time.Sleep вместо AwaitOpDone
+usecase-needs-postgres-is-leak · считай утечкой adapter в use-case и чини слой · TestUseCaseLayerHasOneLayout · red: usecase_test.go поднимает контейнер
+integration-covers-sql-races · покрой CRUD, EXCLUDE/FK/UNIQUE, outbox-транзакционность, CAS/OCC/SKIP-LOCKED гонки на testcontainers Postgres 16 · TestNoPackageStartsAContainerPerTest · red: миграция или CAS-путь без гоночного теста
+ryw-retry-first-own-read · оборачивай клиентским bounded-retry: retry_until_authorized / retry_until_present · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: кейс падает на 403/404 своего же созданного ресурса
+ryw-retry-bounded-budget · держи конечным (~10s) и fail-open: по исчерпании падает реальный assert · TestOwnFreshReadWrapPredicateWiredInEveryNewmanGenerator · red: retry без предела либо проглатывающий отказ
+ryw-retry-never-on-negatives · НИКОГДА не ставь на негатив, cross-account, absent-id, lst-excludes, sync-4xx, давно существующий ресурс · TestDeleteRetryWindowGate_SilentWhenStepDeclares404AsItsOutcome · red: обёрнут negative-шаг — реальный deny замаскирован
+authz-first-negative-tolerance · толерируй oneOf([400,403,404]) — assert_absent_id_rejected / assert_unscoped_rejected · TestResponseCodeFormCorpusIsHonoredByEveryNewmanGenerator · red: STRICT-403 негатив ложно падает на authz-first отказе
+product-bug-go-fix-not-tolerance · чини Go-фиксом с RED-lock, а не толерантностью утверждения · ЗАВЕСТИ · red: в кейс добавлен лишний допустимый код вместо фикса
+per-service-fixture-isolation · держи свой account и home/cross проекты (setup.sh), scope через existingProjectId; shared-account — только у authz-deny matrix · TestNewmanConsumersReachTheSpineThroughTheSuiteBinding · red: два suite делят account — grant течёт в чужие ожидания
+run-idempotency-runid-suffix · вшей {{runId}} в имя, в том числе в max-len BVA · TestFixtureNamesObeyTheCanonWhereTheServiceMigrated · red: 409 AlreadyExists на повторном прогоне
+final-verification-before-merge · go test ./... -race + golangci-lint run + govulncheck + newman гонит конвейер PR сборки в ветку волны — на сведение и на пересведение; локально — быстрое своих пакетов и непокрытое конвейером, тяжёлое — слотом (`testing-verdict.md#busy-machine-step-zero`) · `.github/workflows/ci.yaml` на PR сборки · red: вливание без одного из четырёх; прогон на задаче; `-race` или полный набор исполнителем локально
+code-first-no-wait · исполнитель пишет код строгим TDD, локально гоняет только быстрое своих пакетов (unit без `-race`, vet, gofmt, свои пробы), сдаёт коммитом в ветку задачи и берёт следующую задачу пачки, не ожидая ревью и прогонов (решение владельца 2026-09-24 «приоритет написания кода») · вниманием исполнителя · red: исполнитель ждёт вердикта или ревью задачи; `-race`, линт монорепо или стенд в цикле TDD
+exp-plan-parallel · задаче, чей предмет — проба, гейт, страж или инвариант безопасности (заводимый или меняемый контроль; аннотация прав и строка каталога нового RPC — применение, их держит гейт каталога прав), `check-verifier` составляет план опыта ПАРАЛЛЕЛЬНО коду: инъекции (дефект → какая проба краснеет), законные близнецы, слепые зоны класса; прочим задачам плана нет · ЗАВЕСТИ · red: план заказан задаче не-проверке; код ждёт плана
+exp-plan-self-run · план, пришедший до сдачи, прогони сам: исход по каждому пункту с командой; пришедший после гонит `check-verifier` на сборке, сдача его не ждёт · ЗАВЕСТИ · red: сдача без исхода по пункту плана из входа; «план прогнан» без команд
+regression-lock-at-observable · локай НАБЛЮДАЕМОЕ поведение, не только gRPC-код; видимое через край — и newman-кейсом (testing-newman.md#flow-bug-regression) · regression-тест в том же PR · red: рефактор возвращает баг, suite зелёный
+security-fix-test-same-pr · behaviour-level regression-тест — в ТОМ ЖЕ PR; RPC без функционального теста — handler-level unit, путь края — и newman-кейс тестировщика (testing-newman.md#flow-bug-regression) · ЗАВЕСТИ · red: фикс без теста либо тест только code-level
+fix-class-not-instance · измерь механически по всему дереву (запрос по синтаксису/AST), назови число, почини все вхождения · ЗАВЕСТИ · red: починено там, где нашли; число не названо
+gate-proven-by-injection-both-ways · докажи инъекцией в обе стороны: дефект → краснеет и называет координату; законный близнец той же формы → молчит · *_injection_test.go рядом с гейтом · red: у гейта нет пробы на законный близнец
+primacy-judged-by-position-not-only-text · «текст первичен» суди двумя утверждениями врозь: дословность блока и его ПОЗИЦИЯ — цитата, уехавшая вниз, дословна, но не первична · tooling-gate check-11, ось C · red: гейт зелен на блоке, перенесённом вниз без правки текста
+recognizer-built-from-class-not-form-list · распознаватель строй ОТ КЛАССА; перечисляешь формы — выводи их обходом дерева и называй, чем обход ограничен · tooling-gate check-11, ось C (обход заголовков) · red: мимо перечня прошла форма, которой в нём не было
+anchor-judges-substance-not-key · якорь на норму — ДОСЛОВНЫЙ фрагмент императива на строке нормы, а не её id: id переживает выворачивание тела · tooling-gate check-11, функция `norm` · red: гейт зелен на теле, разрешающем обратное, при сохранённом ключе
+presence-predicate-is-monotone · предикат на ПРИСУТСТВИИ слеп к ослаблению — оно есть дописывание; охраняемый раздел суди отпечатком целиком · tooling-gate check-11 ось D, owner-escalation-fingerprint.txt · red: в раздел дописана оговорка, гейт зелен
+probe-must-be-read-by-its-subject · постусловие пробы — «проверка это ПРОЧИТАЛА», а не «песочница изменилась»: вывод на правленой копии отличается от контрольного на ней же · scripts/rules-gate/measure-monotonicity.sh · red: проба легла мимо предмета, замер объявил проверку монотонной
+census-separate-from-findings · печатай перепись отдельно: «ноль находок» отличимо от «ноль прочитанных файлов» · TestEmptyTreeYieldsZeroCensusNotSilentGreen; TestEmptyWalkIsNotAVerdict · red: гейт зелен на пустом обходе
+shared-source-instead-of-reading-text · заведи общий источник, импортируемый обеими сторонами, вместо чтения чужого исходника · TestPostureVocabularyHasASingleSource · red: гейт заводился ради одной копии предиката и добывает его чтением текста
