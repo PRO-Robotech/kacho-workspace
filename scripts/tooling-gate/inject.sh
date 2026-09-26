@@ -608,10 +608,12 @@ fi
 
 # Инъекция ПРЕДМЕТА ЗАДАЧИ: отказ разбора выходит единицей. Скрипт при этом
 # исправен во всём остальном — меняется ровно один факт, код на выходе из
-# `parse_broken`, — и краснеют ровно две пробы, где разбор ломается.
+# `parse_broken`, — и краснеют пробы, где разбор ломается. Образец привязан к
+# самой функции: слова «вердикта нет» стоят и в шапке, и без привязки
+# подстановка попала бы в выход из подсказки об использовании.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/(вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' \
+    's/(parse_broken\(\) \{.*?вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' \
     "код выхода parse_broken"; then
     run 1 "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
@@ -639,6 +641,61 @@ if mr_patch "$b/$MR_REL" \
     's/LC_ALL=C sort -u/LC_ALL=C sort | LC_ALL=C uniq/g' \
     "та же сортировка другой формой"; then
     run 0 "$b" "близнец: та же сортировка другой формой — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# ── ИСТОЧНИК ВОРКСПЕЙСА (ws#788): каждая инъекция роняет ровно одно условие ──
+# Красный ручной прогон на голове перестаёт быть отказом.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$red_count" -gt 0 \] \|\| \[ "\$run_red" -eq 1 \]; then/if false; then/' \
+    "красное ручного прогона не судится"; then
+    run 1 "$b" "инъекция: красный ручной прогон на голове не отказ — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Прогона на голове нет — а инструмент отвечает «можно».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/(ручного прогона на голове нет;.*?\n.*?\n)    exit 2\n/$1    exit 0\n/s' \
+    "нет прогона — зелёное"; then
+    run 1 "$b" "инъекция: прогона на голове нет, а ответ «можно» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Прогон берётся не по голове: засчитан прогон прежней sha.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.event == "workflow_dispatch")/' \
+    "фильтр по голове снят"; then
+    run 1 "$b" "инъекция: засчитан прогон прежней головы — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Судит первый прогон головы, а не последний.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last/sort_by(.created_at, .id) | first/' \
+    "первый прогон вместо последнего"; then
+    run 1 "$b" "инъекция: судит первый прогон головы — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# check-runs чужого прогона той же sha идут в счёт.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.check_suite\.id == \$s\)/select(true)/' \
+    "фильтр по прогону снят"; then
+    run 1 "$b" "инъекция: check-runs чужого прогона в счёте — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Законный близнец: «последний» другой записью.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at) \/\/ empty/' \
+    "последний прогон другой записью"; then
+    run 0 "$b" "близнец: последний прогон головы другой записью — молчит" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 

@@ -37,6 +37,15 @@
 # «PR недоступен», и «защита не настроена», и «разбор сломан». Проба, читающая
 # только код, зеленела бы на чужой ветке.
 #
+# ДВА ИСТОЧНИКА ВЕРДИКТА — И ОБА ПОД ПРОБАМИ (ws#788). Для репозитория продукта
+# инструмент сверяет обязательные контексты защиты базы; для воркспейса — check-runs
+# ПОСЛЕДНЕГО ручного прогона `ci.yaml` на голове PR. Пробы воркспейса держат то, ради
+# чего источник заведён: зелёный ручной прогон при пустом `statusCheckRollup` — код 0;
+# прогона на голове нет — код 2 «не выполнилось», а не 1; красный check-run — код 1;
+# прогон на ПРЕЖНЕЙ голове не засчитан; из двух прогонов на голове судит последний, и
+# check-runs чужого прогона той же sha в счёт не идут; защита, снова требующая
+# контекстов, — код 2, а не молчаливый выбор источника.
+#
 # Предпосылка проверки (исход VOID): в дереве есть сам инструмент, есть `jq`, и
 # подставной `gh` доказал обе свои стороны. Отсутствие любого из трёх — «не
 # выполнилось», а не «находок нет».
@@ -68,13 +77,23 @@ cat > "$STUB/gh" <<'STUBEOF'
 # Подставной gh: отдаёт заранее записанный ответ и НИЧЕГО не решает.
 # Незнакомый вызов — жёсткий отказ, а не пустой ответ: пустой прошёл бы за
 # «сосед недоступен» и замаскировал промах провязки успехом.
+# Ответ выбирается по ПУТИ запроса, а не по глаголу: у инструмента три разных
+# вопроса к `gh api`, и один ответ на все три провязку не доказывал бы.
 set -u
 case "${1:-}" in
     pr)  target="${MR_FIXTURE:?}/pr" ;;
-    api) target="${MR_FIXTURE:?}/protection" ;;
+    api)
+        case "${2:-}" in
+            repos/*/branches/*/protection)      target="${MR_FIXTURE:?}/protection" ;;
+            repos/*/actions/workflows/*/runs\?*) target="${MR_FIXTURE:?}/runs" ;;
+            repos/*/commits/*/check-runs\?*)     target="${MR_FIXTURE:?}/checkruns" ;;
+            *) echo "gh-stub: незнакомый путь api: $*" >&2; exit 99 ;;
+        esac ;;
     *)   echo "gh-stub: незнакомый вызов: $*" >&2; exit 99 ;;
 esac
 if [ -e "$target.unavailable" ]; then exit 1; fi
+# Вопрос, на который фикстура не заготовлена, — отказ 98, а не пустой ответ.
+[ -e "$target.json" ] || { echo "gh-stub: нет фикстуры $target.json на: $*" >&2; exit 98; }
 cat "$target.json"
 STUBEOF
 chmod +x "$STUB/gh"
@@ -94,15 +113,40 @@ mk_protection() {  # <файл> <контекст>...
     printf '%s\n' "$@" | jq -R . | jq -s '{required_status_checks:{contexts:.}}' > "$f"
 }
 
+HEAD_SHA="1111111111111111111111111111111111111111"
+OLD_SHA="2222222222222222222222222222222222222222"
+
 mk_pr() {  # <файл> <состояние> <состояние-слияния> <зелёный-контекст>...
     local f="$1" st="$2" ms="$3"; shift 3
     local rollup='[]'
     if [ "$#" -gt 0 ]; then
         rollup="$(printf '%s\n' "$@" | jq -R '{name: ., conclusion: "SUCCESS"}' | jq -s .)"
     fi
-    jq -n --arg st "$st" --arg ms "$ms" --argjson r "$rollup" \
-        '{state:$st, baseRefName:"main", mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
+    jq -n --arg st "$st" --arg ms "$ms" --arg h "$HEAD_SHA" --argjson r "$rollup" \
+        '{state:$st, baseRefName:"main", headRefName:"788", headRefOid:$h,
+          mergeStateStatus:$ms, statusCheckRollup:$r}' > "$f"
 }
+
+# mk_runs <файл> <id,sha,status,conclusion,created_at,suite>... — ответ о ручных
+# прогонах. Сосед вправе вернуть и прогон чужой sha: фильтр обязан стоять у инструмента.
+mk_runs() {
+    local f="$1"; shift
+    printf '%s\n' "$@" | jq -R 'split(",") | {id: (.[0]|tonumber), head_sha: .[1],
+        event: "workflow_dispatch", status: .[2], conclusion: (if .[3] == "" then null else .[3] end),
+        created_at: .[4], check_suite_id: (.[5]|tonumber), run_attempt: 1}' \
+        | jq -s '{total_count: length, workflow_runs: .}' > "$f"
+}
+
+# mk_checkruns <файл> <suite|name|status|conclusion>... — check-runs коммита.
+mk_checkruns() {
+    local f="$1"; shift
+    printf '%s\n' "$@" | jq -R 'split("|") | {check_suite: {id: (.[0]|tonumber)}, name: .[1],
+        status: .[2], conclusion: (if .[3] == "" then null else .[3] end)}' \
+        | jq -s '{total_count: length, check_runs: .}' > "$f"
+}
+
+# Защита `main` воркспейса, как она есть: `enforce_admins` включён, контекстов нет.
+mk_ws_protection() { printf '{"enforce_admins":{"enabled":true}}\n' > "$1"; }
 
 # A — все обязательные зелены.
 A="$(mkcase A)"
@@ -157,6 +201,92 @@ I="$(mkcase I)"
 mk_pr "$I/pr.json" MERGED CLEAN "$CTX_LAT"
 mk_protection "$I/protection.json" "$CTX_LAT"
 
+# ── ИСТОЧНИК ВОРКСПЕЙСА: РУЧНОЙ ПРОГОН НА ГОЛОВЕ ────────────────────────────────
+T0="2026-09-26T10:00:00Z"; T1="2026-09-26T11:00:00Z"
+
+# J — зелёный ручной прогон на голове при пустом rollup (три check-runs).
+J="$(mkcase J)"
+mk_pr "$J/pr.json" OPEN CLEAN
+mk_ws_protection "$J/protection.json"
+mk_runs "$J/runs.json" "501,$HEAD_SHA,completed,success,$T1,9001"
+mk_checkruns "$J/checkruns.json" "9001|$CTX_LAT|completed|success" \
+    "9001|$CTX_DASH|completed|success" "9001|$CTX_CYR|completed|success"
+
+# K — ручного прогона на голове нет.
+K="$(mkcase K)"
+mk_pr "$K/pr.json" OPEN CLEAN
+mk_ws_protection "$K/protection.json"
+printf '{"total_count":0,"workflow_runs":[]}\n' > "$K/runs.json"
+
+# L — на голове красный ручной прогон (один check-run упал).
+L="$(mkcase L)"
+mk_pr "$L/pr.json" OPEN CLEAN
+mk_ws_protection "$L/protection.json"
+mk_runs "$L/runs.json" "502,$HEAD_SHA,completed,failure,$T1,9002"
+mk_checkruns "$L/checkruns.json" "9002|$CTX_LAT|completed|success" \
+    "9002|$CTX_CYR|completed|failure"
+
+# M — ручной прогон на голове идёт.
+M="$(mkcase M)"
+mk_pr "$M/pr.json" OPEN CLEAN
+mk_ws_protection "$M/protection.json"
+mk_runs "$M/runs.json" "503,$HEAD_SHA,in_progress,,$T1,9003"
+mk_checkruns "$M/checkruns.json" "9003|$CTX_LAT|completed|success" \
+    "9003|$CTX_CYR|in_progress|"
+
+# N — зелёный прогон есть, но на ПРЕЖНЕЙ голове; сосед вернул его на вопрос о новой.
+N="$(mkcase N)"
+mk_pr "$N/pr.json" OPEN CLEAN
+mk_ws_protection "$N/protection.json"
+mk_runs "$N/runs.json" "504,$OLD_SHA,completed,success,$T1,9004"
+mk_checkruns "$N/checkruns.json" "9004|$CTX_LAT|completed|success"
+
+# O — на голове два прогона: прежний зелёный, последний красный.
+O="$(mkcase O)"
+mk_pr "$O/pr.json" OPEN CLEAN
+mk_ws_protection "$O/protection.json"
+mk_runs "$O/runs.json" "505,$HEAD_SHA,completed,success,$T0,9005" \
+    "506,$HEAD_SHA,completed,failure,$T1,9006"
+mk_checkruns "$O/checkruns.json" "9005|$CTX_LAT|completed|success" \
+    "9006|$CTX_LAT|completed|failure"
+
+# S — близнец O: прежний красный, последний зелёный; красное прежнего не в счёт.
+S="$(mkcase S)"
+mk_pr "$S/pr.json" OPEN CLEAN
+mk_ws_protection "$S/protection.json"
+mk_runs "$S/runs.json" "507,$HEAD_SHA,completed,failure,$T0,9007" \
+    "508,$HEAD_SHA,completed,success,$T1,9008"
+mk_checkruns "$S/checkruns.json" "9007|$CTX_LAT|completed|failure" \
+    "9008|$CTX_LAT|completed|success"
+
+# P — защита базы воркспейса снова требует контекст: объявление истекло.
+P="$(mkcase P)"
+mk_pr "$P/pr.json" OPEN CLEAN
+mk_protection "$P/protection.json" "$CTX_LAT"
+mk_runs "$P/runs.json" "509,$HEAD_SHA,completed,success,$T1,9009"
+mk_checkruns "$P/checkruns.json" "9009|$CTX_LAT|completed|success"
+
+# Q — ответ о прогонах не разбирается.
+Q="$(mkcase Q)"
+mk_pr "$Q/pr.json" OPEN CLEAN
+mk_ws_protection "$Q/protection.json"
+printf '<html><head><title>502</title></head></html>\n' > "$Q/runs.json"
+
+# R — прогон зелёный, а его check-runs нет: на sha лежат только чужие.
+R="$(mkcase R)"
+mk_pr "$R/pr.json" OPEN CLEAN
+mk_ws_protection "$R/protection.json"
+mk_runs "$R/runs.json" "510,$HEAD_SHA,completed,success,$T1,9010"
+mk_checkruns "$R/checkruns.json" "7777|$CTX_LAT|completed|success"
+
+# U — база воркспейса не защищена (ветка волны), ручной прогон зелёный.
+U="$(mkcase U)"
+mk_pr "$U/pr.json" OPEN CLEAN
+: > "$U/protection.unavailable"
+: > "$U/protection.json"
+mk_runs "$U/runs.json" "511,$HEAD_SHA,completed,success,$T1,9011"
+mk_checkruns "$U/checkruns.json" "9011|$CTX_LAT|completed|success"
+
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
 # незнакомый отвергается кодом 99, а не тишиной. Проверяется БЕЗ участия
@@ -171,18 +301,36 @@ if [ "$stub_rc" -ne 99 ]; then
     tooling_gate_void "$NAME" "подставной gh на незнакомом вызове вернул $stub_rc вместо 99 — он способен молча подыграть"
     exit 2
 fi
+PATH="$STUB:$PATH" MR_FIXTURE="$A" gh api 'repos/x/незнакомый-путь' >/dev/null 2>&1 && stub_rc=0 || stub_rc=$?
+if [ "$stub_rc" -ne 99 ]; then
+    tooling_gate_void "$NAME" "подставной gh на незнакомом пути api вернул $stub_rc вместо 99 — он способен молча подыграть"
+    exit 2
+fi
+stub_runs="$(PATH="$STUB:$PATH" MR_FIXTURE="$J" gh api "repos/x/actions/workflows/ci.yaml/runs?head_sha=$HEAD_SHA" 2>/dev/null | jq -r '.workflow_runs[0].id' 2>/dev/null || true)"
+if [ "$stub_runs" != "501" ]; then
+    tooling_gate_void "$NAME" "подставной gh не отдал фикстуру прогонов (получено '$stub_runs') — пробы воркспейса недоказательны"
+    exit 2
+fi
 
 # ── ПРОБЫ ────────────────────────────────────────────────────────────────────
 probes=0
 findings=0
+declare -A by_code=() by_repo=()
 
-# probe <каталог> <ожидаемый-код> <имя-пробы> <обязательная-подстрока>...
+# Репозиторий выбирает источник вердикта, поэтому он — часть пробы: продукт
+# судится обязательными контекстами, воркспейс — ручным прогоном.
+PRODUCT_REPO="PRO-Robotech/kacho"
+WS_REPO="PRO-Robotech/kacho-workspace"
+
+# probe <репозиторий> <каталог> <ожидаемый-код> <имя-пробы> <обязательная-подстрока>...
 probe() {
-    local dir="$1" want="$2" title="$3"; shift 3
+    local repo="$1" dir="$2" want="$3" title="$4"; shift 4
     local out rc needle
     probes=$((probes + 1))
+    by_code[$want]=$(( ${by_code[$want]:-0} + 1 ))
+    by_repo[$repo]=$(( ${by_repo[$repo]:-0} + 1 ))
     out="$(PATH="$STUB:$PATH" MR_FIXTURE="$dir" \
-        bash "$WS/$TOOL_REL" PRO-Robotech/kacho-workspace 1 2>&1)" && rc=0 || rc=$?
+        bash "$WS/$TOOL_REL" "$repo" 1 2>&1)" && rc=0 || rc=$?
     if [ "$rc" -ne "$want" ]; then
         tooling_gate_fail "$NAME" "$title — ждали код $want, получили $rc"
         printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
@@ -200,38 +348,71 @@ probe() {
     tooling_gate_pass "$NAME" "$title (код $rc)"
 }
 
-probe "$A" 0 "все обязательные зелены — «сливать можно»" \
+probe "$PRODUCT_REPO" "$A" 0 "все обязательные зелены — «сливать можно»" \
     "можно сливать" "обязательных контекстов: 3"
 
-probe "$B" 1 "обязательный контекст не появлялся — «сливать нельзя», имя названо" \
+probe "$PRODUCT_REPO" "$B" 1 "обязательный контекст не появлялся — «сливать нельзя», имя названо" \
     "СЛИВАТЬ НЕЛЬЗЯ" "НЕ ПОЯВЛЯЛСЯ" "$CTX_CYR"
 
-probe "$C" 2 "защита ветки не настроена — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$C" 2 "защита ветки не настроена — беспредметно, а не «нельзя»" \
     "НЕ ЗАЩИЩЕНА"
 
-probe "$D" 2 "PR недоступен — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$D" 2 "PR недоступен — беспредметно, а не «нельзя»" \
     "недоступен"
 
-probe "$E" 2 "ответ о защите не разбирается — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$E" 2 "ответ о защите не разбирается — беспредметно, а не «нельзя»" \
     "РАЗБОР СЛОМАН"
 
-probe "$F" 2 "ответ о PR не разбирается — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$F" 2 "ответ о PR не разбирается — беспредметно, а не «нельзя»" \
     "РАЗБОР СЛОМАН"
 
-probe "$G" 2 "обязательных контекстов ноль — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$G" 2 "обязательных контекстов ноль — беспредметно, а не «нельзя»" \
     "обязательных контекстов ноль"
 
-probe "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
+probe "$PRODUCT_REPO" "$H" 1 "имена, различные только длинным тире, не схлопнуты — учтены оба" \
     "обязательных контекстов: 2" "проба - раз"
 
-probe "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
+probe "$PRODUCT_REPO" "$I" 2 "PR уже не открыт — беспредметно, а не «нельзя»" \
     "сливать нечего"
 
-tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; исходов покрыто три (0 — 1 проба, 1 — 2 пробы, 2 — 6 проб)"
+probe "$WS_REPO" "$J" 0 "воркспейс: ручной прогон на голове зелёный при пустом rollup — «сливать можно»" \
+    "можно сливать" "check-runs: 3" "проверок 0"
+
+probe "$WS_REPO" "$K" 2 "воркспейс: ручного прогона на голове нет — «не выполнилось», а не «нельзя»" \
+    "НЕ ВЫПОЛНИЛОСЬ" "gh workflow run ci.yaml"
+
+probe "$WS_REPO" "$L" 1 "воркспейс: ручной прогон на голове красный — «сливать нельзя», имя названо" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "$CTX_CYR [FAILURE]"
+
+probe "$WS_REPO" "$M" 1 "воркспейс: ручной прогон на голове идёт — «нельзя сейчас»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "идёт"
+
+probe "$WS_REPO" "$N" 2 "воркспейс: зелёный прогон прежней головы не засчитан — «не выполнилось»" \
+    "НЕ ВЫПОЛНИЛОСЬ" "ручных прогонов на голове: 0"
+
+probe "$WS_REPO" "$O" 1 "воркспейс: судит последний прогон головы — прежний зелёный не спасает" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "прогон: 506"
+
+probe "$WS_REPO" "$S" 0 "воркспейс: красное прежнего прогона той же sha не в счёт — «сливать можно»" \
+    "можно сливать" "прогон: 508"
+
+probe "$WS_REPO" "$P" 2 "воркспейс: защита снова требует контекст — объявление истекло, вердикта нет" \
+    "расходится с сервером"
+
+probe "$WS_REPO" "$Q" 2 "воркспейс: ответ о прогонах не разбирается — беспредметно, а не «нельзя»" \
+    "РАЗБОР СЛОМАН"
+
+probe "$WS_REPO" "$R" 2 "воркспейс: у прогона нет своих check-runs — «не выполнилось», чужие не в счёт" \
+    "НЕ ВЫПОЛНИЛОСЬ" "зелёных 0 из 0"
+
+probe "$WS_REPO" "$U" 0 "воркспейс: база без защиты, ручной прогон зелёный — «сливать можно»" \
+    "можно сливать"
+
+tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты продукта (проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон воркспейса (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 
 if [ "$findings" -gt 0 ]; then
     tooling_gate_fail "$NAME" "проб с находкой: $findings из $probes"
     exit 1
 fi
 
-tooling_gate_pass "$NAME" "инструмент различает все три исхода: вердикт печатается, отказ разбора приходит кодом 2, имена контекстов не схлопываются"
+tooling_gate_pass "$NAME" "инструмент различает все три исхода у обоих источников: вердикт печатается, отказ разбора и «не выполнилось» приходят кодом 2, имена контекстов не схлопываются, ручной прогон судится на голове"
