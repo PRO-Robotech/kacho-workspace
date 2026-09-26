@@ -1,0 +1,211 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  sha256: 4b28757a944a7e0494072eee146aa36c7b8c137fb6b556a85a01aacdf8466cb6
+  revision: 15
+  static_status: DRAFT
+  static_status_note: >-
+    Шапка объявляет DRAFT — редакция круга 15, ждёт вердикта; шапка намеренно не правлена
+    (change-graph.md §2). Ниже неё сохранена ДОСЛОВНО прежняя шапка кругов 1–12 со строкой
+    «✅ APPROVED — круг 12»: она описывает прежние редакции и этот текст не одобряет (шапка
+    объясняет это тремя предикатами). Таблица истории review в шапке ДОПИСАНА (не переписана):
+    добавлены строки круга 14 (⛔ CHANGES_REQUESTED, `1b202071…`) и круга 15 (ждёт). Машинный
+    читатель docs-gate прочтёт объявленный вердикт — его объявленный предел. Действующее
+    одобрение редакции 15 выводится из ЭТОЙ записи и внешнего события полномочия
+    (external_event_form ниже), а не из слова в шапке.
+  base_commit: ddd2c23d5f312ab96f7317eab7984c2ce6e1391e
+  content_commit: ddd2c23d5f312ab96f7317eab7984c2ce6e1391e
+  parent_commit: f37a1c90
+  parent_review_record: docs/specs/reviews/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance/1b202071a357d5f2851bd3993dd16b5d2c699d3908ef2f08cffef412c1384eae.yaml
+  task: https://github.com/PRO-Robotech/kacho/issues/1351
+  epic: https://github.com/PRO-Robotech/kacho-workspace/issues/211
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-IAM-ID-1-identity-account-decoupling-acceptance.md
+  fingerprint_verified: true
+  lines: 7679
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-18T18:18:05Z'
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: >-
+    git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac ddd2c23d
+    в PRO-Robotech/kacho-workspace вернул 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: ddd2c23d5f312ab96f7317eab7984c2ce6e1391e
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: ff087e513f8a42d5f92a8f374cdcf4e1790b0b4630d4b611224ccbd16b4b9c24
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: authority_event
+  status: not_performed
+  published: false
+  publication_expected_from_orchestrator: true
+  rationale: >-
+    Вердикт — ОДОБРЕНИЕ, и оно становится ДЕЙСТВУЮЩИМ только вместе с внешним событием
+    полномочия: роль без события полномочия не даёт (change-graph.md §3). Событие публикует
+    КУРЬЕР (оркестратор) под учётной записью, допущенной политикой (pointpu,
+    review_authority.acceptance-reviewer), а не эта запись задним числом. До публикации события
+    APPROVED объявлено, но не действует; кодирование под этим документом открывается публикацией.
+  external_event_form:
+    role: acceptance-reviewer
+    verdict: APPROVED
+    subject_sha256: 4b28757a944a7e0494072eee146aa36c7b8c137fb6b556a85a01aacdf8466cb6
+    published_by: pointpu
+    channel: GitHub-событие задачи PRO-Robotech/kacho#1351
+    gate_check: gate сверяет digest ТЕЛА события и subject (policy.yaml §2); тело несёт роль,
+      вердикт и точный отпечаток предмета
+    body_string: 'acceptance-reviewer · APPROVED · sha256 4b28757a944a7e0494072eee146aa36c7b8c137fb6b556a85a01aacdf8466cb6'
+
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: >-
+      Соседняя запись 1b202071….yaml (вердикт ⛔ круга 14 о редакции 14) НЕ правится и НЕ
+      удаляется — она остаётся вердиктом о прежнем содержимом. Эта запись — соседняя, новая, на
+      отпечаток редакции 15.
+
+round_numbering:
+  convention: Круг называется РЕДАКЦИЕЙ, которую он прочитал. Эта запись — круг по редакции 15.
+  predicate: >-
+    `git show ddd2c23d:<путь> | sha256sum` → 4b28757a944a7e0494072eee146aa36c7b8c137fb6b556a85a01aacdf8466cb6 —
+    совпал с отпечатком в задании.
+  prior_edition_verdict:
+    edition: 14
+    commit: f7d42fe6
+    sha256_prefix: 1b202071
+    verdict: CHANGES_REQUESTED
+    record: docs/specs/reviews/…/1b202071….yaml
+    blocker: 'B14-1 [SCOPE] — двойное владение кодированием предфазы S3.1'
+
+# ─────────────────────────────────────────────────────────────────────────────
+measurement_home:
+  workspace_branch: issue-1351-iam-id-1-s4 @ ddd2c23d (worktree tmp/w-1351-accept)
+  service_tree: PRO-Robotech/kaname @ 39628487 (клон project/kaname; резолвится)
+  platform_tree: PRO-Robotech/kacho @ b5fa093341 (клон project/kacho; резолвится)
+
+# ─────────────────────────────────────────────────────────────────────────────
+b14_1_resolution:
+  question: свёлся ли блокер B14-1 к ОДНОЙ картине владения (нет двойного описания S3.1)?
+  answer: ДА, вариант «б» — S3.1 отдельный предмет под своим APPROVED
+  what_changed_since_edition_14:
+    predicate: git diff --stat f7d42fe6 ddd2c23d -- <путь> → 177 вставок, 32 удаления, один файл
+  active_contract_now_single_picture:
+    - '§4, строка стадии S3: «S3.1 кодируется НЕ здесь … отдельный предмет под своим APPROVED»; 31/57 — зависимость'
+    - '§4, строка предфазы S3.1: «кодируется под СВОИМ APPROVED, не под этим документом»; сценарии 31/57 — зависимость'
+    - '§2.3а: добавлена врезка владения — адрес/условие/радиус/порядок остаются, КОДИРОВАНИЕ — предмет S3.1, не этого документа'
+    - '§1.10.6: «кодируется под СВОИМ APPROVED»; 31/57 зависимостью'
+    - '§2.5: «S3.1 — предфаза перед В1 … отдельный предмет, задачу заводит диспетчер»'
+    - 'DoD п.26: «отдельный предмет под своим APPROVED, не под этим»; 31/57 — зависимость; предикат старта В1 оставлен'
+    - 'production-complete S3 row: «S3.1 — предмет ОТДЕЛЬНОЙ приёмки, её production-completeness судит ЕЁ APPROVED, не этот»'
+    - 'ноты сценариев 31 и 57: врезка [ПЕРЕДАН ПРЕДФАЗЕ S3.1] + [!important] зависимость; старая формулировка «делается на S3, шагом S3.1» снята выноской-warning'
+  leftover_coded_here_phrasing_scan:
+    predicate: "grep -nE 'S3.1 — одним изменением|S3.1 приземл|правка модели делается на .*S3, шагом S3.1' D"
+    result: >-
+      единственное действующее вхождение — строка 180 в ЯВНО ИСТОРИЧЕСКОМ блоке «прежняя шапка
+      кругов 1–12 дословно … этот текст не одобряет» (ОБЪЁМ САНКЦИИ круга 12). Остальные два
+      вхождения — снимающая выноска-warning в ноте 31 и таблица «было→стало» §19.2. В действующей
+      части «S3.1 кодируется здесь» не осталось.
+  handed_scenarios_31_57:
+    marked: '[ПЕРЕДАН ПРЕДФАЗЕ S3.1 — 2026-09-18 (круг 15)] + [!important] зависимость'
+    excluded_from_active_count: true
+    tracing_mark_in_9_1: '† (определён рядом с * ; разница названа: * потребляет чужой канал, † целиком принадлежит S3.1)'
+    kept_clean_numbers_in_9_2: true  # чтобы предикат назначения не объявил их сиротами
+    parity_with_86: >-
+      86 несёт «после предфазы S3.1, В-14», *-сценарии несут зависимость от IAM-ID-2; 31/57 теперь
+      несут ту же форму зависимости — асимметрия, названная блокером B14-1, устранена
+
+count_reproduced:
+  active_71:
+    predicate: 'declared 83 − revoked 9 − transferred 1 − handed-S3.1 2 = 71'
+    measured: {declared: 83, revoked: 9, transferred: 1, handed_s31: 2, active: 71}
+    handed_names: [IAM-ID-1-31, IAM-ID-1-57]
+    anchors_pairwise_disjoint: 'w∩t, w∩s, t∩s — все три пусты; обратный контроль каждого находит'
+  assignment:
+    orphans: 0
+    ghosts: 0
+    control: 'выкинул 31 из assigned → предикат печатает 31 (различает)'
+  full_set_completeness: 'diff множества номеров и `seq 1 86 | grep -vxE "9|10|52"` → пусто'
+  group_breakdown_sums_83: 'A12 A2·7 B5 C13 D15 E7 F7 G4 H13 = 83'
+
+other_checks:
+  s31_start_predicate: 'git show 39628487:internal/authzmodel/fga_model.fga | grep -cE "^type .*membership" → 0 из 32 — предфаза не исполнена, старт В1 закрыт (DoD п.26)'
+  docs_gate_check_01: 'PASS — вердикт прочитан у всех 187 приёмок; эта редакция читается как DRAFT'
+  sixth_a_dependency_untouched: 'четыре соседа (5.3, 1.2, 1.3, IAM-ID-2) в §6а не тронуты; добавлена ПЯТАЯ строка — предфаза S3.1 как СИБЛИНГ (будущий предмет, приёмки ещё нет), с держателем и предикатом старта — закрывает мой прежний N3'
+  producers_and_twins_untouched: 'производители и близнецы группы H (74/75/76/82/55/86) не менялись (§19.4) — приняты в круге 14'
+
+# ─────────────────────────────────────────────────────────────────────────────
+non_blocking_findings:
+  - id: N-r1
+    rod: '—'
+    class: '[COORDINATE] писатели кортежа (§1.5а класс 3) в ноте ПЕРЕДАННОГО сценария 31 и в change-log §19.2 отнесены к S3.1, тогда как действующий контракт кладёт их в полосу Б'
+    text: >-
+      Действующий контракт однозначен: писатели кортежа области (invite.go/mirror_tx.go/delete.go)
+      переводятся в ПОЛОСЕ Б (§4 production-complete S3 row: «писатели … переводятся после S3.1,
+      IAM-ID-1-86, полоса Б»; §4 S4-row: «кортеж области — из членства, IAM-ID-1-86, после S3.1»;
+      сценарий 86 — их держатель). Но нота ПЕРЕДАННОГО сценария 31 ещё несёт легаси-абзац «пять
+      писателей … все правятся в той же стадии» (стадия 31 = S3.1), а change-log §19.2 пишет
+      «§1.5а класс «3, 6» … это предмет S3.1». Класс 6 (звено цепи областей / объект гейта) —
+      действительно S3.1; класс 3 (писатели) — полоса Б. Смешение верно для класса 6 и неверно для
+      класса 3.
+    why_not_blocking: >-
+      Действующий контракт этого документа (сценарий 86, §4 production-complete, §4 S4-row) кладёт
+      писателей в полосу Б однозначно — реализатор этого документа не введён в заблуждение. Спорный
+      текст живёт в НЕДЕЙСТВУЮЩИХ местах: тело ПЕРЕДАННОГО сценария 31 (его APPROVED — у приёмки
+      S3.1) и change-log круга 15. Ни одно активное «Тогда» не теряет производителя. Риск —
+      downstream: будущий автор приёмки S3.1, читая ноту 31 и §19.2, может вписать перевод
+      писателей в S3.1, дублируя полосу Б — но это ловится на ревью приёмки S3.1, где §4/86 этого
+      документа явно закрепляют писателей за полосой Б.
+    suggested_cleanup: >-
+      В ноте сценария 31 снять (или пометить принадлежащим полосе Б / сценарию 86) абзац «пять
+      писателей … все правятся в той же стадии»; в §19.2 разнести: класс 6 → S3.1, класс 3
+      (писатели) → полоса Б (86). Лучше сделать это при написании приёмки S3.1, чтобы её автор не
+      перехватил писателей.
+  - id: N-r2
+    rod: '—'
+    class: '[DATED] исторический блок шапки круга 12 («прежняя шапка … этот текст не одобряет») ещё несёт «S3.1 приземляется одним изменением … 61 действующий сценарий»'
+    text: >-
+      Строка 180 (ОБЪЁМ САНКЦИИ круга 12) повторяет снятую кругом 15 формулировку «S3.1 одним
+      изменением» и число 61. Блок ЯВНО помечен историческим и не-одобряющим; правка исторической
+      шапки запрещена (change-graph.md §2, история дописывается, не переписывается). Перенос круга 14
+      (N2) — исполнен в том смысле, что действующая часть очищена; исторический блок остаётся как
+      есть по праву. Отмечено, чтобы «S3.1 одним изменением» в шапке не прочли как действующее.
+    why_not_blocking: >-
+      Блок исторический и не-одобряющий by construction; действующая часть от него не зависит.
+
+# ─────────────────────────────────────────────────────────────────────────────
+constructibility:
+  seeded_by_me: 0
+  reproduced_predicates: 6   # active count 71, assignment, full-set, group sum, S3.1 predicate, non-overlap
+  not_performed: 1
+  not_performed_detail: >-
+    Свежий посев на поднятом стенде мной не ставился (стенд заданием не назван). Конструируемость
+    ключевого Given доказана посаженной пробой (§16.2); окна В1→В2 (74–77) — предмет проб П-3…П-5,
+    приёмка до кода. Это третий исход «не выполнилось», в зелёное и красное не зачитывается. На
+    вердикт не влияет: сведение B14-1 проверено чтением действующего контракта и предикатами счёта.
+
+scope:
+  reviewed: >-
+    дельта редакции 15 к редакции 14 целиком (177/32) на предмет: свёлся ли B14-1 к одной картине
+    владения S3.1; корректны ли пометки 31/57; сходится ли счёт 71 и назначение; не появилось ли
+    нового расхождения. Плюс перепроверка, что производители/близнецы/§6а по соседям/решения
+    В-9…В-16 не тронуты (§19.4).
+  blocking_count: 0
+  blocking_rods: []
+  b14_1: resolved
+  new_divergence: 'один остаток (N-r1) — недействующий (нота переданного сценария + change-log), не блокирует'
+  effective_approval_requires_event: true
+  next: >-
+    курьер публикует внешнее событие полномочия (external_event_form) под pointpu на kacho#1351;
+    диспетчер заводит задачу и приёмку предфазы S3.1 (В-14, DoD п.26, §6а) и возврат четырёх
+    соседей зависимостью (§6а, DoD п.25) — это условия ВЛИВАНИЯ полос, не этого вердикта
