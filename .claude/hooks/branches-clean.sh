@@ -44,9 +44,15 @@
 # Хук считает только ветки, чей HEAD — ПРЕДОК ствола (первый признак): это одна
 # дешёвая операция на ветку. Предок — ещё не «влита»: голова на ПЕРВОЙ ЛИНИИ
 # ствола (`git rev-list --first-parent`) — ветка без своего коммита, влито
-# нечего, и `branch-audit.sh --prune-merged` её не снимает (ws#847, круг 2).
-# Такие ветки в счёт не идут: иначе хук звал бы к уборке, которой не будет, на
-# каждом обращении — порог на штатном состоянии перестаёт читаться.
+# нечего, и пока она есть на origin (живая волна) или её ссылка двигалась в
+# окне `BRANCH_AUDIT_FRESH_MIN` (свежая ветка), `branch-audit.sh --prune-merged`
+# её не снимает (ws#847, круг 2) — и в счёт она не идёт: иначе хук звал бы к
+# уборке, которой не будет, на каждом обращении, а порог на штатном состоянии
+# перестаёт читаться. Только локальная, без копии и вне окна — идёт (круг 3):
+# исключение без срока держало бы её вечно, и хук молчал бы о ней по
+# построению. «Есть на origin» хук берёт из `refs/remotes`, без сети: ссылка,
+# снятая на origin после последнего `git fetch`, для него ещё есть — это
+# недосчёт, а не лишняя находка.
 # Ствол у него один — `origin/main`: влитое в ветку эпика или волны он НЕ видит,
 # его находит перепись конца сессии по целям каскада
 # (`git-issues.md#gi-prune-session-zero`). Схлопнутые и поглощённые пофайлово он
@@ -72,6 +78,18 @@ findings=()
 examined_repos=0
 examined_branches=0
 unreadable=()
+now=$(date +%s)
+fresh_min="${BRANCH_AUDIT_FRESH_MIN:-45}"
+case "$fresh_min" in ''|*[!0-9]*) fresh_min=45 ;; esac
+
+# moved_ct $1 = клон, $2 = ссылка → $moved: время последней записи журнала
+# ссылки, без журнала — время коммита головы (то же, что у переписи).
+moved_ct() {
+  moved=$(git -C "$1" reflog show --date=unix --format=%gd -n 1 "$2" -- 2>/dev/null)
+  moved=${moved##*@\{}; moved=${moved%\}}
+  case "$moved" in ''|*[!0-9]*) moved=$(git -C "$1" log -1 --format=%ct "$2" 2>/dev/null || echo 0) ;; esac
+  case "$moved" in ''|*[!0-9]*) moved=0 ;; esac
+}
 
 check_repo() { # $1 = путь, $2 = как называть в выводе
   local path=$1 label=$2 trunk="origin/main" n=0 occupied=() b
@@ -101,7 +119,12 @@ check_repo() { # $1 = путь, $2 = как называть в выводе
     [ "$skip" = 1 ] && continue
     git -C "$path" merge-base --is-ancestor "$b" "$trunk" 2>/dev/null || continue
     h=$(git -C "$path" rev-parse --verify --quiet "refs/heads/$b" 2>/dev/null) || continue
-    [ -n "${first_line[$h]+x}" ] || n=$((n + 1))
+    if [ -z "${first_line[$h]+x}" ]; then n=$((n + 1)); continue; fi
+    # Без своего коммита: держится, пока есть на origin или ссылка двигалась в окне.
+    git -C "$path" rev-parse --verify --quiet "refs/remotes/origin/$b" >/dev/null 2>&1 && continue
+    moved_ct "$path" "refs/heads/$b"
+    [ "$moved" -gt 0 ] && [ $(( (now - moved) / 60 )) -lt "$fresh_min" ] && continue
+    n=$((n + 1))
   done < <(git -C "$path" branch --format='%(refname:short)' 2>/dev/null)
 
   [ "$n" -gt 0 ] && findings+=("$label: не менее $n локальных веток уже в стволе")
@@ -114,8 +137,9 @@ check_repo "$ws" "воркспейс"
 if [ "${#findings[@]}" -ne 0 ]; then
   echo "🌿 ВЛИТЫЕ ЛОКАЛЬНЫЕ ВЕТКИ — они и рисуют «повисшие куски» в git log --all --graph"
   printf '   %s\n' "${findings[@]}"
-  echo "   Это НИЖНЯЯ ГРАНИЦА: считаны только предки ствола со своим коммитом. Схлопнутые и поглощённые"
-  echo "   пофайлово хук не видит — их находит перепись, она же их и снимает."
+  echo "   Это НИЖНЯЯ ГРАНИЦА: считаны предки ствола со своим коммитом и без него, но только локальные"
+  echo "   и вне окна свежести. Схлопнутые и поглощённые пофайлово хук не видит — их находит перепись"
+  echo "   она же их и снимает."
   echo "   Ветки к разбору → git-operator, переписью и снятием В ОДНОЙ полосе:"
   echo "     ./scripts/branch-audit.sh [project/kacho]                 # посмотреть"
   echo "     ./scripts/branch-audit.sh --prune-merged [project/kacho]  # снять влитые"
