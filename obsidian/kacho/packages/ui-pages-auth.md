@@ -7,15 +7,32 @@ category: packages
 repo: kacho-ui
 path: ui-future
 layer: ui-pages
-status: legacy
+status: test
 tags:
   - packages
   - kacho-ui
-  - legacy
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "раздел о своих экранах церемоний сверен 2026-09-26 по PRO-Robotech/kacho@7190c3e5274 (коммит слияния волны 2796 в ветку эпика 2564): ui-future/shared/src/pages/auth/README.md и ceremony-addresses.ts прочитаны, состав каталога — git ls-tree; в origin/main 1d42a6728bf каталога pages/auth с LoginPage.tsx нет. Прочие разделы — по b4edc5d5 и 96b2879a, построчно не пересматривались"
 ---
 
 # ui: вход и контекст личности — раскладка сменилась на многоприложенческую
+
+> [!important] Свои экраны церемоний — в ветке эпика `2564`, в `main` их нет
+> Волной [[KAC/issue-2796|kacho#2796]] (задача [[KAC/issue-1274|kacho#1274]], приёмка F8 —
+> [[KAC/issue-773-ws|ws#773]]) консоль сама ведёт церемонии личности глаголами службы доступа
+> `/iam/v1/auth/*`, не отсылая человека в чужое приложение. Каталог —
+> `ui-future/shared/src/pages/auth/`, маршруты — `host/src/App.tsx`, одно объявление адресов —
+> `ceremony-addresses.ts` (`CEREMONY_ROUTING`, тип ключа исчерпывающий).
+>
+> - маршрут получают шесть адресов: `/login`, `/registration`, `/logout`, `/settings`,
+>   `/recovery`, `/verification`; консоль ведёт четыре, а `/recovery` и `/verification` отвечают
+>   страницей «такого адреса здесь нет» до под-фазы S3 (доставка письма);
+> - `/error` и `/consent` маршрутов не получают: это адреса чужих потоков;
+> - носителя сессии консоль не читает и не пишет, выхода не показывает, пока служба его не
+>   подтвердила; «спросить не удалось» — не «сессии нет»;
+> - браузерные пробы — `ui-future/e2e/specs/identity-ceremony.spec.ts` и `account-settings.spec.ts`
+>   ([[KAC/issue-2780|kacho#2780]]).
+>
+> Раздел ниже описывает раскладку до этой волны; в `main` она всё ещё верна.
 
 **Где искать сейчас**: каталог `ui-future/` монорепо. Прежде — отдельный репозиторий
 `kacho-ui`, откуда и взят тег.
@@ -60,4 +77,9 @@ verified_against: "каталог пакета есть в дереве прод
 [[api-gateway-middleware-dpop]] [[api-gateway-middleware-authz]]
 [[../KAC/KAC-104]] [[../KAC/KAC-107]] [[../KAC/KAC-109]]
 
-#packages #kacho-ui #legacy
+## History
+
+- 2026-09-26 — добавлен раздел о своих экранах церемоний (ветка эпика `2564`, PR #2869,
+  `7190c3e5274`); статус `legacy` → `test`: предмет снова живой, но в `main` не доехал.
+
+#packages #kacho-ui

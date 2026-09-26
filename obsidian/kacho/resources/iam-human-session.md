@@ -18,13 +18,15 @@ related_packages:
 related_tickets:
   - "[[KAC/issue-1269]]"
   - "[[KAC/issue-1280]]"
+  - "[[KAC/issue-334-kaname]]"
+  - "[[KAC/issue-340-kaname]]"
 tags:
   - resource
   - kacho-iam
   - iam
   - internal
   - migrations
-verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался"
+verified_against: "kaname main@af0ca8f3 (миграция и домен `internal/domain/human_session.go` прочитаны); release/iam-lines@6acf8f19 — то же дерево по этому предмету; адаптер `internal/repo/kaname/pg/human_session_repo.go` — по именам методов, построчно не пересматривался. Перемер 2026-09-26: словарь ended_reason прочитан в миграциях 20260917160000_second_factor_rows_carry_state_and_step.sql (есть в origin/main службы cbbac984b7b) и 20260923160455_human_session_end_reason_names_the_forced_exit.sql (только в ветке эпика 357, PRO-Robotech/kaname@fc9f5aff19c)"
 ---
 
 # human_sessions (iam)
@@ -55,7 +57,7 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 | `assurance_level` | text | обязателен, CHECK `IN ('1','2','3')` — ось Ф11 |
 | `presented_methods` | text[] | непусто, CHECK `<@ {password, totp, lookup_secret, webauthn, recovery_code}` — словарь `assurance.Methods()`, сверяется пробой `TestHumanSessionMethodVocabularyAgreesWithTheRule` |
 | `password_change_required` | boolean | DEFAULT false; прод-производителя `true` нет — предмет [[KAC/issue-2697]] (решение: поле снимается с контракта) |
-| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина ∈ `{logout, password-change}` — те же значения, что пишут писатели отсечки [[resources/iam-session-revocation]] |
+| `ended_at` · `ended_reason` | timestamptz · text | снятие — **отметка, а не удаление**; пара CHECK `(ended_at IS NULL) = (ended_reason IS NULL)`; причина — закрытый словарь `human_sessions_ended_reason_check`: в `main` службы `logout`, `password-change`, `second-factor-removed`; в ветке эпика `357` к ним добавлена `admin-force-logout` — выход по решению распорядителя ([[KAC/issue-334-kaname\|kaname#334]]). Писатели отсечки — [[resources/iam-session-revocation]] |
 | `created_at` | timestamptz | DEFAULT now() |
 
 Индексы: `human_sessions_user_id_idx (user_id)`, `human_sessions_expires_at_idx (expires_at)` —
@@ -93,5 +95,11 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
 - 2026-09-22 — заведены ссылки на записку внутреннего глагола `Resolve` и на переходник края,
   который его зовёт. Повод: возврат полосы края назвал `InternalHumanSessionService.Resolve`
   затронутым RPC. Состав колонок и контракт не правились.
+- 2026-09-26 — словарь причин снятия исправлен по дереву: прежняя редакция называла два значения,
+  хотя `second-factor-removed` в `main` службы с 2026-09-17; волна [[KAC/issue-358-kaname|kaname#358]]
+  добавляет `admin-force-logout` ([[KAC/issue-334-kaname|kaname#334]]). Снята оговорка «те же
+  значения, что у писателей отсечки»: после смены словаря она мной не подтверждена. Запись события
+  принудительного выхода теперь кладётся после снятия сессий и несёт исход
+  ([[KAC/issue-340-kaname|kaname#340]], [[rpc/iam-internal-iam-service]]).
 
 #resource #kacho-iam #iam #internal #migrations

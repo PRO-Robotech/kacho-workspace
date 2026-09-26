@@ -9,7 +9,7 @@ tags:
   - packages
   - kacho-corelib
   - ids
-verified_against: "каталог пакета есть в дереве продукта b4edc5d5 (2026-08-05); текст записки построчно не пересматривался"
+verified_against: "строка дефисных префиксов перемерена по PRO-Robotech/corelib@227ed2b77b4 (коммит слияния волны 32 в ветку эпика 26, 2026-09-26): `git grep -o -E 'Prefix[A-Za-z]+Hyphen *=' -- ids/ids.go` — 8 констант; прочие строки таблицы и перечень импортёров — по 96b2879a, с тех пор не пересматривались"
 ---
 
 # pkg/ids — генератор и каталог префиксов идентификаторов
@@ -62,7 +62,7 @@ func KnownHyphenPrefixes() map[string]struct{}
 | registry | `PrefixRegistry "reg"` · `PrefixOperationReg "rop"` |
 | прочее | `PrefixApplication "app"` · `PrefixCloud`/`PrefixFolder "b1g"` · `PrefixOrganization "bpf"` |
 | корни операций | `PrefixOperationVPC "enp"` · `PrefixOperationApps "aop"` · `PrefixOperationStorage "sop"` · `PrefixOperationCompute`/`NLB`/`RM` — алиасы соответствующих ресурсных |
-| дефисные (B3) | `PrefixMachineTypeHyphen "mt"` · `PrefixInstanceHyphen "ins"` · `PrefixInteractiveClientHyphen "ic"` |
+| дефисные (B3; перемер `227ed2b77b4`) | `PrefixMachineTypeHyphen "mt"` · `PrefixInstanceHyphen "ins"` · `PrefixInteractiveClientHyphen "ic"` · `PrefixCidrGroupHyphen "cdg"` · `PrefixLimitHyphen "lim"` · `PrefixMembershipHyphen "mbr"` · `PrefixAccessKeyHyphen "ak"` · `PrefixTokenFamilyHyphen "tfm"` |
 
 Совпадения значений — намеренные: `PrefixInstance` и `PrefixDisk` делят `epd`, как и
 `PrefixImage` с `PrefixSnapshot` — `fd8`; `PrefixCloud` и `PrefixFolder` — `b1g`.
@@ -83,6 +83,24 @@ going-forward, сервисы мигрируют свой префикс поо�
 корректного алфавита тела — это приёмка на крае без знания типа ресурса.
 `validate.ResourceID` мягче (family-agnostic, пустую строку пропускает) и живёт на
 входе RPC. Разные предикаты — разные места; не подменять один другим.
+
+## Ключ семейства токенов `tfm`
+
+`PrefixTokenFamilyHyphen "tfm"` — ключ гранта OAuth 2.0 службы доступа: под ним живут код
+авторизации, токен доступа и токен обновления одной выдачи, и по нему семейство отзывается
+целиком. Чеканит его служба крючком церемонии `oauthceremony.Config.NewGrantID`, и именно
+`NewHyphenID`: слитная форма не прошла бы ограничения схемы служебной таблицы семейств
+(`^tfm-…`). Запись в каноне нужна по тому же классу, что у `lim`, `mbr` и `ak`: без неё
+`validate.ResourceID` отверг бы ключ, выданный самой службой. Церемония —
+[[packages/corelib-oauthceremony]], запись семейства — [[resources/iam-token-family]].
+
+## History
+
+- 2026-09-23 — `PrefixTokenFamilyHyphen "tfm"` добавлен коммитом `e5abaa5` задачи
+  [[KAC/issue-35-corelib|corelib#35]]; в ветке эпика `26` с волной
+  [[KAC/issue-32-corelib|corelib#32]] (PR #62, `227ed2b77b4`), в `main` фундамента — нет.
+- 2026-09-26 — строка дефисных префиксов перемерена: к `mt`, `ins`, `ic` прежней редакции
+  добавились `cdg`, `lim`, `mbr`, `ak` и `tfm`.
 
 ## См. также
 

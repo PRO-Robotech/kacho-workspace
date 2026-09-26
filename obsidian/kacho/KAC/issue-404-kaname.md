@@ -14,20 +14,19 @@ areas:
   - internal/repo/kaname/pg
 prs:
   - https://github.com/PRO-Robotech/kaname/pull/411
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/404
 opened: 2026-09-23
 tags:
   - kac
   - kacho-iam
   - refactor
-verified_against: "PRO-Robotech/kaname: голова задачи b9dd132dc46018ef48dac2cd5a6ed758ba7bdd5c (= origin/404) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); п.2 предиката перемерен по голове сборки и по origin/358 d22123ba0, 2026-09-24"
+verified_against: "Перемер 2026-09-26: голова задачи b9dd132dc46 — предок коммита слияния волны fc9f5aff19c в ветку эпика 357 и не предок origin/main cbbac984b7b (`git merge-base --is-ancestor`). Сверка 2026-09-24: PRO-Robotech/kaname: голова задачи b9dd132dc46018ef48dac2cd5a6ed758ba7bdd5c (= origin/404) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`); п.2 предиката перемерен по голове сборки и по origin/358 d22123ba0, 2026-09-24"
 ---
 
 # kaname#404: согласие и причина consent-withdrawn сняты
 
-**Состояние на момент записи**: `test` — 2026-09-24. Задача **открыта**, метка `status:test`.
-Влита в ветку волны [[KAC/issue-358-kaname|#358]] сборкой 1 и в `main` **не** доехала:
-закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-26. Задача **открыта**, метка `status:test`. Работа влита в ветку волны [[KAC/issue-358-kaname|#358]], волна — в ветку эпика `357` (координата, не живая ссылка) запросом PR #422; в `main` **не** доехала: закроет её посадка эпика #357 в ствол.
 
 ## Что и зачем
 
@@ -48,6 +47,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи b9dd132dc46018
 | голова задачи | `b9dd132dc46018ef48dac2cd5a6ed758ba7bdd5c`; ветка `404` (координата, не живая ссылка) на origin с той же головой |
 | коммит слияния в ветке сборки | `ba62d8d8ecd7d039062f8a7fe467edbd1eceb0f2` |
 | запрос сборки | PR #411 `408` → `358`, голова `2f45e7c8aa0ebb6a1ec25ff26523cc70e205bb03`, коммит слияния `d22123ba0957625fa791649bd72b6fffd694cfa0` |
+| запрос волны | PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5 прогонов, все `success` |
 
 ## DoD (из тела задачи)
 
@@ -59,12 +59,18 @@ verified_against: "PRO-Robotech/kaname: голова задачи b9dd132dc46018
 - [x] вердикт головы сборки: 20 заданий, 17 `success`, 3 `skipped`, 0 упавших;
 - [ ] проба схемы красна до миграции, секция отката, таблица #339 после посадки — мной не
       перемерялись;
+- [x] волна влита в ветку эпика `357` запросом PR #422, коммит слияния `fc9f5aff19c`; голова задачи — его предок;
 - [ ] предмет в стволе: изменение доехало до `main` посадкой эпика #357.
+
+## History
+
+- 2026-09-26 — волна #358 влита в ветку эпика `357` запросом PR #422 (`fc9f5aff19c`); в `main` @ `cbbac984b7b` задачи нет, состояние `test` сохраняется.
 
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» нет; узкие записки этой записью не менялись.
+Возвраты исполнителей по задаче называют ресурс consent_grants (снят), словарь причин token_families и пакеты `internal/migrations` (dropguard.json), `internal/repo/kaname/pg`, `internal/domain`. Записка ресурса семейства заведена этой записью; записки о согласии в хранилище не было.
 
 - [[KAC/issue-358-kaname]] — волна и сборка 1.
+- [[resources/iam-token-family]] — словарь причин отзыва без `consent-withdrawn`.
 
 #kac #kacho-iam #refactor

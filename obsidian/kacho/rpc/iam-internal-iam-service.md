@@ -2,27 +2,29 @@
 title: InternalIAMService
 aliases:
   - InternalIAMService (iam)
-proto_file: kacho/cloud/iam/v1/internal_iam_service.proto
+proto_file: kaname/cloud/iam/v1/internal_iam_service.proto
 category: rpc
-backend: kacho-iam
+backend: kaname
 backend_port: 9091
 visibility: internal
 domain: iam
 related_resource: "[[resources/iam-access-binding]]"
 methods_count: 9
-async_methods: 0
-status: planned
+async_methods: 1
+status: stable
 related_tickets:
   - "[[KAC-105]]"
   - "[[KAC-112]]"
   - "[[SEC-A-proto-fga-proxy]]"
   - "[[SEC-C-iam-fga-proxy-sa-roles]]"
+  - "[[KAC/issue-340-kaname]]"
+  - "[[KAC/issue-334-kaname]]"
 tags:
   - rpc
   - kacho-iam
   - iam
   - internal
-verified_against: "перечень RPC сверен с proto ствола redesign/integration в ОБЕ стороны 2026-08-05 (методы контракта против методов записки); поля запросов и семантика построчно не пересматривались"
+verified_against: "перечень RPC и форма ответа сверены 2026-09-26 с proto службы доступа PRO-Robotech/kaname: proto/kaname/cloud/iam/v1/internal_iam_service.proto — девять rpc и на origin/main cbbac984b7b, и на ветке эпика 357 fc9f5aff19c; ForceLogout возвращает corelib.operation.Operation; шапка internal/apps/kaname/api/internal_iam/force_logout.go прочитана на fc9f5aff19c. Таблица методов ниже — редакция эпохи kacho-iam, кроме строки ForceLogout; сверка 2026-08-05 шла с proto ствола redesign/integration"
 ---
 
 # InternalIAMService (iam)
@@ -41,7 +43,7 @@ verified_against: "перечень RPC сверен с proto ствола redes
 | Check | CheckRequest | CheckResponse | sync | per-RPC authz-gate (vpc/compute зовут перед мутацией). REST: `POST /iam/v1/internal/check`. |
 | WriteCreatorTuple | WriteCreatorTupleRequest | WriteCreatorTupleResponse | sync | запись creator-owner-tuple; пустой response; gRPC-only (нет `google.api.http`). |
 | GetJWKSStatus | (Empty) | JWKSStatusResponse | sync | per-alg статус активных signing-ключей (`oidc_jwks_keys`, KAC-127 Phase 2). |
-| ForceLogout | ForceLogoutRequest | ForceLogoutResponse | sync | принудительный logout субъекта (user-level revoke-all cutoff). **sub-phase 5.2**: эмитит `iam.session.force_logout` в `audit_outbox` атомарно с cutoff-записью (tx-scoped `RevokeAllUserTokensTx`, запрет #10). actor = verified principal (anti-spoof). См. [[../resources/iam-audit-outbox]]. |
+| ForceLogout | ForceLogoutRequest | Operation (`done=true`) | async | принудительный выход субъекта: отсечка уровня человека (revoke-all) для всех его живых токенов. Снятие самой сессии входа — второе действие, и чью сессию снимать, решает посадка: под `own` — свою строку `human_sessions` в **одной** транзакции с отсечкой и записью события `iam.session.force_logout`, которая кладётся после снятия и несёт исход (`session_teardown`, `sessions_ended`; [[KAC/issue-340-kaname\|kaname#340]]); причина снятия сессии — `admin-force-logout` ([[KAC/issue-334-kaname\|kaname#334]], [[resources/iam-human-session]]). actor = verified principal. См. [[../resources/iam-audit-outbox]]. Обе правки — в ветке эпика `357` службы. |
 | RegisterResource | RegisterResourceRequest | RegisterResourceResponse | sync | **FGA-proxy ([[SEC-A-proto-fga-proxy]])** — записать owner-hierarchy-tuple (`subject_id`/`relation`/`object` + опц. `trace_id`) в FGA от имени модуля. **Internal-only :9091, нет `google.api.http`** (ban #6). authz `<exempt>` в каталоге; least-priv энфорсится в handler (SEC-C) через ReBAC `fga_writer` @ `iam_fgaproxy:system`. **Идемпотентно** (повтор → OK, не AlreadyExists) — at-least-once outbox-retry (SEC-D). Пустой response. |
 | UnregisterResource | UnregisterResourceRequest | UnregisterResourceResponse | sync | **FGA-proxy ([[SEC-A-proto-fga-proxy]])** — снять owner-tuple (поля идентичны Register). Internal-only :9091, нет `google.api.http`. authz `<exempt>` + ReBAC `fga_writer` @ `iam_fgaproxy:system`. **Идемпотентно** (снятие отсутствующего → OK, не NotFound). Пустой response. |
 
@@ -81,6 +83,25 @@ verified_against: "перечень RPC сверен с proto ствола redes
 > от владельца — **терминальный**, а не временный: повтор идентичного запроса пройти не
 > может, и классификация его как временного заклинивает партицию очереди на всё окно
 > повторов. Разбор класса — `data-integrity.md` §«Межсервисное намерение».
+
+## Сверка со службой доступа (2026-09-26)
+
+Служба переехала в отдельный продукт kaname; контракт — `proto/kaname/cloud/iam/v1/internal_iam_service.proto`.
+В нём **девять** RPC: `LookupSubject`, `Check`, `ForceLogout`, `PollSubjectChanges`,
+`RegisterResource`, `UnregisterResource`, `ResolveBasicCredential`, `GetRoleCompiled`,
+`CheckBasicCredentialLive`. Таблица «Methods» выше писалась в эпоху kacho-iam: в ней нет
+`ResolveBasicCredential`, `GetRoleCompiled`, `CheckBasicCredentialLive`, а `WriteCreatorTuple` и
+`GetJWKSStatus` в контракте отсутствуют. Переписана здесь только строка `ForceLogout`; остальные
+строки построчно не сверялись.
+
+## History
+
+- 2026-09-26 — исправлены адрес контракта, бэкенд и форма ответа `ForceLogout` (Operation, а не
+  синхронный ответ); строка `ForceLogout` переписана по волне [[KAC/issue-358-kaname|kaname#358]]:
+  исход снятия в записи события ([[KAC/issue-340-kaname|kaname#340]]), своя причина снятия
+  ([[KAC/issue-334-kaname|kaname#334]]), сцена конкуренции пробы строится наблюдением
+  ([[KAC/issue-397-kaname|kaname#397]]); у своей посадки снятие сессии исполняет код службы
+  ([[KAC/issue-322-kaname|kaname#322]]).
 
 ## See also
 
