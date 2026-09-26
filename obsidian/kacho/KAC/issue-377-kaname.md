@@ -4,7 +4,7 @@ aliases:
   - issue-377-kaname
 ticket_id: 377
 category: kac
-status: test
+status: done
 type: epic
 repos:
   - kaname
@@ -22,14 +22,21 @@ tags:
   - kac
   - kacho-iam
   - epic
-verified_against: "PRO-Robotech/kaname: PR #409 влит 2026-09-24T14:09:51Z коммитом слияния dbf25d17e25cba5368856da789c2674705a2392f (родители d65f97e9e3e, dda965ecef3) = origin/357 на 2026-09-24; голова волны dda965ecef3 не предок origin/main (`git merge-base --is-ancestor`); ветка 377 с origin снята (`git ls-remote origin refs/heads/377` пусто). Прогоны головы — `gh run list --commit dda965ecef351b97c563a80b37e626bc05dc9ef2`"
+verified_against: "PRO-Robotech/kaname: PR #409 влит 2026-09-24T14:09:51Z коммитом слияния dbf25d17e25cba5368856da789c2674705a2392f (родители d65f97e9e3e, dda965ecef3) = origin/357 на 2026-09-24; голова волны dda965ecef3 не предок origin/main (`git merge-base --is-ancestor`); ветка 377 с origin снята (`git ls-remote origin refs/heads/377` пусто). Прогоны головы — `gh run list --commit dda965ecef351b97c563a80b37e626bc05dc9ef2`. Закрытие: `gh issue view 377 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:40:51Z; головы задач — перемерено мной 2026-09-26: `git merge-base --is-ancestor <голова> <origin/357>` — код 0, против origin/main — код 1; origin/357 = fc9f5aff19cfff9ec310f2ff35338b80f24379b1, origin/main = cbbac984b7b17f22bcc4a83f7533fff3494c809a (`git ls-remote origin`)"
 ---
 
 # kaname#377: волна второго фактора — влита в ветку эпика
 
-**Состояние на момент записи**: `test` — 2026-09-24. Задача волны **открыта**, метка
-`status:test`. Волна влита в ветку эпика `357` (координата, не живая ссылка) и в `main` **не**
-доехала: закроет её посадка эпика #357 в ствол.
+**Состояние на момент записи**: `test` — 2026-09-24. Задача волны была открыта с меткой
+`status:test`; волна влита в ветку эпика `357` (координата, не живая ссылка) и в `main` **не**
+доехала. Тогдашняя норма держала задачи волны открытыми до посадки эпика в ствол; её отменил
+каскад закрытия 2026-09-26.
+
+**Состояние на 2026-09-26**: `done`. Волна закрыта тем, что её запрос влит в ветку эпика
+(`git-issues.md#gi-close-cascade`, решение владельца 2026-09-26), и тем же заходом закрыты её
+задачи #287, #305, #378; #295 закрыта вместе со своей волной [[KAC/issue-358-kaname|#358]].
+Закрывающая запись с коммитом слияния и числом закрытых — комментарий в задаче. Посадка эпика
+#357 в `main` — предмет эпика, а не волны.
 
 ## Что и зачем
 
@@ -58,7 +65,8 @@ verified_against: "PRO-Robotech/kaname: PR #409 влит 2026-09-24T14:09:51Z к
 | [[KAC/issue-378-kaname\|#378]] | `d060e6df67e` → `2209bce0b62`; `f4190035d7a` → `0ea18de483e` |
 | [[KAC/issue-295-kaname\|#295]] | `c22aeb58d72` → `4edbb2821f0`; `5e7a46e90fe` → `83829f2d586`; `b80cdd0074b` → `7910f12528b`; `585749b7422` → `dda965ecef3` |
 
-Последние головы задач (перечень тела PR #409) — предки origin/`357`, не предки origin/`main`.
+Последние головы задач (перечень тела PR #409) — предки origin/`357`, не предки origin/`main`
+(на 2026-09-24 и перемерено 2026-09-26 @ `fc9f5aff19c`).
 #295 — sub-issue волны [[KAC/issue-358-kaname|#358]], влита этой волной.
 
 ## Затронутые сущности vault

@@ -4,7 +4,7 @@ aliases:
   - issue-358-kaname
 ticket_id: 358
 category: kac
-status: in-progress
+status: done
 type: epic
 repos:
   - kaname
@@ -16,6 +16,7 @@ areas:
   - internal/check
   - .github/workflows
 prs:
+  - https://github.com/PRO-Robotech/kaname/pull/422
   - https://github.com/PRO-Robotech/kaname/pull/411
   - https://github.com/PRO-Robotech/kaname/pull/326
 issue_url: https://github.com/PRO-Robotech/kaname/issues/358
@@ -24,7 +25,7 @@ tags:
   - kac
   - kacho-iam
   - epic
-verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72b6fffd694cfa0 на 2026-09-24 (`git ls-remote origin refs/heads/358`); не предок origin/357 и origin/main (`git merge-base --is-ancestor`). Запросы в ветку волны — `gh pr list --state all --base 358` (3 запроса, все влиты). Состав задач волны перечнем здесь не держится — только командой"
+verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72b6fffd694cfa0 на 2026-09-24 (`git ls-remote origin refs/heads/358`); не предок origin/357 и origin/main (`git merge-base --is-ancestor`). Запросы в ветку волны — `gh pr list --state all --base 358` (3 запроса, все влиты). Состав задач волны перечнем здесь не держится — только командой. Запрос волны #422 `358` → `357` влит 2026-09-25T09:23:02Z коммитом слияния fc9f5aff19cfff9ec310f2ff35338b80f24379b1 (родители dbf25d17e25, cde2d924260; `gh pr view 422`, `git log -1 --format=%P`); закрытие — `gh issue view 358 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:40:56Z; головы задач сборки 1 — перемерено мной 2026-09-26: `git merge-base --is-ancestor <голова> <origin/357>` — код 0, против origin/main — код 1; origin/357 = fc9f5aff19cfff9ec310f2ff35338b80f24379b1, origin/main = cbbac984b7b17f22bcc4a83f7533fff3494c809a (`git ls-remote origin`)"
 ---
 
 # kaname#358: волна-2 identity-own — сборки, влитые в ветку волны
@@ -33,6 +34,11 @@ verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72
 ветку эпика `357` (координата, не живая ссылка) не открыт
 (`gh pr list -R PRO-Robotech/kaname --base 357 --state all` — запросов из `358` нет).
 Родитель — эпик kaname#357.
+
+**Состояние на 2026-09-26**: `done`. Запрос волны PR #422 `358` → `357` влит 2026-09-25
+коммитом слияния `fc9f5aff19c`; по каскаду закрытия (`git-issues.md#gi-close-cascade`, решение
+владельца 2026-09-26) волна закрыта 2026-09-26 и тем же заходом — её задачи. Число закрытых,
+уже закрытых и переведённых в следующую волну — в закрывающей записи, комментарием в задаче.
 
 ## Что и зачем
 
@@ -49,8 +55,10 @@ gh api repos/PRO-Robotech/kaname/issues/358/sub_issues --paginate -q '.[] | "#\(
 ## Как вливается
 
 Готовые задачи сводятся в ветку сборки коммитом слияния (`git merge --no-ff`); конвейер,
-рецензенты и сверка гоняются один раз на голову сборки. Задачи, влитые в волну, не
-закрываются: метка `status:test`, закроет их посадка эпика #357 в `main`.
+рецензенты и сверка гоняются один раз на голову сборки. Задача, влитая в волну, несёт
+`status:test` и закрывается вместе с волной, когда запрос волны влит в ветку эпика
+(`git-issues.md#gi-close-cascade`). До 2026-09-26 здесь стояло «закроет их посадка эпика #357
+в `main`» — ту норму отменило решение владельца того дня.
 
 ## Вливания в ветку волны
 
@@ -73,9 +81,10 @@ gh api repos/PRO-Robotech/kaname/issues/358/sub_issues --paginate -q '.[] | "#\(
 
 Таблица тела PR #411 называет только головы **первого** сведения; повторное сведение и два
 коммита #379 прямо на ветке сборки (`d0afbb45d4c`, `2f45e7c8aa0`) пришли после. #379 —
-задача волны-1 #365, её записки в хранилище нет. Финальные головы задач — предки origin/`358`
-и не предки origin/`357` и origin/`main`; у пяти задач они равны голове их ветки на origin,
-ветка `394` с origin снята.
+задача волны-1 #365, её записки в хранилище нет. Финальные головы задач на 2026-09-24 —
+предки origin/`358` и не предки origin/`357` и origin/`main`; у пяти задач они равны голове
+их ветки на origin, ветка `394` с origin снята. После вливания запроса волны (2026-09-26,
+перемерено мной) все шесть — предки origin/`357` @ `fc9f5aff19c` и не предки origin/`main`.
 
 Не вошли по конфликту слияния, возвращены исполнителю: #316 и #319 — пути и стороны названы
 в теле PR #411.
