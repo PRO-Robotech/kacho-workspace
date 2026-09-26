@@ -322,12 +322,12 @@ set_axis "I набор: ведомости нет" 1 "отправку оста�
 
 reset_tree
 sed -i '/^  kacho:$/,/^  kaname:$/{/^    rev: /d}' "$TMP/root/docs/comment-language.yaml"
-axis "Q нет ceiling.kacho.rev, клоны на месте" 1 "поле названо адресом" '`ceiling.kacho.rev`'
+axis "Q нет ceiling.kacho.rev, клоны на месте" 1 "поле названо адресом" "\`ceiling.kacho.rev\`"
 set_axis "Q набор: нет ceiling.kacho.rev" 1 "отправку остановит"
 
 reset_tree
 sed -i '/^  kaname:$/,/^  corelib:$/{/^    lines: /d}' "$TMP/root/docs/comment-language.yaml"
-axis "Q' нет ceiling.kaname.lines" 1 "поле названо адресом" '`ceiling.kaname.lines`'
+axis "Q' нет ceiling.kaname.lines" 1 "поле названо адресом" "\`ceiling.kaname.lines\`"
 
 reset_tree
 sed -i '/^  corelib:$/,/^  workspace:$/{s/^    blocks: .*/    blocks: many/}' \
@@ -336,7 +336,7 @@ axis "Q'' число не числом" 1 "строка названа номе�
 
 reset_tree
 sed -i '/^  workspace:/,$d' "$TMP/root/docs/comment-language.yaml"
-axis "Q''' нет записи дерева workspace" 1 "дерево названо" '`ceiling.workspace.files`'
+axis "Q''' нет записи дерева workspace" 1 "дерево названо" "\`ceiling.workspace.files\`"
 
 reset_tree
 rm -rf "$TMP/root/project/kaname"
@@ -346,7 +346,7 @@ set_axis "R набор: клона нет" 2 "не находка о дерев�
 reset_tree
 sed -i '/^  kacho:$/,/^  kaname:$/{/^    rev: /d}' "$TMP/root/docs/comment-language.yaml"
 rm -rf "$TMP/root/project/kaname"
-axis "R' поле снято И клона нет" 1 "находка объявляется раньше" '`ceiling.kacho.rev`'
+axis "R' поле снято И клона нет" 1 "находка объявляется раньше" "\`ceiling.kacho.rev\`"
 
 reset_tree
 ledger "kacho=${BASE[kacho]:0:11}:0:0:0"
