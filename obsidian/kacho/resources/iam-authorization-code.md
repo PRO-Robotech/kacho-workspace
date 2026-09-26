@@ -22,7 +22,7 @@ tags:
   - iam
   - internal
   - migrations
-verified_against: "DDL прочитан в `internal/migrations/20260920175117_authorization_code_is_our_record.sql` на ревизии 229a0693 продукта PRO-Robotech/kaname (2026-09-21); на origin/main таблицы нет — полоса не влита, поведение на стенде не наблюдалось"
+verified_against: "DDL прочитан в `internal/migrations/20260920175117_authorization_code_is_our_record.sql` на ветке эпика 357 (fc9f5aff) продукта PRO-Robotech/kaname (2026-09-26); колонки и ограничения сверены построчно; на origin/main (cbbac984) таблицы нет, поведение на стенде не наблюдалось"
 ---
 
 # authorization_codes (kaname)
@@ -30,7 +30,8 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 **Schema**: `kaname.authorization_codes` · **Owner**: kaname · **Visibility**: internal.
 
 > [!warning] Состояние — `test`: предмета на стволе нет
-> Таблица заведена полосой `kn-313` и в `main` не влита (сверено 2026-09-21).
+> Таблица заведена полосой `kn-313`, живёт в ветке эпика `357` и в `main` не влита
+> (сверено 2026-09-26).
 
 ## Назначение
 
@@ -45,13 +46,14 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 | Column | Type | Notes |
 |---|---|---|
 | `code_digest` | text | **PK**, `^[0-9a-f]{64}$`; `SET STATISTICS 0` |
-| `family_id` · `client_id` · `user_id` · `session_id` · `scope` | | контекст, составным FK на семейство |
+| `family_id` · `client_id` · `user_id` · `session_id` · `scope` | | контекст, составным FK `authorization_codes_family_context_fk` на семейство |
 | `redirect_uri` | text | только `https://`, без фрагмента, ≤512 |
 | `code_challenge` | text | 43 знака base64url без выравнивания |
 | `code_challenge_method` | text | **только** `S256` |
 | `issued_at` · `expires_at` | timestamptz | `expires_at > issued_at` |
-| `active` | boolean | условие гашения; читателем не вычисляется |
-| `deactivated_at` · `deactivated_reason` | | `redeemed` либо `family-revoked` |
+| `family_live` | boolean | живость семейства, снесённая сюда каскадом; писателем не выставляется |
+| `deactivated_at` · `deactivated_reason` | | только `redeemed` |
+| `active` | boolean | **вычисляемая**: нет отметки снятия и семейство живо; условие гашения, читателем не вычисляется и писателем не записывается |
 
 ## Форма подчинена одному требованию: гашение ОДНОЙ инструкцией
 
@@ -78,12 +80,23 @@ verified_against: "DDL прочитан в `internal/migrations/20260920175117_a
 
 ## Инварианты, которые держит схема
 
-- `authorization_codes_family_fk` — **составной** FK по всем пяти столбцам контекста сразу.
+- `authorization_codes_family_context_fk` — **составной** FK по всем пяти столбцам
+  контекста сразу, без каскада на обновлении: контекст выданного неизменяем.
+- `authorization_codes_family_live_fk` (`family_id`, `family_live`) → ключ живости
+  семейства, с каскадом на обновлении: кода в отозванном семействе база не заводит —
+  [[edges/kaname-family-revoke-vs-token-issue]].
 - `authorization_codes_family_uk` UNIQUE (`family_id`) — одно семейство заводится одним кодом.
-- `authorization_codes_active_pair_ck` — признак активности и отметка снятия суть одно
-  состояние, записанное дважды; согласие держит база, а не писатель.
+- `active` — вычисляемая колонка: признак активности выводится из отметки снятия и живости
+  семейства, и разойтись с ними ему нечем.
 - `authorization_codes_challenge_method_ck` — `plain` не заводится: значение, которое не
   станет законным ни одним решением, не получает колонки, куда однажды ляжет.
+
+## История
+
+- 2026-09-21 — заведена по ревизии полосы `229a0693`.
+- 2026-09-26 (#778) — пересверена на ветке эпика `357`: живость семейства приходит ключом,
+  `active` стал вычисляемым вместо пары с `CHECK`, причина `family-revoked` снята, FK
+  контекста назван по дереву.
 
 ## See also
 

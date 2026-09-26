@@ -66,6 +66,7 @@ verified_against: "словарь `domain.FamilyRevocationReason` и его пи
 - [[resources/iam-token-family]] — строка и её закрытый словарь причин.
 - [[resources/iam-authorization-code]] · [[resources/iam-refresh-token]] — что снимается вместе с семейством.
 - [[packages/kaname-repo-pg]] — дом писателей.
-- [[edges/kaname-family-revoke-vs-token-issue]] — что отзыв сегодня не разводится с выдачей.
+- [[edges/kaname-family-revoke-vs-token-issue]] — соседний предмет того же семейства: отзыв и
+  выдача по нему; на ветке эпика `357` ребро держит схема (запись поправлена 2026-09-26, #778).
 
 #kac #kacho-iam #iam #go #migrations
