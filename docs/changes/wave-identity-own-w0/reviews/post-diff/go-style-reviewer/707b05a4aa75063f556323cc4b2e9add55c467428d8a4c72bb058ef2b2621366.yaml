@@ -1,0 +1,185 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer. Волна-0 цели
+# identity-own, предмет — Go-файлы, НЕ покрытые принятыми записями кругов
+# gw-session-carrier-set (12, 4f899d637ef) и foreign-idp-ledger-merged-tree
+# (7, 9bbaa92b2bb).
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2).
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+subject: >-
+  Волна-0 identity-own, Go-пробы вне покрытия принятыми записями: deploy/identity_flow_path_is_served*.go,
+  gateway/deploy/{f1b_token_acceptance_declared,f1c_issuer_set_reaches_every_stand,login_console}_test.go,
+  services/registry/**/*_test.go. Объём заморожен; судится только этот перечень.
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pull_request: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+  files: 65
+content_digest: sha256:707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
+digest_definition: 'sha256 сырого вывода `git diff bec320cf47d...0e0a85f936e` (трёхточечный)'
+
+subject_preflight:
+  digest_matches_declared: >-
+    ДА, дважды — до разбора и перед вердиктом, оба раза 707b05a4…1366. Между
+    замерами — одна отсоединённая копия на 0e0a85f936e в scratchpad (две
+    инъекции, откат, `git status --porcelain` → 0, копия снята,
+    `git worktree list | grep -c gsr-w0` → 0).
+  head_on_origin: '`git rev-parse origin/wave/identity-own-w0-kacho` → 0e0a85f936e…, объявленной равна.'
+  files: '65 — `git diff --name-only bec320cf47d...0e0a85f936e | wc -l`.'
+
+coverage_measured:
+  method: >-
+    Файл покрыт, если он есть в диффе принятой записи И его blob на голове этой
+    записи равен blob на 0e0a85f936e. gw-session-carrier-set: `git diff
+    bec320cf47d..4f899d637ef` (32 файла). foreign-idp-ledger-merged-tree круг 7:
+    `git diff 5b20df5c638..9bbaa92b2bb` (7 файлов). Списки под LC_ALL=C.
+  covered: '38 = 31 (gw-session-carrier-set, blob равен) + 7 (foreign-idp, blob равен)'
+  uncovered: '27 = 26 вне обеих записей + 1 (gateway/deploy/values.yaml: в диффе gw, blob РАЗНЫЙ)'
+  agrees_with_landing_reviewer: 'ДА — 27 из 65.'
+  go_in_my_subject: 10
+  go_files:
+    - deploy/identity_flow_path_is_served_injection_test.go
+    - deploy/identity_flow_path_is_served_test.go
+    - gateway/deploy/f1b_token_acceptance_declared_test.go
+    - gateway/deploy/f1c_issuer_set_reaches_every_stand_test.go
+    - gateway/deploy/login_console_test.go
+    - services/registry/deploy/token_acceptance_declared_test.go
+    - services/registry/internal/clients/jwks/verifier_iam_origin_test.go
+    - services/registry/internal/clients/jwks/verifier_stale_bound_test.go
+    - services/registry/internal/clients/jwks/verifier_test.go
+    - services/registry/internal/dataplane/f1b_third_surface_e2e_test.go
+  jwks_production_files_in_wave: '0 — из services/registry/internal/clients/jwks/ в волне только три *_test.go.'
+  added_nonempty_lines_in_subject: '1193 — `git diff … -- <10 файлов> | grep -c "^+[^+]"`'
+
+verdict: ⛔ возврат
+blocks_landing: true
+return_to: 'go-implementer — автор c9b4a082d51 (гейт консоли входа); задание автора диффа не называет'
+
+critical:
+  - id: C1
+    class: комментарий о защите противоречит коду; довод взят у соседнего артефакта, которого больше нет
+    where: gateway/deploy/login_console_test.go:47-53, :67-68, :325-326
+    finding: >-
+      Комментарий утверждает, что под посадкой `own` читатель печенья поставщика
+      «не заводится ВОВСЕ», и ссылается на перепись
+      TestOwnLane_F3_12_NoProviderCarrierReaderIsWiredUnderOwn («мест 2 · заведено
+      под own 0»). На голове волны такого теста нет (`git grep -n 'func TestOwnLane_F3_12'
+      0e0a85f936e` → 0; на bec320cf47d он есть, own_lane_readers_wiring_test.go:115).
+      Его сняла соседняя полоса ЭТОЙ ЖЕ волны, 5fe644eb3b3 «читателей носителя
+      заводит множество, а не посадка», а c9b4a082d51 процитировал его на той же
+      базе. По коду читателей выбирает множество: gateway/internal/config/sessioncarriers.go:41
+      объявляет `own,external` законным переходным состоянием, gateway/cmd/api-gateway/main.go:229
+      заводит читателя поставщика по `sessionCarriers.ReadsProvider()`, от посадки
+      не зависит. Под `own` с `own,external` чужое печенье ЧИТАЕТСЯ, так что
+      «он там не читается» (:68) и «под `own` его никто не читает» (:325) ложны.
+      Решение гейта верное — под `own` спрашиваются обе половины собственной полосы, —
+      неверно обоснование, и касается оно того, какое печенье становится личностью.
+    requirement: >-
+      Переписать три места под то, что делает код: читателей определяет множество
+      носителей (config.ResolvedSessionCarriers, пару с посадкой держит страж
+      старта session_carrier_validation.go); гейт консоли спрашивает под `own` обе
+      половины собственной полосы НЕЗАВИСИМО от того, читается ли ещё чужое
+      печенье. Ссылку на снятый тест и число «мест 2 · заведено под own 0» убрать;
+      держателя называть по имени символа, а не пересказанным числом. Тем же
+      изменением — values.own.yaml:98-110 (радиус ниже).
+    radius: >-
+      `git grep -nE 'TestOwnLane_F3_12|не заводится ВОВСЕ|выбирает ПОСАДКА|заведено под own'
+      0e0a85f936e` по 6691 отслеживаемому файлу → 2 файла: gateway/deploy/login_console_test.go
+      (:49, :51) и deploy/helm/umbrella/values.own.yaml (:99, :100, :103, :106). Второй
+      файл не Go и в мой предмет не входит — он указан в находках по дороге.
+
+important:
+  - id: I1
+    class: снятие комментариев объявлено защитой счёта скобок, но снимает только ЦЕЛЫЕ строки
+    where: deploy/identity_flow_path_is_served_test.go:162 (nginxCommentLineRe), :206 (flowSegmentsFrom)
+    finding: >-
+      Хвостовой комментарий со скобкой после кода на той же строке снова даёт
+      ложное зелёное, ради которого пункт 2 шапки и заведён. Проверено вызовом
+      flowSegmentsFrom в отсоединённой копии: у близнеца `set $x "y";` результат
+      map[consent], у входа `set $x "y"; # было: if ($slow) {` — map[consent login].
+      Необслуживаемый сегмент прочитан как обслуживаемый. В живой раздаче
+      (ui-future/deploy/templates/configmap-nginx.yaml) хвостового комментария со
+      скобкой нет (`grep -nE '[;{}]\s*#'` → 0), поэтому дыра латентна.
+    requirement: >-
+      Снимать `#…` до конца строки, когда `#` стоит вне кавычек (так комментарий
+      понимает nginx), и добавить в TestFlowBandIsADeclarationNotAMentionOfOne
+      случай с хвостовым комментарием и его законного близнеца. Рендерный гейт
+      console-serves-identity-flows-test.sh, по шапке, несёт тот же признак полосы —
+      радиус указан в находках по дороге.
+  - id: I2
+    class: два места об одном предмете, одно ложно
+    where: gateway/deploy/f1c_issuer_set_reaches_every_stand_test.go:9-14
+    finding: >-
+      Шапка пишет, что сосед «ПЕЧАТАЕТ величину «остаются на прежнем скалярном пине N»».
+      Эту печать сняла та же волна: f1b_token_acceptance_declared_test.go:174-183
+      печатает «не объявляют сами N — … судит F1c», и комментарий там прямо говорит
+      «ЗДЕСЬ СТОЯЛО».
+    requirement: 'Шапку F1c переписать под нынешнюю печать соседа либо говорить о ней в прошедшем времени.'
+  - id: I3
+    class: перепись печатает объявленное, а не посчитанное
+    where: gateway/deploy/f1c_issuer_set_reaches_every_stand_test.go:445
+    finding: '`t.Logf(… "(дефектных %d)", donor, len(cases), 3)` — число дефектных половин записано литералом 3; добавленный случай оставит печать прежней.'
+    requirement: 'Считать случаи с `expect == false` в цикле и печатать счётчик.'
+  - id: I4
+    class: неверная координата в комментарии
+    where: services/registry/internal/clients/jwks/verifier_test.go:169
+    finding: '«legacyClaims из f1_harness_test.go» — функция объявлена в f1_issuer_binding_test.go:22; в f1_harness_test.go:208 лежит platformClaims, на которой она построена.'
+    requirement: 'Назвать верный файл или оставить только имя символа.'
+  - id: I5
+    class: комментарий утверждает источник числа, которого код не использует; ссылка номером строки
+    where: services/registry/internal/clients/jwks/verifier_test.go:625-628
+    finding: >-
+      «Число взято … у нашего объявления: tokenpolicy.MinRSAModulusBits, см.
+      verifier.go:719», а на :628 стоит литерал `rsa.GenerateKey(rand.Reader, 2048)`.
+      verifier.go:719 сегодня совпадает, но координата номером строки устареет от
+      первой правки выше неё.
+    requirement: 'Генерировать ключ длиной tokenpolicy.MinRSAModulusBits либо снять утверждение; ссылаться на символ, а не на строку.'
+
+style:
+  - 'gateway/deploy/f1c_issuer_set_reaches_every_stand_test.go:112,153,187 — путь `filepath.Join("..","..","deploy","helm","umbrella")` выписан трижды; в пакете он уже повторён (token_shape_test.go:48, f1b:111/241/370). Нужна одна константа пакета.'
+  - 'gateway/deploy/login_console_test.go — находки выдаются в порядке обхода map `stacks`, и порядок вывода от прогона к прогону разный. Сортировать имена.'
+  - 'gateway/deploy/f1b_token_acceptance_declared_test.go:174-180 — история «ЗДЕСЬ СТОЯЛО…» место в сообщении коммита, а не в коде.'
+  - 'services/registry/internal/clients/jwks/verifier_test.go:187-189 — строка комментария разорвана посередине фразы.'
+
+approved:
+  - 'Производственного Go в предмете нет; panic / context.TODO / fmt.Println / log.Printf в добавленных строках — 0.'
+  - 'flowSegmentsFrom и judgeLoginConsole — чистые функции, одни и те же для гейта и для инъекции, без копии.'
+  - >-
+    Посылка шапки identity_flow_path_is_served_test.go подтверждена: при обезвреженном
+    nginxCommentLineRe краснеют ровно 2 из 9 случаев TestFlowBandIsADeclarationNotAMentionOfOne,
+    остальные 7 молчат. Инъекция в отсоединённой копии, затем откат. Исход пробы как
+    вердикт не объявляется.
+  - 'Переименование в jwks сохраняет поведение: testLegacyIss (f1_harness_test.go:39) = "https://hydra.api.kacho.cloud", ровно прежнее значение testHydraIss.'
+  - 'login_console: у инъекций по обеим половинам own-полосы и по неизвестной посадке есть законные близнецы; перепись отличает «ноль прочитанного» от «ноль находок».'
+
+counts:
+  fresh_deferral_markers: '0 — grep `\b(TODO|FIXME|XXX|HACK)\b[:(]|t\.Skip\(` по добавленным строкам полного диффа волны'
+  probes_in_same_pr: 'да — предмет состоит из проб; для производственных правок волны пробы в покрытых записями'
+  security_comments_contradicting_code: 'gateway/deploy/login_console_test.go:47-53, :67-68, :325-326 (C1)'
+  identifier_ascii_check: 'по объявлениям верхнего уровня (func/var/const/type) в добавленных строках: не-ASCII 0. Обход AST не выполнялся; это предмет TestIdentifiersAreASCII, исход которого не объявляется.'
+
+found_along_the_way:
+  - >-
+    deploy/helm/umbrella/values.own.yaml:98-110 (YAML, не мой предмет; в перечне
+    непокрытых) — та же ложная посылка «читателя выбирает ПОСАДКА … не заводится
+    ВОВСЕ» и та же ссылка на снятый TestOwnLane_F3_12 с числом «мест 2 · заведено
+    под own 0». Это радиус C1, чинить тем же изменением.
+  - >-
+    deploy/tests/helm/console-serves-identity-flows-test.sh (shell, не мой предмет) —
+    по шапке Go-гейта исполняет «тот же разбор и по тем же трём признакам»; вероятно,
+    та же дыра хвостового комментария (I1). Не измерено.
+  - >-
+    Покрытие internal/repohygiene/foreignidpname{,_injection_test,_test}.go записью
+    foreign-idp-ledger-merged-tree круга 7 — побайтово по голове, но дифф записи
+    начинается от 5b20df5c638. 1186 строк этих трёх файлов добавлены между
+    bec320cf47d и 5b20df5c638 (67 коммитов; `git diff --stat bec320cf47d..5b20df5c638
+    -- internal/repohygiene/`) и в дифф ни одного круга 1…7 не входили. Какая
+    принятая запись их покрывает, я не устанавливал; вопрос к landing-reviewer, не
+    к этому ревью.

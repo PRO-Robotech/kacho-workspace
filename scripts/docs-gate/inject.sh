@@ -786,13 +786,19 @@ spech() {
 # чужой. Запрещённая подстрока в фиксированном гнезде — этим прогон и различает,
 # ЧТО именно покраснело: «покраснело» само по себе не говорит, что покраснела
 # проверяемая полоса.
+#
+# «БЕЗ ДОМА» ЗНАЧИТ БЕЗ ДОМА И У ВЫЗЫВАЮЩЕГО (ws#804). Переменную дома законно
+# задаёт тот, кто гонит `run-all.sh`: сама проверка называет её способом создать
+# условие. Унаследованная, она превращала пробу «дома рядом нет» в пробу с домом —
+# ждали код 2, получали 0. Поэтому ветка `-` снимает её явно, `env -u`.
 runh() {
     local home="$1" want="$2" box="$3" prod="$4" name="$5" forbid="$6"
     shift 6
     local got out need
     probes=$((probes + 1))
     if [ "$home" = "-" ]; then
-        out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" "$HERE/$HOLDING" 2>&1)"; got=$?
+        out="$(env -u KACHO_HOME_KANAME DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" \
+               "$HERE/$HOLDING" 2>&1)"; got=$?
     else
         out="$(DOCS_GATE_ROOT="$box" KACHO_MONOREPO="$prod" KACHO_HOME_KANAME="$home" \
                "$HERE/$HOLDING" 2>&1)"; got=$?

@@ -253,3 +253,46 @@ iam — **6**; у geo, compute, storage, nlb, registry — **0**. Свойств
 > обрывалась на контракте у одного ресурса и на чтении у другого, при том что три независимые
 > поверхности (провайдер инфраструктуры, сквозной кейс и сам столбец) исходили из того, что
 > поле есть.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**api-standard-methods** — прежняя редакция:
+
+api-standard-methods · Get/List — sync, Create/Update/Delete — Operation; доп. действия — отдельный RPC с :verb · ЗАВЕСТИ api-standard-methods · red: Create/Update/Delete отвечает ресурсом вместо Operation
+
+**api-gotcha-truncate** — прежняя редакция:
+
+api-gotcha-truncate · .Truncate(time.Second) на КАЖДОМ ресурсе И под-записи; микросекунды БД не текут на wire · ЗАВЕСТИ api-gotcha-truncate · red: микросекунды из БД доехали до клиента
+
+**api-gotcha-malformed** — прежняя редакция:
+
+api-gotcha-malformed · corevalidate.ResourceID первым стейтментом RPC → InvalidArgument; без format-check malformed-id уезжает в repo.Get → NotFound (неверно) · ЗАВЕСТИ api-gotcha-malformed · red: malformed-id уехал в repo.Get и вернул NotFound
+
+**api-id-addressing-dup** — прежняя редакция:
+
+api-id-addressing-dup · адресация только по `id` (ban #15): immutable, глобально-уникален, идёт в URL/ссылки/authz-target; `name` косметический, в URL никогда; слаг в URL вместо id запрещён · ЗАВЕСТИ api-id-addressing-dup · red: слаг или `name` в URL либо в authz-target
+
+**api-json-camel-dup** — прежняя редакция:
+
+api-json-camel-dup · JSON (REST через api-gateway) — camelCase: `<resource>Id`, `projectId`, `createdAt` · ЗАВЕСТИ api-json-camel-dup · red: snake_case в теле REST-ответа
+
+**api-name-rationale** — прежняя редакция:
+
+api-name-rationale · сервер проставляет имя вместо требования (breaking change, адресация по id — ban #15); имя от id, не «первое свободное» — иначе check-then-act (ban #10); форма — чужой RFC 1123 DNS label, не переизобретается · ЗАВЕСТИ api-name-rationale · red: имя требуют от клиента либо выбирают «первое свободное»
+
+(второй проход того же сжатия)
+
+**api-subscription-axes** — прежняя редакция:
+
+api-subscription-axes · глагол один на всех владельцев · фильтр три иммутабельных оси конъюнкцией (виды · проект · идентификаторы) · возобновление позицией или якорем · сужение пообъектное на каждой строке (`scope_filtered`) · TestSubscriptionShapeAxisLedgerCanFail · red: один вопрос доступа при открытии
+
+(второй проход того же сжатия)
+
+**абзац** — прежняя редакция:
+
+## Пустое значение обязано означать «пусто» — иначе оно лжёт (обязательно, выведено 2026-08-12)

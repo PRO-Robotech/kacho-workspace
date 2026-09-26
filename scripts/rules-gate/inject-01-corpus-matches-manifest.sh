@@ -52,7 +52,7 @@ if [ "${BASH_SOURCE[0]}" = "$0" ]; then
     echo "       в рабочее дерево. Запускать: bash scripts/rules-gate/inject.sh" >&2
     exit 2
 fi
-for _inj_fn in sandbox capture assert_code assert_says assert_lacks assert_fixture_changed sandbox_digest; do
+for _inj_fn in sandbox capture assert_code assert_says assert_number assert_lacks assert_fixture_changed sandbox_digest; do
     command -v "$_inj_fn" >/dev/null 2>&1 && continue
     echo "[VOID] $(basename "${BASH_SOURCE[0]}") — оснастки inject.sh нет: функция" \
          "«$_inj_fn» не определена; часть подключена не оттуда, доказывать нечем" >&2
@@ -194,7 +194,7 @@ capture "$d01" "$C01"
 assert_code 1 "ДЕФЕКТ: файл в .claude/rules/ без строки в таблице"
 assert_says "ЛИШНИЙ В КОРПУСЕ: .claude/rules/inj01-undeclared.md" "  ...и координата названа"
 assert_says "не прочтёт НИКТО" "  ...и следствие названо по действующей модели: закрепление живёт в строке"
-assert_says "прочитано записей .claude/rules $(inj01_entries "$d01")" \
+assert_number "прочитано записей .claude/rules" "$(inj01_entries "$d01")" \
     "  ...и перепись печатается НА НАХОДКЕ: «ноль находок» отличимо от «ноль прочитанного»"
 
 echo "-- ось: правило корпуса пропало, строка осталась --"
@@ -279,7 +279,7 @@ d01="$(sandbox c01_empty)"
 rm -f "$d01"/.claude/rules/*
 capture "$d01" "$C01"
 assert_code 1 "записей корпуса не прочитано ни одной ⇒ код 1"
-assert_says "прочитано записей .claude/rules 0" "  ...и перепись называет ноль прочитанного"
+assert_number "прочитано записей .claude/rules" 0 "  ...и перепись называет ноль прочитанного"
 
 echo "-- ось: предмета нет — код 2, и это НЕ успех --"
 d01="$(sandbox c01_nodir)"

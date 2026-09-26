@@ -3,13 +3,11 @@ name: rule-ui
 description: "Канон консоли Kachō — как писать UI"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/ui.md`
-
-# Канон консоли Kachō — как писать UI
+**Архив:** `.claude/backup/ui.md`
 
 ## Как проверить правку консоли
 
-ui-rule-triple-form · норма — тройка: норма, признак, держатель · ЗАВЕСТИ ui-rule-triple-form · red: держателя нет
+ui-rule-triple-form · норма — тройка: норма, признак, держатель · ЗАВЕСТИ · red: держателя нет
 
 ui-verify-command · гоняй `npm run typecheck && npm test` в модуле · .github/workflows/ui.yml · red: вердикт без прогона модуля
 
@@ -95,17 +93,17 @@ ui-shared-table-and-form-shell · список — общей таблицей, 
 
 ui-own-table-violation · своя `<table>`/форма — проверь и карточки · shared-organisms-single-source.test.ts · red: старая страница, те же следствия
 
-ui-no-field-without-source · поле без источника не показывай · ЗАВЕСТИ ui-no-field-without-source · red: прочерк на месте факта
+ui-no-field-without-source · поле без источника не показывай · ЗАВЕСТИ · red: прочерк на месте факта
 
-ui-page-single-scroll · шапка фиксирована, прокрутка ОДНА · ЗАВЕСТИ ui-page-single-scroll · red: две полосы прокрутки
+ui-page-single-scroll · шапка фиксирована, прокрутка ОДНА · ЗАВЕСТИ · red: две полосы прокрутки
 
 ## Правило 12. На находку по консоли пишется проба браузером — до фикса и в том же PR
 
 ui-finding-closed-by-e2e-probe · находку — пробой playwright, красной ДО фикса, одним PR · TestConsoleProbeIssueLinksNameATaskAndLiveInsideTheProbe · red: фикс без пробы
 
-ui-what-counts-as-finding · находка — наблюдение о поведении; вёрстка — нет · ЗАВЕСТИ ui-what-counts-as-finding · red: проба на смену отступа
+ui-what-counts-as-finding · находка — наблюдение о поведении; вёрстка — нет · ЗАВЕСТИ · red: проба на смену отступа
 
-ui-probe-asserts-observable · утверждай наблюдаемое на адресе находки, не разметку · ЗАВЕСТИ ui-probe-asserts-observable · red: утверждает разметку/класс
+ui-probe-asserts-observable · утверждай наблюдаемое на адресе находки, не разметку · ЗАВЕСТИ · red: утверждает разметку/класс
 
 ui-probe-lives-in-e2e-specs · проба — в `e2e/specs/`; модульная не замещает · TestConsoleProbeIssueLinksNameATaskAndLiveInsideTheProbe · red: находка закрыта jest-пробой
 
@@ -117,7 +115,7 @@ ui-probe-no-retries · не заводи повтор: `retries: 0` · playwrigh
 
 ui-probe-waits-condition · жди условие, не время · newmanfreshreadwrap_test.go · red: `waitForTimeout`/`sleep`
 
-ui-probe-not-status-200 · утверждай элемент/вызов API, не код 200 · ЗАВЕСТИ ui-probe-not-status-200 · red: утверждает «страница ответила»
+ui-probe-not-status-200 · утверждай элемент/вызов API, не код 200 · ЗАВЕСТИ · red: утверждает «страница ответила»
 
 ui-rule12-violation-sign · при фиксе проверь пробу с номером задачи · consoleprobeissuelink_test.go · red: фикс без пробы
 
@@ -139,13 +137,13 @@ ui-rule13-holder · гейт печатает перепись, падает н�
 
 ui-radius-by-mechanism · радиус — по МЕХАНИЗМУ, не по файлу находки · git grep -c по дереву · red: починено где найдено
 
-ui-obstacle-needs-predicate · каждому препятствию — ПРЕДИКАТ, команда · ЗАВЕСТИ ui-obstacle-needs-predicate · red: препятствие без предиката
+ui-obstacle-needs-predicate · каждому препятствию — ПРЕДИКАТ, команда · ЗАВЕСТИ · red: препятствие без предиката
 
-## Незакрытый форк, который дороже правила 2 (замер 2026-08-15, ПЕРЕМЕРЕН 2026-08-18)
+## Незакрытый форк, который дороже правила 2
 
 ui-fork-measure · форк — по ведомости, не «разошлось файлов» · fork-excused-by-two-ledgers.test.ts · red: реэкспорт засчитан форком
 
-ui-number-from-rules-is-reference · число из правила — в задание с пометкой «перемерь» · ЗАВЕСТИ ui-number-from-rules-is-reference · red: план на числе без перемера
+ui-number-from-rules-is-reference · число из правила — в задание с пометкой «перемерь» · ЗАВЕСТИ · red: план на числе без перемера
 
 ui-single-source-gate-must-grow · гейт единого источника — растущий по числу компонентов · fork-excused-by-two-ledgers.test.ts · red: удостоверяет 5 из 50
 

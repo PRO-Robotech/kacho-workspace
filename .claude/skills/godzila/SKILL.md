@@ -773,8 +773,10 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
   **Usage:** when `godzila` says "register the converter in `init()`" and you need to see how it
   is done in this codebase, open the note for the package or resource you are touching — a note
   states which revision it was verified against, so you can tell a fresh fact from a stale one.
-  Read one or two narrow notes, not the whole category (`.claude/rules/vault.md`: more than
-  three vault files means the scope is wrong).
+  Read one or two narrow notes, not the whole category — needing more than three vault
+  files is a signal that the scope is wrong, not a reason to read more. The note shell and
+  the canonical tags are defined in `obsidian/kacho/CLAUDE.md`; the notes themselves are
+  written only by `vault-scribe`.
 
 ### 20.3 Companion sub-agents — name the one you need, do not start it
 

@@ -94,3 +94,68 @@
 Решение владельца 2026-09-24: «Пересмотри весь флоу с ориентиром на 1) приоритет написания кода 2) тестирование агрегатами а не каждую таску отдельно 3) контроль за оперативной памятью не должна переваливать за 45гб». Прежние редакции строк — дословно:
 
 task-verdict-runs-on-head · вердикт задачи бери из прогонов на голове её PR в ветку волны: последний прогон КАЖДОГО процесса PR (`git-issues.md#gi-pr-manual-dispatch`) при headSha = голова; проверки PR (`gh pr checks`, `statusCheckRollup`) ручного запуска не видят; полного локального прогона задачи не жди (`testing.md#final-verification-before-merge`) · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят локальным прогоном при открытом PR; «no checks reported» у `gh pr checks` прочитано как отсутствие прогона
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**busy-machine-step-zero** — прежняя редакция:
+
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>`: вход по (MemTotal − MemAvailable) + недобранное занятыми + бюджет ≤ 45 ГиБ, строгая очередь, golangci-lint (классы lint, ci-local) по одному на машину, ожидание — 1800 с, затем 75, ручек `HEAVY_SLOT_*` над настоящей памятью нет; `systemd-run` и `--scope` в argv — 64; 75 и 76 (оборвано пределом памяти) — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «не выполнилось: машина занята» без кода 75; код 76 прочитан красным
+
+**heavy-guard-is-reminder** — прежняя редакция:
+
+heavy-guard-is-reminder · страж heavy-guard — напоминание против случайных форм, а не барьер: предел держит cgroup (слот, потолок сессии); граница стража — перечень `BOUNDARY` в guard.py: переменная вне строки, программа из подстановки, текст оболочке трубой или подстановкой, файл, записанный и запущенный той же строкой, строка одним словом у незнакомой обёртки, `$@` скрипта, запуск из другого языка, `go env -w`, alias, `npm test` · .claude/hooks/heavy-guard/prove.sh: пример границы — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
+
+**session-memcap** — прежняя редакция:
+
+session-memcap · потолок сессии — MemoryMax её scope = max(8 ГиБ, 45 ГиБ − занятое вне scope − бюджет docker), swap 0, без MemoryHigh; ставит хук SessionStart, отказ — anon + 4 ГиБ ≥ потолка либо OOMPolicy ≠ continue; терминал заводит scope со stop — сессия с потолком запускается `scripts/session-memcap.sh --launch -- claude`; метку oomd `user.oomd_omit=1` хук пишет на свой scope прямой записью xattr и сверяет чтением — и при отказе потолка; убийцу в пробе oomd называет журнал по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — первое OOM-убийство снимает всю сессию; потолок или метка названы без сверки по cgroup; 137 от ядра засчитан oomd
+
+**asm-verdict-runs-on-head** — прежняя редакция:
+
+asm-verdict-runs-on-head · вердикт сборки и каждой её задачи бери из прогонов на голове PR сборки в ветку волны: последний прогон КАЖДОГО процесса PR (`git-issues.md#gi-pr-manual-dispatch`) при headSha = голова; своего прогона у задачи нет (решение владельца 2026-09-24); проверки PR (`gh pr checks`, `statusCheckRollup`) ручного запуска не видят · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят её поштучным или локальным прогоном; «no checks reported» у `gh pr checks` прочитано как отсутствие прогона
+
+**no-run-on-head-not-green** — прежняя редакция:
+
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти его вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай тем же прибором, что `asm-verdict-runs-on-head` · тот же `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»; процесс без прогона на голове не назван
+
+(второй проход того же сжатия)
+
+**job-composition-count-run-steps** — прежняя редакция:
+
+job-composition-count-run-steps · не равно «прогнал джобу»: открой объявление и посчитай шаги run: · подсчёт run: в .github/workflows · red: падает последний шаг, а имя джобы называет первый предмет
+
+(второй проход того же сжатия)
+
+**session-memcap** — прежняя редакция:
+
+session-memcap · потолок сессии — MemoryMax её scope по формуле шапки `scripts/session-memcap.sh` (swap 0, без MemoryHigh) и метку oomd `user.oomd_omit=1` ставит хук SessionStart и сверяет чтением cgroup; scope терминала со stop — сессию с потолком запускают `scripts/session-memcap.sh --launch -- claude`; убийцу в пробе называет журнал oomd по имени unit, не код 137 · scripts/session-memcap-inject.sh · red: MemoryMax на scope со stop — OOM снимает всю сессию; потолок или метка без сверки по cgroup; 137 от ядра засчитан oomd
+
+**asm-verdict-runs-on-head** — прежняя редакция:
+
+asm-verdict-runs-on-head · вердикт сборки и каждой её задачи — последний прогон КАЖДОГО процесса PR сборки в ветку волны при headSha = голова; своего прогона у задачи нет (решение владельца 2026-09-24); проверки PR (`gh pr checks`, `statusCheckRollup`) ручного запуска (`git-issues.md#gi-pr-manual-dispatch`) не видят · `gh run list -R <репо> --commit <headSha> --json workflowName,status,conclusion` · red: вердикт задачи взят поштучным или локальным прогоном; «no checks reported» прочитано как отсутствие прогона
+
+**busy-machine-step-zero** — прежняя редакция:
+
+busy-machine-step-zero · шаг 0 перед тяжёлым прогоном и отправкой (решение владельца 2026-09-24): тяжёлое — только `scripts/heavy-slot.sh <класс> -- <команда>` (вход ≤ 45 ГиБ на машину, очередь, бюджеты, ожидание 1800 с и коды — шапка скрипта); 75 и 76 (оборвано пределом памяти) — «не выполнилось»; место — `df -h /` · scripts/heavy-slot-inject.sh; .claude/hooks/heavy-guard/prove.sh · red: тяжёлая команда без слота; «машина занята» без кода 75; код 76 прочитан красным
+
+(второй проход того же сжатия)
+
+**heavy-guard-is-reminder** — прежняя редакция:
+
+heavy-guard-is-reminder · страж heavy-guard — напоминание против случайных форм, а не барьер: предел держит cgroup (слот, потолок сессии); граница стража — перечень `BOUNDARY` в guard.py · .claude/hooks/heavy-guard/prove.sh: пример границы — [BOUND], пойманный — [FAIL] · red: обход стража назван «защищено»; пример границы засчитан зелёным
+
+(второй проход того же сжатия)
+
+**no-run-on-head-not-green** — прежняя редакция:
+
+no-run-on-head-not-green · процесс PR без прогона на голове — не зелёный: запусти вручную (`git-issues.md#gi-pr-manual-dispatch`) и читай прибором `asm-verdict-runs-on-head` · тот же `gh run list` против перечня процессов PR · red: «проверок 0» прочитано как «замечаний нет»
+
+(второй проход того же сжатия)
+
+**job-composition-count-run-steps** — прежняя редакция:
+
+job-composition-count-run-steps · «прогнал джобу» — открой объявление и посчитай шаги run: · подсчёт run: в .github/workflows · red: падает последний шаг, а имя джобы называет первый предмет

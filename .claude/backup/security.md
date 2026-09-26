@@ -166,3 +166,30 @@ region-, ни zone-контракта, Geography — в **geo** (KAC-эпик #8
 оба id в `collections/authn_edge.postman_collection.json`; гонит их шаг «newman — суиты шарда, строго
 по одной (+ live-отчёт)» (`e2e-newman.yml:825-834`, `newman-shard-run.sh`), судит шаг «гейт — newman
 зелёный (api-gateway)» (`:910-915`, `assert-suites-green.sh`), шард по `deploy/e2e-shards.json`.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**sec-posture-regression-assertions** — прежняя редакция:
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous⇒401, forged HS256⇒401 (не 200) — newman, testing-newman.md#qa-access · deploy/scripts/assert-production-posture.sh (pg_stat_ssl); край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+
+(второй проход того же сжатия)
+
+**sec-posture-regression-assertions** — прежняя редакция:
+
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401 (не 200) — newman, testing-newman.md#qa-access · deploy/scripts/assert-production-posture.sh (pg_stat_ssl); край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+
+(второй проход того же сжатия)
+
+**абзац** — прежняя редакция:
+
+## Production-mode — ОБЯЗАТЕЛЕН ВЕЗДЕ, включая dev/локальный стенд (выведено из production-mode валидации 2026-07-21)
+
+**sec-internal-trusted-assumption-banned** — прежняя редакция:
+
+sec-internal-trusted-assumption-banned · не считать internal-периметр доверенным: «internal = trusted, mTLS достаточно» — запрещённое допущение (defense-in-depth против lateral movement) · ЗАВЕСТИ · red: код снимает Check на internal, ссылаясь на «доверенный периметр»

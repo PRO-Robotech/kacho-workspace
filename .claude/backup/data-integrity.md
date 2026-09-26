@@ -104,3 +104,54 @@
 - `seed-607` — инцидент #607: проба консоли была красна с первого прогона и блокировала два MR,
   потому что полосу внешних адресов заводил посев одного набора проб, а другая полоса его не
   звала; починка — посевом, не миграцией.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**no-region-from-zone-name** — прежняя редакция:
+
+no-region-from-zone-name · бери ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля ресурса (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием (директива владельца, non-negotiable) · red: отрезание суффикса, срез по дефису, префиксное сравнение имён; предикат, тождественно истинный на пустой строке
+
+**concurrent-integration-test** — прежняя редакция:
+
+concurrent-integration-test · закрой integration-тестом (testcontainers) с параллельными горутинами: ровно одна TX проходит, прочие получают ожидаемый sentinel · ЗАВЕСТИ concurrent-integration-test · red: мёрж с unit-тестом вместо него
+
+**grant-by-email-pending** — прежняя редакция:
+
+grant-by-email-pending · храни pending email-grant intent, ремапь в `usr-<id>` reconciler'ом на первом OIDC-login · conformance: grant→login→доступ; revoke-before-login чистит intent · red: tuple, keyed на email, либо серверный confirm-барьер
+
+**stand-data-by-seed** — прежняя редакция:
+
+stand-data-by-seed · заводи посевом, вызываемым подъёмом стенда; в миграцию не кладя ни при каких условиях · git grep -ln 'INSERT INTO' -- 'services/*/internal/migrations/*.sql', каждое попадание — справочник продукта · red: данные окружения в миграции
+
+**intent-closed-set** — прежняя редакция:
+
+intent-closed-set · гейть закрытым набором принимаемых отношений, проверяемым ДО записи; отношение вне набора отвергай целиком; набор сверяй со списком принимающей стороны, а не с соседом · ЗАВЕСТИ intent-closed-set · red: отношение вне набора в очереди
+
+**intent-verify-set** — прежняя редакция:
+
+intent-verify-set · сверяй набор отношений нового ресурса со списком принимающей стороны, не копируй по аналогии у соседа · ЗАВЕСТИ intent-verify-set · red: набор скопирован у соседа без сверки
+
+(второй проход того же сжатия)
+
+**partition-head-claim** — прежняя редакция:
+
+partition-head-claim · не клейми, пока в партиции есть доставляемый предшественник: `AND NOT EXISTS (SELECT 1 FROM <t> p WHERE p.sent_at IS NULL AND p.attempt_count < MaxAttempts AND p.id < t.id AND p.<part>=t.<part>)` + partial-index `((<part>), id) WHERE sent_at IS NULL` · `outboxorderinggate_test.go`, `outboxpendingindexperservice_test.go` · red: claim без предиката головы партиции
+
+**placement-discriminator** — прежняя редакция:
+
+placement-discriminator · несёт `placement_type ∈ {ZONAL(zone_id)|REGIONAL(region_id)}` взаимоисключающе, закреплено DB-CHECK `(placement_type='ZONAL' AND zone_id<>'' AND region_id='') OR (placement_type='REGIONAL' AND zone_id='' AND region_id<>'')` · ЗАВЕСТИ · red: ad-hoc поля без дискриминатора
+
+(второй проход того же сжатия)
+
+**authz-edge-matrix** — прежняя редакция:
+
+authz-edge-matrix · верифицируй матрицу verb×role×scope newman через край (testing-newman.md#qa-access): edit@project full-CRUD, owner@account на project+child, cross-account DENY; запись набора глаголов в хранилище — Go integration (testing-newman.md#edge-internal-consequence) · ЗАВЕСТИ · red: доступ края утверждён только Go-пробой
+
+**no-region-from-zone-name** — прежняя редакция:
+
+no-region-from-zone-name · бери ТОЛЬКО резолвом у владельца (`geo.v1.ZoneService.Get`) либо из авторитетного поля (`Subnet.RegionID`); деривация из имени запрещена (директива владельца) · вниманием · red: отрезание суффикса, срез по дефису, префиксное сравнение имён; предикат, истинный на пустой строке

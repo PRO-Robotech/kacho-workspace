@@ -3,9 +3,7 @@ name: rule-security
 description: "Безопасность: Internal-vs-external + инфра-чувствительные данные"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/security.md`
-
-# Безопасность: Internal-vs-external + инфра-чувствительные данные
+**Архив:** `.claude/backup/security.md`
 
 ## AuthN+AuthZ ВЕЗДЕ — инвариант; AuthN/AuthZ (текущее состояние)
 
@@ -14,7 +12,7 @@ sec-transport-mtls-or-tlsjwt · только mTLS (svc→svc) или TLS+JWT (us
 sec-per-rpc-check-both-listeners · включать authz-Check на ОБОИХ листенерах; internal с одним mTLS — баг · assert-production-posture.sh authz_check · red: internal-листенер без authzIntr.Unary()
 sec-internal-annotations-enforced · нести permission/required_relation и энфорсить их · TestAnnotationLaneInjection_UnannotatedMethodIsAFinding · red: аннотация есть, Check её не читает
 sec-read-viewer-mutation-admin · read гейтить viewer-tier (system_viewer), мутации — admin-tier · TestMembershipReadIsGatedByTheTierRelationNotTheVerbOne · red: мутация на viewer-полосе
-sec-internal-trusted-assumption-banned · не считать internal-периметр доверенным: «internal = trusted, mTLS достаточно» — запрещённое допущение (defense-in-depth против lateral movement) · ЗАВЕСТИ sec-internal-trusted-assumption-banned · red: код снимает Check на internal, ссылаясь на «доверенный периметр»
+sec-internal-trusted-assumption-banned · internal-периметр доверенным не считать: «internal = trusted, mTLS достаточно» — запрещённое допущение (defense-in-depth) · ЗАВЕСТИ · red: код снимает Check на internal, ссылаясь на «доверенный периметр»
 sec-forwarded-trust-aware-extract · извлекать личность только trust-aware парой (CertIdentityExtract→TrustedPrincipalExtract) на ОБОИХ листенерах · TestRawTrustedForwarderCircleIsReadInExactlyOnePlacePerService · red: безусловное чтение заголовка личности
 sec-forwarder-allowlist-nonempty · задавать непустым списком SAN из конфигурации; пустой = «не сужаем» · TestEveryServiceDeclaringTheCircleRefusesToStartUnnarrowed · red: пустой круг в боевом профиле
 sec-forwarder-bootguard-empty-circle · отказывать в старте при пустом круге отправителей · TestEveryServiceDeclaringTheCircleRefusesToStartUnnarrowed · red: сервис поднялся с пустым кругом
@@ -31,7 +29,7 @@ sec-exception-geo-public-read · снят ТОЛЬКО authZ project-scope (perm
 sec-ban6-internal-not-on-external · не публиковать на external TLS endpoint; REST-проброс только на cluster-internal · deploy/scripts/assert-ban6-external-isolation.py · red: Internal-метод резолвится на :8443
 sec-one-issuance-listener · не заводить второй слушатель об одном предмете; вид выдачи задаёт форма запроса · TestCompositionRootsRaiseNoNonGRPCListenerOfTheirOwn · red: свой listen в композиционном корне
 sec-issuance-path-not-elsewhere · не монтировать ни на внутреннем, ни на JWKS-, ни на метрик-слушателе; чужой метод ⇒ отказ с перечнем допустимых · TestEdgeMetricsRouteIsMountedOnTheDiagnosticSurfaceOnly · red: тот же путь отвечает на втором слушателе
-sec-authn-failures-byte-identical · делать побайтово одинаковыми · ЗАВЕСТИ sec-authn-failures-byte-identical · red: различимый текст отказа
+sec-authn-failures-byte-identical · делать побайтово одинаковыми · ЗАВЕСТИ · red: различимый текст отказа
 sec-issuance-four-knobs-bootguard · при незаданном значении ОТКАЗЫВАТЬ В ПУСКЕ, не подставлять разумное · TestEveryAuthzWindowKnobIsDeclared · red: старт с незаданной величиной
 sec-no-silent-default-for-guarded-knob · запретить молчаливое умолчание в загрузчике; ненулевое умолчание = страж по ней мёртв · TestSpecWiringRedOnAQuietConstantInEveryPostureField · red: defaults.go задаёт значение, которое судит страж
 sec-admin-ui-rpc-internal-only · добавлять только в Internal*-сервис и регистрировать *InternalAddr-блоком в restmux/mux.go · deploy/scripts/assert-ban6-external-isolation.py · red: admin-метод в публичном сервисе
@@ -47,16 +45,16 @@ sec-two-projections · заводить две проекции — публич
 sec-public-list-through-listauthz · фильтровать выдачу через listauthz · make -C services/<svc> audit-list-filter · red: листинг без фильтра
 sec-page-then-check · Get — только прямая per-object проверка; List — курсор по своей БД + batch-check id страницы (≤100); предел перечисления не поднимать · TestListNarrowingHasExactlyOneImplementation · red: перечисление разрешённых объектов вместо проверки страницы
 sec-time-budget-per-request · исполнять партии параллельно в бюджете ЗАПРОСА; page_size ради бюджета не сужать · нагрузочная проба page_size=1000 в срок · red: UNAVAILABLE на положительном пути
-sec-pagetoken-may-encode-closed-row · допускать кодирование недоступной вызывающему строки (id+timestamp) и ДОКУМЕНТИРОВАТЬ размен · ЗАВЕСТИ sec-pagetoken-may-encode-closed-row · red: скрытый размен или пропуск строк
+sec-pagetoken-may-encode-closed-row · допускать кодирование недоступной вызывающему строки (id+timestamp) и ДОКУМЕНТИРОВАТЬ размен · ЗАВЕСТИ · red: скрытый размен или пропуск строк
 
-## Production-mode — ОБЯЗАТЕЛЕН ВЕЗДЕ, включая dev/локальный стенд (выведено из production-mode валидации 2026-07-21)
+## Production-mode — ОБЯЗАТЕЛЕН ВЕЗДЕ, включая dev/локальный стенд
 
 sec-production-posture-everywhere · поднимать в боевой посадке; dev-insecure — только в in-process фикстурах · make -C deploy assert-production-posture · red: mode=dev на поднятом стенде
 sec-bootguard-fail-closed-axes · отказывать в старте при sslmode=disable, mTLS off на живом ребре, authz-интерсепторе вне цепочки, breakglass on · TestServiceDeclaringPostureKnobsHasABootGuard · red: сервис объявил посадочные ручки без стража
 sec-posture-judged-by-common-descriptor · доводить до общего дескриптора corelib/servicecontract в композиционном корне; своя проверка — только по оси, которой у общего нет · TestPostureReachGateRedWhenKnobsNeverReachTheDescriptor · red: ручки объявлены, до дескриптора не доходят
 sec-authmode-declared-never-read · обязана МЕНЯТЬ исход старта, а не только существовать; сервис без production-guard не мёржится · TestRefusalReachRedWhenTheProviderIsNeverCalled · red: ручка читается и отделывается WARN
 sec-dev-stand-in-production-mode · поднимать в боевой посадке: authMode=production + mTLS через cert-manager + sslmode=require + RS256; эталон values.dev-prod.yaml · make dev-prod-up · red: dev-insecure overlay на поднятом стенде
-sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous⇒401, forged HS256⇒401 (не 200) — newman, testing-newman.md#qa-access · deploy/scripts/assert-production-posture.sh (pg_stat_ssl); край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
+sec-posture-regression-assertions · утверждать pg_stat_ssl=true на всех PG; на крае anonymous ⇒ 401, forged HS256 ⇒ 401, не 200 (newman, testing-newman.md#qa-access) · deploy/scripts/assert-production-posture.sh; край — gateway/tests/newman/cases/authn_edge.py (IBT-10-ANONYMOUS-REJECTED, IBT-10-HS256-FORGED-REJECTED) · red: зелёный без этих трёх утверждений
 sec-chart-config-checksum · нести checksum/config (sha256 рендера configmap) в spec.template.metadata.annotations · deploy/tests/helm/config-rollout-binding-test.sh · red: envFrom без checksum/config
 sec-gate-reads-process-and-db · сверять посадку, объявленную процессом при старте, и шифрование со стороны БД (pg_stat_ssl); ConfigMap доказательством не считать · deploy/scripts/assert-production-posture.sh · red: гейт читает манифест вместо процесса
 sec-ready-is-not-posture · не выводить из Ready-пода · assert-production-posture отдельно от assert-rollout-ready · red: «все поды Ready» как доказательство посадки
