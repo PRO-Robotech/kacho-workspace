@@ -212,7 +212,9 @@ skills:
   командой; `Closes #<N>` вне ветки по умолчанию не исполняется, каскад — моё явное действие;
   остаток — задачей следующей волны, непоставленная переводится
   (`git-issues.md#gi-cascade-wave-closes-tasks`, `git-issues.md#gi-cascade-remainder`);
-- в `main` — только запрос эпика, тем же способом; схлопнутого коммита на сервере нет, форма
+- в `main` — только запрос эпика, тем же способом, и только после
+  `scripts/cascade-census.sh --children-closed <репо> <эпик>` с кодом 0: без ключа открытый
+  эпик с открытыми волнами тоже даёт 0 (`git-issues.md#gi-cascade-epic-main`); схлопнутого коммита на сервере нет, форма
   его тела (`security-disclosure.md#disc-squash-says-it-is-squashed`) — для местного
   переноса;
 - `refs/original` снимаю `git update-ref -d` поимённо.
@@ -270,7 +272,7 @@ PR сборки в волну — голова сборки и ветки зад
 | вливание сборки: PR · родителей у слияния в волну 2 · задач в `git log --first-parent --merges <волна>..<голова сборки>` N из M · PR задач в волну — N (норма 0) | `git cat-file -p`, `gh pr list --base <волна> --state merged --json headRefName` (`git-issues.md#gi-wave-assemble-only`) |
 | перепись веток: снято N (origin · локально по клонам · копий) · голова сдвинулась после вливания N · единственный экземпляр N · занято копией N · двигались в окне свежести N (только снятие по переписи) · влитых после снятия по каждому клону и цели N (норма 0) · код branch-audit | `scripts/branch-audit.sh` до и после снятия, `git ls-remote --heads origin` (`git-issues.md#gi-prune-session-zero`) |
 | merge-readiness: код 0·1·2 · недостающие обязательные контексты по имени с причиной (идёт · красный · не появлялся) | `scripts/merge-readiness.sh <репо> <PR>` |
-| каскад: волна #W закрыта · задачи #N… закрыты с коммитом работы и коммитом слияния · переведены #N… · дочерних total N, открытых 0, расхождений sub-issue и тела 0 · эпик, закрытый посадкой в `main` (`Closes #E`) | `scripts/cascade-census.sh <репо> <W>` с кодом, ответ сервера (`git-issues.md#gi-close-cascade`) |
+| каскад: волна #W закрыта · задачи #N… закрыты с коммитом работы и коммитом слияния · переведены #N… · дочерних total N, открытых 0, расхождений sub-issue и тела 0 · эпик перед посадкой в `main`: код `--children-closed` · эпик, закрытый посадкой (`Closes #E`) | `scripts/cascade-census.sh <репо> <W>` с кодом; `scripts/cascade-census.sh --children-closed <репо> <E>` с кодом; ответ сервера (`git-issues.md#gi-close-cascade`, `#gi-cascade-epic-main`) |
 
 Строка «нужен следующий» — заказ, а не команда; кого и в каком порядке запускать, решает
 диспетчер. Типовые заказы:
