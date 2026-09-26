@@ -101,11 +101,15 @@ verified_against: "kaname main@af0ca8f3 (миграция и домен `interna
   [[KAC/issue-334-kaname]] (четвёртое значение словаря) и [[KAC/issue-340-kaname]]
   (число снятого не доезжает до события). Полоса в `main` не влита на 2026-09-21.
 - [[KAC/issue-1281-kaname]] — третье значение словаря, `second-factor-removed`.
+- 2026-09-22 — заведены ссылки на записку внутреннего глагола `Resolve` и на переходник края,
+  который его зовёт. Повод: возврат полосы края назвал `InternalHumanSessionService.Resolve`
+  затронутым RPC. Состав колонок и контракт не правились.
 
 ## See also
 
 [[rpc/iam-login-lane]] · [[resources/iam-session-revocation]] · [[resources/iam-recovery-code]] ·
 [[KAC/issue-1269]] · [[KAC/issue-1280]] · [[resources/iam-token-family]] ·
-[[resources/iam-user-token-revocation]]
+[[resources/iam-user-token-revocation]] · [[rpc/iam-internal-human-session-service]] ·
+[[packages/apigw-clients]]
 
 #resource #kacho-iam #iam #internal #migrations

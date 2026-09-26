@@ -189,7 +189,7 @@ FK/UNIQUE/EXCLUDE/CAS), `rule-security` (internal-vs-public, инфра-чувс
 - REST-путь в формате `/<service>/v1/<resource>`, suffix-actions через `:verb`.
 - JSON — camelCase (`projectId`, `<resource>Id`, `createdAt`).
 - Имя ресурса — по `.claude/rules/api-conventions.md` §«Имя ресурса: одна форма, пустого не бывает»; внешняя адресация — по immutable `id` (`.claude/rules/00-kacho-core.md` §«Non-negotiables» п.15).
-- DoD каждой стадии включает: proto+regen (buf зелёные), код, integration-пробу, newman happy+negative, UI (если затронут), trail записок.
+- DoD каждой стадии включает: proto+regen (buf зелёные), код, integration-пробу, newman-кейсы края (≥1 happy и ≥1 negative, классы — `testing-newman.md#qa-classes-per-method`), UI (если затронут), trail записок.
 
 ## 6. Выход
 

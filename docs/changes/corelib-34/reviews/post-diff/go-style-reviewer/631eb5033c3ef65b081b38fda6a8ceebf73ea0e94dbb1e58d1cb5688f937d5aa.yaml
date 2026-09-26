@@ -1,0 +1,113 @@
+# Пост-дифф ревью Go-кода, роль go-style-reviewer, круг 3.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся:
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена. Её коммитит
+# оператор, как круги 1 и 2 (dc1d0dd7).
+schema_version: 1
+change_id: corelib-34
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 3
+previous_record: 'go-style-reviewer/4271a38c628ed167ad6d81600ddd99954be806117d5486a5a6cb636e303589ef.yaml (круг 2, принято; I3 и I4 не блокируют)'
+subject: >-
+  #34 сведена с волной 32 @c2261955 (#38: адреса точек из Config; #40: привязка PKCE в записи
+  кода) слиянием 8af040a. Поверх него проба cadf776: выпуск опередившего после отзыва
+  достижим, и на этом стоит довод «и после» у GrantRevoker.
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: c22619552559cace2a30dc4b413a6df5c9944fc0      # origin/32 = merge-base origin/32 HEAD, перемерено после fetch
+  base_tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45
+  head: cadf77688ffb73b2b9da8fef9dd768d2da3e7460
+  head_tree: af8fac548d3aba1e888b582a3f62b3c35d748866
+  head_is: 'ветка 34 в tmp/corelib-34: d3c3ea4 (круг 2), затем слияние 8af040a (#34 merge #32), затем cadf776. Не отправлена: origin/34 = d3c3ea4. git status пуст до и после.'
+  shortstat: '21 файл, +2011 / -112'
+content_digest: sha256:631eb5033c3ef65b081b38fda6a8ceebf73ea0e94dbb1e58d1cb5688f937d5aa
+digest_definition: 'git -C tmp/corelib-34 diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum (перемерено своей командой; совпадает с числом из задания)'
+
+verdict: accepted              # принято
+blocks_landing: false
+timestamp: '2026-09-23T19:16:55Z'
+return_to: '—'
+review_scope: >-
+  Разрешение конфликтов: `git show --remerge-diff 8af040a`, 10 файлов, все участки прочитаны
+  (ceremony.go, ports.go, types.go, doc.go, ceremony_test.go, engineconfig_internal_test.go,
+  fakes_test.go, opaque_artifact_test.go, endpoints_internal_test.go, access_issuer_test.go).
+  Дельта cadf776 прочитана целиком (3 файла). Что проверено по автослиянию: правки #34 в
+  bridge.go и translate.go над волной целы (c226195..HEAD). Текстов «storage» в отказах порта
+  нет ни в продовом коде, ни в пробах. Вне диффа: codeRecordFromRequester и requesterFromCode
+  (translate.go:295), CreateAuthorizeCodeSession, GetAuthorizeCodeSession, consumeCode и
+  DeletePKCERequestSession (bridge.go), координаты движка, на которые ссылается контракт
+  AuthorizationCodeVault. Прежние находки круга 2 не переоткрывались.
+
+premise_checks:
+  - claim: 'конфликты разрешены по существу: без Issuer и SigningSecret, ProofKeys снят вместе с портом, AccessTokenIssuer обязателен'
+    result: подтверждено
+    how: >-
+      remerge-diff 8af040a. validateConfig без обеих ветвей. validatePorts требует
+      AccessTokenIssuer (ceremony.go:419). Ports без ProofKeys. В TestNewRejectsEveryMissingPort
+      сохранён положительный близнец «полный набор портов». В uncalledPorts есть порт выпуска.
+      `grep HMAC|SigningSecret|Config.Issuer|ProofKeyVault|ProofKeys|RequireProofKey` по
+      oauthceremony/ и PROVENANCE.md даёт 0 строк.
+  - claim: 'шапка GrantRecord.Form после слияния: запись кода сверх общих полей несёт redirect_uri, привязки PKCE в Form нет'
+    result: подтверждено
+    how: >-
+      translate.go:295-305: codeRecordFromRequester удаляет code_challenge и
+      code_challenge_method из Form и переносит их в ProofKey. Перечень ceremony.go:222 их
+      держит только для переноса, и это названо в комментарии у перечня. Поле `code` из
+      перечня в шапке по-прежнему не названо. Это I4 круга 2: дельта его не меняла, в круге 3
+      он не переоткрывается.
+  - claim: 'опередивший гасит код при предъявлении, раньше своего выпуска (довод «и после», ports.go:360-367)'
+    result: подтверждено
+    how: >-
+      Координаты движка на голове: pkce/handler.go:150 DeletePKCERequestSession (гасит через
+      consumeCode, bridge.go:598) стоит в разборе запроса точки токена. Выпуск идёт в
+      flow_authorize_code_token.go:143 GenerateAccessToken, раньше MaybeBeginTx :156 и
+      InvalidateAuthorizeCodeSession :168.
+  - claim: 'проба TestConcurrentCodeReplayWinnerMayIssueAfterTheRevocation способна упасть; без инъекции зелёная, близнец зелёный'
+    result: подтверждено
+    how: >-
+      Своя инъекция накладкой `go test -overlay` (файлы вне git-деревьев,
+      ~/.cache/gsr-corelib34-r3): DeletePKCERequestSession возвращает nil, и код гасится только
+      на выдаче. Проба FAIL, code_replay_test.go:404, текст: «ни один обмен не прошёл: выпуск не
+      дождался отзыва (oauthceremony: port_deadline: A port call did not finish in time.; …)».
+      Близнец TestConcurrentCodeRedemptionRevokesTheFamily PASS в обоих подслучаях. На голове
+      без инъекции проба и близнец PASS 3 из 3 (-count=3).
+  - claim: 'пакет oauthceremony: 107 проб и 207 подслучаев PASS, 0 FAIL, 0 SKIP'
+    result: подтверждено
+    how: 'go test -count=1 -json ./oauthceremony/... (свой TMPDIR вне git-деревьев), rc 0, счёт по событиям json. go vet ./oauthceremony/ чисто, gofmt -l пусто.'
+
+critical: []
+
+important: []
+
+carried_over:                  # круг 2, дельтой не затронуты, не блокируют
+  - {id: I3, at: 'oauthceremony/strategy.go:286 (withoutPresented)', state: 'strategy.go d3c3ea4..HEAD без изменений'}
+  - {id: I4, at: 'oauthceremony/types.go (шапка Form); oauthceremony/ceremony.go:222', state: 'шапка переписана слиянием, `code` из перечня по-прежнему не назван'}
+
+style:
+  - id: S1
+    at: oauthceremony/code_replay_test.go:414-415
+    note: >-
+      Одна Fatalf судит два условия: число выпусков и совпадение токена с токеном опередившего.
+      Если выпуск один, но токен не тот, сообщение выйдет «выпусков 1, ожидался 1». Лучше
+      разнести условия на два утверждения, каждое со своим текстом.
+
+foundation_candidates: []       # изменение и есть фундамент
+fresh_deferral_markers: 0       # добавленные строки полного диффа c226195..HEAD, TODO|FIXME|XXX|HACK
+probes_in_same_pr: true         # дельта несёт пробу cadf776; в полном диффе 12 файлов _test.go
+security_comments_contradicting_code: []
+trailers_in_commit: 0           # c226195..HEAD: Co-Authored-By / Claude-Session / Generated — 0
+commit_form: 'заголовки 8af040a и cadf776 по 68 знаков; тела 9 и 7 непустых строк; автор pointpu <pointpu@in-cloud.io>'
+
+outside_diff:
+  - >-
+    Проба показывает достижимость «выпуск после отметки» только без единицы работы. Довод
+    абзаца говорит «может лечь», поэтому одной конфигурации достаточно. Дефектом я это не
+    считаю.
+  - >-
+    Часть контракта GrantRevoker («отсечка там, где читают предъявленный токен») в фундаменте
+    не наблюдаема. Её исполняет адаптер службы, и проверять её надо там.
+
+not_run: 'полный -race, линтер и gosec не перезапускал: это замеры автора диффа и check-verifier'

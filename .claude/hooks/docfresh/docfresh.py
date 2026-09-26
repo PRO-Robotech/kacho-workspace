@@ -66,6 +66,9 @@ ALLOW_PATH = Path(os.environ.get("DOCFRESH_ALLOW") or (HERE / "allow.json"))
 CACHE_ROOT = Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "kacho-docfresh"
 
 GIT_TIMEOUT_S = 30
+# Расхождение двух ответчиков о корне — см. `workspace_root`. Печатается
+# переписью; None означает «ответчики сошлись», а не «не спрашивали».
+ROOT_NOTICE: str | None = None
 # Порог «ноль срабатываний за всю жизнь» — как у class-guard. Гейт, не сработавший
 # ни разу за столько прогонов, обязан сказать это сам: молчание должно быть
 # подозрительным, а не успокаивающим.
@@ -111,6 +114,69 @@ COVERAGE_MODEL: dict[str, str | None] = {
     "rpc": None,
 }
 
+# ═══ 0a. Граница РАСПОЗНАВАНИЯ — вторая, и она НЕ та же самая ════════════════
+#
+# `COVERAGE_MODEL` выше отвечает на вопрос «координата распознана, но основание
+# её не покрывает». Есть вопрос СТУПЕНЬЮ РАНЬШЕ, и до этой правки его не задавал
+# никто: сколько вставок кода документ содержит ВООБЩЕ и у скольких из них вид
+# координаты вообще определился.
+#
+# ПОЧЕМУ ЭТО ЗАВЕДЕНО. Перепись печатала «вне покрытия основания 0 из
+# рассмотренных: path 0/29». Знаменатель 29 читался как «в документе 29
+# координат», тогда как означал «29 штук я распознал»; про вставки, которых
+# разбор не заявил ни одним видом, хук не говорил НИЧЕГО, и его ноль читался как
+# полнота. Это ровно класс `kacho-workspace#762`: исход взят из одного канала,
+# объём осмотренного не напечатан, — только внутри прибора, который сам этот
+# класс и ищет.
+#
+# СКОЛЬКО ЭТО СТОИЛО — замер САМОЙ ЭТОЙ ТАЛЬЁЙ, а не сторонним счётом: 548
+# LIVE-документов, единица — РАЗЛИЧНАЯ вставка кода в документе, суммой по
+# документам, оба столбца сняты на ОДНОМ состоянии корпуса (2026-09-22).
+# Вставок осмотрено 30 614 в обоих столбцах — обход один и тот же.
+#
+#                          до выведения словаря   после
+#   вид координаты определён          4 708        4 955
+#   отведено по названной причине     5 369        5 370
+#   вид НЕ ОПРЕДЕЛЁН                 20 536       20 289
+#     …из них со слэшем               1 043          796
+#
+# Разница целиком в форме со слэшем, и это ровно та дыра, которую закрыло
+# выведение словаря (см. `RELATIVE_STARTS`): 247 координат перестали быть
+# невидимыми. Предикат — строка «граница РАСПОЗНАВАНИЯ» в переписи любого
+# прогона; числа дрейфуют вместе с корпусом, поэтому сверять их надо прогоном, а
+# не памятью.
+#
+# ЧИНИТСЯ НЕ ОХВАТ, А УТВЕРЖДЕНИЕ. Расширять распознаватель бесконечно: всегда
+# найдётся форма, которой он не знает. Поэтому здесь заведена не новая форма, а
+# ТАЛЬЯ РАЗБОРА: у каждой вставки ровно один исход, исходы пересчитываются, и
+# сумма обязана сойтись со числом вставок (`walk_mismatch`). Исходов три вида:
+#   kinded    — вид координаты определён, дальше судит основание истины;
+#   withdrawn — разбор отвёл вставку по НАЗВАННОЙ причине (образец, URL, фраза,
+#               квалифицированный символ Go под отказанным `gosym`);
+#   unknown   — ни одна ветвь разбора её не заявила: ВИД НЕ ОПРЕДЕЛЁН. Вердикта
+#               по такой вставке нет ни зелёного, ни красного, и перепись обязана
+#               сказать это числом — в том числе когда число ноль.
+#
+# Ключ тальи кладётся в результат `extract` РЯДОМ с видами и видом НЕ ЯВЛЯЕТСЯ:
+# всякий, кто обходит `extract(...)`/`per_doc[...]` по видам, обязан отсеивать
+# всё, чего нет в `KINDS` (обратный индекс, счёт координат, резолв).
+WALK = "_walk"
+
+# Причины отвода — ОБЪЯВЛЕНЫ здесь, а не рождаются строковым литералом в разборе:
+# причина, которой нет в этом словаре, не была бы видна ни в переписи, ни в пробе.
+WITHDRAWN_REASONS = {
+    "route-sample": "образец маршрута (заполнитель в сегменте)",
+    "url-or-phrase": "URL либо фраза (пробел внутри вставки)",
+    "sample": "образец с заполнителем (`<…>`, `…`, `*`, `?`, `|`)",
+    "gosym": "квалифицированный символ Go — предикат `gosym` отказан целиком",
+}
+# Исходы «вид не определён» — тоже поимённо, по МЕСТУ выхода из разбора, а не по
+# догадке о содержимом: место выводится обходом, догадка — памятью автора.
+UNKNOWN_EXITS = {
+    "slashed": "со слэшем, но не форма пути дерева",
+    "bare": "одиночный токен без известного расширения",
+}
+
 # ═══ 1. Корни ════════════════════════════════════════════════════════════════
 
 def workspace_root() -> Path:
@@ -120,11 +186,24 @@ def workspace_root() -> Path:
     (см. live_docs). Так инъекция пишет пробные документы во временный каталог,
     оставляя основание истины настоящим: подменённое основание доказывало бы,
     что регулярное выражение совпадает само с собой.
+
+    КОРЕНЬ НЕ БЕРЁТСЯ ИЗ ТЕКУЩЕГО КАТАЛОГА — ни здесь, ни запасным путём: запуск
+    из чужой копии иначе молча судил бы чужое дерево. Ответчиков два, и они могут
+    РАЗОЙТИСЬ: переменная сессии и собственное расположение файла. Разойдутся —
+    вердикт относится к копии из переменной, а исполняется код из другой; это
+    печатается переписью (`ROOT_NOTICE`), а не подразумевается.
     """
+    global ROOT_NOTICE
+    own = HERE.parent.parent.parent
     env = os.environ.get("CLAUDE_PROJECT_DIR")
     if env and (Path(env) / ".claude").is_dir():
-        return Path(env).resolve()
-    return HERE.parent.parent.parent
+        root = Path(env).resolve()
+        if root != own.resolve():
+            ROOT_NOTICE = (f"КОРНИ РАЗОШЛИСЬ: судится {root} (CLAUDE_PROJECT_DIR), "
+                           f"а исполняется оснастка из {own.resolve()} — вердикт "
+                           f"относится к первому дереву, не ко второму")
+        return root
+    return own
 
 
 def monorepo_root(ws: Path) -> Path | None:
@@ -689,49 +768,112 @@ def _is_placeholder(tok: str) -> bool:
     return any(m in tok for m in PLACEHOLDER)
 
 
-def extract(text: str, doc_dir: str = "") -> dict[str, set[str]]:
+def extract(text: str, doc_dir: str = "") -> dict:
+    """Координаты документа ПО ВИДАМ плюс талья разбора под ключом `WALK`.
+
+    Ключ `WALK` видом НЕ является: всякий обход результата по видам обязан
+    отсеивать всё, чего нет в `KINDS` (`freeze_doc`, обратный индекс, резолв).
+    """
     body = strip_noncontent(text)
     found: dict[str, set[str]] = {k: set() for k in KINDS}
+    # ТАЛЬЯ РАЗБОРА. Единица — РАЗЛИЧНАЯ вставка кода, та же, что у координаты:
+    # считай вхождения — и «вид определён у 31» стало бы несравнимо с «координат
+    # распознано 29», а два числа об одном предмете, которые нельзя сложить,
+    # читатель складывает всё равно. Ветви ниже ветвятся только по самому токену
+    # (кроме выбора `ref`/`path`, а он внутри `kinded`), поэтому множества
+    # непересекающиеся и сумма обязана сойтись — это проверяется `walk_mismatch`.
+    spans: set[str] = set()
+    kinded: set[str] = set()
+    withdrawn: dict[str, set[str]] = {}
+    unknown: dict[str, set[str]] = {}
+
+    def _out(bucket: dict[str, set[str]], why: str, tok: str) -> None:
+        bucket.setdefault(why, set()).add(tok)
+
+    bare: set[str] = set()
     for name in BARE_ENV.findall(body):
         # Хвостовое подчёркивание — обрезанное семейство (`KACHO_VPC_DB_*`), а не имя.
+        bare.add(name)
         if not name.endswith("_"):
             found["env"].add(name)
     for mi in INLINE.finditer(body):
         tok = mi.group(1).strip()
         if not tok:
             continue
+        spans.add(tok)
         m = RE_MAKE.match(tok)
         if m:
             found["make"].add(m.group(1))
+            kinded.add(tok)
             continue
         if RE_ROUTE.match(tok):
             if not _is_placeholder(re.sub(r"\{[^}]*\}", "", tok)):
                 found["rest"].add(tok)
+                kinded.add(tok)
+            else:
+                _out(withdrawn, "route-sample", tok)
             continue
         m = RE_RPC.match(tok)
         if m:
             svc, tail = m.group(1), m.group(2)
             for meth in tail.split("/"):
                 found["rpc"].add(f"{svc}.{meth}")
+            kinded.add(tok)
             continue
         if tok.startswith(("http://", "https://", "/")) or " " in tok:
+            _out(withdrawn, "url-or-phrase", tok)
             continue
         if _is_placeholder(tok.replace("*", "")):
+            _out(withdrawn, "sample", tok)
             continue
         # ВИД КООРДИНАТЫ решается ровно здесь — на пороге путевой полосы. Имя
         # ветки и путь в дереве неразличимы по форме, поэтому единственное, что
         # их различает, — как о координате говорит сама фраза.
         if "/" in tok:
-            if RE_PATHY.match(tok) and _looks_like_repo_path(tok):
+            ok, why = (_looks_like_repo_path(tok) if RE_PATHY.match(tok)
+                       else (False, "slashed"))
+            if ok:
                 if _is_refname(tok, body, mi.start()):
                     found["ref"].add(tok)
                 else:
                     found["path"].add(_norm_path(tok, doc_dir))
+                kinded.add(tok)
+            elif why in WITHDRAWN_REASONS:
+                _out(withdrawn, why, tok)
+            else:
+                _out(unknown, why, tok)
         elif RE_BARE_FILE.match(tok) and any(tok.endswith(e) for e in KNOWN_EXT):
             if _is_refname(tok, body, mi.start()):
                 found["ref"].add(tok)
             else:
                 found["path"].add(tok)
+            kinded.add(tok)
+        else:
+            # ПОСЛЕДНЯЯ ВЕТВЬ, и она была молчаливой. Одиночное слово без
+            # известного расширения разбор просто отпускал: ни находки, ни
+            # зелёного, ни строки в переписи. Именно здесь `24` переставало
+            # означать «в файле 24».
+            _out(unknown, "bare", tok)
+    found[WALK] = {  # type: ignore[assignment]  # не вид координаты — см. WALK
+        "spans": len(spans),
+        # ВТОРОЙ НОСИТЕЛЬ, и он считается ОТДЕЛЬНО: имя ручки ловится не из
+        # вставки, а из текста, поэтому в сумму вставок не идёт. Без этого числа
+        # «координат РАСПОЗНАНО 1» при «вид определён у 0» читалось бы как
+        # противоречие, хотя это просто два разных носителя.
+        "bare": len(bare),
+        "kinded": len(kinded),
+        "withdrawn": {k: len(v) for k, v in withdrawn.items()},
+        "unknown": {k: len(v) for k, v in unknown.items()},
+        # ПРИМЕРЫ — ДВА КОНЦА ОДНОГО ПОРЯДКА, а не «первый попавшийся» и не
+        # «самый похожий на координату». Два требования сталкиваются: пример
+        # обязан быть воспроизводимым (иначе его нельзя ни процитировать, ни
+        # закрепить пробой) и не обязан быть выбран по смыслу (выбор по смыслу
+        # вернул бы сюда распознаватель, границу которого эта строка и меряет).
+        # Оба конца лексикографического порядка удовлетворяют обоим: порядок
+        # механический, концы устойчивы, а два конца вместо одного вдвое чаще
+        # показывают члена с содержанием, чем пунктуацию.
+        "sample": {k: [min(v), max(v)] for k, v in unknown.items()},
+    }
     return found
 
 
@@ -741,31 +883,137 @@ KNOWN_EXT = {
 }
 
 
-def _looks_like_repo_path(tok: str) -> bool:
-    """Отличить путь дерева от прочего со слэшем.
+def freeze_doc(found: dict) -> dict:
+    """Разбор документа → форма, годная для JSON-кэша и для `check_docs`.
+
+    ОДНА функция на оба пути — сборку индекса и свежее перечитывание правленого
+    документа. Прежде преобразование стояло двумя копиями строки; добавить ключ
+    в одну и забыть вторую означало бы, что перепись после правки документа и
+    перепись из кэша печатают РАЗНОЕ про один файл, и разошлись бы они молча.
+
+    Пустые виды отбрасываются (индекс их не хранит), талья — НЕТ: `{"spans": 0}`
+    ложен как значение, и `if v` выкинул бы его ровно у документа без вставок
+    кода — то есть «вставок ноль» стало бы неотличимо от «разбор не измерялся».
+    """
+    out: dict = {k: sorted(v) for k, v in found.items() if k in KINDS and v}
+    if WALK in found:
+        out[WALK] = found[WALK]
+    return out
+
+
+def _looks_like_repo_path(tok: str) -> tuple[bool, str]:
+    """Отличить путь дерева от прочего со слэшем — и НАЗВАТЬ, почему не путь.
 
     Отвергается: `kacho.cloud.vpc.v1` (нет слэша — сюда не дойдёт), `user:*`,
     `и/или`, `p50/p95`, `A/B`. Признак — либо известное расширение последнего
     сегмента, либо первый сегмент из словаря корней дерева.
+
+    → (True, "") — путь; (False, <ключ исхода>) — не путь, и ключ говорит, по
+    какой ветви разбор его отпустил. Причина возвращается ОТСЮДА, а не
+    доопределяется у вызывающего: второе место, повторяющее эти же условия,
+    разошлось бы с этим молча — ровно класс, который хук ловит в чужой прозе.
+    Ключ `gosym` — отвод по НАЗВАННОЙ причине (предикат отказан целиком),
+    ключ `slashed` — «вид не определён»: разбор про такую вставку не знает
+    ничего и вердикта по ней не выносит.
     """
     last = tok.rstrip("/").rsplit("/", 1)[-1]
     if any(last.endswith(e) for e in KNOWN_EXT):
-        return True
+        return True, ""
     # `internal/authzfilter.FGAFilter` — квалифицированный символ Go, а не путь.
     # Точка в последнем сегменте при НЕизвестном расширении — признак `pkg.Symbol`.
     # Судить о нём нечем: предикат gosym отказан целиком (см. Truth.enabled), и
     # протаскивать его через полосу путей значило бы обойти собственный отказ.
     if "." in last:
-        return False
+        return False, "gosym"
     first = tok.split("/", 1)[0]
-    return first in ROOT_SEGMENTS
+    if first in ROOT_SEGMENTS:
+        return True, ""
+    # ИМЯ ПРЕДШЕСТВУЮЩЕГО ПОЛИРЕПО — ТОЖЕ ФОРМА ПУТИ, и опознать её надо ЗДЕСЬ.
+    # Граница для неё объявлена давно (`out_of_coverage`: «полирепо, которого нет
+    # в дереве»), но добраться до границы координата могла только через известное
+    # расширение последнего сегмента: `kacho-corelib/ids/ids.go` опознавался,
+    # `kacho-vpc/internal/authz` — нет, и тихо уходил в «вид не определён».
+    # То есть детектор границы был в основном НЕДОСТИЖИМ, а его ноль читался как
+    # «таких координат нет». Замер 2026-09-22: 77 различных координат в 83
+    # документо-упоминаниях мимо собственной объявленной границы.
+    if RE_LEGACY_REPO.match(first):
+        return True, ""
+    return False, "slashed"
 
 
-ROOT_SEGMENTS = {
-    "services", "pkg", "proto", "gateway", "deploy", "internal", "cmd", "tools",
-    "docs", "tests", "scripts", "obsidian", ".claude", ".github", "ui-future",
-    "project", "migrations", "apps", "collections", "cases",
+# СЛОВАРЬ НАЧАЛЬНЫХ СЕГМЕНТОВ СОБИРАЕТСЯ ИЗ ТРЁХ ЧАСТЕЙ, И ТОЛЬКО ОДНА ПИШЕТСЯ
+# РУКАМИ. Прежде он был одним списком литералов, и это стоило целого вида
+# координат: сегмент `terraform` — корень дерева продукта — в список не попал,
+# и 23 упоминания путей terraform не опознавались как пути ВООБЩЕ: ни находки,
+# ни зелёного, ни строки в переписи. Завтрашний четвёртый каталог повторил бы
+# это молча, поэтому выводимая часть теперь ВЫВОДИТСЯ.
+#
+#   1. КОРНИ ДЕРЕВЬЕВ — выводятся: первые сегменты отслеживаемых путей
+#      воркспейса и дерева продукта (`tree_roots`). Замер 2026-09-22: выведенных
+#      17, из них в прежнем списке не было трёх — `terraform`, `tmp`,
+#      `.superpowers`. Цена дыры: 247 координат вида «со слэшем» не опознавались
+#      как пути ВООБЩЕ (замер до и после — в блоке `WALK`).
+#   2. ИМЕНА СОСЕДНИХ РЕПОЗИТОРИЕВ — выводятся: клоны под `project/`, чей
+#      `origin` лежит в той же организации, что у дерева продукта
+#      (`sibling_repos`). Так опознаётся `corelib/**` — 53 координаты в 131
+#      документо-упоминании, из которых 47 существуют.
+#   3. НАЧАЛА ОТНОСИТЕЛЬНЫХ ПУТЕЙ — ВЫВЕСТИ НЕЛЬЗЯ, и это факт, а не лень.
+#      Документ пишет `cmd/vpc/main.go`, `migrations/0007.sql` — сегменты
+#      СЕРЕДИНЫ пути, а не корня. Вывести их можно было бы только взяв ВСЕ имена
+#      каталогов на любой глубине, а это втянуло бы `crypto/…`, `grpc/…`,
+#      `google.golang.org/…` — импорты Go и чужие пространства имён, — и
+#      превратило бы их в «пути, которых нет». Перебор здесь так же негоден, как
+#      недобор. Поэтому часть остаётся литералом, и у неё ДВУСТОРОННИЙ гейт:
+#      имя без предмета в дереве — находка (`preconditions`, «писаная часть
+#      словаря начальных сегментов разошлась с деревом»), а предмет без имени закрыт выведением
+#      частей 1 и 2.
+RELATIVE_STARTS = {
+    "internal", "cmd", "migrations", "apps", "collections", "cases",
+    LAYOUT_SEGMENT,
 }
+
+# Полный словарь на текущий прогон. Пересобирается `set_root_segments` из
+# выведенных частей ПЕРЕД первым разбором документа — раньше, чем словарём
+# начинают пользоваться. Имя оставлено прежним: на него наведены инъекция
+# раздела I (`prove.sh` добавляет имя без предмета) и проверка сирот.
+ROOT_SEGMENTS = set(RELATIVE_STARTS)
+
+
+def tree_roots(tracked: dict) -> set[str]:
+    """Первые сегменты отслеживаемых путей — корни деревьев, ВЫВЕДЕННЫЕ.
+
+    Берётся `git ls-files` обоих деревьев, уже собранный в основание истины:
+    второго обхода за тем же ответом не заводится. Путь без слэша корня не
+    объявляет (`README.md` — файл, а не каталог), поэтому такие пропускаются.
+    """
+    out: set[str] = set()
+    for key in ("tracked_ws", "tracked_mono"):
+        for f in tracked.get(key) or ():
+            if "/" in f:
+                out.add(f.split("/", 1)[0])
+    return out
+
+
+def set_root_segments(truth_raw: dict) -> None:
+    """Собрать словарь на прогон: литералы + корни деревьев + имена соседей.
+
+    Зовётся из `load_index` — единственных ворот к основанию истины, и на обоих
+    путях, холодном и тёплом: словарь решает, что СЧИТАТЬ путём, поэтому он
+    обязан быть одинаков у сборки индекса и у свежего перечитывания документа.
+    Два разных словаря на двух путях дали бы разный разбор одного файла — ровно
+    тот класс, который хук ловит в чужой прозе.
+    """
+    global ROOT_SEGMENTS
+    # Корни берутся ГОТОВЫМИ из основания: они выведены при его сборке и лежат в
+    # кэше рядом с ним. Пересчитывать их здесь значило бы обходить десять тысяч
+    # путей на КАЖДОМ прогоне хука — замерено 2026-09-22: +35 мс к тёплому
+    # прогону (366 мс против 331) за ответ, который уже посчитан.
+    # Запасной пересчёт оставлен на случай основания, собранного редакцией без
+    # этого ключа: пустой словарь означал бы «ни один каталог не осматривается».
+    roots = truth_raw.get("roots")
+    ROOT_SEGMENTS = (set(RELATIVE_STARTS)
+                     | (set(roots) if roots is not None else tree_roots(truth_raw))
+                     | set((truth_raw.get("siblings") or {}).keys()))
 
 
 # ═══ 4. Основание истины ═════════════════════════════════════════════════════
@@ -1176,6 +1424,97 @@ def _truth_at_ref(root: Path, ref: str) -> dict:
             "envs": sorted(_ref_envs(root, ref))}
 
 
+RE_ORIGIN_ORG = re.compile(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$")
+
+
+def _origin_repo(root: Path) -> str | None:
+    """Имя репозитория, которым этот клон ЯВЛЯЕТСЯ (по `origin`).
+
+    Нужно затем, что документ адресует дерево и по его РЕПОЗИТОРНОМУ имени:
+    `kacho-workspace/tmp`, `kacho/services/vpc`. Форма неотличима от имени
+    снятого полирепо (`kacho-vpc/...`), и различает их только одно — является ли
+    этот клон тем самым репозиторием. Спрашивается у git, а не у имени каталога:
+    каталог переименовывают, `origin` — нет.
+    """
+    urls = git(root, "remote", "get-url", "origin")
+    if not urls:
+        return None
+    m = RE_ORIGIN_ORG.search(urls[0].strip())
+    return m.group(2) if m else None
+
+
+def _origin_org(root: Path) -> str | None:
+    """Организация, в которой лежит `origin` этого клона.
+
+    Признак берётся у GIT, а не у имени каталога: каталог переименовывают, а
+    `origin` — это то, чем репозиторий является. `git@host:ORG/repo.git` и
+    `https://host/ORG/repo` дают одно и то же ORG.
+    """
+    urls = git(root, "remote", "get-url", "origin")
+    if not urls:
+        return None
+    m = RE_ORIGIN_ORG.search(urls[0].strip())
+    return m.group(1) if m else None
+
+
+def sibling_repos(ws: Path, mono: Path | None) -> tuple[dict[str, list[str]], list[str]]:
+    """Соседние клоны воркспейса, чьи пути корпус адресует. → ({имя: пути}, пропущенные)
+
+    ЗАЧЕМ. Документы пишут `corelib/operations`, `corelib/subscription` — это
+    координаты живого репозитория, лежащего рядом (`project/corelib`), но
+    основание истины читало ровно два дерева и про них не знало НИЧЕГО: ни
+    находки, ни зелёного. Замер 2026-09-22: 53 различных координаты в 131
+    документо-упоминании, из них 47 существуют в этом клоне. Объявить их «вне
+    покрытия» значило бы спрятать 6 настоящих находок; объявить находками —
+    обвинить 47 верных утверждений. Правилен третий ответ: ПРОЧИТАТЬ клон.
+
+    ПРИЗНАК ВЫВОДИТСЯ, А НЕ ВЫПИСЫВАЕТСЯ. Сосед в деле, если он лежит под тем же
+    сегментом раскладки (`project/`), если git отвечает за него как за
+    репозиторий, если его `origin` лежит в ТОЙ ЖЕ организации, что у дерева
+    продукта, и если его перечень файлов НЕ ПУСТ. Замер на этой машине: восемь
+    каталогов под `project/`, два не репозитории, два чужой организации
+    (`gitlab.beget.ru`), один с нулём отслеживаемых файлов, — в деле остаются
+    `corelib` и `kaname`, то есть ровно то, что воркспейс и объявляет своим
+    (`scripts/crossrepo-gate`, перечень `REPOS`). Совпадение здесь — исход, а не
+    вход: перечень чужого набора не читается, иначе у одного вопроса стало бы
+    два ответчика, и они разошлись бы молча.
+
+    ПУСТОЙ ПЕРЕЧЕНЬ — НЕ ОСНОВАНИЕ. Клон с нулём отслеживаемых файлов принял бы
+    любую координату за несуществующую: «ноль прочитанного», выданное за «ноль
+    находок». Такой сосед пропускается ПОИМЁННО и называется в переписи.
+    """
+    skipped: list[str] = []
+    if mono is None:
+        return {}, ["дерева продукта нет — организацию сравнивать не с чем"]
+    org = _origin_org(mono)
+    if not org:
+        return {}, ["у дерева продукта не читается `origin` — родство соседей "
+                    "определить нечем, ни один не прочитан"]
+    base = ws / LAYOUT_SEGMENT
+    out: dict[str, list[str]] = {}
+    try:
+        names = sorted(p.name for p in base.iterdir() if p.is_dir())
+    except OSError:
+        return {}, [f"каталог раскладки {LAYOUT_SEGMENT}/ не читается"]
+    for name in names:
+        path = base / name
+        if path.resolve() == mono.resolve():
+            continue  # дерево продукта читается своей полосой, второй раз не надо
+        if not git_ok(path, "rev-parse", "--git-dir"):
+            skipped.append(f"{name} (не репозиторий)")
+            continue
+        o = _origin_org(path)
+        if o != org:
+            skipped.append(f"{name} (организация {o or '?'}, не {org})")
+            continue
+        files = git(path, "ls-files")
+        if not files:
+            skipped.append(f"{name} (ноль отслеживаемых файлов — основания нет)")
+            continue
+        out[name] = sorted(files)
+    return out, skipped
+
+
 def build_truth(ws: Path, mono: Path | None) -> dict:
     t0 = time.time()
     tracked: dict[str, set[str]] = {}
@@ -1270,7 +1609,17 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         ref = prov[tag]["trunk_ref"]
         trunk[tag] = _truth_at_ref(root, ref) if ref else None
 
-    return {
+    sib, sib_skipped = sibling_repos(ws, mono)
+    # Собственные репозиторные имена обоих деревьев — чтобы координата, названная
+    # ПО ИМЕНИ РЕПОЗИТОРИЯ, резолвилась этим же деревом, а не читалась как имя
+    # снятого полирепо. Без них `kacho-workspace/tmp` стало бы находкой в тот
+    # момент, когда разбор научился опознавать форму `kacho-*` (замер: три таких
+    # ложных обвинения сразу).
+    own = {tag: _origin_repo(r) for tag, r in (("ws", ws), ("mono", mono)) if r is not None}
+    out = {
+        "own_repo": {k: v for k, v in own.items() if v},
+        "siblings": sib,
+        "siblings_skipped": sib_skipped,
         "tracked_ws": sorted(tracked["ws"]),
         "tracked_mono": sorted(tracked["mono"]),
         "dirs_ws": sorted(dirs["ws"]),
@@ -1284,6 +1633,9 @@ def build_truth(ws: Path, mono: Path | None) -> dict:
         "trunk": trunk,
         "build_ms": int((time.time() - t0) * 1000),
     }
+    # Корни выводятся ОДИН РАЗ, здесь, и едут в кэше вместе с основанием.
+    out["roots"] = sorted(tree_roots(out))
+    return out
 
 
 def _route_forms(route: str) -> set[str]:
@@ -1313,6 +1665,18 @@ class Truth:
         self.targets = set(raw["targets"])
         self.envs = set(raw["envs"])
         self.refnames = set(raw.get("refs") or [])
+        # ТРЕТЬЯ ПОЛОСА ПУТЕЙ — соседние клоны воркспейса (см. `sibling_repos`).
+        # Держится множеством путей И множеством промежуточных каталогов: документ
+        # адресует и файл, и каталог (`corelib/authz/catalogderive`).
+        # ЛЕНИВО, и это условие, а не украшение. Соседи дают около четырёх тысяч
+        # путей; разворачивать их в множества с промежуточными каталогами на
+        # КАЖДОМ прогоне значит платить за ответ, который почти всегда не нужен:
+        # координата соседнего клона встречается в единицах документов. Замер
+        # 2026-09-22: безусловная сборка стоила +55 мс тёплому прогону.
+        self._sib_raw: dict[str, list[str]] = raw.get("siblings") or {}
+        self._sib_sets: dict[str, tuple[set[str], set[str]]] = {}
+        self.siblings_skipped = list(raw.get("siblings_skipped") or [])
+        self.own_repo = dict(raw.get("own_repo") or {})
         self.raw = raw
         self._live_refs: dict[str, set[str]] = {}
         self._cov: dict[tuple[str, str], str | None] = {}
@@ -1341,6 +1705,11 @@ class Truth:
         self.t_envs = set(t_ws.get("envs", [])) | set(t_mono.get("envs", []))
         self._t_by_base: dict[str, list[str]] | None = None
         self._t_live: dict = {}
+
+    @property
+    def siblings(self) -> dict[str, list[str]]:
+        """Прочитанные соседние клоны — для переписи. Множеств не разворачивает."""
+        return self._sib_raw
 
     # --- предпосылки предикатов -------------------------------------------
     def enabled(self) -> tuple[list[str], list[tuple[str, str]]]:
@@ -1577,8 +1946,65 @@ class Truth:
     def resolve(self, kind: str, coord: str) -> bool:
         return getattr(self, "_r_" + kind)(coord)
 
+    def sibling_hit(self, coord: str) -> str | None:
+        """Имя соседнего репозитория, в котором координата ЕСТЬ, либо None.
+
+        ОДНА функция и на резолв, и на счёт полосы в переписи: спросить её дважды
+        можно, воспроизвести её логику вторым местом — нет. Голое имя репозитория
+        (`corelib`) считается существующим: сам клон прочитан, и это ответ, а не
+        умолчание.
+        """
+        head, _, tail = coord.partition("/")
+        if head not in self._sib_raw:
+            return None
+        if not tail:
+            return head
+        files, dirs = self._sib_of(head)
+        if tail in files or tail in dirs:
+            return head
+        # ТА ЖЕ ХВОСТОВАЯ ДИСЦИПЛИНА, ЧТО У ОСНОВНЫХ ДЕРЕВЬЕВ (`_suffix_hit`), и
+        # по той же причине. Документ пишет `kaname/cloud/iam/v1`, подразумевая
+        # подразумеваемый корень (`pkg/api/`), — предмет существует. Без хвоста
+        # соседняя полоса была бы СТРОЖЕ основной и производила бы обвинения там,
+        # где основная молчит: два стандарта на один вопрос, причём более строгий
+        # достался полосе, о которой хук узнал позже всех.
+        #
+        # Цена та же и названа там же: неверный корень при верном хвосте молчит.
+        # Ложное обвинение отключает гейт, пропуск — нет.
+        want = "/" + tail
+        for p in files:
+            if p.endswith(want):
+                return head
+        for p in dirs:
+            if p.endswith(want):
+                return head
+        return None
+
+    def _sib_of(self, name: str) -> tuple[set[str], set[str]]:
+        """Пути и промежуточные каталоги соседа — собираются при первом спросе."""
+        if name not in self._sib_sets:
+            fs = set(self._sib_raw.get(name) or ())
+            ds: set[str] = set()
+            for f in fs:
+                parts = f.split("/")
+                for i in range(1, len(parts)):
+                    ds.add("/".join(parts[:i]))
+            self._sib_sets[name] = (fs, ds)
+        return self._sib_sets[name]
+
     def _r_path(self, c: str) -> bool:
-        cands = layout_candidates(c)
+        if self.sibling_hit(c):
+            return True
+        cands = set(layout_candidates(c))
+        # КООРДИНАТА, НАЗВАННАЯ ПО ИМЕНИ СВОЕГО ЖЕ РЕПОЗИТОРИЯ, — то же дерево.
+        # `kacho-workspace/tmp` и `kacho/services/vpc` адресуют деревья, которые
+        # прямо здесь и прочитаны; снимается ровно тот префикс, под которым это
+        # дерево лежит на origin, и ничей чужой.
+        for name in self.own_repo.values():
+            pref = name + "/"
+            for cand in list(cands):
+                if cand.startswith(pref):
+                    cands |= layout_candidates(cand[len(pref):])
         for cand in cands:
             if cand in self.tracked_ws or cand in self.tracked_mono:
                 return True
@@ -1755,11 +2181,22 @@ def cache_key(ws: Path, mono: Path | None) -> str:
 
 
 def load_index(ws: Path, mono: Path | None) -> tuple[dict, bool]:
+    """Индекс плюс ЕДИНСТВЕННАЯ установка словаря начальных сегментов.
+
+    Словарь решает, что считать путём, поэтому он обязан быть ОДИН и тот же у
+    сборки индекса и у свежего перечитывания правленого документа. Ворота к
+    основанию истины здесь одни, и установка стоит на обоих путях — тёплом
+    (словарь из кэшированного основания) и холодном (`build_index` ставит его
+    сам, до первого разбора). Два словаря на двух путях дали бы разный разбор
+    одного файла — тот самый класс, который хук ловит в чужой прозе.
+    """
     key = cache_key(ws, mono)
     path = CACHE_ROOT / key / "index.json"
     if path.is_file():
         try:
-            return json.loads(path.read_text(encoding="utf-8")), True
+            idx = json.loads(path.read_text(encoding="utf-8"))
+            set_root_segments(idx["truth"])
+            return idx, True
         except Exception:  # noqa: BLE001
             pass
     idx = build_index(ws, mono)
@@ -1774,6 +2211,9 @@ def load_index(ws: Path, mono: Path | None) -> tuple[dict, bool]:
 def build_index(ws: Path, mono: Path | None) -> dict:
     t0 = time.time()
     truth = build_truth(ws, mono)
+    # ДО первого разбора: словарь начальных сегментов выводится из этого же
+    # основания, и документы обязаны разбираться уже по нему.
+    set_root_segments(truth)
     skipped: dict[str, int] = {}
     by_tree: dict[str, int] = {}
     aliases: dict[str, int] = {}
@@ -1787,8 +2227,15 @@ def build_index(ws: Path, mono: Path | None) -> dict:
         except OSError:
             continue
         found = extract(text, os.path.dirname(name))
-        per_doc[name] = {k: sorted(v) for k, v in found.items() if v}
+        per_doc[name] = freeze_doc(found)
         for kind, coords in found.items():
+            # Талья разбора видом НЕ является: в обратный индекс она не идёт (по
+            # ней не ищут документы) и в счёт координат тоже — иначе перепись
+            # назвала бы координатами то, про что сама же говорит «вид не
+            # определён». Отсев по `KINDS`, а не по имени ключа: перечень видов
+            # здесь один, и второго его изложения не заводится.
+            if kind not in KINDS:
+                continue
             ncoord += len(coords)
             for c in coords:
                 reverse.setdefault(f"{kind}\t{c}", []).append(name)
@@ -2028,6 +2475,53 @@ def confirm_missing(truth: Truth, kind: str, coord: str) -> bool:
 
 # ═══ 9. Проверка документа ═══════════════════════════════════════════════════
 
+def tally_walk(c: dict, w: dict | None) -> None:
+    """Сложить талью разбора одного документа в перепись прогона.
+
+    ДОКУМЕНТ БЕЗ ТАЛЬИ СЧИТАЕТСЯ ОТДЕЛЬНО, а не пропускается молча: талью
+    приносит `extract`, но `per_doc` может прийти из кэша, собранного редакцией
+    ДО неё. Молчаливый пропуск дал бы «нераспознанных 0» на документе, который
+    вообще не разбирали, — то есть ровно тот класс, ради которого эта талья и
+    заведена. Поэтому `walk_docs` — знаменатель обхода, и перепись печатает его
+    рядом с числом осмотренных документов.
+    """
+    if not isinstance(w, dict):
+        return
+    c["walk_docs"] += 1
+    c["spans"] += int(w.get("spans") or 0)
+    c["bare"] += int(w.get("bare") or 0)
+    c["kinded"] += int(w.get("kinded") or 0)
+    for key, src in (("withdrawn", w.get("withdrawn")), ("unknown", w.get("unknown"))):
+        for why, n in (src or {}).items():
+            c[key][why] = c[key].get(why, 0) + int(n)
+    for why, pair in (w.get("sample") or {}).items():
+        # Концы порядка сводятся по всем документам прогона — по той же причине,
+        # по какой они концы внутри документа: порядок обхода документов зависит
+        # от того, что правили, и «первый попавшийся» менял бы пример от прогона
+        # к прогону, оставаясь при этом верным. Старая форма (одна строка вместо
+        # пары) приходит из кэша прошлой редакции и читается как оба конца сразу.
+        lo, hi = (pair if isinstance(pair, list) else [pair, pair])[:2]
+        cur = c["unknown_sample"].get(why)
+        if cur is None:
+            c["unknown_sample"][why] = [lo, hi]
+        else:
+            c["unknown_sample"][why] = [min(cur[0], lo), max(cur[1], hi)]
+
+
+def walk_mismatch(c: dict) -> int:
+    """Насколько талья НЕ СОШЛАСЬ: вставок минус (вид определён + отвод + неизвестно).
+
+    Предпосылка самой тальи: у каждой вставки РОВНО один исход. Ветви разбора
+    ветвятся по самому токену, поэтому множества непересекающиеся и сумма обязана
+    равняться числу различных вставок. Появится ветвь, отпускающая вставку мимо
+    всех трёх корзин, — число перестанет сходиться, и это обязано быть видно
+    СРАЗУ: иначе новая слепая зона откроется ровно там, где её закрывали.
+    """
+    return int(c.get("spans", 0)) - (int(c.get("kinded", 0))
+                                     + sum((c.get("withdrawn") or {}).values())
+                                     + sum((c.get("unknown") or {}).values()))
+
+
 def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
                ws: Path, mono: Path | None, fresh: dict[str, dict] | None = None,
                claims: DocClaims | None = None) -> tuple[list[tuple[str, str, str]], dict]:
@@ -2041,6 +2535,24 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
                # «за границей ничего нет» от «границы у этого вида нет вовсе».
                "uncovered_by_kind": {k: 0 for k in KINDS},
                "coords_by_kind": {k: 0 for k in KINDS},
+               # ЗНАМЕНАТЕЛЬ ГРАНИЦЫ ПОКРЫТИЯ — не «сколько координат вида», а
+               # «у скольких детектор границы вообще спрашивали». Спрашивают
+               # РОВНО у той, что не срезолвилась (`classify_with_reason`),
+               # поэтому `path 0/29` читалось как утверждение обо всех 29, хотя
+               # детектор видел из них одну.
+               "unresolved_by_kind": {k: 0 for k in KINDS},
+               # Граница РАСПОЗНАВАНИЯ: сколько вставок кода осмотрено и у
+               # скольких вид координаты не определился вовсе. `walk_docs` —
+               # знаменатель обхода: документ без тальи (кэш прошлой редакции)
+               # обязан быть виден, иначе «нераспознанных 0» станет неотличимо
+               # от «не считали».
+               # Полоса соседних клонов считается ОТДЕЛЬНО от «резолвится».
+               # Слить её с общим зелёным значило бы не сказать, что у вердикта
+               # появилось третье основание: читатель не узнал бы, что часть
+               # координат судится не по этим двум деревьям.
+               "sibling": {},
+               "walk_docs": 0, "spans": 0, "bare": 0, "kinded": 0,
+               "withdrawn": {}, "unknown": {}, "unknown_sample": {},
                # Граница, которую чинят В ИНСТРУМЕНТЕ, а не в документе. Она
                # печатается отдельным разделом отчёта: иначе читатель идёт
                # править верное утверждение (issue #242).
@@ -2055,6 +2567,7 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
         if coords is None:
             continue
         c["docs"] += 1
+        tally_walk(c, coords.get(WALK))
         for kind, lst in coords.items():
             if kind not in on:
                 continue
@@ -2063,7 +2576,18 @@ def check_docs(names: list[str], idx: dict, truth: Truth, entries: list[dict],
                 c["coords_by_kind"][kind] = c["coords_by_kind"].get(kind, 0) + 1
                 verdict, why = truth.classify_with_reason(kind, coord)
                 if verdict == "resolved":
+                    # ТОТ ЖЕ предикат, что дал резолв, а не его копия: полосу
+                    # называет `sibling_hit`, и спрашивается она здесь второй
+                    # раз, а не воспроизводится вторым местом.
+                    if kind == "path":
+                        repo = truth.sibling_hit(coord)
+                        if repo:
+                            c["sibling"][repo] = c["sibling"].get(repo, 0) + 1
                     continue
+                # Дальше этой черты — ровно те координаты, у которых спрашивали
+                # детектор границы. Он знает по одной форме на вид, поэтому его
+                # ноль читается только рядом со своим знаменателем.
+                c["unresolved_by_kind"][kind] = c["unresolved_by_kind"].get(kind, 0) + 1
                 if verdict == "uncovered":
                     c["uncovered"] += 1
                     c["uncovered_by_kind"][kind] = c["uncovered_by_kind"].get(kind, 0) + 1
@@ -2344,12 +2868,20 @@ def preconditions(ws: Path, mono: Path | None,
         layout_live = layout_candidates(LAYOUT_PREFIX + "x") == {
             LAYOUT_PREFIX + "x", "x"}
         exempt = {LAYOUT_SEGMENT} if layout_live else set()
-        orphan = sorted(n for n in ROOT_SEGMENTS
+        # СУДИТСЯ ТОЛЬКО ПИСАНАЯ ЧАСТЬ СЛОВАРЯ. Выведенные части (корни деревьев и
+        # имена соседних клонов) сиротами быть не могут by construction: они
+        # ВЗЯТЫ из дерева, и проверять их на наличие в дереве — тавтология,
+        # которая никогда не покраснеет, то есть проверка без предмета. Предмет
+        # здесь — литералы `RELATIVE_STARTS`: только они переживают свой каталог.
+        # Обратная сторона («предмет есть, имени нет») закрыта не тут, а самим
+        # выведением: новый корень появляется в словаре вместе с каталогом.
+        judged = ROOT_SEGMENTS & RELATIVE_STARTS
+        orphan = sorted(n for n in judged
                         if n not in dirs and n not in exempt) if mono_files else []
         if orphan:
             bad.append(
-                "словарь корневых сегментов разошёлся с деревом — предмета нет у: "
-                + ", ".join(orphan)
+                "писаная часть словаря начальных сегментов разошлась с деревом — "
+                "предмета нет у: " + ", ".join(orphan)
                 + ". Пока имя в словаре, оно расширяет извлечение на прозу; пока его нет — "
                 "каталог не осматривается вовсе. Привести словарь в соответствие"
             )
@@ -2785,10 +3317,10 @@ def tree_provenance(truth: "Truth") -> str:
             # судились. Сказано здесь, а не отдельной строкой: отказ работать из-за
             # непостроенной полосы отменял бы вердикт, который хук умеет вынести
             # (см. `preconditions`), а второе место об одном предмете разошлось бы
-            # с этим молча. Только у дерева продукта — словарь корневых сегментов
+            # с этим молча. Только у дерева продукта — писаная часть словаря
             # и выписанные шаблоны проверяются по нему, а не по воркспейсу.
             if tag == "mono":
-                s += ("; словарь корневых сегментов и выписанные шаблоны на этой "
+                s += ("; писаная часть словаря начальных сегментов и выписанные шаблоны на этой "
                       "полосе НЕ СУДИЛИСЬ — сиротами они не объявлены")
         else:
             ref = p["trunk_ref"]
@@ -2813,15 +3345,128 @@ def coverage_line(c: dict) -> str:
     нулём было бы двойным стандартом.
     """
     by = c.get("uncovered_by_kind") or {}
+    unres = c.get("unresolved_by_kind") or {}
     seen = c.get("coords_by_kind") or {}
     modelled, blind = [], []
     for kind in KINDS:
-        cell = f"{kind} {by.get(kind, 0)}/{seen.get(kind, 0)}"
-        (modelled if COVERAGE_MODEL.get(kind) else blind).append(cell)
-    out = f"вне покрытия основания {c.get('uncovered', 0)} из рассмотренных: " + ", ".join(modelled)
+        model = COVERAGE_MODEL.get(kind)
+        if model:
+            # ЗНАМЕНАТЕЛЬ — не резолвившиеся, а не все координаты вида: детектор
+            # границы спрашивается только у них. И форма, которую он умеет
+            # опознать, называется ЗДЕСЬ ЖЕ — иначе «path 0/1» читается как «за
+            # границей основания по путям пусто», хотя означает «среди не
+            # резолвившихся не было имени предшествующего полирепо». Та же
+            # дисциплина, что у невыраженной границы ниже; разница в том, что
+            # там не искали вовсе, а здесь искали ОДНУ названную форму.
+            modelled.append(f"{kind} {by.get(kind, 0)}/{unres.get(kind, 0)}"
+                            f" из {seen.get(kind, 0)} распознанных (ищется: {model})")
+        else:
+            blind.append(f"{kind} {by.get(kind, 0)}/{unres.get(kind, 0)}")
+    out = (f"вне покрытия основания {c.get('uncovered', 0)}; знаменатель — НЕ РЕЗОЛВИВШИЕСЯ "
+           f"координаты, детектор границы спрашивается только у них: " + ", ".join(modelled)
+           + " — ноль у вида означает «этой формы среди не резолвившихся не было», "
+             "а НЕ «за границей основания пусто»")
     if blind:
         out += (" · граница НЕ ВЫРАЖЕНА у видов: " + ", ".join(blind)
                 + " — ноль здесь означает «не искали», а не «за границей пусто»")
+    return out
+
+
+# Длина примера. Вставка бывает до 200 символов (`INLINE`), и такая в строке
+# переписи вытеснила бы саму перепись. Обрезка ВИДНА: пример без многоточия —
+# целый, с многоточием — усечённый, и второе не выдаётся за первое.
+SAMPLE_MAX = 48
+
+
+def _cut(tok: str) -> str:
+    return tok if len(tok) <= SAMPLE_MAX else tok[:SAMPLE_MAX] + "…"
+
+
+def _samples(pair) -> str:
+    """Концы порядка → «пример `X`» либо «примеры `X` … `Y`».
+
+    Один член корзины даёт одно слово, а не два одинаковых: «примеры `,` … `,`»
+    читалось бы как два разных, которых нет.
+    """
+    if not pair:
+        return "примера нет"
+    lo, hi = (pair if isinstance(pair, list) else [pair, pair])[:2]
+    if lo == hi:
+        return f"пример `{_cut(lo)}`"
+    return f"примеры `{_cut(lo)}` … `{_cut(hi)}`"
+
+
+def recognition_line(c: dict, docs_seen: int) -> str:
+    """Граница РАСПОЗНАВАНИЯ: сколько вставок осмотрено и у скольких вид не определён.
+
+    Ради чего строка заведена. Перепись печатала «вне покрытия основания 0 из
+    рассмотренных: path 0/29», и знаменатель 29 читался как «в документе 29
+    координат». Означал он «29 я распознал». Про остальные вставки хук не
+    говорил НИЧЕГО, и его ноль читался как полнота — класс
+    `kacho-workspace#762` внутри прибора, который этот класс ищет у других.
+    Числа замера и его единица — в объявлении `WALK`, одним местом: второе
+    изложение одной величины разошлось бы с первым молча.
+
+    СТРОКА ВЫХОДИТ ВСЕГДА, в том числе когда нераспознанных ноль, — иначе она
+    сама стала бы экземпляром того же класса: появляющаяся только при находках,
+    она делала бы «ноль» неотличимым от «не считали». Три состояния печатаются
+    РАЗНЫМИ словами: не измерено · измерено, нераспознанных нет · измерено,
+    нераспознанных N с примером.
+    """
+    docs = int(c.get("walk_docs", 0))
+    if not docs:
+        # ДВА РАЗНЫХ НУЛЯ, и их нельзя слить. «Документов не осматривали» —
+        # ШТАТНОЕ состояние (правка файла дерева, пустой конец хода), и тревога
+        # на нём перестала бы читаться вовсе. «Документы осмотрены, тальи нет» —
+        # настоящий отказ: разбор шёл по кэшу редакции без тальи.
+        if not docs_seen:
+            return ("граница РАСПОЗНАВАНИЯ не измерялась: документов этим "
+                    "прогоном не осматривали")
+        return ("граница РАСПОЗНАВАНИЯ НЕ ИЗМЕРЕНА: талья разбора не пришла ни по "
+                f"одному из {docs_seen} осмотренных документов — «нераспознанных 0» "
+                "здесь означало бы «не считали»")
+    unknown = c.get("unknown") or {}
+    n_unknown = sum(unknown.values())
+    wd = c.get("withdrawn") or {}
+    out = (f"граница РАСПОЗНАВАНИЯ (талья разбора по {docs} докум. из {docs_seen}): "
+           f"вставок кода осмотрено {int(c.get('spans', 0))}, вид координаты определён "
+           f"у {int(c.get('kinded', 0))}")
+    if wd:
+        out += (", отведено по названной причине " + str(sum(wd.values())) + " ("
+                + ", ".join(f"{WITHDRAWN_REASONS.get(k, k)} {n}"
+                            for k, n in sorted(wd.items())) + ")")
+    else:
+        out += ", отведено по названной причине 0"
+    if n_unknown:
+        sample = c.get("unknown_sample") or {}
+        out += (f", вид НЕ ОПРЕДЕЛЁН у {n_unknown} ("
+                + ", ".join(f"{UNKNOWN_EXITS.get(k, k)} {n}, {_samples(sample.get(k))}"
+                            for k, n in sorted(unknown.items()))
+                + ") — по ним вердикта НЕТ ни зелёного, ни красного")
+    elif int(c.get("spans", 0)):
+        out += (", вид НЕ ОПРЕДЕЛЁН у 0 — каждая осмотренная вставка либо распознана, "
+                "либо отведена по названной причине")
+    else:
+        # ПУСТОЙ ОБХОД — НЕ ВЕРДИКТ. «Нераспознанных 0» над нулём вставок верно
+        # и бессодержательно: оно читается как чистота, а означает «предмета не
+        # было». Проза без вставок кода — большинство корпуса, и молчать об этом
+        # значило бы выдавать её за проверенную.
+        out += (", вид НЕ ОПРЕДЕЛЁН у 0 — но и вставок кода нет: распознавать было "
+                "нечего, это не «всё распознано»")
+    # Имя ручки — ВТОРОЙ носитель: оно ловится из текста, не из вставки, поэтому
+    # в сумму вставок не входит и стоит ОТДЕЛЬНОЙ оговоркой в конце строки. У
+    # него своя невыраженная граница: ищется ровно префикс `KACHO_`, имена
+    # другой формы не ищутся ВОВСЕ — и без этой оговорки «координат РАСПОЗНАНО
+    # 1» при «вид определён у 0» читалось бы как противоречие.
+    out += (f" · имён ручек вне вставок {int(c.get('bare', 0))} — ищется только "
+            "форма `KACHO_*`, имена другого вида (`PGHOST`, `HOME`) не ищутся вовсе")
+    mism = walk_mismatch(c)
+    if mism:
+        # Предпосылка тальи отказала: у вставки перестал быть ровно один исход.
+        # Молчаливое «ну и ладно» открыло бы новую слепую зону ровно там, где её
+        # закрывали, поэтому расхождение называется числом и прямо в переписи.
+        out += (f" · ТАЛЬЯ НЕ СОШЛАСЬ на {mism}: у вставки больше не ровно один "
+                "исход — числа этой строки НЕДЕЙСТВИТЕЛЬНЫ, чинить разбор в extract()")
     return out
 
 
@@ -2836,7 +3481,9 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
     # второе имя одного тела, — и общий счётчик не дал бы прочесть ни одного из
     # них. Ноль не печатается: строка, выходящая всегда, перестаёт читаться.
     alias = idx.get("live_aliases") or {}
-    parts = ([prov] if prov else []) + [
+    # Расхождение корней печатается ПЕРВЫМ, до провенанса ревизий: ревизия чужого
+    # дерева читается как ревизия этого, пока не сказано, что дерево чужое.
+    parts = ([ROOT_NOTICE] if ROOT_NOTICE else []) + ([prov] if prov else []) + [
         f"осмотрено документов {c.get('docs', 0)} из {len(idx['docs'])} LIVE"
         + (" (" + ", ".join(f"{k} {v}" for k, v in sorted(by_tree.items())) + ")"
            if by_tree else "")
@@ -2851,13 +3498,33 @@ def census_line(idx: dict, truth: Truth, c: dict, warm: bool, ms: int,
         # Раскладка ВЫВЕДЕНА, значит объём этого вывода — тоже утверждение: корней
         # ноль читалось бы как «сайтов нет», а не как «поиск сломан».
         f"корней документации дерева продукта {len(idx.get('doc_roots') or [])}",
-        f"координат рассмотрено {c.get('coords', 0)}, "
-        f"резолвится только в стволе {c.get('trunk_only', 0)}, "
+        # «РАСПОЗНАНО», а не «рассмотрено». Слово несущее: знаменатель этой
+        # переписи — не «сколько координат в документе» (этого не знает никто, и
+        # хук в том числе), а «сколько распознал разбор». Прежняя формулировка
+        # читалась первым способом, и её ноль вне покрытия читался как полнота.
+        # Разница между двумя знаменателями печатается строкой ниже —
+        # `recognition_line`, — и печатается даже когда она ноль.
+        f"координат РАСПОЗНАНО {c.get('coords', 0)}, "
+        f"резолвится в соседнем репозитории {sum((c.get('sibling') or {}).values())}"
+        + (" (" + ", ".join(f"{k} {v}" for k, v in sorted((c.get('sibling') or {}).items()))
+           + ")" if c.get("sibling") else "")
+        + f", резолвится только в стволе {c.get('trunk_only', 0)}, "
         f"вердикт не вынесен {c.get('unjudged', 0)}"
         + (" (полоса ствола не построена: " + ", ".join(truth.trunk_missing_roots) + ")"
            if truth.trunk_missing_roots else ""),
+        recognition_line(c, c.get("docs", 0)),
         coverage_line(c),
         f"предикатов прогнано {len(on)} ({','.join(on)}), отказано {len(off)} ({','.join(k for k, _ in off)})",
+        # СОСЕДИ НАЗЫВАЮТСЯ ОБЕИМИ СТОРОНАМИ: прочитанные — числом путей,
+        # пропущенные — поимённо с причиной. Молчание о пропущенном вернуло бы
+        # класс: координата такого клона стала бы «несуществующей», и ноль
+        # находок по нему был бы неотличим от ноля прочитанного.
+        "соседних репозиториев прочитано " + str(len(truth.siblings))
+        + (" (" + ", ".join(f"{n} {len(f)}" for n, f in sorted(truth.siblings.items()))
+           + ")" if truth.siblings else "")
+        + (" · пропущено " + str(len(truth.siblings_skipped))
+           + " (" + "; ".join(truth.siblings_skipped) + ")"
+           if truth.siblings_skipped else " · пропущенных нет"),
         f"основание: путей {len(truth.tracked_ws) + len(truth.tracked_mono)}, "
         f"маршрутов {len(truth.routes)}, методов {len(truth.rpcs)}, "
         f"целей {len(truth.targets)}, переменных {len(truth.envs)}"
@@ -3169,6 +3836,12 @@ def main() -> int:
             sys.stderr.write("[VOID] docfresh: " + n + "\n")
     if bad:
         lines = ["╔══ docfresh ОТКАЗЫВАЕТСЯ РАБОТАТЬ ═══════════════════════════════"]
+        # КАКОЕ ДЕРЕВО ОТКАЗАЛО — раньше всего прочего. Отказ чаще всего и приходит
+        # оттого, что корень взят из чужой копии: «дерево продукта не найдено» без
+        # этой строки читается как утверждение о ЗДЕШНЕМ дереве. Перепись до сюда
+        # не доходит — путь возвращает 2 выше неё, — поэтому факт назван и здесь.
+        if ROOT_NOTICE:
+            lines.append("║ docfresh: " + ROOT_NOTICE)
         # Ревизия, по которой судили, — ПЕРВОЙ строкой: отказ, не назвавший своего
         # основания, неотличим от отказа о продукте (см. `premise_basis`).
         basis = premise_basis(mono)
@@ -3257,9 +3930,9 @@ def main() -> int:
         # Документ читается ЗАНОВО с диска: правка только что произошла, кэш её
         # не видел. Проверять по кэшу значило бы отвечать про прошлое состояние.
         try:
-            fresh[rel] = {k: sorted(v) for k, v in
-                          extract(Path(fpath).read_text(encoding="utf-8", errors="replace"),
-                                  os.path.dirname(rel)).items() if v}
+            fresh[rel] = freeze_doc(
+                extract(Path(fpath).read_text(encoding="utf-8", errors="replace"),
+                        os.path.dirname(rel)))
         except OSError:
             fresh[rel] = idx["per_doc"].get(rel, {})
         targets = [rel]

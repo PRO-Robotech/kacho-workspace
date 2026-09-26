@@ -29,8 +29,8 @@
 Почему исключение, а не перенос каталога: **все** `.md` внутри `.claude/rules/` Claude Code грузит
 сам, рекурсивно, при старте, без всякого `@import` (измерено). Снять автозагрузку, не трогая
 адреса файлов, умеет только `claudeMdExcludes` — а адреса трогать дорого: координата
-`.claude/rules/<файл>.md` встречается в дереве около тысячи раз. Число здесь не выписано, потому
-что меняется при каждой правке; предикат — `git ls-files | xargs grep -oh '\.claude/rules/[A-Za-z0-9_-]*\.md' | wc -l`.
+`.claude/rules/<файл>.md` встречается в дереве больше тысячи раз; предикат —
+`git ls-files | xargs grep -oh '\.claude/rules/[A-Za-z0-9_-]*\.md' | wc -l`.
 
 Сессия без диспетчера, если она нужна человеку: `claude --agent <имя исполнителя>` — флаг
 перекрывает настройку.
@@ -93,19 +93,32 @@ AI-оснастка живёт **в единственном экземпляр�
 
 ## Локальная разработка
 
-- Стенд: `cd project/kacho/deploy && make dev-up` / `make dev-down`
-- Перезапуск сервиса: `make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
+- Тяжёлое (go test -race, integration, ci-local, линтеры, docker run, стенд, newman) — только
+  через слот памяти, ≤ 45 ГиБ на машину (решение владельца 2026-09-24): `$WS/scripts/heavy-slot.sh
+  <класс> -- <команда>`, `$WS` — корень воркспейса; классы и бюджеты — `--classes`, занятость —
+  `--status`. Команду без слота отклоняет хук `heavy-guard` и печатает готовую строку: он —
+  напоминание против случайных форм, предел держит cgroup.
+- Потолок сессии и метку oomd omit её scope ставит хук SessionStart (`scripts/session-memcap.sh`,
+  формула — в шапке); метка ставится и при отказе потолка. Терминал
+  заводит scope с OOMPolicy=stop, где потолок снял бы всю сессию, — поэтому её запускают
+  `$WS/scripts/session-memcap.sh --launch -- claude`.
+- Стенд: `cd project/kacho/deploy && $WS/scripts/heavy-slot.sh stand -- make dev-up` / `make dev-down`
+- Перезапуск сервиса: `… stand -- make reload-svc SVC=<vpc|compute|iam>` · логи: `make logs-svc SVC=…` · psql: `make psql SVC=…`
 - Обновить рабочие копии: `./sync-all.sh`
 
 ## Permissions и хуки
 
-`.claude/settings.json` — хуки: vault-discipline (`UserPromptSubmit` / `Stop`), `class-guard` и
-`docfresh` (`PostToolUse`, срабатывают и внутри сабагентов), `change-graph-reminder`, rag-хуки.
-Пути — через `$CLAUDE_PROJECT_DIR`. Блока `permissions` в нём НЕТ: обход подтверждений — выбор
-про одну машину, и его место в git-ignored `.claude/settings.local.json`
-(`scripts/rules-gate/check-09-settings-no-bypass.sh`). Файл существует в одном экземпляре; в
-репозитории продукта его нет и не должно быть: `bypassPermissions`, закоммиченный в публичный
-репозиторий, решал бы за каждого клонирующего.
+`.claude/settings.json` — `agent`, `claudeMdExcludes` и хуки: vault-discipline
+(`UserPromptSubmit` / `Stop`), `class-guard` и `docfresh` (`PostToolUse`, срабатывают и внутри
+сабагентов), `heavy-guard` (`PreToolUse` Bash, Monitor), `session-memcap` (`SessionStart`),
+`change-graph-reminder`, rag-хуки. Пути — через `$CLAUDE_PROJECT_DIR`. Файл существует в одном
+экземпляре; в репозитории продукта его нет и не должно быть.
 
-Хуки печатают **диспетчеру**, а он ничего не делает сам: что каким агентом закрывается —
-таблица сигналов в `.claude/agents/dispatcher.md`.
+Режима без подтверждений из дерева **нет**: `permissions.defaultMode` проектного и локального
+слоёв харнесс игнорирует (оба repo-controllable — обход решал бы за каждого клонирующего) и
+спрашивает «Do you want to proceed?». Режим даёт только личный `~/.claude/settings.json`, policy
+или флаг. Замер и признак — `ai-tooling.md`, at-bypass-not-from-repo-layer.
+
+Хуки запроса и хода печатают **диспетчеру**, а он ничего не делает сам: что каким агентом
+закрывается — таблица сигналов в `.claude/agents/dispatcher.md`. Хуки записи и команд говорят
+исполнителю, который их вызвал.

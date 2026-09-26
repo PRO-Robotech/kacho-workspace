@@ -646,6 +646,129 @@ b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh
 
+echo "== check-10: хук отправки судит то, что отправляется, а не копию =="
+HK_REL="scripts/hooks/pre-push"
+C10=check-10-push-hook-judges-what-is-pushed.sh
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C10"
+
+# Каждая инъекция роняет в ЖИВОМ хуке ровно одно условие короткого выхода.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\[ "\$n_removed" -gt 0 \] && \[ "\$n_pushed" -eq 0 \]/false/' \
+    "короткий выход удаления снят"; then
+    run 1 "$b" "инъекция: удаление судит копию (ws#810) — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/только удаление, прогона не было/локальные проверки воркспейса зелёные/' \
+    "удаление рапортует строкой чистого"; then
+    run 1 "$b" "инъекция: удаление без прогона названо «зелёным» — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\[ "\$n_removed" -gt 0 \] && //' "пустой вход принят за удаление"; then
+    run 1 "$b" "инъекция: пустой вход без прогона — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/ && \[ "\$n_pushed" -eq 0 \]//' "удаление маскирует вершину"; then
+    run 1 "$b" "инъекция: удаление рядом с вершиной снимает прогон — краснеет" "$C10"
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\(cd "\$wt" && bash "\$g"/(cd "\$ROOT" && bash "\$g"/' \
+    "наборы исполняются в копии"; then
+    run 1 "$b" "инъекция: вершина судится по рабочей копии (ws#811) — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/--detach "\$wt" "\$c"/--detach "\$wt" HEAD/' "судится HEAD вместо вершины"; then
+    run 1 "$b" "инъекция: судится HEAD, а не отправляемая вершина — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/name="\$\{rref#refs\/heads\/\}"/name="\$(git rev-parse --abbrev-ref HEAD)"/' \
+    "черновик по HEAD"; then
+    run 1 "$b" "инъекция: черновик взят по HEAD, а не по ссылке — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/mktemp -d "\$wt_base\/pre-push.XXXXXX"/mktemp -d/' "копия вершины в TMPDIR"; then
+    run 0 "$b" "близнец: копия вершины в другом месте — молчит" "$C10"
+fi
+
+# Возврат check-verifier к ws#811: перечень наборов и условия вне дерева.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/git -C "\$wt" ls-files/git -C "\$ROOT" ls-files/' \
+    "перечень наборов из копии"; then
+    run 1 "$b" "инъекция: перечень наборов взят из копии, а не из вершины — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" "s/'!!' \\| '\\?\\?'\\) outside\\+=\\(\"\\\$\\{rec:3\\}\"\\) ;;/'!!' | '??') : ;;/" \
+    "условия вне дерева не переносятся"; then
+    run 1 "$b" "инъекция: игнорируемое копии (project/) в копию вершины не едет — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/git -C "\$wt" check-ignore -q -- "\$rel\/"/git -C "\$ROOT" check-ignore -q -- "\$rel\/"/' \
+    "условие по правилам копии"; then
+    run 1 "$b" "инъекция: игнорируемое судится правилами копии, а не вершины — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/            case "\$src\/" in "\$wt_base"\/\*\) continue ;; esac\n//' \
+    "дом копий переносится"; then
+    run 1 "$b" "инъекция: в копию вершины едет дом копий — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/        case "\/\$rel" in \*\/__pycache__ \| \*\.py\[co\]\) continue ;; esac\n//' \
+    "байткод переносится"; then
+    run 1 "$b" "инъекция: в копию вершины едет байткод копии — краснеет" "$C10"
+fi
+
+# Возврат wave-reviewer к ws#811: копия полосы сама лежит в доме копий `tmp/`.
+# Переключатель роняется в обе стороны: полоса судится как канонический и
+# канонический — как полоса; близнец пишет ту же принадлежность другой формой.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/"\$wt_base"\/\*\) root_in_base=1 ;;/"\$wt_base"\/*) root_in_base=0 ;;/' \
+    "копия полосы под tmp/ судится как канонический"; then
+    run 1 "$b" "инъекция: из копии полосы под tmp/ условие вне дерева не едет — краснеет" "$C10"
+    run 0 "$b" "та же инъекция у соседа check-08 — молчит, красное принадлежит check-10" \
+        check-08-caller-reads-the-three-outcomes.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/\*\) root_in_base=0 ;; esac/*) root_in_base=1 ;; esac/' \
+    "канонический судится как копия полосы"; then
+    run 1 "$b" "инъекция: из канонического в копию вершины едет дом копий — краснеет" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/^case "\$ROOT\/" in "\$wt_base"\/\*\) root_in_base=1 ;; \*\) root_in_base=0 ;; esac$/root_in_base=0; [[ "\$ROOT\/" == "\$wt_base"\/* ]] \&\& root_in_base=1/m' \
+    "принадлежность дому копий другой формой"; then
+    run 0 "$b" "близнец: принадлежность копии дому копий другой формой — молчит" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/--untracked-files=normal/--untracked-files=all/' \
+    "кандидаты поштучно"; then
+    run 0 "$b" "близнец: кандидаты перечислены поштучно, а не каталогом — молчит" "$C10"
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" "s/git -C \"\\\$wt\" ls-files 'scripts\\/\\*\\/run-all.sh'/(cd \"\\\$wt\" \\&\\& git ls-files -- 'scripts\\/*\\/run-all.sh')/" \
+    "перечень из вершины другой формой"; then
+    run 0 "$b" "близнец: перечень наборов из вершины другой формой — молчит" "$C10"
+fi
+
+# Близнец: та же форма, другие слова — проверка судит исход, а не формулировку.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/только удаление, прогона не было/уезжает лишь снятие ссылок, наборы не исполнялись/' \
+    "другие слова строки удаления"; then
+    run 0 "$b" "близнец: строка удаления другими словами — молчит" "$C10"
+fi
+
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/^set -uo pipefail\n/set -uo pipefail\nexit 3\n/m' "хук непригоден"; then
+    run 2 "$b" "положительный контроль сорван — VOID, а не «доказано»" "$C10"
+fi
+b="$(mksandbox scripts/hooks)"
+run 2 "$b" "предпосылка: вызывающего нет — VOID, а не успех" "$C10"
+
 echo "== check-12: выписанный предикат на форме, где два движка расходятся =="
 
 # ПРЕДПОСЫЛКА ЗАПРЕТА — ОТДЕЛЬНАЯ ПРОБА, И ОНА НЕ ПРО ДЕРЕВО.

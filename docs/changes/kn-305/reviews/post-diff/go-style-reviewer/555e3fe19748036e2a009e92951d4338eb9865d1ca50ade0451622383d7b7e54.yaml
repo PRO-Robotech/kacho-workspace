@@ -1,0 +1,104 @@
+# Пост-дифф ревью Go-кода продукта — роль go-style-reviewer.
+#
+# Имя файла — content_digest. Прежние записи не правятся; сменился дайджест —
+# новый запуск и новый файл (change-graph §2). Место назначения —
+# docs/changes/kn-305/reviews/post-diff/go-style-reviewer/ воркспейса (переносит оператор).
+schema_version: 1
+change_id: kn-305
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: 'kaname#305 — завершение восстановления решает счёт по адресу местом решения входа'
+
+fingerprint:
+  repo: PRO-Robotech/kaname
+  branch: '305'
+  worktree: /home/dk/workspace/github/PRO-Robotech/cloud-demo/kacho-workspace/tmp/kaname-305
+  base: 253cf0446c30745a61c98671a34e207069da00ed
+  head: 0ff5058fa09ed9bad7bc5920257cf27914eef1d1
+content_digest: sha256:555e3fe19748036e2a009e92951d4338eb9865d1ca50ade0451622383d7b7e54
+digest_definition: >-
+  git diff --full-index 253cf0446c30745a61c98671a34e207069da00ed..0ff5058fa09ed9bad7bc5920257cf27914eef1d1
+  -- . ':!docs/specs/reviews' | sha256sum — перемерено своей командой в копии полосы.
+
+verdict: returned            # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T00:00:00Z'
+review_scope: 'полный закоммиченный дифф base..head: 12 файлов, из них Go — 10 (прод 3, пробы 7)'
+
+files_reviewed:
+  - cmd/kaname/loginlane.go
+  - internal/apps/kaname/api/humansession/completed_login.go
+  - internal/apps/kaname/api/humansession/recovery_complete.go
+  - internal/apps/kaname/api/humansession/completed_login_test.go
+  - internal/apps/kaname/api/humansession/recovery_usecase_test.go
+  - internal/apps/kaname/api/humansession/usecase_test.go
+  - internal/check/failure_reset_sole_writer_test.go
+  - internal/handler/loginlanehttp/recovery_failure_count_integration_test.go
+  - internal/handler/loginlanehttp/recovery_session_integration_test.go
+  - internal/handler/loginlanehttp/session_lane_integration_harness_test.go
+
+critical:
+  - id: C1
+    class: REFUSAL-LANE-PARITY
+    coordinate: internal/apps/kaname/api/humansession/recovery_complete.go:203-206
+    finding: >-
+      Свойство неразличимости полос отказа завершения (recovery-of-access Р7, §8 инв. 4;
+      утверждение в recovery-of-access.md:384-386) изменением не держится: новое чтение
+      заведённых способов стоит ДО единой точки отказа и исполняется только на одной из двух
+      полос отказа, поэтому работа двух полос до отказа стала неравной. До правки полосы
+      исполняли одну и ту же работу.
+    evidence: >-
+      Одноразовая проба (удалена, дерево чистое): счётчик чтений хранилища способов на двух
+      полосах отказа завершения при head — 0 против 2; отказ на обеих полосах тот же
+      (ErrAuthenticationFailed). Чтения на base нет по построению (зависимости Methods не было).
+    requirement: >-
+      Решение о счёте не должно добавлять работы, которую одна полоса отказа исполняет, а другая
+      нет. Допустимо: читать заведённое только после применения кода и на соединении самой
+      транзакции записи (метод порта Writer, делегированный адаптеру способов — как
+      replaceLoginVerifierTx), без вложенного захвата пула; либо равная работа на обеих полосах.
+      Плюс проба уровня use-case, запирающая равенство работы двух полос отказа (красная на head).
+    return_to: 'автор полосы kaname#305 (исполнитель реализации)'
+
+important:
+  - id: I1
+    class: DOC-TRUTH
+    coordinate: internal/apps/kaname/api/humansession/recovery_complete.go:24-29, 247-249
+    finding: >-
+      Раздел «Порядок внутри обращения — несущий» и шапка complete() перечисляют «событие»
+      до «выдачи сессии» и решение о счёте последним; код: выдача → решение о счёте → событие
+      → фиксация. Перечень переписан этим диффом и остался неверным о порядке.
+    requirement: 'перечень — в порядке кода'
+  - id: I2
+    class: DOC-TRUTH
+    coordinate: internal/apps/kaname/api/humansession/completed_login.go:118-122
+    finding: >-
+      Перечень конструкторов, подставляющих slog.Default() вместо пустого Logger, называет
+      NewLoginUseCase и SecondFactorDeps.validate; у enrollmentBeforeWrite теперь третий
+      вызывающий — NewCompleteRecoveryUseCase (recovery_complete.go:145), не названный.
+    requirement: 'назвать третьего вызывающего либо сформулировать без перечня'
+
+foundation_candidates: []
+
+style:
+  - 'recovery_complete.go:302 — локальное methods ([]string) рядом с полем uc.methods (хранилище); форма та же, что в login.go, не блокирует'
+
+security_comments_contradicting_code:
+  - 'docs/engineering/acceptance/recovery-of-access.md:384-386 — утверждает равную работу полос отказа завершения; код head её не исполняет (см. C1)'
+
+fresh_deferral_markers: 0
+tests_in_same_pr: true
+
+approved:
+  error_wrapping: 'resetFailuresOnCompletedLogin оборачивает %w; complete() отображает в ErrStoreUnavailable, текст драйвера наружу не уходит'
+  ctx_propagation: 'ctx первым аргументом и прокинут во все новые вызовы; context.Background() только в пробах'
+  no_panic: 'panic/Must*/log.Fatal в прод-части диффа нет'
+  logging: 'только log/slog, структурные поля; личных данных в новых строках журнала нет (user_id)'
+  sole_writer: 'прямого ResetFailures в recovery_complete.go нет (git grep -c → код 1); запись ведомости гейта снята тем же изменением'
+  deps_guard: 'Methods обязателен в конструкторе; проба TestEveryEnrollmentReaderRefusesToBuildWithoutTheMethodStore дополнена'
+  presentation_equivalence: 'presentationsOf([recovery_code]) даёт RecoveryCodePresented() (change_password.go:262-263) — уровень сессии не изменён'
+  layering: 'use-case импортирует порт loginmethod.Store, как соседние полосы; pgx/transport не протекли; связывание — только cmd/kaname/loginlane.go'
+  probes: 'Ф5-25 на уровне use-case (моки) и на слушателе (интеграция), замки (а)/(в) с близнецом (б)'
+
+linter_probes_outcome: not-claimed-by-this-role
+return_to: 'автор полосы kaname#305 (исполнитель реализации)'
+next_requested: 'автор полосы — C1 (и I1, I2) новым коммитом; после фикса дайджест новый — повтор роли'

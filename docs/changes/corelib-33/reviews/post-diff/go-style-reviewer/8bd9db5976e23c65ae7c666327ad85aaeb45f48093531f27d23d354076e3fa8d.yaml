@@ -1,0 +1,117 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в рабочей копии полосы и НЕ закоммичена — по заданию.
+schema_version: 1
+change_id: corelib-33
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  corelib #33: порт отзыва GrantRevoker получает причину отзыва из закрытого
+  словаря RevocationReason (code-replay · refresh-replay · client-revoke);
+  причину мосту называет ведомость операции
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  branch: '33 (от origin/32; `git branch -a --contains d1a2795` → только локальная 33, не отправлена)'
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  base_is: 'origin/32 (`git rev-parse origin/32` → 9f0393c540d7, дерево e6430e60ed13); предок головы (`git merge-base --is-ancestor` → да)'
+  head: d1a27956c941d2e0a196a8c79409d6708c4b808c
+  head_tree: 7aa1c38043a93f710aef3d03dc45eef77db2d81c
+  shortstat: '11 файлов, +544 / -30'
+  commits:
+    - 'дерево 7aa1c38043a9 #33 порт отзыва несёт причину отзыва из закрытого словаря'
+content_digest: sha256:8bd9db5976e23c65ae7c666327ad85aaeb45f48093531f27d23d354076e3fa8d
+digest_definition: |
+  git -C <копия> diff --full-index 9f0393c..d1a27956c941 | sha256sum
+  (перемерено своей командой — совпадает с заданием)
+
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-23T13:30:12Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io>; только неблокирующее'
+review_scope: >-
+  полный закоммиченный дифф, все 11 файлов; прод-код прочитан вместе с
+  окружением: note/record/preferRecorded (notes.go), fromPort/checkDeclared/
+  pairEngine/BeginTX (bridge.go), Exchange/revokeReplayedFamily/Revoke
+  (ceremony.go) и все три места отзыва движка
+  (internal/oauth2/handler/oauth2/flow_authorize_code_token.go:45/49,
+  flow_refresh.go:190/194, revocation.go:59/60).
+
+premise:
+  status: confirmed
+  how: >-
+    перепись вызывающих отзыв: `grep -rn 'RevokeRefreshToken(\|RevokeAccessToken('
+    --include=*.go` без *_test.go и gomock → движок 3 места (6 вызовов), церемония
+    1 (ceremony.go:743/744). Каждый возврат ErrInvalidatedAuthorizeCode /
+    ErrInactiveToken из моста (bridge.go:238, 272, 381, 425, 539) стоит после
+    markReplayedFamily с причиной, кроме bridge.go:272 без предъявленного кода —
+    там движок не отзывает (flow_authorize_code_token.go:168 не ведёт к отзыву).
+    Revoke называет причину безусловно (ceremony.go:817). Путь «отзыв без причины»
+    на голове недостижим.
+
+experiments:
+  workdir: '/home/dk/.cache/review-go-style-corelib-33 (git archive d1a2795; свой GOCACHE)'
+  control: 'go test -count=1 -run "Revocation|Revoke|Replay|Exchange|SingleCode|RefreshWithout|CodePresented" ./oauthceremony/ → ok (16 тестов верхнего уровня под фильтром)'
+  injection_revoke_names_no_reason:
+    change: 'ceremony.go:817 notes.requestRevocation(RevocationClientRevoke) → _ = notes'
+    outcome: >-
+      красное: TestRevokingAStaleRefreshTokenRevokesTheFamily (порт получил
+      "refresh-replay", ожидалась "client-revoke") и
+      TestClientRevocationNamesClientRevokeToThePort/{access-token,refresh-token}
+      («отзыв клиентом отказал: oauthceremony: temporarily_unavailable: …»).
+      Проба причины способна упасть; второй исход — основание находки I-1.
+  lint_and_suite: 'исход линтера и полного набора не объявляю — сырой вывод у landing-reviewer, перемер у check-verifier'
+
+census:
+  deferral_markers_in_added_lines: 0      # grep -E '\b(TODO|FIXME|XXX|HACK)\b' по +строкам
+  skips_in_added_test_lines: 0
+  cyrillic_identifiers_in_added_lines: 0  # эвристика снимает //-комментарии и строки; положительный контроль даёт 1
+  probes_in_same_pr: true                 # revocation_reason_test.go, revocation_reason_internal_test.go + утверждения причины в пробах повтора
+  gofmt_and_vet: 'gofmt -l пуст, go vet ./oauthceremony/ чист (свой замер, не вердикт линтера)'
+
+findings:
+  critical: []
+  important:
+    - id: I-1
+      class: misconfig-surfaces-as-outage
+      where: oauthceremony/bridge.go:489-497 (revocationReasonFor), следствие — ceremony.go:854-859
+      summary: >-
+        Отказ моста «отзыв без причины» (CodeCeremonyMisuse) не заносится в
+        ведомость операции: note() пропускает только коды из coarsenable, а
+        revocationReasonFor возвращает отказ, минуя и её. На пути, где отзывает
+        движок, точный случай огрубляется: движок (revocation.go
+        storeErrorsToRevocationError) отдаёт ErrTemporarilyUnavailable, и Revoke
+        отвечает temporarily_unavailable — дефект провязки выглядит временной
+        перегрузкой, клиент повторяет бесконечно. Измерено инъекцией выше.
+        Сейчас путь недостижим (посылка подтверждена), поэтому не блокирует.
+      requirement: >-
+        занести отказ в ведомость (notesFrom(ctx).record(...)) рядом с возвратом,
+        чтобы preferRecorded отдавал CodeCeremonyMisuse, и закрепить внутренней
+        пробой на уровне операции: движок отзывает при ведомости без причины →
+        CodeOf(err) == CodeCeremonyMisuse, а не temporarily_unavailable.
+  foundation_candidates: []     # изменение и есть фундамент (corelib)
+  style: []
+  security_comments_contradicting_code: []
+
+approved:
+  - 'обёртка ошибок: собственный *ProtocolError по образцу пакета (failf/contractBreach); сравнение через errors.Is(ErrCeremonyMisuse) в пробе'
+  - 'ctx первым аргументом; revokeReplayedFamily берёт WithoutCancel — значения (ведомость) сохраняются, срок назначает мост на каждом вызове порта'
+  - 'паники в рабочем пути нет; журнала в диффе нет'
+  - 'словарь — собственный тип с постоянными и Declared, как GrantKind (types.go:41); нулевое значение словарю не принадлежит'
+  - 'подставка порта отвергает причину вне словаря тем же Declared — дублёр не снисходительнее службы'
+  - 'граница пакета: RevocationReason внесён в перепись runtimeRoster (boundary_test.go:157)'
+  - 'порт меняет сигнатуру без нарушения semver: oauthceremony ни в одном теге (git ls-tree v1.9.0 → 0), живёт только в ветках эпика 26/32'
+  - 'комментарии о пути причины (bridge.go §«Отзыв по гранту», notes.go §«Четвёртое», ports.go, ceremony.go Revoke) сверены с кодом — правдивы'
+
+outside_diff:
+  - >-
+    UnitOfWork.Begin (ports.go:381-383) не говорит, что возвращаемый контекст
+    обязан быть производным от переданного. Ведомость операции (в том числе
+    отметка одновременного повтора в RotateRefreshToken и теперь причина
+    отзыва внутри единицы работы движка) держится на этом. Класс существовал
+    до диффа; не находка этого круга.
+
+next: 'сбор пост-дифф записей — convergence-reviewer либо landing-reviewer'
