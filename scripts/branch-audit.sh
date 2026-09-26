@@ -222,7 +222,8 @@
 # Влитая работа приходит коммитом слияния и лежит вторым родителем — на первую
 # линию она не попадает. Такая ветка остаётся в «ВЛИТЫ» с пометкой (строки
 # режима кандидатов и полной переписи совпадают), в счёт «к снятию» не идёт и
-# при снятии называется оставленной. Цели каскада не выводятся из дерева —
+# при снятии называется оставленной; та же пометка — у её копии на origin в
+# разделе «без предмета», который зовёт проверить ветку перед снятием. Цели каскада не выводятся из дерева —
 # открыт ли эпик, знает трекер, — поэтому их называет вызывающий; ветку по
 # умолчанию origin (`main`) скрипт держит сам: при стволе эпика, догнавшего
 # `main`, её голова — второй родитель слияния догона.
@@ -343,6 +344,21 @@ TRUNK_SHA=$(git rev-parse "$TRUNK")
 # Первая линия ствола: голова на ней — ветка без своего коммита (см. шапку).
 declare -A TRUNK_FP=()
 while read -r c; do TRUNK_FP["$c"]=1; done < <(git rev-list --first-parent "$TRUNK")
+# cascade_mark $1 = ветка, $2 = её ссылка → CMARK: «keep», «ownless» либо пусто.
+# Одна функция на обе стороны — локальную и origin: ветка origin без предмета
+# печатается «проверить перед снятием», и живая волна там выглядела бы мусором.
+cascade_mark() {
+  CMARK=""
+  if [ -n "${KEEP[$1]+x}" ]; then CMARK=keep
+  elif [ -n "${TRUNK_FP[$(git rev-parse --verify --quiet "$2^{commit}")]+x}" ]; then CMARK=ownless
+  fi
+}
+mark_text() { # CMARK → пометка строки
+  case "$CMARK" in
+    keep) printf ' [ЦЕЛЬ КАСКАДА — переписью не снимается]' ;;
+    ownless) printf ' [СВОЕГО КОММИТА НЕТ — голова на первой линии ствола]' ;;
+  esac
+}
 TRUNK_TREE=$(git rev-parse "$TRUNK^{tree}")
 NOW=$(date +%s)
 
@@ -1761,13 +1777,11 @@ for bi in "${!LOCAL_BRANCHES[@]}"; do
   fresh=$(fresh_mark "$bct")
 
   if [ "$empty" = 1 ]; then
-    own=""
-    if [ -n "${KEEP[$b]+x}" ]; then
-      own=" [ЦЕЛЬ КАСКАДА — переписью не снимается]"; n_keep=$((n_keep + 1))
-    elif [ -n "${TRUNK_FP[$(git rev-parse "refs/heads/$b")]+x}" ]; then
-      own=" [СВОЕГО КОММИТА НЕТ — голова на первой линии ствола]"; n_ownless=$((n_ownless + 1))
-      OWNLESS["$b"]=1
-    fi
+    cascade_mark "$b" "refs/heads/$b"; own=$(mark_text)
+    case "$CMARK" in
+      keep) n_keep=$((n_keep + 1)) ;;
+      ownless) n_ownless=$((n_ownless + 1)); OWNLESS["$b"]=1 ;;
+    esac
     if [ "$ancestor" = 1 ] && [ "$ahead" = 0 ]; then
       merged_local+=("$b — $how${pr}${occ}${fresh}${own}")
     else
@@ -1848,7 +1862,8 @@ if [ "$remote_ok" = 1 ]; then
 
     delta_checked=$((delta_checked + 1))
     if [ "${RDELTA[$b]:-0}" = 1 ]; then
-      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}")
+      cascade_mark "$b" "$rref"
+      orphan_remote+=("$b — ДЕЛЬТА СЛИЯНИЯ ПУСТА, содержимое в стволе${PRSTATE[$b]+ ${PRSTATE[$b]}}$(mark_text)")
       continue
     fi
 
