@@ -558,12 +558,12 @@ tags:
 | [[packages/iam-repo-kacho-pg\|iam internal/repo/kacho/pg]] | живо (done) |
 | [[packages/iam-seed\|iam internal/apps/kacho/seed]] | живо (done) |
 | [[packages/iam-tests-newman-scripts\|tests/newman/scripts (kacho-iam)]] | живо (stable) |
+| [[packages/kaname-access-keys\|internal/apps/kaname/api/access_keys — полоса ключей доступа]] | в работе (test) |
 | [[packages/kaname-api-internal-iam\|kaname internal/apps/kaname/api/internal_iam]] | живо (stable) |
 | [[packages/kaname-cmd\|kaname cmd/kaname]] | живо (stable) |
 | [[packages/kaname-internal-check\|kaname internal/check]] | живо (stable) |
 | [[packages/kaname-migrations\|kaname internal/migrations]] | живо (stable) |
 | [[packages/kaname-repo-pg\|kaname internal/repo/kaname/pg]] | живо (stable) |
-| [[packages/kaname-access-keys\|internal/apps/kaname/api/access_keys — полоса ключей доступа]] | в работе (test) |
 | [[packages/nlb-permissions-catalog\|kacho-nlb permissions catalog]] | живо (stable) |
 
 **домен: kacho-nlb**
