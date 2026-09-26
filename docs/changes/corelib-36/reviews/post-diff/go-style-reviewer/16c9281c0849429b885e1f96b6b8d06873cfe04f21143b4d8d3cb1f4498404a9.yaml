@@ -1,0 +1,153 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer, круг 1.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии ревьюера и НЕ закоммичена — её переносит оператор.
+schema_version: 1
+change_id: corelib-36
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+round: 1
+previous_record: null
+subject: >-
+  oauthceremony: сессия, acr и auth_time — поля AuthorizationGrant, SessionRecord и
+  IntrospectionResult; один судья контекста входа на выдаче и на записи хранилища
+  (задача #36, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: f213439a409ecce4816d88121cf3301b9efbad33
+  base_tree: 998df9a91afcc977b8d7dcf78c38dcd33aa09316
+  head: 6289fbcf1ac7d9a07dab4dea5d90595e92a2a8db
+  head_tree: cf10606e7714b47be472f08c393deb0370ecabe8
+  head_is: 'ветка 36 в tmp/corelib-36, один коммит поверх origin/32 @f213439a; не отправлена'
+  shortstat: '13 файлов, +693 / -42 (полный дифф от base)'
+content_digest: sha256:16c9281c0849429b885e1f96b6b8d06873cfe04f21143b4d8d3cb1f4498404a9
+digest_definition: |
+  git diff --full-index $(git merge-base origin/32 HEAD)..HEAD | sha256sum
+  merge-base = f213439a409e = origin/32; перемерено своей командой, с заданием совпадает
+
+verdict: accepted              # ✅ принято
+blocks_landing: false
+timestamp: '2026-09-23T20:59:15Z'
+return_to: '—'
+review_scope: >-
+  Полный дифф: 13 файлов, прод-файлов 6 — ceremony.go, doc.go, logincontext.go, ports.go,
+  translate.go, types.go. Вне диффа прочитаны: requesterFromGrant, sessionRecordOf, newSession,
+  Clone, introspectionResultOf, Exchange, Introspect, note/coarsenable (notes.go),
+  misuse/failf/contractBreach (errors.go, bridge.go), acrlevel.Rank, boundary_test.go
+  (словарь чужих импортов поверхности), fakes_test.go (типы хранилища).
+  Перепись: где создаётся сеанс — newSession(), 3 вызова, все в Ceremony; грантов два
+  (authorization_code, refresh_token), значит всякая запись сеанса рождена CompleteAuthorization.
+  Кто вызывает hydrateSession и checkStoredInstants: только прод-код, 2 и 2 места, в пробах 0.
+  Поэтому смена возврата с error на *ProtocolError ловушки типизированного nil не открывает.
+  Импортёров oauthceremony вне пакета нет ни в corelib, ни в project/kaname @32637536f,
+  ни в project/kacho @4382f05c0a3. Старых записей без контекста входа в чьём-либо
+  хранилище, значит, ещё нет.
+
+premise_checks:
+  - claim: 'пять новых проб, близнецы зелёные; на голове проб 63 (5 родителей + 58 подслучаев)'
+    result: подтверждено
+    how: >-
+      go test -count=1 -v -run '^(TestLoginContextIsOneSnapshotAcrossTheFamily|TestGrantWithoutAGoodLoginContextIsRefused|TestEveryLevelOfTheRankingIsAccepted|TestClaimsCannotRestateTheLoginContext|TestStoredRecordWithoutAGoodLoginContextIsAContractBreach)$'
+      ./oauthceremony/ @6289fbc: 63 PASS / 0 FAIL / 0 SKIP, rc 0 (TMPDIR ~/.cache/gsr-36, вне git-деревьев)
+  - claim: 'пробы держат каждый из трёх механизмов диффа по отдельности'
+    result: подтверждено
+    how: >-
+      три -overlay-инъекции поверх головы, рабочее дерево копии не тронуто (git status — 0 строк):
+      A — в requesterFromGrant снят note(ctx, bad): 44 PASS / 19 FAIL (18 подслучаев = 3 пути
+      × 6 видов порчи: интроспекция токена обновления, отзыв токена доступа, отзыв токена обновления);
+      B — Clone не копирует login: 62 PASS / 1 FAIL (TestLoginContextIsOneSnapshotAcrossTheFamily);
+      C — судья не смотрит ключи Claims: 52 PASS / 11 FAIL (3 на выдаче + 6 на записи хранилища + 2 родителя).
+  - claim: 'RED автора на состоянии «поля объявлены, поведения нет»: 369 событий, 32 fail'
+    result: 'не перемерялось — это состояние в ветке не хранится; вместо него три инъекции выше'
+
+critical: []
+
+important:
+  - id: I1
+    tag: UNTRIMMED-VALUE
+    at: oauthceremony/logincontext.go:38
+    summary: >-
+      Пустоту SessionID судит TrimSpace, а в запись сеанса и в грант порта выпуска уходит
+      значение без обрезки. Выдача с SessionID " <id> " принимается (overlay-проба zz_gsr_probe,
+      err=<nil>). Это второе написание имени сессии, по которому служба потом ищет семейство.
+      Тот же класс, что I2 в круге 1 записи corelib-38. Субъект (ceremony.go:656) устроен так
+      же, но это было до диффа.
+    requirement: >-
+      отвергать SessionID, не равный strings.TrimSpace(SessionID), и называть поле; на записи
+      хранилища — тем же судьёй (loginContextDefect). Отрицательный случай — близнец годной
+      сессии с пробелом по краю, по аналогии с «уровень с пробелом» в TestGrantWithoutAGoodLoginContextIsRefused.
+  - id: I2
+    tag: UNBOUNDED-INSTANT
+    at: oauthceremony/logincontext.go:43
+    summary: >-
+      У AuthTime судится только нулевое время. Момент позже самой выдачи принимается
+      (overlay-проба zz_gsr_probe, now+24h, err=<nil>), хотя doc.go называет отказом всякую выдачу
+      «без годного контекста». Решать, какой момент считать годным, — дело полосы безопасности,
+      а не стиля. Запись здесь нужна, чтобы вопрос не потерялся.
+    requirement: >-
+      решить в полосе безопасности: либо отказ ErrCeremonyMisuse при AuthTime позже момента
+      выдачи (часов с ручкой у церемонии нет, стратегия читает time.Now), либо записать в шапке
+      AuthorizationGrant.AuthTime, почему верхней границы нет.
+  - id: I3
+    tag: DOC-CITATION
+    at: oauthceremony/logincontext.go:18
+    related: 'oauthceremony/types.go:403'
+    summary: >-
+      Ссылка «RFC 9470 §3» ведёт не туда: §3 — Authentication Requirements Challenge
+      (параметры acr_values/max_age вызова). Утверждения acr и auth_time в токене доступа и в
+      интроспекции — §6 (6.1 JWT Access Tokens, 6.2 Token Introspection). Сверено по
+      rfc-editor.org/rfc/rfc9470.txt. `sid` у Front-Channel Logout 1.0 §3 и OIDC Core §2
+      названы верно.
+    requirement: 'в обоих местах заменить «RFC 9470 §3» на «RFC 9470 §6»'
+
+foundation_candidates: []
+foundation_candidates_note: >-
+  дифф — сам фундамент. Словарь уровня взят из acrlevel.Rank, своего перечня нет. Это и есть
+  переиспользование, за которым смотрит §10 чек-листа.
+
+style:
+  - id: S1
+    at: oauthceremony/logincontext.go:36
+    summary: >-
+      Судья принимает три отдельных позиционных значения (sessionID, acr string — два соседних
+      string легко перепутать местами), а дифф же вводит тип loginContext (translate.go:441).
+      Оба вызова собирают одну и ту же тройку. Сигнатура loginContextDefect(lc loginContext,
+      claims map[string]any) сняла бы риск перестановки. Тип при этом переезжает в logincontext.go.
+  - id: S2
+    at: oauthceremony/translate.go:441
+    summary: >-
+      Шапка loginContext («поле, добавленное сюда, копию не минует») верна только для Clone.
+      sessionRecordOf (:505-507) и hydrateSession (:576) раскладывают поля по одному, и поле,
+      добавленное в тип, их минует. Сейчас это держит TestLoginContextIsOneSnapshotAcrossTheFamily,
+      но только по трём нынешним полям.
+
+checklist:
+  error_wrap: >-
+    ок — отказы собираются конструкторами пакета (misuse, contractBreach) и называют поле;
+    подробность записи хранилища уходит в Debug, не в провод; в пробах errors.Is/errors.As
+  context: 'ок — note(ctx, bad) берёт переданный ctx; новых IO-функций нет; context.Background только в пробах'
+  no_panic: ок
+  slog: 'не затронуто — журнала в диффе нет, персональных данных в журнал не пишется'
+  generics: 'не затронуто'
+  naming: >-
+    ок — латиница в идентификаторах; имя bad у *ProtocolError — принятое в пакете
+    (proofKeyBindingOf, ceremony.go:631); кириллица только в именах подслучаев и комментариях
+  init_side_effects: нет
+  thin_handler_clean_arch: 'не применимо — библиотека фундамента; acrlevel ничего не импортирует, поверхность пакета — только string и time.Time'
+  magic_numbers: нет
+  doc_truthfulness: 'ок, кроме I3 и S2 — шапки SessionRecord, AuthorizationGrant, AccessTokenIssuer, doc.go совпадают с кодом на голове'
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: "git diff f213439a..6289fbc | grep -E '^\\+' | grep -c -E '\\b(TODO|FIXME|XXX|HACK)\\b|t\\.Skip' → 0"
+tests_in_same_pr: true
+tests_in_same_pr_note: 'login_context_test.go +492 и правка 7 проб под loggedIn в том же коммите'
+security_comments_contradicting_code: []
+trailers_check: 'в сообщении 6289fbc Co-Authored-By / Claude-Session / Generated with — 0; первая строка «#36 …», 65 знаков; тело 9 строк'
+runs:
+  - 'шаг 0: MemAvailable 34,8 ГБ; pgrep go|golangci-lint|compile|link — пусто; loadavg 4,4 на 32 ядра'
+  - 'пять новых проб @6289fbc: 63 PASS / 0 FAIL / 0 SKIP'
+  - 'инъекции A/B/C: 19 / 1 / 11 FAIL, всякий раз красная ровно та проба, что держит механизм'
+  - 'overlay-проба zz_gsr_probe (3 случая): близнец, SessionID с пробелами по краям, AuthTime = now+24h — все err=<nil>'
+  - 'полный пакет, -race, линт и gosec не перегонялись — независимый перемер делает check-verifier'

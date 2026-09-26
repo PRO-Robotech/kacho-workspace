@@ -40,7 +40,7 @@ description: Use when designing, writing, or reviewing tests for production code
 - План тестов для нового модуля (какие классы кейсов, какой уровень, какие моки).
 - Review теста с конкретными замечаниями (хрупкое место → конкретный рефакторинг).
 - Чек-лист "что недотестировано" в патче.
-- Кандидаты в quarantine / deletion (flaky / тавтологичные / тестирующие фреймворк).
+- Кандидаты в deletion (тавтологичные / тестирующие фреймворк); flaky — в разбор причины, не в quarantine.
 
 ## 4. Что я НЕ делаю
 
@@ -59,7 +59,7 @@ description: Use when designing, writing, or reviewing tests for production code
 | Test name `TestFoo1`/`TestFoo_OK` | Перенейминг по шаблону `Test<Subject>_<Action>_<Outcome>` |
 | Кейсы копи-пастой 20 раз | Перепаковать в table-driven |
 | Repo-тест на мокнутом pgxpool | Перевести на testcontainers |
-| Падает 1 раз в неделю | Quarantine + root-cause issue, не retry |
+| Падает 1 раз в неделю | Root-cause issue и фикс; skip и retry запрещены (`testing.md#no-todo-skip-in-tests`) |
 
 ## 6. Ссылки в knowledge base ниже
 
@@ -118,7 +118,7 @@ test suite.
 - порядка items в map,
 - race conditions, которые "обычно не воспроизводятся".
 
-Flaky-тест → quarantine + root-cause investigation. Никаких retry-плагинов
+Flaky-тест → root-cause investigation и фикс, без skip (`testing.md#no-todo-skip-in-tests`). Никаких retry-плагинов
 "чтобы зелёный CI" — это легализация бага.
 
 ### 1.4 AAA / Given-When-Then
@@ -158,6 +158,8 @@ Assert   (Then)   — проверка результата + side-effects
 Сравнивай эти издержки с выгодой. Дешёвый unit-тест на boundary —
 почти бесплатный. Дорогой e2e на хеппи-пас, который покрыт unit-тестом
 — часто чистый минус.
+Это и пирамида (Часть II) — про пробы кода, не про край: край проверяет newman по своду
+классов, его happy unit-тестом не закрывается (`testing-newman.md#edge-is-newman`).
 
 ### 1.8 Симметрия "что покрываем"
 
@@ -189,7 +191,7 @@ Assert   (Then)   — проверка результата + side-effects
 | Unit | Чистая логика одной функции/use-case с моками портов | Только in-process | ~ms | 70-80% |
 | Integration | Адаптер (repo, gRPC client) против реальной зависимости | Testcontainers / spawned servers | ~ds-секунды | 15-25% |
 | Contract | Соблюдение proto-контракта между сервисами | Stubs/spec | ~ms | 5-10% |
-| E2E | Полный путь через api-gateway | Весь dev-стенд | ~секунды-минуты | 5-10% |
+| E2E | Сервис целиком in-process через bufconn; край (api-gateway) — не здесь, newman (`testing-newman.md#edge-is-newman`) | Testcontainers / spawned servers | ~секунды | 5-10% |
 
 ### 2.2 Time budget
 
@@ -275,11 +277,13 @@ gRPC-клиенты к соседним сервисам тестируются 
 клиент правильно сериализует/десериализует request/response и обрабатывает
 все коды соседа. Это **contract test со стороны consumer'а**.
 
-### 3.6 E2E через api-gateway
+### 3.6 E2E через край — не этот скил
 
-Полные сценарии: создал Network → дождался Operation → создал Subnet →
-Allocate IP. Newman-suite или аналог. Покрывает интеграцию между
-сервисами + REST-маппинг grpc-gateway.
+Край (api-gateway, публичные пути kaname) проверяет только newman, и кейс пишет
+тестировщик, а не автор кода (`testing-newman.md#edge-is-newman`,
+`testing-newman.md#edge-author-black-box`, решение владельца 2026-09-23). Аналога
+нет: Go-проба край не закрывает. Автор кода заказывает кейс строкой «нужен
+следующий» и зеленит его, не правя; форма кейса — скил `testing-product-coach`.
 
 ---
 
@@ -502,16 +506,16 @@ Use-case с внутренним состоянием (счётчик, кэш, r
 Анти-паттерн — `time.Sleep(100ms)` для ожидания worker'а. Использовать
 `assert.Eventually` или сигнал-канал.
 
-### 5.8 Async event streams (Watch)
+### 5.8 Async event streams (поток подписки)
 
 Тестируется на трёх уровнях:
 
 1. **Outbox emit** — repo integration: insert ресурса в TX, проверяем
    что событие появилось в outbox.
-2. **Watch handler** — integration: подписаться, послать pg_notify,
+2. **Сервер потока** — integration: подписаться, послать pg_notify,
    проверить что событие пришло в stream.
-3. **End-to-end** — e2e: создать ресурс через публичный API, подписка
-   через Watch должна увидеть событие.
+3. **Край** — не этот скил: поток подписки через публичный API — newman-кейс
+   тестировщика, консоль — playwright (`subscription.md#sub-e2e-observable`).
 
 ### 5.9 Background workers (cron-like)
 
@@ -745,7 +749,7 @@ Negative-тестов должно быть **больше**, чем positive.
 |---|---|---|
 | Pre-commit hook (локально) | gofmt + go vet + unit с -short | < 30s |
 | PR commit | Полный unit + integration | < 10min |
-| PR merge / nightly | + e2e (Newman против dev-стенда) | < 30min |
+| PR merge / nightly | + newman против dev-стенда (край, не E2E пирамиды §2.1) | < 30min |
 | Release | + perf benchmarks + mutation testing | < 2h |
 
 ### 9.2 Selective test running
@@ -766,12 +770,10 @@ build-tag selection или dependency analysis).
 
 ### 9.4 Flake tracking
 
-Каждое падение помечается тегом `flaky`. Если тест пометился >2 раз
-за неделю — переводится в quarantine (skip с FIXME), сразу
-issue с приоритетом.
+Каждое падение помечается тегом `flaky` и сразу получает issue с приоритетом; тест не
+выключается (skip, FIXME — `testing.md#no-todo-skip-in-tests`), чинится причина.
 
-Никаких автоматических retry в CI без quarantine — это легализует
-бажные тесты.
+Никаких автоматических retry в CI — это легализует бажные тесты.
 
 ### 9.5 Fast feedback loop
 
@@ -859,8 +861,10 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 - [ ] `make test` зелёный (unit + integration).
 - [ ] Code coverage по критическим путям > 80%.
 - [ ] Race detector прогоняется в CI.
-- [ ] Newman или эквивалент e2e-coverage.
-- [ ] Smoke-test против локального стенда через api-gateway.
+- [ ] Newman-кейсы края по классам свода заказаны тестировщику
+      (`testing-newman.md#qa-classes-per-method`); эквивалента нет.
+- [ ] Smoke через край после выкатки — `qa-test-engineer`
+      (`testing-newman.md#flow-after-deploy`).
 - [ ] Graceful shutdown integration-test.
 - [ ] Migration up/down/redo проверены integration-тестом.
 
@@ -900,7 +904,7 @@ Quota-aware 3-suite split (RO / LIGHT / SEQ) — описан в
 | AAA | Arrange-Act-Assert структура теста |
 | BVA | Boundary Value Analysis — тесты на границах |
 | Flaky | Тест с недетерминированным результатом |
-| Quarantine | Изоляция flaky-теста до root-cause fix |
+| Quarantine | Изоляция flaky-теста; в Kachō запрещена (`testing.md#no-todo-skip-in-tests`) |
 | Golden master | Эталонный snapshot для approval-сравнения |
 | Mutation testing | Автоматическая модификация кода для оценки тестов |
 | Property-based | Тесты на инвариант поверх случайной генерации входа |

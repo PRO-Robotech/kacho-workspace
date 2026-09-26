@@ -1,0 +1,124 @@
+# Пост-дифф ревью Go-кода — роль go-style-reviewer.
+#
+# Имя файла — content_digest отсуженного диффа. Прежние записи не правятся;
+# сменился дайджест — новый запуск и новый файл (change-graph §2).
+# Запись лежит в копии ревьюера и НЕ закоммичена — по заданию.
+schema_version: 1
+change_id: corelib-38
+holder: post-diff/go-style-reviewer
+owner: go-style-reviewer
+subject: >-
+  oauthceremony: адреса точек авторизации и выдачи названы в Config
+  (AuthorizationEndpoint, TokenEndpoint), а не выводятся из Issuer (задача #38, волна #32)
+
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: 9f0393c540d73fa601d9abd2b7fe8b4edd074869
+  base_tree: e6430e60ed13d08c7f9bff1433bec7abea0ca728
+  head: 3535e77f55334e11ac8ae373b84f046482a2cc9e
+  head_tree: 5bd4f6feae46a25e44da96d30b7732f178b94de7
+  head_is: 'ветка 38 в tmp/corelib-38, один коммит поверх 9f0393c; не отправлена'
+  shortstat: '4 файла, +413 / -24'
+content_digest: sha256:b2baf0753b285575b08562ad2e8f1b97fd98b68236b06205cf8a39926ea24c57
+digest_definition: |
+  git diff --full-index 9f0393c540d7..3535e77f5533 | sha256sum
+  (перемерено и по деревьям: git diff --full-index e6430e60ed13 5bd4f6feae46 | sha256sum — совпадает)
+
+verdict: returned              # ⛔ возврат
+blocks_landing: true
+timestamp: '2026-09-23T00:00:00Z'
+return_to: 'автор диффа — pointpu <pointpu@in-cloud.io> (go-implementer полосы #38)'
+review_scope: >-
+  весь закоммиченный дифф, все 4 файла. Прод-код прочитан вместе с окружением:
+  New, validateConfig, Authorize, postForm и три вызова postForm (Exchange,
+  Introspect, Revoke), misuse/failf, читатели TokenURL в движке
+  (client_authentication.go, handler/rfc7523).
+
+premise_checks:
+  - claim: 'на 9f0393c вывод стоит на :170-171, TokenURL на :189, запросы на :508 и :881'
+    result: подтверждено
+    how: 'git show 9f0393c540d7:oauthceremony/ceremony.go | grep -n "JoinPath\|c.authorizeURL\|c.tokenURL\|TokenURL:"'
+  - claim: 'предикат снятия 1: JoinPath в oauthceremony/ — 0'
+    result: подтверждено
+    how: 'git grep -n JoinPath 3535e77 -- oauthceremony/ | wc -l → 0'
+  - claim: 'предикат снятия 2: безхостовое значение каждого поля → отказ'
+    result: ОПРОВЕРГНУТО для формы «порт без хоста» (см. C1)
+    how: >-
+      проба-оверлей (go test -overlay, дерево копии не тронуто, git status пуст):
+      New(endpointProbeConfig(..., TokenEndpoint="https://:8443/iam/v1/token"))
+      и "https://:/iam/v1/token" → церемония собрана, err=nil.
+
+critical:
+  - id: C1
+    tag: HOSTLESS-ENDPOINT-ACCEPTED
+    at: oauthceremony/ceremony.go:381
+    summary: >-
+      validateEndpoint судит `endpoint.Host == ""`, а Host у адреса с портом без
+      хоста непустой (":8443"). Адрес без хоста проходит проверку. Это
+      противоречит шапке Config (ceremony.go:68, «абсолютным адресом с
+      хостом»), тексту отказа «with a scheme and a host» и предикату 2 задачи
+      #38. Проба New не содержит такого случая («без хоста» у неё только
+      "https:///…").
+    requirement: >-
+      судить `endpoint.Hostname() == ""`; в TestNewRejectsAnEndpointThatIsNotAnAbsoluteAddress
+      добавить негодную форму «порт без хоста» ("https://:8443/iam/v1/endpoint"),
+      красную до правки.
+    radius: >-
+      механизм `Host == ""` в corelib вне internal/oauth2 —
+      2 места (git grep -n 'Host == ""' -- '*.go' ':!internal/oauth2'):
+      :381 (новое) и :192 (Issuer, в дифф не входит). Issuer "https://:8443"
+      New тоже принимает (та же проба-оверлей). См. I1.
+
+important:
+  - id: I1
+    tag: SAME-CLASS-ISSUER
+    at: oauthceremony/ceremony.go:191
+    summary: >-
+      проверка Issuer на абсолютность осталась в New, а проверки адресов точек
+      переехали в validateConfig. После снятия JoinPath переменная `issuer`
+      нужна только этой проверке. Дыра у неё та же, что в C1. Выходит два
+      места с одним предметом «абсолютный адрес с хостом», и расходятся они
+      уже сейчас: у адресов точек отвергаются сведения пользователя, у
+      издателя — нет.
+    requirement: >-
+      перенести проверку Issuer в validateConfig и судить хост через
+      Hostname() тем же изменением; если сужение издателя (userinfo, запрос,
+      фрагмент) считается отдельным предметом — завести его задачей.
+  - id: I2
+    tag: UNTRIMMED-VALUE
+    at: oauthceremony/ceremony.go:370
+    summary: >-
+      пустоту судит TrimSpace, а в движок уходит необрезанное значение.
+      "https://iam.example.net/iam/v1/token " принимается и становится
+      TokenURL и адресом запроса с путём "/iam/v1/token%20" (проверено url.Parse
+      в сторонней пробе), то есть адресом, которого служба не публикует.
+    requirement: 'отвергать значение, не равное strings.TrimSpace(value), с называнием поля'
+
+foundation_candidates: []
+foundation_candidates_note: 'дельта — сам фундамент; второго помощника разбора адреса в corelib нет (git grep IsAbs() вне internal/oauth2 — только два места ceremony.go)'
+
+style:
+  - id: S1
+    at: oauthceremony/endpoints_internal_test.go:38
+    summary: 'шапка recordedRequest называет «точку входа, метод и адрес без строки запроса», а у типа есть ещё поле query'
+    requirement: 'назвать поле query в шапке'
+  - id: S2
+    at: oauthceremony/ceremony_test.go:669
+    summary: 'в карте lawful "" служит пометкой «как в наборе», то есть значением, отличным от содержимого'
+    requirement: 'хранить в карте сам годный адрес (testTokenEndpoint и т. п.), без пометки'
+
+checklist:
+  error_wrap: 'ок — отказы настроек через misuse без причины; новых return err нет'
+  context: 'ок — новых вызовов без ctx нет; http.NewRequestWithContext(ctx) сохранён'
+  no_panic: ок
+  slog: 'не затронуто'
+  naming: 'ок — латиница; AuthorizationEndpoint/TokenEndpoint/validateEndpoint'
+  init_side_effects: нет
+  clean_arch: 'не затронуто (библиотека фундамента)'
+
+fresh_deferral_markers: 0
+fresh_deferral_markers_predicate: 'добавленные строки диффа на TODO|FIXME|XXX|HACK|t.Skip — 0'
+tests_in_same_pr: true
+security_comments_contradicting_code:
+  - 'oauthceremony/ceremony.go:68 — «с хостом»: код пропускает адрес без хоста с портом (C1)'
+trailers_check: 'в сообщении коммита Co-Authored-By / Claude-Session / Generated with — 0'

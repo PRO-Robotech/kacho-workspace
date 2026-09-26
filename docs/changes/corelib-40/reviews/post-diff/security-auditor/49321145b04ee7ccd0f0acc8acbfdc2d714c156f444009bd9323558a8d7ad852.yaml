@@ -1,0 +1,176 @@
+# Пост-дифф ревью: роль security-auditor, режим «поверхность», круг 1.
+# Имя файла совпадает с content_digest отсуженного диффа. Прежние записи не правятся.
+# Запись лежит в копии воркспейса (ветка 825) и НЕ закоммичена: её коммитит оператор.
+schema_version: 1
+change_id: corelib-40
+holder: post-diff/security-auditor
+owner: security-auditor
+mode: surface
+round: 1
+subject: >-
+  oauthceremony: привязка PKCE стала полями записи кода (AuthorizationCodeRecord,
+  ProofKeyBinding, ProofKeyMethod{S256}); порт ProofKeyVault и Ports.ProofKeys сняты;
+  RequireProofKey* сняты, PKCE S256 обязателен всем; код гасится при предъявлении.
+  Полоса переведена на 32 @bc580b92 (Config без Issuer, с AuthorizationEndpoint и
+  TokenEndpoint). Задача #40, волна #32.
+fingerprint:
+  repo: PRO-Robotech/corelib
+  base: bc580b9205f98bffee413747ebfd9d5b1f9edd01   # merge-base(32, head) = локальная сборка-1 волны 32
+  base_tree: 9d2b92feed56728d77840d51029ed82c1457fd25
+  head: 81b0f5e72c54c09da68a8d20b5c9e3520650c183
+  head_tree: 988ded607baa43b06ad9d0c3fd2f26020801bf45
+  shortstat: '15 файлов, +892 / -377'
+content_digest: sha256:49321145b04ee7ccd0f0acc8acbfdc2d714c156f444009bd9323558a8d7ad852
+digest_definition: >-
+  git diff --full-index bc580b9205f9..81b0f5e72c54 | sha256sum. Перемерил своей командой,
+  значение совпало с заданием. Для сравнения, от 84b9be87 выходит 192d33da…, то есть
+  другое значение: по заданию дайджест полосы после сборки-1 берётся от merge-base с новой 32.
+supersedes: null
+verdict: accepted
+blocks_landing: false
+timestamp: '2026-09-23T17:22:40Z'
+review_scope: >-
+  Дифф прочитан целиком: 15 файлов oauthceremony/. Вне диффа сверено: обработчик PKCE
+  движка (internal/oauth2/handler/pkce/handler.go:37-231), обработчик кода
+  (handler/oauth2/flow_authorize_code_token.go:22-192), сборка обработчиков в New
+  (ceremony.go:250-296), Exchange и revokeReplayedFamily (ceremony.go:749-820), контракт
+  GrantRevoker (ports.go:324-358), место Debug в ProtocolError (errors.go:40-43),
+  contractBreach (bridge.go:87-91). Слияние 81b0f5e сверено по git show --cc: конфликт
+  New разрешён без остатка Issuer/JoinPath, EnforcePKCE* = true, TokenURL = cfg.TokenEndpoint.
+merge_check: >-
+  git show --cc 81b0f5e: ханки только в New (ceremony.go) и в литералах Config трёх проб.
+  Чисто слился и endpoints_internal_test.go, из него снят uncalledProofKeys{}.
+surface_answers:
+  pkce_mandatory: >-
+    Держится тремя независимыми линиями церемонии, движок идёт четвёртой.
+    (1) requireProofKey в Authorize, до согласия, и в CompleteAuthorization, до выпуска кода
+    (ceremony.go:571, :615). Судья один, bindingDefect: вызов обязателен, метод только S256,
+    вызов 43 знака base64url, каждое поле ровно один раз. (2) codeRecordFromRequester при
+    записи: негодная привязка в хранилище не уезжает (translate.go:295-304). (3) bindingDefect
+    на выборке живого кода, иначе ErrPortContract (bridge.go:244-246). В движок привязка
+    приходит только из ProofKey записи (requesterFromCode, translate.go:311-321), так что
+    ветка validateNoPKCE движка на подключённом пути недостижима. GetPKCERequestSession по
+    невыбранному коду отвечает misuse, а не ErrNotFound (bridge.go:548-553).
+  plain_downgrade: >-
+    Закрыт на обоих входах. От клиента его отвергает proofKeyBindingOf. Из хранилища его
+    отвергает bindingDefect. Вызов из пробы TestCodeRecordWithoutAnS256ProofKeyIsAContractBreach,
+    случай «метод plain».
+  replay_and_consumption: >-
+    Код гасится при предъявлении (DeletePKCERequestSession → consumeCode, bridge.go:565, :288), до сверки
+    доказательства, ровно один раз за операцию. Код, предъявленный с неверным доказательством
+    или без доказательства, второй раз предъявить уже нельзя: это повтор. Форма та же, что у
+    базы: там при предъявлении снималась запись PKCE, и у кода с PKCE это было повтором.
+    Отсюда отказ в обслуживании: перехвативший код может его сжечь. Это свойство
+    одноразового кода (RFC 6749 §4.1.2), дифф его не вносит.
+  concurrent_replay_ordering: >-
+    Гипотезу проверил, она ОПРОВЕРГНУТА как дефект этого диффа. Гипотеза: погашение ушло из
+    единицы работы выдачи, поэтому отзыв проигравшего может лечь раньше, чем победитель
+    положит пару. Ответ контракта: GrantRevoker (ports.go:328-341) требует отметку отзыва у
+    семейства. Токены отозванного гранта не годны, когда бы их ни положили; фейк это
+    соблюдает (fakes_test.go:385). Теперь это единственный механизм порядка на полосе кода,
+    поэтому он вынесен условием стороне службы (cross_repo_conditions).
+  error_text: >-
+    Отказы с привязкой кладут подробности только в Debug, а Debug на провод не идёт
+    (errors.go:40-43). Значение метода от клиента попадает туда через strconv.Quote.
+    Размер этой строки ограничивает край службы. Проблема низкая, в планку не входит.
+  knobs: >-
+    RequireProofKey* сняты вместе с правилом, которое они выбирали. Молчаливого умолчания у
+    ручки не осталось: значение в New прибито, true/true/false. Перепись по дереву @81b0f5e
+    (779 отслеживаемых файлов): ProofKeyVault, ProofKeys, RequireProofKey, proofBound,
+    *ProofKeyRequest, «запись PKCE» дают по 0 совпадений. Положительный контроль: ProofKeyVault
+    @bc580b9 встречается в 3 файлах, ProofKeyBinding @81b0f5e — в 4.
+findings: []
+below_bar:
+  - id: L1
+    severity: low
+    class: regression-lock / отрицание без пары
+    file: oauthceremony/bridge.go
+    line: 236
+    summary: >-
+      Новое различение «погашен этой операцией / другой» на первой выборке кода закреплено
+      только положительной стороной. Если на первой выборке любой погашенный код считать своим,
+      дерево остаётся зелёным. Причина: обычный повтор ловит ещё и ноль строк погашения при
+      предъявлении. Незакреплённым остаётся повтор, который движок отвергает раньше обработчика
+      PKCE: неверный адрес возврата, чужой клиент, истёкший срок. У такого повтора семейство
+      живёт.
+    measured: >-
+      Overlay i1 (условие !consumedHere заменено на false): 272 pass из 272. Проба аудитора вне
+      дерева (законный обмен, затем повтор с другим redirect_uri, затем requirePairDead):
+      @81b0f5e PASS, под i1 FAIL, порт отзыва вызван 0 раз, пара жива. Зазор был и в базе,
+      дифф его не вносит.
+    order: >-
+      Проба в code_replay_test.go: повтор погашенного кода, отвергнутый до обработчика PKCE,
+      отзывает семейство. Близнец: TestSequentialCodeReplayRevokesTheFamily.
+  - id: L2
+    severity: low
+    class: глубина защиты без закрепления
+    file: oauthceremony/ceremony.go
+    line: 206
+    summary: >-
+      Настройки движка EnforcePKCE, EnforcePKCEForPublicClients и EnablePKCEPlainChallengeMethod
+      не закреплены ни одной пробой. Решают линии церемонии, так что сегодня исход от этих
+      настроек не зависит.
+    measured: 'overlay i3 (false/false/true): 272 pass из 272'
+    order: >-
+      В engineconfig_internal_test.go утверждать все три значения. Настройки движка эта проба
+      уже читает.
+  - id: L3
+    severity: low
+    class: комментарий у контроля называет не тот механизм (тот же, что go-style S1)
+    file: oauthceremony/ceremony.go
+    line: 193
+    summary: >-
+      «Запись кода без привязки невыразима (AuthorizationCodeRecord)». Тип нулевую привязку
+      выражает, а свойство держат проверки в рантайме (линии 1–3 в surface_answers.pkce_mandatory). Если поверить
+      комментарию, настоящую проверку легко снять как мёртвую.
+  - id: L4
+    severity: low
+    class: довод пережил предмет
+    file: oauthceremony/notes.go
+    line: 50
+    summary: >-
+      Три места всё ещё говорят, что ноль строк погашения КОДА приходит внутри единицы работы
+      движка и что порядок держит только она: notes.go:50-52, ceremony.go:799-801,
+      ports.go:334-337. Теперь код гасится при предъявлении, вне единицы работы. Вывод
+      остаётся верным и даже крепнет: отзыв исполняет церемония, отзыв идёт отметкой
+      семейства. Довод для полосы кода устарел.
+concurrence_with_go_style:
+  I1: >-
+    Зависимость от ведомости в контексте UnitOfWork.Begin приводит к отказу, а не к
+    пропуску: каждый обмен получает отказ, выданного нет. Это вопрос доступности, не
+    безопасности.
+  I2: 'GetPKCERequestSession без выборки кода отвечает server_error. Это отказ, не пропуск.'
+cross_repo_conditions:
+  - repo: PRO-Robotech/kaname
+    ref: 'kaname#326 (authorization_codes), адаптер портов'
+    conditions:
+      - 'в строке кода вызов и метод NOT NULL; CHECK метода сопряжён с ProofKeyMethods()'
+      - 'FetchAuthorizationCode отдаёт привязку такой, какой она легла, и у живого кода, и у погашенного'
+      - 'ConsumeAuthorizationCode выполняется одной инструкцией UPDATE … WHERE consumed_at IS NULL'
+      - >-
+        GrantRevoker ставит отметку у семейства, выборка токена её сверяет, строки при этом
+        не удаляются. На одновременном повторе кода это теперь единственный механизм
+        порядка, и единица работы его не заменяет.
+      - 'UnitOfWork.Begin возвращает потомка переданного контекста (go-style I1)'
+    consumers_now: >-
+      Файлов, импортирующих corelib/oauthceremony: kaname — 0 на всех 186 ссылках локального
+      клона, kacho — 0 на origin/main @1d42a6728bf6. Положительный контроль: импортов
+      corelib/ в kaname 1031 файл, в kacho 1535.
+dry_round: true
+runs:
+  - 'go test ./oauthceremony/ -count=1 -json @81b0f5e: 272 pass / 0 fail / 0 skip (92 верхнего уровня), пакет pass, rc=0'
+  - 'overlay i1 (своё погашение без различения): 272 pass'
+  - 'overlay i2 (предъявление не гасит код): 3 fail (TestCodePresentedAgainAfterAFailedProofIsAReplay, 2 подслучая и родитель) / 269 pass'
+  - 'overlay i3 (настройки PKCE движка ослаблены): 272 pass'
+  - 'проба аудитора вне дерева: @81b0f5e PASS; вместе с i1 FAIL'
+  - 'TMPDIR вне git-деревьев (~/.cache/sec40-tmp, git rev-parse — не репозиторий), MemAvailable 35 ГБ; git status копии после прогонов — 0 строк'
+not_run: '-race я не гонял: у исполнителя 272 из 272 в golang:1.26.8 с -race, DATA RACE 0. Это его замер, я его не перемерял.'
+commit_message_check: >-
+  Трейлеров Co-Authored-By, Claude-Session и Generated with на bc580b9..81b0f5e — 0. Автор и
+  коммиттер: pointpu <pointpu@in-cloud.io>. Признак восстановимости пройден: тексты 1c931b8 и
+  81b0f5e описывают устройство неопубликованного пакета, у которого нет потребителей, и
+  состояния, которым можно воспользоваться, не описывают.
+outside_role_notes:
+  - >-
+    Для landing-reviewer, не блокер этой роли. Первая строка 1c931b8 длиной 76 знаков, при
+    пределе 72. Тело 1c931b8 — 20 строк, при пределе 12. Замер: git log --format=%s|%b bc580b9..81b0f5e.
