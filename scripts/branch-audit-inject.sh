@@ -11,8 +11,8 @@
 # показано, что на настоящей находке она краснеет И называет имя.
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
-# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ; что
-# держит каждая —
+# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CG;
+# что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -98,6 +98,13 @@
 #      вердикт держит BV); незаписавшийся ответ истории (BV); пути истории и
 #      касания — сами, с -z (BW, BX); перечень ствола не ASCII (BY, предпосылка —
 #      BZ).
+#   CA–CG. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2): со стволом
+#      эпика `--prune-merged` оставляет волну без своего коммита (CA), снимает
+#      задачу, влитую в эпик коммитом слияния, — законный близнец (CB),
+#      оставляет цель из BRANCH_AUDIT_KEEP (CC) и ветку по умолчанию, чья
+#      голова — второй родитель догона (CD); итог считает «к снятию» за вычетом
+#      целей и веток без своего коммита (CE); мутация исключения по первой
+#      линии и мутация исключения целей красят свои утверждения (CF, CG).
 #
 # ЗАЧЕМ W и X. Первая редакция починки #257 давала переписи решать ОБА вопроса,
 # и ветка «пропущенная проверка ошибки» — работа в единственном экземпляре, чьи
@@ -1593,6 +1600,95 @@ else
   say "❌ BJ" "путь рабочей копии обрезан на пробеле — живая копия подана брошенной или безымянной"; fail=1
   grep -F 'f-wt-live' <<<"$BJ_OUT" | head -3 || true
 fi
+
+# --- CA–CG. ЦЕЛИ КАСКАДА И ВЕТКА БЕЗ СВОЕГО КОММИТА (ws#847, круг 2) ---------
+# Предок ствола — не то же, что «влита». Живая волна до первой сборки лежит на
+# первой линии ствола эпика, и `--prune-merged` со стволом эпика её снимала
+# (замер 2026-09-26: origin/786 = origin/771). Репозиторий свой, по пробе —
+# заново: снятие необратимо, и вторая проба на остатке первой судила бы другое.
+ct_build() { # $1 = каталог → эпик на origin; task и named влиты в эпик; wave — без
+  #          своего коммита; main догнан эпиком (голова main — второй родитель)
+  local d=$1
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config user.email inject@example.invalid
+    git config user.name inject
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb epic && echo эпик > e.txt && git add e.txt && git commit -qm "работа эпика"
+    git checkout -qb task epic && echo задача > task.txt && git add task.txt && git commit -qm "работа задачи"
+    git checkout -q epic && git merge -q --no-ff -m "влить task" task
+    git checkout -qb named epic && echo цель > named.txt && git add named.txt && git commit -qm "работа цели"
+    git checkout -q epic && git merge -q --no-ff -m "влить named" named
+    git branch wave epic
+    git checkout -q main && echo дальше > m.txt && git add m.txt && git commit -qm "ствол ушёл"
+    git push -q origin main
+    git checkout -q epic && git merge -q --no-ff -m "эпик догоняет main" main
+    git push -qu origin epic
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+}
+ct_run() { # $1 = исполняемый → CT_OUT; каталог — $CT
+  ct_build "$CT"
+  set +e
+  CT_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=0 BRANCH_AUDIT_TRUNK=origin/epic \
+    BRANCH_AUDIT_KEEP="named" "$1" --prune-merged "$CT" 2>&1)
+  set -e
+}
+ct_ref() { git -C "$CT" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+CT="$TMP/cascade"
+ct_run "$AUDIT"; CT_BASE=$CT_OUT
+
+if grep -qF 'оставлена wave — своего коммита нет' <<<"$CT_BASE" && ct_ref wave &&
+   f_has "$CT_BASE" "ВЛИТЫ" "wave —" 'СВОЕГО КОММИТА НЕТ'; then
+  say "✅ CA" "волна без своего коммита на первой линии ствола эпика помечена и не снята"
+else
+  say "❌ CA" "волна без своего коммита снята либо не помечена переписью со стволом эпика"; fail=1
+  grep -F 'wave' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'СНЯТА task' <<<"$CT_BASE" && ! ct_ref task; then
+  say "✅ CB" "задача, влитая в эпик коммитом слияния, снята — законный близнец волны"
+else
+  say "❌ CB" "задача, влитая в эпик, не снята — исключение накрыло влитую работу"; fail=1
+  grep -F 'task' <<<"$CT_BASE" | head -3 || true
+fi
+if grep -qF 'оставлена named — цель каскада' <<<"$CT_BASE" && ct_ref named; then
+  say "✅ CC" "цель из BRANCH_AUDIT_KEEP оставлена, хотя влита"
+else
+  say "❌ CC" "цель из BRANCH_AUDIT_KEEP снята"; fail=1
+fi
+if grep -qF 'оставлена main — цель каскада' <<<"$CT_BASE" && ct_ref main; then
+  say "✅ CD" "ветка по умолчанию, догнанная эпиком, оставлена без перечня"
+else
+  say "❌ CD" "ветка по умолчанию снята переписью со стволом эпика"; fail=1
+fi
+if grep -qF 'влитых 4 (к снятию 1, целей каскада 2, своего коммита нет 1)' <<<"$CT_BASE"; then
+  say "✅ CE" "итог «к снятию» считает влитые за вычетом целей и веток без своего коммита"
+else
+  say "❌ CE" "итог влитых не отделяет цели и ветки без своего коммита: $(grep -o 'влитых [^,]*,[^,]*,[^,]*' <<<"$CT_BASE" | head -1)"; fail=1
+fi
+
+ct_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = признак красного
+  local m="$TMP/ct-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  ct_run "$m"
+  if grep -qF -- "$6" <<<"$CT_OUT"; then
+    say "✅ $1" "мутация «$5» красит $2: $6"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+ct_mutant CF CA 'while read -r c; do TRUNK_FP["$c"]=1; done' ':' \
+  "первая линия ствола не читается" "СНЯТА wave"
+ct_mutant CG CC $'    if [ -n "${KEEP[$b]+x}" ]; then\n      echo "   оставлена $b — цель каскада' \
+  $'    if false; then\n      echo "   оставлена $b — цель каскада' "цели каскада снимаются" "СНЯТА named"
 
 echo
 if [ "$fail" -eq 0 ]; then

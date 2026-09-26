@@ -42,7 +42,11 @@
 # # Почему признак ЗДЕСЬ дешевле, чем в переписи, и это сказано вслух
 #
 # Хук считает только ветки, чей HEAD — ПРЕДОК ствола (первый признак): это одна
-# дешёвая операция на ветку, и ложных срабатываний у неё нет by construction.
+# дешёвая операция на ветку. Предок — ещё не «влита»: голова на ПЕРВОЙ ЛИНИИ
+# ствола (`git rev-list --first-parent`) — ветка без своего коммита, влито
+# нечего, и `branch-audit.sh --prune-merged` её не снимает (ws#847, круг 2).
+# Такие ветки в счёт не идут: иначе хук звал бы к уборке, которой не будет, на
+# каждом обращении — порог на штатном состоянии перестаёт читаться.
 # Ствол у него один — `origin/main`: влитое в ветку эпика или волны он НЕ видит,
 # его находит перепись конца сессии по целям каскада
 # (`git-issues.md#gi-prune-session-zero`). Схлопнутые и поглощённые пофайлово он
@@ -78,6 +82,10 @@ check_repo() { # $1 = путь, $2 = как называть в выводе
 
   examined_repos=$((examined_repos + 1))
 
+  local -A first_line=()
+  local c h
+  while read -r c; do first_line["$c"]=1; done < <(git -C "$path" rev-list --first-parent "$trunk" 2>/dev/null)
+
   # Ветку, занятую рабочей копией, снимать нельзя, и звать о ней бессмысленно.
   while read -r br; do
     [ -n "$br" ] && occupied+=("$br")
@@ -91,7 +99,9 @@ check_repo() { # $1 = путь, $2 = как называть в выводе
     local skip=0 o
     for o in ${occupied[@]+"${occupied[@]}"}; do [ "$o" = "$b" ] && skip=1; done
     [ "$skip" = 1 ] && continue
-    git -C "$path" merge-base --is-ancestor "$b" "$trunk" 2>/dev/null && n=$((n + 1))
+    git -C "$path" merge-base --is-ancestor "$b" "$trunk" 2>/dev/null || continue
+    h=$(git -C "$path" rev-parse --verify --quiet "refs/heads/$b" 2>/dev/null) || continue
+    [ -n "${first_line[$h]+x}" ] || n=$((n + 1))
   done < <(git -C "$path" branch --format='%(refname:short)' 2>/dev/null)
 
   [ "$n" -gt 0 ] && findings+=("$label: не менее $n локальных веток уже в стволе")
@@ -104,7 +114,7 @@ check_repo "$ws" "воркспейс"
 if [ "${#findings[@]}" -ne 0 ]; then
   echo "🌿 ВЛИТЫЕ ЛОКАЛЬНЫЕ ВЕТКИ — они и рисуют «повисшие куски» в git log --all --graph"
   printf '   %s\n' "${findings[@]}"
-  echo "   Это НИЖНЯЯ ГРАНИЦА: считаны только предки ствола. Схлопнутые и поглощённые"
+  echo "   Это НИЖНЯЯ ГРАНИЦА: считаны только предки ствола со своим коммитом. Схлопнутые и поглощённые"
   echo "   пофайлово хук не видит — их находит перепись, она же их и снимает."
   echo "   Ветки к разбору → git-operator, переписью и снятием В ОДНОЙ полосе:"
   echo "     ./scripts/branch-audit.sh [project/kacho]                 # посмотреть"
