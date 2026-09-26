@@ -11,8 +11,8 @@
 # показано, что на настоящей находке она краснеет И называет имя.
 #
 # Число утверждений здесь не выписывается: его печатает последняя строка
-# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN;
-# что держит каждая —
+# прогона, счётом вызовов say. Метки: A, A2, B–Z, R2, Y2, AA–AZ, BA–BZ, CA–CN,
+# EW1–EW14; что держит каждая —
 #   A. ветка-работа без origin и с непустой дельтой → код 1 + её имя в выводе;
 #   B. влитая ветка → код 0, её имени в списке «единственный экземпляр» нет;
 #   C. ПЯТЫЙ ПРИЗНАК: ветка не предок ствола, нет на origin, но содержимое
@@ -27,6 +27,17 @@
 #   L. законный близнец к K: тот же силуэт, но содержимого ствол не видел →
 #      ОСТАЁТСЯ находкой с именем (иначе шестой глушил бы настоящую работу);
 #   M. работа влита в накопительную origin/release/* → не находка, источник назван;
+#   EW. волна влита в ветку эпика (`--no-ff`), её локальной ветки на origin нет →
+#      «ВЛИТЫ» с источником origin/<эпик>; близнец — волна, в эпик не влитая, и
+#      ветка задачи — «единственный экземпляр»; шапка называет эпик среди стволов,
+#      а ветку задачи — нет (ws#821). Эпик выводится как база PR, не по имени;
+#   EW5–EW12. ЦЕЛИ КАСКАДА — СТВОЛЫ (сведение ws#821 и ws#847): база PR — ствол и
+#      цель каскада, её копия не снята (EW5); свежая ветка задачи от волны без
+#      своего коммита держится первой линией волны (EW6); волна без PR из
+#      BRANCH_AUDIT_KEEP — ствол, сведённая в неё задача снята (EW7), без перечня
+#      — единственный экземпляр (EW8, близнец); цель каскада на origin без
+#      запроса — не сирота (EW13, близнец — BE); мутанты EW9–EW12, EW14 красят
+#      каждый своё утверждение (EW5, EW7, EW4, EW6, EW13);
 #   N. объём по новым осям напечатан (стволов в сверке, шестой признак спрошен);
 #   O/P/Q. --prune-merged снимает влитое, НЕ трогает единственные экземпляры и
 #      занятые рабочей копией, и называет причину каждого пропуска;
@@ -254,6 +265,29 @@ git commit -qm "схлопнуто в накопительную ветку"
 git push -qu origin release/accum >/dev/null 2>&1
 git checkout -q main
 
+# --- EW. ЭПИК И ВОЛНА — стволы по РОЛИ (ws#821) ----------------------------------
+# Все три ветки дерева эпик → волна → задача называются числом, поэтому имя не
+# признак: эпик становится стволом как база PR волны. Волна 901 влита в эпик 900
+# коммитом слияния и на origin не отправлялась; 902 — близнец, в эпик не влитая;
+# 903 — задача волны 901, не влитая никуда.
+git checkout -qb 900 main
+echo "эпик" > epic.txt
+git add epic.txt && git commit -qm "ветка эпика"
+git push -qu origin 900 >/dev/null 2>&1
+git checkout -qb 901 900
+echo "работа волны" > wave.txt
+git add wave.txt && git commit -qm "работа волны"
+git checkout -q 900
+git merge -q --no-ff -m "влить волну 901 в эпик" 901
+git push -q origin 900 >/dev/null 2>&1
+git checkout -qb 902 900
+echo "работа волны, в эпик не влитой" > wave2.txt
+git add wave2.txt && git commit -qm "волна-близнец"
+git checkout -qb 903 901
+echo "работа задачи" > task.txt
+git add task.txt && git commit -qm "задача волны, не влитая"
+git checkout -q main
+
 # --- R. ТРЕТИЙ ЗАМЕР, сторона МОЛЧАНИЯ ------------------------------------------
 # Ветка создала файл; в ствол он попал ДРУГИМ блобом — с дописанной строкой,
 # как бывает после доработки по ревью. Поэтому (6а) не ложится (содержимое
@@ -366,6 +400,9 @@ printf 'pr-merged-early-draft\t102\tMERGED\n' >> "$PRFILE"
 # между ними перестаёт быть различием ДЕЛЬТЫ — а проверяется именно оно.
 printf 'gen-only-delta\t103\tMERGED\n'  >> "$PRFILE"
 printf 'gen-plus-author\t104\tMERGED\n' >> "$PRFILE"
+# Пятая колонка — база PR: так ветка эпика становится стволом (ws#821); она
+# требует четвёртой — признака чужого репозитория.
+printf '901\t105\tMERGED\tfalse\t900\n' >> "$PRFILE"
 export BRANCH_AUDIT_PR_STATE_FILE="$PRFILE"
 
 # --- AA/AB/AC/AD/AE. ЛОКАЛЬ: `comm` из PATH может ошибаться НЕЗАВИСИМО от -----
@@ -650,6 +687,29 @@ if grep -qE 'отсеяно машинно собираемых файлов [1-
   say "✅ Y2" "число отсеянного напечатано — отсев отличим от «находок не было»"
 else
   say "❌ Y2" "отсев молчит: ноль находок неотличим от ноля прочитанного"; fail=1
+fi
+
+# --- EW1–EW4. эпик и волна как стволы, ветка задачи — нет (ws#821) -------------
+if awk '/^── ВЛИТЫ/,/^── НА ORIGIN/' <<<"$OUT" | grep -c '^   901 .*относительно origin/900' >/dev/null; then
+  say "✅ EW1" "волна, влитая в эпик, — в «ВЛИТЫ», источник origin/900 назван"
+else
+  say "❌ EW1" "волна 901, влитая в эпик, не отнесена к влитым с источником origin/900"; fail=1
+fi
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c '^   902 ' >/dev/null; then
+  say "✅ EW2" "близнец: волна, в эпик не влитая, — единственный экземпляр"
+else
+  say "❌ EW2" "волна 902, в эпик не влитая, не названа единственным экземпляром"; fail=1
+fi
+if awk '/ТОЛЬКО ЛОКАЛЬНО/,/^── ЖИВЫЕ/' <<<"$OUT" | grep -c '^   903 ' >/dev/null &&
+   ! grep -E '^branch-audit: стволов в сверке' <<<"$OUT" | grep -c 'origin/903' >/dev/null; then
+  say "✅ EW3" "ветка задачи, не влитая никуда, — единственный экземпляр, а не ствол"
+else
+  say "❌ EW3" "ветка задачи 903 стала стволом либо выпала из единственного экземпляра"; fail=1
+fi
+if grep -E '^branch-audit: стволов в сверке' <<<"$OUT" | grep -c 'origin/900 (база PR' >/dev/null; then
+  say "✅ EW4" "шапка называет ветку эпика среди стволов сверки"
+else
+  say "❌ EW4" "шапка не называет origin/900 среди стволов сверки"; fail=1
 fi
 
 # --- AA. ветка с триггерным содержимым классифицирована ВЕРНО ------------------
@@ -979,6 +1039,7 @@ git -C "$TMP/work" branch -D locale-comm-census-work >/dev/null
 # не маска: снятие этой ветки И ЕСТЬ проверяемое свойство.
 git -C "$TMP/work" branch -D gen-only-delta >/dev/null 2>&1 || true
 git -C "$TMP/work" branch -D gen-plus-author >/dev/null
+git -C "$TMP/work" branch -D 902 903 >/dev/null
 set +e
 OUT2=$("$AUDIT" "$TMP/work" 2>&1); RC2=$?
 set -e
@@ -1766,6 +1827,122 @@ CT_FRESH=45 ct_mutant CL CJ '  moved=$(ref_moved_ct "$2")' '  moved=$(git log -1
 ct_mutant CN CM $'    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
   $'    git merge-base --is-ancestor "refs/heads/$b" "$TRUNK" || { echo "   оставлена $b — не предок ствола"; kept=$((kept+1)); continue; }\n    if git branch -D "$b" >/dev/null 2>&1; then\n      echo "   СНЯТА $b"' \
   "снятие переписью сужено до предков цели" "оставлена leak — не предок ствола"
+
+# --- EW5–EW12. ЦЕЛИ КАСКАДА — СТВОЛЫ СВЕРКИ (ws#821 × ws#847) ------------------
+# Сведение двух работ: стволы эпиков и волн (ws#821) и защита целей каскада
+# (ws#847) судят одни и те же ветки. Три факта, и у каждого — законный близнец
+# либо мутант, красящий своё утверждение:
+#   * база PR на origin — ствол И цель каскада: её местная копия, равная origin,
+#     поглощается своей же копией, и без пометки ушла бы «к снятию» (EW5, EW9);
+#   * волна флоу v2 без единого PR, названная в BRANCH_AUDIT_KEEP, — ствол: задача,
+#     сведённая в неё местным слиянием и не отправленная, — во «ВЛИТЫ» и снята
+#     (EW7); без перечня — единственный экземпляр (EW8, близнец); мутант (EW10);
+#   * первая линия берётся и у цели каскада: свежая ветка задачи от волны, без
+#     своего коммита, на давнем коммите волны, со свежим журналом ссылки,
+#     держится окном (EW6); мутант «первая линия только у ствола» (EW12).
+# Эпик 700 — база запроса 701 (PR из файла); волна 711 запросов не имеет.
+ev_build() { # $1 = каталог
+  local d=$1 old='2026-09-01T00:00:00Z'
+  rm -rf "$d" "$d-origin.git"
+  git init -q --bare "$d-origin.git"
+  git init -q -b main "$d"
+  (
+    cd "$d"
+    git config user.email inject@example.invalid
+    git config user.name inject
+    git config commit.gpgsign false
+    git remote add origin "$d-origin.git"
+    export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
+    echo ствол > t.txt && git add t.txt && git commit -qm "ствол"
+    git push -qu origin main
+    git checkout -qb 700 && echo эпик > e.txt && git add e.txt && git commit -qm "эпик"
+    git push -qu origin 700
+    git checkout -qb 711 700 && echo волна > w.txt && git add w.txt && git commit -qm "волна"
+    git checkout -qb 712 711 && echo задача > task.txt && git add task.txt && git commit -qm "задача"
+    git checkout -q 711 && git merge -q --no-ff -m "сборка: 712 в волну" 712
+    git push -qu origin 711
+    # Запись журнала ссылки берёт время коммиттера: давнее время снимается, иначе
+    # журнал 713 был бы давним, и окно её не держало бы.
+    unset GIT_AUTHOR_DATE GIT_COMMITTER_DATE
+    git branch 713 711
+    git checkout -q --detach
+  ) >/dev/null 2>&1
+  printf '701\t301\tMERGED\tfalse\t700\n' > "$d.pr"
+}
+ev_run() { # $1 = исполняемый, $2 = BRANCH_AUDIT_KEEP → EV_OUT; каталог — $EV
+  ev_build "$EV"
+  set +e
+  EV_OUT=$(env BRANCH_AUDIT_NO_FETCH=1 BRANCH_AUDIT_FRESH_MIN=45 BRANCH_AUDIT_PR_STATE_FILE="$EV.pr" \
+    BRANCH_AUDIT_KEEP="$2" "$1" --prune-merged "$EV" 2>&1)
+  set -e
+}
+ev_ref() { git -C "$EV" rev-parse --verify --quiet "refs/heads/$1" >/dev/null; }
+ev_trunks() { grep -E '^branch-audit: стволов в сверке' <<<"$EV_OUT" || true; }
+EV="$TMP/cascade-trunks"
+ev_run "$AUDIT" "711"; EV_BASE=$EV_OUT
+
+if ev_trunks | grep -c 'origin/700 (база PR' >/dev/null &&
+   f_has "$EV_BASE" "ВЛИТЫ" "700 —" 'ЦЕЛЬ КАСКАДА' &&
+   grep -qF 'оставлена 700 — цель каскада' <<<"$EV_BASE" && ev_ref 700; then
+  say "✅ EW5" "база PR на origin — ствол и цель каскада: её копия, поглощённая своей же, не снята"
+else
+  say "❌ EW5" "местная копия базы PR 700 снята либо не помечена целью каскада"; fail=1
+  grep -F '700' <<<"$EV_BASE" | head -4 || true
+fi
+if grep -qF 'оставлена 713 — своего коммита нет' <<<"$EV_BASE" && ev_ref 713 &&
+   f_has "$EV_BASE" "ВЛИТЫ" "713 —" 'СВОЕГО КОММИТА НЕТ'; then
+  say "✅ EW6" "свежая ветка задачи от волны-ствола, без своего коммита, держится первой линией волны"
+else
+  say "❌ EW6" "ветка 713 без своего коммита снята либо не помечена — первая линия волны не прочитана"; fail=1
+  grep -F '713' <<<"$EV_BASE" | head -3 || true
+fi
+if ev_trunks | grep -c 'origin/711 (цель каскада)' >/dev/null &&
+   f_has "$EV_BASE" "ВЛИТЫ" "712 —" 'относительно origin/711' &&
+   grep -qF 'СНЯТА 712' <<<"$EV_BASE" && ! ev_ref 712; then
+  say "✅ EW7" "волна без PR из BRANCH_AUDIT_KEEP — ствол: сведённая в неё задача во «ВЛИТЫ» и снята"
+else
+  say "❌ EW7" "волна 711 из BRANCH_AUDIT_KEEP не ствол либо задача 712 не снята"; fail=1
+  grep -F -e '712' -e 'стволов в сверке' <<<"$EV_BASE" | head -4 || true
+fi
+# EW13 — цель каскада на origin без запроса не сирота: раздел «без предмета»
+# зовёт проверить ветку перед снятием, а волна и эпик без PR — штатное состояние.
+# Близнец — BE: давняя ветка без PR вне целей там названа.
+if ! f_sec "$EV_BASE" "НА ORIGIN" | grep -E -c '^   (700|711) — PR не заводился' >/dev/null; then
+  say "✅ EW13" "эпик и волна на origin без запроса не названы ветками без предмета"
+else
+  say "❌ EW13" "цель каскада на origin названа веткой «PR не заводился»"; fail=1
+  f_sec "$EV_BASE" "НА ORIGIN" | head -4 || true
+fi
+ev_run "$AUDIT" ""; EV_NOKEEP=$EV_OUT
+if f_has "$EV_NOKEEP" "ТОЛЬКО ЛОКАЛЬНО" "712 " 'НЕТ на origin' && ev_ref 712 &&
+   ! ev_trunks | grep -c 'origin/711' >/dev/null; then
+  say "✅ EW8" "близнец EW7: без перечня целей волна без PR не ствол, задача — единственный экземпляр"
+else
+  say "❌ EW8" "без BRANCH_AUDIT_KEEP волна 711 всё равно ствол либо задача 712 не названа единственной"; fail=1
+fi
+
+ev_mutant() { # $1 = метка, $2 = утверждение, $3 = было, $4 = стало, $5 = что снято, $6 = признак красного
+  local m="$TMP/ev-mutant.sh"
+  if ! mutate "$m" "$3" "$4"; then
+    say "❌ $1" "мутация не легла — строки факта в скрипте нет: $5"; fail=1; return
+  fi
+  ev_run "$m" "711"
+  if grep -qF -- "$6" <<<"$EV_OUT"; then
+    say "✅ $1" "мутация «$5» красит $2: $6"
+  else
+    say "❌ $1" "мутация «$5» не красит $2 — утверждение слепо к снятому факту"; fail=1
+  fi
+}
+ev_mutant EW9 EW5 '      FP_TRUNKS+=("$TRUNK_ADDED"); KEEP["$base"]=1;' '      FP_TRUNKS+=("$TRUNK_ADDED");' \
+  "база PR — ствол, но не цель каскада" "оставлена 700 — своего коммита нет"
+ev_mutant EW10 EW7 '    trunk_add "$k" "цель каскада" && FP_TRUNKS+=("$TRUNK_ADDED")' '    :' \
+  "цель из BRANCH_AUDIT_KEEP не ствол" "   712 (+"
+ev_mutant EW11 EW4 '    if trunk_add "$base" "база PR — эпик/волна"; then' '    if false; then' \
+  "база PR не ствол" "стволов в сверке 2 — "
+ev_mutant EW12 EW6 'git rev-list --first-parent "${FP_TRUNKS[@]}" --' 'git rev-list --first-parent "$TRUNK" --' \
+  "первая линия только у ствола" "СНЯТА 713"
+ev_mutant EW14 EW13 ' && [ -z "${KEEP[$b]+x}" ]; then' '; then' \
+  "цель каскада на origin — сирота" "711 — PR не заводился"
 
 echo
 if [ "$fail" -eq 0 ]; then
