@@ -18,10 +18,11 @@ name: ci
 # инъекцией в обе стороны; это не комментарий, а проверка.
 #
 # ОБРАТНОЕ НЕВЕРНО, И ЭТО НАДО ЧИТАТЬ КАК ФАКТ, А НЕ КАК НЕДОСМОТР. Заданий ниже
-# ДЕВЯТЬ: `change-graph-proofs` заведён 2026-09-02 (ws#504) и в перечень
-# обязательных контекстов НЕ входит — его красное видно в перечне проверок PR,
-# но слияние не блокирует. Прежняя редакция этой строки утверждала «ровно восемь
-# job'ов ниже» и стала бы ложью в момент появления девятого. Предикат остатка:
+# БОЛЬШЕ, чем контекстов: `change-graph-proofs` (ws#504) и `product-trunk-gates`
+# (ws#724) в перечень обязательных контекстов НЕ входят. Число заданий здесь не
+# выписано — «ровно восемь» и «девять» просрочились по разу, с каждым новым
+# заданием; предикат — `python3 -c 'import yaml; print(len(yaml.safe_load(open(
+# ".github/workflows/ci.yaml"))["jobs"]))'`. Предикат остатка:
 #
 #   gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
 #     --jq '.required_status_checks.contexts[]' | grep -c 'оснастка контура'
@@ -643,3 +644,65 @@ jobs:
         run: bash scripts/change-graph-gate/inject.sh
       - name: дорогая полоса — доказательства падучести контура
         run: bash scripts/change-graph-gate/prove-all.sh
+
+  # ── НАБОРЫ, СВЕРЯЮЩИЕ СТВОЛЫ ТРЁХ ПРОДУКТОВ (ws#724, возврат check-verifier) ─
+  #
+  # `foundation-candidates`, `comment-language-gate` и `crossrepo-gate` судят не
+  # это дерево, а стволы `kacho`, `kaname` и `corelib` рядом с ним. Ни одно
+  # задание их не звало (`grep scripts/<набор>/ ci.yaml` — 0/0/0 на 58631015), а
+  # хук отправки без клонов отдаёт им VOID: проверки существовали и не судили
+  # предмет нигде. Здесь предпосылку создают шаги задания — три клона в
+  # `project/<имя>`, — поэтому VOID под `bash -e` роняет шаг: это поломка
+  # создания условия, а не факт расписания.
+  #
+  # `fetch-depth: 0` у каждого клона — ПРЕДПОСЫЛКА, а не запас. Ведомости обоих
+  # храповиков закрепляют РЕВИЗИЮ ствола (`docs/foundation-candidates.yaml`,
+  # `docs/comment-language.yaml` — `rev`) и спрашивают, предок ли она ствола;
+  # мелкий клон не несёт ни ревизии, ни истории, и каждый прогон был бы VOID.
+  #
+  # Своё задание, а не шаги соседнего: трёх клонов нет ни у одного, а довод
+  # «имя контекста обязательно поимённо» снят вместе с обязательными контекстами
+  # (решение владельца 2026-09-20). Триггер у процесса один — `workflow_dispatch`.
+  product-trunk-gates:
+    name: наборы, сверяющие стволы продуктов, судят их, а не пустоту
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: '3.12' }
+      - name: checkout монорепо в project/kacho
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kacho
+          ref: main
+          path: project/kacho
+          fetch-depth: 0
+      - name: checkout службы доступа в project/kaname
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/kaname
+          ref: main
+          path: project/kaname
+          fetch-depth: 0
+      - name: checkout фундамента в project/corelib
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/corelib
+          ref: main
+          path: project/corelib
+          fetch-depth: 0
+      # Сначала — доказательство, что гейт СПОСОБЕН упасть и способен смолчать:
+      # инъекции строят синтетические стволы и живых клонов не читают.
+      - name: foundation-candidates доказан инъекцией
+        run: bash scripts/foundation-candidates/inject.sh
+      - name: вторая прописка — решение у каждого предмета, храповик по закреплённым ревизиям
+        run: bash scripts/foundation-candidates/run-all.sh
+      - name: comment-language-gate доказан инъекцией
+        run: bash scripts/comment-language-gate/inject.sh
+      - name: язык комментария — храповик по закреплённым ревизиям
+        run: bash scripts/comment-language-gate/run-all.sh
+      - name: crossrepo-gate доказан инъекцией
+        run: bash scripts/crossrepo-gate/inject.sh
+      - name: одноимённые файлы двух стволов объявлены ведомостью пар
+        run: bash scripts/crossrepo-gate/run-all.sh

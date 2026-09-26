@@ -84,9 +84,20 @@ quota_test` и импортирует СВОЙ ЖЕ пакет; снизу эт�
 
 ЧТО ЧИТАЕТСЯ
 
-СТВОЛ `origin/main` каждого клона, содержимое — `git cat-file --batch`, не
-рабочая копия (`poly-copy-trunk-predicate`). На грязном дереве или на ветке чтение
-рабочей копии мерило бы другой предмет, и мерило бы молча.
+РЕВИЗИЯ каждого клона, содержимое — `git cat-file --batch`, не рабочая копия
+(`poly-copy-trunk-predicate`). На грязном дереве или на ветке чтение рабочей копии
+мерило бы другой предмет, и мерило бы молча. Какая ревизия — решает вызывающий:
+ствол `origin/main` по умолчанию либо ЗАКРЕПЛЁННАЯ ревизия ведомости (`revs`).
+
+ПОЧЕМУ ВЕРДИКТ НЕ ИДЁТ ЗА СОСТОЯНИЕМ `fetch` КЛОНА (возврат check-verifier, #724)
+
+Ствол клона — не ствол продукта, а то, что в клон последний раз подтянули. Без
+точки отсчёта в ведомости отставший клон читался как изменение продукта: клон
+kacho с `origin/main` на `f445aaaa554` при нетронутом воркспейсе давал «РОСТ
+subjects+1 files+2» — не выросло ничего, клон был старым. Поэтому ведомость
+закрепляет ревизию каждого ствола (`ceiling.rev`), и `pin_state` сверяет её со
+стволом клона ДО замера: ствол ПОЗАДИ закреплённой ревизии — «считать не по чему»,
+а не находка о продукте. Та же форма, что у `scripts/comment-language-gate`.
 """
 import os
 import re
@@ -124,6 +135,115 @@ def trunk_ref(repo):
         if out.returncode == 0:
             return ref
     return None
+
+
+_REV = re.compile(r"^[0-9a-f]{40}$")
+
+
+def resolve(repo, rev):
+    """Полная ревизия коммита либо None — её в клоне нет."""
+    out = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "--quiet",
+                          rev + "^{commit}"], capture_output=True, text=True)
+    return out.stdout.strip() if out.returncode == 0 and out.stdout.strip() else None
+
+
+def is_ancestor(repo, older, newer):
+    return subprocess.run(["git", "-C", repo, "merge-base", "--is-ancestor",
+                           older, newer], capture_output=True).returncode == 0
+
+
+def declared_revs(text):
+    """({продукт: ревизия}, [неразобранное]) из блока `rev:` под `ceiling:`.
+
+    Форма: `ceiling:`, под ним по два пробела `rev:`, под ним по четыре — имя
+    продукта и полная ревизия. Строка внутри `rev:`, не подошедшая под форму, —
+    ошибка разбора, а не пропуск: опечатка в имени продукта иначе делала бы
+    закрепление необъявленным молча.
+    """
+    revs, bad, inside, in_rev = {}, [], False, False
+    for n, raw in enumerate(text.split("\n"), 1):
+        if raw.startswith("ceiling:"):
+            inside = True
+            continue
+        if not inside:
+            continue
+        if raw[:1] not in (" ", "\t", "#", ""):
+            break
+        s = raw.split("#", 1)[0].rstrip()
+        if not s.strip():
+            continue
+        if re.match(r"^  rev:\s*$", s):
+            in_rev = True
+            continue
+        if re.match(r"^  \S", s):
+            in_rev = False
+            continue
+        if not in_rev:
+            continue
+        m = re.match(r"^    (\w+):\s*(\S+)\s*$", s)
+        if m and m.group(1) in PRODUCTS:
+            revs[m.group(1)] = m.group(2).strip("\"'")
+        else:
+            bad.append("строка %d «%s»" % (n, raw.strip()))
+    return revs, bad
+
+
+def pin_state(root, revs):
+    """Сверка закреплённых ревизий со стволами клонов — ПРЕДПОСЫЛКА вердикта.
+
+    Закреплённая ревизия обязана быть предком ствола клона либо им самим. Ствол
+    ПОЗАДИ неё — клон не подтянут (или ревизия есть коммит ветки поверх ствола:
+    без сети их не различить) — это «считать не по чему», а не находка. Ревизия
+    ни предок, ни потомок ствола — находка: точкой отсчёта стал коммит, которого
+    в стволе нет.
+
+    {"pins": {продукт: ревизия}, "trunks": {продукт: ревизия}, "findings": […],
+    "voids": […]}; `pins` и `trunks` полны только при пустых `findings`/`voids`.
+    """
+    res = {"pins": {}, "trunks": {}, "findings": [], "voids": []}
+    for name in PRODUCTS:
+        decl = revs.get(name)
+        if decl is None:
+            res["voids"].append("%s: ведомость не закрепляет ревизию ствола (`ceiling.rev.%s`) "
+                                "— сверять не с чем" % (name, name))
+            continue
+        if not _REV.match(decl):
+            res["findings"].append("%s: `rev: %s` — не полная ревизия (40 знаков): "
+                                   "сокращённая неоднозначна со временем, а имя ветки "
+                                   "движется" % (name, decl))
+            continue
+        repo = clone(root, name)
+        if repo is None:
+            res["voids"].append("%s: клона нет — условие создаётся клоном в "
+                                "project/%s либо переменной KACHO_HOME_%s"
+                                % (name, name, name.upper()))
+            continue
+        ref = trunk_ref(repo)
+        trunk = resolve(repo, ref) if ref else None
+        if trunk is None:
+            res["voids"].append("%s: ствол клона %s не резолвится" % (name, repo))
+            continue
+        pin = resolve(repo, decl)
+        if pin is None:
+            res["voids"].append("%s: закреплённой ревизии %s в клоне %s нет — подтянуть "
+                                "ствол клона (`git fetch`), сверять не с чем"
+                                % (name, decl[:11], repo))
+            continue
+        if pin != trunk and not is_ancestor(repo, pin, trunk):
+            if is_ancestor(repo, trunk, pin):
+                res["voids"].append("%s: ствол клона %s (%s) ПОЗАДИ закреплённой ревизии "
+                                    "%s — ссылку не тянули либо ревизия есть коммит ветки "
+                                    "поверх ствола; подтянуть ствол клона и прогнать заново"
+                                    % (name, ref, trunk[:11], pin[:11]))
+            else:
+                res["findings"].append("%s: закреплённая ревизия %s НЕ НА СТВОЛЕ %s (%s): "
+                                       "точкой отсчёта стал коммит, которого в стволе нет, "
+                                       "— числа о нём о продукте не говорят"
+                                       % (name, pin[:11], ref, trunk[:11]))
+            continue
+        res["pins"][name] = pin
+        res["trunks"][name] = trunk
+    return res
 
 
 def go_paths(repo, ref):
@@ -384,17 +504,21 @@ def groups_of(edges):
     return [sorted(v) for v in out.values()]
 
 
-def measure(root, threshold=0.70, relicense_busl=False, relicense_agpl=False):
-    """Полный замер. Возвращает словарь; None — предмета нет (третий исход)."""
+def measure(root, threshold=0.70, relicense_busl=False, relicense_agpl=False, revs=None):
+    """Полный замер. Возвращает словарь; ключ `void` — предмета нет (третий исход).
+
+    `revs` — {продукт: ревизия}, по которой мерить; без него — ствол клона.
+    """
     trees, missing = {}, []
     for name in PRODUCTS:
         repo = clone(root, name)
         if repo is None:
             missing.append(name)
             continue
-        ref = trunk_ref(repo)
+        ref = trunk_ref(repo) if revs is None else revs.get(name)
         if ref is None:
-            missing.append(name + " (ствол не резолвится)")
+            missing.append(name + (" (ствол не резолвится)" if revs is None
+                                   else " (ревизия замера не названа)"))
             continue
         trees[name] = Tree(name, repo, ref)
         trees[name].sha = subprocess.run(

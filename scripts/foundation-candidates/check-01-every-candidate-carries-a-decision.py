@@ -58,8 +58,17 @@
 публикации. Зубы яруса 1 (третья прописка запрещена) — в `check-02`, и они
 работают сегодня.
 
+ПРЕДПОСЫЛКА — СТВОЛ КЛОНА НЕ ПОЗАДИ ЗАКРЕПЛЁННОГО (возврат check-verifier, #724).
+Судится ствол клона, а он есть то, что в клон последний раз подтянули: отставший
+клон назвал бы «кандидатом без решения» предмет, давно решённый на стволе
+продукта, и «записью без предмета» — запись о предмете, который на стволе есть.
+Поэтому до замера сверяется закрепление ведомости (`ceiling.rev`, его судит
+`check-02`): ствол позади закреплённой ревизии либо закрепление не установлено —
+«считать не по чему», а не находка о решениях.
+
 Исходы: 0 — каждый кандидат несёт решение, записей без предмета нет;
-1 — находка; 2 — считать не по чему (клонов нет либо обход пуст).
+1 — находка; 2 — считать не по чему (клонов нет, ствол клона позади
+закреплённого, обход пуст).
 """
 import os
 import sys
@@ -112,7 +121,21 @@ def main():
         os.environ.get("RELICENSE_DECIDED") == "1"
     agpl = os.environ.get("RELICENSE_AGPL_DECIDED") == "1"
 
-    m = _core.measure(root, threshold, busl, agpl)
+    text = _lib.read(root, LEDGER) if os.path.exists(os.path.join(root, LEDGER)) else None
+    if text is None:
+        _lib.void(NAME, "ведомость %s не прочитана — судить решения не по чему" % LEDGER)
+        return 2
+    revs, bad = _core.declared_revs(text)
+    ps = _core.pin_state(root, revs)
+    premise = ["ведомость не разобрана в блоке `ceiling.rev`: %s" % "; ".join(bad)] if bad \
+        else ps["voids"] + ps["findings"]
+    if premise:
+        _lib.void(NAME, "предпосылка не установлена — %s. Ствол клона, не сверенный с "
+                        "закреплённым, судил бы решения по тому, что в клон подтянули, а не "
+                        "по продукту; закрепление судит check-02" % "; ".join(premise))
+        return 2
+
+    m = _core.measure(root, threshold, busl, agpl, revs=ps["trunks"])
     if "void" in m:
         _lib.void(NAME, "%s — второй прописки считать не по чему" % m["void"])
         return 2
@@ -121,10 +144,6 @@ def main():
                         "здесь означало бы «ноль прочитанного»")
         return 2
 
-    text = _lib.read(root, LEDGER)
-    if text is None:
-        _lib.void(NAME, "ведомость %s не прочитана — судить решения не по чему" % LEDGER)
-        return 2
     rows = parse(text)
 
     _lib.census("%s: стволов %d (%s); осмотрено `.go` %d, сравнимых %d; ПРЕДМЕТОВ со "

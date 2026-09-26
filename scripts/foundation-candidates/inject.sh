@@ -24,6 +24,15 @@
 #   F  ложно ИСКЛЮЧЁННЫЙ · САМОИМПОРТ: внешний тестовый пакет своего предмета
 #   G  ложно ИСКЛЮЧЁННЫЙ · ЦИКЛ из двух предметов
 #   H  довод `keep` судится ПО СУЩЕСТВУ, а не по непустоте (две пары)
+#   I  храповик на УБЫЛЬ · объявлено ВЫШЕ замера на закреплённых ревизиях
+#   J  закрепление против ствола КЛОНА · вердикт не идёт за состоянием `fetch`
+#      (шесть пар: ствол позади, ствол впереди с ростом, убыль на стволе — запас,
+#      ревизия не на стволе, ревизии нет в клоне, сокращённая ревизия)
+#
+# I и J заведены возвратом check-verifier (#724): ветку убыли можно было снять,
+# и инъекция оставалась зелёной 26 из 26; клон kacho, отставший от ствола, давал
+# «РОСТ» при нетронутом воркспейсе. На прежней редакции `check-02` (без `rev`)
+# дефект J1 даёт 1 вместо 2, а снятая ветка убыли — 0 вместо 1 на осях I и J3.
 #
 # F и G заведены приёмкой 2026-09-21: ось B проверяла НЕПОДВИЖНУЮ ТОЧКУ только
 # нерекурсивным случаем, и обе рекурсии — самоимпорт и цикл — были не покрыты
@@ -104,8 +113,16 @@ build() {
     printf 'pairs: []\n' > "$r/docs/crossrepo-pairs.yaml"
 }
 
-ledger() {  # ledger <корень> <subjects> <files> <actionable> [строки решений]
-    { printf 'ceiling:\n  subjects: %s\n  files: %s\n  actionable: %s\n' "$2" "$3" "$4"
+# ledger <корень> <subjects> <files> <actionable> [строки решений] — ведомость с
+# ЗАКРЕПЛЁННЫМИ ревизиями. По умолчанию закреплён ствол каждого клона (`origin/main`
+# после `seal`); `PIN_<ПРОДУКТ>=<ревизия>` закрепляет другое — этим живут оси I и J.
+ledger() {
+    local p v
+    { printf 'ceiling:\n  subjects: %s\n  files: %s\n  actionable: %s\n  rev:\n' "$2" "$3" "$4"
+      for p in kacho kaname corelib; do
+          v="PIN_$(printf '%s' "$p" | tr '[:lower:]' '[:upper:]')"
+          printf '    %s: %s\n' "$p" "${!v:-$(git -C "$1/project/$p" rev-parse refs/remotes/origin/main 2>/dev/null)}"
+      done
       printf 'decisions:%s\n' "${5:-" []"}"; } > "$1/docs/foundation-candidates.yaml"
 }
 
@@ -115,9 +132,14 @@ run() {  # run <корень> <проверка> → печатает код
     # дефекте.
     env -u KACHO_HOME_KACHO -u KACHO_HOME_KANAME -u KACHO_HOME_CORELIB \
         DOCS_GATE_ROOT="$1" RELICENSE_BUSL_DECIDED=1 RELICENSE_AGPL_DECIDED=1 \
-        python3 "$HERE/$2" >/dev/null 2>&1
+        python3 "$HERE/$2" > "$1.out" 2>&1
     echo $?
 }
+
+# says <корень> <слово> — «да», если последний прогон по корню НАЗВАЛ причину
+# этим словом. Код без причины доказывает только, что проверка на что-то
+# отреагировала: осям I и J важно, ЧТО она напечатала.
+says() { command grep -q -- "$2" "$1.out" && echo да || echo нет; }
 
 expect() {  # expect <ось> <что за вход> <ожидаемый код> <полученный код>
     if [ "$3" = "$4" ]; then
@@ -365,6 +387,111 @@ for side in defect twin; do
         expect H2 "близнец: класс из восьми — молчит" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
     fi
 done
+
+echo "── ОСЬ I · ХРАПОВИК НА УБЫЛЬ: объявлено ВЫШЕ замера на закреплённых ревизиях"
+echo "   Один факт: объявленное число файлов. Ствол вровень с закреплённым, дерево"
+echo "   одно; ведомость, прощающая 3 при 2, храповиком не является."
+for side in defect twin; do
+    r="$WORK/I-$side"; build "$r"; lane_pair "$r"
+    if [ "$side" = defect ]; then
+        ledger "$r" 1 3 1
+        expect I "дефект: files=3 при замере 2 — ПРОСРОЧЕНА" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect I "дефект: причина названа — ПРОСРОЧЕНА" да "$(says "$r" 'ПРОСРОЧЕНА')"
+    else
+        ledger "$r" 1 2 1
+        expect I "близнец: files=2 при замере 2 — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+# hist <корень> — ствол kacho с историей: A (три копии lane), B (gamma снята,
+# две копии), S — боковой коммит от A с ДЕРЕВОМ B. origin/main = B. Печатает
+# «A B S». S нужен как ревизия, побайтово равная B по содержимому и не лежащая
+# на стволе: различает их только положение в истории.
+hist() {
+    local k="$1/project/kacho" svc d A B S
+    for svc in alpha beta gamma; do
+        d="$k/services/$svc/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+    done
+    for p in kaname corelib; do seal "$1/project/$p"; done
+    seal "$k"; A="$(git -C "$k" rev-parse HEAD)"
+    rm -rf "$k/services/gamma"; seal "$k"; B="$(git -C "$k" rev-parse HEAD)"
+    S="$(git -C "$k" -c user.email=i@i -c user.name=i commit-tree "$B^{tree}" -p "$A" -m S)"
+    printf '%s %s %s' "$A" "$B" "$S"
+}
+KEEP='
+  - package: kacho:services/alpha/internal/lane
+    decision: keep
+    why: "синтетика инъекции"
+    class: 2-политика
+    evidence: kacho:services/alpha/internal/lane/lane.go'
+
+echo "── ОСЬ J · ЗАКРЕПЛЕНИЕ ПРОТИВ СТВОЛА КЛОНА: вердикт не идёт за fetch"
+echo "   J1 · один факт: куда указывает origin/main клона — на закреплённую B или"
+echo "   на её ПРЕДКА A, где копий больше. Прежняя редакция читала A ростом."
+for side in defect twin; do
+    r="$WORK/J1-$side"; build "$r"; read -r A B S <<< "$(hist "$r")"
+    PIN_KACHO="$B" ledger "$r" 1 2 1 "$KEEP"
+    [ "$side" = defect ] && git -C "$r/project/kacho" update-ref refs/remotes/origin/main "$A"
+    if [ "$side" = defect ]; then
+        expect J1 "дефект: ствол клона ПОЗАДИ закреплённого — 2" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect J1 "дефект: причина названа — ПОЗАДИ, не РОСТ" да "$(says "$r" 'ПОЗАДИ закреплённой')"
+        expect J1 "дефект: решения тоже не судятся — 2" 2 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+        expect J1 "дефект: причина — предпосылка, ствол ПОЗАДИ" да "$(says "$r" 'предпосылка не установлена .* ПОЗАДИ')"
+    else
+        expect J1 "близнец: ствол клона = закреплённому — 0" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect J1 "близнец: решения судятся — 0" 0 "$(run "$r" check-01-every-candidate-carries-a-decision.py)"
+    fi
+done
+
+echo "   J2 · один факт: копия ли предмета то, что ствол добавил ПОСЛЕ закреплённого."
+for side in defect twin; do
+    r="$WORK/J2-$side"; build "$r"; read -r A B S <<< "$(hist "$r")"
+    k="$r/project/kacho"
+    if [ "$side" = defect ]; then
+        d="$k/services/gamma/internal/lane"; mkdir -p "$d"; body lane > "$d/lane.go"
+    else
+        d="$k/pkg/outside"; mkdir -p "$d"; other outside > "$d/outside.go"
+    fi
+    seal "$k"
+    PIN_KACHO="$B" ledger "$r" 1 2 1
+    if [ "$side" = defect ]; then
+        expect J2 "дефект: ствол впереди, третья прописка — РОСТ" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect J2 "дефект: причина названа — РОСТ на стволах" да "$(says "$r" 'на стволах клонов .* РОСТ')"
+    else
+        expect J2 "близнец: ствол впереди, чужой пакет — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+    fi
+done
+
+echo "   J3 · один факт: какая ревизия закреплена — A (там files=3 верно) или B"
+echo "   (там 2). Ствол B и ведомость files=3 у обеих сторон одни и те же: убыль"
+echo "   на СТВОЛЕ — запас, убыль против ЗАКРЕПЛЁННОГО — просрочка."
+for side in defect twin; do
+    r="$WORK/J3-$side"; build "$r"; read -r A B S <<< "$(hist "$r")"
+    pin="$A"; [ "$side" = defect ] && pin="$B"
+    PIN_KACHO="$pin" ledger "$r" 1 3 1
+    if [ "$side" = defect ]; then
+        expect J3 "дефект: закреплена B, files=3 при 2 — ПРОСРОЧЕНА" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect J3 "дефект: причина названа — ПРОСРОЧЕНА" да "$(says "$r" 'ПРОСРОЧЕНА')"
+    else
+        expect J3 "близнец: закреплена A, ствол B убыл — запас" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+        expect J3 "близнец: запас напечатан числом" да "$(says "$r" 'запас subjects=0, files=1')"
+    fi
+done
+
+echo "   J4–J6 · одна история, ствол B, числа верны; меняется ТОЛЬКО ревизия в"
+echo "   ведомости. Близнец каждой пары — закреплённая B."
+r="$WORK/J4"; build "$r"; read -r A B S <<< "$(hist "$r")"
+PIN_KACHO="$B" ledger "$r" 1 2 1
+expect J4 "близнец: закреплена B, она же ствол — молчит" 0 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+PIN_KACHO="$S" ledger "$r" 1 2 1
+expect J4 "дефект: закреплён боковой S — НЕ НА СТВОЛЕ" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect J4 "дефект: причина названа — НЕ НА СТВОЛЕ" да "$(says "$r" 'НЕ НА СТВОЛЕ')"
+PIN_KACHO="0123456789abcdef0123456789abcdef01234567" ledger "$r" 1 2 1
+expect J5 "дефект: ревизии нет в клоне — 2" 2 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect J5 "дефект: причина названа — ревизии нет" да "$(says "$r" 'в клоне .* нет')"
+PIN_KACHO="${B:0:11}" ledger "$r" 1 2 1
+expect J6 "дефект: сокращённая ревизия — находка" 1 "$(run "$r" check-02-second-home-count-does-not-grow.py)"
+expect J6 "дефект: причина названа — не полная ревизия" да "$(says "$r" 'не полная ревизия')"
 
 echo
 echo "inject foundation-candidates: сошлось $pass, разошлось $fail"
