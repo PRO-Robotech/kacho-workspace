@@ -3,9 +3,7 @@ name: rule-ai-tooling
 description: "AI-оснастка Kachō: канонический набор и lifecycle"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/ai-tooling.md`
-
-# AI-оснастка Kachō: канонический набор и lifecycle
+**Архив:** `.claude/backup/ai-tooling.md`
 
 ## Оснастка: экземпляр, счёт правил и доставка до агента
 
@@ -14,8 +12,9 @@ at-walker-derives-and-zero-is-failure · перечень целей вывод�
 at-unit-is-tracked-git-element · брать `git ls-files`, объявлять рядом с предикатом · scripts/skills-gate/check-07-declared-counts-match-tree.sh исполняет процитированную команду и сверяет · red: число из памяти; счёт по диску вместо индекса
 at-two-numbers-one-predicate · величину, взятую двумя объявлениями, сверять одним предикатом · check-07 · red: два объявления одной величины разошлись
 at-numbers-held-by-gate · числа правил/агентов/скилов держит гейт, не внимание · check-07, check-03 · red: число просрочено и не замечено
+at-claim-about-own-check-runs-or-lies · утверждение об оснастке, проверяемое только ИСПОЛНЕНИЕМ предмета, пиши с координатой, которую резолвит обход, и со знаменателем обхода; такие числа печатает прибор · scripts/tooling-gate/measure-claims-about-checks.py · red: держатель назван, артефакта нет; «не найдено» без числа осмотренного
 at-settings-without-permissions · не коммитить блок `permissions`/`defaultMode: bypassPermissions` — выбор за каждого, кто сделает клон · scripts/rules-gate/check-09-settings-no-bypass.sh · red: `grep -c permissions .claude/settings.json` не ноль
-at-bypass-not-from-repo-layer · режим обхода из проектного и локального (`.claude/settings.local.json`) слоёв харнесс игнорирует — оба repo-controllable; даёт его только личный `~/.claude/settings.json`, policy или флаг · claude --debug-file <лог> -p … → нет строки `settings defaultMode "bypassPermissions" ignored`; `[session-notices] mode=bypassPermissions` (измерено 2026-09-21, CC 2.1.278) · red: объявление режима лежит в дереве, подтверждения продолжают приходить
+at-bypass-not-from-repo-layer · режим обхода из проектного и локального слоёв харнесс игнорирует (оба repo-controllable); даёт его только личный `~/.claude/settings.json`, policy или флаг · claude --debug-file <лог> -p … → нет строки `settings defaultMode "bypassPermissions" ignored`; `[session-notices] mode=bypassPermissions` (измерено 2026-09-21, CC 2.1.278) · red: объявление режима лежит в дереве, подтверждения продолжают приходить
 at-no-autoload-corpus · автозагрузки корпуса нет: `claudeMdExcludes`, в `CLAUDE.md` ни строки `@` · grep claudeMdExcludes .claude/settings.json · red: правило подгружено автозагрузкой
 at-main-thread-is-agent · агент `dispatcher`, его тело — единственная база маршрутизации и обязано быть самодостаточным (`@import` в теле агента не раскрывается) · grep '"agent"' .claude/settings.json · red: @import в базе диспетчера
 at-rule-preloaded-by-symlink · правило закреплено предзагрузкой: `SKILL.md` — символьная ссылка, агент несёт её в `skills:` · readlink, check-04 · red: правило не в окне агента
@@ -24,8 +23,13 @@ at-rule-star-is-binding · `rule-*` — привязка к правилу, не
 at-debt-three-gates-stale · `check-02` судит по снятой модели `@import` — до правки его вердикт недействителен · check-02 · red: вердикт о снятой модели принят за действующий
 at-skills-roster · перечень канонических скилов (14, без `rule-*`) обязан совпадать с деревом в обе стороны · check-03 · red: строка без каталога либо каталог без строки
 at-godzila-thirteenth · `godzila` отслеживается git и входит в перечень; приоритет ниже правил, выше локального `CLAUDE.md` · check-03 · red: отслеживаемый скил вне перечня
-at-ci-clone-carries-no-tooling · клон продукта не несёт оснастку; CI-проверки — в его дереве, не в `.claude/` · ЗАВЕСТИ at-ci-clone-carries-no-tooling · red: клон без своей CI-проверки продукта
+at-ci-clone-carries-no-tooling · клон продукта не несёт оснастку; CI-проверки — в его дереве, не в `.claude/` · ЗАВЕСТИ · red: клон без своей CI-проверки продукта
 at-dead-asset-does-not-travel · ассет без предмета не заводить «про запас»; исключение обязано самоистекать · --check → STALE-EXCLUSION · red: мёртвый ассет на вид работающий
+at-two-grep-engines · `grep` в Bash-инструменте агента и в скрипте — РАЗНЫЕ движки: обёртка харнесса (ugrep, `-G`) не экспортируется, дочерний bash берёт GNU grep · проба предпосылки в scripts/tooling-gate/inject.sh · red: вердикт команды, набранной руками, перенесён на скрипт без перемера
+at-handrun-predicate-engine-agnostic · выписанный для прогона руками предикат не ставит якорь ветвью альтернативы (`(^|X)` в обёртке молча не совпадает); границу слова пиши `-P` просмотром назад либо `\b` · scripts/tooling-gate/check-12-handrun-predicate-survives-both-greps.sh · red: перепись на образце, в обёртке всегда пустом
+at-rule-address-as-written · ссылка на правило и скил-привязку резолвится ТЕМ адресом, которым написана; архив целью не считается — он не грузится · scripts/rules-gate/check-11-rule-address-exists-as-written.sh · red: путь корпуса ведёт в снятый файл, а гейт базовых имён печатает «ВИСИТ 0»
+at-rule-address-debt-only-shrinks · остаток висячих адресов объявлен поимённо числом и только сокращается; запись, которой нечего исключать, — находка · `scripts/rules-gate/check-11-rule-address-exists-as-written.sh` с `rule-address-baseline.txt` · red: долг вырос молча либо база пережила свой предмет
+at-markup-is-not-a-script · исключение по роли не выдаётся разметке и файлу без строки запуска: судится ФОРМАТ файла, а не `#!` и не перечень каталогов · rules-gate check-11, пары 2 и 4 его инъекции · red: корпус, агент, навык или протокол изъял себя из переписи одной строкой
 
 ## Канонические агенты (единственный экземпляр — `.claude/agents/` воркспейса; копий нет)
 
@@ -40,62 +44,63 @@ at-no-nested-launches · агент не зовёт другого напрям�
 > Счёт: **32** агентов — предикат `git ls-files .claude/agents/ | wc -l`.
 > Перечень — адреса запуска, он сверяется с деревом в обе стороны (`check-03`):
 > строка без файла и файл без строки — обе находки.
+> Что делает агент — поле `description` его файла; здесь оно не повторяется.
 
-- `dispatcher` — выбирает агента под задачу и выставляет последовательность
-- `acceptance-author` — пишет Given-When-Then acceptance-док (markdown, не код) ПЕРЕД любой новой работой
-- `proto-sync` — синхронизирует/адаптирует `.proto` в `kacho-proto` (envelope flat-resources, package…
-- `service-scaffolder` — скелет нового сервиса (cmd/internal/migrations/deploy/CI), без бизнес-логики
-- `rpc-implementer` — реализует один RPC end-to-end строгим TDD (proto→migration→repo(sqlc)→handler→outbox→tests)
-- `go-implementer` — не-RPC правка Go по TDD: багфикс, рефакторинг, corelib/pkg, конфиг, подписки и…
-- `migration-writer` — goose SQL-миграции (JSONB/GIN/UNIQUE/EXCLUDE/CHECK/CAS/triggers)
-- `api-gateway-registrar` — регистрирует новый public RPC в api-gateway (никогда Internal.* на external)
-- `ui-implementer` — `ui-future/**`, включая красную playwright-пробу до фикса
-- `integration-tester` — конвертит APPROVED-сценарии в падающие integration+e2e тесты (TDD red)
-- `docs-writer` — `docs/**`: спека-книга, сайты документации компонентов, README
-- `vault-scribe` — `obsidian/kacho/**`: trail задачи, узкие записки по ресурсам и рёбрам, vault-гейт
-- `deploy-engineer` — `deploy/helm/**`, `values*.yaml`, `terraform/**`, стенд: подъём, выкатка, посев, провенанс…
-- `tooling-maintainer` — `.claude/**`, `scripts/*-gate`, хуки, CI воркспейса
-- `git-operator` — трекер и git: issue, метки, ветка и worktree, commit, push, PR, слияние (только после ✅…
-- `load-tester` — нагрузочные замеры и сравнение прогонов
-- `client-simulator` — имитация клиента с ПУСТЫМ контекстом (`00-kacho-core.md`, ban #18): без протокола и без…
-- `acceptance-reviewer` — единственный gate APPROVED для acceptance-дока (не заказчик)
-- `system-design-reviewer` — распределённые аспекты (dual-write, идемпотентность, OCC, реконсайл, replica-isolation)
-- `db-architect-reviewer` — Postgres-схемы/миграции против `data-integrity.md`…
-- `go-style-reviewer` — Go clean-code (error wrapping, ctx, slog, no panic в prod-path, thin handlers) плюс скил…
-- `proto-api-reviewer` — proto-изменения: package naming, flat-resource envelope, `Get/List` sync +…
-- `ui-reviewer` — пост-дифф ревью `ui-future/**` по нормам, которые не держатся тестами
-- `qa-test-engineer` — расширяет regression-suite (Newman) против acceptance/спеки как источника истины
-- `security-auditor` — поверхность безопасности до кода, раунды аудита, модель прав, публичный текст на…
-- `wave-reviewer` — **единственный, кто видит диффы всех полос РЯДОМ**: принимает их за один заход, ОДИН раз на…
-- `convergence-reviewer` — **единственная** роль, создающая финальную запись схождения перед посадкой: сверяет…
-- `scout` — read-only разведка для диспетчера: состояние дерева, веток, стенда, конвейера и трекера
-- `class-exposure-analyst` — запускается ПЕРЕД первой строкой кода по APPROVED-приёмке или сформулированному замыслу:…
-- `landing-reviewer` — запускается ПЕРЕД посадкой (коммит, мёрж, squash, cherry-pick, push, закрытие тикета) и при…
-- `check-verifier` — приёмка работ-проверок ЭКСПЕРИМЕНТОМ: вернуть дефект, предъявить законный близнец,…
-- `ci-watcher` — читает вердикт конвейера и разбирает красное по корням в трёх категориях, перезапускает…
+- `dispatcher`
+- `acceptance-author`
+- `proto-sync`
+- `service-scaffolder`
+- `rpc-implementer`
+- `go-implementer`
+- `migration-writer`
+- `api-gateway-registrar`
+- `ui-implementer`
+- `integration-tester`
+- `docs-writer`
+- `vault-scribe`
+- `deploy-engineer`
+- `tooling-maintainer`
+- `git-operator`
+- `load-tester`
+- `client-simulator`
+- `acceptance-reviewer`
+- `system-design-reviewer`
+- `db-architect-reviewer`
+- `go-style-reviewer`
+- `proto-api-reviewer`
+- `ui-reviewer`
+- `qa-test-engineer`
+- `security-auditor`
+- `wave-reviewer`
+- `convergence-reviewer`
+- `scout`
+- `class-exposure-analyst`
+- `landing-reviewer`
+- `check-verifier`
+- `ci-watcher`
 
 ## Канонические скилы (`.claude/skills/<name>/SKILL.md`)
 
 Единица перечня — отслеживаемый git-каталог скила, кроме привязочных `rule-*`:
 `git ls-files .claude/skills/ | cut -d/ -f3 | sort -u | grep -v '^rule-' | wc -l` (**14**).
 Перечень обязан совпадать с выводом в обе стороны (`check-03`); `<svc>-load-testing`
-живёт в репо сервиса и в счёт не входит.
+живёт в репо сервиса и в счёт не входит. Что делает скил — `description` его `SKILL.md`.
 
-- `evgeniy` (workspace) — Go-архитектура kacho-*
-- `code-authoring` (workspace) — семантика прод-кода в момент написания
-- `testing-code-coach` (workspace) — unit/integration против прод-кода
-- `testing-product-coach` (workspace) — black-box против развёрнутого стенда, включая Newman
-- `load-testing-coach` (workspace) — методология нагрузки
-- `kacho-docs-writer` (workspace) — регламент документации Kachō
-- `hardening-audit-loop` (workspace) — аудит-рефакторинг до сходимости: 6 дименсий, 9 инвариантов Kachō как определение «дефекта»
-- `measurement-discipline` (workspace) — как получить число или факт о дереве, стенде и чужой работе, который выдержит проверку
-- `gate-authoring` (workspace) — как построить проверку, СПОСОБНУЮ упасть
-- `verdict-and-landing` (workspace) — как прочесть полученный исход и внести изменение
-- `security-surface` (workspace) — поверхность безопасности сервиса
-- `doc-truthfulness` (workspace) — долговечность утверждения в документе
-- `godzila` (workspace) — готовые ШАБЛОНЫ КОДА kachō-стиля
-- `change-graph` (workspace) — контур Kachō Change Graph
-- `<svc>-load-testing` (repo) — конкретные нагрузочные сценарии сервиса
+- `evgeniy` (workspace)
+- `code-authoring` (workspace)
+- `testing-code-coach` (workspace)
+- `testing-product-coach` (workspace)
+- `load-testing-coach` (workspace)
+- `kacho-docs-writer` (workspace)
+- `hardening-audit-loop` (workspace)
+- `measurement-discipline` (workspace)
+- `gate-authoring` (workspace)
+- `verdict-and-landing` (workspace)
+- `security-surface` (workspace)
+- `doc-truthfulness` (workspace)
+- `godzila` (workspace)
+- `change-graph` (workspace)
+- `<svc>-load-testing` (repo)
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)
 
@@ -104,7 +109,7 @@ lc1-acceptance-first · новая работа — только после APPR
 lc2-issue-branch-trail · фича — issue + ветка `issue-<N>` + trail в vault · docs-gate check-02 · red: код без issue, ветки или trail
 lc4-crossrepo-order · вести в порядке proto → corelib → сервис → api-gateway → deploy → docs; `replace` на свои модули не заводить · go list -deps ./... по каждому модулю зелен, grep replace github.com/PRO-Robotech go.mod пусто · red: сервис собран против несуществующего контракта
 lc5-tdd-red-before-code · падающая проба ДО кода, integration и newman в том же PR · kacho/tests/newman (assert-suites-green.sh) · kacho-workspace/scripts/docs-gate/ · red: проба, не падавшая ни разу
-lc6-role-reviews · провести ревью четырьмя ролями (proto-api-reviewer, db-architect-reviewer, go-style-reviewer, system-design-reviewer) плюс <svc>-conventions-auditor · ЗАВЕСТИ lc6-role-reviews · red: посадка при неполном множестве ролей
+lc6-role-reviews · провести ревью четырьмя ролями (proto-api-reviewer, db-architect-reviewer, go-style-reviewer, system-design-reviewer) плюс <svc>-conventions-auditor · ЗАВЕСТИ · red: посадка при неполном множестве ролей
 lc7-final-verification · go test ./... -race, golangci-lint run, govulncheck, make audit-list-filter, newman — все зелёные на PR сборки в ветку волны (`testing.md#final-verification-before-merge`) · .github/workflows/ci.yaml даёт зелёный по всем поимённым контекстам · red: вердикт по подмножеству
 lc8-trail-and-close · обновить vault (resources/rpc/edges + записка) и закрыть issue с артефактами · vault-gate, docs-gate check-02 · red: issue закрыт без trail
 

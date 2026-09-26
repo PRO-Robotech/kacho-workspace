@@ -47,6 +47,7 @@ tags:
 | [[resources/iam-account\|Account]] | живо (done) |
 | [[resources/iam-audit-outbox\|audit_outbox (iam)]] | живо (stable) |
 | [[resources/iam-audit-signing-batch\|AuditSigningBatch]] | история (deprecated) |
+| [[resources/iam-authorization-code\|authorization_codes]] | в работе (test) |
 | [[resources/iam-caep-subscriber\|CAEPSubscriber]] | история (deprecated) |
 | [[resources/iam-cluster-admin-grant\|ClusterAdminGrant]] | живо (done) |
 | [[resources/iam-cluster-break-glass-grant\|ClusterBreakGlassGrant]] | история (deprecated) |
@@ -59,19 +60,23 @@ tags:
 | [[resources/iam-jit-eligibility\|AccessBindingJITEligibility]] | история (deprecated) |
 | [[resources/iam-jwks-key\|JWKS Key (alias)]] | история (deprecated) |
 | [[resources/iam-limit\|Limit]] | живо (done) |
+| [[resources/iam-minted-token-revocation\|minted_token_revocations]] | живо (stable) |
 | [[resources/iam-oidc-jwks-key\|OIDCJwksKey]] | история (deprecated) |
 | [[resources/iam-organization\|Organization]] | история (deprecated) |
 | [[resources/iam-project\|Project]] | живо (done) |
 | [[resources/iam-recovery-code\|recovery_codes]] | живо (done) |
 | [[resources/iam-recovery-completions\|recovery_completions]] | живо (done) |
+| [[resources/iam-refresh-token\|refresh_tokens]] | в работе (test) |
 | [[resources/iam-resource-mirror\|ResourceMirror]] | живо (done) |
 | [[resources/iam-role\|Role]] | живо (done) |
 | [[resources/iam-scim-user-mapping\|SCIMUserMapping]] | история (deprecated) |
 | [[resources/iam-service-account-oauth-client\|ServiceAccountOAuthClient]] | в работе (planned) |
 | [[resources/iam-service-account\|ServiceAccount]] | живо (done) |
 | [[resources/iam-session-revocation\|SessionRevocation]] | в работе (planned) |
+| [[resources/iam-token-family\|token_families]] | в работе (test) |
 | [[resources/iam-user-access-key\|iam.user.accessKey — ключ доступа человека и рукоятка его церемонии]] | в работе (test) |
 | [[resources/iam-user-login-methods\|user_login_methods]] | живо (done) |
+| [[resources/iam-user-token-revocation\|user_token_revocations]] | живо (stable) |
 | [[resources/iam-user\|User]] | живо (done) |
 | [[resources/kaname-access-key\|user_access_keys]] | в работе (test) |
 
@@ -361,6 +366,9 @@ tags:
 | [[edges/iam-to-siem-splunk\|iam → siem-splunk: HEC forwarder]] | в работе (planned) |
 | [[edges/iam-to-spire\|iam ↔ spire: SPIFFE Workload API]] | в работе (planned) |
 | [[edges/iam-to-zitadel-oidc\|iam → zitadel: OIDC identity]] | в работе (planned) |
+| [[edges/kaname-cutoff-door-vs-schema-writers\|kaname: Go-дверь отсечки vs схемные писатели отсечки]] | живо (active) |
+| [[edges/kaname-family-revoke-vs-token-issue\|kaname: отзыв семейства vs выдача токена]] | в работе (test) |
+| [[edges/kaname-session-end-vs-code-issue\|kaname: снятие сессии vs выдача кода авторизации]] | в работе (test) |
 
 **вызывающий: kacho-nlb**
 
@@ -551,6 +559,11 @@ tags:
 | [[packages/iam-seed\|iam internal/apps/kacho/seed]] | живо (done) |
 | [[packages/iam-tests-newman-scripts\|tests/newman/scripts (kacho-iam)]] | живо (stable) |
 | [[packages/kaname-access-keys\|internal/apps/kaname/api/access_keys — полоса ключей доступа]] | в работе (test) |
+| [[packages/kaname-api-internal-iam\|kaname internal/apps/kaname/api/internal_iam]] | живо (stable) |
+| [[packages/kaname-cmd\|kaname cmd/kaname]] | живо (stable) |
+| [[packages/kaname-internal-check\|kaname internal/check]] | живо (stable) |
+| [[packages/kaname-migrations\|kaname internal/migrations]] | живо (stable) |
+| [[packages/kaname-repo-pg\|kaname internal/repo/kaname/pg]] | живо (stable) |
 | [[packages/nlb-permissions-catalog\|kacho-nlb permissions catalog]] | живо (stable) |
 
 **домен: kacho-nlb**
@@ -1280,6 +1293,13 @@ tags:
 | [[KAC/issue-317-kaname\|kaname#317: способ аутентификации клиента выражен схемой]] | в работе (test) |
 | [[KAC/issue-320-kaname\|kaname#320: единственность поверхности церемонии держит гейт]] | в работе (test) |
 | [[KAC/issue-329\|#329: отказ хука читается как «не выполнилось», а не как расхождение]] | в работе (test) |
+| [[KAC/issue-334-kaname\|kaname#334: словарь причин завершения сессии не различает административный выход]] | в работе (planned) |
+| [[KAC/issue-335-kaname\|kaname#335: схемные писатели отсечки переписывают причину и актора безусловно]] | в работе (to-do) |
+| [[KAC/issue-336-kaname\|kaname#336: пара записей отсечки непредставима пакетом, но не схемой]] | в работе (to-do) |
+| [[KAC/issue-337-kaname\|kaname#337: посадка own при невключённой ручке клиентского токена]] | в работе (to-do) |
+| [[KAC/issue-338-kaname\|kaname#338: потребитель дороги поставщика, принявший клиента доводом]] | в работе (planned) |
+| [[KAC/issue-339-kaname\|kaname#339: три причины отзыва семейства без писателя]] | в работе (planned) |
+| [[KAC/issue-340-kaname\|kaname#340: событие принудительного выхода кладётся до снятия и без исхода]] | в работе (planned) |
 | [[KAC/issue-349-kaname\|kaname#349: хук отправки службы доступа и переходник, который отказывает]] | в работе (in-progress) |
 | [[KAC/issue-351-kaname\|kaname#351: контракт и страница называют рукоятку платформенным id человека]] | в работе (to-do) |
 | [[KAC/issue-352-kaname\|kaname#352: три отчёта-замера просрочены новой миграцией, две пробы красны]] | в работе (to-do) |
@@ -1530,6 +1550,7 @@ tags:
 | [[lessons/dead-twin-gate-survives-a-merge-and-kills-the-step\|Два гейта об одном предмете пережили слияние, и мёртвый уронил шаг целиком]] | — |
 | [[lessons/derived-output-is-retired-by-its-contour-not-its-directory\|Производное снимается КОНТУРОМ, а не каталогом: звеньев больше, чем файлов]] | живо (stable) |
 | [[lessons/disjunction-gate-green-on-a-removed-disjunct\|Гейт, утверждающий ДИЗЪЮНКЦИЮ, зелен на снятии одного дизъюнкта]] | — |
+| [[lessons/durable-record-addresses-an-ephemeral-place\|Долговременная запись адресует эфемерное место]] | — |
 | [[lessons/failure-shape-lives-in-the-connection-not-the-error\|Признака, по которому различают отказ, в самой ошибке нет — он в соединении]] | живо (stable) |
 | [[lessons/field-accepted-on-create-and-ignored-on-update\|Поле принято при создании и проигнорировано при изменении: правка видна в плане и не доезжает]] | — |
 | [[lessons/gate-green-on-its-own-stub\|Гейт, зеленеющий на заглушке, ради которой заводился]] | — |
@@ -1543,6 +1564,7 @@ tags:
 | [[lessons/inherited-refusal-hides-a-promise-nobody-owns\|Унаследованный отказ прячет обещание, за которое никто не отвечает]] | — |
 | [[lessons/injection-outlives-its-analyzer\|Переустройство анализатора обесценивает его инъекцию — и молча]] | живо (done) |
 | [[lessons/invalid-run-arrives-as-a-red-verdict\|Недействительный прогон приходит красным — и его чинят как дефект]] | — |
+| [[lessons/invariant-held-by-the-package-not-the-schema\|Инвариант, который держит пакет, а не схема]] | — |
 | [[lessons/is-this-branch-merged-needs-a-tree-level-predicate\|«Смёржена ли ветка» решается слиянием без рабочего дерева — и его вывод не строка]] | живо (stable) |
 | [[lessons/killed-run-masquerades-as-a-red-verdict\|Оборванный прогон выдаёт себя за красный вердикт]] | — |
 | [[lessons/known-failing-declaration-outlives-the-fix\|Запись «известное красное» переживает свой фикс и становится ложным утверждением о продукте]] | — |

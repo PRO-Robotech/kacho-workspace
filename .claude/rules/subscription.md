@@ -3,9 +3,7 @@ name: rule-subscription
 description: "Поток изменений ресурсов: что берут готовым, а что заводят сами"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/subscription.md`
-
-# Поток изменений ресурсов: что берут готовым, а что заводят сами
+**Архив:** `.claude/backup/subscription.md`
 
 ## Четыре решения
 
@@ -16,11 +14,11 @@ sub-poll-not-retired · не отзывается: подписка — втор
 
 ## Откуда берут готовое — перечень, а не поиск
 
-sub-take-contract · бери контракт из `proto/corelib/subscription/` (2 файла), свой не заводи · ЗАВЕСТИ sub-take-contract · red: свой контракт подписки рядом с corelib-овым
-sub-take-server · бери сервер потока из `corelib/subscription/`, владелец поднимает — не пишет · ЗАВЕСТИ sub-take-server · red: свой сервер потока вместо corelib-ового
+sub-take-contract · бери контракт из `proto/corelib/subscription/` (2 файла), свой не заводи · ЗАВЕСТИ · red: свой контракт подписки рядом с corelib-овым
+sub-take-server · бери сервер потока из `corelib/subscription/`, владелец поднимает — не пишет · ЗАВЕСТИ · red: свой сервер потока вместо corelib-ового
 sub-channel-reader · бери внутри сервера фундамента · subscriptionchannelreader · red: свой `LISTEN`/`NOTIFY` у владельца
-sub-gateway-projection · бери gateway/internal/subscriptionstream/ · ЗАВЕСТИ sub-gateway-projection · red: вторая проекция
-sub-console-client · бери ui-future/shared/src/lib/subscription/ (hub.ts, use-resource-stream.ts) + hooks/use-stream-coverage.ts · ЗАВЕСТИ sub-console-client · red: свой клиент потока в модуле
+sub-gateway-projection · бери gateway/internal/subscriptionstream/ · ЗАВЕСТИ · red: вторая проекция
+sub-console-client · бери ui-future/shared/src/lib/subscription/ (hub.ts, use-resource-stream.ts) + hooks/use-stream-coverage.ts · ЗАВЕСТИ · red: свой клиент потока в модуле
 sub-kind-vocabulary · правь только ui-future/shared/src/lib/subscription/subjects.ts · subscriptionkindvocabulary · red: вторая точка правки написания вида
 sub-tenant-page · дополняй gateway/docs/content/api/subscription.mdx · subscriptionownerdocs_test.go · red: вторая страница
 sub-package-no-version · corelib.subscription, без сегмента версии · subscriptionformshape · red: доменная версия в имени пакета
@@ -40,9 +38,9 @@ sub-refetch-not-apply · ПЕРЕЧИТЫВАЙ по событию, не при
 
 ## Фильтр подписки
 
-sub-filter-three-axes · три оси — виды · проект · идентификаторы, конъюнкцией, все иммутабельные · ЗАВЕСТИ sub-filter-three-axes · red: мутабельная ось в фильтре
-sub-no-name-filter · не заводи: имя — мутабельный ярлык (ban #15) · ЗАВЕСТИ sub-no-name-filter · red: подписка молча перестала матчить после переименования
-sub-no-label-filter · оставь клиенту: событие несёт полное состояние, не дельту · ЗАВЕСТИ sub-no-label-filter · red: серверный фильтр по меткам: «вышел из выборки» и «удалён» неразличимы
+sub-filter-three-axes · три оси — виды · проект · идентификаторы, конъюнкцией, все иммутабельные · ЗАВЕСТИ · red: мутабельная ось в фильтре
+sub-no-name-filter · не заводи: имя — мутабельный ярлык (ban #15) · ЗАВЕСТИ · red: подписка молча перестала матчить после переименования
+sub-no-label-filter · оставь клиенту: событие несёт полное состояние, не дельту · ЗАВЕСТИ · red: серверный фильтр по меткам: «вышел из выборки» и «удалён» неразличимы
 
 ## Как это провязывается в консоли — и почему GET-запросы остаются
 
@@ -52,8 +50,8 @@ sub-coverage-from-producer · выводи у производителя (`known
 
 ## Край: перечень владельцев ЗАКРЫТ, пустой означает «никого»
 
-sub-owners-knob-closed · перечень закрыт; пустое значение — отказ «владелец не объявлен» (501) · ЗАВЕСТИ sub-owners-knob-closed · red: пустое открывает поток ко всем
-sub-empty-list-semantics · СУЖАЮЩИЙ значит «не сужаем», РАЗРЕШАЮЩИЙ значит «никого» · ЗАВЕСТИ sub-empty-list-semantics · red: семантика выбрана по аналогии, а не по тому, что ручка перечисляет
+sub-owners-knob-closed · перечень закрыт; пустое значение — отказ «владелец не объявлен» (501) · ЗАВЕСТИ · red: пустое открывает поток ко всем
+sub-empty-list-semantics · СУЖАЮЩИЙ значит «не сужаем», РАЗРЕШАЮЩИЙ значит «никого» · ЗАВЕСТИ · red: семантика выбрана по аналогии, а не по тому, что ручка перечисляет
 sub-two-dictionaries · скажи, из какого словаря берутся имена (имя proto-пакета ≠ имя каталога сервиса) · комментарий ручки + bootgateknobproducer_test.go · red: «неизвестный владелец» у клиента, отказ старта края у оператора
 
 ## Гейты
@@ -74,15 +72,15 @@ gate-judges-ast-node · опознавай предмет узлом синта�
 
 sub-owner-test-transaction · утверждай ТРАНЗАКЦИЮ: откат мутации не оставляет события · integration-проба · red: утверждение «событие эмитировано»
 sub-tree-property-by-gate · держи гейтом дерева · subscriptionformsingularity · red: проба сервиса, зелёная при любом числе форм
-sub-e2e-observable · утверждай наблюдаемое: в консоли изменение другим клиентом видно без перезагрузки и без опроса, строка без метки уходит из суженного списка — playwright; поток края — отказы до открытия (401, 403, 405, 429, 501 «владелец не объявлен»), кадры, возобновление по `Last-Event-ID` без потери и повтора — newman (testing-newman.md#edge-is-newman) · ui-future/e2e/specs/subscription-*; newman — ЗАВЕСТИ new-rpc-newman-case · red: проба утверждает вызов, а не наблюдаемое; поток края без newman-кейса
+sub-e2e-observable · утверждай наблюдаемое: изменение другим клиентом видно в консоли без перезагрузки и опроса, строка без метки уходит из суженного списка — playwright; поток края — отказы до открытия (401, 403, 405, 429, 501), кадры, возобновление по `Last-Event-ID` без потери и повтора — newman · ui-future/e2e/specs/subscription-*; newman — ЗАВЕСТИ new-rpc-newman-case · red: проба утверждает вызов, а не наблюдаемое; поток края без newman-кейса
 sub-read-body-not-code · читай ТЕЛО ответа, а не код · subscription-stream-reachable · red: край отвечает 200 HTML на неизвестный путь — код меряет не тот производитель
-sub-uncovered-named · называй числом и счётчиком · ЗАВЕСТИ sub-uncovered-named · red: остаток, оставленный молча
+sub-uncovered-named · называй числом и счётчиком · ЗАВЕСТИ · red: остаток, оставленный молча
 
 ## Заводишь новый сервис с подпиской — порядок
 
-sub-new-service-order · 1 миграция `<svc>_outbox`; 2 запись в writer-TX мутации; 3 `internal/subscriptionjournal/journal.go`; 4 поднять сервер фундамента на внутреннем слушателе; 5 объявить владельца краю; 6 дописать `subjects.ts`; 7 ребро в `polyrepo.md`; 8 дополнить страницу арендатора; 9 пробы: интеграционная на транзакцию, сквозная консоли на наблюдаемое, newman на поток края · internal/repohygiene/subscription*.go, journal*.go · red: пропущенный шаг
+sub-new-service-order · 1 миграция `<svc>_outbox`; 2 запись в writer-TX мутации; 3 `internal/subscriptionjournal/journal.go`; 4 сервер фундамента на внутреннем слушателе; 5 владелец краю; 6 `subjects.ts`; 7 ребро в `polyrepo.md`; 8 страница арендатора; 9 пробы: интеграционная на транзакцию, сквозная консоли на наблюдаемое, newman на поток края · internal/repohygiene/subscription*.go, journal*.go · red: пропущенный шаг
 sub-internal-listener · поднимай на ВНУТРЕННЕМ слушателе, имя службы с префиксом Internal · ban #6: метод не попадает во внешний маршрутизатор by construction · red: поток на публичном слушателе
 
 ## Урок эпика
 
-sub-epic-lesson · молчаливый дефект (зелёный, но неверный) опаснее красного: проверяй травмой настоящего входа и своди волну до отправки · ЗАВЕСТИ sub-epic-lesson · red: волна отправлена без сведения, зелёная на подставном входе
+sub-epic-lesson · молчаливый дефект (зелёный, но неверный) опаснее красного: проверяй травмой настоящего входа и своди волну до отправки · ЗАВЕСТИ · red: волна отправлена без сведения, зелёная на подставном входе
