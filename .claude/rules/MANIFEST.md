@@ -3,9 +3,7 @@ name: rule-MANIFEST
 description: "Состав корпуса: что какое правило покрывает, чем обеспечено и кто его применяет"
 ---
 
-**Архив** (доводы, замеры, снятые редакции): `.claude/backup/MANIFEST.md`
-
-# Состав корпуса: что какое правило покрывает, чем обеспечено и кто его применяет
+**Архив:** `.claude/backup/MANIFEST.md`
 
 ## Дом правил, путь к агенту, форма строки реестра
 
@@ -15,11 +13,13 @@ mf-column-holder · держатель — имя гейта либо «вним
 mf-column-agents-explicit · агенты поимённо, не шаблоном · check-04-rule-agent-binding.sh в обе стороны · red: правило без агента; агент без правила; шаблон подхватывает агента молча
 mf-table-is-sole-declaration · `MANIFEST.md` — одна таблица состава; `.claude/rules/` — единственный дом · check-01-corpus-matches-manifest.sh · red: файл без строки; строка без файла
 mf-registry-table-30-rows · строка: `<файл> \| <триггер> \| <гейт> \| <агенты>` · check-01-corpus-matches-manifest.sh / check-03-manifest-row-is-complete.sh / check-04-rule-agent-binding.sh · red: строка без гейта; агенты разошлись с `skills:`
+mf-debt-names-its-row · держатель `ЗАВЕСТИ` без имени — долг на гейт с именем самой строки, `ЗАВЕСТИ <имя>` — на гейт с другим именем · scripts/rules-gate/measure.sh --form (счёт различных долгов) · red: голое `ЗАВЕСТИ` прочитано как долг без имени
+mf-archive-anchor · строка `**Архив:**` шапки правила ведёт в `.claude/backup/<файл>.md` — доводы, замеры, снятые редакции; архив не норма и не грузится · вниманием · red: довод или замер записан строкой-нормой
 
 | правило | включается действием | чем соблюдение обеспечено | закреплено за агентами (предзагрузка) |
 |---|---|---|---|
 | `00-kacho-core.md` | любое решение о продукте; именование; отказ от работы; круг ревью; число о дереве; сдача правки | двадцать два запрета; у каждого в строке — гейт, «вниманием» или долг на гейт | `acceptance-author`; `acceptance-reviewer`; `api-gateway-registrar`; `check-verifier`; `ci-watcher`; `class-exposure-analyst`; `convergence-reviewer`; `db-architect-reviewer`; `deploy-engineer`; `docs-writer`; `git-operator`; `go-implementer`; `go-style-reviewer`; `integration-tester`; `landing-reviewer`; `load-tester`; `migration-writer`; `proto-api-reviewer`; `proto-sync`; `qa-test-engineer`; `rpc-implementer`; `scout`; `security-auditor`; `service-scaffolder`; `system-design-reviewer`; `tooling-maintainer`; `ui-implementer`; `ui-reviewer`; `vault-scribe`; `wave-reviewer` |
-| `git-issues.md` | заведение задачи; разметка меток и комментариев; коммит; сборка волны и запрос на слияние в ветку эпика; перевод фазы и под-фазы в трекер | `scripts/docs-gate/check-01-acceptance-verdict.py` (вердикт приёмки); `check-03-scope-row-scenario.py` (сценарий строки Scope); `check-05-ledger-verdict-reproduces.py`; `scripts/tooling-gate/check-19-landing-route-is-one-mr-per-wave.sh` (маршрут посадки и срок заведения задачи о безопасности — в корпусе); перепись меток `gh issue list`; перепись открытых запросов `gh pr list --base <ветка эпика>` | `git-operator` |
+| `git-issues.md` | заведение задачи; разметка меток и комментариев; коммит; сборка волны и запрос на слияние в ветку эпика; перевод фазы и под-фазы в трекер | `scripts/docs-gate/check-01-acceptance-verdict.py` (вердикт приёмки); `check-03-scope-row-scenario.py` (сценарий строки Scope); `check-05-ledger-verdict-reproduces.py`; `scripts/tooling-gate/check-19-landing-route-is-one-mr-per-wave.sh` (маршрут посадки, задача о безопасности); переписи `gh issue list` и `gh pr list --base <ветка эпика>` | `git-operator` |
 | `MANIFEST.md` | заведение правила; снятие правила; переименование файла корпуса | `scripts/rules-gate/check-01-corpus-matches-manifest.sh` (состав); `check-03-manifest-row-is-complete.sh` (полнота строки) | `tooling-maintainer`; `wave-reviewer` |
 | `api-conventions.md` | правка `proto/**`, `gateway/internal/**`, `services/*/internal/handler/**`, `services/*/internal/apps/**/api/**` | `buf lint`; `buf breaking`; гейт каталога разрешений; `corevalidate.ResourceID` | `acceptance-author`; `acceptance-reviewer`; `api-gateway-registrar`; `class-exposure-analyst`; `proto-api-reviewer`; `proto-sync`; `qa-test-engineer`; `rpc-implementer`; `service-scaffolder` |
 | `data-integrity.md` | правка `services/*/internal/migrations/*.sql`, `services/*/internal/repo/**` | интеграционная проба с конкурирующими транзакциями; FK/UNIQUE/EXCLUDE в схеме | `acceptance-author`; `acceptance-reviewer`; `class-exposure-analyst`; `db-architect-reviewer`; `migration-writer`; `rpc-implementer`; `system-design-reviewer` |

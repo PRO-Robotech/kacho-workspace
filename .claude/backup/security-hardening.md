@@ -116,3 +116,60 @@ by construction; код ответа `InvalidArgument` вместо `PermissionD
 «Комментарий утверждал, что механизм есть («переход идёт под клиентским
 сертификатом края») — при отсутствующей ручке: п.5 §Hardening в чистом виде.»
 Норма — `hard-misleading-security-comment`.
+
+## Снято 2026-09-26 (ws#780): сжатие корпуса под потолок check-06 на сведении волны 0 с 771
+
+Сведённое дерево `778` × `771` дало 221 997 знаков при потолке 200 000 (решение владельца
+2026-09-19); потолок не поднимался. Ниже — ПРЕЖНИЕ редакции строк, сжатых этим изменением,
+дословно: доводы, замеры и пересказы канона уходят сюда, норма (id · императив · держатель ·
+red) осталась в корпусе под тем же id.
+
+**hard-format-before-authz** — прежняя редакция:
+
+hard-format-before-authz · валидировать page_size/page_token/формат id (⇒InvalidArgument) ДО authz-short-circuit; порядок format→authz→repo · TestEmptyPageNeverPrecedesPaginationValidation · red: пустой грант замыкает раньше проверки формата
+
+**hard-check-in-same-function** — прежняя редакция:
+
+hard-check-in-same-function · нести проверку формата в себе, не в репозитории · TestEmptyPageNeverPrecedesPaginationValidation · red: «валидирует репозиторий» при замыкании до репозитория
+
+**hard-gate-not-reference-title** — прежняя редакция:
+
+hard-gate-not-reference-title · держать AST-гейтом, обходящим дерево по синтаксическому признаку, а не званием «эталонного» сервиса · TestEmptyPageNeverPrecedesPaginationValidation · red: ссылка на эталон вместо гейта
+
+**hard-catalog-generator-anchor** — прежняя редакция:
+
+hard-catalog-generator-anchor · генератор каталога привязан к proto-дереву — перецентрализовал дерево, чини генератор тем же коммитом · internal/repohygiene/cataloganchorcoordinate_injection_test.go (TestCatalogAnchorCoordinateNamesSomethingThatExists) · red: координата якоря называет путь, которого в дереве нет
+
+**hard-hide-existence-test-asserts-message** — прежняя редакция:
+
+hard-hide-existence-test-asserts-message · проба локает текст deny и текст miss ПОБАЙТНО, а не «содержит» · internal/repohygiene/hideexistenceparity_test.go (TestHideExistenceFormats_MatchTheGateway) · red: тексты разошлись с краем, а проба зелёная
+
+**hard-ask-which-tuples-satisfy** — прежняя редакция:
+
+hard-ask-which-tuples-satisfy · перед объявлением RPC с cluster-scoped отношением спроси, КАКИЕ tuple его выполняют · internal/repohygiene/membershipreadrelation_injection_test.go (TestMRR_RedOnAWildcardSatisfiableRelation) · red: отношение выполняется подстановочным знаком и не сужает ничего
+
+**hard-declarative-probe-and-bootguard-pair** — прежняя редакция:
+
+hard-declarative-probe-and-bootguard-pair · объявления держатся декларативной пробой плюс boot-guard на НЕПОЛНОЙ паре · gateway/deploy/token_shape_test.go (TestEdgeRevocationGate_FindsAMissingDeclaration) · red: половина пары объявлена, посадка стартует
+
+**hard-model-canonical-and-drift-gate** — прежняя редакция:
+
+hard-model-canonical-and-drift-gate · держать каноничной в одном файле, конфигмап чарта генерировать из него, гейт дрейфа — зелёный · координата в тексте УСТАРЕЛА: proto/kacho/cloud/iam/v1/ в дереве нет (kacho#2616, канон в PRO-Robotech/kaname) · red: две правки в двух местах
+
+(второй проход того же сжатия)
+
+**абзац** — прежняя редакция:
+
+## Hardening-инварианты (выведены из audit-раундов — не повторять эти классы)
+
+**абзац** — прежняя редакция:
+
+## Контроль, действующий на ВЫДАЧЕ, но не на ПРЕДЪЯВЛЕНИИ (выведено 2026-08-21)
+
+**абзац** — прежняя редакция:
+
+## Отношение, выполнимое подстановочным знаком, не сужает НИЧЕГО (выведено 2026-07-28)
+
+**абзац** — прежняя редакция:
+
+## Контроль, у которого нет МЕХАНИЗМА исполниться (выведено 2026-08-23, эпик identity)

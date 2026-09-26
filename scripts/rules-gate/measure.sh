@@ -31,9 +31,19 @@ noimp = [l for l in rows if field(l, 1) in ('—', '')]
 nosign = [l for l in rows if l.rstrip().endswith('red: —')]
 held = sum(1 for f in glob.glob('.claude/rules/*.md')
            for l in open(f, encoding='utf-8') if 'держится' in l)
+# Долг без имени — на гейт с именем САМОЙ строки (MANIFEST.md, mf-debt-names-its-row):
+# `ЗАВЕСТИ` без следующего имени считается долгом с id строки, а не пропускается.
 def debts(line):
     w = line.split()
-    return [w[i + 1] for i, t in enumerate(w) if t == 'ЗАВЕСТИ' and i + 1 < len(w)]
+    rid = line.split(' · ', 1)[0].strip()
+    out = []
+    for i, t in enumerate(w):
+        if t.rstrip(':;,') != 'ЗАВЕСТИ':
+            continue
+        nxt = w[i + 1] if i + 1 < len(w) else ''
+        named = t == 'ЗАВЕСТИ' and nxt[:1].isalnum()
+        out.append(nxt if named else rid)
+    return out
 todo = {d for f in glob.glob('.claude/rules/*.md')
         for l in open(f, encoding='utf-8') for d in debts(l)}
 print('строк-норм: %d' % len(rows))
