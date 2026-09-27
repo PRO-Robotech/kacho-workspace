@@ -1071,6 +1071,41 @@ git -C "$sr/root" update-ref -d refs/remotes/origin/main >/dev/null 2>&1
 out="$(lag_turn "$sr/root")"
 sig_expect "предпосылка: ствола нет — «не судились», а не молчание" "$out" 'НЕ СУДИЛИСЬ' 'ОТСТАЮТ'
 
+# Элемент СПИСКА — запись (группа хуков, регистрация), и корень, ушедший ВПЕРЁД,
+# расширяет её, а не заменяет. Ствол несёт группу из двух хуков; близнец — та же
+# группа в корне с третьим хуком (так приходит новая провязка полосы), дефекты — та же
+# группа без хука ствола и регистрация с другим matcher.
+sr2="$TMP/slag2"; mkdir -p "$sr2"
+lag_hook() { printf '{"type": "command", "command": "bash \\"$CLAUDE_PROJECT_DIR/.claude/hooks/%s\\""}' "$1"; }
+lag_settings() { # lag_settings <хуки группы UserPromptSubmit через пробел> <matcher PreToolUse>
+    local hs="" h
+    for h in $1; do hs="${hs:+$hs, }$(lag_hook "$h")"; done
+    printf '{\n  "agent": "dispatcher",\n  "hooks": {\n    "UserPromptSubmit": [{"hooks": [%s]}],\n    "PreToolUse": [{"matcher": "%s", "hooks": [%s]}]\n  },\n  "attribution": {"commit": "", "pr": ""}\n}\n' \
+        "$hs" "$2" "$(lag_hook guard.sh)"
+}
+(
+    set -e
+    cd "$sr2"
+    git init -q --bare -b main remote.git
+    git clone -q remote.git root 2>/dev/null
+    cd root
+    git config user.email t@t; git config user.name t
+    mkdir -p .claude
+    lag_settings "hook-a.sh hook-b.sh" Bash > .claude/settings.json
+    git add .claude/settings.json; git commit -qm c1; git push -q origin main
+) >/dev/null 2>&1 || { echo "  ПРОВАЛ песочница корня-надмножества не построена" >&2; failed=$((failed + 1)); }
+lag_settings "hook-a.sh hook-b.sh hook-c.sh" Bash > "$sr2/root/.claude/settings.json"
+out="$(lag_turn "$sr2/root")"
+probes=$((probes + 1))
+if [ -z "$out" ]; then echo "  ok   близнец: корень расширил группу хуков ствола своим — вперёд, не отставание, молчит"
+else echo "  ПРОВАЛ близнец: корень-надмножество объявлен отставшим: $out" >&2; failed=$((failed + 1)); fi
+lag_settings "hook-a.sh" Bash > "$sr2/root/.claude/settings.json"
+out="$(lag_turn "$sr2/root")"
+sig_expect "дефект: в группе корня нет хука ствола — назван сам хук" "$out" 'hook-b.sh' 'hook-a.sh'
+lag_settings "hook-a.sh hook-b.sh" Write > "$sr2/root/.claude/settings.json"
+out="$(lag_turn "$sr2/root")"
+sig_expect "дефект: регистрация ствола на другом matcher — названа регистрация ствола" "$out" '"Bash"' 'НЕ СУДИЛИСЬ'
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
