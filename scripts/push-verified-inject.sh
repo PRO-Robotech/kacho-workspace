@@ -235,7 +235,7 @@ out="$(cd "$d" && bash "$SUBJECT" origin work 2>&1)"; rc=$?
 probe 0 "E3g близнец: оба pushurl приняли — подтверждено по каждому" "$out" "$rc" "ПОДТВЕРЖДЕНО" "e3g-a.git — $(git -C "$d" rev-parse refs/heads/work)" "e3g-b.git — $(git -C "$d" rev-parse refs/heads/work)"
 
 echo
-echo "[CENSUS] push-verified-inject: проб исполнено $probes, провалов $failed; фикстур собрано 8, ложный ноль воспроизведён тремя путями (ноль команды, отказ транспорта, код съеден посредником)"
+echo "[CENSUS] push-verified-inject: проб исполнено $probes, провалов $failed; фикстур собрано $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git -type d | wc -l); ложный ноль воспроизведён путями: ноль команды без пакета (A, E, E3e), отказ транспорта (B), код съеден посредником (H)"
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] ни одной пробы не исполнено" >&2
     exit 2

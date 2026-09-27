@@ -144,7 +144,7 @@ probe "$( [ "$rc" = 1 ] && pg_has "$out" "core.hooksPath" && echo да || echo �
     "H core.hooksPath: провязка отказывает с названной причиной" "код $rc; вывод: $out"
 git -C "$ws" config --unset core.hooksPath
 
-pg_census "$NAME: песочница с bare-«сервером» собрана 1; проб исполнено $probes, провалено $failed (A адресат есть · B нет · C --no-verify · D check · E не исполним · F v1 · G без хука в дереве · H core.hooksPath)"
+pg_census "$NAME: песочниц с bare-«сервером» $(pg_sandboxes "$TMP"); проб исполнено $probes, провалено $failed (A адресат есть · B нет · C --no-verify · D check · E не исполним · F v1 · G без хука в дереве · H core.hooksPath)"
 if [ "$failed" -gt 0 ]; then
     pg_fail "$NAME — проб с находкой: $failed"
     exit 1

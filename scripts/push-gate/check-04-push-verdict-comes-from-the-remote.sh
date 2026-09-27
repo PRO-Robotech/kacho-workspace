@@ -62,6 +62,6 @@ out="$(cd "$ws" && git push origin work 2>&1)"; rc=$?
 probe "$( [ "$rc" = 0 ] && pg_has "$out" "код ЭТОГО хука — исход ПРОВЕРОК" "git ls-remote $TMP/box/srv.git refs/heads/work   # ожидается $sha" && echo да || echo нет)" \
     "хук отправки называет свой код своим и печатает постусловие у сервера ОТПРАВКИ (pushurl), с отправленной sha" "код $rc; вывод: $out"
 
-pg_census "$NAME: доказательство постусловия исполнено 1, песочница 1; проб $probes, провалено $failed"
+pg_census "$NAME: доказательство постусловия исполнено (${census#\[CENSUS\] }), песочниц $(pg_sandboxes "$TMP"); проб $probes, провалено $failed"
 if [ "$failed" -gt 0 ]; then pg_fail "$NAME — проб с находкой: $failed"; exit 1; fi
 pg_pass "$NAME — вердикт отправки — постусловие сервера; keepalive — настройка клона"

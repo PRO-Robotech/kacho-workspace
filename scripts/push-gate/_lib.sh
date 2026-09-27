@@ -89,6 +89,10 @@ pg_ledger() {
     } > "$1/contribution-ledger.yaml"
 }
 
+# pg_sandboxes <каталог> — сколько песочниц с bare-«сервером» под каталогом
+# собрано НА САМОМ ДЕЛЕ: перепись выводится из диска, а не выписывается.
+pg_sandboxes() { find "$1" -name srv.git -type d -prune 2>/dev/null | wc -l; }
+
 # pg_remote_sha <песочница> <ветка> — sha ветки на «сервере» либо пусто.
 pg_remote_sha() {
     git --git-dir="$1/srv.git" rev-parse --verify -q "refs/heads/$2" 2>/dev/null || true

@@ -56,7 +56,8 @@ echo "stub-gate: рассмотрено проверок 1; пройдено 1"
 exit 0
 STUB
 git -C "$ws" add -A && git -C "$ws" commit -q -m "набор, которому нужны дома"
-for n in alpha beta; do git init -q "$ws/project/$n" || { pg_void "$NAME — дом $n не завёлся"; exit 2; }; done
+HOMES=(alpha beta)
+for n in "${HOMES[@]}"; do git init -q "$ws/project/$n" || { pg_void "$NAME — дом $n не завёлся"; exit 2; }; done
 git -C "$ws" worktree add -q "$box/lane" -b lane HEAD 2>/dev/null ||
     { pg_void "$NAME — рабочая копия-worktree не завелась"; exit 2; }
 
@@ -83,7 +84,7 @@ out_l="$( cd "$box/lane" && KACHO_HOME_ALPHA=/elsewhere/alpha bash scripts/hooks
 probe "$(pg_has "$out_l" "дом alpha задан снаружи — KACHO_HOME_ALPHA=/elsewhere/alpha" && echo да || echo нет)" \
     "E дом, заданный снаружи, не перебит" "вывод: $out_l"
 
-pg_census "$NAME: канонический клон 1, копия-worktree 1, домов 2; проб исполнено $probes, провалено $failed"
+pg_census "$NAME: песочниц $(pg_sandboxes "$TMP"), рабочих копий-worktree $(git -C "$ws" worktree list --porcelain | grep -c '^worktree ' ) (с каноническим), домов ${#HOMES[@]}; проб исполнено $probes, провалено $failed"
 if [ "$failed" -gt 0 ]; then
     pg_fail "$NAME — проб с находкой: $failed"
     exit 1
