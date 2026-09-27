@@ -46,7 +46,7 @@ ledger() {
         echo "owners:"
         echo "  - email: $OWNER"
         echo "    note: владелец фикстуры"
-        [ -n "${2:-}" ] && printf '%s\n' "$2"
+        if [ -n "${2:-}" ]; then printf '%s\n' "$2"; fi
     } > "$1/contribution-ledger.yaml"
 }
 

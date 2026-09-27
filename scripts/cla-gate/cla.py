@@ -3,12 +3,19 @@
 # SPDX-License-Identifier: BUSL-1.1
 """cla.py — ведомость соглашения о вкладе воркспейса и ЕДИНСТВЕННОЕ суждение по ней.
 
-Один читатель ведомости, и второго перечня личностей в дереве нет: второй
-перечень разошёлся бы с первым молча (ws#729 п.4).
+Один читатель ведомости на три вопроса, и второго перечня личностей в дереве нет:
+второй перечень разошёлся бы с первым молча (ws#729 п.4).
 
     tree        гейт дерева (ws#731): вклады в истории области — автор и соавтор из
                 завершающего блока трейлеров — подтверждены ведомостью; запись без
                 предмета — находка; объём осмотренного печатается всегда.
+    push-range  суждение хука отправки (ws#729, ws#700): по каждому коммиту,
+                который ОТПРАВКА ОПУБЛИКУЕТ (строки pre-push на stdin), автор,
+                коммиттер и соавторы — личности ведомости. Судится диапазон, а не
+                рабочее дерево и не `git config`: подстановка адреса окружением
+                сильнее настройки и видна только в самом коммите.
+    census      то же суждение, что push-range, по произвольному диапазону
+                (`census -- --branches --not --remotes`): что отказала бы отправка.
 
 ФОРМА ВЕДОМОСТИ — по соседу (`kaname/cla-ledger.yaml`, `tools/clagate`), не копией
 байтов: одноимённый отслеживаемый путь в двух стволах запрещён, поэтому файл
@@ -26,9 +33,17 @@
 выносится, но каждый адрес без записи назван числом). Граница самоистекает: когда за
 ней не останется ни одного вклада без записи, она сама становится находкой.
 
+СУЖДЕНИЕ ОТПРАВКИ СТРОЖЕ СУЖДЕНИЯ ДЕРЕВА — по роли:
+    автор      своя личность · подписавший · Signed-off-by этой же личности
+    коммиттер  своя личность · подписавший
+    соавтор    своя личность · подписавший · освобождённый · Signed-off-by
+Освобождение (`waivers`) отвечает на вопрос соглашения — «нужна ли подпись под
+этим вкладом», — а не на вопрос подписи коммита: машинная личность, подписавшая
+отправляемый коммит, и есть подстановка, которую ловит ws#700.
+
 Исходы: 0 — находок нет, объём назван; 1 — находка (либо ведомость негодна, либо
 обход пуст); 2 — без предмета (условие не создано: история не несёт границы,
-git не отвечает).
+git не отвечает). Хук отправки читает 2 как отказ: «проверить было нечем» — не проход.
 """
 
 import argparse
@@ -51,6 +66,11 @@ ROLE_AUTHOR, ROLE_COMMITTER, ROLE_COAUTHOR = "автор", "коммиттер",
 ALLOW = {
     "tree": {
         ROLE_AUTHOR: ("owners", "signatories", "waivers", "signoff"),
+        ROLE_COAUTHOR: ("owners", "signatories", "waivers", "signoff"),
+    },
+    "push": {
+        ROLE_AUTHOR: ("owners", "signatories", "signoff"),
+        ROLE_COMMITTER: ("owners", "signatories"),
         ROLE_COAUTHOR: ("owners", "signatories", "waivers", "signoff"),
     },
 }
@@ -347,17 +367,86 @@ def run_tree(root, rel):
     return 0
 
 
+# ── режимы push-range и census ───────────────────────────────────────────────
+
+def dirty_ledger_note(root, rel):
+    r = git(root, "diff", "--quiet", "HEAD", "--", rel, check=False)
+    if r.returncode == 1:
+        print("pre-push: ВНИМАНИЕ — ведомость %s в рабочем дереве отличается от закоммиченной; "
+              "суждение вынесено по рабочему дереву" % rel, file=sys.stderr)
+
+
+def judge_push(root, rel, positives, negatives, label):
+    led = load_ledger(root, rel)
+    recs = commits(root, [*positives, "--not", *negatives, "--remotes"]) if positives else []
+    findings, by, ids, _ = judge(recs, led, "push")
+    print("%s — публикуемых коммитов %d, вкладов %d (автор %d, коммиттер %d, соавтор %d), "
+          "личностей %d; ведомость %s" % (label, len(recs), by["вкладов"], by[ROLE_AUTHOR],
+                                          by[ROLE_COMMITTER], by[ROLE_COAUTHOR], len(ids), rel),
+          file=sys.stderr)
+    dirty_ledger_note(root, rel)
+    if findings:
+        print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости (%d):"
+              % len(findings), file=sys.stderr)
+        print_findings(findings)
+        print("  Чинится ПЕРЕПОДПИСЬЮ неотправленного (git rebase -x 'git commit --amend "
+              "--no-edit --reset-author' <база>) либо записью в %s с причиной — не обходом."
+              % rel, file=sys.stderr)
+        return 1
+    return 0
+
+
+def run_push_range(root, rel, remote, lines):
+    positives, negatives, refs, deletions = [], [], 0, 0
+    for ln in lines:
+        parts = ln.split()
+        if len(parts) != 4:
+            if ln.strip():
+                raise Unjudgeable("строка pre-push не разобрана: %r" % ln)
+            continue
+        _lref, lsha, _rref, rsha = parts
+        refs += 1
+        if lsha == ZERO:
+            deletions += 1
+            continue
+        positives.append(lsha)
+        if rsha != ZERO and git(root, "cat-file", "-e", rsha + "^{commit}", check=False).returncode == 0:
+            negatives.append(rsha)
+    label = "pre-push: подпись и ведомость (%s) — ссылок %d, снятий %d" % (remote or "?", refs, deletions)
+    return judge_push(root, rel, positives, negatives, label)
+
+
+def run_census(root, rel, revs):
+    led = load_ledger(root, rel)
+    recs = commits(root, revs)
+    findings, by, ids, _ = judge(recs, led, "push")
+    print("[CENSUS] cla census %s — коммитов %d, вкладов %d, личностей %d; вне ведомости %d"
+          % (" ".join(revs), len(recs), by["вкладов"], len(ids), len(findings)))
+    if findings:
+        print_findings(findings)
+        return 1
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("mode", choices=("tree",))
+    ap.add_argument("mode", choices=("tree", "push-range", "census"))
     ap.add_argument("--root", default=None, help="корень судимого дерева (по умолчанию — рабочая копия)")
     ap.add_argument("--ledger", default=LEDGER)
+    ap.add_argument("--remote", default="")
+    ap.add_argument("revs", nargs="*")
     a = ap.parse_args()
     root = a.root
     try:
         if root is None:
             root = git(os.getcwd(), "rev-parse", "--show-toplevel").stdout.strip()
-        return run_tree(root, a.ledger)
+        if a.mode == "tree":
+            return run_tree(root, a.ledger)
+        if a.mode == "push-range":
+            return run_push_range(root, a.ledger, a.remote, sys.stdin.read().splitlines())
+        if not a.revs:
+            raise Unjudgeable("census без диапазона — судить нечего")
+        return run_census(root, a.ledger, a.revs)
     except LedgerDefect as e:
         print("[FAIL] cla-gate — %s" % e, file=sys.stderr)
         return 1

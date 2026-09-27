@@ -31,6 +31,7 @@ trap 'rm -rf "$TMP"' EXIT
 SUBJECT_FILES=(
     scripts/hooks/install.sh
     scripts/hooks/pre-push
+    scripts/cla-gate/cla.py
 )
 
 copy_subject() {  # <корень>
@@ -47,6 +48,9 @@ copy_subject() {  # <корень>
 mutant_descr=(
     "check-01-hook-stub-refuses-without-target|scripts/hooks/install.sh|переходник без адресата снова выходит УСПЕХОМ (v1)"
     "check-01-hook-stub-refuses-without-target|scripts/hooks/install.sh|check снова называет наш переходник без адресата «посторонним»"
+    "check-02-push-range-judges-identities|scripts/hooks/pre-push|хук не зовёт суждение по диапазону — подпись не судится"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|суждение отправки не судит коммиттера"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|освобождённая личность подписывает отправляемый коммит"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -60,6 +64,15 @@ M = [
     ("scripts/hooks/install.sh",
      '    if [ -n "$v" ]; then\n        orphans+=("$b (v$v)")\n',
      '    if false; then\n        orphans+=("$b (v$v)")\n'),
+    ("scripts/hooks/pre-push",
+     'if [ "${#push_lines[@]}" -gt 0 ]; then\n    judge=',
+     'if false; then\n    judge='),
+    ("scripts/cla-gate/cla.py",
+     '        ROLE_COMMITTER: ("owners", "signatories"),\n',
+     ''),
+    ("scripts/cla-gate/cla.py",
+     '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories", "signoff"),\n',
+     '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories", "waivers", "signoff"),\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path

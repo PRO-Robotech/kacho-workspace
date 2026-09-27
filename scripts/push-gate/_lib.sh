@@ -61,6 +61,13 @@ pg_sandbox() {
         cp -p "$f" "$ws/scripts/hooks/" || return 1
     done
     [ -f "$ws/scripts/hooks/install.sh" ] || return 1
+    # Суждение хука по диапазону читает разборщик и ведомость ИЗ ДЕРЕВА — они
+    # кладутся из предмета, а ведомость песочницы называет её владельца.
+    if [ -f "$PG_SUBJECT/scripts/cla-gate/cla.py" ]; then
+        mkdir -p "$ws/scripts/cla-gate" || return 1
+        cp -p "$PG_SUBJECT/scripts/cla-gate/cla.py" "$ws/scripts/cla-gate/" || return 1
+        pg_ledger "$ws" || return 1
+    fi
     printf '#!/usr/bin/env bash\necho "stub-gate: рассмотрено проверок 1; пройдено 1"\nexit 0\n' \
         > "$ws/scripts/stub-gate/run-all.sh"
     chmod +x "$ws/scripts/stub-gate/run-all.sh" "$ws"/scripts/hooks/* || return 1
@@ -69,6 +76,17 @@ pg_sandbox() {
     git -C "$ws" remote add origin "$box/srv.git" || return 1
     ( cd "$ws" && bash scripts/hooks/install.sh install >/dev/null 2>&1 ) || return 1
     printf '%s\n' "$ws"
+}
+
+# pg_ledger <клон> [<доп. YAML>] — ведомость песочницы: владелец и область «.».
+pg_ledger() {
+    {
+        echo "scope: [.]"
+        echo "owners:"
+        echo "  - email: $PG_OWNER_EMAIL"
+        echo "    note: владелец песочницы push-gate"
+        if [ -n "${2:-}" ]; then printf '%s\n' "$2"; fi
+    } > "$1/contribution-ledger.yaml"
 }
 
 # pg_remote_sha <песочница> <ветка> — sha ветки на «сервере» либо пусто.
