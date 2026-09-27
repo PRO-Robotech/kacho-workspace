@@ -395,6 +395,81 @@ expect 2 "$b" "предпосылка: наборов нет — VOID, а не �
 b="$(mkbox)"; suite "$b" "${SUITES[0]}"; commit "$b"
 expect 2 "$b" "предпосылка: проверок нет — VOID" "$C05" "проверок check-* в них 0"
 
+# ── check-06: число в шапке без команды воспроизведения ──────────────────────
+#
+# Дефект — дословно шапка inject-06-corpus-ceiling.sh, на которой класс найден:
+# «по семи осям» без команды (разметка секций давала три, полоса насчитала
+# одиннадцать). Близнецы — то же число со своей командой, цифрой и словом, и
+# формы, которые числом-утверждением не являются: легенда кода, номер задачи,
+# номер проверки, координата строки.
+C06="check-06-header-numbers-carry-their-predicate.py"
+
+# script6 <песочница> <набор> <шапка построчно>… — скрипт верхнего уровня набора
+# с заданной шапкой и тремя размеченными секциями «── ось» в теле.
+script6() {
+    local box="$1" s="$2" line; shift 2
+    {
+        printf '#!/usr/bin/env bash\n'
+        for line in "$@"; do printf '# %s\n' "$line"; done
+        printf 'set -uo pipefail\n'
+        printf '# ── ось A\n# ── ось B\n# ── ось C\n'
+    } > "$box/scripts/$s/inject-06-axes.sh"
+}
+
+echo "== check-06: число в шапке без команды воспроизведения =="
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    script6 "$b" "$s" "ЧАСТЬ инъекции: доказательство по осям; осей — 3" \
+        "(предикат: \`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)." "" \
+        "Исходы: 2 — без предмета; задача #760; соседняя check-03; координата :124."
+done
+commit "$b"
+expect 0 "$b" "близнец: число с командой, чей вывод совпадает, и нечисловые формы — молчит" "$C06" \
+    "воспроизведено командой ${#SUITES[@]}"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+done
+commit "$b"
+expect 0 "$b" "близнец: число словом, команда совпадает — молчит" "$C06" \
+    "воспроизведено командой ${#SUITES[@]}"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"
+        if [ "$t" = "$s" ]; then
+            script6 "$b" "$t" "ЧАСТЬ инъекции набора: доказательство check-06 по семи" \
+                "осям — перевес потолка, строка без red:, нечётный backtick."
+        else
+            script6 "$b" "$t" "три оси разобраны (\`grep -c '^# ── ось' scripts/$t/inject-06-axes.sh\`)."
+        fi
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: «по семи осям» без команды — краснеет с координатой" "$C06" \
+        "scripts/$s/inject-06-axes.sh:2 — «семи" "находок 1"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then
+        script6 "$b" "$s" "семь осей (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+    else
+        script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+    fi
+done
+commit "$b"
+expect 1 "$b" "инъекция: команда есть, но её вывод разошёлся с числом — краснеет" "$C06" \
+    "объявлено семь, команды абзаца дают другое" "→ 3"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID" "$C06" "наборов scripts/*/run-all.sh"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
