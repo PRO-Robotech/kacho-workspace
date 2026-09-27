@@ -26,14 +26,17 @@
 запись либо `Signed-off-by` СВОЕЙ личности; `owners` из самоистечения исключены (это
 политика, а не послабление), записи `signatories`/`waivers` без предмета — находка.
 
-ОТЛИЧИЕ ОТ СОСЕДА ОДНО, И ОНО ОБЪЯВЛЕНО: `history_floor`. История воркспейса несёт
-адреса, которых этот файл классифицировать не вправе (перепись в самой ведомости):
-отнести личность к своим, подписавшим или машинным — решение владельца. Граница
-делит историю на судимую (после неё — строго) и перечисляемую (до неё — вердикт НЕ
-выносится, но каждый адрес без записи назван числом). Граница самоистекает: когда за
-ней не останется ни одного вклада без записи, она сама становится находкой.
+ОТЛИЧИЕ ОТ СОСЕДА, И ОНО ОБЪЯВЛЕНО: раздел `history_only` и граница
+`history_floor`. История воркспейса несёт адреса, которые владелец отнёс к «только
+история, вперёд запрет» (решение 2026-09-27, цитаты — в самой ведомости). Запись
+`history_only` покрывает вклад ТОЛЬКО в коммитах, достижимых из границы; тот же адрес
+в коммите после неё — находка, как если бы записи не было. Судится ВСЯ история:
+до границы — по всем разделам, после — без `history_only`. Самоистечение: запись
+`history_only` без вклада до границы — находка; граница без единой такой записи —
+находка («больше ничего не разделяет»).
 
-СУЖДЕНИЕ ОТПРАВКИ СТРОЖЕ СУЖДЕНИЯ ДЕРЕВА — по роли:
+СУЖДЕНИЕ ОТПРАВКИ СТРОЖЕ СУЖДЕНИЯ ДЕРЕВА — по роли (для коммитов после границы;
+история, опубликованная заново, судится как история):
     автор      своя личность · подписавший · Signed-off-by этой же личности
     коммиттер  своя личность · подписавший
     соавтор    своя личность · подписавший · освобождённый · Signed-off-by
@@ -55,15 +58,21 @@ from collections import Counter, defaultdict
 
 LEDGER = "contribution-ledger.yaml"
 ZERO = "0" * 40
-SECTIONS = ("owners", "signatories", "waivers")
+SECTIONS = ("owners", "signatories", "waivers", "history_only")
 TOP_KEYS = {"scope", "history_floor"} | set(SECTIONS)
 ENTRY_KEYS = {"email", "note"}
 FLOOR_KEYS = {"commit", "note"}
 
 ROLE_AUTHOR, ROLE_COMMITTER, ROLE_COAUTHOR = "автор", "коммиттер", "соавтор"
 
-# Разрешения по роли. ОДНА таблица на оба суждения — вторая копия разошлась бы.
+# Разрешения по роли. ОДНА таблица на все суждения — вторая копия разошлась бы.
+# «history» — коммиты, достижимые из границы: только там действует `history_only`,
+# и коммиттер там не судится (схлопывания GitHub подписаны сервером).
 ALLOW = {
+    "history": {
+        ROLE_AUTHOR: ("owners", "signatories", "waivers", "history_only", "signoff"),
+        ROLE_COAUTHOR: ("owners", "signatories", "waivers", "history_only", "signoff"),
+    },
     "tree": {
         ROLE_AUTHOR: ("owners", "signatories", "waivers", "signoff"),
         ROLE_COAUTHOR: ("owners", "signatories", "waivers", "signoff"),
@@ -206,6 +215,8 @@ def load_ledger(root, rel=LEDGER):
                 problems.append("history_floor без причины")
             else:
                 led["floor"], led["floor_note"] = c, str(fl["note"])
+    if led["history_only"] and not led["floor"] and not any("history_floor" in x for x in problems):
+        problems.append("history_only без history_floor — «только история» нечем отличить от нового")
     if problems:
         raise LedgerDefect("ведомость %s негодна:\n  " % rel + "\n  ".join(problems))
     return led
@@ -292,21 +303,47 @@ def judge(recs, led, mode):
                     basis = how
                     break
             if basis is None:
-                findings.append((r.sha, role, name, em))
+                if em in led["history_only"]:
+                    why = "адрес «только история» (history_only) — вперёд запрет"
+                elif em in led["by_email"]:
+                    why = "раздел %s этой роли не покрывает" % led["by_email"][em]
+                else:
+                    why = "личности нет в ведомости"
+                findings.append((r.sha, role, name, em, why))
                 continue
             by[basis] += 1
-            if basis in ("signatories", "waivers"):
+            if basis in ("signatories", "waivers", "history_only"):
                 used.add(em)
     return findings, by, ids, used
 
 
+def floor_split(root, led, recs):
+    """(история, новое): коммиты, достижимые из границы, и остальные."""
+    floor = led["floor"]
+    if not floor or not recs:
+        return [], list(recs)
+    if git(root, "cat-file", "-e", floor + "^{commit}", check=False).returncode != 0:
+        raise Unjudgeable("граница %s в истории этого клона отсутствует (срез глубины?) — "
+                          "историю от нового не отличить" % floor[:12])
+    past = set(git(root, "rev-list", floor).stdout.split())
+    return [r for r in recs if r.sha in past], [r for r in recs if r.sha not in past]
+
+
+def judge_split(root, led, recs, mode):
+    """Суждение с учётом границы: история — таблицей «history», новое — `mode`."""
+    past, new = floor_split(root, led, recs)
+    f1, by1, ids1, used1 = judge(past, led, "history")
+    f2, by2, ids2, used2 = judge(new, led, mode)
+    return past, new, f1 + f2, by1 + by2, ids1 | ids2, used1 | used2
+
+
 def print_findings(findings, limit=40, prefix=""):
-    for sha, role, name, em in findings[:limit]:
-        print("%s  %s %s «%s <%s>» — личности нет в ведомости" % (prefix, sha[:12], role, name, em),
+    for sha, role, name, em, why in findings[:limit]:
+        print("%s  %s %s «%s <%s>» — %s" % (prefix, sha[:12], role, name, em, why),
               file=sys.stderr)
     if len(findings) > limit:
         print("%s  … и ещё %d" % (prefix, len(findings) - limit), file=sys.stderr)
-    per = Counter(em for _, _, _, em in findings)
+    per = Counter(f[3] for f in findings)
     print("%s  личностей вне ведомости: %d" % (prefix, len(per)), file=sys.stderr)
     for em, n in sorted(per.items()):
         print("%s    %s — вкладов %d" % (prefix, em, n), file=sys.stderr)
@@ -317,72 +354,53 @@ def print_findings(findings, limit=40, prefix=""):
 def run_tree(root, rel):
     led = load_ledger(root, rel)
     scope = led["scope"]
-    print("[CENSUS] cla-gate: ведомость %s — своих %d, подписавших %d, освобождённых %d; "
-          "область %s" % (rel, len(led["owners"]), len(led["signatories"]), len(led["waivers"]), scope))
+    print("[CENSUS] cla-gate: ведомость %s — своих %d, подписавших %d, освобождённых %d, "
+          "«только история» %d; область %s" % (rel, len(led["owners"]), len(led["signatories"]),
+                                                len(led["waivers"]), len(led["history_only"]), scope))
     paths = walk_paths(scope)
     whole = commits(root, ["HEAD"], paths)
     if not whole:
         raise LedgerDefect("у области %s нет ни одного коммита во всей истории HEAD — гейт слеп" % scope)
     floor = led["floor"]
-    if floor:
-        if git(root, "cat-file", "-e", floor + "^{commit}", check=False).returncode != 0:
-            raise Unjudgeable("граница %s в истории этого клона отсутствует (срез глубины?) — "
-                              "судимый диапазон не построить" % floor[:12])
-        if git(root, "merge-base", "--is-ancestor", floor, "HEAD", check=False).returncode != 0:
-            raise LedgerDefect("граница %s не предок HEAD — ведомость называет чужую историю" % floor[:12])
-        judged = commits(root, [floor + "..HEAD"], paths)
-        rng = "%s..HEAD" % floor[:12]
-    else:
-        judged, rng = whole, "HEAD (вся история)"
-    if not judged:
-        raise LedgerDefect("обход пуст: диапазон %s в области %s не несёт ни одного коммита — "
-                           "граница названа на голове или за ней" % (rng, scope))
-
-    findings, by, ids, _ = judge(judged, led, "tree")
-    # Предмет записи ищется во ВСЕЙ истории области: освобождение, чей вклад лежит
-    # за границей, предмет имеет — граница снимает вердикт, а не историю.
-    _, _, _, used_all = judge(whole, led, "tree")
-    print("[CENSUS] cla-gate: судимый диапазон %s — коммитов %d, вкладов %d (автор %d, соавтор %d), "
-          "личностей %d; своих %d, по ведомости %d, освобождено %d, подписью %d"
-          % (rng, len(judged), by["вкладов"], by[ROLE_AUTHOR], by[ROLE_COAUTHOR], len(ids),
-             by["owners"], by["signatories"], by["waivers"], by["signoff"]))
+    if floor and git(root, "cat-file", "-e", floor + "^{commit}", check=False).returncode == 0 and \
+            git(root, "merge-base", "--is-ancestor", floor, "HEAD", check=False).returncode != 0:
+        raise LedgerDefect("граница %s не предок HEAD — ведомость называет чужую историю" % floor[:12])
+    past, new, findings, by, ids, used = judge_split(root, led, whole, "tree")
+    print("[CENSUS] cla-gate: вся история HEAD — коммитов %d (история до границы %s включительно %d, "
+          "после неё %d), вкладов %d (автор %d, соавтор %d), личностей %d; своих %d, по ведомости %d, "
+          "освобождено %d, «только история» %d, подписью %d"
+          % (len(whole), floor[:12] if floor else "—", len(past), len(new), by["вкладов"],
+             by[ROLE_AUTHOR], by[ROLE_COAUTHOR], len(ids), by["owners"], by["signatories"],
+             by["waivers"], by["history_only"], by["signoff"]))
+    if led["history_only"]:
+        per = Counter()
+        for r in past:
+            for role, _, em in contributions(r, "history"):
+                if em in led["history_only"]:
+                    per[em] += 1
+        for em in sorted(led["history_only"]):
+            print("    history_only %s — вкладов до границы %d" % (em, per[em]))
 
     bad = 0
-    if floor:
-        before = commits(root, [floor], paths)
-        bf, bby, _, _ = judge(before, led, "tree")
-        per = defaultdict(Counter)
-        for _, role, _, em in bf:
-            per[em][role] += 1
-        print("[CENSUS] cla-gate: ЗА ГРАНИЦЕЙ (история до %s включительно, вердикт НЕ выносится) — "
-              "коммитов %d, вкладов %d, без записи %d, личностей без записи %d"
-              % (floor[:12], len(before), bby["вкладов"], len(bf), len(per)))
-        for em in sorted(per):
-            c = per[em]
-            print("    %s — вкладов %d (автор %d, соавтор %d)"
-                  % (em, sum(c.values()), c[ROLE_AUTHOR], c[ROLE_COAUTHOR]))
-        if not bf:
-            bad += 1
-            print("[FAIL] cla-gate — граница %s больше ничего не прикрывает: за ней нет ни одного "
-                  "вклада без записи. Снимите history_floor — судиться будет вся история"
-                  % floor[:12], file=sys.stderr)
-
     if findings:
         bad += 1
-        print("[FAIL] cla-gate — вклады без подтверждения соглашения в диапазоне %s: %d"
-              % (rng, len(findings)), file=sys.stderr)
+        print("[FAIL] cla-gate — вклады без подтверждения: %d" % len(findings), file=sys.stderr)
         print_findings(findings)
-    for s in ("signatories", "waivers"):
-        for em in sorted(led[s]):
-            if em not in used_all:
+    for s_ in ("signatories", "waivers", "history_only"):
+        for em in sorted(led[s_]):
+            if em not in used:
                 bad += 1
-                print("[FAIL] cla-gate — %s: %s — записи нечего покрывать во всей истории области; "
-                      "снимите её, иначе она молча покроет следующего с этим адресом" % (s, em),
-                      file=sys.stderr)
+                where = "до границы" if s_ == "history_only" else "во всей истории области"
+                print("[FAIL] cla-gate — %s: %s — записи нечего покрывать %s; снимите её, иначе "
+                      "она молча покроет следующего с этим адресом" % (s_, em, where), file=sys.stderr)
+    if floor and not led["history_only"]:
+        bad += 1
+        print("[FAIL] cla-gate — граница %s без единой записи history_only: она больше ничего не "
+              "разделяет; снимите history_floor" % floor[:12], file=sys.stderr)
     if bad:
         return 1
-    print("[PASS] cla-gate — в диапазоне %s каждый вклад подтверждён; записей без предмета нет"
-          % rng)
+    print("[PASS] cla-gate — вся история HEAD (%d коммитов) подтверждена ведомостью; записей без "
+          "предмета нет" % len(whole))
     return 0
 
 
@@ -418,11 +436,11 @@ def judge_push(root, rel, positives, negatives, label, remote=""):
     led = load_ledger(root, rel)
     recs = (commits(root, [*positives, "--not", *negatives, *published_on(root, remote)])
             if positives else [])
-    findings, by, ids, _ = judge(recs, led, "push")
-    print("%s — публикуемых коммитов %d, вкладов %d (автор %d, коммиттер %d, соавтор %d), "
-          "личностей %d; ведомость %s" % (label, len(recs), by["вкладов"], by[ROLE_AUTHOR],
-                                          by[ROLE_COMMITTER], by[ROLE_COAUTHOR], len(ids), rel),
-          file=sys.stderr)
+    past, _, findings, by, ids, _ = judge_split(root, led, recs, "push")
+    print("%s — публикуемых коммитов %d (из них история до границы %d), вкладов %d (автор %d, "
+          "коммиттер %d, соавтор %d), личностей %d; ведомость %s"
+          % (label, len(recs), len(past), by["вкладов"], by[ROLE_AUTHOR], by[ROLE_COMMITTER],
+             by[ROLE_COAUTHOR], len(ids), rel), file=sys.stderr)
     dirty_ledger_note(root, rel)
     if findings:
         print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости (%d):"
@@ -458,9 +476,9 @@ def run_push_range(root, rel, remote, lines):
 def run_census(root, rel, revs):
     led = load_ledger(root, rel)
     recs = commits(root, revs)
-    findings, by, ids, _ = judge(recs, led, "push")
-    print("[CENSUS] cla census %s — коммитов %d, вкладов %d, личностей %d; вне ведомости %d"
-          % (" ".join(revs), len(recs), by["вкладов"], len(ids), len(findings)))
+    past, _, findings, by, ids, _ = judge_split(root, led, recs, "push")
+    print("[CENSUS] cla census %s — коммитов %d (история до границы %d), вкладов %d, личностей %d; "
+          "находок %d" % (" ".join(revs), len(recs), len(past), by["вкладов"], len(ids), len(findings)))
     if findings:
         print_findings(findings)
         return 1

@@ -171,38 +171,50 @@ d="$(fresh e5t)"
 git -C "$d" commit -q --allow-empty -m "пустой коммит владельца"
 probe 0 "E5 близнец: пустой коммит СВОЕЙ личности — молчание" "$d"
 
-# ── граница истории ──────────────────────────────────────────────────────────
+# ── граница истории и «только история» ──────────────────────────────────────
+#
+# Запись history_only покрывает вклад ТОЛЬКО в коммитах, достижимых из границы;
+# после неё тот же адрес — находка. Судится вся история.
 d="$(repo k)"
 commit_as "$d" old@cla-inject.invalid "старый вклад до ведомости"
 floor="$(git -C "$d" rev-parse HEAD)"
-ledger "$d" "history_floor:
+HO="history_floor:
   commit: $floor
-  note: граница фикстуры"
+  note: граница фикстуры
+history_only:
+  - email: old@cla-inject.invalid
+    note: только история по решению владельца фикстуры"
+ledger "$d" "$HO"
 git -C "$d" add -A; git -C "$d" commit -q -m "ведомость с границей"
-probe 0 "H за границей адрес без записи назван числом, вердикт не выносится" "$d" "ЗА ГРАНИЦЕЙ" "old@cla-inject.invalid — вкладов 1" "личностей без записи 1"
-commit_as "$d" new-evil@cla-inject.invalid "новый чужой вклад"
-probe 1 "H после границы — строго: новый чужой вклад — находка" "$d" "new-evil@cla-inject.invalid"
+probe 0 "H1 адрес «только история» до границы — покрыт, число его вкладов напечатано" "$d" "history_only old@cla-inject.invalid — вкладов до границы 1"
+commit_as "$d" old@cla-inject.invalid "тот же адрес ПОСЛЕ границы"
+probe 1 "H2 адрес «только история» после границы — находка «вперёд запрет»" "$d" "old@cla-inject.invalid" "вперёд запрет"
+git -C "$d" reset -q --hard HEAD~1
+commit_as "$d" never@cla-inject.invalid "чужой вклад после границы"
+probe 1 "H3 чужой адрес после границы — находка" "$d" "never@cla-inject.invalid" "личности нет в ведомости"
 git -C "$d" reset -q --hard HEAD~1
 ledger "$d" "history_floor:
   commit: $floor
-  note: граница фикстуры
-signatories:
+  note: граница фикстуры"
+probe 1 "H4 до границы адрес без записи — находка: судится ВСЯ история" "$d" "old@cla-inject.invalid" "личности нет в ведомости"
+probe 1 "H5 граница без единой записи history_only — находка (ничего не разделяет)" "$d" "ничего не"
+ledger "$d" "$HO
+  - email: ghost-history@cla-inject.invalid
+    note: запись без вклада до границы"
+probe 1 "H6 запись history_only без вклада до границы — находка (самоистечение)" "$d" "ghost-history@cla-inject.invalid" "нечего покрывать"
+ledger "$d" "history_only:
   - email: old@cla-inject.invalid
-    note: классифицирован владельцем фикстуры"
-git -C "$d" add -A; git -C "$d" commit -q -m "старый адрес классифицирован"
-probe 1 "H граница без предмета — находка (самоистечение границы)" "$d" "больше ничего не прикрывает"
-ledger "$d" "history_floor:
-  commit: $(git -C "$d" rev-parse HEAD)
-  note: граница на голове"
-git -C "$d" add -A; git -C "$d" commit -q --amend --no-edit
-ledger "$d" "history_floor:
-  commit: $(git -C "$d" rev-parse HEAD)
-  note: граница на голове"
-probe 1 "H пустой обход: граница на голове — отказ, а не зелёное" "$d" "обход пуст"
+    note: без границы"
+probe 1 "H7 history_only без history_floor — ведомость негодна" "$d" "без history_floor"
 ledger "$d" "history_floor:
   commit: 0123456789abcdef0123456789abcdef01234567
-  note: граница, которой в истории нет"
-probe 2 "H граница не в истории (срез глубины) — без предмета, не зелёное" "$d" "условие не создано"
+  note: граница, которой в истории нет
+history_only:
+  - email: old@cla-inject.invalid
+    note: только история"
+probe 2 "H8 граница не в истории (срез глубины) — без предмета, не зелёное" "$d" "условие не создано"
+ledger "$d" "$HO"
+hk="$d"   # фикстура границы — её же судит проба отправки HP1 ниже
 
 # ── E2: суждение ОТПРАВКИ (`cla.py push-range`) ─────────────────────────────
 #
@@ -240,6 +252,16 @@ probe_push 0 "E2k близнец: тот же коммит уже на ЭТОМ 
     "$d" origin "refs/heads/main $head refs/heads/topic $Z" "публикуемых коммитов 0"
 probe_push 1 "E2k отправка по URL, а не имени remote: известное чужим remote не вычитается" \
     "$d" "$TMP/e2k-new.git" "refs/heads/main $head refs/heads/main $Z" "known-elsewhere@cla-inject.invalid"
+
+# ── «только история» при отправке ────────────────────────────────────────────
+dh="$hk"
+git init -q --bare "$TMP/h-new.git"
+commit_as "$dh" old@cla-inject.invalid "новый коммит адресом «только история»"
+nh="$(git -C "$dh" rev-parse HEAD)"
+probe_push 1 "HP1 отправка НОВОГО коммита адресом «только история» — отказ «вперёд запрет»" \
+    "$dh" "$TMP/h-new.git" "refs/heads/main $nh refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
+probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) в новый remote — история покрыта" \
+    "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "история до границы 2"
 
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
