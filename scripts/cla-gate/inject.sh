@@ -342,8 +342,11 @@ probe_push 1 "E2k чужой коммит, известный через ссы�
 git -C "$d" push -q --no-verify origin main; git -C "$d" fetch -q origin
 probe_push 0 "E2k близнец: тот же коммит уже на ЭТОМ remote — не судится повторно" \
     "$d" origin "refs/heads/main $head refs/heads/topic $Z" "публикуемых коммитов 0"
+git init -q --bare "$TMP/e2k-new.git"
 probe_push 1 "E2k отправка по URL, а не имени remote: известное чужим remote не вычитается" \
     "$d" "$TMP/e2k-new.git" "refs/heads/main $head refs/heads/main $Z" "known-elsewhere@cla-inject.invalid"
+probe_push 2 "E2k сервер отправки не отвечает — опубликованное не вычесть: исход 2, не проход" \
+    "$d" "$TMP/e2k-absent.git" "refs/heads/main $head refs/heads/main $Z" "не ответил на ls-remote"
 
 # ── «только история» при отправке ────────────────────────────────────────────
 dh="$hk"
@@ -352,8 +355,12 @@ commit_as "$dh" old@cla-inject.invalid "новый коммит адресом �
 nh="$(git -C "$dh" rev-parse HEAD)"
 probe_push 1 "HP1 отправка НОВОГО коммита адресом «только история» — отказ «вперёд запрет»" \
     "$dh" "$TMP/h-new.git" "refs/heads/main $nh refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
-probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) в новый remote — история покрыта" \
-    "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "история до границы 2"
+# Ведомость судьи — из ОТПРАВЛЯЕМОЙ ревизии: история отправляется вместе с
+# коммитом, несущим ведомость (граница ведомости в нём и названа).
+probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) с ведомостью в новый remote — история покрыта" \
+    "$dh" "$TMP/h-new.git" "refs/heads/main $(git -C "$dh" rev-parse "$nh~1") refs/heads/main $Z" "история до границы 2"
+probe_push 1 "HP1 отправка ревизии, в дереве которой ведомости нет, — отказ «судить нечем», а не проход" \
+    "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "ведомости contribution-ledger.yaml в дереве нет" "$(printf '%.12s' "$floor")"
 
 # Подпись Signed-off-by после границы не подтверждает НИЧЕГО и при отправке:
 # роль автора закрыта перечнем ведомости (ws#729 п.1).
@@ -432,6 +439,37 @@ history_only:
     note: только история"
 git -C "$dh2" add -A; git -C "$dh2" commit -q -m "ведомость"
 probe 0 "E2 близнец: трейлер атрибуции ДО границы — история, не судится" "$dh2"
+
+# ── committers: личность, допустимая ТОЛЬКО коммиттером (посадка сервером) ─────
+#
+# ws#700: «committer noreply@github.com у схлопывающих слияний … находкой НЕ
+# является». Отправка в зеркало публикует посадки заново, и без записи законная
+# отправка краснела бы навсегда; с записью личность покрывает ровно роль
+# коммиттера — автором она вклад не подписывает, запись без коммита истекает.
+dc="$(fresh cmt)"
+echo c >> "$dc/f.txt"; git -C "$dc" add -A
+GIT_COMMITTER_EMAIL=server@cla-inject.invalid GIT_COMMITTER_NAME=server git -C "$dc" commit -q -m "посадка сервером"
+git init -q --bare "$TMP/cmt.git"
+probe_push 1 "C1 отправка: коммиттер-сервер без записи committers — отказ, роль «коммиттер»" \
+    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "коммиттер" "server@cla-inject.invalid"
+CM="committers:
+  - email: server@cla-inject.invalid
+    note: сервер подписывает посадку коммиттером (ws#700)"
+ledger "$dc" "$CM"; git -C "$dc" add -A; git -C "$dc" commit -q -m "ведомость: committers"
+probe_push 0 "C1 близнец: запись committers в ведомости отправляемой ревизии — проходит" \
+    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "публикуемых коммитов 4"
+probe 0 "C2 tree: запись committers с предметом — молчание, число коммитов названо" "$dc" "committers server@cla-inject.invalid — коммитов коммиттером 1"
+echo a >> "$dc/f.txt"; git -C "$dc" add -A
+GIT_AUTHOR_EMAIL=server@cla-inject.invalid GIT_AUTHOR_NAME=server git -C "$dc" commit -q -m "сервер автором"
+probe 1 "C3 tree: личность из committers автором — находка «раздел committers этой роли не покрывает»" "$dc" "server@cla-inject.invalid" "раздел committers"
+probe_push 1 "C3 отправка: личность из committers автором — отказ" \
+    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "автор" "раздел committers"
+git -C "$dc" reset -q --hard HEAD~1
+ledger "$dc" "$CM
+  - email: ghost-server@cla-inject.invalid
+    note: запись без единого коммита"
+probe 1 "C4 tree: запись committers без коммита с этим коммиттером — находка (самоистечение)" "$dc" "ghost-server@cla-inject.invalid" "нечего покрывать"
+ledger "$dc" "$CM"
 
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then

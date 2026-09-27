@@ -13,7 +13,11 @@
                 который ОТПРАВКА ОПУБЛИКУЕТ (строки pre-push на stdin), автор,
                 коммиттер и соавторы — личности ведомости. Судится диапазон, а не
                 рабочее дерево и не `git config`: подстановка адреса окружением
-                сильнее настройки и видна только в самом коммите.
+                сильнее настройки и видна только в самом коммите. Опубликованное
+                спрашивается у СЕРВЕРА ОТПРАВКИ (`git ls-remote <url>`), а не у
+                ссылок отслеживания: те — память о сервере ВЫБОРКИ и бывают
+                устаревшими. Ведомость читается из ОТПРАВЛЯЕМОЙ ревизии, а не из
+                рабочего дерева: незакоммиченная правка отправку не открывает.
     census      то же суждение, что push-range, по произвольному диапазону
                 (`census -- <ветка> --not --glob=refs/remotes/origin/*`): что отказала бы отправка.
 
@@ -30,7 +34,13 @@
 сообщения дописывает кто угодно. Пустой адрес (`--author="X <>"`, неразборная
 подпись) не совпадает ни с чем, в том числе с другим пустым адресом.
 
-ОТЛИЧИЕ ОТ СОСЕДА, И ОНО ОБЪЯВЛЕНО: раздел `history_only` и граница
+ОТЛИЧИЕ ОТ СОСЕДА, И ОНО ОБЪЯВЛЕНО (два раздела). Раздел `committers` — личности,
+допустимые ТОЛЬКО в роли коммиттера: коммит произвёл сервер при посадке (ws#700:
+«committer noreply@github.com у схлопывающих слияний … находкой НЕ является»).
+Вкладчиком такая личность не является, автором и соавтором не покрыта; запись без
+единого коммита с этим коммиттером во всей истории — находка.
+
+Раздел `history_only` и граница
 `history_floor`. История воркспейса несёт адреса, которые владелец отнёс к «только
 история, вперёд запрет» (решение 2026-09-27, цитаты — в самой ведомости). Запись
 `history_only` покрывает вклад ТОЛЬКО в коммитах, достижимых из границы; тот же адрес
@@ -42,7 +52,7 @@
 СУЖДЕНИЕ ОТПРАВКИ СТРОЖЕ СУЖДЕНИЯ ДЕРЕВА — по роли (для коммитов после границы;
 история, опубликованная заново, судится как история):
     автор      своя личность · подписавший
-    коммиттер  своя личность · подписавший
+    коммиттер  своя личность · подписавший · сервер посадки (`committers`)
     соавтор    своя личность · подписавший · освобождённый — по вопросу
                соглашения; сам ключ атрибуции (Co-authored-by, Claude-Session)
                в строке сообщения — отказ по имени ключа независимо от ведомости
@@ -64,7 +74,9 @@ from collections import Counter, defaultdict
 
 LEDGER = "contribution-ledger.yaml"
 ZERO = "0" * 40
-SECTIONS = ("owners", "signatories", "waivers", "history_only")
+SECTIONS = ("owners", "signatories", "waivers", "history_only", "committers")
+# Разделы-послабления: их запись без предмета — находка (самоистечение).
+EXPIRING = ("signatories", "waivers", "history_only", "committers")
 TOP_KEYS = {"scope", "history_floor"} | set(SECTIONS)
 ENTRY_KEYS = {"email", "note"}
 FLOOR_KEYS = {"commit", "note"}
@@ -89,7 +101,7 @@ ALLOW = {
     },
     "push": {
         ROLE_AUTHOR: ("owners", "signatories"),
-        ROLE_COMMITTER: ("owners", "signatories"),
+        ROLE_COMMITTER: ("owners", "signatories", "committers"),
         ROLE_COAUTHOR: ("owners", "signatories", "waivers"),
     },
 }
@@ -130,8 +142,9 @@ def git_env():
     return env
 
 
-def git(root, *args, check=True):
-    r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, env=git_env())
+def git(root, *args, check=True, stdin=None):
+    r = subprocess.run(["git", "-C", root, *args], capture_output=True, text=True, env=git_env(),
+                       input=stdin)
     if check and r.returncode != 0:
         raise Unjudgeable("git %s: код %d: %s" % (" ".join(args[:3]), r.returncode, r.stderr.strip()))
     return r
@@ -157,17 +170,44 @@ def email_of(value):
 # ── ведомость ────────────────────────────────────────────────────────────────
 
 def load_ledger(root, rel=LEDGER):
+    """Ведомость РАБОЧЕГО ДЕРЕВА — для гейта дерева и переписи."""
+    try:
+        with open(os.path.join(root, rel), encoding="utf-8") as f:
+            text = f.read()
+    except FileNotFoundError:
+        raise LedgerDefect("ведомости %s в дереве нет — различать своего и чужого нечем" % rel)
+    return parse_ledger(text, rel, lambda p: os.path.exists(os.path.join(root, p)))
+
+
+def load_ledger_at(root, rev, rel=LEDGER):
+    """Ведомость из дерева РЕВИЗИИ `rev` — той, что отправка публикует.
+
+    Рабочее дерево здесь не судья: незакоммиченная запись о личности не входит в
+    отправляемый диапазон, и вердикт, зеленеющий от неё, — неявный обход помимо
+    объявленного `--no-verify` (находка приёмки: `owners: evil@…` в рабочем дереве
+    выпускал коммит evil на сервер).
+    """
+    if git(root, "cat-file", "-e", rev + "^{commit}", check=False).returncode != 0:
+        raise Unjudgeable("ревизии %s в клоне нет — ведомость отправляемого не прочесть" % rev[:12])
+    r = git(root, "cat-file", "blob", "%s:%s" % (rev, rel), check=False)
+    if r.returncode != 0:
+        raise LedgerDefect("ведомости %s в дереве нет — различать своего и чужого нечем (дерево "
+                           "отправляемой ревизии %s)" % (rel, rev[:12]))
+
+    def exists(p):
+        obj = rev + "^{tree}" if p in (".", "") else "%s:%s" % (rev, p)
+        return git(root, "cat-file", "-e", obj, check=False).returncode == 0
+    return parse_ledger(r.stdout, "%s@%s" % (rel, rev[:12]), exists)
+
+
+def parse_ledger(text, rel, exists):
     """Ведомость, сведённая к адресам. Любой дефект — LedgerDefect со ВСЕМИ причинами."""
     try:
         import yaml  # noqa: WPS433 — зависимость объявлена в шапке набора
     except ImportError as e:
         raise Unjudgeable("разборщик YAML (python3-yaml) не установлен: %s" % e)
-    path = os.path.join(root, rel)
     try:
-        with open(path, encoding="utf-8") as f:
-            raw = yaml.safe_load(f)
-    except FileNotFoundError:
-        raise LedgerDefect("ведомости %s в дереве нет — различать своего и чужого нечем" % rel)
+        raw = yaml.safe_load(text)
     except yaml.YAMLError as e:
         raise LedgerDefect("ведомость %s не разобрана: %s" % (rel, e))
     problems = []
@@ -218,7 +258,7 @@ def load_ledger(root, rel=LEDGER):
             if joined.startswith(".."):
                 problems.append("область %r уводит за корень дерева" % p)
                 continue
-            if not os.path.exists(os.path.join(root, joined)):
+            if not exists(joined):
                 problems.append("область %r в дереве не разрешается — обход был бы пуст" % p)
                 continue
             led["scope"].append(joined)
@@ -261,15 +301,20 @@ def walk_paths(scope):
     return scope
 
 
-def commits(root, revs, paths=None):
+def commits(root, revs, paths=None, stdin_revs=None):
     # Порядок и адреса — ИЗ КОММИТА: `%ae`/`%ce`, а не `%aE`/`%cE`, которые
     # подменяются `.mailmap` дерева (замок — проба E5m в inject).
     args = ["log", "--format=" + FMT, *revs]
+    if stdin_revs is not None:
+        # Ревизии — через stdin: ссылок у сервера отправки бывают тысячи, и в
+        # командную строку они не лезут.
+        args.append("--stdin")
     if paths:
         # Область уже дерева: коммит вне неё не судится, но слияния и боковые
         # ветки внутри неё — судятся, упрощение истории снимается.
         args += ["--full-history", "--", *paths]
-    out = git(root, *args).stdout
+    stdin = "".join(v + "\n" for v in stdin_revs) if stdin_revs is not None else None
+    out = git(root, *args, stdin=stdin).stdout
     recs = []
     for chunk in out.split("\x1d"):
         chunk = chunk.lstrip("\n")
@@ -341,7 +386,7 @@ def judge(recs, led, mode):
                 findings.append((r.sha, role, name, em, why))
                 continue
             by[basis] += 1
-            if basis in ("signatories", "waivers", "history_only"):
+            if basis in EXPIRING:
                 used.add(em)
         if mode != "history":
             for m in ATTRIBUTION_RE.finditer(r.body):
@@ -398,8 +443,9 @@ def run_tree(root, rel):
     led = load_ledger(root, rel)
     scope = led["scope"]
     print("[CENSUS] cla-gate: ведомость %s — своих %d, подписавших %d, освобождённых %d, "
-          "«только история» %d; область %s" % (rel, len(led["owners"]), len(led["signatories"]),
-                                                len(led["waivers"]), len(led["history_only"]), scope))
+          "«только история» %d, коммиттеров-серверов %d; область %s"
+          % (rel, len(led["owners"]), len(led["signatories"]), len(led["waivers"]),
+             len(led["history_only"]), len(led["committers"]), scope))
     paths = walk_paths(scope)
     whole = commits(root, ["HEAD"], paths)
     if not whole:
@@ -423,13 +469,21 @@ def run_tree(root, rel):
                     per[em] += 1
         for em in sorted(led["history_only"]):
             print("    history_only %s — вкладов до границы %d" % (em, per[em]))
+    # `committers` — роль коммиттера, которую гейт дерева не судит (вкладчиком
+    # коммиттер не считается); предмет записи — коммит с этим коммиттером где
+    # угодно в истории, и без него запись — находка.
+    if led["committers"]:
+        per_c = Counter(r.ce for r in whole if r.ce in led["committers"])
+        used |= set(per_c)
+        for em in sorted(led["committers"]):
+            print("    committers %s — коммитов коммиттером %d" % (em, per_c[em]))
 
     bad = 0
     if findings:
         bad += 1
         print("[FAIL] cla-gate — вклады без подтверждения: %d" % len(findings), file=sys.stderr)
         print_findings(findings)
-    for s_ in ("signatories", "waivers", "history_only"):
+    for s_ in EXPIRING:
         for em in sorted(led[s_]):
             if em not in used:
                 bad += 1
@@ -453,51 +507,106 @@ def dirty_ledger_note(root, rel):
     r = git(root, "diff", "--quiet", "HEAD", "--", rel, check=False)
     if r.returncode == 1:
         print("pre-push: ВНИМАНИЕ — ведомость %s в рабочем дереве отличается от закоммиченной; "
-              "суждение вынесено по рабочему дереву" % rel, file=sys.stderr)
+              "отправку судит ведомость ОТПРАВЛЯЕМОЙ ревизии, незакоммиченная правка не "
+              "действует" % rel, file=sys.stderr)
 
 
 REMOTE_NAME = re.compile(r"[A-Za-z0-9._-]+")
 
 
-def published_on(root, remote):
-    """Ссылки, которыми известно опубликованное НА ЭТОМ remote, — аргументы `git log`.
+def push_target(root, remote, url):
+    """Адрес сервера ОТПРАВКИ.
 
-    Вычитается только отслеживаемое remote отправки. Прежде вычиталось `--remotes`
-    — все remote сразу, — и чужой коммит, известный через ссылку ВТОРОГО remote,
-    при отправке в первый не судился вовсе («публикуемых 0»), хотя в первом его
-    нет. Отправка по URL (хук получает URL вместо имени) — вычитать нечего:
-    остаётся только sha на сервере из строки отправки.
+    Хук получает его от git вторым аргументом (при нескольких pushurl — свой на
+    каждый вызов). Без него — pushurl названного remote (`get-url --push`), а не
+    его url: выборка и отправка бывают разными серверами. Имя, не являющееся
+    remote, — это и есть URL (отправка по адресу).
     """
-    if not remote or not REMOTE_NAME.fullmatch(remote):
-        return []
-    if git(root, "config", "--get", "remote.%s.url" % remote, check=False).returncode != 0:
-        return []
-    return ["--glob=refs/remotes/%s/*" % remote]
+    if url:
+        return url
+    if remote and REMOTE_NAME.fullmatch(remote):
+        r = git(root, "remote", "get-url", "--push", remote, check=False)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip().splitlines()[0]
+    if remote:
+        return remote
+    raise Unjudgeable("сервер отправки не назван (нет ни URL, ни remote) — опубликованное на нём "
+                      "не вычесть")
 
 
-def judge_push(root, rel, positives, negatives, label, remote=""):
-    led = load_ledger(root, rel)
-    recs = (commits(root, [*positives, "--not", *negatives, *published_on(root, remote)])
-            if positives else [])
-    past, _, findings, by, ids, _ = judge_split(root, led, recs, "push")
+def published_on(root, target):
+    """sha, которые СЕРВЕР ОТПРАВКИ называет своими ссылками, и те из них, что есть в клоне.
+
+    Спрашивается сам сервер (`git ls-remote`). Ссылки отслеживания здесь не
+    годятся ни в какой форме: это память о сервере ВЫБОРКИ, и она бывает
+    устаревшей. Находки приёмки: ветку сняли на сервере, объект собран сборщиком, а
+    `refs/remotes/origin/*` всё ещё его называл — и чужой коммит уходил
+    неосуждённым; при `pushurl` на другой сервер чужой коммит, известный лишь
+    серверу выборки, уходил на сервер отправки. И в обратную сторону: отправка по
+    URL не вычитала НИЧЕГО и судила всю историю, включая посадки сервера.
+    Сервер не ответил — вычесть нечем, исход 2 (хук отправки читает его как отказ).
+    """
+    r = git(root, "ls-remote", "--", target, check=False)
+    if r.returncode != 0:
+        tail = (r.stderr.strip().splitlines() or ["—"])[0]
+        raise Unjudgeable("сервер отправки %s не ответил на ls-remote (код %d: %s) — опубликованное "
+                          "на нём не вычесть" % (target, r.returncode, tail[:200]))
+    advertised = sorted({ln.split("\t", 1)[0] for ln in r.stdout.splitlines() if "\t" in ln})
+    known = []
+    if advertised:
+        out = git(root, "cat-file", "--batch-check=%(objectname) %(objecttype)",
+                  stdin="".join(x + "\n" for x in advertised)).stdout
+        known = [ln.split()[0] for ln in out.splitlines()
+                 if len(ln.split()) == 2 and ln.split()[1] in ("commit", "tag")]
+    return advertised, known
+
+
+def ledger_blob(root, rev, rel):
+    """Объект ведомости в дереве ревизии: одинаковые ведомости судят одной группой."""
+    if git(root, "cat-file", "-e", rev + "^{commit}", check=False).returncode != 0:
+        raise Unjudgeable("ревизии %s в клоне нет — судить отправляемое не по чему" % rev[:12])
+    r = git(root, "rev-parse", "--verify", "-q", "%s:%s" % (rev, rel), check=False)
+    return r.stdout.strip() or ("нет@" + rev)
+
+
+def judge_push(root, rel, tips, negatives, label):
+    """Суждение по отправляемому: группа ссылок — одна ведомость ИХ ревизии."""
+    groups = {}
+    for t in tips:
+        groups.setdefault(ledger_blob(root, t, rel), []).append(t)
+    findings, by, ids, seen, past_n, ledgers = [], Counter(), set(), set(), 0, []
+    for _, ts in sorted(groups.items()):
+        led = load_ledger_at(root, ts[0], rel)
+        ledgers.append(led["path"])
+        recs = commits(root, [], stdin_revs=[*ts, *("^" + n for n in negatives)])
+        past, _, f, b, i, _ = judge_split(root, led, recs, "push")
+        findings += f
+        by += b
+        ids |= i
+        past_n += len({r.sha for r in past} - seen)
+        seen |= {r.sha for r in recs}
     print("%s — публикуемых коммитов %d (из них история до границы %d), вкладов %d (автор %d, "
           "коммиттер %d, соавтор %d), личностей %d; ведомость %s"
-          % (label, len(recs), len(past), by["вкладов"], by[ROLE_AUTHOR], by[ROLE_COMMITTER],
-             by[ROLE_COAUTHOR], len(ids), rel), file=sys.stderr)
+          % (label, len(seen), past_n, by["вкладов"], by[ROLE_AUTHOR], by[ROLE_COMMITTER],
+             by[ROLE_COAUTHOR], len(ids), ", ".join(ledgers) or "— (публиковать нечего)"),
+          file=sys.stderr)
     dirty_ledger_note(root, rel)
     if findings:
         print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости либо ключ "
               "атрибуции (%d):" % len(findings), file=sys.stderr)
         print_findings(findings)
-        print("  Чинится ПЕРЕПОДПИСЬЮ неотправленного (git rebase -x 'git commit --amend "
-              "--no-edit --reset-author' <база>), снятием ключа атрибуции из сообщения либо "
-              "записью в %s с причиной — не обходом." % rel, file=sys.stderr)
+        print("  Чинится переподписью ТОЛЬКО того, что нигде не опубликовано (git rebase -x "
+              "'git commit --amend --no-edit --reset-author' <база>), снятием ключа атрибуции "
+              "из сообщения либо записью в %s ОТПРАВЛЯЕМОЙ ревизии с причиной. Коммит, уже "
+              "опубликованный где-либо, не переписывается: его личность — решение владельца "
+              "записью в ведомости. Обход один и явный: git push --no-verify." % rel,
+              file=sys.stderr)
         return 1
     return 0
 
 
-def run_push_range(root, rel, remote, lines):
-    positives, negatives, refs, deletions = [], [], 0, 0
+def run_push_range(root, rel, remote, url, lines):
+    tips, rshas, refs, deletions = [], [], 0, 0
     for ln in lines:
         parts = ln.split()
         if len(parts) != 4:
@@ -509,11 +618,19 @@ def run_push_range(root, rel, remote, lines):
         if lsha == ZERO:
             deletions += 1
             continue
-        positives.append(lsha)
+        tips.append(lsha)
         if rsha != ZERO and git(root, "cat-file", "-e", rsha + "^{commit}", check=False).returncode == 0:
-            negatives.append(rsha)
-    label = "pre-push: подпись и ведомость (%s) — ссылок %d, снятий %d" % (remote or "?", refs, deletions)
-    return judge_push(root, rel, positives, negatives, label, remote)
+            rshas.append(rsha)
+    if not tips:
+        print("pre-push: подпись и ведомость (%s) — ссылок %d, снятий %d — публиковать нечего"
+              % (remote or url or "?", refs, deletions), file=sys.stderr)
+        return 0
+    target = push_target(root, remote, url)
+    advertised, known = published_on(root, target)
+    label = ("pre-push: подпись и ведомость (%s → %s) — ссылок %d, снятий %d; сервер отправки "
+             "назвал sha %d, из них в клоне %d"
+             % (remote or "?", target, refs, deletions, len(advertised), len(known)))
+    return judge_push(root, rel, tips, sorted(set(rshas) | set(known)), label)
 
 
 def run_census(root, rel, revs):
@@ -534,6 +651,7 @@ def main():
     ap.add_argument("--root", default=None, help="корень судимого дерева (по умолчанию — рабочая копия)")
     ap.add_argument("--ledger", default=LEDGER)
     ap.add_argument("--remote", default="")
+    ap.add_argument("--url", default="", help="сервер ОТПРАВКИ (второй аргумент хука pre-push)")
     ap.add_argument("revs", nargs="*")
     a = ap.parse_args()
     root = a.root
@@ -543,7 +661,7 @@ def main():
         if a.mode == "tree":
             return run_tree(root, a.ledger)
         if a.mode == "push-range":
-            return run_push_range(root, a.ledger, a.remote, sys.stdin.read().splitlines())
+            return run_push_range(root, a.ledger, a.remote, a.url, sys.stdin.read().splitlines())
         if not a.revs:
             raise Unjudgeable("census без диапазона — судить нечего")
         return run_census(root, a.ledger, a.revs)

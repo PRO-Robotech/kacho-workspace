@@ -63,6 +63,12 @@ mutant_descr=(
     "check-04-push-verdict-comes-from-the-remote|scripts/push-verified.sh|постусловие снова спрашивает url, а не pushurl"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|переименование снова склеивает пути знаменателя"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ключ атрибуции снова судится только по адресу"
+    "check-02-push-range-judges-identities|scripts/hooks/pre-push|разборщика нет — отправка проходит, «судить нечем» стало проходом (MP1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|опубликованное снова из ссылок отслеживания, а не у сервера отправки"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|опубликованное на сервере отправки не вычитается — отправка по URL судит всю историю"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова из рабочего дерева, а не из отправляемой ревизии"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|коммиттер-сервер из committers снова не покрыт при отправке"
+    "check-02-push-range-judges-identities|scripts/hooks/pre-push|строки отправки снова читаются с пределом по времени и при вызове от git"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -80,7 +86,7 @@ M = [
      'if [ "${#push_lines[@]}" -gt 0 ]; then\n    judge=',
      'if false; then\n    judge='),
     ("scripts/cla-gate/cla.py",
-     '        ROLE_COMMITTER: ("owners", "signatories"),\n',
+     '        ROLE_COMMITTER: ("owners", "signatories", "committers"),\n',
      ''),
     ("scripts/cla-gate/cla.py",
      '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories"),\n',
@@ -109,6 +115,24 @@ M = [
     ("scripts/cla-gate/cla.py",
      '        if mode != "history":\n            for m in ATTRIBUTION_RE.finditer(r.body):\n',
      '        if False:\n            for m in ATTRIBUTION_RE.finditer(r.body):\n'),
+    ("scripts/hooks/pre-push",
+     '        echo "  Обход только явный: git push --no-verify" >&2\n        exit 1\n',
+     '        echo "  Обход только явный: git push --no-verify" >&2\n        exit 0\n'),
+    ("scripts/cla-gate/cla.py",
+     '    r = git(root, "ls-remote", "--", target, check=False)\n',
+     '    r = git(root, "for-each-ref", "--format=%(objectname)\t%(refname)", "refs/remotes/", check=False)\n'),
+    ("scripts/cla-gate/cla.py",
+     '    return judge_push(root, rel, tips, sorted(set(rshas) | set(known)), label)\n',
+     '    return judge_push(root, rel, tips, sorted(set(rshas)), label)\n'),
+    ("scripts/cla-gate/cla.py",
+     '        led = load_ledger_at(root, ts[0], rel)\n',
+     '        led = load_ledger(root, rel)\n'),
+    ("scripts/cla-gate/cla.py",
+     '        ROLE_COMMITTER: ("owners", "signatories", "committers"),\n',
+     '        ROLE_COMMITTER: ("owners", "signatories"),\n'),
+    ("scripts/hooks/pre-push",
+     '    if [ $# -ge 2 ]; then\n',
+     '    if false; then\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
