@@ -40,6 +40,8 @@ at-signal-no-inject-on-repeat · канал, поднимающий агента
 
 at-root-settings-lag-signalled · настройки `.claude/settings.json` корня, отставшие от `origin/main` (лист ствола, которого в корне нет), печатаются диспетчеру маршрутом к `git-operator`; другое значение того же пути — работа ветки корня, не отставание; действует только в корне, чья ветка несёт сам хук · .claude/hooks/settings-lag.sh; scripts/tooling-gate/inject.sh §«настройки корня» · red: `attribution` есть на стволе, в корне нет, и запрет трейлеров исполняет одно внимание (ws#796)
 
+at-hooks-wired-both-ways · запись события в `.claude/settings.json` ведёт в существующий файл; исполняемый файл верхнего уровня `.claude/hooks/` доходит до записи прямо или передачей; провязанный хук не зовёт соседа, которого нет · scripts/tooling-gate/check-21-harness-hooks-wired.sh · red: запись хука снята, наборы зелёные, хук молчит (ws#801); хук зовёт файл из архива — 127 (ws#710)
+
 ## Страж команды Bash (`PreToolUse`)
 
 at-push-base-knows-trunk-checks · `git push` полосы, чья база не знает проверки ствола (`scripts/*-gate/check-*` есть на `origin/main`, нет ни в ревизии, ни в их общей базе), отклоняется до исполнения; проверка, снятая самой полосой, — не отставание; обход `KACHO_PUSH_LAGGING=1` в тексте команды и строкой в возврате · .claude/hooks/bash-guard.sh; scripts/tooling-gate/inject.sh §«страж Bash» · red: набор полосы зелёный на меньшем «рассмотрено N», чем на стволе, и ветка отправлена как зелёная (ws#717)

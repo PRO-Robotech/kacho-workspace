@@ -718,6 +718,113 @@ run 1 "$b" "предпосылка: механизма нет — находка
 b="$(mksandbox .claude/settings.json)"
 run 2 "$b" "предпосылка: регистрации нет — VOID"     check-17-hook-signal-prints-delta.sh
 
+echo "== check-21: хуки харнесса провязаны в settings.json в обе стороны (#801) =="
+
+# Жертва выводится из дерева: провязанный хук верхнего уровня, которого не зовёт
+# ни один другой хук, — у него запись единственный путь к срабатыванию. Ровно та
+# операция, о которой задача: «запись снята» (там — wave-monitor, в этой ветке его
+# нет; судится тот же класс на любом таком хуке).
+C21=check-21-harness-hooks-wired.sh
+victim="$(python3 - "$WS" <<'PYV'
+import json, os, re, sys
+ws = sys.argv[1]
+d = json.load(open(os.path.join(ws, ".claude/settings.json"), encoding="utf-8"))
+recs = []
+for groups in (d.get("hooks") or {}).values():
+    for g in groups:
+        for h in g.get("hooks") or []:
+            m = re.search(r"\.claude/hooks/([^/\"\s]+\.sh)", h.get("command") or "")
+            if m:
+                recs.append(m.group(1))
+hooks = os.path.join(ws, ".claude/hooks")
+for r in sorted(set(recs)):
+    others = [f for f in os.listdir(hooks) if f.endswith(".sh") and f != r]
+    if not any(r in open(os.path.join(hooks, f), encoding="utf-8").read() for f in others):
+        print(r); break
+PYV
+)"
+# c21_settings <песочница> <python-выражение над d> — правка настроек песочницы
+c21_settings() {
+    python3 - "$1/.claude/settings.json" "$2" <<'PYS'
+import json, sys
+p, expr = sys.argv[1], sys.argv[2]
+d = json.load(open(p, encoding="utf-8"))
+exec(expr)
+open(p, "w", encoding="utf-8").write(json.dumps(d, ensure_ascii=False, indent=2) + "\n")
+PYS
+}
+# c21_form <песочница> <форма команды с {} на месте относительного пути жертвы>
+c21_form() {
+    c21_settings "$1" "
+for groups in d['hooks'].values():
+    for g in groups:
+        for h in g['hooks']:
+            if '/.claude/hooks/$victim' in h['command'] or h['command'].endswith('.claude/hooks/$victim'):
+                h['command'] = '''$2'''.replace('{}', '.claude/hooks/$victim')
+"
+}
+if [ -z "$victim" ]; then
+    probes=$((probes + 1)); failed=$((failed + 1))
+    echo "  ПРОВАЛ жертва не выведена: нет провязанного хука, которого не зовёт другой хук" >&2
+else
+    echo "  жертва: .claude/hooks/$victim"
+    b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C21"
+
+    b="$(mksandbox)"
+    c21_settings "$b" "
+for ev in list(d['hooks']):
+    for g in d['hooks'][ev]:
+        g['hooks'] = [h for h in g['hooks'] if '$victim' not in h['command']]
+    d['hooks'][ev] = [g for g in d['hooks'][ev] if g['hooks']]
+    if not d['hooks'][ev]: del d['hooks'][ev]
+"
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$b" bash "$HERE/$C21" 2>&1)"; got=$?
+    if [ "$got" -eq 1 ] && printf '%s' "$out" | grep -qF "B .claude/hooks/$victim"; then
+        echo "  ok   дефект: запись $victim снята — находка оси B, файл назван (код 1)"
+    else
+        echo "  ПРОВАЛ дефект: запись $victim снята — ждали 1 и имя файла, получили $got" >&2
+        printf '%s\n' "$out" | sed 's/^/         | /' >&2; failed=$((failed + 1))
+    fi
+
+    # Законные близнецы: та же команда другой формой пути — молчит.
+    for form in '$CLAUDE_PROJECT_DIR/{}' 'bash "${CLAUDE_PROJECT_DIR}/{}"' '"$CLAUDE_PROJECT_DIR"/{}' 'bash {}'; do
+        b="$(mksandbox)"; c21_form "$b" "$form"
+        run 0 "$b" "близнец: запись формой «$form» — молчит" "$C21"
+    done
+
+    b="$(mksandbox)"
+    c21_settings "$b" "d['hooks'].setdefault('Stop', []).append({'hooks': [{'type': 'command', 'command': 'bash \"\$CLAUDE_PROJECT_DIR/.claude/hooks/zz-none.sh\"'}]})"
+    run 1 "$b" "дефект оси A: запись зовёт файл, которого нет" "$C21"
+
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: новый хук верхнего уровня без записи" "$C21"
+
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
+    printf '\n# см. zz-orphan.sh\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: имя соседа только в комментарии — провязкой не считается" "$C21"
+
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-helper.sh"
+    printf '\nbash "$(dirname "${BASH_SOURCE[0]}")/zz-helper.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси B: тот же новый файл, который провязанный хук зовёт, — молчит" "$C21"
+
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/lib/zz-inner.sh"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси B: файл в подкаталоге хуков — не точка входа, молчит" "$C21"
+
+    b="$(mksandbox)"
+    printf '\nexec bash "$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси C: провязанный хук зовёт соседа, которого нет (класс ws#710, код 127)" "$C21"
+
+    b="$(mksandbox .claude/settings.json)"
+    run 2 "$b" "предпосылка: настроек нет — VOID" "$C21"
+    b="$(mksandbox)"; c21_settings "$b" "d.pop('hooks', None)"
+    run 2 "$b" "предпосылка: ни одной записи хука — VOID, а не «провязано всё»" "$C21"
+fi
+
 echo "== механизм: сигнал без адресата либо без предиката снятия НЕ печатается =="
 # Вторая половина нормы держится механизмом, а не проверкой выше, поэтому
 # доказывается здесь, прямым прогоном: иначе «названы двое» осталось бы прозой.
