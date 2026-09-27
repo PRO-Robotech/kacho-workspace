@@ -22,9 +22,13 @@
 называется иначе (`contribution-ledger.yaml`). Общее с соседом: закрытый словарь
 разделов `owners` · `signatories` · `waivers`, обязательная причина у каждой записи,
 область ОТНОСИТЕЛЬНО САМОЙ ВЕДОМОСТИ, единица счёта — адрес, а не имя; вклад — автор
-и соавтор (`Co-authored-by`), коммиттер вкладчиком не считается; подтверждение —
-запись либо `Signed-off-by` СВОЕЙ личности; `owners` из самоистечения исключены (это
-политика, а не послабление), записи `signatories`/`waivers` без предмета — находка.
+и соавтор (`Co-authored-by`), коммиттер вкладчиком не считается; `owners` из
+самоистечения исключены (это политика, а не послабление), записи
+`signatories`/`waivers` без предмета — находка. Подтверждение `Signed-off-by` СВОЕЙ
+личности, как у соседа, действует ТОЛЬКО в истории (до границы): вперёд — решение
+владельца «только своя личность», перечень закрыт ведомостью (ws#729 п.1), а строку
+сообщения дописывает кто угодно. Пустой адрес (`--author="X <>"`, неразборная
+подпись) не совпадает ни с чем, в том числе с другим пустым адресом.
 
 ОТЛИЧИЕ ОТ СОСЕДА, И ОНО ОБЪЯВЛЕНО: раздел `history_only` и граница
 `history_floor`. История воркспейса несёт адреса, которые владелец отнёс к «только
@@ -37,12 +41,11 @@
 
 СУЖДЕНИЕ ОТПРАВКИ СТРОЖЕ СУЖДЕНИЯ ДЕРЕВА — по роли (для коммитов после границы;
 история, опубликованная заново, судится как история):
-    автор      своя личность · подписавший · Signed-off-by этой же личности
+    автор      своя личность · подписавший
     коммиттер  своя личность · подписавший
-    соавтор    своя личность · подписавший · освобождённый · Signed-off-by —
-               по вопросу соглашения; сам ключ атрибуции (Co-authored-by,
-               Claude-Session) в строке сообщения — отказ по имени ключа
-               независимо от ведомости
+    соавтор    своя личность · подписавший · освобождённый — по вопросу
+               соглашения; сам ключ атрибуции (Co-authored-by, Claude-Session)
+               в строке сообщения — отказ по имени ключа независимо от ведомости
 Освобождение (`waivers`) отвечает на вопрос соглашения — «нужна ли подпись под
 этим вкладом», — а не на вопрос подписи коммита: машинная личность, подписавшая
 отправляемый коммит, и есть подстановка, которую ловит ws#700.
@@ -77,14 +80,17 @@ ALLOW = {
         ROLE_AUTHOR: ("owners", "signatories", "waivers", "history_only", "signoff"),
         ROLE_COAUTHOR: ("owners", "signatories", "waivers", "history_only", "signoff"),
     },
+    # После границы `signoff` нет ни в одной роли: строка сообщения — не запись
+    # ведомости, и одной дописанной строкой закрытый перечень не открывается
+    # (находка приёмки: адрес «только история» проходил с собственной подписью).
     "tree": {
-        ROLE_AUTHOR: ("owners", "signatories", "waivers", "signoff"),
-        ROLE_COAUTHOR: ("owners", "signatories", "waivers", "signoff"),
+        ROLE_AUTHOR: ("owners", "signatories", "waivers"),
+        ROLE_COAUTHOR: ("owners", "signatories", "waivers"),
     },
     "push": {
-        ROLE_AUTHOR: ("owners", "signatories", "signoff"),
+        ROLE_AUTHOR: ("owners", "signatories"),
         ROLE_COMMITTER: ("owners", "signatories"),
-        ROLE_COAUTHOR: ("owners", "signatories", "waivers", "signoff"),
+        ROLE_COAUTHOR: ("owners", "signatories", "waivers"),
     },
 }
 
@@ -275,7 +281,9 @@ def commits(root, revs, paths=None):
         r = Rec()
         r.sha, r.an, r.ae, r.cn, r.ce = f[0], f[1], norm(f[2]), f[3], norm(f[4])
         r.coauthors = [email_of(v) for v in f[5].split("\x1e") if v.strip()]
-        r.signoffs = {email_of(v)[0] for v in f[6].split("\x1e") if v.strip()}
+        # Неразборная подпись («Signed-off-by: Mallory») адреса не несёт и
+        # подтверждать ей нечего: пустая строка совпала бы с пустым адресом автора.
+        r.signoffs = {e for e in (email_of(v)[0] for v in f[6].split("\x1e") if v.strip()) if e}
         r.body = f[7]
         recs.append(r)
     return recs
@@ -313,7 +321,7 @@ def judge(recs, led, mode):
             by[role] += 1
             ids.add(em)
             basis = None
-            for how in ALLOW[mode][role]:
+            for how in (ALLOW[mode][role] if em else ()):
                 if how == "signoff":
                     if em in r.signoffs:
                         basis = how
@@ -323,7 +331,7 @@ def judge(recs, led, mode):
                     break
             if basis is None:
                 if not em:
-                    why = "адрес соавтора не разобран — личность не установлена"
+                    why = "адрес не разобран — личность не установлена"
                 elif em in led["history_only"]:
                     why = "адрес «только история» (history_only) — вперёд запрет"
                 elif em in led["by_email"]:

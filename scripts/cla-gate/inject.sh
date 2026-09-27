@@ -24,6 +24,11 @@ export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+# Шаг фикстуры с пустым путём (`git -C ""`) исполняется в рабочем каталоге. Им
+# становится временный корень, а выше него git не поднимается: иначе пустой путь
+# нашёл бы ЭТУ рабочую копию (временный корень бывает внутри неё) и писал бы в неё.
+cd "$TMP" || exit 2
+export GIT_CEILING_DIRECTORIES="$(dirname "$TMP")"
 
 OWNER=owner@cla-inject.invalid
 probes=0; failed=0
@@ -59,9 +64,20 @@ commit_as() {
 }
 
 # probe <ожидаемый код> <метка> <репо> [<подстрока>…]
+# fixture_ok <каталог> — фикстура собрана и лежит ВНУТРИ временного корня. Пустой
+# путь (помощник не определён, фикстура не собралась) превращал `git -C ""` в
+# рабочий каталог — то есть в ЭТУ рабочую копию: проба судила бы настоящее
+# дерево, а шаги фикстуры писали бы в него.
+fixture_ok() { [ -n "$1" ] && [[ "$1" == "$TMP"/* ]] && [ -d "$1/.git" ]; }
+
 probe() {
     local want="$1" label="$2" d="$3"; shift 3
     local out rc ok=1 n
+    if ! fixture_ok "$d"; then
+        probes=$((probes + 1)); failed=$((failed + 1))
+        echo "[FAIL] $label — фикстура не собрана («$d»): судить нечего, и это не проход" >&2
+        return
+    fi
     out="$(python3 "$CLA" tree --root "$d" 2>&1)"; rc=$?
     probes=$((probes + 1))
     [ "$rc" = "$want" ] || ok=0
@@ -106,13 +122,47 @@ echo x >> "$d/f.txt"; git -C "$d" add -A
 git -C "$d" commit -q -m "разбор чужого коммита" -m "В прозе: строку Co-authored-by: Mallory <mallory@cla-inject.invalid> правило запрещает." -m "Ещё абзац прозы, а не трейлер."
 probe 0 "D близнец: то же упоминание в прозе тела — не трейлер, молчание" "$d"
 
-d="$(repo f)"; ledger "$d"; git -C "$d" add -A; git -C "$d" commit -q -m "ведомость"
-echo x >> "$d/f.txt"; git -C "$d" add -A
-GIT_AUTHOR_EMAIL=ext@cla-inject.invalid GIT_AUTHOR_NAME=ext git -C "$d" commit -q -m "вклад с подписью" -m "Signed-off-by: ext <ext@cla-inject.invalid>"
-probe 0 "E подпись Signed-off-by СВОЕЙ личностью подтверждает вклад" "$d"
-echo y >> "$d/f.txt"; git -C "$d" add -A
-GIT_AUTHOR_EMAIL=ext2@cla-inject.invalid GIT_AUTHOR_NAME=ext2 git -C "$d" commit -q -m "подписал другой" -m "Signed-off-by: ext <ext@cla-inject.invalid>"
-probe 1 "E близнец: подпись другой личности не подтверждает" "$d" "ext2@cla-inject.invalid"
+# ── E: Signed-off-by подтверждает вклад ТОЛЬКО в истории (до границы) ─────────
+#
+# Подпись `Signed-off-by` — строка сообщения, дописать её может кто угодно. У
+# соседа она — форма принятия соглашения; здесь вперёд действует решение владельца
+# «только своя личность» (закрытый перечень ведомости, ws#729 п.1), поэтому после
+# границы подпись не подтверждает НИЧЕГО — ни адрес «только история», ни чужой. В
+# истории (до границы) подтверждает, как у соседа: история не переписывается.
+# floor_repo <имя> <автор>|<подпись>… — репозиторий: вклад «только история»
+# (old@), затем коммиты «<автор>|<строка Signed-off-by>», граница на последнем из
+# них, ведомость с этой границей закоммичена. Печатает путь.
+floor_repo() {
+    local d spec a s fl; d="$(repo "$1")" || return 1; shift
+    commit_as "$d" old@cla-inject.invalid "вклад «только история»" >/dev/null
+    for spec in "$@"; do
+        a="${spec%%|*}"; s="${spec#*|}"
+        echo "$RANDOM$RANDOM" >> "$d/f.txt"; git -C "$d" add -A
+        git -C "$d" commit -q --author="$a" -m "вклад до границы" -m "$s"
+    done
+    fl="$(git -C "$d" rev-parse HEAD)"
+    ledger "$d" "history_floor:
+  commit: $fl
+  note: граница пробы
+history_only:
+  - email: old@cla-inject.invalid
+    note: только история по решению владельца фикстуры"
+    git -C "$d" add -A; git -C "$d" commit -q -m "ведомость с границей"
+    printf '%s\n' "$d"
+}
+d="$(floor_repo e-hist "ext <ext@cla-inject.invalid>|Signed-off-by: ext <ext@cla-inject.invalid>")"
+probe 0 "E подпись Signed-off-by СВОЕЙ личностью ДО границы — история, подтверждает" "$d" "подписью 1"
+d="$(floor_repo e-hist2 "ext2 <ext2@cla-inject.invalid>|Signed-off-by: ext <ext@cla-inject.invalid>")"
+probe 1 "E близнец: подпись ДРУГОЙ личности не подтверждает и в истории" "$d" "ext2@cla-inject.invalid"
+d="$(floor_repo e-fwd)"; e_fwd="$d"
+echo z >> "$d/f.txt"; git -C "$d" add -A
+GIT_AUTHOR_EMAIL=ext3@cla-inject.invalid GIT_AUTHOR_NAME=ext3 git -C "$d" commit -q -m "чужой со своей подписью" -m "Signed-off-by: ext3 <ext3@cla-inject.invalid>"
+probe 1 "E1 после границы Signed-off-by чужого адреса НЕ подтверждает — перечень закрыт" "$d" "ext3@cla-inject.invalid" "личности нет в ведомости"
+git -C "$d" reset -q --hard HEAD~1
+echo w >> "$d/f.txt"; git -C "$d" add -A
+GIT_AUTHOR_EMAIL=old@cla-inject.invalid GIT_AUTHOR_NAME=old git -C "$d" commit -q -m "адрес «только история» со своей подписью" -m "Signed-off-by: old <old@cla-inject.invalid>"
+probe 1 "E2 после границы Signed-off-by адреса «только история» не снимает «вперёд запрет»" "$d" "old@cla-inject.invalid" "вперёд запрет"
+git -C "$d" reset -q --hard HEAD~1
 
 d="$(repo g)"; ledger "$d"; git -C "$d" add -A; git -C "$d" commit -q -m "ведомость"
 echo x >> "$d/f.txt"; git -C "$d" add -A
@@ -171,6 +221,23 @@ d="$(fresh e5t)"
 git -C "$d" commit -q --allow-empty -m "пустой коммит владельца"
 probe 0 "E5 близнец: пустой коммит СВОЕЙ личности — молчание" "$d"
 
+# ── E6: вклад без разборного адреса — находка; подпись без адреса его не покрывает ─
+#
+# Пустой адрес автора (`--author="Mallory <>"`) и пустой адрес из неразборной
+# строки `Signed-off-by: Mallory` — одна и та же пустая строка; совпадение двух
+# «ничего» подтверждением не является ни в истории, ни после неё.
+d="$(fresh e6)"
+echo x >> "$d/f.txt"; git -C "$d" add -A
+git -C "$d" commit -q --author="Mallory <>" -m "автор без адреса" -m "Signed-off-by: Mallory"
+probe 1 "E6 автор без адреса + Signed-off-by без адреса — находка «не разобран»" "$d" "не разобран" "автор"
+e6="$d"
+d="$(floor_repo e6h "Mallory <>|Signed-off-by: Mallory")"
+probe 1 "E6h то же ДО границы (там подпись действует) — всё равно находка «не разобран»" "$d" "не разобран"
+d="$(fresh e6t)"
+echo x >> "$d/f.txt"; git -C "$d" add -A
+git -C "$d" commit -q -m "свой коммит" -m "Signed-off-by: Mallory"
+probe 0 "E6 близнец: свой коммит с неразборной строкой Signed-off-by — молчание" "$d"
+
 # ── граница истории и «только история» ──────────────────────────────────────
 #
 # Запись history_only покрывает вклад ТОЛЬКО в коммитах, достижимых из границы;
@@ -223,6 +290,11 @@ hk="$d"   # фикстура границы — её же судит проба 
 probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <строки> [<подстрока>…]
     local want="$1" label="$2" d="$3" remote="$4" lines="$5"; shift 5
     local out rc ok=1 n
+    if ! fixture_ok "$d"; then
+        probes=$((probes + 1)); failed=$((failed + 1))
+        echo "[FAIL] $label — фикстура не собрана («$d»): судить нечего, и это не проход" >&2
+        return
+    fi
     out="$(printf '%s\n' "$lines" | python3 "$CLA" push-range --root "$d" --remote "$remote" 2>&1)"; rc=$?
     probes=$((probes + 1))
     [ "$rc" = "$want" ] || ok=0
@@ -262,6 +334,23 @@ probe_push 1 "HP1 отправка НОВОГО коммита адресом «
     "$dh" "$TMP/h-new.git" "refs/heads/main $nh refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
 probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) в новый remote — история покрыта" \
     "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "история до границы 2"
+
+# Подпись Signed-off-by после границы не подтверждает НИЧЕГО и при отправке:
+# роль автора закрыта перечнем ведомости (ws#729 п.1).
+git init -q --bare "$TMP/e-fwd.git"
+echo a >> "$e_fwd/f.txt"; git -C "$e_fwd" add -A
+GIT_AUTHOR_EMAIL=old@cla-inject.invalid GIT_AUTHOR_NAME=old git -C "$e_fwd" commit -q -m "old со своей подписью" -m "Signed-off-by: old <old@cla-inject.invalid>"
+probe_push 1 "HP2 отправка: Signed-off-by адреса «только история» не снимает «вперёд запрет»" \
+    "$e_fwd" "$TMP/e-fwd.git" "refs/heads/main $(git -C "$e_fwd" rev-parse HEAD) refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
+git -C "$e_fwd" reset -q --hard HEAD~1
+echo b >> "$e_fwd/f.txt"; git -C "$e_fwd" add -A
+GIT_AUTHOR_EMAIL=stranger@cla-inject.invalid GIT_AUTHOR_NAME=stranger git -C "$e_fwd" commit -q -m "чужой со своей подписью" -m "Signed-off-by: stranger <stranger@cla-inject.invalid>"
+probe_push 1 "HP3 отправка: адрес вне ведомости со своим Signed-off-by — отказ" \
+    "$e_fwd" "$TMP/e-fwd.git" "refs/heads/main $(git -C "$e_fwd" rev-parse HEAD) refs/heads/main $Z" "stranger@cla-inject.invalid" "личности нет в ведомости"
+git -C "$e_fwd" reset -q --hard HEAD~1
+git init -q --bare "$TMP/e6.git"
+probe_push 1 "E6p отправка: автор без адреса + Signed-off-by без адреса — отказ «не разобран»" \
+    "$e6" "$TMP/e6.git" "refs/heads/main $(git -C "$e6" rev-parse HEAD) refs/heads/main $Z" "не разобран"
 
 # ── ключ атрибуции — отказ НЕЗАВИСИМО от ведомости (gi-no-attribution-trailers) ─
 #
