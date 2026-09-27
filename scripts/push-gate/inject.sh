@@ -60,6 +60,9 @@ mutant_descr=(
     "check-04-push-verdict-comes-from-the-remote|scripts/hooks/install.sh|установщик перебивает чужой транспорт своим keepalive"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|знаменатель снова — файлы головного коммита"
     "check-02-push-range-judges-identities|scripts/hooks/pre-push|исход 2 суждения («судить нечем») пропускает отправку (M1)"
+    "check-04-push-verdict-comes-from-the-remote|scripts/push-verified.sh|постусловие снова спрашивает url, а не pushurl"
+    "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|переименование снова склеивает пути знаменателя"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ключ атрибуции снова судится только по адресу"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -86,17 +89,26 @@ M = [
      '        export "$var=$d"\n',
      '        : "$var=$d"\n'),
     ("scripts/push-verified.sh",
-     'remote_line="$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null)"\n',
-     '[ "$push_rc" = 0 ] && { echo "push-verified: ПОДТВЕРЖДЕНО — по коду команды"; exit 0; }\nremote_line="$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null)"\n'),
+     'mapfile -t push_urls < <(git remote get-url --push --all "$remote" 2>/dev/null)\n',
+     '[ "$push_rc" = 0 ] && { echo "push-verified: ПОДТВЕРЖДЕНО — по коду команды"; exit 0; }\nmapfile -t push_urls < <(git remote get-url --push --all "$remote" 2>/dev/null)\n'),
     ("scripts/hooks/install.sh",
      'if [ "${ka_now%%|*}" = none ]; then\n',
      'if [ "${ka_now%%|*}" != set ]; then\n'),
     ("scripts/preservation-proof.sh",
-     'mapfile -t paths < <(git diff --name-only "$mb..$head" 2>/dev/null)\n',
-     'mapfile -t paths < <(git show --name-only --format= "$head" 2>/dev/null | sed \'/^$/d\')\n'),
+     'mapfile -d \'\' -t paths < <(gdiff -z --name-only "$mb..$head" 2>/dev/null)\n',
+     'mapfile -d \'\' -t paths < <(git diff-tree -z --no-commit-id --name-only -r --no-renames --root "$head" 2>/dev/null)\n'),
     ("scripts/hooks/pre-push",
      '    if [ "$judged" -ne 0 ]; then\n',
      '    if [ "$judged" -eq 1 ]; then\n'),
+    ("scripts/push-verified.sh",
+     'mapfile -t push_urls < <(git remote get-url --push --all "$remote" 2>/dev/null)\n',
+     'push_urls=()\n'),
+    ("scripts/preservation-proof.sh",
+     'gdiff() { git -c color.ui=never diff --no-color --no-ext-diff --no-textconv --no-renames "$@"; }\n',
+     'gdiff() { git -c color.ui=never diff --no-color --no-ext-diff --no-textconv "$@"; }\n'),
+    ("scripts/cla-gate/cla.py",
+     '        if mode != "history":\n            for m in ATTRIBUTION_RE.finditer(r.body):\n',
+     '        if False:\n            for m in ATTRIBUTION_RE.finditer(r.body):\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
