@@ -938,8 +938,24 @@ runh - 0 "$b" "$PROD_BARE" \
     "дом найден клоном в project/kaname — переменная не нужна" \
     "не проверяемо" "$HOME_ID"
 
+# ── Части доказательства набора ──────────────────────────────────────────────
+#
+# Этот файл — ЕДИНЫЙ вход доказательств набора: конвейер зовёт его, и только
+# его (`scripts/lib/run-suites.sh --proofs`). Части рядом (`inject-<N>*.sh` —
+# закрепления приёмки, второй дом приёмок, ведомость) прежде выписывались в
+# конвейер поимённо; теперь их исполняет вход — перечень выводится из каталога
+# (`scripts/lib/proofs.sh`), и новая часть не может остаться неисполненной.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_parts "$HERE"; parts_rc=$?
+
 echo
-echo "[CENSUS] inject: проб исполнено $probes, провалов $failed"
+echo "[CENSUS] inject: проб исполнено $probes, провалов $failed; частей доказательства $PROOF_PARTS, не сошлось $PROOF_PARTS_BAD"
+if [ "$parts_rc" -ne 0 ]; then
+    echo "[FAIL] inject — части доказательства набора не сошлись (код $parts_rc)" >&2
+    exit 1
+fi
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] inject — ни одной пробы не исполнено" >&2
     exit 2

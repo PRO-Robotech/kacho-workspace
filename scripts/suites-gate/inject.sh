@@ -224,6 +224,61 @@ expect 2 "$b" "положительный контроль сорван — VOID
 b="$(mkbox)"; commit "$b"
 expect 2 "$b" "предпосылка: прогонщиков нет — VOID" "$C03" "прогонщиков scripts/*/run-all.sh"
 
+# ── check-04: конвейер не зовёт набор дерева ─────────────────────────────────
+#
+# Процесс — отдельный файл песочницы. Дефект — перечень наборов, выписанный от
+# руки без одного набора (так конвейер и был устроен до ws#753); близнецы — тот
+# же перечень полностью и вывод перечня `scripts/lib/run-suites.sh`. Второй
+# дефект — вывод перечня, стоящий только в КОММЕНТАРИИ: читается код, не текст.
+C04="check-04-ci-calls-every-suite.py"
+
+# wf <песочница> <тело шага run: построчно>…
+wf() {
+    local box="$1" line; shift
+    mkdir -p "$box/.github/workflows"
+    {
+        printf 'name: injected\non:\n  workflow_dispatch:\njobs:\n  suites:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n'
+        for line in "$@"; do printf '          %s\n' "$line"; done
+    } > "$box/.github/workflows/ci.yaml"
+}
+
+echo "== check-04: конвейер не зовёт набор дерева =="
+
+b="$(mkbox)"; calls=()
+for s in "${SUITES[@]}"; do suite "$b" "$s"; calls+=("bash scripts/$s/run-all.sh"); done
+wf "$b" "${calls[@]}"; commit "$b"
+expect 0 "$b" "близнец: все ${#SUITES[@]} наборов вписаны поимённо — молчит" "$C04" \
+    "наборов в дереве ${#SUITES[@]}; вызвано конвейером ${#SUITES[@]}; не вызвано 0"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; done
+wf "$b" "bash scripts/lib/run-suites.sh --proofs --void-is-failure"; commit "$b"
+expect 0 "$b" "близнец: вывод перечня — все наборы вызваны без выписанного списка — молчит" "$C04" \
+    "вывод перечня: .github/workflows/ci.yaml/suites"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"; calls=()
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"
+        [ "$t" = "$s" ] || calls+=("bash scripts/$t/run-all.sh")
+    done
+    wf "$b" "${calls[@]}"; commit "$b"
+    expect 1 "$b" "инъекция: перечень от руки без $s — краснеет с именем набора" "$C04" \
+        "набор $s есть в дереве (scripts/$s/run-all.sh), а конвейер его не зовёт" "не вызвано 1"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; done
+wf "$b" "# bash scripts/lib/run-suites.sh — только в комментарии" "true"; commit "$b"
+expect 1 "$b" "инъекция: вывод перечня только в комментарии — читается код, краснеет" "$C04" \
+    "не вызвано ${#SUITES[@]}"
+
+b="$(mkbox)"; suite "$b" "${SUITES[0]}"; commit "$b"
+expect 2 "$b" "предпосылка: процессов конвейера нет — VOID" "$C04" "файлов конвейера"
+
+b="$(mkbox)"; wf "$b" "true"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID" "$C04" "наборов scripts/*/run-all.sh"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
