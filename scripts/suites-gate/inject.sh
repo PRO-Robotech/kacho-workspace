@@ -49,6 +49,9 @@ suite() {
 
 commit() { git -C "$1" add -A -f >/dev/null 2>&1; }
 
+# proof <песочница> <набор> — доказательство набора (для конвейерных проб).
+proof() { printf '#!/usr/bin/env bash\necho "проб 1"\n' > "$1/scripts/$2/inject.sh"; }
+
 # expect <код> <песочница> <заголовок> <проверка> [<обязательная подстрока>…]
 expect() {
     local want="$1" box="$2" title="$3" check="$4" out got s miss=""
@@ -245,13 +248,13 @@ wf() {
 echo "== check-04: конвейер не зовёт набор дерева =="
 
 b="$(mkbox)"; calls=()
-for s in "${SUITES[@]}"; do suite "$b" "$s"; calls+=("bash scripts/$s/run-all.sh"); done
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; calls+=("bash scripts/$s/inject.sh" "bash scripts/$s/run-all.sh"); done
 wf "$b" "${calls[@]}"; commit "$b"
 expect 0 "$b" "близнец: все ${#SUITES[@]} наборов вписаны поимённо — молчит" "$C04" \
     "наборов в дереве ${#SUITES[@]}; вызвано конвейером ${#SUITES[@]}; не вызвано 0"
 
 b="$(mkbox)"
-for s in "${SUITES[@]}"; do suite "$b" "$s"; done
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
 wf "$b" "bash scripts/lib/run-suites.sh --proofs --void-is-failure"; commit "$b"
 expect 0 "$b" "близнец: вывод перечня — все наборы вызваны без выписанного списка — молчит" "$C04" \
     "вывод перечня: .github/workflows/ci.yaml/suites"
@@ -259,7 +262,7 @@ expect 0 "$b" "близнец: вывод перечня — все наборы
 for s in "${SUITES[@]}"; do
     b="$(mkbox)"; calls=()
     for t in "${SUITES[@]}"; do
-        suite "$b" "$t"
+        suite "$b" "$t"; proof "$b" "$t"; calls+=("bash scripts/$t/inject.sh")
         [ "$t" = "$s" ] || calls+=("bash scripts/$t/run-all.sh")
     done
     wf "$b" "${calls[@]}"; commit "$b"
@@ -278,6 +281,53 @@ expect 2 "$b" "предпосылка: процессов конвейера н�
 
 b="$(mkbox)"; wf "$b" "true"; commit "$b"
 expect 2 "$b" "предпосылка: наборов нет — VOID" "$C04" "наборов scripts/*/run-all.sh"
+
+# ── check-04, вторая ось: конвейер не зовёт доказательство набора (ws#817) ─
+#
+# Дефект — дословно форма ствола до ws#753: прогоны всех наборов вписаны, а
+# `inject.sh` одного набора — нет (так было у crossrepo-gate). Второй дефект —
+# вывод перечня без `--proofs`: наборы исполняются, доказательства — нет.
+# Близнецы — тот же список с доказательством и вывод перечня с `--proofs`.
+echo "== check-04: конвейер не зовёт доказательство набора =="
+
+b="$(mkbox)"; calls=()
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; calls+=("bash scripts/$s/inject.sh" "bash scripts/$s/run-all.sh"); done
+wf "$b" "${calls[@]}"; commit "$b"
+expect 0 "$b" "близнец: прогон и доказательство каждого набора вписаны — молчит" "$C04" \
+    "доказательств вызвано ${#SUITES[@]} из ${#SUITES[@]}"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"; calls=()
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"; proof "$b" "$t"
+        calls+=("bash scripts/$t/run-all.sh")
+        [ "$t" = "$s" ] || calls+=("bash scripts/$t/inject.sh")
+    done
+    wf "$b" "${calls[@]}"; commit "$b"
+    expect 1 "$b" "инъекция: доказательство $s не вызвано — краснеет с именем набора" "$C04" \
+        "доказательство набора $s (scripts/$s/inject.sh) конвейер не зовёт"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
+wf "$b" "bash scripts/lib/run-suites.sh --void-is-failure"; commit "$b"
+expect 1 "$b" "инъекция: вывод перечня без --proofs — доказательства не исполняются" "$C04" \
+    "доказательств вызвано 0 из ${#SUITES[@]}"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
+wf "$b" "bash scripts/lib/run-suites.sh --proofs --void-is-failure"; commit "$b"
+expect 0 "$b" "близнец: вывод перечня с --proofs — молчит" "$C04" \
+    "доказательств вызвано ${#SUITES[@]} из ${#SUITES[@]}"
+
+b="$(mkbox)"; calls=()
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"; calls+=("bash scripts/$s/run-all.sh")
+    if [ "$s" != "${SUITES[0]}" ]; then proof "$b" "$s"; calls+=("bash scripts/$s/inject.sh"); fi
+done
+wf "$b" "${calls[@]}"; commit "$b"
+expect 1 "$b" "инъекция: у набора нет доказательства вовсе — краснеет" "$C04" \
+    "у набора ${SUITES[0]} нет доказательства scripts/${SUITES[0]}/inject.sh"
 
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"

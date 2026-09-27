@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""check-04 — конвейер зовёт КАЖДЫЙ набор проверок дерева.
+"""check-04 — конвейер зовёт КАЖДЫЙ набор проверок дерева и его доказательство.
 
 ЧТО УТВЕРЖДАЕТ (ws#753). Каждый набор `scripts/<имя>/run-all.sh`, который есть в
 дереве, исполняется хотя бы одним заданием конвейера: либо выводом перечня
 (`scripts/lib/run-suites.sh` — набор попадает туда сам), либо поимённым вызовом.
 Расхождение «наборов в дереве × вызвано» печатается числом, и каждый невызванный
 набор называется по имени.
+
+ВТОРАЯ ОСЬ (ws#817) — ДОКАЗАТЕЛЬСТВО. У каждого набора есть `inject.sh`, и конвейер
+его зовёт: выводом перечня с ключом `--proofs` либо поимённо. Способность набора
+упасть иначе не доказывает ничто, кроме ручного вызова, и поломку самого
+доказательства не видит никто (так было у crossrepo-gate: прогон хук исполнял,
+доказательство — никто). Набор без `inject.sh` — находка той же оси.
 
 ЦЕНА. Хук отправки выводил перечень глобом и видел все наборы; конвейер выписывал
 их от руки и видел выписанные. Набор, заведённый в дереве, на стволе не исполнялся,
@@ -58,7 +64,9 @@ def main():
 
     findings = []
     derived_by = []
+    derived_proofs = []
     literal = {}
+    literal_proof = {}
     steps = 0
     for rel in workflows:
         try:
@@ -79,11 +87,16 @@ def main():
                 steps += 1
                 code = shellcode.code_text(step["run"])
                 where = "%s/%s" % (rel, job_id)
-                if DERIVED in code:
-                    derived_by.append(where)
+                for line in code.split("\n"):
+                    if DERIVED in line:
+                        derived_by.append(where)
+                        if "--proofs" in line.split(DERIVED, 1)[1].split():
+                            derived_proofs.append(where)
                 for s in names:
                     if "scripts/%s/run-all.sh" % s in code:
                         literal.setdefault(s, []).append(where)
+                    if "scripts/%s/inject.sh" % s in code:
+                        literal_proof.setdefault(s, []).append(where)
 
     called = set(names) if derived_by else set(literal)
     missing = [s for s in names if s not in called]
@@ -91,10 +104,24 @@ def main():
         findings.append("набор %s есть в дереве (scripts/%s/run-all.sh), а конвейер его не "
                         "зовёт — ни выводом перечня (%s), ни поимённо" % (s, s, DERIVED))
 
-    _lib.census(NAME, "наборов в дереве %d; вызвано конвейером %d; не вызвано %d — "
-                "процессов %d, шагов с `run:` %d; вывод перечня: %s; поимённо: %s"
-                % (len(names), len(names) - len(missing), len(missing), len(workflows), steps,
-                   ", ".join(derived_by) or "нет",
+    with_proof = [s for s in names if _lib.S.proof(ws, s)]
+    for s in names:
+        if s not in with_proof:
+            findings.append("у набора %s нет доказательства scripts/%s/inject.sh — способность "
+                            "его проверок упасть не доказывает ничто" % (s, s))
+    proof_called = set(with_proof) if derived_proofs else set(literal_proof)
+    proof_missing = [s for s in with_proof if s not in proof_called]
+    for s in proof_missing:
+        findings.append("доказательство набора %s (scripts/%s/inject.sh) конвейер не зовёт — ни "
+                        "выводом перечня с --proofs, ни поимённо: его поломку увидит только "
+                        "ручной вызов" % (s, s))
+
+    _lib.census(NAME, "наборов в дереве %d; вызвано конвейером %d; не вызвано %d; "
+                "доказательств вызвано %d из %d — процессов %d, шагов с `run:` %d; вывод "
+                "перечня: %s (с --proofs: %s); поимённо: %s"
+                % (len(names), len(names) - len(missing), len(missing),
+                   len(with_proof) - len(proof_missing), len(with_proof), len(workflows), steps,
+                   ", ".join(derived_by) or "нет", ", ".join(derived_proofs) or "нет",
                    ", ".join(sorted(literal)) or "нет"))
     if steps == 0:
         _lib.void(NAME, "ни одного шага `run:` не разобрано — сверять не с чем")
@@ -105,7 +132,8 @@ def main():
         _lib.fail(NAME, "находок %d; наборов дерева, которых конвейер не исполняет: %d"
                   % (len(findings), len(missing)))
         return 1
-    _lib.passed(NAME, "все %d наборов дерева исполняются конвейером" % len(names))
+    _lib.passed(NAME, "все %d наборов дерева и их доказательства исполняются конвейером"
+                % len(names))
     return 0
 
 
