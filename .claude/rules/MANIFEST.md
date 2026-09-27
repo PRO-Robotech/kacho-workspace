@@ -14,7 +14,7 @@ mf-no-second-rulebook · второй каталог правил не заво�
 mf-column-holder · держатель — имя гейта либо «вниманием» · check-03-manifest-row-is-complete.sh · red: держатель не назван
 mf-column-agents-explicit · агенты поимённо, не шаблоном · check-04-rule-agent-binding.sh в обе стороны · red: правило без агента; агент без правила; шаблон подхватывает агента молча
 mf-table-is-sole-declaration · `MANIFEST.md` — одна таблица состава; `.claude/rules/` — единственный дом · check-01-corpus-matches-manifest.sh · red: файл без строки; строка без файла
-mf-registry-table-30-rows · строка: `<файл> \| <триггер> \| <гейт> \| <агенты>` · check-01-corpus-matches-manifest.sh / check-03-manifest-row-is-complete.sh / check-04-rule-agent-binding.sh · red: строка без гейта; агенты разошлись с `skills:`
+mf-registry-table-30-rows · строка: `<файл> \| <триггер> \| <гейт> \| <агенты>`; «30» в id — объём таблицы на 2026-09-19 и ключ описи (`rows-from-inventory.py --verify`), не число строк сегодня: его сверяет check-01 (записей = объявлено) · check-01-corpus-matches-manifest.sh / check-03-manifest-row-is-complete.sh / check-04-rule-agent-binding.sh · red: строка без гейта; агенты разошлись с `skills:`
 
 | правило | включается действием | чем соблюдение обеспечено | закреплено за агентами (предзагрузка) |
 |---|---|---|---|
