@@ -50,7 +50,7 @@ set -uo pipefail
 # целиком, находка не теряется. Заглушки объявлены здесь по причине начальной
 # загрузки — они страхуют отсутствие того файла, в котором иначе бы лежали.
 _sig="$(dirname "${BASH_SOURCE[0]}")/lib/hook_signal.sh"
-# shellcheck source=lib/hook_signal.sh
+# shellcheck source-path=SCRIPTDIR source=lib/hook_signal.sh
 . "$_sig" 2>/dev/null || {
   echo "[сигнал] признак дельты НЕ применён: не найден $_sig. Тело печатается ПОЛНОСТЬЮ каждый ход. → tooling-maintainer" >&2
   signal_stdin() { :; }
