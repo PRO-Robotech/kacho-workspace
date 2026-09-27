@@ -786,6 +786,59 @@ sig_expect "новая находка после повтора — снова �
 out="$(sig_turn "$st" s2 'находка B')"
 sig_expect "новая сессия — отпечатка нет, печать полная" "$out" 'находка B' 'без изменений'
 
+echo "== страж Bash (PreToolUse): отправка полосы, чья база не знает проверок ствола (#717) =="
+# Вход — настоящий: песочница-репозиторий со стволом, веткой полосы в присоединённом
+# дереве и проверкой, заведённой на стволе ПОСЛЕ развилки. Хук зовётся тем же JSON,
+# что подаёт харнесс. Близнецы той же формы: та же команда после вливания ствола;
+# полоса, которая сама сняла проверку из базы.
+GUARD="$WS/.claude/hooks/bash-guard.sh"
+gj() { # $1 = команда, $2 = cwd — событие PreToolUse, как его подаёт харнесс
+    python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":sys.argv[2],"tool_input":{"command":sys.argv[1]}}))' "$1" "$2"
+}
+# guard_expect <код> <имя> <команда> <cwd> [подстрока, обязанная быть в отказе]
+guard_expect() {
+    local want="$1" name="$2" got err
+    probes=$((probes + 1))
+    err="$(gj "$3" "$4" | bash "$GUARD" 2>&1 >/dev/null)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ -z "${5:-}" ] || printf '%s' "$err" | grep -qF -- "$5"; }; then
+        echo "  ok   $name (код $got)"
+    else
+        echo "  ПРОВАЛ $name — ждали код $want${5:+ и «$5»}, получили $got" >&2
+        printf '%s\n' "$err" | sed 's/^/         | /' >&2
+        failed=$((failed + 1))
+    fi
+}
+gr="$TMP/guard"; mkdir -p "$gr"
+(
+    set -e
+    cd "$gr"
+    git init -q --bare -b main remote.git
+    git clone -q remote.git main 2>/dev/null
+    cd main
+    git config user.email t@t; git config user.name t
+    mkdir -p scripts/a-gate
+    echo x > scripts/a-gate/check-01-x.sh; git add scripts/a-gate/check-01-x.sh; git commit -qm c1; git push -q origin main
+    git branch lane; git worktree add -q ../lane lane
+    git branch lane-drop; git worktree add -q ../lane-drop lane-drop
+    echo y > scripts/a-gate/check-02-y.sh; git add scripts/a-gate/check-02-y.sh; git commit -qm c2; git push -q origin main
+    cd ../lane && git fetch -q origin
+    cd ../lane-drop && git fetch -q origin && git merge -q origin/main -m m \
+        && git rm -q scripts/a-gate/check-01-x.sh && git commit -qm drop
+) >/dev/null 2>&1 || { echo "  ПРОВАЛ песочница стража не построена" >&2; failed=$((failed + 1)); }
+guard_expect 2 "дефект: полоса отстала на проверку ствола — отказ, проверка названа" \
+    "git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: та же отправка через cd … && — отказ" "cd $gr/lane && git push" "$gr"
+guard_expect 2 "дефект: та же отправка через git -C — отказ" "git -C $gr/lane push" "$gr"
+guard_expect 0 "близнец: явный обход в команде — пропуск" \
+    "KACHO_PUSH_LAGGING=1 git push origin lane" "$gr/lane"
+guard_expect 0 "близнец: удаление ветки — не отправка ревизии" "git push --delete origin lane" "$gr/lane"
+guard_expect 0 "близнец: полоса сама сняла проверку из базы — не отставание" \
+    "git push origin lane-drop" "$gr/lane-drop"
+guard_expect 0 "близнец: не git — слово push в тексте" "echo push" "$gr/lane"
+( cd "$gr/lane" && git -c user.email=t@t -c user.name=t merge -q origin/main -m m ) >/dev/null 2>&1
+guard_expect 0 "близнец: та же отправка после вливания ствола — пропуск" \
+    "git push origin lane" "$gr/lane"
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
