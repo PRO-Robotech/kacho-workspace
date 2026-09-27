@@ -59,6 +59,7 @@ mutant_descr=(
     "check-04-push-verdict-comes-from-the-remote|scripts/push-verified.sh|вердикт отправки снова берётся из кода команды"
     "check-04-push-verdict-comes-from-the-remote|scripts/hooks/install.sh|установщик перебивает чужой транспорт своим keepalive"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|знаменатель снова — файлы головного коммита"
+    "check-02-push-range-judges-identities|scripts/hooks/pre-push|исход 2 суждения («судить нечем») пропускает отправку (M1)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -93,6 +94,9 @@ M = [
     ("scripts/preservation-proof.sh",
      'mapfile -t paths < <(git diff --name-only "$mb..$head" 2>/dev/null)\n',
      'mapfile -t paths < <(git show --name-only --format= "$head" 2>/dev/null | sed \'/^$/d\')\n'),
+    ("scripts/hooks/pre-push",
+     '    if [ "$judged" -ne 0 ]; then\n',
+     '    if [ "$judged" -eq 1 ]; then\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
