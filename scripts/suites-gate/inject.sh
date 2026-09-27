@@ -114,6 +114,116 @@ expect 2 "$b" "предпосылка: наборов нет — VOID, а не �
 b="$(mkbox)"; suite "$b" "${SUITES[0]}"; commit "$b"
 expect 2 "$b" "предпосылка: набор есть, проверок в нём нет — VOID" "$C01" "проверок check-* в них 0"
 
+# ── check-02: пустое дерево выдано за чистое ─────────────────────────────────
+#
+# Дефекты — две формы одного исхода «ноль на пустом дереве»: проверка, которая
+# ноль прочитанного объявляет чистотой, и проверка, которая не читает общее
+# переопределение корня и судит своё расположение. Близнец — та же проверка,
+# отвечающая на пустом дереве VOID.
+C02="check-02-empty-tree-is-not-a-clean-verdict.py"
+VACUOUS='echo "[CENSUS] наборов осмотрено $n"; exit 0'
+HONEST='[ "$n" -gt 0 ] || { echo "[VOID] наборов 0" >&2; exit 2; }; echo "[CENSUS] наборов осмотрено $n"'
+LOC_ONLY='ws="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"'
+
+# plant2 <песочница> <набор> <строка корня> <строка исхода>
+plant2() {
+    {
+        printf '#!/usr/bin/env bash\nset -uo pipefail\n%s\n' "$3"
+        printf 'n="$(git -C "$ws" ls-files "scripts/*/run-all.sh" | wc -l)"\n'
+        printf '%s\n' "$4"
+    } > "$1/scripts/$2/check-01-probe.sh"
+    chmod +x "$1/scripts/$2/check-01-probe.sh"
+}
+
+echo "== check-02: пустое дерево выдано за чистое =="
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; plant2 "$b" "$s" "$LOC_CHECK" "$HONEST"; done
+commit "$b"
+expect 0 "$b" "близнец: во всех ${#SUITES[@]} наборах пустое дерево — VOID — молчит" "$C02" \
+    "проверок ${#SUITES[@]}"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"
+        if [ "$t" = "$s" ]; then plant2 "$b" "$t" "$LOC_CHECK" "$VACUOUS"
+        else plant2 "$b" "$t" "$LOC_CHECK" "$HONEST"; fi
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: ноль осмотренного выдан за чистоту — краснеет с координатой" "$C02" \
+        "scripts/$s/check-01-probe.sh — направлена на пустое дерево и вышла нулём" "находок 1"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then plant2 "$b" "$s" "$LOC_ONLY" "$HONEST"
+    else plant2 "$b" "$s" "$LOC_CHECK" "$HONEST"; fi
+done
+commit "$b"
+expect 1 "$b" "инъекция: проверка не читает GATE_ROOT и судит своё расположение — краснеет" "$C02" \
+    "scripts/${SUITES[0]}/check-01-probe.sh — направлена на пустое дерево и вышла нулём"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID" "$C02" "наборов scripts/*/run-all.sh"
+
+# ── check-03: прогонщик набора засчитывает молчаливый ноль ─────────────────────
+#
+# Близнец — общий прогонщик в каждом наборе (так устроены все наборы дерева).
+# Дефект — прогонщик ПРЕЖНЕЙ формы, дословно той, что была у наборов до ws#762:
+# тот же глоб, те же три кода, но исход — из одного канала, проверка
+# исполняется из каталога вызывающего, строки переписи нет.
+C03="check-03-runner-demands-a-printed-volume.py"
+SHIM="$WS/scripts/suites-gate/run-all.sh"
+
+old_runner() {
+    {
+        printf '#!/usr/bin/env bash\nset -uo pipefail\n'
+        printf 'here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"\n'
+        printf 'ok=0; bad=0; void=0; count=0\n'
+        printf 'for c in "$here"/check-*.sh; do\n'
+        printf '    [ -f "$c" ] || continue\n    count=$((count + 1))\n    bash "$c"\n'
+        printf '    case $? in 0) ok=$((ok+1));; 2) void=$((void+1));; *) bad=$((bad+1));; esac\n'
+        printf 'done\n'
+        printf 'echo "рассмотрено проверок $count; пройдено $ok, провалено $bad, без предмета $void"\n'
+        printf '[ "$count" -gt 0 ] || exit 1\n[ "$bad" -eq 0 ] || exit 1\n[ "$void" -eq 0 ] || exit 2\nexit 0\n'
+    } > "$1/scripts/$2/run-all.sh"
+    chmod +x "$1/scripts/$2/run-all.sh"
+}
+
+shim() { mkdir -p "$1/scripts/$2"; cp "$SHIM" "$1/scripts/$2/run-all.sh"; chmod +x "$1/scripts/$2/run-all.sh"; }
+
+echo "== check-03: прогонщик засчитывает молчаливый ноль и отдаёт проверке свой каталог =="
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do shim "$b" "$s"; done
+commit "$b"
+expect 0 "$b" "близнец: во всех ${#SUITES[@]} наборах общий прогонщик — молчит" "$C03" \
+    "прогонщиков осмотрено ${#SUITES[@]}"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        if [ "$t" = "$s" ]; then mkdir -p "$b/scripts/$t"; old_runner "$b" "$t"; else shim "$b" "$t"; fi
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: прогонщик прежней формы — краснеет по трём свойствам" "$C03" \
+        "scripts/$s/run-all.sh — проверка вышла нулём, не напечатав ни одного числа" \
+        "scripts/$s/run-all.sh — проверка исполнена из рабочего каталога вызывающего" \
+        "scripts/$s/run-all.sh — не записал машинную строку переписи" "находок 3"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do shim "$b" "$s"; done
+printf '#!/usr/bin/env bash\nexit 1\n' > "$b/scripts/${SUITES[0]}/run-all.sh"
+commit "$b"
+expect 2 "$b" "положительный контроль сорван — VOID, а не «доказано»" "$C03" \
+    "scripts/${SUITES[0]}/run-all.sh — на единственной проверке, напечатавшей объём, вернул 1"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: прогонщиков нет — VOID" "$C03" "прогонщиков scripts/*/run-all.sh"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
