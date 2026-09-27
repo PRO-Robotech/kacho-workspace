@@ -15,6 +15,9 @@
 #   E  `own` на побайтово совпадающей паре         → находка
 #   E' `own` на РАЗНОЙ паре                        → молчание
 #   F  клона нет                                   → VOID (код 2), не «находок 0»
+#   W  пара воркспейс × платформа, записи нет      → находка (воркспейс — тоже ствол)
+#   W' та же пара объявлена `debt` с задачей       → молчание
+#   W0 у воркспейса нет ревизии (HEAD не резолвится) → VOID, а не «пар нет»
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -40,12 +43,22 @@ repo() {
   git -C "$dir" update-ref refs/remotes/origin/main "$(git -C "$dir" rev-parse HEAD)"
 }
 
-# world <ведомость> — собрать мир заново и вернуть корень воркспейса.
+# world <ведомость> [<файл>=<содержимое>…] — собрать мир заново и вернуть корень
+# воркспейса. Воркспейс — тоже ствол (ws#729 п.6): его файлы закоммичены, и гейт
+# судит его ревизию HEAD.
 world() {
   rm -rf "$box/ws"
   mkdir -p "$box/ws/docs"
   git -C "$box/ws" init -q 2>/dev/null || true
   printf '%s\n' "$1" > "$box/ws/docs/crossrepo-pairs.yaml"
+  shift
+  local kv
+  for kv in "$@"; do
+    mkdir -p "$box/ws/$(dirname "${kv%%=*}")"
+    printf '%s\n' "${kv#*=}" > "$box/ws/${kv%%=*}"
+  done
+  git -C "$box/ws" -c user.email=i@x.invalid -c user.name=i add -A
+  git -C "$box/ws" -c user.email=i@x.invalid -c user.name=i commit -q -m world
   echo "$box/ws"
 }
 
@@ -135,6 +148,35 @@ ws="$(world 'pairs: []')"
 repo kacho 'own-a.txt=своё'
 out="$(run "$ws")"; rc=$?
 assert "F  клона нет — VOID" 2 "[VOID]" "$out" "$rc"
+
+# ── W / W' / W0 : воркспейс — тоже ствол ────────────────────────────────────
+# Пара воркспейс × платформа гейту была не видна по построению: перечень стволов
+# называл только клоны продукта, и копия переходника разошлась молча (ws#729 п.6).
+ws="$(world 'pairs: []' 'scripts/hooks/install.sh=переходник v2')"
+repo kacho  'scripts/hooks/install.sh=переходник v1'
+repo kaname 'own-b.txt=своё'
+repo corelib 'own-c.txt=своё'
+out="$(run "$ws")"; rc=$?
+assert "W  пара воркспейс × платформа без записи — находка" 1 "scripts/hooks/install.sh" "$out" "$rc"
+assert "W  находка называет воркспейс держателем" 1 "kacho+kacho-workspace" "$out" "$rc"
+
+ws="$(world 'pairs:
+  - path: scripts/hooks/install.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#1' 'scripts/hooks/install.sh=переходник v2')"
+repo kacho  'scripts/hooks/install.sh=переходник v1'
+repo kaname 'own-b.txt=своё'
+repo corelib 'own-c.txt=своё'
+out="$(run "$ws")"; rc=$?
+assert "W' та же пара объявлена долгом с задачей — молчание" 0 "все 1 пар объявлены" "$out" "$rc"
+
+ws="$(world 'pairs: []')"
+git -C "$ws" update-ref -d HEAD
+repo kacho  'own-a.txt=своё'
+repo kaname 'own-b.txt=своё'
+repo corelib 'own-c.txt=своё'
+out="$(run "$ws")"; rc=$?
+assert "W0 у воркспейса нет ревизии — VOID, а не «пар нет»" 2 "kacho-workspace" "$out" "$rc"
 
 echo "инъекция crossrepo-gate: утверждений $((pass+fail)), пройдено $pass, провалено $fail"
 [[ "$fail" == 0 ]]

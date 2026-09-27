@@ -199,3 +199,40 @@ pairs:
   - path: internal/release/pack_test.go
     decision: debt
     issue: PRO-Robotech/kacho-workspace#655
+
+  # ── воркспейс × продукт: воркспейс — тоже ствол (ws#729 п.6) ────────────────
+  # Пары ниже гейт увидел, когда перечень стволов стал включать сам воркспейс
+  # (его ревизию HEAD). До этого они жили молча: проверка их не видела по
+  # построению, а не потому, что решение было принято.
+  - path: scripts/hooks/install.sh
+    decision: debt
+    issue: PRO-Robotech/kacho#2779
+    note: >-
+      один установщик переходников, живущий копиями в воркспейсе и платформе. Копия
+      воркспейса — v2 (без адресата отказ, ws#751), копия платформы — v1 (без
+      адресата успех). Расхождение признано: снимает его kacho#2779
+  - path: scripts/hooks/pre-push
+    decision: own
+    note: у каждого дерева свой хук отправки — воркспейс судит свои наборы и ведомость вклада, платформа — цели монорепо
+  - path: .github/workflows/ci.yaml
+    decision: own
+    note: конвейер своего дерева
+  - path: tmp/README.md
+    decision: own
+    note: описание временного каталога своего дерева
+  - path: tests/authz-fixtures/.gitignore
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: оснастка фикстур authz-deny, разошедшаяся копия воркспейс × платформа — тот же долг, что principal_pairings.py
+  - path: tests/authz-fixtures/README.md
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: то же семейство
+  - path: tests/authz-fixtures/patch-env.py
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: то же семейство
+  - path: tests/authz-fixtures/setup.sh
+    decision: debt
+    issue: PRO-Robotech/kacho-workspace#655
+    note: то же семейство
