@@ -14,7 +14,14 @@
 #   2. каждое задание, зовущее `shellcheck`, СНАЧАЛА ставит запиннутую (иначе
 #      берёт из образа — то есть ту же лотерею, только тише);
 #   3. установка печатает установленную версию (вердикт обязан нести с собой,
-#      чем он получен).
+#      чем он получен);
+#   4. задание, поставившее пин, НЕ ставит анализатор вторым способом (ws#464):
+#      `apt-get install … shellcheck` рядом с пином кладёт версию дистрибутива в
+#      /usr/bin, и пин действует только по побочному обстоятельству — порядку
+#      PATH на образе. Установка «только при отсутствии» (шаг под
+#      `command -v shellcheck`) рядом с пином не срабатывает никогда и находкой не
+#      является, но считается — перепись называет, сколько установок осмотрено,
+#      а не только сколько заданий.
 set -uo pipefail
 
 name="check-06-shellcheck-version-pinned"
@@ -41,6 +48,30 @@ declared_total = 0
 jobs_calling = 0
 jobs_installing = 0
 prints_version = 0
+installs_pinned = 0
+installs_other = 0
+installs_conditional = 0
+
+# Вторая установка — менеджером пакетов. Судится исполняемая строка шага, не
+# комментарий: слова `apt-get install shellcheck` стоят и в объяснениях.
+OTHER_INSTALL = re.compile(
+    r"\b(?:apt-get|apt|snap|brew|pip3?|pipx|conda|cabal|stack)\b[^\n#]*\binstall\b[^\n#]*\bshellcheck(?:-py)?\b",
+    re.I)
+
+
+def steps_of(block):
+    """Шаги задания: текст от `      - ` до следующего такого же, без строк-комментариев."""
+    out, cur = [], None
+    for line in block.split("\n"):
+        if re.match(r"^\s{4,8}- ", line):
+            if cur is not None:
+                out.append("\n".join(cur))
+            cur = [line]
+        elif cur is not None:
+            cur.append(line)
+    if cur is not None:
+        out.append("\n".join(cur))
+    return ["\n".join(l for l in st.split("\n") if not l.strip().startswith("#")) for st in out]
 
 # Разбор построчный, а не YAML-ом: предмет — ТЕКСТ шага (`run:`), и он всё равно
 # читается строками. YAML тут дал бы ложную точность, а зависимость — лишнюю.
@@ -60,6 +91,22 @@ for f in files:
             continue
         jobs_calling += 1
         installs = "shellcheck-v${SHELLCHECK_VERSION}" in b or "SHELLCHECK_VERSION}/shellcheck" in b
+        head = (b.strip().splitlines() or ["?"])[0].strip().rstrip(":")
+        second = []
+        for st in steps_of(b):
+            if "SHELLCHECK_VERSION}/shellcheck" in st or "shellcheck-v${SHELLCHECK_VERSION}" in st:
+                installs_pinned += 1
+            m = OTHER_INSTALL.search(st)
+            if m:
+                if "command -v shellcheck" in st:
+                    installs_conditional += 1
+                else:
+                    installs_other += 1
+                    second.append(m.group(0).strip())
+        if installs and second:
+            findings.append(
+                f"{f.name}: задание «{head}» ставит пин и ставит анализатор ВТОРЫМ способом "
+                f"(`{second[0]}`) — вердикт принадлежит порядку PATH на образе, а не пину")
         if installs:
             jobs_installing += 1
             if "shellcheck --version" in b:
@@ -67,9 +114,8 @@ for f in files:
             else:
                 findings.append(f"{f.name}: задание ставит пин, но не печатает установленную версию")
         else:
-            head = (b.strip().splitlines() or ["?"])[0]
             findings.append(
-                f"{f.name}: задание «{head.strip().rstrip(':')}» зовёт shellcheck, "
+                f"{f.name}: задание «{head}» зовёт shellcheck, "
                 f"не поставив запиннутую — исполнится версия образа ранера"
             )
 
@@ -83,7 +129,9 @@ elif declared_total > 1:
 
 print(f"[CENSUS] {name}: процессов прочитано {len(files)}; заданий, зовущих анализатор, "
       f"{jobs_calling}; из них ставят пин {jobs_installing}; печатают версию {prints_version}; "
-      f"объявлений значения {declared_total}")
+      f"объявлений значения {declared_total}; установок осмотрено "
+      f"{installs_pinned + installs_other + installs_conditional} (пиннутых {installs_pinned}, "
+      f"прочих {installs_other}, условных {installs_conditional})")
 
 for f_ in findings:
     print(f"[FAIL] {name} — {f_}", file=sys.stderr)

@@ -406,6 +406,62 @@ jobs:
 run 2 "$(mksandbox .github/workflows)" "предпосылка: процессов нет — VOID, а не успех" \
     check-06-shellcheck-version-pinned.sh
 
+# ── ось ws#464: ВТОРАЯ установка перебивает пин ─────────────────────────────
+#
+# Дефект — дословно шаг, стоявший в задании vault-gate: пин поставлен, а шаг
+# линта начинается с `apt-get install shellcheck`, то есть ставит версию
+# дистрибутива в /usr/bin. Пин действует только потому, что /usr/local/bin
+# раньше в PATH, — это не свойство, которое кто-то решал. Близнецы: одна
+# пиннутая установка; установка «только при отсутствии» (под `command -v`),
+# которая рядом с пином не срабатывает никогда. Исход читается вместе с ТЕКСТОМ:
+# покраснеть по чужой причине — не доказательство.
+run6t() { # run6t <код> <песочница> <имя пробы> <обязательная подстрока>
+    local want="$1" box="$2" name="$3" needle="$4" got out
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/check-06-shellcheck-version-pinned.sh" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && grep -qF -- "$needle" <<<"$out"; then
+        echo "  ok   $name (код $got)"
+    else
+        echo "  ПРОВАЛ $name — ждали код $want и «$needle», получили $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+
+run6t 0 "$(mk6 "$WF_PINNED")" "близнец: одна пиннутая установка — молчит, установки сочтены" \
+    "установок осмотрено 1 (пиннутых 1, прочих 0"
+
+run6t 1 "$(mk6 "env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - name: shellcheck vault-gate (strict)
+        run: sudo apt-get update -qq && sudo apt-get install -y shellcheck && shellcheck -x -- a.sh
+")" "инъекция: пин плюс apt-get install shellcheck в шаге линта — находка" \
+    "ставит анализатор ВТОРЫМ способом"
+
+run6t 0 "$(mk6 "env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - name: install shellcheck
+        run: |
+          if command -v shellcheck > /dev/null; then
+            exit 0
+          fi
+          sudo apt-get update -qq && sudo apt-get install -y shellcheck
+      - run: shellcheck -x a.sh
+")" "близнец: установка только при отсутствии рядом с пином — молчит" \
+    "условных 1"
+
 
 echo "== check-07: «без предмета» приходит тем же кодом, что находка =="
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-07-runner-void-distinct-from-finding.sh
