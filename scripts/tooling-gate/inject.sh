@@ -309,8 +309,12 @@ s = open(p, encoding='utf-8').read()
 s = s.replace("on:\n  workflow_dispatch:", "on:\n  pull_request:\n    branches: [main]\n  workflow_dispatch:", 1)
 open(p, 'w', encoding='utf-8').write(s)
 PYWF
-TOOLING_GATE_REQUIRED_CONTEXTS='bats-and-shellcheck
-документы объявляют то, чем их измеряют' \
+# Требуемые контексты ВЫВЕДЕНЫ из процесса песочницы, а не выписаны: выписанное
+# имя задания стареет при первой правке конвейера, и близнец краснел бы от
+# переименования, а не от предмета (так и случилось, когда задания наборов
+# свели в одно — ws#753).
+ctx="$(python3 -c 'import sys,yaml; j=yaml.safe_load(open(sys.argv[1]))["jobs"]; print("\n".join((v.get("name") or k) for k, v in list(j.items())[:2]))' "$b/.github/workflows/ci.yaml")"
+TOOLING_GATE_REQUIRED_CONTEXTS="$ctx" \
     run 0 "$b" "близнец: триггер сужен, все требуемые контексты производятся — молчит" check-05-workflow-triggers-narrowed.sh
 
 # ОПАСНАЯ СТОРОНА ОБЪЯВЛЕННОГО «АВТОЗАПУСКА НЕТ»: контекст, которого никто не

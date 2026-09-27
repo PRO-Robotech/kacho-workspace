@@ -87,7 +87,8 @@ jobs:
       - name: shellcheck core bash scripts
         # `|| true` глушит ЗАМЕЧАНИЯ линта — и вместе с ними глушил бы «файла нет
         # вовсе». Существование каждого из этих трёх имён утверждает отдельно
-        # job `tooling-gate`, поэтому исчезновение файла остаётся громким.
+        # набор tooling-gate (задание `gate-suites`), поэтому исчезновение файла
+        # остаётся громким.
         run: shellcheck bootstrap.sh sync-all.sh tests/test_helper.bash || true   # informational
       - name: shellcheck tooling-gate scripts (strict)
         working-directory: scripts/tooling-gate
@@ -112,7 +113,7 @@ jobs:
         # Перечень явный, а не `tests/*.bats`: под маской исчезнувший файл просто
         # перестаёт исполняться, и суита остаётся зелёной с меньшим объёмом.
         # Явное имя ломается заметно, а существование каждого имени отдельно
-        # утверждает tooling-gate (job `tooling-gate` ниже).
+        # утверждает набор tooling-gate (задание `gate-suites` ниже).
         run: bats tests/bootstrap.bats tests/sync-all.bats
 
 
