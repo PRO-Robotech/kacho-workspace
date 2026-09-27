@@ -84,6 +84,59 @@ stub_version() {  # <файл> → номер версии нашего пере
     printf '%s' "${line#"$marker_prefix"}"
 }
 
+# ── KEEPALIVE НА ТРАНСПОРТЕ: настройка КЛОНА, а не одной отправки (ws#776) ────
+#
+# ПОЧЕМУ ЭТО ЗДЕСЬ, РЯДОМ С ХУКАМИ. Это ЦЕНА длинного хука, и платится она в том
+# же месте, где хук заводится. `git push` соединяется и выясняет ссылки ДО хука,
+# затем молчит всё время его работы и только потом шлёт пакет. Замер 2026-09-22:
+# хук отработал зелёным за 831 секунду, соединение оборвали по простою, пакет не
+# ушёл — а команда отчиталась `exit code 0`. Лечится трафиком (`ServerAliveInterval`),
+# а не обходом проверок. Откуда 20 и 3 — шапка `scripts/push-verified.sh`: там
+# величина выведена, здесь только применяется, и второго вывода не заводится.
+#
+# ЧУЖУЮ НАСТРОЙКУ НЕ ПЕРЕБИВАЕМ — тот же принцип, что и с посторонним хуком: в
+# `core.sshCommand` может стоять ключ, порт или прокси, без которых отправка не
+# состоится вовсе. Тогда состояние НАЗЫВАЕТСЯ строкой, а решение остаётся за
+# человеком.
+ka_interval=20
+ka_count=3
+ka_want="ssh -o ServerAliveInterval=$ka_interval -o ServerAliveCountMax=$ka_count"
+
+# ka_state — печатает «<состояние>|<значение>»: set (наш либо чужой с keepalive),
+# foreign (чужой без keepalive), none.
+ka_state() {
+    local cur
+    cur="$(git -C "$root" config --get core.sshCommand 2>/dev/null || true)"
+    if [ -z "$cur" ] && [ -n "${GIT_SSH:-}" ]; then
+        # `core.sshCommand` сильнее программы `GIT_SSH`: выставленный поверх неё,
+        # он выключил бы её молча — значит, это чужой транспорт.
+        printf 'foreign|GIT_SSH=%s\n' "$GIT_SSH"
+    elif [ -z "$cur" ]; then
+        printf 'none|\n'
+    # Сравнение БЕЗ внешнего процесса: `printf | grep -q` под `pipefail` роняет
+    # писателя SIGPIPE'ом, и найденное объявляется ненайденным.
+    elif [[ "${cur,,}" == *serveraliveinterval* ]]; then
+        printf 'set|%s\n' "$cur"
+    else
+        printf 'foreign|%s\n' "$cur"
+    fi
+}
+
+ka_report() {
+    local st; st="$(ka_state)"
+    case "${st%%|*}" in
+        set)
+            echo "keepalive транспорта: есть — core.sshCommand = «${st#*|}»" ;;
+        foreign)
+            echo "keepalive транспорта: НЕТ — транспорт задан снаружи: «${st#*|}»" >&2
+            echo "  Не перебиваем: там могут быть ключ, порт, прокси. Добавьте в него (или в ~/.ssh/config хоста) сами:" >&2
+            echo "    -o ServerAliveInterval=$ka_interval -o ServerAliveCountMax=$ka_count" >&2 ;;
+        *)
+            echo "keepalive транспорта: НЕ настроен — длинный хук молчит в соединении, и отправку рвёт по простою" >&2
+            echo "  Чинится провязкой: bash scripts/hooks/install.sh install (ставит core.sshCommand = «$ka_want»)" >&2 ;;
+    esac
+}
+
 # ── 1. Куда git на самом деле смотрит ────────────────────────────────────────
 #
 # Выставленный `core.hooksPath` перебивает `.git/hooks` целиком, а ревизию без
@@ -213,6 +266,7 @@ report() {
         echo "  $name: $st_stub · $st_real (scripts/hooks/$name)"
     done
     echo "хуки: провязано $wired из ${#hooks[@]} ($dst)"
+    ka_report
     [ "${#kept[@]}" -eq 0 ] ||
         printf 'посторонних хуков оставлено нетронутыми: %s\n' "${kept[*]}"
 }
@@ -305,6 +359,18 @@ for name in "${hooks[@]+"${hooks[@]}"}"; do
     installed+=("$name")
 done
 
+# Keepalive выставляется ОДИН РАЗ на клон и наследуется всеми его worktree:
+# `core.sshCommand` живёт в общем каталоге репозитория. Чужое значение не
+# трогается — про него говорит `ka_report`.
+ka_now="$(ka_state)"
+if [ "${ka_now%%|*}" = none ]; then
+    if git -C "$root" config --local core.sshCommand "$ka_want"; then
+        echo "keepalive транспорта выставлен клону: core.sshCommand = «$ka_want»"
+    else
+        echo "ВНИМАНИЕ: core.sshCommand выставить не удалось — отправка останется без keepalive" >&2
+    fi
+fi
+
 wired=${#installed[@]}
 stale=(); missing=()
 report
@@ -312,3 +378,4 @@ printf 'провязаны переходниками v2: %s\n' "${installed[*]}
 [ "${#removed[@]}" -eq 0 ] ||
     printf 'сняты наши переходники без адресата в дереве: %s\n' "${removed[*]}"
 echo "проверить в любой момент: bash scripts/hooks/install.sh check"
+echo "отправка с подтверждением от сервера: bash scripts/push-verified.sh [remote] [ветка]"

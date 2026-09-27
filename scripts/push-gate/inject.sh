@@ -32,6 +32,10 @@ SUBJECT_FILES=(
     scripts/hooks/install.sh
     scripts/hooks/pre-push
     scripts/cla-gate/cla.py
+    scripts/push-verified.sh
+    scripts/push-verified-inject.sh
+    scripts/preservation-proof.sh
+    scripts/preservation-proof-inject.sh
 )
 
 copy_subject() {  # <корень>
@@ -52,6 +56,9 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|суждение отправки не судит коммиттера"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|освобождённая личность подписывает отправляемый коммит"
     "check-03-neighbour-homes-are-derived|scripts/hooks/pre-push|выведенный дом не передаётся наборам — копия снова без предмета"
+    "check-04-push-verdict-comes-from-the-remote|scripts/push-verified.sh|вердикт отправки снова берётся из кода команды"
+    "check-04-push-verdict-comes-from-the-remote|scripts/hooks/install.sh|установщик перебивает чужой транспорт своим keepalive"
+    "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|знаменатель снова — файлы головного коммита"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -77,6 +84,15 @@ M = [
     ("scripts/hooks/pre-push",
      '        export "$var=$d"\n',
      '        : "$var=$d"\n'),
+    ("scripts/push-verified.sh",
+     'remote_line="$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null)"\n',
+     '[ "$push_rc" = 0 ] && { echo "push-verified: ПОДТВЕРЖДЕНО — по коду команды"; exit 0; }\nremote_line="$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null)"\n'),
+    ("scripts/hooks/install.sh",
+     'if [ "${ka_now%%|*}" = none ]; then\n',
+     'if [ "${ka_now%%|*}" != set ]; then\n'),
+    ("scripts/preservation-proof.sh",
+     'mapfile -t paths < <(git diff --name-only "$mb..$head" 2>/dev/null)\n',
+     'mapfile -t paths < <(git show --name-only --format= "$head" 2>/dev/null | sed \'/^$/d\')\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
