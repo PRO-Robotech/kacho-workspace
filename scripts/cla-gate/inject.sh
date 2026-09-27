@@ -164,6 +164,15 @@ GIT_AUTHOR_EMAIL=old@cla-inject.invalid GIT_AUTHOR_NAME=old git -C "$d" commit -
 probe 1 "E2 после границы Signed-off-by адреса «только история» не снимает «вперёд запрет»" "$d" "old@cla-inject.invalid" "вперёд запрет"
 git -C "$d" reset -q --hard HEAD~1
 
+# ── E7: пустой обход области — отказ, а не «подтверждено» ─────────────────────
+d="$(repo e7)"
+mkdir -p "$d/sub"; echo u > "$d/sub/untracked.txt"
+printf 'scope: [sub]\nowners:\n  - email: %s\n    note: владелец фикстуры\n' "$OWNER" > "$d/contribution-ledger.yaml"
+git -C "$d" add contribution-ledger.yaml; git -C "$d" commit -q -m "ведомость"
+probe 1 "E7 область есть на диске, коммитов в ней нет — «гейт слеп», а не зелёное" "$d" "гейт слеп"
+git -C "$d" add sub; git -C "$d" commit -q -m "первый коммит в области"
+probe 0 "E7 близнец: в области есть коммит — судится и подтверждён" "$d" "коммитов 1"
+
 d="$(repo g)"; ledger "$d"; git -C "$d" add -A; git -C "$d" commit -q -m "ведомость"
 echo x >> "$d/f.txt"; git -C "$d" add -A
 GIT_COMMITTER_EMAIL=carrier@cla-inject.invalid git -C "$d" commit -q -m "перенёс владелец"
@@ -282,6 +291,17 @@ history_only:
 probe 2 "H8 граница не в истории (срез глубины) — без предмета, не зелёное" "$d" "условие не создано"
 ledger "$d" "$HO"
 hk="$d"   # фикстура границы — её же судит проба отправки HP1 ниже
+
+# ── E8: ключ атрибуции после границы судит и ГЕЙТ ДЕРЕВА ─────────────────────
+#
+# Ствол судится этим режимом (`cla.py tree`): коммит с ключом атрибуции, влитый
+# схлопыванием мимо хука отправки, обязан покраснеть здесь. Автор — своя
+# личность, поэтому краснеть нечему, кроме ключа. Близнец — тот же ключ ДО
+# границы (проба «трейлер атрибуции ДО границы» ниже): история не судится.
+d="$(floor_repo e8)"
+echo x >> "$d/f.txt"; git -C "$d" add -A
+git -C "$d" commit -q -m "свой коммит после границы" -m "Claude-Session: https://claude.ai/code/session_inject"
+probe 1 "E8 tree: ключ атрибуции после границы — находка по имени ключа при своём авторе" "$d" "Claude-Session" "ключ атрибуции"
 
 # ── E2: суждение ОТПРАВКИ (`cla.py push-range`) ─────────────────────────────
 #
