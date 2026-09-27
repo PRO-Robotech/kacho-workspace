@@ -11,7 +11,7 @@
 set -uo pipefail
 payload="$(cat)"
 case "$payload" in
-    *push*) ;;
+    *stash*|*push*) ;;
     *) exit 0 ;;
 esac
 guard="$(dirname "${BASH_SOURCE[0]}")/lib/bash_guard.py"

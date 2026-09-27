@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""Страж команды Bash до исполнения (`PreToolUse`): запрет, который держался вниманием.
+"""Страж команды Bash до исполнения (`PreToolUse`): два запрета, которые держались вниманием.
 
 # Предмет
 
-`git push` полосы, чья база НЕ ЗНАЕТ проверок ствола (ws#717). Набор гейтов обходит
+1. `git stash` в ОБЩЕЙ рабочей копии (ws#602). Общая копия — рабочее дерево, которым
+   пользуются несколько агентов сразу: корень воркспейса и клон продукта. `pop` в ней
+   вынимает ЧУЖОЙ схрон, а незакоммиченная чужая работа существует в единственном
+   экземпляре. Запрет стоял в теле `git-operator`, `landing-reviewer`, `scout` и в
+   архивном своде — и за одну сессию (2026-09-08) нарушен дважды.
+2. `git push` полосы, чья база НЕ ЗНАЕТ проверок ствола (ws#717). Набор гейтов обходит
    свой каталог и печатает «рассмотрено N» по тому, что НАШЁЛ. Отставшая база даёт
    зелёный на меньшем числе проверок, и он неотличим от зелёного на полном: код один,
    число никто не сверяет. Новая проверка ствола не судит полосу, пока до неё не
    доберётся база, — и этого момента не наблюдает никто.
 
 # Признаки — из git, а не из списка путей
+
+«Общая копия» — ГЛАВНОЕ рабочее дерево (`--git-dir` совпадает с `--git-common-dir`)
+репозитория, у которого есть хотя бы одно присоединённое. Своя копия полосы —
+присоединённое дерево в `tmp/`: там `stash` законен и полезен, и запрет его не трогает.
 
 «База не знает проверки ствола» — файл `scripts/<набор>-gate/check-*` есть на
 `origin/main`, его нет в отправляемой ревизии И нет в их общей базе. Последнее
@@ -19,9 +28,9 @@
 
 # Обход — явный и видимый
 
-Обход — присваивание в самой команде: `KACHO_PUSH_LAGGING=1 git push …`. Он остаётся
-в тексте команды, то есть в ленте сессии, и исполнитель обязан назвать его в возврате
-(строка нормы в `ai-tooling.md`).
+Обход — присваивание в самой команде: `KACHO_STASH_SHARED=1 git stash …`,
+`KACHO_PUSH_LAGGING=1 git push …`. Он остаётся в тексте команды, то есть в ленте
+сессии, и исполнитель обязан назвать его в возврате (строка нормы в `ai-tooling.md`).
 
 # Граница, объявленная, а не умолчанная
 
@@ -33,6 +42,8 @@
 - Ствол — локальная ссылка `origin/main`: страж не делает `fetch`, и отставание судится
   от ствола, каким его видела последняя выборка. Ссылки нет — отставание не судится
   (канала, которым сказать это агенту без отказа, у `PreToolUse` нет).
+- Общий на все деревья репозитория список схронов (`refs/stash`) страж не судит: `pop`
+  без явной ссылки в СВОЕЙ копии тоже может вынуть чужое.
 
 Исходы: 0 — пропустить; 2 — отказ (stderr уходит агенту, команда не исполняется);
 1 — поломка самого стража (stderr видит человек, команда НЕ блокируется: страж,
@@ -49,7 +60,9 @@ import sys
 
 TRUNK = "origin/main"
 CHECK = re.compile(r"^scripts/[^/]+-gate/check-[^/]+$")
+BYPASS_STASH = "KACHO_STASH_SHARED"
 BYPASS_PUSH = "KACHO_PUSH_LAGGING"
+STASH_READONLY = {"list", "show"}
 SEP = {"&&", "||", ";", "|", "&", "\n", "|&"}
 
 
@@ -114,6 +127,21 @@ def parse_git(tokens: list[str], cwd: str) -> tuple[str, str, list[str], dict]:
     return tokens[i], d, tokens[i + 1:], env
 
 
+def shared_copy(d: str) -> tuple[bool, str]:
+    rc, top = git(d, "rev-parse", "--show-toplevel")
+    if rc != 0:
+        return False, ""
+    _, gd = git(d, "rev-parse", "--path-format=absolute", "--git-dir")
+    _, cd = git(d, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    if not gd or not cd:
+        return False, top
+    if os.path.realpath(gd) != os.path.realpath(cd):
+        return False, top            # присоединённое дерево — своя копия полосы
+    _, wl = git(d, "worktree", "list", "--porcelain")
+    n = sum(1 for ln in wl.split("\n") if ln.startswith("worktree "))
+    return n > 1, top
+
+
 def checks_at(d: str, ref: str) -> set[str]:
     rc, out = git(d, "ls-tree", "-r", "--name-only", ref, "--", "scripts")
     if rc != 0:
@@ -149,6 +177,21 @@ def push_source(d: str, args: list[str]) -> tuple[str, str]:
     return sha, ""
 
 
+def judge_stash(d: str, args: list[str], env: dict) -> str:
+    action = next((a for a in args if not a.startswith("-")), "push")
+    if action in STASH_READONLY:
+        return ""
+    shared, top = shared_copy(d)
+    if not shared or env.get(BYPASS_STASH) == "1":
+        return ""
+    return (f"`git stash {action}` в ОБЩЕЙ рабочей копии {top} — это главное дерево "
+            "репозитория с присоединёнными копиями, им пользуются несколько агентов. "
+            "`pop` вынимает ЧУЖОЙ схрон, а чужая незакоммиченная работа — в единственном "
+            "экземпляре (ws#602). Своя копия полосы — присоединённое дерево в tmp/: там "
+            f"stash законен. Обход, если он осознан: `{BYPASS_STASH}=1 git stash …` — и "
+            "строка об этом в возврате.")
+
+
 def judge_push(d: str, args: list[str], env: dict) -> str:
     rc, _ = git(d, "rev-parse", "--verify", "--quiet", TRUNK + "^{commit}")
     if rc != 0:
@@ -175,7 +218,7 @@ def judge_push(d: str, args: list[str], env: dict) -> str:
             f"`{BYPASS_PUSH}=1 git push …` — и строка об этом в возврате.")
 
 
-RULES = {"push": judge_push}
+RULES = {"stash": judge_stash, "push": judge_push}
 
 
 def judge(command: str, cwd: str) -> list[str]:
@@ -212,7 +255,7 @@ def main() -> int:
     except ValueError as e:
         # Незакрытая кавычка и подобное: команду не разобрать — не судим, но говорим.
         sys.stderr.write(f"bash-guard: команда не разобрана ({e}) — не судилась. "
-                         "Запрет push с отставшей базой к ней не применён.\n")
+                         "Запреты stash в общей копии и push с отставшей базой к ней не применены.\n")
         return 1
     if not denials:
         return 0

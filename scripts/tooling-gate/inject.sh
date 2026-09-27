@@ -946,6 +946,23 @@ guard_expect 0 "близнец: не git — слово push в тексте" "e
 guard_expect 0 "близнец: та же отправка после вливания ствола — пропуск" \
     "git push origin lane" "$gr/lane"
 
+echo "== страж Bash (PreToolUse): git stash в ОБЩЕЙ рабочей копии (#602) =="
+# Общая копия — главное дерево репозитория с присоединёнными копиями (признак из
+# git). Близнец той же формы — та же команда в присоединённом дереве полосы: там
+# stash законен, и страж обязан молчать, иначе он запрещал бы stash вообще.
+guard_expect 2 "дефект: git stash в главном дереве с присоединёнными копиями — отказ" \
+    "git stash" "$gr/main" "ОБЩЕЙ рабочей копии"
+guard_expect 2 "дефект: pop из подкаталога общей копии — отказ" "git stash pop" "$gr/main/scripts"
+guard_expect 2 "дефект: git -C <общая копия> stash — отказ" "git -C $gr/main stash -u" "$gr/lane"
+guard_expect 2 "дефект: cd <общая копия> && git stash — отказ" "cd $gr/main && git stash push -m x" "$gr"
+guard_expect 0 "близнец: та же команда в своей копии полосы — пропуск" "git stash" "$gr/lane"
+guard_expect 0 "близнец: pop в своей копии полосы — пропуск" "git stash pop" "$gr/lane"
+guard_expect 0 "близнец: git stash list в общей копии — чтение, пропуск" "git stash list" "$gr/main"
+guard_expect 0 "близнец: явный обход в команде — пропуск" "KACHO_STASH_SHARED=1 git stash" "$gr/main"
+( cd "$gr" && git clone -q remote.git solo ) >/dev/null 2>&1
+guard_expect 0 "близнец: главное дерево БЕЗ присоединённых копий — не общее, пропуск" \
+    "git stash" "$gr/solo"
+
 echo "== сигнал: настройки корня отстают от ствола (#796) =="
 # Корень — песочница-репозиторий: на стволе ключ `attribution`, в рабочем дереве
 # корня — нет. Хук зовётся тем же JSON, что подаёт харнесс, с чистым состоянием
