@@ -56,9 +56,11 @@ probe "$( [ "$cur" = "ssh -i /dev/null -p 2222" ] && pg_has "$out" "трансп
 
 git -C "$ws" config core.sshCommand "$(printf 'ssh -o ServerAliveInterval=20 -o ServerAliveCountMax=3')"
 sha="$(git -C "$ws" rev-parse HEAD)"
+git -C "$ws" remote set-url origin "$TMP/box/elsewhere.git"
+git -C "$ws" config remote.origin.pushurl "$TMP/box/srv.git"
 out="$(cd "$ws" && git push origin work 2>&1)"; rc=$?
-probe "$( [ "$rc" = 0 ] && pg_has "$out" "код ЭТОГО хука — исход ПРОВЕРОК" "git ls-remote origin refs/heads/work   # ожидается $sha" && echo да || echo нет)" \
-    "хук отправки называет свой код своим и печатает постусловие с отправленной sha" "код $rc; вывод: $out"
+probe "$( [ "$rc" = 0 ] && pg_has "$out" "код ЭТОГО хука — исход ПРОВЕРОК" "git ls-remote $TMP/box/srv.git refs/heads/work   # ожидается $sha" && echo да || echo нет)" \
+    "хук отправки называет свой код своим и печатает постусловие у сервера ОТПРАВКИ (pushurl), с отправленной sha" "код $rc; вывод: $out"
 
 pg_census "$NAME: доказательство постусловия исполнено 1, песочница 1; проб $probes, провалено $failed"
 if [ "$failed" -gt 0 ]; then pg_fail "$NAME — проб с находкой: $failed"; exit 1; fi

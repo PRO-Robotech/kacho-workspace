@@ -39,6 +39,9 @@ if [ ! -t 0 ]; then
     done
 fi
 PUSH_REMOTE="${1:-}"
+# `$2` — URL, по которому git отправляет СЕЙЧАС (при нескольких pushurl хук зовётся
+# на каждый). Постусловие спрашивается у него, а не у `url` remote.
+PUSH_URL="${2:-}"
 
 ROOT="$(git rev-parse --show-toplevel)" || exit 1
 cd "$ROOT" || exit 1
@@ -201,15 +204,15 @@ fi
 # деле: ссылка на сервере равна отправленной sha.
 postcondition_note() {
     echo "pre-push: код ЭТОГО хука — исход ПРОВЕРОК, а не отправки." >&2
-    local remote="${PUSH_REMOTE:-origin}" line lsha rref
+    local remote="${PUSH_REMOTE:-origin}" target="${PUSH_URL:-${PUSH_REMOTE:-origin}}" line lsha rref
     if [ "${#push_lines[@]}" -eq 0 ]; then
-        echo "  Что отправляется, хук не прочитал — подтверждайте сами: git ls-remote $remote <ссылка>" >&2
+        echo "  Что отправляется, хук не прочитал — подтверждайте сами: git ls-remote $target <ссылка>" >&2
     else
         echo "  Отправка состоялась, только если ссылка на сервере равна отправленной sha:" >&2
         for line in "${push_lines[@]}"; do
             read -r _ lsha rref _ <<<"$line"
             [ "$lsha" = 0000000000000000000000000000000000000000 ] && continue
-            echo "    git ls-remote $remote $rref   # ожидается $lsha" >&2
+            echo "    git ls-remote $target $rref   # ожидается $lsha" >&2
         done
     fi
     echo "  Обёртка, которая делает это сама: bash scripts/push-verified.sh $remote <ветка>" >&2

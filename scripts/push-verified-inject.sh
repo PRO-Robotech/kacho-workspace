@@ -39,6 +39,7 @@ REAL_GIT="$(command -v git)" || { echo "[VOID] git не найден" >&2; exit 
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 probes=0
 failed=0
@@ -198,6 +199,40 @@ if [[ "$out" == *"ПОДТВЕРЖДЕНО"* ]]; then
 else
     echo "[PASS] H-контроль: слова «ПОДТВЕРЖДЕНО» в выводе НЕТ — читается однозначно"
 fi
+
+# ── E3. СПРАШИВАЕТСЯ ТОТ СЕРВЕР, КУДА ОТПРАВЛЯЛИ: pushurl, а не url ──────────
+#
+# `git push` идёт по `remote.<имя>.pushurl`, если он задан, — и по КАЖДОМУ, если
+# их несколько; `git ls-remote <имя>` спрашивает `url`. Постусловие, спрошенное не
+# у того сервера, подтверждает чужое и отвергает состоявшееся.
+d="$(fixture e3e)" || { echo "[VOID] фикстура e3e не собралась" >&2; exit 2; }
+sha="$(git -C "$d" rev-parse refs/heads/work)"
+git -C "$d" push -q origin work 2>/dev/null           # сервер по url УЖЕ несёт sha
+git init -q --bare "$TMP/e3e-push.git"
+git -C "$d" config remote.origin.pushurl "$TMP/e3e-push.git"
+shim "$TMP/e3e"
+out="$(cd "$d" && PATH="$TMP/e3e/bin:$PATH" bash "$SUBJECT" origin work 2>&1)"; rc=$?
+probe 1 "E3e pushurl≠url, отправки не было, сервер по url уже несёт sha — ОТКАЗ, а не «подтверждено»" \
+    "$out" "$rc" "ОТКАЗ" "e3e-push.git — ссылки НЕТ"
+
+d="$(fixture e3f)" || { echo "[VOID] фикстура e3f не собралась" >&2; exit 2; }
+sha="$(git -C "$d" rev-parse refs/heads/work)"
+git init -q --bare "$TMP/e3f-push.git"
+git -C "$d" config remote.origin.pushurl "$TMP/e3f-push.git"
+out="$(cd "$d" && bash "$SUBJECT" origin work 2>&1)"; rc=$?
+probe 0 "E3f настоящая отправка по pushurl — ПОДТВЕРЖДЕНО, а не ложный отказ" "$out" "$rc" "ПОДТВЕРЖДЕНО" "$sha"
+
+d="$(fixture e3g)" || { echo "[VOID] фикстура e3g не собралась" >&2; exit 2; }
+git init -q --bare "$TMP/e3g-a.git"; git init -q --bare "$TMP/e3g-b.git"
+printf '#!/bin/sh\necho "сервер b отказал" >&2\nexit 1\n' > "$TMP/e3g-b.git/hooks/pre-receive"
+chmod +x "$TMP/e3g-b.git/hooks/pre-receive"
+git -C "$d" config --add remote.origin.pushurl "$TMP/e3g-a.git"
+git -C "$d" config --add remote.origin.pushurl "$TMP/e3g-b.git"
+out="$(cd "$d" && bash "$SUBJECT" origin work 2>&1)"; rc=$?
+probe 1 "E3g два pushurl, один отказал — ОТКАЗ и называет тот, где ссылки нет" "$out" "$rc" "ОТКАЗ" "e3g-b.git — ссылки НЕТ"
+rm -f "$TMP/e3g-b.git/hooks/pre-receive"
+out="$(cd "$d" && bash "$SUBJECT" origin work 2>&1)"; rc=$?
+probe 0 "E3g близнец: оба pushurl приняли — подтверждено по каждому" "$out" "$rc" "ПОДТВЕРЖДЕНО" "e3g-a.git — $(git -C "$d" rev-parse refs/heads/work)" "e3g-b.git — $(git -C "$d" rev-parse refs/heads/work)"
 
 echo
 echo "[CENSUS] push-verified-inject: проб исполнено $probes, провалов $failed; фикстур собрано 8, ложный ноль воспроизведён тремя путями (ноль команды, отказ транспорта, код съеден посредником)"

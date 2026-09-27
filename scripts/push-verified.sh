@@ -155,25 +155,45 @@ push_rc=$?
 # при обновлении upstream-настройки), и молчать о нём нечестно.
 echo "push-verified: код команды отправки — $push_rc (это НЕ вердикт: вердикт ниже, от сервера)" >&2
 
-remote_line="$(git ls-remote "$remote" "refs/heads/$branch" 2>/dev/null)"
-ls_rc=$?
-if [ "$ls_rc" -ne 0 ]; then
-    echo "push-verified: БЕЗ ПРЕДМЕТА — сервер не опрошен ($remote, код ls-remote $ls_rc)." >&2
-    echo "  Отправка НЕ подтверждена. Повторить подтверждение: git ls-remote $remote refs/heads/$branch" >&2
-    exit 2
-fi
+# СПРАШИВАЕТСЯ ТОТ СЕРВЕР, КУДА ОТПРАВЛЯЛИ. `git push` идёт по
+# `remote.<имя>.pushurl`, если он задан, — и по КАЖДОМУ, если их несколько, — а
+# `git ls-remote <имя>` спрашивает `url`. Спрошенное не у того сервера постусловие
+# подтверждало чужое (сервер по url уже нёс sha, отправки не было) и отвергало
+# состоявшееся (пробы E3e, E3f, E3g в inject). Имя, не являющееся remote, —
+# это URL, и спрашивается он сам.
+mapfile -t push_urls < <(git remote get-url --push --all "$remote" 2>/dev/null)
+[ "${#push_urls[@]}" -gt 0 ] || push_urls=("$remote")
 
-remote_sha="$(printf '%s' "$remote_line" | awk 'NR==1 {print $1}')"
+confirmed=0
+mismatched=0
+report=()
+for url in "${push_urls[@]}"; do
+    remote_line="$(git ls-remote "$url" "refs/heads/$branch" 2>/dev/null)"
+    ls_rc=$?
+    if [ "$ls_rc" -ne 0 ]; then
+        echo "push-verified: БЕЗ ПРЕДМЕТА — сервер не опрошен ($url, код ls-remote $ls_rc)." >&2
+        echo "  Отправка НЕ подтверждена. Повторить подтверждение: git ls-remote $url refs/heads/$branch" >&2
+        exit 2
+    fi
+    remote_sha="$(printf '%s' "$remote_line" | awk 'NR==1 {print $1}')"
+    report+=("$url — ${remote_sha:-ссылки НЕТ}")
+    if [ "$remote_sha" = "$local_sha" ]; then
+        confirmed=$((confirmed + 1))
+    else
+        mismatched=$((mismatched + 1))
+    fi
+done
 
-if [ "$remote_sha" = "$local_sha" ]; then
-    echo "push-verified: ПОДТВЕРЖДЕНО — $remote refs/heads/$branch = $local_sha (спрошено у сервера)"
+if [ "$mismatched" -eq 0 ]; then
+    echo "push-verified: ПОДТВЕРЖДЕНО — $remote refs/heads/$branch = $local_sha (спрошено у сервера отправки: $confirmed из ${#push_urls[@]})"
+    printf '  на сервере %s\n' "${report[@]}"
     exit 0
 fi
 
 echo "push-verified: ОТКАЗ — операция НЕ состоялась, хотя команда вернула $push_rc." >&2
 echo "  отправляли: $local_sha" >&2
-echo "  на сервере: ${remote_sha:-ссылки НЕТ}" >&2
-echo "  Ссылка на сервере не равна отправленной — это и есть признак того, что" >&2
-echo "  пакет не доехал. Повторить отправку; разошлось после чужой записи —" >&2
-echo "  разбирать расхождение, а не пересылать поверх." >&2
+printf '  на сервере %s\n' "${report[@]}" >&2
+echo "  Ссылка на сервере отправки не равна отправленной ($mismatched из ${#push_urls[@]}) — это и есть" >&2
+echo "  признак того, что пакет не доехал. Повторить отправку; разошлось после чужой" >&2
+echo "  записи — разбирать расхождение, а не пересылать поверх." >&2
 exit 1
