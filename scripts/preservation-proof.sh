@@ -130,9 +130,23 @@ fi
 
 result="$(resolve "$result_ref")" || exit 2
 
+# ── ФОРМА ВЫВОДА git — НАША, А НЕ НАСТРОЙКИ КЛОНА ────────────────────────────
+#
+# Всё, что ниже читается из git, разбирается как текст, а текст зависит от
+# настройки клона. Три формы прежде давали «СОХРАНЕНО» на потере (пробы E4 в
+# inject): переименование склеивало два пути в один и исходный выпадал из
+# знаменателя; `color.diff=always` вставлял управляющие последовательности в
+# каждую строку дифа, и перепись насчитывала ноль строк; `core.quotePath`
+# экранировал путь не из ASCII, и чтение файла по такому имени молча не
+# удавалось. Поэтому: `--no-renames` (оба пути переименования — в знаменателе),
+# `--no-color --no-ext-diff --no-textconv` (сырой диф), имена — через `-z`,
+# содержимое — `cat-file blob`, а не человекочитаемым `show`.
+gdiff() { git -c color.ui=never diff --no-color --no-ext-diff --no-textconv --no-renames "$@"; }
+blob() { git cat-file blob "$1" 2>/dev/null; }
+
 # ── ЗНАМЕНАТЕЛЬ — ПУТИ ВСЕЙ ПОЛОСЫ ───────────────────────────────────────────
-mapfile -t paths < <(git diff --name-only "$mb..$head" 2>/dev/null)
-mapfile -t head_paths < <(git show --name-only --format= "$head" 2>/dev/null | sed '/^$/d' | sort -u)
+mapfile -d '' -t paths < <(gdiff -z --name-only "$mb..$head" 2>/dev/null)
+mapfile -d '' -t head_paths < <(git -c color.ui=never diff-tree -z --no-commit-id --name-only -r --no-renames --root "$head" 2>/dev/null)
 
 if [ "${#paths[@]}" -eq 0 ]; then
     echo "preservation-proof: БЕЗ ПРЕДМЕТА — полоса $mb..$head не трогает НИ ОДНОГО пути" >&2
@@ -141,7 +155,7 @@ if [ "${#paths[@]}" -eq 0 ]; then
 fi
 
 commits="$(git rev-list --count "$mb..$head" 2>/dev/null || echo 0)"
-delta_bytes="$(git diff "$head" "$result" -- "${paths[@]}" 2>/dev/null | wc -c)"
+delta_bytes="$(gdiff "$head" "$result" -- "${paths[@]}" 2>/dev/null | wc -c)"
 
 echo "preservation-proof: полоса $mb..$head — коммитов $commits, путей ${#paths[@]}; головной коммит трогает ${#head_paths[@]}"
 if [ "${#head_paths[@]}" -lt "${#paths[@]}" ]; then
@@ -171,8 +185,8 @@ lines_removed=0
 gone_paths=0
 
 for p in "${paths[@]}"; do
-    lane_blob="$(git show "$head:$p" 2>/dev/null)"; lane_rc=$?
-    res_blob="$(git show "$result:$p" 2>/dev/null)"; res_rc=$?
+    lane_blob="$(blob "$head:$p")"; lane_rc=$?
+    res_blob="$(blob "$result:$p")"; res_rc=$?
 
     # Полоса СНЯЛА файл: его отсутствие в итоге — исполненная работа, а не потеря.
     if [ "$lane_rc" -ne 0 ]; then
@@ -195,7 +209,7 @@ for p in "${paths[@]}"; do
     # разделитель YAML и markdown) и добавленной `++ …` лишь ПОЛОЖЕНИЕМ, а не
     # префиксом: отбрасывание по префиксу теряло их молча и объявляло сохранным
     # то, что потеряно (проба I в inject).
-    lane_diff="$(git diff "$mb..$head" -- "$p")"
+    lane_diff="$(gdiff "$mb..$head" -- "$p")"
     added="$(printf '%s\n' "$lane_diff" | awk '/^@@/ {h = 1; next} h && /^\+/ {print substr($0, 2)}' | grep -v '^[[:space:]]*$' | sort -u)"
     removed="$(printf '%s\n' "$lane_diff" | awk '/^@@/ {h = 1; next} h && /^-/ {print substr($0, 2)}' | grep -v '^[[:space:]]*$' | sort -u)"
 

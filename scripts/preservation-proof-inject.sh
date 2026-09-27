@@ -36,6 +36,12 @@ command -v git >/dev/null || { echo "[VOID] git не найден" >&2; exit 2; 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Настройка git машины сюда не доходит: цвет, переименования и экранирование
+# путей, выставленные личным ~/.gitconfig, меняли бы то, что читает предмет, и
+# проба судила бы машину. Там, где настройка и есть предмет (E4e, E4f), она
+# ставится в самой фикстуре.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
+
 probes=0
 failed=0
 
@@ -269,6 +275,74 @@ git -C "$d" commit -q -m "соседняя полоса после слияни�
 out="$(cd "$d" && bash "$SUBJECT" "$base_sha" "$head_sha" HEAD 2>&1)"; rc=$?
 probe 0 "I2 близнец: те же строки, честное слияние, судит перепись — сохранено" \
     "$out" "$rc" "СОХРАНЕНО — по всем" "тождества дерева не было"
+
+# ── E4. ФОРМА ВЫВОДА git НЕ МЕНЯЕТ ВЕРДИКТА ──────────────────────────────────
+#
+# Предмет читает `git diff` — и то, что он печатает, зависит от настройки клона:
+# переименование склеивает два пути в один, цвет вставляет управляющие
+# последовательности в каждую строку, `core.quotePath` экранирует путь не из
+# ASCII. Каждая из этих форм прежде давала «СОХРАНЕНО» на потере.
+merge_lose() {  # <репо> <путь, разрешаемый в пользу ствола> — слияние work в main
+    git -C "$1" checkout -q main
+    git -C "$1" merge -q --no-ff --no-commit work >/dev/null 2>&1
+    git -C "$1" checkout -q main -- "$2"
+    git -C "$1" commit -q -m "слияние work ($2 потерян)" >/dev/null 2>&1
+}
+merge_clean() {
+    git -C "$1" checkout -q main
+    git -C "$1" merge -q --no-ff --no-edit work >/dev/null 2>&1
+}
+
+# Чистое переименование: файл, которого полоса не правила, переехал целиком —
+# `git diff --name-only` по умолчанию называет только НОВЫЙ путь, и исходный
+# выпадает из знаменателя.
+rename_fixture() {  # <имя> — печатает путь; work: c1 правит a.txt, c2 old.txt → renamed.txt
+    local d="$TMP/$1"
+    git init -q -b main "$d" || return 1
+    git -C "$d" config user.email inject@example.invalid; git -C "$d" config user.name inject
+    for n in 1 2 3 4 5 6 7 8 9 10; do printf 'старый файл: строка %s\n' "$n" >> "$d/old.txt"; done
+    printf 'ствол\n' > "$d/a.txt"
+    git -C "$d" add -A && git -C "$d" commit -q -m "ствол" || return 1
+    git -C "$d" checkout -q -b work
+    printf 'полоса: правка a\n' >> "$d/a.txt"; git -C "$d" commit -qam "c1: правка a" || return 1
+    git -C "$d" mv old.txt renamed.txt; git -C "$d" commit -q -m "c2: переименование old → renamed" || return 1
+    printf '%s\n' "$d"
+}
+d="$(rename_fixture e4d)" || { echo "[VOID] фикстура e4d не собралась" >&2; exit 2; }
+head_sha="$(git -C "$d" rev-parse work)"
+merge_clean "$d"
+git -C "$d" checkout -q HEAD^1 -- old.txt; git -C "$d" commit -q --amend --no-edit >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+probe 1 "E4d переименование: исходный путь в знаменателе, снятый полосой old.txt вернулся — ПОТЕРЯ" \
+    "$out" "$rc" "ПОТЕРЯ" "old.txt"
+d="$(rename_fixture e4d2)" || { echo "[VOID] фикстура e4d2 не собралась" >&2; exit 2; }
+head_sha="$(git -C "$d" rev-parse work)"
+merge_clean "$d"
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+probe 0 "E4d близнец: переименование честно влито — сохранено" "$out" "$rc" "СОХРАНЕНО"
+
+for knob in color.diff color.ui; do
+    d="$(fixture "e4e-$knob")" || { echo "[VOID] фикстура e4e не собралась" >&2; exit 2; }
+    git -C "$d" config "$knob" always
+    head_sha="$(git -C "$d" rev-parse work)"
+    merge_lose "$d" essence.txt
+    out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+    probe 1 "E4e1 $knob=always: цвет не съедает перепись — потеря существа краснеет" \
+        "$out" "$rc" "ПОТЕРЯ" "полоса: существо A1"
+done
+
+d="$(fixture e4f)" || { echo "[VOID] фикстура e4f не собралась" >&2; exit 2; }
+git -C "$d" checkout -q work
+printf 'существо в файле с именем не из ASCII\n' > "$d/ведомость.txt"
+git -C "$d" add -A; git -C "$d" commit -q -m "c4: файл не-ASCII" >/dev/null 2>&1
+head_sha="$(git -C "$d" rev-parse work)"
+git -C "$d" checkout -q main
+git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+git -C "$d" rm -q --cached "ведомость.txt"; rm -f "$d/ведомость.txt"
+git -C "$d" commit -q -m "слияние work (файл не-ASCII потерян)" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
+probe 1 "E4f путь не из ASCII (core.quotePath): пропавший файл полосы — ПОТЕРЯ, а не пропуск" \
+    "$out" "$rc" "ПОТЕРЯ" "ведомость.txt"
 
 echo
 echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано 10, у каждой полоса из трёх коммитов (существо — не в головном)"
