@@ -31,7 +31,7 @@
 ЧИТАТЕЛИ РЕЗОЛЮЦИИ СТВОЛА (перечень обязан сходиться с деревом; предикат —
 `git grep -ln "_lib" -- scripts/docs-gate scripts/skills-gate`):
 
-  * `scripts/docs-gate/check-03-acceptance-tree-claims.py`;
+  * `scripts/docs-gate/check-06-acceptance-tree-claims.py`;
   * `scripts/docs-gate/check-03-holding-claim-resolves.py`;
   * `scripts/docs-gate/check-04-product-acceptance-verdict.py`;
   * `scripts/skills-gate/check-06-docs-layout-matches-tree.sh` — через режим CLI

@@ -329,6 +329,72 @@ wf "$b" "${calls[@]}"; commit "$b"
 expect 1 "$b" "инъекция: у набора нет доказательства вовсе — краснеет" "$C04" \
     "у набора ${SUITES[0]} нет доказательства scripts/${SUITES[0]}/inject.sh"
 
+# ── check-05: номер проверки — неоднозначный адрес ───────────────────────────
+#
+# Дефект — дословно форма docs-gate до ws#754: второй файл с уже занятым номером.
+# Законный близнец — тот же файл со СЛЕДУЮЩИМ свободным номером. Отдельно —
+# разрыв (снятая проверка, чей номер остался дырой) и имя без номера.
+C05="check-05-check-numbers-are-unique-and-gapless.py"
+
+# numbered <песочница> <набор> <имя проверки>…
+numbered() {
+    local box="$1" s="$2" n; shift 2
+    for n in "$@"; do printf '#!/usr/bin/env bash\necho "осмотрено 1"\n' > "$box/scripts/$s/$n"; done
+}
+
+echo "== check-05: номер проверки — неоднозначный адрес =="
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; numbered "$b" "$s" check-01-a.sh check-02-b.py check-03-c.sh; done
+commit "$b"
+expect 0 "$b" "близнец: в каждом наборе 01…03 без повторов и разрывов — молчит" "$C05" \
+    "проверок $((3 * ${#SUITES[@]}))"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"; numbered "$b" "$t" check-01-a.sh check-02-b.py check-03-c.sh
+        [ "$t" = "$s" ] && numbered "$b" "$t" check-03-second-carrier.py
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: второй носитель номера 03 — краснеет, названы оба" "$C05" \
+        "$s: номер 03 несут 2 проверки — scripts/$s/check-03-c.sh, scripts/$s/check-03-second-carrier.py" \
+        "находок 1"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"; numbered "$b" "$s" check-01-a.sh check-02-b.py check-03-c.sh
+    [ "$s" = "${SUITES[0]}" ] && numbered "$b" "$s" check-04-next-free.py
+done
+commit "$b"
+expect 0 "$b" "близнец: тот же новый файл со следующим свободным номером — молчит" "$C05"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then numbered "$b" "$s" check-01-a.sh check-03-c.sh
+    else numbered "$b" "$s" check-01-a.sh check-02-b.py check-03-c.sh; fi
+done
+commit "$b"
+expect 1 "$b" "инъекция: разрыв — номера 02 нет, а 03 есть — краснеет" "$C05" \
+    "${SUITES[0]}: номера check-02 нет, а старшие есть"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"; numbered "$b" "$s" check-01-a.sh
+    [ "$s" = "${SUITES[0]}" ] && numbered "$b" "$s" check-unnumbered.sh
+done
+commit "$b"
+expect 1 "$b" "инъекция: имя проверки без номера — краснеет" "$C05" \
+    "scripts/${SUITES[0]}/check-unnumbered.sh — имя проверки без номера"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID, а не «повторов 0»" "$C05" "наборов scripts/*/run-all.sh"
+
+b="$(mkbox)"; suite "$b" "${SUITES[0]}"; commit "$b"
+expect 2 "$b" "предпосылка: проверок нет — VOID" "$C05" "проверок check-* в них 0"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then

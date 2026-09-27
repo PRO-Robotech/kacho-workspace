@@ -428,7 +428,7 @@ else
 fi
 fi
 
-# ── check-03-scope-row-scenario ─────────────────────────────────
+# ── check-07-scope-row-scenario ─────────────────────────────────
 #
 # Проверка требует: у каждой строки состава `| F<N> |` есть сценарий (When+Then)
 # либо передача в дочернюю приёмку, у которой такой раздел со сценарием есть.
@@ -451,7 +451,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Раздел есть, а сценария в нём нет.'
 run 1 "$b" "инъекция: строка состава без сценария — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-07-scope-row-scenario.py "F1"
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -465,7 +465,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: у строки состава есть сценарий — молчит" \
-    check-03-scope-row-scenario.py
+    check-07-scope-row-scenario.py
 
 # Передача в дочернюю приёмку — законный второй способ, и без этой пробы
 # проверка ловила бы «сценарий в ЭТОМ файле», а не «сценарий существует».
@@ -484,7 +484,7 @@ mkspec "$b" "sub-phase-P1b-child-acceptance.md" '# Приёмка P1b
 **When** вызывающий делает шаг
 **Then** ответ таков, как объявлено'
 run 0 "$b" "близнец: передача в дочернюю приёмку со сценарием — молчит" \
-    check-03-scope-row-scenario.py
+    check-07-scope-row-scenario.py
 
 # Передача, которая НЕ резолвится, обязана остаться находкой: иначе ссылка на
 # несуществующий документ становится способом закрыть любую строку состава.
@@ -498,13 +498,13 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 ## F1 — предмет
 Сценарий живёт в sub-phase-P9Z-missing-acceptance.md.'
 run 1 "$b" "инъекция: передача не резолвится — краснеет" \
-    check-03-scope-row-scenario.py "F1"
+    check-07-scope-row-scenario.py "F1"
 
 # Обе предпосылки: приёмок нет вовсе и приёмки есть, но состав объявлен иначе.
 # «Ноль находок» на них означало бы «ноль прочитанного».
 b="$(mksandbox docs/specs)"
 run 2 "$b" "предпосылка: приёмок нет — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-07-scope-row-scenario.py
 
 b="$(mksandbox docs/specs)"
 mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
@@ -515,7 +515,7 @@ mkspec "$b" "sub-phase-P1-probe-acceptance.md" '# Приёмка P1
 **When** шаг
 **Then** ответ'
 run 2 "$b" "предпосылка: состав объявлен не строками — VOID, а не успех" \
-    check-03-scope-row-scenario.py
+    check-07-scope-row-scenario.py
 
 # ── ПОЛОСА ЧТЕНИЯ ДЕРЕВА ПРОДУКТА: СТВОЛ, А НЕ ИНДЕКС КОПИИ (ws#621) ─────────
 #
