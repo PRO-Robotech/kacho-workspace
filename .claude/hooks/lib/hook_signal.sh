@@ -19,7 +19,11 @@ signal_stdin() {
     SIGNAL_PAYLOAD="$(cat 2>/dev/null || true)"
     SIGNAL_SESSION="$(printf '%s' "$SIGNAL_PAYLOAD" |
         sed -n 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
-    export SIGNAL_SESSION
+    # Читатель печати: `agent_id` подаётся харнессом только из сабагента. Пусто —
+    # главный поток; «уже сказано» тогда относится к сессии (ws#798).
+    SIGNAL_READER="$(printf '%s' "$SIGNAL_PAYLOAD" |
+        sed -n 's/.*"agent_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1)"
+    export SIGNAL_SESSION SIGNAL_READER
 }
 
 # signal_emit <id> <агент-адресат> <машинный предикат снятия> <ревизия> ; тело на stdin
@@ -35,7 +39,7 @@ signal_emit() {
         return 0
     fi
     "$py" "$lib" --id "$id" --addressee "$addressee" --clear-when "$clear_when" \
-        --session "${SIGNAL_SESSION:-}" --sha "$sha"
+        --session "${SIGNAL_SESSION:-}" --reader "${SIGNAL_READER:-}" --sha "$sha"
 }
 
 # Короткая ревизия воркспейса — её называет строка повтора, чтобы «без изменений»

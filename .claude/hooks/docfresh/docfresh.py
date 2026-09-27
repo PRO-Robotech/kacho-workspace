@@ -2133,9 +2133,13 @@ def journal_read_and_clear() -> list[str]:
 
 
 SESSION = ""   # id сессии из события; «уже сказано» относится к ЭТОЙ сессии
-# Признак дельты — только у события ГЛАВНОГО ПОТОКА (`Stop`). `PostToolUse` читает
-# исполнитель, и в одной сессии их несколько: отпечаток не знает читателя, и
-# «без изменений» дошло бы до полосы, не видевшей полного тела, — потерянная находка.
+READER = ""    # `agent_id` события: кто читает печать на `PostToolUse`
+# Признак дельты у события ГЛАВНОГО ПОТОКА (`Stop`) — по сессии. `PostToolUse` читает
+# исполнитель, и в одной сессии их несколько: отпечаток по сессии «без изменений»
+# донёс бы до полосы, не видевшей полного тела, — потерянная находка. Поэтому на
+# `PostToolUse` свёртка включается ТОЛЬКО с читателем (`agent_id`, харнесс подаёт его
+# из сабагента), и отпечаток ключуется им (ws#798). Без `agent_id` читатель
+# неизвестен — печать полная, как прежде.
 MAIN_THREAD = False
 
 
@@ -2161,7 +2165,7 @@ def signal_out(sid: str, body: str, *, addressee: str, clear_when: str,
     этом вслух: сигнал, замолчавший из-за поломки признака, неотличим от «находок
     нет» — ровно тот мягкий проход, который хук и ловит.
     """
-    if not MAIN_THREAD:
+    if not MAIN_THREAD and not READER:
         return body, "full"
     lib = str(HERE.parent / "lib")
     try:
@@ -2171,7 +2175,8 @@ def signal_out(sid: str, body: str, *, addressee: str, clear_when: str,
         return hook_signal.gate(sid, body, addressee=addressee, clear_when=clear_when,
                                 session=SESSION, sha=sha,
                                 volatile=VOLATILE_OF_THIS_PROBE,
-                                repeat_silent=repeat_silent)
+                                repeat_silent=repeat_silent,
+                                reader="" if MAIN_THREAD else READER)
     except Exception as e:  # noqa: BLE001
         return (body + f"\n[сигнал `{sid}`] признак дельты НЕ применён: {e!r} — "
                 f"печатается ПОЛНОСТЬЮ каждый ход, пока это так. "
@@ -3202,8 +3207,9 @@ def main() -> int:
     # «Уже сказано» относится к ЭТОЙ сессии: в новой сессии отпечатка нет, и первый
     # сигнал печатается полностью. Событие без `session_id` не ошибка — тогда ключ
     # один общий, и свёртка работает по времени жизни каталога состояния.
-    global SESSION, MAIN_THREAD
+    global SESSION, MAIN_THREAD, READER
     SESSION = str(event.get("session_id") or "")
+    READER = str(event.get("agent_id") or "")
     hook_event = event.get("hook_event_name") or ""
     MAIN_THREAD = hook_event == "Stop"
     tool = event.get("tool_name") or ""
@@ -3352,8 +3358,9 @@ def main() -> int:
             clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep даёт код 0 "
                        "и строку [PASS]",
             sha=sha)
-        # На `PostToolUse` признак дельты не применяется (`MAIN_THREAD`): тело идёт
-        # полностью каждой правке, код 2 доставляет его автору правки.
+        # На `PostToolUse` признак дельты ключуется читателем (`READER`): повтор у того
+        # же исполнителя — строка «без изменений», другой исполнитель получает полное
+        # тело; без `agent_id` — полное каждой правке. Код 2 доставляет печать автору.
         sys.stderr.write(out + "\n")
         return 2
     out, _ = signal_out(

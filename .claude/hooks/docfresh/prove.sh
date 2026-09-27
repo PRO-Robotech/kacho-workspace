@@ -2234,6 +2234,52 @@ else
 fi
 
 echo
+echo "== P''. правка файла: отпечаток знает ЧИТАТЕЛЯ — свёртка только у того же исполнителя (#798) =="
+# `PostToolUse` читает исполнитель, и в одной сессии их несколько. Отпечаток по
+# одной сессии свернул бы находку для полосы, которая полного тела не видела.
+# Ключ — `agent_id` события (харнесс подаёт его из сабагента). Пара по каждой
+# стороне: повтор у того же исполнителя свёрнут; другой исполнитель той же сессии
+# получает полное тело; без `agent_id` читатель неизвестен — свёртки нет.
+if absent_path "$DEAD_BOTH"; then
+  PRD="$TMP/prdocs"; mkdir -p "$PRD"
+  pr_edit() { # pr_edit <agent_id|-> <вывод>
+    local aid=""
+    [ "$1" != "-" ] && aid="$(printf ',"agent_id":"%s","agent_type":"probe"' "$1")"
+    printf 'Копии генерируются `%s`.\n' "$DEAD_BOTH" > "$PRD/pr1.md"
+    printf '{"hook_event_name":"PostToolUse","session_id":"pr-sess"%s,"tool_name":"Write","tool_input":{"file_path":"%s"}}' \
+        "$aid" "$PRD/pr1.md" \
+      | DOCFRESH_DOC_ROOT="$PRD" bash "$HOOK" >"$2" 2>&1
+  }
+  pr_edit agent-a "$TMP/pr1.out"
+  if grep -qF -- "$DEAD_BOTH" "$TMP/pr1.out"; then
+    pd_ok "(+) исполнитель A, первая правка — полное тело, координата названа"
+  else
+    pd_bad "(+) исполнитель A: находка не дошла"; head -c 300 "$TMP/pr1.out" | sed 's/^/      /'
+  fi
+  pr_edit agent-a "$TMP/pr2.out"
+  if grep -q 'без изменений с' "$TMP/pr2.out" && ! grep -qF -- "$DEAD_BOTH" "$TMP/pr2.out"; then
+    pd_ok "(−) исполнитель A, та же находка повторно — одна строка «без изменений»"
+  else
+    pd_bad "(−) повтор у того же исполнителя печатается полностью"; head -c 300 "$TMP/pr2.out" | sed 's/^/      /'
+  fi
+  pr_edit agent-b "$TMP/pr3.out"
+  if grep -qF -- "$DEAD_BOTH" "$TMP/pr3.out" && ! grep -q 'без изменений с' "$TMP/pr3.out"; then
+    pd_ok "(+) исполнитель B той же сессии — полное тело: чужой отпечаток его не глушит"
+  else
+    pd_bad "(+) исполнитель B получил свёрнутую строку — находка для него потеряна"; head -c 300 "$TMP/pr3.out" | sed 's/^/      /'
+  fi
+  pr_edit - "$TMP/pr4.out"; pr_edit - "$TMP/pr5.out"
+  if grep -qF -- "$DEAD_BOTH" "$TMP/pr5.out" && ! grep -q 'без изменений с' "$TMP/pr5.out"; then
+    pd_ok "(+) без agent_id читатель неизвестен — повтор печатается полностью"
+  else
+    pd_bad "(+) без agent_id повтор свёрнут — свёртка без читателя"; head -c 300 "$TMP/pr5.out" | sed 's/^/      /'
+  fi
+  rm -f "$PRD/pr1.md"
+else
+  notrun "'$DEAD_BOTH' появился в дереве — вход (+) пробы P'' больше не настоящий"
+fi
+
+echo
 echo "== Q. полоса ПРЕДПОСЫЛОК — та же, что у вердикта (ствол); её отсутствие ≠ находка =="
 # Предпосылки хука — словарь корневых сегментов, выписанные шаблоны LIVE и исключение
 # приёмок — судятся по ПОЛОСЕ СТВОЛА: тем же резолвом (`_resolve_integration_ref`) и

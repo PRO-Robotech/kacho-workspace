@@ -21,8 +21,9 @@
 # Механизм
 
 Отпечаток прошлого сигнала лежит в
-`.claude/hooks/.state/signal/<сессия>/<id>.json` (каталог git-ignored, переопределяется
-`HOOK_SIGNAL_STATE`). В нём: отпечаток тела, время и ревизия последней ПОЛНОЙ печати,
+`.claude/hooks/.state/signal/<сессия>/<id>.json`, а для печати, которую читает
+исполнитель, — в `<сессия>/reader-<agent_id>/<id>.json` (каталог git-ignored,
+переопределяется `HOOK_SIGNAL_STATE`). В нём: отпечаток тела, время и ревизия последней ПОЛНОЙ печати,
 число повторов с тех пор.
 
   отпечатка нет (ПЕРВЫЙ ход сессии, новый id, снесённый каталог) → печатается ПОЛНОЕ
@@ -148,11 +149,17 @@ def gate(sid: str, body: str, *, addressee: str, clear_when: str,
          session: str | None = None, sha: str = "",
          state: Path | None = None,
          volatile: tuple[str, ...] = (),
-         repeat_silent: bool = False) -> tuple[str, str]:
+         repeat_silent: bool = False,
+         reader: str = "") -> tuple[str, str]:
     """Возвращает (что печатать, исход). Исход: `full` · `repeat` · `void`.
 
     `void` — тело пустое: сигналу нечего сказать, печати нет. Предмет пустоты —
     забота вызывающего: он один знает, чего именно не было.
+
+    `reader` — КТО читает печать (`agent_id` события из сабагента). «Уже сказано»
+    относится к читателю, а не к сессии: в одной сессии исполнителей несколько, и
+    отпечаток одного не вправе глушить полное тело для другого (ws#798). Пустой
+    `reader` — читатель главного потока, отпечаток по сессии, как прежде.
     """
     if not sid:
         raise ValueError("сигнал без имени: отпечаток не к чему привязать")
@@ -169,6 +176,8 @@ def gate(sid: str, body: str, *, addressee: str, clear_when: str,
     sess = _safe(session or os.environ.get("CLAUDE_SESSION_ID", ""), "no-session")
     name = _safe(sid, "signal")
     d = root / sess
+    if reader:
+        d = d / ("reader-" + _safe(reader, "reader"))
     fp = fingerprint(sid, body, tuple(volatile))
     prev: dict = {}
     try:
@@ -238,6 +247,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--addressee", default="")
     ap.add_argument("--clear-when", default="")
     ap.add_argument("--session", default="")
+    ap.add_argument("--reader", default="",
+                    help="кто читает печать (agent_id события); пусто — главный поток")
     ap.add_argument("--sha", default="")
     ap.add_argument("--state", default="")
     ap.add_argument("--volatile", action="append", default=[],
@@ -260,7 +271,8 @@ def main(argv: list[str]) -> int:
         text, mode = gate(a.id or "", body, addressee=a.addressee, clear_when=a.clear_when,
                           session=a.session, sha=a.sha,
                           state=Path(a.state) if a.state else None,
-                          volatile=tuple(a.volatile), repeat_silent=a.repeat_silent)
+                          volatile=tuple(a.volatile), repeat_silent=a.repeat_silent,
+                          reader=a.reader)
     except ValueError as e:
         sys.stderr.write(
             "╔══ СИГНАЛ ХУКА СЛОМАН ═══════════════════════════════════════════\n"

@@ -30,7 +30,7 @@ at-dead-asset-does-not-travel · ассет без предмета не зав�
 
 ## Печатаемый сигнал хука: дельта, адресат, предикат снятия
 
-at-signal-prints-delta · сигнал ГЛАВНОГО ПОТОКА печатает ДЕЛЬТУ: повтор без дельты — одна строка «без изменений с <sha>@<время>»; на `PostToolUse` свёртки нет — читателей в сессии несколько (#798) · scripts/tooling-gate/check-17-hook-signal-prints-delta.sh; .claude/hooks/docfresh/prove.sh §P' · red: тот же блок два хода подряд при неизменном дереве
+at-signal-prints-delta · сигнал ГЛАВНОГО ПОТОКА печатает ДЕЛЬТУ: повтор без дельты — одна строка «без изменений с <sha>@<время>»; на `PostToolUse` отпечаток ключуется читателем (`agent_id`), свёртка — только с ним (#798) · scripts/tooling-gate/check-17-hook-signal-prints-delta.sh; .claude/hooks/docfresh/prove.sh §P', §P'' · red: тот же блок два хода подряд при неизменном дереве
 at-signal-mechanism-single · признак дельты ОДИН — `.claude/hooks/lib/hook_signal.py`; своего внутри источника не заводить · check-17 (доходит); вторую реализацию — вниманием · red: вторая реализация свёртки повтора в теле хука
 at-signal-names-two · сигнал называет агента-адресата и МАШИННО проверяемый предикат снятия; без любого из двух не печатается · `hook_signal.gate` кодом 2, scripts/tooling-gate/inject.sh · red: «когда починят» вместо команды с исходом
 at-signal-absent-print-full · отпечатка нет — первый ход сессии, новый id, снесённое состояние — печать ПОЛНАЯ · prove.sh §P' · red: потеря состояния прочитана как «уже говорили»
