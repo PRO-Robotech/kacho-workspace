@@ -204,6 +204,43 @@ ledger "$d" "history_floor:
   note: граница, которой в истории нет"
 probe 2 "H граница не в истории (срез глубины) — без предмета, не зелёное" "$d" "условие не создано"
 
+# ── E2: суждение ОТПРАВКИ (`cla.py push-range`) ─────────────────────────────
+#
+# Вход — строки, которые git подаёт хуку pre-push («<лок. ссылка> <sha> <удал.
+# ссылка> <sha на сервере>»), и `$1` хука — имя remote отправки.
+probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <строки> [<подстрока>…]
+    local want="$1" label="$2" d="$3" remote="$4" lines="$5"; shift 5
+    local out rc ok=1 n
+    out="$(printf '%s\n' "$lines" | python3 "$CLA" push-range --root "$d" --remote "$remote" 2>&1)"; rc=$?
+    probes=$((probes + 1))
+    [ "$rc" = "$want" ] || ok=0
+    for n in "$@"; do [[ "$out" == *"$n"* ]] || ok=0; done
+    if [ "$ok" = 1 ]; then
+        echo "[PASS] $label (код $rc)"
+    else
+        failed=$((failed + 1))
+        echo "[FAIL] $label — ожидался код $want с «$*», получен $rc" >&2
+        printf '%s\n' "$out" | sed 's/^/    | /' >&2
+    fi
+}
+Z=0000000000000000000000000000000000000000
+
+d="$(fresh e2k)"
+git init -q --bare "$TMP/e2k-origin.git"; git init -q --bare "$TMP/e2k-other.git"
+git -C "$d" remote add origin "$TMP/e2k-origin.git"; git -C "$d" remote add other "$TMP/e2k-other.git"
+git -C "$d" push -q origin main
+echo k >> "$d/f.txt"; git -C "$d" add -A
+GIT_AUTHOR_EMAIL=known-elsewhere@cla-inject.invalid GIT_AUTHOR_NAME=k git -C "$d" commit -q -m "чужой, известный через другой remote"
+git -C "$d" push -q other main; git -C "$d" fetch -q other
+head="$(git -C "$d" rev-parse HEAD)"; base="$(git -C "$d" rev-parse origin/main)"
+probe_push 1 "E2k чужой коммит, известный через ссылку ДРУГОГО remote, судится при отправке в origin" \
+    "$d" origin "refs/heads/main $head refs/heads/main $base" "known-elsewhere@cla-inject.invalid" "публикуемых коммитов 1"
+git -C "$d" push -q --no-verify origin main; git -C "$d" fetch -q origin
+probe_push 0 "E2k близнец: тот же коммит уже на ЭТОМ remote — не судится повторно" \
+    "$d" origin "refs/heads/main $head refs/heads/topic $Z" "публикуемых коммитов 0"
+probe_push 1 "E2k отправка по URL, а не имени remote: известное чужим remote не вычитается" \
+    "$d" "$TMP/e2k-new.git" "refs/heads/main $head refs/heads/main $Z" "known-elsewhere@cla-inject.invalid"
+
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
     echo "[FAIL] cla-gate inject — провалов $failed из $probes" >&2

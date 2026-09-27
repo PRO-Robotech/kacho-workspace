@@ -15,7 +15,7 @@
                 рабочее дерево и не `git config`: подстановка адреса окружением
                 сильнее настройки и видна только в самом коммите.
     census      то же суждение, что push-range, по произвольному диапазону
-                (`census -- --branches --not --remotes`): что отказала бы отправка.
+                (`census -- <ветка> --not --glob=refs/remotes/origin/*`): что отказала бы отправка.
 
 ФОРМА ВЕДОМОСТИ — по соседу (`kaname/cla-ledger.yaml`, `tools/clagate`), не копией
 байтов: одноимённый отслеживаемый путь в двух стволах запрещён, поэтому файл
@@ -395,9 +395,29 @@ def dirty_ledger_note(root, rel):
               "суждение вынесено по рабочему дереву" % rel, file=sys.stderr)
 
 
-def judge_push(root, rel, positives, negatives, label):
+REMOTE_NAME = re.compile(r"[A-Za-z0-9._-]+")
+
+
+def published_on(root, remote):
+    """Ссылки, которыми известно опубликованное НА ЭТОМ remote, — аргументы `git log`.
+
+    Вычитается только отслеживаемое remote отправки. Прежде вычиталось `--remotes`
+    — все remote сразу, — и чужой коммит, известный через ссылку ВТОРОГО remote,
+    при отправке в первый не судился вовсе («публикуемых 0»), хотя в первом его
+    нет. Отправка по URL (хук получает URL вместо имени) — вычитать нечего:
+    остаётся только sha на сервере из строки отправки.
+    """
+    if not remote or not REMOTE_NAME.fullmatch(remote):
+        return []
+    if git(root, "config", "--get", "remote.%s.url" % remote, check=False).returncode != 0:
+        return []
+    return ["--glob=refs/remotes/%s/*" % remote]
+
+
+def judge_push(root, rel, positives, negatives, label, remote=""):
     led = load_ledger(root, rel)
-    recs = commits(root, [*positives, "--not", *negatives, "--remotes"]) if positives else []
+    recs = (commits(root, [*positives, "--not", *negatives, *published_on(root, remote)])
+            if positives else [])
     findings, by, ids, _ = judge(recs, led, "push")
     print("%s — публикуемых коммитов %d, вкладов %d (автор %d, коммиттер %d, соавтор %d), "
           "личностей %d; ведомость %s" % (label, len(recs), by["вкладов"], by[ROLE_AUTHOR],
@@ -432,7 +452,7 @@ def run_push_range(root, rel, remote, lines):
         if rsha != ZERO and git(root, "cat-file", "-e", rsha + "^{commit}", check=False).returncode == 0:
             negatives.append(rsha)
     label = "pre-push: подпись и ведомость (%s) — ссылок %d, снятий %d" % (remote or "?", refs, deletions)
-    return judge_push(root, rel, positives, negatives, label)
+    return judge_push(root, rel, positives, negatives, label, remote)
 
 
 def run_census(root, rel, revs):
