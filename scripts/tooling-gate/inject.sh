@@ -931,11 +931,64 @@ gr="$TMP/guard"; mkdir -p "$gr"
     cd ../lane && git fetch -q origin
     cd ../lane-drop && git fetch -q origin && git merge -q origin/main -m m \
         && git rm -q scripts/a-gate/check-01-x.sh && git commit -qm drop
+    # Ветка, догнавшая ствол, без своего дерева: ссылки общие на все деревья, и
+    # отправить её можно из отставшей копии — судится ОТПРАВЛЯЕМАЯ ревизия, не HEAD.
+    cd ../main && git branch fresh origin/main
+    # Репозиторий без ссылки ствола: судить отставание не по чему — пропуск.
+    cd .. && git clone -q remote.git notrunk && cd notrunk \
+        && git update-ref -d refs/remotes/origin/main && git checkout -q -b x
 ) >/dev/null 2>&1 || { echo "  ПРОВАЛ песочница стража не построена" >&2; failed=$((failed + 1)); }
 guard_expect 2 "дефект: полоса отстала на проверку ствола — отказ, проверка названа" \
     "git push origin lane" "$gr/lane" "check-02-y.sh"
 guard_expect 2 "дефект: та же отправка через cd … && — отказ" "cd $gr/lane && git push" "$gr"
 guard_expect 2 "дефект: та же отправка через git -C — отказ" "git -C $gr/lane push" "$gr"
+# Ревизию называет refspec, а не HEAD: пара в обе стороны на ОДНОЙ форме команды.
+guard_expect 2 "дефект: отставшая ветка отправлена из копии, догнавшей ствол, — отказ" \
+    "git push origin lane" "$gr/main" "check-02-y.sh"
+guard_expect 0 "близнец: догнавшая ветка отправлена из отставшей копии — пропуск" \
+    "git push origin fresh" "$gr/lane"
+guard_expect 0 "близнец: ссылки ствола нет — отставание судить не по чему, пропуск" \
+    "git push origin x" "$gr/notrunk"
+# Формы записи команды — каждая законная форма bash, в которой отправка ИСПОЛНЯЕТСЯ.
+# Перевод строки — разделитель команд вне кавычек и вне тела heredoc; внутри них — нет.
+guard_expect 2 "дефект: отправка на второй строке команды — отказ" \
+    "git status
+git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: коммит с heredoc-сообщением, затем отправка — отказ" \
+    "git commit --allow-empty -m \"\$(cat <<'EOF'
+#717 fix: it's \"quoted\" (and parenthesised)
+
+body
+EOF
+)\" && git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: многострочное -m в кавычках, затем отправка — отказ" \
+    "git commit --allow-empty -m \"subject
+
+body\" && git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: коммит с heredoc, отправка отдельной строкой — отказ" \
+    "git commit --allow-empty -m \"\$(cat <<'EOF'
+x
+EOF
+)\"
+git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: отправка под if … then — отказ" \
+    "if git push origin lane; then echo ok; fi" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: отправка под timeout — отказ" \
+    "timeout 60 git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: отправка под time — отказ" \
+    "time git push origin lane" "$gr/lane" "check-02-y.sh"
+guard_expect 2 "дефект: отправка || запасная ветка — отказ" \
+    "git push origin lane || echo failed" "$gr/lane" "check-02-y.sh"
+guard_expect 0 "близнец: та же строка в теле heredoc — данные, не команда, пропуск" \
+    "cat > /dev/null <<'EOF'
+git push origin lane
+EOF" "$gr/lane"
+guard_expect 0 "близнец: та же строка внутри кавычек — текст, не команда, пропуск" \
+    "echo 'git push origin lane
+second'" "$gr/lane"
+# Сбой разбора — поломка стража (код 1, не блокирует), а не отказ и не пропуск молча.
+guard_expect 1 "команда, которую не разобрать (незакрытая кавычка), — код 1 и причина" \
+    "git push origin 'lane" "$gr/lane" "не разобрана"
 guard_expect 0 "близнец: явный обход в команде — пропуск" \
     "KACHO_PUSH_LAGGING=1 git push origin lane" "$gr/lane"
 guard_expect 0 "близнец: удаление ветки — не отправка ревизии" "git push --delete origin lane" "$gr/lane"
@@ -955,6 +1008,21 @@ guard_expect 2 "дефект: git stash в главном дереве с при
 guard_expect 2 "дефект: pop из подкаталога общей копии — отказ" "git stash pop" "$gr/main/scripts"
 guard_expect 2 "дефект: git -C <общая копия> stash — отказ" "git -C $gr/main stash -u" "$gr/lane"
 guard_expect 2 "дефект: cd <общая копия> && git stash — отказ" "cd $gr/main && git stash push -m x" "$gr"
+guard_expect 2 "дефект: stash с многострочным -m в общей копии — отказ" \
+    "git stash push -m \"wip
+more\"" "$gr/main" "ОБЩЕЙ рабочей копии"
+guard_expect 2 "дефект: time git stash pop в общей копии — отказ" "time git stash pop" "$gr/main" "ОБЩЕЙ"
+guard_expect 2 "дефект: (git stash) подоболочкой в общей копии — отказ" "(git stash)" "$gr/main" "ОБЩЕЙ"
+guard_expect 2 "дефект: (cd <общая> && git stash pop) из полосы — отказ" \
+    "(cd $gr/main && git stash pop)" "$gr/lane" "ОБЩЕЙ"
+guard_expect 2 "дефект: pushd <общая> && git stash pop из полосы — отказ" \
+    "pushd $gr/main && git stash pop" "$gr/lane" "ОБЩЕЙ"
+guard_expect 2 "дефект: git stash pop в подстановке команды — отказ" \
+    "x=\"\$(git stash pop)\"" "$gr/main" "ОБЩЕЙ"
+guard_expect 0 "близнец: cd в ПОДОБОЛОЧКЕ не переносит каталог — stash в полосе, пропуск" \
+    "(cd $gr/main && git status) && git stash" "$gr/lane"
+guard_expect 0 "близнец: pushd … && popd возвращает каталог — stash в полосе, пропуск" \
+    "pushd $gr/main && popd && git stash" "$gr/lane"
 guard_expect 0 "близнец: та же команда в своей копии полосы — пропуск" "git stash" "$gr/lane"
 guard_expect 0 "близнец: pop в своей копии полосы — пропуск" "git stash pop" "$gr/lane"
 guard_expect 0 "близнец: git stash list в общей копии — чтение, пропуск" "git stash list" "$gr/main"
