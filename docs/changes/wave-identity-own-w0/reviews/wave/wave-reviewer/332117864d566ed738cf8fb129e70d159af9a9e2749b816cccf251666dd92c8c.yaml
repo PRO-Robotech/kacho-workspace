@@ -1,0 +1,226 @@
+# Ревью ВОЛНЫ: роль wave-reviewer. Волна-0 цели identity-own.
+# Имя файла — content_digest. Это первая запись роли на эту волну и единственный
+# проход. Предмет роли — то, что видно только когда полосы лежат рядом.
+# Сборка и конвейер здесь не судятся.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 1
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  previous_head: 945b851ed52e8e7a840f706015e8e088169ad032
+  commits: 85        # git rev-list --count base..head (76 обычных и 9 слияний)
+  files: 66          # git diff --name-only base...head | wc -l
+  lines: 11565       # git diff --numstat base...head: +11183 −382
+content_digest: sha256:332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c
+digest_definition: 'git -C project/kacho diff bec320cf47d...b579b9eec9c | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой дважды, до разбора и перед вердиктом. Оба раза
+    332117864d56…92c8c, совпадает с объявленным. Прежняя голова 945b851ed52 той
+    же командой даёт c5ae0889bf2c…fa77, тоже совпадает.
+  merge_base: 'git merge-base origin/main b579b9e → bec320cf47d = origin/main (ствол от базы не ушёл: git rev-list --count bec320cf47d..origin/main → 0).'
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → b579b9eec9c, совпадает.'
+  delta_from_previous: 'merge-base --is-ancestor 945b851ed52 b579b9eec9c → да; дельта — deploy/helm/umbrella/values.own.yaml и gateway/deploy/login_console_test.go (466b8e2cf63).'
+  worktree: 'Судился detached worktree tmp/wr-w0-b579 на голове; git status --porcelain → 0.'
+
+# ── ПОЛОСЫ: ВЫВЕДЕНЫ ИЗ ИСТОРИИ, СОСТАВ СВЕРЕН С ДИФФОМ ──────────────────────
+lanes:
+  derivation: >-
+    git log --merges base..head дал 9 слияний. Пять из них — полосы, четыре —
+    доливки. Для каждой полосы и доливки снят свой дифф (для слияния
+    <m>^1...<m>^2, для доливки <c>^...<c>). Объединение путей 10 диффов равно
+    66 путям диффа волны (diff двух отсортированных перечней пуст). Пар
+    «полоса·путь» 76, путей больше чем у одной полосы — 8.
+  set:
+    - {id: L1, name: deploy-own-posture-cutover,     merge: f971d41afe9, commits: 2,  files: 2,  lines: 433}
+    - {id: L2, name: deploy-issuer-census-merged,    merge: f230948845d, commits: 4,  files: 5,  lines: 677}
+    - {id: L3, name: issue-2724,                     merge: d03dca14d51, commits: 6,  files: 6,  lines: 714}
+    - {id: L4, name: foreign-idp-name-in-probes,     merge: 328e1ead5ce, commits: 6,  files: 8,  lines: 1422}
+    - {id: L5, name: gateway-session-carrier-set,    merge: 5b20df5c638, commits: 44, files: 32, lines: 5391}
+    - {id: F1, name: 'доливка консоль',              commit: 9fcf1e81e9a, files: 11, lines: 1220}
+    - {id: F2, name: 'доливка ведомость',            merge: 0e0a85f936e, tip: 9bbaa92b2bb, commits: 10, files: 7, lines: 1736}
+    - {id: F3, name: 'доливка стек own',             commit: f14e822e416, files: 2,  lines: 58}
+    - {id: F4, name: 'доливка документация',         commit: 796da67d5ea, files: 1,  lines: 4}
+    - {id: F5, name: 'доливка комментарии',          commit: 466b8e2cf63, files: 2,  lines: 72}
+  shared_paths:
+    deploy/helm/umbrella/values.own.yaml: [L1, L2, F3, F5]
+    gateway/deploy/login_console_test.go: [L1, F5]
+    deploy/helm/umbrella/values.dev.yaml: [L2, F1]
+    gateway/deploy/values.yaml: [L2, L5]
+    gateway/docs/content/install/configuration.mdx: [L5, F4]
+    internal/repohygiene/foreignidpname.go: [L4, F2]
+    internal/repohygiene/foreignidpname_injection_test.go: [L4, F2]
+    internal/repohygiene/foreignidpname_test.go: [L4, F2]
+  lane_reports: 'Отчёты полос в задании не переданы. Заявлениями считались сообщения коммитов; дословно сверены заявления доливок F3 и F5.'
+
+# ── СТОЛКНОВЕНИЯ ─────────────────────────────────────────────────────────────
+# Виды — по .claude/backup/multi-agent-flow-orchestration.md §14. Файла
+# .claude/rules/multi-agent-flow-orchestration.md, на который ссылается тело роли,
+# в дереве нет; см. on_the_way.
+collisions:
+  - id: C1
+    kind: 'правка и её отмена в соседней полосе; внутри неё столкновение раскладок L1×L3 (§14 «Классы столкновений»)'
+    lanes: [L1, F3, L3]
+    subject: >-
+      Стек own. L1 (b75a0b74fcc) снял kratos, pg-kratos и kratos-selfservice-ui.
+      F3 (f14e822e416) вернул все три. Пока снятие стояло, L3 настраивал снятый
+      подчарт: values.own-stand.yaml — automigration и secret.nameOverride у
+      kratos, образ pg-kratos. Шапка stack-secrets.sh:11-16 при этом считала
+      pg-kratos и секрет печенья консоли входа в «одиннадцати».
+    status: разрешено
+    evidence:
+      - 'Разбор YAML values.own.yaml @bec320cf47d против @b579b9eec9c (python yaml.safe_load, обход словаря): единственное различие +api-gateway.kratosPublicUrl=disabled. Снятие L1 откачено полностью.'
+      - 'LC_ALL=C.UTF-8 git grep -P "kratos\.enabled: false|17 объект|снимает чужого поставщика" @b579 → 1 попадание, отрицание (values.own.yaml:103). Остатков снятия нет.'
+      - 'Где об этом говорится, итог согласован: values.own.yaml:100-128 · login_console_test.go:64-81 (гейт на own к чужому интерфейсу нейтрален) · values.own-stand.yaml (настройки kratos снова живые) · stack-secrets.sh:11-16 и deploy/Makefile:780-788 («одиннадцать» снова верно). Исключение — предмет адреса поставщика, см. B1.'
+      - 'Рендерный замер не повторялся. Он есть в записи system-design круг 2: own 205→221, +16 ресурсов семейства kratos; stack-secrets own требует 14→17.'
+  - id: C2
+    kind: 'столкновение ожиданий (§14 «Классы столкновений»); по форме четвёртый вид: полоса сняла предмет, текст о нём остался'
+    lanes: [L2, L5, L1]
+    subject: >-
+      L2 (1dce8b7ddeb) и L1 (c9b4a082d51) обосновали комментарии тем, что
+      читателя носителя выбирает ПОСАДКА: ветка main.go `identityLane ==
+      External` и проба TestOwnLane_F3_12. L5 перевёл выбор на множество
+      носителей и снял пробу (5fe644eb3b3).
+    status: 'разрешено в двух местах из пяти (F5, 466b8e2cf63). Остаток — B1.'
+    evidence:
+      - 'git grep -F "TestOwnLane_F3_12" @b579 → 0; git grep -F "identityLane == External" @b579 → 0.'
+  - id: C3
+    kind: 'столкновение с ведомостью (§14 «Классы столкновений»)'
+    lanes: [L4, L5, F2]
+    subject: 'L5 принёс в gateway/ три имени с названием поставщика. Ведомость гейта L4 была снята до сведения полос.'
+    status: разрешено (F2 перемерил на сведённом дереве, gateway/ 102 @5b20df5c638)
+    evidence:
+      - 'go test -count=1 -v -run TestForeignIDPName ./internal/repohygiene/ @b579 → код 0; PASS 22, FAIL 0, SKIP 0; перепись «разобрано файлов Go 3438 · осмотрено ИМЁН 206564 · ИМЁН с названием поставщика 106 в 3 областях · ИМЁН объявлено 106 · находок 0».'
+  - id: B1
+    kind: 'четвёртый вид: полоса сняла ПРЕДМЕТ, а текст дерева о нём не знает (§14 «Четвёртый вид…»; норма «кто про это написал»); вместе с тем два места об одном предмете, верно одно'
+    lanes: [L5, F5]
+    status: ОТКРЫТО, блокирует
+    subject: >-
+      L5 снял свойство «под own читатель печенья поставщика не заводится, и
+      адрес поставщика не читается, задан он или нет». Теперь читателей
+      заводит множество: при посадке own и множестве own,external читатель
+      поставщика провязан, а адрес обязателен. F5 исправил это утверждение в
+      values.own.yaml и login_console_test.go. В трёх местах файлов, которые
+      правил сам L5, утверждение осталось прежним (строки базы 275240ef).
+    stale_assertions:
+      - 'gateway/internal/config/config.go:46 — «KACHO_API_GATEWAY_KRATOS_PUBLIC_URL … read under `external` only»'
+      - 'gateway/internal/config/config.go:289-291 — «Читается ТОЛЬКО под посадкой `external` (Ф3 Р15, Ф3-12): под `own` … читатель носителя поставщика не заводится вовсе — независимо от того, задан ли этот адрес»'
+      - 'gateway/deploy/templates/deployment.yaml:179-181 — «ЧИТАЕТСЯ ТОЛЬКО ПОД ПОСАДКОЙ `external` … под `own` … адрес поставщика краем не читается вовсе»'
+    contradicted_by:
+      - 'gateway/cmd/api-gateway/main.go:229-233 и :1209 — читатель поставщика заводится по sessionCarriers.ReadsProvider(), посадку ветка не спрашивает'
+      - 'gateway/cmd/api-gateway/session_carrier_validation.go:190-199 — объявленный чужой читатель без адреса («» или «disabled») получает отказ старта'
+      - 'deploy/helm/umbrella/values.own.yaml:69-72 (F5) — «ПЕРЕХОДНОЕ `own,external` С ЭТИМ ЗНАЧЕНИЕМ НЕ ОБЪЯВИТЬ … вместе с таким множеством сюда возвращается и адрес»'
+      - 'gateway/deploy/login_console_test.go:55-62 (F5) — «Под `own` законны два состояния множества … и во втором чужое печенье ЧИТАЕТСЯ»'
+      - 'gateway/cmd/api-gateway/own_lane_readers_wiring_test.go:15-20 (L5) — «Оставить здесь прежние утверждения значило бы держать в дереве два правила об одном предмете, из которых верно одно»'
+    proof: >-
+      Прогон `go test -count=1 -v -run
+      'TestSessionCarrierGuard_ADeclaredProviderReaderWithoutItsAddressIsRefused|TestSessionCarrierGuard_EveryPostureCarrierPairIsJudged'
+      ./cmd/api-gateway/` в gateway @b579 → код 0, 2 PASS. Проба подаёт посадку
+      Own, множество own,external и адрес «» или «disabled» и получает отказ.
+      Значит под own адрес читается и обязателен. Три утверждения выше
+      опровергнуты исполненной пробой, а не чтением.
+    why_blocking: >-
+      Это обязательное следствие предмета L5 вне диффа (ban19-review-subject-only,
+      «потребители снятого»). Корпус требует править текст тем же изменением,
+      что снятое свойство (testing.md header-fixed-in-same-change, признак
+      «заголовок перечисляет снятое свойство»; architecture.md arch-doc-truthfulness).
+      Этот же класс волна уже приняла блокирующим: go-style C1 закрыт доливкой
+      F5, но в двух местах из пяти. Круг у роли первый, поэтому исключение
+      «новое на нетронутом» к нему не относится. Поведения правка не меняет:
+      обе ошибки описания закрыты отказом старта. Предмет — ложный текст в
+      контракте ручки и в чарте.
+    requirement: >-
+      Три места переписать тем же смыслом, что у F5: читает ли край адрес
+      поставщика, решает множество носителей, а не посадка; при own,external
+      адрес обязателен (страж старта). Только комментарии; разобранные значения
+      и код не меняются.
+    return_to: 'go-implementer — писатель ветки волны; полоса-источник gateway-session-carrier-set'
+
+adding_into_removed: >-
+  Не применимо, число 0. git diff --name-status -M base...head → удалённых и
+  переименованных путей 0. Ствол от базы не ушёл (git rev-list --count
+  bec320cf47d..origin/main → 0).
+two_solutions_one_task: >-
+  Не найдено. L5 строит множество носителей по образцу множества издателей L2
+  («объявлено» против «выведено», config/tokenissuers.go). Это один приём, а
+  не два решения. Гейт L1 «есть ли чем войти по посадке» и гейт F1
+  «объявление против обслуживания по цепочке» судят разные свойства.
+names: >-
+  Двух имён одного предмета и одного имени двух предметов не найдено. Прежний
+  издатель везде назван «legacy»/«прежний»: L4 testLegacyIss, L1
+  assert-legacy-issuer-acceptance-has-a-subject.py. Идентификаторы с названием
+  поставщика учтены ведомостью, см. C3.
+
+# ── ВЕРДИКТ ПО ПОЛОСАМ ───────────────────────────────────────────────────────
+verdicts:
+  - 'полоса deploy-own-posture-cutover (L1) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:100-128 · требование .claude/backup/multi-agent-flow-orchestration.md §14 «Классы столкновений» · чем доказано разбор YAML base против head (одно различие kratosPublicUrl) и git grep остатков → 1 отрицание'
+  - 'полоса deploy-issuer-census-merged (L2) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:50-77 · требование §14 «Классы столкновений» (ожиданий) · чем доказано git grep -F "identityLane == External" @b579 → 0 (переписано F5); замечание R2 не блокирует'
+  - 'полоса issue-2724 (L3) · вердикт принято · координата deploy/helm/umbrella/values.own-stand.yaml (kratos, pg-kratos) · требование §14 «Классы столкновений» (раскладок) · чем доказано F3 вернул подчарт, разбор YAML; замечание R3 не блокирует'
+  - 'полоса foreign-idp-name-in-probes (L4) · вердикт принято · координата internal/repohygiene/foreignidpname_test.go:35-72 · требование §14 «Классы столкновений» (с ведомостью) · чем доказано go test -run TestForeignIDPName ./internal/repohygiene/ @b579 → 22 PASS, 106 из 106, находок 0'
+  - 'полоса gateway-session-carrier-set (L5) · вердикт возврат · координата gateway/internal/config/config.go:46; gateway/internal/config/config.go:289-291; gateway/deploy/templates/deployment.yaml:179-181 · требование .claude/rules/testing.md §«Гейт на класс…» header-fixed-in-same-change; .claude/rules/architecture.md §«Concurrency / lifecycle / читаемость» arch-doc-truthfulness; §14 «Четвёртый вид…» · чем доказано go test -run TestSessionCarrierGuard_ADeclaredProviderReaderWithoutItsAddressIsRefused ./cmd/api-gateway/ @b579 → PASS; main.go:229,1209; session_carrier_validation.go:190'
+  - 'доливка консоль (F1, 9fcf1e81e9a) · вердикт принято · координата ui-future/deploy/templates/configmap-nginx.yaml:241-285 · требование §14 (две проверки на один класс → нет) · чем доказано чтение диффа; git grep kratosUi по профилям → ни одного опустошения, ветка else латентна и ничему не противоречит'
+  - 'доливка ведомость (F2, 9bbaa92b2bb) · вердикт принято · координата internal/repohygiene/foreignidpname_test.go:35-72 · требование §14 (с ведомостью) · чем доказано тот же прогон TestForeignIDPName'
+  - 'доливка стек own (F3, f14e822e416) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:100-128 · требование заявление не шире сделанного · чем доказано разбор YAML: на уровне профиля own отличается от базы одной строкой kratosPublicUrl, как заявлено'
+  - 'доливка документация (F4, 796da67d5ea) · вердикт принято · координата gateway/docs/content/install/configuration.mdx · требование — · чем доказано дифф 2+2 строки экранирования; межполосного предмета нет'
+  - 'доливка комментарии (F5, 466b8e2cf63) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:50-77,100-111; gateway/deploy/login_console_test.go:45-81 · требование заявление не шире сделанного · чем доказано разбор YAML @945b851 против @b579 → равны; в login_console_test.go изменены только строки комментариев (0 прочих). Класс закрыт не полностью, возврат адресован полосе-источнику L5 (B1)'
+
+# ── ЗАМЕЧАНИЯ: НАХОДКИ ОДНОЙ ПОЛОСЫ, СТОЛКНОВЕНИЯМИ НЕ ЯВЛЯЮТСЯ, НЕ БЛОКИРУЮТ ─
+remarks:
+  - id: R1
+    lane: L5
+    coordinate: 'gateway/deploy/templates/deployment.yaml:224-229'
+    claim: >-
+      Шапка `with` утверждает: «„задано пустым“ страж читает как объявление без
+      единой стороны и отказывает в старте». По коду пустое значение означает
+      «не объявлено»: sessioncarriers.go:129 `if c.SessionCarriers == ""` выводит
+      множество из посадки. Отказ получает только значение из одних пробелов.
+    proof: 'go test -count=1 -v -run "TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture|TestSessionCarriers_SeparatingWhitespaceIsTrimmedAndNothingElseIsForgiven" ./internal/config/ @b579 → 2 PASS: «» выводится из посадки, «   » отвергнуто.'
+    suggestion: 'Писатель тот же и файл тот же, что у B1: править в том же заходе.'
+  - id: R2
+    lane: L2
+    coordinate: 'gateway/deploy/values.yaml:483-484'
+    claim: '«измерено: две различные величины на семи цепочках». Оба предиката дают три.'
+    proof:
+      by_writing: 'литералы issuers края в профилях: values.dev.yaml:230 · values.dev-prod.yaml:86 · values.prod.yaml:180 (= values.fe3455-prod.yaml:475) → 3 различных'
+      by_subject: 'сворачивание api-gateway.tokenAcceptance.issuers по цепочкам deploy/stacks.txt (python, слияние values.yaml и слоёв цепочки) → 7 цепочек, 3 различных значения (dev · dev-prod/prorobotech/a8f60d · prod/own/fe3455)'
+    note: 'Норма ban19-number-two-predicates: landing-reviewer возвращает число без второго вывода. Решение за диспетчером; предмету этой роли не принадлежит.'
+  - id: R3
+    lanes: [L3]
+    coordinate: 'deploy/helm/umbrella/values.own.yaml:10-11; deploy/scripts/stack-secrets.sh:11'
+    claim: 'Цепочка own описана как «values.prod.yaml плюс этот файл». С L3 в цепочке три слоя (deploy/stacks.txt:48). Описание неполное, но отсылает к авторитетной таблице.'
+    suggestion: задача
+
+facts:
+  - 'Край цепочки own запинен на main-bec320cf (values.own-stand.yaml, L3), то есть на бинарник ДО волны. Комментарии F5 описывают код головы (ResolvedSessionCarriers). Для own исход один: читателя поставщика нет. Поведенческого противоречия нет, это факт для чтения комментариев.'
+  - 'Записи system-design кругов 1-3 на этой ветке B1 не называют: git grep в их записях по config.go:289 и deployment.yaml:179 → 0.'
+
+on_the_way:
+  - 'Тело роли .claude/agents/wave-reviewer.md ссылается на .claude/rules/multi-agent-flow-orchestration.md §14. Такого файла в .claude/rules нет (ls .claude/rules), текст лежит в .claude/backup/multi-agent-flow-orchestration.md. Координата устарела; предмет tooling-maintainer.'
+
+# ── ОБЪЁМ ОСМОТРЕННОГО ───────────────────────────────────────────────────────
+census:
+  diffs_inspected: 10          # 5 полос + 5 доливок; объединение 66 из 66 путей волны
+  lines_in_scope: 11565        # numstat диффа волны; сумма по 10 диффам 11727 (перекрытия и откат F3)
+  read_line_by_line: 1892      # 13 файлов общей поверхности целиком (984) + ханк F1 в values.dev.yaml (36) + шапки и тела 5 новых файлов (872)
+  rest: 'остальное (тела middleware и проб L5, тела repohygiene L4/F2) осмотрено переписью снятых функций (6), адресным git grep по снятым именам и утверждениям о посадке и прогоном гейта ведомости'
+  removed_symbols_census: 'git diff base...head | grep "^-func" → 6; ссылок на снятые TestOwnLane_F3_12*, TestOwnLane_F3_45_OurReader*, TestJWKS_Verify_IAMOrigin_HydraIssuerPinned в продукте и в стволе воркспейса → 0'
+
+checks_run:
+  green: 3        # go test: cmd/api-gateway (2 PASS) · internal/repohygiene TestForeignIDPName (22 PASS) · internal/config (2 PASS), все @b579, код 0
+  red: 0
+  not_run: 0
+  models: 3       # разбор YAML values.own.yaml (base→head, 945b851→b579) · сворачивание issuers по 7 цепочкам
+
+verdict: ⛔ возврат
+blocks_landing: true
+blocking: [B1]
+return_to: 'go-implementer (писатель ветки волны), полоса gateway-session-carrier-set'
+after_fix: 'После правки: пересборка волны, новый дайджест, повторный проход этой роли только по дельте L5 (три места B1; R1 при желании в том же заходе).'

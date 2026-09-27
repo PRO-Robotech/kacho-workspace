@@ -1,0 +1,225 @@
+# Пост-дифф ревью распределённых свойств — роль system-design-reviewer. Волна-0
+# цели identity-own. Имя файла — content_digest. Запись новая; прежних записей
+# этой роли на эту волну нет (change-graph §2).
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: post-diff/system-design-reviewer
+owner: system-design-reviewer
+round: 1
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: 0e0a85f936e173ad6a13349fa01c3ca8eb72c029
+  commits: 79        # git rev-list --count base..head
+  files: 65          # git diff --name-only base...head | wc -l (LC_ALL=C)
+content_digest: sha256:707b05a4aa75063f556323cc4b2e9add55c467428d8a4c72bb058ef2b2621366
+digest_definition: 'git -C project/kacho diff bec320cf47d...0e0a85f936e | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой дважды — до разбора и перед вердиктом, — оба раза
+    707b05a4…1366, объявленному равен.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → 0e0a85f936e, совпадает.'
+  committed: 'да; судился detached worktree tmp/sd-w0-head-0e0a85f на голове, git status --porcelain → 0 до и после.'
+
+# ── ПРЕДМЕТ: ЧТО СУДИЛОСЬ, А ЧТО НЕТ ─────────────────────────────────────────
+scope:
+  method: >-
+    Для каждого из 65 файлов волны blob на голове волны сравнён с blob на голове
+    принятого круга: gw-session-carrier-set круг 12 (4f899d637ef, дельта
+    bec320cf47d...4f899d637ef, 32 файла) и foreign-idp-ledger-merged-tree круг 7
+    (9bbaa92b2bb, дельта 5b20df5c638..9bbaa92b2bb, 7 файлов). Совпадение blob →
+    «покрыто, повторно не судится».
+  covered_bytewise: 38   # 31 по gw-session-carrier-set + 7 по foreign-idp-ledger
+  judged_here: 27        # 13 производственных + 14 проб; перечень совпал с заданием поимённо
+  coverage_caveat: >-
+    Принятые записи обоих кругов — роли go-style-reviewer. Записи роли
+    system-design-reviewer на эти change_id в docs/changes воркспейса нет:
+    `find docs/changes -type d -name system-design-reviewer | grep -E
+    'gw-session-carrier-set|foreign-idp-ledger-merged-tree|gw-drop-foreign-idp'`
+    → 0. По заданию 38 файлов здесь не судились; значит распределённые оси кода
+    носителя сессии (gateway/internal/middleware/*, cmd/api-gateway/main.go)
+    системным ревью не покрыты НИ ОДНОЙ записью. Факт для диспетчера, находкой
+    по этой записи не является.
+
+verdict: ✅ принято
+blocks_landing: false
+return_to: '—'
+distributed_surface: да   # край ↔ registry (приём токена), условное ребро консоли, посадка носителя по стендам
+schema_intersection: нет  # CAS/xmin/advisory-lock в 27 файлах не встречаются
+
+# ── ОСИ ─────────────────────────────────────────────────────────────────────
+axes:
+  atomicity_outbox: 'не применимо — в 27 файлах мутаций, Operation и outbox нет.'
+  idempotency: 'применимо к посеву секретов — см. I2.'
+  cas_occ: 'не применимо — в судимом предмете SQL нет; проба с конкурирующими горутинами не требуется.'
+  change_delivery: 'не применимо.'
+  worker_coordination: 'не применимо.'
+  per_call_deadline: >-
+    Раздача консоли: у обоих условных блоков поставщика сохранены
+    proxy_read_timeout/proxy_send_timeout 30s, у запасного пути статики 10s.
+    Вызовы kubectl в stack-secrets.sh своего --request-timeout не несут —
+    шаг раскатки, а не путь запроса; находкой не поднимается.
+  service_graph: >-
+    Нового межсервисного ребра волна в судимых файлах не заводит. Край→kaname
+    :9100 (полоса формы), край/registry→kaname :9097 (набор ключей),
+    kaname→hydra :4444 (обмен) были в базе. Консоль→поставщик личности стало
+    УСЛОВНЫМ (есть ровно при объявленном адресе), направление прежнее, обратного
+    ребра нет — ацикличность сохранена.
+  replica_isolation: >-
+    sessionCarriers и sessionCarrierWindowOpenedAt — величины чарта, одинаковые
+    для всех реплик края; на процесс не выводятся, состояния в памяти между
+    репликами нет.
+  edge_ban6: 'Internal* в судимых файлах не публикуются; публичный mux не тронут.'
+  clean_arch: 'Go-кода в судимом производственном предмете нет (13 файлов — чарты, скрипты, README).'
+
+# ── ИЗМЕРЕНО: ЧТО ДЕРЖИТСЯ ───────────────────────────────────────────────────
+measured:
+  issuer_set_reaches_every_stand:
+    predicate: >-
+      helm template каждой цепочки deploy/stacks.txt (7 из 7), значение
+      KACHO_API_GATEWAY_TOKEN_ISSUERS и KACHO_REGISTRY_TOKEN_ISSUERS.
+    result: >-
+      Непустой объявленный перечень на 7 из 7 стендов; край и registry на каждом
+      стенде называют ОДИН И ТОТ ЖЕ перечень (7 из 7 совпадают). Издатель hydra на
+      own (`https://hydra.api.kacho.cloud`, values.own-stand.yaml) дословно равен
+      записи перечня и KANAME_HYDRA_ISSUER. Пробы:
+      `go test -v -run F1c ./deploy/` (gateway) → 3 PASS, перепись «профилей 12 ·
+      называют край 11 (объявляют 4 · наследуют 5 · исключений 2)».
+  own_chain_chart_vs_image:
+    question: >-
+      values.own-stand.yaml пинит край на образ main-bec320cf (база волны). Не
+      расходится ли чарт головы с бинарником базы?
+    result: >-
+      Набор имён env края цепочки own: рендер чарта базы (prod+own) 58, рендер
+      чарта головы (prod+own+own-stand) 58, разность 0 в обе стороны. Слово
+      `disabled` у KACHO_API_GATEWAY_KRATOS_PUBLIC_URL бинарник базы понимает
+      (git grep на bec320cf47d: main.go:169, 1134; под own ветка не исполняется
+      вовсе, main.go:168). Расхождения нет.
+  own_chain_foreign_session_provider_off:
+    result: >-
+      Рендер own: подчарты kratos и kratos-selfservice-ui ресурсов не дают
+      (у deployment.yaml последнего — только шапка). Остаются
+      kaname/templates/kratos-config-configmap.yaml с 6 `ui_url` — конфигурация
+      без читателя, распределённым свойством не является. Административный адрес
+      края на own — hydra admin (KACHO_HYDRA_ADMIN_URL), а hydra на own включён;
+      висячего внешнего вызова на пути выхода нет.
+  console_edge_gate:
+    predicate: 'bash deploy/tests/helm/console-serves-identity-flows-test.sh (после helm-umbrella-deps.sh)'
+    result: 'PASS, 7 утверждений, находок 0; рендеров 14; цепочек 7 (с консолью 5, с полосой 5); объявлений 62.'
+  registry_jwks:
+    result: >-
+      Производственный код registry волной не тронут (verifier.go вне дельты).
+      Правки четырёх проб — переименование hydra→legacy без смены утверждений
+      (остаток дельты после нормализации имени — только имена функций и
+      констант). fail-closed проба (Unreachable_FailClosed, ErrorIs
+      ErrInvalidToken) сохранена. `go test ./internal/clients/jwks/... ./deploy/...`
+      в services/registry → ok, ok.
+  stack_up_order:
+    result: >-
+      Рецепт stack-up начинается с `set -e` (deploy/Makefile:821), отказ
+      stack-secrets.sh останавливает helm upgrade; предполёт рендерит ту же
+      цепочку и те же -f, что применение (Makefile:835-841). Решение и следствие
+      на одном входе.
+
+# ── ВАЖНЫЕ ЗАМЕЧАНИЯ (не блокируют) ──────────────────────────────────────────
+important:
+  - id: I1
+    coordinate: deploy/scripts/stack-secrets.sh:173
+    class: 'решение и его следствие разнесены (code-authoring)'
+    claim: >-
+      Перечень требуемого берёт ВСЕ имена `create secret generic` из посева
+      безусловно, в обход фильтра `optional`, применённого к рендеру.
+      kaname-second-factor-enc-key под посадкой external ссылается `optional: true`
+      (рендер 6 из 6 цепочек), а шапка посева в этой же волне говорит: «Под
+      external … секрета может не быть вовсе, и такой стенд остаётся поднимаемым»
+      (deploy/scripts/dev-prod-secrets.sh:68-69).
+    predicate: >-
+      kubectl-заглушка (get secret: есть всё, кроме kaname-second-factor-enc-key;
+      current-context: managed-prod), настоящий helm, `bash
+      deploy/scripts/stack-secrets.sh prod` → ABORT, код 1. Близнец (отсутствующих
+      нет) → «требуется 15, на месте 15», код 0.
+    consequence: >-
+      `make stack-up STACK=prod` на управляемой площадке с посадкой external
+      отказывает, требуя секрет, который продукт объявил необязательным. Отказ
+      закрытый и именованный — поэтому не блокирует.
+    requirement: >-
+      Требуемость секрета посева выводить из рендера (ссылка без optional либо
+      посадка own), а не из текста посева; либо исправить шапку посева и
+      комментарий Makefile:781-782, если требуемость безусловна намеренно.
+    return_to: 'автор диффа волны (из задания)'
+  - id: I2
+    coordinate: 'deploy/scripts/dev-prod-secrets.sh:87-92; deploy/scripts/stack-secrets.sh:182, 224-246'
+    class: 'проверка-затем-запись + корзина «прочее» в разрешающую сторону'
+    claim: >-
+      «Есть ли секрет» решается кодом возврата `kubectl get secret`; любой отказ
+      (таймаут, сеть, RBAC) читается как «нет», после чего величина чеканится и
+      применяется `kubectl apply`, который ПЕРЕЗАПИСЫВАЕТ существующий объект.
+      Волна добавила этим образцом ключ, чей перевыпуск необратим
+      (kaname-second-factor-enc-key), и нового вызывающего на kind (stack-secrets
+      → посев; create_generic для pg-*, *-hydra-stand, *-kratos-stand).
+    predicate: >-
+      kubectl-заглушка: первый `get secret kaname-second-factor-enc-key` → exit 1
+      «TLS handshake timeout», объект в «кластере» есть со значением OLD. `bash
+      deploy/scripts/dev-prod-secrets.sh` → exit 0, «provisioned … generated ONCE»,
+      значение после — новое (da5d3fe5…). Близнец без сбоя → OLD сохранён.
+      Модель, а не живой кластер: семантика apply-перезаписи — свойство kubectl.
+    consequence: >-
+      Только путь локального стенда kind (на управляемом скрипт лишь судит).
+      Потеря ключа обёртки второго фактора или пароля базы при живом PVC.
+    requirement: >-
+      Чеканить `kubectl create` (атомарное создание на API-сервере, AlreadyExists
+      → переиспользовать), а не `create --dry-run | apply`; отказ `get`,
+      отличный от NotFound, — отказ шага, а не «секрета нет».
+    return_to: 'автор диффа волны (из задания)'
+  - id: I3
+    coordinate: 'deploy/helm/umbrella/values.dev.yaml:240 (против :2011)'
+    class: 'параллельные полосы одного механизма расходятся (arch-lanes-compare)'
+    claim: >-
+      На цепочке dev край берёт набор ключей издателя
+      `http://localhost:28080/.ory/hydra/public/` напрямую у
+      kacho-umbrella-hydra-public:4444, а registry для ТОГО ЖЕ издателя — через
+      фасад kaname-internal:9097. Фасад на этом стенде есть (им живёт registry).
+    not_a_regression: >-
+      Рендер dev на базе давал краю тот же адрес через KACHO_HYDRA_JWKS_URL;
+      волна перенесла его в issuerKeySets без смены адресата и сказала это
+      комментарием. Поэтому не блокирует.
+    requirement: >-
+      Свести к фасаду (poly-jwks-fail-closed, ban16-iam-facade) либо завести
+      предмет с предикатом снятия.
+    return_to: 'автор диффа волны (из задания) либо задача'
+  - id: I4
+    coordinate: 'ui-future/deploy/templates/configmap-nginx.yaml:201, 224, 265'
+    class: 'отказ выглядит успехом (скрытый, у текущих цепочек не проявлен)'
+    claim: >-
+      При пустом адресе поставщика блоки /.ory/kratos/public/, /.ory/hydra/public/
+      и полоса потоков снимаются без замены: запрос уходит в `location /` →
+      `try_files … /index.html` → 200 оболочкой консоли. Тот самый класс, который
+      файл называет для полосы потоков, для двух блоков API поставщика не закрыт.
+    predicate: >-
+      `helm template … -f values.dev.yaml --set uif.host.upstreams.{hydraPublic,kratosPublic,kratosUi}=
+      --show-only charts/uif/templates/configmap-nginx.yaml` → ни одного
+      location для /.ory/* и потоков, остаётся `location /`. Сегодня 5 из 5
+      цепочек с консолью несут оба блока (/.ory/* locations = 2), поэтому
+      поведение не проявлено.
+    requirement: 'ветка else с явным не-2xx (return 404/410) для каждого условного блока.'
+    return_to: 'автор диффа волны (из задания) либо задача'
+
+# ── НАХОДКИ ПО ДОРОГЕ (вне судимого предмета) ────────────────────────────────
+on_the_way:
+  - >-
+    Покрытие распределённых осей 38 файлов носителя сессии записью этой роли
+    отсутствует (см. scope.coverage_caveat).
+
+orders:
+  concurrent_goroutine_probe: 'не требуется — спорных CAS-путей в судимом предмете нет.'
+  unrecorded_edge: 'нет — нового runtime-ребра волна в судимых файлах не заводит.'
+
+checks_run:
+  green: 7   # console-serves-identity-flows · outcome-library-speaks · gateway ./deploy/... · gateway F1c (3) · registry jwks · registry deploy · deploy IdentityFlow|FlowBand (5)
+  red: 0
+  not_run: 0
+  probes_model: 2   # I1, I2 — kubectl-заглушки, не живой кластер

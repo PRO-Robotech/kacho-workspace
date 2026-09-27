@@ -116,7 +116,9 @@ gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
 молча.
 
 **Граница признака названа, а не подразумевается.** Он смотрит в два каталога, и
-это решение: испытуемый (`run.py`) и сама полосовая оснастка (`lanes.py`,
+это решение: испытуемый (`run.py`), производитель свидетельства освобождений
+(`applicability.py` — его зовёт `check-04`, падучесть доказывает
+`selftest/prove_applicability.py`) и сама полосовая оснастка (`lanes.py`,
 `run-all.sh`, `prove-all.sh`, `check-*.sh`, `inject.sh`) лежат ВЫШЕ них, поэтому
 не требуют строк и не создают самоссылки. Цена: проба, заведённая **прямо в
 `scripts/change-graph-gate/`**, мимо обоих каталогов, под признак не попадёт и
@@ -129,7 +131,7 @@ gh api repos/PRO-Robotech/kacho-workspace/branches/main/protection \
 
 ```sh
 bash scripts/change-graph-gate/run-all.sh     # дешёвая полоса, ~1 мин
-bash scripts/change-graph-gate/inject.sh      # доказательство падучести набора, 21 утверждение, ~7 с
+bash scripts/change-graph-gate/inject.sh      # доказательство падучести набора, число утверждений печатает сам
 bash scripts/change-graph-gate/prove-all.sh   # дорогая полоса, ~17 мин
 python3 scripts/change-graph-gate/lanes.py --list   # ведомость полос
 ```
