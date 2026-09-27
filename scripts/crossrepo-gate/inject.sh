@@ -20,6 +20,18 @@
 #   W0 у воркспейса нет ревизии (HEAD не резолвится) → VOID, а не «пар нет»
 set -uo pipefail
 
+# Мир инъекции — ТОЛЬКО синтетический. Проверка берёт клон из `KACHO_HOME_<ИМЯ>`
+# раньше, чем из `project/<имя>` песочницы, а хук отправки воркспейса экспортирует
+# эти переменные всем, кого зовёт (ws#747). Унаследованная переменная подменяла
+# синтетический ствол настоящим клоном, и законные близнецы краснели: с
+# KACHO_HOME_KACHO/KANAME/CORELIB на настоящие клоны провалено 8 из 13, без них — 0
+# из 13. Переменные git снимаются по той же причине: `GIT_DIR` сильнее рабочего
+# каталога и увёл бы шаги фикстуры в чужой репозиторий.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
+      GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX KACHO_MONOREPO
+mapfile -t inherited_homes < <(compgen -e | grep '^KACHO_HOME_')
+[ "${#inherited_homes[@]}" -eq 0 ] || unset "${inherited_homes[@]}"
+
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 box="$(mktemp -d)"
 trap 'rm -rf "$box"' EXIT
@@ -178,5 +190,7 @@ repo corelib 'own-c.txt=своё'
 out="$(run "$ws")"; rc=$?
 assert "W0 у воркспейса нет ревизии — VOID, а не «пар нет»" 2 "kacho-workspace" "$out" "$rc"
 
-echo "инъекция crossrepo-gate: утверждений $((pass+fail)), пройдено $pass, провалено $fail"
-[[ "$fail" == 0 ]]
+total=$((pass+fail))
+echo "инъекция crossrepo-gate: утверждений $total, пройдено $pass, провалено $fail"
+# Ноль исполненных утверждений — не зелёное: доказательства не было.
+[[ "$total" -gt 0 && "$fail" == 0 ]]
