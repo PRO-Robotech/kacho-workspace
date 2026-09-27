@@ -38,6 +38,8 @@ at-signal-empty-subject · печатается то, чей предмет НЕ
 at-signal-census-survives · перепись объёма уходит в журнал безусловно, включая молчаливые ходы · prove.sh §P' · red: свёрнут повтор и вместе с ним снята перепись
 at-signal-no-inject-on-repeat · канал, поднимающий агента (`additionalContext`), получает только полную печать · prove.sh §P' · red: петля «ход → впрыск → ход» на повторе
 
+at-root-settings-lag-signalled · настройки `.claude/settings.json` корня, отставшие от `origin/main` (лист ствола, которого в корне нет), печатаются диспетчеру маршрутом к `git-operator`; другое значение того же пути — работа ветки корня, не отставание; действует только в корне, чья ветка несёт сам хук · .claude/hooks/settings-lag.sh; scripts/tooling-gate/inject.sh §«настройки корня» · red: `attribution` есть на стволе, в корне нет, и запрет трейлеров исполняет одно внимание (ws#796)
+
 ## Страж команды Bash (`PreToolUse`)
 
 at-push-base-knows-trunk-checks · `git push` полосы, чья база не знает проверки ствола (`scripts/*-gate/check-*` есть на `origin/main`, нет ни в ревизии, ни в их общей базе), отклоняется до исполнения; проверка, снятая самой полосой, — не отставание; обход `KACHO_PUSH_LAGGING=1` в тексте команды и строкой в возврате · .claude/hooks/bash-guard.sh; scripts/tooling-gate/inject.sh §«страж Bash» · red: набор полосы зелёный на меньшем «рассмотрено N», чем на стволе, и ветка отправлена как зелёная (ws#717)

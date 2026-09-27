@@ -839,6 +839,46 @@ guard_expect 0 "близнец: не git — слово push в тексте" "e
 guard_expect 0 "близнец: та же отправка после вливания ствола — пропуск" \
     "git push origin lane" "$gr/lane"
 
+echo "== сигнал: настройки корня отстают от ствола (#796) =="
+# Корень — песочница-репозиторий: на стволе ключ `attribution`, в рабочем дереве
+# корня — нет. Хук зовётся тем же JSON, что подаёт харнесс, с чистым состоянием
+# признака дельты: первый ход печатает полностью.
+SLAG="$WS/.claude/hooks/settings-lag.sh"
+# lag_turn <корень> — один ход хука, печать (stdout+stderr)
+lag_turn() {
+    printf '{"session_id":"lag-%s"}' "$RANDOM" \
+        | CLAUDE_PROJECT_DIR="$1" HOOK_SIGNAL_STATE="$TMP/lag-state-$RANDOM" bash "$SLAG" 2>&1
+}
+sr="$TMP/slag"; mkdir -p "$sr"
+(
+    set -e
+    cd "$sr"
+    git init -q --bare -b main remote.git
+    git clone -q remote.git root 2>/dev/null
+    cd root
+    git config user.email t@t; git config user.name t
+    mkdir -p .claude
+    printf '{\n  "agent": "dispatcher",\n  "attribution": {"commit": "", "pr": ""}\n}\n' > .claude/settings.json
+    git add .claude/settings.json; git commit -qm c1; git push -q origin main
+) >/dev/null 2>&1 || { echo "  ПРОВАЛ песочница корня не построена" >&2; failed=$((failed + 1)); }
+printf '{\n  "agent": "dispatcher"\n}\n' > "$sr/root/.claude/settings.json"
+out="$(lag_turn "$sr/root")"
+sig_expect "дефект: ключа ствола нет в корне — маршрут и лист названы" "$out" 'attribution.commit' 'НЕ СУДИЛИСЬ'
+sig_expect "  ...и адресат — git-operator" "$out" 'git-operator' 'признак дельты НЕ применён'
+printf '{\n  "agent": "dispatcher",\n  "attribution": {"commit": "", "pr": ""}\n}\n' > "$sr/root/.claude/settings.json"
+out="$(lag_turn "$sr/root")"
+probes=$((probes + 1))
+if [ -z "$out" ]; then echo "  ok   близнец: корень вровень со стволом — молчит"
+else echo "  ПРОВАЛ близнец: корень вровень, а хук печатает: $out" >&2; failed=$((failed + 1)); fi
+printf '{\n  "agent": "dispatcher",\n  "attribution": {"commit": "своё", "pr": ""}\n}\n' > "$sr/root/.claude/settings.json"
+out="$(lag_turn "$sr/root")"
+probes=$((probes + 1))
+if [ -z "$out" ]; then echo "  ok   близнец: тот же путь с другим значением — работа ветки, не отставание, молчит"
+else echo "  ПРОВАЛ близнец: другое значение прочитано отставанием: $out" >&2; failed=$((failed + 1)); fi
+git -C "$sr/root" update-ref -d refs/remotes/origin/main >/dev/null 2>&1
+out="$(lag_turn "$sr/root")"
+sig_expect "предпосылка: ствола нет — «не судились», а не молчание" "$out" 'НЕ СУДИЛИСЬ' 'ОТСТАЮТ'
+
 echo
 # Объём осмотренного печатается вместе с числом проб: «проб 49, провалов 0» без
 # размера песочницы не отличимо от того же числа проб на четверти дерева.
