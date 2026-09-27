@@ -773,7 +773,7 @@ In *this* repository `godzila` is meant to be loaded **in a pair** with the mate
   **Usage:** when `godzila` says "register the converter in `init()`" and you need to see how it
   is done in this codebase, open the note for the package or resource you are touching — a note
   states which revision it was verified against, so you can tell a fresh fact from a stale one.
-  Read one or two narrow notes, not the whole category (`.claude/rules/vault.md`: more than
+  Read one or two narrow notes, not the whole category (`.claude/backup/vault.md`: more than
   three vault files means the scope is wrong).
 
 ### 20.3 Companion sub-agents — name the one you need, do not start it

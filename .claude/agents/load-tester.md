@@ -46,9 +46,9 @@ production-посадке, «зелёный» dev-режим не доказыв
 | нагрузка на lease-пулы, дренаж outbox, материализацию прав | `Skill rule-data-integrity` | `.claude/rules/data-integrity.md` §«Lease-recycle-on-delete»; §«Outbox-drainer concurrency» (наблюдаемость затора); §«Authz-материализация owner-доступа» (B18) |
 | меряешь задержку отзыва доступа | `Skill rule-security-hardening` | `.claude/rules/security-hardening.md` §«Контроль, действующий на ВЫДАЧЕ, но не на ПРЕДЪЯВЛЕНИИ», таблица отличия от задержки распространения |
 | нагрузка идёт через консоль с подпиской | `Skill rule-subscription` | `.claude/rules/subscription.md` §«Как это провязывается в консоли — и почему GET-запросы остаются»: цена провязки и признак неработающей |
-| замер нашёл дефект | `Skill rule-git-issues-issue-lifecycle` | `.claude/rules/git-issues-issue-lifecycle.md` §«Баги / tech-debt» — форма черновика задачи |
+| замер нашёл дефект | `Read .claude/backup/git-issues-issue-lifecycle.md` (АРХИВ — довод, не норма) | `.claude/backup/git-issues-issue-lifecycle.md` §«Баги / tech-debt» — форма черновика задачи |
 | отчёт о замере называет предмет защиты | `Skill rule-security-disclosure` | `.claude/rules/security-disclosure.md` §«Публичные артефакты — НЕ раскрывать operational security-internals» |
-| ищешь, какой код даёт узкое место | `Skill rule-rag` | `.claude/rules/rag.md` §«Порядок работы»; §«Чем спрашивать — по предмету вопроса»; §«Чего индекс НЕ делает» |
+| ищешь, какой код даёт узкое место | `Read .claude/backup/rag.md` (АРХИВ — довод, не норма) | `.claude/backup/rag.md` §«Порядок работы»; §«Чем спрашивать — по предмету вопроса»; §«Чего индекс НЕ делает» |
 
 ## Когда запускаться, когда нет
 
@@ -64,7 +64,7 @@ production-посадке, «зелёный» dev-режим не доказыв
 ## Вход
 
 1. Признак · предмет · предикат снятия · область · чем задача НЕ является
-   (`.claude/rules/multi-agent-flow-orchestration.md` §«14а», подраздел «Что ОБЯЗАНО быть в задании»).
+   (`.claude/backup/multi-agent-flow-orchestration.md` §«14а», подраздел «Что ОБЯЗАНО быть в задании»).
 2. **Ось сравнения одной фразой** — что именно различается между строками таблицы — и перечень
    конфигураций.
 3. Координаты стенда, его ревизия, подтверждение **исключительной аренды** и её срок: на время
