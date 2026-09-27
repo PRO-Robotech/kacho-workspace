@@ -608,10 +608,12 @@ fi
 
 # Инъекция ПРЕДМЕТА ЗАДАЧИ: отказ разбора выходит единицей. Скрипт при этом
 # исправен во всём остальном — меняется ровно один факт, код на выходе из
-# `parse_broken`, — и краснеют ровно две пробы, где разбор ломается.
+# `parse_broken`, — и краснеют пробы, где разбор ломается. Образец привязан к
+# самой функции: слова «вердикта нет» стоят и в шапке, и без привязки
+# подстановка попала бы в выход из подсказки об использовании.
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/(вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' \
+    's/(parse_broken\(\) \{.*?вердикта нет.*?\n)  exit 2\n/$1  exit 1\n/s' \
     "код выхода parse_broken"; then
     run 1 "$b" "инъекция: отказ разбора выходит кодом находки — краснеет" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
@@ -639,6 +641,114 @@ if mr_patch "$b/$MR_REL" \
     's/LC_ALL=C sort -u/LC_ALL=C sort | LC_ALL=C uniq/g' \
     "та же сортировка другой формой"; then
     run 0 "$b" "близнец: та же сортировка другой формой — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# ── ИСТОЧНИК ВОРКСПЕЙСА (ws#788): каждая инъекция роняет ровно одно условие ──
+# Красный ручной прогон на голове перестаёт быть отказом.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$red_count" -gt 0 \] \|\| \[ "\$run_red" -eq 1 \]; then/if false; then/' \
+    "красное ручного прогона не судится"; then
+    run 1 "$b" "инъекция: красный ручной прогон на голове не отказ — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Прогона на голове нет — а инструмент отвечает «можно».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/(ручного прогона на голове нет;.*?\n.*?\n)    exit 2\n/$1    exit 0\n/s' \
+    "нет прогона — зелёное"; then
+    run 1 "$b" "инъекция: прогона на голове нет, а ответ «можно» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Прогон берётся не по голове: засчитан прогон прежней sha.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.head_sha == \$sha and \.event == "workflow_dispatch"\)/select(.event == "workflow_dispatch")/' \
+    "фильтр по голове снят"; then
+    run 1 "$b" "инъекция: засчитан прогон прежней головы — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Судит первый прогон головы, а не последний.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last/sort_by(.created_at, .id) | first/' \
+    "первый прогон вместо последнего"; then
+    run 1 "$b" "инъекция: судит первый прогон головы — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# check-runs чужого прогона той же sha идут в счёт.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/select\(\.check_suite\.id == \$s\)/select(true)/' \
+    "фильтр по прогону снят"; then
+    run 1 "$b" "инъекция: check-runs чужого прогона в счёте — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Законный близнец: «последний» другой записью.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at) \/\/ empty/' \
+    "последний прогон другой записью"; then
+    run 0 "$b" "близнец: последний прогон головы другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# Три охраны, чьё снятие набор до ws#788 (возврат check-verifier, опыты M1–M3) не
+# замечал. Каждая инъекция роняет РОВНО одно условие строки, а близнец пишет ту же
+# охрану другой формой: проба судит исход, а не написание.
+
+# M1: «прогон идёт» судится только по check-runs — прогон, чьи задания ещё не
+# поднялись, при зелёном перечне отвечает «можно».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$running_count" -gt 0 \] \|\| \[ "\$run_status" != "completed" \]; then/if [ "\$running_count" -gt 0 ]; then/' \
+    "состояние прогона не судится"; then
+    run 1 "$b" "инъекция: идущий прогон при зелёных check-runs — «можно» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\|\| \[ "\$run_status" != "completed" \]; then/|| ! [ "\$run_status" = "completed" ]; then/' \
+    "состояние прогона другой записью"; then
+    run 0 "$b" "близнец: состояние прогона судится другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# M2: усечённый ответ о check-runs читается как полный.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\(\.total_count \/\/ 0\) <= \(\.check_runs \| length\)\x27/jq -e \x27true\x27/' \
+    "усечение check-runs не судится"; then
+    run 1 "$b" "инъекция: усечённый ответ о check-runs принят за полный — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\(\.total_count \/\/ 0\) <= \(\.check_runs \| length\)\x27/jq -e \x27(.check_runs | length) >= (.total_count \/\/ 0)\x27/' \
+    "усечение другой записью"; then
+    run 0 "$b" "близнец: усечение судится другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# M3: исход прогона целиком не судится — прогон без заданий уходит в «не выполнилось».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$red_count" -gt 0 \] \|\| \[ "\$run_red" -eq 1 \]; then/if [ "\$red_count" -gt 0 ]; then/' \
+    "исход прогона целиком не судится"; then
+    run 1 "$b" "инъекция: startup_failure без check-runs — «не выполнилось» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \(\$r \| index\(\$c\)\) != null then 1 else 0 end/if any(\$r[]; . == \$c) then 1 else 0 end/' \
+    "исход прогона другой записью"; then
+    run 0 "$b" "близнец: исход прогона судится другой записью — молчит" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 
