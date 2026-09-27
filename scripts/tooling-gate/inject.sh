@@ -699,6 +699,59 @@ if mr_patch "$b/$MR_REL" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 
+# Три охраны, чьё снятие набор до ws#788 (возврат check-verifier, опыты M1–M3) не
+# замечал. Каждая инъекция роняет РОВНО одно условие строки, а близнец пишет ту же
+# охрану другой формой: проба судит исход, а не написание.
+
+# M1: «прогон идёт» судится только по check-runs — прогон, чьи задания ещё не
+# поднялись, при зелёном перечне отвечает «можно».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$running_count" -gt 0 \] \|\| \[ "\$run_status" != "completed" \]; then/if [ "\$running_count" -gt 0 ]; then/' \
+    "состояние прогона не судится"; then
+    run 1 "$b" "инъекция: идущий прогон при зелёных check-runs — «можно» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/\|\| \[ "\$run_status" != "completed" \]; then/|| ! [ "\$run_status" = "completed" ]; then/' \
+    "состояние прогона другой записью"; then
+    run 0 "$b" "близнец: состояние прогона судится другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# M2: усечённый ответ о check-runs читается как полный.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\(\.total_count \/\/ 0\) <= \(\.check_runs \| length\)\x27/jq -e \x27true\x27/' \
+    "усечение check-runs не судится"; then
+    run 1 "$b" "инъекция: усечённый ответ о check-runs принят за полный — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/jq -e \x27\(\.total_count \/\/ 0\) <= \(\.check_runs \| length\)\x27/jq -e \x27(.check_runs | length) >= (.total_count \/\/ 0)\x27/' \
+    "усечение другой записью"; then
+    run 0 "$b" "близнец: усечение судится другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
+# M3: исход прогона целиком не судится — прогон без заданий уходит в «не выполнилось».
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \[ "\$red_count" -gt 0 \] \|\| \[ "\$run_red" -eq 1 \]; then/if [ "\$red_count" -gt 0 ]; then/' \
+    "исход прогона целиком не судится"; then
+    run 1 "$b" "инъекция: startup_failure без check-runs — «не выполнилось» — краснеет" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/if \(\$r \| index\(\$c\)\) != null then 1 else 0 end/if any(\$r[]; . == \$c) then 1 else 0 end/' \
+    "исход прогона другой записью"; then
+    run 0 "$b" "близнец: исход прогона судится другой записью — молчит" \
+        check-09-merge-readiness-tells-three-outcomes-apart.sh
+fi
+
 b="$(mksandbox scripts/merge-readiness.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" \
     check-09-merge-readiness-tells-three-outcomes-apart.sh

@@ -262,6 +262,9 @@ if [ -n "$manual_workflow" ]; then
   if [ "$running_count" -gt 0 ] || [ "$run_status" != "completed" ]; then
     echo "  ИДУТ:"
     printf '%s\n' "$cr_running" | sed '/^$/d; s/^/    /'
+    # Прогон идёт и тогда, когда все поднятые им check-runs уже зелёные: задания,
+    # которых ещё нет, в перечне не видны, а их исход может быть красным.
+    [ "$run_status" != "completed" ] && echo "    прогон $run_id целиком [$(printf '%s' "$run_status" | tr '[:lower:]' '[:upper:]')]"
     echo
     echo "merge-readiness: СЛИВАТЬ НЕЛЬЗЯ — ручной прогон на голове идёт"
     exit 1

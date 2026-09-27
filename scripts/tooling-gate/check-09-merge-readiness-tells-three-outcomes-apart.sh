@@ -44,7 +44,10 @@
 # прогона на голове нет — код 2 «не выполнилось», а не 1; красный check-run — код 1;
 # прогон на ПРЕЖНЕЙ голове не засчитан; из двух прогонов на голове судит последний, и
 # check-runs чужого прогона той же sha в счёт не идут; защита, снова требующая
-# контекстов, — код 2, а не молчаливый выбор источника.
+# контекстов, — код 2, а не молчаливый выбор источника. Три охраны инструмента
+# держатся каждая своей пробой, потому что их снятие прежние пробы не замечали:
+# прогон идёт при всех зелёных check-runs — код 1, а не 0; ответ о check-runs
+# усечён — код 2, а не 0; прогон без заданий (`startup_failure`) — код 1, а не 2.
 #
 # Предпосылка проверки (исход VOID): в дереве есть сам инструмент, есть `jq`, и
 # подставной `gh` доказал обе свои стороны. Отсутствие любого из трёх — «не
@@ -287,6 +290,39 @@ mk_pr "$U/pr.json" OPEN CLEAN
 mk_runs "$U/runs.json" "511,$HEAD_SHA,completed,success,$T1,9011"
 mk_checkruns "$U/checkruns.json" "9011|$CTX_LAT|completed|success"
 
+# Три пробы ниже держат по одной охране, которую до них не держало ничего: снятие
+# каждой оставляло набор зелёным (опыты check-verifier M1–M3 по ws#788). У каждой
+# фикстуры ровно одно отличие от J — зелёного ручного прогона на голове.
+
+# V — прогон на голове идёт, а все поднятые им check-runs уже зелёные: заданий,
+# которых ещё нет, в перечне не видно. Отличие от J — только состояние прогона.
+V="$(mkcase V)"
+mk_pr "$V/pr.json" OPEN CLEAN
+mk_ws_protection "$V/protection.json"
+mk_runs "$V/runs.json" "513,$HEAD_SHA,in_progress,,$T1,9013"
+mk_checkruns "$V/checkruns.json" "9013|$CTX_LAT|completed|success" \
+    "9013|$CTX_DASH|completed|success" "9013|$CTX_CYR|completed|success"
+
+# W — ответ о check-runs усечён: прочитано три из ста пятидесяти, все три
+# зелёные. Непрочитанная страница могла нести красное. Отличие от J — только
+# total_count ответа.
+W="$(mkcase W)"
+mk_pr "$W/pr.json" OPEN CLEAN
+mk_ws_protection "$W/protection.json"
+mk_runs "$W/runs.json" "514,$HEAD_SHA,completed,success,$T1,9014"
+mk_checkruns "$W/checkruns.json" "9014|$CTX_LAT|completed|success" \
+    "9014|$CTX_DASH|completed|success" "9014|$CTX_CYR|completed|success"
+jq '.total_count = 150' "$W/checkruns.json" > "$W/checkruns.tmp" && mv "$W/checkruns.tmp" "$W/checkruns.json"
+
+# X — прогон на голове не поднял ни одного задания (`startup_failure`): check-runs
+# у него нет, и красен он исходом целиком, а не перечнем. Пустой перечень
+# записан явно — `mk_checkruns` без строк породил бы одну пустую запись.
+X="$(mkcase X)"
+mk_pr "$X/pr.json" OPEN CLEAN
+mk_ws_protection "$X/protection.json"
+mk_runs "$X/runs.json" "515,$HEAD_SHA,completed,startup_failure,$T1,9015"
+printf '{"total_count":0,"check_runs":[]}\n' > "$X/checkruns.json"
+
 # ── ПРЕДПОСЫЛКА: ЗАГЛУШКА ДОКАЗАНА В ОБЕ СТОРОНЫ ─────────────────────────────
 # Положительная сторона: знакомый вызов отдаёт именно фикстуру. Отрицательная:
 # незнакомый отвергается кодом 99, а не тишиной. Проверяется БЕЗ участия
@@ -337,8 +373,13 @@ probe() {
         findings=$((findings + 1))
         return
     fi
+    # Вывод подаётся строкой, а не трубой. `printf` пишет в трубу построчно, `grep -q`
+    # выходит на первом совпадении, следующая запись получает SIGPIPE, и под
+    # `pipefail` труба возвращает 141 — «подстроки нет» при подстроке в выводе.
+    # Наблюдалось 2026-09-27 под нагрузкой (load 29): проба S покраснела на
+    # «прогон: 508», стоявшем в её же напечатанном выводе; повтор — зелёный.
     for needle in "$@"; do
-        if ! printf '%s\n' "$out" | grep -qF -- "$needle"; then
+        if ! grep -qF -- "$needle" <<<"$out"; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
             findings=$((findings + 1))
@@ -407,6 +448,15 @@ probe "$WS_REPO" "$R" 2 "воркспейс: у прогона нет своих
 
 probe "$WS_REPO" "$U" 0 "воркспейс: база без защиты, ручной прогон зелёный — «сливать можно»" \
     "можно сливать"
+
+probe "$WS_REPO" "$V" 1 "воркспейс: прогон идёт при всех зелёных check-runs — «нельзя сейчас», а не «можно»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "идёт" "прогон 513 целиком [IN_PROGRESS]"
+
+probe "$WS_REPO" "$W" 2 "воркспейс: ответ о check-runs усечён — вердикта нет, а не «можно»" \
+    "РАЗБОР СЛОМАН" "получено 3 из 150"
+
+probe "$WS_REPO" "$X" 1 "воркспейс: прогон без заданий (startup_failure) — «сливать нельзя», а не «не выполнилось»" \
+    "СЛИВАТЬ НЕЛЬЗЯ" "прогон 515 целиком [STARTUP_FAILURE]"
 
 tooling_gate_census "$NAME: проб исполнено $probes над $TOOL_REL; источников вердикта два — контексты продукта (проб ${by_repo[$PRODUCT_REPO]:-0}) и ручной прогон воркспейса (проб ${by_repo[$WS_REPO]:-0}); по исходам: 0 — ${by_code[0]:-0}, 1 — ${by_code[1]:-0}, 2 — ${by_code[2]:-0}"
 
