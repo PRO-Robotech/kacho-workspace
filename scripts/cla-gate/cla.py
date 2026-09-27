@@ -39,7 +39,10 @@
 история, опубликованная заново, судится как история):
     автор      своя личность · подписавший · Signed-off-by этой же личности
     коммиттер  своя личность · подписавший
-    соавтор    своя личность · подписавший · освобождённый · Signed-off-by
+    соавтор    своя личность · подписавший · освобождённый · Signed-off-by —
+               по вопросу соглашения; сам ключ атрибуции (Co-authored-by,
+               Claude-Session) в строке сообщения — отказ по имени ключа
+               независимо от ведомости
 Освобождение (`waivers`) отвечает на вопрос соглашения — «нужна ли подпись под
 этим вкладом», — а не на вопрос подписи коммита: машинная личность, подписавшая
 отправляемый коммит, и есть подстановка, которую ловит ws#700.
@@ -64,6 +67,7 @@ ENTRY_KEYS = {"email", "note"}
 FLOOR_KEYS = {"commit", "note"}
 
 ROLE_AUTHOR, ROLE_COMMITTER, ROLE_COAUTHOR = "автор", "коммиттер", "соавтор"
+ROLE_ATTRIBUTION = "атрибуция"
 
 # Разрешения по роли. ОДНА таблица на все суждения — вторая копия разошлась бы.
 # «history» — коммиты, достижимые из границы: только там действует `history_only`,
@@ -90,7 +94,16 @@ ALLOW = {
 # прозе тела трейлером не становится.
 FMT = ("%H%x1f%an%x1f%ae%x1f%cn%x1f%ce%x1f"
        "%(trailers:key=Co-authored-by,valueonly,separator=%x1e)%x1f"
-       "%(trailers:key=Signed-off-by,valueonly,separator=%x1e)%x1d")
+       "%(trailers:key=Signed-off-by,valueonly,separator=%x1e)%x1f%B%x1d")
+
+# КЛЮЧИ АТРИБУЦИИ — запрет по ИМЕНИ КЛЮЧА, а не по адресу (git-issues.md,
+# gi-no-attribution-trailers). Прежде трейлер ловился лишь тем, что его адреса нет
+# в ведомости: освобождение адреса его пропускало, ключ без адреса (Claude-Session)
+# не судился вовсе. Признак — строка сообщения, НАЧИНАЮЩАЯСЯ ключом, а не блок
+# трейлеров git: абзац, где ключ соседствует с прозой, git трейлером не считает,
+# а запрет от этого не слабеет. Упоминание внутри строки прозы — не находка.
+# Судится только новое (после границы): история не переписывается (ws#730 п.4).
+ATTRIBUTION_RE = re.compile(r"^(co-authored-by|claude-session)[ \t]*:", re.I | re.M)
 
 
 class Unjudgeable(Exception):
@@ -225,7 +238,7 @@ def load_ledger(root, rel=LEDGER):
 # ── история ──────────────────────────────────────────────────────────────────
 
 class Rec:
-    __slots__ = ("sha", "an", "ae", "cn", "ce", "coauthors", "signoffs")
+    __slots__ = ("sha", "an", "ae", "cn", "ce", "coauthors", "signoffs", "body")
 
 
 def walk_paths(scope):
@@ -256,13 +269,14 @@ def commits(root, revs, paths=None):
         chunk = chunk.lstrip("\n")
         if not chunk:
             continue
-        f = chunk.split("\x1f")
-        if len(f) != 7:
-            raise Unjudgeable("запись git log не разобрана (%d полей вместо 7)" % len(f))
+        f = chunk.split("\x1f", 7)
+        if len(f) != 8:
+            raise Unjudgeable("запись git log не разобрана (%d полей вместо 8)" % len(f))
         r = Rec()
         r.sha, r.an, r.ae, r.cn, r.ce = f[0], f[1], norm(f[2]), f[3], norm(f[4])
         r.coauthors = [email_of(v) for v in f[5].split("\x1e") if v.strip()]
         r.signoffs = {email_of(v)[0] for v in f[6].split("\x1e") if v.strip()}
+        r.body = f[7]
         recs.append(r)
     return recs
 
@@ -276,7 +290,12 @@ def contributions(r, mode):
         out.append((ROLE_COMMITTER, r.cn, r.ce))
     seen = {r.ae}
     for em, name in r.coauthors:
-        if not em or em in seen:
+        if not em:
+            # Значение без разборного адреса — не пропуск: вклад назван, а личность
+            # не установлена (прежде такой соавтор отбрасывался молча).
+            out.append((ROLE_COAUTHOR, name, ""))
+            continue
+        if em in seen:
             continue
         seen.add(em)
         out.append((ROLE_COAUTHOR, name, em))
@@ -303,7 +322,9 @@ def judge(recs, led, mode):
                     basis = how
                     break
             if basis is None:
-                if em in led["history_only"]:
+                if not em:
+                    why = "адрес соавтора не разобран — личность не установлена"
+                elif em in led["history_only"]:
                     why = "адрес «только история» (history_only) — вперёд запрет"
                 elif em in led["by_email"]:
                     why = "раздел %s этой роли не покрывает" % led["by_email"][em]
@@ -314,6 +335,13 @@ def judge(recs, led, mode):
             by[basis] += 1
             if basis in ("signatories", "waivers", "history_only"):
                 used.add(em)
+        if mode != "history":
+            for m in ATTRIBUTION_RE.finditer(r.body):
+                line = r.body[m.start():].split("\n", 1)[0].strip()
+                by["атрибуция"] += 1
+                findings.append((r.sha, ROLE_ATTRIBUTION, line[:90], m.group(1),
+                                 "ключ атрибуции «%s» запрещён независимо от ведомости "
+                                 "(git-issues.md, gi-no-attribution-trailers)" % m.group(1)))
     return findings, by, ids, used
 
 
@@ -339,11 +367,18 @@ def judge_split(root, led, recs, mode):
 
 def print_findings(findings, limit=40, prefix=""):
     for sha, role, name, em, why in findings[:limit]:
-        print("%s  %s %s «%s <%s>» — %s" % (prefix, sha[:12], role, name, em, why),
-              file=sys.stderr)
+        if role == ROLE_ATTRIBUTION:
+            print("%s  %s %s: строка «%s» — %s" % (prefix, sha[:12], role, name, why), file=sys.stderr)
+        else:
+            print("%s  %s %s «%s <%s>» — %s" % (prefix, sha[:12], role, name, em, why),
+                  file=sys.stderr)
     if len(findings) > limit:
         print("%s  … и ещё %d" % (prefix, len(findings) - limit), file=sys.stderr)
-    per = Counter(f[3] for f in findings)
+    keys = Counter(f[3] for f in findings if f[1] == ROLE_ATTRIBUTION)
+    if keys:
+        print("%s  ключей атрибуции: %s" % (prefix, ", ".join("%s — %d" % kv for kv in sorted(keys.items()))),
+              file=sys.stderr)
+    per = Counter(f[3] or "<не разобран>" for f in findings if f[1] != ROLE_ATTRIBUTION)
     print("%s  личностей вне ведомости: %d" % (prefix, len(per)), file=sys.stderr)
     for em, n in sorted(per.items()):
         print("%s    %s — вкладов %d" % (prefix, em, n), file=sys.stderr)
@@ -443,12 +478,12 @@ def judge_push(root, rel, positives, negatives, label, remote=""):
              by[ROLE_COAUTHOR], len(ids), rel), file=sys.stderr)
     dirty_ledger_note(root, rel)
     if findings:
-        print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости (%d):"
-              % len(findings), file=sys.stderr)
+        print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости либо ключ "
+              "атрибуции (%d):" % len(findings), file=sys.stderr)
         print_findings(findings)
         print("  Чинится ПЕРЕПОДПИСЬЮ неотправленного (git rebase -x 'git commit --amend "
-              "--no-edit --reset-author' <база>) либо записью в %s с причиной — не обходом."
-              % rel, file=sys.stderr)
+              "--no-edit --reset-author' <база>), снятием ключа атрибуции из сообщения либо "
+              "записью в %s с причиной — не обходом." % rel, file=sys.stderr)
         return 1
     return 0
 

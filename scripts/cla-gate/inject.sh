@@ -263,6 +263,67 @@ probe_push 1 "HP1 отправка НОВОГО коммита адресом «
 probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) в новый remote — история покрыта" \
     "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "история до границы 2"
 
+# ── ключ атрибуции — отказ НЕЗАВИСИМО от ведомости (gi-no-attribution-trailers) ─
+#
+# Трейлер атрибуции ловился лишь потому, что его адреса нет в ведомости:
+# освобождение адреса (waivers) его пропускало, ключ без адреса не судился
+# вовсе, значение без угловых скобок молча отбрасывалось. Ключ судится по имени —
+# строка сообщения, НАЧИНАЮЩАЯСЯ ключом, — в коммитах после границы. Упоминание
+# ключа внутри строки прозы — законный близнец; история до границы не судится.
+da="$(repo attr)"
+ledger "$da" "waivers:
+  - email: noreply@anthropic.com
+    note: освобождение пробы E2g — подпись под вкладом не нужна"
+git -C "$da" add -A; git -C "$da" commit -q -m "ведомость с освобождением"
+git init -q --bare "$TMP/attr.git"
+base_a="$(git -C "$da" rev-parse HEAD)"
+attr_push() {  # <ожидаемый код> <метка> <сообщение: абзацы через |> [<подстрока>…]
+    local want="$1" label="$2" msg="$3"; shift 3
+    local args=() part
+    IFS='|' read -r -a parts <<<"$msg"
+    for part in "${parts[@]}"; do args+=(-m "$part"); done
+    echo "$RANDOM$RANDOM" >> "$da/f.txt"; git -C "$da" add -A
+    git -C "$da" commit -q "${args[@]}"
+    probe_push "$want" "$label" "$da" "$TMP/attr.git" \
+        "refs/heads/main $(git -C "$da" rev-parse HEAD) refs/heads/main $Z" "$@"
+    git -C "$da" reset -q --hard "$base_a"
+}
+attr_push 1 "E2g трейлер атрибуции с ОСВОБОЖДЁННЫМ адресом — отказ по ключу" \
+    "правка|Co-authored-by: Claude <noreply@anthropic.com>" "Co-authored-by" "ключ атрибуции"
+attr_push 1 "E2f Claude-Session без адреса — отказ по ключу" \
+    "правка|Claude-Session: https://claude.ai/code/session_inject" "Claude-Session" "ключ атрибуции"
+attr_push 1 "E2j Co-authored-by без угловых скобок — не тихий пропуск" \
+    "правка|Co-authored-by: Someone someone@cla-inject.invalid" "Co-authored-by"
+attr_push 1 "E2t ключ в последнем абзаце вперемешку с прозой (git блоком не считает) — отказ" \
+    "правка|Co-Authored-By: Claude <noreply@anthropic.com>|и ещё строка прозы" "Co-Authored-By"
+attr_push 0 "E2 близнец: ключ внутри строки прозы — не трейлер, проходит" \
+    "правка|Правило запрещает строку Co-authored-by: X <x@y> и строку Claude-Session: url в сообщении."
+attr_push 0 "E2 близнец: обычный коммит владельца — проходит"  "правка"
+dj="$(repo attrh)"
+echo x >> "$dj/f.txt"; git -C "$dj" add -A
+git -C "$dj" commit -q -m "история" -m "Co-authored-by: Legacy legacy@cla-inject.invalid"
+fl="$(git -C "$dj" rev-parse HEAD)"
+ledger "$dj" "history_floor:
+  commit: $fl
+  note: граница пробы
+history_only:
+  - email: legacy@cla-inject.invalid
+    note: только история"
+git -C "$dj" add -A; git -C "$dj" commit -q -m "ведомость"
+probe 1 "E2j история: соавтор без разборного адреса до границы — находка, а не пропуск" "$dj" "не разобран"
+dh2="$(repo attrh2)"
+echo x >> "$dh2/f.txt"; git -C "$dh2" add -A
+git -C "$dh2" commit -q -m "история" -m "Co-authored-by: Legacy <legacy@cla-inject.invalid>"
+fl="$(git -C "$dh2" rev-parse HEAD)"
+ledger "$dh2" "history_floor:
+  commit: $fl
+  note: граница пробы
+history_only:
+  - email: legacy@cla-inject.invalid
+    note: только история"
+git -C "$dh2" add -A; git -C "$dh2" commit -q -m "ведомость"
+probe 0 "E2 близнец: трейлер атрибуции ДО границы — история, не судится" "$dh2"
+
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
     echo "[FAIL] cla-gate inject — провалов $failed из $probes" >&2
