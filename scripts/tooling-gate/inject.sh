@@ -173,9 +173,10 @@ mksandbox() {
     if [ "$SANDBOX_FILES" -ne "$got" ]; then
         premise_broken "песочница неполна: запрошено файлов $SANDBOX_FILES, доехало $got"
     fi
-    git -C "$dir" init -q
-    cp "$TPL_GIT/index" "$dir/.git/index"
-    printf '%s\n' "$TPL_GIT/objects" > "$dir/.git/objects/info/alternates"
+    { git -C "$dir" init -q \
+        && cp "$TPL_GIT/index" "$dir/.git/index" \
+        && printf '%s\n' "$TPL_GIT/objects" > "$dir/.git/objects/info/alternates"; } \
+        || premise_broken "индекс песочницы не собран: git init, копия индекса или alternates отказали"
     # Выброшенный путь уходит и с диска, и из индекса: прежде индекс собирался
     # ПОСЛЕ удаления и выброшенного не знал — ровно так и сейчас.
     if [ -n "$drop" ]; then
