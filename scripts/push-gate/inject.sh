@@ -69,6 +69,9 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова из рабочего дерева, а не из отправляемой ревизии"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|коммиттер-сервер из committers снова не покрыт при отправке"
     "check-02-push-range-judges-identities|scripts/hooks/pre-push|строки отправки снова читаются с пределом по времени и при вызове от git"
+    "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|двоичное и подмодуль снова не сверяются объектом"
+    "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|режим, сменённый полосой, снова не сверяется"
+    "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|снятая строка снова булева: снятие одного из повторов невидимо"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -133,6 +136,15 @@ M = [
     ("scripts/hooks/pre-push",
      '    if [ $# -ge 2 ]; then\n',
      '    if false; then\n'),
+    ("scripts/preservation-proof.sh",
+     '        if [ "$lm" = 160000 ] || [ -n "${binary[$p]:-}" ]; then\n',
+     '        if false; then\n'),
+    ("scripts/preservation-proof.sh",
+     '    if [ "$mm" != "$lm" ]; then\n',
+     '    if false; then\n'),
+    ("scripts/preservation-proof.sh",
+     '                        if (c[2, l] > cap) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n',
+     '                        if (c[2, l] > 0 && c[1, l] == 0) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path

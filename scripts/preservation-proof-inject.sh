@@ -345,6 +345,91 @@ out="$(cd "$d" && bash "$SUBJECT" HEAD^1 "$head_sha" HEAD 2>&1)"; rc=$?
 probe 1 "E4f путь не из ASCII (core.quotePath): пропавший файл полосы — ПОТЕРЯ, а не пропуск" \
     "$out" "$rc" "ПОТЕРЯ" "ведомость.txt"
 
+# ── ФОРМЫ ЗАПИСИ РАБОТЫ: не только строки текста ────────────────────────────
+#
+# Работа полосы записывается в дереве не одними строками: двоичное содержимое,
+# бит исполнения, цель символьной ссылки, указатель подмодуля. Перепись строк
+# видит лишь текст, и потеря любой другой формы давала «СОХРАНЕНО — по всем N
+# путям» (находки приёмки: двоичный файл и chmod +x — код 0). Каждая проба
+# роняет ОДНУ форму, остальные доезжают; близнец — честное слияние, после
+# которого сосед пишет в ствол (итог уходит от предсказанного дерева, и вердикт
+# выносит ось 2 — та, где живёт распознаватель).
+forms_fixture() {  # <имя> — печатает путь; ствол сдвинут соседом, полоса — 3 коммита
+    local d="$TMP/$1"
+    git init -q -b main "$d" || return 1
+    git -C "$d" config user.email inject@example.invalid; git -C "$d" config user.name inject
+    printf 'двоичное\000старое\000\001\002' > "$d/bin.dat"
+    printf '#!/usr/bin/env bash\necho hook\n' > "$d/hook.sh"
+    ln -s target-a "$d/link"
+    : > "$d/d.txt"
+    for n in 1 2 3 4 5 6; do printf 'строка %s\n' "$n" >> "$d/d.txt"; done
+    printf 'повтор\n' >> "$d/d.txt"
+    for n in 7 8 9 10 11 12; do printf 'строка %s\n' "$n" >> "$d/d.txt"; done
+    printf 'повтор\n' >> "$d/d.txt"
+    git -C "$d" add -A && git -C "$d" commit -q -m "ствол" || return 1
+    base_commit="$(git -C "$d" rev-parse HEAD)"
+    # Подмодуль без клона: пустой каталог — «не заведён», и `add` его не снимает.
+    mkdir -p "$d/sub"
+    git -C "$d" update-index --add --cacheinfo "160000,$base_commit,sub" && git -C "$d" commit -q -m "ствол: подмодуль" || return 1
+    git -C "$d" checkout -q -b work
+    printf 'двоичное\000НОВОЕ полосы\000\003\004' > "$d/bin.dat"
+    ln -sfn target-b "$d/link"
+    git -C "$d" add bin.dat link && git -C "$d" commit -q -m "c1: двоичное и цель ссылки" || return 1
+    chmod +x "$d/hook.sh"
+    git -C "$d" update-index --chmod=+x hook.sh && git -C "$d" commit -q -m "c2: только бит исполнения" || return 1
+    git -C "$d" update-index --cacheinfo "160000,$(git -C "$d" rev-parse HEAD~1),sub"
+    sed -i '$d' "$d/d.txt"     # снят ПОСЛЕДНИЙ из двух повторов
+    git -C "$d" add d.txt && git -C "$d" commit -q -m "c3: подмодуль сдвинут, один повтор снят" || return 1
+    git -C "$d" checkout -q main
+    printf 'соседняя полоса\n' > "$d/neighbour.md"
+    git -C "$d" add neighbour.md && git -C "$d" commit -q -m "соседняя полоса в стволе" || return 1
+    printf '%s\n' "$d"
+}
+forms_lose() {  # <имя> <что уронить: bin|mode|link|sub|dup> — печатает вывод, код в rc
+    local d h b
+    d="$(forms_fixture "$1")" || { echo "[VOID] фикстура $1 не собралась" >&2; exit 2; }
+    h="$(git -C "$d" rev-parse work)"; b="$(git -C "$d" rev-parse main)"
+    git -C "$d" merge -q --no-ff --no-commit work >/dev/null 2>&1
+    case "$2" in
+        bin)  git -C "$d" checkout -q main -- bin.dat ;;
+        mode) git -C "$d" update-index --chmod=-x hook.sh; chmod -x "$d/hook.sh" ;;
+        link) git -C "$d" checkout -q main -- link ;;
+        sub)  git -C "$d" update-index --cacheinfo "160000,$(git -C "$d" rev-parse main:sub),sub" ;;
+        dup)  git -C "$d" checkout -q main -- d.txt ;;
+    esac
+    git -C "$d" commit -q -m "слияние work ($2 потерян)" >/dev/null 2>&1
+    out="$(cd "$d" && bash "$SUBJECT" "$b" "$h" HEAD 2>&1)"; rc=$?
+}
+forms_lose j-bin bin
+probe 1 "J двоичное содержимое полосы потеряно — ПОТЕРЯ с путём (строк в нём нет)" "$out" "$rc" "ПОТЕРЯ" "bin.dat" "двоичн"
+forms_lose j-mode mode
+probe 1 "K бит исполнения, поставленный полосой, снят слиянием — ПОТЕРЯ «режим»" "$out" "$rc" "ПОТЕРЯ" "hook.sh" "режим"
+forms_lose j-link link
+probe 1 "L цель символьной ссылки полосы потеряна — ПОТЕРЯ" "$out" "$rc" "ПОТЕРЯ" "link"
+forms_lose j-sub sub
+probe 1 "M указатель подмодуля, сдвинутый полосой, откачен — ПОТЕРЯ" "$out" "$rc" "ПОТЕРЯ" "sub" "подмодул"
+forms_lose j-dup dup
+probe 1 "N полоса сняла один из двух повторов, слияние его вернуло — снятая уцелела" "$out" "$rc" "ПОТЕРЯ" "уцелела" "повтор"
+
+d="$(forms_fixture j-twin)" || { echo "[VOID] фикстура j-twin не собралась" >&2; exit 2; }
+h="$(git -C "$d" rev-parse work)"; b="$(git -C "$d" rev-parse main)"
+git -C "$d" merge -q --no-ff --no-edit work >/dev/null 2>&1
+printf 'сосед после слияния\n' >> "$d/neighbour.md"; git -C "$d" commit -qam "сосед после слияния" >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" "$b" "$h" HEAD 2>&1)"; rc=$?
+probe 0 "J–N близнец: все формы доехали, судит ось 2 — сохранено, перепись называет каждую форму" \
+    "$out" "$rc" "СОХРАНЕНО — по всем" "тождества дерева не было" "текстовых 2" "двоичных 1" "подмодулей 1" "режим задан или сменён полосой 1" "не распознано 0"
+
+# Счёт по числу вхождений — в обе стороны, и с поправкой на соседа: сосед,
+# добавивший ТУ ЖЕ строку, что полоса сняла один раз из двух, — не находка;
+# сосед, снявший строку, которую полоса добавила, — тоже.
+d="$(forms_fixture j-dup2)" || { echo "[VOID] фикстура j-dup2 не собралась" >&2; exit 2; }
+{ printf 'повтор\n'; cat "$d/d.txt"; } > "$d/d.new"; mv "$d/d.new" "$d/d.txt"
+git -C "$d" commit -qam "сосед добавил такой же повтор в начало" >/dev/null 2>&1
+h="$(git -C "$d" rev-parse work)"; b="$(git -C "$d" rev-parse main)"
+git -C "$d" merge -q --no-ff --no-edit work >/dev/null 2>&1
+out="$(cd "$d" && bash "$SUBJECT" "$b" "$h" HEAD 2>&1)"; rc=$?
+probe 0 "N близнец: сосед добавил такую же строку, полоса сняла свою — не «уцелела»" "$out" "$rc" "СОХРАНЕНО"
+
 echo
 # Перепись фикстур ВЫВОДИТСЯ: сколько собрано и сколько коммитов полосы в каждой —
 # у части фикстур полоса дополняется четвёртым коммитом по ходу пробы.
