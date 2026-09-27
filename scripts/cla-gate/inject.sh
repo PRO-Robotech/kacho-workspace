@@ -129,6 +129,48 @@ probe 1 "G ведомости нет — отказ" "$d" "ведомости co
 printf 'scope: [nowhere]\nowners:\n  - email: %s\n    note: n\n' "$OWNER" > "$d/contribution-ledger.yaml"
 probe 1 "G область мимо дерева — отказ, а не пустой зелёный" "$d" "не разрешается"
 
+# ── E5: судится ВСЯ история области, а не её упрощение ──────────────────────
+#
+# `git log -- <область>` упрощает историю: снимает пустые коммиты, слияние,
+# совпавшее деревом с одним из родителей, и ветку, влитую `-s ours`. При области
+# `.` каждая из этих форм — вклад в дерево, и суждение, прошедшее мимо него,
+# выносит «подтверждено» о коммите, которого не читало. Сверх упрощения — `.mailmap`
+# дерева: `git log` по умолчанию подменяет им адрес, и суждение читало бы
+# ОБЪЯВЛЕНИЕ о личности вместо записанной в коммите.
+fresh() {  # <имя> — репозиторий с ведомостью владельца, печатает путь
+    local d; d="$(repo "$1")" || return 1
+    ledger "$d"; git -C "$d" add -A; git -C "$d" commit -q -m "ведомость"
+    printf '%s\n' "$d"
+}
+d="$(fresh e5d)"
+GIT_AUTHOR_EMAIL=empty-evil@cla-inject.invalid GIT_AUTHOR_NAME=e git -C "$d" commit -q --allow-empty -m "пустой коммит чужого"
+probe 1 "E5d пустой коммит чужого автора — находка, а не пропуск упрощением" "$d" "empty-evil@cla-inject.invalid"
+d="$(fresh e5h)"
+git -C "$d" commit -q --allow-empty -m "пустой с соавтором" -m "Co-authored-by: Hidden <hidden@cla-inject.invalid>"
+probe 1 "E5h трейлер соавтора на пустом коммите — находка" "$d" "hidden@cla-inject.invalid"
+d="$(fresh e5i)"
+git -C "$d" checkout -q -b side; echo side >> "$d/f.txt"; git -C "$d" commit -qam "сторона"
+git -C "$d" checkout -q main
+GIT_AUTHOR_EMAIL=merger@cla-inject.invalid GIT_AUTHOR_NAME=m git -C "$d" merge -q --no-ff --no-edit side
+probe 1 "E5i слияние с деревом второго родителя, автор чужой — находка" "$d" "merger@cla-inject.invalid"
+d="$(fresh e5j)"
+git -C "$d" checkout -q -b side
+GIT_AUTHOR_EMAIL=ours-evil@cla-inject.invalid GIT_AUTHOR_NAME=o git -C "$d" commit -q -m "сторона чужого" --allow-empty
+echo s >> "$d/f.txt"; GIT_AUTHOR_EMAIL=ours-evil@cla-inject.invalid GIT_AUTHOR_NAME=o git -C "$d" commit -qam "правка чужого"
+git -C "$d" checkout -q main; git -C "$d" merge -q -s ours --no-edit side
+probe 1 "E5j ветка, влитая -s ours, — её чужие коммиты судятся" "$d" "ours-evil@cla-inject.invalid"
+n_e5j="$(git -C "$d" rev-list --count HEAD)"
+probe 1 "E5j перепись называет ВСЕ коммиты истории ($n_e5j), а не упрощение" "$d" "коммитов $n_e5j"
+d="$(fresh e5m)"
+echo m >> "$d/f.txt"; git -C "$d" add -A
+GIT_AUTHOR_EMAIL=masked@cla-inject.invalid GIT_AUTHOR_NAME=x git -C "$d" commit -q -m "чужой вклад"
+printf 'owner <%s> <masked@cla-inject.invalid>\n' "$OWNER" > "$d/.mailmap"
+git -C "$d" add .mailmap; git -C "$d" commit -q -m "подмена личности объявлением"
+probe 1 "E5m .mailmap дерева не подменяет записанный в коммите адрес" "$d" "masked@cla-inject.invalid"
+d="$(fresh e5t)"
+git -C "$d" commit -q --allow-empty -m "пустой коммит владельца"
+probe 0 "E5 близнец: пустой коммит СВОЕЙ личности — молчание" "$d"
+
 # ── граница истории ──────────────────────────────────────────────────────────
 d="$(repo k)"
 commit_as "$d" old@cla-inject.invalid "старый вклад до ведомости"
@@ -162,7 +204,7 @@ ledger "$d" "history_floor:
   note: граница, которой в истории нет"
 probe 2 "H граница не в истории (срез глубины) — без предмета, не зелёное" "$d" "условие не создано"
 
-echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев 7"
+echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
     echo "[FAIL] cla-gate inject — провалов $failed из $probes" >&2
     exit 1

@@ -217,10 +217,28 @@ class Rec:
     __slots__ = ("sha", "an", "ae", "cn", "ce", "coauthors", "signoffs")
 
 
+def walk_paths(scope):
+    """Пути для `git log` либо None — «вся история».
+
+    Область `.` — это ВСЁ дерево, и pathspec ей не передаётся: `git log -- .`
+    упрощает историю — снимает пустые коммиты, слияние, совпавшее деревом с одним
+    из родителей, и ветку, влитую `-s ours`. Каждая из этих форм — вклад, и
+    суждение, прошедшее мимо неё, выносило «подтверждено» о непрочитанном
+    (перепись давала «коммитов 6» там, где `census` на том же диапазоне — 8).
+    """
+    if not scope or any(p in (".", "") for p in scope):
+        return None
+    return scope
+
+
 def commits(root, revs, paths=None):
+    # Порядок и адреса — ИЗ КОММИТА: `%ae`/`%ce`, а не `%aE`/`%cE`, которые
+    # подменяются `.mailmap` дерева (замок — проба E5m в inject).
     args = ["log", "--format=" + FMT, *revs]
     if paths:
-        args += ["--", *paths]
+        # Область уже дерева: коммит вне неё не судится, но слияния и боковые
+        # ветки внутри неё — судятся, упрощение истории снимается.
+        args += ["--full-history", "--", *paths]
     out = git(root, *args).stdout
     recs = []
     for chunk in out.split("\x1d"):
@@ -301,7 +319,8 @@ def run_tree(root, rel):
     scope = led["scope"]
     print("[CENSUS] cla-gate: ведомость %s — своих %d, подписавших %d, освобождённых %d; "
           "область %s" % (rel, len(led["owners"]), len(led["signatories"]), len(led["waivers"]), scope))
-    whole = commits(root, ["HEAD"], scope)
+    paths = walk_paths(scope)
+    whole = commits(root, ["HEAD"], paths)
     if not whole:
         raise LedgerDefect("у области %s нет ни одного коммита во всей истории HEAD — гейт слеп" % scope)
     floor = led["floor"]
@@ -311,7 +330,7 @@ def run_tree(root, rel):
                               "судимый диапазон не построить" % floor[:12])
         if git(root, "merge-base", "--is-ancestor", floor, "HEAD", check=False).returncode != 0:
             raise LedgerDefect("граница %s не предок HEAD — ведомость называет чужую историю" % floor[:12])
-        judged = commits(root, [floor + "..HEAD"], scope)
+        judged = commits(root, [floor + "..HEAD"], paths)
         rng = "%s..HEAD" % floor[:12]
     else:
         judged, rng = whole, "HEAD (вся история)"
@@ -330,7 +349,7 @@ def run_tree(root, rel):
 
     bad = 0
     if floor:
-        before = commits(root, [floor], scope)
+        before = commits(root, [floor], paths)
         bf, bby, _, _ = judge(before, led, "tree")
         per = defaultdict(Counter)
         for _, role, _, em in bf:
