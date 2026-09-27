@@ -51,6 +51,7 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/hooks/pre-push|хук не зовёт суждение по диапазону — подпись не судится"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|суждение отправки не судит коммиттера"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|освобождённая личность подписывает отправляемый коммит"
+    "check-03-neighbour-homes-are-derived|scripts/hooks/pre-push|выведенный дом не передаётся наборам — копия снова без предмета"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -73,6 +74,9 @@ M = [
     ("scripts/cla-gate/cla.py",
      '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories", "signoff"),\n',
      '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories", "waivers", "signoff"),\n'),
+    ("scripts/hooks/pre-push",
+     '        export "$var=$d"\n',
+     '        : "$var=$d"\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
