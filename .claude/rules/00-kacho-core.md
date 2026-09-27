@@ -40,7 +40,7 @@ ban14-production-grade · сразу production-форма: error-handling, auth
 ban15-id-addressing · только immutable `id`; операции смены id нет; `name` — косметический project-scoped label и в URL не попадает · TestPublishedResourceIdIsGuardedByOperationOutcome · red: name или слаг в URL, pull-пути, гранте, cross-service ссылке
 ban16-production-posture · production-posture: authMode=production + mTLS + sslmode=require + RS256 · TestClientTruthDeployAuthModeOneAddress · red: anonymous/HS256/plaintext на поднятом кластере
 ban16-boot-guard · несёт production boot-guard Config.Validate() fail-closed refuse-to-start · TestBootGuardPresence · red: AuthMode declared-never-read
-ban16-values-prod · реально boots: helm install + rollout ready · — (КАНДИДАТ НА ГЕЙТ: helm install + rollout в production-посадке) · red: зелёный `helm template` вместо подъёма
+ban16-values-prod · реально boots: helm install + rollout ready · — (КАНДИДАТ НА ГЕЙТ: helm install + rollout в production-посадке; `production-posture.yml` продукта поднимает `dev,dev-prod`, а не `values.prod`, — держателем не является, ws#850) · red: зелёный `helm template` вместо подъёма
 ban16-iam-facade · только через iam: JWKS :9097, /iam/token · — (КАНДИДАТ НА ГЕЙТ: прямой dial :4444 / /admin/clients) · red: прямой dial :4444 или /admin/clients
 ban17-latin-identifiers · только латиница (функция, тип, поле, переменная, параметр, константа, импорт); комментарии и тексты — любой язык · TestIdentifiersAreASCII, console-ascii-identifiers.test.ts · red: кириллическая `В` в имени пробы
 ban17-gates · судит узел-идентификатор, печатает объём осмотренного, падает на пустом обходе, рядом проба предпосылки · TestIdentifiersAreASCII · red: поиск по образцу вместо разбора
