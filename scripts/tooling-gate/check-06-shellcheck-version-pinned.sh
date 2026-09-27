@@ -24,7 +24,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # СВОЁ дерево при любой песочнице — то есть отвечала бы всегда одно и то же.
 # shellcheck source=/dev/null
 . "$here/_lib.sh" 2>/dev/null || true
-root="${TOOLING_GATE_ROOT:-$(cd "$here/../.." && pwd)}"
+root="$(python3 "$here/../lib/gate_root.py" TOOLING_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 
 python3 - "$root" "$name" <<'PY'
 import re, sys, pathlib

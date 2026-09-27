@@ -130,7 +130,7 @@ PARSER="$SCRIPT_DIR/manifest-rows.awk"
 if [ -n "${RULES_GATE_ROOT:-}" ]; then
     WS="$(cd "$RULES_GATE_ROOT" 2>/dev/null && pwd)" || WS=""
 else
-    WS="$(cd "$SCRIPT_DIR/../.." 2>/dev/null && pwd)" || WS=""
+    WS="$(python3 "$SCRIPT_DIR/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || WS=""
 fi
 
 gate_pass()   { echo "[PASS] $NAME${1:+ — $1}"; }

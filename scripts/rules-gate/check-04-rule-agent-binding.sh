@@ -107,7 +107,7 @@ if [ -n "${RULES_GATE_ROOT:-}" ]; then
         exit 2
     fi
 else
-    WS="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    WS="$(python3 "$SCRIPT_DIR/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 fi
 
 CHECK_NAME="$NAME" RULES_GATE_WS="$WS" RULES_GATE_PARSER="$SCRIPT_DIR/manifest-rows.awk" \

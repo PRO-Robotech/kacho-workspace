@@ -54,16 +54,23 @@ trap 'rm -rf "$TMP"' EXIT
 # probe <прогонщик> <код-заглушки> — печатает код выхода прогонщика в песочнице,
 # где единственная проверка возвращает заданный код.
 probe() {
-    local runner="$1" stub_rc="$2" dir
+    local runner="$1" stub_rc="$2" dir sdir
     dir="$(mktemp -d "$TMP/p.XXXXXX")"
-    cp "$WS/$runner" "$dir/run-all.sh"
-    chmod +x "$dir/run-all.sh"
+    # Прогонщик кладётся на СВОЁ место — `scripts/<набор>/run-all.sh` — рядом с
+    # копией общей библиотеки наборов: прогонщик, подключающий
+    # `scripts/lib/suite-runner.sh`, вне этой раскладки не запускается вовсе, и
+    # проба судила бы устройство песочницы, а не его исход.
+    sdir="$dir/$(dirname "$runner")"
+    mkdir -p "$sdir"
+    if [ -d "$WS/scripts/lib" ]; then cp -R "$WS/scripts/lib" "$dir/scripts/lib"; fi
+    cp "$WS/$runner" "$sdir/run-all.sh"
+    chmod +x "$sdir/run-all.sh"
     # Имя заглушки подходит под глоб любого прогонщика набора: `check-*.sh`.
     # Заглушка молчит — её вывод не должен влиять на разбор, вердикт берётся
     # только из кода выхода.
-    printf '#!/usr/bin/env bash\nexit %s\n' "$stub_rc" > "$dir/check-99-stub.sh"
-    chmod +x "$dir/check-99-stub.sh"
-    ( cd "$dir" && ./run-all.sh >/dev/null 2>&1 )
+    printf '#!/usr/bin/env bash\nexit %s\n' "$stub_rc" > "$sdir/check-99-stub.sh"
+    chmod +x "$sdir/check-99-stub.sh"
+    ( cd "$sdir" && ./run-all.sh >/dev/null 2>&1 )
     echo $?
 }
 

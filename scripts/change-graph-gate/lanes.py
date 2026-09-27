@@ -52,7 +52,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Корень воркспейса. Переопределяется `CG_GATE_ROOT` — этим пользуется ТОЛЬКО
 # песочница инъекций (`inject.sh`), чтобы доказать обе стороны каждой оси, не
 # трогая рабочую копию.
-ROOT = os.path.abspath(os.environ.get("CG_GATE_ROOT", os.path.join(HERE, "..", "..")))
+sys.path.insert(0, os.path.join(HERE, "..", "lib"))
+from gate_root import gate_root  # noqa: E402  порядок и отказ рабочему каталогу — ws#757
+ROOT = gate_root("CG_GATE_ROOT", __file__)
 
 # Каталог оснастки контура относительно корня.
 GATE_RELDIR = os.path.join("scripts", "change-graph-gate")

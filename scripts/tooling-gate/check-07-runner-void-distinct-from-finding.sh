@@ -64,16 +64,23 @@ trap 'rm -rf "$TMP"' EXIT
 # молчат: вердикт берётся только из кода выхода, печать на него не влияет.
 probe() {
     local runner="$1"; shift
-    local dir i=90 rc
+    local dir sdir i=90 rc
     dir="$(mktemp -d "$TMP/p.XXXXXX")"
-    cp "$WS/$runner" "$dir/run-all.sh"
-    chmod +x "$dir/run-all.sh"
+    # Прогонщик кладётся на СВОЁ место — `scripts/<набор>/run-all.sh` — рядом с
+    # копией общей библиотеки наборов: прогонщик, подключающий
+    # `scripts/lib/suite-runner.sh`, вне этой раскладки не запускается вовсе, и
+    # проба судила бы устройство песочницы, а не его исход.
+    sdir="$dir/$(dirname "$runner")"
+    mkdir -p "$sdir"
+    if [ -d "$WS/scripts/lib" ]; then cp -R "$WS/scripts/lib" "$dir/scripts/lib"; fi
+    cp "$WS/$runner" "$sdir/run-all.sh"
+    chmod +x "$sdir/run-all.sh"
     for rc in "$@"; do
-        printf '#!/usr/bin/env bash\nexit %s\n' "$rc" > "$dir/check-${i}-stub.sh"
-        chmod +x "$dir/check-${i}-stub.sh"
+        printf '#!/usr/bin/env bash\nexit %s\n' "$rc" > "$sdir/check-${i}-stub.sh"
+        chmod +x "$sdir/check-${i}-stub.sh"
         i=$((i + 1))
     done
-    ( cd "$dir" && ./run-all.sh >/dev/null 2>&1 )
+    ( cd "$sdir" && ./run-all.sh >/dev/null 2>&1 )
     echo $?
 }
 

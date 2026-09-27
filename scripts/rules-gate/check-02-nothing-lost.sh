@@ -193,7 +193,7 @@
 
 set -uo pipefail
 
-RULES_GATE_ROOT="${RULES_GATE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+RULES_GATE_ROOT="$(python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 export RULES_GATE_ROOT
 
 python3 - <<'PY'

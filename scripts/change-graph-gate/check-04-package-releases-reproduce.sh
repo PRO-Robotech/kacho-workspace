@@ -38,7 +38,7 @@ set -uo pipefail
 NAME="check-04-package-releases-reproduce"
 TITLE="освобождения ролей в пакетах пересчитаны по реестру"
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="${CG_GATE_ROOT:-$(cd "$DIR/../.." && pwd)}"
+ROOT="$(python3 "$DIR/../lib/gate_root.py" CG_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 
 python3 "$DIR/applicability.py" verify --rev HEAD --home "$ROOT"
 rc=$?

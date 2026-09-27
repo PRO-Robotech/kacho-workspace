@@ -28,7 +28,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WS="${VAULT_GATE_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+WS="$(python3 "$SCRIPT_DIR/../lib/gate_root.py" VAULT_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 GEN="$WS/scripts/vault-index/generate.py"
 
 if [ ! -x "$GEN" ] && [ ! -f "$GEN" ]; then

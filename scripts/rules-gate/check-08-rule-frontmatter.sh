@@ -4,7 +4,7 @@
 # frontmatter ЦЕЛИ. Файл без frontmatter = правило, которое не доходит до исполнителя:
 # автозагрузка снята `claudeMdExcludes`. Вердикт — в КОДЕ ВЫХОДА.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 rc=0
 n=0
 for f in .claude/rules/*.md; do

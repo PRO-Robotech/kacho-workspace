@@ -13,13 +13,8 @@
 # ТОЛЬКО inject.sh, чтобы прогонять гейт по временной копии дерева с внесённым
 # дефектом и не трогать рабочее (`gate-authoring` §Инъекция).
 tooling_gate_workspace_root() {
-    if [ -n "${TOOLING_GATE_ROOT:-}" ]; then
-        cd "$TOOLING_GATE_ROOT" && pwd
-        return
-    fi
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[1]}")" && pwd)"
-    cd "$script_dir/../.." && pwd
+    # Порядок и отказ рабочему каталогу — в общем резолвере (ws#757).
+    python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" TOOLING_GATE_ROOT "${BASH_SOURCE[1]}"
 }
 
 tooling_gate_pass() { echo "[PASS] $1${2:+ — $2}"; }

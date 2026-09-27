@@ -66,6 +66,10 @@ sandbox() {
     rm -rf "$dir"
     mkdir -p "$dir/scripts" "$dir/.github"
     cp -r "$WS/scripts/change-graph-gate" "$dir/scripts/"
+    # Общая библиотека наборов — предпосылка копии: корень проверки берётся
+    # через `scripts/lib/gate_root.py` (ws#757), и без неё копия набора не
+    # запустилась бы вовсе, а проба судила бы раскладку песочницы.
+    cp -r "$WS/scripts/lib" "$dir/scripts/"
     cp -r "$WS/.github/workflows" "$dir/.github/"
     local rel
     for rel in "${HOOK_PROBES[@]}"; do

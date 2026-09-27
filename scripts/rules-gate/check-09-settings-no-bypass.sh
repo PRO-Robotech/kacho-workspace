@@ -17,7 +17,7 @@
 # выносит вердикт ПОСЛЕ коммита; дерево судится ДО, и хук отправки ловит правку
 # раньше, чем она уедет. Вердикт — в КОДЕ ВЫХОДА: 0 молчит, 1 находка, 2 отказ.
 set -euo pipefail
-cd "$(git rev-parse --show-toplevel)"
+cd "$(python3 "$(dirname "${BASH_SOURCE[0]}")/../lib/gate_root.py" RULES_GATE_ROOT "${BASH_SOURCE[0]}")" || exit 2
 
 S=".claude/settings.json"
 L=".claude/settings.local.json"
