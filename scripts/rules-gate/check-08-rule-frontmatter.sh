@@ -15,12 +15,12 @@ for f in .claude/rules/*.md; do
     rc=1
     continue
   fi
-  if ! sed -n '2,6p' "$f" | grep -qxF "name: rule-${base}"; then
+  if ! grep -qxF -- "name: rule-${base}" <<<"$(sed -n '2,6p' "$f")"; then
     printf 'КРАСНОЕ %s — нет строки «name: rule-%s»\n' "$f" "$base"
     rc=1
     continue
   fi
-  if ! sed -n '2,6p' "$f" | grep -q '^description: .'; then
+  if ! grep -q '^description: .' <<<"$(sed -n '2,6p' "$f")"; then
     printf 'КРАСНОЕ %s — description пуст\n' "$f"
     rc=1
   fi

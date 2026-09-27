@@ -152,7 +152,7 @@ skills_gate_section_resolves() {
     headers="$(grep -E '^#{2,3} ' "$rulefile" | sed -E 's/^#+[[:space:]]*//' | tr -d '[:space:]')"
     while [ -n "$token" ]; do
         needle="$(printf '%s' "$token" | tr -d '[:space:]')"
-        if [ -n "$needle" ] && printf '%s\n' "$headers" | grep -qF -- "$needle"; then
+        if [ -n "$needle" ] && grep -qF -- "$needle" <<<"$headers"; then
             return 0
         fi
         # отбросить последнее слово и повторить

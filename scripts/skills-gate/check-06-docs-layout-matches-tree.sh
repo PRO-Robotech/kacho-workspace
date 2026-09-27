@@ -252,13 +252,13 @@ if [ "$n_rows" -eq 0 ]; then
 else
     if [ -z "$d_site" ]; then
         note "$SKILL_REL: в объявлении нет строки «каталог сайта»"
-    elif ! printf '%s\n' "$tree_site_dirs" | grep -qxF "$d_site"; then
+    elif ! grep -qxF -- "$d_site" <<<"$tree_site_dirs"; then
         note "$SKILL_REL: объявлен каталог сайта «$d_site», дерево знает: $(printf '%s' "$tree_site_dirs" | tr '\n' ' ')"
     fi
 
     if [ -z "$d_pages" ]; then
         note "$SKILL_REL: в объявлении нет строки «каталог страниц»"
-    elif ! printf '%s\n' "$tree_pages_dirs" | grep -qxF "$d_pages"; then
+    elif ! grep -qxF -- "$d_pages" <<<"$tree_pages_dirs"; then
         note "$SKILL_REL: объявлен каталог страниц «$d_pages», конфиги называют: $(printf '%s' "$tree_pages_dirs" | tr '\n' ' ')"
     fi
 

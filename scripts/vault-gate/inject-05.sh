@@ -59,7 +59,7 @@ expect_code() {
 # как непонятный (`gate-authoring` §Исход вместо объявления).
 expect_names() {
     local name="$1" coord="$2" out="$3"
-    if printf '%s' "$out" | grep -qF "$coord"; then
+    if grep -qF -- "$coord" <<<"$out"; then
         echo "[inject OK]   $name (находка названа: $coord)"; ok=$((ok + 1))
     else
         echo "[inject FAIL] $name (в выводе нет координаты $coord)" >&2

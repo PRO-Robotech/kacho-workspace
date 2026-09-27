@@ -190,7 +190,7 @@ probe() {
         return
     fi
     for needle in "$@"; do
-        if ! printf '%s\n' "$out" | grep -qF -- "$needle"; then
+        if ! grep -qF -- "$needle" <<<"$out"; then
             tooling_gate_fail "$NAME" "$title — код $rc верен, но в выводе нет «$needle»"
             printf '%s\n' "${out//$'\n'/$'\n'      }" | sed 's/^/      /' >&2
             findings=$((findings + 1))

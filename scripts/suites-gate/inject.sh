@@ -470,6 +470,91 @@ expect 1 "$b" "инъекция: команда есть, но её вывод �
 b="$(mkbox)"; commit "$b"
 expect 2 "$b" "предпосылка: наборов нет — VOID" "$C06" "наборов scripts/*/run-all.sh"
 
+# ── check-07: вердикт из трубы в grep -q под pipefail ───────────────────────
+#
+# Сначала — что класс НАСТОЯЩИЙ, а не теоретический: сама форма, исполненная на
+# входе, где искомое ЕСТЬ (первой строкой), под pipefail отвечает «не найдено»,
+# а законная форма — «найдено». Без этой пробы гейт ловил бы стиль, а не дефект.
+C07="check-07-no-verdict-from-a-pipe.py"
+echo "== check-07: вердикт из трубы в grep -q под pipefail =="
+probes=$((probes + 1))
+premise="$(bash -c 'set -o pipefail; big="$(seq 1 300000)"; if printf "%s\n" "$big" | grep -q "^1$"; then echo pipe:found; else echo pipe:lost; fi; if grep -q "^1$" <<<"$big"; then echo herestring:found; else echo herestring:lost; fi')"
+if grep -qx 'pipe:lost' <<<"$premise" && grep -qx 'herestring:found' <<<"$premise"; then
+    echo "  ok   предпосылка класса: труба в grep -q под pipefail объявила найденное ненайденным, here-string — нашёл"
+else
+    echo "  ПРОВАЛ предпосылка класса не воспроизвелась: ${premise//$'\n'/, }" >&2
+    failed=$((failed + 1))
+fi
+
+# pipescript <песочница> <набор> <имя> <строки кода>… — скрипт набора под pipefail
+pipescript() {
+    local box="$1" s="$2" name="$3" line; shift 3
+    {
+        printf '#!/usr/bin/env bash\nset -uo pipefail\nout="$(cat)"\n'
+        for line in "$@"; do printf '%s\n' "$line"; done
+    } > "$box/scripts/$s/$name"
+}
+
+LAWFUL='if grep -qF -- "находка" <<<"$out"; then exit 1; fi'
+PIPED='if printf "%s\n" "$out" | grep -qF -- "находка"; then exit 1; fi'
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    pipescript "$b" "$s" check-01-probe.sh "$LAWFUL" \
+        '# форма в комментарии — не код: printf "%s" "$out" | grep -q x' \
+        'echo "printf | grep -q — в строке, а не в трубе"'
+done
+commit "$b"
+expect 0 "$b" "близнец: чтение и поиск разведены; форма в комментарии и в строке — молчит" "$C07" \
+    "форм «труба в grep -q» 0"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"
+        if [ "$t" = "$s" ]; then pipescript "$b" "$t" check-01-probe.sh "$PIPED"
+        else pipescript "$b" "$t" check-01-probe.sh "$LAWFUL"; fi
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: труба в grep -q под pipefail — краснеет с координатой" "$C07" \
+        "scripts/$s/check-01-probe.sh:4 — вердикт из трубы в grep" "находок 1"
+done
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then
+        pipescript "$b" "$s" check-01-probe.sh "$LAWFUL  # pipe-safe: писатель доживает до конца"
+    else pipescript "$b" "$s" check-01-probe.sh "$LAWFUL"; fi
+done
+commit "$b"
+expect 1 "$b" "инъекция: пометка pipe-safe там, где трубы нет — послабление без предмета" "$C07" \
+    "пометка \`pipe-safe\` на строке, где трубы в grep нет"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then
+        pipescript "$b" "$s" check-01-probe.sh "$PIPED  # pipe-safe: вход — одна строка, писатель доживает до конца"
+    else pipescript "$b" "$s" check-01-probe.sh "$LAWFUL"; fi
+done
+commit "$b"
+expect 0 "$b" "близнец: труба, помеченная pipe-safe с причиной, — молчит и сочтена" "$C07" \
+    "помечено pipe-safe 1"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    printf '#!/usr/bin/env bash\nout="$(cat)"\n%s\n' "$PIPED" > "$b/scripts/$s/check-01-probe.sh"
+done
+commit "$b"
+expect 0 "$b" "близнец: та же труба БЕЗ pipefail — исход равен исходу grep, молчит" "$C07" \
+    "без pipefail $((2 * ${#SUITES[@]}))"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID" "$C07" "наборов scripts/*/run-all.sh"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
