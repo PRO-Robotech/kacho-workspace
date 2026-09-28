@@ -810,12 +810,47 @@ if mr_patch "$b/$MR_REL" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 
-# Законный близнец: «последний» другой записью.
+# Порядок прогонов перед `last` не держался ничем (ws#862, находка M4
+# check-verifier): фикстуры O и S кладут прежний прогон первым, и без сортировки
+# `last` брал верный прогон случайно. Сосед отдаёт новый прогон ПЕРВЫМ, и на таком
+# порядке `last` без сортировки судит прежний. Инъекция снимает только сортировку
+# и обязана уронить РОВНО пробу в порядке соседа: красное от чужой пробы значило
+# бы, что держит не она.
+#
+# mr_run_only_probe <песочница> <имя-пробы> <заголовок пробы, обязанной покраснеть>
+# Код 1, проба с находкой ОДНА, и это названная. Число берётся из итога check-09
+# («проб с находкой: N из M»), заголовок — из её строки [FAIL].
+mr_run_only_probe() {
+    local box="$1" name="$2" title="$3" out got
+    local c9=check-09-merge-readiness-tells-three-outcomes-apart
+    premise_or_void
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$c9.sh" 2>&1)"; got=$?
+    if [ "$got" -eq 1 ] && grep -qF -- "проб с находкой: 1 из" <<<"$out" \
+        && grep -qF -- "[FAIL] $c9 — $title — " <<<"$out"; then
+        echo "  ok   $name (код $got, проба с находкой одна — «$title»)"
+    else
+        echo "  ПРОВАЛ $name — ждали код 1 и одну пробу с находкой «$title», получили код $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at) \/\/ empty/' \
+    's/\| sort_by\(\.created_at, \.id\) \| last \/\/ empty/| last \/\/ empty/' \
+    "сортировка прогонов перед last снята"; then
+    mr_run_only_probe "$b" "инъекция: сортировка прогонов снята — краснеет ровно проба в порядке соседа" \
+        "воркспейс: сосед отдал новый прогон первым — судит последний, а не прежний зелёный"
+fi
+
+# Законный близнец: «последний» другой записью, тем же ключом. Проба судит
+# исход, а не текст: `max_by` по тому же ключу выбирает тот же прогон.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at, .id) \/\/ empty/' \
     "последний прогон другой записью"; then
-    run 0 "$b" "близнец: последний прогон головы другой записью — молчит" \
+    run 0 "$b" "близнец: последний прогон головы другой записью (max_by тем же ключом) — молчит" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 

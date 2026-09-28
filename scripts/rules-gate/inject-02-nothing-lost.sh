@@ -373,7 +373,7 @@ assert_says "БАЗА БОЛЬШЕ ПОТОЛКА: CLAUDE.md" "  ...и назв�
 d="$(sandbox k_twin)"; b="$(sandbox_digest "$d")"
 seam_disp="$(sandbox_ceiling "$d" .claude/agents/dispatcher.md MEDIAN)"
 seam="$seam_disp;$(sandbox_ceiling "$d" CLAUDE.md MEDIAN)"
-kt_base="${seam_disp#*=}"; kt_base="${kt_base%+*}"; kt_spare="${seam_disp##*+}"
+kt_base="${seam_disp#*=}"; kt_base="${kt_base%+*}"; kt_spare="${seam_disp##*+}"; kt_spare="${kt_spare%/*}"
 inj02_append_to_last_par "$d/.claude/agents/dispatcher.md" 'Строка, дописанная в базу по решению.
 '
 inj02_append_to_last_par "$d/CLAUDE.md" 'Строка, дописанная в протокол по решению.
@@ -453,7 +453,7 @@ PY
 }
 
 inj02_median() {   # <каталог> <относительный путь> → медианный абзац тела, в байтах
-    sandbox_ceiling "$1" "$2" MEDIAN | sed 's/.*+//'
+    sandbox_ceiling "$1" "$2" MEDIAN | sed 's/.*+//; s:/.*::'
 }
 
 d="$(sandbox n_fit)"; b="$(sandbox_digest "$d")"
@@ -469,6 +469,301 @@ inj02_append_bytes "$d/$DISP" "$((med + 1))"
 capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$(sandbox_ceiling "$WS" "$DISP" MEDIAN)"
 assert_code 1 "ДЕФЕКТ: абзац плюс ОДИН байт — потолок перейден"
 assert_number "перебор" 1 "  ...и перебор назван ЧИСЛОМ: барьер стоит там, где измерено"
+
+# ── ось N'': ТРАТА ЗАПАСА НОВЫМ АБЗАЦЕМ — НЕ НАХОДКА ПО ОСИ ЗАПАСА (ws#854) ──
+#
+# Находка check-verifier на `58631015`: один короткий законный абзац в `CLAUDE.md`
+# краснил «ЗАПАС ЩЕДРЕЕ АБЗАЦА» (медиана 604 → 541 Б) при теле 12 269 ниже
+# потолка 12 627. Новый абзац меньше медианы сдвигает её на соседний элемент, и
+# сверка объявленного запаса с медианой ТЕКУЩЕГО тела судила дрейф, а не
+# объявление. Близнецов импорта от этого изолировал `be86f608`, живое дерево —
+# нет. Пары две, и каждая меняет один факт: тело не выше потолка — молчание,
+# тело выше потолка — «БАЗА БОЛЬШЕ ПОТОЛКА» и ни слова про запас.
+#
+#   (1) ШОВ: объявление свежее у САМОЙ песочницы (тело плюс медиана ДО
+#       дописывания), затем дописаны короткие абзацы — столько, чтобы медиана
+#       сдвинулась наверняка: один при чётном числе абзацев, два при нечётном
+#       (при нечётном один абзац оставляет медиану на месте, и проба не судила
+#       бы свой класс). Сдвиг медианы НИЖЕ запаса — предпосылка фикстуры, она
+#       утверждается, а не предполагается. От живого остатка пара не зависит.
+#   (2) ЖИВОЕ ОБЪЯВЛЕНИЕ, без шва — ровно то, что мерил check-verifier: один новый
+#       абзац добирает живой остаток до потолка РОВНО (молчит; сравнение строгое),
+#       и на байт больше (краснеет «перебор 1»). Размер выводится из остатка, а
+#       не выписан, — иначе он стал бы вторым, скрытым потолком (врезка у оси K).
+#       Остаток меньше трёх байт абзаца не вмещает: это исчерпанный запас, а не
+#       дефект проверки, и проба говорит это своим текстом.
+echo
+echo "== ось N'': трата запаса новым абзацем =="
+
+# inj02_append_new_par <файл> <текст без переводов строк> — НОВЫЙ абзац: пустая
+# строка и текст. Предпосылка та же, что у соседей: файл кончается ОДНИМ
+# переводом строки, иначе граница абзаца была бы не той, что задумана.
+inj02_append_new_par() {
+    python3 - "$1" "$2" <<'PY'
+import io, sys
+path, txt = sys.argv[1], sys.argv[2]
+data = io.open(path, "rb").read()
+if not data.endswith(b"\n") or data.endswith(b"\n\n"):
+    raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: %s не кончается ровно одним переводом строки" % path)
+assert txt and "\n" not in txt, repr(txt)
+io.open(path, "a", encoding="utf-8").write("\n" + txt + "\n")
+PY
+}
+
+N2_PAR='Короткий законный абзац, дописанный в протокол.'
+
+# n2_spend <каталог> — фикстура пары (1): печатает шов свежего объявления
+# песочницы, снятого ДО дописывания, и дописывает абзацы по чётности.
+n2_spend() {
+    local dir="$1" seam pars k i
+    seam="$(sandbox_ceiling "$dir" CLAUDE.md MEDIAN)"
+    pars="$(sandbox_ceiling "$dir" CLAUDE.md PARAGRAPHS)"
+    k=$(( pars % 2 == 0 ? 1 : 2 ))
+    for ((i = 0; i < k; i++)); do inj02_append_new_par "$dir/CLAUDE.md" "$N2_PAR"; done
+    printf '%s' "$seam"
+}
+
+d="$(sandbox n2_spend)"; b="$(sandbox_digest "$d")"
+n2_seam="$(n2_spend "$d")"
+n2_base="${n2_seam#*=}"; n2_base="${n2_base%+*}"; n2_spare="${n2_seam##*+}"; n2_spare="${n2_spare%/*}"
+n2_med="$(inj02_median "$d" CLAUDE.md)"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: в протокол дописаны короткие абзацы"
+if [ "$n2_med" -lt "$n2_spare" ]; then
+    echo "  [OK]   ФИКСТУРА: медиана протокола сдвинулась ниже запаса ($n2_spare → $n2_med Б) — класс воспроизведён"
+    pass=$((pass + 1))
+else
+    echo "  [FAIL] ФИКСТУРА не воспроизвела класс: медиана $n2_med Б не ниже запаса $n2_spare Б —" \
+         "молчание ниже ничего не доказывало бы" >&2
+    fail=$((fail + 1))
+fi
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$n2_seam"
+assert_code 0 "БЛИЗНЕЦ: законный абзац, тело ниже потолка — ось запаса молчит"
+assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и сдвиг медианы тратой запаса находкой не назван"
+assert_says "CLAUDE.md — тело" "  ...и перепись называет тело протокола"
+assert_says "запас тратится" "  ...и перепись говорит, что запас тратится и сверен с верхней оценкой, а не с медианой тела"
+
+d="$(sandbox n2_spend_over)"
+n2_seam="$(n2_spend "$d")"
+n2_base="${n2_seam#*=}"; n2_base="${n2_base%+*}"; n2_spare="${n2_seam##*+}"; n2_spare="${n2_spare%/*}"
+n2_size="$(sandbox_ceiling "$d" CLAUDE.md 0)"; n2_size="${n2_size#*=}"; n2_size="${n2_size%+*}"
+inj02_append_bytes "$d/CLAUDE.md" "$(( n2_base + n2_spare - n2_size + 1 ))"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$n2_seam"
+assert_code 1 "ДЕФЕКТ: те же абзацы, тело на байт выше потолка — краснеет"
+assert_says "БАЗА БОЛЬШЕ ПОТОЛКА: CLAUDE.md" "  ...и вердикт назван своим именем"
+assert_number "перебор" 1 "  ...и перебор назван ЧИСЛОМ"
+assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и диагноз ОДИН: красное от тела, а не от медианы"
+
+# (2) Живое объявление. Потолок и тело берутся У ПРОВЕРКИ — строкой её переписи на
+# нетронутой копии, — а не выписываются: выписанные, они разошлись бы с
+# объявлением в самой проверке молча.
+d="$(sandbox n2_live)"; b="$(sandbox_digest "$d")"
+capture "$d" "$C2N"
+assert_code 0 "КОНТРОЛЬ оси N'': нетронутая копия под живым объявлением молчит"
+n2_live="$(printf '%s\n' "$OUT" | grep -oE 'CLAUDE\.md — тело [0-9]+ Б при потолке [0-9]+ Б' | head -1)"
+n2_body="$(printf '%s' "$n2_live" | sed -E 's/.* тело ([0-9]+) Б.*/\1/')"
+n2_cap="$(printf '%s' "$n2_live" | sed -E 's/.* потолке ([0-9]+) Б.*/\1/')"
+if ! printf '%s' "$n2_body" | grep -qE '^[0-9]+$' || ! printf '%s' "$n2_cap" | grep -qE '^[0-9]+$'; then
+    echo "  [FAIL] ось N'': тело и потолок протокола не прочитаны из переписи (получено «$n2_live»)" >&2
+    fail=$((fail + 1))
+elif [ $(( n2_cap - n2_body )) -lt 3 ]; then
+    echo "  [FAIL] ось N'' НЕИСПОЛНИМА на живом объявлении: остаток протокола $(( n2_cap - n2_body )) Б —" \
+         "абзац (пустая строка, знак, перевод строки) не помещается. Это исчерпанный запас, а" \
+         "не дефект check-02: потолок поднимается замером — тело плюс медианный абзац" >&2
+    fail=$((fail + 1))
+else
+    n2_room=$(( n2_cap - n2_body ))
+    n2_before="$(inj02_median "$d" CLAUDE.md)"
+    inj02_append_new_par "$d/CLAUDE.md" "$(printf 'x%.0s' $(seq $(( n2_room - 2 ))))"
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: новый абзац добрал живой остаток $n2_room Б до потолка $n2_cap"
+    capture "$d" "$C2N"
+    assert_code 0 "БЛИЗНЕЦ: живое объявление, абзац в остаток (медиана $n2_before → $(inj02_median "$d" CLAUDE.md) Б) — молчит"
+    assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и ось запаса на живом дереве молчит"
+
+    d="$(sandbox n2_live_over)"
+    inj02_append_new_par "$d/CLAUDE.md" "$(printf 'x%.0s' $(seq $(( n2_room - 1 ))))"
+    capture "$d" "$C2N"
+    assert_code 1 "ДЕФЕКТ: тот же абзац на байт длиннее — тело выше живого потолка, краснеет"
+    assert_says "БАЗА БОЛЬШЕ ПОТОЛКА: CLAUDE.md" "  ...и вердикт назван своим именем"
+    assert_number "перебор" 1 "  ...и перебор назван ЧИСЛОМ: барьер живого объявления там, где объявлен"
+fi
+
+# ── ось N''': ПОДЪЁМ ЗАПАСА БЕЗ ЗАМЕРА — НАХОДКА И ТОГДА, КОГДА ЗАПАС ТРАТИТСЯ ─
+#
+# Возврат check-verifier на `d925bdef` (ws#854). Там обе оси запаса судили
+# ТОЛЬКО свежее объявление, и шапка утверждала, что подъём запаса при старом
+# теле дерево от законной траты не отличает. Опыт опроверг это: поднят ОДИН
+# запас (`CLAUDE.md` 12 023 + 2 000, база 108 753 + 5 000) — до `d925bdef` код 1,
+# на нём код 0, а база стояла в 10 Б от потолка, то есть это самый вероятный
+# обход. Отличить можно, если объявление несёт число абзацев ЯКОРЯ n — ревизии,
+# где медиана не меньше запаса: пока абзацы только дописываются, удлиняются или
+# снимаются, медиана якоря не длиннее абзаца номер n//2 + max(0, N − n) текущего
+# тела из N абзацев. Эту оценку гейт считает и печатает в переписи.
+#
+# ПАРЫ, И КАЖДАЯ МЕНЯЕТ ОДИН ФАКТ:
+#   (1) короткий законный абзац под живым объявлением — молчит, и оценка на нём
+#       не сдвигается (опыт check-verifier: граница 604 Б, молчание);
+#   (2) тот же короткий абзац, и ОДИН запас поднят без замера — числами опыта
+#       check-verifier (2 000 и 5 000) и на байт выше оценки — краснеет «ЗАПАС
+#       ЩЕДРЕЕ АБЗАЦА»; запас, равный оценке, молчит: граница стоит там, где её
+#       называет перепись, и подъём ДО оценки дерево не видит — это названо;
+#   (3) ПРЕДЕЛ оценки: абзац длиннее медианы укорочен — оценка падает ниже
+#       запаса, и гейт краснеет, не отличая это от подъёма; находка называет
+#       перемер якоря (первый операнд прежний), и перемер молчит;
+#   (4) свежее объявление с числом абзацев не по замеру — «ЯКОРЬ НЕ ВЫВЕДЕН
+#       ЗАМЕРОМ»; якорь, у которого снято больше половины абзацев, — «ЗАПАС НЕ
+#       СУДИМ»; якорь 0 в шве — код 2.
+echo
+echo "== ось N''': подъём запаса без замера на тратящемся объявлении =="
+
+# n3_field <путь> <base|spare|anchor|bound> — число из строки переписи последнего
+# capture. Строка файла — от «<путь> — тело» до «; » следующей.
+n3_field() {
+    python3 -c '
+import re, sys
+rel, field, text = sys.argv[1], sys.argv[2], sys.argv[3]
+row = re.search(re.escape(rel) + r" — тело \d+ Б при потолке \d+ Б = (?P<base>\d+) \+ запас (?P<spare>\d+) Б(?P<rest>[^;]*)", text)
+if not row:
+    sys.exit(1)
+if field in ("base", "spare"):
+    print(row.group(field)); sys.exit(0)
+m = re.search(r"якорь: абзацев (?P<anchor>\d+), верхняя оценка медианы якоря (?P<bound>\d+) Б", row.group("rest"))
+if not m:
+    sys.exit(1)
+print(m.group(field))
+' "$1" "$2" "$OUT"
+}
+
+n3_is_num() { printf '%s' "$1" | grep -qE '^[0-9]+$'; }
+
+# n3_lt <a> <b> — оба числа и a < b; нечисло — ложь, а не ошибка разбора.
+n3_lt() { n3_is_num "$1" && n3_is_num "$2" && [ "$1" -lt "$2" ]; }
+
+n3_premise() {   # <утверждение-предпосылка> <условие: команда с аргументами...>
+    local msg="$1"
+    shift
+    if "$@"; then
+        echo "  [OK]   ФИКСТУРА: $msg"; pass=$((pass + 1))
+    else
+        echo "  [FAIL] ФИКСТУРА: $msg — не выполнено, утверждения ниже ничего не доказывали бы" >&2
+        fail=$((fail + 1))
+    fi
+}
+
+# (1) Контроль и короткий абзац под ЖИВЫМ объявлением.
+d="$(sandbox n3_live)"
+capture "$d" "$C2N"
+assert_code 0 "КОНТРОЛЬ оси N''': нетронутая копия под живым объявлением молчит"
+n3_cb="$(n3_field CLAUDE.md base)"; n3_db="$(n3_field "$DISP" base)"
+n3_ca="$(n3_field CLAUDE.md anchor)"; n3_cbound="$(n3_field CLAUDE.md bound)"
+n3_dbound="$(n3_field "$DISP" bound)"
+n3_premise "перепись называет первый операнд потолка протокола ($n3_cb)" n3_lt 0 "$n3_cb"
+n3_premise "перепись называет первый операнд потолка базы ($n3_db)" n3_lt 0 "$n3_db"
+if n3_is_num "$n3_ca" && n3_is_num "$n3_cbound" && n3_is_num "$n3_dbound"; then
+    echo "  [OK]   ...и перепись называет якорь и верхнюю оценку медианы якоря (CLAUDE.md $n3_cbound Б при абзацах якоря $n3_ca, база $n3_dbound Б)"
+    pass=$((pass + 1))
+else
+    echo "  [FAIL] ...перепись не называет якорь и верхнюю оценку медианы якоря: судить запас на тратящемся объявлении нечем" >&2
+    printf '%s\n' "$OUT" | sed 's/^/         | /' >&2
+    fail=$((fail + 1))
+fi
+
+b="$(sandbox_digest "$d")"
+inj02_append_new_par "$d/CLAUDE.md" "$N2_PAR"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: в протокол дописан короткий абзац"
+capture "$d" "$C2N"
+assert_code 0 "БЛИЗНЕЦ: короткий абзац под живым объявлением — трата запаса, молчит"
+assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и сдвиг медианы находкой по оси запаса не назван"
+if n3_is_num "$n3_cbound"; then
+    assert_says "верхняя оценка медианы якоря $n3_cbound Б" \
+        "  ...и оценка короткий абзац не сдвинула: граница прежняя, $n3_cbound Б"
+fi
+
+# (2) Тот же короткий абзац, и поднят ОДИН запас. Числа опыта check-verifier —
+# дословно; оценка обязана быть ниже них, иначе опыт на этом дереве не судил бы.
+if n3_is_num "$n3_cbound"; then
+    n3_premise "оценка протокола ($n3_cbound Б) ниже числа опыта 2 000" n3_lt "$n3_cbound" 2000
+    n3_premise "оценка базы ($n3_dbound Б) ниже числа опыта 5 000" n3_lt "$n3_dbound" 5000
+fi
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_cb+2000"
+assert_code 1 "ДЕФЕКТ: запас протокола поднят до 2 000 Б при прежнем теле — краснеет"
+assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА: CLAUDE.md" "  ...и вердикт назван своим именем"
+assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН: тело потолка не перешагивало"
+
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$DISP=$n3_db+5000"
+assert_code 1 "ДЕФЕКТ: запас базы поднят до 5 000 Б при прежнем теле — краснеет"
+assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА: $DISP" "  ...и названа ИМЕННО база"
+assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН"
+
+if n3_is_num "$n3_cbound" && n3_is_num "$n3_dbound"; then
+    capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_cb+$n3_cbound"
+    assert_code 0 "ГРАНИЦА: запас протокола равен оценке ($n3_cbound Б) — молчит, барьер там, где назван"
+    capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_cb+$(( n3_cbound + 1 ))"
+    assert_code 1 "ДЕФЕКТ: запас протокола на байт выше оценки — краснеет"
+    assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА: CLAUDE.md" "  ...и вердикт назван своим именем"
+    assert_number "верхней оценки медианы якоря" "$n3_cbound" "  ...и оценка названа числом"
+    capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$DISP=$n3_db+$(( n3_dbound + 1 ))"
+    assert_code 1 "ДЕФЕКТ: запас базы на байт выше оценки — краснеет"
+    assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА: $DISP" "  ...и названа ИМЕННО база"
+fi
+
+# (3) ПРЕДЕЛ оценки и перемер якоря. Якорь — свежее объявление САМОЙ песочницы;
+# затем один абзац длиннее медианы (не таблица, не ограда, не импорт) сокращается
+# до короткой фразы. Счёт абзацев прежний, коротких стало на один больше, и
+# оценка падает ниже запаса — это утверждается, а не предполагается.
+d="$(sandbox n3_shrink)"; b="$(sandbox_digest "$d")"
+n3_anchor="$(sandbox_ceiling "$d" CLAUDE.md MEDIAN)"
+n3_abase="${n3_anchor#*=}"; n3_abase="${n3_abase%%+*}"
+n3_aspare="${n3_anchor##*+}"; n3_aspare="${n3_aspare%%/*}"
+n3_after="$(python3 - "$d/CLAUDE.md" "$n3_aspare" <<'PY'
+import io, sys
+path, med = sys.argv[1], int(sys.argv[2])
+text = io.open(path, encoding="utf-8").read()
+pars = text.split("\n\n")
+def judged(p):
+    return p.strip() and not p.lstrip().startswith("#")
+for i, p in enumerate(pars):
+    s = p.lstrip()
+    if (judged(p) and len(p.encode()) > med and "```" not in p and "~~~" not in p
+            and not s.startswith("|") and not s.startswith("@")):
+        pars[i] = "Абзац, сокращённый правкой."
+        break
+else:
+    raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: абзаца длиннее медианы без ограды и таблицы нет")
+io.open(path, "w", encoding="utf-8").write("\n\n".join(pars))
+sizes = sorted(len(p.encode()) for p in pars if judged(p))
+print(sizes[len(sizes) // 2], len(sizes), sizes[len(sizes) // 2])
+PY
+)"
+assert_fixture_changed "$d" "$b" "ПРЕДЕЛ: абзац длиннее медианы сокращён"
+n3_med_now="${n3_after%% *}"; n3_npar_now="$(printf '%s' "$n3_after" | cut -d' ' -f2)"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$n3_anchor"
+n3_sbound="$(n3_field CLAUDE.md bound)"
+n3_premise "оценка после сокращения ниже запаса якоря (${n3_sbound:-?} < $n3_aspare Б) — предел воспроизведён" \
+    n3_lt "$n3_sbound" "$n3_aspare"
+assert_code 1 "ПРЕДЕЛ: сокращённый абзац опускает оценку — дерево не отличает это от подъёма, краснеет"
+assert_says "ЗАПАС ЩЕДРЕЕ АБЗАЦА: CLAUDE.md" "  ...и вердикт назван своим именем"
+assert_says "перемерь якорь" "  ...и находка называет перемер, а не только подъём"
+assert_lacks "БАЗА БОЛЬШЕ ПОТОЛКА" "  ...и диагноз ОДИН"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_abase+$n3_med_now/$n3_npar_now"
+assert_code 0 "ПЕРЕМЕР: первый операнд прежний, запас — медиана текущего тела ($n3_med_now Б), якорь $n3_npar_now — молчит"
+
+# (4) Якорь в шве: число абзацев свежего объявления, снятая половина, ноль.
+d="$(sandbox n3_anchor)"
+n3_fresh="$(sandbox_ceiling "$d" CLAUDE.md MEDIAN)"
+n3_fnpar="$(sandbox_ceiling "$d" CLAUDE.md PARAGRAPHS)"
+n3_fbs="${n3_fresh%/*}"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$n3_fbs/$(( n3_fnpar - 1 ))"
+assert_code 1 "ДЕФЕКТ: свежее объявление с якорем на абзац меньше замера — краснеет"
+assert_says "ЯКОРЬ НЕ ВЫВЕДЕН ЗАМЕРОМ: CLAUDE.md" "  ...и вердикт назван своим именем"
+assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и диагноз ОДИН: запас выведен верно"
+assert_lacks "ЗАПАС НЕ ВЫВЕДЕН ЗАМЕРОМ" "  ...и диагноз ОДИН: запас выведен верно"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="$n3_fbs/$n3_fnpar"
+assert_code 0 "БЛИЗНЕЦ: свежее объявление с якорем по замеру — молчит"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_cb+$n3_aspare/$(( 2 * n3_fnpar + 2 ))"
+assert_code 1 "ДЕФЕКТ: у якоря снято больше половины абзацев — оценки нет, краснеет"
+assert_says "ЗАПАС НЕ СУДИМ: CLAUDE.md" "  ...и вердикт назван своим именем"
+capture "$d" "$C2N" RULES_GATE_BASE_CEILING="CLAUDE.md=$n3_cb+$n3_aspare/0"
+assert_code 2 "ШОВ: якорь 0 — код 2, а не оценка по пустому якорю"
 
 # ── ось L: перепись называет ОСМОТРЕННОЕ, а не только прочитанное ───────────
 #
