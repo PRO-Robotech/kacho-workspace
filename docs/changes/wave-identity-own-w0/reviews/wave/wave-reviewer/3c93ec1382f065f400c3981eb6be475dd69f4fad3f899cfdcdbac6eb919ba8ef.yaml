@@ -1,0 +1,156 @@
+# Ревью ВОЛНЫ: роль wave-reviewer. Волна-0 цели identity-own. Повторный круг.
+# Имя файла — content_digest. Предмет круга — ТОЛЬКО дельта b579b9eec9c→ab1ad6ee88a:
+# закрыт ли единственный блокер прежнего круга B1 во всех местах и формулировках.
+# Прежняя запись: ветка review/wave0-post-diff-sd воркспейса, коммит 8b2acdd7,
+# docs/changes/wave-identity-own-w0/reviews/wave/wave-reviewer/332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c.yaml.
+# Сборка и конвейер здесь не судятся.
+schema_version: 1
+change_id: wave-identity-own-w0
+holder: wave/wave-reviewer
+owner: wave-reviewer
+round: 2
+previous_record: {commit: 8b2acdd7, digest: 332117864d566ed738cf8fb129e70d159af9a9e2749b816cccf251666dd92c8c, verdict: 'возврат', blocking: [B1]}
+
+fingerprint:
+  repo: PRO-Robotech/kacho
+  branch: wave/identity-own-w0-kacho
+  pr: PRO-Robotech/kacho#2787
+  base: bec320cf47d668173bf27f60ebaf6cbe413a4903
+  head: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+  previous_head: b579b9eec9c918e23c8e76a1dd2c68edd8688f09
+  commits: 87        # git rev-list --count base..head (77 обычных и 10 слияний)
+  files: 68          # git diff --name-only base...head | wc -l
+  lines: 11633       # git diff --numstat base...head: +11233 −400
+content_digest: sha256:3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef
+digest_definition: 'git -C project/kacho diff bec320cf47d...ab1ad6ee88a | sha256sum'
+
+subject_preflight:
+  digest: >-
+    Снят своей командой: 3c93ec1382f0…ba8ef, совпадает с объявленным. Прежняя
+    голова b579b9eec9c той же командой даёт 332117864d56…92c8c, совпадает с
+    дайджестом прежней записи.
+  head_on_origin: 'git ls-remote origin refs/heads/wave/identity-own-w0-kacho → ab1ad6ee88a, совпадает. gh pr view 2787 → OPEN, headRefOid ab1ad6ee88a, base main.'
+  merge_base: 'git rev-list --count bec320cf47d..origin/main → 0: ствол от базы не ушёл.'
+  delta_from_previous: >-
+    merge-base --is-ancestor b579b9eec9c ab1ad6ee88a → да. Дельта — два коммита:
+    fe777cbebf8 «docs(gateway): адрес поставщика читается по множеству носителей»
+    (Closes #2788) и слияние ab1ad6ee88a. 7 файлов, +60 −28 (88 строк).
+  identity: 'Автор и коммитер обоих коммитов — pointpu <pointpu@prorobotech.ru>; трейлеров атрибуции в телах нет.'
+  worktree: 'Судился detached worktree tmp/wr-w0-ab1a на голове; git status --porcelain → 0.'
+
+# ── ДЕЛЬТА: ЗАЯВЛЕНИЕ «ТОЛЬКО КОММЕНТАРИИ» ПРОВЕРЕНО РАЗБОРОМ ────────────────
+comments_only:
+  claim: 'fe777cbebf8: «Менялись только комментарии: исполняемая часть и значения профилей те же».'
+  go: >-
+    Каждый из 6 Go-файлов дельты разобран go/parser без ParseComments и
+    напечатан go/printer на b579 и на ab1a. Совпали 6 из 6, строковые литералы
+    включены. Контроль в обратную сторону: символ, внесённый в литерал t.Errorf
+    session_carrier_knobs_test.go, даёт различие в 2 строках. Прибор различие
+    ловит.
+  template: >-
+    gateway/deploy/templates/deployment.yaml: после снятия блоков {{/* */}} и
+    строк-комментариев YAML осталось 392 строки на b579 и 392 на ab1a, все
+    равны.
+  profiles: 'Файлов values*.yaml в дельте 0.'
+  verdict: подтверждено
+
+# ── B1: ЗАКРЫТ ───────────────────────────────────────────────────────────────
+blocker_B1:
+  kind: 'четвёртый вид: полоса сняла ПРЕДМЕТ, а текст дерева о нём не знает (.claude/backup/multi-agent-flow-orchestration.md §14 «Четвёртый вид…»)'
+  lanes: [L5, F5]
+  status: ЗАКРЫТ
+  places:
+    - was: 'gateway/internal/config/config.go:46 «read under `external` only»'
+      now: 'gateway/internal/config/config.go:46-50 — читается, когда множество носителей читает чужую сторону; решает множество, а не посадка; обязателен, если SESSION_CARRIERS называет `external`, в том числе `own,external` под `own`'
+    - was: 'gateway/internal/config/config.go:289-291 «Читается ТОЛЬКО под посадкой `external` … под `own` … не заводится вовсе — независимо от того, задан ли этот адрес»'
+      now: 'gateway/internal/config/config.go:293-301 — решает множество (ResolvedSessionCarriers, ветки main.go `sessionCarriers.ReadsProvider()`); если множество не объявлено, оно выводится из посадки, и под `own` адрес не читается; если объявлено со стороной `external`, адрес обязателен, а пустой или `disabled` страж старта отвергает'
+    - was: 'gateway/deploy/templates/deployment.yaml:179-181 «ЧИТАЕТСЯ ТОЛЬКО ПОД ПОСАДКОЙ `external` … адрес поставщика краем не читается вовсе»'
+      now: 'gateway/deploy/templates/deployment.yaml:177-186 — тот же смысл; `disabled` выключает чтение сессии поставщика и нашей сессии не касается'
+  wider_than_returned: >-
+    Писатель переписал тем же смыслом и четыре места в файлах проб, которые
+    прежний круг не называл: own_lane_readers_wiring_test.go:156-159,177-178 ·
+    own_session_lane_test.go:71-73,186-187 · session_carrier_names_gate_test.go:25-28 ·
+    session_lanes_agree_test.go:42-46. Два из этих файлов — own_session_lane_test.go
+    и session_carrier_names_gate_test.go — впервые вошли в дифф волны: путей
+    было 66, стало 68, ушедших 0. Оба файла есть в базе, другие полосы их не
+    трогают. Утверждение own_session_lane_test.go («поставщик НЕ провязан» под
+    `own`) первый предикат видел уже на b579, но в список B1 прежний круг его не
+    внёс. Работа шире возврата, а не заявление шире сделанного: сообщение
+    коммита называет четыре файла проб, и их действительно четыре.
+  truth_of_new_text:
+    - 'Если множество не объявлено, оно выводится из посадки: own даёт наш носитель, external — чужой. Код: gateway/internal/config/sessioncarriers.go:129-151. Проба TestSessionCarriers_UndeclaredDerivesTodaysBehaviourFromThePosture — PASS @ab1a.'
+    - 'Объявленный чужой читатель с адресом «» или `disabled` получает отказ старта. Код: gateway/cmd/api-gateway/session_carrier_validation.go:190-199. Пробы TestSessionCarrierGuard_ADeclaredProviderReaderWithoutItsAddressIsRefused и TestSessionCarrierGuard_EveryPostureCarrierPairIsJudged — PASS @ab1a.'
+    - '`disabled` снимает только чтение сессии поставщика (main.go:229-235, :1209); наш читатель заводится по ReadsOwn() без условия на адрес (main.go:245, :1217).'
+    - 'Распознаватель посадки называет ветку посадки в тексте находки нового гейта (session_carrier_wiring_test.go:363-380) — как утверждает own_lane_readers_wiring_test.go:156-159. Ось TestBrowserSessionLanesAgree_OnTheTransitionalWindowAxis, названная в session_lanes_agree_test.go:46, существует (:366), PASS @ab1a.'
+  residual_census:
+    # Число о дереве «остатков прежнего утверждения на голове: 0» — двумя
+    # независимыми предикатами; оба имеют положительный контроль на b579.
+    by_wording:
+      predicate: "git grep -P 'external` only|under `external` only|only under `?external|ТОЛЬКО ПОД ПОСАДКОЙ|[Тт]олько под посадкой|ТОЛЬКО под посадкой|только под `external`|ТОЛЬКО под `external`|не заводится вовсе|не читается вовсе|краем не читается|поставщик НЕ провязан|поставщик не провязан|Ф3 Р15|Ф3-12|F3_12|F3-12|identityLane == External' по 6691 отслеживаемым файлам"
+      control_b579: 'совпадения в config.go (2), deployment.yaml (1), own_session_lane_test.go (1) — все прежние места находятся'
+      head: '40 совпадений, в файлах B1 — 0. Пять попаданий в gateway/ разобраны: main.go:150,431 и auth.go:992 — о ПОСАДКЕ и нашем носителе; values.yaml:339 — ручка полосы формы (own only); own_lane_readers_wiring_test.go:10 — ретроспектива снятого требования. Остальные 35 — другие предметы («не читается вовсе» в vpc, nlb, storage, terraform, repohygiene).'
+      stale: 0
+    by_subject:
+      predicate: "git grep -P 'KRATOS_PUBLIC_URL|kratosPublicUrl|KratosPublicURL|NewKratosClient|WithKratos\\b|ReadsProvider|kratos-public'; окно ±10 строк вокруг каждого совпадения; прочитаны окна со словами посадки"
+      head: '101 совпадение в 35 файлах; 65 окон; 27 окон говорят о посадке, все прочитаны. Все согласны с тем, что решает множество: values.own.yaml:50-72 (F5) · main.go:226-235,1200-1219 · session_carrier_validation.go:190-199 · configuration.mdx:233-243 · config.go:46-50,293-301 · deployment.yaml:177-186 · пробы.'
+      stale: 0
+    extra:
+      - 'Строки, где рядом стоят «поставщик/чужой/kratos» и «под own/только под/external only»: на b579 — 11, на ab1a — 9. Пропали config.go и own_session_lane_test.go. Оставшиеся 9 — о других предметах: административный адрес (identity_lane_validation_test.go:13,57,64), интроспекция (own_lane_revocation_authority_test.go:84,106), адреса службы доступа (charts/kaname), форма входа (login_console_test.go:47, F5).'
+      - 'Окно ±3 строки, в котором одновременно есть сессия или читатель поставщика, отрицание и own: 6677 файлов, отмечено 3 окна, все три — исправленные тексты (login_console_test.go:77, deployment.yaml:181, config.go:295). Контроль на b579 ловит config.go:290. Прежней формулировки deployment.yaml:179 («читатель его носителя») этот предикат не видит. Поэтому он дополнительный, а не один из двух несущих.'
+  collision_C2: 'Прежний круг: разрешено в двух местах из пяти (F5). Теперь разрешено в пяти из пяти: тексты F5 (values.own.yaml:50-72, login_console_test.go:45-62) и дельты (config.go, deployment.yaml) говорят одно и то же.'
+
+remark_R1:
+  status: закрыт
+  was: 'gateway/deploy/templates/deployment.yaml:224-229 — «задано пустым» страж читает как объявление без стороны'
+  now: 'deployment.yaml:230-238 — пустая строка означает «не задано»; отказ старта получает значение из одних пробелов или разделителей («   », «,»). session_carrier_knobs_test.go:27-31,81-83 — та же поправка.'
+  proof: 'sessioncarriers.go:129 ("" → из посадки), :132 и :210 (из одних пробелов или «,» → ноль элементов → отказ). Пробы session_carriers_test.go:164 («,») и :236 («   ») в TestSessionCarriers_RefusesValuesThatWouldLeaveTheStandWithoutAReader и TestSessionCarriers_SeparatingWhitespaceIsTrimmedAndNothingElseIsForgiven — PASS @ab1a.'
+  note: >-
+    Текст отказа той же пробы (session_carrier_knobs_test.go:85-86, строки не
+    тронуты) говорит «“не задано” станет неотличимо от “задано пустым”». Это
+    сказано о том, что видно в поде, как и в шапке файла (:27-31: «`with`
+    различает не состояния процесса, а то, что видно в поде»). Не ложь и не
+    находка.
+
+remarks_not_in_delta:
+  - 'R2 (gateway/deploy/values.yaml:483-484, «две величины» при трёх) и R3 (values.own.yaml:10-11, stack-secrets.sh:11) в дельту не входили и не пересматривались. Статус прежний: не блокируют; R2 решает диспетчер, R3 — задача.'
+
+adding_into_removed: 'Не применимо, число 0: git diff --name-status -M base...head → A 24, M 44, удалённых и переименованных путей 0.'
+two_solutions_one_task: 'В дельте нет: 7 файлов одного писателя, один предмет.'
+
+# ── ВЕРДИКТ ПО ПОЛОСАМ ───────────────────────────────────────────────────────
+verdicts:
+  - 'полоса deploy-own-posture-cutover (L1) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:100-128 · требование §14 «Классы столкновений» · чем доказано прежняя запись 8b2acdd7; дельта путей L1 не трогает'
+  - 'полоса deploy-issuer-census-merged (L2) · вердикт принято · координата deploy/helm/umbrella/values.own.yaml:50-77 · требование §14 «Классы столкновений» · чем доказано прежняя запись 8b2acdd7; дельта путей L2 не трогает'
+  - 'полоса issue-2724 (L3) · вердикт принято · координата deploy/helm/umbrella/values.own-stand.yaml · требование §14 «Классы столкновений» · чем доказано прежняя запись 8b2acdd7; дельта путей L3 не трогает'
+  - 'полоса foreign-idp-name-in-probes (L4) · вердикт принято · координата internal/repohygiene/foreignidpname_test.go:35-72 · требование §14 «Классы столкновений» · чем доказано прежняя запись 8b2acdd7; в дельте имён с названием поставщика не прибавилось (только комментарии — разбор 6 из 6)'
+  - 'полоса gateway-session-carrier-set (L5) · вердикт принято · координата gateway/internal/config/config.go:46-50,293-301; gateway/deploy/templates/deployment.yaml:177-186,230-238 · требование .claude/rules/testing.md header-fixed-in-same-change; .claude/rules/architecture.md arch-doc-truthfulness; §14 «Четвёртый вид…» · чем доказано go test -count=1 ./internal/config/ ./cmd/api-gateway/ ./deploy/ ./internal/middleware/ в gateway @ab1a → код 0 во всех 4; 920 тестов и 477 подслучаев PASS, 0 FAIL; остаток по двум предикатам 0'
+  - 'доливки F1–F5 · вердикт принято · координата по прежней записи · требование — · чем доказано прежняя запись 8b2acdd7; дельта их путей не трогает'
+  - 'доливка B1 (F6, fe777cbebf8; слияние ab1ad6ee88a) · вердикт принято · координата 7 файлов дельты · требование заявление не шире сделанного · чем доказано разбор без комментариев 6 из 6 Go и 392 из 392 строк шаблона равны; четыре файла проб названы и изменены; Closes #2788 — задача открыта и совпадает с B1 (gh issue view 2788 → OPEN, «три комментария приписывают выбор читателя носителя посадке»)'
+
+facts:
+  - 'Вердикт прибора снят после последней правки: все прогоны — на ab1ad6ee88a, это голова origin.'
+  - 'SKIP 2 в ./deploy: TestStacks_GatewayAdminHopIsNotInTheClear/dev и TestStacks_AdminHopConsumersAgreeWithTheListener/dev. К предмету дельты отношения не имеют: исполняемая часть Go-файлов дельты равна прежней.'
+
+on_the_way:
+  - 'Не изменилось с прежнего круга: .claude/agents/wave-reviewer.md:128 ссылается на .claude/rules/multi-agent-flow-orchestration.md §14, но файл лежит в .claude/backup/multi-agent-flow-orchestration.md (§14 — строка 20, «Четвёртый вид» — строка 90). Предмет tooling-maintainer.'
+
+# ── ОБЪЁМ ОСМОТРЕННОГО ───────────────────────────────────────────────────────
+census:
+  diffs_inspected: 2           # fe777cbebf8^..fe777cbebf8 и b579..ab1a (слияние); пути совпадают, 7 из 7
+  delta_lines: 88              # numstat b579..ab1a: +60 −28, прочитаны все
+  windows_read: 27             # окна второго предиката со словами посадки, 718 строк вывода
+  files_scanned_by_predicates: 6691   # git ls-files @ab1a; оконный предикат прочитал 6677 текстовых
+  code_read: 'sessioncarriers.go:104-250 · session_carrier_validation.go:85-202 · main.go:148-245,1199-1220 · own_lane_readers_wiring_test.go:1-45,127-193 · session_carrier_wiring_test.go:8-28,363-433 · identity_lane_validation_test.go:1-30 · login_console_test.go:40-62'
+
+checks_run:
+  green: 4        # go test -count=1: ./internal/config (42+6) · ./cmd/api-gateway (175+61) · ./deploy (86+83, SKIP 2 подслучая) · ./internal/middleware (617+327); код 0, @ab1a
+  red: 0
+  not_run: 0
+  models: 2       # разбор Go без комментариев (6/6 + обратный контроль) · шаблон без комментариев (392/392)
+
+verdict: ✅ принято
+blocks_landing: false
+blocking: []
+closed: [B1, R1]
+head_judged: ab1ad6ee88a8913053442da5d25ad55931d30fb6
+digest_judged: 3c93ec1382f065f400c3981eb6be475dd69f4fad3f899cfdcdbac6eb919ba8ef

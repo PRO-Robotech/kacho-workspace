@@ -596,6 +596,17 @@ jobs:
           ref: main
           path: project/kacho
           fetch-depth: 0
+      # Клон фундамента с полной историей — ПРЕДПОСЫЛКА `check-05`: записи,
+      # перенесённые из corelib, признаются по якорю в нём (corelib#54), а якорь
+      # опубликован веткой или тегом, которых мелкий клон не несёт. Без клона
+      # якорь судить нечем — код 2, и шаг под `bash -e` падает.
+      - name: checkout фундамента в project/corelib
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/corelib
+          ref: main
+          path: project/corelib
+          fetch-depth: 0
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: разборщик YAML — fixtures контура объявлены YAML
