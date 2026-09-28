@@ -1118,6 +1118,35 @@ mutate "$b/scripts/lib/run-suites.sh" '[ "$fail" -eq 0 ] || exit 1' 'exit 1' >/d
 expect 2 "$b" "положительный контроль сорван: вывод краснеет на исправных наборах — VOID, а не «доказано»" \
     "$C09" "на двух исправных наборах с исправными доказательствами вернул 1"
 
+# ── check-10: вложенный run-all.sh — второе определение набора расходится ──────
+#
+# Дефект — форма из круга 1: прогонщик фикстуры внутри набора. Хук отправки
+# (pathspec `scripts/*/run-all.sh`) исполнил бы его как набор, перепись — нет.
+# Близнец — тот же набор без вложенного прогонщика; фикстура под другим именем.
+C10="check-10-no-nested-suite-runner.py"
+echo "== check-10: вложенный run-all.sh =="
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; done
+mkdir -p "$b/scripts/${SUITES[0]}/tests/fixture"
+printf '#!/usr/bin/env bash\necho "осмотрено 0"\n' > "$b/scripts/${SUITES[0]}/tests/fixture/run-fixture.sh"
+commit "$b"
+expect 0 "$b" "близнец: прогонщики на глубине набора, фикстура под другим именем — молчит" "$C10" \
+    "на глубине набора ${#SUITES[@]}; вложенных 0"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do suite "$b" "$t"; done
+    mkdir -p "$b/scripts/$s/tests/fixture"
+    printf '#!/usr/bin/env bash\necho "осмотрено 0"\n' > "$b/scripts/$s/tests/fixture/run-all.sh"
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: вложенный run-all.sh фикстуры — краснеет с координатой" "$C10" \
+        "scripts/$s/tests/fixture/run-all.sh — run-all.sh глубже каталога набора" "находок 1"
+done
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: ни одного run-all.sh — VOID" "$C10" "отслеживаемых run-all.sh нет"
+
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
 if [ "$probes" -eq 0 ]; then
