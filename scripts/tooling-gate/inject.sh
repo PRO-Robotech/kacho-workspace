@@ -1628,6 +1628,109 @@ fi
 b="$(mksandbox scripts/cascade-census.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C20"
 
+echo "== check-22: подпись переопределена мимо корневого gitconfig =="
+C22=check-22-signature-from-root-gitconfig-only.sh
+# Вносимые формы собираются из частей при исполнении: литерал в исходнике этого
+# файла был бы находкой самого стража — и был бы ею по праву, потому что строка
+# исполнялась бы. Ключ и имя переменной подписи в тексте файла не встречаются.
+K_NAME="$(printf '%s.%s' user name)"
+K_EMAIL="$(printf '%s.%s' user email)"
+K_MIXED="$(printf '%s.%s' User Name)"
+E_NAME="$(printf 'GIT_%s_%s' AUTHOR NAME)"
+E_CMAIL="$(printf 'GIT_%s_%s' COMMITTER EMAIL)"
+
+# run22 <код> <песочница> <имя> [подстрока] — как `run`, и находка обязана НАЗВАТЬ
+# координату: покраснеть «где-то» мало, вывод — часть свойства.
+run22() {
+    local want="$1" box="$2" name="$3" needle="${4:-}" got out
+    premise_or_void
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$C22" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ -z "$needle" ] || grep -qF -- "$needle" <<<"$out"; }; then
+        echo "  ok   $name (код $got)"
+    else
+        echo "  ПРОВАЛ $name — ждали код $want${needle:+ и «$needle»}, получили $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+# add22 <песочница> <путь> <строка…> — дописать строки в файл (новый или живой).
+add22() { local box="$1" rel="$2"; shift 2; mkdir -p "$(dirname "$box/$rel")"; printf '%s\n' "$@" >> "$box/$rel"; }
+PROBE22="scripts/probe-gate/inject.sh"
+SANDBOX22='TMP="$(mktemp -d)"; trap '"'"'rm -rf "$TMP"'"'"' EXIT; git init -q "$TMP/r"'
+
+b="$(mksandbox)"; run22 0 "$b" "чистое дерево — молчит" "находок 0"
+
+# Рабочий клон и песочница пробы судятся одинаково — решение 2026-09-27 (ws#785):
+# оговорки для песочниц нет.
+b="$(mksandbox)"; n="$(( $(wc -l < "$b/bootstrap.sh") + 1 ))"
+add22 "$b" bootstrap.sh "git -c $K_EMAIL=x@example.invalid commit -qm x"
+run22 1 "$b" "инъекция: -c подписи в скрипте рабочего клона — краснеет и называет строку" "bootstrap.sh:$n: подпись на команду"
+
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "$SANDBOX22" "git -C \"\$TMP/r\" config $K_NAME probe"
+run22 1 "$b" "инъекция: подпись в конфиге одноразового репозитория пробы — краснеет" "$PROBE22:2: подпись на репозиторий"
+
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "$SANDBOX22" '. "$WS/scripts/lib/sandbox-git-home.sh"; sandbox_git_home "$TMP/home" || exit 2' \
+    'sandbox_git -C "$TMP/r" commit -q --allow-empty -m x'
+run22 0 "$b" "близнец: та же песочница с подписью из своего HOME — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --local $K_EMAIL p@example.invalid"
+run22 1 "$b" "инъекция: config --local — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --worktree $K_NAME p"
+run22 1 "$b" "инъекция: config --worktree — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --file .git/config $K_NAME p"
+run22 1 "$b" "инъекция: config --file мимо корня — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "n=\"\$(git config $K_NAME)\"" "e=\"\$(git config --global --get $K_EMAIL 2>/dev/null)\""
+run22 0 "$b" "близнец: чтение подписи без значения и с --get — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --global $K_NAME probe"
+run22 1 "$b" "инъекция: литерал подписи в корневой gitconfig — краснеет" "литерал подписи"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "HOME=\"\$TMP/home\" git config --global $K_NAME \"\$name\""
+run22 0 "$b" "близнец: корневая подпись переносится подстановкой в HOME песочницы — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "export $E_NAME=probe"
+run22 1 "$b" "инъекция: имя автора окружением — краснеет" "подпись окружением"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "$E_CMAIL=p@example.invalid git commit -qm x"
+run22 1 "$b" "инъекция: почта коммиттера префиксом команды — краснеет" "подпись окружением"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "GIT_AUTHOR_DATE=2020-01-01T00:00:00Z GIT_COMMITTER_DATE=2020-01-01T00:00:00Z git commit -qm x" "unset $E_NAME $E_CMAIL"
+run22 0 "$b" "близнец: время коммита и снятие переменных подписи — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git commit --author="a <a@example.invalid>" -qm x'
+run22 1 "$b" "инъекция: --author у commit — краснеет" "флагом --author"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git log --author=a --format=%h'
+run22 0 "$b" "близнец: --author как фильтр чтения — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git -c $K_MIXED=x commit -qm x"
+run22 1 "$b" "инъекция: ключ подписи в другом регистре — краснеет" "подпись на команду"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=$K_NAME GIT_CONFIG_VALUE_0=x git commit -qm x"
+run22 1 "$b" "инъекция: -c окружением GIT_CONFIG_KEY — краснеет" "подпись на команду"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git -c core.hooksPath=/dev/null commit -qm x' "# git -c $K_EMAIL=x commit — так нельзя"
+run22 0 "$b" "близнец: -c другого ключа и форма в комментарии — молчит"
+
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import subprocess' "subprocess.run([\"git\", \"config\", \"$K_NAME\", \"probe\"])"
+run22 1 "$b" "инъекция: Python — config подписи в репозиторий — краснеет" "probe.py:2: подпись на репозиторий"
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import os, subprocess' "subprocess.run([\"git\", \"commit\"], env={**os.environ, \"$E_NAME\": \"x\"})"
+run22 1 "$b" "инъекция: Python — имя автора в окружении вызова — краснеет" "подпись окружением"
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import os, subprocess' "os.environ.pop(\"$E_NAME\", None)" \
+    "subprocess.run([\"git\", \"config\", \"--get\", \"$K_NAME\"])" "\"\"\"пример: git -c $K_EMAIL=x commit\"\"\""
+run22 0 "$b" "близнец: Python — снятие переменной, чтение, форма в строке документации — молчит"
+b="$(mksandbox)"; add22 "$b" scripts/probe-gate/broken.py 'def f(:'
+run22 2 "$b" "предпосылка: Python-файл не разобран — VOID, а не успех" "не разобраны"
+
+b="$(mksandbox)"; add22 "$b" .github/workflows/ci.yaml "        env:" "          $E_NAME: probe"
+run22 1 "$b" "инъекция: конвейер задаёт имя автора ключом env — краснеет" "ci.yaml"
+
+# Пустой обход: дерево без единого файла судимых видов. Каталог назван не на `s`,
+# чтобы счёт одновременно живущих песочниц его не считал; снимается сразу.
+e="$TMP/e22"; mkdir -p "$e" && git -C "$e" init -q && printf 'x\n' > "$e/README.md"
+run22 2 "$e" "предпосылка: файлов оболочки, Python и конвейера нет — VOID, а не успех" "судить нечего"
+rm -rf "$e"
+
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне
 # своей песочницы — та же поломка, что у любой предыдущей пробы.

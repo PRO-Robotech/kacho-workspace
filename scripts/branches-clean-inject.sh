@@ -38,17 +38,24 @@ HOOK="${1:-$HERE/../.claude/hooks/branches-clean.sh}"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785): правило подписи
+# действует и на одноразовый репозиторий. Весь посев идёт через эту функцию;
+# проверяемый хук — дочерний процесс, её не видит и HOME вызывающего не теряет.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "inject: корневой подписи нет — песочнице не с чего взять подпись" >&2; exit 2; }
+git() { sandbox_git "$@"; }
+
 fail=0
 N_SAID=0
 say() { N_SAID=$((N_SAID + 1)); printf '%s %s\n' "$1" "$2"; }
 
-# Синтетический «origin» + рабочая копия. Личность задаётся ЛОКАЛЬНО, только для
-# этого одноразового репозитория, — настройки машины не трогаются.
+# Синтетический «origin» + рабочая копия; подпись — HOME песочницы выше, настройки
+# машины не трогаются.
 mk_repo() { # $1 = каталог
   git init -q --bare "$1/origin.git"
   git init -q -b main "$1/ws"
-  git -C "$1/ws" config user.email inject@example.invalid
-  git -C "$1/ws" config user.name  inject
   git -C "$1/ws" config commit.gpgsign false
   git -C "$1/ws" remote add origin "$1/origin.git"
   echo ствол > "$1/ws/trunk.txt"
@@ -162,8 +169,6 @@ fi
 
 # --- F: репозиторий есть, ствола нет ------------------------------------------
 git init -q -b main "$TMP/nostem"
-git -C "$TMP/nostem" config user.email inject@example.invalid
-git -C "$TMP/nostem" config user.name inject
 git -C "$TMP/nostem" config commit.gpgsign false
 echo x > "$TMP/nostem/x.txt"
 git -C "$TMP/nostem" add x.txt

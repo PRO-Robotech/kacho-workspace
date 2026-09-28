@@ -833,3 +833,19 @@ gi-verdict-reproduces · вердикт приёмки обязан воспро
 Образец не находит сам себя (первая буква слова — в классе), `(*UTF)` держит вердикт от локали.
 
 `git grep -n -i -P '(*UTF)(?(DEFINE)(?<v>(?:[в]осстанов(?:ить|ите|и)|[в]ерн(?:уть|ите|и)|[п]ересозда(?:ть|йте|й)|[в]оскреси(?:ть|те)?)(?=[\s,.;:!?)»]|$))(?<g>(?:[^\s—–:;.!?]+\s+){0,3})(?<c>[з]авед(?:и|ите)|[з]авести|[с]озда(?:й|йте|ть))(?<n>[з]аново|[с]нова))(?&v)\s+(?&g)[в]етк|[в]етк\S*\s+(?&g)(?&v)|(?&c)\s+(?&g)(?&n)|(?&n)\s+(?&c)|(?:[r]estore|[r]e-?create|[r]evive|[r]esurrect)\s+(?:(?:the|a|that|this|its)\s+)?(?:(?:deleted|removed|pruned|merged|old|task|local|remote|wave|epic|same|original)\s+){0,2}[b]ranch|[b]ranch\S*\s+(?:[^\s—–:;.!?]+\s+){0,2}?(?:back|again)\b' -- .claude scripts CLAUDE.md ':!.claude/backup'` — пусто
+
+## Подпись песочниц проб — ws#785 (2026-09-28)
+
+Решение диспетчера 2026-09-27 в ws#785: `gi-identity-owner-only` действует и на песочницы
+проб, в том числе на те, что на origin не попадают никогда; подпись песочницы — её HOME со
+своим `.gitconfig`, в котором та же корневая учётная запись. Время коммита (`GIT_*_DATE`)
+подписью не является: держатель меряет `%an %ae`. Держит `scripts/tooling-gate/check-22-*`.
+
+**gi-identity-owner-only** — прежняя редакция:
+
+gi-identity-owner-only · author И committer — ТОЛЬКО личная учётка владельца; `--author=`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, `git -c user.*`, worktree-local override запрещены; дрейф — `filter-branch --env-filter` по диапазону · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись · red: коммит подписан бот-идентичностью либо «Kacho Workspace»
+
+**gi-no-attribution-trailers** — прежняя редакция (утверждала, что подпись берётся из
+git-config репозитория, — это противоречило `gi-identity-owner-only` и снято):
+
+gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · ЗАВЕСТИ · red: трейлер атрибуции в теле коммита

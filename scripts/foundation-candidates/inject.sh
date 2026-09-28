@@ -49,15 +49,20 @@ trap 'rm -rf "$WORK"' EXIT
 
 pass=0; fail=0
 
+# Подпись синтетических клонов — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$WORK/home" || { echo "инъекция foundation-candidates: НЕ ВЫПОЛНИЛОСЬ — корневой подписи нет" >&2; exit 2; }
+
 # repo <корень> — пустой клон продукта с резолвимым стволом origin/main.
 repo() {
     mkdir -p "$1"
     git -C "$1" init -q
-    git -C "$1" config user.email i@i; git -C "$1" config user.name i
 }
 seal() {
     git -C "$1" add -A
-    git -C "$1" -c commit.gpgsign=false commit -qm i --allow-empty
+    sandbox_git -C "$1" -c commit.gpgsign=false commit -qm i --allow-empty
     git -C "$1" update-ref refs/remotes/origin/main HEAD
 }
 
@@ -415,7 +420,7 @@ hist() {
     for p in kaname corelib; do seal "$1/project/$p"; done
     seal "$k"; A="$(git -C "$k" rev-parse HEAD)"
     rm -rf "$k/services/gamma"; seal "$k"; B="$(git -C "$k" rev-parse HEAD)"
-    S="$(git -C "$k" -c user.email=i@i -c user.name=i commit-tree "$B^{tree}" -p "$A" -m S)"
+    S="$(sandbox_git -C "$k" commit-tree "$B^{tree}" -p "$A" -m S)"
     printf '%s %s %s' "$A" "$B" "$S"
 }
 KEEP='

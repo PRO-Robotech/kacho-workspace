@@ -43,6 +43,9 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
 WS="$(tooling_gate_workspace_root)"
 NAME="check-08-caller-reads-the-three-outcomes"
@@ -56,6 +59,10 @@ fi
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+if ! sandbox_git_home "$TMP/home"; then
+    tooling_gate_void "$NAME" "корневой подписи нет — коммит песочницы не родится, вызывающего судить не на чем"
+    exit 2
+fi
 
 # probe <вызывающий> <код>… — печатает «<код выхода>|<завершающая строка>» для
 # песочницы, где лежит по одному прогонщику на каждый переданный код.
@@ -67,8 +74,8 @@ trap 'rm -rf "$TMP"' EXIT
 # запуском: унаследованный `GIT_DIR` сильнее рабочего каталога и увёл бы запись в
 # ЭТУ рабочую копию.
 #
-# Хук судит дерево ревизии (ws#811), поэтому коммит обязан состояться: личность
-# задаётся песочнице явно — на ранере без неё HEAD не родился бы, и хук отказал бы.
+# Хук судит дерево ревизии (ws#811), поэтому коммит обязан состояться: подпись
+# песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
 probe() {
     local caller="$1"; shift
     local dir i=90 rc out code
@@ -85,8 +92,7 @@ probe() {
     done
     git -C "$dir" init -q
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -q --allow-empty -m fixture >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -q --allow-empty -m fixture >/dev/null 2>&1
 
     out="$(
         cd "$dir" || exit 111

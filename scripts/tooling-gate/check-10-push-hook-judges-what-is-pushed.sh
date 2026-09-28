@@ -36,6 +36,9 @@ set -euo pipefail
 
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
 
 WS="$(tooling_gate_workspace_root)"
 NAME="check-10-push-hook-judges-what-is-pushed"
@@ -51,7 +54,12 @@ fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-pgit() { git -c user.email=probe@invalid -c user.name=probe -c core.hooksPath=/dev/null "$@"; }
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785), без переопределения.
+if ! sandbox_git_home "$TMP/home"; then
+    tooling_gate_void "$NAME" "корневой подписи нет — вершины песочницы не родятся, судить хук не на чем"
+    exit 2
+fi
+pgit() { sandbox_git -c core.hooksPath=/dev/null "$@"; }
 
 # mkbox <вызывающий> — печатает путь песочницы: `main` = G (state.txt green),
 # `red-lane` = R (red), HEAD = main, копия чистая. Факт вызова заглушки пишется
