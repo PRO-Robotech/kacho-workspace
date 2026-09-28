@@ -475,6 +475,9 @@ expect 2 "$b" "предпосылка: наборов нет — VOID" "$C06" "�
 # Сначала — что класс НАСТОЯЩИЙ, а не теоретический: сама форма, исполненная на
 # входе, где искомое ЕСТЬ (первой строкой), под pipefail отвечает «не найдено»,
 # а законная форма — «найдено». Без этой пробы гейт ловил бы стиль, а не дефект.
+#
+# Песочницы этой проверки — ГОЛЫЕ (`barebox`, без копии `scripts/lib/`): её обход —
+# все файлы оболочки под `scripts/`, и чужие файлы в песочнице сдвигали бы перепись.
 C07="check-07-no-verdict-from-a-pipe.py"
 echo "== check-07: вердикт из трубы в grep -q под pipefail =="
 probes=$((probes + 1))
@@ -486,74 +489,162 @@ else
     failed=$((failed + 1))
 fi
 
-# pipescript <песочница> <набор> <имя> <строки кода>… — скрипт набора под pipefail
+barebox() {
+    local b
+    b="$(mktemp -d "$TMP/bare.XXXXXX")"
+    git -C "$b" init -q
+    mkdir -p "$b/scripts"
+    printf '%s' "$b"
+}
+
+# pipescript <песочница> <путь от scripts/> <строки кода>… — скрипт под pipefail;
+# первая строка кода — четвёртая строка файла.
 pipescript() {
-    local box="$1" s="$2" name="$3" line; shift 3
+    local box="$1" rel="$2" line; shift 2
+    mkdir -p "$(dirname "$box/scripts/$rel")"
     {
         printf '#!/usr/bin/env bash\nset -uo pipefail\nout="$(cat)"\n'
         for line in "$@"; do printf '%s\n' "$line"; done
-    } > "$box/scripts/$s/$name"
+    } > "$box/scripts/$rel"
+}
+
+# plainscript <песочница> <путь от scripts/> <строки кода>… — скрипт БЕЗ pipefail;
+# первая строка кода — третья строка файла.
+plainscript() {
+    local box="$1" rel="$2" line; shift 2
+    mkdir -p "$(dirname "$box/scripts/$rel")"
+    {
+        printf '#!/usr/bin/env bash\n# pipefail здесь не включается\n'
+        for line in "$@"; do printf '%s\n' "$line"; done
+    } > "$box/scripts/$rel"
 }
 
 LAWFUL='if grep -qF -- "находка" <<<"$out"; then exit 1; fi'
 PIPED='if printf "%s\n" "$out" | grep -qF -- "находка"; then exit 1; fi'
+SHELLS_TWIN=$((2 * ${#SUITES[@]} + 2))
 
-b="$(mkbox)"
-for s in "${SUITES[@]}"; do
-    suite "$b" "$s"
-    pipescript "$b" "$s" check-01-probe.sh "$LAWFUL" \
-        '# форма в комментарии — не код: printf "%s" "$out" | grep -q x' \
-        'echo "printf | grep -q — в строке, а не в трубе"'
-done
-commit "$b"
-expect 0 "$b" "близнец: чтение и поиск разведены; форма в комментарии и в строке — молчит" "$C07" \
-    "форм «труба в grep -q» 0"
-
-for s in "${SUITES[@]}"; do
-    b="$(mkbox)"
-    for t in "${SUITES[@]}"; do
-        suite "$b" "$t"
-        if [ "$t" = "$s" ]; then pipescript "$b" "$t" check-01-probe.sh "$PIPED"
-        else pipescript "$b" "$t" check-01-probe.sh "$LAWFUL"; fi
+# world7 <песочница> [<куда вносится> <строка кода>…] — проба в каждом наборе
+# дерева, файл вне наборов и файл хука без расширения; всё законно, кроме
+# внесённого. Место — имя набора, `tool.sh` либо `hooks/pre-push`.
+world7() {
+    local box="$1" target="${2:-}" s
+    local -a code=()
+    [ "$#" -gt 2 ] && code=("${@:3}")
+    for s in "${SUITES[@]}"; do
+        suite "$box" "$s"
+        if [ "$s" = "$target" ]; then pipescript "$box" "$s/check-01-probe.sh" "${code[@]}"
+        else pipescript "$box" "$s/check-01-probe.sh" "$LAWFUL" \
+                '# форма в комментарии — не код: printf "%s" "$out" | grep -q x' \
+                'echo "printf | grep -q — в строке, а не в трубе"'; fi
     done
-    commit "$b"
+    if [ "$target" = "tool.sh" ]; then pipescript "$box" tool.sh "${code[@]}"
+    else pipescript "$box" tool.sh "$LAWFUL"; fi
+    if [ "$target" = "hooks/pre-push" ]; then pipescript "$box" hooks/pre-push "${code[@]}"
+    else pipescript "$box" hooks/pre-push "$LAWFUL"; fi
+}
+
+b="$(barebox)"; world7 "$b"; commit "$b"
+expect 0 "$b" "близнец: чтение и поиск разведены в наборах, вне наборов и в файле без расширения; форма в комментарии и в строке — молчит" "$C07" \
+    "оболочки $SHELLS_TWIN (*.sh $((SHELLS_TWIN - 1)), по шебангу 1)" "форм «труба в grep -q» 0"
+
+for s in "${SUITES[@]}"; do
+    b="$(barebox)"; world7 "$b" "$s" "$PIPED"; commit "$b"
     expect 1 "$b" "инъекция в $s: труба в grep -q под pipefail — краснеет с координатой" "$C07" \
         "scripts/$s/check-01-probe.sh:4 — вердикт из трубы в grep" "находок 1"
 done
 
-b="$(mkbox)"
-for s in "${SUITES[@]}"; do
-    suite "$b" "$s"
-    if [ "$s" = "${SUITES[0]}" ]; then
-        pipescript "$b" "$s" check-01-probe.sh "$LAWFUL  # pipe-safe: писатель доживает до конца"
-    else pipescript "$b" "$s" check-01-probe.sh "$LAWFUL"; fi
-done
+b="$(barebox)"; world7 "$b" tool.sh "$PIPED"; commit "$b"
+expect 1 "$b" "инъекция вне наборов (scripts/tool.sh) — обход шире наборов, краснеет" "$C07" \
+    "scripts/tool.sh:4 — вердикт из трубы в grep" "находок 1"
+
+b="$(barebox)"; world7 "$b" hooks/pre-push "$PIPED"; commit "$b"
+expect 1 "$b" "инъекция в файл оболочки без расширения (шебанг) — краснеет" "$C07" \
+    "scripts/hooks/pre-push:4 — вердикт из трубы в grep" "находок 1"
+
+b="$(barebox)"
+world7 "$b" "${SUITES[0]}" 'if printf "%s\n" "$out" |' '     grep -qF -- "находка"; then exit 1; fi'
 commit "$b"
+expect 1 "$b" "инъекция: труба продолжена на следующую строку — краснеет координатой читателя" "$C07" \
+    "scripts/${SUITES[0]}/check-01-probe.sh:5 — вердикт из трубы в grep" "многострочных 1"
+
+b="$(barebox)"
+world7 "$b" "${SUITES[0]}" 'n="$(printf "%s\n" "$out" |' '     grep -c -- "находка")"; [ "$n" -eq 0 ] || exit 1'
+commit "$b"
+expect 0 "$b" "близнец: многострочная труба в grep, читающий до конца (-c), — молчит" "$C07" \
+    "форм «труба в grep -q» 0"
+
+b="$(barebox)"; world7 "$b" "${SUITES[0]}" 'if printf "%s\n" "$out" | grep -lF -- "находка"; then exit 1; fi'; commit "$b"
+expect 1 "$b" "инъекция: труба в grep -l (тоже выходит на первом совпадении) — краснеет" "$C07" \
+    "scripts/${SUITES[0]}/check-01-probe.sh:4 — вердикт из трубы в grep"
+
+b="$(barebox)"; world7 "$b" "${SUITES[0]}" 'x="$(printf "%s\n" "$out" | grep -m1 -- "находка")"'; commit "$b"
+expect 1 "$b" "инъекция: труба в grep -m1 внутри подстановки в двойных кавычках — это код, краснеет" "$C07" \
+    "scripts/${SUITES[0]}/check-01-probe.sh:4 — вердикт из трубы в grep"
+
+b="$(barebox)"; world7 "$b" "${SUITES[0]}" 'x="$(grep -m1 -- "находка" <<<"$out")"'; commit "$b"
+expect 0 "$b" "близнец: та же подстановка, чтение и поиск разведены — молчит" "$C07" \
+    "форм «труба в grep -q» 0"
+
+# Подключение: библиотека без своего pipefail исполняется в оболочке подключившего.
+# Имя библиотеки — без `_`: признак выводится из подключения, а не из имени.
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/helpers.sh" "$PIPED"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/helpers.sh"'
+commit "$b"
+expect 1 "$b" "инъекция: библиотека без своего pipefail, подключённая файлом под pipefail, — краснеет в библиотеке" "$C07" \
+    "scripts/${SUITES[0]}/helpers.sh:3 — вердикт из трубы в grep" "подключением 1"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/helpers.sh" "$PIPED"
+plainscript "$b" "${SUITES[0]}/plain.sh" '. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"'
+commit "$b"
+expect 0 "$b" "близнец: та же библиотека, подключённая только файлом без pipefail, — молчит" "$C07" \
+    "подключением 0" "форм «труба в grep -q» 0"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/part-1.sh" "$PIPED"
+pipescript "$b" "${SUITES[0]}/parts.sh" 'HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"' \
+    'for part in "$HERE"/part-*.sh; do' '    . "$part"' 'done'
+commit "$b"
+expect 1 "$b" "инъекция: часть, подключаемая циклом по глобу, — наследует pipefail и краснеет" "$C07" \
+    "scripts/${SUITES[0]}/part-1.sh:3 — вердикт из трубы в grep"
+
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$ELSEWHERE/absent.sh"'
+commit "$b"
+expect 1 "$b" "инъекция: подключение, не разрешённое в файл дерева, — находка, а не молчаливый пропуск" "$C07" \
+    "scripts/${SUITES[0]}/check-02-probe.sh:4 — подключение" "подключений не разрешено 1"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/helpers.sh" "$LAWFUL"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"'
+commit "$b"
+expect 0 "$b" "близнец: подключение разрешено, библиотека законна — молчит" "$C07" \
+    "подключением 1" "подключений не разрешено 0"
+
+b="$(barebox)"; world7 "$b" "${SUITES[0]}" "$LAWFUL  # pipe-safe: писатель доживает до конца"; commit "$b"
 expect 1 "$b" "инъекция: пометка pipe-safe там, где трубы нет — послабление без предмета" "$C07" \
     "пометка \`pipe-safe\` на строке, где трубы в grep нет"
 
-b="$(mkbox)"
-for s in "${SUITES[@]}"; do
-    suite "$b" "$s"
-    if [ "$s" = "${SUITES[0]}" ]; then
-        pipescript "$b" "$s" check-01-probe.sh "$PIPED  # pipe-safe: вход — одна строка, писатель доживает до конца"
-    else pipescript "$b" "$s" check-01-probe.sh "$LAWFUL"; fi
-done
-commit "$b"
+b="$(barebox)"; world7 "$b" "${SUITES[0]}" "$PIPED  # pipe-safe: вход — одна строка, писатель доживает до конца"; commit "$b"
 expect 0 "$b" "близнец: труба, помеченная pipe-safe с причиной, — молчит и сочтена" "$C07" \
     "помечено pipe-safe 1"
 
-b="$(mkbox)"
-for s in "${SUITES[@]}"; do
-    suite "$b" "$s"
-    printf '#!/usr/bin/env bash\nout="$(cat)"\n%s\n' "$PIPED" > "$b/scripts/$s/check-01-probe.sh"
-done
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/loose.sh" "$PIPED"
 commit "$b"
-expect 0 "$b" "близнец: та же труба БЕЗ pipefail — исход равен исходу grep, молчит" "$C07" \
-    "без pipefail $((2 * ${#SUITES[@]}))"
+expect 0 "$b" "близнец: та же труба в файле БЕЗ pipefail, никем не подключённом, — исход равен исходу grep, молчит" "$C07" \
+    "без pipefail $((${#SUITES[@]} + 1))"
 
-b="$(mkbox)"; commit "$b"
-expect 2 "$b" "предпосылка: наборов нет — VOID" "$C07" "наборов scripts/*/run-all.sh"
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/loose.sh" "$PIPED  # pipe-safe: здесь нечего прощать"
+commit "$b"
+expect 1 "$b" "инъекция: пометка pipe-safe в файле без pipefail — послабление без предмета" "$C07" \
+    "пометка \`pipe-safe\` в файле без pipefail"
+
+b="$(barebox)"; commit "$b"
+expect 2 "$b" "предпосылка: файлов оболочки под scripts/ нет — VOID, а не «находок 0»" "$C07" \
+    "оболочки среди них 0"
 
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
