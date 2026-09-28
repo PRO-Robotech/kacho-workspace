@@ -21,7 +21,11 @@
 #      PATH на образе. Установка «только при отсутствии» (шаг под
 #      `command -v shellcheck`) рядом с пином не срабатывает никогда и находкой не
 #      является, но считается — перепись называет, сколько установок осмотрено,
-#      а не только сколько заданий.
+#      а не только сколько заданий. Установка узнаётся по ЛОГИЧЕСКОЙ строке шага
+#      (`\`-перенос сводится: многострочная `apt-get install -y \` + `shellcheck`
+#      — обычная форма блока `run: |`) и по закрытому перечню менеджеров пакетов,
+#      включая npm/yarn/pnpm, gem, dnf/yum, apk, zypper, pacman, nix-env, uv
+#      (круг 1: многострочная форма и npm проходили молча).
 set -uo pipefail
 
 name="check-06-shellcheck-version-pinned"
@@ -54,9 +58,19 @@ installs_conditional = 0
 
 # Вторая установка — менеджером пакетов. Судится исполняемая строка шага, не
 # комментарий: слова `apt-get install shellcheck` стоят и в объяснениях.
+MANAGERS = ("apt-get", "apt", "aptitude", "snap", "brew", "pip", "pip3", "pipx", "uv",
+            "conda", "mamba", "cabal", "stack", "npm", "yarn", "pnpm", "gem", "dnf", "yum",
+            "apk", "zypper", "pacman", "port", "nix-env", "choco", "scoop", "winget")
 OTHER_INSTALL = re.compile(
-    r"\b(?:apt-get|apt|snap|brew|pip3?|pipx|conda|cabal|stack)\b[^\n#]*\binstall\b[^\n#]*\bshellcheck(?:-py)?\b",
+    r"(?<![\w-])(?:" + "|".join(re.escape(m) for m in MANAGERS) + r")(?![\w-])"
+    r"[^\n#]*(?<!\S)(?:install|add|i|-S\w*)(?!\S)[^\n#]*\bshellcheck(?:-py)?\b",
     re.I)
+
+
+def logical(step):
+    """Текст шага со сведёнными `\\`-переносами: команда, продолженная на следующую
+    строку, — одна строка, и установка через перенос не выпадает из предиката."""
+    return re.sub(r"\\\n[ \t]*", " ", step)
 
 
 def steps_of(block):
@@ -96,7 +110,7 @@ for f in files:
         for st in steps_of(b):
             if "SHELLCHECK_VERSION}/shellcheck" in st or "shellcheck-v${SHELLCHECK_VERSION}" in st:
                 installs_pinned += 1
-            m = OTHER_INSTALL.search(st)
+            m = OTHER_INSTALL.search(logical(st))
             if m:
                 if "command -v shellcheck" in st:
                     installs_conditional += 1

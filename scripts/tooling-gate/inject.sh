@@ -463,6 +463,54 @@ $PIN_STEP
     "условных 1"
 
 
+# Круг 1: вторая установка в двух формах проходила молча — многострочная с
+# `\`-переносом (обычная форма блока `run: |`) и через npm (менеджера не было в
+# перечне). Близнец многострочной — перенос, после которого стоит ДРУГОЙ пакет,
+# а анализатор только зовётся следующей командой.
+run6t 1 "$(mk6 "env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - name: зависимости линта
+        run: |
+          sudo apt-get install -y \\
+            shellcheck
+      - run: shellcheck -x a.sh
+")" "инъекция: пин плюс многострочная apt-get install … \\ shellcheck — находка" \
+    "ставит анализатор ВТОРЫМ способом"
+
+run6t 1 "$(mk6 "env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - run: npm install -g shellcheck && shellcheck -x a.sh
+")" "инъекция: пин плюс npm install -g shellcheck — находка" \
+    "ставит анализатор ВТОРЫМ способом"
+
+run6t 0 "$(mk6 "env:
+  SHELLCHECK_VERSION: \"0.11.0\"
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+$PIN_STEP
+      - name: зависимости линта
+        run: |
+          sudo apt-get install -y \\
+            bats
+          shellcheck -x a.sh
+")" "близнец: многострочная установка другого пакета, анализатор только зовётся — молчит" \
+    "прочих 0"
+
 echo "== check-07: «без предмета» приходит тем же кодом, что находка =="
 b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" check-07-runner-void-distinct-from-finding.sh
 
