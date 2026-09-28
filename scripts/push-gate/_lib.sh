@@ -35,7 +35,7 @@ pg_hermetic() {
     unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
           GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
           GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
-          GIT_SSH GIT_SSH_COMMAND KACHO_MONOREPO KACHO_SKIP_PREPUSH
+          GIT_SSH GIT_SSH_COMMAND KACHO_MONOREPO KACHO_SKIP_PREPUSH KACHO_CLA_FIRST_LANDING
     local v
     for v in $(compgen -e | grep '^KACHO_HOME_' || true); do unset "$v"; done
     export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 GIT_TERMINAL_PROMPT=0
@@ -47,10 +47,16 @@ PG_OWNER_EMAIL="owner@push-gate.invalid"
 # рядом; в клоне — хуки предмета (`scripts/hooks/*`) и один набор-заглушка
 # `scripts/stub-gate/run-all.sh` с исходом 0. Хуки провязаны установщиком
 # предмета. Печатает путь клона. Ненулевой код — песочница не собралась.
+#
+# У «сервера» есть СТВОЛ: HEAD → `main`, и `main` несёт первый коммит песочницы с её
+# ведомостью. Посажен он до провязки хуков, то есть без суждения: посадка — шаг
+# сервера, а не отправка разработчика. Полномочия суждения отправки берутся из
+# ведомости ствола сервера отправки (ws#729, решение по роду круга 3), и сервер без
+# ствола — это «первая посадка», а не обычная отправка; её пробы заводят свой сервер.
 pg_sandbox() {
     local box="$1" ws="$1/ws"
     mkdir -p "$box" || return 1
-    git init -q --bare "$box/srv.git" || return 1
+    git init -q --bare -b main "$box/srv.git" || return 1
     git init -q -b work "$ws" || return 1
     git -C "$ws" config user.email "$PG_OWNER_EMAIL" || return 1
     git -C "$ws" config user.name  "push-gate owner" || return 1
@@ -74,6 +80,7 @@ pg_sandbox() {
     git -C "$ws" add -A >/dev/null || return 1
     git -C "$ws" commit -q -m "песочница push-gate" || return 1
     git -C "$ws" remote add origin "$box/srv.git" || return 1
+    git -C "$ws" push -q --no-verify origin work:refs/heads/main 2>/dev/null || return 1
     ( cd "$ws" && bash scripts/hooks/install.sh install >/dev/null 2>&1 ) || return 1
     printf '%s\n' "$ws"
 }

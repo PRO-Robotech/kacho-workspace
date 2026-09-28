@@ -64,16 +64,22 @@ mutant_descr=(
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|переименование снова склеивает пути знаменателя"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ключ атрибуции снова судится только по адресу"
     "check-02-push-range-judges-identities|scripts/hooks/pre-push|разборщика нет — отправка проходит, «судить нечем» стало проходом (MP1)"
-    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|опубликованное снова из ссылок отслеживания, а не у сервера отправки"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|опубликованное снова пополнено ссылками отслеживания, а не только сервером отправки"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|опубликованное на сервере отправки не вычитается — отправка по URL судит всю историю"
-    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова из рабочего дерева, а не из отправляемой ревизии"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова из рабочего дерева, а не из ствола"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|коммиттер-сервер из committers снова не покрыт при отправке"
     "check-02-push-range-judges-identities|scripts/hooks/pre-push|строки отправки снова читаются с пределом по времени и при вызове от git"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|двоичное и подмодуль снова не сверяются объектом"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|режим, сменённый полосой, снова не сверяется"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|снятая строка снова булева: снятие одного из повторов невидимо"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова читается ДО вычитания опубликованного — тег на опубликованное отказывает (круг 2, N1)"
-    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ревизия без ведомости снова не покрывается ревизией с ведомостью той же отправки (круг 2, N3)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова из ОТПРАВЛЯЕМОЙ ревизии, а не из ствола — изменение само себя допускает (круг 3)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|флаг первой посадки снова без сужения owners до user.email копии"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ревизия без ведомости снова проходит под флагом первой посадки"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|объект аннотированного тега снова не судится (круг 3)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ствол без ведомости снова не «условие не создано», а проход без флага"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение первой посадки снова печатает повторную отправку без флага"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение снова не переподписывает — напечатанная команда не исполняет обещанного"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -124,13 +130,13 @@ M = [
      '        echo "  Обход только явный: git push --no-verify" >&2\n        exit 1\n',
      '        echo "  Обход только явный: git push --no-verify" >&2\n        exit 0\n'),
     ("scripts/cla-gate/cla.py",
-     '    r = git(root, "ls-remote", "--", target, check=False)\n',
-     '    r = git(root, "for-each-ref", "--format=%(objectname)\t%(refname)", "refs/remotes/", check=False)\n'),
+     '    return sorted(advertised), (head_name or "HEAD", head_sha)\n',
+     '    return sorted(advertised | set(git(root, "for-each-ref", "--format=%(objectname)", "refs/remotes/").stdout.split())), (head_name or "HEAD", head_sha)\n'),
     ("scripts/cla-gate/cla.py",
-     '    return judge_push(root, rel, tips, sorted(set(rshas) | set(known)), label)\n',
-     '    return judge_push(root, rel, tips, sorted(set(rshas)), label)\n'),
+     '        published = set(present(root, advertised))\n',
+     '        published = set()\n'),
     ("scripts/cla-gate/cla.py",
-     '        led = load_ledger_at(root, ts[0], rel)\n',
+     '        led = load_ledger_at(root, tsha, rel)\n',
      '        led = load_ledger(root, rel)\n'),
     ("scripts/cla-gate/cla.py",
      '        ROLE_COMMITTER: ("owners", "signatories", "committers"),\n',
@@ -148,11 +154,29 @@ M = [
      '                        if (c[2, l] > cap) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n',
      '                        if (c[2, l] > 0 && c[1, l] == 0) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n'),
     ("scripts/cla-gate/cla.py",
-     '        if not rev_list(root, [t, *neg]):\n            idle += 1\n',
-     '        if False:\n            idle += 1\n'),
+     '            if not fresh and not tags:\n                idle += 1\n',
+     '            if False:\n                idle += 1\n'),
     ("scripts/cla-gate/cla.py",
-     '        rest = rev_list(root, [t, *neg, *("^" + c for c in carriers)])\n',
-     '        rest = rev_list(root, [t, *neg])\n'),
+     '        led = load_ledger_at(root, tsha, rel)\n',
+     '        led = load_ledger_at(root, items[0]["commit"], rel)\n'),
+    ("scripts/cla-gate/cla.py",
+     '    n["owners"] = {em: e for em, e in led["owners"].items() if own and em == own}\n',
+     '    n["owners"] = dict(led["owners"])\n'),
+    ("scripts/cla-gate/cla.py",
+     '                bad = True\n',
+     '                bad = False\n'),
+    ("scripts/cla-gate/cla.py",
+     '            tags = [t for t in chain if t not in adv]\n',
+     '            tags = []\n'),
+    ("scripts/cla-gate/cla.py",
+     '        if not first:\n            print(head, file=sys.stderr)\n',
+     '        if False:\n            print(head, file=sys.stderr)\n'),
+    ("scripts/cla-gate/cla.py",
+     '        print_cures(root, items, findings, neg, auth, tblob is None)\n',
+     '        print_cures(root, items, findings, neg, auth, False)\n'),
+    ("scripts/cla-gate/cla.py",
+     "               '| git commit -q --amend --reset-author -F -')\n",
+     "               '| git commit -q --amend -F -')\n"),
 ]
 path, old, new = M[n]
 p = root + "/" + path

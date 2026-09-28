@@ -19,7 +19,8 @@ CLA="$HERE/cla.py"
 
 unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX \
-      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL
+      GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL \
+      KACHO_CLA_FIRST_LANDING
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1
 
 TMP="$(mktemp -d)"
@@ -306,8 +307,13 @@ probe 1 "E8 tree: ключ атрибуции после границы — на
 # ── E2: суждение ОТПРАВКИ (`cla.py push-range`) ─────────────────────────────
 #
 # Вход — строки, которые git подаёт хуку pre-push («<лок. ссылка> <sha> <удал.
-# ссылка> <sha на сервере>»), и `$1` хука — имя remote отправки.
-probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <строки> [<подстрока>…]
+# ссылка> <sha на сервере>»), и `$1` хука — имя remote либо URL отправки.
+# ПОЛНОМОЧИЯ — У СТВОЛА: судит ведомость ветки, на которую указывает HEAD сервера
+# отправки. Поэтому у каждого «сервера» пробы есть ствол `main`, посаженный БЕЗ
+# суждения (посадка — шаг сервера, а не отправка разработчика); сервер без ствола —
+# отдельная проба первой посадки (FL).
+last_out=""
+probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <строки> [<подстрока>…]; FIRST=1 — флаг
     local want="$1" label="$2" d="$3" remote="$4" lines="$5"; shift 5
     local out rc ok=1 n
     if ! fixture_ok "$d"; then
@@ -315,7 +321,8 @@ probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <
         echo "[FAIL] $label — фикстура не собрана («$d»): судить нечего, и это не проход" >&2
         return
     fi
-    out="$(printf '%s\n' "$lines" | python3 "$CLA" push-range --root "$d" --remote "$remote" 2>&1)"; rc=$?
+    out="$(printf '%s\n' "$lines" | KACHO_CLA_FIRST_LANDING="${FIRST:-}" python3 "$CLA" push-range --root "$d" --remote "$remote" 2>&1)"; rc=$?
+    last_out="$out"
     probes=$((probes + 1))
     [ "$rc" = "$want" ] || ok=0
     for n in "$@"; do [[ "$out" == *"$n"* ]] || ok=0; done
@@ -327,10 +334,62 @@ probe_push() {  # <ожидаемый код> <метка> <репо> <remote> <
         printf '%s\n' "$out" | sed 's/^/    | /' >&2
     fi
 }
+check() {  # <да|нет> <метка> [<пояснение>] — проба-утверждение о состоянии фикстуры
+    probes=$((probes + 1))
+    if [ "$1" = да ]; then echo "[PASS] $2"; else failed=$((failed + 1)); echo "[FAIL] $2${3:+ — $3}" >&2; fi
+}
 Z=0000000000000000000000000000000000000000
+# srv <имя> [<репо> <ревизия ствола>] — bare-«сервер», HEAD → main; с ревизией —
+# ствол main посажен ею. Печатает путь.
+srv() {
+    local s="$TMP/$1.git"
+    git init -q --bare -b main "$s" || return 1
+    if [ -n "${2:-}" ]; then git -C "$2" push -q "$s" "$3:refs/heads/main" || return 1; fi
+    printf '%s\n' "$s"
+}
+# cures — исполнимые строки лечения ПОСЛЕДНЕГО отказа («лечение$ <команда>»), по одной.
+cures() { printf '%s\n' "$last_out" | sed -n 's/^  лечение\$ //p'; }
+# run_cures <репо> — исполняет ДОСЛОВНО каждую напечатанную команду лечения, кроме
+# отправки (её судит проба `push_printed` тем же суждением, которое позвал бы хук).
+# Исполнено ноль — провал: лечение, которого нет, не лечит.
+run_cures() {
+    local d="$1" cmd n=0
+    while IFS= read -r cmd; do
+        [ -n "$cmd" ] || continue
+        [[ "$cmd" =~ ^(KACHO_CLA_FIRST_LANDING=1\ )?git\ push\  ]] && continue
+        ( cd "$d" && bash -c "$cmd" ) >/dev/null 2>&1 || { echo "    лечение не исполнилось: $cmd" >&2; return 1; }
+        n=$((n + 1))
+    done < <(cures)
+    [ "$n" -gt 0 ]
+}
+# push_printed <ожидаемый код> <метка> <репо> [<подстрока>…] — напечатанная отказом
+# отправка («git push <remote> <лок>:<удал>…», с флагом или без) как строки pre-push,
+# которые git подал бы хуку на эту команду, — и суждение по ним.
+push_printed() {
+    local want="$1" label="$2" d="$3"; shift 3
+    local cmd rest lines="" spec l r rs first=""
+    cmd="$(cures | grep -E '^(KACHO_CLA_FIRST_LANDING=1 )?git push ' | tail -1)"
+    if [ -z "$cmd" ]; then
+        probes=$((probes + 1)); failed=$((failed + 1))
+        echo "[FAIL] $label — отказ не напечатал исполнимую отправку («лечение\$ git push …»)" >&2
+        return
+    fi
+    [[ "$cmd" == KACHO_CLA_FIRST_LANDING=1\ * ]] && first=1
+    rest="${cmd#*git push }"
+    local -a w
+    eval "w=($rest)"
+    for spec in "${w[@]:1}"; do
+        l="${spec%%:*}"; r="${spec#*:}"
+        rs="$(git -C "$d" ls-remote -- "${w[0]}" "$r" | cut -f1)"
+        lines+="$l $(git -C "$d" rev-parse "$l") $r ${rs:-$Z}"$'\n'
+    done
+    FIRST="$first" probe_push "$want" "$label" "$d" "${w[0]}" "${lines%$'\n'}" "$@"
+}
+# idents <репо> <диапазон…> — адреса авторов и коммиттеров диапазона, по одному.
+idents() { local d="$1"; shift; git -C "$d" log --format='%ae%n%ce' "$@" | sort -u; }
 
 d="$(fresh e2k)"
-git init -q --bare "$TMP/e2k-origin.git"; git init -q --bare "$TMP/e2k-other.git"
+git init -q --bare -b main "$TMP/e2k-origin.git"; git init -q --bare -b main "$TMP/e2k-other.git"
 git -C "$d" remote add origin "$TMP/e2k-origin.git"; git -C "$d" remote add other "$TMP/e2k-other.git"
 git -C "$d" push -q origin main
 echo k >> "$d/f.txt"; git -C "$d" add -A
@@ -339,45 +398,48 @@ git -C "$d" push -q other main; git -C "$d" fetch -q other
 head="$(git -C "$d" rev-parse HEAD)"; base="$(git -C "$d" rev-parse origin/main)"
 probe_push 1 "E2k чужой коммит, известный через ссылку ДРУГОГО remote, судится при отправке в origin" \
     "$d" origin "refs/heads/main $head refs/heads/main $base" "known-elsewhere@cla-inject.invalid" "публикуемых коммитов 1"
-git -C "$d" push -q --no-verify origin main; git -C "$d" fetch -q origin
+git -C "$d" push -q --no-verify origin main:refs/heads/landed; git -C "$d" fetch -q origin
 probe_push 0 "E2k близнец: тот же коммит уже на ЭТОМ remote — не судится повторно" \
     "$d" origin "refs/heads/main $head refs/heads/topic $Z" "публикуемых коммитов 0"
-git init -q --bare "$TMP/e2k-new.git"
+s="$(srv e2k-new "$d" "$base")"
 probe_push 1 "E2k отправка по URL, а не имени remote: известное чужим remote не вычитается" \
-    "$d" "$TMP/e2k-new.git" "refs/heads/main $head refs/heads/main $Z" "known-elsewhere@cla-inject.invalid"
+    "$d" "$s" "refs/heads/main $head refs/heads/main $base" "known-elsewhere@cla-inject.invalid"
 probe_push 2 "E2k сервер отправки не отвечает — опубликованное не вычесть: исход 2, не проход" \
     "$d" "$TMP/e2k-absent.git" "refs/heads/main $head refs/heads/main $Z" "не ответил на ls-remote"
 
 # ── «только история» при отправке ────────────────────────────────────────────
+#
+# Ствол «сервера» h-new — ревизия без родителей, чья ведомость называет границу $floor
+# чужой ветки: история до границы на сервере НЕ лежит, и её коммиты судятся как
+# история (history_only действует), а новое — как новое.
 dh="$hk"
-git init -q --bare "$TMP/h-new.git"
+h_led="$(git -C "$dh" rev-parse HEAD)"
+h_orphan="$(git -C "$dh" commit-tree -m "ствол без истории, ведомость с границей" "$h_led^{tree}")"
+s="$(srv h-new "$dh" "$h_orphan")"
+probe_push 0 "HP1 история до границы, которой на сервере нет, судится историей — адрес «только история» покрыт" \
+    "$dh" "$s" "refs/heads/hist $floor refs/heads/hist $Z" "история до границы 2"
 commit_as "$dh" old@cla-inject.invalid "новый коммит адресом «только история»"
 nh="$(git -C "$dh" rev-parse HEAD)"
 probe_push 1 "HP1 отправка НОВОГО коммита адресом «только история» — отказ «вперёд запрет»" \
-    "$dh" "$TMP/h-new.git" "refs/heads/main $nh refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
-# Ведомость судьи — из ОТПРАВЛЯЕМОЙ ревизии: история отправляется вместе с
-# коммитом, несущим ведомость (граница ведомости в нём и названа).
-probe_push 0 "HP1 близнец: отправка ИСТОРИИ (до границы) с ведомостью в новый remote — история покрыта" \
-    "$dh" "$TMP/h-new.git" "refs/heads/main $(git -C "$dh" rev-parse "$nh~1") refs/heads/main $Z" "история до границы 2"
-probe_push 1 "HP1 отправка ревизии, в дереве которой ведомости нет, — отказ «судить нечем», а не проход" \
-    "$dh" "$TMP/h-new.git" "refs/heads/main $floor refs/heads/main $Z" "ведомости contribution-ledger.yaml в дереве нет" "$(printf '%.12s' "$floor")"
+    "$dh" "$s" "refs/heads/main2 $nh refs/heads/main2 $Z" "old@cla-inject.invalid" "вперёд запрет"
+git -C "$dh" reset -q --hard "$h_led"
 
 # Подпись Signed-off-by после границы не подтверждает НИЧЕГО и при отправке:
 # роль автора закрыта перечнем ведомости (ws#729 п.1).
-git init -q --bare "$TMP/e-fwd.git"
+s="$(srv e-fwd "$e_fwd" "$(git -C "$e_fwd" rev-parse HEAD)")"
 echo a >> "$e_fwd/f.txt"; git -C "$e_fwd" add -A
 GIT_AUTHOR_EMAIL=old@cla-inject.invalid GIT_AUTHOR_NAME=old git -C "$e_fwd" commit -q -m "old со своей подписью" -m "Signed-off-by: old <old@cla-inject.invalid>"
 probe_push 1 "HP2 отправка: Signed-off-by адреса «только история» не снимает «вперёд запрет»" \
-    "$e_fwd" "$TMP/e-fwd.git" "refs/heads/main $(git -C "$e_fwd" rev-parse HEAD) refs/heads/main $Z" "old@cla-inject.invalid" "вперёд запрет"
+    "$e_fwd" "$s" "refs/heads/f $(git -C "$e_fwd" rev-parse HEAD) refs/heads/f $Z" "old@cla-inject.invalid" "вперёд запрет"
 git -C "$e_fwd" reset -q --hard HEAD~1
 echo b >> "$e_fwd/f.txt"; git -C "$e_fwd" add -A
 GIT_AUTHOR_EMAIL=stranger@cla-inject.invalid GIT_AUTHOR_NAME=stranger git -C "$e_fwd" commit -q -m "чужой со своей подписью" -m "Signed-off-by: stranger <stranger@cla-inject.invalid>"
 probe_push 1 "HP3 отправка: адрес вне ведомости со своим Signed-off-by — отказ" \
-    "$e_fwd" "$TMP/e-fwd.git" "refs/heads/main $(git -C "$e_fwd" rev-parse HEAD) refs/heads/main $Z" "stranger@cla-inject.invalid" "личности нет в ведомости"
+    "$e_fwd" "$s" "refs/heads/f $(git -C "$e_fwd" rev-parse HEAD) refs/heads/f $Z" "stranger@cla-inject.invalid" "личности нет в ведомости"
 git -C "$e_fwd" reset -q --hard HEAD~1
-git init -q --bare "$TMP/e6.git"
+s="$(srv e6 "$e6" "$(git -C "$e6" rev-parse HEAD~1)")"
 probe_push 1 "E6p отправка: автор без адреса + Signed-off-by без адреса — отказ «не разобран»" \
-    "$e6" "$TMP/e6.git" "refs/heads/main $(git -C "$e6" rev-parse HEAD) refs/heads/main $Z" "не разобран"
+    "$e6" "$s" "refs/heads/main $(git -C "$e6" rev-parse HEAD) refs/heads/main $(git -C "$e6" rev-parse HEAD~1)" "не разобран"
 
 # ── ключ атрибуции — отказ НЕЗАВИСИМО от ведомости (gi-no-attribution-trailers) ─
 #
@@ -391,8 +453,8 @@ ledger "$da" "waivers:
   - email: noreply@anthropic.com
     note: освобождение пробы E2g — подпись под вкладом не нужна"
 git -C "$da" add -A; git -C "$da" commit -q -m "ведомость с освобождением"
-git init -q --bare "$TMP/attr.git"
 base_a="$(git -C "$da" rev-parse HEAD)"
+s_attr="$(srv attr "$da" "$base_a")"
 attr_push() {  # <ожидаемый код> <метка> <сообщение: абзацы через |> [<подстрока>…]
     local want="$1" label="$2" msg="$3"; shift 3
     local args=() part
@@ -400,8 +462,8 @@ attr_push() {  # <ожидаемый код> <метка> <сообщение: �
     for part in "${parts[@]}"; do args+=(-m "$part"); done
     echo "$RANDOM$RANDOM" >> "$da/f.txt"; git -C "$da" add -A
     git -C "$da" commit -q "${args[@]}"
-    probe_push "$want" "$label" "$da" "$TMP/attr.git" \
-        "refs/heads/main $(git -C "$da" rev-parse HEAD) refs/heads/main $Z" "$@"
+    probe_push "$want" "$label" "$da" "$s_attr" \
+        "refs/heads/main $(git -C "$da" rev-parse HEAD) refs/heads/main $base_a" "$@"
     git -C "$da" reset -q --hard "$base_a"
 }
 attr_push 1 "E2g трейлер атрибуции с ОСВОБОЖДЁННЫМ адресом — отказ по ключу" \
@@ -443,27 +505,30 @@ probe 0 "E2 близнец: трейлер атрибуции ДО границ�
 # ── committers: личность, допустимая ТОЛЬКО коммиттером (посадка сервером) ─────
 #
 # ws#700: «committer noreply@github.com у схлопывающих слияний … находкой НЕ
-# является». Отправка в зеркало публикует посадки заново, и без записи законная
-# отправка краснела бы навсегда; с записью личность покрывает ровно роль
-# коммиттера — автором она вклад не подписывает, запись без коммита истекает.
+# является». Запись действует, когда она — в ведомости СТВОЛА: та же запись в
+# отправляемой ревизии поверх ствола без неё круг не расширяет.
 dc="$(fresh cmt)"
-echo c >> "$dc/f.txt"; git -C "$dc" add -A
-GIT_COMMITTER_EMAIL=server@cla-inject.invalid GIT_COMMITTER_NAME=server git -C "$dc" commit -q -m "посадка сервером"
-git init -q --bare "$TMP/cmt.git"
-probe_push 1 "C1 отправка: коммиттер-сервер без записи committers — отказ, роль «коммиттер»" \
-    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "коммиттер" "server@cla-inject.invalid"
+c_plain="$(git -C "$dc" rev-parse HEAD)"
 CM="committers:
   - email: server@cla-inject.invalid
     note: сервер подписывает посадку коммиттером (ws#700)"
 ledger "$dc" "$CM"; git -C "$dc" add -A; git -C "$dc" commit -q -m "ведомость: committers"
-probe_push 0 "C1 близнец: запись committers в ведомости отправляемой ревизии — проходит" \
-    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "публикуемых коммитов 4"
+c_cm="$(git -C "$dc" rev-parse HEAD)"
+echo c >> "$dc/f.txt"; git -C "$dc" add -A
+GIT_COMMITTER_EMAIL=server@cla-inject.invalid GIT_COMMITTER_NAME=server git -C "$dc" commit -q -m "посадка сервером"
+c_land="$(git -C "$dc" rev-parse HEAD)"
+s_bare="$(srv cmt-plain "$dc" "$c_plain")"
+probe_push 1 "C1 ствол без записи committers: коммиттер-сервер — отказ; та же запись в ведомости ВЕТКИ круг не расширяет" \
+    "$dc" "$s_bare" "refs/heads/main $c_land refs/heads/main $c_plain" "коммиттер" "server@cla-inject.invalid" "НЕ действует"
+s_cm="$(srv cmt "$dc" "$c_cm")"
+probe_push 0 "C1 близнец: запись committers в ведомости СТВОЛА — проходит" \
+    "$dc" "$s_cm" "refs/heads/main $c_land refs/heads/main $c_cm" "публикуемых коммитов 1"
 probe 0 "C2 tree: запись committers с предметом — молчание, число коммитов названо" "$dc" "committers server@cla-inject.invalid — коммитов коммиттером 1"
 echo a >> "$dc/f.txt"; git -C "$dc" add -A
 GIT_AUTHOR_EMAIL=server@cla-inject.invalid GIT_AUTHOR_NAME=server git -C "$dc" commit -q -m "сервер автором"
 probe 1 "C3 tree: личность из committers автором — находка «раздел committers этой роли не покрывает»" "$dc" "server@cla-inject.invalid" "раздел committers"
 probe_push 1 "C3 отправка: личность из committers автором — отказ" \
-    "$dc" "$TMP/cmt.git" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $Z" "автор" "раздел committers"
+    "$dc" "$s_cm" "refs/heads/main $(git -C "$dc" rev-parse HEAD) refs/heads/main $c_cm" "автор" "раздел committers"
 git -C "$dc" reset -q --hard HEAD~1
 ledger "$dc" "$CM
   - email: ghost-server@cla-inject.invalid
@@ -473,68 +538,204 @@ ledger "$dc" "$CM"
 
 # ── N: ОТПРАВКА, КОТОРАЯ НИЧЕГО НЕ ПУБЛИКУЕТ, ВЕДОМОСТИ НЕ ТРЕБУЕТ (круг 2) ──────
 #
-# Находка приёмки круга 2: ведомость отправляемой ревизии читалась ДО вычитания
-# опубликованного. Тег на коммит истории, где ведомости ещё нет, отказывал, хотя
-# коммит уже лежит на сервере отправки и публиковать нечего. Близнец (тег на
-# коммит ведомости) проходил. Лечение, которое называл отказ («запись в ведомости
-# отправляемой ревизии»), для опубликованного коммита неисполнимо, поэтому
-# оставался только `--no-verify`. Каноническая история несёт сотни таких ссылок.
-#
-# Порядок теперь такой: сначала вычесть опубликованное, потом читать ведомость.
-# Ревизия без ведомости с НОВЫМИ коммитами по-прежнему получает отказ, но лечение
-# исполнимо, и оно названо:
-#   · внести ведомость в ветку (N2);
-#   · отправить её вместе с ревизией, которая несёт ведомость и эти коммиты (N3).
+# Ведомость читается ПОСЛЕ вычитания опубликованного: тег на уже опубликованный
+# коммит не требует её ни в стволе, ни в дереве коммита — публиковать нечего.
 dn="$(floor_repo np)"
 n_floor="$(git -C "$dn" rev-parse HEAD~1)"; n_led="$(git -C "$dn" rev-parse HEAD)"
-git init -q --bare "$TMP/np-srv.git"
-git -C "$dn" push -q "$TMP/np-srv.git" "$n_led:refs/heads/main"
+s_np="$(srv np-srv "$dn" "$n_led")"
 probe_push 0 "N1 тег на коммит истории без ведомости, уже опубликованный, — публиковать нечего: проходит" \
-    "$dn" "$TMP/np-srv.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z" "публикуемых коммитов 0" "ссылок без новых коммитов 1"
+    "$dn" "$s_np" "refs/tags/v0 $n_floor refs/tags/v0 $Z" "публикуемых коммитов 0" "ссылок без нового 1"
 probe_push 0 "N1 близнец: тег на коммит ведомости, уже опубликованный, — публиковать нечего: проходит" \
-    "$dn" "$TMP/np-srv.git" "refs/tags/v1 $n_led refs/tags/v1 $Z" "публикуемых коммитов 0"
-# Ведомость той истории негодна по НЫНЕШНЕМУ разбору: закрытый словарь вырос или
-# сузился. Публиковать нечего, поэтому и читать её незачем. Прочтённая, она давала
-# бы отказ, который не лечится ничем, кроме обхода.
+    "$dn" "$s_np" "refs/tags/v1 $n_led refs/tags/v1 $Z" "публикуемых коммитов 0"
 git -C "$dn" checkout -q -b oldledger "$n_led"
 printf 'scope: [.]\nowners:\n  - email: %s\n    note: n\nretired_section: []\n' "$OWNER" > "$dn/contribution-ledger.yaml"
 git -C "$dn" commit -qam "ведомость прежней формы"
 n_bad="$(git -C "$dn" rev-parse HEAD)"
-git -C "$dn" push -q "$TMP/np-srv.git" "$n_bad:refs/heads/oldledger"
+git -C "$dn" push -q "$s_np" "$n_bad:refs/heads/oldledger"
 git -C "$dn" checkout -q main
 probe_push 0 "N1b тег на опубликованный коммит с ведомостью, негодной по нынешнему разбору, — публиковать нечего: проходит" \
-    "$dn" "$TMP/np-srv.git" "refs/tags/v2 $n_bad refs/tags/v2 $Z" "публикуемых коммитов 0"
-probe_push 1 "N1b близнец-отказ: та же негодная ведомость при НОВОМ коммите поверх — отказ «негодна»" \
-    "$dn" "$TMP/np-srv.git" "refs/heads/oldledger2 $(git -C "$dn" commit-tree -p "$n_bad" -m 'новый поверх' "$n_bad^{tree}") refs/heads/oldledger2 $Z" "негодна" "retired_section"
-# N2: ветка, отрезанная до ведомости, с НОВЫМ коммитом.
-git -C "$dn" checkout -q -b oldlane "$n_floor"
-echo o >> "$dn/f.txt"; git -C "$dn" commit -qam "свой коммит на ветке, отрезанной до ведомости"
-n_old="$(git -C "$dn" rev-parse HEAD)"
-probe_push 1 "N2 ветка до ведомости с НОВЫМ коммитом — отказ «судить нечем», лечение названо" \
-    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $n_old refs/heads/oldlane $Z" \
-    "ведомости contribution-ledger.yaml в дереве нет" "${n_old:0:12}" "публикует коммитов 1" "git cherry-pick"
-git -C "$dn" cherry-pick "$n_led" >/dev/null || { echo "[VOID] фикстура N2: перенос коммита ведомости не удался" >&2; exit 2; }
-probe_push 0 "N2 лечение исполнимо без обхода: ведомость внесена в ветку — та же отправка проходит" \
-    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $(git -C "$dn" rev-parse HEAD) refs/heads/oldlane $Z" "публикуемых коммитов 2"
-commit_as "$dn" stray@cla-inject.invalid "чужой поверх внесённой ведомости"
-probe_push 1 "N2 близнец-отказ: внесённая ведомость судит, и чужой коммит на той же ветке — отказ" \
-    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $(git -C "$dn" rev-parse HEAD) refs/heads/oldlane $Z" "stray@cla-inject.invalid" "личности нет в ведомости"
-# N3: история до границы в ПУСТОЕ зеркало. Одна она получает отказ (HP1-3). Вместе
-# со стволом, который несёт ведомость, её коммиты — часть диапазона ствола, и их
-# судит его ведомость.
-git init -q --bare "$TMP/np-mirror.git"
-probe_push 1 "N3 история до границы одна в пустое зеркало — отказ, лечение «вместе со стволом» названо" \
-    "$dn" "$TMP/np-mirror.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z" "ведомости contribution-ledger.yaml в дереве нет" "вместе с ревизией"
-probe_push 0 "N3 лечение: та же история вместе со стволом, несущим ведомость, — покрыта его ведомостью" \
-    "$dn" "$TMP/np-mirror.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z
-refs/heads/main $n_led refs/heads/main $Z" "покрытых ревизией с ведомостью 1" "история до границы $(git -C "$dn" rev-list --count "$n_floor")"
-git -C "$dn" checkout -q -b stray "$n_floor"
-commit_as "$dn" stray@cla-inject.invalid "чужой на ветке без ведомости"
-n_stray="$(git -C "$dn" rev-parse HEAD)"
-git -C "$dn" checkout -q main
-probe_push 1 "N3 близнец-отказ: покрытие — по достижимости, а не по соседству в отправке; чужой коммит вне ствола — отказ" \
-    "$dn" "$TMP/np-mirror.git" "refs/heads/stray $n_stray refs/heads/stray $Z
-refs/heads/main $n_led refs/heads/main $Z" "${n_stray:0:12}" "ведомости contribution-ledger.yaml в дереве нет"
+    "$dn" "$s_np" "refs/tags/v2 $n_bad refs/tags/v2 $Z" "публикуемых коммитов 0"
+probe_push 0 "N1b новый свой коммит поверх негодной ведомости ВЕТКИ — судит ствол, отличие названо и не действует" \
+    "$dn" "$s_np" "refs/heads/oldledger2 $(git -C "$dn" commit-tree -p "$n_bad" -m 'новый поверх' "$n_bad^{tree}") refs/heads/oldledger2 $Z" \
+    "публикуемых коммитов 1" "НЕ действует"
+
+# ── W: ПОЛНОМОЧИЯ БЕРУТСЯ ИЗ СТВОЛА, А НЕ ИЗ ПРОВЕРЯЕМОГО ИЗМЕНЕНИЯ (круг 3) ────
+#
+# Находка приёмки круга 3: отказ ветке без ведомости печатал лечение «git
+# cherry-pick <первый коммит ведомости>». Самая ранняя редакция — самая широкая
+# (прежний адрес владельца ещё в owners), и после исполнения лечения дословно коммит
+# адреса «только история» уходил на сервер с кодом 0. Проба прежде сверяла
+# подстроку «git cherry-pick» и переносила СВОЙ sha, а редакция ведомости в
+# фикстуре была одна.
+#
+# Здесь редакций две, и ранняя ШИРЕ: old@ в owners и stranger@ в signatories; поздняя
+# (ствол) переводит old@ в history_only и stranger@ не знает. Каждая команда лечения
+# исполняется ДОСЛОВНО из текста отказа, и после неё на сервер не уходит ни одного
+# коммита чужой подписи или адреса «только история».
+dw="$(repo w)"
+commit_as "$dw" old@cla-inject.invalid "вклад old до ведомостей"
+w_pre="$(git -C "$dw" rev-parse HEAD)"
+ledger "$dw" "  - email: old@cla-inject.invalid
+    note: ранняя редакция — прежний адрес владельца ещё свой
+signatories:
+  - email: stranger@cla-inject.invalid
+    note: ранняя редакция — принял соглашение"
+git -C "$dw" add -A; git -C "$dw" commit -q -m "ведомость: ранняя, широкая"
+w_wide="$(git -C "$dw" rev-parse HEAD)"
+ledger "$dw" "history_floor:
+  commit: $w_wide
+  note: граница поздней редакции
+history_only:
+  - email: old@cla-inject.invalid
+    note: поздняя редакция — прежний адрес только в истории"
+git -C "$dw" add -A; git -C "$dw" commit -q -m "ведомость: поздняя, узкая"
+w_narrow="$(git -C "$dw" rev-parse HEAD)"
+s_w="$(srv w-srv "$dw" "$w_narrow")"
+check "$( [ "$(git -C "$dw" log --format=%h -- contribution-ledger.yaml | wc -l)" -ge 2 ] && git -C "$dw" show "$w_wide:contribution-ledger.yaml" | grep -q 'old@' && echo да || echo нет)" \
+    "W предпосылка: редакций ведомости две и больше, ранняя шире (old@ в её owners)"
+# w_branch <имя> <от> <адрес автора и коммиттера> — ветка с одним новым коммитом.
+w_branch() {
+    git -C "$dw" checkout -q -b "$1" "$2"
+    echo "$1" >> "$dw/f.txt"; git -C "$dw" add -A
+    GIT_AUTHOR_EMAIL="$3" GIT_AUTHOR_NAME=x GIT_COMMITTER_EMAIL="$3" GIT_COMMITTER_NAME=x git -C "$dw" commit -q -m "коммит $3"
+}
+# w_cured <метка> <ветка> <запретный адрес> — лечение исполнено дословно; напечатанная
+# отправка проходит; в диапазоне ветки сверх ствола нет запретного адреса.
+w_cured() {
+    local ok=да
+    run_cures "$dw" || ok=нет
+    check "$ok" "$1: команды лечения напечатаны и исполнены дословно" "$(cures | head -3)"
+    push_printed 0 "$1: напечатанная отправка после лечения проходит" "$dw" "публикуемых коммитов"
+    check "$( idents "$dw" "$2" "^$w_narrow" | grep -qx "$3" && echo нет || echo да)" \
+        "$1: после лечения на отправку не идёт ни одного коммита $3" "$(idents "$dw" "$2" "^$w_narrow" | tr '\n' ' ')"
+}
+w_branch wl "$w_wide" old@cla-inject.invalid
+probe_push 1 "W1 ветка от РАННЕЙ широкой редакции, коммит адреса «только история» — отказ: судит ствол, а не ведомость ветки" \
+    "$dw" "$s_w" "refs/heads/wl $(git -C "$dw" rev-parse wl) refs/heads/wl $Z" "old@cla-inject.invalid" "вперёд запрет" "ствол main@"
+check "$( [[ "$last_out" != *"cherry-pick"* ]] && echo да || echo нет)" "W1 лечение не переносит в ветку ни одной редакции ведомости (нет cherry-pick)"
+w_cured "W1" wl old@cla-inject.invalid
+git -C "$dw" checkout -q main
+w_branch ws "$w_wide" stranger@cla-inject.invalid
+probe_push 1 "W2 ветка от ранней редакции, где stranger@ подписавший, — отказ: в стволе его нет" \
+    "$dw" "$s_w" "refs/heads/ws $(git -C "$dw" rev-parse ws) refs/heads/ws $Z" "stranger@cla-inject.invalid" "личности нет в ведомости" "сначала сесть в ствол"
+w_cured "W2" ws stranger@cla-inject.invalid
+git -C "$dw" checkout -q main
+w_branch wo "$w_pre" "$OWNER"
+probe_push 0 "W3 близнец: ветка, отрезанная ДО ведомости, со своим коммитом — судит ствол, проходит без лечения" \
+    "$dw" "$s_w" "refs/heads/wo $(git -C "$dw" rev-parse wo) refs/heads/wo $Z" "публикуемых коммитов 1" "ствол main@"
+git -C "$dw" checkout -q main
+w_branch wp "$w_pre" old@cla-inject.invalid
+probe_push 1 "W4 ветка до ведомости, коммит адреса «только история» — отказ ведомостью ствола" \
+    "$dw" "$s_w" "refs/heads/wp $(git -C "$dw" rev-parse wp) refs/heads/wp $Z" "old@cla-inject.invalid" "вперёд запрет"
+w_cured "W4" wp old@cla-inject.invalid
+git -C "$dw" checkout -q main
+# W5: ветка РАСШИРЯЕТ свою ведомость и тут же пользуется записью.
+git -C "$dw" checkout -q -b wx "$w_narrow"
+ledger "$dw" "  - email: evil@cla-inject.invalid
+    note: запись, внесённая самой проверяемой веткой
+history_floor:
+  commit: $w_wide
+  note: граница поздней редакции
+history_only:
+  - email: old@cla-inject.invalid
+    note: поздняя редакция — прежний адрес только в истории"
+git -C "$dw" add -A; git -C "$dw" commit -q -m "ведомость ветки: evil в owners"
+w_xled="$(git -C "$dw" rev-parse HEAD)"
+echo x >> "$dw/f.txt"; git -C "$dw" add -A
+GIT_AUTHOR_EMAIL=evil@cla-inject.invalid GIT_AUTHOR_NAME=evil GIT_COMMITTER_EMAIL=evil@cla-inject.invalid GIT_COMMITTER_NAME=evil git -C "$dw" commit -q -m "вклад evil"
+w_x="$(git -C "$dw" rev-parse HEAD)"
+probe_push 1 "W5 ведомость ВЕТКИ вносит адрес и тут же им пользуется — отказ: изменение круг допущенных не расширяет" \
+    "$dw" "$s_w" "refs/heads/wx $w_x refs/heads/wx $Z" "evil@cla-inject.invalid" "НЕ действует" "сначала сесть в ствол"
+git -C "$dw" push -q "$s_w" "$w_xled:refs/heads/main"
+probe_push 0 "W5 близнец: та же запись СНАЧАЛА села в ствол — та же отправка проходит" \
+    "$dw" "$s_w" "refs/heads/wx $w_x refs/heads/wx $Z" "публикуемых коммитов 1"
+git -C "$dw" checkout -q main
+
+# ── T: объект АННОТИРОВАННОГО тега судится, как коммит ─────────────────────────
+#
+# Находка приёмки круга 3: тег с чужим автором тега и трейлером атрибуции в
+# сообщении уходил на сервер с кодом 0 — суждение снимало тег до коммита, а коммит
+# уже был опубликован. Автор тега — как автор коммита; трейлеры его сообщения — как
+# трейлеры коммита; объект тега, уже названный сервером, вычитается.
+dt="$(fresh tg)"
+s_t="$(srv tg "$dt" "$(git -C "$dt" rev-parse HEAD)")"
+tag_push() {  # <ожидаемый код> <метка> <тег> [<подстрока>…]
+    local want="$1" label="$2" t="$3"; shift 3
+    probe_push "$want" "$label" "$dt" "$s_t" "refs/tags/$t $(git -C "$dt" rev-parse "refs/tags/$t") refs/tags/$t $Z" "$@"
+}
+GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$dt" tag -a t1 -m "выпуск" HEAD
+tag_push 1 "T1 аннотированный тег на опубликованный коммит, автор тега чужой — отказ, роль «автор тега»" t1 \
+    "stray@cla-inject.invalid" "автор тега" "объектов тегов 1"
+run_cures "$dt"; t_cure=$?
+check "$( [ "$t_cure" = 0 ] && [ "$(git -C "$dt" for-each-ref --format='%(taggeremail)' refs/tags/t1)" = "<$OWNER>" ] && echo да || echo нет)" \
+    "T1 лечение тега исполнено дословно: тег пересоздан своей личностью"
+push_printed 0 "T1 напечатанная отправка тега после лечения проходит" "$dt" "объектов тегов 1"
+git -C "$dt" tag -a t2 -m "выпуск" -m "Co-authored-by: Claude <noreply@anthropic.com>" HEAD
+tag_push 1 "T2 тег своей личности с ключом атрибуции в сообщении — отказ по ключу" t2 "Co-authored-by" "ключ атрибуции"
+git -C "$dt" tag -a t3 -m "выпуск" -m "Правило запрещает строку Co-authored-by: X <x@y> в сообщении тега." HEAD
+tag_push 0 "T близнец: тег своей личности, ключ только в прозе — проходит, объект тега судим" t3 "объектов тегов 1"
+GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$dt" tag -a t4in -m "внутренний" HEAD
+git -C "$dt" tag -a t4 -m "внешний" t4in
+tag_push 1 "T4 тег на чужой тег — внутренний объект тоже судится" t4 "stray@cla-inject.invalid" "объектов тегов 2"
+GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$dt" tag -a t5 -m "опубликован обходом" HEAD
+git -C "$dt" push -q "$s_t" refs/tags/t5
+probe_push 0 "T5 объект тега, уже названный сервером, вычитается — повторная ссылка на него проходит" \
+    "$dt" "$s_t" "refs/tags/t5 $(git -C "$dt" rev-parse refs/tags/t5) refs/tags/t5-copy $Z" "публикуемых коммитов 0, объектов тегов 0"
+
+# ── FL: ПЕРВАЯ ПОСАДКА — ствол сервера ведомости не несёт ───────────────────────
+#
+# Полномочий в стволе нет — «условие не создано» (исход 2), и отказ называет флаг.
+# Флаг допускает лишь ревизию, которая САМА несёт ведомость, и судит её самая узкая
+# форма: owners ∩ user.email копии, прочие разделы и граница не действуют.
+df="$(repo fl)"
+f_base="$(git -C "$df" rev-parse HEAD)"
+s_f="$(srv fl "$df" "$f_base")"
+ledger "$df"; git -C "$df" add -A; git -C "$df" commit -q -m "ведомость вводится"
+f_led="$(git -C "$df" rev-parse HEAD)"
+probe_push 2 "FL1 ствол без ведомости — условие не создано, флаг первой посадки назван" \
+    "$df" "$s_f" "refs/heads/main $f_led refs/heads/main $f_base" "условие не создано" "KACHO_CLA_FIRST_LANDING=1 git push"
+push_printed 0 "FL1 напечатанная отправка с флагом — ревизия вводит ведомость, всё своё: проходит в узкой форме" "$df" "узкой форме"
+git -C "$df" checkout -q -b flw "$f_led"
+ledger "$df" "  - email: evil@cla-inject.invalid
+    note: расширение в ревизии первой посадки
+signatories:
+  - email: stranger@cla-inject.invalid
+    note: расширение в ревизии первой посадки"
+git -C "$df" add -A; git -C "$df" commit -q -m "ведомость шире"
+commit_as "$df" evil@cla-inject.invalid "вклад evil"
+commit_as "$df" stranger@cla-inject.invalid "вклад stranger"
+FIRST=1 probe_push 1 "FL2 флаг: owners шире user.email и signatories — узкая форма их не допускает" \
+    "$df" "$s_f" "refs/heads/flw $(git -C "$df" rev-parse HEAD) refs/heads/flw $Z" "evil@cla-inject.invalid" "stranger@cla-inject.invalid" "узкую форму"
+run_cures "$df"; fl_c=$?
+check "$( [ "$fl_c" = 0 ] && cures | grep -q '^KACHO_CLA_FIRST_LANDING=1 git push ' && echo да || echo нет)" \
+    "FL2 лечение напечатано и исполнено дословно; повторная отправка напечатана С ФЛАГОМ (ствол всё ещё без ведомости)" "$(cures | tail -1)"
+push_printed 0 "FL2 напечатанная отправка после лечения проходит в узкой форме" "$df" "узкой форме"
+check "$( idents "$df" flw "^$f_base" | grep -qxE 'evil@cla-inject.invalid|stranger@cla-inject.invalid' && echo нет || echo да)" \
+    "FL2 после лечения на отправку не идёт ни evil@, ни stranger@" "$(idents "$df" flw "^$f_base" | tr '\n' ' ')"
+git -C "$df" checkout -q -b flh "$f_led"
+commit_as "$df" old@cla-inject.invalid "вклад old"
+f_mv="$(git -C "$df" rev-parse HEAD)"
+ledger "$df" "history_floor:
+  commit: $f_mv
+  note: граница, сдвинутая самой ревизией
+history_only:
+  - email: old@cla-inject.invalid
+    note: объявлено самой ревизией"
+git -C "$df" add -A; git -C "$df" commit -q -m "граница вперёд"
+FIRST=1 probe_push 1 "FL3 флаг: граница, сдвинутая ревизией на свой же коммит, «только история» не открывает" \
+    "$df" "$s_f" "refs/heads/flh $(git -C "$df" rev-parse HEAD) refs/heads/flh $Z" "old@cla-inject.invalid" "узкую форму"
+git -C "$df" checkout -q -b flb "$f_base"
+commit_as "$df" "$OWNER" "свой, ведомости нет"
+FIRST=1 probe_push 1 "FL4 флаг на ревизии БЕЗ ведомости — отказ: флаг допускает лишь ревизию, вводящую её" \
+    "$df" "$s_f" "refs/heads/flb $(git -C "$df" rev-parse HEAD) refs/heads/flb $Z" "лишь ревизию, которая сама вводит ведомость"
+git -C "$df" checkout -q main
+git -C "$df" config user.email other@cla-inject.invalid
+FIRST=1 probe_push 1 "FL5 флаг: user.email копии не совпал с owners — своей личности нет, отказ" \
+    "$df" "$s_f" "refs/heads/main $f_led refs/heads/main $f_base" "$OWNER" "узкую форму"
+git -C "$df" config user.email "$OWNER"
+s_e="$(srv fl-empty)"
+probe_push 2 "FL6 пустой сервер (HEAD не назван) — ствола нет: условие не создано, не проход" \
+    "$df" "$s_e" "refs/heads/main $f_led refs/heads/main $Z" "ствола не называет" "KACHO_CLA_FIRST_LANDING"
 
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
