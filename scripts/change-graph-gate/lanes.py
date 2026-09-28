@@ -335,36 +335,6 @@ DERIVED = "scripts/lib/run-suites.sh"
 SUITE = os.path.basename(GATE_RELDIR)
 
 
-def strip_shell_comments(block):
-    """Исполняемая часть блока `run:`.
-
-    Читается ИСПОЛНЯЕМОЕ, а не текст: имя скрипта встречается и в объяснении
-    рядом с ним, и предикат по подстроке зеленел бы на собственном комментарии.
-    Строка целиком под `#` снимается; хвостовой комментарий снимается только
-    вне кавычек — грубее было бы резать по первой решётке, а она законно стоит
-    внутри строкового литерала.
-    """
-    out = []
-    for raw in block.split("\n"):
-        line = raw
-        stripped = line.strip()
-        if stripped.startswith("#"):
-            continue
-        quote = None
-        cut = None
-        for i, ch in enumerate(line):
-            if quote:
-                if ch == quote:
-                    quote = None
-            elif ch in ("'", '"'):
-                quote = ch
-            elif ch == "#" and (i == 0 or line[i - 1].isspace()):
-                cut = i
-                break
-        out.append(line if cut is None else line[:cut])
-    return "\n".join(out)
-
-
 def has_auto_trigger(doc):
     """Процесс поднимается СОБЫТИЕМ ДЕРЕВА, а не только руками."""
     on = doc.get("on", doc.get(True))
@@ -412,6 +382,7 @@ def audit_ci_declaration():
     except ImportError:
         return void("разборщик YAML недоступен — объявление конвейера читать нечем")
     import suites as census_of_suites
+    import ci_calls
 
     wf_dir = os.path.join(ROOT, ".github", "workflows")
     try:
@@ -438,6 +409,7 @@ def audit_ci_declaration():
     auto_anywhere = False
     literal = {rel: [] for rel, _, _ in CI_MUST_CALL}
     derived = []           # (процесс, задание, на стволе, с --proofs)
+    uncounted = []         # (скрипт, ci_calls.Call) — вызов есть, вердикт не доходит
 
     for name in names:
         path = os.path.join(wf_dir, name)
@@ -456,24 +428,26 @@ def audit_ci_declaration():
         jobs = doc.get("jobs") or {}
         if not isinstance(jobs, dict):
             continue
-        for job_id, job in jobs.items():
-            if not isinstance(job, dict):
-                continue
-            jobs_read += 1
-            for step in job.get("steps") or []:
-                if not isinstance(step, dict):
-                    continue
-                run = step.get("run")
-                if not isinstance(run, str):
-                    continue
-                executable = strip_shell_comments(run)
-                for rel, _, _ in CI_MUST_CALL:
-                    if rel in executable:
-                        literal[rel].append((name, str(job_id), on_main))
-                for line in executable.split("\n"):
-                    if DERIVED in line:
-                        tail = line.split(DERIVED, 1)[1].split()
-                        derived.append((name, str(job_id), on_main, "--proofs" in tail))
+        jobs_read += sum(1 for job in jobs.values() if isinstance(job, dict))
+        # Вызов узнаёт ОБЩИЙ распознаватель (`scripts/lib/ci_calls.py`, тот же, что
+        # у suites-gate/check-04): путь в положении команды, вердикт доходит до
+        # задания, задание и шаг безусловны. Незасчитанный вызов — находка с
+        # причиной: `echo "…"`, `|| true`, `continue-on-error`, `if:` прежде
+        # проходили подстрокой.
+        for rel, _, _ in CI_MUST_CALL:
+            for c in ci_calls.calls(doc, name, rel):
+                if c.counted:
+                    literal[rel].append((name, c.job, on_main))
+                else:
+                    uncounted.append((rel, c))
+        for c in ci_calls.calls(doc, name, DERIVED):
+            if c.counted:
+                derived.append((name, c.job, on_main, "--proofs" in c.args))
+            else:
+                uncounted.append((DERIVED, c))
+
+    for rel, c in uncounted:
+        findings.append("%s — вызов %s не засчитан: %s" % (c.where, rel, c.why))
 
     def via_derived(how):
         if how == "run":
@@ -519,13 +493,14 @@ def audit_ci_declaration():
             findings.append("%s — конвейер называет скрипт, которого в дереве нет" % rel)
 
     census("объявление конвейера: прочитано процессов %d, заданий %d, обязательных "
-           "вызовов %d (%s); вывод перечня: %s, набор %s в переписи — %s; находок %d"
+           "вызовов %d (%s); вывод перечня: %s, набор %s в переписи — %s; вызовов не "
+           "засчитано %d; находок %d"
            % (files_read, jobs_read, len(CI_MUST_CALL),
               "; ".join("%s поимённо %d, выводом %d" % (os.path.basename(r), a, b)
                         for r, (a, b) in homes.items()),
               ", ".join("%s/%s%s" % (w, j, " --proofs" if p else "")
                         for w, j, _, p in derived) or "нет",
-              SUITE, "да" if in_census else "нет", len(findings)))
+              SUITE, "да" if in_census else "нет", len(uncounted), len(findings)))
     if jobs_read == 0:
         return void("ни одного задания не разобрано — предикат остался без предмета")
     for f in findings:

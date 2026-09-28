@@ -412,6 +412,52 @@ wf "$b" "# bash scripts/lib/run-suites.sh — только в комментар
 expect 1 "$b" "инъекция: вывод перечня только в комментарии — читается код, краснеет" "$C04" \
     "не вызвано ${#SUITES[@]}"
 
+# Вызов есть, вердикт не доходит (круг 1): четыре формы проходили check-04 при
+# «вызвано 8 из 8». Распознаватель общий с change-graph-gate/check-03
+# (`scripts/lib/ci_calls.py`); каждая форма — однофактная правка шага вывода.
+# wfk <песочница> <ключ задания|""> <ключ шага|""> <строки run>…
+wfk() {
+    local box="$1" jobk="$2" stepk="$3" line; shift 3
+    mkdir -p "$box/.github/workflows"
+    {
+        printf 'name: injected\non:\n  workflow_dispatch:\njobs:\n  suites:\n    runs-on: ubuntu-latest\n'
+        [ -z "$jobk" ] || printf '    %s\n' "$jobk"
+        printf '    steps:\n      - name: наборы\n'
+        [ -z "$stepk" ] || printf '        %s\n' "$stepk"
+        printf '        run: |\n'
+        for line in "$@"; do printf '          %s\n' "$line"; done
+    } > "$box/.github/workflows/ci.yaml"
+}
+DCALL="bash scripts/lib/run-suites.sh --proofs --void-is-failure"
+
+# swallowed <заголовок> <ключ задания> <ключ шага> <строка run> <подстрока находки>
+swallowed() {
+    local b s
+    b="$(mkbox)"
+    for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
+    wfk "$b" "$2" "$3" "$4"; commit "$b"
+    expect 1 "$b" "$1" "$C04" "не вызвано ${#SUITES[@]}" "$5"
+}
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
+wfk "$b" "" "" "echo \"$DCALL\""; commit "$b"
+expect 1 "$b" "инъекция: вывод перечня только в строке echo — упоминание, не вызов, краснеет" "$C04" \
+    "не вызвано ${#SUITES[@]}" "вызовов не засчитано 0"
+swallowed "инъекция: вызов с || true — вердикт выброшен, краснеет с причиной" "" "" "$DCALL || true" \
+    "вызов scripts/lib/run-suites.sh не засчитан: за вызовом \`||\`"
+swallowed "инъекция: continue-on-error у шага — краснеет с причиной" "" "continue-on-error: true" "$DCALL" \
+    "не засчитан: у шага \`continue-on-error"
+swallowed "инъекция: if: false у задания — вызов не исполняется, краснеет с причиной" "if: false" "" "$DCALL" \
+    "не засчитан: у задания \`if:"
+swallowed "инъекция: вызов — не последнее звено трубы — краснеет с причиной" "" "" "$DCALL | tee suites.log" \
+    "не засчитан: вызов — не последнее звено трубы"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; proof "$b" "$s"; done
+wfk "$b" "" "continue-on-error: false" "cd . && $DCALL" "echo готово"; commit "$b"
+expect 0 "$b" "близнец: цепочка && перед вызовом, команда после него (errexit по умолчанию), continue-on-error: false — молчит" "$C04" \
+    "вызвано конвейером ${#SUITES[@]}; не вызвано 0" "вызовов не засчитано 0"
+
 b="$(mkbox)"; suite "$b" "${SUITES[0]}"; commit "$b"
 expect 2 "$b" "предпосылка: процессов конвейера нет — VOID" "$C04" "файлов конвейера"
 

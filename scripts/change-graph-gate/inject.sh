@@ -343,6 +343,31 @@ else
     assert 1 2 "фикстура «без --proofs» не изменила объявление"
 fi
 
+# Вызов вывода есть, вердикт не доходит (круг 1): echo, `|| true`,
+# `continue-on-error`, `if: false` проходили подстрокой. Распознаватель общий с
+# suites-gate/check-04 (`scripts/lib/ci_calls.py`); каждая форма — однофактная правка.
+c3_swallowed() {
+    local form="$1" d
+    d="$(sandbox "c3-$form")"
+    case "$form" in
+        echo) wf_edit "$d" "$DERIVED_CALL" "echo \"$DERIVED_CALL\"" ;;
+        ortrue) wf_edit "$d" "$DERIVED_CALL" "$DERIVED_CALL || true" ;;
+        coe) wf_edit "$d" "      - name: наборы и их доказательства — перечень выведен из дерева" \
+            "      - name: наборы и их доказательства — перечень выведен из дерева
+        continue-on-error: true" ;;
+        iffalse) wf_edit "$d" "  gate-suites:
+    name:" "  gate-suites:
+    if: false
+    name:" ;;
+    esac || { assert 1 2 "фикстура «$form» не изменила объявление"; return; }
+    assert 1 "$(run "$d" "$C3")" "вызов вывода перечня в форме «$form» -> вердикт до задания не доходит, краснеет"
+    if [ "$form" != echo ]; then
+        assert 0 "$(said "$d" "$C3" "вызов scripts/lib/run-suites.sh не засчитан")" \
+            "форма «$form» -> находка называет незасчитанный вызов и причину"
+    fi
+}
+for form in echo ortrue coe iffalse; do c3_swallowed "$form"; done
+
 # Набор выпал из вывода: строка вызова цела, но перепись наборов его не видит
 # (прогонщик не в индексе и игнорируется) — вывод его не исполнит.
 d="$(sandbox c3-dropped)"
