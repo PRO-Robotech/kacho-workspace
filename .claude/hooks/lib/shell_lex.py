@@ -14,8 +14,17 @@ Bash до исполнения) и `scripts/tooling-gate/check-21-harness-hooks-
 
 Чего не различается и что не утверждается: `case … in шаблон)` внутри `$(…)`
 (скобка шаблона читается закрывающей), раскрытие переменных, алиасов и функций.
+
+Здесь же — снятие префиксов перед исполняемой командой (`strip_prefixes`:
+присваивания, ключевые слова, `time`, `env`, обёртки `builtin`, `command`, `exec`,
+`nice`, `nohup`, `setsid`, `stdbuf`, `ionice`, `timeout`). Оно тоже одно на обоих
+читателей: слово, которое страж считает исполняемой командой, гейт обязан считать
+тем же.
 """
 from __future__ import annotations
+
+import os
+import re
 
 SUBST = "\x00"     # метка подстановки команды в слове; исходник — Word.subs
 ARITH = "\x01"     # метка арифметики $((…)) — команд в ней нет
@@ -291,9 +300,6 @@ def lex(command: str) -> list:
 SEP = {"&&", "||", ";", ";;", "|", "&", "|&", "\n"}
 
 
-SEP = {"&&", "||", ";", ";;", "|", "&", "|&", "\n"}
-
-
 def simple_commands(src: str) -> list[list[Word]]:
     """Простые команды по порядку: разделители и скобки подоболочки сняты,
     перенаправления вместе с их целью из слов убраны. Подстановки — в `Word.subs`."""
@@ -323,3 +329,99 @@ def simple_commands(src: str) -> list[list[Word]]:
             cur.append(t)
     flush()
     return out
+
+# ── снятие префиксов перед исполняемой командой ─────────────────────────────
+# ОДНО на страж и гейт: страж по нему находит `git` и `cd`, гейт check-21 — позицию
+# вызова соседа в хуке. Прежде оно жило в страже, и гейт считал вызовом любое слово
+# после `then`, `{`, `command` (приёмка ws#714, круг 2): лексер общий, снятие — нет.
+
+KEYWORDS = {"if", "then", "elif", "else", "do", "while", "until", "!", "{", "}", "fi",
+            "done", "esac"}
+ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=.*", re.S)
+
+# Обёртка → (опции с аргументом, опции-флаги по шаблону, число позиционных до команды).
+WRAPPERS = {
+    # `builtin` исполняет встроенную команду оболочки: `builtin cd` меняет каталог ровно
+    # как `cd` (приёмка ws#714, круг 2 — префикс не снимался, и stash после
+    # `builtin cd <общая копия>` судился в каталоге, откуда команду подали).
+    "builtin": (set(), set(), 0),
+    "command": ({"-p"}, set(), 0),
+    "exec": ({"-a"}, {"-c", "-l", "-cl", "-lc"}, 0),
+    "nice": ({"-n", "--adjustment"}, set(), 0),
+    "nohup": (set(), set(), 0),
+    "setsid": (set(), {"-f", "-w", "-c", "--fork", "--wait", "--ctty"}, 0),
+    "stdbuf": ({"-i", "-o", "-e", "--input", "--output", "--error"}, set(), 0),
+    "ionice": ({"-c", "-n", "-p", "-P", "-u", "--class", "--classdata"}, {"-t"}, 0),
+    "timeout": ({"-s", "--signal", "-k", "--kill-after"},
+                {"--preserve-status", "--foreground", "-v", "--verbose"}, 1),
+}
+
+
+def strip_prefixes(words: list[str], here: str) -> tuple[list[str], dict, str]:
+    """Снять присваивания, ключевые слова и обёртки перед исполняемой командой.
+
+    → (слова команды, присваивания, каталог — `env -C` его меняет).
+    """
+    env: dict[str, str] = {}
+    i = 0
+    while i < len(words):
+        w = words[i]
+        if ASSIGN.fullmatch(w):
+            k, _, v = w.partition("=")
+            env[k.rstrip("+")] = v
+            i += 1
+            continue
+        if w in KEYWORDS:
+            i += 1
+            continue
+        if w == "time":
+            i += 1
+            if i < len(words) and words[i] == "-p":
+                i += 1
+            continue
+        if w == "env":
+            i += 1
+            while i < len(words):
+                a = words[i]
+                if a in ("-C", "--chdir") and i + 1 < len(words):
+                    here = os.path.normpath(os.path.join(here, os.path.expanduser(words[i + 1])))
+                    i += 2
+                elif a.startswith("--chdir="):
+                    here = os.path.normpath(os.path.join(here, os.path.expanduser(a.split("=", 1)[1])))
+                    i += 1
+                elif a in ("-u", "--unset") and i + 1 < len(words):
+                    i += 2
+                elif a == "--":
+                    i += 1
+                    break
+                elif a.startswith("-"):
+                    i += 1
+                elif ASSIGN.fullmatch(a):
+                    k, _, v = a.partition("=")
+                    env[k] = v
+                    i += 1
+                else:
+                    break
+            continue
+        if w in WRAPPERS:
+            with_arg, flags, positional = WRAPPERS[w]
+            if w == "command" and i + 1 < len(words) and words[i + 1] in ("-v", "-V"):
+                return [], env, here          # `command -v git` — поиск, не исполнение
+            i += 1
+            while i < len(words) and words[i].startswith("-") and words[i] != "-":
+                a = words[i]
+                if a == "--":
+                    i += 1
+                    break
+                if a in with_arg:
+                    i += 2
+                elif a.split("=", 1)[0] in with_arg or a in flags:
+                    i += 1
+                elif w in ("nice", "stdbuf", "ionice") and len(a) > 2:
+                    i += 1                     # `-n5`, `-oL`, `-c2` — значение слитно
+                else:
+                    i += 1
+            i += positional
+            continue
+        break
+    return words[i:], env, here

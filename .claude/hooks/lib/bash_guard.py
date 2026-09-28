@@ -75,7 +75,8 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from shell_lex import REDIRECT, SEP, Word, lex  # noqa: E402  — разбор оболочки один на страж и гейт
+from shell_lex import REDIRECT, SEP, Word, lex, strip_prefixes  # noqa: E402  — разбор оболочки
+#   и снятие префиксов перед командой одни на страж и гейт (tooling-gate check-21)
 
 TRUNK = "origin/main"
 CHECK = re.compile(r"^scripts/[^/]+-gate/check-[^/]+$")
@@ -90,98 +91,6 @@ def git(cwd: str, *args: str) -> tuple[int, str]:
     except (OSError, subprocess.TimeoutExpired):
         return 128, ""
     return p.returncode, p.stdout.strip()
-
-
-KEYWORDS = {"if", "then", "elif", "else", "do", "while", "until", "!", "{", "}", "fi",
-            "done", "esac"}
-ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=.*", re.S)
-
-# Обёртка → (опции с аргументом, опции-флаги по шаблону, число позиционных до команды).
-WRAPPERS = {
-    # `builtin` исполняет встроенную команду оболочки: `builtin cd` меняет каталог ровно
-    # как `cd` (приёмка ws#714, круг 2 — префикс не снимался, и stash после
-    # `builtin cd <общая копия>` судился в каталоге, откуда команду подали).
-    "builtin": (set(), set(), 0),
-    "command": ({"-p"}, set(), 0),
-    "exec": ({"-a"}, {"-c", "-l", "-cl", "-lc"}, 0),
-    "nice": ({"-n", "--adjustment"}, set(), 0),
-    "nohup": (set(), set(), 0),
-    "setsid": (set(), {"-f", "-w", "-c", "--fork", "--wait", "--ctty"}, 0),
-    "stdbuf": ({"-i", "-o", "-e", "--input", "--output", "--error"}, set(), 0),
-    "ionice": ({"-c", "-n", "-p", "-P", "-u", "--class", "--classdata"}, {"-t"}, 0),
-    "timeout": ({"-s", "--signal", "-k", "--kill-after"},
-                {"--preserve-status", "--foreground", "-v", "--verbose"}, 1),
-}
-
-
-def strip_prefixes(words: list[str], here: str) -> tuple[list[str], dict, str]:
-    """Снять присваивания, ключевые слова и обёртки перед исполняемой командой.
-
-    → (слова команды, присваивания, каталог — `env -C` его меняет).
-    """
-    env: dict[str, str] = {}
-    i = 0
-    while i < len(words):
-        w = words[i]
-        if ASSIGN.fullmatch(w):
-            k, _, v = w.partition("=")
-            env[k.rstrip("+")] = v
-            i += 1
-            continue
-        if w in KEYWORDS:
-            i += 1
-            continue
-        if w == "time":
-            i += 1
-            if i < len(words) and words[i] == "-p":
-                i += 1
-            continue
-        if w == "env":
-            i += 1
-            while i < len(words):
-                a = words[i]
-                if a in ("-C", "--chdir") and i + 1 < len(words):
-                    here = os.path.normpath(os.path.join(here, os.path.expanduser(words[i + 1])))
-                    i += 2
-                elif a.startswith("--chdir="):
-                    here = os.path.normpath(os.path.join(here, os.path.expanduser(a.split("=", 1)[1])))
-                    i += 1
-                elif a in ("-u", "--unset") and i + 1 < len(words):
-                    i += 2
-                elif a == "--":
-                    i += 1
-                    break
-                elif a.startswith("-"):
-                    i += 1
-                elif ASSIGN.fullmatch(a):
-                    k, _, v = a.partition("=")
-                    env[k] = v
-                    i += 1
-                else:
-                    break
-            continue
-        if w in WRAPPERS:
-            with_arg, flags, positional = WRAPPERS[w]
-            if w == "command" and i + 1 < len(words) and words[i + 1] in ("-v", "-V"):
-                return [], env, here          # `command -v git` — поиск, не исполнение
-            i += 1
-            while i < len(words) and words[i].startswith("-") and words[i] != "-":
-                a = words[i]
-                if a == "--":
-                    i += 1
-                    break
-                if a in with_arg:
-                    i += 2
-                elif a.split("=", 1)[0] in with_arg or a in flags:
-                    i += 1
-                elif w in ("nice", "stdbuf", "ionice") and len(a) > 2:
-                    i += 1                     # `-n5`, `-oL`, `-c2` — значение слитно
-                else:
-                    i += 1
-            i += positional
-            continue
-        break
-    return words[i:], env, here
 
 
 def commands(command: str, cwd: str) -> list[tuple[list[str], str, dict]]:

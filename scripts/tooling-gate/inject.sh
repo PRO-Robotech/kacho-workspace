@@ -887,6 +887,118 @@ for ev in list(d['hooks']):
         run 0 "$b" "близнец оси B/C формой $call — сосед есть и доходит вызовом, молчит" "$C21"
     done
 
+    # ── приёмка ws#714, круг 2: формы каталога скрипта и позиции, которых разбор не знал ──
+    # c21_expect <код> <песочница> <имя> <подстрока вывода> — проба с проверкой ЧТО названо.
+    c21_expect() {
+        local want="$1" box="$2" name="$3" needle="$4" out got
+        probes=$((probes + 1))
+        out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$C21" 2>&1)"; got=$?
+        if [ "$got" -eq "$want" ] && printf '%s' "$out" | grep -qF -- "$needle"; then
+            echo "  ok   $name (код $got)"
+        else
+            echo "  ПРОВАЛ $name — ждали код $want и «$needle», получили $got" >&2
+            printf '%s\n' "$out" | sed 's/^/         | /' >&2; failed=$((failed + 1))
+        fi
+    }
+    # Каталог скрипта формой `$(cd "$(dirname …)" && pwd)` — штатная форма хуков
+    # (`rag-after-git.sh`, `branches-clean.sh`); прежде подстановка обязана была
+    # начинаться с `dirname`, и вызов этой формой не читался вовсе.
+    cdpwd='"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/zz-gone.sh"'
+    b="$(mksandbox)"
+    printf '\nbash %s\n' "$cdpwd" >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C формой \$(cd \"\$(dirname …)\" && pwd)/… — сосед, которого нет, назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-gone.sh"
+    printf '\nbash %s\n' "$cdpwd" >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси B формой \$(cd \"\$(dirname …)\" && pwd)/… — новый сосед доходит вызовом, молчит" "$C21"
+    # Присваивание после ключевого слова и в теле однострочной функции: снятие префиксов
+    # (`then`, `{`) у гейта то же, что у стража.
+    b="$(mksandbox)"
+    printf '\nif true; then x="$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"; . "$x"; fi\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: присваивание после then — сосед, которого нет, назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    b="$(mksandbox)"
+    printf '\nzzf() { local x="$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"; . "$x"; }\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: local в однострочной функции — сосед, которого нет, назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    # Значение `export` читается (мутант приёмки H10 выживал: пробы на форму не было).
+    b="$(mksandbox)"
+    printf '\nexport ZZ="$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"\nbash "$ZZ"\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: адрес в значении export, вызов через переменную — назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    # Вызов внутри подстановки команды (мутант приёмки H12 выживал).
+    b="$(mksandbox)"
+    printf '\nout="$(bash "$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh")"\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: вызов в подстановке команды — назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    # Интерпретатор переменной (`PY="$(command -v python3 …)"; exec "$PY" "$GUARD"` —
+    # форма `class-guard.sh` и `docfresh.sh`) и опции интерпретатора перед сценарием.
+    b="$(mksandbox)"
+    printf '\nZZPY="$(command -v python3 || true)"\n"$ZZPY" "$(dirname "${BASH_SOURCE[0]}")/lib/zz-gone.py"\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: интерпретатор из переменной — сценарий, которого нет, назван" \
+        "зовёт .claude/hooks/lib/zz-gone.py"
+    b="$(mksandbox)"
+    printf '\nbash -eu -o pipefail "$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: опции интерпретатора перед сценарием — сценарий назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    # `-c`: у bash аргумент исполняется командой — путь в нём вызов; у python — код.
+    b="$(mksandbox)"
+    printf '\nbash -c "$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: bash -c <путь соседа> — строка команды исполняется, сосед назван" \
+        "зовёт .claude/hooks/zz-gone.sh"
+    b="$(mksandbox)"
+    printf '\npython3 -c "$(dirname "${BASH_SOURCE[0]}")/lib/zz-gone.py" 2>/dev/null || true\n' \
+        >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси C: python3 -c <та же форма> — аргумент есть код, не сценарий-файл, молчит" "$C21"
+    # Каталог из ЧУЖОЙ переменной — не каталог хуков: `$HOME/bin/…` — не сосед.
+    b="$(mksandbox)"
+    printf '\nbash "$HOME/bin/zz-tool.sh" || true\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси C: \$HOME/bin/… — чужой каталог, не сосед, молчит" "$C21"
+    # Замыкание транзитивно (мутант приёмки H18 выживал): запись → жертва → zz-a → zz-b.
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\nbash "$(dirname "${BASH_SOURCE[0]}")/zz-b.sh"\n' > "$b/.claude/hooks/zz-a.sh"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-b.sh"
+    printf '\nbash "$(dirname "${BASH_SOURCE[0]}")/zz-a.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 0 "$b" "близнец оси B: цепочка вызовов в два звена — оба соседа доходят, молчит" "$C21"
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\nbash "$(dirname "${BASH_SOURCE[0]}")/zz-b.sh"\n' > "$b/.claude/hooks/zz-a.sh"
+    printf '\nbash "$(dirname "${BASH_SOURCE[0]}")/zz-a.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C во втором звене — вызов из соседа, которого провязала цепочка, назван" \
+        "C .claude/hooks/zz-a.sh: зовёт .claude/hooks/zz-b.sh"
+    # Хук, который не разбирается, — находка, а не молчание (мутант приёмки H17 выживал).
+    b="$(mksandbox)"
+    printf '\necho "незакрытая\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    c21_expect 1 "$b" "дефект оси C: провязанный хук не разбирается — вызовы НЕ судились, названо" \
+        "C .claude/hooks/$victim: хук не разбирается"
+    # Упоминание — не вызов, какой бы командой ни шло: проверка существования, печать
+    # через обёртку `command`, путь в ЧУЖОМ каталоге. Запись жертвы снята, её имя
+    # остаётся в соседе одной из трёх форм — ось B обязана назвать жертву.
+    for mention in '[ -x "$(dirname "${BASH_SOURCE[0]}")/%s" ] || true' \
+                   'command echo "$(dirname "${BASH_SOURCE[0]}")/%s"' \
+                   'cp "$TMPDIR/%s" /dev/null 2>&1 || true'; do
+        b="$(mksandbox)"
+        c21_settings "$b" "
+for ev in list(d['hooks']):
+    for g in d['hooks'][ev]:
+        g['hooks'] = [h for h in g['hooks'] if '$victim' not in h['command']]
+    d['hooks'][ev] = [g for g in d['hooks'][ev] if g['hooks']]
+    if not d['hooks'][ev]: del d['hooks'][ev]
+"
+        other="$(cd "$b/.claude/hooks" && for f in *.sh; do [ "$f" != "$victim" ] && { echo "$f"; break; }; done)"
+        # shellcheck disable=SC2059
+        printf "\n$mention\n" "$victim" >> "$b/.claude/hooks/$other"; git -C "$b" add -A >/dev/null 2>&1
+        c21_expect 1 "$b" "дефект оси B: запись снята, в соседе — «${mention%% *} …» — упоминание, не вызов" \
+            "B .claude/hooks/$victim"
+    done
+
     b="$(mksandbox .claude/settings.json)"
     run 2 "$b" "предпосылка: настроек нет — VOID" "$C21"
     b="$(mksandbox)"; c21_settings "$b" "d.pop('hooks', None)"

@@ -38,12 +38,31 @@
 # слово, равное `<корень>.claude/hooks/<файл>`, где корень — пусто, `./`,
 # `$CLAUDE_PROJECT_DIR/`, `${CLAUDE_PROJECT_DIR}/`, `${CLAUDE_PROJECT_DIR:-…}/`
 # (кавычки сняты разбором: `"$CLAUDE_PROJECT_DIR"/…` — то же слово).
-# Вызов соседа в хуке-оболочке — СЛОВО команды или значения присваивания (не аргумент
-# `echo`/`printf`, не тело heredoc, не комментарий), равное `<каталог>/<файл>.sh|py`:
-# каталог скрипта — `$(dirname …)`, `${BASH_SOURCE%/*}`, `${BASH_SOURCE[0]%/*}`,
-# `${0%/*}`, иная переменная `$ИМЯ`/`${ИМЯ}`; корень — формы записи выше. Вызов,
-# собранный иначе (имя из переменной целиком, из массива, объект пути в python),
-# ось C не различает и этого не утверждает; хук на python ось C не читает.
+#
+# ВЫЗОВ СОСЕДА — ТОЛЬКО ИСПОЛНЕНИЕ, И ПОЗИЦИЯ ИСПОЛНЕНИЯ ВЫВОДИТСЯ ТЕМ ЖЕ СНЯТИЕМ
+# ПРЕФИКСОВ, ЧТО У СТРАЖА (`shell_lex.strip_prefixes`: присваивания, `if`/`then`/`{`/…,
+# `time`, `env`, `builtin`, `command`, `exec`, `nice`, `timeout`, …). Позиций три:
+# слово команды; аргумент `.`/`source`; файл сценария у интерпретатора (`bash`, `sh`,
+# `dash`, `zsh`, `ksh`, `python`, `python3` — именем либо переменной, которой присвоено
+# `$(command -v <интерпретатор> …)`; опции интерпретатора пропускаются; у `bash -c`
+# позиция исполнения — строка команды, у `python -c`/`-m` сценария-файла нет). Всё прочее — упоминание, и провязкой не считается: аргумент
+# `echo`/`printf`/`:` (и через обёртку: `command echo`), проверка `[ -x … ]`/`test`,
+# аргумент любой другой команды (`cp`, `cat`), тело heredoc, комментарий. Команды
+# внутри `$(…)`, обратных кавычек и `<(…)` судятся так же, на любой глубине.
+#
+# КАТАЛОГ ВЫВОДИТСЯ ИЗ ФАЙЛА, А НЕ ПРЕДПОЛАГАЕТСЯ. Каталог скрипта — `$0`,
+# `$BASH_SOURCE`, `${BASH_SOURCE[0]}` под `dirname`, `readlink -f`/`realpath`, `%/*`;
+# `$(cd <каталог> && pwd)`; корень воркспейса — `$CLAUDE_PROJECT_DIR` в любой из форм
+# выше; переменная — только если ей в этом же файле присвоено одно из этого (прямо, после
+# ключевого слова, через `local`/`export`/`readonly`/`declare`/`typeset`, в любом порядке
+# присваиваний). Прочая `$ПЕРЕМЕННАЯ` (`$HOME`, `$TMPDIR`) — чужой каталог: ни вызовом
+# соседа, ни находкой она не становится и считается переписью отдельно («каталог не
+# выводим»). Прежде ЛЮБАЯ `$ИМЯ/` читалась каталогом хуков — `$HOME/bin/x.sh` давал
+# ложную ось C, `cp "$TMPDIR/x.sh"` засчитывался провязкой (приёмка ws#714, круг 2).
+#
+# Не различается и не утверждается: составная строка команды (`bash -c 'a; b'`, `eval`), имя из
+# массива, вызов из функции, собранной динамически, объект пути в python — хук на python
+# ось C не читает. Замыкание по вызовам — транзитивно, до неподвижной точки.
 #
 # Вердикт — в КОДЕ ВЫХОДА: 0 молчит, 1 находка, 2 отказ (нет настроек, не
 # разбираются, ни одной записи хука — судить не о чем, и это не «находок 0»).
@@ -73,16 +92,22 @@ except ValueError as e:
 
 sys.path.insert(0, os.path.join(ws, H, "lib"))
 try:
-    from shell_lex import SUBST, simple_commands
+    from shell_lex import ASSIGN, SUBST, simple_commands, strip_prefixes
 except Exception as e:  # noqa: BLE001
     print(f"VOID нет разбора оболочки {H}/lib/shell_lex.py ({e!r}) — ни запись, ни вызов не выводимы")
     sys.exit(2)
 
 ROOT = re.compile(r"(?:\./|\$CLAUDE_PROJECT_DIR/|\$\{CLAUDE_PROJECT_DIR(?::?[-=?+][^}]*)?\}/)?"
                   r"(\.claude/hooks/[^\s;|&]+)")
-DIR_OF_SCRIPT = re.compile(r"\$\{(?:BASH_SOURCE(?:\[0\])?|0)%/\*\}|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?")
-CALL_REL = re.compile(r"/([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:sh|py))")
-PRINT = {"echo", "printf", ":"}
+PARAM = re.compile(r"\$\{([^}]*)\}|\$([A-Za-z_][A-Za-z0-9_]*|[0-9])")
+REL = re.compile(r"[A-Za-z0-9_.][A-Za-z0-9_./-]*")
+SCRIPT = {"0", "BASH_SOURCE", "BASH_SOURCE[0]"}
+PROJECT = re.compile(r"CLAUDE_PROJECT_DIR(?::?[-=?+].*)?", re.S)
+CUT = re.compile(r"([A-Za-z_][A-Za-z0-9_]*(?:\[0\])?|0)%/\*")
+INTERP_SH = {"bash", "sh", "dash", "zsh", "ksh"}
+INTERP_PY = {"python", "python3"}
+SOURCE = {".", "source"}
+DECL = {"local", "export", "readonly", "declare", "typeset"}
 
 records = []    # (событие, путь)
 forms = {}
@@ -116,64 +141,179 @@ tree = set(subprocess.run(["git", "-C", ws, "ls-files", "--cached", "--others", 
 entry = sorted(p for p in tree if re.fullmatch(r"\.claude/hooks/[^/]+\.(sh|py)", p))
 
 
-ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\+?=")
-DECL = {"local", "export", "readonly", "declare", "typeset"}
+# ── значение слова: файл, каталог или интерпретатор — выведенные из самого хука ──
+def _norm(p):
+    p = os.path.normpath(p)
+    return None if p == ".." or p.startswith("../") or os.path.isabs(p) else p
 
 
-def target_of(w, base_dir):
-    """Слово — вызов соседа? → нормализованная цель либо None."""
-    val = str(w)
-    r = ROOT.fullmatch(val)
-    if r:
-        return os.path.normpath(r.group(1)) if re.search(r"\.(?:sh|py)$", r.group(1)) else None
-    if val.startswith(SUBST):
-        subs = getattr(w, "subs", ())
-        if not subs or not subs[0].strip().startswith("dirname"):
-            return None
-        rest = val[len(SUBST):]
-    else:
-        dm = DIR_OF_SCRIPT.match(val)
-        if not dm or dm.group(0) in ("$CLAUDE_PROJECT_DIR", "${CLAUDE_PROJECT_DIR}"):
-            return None
-        rest = val[dm.end():]
-    cm = CALL_REL.fullmatch(rest)
-    return os.path.normpath(os.path.join(base_dir, cm.group(1))) if cm else None
+def _parent(kind, p):
+    q = _norm(os.path.join(p, "..")) if kind == "dir" else _norm(os.path.dirname(p) or ".")
+    return {("dir", q)} if q else set()
 
 
-def calls(src_text, base_dir):
-    """Цели вызовов в исполняемой части хука-оболочки: (цель, как записано)."""
-    out = []
+def _args(argv):
+    return [a for a in argv[1:] if not str(a).startswith("-")]
 
-    def walk(text):
+
+class Hook:
+    """Один хук-оболочка: переменные и вызовы, выведенные из его текста."""
+
+    def __init__(self, path, text):
+        self.path = path
+        self.cmds = []                 # все простые команды, вложенные подстановки тоже
+        self._collect(text)
+        self.vars = {}
+        # Присваивания — до неподвижной точки: порядок записи в файле значения не имеет
+        # (функция объявлена выше переменной, которую она читает).
+        assigns = [a for c in self.cmds for a in self._assigns(c)]
+        for _ in range(8):
+            changed = False
+            for name, val in assigns:
+                v = self.value(val)
+                if v - self.vars.get(name, set()):
+                    self.vars[name] = self.vars.get(name, set()) | v
+                    changed = True
+            if not changed:
+                break
+
+    def _collect(self, text):
         for words in simple_commands(text):
+            self.cmds.append(words)
             for w in words:
                 for sub in getattr(w, "subs", ()):
-                    walk(sub)
-            # Присваивания перед командой и аргументы `local`/`export`/… — значения:
-            # путь в них тоже вызов (так хук держит адрес соседа до `. "$x"`).
-            i = 0
-            while i < len(words) and ASSIGN.match(str(words[i])):
-                i += 1
-            vals = [(w, ASSIGN.match(str(w)).end()) for w in words[:i]]
-            rest = words[i:]
-            if rest and str(rest[0]) in PRINT:
-                rest = []                      # аргумент печати — текст, не вызов
-            elif rest and str(rest[0]) in DECL:
-                vals += [(w, m.end()) for w in rest[1:] for m in [ASSIGN.match(str(w))] if m]
-                rest = []
-            for w, cut in vals:
-                v = type(w)(str(w)[cut:])
-                v.subs = getattr(w, "subs", ())
-                t = target_of(v, base_dir)
-                if t:
-                    out.append((t, str(w)))
-            for w in rest:
-                t = target_of(w, base_dir)
-                if t:
-                    out.append((t, str(w)))
+                    self._collect(sub)
 
-    walk(src_text)
-    return out
+    @staticmethod
+    def _assigns(words):
+        argv, _env, _ = strip_prefixes(list(words), "/")
+        pre = list(words[: len(words) - len(argv)])
+        if argv and str(argv[0]) in DECL:
+            pre += [w for w in argv[1:] if not str(w).startswith("-")]
+        out = []
+        for w in pre:
+            m = ASSIGN.fullmatch(str(w)) and re.match(r"([A-Za-z_][A-Za-z0-9_]*)\+?=", str(w))
+            if m:
+                v = type(w)(str(w)[m.end():])
+                v.subs = getattr(w, "subs", ())
+                out.append((m.group(1), v))
+        return out
+
+    def _param(self, m):
+        c = m.group(1) if m.group(1) is not None else m.group(2)
+        if c in SCRIPT:
+            return {("file", self.path)}
+        if PROJECT.fullmatch(c):
+            return {("dir", ".")}
+        cut = CUT.fullmatch(c)
+        if cut:
+            base = {("file", self.path)} if cut.group(1) in SCRIPT else self.vars.get(cut.group(1), set())
+            return {x for k, p in base if k in ("file", "dir") for x in _parent(k, p)}
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", c):
+            return set(self.vars.get(c, set()))
+        return set()
+
+    def _sub(self, src):
+        try:
+            cmds = simple_commands(src)
+        except ValueError:
+            return set()
+        if cmds and len(cmds[0]) >= 3 and str(cmds[0][0]) == "command" and str(cmds[0][1]) in ("-v", "-V") \
+                and all(str(c[0]) in ("true", ":") for c in cmds[1:]):
+            n = os.path.basename(str(cmds[0][2]))
+            return {("interp", n)} if n in INTERP_SH | INTERP_PY else set()
+        stripped = [strip_prefixes(list(c), "/")[0] for c in cmds]
+        if len(stripped) == 1 and stripped[0]:
+            a = stripped[0]
+            head, args = str(a[0]), _args(a)
+            if head == "dirname" and len(args) == 1:
+                return {x for k, p in self.value(args[0]) if k in ("file", "dir") for x in _parent(k, p)}
+            if head in ("readlink", "realpath") and len(args) == 1:
+                return {(k, p) for k, p in self.value(args[0]) if k in ("file", "dir")}
+        if len(stripped) == 2 and stripped[0] and stripped[1] \
+                and str(stripped[0][0]) == "cd" and str(stripped[1][0]) == "pwd" \
+                and len(_args(stripped[0])) == 1:
+            return {(k, p) for k, p in self.value(_args(stripped[0])[0]) if k == "dir"}
+        return set()
+
+    def value(self, w):
+        s = str(w)
+        subs = getattr(w, "subs", ())
+        if s.startswith(SUBST):
+            base, rest = (self._sub(subs[0]) if subs else set()), s[1:]
+        else:
+            m = PARAM.match(s)
+            if m:
+                base, rest = self._param(m), s[m.end():]
+            else:
+                r = ROOT.fullmatch(s)
+                if r:
+                    p = _norm(r.group(1))
+                    return {("file", p)} if p else set()
+                n = os.path.basename(s)
+                return {("interp", n)} if s and n in INTERP_SH | INTERP_PY else set()
+        if not rest:
+            return base
+        if not rest.startswith("/") or not REL.fullmatch(rest[1:]):
+            return set()
+        out = set()
+        for k, p in base:
+            if k == "dir":
+                q = _norm(os.path.join(p, rest[1:]))
+                if q:
+                    out.add(("file" if re.search(r"\.(?:sh|py)$", q) else "dir", q))
+        return out
+
+    def is_interp(self, w):
+        return any(k == "interp" for k, _ in self.value(w))
+
+    def call_words(self, words):
+        """→ (слова в позиции исполнения, прочие слова команды)."""
+        argv, _env, _ = strip_prefixes(list(words), "/")
+        if not argv:
+            return [], []
+        # Позиций исполнения три, и других нет: слово команды, аргумент `.`/`source`,
+        # файл сценария интерпретатора. Аргумент `echo`, `[`, `cp`, `local` и любой
+        # другой команды — упоминание по построению, отдельного списка «не вызовов»
+        # не нужно (мутанты приёмки «печать — вызов» и «проверка — вызов» тому
+        # эквивалентны: путь в аргументе и так не в позиции исполнения).
+        head = str(argv[0])
+        if head in SOURCE:
+            return argv[1:2], argv[2:]
+        if self.is_interp(argv[0]):
+            fam_py = any(p in INTERP_PY for k, p in self.value(argv[0]) if k == "interp")
+            with_arg = {"-W", "-X"} if fam_py else {"-o", "+o", "-O", "+O"}
+            i = 1
+            while i < len(argv) and str(argv[i]).startswith(("-", "+")) and str(argv[i]) not in ("-", "--"):
+                a = str(argv[i])
+                # `python -c <код>` / `-m <модуль>` — сценария-файла нет: аргумент — код.
+                # `bash -c <команда>` — аргумент ИСПОЛНЯЕТСЯ командой: путь соседа в нём —
+                # вызов (`bash -c "$(dirname …)/x.sh"`).
+                if fam_py and a in ("-c", "-m"):
+                    return [], argv[1:]
+                if not fam_py and a == "-c":
+                    return argv[i + 1:i + 2], argv[1:i + 1] + argv[i + 2:]
+                i += 2 if a in with_arg else 1
+            if i < len(argv) and str(argv[i]) == "--":
+                i += 1
+            return argv[i:i + 1], argv[1:i] + argv[i + 1:]
+        return argv[:1], argv[1:]
+
+    def calls(self):
+        """→ (вызовы: [(цель, как записано)], каталог не выводим: N, упоминаний соседа: N)."""
+        out, dark, mention = [], 0, 0
+        for words in self.cmds:
+            pos, rest = self.call_words(words)
+            for w in pos:
+                files = [p for k, p in self.value(w) if k == "file"]
+                if files:
+                    out += [(p, str(w).replace(SUBST, "$(…)")) for p in files]
+                elif re.search(r"\.(?:sh|py)$", str(w)) and ("$" in str(w) or SUBST in str(w)):
+                    dark += 1
+            for w in rest:
+                if any(k == "file" and p.startswith(H + "/") for k, p in self.value(w)):
+                    mention += 1
+        return out, dark, mention
 
 
 findings = []
@@ -187,10 +327,11 @@ for ev, p in records:
     else:
         findings.append(f"A {ev}: запись зовёт {p} — файла в дереве НЕТ; событие обслуживает пустоту")
 
-# Замыкание по ВЫЗОВАМ: провязанный хук-оболочка доходит до соседа, которого зовёт.
+# Замыкание по ВЫЗОВАМ — транзитивно, до неподвижной точки: провязанный хук-оболочка
+# доходит до соседа, которого зовёт, тот — до своего, и так далее.
 reach = set(wired)
 frontier = list(wired)
-calls_seen = 0
+calls_seen = dark_seen = mention_seen = outside = 0
 unparsed = []
 while frontier:
     f = frontier.pop()
@@ -198,17 +339,20 @@ while frontier:
         continue
     try:
         text = open(os.path.join(ws, f), encoding="utf-8").read()
-        found = calls(text, os.path.dirname(f))
+        found, dark, mention = Hook(f, text).calls()
     except (OSError, UnicodeDecodeError, ValueError) as e:
         unparsed.append(f)
         findings.append(f"C {f}: хук не разбирается ({e}) — его вызовы НЕ судились")
         continue
+    dark_seen += dark
+    mention_seen += mention
     for tgt, how in found:
         calls_seen += 1
+        if not tgt.startswith(H + "/"):
+            outside += 1               # вызов вне каталога хуков — не сосед, не судится
+            continue
         if tgt not in tree:
-            # `$X/...` может звать не соседа, а чужой каталог: судим только цель внутри хуков.
-            if tgt.startswith(H + "/"):
-                findings.append(f"C {f}: зовёт {tgt} (`{how}`) — файла НЕТ; хук упадёт на вызове (127)")
+            findings.append(f"C {f}: зовёт {tgt} (`{how}`) — файла НЕТ; хук упадёт на вызове (127)")
             continue
         if tgt not in reach:
             reach.add(tgt)
@@ -223,7 +367,9 @@ print(f"CENSUS записей хука {len(records)} (событий {len({e fo
       + ", ".join(f"{k} {v}" for k, v in sorted(forms.items())) + f"; не распознано {len(unknown)}), "
       f"файлов верхнего уровня {len(entry)}, провязано прямо {len(wired)}, "
       f"доходит вызовом {len(reach & set(entry)) - len(wired & set(entry))}, "
-      f"вызовов соседа прочитано {calls_seen}, хуков не разобрано {len(unparsed)}")
+      f"вызовов соседа прочитано {calls_seen} (вне каталога хуков {outside}), "
+      f"вызовов с каталогом, не выводимым из файла, {dark_seen}, "
+      f"упоминаний соседа не вызовом {mention_seen}, хуков не разобрано {len(unparsed)}")
 for f in findings:
     print("FIND " + f)
 sys.exit(1 if findings else 0)
