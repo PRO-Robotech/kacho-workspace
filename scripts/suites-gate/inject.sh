@@ -571,6 +571,17 @@ commit "$b"
 expect 1 "$b" "инъекция: имя проверки без номера — краснеет" "$C05" \
     "scripts/${SUITES[0]}/check-unnumbered.sh — имя проверки без номера"
 
+# Номер 00 (круг 1): обещано «ровно 01…N», а разрывы считались от 1 — нулевой
+# номер проходил молча. Близнец — тот же набор 01…03 без него (выше).
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"; numbered "$b" "$s" check-01-a.sh check-02-b.py check-03-c.sh
+    [ "$s" = "${SUITES[0]}" ] && numbered "$b" "$s" check-00-zero.sh
+done
+commit "$b"
+expect 1 "$b" "инъекция: номер 00 рядом с 01…03 — краснеет" "$C05" \
+    "scripts/${SUITES[0]}/check-00-zero.sh — номер 00" "находок 1"
+
 b="$(mkbox)"; commit "$b"
 expect 2 "$b" "предпосылка: наборов нет — VOID, а не «повторов 0»" "$C05" "наборов scripts/*/run-all.sh"
 
