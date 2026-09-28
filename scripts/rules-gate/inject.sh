@@ -174,7 +174,7 @@ assert_code() {   # <ожидаемый> <утверждение>
 }
 
 assert_says() {   # <подстрока> <утверждение>
-    if printf '%s\n' "$OUT" | grep -qF -- "$1"; then
+    if grep -qF -- "$1" <<<"$OUT"; then
         echo "  [OK]   $2"; pass=$((pass + 1))
     else
         echo "  [FAIL] $2 — в вердикте нет «$1»" >&2
@@ -190,7 +190,7 @@ assert_says() {   # <подстрока> <утверждение>
 # настоящей причине), и круг оплачен зря. Помощник общий, потому что предмет общий
 # у всех частей набора, а не у одной.
 assert_lacks() {
-    if printf '%s\n' "$OUT" | grep -qF -- "$1"; then
+    if grep -qF -- "$1" <<<"$OUT"; then
         echo "  [FAIL] $2 — в вердикте есть лишнее «$1»" >&2
         printf '%s\n' "$OUT" | sed 's/^/         | /' >&2
         fail=$((fail + 1))
