@@ -17,7 +17,11 @@
                 спрашивается у СЕРВЕРА ОТПРАВКИ (`git ls-remote <url>`), а не у
                 ссылок отслеживания: те — память о сервере ВЫБОРКИ и бывают
                 устаревшими. Ведомость читается из ОТПРАВЛЯЕМОЙ ревизии, а не из
-                рабочего дерева: незакоммиченная правка отправку не открывает.
+                рабочего дерева: незакоммиченная правка отправку не открывает. Читается
+                она ПОСЛЕ вычитания опубликованного: ссылке, которая не публикует ни
+                одного коммита, ведомость не нужна. Ревизию без ведомости покрывает
+                ревизия с ведомостью в той же отправке, если достижимостью несёт её
+                новые коммиты; непокрытое — отказ с исполнимым лечением.
     census      таблица суждения отправки по произвольному диапазону
                 (`census -- <ветка> --not --glob=refs/remotes/origin/*`) — диагностика
                 по ведомости РАБОЧЕГО дерева и по названным ссылкам. Вердиктом отправки
@@ -565,23 +569,65 @@ def published_on(root, target):
 
 
 def ledger_blob(root, rev, rel):
-    """Объект ведомости в дереве ревизии: одинаковые ведомости судят одной группой."""
-    if git(root, "cat-file", "-e", rev + "^{commit}", check=False).returncode != 0:
-        raise Unjudgeable("ревизии %s в клоне нет — судить отправляемое не по чему" % rev[:12])
+    """Объект ведомости в дереве ревизии либо None — ведомости там нет.
+
+    Одинаковые ведомости судят одной группой.
+    """
     r = git(root, "rev-parse", "--verify", "-q", "%s:%s" % (rev, rel), check=False)
-    return r.stdout.strip() or ("нет@" + rev)
+    return r.stdout.strip() or None
+
+
+def rev_list(root, revs):
+    """sha коммитов диапазона. Ревизии подаются через stdin: у сервера отправки
+    бывают тысячи ссылок, и в командную строку они не помещаются."""
+    return git(root, "rev-list", "--stdin", stdin="".join(v + "\n" for v in revs)).stdout.split()
 
 
 def judge_push(root, rel, tips, negatives, label):
-    """Суждение по отправляемому: группа ссылок — одна ведомость ИХ ревизии."""
-    groups = {}
+    """Суждение по отправляемому: группа ссылок — одна ведомость ИХ ревизии.
+
+    ПОРЯДОК: сначала вычитается опубликованное, потом читается ведомость. Ссылке,
+    которая не публикует ни одного коммита (тег или ветка на коммите, уже лежащем
+    на сервере отправки), ведомость не нужна: судить нечего. Отказ ей был бы вечным,
+    потому что опубликованный коммит не переписывается и «запись в ведомости
+    отправляемой ревизии» для него неисполнима. Находка приёмки круга 2: тег на коммит
+    истории без ведомости получал отказ, тот же тег на коммит с ведомостью проходил, а
+    в каноническом клоне ведомости нет ни в одной из существующих ссылок.
+
+    Ревизия с новыми коммитами судится ведомостью СВОЕГО дерева. Если ведомости там
+    нет, её коммиты судит ревизия той же отправки, которая несёт ведомость и эти
+    коммиты: ведомость публикуется вместе с ними. Покрытие определяется
+    достижимостью, а не соседством в одной отправке. Непокрытые коммиты получают отказ
+    с исполнимым лечением: внести ведомость в ветку либо отправить её вместе с такой
+    ревизией. Незакоммиченная и неопубликованная правка по-прежнему ничего не
+    открывает.
+    """
+    neg = ["^" + n for n in negatives]
+    groups, bare, idle = {}, [], 0
     for t in tips:
-        groups.setdefault(ledger_blob(root, t, rel), []).append(t)
+        if git(root, "cat-file", "-e", t + "^{commit}", check=False).returncode != 0:
+            raise Unjudgeable("ревизии %s в клоне нет — судить отправляемое не по чему" % t[:12])
+        if not rev_list(root, [t, *neg]):
+            idle += 1
+            continue
+        blob = ledger_blob(root, t, rel)
+        if blob is None:
+            bare.append(t)
+        else:
+            groups.setdefault(blob, []).append(t)
+    carriers = [t for _, ts in sorted(groups.items()) for t in ts]
+    covered, uncovered = 0, []
+    for t in bare:
+        rest = rev_list(root, [t, *neg, *("^" + c for c in carriers)])
+        if rest:
+            uncovered.append((t, len(rest)))
+        else:
+            covered += 1
     findings, by, ids, seen, past_n, ledgers = [], Counter(), set(), set(), 0, []
     for _, ts in sorted(groups.items()):
         led = load_ledger_at(root, ts[0], rel)
         ledgers.append(led["path"])
-        recs = commits(root, [], stdin_revs=[*ts, *("^" + n for n in negatives)])
+        recs = commits(root, [], stdin_revs=[*ts, *neg])
         past, _, f, b, i, _ = judge_split(root, led, recs, "push")
         findings += f
         by += b
@@ -589,11 +635,33 @@ def judge_push(root, rel, tips, negatives, label):
         past_n += len({r.sha for r in past} - seen)
         seen |= {r.sha for r in recs}
     print("%s — публикуемых коммитов %d (из них история до границы %d), вкладов %d (автор %d, "
-          "коммиттер %d, соавтор %d), личностей %d; ведомость %s"
+          "коммиттер %d, соавтор %d), личностей %d; ведомость %s; ссылок без новых коммитов %d "
+          "(ведомость не читалась), ссылок без ведомости, покрытых ревизией с ведомостью %d, "
+          "непокрытых %d"
           % (label, len(seen), past_n, by["вкладов"], by[ROLE_AUTHOR], by[ROLE_COMMITTER],
-             by[ROLE_COAUTHOR], len(ids), ", ".join(ledgers) or "— (публиковать нечего)"),
+             by[ROLE_COAUTHOR], len(ids), ", ".join(ledgers) or "— (публиковать нечего)",
+             idle, covered, len(uncovered)),
           file=sys.stderr)
     dirty_ledger_note(root, rel)
+    for t, n in uncovered:
+        print("[FAIL] cla-gate — ведомости %s в дереве нет — различать своего и чужого нечем "
+              "(дерево отправляемой ревизии %s; она публикует коммитов %d, которых нет на "
+              "сервере отправки и нет в диапазоне ни одной отправляемой ревизии с ведомостью)"
+              % (rel, t[:12], n), file=sys.stderr)
+    if uncovered:
+        # Коммит, которым ведомость вошла в историю, — самый ранний из достижимых от
+        # HEAD (копия с этим хуком её несёт), иначе — от любой ссылки клона.
+        added = []
+        for start in (["HEAD"], ["--all"]):
+            added = git(root, "log", "--diff-filter=A", "--format=%h", "--reverse", *start, "--",
+                        rel, check=False).stdout.split()
+            if added:
+                break
+        led_commit = added[0] if added else "<коммит ведомости>"
+        print("  Лечение без обхода: внесите ведомость в эту ветку — влейте ствол либо перенесите "
+              "коммит ведомости (git cherry-pick %s); либо отправьте её вместе с ревизией, несущей "
+              "ведомость и эти коммиты (git push <remote> <ствол> <ссылка>). Уже опубликованное "
+              "вычитается, и ведомость ему не нужна." % led_commit, file=sys.stderr)
     if findings:
         print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости либо ключ "
               "атрибуции (%d):" % len(findings), file=sys.stderr)
@@ -605,7 +673,7 @@ def judge_push(root, rel, tips, negatives, label):
               "записью в ведомости. Обход один и явный: git push --no-verify." % rel,
               file=sys.stderr)
         return 1
-    return 0
+    return 1 if uncovered else 0
 
 
 def run_push_range(root, rel, remote, url, lines):

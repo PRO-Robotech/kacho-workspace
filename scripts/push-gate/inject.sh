@@ -72,6 +72,8 @@ mutant_descr=(
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|двоичное и подмодуль снова не сверяются объектом"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|режим, сменённый полосой, снова не сверяется"
     "check-05-preservation-denominator-is-the-lane|scripts/preservation-proof.sh|снятая строка снова булева: снятие одного из повторов невидимо"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ведомость снова читается ДО вычитания опубликованного — тег на опубликованное отказывает (круг 2, N1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ревизия без ведомости снова не покрывается ревизией с ведомостью той же отправки (круг 2, N3)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -145,6 +147,12 @@ M = [
     ("scripts/preservation-proof.sh",
      '                        if (c[2, l] > cap) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n',
      '                        if (c[2, l] > 0 && c[1, l] == 0) printf "R\\t%d\\t%d\\t%s\\n", c[2, l], cap, l\n'),
+    ("scripts/cla-gate/cla.py",
+     '        if not rev_list(root, [t, *neg]):\n            idle += 1\n',
+     '        if False:\n            idle += 1\n'),
+    ("scripts/cla-gate/cla.py",
+     '        rest = rev_list(root, [t, *neg, *("^" + c for c in carriers)])\n',
+     '        rest = rev_list(root, [t, *neg])\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path

@@ -471,6 +471,71 @@ ledger "$dc" "$CM
 probe 1 "C4 tree: запись committers без коммита с этим коммиттером — находка (самоистечение)" "$dc" "ghost-server@cla-inject.invalid" "нечего покрывать"
 ledger "$dc" "$CM"
 
+# ── N: ОТПРАВКА, КОТОРАЯ НИЧЕГО НЕ ПУБЛИКУЕТ, ВЕДОМОСТИ НЕ ТРЕБУЕТ (круг 2) ──────
+#
+# Находка приёмки круга 2: ведомость отправляемой ревизии читалась ДО вычитания
+# опубликованного. Тег на коммит истории, где ведомости ещё нет, отказывал, хотя
+# коммит уже лежит на сервере отправки и публиковать нечего. Близнец (тег на
+# коммит ведомости) проходил. Лечение, которое называл отказ («запись в ведомости
+# отправляемой ревизии»), для опубликованного коммита неисполнимо, поэтому
+# оставался только `--no-verify`. Каноническая история несёт сотни таких ссылок.
+#
+# Порядок теперь такой: сначала вычесть опубликованное, потом читать ведомость.
+# Ревизия без ведомости с НОВЫМИ коммитами по-прежнему получает отказ, но лечение
+# исполнимо, и оно названо:
+#   · внести ведомость в ветку (N2);
+#   · отправить её вместе с ревизией, которая несёт ведомость и эти коммиты (N3).
+dn="$(floor_repo np)"
+n_floor="$(git -C "$dn" rev-parse HEAD~1)"; n_led="$(git -C "$dn" rev-parse HEAD)"
+git init -q --bare "$TMP/np-srv.git"
+git -C "$dn" push -q "$TMP/np-srv.git" "$n_led:refs/heads/main"
+probe_push 0 "N1 тег на коммит истории без ведомости, уже опубликованный, — публиковать нечего: проходит" \
+    "$dn" "$TMP/np-srv.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z" "публикуемых коммитов 0" "ссылок без новых коммитов 1"
+probe_push 0 "N1 близнец: тег на коммит ведомости, уже опубликованный, — публиковать нечего: проходит" \
+    "$dn" "$TMP/np-srv.git" "refs/tags/v1 $n_led refs/tags/v1 $Z" "публикуемых коммитов 0"
+# Ведомость той истории негодна по НЫНЕШНЕМУ разбору: закрытый словарь вырос или
+# сузился. Публиковать нечего, поэтому и читать её незачем. Прочтённая, она давала
+# бы отказ, который не лечится ничем, кроме обхода.
+git -C "$dn" checkout -q -b oldledger "$n_led"
+printf 'scope: [.]\nowners:\n  - email: %s\n    note: n\nretired_section: []\n' "$OWNER" > "$dn/contribution-ledger.yaml"
+git -C "$dn" commit -qam "ведомость прежней формы"
+n_bad="$(git -C "$dn" rev-parse HEAD)"
+git -C "$dn" push -q "$TMP/np-srv.git" "$n_bad:refs/heads/oldledger"
+git -C "$dn" checkout -q main
+probe_push 0 "N1b тег на опубликованный коммит с ведомостью, негодной по нынешнему разбору, — публиковать нечего: проходит" \
+    "$dn" "$TMP/np-srv.git" "refs/tags/v2 $n_bad refs/tags/v2 $Z" "публикуемых коммитов 0"
+probe_push 1 "N1b близнец-отказ: та же негодная ведомость при НОВОМ коммите поверх — отказ «негодна»" \
+    "$dn" "$TMP/np-srv.git" "refs/heads/oldledger2 $(git -C "$dn" commit-tree -p "$n_bad" -m 'новый поверх' "$n_bad^{tree}") refs/heads/oldledger2 $Z" "негодна" "retired_section"
+# N2: ветка, отрезанная до ведомости, с НОВЫМ коммитом.
+git -C "$dn" checkout -q -b oldlane "$n_floor"
+echo o >> "$dn/f.txt"; git -C "$dn" commit -qam "свой коммит на ветке, отрезанной до ведомости"
+n_old="$(git -C "$dn" rev-parse HEAD)"
+probe_push 1 "N2 ветка до ведомости с НОВЫМ коммитом — отказ «судить нечем», лечение названо" \
+    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $n_old refs/heads/oldlane $Z" \
+    "ведомости contribution-ledger.yaml в дереве нет" "${n_old:0:12}" "публикует коммитов 1" "git cherry-pick"
+git -C "$dn" cherry-pick "$n_led" >/dev/null || { echo "[VOID] фикстура N2: перенос коммита ведомости не удался" >&2; exit 2; }
+probe_push 0 "N2 лечение исполнимо без обхода: ведомость внесена в ветку — та же отправка проходит" \
+    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $(git -C "$dn" rev-parse HEAD) refs/heads/oldlane $Z" "публикуемых коммитов 2"
+commit_as "$dn" stray@cla-inject.invalid "чужой поверх внесённой ведомости"
+probe_push 1 "N2 близнец-отказ: внесённая ведомость судит, и чужой коммит на той же ветке — отказ" \
+    "$dn" "$TMP/np-srv.git" "refs/heads/oldlane $(git -C "$dn" rev-parse HEAD) refs/heads/oldlane $Z" "stray@cla-inject.invalid" "личности нет в ведомости"
+# N3: история до границы в ПУСТОЕ зеркало. Одна она получает отказ (HP1-3). Вместе
+# со стволом, который несёт ведомость, её коммиты — часть диапазона ствола, и их
+# судит его ведомость.
+git init -q --bare "$TMP/np-mirror.git"
+probe_push 1 "N3 история до границы одна в пустое зеркало — отказ, лечение «вместе со стволом» названо" \
+    "$dn" "$TMP/np-mirror.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z" "ведомости contribution-ledger.yaml в дереве нет" "вместе с ревизией"
+probe_push 0 "N3 лечение: та же история вместе со стволом, несущим ведомость, — покрыта его ведомостью" \
+    "$dn" "$TMP/np-mirror.git" "refs/tags/v0 $n_floor refs/tags/v0 $Z
+refs/heads/main $n_led refs/heads/main $Z" "покрытых ревизией с ведомостью 1" "история до границы $(git -C "$dn" rev-list --count "$n_floor")"
+git -C "$dn" checkout -q -b stray "$n_floor"
+commit_as "$dn" stray@cla-inject.invalid "чужой на ветке без ведомости"
+n_stray="$(git -C "$dn" rev-parse HEAD)"
+git -C "$dn" checkout -q main
+probe_push 1 "N3 близнец-отказ: покрытие — по достижимости, а не по соседству в отправке; чужой коммит вне ствола — отказ" \
+    "$dn" "$TMP/np-mirror.git" "refs/heads/stray $n_stray refs/heads/stray $Z
+refs/heads/main $n_led refs/heads/main $Z" "${n_stray:0:12}" "ведомости contribution-ledger.yaml в дереве нет"
+
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
     echo "[FAIL] cla-gate inject — провалов $failed из $probes" >&2
