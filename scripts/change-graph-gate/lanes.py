@@ -314,14 +314,25 @@ def audit_roster():
 # быть НАДМНОЖЕСТВОМ хука, иначе отправка с `--no-verify` (законный и объявленный
 # обход) прошла бы мимо дешёвой полосы, а вслед за ней мимо неё прошло бы и
 # слияние — дешёвую полосу не гонял бы никто.
+#
+# Третье поле — чем ещё артефакт законно вызывается: выводом перечня наборов
+# (`scripts/lib/run-suites.sh`, ws#753) — прогон набора всегда, доказательство —
+# при `--proofs`. Дорогая полоса в перечень наборов не входит и зовётся поимённо.
+RUN_ALL = "scripts/change-graph-gate/run-all.sh"
+PROOF = "scripts/change-graph-gate/inject.sh"
 CI_MUST_CALL = (
-    ("scripts/change-graph-gate/run-all.sh",
-     "дешёвая полоса: конвейер обязан быть надмножеством хука"),
-    ("scripts/change-graph-gate/inject.sh",
-     "доказательство падучести самого набора"),
+    (RUN_ALL, "дешёвая полоса: конвейер обязан быть надмножеством хука", "run"),
+    (PROOF, "доказательство падучести самого набора", "proofs"),
     ("scripts/change-graph-gate/prove-all.sh",
-     "дорогая полоса: доказательства падучести контура"),
+     "дорогая полоса: доказательства падучести контура", None),
 )
+
+# Вывод перечня наборов — ОДИН дом вызова прогона и доказательства каждого набора
+# (задание `gate-suites`). Набор попадает в вывод, только если он есть в переписи
+# `scripts/lib/suites.py`; выпавший из неё набор выводом не исполняется, хотя
+# строка вызова цела, — поэтому перепись здесь спрашивается, а не подразумевается.
+DERIVED = "scripts/lib/run-suites.sh"
+SUITE = os.path.basename(GATE_RELDIR)
 
 
 def strip_shell_comments(block):
@@ -400,6 +411,7 @@ def audit_ci_declaration():
         import yaml
     except ImportError:
         return void("разборщик YAML недоступен — объявление конвейера читать нечем")
+    import suites as census_of_suites
 
     wf_dir = os.path.join(ROOT, ".github", "workflows")
     try:
@@ -409,6 +421,11 @@ def audit_ci_declaration():
         names = []
     if not names:
         return void("файлов конвейера в дереве нет — проверять нечего")
+    try:
+        in_census = SUITE in census_of_suites.suites(ROOT)
+    except census_of_suites.CensusUnreadable as exc:
+        return void("перепись наборов не снята (%s) — что исполняет вывод перечня, "
+                    "не выводится" % exc)
 
     findings = []
     files_read = 0
@@ -419,7 +436,8 @@ def audit_ci_declaration():
     # исправное дерево от испорченного — она стала бы вечной, а вечную находку
     # снимают вместе с проверкой. Ось остаётся живой ровно пока автозапуск есть.
     auto_anywhere = False
-    callers = {rel: [] for rel, _ in CI_MUST_CALL}
+    literal = {rel: [] for rel, _, _ in CI_MUST_CALL}
+    derived = []           # (процесс, задание, на стволе, с --proofs)
 
     for name in names:
         path = os.path.join(wf_dir, name)
@@ -449,33 +467,65 @@ def audit_ci_declaration():
                 if not isinstance(run, str):
                     continue
                 executable = strip_shell_comments(run)
-                for rel, _ in CI_MUST_CALL:
+                for rel, _, _ in CI_MUST_CALL:
                     if rel in executable:
-                        callers[rel].append((name, str(job_id), on_main))
+                        literal[rel].append((name, str(job_id), on_main))
+                for line in executable.split("\n"):
+                    if DERIVED in line:
+                        tail = line.split(DERIVED, 1)[1].split()
+                        derived.append((name, str(job_id), on_main, "--proofs" in tail))
 
-    for rel, why in CI_MUST_CALL:
-        rows = callers[rel]
+    def via_derived(how):
+        if how == "run":
+            return [(w, j, m) for w, j, m, _ in derived]
+        if how == "proofs":
+            return [(w, j, m) for w, j, m, p in derived if p]
+        return []
+
+    if derived and not in_census:
+        findings.append(
+            "конвейер зовёт вывод перечня (%s), но набора %s в переписи нет — "
+            "%s не в индексе либо игнорируется: вывод его не исполнит, хотя строка "
+            "вызова цела" % (", ".join("%s/%s" % (w, j) for w, j, _, _ in derived),
+                             SUITE, RUN_ALL))
+    if derived and not os.path.isfile(os.path.join(ROOT, DERIVED)):
+        findings.append("%s — конвейер называет вывод перечня, которого в дереве нет" % DERIVED)
+
+    homes = {}
+    for rel, why, how in CI_MUST_CALL:
+        by_name = literal[rel]
+        by_list = via_derived(how) if in_census else []
+        rows = by_name + by_list
+        homes[rel] = (len(by_name), len(by_list))
         if not rows:
             findings.append(
-                "ни одно задание конвейера не зовёт %s (%s) — объявлено, но не "
-                "исполняется никем; ровно то состояние, из-за которого заведена ws#504"
-                % (rel, why)
-            )
+                "ни одно задание конвейера не зовёт %s (%s) — ни поимённо%s; объявлено, но "
+                "не исполняется никем — ровно то состояние, из-за которого заведена ws#504"
+                % (rel, why, ", ни выводом перечня%s" % (" с --proofs" if how == "proofs" else "")
+                   if how else ""))
         elif auto_anywhere and not any(on_main for _, _, on_main in rows):
             findings.append(
                 "%s зовут только процессы, не срабатывающие на `main` (%s) — "
                 "задание, которое не начинается, не зеленеет и не краснеет"
                 % (rel, ", ".join("%s/%s" % (w, j) for w, j, _ in rows))
             )
+        if by_name and by_list:
+            findings.append(
+                "%s зовётся дважды — поимённо (%s) и выводом перечня (%s): второй "
+                "выписанный дом одного вызова, и расходятся они молча; дом один — вывод "
+                "перечня" % (rel, ", ".join("%s/%s" % (w, j) for w, j, _ in by_name),
+                             ", ".join("%s/%s" % (w, j) for w, j, _ in by_list)))
         if not os.path.isfile(os.path.join(ROOT, rel)):
             findings.append("%s — конвейер называет скрипт, которого в дереве нет" % rel)
 
-    census("объявление конвейера: прочитано процессов %d, заданий %d, "
-           "обязательных вызовов %d, из них объявлено на `main` %d, находок %d"
+    census("объявление конвейера: прочитано процессов %d, заданий %d, обязательных "
+           "вызовов %d (%s); вывод перечня: %s, набор %s в переписи — %s; находок %d"
            % (files_read, jobs_read, len(CI_MUST_CALL),
-              sum(1 for rel, _ in CI_MUST_CALL
-                  if any(m for _, _, m in callers[rel])),
-              len(findings)))
+              "; ".join("%s поимённо %d, выводом %d" % (os.path.basename(r), a, b)
+                        for r, (a, b) in homes.items()),
+              ", ".join("%s/%s%s" % (w, j, " --proofs" if p else "")
+                        for w, j, _, p in derived) or "нет",
+              SUITE, "да" if in_census else "нет", len(findings)))
     if jobs_read == 0:
         return void("ни одного задания не разобрано — предикат остался без предмета")
     for f in findings:
