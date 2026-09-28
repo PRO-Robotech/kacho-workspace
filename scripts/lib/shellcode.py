@@ -162,16 +162,30 @@ def _continues(code):
     return s.endswith("|") and not s.endswith("||")
 
 
+def _pipe_pending(code):
+    """Строка кода кончается трубой (`|` либо `|&`, но не `||`): конвейер ждёт звена."""
+    s = code.rstrip()
+    return s.endswith("|&") or (s.endswith("|") and not s.endswith("||"))
+
+
 def pipelines(lines):
     """Логические конвейеры: [[(номер строки начала звена, текст звена)], …].
 
     `lines` — вывод `code_lines(…, mask_quotes=True)`. Строки, продолженные трубой
     в конце либо переносом, сведены в один конвейер; первое звено — писатель,
     остальные — читатели. Номер у звена — строка, где стоит его первое слово: так
-    находку можно назвать координатой читателя, а не началом конвейера."""
+    находку можно назвать координатой читателя, а не началом конвейера.
+
+    После трубы в конце строки оболочка пропускает пустые строки и строки-
+    комментарии до следующего звена (`… |`, `# почему`, `grep -q …` — один
+    конвейер). Их код пуст, и прежде конвейер на них обрывался: звено за
+    комментарием читалось отдельной командой, и форма уходила из-под предиката.
+    После `\\`-переноса так нельзя — комментарий там кончает команду."""
     out = []
     buf = []
     for n, code in lines:
+        if not code.strip() and buf and _pipe_pending(buf[-1][1]):
+            continue
         buf.append((n, code))
         if _continues(code):
             continue
@@ -179,6 +193,45 @@ def pipelines(lines):
         buf = []
     if buf:
         out.append(_split(buf))
+    return out
+
+
+_CMD_SPLIT = re.compile(r"&&|\|\||[;|&(){}]")
+
+
+def pipefail_switches(code):
+    """Что строка кода делает с `pipefail`: [True — включает, False — выключает].
+
+    Узнаются `set` (`-o pipefail`, `+o pipefail`, связки `-euo pipefail`,
+    `+eo pipefail`) и `shopt -o` (`shopt -so pipefail`, `shopt -s -o pipefail`,
+    `shopt -uo pipefail`). `set +o pipefail` — ВЫКЛЮЧЕНИЕ, а не упоминание: прежде
+    предикат по слову `pipefail` после `set` судил такой файл как файл под
+    pipefail. `shopt` без `-s`/`-u` — запрос, режим не меняет."""
+    out = []
+    for cmd in _CMD_SPLIT.split(code):
+        words = cmd.split()
+        while words and words[0] in ("builtin", "command"):
+            words = words[1:]
+        if not words:
+            continue
+        if words[0] == "set":
+            i = 1
+            while i < len(words):
+                w = words[i]
+                if re.fullmatch(r"[-+][A-Za-z]*o", w) and i + 1 < len(words):
+                    if words[i + 1] == "pipefail":
+                        out.append(w[0] == "-")
+                    i += 2
+                    continue
+                i += 1
+        elif words[0] == "shopt":
+            flags = "".join(w[1:] for w in words[1:] if w.startswith("-"))
+            names = [w for w in words[1:] if not w.startswith("-")]
+            if "o" in flags and "pipefail" in names:
+                if "s" in flags:
+                    out.append(True)
+                elif "u" in flags:
+                    out.append(False)
     return out
 
 

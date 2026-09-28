@@ -778,6 +778,77 @@ commit "$b"
 expect 1 "$b" "инъекция: пометка pipe-safe в файле без pipefail — послабление без предмета" "$C07" \
     "пометка \`pipe-safe\` в файле без pipefail"
 
+# Формы звена, слепые в круге 1: каждая — тот же дефект (писатель, труба, grep с
+# выходом на первом совпадении, pipefail), другая запись. Каждая исполнена отдельно
+# на входе с совпадением и дала 141 — класс, а не стиль.
+FORMS7=(
+    'if printf "%s\n" "$out" | /usr/bin/grep -qF -- "находка"; then exit 1; fi'
+    'if printf "%s\n" "$out" | env grep -qF -- "находка"; then exit 1; fi'
+    'if printf "%s\n" "$out" | timeout 5 grep -qF -- "находка"; then exit 1; fi'
+    'if printf "%s\n" "$out" | { grep -qF -- "находка"; }; then exit 1; fi'
+    'if printf "%s\n" "$out" | ( grep -qF -- "находка" ); then exit 1; fi'
+    'if printf "%s\n" "$out" | grep --quie -F -- "находка"; then exit 1; fi'
+    'if printf "%s\n" "$out" | LC_ALL=C nice -n 5 stdbuf -oL grep -m1 -- "находка"; then exit 1; fi'
+)
+for form in "${FORMS7[@]}"; do
+    b="$(barebox)"; world7 "$b" "${SUITES[0]}" "$form"; commit "$b"
+    expect 1 "$b" "инъекция: форма звена «${form:30:40}…» — краснеет с координатой" "$C07" \
+        "scripts/${SUITES[0]}/check-01-probe.sh:4 — вердикт из трубы в grep" "находок 1"
+done
+
+b="$(barebox)"
+world7 "$b" "${SUITES[0]}" 'if printf "%s\n" "$out" | /usr/bin/grep -cF -- "находка" >/dev/null; then exit 1; fi' \
+    'if printf "%s\n" "$out" | env grep -cF -- "находка" >/dev/null; then exit 1; fi' \
+    'if printf "%s\n" "$out" | timeout 5 grep -cF -- "находка" >/dev/null; then exit 1; fi' \
+    'if printf "%s\n" "$out" | grep -e -q -- "находка" >/dev/null; then exit 1; fi' \
+    'if printf "%s\n" "$out" | xargs grep -qF -- "находка"; then exit 1; fi'
+commit "$b"
+expect 0 "$b" "близнецы: те же обёртки и путь с grep, читающим до конца (-c), -e -q (образец «-q»), xargs — молчат" "$C07" \
+    "форм «труба в grep -q» 0"
+
+b="$(barebox)"
+world7 "$b" "${SUITES[0]}" 'if printf "%s\n" "$out" |' '    # почему труба: причина в комментарии между звеньями' \
+    '    grep -qF -- "находка"; then exit 1; fi'
+commit "$b"
+expect 1 "$b" "инъекция: строка-комментарий внутри многострочной трубы — краснеет координатой читателя" "$C07" \
+    "scripts/${SUITES[0]}/check-01-probe.sh:6 — вердикт из трубы в grep" "многострочных 1"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/shopt-probe.sh" 'shopt -so pipefail' "$PIPED"
+commit "$b"
+expect 1 "$b" "инъекция: pipefail включён через shopt -so — краснеет" "$C07" \
+    "scripts/${SUITES[0]}/shopt-probe.sh:4 — вердикт из трубы в grep"
+
+b="$(barebox)"; world7 "$b"
+plainscript "$b" "${SUITES[0]}/off-probe.sh" 'set +o pipefail' "$PIPED"
+pipescript "$b" "${SUITES[0]}/region-probe.sh" 'set +o pipefail' "$PIPED" 'set -o pipefail'
+commit "$b"
+expect 0 "$b" "близнецы: set +o pipefail — выключение, а не упоминание; область после него не судится" "$C07" \
+    "форм «труба в grep -q» 0"
+
+b="$(barebox)"; world7 "$b"
+pipescript "$b" "${SUITES[0]}/region-probe.sh" 'set +o pipefail' 'set -o pipefail' "$PIPED"
+commit "$b"
+expect 1 "$b" "инъекция: pipefail выключен и снова включён — звено после включения судится" "$C07" \
+    "scripts/${SUITES[0]}/region-probe.sh:6 — вердикт из трубы в grep"
+
+# Вне обхода: форма в файле вне scripts/ не судится, но СЧИТАЕТСЯ отдельной строкой
+# переписи с каталогом; тот же файл, подключённый из обхода, — судится.
+b="$(barebox)"; world7 "$b"
+mkdir -p "$b/tools"
+printf '#!/usr/bin/env bash\nset -uo pipefail\nout="$(cat)"\n%s\n' "$PIPED" > "$b/tools/probe.sh"
+commit "$b"
+expect 0 "$b" "вне обхода: форма в tools/probe.sh не судится, но названа числом в переписи" "$C07" \
+    "форм «труба в grep -q» без пометки 1 (tools 1)"
+
+b="$(barebox)"; world7 "$b"
+mkdir -p "$b/tools"
+printf '#!/usr/bin/env bash\nout="$(cat)"\n%s\n' "$PIPED" > "$b/tools/probe.sh"
+pipescript "$b" "${SUITES[0]}/check-02-probe.sh" '. "$(dirname "${BASH_SOURCE[0]}")/../../tools/probe.sh"'
+commit "$b"
+expect 1 "$b" "инъекция: файл вне scripts/, подключённый из обхода под pipefail, — судится" "$C07" \
+    "tools/probe.sh:3 — вердикт из трубы в grep" "вне scripts/, подключённых обходом, 1"
+
 b="$(barebox)"; commit "$b"
 expect 2 "$b" "предпосылка: файлов оболочки под scripts/ нет — VOID, а не «находок 0»" "$C07" \
     "оболочки среди них 0"
