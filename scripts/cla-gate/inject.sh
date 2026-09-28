@@ -814,6 +814,23 @@ check "$( [ "$ts_rc" = 0 ] && [ "$cured_n" = 1 ] && [ "$(git -C "$dw" for-each-r
     "TS1 лечение тега исполнено дословно: ключ снят, автор тега и дата прежние" "$(git -C "$dw" for-each-ref --format='%(taggeremail) %(taggerdate:raw)' refs/tags/wt1); $(rewrites)"
 push_printed 0 "TS1 напечатанная отправка тега после лечения проходит" "$dw" "объектов тегов 1"
 
+# ── TR: автор тега — роль со своим перечнем ─────────────────────────────────
+#
+# РЕШЕНИЕ п.5: автор тега судится, как автор коммита. `committers` (личность сервера
+# посадки: сервер тег хранит, а не создаёт) и `waivers` (освобождение отвечает о
+# соглашении, а не о подписи) его не покрывают; подписавший — покрывает. Находка
+# приёмки круга 1: мутанты «committers» и «waivers» в этой роли выживали — ни одного
+# тега с таким автором в пробах не было.
+GIT_COMMITTER_EMAIL=server@cla-inject.invalid GIT_COMMITTER_NAME=server git -C "$dc" tag -a ct1 -m "выпуск сервером" "$c_cm"
+probe_push 1 "TS2 автор тега — личность из committers — отказ: сервер тег хранит, а не создаёт" \
+    "$dc" "$s_cm" "refs/tags/ct1 $(git -C "$dc" rev-parse refs/tags/ct1) refs/tags/ct1 $Z" "автор тега" "server@cla-inject.invalid" "раздел committers этой роли не покрывает"
+GIT_COMMITTER_EMAIL=noreply@anthropic.com GIT_COMMITTER_NAME=Claude git -C "$da" tag -a at1 -m "выпуск машиной" "$base_a"
+probe_push 1 "TS3 автор тега — освобождённая личность (waivers) — отказ: освобождение подписи не даёт" \
+    "$da" "$s_attr" "refs/tags/at1 $(git -C "$da" rev-parse refs/tags/at1) refs/tags/at1 $Z" "автор тега" "noreply@anthropic.com" "раздел waivers этой роли не покрывает"
+GIT_COMMITTER_EMAIL=stranger@cla-inject.invalid GIT_COMMITTER_NAME=stranger git -C "$dw" tag -a wt2 -m "выпуск подписавшего" "$w_sig"
+probe_push 0 "TS близнец: автор тега — подписавший ствола — проходит" \
+    "$dw" "$s_w2" "refs/tags/wt2 $(git -C "$dw" rev-parse refs/tags/wt2) refs/tags/wt2 $Z" "объектов тегов 1" "автор тега 1"
+
 # ── T: объект АННОТИРОВАННОГО тега судится, как коммит ─────────────────────────
 #
 # Находка приёмки круга 3: тег с чужим автором тега и трейлером атрибуции в

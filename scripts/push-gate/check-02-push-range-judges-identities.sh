@@ -49,7 +49,7 @@
 #   T  аннотированный тег: автор тега чужой → отказ, тега на «сервере» нет, пересоздания
 #      своей личностью не напечатано; ключ атрибуции в сообщении тега → отказ;
 #      лечение тега с ключом дословно → на «сервере» тег без ключа, автор тега и дата
-#      прежние; близнец — свой тег → проходит;
+#      прежние; автор тега из waivers ствола → отказ; близнец — свой тег → проходит;
 #   G  чужой коммит уже на «сервере» (обход --no-verify) → свой поверх него
 #      проходит: судится то, что отправка опубликует, а не вся история;
 #   H  ревизия без ведомости судится стволом → своя проходит; ствол без ведомости →
@@ -67,7 +67,7 @@
 #   Q  посадка сервером (коммиттер noreply@github.com) уже на «сервере»: новая ветка
 #      по URL проходит; зеркало, чей ствол записи `committers` не несёт, → отказ, и
 #      та же запись в ведомости ветки его не снимает; запись села в ствол зеркала →
-#      проходит; та же личность автором → отказ;
+#      проходит; та же личность автором → отказ; она же автором тега → отказ;
 #   R  ссылка, не публикующая ни одного коммита (тег на опубликованное), — проходит,
 #      даже если в дереве её ревизии ведомости нет либо та негодна по нынешнему разбору;
 #   S  пустое зеркало (ствола нет): отказ «условие не создано»; напечатанная отправка
@@ -395,6 +395,11 @@ cured="$(cure_verbatim "$out")"; crc=$?
 probe "$( [ "$rc" != 0 ] && [ "$crc" = 0 ] && [ "$(git --git-dir="$srv" cat-file tag refs/tags/tg-sess | sed '1,/^$/d')" = "выпуск" ] && [ "$(git --git-dir="$srv" for-each-ref --format='%(taggeremail) %(taggerdate:raw)' refs/tags/tg-sess)" = "<$PG_OWNER_EMAIL> 1700000000 +0300" ] && echo да || echo нет)" \
     "T лечение тега с ключом исполнено ДОСЛОВНО: на «сервере» тег «выпуск» без ключа, автор тега и дата прежние" \
     "код $rc/$crc; напечатано: $(cures "$out"); на сервере: $(git --git-dir="$srv" cat-file tag refs/tags/tg-sess 2>&1 | tr '\n' '/'); вывод: $cured"
+# Находка приёмки круга 1: мутант «waivers покрывают автора тега» выживал.
+GIT_COMMITTER_EMAIL="$MACHINE" GIT_COMMITTER_NAME=machine git -C "$ws" tag -a tg-machine -m "выпуск машиной" "$clean"
+out="$(t_push tg-machine)"; rc=$?
+probe "$( [ "$rc" != 0 ] && pg_has "$out" "автор тега" "$MACHINE" "раздел waivers этой роли не покрывает" && ! git --git-dir="$srv" rev-parse -q --verify refs/tags/tg-machine >/dev/null && echo да || echo нет)" \
+    "T автор тега — освобождённая личность ствола (waivers) — отказ: освобождение подписи не даёт" "код $rc; вывод: $out"
 git -C "$ws" tag -a tg-own -m "выпуск" "$clean"
 out="$(t_push tg-own)"; rc=$?
 probe "$( [ "$rc" = 0 ] && pg_has "$out" "объектов тегов 1" && git --git-dir="$srv" rev-parse -q --verify refs/tags/tg-own >/dev/null && echo да || echo нет)" \
@@ -562,6 +567,12 @@ out="$( cd "$ws" && git push "$mirror" q 2>&1 )"; rc=$?
 probe "$( [ "$rc" = 0 ] && [ "$(git --git-dir="$mirror" rev-parse -q --verify refs/heads/q)" = "$(git -C "$ws" rev-parse HEAD)" ] && [ "$(git --git-dir="$mirror" rev-parse main:contribution-ledger.yaml)" = "$q_cm_blob" ] && echo да || echo нет)" \
     "Q запись committers СНАЧАЛА села в ствол зеркала — посадка покрыта, отправка проходит" "код $rc; вывод: $out"
 q_clean="$(git -C "$ws" rev-parse HEAD)"
+# Находка приёмки круга 1: мутант «committers покрывают автора тега» выживал — ни
+# одного тега с автором из committers в пробах не было. Сервер тег хранит, а не создаёт.
+GIT_COMMITTER_NAME=GitHub GIT_COMMITTER_EMAIL=noreply@github.com git -C "$ws" tag -a q-srv-tag -m "выпуск сервером" "$q_clean"
+out="$( cd "$ws" && git push "$mirror" refs/tags/q-srv-tag 2>&1 )"; rc=$?
+probe "$( [ "$rc" != 0 ] && pg_has "$out" "автор тега" "noreply@github.com" "раздел committers этой роли не покрывает" && ! git --git-dir="$mirror" rev-parse -q --verify refs/tags/q-srv-tag >/dev/null && echo да || echo нет)" \
+    "Q автор тега — личность из committers ствола зеркала — отказ: вклад-объявление сервер не подписывает" "код $rc; вывод: $out"
 edit; GIT_AUTHOR_NAME=GitHub GIT_AUTHOR_EMAIL=noreply@github.com git -C "$ws" commit -q -m "Q сервер автором"
 q_sha="$(git -C "$ws" rev-parse HEAD)"
 out="$( cd "$ws" && git push "$mirror" q 2>&1 )"; rc=$?

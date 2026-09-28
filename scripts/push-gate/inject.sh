@@ -89,6 +89,8 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|команда переписи снова печатается при опубликованном в диапазоне (круг 1, находка 3)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение тега снова не снимает ключ из сообщения (круг 1, находка 4)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение тега пересоздаёт тег личностью копии (круг 1, находка 1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|автора тега снова покрывают committers (круг 1, находка 2)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|автора тега снова покрывают waivers (круг 1, находка 2)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -213,6 +215,12 @@ M = [
     ("scripts/cla-gate/cla.py",
      'GIT_COMMITTER_NAME=%s GIT_COMMITTER_EMAIL=%s GIT_COMMITTER_DATE=%s "\n                  "git tag',
      'GIT_COMMITTER_NAME%.0s%.0s%.0s= "\n                  "git tag'),
+    ("scripts/cla-gate/cla.py",
+     '        ROLE_TAGGER: ("owners", "signatories"),\n',
+     '        ROLE_TAGGER: ("owners", "signatories", "committers"),\n'),
+    ("scripts/cla-gate/cla.py",
+     '        ROLE_TAGGER: ("owners", "signatories"),\n',
+     '        ROLE_TAGGER: ("owners", "signatories", "waivers"),\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
