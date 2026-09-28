@@ -433,10 +433,10 @@ probe 0 "N близнец: сосед добавил такую же строк�
 echo
 # Перепись фикстур ВЫВОДИТСЯ: сколько собрано и сколько коммитов полосы в каждой —
 # у части фикстур полоса дополняется четвёртым коммитом по ходу пробы.
-lanes="$(for g in $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git -type d); do
+lanes="$(while IFS= read -r -d '' g; do
     r="${g%/.git}"; root="$(git -C "$r" rev-list --max-parents=0 work 2>/dev/null | head -1)"
     [ -n "$root" ] && git -C "$r" rev-list --count work --not "$root"
-done | sort -n | uniq -c | awk '{printf "%s%s — у %s", (NR > 1 ? ", " : ""), $2, $1}')"
+done < <(find "$TMP" -mindepth 2 -maxdepth 2 -name .git -type d -print0) | sort -n | uniq -c | awk '{printf "%s%s — у %s", (NR > 1 ? ", " : ""), $2, $1}')"
 echo "[CENSUS] preservation-proof-inject: проб исполнено $probes, провалов $failed; фикстур собрано $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git -type d | wc -l); коммитов полосы: ${lanes:-—}"
 if [ "$probes" -eq 0 ]; then
     echo "[VOID] ни одной пробы не исполнено" >&2

@@ -29,7 +29,8 @@ trap 'rm -rf "$TMP"' EXIT
 # становится временный корень, а выше него git не поднимается: иначе пустой путь
 # нашёл бы ЭТУ рабочую копию (временный корень бывает внутри неё) и писал бы в неё.
 cd "$TMP" || exit 2
-export GIT_CEILING_DIRECTORIES="$(dirname "$TMP")"
+GIT_CEILING_DIRECTORIES="$(dirname "$TMP")"
+export GIT_CEILING_DIRECTORIES
 
 OWNER=owner@cla-inject.invalid
 probes=0; failed=0

@@ -28,6 +28,7 @@
 # пришедший оттого, что отправка не работает вовсе, пробу A не пройдёт.
 set -uo pipefail
 
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 NAME="check-01-hook-stub-refuses-without-target"

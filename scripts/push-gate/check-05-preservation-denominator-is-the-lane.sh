@@ -13,6 +13,7 @@
 # посадки краснеют; законные близнецы молчат, — его исход проходит насквозь.
 set -uo pipefail
 
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 NAME="check-05-preservation-denominator-is-the-lane"

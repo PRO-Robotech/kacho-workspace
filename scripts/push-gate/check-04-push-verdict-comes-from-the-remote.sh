@@ -21,6 +21,7 @@
 #     `git ls-remote` с той sha, которую отправка подала.
 set -uo pipefail
 
+# shellcheck source-path=SCRIPTDIR
 # shellcheck source=_lib.sh
 . "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 NAME="check-04-push-verdict-comes-from-the-remote"
