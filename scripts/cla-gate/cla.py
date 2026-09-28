@@ -227,7 +227,7 @@ def load_ledger_at(root, rev, rel=LEDGER):
     r = git(root, "cat-file", "blob", "%s:%s" % (rev, rel), check=False)
     if r.returncode != 0:
         raise LedgerDefect("ведомости %s в дереве нет — различать своего и чужого нечем (дерево "
-                           "отправляемой ревизии %s)" % (rel, rev[:12]))
+                           "ревизии %s)" % (rel, rev[:12]))
 
     def exists(p):
         obj = rev + "^{tree}" if p in (".", "") else "%s:%s" % (rev, p)
