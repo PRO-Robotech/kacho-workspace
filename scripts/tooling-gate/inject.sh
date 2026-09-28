@@ -788,7 +788,8 @@ for ev in list(d['hooks']):
     fi
 
     # Законные близнецы: та же команда другой формой пути — молчит.
-    for form in '$CLAUDE_PROJECT_DIR/{}' 'bash "${CLAUDE_PROJECT_DIR}/{}"' '"$CLAUDE_PROJECT_DIR"/{}' 'bash {}'; do
+    for form in '$CLAUDE_PROJECT_DIR/{}' 'bash "${CLAUDE_PROJECT_DIR}/{}"' '"$CLAUDE_PROJECT_DIR"/{}' 'bash {}' \
+                'bash ./{}' 'bash "${CLAUDE_PROJECT_DIR:-.}/{}"'; do
         b="$(mksandbox)"; c21_form "$b" "$form"
         run 0 "$b" "близнец: запись формой «$form» — молчит" "$C21"
     done
@@ -801,10 +802,59 @@ for ev in list(d['hooks']):
     printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"; git -C "$b" add -A >/dev/null 2>&1
     run 1 "$b" "дефект оси B: новый хук верхнего уровня без записи" "$C21"
 
+    # Формы записи, которых прежний распознаватель не знал: запись на файл, которого
+    # нет, обязана дать находку оси A, а не пропасть мимо переписи.
+    for form in 'bash ./.claude/hooks/zz-gone.sh' 'bash "${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/zz-gone.sh"'; do
+        b="$(mksandbox)"
+        c21_settings "$b" "d['hooks'].setdefault('Stop', []).append({'hooks': [{'type': 'command', 'command': '''$form'''}]})"
+        probes=$((probes + 1))
+        out="$(TOOLING_GATE_ROOT="$b" bash "$HERE/$C21" 2>&1)"; got=$?
+        if [ "$got" -eq 1 ] && printf '%s' "$out" | grep -qF "A Stop: запись зовёт .claude/hooks/zz-gone.sh"; then
+            echo "  ok   дефект оси A формой «$form»: запись без файла названа (код 1)"
+        else
+            echo "  ПРОВАЛ дефект оси A формой «$form» — ждали 1 и «A Stop: запись зовёт …zz-gone.sh», получили $got" >&2
+            printf '%s\n' "$out" | sed 's/^/         | /' >&2; failed=$((failed + 1))
+        fi
+    done
+    b="$(mksandbox)"
+    c21_settings "$b" "d['hooks'].setdefault('Stop', []).append({'hooks': [{'type': 'command', 'command': 'bash /opt/elsewhere/.claude/hooks/zz-abs.sh'}]})"
+    run 1 "$b" "дефект оси A: запись формой, которую проверка не различает, — находка, а не молчание" "$C21"
+
+    # Упоминание — не вызов: имя соседа в печати, в теле heredoc, в строковой константе
+    # python провязкой не является. Прежде такое упоминание засчитывалось «передачей по
+    # имени» (мутант приёмки H5 выживал: механизм нагрузки не нёс).
     b="$(mksandbox)"
     printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
-    printf '\n# см. zz-orphan.sh\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
-    run 1 "$b" "дефект оси B: имя соседа только в комментарии — провязкой не считается" "$C21"
+    printf '\necho "подсказка: запусти zz-orphan.sh руками"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: имя соседа в строке печати — провязкой не считается" "$C21"
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
+    printf '\necho "$(dirname "${BASH_SOURCE[0]}")/zz-orphan.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: путь соседа ЦЕЛИКОМ аргументом echo — текст, не вызов" "$C21"
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
+    printf '\ncat <<EOF >/dev/null\nbash "$(dirname "$0")/zz-orphan.sh"\nEOF\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: вызов соседа в теле heredoc — данные, не вызов" "$C21"
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
+    printf '\nORPHAN_NOTE = "zz-orphan.sh снят"\n' >> "$b/.claude/hooks/lib/bash_guard.py"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: имя соседа в строковой константе python — не вызов" "$C21"
+    b="$(mksandbox)"
+    c21_settings "$b" "
+for ev in list(d['hooks']):
+    for g in d['hooks'][ev]:
+        g['hooks'] = [h for h in g['hooks'] if '$victim' not in h['command']]
+    d['hooks'][ev] = [g for g in d['hooks'][ev] if g['hooks']]
+    if not d['hooks'][ev]: del d['hooks'][ev]
+"
+    other="$(cd "$b/.claude/hooks" && for f in *.sh; do [ "$f" != "$victim" ] && { echo "$f"; break; }; done)"
+    printf '\necho "настройки корня сверяет %s" >/dev/null\n' "$victim" >> "$b/.claude/hooks/$other"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: запись снята, имя хука осталось в печати соседа — находка" "$C21"
+
+    b="$(mksandbox)"
+    printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-orphan.sh"
+    printf '\n# bash "$(dirname "$0")/zz-orphan.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси B: вызов соседа только в комментарии — провязкой не считается" "$C21"
 
     b="$(mksandbox)"
     printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-helper.sh"
@@ -818,6 +868,24 @@ for ev in list(d['hooks']):
     b="$(mksandbox)"
     printf '\nexec bash "$(dirname "${BASH_SOURCE[0]}")/zz-gone.sh"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
     run 1 "$b" "дефект оси C: провязанный хук зовёт соседа, которого нет (класс ws#710, код 127)" "$C21"
+
+    # Адрес соседа в ЗНАЧЕНИИ присваивания — так хуки держат путь до `. "$x"`
+    # (`_sig=…/lib/hook_signal.sh`). Значение — вызов, и цель его обязана существовать.
+    b="$(mksandbox)"
+    printf '\n_zz="$(dirname "${BASH_SOURCE[0]}")/lib/zz-gone.sh"\n. "$_zz"\n' >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+    run 1 "$b" "дефект оси C: адрес соседа в значении присваивания — цели нет" "$C21"
+
+    # Каталог скрипта другими законными формами оболочки: вложенная подстановка и
+    # обрезка параметра. Прежний `[^)]*` рвался на первой скобке.
+    for call in '"$(dirname "$(readlink -f "$0")")/zz-gone.sh"' '"${BASH_SOURCE%/*}/zz-gone.sh"'; do
+        b="$(mksandbox)"
+        printf '\nexec bash %s\n' "$call" >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+        run 1 "$b" "дефект оси C формой $call — сосед, которого нет, назван" "$C21"
+        b="$(mksandbox)"
+        printf '#!/usr/bin/env bash\necho x\n' > "$b/.claude/hooks/zz-gone.sh"
+        printf '\nexec bash %s\n' "$call" >> "$b/.claude/hooks/$victim"; git -C "$b" add -A >/dev/null 2>&1
+        run 0 "$b" "близнец оси B/C формой $call — сосед есть и доходит вызовом, молчит" "$C21"
+    done
 
     b="$(mksandbox .claude/settings.json)"
     run 2 "$b" "предпосылка: настроек нет — VOID" "$C21"
