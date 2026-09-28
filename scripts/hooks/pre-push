@@ -25,8 +25,44 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 
 set -uo pipefail
 
+# Вход отправки читается ОДИН раз, здесь: он нужен стражу атрибуции, который
+# стоит раньше обхода, и разбору вершин ниже. С терминала (ручной вызов) не
+# читается — `cat` ждал бы ввода вечно; пустой вход судит HEAD.
+push_input=""
+if [ ! -t 0 ]; then
+    push_input="$(cat)"
+fi
+
+# ── АТРИБУЦИЯ — ПЕРВОЙ, ДО ОБХОДА И ДО ЧЕРНОВИКОВ (ws#861) ───────────────────
+#
+# Страж судит ЗАПИСАННЫЕ коммиты отправки (scripts/hooks/prepush-attribution.sh,
+# предикат — scripts/hooks/attribution-rule.sh, общий с хуком коммита): он ловит
+# записанное мимо хука коммита. Обход KACHO_SKIP_PREPUSH снимает НАБОРЫ, а не
+# правило, и черновик на удалённом публичен так же, как ветка, поэтому страж
+# стоит выше обоих; стоит он доли секунды. Стража нет рядом с хуком либо он не
+# смог судить — ОТКАЗ: хук без него выпускал бы нарушение молча. Держит это
+# scripts/tooling-gate/check-21-attribution-hooks-refuse-the-trailer.sh.
+hooks_dir="${BASH_SOURCE[0]%/*}"
+[ "$hooks_dir" != "${BASH_SOURCE[0]}" ] || hooks_dir=.
+attribution_guard="$hooks_dir/prepush-attribution.sh"
+if [ ! -f "$attribution_guard" ]; then
+    echo "pre-push: ОТКАЗ — стража атрибуции нет ($attribution_guard): судить нечем, отправка остановлена." >&2
+    exit 1
+fi
+# Вход — строкой, а не трубой: код стража не смешивается с кодом писателя.
+if [ -n "$push_input" ]; then
+    bash "$attribution_guard" <<< "$push_input" >&2
+else
+    bash "$attribution_guard" < /dev/null >&2
+fi
+attribution_rc=$?
+if [ "$attribution_rc" -ne 0 ]; then
+    echo "pre-push: ОТКАЗ — правило атрибуции нарушено либо не судимо (код стража $attribution_rc): отправка остановлена до наборов и до обхода." >&2
+    exit 1
+fi
+
 if [ "${KACHO_SKIP_PREPUSH:-0}" = "1" ]; then
-    echo "pre-push: пропущен по KACHO_SKIP_PREPUSH=1 — локальные проверки НЕ выполнялись" >&2
+    echo "pre-push: пропущен по KACHO_SKIP_PREPUSH=1 — наборы НЕ выполнялись (страж атрибуции исполнен выше)" >&2
     exit 0
 fi
 
@@ -44,7 +80,7 @@ cd "$ROOT" || exit 1
 is_null_sha() { case "$1" in '' | *[!0]*) return 1 ;; esac; }
 pushed=()
 removed=()
-if [ ! -t 0 ]; then
+if [ -n "$push_input" ]; then
     while read -r _lref lsha rref rsha || [ -n "${lsha:-}" ]; do
         [ -n "${lsha:-}" ] || continue
         if is_null_sha "$lsha"; then
@@ -52,7 +88,7 @@ if [ ! -t 0 ]; then
         else
             pushed+=("$rref $lsha")
         fi
-    done
+    done <<< "$push_input"
 fi
 n_removed=${#removed[@]}
 n_pushed=${#pushed[@]}
