@@ -785,11 +785,16 @@ expect 2 "$b" "предпосылка: файлов оболочки под scri
 # ── check-08: доказательство зависит от унаследованного дома ──────────────────
 #
 # Сначала — проба-пара на МЕХАНИЗМЕ, без неё статическая проверка ловила бы
-# форму, а не свойство. Доказательство-двойник зовёт проверку, читающую
-# `KACHO_HOME_PROBE`, дважды: под унаследованным указателем и без него. Со
+# форму, а не свойство. Доказательство-двойник зовёт проверку, читающую один
+# указатель на дерево, дважды: под унаследованным указателем и без него. Со
 # снятием окружения (`proof_own_environment` из настоящей `scripts/lib/proofs.sh`)
 # исходы обязаны совпасть; без снятия — разойтись: иначе пара не чувствительна, и
 # её «совпали» ничего не значит.
+#
+# Указателей ТРИ рода, и пара пробует каждый: дом продукта (`KACHO_HOME_*`), общее
+# переопределение корня (`GATE_ROOT`) и переопределение набора (`<НАБОР>_GATE_ROOT`).
+# Круг 1: пара пробовала только первый, и мутант, снявший из функции два других,
+# выжил, хотя без них вердикт доказательства docs-gate зависел от вызывающего.
 C08="check-08-proof-owns-its-environment.py"
 echo "== check-08: вердикт доказательства зависит от унаследованного дома =="
 
@@ -803,21 +808,30 @@ BARE_PROOF='#!/usr/bin/env bash
 set -uo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 python3 "$here/check-01-home.py"'
+# @VAR@ — имя указателя, который читает проверка-двойник.
 HOME_CHECK='import os
 import sys
-home = os.environ.get("KACHO_HOME_PROBE")
-print("осмотрено 1; дом %s" % (home or "—"))
+home = os.environ.get("@VAR@")
+print("осмотрено 1; указатель %s" % (home or "—"))
 sys.exit(1 if home else 0)'
+POINTERS=(KACHO_HOME_PROBE GATE_ROOT PAIR_GATE_ROOT)
+FILTER='KACHO_HOME_*|GATE_ROOT|*_GATE_ROOT)'
 
-# pair <заголовок> <тело доказательства> <ждём: same|differ>
+# pair <заголовок> <тело доказательства> <ждём: same|differ> <указатель> [<было> <стало>]
+# — последние два: однофактный мутант копии proofs.sh в песочнице.
 pair() {
-    local title="$1" body="$2" want="$3" b ra rb
+    local title="$1" body="$2" want="$3" var="$4" b ra rb
     probes=$((probes + 1))
     b="$(mkbox)"; mkdir -p "$b/scripts/pair-gate"
-    printf '%s\n' "$HOME_CHECK" > "$b/scripts/pair-gate/check-01-home.py"
+    if [ "$#" -gt 4 ] && ! mutate "$b/scripts/lib/proofs.sh" "$5" "$6"; then
+        echo "  ПРОВАЛ $title — мутант не внесён, проба недоказательна" >&2
+        failed=$((failed + 1))
+        return
+    fi
+    printf '%s\n' "${HOME_CHECK//@VAR@/$var}" > "$b/scripts/pair-gate/check-01-home.py"
     printf '%s\n' "$body" > "$b/scripts/pair-gate/inject.sh"
-    ( cd "$TMP" && env -u KACHO_HOME_PROBE bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); ra=$?
-    ( cd "$TMP" && KACHO_HOME_PROBE="$TMP/чужой-дом" bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); rb=$?
+    ( cd "$TMP" && env -u "$var" bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); ra=$?
+    ( cd "$TMP" && env "$var=$TMP/чужой-дом" bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); rb=$?
     if { [ "$want" = same ] && [ "$ra" -eq "$rb" ] && [ "$ra" -eq 0 ]; } ||
        { [ "$want" = differ ] && [ "$ra" -ne "$rb" ]; }; then
         echo "  ok   $title (без указателя $ra, с указателем $rb)"
@@ -827,10 +841,20 @@ pair() {
     fi
 }
 
-pair "проба-пара: доказательство снимает окружение — исход один при любом унаследованном доме" \
-    "$OWN_PROOF" same
-pair "проба-пара: то же доказательство без снятия — исход зависит от вызывающего (пара чувствительна)" \
-    "$BARE_PROOF" differ
+for v in "${POINTERS[@]}"; do
+    pair "проба-пара $v: доказательство снимает окружение — исход один при любом унаследованном указателе" \
+        "$OWN_PROOF" same "$v"
+    pair "проба-пара $v: то же доказательство без снятия — исход зависит от вызывающего (пара чувствительна)" \
+        "$BARE_PROOF" differ "$v"
+done
+# Мутанты функции: из перечня снимаемых выпадает один род указателей — пара по
+# этому роду обязана увидеть зависимость от вызывающего.
+pair "мутант proofs.sh без GATE_ROOT и *_GATE_ROOT: пара GATE_ROOT видит зависимость" \
+    "$OWN_PROOF" differ GATE_ROOT "$FILTER" 'KACHO_HOME_*)'
+pair "мутант proofs.sh без *_GATE_ROOT: пара PAIR_GATE_ROOT видит зависимость" \
+    "$OWN_PROOF" differ PAIR_GATE_ROOT "$FILTER" 'KACHO_HOME_*|GATE_ROOT)'
+pair "мутант proofs.sh без KACHO_HOME_*: пара KACHO_HOME_PROBE видит зависимость" \
+    "$OWN_PROOF" differ KACHO_HOME_PROBE "$FILTER" 'GATE_ROOT|*_GATE_ROOT)'
 
 # Статическая ось: набор, чей код читает указатель, и форма его доказательства.
 READS_PY='import os

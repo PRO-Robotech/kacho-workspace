@@ -60,7 +60,9 @@ proof_parts() {
 # Что доказательство набора, чей код читает `KACHO_HOME_*`, эту функцию зовёт,
 # держит `scripts/suites-gate/check-08-proof-owns-its-environment.py`; что она
 # действительно делает исход независимым от унаследованного, — проба-пара в
-# `scripts/suites-gate/inject.sh`.
+# `scripts/suites-gate/inject.sh` по КАЖДОМУ роду указателей (`KACHO_HOME_*`,
+# `GATE_ROOT`, `<НАБОР>_GATE_ROOT`) и мутанты этого перечня: род, выпавший из
+# него, пара видит зависимостью исхода от вызывающего.
 proof_own_environment() {
     local v
     local -a dropped=()
