@@ -146,11 +146,18 @@ elif form == "flow":
     new = fm[:m.start()] + "\nskills: [" + ", ".join(names) + "]\n" + fm[m.end():]
     open(p, "w", encoding="utf-8").write(new.rstrip("\n") + rest)
     sys.exit(0)
+elif form == "csv":
+    new = fm[:m.start()] + "\nskills: " + ", ".join(names) + "\n" + fm[m.end():]
+    open(p, "w", encoding="utf-8").write(new.rstrip("\n") + rest)
+    sys.exit(0)
 new = fm[:m.start()] + "\nskills:\n" + body + fm[m.end():]
 open(p, "w", encoding="utf-8").write(new.rstrip("\n") + rest)
 PY
     }
-    for _form in dq sq comment zero mixed flow; do
+    # «csv» — строка через запятую: шапка гейта объявляет её законной формой, и до
+    # приёмки ws#714 (круг 2) пробы на неё не было — мутант, не делящий строку
+    # (items=[]), выживал со всеми утверждениями.
+    for _form in dq sq comment zero mixed flow csv; do
         d="$(sandbox "i15_fm_$_form")"
         i15_fm_form "$d" "$_form" "$i15_ghost"
         capture "$d" "$C15"
@@ -163,6 +170,21 @@ PY
         assert_code 0 "БЛИЗНЕЦ: настоящий список формой «$_form» — молчит"
     done
     unset -v _form
+
+    # Элемент списка — не скаляр (`- [имя]`): харнесс его не прочтёт как имя скила.
+    # Имя внутри — СУЩЕСТВУЮЩИЙ скил: краснеть обязана форма, а не отсутствие каталога
+    # (мутант, молчащий на элементе-не-строке, выживал — приёмка ws#714, круг 2).
+    # Близнец — тот же существующий скил скаляром (формы «dq»…«zero» выше).
+    d="$(sandbox i15_fm_nonscalar)"
+    python3 - "$d/$i15_agent" "$i15_skill" <<'PY'
+import sys
+p, name = sys.argv[1], sys.argv[2]
+s = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(s.replace("\nskills:\n", "\nskills:\n  - [%s]\n" % name, 1))
+PY
+    capture "$d" "$C15"
+    assert_code 1 "ДЕФЕКТ: элемент skills: — список, а не строка (имя существует) — краснеет"
+    assert_says "элемент не строка" "  ...и называет причину: форма, а не отсутствие каталога"
 
     # ── род 3: путь .claude/… ────────────────────────────────────────────────
     d="$(sandbox i15_path)"
@@ -267,6 +289,45 @@ PY
         assert_code 0 "БЛИЗНЕЦ: корень-переменная формой $_vf и существующий файл — молчит"
     done
     unset -v _vf
+
+    # Корень — только тот, что называет КОРЕНЬ ВОРКСПЕЙСА: `$CLAUDE_PROJECT_DIR` (любой
+    # формой), `$(git rev-parse --show-toplevel)` и переменная, которой в том же файле
+    # присвоено одно из этого. Прочая `$ПЕРЕМЕННАЯ/` — чужое дерево: `$HOME/.claude/…` —
+    # личные настройки. До приёмки ws#714 (круг 2) корнем считалась ЛЮБАЯ переменная
+    # (ложный красный на `$HOME`), а подстановка `$(git rev-parse …)` — чужим деревом
+    # (мёртвый путь молчал).
+    i15_root_hook() { # <песочница> <тело хука после shebang>
+        printf '#!/usr/bin/env bash\n%s\n' "$2" > "$1/.claude/hooks/zz-inj15.sh"
+        git -C "$1" add -A >/dev/null 2>&1 || true
+    }
+    d="$(sandbox i15_root_top)"; i15_hooks "$d"
+    i15_root_hook "$d" 'exec bash "$(git rev-parse --show-toplevel)/.claude/hooks/zz-inj15-nope.sh"'
+    capture "$d" "$C15"
+    assert_code 1 "ДЕФЕКТ: корень \$(git rev-parse --show-toplevel), файла нет — краснеет"
+    assert_says ".claude/hooks/zz-inj15-nope.sh" "  ...и называет путь (корень git)"
+    d="$(sandbox i15_root_top_twin)"; i15_hooks "$d"; b="$(sandbox_digest "$d")"
+    i15_root_hook "$d" 'exec bash "$(git rev-parse --show-toplevel)/.claude/hooks/zz-inj15.sh"'
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: корень git на существующий файл"
+    capture "$d" "$C15"
+    assert_code 0 "БЛИЗНЕЦ: корень \$(git rev-parse --show-toplevel) и существующий файл — молчит"
+    d="$(sandbox i15_root_home)"; i15_hooks "$d"; b="$(sandbox_digest "$d")"
+    i15_root_hook "$d" 'cat "$HOME/.claude/agents/zz-personal.md" "${HOME}/.claude/settings.local-zz.json" 2>/dev/null || true'
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: \$HOME/.claude/… — личное дерево"
+    capture "$d" "$C15"
+    assert_code 0 "БЛИЗНЕЦ: \$HOME/.claude/… и \${HOME}/.claude/… — чужое дерево, молчит"
+    assert_says "путей чужого дерева" "  ...и перепись считает их чужим деревом"
+    d="$(sandbox i15_root_var)"; i15_hooks "$d"
+    i15_root_hook "$d" 'R="${CLAUDE_PROJECT_DIR:-.}"
+cat "$R/.claude/rules/inj15-ghost.md"'
+    capture "$d" "$C15"
+    assert_code 1 "ДЕФЕКТ: переменная, которой присвоен корень, и мёртвый путь — краснеет"
+    assert_says ".claude/rules/inj15-ghost.md" "  ...и называет путь (корень через переменную)"
+    d="$(sandbox i15_root_var_twin)"; i15_hooks "$d"; b="$(sandbox_digest "$d")"
+    i15_root_hook "$d" "R=\"\${CLAUDE_PROJECT_DIR:-.}\"
+cat \"\$R/$i15_arch\""
+    assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: корень через переменную на существующий файл"
+    capture "$d" "$C15"
+    assert_code 0 "БЛИЗНЕЦ: переменная, которой присвоен корень, и существующий файл — молчит"
 
     # Исключается ФАЙЛ пробы (`.claude/hooks/<хук>/prove.sh` — тот же признак, по
     # которому пробы находит `scripts/hook-proofs.sh`), а не каталог, где он лежит:
