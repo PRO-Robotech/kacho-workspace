@@ -800,6 +800,20 @@ check "$( [ "$q_rc" = 0 ] && [ "$cured_n" = 1 ] && git -C "$dw" merge-base --is-
 push_printed 0 "P1 близнец: напечатанная отправка после лечения проходит" "$dw" "публикуемых коммитов 2"
 git -C "$dw" checkout -q main
 
+# ── TS: лечение ключа в сообщении тега автора тега не меняет ─────────────────
+#
+# Находка приёмки круга 1: лечение тега с ключом не исполнялось ни одной пробой, и
+# мутант «фильтр ключа → cat» выживал. Лечение пересоздаёт тег с ТЕМ ЖЕ автором тега
+# и датой (прежде — личностью отправителя «сейчас»); автор тега здесь — подписавший.
+GIT_COMMITTER_EMAIL=stranger@cla-inject.invalid GIT_COMMITTER_NAME=stranger GIT_COMMITTER_DATE="1700000000 +0300" \
+    git -C "$dw" tag -a wt1 -m "выпуск подписавшего" -m "Claude-Session: https://claude.ai/code/session_inject" "$w_sig"
+probe_push 1 "TS1 тег подписавшего с ключом атрибуции — отказ по ключу, автор тега покрыт" \
+    "$dw" "$s_w2" "refs/tags/wt1 $(git -C "$dw" rev-parse refs/tags/wt1) refs/tags/wt1 $Z" "ключ атрибуции" "объектов тегов 1"
+run_cures "$dw"; ts_rc=$?
+check "$( [ "$ts_rc" = 0 ] && [ "$cured_n" = 1 ] && [ "$(git -C "$dw" for-each-ref --format='%(taggeremail) %(taggerdate:raw)' refs/tags/wt1)" = "<stranger@cla-inject.invalid> 1700000000 +0300" ] && ! git -C "$dw" cat-file tag wt1 | grep -qi '^claude-session' && echo да || echo нет)" \
+    "TS1 лечение тега исполнено дословно: ключ снят, автор тега и дата прежние" "$(git -C "$dw" for-each-ref --format='%(taggeremail) %(taggerdate:raw)' refs/tags/wt1); $(rewrites)"
+push_printed 0 "TS1 напечатанная отправка тега после лечения проходит" "$dw" "объектов тегов 1"
+
 # ── T: объект АННОТИРОВАННОГО тега судится, как коммит ─────────────────────────
 #
 # Находка приёмки круга 3: тег с чужим автором тега и трейлером атрибуции в
@@ -823,6 +837,15 @@ git -C "$dt" tag -a t2 -m "выпуск" -m "Co-authored-by: Claude <noreply@ant
 tag_push 1 "T2 тег своей личности с ключом атрибуции в сообщении — отказ по ключу" t2 "Co-authored-by" "ключ атрибуции"
 check "$( [ -z "$(rewrites)" ] && echo да || echo нет)" \
     "T2 строку соавтора вне ведомости лечение тега не снимает — команды нет" "$(rewrites)"
+# T2s — находка приёмки круга 1: лечение тега с ключом не исполнялось ни одной
+# пробой, и мутант «фильтр ключа → cat» выживал. Ключ без адреса снимается, автор
+# тега и его дата остаются прежними (раньше тег пересоздавался отправителем «сейчас»).
+GIT_COMMITTER_DATE="1700000000 +0300" git -C "$dt" tag -a t2s -m "выпуск" -m "Claude-Session: https://claude.ai/code/session_inject" HEAD
+tag_push 1 "T2s тег своей личности с Claude-Session — отказ по ключу" t2s "Claude-Session" "ключ атрибуции"
+run_cures "$dt"; t2s_rc=$?
+check "$( [ "$t2s_rc" = 0 ] && [ "$cured_n" = 1 ] && [ "$(git -C "$dt" cat-file tag t2s | sed '1,/^$/d')" = "выпуск" ] && [ "$(git -C "$dt" for-each-ref --format='%(taggeremail) %(taggerdate:raw)' refs/tags/t2s)" = "<$OWNER> 1700000000 +0300" ] && echo да || echo нет)" \
+    "T2s лечение тега исполнено дословно: сообщение — «выпуск» без ключа, автор тега и дата прежние" "$(git -C "$dt" cat-file tag t2s | tr '\n' '/'); $(rewrites)"
+push_printed 0 "T2s напечатанная отправка тега после лечения проходит" "$dt" "объектов тегов 1"
 git -C "$dt" tag -a t3 -m "выпуск" -m "Правило запрещает строку Co-authored-by: X <x@y> в сообщении тега." HEAD
 tag_push 0 "T близнец: тег своей личности, ключ только в прозе — проходит, объект тега судим" t3 "объектов тегов 1"
 GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$dt" tag -a t4in -m "внутренний" HEAD

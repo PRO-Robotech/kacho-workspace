@@ -87,6 +87,8 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа снимает и строку соавтора вне ведомости — его вклад скрыт (круг 1, находка 1)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение печатает перепись и для находки личности (круг 1, находка 1)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|команда переписи снова печатается при опубликованном в диапазоне (круг 1, находка 3)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение тега снова не снимает ключ из сообщения (круг 1, находка 4)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение тега пересоздаёт тег личностью копии (круг 1, находка 1)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -205,6 +207,12 @@ M = [
     ("scripts/cla-gate/cla.py",
      '            if set(span) - set(it["fresh"]):\n',
      '            if False:\n'),
+    ("scripts/cla-gate/cla.py",
+     '"sed -E %s | GIT_COMMITTER_NAME=%s',
+     '"cat %.0s| GIT_COMMITTER_NAME=%s'),
+    ("scripts/cla-gate/cla.py",
+     'GIT_COMMITTER_NAME=%s GIT_COMMITTER_EMAIL=%s GIT_COMMITTER_DATE=%s "\n                  "git tag',
+     'GIT_COMMITTER_NAME%.0s%.0s%.0s= "\n                  "git tag'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
