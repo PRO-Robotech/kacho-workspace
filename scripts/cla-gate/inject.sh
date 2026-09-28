@@ -738,6 +738,51 @@ s_e="$(srv fl-empty)"
 probe_push 2 "FL6 пустой сервер (HEAD не назван) — ствола нет: условие не создано, не проход" \
     "$df" "$s_e" "refs/heads/main $f_led refs/heads/main $Z" "ствола не называет" "KACHO_CLA_FIRST_LANDING"
 
+# ── CN: перепись по диапазону судит ТА ЖЕ ведомость ствола, что и отправка ────
+#
+# Перепись прежде читала ведомость РАБОЧЕГО дерева копии: незакоммиченная запись
+# о личности делала диапазон «подтверждённым». Теперь — ствол названного remote.
+probe_census() {  # <ожидаемый код> <метка> <репо> <remote> <ревизии через пробел> [<подстрока>…]
+    local want="$1" label="$2" d="$3" remote="$4" revs="$5"; shift 5
+    local out rc ok=1 n
+    # shellcheck disable=SC2086 # ревизии — слова намеренно
+    out="$(python3 "$CLA" census --root "$d" --remote "$remote" -- $revs 2>&1)"; rc=$?
+    probes=$((probes + 1))
+    [ "$rc" = "$want" ] || ok=0
+    for n in "$@"; do [[ "$out" == *"$n"* ]] || ok=0; done
+    if [ "$ok" = 1 ]; then
+        echo "[PASS] $label (код $rc)"
+    else
+        failed=$((failed + 1))
+        echo "[FAIL] $label — ожидался код $want с «$*», получен $rc" >&2
+        printf '%s\n' "$out" | sed 's/^/    | /' >&2
+    fi
+}
+git -C "$dw" checkout -q -b cn "$w_pre"
+commit_as "$dw" cn-stranger@cla-inject.invalid "чужой для переписи"
+cn_sha="$(git -C "$dw" rev-parse HEAD)"
+git -C "$dw" checkout -q main
+cp "$dw/contribution-ledger.yaml" "$TMP/cn-ledger.bak"
+ledger "$dw" "  - email: cn-stranger@cla-inject.invalid
+    note: незакоммиченная запись копии
+history_floor:
+  commit: $w_wide
+  note: граница поздней редакции
+history_only:
+  - email: old@cla-inject.invalid
+    note: поздняя редакция — прежний адрес только в истории"
+check "$(git -C "$dw" diff --quiet HEAD -- contribution-ledger.yaml && echo нет || echo да)" \
+    "CN предпосылка: ведомость рабочего дерева копии шире ствола (незакоммиченная запись cn-stranger@)"
+probe_census 1 "CN1 перепись судит ведомостью СТВОЛА: незакоммиченная запись копии чужого не подтверждает" \
+    "$dw" "$s_w" "$cn_sha ^$w_pre" "cn-stranger@cla-inject.invalid" "ведомость ствола main@"
+cp "$TMP/cn-ledger.bak" "$dw/contribution-ledger.yaml"
+probe_census 0 "CN близнец: свой коммит диапазона — подтверждён стволом, объём назван" \
+    "$dw" "$s_w" "$w_narrow ^$w_wide" "коммитов 1" "находок 0"
+probe_census 2 "CN2 ствол без ведомости — переписи судить нечем, не зелёное" \
+    "$dw" "$s_f" "$cn_sha ^$w_pre" "ведомости contribution-ledger.yaml нет"
+probe_census 2 "CN3 пустой диапазон — обход пуст, не «находок 0»" \
+    "$dw" "$s_w" "$w_narrow ^$w_narrow" "судить нечего"
+
 echo "[CENSUS] cla-gate inject: проб исполнено $probes, провалено $failed; фикстур-репозиториев $(find "$TMP" -mindepth 2 -maxdepth 2 -name .git | wc -l)"
 if [ "$failed" -gt 0 ]; then
     echo "[FAIL] cla-gate inject — провалов $failed из $probes" >&2

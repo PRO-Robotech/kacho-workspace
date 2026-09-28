@@ -732,6 +732,10 @@ def q(s):
     return shlex.quote(s)
 
 
+def short_ref(name):
+    return name[len("refs/heads/"):] if name.startswith("refs/heads/") else name
+
+
 def refspecs(items):
     return " ".join(q("%s:%s" % (it["lref"], it["rref"])) for it in items)
 
@@ -845,8 +849,7 @@ def judge_push(root, rel, pushes, remote, target, label, first):
         return 0
 
     tblob = ledger_blob(root, tsha, rel) if tsha else None
-    short = tname[len("refs/heads/"):] if tname.startswith("refs/heads/") else tname
-    trunk_txt = ("ствол %s@%s сервера отправки %s" % (short, tsha[:12], target) if tsha
+    trunk_txt = ("ствол %s@%s сервера отправки %s" % (short_ref(tname), tsha[:12], target) if tsha
                  else "сервер отправки %s ствола не называет (пуст либо HEAD висит)" % target)
     bad = False
     if tblob is not None:
@@ -966,13 +969,16 @@ def run_census(root, rel, remote, revs):
     fetch_trunk(root, target, trunk)
     if ledger_blob(root, tsha, rel) is None:
         raise Unjudgeable("в стволе %s@%s сервера %s ведомости %s нет — переписи судить нечем"
-                          % (tname, tsha[:12], target, rel))
+                          % (short_ref(tname), tsha[:12], target, rel))
     led = load_ledger_at(root, tsha, rel)
     recs = commits(root, revs)
+    if not recs:
+        # Пустой обход — не «находок 0»: о диапазоне не прочитано ничего.
+        raise Unjudgeable("диапазон %s не несёт ни одного коммита — переписи судить нечего" % " ".join(revs))
     past, _, findings, by, ids, _ = judge_split(root, led, recs, "push")
     print("[CENSUS] cla census %s — ведомость ствола %s@%s (%s); коммитов %d (история до границы %d), "
           "вкладов %d, личностей %d; находок %d"
-          % (" ".join(revs), tname, tsha[:12], target, len(recs), len(past), by["вкладов"], len(ids),
+          % (" ".join(revs), short_ref(tname), tsha[:12], target, len(recs), len(past), by["вкладов"], len(ids),
              len(findings)))
     if findings:
         print_findings(findings)
