@@ -16,13 +16,15 @@ areas:
   - deploy
 prs:
   - https://github.com/PRO-Robotech/kaname/pull/411
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/314
 opened: 2026-09-20
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: голова задачи 0b8113cb894b7c53f3f736c92fc30dbf58a5c5c9 (= origin/314) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия мной не перемерялся; закрытие — `gh issue view 314 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:57Z; голова `0b8113cb894` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: голова задачи 0b8113cb894b7c53f3f736c92fc30dbf58a5c5c9 (= origin/314) — предок головы сборки 2f45e7c8aa0 и origin/358, не предок origin/357 и origin/main (`git merge-base --is-ancestor`), 2026-09-24. Предикат снятия мной не перемерялся; закрытие — `gh issue view 314 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:57Z; голова `0b8113cb894` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:37:57Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#314: у жизненного цикла ключа подписи есть вызывающий
@@ -55,6 +57,7 @@ verified_against: "PRO-Robotech/kaname: голова задачи 0b8113cb894b7c
 | голова первого сведения | `30c41bbcf0cdffc790a63fa7c108867e08e54d92` → слияние `0abe7af28a946bbd2dd2c1c76451af07231ea7ee` |
 | голова повторного сведения | `0b8113cb894b7c53f3f736c92fc30dbf58a5c5c9` → слияние `effd23c3f17166c3d984ccdb059c3a9e0ae2222a`; ветка `314` (координата, не живая ссылка) на origin с этой головой |
 | запрос сборки | PR #411 `408` → `358`, голова `2f45e7c8aa0ebb6a1ec25ff26523cc70e205bb03`, коммит слияния `d22123ba0957625fa791649bd72b6fffd694cfa0` |
+| запрос волны | PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5 прогонов, все `success` |
 
 Повторное сведение несёт пробу тишины сметателя, берущую ряд с выдачи производителя; таблица
 тела PR #411 называет голову первого сведения.
@@ -70,9 +73,13 @@ verified_against: "PRO-Robotech/kaname: голова задачи 0b8113cb894b7c
       голова задачи `0b8113cb894` — предок origin/`357` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
 
+## History
+
+- 2026-09-26 — волна #358 влита в ветку эпика `357` запросом PR #422 (`fc9f5aff19c`); в `main` @ `cbbac984b7b` задачи нет — посадка в ствол предмет эпика, а не задачи.
+
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» нет; узкие записки этой записью не менялись.
+Возвраты исполнителей по задаче (журналы полос, 2026-09-23…24) называют пакеты `internal/apps/kaname/api/signingkeys` (Keystore: Compromise, SweepRemovable, пределы передачи), `internal/repo/kaname/pg` (SigningKeyRepo), `cmd/kaname` (команда `signing-key`), `deploy`, `internal/supplyhygiene` и метрику `kaname_signing_key_events_total`; ресурсов, rpc и новых рёбер нет. Узкой записки о пакете ключей подписи в хранилище нет, и этой записью она не заводилась.
 
 - [[KAC/issue-358-kaname]] — волна и сборка 1.
 

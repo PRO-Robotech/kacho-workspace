@@ -14,11 +14,12 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/409
 issue_url: https://github.com/PRO-Robotech/kaname/issues/378
 opened: 2026-09-23
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - docs
-verified_against: "PRO-Robotech/kaname: последняя голова задачи f4190035d7a48fa40ae91204529b268b4e1c4987 — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`); предикат расхождения исполнен мной по дереву dda965ecef3 (`git archive` каталога docs/specs/reviews), 2026-09-24; закрытие — `gh issue view 378 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:08Z; голова `f4190035d7a` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: последняя голова задачи f4190035d7a48fa40ae91204529b268b4e1c4987 — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`); предикат расхождения исполнен мной по дереву dda965ecef3 (`git archive` каталога docs/specs/reviews), 2026-09-24; закрытие — `gh issue view 378 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:08Z; голова `f4190035d7a` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:37:08Z, меток status:* нет (`gh issue view`); коммит слияния волны dbf25d17e25 — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#378: записи ревью Ф3 и Ф12 ред. 11 несут событие полномочия

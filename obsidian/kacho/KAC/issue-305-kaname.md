@@ -16,11 +16,12 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/409
 issue_url: https://github.com/PRO-Robotech/kaname/issues/305
 opened: 2026-09-19
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: голова задачи d22f5f4f5d2177832e89e9d35c83ec89cc9fc803 — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`); п.1 предиката перемерен на dda965ecef3 и на 253cf0446c3, 2026-09-24. П.2 (поле Removal записи) мной не исполнялся; закрытие — `gh issue view 305 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:12Z; голова `d22f5f4f5d2` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: голова задачи d22f5f4f5d2177832e89e9d35c83ec89cc9fc803 — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`); п.1 предиката перемерен на dda965ecef3 и на 253cf0446c3, 2026-09-24. П.2 (поле Removal записи) мной не исполнялся; закрытие — `gh issue view 305 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:12Z; голова `d22f5f4f5d2` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:37:12Z, меток status:* нет (`gh issue view`); коммит слияния волны dbf25d17e25 — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#305: восстановление доступа — через единственного писателя
