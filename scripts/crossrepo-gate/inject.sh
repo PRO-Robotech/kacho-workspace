@@ -18,6 +18,12 @@
 set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Окружение — своё: унаследованный `KACHO_HOME_<РЕПО>` сильнее синтетических стволов
+# ниже, и проверка судила бы настоящие пары (scripts/lib/proofs.sh).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$here/../lib/proofs.sh"
+proof_own_environment
 box="$(mktemp -d)"
 trap 'rm -rf "$box"' EXIT
 

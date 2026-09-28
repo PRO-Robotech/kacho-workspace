@@ -22,6 +22,8 @@
 достаточно предикатам, которые на нём стоят (`scripts/suites-gate/check-04-*`,
 `check-07-*`), и их инъекции доказывают обе границы.
 """
+import fnmatch
+import posixpath
 import re
 
 _HEREDOC = re.compile(r"(?<!<)<<(?!<)-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
@@ -286,3 +288,37 @@ def loop_words(lines):
                     break
             loops.setdefault(m.group(1), []).extend(words)
     return loops
+
+
+_SUBST = re.compile(r"[$(){}`]")
+
+
+def resolve_path(src_rel, word, files):
+    """Файлы из `files` (пути от корня), которые называет слово-путь `word` в файле
+    `src_rel`. Путь берётся после последней подстановки (`$here/`, `$(…)/`): начатый
+    с `scripts/` — от корня, иначе — от каталога `src_rel`. Глоб — по `files`."""
+    bare = word.replace('"', "").replace("'", "")
+    parts = bare.split("/")
+    last = -1
+    for i, p in enumerate(parts):
+        if _SUBST.search(p):
+            last = i
+    rest = [p for p in parts[last + 1:] if p]
+    if not rest or (last < 0 and bare.startswith("/")):
+        return []
+    rel = "/".join(rest)
+    if not rel.startswith("scripts/"):
+        rel = posixpath.normpath(posixpath.join(posixpath.dirname(src_rel), rel))
+    return [f for f in files if fnmatch.fnmatchcase(f, rel)]
+
+
+def resolve_sourced(src_rel, word, files, loops):
+    """Файлы, которые подключает слово `word` (`. <слово>`) из `src_rel`; переменная
+    цикла (`. "$part"`) разрешается по словам её перечня (`loops` из `loop_words`)."""
+    bare = word.replace('"', "").replace("'", "").strip()
+    m = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", bare)
+    words = loops.get(m.group(1), []) if m else [word]
+    hit = []
+    for w in words:
+        hit += resolve_path(src_rel, w, files)
+    return hit

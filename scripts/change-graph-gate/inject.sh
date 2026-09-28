@@ -35,6 +35,12 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
       GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_COMMON_DIR GIT_PREFIX
 
 WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Окружение — своё: `KACHO_HOME_*` читает `applicability.py` (check-04), и
+# унаследованный дом был бы сильнее мира песочницы (scripts/lib/proofs.sh).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$WS/scripts/lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT

@@ -57,9 +57,7 @@ pipefail перечисляются в переписи отдельным чи�
 
 Коды: 0 — формы нет; 1 — находка; 2 — осматривать нечего.
 """
-import fnmatch
 import os
-import posixpath
 import re
 import sys
 
@@ -75,7 +73,6 @@ PIPEFAIL = re.compile(r"\bset\s+(?:-[A-Za-z]*o\s+pipefail|-o\s+pipefail|.*\bpipe
 SAFE = re.compile(r"#\s*pipe-safe:\s*\S")
 SHEBANG = re.compile(r"^#!\s*\S*\b(?:env\s+)?(?:ba|da|k|z)?sh\b")
 EARLY_LONG = ("--quiet", "--silent", "--files-with-matches", "--files-without-match")
-SUBST = re.compile(r"[$(){}`]")
 
 
 def early_grep(stage):
@@ -113,23 +110,6 @@ def is_shell(ws, rel):
     return "shebang" if SHEBANG.match(first) else None
 
 
-def resolve(src_rel, word, shells):
-    """Файлы дерева, которые подключает слово `word` из файла `src_rel`."""
-    bare = word.replace('"', "").replace("'", "")
-    parts = bare.split("/")
-    last = -1
-    for i, p in enumerate(parts):
-        if SUBST.search(p):
-            last = i
-    rest = [p for p in parts[last + 1:] if p]
-    if not rest or (last < 0 and bare.startswith("/")):
-        return []
-    rel = "/".join(rest)
-    if not rel.startswith("scripts/"):
-        rel = posixpath.normpath(posixpath.join(posixpath.dirname(src_rel), rel))
-    return [s for s in shells if fnmatch.fnmatchcase(s, rel)]
-
-
 def main():
     ws = _lib.root(__file__)
     try:
@@ -163,12 +143,7 @@ def main():
         targets, unresolved = set(), []
         for n, c in plain:
             for word in shellcode.sourced_words(c):
-                bare = word.replace('"', "").replace("'", "").strip()
-                m = re.fullmatch(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?", bare)
-                words = loops.get(m.group(1), []) if m else [word]
-                hit = []
-                for w in words:
-                    hit += resolve(rel, w, shells)
+                hit = shellcode.resolve_sourced(rel, word, shells, loops)
                 if hit:
                     targets.update(hit)
                 else:

@@ -19,6 +19,13 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$HERE/../.." && pwd)"
+# Окружение — своё: унаследованный `KACHO_HOME_<ИМЯ>` сильнее мира песочницы, и
+# проба «дома рядом нет» получала бы дом вызывающего (scripts/lib/proofs.sh).
+# `KACHO_MONOREPO` — объявленный вход ниже, не снимается.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_own_environment
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -944,10 +951,8 @@ runh - 0 "$b" "$PROD_BARE" \
 # его (`scripts/lib/run-suites.sh --proofs`). Части рядом (`inject-<N>*.sh` —
 # закрепления приёмки, второй дом приёмок, ведомость) прежде выписывались в
 # конвейер поимённо; теперь их исполняет вход — перечень выводится из каталога
-# (`scripts/lib/proofs.sh`), и новая часть не может остаться неисполненной.
-# shellcheck source-path=SCRIPTDIR
-# shellcheck source=../lib/proofs.sh
-. "$HERE/../lib/proofs.sh"
+# (`scripts/lib/proofs.sh`, подключён в начале файла), и новая часть не может
+# остаться неисполненной.
 proof_parts "$HERE"; parts_rc=$?
 
 echo

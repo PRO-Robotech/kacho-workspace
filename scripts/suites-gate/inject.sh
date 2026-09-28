@@ -18,6 +18,12 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY \
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WS="$(cd "$HERE/../.." && pwd)"
+# Окружение — своё: проверки набора читают указатели на деревья
+# (scripts/lib/proofs.sh).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/proofs.sh
+. "$HERE/../lib/proofs.sh"
+proof_own_environment
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -677,6 +683,137 @@ expect 1 "$b" "инъекция: пометка pipe-safe в файле без p
 b="$(barebox)"; commit "$b"
 expect 2 "$b" "предпосылка: файлов оболочки под scripts/ нет — VOID, а не «находок 0»" "$C07" \
     "оболочки среди них 0"
+
+# ── check-08: доказательство зависит от унаследованного дома ──────────────────
+#
+# Сначала — проба-пара на МЕХАНИЗМЕ, без неё статическая проверка ловила бы
+# форму, а не свойство. Доказательство-двойник зовёт проверку, читающую
+# `KACHO_HOME_PROBE`, дважды: под унаследованным указателем и без него. Со
+# снятием окружения (`proof_own_environment` из настоящей `scripts/lib/proofs.sh`)
+# исходы обязаны совпасть; без снятия — разойтись: иначе пара не чувствительна, и
+# её «совпали» ничего не значит.
+C08="check-08-proof-owns-its-environment.py"
+echo "== check-08: вердикт доказательства зависит от унаследованного дома =="
+
+OWN_PROOF='#!/usr/bin/env bash
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/../lib/proofs.sh"
+proof_own_environment
+python3 "$here/check-01-home.py"'
+BARE_PROOF='#!/usr/bin/env bash
+set -uo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+python3 "$here/check-01-home.py"'
+HOME_CHECK='import os
+import sys
+home = os.environ.get("KACHO_HOME_PROBE")
+print("осмотрено 1; дом %s" % (home or "—"))
+sys.exit(1 if home else 0)'
+
+# pair <заголовок> <тело доказательства> <ждём: same|differ>
+pair() {
+    local title="$1" body="$2" want="$3" b ra rb
+    probes=$((probes + 1))
+    b="$(mkbox)"; mkdir -p "$b/scripts/pair-gate"
+    printf '%s\n' "$HOME_CHECK" > "$b/scripts/pair-gate/check-01-home.py"
+    printf '%s\n' "$body" > "$b/scripts/pair-gate/inject.sh"
+    ( cd "$TMP" && env -u KACHO_HOME_PROBE bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); ra=$?
+    ( cd "$TMP" && KACHO_HOME_PROBE="$TMP/чужой-дом" bash "$b/scripts/pair-gate/inject.sh" >/dev/null 2>&1 ); rb=$?
+    if { [ "$want" = same ] && [ "$ra" -eq "$rb" ] && [ "$ra" -eq 0 ]; } ||
+       { [ "$want" = differ ] && [ "$ra" -ne "$rb" ]; }; then
+        echo "  ok   $title (без указателя $ra, с указателем $rb)"
+    else
+        echo "  ПРОВАЛ $title — ждали $want, получили: без указателя $ra, с указателем $rb" >&2
+        failed=$((failed + 1))
+    fi
+}
+
+pair "проба-пара: доказательство снимает окружение — исход один при любом унаследованном доме" \
+    "$OWN_PROOF" same
+pair "проба-пара: то же доказательство без снятия — исход зависит от вызывающего (пара чувствительна)" \
+    "$BARE_PROOF" differ
+
+# Статическая ось: набор, чей код читает указатель, и форма его доказательства.
+READS_PY='import os
+print("осмотрено 1; дом %s" % os.environ.get("KACHO_HOME_PROBE"))'
+DOC_ONLY='"""Упоминает KACHO_HOME_PROBE только в строке документации."""
+print("осмотрено 1")'
+QUIET_PY='print("осмотрено 1")'
+P_OWN='#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/../lib/proofs.sh"
+proof_own_environment
+echo "проб 1"'
+P_NOCALL='#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/../lib/proofs.sh"
+echo "проб 1"'
+P_NOSRC='#!/usr/bin/env bash
+proof_own_environment
+echo "проб 1"'
+P_COMMENT='#!/usr/bin/env bash
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$here/../lib/proofs.sh"
+# proof_own_environment — только в комментарии
+echo "проб 1"'
+
+# world8 <песочница> [<набор> <код проверки> <доказательство>] — во всех наборах
+# проверка читает указатель и доказательство владеет окружением; в названном —
+# внесённое.
+world8() {
+    local box="$1" target="${2:-}" body="${3:-}" prf="${4:-}" s
+    for s in "${SUITES[@]}"; do
+        suite "$box" "$s"
+        if [ "$s" = "$target" ]; then
+            printf '%s\n' "$body" > "$box/scripts/$s/check-01-reads.py"
+            printf '%s\n' "$prf" > "$box/scripts/$s/inject.sh"
+        else
+            printf '%s\n' "$READS_PY" > "$box/scripts/$s/check-01-reads.py"
+            printf '%s\n' "$P_OWN" > "$box/scripts/$s/inject.sh"
+        fi
+    done
+}
+
+b="$(mkbox)"; world8 "$b"; commit "$b"
+expect 0 "$b" "близнец: во всех ${#SUITES[@]} наборах проверка читает дом, доказательство снимает окружение — молчит" "$C08" \
+    "читают KACHO_HOME_*: ${#SUITES[@]}" "владеет окружением ${#SUITES[@]}"
+
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"; world8 "$b" "$s" "$READS_PY" "$P_NOCALL"; commit "$b"
+    expect 1 "$b" "инъекция в $s: доказательство не снимает окружение — краснеет с координатой" "$C08" \
+        "scripts/$s/inject.sh — код набора $s читает KACHO_HOME_*" "находок 1"
+done
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_NOSRC"; commit "$b"
+expect 1 "$b" "инъекция: вызов есть, библиотека не подключена — функции нет, краснеет" "$C08" \
+    "scripts/${SUITES[0]}/inject.sh:2 — proof_own_environment зовётся, но scripts/lib/proofs.sh не подключён"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$READS_PY" "$P_COMMENT"; commit "$b"
+expect 1 "$b" "инъекция: вызов только в комментарии — читается код, краснеет" "$C08" \
+    "scripts/${SUITES[0]}/inject.sh — код набора ${SUITES[0]} читает KACHO_HOME_*"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$DOC_ONLY" "$P_NOCALL"; commit "$b"
+expect 0 "$b" "близнец: указатель только в строке документации — не читатель, молчит" "$C08" \
+    "читают KACHO_HOME_*: $((${#SUITES[@]} - 1))"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$QUIET_PY" "$P_NOCALL"; commit "$b"
+expect 0 "$b" "близнец: набор не читает дом, доказательство без снятия — молчит" "$C08" \
+    "владеет окружением $((${#SUITES[@]} - 1))"
+
+b="$(mkbox)"; world8 "$b" "${SUITES[0]}" "$QUIET_PY" "$P_NOCALL"
+printf '#!/usr/bin/env bash\necho "${KACHO_HOME_PROBE:-—}"\n' > "$b/scripts/${SUITES[0]}/check-02-reads.sh"
+commit "$b"
+expect 1 "$b" "инъекция: указатель читает скрипт оболочки набора — тоже читатель, краснеет" "$C08" \
+    "scripts/${SUITES[0]}/check-02-reads.sh"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; printf '%s\n' "$QUIET_PY" > "$b/scripts/$s/check-01-reads.py"; done
+commit "$b"
+expect 2 "$b" "предпосылка: ни один набор не читает дом — VOID, а не «находок 0»" "$C08" "не читает KACHO_HOME_*"
+
+b="$(mkbox)"; commit "$b"
+expect 2 "$b" "предпосылка: наборов нет — VOID" "$C08" "наборов scripts/*/run-all.sh"
 
 echo
 echo "[CENSUS] inject: наборов в переписи ${#SUITES[@]}; проб исполнено $probes, провалов $failed"
