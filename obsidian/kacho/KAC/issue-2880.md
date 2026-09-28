@@ -4,7 +4,7 @@ aliases:
   - issue-2880
 ticket_id: 2880
 category: kac
-status: to-do
+status: in-progress
 type: fix
 repos:
   - kacho
@@ -17,7 +17,7 @@ opened: 2026-09-26
 tags:
   - kac
   - fix
-verified_against: "PRO-Robotech/kacho: трекер — задача открыта, родителя нет (`gh issue view 2880`, `gh api .../parent` → 404), PR и веток с номером нет, 2026-09-26. Файл scripts/ci-local.sh есть на 7190c3e5274 (`git cat-file -e`); номера строк и учёт снятия — из тела задачи, мной не перемерялись"
+verified_against: "PRO-Robotech/kacho: трекер — задача открыта, родителя нет (`gh issue view 2880`, `gh api .../parent` → 404), PR и веток с номером нет, 2026-09-26. Файл scripts/ci-local.sh есть на 7190c3e5274 (`git cat-file -e`); номера строк и учёт снятия — из тела задачи, мной не перемерялись; 2026-09-28 (#846): состояние, метки и родитель — трекер (`gh issue view 2880 -R PRO-Robotech/kacho`, `gh api .../parent`), вливания — `gh pr view` либо лог ветки волны; DoD не перемерялся"
 ---
 
 # kacho#2880: одновременные прогоны ci-local одной копии делят кэш и журналы
@@ -26,6 +26,8 @@ verified_against: "PRO-Robotech/kacho: трекер — задача откры�
 `size:S`, `area:ci`, `release:gates`; родителя нет. Заведена 2026-09-26T12:15:16Z в kacho, а не в
 воркспейсе: производитель — `scripts/ci-local.sh` продукта. Роль — `tooling-maintainer`. Работы
 по ней нет.
+
+**Состояние на 2026-09-28**: `in-progress`. Задача открыта, метка `status:in-progress`; родителя нет. Взята 2026-09-27T19:24Z веткой `issue-1560` (координата, не живая ссылка), полоса ci-local, релиз `release:gates` (комментарий задачи).
 
 ## Что и зачем
 
@@ -65,6 +67,10 @@ kacho#2625 и #2642 — тот же класс в службе доступа, �
 
 DoD — предикат выполнен, пробы красные до правки и зелёные после. Артефакт — PR с `Closes`
 этой задачи и вывод проб по каждому пункту.
+
+## History
+
+- 2026-09-28 (#846) — состояние приведено к трекеру: to-do → in-progress: задача взята в работу 2026-09-27.
 
 ## Затронутые сущности vault
 

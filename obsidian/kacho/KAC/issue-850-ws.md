@@ -4,7 +4,7 @@ aliases:
   - issue-850-ws
 ticket_id: 850
 category: kac
-status: to-do
+status: in-progress
 type: fix
 repos:
   - kacho-workspace
@@ -19,7 +19,7 @@ tags:
   - kac
   - fix
   - conventions
-verified_against: "PRO-Robotech/kacho-workspace: трекер — задача открыта, родителя нет (`gh issue view 850`, `gh api .../parent` → 404), PR с номером нет, 2026-09-26. Маркеры sec-values-prod-must-boot в security.md и ban16-values-prod в 00-kacho-core.md есть на origin/main 6eddaa5e9c и называют держателя так, как сказано в теле задачи (`git show | grep`); место в dispatcher.md и задания конвейера продукта — из тела задачи, мной не перемерялись"
+verified_against: "PRO-Robotech/kacho-workspace: трекер — задача открыта, родителя нет (`gh issue view 850`, `gh api .../parent` → 404), PR с номером нет, 2026-09-26. Маркеры sec-values-prod-must-boot в security.md и ban16-values-prod в 00-kacho-core.md есть на origin/main 6eddaa5e9c и называют держателя так, как сказано в теле задачи (`git show | grep`); место в dispatcher.md и задания конвейера продукта — из тела задачи, мной не перемерялись; 2026-09-28 (#846): состояние, метки и родитель — трекер (`gh issue view 850 -R PRO-Robotech/kacho-workspace`, `gh api .../parent`), вливания — `gh pr view` либо лог ветки волны; DoD не перемерялся"
 ---
 
 # ws#850: values.prod требуют подъёма, конвейер поднимает dev-prod
@@ -28,6 +28,8 @@ verified_against: "PRO-Robotech/kacho-workspace: трекер — задача �
 `size:S`, `area:rules`, `release:gates`; родителя нет. Заведена 2026-09-26T11:44:04Z по итогам
 сверки выкатки линии эпика kacho `2564` (координата, не живая ссылка). Роль —
 `tooling-maintainer`. Работы по ней нет.
+
+**Состояние на 2026-09-28**: `in-progress`. Задача открыта, метка `status:in-progress`; родителя нет. Взята 2026-09-27T18:09Z веткой `issue-714` (координата, не живая ссылка), релиз `release:gates` (комментарий задачи).
 
 ## Что и зачем
 
@@ -66,6 +68,10 @@ verified_against: "PRO-Robotech/kacho-workspace: трекер — задача �
    названной причиной.
 
 Артефакт — PR с `Closes` этой задачи; при исходе (а) — ещё и PR продукта и ссылка на прогон.
+
+## History
+
+- 2026-09-28 (#846) — состояние приведено к трекеру: to-do → in-progress: задача взята в работу 2026-09-27.
 
 ## Затронутые сущности vault
 

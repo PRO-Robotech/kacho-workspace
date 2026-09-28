@@ -4,7 +4,7 @@ aliases:
   - issue-429-kaname
 ticket_id: 429
 category: kac
-status: to-do
+status: test
 type: fix
 repos:
   - kaname
@@ -17,7 +17,7 @@ tags:
   - kac
   - fix
   - kacho-iam
-verified_against: "PRO-Robotech/kaname: трекер — задача открыта, родителя нет (`gh issue view 429`, `gh api .../parent` → 404), PR с номером нет (`gh pr list --search`), 2026-09-26. Файл .github/workflows/docker-build.yml есть на ветке эпика 357 @ fc9f5aff19c (`git cat-file -e`); пин `main-16b5cade` в values.yaml:126 зонта на kacho 7190c3e5274 (`git show`) и 427 коммитов сверх него (`git rev-list --count 16b5cade..fc9f5aff`) перемерены; замер реестра — из тела задачи, мной не повторялся"
+verified_against: "PRO-Robotech/kaname: трекер — задача открыта, родителя нет (`gh issue view 429`, `gh api .../parent` → 404), PR с номером нет (`gh pr list --search`), 2026-09-26. Файл .github/workflows/docker-build.yml есть на ветке эпика 357 @ fc9f5aff19c (`git cat-file -e`); пин `main-16b5cade` в values.yaml:126 зонта на kacho 7190c3e5274 (`git show`) и 427 коммитов сверх него (`git rev-list --count 16b5cade..fc9f5aff`) перемерены; замер реестра — из тела задачи, мной не повторялся; 2026-09-28 (#846): состояние, метки и родитель — трекер (`gh issue view 429 -R PRO-Robotech/kaname`, `gh api .../parent`), вливания — `gh pr view` либо лог ветки волны; DoD не перемерялся"
 ---
 
 # kaname#429: голова ветки эпика без образа — связку линии не выкатить
@@ -26,6 +26,8 @@ verified_against: "PRO-Robotech/kaname: трекер — задача откры
 `size:S`, `area:deploy`, `area:ci`, `release:identity-own`; родителя нет. Заведена
 2026-09-26T11:44:02Z по итогам выкатки линии платформы. Роль — `deploy-engineer`. Работы по ней
 нет.
+
+**Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родителя нет. Метки приоритета на трекере две — `P1` и `P2`. Работа влита в ветку `366` (координата, не живая ссылка) сборкой 3 kaname#455 — PR #457, коммит слияния `90a25be643b`, влит 2026-09-27T17:46:42Z (`gh pr view 457`).
 
 ## Что и зачем
 
@@ -69,6 +71,10 @@ verified_against: "PRO-Robotech/kaname: трекер — задача откры
   этого образа. Trail не заведён.
 - [[KAC/issue-2881]] — тот же предмет для образа консоли.
 - PRO-Robotech/kacho#2862 и kaname#424 (`Provider.Validate`) — другой предмет, по телу задачи.
+
+## History
+
+- 2026-09-28 (#846) — состояние приведено к трекеру: to-do → test: работа влита в ветку `366` сборкой 3 (PR #457).
 
 ## Затронутые сущности vault
 

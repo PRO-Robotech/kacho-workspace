@@ -4,7 +4,7 @@ aliases:
   - issue-788-ws
 ticket_id: 788
 category: kac
-status: in-progress
+status: test
 type: fix
 repos:
   - kacho-workspace
@@ -20,7 +20,7 @@ opened: 2026-09-22
 tags:
   - kac
   - fix
-verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, родитель ws#786, меток status:* и release:wave нет (`gh issue view 788`, `gh api .../parent`); в #853 коммитов с её номером нет (`git log 27eb0775..a9159c46`). Предмет и предикат — дословно из тела задачи (пересмотренное решение диспетчера 2026-09-26), мной не перемерялись; перепись трекера 2026-09-27: открыта, метка status:in-progress (`gh issue view 788`)"
+verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, родитель ws#786, меток status:* и release:wave нет (`gh issue view 788`, `gh api .../parent`); в #853 коммитов с её номером нет (`git log 27eb0775..a9159c46`). Предмет и предикат — дословно из тела задачи (пересмотренное решение диспетчера 2026-09-26), мной не перемерялись; перепись трекера 2026-09-27: открыта, метка status:in-progress (`gh issue view 788`); 2026-09-28 (#846): состояние, метки и родитель — трекер (`gh issue view 788 -R PRO-Robotech/kacho-workspace`, `gh api .../parent`), вливания — `gh pr view` либо лог ветки волны; DoD не перемерялся"
 ---
 
 # ws#788: вердикт конвейера воркспейса — по ручному прогону на голове, в волне-3
@@ -34,6 +34,8 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — з
 **Состояние на 2026-09-27**: `in-progress`. Задача открыта, метка `status:in-progress`: взята в
 волне-3 ws#786 2026-09-26T21:37Z полосой `788` — ветка `788` (координата, не живая ссылка) от
 `origin/786` @ `d5cf0d9a`, в той же полосе ws#837 (комментарий задачи).
+
+**Состояние на 2026-09-28**: `test`. Задача открыта, метка `status:test`; родитель — волна-3 ws#786. Ветка `788` @ `e0d786ef` влита в сборку 2 волны ws#863 коммитом слияния `00bd6b39`; запрос сборки PR #864 влит в `786` коммитом слияния `99fbac9f` 2026-09-27T14:36:52Z (`gh pr view 864`); `e0d786ef` — предок `origin/786` (`git merge-base --is-ancestor`). Волна в ветку эпика не влита.
 
 ## Что и зачем
 
@@ -64,6 +66,7 @@ landing-reviewer, ci-watcher и `scripts/merge-readiness.sh`. Шапка `ci.yam
 ## History
 
 - 2026-09-27 (#846) — состояние приведено к трекеру: задача взята полосой, `to-do` → `in-progress`.
+- 2026-09-28 (#846) — состояние приведено к трекеру: in-progress → test: ветка влита в ветку волны `786` сборкой #863 (PR #864).
 
 ## Затронутые сущности vault
 

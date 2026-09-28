@@ -1,10 +1,10 @@
 ---
-title: "ws#775: записи wave-reviewer волны 0 identity-own — в волне-3, ждут #822 и #824"
+title: "ws#775: записи wave-reviewer волны 0 identity-own — в волне-3"
 aliases:
   - issue-775-ws
 ticket_id: 775
 category: kac
-status: to-do
+status: in-progress
 type: docs
 repos:
   - kacho-workspace
@@ -17,16 +17,18 @@ opened: 2026-09-22
 tags:
   - kac
   - docs
-verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, метка blocked, родитель ws#786 (`gh issue view 775`, `gh api .../parent`); PR #812 открыт, база main (`gh pr view 812`); ветка review/wave0-wave-reviewer на origin — b99a2ca9 (`git ls-remote`). Причина перевода (форма дайджеста записей и check-05 change-graph-gate) — из комментария задачи 2026-09-26, мной не перемерялась"
+verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — задача открыта, метка blocked, родитель ws#786 (`gh issue view 775`, `gh api .../parent`); PR #812 открыт, база main (`gh pr view 812`); ветка review/wave0-wave-reviewer на origin — b99a2ca9 (`git ls-remote`). Причина перевода (форма дайджеста записей и check-05 change-graph-gate) — из комментария задачи 2026-09-26, мной не перемерялась; 2026-09-28 (#846): состояние, метки и родитель — трекер (`gh issue view 775 -R PRO-Robotech/kacho-workspace`, `gh api .../parent`), вливания — `gh pr view` либо лог ветки волны; DoD не перемерялся"
 ---
 
-# ws#775: записи wave-reviewer волны 0 identity-own — в волне-3, ждут #822 и #824
+# ws#775: записи wave-reviewer волны 0 identity-own — в волне-3
 
 **Состояние на момент записи**: `to-do` — 2026-09-26. Задача **открыта**, метки: `blocked`, `P1`,
 `size:S`, `area:tooling`, `release:identity-own`; `Blocked by #822`, `Blocked by #824`.
 2026-09-26 переведена из волны 0 [[KAC/issue-778-ws|#778]] в волну-3 ws#786, волна 0 закрыта без
 этих записей. Работа есть — PR #812, ветка `review/wave0-wave-reviewer` (координата, не живая
 ссылка) @ `b99a2ca9`, — но задачу никто не ведёт: она ждёт механизма посадки записей.
+
+**Состояние на 2026-09-28**: `in-progress`. Задача открыта, метка `status:in-progress`, метка `blocked` снята 2026-09-28T13:07Z: оба блокера (#822, #824) сданы в ветку волны `786` — их головы `4b9eac04` и `06b18c29` предки `origin/786` @ `99fbac9f` (комментарий задачи). Взята 2026-09-28T13:20Z веткой `775` (координата, не живая ссылка) от `786` @ `99fbac9`. PR #812 по-прежнему открыт, база `main` (`gh pr view 812`).
 
 ## Что и зачем
 
@@ -51,6 +53,10 @@ verified_against: "PRO-Robotech/kacho-workspace, 2026-09-26: трекер — з
 
 - [ ] в стволе обе записи `wave/wave-reviewer/` на дайджестах `3c93ec13…` и `64de754d…`;
 - [ ] ветка снята.
+
+## History
+
+- 2026-09-28 (#846) — состояние приведено к трекеру: to-do → in-progress: блокеры сданы, метка `blocked` снята, задача взята в работу. Назначение снято с «ждут #822 и #824»: блокеров больше нет.
 
 ## Затронутые сущности vault
 
