@@ -93,10 +93,15 @@ def world_env(empty):
 
 def run_check(ws, rel, cwd, env):
     """Код выхода проверки; 'timeout' при превышении предела."""
+    return run_check_output(ws, rel, cwd, env)[0]
+
+
+def run_check_output(ws, rel, cwd, env):
+    """(код выхода либо 'timeout', объединённый вывод stdout и stderr)."""
     try:
         out = subprocess.run(S.interpreter(os.path.join(ws, rel)), cwd=cwd, env=env,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                              timeout=TIMEOUT)
     except subprocess.TimeoutExpired:
-        return "timeout"
-    return out.returncode
+        return "timeout", ""
+    return out.returncode, out.stdout.decode("utf-8", "replace")

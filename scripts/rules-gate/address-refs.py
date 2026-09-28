@@ -5,6 +5,8 @@
 #   <файл>.md §N            — прежняя: цель — заголовок, начинающийся с «N.»
 # Области: .claude/agents/**, .claude/rules/**, CLAUDE.md, project/kacho/internal/repohygiene/**.
 # Ссылки внутри ``` ограждений игнорируются: там примеры, а не адреса.
+# Исходы: 0 — адреса резолвятся; 1 — находка (в том числе обход при живом корпусе
+# не нашёл ни одного адреса); 2 — корпуса нет: файлов правил нет, адресовать нечего.
 import argparse
 import glob
 import os
@@ -178,6 +180,14 @@ def main():
     ap.add_argument('--list', action='store_true')
     ap.add_argument('--baseline', default='scripts/rules-gate/address-baseline.txt')
     a = ap.parse_args()
+    # КОРПУСА НЕТ — УСЛОВИЕ НЕ СОЗДАНО, А НЕ НАРУШЕНИЕ. Ссылаться не во что, и
+    # «адресов 0» здесь — не усечённый обход, а пустое дерево: код 2 с причиной
+    # (решение диспетчера 2026-09-28; держит suites-gate/check-02).
+    if not glob.glob(RULES + '/*.md'):
+        print('осмотрено источников: %d; файлов правил: 0; адресов: 0' % len(sources()))
+        print('ОТКАЗ — в %s нет ни одного файла правил: адресовать нечего, вердикт о '
+              'ссылках беспредметен' % RULES)
+        return 2
     rows, dangling, dup, cross = check()
     known = baseline(a.baseline)
     fresh = sorted({(f + '#' + t) if k == 'id' else (f + ' \u00a7' + t)
