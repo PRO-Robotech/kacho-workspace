@@ -3156,7 +3156,18 @@ def sweep() -> int:
     t0 = time.time()
     ws = workspace_root()
     mono = monorepo_root(ws)
-    bad = preconditions(ws, mono)
+    # Канал третьей категории ОТКРЫТ, как у хука. До 2026-09-28 обход звал предпосылки
+    # без него, и мёртвое исключение, которое хук печатает строкой и вердикт выносит,
+    # здесь гасило ВЕСЬ вердикт кодом 2 — на стволе и на полосе (приёмка ws#714, круг 1):
+    # один факт, два исхода в двух входах одного инструмента. Исключению нечего
+    # исключать — значит корпус прочитан ЦЕЛИКОМ, и вердикт по нему действителен;
+    # сиротство называется строкой [NOTICE] и кода не меняет.
+    notices: list[str] = []
+    bad = preconditions(ws, mono, notices)
+    if notices and not bad:
+        basis = premise_basis(mono)
+        for n in ([basis] if basis else []) + notices:
+            sys.stderr.write("[NOTICE] docfresh: " + n + "\n")
     if bad:
         basis = premise_basis(mono)
         if basis:
@@ -3231,16 +3242,20 @@ def main() -> int:
         # неизменных предпосылках — отставание копии продукта и исключение, которому
         # нечего исключать. Оба предмета живут неделями, и печать каждого хода делала
         # их фоном ровно так же, как перепись.
+        #
+        # Метка — [NOTICE], а не [VOID]: вердикт выносится (исключению нечего
+        # исключать — корпус прочитан целиком), и `--sweep` печатает ту же строку той
+        # же меткой. Прежде хук звал это [VOID], а обход по тому же факту отказывал.
         basis_v = premise_basis(mono)
         void_body = "\n".join(
-            (["[VOID] docfresh: " + basis_v] if basis_v else [])
-            + ["[VOID] docfresh: " + n for n in notices])
+            (["[NOTICE] docfresh: " + basis_v] if basis_v else [])
+            + ["[NOTICE] docfresh: " + n for n in notices])
         void_out, _ = signal_out(
-            "docfresh-void", void_body,
+            "docfresh-notice", void_body,
             addressee="tooling-maintainer (предпосылка прибора) · git-operator "
                       "(отставание выписанной копии от ствола)",
             clear_when="python3 .claude/hooks/docfresh/docfresh.py --sweep не печатает "
-                       "ни одной строки [VOID]",
+                       "ни одной строки [NOTICE]",
             sha=head_sha(ws))
         sys.stderr.write(void_out + "\n")
     if bad:

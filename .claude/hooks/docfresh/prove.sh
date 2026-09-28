@@ -47,6 +47,16 @@ trap 'rm -rf "$TMP"' EXIT
 # Отпечатки сигналов — в песочнице: иначе набор читал бы «уже сказано» из сессий
 # запускающего и писал бы в них свои.
 export HOOK_SIGNAL_STATE="$TMP/signal"
+# Состояние САМОГО ХУКА (журнал хода, перенос, счётчик, базовая линия объёма) — тоже
+# в песочнице. До 2026-09-28 пробы раздела A и соседних звали хук без
+# `DOCFRESH_STATE`, и он писал в ЖИВОЙ `.state/` копии: 158 строк журнала хода за
+# прогон (живой `Stop` сессии с корнем в этой копии прочёл бы их правками мимо
+# Write/Edit), перенос, счётчик — и базовую линию объёма, которая при чужой записи
+# выше вдвое отключает хук ОТКАЗОМ. Вердикт пробы зависел от того, что в этот
+# каталог напишет кто угодно ещё (приёмка ws#714, круг 1: «один прогон из трёх
+# упал на пробе A'»). Пробы, которым нужно своё состояние, по-прежнему задают его
+# сами — присваиванием в строке вызова.
+export DOCFRESH_STATE="$TMP/hookstate"
 DOCS="$TMP/docs"; mkdir -p "$DOCS"
 
 PASS=0; FAIL=0; NOTRUN=0
@@ -89,19 +99,38 @@ PASS=0; FAIL=0; NOTRUN=0
 # Ответ memo-ируется, и ключ включает НАЗНАЧЕННЫЙ ствол: секция M назначает его на
 # время своих проб, и ответ «жива ли координата» при назначенном стволе другой. Ключ
 # без ствола отдавал бы вердикт, снятый при другом основании, — молча.
+#
+# КЛЮЧ ВКЛЮЧАЕТ И САМО ОСНОВАНИЕ (`basis_key` ниже): ствол воркспейса — ссылки ОБЩЕГО
+# на все копии репозитория, дерево продукта — общий клон, и оба двигают другие
+# исполнители, пока идёт прогон. Предпосылка, снятая при одном основании, и вердикт
+# хука при другом — ровно тот разрыв, который давал красное без дефекта.
 CLASS_MEMO="$TMP/classmemo"; mkdir -p "$CLASS_MEMO"
-hook_path_class() { # hook_path_class <координата> → исход classify
-  local c="$1" key f out
-  key="$(printf '%s|%s' "${DOCFRESH_INTEGRATION_REF:-}" "$c" | md5sum | cut -d" " -f1)"
+# basis_key — отпечаток основания истины хука. Функция ТА ЖЕ, что ключ его кэша
+# (`cache_key`): «то же основание» в наборе и в хуке значит одно и то же, второго
+# определения не заводится. Пробные документы в основание не входят.
+basis_key() {
+  env -u DOCFRESH_DOC_ROOT python3 - "$GUARD" "$WS" 2>/dev/null <<'PYBASIS' || echo "ключ-не-снят"
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfkey", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[2]); print(m.cache_key(ws, m.monorepo_root(ws)))
+PYBASIS
+}
+# BASIS_PIN — основание, при котором проба сняла предпосылку. Задаёт его обёртка
+# пробы ДО предпосылки; пуст — проба без предпосылки снимет его сама.
+BASIS_PIN=""
+hook_path_class() { # hook_path_class <координата> [вид] → исход classify
+  local c="$1" kind="${2:-path}" key f out
+  key="$(printf '%s|%s|%s|%s' "${DOCFRESH_INTEGRATION_REF:-}" "${BASIS_PIN:-$(basis_key)}" "$kind" "$c" | md5sum | cut -d" " -f1)"
   f="$CLASS_MEMO/$key"
   if [ ! -s "$f" ]; then
-    python3 - "$GUARD" "$WS" "$c" > "$f" 2>/dev/null <<'PYCLASS' || true
+    python3 - "$GUARD" "$WS" "$c" "$kind" > "$f" 2>/dev/null <<'PYCLASS' || true
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfcls", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 ws = pathlib.Path(sys.argv[2]); mono = m.monorepo_root(ws)
 idx, _warm = m.load_index(ws, mono)
-print(m.Truth(idx["truth"], ws, mono).classify("path", sys.argv[3]))
+print(m.Truth(idx["truth"], ws, mono).classify(sys.argv[4], sys.argv[3]))
 PYCLASS
   fi
   out="$(cat "$f" 2>/dev/null)"
@@ -135,9 +164,20 @@ run_doc() { # run_doc <относительный путь пробы> <соде
   rm -f "$abs"
 }
 
+# basis_moved <метка> <ключ до> — основание сдвинулось за время пробы? Тогда её исход
+# НЕ относится ни к одной ревизии: это третья категория с названной причиной, а не
+# красное и не зелёное. Повтора нет: проба не перезапускается, исход называется.
+basis_moved() {
+  local now; now="$(basis_key)"
+  [ "$now" = "$2" ] && return 1
+  notrun "основание истины хука сдвинулось во время пробы «$1» (ключ $2 → $now): ствол или дерево продукта двигал кто-то ещё — исход пробы не относится ни к одной ревизии"
+  return 0
+}
+
 expect_fires() { # expect_fires <метка> <проба-путь> <тело> <искомая координата>
-  local label="$1" out
+  local label="$1" out k0="${BASIS_PIN:-$(basis_key)}"
   out="$(run_doc "$2" "$3")"
+  basis_moved "$label" "$k0" && return 0
   if printf '%s' "$out" | grep -qF -- "$4"; then
     echo "  ✔ (+) $label — краснеет и называет координату"; PASS=$((PASS+1))
   else
@@ -147,8 +187,9 @@ expect_fires() { # expect_fires <метка> <проба-путь> <тело> <�
 }
 
 expect_silent() { # expect_silent <метка> <проба-путь> <тело> <координата-близнец>
-  local label="$1" out
+  local label="$1" out k0="${BASIS_PIN:-$(basis_key)}"
   out="$(run_doc "$2" "$3")"
+  basis_moved "$label" "$k0" && return 0
   if printf '%s' "$out" | grep -qF -- "$4"; then
     echo "  ✘ (−) $label — ЛОЖНЫЙ СРАБАТ на законной конструкции той же формы"; FAIL=$((FAIL+1))
     printf '%s\n' "$out" | sed 's/^/      /' | head -6
@@ -222,8 +263,10 @@ premise_uncovered() { # premise_uncovered <координата> → 0, если
   PREMISE_DEAD=$((PREMISE_DEAD+1)); return 1
 }
 expect_silent_uncovered() { # <метка> <док-путь> <тело> <needle> <координата ВНЕ ПОКРЫТИЯ>
+  BASIS_PIN="$(basis_key)"
   if premise_uncovered "$5"; then expect_silent "$1" "$2" "$3" "$4"
   else notrun "вход (−) «$1» испорчен: '$5' даёт исход «$(hook_path_class "$5")» вместо «uncovered» — молчание объяснялось бы не границей покрытия, а чем-то другим. Переанкерить пробу на координату снятого полирепо"; fi
+  BASIS_PIN=""
 }
 
 # ПОЧЕМУ У (+) НЕТ ОТДЕЛЬНОЙ ПРЕДПОСЫЛКИ: СТРОГОСТЬ ПЕРЕЕХАЛА В `absent_path`.
@@ -240,14 +283,19 @@ expect_silent_uncovered() { # <метка> <док-путь> <тело> <needle>
 # объясняется самим `trunk_only`, а не проверяемой формой, поэтому такая проба
 # обязана уйти в ТРЕТИЙ исход, а не зеленеть вакуумно.
 expect_silent_live() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ЖИТЬ>
+  BASIS_PIN="$(basis_key)"
   if premise_live "$5"; then expect_silent "$1" "$2" "$3" "$4"
   else notrun "вход (−) «$1» мёртв: '$5' в дереве не резолвится — близнец больше не законный. Переанкерить пробу на нынешнюю координату (не ослаблять утверждение и не заносить в исключения)"; fi
+  BASIS_PIN=""
 }
 expect_silent_dead() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ОТСУТСТВОВАТЬ>
+  BASIS_PIN="$(basis_key)"
   if premise_dead "$5"; then expect_silent "$1" "$2" "$3" "$4"
   else notrun "вход (−) «$1» испорчен: '$5' появился в дереве — молчание объяснялось бы живостью координаты, а не проверяемой формой. Переанкерить пробу"; fi
+  BASIS_PIN=""
 }
 expect_fires_dead() { # <метка> <док-путь> <тело> <needle> <координата, обязанная ОТСУТСТВОВАТЬ>
+  BASIS_PIN="$(basis_key)"
   # Предпосылка — `premise_dead`, и она СТРОГАЯ: `absent_path` == `missing` (разбор
   # выше). Отдельного `premise_fireable` здесь нет намеренно — он был бы вторым
   # именем того же предиката (см. блок «СТРОГОСТЬ ПЕРЕЕХАЛА В `absent_path`»).
@@ -255,6 +303,7 @@ expect_fires_dead() { # <метка> <док-путь> <тело> <needle> <ко
   # него «вход починен» не говорит, ЧЕМ именно координата стала.
   if premise_dead "$5"; then expect_fires "$1" "$2" "$3" "$4"
   else notrun "вход (+) «$1» починен: разбор судит '$5' как «$(hook_path_class "$5")», а не «missing» — находки по ней хук не вынесет, расхождение больше не настоящее. Переанкерить пробу на живое расхождение (не ослаблять утверждение)"; fi
+  BASIS_PIN=""
 }
 
 # --- ПРЕДПОСЫЛКА НАБОРА: хук вообще ВЫНОСИТ вердикт --------------------------
@@ -553,13 +602,45 @@ expect_silent "тот же ресурс по нынешнему домену" c2
 # ручной маршрут: прежняя редакция называла `/iam/v1/auth/login`, которого в дереве
 # больше нет, — и проба падала «ложным срабатом» на координате, по которой хук был ПРАВ.
 # Поэтому живость входа устанавливается по дереву, а «предмета больше нет» — третий исход.
+#
+# ЖИВОСТЬ ВХОДА СПРАШИВАЕТСЯ У РАЗБОРА ХУКА, а не у `git grep` по тексту (сигнал
+# class-guard, приёмка ws#714 круг 1). Текстовый поиск литерала — второй распознаватель
+# того же факта: он находит строку в комментарии и в `_test.go`, которые основание
+# хука не читает, и не находит маршрут, записанный константой, — предпосылка и
+# вердикт судили бы разное. Здесь два вопроса, оба — разбору хука: (1) маршрут в
+# основании (`classify('rest')` = resolved); (2) он НЕ из аннотаций proto (тем же
+# `RE_HTTP_RULE`, которым хук читает proto) — иначе близнец больше не проверяет
+# чтение строковых литералов Go.
 HAND_ROUTE="/iam/v1/auth/me"
-if git -C "$WS/project/kacho" grep -qF -- "\"$HAND_ROUTE\"" -- '*.go' 2>/dev/null; then
+hand_route_origin() { # → «resolved hand» | «resolved proto» | «<исход> …»
+  env -u DOCFRESH_DOC_ROOT python3 - "$GUARD" "$WS" "$1" 2>/dev/null <<'PYROUTE' || echo "разбор-не-запустился"
+import importlib.util, sys, pathlib
+spec = importlib.util.spec_from_file_location("dfroute", sys.argv[1])
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+ws = pathlib.Path(sys.argv[2]); mono = m.monorepo_root(ws); route = sys.argv[3]
+idx, _warm = m.load_index(ws, mono)
+cls = m.Truth(idx["truth"], ws, mono).classify("rest", route)
+proto = set()
+if mono is not None:
+    for rel in m.git(mono, "ls-files", "proto"):
+        if rel.endswith(".proto"):
+            text = (mono / rel).read_text(encoding="utf-8", errors="replace")
+            for r in m.RE_HTTP_RULE.findall(text):
+                proto |= m._route_forms(r)
+print(cls, "proto" if m._route_forms(route) & proto else "hand")
+PYROUTE
+}
+BASIS_PIN="$(basis_key)"
+PREMISE_SEEN=$((PREMISE_SEEN+1))
+hr="$(hand_route_origin "$HAND_ROUTE")"
+if [ "$hr" = "resolved hand" ]; then
   expect_silent "маршрут, зарегистрированный шлюзом РУКАМИ (не из proto)" c3.md \
     "Личность сессии — \`$HAND_ROUTE\`." "$HAND_ROUTE"
 else
-  notrun "рукописный маршрут '$HAND_ROUTE' в коде края не найден — близнец (−) не настоящий, заменить вход"
+  PREMISE_DEAD=$((PREMISE_DEAD+1))
+  notrun "рукописный маршрут '$HAND_ROUTE': разбор хука отвечает «$hr», а не «resolved hand» — близнец (−) не проверяет чтение литералов Go, заменить вход"
 fi
+BASIS_PIN=""
 
 echo
 echo "== C. метод =="
@@ -2374,6 +2455,100 @@ if printf '%s' "$q3" | grep -qF 'предпосылки судили дерев�
   echo "  ✔ (+) отказ называет ревизию и полосу, по которым судил"; PASS=$((PASS+1))
 else
   echo "  ✘ (+) отказ не назвал своего основания — читатель не знает, о каком дереве речь"; FAIL=$((FAIL+1))
+fi
+
+# ── ось 3' : ПОЛНЫЙ ОБХОД (--sweep) — тот же исход, что у хука ────────────────
+# `--sweep` — предикат снятия сигналов хука и мера «docfresh зелёный». До 2026-09-28 он
+# звал предпосылки БЕЗ канала третьей категории, и мёртвое исключение, которое хук
+# печатает строкой и вердикт выносит, обходу гасило ВЕСЬ вердикт: код 2, [VOID] — на
+# стволе и на голове полосы (приёмка ws#714, круг 1). Один факт — два исхода в двух
+# входах одного инструмента. Пара на одном мире: мир с предметом исключения и мир
+# без него различаются ОДНИМ фактом (приёмка в дереве продукта), а исключённый
+# документ в корпус не входит — значит вердикт обхода обязан СОВПАСТЬ кодом, а
+# сиротство — быть названо строкой [NOTICE] только во втором.
+q_sweep() { # q_sweep <корень> → вывод --sweep и последней строкой «код N»
+  ( unset DOCFRESH_INTEGRATION_REF DOCFRESH_DOC_ROOT
+    CLAUDE_PROJECT_DIR="$1" DOCFRESH_STATE="$1/.state" \
+      DOCFRESH_ALLOW="$1/нет-послаблений.json" python3 "$GUARD" --sweep 2>&1
+    echo "код $?" )
+}
+qs_with="$(q_sweep "$QW1")"; qs_orph="$(q_sweep "$QW3")"
+qs_cw="$(printf '%s\n' "$qs_with" | tail -1)"; qs_co="$(printf '%s\n' "$qs_orph" | tail -1)"
+if [ "$qs_cw" = "код 2" ]; then
+  notrun "--sweep в мире С предметом исключения не вынес вердикта ($qs_cw) — пара не построена"
+else
+  if [ "$qs_co" = "$qs_cw" ] && ! printf '%s' "$qs_orph" | grep -qF '[VOID]'; then
+    echo "  ✔ (+) --sweep: исключение без предмета не гасит вердикт — код тот же ($qs_co), [VOID] нет"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) --sweep: исключение без предмета сменило исход обхода ($qs_cw → $qs_co)"; FAIL=$((FAIL+1))
+    printf '%s\n' "$qs_orph" | grep -F '[VOID]' | sed 's/^/      /' | head -3
+  fi
+  if printf '%s' "$qs_orph" | grep -F '[NOTICE]' | grep -qF 'нечего исключать'; then
+    echo "  ✔ (+) --sweep: сиротство названо своей строкой [NOTICE], а не молчанием"; PASS=$((PASS+1))
+  else
+    echo "  ✘ (+) --sweep: исключение без предмета прошло молча"; FAIL=$((FAIL+1))
+  fi
+  if printf '%s' "$qs_with" | grep -qF 'нечего исключать'; then
+    echo "  ✘ (−) --sweep: исключение С предметом объявлено сиротой"; FAIL=$((FAIL+1))
+  else
+    echo "  ✔ (−) --sweep: исключение с предметом сиротой не объявлено"; PASS=$((PASS+1))
+  fi
+fi
+
+# ── A‴: основание хука сдвинулось ВО ВРЕМЯ пробы — третий исход, а не красное ──
+# Причина нестабильности пробы A' (приёмка ws#714, круг 1: «один прогон из трёх упал»),
+# воспроизведённая ДЕТЕРМИНИРОВАННО. Основание истины хука — ствол воркспейса (ссылки,
+# общие на все копии репозитория) и общий клон продукта; их двигают другие
+# исполнители, пока идёт прогон. Предпосылка пробы снята при одном основании, вердикт
+# хука вынесен при другом — и проба (+) краснела «НЕ сработал» на исправном хуке.
+# Здесь сдвиг делает сам вызванный хук (обёртка двигает ствол мира перед вызовом),
+# мир синтетический — общее состояние не трогается. Следующая вершина ствола несёт
+# мёртвую координату пробы: увидев её, хук отнесёт координату к `trunk_only`.
+# Пара: со сдвигом — «не выполнилось» с причиной, и НЕ «✘»; без сдвига — «✔ (+)».
+QWM="$TMP/q-moving"
+q_build "$QWM"; q_trunk_at_head "$QWM"
+q_git "$QWM" checkout -q -b qnext
+printf 'x\n' > "$QWM/sync-tooling.sh"
+q_git "$QWM" add sync-tooling.sh >/dev/null && q_git "$QWM" commit -q -m next
+QNEXT="$(git -C "$QWM" rev-parse HEAD)"
+q_git "$QWM" checkout -q main
+QBASE="$(git -C "$QWM" rev-parse HEAD)"
+MOVER="$TMP/moving-hook.sh"
+printf '#!/usr/bin/env bash\ngit -C %q update-ref refs/remotes/origin/main %q\nexec bash %q\n' \
+  "$QWM" "$QNEXT" "$HOOK" > "$MOVER"
+am_run() { # am_run <хук> → печать пробы в мире QWM (зовётся подстановкой: счётчики
+           # набора пробой не трогаются — исход судится по печати ниже)
+  WS="$QWM" HOOK="$1" CLAUDE_PROJECT_DIR="$QWM" DOCFRESH_STATE="$QWM/.state" \
+    DOCFRESH_ALLOW="$QWM/нет-послаблений.json" DOCFRESH_INTEGRATION_REF="" \
+    expect_fires_dead "проба в мире со сдвигаемым стволом" am1.md \
+      'Копии генерируются `sync-tooling.sh`.' 'sync-tooling.sh' 'sync-tooling.sh' 2>&1
+}
+am_moved="$(am_run "$MOVER")"
+q_git "$QWM" update-ref refs/remotes/origin/main "$QBASE"
+am_still="$(am_run "$HOOK")"
+if printf '%s' "$am_moved" | grep -qF 'сдвинулось во время пробы' \
+   && ! printf '%s' "$am_moved" | grep -qF '✘'; then
+  echo "  ✔ (+) основание сдвинулось во время пробы — третий исход с причиной, а не «✘»"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) сдвиг основания во время пробы прочитан как исход пробы"; FAIL=$((FAIL+1))
+  printf '%s\n' "$am_moved" | sed 's/^/      /' | head -4
+fi
+if printf '%s' "$am_still" | grep -qF '✔ (+)'; then
+  echo "  ✔ (−) то же основание до и после — проба выносит вердикт как обычно"; PASS=$((PASS+1))
+else
+  echo "  ✘ (−) неподвижное основание, а проба вердикта не вынесла"; FAIL=$((FAIL+1))
+  printf '%s\n' "$am_still" | sed 's/^/      /' | head -4
+fi
+# Второй канал той же причины — ЖИВОЕ состояние хука. Набор обязан писать его в
+# песочницу: журнал хода копии за прогон не растёт.
+am_live="$WS/.claude/hooks/docfresh/.state/turn.jsonl"
+am_before="$(stat -c '%s:%Y' "$am_live" 2>/dev/null || echo нет)"
+run_doc am2.md 'Живое — `sync-all.sh`.' >/dev/null
+am_after="$(stat -c '%s:%Y' "$am_live" 2>/dev/null || echo нет)"
+if [ "$am_before" = "$am_after" ] && [ -s "$DOCFRESH_STATE/turn.jsonl" ]; then
+  echo "  ✔ (+) журнал хода пишется в песочницу набора, живое состояние копии не тронуто"; PASS=$((PASS+1))
+else
+  echo "  ✘ (+) набор пишет в ЖИВОЕ состояние хука копии ($am_before → $am_after)"; FAIL=$((FAIL+1))
 fi
 
 # ── ось 6: НАЗНАЧЕННЫЙ ствол без предмета, СВОЯ линия интеграции — с предметом ─
