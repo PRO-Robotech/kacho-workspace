@@ -765,6 +765,41 @@ check "$( [ "$h_rc" = 0 ] && git -C "$dw" log -1 --format=%B lh | grep -q '^Co-a
     "W9 лечение сняло строку Claude-Session и оставило строку соавтора вне ведомости" "$(git -C "$dw" log -1 --format=%B lh | tr '\n' '/')"
 git -C "$dw" checkout -q main
 
+# ── P: опубликованное лечение не переписывает ────────────────────────────────
+#
+# Сервер подписывает свои посадки (заголовок gpgsig), а `filter-branch` при переписи
+# подпись не переносит: опубликованный коммит, попавший в переписываемый диапазон,
+# стал бы новым объектом, и отправка опубликовала бы его копию. Поэтому команда
+# печатается, только если весь диапазон неопубликован. P1 — опубликованная
+# подписанная посадка влита ПОСЛЕ свежего коммита с ключом: диапазон её содержит,
+# команды нет. P1 близнец — посадка влита ДО ключа: диапазон — один свежий коммит,
+# команда напечатана, исполнена дословно, посадка осталась тем же объектом.
+p_land="$(printf 'tree %s\nparent %s\nauthor owner <%s> 1700000000 +0000\ncommitter owner <%s> 1700000000 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n iQEzBAABCAAdFiEEinjectinjectinjectinjectinjectAAoJEFAKESIGNATURE\n =fake\n -----END PGP SIGNATURE-----\n\nпосадка сервером, подписанная\n' \
+    "$(git -C "$dw" rev-parse "$w_sig^{tree}")" "$w_sig" "$OWNER" "$OWNER" | git -C "$dw" hash-object -t commit -w --stdin)"
+git -C "$dw" push -q "$s_w2" "$p_land:refs/heads/pubside"
+check "$(git -C "$dw" cat-file commit "$p_land" | grep -q '^gpgsig ' && git --git-dir="$s_w2" cat-file -e "$p_land" && echo да || echo нет)" \
+    "P предпосылка: подписанная посадка опубликована на сервере"
+git -C "$dw" checkout -q -b sp "$w_sig"
+commit_msg "$dw" - own-sp.txt "свой с ключом|Claude-Session: https://claude.ai/code/session_inject"
+git -C "$dw" merge -q --no-ff --no-edit "$p_land"
+probe_push 1 "P1 свежий коммит с ключом, после него влита опубликованная подписанная посадка — отказ по ключу" \
+    "$dw" "$s_w2" "refs/heads/sp $(git -C "$dw" rev-parse sp) refs/heads/sp $Z" "ключ атрибуции" "опубликованное не переписывается"
+check "$( [ -z "$(rewrites)" ] && echo да || echo нет)" \
+    "P1 команды переписи нет: в диапазоне от ключа есть опубликованный коммит" "$(rewrites)"
+run_cures "$dw"
+check "$(git -C "$dw" merge-base --is-ancestor "$p_land" sp && echo да || echo нет)" \
+    "P1 после лечения дословно опубликованная посадка — тот же объект в истории ветки"
+git -C "$dw" checkout -q -b sq "$w_sig"
+git -C "$dw" merge -q --no-ff --no-edit "$p_land"
+commit_msg "$dw" - own-sq.txt "свой с ключом после влитой посадки|Claude-Session: https://claude.ai/code/session_inject"
+probe_push 1 "P1 близнец: посадка влита ДО ключа — отказ по ключу" \
+    "$dw" "$s_w2" "refs/heads/sq $(git -C "$dw" rev-parse sq) refs/heads/sq $Z" "ключ атрибуции"
+run_cures "$dw"; q_rc=$?
+check "$( [ "$q_rc" = 0 ] && [ "$cured_n" = 1 ] && git -C "$dw" merge-base --is-ancestor "$p_land" sq && echo да || echo нет)" \
+    "P1 близнец: команда напечатана и исполнена дословно, посадка — тот же объект" "строк переписи $cured_n: $(rewrites)"
+push_printed 0 "P1 близнец: напечатанная отправка после лечения проходит" "$dw" "публикуемых коммитов 2"
+git -C "$dw" checkout -q main
+
 # ── T: объект АННОТИРОВАННОГО тега судится, как коммит ─────────────────────────
 #
 # Находка приёмки круга 3: тег с чужим автором тега и трейлером атрибуции в

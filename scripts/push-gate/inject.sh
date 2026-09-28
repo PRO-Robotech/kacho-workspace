@@ -86,6 +86,7 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа переподписывает коммиты диапазона личностью копии (круг 1, находка 1)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа снимает и строку соавтора вне ведомости — его вклад скрыт (круг 1, находка 1)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение печатает перепись и для находки личности (круг 1, находка 1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|команда переписи снова печатается при опубликованном в диапазоне (круг 1, находка 3)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -201,6 +202,9 @@ M = [
     ("scripts/cla-gate/cla.py",
      '            if strippable_keys(r.body, cov):\n',
      '            if True:\n'),
+    ("scripts/cla-gate/cla.py",
+     '            if set(span) - set(it["fresh"]):\n',
+     '            if False:\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path

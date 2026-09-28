@@ -43,7 +43,9 @@
 #   WS лечение ключа атрибуции дословно: свой коммит с ключами, за ним коммит
 #      подписавшего → отказ по ключу; после лечения и отправки через хук у обоих на
 #      «сервере» прежние автор, коммиттер, даты, дерево, ключей нет; строку соавтора
-#      вне ведомости лечение не снимает → снова отказ;
+#      вне ведомости лечение не снимает → снова отказ; опубликованная подписанная
+#      посадка в диапазоне от ключа → команды переписи нет, после лечения посадка —
+#      тот же объект; близнец — посадка влита до ключа → лечение дословно проходит;
 #   T  аннотированный тег: автор тега чужой → отказ, тега на «сервере» нет, пересоздания
 #      своей личностью не напечатано; ключ атрибуции в сообщении тега → отказ;
 #      близнец — свой тег → проходит;
@@ -336,6 +338,29 @@ out="$( cd "$ws" && git push origin ws-human 2>&1 )"; rc=$?
 cured="$(cure_verbatim "$out")"; crc=$?
 probe "$( [ "$rc" != 0 ] && [ "$crc" != 0 ] && [ -z "$(pg_remote_sha "$box" ws-human)" ] && pg_has "$cured" "human@push-gate.invalid" && git -C "$ws" log -1 --format=%B ws-human | grep -q '^Co-authored-by: Human <human@push-gate.invalid>$' && echo да || echo нет)" \
     "WS2 соавтор вне ведомости: лечение дословно не скрывает его строку — снова отказ, ветки на «сервере» нет" "код $rc/$crc; напечатано: $(cures "$out"); вывод: $cured"
+# WS3: опубликованная ПОДПИСАННАЯ посадка сервера влита после свежего коммита с ключом.
+# `filter-branch` подпись не переносит: переписанная посадка стала бы новым объектом, и
+# отправка опубликовала бы её копию. Команды нет; близнец — посадка влита ДО ключа.
+p_land="$(printf 'tree %s\nparent %s\nauthor owner <%s> 1700000000 +0000\ncommitter owner <%s> 1700000000 +0000\ngpgsig -----BEGIN PGP SIGNATURE-----\n \n iQEzBAABCAAdFiEEpushgatepushgatepushgateAAoJEFAKESIGNATURE\n =fake\n -----END PGP SIGNATURE-----\n\nпосадка сервером, подписанная\n' \
+    "$(git -C "$ws" rev-parse "$w_sig^{tree}")" "$w_sig" "$PG_OWNER_EMAIL" "$PG_OWNER_EMAIL" | git -C "$ws" hash-object -t commit -w --stdin)"
+( cd "$ws" && git push -q --no-verify origin "$p_land:refs/heads/pubside" 2>/dev/null )
+git -C "$ws" checkout -q -b ws-pub "$w_sig"
+work own-ws3.txt "свой" >/dev/null
+git -C "$ws" commit -q -m "свой с ключом" -m "Claude-Session: https://claude.ai/code/session_push_gate"
+git -C "$ws" merge -q --no-ff --no-edit "$p_land"
+out="$( cd "$ws" && git push origin ws-pub 2>&1 )"; rc=$?
+cured="$(cure_verbatim "$out")"; crc=$?
+probe "$( on_srv "$srv" "$p_land" && [ "$rc" != 0 ] && [ -z "$(rewrites "$out")" ] && pg_has "$out" "опубликованное не переписывается" && [ "$crc" != 0 ] && git -C "$ws" merge-base --is-ancestor "$p_land" ws-pub && echo да || echo нет)" \
+    "WS3 в диапазоне от ключа — опубликованная подписанная посадка: команды переписи нет, после лечения дословно посадка — тот же объект" \
+    "код $rc/$crc; напечатано: $(cures "$out"); вывод: $out"
+git -C "$ws" checkout -q -b ws-pub2 "$w_sig"
+git -C "$ws" merge -q --no-ff --no-edit "$p_land"
+work own-ws3b.txt "свой" >/dev/null
+git -C "$ws" commit -q -m "свой с ключом после посадки" -m "Claude-Session: https://claude.ai/code/session_push_gate"
+out="$( cd "$ws" && git push origin ws-pub2 2>&1 )"; rc=$?
+cured="$(cure_verbatim "$out")"; crc=$?
+probe "$( [ "$rc" != 0 ] && [ "$crc" = 0 ] && [ "$(pg_remote_sha "$box" ws-pub2)" = "$(git -C "$ws" rev-parse ws-pub2)" ] && git --git-dir="$srv" merge-base --is-ancestor "$p_land" refs/heads/ws-pub2 && echo да || echo нет)" \
+    "WS3 близнец: посадка влита ДО ключа — лечение дословно проходит, посадка на «сервере» — тот же объект" "код $rc/$crc; напечатано: $(cures "$out"); вывод: $cured"
 # Ствол возвращается к ведомости пробы НОВОЙ посадкой поверх поздней редакции, а не
 # перемоткой: сервер ствол назад не двигает.
 git -C "$ws" checkout -q w-line
