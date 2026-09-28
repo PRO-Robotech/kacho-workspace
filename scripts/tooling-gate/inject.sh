@@ -1087,6 +1087,12 @@ guard_expect 2 "дефект: pushd <общая> && git stash pop из поло�
     "pushd $gr/main && git stash pop" "$gr/lane" "ОБЩЕЙ"
 guard_expect 2 "дефект: git stash pop в подстановке команды — отказ" \
     "x=\"\$(git stash pop)\"" "$gr/main" "ОБЩЕЙ"
+# `builtin` исполняет встроенную команду оболочки — `builtin cd` меняет каталог ровно как
+# `cd` (приёмка ws#714, круг 2: префикс не снимался, stash в общей копии проходил).
+guard_expect 2 "дефект: builtin cd <общая> && git stash pop из корня песочницы — отказ" \
+    "builtin cd main && git stash pop" "$gr" "ОБЩЕЙ"
+guard_expect 0 "близнец: builtin cd <полоса> && git stash pop из общей — stash в полосе, пропуск" \
+    "builtin cd $gr/lane && git stash pop" "$gr/main"
 guard_expect 0 "близнец: cd в ПОДОБОЛОЧКЕ не переносит каталог — stash в полосе, пропуск" \
     "(cd $gr/main && git status) && git stash" "$gr/lane"
 guard_expect 0 "близнец: pushd … && popd возвращает каталог — stash в полосе, пропуск" \
