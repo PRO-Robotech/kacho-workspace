@@ -473,6 +473,30 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 }
 
+# anchors5 <каталог> [<путь здесь> <репозиторий> <якорь> <путь в источнике>]…
+# — перечень якорей целиком; пустой вызов делает мир песочницы независимым от
+# якорей настоящего дерева.
+anchors5() {
+    local g="$1/scripts/change-graph-gate/digestform.py"; shift
+    python3 - "$g" "$@" << 'PY' \
+        || { echo "ОТКАЗ: перечня FOREIGN_ANCHORS в $g вписать некуда" >&2; exit 1; }
+import re
+import sys
+path, rows = sys.argv[1], sys.argv[2:]
+with open(path, encoding="utf-8") as f:
+    text = f.read()
+body = "".join('    ("%s", "%s", "%s", "%s"),\n' % tuple(rows[i:i + 4])
+               for i in range(0, len(rows), 4))
+new, n = re.subn(r"^FOREIGN_ANCHORS = \(\n(?:    .*\n)*?\)$",
+                 lambda _m: "FOREIGN_ANCHORS = (\n" + body + ")", text,
+                 count=1, flags=re.M)
+if n != 1:
+    sys.exit(1)
+with open(path, "w", encoding="utf-8") as f:
+    f.write(new)
+PY
+}
+
 # world5 <каталог> [<текст унаследованной записи>] — граница: коммит с записью,
 # чья команда без --full-index. Тот же коммит объявлен коммитом правила,
 # перечень вершин линий до правила пуст.
@@ -485,6 +509,7 @@ world5() {
     const5 "$1" BOUNDARY "$b"
     const5 "$1" RULE "$b"
     tips5 "$1"
+    anchors5 "$1"
 }
 
 # commit_at / merge_at <каталог> <дата> … — коммит и сведение с датой автора и
@@ -530,6 +555,7 @@ world5tip() {
     const5 "$d" BOUNDARY "$b"
     const5 "$d" RULE "$r"
     tips5 "$d" "$TIP"
+    anchors5 "$d"
 }
 
 # says <каталог> <код> <подстрока> <утверждение> — код И текст: находка обязана
@@ -706,6 +732,120 @@ d="$(sandbox c5-tip-name-bare)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes 
 tips5 "$d" side
 says "$d" 1 "«side» — не полный sha" "строка-имя у вершины без нового к прощению -> краснеет одной формой"
 says "$d" 1 "без --full-index 1 (унаследовано 1, новых 0)" "у строки-имени без нового находок в записях 0 -> код 1 пришёл не от записи"
+
+# Записи ЧУЖОЙ линии до правила (corelib#54): запись снята в другом репозитории
+# до правила и перенесена сюда побайтно, путь здесь новый. Признаётся она только
+# по якорю — коммиту источника. Пары меняют по одному факту против c5-anchor:
+# строку перечня, дату якоря, байт записи, существование и публикацию якоря,
+# путь в источнике, клон источника, наличие записи и команды к прощению.
+FOREC=docs/changes/f/reviews/post-diff/r/foreign.yaml
+FOREPO=PRO-Robotech/src
+FOREFULL="command: git diff --full-index aaa...ggg | sha256sum"
+
+# world5src <каталог> <дата якоря> [<запись>] — ствол как у world5tip: корень,
+# правило (2001-01-03), граница с записью (2001-01-05). Источник — отдельный
+# репозиторий в project/src (вне индекса песочницы) с origin $FOREPO: запись
+# снята в нём коммитом с датой якоря и опубликована тегом; следом — ещё коммит,
+# чтобы неглубокий клон якоря не нёс. В HEAD песочницы та же запись побайтно
+# в $FOREC, перечень якорей — одна строка на неё. Якорь — в ANCHOR, источник — в SRC.
+world5src() {
+    local d="$1" b="" r=""
+    printf 'project/\n' >> "$d/.git/info/exclude"
+    commit_at "$d" "2001-01-01T00:00:00Z" root
+    rec "$d" RULE.md "правило ws#818"
+    commit_at "$d" "2001-01-03T00:00:00Z" rule
+    r="$(git -C "$d" rev-parse HEAD)"
+    rec "$d" docs/changes/p/reviews/post-diff/r/old.yaml "command: git diff aaa...bbb | sha256sum"
+    commit_at "$d" "2001-01-05T00:00:00Z" boundary
+    b="$(git -C "$d" rev-parse HEAD)"
+    SRC="$d/project/src"
+    git init -q "$SRC"
+    git -C "$SRC" remote add origin "https://github.com/$FOREPO.git"
+    rec "$SRC" "$FOREC" "${3-command: git diff aaa...ggg | sha256sum}"
+    commit_at "$SRC" "$2" record
+    ANCHOR="$(git -C "$SRC" rev-parse HEAD)"
+    git -C "$SRC" tag v0 "$ANCHOR"
+    rec "$SRC" LATER.md "позже"
+    commit_at "$SRC" "$2" later
+    mkdir -p "$(dirname "$d/$FOREC")"
+    git -C "$SRC" cat-file blob "$ANCHOR:$FOREC" > "$d/$FOREC"
+    commit_at "$d" "2001-01-09T00:00:00Z" transfer
+    const5 "$d" BOUNDARY "$b"
+    const5 "$d" RULE "$r"
+    tips5 "$d"
+    anchors5 "$d" "$FOREC" "$FOREPO" "$ANCHOR" "$FOREC"
+}
+
+d="$(sandbox c5-anchor)"; world5src "$d" "2001-01-02T00:00:00Z"
+says "$d" 0 "якорей чужих линий 1: признано 1, не судимо 0, унаследовано с них 1" "запись чужой линии с якорем до правила и тем же sha256 -> унаследована, молчит и сосчитана"
+
+d="$(sandbox c5-anchor-env)"; world5src "$d" "2001-01-02T00:00:00Z"
+mv "$SRC" "$TMP/src.env"
+KACHO_HOME_SRC="$TMP/src.env" says "$d" 0 "признано 1" "клон источника назван KACHO_HOME_<ИМЯ> -> найден, запись унаследована"
+rm -rf "$TMP/src.env"
+
+d="$(sandbox c5-anchor-none)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d"
+says "$d" 1 "без --full-index: $FOREC" "та же запись без якоря -> судится новой, краснеет и называет путь"
+
+d="$(sandbox c5-anchor-other)"; world5src "$d" "2001-01-02T00:00:00Z"
+rec "$d" "$NEW" "command: git diff aaa...ccc | sha256sum"; commit_all "$d" new
+says "$d" 1 "без --full-index: $NEW" "якорь прощает только свою запись -> новая запись в другом пути краснеет"
+
+# Дата МЕЖДУ правилом и границей: мерило — правило, а не граница.
+d="$(sandbox c5-anchor-late)"; world5src "$d" "2001-01-04T00:00:00Z"
+says "$d" 1 "снят не раньше коммита правила" "якорь на коммит после правила -> краснеет, запись судится новой"
+
+d="$(sandbox c5-anchor-sha256)"; world5src "$d" "2001-01-02T00:00:00Z"
+rec "$d" "$FOREC" "note: дописано после переноса"; commit_all "$d" edit
+says "$d" 1 "sha256 записи" "запись здесь не равна записи в источнике на якоре -> краснеет"
+
+d="$(sandbox c5-anchor-missing)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "$LOST5" "$FOREC"
+says "$d" 1 "в полном клоне источника не существует" "якорь на несуществующий коммит -> краснеет и называет якорь"
+
+d="$(sandbox c5-anchor-unpublished)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$SRC" tag -d v0 > /dev/null
+says "$d" 1 "не опубликован" "якорь есть в клоне, но ни одна ссылка refs/remotes/ и refs/tags/ его не содержит -> краснеет"
+
+d="$(sandbox c5-anchor-srcpath)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "$ANCHOR" "docs/changes/f/reviews/post-diff/r/absent.yaml"
+says "$d" 1 "на якоре пути" "пути записи в источнике на якоре нет -> краснеет"
+
+d="$(sandbox c5-anchor-abbrev)"; world5src "$d" "2001-01-02T00:00:00Z"
+anchors5 "$d" "$FOREC" "$FOREPO" "${ANCHOR:0:12}" "$FOREC"
+says "$d" 1 "«${ANCHOR:0:12}» — не полный sha" "якорь — сокращённый sha -> краснеет и называет строку"
+
+d="$(sandbox c5-anchor-gone)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$d" rm -q "$FOREC"; commit_all "$d" gone
+says "$d" 1 "записи с якорем нет" "строка перечня якорей без записи в HEAD -> без предмета, краснеет"
+
+# Якорь, которому прощать НЕЧЕГО: запись несёт --full-index, код 1 обязан
+# прийти одним перечнем. Законный близнец — та же запись без строки.
+d="$(sandbox c5-anchor-idle)"; world5src "$d" "2001-01-02T00:00:00Z" "$FOREFULL"
+says "$d" 1 "прощать нечего" "якорь у записи без команды к прощению -> строка без предмета, краснеет"
+says "$d" 1 "без --full-index 1 (унаследовано 1, новых 0)" "у якоря без нового находок в записях 0 -> код 1 пришёл не от записи"
+
+d="$(sandbox c5-anchor-idle-undeclared)"; world5src "$d" "2001-01-02T00:00:00Z" "$FOREFULL"
+anchors5 "$d"
+says "$d" 0 "якорей чужих линий 0" "законный близнец: та же запись с --full-index без якоря -> молчит"
+
+# Клона источника нет, либо клон не того репозитория, либо неглубокий и якоря
+# не несёт — судить якорь нечем: без предмета, а не находка и не зелёное.
+d="$(sandbox c5-anchor-noclone)"; world5src "$d" "2001-01-02T00:00:00Z"
+rm -rf "$SRC"
+says "$d" 2 "клон $FOREPO" "клона источника нет -> без предмета, а не находка"
+
+d="$(sandbox c5-anchor-identity)"; world5src "$d" "2001-01-02T00:00:00Z"
+git -C "$SRC" remote set-url origin "https://github.com/PRO-Robotech/other.git"
+says "$d" 2 "это копия PRO-Robotech/other" "клон на месте источника — другого репозитория -> отвергнут, без предмета"
+
+d="$(sandbox c5-anchor-shallow)"; world5src "$d" "2001-01-02T00:00:00Z"
+mv "$SRC" "$TMP/src.full"
+git clone -q --depth 1 "file://$TMP/src.full" "$SRC" 2> /dev/null
+git -C "$SRC" remote set-url origin "https://github.com/$FOREPO.git"
+says "$d" 2 "неглубокий" "неглубокий клон источника без якоря -> без предмета, а не 'не существует'"
+rm -rf "$TMP/src.full"
 
 d="$(sandbox c5-norule)"; world5 "$d"
 const5 "$d" RULE "$(printf '0%.0s' {1..40})"
