@@ -1,0 +1,232 @@
+schema_version: 1
+kind: acceptance_review
+subject:
+  repository: PRO-Robotech/kacho-workspace
+  path: docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  sha256: 673f705ee72e40bddb5711bec419b1c26fe9dcb139c71f7a78350f86920011ae
+  revision: редакция 2026-09-28 (круг 5, по возврату круга 4)
+  static_status: APPROVED
+  static_status_note: >-
+    Слово в шапке — вердикт круга 3 о редакции коммита 6b7ac05c (SHA-256 cd4b3320…), вписанный
+    коммитом 17996fcd. Шапка этой записью НЕ правится (скил change-graph, раздел «Вердикт привязан
+    к ОТПЕЧАТКУ, а не к документу»; норма — .claude/backup/change-graph.md §2). Машинный читатель
+    docs-gate судит объявление шапки, а не одобрение; действующий вердикт об этой редакции — эта
+    запись и внешнее событие, которое публикует курьер.
+  base_commit: 95c3ecc3a1e0d103635c2382ff644356c8b29c48
+  content_commit: 358dd1dfff8a533be101682e537e9a705ce7cfc4
+  branch: '662'
+  branch_note: >-
+    рабочая копия kacho-workspace/tmp/ws-662; коммит 358dd1df на origin ещё не отправлен —
+    git ls-remote origin 662 → 95c3ecc3 (он несёт отпечаток круга 4, 3260be80…)
+  task: https://github.com/PRO-Robotech/kacho-workspace/issues/662
+  wave: https://github.com/PRO-Robotech/kacho-workspace/issues/786
+  fingerprint_predicate: sha256sum docs/specs/sub-phase-F4d-identity-provider-posture-acceptance.md
+  fingerprint_reproduced: true
+  lines: 2543
+verdict: APPROVED
+reviewer_role: acceptance-reviewer
+reviewed_at: '2026-09-28T15:46:43Z'
+round: 5
+round_note: >-
+  Проверка исполнения возврата круга 4 (решение владельца 2026-09-27: один круг ревью, затем
+  проверка исполнения). Новым блокирует только то, без чего сценарий неисполним или небезопасен.
+previous_round:
+  round: 4
+  sha256: 3260be80662fff97305e46b64190023cc27dfd09b84df49bab57296709a34b61
+  verdict: CHANGES_REQUESTED
+  record: docs/specs/reviews/sub-phase-F4d-identity-provider-posture-acceptance/3260be80662fff97305e46b64190023cc27dfd09b84df49bab57296709a34b61.yaml
+blocking_count: 0
+blocking_kinds_distinct: []
+
+premise:
+  stated: блокирующие круга 4 не сняты, потому что редакция та же
+  outcome: опровергнута
+  measured:
+    - 'sha256sum документа на 358dd1df (HEAD ветки 662) → 673f705e…; на 95c3ecc3 (origin/662) → 3260be80… — редакции разные'
+    - 'посылка верна только для origin/662: коммит автора 358dd1df не отправлен'
+  consequence: проверка исполнения проведена на 673f705e…
+
+authority:
+  mode: versioned_policy_authority
+  epoch: post-cutover
+  epoch_derivation: git merge-base --is-ancestor 1202e3cf5f6cb4600294ceb2e30fa72b61630eac 358dd1df → 0
+  repository: PRO-Robotech/kacho-workspace
+  base_commit: 358dd1dfff8a533be101682e537e9a705ce7cfc4
+  cutover_commit: 1202e3cf5f6cb4600294ceb2e30fa72b61630eac
+  policy_document: docs/changes/policy.yaml
+  policy_sha256: cc2c4f14721b30d04c52c0663f3bd41c6db4d09d015c69d24f1c7dcd2dd5eeca
+  policy_field: review_authority.acceptance-reviewer
+
+event:
+  type: approval
+  status: not_performed
+  published: false
+  publication_mode: courier
+  publication_expected_from_orchestrator: true
+  body_for_courier: acceptance-reviewer · APPROVED · 673f705ee72e40bddb5711bec419b1c26fe9dcb139c71f7a78350f86920011ae
+  rationale: >-
+    Одобрение открывает переход только вместе с внешним событием полномочия. Имя роли в этой
+    записи — координата, а не доказательство личности. Событие публикует курьер, не правя эту
+    запись задним числом.
+attribution:
+  reviewer_kind: claude_agent
+  assigned_agent: acceptance-reviewer
+  publishing_actor: none
+  publication_mode: courier_of_agent_verdict
+  personal_review_by_publishing_actor_claimed: false
+  history_is_appended_not_rewritten: true
+  prior_records_untouched:
+    note: запись круга 4 (3260be80….yaml) не правлена; эта — соседняя
+
+# ─────────────────────────────────────────────────────────────────────────────
+edition_binding:
+  question: объявлена ли правка и не перенесён ли вердикт круга 4 на новый отпечаток
+  answer: ДА, объявлена (шапка, строка круга 5; §17.5); вердикт не перенесён
+  evidence:
+    - 'git diff --shortstat 95c3ecc3 358dd1df -- <путь> → 1 файл, 271 вставка, 29 удалений; 15 ханков'
+    - 'ханки лежат в объявленных местах: шапка, §1.4а, Р4 ×2, §7, §8, §12 ×2, §14, §15 ×3, §16.3, §16.6, новый §17'
+    - 'статическая строка статуса не правлена — верно'
+
+scope_not_widened:
+  question: не тронут ли §11 (сценарии)
+  answer: НЕ тронут — измерено
+  measured:
+    - '§11 (от «## §11» до «## §12») — SHA-256 6858965463e2… на 95c3ecc3 и на 358dd1df'
+    - 'блоков **ID: F4d-** / строк **Given** / **When** / **Then** — 53/53/53/53 до и после'
+
+census_reproduced:
+  question: воспроизводятся ли числа переписи §17.7
+  answer: ДА
+  predicate: grep -c -i <корень> по git show 95c3ecc3:<путь> и 358dd1df:<путь>
+  output:
+    - 'перенос: 66 → 68'
+    - 'популяц: 28 → 31'
+    - 'заново: 15 → 22; вне §17 — 9 строк, прочитаны все: утверждающих «заводится заново» — 0 (отрицания, цитата решения #1268 и её чтение, другой смысл, строки истории §16.2, зачёркнутая строка §16.3)'
+
+# ─────────────────────────────────────────────────────────────────────────────
+execution_check:
+  - id: B1
+    kind: CONSTRUCTIBILITY
+    outcome: снят
+    how: >-
+      Выбран первый исход предиката снятия (а): строка зеркала человека прежней полосы переживает
+      перевод (тот же id, те же привязки), субъект остаётся значением прежней полосы (законный
+      близнец F4d-52), чеканка по Р10 — только людям, впервые заводимым нашим входом (§8 S2,
+      §15 Решение 4 п. 2, §17.3). Путь первого способа, который предлагал круг 4 (F4d-13 либо
+      посев), автор опроверг доказательно, и опровержение подтверждено: Given F4d-13 — человек
+      полосы own, а стоящее предусловие группы B определяет его субъектом own: (прочитано,
+      строки 1210–1217 и 1245–1246 документа); посев не вправе ставить отметку подтверждения
+      (предикат 4 ниже). Вместо него — владелец ящика после подтверждения адреса; производителя в
+      дереве нет, он заказан (kaname#458 под kaname#456, обе OPEN — gh issue view). Это третий
+      исход ban #11 (предмет с причиной), а не утверждение без держателя: незавершённость S2 до
+      посадки заказанного показывает замыкающая величина (посев ниже, шаги 3–4 → 1). Условие (б)
+      исполнено: строки 1–2 §16.3 зачёркнуты с пометкой, новая строка называет заказанного
+      производителя. Условие (в) исполнено: §17.3 и §15 Решение 4 — перевод писем не рассылает и
+      способов не раздаёт; цена названа (шаг подтверждения ящика при первом входе).
+  - id: B2
+    kind: PRODUCER
+    outcome: снят
+    how: >-
+      Выбран первый исход предиката снятия: замыкающая величина §17.4 — одна команда на базе
+      стенда, три числа, норма «без нашего входа — 0», контроль непустого обхода (users_total > 0,
+      ноль — «не выполнилось»), близнецы по одному факту. Команда исполнена мной дословно на схеме
+      после всех миграций kaname@cbbac984b7b1 — вывод совпал с таблицей автора во всех шести
+      шагах, мой дополнительный близнец тоже краснеет (посев ниже). §16.3 и §8 называют её вывод
+      производителем квантора; отсутствие машинного держателя сказано прямо.
+
+census_of_producers:
+  home: PRO-Robotech/kaname @ cbbac984b7b17f22bcc4a83f7533fff3494c809a (git ls-remote origin main — тот же)
+  predicates:
+    - 'п.1 — sed -n 5080p 0001_initial.sql → CREATE UNIQUE INDEX users_identity_email_uniq … (lower(email)) — совпало'
+    - 'п.2 — git grep NewOwnLaneSubject() вне проб → 2 строки: register.go:177 (вызов) и own_lane_subject.go:58 (объявление) — совпало'
+    - 'п.3 — git grep писателей строки способа вне проб → 6 строк: iface.go:55, register.go:181, login_method_repo.go:91/104/123/124; вызов из глагола — один — совпало'
+    - 'п.4 — git grep -c .MarkEmailVerified( вне проб → пусто, код 1; в пробах 1 + 5 — совпало'
+  read:
+    - 'mirror_tx.go:389–429 — приглашение активируется той же полосой; адрес ACTIVE/BLOCKED — ErrAlreadyExists'
+    - 'invite.go:544 — Idempotent: row already exists (ACTIVE / PENDING / BLOCKED)'
+    - 'recovery_complete.go:219 и login_method_repo.go:292 — только UPDATE, строки нет → исход откатывается'
+    - 'recovery_request.go:104 — неподтверждённому адресу код не выдаётся'
+    - 'схема: users.external_id NOT NULL и CHECK согласованности (ACTIVE/BLOCKED → непуст), user_login_methods PK (user_id, kind) — LEFT JOIN строк не множит; засеянный миграцией системный человек — PENDING, в счёт не входит'
+
+constructibility:
+  question: строится ли каждое состояние условия S2 и краснеет ли величина §17.4
+  seeded: 8 of 8
+  not_executed: 1
+  seed:
+    home: выгрузка git archive kaname@cbbac984b7b1 в kacho-workspace/tmp/review-f4d-r5-kaname; дерево службы не тронуто
+    fixture_file: >-
+      одноразовая проба рецензента zz_review_f4d_r5_test.go в пакете
+      internal/apps/kaname/api/registration поверх харнесса register_integration_test.go
+      (Postgres testcontainers, goose до 20260917221000); команда §17.4 — дословно
+    command: >-
+      go test ./internal/apps/kaname/api/registration/ -run '^TestReviewF4dR5_ClosingMeasureSteps$'
+      -count=1 -v — через слот тяжёлых работ, MemoryMax=10G
+    exit_code: 0
+    output:
+      - 'база после миграций: {total:1 legacy:0 without:0}'
+      - '+ человек, заведённый регистрацией (own:): {total:2 legacy:0 without:0}'
+      - '+ строка прежней полосы без способа: {total:3 legacy:1 without:1}'
+      - 'регистрация на её адрес → registration refused; строк по адресу users:1 methods:0; величина та же'
+      - '+ строка способа, адрес не подтверждён: {total:3 legacy:1 without:1}'
+      - '+ адрес подтверждён адаптером MarkEmailVerified — близнец закрыт: {total:3 legacy:1 without:0}'
+      - 'близнец рецензента — адрес подтверждён, способа нет: {total:3 legacy:1 without:1}'
+      - 'та же строка заблокирована: {total:3 legacy:0 without:0}'
+      - 'id строки сохранён на всех шагах, субъект own-lane=false'
+    result: >-
+      Шесть шагов таблицы §17.4 воспроизведены числами автора; одно-фактные дефекты по каждой из
+      двух половин «нашего входа» краснеют; заведение второй строки на занятый адрес отвергнуто
+      (строка 1 §17.2). Состояние строки 9 §17.2 посевом не строится по построению — его
+      производителя нет, и документ говорит это сам.
+  not_executed_items:
+    - 'число личностей прежнего поставщика на стенде продукта (2) — стенд не опрашивался; число решения #1268 с датой, как и у автора'
+
+docs_gate:
+  command: KACHO_MONOREPO=<project/kacho> KACHO_HOME_KANAME=<project/kaname> bash scripts/docs-gate/run-all.sh
+  result: рассмотрено проверок 8; пройдено 8, провалено 0, без предмета 0
+  limit: судит объявление шапки, а не одобрение
+
+# ─────────────────────────────────────────────────────────────────────────────
+blocking_findings: []
+
+non_blocking_findings:
+  - id: N1
+    class: '[CARRIER] требование к заказанному производителю не лежит у носителя'
+    text: >-
+      §15 Решение 4 предъявляет kaname#458 одно требование — строка сохраняет id. Ни тело, ни
+      предикат kaname#458 его не называют, комментариев у задачи 0 (gh issue view 458 --json
+      comments). Нарушение величина §17.4 поймает (legacy_examined упадёт), но носитель узнает
+      о требовании только на красном. Положить требование комментарием в kaname#458 со ссылкой на
+      этот отпечаток.
+  - id: N2
+    class: '[PREDICATE] равенство legacy_examined до и после сверяет число, а не множество'
+    text: >-
+      Два разнонаправленных изменения (строка снята, другая разблокирована) дают то же число.
+      В комментарий задачи перевода вместе с тремя числами класть перечень id строк прежней
+      полосы (array_agg по тому же фильтру) — «те же люди» станет проверяемым.
+
+found_by_the_way:
+  - where: kaname@cbbac984b7b1, запись отметки подтверждения адреса
+    what: >-
+      Вне проб писателя отметки нет (предикат 4), поэтому и человек, заведённый регистрацией,
+      подтверждённым сегодня стать не может. Для F4d это не находка — величина §17.4 людей own:
+      не считает; предмет принадлежит kaname#456, он его покрывает. Задачу не завожу.
+
+remainders:
+  - subject: число личностей на стенде продукта (2)
+    status: не выполнилось — стенд не опрашивался
+  - subject: пробы Ф1-52, F4d-16, F4d-42 на стенде
+    status: не выполнилось — стенд в этом круге не поднимался
+  - subject: зависимость S2 от kaname#458
+    status: >-
+      сказано документом: стенд со строками прежней полосы завершает S2 только после посадки
+      kaname#458; стенд, поднятый в посадке own с нуля, — без неё
+
+scope:
+  reviewed: >-
+    дельта 95c3ecc3..358dd1df целиком (15 ханков) и места вне дельты, на которые опирается
+    §17: предусловие группы B, F4d-52, F4d-13; соседки в kaname@cbbac984b7b1 по координатам §17.2
+  route_flags: 'proto нет · схема нет · публичный RPC нет · UI нет · новый домен нет · поверхность безопасности да (посадка личности, учётные данные людей)'
+  blocking_count: 0
+  next: >-
+    курьер публикует событие одобрения на 673f705e…; ветка 662 отправляется на origin вместе с
+    коммитом автора 358dd1df и этой записью
