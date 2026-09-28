@@ -142,6 +142,37 @@ for s in "${SUITES[@]}"; do
         "scripts/$s/check-01-probe.sh:3" "находок 1"
 done
 
+# Форма «переопределение, иначе рабочий каталог» (круг 1): пару A/B она проходит —
+# там переопределение задано, и запасная ветка не исполняется ни разу; пару C/D
+# (без переопределений, копия проверки в другом дереве) — нет.
+DEFAULT_CHECK='ws="${GATE_ROOT:-$(git rev-parse --show-toplevel)}"'
+for s in "${SUITES[@]}"; do
+    b="$(mkbox)"
+    for t in "${SUITES[@]}"; do
+        suite "$b" "$t"
+        if [ "$t" = "$s" ]; then plant "$b" "$t" "$DEFAULT_CHECK"; else plant "$b" "$t" "$LOC_CHECK"; fi
+    done
+    commit "$b"
+    expect 1 "$b" "инъекция в $s: переопределение, иначе рабочий каталог — краснеет с координатой" "$C01" \
+        "scripts/$s/check-01-probe.sh — без переопределения исход зависит от рабочего каталога" \
+        "scripts/$s/check-01-probe.sh:3" "находок 1"
+done
+
+# Мутант ОБЩЕЙ ветки расположения: `scripts/lib/gate_root.py` при отсутствии
+# переопределения отдаёт рабочий каталог. Им пользуется каждая проверка, и находка
+# обязана назвать каждую — с координатой, а не массовым отказом полного прогона.
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do suite "$b" "$s"; plant "$b" "$s" "$LOC_CHECK"; done
+commit "$b"
+if mutate "$b/scripts/lib/gate_root.py" '    here = os.path.dirname(os.path.abspath(file))' \
+        "$(printf '    return os.getcwd()\n    here = os.path.dirname(os.path.abspath(file))')"; then
+    expect 1 "$b" "мутант: gate_root.py без переопределения отдаёт рабочий каталог — краснеет у каждой проверки" "$C01" \
+        "scripts/${SUITES[0]}/check-01-probe.sh — без переопределения исход зависит от рабочего каталога" \
+        "находок ${#SUITES[@]}"
+else
+    unplanted "мутант gate_root.py"
+fi
+
 b="$(mkbox)"; commit "$b"
 expect 2 "$b" "предпосылка: наборов нет — VOID, а не «находок 0»" "$C01" "наборов scripts/*/run-all.sh"
 
