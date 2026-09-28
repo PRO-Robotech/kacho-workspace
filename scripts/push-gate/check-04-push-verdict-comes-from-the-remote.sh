@@ -29,6 +29,8 @@ NAME="check-04-push-verdict-comes-from-the-remote"
 proof="$PG_SUBJECT/scripts/push-verified-inject.sh"
 [ -f "$PG_SUBJECT/scripts/push-verified.sh" ] || { pg_void "$NAME — обёртки scripts/push-verified.sh нет"; exit 2; }
 [ -f "$proof" ] || { pg_void "$NAME — доказательства scripts/push-verified-inject.sh нет"; exit 2; }
+# Последняя проба отправляет через хук предмета, и хук судит диапазон разборщиком.
+if [ -f "$PG_SUBJECT/scripts/cla-gate/cla.py" ]; then pg_judge_premise "$NAME" || exit 2; fi
 
 pg_hermetic
 TMP="$(mktemp -d)"
@@ -45,7 +47,7 @@ probe "$( [ "$rc" = 0 ] && [[ "$census" == *"провалов 0"* ]] && echo д�
     "постусловие: ложный ноль краснеет, законная отправка молчит — ${census#\[CENSUS\] }" \
     "код $rc; хвост: $(printf '%s\n' "$out" | tail -8)"
 
-ws="$(pg_sandbox "$TMP/box")" || { pg_void "$NAME — песочница не собралась"; exit 2; }
+ws="$(pg_sandbox "$TMP/box")"; pg_sandbox_verdict "$NAME" $? || exit $?
 cur="$(git -C "$ws" config --get core.sshCommand || true)"
 probe "$( [[ "${cur,,}" == *serveraliveinterval=20* ]] && echo да || echo нет)" \
     "keepalive: install выставил клону core.sshCommand с ServerAliveInterval" "core.sshCommand = «$cur»"

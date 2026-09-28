@@ -43,7 +43,7 @@ probe() {
 }
 
 box="$TMP/box"
-ws="$(pg_sandbox "$box")" || { pg_void "$NAME — песочница не собралась"; exit 2; }
+ws="$(pg_sandbox "$box")"; pg_sandbox_verdict "$NAME" $? || exit $?
 cat > "$ws/scripts/stub-gate/run-all.sh" <<'STUB'
 #!/usr/bin/env bash
 # Заглушка набора, которому нужны соседние дома, — как настоящие: переменная,

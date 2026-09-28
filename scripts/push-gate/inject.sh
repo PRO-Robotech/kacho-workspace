@@ -80,6 +80,9 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ствол без ведомости снова не «условие не создано», а проход без флага"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение первой посадки снова печатает повторную отправку без флага"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение снова не переподписывает — напечатанная команда не исполняет обещанного"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|отправка отказывает своей личности — положительная половина не должна стать «без предмета» (круг 1, находка 5)"
+    "check-01-hook-stub-refuses-without-target|scripts/hooks/pre-push|хук отказывает каждой судимой отправке — положительная половина не должна стать «без предмета» (круг 1, находка 5)"
+    "check-01-hook-stub-refuses-without-target|scripts/hooks/install.sh|установщик предмета отказывает после провязки — сборка песочницы не должна стать «без предмета»"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -177,6 +180,15 @@ M = [
     ("scripts/cla-gate/cla.py",
      "               '| git commit -q --amend --reset-author -F -')\n",
      "               '| git commit -q --amend -F -')\n"),
+    ("scripts/cla-gate/cla.py",
+     '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories"),\n',
+     '    "push": {\n        ROLE_AUTHOR: ("signatories",),\n'),
+    ("scripts/hooks/pre-push",
+     '    if [ "$judged" -ne 0 ]; then\n',
+     '    if true; then\n'),
+    ("scripts/hooks/install.sh",
+     'wired=${#installed[@]}\n',
+     'exit 1\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path
