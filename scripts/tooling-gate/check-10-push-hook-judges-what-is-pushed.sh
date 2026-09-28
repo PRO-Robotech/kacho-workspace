@@ -62,6 +62,10 @@ mkbox() {
     mkdir -p "$dir/scripts/hooks" "$dir/scripts/probe"
     cp "$WS/$1" "$dir/scripts/hooks/pre-push"
     chmod +x "$dir/scripts/hooks/pre-push"
+    # Страж атрибуции едет рядом с хуком (ws#861): без него хук отказывает
+    # всякой отправке, и проба судила бы отказ стража, а не свой предмет.
+    cp "$WS/scripts/hooks/attribution-rule.sh" "$WS/scripts/hooks/prepush-attribution.sh" \
+        "$dir/scripts/hooks/" 2>/dev/null
     # shellcheck disable=SC2016  # тело заглушки раскрывается при её вызове
     printf '#!/usr/bin/env bash\nr="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"\necho "$r" >> %q\n[ "$(cat "$r/state.txt")" = red ] && { echo "probe: красное"; exit 1; }\nexit 0\n' \
         "$dir.calls" > "$dir/scripts/probe/run-all.sh"
