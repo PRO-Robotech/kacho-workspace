@@ -132,6 +132,11 @@ PRE_RULE_TIPS = (
 # клоне источника, снят раньше коммита правила, и файл на нём в том пути равен
 # записи здесь по sha256.
 FOREIGN_ANCHORS = (
+    ("docs/changes/corelib-20/reviews/post-diff/go-style-reviewer/"
+     "d05a397d0026fc6b875a00a2a1667a1b48858008328eba6ba34462f50eb5055c.yaml",
+     "PRO-Robotech/corelib", "51ea0f106b7c21cdc5be26e0c1a3d79d81cf45c2",
+     "docs/changes/corelib-20/reviews/post-diff/go-style-reviewer/"
+     "d05a397d0026fc6b875a00a2a1667a1b48858008328eba6ba34462f50eb5055c.yaml"),
 )
 
 # Аргумент — слово без `;`, тире, стрелки, инлайн-кода и трубы, не кончающееся
