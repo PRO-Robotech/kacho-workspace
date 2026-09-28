@@ -34,9 +34,19 @@
 Числа вне словаря единиц не судятся и перечисляются в переписи отдельным числом.
 
 ОБХОД. Скрипты ВЕРХНЕГО уровня каталогов наборов (`*.sh`, `*.py`) — шапки
-исполняемых входов и библиотек набора. Файлы вложенных каталогов (пакеты, фикстуры,
-пробы внутри набора) в обход не входят и названы в переписи числом; перечень
-наборов выведен переписью `scripts/lib/suites.py`. Ноль скриптов — VOID.
+исполняемых входов и библиотек набора — и все `*.sh`/`*.py` общей библиотеки наборов
+`scripts/lib/` (прогонщик, вывод перечня, корень, перепись: круг 1 показал, что
+число-утверждение о наборах в шапке `suite-runner.sh` проходило, не будучи прочитанным).
+Файлы вложенных каталогов наборов (пакеты, фикстуры, пробы) в обход не входят и
+названы в переписи числом; перечень наборов выведен переписью `scripts/lib/suites.py`.
+Ноль скриптов — VOID.
+
+ВНЕ ОБХОДА — НЕ СУДИТСЯ, НО СЧИТАЕТСЯ. Прочие `*.sh`/`*.py` под `scripts/`
+(`compliance/`, `specs/`, `hooks/`, скрипты верхнего уровня `scripts/`…) разбираются тем
+же распознавателем, и отдельная строка переписи называет, сколько там файлов по
+каталогам и сколько чисел-утверждений в их шапках, — без исполнения команд. Иначе
+«находок 0» для них неотличимо от «не осмотрено». Судить их здесь — значит править
+файлы других областей.
 
 Коды: 0 — каждое число шапки воспроизводится; 1 — находка; 2 — осматривать нечего.
 """
@@ -50,6 +60,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _lib  # noqa: E402
 
 NAME = "check-06-header-numbers-carry-their-predicate"
+LIB = "scripts/lib/"
 
 WORDS = {}
 for value, forms in {
@@ -80,12 +91,13 @@ UNITS = (r"провер(?:ка|ки|ке|ку|кой|ок|кам|ками|ках
 NUMTOK = r"(\d+(?:[.,]\d+)?|" + "|".join(sorted(WORDS, key=len, reverse=True)) + r")"
 CLAIM = re.compile(r"(?<![\w#.:/\-≥≤<>=~@+])" + NUMTOK + r"(?![\w.:/\-%])"
                    r"\s+(?:[^\W\d_]+(?:-[^\W\d_]+)*\s+)?(" + UNITS + r")(?![\w])", re.I)
-# Обратная форма («осей — 3», «кейсов: 196», «утверждений три»). Отсекаются
+# Обратная форма («осей — 3», «кейсов: 196», «утверждений три», «Наборов 8.» —
+# точка в конце предложения числа не отменяет; круг 1: такая шапка проходила). Отсекаются
 # формы, которые числом-утверждением не являются: легенда кода («прогонщиков:
 # 0 — прошло»), номер с ведущим нулём («проверки 02» — адрес проверки) и голая
 # одиночная цифра без разделителя («набор 1» — код исхода).
 CLAIM_REV = re.compile(r"(?<![\w\-])(" + UNITS + r")(\s*(?:—|–|:|=)\s*|\s+)" + NUMTOK
-                       + r"(?![\w.:/\-%])(?!\s*[—–])", re.I)
+                       + r"(?![\w:/\-%])(?![.,]\d)(?!\s*[—–])", re.I)
 NUMBER_ANY = re.compile(r"(?<![\w#.:/\-])\d+(?![\w.:/\-])")
 COMMAND = re.compile(r"`([^`\n]+)`")
 FIRST = ("git", "grep", "find", "ls")
@@ -189,6 +201,27 @@ def value_of(token):
         return None
 
 
+def claims_in(para):
+    """[(смещение, число, фраза)] — числа-утверждения абзаца шапки."""
+    found = [(m.start(), m.group(1), m.group(0)) for m in CLAIM.finditer(para)
+             if not (m.group(1)[0] == "0" and len(m.group(1)) > 1)]
+    taken = {m.start(1) for m in CLAIM.finditer(para)}
+    for m in CLAIM_REV.finditer(para):
+        tok, sep = m.group(3), m.group(2).strip()
+        if tok[0] == "0" and len(tok) > 1:
+            continue
+        if not sep and not re.match(r"\s*(?:[,.;:)]|$)", para[m.end():]):
+            continue           # «проверок три разных исхода» — число не при этой единице
+        if m.start(3) not in taken:
+            found.append((m.start(), tok, m.group(0)))
+    return found
+
+
+def read(ws, rel):
+    with open(os.path.join(ws, rel), encoding="utf-8", errors="replace") as fh:
+        return fh.read()
+
+
 def main():
     ws = _lib.root(__file__)
     names, _ = _lib.suite_census(NAME, ws)
@@ -205,6 +238,17 @@ def main():
     if not top:
         _lib.void(NAME, "наборов %d, скриптов верхнего уровня 0 — осматривать нечего" % len(names))
         return 2
+    try:
+        under = [r for r in _lib.S.tracked(ws, "scripts/") if r.endswith((".sh", ".py"))]
+    except _lib.S.CensusUnreadable as exc:
+        _lib.void(NAME, "перепись scripts/ не снята: %s" % exc)
+        return 2
+    # Общая библиотека наборов — часть их устройства: прогонщик, вывод перечня,
+    # корень, перепись. Её шапки судятся наравне со скриптами наборов.
+    lib = [r for r in under if r.startswith(LIB)]
+    top += lib
+    suite_dirs = tuple("scripts/%s/" % s for s in names)
+    outside = [r for r in under if not r.startswith(LIB) and not r.startswith(suite_dirs)]
 
     findings = []
     claims = paired = others = header_lines = 0
@@ -219,17 +263,7 @@ def main():
         head = header(rel, text)
         header_lines += len(head)
         for para, offsets in paragraphs(head):
-            found = [(m.start(), m.group(1), m.group(0)) for m in CLAIM.finditer(para)
-                     if not (m.group(1)[0] == "0" and len(m.group(1)) > 1)]
-            taken = {m.start(1) for m in CLAIM.finditer(para)}
-            for m in CLAIM_REV.finditer(para):
-                tok, sep = m.group(3), m.group(2).strip()
-                if tok[0] == "0" and len(tok) > 1:
-                    continue
-                if not sep and not re.match(r"\s*(?:[,.;:)]|$)", para[m.end():]):
-                    continue           # «проверок три разных исхода» — число не при этой единице
-                if m.start(3) not in taken:
-                    found.append((m.start(), tok, m.group(0)))
+            found = claims_in(para)
             others += max(0, len(NUMBER_ANY.findall(para))
                           - sum(1 for _, tok, _ in found if tok[0].isdigit()))
             if not found:
@@ -255,12 +289,37 @@ def main():
                                     "воспроизведения в абзаце нет — единица счёта не объявлена, "
                                     "и число стареет молча" % (rel, n, phrase))
 
-    _lib.census(NAME, "наборов %d; скриптов верхнего уровня %d, строк шапок %d; "
-                "чисел-утверждений %d, из них воспроизведено командой %d; прочих чисел в "
-                "шапках (вне словаря единиц, не судятся) %d; файлов во вложенных каталогах "
-                "наборов вне обхода %d; находок %d"
-                % (len(names), len(top), header_lines, claims, paired, others, nested,
-                   len(findings)))
+    # Вне обхода — не судится, но СЧИТАЕТСЯ тем же распознавателем: «ноль находок»
+    # отличим от «не осмотрено», и число утверждений там названо.
+    out_claims = {}
+    for rel in outside:
+        try:
+            text = read(ws, rel)
+        except OSError:
+            continue
+        n = sum(len(claims_in(para)) for para, _ in paragraphs(header(rel, text)))
+        if n:
+            key = rel.split("/")[1] if rel.count("/") > 1 else "scripts/"
+            out_claims[key] = out_claims.get(key, 0) + n
+    by_dir = {}
+    for rel in outside:
+        key = rel.split("/")[1] if rel.count("/") > 1 else "scripts/"
+        by_dir[key] = by_dir.get(key, 0) + 1
+
+    _lib.census(NAME, "наборов %d; скриптов %d (верхнего уровня наборов %d, общей библиотеки "
+                "%s %d), строк шапок %d; чисел-утверждений %d, из них воспроизведено "
+                "командой %d; прочих чисел в шапках (вне словаря единиц, не судятся) %d; "
+                "файлов во вложенных каталогах наборов вне обхода %d; находок %d"
+                % (len(names), len(top), len(top) - len(lib), LIB, len(lib), header_lines,
+                   claims, paired, others, nested, len(findings)))
+    _lib.census(NAME, "ВНЕ ОБХОДА под scripts/ (не наборы и не %s) — не судится, считается: "
+                "файлов .sh/.py %d%s; чисел-утверждений в их шапках %d%s"
+                % (LIB, len(outside),
+                   " (%s)" % ", ".join("%s %d" % kv for kv in sorted(by_dir.items()))
+                   if by_dir else "",
+                   sum(out_claims.values()),
+                   " (%s)" % ", ".join("%s %d" % kv for kv in sorted(out_claims.items()))
+                   if out_claims else ""))
     if findings:
         for f in findings:
             _lib.finding(f)

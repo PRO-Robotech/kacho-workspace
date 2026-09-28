@@ -660,6 +660,60 @@ commit "$b"
 expect 1 "$b" "инъекция: команда есть, но её вывод разошёлся с числом — краснеет" "$C06" \
     "объявлено семь, команды абзаца дают другое" "→ 3"
 
+# Круг 1: утверждение в шапке ОБЩЕЙ библиотеки (`scripts/lib/suite-runner.sh:2`
+# «Наборов 8.») проходило — обход был только по скриптам наборов, а точка в конце
+# предложения отменяла обратную форму. Близнец — то же число со своей командой.
+LIB_HEAD='# Общий прогонщик наборов проверок. Только для подключения: его зовёт'
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+done
+commit "$b"
+if mutate "$b/scripts/lib/suite-runner.sh" "$LIB_HEAD" "$LIB_HEAD Наборов ${#SUITES[@]}."; then
+    expect 1 "$b" "инъекция: «Наборов N.» в шапке scripts/lib/suite-runner.sh — краснеет с координатой" "$C06" \
+        "scripts/lib/suite-runner.sh:2 — «Наборов ${#SUITES[@]}»" "находок 1"
+else
+    unplanted "шапка общей библиотеки"
+fi
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+done
+commit "$b"
+if mutate "$b/scripts/lib/suite-runner.sh" "$LIB_HEAD" \
+        "$LIB_HEAD Наборов ${#SUITES[@]} (\`git ls-files 'scripts/*/run-all.sh' | wc -l\`)."; then
+    expect 0 "$b" "близнец: то же число в шапке библиотеки со своей командой — молчит" "$C06" \
+        "общей библиотеки scripts/lib/" "находок 0"
+else
+    unplanted "шапка общей библиотеки, близнец"
+fi
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    if [ "$s" = "${SUITES[0]}" ]; then
+        script6 "$b" "$s" "Доказательство по осям. Осей 3."
+    else
+        script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+    fi
+done
+commit "$b"
+expect 1 "$b" "инъекция: обратная форма с точкой в конце предложения («Осей 3.») — краснеет" "$C06" \
+    "scripts/${SUITES[0]}/inject-06-axes.sh:2 — «Осей 3»"
+
+b="$(mkbox)"
+for s in "${SUITES[@]}"; do
+    suite "$b" "$s"
+    script6 "$b" "$s" "три оси разобраны (\`grep -c '^# ── ось' scripts/$s/inject-06-axes.sh\`)."
+done
+printf '#!/usr/bin/env bash\n# Сводка: проверок 5.\necho x\n' > "$b/scripts/tool.sh"
+commit "$b"
+expect 0 "$b" "вне обхода: число в шапке scripts/tool.sh не судится, но названо в переписи" "$C06" \
+    "файлов .sh/.py 1 (scripts/ 1); чисел-утверждений в их шапках 1 (scripts/ 1)"
+
 b="$(mkbox)"; commit "$b"
 expect 2 "$b" "предпосылка: наборов нет — VOID" "$C06" "наборов scripts/*/run-all.sh"
 
