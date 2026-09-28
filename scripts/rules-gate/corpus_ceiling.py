@@ -32,7 +32,7 @@ def main():
           % (len(files), len(rows), total, CEILING))
 
     if len(files) < FLOOR_FILES or not rows:
-        print('ОТКАЗ — файлов правил %d (ожидалось не меньше %d), строк-норм %d: обход'
+        print('[VOID] ОТКАЗ — файлов правил %d (ожидалось не меньше %d), строк-норм %d: обход'
               ' усечён, сумма меньше настоящей, вердикт о потолке беспредметен'
               % (len(files), FLOOR_FILES, len(rows)))
         return 2

@@ -23,11 +23,11 @@ S=".claude/settings.json"
 L=".claude/settings.local.json"
 
 if [ ! -f "$S" ]; then
-  printf 'ОТКАЗ — нет %s: предмет отсутствует, судить обход подтверждений не в чем\n' "$S"
+  printf '[VOID] ОТКАЗ — нет %s: предмет отсутствует, судить обход подтверждений не в чем\n' "$S"
   exit 2
 fi
 if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$S" 2> /dev/null; then
-  printf 'ОТКАЗ — %s не разбирается как JSON: вердикт был бы о форме, не о предмете\n' "$S"
+  printf '[VOID] ОТКАЗ — %s не разбирается как JSON: вердикт был бы о форме, не о предмете\n' "$S"
   exit 2
 fi
 

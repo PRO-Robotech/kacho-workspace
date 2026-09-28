@@ -61,7 +61,8 @@ trap 'rm -rf "$TMP"' EXIT
 #
 # Имена заглушек подходят под глоб ЛЮБОГО прогонщика набора (`check-*.sh` либо
 # `check-*` + бит исполнения), поэтому бит ставится всегда. Заглушки печатают
-# объём осмотренного: общий прогонщик (ws#762) ноль без объёма не засчитывает.
+# объём осмотренного: общий прогонщик (ws#762) ноль без объёма не засчитывает, а
+# код 2 без строки `[VOID]` с причиной судит поломкой, а не «без предмета».
 # Вердикт берётся только из кода выхода прогонщика.
 probe() {
     local runner="$1"; shift
@@ -77,7 +78,9 @@ probe() {
     cp "$WS/$runner" "$sdir/run-all.sh"
     chmod +x "$sdir/run-all.sh"
     for rc in "$@"; do
-        printf '#!/usr/bin/env bash\necho "осмотрено 1"\nexit %s\n' "$rc" > "$sdir/check-${i}-stub.sh"
+        { printf '#!/usr/bin/env bash\necho "осмотрено 1"\n'
+          [ "$rc" -ne 2 ] || printf 'echo "[VOID] заглушка — сверять не с чем" >&2\n'
+          printf 'exit %s\n' "$rc"; } > "$sdir/check-${i}-stub.sh"
         chmod +x "$sdir/check-${i}-stub.sh"
         i=$((i + 1))
     done

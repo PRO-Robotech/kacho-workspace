@@ -31,7 +31,7 @@ for f in .claude/rules/*.md; do
 done
 printf 'осмотрено файлов правил: %s\n' "$n"
 if [ "$n" -eq 0 ]; then
-  printf 'ОТКАЗ — в .claude/rules нет ни одного файла *.md: frontmatter судить не у чего, вердикт беспредметен\n'
+  printf '[VOID] ОТКАЗ — в .claude/rules нет ни одного файла *.md: frontmatter судить не у чего, вердикт беспредметен\n'
   exit 2
 fi
 if [ "$n" -lt 17 ]; then
