@@ -134,7 +134,7 @@ empty-ledger-must-pass · обязан проходить (то же, что `te
 ledger-pair-second-half · заведи обе: запись без предмета — находка, запись С предметом — молчание · TestBakedLedgerInjection_EntryWithASubjectIsSilent · red: пара односторонняя
 shared-source-instead-of-reading-text · общий источник, импортируемый обеими сторонами, — вместо чтения чужого исходника · TestPostureVocabularyHasASingleSource · red: гейт добывает чужой предикат чтением текста
 local-run-says-how-many-executed · «отказов 0» — не вердикт, пока не сказано, сколько исполнилось · scripts/hooks · red: «отказов 0, НЕ выполнено 6» прочитано как зелёное
-console-packages-need-npm-ci · ставь npm ci --prefix <пакет> до прогона; MODULE_NOT_FOUND — не красный вердикт · scripts/hooks · red: каждая отправка молча недопроверяет
+console-packages-need-npm-ci · ставь зависимости консоли как `ui.yml` до прогона; MODULE_NOT_FOUND — не красный вердикт · scripts/hooks · red: каждая отправка молча недопроверяет
 
 ## Семь красных прогонов
 
