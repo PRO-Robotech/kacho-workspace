@@ -33,18 +33,27 @@
 #      близнец — та же запись СНАЧАЛА села в ствол → та же отправка проходит;
 #   W  две редакции ведомости, ранняя ШИРЕ (прежний адрес — в owners, чужой — в
 #      signatories), ствол несёт позднюю: ветка от ранней с коммитом адреса «только
-#      история» либо чужого → отказ; КАЖДАЯ напечатанная команда лечения исполняется
-#      ДОСЛОВНО, включая повторную отправку через настоящий хук, → отправка проходит,
-#      и на «сервере» нет ни одного коммита запретного адреса; близнец — свой коммит
-#      на той же ветке → проходит, отличие ведомости ветки названо;
-#   T  аннотированный тег: автор тега чужой → отказ, тега на «сервере» нет; ключ
-#      атрибуции в сообщении тега → отказ; близнец — свой тег → проходит;
+#      история» либо чужого → отказ, названы оба лечения («влейте ствол», «ведомость
+#      вашего адреса должна сначала сесть в ствол»), переписи не напечатано; КАЖДАЯ
+#      напечатанная команда исполняется ДОСЛОВНО, включая повторную отправку через
+#      настоящий хук, → снова отказ, и работы запретного адреса (объекта её файла) на
+#      «сервере» нет; близнец — свой коммит на той же ветке → проходит, отличие
+#      ведомости ветки названо; второй близнец — запись адреса СНАЧАЛА села в ствол →
+#      та же ветка проходит, работа записана за её автором;
+#   WS лечение ключа атрибуции дословно: свой коммит с ключами, за ним коммит
+#      подписавшего → отказ по ключу; после лечения и отправки через хук у обоих на
+#      «сервере» прежние автор, коммиттер, даты, дерево, ключей нет; строку соавтора
+#      вне ведомости лечение не снимает → снова отказ;
+#   T  аннотированный тег: автор тега чужой → отказ, тега на «сервере» нет, пересоздания
+#      своей личностью не напечатано; ключ атрибуции в сообщении тега → отказ;
+#      близнец — свой тег → проходит;
 #   G  чужой коммит уже на «сервере» (обход --no-verify) → свой поверх него
 #      проходит: судится то, что отправка опубликует, а не вся история;
 #   H  ревизия без ведомости судится стволом → своя проходит; ствол без ведомости →
 #      отказ «условие не создано» с флагом первой посадки; напечатанная отправка с
 #      флагом исполняется дословно → ревизия, несущая ведомость, проходит в узкой форме,
-#      чужой коммит в ней — отказ; сервер, не назвавший HEAD, → отказ;
+#      чужой коммит в ней — отказ, и лечение дословно его не открывает (переписи нет,
+#      отправка с флагом — снова отказ); сервер, не назвавший HEAD, → отказ;
 #   M  разборщика нет в рабочем дереве → отказ «судить нечем» (fail-closed);
 #   K  суждение не вынесено (исход 2: sha нет в клоне, строка не разобрана) → отказ;
 #   L  опубликованное — то, что лежит на сервере ОТПРАВКИ: ссылка отслеживания,
@@ -221,8 +230,12 @@ land "$clean"
 #
 # Находка приёмки круга 3: лечение из отказа переносило в ветку самую раннюю и
 # самую широкую редакцию ведомости, и после него коммит адреса «только история»
-# уходил на сервер с кодом 0. Здесь каждая напечатанная команда исполняется
-# дословно, повторная отправка — через настоящий хук.
+# уходил на сервер с кодом 0. Находка круга 1 (этот круг): лечение, сменившее
+# перенос, переподписывало весь диапазон своей личностью, и работа stranger@ уходила
+# на сервер от имени отправителя; проба сверяла `%ae/%ce` на «сервере» — ровно то,
+# что переподпись переписывает. Здесь каждая напечатанная команда исполняется
+# дословно, повторная отправка — через настоящий хук, а работа чужого адреса
+# опознаётся по СОДЕРЖИМОМУ (объект её файла), а не по подписи.
 git -C "$ws" checkout -q -b w-line "$clean"
 pg_ledger "$ws" "  - email: $OLD
     note: ранняя редакция — прежний адрес ещё свой
@@ -245,18 +258,26 @@ w_narrow="$(git -C "$ws" rev-parse HEAD)"
 land "$w_narrow"
 probe "$( git --git-dir="$srv" show "$w_wide:contribution-ledger.yaml" | grep -q "$OLD" && ! trunk_ledger | sed -n '/^owners:/,/^[a-z]/p' | grep -q "$OLD" && echo да || echo нет)" \
     "W предпосылка: редакций ведомости в стволе две, ранняя шире ($OLD в её owners), ствол несёт позднюю"
-w_try() {  # <ветка> <адрес> <ожидаемая причина> — отказ, лечение дословно, запретного нет
-    local b="$1" who="$2" why="$3" out rc cured crc
+# rewrites <вывод> — напечатанные строки лечения, которые ПЕРЕПИСЫВАЮТ (всё, кроме отправки).
+rewrites() { cures "$1" | grep -vE '^(KACHO_CLA_FIRST_LANDING=1 )?git push ' || true; }
+# on_srv <сервер> <объект> — объект есть на «сервере».
+on_srv() { git --git-dir="$1" cat-file -e "$2" 2>/dev/null; }
+# work <файл> <содержимое> — отдельный файл работы; печатает sha его объекта.
+work() { printf '%s\n' "$2" > "$ws/$1"; git -C "$ws" add -A; git -C "$ws" hash-object "$ws/$1"; }
+w_try() {  # <ветка> <адрес> <ожидаемая причина> — отказ; лечение дословно — снова отказ; работы нет на «сервере»
+    local b="$1" who="$2" why="$3" out rc cured crc blob
     git -C "$ws" checkout -q -b "$b" "$w_wide"
-    edit; GIT_AUTHOR_EMAIL="$who" GIT_AUTHOR_NAME=x GIT_COMMITTER_EMAIL="$who" GIT_COMMITTER_NAME=x git -C "$ws" commit -q -m "$b: коммит $who"
+    blob="$(work "work-$b.txt" "work of $who on $b")"
+    GIT_AUTHOR_EMAIL="$who" GIT_AUTHOR_NAME=x GIT_COMMITTER_EMAIL="$who" GIT_COMMITTER_NAME=x git -C "$ws" commit -q -m "$b: коммит $who"
     out="$( cd "$ws" && git push origin "$b" 2>&1 )"; rc=$?
-    probe "$( [ "$rc" != 0 ] && [ -z "$(pg_remote_sha "$box" "$b")" ] && pg_has "$out" "$who" "$why" "ствол main@" && [[ "$out" != *"cherry-pick"* ]] && echo да || echo нет)" \
-        "W $b: ветка от ранней широкой редакции, коммит $who — отказ ведомостью ствола, лечение без переноса редакций" "код $rc; вывод: $out"
+    probe "$( [ "$rc" != 0 ] && [ -z "$(pg_remote_sha "$box" "$b")" ] && pg_has "$out" "$who" "$why" "ствол main@" "влейте ствол" "сначала сесть в ствол" && [[ "$out" != *"cherry-pick"* ]] && echo да || echo нет)" \
+        "W $b: ветка от ранней широкой редакции, коммит $who — отказ ведомостью ствола; названы оба лечения, редакции не переносятся" "код $rc; вывод: $out"
+    probe "$( [ -z "$(rewrites "$out")" ] && echo да || echo нет)" \
+        "W $b: переписи для находки личности не напечатано — переподписи нет" "напечатано: $(rewrites "$out")"
     cured="$(cure_verbatim "$out")"; crc=$?
-    probe "$( [ "$crc" = 0 ] && [ "$(pg_remote_sha "$box" "$b")" = "$(git -C "$ws" rev-parse "$b")" ] && echo да || echo нет)" \
-        "W $b: напечатанные команды лечения исполнены ДОСЛОВНО, повторная отправка через хук прошла" "код $crc; напечатано: $(cures "$out"); вывод: $cured"
-    probe "$( idents "$srv" "refs/heads/$b" "^$w_narrow" | grep -qx "$who" && echo нет || echo да)" \
-        "W $b: после лечения на «сервере» нет ни одного коммита $who" "адреса: $(idents "$srv" "refs/heads/$b" "^$w_narrow" | tr '\n' ' ')"
+    probe "$( [ "$crc" != 0 ] && [ -z "$(pg_remote_sha "$box" "$b")" ] && ! on_srv "$srv" "$blob" && pg_has "$cured" "$who" && echo да || echo нет)" \
+        "W $b: напечатанное лечение исполнено ДОСЛОВНО, повторная отправка через хук — снова отказ; работы $who на «сервере» нет" \
+        "код $crc; напечатано: $(cures "$out"); вывод: $cured"
     git -C "$ws" checkout -q work
 }
 w_try w-old "$OLD" "вперёд запрет"
@@ -266,6 +287,55 @@ edit; git -C "$ws" commit -q -m "w-own: свой коммит"
 out="$( cd "$ws" && git push origin w-own 2>&1 )"; rc=$?
 probe "$( [ "$rc" = 0 ] && pg_has "$out" "НЕ действует" && echo да || echo нет)" \
     "W близнец: свой коммит на ветке от ранней редакции — проходит, ведомость ветки названа недействующей" "код $rc; вывод: $out"
+
+# ── WS. второе лечение личности — посадка записи в ствол; лечение ключа авторства не трогает ─
+git -C "$ws" checkout -q w-line
+pg_ledger "$ws" "signatories:
+  - email: $STRANGER
+    note: запись села в ствол отдельной посадкой
+history_floor:
+  commit: $q_base
+  note: граница поздней редакции
+history_only:
+  - email: $OLD
+    note: поздняя редакция — прежний адрес только в истории
+$WAIVE"
+git -C "$ws" add -A && git -C "$ws" commit -q -m "ведомость ствола: $STRANGER подписавший"
+w_sig="$(git -C "$ws" rev-parse HEAD)"
+land "$w_sig"
+out="$( cd "$ws" && git push origin w-stranger 2>&1 )"; rc=$?
+probe "$( [ "$rc" = 0 ] && [ "$(git --git-dir="$srv" log --format='%ae %ce' --diff-filter=A refs/heads/w-stranger -- work-w-stranger.txt)" = "$STRANGER $STRANGER" ] && echo да || echo нет)" \
+    "W близнец: ведомость адреса СНАЧАЛА села в ствол — та же ветка проходит, работа $STRANGER на «сервере» записана за ним" "код $rc; вывод: $out"
+# ids <git-dir|клон> <ревизия> — всё, кроме родителя: автор, коммиттер, даты, дерево, сообщение.
+ids() { git --git-dir="$1" log -1 --format='%an|%ae|%ad|%cn|%ce|%cd|%T|%B' "$2"; }
+gd() { git -C "$ws" rev-parse --absolute-git-dir; }
+# WS1: свой коммит с ключами (соавтор — подписавший ствола), ЗА НИМ коммит подписавшего.
+git -C "$ws" checkout -q -b ws-strip "$w_sig"
+work own-ws1.txt "свой" >/dev/null
+GIT_AUTHOR_DATE="1700000000 +0300" GIT_COMMITTER_DATE="1700000100 +0300" \
+    git -C "$ws" commit -q -m "свой с ключами" -m "Claude-Session: https://claude.ai/code/session_push_gate" -m "Co-authored-by: Signed <$STRANGER>"
+k_ids="$(ids "$(gd)" HEAD | sed '/^Claude-Session/d; /^Co-authored-by/d')"
+work sig-ws1.txt "работа подписавшего" >/dev/null
+GIT_AUTHOR_EMAIL="$STRANGER" GIT_AUTHOR_NAME=s GIT_COMMITTER_EMAIL="$STRANGER" GIT_COMMITTER_NAME=s \
+    GIT_AUTHOR_DATE="1700000200 +0300" GIT_COMMITTER_DATE="1700000300 +0300" git -C "$ws" commit -q -m "работа подписавшего"
+s_ids="$(ids "$(gd)" HEAD)"
+out="$( cd "$ws" && git push origin ws-strip 2>&1 )"; rc=$?
+probe "$( [ "$rc" != 0 ] && pg_has "$out" "ключ атрибуции" "Claude-Session" && [[ "$(rewrites "$out")" == *"filter-branch"* ]] && echo да || echo нет)" \
+    "WS1 свой коммит с ключами, за ним коммит подписавшего — отказ по ключу, лечение ключа напечатано" "код $rc; вывод: $out"
+cured="$(cure_verbatim "$out")"; crc=$?
+probe "$( [ "$crc" = 0 ] && [ "$(pg_remote_sha "$box" ws-strip)" = "$(git -C "$ws" rev-parse ws-strip)" ] && echo да || echo нет)" \
+    "WS1 лечение ключа исполнено ДОСЛОВНО, повторная отправка через хук прошла" "код $crc; напечатано: $(cures "$out"); вывод: $cured"
+probe "$( [ "$(ids "$srv" refs/heads/ws-strip)" = "$s_ids" ] && [ "$(ids "$srv" refs/heads/ws-strip~1)" = "$k_ids" ] && ! git --git-dir="$srv" log -2 --format=%B refs/heads/ws-strip | grep -qiE '^(co-authored-by|claude-session)' && echo да || echo нет)" \
+    "WS1 на «сервере»: коммит подписавшего и свой — прежние автор, коммиттер, даты, дерево; ключей нет" \
+    "подписавший: было «$s_ids», стало «$(ids "$srv" refs/heads/ws-strip)»; свой: было «$k_ids», стало «$(ids "$srv" refs/heads/ws-strip~1)»"
+# WS2: строка ключа без адреса снимается, строка соавтора вне ведомости — нет.
+git -C "$ws" checkout -q -b ws-human "$w_sig"
+work own-ws2.txt "свой" >/dev/null
+git -C "$ws" commit -q -m "свой с двумя ключами" -m "Claude-Session: https://claude.ai/code/session_push_gate" -m "Co-authored-by: Human <human@push-gate.invalid>"
+out="$( cd "$ws" && git push origin ws-human 2>&1 )"; rc=$?
+cured="$(cure_verbatim "$out")"; crc=$?
+probe "$( [ "$rc" != 0 ] && [ "$crc" != 0 ] && [ -z "$(pg_remote_sha "$box" ws-human)" ] && pg_has "$cured" "human@push-gate.invalid" && git -C "$ws" log -1 --format=%B ws-human | grep -q '^Co-authored-by: Human <human@push-gate.invalid>$' && echo да || echo нет)" \
+    "WS2 соавтор вне ведомости: лечение дословно не скрывает его строку — снова отказ, ветки на «сервере» нет" "код $rc/$crc; напечатано: $(cures "$out"); вывод: $cured"
 # Ствол возвращается к ведомости пробы НОВОЙ посадкой поверх поздней редакции, а не
 # перемоткой: сервер ствол назад не двигает.
 git -C "$ws" checkout -q w-line
@@ -284,6 +354,9 @@ GIT_COMMITTER_EMAIL="$SESSION" GIT_COMMITTER_NAME=session git -C "$ws" tag -a tg
 out="$(t_push tg-foreign)"; rc=$?
 probe "$( [ "$rc" != 0 ] && pg_has "$out" "автор тега" "$SESSION" && ! git --git-dir="$srv" rev-parse -q --verify refs/tags/tg-foreign >/dev/null && echo да || echo нет)" \
     "T аннотированный тег на опубликованный коммит, автор тега подставлен — отказ, тега на «сервере» нет" "код $rc; вывод: $out"
+cured="$(cure_verbatim "$out")"; crc=$?
+probe "$( [ -z "$(rewrites "$out")" ] && [ "$crc" != 0 ] && ! git --git-dir="$srv" rev-parse -q --verify refs/tags/tg-foreign >/dev/null && echo да || echo нет)" \
+    "T чужой автор тега: пересоздания своей личностью не напечатано, после лечения дословно — снова отказ" "код $crc; напечатано: $(cures "$out")"
 git -C "$ws" tag -a tg-attr -m "выпуск" -m "Co-authored-by: Claude <noreply@anthropic.com>" "$clean"
 out="$(t_push tg-attr)"; rc=$?
 probe "$( [ "$rc" != 0 ] && pg_has "$out" "ключ атрибуции" "Co-authored-by" && echo да || echo нет)" \
@@ -320,15 +393,15 @@ cured="$(cure_verbatim "$out")"; crc=$?
 probe "$( [ "$crc" = 0 ] && [ "$(published)" = "$(git -C "$ws" rev-parse HEAD)" ] && pg_has "$cured" "узкой форме" && echo да || echo нет)" \
     "H напечатанная отправка с флагом исполнена ДОСЛОВНО — ревизия несёт ведомость, всё своё: проходит в узкой форме" "код $crc; вывод: $cured"
 clean="$(published)"
-edit; GIT_AUTHOR_EMAIL="$SESSION" GIT_AUTHOR_NAME=session git -C "$ws" commit -q -m "H чужой при стволе без ведомости"
+h_blob="$(work work-h-session.txt "work of $SESSION under the flag")"
+GIT_AUTHOR_EMAIL="$SESSION" GIT_AUTHOR_NAME=session git -C "$ws" commit -q -m "H чужой при стволе без ведомости"
 out="$(push)"; rc=$?
 cured="$(cure_verbatim "$out")"; crc=$?
 probe "$( [ "$crc" != 0 ] && [ "$(published)" = "$clean" ] && pg_has "$cured" "$SESSION" "узкой форме" "личности нет в ведомости" && echo да || echo нет)" \
     "H флаг дословно, чужой коммит — узкая форма его не допускает, «сервер» не сдвинулся" "код $crc; вывод: $cured"
 cured2="$(cure_verbatim "$cured")"; crc=$?
-probe "$( [ "$crc" = 0 ] && [ "$(published)" = "$(git -C "$ws" rev-parse HEAD)" ] && ! idents "$srv" refs/heads/work "^$clean" | grep -qx "$SESSION" && echo да || echo нет)" \
-    "H лечение отказа в узкой форме дословно: переподпись и отправка С ФЛАГОМ проходят, $SESSION на «сервере» нет" "код $crc; напечатано: $(cures "$cured"); вывод: $cured2"
-clean="$(published)"
+probe "$( [ -z "$(rewrites "$cured")" ] && [ "$crc" != 0 ] && [ "$(published)" = "$clean" ] && ! on_srv "$srv" "$h_blob" && pg_has "$(cures "$cured")" "KACHO_CLA_FIRST_LANDING=1 git push" && echo да || echo нет)" \
+    "H лечение отказа в узкой форме дословно: переписи нет, отправка С ФЛАГОМ — снова отказ, работы $SESSION на «сервере» нет" "код $crc; напечатано: $(cures "$cured"); вывод: $cured2"
 git -C "$ws" reset -q --hard "$clean"
 pg_ledger "$ws" "  - email: $SESSION
     note: своя личность, объявленная самой ревизией первой посадки
@@ -530,7 +603,7 @@ out="$( cd "$ws" && bash scripts/hooks/pre-push origin </dev/null 2>&1 )"; rc=$?
 probe "$( [ "$rc" = 0 ] && pg_has "$out" "НЕ судились" && echo да || echo нет)" \
     "J хук без диапазона на stdin: граница названа («НЕ судились»), а не молчание" "код $rc; вывод: $out"
 
-pg_census "$NAME: песочниц с bare-«сервером» $(pg_sandboxes "$TMP"); проб исполнено $probes, провалено $failed (A свой · B автор · C коммиттер · D соавтор/проза · E освобождённый · F/F' ведомость ветки против ствола · W две редакции, лечение дословно · T аннотированный тег · G опубликованное · H ведомости нет в ревизии и в стволе · M разборщика нет · K исход 2 · L ссылка отслеживания · P pushurl · Q посадка сервером · R публиковать нечего · S пустое зеркало · N задержка stdin · I снятие · J без диапазона)"
+pg_census "$NAME: песочниц с bare-«сервером» $(pg_sandboxes "$TMP"); проб исполнено $probes, провалено $failed (A свой · B автор · C коммиттер · D соавтор/проза · E освобождённый · F/F' ведомость ветки против ствола · W две редакции, лечение дословно · WS лечение ключа · T аннотированный тег · G опубликованное · H ведомости нет в ревизии и в стволе · M разборщика нет · K исход 2 · L ссылка отслеживания · P pushurl · Q посадка сервером · R публиковать нечего · S пустое зеркало · N задержка stdin · I снятие · J без диапазона)"
 if [ "$failed" -gt 0 ]; then
     pg_fail "$NAME — проб с находкой: $failed"
     exit 1

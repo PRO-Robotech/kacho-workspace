@@ -27,7 +27,11 @@
                 (`KACHO_CLA_FIRST_LANDING=1`), и лишь ревизии, которая сама несёт
                 ведомость, — в самой узкой её форме. Ведомость читается ПОСЛЕ
                 вычитания опубликованного: ссылке, которая не публикует ничего, она не
-                нужна. Исполнимое лечение отказа печатается строкой `лечение$ …`.
+                нужна. Исполнимое лечение отказа печатается строкой `лечение$ …`, и
+                исполнимо в нём только снятие строки ключа атрибуции (автор, коммиттер
+                и автор тега остаются прежними). Переподписи нет: лечения находки
+                личности — посадки, «ведомость вашего адреса должна сначала сесть в
+                ствол» и «влейте ствол».
     census      таблица суждения отправки по произвольному диапазону
                 (`census --remote origin -- <ветка> --not --glob=refs/remotes/origin/*`) —
                 диагностика по ведомости СТВОЛА названного remote (той же, что судит
@@ -740,67 +744,133 @@ def refspecs(items):
     return " ".join(q("%s:%s" % (it["lref"], it["rref"])) for it in items)
 
 
-RESIGN_EXEC = ('git log -1 --format=%B | grep -viE "^(co-authored-by|claude-session)[[:space:]]*:" '
-               '| git commit -q --amend --reset-author -F -')
-UNSET_ID = "env -u GIT_AUTHOR_NAME -u GIT_AUTHOR_EMAIL -u GIT_COMMITTER_NAME -u GIT_COMMITTER_EMAIL"
+# ── лечение: только ключ атрибуции, и никогда — чужая личность ───────────────
+#
+# ПЕРЕПОДПИСИ В ЛЕЧЕНИИ НЕТ — ни командой, ни советом. Коммит и тег адреса вне
+# ведомости ствола, переподписанные своей личностью, публикуют его вклад под вашим
+# именем, и ведомость ствола об этом не узнаёт никогда (находка приёмки круга 1:
+# печатавшееся для любой находки `rebase --exec 'commit --amend --reset-author'`
+# покрывало весь диапазон от родителя первой находки и выпускало на сервер работу
+# stranger@, слияние и боковой коммит, коммиты под флагом первой посадки — от имени
+# отправителя; заодно переписывался законный коммит подписавшего). Лечений личности
+# два, и оба — посадкой, а не правкой ветки: «ведомость вашего адреса должна сначала
+# сесть в ствол» и «влейте ствол».
+#
+# Исполнимо ОДНО: снять строку ключа атрибуции из сообщения. Автор, коммиттер и даты
+# остаются записанными в коммите (`git filter-branch --msg-filter` переносит их из
+# исходного), автор тега — в теге. Снимается не всякая строка ключа: строка соавтора,
+# которого ведомость соавтором не покрывает, после снятия скрыла бы его вклад, — её
+# лечение не трогает, и отказ остаётся (лечение, открывающее то, что закрыто, хуже
+# отсутствия лечения). Переписываются только коммиты с такой находкой: ветку
+# `filter-branch` проходит целиком, но сообщение меняет лишь им (`$GIT_COMMIT`).
+
+# Адрес, который безопасно подставить в выражение sed без экранирования смысла.
+SED_SAFE_EMAIL = re.compile(r"[a-z0-9._%+@-]+")
 
 
-def print_cures(root, items, findings, neg, auth, first):
-    """Исполнимое лечение находок: строки `лечение$ …` — команда целиком.
+def covered_coauthors(led):
+    """Адреса, которые ведомость покрывает в роли соавтора отправки."""
+    out = set()
+    for s in ALLOW["push"][ROLE_COAUTHOR]:
+        out |= set(led[s])
+    return out
 
-    Полномочия у ствола, поэтому лечение не переносит в ветку ни одной редакции
-    ведомости (прежнее «git cherry-pick <первая редакция>» вносило самую раннюю и
-    самую широкую из них и открывало отправку адреса «только история»). Два исхода:
-    ведомость вашего адреса сначала садится в ствол — либо неопубликованное
-    переподписывается своей личностью. Опубликованное не переписывается никогда:
-    команда печатается, только если весь переписываемый диапазон неопубликован.
+
+def strippable_keys(body, covered):
+    """Строки ключа атрибуции, которые лечение вправе снять: `Claude-Session` (адреса
+    не несёт) и `Co-authored-by` с адресом, покрытым ведомостью соавтором."""
+    out = []
+    for m in ATTRIBUTION_RE.finditer(body):
+        line = body[m.start():].split("\n", 1)[0]
+        if m.group(1).lower() == "claude-session":
+            out.append(line)
+            continue
+        em = email_of(line.split(":", 1)[1])[0]
+        if em and em in covered and SED_SAFE_EMAIL.fullmatch(em):
+            out.append(line)
+    return out
+
+
+def strip_sed(covered):
+    """Программа `sed -E` (флаг I — без учёта регистра), снимающая ровно те строки,
+    что называет `strippable_keys`, — формы адреса те же, что у `email_of`."""
+    addrs = sorted(e for e in covered if SED_SAFE_EMAIL.fullmatch(e))
+    alt = "|".join(e.replace(".", "[.]").replace("+", "[+]") for e in addrs)
+    coauthor = ("|co-authored-by[[:space:]]*:([[:space:]]*(%s)|.*<(%s)>)[[:space:]]*$" % (alt, alt)
+                if alt else "")
+    return "/^(claude-session[[:space:]]*:%s)/Id" % coauthor
+
+
+def print_cures(root, items, neg, auth, trunk, strip):
+    """Лечение находок. Строки `лечение$ …` — команда целиком, их исполняют дословно.
+
+    `strip` — {sha коммита либо объекта тега: программа sed} для находок, у которых
+    лечение снимает строку ключа атрибуции (`strippable_keys`). Находке личности
+    исполнимого лечения нет: её лечения — посадки (см. выше). Опубликованное не
+    переписывается никогда: команда печатается, только если весь переписываемый
+    диапазон ветки не опубликован.
     """
-    bad = {f[0] for f in findings}
+    tsha = trunk[1] if trunk else ""
     print("  Лечение без обхода. Полномочия — у ведомости %s; ведомость ветки круг допущенных не "
-          "расширяет, и переносить в ветку её прежние редакции бесполезно." % auth, file=sys.stderr)
+          "расширяет." % auth, file=sys.stderr)
     print("  · Адресу место в перечне — ведомость вашего адреса должна сначала сесть в ствол "
           "(отдельное изменение через ревью и посадку), затем повторите ту же отправку.", file=sys.stderr)
-    print("  · Это ваш коммит под не той подписью (подстановка окружением) либо с ключом атрибуции — "
-          "переподпишите неопубликованное своей личностью (user.email копии) и повторите отправку:",
-          file=sys.stderr)
+    if tsha:
+        print("  · Ветке нужна ведомость ствола — влейте ствол (git merge %s); прежние редакции "
+              "ведомости в ветку не переносите: самая ранняя из них — самая широкая." % tsha[:12],
+              file=sys.stderr)
+    print("  · Переподписи здесь нет и не будет: коммит и тег адреса вне ведомости, переподписанные "
+          "своей личностью, опубликовали бы его вклад под вашим именем.", file=sys.stderr)
+    if strip:
+        print("  · Ключ атрибуции снимается из сообщения; автор, коммиттер и автор тега остаются "
+              "записанными в объекте:", file=sys.stderr)
     for it in items:
-        order = [s for s in rev_list(root, [it["commit"], *neg], "--topo-order", "--reverse") if s in bad]
+        order = [s for s in rev_list(root, [it["commit"], *neg], "--topo-order", "--reverse") if s in strip]
         if order:
             parents = git(root, "rev-list", "--parents", "-n", "1", order[0]).stdout.split()
-            upstream = parents[1] if len(parents) > 1 else "--root"
-            span = rev_list(root, [it["commit"]] + (["^" + upstream] if upstream != "--root" else []))
+            upstream = parents[1] if len(parents) > 1 else ""
+            span = rev_list(root, [it["commit"]] + (["^" + upstream] if upstream else []))
             lref = it["lref"]
-            target = (lref[len("refs/heads/"):] if lref.startswith("refs/heads/")
-                      else "" if lref == "HEAD" else None)
             if set(span) - set(it["fresh"]):
                 print("    %s: в переписываемом диапазоне от %s есть опубликованные коммиты — команду не "
-                      "печатаю: опубликованное не переписывается; переподпишите вручную только "
-                      "названные выше" % (lref, order[0][:12]), file=sys.stderr)
-            elif target is None:
-                print("    %s — не ветка: переподпишите названные выше коммиты на ветке и отправьте её"
+                      "печатаю: опубликованное не переписывается; снимите ключ вручную только в "
+                      "названных выше" % (lref, order[0][:12]), file=sys.stderr)
+            elif not lref.startswith("refs/heads/"):
+                print("    %s — не ветка: снимите ключ в названных выше коммитах на ветке и отправьте её"
                       % lref, file=sys.stderr)
             else:
-                cmd = "%s git rebase -q --rebase-merges --exec %s %s" % (
-                    UNSET_ID, q(RESIGN_EXEC), upstream if upstream == "--root" else q(upstream))
-                if target:
-                    cmd += " " + q(target)
-                print(CURE + cmd, file=sys.stderr)
+                branch = lref[len("refs/heads/"):]
+                seds = {strip[s] for s in order}
+                arms = " ".join("%s) sed -E %s ;;" % ("|".join(s for s in order if strip[s] == p), q(p))
+                                for p in sorted(seds))
+                rng = "%s..%s" % (upstream, branch) if upstream else branch
+                print(CURE + "FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f --msg-filter %s -- %s"
+                      % (q("case $GIT_COMMIT in %s *) cat ;; esac" % arms), q(rng)), file=sys.stderr)
         for t in it["tags"]:
-            if t not in bad:
+            if t not in strip:
                 continue
-            if not it["lref"].startswith("refs/tags/"):
-                print("    %s — объект тега %s не под локальным тегом: пересоздайте его своей личностью"
-                      % (it["lref"], t[:12]), file=sys.stderr)
+            if not it["lref"].startswith("refs/tags/") or it["tags"] != [it["lsha"]]:
+                print("    %s — объект тега %s не единственный под локальным тегом: пересоздайте его без "
+                      "строки ключа сами, автора тега не меняя" % (it["lref"], t[:12]), file=sys.stderr)
                 continue
-            name = it["lref"][len("refs/tags/"):]
+            head = git(root, "cat-file", "tag", t).stdout.partition("\n\n")[0]
+            tagger = next((ln[len("tagger "):] for ln in head.splitlines() if ln.startswith("tagger ")), "")
+            m = re.match(r"^(.*?)\s*<([^<>]*)>\s*(\d+ [+-]\d{4})$", tagger)
+            if not m:
+                print("    %s — автор тега %s не разобран: пересоздайте тег сами" % (it["lref"], t[:12]),
+                      file=sys.stderr)
+                continue
+            obj = next((ln[len("object "):] for ln in head.splitlines() if ln.startswith("object ")), "")
             print(CURE + "git cat-file tag %s | sed '1,/^$/d' | sed '/^-----BEGIN .*SIGNATURE-----$/,$d' | "
-                  "grep -viE '^(co-authored-by|claude-session)[[:space:]]*:' | %s git tag -f -a -F - %s %s"
-                  % (t, UNSET_ID, q(name), it["commit"]), file=sys.stderr)
+                  "sed -E %s | GIT_COMMITTER_NAME=%s GIT_COMMITTER_EMAIL=%s GIT_COMMITTER_DATE=%s "
+                  "git tag -f -a --cleanup=verbatim -F - %s %s"
+                  % (t, q(strip[t]), q(m.group(1)), q(m.group(2)), q(m.group(3)),
+                     q(it["lref"][len("refs/tags/"):]), obj), file=sys.stderr)
     # Под флагом первой посадки ствол ведомости по-прежнему не несёт: повторная
     # отправка без флага получила бы «условие не создано», и лечение не исполнилось бы.
     print("  Затем та же отправка:", file=sys.stderr)
-    print(CURE + "%sgit push %s %s" % ("%s=1 " % FIRST_LANDING_ENV if first else "", q(items[0]["remote"]),
-                                       refspecs(items)), file=sys.stderr)
+    print(CURE + "%sgit push %s %s" % ("%s=1 " % FIRST_LANDING_ENV if not tsha else "",
+                                       q(items[0]["remote"]), refspecs(items)), file=sys.stderr)
 
 
 def judge_push(root, rel, pushes, remote, target, label, first):
@@ -892,13 +962,20 @@ def judge_push(root, rel, pushes, remote, target, label, first):
         auth = "первой посадки (%s)" % trunk_txt
 
     findings, by, ids, seen, past_n, tags_n, used = [], Counter(), set(), set(), 0, 0, []
+    strip = {}
     for led, its in judges:
         used.append(led["path"])
         recs = [r for r in commits(root, [], stdin_revs=[*(it["commit"] for it in its), *neg])
                 if r.sha not in seen]
-        past, _, f, b, i, _ = judge_split(root, led, recs, "push")
+        past, new, f, b, i, _ = judge_split(root, led, recs, "push")
         tag_recs = [read_tag(root, t)[0] for it in its for t in it["tags"] if t not in seen]
         f2, b2, i2, _ = judge(tag_recs, led, "push")
+        # Ключ атрибуции судится только в новом (после границы) и в объектах тегов —
+        # только там у лечения есть предмет.
+        cov = covered_coauthors(led)
+        for r in new + tag_recs:
+            if strippable_keys(r.body, cov):
+                strip[r.sha] = strip_sed(cov)
         findings += f + f2
         by += b + b2
         ids |= i | i2
@@ -923,7 +1000,7 @@ def judge_push(root, rel, pushes, remote, target, label, first):
         print("pre-push: ОТКАЗ — отправка опубликовала бы подпись вне ведомости %s либо ключ атрибуции "
               "(%d):" % (auth, len(findings)), file=sys.stderr)
         print_findings(findings)
-        print_cures(root, items, findings, neg, auth, tblob is None)
+        print_cures(root, items, neg, auth, trunk if tblob is not None else None, strip)
         print("  Коммит и тег, уже опубликованные где-либо, не переписываются: их личность — решение "
               "владельца записью в ведомости ствола. Обход один и явный: git push --no-verify.",
               file=sys.stderr)

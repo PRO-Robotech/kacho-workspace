@@ -79,10 +79,13 @@ mutant_descr=(
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|объект аннотированного тега снова не судится (круг 3)"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|ствол без ведомости снова не «условие не создано», а проход без флага"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение первой посадки снова печатает повторную отправку без флага"
-    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение снова не переподписывает — напечатанная команда не исполняет обещанного"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа снова не снимает ключ — напечатанная команда не исполняет обещанного"
     "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|отправка отказывает своей личности — положительная половина не должна стать «без предмета» (круг 1, находка 5)"
     "check-01-hook-stub-refuses-without-target|scripts/hooks/pre-push|хук отказывает каждой судимой отправке — положительная половина не должна стать «без предмета» (круг 1, находка 5)"
     "check-01-hook-stub-refuses-without-target|scripts/hooks/install.sh|установщик предмета отказывает после провязки — сборка песочницы не должна стать «без предмета»"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа переподписывает коммиты диапазона личностью копии (круг 1, находка 1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение ключа снимает и строку соавтора вне ведомости — его вклад скрыт (круг 1, находка 1)"
+    "check-02-push-range-judges-identities|scripts/cla-gate/cla.py|лечение печатает перепись и для находки личности (круг 1, находка 1)"
 )
 
 apply_mutant() {  # <номер> <корень> — 0 применено, 1 строка не найдена
@@ -175,11 +178,11 @@ M = [
      '        if not first:\n            print(head, file=sys.stderr)\n',
      '        if False:\n            print(head, file=sys.stderr)\n'),
     ("scripts/cla-gate/cla.py",
-     '        print_cures(root, items, findings, neg, auth, tblob is None)\n',
-     '        print_cures(root, items, findings, neg, auth, False)\n'),
+     '        print_cures(root, items, neg, auth, trunk if tblob is not None else None, strip)\n',
+     '        print_cures(root, items, neg, auth, trunk, strip)\n'),
     ("scripts/cla-gate/cla.py",
-     "               '| git commit -q --amend --reset-author -F -')\n",
-     "               '| git commit -q --amend -F -')\n"),
+     '                arms = " ".join("%s) sed -E %s ;;" % (',
+     '                arms = " ".join("%s) cat %.0s;;" % ('),
     ("scripts/cla-gate/cla.py",
      '    "push": {\n        ROLE_AUTHOR: ("owners", "signatories"),\n',
      '    "push": {\n        ROLE_AUTHOR: ("signatories",),\n'),
@@ -189,6 +192,15 @@ M = [
     ("scripts/hooks/install.sh",
      'wired=${#installed[@]}\n',
      'exit 1\n'),
+    ("scripts/cla-gate/cla.py",
+     'git filter-branch -f --msg-filter %s',
+     "git filter-branch -f --env-filter 'export GIT_AUTHOR_NAME=$(git config user.name) GIT_AUTHOR_EMAIL=$(git config user.email) GIT_COMMITTER_NAME=$(git config user.name) GIT_COMMITTER_EMAIL=$(git config user.email)' --msg-filter %s"),
+    ("scripts/cla-gate/cla.py",
+     '    return "/^(claude-session[[:space:]]*:%s)/Id" % coauthor\n',
+     '    return "/^(claude-session|co-authored-by)[[:space:]]*:/Id"\n'),
+    ("scripts/cla-gate/cla.py",
+     '            if strippable_keys(r.body, cov):\n',
+     '            if True:\n'),
 ]
 path, old, new = M[n]
 p = root + "/" + path

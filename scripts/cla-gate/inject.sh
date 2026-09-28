@@ -350,19 +350,28 @@ srv() {
 }
 # cures — исполнимые строки лечения ПОСЛЕДНЕГО отказа («лечение$ <команда>»), по одной.
 cures() { printf '%s\n' "$last_out" | sed -n 's/^  лечение\$ //p'; }
+# rewrites — те из них, что ПЕРЕПИСЫВАЮТ (всё, кроме отправки).
+rewrites() { cures | grep -vE '^(KACHO_CLA_FIRST_LANDING=1 )?git push ' || true; }
 # run_cures <репо> — исполняет ДОСЛОВНО каждую напечатанную команду лечения, кроме
 # отправки (её судит проба `push_printed` тем же суждением, которое позвал бы хук).
-# Исполнено ноль — провал: лечение, которого нет, не лечит.
+# Число исполненных — в `cured_n`: у находки ЛИЧНОСТИ исполнимой переписи нет, и ноль
+# там — ожидаемое, а у находки ключа — провал («лечение, которого нет, не лечит»);
+# решает проба, а не этот помощник.
+cured_n=0
 run_cures() {
-    local d="$1" cmd n=0
+    local d="$1" cmd
+    cured_n=0
     while IFS= read -r cmd; do
         [ -n "$cmd" ] || continue
-        [[ "$cmd" =~ ^(KACHO_CLA_FIRST_LANDING=1\ )?git\ push\  ]] && continue
         ( cd "$d" && bash -c "$cmd" ) >/dev/null 2>&1 || { echo "    лечение не исполнилось: $cmd" >&2; return 1; }
-        n=$((n + 1))
-    done < <(cures)
-    [ "$n" -gt 0 ]
+        cured_n=$((cured_n + 1))
+    done < <(rewrites)
+    return 0
 }
+# work_of <репо> <ревизия> <файл> — «автор коммиттер» коммита, который ВНЁС файл в
+# историю ревизии. Работа чужого адреса опознаётся по содержимому, а не по подписи:
+# переподпись меняет подпись, и сверка одних `%ae/%ce` после лечения ничего не видит.
+work_of() { git -C "$1" log --format='%ae %ce' --diff-filter=A "$2" -- "$3" | tail -1; }
 # push_printed <ожидаемый код> <метка> <репо> [<подстрока>…] — напечатанная отказом
 # отправка («git push <remote> <лок>:<удал>…», с флагом или без) как строки pre-push,
 # которые git подал бы хуку на эту команду, — и суждение по ним.
@@ -594,32 +603,41 @@ w_narrow="$(git -C "$dw" rev-parse HEAD)"
 s_w="$(srv w-srv "$dw" "$w_narrow")"
 check "$( [ "$(git -C "$dw" log --format=%h -- contribution-ledger.yaml | wc -l)" -ge 2 ] && git -C "$dw" show "$w_wide:contribution-ledger.yaml" | grep -q 'old@' && echo да || echo нет)" \
     "W предпосылка: редакций ведомости две и больше, ранняя шире (old@ в её owners)"
-# w_branch <имя> <от> <адрес автора и коммиттера> — ветка с одним новым коммитом.
+# w_branch <имя> <от> <адрес автора и коммиттера> — ветка с одним новым коммитом; его
+# работа — отдельный файл `work-<имя>.txt`, по которому её опознаёт `work_of`.
 w_branch() {
     git -C "$dw" checkout -q -b "$1" "$2"
-    echo "$1" >> "$dw/f.txt"; git -C "$dw" add -A
+    echo "work of $3 on $1" > "$dw/work-$1.txt"; git -C "$dw" add -A
     GIT_AUTHOR_EMAIL="$3" GIT_AUTHOR_NAME=x GIT_COMMITTER_EMAIL="$3" GIT_COMMITTER_NAME=x git -C "$dw" commit -q -m "коммит $3"
 }
-# w_cured <метка> <ветка> <запретный адрес> — лечение исполнено дословно; напечатанная
-# отправка проходит; в диапазоне ветки сверх ствола нет запретного адреса.
+# w_cured <метка> <репо> <ветка> <запретный адрес> <файл его работы>
+# — каждая напечатанная команда лечения исполнена ДОСЛОВНО; переписи для находки
+# личности не напечатано; напечатанная отправка после лечения — СНОВА отказ (ни одно
+# лечение не открывает адрес вне ведомости ствола); работа запретного адреса по-прежнему
+# записана за ним (переподписи нет). Находка приёмки круга 1: лечение переподписывало
+# весь диапазон, отправка после него проходила, а сверка `%ae/%ce` диапазона — ровно
+# то, что переподпись переписывает, — была слепа к этому по устройству.
 w_cured() {
-    local ok=да
-    run_cures "$dw" || ok=нет
-    check "$ok" "$1: команды лечения напечатаны и исполнены дословно" "$(cures | head -3)"
-    push_printed 0 "$1: напечатанная отправка после лечения проходит" "$dw" "публикуемых коммитов"
-    check "$( idents "$dw" "$2" "^$w_narrow" | grep -qx "$3" && echo нет || echo да)" \
-        "$1: после лечения на отправку не идёт ни одного коммита $3" "$(idents "$dw" "$2" "^$w_narrow" | tr '\n' ' ')"
+    local label="$1" d="$2" b="$3" who="$4" file="$5" ok=да
+    run_cures "$d" || ok=нет
+    check "$( [ "$ok" = да ] && [ "$cured_n" = 0 ] && echo да || echo нет)" \
+        "$label: переписи для находки личности не напечатано — исполнено строк переписи $cured_n" "$(rewrites | head -3)"
+    push_printed 1 "$label: напечатанная отправка после лечения — снова отказ, адрес $who не открыт" "$d" "$who"
+    check "$( [ "$(work_of "$d" "$b" "$file")" = "$who $who" ] && echo да || echo нет)" \
+        "$label: работа $who ($file) после лечения по-прежнему записана за $who — переподписи нет" \
+        "внёс: $(work_of "$d" "$b" "$file")"
 }
 w_branch wl "$w_wide" old@cla-inject.invalid
 probe_push 1 "W1 ветка от РАННЕЙ широкой редакции, коммит адреса «только история» — отказ: судит ствол, а не ведомость ветки" \
     "$dw" "$s_w" "refs/heads/wl $(git -C "$dw" rev-parse wl) refs/heads/wl $Z" "old@cla-inject.invalid" "вперёд запрет" "ствол main@"
-check "$( [[ "$last_out" != *"cherry-pick"* ]] && echo да || echo нет)" "W1 лечение не переносит в ветку ни одной редакции ведомости (нет cherry-pick)"
-w_cured "W1" wl old@cla-inject.invalid
+check "$( [[ "$last_out" != *"cherry-pick"* ]] && [[ "$last_out" == *"влейте ствол"* ]] && echo да || echo нет)" \
+    "W1 лечение называет «влейте ствол» и не переносит в ветку ни одной редакции ведомости (нет cherry-pick)"
+w_cured "W1" "$dw" wl old@cla-inject.invalid work-wl.txt
 git -C "$dw" checkout -q main
 w_branch ws "$w_wide" stranger@cla-inject.invalid
 probe_push 1 "W2 ветка от ранней редакции, где stranger@ подписавший, — отказ: в стволе его нет" \
     "$dw" "$s_w" "refs/heads/ws $(git -C "$dw" rev-parse ws) refs/heads/ws $Z" "stranger@cla-inject.invalid" "личности нет в ведомости" "сначала сесть в ствол"
-w_cured "W2" ws stranger@cla-inject.invalid
+w_cured "W2" "$dw" ws stranger@cla-inject.invalid work-ws.txt
 git -C "$dw" checkout -q main
 w_branch wo "$w_pre" "$OWNER"
 probe_push 0 "W3 близнец: ветка, отрезанная ДО ведомости, со своим коммитом — судит ствол, проходит без лечения" \
@@ -628,7 +646,33 @@ git -C "$dw" checkout -q main
 w_branch wp "$w_pre" old@cla-inject.invalid
 probe_push 1 "W4 ветка до ведомости, коммит адреса «только история» — отказ ведомостью ствола" \
     "$dw" "$s_w" "refs/heads/wp $(git -C "$dw" rev-parse wp) refs/heads/wp $Z" "old@cla-inject.invalid" "вперёд запрет"
-w_cured "W4" wp old@cla-inject.invalid
+w_cured "W4" "$dw" wp old@cla-inject.invalid work-wp.txt
+git -C "$dw" checkout -q main
+# W6: чужой коммит (его работа — отдельный файл), за ним свой коммит с соавтором вне
+# ведомости. Строку этого соавтора лечение не снимает: снятие скрыло бы его вклад.
+git -C "$dw" checkout -q -b lw "$w_narrow"
+echo "work of stranger" > "$dw/work-lw.txt"; git -C "$dw" add -A
+GIT_AUTHOR_EMAIL=stranger@cla-inject.invalid GIT_AUTHOR_NAME=stranger GIT_COMMITTER_EMAIL=stranger@cla-inject.invalid GIT_COMMITTER_NAME=stranger git -C "$dw" commit -q -m "работа stranger"
+echo own >> "$dw/f.txt"; git -C "$dw" add -A
+git -C "$dw" commit -q -m "свой с соавтором" -m "Co-authored-by: Human <human@cla-inject.invalid>"
+probe_push 1 "W6 чужой коммит и свой с соавтором вне ведомости — отказ называет обоих" \
+    "$dw" "$s_w" "refs/heads/lw $(git -C "$dw" rev-parse lw) refs/heads/lw $Z" "stranger@cla-inject.invalid" "human@cla-inject.invalid" "соавтор"
+w_cured "W6" "$dw" lw stranger@cla-inject.invalid work-lw.txt
+check "$(git -C "$dw" log -1 --format=%B lw | grep -q '^Co-authored-by: Human <human@cla-inject.invalid>$' && echo да || echo нет)" \
+    "W6 строка соавтора вне ведомости после лечения на месте — его вклад не скрыт"
+git -C "$dw" checkout -q main
+# W7: та же работа чужого адреса в форме слияния: боковой коммит и само слияние — stranger@.
+git -C "$dw" checkout -q -b lm-side "$w_narrow"
+echo "work of stranger, side" > "$dw/work-lm.txt"; git -C "$dw" add -A
+GIT_AUTHOR_EMAIL=stranger@cla-inject.invalid GIT_AUTHOR_NAME=stranger GIT_COMMITTER_EMAIL=stranger@cla-inject.invalid GIT_COMMITTER_NAME=stranger git -C "$dw" commit -q -m "боковой stranger"
+git -C "$dw" checkout -q -b lm "$w_narrow"
+echo own >> "$dw/f.txt"; git -C "$dw" commit -qam "свой до слияния"
+GIT_AUTHOR_EMAIL=stranger@cla-inject.invalid GIT_AUTHOR_NAME=stranger GIT_COMMITTER_EMAIL=stranger@cla-inject.invalid GIT_COMMITTER_NAME=stranger git -C "$dw" merge -q --no-ff --no-edit lm-side
+probe_push 1 "W7 слияние и боковой коммит адреса вне ведомости — отказ" \
+    "$dw" "$s_w" "refs/heads/lm $(git -C "$dw" rev-parse lm) refs/heads/lm $Z" "stranger@cla-inject.invalid"
+w_cured "W7" "$dw" lm stranger@cla-inject.invalid work-lm.txt
+check "$( [ "$(git -C "$dw" log -1 --format='%ae %ce' lm)" = "stranger@cla-inject.invalid stranger@cla-inject.invalid" ] && echo да || echo нет)" \
+    "W7 слияние после лечения по-прежнему записано за stranger@" "$(git -C "$dw" log -1 --format='%ae %ce' lm)"
 git -C "$dw" checkout -q main
 # W5: ветка РАСШИРЯЕТ свою ведомость и тут же пользуется записью.
 git -C "$dw" checkout -q -b wx "$w_narrow"
@@ -652,6 +696,75 @@ probe_push 0 "W5 близнец: та же запись СНАЧАЛА села 
     "$dw" "$s_w" "refs/heads/wx $w_x refs/heads/wx $Z" "публикуемых коммитов 1"
 git -C "$dw" checkout -q main
 
+# ── S: второе лечение личности — посадка записи в ствол; лечение ключа авторства не трогает ─
+#
+# Сервер w-srv2: его ствол — поздняя редакция плюс stranger@ в signatories, то есть
+# «ведомость адреса СНАЧАЛА села в ствол». Та же ветка ws, отказанная выше, проходит
+# с работой stranger@, записанной за stranger@ (W2 близнец). Лечение ключа
+# атрибуции снимает строку ключа и больше ничего: коммит подписавшего и его работа
+# остаются теми же объектами, у своего коммита автор, коммиттер и даты — прежние
+# (находка приёмки круга 1, вариант 7: законный коммит подписавшего переписывался на
+# отправителя).
+git -C "$dw" checkout -q -b wsig "$w_narrow"
+ledger "$dw" "signatories:
+  - email: stranger@cla-inject.invalid
+    note: запись села в ствол отдельной посадкой
+history_floor:
+  commit: $w_wide
+  note: граница поздней редакции
+history_only:
+  - email: old@cla-inject.invalid
+    note: поздняя редакция — прежний адрес только в истории"
+git -C "$dw" add -A; git -C "$dw" commit -q -m "ведомость ствола: stranger@ подписавший"
+w_sig="$(git -C "$dw" rev-parse HEAD)"
+s_w2="$(srv w-srv2 "$dw" "$w_sig")"
+git -C "$dw" checkout -q main
+probe_push 0 "W2 близнец: ведомость адреса СНАЧАЛА села в ствол — та же ветка ws проходит" \
+    "$dw" "$s_w2" "refs/heads/ws $(git -C "$dw" rev-parse ws) refs/heads/ws $Z" "публикуемых коммитов 1"
+check "$( [ "$(work_of "$dw" ws work-ws.txt)" = "stranger@cla-inject.invalid stranger@cla-inject.invalid" ] && echo да || echo нет)" \
+    "W2 близнец: работа stranger@ опубликована под его адресом, а не под адресом отправителя"
+# commit_msg <репо> <автор и коммиттер|-> <файл работы> <абзацы через |>
+commit_msg() {
+    local d="$1" who="$2" f="$3" part; local -a a=()
+    IFS='|' read -r -a parts <<<"$4"
+    for part in "${parts[@]}"; do a+=(-m "$part"); done
+    echo "$RANDOM $f" > "$d/$f"; git -C "$d" add -A
+    if [ "$who" = - ]; then git -C "$d" commit -q "${a[@]}"
+    else GIT_AUTHOR_EMAIL="$who" GIT_AUTHOR_NAME=x GIT_COMMITTER_EMAIL="$who" GIT_COMMITTER_NAME=x git -C "$d" commit -q "${a[@]}"; fi
+}
+# W8: свой коммит с ключами, ЗА НИМ законный коммит подписавшего — он внутри
+# переписываемого диапазона, и родитель у него после лечения новый. Всё остальное —
+# автор, коммиттер, даты, дерево, сообщение — обязано остаться прежним.
+ids_of() { git -C "$1" log -1 --format='%an|%ae|%ad|%cn|%ce|%cd|%T|%B' "$2"; }
+git -C "$dw" checkout -q -b lk "$w_sig"
+GIT_AUTHOR_DATE="1700000000 +0300" GIT_COMMITTER_DATE="1700000100 +0300" \
+    commit_msg "$dw" - own-lk.txt "свой с ключами|Claude-Session: https://claude.ai/code/session_inject|Co-authored-by: Signed <stranger@cla-inject.invalid>"
+k_ids="$(ids_of "$dw" lk | sed '/^Claude-Session/d; /^Co-authored-by/d')"
+GIT_AUTHOR_DATE="1700000200 +0300" GIT_COMMITTER_DATE="1700000300 +0300" \
+    commit_msg "$dw" stranger@cla-inject.invalid work-lk.txt "работа подписавшего"
+s_ids="$(ids_of "$dw" lk)"
+probe_push 1 "W8 свой коммит с ключами атрибуции (соавтор — подписавший), за ним коммит подписавшего — отказ по ключу" \
+    "$dw" "$s_w2" "refs/heads/lk $(git -C "$dw" rev-parse lk) refs/heads/lk $Z" "ключ атрибуции" "Claude-Session"
+run_cures "$dw"; k_rc=$?
+check "$( [ "$k_rc" = 0 ] && [ "$cured_n" = 1 ] && [[ "$(rewrites)" == *"filter-branch"* ]] && echo да || echo нет)" \
+    "W8 лечение ключа напечатано и исполнено дословно (строк переписи $cured_n)" "$(rewrites)"
+push_printed 0 "W8 напечатанная отправка после лечения ключа проходит" "$dw" "публикуемых коммитов 2"
+check "$( [ "$(ids_of "$dw" lk)" = "$s_ids" ] && echo да || echo нет)" \
+    "W8 коммит подписавшего внутри диапазона: автор, коммиттер, даты, дерево и сообщение прежние" "было «$s_ids», стало «$(ids_of "$dw" lk)»"
+check "$( [ "$(ids_of "$dw" lk~1)" = "$k_ids" ] && ! git -C "$dw" log -1 --format=%B lk~1 | grep -qiE '^(co-authored-by|claude-session)' && echo да || echo нет)" \
+    "W8 у своего коммита автор, коммиттер, даты и дерево прежние, строк ключа нет" "было «$k_ids», стало «$(ids_of "$dw" lk~1)»"
+git -C "$dw" checkout -q main
+# W9: строка ключа без адреса снимается, строка соавтора вне ведомости — нет.
+git -C "$dw" checkout -q -b lh "$w_sig"
+commit_msg "$dw" - own-lh.txt "свой с двумя ключами|Claude-Session: https://claude.ai/code/session_inject|Co-authored-by: Human <human@cla-inject.invalid>"
+probe_push 1 "W9 ключ без адреса и соавтор вне ведомости — отказ называет соавтора" \
+    "$dw" "$s_w2" "refs/heads/lh $(git -C "$dw" rev-parse lh) refs/heads/lh $Z" "human@cla-inject.invalid"
+run_cures "$dw"; h_rc=$?
+push_printed 1 "W9 после лечения — снова отказ: соавтор вне ведомости не скрыт" "$dw" "human@cla-inject.invalid"
+check "$( [ "$h_rc" = 0 ] && git -C "$dw" log -1 --format=%B lh | grep -q '^Co-authored-by: Human <human@cla-inject.invalid>$' && ! git -C "$dw" log -1 --format=%B lh | grep -qi '^claude-session' && echo да || echo нет)" \
+    "W9 лечение сняло строку Claude-Session и оставило строку соавтора вне ведомости" "$(git -C "$dw" log -1 --format=%B lh | tr '\n' '/')"
+git -C "$dw" checkout -q main
+
 # ── T: объект АННОТИРОВАННОГО тега судится, как коммит ─────────────────────────
 #
 # Находка приёмки круга 3: тег с чужим автором тега и трейлером атрибуции в
@@ -668,11 +781,13 @@ GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$d
 tag_push 1 "T1 аннотированный тег на опубликованный коммит, автор тега чужой — отказ, роль «автор тега»" t1 \
     "stray@cla-inject.invalid" "автор тега" "объектов тегов 1"
 run_cures "$dt"; t_cure=$?
-check "$( [ "$t_cure" = 0 ] && [ "$(git -C "$dt" for-each-ref --format='%(taggeremail)' refs/tags/t1)" = "<$OWNER>" ] && echo да || echo нет)" \
-    "T1 лечение тега исполнено дословно: тег пересоздан своей личностью"
-push_printed 0 "T1 напечатанная отправка тега после лечения проходит" "$dt" "объектов тегов 1"
+check "$( [ "$t_cure" = 0 ] && [ "$cured_n" = 0 ] && [ "$(git -C "$dt" for-each-ref --format='%(taggeremail)' refs/tags/t1)" = "<stray@cla-inject.invalid>" ] && echo да || echo нет)" \
+    "T1 переписи для чужого автора тега нет: тег не пересоздан своей личностью (строк переписи $cured_n)" "$(rewrites)"
+push_printed 1 "T1 напечатанная отправка тега после лечения — снова отказ" "$dt" "stray@cla-inject.invalid"
 git -C "$dt" tag -a t2 -m "выпуск" -m "Co-authored-by: Claude <noreply@anthropic.com>" HEAD
 tag_push 1 "T2 тег своей личности с ключом атрибуции в сообщении — отказ по ключу" t2 "Co-authored-by" "ключ атрибуции"
+check "$( [ -z "$(rewrites)" ] && echo да || echo нет)" \
+    "T2 строку соавтора вне ведомости лечение тега не снимает — команды нет" "$(rewrites)"
 git -C "$dt" tag -a t3 -m "выпуск" -m "Правило запрещает строку Co-authored-by: X <x@y> в сообщении тега." HEAD
 tag_push 0 "T близнец: тег своей личности, ключ только в прозе — проходит, объект тега судим" t3 "объектов тегов 1"
 GIT_COMMITTER_EMAIL=stray@cla-inject.invalid GIT_COMMITTER_NAME=stray git -C "$dt" tag -a t4in -m "внутренний" HEAD
@@ -703,16 +818,16 @@ signatories:
   - email: stranger@cla-inject.invalid
     note: расширение в ревизии первой посадки"
 git -C "$df" add -A; git -C "$df" commit -q -m "ведомость шире"
-commit_as "$df" evil@cla-inject.invalid "вклад evil"
-commit_as "$df" stranger@cla-inject.invalid "вклад stranger"
-FIRST=1 probe_push 1 "FL2 флаг: owners шире user.email и signatories — узкая форма их не допускает" \
-    "$df" "$s_f" "refs/heads/flw $(git -C "$df" rev-parse HEAD) refs/heads/flw $Z" "evil@cla-inject.invalid" "stranger@cla-inject.invalid" "узкую форму"
-run_cures "$df"; fl_c=$?
-check "$( [ "$fl_c" = 0 ] && cures | grep -q '^KACHO_CLA_FIRST_LANDING=1 git push ' && echo да || echo нет)" \
-    "FL2 лечение напечатано и исполнено дословно; повторная отправка напечатана С ФЛАГОМ (ствол всё ещё без ведомости)" "$(cures | tail -1)"
-push_printed 0 "FL2 напечатанная отправка после лечения проходит в узкой форме" "$df" "узкой форме"
-check "$( idents "$df" flw "^$f_base" | grep -qxE 'evil@cla-inject.invalid|stranger@cla-inject.invalid' && echo нет || echo да)" \
-    "FL2 после лечения на отправку не идёт ни evil@, ни stranger@" "$(idents "$df" flw "^$f_base" | tr '\n' ' ')"
+commit_msg "$df" evil@cla-inject.invalid work-fl-evil.txt "вклад evil"
+commit_msg "$df" stranger@cla-inject.invalid work-fl-stranger.txt "вклад stranger"
+commit_msg "$df" old@cla-inject.invalid work-fl-old.txt "вклад old"
+FIRST=1 probe_push 1 "FL2 флаг: owners шире user.email, signatories, чужой адрес — узкая форма их не допускает" \
+    "$df" "$s_f" "refs/heads/flw $(git -C "$df" rev-parse HEAD) refs/heads/flw $Z" "evil@cla-inject.invalid" "stranger@cla-inject.invalid" "old@cla-inject.invalid" "узкую форму"
+check "$(cures | grep -q '^KACHO_CLA_FIRST_LANDING=1 git push ' && echo да || echo нет)" \
+    "FL2 повторная отправка напечатана С ФЛАГОМ (ствол всё ещё без ведомости)" "$(cures | tail -1)"
+w_cured "FL2" "$df" flw evil@cla-inject.invalid work-fl-evil.txt
+check "$( [ "$(work_of "$df" flw work-fl-stranger.txt)" = "stranger@cla-inject.invalid stranger@cla-inject.invalid" ] && [ "$(work_of "$df" flw work-fl-old.txt)" = "old@cla-inject.invalid old@cla-inject.invalid" ] && echo да || echo нет)" \
+    "FL2 работа stranger@ и old@ после лечения по-прежнему записана за ними" "$(work_of "$df" flw work-fl-stranger.txt); $(work_of "$df" flw work-fl-old.txt)"
 git -C "$df" checkout -q -b flh "$f_led"
 commit_as "$df" old@cla-inject.invalid "вклад old"
 f_mv="$(git -C "$df" rev-parse HEAD)"
