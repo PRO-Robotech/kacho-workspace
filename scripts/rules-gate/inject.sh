@@ -156,9 +156,12 @@ capture() {
     RC=$?
 }
 
-# sandbox_ceiling <каталог> <относительный путь> <запас|MEDIAN|PARAGRAPHS> → «rel=тело+запас».
+# sandbox_ceiling <каталог> <относительный путь> <запас|MEDIAN|PARAGRAPHS> → «rel=тело+запас/якорь».
 # Потолок ПЕСОЧНИЦЫ тем же расчётом, что у гейта: тело — файл минус frontmatter,
-# MEDIAN — медианный абзац того же тела. PARAGRAPHS печатает вместо потолка ЧИСЛО
+# MEDIAN — медианный абзац того же тела, якорь — число абзацев ЭТОГО тела: запись
+# — свежее объявление песочницы целиком (ws#854), и гейт сверяет на нём все три
+# операнда. Без якоря свежий шов судился бы объявленным якорем живого дерева и
+# краснел «ЯКОРЬ НЕ ВЫВЕДЕН» по соседней оси. PARAGRAPHS печатает вместо потолка ЧИСЛО
 # абзацев тела тем же счётом: фикстура оси N'' выбирает по его чётности, сколько
 # абзацев дописать, чтобы медиана сдвинулась. Величины не выписываются: выписанное
 # число состарилось бы молча при первой же правке базы, и ось начала бы доказывать
@@ -172,16 +175,16 @@ d, rel, spare = sys.argv[1], sys.argv[2], sys.argv[3]
 data = io.open(d + "/" + rel, "rb").read()
 m = re.match(rb"^---[ \t]*\r?\n.*?\r?\n---[ \t]*\r?\n", data, re.S)
 body = data[m.end():] if m else data
-if spare in ("MEDIAN", "PARAGRAPHS"):
-    sizes = sorted(len(p.encode()) for p in body.decode("utf-8", "replace").split("\n\n")
-                   if p.strip() and not p.lstrip().startswith("#"))
-    if not sizes:
-        raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: в теле %s нет ни одного абзаца" % rel)
-    if spare == "PARAGRAPHS":
-        print(len(sizes))
-        raise SystemExit(0)
+sizes = sorted(len(p.encode()) for p in body.decode("utf-8", "replace").split("\n\n")
+               if p.strip() and not p.lstrip().startswith("#"))
+if not sizes:
+    raise SystemExit("ФИКСТУРА БЕСПРЕДМЕТНА: в теле %s нет ни одного абзаца" % rel)
+if spare == "PARAGRAPHS":
+    print(len(sizes))
+    raise SystemExit(0)
+if spare == "MEDIAN":
     spare = str(sizes[len(sizes) // 2])
-print("%s=%d+%s" % (rel, len(body), spare))
+print("%s=%d+%s/%d" % (rel, len(body), spare, len(sizes)))
 PY
 }
 
@@ -192,9 +195,11 @@ PY
 # координату пишут люди). Измерено 2026-09-26 на ветке 778: у `CLAUDE.md` 16
 # абзацев, медиана 604 Б при объявленном запасе 604; семнадцатый абзац опускал её
 # на 541 Б, и 12 близнецов осей A–D, G, H, L краснели по СОСЕДНЕЙ оси «ЗАПАС ЩЕДРЕЕ
-# АБЗАЦА» при целой оси импорта. С ws#854 это снято в самом гейте: запас судится
-# только на свежем объявлении, и сдвиг медианы тратой запаса находкой не является
-# (ось N'' в `inject-02` держит это и на шве, и на живом объявлении).
+# АБЗАЦА» при целой оси импорта. С ws#854 это снято в самом гейте: на тратящемся
+# объявлении запас сверяется не с медианой текущего тела, а с верхней оценкой
+# медианы якоря, и новый абзац сдвигает номер оценки вместе с собой (ось N'' в
+# `inject-02` держит это и на шве, и на живом объявлении; ось N''' — что подъём
+# одного запаса при этом краснеет).
 #
 # Что за этой функцией ОСТАЁТСЯ — остаток живого дерева до потолка. Он величина
 # движущаяся (у базы на сведении 2026-09-22 — 90 Б, на `99fbac9f` — 10 Б), и близнец
@@ -212,7 +217,7 @@ capture_twin() {
     seam_d="$(sandbox_ceiling "$dir" .claude/agents/dispatcher.md MEDIAN)"
     seam_c="$(sandbox_ceiling "$dir" CLAUDE.md MEDIAN)"
     case "$seam_d;$seam_c" in
-        .claude/agents/dispatcher.md=[0-9]*+[0-9]*\;CLAUDE.md=[0-9]*+[0-9]*) ;;
+        .claude/agents/dispatcher.md=[0-9]*+[0-9]*/[0-9]*\;CLAUDE.md=[0-9]*+[0-9]*/[0-9]*) ;;
         *)
             LAST_CHECK="$chk"; RC=99
             OUT="ФИКСТУРА: шов потолка песочницы не собран («$seam_d;$seam_c»)"
