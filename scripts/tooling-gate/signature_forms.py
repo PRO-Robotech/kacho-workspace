@@ -15,7 +15,12 @@ gitconfig, и это действует в рабочем клоне и в пе�
                взятое ни из какого источника (значение с подстановкой `$` —
                перенос корневой подписи в HOME песочницы либо на ранер);
   окружение    присваивание `GIT_AUTHOR_NAME`/`_EMAIL`, `GIT_COMMITTER_NAME`/`_EMAIL`;
-  флаг         `--author` у `commit`.
+  флаг         `--author` у `commit`;
+  запись       printf/echo с `>`/`>>`, `tee` и heredoc в файл конфигурации git:
+               секция `user`/`author`/`committer` с ключом `name`/`email` в
+               `.gitconfig` или `.config/git/config` — литерал (как `config
+               --global`), в `.git/config` или `config.worktree` — любое значение
+               (как `config` без `--global`); ws#873.
 
 <кто> — `user`, `author`, `committer`; <что> — `name`, `email`; регистр ключа
 git не различает, распознаватель тоже.
@@ -27,10 +32,11 @@ git не различает, распознаватель тоже.
 той же формы (`-c core.hooksPath=…`), фильтр чтения (`git log --author=…`),
 комментарий.
 
-ЧТО НЕ СУДИТСЯ, И ЭТО ГРАНИЦА: запись `.gitconfig` мимо `git config` (printf,
-heredoc) и чьё имя записано в корень, когда значение — подстановка; ключ подписи,
-данный подстановкой (`git config "$k" …`); shell-строка внутри Python-литерала;
-файлы вне трёх видов (оболочка, Python, конвейер).
+ЧТО НЕ СУДИТСЯ, И ЭТО ГРАНИЦА: чьё имя записано в корень, когда значение —
+подстановка; ключ подписи, данный подстановкой (`git config "$k" …`), и файл
+конфигурации, названный подстановкой целиком (`> "$GIT_CONFIG_GLOBAL"`); запись
+файла конфигурации из Python (`open(…).write`); shell-строка внутри
+Python-литерала; файлы вне трёх видов (оболочка, Python, конвейер).
 
 Три исхода: 0 — осмотрено, находок нет; 1 — находки с координатой; 2 — обход
 пуст либо часть Python-файлов не разобрана (вердикта о них нет).
@@ -197,11 +203,96 @@ def logical_lines(text):
         yield start, buf
 
 
+# ── запись файла конфигурации git мимо `git config` (ws#873) ────────────────
+#
+# Форма: printf/echo с перенаправлением (`>`, `>>`) либо `tee` в файл конфигурации
+# git, и heredoc в такой файл. Корневой файл — `.gitconfig` и `.config/git/config`
+# (литерал подписи — находка, подстановка — перенос корневой подписи, молчит);
+# файл репозитория — `.git/config` и `config.worktree` (находка при любом
+# значении, как у `git config` без `--global`). Секция запоминается по файлу:
+# `echo "[user]" >> …` и `echo "name = x" >> …` строками подряд — та же запись.
+
+WRITE_TARGET = re.compile(r"""(?:(?<![0-9&<>])>>?\|?|\btee\s+(?:-a\s+|--append\s+)*)\s*("[^"]*"|'[^']*'|[^\s;&|)<>]+)""")
+HEREDOC = re.compile(r"""<<-?\s*(['"]?)([A-Za-z_][A-Za-z0-9_]*)\1""")
+SECTION = re.compile(r"\[\s*([A-Za-z][A-Za-z0-9.-]*)(?:\s+\"[^\"]*\")?\s*\]", re.I)
+SIG_KEY = re.compile(r"(?:^|[\s'\"])(%s)\s*=\s*(.*)$" % "|".join(WHAT), re.I)
+
+
+def config_target(line):
+    """Вид файла конфигурации git, в который пишет строка: 'root', 'repo' либо None."""
+    for m in WRITE_TARGET.finditer(line):
+        t = m.group(1).strip("'\"").rstrip("/")
+        if t.endswith(".git/config") or t.endswith("config.worktree"):
+            return "repo"
+        if t.endswith(".gitconfig") or t.endswith(".config/git/config"):
+            return "root"
+    return None
+
+
+def config_pieces(text):
+    """Строки записываемого содержимого: `\\n` формата printf — перевод строки."""
+    return text.replace("\\t", " ").replace("\\n", "\n").split("\n")
+
+
+def judge_config_text(pieces, section, target):
+    """Секция после разбора и находка ('literal-root' | 'per-repo' | None)."""
+    kind = None
+    for piece in pieces:
+        m = None
+        for m in SECTION.finditer(piece):
+            pass
+        if m is not None:
+            section = m.group(1).lower()
+            piece = piece[m.end():]
+        k = SIG_KEY.search(piece)
+        if not k or section not in WHO:
+            continue
+        value = re.match(r"[^'\"]*", k.group(2)).group(0).strip()
+        if target == "repo":
+            kind = kind or "per-repo"
+        elif value and not re.search(r"[$%`]", value):
+            kind = kind or "literal-root"
+    return section, kind
+
+
+def judge_config_writes(lines):
+    """lines — список (номер, логическая строка). Находки записи конфигурации."""
+    found = []
+    section = {"root": None, "repo": None}
+    i = 0
+    while i < len(lines):
+        no, line = lines[i]
+        target = config_target(line)
+        i += 1
+        if target is None:
+            continue
+        h = HEREDOC.search(line)
+        if h:
+            delim = h.group(2)
+            while i < len(lines) and lines[i][1].strip() != delim:
+                bno, body = lines[i]
+                section[target], kind = judge_config_text([body], section[target], target)
+                if kind:
+                    found.append((bno, kind, body))
+                i += 1
+            i += 1
+            continue
+        section[target], kind = judge_config_text(config_pieces(line), section[target], target)
+        if kind:
+            found.append((no, kind, line))
+    return found
+
+
 def judge_shell(text, yaml=False):
     found = []
     n = 0
-    for no, line in logical_lines(text):
+    lines = list(logical_lines(text))
+    written = {no: (kind, src) for no, kind, src in judge_config_writes(lines)}
+    for no, line in lines:
         n += 1
+        if no in written:
+            found.append((no,) + written[no])
+            continue
         if yaml and YAML_ENV_KEY.search(line):
             found.append((no, "env", line))
             continue

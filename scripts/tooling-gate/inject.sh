@@ -1694,6 +1694,22 @@ run 0 "$b" "близнец: безобидная правка предиката
 b="$(mksandbox scripts/hooks/commit-msg)"
 run 1 "$b" "хука коммита нет — находка, а не VOID: предмет проверки и есть его существование" "$C21"
 
+# Подпись песочницы check-21 — корневая учётная запись вызывающего (ws#785, сведение
+# в ws#873). Корневой подписи нет — у песочницы нет предмета: третий исход, а не
+# зелёное на подписи, выдуманной самой проверкой. Каталог назван не на `s`.
+b="$(mksandbox)"; h21="$TMP/h21"; mkdir -p "$h21"
+premise_or_void
+probes=$((probes + 1))
+out="$(HOME="$h21" XDG_CONFIG_HOME="$h21/.config" GIT_CONFIG_NOSYSTEM=1 TOOLING_GATE_ROOT="$b" bash "$HERE/$C21" 2>&1)"; got=$?
+if [ "$got" -eq 2 ] && grep -qF -- "корневой подписи нет" <<<"$out"; then
+    echo "  ok   корневой подписи нет — VOID, песочница подписи не выдумывает (код $got)"
+else
+    echo "  ПРОВАЛ корневой подписи нет — ждали код 2 и «корневой подписи нет», получили $got" >&2
+    printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$h21"
+
 echo "== check-22: подпись переопределена мимо корневого gitconfig =="
 C22=check-22-signature-from-root-gitconfig-only.sh
 # Вносимые формы собираются из частей при исполнении: литерал в исходнике этого
@@ -1790,6 +1806,33 @@ run22 2 "$b" "предпосылка: Python-файл не разобран — 
 
 b="$(mksandbox)"; add22 "$b" .github/workflows/ci.yaml "        env:" "          $E_NAME: probe"
 run22 1 "$b" "инъекция: конвейер задаёт имя автора ключом env — краснеет" "ci.yaml"
+
+# Запись файла конфигурации git мимо `git config` (ws#873). Сведение #785 с #861
+# принесло в дерево песочницу check-21, чей HOME получал литерал подписи строкой
+# printf в `.gitconfig`, — форму, которую распознаватель объявлял своей границей.
+# Первая инъекция — та же форма, что стояла в check-21 до сведения. Заголовок
+# секции и имя файла собираются из частей по той же причине, что ключи выше.
+GC_USER="$(printf '[%s]' user)"
+GC_FILE="$(printf '.%s' gitconfig)"
+GC_REPO="$(printf '.git/%s' config)"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "printf '$GC_USER\n\tname = probe\n\temail = probe@example.invalid\n[init]\n\tdefaultBranch = main\n' > \"\$HOME/$GC_FILE\""
+run22 1 "$b" "инъекция: литерал подписи строкой printf в gitconfig HOME песочницы — краснеет" "$PROBE22:1: литерал подписи"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "cat > \"\$TMP/home/$GC_FILE\" <<'CFG'" "$GC_USER" "	email = probe@example.invalid" "CFG"
+run22 1 "$b" "инъекция: литерал подписи в heredoc в gitconfig — краснеет и называет строку тела" "$PROBE22:3: литерал подписи"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "printf '$GC_USER\n\tname = probe\n' | tee -a \"\$TMP/r/$GC_REPO\" > /dev/null"
+run22 1 "$b" "инъекция: литерал подписи через tee в конфиг репозитория — краснеет" "$PROBE22:1: подпись на репозиторий"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "echo \"$GC_USER\" >> \"\$HOME/$GC_FILE\"" "echo \"	name = probe\" >> \"\$HOME/$GC_FILE\""
+run22 1 "$b" "инъекция: секция и ключ подписи двумя echo подряд — краснеет на строке ключа" "$PROBE22:2: литерал подписи"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "printf '[init]\n\tdefaultBranch = main\n' >> \"\$HOME/$GC_FILE\"" \
+    "printf '$GC_USER\n\tname = %s\n\temail = %s\n' \"\$name\" \"\$email\" > \"\$HOME/$GC_FILE\"" \
+    "cat > \"\$TMP/home/$GC_FILE\" <<CFG" "$GC_USER" "	name = \$name" "CFG" \
+    "printf '$GC_USER\n\tname = probe\n' > \"\$TMP/notes.txt\""
+run22 0 "$b" "близнец: секция без подписи, подпись подстановкой, heredoc с подстановкой, тот же текст не в gitconfig — молчит"
 
 # Пустой обход: дерево без единого файла судимых видов. Каталог назван не на `s`,
 # чтобы счёт одновременно живущих песочниц его не считал; снимается сразу.

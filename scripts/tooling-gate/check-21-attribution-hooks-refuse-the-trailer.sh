@@ -45,10 +45,20 @@ unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_COMMON_DIR \
       GIT_CONFIG_COUNT GIT_AUTHOR_NAME GIT_AUTHOR_EMAIL GIT_AUTHOR_DATE \
       GIT_COMMITTER_NAME GIT_COMMITTER_EMAIL GIT_COMMITTER_DATE GIT_EDITOR EDITOR VISUAL \
       KACHO_SKIP_PREPUSH KACHO_MONOREPO
-export HOME="$TMP/home" XDG_CONFIG_HOME="$TMP/home/.config" GIT_CONFIG_NOSYSTEM=1 \
+# Подпись песочницы — её HOME со своим `.gitconfig`, в котором корневая учётная
+# запись вызывающего (`gi-identity-owner-only`, ws#785; `scripts/lib/sandbox-git-home.sh`).
+# HOME подменяется на всю проверку: она зовёт только git и хуки на bash, пользовательских
+# библиотек Python ей не нужно. Корневой подписи нет — предмета у песочницы нет (VOID).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$(dirname "${BASH_SOURCE[0]}")/../lib/sandbox-git-home.sh"
+if ! sandbox_git_home "$TMP/home" 2> "$TMP/home.err"; then
+    tooling_gate_void "$NAME" "$(tr '\n' ' ' < "$TMP/home.err")"
+    exit 2
+fi
+export HOME="$SANDBOX_GIT_HOME" XDG_CONFIG_HOME="$SANDBOX_GIT_HOME/.config" GIT_CONFIG_NOSYSTEM=1 \
        GIT_TERMINAL_PROMPT=0
-mkdir -p "$HOME" "$XDG_CONFIG_HOME"
-printf '[user]\n\tname = probe\n\temail = probe@example.invalid\n[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n[advice]\n\tdetachedHead = false\n' > "$HOME/.gitconfig"
+printf '[init]\n\tdefaultBranch = main\n[commit]\n\tgpgsign = false\n[advice]\n\tdetachedHead = false\n' >> "$HOME/.gitconfig"
 
 probes=0
 findings=0
