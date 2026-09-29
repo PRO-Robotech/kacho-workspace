@@ -615,16 +615,16 @@ fi
 echo
 echo "== ось N''': подъём запаса без замера на тратящемся объявлении =="
 
-# n3_field <путь> <base|spare|anchor|bound> — число из строки переписи последнего
+# n3_field <путь> <body|cap|base|spare|anchor|bound> — число из строки переписи последнего
 # capture. Строка файла — от «<путь> — тело» до «; » следующей.
 n3_field() {
     python3 -c '
 import re, sys
 rel, field, text = sys.argv[1], sys.argv[2], sys.argv[3]
-row = re.search(re.escape(rel) + r" — тело \d+ Б при потолке \d+ Б = (?P<base>\d+) \+ запас (?P<spare>\d+) Б(?P<rest>[^;]*)", text)
+row = re.search(re.escape(rel) + r" — тело (?P<body>\d+) Б при потолке (?P<cap>\d+) Б = (?P<base>\d+) \+ запас (?P<spare>\d+) Б(?P<rest>[^;]*)", text)
 if not row:
     sys.exit(1)
-if field in ("base", "spare"):
+if field in ("body", "cap", "base", "spare"):
     print(row.group(field)); sys.exit(0)
 m = re.search(r"якорь: абзацев (?P<anchor>\d+), верхняя оценка медианы якоря (?P<bound>\d+) Б", row.group("rest"))
 if not m:
@@ -667,9 +667,25 @@ else
     fail=$((fail + 1))
 fi
 
+# Абзац близнеца обязан ПОМЕЩАТЬСЯ в остаток живого запаса: его предмет — трата
+# запаса, а не перешагивание потолка. Остаток берётся из переписи контроля, а не
+# предполагается: сборка ws#873 свела протокол, израсходовавший 576 из 604 Б, и
+# абзац в 89 Б делал близнеца красным от тела. Длина абзаца — не больше N2_PAR и
+# не больше остатка; остатка меньше трёх байт — у близнеца нет предмета (ФИКСТУРА).
+n3_room=$(( $(n3_field CLAUDE.md cap || echo 0) - $(n3_field CLAUDE.md body || echo 0) ))
+n3_premise "в остатке живого запаса протокола есть место для абзаца ($n3_room Б)" n3_lt 2 "$n3_room"
+n3_par="$(python3 - "$N2_PAR" "$n3_room" <<'PY'
+import sys
+par, room = sys.argv[1], int(sys.argv[2])
+# абзац дописывается как «\n<текст>\n»: два байта перевода строки — часть траты
+while par and len(par.encode("utf-8")) + 2 > room:
+    par = par[:-1]
+print(par.rstrip() or "x")
+PY
+)"
 b="$(sandbox_digest "$d")"
-inj02_append_new_par "$d/CLAUDE.md" "$N2_PAR"
-assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: в протокол дописан короткий абзац"
+inj02_append_new_par "$d/CLAUDE.md" "$n3_par"
+assert_fixture_changed "$d" "$b" "БЛИЗНЕЦ: в протокол дописан короткий абзац в остаток запаса ($(printf '%s' "$n3_par" | wc -c) Б текста)"
 capture "$d" "$C2N"
 assert_code 0 "БЛИЗНЕЦ: короткий абзац под живым объявлением — трата запаса, молчит"
 assert_lacks "ЗАПАС ЩЕДРЕЕ АБЗАЦА" "  ...и сдвиг медианы находкой по оси запаса не назван"
