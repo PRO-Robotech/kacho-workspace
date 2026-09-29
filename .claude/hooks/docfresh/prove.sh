@@ -48,6 +48,17 @@ DOCS="$TMP/docs"; mkdir -p "$DOCS"
 
 PASS=0; FAIL=0; NOTRUN=0
 
+# Подпись всего, что проба коммитит, — HOME песочницы со своим `.gitconfig`, в
+# котором корневая учётная запись вызывающего (ws#785): переопределения подписи в
+# пробах нет. Корневой подписи нет — пробы с коммитом ниже честно «не выполнились».
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../../../scripts/lib/sandbox-git-home.sh
+. "$WS/scripts/lib/sandbox-git-home.sh"
+if ! sandbox_git_home "$TMP/home"; then
+  echo "  ⊘ НЕ ВЫПОЛНИЛОСЬ: корневой подписи нет — пробам, которые коммитят, не с чего взять подпись"
+  NOTRUN=$((NOTRUN+1))
+fi
+
 # --- предмет проб: живость входа проверяется ПЕРЕД пробами ------------------
 #
 # Инъекция «настоящим расхождением» перестаёт быть настоящей в тот день, когда
@@ -1848,18 +1859,16 @@ _prove_ws_alias() { # _prove_ws_alias <имя ссылки>
 if is_git_tree "$WS/project/kacho"; then
   TRUNK_ALIVE="docfresh-prove-only-in-trunk.md"
   if [ ! -e "$WS/project/kacho/$TRUNK_ALIVE" ]; then
-    # Личность задаётся ЛОКАЛЬНО для одной команды и намеренно не выдаёт себя за
-    # владельца: объект живёт в служебной ссылке пробы и сносится по выходу, в
-    # историю репозитория он не попадает. Без неё `commit-tree` отказывает
-    # («Author identity unknown») — и проба честно объявляла «не выполнилось», то
-    # есть в чистом окружении конвейера полоса ствола не строилась НИ РАЗУ.
+    # Подпись — HOME песочницы, а не переопределение на команду: объект живёт в
+    # служебной ссылке пробы и сносится по выходу, но правило подписи действует и
+    # на него (ws#785). Без подписи `commit-tree` отказывает («Author identity
+    # unknown») — и в чистом окружении конвейера полоса ствола не строилась НИ РАЗУ.
     # blob → дерево поверх HEAD → коммит → ссылка. Индекс и рабочее дерево не трогаются.
     if (cd "$WS/project/kacho" && \
         blob=$(printf 'проба docfresh: путь существует только в стволе\n' | git hash-object -w --stdin) && \
         base=$(git rev-parse "HEAD^{tree}") && \
         tree=$(git mktree < <(git ls-tree "$base"; printf '100644 blob %s\t%s\n' "$blob" "$TRUNK_ALIVE")) && \
-        commit=$(git -c user.name='docfresh probe' -c user.email='probe@invalid' \
-                     commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
+        commit=$(sandbox_git commit-tree "$tree" -p HEAD -m 'проба docfresh: вход полосы ствола') && \
         git update-ref "refs/heads/$PROVE_TRUNK" "$commit") 2>/dev/null; then
       trunk_ref="$PROVE_TRUNK"
       _prove_ws_alias "$PROVE_TRUNK"
@@ -2124,7 +2133,7 @@ fi
 # рассматриваем», и у свежего клона ствола не стало бы вовсе.
 mp_solo="$TMP/solo"; mkdir -p "$mp_solo"
 if (cd "$mp_solo" && git init -q -b main . && \
-    git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m init) 2>/dev/null; then
+    sandbox_git commit -q --allow-empty -m init) 2>/dev/null; then
   mp_cands="$(unset DOCFRESH_INTEGRATION_REF; python3 - "$GUARD" "$mp_solo" <<'PY' 2>/dev/null
 import importlib.util, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfd", sys.argv[1])
@@ -2152,19 +2161,15 @@ mp_key="$TMP/cachekey"; mkdir -p "$mp_key"
 mp_key_build() {
   cd "$mp_key" || return 1
   git init -q -b main . || return 1
-  # Подпись задаётся В КОНФИГЕ репозитория, а не флагом одной команды: ствол ниже
-  # двигает `commit-tree` изнутри python, и разовый `-c` до него не доезжает. Без
-  # подписи он отказывает всюду, где нет глобального конфига, — то есть на ранере,
-  # где `actions/checkout` подменяет HOME. Проба тогда объявляла «ключ кэша не
-  # вычислен» и не исполнялась ни разу; локально она проходила, потому что подпись
-  # бралась из настроек разработчика.
-  git config user.name p || return 1
-  git config user.email p@invalid || return 1
-  git commit -q --allow-empty -m a || return 1
+  # Ствол ниже двигает `commit-tree` изнутри python, поэтому HOME песочницы
+  # получает и он (`sandbox_run python3` ниже), а не только эта команда. Без
+  # подписи он отказывает всюду, где нет корневого конфига, — проба тогда
+  # объявляла «ключ кэша не вычислен» и не исполнялась ни разу.
+  sandbox_git commit -q --allow-empty -m a || return 1
   git checkout -q --detach || return 1
 }
 if (mp_key_build) 2>/dev/null; then
-  mp_key_out="$(unset DOCFRESH_INTEGRATION_REF DOCFRESH_DOC_ROOT; python3 - "$GUARD" "$mp_key" <<'PYKEY' 2>/dev/null
+  mp_key_out="$(unset DOCFRESH_INTEGRATION_REF DOCFRESH_DOC_ROOT; sandbox_run python3 - "$GUARD" "$mp_key" <<'PYKEY' 2>/dev/null
 import importlib.util, subprocess, sys, pathlib
 spec = importlib.util.spec_from_file_location("dfk", sys.argv[1])
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
@@ -2220,9 +2225,9 @@ mp_age_build() {
   cd "$mp_age" || return 1
   git init -q -b main . || return 1
   GIT_AUTHOR_DATE='2020-01-01T00:00:00Z' GIT_COMMITTER_DATE='2020-01-01T00:00:00Z' \
-    git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m old || return 1
+    sandbox_git commit -q --allow-empty -m old || return 1
   git branch -q stale || return 1
-  git -c user.name=p -c user.email=p@invalid commit -q --allow-empty -m now || return 1
+  sandbox_git commit -q --allow-empty -m now || return 1
 }
 if (mp_age_build) 2>/dev/null; then
   mp_age_out="$(python3 - "$GUARD" "$mp_age" <<'PY' 2>/dev/null
@@ -2421,7 +2426,7 @@ echo
 # разошёлся бы с первым молча.
 
 QSEGS="services pkg proto gateway deploy internal cmd tools docs tests scripts obsidian .claude .github ui-future project migrations apps collections cases"
-q_git() { local r="$1"; shift; git -C "$r" -c user.name=p -c user.email=p@invalid "$@"; }
+q_git() { local r="$1"; shift; sandbox_git -C "$r" "$@"; }
 
 q_build() { # q_build <корень> → воркспейс + дерево продукта, всё закоммичено
   local W="$1" P="$1/project/kacho" seg

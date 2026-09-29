@@ -31,6 +31,12 @@ DOC="docs/specs/sub-phase-XC-7-iam-unified-contour-acceptance.md"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись выброшенного клона — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] inject-03 — корневой подписи нет: вершине пробы не с чего взять подпись" >&2; exit 2; }
+
 seq_n=0
 probes=0
 failed=0
@@ -171,15 +177,11 @@ if [ -z "$BASE_SHA" ]; then
 else
     git clone -q --shared --no-checkout "$KACHO_MONOREPO" "$SIDE" 2>/dev/null
     git -C "$SIDE" update-ref refs/remotes/origin/main "$BASE_SHA"
-    # Подпись — В КОНФИГЕ ВЫБРОШЕННОГО КЛОНА, а не через `-c`/`GIT_AUTHOR_*`: правило
-    # про подпись владельца связывает коммиты РЕПОЗИТОРИЯ, а этот клон живёт до конца
-    # пробы и на origin не попадает НИКОГДА. Без подписи `commit-tree` отказывает
-    # (`empty ident name`) везде, где нет глобального конфига, — то есть на ранере,
-    # где `actions/checkout` подменяет HOME на временный. Локально проба при этом
-    # зеленела: там подпись брали из ~/.gitconfig разработчика.
-    git -C "$SIDE" config user.name  'docs-gate probe'
-    git -C "$SIDE" config user.email 'probe@invalid'
-    OFFSHOOT="$(git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main' 2>/dev/null || true)"
+    # Подпись — HOME песочницы со своим `.gitconfig`, а не конфиг выброшенного клона:
+    # правило подписи действует и на клон, который на origin не попадает никогда
+    # (ws#785). Без подписи `commit-tree` отказывает (`empty ident name`) везде, где
+    # нет корневого конфига, — поэтому его заводит `sandbox_git_home` выше.
+    OFFSHOOT="$(sandbox_git -C "$SIDE" commit-tree "$BASE_SHA^{tree}" -p "$BASE_SHA" -m 'проба: вершина, ушедшая в сторону от main' 2>/dev/null || true)"
     OFFSHOOT_SHORT="$(git -C "$SIDE" rev-parse --short=9 "$OFFSHOOT" 2>/dev/null || true)"
     # ЧИСЛО, СТОЯЩЕЕ В ТОЙ ЖЕ СТРОКЕ, ВЫЧИСЛЯЕТСЯ ПОД НОВУЮ РЕВИЗИЮ — иначе ось
     # меняет ДВА факта вместо одного.

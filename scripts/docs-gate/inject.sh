@@ -23,6 +23,12 @@ WS="$(cd "$HERE/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись синтетических деревьев — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$HERE/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "[VOID] docs-gate inject — корневой подписи нет: синтетическим деревьям не с чего взять подпись" >&2; exit 2; }
+
 # mksandbox [путь-который-выбросить] — печатает путь СВЕЖЕЙ песочницы.
 # Состав берётся ровно тем же предикатом, что и у самих проверок:
 # `--cached --others --exclude-standard`.
@@ -313,8 +319,7 @@ mkprod() { # → путь к синтетическому дереву прод�
     printf 'package repohygiene\n\nfunc TestSyntheticTrunkProbe(t *testing.T) {}\n' \
         > "$dir/internal/repohygiene/probe_test.go"
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'синтетический ствол продукта' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'синтетический ствол продукта' >/dev/null 2>&1
     git -C "$dir" update-ref refs/remotes/origin/main HEAD
     # Линия: каталог переименован — ровно то, что дала линия выноса службы, — и
     # рядом заведён файл, которого в стволе нет вовсе.
@@ -324,8 +329,7 @@ mkprod() { # → путь к синтетическому дереву прод�
     printf 'package repohygiene\n\nfunc TestSyntheticLineOnly(t *testing.T) {}\n' \
         > "$dir/internal/repohygiene/lineonly_test.go"
     git -C "$dir" add -A -f >/dev/null 2>&1
-    git -C "$dir" -c user.email=probe@invalid -c user.name=probe \
-        commit -qm 'линия: каталог переименован' >/dev/null 2>&1
+    sandbox_git -C "$dir" commit -qm 'линия: каталог переименован' >/dev/null 2>&1
     printf '%s' "$dir"
 }
 

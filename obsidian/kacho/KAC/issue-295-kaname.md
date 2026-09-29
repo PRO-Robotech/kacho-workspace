@@ -17,11 +17,12 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/409
 issue_url: https://github.com/PRO-Robotech/kaname/issues/295
 opened: 2026-09-18
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: последняя голова задачи 585749b7422026c1e4b634529ffd3d4d680501ed (= origin/295) — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`), 2026-09-24. Устойчивость пробы под нагрузкой мной не перемерялась; закрытие — `gh issue view 295 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:39:36Z; голова `585749b7422` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: последняя голова задачи 585749b7422026c1e4b634529ffd3d4d680501ed (= origin/295) — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`), 2026-09-24. Устойчивость пробы под нагрузкой мной не перемерялась; закрытие — `gh issue view 295 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:39:36Z; голова `585749b7422` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:39:36Z, меток status:* нет (`gh issue view`); коммит слияния волны fc9f5aff19c — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#295: калибровка огибающей входа не зависит от стенного замера
@@ -70,9 +71,13 @@ Sub-issue волны [[KAC/issue-358-kaname|#358]], влита волной [[KA
       голова задачи `585749b7422` — предок origin/`357` и не предок origin/`main` (перемерено
       мной 2026-09-26). Посадка в `main` — DoD эпика #357, а не задачи.
 
+## History
+
+- 2026-09-26 — перемер: голова задачи в `main` @ `cbbac984b7b` по-прежнему не входит; путь задачи не менялся: в `357` она пришла волной #377, а не запросом волны #358 (PR #422).
+
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» нет; узкие записки этой записью не менялись.
+Возвраты исполнителей по задаче называют пакеты `internal/passwordverify` (CostMeter, WallClockCostMeter, Envelope.Admit), `internal/check` (страж корня огибающей) и `cmd/kaname`; rpc и рёбер нет. Узкой записки о пакете огибающей в хранилище нет; этой записью она не заводилась.
 
 - [[KAC/issue-377-kaname]] — волна, которой задача влита.
 - [[KAC/issue-358-kaname]] — волна-родитель.

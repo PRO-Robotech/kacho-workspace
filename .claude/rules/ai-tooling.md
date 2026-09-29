@@ -85,20 +85,20 @@ at-no-nested-launches · агент не зовёт другого напрям�
 Перечень обязан совпадать с выводом в обе стороны (`check-03`); `<svc>-load-testing`
 живёт в репо сервиса и в счёт не входит. Что делает скил — `description` его `SKILL.md`.
 
-- `evgeniy` (workspace)
-- `code-authoring` (workspace)
-- `testing-code-coach` (workspace)
-- `testing-product-coach` (workspace)
-- `load-testing-coach` (workspace)
-- `kacho-docs-writer` (workspace)
-- `hardening-audit-loop` (workspace)
-- `measurement-discipline` (workspace)
-- `gate-authoring` (workspace)
-- `verdict-and-landing` (workspace)
-- `security-surface` (workspace)
-- `doc-truthfulness` (workspace)
-- `godzila` (workspace)
-- `change-graph` (workspace)
+- `evgeniy`
+- `code-authoring`
+- `testing-code-coach`
+- `testing-product-coach`
+- `load-testing-coach`
+- `kacho-docs-writer`
+- `hardening-audit-loop`
+- `measurement-discipline`
+- `gate-authoring`
+- `verdict-and-landing`
+- `security-surface`
+- `doc-truthfulness`
+- `godzila`
+- `change-graph`
 - `<svc>-load-testing` (repo)
 
 ## Lifecycle, который ОБЯЗАН удовлетворяться (gates для автономной разработки)

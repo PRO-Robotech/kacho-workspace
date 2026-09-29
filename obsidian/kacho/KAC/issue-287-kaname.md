@@ -16,11 +16,12 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/409
 issue_url: https://github.com/PRO-Robotech/kaname/issues/287
 opened: 2026-09-18
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - fix
-verified_against: "PRO-Robotech/kaname: последняя голова задачи a71043da90ea902dc6247e44ca02231eaae12db0 (перечень тела PR #409) — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`), 2026-09-24. Регрессионный замок мной не перезапускался; закрытие — `gh issue view 287 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:03Z; голова `a71043da90e` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26)"
+verified_against: "PRO-Robotech/kaname: последняя голова задачи a71043da90ea902dc6247e44ca02231eaae12db0 (перечень тела PR #409) — предок головы волны dda965ecef3 и origin/357, не предок origin/main (`git merge-base --is-ancestor`), 2026-09-24. Регрессионный замок мной не перезапускался; закрытие — `gh issue view 287 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:37:03Z; голова `a71043da90e` — предок origin/357 @ fc9f5aff19c, не предок origin/main @ cbbac984b7b (`git merge-base --is-ancestor`, перемерено мной 2026-09-26); 2026-09-26: трекер — закрыта 2026-09-26T09:37:03Z, меток status:* нет (`gh issue view`); коммит слияния волны dbf25d17e25 — в origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#287: полоса второго фактора приведена к приёмкам

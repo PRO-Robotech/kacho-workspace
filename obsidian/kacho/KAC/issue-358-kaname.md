@@ -19,13 +19,18 @@ prs:
   - https://github.com/PRO-Robotech/kaname/pull/422
   - https://github.com/PRO-Robotech/kaname/pull/411
   - https://github.com/PRO-Robotech/kaname/pull/326
+  - https://github.com/PRO-Robotech/kaname/pull/413
+  - https://github.com/PRO-Robotech/kaname/pull/419
+  - https://github.com/PRO-Robotech/kaname/pull/421
+  - https://github.com/PRO-Robotech/kaname/pull/422
 issue_url: https://github.com/PRO-Robotech/kaname/issues/358
 opened: 2026-09-22
+closed: 2026-09-26
 tags:
   - kac
   - kacho-iam
   - epic
-verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72b6fffd694cfa0 на 2026-09-24 (`git ls-remote origin refs/heads/358`); не предок origin/357 и origin/main (`git merge-base --is-ancestor`). Запросы в ветку волны — `gh pr list --state all --base 358` (3 запроса, все влиты). Состав задач волны перечнем здесь не держится — только командой. Запрос волны #422 `358` → `357` влит 2026-09-25T09:23:02Z коммитом слияния fc9f5aff19cfff9ec310f2ff35338b80f24379b1 (родители dbf25d17e25, cde2d924260; `gh pr view 422`, `git log -1 --format=%P`); закрытие — `gh issue view 358 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:40:56Z; головы задач сборки 1 — перемерено мной 2026-09-26: `git merge-base --is-ancestor <голова> <origin/357>` — код 0, против origin/main — код 1; origin/357 = fc9f5aff19cfff9ec310f2ff35338b80f24379b1, origin/main = cbbac984b7b17f22bcc4a83f7533fff3494c809a (`git ls-remote origin`)"
+verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72b6fffd694cfa0 на 2026-09-24 (`git ls-remote origin refs/heads/358`); не предок origin/357 и origin/main (`git merge-base --is-ancestor`). Запросы в ветку волны — `gh pr list --state all --base 358` (3 запроса, все влиты). Состав задач волны перечнем здесь не держится — только командой. Запрос волны #422 `358` → `357` влит 2026-09-25T09:23:02Z коммитом слияния fc9f5aff19cfff9ec310f2ff35338b80f24379b1 (родители dbf25d17e25, cde2d924260; `gh pr view 422`, `git log -1 --format=%P`); закрытие — `gh issue view 358 -R PRO-Robotech/kaname --json state,closedAt` — CLOSED 2026-09-26T09:40:56Z; головы задач сборки 1 — перемерено мной 2026-09-26: `git merge-base --is-ancestor <голова> <origin/357>` — код 0, против origin/main — код 1; origin/357 = fc9f5aff19cfff9ec310f2ff35338b80f24379b1, origin/main = cbbac984b7b17f22bcc4a83f7533fff3494c809a (`git ls-remote origin`); 2026-09-26: трекер волны закрыт 2026-09-26T09:40:56Z, sub-issue закрыты 31 из 31, меток status:* нет (`gh api .../sub_issues`, `gh issue view`); fc9f5aff19c = origin/357, не в origin/main (`gh api compare`)"
 ---
 
 # kaname#358: волна-2 identity-own — сборки, влитые в ветку волны
@@ -37,8 +42,11 @@ verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72
 
 **Состояние на 2026-09-26**: `done`. Запрос волны PR #422 `358` → `357` влит 2026-09-25
 коммитом слияния `fc9f5aff19c`; по каскаду закрытия (`git-issues.md#gi-close-cascade`, решение
-владельца 2026-09-26) волна закрыта 2026-09-26 и тем же заходом — её задачи. Число закрытых,
-уже закрытых и переведённых в следующую волну — в закрывающей записи, комментарием в задаче.
+владельца 2026-09-26) волна закрыта на трекере 2026-09-26T09:40:56Z и тем же заходом — 21 её
+задача, у всех снята `status:test`; #322, #324, #325, #340, #341, #374 и задачи сборок #408,
+#412, #418, #420 закрыты раньше. В `main` волна **не** доехала: посадка эпика #357 в ствол —
+предмет эпика, а не волны. Число закрытых, уже закрытых и переведённых в следующую волну — в
+закрывающей записи, комментарием в задаче.
 
 ## Что и зачем
 
@@ -46,7 +54,9 @@ verified_against: "PRO-Robotech/kaname: origin/358 = d22123ba0957625fa791649bd72
 как единицы вливания: что влито в её ветку, с какими головами и каким вердиктом. Предмет
 каждой задачи — в её записке.
 
-Задачи волны — её sub-issue; перечнем они здесь не выписываются, состав меняется переносами:
+Задачи волны — её sub-issue. Пока волна шла, перечнем они здесь не выписывались: состав
+менялся переносами. Влитый состав закреплён запросом волны — раздел «Запрос волны» и ссылки
+ниже; выборка sub-issue:
 
 ```sh
 gh api repos/PRO-Robotech/kaname/issues/358/sub_issues --paginate -q '.[] | "#\(.number) \(.state) \(.title)"'
@@ -89,13 +99,47 @@ gh api repos/PRO-Robotech/kaname/issues/358/sub_issues --paginate -q '.[] | "#\(
 Не вошли по конфликту слияния, возвращены исполнителю: #316 и #319 — пути и стороны названы
 в теле PR #411.
 
+### Сборки 2–4 и вливания вне сборок
+
+| что | запрос | голова | коммит слияния в `358` | задачи | вердикт головы |
+|---|---|---|---|---|---|
+| сборка 2, [[KAC/issue-412-kaname\|#412]] (закрыта) | PR #413, влит 2026-09-24T22:02:14Z | `5dfe66b58df` | `f4c6537ac4a` | [[KAC/issue-399-kaname\|#399]], [[KAC/issue-410-kaname\|#410]], [[KAC/issue-316-kaname\|#316]], [[KAC/issue-402-kaname\|#402]], а также #349 и #356 — не sub-issue этой волны | 6 прогонов, все `success` |
+| сборка 3, [[KAC/issue-418-kaname\|#418]] (закрыта) | PR #419, влит 2026-09-24T23:39:35Z | `a6486c23423` | `196bf966488` | [[KAC/issue-401-kaname\|#401]], [[KAC/issue-393-kaname\|#393]] и #384 — не sub-issue этой волны | 5 прогонов, все `success` |
+| сборка 4, [[KAC/issue-420-kaname\|#420]] (закрыта) | PR #421, влит 2026-09-25T03:19:27Z | `3519378f86d` | `ee2b564b82b` | [[KAC/issue-369-kaname\|#369]], [[KAC/issue-395-kaname\|#395]], [[KAC/issue-319-kaname\|#319]], [[KAC/issue-414-kaname\|#414]] | 6 прогонов, все `success` |
+| вне сборок | — | — | `b2008871a86`, `cca75858382`, `1673b811eff`, `860078a9679`, `d6d8170ff57` | [[KAC/issue-341-kaname\|#341]], [[KAC/issue-340-kaname\|#340]], [[KAC/issue-397-kaname\|#397]], [[KAC/issue-321-kaname\|#321]], [[KAC/issue-334-kaname\|#334]] | прогонов нет — запросов у них не было |
+
+С #313 запросом #326 пришли [[KAC/issue-322-kaname|#322]], [[KAC/issue-324-kaname|#324]],
+[[KAC/issue-325-kaname|#325]] и [[KAC/issue-374-kaname|#374]].
+
+## Запрос волны
+
+PR #422 `358` → `357`, голова `cde2d924260`, коммит слияния `fc9f5aff19c`; прогоны головы — 5,
+все `success`. Две правки самой волны и перечень вынесенного в волны 3 и 4 (#315, #318, #406,
+#407, #405, #339, #352, #338, #368) — в теле запроса.
+
+## Закрытие
+
+Каскад 2026-09-26 — по комментарию закрытия трекера волны: закрыта 21 задача, новых остатков
+0, переведённых без сдачи в этом заходе 0 (раньше в волну-3 #366 ушли #315, #318, #405, #406,
+#407; вне волн — #339, #352). Остаток п.3 [[KAC/issue-393-kaname|#393]] (коллекции `iam-role`
+и `iam-user`) ведёт существующая [[KAC/issue-415-kaname|#415]] в волне-3 #366. Строка и
+комментарий полосы [[KAC/issue-313-kaname|#313]] в корне композиции стали остатком п.3 задачи
+#337 волны-1 — [[KAC/issue-428-kaname|#428]], см. [[KAC/issue-365-kaname]].
+
 ## Затронутые сущности vault
 
-Поля «затронуто в vault» у задач сборки 1 нет; узкие записки не менялись.
+Возвраты исполнителей волны называют ресурсы interactive_clients, token_families, authorization_codes,
+refresh_tokens, access_tokens, human_sessions, consent_grants (снят); rpc InternalIAMService.ForceLogout и
+InternalSessionRevocationsService.IsRevoked; пакеты ceremonyport, tokenrevocation, passwordverify,
+repo/kaname/pg; ребро kaname → corelib v1.10.0-rc.2. Обновлены и заведены узкие записки:
+[[resources/iam-token-family]], [[resources/iam-interactive-client]], [[resources/iam-human-session]],
+[[rpc/iam-internal-iam-service]], [[rpc/iam-internal-session-revocations-service]].
 
 - [[KAC/issue-317-kaname]] · [[KAC/issue-404-kaname]] · [[KAC/issue-396-kaname]] ·
   [[KAC/issue-314-kaname]] · [[KAC/issue-394-kaname]] · [[KAC/issue-320-kaname]] — задачи
   сборки 1.
+- [[KAC/issue-313-kaname]] · [[KAC/issue-408-kaname]] — #313 до сборок и задача сборки 1.
+- остальные задачи волны — по ссылкам в таблице сборок 2–4 выше.
 - [[KAC/issue-295-kaname]] — sub-issue этой волны, влита через волну [[KAC/issue-377-kaname|#377]].
 
 #kac #kacho-iam #epic

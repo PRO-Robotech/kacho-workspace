@@ -29,6 +29,12 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 box="$(mktemp -d)"
 trap 'rm -rf "$box"' EXIT
 
+# Подпись стволов — HOME песочницы со своим `.gitconfig` (ws#785), без переопределения.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$here/../lib/sandbox-git-home.sh"
+sandbox_git_home "$box/home" || { echo "инъекция crossrepo-gate: НЕ ВЫПОЛНИЛОСЬ — корневой подписи нет" >&2; exit 2; }
+
 pass=0; fail=0
 
 # repo <имя> <файл>=<содержимое> … — синтетический ствол.
@@ -43,8 +49,8 @@ repo() {
     printf '%s\n' "$body" > "$dir/$path"
   done
   git -C "$dir" init -q
-  git -C "$dir" -c user.email=i@x.invalid -c user.name=i add -A
-  git -C "$dir" -c user.email=i@x.invalid -c user.name=i commit -q -m inj
+  git -C "$dir" add -A
+  sandbox_git -C "$dir" commit -q -m inj
   git -C "$dir" update-ref refs/remotes/origin/main "$(git -C "$dir" rev-parse HEAD)"
 }
 

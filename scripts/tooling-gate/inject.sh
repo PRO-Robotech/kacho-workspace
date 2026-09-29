@@ -810,12 +810,47 @@ if mr_patch "$b/$MR_REL" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 
-# Законный близнец: «последний» другой записью.
+# Порядок прогонов перед `last` не держался ничем (ws#862, находка M4
+# check-verifier): фикстуры O и S кладут прежний прогон первым, и без сортировки
+# `last` брал верный прогон случайно. Сосед отдаёт новый прогон ПЕРВЫМ, и на таком
+# порядке `last` без сортировки судит прежний. Инъекция снимает только сортировку
+# и обязана уронить РОВНО пробу в порядке соседа: красное от чужой пробы значило
+# бы, что держит не она.
+#
+# mr_run_only_probe <песочница> <имя-пробы> <заголовок пробы, обязанной покраснеть>
+# Код 1, проба с находкой ОДНА, и это названная. Число берётся из итога check-09
+# («проб с находкой: N из M»), заголовок — из её строки [FAIL].
+mr_run_only_probe() {
+    local box="$1" name="$2" title="$3" out got
+    local c9=check-09-merge-readiness-tells-three-outcomes-apart
+    premise_or_void
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$c9.sh" 2>&1)"; got=$?
+    if [ "$got" -eq 1 ] && grep -qF -- "проб с находкой: 1 из" <<<"$out" \
+        && grep -qF -- "[FAIL] $c9 — $title — " <<<"$out"; then
+        echo "  ok   $name (код $got, проба с находкой одна — «$title»)"
+    else
+        echo "  ПРОВАЛ $name — ждали код 1 и одну пробу с находкой «$title», получили код $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+
 b="$(mksandbox)"
 if mr_patch "$b/$MR_REL" \
-    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at) \/\/ empty/' \
+    's/\| sort_by\(\.created_at, \.id\) \| last \/\/ empty/| last \/\/ empty/' \
+    "сортировка прогонов перед last снята"; then
+    mr_run_only_probe "$b" "инъекция: сортировка прогонов снята — краснеет ровно проба в порядке соседа" \
+        "воркспейс: сосед отдал новый прогон первым — судит последний, а не прежний зелёный"
+fi
+
+# Законный близнец: «последний» другой записью, тем же ключом. Проба судит
+# исход, а не текст: `max_by` по тому же ключу выбирает тот же прогон.
+b="$(mksandbox)"
+if mr_patch "$b/$MR_REL" \
+    's/sort_by\(\.created_at, \.id\) \| last \/\/ empty/max_by(.created_at, .id) \/\/ empty/' \
     "последний прогон другой записью"; then
-    run 0 "$b" "близнец: последний прогон головы другой записью — молчит" \
+    run 0 "$b" "близнец: последний прогон головы другой записью (max_by тем же ключом) — молчит" \
         check-09-merge-readiness-tells-three-outcomes-apart.sh
 fi
 
@@ -1627,6 +1662,187 @@ fi
 
 b="$(mksandbox scripts/cascade-census.sh)"
 run 2 "$b" "предпосылка: инструмента нет — VOID, а не успех" "$C20"
+
+echo "== check-21: хуки коммита и отправки отказывают трейлеру атрибуции (ws#861) =="
+C21=check-21-attribution-hooks-refuse-the-trailer.sh
+AR_REL="scripts/hooks/attribution-rule.sh"
+
+b="$(mksandbox)"; run 0 "$b" "чистое дерево — молчит" "$C21"
+
+# Инъекция А — ДОСЛОВНО прежний предикат стражей линий: Co-Authored-By судится,
+# только когда в значении имя модели. Соавтор-человек проходил бы.
+b="$(mksandbox)"
+if mr_patch "$b/$AR_REL" 's/co-authored-by: \]\]/co-authored-by:.*(claude|anthropic) ]]/' \
+    "Co-Authored-By со значением-фильтром"; then
+    run 1 "$b" "инъекция А: Co-Authored-By судится по значению — краснеет" "$C21"
+    run 0 "$b" "та же инъекция у соседа check-10 — молчит, красное принадлежит check-21" "$C10"
+fi
+# Инъекция Б — слепой предикат: ни одна строка атрибуцией не признаётся.
+b="$(mksandbox)"
+printf '\nattribution_line() { return 1; }\n' >> "$b/$AR_REL"
+run 1 "$b" "инъекция Б: слепой предикат — краснеет" "$C21"
+# Инъекция В — хук отправки зовёт стража, но его код не читает.
+b="$(mksandbox)"
+if mr_patch "$b/$HK_REL" 's/^attribution_rc=\$\?$/attribution_rc=0/m' "код стража не читается"; then
+    run 1 "$b" "инъекция В: pre-push не читает код стража — краснеет" "$C21"
+fi
+# Близнец: правка предиката, смысла не меняющая (комментарий в конце файла).
+b="$(mksandbox)"
+printf '\n# комментарий пробы: предикат не меняется\n' >> "$b/$AR_REL"
+run 0 "$b" "близнец: безобидная правка предиката — молчит" "$C21"
+
+b="$(mksandbox scripts/hooks/commit-msg)"
+run 1 "$b" "хука коммита нет — находка, а не VOID: предмет проверки и есть его существование" "$C21"
+
+# Подпись песочницы check-21 — корневая учётная запись вызывающего (ws#785, сведение
+# в ws#873). Корневой подписи нет — у песочницы нет предмета: третий исход, а не
+# зелёное на подписи, выдуманной самой проверкой. Каталог назван не на `s`.
+b="$(mksandbox)"; h21="$TMP/h21"; mkdir -p "$h21"
+premise_or_void
+probes=$((probes + 1))
+out="$(HOME="$h21" XDG_CONFIG_HOME="$h21/.config" GIT_CONFIG_NOSYSTEM=1 TOOLING_GATE_ROOT="$b" bash "$HERE/$C21" 2>&1)"; got=$?
+if [ "$got" -eq 2 ] && grep -qF -- "корневой подписи нет" <<<"$out"; then
+    echo "  ok   корневой подписи нет — VOID, песочница подписи не выдумывает (код $got)"
+else
+    echo "  ПРОВАЛ корневой подписи нет — ждали код 2 и «корневой подписи нет», получили $got" >&2
+    printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+    failed=$((failed + 1))
+fi
+rm -rf "$h21"
+
+echo "== check-22: подпись переопределена мимо корневого gitconfig =="
+C22=check-22-signature-from-root-gitconfig-only.sh
+# Вносимые формы собираются из частей при исполнении: литерал в исходнике этого
+# файла был бы находкой самого стража — и был бы ею по праву, потому что строка
+# исполнялась бы. Ключ и имя переменной подписи в тексте файла не встречаются.
+K_NAME="$(printf '%s.%s' user name)"
+K_EMAIL="$(printf '%s.%s' user email)"
+K_MIXED="$(printf '%s.%s' User Name)"
+E_NAME="$(printf 'GIT_%s_%s' AUTHOR NAME)"
+E_CMAIL="$(printf 'GIT_%s_%s' COMMITTER EMAIL)"
+
+# run22 <код> <песочница> <имя> [подстрока] — как `run`, и находка обязана НАЗВАТЬ
+# координату: покраснеть «где-то» мало, вывод — часть свойства.
+run22() {
+    local want="$1" box="$2" name="$3" needle="${4:-}" got out
+    premise_or_void
+    probes=$((probes + 1))
+    out="$(TOOLING_GATE_ROOT="$box" bash "$HERE/$C22" 2>&1)"; got=$?
+    if [ "$got" -eq "$want" ] && { [ -z "$needle" ] || grep -qF -- "$needle" <<<"$out"; }; then
+        echo "  ok   $name (код $got)"
+    else
+        echo "  ПРОВАЛ $name — ждали код $want${needle:+ и «$needle»}, получили $got" >&2
+        printf '%s\n' "${out//$'\n'/$'\n'         }" >&2
+        failed=$((failed + 1))
+    fi
+}
+# add22 <песочница> <путь> <строка…> — дописать строки в файл (новый или живой).
+add22() { local box="$1" rel="$2"; shift 2; mkdir -p "$(dirname "$box/$rel")"; printf '%s\n' "$@" >> "$box/$rel"; }
+PROBE22="scripts/probe-gate/inject.sh"
+SANDBOX22='TMP="$(mktemp -d)"; trap '"'"'rm -rf "$TMP"'"'"' EXIT; git init -q "$TMP/r"'
+
+b="$(mksandbox)"; run22 0 "$b" "чистое дерево — молчит" "находок 0"
+
+# Рабочий клон и песочница пробы судятся одинаково — решение 2026-09-27 (ws#785):
+# оговорки для песочниц нет.
+b="$(mksandbox)"; n="$(( $(wc -l < "$b/bootstrap.sh") + 1 ))"
+add22 "$b" bootstrap.sh "git -c $K_EMAIL=x@example.invalid commit -qm x"
+run22 1 "$b" "инъекция: -c подписи в скрипте рабочего клона — краснеет и называет строку" "bootstrap.sh:$n: подпись на команду"
+
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "$SANDBOX22" "git -C \"\$TMP/r\" config $K_NAME probe"
+run22 1 "$b" "инъекция: подпись в конфиге одноразового репозитория пробы — краснеет" "$PROBE22:2: подпись на репозиторий"
+
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "$SANDBOX22" '. "$WS/scripts/lib/sandbox-git-home.sh"; sandbox_git_home "$TMP/home" || exit 2' \
+    'sandbox_git -C "$TMP/r" commit -q --allow-empty -m x'
+run22 0 "$b" "близнец: та же песочница с подписью из своего HOME — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --local $K_EMAIL p@example.invalid"
+run22 1 "$b" "инъекция: config --local — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --worktree $K_NAME p"
+run22 1 "$b" "инъекция: config --worktree — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --file .git/config $K_NAME p"
+run22 1 "$b" "инъекция: config --file мимо корня — краснеет" "подпись на репозиторий"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "n=\"\$(git config $K_NAME)\"" "e=\"\$(git config --global --get $K_EMAIL 2>/dev/null)\""
+run22 0 "$b" "близнец: чтение подписи без значения и с --get — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git config --global $K_NAME probe"
+run22 1 "$b" "инъекция: литерал подписи в корневой gitconfig — краснеет" "литерал подписи"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "HOME=\"\$TMP/home\" git config --global $K_NAME \"\$name\""
+run22 0 "$b" "близнец: корневая подпись переносится подстановкой в HOME песочницы — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "export $E_NAME=probe"
+run22 1 "$b" "инъекция: имя автора окружением — краснеет" "подпись окружением"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "$E_CMAIL=p@example.invalid git commit -qm x"
+run22 1 "$b" "инъекция: почта коммиттера префиксом команды — краснеет" "подпись окружением"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "GIT_AUTHOR_DATE=2020-01-01T00:00:00Z GIT_COMMITTER_DATE=2020-01-01T00:00:00Z git commit -qm x" "unset $E_NAME $E_CMAIL"
+run22 0 "$b" "близнец: время коммита и снятие переменных подписи — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git commit --author="a <a@example.invalid>" -qm x'
+run22 1 "$b" "инъекция: --author у commit — краснеет" "флагом --author"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git log --author=a --format=%h'
+run22 0 "$b" "близнец: --author как фильтр чтения — молчит"
+
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "git -c $K_MIXED=x commit -qm x"
+run22 1 "$b" "инъекция: ключ подписи в другом регистре — краснеет" "подпись на команду"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=$K_NAME GIT_CONFIG_VALUE_0=x git commit -qm x"
+run22 1 "$b" "инъекция: -c окружением GIT_CONFIG_KEY — краснеет" "подпись на команду"
+b="$(mksandbox)"; add22 "$b" "$PROBE22" 'git -c core.hooksPath=/dev/null commit -qm x' "# git -c $K_EMAIL=x commit — так нельзя"
+run22 0 "$b" "близнец: -c другого ключа и форма в комментарии — молчит"
+
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import subprocess' "subprocess.run([\"git\", \"config\", \"$K_NAME\", \"probe\"])"
+run22 1 "$b" "инъекция: Python — config подписи в репозиторий — краснеет" "probe.py:2: подпись на репозиторий"
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import os, subprocess' "subprocess.run([\"git\", \"commit\"], env={**os.environ, \"$E_NAME\": \"x\"})"
+run22 1 "$b" "инъекция: Python — имя автора в окружении вызова — краснеет" "подпись окружением"
+b="$(mksandbox)"
+add22 "$b" scripts/probe-gate/probe.py 'import os, subprocess' "os.environ.pop(\"$E_NAME\", None)" \
+    "subprocess.run([\"git\", \"config\", \"--get\", \"$K_NAME\"])" "\"\"\"пример: git -c $K_EMAIL=x commit\"\"\""
+run22 0 "$b" "близнец: Python — снятие переменной, чтение, форма в строке документации — молчит"
+b="$(mksandbox)"; add22 "$b" scripts/probe-gate/broken.py 'def f(:'
+run22 2 "$b" "предпосылка: Python-файл не разобран — VOID, а не успех" "не разобраны"
+
+b="$(mksandbox)"; add22 "$b" .github/workflows/ci.yaml "        env:" "          $E_NAME: probe"
+run22 1 "$b" "инъекция: конвейер задаёт имя автора ключом env — краснеет" "ci.yaml"
+
+# Запись файла конфигурации git мимо `git config` (ws#873). Сведение #785 с #861
+# принесло в дерево песочницу check-21, чей HOME получал литерал подписи строкой
+# printf в `.gitconfig`, — форму, которую распознаватель объявлял своей границей.
+# Первая инъекция — та же форма, что стояла в check-21 до сведения. Заголовок
+# секции и имя файла собираются из частей по той же причине, что ключи выше.
+GC_USER="$(printf '[%s]' user)"
+GC_FILE="$(printf '.%s' gitconfig)"
+GC_REPO="$(printf '.git/%s' config)"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "printf '$GC_USER\n\tname = probe\n\temail = probe@example.invalid\n[init]\n\tdefaultBranch = main\n' > \"\$HOME/$GC_FILE\""
+run22 1 "$b" "инъекция: литерал подписи строкой printf в gitconfig HOME песочницы — краснеет" "$PROBE22:1: литерал подписи"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "cat > \"\$TMP/home/$GC_FILE\" <<'CFG'" "$GC_USER" "	email = probe@example.invalid" "CFG"
+run22 1 "$b" "инъекция: литерал подписи в heredoc в gitconfig — краснеет и называет строку тела" "$PROBE22:3: литерал подписи"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "printf '$GC_USER\n\tname = probe\n' | tee -a \"\$TMP/r/$GC_REPO\" > /dev/null"
+run22 1 "$b" "инъекция: литерал подписи через tee в конфиг репозитория — краснеет" "$PROBE22:1: подпись на репозиторий"
+b="$(mksandbox)"
+add22 "$b" "$PROBE22" "echo \"$GC_USER\" >> \"\$HOME/$GC_FILE\"" "echo \"	name = probe\" >> \"\$HOME/$GC_FILE\""
+run22 1 "$b" "инъекция: секция и ключ подписи двумя echo подряд — краснеет на строке ключа" "$PROBE22:2: литерал подписи"
+# Близнец обязан быть ОСМОТРЕН, а не пропущен: записей файла конфигурации в
+# переписи становится ровно на три больше, чем на чистом дереве той же песочницы.
+b="$(mksandbox)"
+w22="$(TOOLING_GATE_ROOT="$b" bash "$HERE/$C22" 2>&1 | sed -n 's/.*записей файла конфигурации git \([0-9][0-9]*\);.*/\1/p')"
+add22 "$b" "$PROBE22" "printf '[init]\n\tdefaultBranch = main\n' >> \"\$HOME/$GC_FILE\"" \
+    "printf '$GC_USER\n\tname = %s\n\temail = %s\n' \"\$name\" \"\$email\" > \"\$HOME/$GC_FILE\"" \
+    "cat > \"\$TMP/home/$GC_FILE\" <<CFG" "$GC_USER" "	name = \$name" "CFG" \
+    "printf '$GC_USER\n\tname = probe\n' > \"\$TMP/notes.txt\""
+run22 0 "$b" "близнец: секция без подписи, подпись подстановкой, heredoc с подстановкой, тот же текст не в gitconfig — осмотрен и молчит" \
+    "записей файла конфигурации git $(( ${w22:-0} + 3 ));"
+
+# Пустой обход: дерево без единого файла судимых видов. Каталог назван не на `s`,
+# чтобы счёт одновременно живущих песочниц его не считал; снимается сразу.
+e="$TMP/e22"; mkdir -p "$e" && git -C "$e" init -q && printf 'x\n' > "$e/README.md"
+run22 2 "$e" "предпосылка: файлов оболочки, Python и конвейера нет — VOID, а не успех" "судить нечего"
+rm -rf "$e"
 
 echo
 # Мутация образца последней пробой вердиктов уже не меняет, но это запись вне

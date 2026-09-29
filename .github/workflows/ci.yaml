@@ -41,6 +41,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - name: install bats-core
         run: sudo apt-get update -qq && sudo apt-get install -y bats
       - name: shellcheck пиннутой версии (local == CI)
@@ -78,6 +83,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # Разборщик YAML — ПРЕДПОСЫЛКА `check-05`: он читает объявление триггеров
@@ -194,6 +204,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       # Обоим доказательствам нужно НАСТОЯЩЕЕ дерево продукта рядом: они гоняют
@@ -265,6 +280,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - name: shellcheck пиннутой версии (local == CI)
         run: |
           curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
@@ -338,6 +358,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - name: shellcheck пиннутой версии (local == CI)
         run: |
           curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
@@ -416,6 +441,11 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - name: shellcheck пиннутой версии (local == CI)
         run: |
           curl -sSfL "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz" \
@@ -589,12 +619,28 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - name: checkout монорепо в project/kacho
         uses: actions/checkout@v7
         with:
           repository: PRO-Robotech/kacho
           ref: main
           path: project/kacho
+          fetch-depth: 0
+      # Клон фундамента с полной историей — ПРЕДПОСЫЛКА `check-05`: записи,
+      # перенесённые из corelib, признаются по якорю в нём (corelib#54), а якорь
+      # опубликован веткой или тегом, которых мелкий клон не несёт. Без клона
+      # якорь судить нечем — код 2, и шаг под `bash -e` падает.
+      - name: checkout фундамента в project/corelib
+        uses: actions/checkout@v7
+        with:
+          repository: PRO-Robotech/corelib
+          ref: main
+          path: project/corelib
           fetch-depth: 0
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
@@ -634,6 +680,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      # Песочницы проб переносят корневую подпись в свой HOME (ws#785); у ранера её нет.
+      - name: корневая подпись ранера — учётная запись запустившего прогон
+        run: |
+          git config --global user.name "$GITHUB_ACTOR"
+          git config --global user.email "${GITHUB_ACTOR_ID}+${GITHUB_ACTOR}@users.noreply.github.com"
       - uses: actions/setup-python@v7
         with: { python-version: '3.12' }
       - name: checkout монорепо в project/kacho

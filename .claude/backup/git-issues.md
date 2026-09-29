@@ -850,3 +850,37 @@ gi-asm-one-round · на сборку один раз: прогон на гол�
 **gi-find-own-issue** — прежняя редакция:
 
 gi-find-own-issue · находка по дороге заводится СВОЕЙ задачей, а не чинится в чужом PR · ЗАВЕСТИ · red: PR несёт правку не своего предмета
+
+## Подпись песочниц проб — ws#785 (2026-09-28)
+
+Решение диспетчера 2026-09-27 в ws#785: `gi-identity-owner-only` действует и на песочницы
+проб, в том числе на те, что на origin не попадают никогда; подпись песочницы — её HOME со
+своим `.gitconfig`, в котором та же корневая учётная запись. Время коммита (`GIT_*_DATE`)
+подписью не является: держатель меряет `%an %ae`. Держит `scripts/tooling-gate/check-22-*`.
+
+**gi-identity-owner-only** — прежняя редакция:
+
+gi-identity-owner-only · author И committer — ТОЛЬКО личная учётка владельца; `--author=`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, `git -c user.*`, worktree-local override запрещены; дрейф — `filter-branch --env-filter` по диапазону · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись · red: коммит подписан бот-идентичностью либо «Kacho Workspace»
+
+**gi-no-attribution-trailers** — прежняя редакция (утверждала, что подпись берётся из
+git-config репозитория, — это противоречило `gi-identity-owner-only` и снято):
+
+gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · ЗАВЕСТИ · red: трейлер атрибуции в теле коммита
+
+## Сведение ws#785 с ws#861 в сборке ws#873 (2026-09-29)
+
+Обе задачи переписали одни и те же две строки: ws#785 — `gi-identity-owner-only` (подпись песочниц,
+держатель check-22) и снятие из `gi-no-attribution-trailers` оборота о git-config репозитория;
+ws#861 — держатель `gi-no-attribution-trailers` (хуки commit-msg и pre-push, check-21). Сведены
+обе: строка подписи — редакцией ws#785, строка трейлеров — без оборота о git-config и с
+держателем ws#861. Объём корпуса после сведения вышел бы за потолок, поэтому сняты ссылка
+`(ws#785)` в строке подписи (основание — этот архив) и довод «проект локальный» в строке трейлеров:
+оба репозитория публичны, и довод был неверен.
+
+**gi-no-attribution-trailers** — редакция ws#861, стоявшая в сборке до сведения:
+
+gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · хуки commit-msg и pre-push; tooling-gate check-21 · red: трейлер атрибуции в теле коммита
+
+**gi-identity-owner-only** — редакция ws#785 до сведения:
+
+gi-identity-owner-only · author И committer — ТОЛЬКО корневой gitconfig владельца, в песочнице пробы — её HOME с `.gitconfig` (ws#785); `--author=`, `GIT_*_NAME/EMAIL`, `-c user.*`, `config --local/--worktree` запрещены, `*_DATE` не подпись; дрейф — `filter-branch --env-filter` · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись; tooling-gate check-22 · red: бот-подпись либо «Kacho Workspace»; переопределение в пробе
