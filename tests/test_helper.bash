@@ -1,9 +1,16 @@
 #!/usr/bin/env bash
 # Helper для bats-тестов bootstrap.sh и sync-all.sh
 
+# Подпись песочницы — её HOME со своим `.gitconfig`, в котором корневая учётная
+# запись запускающего (ws#785): переопределение подписи в пробах не используется.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../scripts/lib/sandbox-git-home.sh
+. "$BATS_TEST_DIRNAME/../scripts/lib/sandbox-git-home.sh"
+
 setup_fake_workspace() {
   TMP_WS="$(mktemp -d)"
   export TMP_WS
+  sandbox_git_home "$TMP_WS/home"
   cd "$TMP_WS"
 }
 
@@ -28,7 +35,7 @@ setup_fake_remotes() {
     local work="$TMP_WS/work-$r"
     git clone "$remotes_dir/$r.git" "$work" >/dev/null 2>&1
     echo "# $r" > "$work/README.md"
-    (cd "$work" && git add README.md && git -c user.email=t@t -c user.name=t commit -m init >/dev/null && git push -u origin HEAD:main >/dev/null 2>&1)
+    (cd "$work" && git add README.md && sandbox_git commit -m init >/dev/null && git push -u origin HEAD:main >/dev/null 2>&1)
     rm -rf "$work"
   done
   export FAKE_REMOTES_BASE="$remotes_dir"

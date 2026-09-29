@@ -38,8 +38,14 @@ unset KACHO_HOME_KACHO KACHO_HOME_KANAME KACHO_HOME_CORELIB
 
 pass=0; fail=0
 
+# Подпись синтетических клонов — HOME песочницы со своим `.gitconfig` (ws#785).
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$SELF/../lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "инъекция comment-language-gate: НЕ ВЫПОЛНИЛОСЬ — корневой подписи нет" >&2; exit 2; }
+
 root() { echo "$TMP/root"; }
-g() { git -C "$TMP/root/project/$1" -c user.email=i@i -c user.name=i "${@:2}"; }
+g() { sandbox_git -C "$TMP/root/project/$1" "${@:2}"; }
 # Ствол синтетического клона — `origin/main`, выставленный на его HEAD.
 advance() { g "$1" update-ref refs/remotes/origin/main HEAD; }
 rev() { g "$1" rev-parse "${2:-HEAD}"; }
@@ -75,7 +81,7 @@ func parse() {}
 EOF
     git -C "$TMP/root" init -q
     git -C "$TMP/root" add -A
-    git -C "$TMP/root" -c user.email=i@i -c user.name=i commit -qm base
+    sandbox_git -C "$TMP/root" commit -qm base
     ledger
 }
 
@@ -286,7 +292,7 @@ for p in kacho kaname corelib; do
     g "$p" commit -aqm drop >/dev/null 2>&1
     advance "$p"
 done
-git -C "$TMP/root" -c user.email=i@i -c user.name=i commit -aqm drop >/dev/null 2>&1
+sandbox_git -C "$TMP/root" commit -aqm drop >/dev/null 2>&1
 ledger "kacho=$(rev kacho):0:0:0" "kaname=$(rev kaname):0:0:0" "corelib=$(rev corelib):0:0:0"
 axis 'I пустой обход' 2 'ни одного файла Go — это НЕ зелёное'
 

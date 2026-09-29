@@ -153,13 +153,19 @@ AUDIT="${1:-$HERE/branch-audit.sh}"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# Синтетический «origin» + рабочая копия. Личность задаётся ЛОКАЛЬНО, только
-# для этого одноразового репозитория, — настройки машины не трогаются.
+# Подпись песочницы — её HOME со своим `.gitconfig` (ws#785): правило подписи
+# действует и на одноразовый репозиторий. Весь посев идёт через эту функцию;
+# перепись — дочерний процесс, её не видит и HOME вызывающего не теряет.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=lib/sandbox-git-home.sh
+. "$HERE/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "inject: корневой подписи нет — песочнице не с чего взять подпись" >&2; exit 2; }
+git() { sandbox_git "$@"; }
+
+# Синтетический «origin» + рабочая копия; настройки машины не трогаются.
 git init -q --bare "$TMP/origin.git"
 git init -q -b main "$TMP/work"
 cd "$TMP/work"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/origin.git"
 
@@ -1081,8 +1087,6 @@ PB="$TMP/probe"
 git init -q --bare "$TMP/probe-origin.git"
 git init -q -b main "$PB"
 cd "$PB"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/probe-origin.git"
 mkdir -p lib df mv-src dirren ren-src wren
@@ -1371,8 +1375,6 @@ PQ="$TMP/pq"
 git init -q --bare "$TMP/pq-origin.git"
 git init -q -b main "$PQ"
 cd "$PQ"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git config core.quotePath false
 git remote add origin "$TMP/pq-origin.git"
@@ -1425,8 +1427,6 @@ FO="$TMP/forms"
 git init -q --bare "$TMP/forms-origin.git"
 git init -q -b main "$FO"
 cd "$FO"
-git config user.email inject@example.invalid
-git config user.name  inject
 git config commit.gpgsign false
 git remote add origin "$TMP/forms-origin.git"
 # Имена ниже — предмет, а не образцы: посев сам обязан звать их буквально.
@@ -1693,8 +1693,6 @@ ct_build() { # $1 = каталог → эпик на origin; task и named вл�
   git init -q -b main "$d"
   (
     cd "$d"
-    git config user.email inject@example.invalid
-    git config user.name inject
     git config commit.gpgsign false
     git remote add origin "$d-origin.git"
     echo ствол > t.txt && git add t.txt
@@ -1855,8 +1853,6 @@ ev_build() { # $1 = каталог
   git init -q -b main "$d"
   (
     cd "$d"
-    git config user.email inject@example.invalid
-    git config user.name inject
     git config commit.gpgsign false
     git remote add origin "$d-origin.git"
     export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old
@@ -1979,8 +1975,6 @@ or_build() { # $1 = каталог
   git init -q -b main "$d"
   (
     cd "$d"
-    git config user.email inject@example.invalid
-    git config user.name inject
     git config commit.gpgsign false
     git remote add origin "$d-origin.git"
     export GIT_AUTHOR_DATE=$old GIT_COMMITTER_DATE=$old

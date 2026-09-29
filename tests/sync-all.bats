@@ -22,7 +22,7 @@ teardown() { teardown_fake_workspace; }
   local work="$TMP_WS/work-vpc"
   git clone "$FAKE_REMOTES_BASE/kacho-vpc.git" "$work" >/dev/null 2>&1
   echo "upstream" > "$work/upstream.txt"
-  (cd "$work" && git add upstream.txt && git -c user.email=t@t -c user.name=t commit -m up && git push)
+  (cd "$work" && git add upstream.txt && sandbox_git commit -m up && git push)
   rm -rf "$work"
 
   run ./kacho-workspace/sync-all.sh
@@ -47,7 +47,7 @@ teardown() { teardown_fake_workspace; }
   local work="$TMP_WS/work-geo"
   git clone "$FAKE_REMOTES_BASE/kacho-geo.git" "$work" >/dev/null 2>&1
   echo "geo-upstream" > "$work/geo.txt"
-  (cd "$work" && git add geo.txt && git -c user.email=t@t -c user.name=t commit -m geo && git push)
+  (cd "$work" && git add geo.txt && sandbox_git commit -m geo && git push)
   rm -rf "$work"
 
   run ./kacho-workspace/sync-all.sh

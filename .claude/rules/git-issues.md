@@ -11,8 +11,8 @@ description: "Разметка задач и комментариев GitHub Iss
 ## Git / коммиты
 
 gi-conventional-commits · Conventional Commits: `feat:` `fix:` `chore:` `docs:` `test:` `ci:` `refactor:` · ЗАВЕСТИ · red: тип не из набора либо тип отсутствует
-gi-identity-owner-only · author И committer — ТОЛЬКО личная учётка владельца; `--author=`, `GIT_AUTHOR_*`/`GIT_COMMITTER_*`, `git -c user.*`, worktree-local override запрещены; дрейф — `filter-branch --env-filter` по диапазону · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись · red: коммит подписан бот-идентичностью либо «Kacho Workspace»
-gi-no-attribution-trailers · подпись берёт git-config репозитория; `Co-Authored-By` и attribution-трейлеры НЕ добавлять — проект локальный · хуки commit-msg и pre-push; tooling-gate check-21 · red: трейлер атрибуции в теле коммита
+gi-identity-owner-only · author И committer — ТОЛЬКО корневой gitconfig владельца, в песочнице пробы — её HOME с `.gitconfig`; `--author=`, `GIT_*_NAME/EMAIL`, `-c user.*`, `config --local/--worktree` запрещены, `*_DATE` не подпись; дрейф — `filter-branch --env-filter` · `git log --format='%an %ae' <диапазон> | sort -u` — одна подпись; tooling-gate check-22 · red: бот-подпись, «Kacho Workspace»; переопределение в пробе
+gi-no-attribution-trailers · `Co-Authored-By` и attribution-трейлеры НЕ добавлять · хуки commit-msg, pre-push; tooling-gate check-21 · red: трейлер атрибуции в теле коммита
 gi-no-direct-push-main · в `main` напрямую не пушить без ДОСЛОВНОГО разрешения диспетчера во входе (`00-kacho-core.md#ban18-decides-dispatcher`), работа — веткой через PR; принудительная перезапись отправленной публичной истории (`--force`) — только решением владельца (база диспетчера §11 п.2) · запрет прямого push — защита `main` с `enforce_admins`; обязательных контекстов у `main` воркспейса нет (решение владельца 2026-09-20) · red: коммит в `main`, которому не предъявить PR; `--force` по решению агента
 gi-no-verify-by-request · `--no-verify` — только по ДОСЛОВНОМУ разрешению диспетчера во входе (`00-kacho-core.md#ban18-decides-dispatcher`) · ЗАВЕСТИ · red: хук обойдён, чтобы «пройти»; разрешение пересказано, а не процитировано
 

@@ -39,6 +39,12 @@ WS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+# Подпись песочниц — их HOME со своим `.gitconfig` (ws#785), без переопределения.
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=../lib/sandbox-git-home.sh
+. "$WS/scripts/lib/sandbox-git-home.sh"
+sandbox_git_home "$TMP/home" || { echo "ОТКАЗ: корневой подписи нет — коммитам песочниц не с чего взять подпись" >&2; exit 2; }
+
 pass=0; fail=0
 
 # Пути проб полосы `hook` — выводятся из самой ведомости, а не выписываются:
@@ -134,13 +140,12 @@ C2="check-02-lane-roster-covers-every-entry-point.sh"
 C3="check-03-ci-calls-every-artifact-of-the-set.sh"
 C4="check-04-package-releases-reproduce.sh"
 
-# commit_all <каталог> <сообщение> — коммит песочницы. Подпись — в конфиге
-# выброшенного репозитория: он живёт до конца пробы и на origin не попадает.
+# commit_all <каталог> <сообщение> — коммит песочницы. Подпись — HOME песочницы
+# со своим `.gitconfig`: правило подписи действует и на репозиторий, который на
+# origin не попадает никогда (ws#785).
 commit_all() {
-    git -C "$1" config user.name 'cg-gate probe'
-    git -C "$1" config user.email 'probe@invalid'
     git -C "$1" add -A > /dev/null 2>&1
-    git -C "$1" commit -q --allow-empty -m "$2" > /dev/null 2>&1
+    sandbox_git -C "$1" commit -q --allow-empty -m "$2" > /dev/null 2>&1
 }
 
 # world4 <каталог> — мир check-04: корень-cutover, затем реестр и пакет
@@ -519,7 +524,7 @@ commit_at() {
 }
 merge_at() {
     ( export GIT_AUTHOR_DATE="$2" GIT_COMMITTER_DATE="$2"
-      git -C "$1" merge -q --no-ff --no-edit "$3" > /dev/null 2>&1 )
+      sandbox_git -C "$1" merge -q --no-ff --no-edit "$3" > /dev/null 2>&1 )
 }
 
 TIPREC=docs/changes/q/reviews/post-diff/r/tip.yaml
@@ -709,7 +714,7 @@ says "$d" 2 "$LOST5" "строка перечня не разрешается в
 
 d="$(sandbox c5-tip-transit)"; world5tip "$d" root "2001-01-02T00:00:00Z" yes
 other="$(GIT_AUTHOR_DATE="2001-01-02T00:00:00Z" GIT_COMMITTER_DATE="2001-01-02T00:00:00Z" \
-    git -C "$d" commit-tree -p "$ROOT5" -m other "$ROOT5^{tree}")"
+    sandbox_git -C "$d" commit-tree -p "$ROOT5" -m other "$ROOT5^{tree}")"
 git -C "$d" update-ref refs/heads/other "$other"
 tips5 "$d" "$TIP" "$other"
 says "$d" 0 "в истории HEAD 1, не сошлись 1" "законный близнец: лишняя строка разрешается, линия не сведена -> транзит, молчит и сосчитана"
